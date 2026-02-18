@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#F5F4F1" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- iOS PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ZAPPI Wallet" />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <title>ZAPPI Wallet</title>
+  </head>
+  <body>
+    <div id="root">
+      <!-- Inline fallback UI (shown before JS loads or on offline) -->
+      <style>
+        .pwa-loading {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #F5F4F1;
+          color: #2C2C2C;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        .pwa-loading-content { text-align: center; }
+        .pwa-loading-title {
+          font-size: 2rem;
+          font-weight: bold;
+          letter-spacing: -0.05em;
+        }
+        .pwa-loading-subtitle {
+          font-size: 0.875rem;
+          opacity: 0.6;
+          margin-top: 0.5rem;
+        }
+      </style>
+      <div class="pwa-loading">
+        <div class="pwa-loading-content">
+          <div class="pwa-loading-title">ZAPPI</div>
+          <div class="pwa-loading-subtitle">로딩 중...</div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      setTimeout(function() {
+        if (document.querySelector('.pwa-loading')) {
+          var sub = document.querySelector('.pwa-loading-subtitle');
+          if (sub) {
+            sub.textContent = navigator.onLine
+              ? 'Loading failed. Please refresh.'
+              : 'Please connect to the internet and reopen the app.';
+          }
+        }
+      }, 8000);
+    </script>
+  </body>
+</html>

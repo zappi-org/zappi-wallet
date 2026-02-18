@@ -1,0 +1,7 @@
+services:
+  zappi-pos:
+    image: zappi-pos:latest
+    build: .
+    ports:
+      - "3010:80"
+    restart: unless-stopped

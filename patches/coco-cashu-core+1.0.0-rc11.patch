@@ -1,0 +1,19 @@
+diff --git a/node_modules/coco-cashu-core/dist/index.js b/node_modules/coco-cashu-core/dist/index.js
+index b87b8fc..2730b78 100644
+--- a/node_modules/coco-cashu-core/dist/index.js
++++ b/node_modules/coco-cashu-core/dist/index.js
+@@ -3130,10 +3130,12 @@ var WalletApi = class {
+ 	}
+ 	async send(mintUrl, amount) {
+ 		const { wallet } = await this.walletService.getWalletWithActiveKeysetId(mintUrl);
+-		const selectedProofs = await this.proofService.selectProofsToSend(mintUrl, amount);
++		const allProofs = await this.proofService.getReadyProofs(mintUrl);
++		const { send: selectedProofs } = wallet.selectProofsToSend(allProofs, amount, true);
+ 		const selectedAmount = selectedProofs.reduce((acc, proof) => acc + proof.amount, 0);
++		const fees = wallet.getFeesForProofs(selectedProofs);
+ 		const outputData = await this.proofService.createOutputsAndIncrementCounters(mintUrl, {
+-			keep: selectedAmount - amount,
++			keep: selectedAmount - amount - fees,
+ 			send: amount
+ 		});
+ 		const { send, keep } = await wallet.send(amount, selectedProofs, { outputData });

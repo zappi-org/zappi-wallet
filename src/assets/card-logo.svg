@@ -1,0 +1,16 @@
+<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Card shape - white for dark backgrounds -->
+  <rect x="4" y="8" width="32" height="24" rx="4" fill="white" fill-opacity="0.9"/>
+
+  <!-- Top stripe -->
+  <rect x="4" y="12" width="32" height="4" fill="#264032" opacity="0.1"/>
+
+  <!-- Chip -->
+  <rect x="8" y="18" width="8" height="6" rx="1" fill="#264032" opacity="0.15"/>
+  <line x1="10" y1="18" x2="10" y2="24" stroke="#264032" stroke-width="0.5" opacity="0.1"/>
+  <line x1="12" y1="18" x2="12" y2="24" stroke="#264032" stroke-width="0.5" opacity="0.1"/>
+  <line x1="14" y1="18" x2="14" y2="24" stroke="#264032" stroke-width="0.5" opacity="0.1"/>
+
+  <!-- Lightning bolt accent -->
+  <path d="M26 16L22 22H26L24 28L30 20H26L28 16H26Z" fill="#264032" opacity="0.25"/>
+</svg>

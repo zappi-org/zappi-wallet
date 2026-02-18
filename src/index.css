@@ -1,0 +1,459 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-background-card: var(--background-card);
+  --color-background-elevated: var(--background-elevated);
+  --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-foreground-subtle: var(--foreground-subtle);
+  --color-accent-primary: var(--accent-primary);
+  --color-accent-success: var(--accent-success);
+  --color-accent-warning: var(--accent-warning);
+  --color-accent-warning-bright: var(--accent-warning-bright);
+  --color-accent-warning-bright-text: var(--accent-warning-bright-text);
+  --color-accent-danger: var(--accent-danger);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-hover-light: var(--primary-hover-light);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-accent-primary-hover: var(--accent-primary-hover);
+  --color-accent-danger-hover: var(--accent-danger-hover);
+  --color-background-hover: var(--background-hover);
+  --color-background-warm-hover: var(--background-warm-hover);
+  --color-badge-ecash-bg: var(--badge-ecash-bg);
+  --color-badge-ecash-text: var(--badge-ecash-text);
+  --color-badge-ecash-hover: var(--badge-ecash-hover);
+  --color-badge-lightning-bg: var(--badge-lightning-bg);
+  --color-badge-lightning-hover: var(--badge-lightning-hover);
+  --color-foreground-timestamp: var(--foreground-timestamp);
+  --color-status-online: var(--status-online);
+  --color-status-offline: var(--status-offline);
+  --color-status-pending: var(--status-pending);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-card-green-light: var(--card-green-light);
+  --color-card-green-medium: var(--card-green-medium);
+  --color-card-green-dark: var(--card-green-dark);
+  --color-card-green-darker: var(--card-green-darker);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-border-visible: var(--border-visible);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  /* Light Theme - Off-White + Sage Green */
+  --radius: 1.5rem;
+
+  /* Background */
+  --background: #F5F4F1;
+  --background-card: #FFFFFF;
+  --background-elevated: #FFFFFF;
+
+  /* Card Gradients (sage green palette) */
+  --card-green-light: #7BA873;
+  --card-green-medium: #5B8A50;
+  --card-green-dark: #3D5E3A;
+  --card-green-darker: #2A3E25;
+
+  /* Foreground */
+  --foreground: #2C2C2C;
+  --foreground-muted: #8B8B8B;
+  --foreground-subtle: #ABABAB;
+
+  /* Accent Colors */
+  --accent-primary: #5B7A54;
+  --accent-success: #5B7A54;
+  --accent-warning: #d4a03d;
+  --accent-warning-bright: #f3c300;
+  --accent-warning-bright-text: #b39200;
+  --accent-danger: #C45D3E;
+
+  /* Hover States */
+  --primary-hover: #1a2e23;
+  --primary-hover-light: #2d4d3b;
+  --secondary-hover: #a9c099;
+  --accent-primary-hover: #4a6b45;
+  --accent-danger-hover: #A84D32;
+  --background-hover: #F0EDE9;
+  --background-warm-hover: #EDEAE6;
+
+  /* Badge Colors */
+  --badge-ecash-bg: #f0e8f4;
+  --badge-ecash-text: #7c5c8b;
+  --badge-ecash-hover: #e8dced;
+  --badge-lightning-bg: #EDF2EA;
+  --badge-lightning-hover: #d8e8dc;
+
+  /* Misc */
+  --foreground-timestamp: #ABABAB;
+
+  /* Status */
+  --status-online: #5B7A54;
+  --status-offline: #C45D3E;
+  --status-pending: #d4a03d;
+
+  /* Card & Popover */
+  --card: #FFFFFF;
+  --card-foreground: #2C2C2C;
+  --popover: #FFFFFF;
+  --popover-foreground: #2C2C2C;
+
+  /* Primary */
+  --primary: #2C2C2C;
+  --primary-foreground: #F5F4F1;
+
+  /* Secondary */
+  --secondary: #EDEAE6;
+  --secondary-foreground: #2C2C2C;
+
+  /* Muted */
+  --muted: #EDEAE6;
+  --muted-foreground: #8B8B8B;
+
+  /* Accent */
+  --accent: #5B7A54;
+  --accent-foreground: #FFFFFF;
+
+  /* Destructive */
+  --destructive: #C45D3E;
+
+  /* Borders & Inputs */
+  --border: #E8E5E0;
+  --border-visible: #E8E5E0;
+  --input: #F0EDE9;
+  --ring: #5B7A54;
+
+  /* Charts */
+  --chart-1: #5B7A54;
+  --chart-2: #3D5E3A;
+  --chart-3: #6B5B4E;
+  --chart-4: #8B8B8B;
+  --chart-5: #d4a03d;
+
+  /* Sidebar */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #2C2C2C;
+  --sidebar-primary: #2C2C2C;
+  --sidebar-primary-foreground: #F5F4F1;
+  --sidebar-accent: #5B7A54;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #E8E5E0;
+  --sidebar-ring: #5B7A54;
+}
+
+.dark {
+  /* Dark Mode - Green Theme */
+  --background: #1a2e22;
+  --background-card: #243829;
+  --background-elevated: #2d4532;
+
+  --foreground: #e4e0d5;
+  --foreground-muted: #a8b5a0;
+  --foreground-subtle: #7a8a7b;
+
+  --accent-primary: #9eb58e;
+  --accent-success: #9eb58e;
+  --accent-warning: #e4b94d;
+  --accent-warning-bright: #e4b94d;
+  --accent-warning-bright-text: #d4a03d;
+  --accent-danger: #e57373;
+
+  /* Hover States */
+  --primary-hover: #b5c8a8;
+  --primary-hover-light: #8aab7a;
+  --secondary-hover: #4a7355;
+  --accent-primary-hover: #b5c8a8;
+  --accent-danger-hover: #ef8888;
+  --background-hover: #2d4532;
+  --background-warm-hover: #2d4532;
+
+  /* Badge Colors */
+  --badge-ecash-bg: #3a2d40;
+  --badge-ecash-text: #c4a8d0;
+  --badge-ecash-hover: #4a3852;
+  --badge-lightning-bg: #2a3d2e;
+  --badge-lightning-hover: #344a38;
+
+  /* Misc */
+  --foreground-timestamp: #7a8a7b;
+
+  --status-online: #9eb58e;
+  --status-offline: #e57373;
+  --status-pending: #e4b94d;
+
+  --card: #243829;
+  --card-foreground: #e4e0d5;
+  --popover: #243829;
+  --popover-foreground: #e4e0d5;
+
+  --primary: #9eb58e;
+  --primary-foreground: #1a2e22;
+
+  --secondary: #375e47;
+  --secondary-foreground: #e4e0d5;
+
+  --muted: #2d4532;
+  --muted-foreground: #a8b5a0;
+
+  --accent: #5c8b65;
+  --accent-foreground: #ffffff;
+
+  --destructive: #e57373;
+
+  --border: rgba(228, 224, 213, 0.1);
+  --border-visible: #3d5a48;
+  --input: rgba(228, 224, 213, 0.08);
+  --ring: #9eb58e;
+
+  --chart-1: #9eb58e;
+  --chart-2: #5c8b65;
+  --chart-3: #375e47;
+  --chart-4: #264032;
+  --chart-5: #e4b94d;
+
+  --sidebar: #1a2e22;
+  --sidebar-foreground: #e4e0d5;
+  --sidebar-primary: #9eb58e;
+  --sidebar-primary-foreground: #1a2e22;
+  --sidebar-accent: #375e47;
+  --sidebar-accent-foreground: #e4e0d5;
+  --sidebar-border: rgba(228, 224, 213, 0.1);
+  --sidebar-ring: #9eb58e;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html, body, #root {
+    @apply h-dvh overflow-hidden;
+  }
+  body {
+    @apply bg-background text-foreground;
+    overscroll-behavior: none;
+  }
+}
+
+/* Safe Area Insets for PWA */
+:root {
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+}
+
+/* Safe area utilities */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* PIN shake animation */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-10px); }
+  40% { transform: translateX(10px); }
+  60% { transform: translateX(-10px); }
+  80% { transform: translateX(10px); }
+}
+
+/* PWA Install Prompt Animation (cashu.me style) */
+@keyframes bounce-slow {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.animate-bounce-slow {
+  animation: bounce-slow 2s ease-in-out infinite;
+}
+
+/* Balance Shimmer Effect */
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    currentColor 0%,
+    currentColor 40%,
+    oklch(0.7 0.15 60) 50%,
+    currentColor 60%,
+    currentColor 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.dark .animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    currentColor 0%,
+    currentColor 40%,
+    #9eb58e 50%,
+    currentColor 60%,
+    currentColor 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Scrollbar Hide Utility */
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Green Card Gradient Utilities */
+@layer utilities {
+  .bg-card-gradient-light {
+    background: linear-gradient(135deg, var(--card-green-light) 0%, var(--card-green-medium) 100%);
+  }
+  .bg-card-gradient-medium {
+    background: linear-gradient(135deg, var(--card-green-medium) 0%, var(--card-green-dark) 100%);
+  }
+  .bg-card-gradient-dark {
+    background: linear-gradient(135deg, var(--card-green-dark) 0%, var(--card-green-darker) 100%);
+  }
+  .bg-card-gradient-darker {
+    background: linear-gradient(135deg, var(--card-green-darker) 0%, #1a2e22 100%);
+  }
+}
+
+/* Fix for iOS Safari PWA blur + rounded corner rendering bug */
+@layer utilities {
+  .clip-rounded-2xl {
+    -webkit-mask-image: radial-gradient(white, black);
+    mask-image: radial-gradient(white, black);
+  }
+  .clip-rounded-3xl {
+    -webkit-mask-image: radial-gradient(white, black);
+    mask-image: radial-gradient(white, black);
+  }
+}
+
+/* QR Scanner Scanning Line Animation */
+@keyframes scan-line {
+  0% {
+    top: 10%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    top: 90%;
+    opacity: 0;
+  }
+}
+
+.animate-scan-line {
+  animation: scan-line 2s ease-in-out infinite;
+}
+
+/* Performance-optimized CSS animations (replacing motion library) */
+@keyframes fadeIn {
+  from { opacity: 0 }
+  to { opacity: 1 }
+}
+@keyframes slideInRight {
+  from { transform: translateX(100%) }
+  to { transform: translateX(0) }
+}
+@keyframes slideInUp {
+  from { transform: translateY(100%) }
+  to { transform: translateY(0) }
+}
+.animate-fadeIn { animation: fadeIn 0.2s ease-out both }
+.animate-slideInRight { animation: slideInRight 0.25s ease-out both }
+.animate-slideInUp { animation: slideInUp 0.25s ease-out both }
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.9) }
+  to { opacity: 1; transform: scale(1) }
+}
+.animate-scaleIn { animation: scaleIn 0.25s ease-out both }
+
+@keyframes confetti {
+  0% { transform: translate(0, 0) scale(0) rotate(0deg); opacity: 1 }
+  50% { opacity: 1; transform: translate(var(--tx), var(--ty)) scale(1) rotate(var(--rot)) }
+  100% { transform: translate(var(--tx), var(--ty)) scale(0) rotate(var(--rot)); opacity: 0 }
+}
+.animate-confetti { animation: confetti 2s ease-out both }
+
+@keyframes dropdownIn {
+  from { opacity: 0; transform: translateY(-10px) scale(0.95) }
+  to { opacity: 1; transform: translateY(0) scale(1) }
+}
+.animate-dropdownIn { animation: dropdownIn 0.15s ease-out both }
+
+@keyframes expandDown {
+  from { height: 0; opacity: 0 }
+  to { height: var(--expand-height, auto); opacity: 1 }
+}
+
+@keyframes pulseScale {
+  0%, 100% { transform: scale(1) }
+  50% { transform: scale(1.2) }
+}
+.animate-pulseScale { animation: pulseScale 1.5s ease-in-out infinite }
