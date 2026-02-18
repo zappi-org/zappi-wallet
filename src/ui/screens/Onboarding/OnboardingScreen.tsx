@@ -210,7 +210,7 @@ export function OnboardingScreen({
           <div className="w-full space-y-3">
             <button
               onClick={handleCreate}
-              className="w-full bg-primary text-primary-foreground py-3 rounded-2xl font-bold text-base shadow-lg hover:bg-card-green-darker active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              className="w-full bg-primary text-primary-foreground py-3 rounded-2xl font-bold text-base shadow-lg hover:bg-primary-hover active:scale-[0.98] transition-all flex items-center justify-center gap-2"
             >
               <Plus className="w-4 h-4" />
               {t('onboarding.createWallet')}
@@ -383,7 +383,7 @@ export function OnboardingScreen({
               w-full py-3 rounded-2xl font-bold text-base transition-colors mt-3
               ${(mode === 'create' && !backupConfirmed) || (mode === 'import' && !isImportComplete)
                 ? 'bg-primary/20 text-foreground/40 cursor-not-allowed'
-                : 'bg-primary text-primary-foreground shadow-lg hover:bg-card-green-darker active:scale-[0.98]'}
+                : 'bg-primary text-primary-foreground shadow-lg hover:bg-primary-hover active:scale-[0.98]'}
             `}
           >
             {mode === 'create' ? t('onboarding.recordComplete') : t('onboarding.recoverWallet')}
@@ -537,7 +537,7 @@ export function OnboardingScreen({
 
         <button
           onClick={() => window.location.reload()}
-          className="w-full bg-primary text-primary-foreground py-3 rounded-2xl font-bold text-base shadow-lg hover:bg-card-green-darker active:scale-[0.98] transition-all"
+          className="w-full bg-primary text-primary-foreground py-3 rounded-2xl font-bold text-base shadow-lg hover:bg-primary-hover active:scale-[0.98] transition-all"
         >
           {t('onboarding.getStarted')}
         </button>

@@ -181,7 +181,7 @@ export function ReceiveScreen({
     setIsAddingTrust(true)
     try {
       const success = await onAddTrustedMint(tokenPreview.mintUrl)
-      if (!success) setError(t('pos.mintTrustAddFailed'))
+      if (!success) setError(t('payment.mintTrustAddFailed'))
     } catch {
       setError(t('errors.generic'))
     } finally {
@@ -201,7 +201,7 @@ export function ReceiveScreen({
       setRemainingSeconds(remaining)
       if (remaining <= 0) {
         setIsExpired(true)
-        setError(t('pos.invoiceExpired'))
+        setError(t('payment.invoiceExpired'))
       }
     }
     updateCountdown()
@@ -265,7 +265,7 @@ export function ReceiveScreen({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tokenInput])
 
-  // Auto-create invoice for kiosk mode
+  // Auto-create invoice when initialAmount is provided
   useEffect(() => {
     if (initialAmount && initialAmount > 0 && activeMintUrl && !invoice && !isLoading) {
       const createInvoice = async () => {
@@ -294,10 +294,10 @@ export function ReceiveScreen({
             const maxExpiry = now + 180 * 1000
             setQuoteExpiry(result.expiry ? Math.min(result.expiry * 1000, maxExpiry) : maxExpiry)
           } else {
-            setError(t('pos.invoiceCreateFailed'))
+            setError(t('payment.invoiceCreateFailed'))
           }
         } catch {
-          setError(t('pos.invoiceCreateError'))
+          setError(t('payment.invoiceCreateError'))
         } finally {
           setIsLoading(false)
         }
@@ -355,10 +355,10 @@ export function ReceiveScreen({
         const maxExpiry = now + 180 * 1000
         setQuoteExpiry(result.expiry ? Math.min(result.expiry * 1000, maxExpiry) : maxExpiry)
       } else {
-        setError(t('pos.invoiceCreateFailed'))
+        setError(t('payment.invoiceCreateFailed'))
       }
     } catch {
-      setError(t('pos.invoiceCreateError'))
+      setError(t('payment.invoiceCreateError'))
     } finally {
       setIsLoading(false)
     }
@@ -410,7 +410,7 @@ export function ReceiveScreen({
             return
           } else {
             // Not P2PK locked to user - warn that someone else could spend it
-            setError(t('pos.mintOfflineWarning'))
+            setError(t('payment.mintOfflineWarning'))
             setIsLoading(false)
             return
           }
@@ -425,10 +425,10 @@ export function ReceiveScreen({
         setIsPaid(true)
         onPaymentReceived?.(actualAmount, 'ecash', result.transactionId)
       } else {
-        setError(t('pos.tokenReceiveFailed'))
+        setError(t('payment.tokenReceiveFailed'))
       }
     } catch {
-      setError(t('pos.tokenProcessError'))
+      setError(t('payment.tokenProcessError'))
     } finally {
       setIsLoading(false)
     }
@@ -491,7 +491,7 @@ export function ReceiveScreen({
               <CheckCircle2 className="w-10 h-10" />
             </div>
           </div>
-          <h2 className="text-2xl font-bold text-foreground mb-2 tracking-tight">{t('pos.paymentComplete')}</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-2 tracking-tight">{t('payment.receiveComplete')}</h2>
           <div className="bg-secondary px-4 py-2 rounded-full border border-border mb-6 shadow-sm">
             <p className="text-foreground font-bold text-base">+₿{displayAmount.toLocaleString()}</p>
           </div>
@@ -638,7 +638,7 @@ export function ReceiveScreen({
           {isLoading ? (
             <div className="flex-1 flex flex-col items-center justify-center">
               <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              <p className="text-foreground-muted mt-3">{t('pos.creatingInvoice')}</p>
+              <p className="text-foreground-muted mt-3">{t('payment.creatingInvoice')}</p>
             </div>
           ) : invoice ? (
             <div className="w-full flex flex-col items-center gap-4">
@@ -663,7 +663,7 @@ export function ReceiveScreen({
                 <p className="text-foreground-muted text-xs">{t('payment.waitingPayment')}</p>
                 {remainingSeconds !== null && remainingSeconds > 0 && (
                   <p className={cn('text-xs font-mono mt-1', remainingSeconds <= 60 ? 'text-accent-danger' : 'text-foreground-muted')}>
-                    {t('pos.remainingTime')}: {formatRemainingTime(remainingSeconds)}
+                    {t('payment.remainingTime')}: {formatRemainingTime(remainingSeconds)}
                   </p>
                 )}
               </div>
@@ -723,7 +723,7 @@ export function ReceiveScreen({
             )}
           >
             <QrCode className="w-4 h-4" />
-            <span>{t('pos.scan')}</span>
+            <span>{t('payment.scan')}</span>
           </button>
           <button
             onClick={() => setEcashMethod('nfc')}
@@ -733,7 +733,7 @@ export function ReceiveScreen({
             )}
           >
             <SmartphoneNfc className="w-4 h-4" />
-            <span>{t('pos.nfc')}</span>
+            <span>{t('payment.nfc')}</span>
           </button>
           <button
             onClick={() => setEcashMethod('ggwave')}
@@ -743,7 +743,7 @@ export function ReceiveScreen({
             )}
           >
             <AudioWaveform className="w-4 h-4" />
-            <span>{t('pos.wave')}</span>
+            <span>{t('payment.wave')}</span>
           </button>
         </div>
       </header>
@@ -769,14 +769,14 @@ export function ReceiveScreen({
 
                   {!isTrustedMint && (
                     <div className="p-3 bg-accent-danger/10 border border-accent-danger/20 rounded-xl">
-                      <p className="text-xs text-accent-danger font-bold text-center mb-2">{t('pos.untrustedMint')}</p>
-                      <p className="text-[10px] text-foreground-muted text-center mb-2">{t('pos.addMintTrustQuestion')}</p>
+                      <p className="text-xs text-accent-danger font-bold text-center mb-2">{t('payment.untrustedMintLabel')}</p>
+                      <p className="text-[10px] text-foreground-muted text-center mb-2">{t('payment.addMintTrustQuestion')}</p>
                       <button
                         onClick={handleAddTrust}
                         disabled={isAddingTrust}
                         className="w-full bg-background-card border border-border text-foreground py-2 rounded-xl font-bold"
                       >
-                        {isAddingTrust ? t('pos.addingTrust') : t('pos.trustMint')}
+                        {isAddingTrust ? t('payment.addingTrust') : t('payment.trustMint')}
                       </button>
                     </div>
                   )}
@@ -798,7 +798,7 @@ export function ReceiveScreen({
                       onClick={() => setTokenInput('')}
                       className="flex-1 bg-background-card border border-border text-foreground py-3 rounded-2xl font-bold hover:bg-background-hover"
                     >
-                      {t('pos.reEnter')}
+                      {t('payment.reEnter')}
                     </button>
                   </div>
                 </div>
@@ -824,7 +824,7 @@ export function ReceiveScreen({
                   </button>
 
                   <p className="text-xs text-foreground-muted text-center">
-                    {t('pos.scanOrPasteToken')}
+                    {t('payment.scanOrPasteToken')}
                   </p>
                 </div>
               )}
@@ -838,12 +838,12 @@ export function ReceiveScreen({
                 <SmartphoneNfc className="w-8 h-8 text-foreground" />
               </div>
               <div className="text-center space-y-2">
-                <h3 className="text-lg font-bold text-foreground">{t('pos.nfc')}</h3>
+                <h3 className="text-lg font-bold text-foreground">{t('payment.nfc')}</h3>
                 <p className="text-foreground-muted text-xs px-6">
-                  {t('pos.nfcComingSoon')}
+                  {t('payment.nfcComingSoon')}
                 </p>
                 <span className="inline-block mt-2 text-[10px] px-2 py-1 bg-primary/10 rounded-full text-foreground-muted font-bold">
-                  {t('pos.comingSoon')}
+                  {t('payment.comingSoon')}
                 </span>
               </div>
             </div>
@@ -856,12 +856,12 @@ export function ReceiveScreen({
                 <AudioWaveform className="w-8 h-8 text-foreground" />
               </div>
               <div className="text-center space-y-2">
-                <h3 className="text-lg font-bold text-foreground">{t('pos.wave')}</h3>
+                <h3 className="text-lg font-bold text-foreground">{t('payment.wave')}</h3>
                 <p className="text-foreground-muted text-xs px-6">
-                  {t('pos.waveComingSoon')}
+                  {t('payment.waveComingSoon')}
                 </p>
                 <span className="inline-block mt-2 text-[10px] px-2 py-1 bg-primary/10 rounded-full text-foreground-muted font-bold">
-                  {t('pos.comingSoon')}
+                  {t('payment.comingSoon')}
                 </span>
               </div>
             </div>

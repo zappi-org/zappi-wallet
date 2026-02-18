@@ -91,7 +91,7 @@ export function ProfileSection({
                   ? 'bg-primary/10'
                   : !lightningAddress.trim() || lightningAddress === savedLightningAddress
                   ? 'bg-primary/5 text-foreground-muted/30'
-                  : 'bg-primary text-white hover:bg-card-green-darker'
+                  : 'bg-primary text-white hover:bg-primary-hover'
               )}
             >
               {isValidatingLightning ? (

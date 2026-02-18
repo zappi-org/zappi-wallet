@@ -194,7 +194,7 @@ export function useGiftWrapListener() {
 
       console.log(`[GiftWrap] Successfully claimed ${result.amount} sat!`)
 
-      // Notify EcashReceiveScreen / KioskScreen if this was a NUT-18 request fulfillment
+      // Notify EcashReceiveScreen if this was a NUT-18 request fulfillment
       if (requestId) {
         console.log(`[GiftWrap] Notifying of payment for request: ${requestId}`)
         setLastReceivedPayment(requestId, result.amount, eventId)
@@ -247,7 +247,7 @@ export function useGiftWrapListener() {
               createdAt: Date.now(),
               completedAt: Date.now(),
             })
-            // Notify EcashReceiveScreen / KioskScreen if applicable
+            // Notify EcashReceiveScreen if applicable
             if (requestId) {
               setLastReceivedPayment(requestId, amount, eventId)
             }

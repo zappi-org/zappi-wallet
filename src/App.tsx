@@ -158,7 +158,7 @@ function App() {
 
         console.log('[Onboarding] Mints:', mints, 'Relays:', relays)
 
-        // Publish POS's kind:10019, 10002, 10050 to ZS relays
+        // Publish wallet's kind:10019, 10002, 10050 to ZS relays
         if (mints.length > 0) {
           try {
             const publishResult = await profile.publishProfile(

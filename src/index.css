@@ -104,8 +104,8 @@
   --accent-danger: #C45D3E;
 
   /* Hover States */
-  --primary-hover: #1a2e23;
-  --primary-hover-light: #2d4d3b;
+  --primary-hover: #4a6b45;
+  --primary-hover-light: #6b8a64;
   --secondary-hover: #a9c099;
   --accent-primary-hover: #4a6b45;
   --accent-danger-hover: #A84D32;
@@ -134,8 +134,8 @@
   --popover-foreground: #2C2C2C;
 
   /* Primary */
-  --primary: #2C2C2C;
-  --primary-foreground: #F5F4F1;
+  --primary: #5B7A54;
+  --primary-foreground: #FFFFFF;
 
   /* Secondary */
   --secondary: #EDEAE6;
@@ -168,8 +168,8 @@
   /* Sidebar */
   --sidebar: #FFFFFF;
   --sidebar-foreground: #2C2C2C;
-  --sidebar-primary: #2C2C2C;
-  --sidebar-primary-foreground: #F5F4F1;
+  --sidebar-primary: #5B7A54;
+  --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #5B7A54;
   --sidebar-accent-foreground: #FFFFFF;
   --sidebar-border: #E8E5E0;
