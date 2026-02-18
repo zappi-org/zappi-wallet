@@ -20,11 +20,6 @@ export interface ModalState {
 }
 
 /**
- * App mode
- */
-export type AppMode = 'wallet'
-
-/**
  * UI slice state
  */
 export interface UISliceState {
@@ -37,9 +32,6 @@ export interface UISliceState {
 
   // Modal
   modal: ModalState
-
-  // App mode
-  appMode: AppMode
 
   // Loading states
   isInitializing: boolean
@@ -62,7 +54,6 @@ export interface UISliceState {
   clearToasts: () => void
   openModal: (type: string, data?: Record<string, unknown>) => void
   closeModal: () => void
-  setAppMode: (mode: AppMode) => void
   setInitializing: (initializing: boolean) => void
   setProcessingPayment: (processing: boolean) => void
   setCurrentAmount: (amount: number) => void
@@ -79,7 +70,6 @@ const initialState = {
   isUnlocking: false,
   toasts: [] as Toast[],
   modal: { isOpen: false, type: null } as ModalState,
-  appMode: 'wallet' as AppMode,
   isInitializing: true,
   isProcessingPayment: false,
   currentAmount: 0,
@@ -126,8 +116,6 @@ export const createUISlice: StateCreator<UISliceState> = (set) => ({
     set({
       modal: { isOpen: false, type: null, data: undefined },
     }),
-
-  setAppMode: (appMode) => set({ appMode }),
 
   setInitializing: (isInitializing) => set({ isInitializing }),
 

@@ -72,7 +72,6 @@ export const useAppStore = create<AppState>()(
           isUnlocking: false,
           toasts: [],
           modal: { isOpen: false, type: null },
-          appMode: 'wallet',
           isInitializing: true,
           isProcessingPayment: false,
           currentAmount: 0,
@@ -104,6 +103,6 @@ export const useAppStore = create<AppState>()(
 export type { WalletState } from './slices/wallet.slice'
 export type { NetworkSliceState } from './slices/network.slice'
 export type { SyncSliceState } from './slices/sync.slice'
-export type { UISliceState, Toast, ModalState, AppMode } from './slices/ui.slice'
+export type { UISliceState, Toast, ModalState } from './slices/ui.slice'
 export type { SettingsSliceState } from './slices/settings.slice'
 export type { DebugSliceState, GiftWrapLog } from './slices/debug.slice'

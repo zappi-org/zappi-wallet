@@ -2,9 +2,9 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME     = 'zappi-pos'
+        IMAGE_NAME     = 'zappi-wallet'
         IMAGE_TAG      = "build-${env.BUILD_NUMBER}"
-        CONTAINER_PORT = '3010'
+        CONTAINER_PORT = '3011'
     }
 
     stages {
@@ -24,8 +24,8 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh """
-                    docker compose -p zappi-pos down || true
-                    docker compose -p zappi-pos up -d
+                    docker compose -p zappi-wallet down || true
+                    docker compose -p zappi-wallet up -d
                 """
             }
         }
