@@ -50,6 +50,8 @@ async function initializeManager(): Promise<Manager> {
         manager.enableMintQuoteWatcher({ watchExistingPendingOnStart: true }),
         manager.enableProofStateWatcher(),
       ]);
+      // Prevent unhandled rejection if timeout wins the race
+      watcherPromise.catch(() => {})
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Watcher init timeout')), WATCHER_INIT_TIMEOUT_MS)
       );

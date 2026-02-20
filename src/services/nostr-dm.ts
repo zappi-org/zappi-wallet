@@ -135,7 +135,9 @@ export async function sendDM(options: SendDMOptions): Promise<DMSendResult> {
     await Promise.all(
       relays.map(async (relayUrl) => {
         try {
-          const publishPromise = pool.publish([relayUrl], giftWrappedEvent)
+          const publishPromise = Promise.all(pool.publish([relayUrl], giftWrappedEvent))
+          // Prevent unhandled rejection if timeout wins the race
+          publishPromise.catch(() => {})
           const timeoutPromise = new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error('Publish timeout')), RELAY_TIMEOUT_MS)
           )

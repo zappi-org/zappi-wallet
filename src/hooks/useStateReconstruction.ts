@@ -133,6 +133,8 @@ export function useStateReconstruction() {
         '#p': [publicKey],
         since: sinceTimestamp,
       })
+      // Prevent unhandled rejection if timeout wins the race
+      queryPromise.catch(() => {})
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Query timeout')), NETWORK_TIMEOUT_MS)
       )

@@ -69,7 +69,6 @@ export function TransferScreen({ onBack, onTransactionComplete }: TransferScreen
   const { t } = useTranslation()
   // Get mint URLs from settings (the actual source of truth)
   const mintUrls = useAppStore((s) => s.settings.mints)
-  const savedLightningAddress = useAppStore((s) => s.settings.lightningAddress)
   const balance = useAppStore((s) => s.balance)
   const { getDisplayName, getIconUrl } = useMintMetadata(mintUrls)
   const { mintSwap, sendLightning, isProcessingPayment } = usePayment()
@@ -84,8 +83,8 @@ export function TransferScreen({ onBack, onTransactionComplete }: TransferScreen
   const [fromMintUrl, setFromMintUrl] = useState<string>(mintUrls[0] || '')
   const [toMintUrl, setToMintUrl] = useState<string>(mintUrls[1] || mintUrls[0] || '')
 
-  // Melt State - pre-fill with saved lightning address
-  const [lnAddress, setLnAddress] = useState(savedLightningAddress || '')
+  // Melt State
+  const [lnAddress, setLnAddress] = useState('')
   const [isMintSelectorOpen, setIsMintSelectorOpen] = useState<'from' | 'to' | null>(null)
 
   // Get mint info

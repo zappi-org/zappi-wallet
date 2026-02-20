@@ -102,18 +102,52 @@ export interface FailedSwap {
 export type SupportedLanguage = 'ko' | 'en' | 'es' | 'ja' | 'id'
 
 /**
+ * Provisioned POS device record
+ */
+export interface POSDevice {
+  index: number
+  label: string
+  p2pkPublicKey: string // hex, for identifying payments from this POS
+  nostrPublicKey: string // hex, for receiving ACKs from wallet
+  createdAt: number
+}
+
+/**
+ * POS provisioning payload (encoded in QR code)
+ */
+export interface POSProvisioningPayload {
+  version: 1
+  walletPubkey: string       // wallet's P2PK pubkey (re-lock target)
+  walletNostrPubkey: string  // wallet's Nostr pubkey (NIP-17 recipient)
+  subKeypair: {
+    index: number
+    p2pkPublicKey: string
+    p2pkPrivateKey: string
+    nostrPublicKey: string
+    nostrPrivateKey: string
+  }
+  zappiLinkUrl?: string
+  zappiLinkUser?: string
+  mints: string[]
+  relays: string[]
+}
+
+/**
  * Wallet settings
  */
 export interface WalletSettings {
   mints: string[]
   relays: string[]
   lightningAddress?: string
+  /** zappi-link API base URL extracted from LNURL callback (e.g. "https://link.zappi.space") */
+  zappiLinkApiUrl?: string
   autoLockEnabled: boolean
   autoLockTimeoutMinutes: number
   soundEnabled: boolean
   expertModeEnabled: boolean
   manualMintSelectionEnabled: boolean
   language?: SupportedLanguage
+  posDevices?: POSDevice[]
 }
 
 /**

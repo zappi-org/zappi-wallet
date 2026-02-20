@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { useAppStore } from '@/store'
 
 // Lightweight imports only — no heavy services, hooks, or screens
+import { getP2PKPubkey } from '@/services/crypto'
 import { SecurityService } from '@/services/security/security.service'
 import { SettingsRepository } from '@/data/repositories/settings.repository'
 import { OnboardingScreen } from '@/ui/screens/Onboarding/OnboardingScreen'
@@ -12,6 +13,7 @@ const MainApp = lazy(() => import('./MainApp'))
 function App() {
   // Store actions (lightweight — no heavy hooks)
   const setNostrKeyPair = useAppStore((state) => state.setNostrKeyPair)
+  const setP2pkPubkey = useAppStore((state) => state.setP2pkPubkey)
   const setSettings = useAppStore((state) => state.setSettings)
 
   // Local state
@@ -65,6 +67,7 @@ function App() {
 
       // Set nostr key pair in store (needed by dynamically imported ProfileService)
       setNostrKeyPair(result.value.publicKey, result.value.privateKey)
+      setP2pkPubkey(getP2PKPubkey(result.value.privateKey))
 
       // Get current settings for mints/relays
       const currentSettings = await services.settingsRepo.getSettings()
@@ -189,7 +192,7 @@ function App() {
       console.error('[Onboarding] Onboarding failed with error:', error)
       return false
     }
-  }, [services, setNostrKeyPair, setSettings])
+  }, [services, setNostrKeyPair, setP2pkPubkey, setSettings])
 
   // Loading state (checking wallet existence)
   if (isOnboarded === null) {

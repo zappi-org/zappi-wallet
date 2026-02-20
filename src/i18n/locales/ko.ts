@@ -114,10 +114,22 @@ export default {
     profile: '프로필',
     zappiUser: 'Zappi 사용자',
     lightningAddress: 'Lightning Address',
-    invalidLightningFormat: '유효한 형식이 아닙니다. (예: user@domain.com)',
-    lightningVerifyFailed: 'Lightning Address를 확인할 수 없습니다.',
-    invalidLightningAddress: '유효하지 않은 Lightning Address입니다.',
-    lightningValidationError: 'Lightning Address 검증에 실패했습니다.',
+    registerLightningAddress: 'Lightning Address 등록',
+    registeringLightningAddress: '등록 중...',
+    lightningAddressRequired: 'Lightning 결제를 수취하려면 Lightning Address를 등록해야 합니다.',
+    lightningAddressRegistered: 'Lightning Address가 등록되었습니다',
+    lightningAddressRegistrationFailed: 'Lightning Address 등록에 실패했습니다',
+    changeUsername: 'Username 변경',
+    currentAddress: '현재 주소',
+    newUsername: '새 username',
+    usernameAvailable: '사용 가능',
+    usernameTaken: '이미 사용 중',
+    usernameInvalid: '3-20자, 소문자와 숫자만',
+    changeFee: '변경 비용',
+    insufficientBalance: '잔액이 부족합니다',
+    usernameChanged: 'Username이 변경되었습니다',
+    usernameChangeFailed: 'Username 변경에 실패했습니다',
+    changingUsername: '변경 중...',
 
     // Security
     security: '보안',
@@ -195,6 +207,21 @@ export default {
 
     // Language
     language: '언어',
+
+    // POS Management
+    posManagement: 'POS 관리',
+    addPosDevice: 'POS 디바이스 추가',
+    posDeviceCount: '{{count}}개 디바이스',
+    noPosDevices: '등록된 POS 디바이스가 없습니다',
+    posProvisioningTitle: 'POS 프로비저닝',
+    posProvisioningDescription: 'POS 디바이스에서 이 QR 코드를 스캔하세요.',
+    posDeviceLabel: '디바이스 이름',
+    posDeviceLabelPlaceholder: '예: 카운터 1',
+    posQrReady: 'POS 디바이스에 아래 QR 코드를 보여주세요.',
+    posNoLightningAddress: 'POS를 등록하려면 먼저 Lightning Address를 설정하세요.',
+    posProvisioningDone: 'POS 디바이스가 성공적으로 등록되었습니다.',
+    posDeviceRemove: '디바이스 제거',
+    posDeviceRemoveWarning: '이 POS 디바이스는 더 이상 결제를 수취할 수 없습니다. 제거하시겠습니까?',
   },
 
   // Add Mint Screen

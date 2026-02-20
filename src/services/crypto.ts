@@ -11,9 +11,26 @@ import * as secp256k1 from '@noble/secp256k1';
 // NIP-06 derivation path for Nostr keys
 const NOSTR_DERIVATION_PATH = "m/44'/1237'/0'/0/0";
 
+// BIP-32 derivation path for POS sub-keys: m/129372'/0'/<posIndex>'
+const POS_PURPOSE = 129372;
+
 export interface KeyPair {
   privateKey: string; // hex
   publicKey: string;  // hex (without 02 prefix)
+}
+
+/**
+ * POS sub-keypair derived from wallet's master seed via BIP-32.
+ * Path: m/129372'/0'/<posIndex>'
+ *   child /0 → P2PK (compressed secp256k1, token lock/unlock)
+ *   child /1 → Nostr (schnorr x-only, NIP-17 DM)
+ */
+export interface POSSubKey {
+  index: number
+  p2pkPublicKey: string   // hex, 33-byte compressed secp256k1
+  p2pkPrivateKey: string  // hex, 32-byte
+  nostrPublicKey: string  // hex, 32-byte schnorr x-only
+  nostrPrivateKey: string // hex, 32-byte
 }
 
 // Generate new 12-word mnemonic
@@ -68,6 +85,45 @@ export function encodeNprofile(publicKeyHex: string, relays: string[]): string {
     pubkey: publicKeyHex,
     relays,
   });
+}
+
+/**
+ * Derive a POS sub-keypair from mnemonic via BIP-32.
+ * Path: m/129372'/0'/<posIndex>'
+ *   child /0 → P2PK (compressed secp256k1) for token lock/unlock
+ *   child /1 → Nostr (schnorr x-only) for NIP-17 DM send/receive
+ *
+ * Wallet calls this during POS provisioning and passes the result
+ * to POS via QR code. Wallet can re-derive from master seed for restore.
+ */
+export function derivePOSSubKey(mnemonic: string, posIndex: number): POSSubKey {
+  const seed = bip39.mnemonicToSeedSync(mnemonic);
+  const master = HDKey.fromMasterSeed(seed);
+  const base = master.derive(`m/${POS_PURPOSE}'/0'/${posIndex}'`);
+
+  // child /0 → P2PK (compressed secp256k1)
+  const p2pkChild = base.deriveChild(0);
+  if (!p2pkChild.privateKey) {
+    throw new Error('Failed to derive P2PK key for POS');
+  }
+  const p2pkPublicKey = bytesToHex(secp256k1.getPublicKey(p2pkChild.privateKey, true));
+  const p2pkPrivateKey = bytesToHex(p2pkChild.privateKey);
+
+  // child /1 → Nostr (schnorr x-only)
+  const nostrChild = base.deriveChild(1);
+  if (!nostrChild.privateKey) {
+    throw new Error('Failed to derive Nostr key for POS');
+  }
+  const nostrPublicKey = bytesToHex(nostrChild.publicKey!.slice(1)); // remove prefix → x-only
+  const nostrPrivateKey = bytesToHex(nostrChild.privateKey);
+
+  return {
+    index: posIndex,
+    p2pkPublicKey,
+    p2pkPrivateKey,
+    nostrPublicKey,
+    nostrPrivateKey,
+  };
 }
 
 // Encrypt data with password using @noble/ciphers (works in HTTP/HTTPS)

@@ -121,6 +121,24 @@ export class NostrService {
   }
 
   /**
+   * Create NIP-98 HTTP Auth token (kind 27235)
+   * Returns base64-encoded signed event for Authorization header
+   */
+  createNip98AuthToken(
+    privateKeyHex: string,
+    url: string,
+    method: string
+  ): string {
+    const event = this.createEvent(
+      privateKeyHex,
+      NOSTR_KINDS.NIP98_AUTH,
+      '',
+      [['u', url], ['method', method.toUpperCase()]]
+    )
+    return btoa(JSON.stringify(event))
+  }
+
+  /**
    * Create kind 10002 (Relay List) event
    */
   createKind10002Event(

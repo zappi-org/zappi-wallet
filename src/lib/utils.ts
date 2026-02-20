@@ -19,6 +19,8 @@ export function withTimeout<T>(
   timeoutMs: number,
   operation: string
 ): Promise<T> {
+  // Prevent unhandled rejection if timeout wins the race
+  promise.catch(() => {})
   return Promise.race([
     promise,
     new Promise<T>((_, reject) =>

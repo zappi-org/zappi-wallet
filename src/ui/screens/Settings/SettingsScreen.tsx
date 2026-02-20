@@ -1,14 +1,17 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 
 import { ArrowLeft, ChevronRight, Check, AlertTriangle, LogOut, Globe, ShieldCheck, Download } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button, Modal, BottomSheet, PinInput } from '../../components/common'
 import { useAppStore } from '@/store'
 import { encodeNpub } from '@/services/crypto'
-import { normalizeRelayUrl } from '@/utils/url'
+import { normalizeRelayUrl, normalizeMintUrl } from '@/utils/url'
 import { satUnit } from '@/utils/format'
-import { restoreWallet, getBalances, recoverPendingQuotes } from '@/coco'
-import { LIMITS } from '@/core/constants'
+import { restoreWallet, getBalances, recoverPendingQuotes, sendToken } from '@/coco'
+import { LIMITS, ZAPPI_LINK_URL } from '@/core/constants'
+import { ProfileService } from '@/services/profile/profile.service'
+import { NostrService } from '@/services/nostr/nostr.service'
+import { ZappiLinkService } from '@/services/zappi-link'
 import {
   isPasskeySupported,
   isPasskeyRegistered,
@@ -26,6 +29,7 @@ import { updateSW } from '@/registerSW'
 import { ProfileSection } from './ProfileSection'
 import { SecuritySection } from './SecuritySection'
 import { WalletManagementSection } from './WalletManagementSection'
+import { POSProvisioningSection } from './POSProvisioningSection'
 import { MintsBottomSheet } from './MintsBottomSheet'
 import { RelaysBottomSheet } from './RelaysBottomSheet'
 import { PinChangeModal, type PinChangeStep } from './PinChangeModal'
@@ -52,6 +56,8 @@ export function SettingsScreen({
   const updateSettings = useAppStore((state) => state.updateSettings)
   const addToast = useAppStore((state) => state.addToast)
   const nostrPubkey = useAppStore((state) => state.nostrPubkey)
+  const nostrPrivkey = useAppStore((state) => state.nostrPrivkey)
+  const p2pkPubkey = useAppStore((state) => state.p2pkPubkey)
   const setBalance = useAppStore((state) => state.setBalance)
   const balanceByMint = useAppStore((state) => state.balance.byMint)
   const updateAvailable = useAppStore((state) => state.updateAvailable)
@@ -59,9 +65,7 @@ export function SettingsScreen({
   const [showLanguageModal, setShowLanguageModal] = useState(false)
   const [currentLang, setCurrentLang] = useState(getCurrentLanguage())
 
-  const [lightningAddress, setLightningAddress] = useState(settings.lightningAddress || '')
-  const [lightningError, setLightningError] = useState('')
-  const [isValidatingLightning, setIsValidatingLightning] = useState(false)
+  const [isRegistering, setIsRegistering] = useState(false)
   const [autoLockEnabled, setAutoLockEnabled] = useState(settings.autoLockEnabled)
   const [autoLockTimeout, setAutoLockTimeout] = useState(String(settings.autoLockTimeoutMinutes))
 
@@ -186,47 +190,117 @@ export function SettingsScreen({
     await onSaveSettings({ ...settings, ...updates })
   }, [settings, updateSettings, onSaveSettings])
 
-  const handleLightningAddressChange = useCallback(async () => {
-    if (!lightningAddress.trim()) {
-      setLightningError('')
-      return
-    }
-    if (lightningAddress === settings.lightningAddress) return
+  // Services for zappi-link registration
+  const [services] = useState(() => ({
+    profile: new ProfileService(),
+    nostr: new NostrService(),
+  }))
+  const zappiLinkService = useMemo(
+    () => new ZappiLinkService(services.nostr),
+    [services.nostr]
+  )
 
-    if (!lightningAddress.includes('@')) {
-      setLightningError(t('settings.invalidLightningFormat'))
-      return
-    }
+  // Auto-check existing address on mount
+  useEffect(() => {
+    if (!nostrPubkey || settings.lightningAddress) return
+    zappiLinkService.getAddress(nostrPubkey).then((result) => {
+      if (result.isOk() && result.value) {
+        saveSettings({
+          lightningAddress: result.value.address,
+          zappiLinkApiUrl: ZAPPI_LINK_URL,
+        })
+      }
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nostrPubkey])
 
-    const [username, domain] = lightningAddress.split('@')
-    if (!username || !domain || !domain.includes('.')) {
-      setLightningError(t('settings.invalidLightningFormat'))
-      return
-    }
-
-    setIsValidatingLightning(true)
-    setLightningError('')
+  const handleRegisterLightningAddress = useCallback(async () => {
+    if (!nostrPrivkey || !p2pkPubkey) return
+    setIsRegistering(true)
 
     try {
-      const url = `https://${domain}/.well-known/lnurlp/${username}`
-      const response = await fetch(url, { method: 'GET' })
-      if (!response.ok) {
-        setLightningError(t('settings.lightningVerifyFailed'))
+      // 1. Publish Kind 10019 so zappi-link can read mints/relays/p2pk
+      await services.profile.publishNutzapInfo(
+        nostrPrivkey,
+        settings.mints,
+        p2pkPubkey,
+        settings.relays,
+      )
+
+      // 2. Register address via NIP-98
+      const result = await zappiLinkService.registerAddress(nostrPrivkey)
+      if (result.isErr()) {
+        console.error('[Settings] Lightning Address registration failed:', result.error)
+        addToast({ type: 'error', message: t('settings.lightningAddressRegistrationFailed') })
         return
       }
-      const data = await response.json()
-      if (!data.callback) {
-        setLightningError(t('settings.invalidLightningAddress'))
-        return
-      }
-      await saveSettings({ lightningAddress })
-      setLightningError('')
-    } catch {
-      setLightningError(t('settings.lightningValidationError'))
+
+      // 3. Save to settings
+      await saveSettings({
+        lightningAddress: result.value.address,
+        zappiLinkApiUrl: ZAPPI_LINK_URL,
+      })
+      addToast({ type: 'success', message: t('settings.lightningAddressRegistered') })
+    } catch (error) {
+      console.error('[Settings] Lightning Address registration error:', error)
+      addToast({ type: 'error', message: t('settings.lightningAddressRegistrationFailed') })
     } finally {
-      setIsValidatingLightning(false)
+      setIsRegistering(false)
     }
-  }, [lightningAddress, settings.lightningAddress, saveSettings, t])
+  }, [nostrPrivkey, p2pkPubkey, settings.mints, settings.relays, services.profile, zappiLinkService, saveSettings, addToast, t])
+
+  const handleChangeUsername = useCallback(async (username: string) => {
+    if (!nostrPrivkey) return
+
+    try {
+      // 1. Get fee and accepted mints from server defaults
+      const defaultsResult = await zappiLinkService.getDefaults()
+      if (defaultsResult.isErr()) {
+        addToast({ type: 'error', message: t('settings.usernameChangeFailed') })
+        return
+      }
+
+      const { addressFee, acceptedMints } = defaultsResult.value
+
+      let cashuToken = ''
+      if (addressFee > 0) {
+        // 2. Find accepted mint with sufficient balance
+        const balances = await getBalances()
+        const mintUrl = settings.mints.find(m =>
+          acceptedMints.some(am => normalizeMintUrl(am) === normalizeMintUrl(m))
+          && (balances[m] ?? 0) >= addressFee
+        )
+        if (!mintUrl) {
+          addToast({ type: 'error', message: t('settings.insufficientBalance') })
+          return
+        }
+
+        // 3. Create Cashu token from selected mint
+        cashuToken = await sendToken(mintUrl, addressFee)
+      }
+
+      // 4. Submit username change with payment
+      const result = await zappiLinkService.changeUsername(nostrPrivkey, username, cashuToken)
+      if (result.isErr()) {
+        addToast({ type: 'error', message: t('settings.usernameChangeFailed') })
+        return
+      }
+
+      // 5. Update settings + refresh balance
+      await saveSettings({ lightningAddress: result.value.address })
+      const newBalances = await getBalances()
+      const newTotal = Object.values(newBalances).reduce((sum, b) => sum + b, 0)
+      setBalance({ total: newTotal, byMint: newBalances })
+      addToast({ type: 'success', message: t('settings.usernameChanged') })
+    } catch (error) {
+      console.error('[Settings] Username change error:', error)
+      addToast({ type: 'error', message: t('settings.usernameChangeFailed') })
+    }
+  }, [nostrPrivkey, settings.mints, zappiLinkService, saveSettings, setBalance, addToast, t])
+
+  const walletBalance = useMemo(() => {
+    return Object.values(balanceByMint).reduce((sum, b) => sum + b, 0)
+  }, [balanceByMint])
 
   const handleAutoLockToggle = useCallback(async (enabled: boolean) => {
     setAutoLockEnabled(enabled)
@@ -490,15 +564,8 @@ export function SettingsScreen({
         <ProfileSection
           nostrPubkey={nostrPubkey}
           npubCopied={npubCopied}
-          lightningAddress={lightningAddress}
-          lightningError={lightningError}
-          isValidatingLightning={isValidatingLightning}
-          savedLightningAddress={settings.lightningAddress}
           encodeNpub={encodeNpub}
           onCopyNpub={handleCopyNpub}
-          onLightningAddressChange={setLightningAddress}
-          onLightningAddressSave={handleLightningAddressChange}
-          onLightningErrorClear={() => setLightningError('')}
         />
 
         {/* Security Section */}
@@ -545,6 +612,21 @@ export function SettingsScreen({
           onOpenRelays={() => setShowRelaysModal(true)}
           onOpenRestore={() => setShowRestoreModal(true)}
           onOpenBackup={() => setShowBackupModal(true)}
+        />
+
+        {/* POS Management Section */}
+        <POSProvisioningSection
+          settings={settings}
+          nostrPubkey={nostrPubkey}
+          nostrPrivkey={nostrPrivkey}
+          lightningAddress={settings.lightningAddress}
+          isRegistering={isRegistering}
+          onRegisterLightningAddress={handleRegisterLightningAddress}
+          onChangeUsername={handleChangeUsername}
+          onBackupMnemonic={onBackupMnemonic}
+          onSaveSettings={saveSettings}
+          zappiLinkService={zappiLinkService}
+          walletBalance={walletBalance}
         />
 
         {/* Logout Section */}

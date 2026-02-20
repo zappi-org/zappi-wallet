@@ -1,33 +1,18 @@
-import { Check, Copy, Save, User } from 'lucide-react'
+import { Check, Copy, User } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { cn } from '@/components/ui/utils'
 
 export interface ProfileSectionProps {
   nostrPubkey: string | null
   npubCopied: boolean
-  lightningAddress: string
-  lightningError: string
-  isValidatingLightning: boolean
-  savedLightningAddress: string | undefined
   encodeNpub: (pubkey: string) => string
   onCopyNpub: () => void
-  onLightningAddressChange: (value: string) => void
-  onLightningAddressSave: () => void
-  onLightningErrorClear: () => void
 }
 
 export function ProfileSection({
   nostrPubkey,
   npubCopied,
-  lightningAddress,
-  lightningError,
-  isValidatingLightning,
-  savedLightningAddress,
   encodeNpub,
   onCopyNpub,
-  onLightningAddressChange,
-  onLightningAddressSave,
-  onLightningErrorClear,
 }: ProfileSectionProps) {
   const { t } = useTranslation()
 
@@ -63,48 +48,6 @@ export function ProfileSection({
             </button>
           </div>
         )}
-        {/* Lightning Address */}
-        <div className="pt-2 border-t border-primary/5">
-          <label className="text-[10px] font-bold text-foreground-muted ml-2 block mb-1">{t('settings.lightningAddress')}</label>
-          <div className="flex items-center gap-1.5">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                value={lightningAddress}
-                onChange={(e) => { onLightningAddressChange(e.target.value); onLightningErrorClear() }}
-                placeholder="user@getalby.com"
-                disabled={isValidatingLightning}
-                className="w-full bg-background/50 p-2 pr-7 rounded-xl outline-none text-[10px] text-foreground placeholder:text-foreground-muted/50 font-medium"
-              />
-              {lightningAddress === savedLightningAddress && savedLightningAddress && (
-                <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                  <Check className="w-3 h-3 text-accent-primary" />
-                </div>
-              )}
-            </div>
-            <button
-              onClick={onLightningAddressSave}
-              disabled={isValidatingLightning || !lightningAddress.trim() || lightningAddress === savedLightningAddress}
-              className={cn(
-                'p-1.5 rounded-lg transition-all',
-                isValidatingLightning
-                  ? 'bg-primary/10'
-                  : !lightningAddress.trim() || lightningAddress === savedLightningAddress
-                  ? 'bg-primary/5 text-foreground-muted/30'
-                  : 'bg-primary text-white hover:bg-primary-hover'
-              )}
-            >
-              {isValidatingLightning ? (
-                <div className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Save className="w-3.5 h-3.5" />
-              )}
-            </button>
-          </div>
-          {lightningError && (
-            <p className="text-[10px] text-accent-danger font-bold mt-1 ml-2">{lightningError}</p>
-          )}
-        </div>
       </div>
     </section>
   )

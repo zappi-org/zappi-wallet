@@ -64,6 +64,8 @@ export function isAnchorValid(timestamp: number): boolean {
  * Helper to add timeout to promises
  */
 function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> {
+  // Prevent unhandled rejection if timeout wins the race
+  promise.catch(() => {})
   return Promise.race([
     promise,
     new Promise<T>((_, reject) =>
@@ -105,9 +107,10 @@ export async function publishAnchor(): Promise<CachedAnchor | null> {
     // recipient must be an object with publicKey property
     const recipient = { publicKey }
     const message = JSON.stringify(anchorMessage);
+    const sk = hexToBytes(privateKey)
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const giftWrap = await (nip17 as any).wrapEvent(privateKey, recipient, message);
+    const giftWrap = await (nip17 as any).wrapEvent(sk, recipient, message);
 
     // Publish to relays with timeout
     const pool = new SimplePool();

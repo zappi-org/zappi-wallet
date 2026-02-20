@@ -28,12 +28,19 @@ export const ZS_DOMAIN = 'alpha-api.zappi.space'
 export const NOSTR_KINDS = {
   PROFILE: 0,
   TEXT_NOTE: 1,
+  NIP98_AUTH: 27235,
   RELAY_LIST: 10002,
   DM_RELAY_LIST: 10050, // NIP-17 DM Relay List
   NUTZAP_INFO: 10019,
   GIFT_WRAP: 1059,
   PRIVATE_DM: 14,
 } as const
+
+/**
+ * Zappi Link service configuration
+ */
+export const ZAPPI_LINK_URL = 'https://link.zappi.space'
+export const ZAPPI_LINK_DOMAIN = 'zappi.space'
 
 /**
  * Timeout configurations (in milliseconds)

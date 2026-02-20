@@ -8,6 +8,7 @@ import { useGiftWrapListener } from '@/hooks/useGiftWrapListener'
 import { useCrossTabSync, broadcastSync } from '@/hooks/use-cross-tab-sync'
 import { useStateReconstruction } from '@/hooks/useStateReconstruction'
 import { checkAndRefreshAnchor } from '@/services/anchor'
+import { getP2PKPubkey } from '@/services/crypto'
 
 // Tier 1: Always loaded (critical path for authenticated users)
 import { HomeScreen } from '@/ui/screens/Home/HomeScreen'
@@ -72,6 +73,7 @@ export default function MainApp() {
   const setBalance = useAppStore((state) => state.setBalance)
   const setFailedSwapsCount = useAppStore((state) => state.setFailedSwapsCount)
   const setNostrKeyPair = useAppStore((state) => state.setNostrKeyPair)
+  const setP2pkPubkey = useAppStore((state) => state.setP2pkPubkey)
   const setSettings = useAppStore((state) => state.setSettings)
 
   // Hooks
@@ -336,6 +338,7 @@ export default function MainApp() {
       if (result.isOk()) {
         // Set nostr key pair in store (for Coco seedGetter)
         setNostrKeyPair(result.value.publicKey, result.value.privateKey)
+        setP2pkPubkey(getP2PKPubkey(result.value.privateKey))
 
         setLocked(false)
         // Refresh balance after unlock
@@ -346,7 +349,7 @@ export default function MainApp() {
     } catch {
       return false
     }
-  }, [services.security, setLocked, setNostrKeyPair, refreshBalance])
+  }, [services.security, setLocked, setNostrKeyPair, setP2pkPubkey, refreshBalance])
 
   // Handle validated scan data - route to appropriate screen based on type
   const handleValidatedScan = useCallback((data: ValidatedData) => {

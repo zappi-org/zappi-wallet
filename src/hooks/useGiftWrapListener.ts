@@ -5,6 +5,7 @@ import { hexToBytes } from '@noble/hashes/utils.js'
 import { useAppStore } from '@/store'
 import { getDecodedToken, getEncodedToken } from '@cashu/cashu-ts'
 import { receiveP2PKToken } from '@/coco'
+import { sendDM } from '@/services/nostr-dm'
 import { subscribeNetworkStatus } from '@/hooks/useNetworkStatus'
 import { ProcessedEventRepository } from '@/data/repositories/processed-event.repository'
 import { TransactionRepository } from '@/data/repositories/transaction.repository'
@@ -118,8 +119,38 @@ export function useGiftWrapListener() {
   const subsRef = useRef<Array<{ unsub: () => void }>>([])
   const configKeyRef = useRef<string>('')
 
-  // Process Cashu token from fulfillment
-  const processToken = useCallback(async (token: string, txId: string, eventId: string, relay: string, requestId?: string) => {
+  // Send delivery ACK to POS device (fire-and-forget)
+  const sendDeliveryAck = useCallback(async (posPubkey: string, txId: string) => {
+    if (!nostrPrivkey) return
+    const relays = useAppStore.getState().settings.relays
+    if (relays.length === 0) return
+
+    try {
+      const ackContent = JSON.stringify({ type: 'delivery_ack', txId })
+      const result = await sendDM({
+        recipientPubkey: posPubkey,
+        content: ackContent,
+        senderPrivkey: nostrPrivkey,
+        relays,
+      })
+      if (result.success) {
+        console.log(`[GiftWrap] Sent delivery ACK for txId: ${txId}`)
+      } else {
+        console.warn(`[GiftWrap] Failed to send ACK for txId: ${txId}`, result.error)
+      }
+    } catch (err) {
+      console.warn('[GiftWrap] ACK send error:', err)
+    }
+  }, [nostrPrivkey])
+
+  // Check if a nostr pubkey belongs to a registered POS device
+  const isPOSDevice = useCallback((pubkey: string): boolean => {
+    const devices = useAppStore.getState().settings.posDevices ?? []
+    return devices.some(d => d.nostrPublicKey === pubkey)
+  }, [])
+
+  // Process Cashu token from fulfillment. Returns true on success.
+  const processToken = useCallback(async (token: string, txId: string, eventId: string, relay: string, requestId?: string): Promise<boolean> => {
     try {
       // Validate token format
       if (!token.startsWith('cashu')) {
@@ -131,7 +162,7 @@ export function useGiftWrapListener() {
           status: 'failed',
           error: 'Invalid token format',
         })
-        return
+        return false
       }
 
       // Decode token
@@ -149,7 +180,7 @@ export function useGiftWrapListener() {
           status: 'failed',
           error: 'No proofs in token',
         })
-        return
+        return false
       }
 
       const totalAmount = proofs.reduce((sum, p) => sum + p.amount, 0)
@@ -220,6 +251,8 @@ export function useGiftWrapListener() {
         mintUrl,
         status: 'processed',
       })
+
+      return true
     } catch (error) {
       const errorMsg = String(error)
       console.error('[GiftWrap] Token processing error:', error)
@@ -257,7 +290,7 @@ export function useGiftWrapListener() {
           // Token decode failed - can't create transaction record, skip
         }
         await markTxProcessed(txId, eventId, 'skipped')
-        return
+        return false
       }
 
       // Log failure
@@ -296,6 +329,8 @@ export function useGiftWrapListener() {
       } catch (queueError) {
         console.error('[GiftWrap] Failed to add to retry queue:', queueError)
       }
+
+      return false
     }
   }, [addDebugLog, setLastReceivedPayment, triggerTxRefresh, addToast, t])
 
@@ -316,7 +351,15 @@ export function useGiftWrapListener() {
       const unwrapped = await nip17.unwrapEvent(event as Parameters<typeof nip17.unwrapEvent>[0], sk)
 
       const content = unwrapped.content
+      const senderPubkey = unwrapped.pubkey // sender's real Nostr pubkey
       console.log(`[GiftWrap] Unwrapped content (first 100 chars): ${content.substring(0, 100)}`)
+
+      // Helper: send ACK to POS device if sender is registered
+      const maybeAck = async (txId: string, success: boolean) => {
+        if (success && senderPubkey && isPOSDevice(senderPubkey)) {
+          sendDeliveryAck(senderPubkey, txId)
+        }
+      }
 
       // Check for raw Cashu token first (simple DM with just a token)
       if (isRawCashuToken(content)) {
@@ -324,7 +367,8 @@ export function useGiftWrapListener() {
         const txId = `dm-token-${event.id.substring(0, 12)}`
         const alreadyProcessed = await isTxProcessed(txId)
         if (alreadyProcessed) return
-        await processToken(content.trim(), txId, event.id, url)
+        const success = await processToken(content.trim(), txId, event.id, url)
+        await maybeAck(txId, success)
         return
       }
 
@@ -344,7 +388,8 @@ export function useGiftWrapListener() {
         const alreadyProcessed = await isTxProcessed(txId)
         if (alreadyProcessed) return
         // Pass request_id to notify EcashReceiveScreen
-        await processToken(msg.token, txId, event.id, url, msg.request_id)
+        const success = await processToken(msg.token, txId, event.id, url, msg.request_id)
+        await maybeAck(txId, success)
         return
       }
 
@@ -363,7 +408,8 @@ export function useGiftWrapListener() {
           proofs: msg.proofs,
         })
         // Pass requestId to notify EcashReceiveScreen
-        await processToken(encodedToken, txId, event.id, url, requestId)
+        const success = await processToken(encodedToken, txId, event.id, url, requestId)
+        await maybeAck(txId, success)
         return
       }
 
@@ -420,7 +466,7 @@ export function useGiftWrapListener() {
         error: String(error),
       })
     }
-  }, [nostrPrivkey, setLastEventTimestamp, addDebugLog, processToken])
+  }, [nostrPrivkey, setLastEventTimestamp, addDebugLog, processToken, isPOSDevice, sendDeliveryAck])
 
   // Start listener
   useEffect(() => {
@@ -490,6 +536,8 @@ export function useGiftWrapListener() {
           try {
             // Add timeout to relay connection
             const relayPromise = pool.ensureRelay(url)
+            // Prevent unhandled rejection if timeout wins the race
+            relayPromise.catch(() => {})
             const timeoutPromise = new Promise<never>((_, reject) =>
               setTimeout(() => reject(new Error('Connection timeout')), RELAY_CONNECTION_TIMEOUT_MS)
             )

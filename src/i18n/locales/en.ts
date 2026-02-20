@@ -114,10 +114,22 @@ export default {
     profile: 'Profile',
     zappiUser: 'Zappi User',
     lightningAddress: 'Lightning Address',
-    invalidLightningFormat: 'Invalid format. (e.g., user@domain.com)',
-    lightningVerifyFailed: 'Could not verify Lightning Address.',
-    invalidLightningAddress: 'Invalid Lightning Address.',
-    lightningValidationError: 'Lightning Address validation failed.',
+    registerLightningAddress: 'Register Lightning Address',
+    registeringLightningAddress: 'Registering...',
+    lightningAddressRequired: 'Register a Lightning Address to receive Lightning payments.',
+    lightningAddressRegistered: 'Lightning Address registered',
+    lightningAddressRegistrationFailed: 'Failed to register Lightning Address',
+    changeUsername: 'Change Username',
+    currentAddress: 'Current Address',
+    newUsername: 'New Username',
+    usernameAvailable: 'Available',
+    usernameTaken: 'Already taken',
+    usernameInvalid: '3-20 chars, lowercase and digits only',
+    changeFee: 'Change Fee',
+    insufficientBalance: 'Insufficient balance',
+    usernameChanged: 'Username changed',
+    usernameChangeFailed: 'Failed to change username',
+    changingUsername: 'Changing...',
 
     // Security
     security: 'Security',
@@ -195,6 +207,21 @@ export default {
 
     // Language
     language: 'Language',
+
+    // POS Management
+    posManagement: 'POS Management',
+    addPosDevice: 'Add POS Device',
+    posDeviceCount: '{{count}} devices',
+    noPosDevices: 'No POS devices registered',
+    posProvisioningTitle: 'POS Provisioning',
+    posProvisioningDescription: 'Scan this QR code from the POS device to complete setup.',
+    posDeviceLabel: 'Device Name',
+    posDeviceLabelPlaceholder: 'e.g., Counter 1',
+    posQrReady: 'Show the QR code below to the POS device.',
+    posNoLightningAddress: 'Set up a Lightning Address first to provision POS devices.',
+    posProvisioningDone: 'POS device provisioned successfully.',
+    posDeviceRemove: 'Remove Device',
+    posDeviceRemoveWarning: 'This POS device will no longer be able to accept payments. Remove?',
   },
 
   // Add Mint Screen
