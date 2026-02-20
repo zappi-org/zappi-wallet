@@ -4,7 +4,7 @@ pipeline {
     environment {
         IMAGE_NAME     = 'zappi-wallet'
         IMAGE_TAG      = "build-${env.BUILD_NUMBER}"
-        CONTAINER_PORT = '3011'
+        CONTAINER_PORT = '3020'
     }
 
     stages {
