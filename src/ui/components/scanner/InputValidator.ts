@@ -14,8 +14,6 @@ import type {
   LnurlInput,
   CashuTokenInput,
   CashuRequestInput,
-  NostrPubkeyInput,
-  NostrEventInput,
 } from './InputTypeDetector'
 
 // ============= Validation Result Types =============
@@ -41,7 +39,6 @@ export type ValidationErrorCode =
   | 'INVALID_LNURL'
   | 'INVALID_TOKEN'
   | 'INVALID_REQUEST'
-  | 'INVALID_NOSTR'
   | 'OFFLINE'
   | 'UNKNOWN'
 
@@ -54,8 +51,6 @@ export type ValidatedData =
   | ValidatedLnurlWithdraw
   | ValidatedCashuToken
   | ValidatedCashuRequest
-  | ValidatedNostrPubkey
-  | ValidatedNostrEvent
   | ValidatedAmount
 
 export interface ValidatedBolt11 {
@@ -129,21 +124,6 @@ export interface ParsedCashuRequest {
   p2pkPubkey?: string  // extracted from nut10 when kind === 'P2PK'
 }
 
-export interface ValidatedNostrPubkey {
-  type: 'nostr-pubkey'
-  input: string
-  pubkey: string
-  relays?: string[]
-}
-
-export interface ValidatedNostrEvent {
-  type: 'nostr-event'
-  input: string
-  eventId: string
-  pubkey?: string
-  relays?: string[]
-}
-
 export interface ValidatedAmount {
   type: 'amount'
   amount: number
@@ -176,10 +156,6 @@ export async function validateInput(input: InputType): Promise<ValidationResult>
       return validateCashuToken(input)
     case 'cashu-request':
       return validateCashuRequest(input)
-    case 'nostr-pubkey':
-      return validateNostrPubkey(input)
-    case 'nostr-event':
-      return validateNostrEvent(input)
     case 'amount':
       return {
         valid: true,
@@ -195,7 +171,7 @@ export async function validateInput(input: InputType): Promise<ValidationResult>
 }
 
 function requiresNetwork(type: InputType['type']): boolean {
-  return ['lightning-address', 'lnurl', 'nostr-pubkey', 'nostr-event'].includes(type)
+  return ['lightning-address', 'lnurl'].includes(type)
 }
 
 // ============= Individual Validators =============
@@ -460,121 +436,3 @@ function decodeCashuRequest(request: string): ParsedCashuRequest {
   }
 }
 
-async function validateNostrPubkey(input: NostrPubkeyInput): Promise<ValidationResult> {
-  try {
-    const { pubkey, relays } = decodeNostrEntity(input.input)
-    return {
-      valid: true,
-      data: {
-        type: 'nostr-pubkey',
-        input: input.input,
-        pubkey,
-        relays,
-      },
-    }
-  } catch {
-    return {
-      valid: false,
-      error: i18n.t('scanner.invalidNostrProfile'),
-      errorCode: 'INVALID_NOSTR',
-    }
-  }
-}
-
-async function validateNostrEvent(input: NostrEventInput): Promise<ValidationResult> {
-  try {
-    const { eventId, pubkey, relays } = decodeNostrEntity(input.input)
-    return {
-      valid: true,
-      data: {
-        type: 'nostr-event',
-        input: input.input,
-        eventId: eventId!,
-        pubkey,
-        relays,
-      },
-    }
-  } catch {
-    return {
-      valid: false,
-      error: i18n.t('scanner.invalidNostrEvent'),
-      errorCode: 'INVALID_NOSTR',
-    }
-  }
-}
-
-/**
- * Decode Nostr bech32 entities (npub, nprofile, nevent, note)
- */
-function decodeNostrEntity(input: string): {
-  pubkey: string
-  eventId?: string
-  relays?: string[]
-} {
-  const { prefix, words } = bech32.decode(input as `${string}1${string}`, 5000)
-  const data = new Uint8Array(bech32.fromWords(words))
-
-  if (prefix === 'npub') {
-    // npub is just a 32-byte pubkey
-    return {
-      pubkey: bytesToHex(data),
-    }
-  }
-
-  if (prefix === 'note') {
-    // note is just a 32-byte event id
-    return {
-      pubkey: '',
-      eventId: bytesToHex(data),
-    }
-  }
-
-  // nprofile and nevent use TLV encoding
-  const tlv = parseTLV(data)
-
-  if (prefix === 'nprofile') {
-    const pubkeyData = tlv[0]?.[0] || new Uint8Array()
-    return {
-      pubkey: bytesToHex(pubkeyData),
-      relays: tlv[1]?.map((r: Uint8Array) => new TextDecoder().decode(r)),
-    }
-  }
-
-  if (prefix === 'nevent') {
-    const eventIdData = tlv[0]?.[0] || new Uint8Array()
-    const pubkeyData = tlv[2]?.[0]
-    return {
-      eventId: bytesToHex(eventIdData),
-      relays: tlv[1]?.map((r: Uint8Array) => new TextDecoder().decode(r)),
-      pubkey: pubkeyData ? bytesToHex(pubkeyData) : '',
-    }
-  }
-
-  throw new Error(`Unsupported Nostr prefix: ${prefix}`)
-}
-
-function parseTLV(data: Uint8Array): Record<number, Uint8Array[]> {
-  const result: Record<number, Uint8Array[]> = {}
-  let i = 0
-
-  while (i < data.length) {
-    const type = data[i]
-    const length = data[i + 1]
-    const value = data.slice(i + 2, i + 2 + length)
-
-    if (!result[type]) {
-      result[type] = []
-    }
-    result[type].push(value)
-
-    i += 2 + length
-  }
-
-  return result
-}
-
-function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-}

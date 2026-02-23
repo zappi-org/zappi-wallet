@@ -375,11 +375,6 @@ export default function MainApp() {
         setCurrentScreen('ecash-send')
         break
 
-      case 'nostr-pubkey':
-      case 'nostr-event':
-        setCurrentScreen('send')
-        break
-
       case 'amount':
         setScannedAmount(data.amount)
         setCurrentScreen('amount-action')

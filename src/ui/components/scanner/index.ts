@@ -12,8 +12,6 @@ export {
   type LnurlInput,
   type CashuTokenInput,
   type CashuRequestInput,
-  type NostrPubkeyInput,
-  type NostrEventInput,
   type AmountInput,
   type UnknownInput,
 } from './InputTypeDetector'
@@ -31,8 +29,6 @@ export {
   type ValidatedLnurlWithdraw,
   type ValidatedCashuToken,
   type ValidatedCashuRequest,
-  type ValidatedNostrPubkey,
-  type ValidatedNostrEvent,
   type ValidatedAmount,
   type LnurlWithdrawParams,
   type ParsedCashuRequest,

@@ -14,8 +14,6 @@ export type InputType =
   | LnurlInput
   | CashuTokenInput
   | CashuRequestInput
-  | NostrPubkeyInput
-  | NostrEventInput
   | AmountInput
   | UnknownInput
 
@@ -52,18 +50,6 @@ export interface CashuRequestInput {
   type: 'cashu-request'
   request: string
   // Parsed data will be added by validator
-}
-
-export interface NostrPubkeyInput {
-  type: 'nostr-pubkey'
-  input: string
-  // npub or nprofile
-}
-
-export interface NostrEventInput {
-  type: 'nostr-event'
-  input: string
-  // nevent or note
 }
 
 export interface AmountInput {
@@ -124,23 +110,7 @@ export function detectInputType(input: string): InputType {
     }
   }
 
-  // 6. Nostr npub/nprofile
-  if (normalized.startsWith('npub1') || normalized.startsWith('nprofile1')) {
-    return {
-      type: 'nostr-pubkey',
-      input: trimmed,
-    }
-  }
-
-  // 7. Nostr nevent/note
-  if (normalized.startsWith('nevent1') || normalized.startsWith('note1')) {
-    return {
-      type: 'nostr-event',
-      input: trimmed,
-    }
-  }
-
-  // 8. Pure number (amount)
+  // 6. Pure number (amount)
   if (/^\d+$/.test(trimmed)) {
     const amount = parseInt(trimmed, 10)
     if (amount > 0 && amount <= 999999999) {
@@ -151,7 +121,7 @@ export function detectInputType(input: string): InputType {
     }
   }
 
-  // 9. Unknown
+  // 7. Unknown
   return {
     type: 'unknown',
     input: trimmed,
@@ -216,8 +186,6 @@ export function requiresNetworkValidation(type: InputType['type']): boolean {
   return [
     'lightning-address',
     'lnurl',
-    'nostr-pubkey',
-    'nostr-event',
   ].includes(type)
 }
 
@@ -243,8 +211,6 @@ export function getInputTypeName(type: InputType['type']): string {
     'lnurl': 'LNURL',
     'cashu-token': 'Cashu Token',
     'cashu-request': 'Cashu Request',
-    'nostr-pubkey': 'Nostr Profile',
-    'nostr-event': 'Nostr Event',
     'amount': 'Amount',
     'unknown': 'Unknown',
   }
