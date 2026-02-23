@@ -20,7 +20,7 @@ import type { ValidatedCashuRequest } from '@/ui/components/scanner'
 export interface EcashSendScreenProps {
   onBack: () => void
   onComplete?: () => void
-  onCreateEcashToken: (amount: number, mintUrl?: string) => Promise<string | null>
+  onCreateEcashToken: (amount: number, mintUrl?: string, options?: { p2pkPubkey?: string }) => Promise<string | null>
   onReceiveToken?: (token: string) => Promise<boolean | { success: boolean; amount?: number }>
   // Pre-filled data from scanner (NUT-18 request)
   validatedData?: ValidatedCashuRequest
@@ -374,7 +374,12 @@ export function EcashSendScreen({
     hapticTap()
 
     try {
-      const result = await onCreateEcashToken(numericAmount, selectedMintUrl)
+      const p2pkPubkey = validatedData?.parsed.p2pkPubkey
+      const result = await onCreateEcashToken(
+        numericAmount,
+        selectedMintUrl,
+        p2pkPubkey ? { p2pkPubkey } : undefined
+      )
       if (result) {
         setToken(result)
         hapticSuccess()
@@ -394,7 +399,7 @@ export function EcashSendScreen({
       isCreatingRef.current = false
       setIsCreating(false)
     }
-  }, [validationError, numericAmount, selectedMintUrl, onCreateEcashToken, hasNostrTransport, nostrTarget, sendTokenViaDMHandler, t])
+  }, [validationError, numericAmount, selectedMintUrl, onCreateEcashToken, hasNostrTransport, nostrTarget, sendTokenViaDMHandler, validatedData?.parsed.p2pkPubkey, t])
 
   // Copy token
   const handleCopy = useCallback(async () => {

@@ -121,9 +121,12 @@ export interface ParsedCashuRequest {
   singleUse?: boolean
   description?: string
   transports: CashuRequestTransport[]
+  // NUT-10 spending conditions
+  nut10?: { kind: string; data: string; tags?: string[][] }
   // Convenience accessors
   hasNostrTransport: boolean
   nostrTarget?: string // npub or hex pubkey for nostr transport
+  p2pkPubkey?: string  // extracted from nut10 when kind === 'P2PK'
 }
 
 export interface ValidatedNostrPubkey {
@@ -420,6 +423,25 @@ function decodeCashuRequest(request: string): ParsedCashuRequest {
   // Find nostr transport
   const nostrTransport = transports.find((t) => t.type === 'nostr')
 
+  // Parse NUT-10 spending conditions (e.g., P2PK lock)
+  let nut10: { kind: string; data: string; tags?: string[][] } | undefined
+  let p2pkPubkey: string | undefined
+  if (data.nut10 && typeof data.nut10 === 'object') {
+    nut10 = {
+      kind: data.nut10.k || '',
+      data: data.nut10.d || '',
+      tags: data.nut10.t,
+    }
+    if (nut10.kind === 'P2PK' && nut10.data) {
+      // Validate compressed secp256k1 pubkey: 02/03 prefix + 64 hex chars
+      if (/^(02|03)[0-9a-fA-F]{64}$/.test(nut10.data)) {
+        p2pkPubkey = nut10.data
+      } else {
+        console.warn('[InputValidator] Invalid P2PK pubkey format:', nut10.data)
+      }
+    }
+  }
+
   // Generate an ID from data or use provided
   const id = data.i || `req-${Date.now().toString(36)}`
 
@@ -431,8 +453,10 @@ function decodeCashuRequest(request: string): ParsedCashuRequest {
     singleUse: data.s ?? true,
     description: data.d,
     transports,
+    nut10,
     hasNostrTransport: !!nostrTransport,
     nostrTarget: nostrTransport?.target,
+    p2pkPubkey,
   }
 }
 

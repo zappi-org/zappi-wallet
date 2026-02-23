@@ -20,7 +20,7 @@ export interface SendScreenProps {
   balance: number
   mintBalances?: Record<string, number>
   onSendLightning: (address: string, amount: number) => Promise<boolean>
-  onCreateEcashToken: (amount: number, mintUrl?: string) => Promise<string | null>
+  onCreateEcashToken: (amount: number, mintUrl?: string, options?: { p2pkPubkey?: string }) => Promise<string | null>
   onReceiveToken?: (token: string) => Promise<boolean>
 }
 

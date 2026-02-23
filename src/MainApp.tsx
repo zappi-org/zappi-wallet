@@ -507,7 +507,7 @@ export default function MainApp() {
     return true
   }, [services.payment, refreshBalance, addToast, services.transactionRepo, t])
 
-  const handleCreateEcashToken = useCallback(async (amount: number, preferredMintUrl?: string): Promise<string | null> => {
+  const handleCreateEcashToken = useCallback(async (amount: number, preferredMintUrl?: string, options?: { p2pkPubkey?: string }): Promise<string | null> => {
     if (isSendingEcashRef.current) return null
     isSendingEcashRef.current = true
     try {
@@ -539,7 +539,7 @@ export default function MainApp() {
         createdAt: Date.now(),
       })
 
-      const token = await cocoSendToken(mintUrl, amount)
+      const token = await cocoSendToken(mintUrl, amount, options)
 
       await services.payment.savePendingSendToken({
         id: txId,

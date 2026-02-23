@@ -94,14 +94,61 @@ export async function receiveToken(token: string): Promise<void> {
 
 /**
  * 토큰 전송 (send)
+ * P2PK 옵션 제공 시 cashu-ts로 swap하여 P2PK 잠금 토큰 생성
  */
 export async function sendToken(
   mintUrl: string,
-  amount: number
+  amount: number,
+  options?: { p2pkPubkey?: string }
 ): Promise<string> {
   const manager = await getCocoManager();
   const token = await manager.wallet.send(mintUrl, amount);
   const { getEncodedToken } = await import('@cashu/cashu-ts');
+
+  if (options?.p2pkPubkey) {
+    // P2PK lock: swap Coco's unlocked proofs into P2PK-locked proofs via cashu-ts
+    const wallet = await getCashuWallet(mintUrl);
+    const encodedUnlocked = getEncodedToken(token);
+    const decoded = getDecodedToken(encodedUnlocked);
+
+    let p2pkProofs: Proof[];
+    let changeProofs: Proof[];
+    try {
+      const result = await wallet.send(
+        amount,
+        decoded.proofs,
+        { includeFees: true },
+        { send: { type: 'p2pk', options: { pubkey: options.p2pkPubkey } } }
+      );
+      p2pkProofs = result.send;
+      changeProofs = result.keep;
+    } catch (swapError) {
+      // P2PK swap failed — reclaim unlocked proofs back to Coco
+      console.error('[cashuService] P2PK swap failed, reclaiming proofs:', swapError);
+      try {
+        await manager.wallet.receive(encodedUnlocked);
+        console.log('[cashuService] Successfully reclaimed proofs after P2PK swap failure');
+      } catch (reclaimError) {
+        console.error('[cashuService] Failed to reclaim proofs (may need manual recovery):', reclaimError);
+      }
+      throw swapError;
+    }
+
+    // Return change proofs (denomination rounding) to Coco
+    if (changeProofs.length > 0) {
+      try {
+        const changeToken = getEncodedToken({ mint: mintUrl, proofs: changeProofs });
+        await manager.wallet.receive(changeToken);
+      } catch (changeError) {
+        // Change proofs exist but failed to save — log for manual recovery
+        console.error('[cashuService] Failed to return change proofs to Coco:', changeError);
+        console.error('[cashuService] Lost change proofs:', JSON.stringify(changeProofs));
+      }
+    }
+
+    return getEncodedToken({ mint: mintUrl, proofs: p2pkProofs });
+  }
+
   return getEncodedToken(token);
 }
 
