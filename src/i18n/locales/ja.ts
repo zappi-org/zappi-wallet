@@ -129,6 +129,7 @@ export default {
     insufficientBalance: '残高が不足しています',
     usernameChanged: 'ユーザー名が変更されました',
     usernameChangeFailed: 'ユーザー名の変更に失敗しました',
+    addressChangeFee: 'Lightningアドレス変更 ({{username}})',
     changingUsername: '変更中...',
 
     // Security

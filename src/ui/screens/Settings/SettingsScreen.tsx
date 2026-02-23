@@ -8,6 +8,7 @@ import { encodeNpub } from '@/services/crypto'
 import { normalizeRelayUrl, normalizeMintUrl } from '@/utils/url'
 import { satUnit } from '@/utils/format'
 import { restoreWallet, getBalances, recoverPendingQuotes, sendToken } from '@/coco'
+import { TransactionRepository } from '@/data/repositories/transaction.repository'
 import { LIMITS, ZAPPI_LINK_URL } from '@/core/constants'
 import { ProfileService } from '@/services/profile/profile.service'
 import { NostrService } from '@/services/nostr/nostr.service'
@@ -61,6 +62,7 @@ export function SettingsScreen({
   const setBalance = useAppStore((state) => state.setBalance)
   const balanceByMint = useAppStore((state) => state.balance.byMint)
   const updateAvailable = useAppStore((state) => state.updateAvailable)
+  const triggerTxRefresh = useAppStore((state) => state.triggerTxRefresh)
 
   const [showLanguageModal, setShowLanguageModal] = useState(false)
   const [currentLang, setCurrentLang] = useState(getCurrentLanguage())
@@ -263,6 +265,7 @@ export function SettingsScreen({
       const { addressFee, acceptedMints } = defaultsResult.value
 
       let cashuToken = ''
+      let feeMintUrl = ''
       if (addressFee > 0) {
         // 2. Find accepted mint with sufficient balance
         const balances = await getBalances()
@@ -277,6 +280,7 @@ export function SettingsScreen({
 
         // 3. Create Cashu token from selected mint
         cashuToken = await sendToken(mintUrl, addressFee)
+        feeMintUrl = mintUrl
       }
 
       // 4. Submit username change with payment
@@ -286,7 +290,24 @@ export function SettingsScreen({
         return
       }
 
-      // 5. Update settings + refresh balance
+      // 5. Record fee transaction so it appears in history
+      if (addressFee > 0 && feeMintUrl) {
+        const transactionRepo = new TransactionRepository()
+        await transactionRepo.create({
+          id: `tx-fee-${crypto.randomUUID()}`,
+          direction: 'send',
+          type: 'ecash',
+          amount: addressFee,
+          mintUrl: feeMintUrl,
+          status: 'completed',
+          createdAt: Date.now(),
+          completedAt: Date.now(),
+          memo: t('settings.addressChangeFee', { username }),
+        })
+        triggerTxRefresh()
+      }
+
+      // 6. Update settings + refresh balance
       await saveSettings({ lightningAddress: result.value.address })
       const newBalances = await getBalances()
       const newTotal = Object.values(newBalances).reduce((sum, b) => sum + b, 0)
@@ -296,7 +317,7 @@ export function SettingsScreen({
       console.error('[Settings] Username change error:', error)
       addToast({ type: 'error', message: t('settings.usernameChangeFailed') })
     }
-  }, [nostrPrivkey, settings.mints, zappiLinkService, saveSettings, setBalance, addToast, t])
+  }, [nostrPrivkey, settings.mints, zappiLinkService, saveSettings, setBalance, addToast, triggerTxRefresh, t])
 
   const walletBalance = useMemo(() => {
     return Object.values(balanceByMint).reduce((sum, b) => sum + b, 0)

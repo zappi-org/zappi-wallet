@@ -129,6 +129,7 @@ export default {
     insufficientBalance: '잔액이 부족합니다',
     usernameChanged: 'Username이 변경되었습니다',
     usernameChangeFailed: 'Username 변경에 실패했습니다',
+    addressChangeFee: 'Lightning 주소 변경 ({{username}})',
     changingUsername: '변경 중...',
 
     // Security

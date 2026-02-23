@@ -129,6 +129,7 @@ export default {
     insufficientBalance: 'Saldo tidak mencukupi',
     usernameChanged: 'Username berhasil diubah',
     usernameChangeFailed: 'Gagal mengubah username',
+    addressChangeFee: 'Perubahan alamat Lightning ({{username}})',
     changingUsername: 'Mengubah...',
 
     // Security

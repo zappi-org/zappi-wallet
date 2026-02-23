@@ -129,6 +129,7 @@ export default {
     insufficientBalance: 'Saldo insuficiente',
     usernameChanged: 'Usuario cambiado',
     usernameChangeFailed: 'Error al cambiar el usuario',
+    addressChangeFee: 'Cambio de dirección Lightning ({{username}})',
     changingUsername: 'Cambiando...',
 
     // Security
