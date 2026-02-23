@@ -298,6 +298,7 @@ export default {
 
     // Ecash Send
     ecashSend: 'Ecash送金',
+    memoPlaceholder: 'メモを入力 (任意)',
     createToken: 'トークンを作成',
     creatingToken: 'トークン作成中...',
     tokenCreated: 'トークンが作成されました',

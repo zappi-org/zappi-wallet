@@ -314,6 +314,7 @@ export default {
 
     // Ecash Send
     ecashSend: 'Kirim Ecash',
+    memoPlaceholder: 'Tambahkan catatan (opsional)',
     ecashToken: 'Token Ecash',
     createToken: 'Buat Token',
     creatingToken: 'Membuat token...',

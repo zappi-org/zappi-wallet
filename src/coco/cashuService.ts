@@ -99,7 +99,7 @@ export async function receiveToken(token: string): Promise<void> {
 export async function sendToken(
   mintUrl: string,
   amount: number,
-  options?: { p2pkPubkey?: string }
+  options?: { p2pkPubkey?: string; memo?: string }
 ): Promise<string> {
   const manager = await getCocoManager();
   const token = await manager.wallet.send(mintUrl, amount);
@@ -146,10 +146,10 @@ export async function sendToken(
       }
     }
 
-    return getEncodedToken({ mint: mintUrl, proofs: p2pkProofs });
+    return getEncodedToken({ mint: mintUrl, proofs: p2pkProofs, memo: options?.memo });
   }
 
-  return getEncodedToken(token);
+  return getEncodedToken({ ...token, memo: options?.memo });
 }
 
 /**

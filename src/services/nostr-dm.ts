@@ -76,6 +76,7 @@ export async function sendTokenViaDM(options: SendTokenDMOptions): Promise<DMSen
       mint: decoded.mint,
       unit: decoded.unit || 'sat',
       proofs: decoded.proofs,
+      ...(decoded.memo ? { memo: decoded.memo } : {}),
     }
     content = JSON.stringify(v4Token)
   } catch (err) {

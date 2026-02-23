@@ -507,7 +507,7 @@ export default function MainApp() {
     return true
   }, [services.payment, refreshBalance, addToast, services.transactionRepo, t])
 
-  const handleCreateEcashToken = useCallback(async (amount: number, preferredMintUrl?: string, options?: { p2pkPubkey?: string }): Promise<string | null> => {
+  const handleCreateEcashToken = useCallback(async (amount: number, preferredMintUrl?: string, options?: { p2pkPubkey?: string; memo?: string }): Promise<string | null> => {
     if (isSendingEcashRef.current) return null
     isSendingEcashRef.current = true
     try {
@@ -558,6 +558,7 @@ export default function MainApp() {
         status: 'completed',
         createdAt: Date.now(),
         completedAt: Date.now(),
+        memo: options?.memo,
       }
       await services.transactionRepo.save(tx)
       setTransactions((prev) => [tx, ...prev])

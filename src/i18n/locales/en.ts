@@ -338,6 +338,7 @@ export default {
 
     // Ecash Send
     ecashSend: 'Send Ecash',
+    memoPlaceholder: 'Add a note (optional)',
     ecashToken: 'Ecash Token',
     createToken: 'Create Token',
     creatingToken: 'Creating token...',

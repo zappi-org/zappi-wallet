@@ -338,6 +338,7 @@ export default {
 
     // Ecash Send
     ecashSend: 'Ecash 보내기',
+    memoPlaceholder: '메모를 입력하세요 (선택사항)',
     ecashToken: 'Ecash 토큰',
     createToken: '토큰 생성',
     creatingToken: '토큰 생성 중...',

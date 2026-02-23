@@ -20,7 +20,7 @@ import type { ValidatedCashuRequest } from '@/ui/components/scanner'
 export interface EcashSendScreenProps {
   onBack: () => void
   onComplete?: () => void
-  onCreateEcashToken: (amount: number, mintUrl?: string, options?: { p2pkPubkey?: string }) => Promise<string | null>
+  onCreateEcashToken: (amount: number, mintUrl?: string, options?: { p2pkPubkey?: string; memo?: string }) => Promise<string | null>
   onReceiveToken?: (token: string) => Promise<boolean | { success: boolean; amount?: number }>
   // Pre-filled data from scanner (NUT-18 request)
   validatedData?: ValidatedCashuRequest
@@ -51,6 +51,7 @@ export function EcashSendScreen({
   const [isCreating, setIsCreating] = useState(false)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string>('')
+  const [memo, setMemo] = useState<string>('')
   const [isReclaiming, setIsReclaiming] = useState(false)
   const [isTokenSpent, setIsTokenSpent] = useState(false)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -335,7 +336,7 @@ export function EcashSendScreen({
       const result = await sendTokenViaDM({
         recipientPubkey: nostrTarget,
         token: tokenToSend,
-        memo: validatedData?.parsed.description,
+        memo: memo.trim() || validatedData?.parsed.description,
         requestId: validatedData?.parsed.id,
         senderPrivkey: nostrPrivkey,
         relays,
@@ -356,7 +357,7 @@ export function EcashSendScreen({
     } finally {
       setIsSendingDM(false)
     }
-  }, [hasNostrTransport, nostrTarget, nostrPrivkey, settings?.relays, validatedData?.parsed.description, validatedData?.parsed.id, t])
+  }, [hasNostrTransport, nostrTarget, nostrPrivkey, settings?.relays, validatedData?.parsed.description, validatedData?.parsed.id, memo, t])
 
   // Create token
   const handleCreateToken = useCallback(async () => {
@@ -375,10 +376,11 @@ export function EcashSendScreen({
 
     try {
       const p2pkPubkey = validatedData?.parsed.p2pkPubkey
+      const trimmedMemo = memo.trim() || undefined
       const result = await onCreateEcashToken(
         numericAmount,
         selectedMintUrl,
-        p2pkPubkey ? { p2pkPubkey } : undefined
+        (p2pkPubkey || trimmedMemo) ? { p2pkPubkey, memo: trimmedMemo } : undefined
       )
       if (result) {
         setToken(result)
@@ -399,7 +401,7 @@ export function EcashSendScreen({
       isCreatingRef.current = false
       setIsCreating(false)
     }
-  }, [validationError, numericAmount, selectedMintUrl, onCreateEcashToken, hasNostrTransport, nostrTarget, sendTokenViaDMHandler, validatedData?.parsed.p2pkPubkey, t])
+  }, [validationError, numericAmount, selectedMintUrl, onCreateEcashToken, hasNostrTransport, nostrTarget, sendTokenViaDMHandler, validatedData?.parsed.p2pkPubkey, memo, t])
 
   // Copy token
   const handleCopy = useCallback(async () => {
@@ -490,6 +492,7 @@ export function EcashSendScreen({
   const handleReset = useCallback(() => {
     setToken('')
     setError('')
+    setMemo('')
     setIsTokenSpent(false)
     setDmSent(false)
     setDmError('')
@@ -564,6 +567,11 @@ export function EcashSendScreen({
                   </div>
                   <div className="text-center">
                     <p className="text-2xl font-bold">₿{numericAmount.toLocaleString()}</p>
+                    {memo.trim() && (
+                      <p className="text-sm text-foreground-muted mt-1 italic">
+                        &ldquo;{memo.trim()}&rdquo;
+                      </p>
+                    )}
                     <p className="text-sm text-foreground-muted mt-1">
                       {dmError ? t('errors.generic') : t('payment.tokenCreated')}
                     </p>
@@ -722,6 +730,20 @@ export function EcashSendScreen({
                   />
                 </div>
               )}
+            </div>
+
+            {/* Memo (optional) */}
+            <div>
+              <label className="text-xs font-semibold text-foreground-muted uppercase tracking-wide">{t('common.memo')}</label>
+              <input
+                type="text"
+                value={memo}
+                onChange={(e) => setMemo(e.target.value)}
+                placeholder={t('payment.memoPlaceholder')}
+                maxLength={150}
+                className="mt-1 w-full px-4 py-3 bg-background-card rounded-xl border border-border text-foreground focus:outline-none"
+                disabled={isCreating}
+              />
             </div>
 
             {/* Mint Selection */}
