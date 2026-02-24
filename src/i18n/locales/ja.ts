@@ -131,6 +131,12 @@ export default {
     usernameChangeFailed: 'ユーザー名の変更に失敗しました',
     addressChangeFee: 'Lightningアドレス変更 ({{username}})',
     changingUsername: '変更中...',
+    paymentMint: '支払いミント',
+    recommended: 'おすすめ',
+    additionalFeeWarning: 'このミントから支払う場合、少額の追加手数料が発生する場合があります',
+    swapFee: '手数料',
+    paymentFailed: '支払いに失敗しました。別のミントを選択してください',
+    noPayableMint: '変更手数料を支払えるだけの残高があるミントがありません',
 
     // Security
     security: 'セキュリティ',

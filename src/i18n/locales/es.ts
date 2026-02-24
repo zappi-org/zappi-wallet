@@ -131,6 +131,12 @@ export default {
     usernameChangeFailed: 'Error al cambiar el usuario',
     addressChangeFee: 'Cambio de dirección Lightning ({{username}})',
     changingUsername: 'Cambiando...',
+    paymentMint: 'Mint de pago',
+    recommended: 'Recomendado',
+    additionalFeeWarning: 'Puede aplicarse una pequeña tarifa adicional al pagar desde este mint',
+    swapFee: 'tarifa',
+    paymentFailed: 'Pago fallido. Seleccione otro mint',
+    noPayableMint: 'Ningún mint tiene saldo suficiente para cubrir la tarifa de cambio',
 
     // Security
     security: 'Seguridad',

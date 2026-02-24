@@ -1,15 +1,11 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { Monitor, Plus, Trash2, ChevronRight, Copy, Check, Zap, Pencil, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { useState, useCallback, useMemo } from 'react'
+import { Monitor, Plus, Trash2, ChevronRight, Copy, Check, Zap, Pencil } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useTranslation } from 'react-i18next'
 import { Button, Modal, PinInput } from '../../components/common'
 import { cn } from '@/components/ui/utils'
 import { derivePOSSubKey, getP2PKPubkey } from '@/services/crypto'
 import type { POSDevice, POSProvisioningPayload, WalletSettings } from '@/core/types'
-import type { ZappiLinkService, ServerDefaults } from '@/services/zappi-link/zappi-link.service'
-import { ZAPPI_LINK_DOMAIN } from '@/core/constants'
-
-const USERNAME_REGEX = /^[a-z0-9]{3,20}$/
 
 export interface POSProvisioningSectionProps {
   settings: WalletSettings
@@ -18,11 +14,9 @@ export interface POSProvisioningSectionProps {
   lightningAddress: string | undefined
   isRegistering: boolean
   onRegisterLightningAddress: () => void
-  onChangeUsername: (username: string) => Promise<void>
+  onOpenUsernameChange?: () => void
   onBackupMnemonic: (password: string) => Promise<string | null>
   onSaveSettings: (updates: Record<string, unknown>) => Promise<void>
-  zappiLinkService: ZappiLinkService
-  walletBalance: number
 }
 
 export function POSProvisioningSection({
@@ -32,101 +26,11 @@ export function POSProvisioningSection({
   lightningAddress,
   isRegistering,
   onRegisterLightningAddress,
-  onChangeUsername,
+  onOpenUsernameChange,
   onBackupMnemonic,
   onSaveSettings,
-  zappiLinkService,
-  walletBalance,
 }: POSProvisioningSectionProps) {
   const { t } = useTranslation()
-
-  // Username change modal state
-  const [showChangeModal, setShowChangeModal] = useState(false)
-  const [newUsername, setNewUsername] = useState('')
-  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
-  const [usernameError, setUsernameError] = useState('')
-  const [isCheckingUsername, setIsCheckingUsername] = useState(false)
-  const [isChanging, setIsChanging] = useState(false)
-  const [serverDefaults, setServerDefaults] = useState<ServerDefaults | null>(null)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Debounced username check
-  useEffect(() => {
-    if (!showChangeModal) return
-
-    // Reset state
-    setUsernameAvailable(null)
-    setUsernameError('')
-    if (!newUsername) return
-
-    // Client-side validation first
-    if (!USERNAME_REGEX.test(newUsername)) {
-      setUsernameError(t('settings.usernameInvalid'))
-      return
-    }
-
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-
-    debounceRef.current = setTimeout(async () => {
-      setIsCheckingUsername(true)
-      try {
-        const result = await zappiLinkService.checkUsername(newUsername)
-        if (result.isErr()) {
-          setUsernameError(t('settings.usernameChangeFailed'))
-          return
-        }
-
-        if (!result.value.available) {
-          setUsernameAvailable(false)
-          setUsernameError(result.value.reason === 'reserved'
-            ? t('settings.usernameInvalid')
-            : t('settings.usernameTaken'))
-          return
-        }
-
-        setUsernameAvailable(true)
-
-        // Fetch server defaults for fee info
-        if (!serverDefaults) {
-          const defaultsResult = await zappiLinkService.getDefaults()
-          if (defaultsResult.isOk()) {
-            setServerDefaults(defaultsResult.value)
-          } else {
-            setUsernameAvailable(false)
-            setUsernameError(t('settings.usernameChangeFailed'))
-          }
-        }
-      } finally {
-        setIsCheckingUsername(false)
-      }
-    }, 300)
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-    }
-  }, [newUsername, showChangeModal, serverDefaults, zappiLinkService, t])
-
-  const handleChangeConfirm = useCallback(async () => {
-    if (!usernameAvailable || isChanging) return
-    setIsChanging(true)
-    try {
-      await onChangeUsername(newUsername)
-      setShowChangeModal(false)
-      setNewUsername('')
-    } finally {
-      setIsChanging(false)
-    }
-  }, [usernameAvailable, isChanging, newUsername, onChangeUsername])
-
-  const resetChangeModal = useCallback(() => {
-    setShowChangeModal(false)
-    setNewUsername('')
-    setUsernameAvailable(null)
-    setUsernameError('')
-  }, [])
-
-  const addressFee = serverDefaults?.addressFee ?? 0
-  const canAfford = serverDefaults ? (addressFee === 0 || walletBalance >= addressFee) : false
 
   const [showAddModal, setShowAddModal] = useState(false)
   const [showQrModal, setShowQrModal] = useState(false)
@@ -274,7 +178,7 @@ export function POSProvisioningSection({
                 <Zap className="w-4 h-4 text-accent-primary shrink-0" />
                 <span className="text-xs font-bold text-foreground truncate">{lightningAddress}</span>
                 <button
-                  onClick={() => setShowChangeModal(true)}
+                  onClick={onOpenUsernameChange}
                   className="p-1 text-foreground-muted hover:text-accent-primary transition-colors shrink-0 ml-auto"
                 >
                   <Pencil className="w-3.5 h-3.5" />
@@ -445,104 +349,6 @@ export function POSProvisioningSection({
           >
             {t('settings.posProvisioningDone')}
           </Button>
-        </div>
-      </Modal>
-
-      {/* Change Username Modal */}
-      <Modal isOpen={showChangeModal} onClose={resetChangeModal} title={t('settings.changeUsername')}>
-        <div className="py-3 space-y-4">
-          {/* Current address */}
-          <div>
-            <label className="text-[10px] font-bold text-foreground-muted mb-1 block">{t('settings.currentAddress')}</label>
-            <div className="flex items-center gap-2 bg-white/60 p-2.5 rounded-xl border border-primary/10">
-              <Zap className="w-4 h-4 text-accent-primary shrink-0" />
-              <span className="text-xs font-bold text-foreground">{lightningAddress}</span>
-            </div>
-          </div>
-
-          {/* New username input */}
-          <div>
-            <label className="text-[10px] font-bold text-foreground-muted mb-1 block">{t('settings.newUsername')}</label>
-            <div className="flex items-center gap-1">
-              <input
-                type="text"
-                value={newUsername}
-                onChange={(e) => setNewUsername(e.target.value.toLowerCase())}
-                placeholder="username"
-                className="flex-1 p-2.5 rounded-xl border border-primary/10 bg-white/60 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                maxLength={20}
-              />
-              <span className="text-xs text-foreground-muted shrink-0">@{ZAPPI_LINK_DOMAIN}</span>
-            </div>
-
-            {/* Validation status */}
-            {newUsername && (
-              <div className="mt-1.5 ml-1 flex items-center gap-1.5">
-                {isCheckingUsername ? (
-                  <Loader2 className="w-3 h-3 text-foreground-muted animate-spin" />
-                ) : usernameAvailable ? (
-                  <>
-                    <CheckCircle2 className="w-3 h-3 text-accent-success" />
-                    <span className="text-[10px] text-accent-success font-bold">{t('settings.usernameAvailable')}</span>
-                  </>
-                ) : usernameError ? (
-                  <>
-                    <XCircle className="w-3 h-3 text-accent-danger" />
-                    <span className="text-[10px] text-accent-danger font-bold">{usernameError}</span>
-                  </>
-                ) : null}
-              </div>
-            )}
-          </div>
-
-          {/* Fee info — hide while changing to prevent flash when balance drops */}
-          {serverDefaults && addressFee > 0 && !isChanging && (
-            <div className="bg-white/60 p-3 rounded-xl border border-primary/10 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-foreground-muted">{t('settings.changeFee')}</span>
-                <span className="text-xs font-bold">+{addressFee.toLocaleString()} sats</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-foreground-muted">{t('common.balance')}</span>
-                <span className={cn(
-                  'text-xs font-bold',
-                  canAfford ? 'text-foreground' : 'text-accent-danger'
-                )}>
-                  {walletBalance.toLocaleString()} sats
-                </span>
-              </div>
-              {!canAfford && (
-                <p className="text-[10px] text-accent-danger font-bold mt-1">{t('settings.insufficientBalance')}</p>
-              )}
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex gap-2">
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={resetChangeModal}
-              className="flex-1"
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button
-              variant="primary"
-              size="lg"
-              onClick={handleChangeConfirm}
-              loading={isChanging}
-              disabled={!usernameAvailable || (!isChanging && !canAfford) || isCheckingUsername}
-              className="flex-1"
-            >
-              {isChanging
-                ? t('settings.changingUsername')
-                : addressFee > 0
-                  ? `${t('settings.changeUsername')} (${addressFee} sat)`
-                  : t('settings.changeUsername')
-              }
-            </Button>
-          </div>
         </div>
       </Modal>
 

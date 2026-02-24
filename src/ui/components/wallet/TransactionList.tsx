@@ -133,7 +133,7 @@ export function TransactionList({
           let subtitle: string;
           let amountColor: string;
 
-          if (isSwap) {
+          if (isSwap && !tx.memo) {
             title = t('history.swap');
             subtitle = "";
             amountColor = "text-foreground-muted";

@@ -81,11 +81,11 @@ const TransactionItem = memo(function TransactionItem({
 
   // Generate title
   const getTitle = () => {
-    if (isSwap) {
-      return t('history.swap')
-    }
     if (transaction.memo) {
       return transaction.memo
+    }
+    if (isSwap) {
+      return t('history.swap')
     }
     if (transaction.type === 'lightning') {
       return isReceive ? t('history.lightningReceive') : t('history.lightningSend')

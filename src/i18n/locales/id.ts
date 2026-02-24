@@ -131,6 +131,12 @@ export default {
     usernameChangeFailed: 'Gagal mengubah username',
     addressChangeFee: 'Perubahan alamat Lightning ({{username}})',
     changingUsername: 'Mengubah...',
+    paymentMint: 'Mint Pembayaran',
+    recommended: 'Direkomendasikan',
+    additionalFeeWarning: 'Biaya tambahan kecil mungkin berlaku saat membayar dari mint ini',
+    swapFee: 'biaya',
+    paymentFailed: 'Pembayaran gagal. Silakan pilih mint lain',
+    noPayableMint: 'Tidak ada mint yang memiliki saldo cukup untuk biaya perubahan',
 
     // Security
     security: 'Keamanan',

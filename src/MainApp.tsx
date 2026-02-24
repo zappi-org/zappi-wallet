@@ -33,6 +33,7 @@ const LightningReceiveScreen = lazy(() => import('@/ui/screens/UnifiedPayment/Li
 const EcashSendScreen = lazy(() => import('@/ui/screens/UnifiedPayment/EcashSendScreen'))
 const EcashReceiveScreen = lazy(() => import('@/ui/screens/UnifiedPayment/EcashReceiveScreen'))
 const TokenReceiveScreen = lazy(() => import('@/ui/screens/UnifiedPayment/TokenReceiveScreen'))
+const UsernameChangeScreen = lazy(() => import('@/ui/screens/Settings/UsernameChangeScreen'))
 import type { ValidatedData } from '@/ui/components/scanner'
 import { ToastContainer } from '@/ui/components'
 import { MintDetailsModal } from '@/ui/components/modals/MintDetailsModal'
@@ -52,7 +53,7 @@ import { resetWalletCache } from '@/data/cache/wallet-cache'
 import type { Transaction } from '@/core/types'
 import { satUnit } from '@/utils/format'
 
-type Screen = 'home' | 'settings' | 'history' | 'receive' | 'send' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'amount-action' | 'lightning-send' | 'lightning-receive' | 'ecash-send' | 'ecash-receive' | 'token-receive'
+type Screen = 'home' | 'settings' | 'history' | 'receive' | 'send' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'amount-action' | 'lightning-send' | 'lightning-receive' | 'ecash-send' | 'ecash-receive' | 'token-receive' | 'username-change'
 
 export default function MainApp() {
   const { t } = useTranslation()
@@ -780,6 +781,17 @@ export default function MainApp() {
             setPreviousScreen('settings')
             setCurrentScreen('add-mint')
           }}
+          onChangeUsername={() => {
+            setPreviousScreen('settings')
+            setCurrentScreen('username-change')
+          }}
+        />
+      )}
+
+      {currentScreen === 'username-change' && (
+        <UsernameChangeScreen
+          onBack={handleBack}
+          onSaveSettings={handleSaveSettings}
         />
       )}
 

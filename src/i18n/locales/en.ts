@@ -131,6 +131,12 @@ export default {
     usernameChangeFailed: 'Failed to change username',
     addressChangeFee: 'Lightning address change ({{username}})',
     changingUsername: 'Changing...',
+    paymentMint: 'Payment Mint',
+    recommended: 'Recommended',
+    additionalFeeWarning: 'A small additional fee may apply when paying from this mint',
+    swapFee: 'fee',
+    paymentFailed: 'Payment failed. Please select a different mint',
+    noPayableMint: 'No mint has sufficient balance to cover the change fee',
 
     // Security
     security: 'Security',

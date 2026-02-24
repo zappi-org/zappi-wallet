@@ -131,6 +131,12 @@ export default {
     usernameChangeFailed: 'Username 변경에 실패했습니다',
     addressChangeFee: 'Lightning 주소 변경 ({{username}})',
     changingUsername: '변경 중...',
+    paymentMint: '결제 민트',
+    recommended: '추천',
+    additionalFeeWarning: '이 민트로 결제 시 소액의 추가 수수료가 발생할 수 있습니다',
+    swapFee: '수수료',
+    paymentFailed: '결제에 실패했습니다. 다른 민트를 선택해주세요',
+    noPayableMint: '변경 비용을 결제할 수 있는 잔액이 충분한 민트가 없습니다',
 
     // Security
     security: '보안',

@@ -5,10 +5,9 @@ import { useTranslation } from 'react-i18next'
 import { Button, Modal, BottomSheet, PinInput } from '../../components/common'
 import { useAppStore } from '@/store'
 import { encodeNpub } from '@/services/crypto'
-import { normalizeRelayUrl, normalizeMintUrl } from '@/utils/url'
+import { normalizeRelayUrl } from '@/utils/url'
 import { satUnit } from '@/utils/format'
-import { restoreWallet, getBalances, recoverPendingQuotes, sendToken } from '@/coco'
-import { TransactionRepository } from '@/data/repositories/transaction.repository'
+import { restoreWallet, getBalances, recoverPendingQuotes } from '@/coco'
 import { LIMITS, ZAPPI_LINK_URL } from '@/core/constants'
 import { ProfileService } from '@/services/profile/profile.service'
 import { NostrService } from '@/services/nostr/nostr.service'
@@ -43,6 +42,7 @@ export interface SettingsScreenProps {
   onVerifyPin: (pin: string) => Promise<boolean>
   onSaveSettings: (settings: Record<string, unknown>) => Promise<void>
   onAddMint?: () => void
+  onChangeUsername?: () => void
 }
 
 export function SettingsScreen({
@@ -53,6 +53,7 @@ export function SettingsScreen({
   onVerifyPin,
   onSaveSettings,
   onAddMint,
+  onChangeUsername,
 }: SettingsScreenProps) {
   const { t } = useTranslation()
   const settings = useAppStore((state) => state.settings)
@@ -64,7 +65,6 @@ export function SettingsScreen({
   const setBalance = useAppStore((state) => state.setBalance)
   const balanceByMint = useAppStore((state) => state.balance.byMint)
   const updateAvailable = useAppStore((state) => state.updateAvailable)
-  const triggerTxRefresh = useAppStore((state) => state.triggerTxRefresh)
 
   const [showLanguageModal, setShowLanguageModal] = useState(false)
   const [currentLang, setCurrentLang] = useState(getCurrentLanguage())
@@ -277,78 +277,6 @@ export function SettingsScreen({
       setIsRegistering(false)
     }
   }, [nostrPrivkey, p2pkPubkey, settings.mints, settings.relays, services.profile, zappiLinkService, saveSettings, addToast, t])
-
-  const handleChangeUsername = useCallback(async (username: string) => {
-    if (!nostrPrivkey) return
-
-    try {
-      // 1. Get fee and accepted mints from server defaults
-      const defaultsResult = await zappiLinkService.getDefaults()
-      if (defaultsResult.isErr()) {
-        addToast({ type: 'error', message: t('settings.usernameChangeFailed') })
-        return
-      }
-
-      const { addressFee, acceptedMints } = defaultsResult.value
-
-      let cashuToken = ''
-      let feeMintUrl = ''
-      if (addressFee > 0) {
-        // 2. Find accepted mint with sufficient balance
-        const balances = await getBalances()
-        const mintUrl = settings.mints.find(m =>
-          acceptedMints.some(am => normalizeMintUrl(am) === normalizeMintUrl(m))
-          && (balances[m] ?? 0) >= addressFee
-        )
-        if (!mintUrl) {
-          addToast({ type: 'error', message: t('settings.insufficientBalance') })
-          return
-        }
-
-        // 3. Create Cashu token from selected mint
-        cashuToken = await sendToken(mintUrl, addressFee)
-        feeMintUrl = mintUrl
-      }
-
-      // 4. Submit username change with payment
-      const result = await zappiLinkService.changeUsername(nostrPrivkey, username, cashuToken)
-      if (result.isErr()) {
-        addToast({ type: 'error', message: t('settings.usernameChangeFailed') })
-        return
-      }
-
-      // 5. Record fee transaction so it appears in history
-      if (addressFee > 0 && feeMintUrl) {
-        const transactionRepo = new TransactionRepository()
-        await transactionRepo.create({
-          id: `tx-fee-${crypto.randomUUID()}`,
-          direction: 'send',
-          type: 'ecash',
-          amount: addressFee,
-          mintUrl: feeMintUrl,
-          status: 'completed',
-          createdAt: Date.now(),
-          completedAt: Date.now(),
-          memo: t('settings.addressChangeFee', { username }),
-        })
-        triggerTxRefresh()
-      }
-
-      // 6. Update settings + refresh balance
-      await saveSettings({ lightningAddress: result.value.address })
-      const newBalances = await getBalances()
-      const newTotal = Object.values(newBalances).reduce((sum, b) => sum + b, 0)
-      setBalance({ total: newTotal, byMint: newBalances })
-      addToast({ type: 'success', message: t('settings.usernameChanged') })
-    } catch (error) {
-      console.error('[Settings] Username change error:', error)
-      addToast({ type: 'error', message: t('settings.usernameChangeFailed') })
-    }
-  }, [nostrPrivkey, settings.mints, zappiLinkService, saveSettings, setBalance, addToast, triggerTxRefresh, t])
-
-  const walletBalance = useMemo(() => {
-    return Object.values(balanceByMint).reduce((sum, b) => sum + b, 0)
-  }, [balanceByMint])
 
   const handleAutoLockToggle = useCallback(async (enabled: boolean) => {
     setAutoLockEnabled(enabled)
@@ -685,11 +613,9 @@ export function SettingsScreen({
           lightningAddress={settings.lightningAddress}
           isRegistering={isRegistering}
           onRegisterLightningAddress={handleRegisterLightningAddress}
-          onChangeUsername={handleChangeUsername}
+          onOpenUsernameChange={onChangeUsername}
           onBackupMnemonic={onBackupMnemonic}
           onSaveSettings={saveSettings}
-          zappiLinkService={zappiLinkService}
-          walletBalance={walletBalance}
         />
 
         {/* Logout Section */}
