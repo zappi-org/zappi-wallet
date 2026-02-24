@@ -40,6 +40,7 @@ export interface SettingsScreenProps {
   onChangePassword: (oldPassword: string, newPassword: string) => Promise<boolean>
   onBackupMnemonic: (password: string) => Promise<string | null>
   onLogout: (password: string) => Promise<boolean>
+  onVerifyPin: (pin: string) => Promise<boolean>
   onSaveSettings: (settings: Record<string, unknown>) => Promise<void>
   onAddMint?: () => void
 }
@@ -49,6 +50,7 @@ export function SettingsScreen({
   onChangePassword,
   onBackupMnemonic,
   onLogout,
+  onVerifyPin,
   onSaveSettings,
   onAddMint,
 }: SettingsScreenProps) {
@@ -87,6 +89,7 @@ export function SettingsScreen({
   const [newPin, setNewPin] = useState('')
   const [confirmPin, setConfirmPin] = useState('')
   const [pinError, setPinError] = useState('')
+  const [isVerifyingPin, setIsVerifyingPin] = useState(false)
   const [isChangingPin, setIsChangingPin] = useState(false)
 
   const [backupPin, setBackupPin] = useState('')
@@ -117,9 +120,11 @@ export function SettingsScreen({
   const [passkeySupported, setPasskeySupported] = useState(false)
   const [passkeyEnabled, setPasskeyEnabled] = useState(false)
   const [showPasskeyModal, setShowPasskeyModal] = useState(false)
+  const [showPasskeyRemoveModal, setShowPasskeyRemoveModal] = useState(false)
   const [passkeyPin, setPasskeyPin] = useState('')
   const [passkeyError, setPasskeyError] = useState('')
   const [isRegisteringPasskey, setIsRegisteringPasskey] = useState(false)
+  const [isRemovingPasskey, setIsRemovingPasskey] = useState(false)
 
   useEffect(() => {
     setPasskeySupported(isPasskeySupported())
@@ -138,12 +143,11 @@ export function SettingsScreen({
   const handlePasskeyToggle = useCallback((enabled: boolean) => {
     if (enabled) {
       setShowPasskeyModal(true)
-      setPasskeyPin('')
-      setPasskeyError('')
     } else {
-      removePasskey()
-      setPasskeyEnabled(false)
+      setShowPasskeyRemoveModal(true)
     }
+    setPasskeyPin('')
+    setPasskeyError('')
   }, [])
 
   const handlePasskeyPinChange = useCallback((value: string) => {
@@ -152,7 +156,7 @@ export function SettingsScreen({
   }, [])
 
   const handlePasskeyRegister = useCallback(async () => {
-    if (passkeyPin.length < 1) return
+    if (passkeyPin.length !== 6) return
     setIsRegisteringPasskey(true)
     setPasskeyError('')
     try {
@@ -175,8 +179,31 @@ export function SettingsScreen({
     }
   }, [passkeyPin, t])
 
+  const handlePasskeyRemove = useCallback(async () => {
+    if (passkeyPin.length !== 6) return
+    setIsRemovingPasskey(true)
+    setPasskeyError('')
+    try {
+      const valid = await onVerifyPin(passkeyPin)
+      if (valid) {
+        removePasskey()
+        setPasskeyEnabled(false)
+        setShowPasskeyRemoveModal(false)
+        setPasskeyPin('')
+      } else {
+        setPasskeyError(t('settings.wrongPin'))
+        setPasskeyPin('')
+      }
+    } catch {
+      setPasskeyError(t('lock.errorOccurred'))
+    } finally {
+      setIsRemovingPasskey(false)
+    }
+  }, [passkeyPin, onVerifyPin, t])
+
   const resetPasskeyModal = useCallback(() => {
     setShowPasskeyModal(false)
+    setShowPasskeyRemoveModal(false)
     setPasskeyPin('')
     setPasskeyError('')
   }, [])
@@ -463,9 +490,24 @@ export function SettingsScreen({
     setPinError('')
   }, [])
 
-  const handleCurrentPinSubmit = useCallback(() => {
-    if (currentPin.length >= 1) setPinChangeStep('new')
-  }, [currentPin.length])
+  const handleCurrentPinSubmit = useCallback(async () => {
+    if (currentPin.length !== 6) return
+    setIsVerifyingPin(true)
+    setPinError('')
+    try {
+      const valid = await onVerifyPin(currentPin)
+      if (valid) {
+        setPinChangeStep('new')
+      } else {
+        setPinError(t('settings.wrongPin'))
+        setCurrentPin('')
+      }
+    } catch {
+      setPinError(t('lock.errorOccurred'))
+    } finally {
+      setIsVerifyingPin(false)
+    }
+  }, [currentPin, onVerifyPin, t])
 
   const handleBackupPinChange = useCallback((value: string) => {
     setBackupPin(value)
@@ -473,7 +515,7 @@ export function SettingsScreen({
   }, [])
 
   const handleBackupMnemonic = useCallback(async () => {
-    if (backupPin.length < 1) return
+    if (backupPin.length !== 6) return
     setIsLoadingBackup(true)
     setBackupError('')
     try {
@@ -497,7 +539,7 @@ export function SettingsScreen({
   }, [])
 
   const handleLogout = useCallback(async () => {
-    if (logoutPin.length < 1) return
+    if (logoutPin.length !== 6) return
     setIsLoggingOut(true)
     setLogoutError('')
     try {
@@ -682,6 +724,7 @@ export function SettingsScreen({
         newPin={newPin}
         confirmPin={confirmPin}
         pinError={pinError}
+        isVerifyingPin={isVerifyingPin}
         isChangingPin={isChangingPin}
         onCurrentPinChange={handleCurrentPinChange}
         onNewPinChange={handleNewPinChange}
@@ -695,8 +738,8 @@ export function SettingsScreen({
       <Modal isOpen={showBackupModal} onClose={resetBackupModal} title={t('settings.mnemonicBackup')}>
         {!mnemonic ? (
           <div className="py-3">
-            <PinInput value={backupPin} onChange={handleBackupPinChange} length={10} label={t('settings.enterPinLabel')} error={backupError} />
-            <Button variant="primary" size="lg" onClick={handleBackupMnemonic} loading={isLoadingBackup} disabled={backupPin.length < 1} className="w-full mt-4">
+            <PinInput value={backupPin} onChange={handleBackupPinChange} label={t('settings.enterPinLabel')} error={backupError} />
+            <Button variant="primary" size="lg" onClick={handleBackupMnemonic} loading={isLoadingBackup} disabled={backupPin.length !== 6} className="w-full mt-4">
               {t('common.confirm')}
             </Button>
           </div>
@@ -738,7 +781,7 @@ export function SettingsScreen({
               {t('settings.logoutWarning')}
             </p>
           </div>
-          <PinInput value={logoutPin} onChange={handleLogoutPinChange} length={10} label={t('settings.enterPinLabel')} error={logoutError} />
+          <PinInput value={logoutPin} onChange={handleLogoutPinChange} label={t('settings.enterPinLabel')} error={logoutError} />
           <div className="flex gap-2 mt-4">
             <Button
               variant="secondary"
@@ -750,10 +793,10 @@ export function SettingsScreen({
             </Button>
             <button
               onClick={handleLogout}
-              disabled={logoutPin.length < 1 || isLoggingOut}
+              disabled={logoutPin.length !== 6 || isLoggingOut}
               className={cn(
                 'flex-1 p-2 rounded-xl font-bold transition-colors shadow-lg',
-                logoutPin.length < 1 || isLoggingOut
+                logoutPin.length !== 6 || isLoggingOut
                   ? 'bg-accent-danger/50 text-white/50 cursor-not-allowed'
                   : 'bg-accent-danger text-white hover:bg-accent-danger-hover shadow-accent-danger/30'
               )}
@@ -770,9 +813,22 @@ export function SettingsScreen({
           <p className="text-xs text-foreground-muted text-center mb-3">
             {t('settings.passkeyDescription')}
           </p>
-          <PinInput value={passkeyPin} onChange={handlePasskeyPinChange} length={10} label={t('settings.enterPinLabel')} error={passkeyError} />
-          <Button variant="primary" size="lg" onClick={handlePasskeyRegister} loading={isRegisteringPasskey} disabled={passkeyPin.length < 1} className="w-full mt-4">
+          <PinInput value={passkeyPin} onChange={handlePasskeyPinChange} label={t('settings.enterPinLabel')} error={passkeyError} />
+          <Button variant="primary" size="lg" onClick={handlePasskeyRegister} loading={isRegisteringPasskey} disabled={passkeyPin.length !== 6} className="w-full mt-4">
             {t('settings.register')}
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Passkey Remove Modal */}
+      <Modal isOpen={showPasskeyRemoveModal} onClose={resetPasskeyModal} title={t('settings.passkeyRemove')}>
+        <div className="py-3">
+          <p className="text-xs text-foreground-muted text-center mb-3">
+            {t('settings.passkeyRemoveDescription')}
+          </p>
+          <PinInput value={passkeyPin} onChange={handlePasskeyPinChange} label={t('settings.enterPinLabel')} error={passkeyError} />
+          <Button variant="destructive" size="lg" onClick={handlePasskeyRemove} loading={isRemovingPasskey} disabled={passkeyPin.length !== 6} className="w-full mt-4">
+            {t('settings.remove')}
           </Button>
         </div>
       </Modal>

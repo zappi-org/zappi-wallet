@@ -579,6 +579,11 @@ export default function MainApp() {
     return result.isOk()
   }, [services.security])
 
+  const handleVerifyPin = useCallback(async (pin: string): Promise<boolean> => {
+    const result = await services.security.verifyPassword(pin)
+    return result.isOk() && result.value
+  }, [services.security])
+
   const handleBackupMnemonic = useCallback(async (password: string): Promise<string | null> => {
     const result = await services.security.getMnemonic(password)
     if (result.isOk()) {
@@ -769,6 +774,7 @@ export default function MainApp() {
           onChangePassword={handleChangePassword}
           onBackupMnemonic={handleBackupMnemonic}
           onLogout={handleLogout}
+          onVerifyPin={handleVerifyPin}
           onSaveSettings={handleSaveSettings}
           onAddMint={() => {
             setPreviousScreen('settings')

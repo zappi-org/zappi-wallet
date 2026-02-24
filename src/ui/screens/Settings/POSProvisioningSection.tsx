@@ -152,7 +152,7 @@ export function POSProvisioningSection({
   }, [settings.lightningAddress, settings.zappiLinkApiUrl])
 
   const handleAddDevice = useCallback(async () => {
-    if (pin.length < 1) return
+    if (pin.length !== 6) return
     setIsLoading(true)
     setPinError('')
 
@@ -388,7 +388,6 @@ export function POSProvisioningSection({
           <PinInput
             value={pin}
             onChange={(v) => { setPin(v); setPinError('') }}
-            length={10}
             label={t('settings.enterPinLabel')}
             error={pinError}
           />
@@ -398,7 +397,7 @@ export function POSProvisioningSection({
             size="lg"
             onClick={handleAddDevice}
             loading={isLoading}
-            disabled={pin.length < 1}
+            disabled={pin.length !== 6}
             className="w-full"
           >
             {t('settings.addPosDevice')}

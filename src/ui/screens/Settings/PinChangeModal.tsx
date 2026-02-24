@@ -10,6 +10,7 @@ export interface PinChangeModalProps {
   newPin: string
   confirmPin: string
   pinError: string
+  isVerifyingPin: boolean
   isChangingPin: boolean
   onCurrentPinChange: (value: string) => void
   onNewPinChange: (value: string) => void
@@ -26,6 +27,7 @@ export function PinChangeModal({
   newPin,
   confirmPin,
   pinError,
+  isVerifyingPin,
   isChangingPin,
   onCurrentPinChange,
   onNewPinChange,
@@ -41,8 +43,8 @@ export function PinChangeModal({
       <div className="py-3">
         {step === 'current' && (
           <>
-            <PinInput value={currentPin} onChange={onCurrentPinChange} length={10} label={t('settings.currentPinLabel')} error={pinError} />
-            <Button variant="primary" size="lg" onClick={onCurrentPinSubmit} disabled={currentPin.length < 1} className="w-full mt-6">
+            <PinInput value={currentPin} onChange={onCurrentPinChange} label={t('settings.currentPinLabel')} error={pinError} />
+            <Button variant="primary" size="lg" onClick={onCurrentPinSubmit} loading={isVerifyingPin} disabled={currentPin.length !== 6} className="w-full mt-6">
               {t('common.next')}
             </Button>
           </>

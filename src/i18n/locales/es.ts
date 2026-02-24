@@ -200,6 +200,10 @@ export default {
     register: 'Registrar',
     passkeyRegisterFailed: 'Error al registrar Passkey.',
     passkeyPRFNotSupported: 'Este dispositivo no admite cifrado biométrico seguro (PRF).',
+    passkeyRemove: 'Eliminar Face ID / Touch ID',
+    passkeyRemoveDescription: 'Ingresa tu PIN para eliminar autenticación biométrica',
+    remove: 'Eliminar',
+    wrongPin: 'PIN incorrecto',
 
     // Mint Delete
     deleteMint: 'Eliminar Mint',

@@ -60,25 +60,16 @@ export function PinInput({
         <p className="text-muted-foreground mb-4">{label}</p>
       )}
 
-      {/* PIN Dots - dynamic display */}
+      {/* PIN Dots - fixed display */}
       <div className="flex gap-3 mb-6 min-h-[16px]">
-        {value.length > 0 ? (
-          // Show filled dots for entered digits
-          [...Array(Math.min(value.length, 10))].map((_, i) => (
-            <div
-              key={i}
-              className="w-4 h-4 rounded-full bg-primary scale-110 transition-all"
-            />
-          ))
-        ) : (
-          // Show placeholder dots (6 by default, or specified length up to 6)
-          [...Array(Math.min(length, 6))].map((_, i) => (
-            <div
-              key={i}
-              className="w-4 h-4 rounded-full bg-muted transition-all"
-            />
-          ))
-        )}
+        {[...Array(length)].map((_, i) => (
+          <div
+            key={i}
+            className={`w-4 h-4 rounded-full transition-all ${
+              i < value.length ? 'bg-primary scale-110' : 'bg-muted'
+            }`}
+          />
+        ))}
       </div>
 
       {/* Error Message */}

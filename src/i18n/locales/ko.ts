@@ -200,6 +200,10 @@ export default {
     register: '등록하기',
     passkeyRegisterFailed: 'Passkey 등록에 실패했습니다.',
     passkeyPRFNotSupported: '이 기기는 안전한 생체인증 암호화(PRF)를 지원하지 않습니다.',
+    passkeyRemove: 'Face ID / Touch ID 해제',
+    passkeyRemoveDescription: '생체인증 해제를 위해 PIN을 입력하세요',
+    remove: '해제하기',
+    wrongPin: 'PIN이 틀렸습니다',
 
     // Mint Delete
     deleteMint: '민트 삭제',

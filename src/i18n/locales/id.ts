@@ -200,6 +200,10 @@ export default {
     register: 'Daftar',
     passkeyRegisterFailed: 'Pendaftaran Passkey gagal.',
     passkeyPRFNotSupported: 'Perangkat ini tidak mendukung enkripsi biometrik aman (PRF).',
+    passkeyRemove: 'Hapus Face ID / Touch ID',
+    passkeyRemoveDescription: 'Masukkan PIN untuk menghapus autentikasi biometrik',
+    remove: 'Hapus',
+    wrongPin: 'PIN salah',
 
     // Mint Delete
     deleteMint: 'Hapus Mint',
