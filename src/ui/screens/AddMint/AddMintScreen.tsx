@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 
 import { ArrowLeft, Plus, Search, Check, AlertCircle, Globe, TrendingUp, X, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -75,7 +75,10 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
   const mints = settings.mints
   const setBalance = useAppStore((s) => s.setBalance)
 
-  const isAtLimit = mints.length >= LIMITS.MAX_MINTS
+  // Freeze the displayed count during add process to prevent premature badge/limit update
+  const mintCountBeforeAdd = useRef(mints.length)
+  const displayMintCount = isAdding ? mintCountBeforeAdd.current : mints.length
+  const isAtLimit = displayMintCount >= LIMITS.MAX_MINTS
 
   const progressMessages: Record<Exclude<ProgressStep, null>, string> = {
     validating: t('addMint.validating'),
@@ -101,6 +104,7 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
       return
     }
 
+    mintCountBeforeAdd.current = mints.length
     setIsAdding(true)
     setError(null)
     setProgressStep('validating')
@@ -227,7 +231,7 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
             ? "bg-accent-danger/20 text-accent-danger"
             : "bg-primary/10 text-foreground-muted"
         )}>
-          {mints.length}/{LIMITS.MAX_MINTS}
+          {displayMintCount}/{LIMITS.MAX_MINTS}
         </span>
       </header>
 

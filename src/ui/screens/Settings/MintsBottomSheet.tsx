@@ -1,5 +1,5 @@
 import { Plus, ChevronRight } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { BottomSheet, Modal, Button } from '../../components/common'
 import { cn } from '@/components/ui/utils'
 import { satUnit } from '@/utils/format'
@@ -126,7 +126,13 @@ export function MintsBottomSheet({
               const url = mintToDelete || ''
               const normalizedUrl = url.endsWith('/') ? url.slice(0, -1) : url
               const balance = balanceByMint[normalizedUrl] || balanceByMint[url] || 0
-              return t('settings.mintHasBalance', { balance: balance.toLocaleString(), unit: satUnit(balance) })
+              return (
+                <Trans
+                  i18nKey="settings.mintHasBalance"
+                  values={{ balance: balance.toLocaleString(), unit: satUnit(balance) }}
+                  components={{ bold: <strong className="font-bold text-foreground" /> }}
+                />
+              )
             })()}
           </p>
           <p className="text-xs text-accent-danger font-bold">{t('settings.deleteWarning')}</p>
