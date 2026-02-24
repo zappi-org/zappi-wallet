@@ -203,7 +203,6 @@ export default {
     passkeyRemove: 'Hapus Face ID / Touch ID',
     passkeyRemoveDescription: 'Masukkan PIN untuk menghapus autentikasi biometrik',
     remove: 'Hapus',
-    wrongPin: 'PIN salah',
 
     // Mint Delete
     deleteMint: 'Hapus Mint',

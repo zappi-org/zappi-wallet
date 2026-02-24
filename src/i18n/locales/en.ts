@@ -203,7 +203,6 @@ export default {
     passkeyRemove: 'Remove Face ID / Touch ID',
     passkeyRemoveDescription: 'Enter your PIN to remove biometric authentication',
     remove: 'Remove',
-    wrongPin: 'Incorrect PIN',
 
     // Mint Delete
     deleteMint: 'Delete Mint',

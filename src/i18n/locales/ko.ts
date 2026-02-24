@@ -203,7 +203,6 @@ export default {
     passkeyRemove: 'Face ID / Touch ID 해제',
     passkeyRemoveDescription: '생체인증 해제를 위해 PIN을 입력하세요',
     remove: '해제하기',
-    wrongPin: 'PIN이 틀렸습니다',
 
     // Mint Delete
     deleteMint: '민트 삭제',

@@ -203,7 +203,6 @@ export default {
     passkeyRemove: 'Face ID / Touch IDの解除',
     passkeyRemoveDescription: '生体認証を解除するにはPINを入力してください',
     remove: '解除',
-    wrongPin: 'PINが間違っています',
 
     // Mint Delete
     deleteMint: 'ミントを削除',
