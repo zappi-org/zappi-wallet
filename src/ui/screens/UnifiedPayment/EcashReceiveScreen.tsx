@@ -266,7 +266,6 @@ export function EcashReceiveScreen({
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold">₿{numericAmount.toLocaleString()}</p>
-                <p className="text-sm text-foreground-muted mt-1">Payment Request (Nostr)</p>
               </div>
 
               {/* Listening indicator */}
@@ -298,11 +297,6 @@ export function EcashReceiveScreen({
                   )}
                 </button>
               </div>
-
-              {/* Info text */}
-              <p className="text-xs text-foreground-muted text-center px-4">
-                {t('payment.willSendViaNostrDm')}
-              </p>
             </div>
 
             <button
