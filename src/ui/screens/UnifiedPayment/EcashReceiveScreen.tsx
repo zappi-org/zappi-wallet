@@ -314,7 +314,14 @@ export function EcashReceiveScreen({
             {userNpub && (
               <div className="px-4 py-3 bg-background-card rounded-xl border border-border">
                 <p className="text-xs text-foreground-muted uppercase tracking-wide mb-1">{t('payment.recipient')} (Nostr)</p>
-                <p className="text-sm font-mono text-foreground truncate">{userNpub}</p>
+                <p className="text-sm font-mono text-foreground">
+                  <span className="text-foreground-muted">npub1</span>
+                  <span className="text-accent-primary">{userNpub.slice(5, 9)}</span>
+                  <span className="text-foreground-muted/50">...</span>
+                  <span className="text-foreground">{userNpub.slice(Math.floor(userNpub.length / 2) - 2, Math.floor(userNpub.length / 2) + 2)}</span>
+                  <span className="text-foreground-muted/50">...</span>
+                  <span className="text-accent-warning">{userNpub.slice(-4)}</span>
+                </p>
               </div>
             )}
 
