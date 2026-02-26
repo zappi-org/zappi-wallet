@@ -81,11 +81,11 @@ export function createNostrPaymentRequest(options: {
   nostrTarget: string  // npub or nprofile (nprofile recommended for relay hints)
   description?: string
   singleUse?: boolean
+  idPrefix?: string    // e.g. 'wallet'
 }): { request: string; id: string } {
-  const { amount, mints, nostrTarget, description, singleUse = true } = options
+  const { amount, mints, nostrTarget, description, singleUse = true, idPrefix } = options
 
-  // Generate random ID
-  const id = generateRequestId()
+  const id = generateRequestId(idPrefix)
 
   const paymentRequest: PaymentRequest = {
     id,
@@ -276,9 +276,10 @@ export function getNostrTarget(request: PaymentRequest): string | null {
 
 // ============= Utilities =============
 
-function generateRequestId(): string {
+export function generateRequestId(prefix?: string): string {
   const bytes = crypto.getRandomValues(new Uint8Array(6))
-  return Array.from(bytes, (b) => b.toString(36).padStart(2, '0')).join('').slice(0, 10)
+  const random = Array.from(bytes, (b) => b.toString(36).padStart(2, '0')).join('').slice(0, 10)
+  return prefix ? `${prefix}_${random}` : random
 }
 
 function uint8ArrayToBase64Url(bytes: Uint8Array): string {

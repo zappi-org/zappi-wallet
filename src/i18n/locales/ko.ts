@@ -495,6 +495,67 @@ export default {
     andMore: '외 {{count}}건',
   },
 
+  // Transaction Detail Screen
+  txDetail: {
+    title: '거래 상세',
+    type: '유형',
+    time: '시각',
+    completedAt: '완료 시각',
+    failedAt: '실패 시각',
+    mint: 'Mint',
+    source: '출처',
+    memo: '메모',
+    failureReason: '실패 사유',
+    fee: '수수료',
+    destination: '목적지',
+    preimage: '결제 증명',
+    bolt11: '인보이스',
+    quoteId: 'Quote ID',
+    fromMint: '출발 Mint',
+    toMint: '도착 Mint',
+    txId: '거래 ID',
+    details: '상세 정보',
+
+    // Sources
+    'source.zappi-pos': 'Zappi POS',
+    'source.zappi-kiosk': 'Zappi Kiosk',
+    'source.zappi-api': 'Zappi API',
+    'source.zappi-link': 'Zappi Link',
+    'source.wallet': '지갑',
+    'source.unknown': '외부',
+
+    // Token lifecycle
+    tokenState: '토큰 상태',
+    'tokenState.unspent': '미수령',
+    'tokenState.pending': '처리 중',
+    'tokenState.spent': '수령 완료',
+    'tokenState.unknown': '확인 필요',
+    checkState: '상태 확인',
+    checking: '확인 중...',
+    reclaim: '회수',
+    reclaiming: '회수 중...',
+    reclaimSuccess: '토큰이 회수되었습니다',
+    reclaimFailed: '토큰 회수 실패',
+    alreadySpent: '이미 수령된 토큰입니다',
+    tokenPending: '토큰이 처리 중입니다',
+    cancelSend: '전송 취소',
+    sentToken: '전송 토큰',
+    receivedToken: '수신 토큰',
+    copyToken: '토큰 복사',
+    share: '공유',
+    copied: '복사됨',
+    delete: '삭제',
+    deleteConfirm: '이 거래 기록을 삭제하시겠습니까?',
+    deleteWarning: '삭제 후 복구할 수 없습니다.',
+
+    // Kiosk order
+    orderItems: '주문 내역',
+    orderTotal: '합계',
+
+    // Fiat
+    fiatValue: '법정화폐 환산',
+  },
+
   // Analytics Screen
   analytics: {
     title: '분석',

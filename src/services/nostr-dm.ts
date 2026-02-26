@@ -71,12 +71,13 @@ export async function sendTokenViaDM(options: SendTokenDMOptions): Promise<DMSen
     const decoded = getDecodedToken(token)
 
     // Build V4 JSON format with request ID
+    const memo = options.memo || decoded.memo
     const v4Token = {
       id: requestId,  // NUT-18 request ID for correlation
       mint: decoded.mint,
       unit: decoded.unit || 'sat',
       proofs: decoded.proofs,
-      ...(decoded.memo ? { memo: decoded.memo } : {}),
+      ...(memo ? { memo } : {}),
     }
     content = JSON.stringify(v4Token)
   } catch (err) {

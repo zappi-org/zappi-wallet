@@ -12,6 +12,7 @@ import { TransactionRepository } from '@/data/repositories/transaction.repositor
 import { FailedSwapRepository } from '@/data/repositories/failed-swap.repository'
 import type { ZapMessage, ZapPaymentFulfillment } from '@/types'
 import type { Transaction, FailedSwap, ProcessedEvent } from '@/core/types'
+import { parseTransactionSource } from '@/utils/transaction'
 
 // Connection timeout for each relay (5 seconds)
 const RELAY_CONNECTION_TIMEOUT_MS = 5000
@@ -78,6 +79,7 @@ function isRawCashuToken(content: string): boolean {
 
 // Cashu V4 JSON token format (sent by cashu.me and other wallets)
 // When responding to NUT-18 payment request, cashu.me includes the request ID in the 'id' field
+// POS delivery pipeline adds memo, metadata, and txId for wallet display
 interface CashuV4JsonToken {
   id?: string      // NUT-18 payment request ID (if responding to a request)
   mint?: string
@@ -88,6 +90,9 @@ interface CashuV4JsonToken {
     secret: string
     C: string
   }>
+  txId?: string    // Delivery ACK correlation
+  memo?: string    // Order description (e.g., "커피 x2, 케이크 x1")
+  metadata?: Record<string, unknown>  // Structured data (e.g., kiosk order items)
 }
 
 // Check if parsed JSON is a raw Cashu V4 token
@@ -150,7 +155,7 @@ export function useGiftWrapListener() {
   }, [])
 
   // Process Cashu token from fulfillment. Returns true on success.
-  const processToken = useCallback(async (token: string, txId: string, eventId: string, relay: string, requestId?: string): Promise<boolean> => {
+  const processToken = useCallback(async (token: string, txId: string, eventId: string, relay: string, requestId?: string, memo?: string, metadata?: Record<string, unknown>): Promise<boolean> => {
     try {
       // Validate token format
       if (!token.startsWith('cashu')) {
@@ -216,6 +221,10 @@ export function useGiftWrapListener() {
           status: 'completed',
           createdAt: Date.now(),
           completedAt: Date.now(),
+          token,
+          source: parseTransactionSource(requestId),
+          memo,
+          metadata,
         }
         await transactionRepo.save(tx)
       }
@@ -279,6 +288,10 @@ export function useGiftWrapListener() {
               status: 'completed',
               createdAt: Date.now(),
               completedAt: Date.now(),
+              token,
+              source: parseTransactionSource(requestId),
+              memo,
+              metadata,
             })
             // Notify EcashReceiveScreen if applicable
             if (requestId) {
@@ -387,8 +400,8 @@ export function useGiftWrapListener() {
         const txId = msg.request_id || `nut18-${event.id.substring(0, 12)}`
         const alreadyProcessed = await isTxProcessed(txId)
         if (alreadyProcessed) return
-        // Pass request_id to notify EcashReceiveScreen
-        const success = await processToken(msg.token, txId, event.id, url, msg.request_id)
+        // Pass request_id and memo to notify EcashReceiveScreen
+        const success = await processToken(msg.token, txId, event.id, url, msg.request_id, msg.memo)
         await maybeAck(txId, success)
         return
       }
@@ -397,7 +410,8 @@ export function useGiftWrapListener() {
       if (isCashuV4JsonToken(msg)) {
         // Use request ID from token if present (NUT-18 payment fulfillment)
         const requestId = msg.id
-        const txId = requestId || `v4json-${event.id.substring(0, 12)}`
+        // Use txId from POS delivery pipeline if present, else fall back to requestId
+        const txId = msg.txId || requestId || `v4json-${event.id.substring(0, 12)}`
         const alreadyProcessed = await isTxProcessed(txId)
         if (alreadyProcessed) return
         // Convert V4 JSON to encoded token format
@@ -407,8 +421,8 @@ export function useGiftWrapListener() {
           mint: mintUrl,
           proofs: msg.proofs,
         })
-        // Pass requestId to notify EcashReceiveScreen
-        const success = await processToken(encodedToken, txId, event.id, url, requestId)
+        // Pass requestId, memo, and metadata for wallet display
+        const success = await processToken(encodedToken, txId, event.id, url, requestId, msg.memo, msg.metadata)
         await maybeAck(txId, success)
         return
       }

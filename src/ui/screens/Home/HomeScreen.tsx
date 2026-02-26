@@ -29,6 +29,7 @@ export interface HomeScreenProps {
   onAddMint?: () => void;
   onMintDetails?: (mint: MintInfo) => void;
   onValidatedScan?: (data: ValidatedData) => void;
+  onSelectTransaction?: (tx: Transaction) => void;
   transactions?: Transaction[];
 }
 
@@ -41,6 +42,7 @@ export function HomeScreen({
   onAddMint,
   onMintDetails,
   onValidatedScan,
+  onSelectTransaction,
   transactions: propTransactions,
 }: HomeScreenProps) {
   const { t } = useTranslation();
@@ -239,6 +241,7 @@ export function HomeScreen({
               <TransactionList
                 transactions={transactions}
                 onSeeAll={onTransactions}
+                onTransactionClick={onSelectTransaction}
                 maxItems={10}
               />
             </div>

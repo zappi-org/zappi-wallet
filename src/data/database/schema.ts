@@ -131,7 +131,7 @@ export class ZappiDatabase extends Dexie {
 
     this.version(DATABASE.VERSION).stores({
       // Transactions: indexed by id, direction, type, status, createdAt, mintUrl
-      transactions: 'id, direction, type, status, createdAt, mintUrl',
+      transactions: 'id, direction, type, status, createdAt, mintUrl, source',
 
       // Failed swaps: indexed by id, mintUrl, isRetryable, createdAt
       failedSwaps: 'id, mintUrl, isRetryable, createdAt, errorCode',

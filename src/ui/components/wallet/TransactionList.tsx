@@ -144,6 +144,10 @@ export function TransactionList({
               subtitle = dest.includes("@")
                 ? dest
                 : `${dest.slice(0, 20)}...`;
+            } else if (tx.source && tx.source !== 'unknown') {
+              // Show source + mint name for POS/Kiosk payments
+              const sourceLabel = t(`txDetail.source.${tx.source}`);
+              subtitle = `${sourceLabel} · ${getDisplayName(tx.mintUrl)}`;
             } else {
               subtitle = getDisplayName(tx.mintUrl);
             }

@@ -34,6 +34,7 @@ const EcashSendScreen = lazy(() => import('@/ui/screens/UnifiedPayment/EcashSend
 const EcashReceiveScreen = lazy(() => import('@/ui/screens/UnifiedPayment/EcashReceiveScreen'))
 const TokenReceiveScreen = lazy(() => import('@/ui/screens/UnifiedPayment/TokenReceiveScreen'))
 const UsernameChangeScreen = lazy(() => import('@/ui/screens/Settings/UsernameChangeScreen'))
+const TransactionDetailScreen = lazy(() => import('@/ui/screens/TransactionDetail/TransactionDetailScreen'))
 import type { ValidatedData } from '@/ui/components/scanner'
 import { ToastContainer } from '@/ui/components'
 import { MintDetailsModal } from '@/ui/components/modals/MintDetailsModal'
@@ -53,7 +54,7 @@ import { resetWalletCache } from '@/data/cache/wallet-cache'
 import type { Transaction } from '@/core/types'
 import { satUnit } from '@/utils/format'
 
-type Screen = 'home' | 'settings' | 'history' | 'receive' | 'send' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'amount-action' | 'lightning-send' | 'lightning-receive' | 'ecash-send' | 'ecash-receive' | 'token-receive' | 'username-change'
+type Screen = 'home' | 'settings' | 'history' | 'receive' | 'send' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'amount-action' | 'lightning-send' | 'lightning-receive' | 'ecash-send' | 'ecash-receive' | 'token-receive' | 'username-change' | 'transaction-detail'
 
 export default function MainApp() {
   const { t } = useTranslation()
@@ -103,6 +104,9 @@ export default function MainApp() {
 
   // Validated scan data state (for unified payment screens)
   const [validatedScanData, setValidatedScanData] = useState<ValidatedData | null>(null)
+
+  // Transaction detail state
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
 
   // Services (initialized once)
   const [services] = useState(() => ({
@@ -555,6 +559,7 @@ export default function MainApp() {
         createdAt: Date.now(),
         completedAt: Date.now(),
         memo: options?.memo,
+        token,
       }
       await services.transactionRepo.save(tx)
       setTransactions((prev) => [tx, ...prev])
@@ -724,8 +729,6 @@ export default function MainApp() {
 
   // Suppress unused variable warnings
   void isOnline
-  void transactions
-  void setTransactions
   void isRecovering
 
   // Loading state
@@ -765,6 +768,11 @@ export default function MainApp() {
             setShowMintDetails(true)
           }}
           onValidatedScan={handleValidatedScan}
+          onSelectTransaction={(tx) => {
+            setSelectedTransaction(tx)
+            setPreviousScreen('home')
+            setCurrentScreen('transaction-detail')
+          }}
           transactions={transactions}
         />
       )}
@@ -799,6 +807,11 @@ export default function MainApp() {
         <HistoryScreen
           onBack={handleBack}
           transactions={transactions}
+          onSelectTransaction={(tx) => {
+            setSelectedTransaction(tx)
+            setPreviousScreen('history')
+            setCurrentScreen('transaction-detail')
+          }}
         />
       )}
 
@@ -996,6 +1009,17 @@ export default function MainApp() {
           onAddTrustedMint={handleAddTrustedMint}
           validatedData={validatedScanData}
           trustedMints={settings.mints}
+        />
+      )}
+
+      {currentScreen === 'transaction-detail' && selectedTransaction && (
+        <TransactionDetailScreen
+          transaction={selectedTransaction}
+          onBack={() => {
+            setSelectedTransaction(null)
+            handleBack()
+          }}
+          mintUrls={settings.mints}
         />
       )}
           </Suspense>

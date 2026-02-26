@@ -53,6 +53,16 @@ export type TransactionType = 'lightning' | 'ecash' | 'nutzap' | 'swap'
 export type TransactionStatus = 'pending' | 'completed' | 'failed'
 
 /**
+ * Token state (cached from mint's checkProofsStates)
+ */
+export type TokenState = 'unspent' | 'pending' | 'spent' | 'unknown'
+
+/**
+ * Transaction source (derived from NUT-18 request ID prefix)
+ */
+export type TransactionSource = 'zappi-pos' | 'zappi-kiosk' | 'zappi-api' | 'zappi-link' | 'wallet' | 'unknown'
+
+/**
  * Transaction record
  */
 export interface Transaction {
@@ -68,6 +78,22 @@ export interface Transaction {
   failedAt?: number
   failureReason?: string
   metadata?: Record<string, unknown>
+
+  // Token lifecycle
+  token?: string
+  tokenState?: TokenState
+
+  // Lightning details
+  bolt11?: string
+  preimage?: string
+
+  // Source identification (NUT-18 prefix)
+  source?: TransactionSource
+
+  // Fiat currency (populated when exchange rate available)
+  fiatAmount?: number
+  fiatCurrency?: string
+  exchangeRate?: number
 }
 
 /**

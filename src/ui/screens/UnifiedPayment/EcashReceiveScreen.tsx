@@ -143,6 +143,7 @@ export function EcashReceiveScreen({
         nostrTarget: userNprofile,
         description: `${t('payment.ecashReceive')} - ${numericAmount} sats`,
         singleUse: true,
+        idPrefix: 'wallet',
       })
 
       setRequest(result.request)

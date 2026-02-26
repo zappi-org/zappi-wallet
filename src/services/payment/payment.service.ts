@@ -184,6 +184,11 @@ export class PaymentService {
 
     this.claimInFlight.add(quoteId)
     try {
+      // Fetch bolt11 from pending quote before redeeming
+      const db = getDatabase()
+      const pendingQuote = await db.pendingQuotes.get(quoteId)
+      const bolt11 = pendingQuote?.invoice
+
       // Redeem the quote using Coco (stores proofs automatically)
       // Coco manages proofs internally, so we get an empty array back
       await cocoRedeemMintQuote(mintUrl, quoteId, amount)
@@ -194,6 +199,7 @@ export class PaymentService {
         await this.transactionRepo.update(transactionId, {
           status: 'completed',
           completedAt: Date.now(),
+          ...(bolt11 && !existingTx.bolt11 ? { bolt11 } : {}),
         })
       } else {
         await this.transactionRepo.create({
@@ -205,6 +211,7 @@ export class PaymentService {
           status: 'completed',
           createdAt: Date.now(),
           completedAt: Date.now(),
+          bolt11,
           metadata: { quoteId },
         })
       }
@@ -273,7 +280,7 @@ export class PaymentService {
         await cocoReceiveToken(token)
       }
 
-      // Create transaction record
+      // Create transaction record (store original token for reference)
       const transactionId = await this.transactionRepo.create({
         id: `tx-ecash-${crypto.randomUUID()}`,
         direction: 'receive',
@@ -283,6 +290,7 @@ export class PaymentService {
         status: 'completed',
         createdAt: Date.now(),
         completedAt: Date.now(),
+        token,
       })
 
       return ok({
@@ -428,6 +436,7 @@ export class PaymentService {
             status: 'completed',
             createdAt: Date.now(),
             completedAt: Date.now(),
+            bolt11: invoice,
             metadata: {
               fee: actualFee,
               destination: addressOrInvoice,
