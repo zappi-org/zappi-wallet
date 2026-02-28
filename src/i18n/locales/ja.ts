@@ -274,8 +274,6 @@ export default {
     invalidCashuRequest: '無効なCashuリクエストです',
     invalidNostrProfile: '無効なNostrプロフィールです',
     invalidNostrEvent: '無効なNostrイベントです',
-    wrongModeSend: 'この入力は受取用です。受取ボタンをご利用ください。',
-    wrongModeReceive: 'この入力は送金用です。送金ボタンをご利用ください。',
   },
 
   // Payment Screens

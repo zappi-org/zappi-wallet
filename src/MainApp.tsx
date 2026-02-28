@@ -19,8 +19,6 @@ import { PageTransition } from '@/ui/components/common/PageTransition'
 // Tier 2: Lazy loaded (frequently used)
 const SettingsScreen = lazy(() => import('@/ui/screens/Settings/SettingsScreen'))
 const HistoryScreen = lazy(() => import('@/ui/screens/History/HistoryScreen'))
-const SendScreen = lazy(() => import('@/ui/screens/Send/SendScreen'))
-const ReceiveScreen = lazy(() => import('@/ui/screens/Payment/ReceiveScreen'))
 const TransferScreen = lazy(() => import('@/ui/screens/Transfer/TransferScreen'))
 const NotificationsScreen = lazy(() => import('@/ui/screens/Notifications/NotificationsScreen'))
 const AnalyticsScreen = lazy(() => import('@/ui/screens/Analytics/AnalyticsScreen'))
@@ -54,7 +52,7 @@ import { resetWalletCache } from '@/data/cache/wallet-cache'
 import type { Transaction } from '@/core/types'
 import { satUnit } from '@/utils/format'
 
-type Screen = 'home' | 'settings' | 'history' | 'receive' | 'send' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'amount-action' | 'lightning-send' | 'lightning-receive' | 'ecash-send' | 'ecash-receive' | 'token-receive' | 'username-change' | 'transaction-detail'
+type Screen = 'home' | 'settings' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'amount-action' | 'lightning-send' | 'lightning-receive' | 'ecash-send' | 'ecash-receive' | 'token-receive' | 'username-change' | 'transaction-detail'
 
 export default function MainApp() {
   const { t } = useTranslation()
@@ -79,7 +77,7 @@ export default function MainApp() {
   const setSettings = useAppStore((state) => state.setSettings)
 
   // Hooks
-  const { balance, refreshBalance } = useWallet()
+  const { refreshBalance } = useWallet()
   const { isOnline } = useNetwork()
 
   // State Reconstruction hook (ZAP-06)
@@ -101,12 +99,10 @@ export default function MainApp() {
 
   // Scanned amount state (for AmountActionScreen)
   const [scannedAmount, setScannedAmount] = useState<number>(0)
+  const [scanMode, setScanMode] = useState<'send' | 'receive' | undefined>()
 
   // Validated scan data state (for unified payment screens)
   const [validatedScanData, setValidatedScanData] = useState<ValidatedData | null>(null)
-
-  // Selected mint URL from home screen card carousel
-  const [selectedMintUrl, setSelectedMintUrl] = useState<string>('')
 
   // Transaction detail state
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
@@ -359,7 +355,7 @@ export default function MainApp() {
     }
   }, [services.security, setLocked, setNostrKeyPair, setP2pkPubkey, refreshBalance])
 
-  // Handle validated scan data - route to appropriate screen based on type and mode
+  // Handle validated scan data - route to appropriate screen based on type
   const handleValidatedScan = useCallback((data: ValidatedData, mode?: 'send' | 'receive') => {
     console.log('[App] Validated scan data:', data, 'mode:', mode)
     setValidatedScanData(data)
@@ -385,14 +381,8 @@ export default function MainApp() {
 
       case 'amount':
         setScannedAmount(data.amount)
-        // Route based on scanner mode
-        if (mode === 'send') {
-          setCurrentScreen('send')
-        } else if (mode === 'receive') {
-          setCurrentScreen('receive')
-        } else {
-          setCurrentScreen('amount-action')
-        }
+        setScanMode(mode)
+        setCurrentScreen('amount-action')
         break
 
       default:
@@ -728,8 +718,6 @@ export default function MainApp() {
     const timer = setTimeout(() => {
       import('@/ui/screens/Settings/SettingsScreen')
       import('@/ui/screens/History/HistoryScreen')
-      import('@/ui/screens/Send/SendScreen')
-      import('@/ui/screens/Payment/ReceiveScreen')
       import('@/ui/screens/Transfer/TransferScreen')
       import('@/ui/screens/Notifications/NotificationsScreen')
       import('@/ui/screens/Analytics/AnalyticsScreen')
@@ -775,8 +763,6 @@ export default function MainApp() {
             setSelectedMint(mint)
             setShowMintDetails(true)
           }}
-          onSend={(mintUrl) => setSelectedMintUrl(mintUrl)}
-          onReceive={(mintUrl) => setSelectedMintUrl(mintUrl)}
           onValidatedScan={handleValidatedScan}
           onSelectTransaction={(tx) => {
             setSelectedTransaction(tx)
@@ -833,38 +819,6 @@ export default function MainApp() {
         />
       )}
 
-      {currentScreen === 'receive' && (
-        <ReceiveScreen
-          onBack={handleBack}
-          onCreateInvoice={handleCreateInvoice}
-          onSubscribeToQuote={handleSubscribeToQuote}
-          onReceiveToken={handleReceiveToken}
-          onPaymentReceived={(receivedAmount, type) => {
-            handlePaymentReceived(receivedAmount, type)
-          }}
-          trustedMints={settings.mints}
-          onAddTrustedMint={handleAddTrustedMint}
-          initialMintUrl={selectedMintUrl || undefined}
-          initialAmount={scannedAmount || undefined}
-        />
-      )}
-
-      {currentScreen === 'send' && (
-        <SendScreen
-          onBack={handleBack}
-          balance={balance.total}
-          mintBalances={balance.byMint}
-          onSendLightning={handleSendLightning}
-          onCreateEcashToken={handleCreateEcashToken}
-          onReceiveToken={async (token) => {
-            const result = await handleReceiveToken(token)
-            return result.success
-          }}
-          initialMintUrl={selectedMintUrl || undefined}
-          initialAmount={scannedAmount || undefined}
-        />
-      )}
-
       {currentScreen === 'notifications' && (
         <NotificationsScreen
           onBack={handleBack}
@@ -908,6 +862,7 @@ export default function MainApp() {
       {currentScreen === 'amount-action' && (
         <AmountActionScreen
           amount={scannedAmount}
+          mode={scanMode}
           onBack={handleBack}
           onLightningSend={(amount) => {
             setScannedAmount(amount)

@@ -18,19 +18,13 @@ export interface UnifiedScannerProps {
   isOpen: boolean
   onClose: () => void
   onValidated: (data: ValidatedData) => void
-  mode?: 'send' | 'receive'
 }
 
 type ScannerState = 'idle' | 'validating'
 
 // ============= Component =============
 
-// Types that are only valid for send mode
-const SEND_TYPES = new Set(['bolt11', 'lightning-address', 'lnurl-pay', 'cashu-request'])
-// Types that are only valid for receive mode
-const RECEIVE_TYPES = new Set(['cashu-token', 'lnurl-withdraw'])
-
-export function UnifiedScanner({ isOpen, onClose, onValidated, mode }: UnifiedScannerProps) {
+export function UnifiedScanner({ isOpen, onClose, onValidated }: UnifiedScannerProps) {
   const { t } = useTranslation()
   const [state, setState] = useState<ScannerState>('idle')
   const [inputValue, setInputValue] = useState('')
@@ -86,28 +80,6 @@ export function UnifiedScanner({ isOpen, onClose, onValidated, mode }: UnifiedSc
           return
         }
 
-        // Mode filtering: reject inputs that don't match the current mode
-        if (mode === 'send' && RECEIVE_TYPES.has(result.data.type)) {
-          hapticError()
-          addToast({
-            type: 'error',
-            message: t('scanner.wrongModeSend'),
-            duration: 3000,
-          })
-          setState('idle')
-          return
-        }
-        if (mode === 'receive' && SEND_TYPES.has(result.data.type)) {
-          hapticError()
-          addToast({
-            type: 'error',
-            message: t('scanner.wrongModeReceive'),
-            duration: 3000,
-          })
-          setState('idle')
-          return
-        }
-
         // Success - route to appropriate screen
         hapticTap()
         onValidated(result.data)
@@ -122,7 +94,7 @@ export function UnifiedScanner({ isOpen, onClose, onValidated, mode }: UnifiedSc
         setState('idle')
       }
     },
-    [state, addToast, onValidated, onClose, t, mode]
+    [state, addToast, onValidated, onClose, t]
   )
 
   // Handle QR scan result
@@ -189,7 +161,7 @@ export function UnifiedScanner({ isOpen, onClose, onValidated, mode }: UnifiedSc
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
           <h1 className="text-lg font-semibold text-foreground">
-            {mode === 'send' ? t('common.send') : mode === 'receive' ? t('common.receive') : t('scanner.title')}
+            {t('scanner.title')}
           </h1>
           <div className="w-9" /> {/* Spacer for centering */}
         </div>

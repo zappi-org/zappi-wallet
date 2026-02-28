@@ -25,8 +25,6 @@ export interface HomeScreenProps {
   onTransactions?: () => void;
   onAddMint?: () => void;
   onMintDetails?: (mint: MintInfo) => void;
-  onSend?: (mintUrl: string) => void;
-  onReceive?: (mintUrl: string) => void;
   onValidatedScan?: (data: ValidatedData, mode: 'send' | 'receive') => void;
   onSelectTransaction?: (tx: Transaction) => void;
   transactions?: Transaction[];
@@ -38,16 +36,14 @@ export function HomeScreen({
   onTransactions,
   onAddMint,
   onMintDetails,
-  onSend,
-  onReceive,
   onValidatedScan,
   onSelectTransaction,
   transactions: propTransactions,
 }: HomeScreenProps) {
   const { t } = useTranslation();
   const [localTransactions, setLocalTransactions] = useState<Transaction[]>([]);
-  const [isSendScannerOpen, setIsSendScannerOpen] = useState(false);
-  const [isReceiveScannerOpen, setIsReceiveScannerOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [scanMode, setScanMode] = useState<'send' | 'receive'>('send');
   const [activeMintIndex, setActiveMintIndex] = useState(0);
 
   // Use prop transactions if provided, otherwise use local state
@@ -163,34 +159,23 @@ export function HomeScreen({
   // Clamp activeMintIndex to valid range without effect setState
   const clampedMintIndex = mints.length === 0 ? 0 : Math.min(activeMintIndex, mints.length - 1);
 
-  const getActiveMintUrl = useCallback(() => {
-    if (mints.length === 0) return "";
-    return mints[clampedMintIndex]?.url || mints[0].url;
-  }, [mints, clampedMintIndex]);
-
   const handleMintClick = (index: number) => {
     onMintDetails?.(mints[index]);
   };
 
   const handleSendClick = useCallback(() => {
-    const mintUrl = getActiveMintUrl();
-    onSend?.(mintUrl);
-    setIsSendScannerOpen(true);
-  }, [getActiveMintUrl, onSend]);
+    setScanMode('send');
+    setIsScannerOpen(true);
+  }, []);
 
   const handleReceiveClick = useCallback(() => {
-    const mintUrl = getActiveMintUrl();
-    onReceive?.(mintUrl);
-    setIsReceiveScannerOpen(true);
-  }, [getActiveMintUrl, onReceive]);
+    setScanMode('receive');
+    setIsScannerOpen(true);
+  }, []);
 
-  const handleSendValidated = useCallback((data: ValidatedData) => {
-    onValidatedScan?.(data, 'send');
-  }, [onValidatedScan]);
-
-  const handleReceiveValidated = useCallback((data: ValidatedData) => {
-    onValidatedScan?.(data, 'receive');
-  }, [onValidatedScan]);
+  const handleValidated = useCallback((data: ValidatedData) => {
+    onValidatedScan?.(data, scanMode);
+  }, [onValidatedScan, scanMode]);
 
   return (
     <div className="min-h-screen bg-white text-gray-900 font-sans max-w-md mx-auto overflow-hidden relative flex flex-col pt-safe">
@@ -298,7 +283,7 @@ export function HomeScreen({
           )}
         </div>
 
-        {/* Action Buttons */}
+        {/* Send / Receive Buttons */}
         <div className="grid grid-cols-2 gap-4 px-6 py-6">
           <button
             onClick={handleReceiveClick}
@@ -328,20 +313,11 @@ export function HomeScreen({
         />
       </main>
 
-      {/* Send Scanner Modal */}
+      {/* Unified Scanner */}
       <UnifiedScanner
-        isOpen={isSendScannerOpen}
-        onClose={() => setIsSendScannerOpen(false)}
-        onValidated={handleSendValidated}
-        mode="send"
-      />
-
-      {/* Receive Scanner Modal */}
-      <UnifiedScanner
-        isOpen={isReceiveScannerOpen}
-        onClose={() => setIsReceiveScannerOpen(false)}
-        onValidated={handleReceiveValidated}
-        mode="receive"
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onValidated={handleValidated}
       />
     </div>
   );

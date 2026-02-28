@@ -837,22 +837,24 @@ export class PaymentService {
     onPaid: (result: ClaimPaymentResult) => void,
     onError?: (error: Error) => void
   ): Promise<SubscriptionCanceller> {
-    // Guard: prevent double-firing onPaid when both WS and polling detect payment.
-    // No explicit cross-cancellation — claimPayment is idempotent (checks existing tx),
-    // polling stops itself after successful claim (return), WS cleaned up on unmount.
-    // Same approach as cashu.me: let both run, rely on server-side idempotency.
+    // Cross-cancellation: when one mechanism detects payment, stop the other immediately.
     let paidHandled = false
+    let pollCanceller: SubscriptionCanceller | null = null
+    let wsCanceller: SubscriptionCanceller | null = null
+
     const guardedOnPaid = (result: ClaimPaymentResult) => {
       if (paidHandled) return
       paidHandled = true
+      // Stop both mechanisms immediately
+      pollCanceller?.()
+      wsCanceller?.()
       onPaid(result)
     }
 
-    // 1. Start polling first (reliable base)
-    const pollCanceller = this.pollQuoteStatus(mintUrl, quoteId, amount, guardedOnPaid, onError)
+    // 1. Start polling (reliable base)
+    pollCanceller = this.pollQuoteStatus(mintUrl, quoteId, amount, guardedOnPaid, onError)
 
     // 2. Also try WebSocket for faster detection
-    let wsCanceller: SubscriptionCanceller | null = null
     try {
       wsCanceller = await this.cashuService.subscribeMintQuotePaid(
         mintUrl,
@@ -883,7 +885,8 @@ export class PaymentService {
 
     // Return combined canceller (for screen unmount / effect cleanup)
     return () => {
-      pollCanceller()
+      paidHandled = true // Prevent any late callbacks
+      pollCanceller?.()
       wsCanceller?.()
     }
   }
@@ -996,12 +999,17 @@ export class PaymentService {
       quotesByMint.set(quote.mintUrl, existing)
     }
 
-    // Per-quote guard to prevent double-firing onPaymentReceived.
-    // No explicit cross-cancellation — same approach as cashu.me.
+    // Per-quote cross-cancellation: when a quote is detected paid by either WSS or polling,
+    // stop the polling for that specific quote immediately.
     const handledQuotes = new Set<string>()
+    const pollCancellersByQuote = new Map<string, SubscriptionCanceller>()
+
     const guardedOnPaymentReceived = (mintUrl: string, quoteId: string, amount: number) => {
       if (handledQuotes.has(quoteId)) return
       handledQuotes.add(quoteId)
+      // Stop polling for this specific quote
+      pollCancellersByQuote.get(quoteId)?.()
+      pollCancellersByQuote.delete(quoteId)
       onPaymentReceived(mintUrl, quoteId, amount)
     }
 
@@ -1010,7 +1018,7 @@ export class PaymentService {
       const quoteIds = quotes.map((q) => q.quoteId)
       const amountMap = new Map(quotes.map((q) => [q.quoteId, q.amount]))
 
-      // 1. Start polling first for each quote (reliable base)
+      // 1. Start polling for each quote (reliable base)
       for (const quote of quotes) {
         const pollCanceller = this.pollQuoteStatus(
           mintUrl,
@@ -1020,6 +1028,7 @@ export class PaymentService {
           onError,
           10000 // Longer interval for background polling
         )
+        pollCancellersByQuote.set(quote.quoteId, pollCanceller)
         cancellers.push(pollCanceller)
       }
 

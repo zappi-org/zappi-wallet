@@ -289,8 +289,6 @@ export default {
     invalidCashuRequest: '유효하지 않은 Cashu 요청입니다',
     invalidNostrProfile: '유효하지 않은 Nostr 프로필입니다',
     invalidNostrEvent: '유효하지 않은 Nostr 이벤트입니다',
-    wrongModeSend: '이 입력은 받기에서 사용하세요. 받기 버튼을 이용해주세요.',
-    wrongModeReceive: '이 입력은 보내기에서 사용하세요. 보내기 버튼을 이용해주세요.',
   },
 
   // Payment Screens

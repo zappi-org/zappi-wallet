@@ -139,6 +139,20 @@ export function LightningReceiveScreen({
     }
   }, [validationError, numericAmount, selectedMintUrl, onCreateInvoice, t])
 
+  // Re-subscribe trigger: when app returns from background, force re-subscription
+  // so it immediately detects if the payment was already processed by recoverAll
+  const [resubTrigger, setResubTrigger] = useState(0)
+  useEffect(() => {
+    if (!isWaiting || !quoteId || isSuccess) return
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        setResubTrigger((v) => v + 1)
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [isWaiting, quoteId, isSuccess])
+
   // Subscribe to payment — subscribeToQuote handles polling + WebSocket internally
   useEffect(() => {
     if (!isWaiting || !quoteId || !onSubscribeToQuote) return
@@ -183,19 +197,29 @@ export function LightningReceiveScreen({
       cancelled = true
       if (unsubscribe) unsubscribe()
     }
-  }, [isWaiting, quoteId, numericAmount, selectedMintUrl, onPaymentReceived, onSubscribeToQuote])
+  }, [isWaiting, quoteId, numericAmount, selectedMintUrl, onPaymentReceived, onSubscribeToQuote, resubTrigger])
 
   // Copy invoice
+  const addToast = useAppStore((s) => s.addToast)
   const handleCopy = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(invoice)
       setCopied(true)
       hapticTap()
+      addToast({
+        type: 'success',
+        message: t('common.copied'),
+        duration: 2000,
+      })
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      // Ignore
+      addToast({
+        type: 'error',
+        message: t('errors.clipboardError'),
+        duration: 3000,
+      })
     }
-  }, [invoice])
+  }, [invoice, addToast, t])
 
   // Reset to input mode
   const handleReset = useCallback(() => {

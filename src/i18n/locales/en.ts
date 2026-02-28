@@ -289,8 +289,6 @@ export default {
     invalidCashuRequest: 'Invalid Cashu request',
     invalidNostrProfile: 'Invalid Nostr profile',
     invalidNostrEvent: 'Invalid Nostr event',
-    wrongModeSend: 'This input is for receiving. Use the Receive button instead.',
-    wrongModeReceive: 'This input is for sending. Use the Send button instead.',
   },
 
   // Payment Screens

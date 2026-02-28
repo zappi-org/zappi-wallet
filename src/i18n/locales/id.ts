@@ -274,8 +274,6 @@ export default {
     invalidCashuRequest: 'Permintaan Cashu tidak valid',
     invalidNostrProfile: 'Profil Nostr tidak valid',
     invalidNostrEvent: 'Acara Nostr tidak valid',
-    wrongModeSend: 'Input ini untuk menerima. Gunakan tombol Terima.',
-    wrongModeReceive: 'Input ini untuk mengirim. Gunakan tombol Kirim.',
   },
 
   // Payment Screens

@@ -274,8 +274,6 @@ export default {
     invalidCashuRequest: 'Solicitud Cashu inválida',
     invalidNostrProfile: 'Perfil Nostr inválido',
     invalidNostrEvent: 'Evento Nostr inválido',
-    wrongModeSend: 'Esta entrada es para recibir. Usa el botón Recibir.',
-    wrongModeReceive: 'Esta entrada es para enviar. Usa el botón Enviar.',
   },
 
   // Payment Screens
