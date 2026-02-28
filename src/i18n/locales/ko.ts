@@ -91,7 +91,7 @@ export default {
 
   // Home Screen
   home: {
-    totalBalance: '총 잔액_테스트',
+    totalBalance: '총 잔액',
     myMints: '내 민트',
     addFirstMint: '첫 번째 민트를 추가하세요',
     recentTransactions: '거래 내역',
@@ -156,6 +156,11 @@ export default {
     // Logout
     logout: '로그아웃',
     version: 'Zappi v1.0.0',
+
+    // Tools
+    tools: '도구',
+    transferDescription: '민트 간 토큰 전송',
+    analyticsDescription: '지출 및 수입 통계 보기',
     updateAvailable: '새 업데이트가 있습니다',
 
     // Mints
@@ -284,6 +289,8 @@ export default {
     invalidCashuRequest: '유효하지 않은 Cashu 요청입니다',
     invalidNostrProfile: '유효하지 않은 Nostr 프로필입니다',
     invalidNostrEvent: '유효하지 않은 Nostr 이벤트입니다',
+    wrongModeSend: '이 입력은 받기에서 사용하세요. 받기 버튼을 이용해주세요.',
+    wrongModeReceive: '이 입력은 보내기에서 사용하세요. 보내기 버튼을 이용해주세요.',
   },
 
   // Payment Screens

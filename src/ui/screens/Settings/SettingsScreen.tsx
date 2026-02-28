@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 
-import { ArrowLeft, ChevronRight, Check, AlertTriangle, LogOut, Globe, ShieldCheck, Download } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Check, AlertTriangle, LogOut, Globe, ShieldCheck, Download, ArrowLeftRight, BarChart3 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button, Modal, BottomSheet, PinInput } from '../../components/common'
 import { useAppStore } from '@/store'
@@ -43,6 +43,8 @@ export interface SettingsScreenProps {
   onSaveSettings: (settings: Record<string, unknown>) => Promise<void>
   onAddMint?: () => void
   onChangeUsername?: () => void
+  onTransfer?: () => void
+  onAnalytics?: () => void
 }
 
 export function SettingsScreen({
@@ -54,6 +56,8 @@ export function SettingsScreen({
   onSaveSettings,
   onAddMint,
   onChangeUsername,
+  onTransfer,
+  onAnalytics,
 }: SettingsScreenProps) {
   const { t } = useTranslation()
   const settings = useAppStore((state) => state.settings)
@@ -604,6 +608,43 @@ export function SettingsScreen({
           onOpenRestore={() => setShowRestoreModal(true)}
           onOpenBackup={() => setShowBackupModal(true)}
         />
+
+        {/* Tools Section */}
+        <section>
+          <h3 className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted mb-2 px-2">{t('settings.tools')}</h3>
+          <div className="bg-white/60 rounded-2xl overflow-hidden shadow-sm border border-white/50">
+            <button
+              onClick={onTransfer}
+              className="w-full p-3 flex items-center justify-between hover:bg-white/40 transition-colors text-left border-b border-white/30"
+            >
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-primary/10 rounded-xl text-foreground">
+                  <ArrowLeftRight className="w-4 h-4" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-bold text-xs">{t('actions.transfer')}</span>
+                  <span className="text-[10px] text-foreground-muted">{t('settings.transferDescription')}</span>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-foreground-muted" />
+            </button>
+            <button
+              onClick={onAnalytics}
+              className="w-full p-3 flex items-center justify-between hover:bg-white/40 transition-colors text-left"
+            >
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-primary/10 rounded-xl text-foreground">
+                  <BarChart3 className="w-4 h-4" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-bold text-xs">{t('actions.analytics')}</span>
+                  <span className="text-[10px] text-foreground-muted">{t('settings.analyticsDescription')}</span>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-foreground-muted" />
+            </button>
+          </div>
+        </section>
 
         {/* POS Management Section */}
         <POSProvisioningSection

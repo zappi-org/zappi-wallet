@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ArrowDownLeft, ArrowUpRight, ArrowRightLeft, Zap, Banknote, Heart, ChevronRight } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, ArrowRightLeft, Zap, Banknote, Heart } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Transaction } from "@/core/types";
 import { useMintMetadata } from "@/hooks";
@@ -98,24 +98,23 @@ export function TransactionList({
   };
 
   return (
-    <div className="flex flex-col w-full">
+    <div className="flex flex-col w-full px-6 py-2 pb-24">
       {showHeader && (
-        <div className="flex justify-between items-center px-5 pt-4 pb-2">
-          <h3 className="text-lg font-semibold text-foreground">{t('home.recentTransactions')}</h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold text-gray-800">{t('home.recentTransactions')}</h3>
           {onSeeAll && (
             <button
               onClick={onSeeAll}
-              className="flex items-center gap-0.5 text-xs text-accent-primary font-medium hover:text-foreground transition-colors py-1.5 px-2.5"
+              className="text-sm font-medium text-gray-500 hover:text-black transition-colors"
             >
               {t('home.seeAll')}
-              <ChevronRight size={14} className="text-accent-primary" />
             </button>
           )}
         </div>
       )}
 
-      <div className="flex flex-col">
-        {displayTransactions.map((tx, index) => {
+      <div className="flex flex-col gap-2">
+        {displayTransactions.map((tx) => {
           const Icon = getTransactionIcon(tx);
           const isSwap = tx.type === "swap";
           const isIncome = tx.direction === "receive";
@@ -136,7 +135,7 @@ export function TransactionList({
           if (isSwap && !tx.memo) {
             title = t('history.swap');
             subtitle = "";
-            amountColor = "text-foreground-muted";
+            amountColor = "text-gray-500";
           } else {
             title = tx.memo || (isIncome ? t('history.received') : t('history.sent'));
             if (tx.type === "lightning" && tx.direction === "send" && tx.metadata?.destination) {
@@ -145,59 +144,53 @@ export function TransactionList({
                 ? dest
                 : `${dest.slice(0, 20)}...`;
             } else if (tx.source && tx.source !== 'unknown') {
-              // Show source + mint name for POS/Kiosk payments
               const sourceLabel = t(`txDetail.source.${tx.source}`);
               subtitle = `${sourceLabel} · ${getDisplayName(tx.mintUrl)}`;
             } else {
               subtitle = getDisplayName(tx.mintUrl);
             }
-            amountColor = isIncome ? "text-accent-primary" : "text-accent-danger";
+            amountColor = isIncome ? "text-gray-900" : "text-gray-900";
           }
 
           return (
-            <div key={tx.id}>
-              <div
-                onClick={() => onTransactionClick?.(tx)}
-                className="flex items-center justify-between px-5 py-3 hover:bg-background-hover transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-11 h-11 rounded-[14px] flex items-center justify-center shrink-0 ${getIconStyle(tx)}`}>
-                    <Icon size={20} strokeWidth={1.5} />
-                  </div>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-[15px] font-medium text-foreground">
-                      {title}
-                    </span>
-                    {isSwap ? (
-                      <div className="flex flex-col text-xs text-foreground-subtle font-normal">
-                        <span className="truncate max-w-[140px]">{fromMintName}</span>
-                        <span className="truncate max-w-[140px]">→ {toMintName}</span>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-foreground-subtle font-normal truncate max-w-[160px]">
-                        {subtitle}
-                      </span>
-                    )}
-                  </div>
+            <div
+              key={tx.id}
+              onClick={() => onTransactionClick?.(tx)}
+              className="flex items-center justify-between py-3 hover:bg-gray-50 rounded-xl transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-4">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${getIconStyle(tx)}`}>
+                  <Icon size={20} strokeWidth={1.5} />
                 </div>
-                <div className="flex flex-col items-end gap-0.5">
-                  <span className={`text-[15px] font-semibold ${amountColor}`}>
-                    {isSwap
-                      ? `₿${tx.amount.toLocaleString()}`
-                      : isIncome
-                        ? `+₿${tx.amount.toLocaleString()}`
-                        : `-₿${tx.amount.toLocaleString()}`
-                    }
-                  </span>
-                  <span className="text-xs text-foreground-subtle font-normal">
-                    {formatDateLocalized(tx.createdAt)}
-                  </span>
+                <div>
+                  <h3 className="font-bold text-gray-900 text-sm">
+                    {title}
+                  </h3>
+                  {isSwap ? (
+                    <div className="flex flex-col text-xs text-gray-400 font-medium">
+                      <span className="truncate max-w-[140px]">{fromMintName}</span>
+                      <span className="truncate max-w-[140px]">→ {toMintName}</span>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400 font-medium truncate max-w-[160px]">
+                      {subtitle}
+                    </p>
+                  )}
                 </div>
               </div>
-              {/* Divider between rows */}
-              {index < displayTransactions.length - 1 && (
-                <div className="h-px bg-[#F3F0EC] mx-5" />
-              )}
+              <div className="flex flex-col items-end">
+                <span className={`font-bold text-sm ${amountColor}`}>
+                  {isSwap
+                    ? `₿${tx.amount.toLocaleString()}`
+                    : isIncome
+                      ? `+ ₿ ${tx.amount.toLocaleString()}`
+                      : `- ₿ ${tx.amount.toLocaleString()}`
+                  }
+                </span>
+                <span className="text-xs text-gray-400 font-medium">
+                  {formatDateLocalized(tx.createdAt)}
+                </span>
+              </div>
             </div>
           );
         })}

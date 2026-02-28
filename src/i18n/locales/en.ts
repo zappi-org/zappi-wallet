@@ -156,6 +156,11 @@ export default {
     // Logout
     logout: 'Logout',
     version: 'Zappi v1.0.0',
+
+    // Tools
+    tools: 'Tools',
+    transferDescription: 'Transfer tokens between mints',
+    analyticsDescription: 'View spending and receiving stats',
     updateAvailable: 'Update available',
 
     // Mints
@@ -284,6 +289,8 @@ export default {
     invalidCashuRequest: 'Invalid Cashu request',
     invalidNostrProfile: 'Invalid Nostr profile',
     invalidNostrEvent: 'Invalid Nostr event',
+    wrongModeSend: 'This input is for receiving. Use the Receive button instead.',
+    wrongModeReceive: 'This input is for sending. Use the Send button instead.',
   },
 
   // Payment Screens

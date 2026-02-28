@@ -156,6 +156,11 @@ export default {
     // Logout
     logout: 'Keluar',
     version: 'Zappi v1.0.0',
+
+    // Tools
+    tools: 'Alat',
+    transferDescription: 'Transfer token antar mint',
+    analyticsDescription: 'Lihat statistik pengeluaran dan penerimaan',
     updateAvailable: 'Pembaruan tersedia',
 
     // Mints
@@ -269,6 +274,8 @@ export default {
     invalidCashuRequest: 'Permintaan Cashu tidak valid',
     invalidNostrProfile: 'Profil Nostr tidak valid',
     invalidNostrEvent: 'Acara Nostr tidak valid',
+    wrongModeSend: 'Input ini untuk menerima. Gunakan tombol Terima.',
+    wrongModeReceive: 'Input ini untuk mengirim. Gunakan tombol Kirim.',
   },
 
   // Payment Screens

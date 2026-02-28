@@ -22,6 +22,8 @@ export interface SendScreenProps {
   onSendLightning: (address: string, amount: number) => Promise<boolean>
   onCreateEcashToken: (amount: number, mintUrl?: string, options?: { p2pkPubkey?: string }) => Promise<string | null>
   onReceiveToken?: (token: string) => Promise<boolean>
+  initialMintUrl?: string
+  initialAmount?: number
 }
 
 // Success Confetti (CSS-based)
@@ -74,10 +76,12 @@ export function SendScreen({
   onSendLightning,
   onCreateEcashToken,
   onReceiveToken,
+  initialMintUrl,
+  initialAmount,
 }: SendScreenProps) {
   const { t } = useTranslation()
   const [step, setStep] = useState<Step>('amount')
-  const [amount, setAmount] = useState('0')
+  const [amount, setAmount] = useState(initialAmount ? String(initialAmount) : '0')
   const [lightningAddress, setLightningAddress] = useState('')
   const [_isValidatingAddress, setIsValidatingAddress] = useState(false)
   const [ecashToken, setEcashToken] = useState('')
@@ -86,7 +90,7 @@ export function SendScreen({
   const [isSent, setIsSent] = useState(false)
   const [error, setError] = useState('')
   const [sentAmount, setSentAmount] = useState(0)
-  const [selectedMintUrl, setSelectedMintUrl] = useState<string>('')
+  const [selectedMintUrl, setSelectedMintUrl] = useState<string>(initialMintUrl || '')
   const [isReclaiming, setIsReclaiming] = useState(false)
   const [showScanner, setShowScanner] = useState(false)
   const [isTokenSpent, setIsTokenSpent] = useState(false)

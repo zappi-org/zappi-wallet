@@ -105,6 +105,9 @@ export default function MainApp() {
   // Validated scan data state (for unified payment screens)
   const [validatedScanData, setValidatedScanData] = useState<ValidatedData | null>(null)
 
+  // Selected mint URL from home screen card carousel
+  const [selectedMintUrl, setSelectedMintUrl] = useState<string>('')
+
   // Transaction detail state
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
 
@@ -356,9 +359,9 @@ export default function MainApp() {
     }
   }, [services.security, setLocked, setNostrKeyPair, setP2pkPubkey, refreshBalance])
 
-  // Handle validated scan data - route to appropriate screen based on type
-  const handleValidatedScan = useCallback((data: ValidatedData) => {
-    console.log('[App] Validated scan data:', data)
+  // Handle validated scan data - route to appropriate screen based on type and mode
+  const handleValidatedScan = useCallback((data: ValidatedData, mode?: 'send' | 'receive') => {
+    console.log('[App] Validated scan data:', data, 'mode:', mode)
     setValidatedScanData(data)
 
     switch (data.type) {
@@ -382,7 +385,14 @@ export default function MainApp() {
 
       case 'amount':
         setScannedAmount(data.amount)
-        setCurrentScreen('amount-action')
+        // Route based on scanner mode
+        if (mode === 'send') {
+          setCurrentScreen('send')
+        } else if (mode === 'receive') {
+          setCurrentScreen('receive')
+        } else {
+          setCurrentScreen('amount-action')
+        }
         break
 
       default:
@@ -760,13 +770,13 @@ export default function MainApp() {
           onSettings={() => setCurrentScreen('settings')}
           onTransactions={() => setCurrentScreen('history')}
           onNotifications={() => setCurrentScreen('notifications')}
-          onTransfer={() => setCurrentScreen('transfer')}
-          onAnalytics={() => setCurrentScreen('analytics')}
           onAddMint={() => setCurrentScreen('add-mint')}
           onMintDetails={(mint) => {
             setSelectedMint(mint)
             setShowMintDetails(true)
           }}
+          onSend={(mintUrl) => setSelectedMintUrl(mintUrl)}
+          onReceive={(mintUrl) => setSelectedMintUrl(mintUrl)}
           onValidatedScan={handleValidatedScan}
           onSelectTransaction={(tx) => {
             setSelectedTransaction(tx)
@@ -792,6 +802,14 @@ export default function MainApp() {
           onChangeUsername={() => {
             setPreviousScreen('settings')
             setCurrentScreen('username-change')
+          }}
+          onTransfer={() => {
+            setPreviousScreen('settings')
+            setCurrentScreen('transfer')
+          }}
+          onAnalytics={() => {
+            setPreviousScreen('settings')
+            setCurrentScreen('analytics')
           }}
         />
       )}
@@ -826,6 +844,8 @@ export default function MainApp() {
           }}
           trustedMints={settings.mints}
           onAddTrustedMint={handleAddTrustedMint}
+          initialMintUrl={selectedMintUrl || undefined}
+          initialAmount={scannedAmount || undefined}
         />
       )}
 
@@ -840,6 +860,8 @@ export default function MainApp() {
             const result = await handleReceiveToken(token)
             return result.success
           }}
+          initialMintUrl={selectedMintUrl || undefined}
+          initialAmount={scannedAmount || undefined}
         />
       )}
 

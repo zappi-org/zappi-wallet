@@ -1,8 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
-
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -76,11 +74,11 @@
 }
 
 :root {
-  /* Light Theme - Off-White + Sage Green */
+  /* Light Theme - White + Navy */
   --radius: 1.5rem;
 
   /* Background */
-  --background: #F5F4F1;
+  --background: #FFFFFF;
   --background-card: #FFFFFF;
   --background-elevated: #FFFFFF;
 
@@ -176,85 +174,6 @@
   --sidebar-ring: #5B7A54;
 }
 
-.dark {
-  /* Dark Mode - Green Theme */
-  --background: #1a2e22;
-  --background-card: #243829;
-  --background-elevated: #2d4532;
-
-  --foreground: #e4e0d5;
-  --foreground-muted: #a8b5a0;
-  --foreground-subtle: #7a8a7b;
-
-  --accent-primary: #9eb58e;
-  --accent-success: #9eb58e;
-  --accent-warning: #e4b94d;
-  --accent-warning-bright: #e4b94d;
-  --accent-warning-bright-text: #d4a03d;
-  --accent-danger: #e57373;
-
-  /* Hover States */
-  --primary-hover: #b5c8a8;
-  --primary-hover-light: #8aab7a;
-  --secondary-hover: #4a7355;
-  --accent-primary-hover: #b5c8a8;
-  --accent-danger-hover: #ef8888;
-  --background-hover: #2d4532;
-  --background-warm-hover: #2d4532;
-
-  /* Badge Colors */
-  --badge-ecash-bg: #3a2d40;
-  --badge-ecash-text: #c4a8d0;
-  --badge-ecash-hover: #4a3852;
-  --badge-lightning-bg: #2a3d2e;
-  --badge-lightning-hover: #344a38;
-
-  /* Misc */
-  --foreground-timestamp: #7a8a7b;
-
-  --status-online: #9eb58e;
-  --status-offline: #e57373;
-  --status-pending: #e4b94d;
-
-  --card: #243829;
-  --card-foreground: #e4e0d5;
-  --popover: #243829;
-  --popover-foreground: #e4e0d5;
-
-  --primary: #9eb58e;
-  --primary-foreground: #1a2e22;
-
-  --secondary: #375e47;
-  --secondary-foreground: #e4e0d5;
-
-  --muted: #2d4532;
-  --muted-foreground: #a8b5a0;
-
-  --accent: #5c8b65;
-  --accent-foreground: #ffffff;
-
-  --destructive: #e57373;
-
-  --border: rgba(228, 224, 213, 0.1);
-  --border-visible: #3d5a48;
-  --input: rgba(228, 224, 213, 0.08);
-  --ring: #9eb58e;
-
-  --chart-1: #9eb58e;
-  --chart-2: #5c8b65;
-  --chart-3: #375e47;
-  --chart-4: #264032;
-  --chart-5: #e4b94d;
-
-  --sidebar: #1a2e22;
-  --sidebar-foreground: #e4e0d5;
-  --sidebar-primary: #9eb58e;
-  --sidebar-primary-foreground: #1a2e22;
-  --sidebar-accent: #375e47;
-  --sidebar-accent-foreground: #e4e0d5;
-  --sidebar-border: rgba(228, 224, 213, 0.1);
-  --sidebar-ring: #9eb58e;
-}
 
 @layer base {
   * {
@@ -333,21 +252,6 @@
   background-clip: text;
   -webkit-text-fill-color: transparent;
   animation: shimmer 1.5s ease-in-out infinite;
-}
-
-.dark .animate-shimmer {
-  background: linear-gradient(
-    90deg,
-    currentColor 0%,
-    currentColor 40%,
-    #9eb58e 50%,
-    currentColor 60%,
-    currentColor 100%
-  );
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
 }
 
 /* Scrollbar Hide Utility */

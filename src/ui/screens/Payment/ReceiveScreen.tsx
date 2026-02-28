@@ -48,6 +48,7 @@ export interface ReceiveScreenProps {
   trustedMints?: string[]
   onAddTrustedMint?: (mintUrl: string) => Promise<boolean>
   initialAmount?: number
+  initialMintUrl?: string
 }
 
 // Success Confetti (CSS-based)
@@ -102,6 +103,7 @@ export function ReceiveScreen({
   trustedMints = [],
   onAddTrustedMint,
   initialAmount,
+  initialMintUrl,
 }: ReceiveScreenProps) {
 
   const { t } = useTranslation()
@@ -120,7 +122,7 @@ export function ReceiveScreen({
   const [receivedAmount, setReceivedAmount] = useState(0)
   const [isAddingTrust, setIsAddingTrust] = useState(false)
   const [ecashMethod, setEcashMethod] = useState<EcashMethod>('scan')
-  const [selectedMintUrl, setSelectedMintUrl] = useState<string>('')
+  const [selectedMintUrl, setSelectedMintUrl] = useState<string>(initialMintUrl || '')
   const numericAmount = parseInt(amount || '0', 10)
 
   const mintBalances = useAppStore((state) => state.balance.byMint)
