@@ -160,17 +160,13 @@ export function HomeScreen({
     return () => clearTimeout(timer);
   }, [mints.length, updateCardScales]);
 
-  // Reset activeMintIndex when mints change
-  useEffect(() => {
-    if (activeMintIndex >= mints.length && mints.length > 0) {
-      setActiveMintIndex(mints.length - 1);
-    }
-  }, [mints.length, activeMintIndex]);
+  // Clamp activeMintIndex to valid range without effect setState
+  const clampedMintIndex = mints.length === 0 ? 0 : Math.min(activeMintIndex, mints.length - 1);
 
   const getActiveMintUrl = useCallback(() => {
     if (mints.length === 0) return "";
-    return mints[activeMintIndex]?.url || mints[0].url;
-  }, [mints, activeMintIndex]);
+    return mints[clampedMintIndex]?.url || mints[0].url;
+  }, [mints, clampedMintIndex]);
 
   const handleMintClick = (index: number) => {
     onMintDetails?.(mints[index]);
@@ -283,7 +279,7 @@ export function HomeScreen({
               {/* Below Card: Mint Name and Dots */}
               <div className="flex flex-col items-center mt-4 gap-3">
                 <span className="text-sm font-semibold text-gray-700">
-                  {mints[activeMintIndex]?.name || ""}
+                  {mints[clampedMintIndex]?.name || ""}
                 </span>
 
                 {/* Pagination Dots */}
@@ -292,7 +288,7 @@ export function HomeScreen({
                     {mints.map((_, idx) => (
                       <div
                         key={idx}
-                        className={`w-1.5 h-1.5 rounded-full ${idx === activeMintIndex ? "bg-black" : "bg-gray-300"}`}
+                        className={`w-1.5 h-1.5 rounded-full ${idx === clampedMintIndex ? "bg-black" : "bg-gray-300"}`}
                       />
                     ))}
                   </div>
