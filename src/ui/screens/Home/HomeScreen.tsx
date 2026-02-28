@@ -159,6 +159,18 @@ export function HomeScreen({
   // Clamp activeMintIndex to valid range without effect setState
   const clampedMintIndex = mints.length === 0 ? 0 : Math.min(activeMintIndex, mints.length - 1);
 
+  // Filter transactions by selected mint
+  const filteredTransactions = useMemo(() => {
+    const selectedMint = mints[clampedMintIndex];
+    if (!selectedMint) return transactions;
+    const url = selectedMint.url;
+    const normalized = url.endsWith("/") ? url.slice(0, -1) : url;
+    return transactions.filter((tx) => {
+      const txUrl = tx.mintUrl?.endsWith("/") ? tx.mintUrl.slice(0, -1) : tx.mintUrl;
+      return txUrl === normalized || txUrl === url;
+    });
+  }, [transactions, mints, clampedMintIndex]);
+
   const handleMintClick = (index: number) => {
     onMintDetails?.(mints[index]);
   };
@@ -304,9 +316,9 @@ export function HomeScreen({
         {/* Block Separator */}
         <div className="h-1.5 bg-[#F5F4F1] w-full"></div>
 
-        {/* Transaction List */}
+        {/* Transaction List — filtered by selected mint */}
         <TransactionList
-          transactions={transactions}
+          transactions={filteredTransactions}
           onSeeAll={onTransactions}
           onTransactionClick={onSelectTransaction}
           maxItems={10}
