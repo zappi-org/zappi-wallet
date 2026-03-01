@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { MintInfo } from "@/core/types";
 import { cn } from "@/lib/utils";
 import cardLogo from "@/assets/card-logo.svg";
+import cardBg from "@/assets/card-bg.png";
+import cardNoise from "@/assets/card-noise.png";
 
 export type MintCardVariant = "light" | "medium" | "dark" | "darker";
 export type MintCardSize = "sm" | "md";
@@ -74,12 +76,20 @@ function getMintShortName(url: string, name?: string): string {
   }
 }
 
-// Card gradient config - blue palette
-const gradientConfig = {
-  light: { from: "#6a98ec", to: "#3b7df5" },
-  medium: { from: "#5585e8", to: "#0748BF" },
-  dark: { from: "#3b7df5", to: "#0748BF" },
-  darker: { from: "#6a98ec", to: "#0748BF" },
+// Warm-tone card variant filters (hue-rotate + brightness to create variety from single bg image)
+const variantFilters = {
+  darker: "none",
+  light: "hue-rotate(15deg) brightness(1.05)",
+  medium: "hue-rotate(-15deg) brightness(0.92)",
+  dark: "hue-rotate(-30deg) brightness(0.82)",
+} as const;
+
+// Small card gradient config (kept for SendScreen carousel)
+const smGradientConfig = {
+  light: { from: "#e8a87c", to: "#d4735e" },
+  medium: { from: "#d4a574", to: "#c47d5c" },
+  dark: { from: "#c98e6e", to: "#b86b4f" },
+  darker: { from: "#d9b08c", to: "#c88a6a" },
 } as const;
 
 export function MintCard({
@@ -94,7 +104,7 @@ export function MintCard({
 
   // Small card variant (for carousel in SendScreen)
   if (size === "sm") {
-    const config = gradientConfig[variant];
+    const config = smGradientConfig[variant];
     return (
       <div
         onClick={onClick}
@@ -128,7 +138,7 @@ export function MintCard({
           {/* Header: Logo & Name */}
           <div className="flex justify-between items-start">
             <MintLogo iconUrl={mint.iconUrl} size="sm" />
-            <div className="font-bold text-[9px] leading-tight tracking-wide text-white drop-shadow-lg text-right max-w-[50%] flex flex-col items-end">
+            <div className="font-['Montserrat'] font-bold text-[9px] leading-tight tracking-wide text-white drop-shadow-lg text-right max-w-[50%] flex flex-col items-end">
               {displayName.split(/[\s-]+/).slice(0, 2).map((word, i) => (
                 <span key={i}>{word}</span>
               ))}
@@ -141,8 +151,8 @@ export function MintCard({
               <span className="text-[6px] font-bold uppercase tracking-[0.15em] text-white/60">
                 Balance
               </span>
-              <span className="text-xs font-bold text-white tracking-tight drop-shadow-md">
-                ₿{mint.balance.toLocaleString()}
+              <span className="font-['Montserrat'] text-xs font-bold text-white tracking-tight drop-shadow-md">
+                <span className="text-[#b6b6b6]">₿</span>{mint.balance.toLocaleString()}
               </span>
             </div>
           )}
@@ -151,37 +161,76 @@ export function MintCard({
     );
   }
 
-  // Medium card variant (for Home screen carousel) - New design
-  const config = gradientConfig[variant];
+  // Medium card variant (for Home screen carousel) - Figma pixel-perfect
   return (
     <div
       onClick={onClick}
       className={cn(
-        "relative w-72 h-44 rounded-[12px] p-5 text-white shadow-[0_2px_4px_rgba(0,0,0,0.25)] shrink-0 flex flex-col justify-between overflow-hidden cursor-pointer active:scale-[0.98] transition-transform touch-manipulation",
+        "relative w-[72vw] max-w-[280px] aspect-[280/176] rounded-[13px] overflow-hidden cursor-pointer active:scale-[0.98] transition-transform touch-manipulation",
+        "border-[1.3px] border-solid border-[rgba(250,250,250,0.8)]",
+        "shadow-[0px_4px_4px_0px_rgba(0,0,0,0.2)]",
         isSelected === true && "ring-2 ring-primary ring-offset-3 ring-offset-background",
         isSelected === false && "opacity-70"
       )}
-      style={{ background: `linear-gradient(122deg, ${config.from} 0%, ${config.to} 100%)` }}
     >
-      {/* Top Row: Mint Name (left) + Logo (right) */}
-      <div className="flex justify-between items-start z-10 w-full">
-        <span className="text-xl font-semibold text-white">{displayName}</span>
-        <div className="bg-white/12 p-2 rounded-full">
-          <MintLogo iconUrl={mint.iconUrl} size="md" />
-        </div>
-      </div>
+      {/* Background — Figma inset: -1.3px (extends under border) */}
+      <img
+        alt=""
+        className="absolute max-w-none object-cover pointer-events-none"
+        src={cardBg}
+        style={{ inset: '-1.3px', width: 'calc(100% + 2.6px)', height: 'calc(100% + 2.6px)', filter: variantFilters[variant] }}
+      />
 
-      {/* Bottom Left: Balance */}
-      <div className="z-10">
-        {!hideBalance && (
-          <div className="flex flex-col">
-            <span className="text-[10px] text-white/80 font-bold tracking-[2px] mb-1">BALANCE</span>
-            <div className="text-2xl font-bold flex items-center gap-1">
-              <span className="text-[#b6b6b6]">₿</span>
-              <span>{mint.balance.toLocaleString()}</span>
-            </div>
-          </div>
-        )}
+      {/* Noise — Figma inset: -1.3px */}
+      <div
+        aria-hidden="true"
+        className="absolute opacity-5 pointer-events-none"
+        style={{ inset: '-1.3px', backgroundImage: `url('${cardNoise}')`, backgroundSize: '560.59px 352px', backgroundPosition: 'top left' }}
+      />
+
+
+      {/* Mint Name — Figma: top 22.8px, left 26px */}
+      <p
+        className="absolute z-10 font-['Montserrat'] font-bold text-[15.6px] text-[#fafafa] uppercase leading-normal whitespace-nowrap"
+        style={{ top: '23px', left: '26px' }}
+      >
+        {displayName}
+      </p>
+
+      {/* CASHU Watermark — Figma: visual top ~41px, right edge */}
+      <p
+        className="absolute z-10 font-['Amiko'] font-semibold text-[29.3px] text-[rgba(255,255,255,0.21)] uppercase whitespace-nowrap leading-none"
+        style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)', right: '4px', top: '8px' }}
+      >
+        CASHU
+      </p>
+
+      {/* BALANCE label — Figma: top 125px, left 26px */}
+      {!hideBalance && (
+        <>
+          <p
+            className="absolute z-10 font-['Montserrat'] font-semibold text-[13px] text-white leading-normal whitespace-nowrap"
+            style={{ top: '125px', left: '26px' }}
+          >
+            BALANCE
+          </p>
+          {/* Balance amount — Figma: top 141px, left 26px */}
+          <p
+            className="absolute z-10 font-['Montserrat'] font-semibold text-[15.6px] text-[#fafafa] leading-normal"
+            style={{ top: '141px', left: '26px' }}
+          >
+            <span className="text-[#817a7a]">₿</span>
+            {` ${mint.balance.toLocaleString()}`}
+          </p>
+        </>
+      )}
+
+      {/* Mint Logo — Figma: left 240px, top 134px, size 25px */}
+      <div
+        className="absolute z-10 bg-white rounded-full flex items-center justify-center overflow-hidden"
+        style={{ left: '240px', top: '134px', width: '25px', height: '25px', boxShadow: '6.5px 0px 2.6px 0px rgba(0,0,0,0.34)' }}
+      >
+        <MintLogo iconUrl={mint.iconUrl} size="sm" />
       </div>
     </div>
   );

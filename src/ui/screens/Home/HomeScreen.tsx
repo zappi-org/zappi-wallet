@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, startTransition, useCallback, useRef } from "react";
-import { Settings, ArrowDown, ArrowUp, Plus } from "lucide-react";
+import { User, ArrowDownLeft, ArrowUpRight, Plus } from "lucide-react";
 
 import { useTranslation } from "react-i18next";
 import { MintCard, getVariantByIndex } from "../../components/wallet/MintCard";
@@ -100,11 +100,11 @@ export function HomeScreen({
     const el = carouselRef.current;
     if (!el || mints.length === 0) return;
     const containerCenter = el.scrollLeft + el.clientWidth / 2;
-    const cardWidth = 288; // w-72
-    const gap = 16; // gap-4
+    const gap = 34; // gap-[34px]
 
     cardRefs.current.forEach((card) => {
       if (!card) return;
+      const cardWidth = card.offsetWidth;
       const cardCenter = card.offsetLeft + cardWidth / 2;
       const distance = Math.abs(containerCenter - cardCenter);
       const maxDistance = cardWidth + gap;
@@ -123,7 +123,8 @@ export function HomeScreen({
       const el = carouselRef.current;
       if (!el || mints.length === 0) return;
       const scrollLeft = el.scrollLeft;
-      const cardWidth = 288 + 16;
+      const firstCard = cardRefs.current[0];
+      const cardWidth = (firstCard?.offsetWidth || 280) + 34;
       const index = Math.round(scrollLeft / cardWidth);
       setActiveMintIndex(Math.max(0, Math.min(index, mints.length - 1)));
       updateCardScales();
@@ -170,15 +171,15 @@ export function HomeScreen({
   }, [onValidatedScan, scanMode]);
 
   return (
-    <div className="h-dvh bg-background text-gray-900 font-sans max-w-md mx-auto overflow-hidden flex flex-col pt-safe">
-      {/* Main Header */}
-      <header className="flex items-end justify-end px-5 shrink-0">
+    <div className="h-dvh bg-[#faf9f6] text-gray-900 font-sans max-w-md mx-auto overflow-hidden flex flex-col pt-safe">
+      {/* Header */}
+      <header className="flex items-center justify-end px-3 shrink-0">
         <button
           onClick={onSettings}
           aria-label={t('common.settings')}
-          className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors relative"
+          className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden hover:bg-gray-100 transition-colors relative"
         >
-          <Settings className="w-6 h-6 text-gray-900" />
+          <User className="w-6 h-6 text-[#1d1d1f]" />
           {updateAvailable && (
             <div className="absolute top-0 right-0 w-2 h-2 bg-accent-primary rounded-full border border-white" aria-hidden="true" />
           )}
@@ -186,25 +187,27 @@ export function HomeScreen({
       </header>
 
       <main className="flex-1 flex flex-col overflow-y-auto min-h-0">
-        {/* Total Balance */}
-        <div className="flex flex-col items-start pt-2 pb-4 px-5 gap-[11px]">
-          <p className="text-[#86868B] text-[11px] font-medium">{t('home.totalBalance')}</p>
-          <div className="flex items-baseline gap-3">
-            <span className="text-4xl font-bold tracking-tight text-[#333340a3]">₿</span>
-            <span className={`text-4xl font-bold tracking-tight ${isLoadingBalance ? 'animate-shimmer' : ''}`} style={{ letterSpacing: -1, color: '#0f0f2e' }}>
+        {/* Balance */}
+        <div className="flex flex-col items-center gap-[4px] shrink-0 pb-[6px] pt-[10px]">
+          <p className="font-['Amiri_Quran_Colored',sans-serif] text-[15px] text-[#86868b]">Total</p>
+          <div className="flex items-center justify-center gap-[12px] py-[2px] w-full">
+            <span className="font-['Montserrat'] font-bold text-[37px] text-[#9d817a] tracking-[-1px]">₿</span>
+            <span className={`font-['Andika'] font-bold text-[42px] text-[#2e0f0f] tracking-[5px] ${isLoadingBalance ? 'animate-shimmer' : ''}`}>
               {isLoadingBalance ? "..." : totalBalance.toLocaleString()}
             </span>
           </div>
         </div>
 
+        {/* Separator */}
+        <div className="h-[6px] bg-[#f8fbff] w-full shrink-0" />
+
         {/* Card Carousel */}
-        <div className="relative w-full overflow-hidden py-4 px-5">
+        <div className="relative w-full overflow-hidden py-10">
           {mints.length === 0 ? (
-            /* Empty state */
-            <div className="flex justify-center items-center">
+            <div className="flex justify-center items-center px-5">
               <button
                 onClick={onAddMint}
-                className="w-72 h-44 rounded-[16px] border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 gap-2"
+                className="w-[72vw] max-w-[280px] aspect-[280/176] rounded-[13px] border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 gap-2"
               >
                 <Plus className="w-6 h-6" />
                 <span className="text-sm font-medium">{t('home.addFirstMint')}</span>
@@ -215,7 +218,7 @@ export function HomeScreen({
               <div
                 ref={carouselRef}
                 onScroll={handleScroll}
-                className="flex gap-4 px-[calc(50%-144px-20px)] overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-5"
+                className="flex gap-[34px] px-[calc(50%-140px)] overflow-x-auto snap-x snap-mandatory scrollbar-hide"
               >
                 {mints.map((mint, idx) => (
                   <div
@@ -244,11 +247,11 @@ export function HomeScreen({
 
               {/* Pagination Dots */}
               {mints.length > 1 && (
-                <div className="flex justify-center gap-2 mt-4">
+                <div className="flex justify-center gap-[8px] mt-4">
                   {mints.map((_, idx) => (
                     <div
                       key={idx}
-                      className={`w-1.5 h-1.5 rounded-full ${idx === clampedMintIndex ? "bg-gray-900" : "bg-gray-300"}`}
+                      className={`w-[6px] h-[6px] rounded-full ${idx === clampedMintIndex ? "bg-[#1d1d1f]" : "bg-[#d9d9d9]"}`}
                     />
                   ))}
                 </div>
@@ -257,37 +260,38 @@ export function HomeScreen({
           )}
         </div>
 
-        {/* Block Separator */}
-        <div className="h-1.5 bg-background w-full"></div>
-
-        {/* Transaction List — filtered by selected mint, fills remaining space */}
-        <div className="flex-1">
+        {/* Transaction List — filtered by selected mint */}
+        <div>
           <TransactionList
             transactions={filteredTransactions}
             onSeeAll={onTransactions}
             onTransactionClick={onSelectTransaction}
-            maxItems={10}
+            maxItems={1}
           />
         </div>
-      </main>
 
-      {/* Send / Receive Buttons — fixed at bottom */}
-      <div className="grid grid-cols-2 gap-4 px-5 py-4 shrink-0 pb-safe">
+        {/* Action Row — Receive / Send */}
+        <div className="flex items-start justify-center gap-[16px] py-[12px] rounded-[12px] bg-[#faf9f6] pb-safe">
         <button
           onClick={handleReceiveClick}
-          className="flex items-center justify-center gap-2 bg-accent-primary text-white h-14 rounded-[12px] active:scale-95 transition-transform w-full"
+          className="flex flex-col items-center gap-[6px] w-[80px] active:scale-95 transition-transform"
         >
-          <ArrowDown className="w-5 h-5" />
-          <span className="font-semibold text-lg">{t('common.receive')}</span>
+          <div className="w-[48px] h-[48px] bg-white rounded-[16px] flex items-center justify-center">
+            <ArrowDownLeft className="w-[22px] h-[22px] text-[#5B7A54]" strokeWidth={2} />
+          </div>
+          <span className="font-['Outfit'] font-bold text-[12px] text-[#1d1d1f] leading-normal">{t('common.receive')}</span>
         </button>
         <button
           onClick={handleSendClick}
-          className="flex items-center justify-center gap-2 bg-[#1D1D1F] text-white h-14 rounded-[12px] active:scale-95 transition-transform w-full"
+          className="flex flex-col items-center gap-[6px] w-[80px] active:scale-95 transition-transform"
         >
-          <span className="font-semibold text-lg">{t('common.send')}</span>
-          <ArrowUp className="w-5 h-5" />
+          <div className="w-[48px] h-[48px] bg-white rounded-[16px] flex items-center justify-center">
+            <ArrowUpRight className="w-[22px] h-[22px] text-[#D4A03D]" strokeWidth={2} />
+          </div>
+          <span className="font-['Outfit'] font-bold text-[12px] text-[#1d1d1f] leading-normal">{t('common.send')}</span>
         </button>
-      </div>
+        </div>
+      </main>
 
       {/* Unified Scanner */}
       <UnifiedScanner
