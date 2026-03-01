@@ -191,10 +191,10 @@ export function OnboardingScreen({
   // Render Welcome step
   if (step === 'welcome') {
     return (
-      <div className="fixed inset-0 bg-background text-foreground flex flex-col items-center justify-center p-4 pt-safe pb-safe overflow-hidden">
+      <div className="fixed inset-0 bg-background text-foreground flex flex-col items-center justify-center p-4 pt-safe pb-safe overflow-hidden overscroll-none">
         {/* Background blobs */}
-        <div className="absolute top-[-20%] right-[-20%] w-[80vh] h-[80vh] bg-accent-primary/10 rounded-full blur-3xl transform-gpu pointer-events-none" />
-        <div className="absolute bottom-[-20%] left-[-20%] w-[80vh] h-[80vh] bg-primary/5 rounded-full blur-3xl transform-gpu pointer-events-none" />
+        <div className="absolute top-[-20%] right-[-20%] w-[80vmin] h-[80vmin] bg-accent-primary/10 rounded-full blur-3xl transform-gpu pointer-events-none" />
+        <div className="absolute bottom-[-20%] left-[-20%] w-[80vmin] h-[80vmin] bg-primary/5 rounded-full blur-3xl transform-gpu pointer-events-none" />
 
         <div className="animate-fadeIn w-full max-w-md flex flex-col items-center text-center space-y-12 relative z-10">
           <div className="space-y-3">
@@ -224,7 +224,7 @@ export function OnboardingScreen({
             </button>
           </div>
 
-          <p className="text-[10px] text-foreground-muted/50 font-medium uppercase tracking-widest">
+          <p className="text-[10px] text-foreground-muted font-medium uppercase tracking-widest">
             {t('onboarding.securePrivateFast')}
           </p>
         </div>
@@ -237,16 +237,17 @@ export function OnboardingScreen({
     const words = mode === 'create' ? mnemonic.split(' ') : mnemonicWords
 
     return (
-      <div className="fixed inset-0 bg-background text-foreground flex flex-col p-4 pt-safe pb-safe overflow-hidden">
+      <div className="fixed inset-0 bg-background text-foreground flex flex-col p-4 pt-safe pb-safe overflow-hidden overscroll-none">
         {/* Background blobs */}
-        <div className="absolute top-[-20%] right-[-20%] w-[80vh] h-[80vh] bg-accent-primary/10 rounded-full blur-3xl transform-gpu pointer-events-none" />
-        <div className="absolute bottom-[-20%] left-[-20%] w-[80vh] h-[80vh] bg-primary/5 rounded-full blur-3xl transform-gpu pointer-events-none" />
+        <div className="absolute top-[-20%] right-[-20%] w-[80vmin] h-[80vmin] bg-accent-primary/10 rounded-full blur-3xl transform-gpu pointer-events-none" />
+        <div className="absolute bottom-[-20%] left-[-20%] w-[80vmin] h-[80vmin] bg-primary/5 rounded-full blur-3xl transform-gpu pointer-events-none" />
 
         <div className="animate-fadeIn flex-1 flex flex-col max-w-md mx-auto w-full relative z-10">
           <header className="flex items-center mb-4">
             <button
               onClick={() => goBack('welcome')}
-              className="p-2 -ml-2 hover:bg-black/5 rounded-full transition-colors"
+              aria-label={t('common.back')}
+              className="p-2 -ml-2 hover:bg-black/5 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -302,7 +303,7 @@ export function OnboardingScreen({
                   key={i}
                   className="bg-white/60 p-2 rounded-xl border border-white/50 flex items-center gap-2"
                 >
-                  <span className="text-[10px] font-bold text-foreground-muted/50 w-5">{i + 1}</span>
+                  <span className="text-[10px] font-bold text-foreground-muted w-5">{i + 1}</span>
                   {mode === 'create' ? (
                     <span className="font-bold text-foreground">{word}</span>
                   ) : (
@@ -339,10 +340,12 @@ export function OnboardingScreen({
 
                 <button
                   type="button"
+                  role="checkbox"
+                  aria-checked={backupConfirmed}
                   onClick={() => setBackupConfirmed(!backupConfirmed)}
                   className={`
                     w-full p-3 rounded-xl border-2 transition-colors active:scale-[0.98]
-                    flex items-center gap-2
+                    flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary
                     ${backupConfirmed
                       ? 'border-primary bg-primary/10'
                       : 'border-primary/20 bg-white/50 hover:bg-white/80'}
@@ -352,7 +355,7 @@ export function OnboardingScreen({
                     w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors
                     ${backupConfirmed
                       ? 'border-primary bg-primary'
-                      : 'border-foreground-muted/50'}
+                      : 'border-foreground-muted'}
                   `}>
                     {backupConfirmed && (
                       <Check className="w-4 h-4 text-primary-foreground" />
@@ -399,12 +402,13 @@ export function OnboardingScreen({
     const currentPin = isConfirming ? confirmPin : pin
 
     return (
-      <div className="fixed inset-0 bg-background text-foreground flex flex-col p-4 pt-safe pb-safe overflow-hidden">
+      <div className="fixed inset-0 bg-background text-foreground flex flex-col p-4 pt-safe pb-safe overflow-hidden overscroll-none">
         <div className="flex-1 flex flex-col max-w-md mx-auto w-full">
           <header className="flex items-center mb-6">
             <button
               onClick={() => goBack(isConfirming ? 'pin' : 'mnemonic')}
-              className="p-2 -ml-2 hover:bg-black/5 rounded-full transition-colors"
+              aria-label={t('common.back')}
+              className="p-2 -ml-2 hover:bg-black/5 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -423,11 +427,17 @@ export function OnboardingScreen({
             </p>
 
             {/* PIN dots - no motion, pure CSS */}
-            <div className="flex gap-3 mb-6">
+            <div
+              className="flex gap-3 mb-6"
+              role="status"
+              aria-live="polite"
+              aria-label={t('onboarding.pinDigitsEntered', { count: currentPin.length, total: 6 })}
+            >
               {[0, 1, 2, 3, 4, 5].map((i) => (
                 <div
                   key={i}
                   className="w-4 h-4 rounded-full"
+                  aria-hidden="true"
                   style={{
                     transform: currentPin.length > i ? 'scale(1)' : 'scale(0.75)',
                     backgroundColor: currentPin.length > i ? '#264032' : 'rgba(38, 64, 50, 0.2)',
@@ -457,26 +467,26 @@ export function OnboardingScreen({
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
               <button
                 key={num}
-                onPointerDown={(e) => { e.preventDefault(); handlePinInput(num.toString()) }}
+                onClick={() => handlePinInput(num.toString())}
                 disabled={isLoading}
-                className="h-14 rounded-xl text-xl font-bold text-foreground hover:bg-white/50 active:bg-white/80 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation"
+                className="h-14 rounded-xl text-xl font-bold text-foreground hover:bg-white/50 active:bg-white/80 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 {num}
               </button>
             ))}
             <div />
             <button
-              onPointerDown={(e) => { e.preventDefault(); handlePinInput('0') }}
+              onClick={() => handlePinInput('0')}
               disabled={isLoading}
-              className="h-14 rounded-xl text-xl font-bold text-foreground hover:bg-white/50 active:bg-white/80 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation"
+              className="h-14 rounded-xl text-xl font-bold text-foreground hover:bg-white/50 active:bg-white/80 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               0
             </button>
             <button
-              onPointerDown={(e) => { e.preventDefault(); handlePinDelete() }}
+              onClick={handlePinDelete}
               disabled={isLoading}
               aria-label={t('common.delete')}
-              className="h-14 rounded-xl text-foreground hover:bg-white/50 active:bg-white/80 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation"
+              className="h-14 rounded-xl text-foreground hover:bg-white/50 active:bg-white/80 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <Delete className="w-5 h-5" />
             </button>
@@ -489,14 +499,19 @@ export function OnboardingScreen({
   // Render Recovering step
   if (step === 'recovering') {
     return (
-      <div className="fixed inset-0 bg-background text-foreground flex flex-col items-center justify-center p-4 pt-safe pb-safe overflow-hidden">
+      <div className="fixed inset-0 bg-background text-foreground flex flex-col items-center justify-center p-4 pt-safe pb-safe overflow-hidden overscroll-none">
         {/* Background blobs */}
-        <div className="absolute top-[-20%] right-[-20%] w-[80vh] h-[80vh] bg-accent-primary/10 rounded-full blur-3xl transform-gpu pointer-events-none" />
-        <div className="absolute bottom-[-20%] left-[-20%] w-[80vh] h-[80vh] bg-primary/5 rounded-full blur-3xl transform-gpu pointer-events-none" />
+        <div className="absolute top-[-20%] right-[-20%] w-[80vmin] h-[80vmin] bg-accent-primary/10 rounded-full blur-3xl transform-gpu pointer-events-none" />
+        <div className="absolute bottom-[-20%] left-[-20%] w-[80vmin] h-[80vmin] bg-primary/5 rounded-full blur-3xl transform-gpu pointer-events-none" />
 
         <div className="animate-fadeIn w-full max-w-md flex flex-col items-center text-center relative z-10">
-          <div className="animate-fadeIn w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-            <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+          <div
+            className="animate-fadeIn w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-6"
+            role="status"
+            aria-live="polite"
+            aria-label={mode === 'import' ? t('onboarding.recoveringWallet') : t('onboarding.creatingWallet')}
+          >
+            <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" aria-hidden="true" />
           </div>
 
           <h2 className="text-2xl font-bold mb-2">
@@ -508,7 +523,7 @@ export function OnboardingScreen({
               : t('onboarding.creatingWalletDesc')
             }
           </p>
-          <p className="text-foreground-muted/60 text-xs">
+          <p className="text-foreground-muted text-xs">
             {t('onboarding.pleaseWait')}
           </p>
         </div>
@@ -518,7 +533,7 @@ export function OnboardingScreen({
 
   // Render Complete step
   return (
-    <div className="fixed inset-0 bg-background text-foreground flex flex-col items-center justify-center p-4 pt-safe pb-safe overflow-hidden">
+    <div className="fixed inset-0 bg-background text-foreground flex flex-col items-center justify-center p-4 pt-safe pb-safe overflow-hidden overscroll-none">
       {/* Background blobs */}
       <div className="absolute top-[-20%] right-[-20%] w-[80vh] h-[80vh] bg-accent-primary/10 rounded-full blur-3xl transform-gpu pointer-events-none" />
       <div className="absolute bottom-[-20%] left-[-20%] w-[80vh] h-[80vh] bg-primary/5 rounded-full blur-3xl transform-gpu pointer-events-none" />

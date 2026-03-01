@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, startTransition, useCallback, useRef } from "react";
-import { Bell, User, ArrowDown, ArrowUp, Plus } from "lucide-react";
+import { Settings, ArrowDown, ArrowUp, Plus } from "lucide-react";
 
 import { useTranslation } from "react-i18next";
 import { MintCard, getVariantByIndex } from "../../components/wallet/MintCard";
@@ -32,7 +32,6 @@ export interface HomeScreenProps {
 
 export function HomeScreen({
   onSettings,
-  onNotifications,
   onTransactions,
   onAddMint,
   onMintDetails,
@@ -52,28 +51,9 @@ export function HomeScreen({
   const { balance, isLoadingBalance } = useWallet();
   const { checkAllMints, getCachedStatus } = useMintHealth();
   const settings = useAppStore((state) => state.settings);
-  const lastNotificationCheckedAt = useAppStore((state) => state.lastNotificationCheckedAt);
-  const markNotificationsRead = useAppStore((state) => state.markNotificationsRead);
   const updateAvailable = useAppStore((state) => state.updateAvailable);
   const txRefreshTrigger = useAppStore((state) => state.txRefreshTrigger);
   const { getDisplayName, getIconUrl } = useMintMetadata(settings?.mints || []);
-
-  const [now] = useState(() => Date.now());
-
-  // Check if there are new transactions since last notification check
-  const hasNewNotifications = useMemo(() => {
-    if (transactions.length === 0) return false;
-    if (lastNotificationCheckedAt === null) {
-      const oneDayAgo = now - 24 * 60 * 60 * 1000;
-      return transactions.some((tx) => tx.createdAt > oneDayAgo);
-    }
-    return transactions.some((tx) => tx.createdAt > lastNotificationCheckedAt);
-  }, [transactions, lastNotificationCheckedAt, now]);
-
-  const handleNotificationsClick = () => {
-    markNotificationsRead();
-    onNotifications?.();
-  };
 
   // Load transactions from DB if not provided via props
   useEffect(() => {
@@ -190,49 +170,38 @@ export function HomeScreen({
   }, [onValidatedScan, scanMode]);
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 font-sans max-w-md mx-auto overflow-hidden relative flex flex-col pt-safe">
+    <div className="h-dvh bg-background text-gray-900 font-sans max-w-md mx-auto overflow-hidden flex flex-col pt-safe">
       {/* Main Header */}
-      <header className="flex items-center justify-between px-6 py-4">
+      <header className="flex items-end justify-end px-5 shrink-0">
         <button
           onClick={onSettings}
           aria-label={t('common.settings')}
-          className="p-2 rounded-full hover:bg-gray-100 transition-colors relative"
+          className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors relative"
         >
-          <User className="w-6 h-6 text-gray-900" />
+          <Settings className="w-6 h-6 text-gray-900" />
           {updateAvailable && (
             <div className="absolute top-0 right-0 w-2 h-2 bg-accent-primary rounded-full border border-white" aria-hidden="true" />
           )}
         </button>
-        <h1 className="text-xl font-bold tracking-tight">Zappi</h1>
-        <button
-          onClick={handleNotificationsClick}
-          aria-label={t('common.notifications')}
-          className="p-2 rounded-full hover:bg-gray-100 transition-colors relative"
-        >
-          <Bell className="w-6 h-6 text-gray-900" />
-          {hasNewNotifications && (
-            <div className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border border-white" aria-hidden="true" />
-          )}
-        </button>
       </header>
 
-      <main className="flex-1 flex flex-col overflow-y-auto pb-10">
+      <main className="flex-1 flex flex-col overflow-y-auto min-h-0">
         {/* Total Balance */}
-        <div className="flex flex-col items-center justify-center py-4">
-          <div className="flex items-baseline gap-1">
-            <span className="text-4xl font-bold tracking-tight">₿</span>
-            <span className={`text-4xl font-bold tracking-tight ${isLoadingBalance ? 'animate-shimmer' : ''}`}>
+        <div className="flex flex-col items-start pt-2 pb-4 px-5 gap-[11px]">
+          <p className="text-[#86868B] text-[11px] font-medium">{t('home.totalBalance')}</p>
+          <div className="flex items-baseline gap-3">
+            <span className="text-4xl font-bold tracking-tight text-[#333340a3]">₿</span>
+            <span className={`text-4xl font-bold tracking-tight ${isLoadingBalance ? 'animate-shimmer' : ''}`} style={{ letterSpacing: -1, color: '#0f0f2e' }}>
               {isLoadingBalance ? "..." : totalBalance.toLocaleString()}
             </span>
           </div>
-          <p className="text-gray-400 text-sm mt-1 font-medium">{t('home.totalBalance')}</p>
         </div>
 
         {/* Card Carousel */}
-        <div className="relative w-full overflow-hidden py-4">
+        <div className="relative w-full overflow-hidden py-4 px-5">
           {mints.length === 0 ? (
             /* Empty state */
-            <div className="flex justify-center items-center px-4">
+            <div className="flex justify-center items-center">
               <button
                 onClick={onAddMint}
                 className="w-72 h-44 rounded-[16px] border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 gap-2"
@@ -246,7 +215,7 @@ export function HomeScreen({
               <div
                 ref={carouselRef}
                 onScroll={handleScroll}
-                className="flex gap-4 px-[calc(50%-144px)] overflow-x-auto snap-x snap-mandatory scrollbar-hide"
+                className="flex gap-4 px-[calc(50%-144px-20px)] overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-5"
               >
                 {mints.map((mint, idx) => (
                   <div
@@ -273,57 +242,52 @@ export function HomeScreen({
                 </div>
               </div>
 
-              {/* Below Card: Mint Name and Dots */}
-              <div className="flex flex-col items-center mt-4 gap-3">
-                <span className="text-sm font-semibold text-gray-700">
-                  {mints[clampedMintIndex]?.name || ""}
-                </span>
-
-                {/* Pagination Dots */}
-                {mints.length > 1 && (
-                  <div className="flex gap-2">
-                    {mints.map((_, idx) => (
-                      <div
-                        key={idx}
-                        className={`w-1.5 h-1.5 rounded-full ${idx === clampedMintIndex ? "bg-black" : "bg-gray-300"}`}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
+              {/* Pagination Dots */}
+              {mints.length > 1 && (
+                <div className="flex justify-center gap-2 mt-4">
+                  {mints.map((_, idx) => (
+                    <div
+                      key={idx}
+                      className={`w-1.5 h-1.5 rounded-full ${idx === clampedMintIndex ? "bg-gray-900" : "bg-gray-300"}`}
+                    />
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>
 
-        {/* Send / Receive Buttons */}
-        <div className="grid grid-cols-2 gap-4 px-6 py-6">
-          <button
-            onClick={handleReceiveClick}
-            className="flex items-center justify-center gap-2 bg-[#1e2634] text-white py-4 rounded-[12px] shadow-lg active:scale-95 transition-transform border border-white/5"
-          >
-            <ArrowDown className="w-5 h-5" />
-            <span className="font-medium text-lg">{t('common.receive')}</span>
-          </button>
-          <button
-            onClick={handleSendClick}
-            className="flex items-center justify-center gap-2 bg-[#1e2634] text-white py-4 rounded-[12px] shadow-lg active:scale-95 transition-transform border border-white/5"
-          >
-            <span className="font-medium text-lg">{t('common.send')}</span>
-            <ArrowUp className="w-5 h-5" />
-          </button>
-        </div>
-
         {/* Block Separator */}
-        <div className="h-1.5 bg-[#F5F4F1] w-full"></div>
+        <div className="h-1.5 bg-background w-full"></div>
 
-        {/* Transaction List — filtered by selected mint */}
-        <TransactionList
-          transactions={filteredTransactions}
-          onSeeAll={onTransactions}
-          onTransactionClick={onSelectTransaction}
-          maxItems={10}
-        />
+        {/* Transaction List — filtered by selected mint, fills remaining space */}
+        <div className="flex-1">
+          <TransactionList
+            transactions={filteredTransactions}
+            onSeeAll={onTransactions}
+            onTransactionClick={onSelectTransaction}
+            maxItems={10}
+          />
+        </div>
       </main>
+
+      {/* Send / Receive Buttons — fixed at bottom */}
+      <div className="grid grid-cols-2 gap-4 px-5 py-4 shrink-0 pb-safe">
+        <button
+          onClick={handleReceiveClick}
+          className="flex items-center justify-center gap-2 bg-accent-primary text-white h-14 rounded-[12px] active:scale-95 transition-transform w-full"
+        >
+          <ArrowDown className="w-5 h-5" />
+          <span className="font-semibold text-lg">{t('common.receive')}</span>
+        </button>
+        <button
+          onClick={handleSendClick}
+          className="flex items-center justify-center gap-2 bg-[#1D1D1F] text-white h-14 rounded-[12px] active:scale-95 transition-transform w-full"
+        >
+          <span className="font-semibold text-lg">{t('common.send')}</span>
+          <ArrowUp className="w-5 h-5" />
+        </button>
+      </div>
 
       {/* Unified Scanner */}
       <UnifiedScanner

@@ -74,12 +74,12 @@ function getMintShortName(url: string, name?: string): string {
   }
 }
 
-// Card gradient config - navy palette
+// Card gradient config - blue palette
 const gradientConfig = {
-  light: { from: "#526074", to: "#3a4a5c" },
-  medium: { from: "#3a4a5c", to: "#18202d" },
-  dark: { from: "#2c3a4a", to: "#0f1520" },
-  darker: { from: "#526074", to: "#18202d" },
+  light: { from: "#6a98ec", to: "#3b7df5" },
+  medium: { from: "#5585e8", to: "#0748BF" },
+  dark: { from: "#3b7df5", to: "#0748BF" },
+  darker: { from: "#6a98ec", to: "#0748BF" },
 } as const;
 
 export function MintCard({
@@ -152,49 +152,36 @@ export function MintCard({
   }
 
   // Medium card variant (for Home screen carousel) - New design
+  const config = gradientConfig[variant];
   return (
     <div
       onClick={onClick}
       className={cn(
-        "relative w-72 h-44 bg-gradient-to-r from-[#526074] to-[#18202d] rounded-[16px] p-5 text-white shadow-xl shrink-0 flex flex-col justify-between overflow-hidden cursor-pointer active:scale-[0.98] transition-transform touch-manipulation",
+        "relative w-72 h-44 rounded-[12px] p-5 text-white shadow-[0_2px_4px_rgba(0,0,0,0.25)] shrink-0 flex flex-col justify-between overflow-hidden cursor-pointer active:scale-[0.98] transition-transform touch-manipulation",
         isSelected === true && "ring-2 ring-primary ring-offset-3 ring-offset-background",
         isSelected === false && "opacity-70"
       )}
+      style={{ background: `linear-gradient(122deg, ${config.from} 0%, ${config.to} 100%)` }}
     >
-      {/* Vertical Text - Cashu */}
-      <div className="absolute top-0 bottom-0 left-2 flex items-center pointer-events-none">
-        <div className="transform -rotate-90 origin-center text-5xl font-bold text-white/10 tracking-widest whitespace-nowrap">CASHU</div>
+      {/* Top Row: Mint Name (left) + Logo (right) */}
+      <div className="flex justify-between items-start z-10 w-full">
+        <span className="text-xl font-semibold text-white">{displayName}</span>
+        <div className="bg-white/12 p-2 rounded-full">
+          <MintLogo iconUrl={mint.iconUrl} size="md" />
+        </div>
       </div>
 
-      {/* Online status dot - top right */}
-      <div
-        role="status"
-        aria-label={mint.isOnline ? 'Online' : 'Offline'}
-        className={cn(
-          "absolute top-3 right-3 z-20 w-[8px] h-[8px] rounded-full border border-white/30",
-          mint.isOnline
-            ? "bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.5)]"
-            : "bg-red-400 shadow-[0_0_4px_rgba(248,113,113,0.5)]"
-        )}
-      />
-
-      {/* Card Content */}
-      <div className="flex justify-between items-end z-10 h-full w-full">
-        {/* Bottom Left: Balance */}
+      {/* Bottom Left: Balance */}
+      <div className="z-10">
         {!hideBalance && (
           <div className="flex flex-col">
-            <span className="text-xs text-gray-400 font-bold tracking-wider mb-1">BALANCE</span>
+            <span className="text-[10px] text-white/80 font-bold tracking-[2px] mb-1">BALANCE</span>
             <div className="text-2xl font-bold flex items-center gap-1">
-              <span>₿</span>
+              <span className="text-[#b6b6b6]">₿</span>
               <span>{mint.balance.toLocaleString()}</span>
             </div>
           </div>
         )}
-
-        {/* Bottom Right: Mint Logo */}
-        <div className="bg-white/10 p-2 rounded-full backdrop-blur-sm mb-1">
-          <MintLogo iconUrl={mint.iconUrl} size="md" />
-        </div>
       </div>
     </div>
   );

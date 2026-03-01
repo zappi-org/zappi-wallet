@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ArrowDownLeft, ArrowUpRight, ArrowRightLeft, Zap, Banknote, Heart } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, ArrowRightLeft, Zap, Banknote, Heart, List } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Transaction } from "@/core/types";
 import { useMintMetadata } from "@/hooks";
@@ -80,39 +80,29 @@ export function TransactionList({
 
   const { getDisplayName } = useMintMetadata(mintUrls);
 
-  if (transactions.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-6 text-foreground-muted">
-        <Banknote className="w-10 h-10 mb-2 opacity-30" />
-        <p className="text-xs">{t('home.noTransactions')}</p>
-      </div>
-    );
-  }
-
   // Get icon background and color based on transaction type
   const getIconStyle = (tx: Transaction) => {
     if (tx.type === "swap") return "bg-[#F3F0EC] text-foreground-muted";
-    if (tx.direction === "receive") return "bg-[#EDF2EA] text-accent-primary";
+    if (tx.direction === "receive") return "bg-[#E8F0FE] text-accent-primary";
     // send
     return "bg-[#FDF2EC] text-accent-danger";
   };
 
   return (
-    <div className="flex flex-col w-full px-6 py-2 pb-24">
+    <div className="flex flex-col w-full px-5 py-4">
       {showHeader && (
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold text-gray-800">{t('home.recentTransactions')}</h3>
-          {onSeeAll && (
-            <button
-              onClick={onSeeAll}
-              className="text-sm font-medium text-gray-500 hover:text-black transition-colors"
-            >
-              {t('home.seeAll')}
-            </button>
-          )}
+        <div className="flex items-center justify-center gap-1.5 mb-4">
+          <List className="w-4 h-4 text-[#86868B]" />
+          <span className="text-sm font-medium text-[#86868B]">History</span>
         </div>
       )}
 
+      {transactions.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-6 text-foreground-muted">
+          <Banknote className="w-10 h-10 mb-2 opacity-30" />
+          <p className="text-xs">{t('home.noTransactions')}</p>
+        </div>
+      ) : (
       <div className="flex flex-col gap-2">
         {displayTransactions.map((tx) => {
           const Icon = getTransactionIcon(tx);
@@ -156,14 +146,14 @@ export function TransactionList({
             <div
               key={tx.id}
               onClick={() => onTransactionClick?.(tx)}
-              className="flex items-center justify-between py-3 hover:bg-gray-50 rounded-xl transition-colors cursor-pointer"
+              className="flex items-center justify-between bg-white rounded-2xl border px-4 py-3 shadow-[0_3px_2px_#FFFFFF,0_-3px_2px_rgba(0,0,0,0.15),0_8px_20px_rgba(156,163,184,0.2)] cursor-pointer"
             >
-              <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${getIconStyle(tx)}`}>
+              <div className="flex items-center gap-3">
+                <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${getIconStyle(tx)}`}>
                   <Icon size={20} strokeWidth={1.5} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-900 text-sm">
+                  <h3 className="font-semibold text-gray-900 text-sm">
                     {title}
                   </h3>
                   {isSwap ? (
@@ -179,7 +169,7 @@ export function TransactionList({
                 </div>
               </div>
               <div className="flex flex-col items-end">
-                <span className={`font-bold text-sm ${amountColor}`}>
+                <span className={`font-semibold text-sm ${amountColor}`}>
                   {isSwap
                     ? `₿${tx.amount.toLocaleString()}`
                     : isIncome
@@ -195,6 +185,7 @@ export function TransactionList({
           );
         })}
       </div>
+      )}
     </div>
   );
 }
