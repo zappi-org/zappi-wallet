@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ArrowDownLeft, ArrowUpRight, ArrowRightLeft, Zap, Banknote, Heart, List } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, ArrowRightLeft, Zap, Heart, List } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Transaction } from "@/core/types";
 import { useMintMetadata } from "@/hooks";
