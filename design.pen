@@ -4184,7 +4184,7 @@
           "id": "ovyyO",
           "name": "Action Buttons",
           "width": "fill_container",
-          "height": 170,
+          "height": 181,
           "gap": 16,
           "padding": 24,
           "justifyContent": "center",
@@ -4237,7 +4237,7 @@
       "clip": true,
       "width": 390,
       "height": 844,
-      "fill": "$--bg-white",
+      "fill": "$--bg-main",
       "layout": "vertical",
       "justifyContent": "center",
       "alignItems": "center",
@@ -4431,7 +4431,7 @@
       "clip": true,
       "width": 390,
       "height": 844,
-      "fill": "$--bg-white",
+      "fill": "$--bg-main",
       "layout": "vertical",
       "children": [
         {
@@ -4519,7 +4519,10 @@
               "id": "MSxKT",
               "name": "wordGrid",
               "width": "fill_container",
+              "fill": "$--bg-white",
+              "cornerRadius": 16,
               "gap": 8,
+              "padding": 16,
               "children": [
                 {
                   "type": "frame",
@@ -5133,7 +5136,7 @@
       "clip": true,
       "width": 390,
       "height": 844,
-      "fill": "$--bg-white",
+      "fill": "$--bg-main",
       "layout": "vertical",
       "children": [
         {
@@ -5568,7 +5571,7 @@
       "clip": true,
       "width": 390,
       "height": 844,
-      "fill": "$--bg-white",
+      "fill": "$--bg-main",
       "layout": "vertical",
       "justifyContent": "center",
       "alignItems": "center",
@@ -6750,7 +6753,7 @@
       "clip": true,
       "width": 390,
       "height": 844,
-      "fill": "$--bg-white",
+      "fill": "$--bg-main",
       "layout": "vertical",
       "children": [
         {
@@ -6987,7 +6990,7 @@
       "clip": true,
       "width": 390,
       "height": 844,
-      "fill": "$--bg-white",
+      "fill": "$--bg-main",
       "layout": "vertical",
       "children": [
         {
@@ -7076,7 +7079,7 @@
               "id": "rQDH8",
               "name": "detailCard",
               "width": "fill_container",
-              "fill": "$--bg-light",
+              "fill": "$--bg-white",
               "cornerRadius": 20,
               "stroke": {
                 "align": "inside",
@@ -7288,7 +7291,7 @@
       "clip": true,
       "width": 390,
       "height": 844,
-      "fill": "$--bg-white",
+      "fill": "$--bg-main",
       "layout": "vertical",
       "children": [
         {
@@ -8020,7 +8023,7 @@
       "type": "frame",
       "id": "qOWIl",
       "x": 1253,
-      "y": 6523,
+      "y": 7313,
       "name": "Settings",
       "clip": true,
       "width": 390,
@@ -8843,12 +8846,12 @@
       "type": "frame",
       "id": "SMKWu",
       "x": 1693,
-      "y": 6523,
+      "y": 7313,
       "name": "Transfer",
       "clip": true,
       "width": 390,
       "height": 844,
-      "fill": "$--bg-white",
+      "fill": "$--bg-main",
       "layout": "vertical",
       "children": [
         {
@@ -8912,7 +8915,7 @@
               "id": "v6Ana",
               "name": "fromCard",
               "width": "fill_container",
-              "fill": "$--bg-light",
+              "fill": "$--bg-white",
               "cornerRadius": 16,
               "layout": "vertical",
               "gap": 12,
@@ -9025,7 +9028,7 @@
               "id": "rot50",
               "name": "toCard",
               "width": "fill_container",
-              "fill": "$--bg-light",
+              "fill": "$--bg-white",
               "cornerRadius": 16,
               "layout": "vertical",
               "gap": 12,
@@ -9105,7 +9108,7 @@
               "id": "Ega8a",
               "name": "amountCard",
               "width": "fill_container",
-              "fill": "$--bg-light",
+              "fill": "$--bg-white",
               "cornerRadius": 16,
               "padding": 16,
               "justifyContent": "space_between",
@@ -9255,12 +9258,12 @@
       "type": "frame",
       "id": "6Sc83",
       "x": 2133,
-      "y": 6523,
+      "y": 7313,
       "name": "Add Mint",
       "clip": true,
       "width": 390,
       "height": 844,
-      "fill": "$--bg-white",
+      "fill": "$--bg-main",
       "layout": "vertical",
       "children": [
         {
@@ -9324,7 +9327,7 @@
               "id": "gaJxH",
               "name": "urlInput",
               "width": "fill_container",
-              "fill": "$--bg-light",
+              "fill": "$--bg-white",
               "cornerRadius": 12,
               "gap": 12,
               "padding": [
@@ -9403,7 +9406,7 @@
               "id": "JUkHi",
               "name": "trustedCard",
               "width": "fill_container",
-              "fill": "$--bg-light",
+              "fill": "$--bg-white",
               "cornerRadius": 12,
               "layout": "vertical",
               "children": [
@@ -12978,6 +12981,182 @@
                   "fontFamily": "Outfit",
                   "fontSize": 18,
                   "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "v1k9W",
+      "x": 3171,
+      "y": 5149,
+      "name": "Unified Scanner",
+      "width": 390,
+      "height": 844,
+      "fill": "$--bg-main",
+      "cornerRadius": 20,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "6Zz1M",
+          "name": "hdr",
+          "width": "fill_container",
+          "height": 56,
+          "padding": [
+            0,
+            16
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "izRWr",
+              "name": "hdrL",
+              "width": 36,
+              "height": 36,
+              "cornerRadius": 8,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "C5TEW",
+                  "name": "hdrLIcon",
+                  "width": 20,
+                  "height": 20,
+                  "iconFontName": "arrow-left",
+                  "iconFontFamily": "lucide",
+                  "fill": "$--text-primary"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "RBYdD",
+              "name": "hdrTitle",
+              "fill": "$--text-primary",
+              "content": "Scan",
+              "fontFamily": "Outfit",
+              "fontSize": 18,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "GvOM8",
+              "name": "hdrSp",
+              "width": 36,
+              "height": 36
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Vshhf",
+          "name": "content",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 16,
+          "padding": 16,
+          "children": [
+            {
+              "type": "frame",
+              "id": "yHP3D",
+              "name": "qrArea",
+              "width": "fill_container",
+              "height": 340,
+              "fill": "#1A1A1A",
+              "cornerRadius": 20,
+              "layout": "vertical",
+              "gap": 16,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "VFG6g",
+                  "name": "viewfinder",
+                  "width": 220,
+                  "height": 220,
+                  "cornerRadius": 16,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 3
+                  },
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "1t0Cn",
+                      "name": "scanLine",
+                      "width": 180,
+                      "height": 3,
+                      "fill": "rgba(255,255,255,0.4)",
+                      "cornerRadius": 2
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "JXMkM",
+                  "name": "camLabel",
+                  "fill": "rgba(255,255,255,0.6)",
+                  "content": "Point camera at QR code",
+                  "fontFamily": "Outfit",
+                  "fontSize": 14
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "XHRYN",
+              "name": "inputRow",
+              "width": "fill_container",
+              "fill": "$--bg-white",
+              "cornerRadius": 12,
+              "padding": [
+                0,
+                0,
+                0,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "1F6Pr",
+                  "name": "inputTxt",
+                  "fill": "$--text-muted",
+                  "content": "Paste invoice, address, or token...",
+                  "fontFamily": "Outfit",
+                  "fontSize": 14
+                },
+                {
+                  "type": "frame",
+                  "id": "V2MKW",
+                  "name": "pasteBtn",
+                  "width": 48,
+                  "height": 48,
+                  "cornerRadius": 10,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "EL9TK",
+                      "name": "pasteIcon",
+                      "width": 20,
+                      "height": 20,
+                      "iconFontName": "clipboard",
+                      "iconFontFamily": "lucide",
+                      "fill": "$--primary"
+                    }
+                  ]
                 }
               ]
             }
