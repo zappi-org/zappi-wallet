@@ -198,11 +198,8 @@ export function HomeScreen({
 
       {/* Scrollable content */}
       <main className="flex-1 flex flex-col overflow-y-auto min-h-0">
-        {/* Flexible top spacer — pushes content toward thumb zone */}
-        <div className="flex-1 min-h-[5vh] max-h-[15vh]" />
-
         {/* Balance */}
-        <div className="flex flex-col items-center gap-1 shrink-0 pb-1.5 pt-2.5">
+        <div className="flex flex-col items-center gap-1 shrink-0 pb-1.5 pt-4">
           <p className="font-['Amiri_Quran_Colored',sans-serif] text-sm text-[#86868b]">Total</p>
           <div className="flex items-center justify-center gap-3 py-0.5 w-full">
             <span className="font-['Montserrat'] font-bold text-[clamp(2rem,8vw,2.5rem)] text-[#9d817a] tracking-[-1px]">₿</span>
@@ -223,7 +220,7 @@ export function HomeScreen({
         </div>
 
         {/* Card Carousel */}
-        <div className="relative w-full overflow-hidden py-10">
+        <div className="relative w-full overflow-hidden pt-6 pb-8">
           {mints.length === 0 ? (
             <div className="flex justify-center items-center px-5">
               <button
