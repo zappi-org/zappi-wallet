@@ -119,8 +119,8 @@ export function HomeScreen({
       const distance = Math.abs(containerCenter - cardCenter);
       const maxDistance = cardWidth + gap;
       const progress = Math.min(distance / maxDistance, 1);
-      const scale = 1 - progress * 0.12; // 1.0 → 0.88
-      const opacity = 1 - progress * 0.4; // 1.0 → 0.6
+      const scale = 1 - progress * 0.08; // 1.0 → 0.92
+      const opacity = 1 - progress * 0.25; // 1.0 → 0.75
       card.style.transform = `scale(${scale})`;
       card.style.opacity = `${opacity}`;
     });
@@ -199,7 +199,7 @@ export function HomeScreen({
       {/* Scrollable content */}
       <main className="flex-1 flex flex-col overflow-y-auto min-h-0">
         {/* Balance */}
-        <div className="flex flex-col items-center gap-1 shrink-0 pb-1.5 pt-4">
+        <div className="flex flex-col items-center gap-1 shrink-0 pb-1.5 pt-8">
           <p className="font-['Amiri_Quran_Colored',sans-serif] text-sm text-[#86868b]">Total</p>
           <div className="flex items-center justify-center gap-3 py-0.5 w-full">
             <span className="font-['Montserrat'] font-bold text-[clamp(2rem,8vw,2.5rem)] text-[#9d817a] tracking-[-1px]">₿</span>
@@ -220,7 +220,7 @@ export function HomeScreen({
         </div>
 
         {/* Card Carousel */}
-        <div className="relative w-full overflow-hidden pt-6 pb-8">
+        <div className="relative w-full pt-10 pb-8">
           {mints.length === 0 ? (
             <div className="flex justify-center items-center px-5">
               <button
@@ -236,7 +236,7 @@ export function HomeScreen({
               <div
                 ref={carouselRef}
                 onScroll={handleScroll}
-                className="flex gap-6 px-[calc(50%-var(--card-w)/2)] overflow-x-auto snap-x snap-mandatory scrollbar-hide"
+                className="flex gap-3 px-[calc(50%-var(--card-w)/2)] overflow-x-auto snap-x snap-mandatory scrollbar-hide"
               >
                 {mints.map((mint, idx) => (
                   <div

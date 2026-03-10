@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { MintInfo } from "@/core/types";
 import { cn } from "@/lib/utils";
 import cardLogo from "@/assets/card-logo.svg";
@@ -102,6 +103,7 @@ export function MintCard({
   onClick,
   onCreateToken,
 }: MintCardProps) {
+  const { t } = useTranslation();
   const displayName = getMintShortName(mint.url, mint.name);
 
   // Small card variant (for carousel in SendScreen)
@@ -168,7 +170,7 @@ export function MintCard({
     <div
       onClick={onClick}
       className={cn(
-        "relative w-[var(--card-w)] aspect-[280/176] rounded-[13px] overflow-hidden cursor-pointer active:scale-[0.98] transition-transform touch-manipulation",
+        "relative w-[var(--card-w)] aspect-[280/176] rounded-[13px] overflow-hidden cursor-pointer transition-transform touch-manipulation [&:active:not(:has(:active))]:scale-[0.98]",
         "border-[1.3px] border-solid border-[rgba(250,250,250,0.8)]",
         "shadow-[0px_4px_4px_0px_rgba(0,0,0,0.2)]",
         isSelected === true && "ring-2 ring-primary ring-offset-3 ring-offset-background",
@@ -232,7 +234,7 @@ export function MintCard({
           className="absolute z-20 bg-[rgba(224,188,188,0.76)] border border-[#d6baba] rounded-[8px] px-3 py-1.5 font-['Outfit'] font-semibold text-[10px] text-white hover:bg-[rgba(224,188,188,0.9)] active:scale-95 transition-all"
           style={{ right: '5%', top: '74%' }}
         >
-          토큰 생성하기
+          {t('payment.createToken')}
         </button>
       )}
     </div>
