@@ -197,7 +197,10 @@ export function HomeScreen({
       </header>
 
       {/* Scrollable content */}
-      <main className="flex-1 flex flex-col justify-end overflow-y-auto min-h-0">
+      <main className="flex-1 flex flex-col overflow-y-auto min-h-0">
+        {/* Flexible top spacer — pushes content toward thumb zone */}
+        <div className="flex-1 min-h-[5vh] max-h-[15vh]" />
+
         {/* Balance */}
         <div className="flex flex-col items-center gap-1 shrink-0 pb-1.5 pt-2.5">
           <p className="font-['Amiri_Quran_Colored',sans-serif] text-sm text-[#86868b]">Total</p>
