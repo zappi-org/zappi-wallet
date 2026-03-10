@@ -100,11 +100,17 @@ export function HomeScreen({
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const rafRef = useRef<number>(0);
 
+  const getCarouselGap = useCallback(() => {
+    const el = carouselRef.current;
+    if (!el) return 24; // gap-6 fallback
+    return parseFloat(getComputedStyle(el).columnGap) || 24;
+  }, []);
+
   const updateCardScales = useCallback(() => {
     const el = carouselRef.current;
     if (!el || mints.length === 0) return;
     const containerCenter = el.scrollLeft + el.clientWidth / 2;
-    const gap = 34; // gap-[34px]
+    const gap = getCarouselGap();
 
     cardRefs.current.forEach((card) => {
       if (!card) return;
@@ -118,22 +124,22 @@ export function HomeScreen({
       card.style.transform = `scale(${scale})`;
       card.style.opacity = `${opacity}`;
     });
-  }, [mints.length]);
+  }, [mints.length, getCarouselGap]);
 
   const handleScroll = useCallback(() => {
-    // Real-time scale update via rAF (no CSS transition delay)
     cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
       const el = carouselRef.current;
       if (!el || mints.length === 0) return;
       const scrollLeft = el.scrollLeft;
       const firstCard = cardRefs.current[0];
-      const cardWidth = (firstCard?.offsetWidth || 280) + 34;
+      const gap = getCarouselGap();
+      const cardWidth = (firstCard?.offsetWidth || 300) + gap;
       const index = Math.round(scrollLeft / cardWidth);
       setActiveMintIndex(Math.max(0, Math.min(index, mints.length - 1)));
       updateCardScales();
     });
-  }, [mints.length, updateCardScales]);
+  }, [mints.length, updateCardScales, getCarouselGap]);
 
   // Initial scale setup after mount/mints change
   useEffect(() => {
@@ -190,13 +196,14 @@ export function HomeScreen({
         </button>
       </header>
 
+      {/* Scrollable content */}
       <main className="flex-1 flex flex-col overflow-y-auto min-h-0">
         {/* Balance */}
-        <div className="flex flex-col items-center gap-[4px] shrink-0 pb-[6px] pt-[10px]">
-          <p className="font-['Amiri_Quran_Colored',sans-serif] text-[15px] text-[#86868b]">Total</p>
-          <div className="flex items-center justify-center gap-[12px] py-[2px] w-full">
-            <span className="font-['Montserrat'] font-bold text-[37px] text-[#9d817a] tracking-[-1px]">₿</span>
-            <span className={`font-['Andika'] font-bold text-[42px] text-[#2e0f0f] tracking-[5px] ${isLoadingBalance ? 'animate-shimmer' : ''}`}>
+        <div className="flex flex-col items-center gap-1 shrink-0 pb-1.5 pt-2.5">
+          <p className="font-['Amiri_Quran_Colored',sans-serif] text-sm text-[#86868b]">Total</p>
+          <div className="flex items-center justify-center gap-3 py-0.5 w-full">
+            <span className="font-['Montserrat'] font-bold text-[clamp(2rem,8vw,2.5rem)] text-[#9d817a] tracking-[-1px]">₿</span>
+            <span className={`font-['Andika'] font-bold text-[clamp(2.25rem,9vw,2.75rem)] text-[#2e0f0f] tracking-[5px] ${isLoadingBalance ? 'animate-shimmer' : ''}`}>
               {settings.balanceHidden ? '••••' : isLoadingBalance ? "..." : totalBalance.toLocaleString()}
             </span>
             <button
@@ -212,16 +219,13 @@ export function HomeScreen({
           </div>
         </div>
 
-        {/* Separator */}
-        <div className="h-[6px] bg-[#f8fbff] w-full shrink-0" />
-
         {/* Card Carousel */}
         <div className="relative w-full overflow-hidden py-10">
           {mints.length === 0 ? (
             <div className="flex justify-center items-center px-5">
               <button
                 onClick={onAddMint}
-                className="w-[72vw] max-w-[280px] aspect-[280/176] rounded-[13px] border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 gap-2"
+                className="w-[var(--card-w)] aspect-[280/176] rounded-[13px] border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 gap-2"
               >
                 <Plus className="w-6 h-6" />
                 <span className="text-sm font-medium">{t('home.addFirstMint')}</span>
@@ -232,7 +236,7 @@ export function HomeScreen({
               <div
                 ref={carouselRef}
                 onScroll={handleScroll}
-                className="flex gap-[34px] px-[calc(50%-140px)] overflow-x-auto snap-x snap-mandatory scrollbar-hide"
+                className="flex gap-6 px-[calc(50%-var(--card-w)/2)] overflow-x-auto snap-x snap-mandatory scrollbar-hide"
               >
                 {mints.map((mint, idx) => (
                   <div
@@ -263,11 +267,11 @@ export function HomeScreen({
 
               {/* Pagination Dots */}
               {mints.length > 1 && (
-                <div className="flex justify-center gap-[8px] mt-4">
+                <div className="flex justify-center gap-2 mt-4">
                   {mints.map((_, idx) => (
                     <div
                       key={idx}
-                      className={`w-[6px] h-[6px] rounded-full ${idx === clampedMintIndex ? "bg-[#1d1d1f]" : "bg-[#d9d9d9]"}`}
+                      className={`w-1.5 h-1.5 rounded-full ${idx === clampedMintIndex ? "bg-[#1d1d1f]" : "bg-[#d9d9d9]"}`}
                     />
                   ))}
                 </div>
@@ -276,8 +280,8 @@ export function HomeScreen({
           )}
         </div>
 
-        {/* Transaction List — filtered by selected mint (fixed height) */}
-        <div className="min-h-[110px]">
+        {/* Transaction List — filtered by selected mint */}
+        <div className="min-h-[110px] pb-4">
           <TransactionList
             transactions={filteredTransactions}
             onSeeAll={onTransactions}
@@ -285,29 +289,29 @@ export function HomeScreen({
             maxItems={1}
           />
         </div>
+      </main>
 
-        {/* Action Row — Receive / Send */}
-        <div className="flex items-start justify-center gap-[16px] pt-[36px] pb-[12px] rounded-[12px] bg-[#faf9f6] pb-safe">
+      {/* Action Row — always fixed at bottom */}
+      <div className="shrink-0 flex items-start justify-center gap-4 pt-3 pb-3 bg-[#faf9f6] pb-safe">
         <button
           onClick={handleReceiveClick}
-          className="flex flex-col items-center gap-[6px] w-[80px] active:scale-95 transition-transform"
+          className="flex flex-col items-center gap-1.5 w-20 active:scale-95 transition-transform"
         >
-          <div className="w-[48px] h-[48px] bg-white rounded-[16px] flex items-center justify-center">
-            <ArrowDownLeft className="w-[22px] h-[22px] text-[#5B7A54]" strokeWidth={2} />
+          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center">
+            <ArrowDownLeft className="w-5.5 h-5.5 text-[#5B7A54]" strokeWidth={2} />
           </div>
-          <span className="font-['Outfit'] font-bold text-[12px] text-[#1d1d1f] leading-normal">{t('common.receive')}</span>
+          <span className="font-['Outfit'] font-bold text-xs text-[#1d1d1f] leading-normal">{t('common.receive')}</span>
         </button>
         <button
           onClick={handleSendClick}
-          className="flex flex-col items-center gap-[6px] w-[80px] active:scale-95 transition-transform"
+          className="flex flex-col items-center gap-1.5 w-20 active:scale-95 transition-transform"
         >
-          <div className="w-[48px] h-[48px] bg-white rounded-[16px] flex items-center justify-center">
-            <ArrowUpRight className="w-[22px] h-[22px] text-[#D4A03D]" strokeWidth={2} />
+          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center">
+            <ArrowUpRight className="w-5.5 h-5.5 text-[#D4A03D]" strokeWidth={2} />
           </div>
-          <span className="font-['Outfit'] font-bold text-[12px] text-[#1d1d1f] leading-normal">{t('common.send')}</span>
+          <span className="font-['Outfit'] font-bold text-xs text-[#1d1d1f] leading-normal">{t('common.send')}</span>
         </button>
-        </div>
-      </main>
+      </div>
 
       {/* Unified Scanner */}
       <UnifiedScanner

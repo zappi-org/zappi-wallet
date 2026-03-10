@@ -163,19 +163,19 @@ export function MintCard({
     );
   }
 
-  // Medium card variant (for Home screen carousel) - Figma pixel-perfect
+  // Medium card variant (for Home screen carousel)
   return (
     <div
       onClick={onClick}
       className={cn(
-        "relative w-[72vw] max-w-[280px] aspect-[280/176] rounded-[13px] overflow-hidden cursor-pointer active:scale-[0.98] transition-transform touch-manipulation",
+        "relative w-[var(--card-w)] aspect-[280/176] rounded-[13px] overflow-hidden cursor-pointer active:scale-[0.98] transition-transform touch-manipulation",
         "border-[1.3px] border-solid border-[rgba(250,250,250,0.8)]",
         "shadow-[0px_4px_4px_0px_rgba(0,0,0,0.2)]",
         isSelected === true && "ring-2 ring-primary ring-offset-3 ring-offset-background",
         isSelected === false && "opacity-70"
       )}
     >
-      {/* Background — Figma inset: -1.3px (extends under border) */}
+      {/* Background — extends under border */}
       <img
         alt=""
         className="absolute max-w-none object-cover pointer-events-none"
@@ -183,18 +183,17 @@ export function MintCard({
         style={{ inset: '-1.3px', width: 'calc(100% + 2.6px)', height: 'calc(100% + 2.6px)', filter: variantFilters[variant] }}
       />
 
-      {/* Noise — Figma inset: -1.3px */}
+      {/* Noise texture */}
       <div
         aria-hidden="true"
         className="absolute opacity-5 pointer-events-none"
-        style={{ inset: '-1.3px', backgroundImage: `url('${cardNoise}')`, backgroundSize: '560.59px 352px', backgroundPosition: 'top left' }}
+        style={{ inset: '-1.3px', backgroundImage: `url('${cardNoise}')`, backgroundSize: '200% 200%', backgroundPosition: 'top left' }}
       />
 
-
-      {/* Mint Name — Figma: top 22.8px, left 26px */}
+      {/* Mint Name */}
       <p
         className="absolute z-10 font-['Montserrat'] font-bold text-[15.6px] text-[#fafafa] uppercase leading-normal whitespace-nowrap"
-        style={{ top: '23px', left: '26px' }}
+        style={{ top: '13%', left: '9.3%' }}
       >
         {displayName}
       </p>
@@ -202,24 +201,23 @@ export function MintCard({
       {/* Mint Logo — top-right */}
       <div
         className="absolute z-10 bg-white rounded-full flex items-center justify-center overflow-hidden"
-        style={{ right: '16px', top: '20px', width: '25px', height: '25px', boxShadow: '6.5px 0px 2.6px 0px rgba(0,0,0,0.34)' }}
+        style={{ right: '5.7%', top: '11.4%', width: '25px', height: '25px', boxShadow: '6.5px 0px 2.6px 0px rgba(0,0,0,0.34)' }}
       >
         <MintLogo iconUrl={mint.iconUrl} size="sm" />
       </div>
 
-      {/* BALANCE label — Figma: top 125px, left 26px */}
+      {/* BALANCE label & amount */}
       {!hideBalance && (
         <>
           <p
             className="absolute z-10 font-['Montserrat'] font-semibold text-[13px] text-white leading-normal whitespace-nowrap"
-            style={{ top: '125px', left: '26px' }}
+            style={{ top: '71%', left: '9.3%' }}
           >
             BALANCE
           </p>
-          {/* Balance amount — Figma: top 141px, left 26px */}
           <p
             className="absolute z-10 font-['Montserrat'] font-semibold text-[15.6px] text-[#fafafa] leading-normal"
-            style={{ top: '141px', left: '26px' }}
+            style={{ top: '80%', left: '9.3%' }}
           >
             <span className="text-[#817a7a]">₿</span>
             {` ${mint.balance.toLocaleString()}`}
@@ -227,12 +225,12 @@ export function MintCard({
         </>
       )}
 
-      {/* Create Token button — Figma: 84×35, left 182.7px, top 123.2px */}
+      {/* Create Token button */}
       {onCreateToken && (
         <button
           onClick={(e) => { e.stopPropagation(); onCreateToken(); }}
-          className="absolute z-20 bg-[rgba(224,188,188,0.76)] border border-[#d6baba] rounded-[8px] w-[84px] h-[35px] font-['Outfit'] font-semibold text-[10px] text-white hover:bg-[rgba(224,188,188,0.9)] active:scale-95 transition-all"
-          style={{ left: '183px', top: '130px' }}
+          className="absolute z-20 bg-[rgba(224,188,188,0.76)] border border-[#d6baba] rounded-[8px] px-3 py-1.5 font-['Outfit'] font-semibold text-[10px] text-white hover:bg-[rgba(224,188,188,0.9)] active:scale-95 transition-all"
+          style={{ right: '5%', top: '74%' }}
         >
           토큰 생성하기
         </button>
