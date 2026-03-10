@@ -81,7 +81,7 @@
   --card-w: clamp(280px, 80vw, 360px);
 
   /* Background */
-  --background: #FFFFFF;
+  --background: #faf9f6;
   --background-card: #FFFFFF;
   --background-elevated: #FFFFFF;
 
