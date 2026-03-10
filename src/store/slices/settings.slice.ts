@@ -37,6 +37,7 @@ const defaultSettings: WalletSettings = {
   soundEnabled: true,
   expertModeEnabled: false,
   manualMintSelectionEnabled: false,
+  balanceHidden: false,
 }
 
 /**

@@ -172,6 +172,7 @@ export interface WalletSettings {
   soundEnabled: boolean
   expertModeEnabled: boolean
   manualMintSelectionEnabled: boolean
+  balanceHidden: boolean
   language?: SupportedLanguage
   posDevices?: POSDevice[]
 }

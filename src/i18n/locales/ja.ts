@@ -92,6 +92,8 @@ export default {
   // Home Screen
   home: {
     totalBalance: '合計残高',
+    showBalance: '残高を表示',
+    hideBalance: '残高を非表示',
     myMints: 'マイミント',
     addFirstMint: '最初のミントを追加',
     recentTransactions: '取引履歴',

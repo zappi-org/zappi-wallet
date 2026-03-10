@@ -92,6 +92,8 @@ export default {
   // Home Screen
   home: {
     totalBalance: 'Total Balance',
+    showBalance: 'Show balance',
+    hideBalance: 'Hide balance',
     myMints: 'My Mints',
     addFirstMint: 'Add your first mint',
     recentTransactions: 'History',

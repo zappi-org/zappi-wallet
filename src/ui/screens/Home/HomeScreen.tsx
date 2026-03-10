@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, startTransition, useCallback, useRef } from "react";
-import { User, ArrowDownLeft, ArrowUpRight, Plus } from "lucide-react";
+import { User, ArrowDownLeft, ArrowUpRight, Plus, Eye, EyeOff } from "lucide-react";
 
 import { useTranslation } from "react-i18next";
 import { MintCard, getVariantByIndex } from "../../components/wallet/MintCard";
@@ -26,6 +26,7 @@ export interface HomeScreenProps {
   onAddMint?: () => void;
   onMintDetails?: (mint: MintInfo) => void;
   onValidatedScan?: (data: ValidatedData, mode: 'send' | 'receive') => void;
+  onCreateToken?: (mintUrl: string) => void;
   onSelectTransaction?: (tx: Transaction) => void;
   transactions?: Transaction[];
 }
@@ -36,6 +37,7 @@ export function HomeScreen({
   onAddMint,
   onMintDetails,
   onValidatedScan,
+  onCreateToken,
   onSelectTransaction,
   transactions: propTransactions,
 }: HomeScreenProps) {
@@ -51,6 +53,7 @@ export function HomeScreen({
   const { balance, isLoadingBalance } = useWallet();
   const { checkAllMints, getCachedStatus } = useMintHealth();
   const settings = useAppStore((state) => state.settings);
+  const updateSettings = useAppStore((state) => state.updateSettings);
   const updateAvailable = useAppStore((state) => state.updateAvailable);
   const txRefreshTrigger = useAppStore((state) => state.txRefreshTrigger);
   const { getDisplayName, getIconUrl } = useMintMetadata(settings?.mints || []);
@@ -74,8 +77,9 @@ export function HomeScreen({
   }, [checkAllMints]);
 
   // Build mint info from settings.mints with online status and metadata
+  const mintUrls = settings.mints;
   const mints: MintInfo[] = useMemo(() => {
-    return (settings?.mints || []).map((url) => {
+    return mintUrls.map((url) => {
       const cachedStatus = getCachedStatus(url);
       const normalizedUrl = url.endsWith("/") ? url.slice(0, -1) : url;
       return {
@@ -87,7 +91,7 @@ export function HomeScreen({
         lastChecked: cachedStatus?.lastChecked,
       };
     });
-  }, [settings?.mints, balance.byMint, getCachedStatus, getDisplayName, getIconUrl]);
+  }, [mintUrls, balance.byMint, getCachedStatus, getDisplayName, getIconUrl]);
 
   const totalBalance = balance.total;
 
@@ -193,8 +197,18 @@ export function HomeScreen({
           <div className="flex items-center justify-center gap-[12px] py-[2px] w-full">
             <span className="font-['Montserrat'] font-bold text-[37px] text-[#9d817a] tracking-[-1px]">₿</span>
             <span className={`font-['Andika'] font-bold text-[42px] text-[#2e0f0f] tracking-[5px] ${isLoadingBalance ? 'animate-shimmer' : ''}`}>
-              {isLoadingBalance ? "..." : totalBalance.toLocaleString()}
+              {settings.balanceHidden ? '••••' : isLoadingBalance ? "..." : totalBalance.toLocaleString()}
             </span>
+            <button
+              onClick={() => updateSettings({ balanceHidden: !settings.balanceHidden })}
+              aria-label={settings.balanceHidden ? t('home.showBalance') : t('home.hideBalance')}
+              className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              {settings.balanceHidden
+                ? <EyeOff className="w-5 h-5 text-[#86868b]" />
+                : <Eye className="w-5 h-5 text-[#86868b]" />
+              }
+            </button>
           </div>
         </div>
 
@@ -230,6 +244,8 @@ export function HomeScreen({
                     <MintCard
                       mint={mint}
                       variant={getVariantByIndex(idx)}
+                      hideBalance={settings.balanceHidden}
+                      onCreateToken={onCreateToken ? () => onCreateToken(mint.url) : undefined}
                     />
                   </div>
                 ))}
@@ -260,8 +276,8 @@ export function HomeScreen({
           )}
         </div>
 
-        {/* Transaction List — filtered by selected mint */}
-        <div>
+        {/* Transaction List — filtered by selected mint (fixed height) */}
+        <div className="min-h-[110px]">
           <TransactionList
             transactions={filteredTransactions}
             onSeeAll={onTransactions}
@@ -271,7 +287,7 @@ export function HomeScreen({
         </div>
 
         {/* Action Row — Receive / Send */}
-        <div className="flex items-start justify-center gap-[16px] py-[12px] rounded-[12px] bg-[#faf9f6] pb-safe">
+        <div className="flex items-start justify-center gap-[16px] pt-[36px] pb-[12px] rounded-[12px] bg-[#faf9f6] pb-safe">
         <button
           onClick={handleReceiveClick}
           className="flex flex-col items-center gap-[6px] w-[80px] active:scale-95 transition-transform"

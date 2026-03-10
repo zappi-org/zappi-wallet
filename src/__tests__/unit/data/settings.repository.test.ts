@@ -37,6 +37,7 @@ describe('SettingsRepository', () => {
         soundEnabled: true,
         expertModeEnabled: true,
         manualMintSelectionEnabled: true,
+        balanceHidden: false,
       }
 
       await repo.saveSettings(settings)
@@ -54,6 +55,7 @@ describe('SettingsRepository', () => {
         soundEnabled: true,
         expertModeEnabled: false,
         manualMintSelectionEnabled: false,
+        balanceHidden: false,
       }
       await repo.saveSettings(initial)
 
@@ -152,6 +154,7 @@ describe('SettingsRepository', () => {
         soundEnabled: true,
         expertModeEnabled: false,
         manualMintSelectionEnabled: false,
+        balanceHidden: false,
       })
       await repo.saveEncryptedWallet({
         encryptedMnemonic: 'test',

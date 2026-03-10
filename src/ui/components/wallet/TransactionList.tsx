@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ArrowDownLeft, ArrowUpRight, ArrowRightLeft, Zap, Heart, List } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, ArrowRightLeft, Zap, Heart } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Transaction } from "@/core/types";
 import { useMintMetadata } from "@/hooks";
@@ -31,7 +31,7 @@ function getTransactionIcon(tx: Transaction) {
 
 export function TransactionList({
   transactions,
-  onSeeAll: _onSeeAll,
+  onSeeAll,
   onTransactionClick,
   maxItems = 5,
   showHeader = true,
@@ -81,11 +81,18 @@ export function TransactionList({
   const { getDisplayName } = useMintMetadata(mintUrls);
 
   return (
-    <div className="flex flex-col w-full px-6 py-4">
+    <div className="flex flex-col w-full px-6 py-1">
       {showHeader && (
-        <div className="flex items-center justify-center gap-[6px] pt-[10px] mb-4">
-          <List className="w-4 h-4 text-[#86868b]" />
-          <span className="font-['Outfit'] font-medium text-[14px] text-[#86868b]">History</span>
+        <div className="flex items-center justify-between pt-[4px] mb-2">
+          <div />
+          {onSeeAll && (
+            <button
+              onClick={onSeeAll}
+              className={`font-['Outfit'] font-medium text-[12px] text-[#86868b] hover:text-[#1d1d1f] transition-colors ${transactions.length === 0 ? 'invisible' : ''}`}
+            >
+              {t('home.seeAll')}
+            </button>
+          )}
         </div>
       )}
 
@@ -94,7 +101,7 @@ export function TransactionList({
           <p className="text-xs opacity-50">{t('home.noTransactions')}</p>
         </div>
       ) : (
-      <div className="flex flex-col shadow-[-1px_2px_4px_white,0px_4px_4px_rgba(0,0,0,0.1)]">
+      <div className="flex flex-col shadow-[-1px_2px_4px_white,0px_4px_4px_rgba(0,0,0,0.1)] gap-0">
         {displayTransactions.map((tx) => {
           const Icon = getTransactionIcon(tx);
           const isSwap = tx.type === "swap";
@@ -177,6 +184,7 @@ export function TransactionList({
         })}
       </div>
       )}
+
     </div>
   );
 }

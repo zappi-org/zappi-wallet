@@ -92,6 +92,8 @@ export default {
   // Home Screen
   home: {
     totalBalance: '총 잔액',
+    showBalance: '잔액 표시',
+    hideBalance: '잔액 숨기기',
     myMints: '내 민트',
     addFirstMint: '첫 번째 민트를 추가하세요',
     recentTransactions: '거래 내역',

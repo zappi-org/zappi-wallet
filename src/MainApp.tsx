@@ -764,6 +764,10 @@ export default function MainApp() {
             setShowMintDetails(true)
           }}
           onValidatedScan={handleValidatedScan}
+          onCreateToken={() => {
+            setPreviousScreen('home')
+            setCurrentScreen('ecash-send')
+          }}
           onSelectTransaction={(tx) => {
             setSelectedTransaction(tx)
             setPreviousScreen('home')

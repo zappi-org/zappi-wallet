@@ -84,6 +84,7 @@ export const useAppStore = create<AppState>()(
             soundEnabled: true,
             expertModeEnabled: false,
             manualMintSelectionEnabled: false,
+            balanceHidden: false,
           },
           isLoadingSettings: false,
           nostrPubkey: null,

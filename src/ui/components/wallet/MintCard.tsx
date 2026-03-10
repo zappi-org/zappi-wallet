@@ -15,6 +15,7 @@ interface MintCardProps {
   isSelected?: boolean;
   hideBalance?: boolean;
   onClick?: () => void;
+  onCreateToken?: () => void;
 }
 
 /**
@@ -99,6 +100,7 @@ export function MintCard({
   isSelected,
   hideBalance,
   onClick,
+  onCreateToken,
 }: MintCardProps) {
   const displayName = getMintShortName(mint.url, mint.name);
 
@@ -197,13 +199,13 @@ export function MintCard({
         {displayName}
       </p>
 
-      {/* CASHU Watermark — Figma: visual top ~41px, right edge */}
-      <p
-        className="absolute z-10 font-['Amiko'] font-semibold text-[29.3px] text-[rgba(255,255,255,0.21)] uppercase whitespace-nowrap leading-none"
-        style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)', right: '4px', top: '8px' }}
+      {/* Mint Logo — top-right */}
+      <div
+        className="absolute z-10 bg-white rounded-full flex items-center justify-center overflow-hidden"
+        style={{ right: '16px', top: '20px', width: '25px', height: '25px', boxShadow: '6.5px 0px 2.6px 0px rgba(0,0,0,0.34)' }}
       >
-        CASHU
-      </p>
+        <MintLogo iconUrl={mint.iconUrl} size="sm" />
+      </div>
 
       {/* BALANCE label — Figma: top 125px, left 26px */}
       {!hideBalance && (
@@ -225,13 +227,16 @@ export function MintCard({
         </>
       )}
 
-      {/* Mint Logo — Figma: left 240px, top 134px, size 25px */}
-      <div
-        className="absolute z-10 bg-white rounded-full flex items-center justify-center overflow-hidden"
-        style={{ left: '240px', top: '134px', width: '25px', height: '25px', boxShadow: '6.5px 0px 2.6px 0px rgba(0,0,0,0.34)' }}
-      >
-        <MintLogo iconUrl={mint.iconUrl} size="sm" />
-      </div>
+      {/* Create Token button — Figma: 84×35, left 182.7px, top 123.2px */}
+      {onCreateToken && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onCreateToken(); }}
+          className="absolute z-20 bg-[rgba(224,188,188,0.76)] border border-[#d6baba] rounded-[8px] w-[84px] h-[35px] font-['Outfit'] font-semibold text-[10px] text-white hover:bg-[rgba(224,188,188,0.9)] active:scale-95 transition-all"
+          style={{ left: '183px', top: '130px' }}
+        >
+          토큰 생성하기
+        </button>
+      )}
     </div>
   );
 }

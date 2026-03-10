@@ -92,6 +92,8 @@ export default {
   // Home Screen
   home: {
     totalBalance: 'Total Saldo',
+    showBalance: 'Tampilkan saldo',
+    hideBalance: 'Sembunyikan saldo',
     myMints: 'Mint Saya',
     addFirstMint: 'Tambahkan mint pertama Anda',
     recentTransactions: 'Riwayat',
