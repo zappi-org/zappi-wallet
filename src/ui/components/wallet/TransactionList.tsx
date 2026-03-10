@@ -169,7 +169,7 @@ export function TransactionList({
               <div className="flex flex-col items-end gap-[2px]">
                 <span className={`font-['Outfit'] font-bold text-[14px] ${amountColor} leading-normal`}>
                   {isSwap
-                    ? `₿${tx.amount.toLocaleString()}`
+                    ? `₿ ${tx.amount.toLocaleString()}`
                     : isIncome
                       ? `+ ₿ ${tx.amount.toLocaleString()}`
                       : `- ₿ ${tx.amount.toLocaleString()}`

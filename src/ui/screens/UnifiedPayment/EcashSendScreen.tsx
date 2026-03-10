@@ -533,7 +533,7 @@ export function EcashSendScreen({
                     <p className="text-sm text-foreground-muted">{t('payment.sendingNostrDm')}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold">₿{numericAmount.toLocaleString()}</p>
+                    <p className="text-2xl font-bold">₿ {numericAmount.toLocaleString()}</p>
                     <p className="text-sm text-foreground-muted mt-1">{t('payment.sending')}</p>
                   </div>
                 </>
@@ -549,7 +549,7 @@ export function EcashSendScreen({
                     <p className="text-white font-medium">{t('payment.sendComplete')}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold">₿{numericAmount.toLocaleString()}</p>
+                    <p className="text-2xl font-bold">₿ {numericAmount.toLocaleString()}</p>
                     <p className="text-sm text-foreground-muted mt-1">{t('payment.sentViaNostrDm')}</p>
                   </div>
                 </>
@@ -566,7 +566,7 @@ export function EcashSendScreen({
                     />
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold">₿{numericAmount.toLocaleString()}</p>
+                    <p className="text-2xl font-bold">₿ {numericAmount.toLocaleString()}</p>
                     {memo.trim() && (
                       <p className="text-sm text-foreground-muted mt-1 italic">
                         &ldquo;{memo.trim()}&rdquo;
@@ -713,7 +713,7 @@ export function EcashSendScreen({
               <label className="text-xs font-semibold text-foreground-muted uppercase tracking-wide">{t('payment.amount')}</label>
               {isAmountFixed ? (
                 <div className="mt-1 px-4 py-3 bg-background-card rounded-xl border border-border text-foreground font-medium">
-                  ₿{numericAmount.toLocaleString()}
+                  ₿ {numericAmount.toLocaleString()}
                 </div>
               ) : (
                 <div className="mt-1 flex items-center gap-1 px-4 py-3 bg-background-card rounded-xl border border-border">
@@ -824,7 +824,7 @@ export function EcashSendScreen({
               <>
                 {validatedData ? <Send className="w-5 h-5" /> : <Banknote className="w-5 h-5" />}
                 {validatedData
-                  ? `₿${numericAmount.toLocaleString()} ${t('payment.send')}`
+                  ? `₿ ${numericAmount.toLocaleString()} ${t('payment.send')}`
                   : t('payment.createToken')}
               </>
             )}

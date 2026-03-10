@@ -126,7 +126,7 @@ export function TokenReceiveScreen({
                 <CheckCircle2 className="w-12 h-12 text-primary" />
               </div>
               <div className="text-center">
-                <p className="text-3xl font-bold">₿{receivedAmount.toLocaleString()}</p>
+                <p className="text-3xl font-bold">₿ {receivedAmount.toLocaleString()}</p>
                 <p className="text-foreground-muted mt-2">{t('payment.successReceived')}</p>
               </div>
               <button
@@ -142,7 +142,7 @@ export function TokenReceiveScreen({
               className="w-full max-w-sm flex flex-col gap-4 animate-fadeIn"
             >
               {/* Amount */}
-              <p className="text-4xl font-bold text-center">₿{validatedData.amountSats.toLocaleString()}</p>
+              <p className="text-4xl font-bold text-center">₿ {validatedData.amountSats.toLocaleString()}</p>
 
               {/* Token details */}
               <div className="bg-background-card rounded-2xl p-4 space-y-3 border border-border">

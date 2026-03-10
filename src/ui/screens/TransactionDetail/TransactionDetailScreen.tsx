@@ -305,7 +305,7 @@ export default function TransactionDetailScreen({
           <span className={`text-3xl font-bold tracking-tight ${
             isReceive ? 'text-card-green-dark' : 'text-foreground'
           }`}>
-            {isReceive ? '+' : isSwap ? '' : '-'}{satUnit(tx.amount)}{tx.amount.toLocaleString()}
+            {isReceive ? '+' : isSwap ? '' : '-'}{satUnit(tx.amount)} {tx.amount.toLocaleString()}
           </span>
 
           {tx.fiatAmount != null && tx.fiatCurrency && (
@@ -517,7 +517,7 @@ export default function TransactionDetailScreen({
                     {item.productName} <span className="text-foreground-muted">x{item.quantity}</span>
                   </span>
                   <span className="text-xs font-mono font-medium text-foreground">
-                    {satUnit(item.subtotal)}{item.subtotal.toLocaleString()}
+                    {satUnit(item.subtotal)} {item.subtotal.toLocaleString()}
                   </span>
                 </div>
               ))}
@@ -525,7 +525,7 @@ export default function TransactionDetailScreen({
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-foreground">{t('txDetail.orderTotal')}</span>
                 <span className="text-xs font-mono font-bold text-foreground">
-                  {satUnit(kioskOrder.total)}{kioskOrder.total.toLocaleString()}
+                  {satUnit(kioskOrder.total)} {kioskOrder.total.toLocaleString()}
                 </span>
               </div>
             </div>

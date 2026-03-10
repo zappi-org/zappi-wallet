@@ -201,21 +201,23 @@ export function HomeScreen({
         {/* Balance */}
         <div className="flex flex-col items-center gap-1 shrink-0 pb-1.5 pt-8">
           <p className="font-['Amiri_Quran_Colored',sans-serif] text-sm text-[#86868b]">Total</p>
-          <div className="flex items-center justify-center gap-3 py-0.5 w-full">
-            <span className="font-['Montserrat'] font-bold text-[clamp(2rem,8vw,2.5rem)] text-[#9d817a] tracking-[-1px]">₿</span>
-            <span className={`font-['Andika'] font-bold text-[clamp(2.25rem,9vw,2.75rem)] text-[#2e0f0f] tracking-[5px] ${isLoadingBalance ? 'animate-shimmer' : ''}`}>
-              {settings.balanceHidden ? '••••' : isLoadingBalance ? "..." : totalBalance.toLocaleString()}
-            </span>
-            <button
-              onClick={() => updateSettings({ balanceHidden: !settings.balanceHidden })}
-              aria-label={settings.balanceHidden ? t('home.showBalance') : t('home.hideBalance')}
-              className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
-            >
-              {settings.balanceHidden
-                ? <EyeOff className="w-5 h-5 text-[#86868b]" />
-                : <Eye className="w-5 h-5 text-[#86868b]" />
-              }
-            </button>
+          <div className="flex items-center justify-center py-0.5 w-full">
+            <div className="flex items-center gap-3">
+              <span className="font-['Montserrat'] font-bold text-[clamp(2rem,8vw,2.5rem)] text-[#9d817a] tracking-[-1px]">₿</span>
+              <span className={`font-['Andika'] font-bold text-[clamp(2.25rem,9vw,2.75rem)] text-[#2e0f0f] tracking-[5px] ${isLoadingBalance ? 'animate-shimmer' : ''}`}>
+                {settings.balanceHidden ? '••••' : isLoadingBalance ? "..." : totalBalance.toLocaleString()}
+              </span>
+              <button
+                onClick={() => updateSettings({ balanceHidden: !settings.balanceHidden })}
+                aria-label={settings.balanceHidden ? t('home.showBalance') : t('home.hideBalance')}
+                className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+              >
+                {settings.balanceHidden
+                  ? <EyeOff className="w-5 h-5 text-[#86868b]" />
+                  : <Eye className="w-5 h-5 text-[#86868b]" />
+                }
+              </button>
+            </div>
           </div>
         </div>
 

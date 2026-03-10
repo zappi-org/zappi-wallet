@@ -250,7 +250,7 @@ export function LightningReceiveScreen({
             <CheckCircle2 className="w-12 h-12 text-primary" />
           </div>
           <div className="text-center">
-            <p className="text-3xl font-bold">₿{receivedAmount.toLocaleString()}</p>
+            <p className="text-3xl font-bold">₿ {receivedAmount.toLocaleString()}</p>
             <p className="text-foreground-muted mt-2">{t('payment.receiveComplete')}</p>
           </div>
           <button
@@ -299,7 +299,7 @@ export function LightningReceiveScreen({
                 />
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold">₿{numericAmount.toLocaleString()}</p>
+                <p className="text-2xl font-bold">₿ {numericAmount.toLocaleString()}</p>
                 <p className="text-sm text-foreground-muted mt-1">{t('payment.checkingReceipt')}</p>
               </div>
               <button
@@ -356,7 +356,7 @@ export function LightningReceiveScreen({
               </div>
               {minAmount && maxAmount && (
                 <p className="mt-1 text-xs text-foreground-muted">
-                  ₿{minAmount.toLocaleString()} ~ ₿{maxAmount.toLocaleString()}
+                  ₿ {minAmount.toLocaleString()} ~ ₿ {maxAmount.toLocaleString()}
                 </p>
               )}
             </div>

@@ -89,7 +89,7 @@ export function AmountActionScreen({
       >
         {/* Amount Display */}
         <p className="text-5xl font-bold tracking-tight text-center">
-          ₿{amount.toLocaleString()}
+          ₿ {amount.toLocaleString()}
         </p>
 
         {/* Action Buttons */}

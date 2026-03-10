@@ -211,7 +211,7 @@ export function LightningSendScreen({
             <CheckCircle2 className="w-12 h-12 text-primary" />
           </div>
           <div className="text-center">
-            <p className="text-3xl font-bold">₿{sentAmount.toLocaleString()}</p>
+            <p className="text-3xl font-bold">₿ {sentAmount.toLocaleString()}</p>
             <p className="text-foreground-muted mt-2">{t('payment.sendComplete')}</p>
           </div>
           <button
@@ -280,7 +280,7 @@ export function LightningSendScreen({
           <label className="text-xs font-semibold text-foreground-muted uppercase tracking-wide">{t('common.amount')}</label>
           {isAmountFixed ? (
             <div className="mt-1 px-4 py-3 bg-background-card rounded-xl border border-border text-foreground font-medium">
-              ₿{numericAmount.toLocaleString()}
+              ₿ {numericAmount.toLocaleString()}
             </div>
           ) : (
             <div className="mt-1 flex items-center gap-1 px-4 py-3 bg-background-card rounded-xl border border-border">
@@ -299,7 +299,7 @@ export function LightningSendScreen({
           )}
           {minAmount && maxAmount && (
             <p className="mt-1 text-xs text-foreground-muted">
-              ₿{minAmount.toLocaleString()} ~ ₿{maxAmount.toLocaleString()}
+              ₿ {minAmount.toLocaleString()} ~ ₿ {maxAmount.toLocaleString()}
             </p>
           )}
         </div>
@@ -351,7 +351,7 @@ export function LightningSendScreen({
           ) : (
             <>
               <Zap className="w-5 h-5" />
-              {numericAmount > 0 ? `₿${numericAmount.toLocaleString()} ${t('payment.send')}` : t('payment.send')}
+              {numericAmount > 0 ? `₿ ${numericAmount.toLocaleString()} ${t('payment.send')}` : t('payment.send')}
             </>
           )}
         </button>

@@ -156,7 +156,7 @@ export function MintCard({
                 Balance
               </span>
               <span className="font-['Montserrat'] text-xs font-bold text-white tracking-tight drop-shadow-md">
-                <span className="text-[#b6b6b6]">₿</span>{mint.balance.toLocaleString()}
+                <span className="text-[#b6b6b6]">₿</span> {mint.balance.toLocaleString()}
               </span>
             </div>
           )}
@@ -231,7 +231,7 @@ export function MintCard({
       {onCreateToken && (
         <button
           onClick={(e) => { e.stopPropagation(); onCreateToken(); }}
-          className="absolute z-20 bg-[rgba(224,188,188,0.76)] border border-[#d6baba] rounded-[8px] px-3 py-1.5 font-['Outfit'] font-semibold text-[10px] text-white hover:bg-[rgba(224,188,188,0.9)] active:scale-95 transition-all"
+          className="absolute z-20 bg-[rgba(224,188,188,0.76)] border border-[#d6baba] rounded-[8px] px-4 py-2 font-['Outfit'] font-semibold text-[13px] text-white hover:bg-[rgba(224,188,188,0.9)] active:scale-90 active:brightness-110 transition-all"
           style={{ right: '5%', top: '74%' }}
         >
           {t('payment.createToken')}
