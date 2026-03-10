@@ -773,6 +773,7 @@ export default function MainApp() {
             setPreviousScreen('home')
             setCurrentScreen('transaction-detail')
           }}
+          onSaveSettings={handleSaveSettings}
           transactions={transactions}
         />
       )}

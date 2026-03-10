@@ -28,6 +28,7 @@ export interface HomeScreenProps {
   onValidatedScan?: (data: ValidatedData, mode: 'send' | 'receive') => void;
   onCreateToken?: (mintUrl: string) => void;
   onSelectTransaction?: (tx: Transaction) => void;
+  onSaveSettings?: (settings: Record<string, unknown>) => Promise<void>;
   transactions?: Transaction[];
 }
 
@@ -39,6 +40,7 @@ export function HomeScreen({
   onValidatedScan,
   onCreateToken,
   onSelectTransaction,
+  onSaveSettings,
   transactions: propTransactions,
 }: HomeScreenProps) {
   const { t } = useTranslation();
@@ -208,7 +210,11 @@ export function HomeScreen({
                 {settings.balanceHidden ? '••••' : isLoadingBalance ? "..." : totalBalance.toLocaleString()}
               </span>
               <button
-                onClick={() => updateSettings({ balanceHidden: !settings.balanceHidden })}
+                onClick={() => {
+                  const updated = { balanceHidden: !settings.balanceHidden }
+                  updateSettings(updated)
+                  onSaveSettings?.({ ...settings, ...updated })
+                }}
                 aria-label={settings.balanceHidden ? t('home.showBalance') : t('home.hideBalance')}
                 className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
               >
