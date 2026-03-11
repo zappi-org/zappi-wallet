@@ -144,6 +144,24 @@ export function ReceiveInputStep({
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 pt-10 space-y-12">
+        {/* Mint — narrative text + change button on right */}
+        <div>
+          <div className="flex items-center justify-between">
+            <p className="text-[22px] leading-snug">
+              <span className="font-normal">{t('receive.toMintPrefix')}</span>
+              <span className="font-bold">{mintName || t('payment.selectMint')}</span>
+              <span className="font-normal text-foreground-muted">{t('receive.toMintSuffix')}</span>
+            </p>
+            <button
+              onClick={() => setShowMintSelect(true)}
+              className="text-sm text-accent-primary font-medium px-3 py-1.5 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] flex items-center shrink-0"
+            >
+              {t('common.change')}
+            </button>
+          </div>
+          <p className="text-[15px] text-foreground-muted mt-1">{t('common.balance')} {formatSats(mintBalance)}</p>
+        </div>
+
         {/* Method Tabs */}
         <div className="space-y-2">
           <p className="text-[15px] font-medium text-foreground-muted">
@@ -173,24 +191,6 @@ export function ReceiveInputStep({
               {t('receive.ecash')}
             </button>
           </div>
-        </div>
-
-        {/* Mint — narrative text + change button on right */}
-        <div>
-          <div className="flex items-center justify-between">
-            <p className="text-[22px] leading-snug">
-              <span className="font-normal">{t('receive.toMintPrefix')}</span>
-              <span className="font-bold">{mintName || t('payment.selectMint')}</span>
-              <span className="font-normal text-foreground-muted">{t('receive.toMintSuffix')}</span>
-            </p>
-            <button
-              onClick={() => setShowMintSelect(true)}
-              className="text-sm text-accent-primary font-medium px-3 py-1.5 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] flex items-center shrink-0"
-            >
-              {t('common.change')}
-            </button>
-          </div>
-          <p className="text-[15px] text-foreground-muted mt-1">{t('common.balance')} {formatSats(mintBalance)}</p>
         </div>
 
         {/* Amount — question as input placeholder */}
