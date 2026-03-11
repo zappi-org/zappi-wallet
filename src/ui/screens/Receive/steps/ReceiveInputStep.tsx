@@ -117,7 +117,7 @@ export function ReceiveInputStep({
         mintUrl: selectedMintUrl,
       })
     }
-  }, [method, amount, selectedMintUrl, userNprofile, onNext, addToast, t])
+  }, [method, amount, memo, selectedMintUrl, userNprofile, onNext, addToast, t])
 
   return (
     <div className="flex flex-col h-full bg-[#faf9f6]">
