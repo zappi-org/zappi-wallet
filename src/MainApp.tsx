@@ -26,13 +26,12 @@ const AnalyticsScreen = lazy(() => import('@/ui/screens/Analytics/AnalyticsScree
 // Tier 3: Lazy loaded (less frequently used)
 const AddMintScreen = lazy(() => import('@/ui/screens/AddMint/AddMintScreen'))
 const AmountActionScreen = lazy(() => import('@/ui/screens/AmountAction/AmountActionScreen'))
-const LightningSendScreen = lazy(() => import('@/ui/screens/UnifiedPayment/LightningSendScreen'))
-const LightningReceiveScreen = lazy(() => import('@/ui/screens/UnifiedPayment/LightningReceiveScreen'))
-const EcashSendScreen = lazy(() => import('@/ui/screens/UnifiedPayment/EcashSendScreen'))
-const EcashReceiveScreen = lazy(() => import('@/ui/screens/UnifiedPayment/EcashReceiveScreen'))
-const TokenReceiveScreen = lazy(() => import('@/ui/screens/UnifiedPayment/TokenReceiveScreen'))
 const UsernameChangeScreen = lazy(() => import('@/ui/screens/Settings/UsernameChangeScreen'))
 const TransactionDetailScreen = lazy(() => import('@/ui/screens/TransactionDetail/TransactionDetailScreen'))
+
+// Unified Send/Receive flows
+import { SendFlow } from '@/ui/screens/Send/SendFlow'
+import { ReceiveFlow } from '@/ui/screens/Receive/ReceiveFlow'
 import type { ValidatedData } from '@/ui/components/scanner'
 import { ToastContainer } from '@/ui/components'
 import { MintDetailsModal } from '@/ui/components/modals/MintDetailsModal'
@@ -52,7 +51,7 @@ import { resetWalletCache } from '@/data/cache/wallet-cache'
 import type { Transaction } from '@/core/types'
 import { satUnit } from '@/utils/format'
 
-type Screen = 'home' | 'settings' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'amount-action' | 'lightning-send' | 'lightning-receive' | 'ecash-send' | 'ecash-receive' | 'token-receive' | 'username-change' | 'transaction-detail'
+type Screen = 'home' | 'settings' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail'
 
 export default function MainApp() {
   const { t } = useTranslation()
@@ -103,6 +102,12 @@ export default function MainApp() {
 
   // Validated scan data state (for unified payment screens)
   const [validatedScanData, setValidatedScanData] = useState<ValidatedData | null>(null)
+
+  // Send flow initial step (for token-create from home)
+  const [sendInitialStep, setSendInitialStep] = useState<'input' | 'token-create'>('input')
+
+  // Active mint from HomeScreen carousel
+  const [activeMintUrl, setActiveMintUrl] = useState<string | null>(null)
 
   // Transaction detail state
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
@@ -364,19 +369,17 @@ export default function MainApp() {
       case 'bolt11':
       case 'lightning-address':
       case 'lnurl-pay':
-        setCurrentScreen('lightning-send')
+      case 'cashu-request':
+        setSendInitialStep('input')
+        setCurrentScreen('send')
         break
 
       case 'lnurl-withdraw':
-        setCurrentScreen('lightning-receive')
+        setCurrentScreen('receive')
         break
 
       case 'cashu-token':
-        setCurrentScreen('token-receive')
-        break
-
-      case 'cashu-request':
-        setCurrentScreen('ecash-send')
+        setCurrentScreen('receive')
         break
 
       case 'amount':
@@ -466,12 +469,6 @@ export default function MainApp() {
       })
     }
   }, [refreshBalance, addToast, services.transactionRepo, t])
-
-  // Stable callback for screens that only receive lightning (avoids inline closure in effect deps)
-  const handleLightningPaymentReceived = useCallback(
-    (amount: number) => handlePaymentReceived(amount, 'lightning'),
-    [handlePaymentReceived]
-  )
 
   // Send modal handlers
   const handleSendLightning = useCallback(async (addressOrInvoice: string, amount: number, mintUrl?: string): Promise<boolean> => {
@@ -764,9 +761,28 @@ export default function MainApp() {
             setShowMintDetails(true)
           }}
           onValidatedScan={handleValidatedScan}
-          onCreateToken={() => {
+          onSend={(mintUrl) => {
             setPreviousScreen('home')
-            setCurrentScreen('ecash-send')
+            setSendInitialStep('input')
+            setActiveMintUrl(mintUrl || null)
+            setValidatedScanData(null)
+            setScannedAmount(0)
+            setCurrentScreen('send')
+          }}
+          onReceive={(mintUrl) => {
+            setPreviousScreen('home')
+            setActiveMintUrl(mintUrl || null)
+            setValidatedScanData(null)
+            setScannedAmount(0)
+            setCurrentScreen('receive')
+          }}
+          onCreateToken={(mintUrl) => {
+            setPreviousScreen('home')
+            setSendInitialStep('token-create')
+            setActiveMintUrl(mintUrl || null)
+            setValidatedScanData(null)
+            setScannedAmount(0)
+            setCurrentScreen('send')
           }}
           onSelectTransaction={(tx) => {
             setSelectedTransaction(tx)
@@ -869,35 +885,24 @@ export default function MainApp() {
           amount={scannedAmount}
           mode={scanMode}
           onBack={handleBack}
-          onLightningSend={(amount) => {
+          onSend={(amount) => {
             setScannedAmount(amount)
             setValidatedScanData(null)
+            setSendInitialStep('input')
             setPreviousScreen('amount-action')
-            setCurrentScreen('lightning-send')
+            setCurrentScreen('send')
           }}
-          onLightningReceive={(amount) => {
+          onReceive={(amount) => {
             setScannedAmount(amount)
             setValidatedScanData(null)
             setPreviousScreen('amount-action')
-            setCurrentScreen('lightning-receive')
-          }}
-          onEcashSend={(amount) => {
-            setScannedAmount(amount)
-            setValidatedScanData(null)
-            setPreviousScreen('amount-action')
-            setCurrentScreen('ecash-send')
-          }}
-          onEcashReceive={(amount) => {
-            setScannedAmount(amount)
-            setValidatedScanData(null)
-            setPreviousScreen('amount-action')
-            setCurrentScreen('ecash-receive')
+            setCurrentScreen('receive')
           }}
         />
       )}
 
-      {currentScreen === 'lightning-send' && (
-        <LightningSendScreen
+      {currentScreen === 'send' && (
+        <SendFlow
           onBack={() => {
             const backTo = previousScreen || 'home'
             setPreviousScreen(null)
@@ -908,19 +913,17 @@ export default function MainApp() {
             setCurrentScreen('home')
           }}
           onSendLightning={handleSendLightning}
-          validatedData={
-            validatedScanData?.type === 'bolt11' ||
-            validatedScanData?.type === 'lightning-address' ||
-            validatedScanData?.type === 'lnurl-pay'
-              ? validatedScanData
-              : undefined
-          }
+          onCreateEcashToken={handleCreateEcashToken}
+          onReceiveToken={handleReceiveToken}
+          validatedData={validatedScanData || undefined}
           initialAmount={scannedAmount || undefined}
+          initialMintUrl={activeMintUrl}
+          initialStep={sendInitialStep}
         />
       )}
 
-      {currentScreen === 'lightning-receive' && (
-        <LightningReceiveScreen
+      {currentScreen === 'receive' && (
+        <ReceiveFlow
           onBack={() => {
             const backTo = previousScreen || 'home'
             setPreviousScreen(null)
@@ -932,65 +935,12 @@ export default function MainApp() {
           }}
           onCreateInvoice={handleCreateInvoice}
           onSubscribeToQuote={handleSubscribeToQuote}
-          onPaymentReceived={handleLightningPaymentReceived}
-          validatedData={
-            validatedScanData?.type === 'lnurl-withdraw' ? validatedScanData : undefined
-          }
-          initialAmount={scannedAmount || undefined}
-        />
-      )}
-
-      {currentScreen === 'ecash-send' && (
-        <EcashSendScreen
-          onBack={() => {
-            const backTo = previousScreen || 'home'
-            setPreviousScreen(null)
-            setCurrentScreen(backTo)
-          }}
-          onComplete={() => {
-            setPreviousScreen(null)
-            setCurrentScreen('home')
-          }}
-          onCreateEcashToken={handleCreateEcashToken}
-          onReceiveToken={handleReceiveToken}
-          validatedData={
-            validatedScanData?.type === 'cashu-request' ? validatedScanData : undefined
-          }
-          initialAmount={scannedAmount || undefined}
-        />
-      )}
-
-      {currentScreen === 'ecash-receive' && (
-        <EcashReceiveScreen
-          onBack={() => {
-            const backTo = previousScreen || 'home'
-            setPreviousScreen(null)
-            setCurrentScreen(backTo)
-          }}
-          onComplete={() => {
-            setPreviousScreen(null)
-            setCurrentScreen('home')
-          }}
-          onPaymentReceived={(amount) => handlePaymentReceived(amount, 'ecash')}
-          initialAmount={scannedAmount || undefined}
-        />
-      )}
-
-      {currentScreen === 'token-receive' && validatedScanData?.type === 'cashu-token' && (
-        <TokenReceiveScreen
-          onBack={() => {
-            const backTo = previousScreen || 'home'
-            setPreviousScreen(null)
-            setCurrentScreen(backTo)
-          }}
-          onComplete={() => {
-            setPreviousScreen(null)
-            setCurrentScreen('home')
-          }}
+          onPaymentReceived={handlePaymentReceived}
           onReceiveToken={handleReceiveToken}
           onAddTrustedMint={handleAddTrustedMint}
-          validatedData={validatedScanData}
-          trustedMints={settings.mints}
+          validatedData={validatedScanData || undefined}
+          initialAmount={scannedAmount || undefined}
+          initialMintUrl={activeMintUrl}
         />
       )}
 

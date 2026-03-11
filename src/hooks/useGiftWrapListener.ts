@@ -234,7 +234,7 @@ export function useGiftWrapListener() {
 
       console.log(`[GiftWrap] Successfully claimed ${result.amount} sat!`)
 
-      // Notify EcashReceiveScreen if this was a NUT-18 request fulfillment
+      // Notify ReceiveFlow if this was a NUT-18 request fulfillment
       if (requestId) {
         console.log(`[GiftWrap] Notifying of payment for request: ${requestId}`)
         setLastReceivedPayment(requestId, result.amount, eventId)
@@ -293,7 +293,7 @@ export function useGiftWrapListener() {
               memo,
               metadata,
             })
-            // Notify EcashReceiveScreen if applicable
+            // Notify ReceiveFlow if applicable
             if (requestId) {
               setLastReceivedPayment(requestId, amount, eventId)
             }
@@ -400,7 +400,7 @@ export function useGiftWrapListener() {
         const txId = msg.request_id || `nut18-${event.id.substring(0, 12)}`
         const alreadyProcessed = await isTxProcessed(txId)
         if (alreadyProcessed) return
-        // Pass request_id and memo to notify EcashReceiveScreen
+        // Pass request_id and memo to notify ReceiveFlow
         const success = await processToken(msg.token, txId, event.id, url, msg.request_id, msg.memo)
         await maybeAck(txId, success)
         return

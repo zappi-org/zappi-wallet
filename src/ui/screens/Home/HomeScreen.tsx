@@ -26,6 +26,8 @@ export interface HomeScreenProps {
   onAddMint?: () => void;
   onMintDetails?: (mint: MintInfo) => void;
   onValidatedScan?: (data: ValidatedData, mode: 'send' | 'receive') => void;
+  onSend?: (activeMintUrl?: string) => void;
+  onReceive?: (activeMintUrl?: string) => void;
   onCreateToken?: (mintUrl: string) => void;
   onSelectTransaction?: (tx: Transaction) => void;
   onSaveSettings?: (settings: Record<string, unknown>) => Promise<void>;
@@ -38,6 +40,8 @@ export function HomeScreen({
   onAddMint,
   onMintDetails,
   onValidatedScan,
+  onSend,
+  onReceive,
   onCreateToken,
   onSelectTransaction,
   onSaveSettings,
@@ -169,14 +173,24 @@ export function HomeScreen({
   };
 
   const handleSendClick = useCallback(() => {
-    setScanMode('send');
-    setIsScannerOpen(true);
-  }, []);
+    if (onSend) {
+      const activeMint = mints[clampedMintIndex];
+      onSend(activeMint?.url);
+    } else {
+      setScanMode('send');
+      setIsScannerOpen(true);
+    }
+  }, [onSend, mints, clampedMintIndex]);
 
   const handleReceiveClick = useCallback(() => {
-    setScanMode('receive');
-    setIsScannerOpen(true);
-  }, []);
+    if (onReceive) {
+      const activeMint = mints[clampedMintIndex];
+      onReceive(activeMint?.url);
+    } else {
+      setScanMode('receive');
+      setIsScannerOpen(true);
+    }
+  }, [onReceive, mints, clampedMintIndex]);
 
   const handleValidated = useCallback((data: ValidatedData) => {
     onValidatedScan?.(data, scanMode);

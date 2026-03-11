@@ -22,7 +22,7 @@ export interface SyncSliceState {
   lastEventTimestamp: number
   txRefreshTrigger: number
 
-  // NUT-18 payment received state (for EcashReceiveScreen)
+  // NUT-18 payment received state (for ReceiveFlow)
   lastReceivedRequestId: string | null
   lastReceivedAmount: number
   lastReceivedEventId: string | null
