@@ -55,7 +55,11 @@ function MintSelectBottomSheetInner({
 
   const [localSelected, setLocalSelected] = useState<string | null>(selectedMintUrl)
   const carouselRef = useRef<HTMLDivElement>(null)
-  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const rafRef = useRef(0)
+  const cachedGapRef = useRef<number | null>(null)
+
+  // Cleanup RAF on unmount
+  useEffect(() => () => cancelAnimationFrame(rafRef.current), [])
 
   // Build mint list
   const mints: MintInfo[] = settings.mints.map((url: string) => ({
@@ -90,31 +94,25 @@ function MintSelectBottomSheetInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Auto-select card on scroll snap (swipe = select)
+  // Track closest card on every scroll frame (like HomeScreen carousel)
   const handleScroll = useCallback(() => {
-    clearTimeout(scrollTimeoutRef.current)
-    scrollTimeoutRef.current = setTimeout(() => {
+    cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(() => {
       const el = carouselRef.current
       if (!el || filteredMints.length === 0) return
-      const center = el.scrollLeft + el.clientWidth / 2
-      let closestIdx = 0
-      let closestDist = Infinity
-      for (let i = 0; i < el.children.length; i++) {
-        const child = el.children[i] as HTMLElement
-        const childCenter = child.offsetLeft + child.clientWidth / 2
-        const dist = Math.abs(center - childCenter)
-        if (dist < closestDist) {
-          closestDist = dist
-          closestIdx = i
-        }
+      const scrollLeft = el.scrollLeft
+      const firstCard = el.children[0] as HTMLElement | undefined
+      if (!firstCard) return
+      const gap = cachedGapRef.current ?? (cachedGapRef.current = parseFloat(getComputedStyle(el).gap) || 12)
+      const cardWidth = firstCard.offsetWidth + gap
+      const index = Math.round(scrollLeft / cardWidth)
+      const clampedIndex = Math.max(0, Math.min(index, filteredMints.length - 1))
+      const mint = filteredMints[clampedIndex]
+      if (mint) {
+        setLocalSelected(mint.url)
       }
-      const snappedMint = filteredMints[closestIdx]
-      if (snappedMint && snappedMint.url !== localSelected) {
-        hapticTap()
-        setLocalSelected(snappedMint.url)
-      }
-    }, 100)
-  }, [filteredMints, localSelected])
+    })
+  }, [filteredMints])
 
   const handleConfirm = useCallback(() => {
     if (localSelected) {

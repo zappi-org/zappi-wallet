@@ -9,6 +9,7 @@ import { useCrossTabSync, broadcastSync } from '@/hooks/use-cross-tab-sync'
 import { useStateReconstruction } from '@/hooks/useStateReconstruction'
 import { checkAndRefreshAnchor } from '@/services/anchor'
 import { getP2PKPubkey } from '@/services/crypto'
+import { InsufficientBalanceError } from '@/core/errors/cashu'
 
 // Tier 1: Always loaded (critical path for authenticated users)
 import { HomeScreen } from '@/ui/screens/Home/HomeScreen'
@@ -570,6 +571,8 @@ export default function MainApp() {
       return token
     } catch (error) {
       console.error('Failed to create ecash token:', error)
+      // InsufficientBalanceError는 호출자에게 전파하여 정확한 에러 메시지 표시
+      if (error instanceof InsufficientBalanceError) throw error
       return null
     } finally {
       isSendingEcashRef.current = false

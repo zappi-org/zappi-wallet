@@ -55,6 +55,7 @@ export function ReceiveInputStep({
   const [selectedMintUrl, setSelectedMintUrl] = useState<string | null>(
     initialMintUrl || settings.mints[0] || null
   )
+  const [memo, setMemo] = useState('')
   const [showMintSelect, setShowMintSelect] = useState(false)
   const [showTokenReceive, setShowTokenReceive] = useState(false)
 
@@ -97,7 +98,7 @@ export function ReceiveInputStep({
         amount: numericAmount,
         mints: [selectedMintUrl],
         nostrTarget: userNprofile,
-        description: `${t('payment.ecashReceive')} - ${numericAmount} sats`,
+        description: memo.trim() || undefined,
         singleUse: true,
         idPrefix: 'wallet',
       })
@@ -204,6 +205,20 @@ export function ReceiveInputStep({
             className={`w-full bg-transparent border-0 border-b border-b-gray-200 rounded-none py-2 text-[22px] focus:outline-none focus:border-b-foreground transition-colors ${amount ? 'pl-8 font-bold text-foreground' : 'pl-0 font-normal text-foreground placeholder:text-foreground-muted/40'}`}
           />
         </div>
+
+        {/* Memo — optional, only for ecash */}
+        {method === 'ecash' && (
+          <div>
+            <input
+              type="text"
+              value={memo}
+              onChange={(e) => setMemo(e.target.value)}
+              placeholder={t('receive.memoPlaceholder')}
+              maxLength={100}
+              className="w-full bg-transparent border-0 border-b border-b-gray-200 rounded-none py-2 text-[18px] font-normal text-foreground placeholder:text-foreground-muted/40 focus:outline-none focus:border-b-foreground transition-colors"
+            />
+          </div>
+        )}
       </div>
 
       {/* Bottom Action */}

@@ -334,7 +334,7 @@ function validateCashuRequest(input: CashuRequestInput): ValidationResult {
  * Supports both creqA... and cashu:// formats
  * NUT-18 uses CBOR encoding for the payload
  */
-function decodeCashuRequest(request: string): ParsedCashuRequest {
+export function decodeCashuRequest(request: string): ParsedCashuRequest {
   let base64Data: string
 
   if (request.toLowerCase().startsWith('cashu://')) {

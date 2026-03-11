@@ -31,7 +31,7 @@ function getRecipientDisplay(data: SendableValidatedData, t: (key: string) => st
     case 'lnurl-pay':
       return data.params?.domain || 'LNURL'
     case 'cashu-request':
-      return data.parsed.description || t('send.confirm.ecashRequest')
+      return t('send.confirm.ecashRequest')
   }
 }
 
@@ -45,8 +45,10 @@ function getRecipientDetail(data: SendableValidatedData): string {
       return data.address
     case 'lnurl-pay':
       return data.params?.domain || 'LNURL'
-    case 'cashu-request':
-      return data.parsed.description || 'eCash'
+    case 'cashu-request': {
+      const req = data.request
+      return `${req.slice(0, 8)}...${req.slice(-4)}`
+    }
   }
 }
 
@@ -79,20 +81,22 @@ export function SendConfirmStep({
   const method = getMethodLabel(validatedData.type)
   const mintName = getDisplayName(mintUrl)
   const totalAmount = amount + fee
+  const memo = validatedData.type === 'bolt11' ? validatedData.description
+    : validatedData.type === 'cashu-request' ? validatedData.parsed.description
+    : undefined
 
   return (
     <div className="flex flex-col h-full bg-[#faf9f6]">
       {/* Header — no border */}
-      <header className="flex items-center justify-between px-4 py-3">
+      <header className="relative flex items-center px-4 py-3">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="p-2 -ml-2 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+          className="p-2 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-lg font-semibold">{t('send.confirm.title')}</h1>
-        <div className="w-11" />
+        <h1 className="absolute inset-0 flex items-center justify-center text-lg font-semibold pointer-events-none">{t('send.confirm.title')}</h1>
       </header>
 
       {/* Question text — upper area, Toss style */}
@@ -103,7 +107,7 @@ export function SendConfirmStep({
             <span className="font-medium">{t('send.confirm.toSuffix')}</span>
           </p>
           <p className="text-[24px] font-bold leading-snug">
-            {formatSats(amount)}{t('send.confirm.amountSuffix')}
+            {formatSats(amount)} {t('send.confirm.amountSuffix')}
           </p>
           <p className="text-[24px] font-medium leading-snug">
             {t('send.confirm.questionEnd')}
@@ -127,6 +131,12 @@ export function SendConfirmStep({
             <span className="text-[15px] text-foreground-muted">{t('send.confirm.recipient')}</span>
             <span className="text-[15px] font-semibold truncate max-w-[200px]">{recipientDetail}</span>
           </div>
+          {memo && (
+            <div className="flex items-center justify-between">
+              <span className="text-[15px] text-foreground-muted">{t('send.confirm.memo')}</span>
+              <span className="text-[15px] font-semibold truncate max-w-[200px]">{memo}</span>
+            </div>
+          )}
           {fee > 0 && (
             <>
               <div className="border-t border-black/5" />

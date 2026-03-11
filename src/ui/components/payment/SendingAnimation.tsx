@@ -1,170 +1,65 @@
 /**
- * Sending Animation — 3D Orbital
- * Center: BTC sphere, orbiting Lightning (clockwise) and eCash (counter-clockwise) satellites
- * CSS 3D perspective creates tilted orbital plane for depth effect
- * showCheck: overlay a checkmark on center (used by SendCompleteStep)
+ * Sending Animation — Running star character
  */
-
-import { motion } from 'motion/react'
-import { Check } from 'lucide-react'
 
 interface SendingAnimationProps {
   className?: string
-  /** Show checkmark overlay on center BTC (completion state) */
-  showCheck?: boolean
-  /** Scale factor (default 1). Use 1.4 for full-screen usage */
   scale?: number
 }
 
-// Orbit configuration
-const ORBIT_RADIUS = 90
-const ORBIT_TILT = 65 // degrees — how much the orbital plane is tilted
-const ORBIT_DURATION = 5 // seconds per revolution
-const CENTER_SIZE = 120
-const SATELLITE_SIZE = 36
-
-export function SendingAnimation({ className = '', showCheck = false, scale = 1 }: SendingAnimationProps) {
+export function SendingAnimation({ className = '', scale = 1 }: SendingAnimationProps) {
   const size = Math.round(240 * scale)
+
   return (
-    <div className={`relative ${className}`} style={{ width: size, height: size, transform: `scale(${scale})`, transformOrigin: 'center' }}>
-      {/* Elliptical shadow under the whole thing for 3D grounding */}
-      <div
-        className="absolute left-1/2 -translate-x-1/2 bottom-2"
-        style={{
-          width: 180,
-          height: 24,
-          background: 'radial-gradient(ellipse, rgba(0,0,0,0.08) 0%, transparent 70%)',
-        }}
-      />
+    <div className={className} style={{ width: size, height: size }}>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+        <defs>
+          <style>{`
+            .za-character { animation: za-bounce 0.5s infinite ease-in-out; }
+            .za-leg1 { animation: za-run-leg1 0.5s infinite ease-in-out; transform-origin: 200px 320px; }
+            .za-leg2 { animation: za-run-leg2 0.5s infinite ease-in-out; transform-origin: 300px 320px; }
+            .za-dust { animation: za-dust-puff 0.5s infinite ease-out; transform-origin: 100px 390px; }
+            .za-speed-line { stroke: #123c8a; stroke-width: 4; stroke-linecap: round; animation: za-wind 0.4s infinite ease-in-out alternate; }
+            .za-sl-1 { animation-delay: 0s; }
+            .za-sl-2 { animation-delay: 0.2s; }
+            .za-sl-3 { animation-delay: 0.1s; }
+            @keyframes za-bounce { 0%, 50%, 100% { transform: translateY(0); } 25%, 75% { transform: translateY(-20px); } }
+            @keyframes za-run-leg1 { 0%, 100% { transform: rotate(40deg); } 50% { transform: rotate(-40deg); } }
+            @keyframes za-run-leg2 { 0%, 100% { transform: rotate(-40deg); } 50% { transform: rotate(40deg); } }
+            @keyframes za-dust-puff { 0% { transform: scale(0.6) translateX(20px); opacity: 0; } 30% { opacity: 1; } 100% { transform: scale(1.2) translateX(-60px); opacity: 0; } }
+            @keyframes za-wind { 0% { transform: scaleX(1) translateX(0); opacity: 0.5; } 100% { transform: scaleX(1.4) translateX(-15px); opacity: 1; } }
+          `}</style>
+        </defs>
 
-      {/* 3D Orbital Plane (tilted via perspective) */}
-      <div
-        className="absolute inset-0 flex items-center justify-center"
-        style={{ perspective: '800px' }}
-      >
-        <div
-          className="relative"
-          style={{
-            width: ORBIT_RADIUS * 2,
-            height: ORBIT_RADIUS * 2,
-            transformStyle: 'preserve-3d',
-            transform: `rotateX(${ORBIT_TILT}deg)`,
-          }}
-        >
-          {/* Orbit ring — appears as an ellipse due to tilt */}
-          <div
-            className="absolute inset-0 rounded-full"
-            style={{
-              border: '1.5px solid rgba(0,0,0,0.06)',
-            }}
-          />
+        <g className="za-speed-line za-sl-1">
+          <line x1="80" y1="180" x2="150" y2="160" />
+          <line x1="100" y1="200" x2="140" y2="190" />
+        </g>
+        <g className="za-speed-line za-sl-2">
+          <line x1="60" y1="300" x2="160" y2="270" />
+          <line x1="80" y1="320" x2="130" y2="305" />
+        </g>
+        <g className="za-speed-line za-sl-3">
+          <line x1="320" y1="430" x2="400" y2="400" />
+          <line x1="340" y1="450" x2="390" y2="430" />
+        </g>
 
-          {/* Lightning satellite — clockwise */}
-          <motion.div
-            className="absolute"
-            style={{
-              width: SATELLITE_SIZE,
-              height: SATELLITE_SIZE,
-              top: '50%',
-              left: '50%',
-              marginTop: -SATELLITE_SIZE / 2,
-              marginLeft: -SATELLITE_SIZE / 2,
-            }}
-            animate={{ rotate: 360 }}
-            transition={{ duration: ORBIT_DURATION, repeat: Infinity, ease: 'linear' }}
-          >
-            <div
-              style={{
-                width: SATELLITE_SIZE,
-                height: SATELLITE_SIZE,
-                transform: `translateX(${ORBIT_RADIUS}px) rotateX(-${ORBIT_TILT}deg)`,
-              }}
-            >
-              <div className="w-full h-full rounded-full bg-[#8B5CF6] flex items-center justify-center shadow-md">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                </svg>
-              </div>
-            </div>
-          </motion.div>
+        <g className="za-dust" fill="#185adb">
+          <circle cx="80" cy="380" r="20" />
+          <circle cx="50" cy="390" r="15" />
+          <circle cx="110" cy="390" r="15" />
+          <path d="M 110 390 L 160 410 L 50 410 Z" />
+        </g>
 
-          {/* eCash satellite — counter-clockwise, 180° phase offset */}
-          <motion.div
-            className="absolute"
-            style={{
-              width: SATELLITE_SIZE,
-              height: SATELLITE_SIZE,
-              top: '50%',
-              left: '50%',
-              marginTop: -SATELLITE_SIZE / 2,
-              marginLeft: -SATELLITE_SIZE / 2,
-              rotate: 180,
-            }}
-            animate={{ rotate: -180 }}
-            transition={{ duration: ORBIT_DURATION, repeat: Infinity, ease: 'linear' }}
-          >
-            <div
-              style={{
-                width: SATELLITE_SIZE,
-                height: SATELLITE_SIZE,
-                transform: `translateX(${ORBIT_RADIUS}px) rotateX(-${ORBIT_TILT}deg)`,
-              }}
-            >
-              <div className="w-full h-full rounded-full bg-[#10B981] flex items-center justify-center shadow-md">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="8" stroke="white" strokeWidth="2" />
-                  <path d="M12 8v8M9 11h6" stroke="white" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      </div>
-
-      {/* BTC Center sphere — outside orbital plane, always faces viewer */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="relative">
-          {/* Subtle glow pulse */}
-          <motion.div
-            className="absolute -inset-3 rounded-full"
-            style={{ background: 'radial-gradient(circle, rgba(0,0,0,0.04) 0%, transparent 70%)' }}
-            animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0.2, 0.5] }}
-            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-          />
-
-          {/* Main sphere */}
-          <div
-            className="rounded-full flex items-center justify-center"
-            style={{
-              width: CENTER_SIZE,
-              height: CENTER_SIZE,
-              background: 'linear-gradient(180deg, #f0f0f0 0%, #d8d8d8 100%)',
-              boxShadow: 'inset 0 2px 8px rgba(255,255,255,0.6), inset 0 -4px 8px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.1)',
-            }}
-          >
-            <svg width="44" height="44" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M15.3 11.2c.2-1.4-.9-2.2-2.3-2.7l.5-2-1.2-.3-.5 1.9c-.3-.1-.6-.2-1-.3l.5-1.9-1.2-.3-.5 2c-.3-.1-.5-.1-.8-.2l-1.6-.4-.3 1.3s.9.2.9.2c.5.1.6.4.6.7l-.6 2.4c0 0 .1 0 .1 0l-.1 0-.8 3.3c-.1.2-.2.4-.6.3 0 0-.9-.2-.9-.2l-.6 1.4 1.5.4c.3.1.6.1.8.2l-.5 2 1.2.3.5-2c.3.1.7.2 1 .3l-.5 2 1.2.3.5-2c2.1.4 3.6.2 4.3-1.7.5-1.5 0-2.3-1.1-2.9.8-.2 1.4-.7 1.5-1.8zM13.6 14c-.4 1.5-2.8.7-3.6.5l.6-2.6c.8.2 3.3.6 3 2.1zm.4-3c-.3 1.4-2.4.7-3 .5l.6-2.3c.7.2 2.8.5 2.4 1.8z"
-                fill="#F7931A"
-              />
-            </svg>
-          </div>
-
-          {/* Check overlay (completion state) */}
-          {showCheck && (
-            <motion.div
-              className="absolute inset-0 flex items-center justify-center"
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.2 }}
-            >
-              <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
-                <Check className="w-7 h-7 text-[#10B981]" strokeWidth={3} />
-              </div>
-            </motion.div>
-          )}
-        </div>
-      </div>
+        <g className="za-character">
+          <path className="za-leg2" d="M 300 320 Q 300 380 300 400 L 260 400" fill="none" stroke="#185adb" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round" />
+          <path className="za-leg1" d="M 200 320 Q 200 380 200 400 L 160 400" fill="none" stroke="#185adb" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M 250 120 L 280 180 L 370 150 L 330 220 L 400 290 L 320 310 L 310 380 L 260 330 L 180 380 L 190 300 L 100 280 L 160 220 L 130 140 L 210 170 Z" fill="#185adb" stroke="#185adb" strokeWidth="30" strokeLinejoin="round" />
+          <ellipse cx="230" cy="240" rx="8" ry="12" fill="#fbd2c2" />
+          <ellipse cx="270" cy="240" rx="8" ry="12" fill="#fbd2c2" />
+          <path d="M 235 270 Q 250 295 265 270" stroke="#fbd2c2" strokeWidth="10" strokeLinecap="round" fill="none" />
+        </g>
+      </svg>
     </div>
   )
 }

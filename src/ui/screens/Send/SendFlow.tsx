@@ -16,6 +16,8 @@ import { useNetwork } from '@/hooks/use-network'
 import { useAppStore } from '@/store'
 import { useTranslation } from 'react-i18next'
 import { createMeltQuote } from '@/coco/cashuService'
+import { InsufficientBalanceError } from '@/core/errors/cashu'
+import { translateError } from '@/core/errors/translate'
 import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
 import {
   validateInput,
@@ -310,9 +312,11 @@ export function SendFlow({
       }
     } catch (err) {
       console.error('[SendFlow] Send error:', err)
-      const message = err instanceof Error ? err.message : t('payment.sendFailed')
+      const message = err instanceof InsufficientBalanceError
+        ? translateError(err)
+        : err instanceof Error ? err.message : t('payment.sendFailed')
       setState((prev) => ({ ...prev, step: 'confirm', error: message }))
-      addToast({ type: 'error', message, duration: 3000 })
+      addToast({ type: 'error', message, duration: 4000 })
     } finally {
       isProcessingRef.current = false
     }
@@ -354,7 +358,10 @@ export function SendFlow({
       }
     } catch (err) {
       console.error('[SendFlow] Token create error:', err)
-      addToast({ type: 'error', message: t('errors.generic'), duration: 3000 })
+      const message = err instanceof InsufficientBalanceError
+        ? translateError(err)
+        : t('errors.generic')
+      addToast({ type: 'error', message, duration: err instanceof InsufficientBalanceError ? 4000 : 3000 })
     } finally {
       isProcessingRef.current = false
       setIsLoading(false)

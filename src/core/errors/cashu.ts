@@ -26,13 +26,28 @@ export class InsufficientBalanceError extends BaseError {
   constructor(
     public readonly required: number,
     public readonly available: number,
-    cause?: unknown
+    cause?: unknown,
+    /** Swap fee that caused the shortfall (0 = pure balance shortage) */
+    public readonly fee: number = 0,
   ) {
-    super(`Insufficient balance: required ${required}, available ${available}`, cause)
+    super(
+      fee > 0
+        ? `Insufficient balance for fee: required ${required} + fee ${fee}, available ${available}`
+        : `Insufficient balance: required ${required}, available ${available}`,
+      cause,
+    )
+  }
+
+  /** True when balance >= amount but < amount + fee */
+  get isFeeShortage(): boolean {
+    return this.fee > 0 && this.available >= this.required
   }
 
   toUserMessage(): string {
-    return `잔액이 부족합니다 (필요: ${this.required} sats, 보유: ${this.available} sats)`
+    if (this.isFeeShortage) {
+      return `수수료 포함 시 잔액이 부족해요\n보유 ${this.available} sats, ${this.required} sats + 수수료 필요`
+    }
+    return `잔액이 부족해요 (${this.available}/${this.required} sats)`
   }
 }
 

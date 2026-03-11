@@ -67,16 +67,15 @@ export function TokenCreateStep({
   return (
     <div className="flex flex-col h-full bg-[#faf9f6]">
       {/* Header — no border */}
-      <header className="flex items-center justify-between px-4 py-3">
+      <header className="relative flex items-center px-4 py-3">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="p-2 -ml-2 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+          className="p-2 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-lg font-semibold">{t('send.tokenCreate.title')}</h1>
-        <div className="w-11" />
+        <h1 className="absolute inset-0 flex items-center justify-center text-lg font-semibold pointer-events-none">{t('send.tokenCreate.title')}</h1>
       </header>
 
       {/* Content */}

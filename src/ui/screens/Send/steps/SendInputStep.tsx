@@ -16,6 +16,7 @@ import { MintSelectBottomSheet } from '@/ui/components/payment'
 import { Button } from '@/ui/components/common/Button'
 import { QrScanner } from '@/ui/components/common/QrScanner'
 import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
+import { decodeCashuRequest } from '@/ui/components/scanner/InputValidator'
 import type { SendableValidatedData } from '../SendFlow'
 
 interface SendInputStepProps {
@@ -67,6 +68,10 @@ export function SendInputStep({
 
   const amountInputRef = useRef<HTMLInputElement>(null)
 
+  /** Filter out types not meaningful as a send destination */
+  const toDisplayType = (type: string) =>
+    type === 'unknown' || type === 'amount' ? null : type
+
   // Is amount fixed (e.g. bolt11 with amount)?
   const isAmountFixed = validatedData?.type === 'bolt11' && validatedData.amountSats > 0
 
@@ -82,7 +87,7 @@ export function SendInputStep({
       }
 
       const detected = detectInputType(destination)
-      setDetectedType(detected.type === 'unknown' ? null : detected.type)
+      setDetectedType(toDisplayType(detected.type))
 
       // Auto-fill amount for bolt11
       if (detected.type === 'bolt11' && detected.amountSats > 0) {
@@ -106,7 +111,7 @@ export function SendInputStep({
     hapticTap()
 
     const detected = detectInputType(trimmed)
-    setDetectedType(detected.type === 'unknown' ? null : detected.type)
+    setDetectedType(toDisplayType(detected.type))
 
     // bolt11 with amount → auto-advance
     if (detected.type === 'bolt11' && detected.amountSats > 0) {
@@ -126,6 +131,28 @@ export function SendInputStep({
     // Auto-fill amount for bolt11 without enough to auto-advance
     if (detected.type === 'bolt11' && detected.amountSats > 0) {
       setAmount(String(detected.amountSats))
+    }
+
+    // cashu-request with amount → auto-fill and auto-advance
+    if (detected.type === 'cashu-request') {
+      try {
+        const parsed = decodeCashuRequest(detected.request)
+        if (parsed.amount && parsed.amount > 0) {
+          setAmount(String(parsed.amount))
+          if (selectedMintUrl) {
+            setTimeout(() => {
+              onNext({
+                destination: trimmed,
+                amount: parsed.amount!,
+                selectedMintUrl: selectedMintUrl!,
+              })
+            }, 300)
+            return
+          }
+        }
+      } catch {
+        // decode failed, fall through to manual input
+      }
     }
 
     // Focus amount input for types that need it
@@ -187,21 +214,21 @@ export function SendInputStep({
   return (
     <div className="flex flex-col h-full bg-[#faf9f6]">
       {/* Header — no border */}
-      <header className="flex items-center justify-between px-4 py-3">
+      <header className="relative flex items-center justify-between px-4 py-3">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="p-2 -ml-2 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+          className="p-2 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-lg font-semibold">{t('send.title')}</h1>
+        <h1 className="absolute inset-0 flex items-center justify-center text-lg font-semibold pointer-events-none">{t('send.title')}</h1>
         <button
           onClick={() => {
             hapticTap()
             onGoToTokenCreate()
           }}
-          className="text-sm text-accent-primary font-medium min-h-[44px] px-2 flex items-center justify-center rounded-lg hover:bg-black/5 active:bg-black/10 transition-colors"
+          className="text-sm text-accent-primary font-medium min-h-[44px] px-2 flex items-center justify-center rounded-lg hover:bg-black/5 active:bg-black/10 transition-colors z-10"
         >
           {t('send.createToken')}
         </button>

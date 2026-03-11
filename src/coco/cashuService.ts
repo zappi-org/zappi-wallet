@@ -102,7 +102,30 @@ export async function sendToken(
   options?: { p2pkPubkey?: string; memo?: string }
 ): Promise<string> {
   const manager = await getCocoManager();
-  const token = await manager.wallet.send(mintUrl, amount);
+
+  let token: { mint: string; proofs: Proof[] };
+  try {
+    token = await manager.wallet.send(mintUrl, amount);
+  } catch (err) {
+    // "Not enough funds" 에러를 정확한 InsufficientBalanceError로 변환
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('Not enough funds')) {
+      const { InsufficientBalanceError } = await import('@/core/errors/cashu');
+      const balances = await manager.wallet.getBalances();
+      const available = balances[mintUrl] || 0;
+
+      if (available >= amount) {
+        // 잔액 >= 금액이지만 swap 수수료 때문에 실패
+        // 정확한 수수료는 라이브러리 내부에서만 계산 가능 → fee=1로 isFeeShortage만 활성화
+        throw new InsufficientBalanceError(amount, available, err, 1);
+      } else {
+        // 순수 잔액 부족
+        throw new InsufficientBalanceError(amount, available, err);
+      }
+    }
+    throw err;
+  }
+
   const { getEncodedToken } = await import('@cashu/cashu-ts');
 
   if (options?.p2pkPubkey) {

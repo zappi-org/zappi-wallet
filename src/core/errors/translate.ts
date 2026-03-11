@@ -44,6 +44,9 @@ export function translateError(error: BaseError): string {
 
   if (error.code === 'INSUFFICIENT_BALANCE') {
     const e = error as InsufficientBalanceError
+    if (e.isFeeShortage) {
+      return i18n.t('errors.insufficientBalanceForFee', { required: e.required, available: e.available })
+    }
     return i18n.t(key, { required: e.required, available: e.available })
   }
 

@@ -21,7 +21,7 @@ function getDestinationDisplay(data: SendableValidatedData): string {
     case 'lnurl-pay':
       return data.params?.domain || 'LNURL'
     case 'cashu-request':
-      return data.parsed.description || 'eCash'
+      return 'eCash'
   }
 }
 
@@ -31,8 +31,8 @@ export function SendingStep({ validatedData }: SendingStepProps) {
 
   return (
     <div className="flex flex-col h-full bg-[#faf9f6] pb-safe">
-      {/* Text at top — left-aligned per Figma */}
-      <div className="px-6 pt-14">
+      {/* Text — centered horizontally, pushed down a bit */}
+      <div className="px-6 pt-20 text-center">
         <p className="text-[22px] font-medium leading-relaxed">
           {t('send.sending.message', { destination })}
         </p>
@@ -42,7 +42,7 @@ export function SendingStep({ validatedData }: SendingStepProps) {
       </div>
 
       {/* Animation centered in remaining space */}
-      <div className="flex-1 flex items-center justify-center -mt-10">
+      <div className="flex-1 flex items-center justify-center">
         <SendingAnimation scale={1.35} />
       </div>
     </div>
