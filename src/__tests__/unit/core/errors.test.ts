@@ -35,7 +35,7 @@ describe('Cashu Errors', () => {
       expect(error.isRetryable).toBe(false)
       expect(error.required).toBe(1000)
       expect(error.available).toBe(500)
-      expect(error.toUserMessage()).toContain('1000')
+      expect(error.toUserMessage()).toContain('1,000')
       expect(error.toUserMessage()).toContain('500')
     })
   })
