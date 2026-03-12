@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import zappiImg from '@/assets/zappi.png'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>
@@ -77,7 +78,7 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
       <div className="flex-1 flex flex-col items-center justify-center px-5">
         {/* Mascot */}
         <img
-          src="/zappi.png"
+          src={zappiImg}
           alt="Zappi"
           className="w-40 h-40 object-contain mb-4"
         />
