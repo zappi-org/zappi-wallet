@@ -203,7 +203,7 @@ export function HomeScreen({
         <button
           onClick={onSettings}
           aria-label={t('common.settings')}
-          className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden hover:bg-gray-100 transition-colors relative"
+          className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors relative"
         >
           <User className="w-6 h-6 text-[#1d1d1f]" />
           {updateAvailable && (
