@@ -66,6 +66,13 @@ export function Toast({ toast, onDismiss }: ToastProps) {
     setTimeout(() => onDismiss(toast.id), 200)
   }
 
+  const handleClick = () => {
+    if (toast.onAction) {
+      toast.onAction()
+      handleDismiss()
+    }
+  }
+
   return (
     <div
       className={`
@@ -73,13 +80,15 @@ export function Toast({ toast, onDismiss }: ToastProps) {
         transition-all duration-200
         ${variantStyles[toast.type]}
         ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}
+        ${toast.onAction ? 'cursor-pointer active:scale-[0.98]' : ''}
       `}
       role="alert"
+      onClick={handleClick}
     >
       <span className="flex-shrink-0">{icons[toast.type]}</span>
       <p className="flex-1 text-sm font-medium whitespace-pre-line">{toast.message}</p>
       <button
-        onClick={handleDismiss}
+        onClick={(e) => { e.stopPropagation(); handleDismiss() }}
         className="flex-shrink-0 p-1 rounded hover:bg-white/20 transition-all active:scale-90"
         aria-label="Close"
       >

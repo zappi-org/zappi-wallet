@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, startTransition, useCallback, useRef } from "react";
-import { User, ArrowDownLeft, ArrowUpRight, Plus, Eye, EyeOff } from "lucide-react";
+import { User, ArrowDownLeft, ArrowUpRight, Plus } from "lucide-react";
 
 import { useTranslation } from "react-i18next";
 import { MintCard, getVariantByIndex } from "../../components/wallet/MintCard";
@@ -207,7 +207,7 @@ export function HomeScreen({
         >
           <User className="w-6 h-6 text-[#1d1d1f]" />
           {updateAvailable && (
-            <div className="absolute top-0 right-0 w-2 h-2 bg-accent-primary rounded-full border border-white" aria-hidden="true" />
+            <span className="absolute -top-0.5 -right-1 font-['Outfit'] font-bold text-[9px] text-red-500 leading-none">New</span>
           )}
         </button>
       </header>
@@ -215,29 +215,22 @@ export function HomeScreen({
       {/* Scrollable content */}
       <main className="flex-1 flex flex-col overflow-y-auto min-h-0">
         {/* Balance */}
-        <div className="flex flex-col items-center gap-1 shrink-0 pb-1.5 pt-8">
-          <p className="font-['Amiri_Quran_Colored',sans-serif] text-sm text-[#86868b]">Total</p>
-          <div className="flex items-center justify-center py-0.5 w-full">
-            <div className="flex items-center gap-3">
-              <span className="font-['Montserrat'] font-bold text-[clamp(2rem,8vw,2.5rem)] text-[#9d817a] tracking-[-1px]">₿</span>
-              <span className={`font-['Andika'] font-bold text-[clamp(2.25rem,9vw,2.75rem)] text-[#2e0f0f] tracking-[5px] ${isLoadingBalance ? 'animate-shimmer' : ''}`}>
-                {settings.balanceHidden ? '••••' : isLoadingBalance ? "..." : totalBalance.toLocaleString()}
-              </span>
-              <button
-                onClick={() => {
-                  const updated = { balanceHidden: !settings.balanceHidden }
-                  updateSettings(updated)
-                  onSaveSettings?.({ ...settings, ...updated })
-                }}
-                aria-label={settings.balanceHidden ? t('home.showBalance') : t('home.hideBalance')}
-                className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
-              >
-                {settings.balanceHidden
-                  ? <EyeOff className="w-5 h-5 text-[#86868b]" />
-                  : <Eye className="w-5 h-5 text-[#86868b]" />
-                }
-              </button>
-            </div>
+        <div
+          className="flex flex-col items-center gap-1 shrink-0 pb-1.5 pt-8 cursor-pointer active:opacity-70 transition-opacity"
+          onClick={() => {
+            const updated = { balanceHidden: !settings.balanceHidden }
+            updateSettings(updated)
+            onSaveSettings?.({ ...settings, ...updated })
+          }}
+          role="button"
+          aria-label={settings.balanceHidden ? t('home.showBalance') : t('home.hideBalance')}
+        >
+          <p className="font-['Amiri_Quran_Colored',sans-serif] text-xl font-bold text-[#86868b]">Total</p>
+          <div className="flex items-center gap-2 py-0.5">
+            <span className="font-['Montserrat'] font-bold text-[clamp(2rem,8vw,2.5rem)] text-[#9d817a] tracking-[-1px] translate-y-[2.5px]">₿</span>
+            <span className={`font-['Andika'] font-bold text-[clamp(2.25rem,9vw,2.75rem)] text-[#2e0f0f] tracking-[5px] ${isLoadingBalance ? 'animate-shimmer' : ''}`}>
+              {settings.balanceHidden ? '••••' : isLoadingBalance ? "..." : totalBalance.toLocaleString()}
+            </span>
           </div>
         </div>
 
@@ -258,7 +251,7 @@ export function HomeScreen({
               <div
                 ref={carouselRef}
                 onScroll={handleScroll}
-                className="flex gap-3 px-[calc(50%-var(--card-w)/2)] overflow-x-auto snap-x snap-mandatory scrollbar-hide"
+                className="flex gap-3 px-[calc(50%-var(--card-w)/2)] overflow-x-auto overflow-y-visible snap-x snap-mandatory scrollbar-hide pb-2"
               >
                 {mints.map((mint, idx) => (
                   <div
@@ -319,8 +312,8 @@ export function HomeScreen({
           onClick={handleReceiveClick}
           className="flex flex-col items-center gap-1.5 w-20 active:scale-95 transition-transform"
         >
-          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center">
-            <ArrowDownLeft className="w-5.5 h-5.5 text-[#5B7A54]" strokeWidth={2} />
+          <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center">
+            <ArrowDownLeft className="w-6 h-6 text-[#5B7A54]" strokeWidth={2} />
           </div>
           <span className="font-['Outfit'] font-bold text-xs text-[#1d1d1f] leading-normal">{t('common.receive')}</span>
         </button>
@@ -328,8 +321,8 @@ export function HomeScreen({
           onClick={handleSendClick}
           className="flex flex-col items-center gap-1.5 w-20 active:scale-95 transition-transform"
         >
-          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center">
-            <ArrowUpRight className="w-5.5 h-5.5 text-[#D4A03D]" strokeWidth={2} />
+          <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center">
+            <ArrowUpRight className="w-6 h-6 text-[#D4A03D]" strokeWidth={2} />
           </div>
           <span className="font-['Outfit'] font-bold text-xs text-[#1d1d1f] leading-normal">{t('common.send')}</span>
         </button>

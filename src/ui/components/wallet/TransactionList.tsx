@@ -101,7 +101,7 @@ export function TransactionList({
           <p className="text-xs opacity-50">{t('home.noTransactions')}</p>
         </div>
       ) : (
-      <div className="flex flex-col shadow-[-1px_2px_4px_white,0px_4px_4px_rgba(0,0,0,0.1)] gap-0">
+      <div className="flex flex-col border border-black/10 rounded-[13px] overflow-hidden gap-0">
         {displayTransactions.map((tx) => {
           const Icon = getTransactionIcon(tx);
           const isSwap = tx.type === "swap";
@@ -144,11 +144,11 @@ export function TransactionList({
             <div
               key={tx.id}
               onClick={() => onTransactionClick?.(tx)}
-              className="flex items-center justify-between bg-[#faf9f6] rounded-[16px] h-[75px] px-[16px] pb-[12px] cursor-pointer"
+              className="flex items-center justify-between bg-[#faf9f6] rounded-[16px] h-[75px] px-[16px] py-[12px] cursor-pointer"
             >
               <div className="flex items-center gap-[12px]">
                 <div className="w-[44px] h-[44px] rounded-full flex items-center justify-center shrink-0 bg-[#e6e6e6]">
-                  <Icon size={20} strokeWidth={1.5} className="text-[#1d1d1f]" />
+                  <Icon size={20} strokeWidth={1.5} className={isSwap ? "text-[#1d1d1f]" : isIncome ? "text-[#5B7A54]" : "text-[#D4A03D]"} />
                 </div>
                 <div className="flex flex-col gap-[2px]">
                   <h3 className="font-['Outfit'] font-bold text-[14px] text-[#1d1d1f] leading-normal">

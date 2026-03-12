@@ -171,7 +171,6 @@ export function MintCard({
       onClick={onClick}
       className={cn(
         "relative w-[var(--card-w)] aspect-[280/176] rounded-[13px] overflow-hidden cursor-pointer transition-transform touch-manipulation [&:active:not(:has(:active))]:scale-[0.98]",
-        "border-[1.3px] border-solid border-[rgba(250,250,250,0.8)]",
         "shadow-[0px_4px_4px_0px_rgba(0,0,0,0.2)]",
         isSelected === true && "ring-2 ring-primary ring-offset-3 ring-offset-background",
         isSelected === false && "opacity-70"
@@ -182,30 +181,30 @@ export function MintCard({
         alt=""
         className="absolute max-w-none object-cover pointer-events-none"
         src={cardBg}
-        style={{ inset: '-1.3px', width: 'calc(100% + 2.6px)', height: 'calc(100% + 2.6px)', filter: variantFilters[variant] }}
+        style={{ inset: 0, width: '100%', height: '100%', filter: variantFilters[variant] }}
       />
 
       {/* Noise texture */}
       <div
         aria-hidden="true"
         className="absolute opacity-5 pointer-events-none"
-        style={{ inset: '-1.3px', backgroundImage: `url('${cardNoise}')`, backgroundSize: '200% 200%', backgroundPosition: 'top left' }}
+        style={{ inset: 0, backgroundImage: `url('${cardNoise}')`, backgroundSize: '200% 200%', backgroundPosition: 'top left' }}
       />
 
-      {/* Mint Name */}
-      <p
-        className="absolute z-10 font-['Montserrat'] font-bold text-[15.6px] text-[#fafafa] uppercase leading-normal whitespace-nowrap"
+      {/* Mint Logo + Name — top-left */}
+      <div
+        className="absolute z-10 flex items-center gap-2"
         style={{ top: '13%', left: '9.3%' }}
       >
-        {displayName}
-      </p>
-
-      {/* Mint Logo — top-right */}
-      <div
-        className="absolute z-10 bg-white rounded-full flex items-center justify-center overflow-hidden"
-        style={{ right: '5.7%', top: '11.4%', width: '25px', height: '25px', boxShadow: '6.5px 0px 2.6px 0px rgba(0,0,0,0.34)' }}
-      >
-        <MintLogo iconUrl={mint.iconUrl} size="sm" />
+        <div
+          className="rounded-full flex items-center justify-center overflow-hidden shrink-0"
+          style={{ width: '25px', height: '25px' }}
+        >
+          <MintLogo iconUrl={mint.iconUrl} size="md" />
+        </div>
+        <p className="font-['Montserrat'] font-bold text-[15.6px] text-[#fafafa] uppercase leading-normal whitespace-nowrap">
+          {displayName}
+        </p>
       </div>
 
       {/* BALANCE label & amount */}
@@ -221,7 +220,7 @@ export function MintCard({
             className="absolute z-10 font-['Montserrat'] font-semibold text-[15.6px] text-[#fafafa] leading-normal"
             style={{ top: '80%', left: '9.3%' }}
           >
-            <span className="text-[#817a7a]">₿</span>
+            <span className="text-[#fafafa]">₿</span>
             {` ${mint.balance.toLocaleString()}`}
           </p>
         </>
@@ -231,7 +230,7 @@ export function MintCard({
       {onCreateToken && (
         <button
           onClick={(e) => { e.stopPropagation(); onCreateToken(); }}
-          className="absolute z-20 bg-[rgba(224,188,188,0.76)] border border-[#d6baba] rounded-[8px] px-4 py-2 font-['Outfit'] font-semibold text-[13px] text-white hover:bg-[rgba(224,188,188,0.9)] active:scale-90 active:brightness-110 transition-all"
+          className="absolute z-20 bg-[#c49a9a] border border-[#b88a8a] rounded-[8px] px-4 py-2 font-['Outfit'] font-semibold text-[13px] text-white hover:bg-[#d4a8a8] active:scale-90 active:brightness-110 transition-all"
           style={{ right: '5%', top: '74%' }}
         >
           {t('payment.createToken')}

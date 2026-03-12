@@ -555,6 +555,17 @@ export function SettingsScreen({
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-32">
+        {/* Update Button */}
+        {updateAvailable && (
+          <button
+            onClick={() => updateSW()}
+            className="w-full bg-[#1d1d1f] text-white p-3 rounded-2xl font-bold flex items-center justify-center gap-2 transition-colors active:scale-[0.98]"
+          >
+            <Download className="w-4 h-4" />
+            {t('settings.updateAvailable')}
+          </button>
+        )}
+
         {/* Profile Section */}
         <ProfileSection
           nostrPubkey={nostrPubkey}
@@ -668,15 +679,6 @@ export function SettingsScreen({
             <LogOut className="w-4 h-4" />
             {t('settings.logout')}
           </button>
-          {updateAvailable && (
-            <button
-              onClick={() => updateSW()}
-              className="w-full bg-primary text-white p-3 rounded-2xl font-bold flex items-center justify-center gap-2 transition-colors hover:bg-primary-hover shadow-lg mt-3"
-            >
-              <Download className="w-4 h-4" />
-              {t('settings.updateAvailable')}
-            </button>
-          )}
           <div className="text-center mt-4">
             <span className="text-[10px] font-bold text-foreground-muted/50 uppercase tracking-widest">{t('settings.version')}</span>
           </div>
