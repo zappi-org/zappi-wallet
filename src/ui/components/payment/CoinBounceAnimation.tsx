@@ -5,6 +5,7 @@
  */
 
 import { motion } from 'motion/react'
+import { useSatUnit } from '@/utils/format'
 
 interface CoinBounceAnimationProps {
   className?: string
@@ -16,7 +17,7 @@ const coins = [
   { size: 48, x: 44, delay: 0.2 },
 ]
 
-function CoinSVG({ size }: { size: number }) {
+function CoinSVG({ size, unit }: { size: number; unit: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
       <defs>
@@ -37,13 +38,14 @@ function CoinSVG({ size }: { size: number }) {
         fill="#8B6914"
         fontFamily="system-ui"
       >
-        ₿
+        {unit}
       </text>
     </svg>
   )
 }
 
 export function CoinBounceAnimation({ className = '' }: CoinBounceAnimationProps) {
+  const unit = useSatUnit()
   return (
     <div className={`relative w-48 h-40 mx-auto ${className}`}>
       {coins.map((coin, i) => (
@@ -64,7 +66,7 @@ export function CoinBounceAnimation({ className = '' }: CoinBounceAnimationProps
             delay: coin.delay,
           }}
         >
-          <CoinSVG size={coin.size} />
+          <CoinSVG size={coin.size} unit={unit} />
         </motion.div>
       ))}
     </div>

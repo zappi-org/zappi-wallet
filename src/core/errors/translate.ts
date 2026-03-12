@@ -1,6 +1,7 @@
 import i18n from '@/i18n'
 import type { BaseError } from './base'
 import type { InsufficientBalanceError } from './cashu'
+import { formatSats } from '@/utils/format'
 
 const ERROR_KEY_MAP: Record<string, string> = {
   // Security errors
@@ -25,6 +26,15 @@ const ERROR_KEY_MAP: Record<string, string> = {
   QUOTE_NOT_FOUND: 'errors.quoteNotFound',
   QUOTE_EXPIRED: 'errors.quoteExpired',
   P2PK_UNLOCK_FAILED: 'errors.p2pkUnlockFailed',
+  // Lightning errors
+  INVALID_INVOICE: 'errors.invalidInvoice',
+  INVOICE_EXPIRED: 'errors.invoiceExpired',
+  LIGHTNING_ROUTING: 'errors.lightningRouting',
+  LIGHTNING_PAYMENT: 'errors.lightningPayment',
+  // Zappi Link errors
+  ZAPPI_LINK_REGISTRATION_FAILED: 'errors.zappiLinkRegistrationFailed',
+  ZAPPI_LINK_NOT_FOUND: 'errors.zappiLinkNotFound',
+  ZAPPI_LINK_API_ERROR: 'errors.zappiLinkApiError',
   // Nostr errors
   RELAY_CONNECTION: 'errors.relayConnection',
   EVENT_PUBLISH_FAILED: 'errors.eventPublishFailed',
@@ -44,10 +54,12 @@ export function translateError(error: BaseError): string {
 
   if (error.code === 'INSUFFICIENT_BALANCE') {
     const e = error as InsufficientBalanceError
+    const required = formatSats(e.required)
+    const available = formatSats(e.available)
     if (e.isFeeShortage) {
-      return i18n.t('errors.insufficientBalanceForFee', { required: e.required, available: e.available })
+      return i18n.t('errors.insufficientBalanceForFee', { required, available })
     }
-    return i18n.t(key, { required: e.required, available: e.available })
+    return i18n.t(key, { required, available })
   }
 
   return i18n.t(key)

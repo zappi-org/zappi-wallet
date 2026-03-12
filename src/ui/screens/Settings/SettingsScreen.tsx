@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 
-import { ArrowLeft, ChevronRight, Check, AlertTriangle, LogOut, Globe, ShieldCheck, Download, ArrowLeftRight, BarChart3 } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Check, AlertTriangle, LogOut, Globe, ShieldCheck, Download, ArrowLeftRight, BarChart3, Coins } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button, Modal, BottomSheet, PinInput } from '../../components/common'
 import { useAppStore } from '@/store'
@@ -522,7 +522,7 @@ export function SettingsScreen({
 
       const recovered = afterTotal - beforeTotal
       if (recovered > 0) {
-        setRestoreResult({ success: true, message: t('settings.recoveredAmount', { amount: recovered.toLocaleString(), unit: satUnit(recovered) }) })
+        setRestoreResult({ success: true, message: t('settings.recoveredAmount', { amount: recovered.toLocaleString(), unit: satUnit() }) })
       } else {
         setRestoreResult({ success: true, message: t('settings.noMissingBalance') })
       }
@@ -607,6 +607,37 @@ export function SettingsScreen({
                 <ChevronRight className="w-4 h-4 text-foreground-muted" />
               </div>
             </button>
+          </div>
+        </section>
+
+        {/* Unit Display Section */}
+        <section>
+          <h3 className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted mb-2 px-2">{t('settings.unitDisplay')}</h3>
+          <div className="bg-white/60 rounded-2xl overflow-hidden shadow-sm border border-white/50">
+            <div className="p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-primary/10 rounded-xl text-foreground">
+                  <Coins className="w-4 h-4" />
+                </div>
+                <span className="font-bold text-xs">{t('settings.unitDisplay')}</span>
+              </div>
+              <div className="flex bg-background rounded-lg p-0.5">
+                {(['bip177', 'sats'] as const).map((unit) => (
+                  <button
+                    key={unit}
+                    onClick={() => saveSettings({ unitDisplay: unit })}
+                    className={cn(
+                      'px-3 py-1.5 rounded-md text-xs font-bold transition-all',
+                      (settings.unitDisplay ?? 'bip177') === unit
+                        ? 'bg-primary text-white shadow-sm'
+                        : 'text-foreground-muted hover:text-foreground',
+                    )}
+                  >
+                    {unit === 'bip177' ? '₿' : 'sats'}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
 

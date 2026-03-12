@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { ArrowLeft, Trash2, Info, Copy, Check, AlertTriangle, ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
-import { satUnit } from '@/utils/format'
+import { useFormatSats } from '@/utils/format'
 
 export interface MintInfo {
   url: string
@@ -64,6 +64,7 @@ export function MintDetailsModal({
   onDelete,
 }: MintDetailsModalProps) {
   const { t } = useTranslation()
+  const formatSats = useFormatSats()
   const [copied, setCopied] = useState(false)
   const [copiedContact, setCopiedContact] = useState<number | null>(null)
   const [copiedPubkey, setCopiedPubkey] = useState(false)
@@ -231,7 +232,7 @@ export function MintDetailsModal({
                 <div className="flex justify-between items-center">
                   <span className="text-xs font-medium text-foreground-muted">{t('common.balance')}</span>
                   <span className="font-bold text-foreground">
-                    {satUnit(mint.balance)} {mint.balance.toLocaleString()}
+                    {formatSats(mint.balance)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -421,7 +422,7 @@ export function MintDetailsModal({
                 <div className="bg-accent-warning-bright/10 text-accent-warning-bright-text p-3 rounded-xl text-xs font-medium flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                   <p>
-                    {t('mintDetails.balanceWarning', { amount: mint.balance.toLocaleString(), unit: satUnit(mint.balance) })}
+                    {t('mintDetails.balanceWarning', { formattedAmount: formatSats(mint.balance) })}
                   </p>
                 </div>
               )}

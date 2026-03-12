@@ -10,6 +10,7 @@ import { useStateReconstruction } from '@/hooks/useStateReconstruction'
 import { checkAndRefreshAnchor } from '@/services/anchor'
 import { getP2PKPubkey } from '@/services/crypto'
 import { InsufficientBalanceError } from '@/core/errors/cashu'
+import { translateError } from '@/core/errors/translate'
 
 // Tier 1: Always loaded (critical path for authenticated users)
 import { HomeScreen } from '@/ui/screens/Home/HomeScreen'
@@ -50,7 +51,12 @@ import { sendToken as cocoSendToken, getBalances as cocoGetBalances } from '@/co
 import { deleteCocoData, clearWalletCache } from '@/coco'
 import { resetWalletCache } from '@/data/cache/wallet-cache'
 import type { Transaction } from '@/core/types'
-import { satUnit } from '@/utils/format'
+import { satUnit, formatSats } from '@/utils/format'
+
+/** Sum all recovery counts into a single total */
+function totalRecoveredCount(recovery: Awaited<ReturnType<PaymentService['recoverAll']>>): number {
+  return recovery.quotes.recovered + recovery.melts.recovered + recovery.sendTokens.reclaimed + recovery.receivedTokens.redeemed
+}
 
 type Screen = 'home' | 'settings' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail'
 
@@ -124,6 +130,15 @@ export default function MainApp() {
     transactionRepo: new TransactionRepository(),
   }))
 
+  /** Refresh balance + transaction history in parallel */
+  const refreshAll = useCallback(async () => {
+    const [, txHistory] = await Promise.all([
+      refreshBalance(),
+      services.transactionRepo.findAll({ limit: 100 }),
+    ])
+    setTransactions(txHistory)
+  }, [refreshBalance, services.transactionRepo])
+
   // Initialize app (wallet is guaranteed to exist when MainApp loads)
   useEffect(() => {
     const init = async () => {
@@ -151,9 +166,9 @@ export default function MainApp() {
         // Recover all pending operations (quotes, melts, send tokens)
         try {
           const recovery = await services.payment.recoverAll()
-          const totalRecovered = recovery.quotes.recovered + recovery.melts.recovered + recovery.sendTokens.reclaimed
+          const totalRecovered = totalRecoveredCount(recovery)
           if (totalRecovered > 0) {
-            console.log(`Recovered: ${recovery.quotes.recovered} quotes, ${recovery.melts.recovered} melts, ${recovery.sendTokens.reclaimed} reclaimed tokens`)
+            console.log(`Recovered: ${recovery.quotes.recovered} quotes, ${recovery.melts.recovered} melts, ${recovery.sendTokens.reclaimed} reclaimed, ${recovery.receivedTokens.redeemed} offline tokens`)
             const newBalance = await services.wallet.getBalance()
             setBalance(newBalance)
           }
@@ -173,13 +188,8 @@ export default function MainApp() {
   // Reload transactions and balance when txRefreshTrigger changes (e.g., GiftWrap token receipt)
   useEffect(() => {
     if (txRefreshTrigger === 0) return
-    const reload = async () => {
-      const txHistory = await services.transactionRepo.findAll({ limit: 100 })
-      setTransactions(txHistory)
-      await refreshBalance()
-    }
-    reload()
-  }, [txRefreshTrigger, services.transactionRepo, refreshBalance])
+    refreshAll()
+  }, [txRefreshTrigger, refreshAll])
 
   // Anchor check and State Reconstruction (ZAP-06)
   // Runs once when app is unlocked and has nostr keys
@@ -212,14 +222,12 @@ export default function MainApp() {
           console.log(`[App] Recovered ${result.tokensRecovered} tokens (${result.amountRecovered} sats)`)
 
           // Refresh balance and transactions
-          await refreshBalance()
-          const txHistory = await services.transactionRepo.findAll({ limit: 100 })
-          setTransactions(txHistory)
+          await refreshAll()
 
           // Show toast notification
           addToast({
             type: 'success',
-            message: t('toast.ecashRecovered', { count: result.tokensRecovered, amount: result.amountRecovered.toLocaleString() }),
+            message: t('toast.ecashRecovered', { count: result.tokensRecovered, amount: formatSats(result.amountRecovered) }),
             duration: 5000,
           })
         }
@@ -229,7 +237,7 @@ export default function MainApp() {
     }
 
     runAnchorAndReconstruction()
-  }, [isLocked, isInitializing, nostrPubkey, nostrPrivkey, reconstruct, refreshBalance, services.transactionRepo, addToast, t])
+  }, [isLocked, isInitializing, nostrPubkey, nostrPrivkey, reconstruct, refreshAll, addToast, t])
 
   // WebSocket subscription for pending Lightning quotes (NUT-17)
   const wsSubscriptionRef = useRef<(() => void) | null>(null)
@@ -245,16 +253,21 @@ export default function MainApp() {
       // First, try to recover any pending operations
       try {
         const recovery = await services.payment.recoverAll()
-        const totalRecovered = recovery.quotes.recovered + recovery.melts.recovered + recovery.sendTokens.reclaimed
+        const totalRecovered = totalRecoveredCount(recovery)
         if (totalRecovered > 0) {
-          console.log(`[Init] Recovered: ${recovery.quotes.recovered} quotes, ${recovery.melts.recovered} melts, ${recovery.sendTokens.reclaimed} reclaimed`)
-          await refreshBalance()
-          const txHistory = await services.transactionRepo.findAll({ limit: 100 })
-          setTransactions(txHistory)
+          console.log(`[Init] Recovered: ${recovery.quotes.recovered} quotes, ${recovery.melts.recovered} melts, ${recovery.sendTokens.reclaimed} reclaimed, ${recovery.receivedTokens.redeemed} offline tokens`)
+          await refreshAll()
           if (recovery.quotes.recovered > 0) {
             addToast({
               type: 'success',
               message: t('toast.lightningArrived', { count: recovery.quotes.recovered }),
+              duration: 4000,
+            })
+          }
+          if (recovery.receivedTokens.redeemed > 0) {
+            addToast({
+              type: 'success',
+              message: t('toast.offlineTokensRedeemed', { count: recovery.receivedTokens.redeemed }),
               duration: 4000,
             })
           }
@@ -269,17 +282,12 @@ export default function MainApp() {
       try {
         const canceller = await services.payment.subscribeToPendingQuotes(
           async (mintUrl, _quoteId, amount) => {
-            console.log(`[WSS] Payment received: ${satUnit(amount)} ${amount} from ${mintUrl}`)
-            // Refresh balance
-            await refreshBalance()
-            // Reload transaction history
-            const txHistory = await services.transactionRepo.findAll({ limit: 100 })
-            setTransactions(txHistory)
-            // Notify other tabs of balance change
+            console.log(`[WSS] Payment received: ${satUnit()} ${amount} from ${mintUrl}`)
+            await refreshAll()
             broadcastSync('balance_changed')
             addToast({
               type: 'success',
-              message: t('toast.lightningReceived', { unit: satUnit(amount), amount: amount.toLocaleString() }),
+              message: t('toast.lightningReceived', { unit: satUnit(), amount: amount.toLocaleString() }),
               duration: 4000,
             })
           },
@@ -306,16 +314,21 @@ export default function MainApp() {
         console.log('[Background] App visible, recovering pending operations')
         try {
           const recovery = await services.payment.recoverAll()
-          const totalRecovered = recovery.quotes.recovered + recovery.melts.recovered + recovery.sendTokens.reclaimed
+          const totalRecovered = totalRecoveredCount(recovery)
           if (totalRecovered > 0) {
-            await refreshBalance()
-            const txHistory = await services.transactionRepo.findAll({ limit: 100 })
-            setTransactions(txHistory)
+            await refreshAll()
             broadcastSync('balance_changed')
             if (recovery.quotes.recovered > 0) {
               addToast({
                 type: 'success',
                 message: t('toast.lightningArrived', { count: recovery.quotes.recovered }),
+                duration: 4000,
+              })
+            }
+            if (recovery.receivedTokens.redeemed > 0) {
+              addToast({
+                type: 'success',
+                message: t('toast.offlineTokensRedeemed', { count: recovery.receivedTokens.redeemed }),
                 duration: 4000,
               })
             }
@@ -339,7 +352,7 @@ export default function MainApp() {
       // Disconnect all WebSockets
       services.payment.disconnectAllWebSockets()
     }
-  }, [isLocked, isInitializing, services.payment, services.transactionRepo, refreshBalance, addToast, t])
+  }, [isLocked, isInitializing, services.payment, refreshAll, addToast, t])
 
   // Handle unlock
   const handleUnlock = useCallback(async (password: string): Promise<boolean> => {
@@ -424,52 +437,100 @@ export default function MainApp() {
       quoteId,
       amount,
       async () => {
-        // Refresh balance and history when payment received
-        await refreshBalance()
-        const txHistory = await services.transactionRepo.findAll({ limit: 100 })
-        setTransactions(txHistory)
+        refreshAll().catch((e) => console.error('[MainApp] refreshAll after quote paid:', e))
         onPaid()
       },
       onError
     )
-  }, [services.payment, services.transactionRepo, refreshBalance])
+  }, [services.payment, refreshAll])
 
   const handleReceiveToken = useCallback(async (token: string): Promise<{ success: boolean; amount?: number; transactionId?: string; error?: { code?: string; message?: string } }> => {
     const result = await services.payment.receiveEcash(token)
     if (result.isOk()) {
-      // Refresh balance and transaction history
-      await refreshBalance()
-      const txHistory = await services.transactionRepo.findAll({ limit: 100 })
-      setTransactions(txHistory)
+      // Token consumed — refresh is best-effort, must not mask success
+      refreshAll().catch((e) => console.error('[MainApp] refreshAll after receive failed:', e))
       return { success: true, amount: result.value.amount, transactionId: result.value.transactionId }
     }
-    return { success: false, error: result.error }
-  }, [services.payment, refreshBalance, services.transactionRepo])
+    const e = result.error
+    return { success: false, error: { code: e.code, message: translateError(e) } }
+  }, [services.payment, refreshAll])
+
+  /** Estimate Lightning fee for cross-mint swap (non-destructive) */
+  const handleEstimateSwapFee = useCallback(async (
+    fromMintUrl: string,
+    toMintUrl: string,
+    amount: number,
+  ): Promise<{ fee: number; totalNeeded: number } | null> => {
+    try {
+      return await services.payment.estimateSwapFee(fromMintUrl, toMintUrl, amount)
+    } catch (error) {
+      console.error('[MainApp] estimateSwapFee failed:', error)
+      return null
+    }
+  }, [services.payment])
+
+  /** Cross-mint swap receive: receive token on source mint, then swap to target */
+  const handleSwapReceive = useCallback(async (
+    token: string,
+    sourceMintUrl: string,
+    targetMintUrl: string,
+    amount: number,
+  ): Promise<{ success: boolean; amount?: number; error?: { code?: string; message?: string } }> => {
+    // 1. Receive token on source mint (auto-registers in Coco)
+    const receiveResult = await services.payment.receiveEcash(token)
+    if (receiveResult.isErr()) {
+      const e = receiveResult.error
+      return { success: false, error: { code: e.code, message: translateError(e) } }
+    }
+
+    // 2. Swap from source to target mint via Lightning
+    const swapResult = await services.payment.mintSwap(sourceMintUrl, targetMintUrl, amount)
+    if (swapResult.isErr()) {
+      // Token was received but swap failed — balance is on source mint
+      // Refresh is best-effort so user can see the balance
+      refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap fail:', e))
+      const e = swapResult.error
+      return { success: false, error: { code: e.code, message: translateError(e) } }
+    }
+
+    // 3. Success — refresh is best-effort, must not mask success
+    refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap:', e))
+    return { success: true, amount: swapResult.value.amount }
+  }, [services.payment, refreshAll])
+
+  /** Store offline P2PK token for later redemption */
+  const handleStoreOfflineToken = useCallback(async (
+    token: string,
+    amount: number,
+    mintUrl: string,
+    dleqStatus: 'valid' | 'missing',
+  ): Promise<{ success: boolean }> => {
+    try {
+      await services.payment.storeOfflineToken(token, amount, mintUrl, dleqStatus)
+      return { success: true }
+    } catch (error) {
+      console.error('[App] Failed to store offline token:', error)
+      return { success: false }
+    }
+  }, [services.payment])
 
   // Payment received callback
   const handlePaymentReceived = useCallback(async (
     receivedAmount: number,
     type: 'lightning' | 'ecash',
   ) => {
-    // Refresh balance
-    await refreshBalance()
-
-    // Reload transaction history
-    const txHistory = await services.transactionRepo.findAll({ limit: 100 })
-    setTransactions(txHistory)
-
-    // Notify other tabs of balance/tx change
+    refreshAll().catch((e) => console.error('[MainApp] refreshAll after payment received:', e))
     broadcastSync('balance_changed')
 
     // Show toast notification only for Lightning (Ecash has its own success screen)
     if (type === 'lightning') {
       addToast({
         type: 'success',
-        message: t('toast.lightningPaymentComplete', { unit: satUnit(receivedAmount), amount: receivedAmount.toLocaleString() }),
+        message: t('toast.lightningPaymentComplete', { unit: satUnit(), amount: receivedAmount.toLocaleString() }),
         duration: 4000,
       })
     }
-  }, [refreshBalance, addToast, services.transactionRepo, t])
+  }, [refreshAll, addToast, t])
 
   // Send modal handlers
   const handleSendLightning = useCallback(async (addressOrInvoice: string, amount: number, mintUrl?: string): Promise<boolean> => {
@@ -479,7 +540,7 @@ export default function MainApp() {
       console.error('Lightning send failed:', result.error)
       addToast({
         type: 'error',
-        message: result.error.message || t('toast.lightningSendFailed'),
+        message: translateError(result.error),
         duration: 4000,
       })
       return false
@@ -487,23 +548,19 @@ export default function MainApp() {
 
     console.log('Lightning payment sent:', result.value)
 
-    // Refresh balance after successful send
-    await refreshBalance()
-
-    // Reload transaction history
-    const txHistory = await services.transactionRepo.findAll({ limit: 100 })
-    setTransactions(txHistory)
+    // Fire-and-forget so toast always shows
+    refreshAll().catch((e) => console.error('[MainApp] refreshAll after lightning send:', e))
 
     addToast({
       type: 'success',
-      message: t('toast.lightningSendComplete', { unit: satUnit(result.value.amount), amount: result.value.amount.toLocaleString(), feeUnit: satUnit(result.value.fee), fee: result.value.fee }),
+      message: t('toast.lightningSendComplete', { unit: satUnit(), amount: result.value.amount.toLocaleString(), feeUnit: satUnit(), fee: result.value.fee }),
       duration: 4000,
     })
 
     broadcastSync('balance_changed')
 
     return true
-  }, [services.payment, refreshBalance, addToast, services.transactionRepo, t])
+  }, [services.payment, refreshAll, addToast, t])
 
   const handleCreateEcashToken = useCallback(async (amount: number, preferredMintUrl?: string, options?: { p2pkPubkey?: string; memo?: string }): Promise<string | null> => {
     if (isSendingEcashRef.current) return null
@@ -853,10 +910,7 @@ export default function MainApp() {
       {currentScreen === 'transfer' && (
         <TransferScreen
           onBack={handleBack}
-          onTransactionComplete={async () => {
-            const txHistory = await services.transactionRepo.findAll({ limit: 100 })
-            setTransactions(txHistory)
-          }}
+          onTransactionComplete={refreshAll}
         />
       )}
 
@@ -941,6 +995,9 @@ export default function MainApp() {
           onPaymentReceived={handlePaymentReceived}
           onReceiveToken={handleReceiveToken}
           onAddTrustedMint={handleAddTrustedMint}
+          onSwapReceive={handleSwapReceive}
+          onEstimateSwapFee={handleEstimateSwapFee}
+          onStoreOfflineToken={handleStoreOfflineToken}
           validatedData={validatedScanData || undefined}
           initialAmount={scannedAmount || undefined}
           initialMintUrl={activeMintUrl}

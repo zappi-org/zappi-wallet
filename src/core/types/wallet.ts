@@ -174,6 +174,8 @@ export interface WalletSettings {
   manualMintSelectionEnabled: boolean
   balanceHidden: boolean
   language?: SupportedLanguage
+  /** Amount display format: BIP-177 (₿ 1,000) or sats (1,000 sats) */
+  unitDisplay?: 'bip177' | 'sats'
   posDevices?: POSDevice[]
 }
 

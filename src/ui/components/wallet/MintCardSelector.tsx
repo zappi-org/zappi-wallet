@@ -3,11 +3,12 @@
  * Scale animation, snap scroll, pagination dots, initial scroll to selected mint.
  */
 
-import { useMemo, useRef, useCallback, useEffect } from 'react'
+import { useMemo, useEffect } from 'react'
 import { MintCard, getVariantByIndex } from './MintCard'
 import { useWallet } from '@/hooks/use-wallet'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useMintHealth } from '@/hooks/use-mint-health'
+import { useCarouselScroll } from '@/hooks/use-carousel-scroll'
 import { useAppStore } from '@/store'
 import type { MintInfo } from '@/core/types'
 
@@ -43,70 +44,23 @@ export function MintCardSelector({
     return filterFn ? all.filter(filterFn) : all
   }, [settings.mints, balance.byMint, getCachedStatus, getDisplayName, getIconUrl, filterFn])
 
-  // Carousel state — mirrors HomeScreen logic
-  const carouselRef = useRef<HTMLDivElement>(null)
-  const cardRefs = useRef<(HTMLDivElement | null)[]>([])
-  const rafRef = useRef<number>(0)
-
-  const getCarouselGap = useCallback(() => {
-    const el = carouselRef.current
-    if (!el) return 12
-    return parseFloat(getComputedStyle(el).columnGap) || 12
-  }, [])
-
-  const updateCardScales = useCallback(() => {
-    const el = carouselRef.current
-    if (!el || mints.length === 0) return
-    const containerCenter = el.scrollLeft + el.clientWidth / 2
-    const gap = getCarouselGap()
-
-    cardRefs.current.forEach((card) => {
-      if (!card) return
-      const cardCenter = card.offsetLeft + card.offsetWidth / 2
-      const distance = Math.abs(containerCenter - cardCenter)
-      const maxDistance = card.offsetWidth + gap
-      const progress = Math.min(distance / maxDistance, 1)
-      const scale = 1 - progress * 0.08
-      const opacity = 1 - progress * 0.25
-      card.style.transform = `scale(${scale})`
-      card.style.opacity = `${opacity}`
-    })
-  }, [mints.length, getCarouselGap])
-
-  const handleScroll = useCallback(() => {
-    cancelAnimationFrame(rafRef.current)
-    rafRef.current = requestAnimationFrame(() => {
-      const el = carouselRef.current
-      if (!el || mints.length === 0) return
-      const firstCard = cardRefs.current[0]
-      const gap = getCarouselGap()
-      const cardWidth = (firstCard?.offsetWidth || 300) + gap
-      const index = Math.round(el.scrollLeft / cardWidth)
-      const clamped = Math.max(0, Math.min(index, mints.length - 1))
-      onSelect(mints[clamped].url)
-      updateCardScales()
-    })
-  }, [mints, updateCardScales, getCarouselGap, onSelect])
+  const { carouselRef, cardRefs, handleScroll, scrollToIndex } = useCarouselScroll({
+    itemCount: mints.length,
+    onIndexChange: (index) => onSelect(mints[index].url),
+    scaleAnimation: true,
+    fallbackGap: 12,
+  })
 
   // Scroll to initial selected mint on mount
   useEffect(() => {
-    const el = carouselRef.current
-    if (!el || mints.length === 0) return
-
+    if (mints.length === 0) return
     const idx = selectedMintUrl
       ? mints.findIndex((m) => m.url === selectedMintUrl)
       : 0
     const targetIdx = idx >= 0 ? idx : 0
-
     if (targetIdx > 0) {
-      const firstCard = cardRefs.current[0]
-      const gap = getCarouselGap()
-      const cardWidth = (firstCard?.offsetWidth || 300) + gap
-      el.scrollLeft = targetIdx * cardWidth
+      scrollToIndex(targetIdx)
     }
-
-    const timer = setTimeout(updateCardScales, 50)
-    return () => clearTimeout(timer)
     // Only on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mints.length])

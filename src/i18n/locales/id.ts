@@ -221,11 +221,14 @@ export default {
 
     // Mint Delete
     deleteMint: 'Hapus Mint',
-    mintHasBalance: 'Mint ini memiliki saldo <bold>{{unit}} {{balance}}</bold>.',
+    mintHasBalance: 'Mint ini memiliki saldo <bold>{{formattedBalance}}</bold>.',
     deleteWarning: 'Menghapus akan membuat saldo tidak dapat diakses.',
 
     // Language
     language: 'Bahasa',
+
+    // Unit Display
+    unitDisplay: 'Satuan',
   },
 
   // Add Mint Screen
@@ -252,7 +255,7 @@ export default {
     loading: 'Memuat daftar mint...',
     loadError: 'Tidak dapat memuat daftar mint.',
     addComplete: 'Mint ditambahkan!',
-    recoveredTokens: '{{amount}} sat dipulihkan!',
+    recoveredTokens: '{{amount}} dipulihkan!',
     mintAddedSuccess: 'Mint baru telah ditambahkan.',
   },
 
@@ -313,8 +316,8 @@ export default {
     addressPlaceholder: 'user@getalby.com atau lnbc...',
     lightningAddressPlaceholder: 'Alamat Lightning atau invoice',
     enterDestination: 'Masukkan alamat tujuan',
-    minAmountError: 'Minimum {{amount}} sats',
-    maxAmountError: 'Maksimum {{amount}} sats',
+    minAmountError: 'Minimum {{amount}}',
+    maxAmountError: 'Maksimum {{amount}}',
     invalidAddressOrInvoice: 'Alamat atau invoice Lightning tidak valid',
     invalidLightningAddress: 'Alamat Lightning tidak valid',
     cannotVerifyAddress: 'Tidak dapat memverifikasi alamat Lightning',
@@ -379,7 +382,7 @@ export default {
 
     // Amount Input
     enterAmount: 'Masukkan jumlah',
-    amountInSats: 'dalam sats',
+    amountInSats: 'unit',
 
     // Zap
     zapSend: 'Kirim Zap',
@@ -413,8 +416,8 @@ export default {
     createInvoiceError: 'Gagal membuat invoice',
     recreateInvoice: 'Buat ulang',
     withdrawSource: 'Sumber penarikan',
-    minValidation: 'Minimum ₿ {{amount}}',
-    maxValidation: 'Maksimum ₿ {{amount}}',
+    minValidation: 'Minimum {{amount}}',
+    maxValidation: 'Maksimum {{amount}}',
 
     // Receive Screen
     creatingInvoice: 'Membuat invoice...',
@@ -511,8 +514,8 @@ export default {
     paymentReceived: 'Pembayaran diterima',
     paymentSent: 'Pembayaran terkirim',
     tokenReceived: 'Token diterima',
-    youReceived: 'Anda menerima {{unit}} {{amount}}',
-    youSent: 'Anda mengirim {{unit}} {{amount}}',
+    youReceived: 'Anda menerima {{amount}}',
+    youSent: 'Anda mengirim {{amount}}',
     justNow: 'Baru saja',
     minAgo: '{{count}} menit lalu',
     hourAgo: '{{count}} jam lalu',
@@ -551,8 +554,8 @@ export default {
     decryptionFailed: 'Dekripsi gagal',
     securityError: 'Terjadi kesalahan keamanan',
     tokenSpent: 'Token sudah digunakan',
-    insufficientBalance: 'Saldo tidak mencukupi ({{available}}/{{required}} sats)',
-    insufficientBalanceForFee: 'Saldo tidak cukup termasuk biaya\nTersedia {{available}} sats, perlu {{required}} sats + biaya',
+    insufficientBalance: 'Saldo tidak mencukupi (perlu: {{required}}  tersedia: {{available}})',
+    insufficientBalanceForFee: 'Saldo tidak mencukupi (perlu: {{required}} + biaya  tersedia: {{available}})',
     mintConnection: 'Tidak dapat terhubung ke mint',
     mintError: 'Terjadi kesalahan pada mint',
     invalidToken: 'Token tidak valid',
@@ -560,6 +563,13 @@ export default {
     quoteNotFound: 'Kuotasi tidak ditemukan',
     quoteExpired: 'Kuotasi telah kedaluwarsa',
     p2pkUnlockFailed: 'Gagal membuka token P2PK',
+    invalidInvoice: 'Invoice Lightning tidak valid',
+    invoiceExpired: 'Invoice Lightning telah kedaluwarsa',
+    lightningRouting: 'Tidak dapat menemukan rute pembayaran Lightning',
+    lightningPayment: 'Pembayaran Lightning gagal',
+    zappiLinkRegistrationFailed: 'Gagal mendaftarkan Lightning Address',
+    zappiLinkNotFound: 'Lightning Address tidak ditemukan',
+    zappiLinkApiError: 'Tidak dapat terhubung ke layanan Zappi Link',
     relayConnection: 'Tidak dapat terhubung ke relay',
     eventPublishFailed: 'Gagal menerbitkan event',
     eventNotFound: 'Event tidak ditemukan',
@@ -579,18 +589,19 @@ export default {
     paymentSuccess: 'Pembayaran selesai',
     paymentFailed: 'Pembayaran gagal',
     tokenReceived: 'Token diterima',
-    ecashRecovered: '{{count}} pembayaran Ecash dipulihkan ({{amount}} sats)',
+    ecashRecovered: '{{count}} pembayaran Ecash dipulihkan ({{amount}})',
     lightningArrived: '{{count}} pembayaran Lightning telah tiba',
+    offlineTokensRedeemed: '{{count}} token offline telah ditebus',
     lightningReceived: '{{unit}} {{amount}} pembayaran Lightning diterima',
     lightningPaymentComplete: '{{unit}} {{amount}} pembayaran Lightning selesai',
     lightningSendFailed: 'Pengiriman Lightning gagal',
     lightningSendComplete: '{{unit}} {{amount}} terkirim (biaya: {{feeUnit}} {{fee}})',
     invoiceCreateFailed: 'Gagal membuat invoice',
     invoiceCreateOffline: 'Tidak dapat membuat invoice saat offline',
-    tokenReceivedAmount: '{{amount}} sats diterima',
+    tokenReceivedAmount: '{{amount}} diterima',
     paymentRequestFailed: 'Gagal membuat payment request',
-    sendComplete: '{{amount}} sats terkirim',
-    swapComplete: '{{amount}} sats swap selesai (biaya: {{fee}} sats)',
+    sendComplete: '{{amount}} terkirim',
+    swapComplete: '{{amount}} swap selesai (biaya: {{fee}})',
     swapOffline: 'Tidak dapat swap saat offline',
     offlineCannotPay: 'Tidak dapat membayar saat offline',
     balanceLoadFailed: 'Gagal memuat saldo',
@@ -601,7 +612,7 @@ export default {
     retrySuccess: '{{count}} percobaan ulang berhasil',
     retryPartialFail: '{{count}} percobaan ulang gagal',
     retryFailed: 'Percobaan ulang gagal',
-    ecashTokenReceived: '{{amount}} sats token Ecash diterima',
+    ecashTokenReceived: '{{amount}} token Ecash diterima',
     noMintsRegistered: 'Tidak ada mint terdaftar',
     noReachableMints: 'Tidak ada mint yang dapat dijangkau',
     mintSwitched: 'Beralih ke mint lain: {{name}}',
@@ -621,7 +632,7 @@ export default {
     loadError: 'Tidak dapat mengambil info mint.',
     deleteConfirm: 'Konfirmasi Hapus',
     deleteMint: 'Hapus Mint',
-    balanceWarning: '{{unit}} {{amount}} tersisa di mint ini. Disarankan untuk mentransfer ke mint lain sebelum menghapus.',
+    balanceWarning: '{{formattedAmount}} tersisa di mint ini. Disarankan untuk mentransfer ke mint lain sebelum menghapus.',
   },
 
   // Send
@@ -673,7 +684,7 @@ export default {
       networkDelay: 'Mungkin memerlukan waktu tergantung jaringan',
     },
     complete: {
-      message: '{{destination}}\n₿ {{amount}} terkirim',
+      message: '{{destination}}\n{{amount}} terkirim',
       confirm: 'Selesai',
       details: 'Detail',
     },
@@ -705,25 +716,38 @@ export default {
       cancel: 'Batal',
     },
     complete: {
-      message: '{{mint}}\n₿ {{amount}} diterima',
+      message: '{{mint}}\n{{amount}} diterima',
       done: 'Selesai',
     },
     token: {
       title: 'Konfirmasi Token',
-      canReceive: 'Anda dapat menerima token ini di {{mint}}',
+      canReceive: 'Anda dapat menerima\n{{amount}} ke\n{{mint}} saya.',
       receiveMint: 'Mint Penerima',
       amount: 'Jumlah',
       receive: 'Terima',
     },
     untrusted: {
       title: 'Konfirmasi Token',
-      warning: '{{mint}} bukan mint terdaftar',
-      question: 'Apakah Anda mengenal mint ini? Anda juga bisa menerima ke mint Anda sendiri.',
-      myMint: 'Terima ke mint saya',
-      addAndReceive: 'Tambahkan dan terima',
+      warningFrom: 'Dari mint\nbelum terdaftar {{mint}}',
+      warningNeedConfirm: 'Untuk menerima {{amount}},\ndiperlukan konfirmasi.',
+      explanation: 'Jika tidak mengenal mint ini,\nAnda bisa menerima ke mint sendiri.',
+      myMint: 'Terima ke\nmint saya',
+      myMintSub: 'Biaya akan dikenakan.',
+      addAndReceive: 'Tambahkan\ndan terima',
+      addAndReceiveSub: 'Saya percaya mint ini',
       feeNote: 'Mungkin dikenakan biaya',
       receiveWithMint: 'Terima dengan mint ini',
     },
+    offline: {
+      p2pkAccepted: 'Token ini dilindungi P2PK. Dapat diterima secara offline dengan aman dan akan diverifikasi saat terhubung kembali.',
+      dleqMissing: 'Verifikasi DLEQ tidak tersedia. Keaslian token tidak dapat dikonfirmasi. Terima dengan risiko Anda sendiri?',
+      dleqFailed: 'Verifikasi DLEQ gagal. Token ini mungkin palsu dan tidak dapat diterima.',
+      nonP2PKError: 'Hanya token yang dilindungi P2PK yang dapat diterima secara offline. Hubungkan kembali dan coba lagi.',
+      untrustedNeedsOnline: 'Koneksi internet diperlukan untuk menerima token dari mint yang tidak terdaftar.',
+      receiveOffline: 'Terima offline',
+      acceptAnyway: 'Terima dengan risiko saya',
+    },
+    swapFeeTooHigh: 'Biaya swap ({{fee}}) sama atau lebih besar dari jumlah token ({{amount}})',
   },
 
   // Error Boundary

@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="100%" height="100%">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e0e0e0" stroke-width="1"/>
+    </pattern>
+    <radialGradient id="arcGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="1" />
+      <stop offset="20%" stop-color="#00ffff" stop-opacity="0.9" />
+      <stop offset="60%" stop-color="#0088ff" stop-opacity="0.4" />
+      <stop offset="100%" stop-color="#00ffff" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <rect width="100%" height="100%" fill="#f8f9fa" />
+  <rect width="100%" height="100%" fill="url(#grid)" />
+
+  <ellipse cx="400" cy="520" rx="250" ry="30" fill="#000000" opacity="0.1" />
+
+  <g id="workbench">
+    <rect x="390" y="380" width="24" height="140" fill="#4a3118" rx="4" />
+    <rect x="710" y="380" width="24" height="140" fill="#4a3118" rx="4" />
+    <rect x="340" y="340" width="420" height="40" fill="#8b5a2b" rx="6" />
+    <rect x="360" y="370" width="24" height="150" fill="#5c3a21" rx="4" />
+    <rect x="730" y="370" width="24" height="150" fill="#5c3a21" rx="4" />
+    <rect x="340" y="370" width="420" height="12" fill="#6b4226" rx="3" />
+    <rect x="450" y="382" width="200" height="40" fill="#5c3a21" rx="4" />
+    <line x1="450" y1="382" x2="650" y2="382" stroke="#3a2210" stroke-width="3" />
+    <rect x="520" y="395" width="60" height="8" fill="#a0a0a0" rx="4" />
+  </g>
+
+  <g id="gadget" transform="translate(420, 160)">
+    <path d="M 10,180 L 30,80 L 160,60 L 190,180 Z" fill="#2c3e50" stroke="#1a252f" stroke-width="4" stroke-linejoin="round" />
+    
+    <g transform="translate(140, 100)">
+      <g>
+        <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="1.5s" repeatCount="indefinite" />
+        <circle cx="0" cy="0" r="35" fill="#7f8c8d" />
+        <circle cx="0" cy="0" r="43" fill="none" stroke="#95a5a6" stroke-width="8" stroke-dasharray="15 10" />
+        <circle cx="0" cy="0" r="10" fill="#2c3e50" />
+      </g>
+    </g>
+
+    <g transform="translate(80, 130)">
+      <g>
+        <animateTransform attributeName="transform" type="rotate" from="360 0 0" to="0 0 0" dur="0.8s" repeatCount="indefinite" />
+        <circle cx="0" cy="0" r="20" fill="#bdc3c7" />
+        <circle cx="0" cy="0" r="26" fill="none" stroke="#ecf0f1" stroke-width="6" stroke-dasharray="10 6" />
+        <circle cx="0" cy="0" r="6" fill="#2c3e50" />
+      </g>
+    </g>
+
+    <rect x="20" y="80" width="50" height="80" fill="#34495e" stroke="#1a252f" stroke-width="3" rx="4" />
+    <path d="M 40,160 Q 80,200 120,170" fill="none" stroke="#e74c3c" stroke-width="5" stroke-linecap="round" />
+    <path d="M 60,160 Q 90,210 140,180" fill="none" stroke="#f1c40f" stroke-width="5" stroke-linecap="round" />
+  </g>
+
+  <g id="step-stool">
+    <rect x="150" y="470" width="15" height="50" fill="#7f8c8d" rx="3"/>
+    <rect x="295" y="470" width="15" height="50" fill="#7f8c8d" rx="3"/>
+    <rect x="130" y="450" width="200" height="20" fill="#f1c40f" rx="6"/>
+    <rect x="130" y="450" width="200" height="8" fill="#f39c12" rx="4"/>
+    <rect x="140" y="460" width="15" height="60" fill="#95a5a6" rx="3"/>
+    <rect x="305" y="460" width="15" height="60" fill="#95a5a6" rx="3"/>
+    <rect x="150" y="445" width="40" height="5" fill="#34495e" rx="2"/>
+    <rect x="210" y="445" width="40" height="5" fill="#34495e" rx="2"/>
+    <rect x="270" y="445" width="40" height="5" fill="#34495e" rx="2"/>
+  </g>
+
+  <g id="character">
+    
+    <path d="M 252,365 Q 230,410 200,450 Q 190,455 210,455" fill="none" stroke="#1867ff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M 320,340 Q 300,410 270,450 Q 260,455 285,455" fill="none" stroke="#1867ff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
+
+    <g id="upper-body">
+      <animateTransform attributeName="transform" type="translate" values="90 80; 89 82; 92 79; 88 81; 90 80" dur="0.08s" repeatCount="indefinite" />
+      
+      <polygon points="190,90 210,150 268,127 230,170 287,190 225,205 250,268 190,235 162,285 160,225 92,212 145,185 100,137 165,150"
+               fill="#1867ff" stroke="#1867ff" stroke-width="22" stroke-linejoin="round" />
+
+      <g fill="#88ccff" opacity="0.9">
+        <g>
+          <animateTransform attributeName="transform" type="translate" values="0 0; -40 -10; -60 -20" keyTimes="0; 0.6; 1" dur="0.4s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0; 1; 0" keyTimes="0; 0.3; 1" dur="0.4s" repeatCount="indefinite" />
+          <path d="M 120,130 Q 100,140 120,150 Q 130,140 120,130" transform="rotate(-30 120 140)"/>
+        </g>
+        <g>
+          <animateTransform attributeName="transform" type="translate" values="0 0; -50 0; -80 0" keyTimes="0; 0.7; 1" dur="0.5s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0; 1; 0" keyTimes="0; 0.2; 1" dur="0.5s" repeatCount="indefinite" />
+          <path d="M 100,180 Q 80,190 100,200 Q 110,190 100,180" transform="rotate(-10 100 190)"/>
+        </g>
+        <g>
+          <animateTransform attributeName="transform" type="translate" values="0 0; -30 15; -50 25" keyTimes="0; 0.5; 1" dur="0.3s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0; 1; 0" keyTimes="0; 0.4; 1" dur="0.3s" repeatCount="indefinite" />
+          <path d="M 110,220 Q 90,230 110,240 Q 120,230 110,220" transform="rotate(10 110 230)"/>
+        </g>
+      </g>
+
+      <path d="M 170,220 Q 240,230 300,195" fill="none" stroke="#0f4bbf" stroke-width="14" stroke-linecap="round" />
+      <circle cx="300" cy="195" r="7" fill="#0f4bbf" /> <g id="helmet">
+        <path d="M 230,160 L 140,170" stroke="#1a252f" stroke-width="12" stroke-linecap="round" />
+        <path d="M 230,160 L 160,120" stroke="#1a252f" stroke-width="10" stroke-linecap="round" />
+        <path d="M 230,105 C 270,95 310,115 320,165 C 330,215 300,265 240,275 C 210,280 190,245 205,215 C 215,195 220,145 230,105 Z" 
+              fill="#2c3e50" stroke="#1a252f" stroke-width="6" stroke-linejoin="round" />
+        <circle cx="230" cy="160" r="10" fill="#7f8c8d" stroke="#1a252f" stroke-width="3" />
+        
+        <rect x="270" y="140" width="28" height="55" fill="#111111" stroke="#000000" stroke-width="4" transform="rotate(12 284 167)" rx="2"/>
+        <rect x="272" y="142" width="24" height="51" fill="#00ffff" transform="rotate(12 284 167)" rx="1">
+          <animate attributeName="opacity" values="0.3; 0.9; 0.2; 1; 0.4" dur="0.15s" repeatCount="indefinite" />
+        </rect>
+      </g>
+
+      <path d="M 220,230 Q 270,250 320,190" fill="none" stroke="#1867ff" stroke-width="14" stroke-linecap="round" />
+      <circle cx="320" cy="190" r="7" fill="#1867ff" /> <g id="torch" transform="translate(320, 190) rotate(-15)">
+        <path d="M -10,10 C -40,80 0,160 -100,180" fill="none" stroke="#2c3e50" stroke-width="8" stroke-linecap="round" />
+        <rect x="-20" y="-12" width="45" height="24" rx="6" fill="#c0392b" />
+        <rect x="-10" y="-10" width="35" height="20" rx="4" fill="#2c3e50" />
+        <rect x="0" y="-16" width="10" height="6" fill="#f1c40f" rx="2" />
+        <polygon points="25,-6 40,-4 40,4 25,6" fill="#e67e22" />
+        <polygon points="40,-4 55,-2 55,2 40,4" fill="#bdc3c7" />
+      </g>
+    </g>
+  </g>
+
+  <g id="welding-fx" transform="translate(465, 256)">
+    
+    <circle cx="0" cy="0" r="70" fill="url(#arcGlow)">
+      <animate attributeName="r" values="50; 90; 60; 80; 55" dur="0.1s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.7; 1; 0.6; 1; 0.8" dur="0.1s" repeatCount="indefinite" />
+    </circle>
+    
+    <circle cx="0" cy="0" r="8" fill="#ffffff">
+      <animate attributeName="r" values="6; 12; 7" dur="0.05s" repeatCount="indefinite" />
+    </circle>
+
+    <g stroke="#f1c40f" stroke-width="4" stroke-linecap="round">
+      <line x1="0" y1="0" x2="-30" y2="-80" stroke-dasharray="10 100">
+        <animate attributeName="stroke-dashoffset" values="110; -20" dur="0.2s" repeatCount="indefinite" />
+      </line>
+      <line x1="0" y1="0" x2="20" y2="-90" stroke-dasharray="15 120">
+        <animate attributeName="stroke-dashoffset" values="135; -30" dur="0.25s" repeatCount="indefinite" />
+      </line>
+      <line x1="0" y1="0" x2="-40" y2="70" stroke-dasharray="12 110">
+        <animate attributeName="stroke-dashoffset" values="122; -20" dur="0.18s" repeatCount="indefinite" />
+      </line>
+      <line x1="0" y1="0" x2="30" y2="60" stroke-dasharray="8 90">
+        <animate attributeName="stroke-dashoffset" values="98; -10" dur="0.22s" repeatCount="indefinite" />
+      </line>
+      <line x1="0" y1="0" x2="80" y2="-20" stroke="#00ffff" stroke-dasharray="20 150">
+        <animate attributeName="stroke-dashoffset" values="170; -30" dur="0.3s" repeatCount="indefinite" />
+      </line>
+      <line x1="0" y1="0" x2="70" y2="30" stroke-dasharray="10 100">
+        <animate attributeName="stroke-dashoffset" values="110; -20" dur="0.15s" repeatCount="indefinite" />
+      </line>
+    </g>
+  </g>
+
+</svg>

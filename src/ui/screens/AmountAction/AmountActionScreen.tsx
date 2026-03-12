@@ -8,6 +8,7 @@
 import { useCallback, useEffect } from 'react'
 import { ArrowLeft, ArrowUpRight, ArrowDownLeft } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useFormatSats } from '@/utils/format'
 import { hapticTap } from '@/utils/haptic'
 
 export interface AmountActionScreenProps {
@@ -26,6 +27,7 @@ export function AmountActionScreen({
   onReceive,
 }: AmountActionScreenProps) {
   const { t } = useTranslation()
+  const formatSats = useFormatSats()
 
   // If mode is set, navigate directly
   useEffect(() => {
@@ -57,7 +59,7 @@ export function AmountActionScreen({
   if (mode) {
     return (
       <div className="h-dvh bg-background text-foreground font-sans flex flex-col pt-safe pb-safe items-center justify-center">
-        <p className="text-5xl font-bold tracking-tight">₿ {amount.toLocaleString()}</p>
+        <p className="text-5xl font-bold tracking-tight">{formatSats(amount)}</p>
       </div>
     )
   }
@@ -81,7 +83,7 @@ export function AmountActionScreen({
       <div className="flex-1 flex flex-col items-center justify-center px-6 gap-8">
         {/* Amount Display */}
         <p className="text-5xl font-bold tracking-tight text-center">
-          ₿ {amount.toLocaleString()}
+          {formatSats(amount)}
         </p>
 
         {/* Action Buttons */}

@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { ArrowLeft, Zap, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useFormatSats } from '@/utils/format'
 import { Button } from '../../components/common'
 import { MintCard, getVariantByIndex } from '../../components/wallet/MintCard'
 import { cn } from '@/components/ui/utils'
@@ -27,6 +28,7 @@ export interface UsernameChangeScreenProps {
 
 export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeScreenProps) {
   const { t } = useTranslation()
+  const formatSats = useFormatSats()
 
   const settings = useAppStore((state) => state.settings)
   const nostrPrivkey = useAppStore((state) => state.nostrPrivkey)
@@ -293,9 +295,9 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
       addToast({
         type: 'success',
         message: swapFee > 0
-          ? `${t('settings.usernameChanged')} (₿ ${fee.toLocaleString()} + ${t('settings.swapFee')} ₿ ${swapFee.toLocaleString()})`
+          ? `${t('settings.usernameChanged')} (${formatSats(fee)} + ${t('settings.swapFee')} ${formatSats(swapFee)})`
           : fee > 0
-            ? `${t('settings.usernameChanged')} (₿ ${fee.toLocaleString()})`
+            ? `${t('settings.usernameChanged')} (${formatSats(fee)})`
             : t('settings.usernameChanged'),
       })
       onBack()
@@ -324,6 +326,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
     triggerTxRefresh,
     onBack,
     t,
+    formatSats,
   ])
 
   return (
@@ -433,7 +436,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
                       {t('settings.changeFee')}
                     </span>
                     <span className="text-xs font-bold">
-                      ₿ {addressFee.toLocaleString()}
+                      {formatSats(addressFee)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -446,7 +449,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
                         canAfford ? 'text-foreground' : 'text-accent-danger'
                       )}
                     >
-                      ₿ {selectedBalance.toLocaleString()}
+                      {formatSats(selectedBalance)}
                     </span>
                   </div>
                   {!canAfford && selectedMintUrl && (
@@ -522,7 +525,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
                 className="flex-1"
               >
                 {addressFee > 0
-                  ? `${t('settings.changeUsername')} (₿ ${addressFee.toLocaleString()})`
+                  ? `${t('settings.changeUsername')} (${formatSats(addressFee)})`
                   : t('settings.changeUsername')}
               </Button>
             </div>

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { WalletBalance } from '@/core/types'
-import { satUnit } from '@/utils/format'
+import { useFormatSats } from '@/utils/format'
 
 export interface BalanceDisplayProps {
   balance: WalletBalance
@@ -15,6 +15,7 @@ export function BalanceDisplay({
   size = 'default',
 }: BalanceDisplayProps) {
   const { t } = useTranslation()
+  const formatSats = useFormatSats()
   const isLarge = size === 'large'
   const [showModal, setShowModal] = useState(false)
 
@@ -48,14 +49,13 @@ export function BalanceDisplay({
         `}
       >
         <div className={`flex items-baseline gap-2 ${isLarge ? 'justify-center' : ''}`}>
-          <span className={`text-muted-foreground ${isLarge ? 'text-base' : 'text-xs'}`}>{satUnit(balance.total)}</span>
           {isInitialLoad ? (
             <span className={isLarge ? 'text-4xl font-bold' : 'text-2xl font-bold'}>
               <span className={`inline-block ${isLarge ? 'w-28 h-10' : 'w-16 h-6'} bg-muted animate-pulse rounded`} />
             </span>
           ) : (
             <span className={`font-bold tabular-nums ${isLarge ? 'text-4xl' : 'text-2xl'} ${isSyncing ? 'animate-shimmer' : ''}`}>
-              {balance.total.toLocaleString()}
+              {formatSats(balance.total)}
             </span>
           )}
         </div>
@@ -109,7 +109,7 @@ export function BalanceDisplay({
                     </span>
                   </div>
                   <span className="font-medium tabular-nums text-xs">
-                    {satUnit(amount)} {amount.toLocaleString()}
+                    {formatSats(amount)}
                   </span>
                 </div>
               ))}
@@ -119,7 +119,7 @@ export function BalanceDisplay({
             <div className="flex items-center justify-between p-2 border-t border-border">
               <span className="font-medium text-xs">{t('home.totalBalance')}</span>
               <span className="font-bold tabular-nums text-base">
-                {satUnit(balance.total)} {balance.total.toLocaleString()}
+                {formatSats(balance.total)}
               </span>
             </div>
           </div>

@@ -1,4 +1,5 @@
-import { getDecodedToken } from '@cashu/cashu-ts'
+import { getDecodedToken, hasValidDleq, type Token, type Proof } from '@cashu/cashu-ts'
+import type { Wallet } from '@/data/cache/wallet-cache'
 
 /**
  * P2PK secret structure
@@ -77,6 +78,89 @@ export interface TokenInfo {
   isP2PKLockedToUser: boolean
   hasAnyP2PKLock: boolean
   memo?: string
+}
+
+/**
+ * DLEQ verification result (Macadamia approach)
+ * - 'valid': All proofs have valid DLEQ — safe to accept offline
+ * - 'missing': Some proofs lack DLEQ or keyset unavailable — warn user, allow accept
+ * - 'failed': At least one proof has invalid DLEQ — reject (possible forgery)
+ */
+export type DleqResult = 'valid' | 'missing' | 'failed'
+
+/**
+ * Verify DLEQ proofs for a decoded token (Macadamia-style 3-state check)
+ *
+ * @param decodedToken - Decoded cashu token
+ * @param getCachedWallet - Optional function to get a cached wallet (for keyset access)
+ * @returns DleqResult
+ */
+export async function verifyTokenDleq(
+  decodedToken: Token,
+  getCachedWallet?: (mintUrl: string) => Wallet | undefined,
+): Promise<DleqResult> {
+  const { proofs, mint: mintUrl } = decodedToken
+
+  if (proofs.length === 0) return 'missing'
+
+  // Try to get wallet for keyset access
+  let wallet: Wallet | undefined
+  if (getCachedWallet) {
+    wallet = getCachedWallet(mintUrl)
+  }
+
+  // Group proofs by keyset ID
+  const keysetGroups = new Map<string, Proof[]>()
+  for (const proof of proofs) {
+    const id = proof.id
+    const group = keysetGroups.get(id) || []
+    group.push(proof)
+    keysetGroups.set(id, group)
+  }
+
+  let allHaveDleq = true
+
+  for (const [keysetId, groupProofs] of keysetGroups) {
+    // Try to get keyset keys from cached wallet
+    let keyset: { id: string; keys: Record<number, string> } | undefined
+    if (wallet) {
+      try {
+        const ks = wallet.keyChain.getKeyset(keysetId)
+        if (ks && ks.hasKeys) {
+          keyset = { id: ks.id, keys: ks.keys }
+        }
+      } catch {
+        // Keyset not found in cache
+      }
+    }
+
+    for (const proof of groupProofs) {
+      // No DLEQ data on proof → 'missing'
+      if (!proof.dleq) {
+        allHaveDleq = false
+        continue
+      }
+
+      // Have DLEQ but no keyset to verify → treat as 'missing'
+      if (!keyset) {
+        allHaveDleq = false
+        continue
+      }
+
+      // Verify DLEQ
+      try {
+        const valid = hasValidDleq(proof, keyset)
+        if (!valid) {
+          return 'failed' // Immediate reject on any invalid DLEQ
+        }
+      } catch {
+        // Verification error → treat as missing
+        allHaveDleq = false
+      }
+    }
+  }
+
+  return allHaveDleq ? 'valid' : 'missing'
 }
 
 export function getTokenInfo(token: string, userPubkey?: string): TokenInfo | null {

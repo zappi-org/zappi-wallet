@@ -221,11 +221,14 @@ export default {
 
     // Mint Delete
     deleteMint: '민트 삭제',
-    mintHasBalance: '이 민트에 <bold>{{unit}} {{balance}}</bold>의 잔액이 있습니다.',
+    mintHasBalance: '이 민트에 <bold>{{formattedBalance}}</bold>의 잔액이 있습니다.',
     deleteWarning: '삭제하면 해당 잔액에 접근할 수 없게 됩니다.',
 
     // Language
     language: '언어',
+
+    // Unit Display
+    unitDisplay: '단위 표시',
 
     // POS Management
     posManagement: 'POS 관리',
@@ -267,7 +270,7 @@ export default {
     loading: '민트 목록을 불러오는 중...',
     loadError: '민트 목록을 불러올 수 없습니다.',
     addComplete: '민트 추가 완료!',
-    recoveredTokens: '{{amount}} sat이 복원되었습니다!',
+    recoveredTokens: '{{amount}}이 복원되었습니다!',
     mintAddedSuccess: '새로운 민트가 추가되었습니다.',
   },
 
@@ -337,8 +340,8 @@ export default {
     addressPlaceholder: 'user@getalby.com 또는 lnbc...',
     lightningAddressPlaceholder: 'Lightning 주소 또는 인보이스',
     enterDestination: '받는 주소를 입력하세요',
-    minAmountError: '최소 {{amount}} sats',
-    maxAmountError: '최대 {{amount}} sats',
+    minAmountError: '최소 {{amount}}',
+    maxAmountError: '최대 {{amount}}',
     invalidAddressOrInvoice: '유효한 Lightning Address 또는 인보이스가 아닙니다',
     invalidLightningAddress: '유효하지 않은 Lightning Address입니다',
     cannotVerifyAddress: 'Lightning Address를 확인할 수 없습니다',
@@ -403,7 +406,7 @@ export default {
 
     // Amount Input
     enterAmount: '금액을 입력하세요',
-    amountInSats: 'sat 단위',
+    amountInSats: '단위',
 
     // Zap
     zapSend: 'Zap 보내기',
@@ -434,8 +437,8 @@ export default {
     createInvoiceError: '인보이스 생성에 실패했습니다',
     recreateInvoice: '다시 생성',
     withdrawSource: '출금 출처',
-    minValidation: '최소 ₿ {{amount}}',
-    maxValidation: '최대 ₿ {{amount}}',
+    minValidation: '최소 {{amount}}',
+    maxValidation: '최대 {{amount}}',
 
     // Receive Screen
     creatingInvoice: '인보이스 생성 중...',
@@ -480,7 +483,7 @@ export default {
     swapFailed: '전송에 실패했습니다',
     sameMintsError: '같은 민트로는 전송할 수 없습니다',
     selectDifferentMint: '다른 민트를 선택하세요',
-    estimatedFee: '예상 수수료: ~{{amount}} sats',
+    estimatedFee: '예상 수수료: ~{{amount}}',
   },
 
   // History Screen
@@ -594,8 +597,8 @@ export default {
     paymentReceived: '결제 수신됨',
     paymentSent: '결제 완료',
     tokenReceived: '토큰 수령됨',
-    youReceived: '{{unit}} {{amount}} 수신함',
-    youSent: '{{unit}} {{amount}} 전송함',
+    youReceived: '{{amount}} 수신함',
+    youSent: '{{amount}} 전송함',
     justNow: '방금',
     minAgo: '{{count}}분 전',
     hourAgo: '{{count}}시간 전',
@@ -655,8 +658,8 @@ export default {
     decryptionFailed: '복호화에 실패했습니다',
     securityError: '보안 오류가 발생했습니다',
     tokenSpent: '이미 사용된 토큰입니다',
-    insufficientBalance: '잔액이 부족해요 ({{available}}/{{required}} sats)',
-    insufficientBalanceForFee: '수수료 포함 시 잔액이 부족해요\n보유 {{available}} sats, {{required}} sats + 수수료 필요',
+    insufficientBalance: '잔액이 부족해요 (필요: {{required}}  보유: {{available}})',
+    insufficientBalanceForFee: '수수료 포함 시 잔액이 부족해요 (필요: {{required}} + 수수료  보유: {{available}})',
     mintConnection: '민트에 연결할 수 없습니다',
     mintError: '민트에서 오류가 발생했습니다',
     invalidToken: '유효하지 않은 토큰입니다',
@@ -664,6 +667,13 @@ export default {
     quoteNotFound: '견적을 찾을 수 없습니다',
     quoteExpired: '견적이 만료되었습니다',
     p2pkUnlockFailed: 'P2PK 토큰 언락에 실패했습니다',
+    invalidInvoice: '올바르지 않은 Lightning 인보이스입니다',
+    invoiceExpired: 'Lightning 인보이스가 만료되었습니다',
+    lightningRouting: 'Lightning 결제 경로를 찾을 수 없습니다',
+    lightningPayment: 'Lightning 결제에 실패했습니다',
+    zappiLinkRegistrationFailed: 'Lightning Address 등록에 실패했습니다',
+    zappiLinkNotFound: 'Lightning Address를 찾을 수 없습니다',
+    zappiLinkApiError: 'Zappi Link 서비스에 연결할 수 없습니다',
     relayConnection: '릴레이에 연결할 수 없습니다',
     eventPublishFailed: '이벤트 발행에 실패했습니다',
     eventNotFound: '이벤트를 찾을 수 없습니다',
@@ -683,18 +693,19 @@ export default {
     paymentSuccess: '결제가 완료되었습니다',
     paymentFailed: '결제에 실패했습니다',
     tokenReceived: '토큰이 수령되었습니다',
-    ecashRecovered: '{{count}}건의 Ecash 결제가 복구되었습니다 ({{amount}} sats)',
+    ecashRecovered: '{{count}}건의 Ecash 결제가 복구되었습니다 ({{amount}})',
     lightningArrived: '{{count}}건의 Lightning 결제가 도착했습니다',
+    offlineTokensRedeemed: '{{count}}건의 오프라인 토큰이 수령되었습니다',
     lightningReceived: '{{unit}} {{amount}} Lightning 결제가 도착했습니다',
     lightningPaymentComplete: '{{unit}} {{amount}} Lightning 결제 완료',
     lightningSendFailed: 'Lightning 전송에 실패했습니다',
     lightningSendComplete: '{{unit}} {{amount}} 전송 완료 (수수료: {{feeUnit}} {{fee}})',
     invoiceCreateFailed: '인보이스 생성에 실패했습니다',
     invoiceCreateOffline: '오프라인 상태에서는 인보이스를 생성할 수 없습니다',
-    tokenReceivedAmount: '{{amount}} sats 수령 완료',
+    tokenReceivedAmount: '{{amount}} 수령 완료',
     paymentRequestFailed: 'Payment request 생성에 실패했습니다',
-    sendComplete: '{{amount}} sats 전송 완료',
-    swapComplete: '{{amount}} sats 스왑 완료 (수수료: {{fee}} sats)',
+    sendComplete: '{{amount}} 전송 완료',
+    swapComplete: '{{amount}} 스왑 완료 (수수료: {{fee}})',
     swapOffline: '오프라인 상태에서는 스왑할 수 없습니다',
     offlineCannotPay: '오프라인 상태에서는 결제할 수 없습니다',
     balanceLoadFailed: '잔액을 불러오는데 실패했습니다',
@@ -705,7 +716,7 @@ export default {
     retrySuccess: '{{count}}개 재시도 성공',
     retryPartialFail: '{{count}}개 재시도 실패',
     retryFailed: '재시도에 실패했습니다',
-    ecashTokenReceived: '{{amount}} sats Ecash 토큰 수신 완료',
+    ecashTokenReceived: '{{amount}} Ecash 토큰 수신 완료',
     noMintsRegistered: '등록된 민트가 없습니다',
     noReachableMints: '연결 가능한 민트가 없습니다',
     mintSwitched: '다른 민트로 전환됨: {{name}}',
@@ -725,7 +736,7 @@ export default {
     loadError: '민트 정보를 가져올 수 없습니다.',
     deleteConfirm: '삭제 확인',
     deleteMint: '민트 삭제',
-    balanceWarning: '이 민트에 {{unit}} {{amount}}가 남아있습니다. 삭제하기 전에 다른 민트로 전송하는 것을 권장합니다.',
+    balanceWarning: '이 민트에 {{formattedAmount}}가 남아있습니다. 삭제하기 전에 다른 민트로 전송하는 것을 권장합니다.',
   },
 
   // Send
@@ -777,7 +788,7 @@ export default {
       networkDelay: '네트워크 상황에 따라 시간이 걸릴 수 있어요',
     },
     complete: {
-      message: '{{destination}}로\n₿ {{amount}} 전송을 완료했어요',
+      message: '{{destination}}로\n{{amount}} 전송을 완료했어요',
       confirm: '확인',
       details: '세부정보',
     },
@@ -809,25 +820,38 @@ export default {
       cancel: '취소',
     },
     complete: {
-      message: '{{mint}}에\n₿ {{amount}} 입금되었어요',
+      message: '{{mint}}에\n{{amount}} 입금되었어요',
       done: '확인',
     },
     token: {
       title: '토큰 확인',
-      canReceive: '{{mint}}에서 받을 수 있는 토큰이에요',
+      canReceive: '{{amount}}을\n내 {{mint}}에\n받을 수 있어요.',
       receiveMint: '받을 민트',
       amount: '금액',
       receive: '받기',
     },
     untrusted: {
       title: '토큰 확인',
-      warning: '{{mint}}은 등록되지 않은 민트입니다',
-      question: '잘 아는 민트인가요? 추가하지 않고 내 민트로 받을 수도 있어요.',
-      myMint: '내 민트로 받을래요',
-      addAndReceive: '추가하고 받을게요',
+      warningFrom: '등록되지 않은\n{{mint}}로부터',
+      warningNeedConfirm: '{{amount}}을 받으려면\n확인이 필요해요.',
+      explanation: '모르는 민트라면 추가하지 않고\n내 민트로 받을 수도 있어요.',
+      myMint: '내 민트로\n받을래요',
+      myMintSub: '수수료가 발생합니다.',
+      addAndReceive: '추가해서\n받을게요',
+      addAndReceiveSub: '민트를 믿을게요',
       feeNote: '수수료가 발생할 수 있습니다',
       receiveWithMint: '해당 민트로 받기',
     },
+    offline: {
+      p2pkAccepted: 'P2PK로 보호된 토큰입니다. 오프라인에서 안전하게 받을 수 있으며, 온라인 복귀 시 자동으로 검증됩니다.',
+      dleqMissing: 'DLEQ 검증을 할 수 없습니다. 토큰의 진위를 확인할 수 없어 위험이 있습니다. 그래도 받으시겠습니까?',
+      dleqFailed: 'DLEQ 검증에 실패했습니다. 위조된 토큰일 수 있어 수령할 수 없습니다.',
+      nonP2PKError: '오프라인에서는 P2PK로 보호된 토큰만 받을 수 있습니다. 인터넷에 연결된 후 다시 시도해주세요.',
+      untrustedNeedsOnline: '미등록 민트의 토큰을 받으려면 인터넷 연결이 필요합니다.',
+      receiveOffline: '오프라인으로 받기',
+      acceptAnyway: '위험 감수하고 받기',
+    },
+    swapFeeTooHigh: '스왑 수수료({{fee}})가 토큰 금액({{amount}})보다 크거나 같아 받을 수 없습니다',
   },
 
   // Error Boundary

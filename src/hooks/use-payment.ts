@@ -7,6 +7,8 @@ import {
   selectCanPerformOnlineOps,
 } from '@/store/selectors'
 import { PaymentService } from '@/services/payment/payment.service'
+import { translateError } from '@/core/errors/translate'
+import { formatSats } from '@/utils/format'
 import type { PaymentRequest } from '@/core/types'
 
 /**
@@ -142,7 +144,7 @@ export function usePayment() {
 
         addToast({
           type: 'success',
-          message: t('toast.tokenReceivedAmount', { amount: result.value.amount }),
+          message: t('toast.tokenReceivedAmount', { amount: formatSats(result.value.amount) }),
         })
 
         return result.value
@@ -173,7 +175,7 @@ export function usePayment() {
 
         addToast({
           type: 'success',
-          message: t('toast.tokenReceivedAmount', { amount: result.value.amount }),
+          message: t('toast.tokenReceivedAmount', { amount: formatSats(result.value.amount) }),
         })
 
         return result.value
@@ -234,14 +236,14 @@ export function usePayment() {
         if (result.isErr()) {
           addToast({
             type: 'error',
-            message: result.error.message || t('toast.paymentFailed'),
+            message: translateError(result.error),
           })
           return null
         }
 
         addToast({
           type: 'success',
-          message: t('toast.sendComplete', { amount: result.value.amount }),
+          message: t('toast.sendComplete', { amount: formatSats(result.value.amount) }),
         })
 
         return result.value
@@ -273,14 +275,14 @@ export function usePayment() {
         if (result.isErr()) {
           addToast({
             type: 'error',
-            message: result.error.toUserMessage(),
+            message: translateError(result.error),
           })
           return null
         }
 
         addToast({
           type: 'success',
-          message: t('toast.swapComplete', { amount: result.value.amount, fee: result.value.fee }),
+          message: t('toast.swapComplete', { amount: formatSats(result.value.amount), fee: formatSats(result.value.fee) }),
         })
 
         return result.value

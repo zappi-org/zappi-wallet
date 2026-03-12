@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { hapticTap } from '@/utils/haptic'
-import { formatSats } from '@/utils/format'
+import { useFormatSats } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
 import type { SendableValidatedData } from '../SendFlow'
 
@@ -73,6 +73,7 @@ export function SendConfirmStep({
   error,
 }: SendConfirmStepProps) {
   const { t } = useTranslation()
+  const formatSats = useFormatSats()
   const settings = useAppStore((s) => s.settings)
   const { getDisplayName } = useMintMetadata(settings.mints)
 

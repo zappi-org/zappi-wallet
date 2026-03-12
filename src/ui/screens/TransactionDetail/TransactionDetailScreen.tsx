@@ -18,11 +18,13 @@ import {
 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import type { Transaction, TokenState } from '@/core/types'
-import { satUnit } from '@/utils/format'
+import { useFormatSats } from '@/utils/format'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
 import { TransactionRepository } from '@/data/repositories/transaction.repository'
 import { getDecodedToken } from '@cashu/cashu-ts'
+import { classifyCashuError } from '@/core/errors/cashu'
+import { translateError } from '@/core/errors/translate'
 
 export interface TransactionDetailScreenProps {
   transaction: Transaction
@@ -36,6 +38,7 @@ export default function TransactionDetailScreen({
   mintUrls = [],
 }: TransactionDetailScreenProps) {
   const { t } = useTranslation()
+  const formatSats = useFormatSats()
   const { getDisplayName } = useMintMetadata(mintUrls)
   const [tx, setTx] = useState(initialTx)
   const [showDetails, setShowDetails] = useState(false)
@@ -109,7 +112,7 @@ export default function TransactionDetailScreen({
       setTx((prev) => ({ ...prev, tokenState }))
     } catch (err) {
       console.error('[TxDetail] Token state check failed:', err)
-      addToast({ type: 'error', message: String(err), duration: 3000 })
+      addToast({ type: 'error', message: translateError(classifyCashuError(err)), duration: 3000 })
     } finally {
       setIsCheckingState(false)
     }
@@ -305,7 +308,7 @@ export default function TransactionDetailScreen({
           <span className={`text-3xl font-bold tracking-tight ${
             isReceive ? 'text-card-green-dark' : 'text-foreground'
           }`}>
-            {isReceive ? '+' : isSwap ? '' : '-'}{satUnit(tx.amount)} {tx.amount.toLocaleString()}
+            {isReceive ? '+' : isSwap ? '' : '-'}{formatSats(tx.amount)}
           </span>
 
           {tx.fiatAmount != null && tx.fiatCurrency && (
@@ -369,7 +372,7 @@ export default function TransactionDetailScreen({
               <CopyableRow label={t('txDetail.destination')} value={metadata.destination} field="destination" />
             )}
             {metadata?.fee != null && (
-              <InfoRow label={t('txDetail.fee')} value={`${satUnit(Number(metadata.fee))} ${Number(metadata.fee).toLocaleString()}`} />
+              <InfoRow label={t('txDetail.fee')} value={`${formatSats(Number(metadata.fee))}`} />
             )}
             {tx.preimage && (
               <CopyableRow label={t('txDetail.preimage')} value={tx.preimage} field="preimage" />
@@ -501,7 +504,7 @@ export default function TransactionDetailScreen({
               </div>
             )}
             {metadata.fee != null && (
-              <InfoRow label={t('txDetail.fee')} value={`${satUnit(Number(metadata.fee))} ${Number(metadata.fee).toLocaleString()}`} />
+              <InfoRow label={t('txDetail.fee')} value={`${formatSats(Number(metadata.fee))}`} />
             )}
           </div>
         )}
@@ -517,7 +520,7 @@ export default function TransactionDetailScreen({
                     {item.productName} <span className="text-foreground-muted">x{item.quantity}</span>
                   </span>
                   <span className="text-xs font-mono font-medium text-foreground">
-                    {satUnit(item.subtotal)} {item.subtotal.toLocaleString()}
+                    {formatSats(item.subtotal)}
                   </span>
                 </div>
               ))}
@@ -525,7 +528,7 @@ export default function TransactionDetailScreen({
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-foreground">{t('txDetail.orderTotal')}</span>
                 <span className="text-xs font-mono font-bold text-foreground">
-                  {satUnit(kioskOrder.total)} {kioskOrder.total.toLocaleString()}
+                  {formatSats(kioskOrder.total)}
                 </span>
               </div>
             </div>

@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, startTransition, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, startTransition, useCallback } from "react";
+import { useCarouselScroll } from "@/hooks/use-carousel-scroll";
 import { User, ArrowDownLeft, ArrowUpRight, Plus } from "lucide-react";
 
 import { useTranslation } from "react-i18next";
@@ -7,6 +8,7 @@ import { TransactionList } from "../../components/wallet/TransactionList";
 import { UnifiedScanner, type ValidatedData } from "../../components/scanner";
 import { useWallet, useMintHealth, useMintMetadata } from "@/hooks";
 import { useAppStore } from "@/store";
+import { useSatUnit } from "@/utils/format";
 import type { MintInfo, Transaction } from "@/core/types";
 import { TransactionRepository } from "@/data/repositories/transaction.repository";
 
@@ -48,6 +50,7 @@ export function HomeScreen({
   transactions: propTransactions,
 }: HomeScreenProps) {
   const { t } = useTranslation();
+  const unit = useSatUnit();
   const [localTransactions, setLocalTransactions] = useState<Transaction[]>([]);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scanMode, setScanMode] = useState<'send' | 'receive'>('send');
@@ -102,56 +105,12 @@ export function HomeScreen({
   const totalBalance = balance.total;
 
   // Carousel scroll tracking with real-time scale effect
-  const carouselRef = useRef<HTMLDivElement>(null);
-  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const rafRef = useRef<number>(0);
-
-  const getCarouselGap = useCallback(() => {
-    const el = carouselRef.current;
-    if (!el) return 24; // gap-6 fallback
-    return parseFloat(getComputedStyle(el).columnGap) || 24;
-  }, []);
-
-  const updateCardScales = useCallback(() => {
-    const el = carouselRef.current;
-    if (!el || mints.length === 0) return;
-    const containerCenter = el.scrollLeft + el.clientWidth / 2;
-    const gap = getCarouselGap();
-
-    cardRefs.current.forEach((card) => {
-      if (!card) return;
-      const cardWidth = card.offsetWidth;
-      const cardCenter = card.offsetLeft + cardWidth / 2;
-      const distance = Math.abs(containerCenter - cardCenter);
-      const maxDistance = cardWidth + gap;
-      const progress = Math.min(distance / maxDistance, 1);
-      const scale = 1 - progress * 0.08; // 1.0 → 0.92
-      const opacity = 1 - progress * 0.25; // 1.0 → 0.75
-      card.style.transform = `scale(${scale})`;
-      card.style.opacity = `${opacity}`;
-    });
-  }, [mints.length, getCarouselGap]);
-
-  const handleScroll = useCallback(() => {
-    cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(() => {
-      const el = carouselRef.current;
-      if (!el || mints.length === 0) return;
-      const scrollLeft = el.scrollLeft;
-      const firstCard = cardRefs.current[0];
-      const gap = getCarouselGap();
-      const cardWidth = (firstCard?.offsetWidth || 300) + gap;
-      const index = Math.round(scrollLeft / cardWidth);
-      setActiveMintIndex(Math.max(0, Math.min(index, mints.length - 1)));
-      updateCardScales();
-    });
-  }, [mints.length, updateCardScales, getCarouselGap]);
-
-  // Initial scale setup after mount/mints change
-  useEffect(() => {
-    const timer = setTimeout(updateCardScales, 50);
-    return () => clearTimeout(timer);
-  }, [mints.length, updateCardScales]);
+  const { carouselRef, cardRefs, handleScroll } = useCarouselScroll({
+    itemCount: mints.length,
+    onIndexChange: setActiveMintIndex,
+    scaleAnimation: true,
+    fallbackGap: 24,
+  });
 
   // Clamp activeMintIndex to valid range without effect setState
   const clampedMintIndex = mints.length === 0 ? 0 : Math.min(activeMintIndex, mints.length - 1);
@@ -227,10 +186,23 @@ export function HomeScreen({
         >
           <p className="font-['Amiri_Quran_Colored',sans-serif] text-xl font-bold text-[#86868b]">Total</p>
           <div className="flex items-center gap-2 py-0.5">
-            <span className="font-['Montserrat'] font-bold text-[clamp(2rem,8vw,2.5rem)] text-[#9d817a] tracking-[-1px] translate-y-[2.5px]">₿</span>
-            <span className={`font-['Andika'] font-bold text-[clamp(2.25rem,9vw,2.75rem)] text-[#2e0f0f] tracking-[5px] ${isLoadingBalance ? 'animate-shimmer' : ''}`}>
-              {settings.balanceHidden ? '••••' : isLoadingBalance ? "..." : totalBalance.toLocaleString()}
-            </span>
+            {settings.balanceHidden ? (
+              <span className="font-['Montserrat'] font-bold text-[clamp(2.25rem,9vw,2.75rem)] text-[#2e0f0f] tracking-[5px]">••••</span>
+            ) : isLoadingBalance ? (
+              <span className="font-['Montserrat'] font-bold text-[clamp(2.25rem,9vw,2.75rem)] text-[#2e0f0f] tracking-[5px] animate-shimmer">...</span>
+            ) : (
+              <>
+                {unit === '₿' && (
+                  <span className="font-['Montserrat'] font-bold text-[clamp(2rem,8vw,2.5rem)] text-[#9d817a] tracking-[-1px]">{unit}</span>
+                )}
+                <span className="font-['Montserrat'] font-bold text-[clamp(2.25rem,9vw,2.75rem)] text-[#2e0f0f] tracking-[5px]">
+                  {totalBalance.toLocaleString()}
+                </span>
+                {unit !== '₿' && (
+                  <span className="font-['Montserrat'] font-bold text-[clamp(2rem,8vw,2.5rem)] text-[#9d817a]">{unit}</span>
+                )}
+              </>
+            )}
           </div>
         </div>
 

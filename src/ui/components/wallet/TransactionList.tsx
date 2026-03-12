@@ -3,6 +3,7 @@ import { ArrowDownLeft, ArrowUpRight, ArrowRightLeft, Zap, Heart } from "lucide-
 import { useTranslation } from "react-i18next";
 import type { Transaction } from "@/core/types";
 import { useMintMetadata } from "@/hooks";
+import { useFormatSats } from "@/utils/format";
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -37,6 +38,7 @@ export function TransactionList({
   showHeader = true,
 }: TransactionListProps) {
   const { t, i18n } = useTranslation();
+  const formatSats = useFormatSats();
   const displayTransactions = transactions.slice(0, maxItems);
 
   // Localized date formatting
@@ -169,10 +171,10 @@ export function TransactionList({
               <div className="flex flex-col items-end gap-[2px]">
                 <span className={`font-['Outfit'] font-bold text-[14px] ${amountColor} leading-normal`}>
                   {isSwap
-                    ? `₿ ${tx.amount.toLocaleString()}`
+                    ? formatSats(tx.amount)
                     : isIncome
-                      ? `+ ₿ ${tx.amount.toLocaleString()}`
-                      : `- ₿ ${tx.amount.toLocaleString()}`
+                      ? `+ ${formatSats(tx.amount)}`
+                      : `- ${formatSats(tx.amount)}`
                   }
                 </span>
                 <span className="font-['Outfit'] font-medium text-[12px] text-[#86868b] leading-normal">

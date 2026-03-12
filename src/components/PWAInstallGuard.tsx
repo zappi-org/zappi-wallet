@@ -158,9 +158,9 @@ function getInstallSteps(platform: 'ios' | 'android' | 'desktop', hasNativePromp
     return {
       title: 'Safari에서',
       items: [
-        '하단 공유(↑) 버튼 탭',
+        '하단 공유(↑) 버튼 선택',
         '"홈 화면에 추가" 선택',
-        '우측 상단 "추가" 탭',
+        '우측 상단 "추가" 선택',
       ],
     }
   }
@@ -169,7 +169,7 @@ function getInstallSteps(platform: 'ios' | 'android' | 'desktop', hasNativePromp
     return {
       title: 'Chrome에서',
       items: [
-        '우측 상단 ⋮ 메뉴 탭',
+        '우측 상단 ⋮ 메뉴 선택',
         '"앱 설치" 또는 "홈 화면에 추가" 선택',
       ],
     }
@@ -181,7 +181,7 @@ function getInstallSteps(platform: 'ios' | 'android' | 'desktop', hasNativePromp
     return {
       title: 'Safari에서',
       items: [
-        '메뉴바 → "파일" 클릭',
+        '메뉴바 → "파일" 선택',
         '"Dock에 추가..." 선택',
       ],
       footnote: '또는 공유 → Dock에 추가 (Sonoma+)',
@@ -192,7 +192,7 @@ function getInstallSteps(platform: 'ios' | 'android' | 'desktop', hasNativePromp
     return {
       title: 'Edge에서',
       items: [
-        '우측 상단 ··· 메뉴 클릭',
+        '우측 상단 ··· 메뉴 선택',
         '"앱" → "이 사이트를 앱으로 설치"',
       ],
     }
@@ -201,9 +201,9 @@ function getInstallSteps(platform: 'ios' | 'android' | 'desktop', hasNativePromp
   return {
     title: 'Chrome에서',
     items: [
-      '우측 상단 ⋮ 메뉴 클릭',
+      '우측 상단 ⋮ 메뉴 선택',
       '"저장 및 공유" → "페이지를 앱으로 설치"',
     ],
-    footnote: '또는 주소창 오른쪽 설치 아이콘 클릭',
+    footnote: '또는 주소창 오른쪽 설치 아이콘 선택',
   }
 }

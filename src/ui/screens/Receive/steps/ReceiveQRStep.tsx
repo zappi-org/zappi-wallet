@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { hapticTap, hapticSuccess } from '@/utils/haptic'
-import { formatSats } from '@/utils/format'
+import { useFormatSats } from '@/utils/format'
 import type { ReceiveMethod } from '../ReceiveFlow'
 
 interface ReceiveQRStepProps {
@@ -49,6 +49,7 @@ export function ReceiveQRStep({
   onSubscribeToQuote,
 }: ReceiveQRStepProps) {
   const { t } = useTranslation()
+  const formatSats = useFormatSats()
   const settings = useAppStore((s) => s.settings)
   const addToast = useAppStore((s) => s.addToast)
   const { getDisplayName } = useMintMetadata(settings.mints)

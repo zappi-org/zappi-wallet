@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { QRCodeSVG } from 'qrcode.react'
 import { hapticTap, hapticSuccess } from '@/utils/haptic'
 import { useAppStore } from '@/store'
-import { formatSats } from '@/utils/format'
+import { useFormatSats } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
 import { checkProofsSpent, subscribeProofSpent } from '@/services/cashu'
 import { getDecodedToken } from '@cashu/cashu-ts'
@@ -29,6 +29,7 @@ export function TokenCreatedStep({
   onComplete,
 }: TokenCreatedStepProps) {
   const { t } = useTranslation()
+  const formatSats = useFormatSats()
   const addToast = useAppStore((s) => s.addToast)
   const [isCopied, setIsCopied] = useState(false)
   const [isSpent, setIsSpent] = useState(false)

@@ -8,6 +8,7 @@ import { mintMetadataService } from '@/services/mint-metadata'
 import { restoreWallet, getBalances } from '@/coco'
 import { normalizeMintUrl } from '@/utils/url'
 import { LIMITS } from '@/core/constants'
+import { formatSats } from '@/utils/format'
 
 export interface AddMintScreenProps {
   onBack: () => void
@@ -203,7 +204,7 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
           <h2 className="text-xl font-bold text-foreground mb-2">{t('addMint.addComplete')}</h2>
           <p className="text-foreground-muted">
             {recoveredAmount && recoveredAmount > 0
-              ? t('addMint.recoveredTokens', { amount: recoveredAmount.toLocaleString() })
+              ? t('addMint.recoveredTokens', { amount: formatSats(recoveredAmount) })
               : t('addMint.mintAddedSuccess')}
           </p>
         </div>

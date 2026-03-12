@@ -221,11 +221,14 @@ export default {
 
     // Mint Delete
     deleteMint: 'Delete Mint',
-    mintHasBalance: 'This mint has a balance of <bold>{{unit}} {{balance}}</bold>.',
+    mintHasBalance: 'This mint has a balance of <bold>{{formattedBalance}}</bold>.',
     deleteWarning: 'Deleting will make the balance inaccessible.',
 
     // Language
     language: 'Language',
+
+    // Unit Display
+    unitDisplay: 'Unit Display',
 
     // POS Management
     posManagement: 'POS Management',
@@ -267,7 +270,7 @@ export default {
     loading: 'Loading mint list...',
     loadError: 'Could not load mint list.',
     addComplete: 'Mint added!',
-    recoveredTokens: '{{amount}} sat recovered!',
+    recoveredTokens: '{{amount}} recovered!',
     mintAddedSuccess: 'New mint has been added.',
   },
 
@@ -337,8 +340,8 @@ export default {
     addressPlaceholder: 'user@getalby.com or lnbc...',
     lightningAddressPlaceholder: 'Lightning address or invoice',
     enterDestination: 'Enter destination address',
-    minAmountError: 'Minimum {{amount}} sats',
-    maxAmountError: 'Maximum {{amount}} sats',
+    minAmountError: 'Minimum {{amount}}',
+    maxAmountError: 'Maximum {{amount}}',
     invalidAddressOrInvoice: 'Invalid Lightning Address or invoice',
     invalidLightningAddress: 'Invalid Lightning Address',
     cannotVerifyAddress: 'Cannot verify Lightning Address',
@@ -403,7 +406,7 @@ export default {
 
     // Amount Input
     enterAmount: 'Enter amount',
-    amountInSats: 'in sats',
+    amountInSats: 'unit',
 
     // Zap
     zapSend: 'Send Zap',
@@ -434,8 +437,8 @@ export default {
     createInvoiceError: 'Failed to create invoice',
     recreateInvoice: 'Create again',
     withdrawSource: 'Withdraw source',
-    minValidation: 'Minimum ₿ {{amount}}',
-    maxValidation: 'Maximum ₿ {{amount}}',
+    minValidation: 'Minimum {{amount}}',
+    maxValidation: 'Maximum {{amount}}',
 
     // Receive Screen
     creatingInvoice: 'Creating invoice...',
@@ -480,7 +483,7 @@ export default {
     swapFailed: 'Transfer failed',
     sameMintsError: 'Cannot transfer to the same mint',
     selectDifferentMint: 'Select a different mint',
-    estimatedFee: 'Est. Fee: ~{{amount}} sats',
+    estimatedFee: 'Est. Fee: ~{{amount}}',
   },
 
   // History Screen
@@ -590,8 +593,8 @@ export default {
     paymentReceived: 'Payment Received',
     paymentSent: 'Payment Sent',
     tokenReceived: 'Token received',
-    youReceived: 'You received {{unit}} {{amount}}',
-    youSent: 'You sent {{unit}} {{amount}}',
+    youReceived: 'You received {{amount}}',
+    youSent: 'You sent {{amount}}',
     justNow: 'Just now',
     minAgo: '{{count}} min ago',
     hourAgo: '{{count}} hour ago',
@@ -652,8 +655,8 @@ export default {
     decryptionFailed: 'Decryption failed',
     securityError: 'A security error occurred',
     tokenSpent: 'Token has already been spent',
-    insufficientBalance: 'Insufficient balance ({{available}}/{{required}} sats)',
-    insufficientBalanceForFee: 'Not enough to cover the fee\nHave {{available}} sats, need {{required}} sats + fee',
+    insufficientBalance: 'Insufficient balance (need: {{required}}  have: {{available}})',
+    insufficientBalanceForFee: 'Insufficient balance (need: {{required}} + fee  have: {{available}})',
     mintConnection: 'Cannot connect to mint',
     mintError: 'An error occurred at the mint',
     invalidToken: 'Invalid token',
@@ -661,6 +664,13 @@ export default {
     quoteNotFound: 'Quote not found',
     quoteExpired: 'Quote has expired',
     p2pkUnlockFailed: 'Failed to unlock P2PK token',
+    invalidInvoice: 'Invalid Lightning invoice',
+    invoiceExpired: 'Lightning invoice has expired',
+    lightningRouting: 'Could not find a Lightning payment route',
+    lightningPayment: 'Lightning payment failed',
+    zappiLinkRegistrationFailed: 'Failed to register Lightning Address',
+    zappiLinkNotFound: 'Lightning Address not found',
+    zappiLinkApiError: 'Cannot connect to Zappi Link service',
     relayConnection: 'Cannot connect to relay',
     eventPublishFailed: 'Failed to publish event',
     eventNotFound: 'Event not found',
@@ -680,18 +690,19 @@ export default {
     paymentSuccess: 'Payment complete',
     paymentFailed: 'Payment failed',
     tokenReceived: 'Token received',
-    ecashRecovered: '{{count}} Ecash payment(s) recovered ({{amount}} sats)',
+    ecashRecovered: '{{count}} Ecash payment(s) recovered ({{amount}})',
     lightningArrived: '{{count}} Lightning payment(s) arrived',
+    offlineTokensRedeemed: '{{count}} offline token(s) redeemed',
     lightningReceived: '{{unit}} {{amount}} Lightning payment arrived',
     lightningPaymentComplete: '{{unit}} {{amount}} Lightning payment complete',
     lightningSendFailed: 'Failed to send Lightning payment',
     lightningSendComplete: '{{unit}} {{amount}} sent (fee: {{feeUnit}} {{fee}})',
     invoiceCreateFailed: 'Failed to create invoice',
     invoiceCreateOffline: 'Cannot create invoice while offline',
-    tokenReceivedAmount: '{{amount}} sats received',
+    tokenReceivedAmount: '{{amount}} received',
     paymentRequestFailed: 'Failed to create payment request',
-    sendComplete: '{{amount}} sats sent',
-    swapComplete: '{{amount}} sats swapped (fee: {{fee}} sats)',
+    sendComplete: '{{amount}} sent',
+    swapComplete: '{{amount}} swapped (fee: {{fee}})',
     swapOffline: 'Cannot swap while offline',
     offlineCannotPay: 'Cannot pay while offline',
     balanceLoadFailed: 'Failed to load balance',
@@ -702,7 +713,7 @@ export default {
     retrySuccess: '{{count}} retry(s) succeeded',
     retryPartialFail: '{{count}} retry(s) failed',
     retryFailed: 'Retry failed',
-    ecashTokenReceived: '{{amount}} sats Ecash token received',
+    ecashTokenReceived: '{{amount}} Ecash token received',
     noMintsRegistered: 'No mints registered',
     noReachableMints: 'No reachable mints',
     mintSwitched: 'Switched to mint: {{name}}',
@@ -722,7 +733,7 @@ export default {
     loadError: 'Could not fetch mint info.',
     deleteConfirm: 'Confirm Delete',
     deleteMint: 'Delete Mint',
-    balanceWarning: '{{unit}} {{amount}} remaining in this mint. It is recommended to transfer to another mint before deleting.',
+    balanceWarning: '{{formattedAmount}} remaining in this mint. It is recommended to transfer to another mint before deleting.',
   },
 
   // Send
@@ -774,7 +785,7 @@ export default {
       networkDelay: 'This may take a moment depending on the network',
     },
     complete: {
-      message: '{{destination}}\n₿ {{amount}} sent',
+      message: '{{destination}}\n{{amount}} sent',
       confirm: 'Done',
       details: 'Details',
     },
@@ -806,25 +817,38 @@ export default {
       cancel: 'Cancel',
     },
     complete: {
-      message: '{{mint}}\n₿ {{amount}} received',
+      message: '{{mint}}\n{{amount}} received',
       done: 'Done',
     },
     token: {
       title: 'Token Confirmation',
-      canReceive: 'You can receive this token at {{mint}}',
+      canReceive: 'You can receive\n{{amount}} to\nmy {{mint}}.',
       receiveMint: 'Receive Mint',
       amount: 'Amount',
       receive: 'Receive',
     },
     untrusted: {
       title: 'Token Confirmation',
-      warning: '{{mint}} is not a registered mint',
-      question: 'Do you know this mint? You can also receive to your own mint instead.',
-      myMint: 'Receive to my mint',
-      addAndReceive: 'Add and receive',
+      warningFrom: 'From unregistered\n{{mint}}',
+      warningNeedConfirm: 'To receive {{amount}},\nconfirmation is needed.',
+      explanation: 'If you don\'t know this mint,\nyou can receive to your own mint instead.',
+      myMint: 'Receive to\nmy mint',
+      myMintSub: 'A fee will apply.',
+      addAndReceive: 'Add and\nreceive',
+      addAndReceiveSub: 'I trust this mint',
       feeNote: 'A fee may apply',
       receiveWithMint: 'Receive with this mint',
     },
+    offline: {
+      p2pkAccepted: 'This token is P2PK-protected. It can be safely received offline and will be verified when you reconnect.',
+      dleqMissing: 'DLEQ verification unavailable. The token\'s authenticity cannot be confirmed. Accept at your own risk?',
+      dleqFailed: 'DLEQ verification failed. This token may be forged and cannot be received.',
+      nonP2PKError: 'Only P2PK-protected tokens can be received offline. Please reconnect and try again.',
+      untrustedNeedsOnline: 'Internet connection is required to receive tokens from an unregistered mint.',
+      receiveOffline: 'Receive offline',
+      acceptAnyway: 'Accept at my own risk',
+    },
+    swapFeeTooHigh: 'Swap fee ({{fee}}) equals or exceeds the token amount ({{amount}})',
   },
 
   // Error Boundary

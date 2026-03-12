@@ -13,6 +13,7 @@ import { FailedSwapRepository } from '@/data/repositories/failed-swap.repository
 import type { ZapMessage, ZapPaymentFulfillment } from '@/types'
 import type { Transaction, FailedSwap, ProcessedEvent } from '@/core/types'
 import { parseTransactionSource } from '@/utils/transaction'
+import { formatSats } from '@/utils/format'
 
 // Connection timeout for each relay (5 seconds)
 const RELAY_CONNECTION_TIMEOUT_MS = 5000
@@ -246,7 +247,7 @@ export function useGiftWrapListener() {
       // Show toast notification
       addToast({
         type: 'success',
-        message: t('toast.ecashTokenReceived', { amount: result.amount.toLocaleString() }),
+        message: t('toast.ecashTokenReceived', { amount: formatSats(result.amount) }),
         duration: 5000,
       })
 

@@ -1,4 +1,5 @@
 import { BaseError } from './base'
+import { formatSats } from '@/utils/format'
 
 /**
  * Token has already been spent
@@ -45,9 +46,9 @@ export class InsufficientBalanceError extends BaseError {
 
   toUserMessage(): string {
     if (this.isFeeShortage) {
-      return `수수료 포함 시 잔액이 부족해요\n보유 ${this.available} sats, ${this.required} sats + 수수료 필요`
+      return `수수료 포함 시 잔액이 부족해요 (필요: ${formatSats(this.required)} + 수수료  보유: ${formatSats(this.available)})`
     }
-    return `잔액이 부족해요 (${this.available}/${this.required} sats)`
+    return `잔액이 부족해요 (필요: ${formatSats(this.required)}  보유: ${formatSats(this.available)})`
   }
 }
 

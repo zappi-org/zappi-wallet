@@ -5,7 +5,7 @@ import { AreaChart, Area, Tooltip, ResponsiveContainer, XAxis, Legend } from 're
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import type { Transaction } from '@/core/types'
-import { satUnit } from '@/utils/format'
+import { useFormatSats } from '@/utils/format'
 
 export interface AnalyticsScreenProps {
   onBack: () => void
@@ -16,6 +16,7 @@ type TimeRange = 'week' | 'month'
 
 export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) {
   const { t } = useTranslation()
+  const formatSats = useFormatSats()
   const [timeRange, setTimeRange] = useState<TimeRange>('week')
   const [now] = useState(() => Date.now())
 
@@ -295,7 +296,7 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
                     formatter={(value, name) => {
                       const numValue = typeof value === 'number' ? value : 0
                       return [
-                        `${satUnit(numValue)} ${numValue.toLocaleString()}`,
+                        `${formatSats(numValue)}`,
                         name === 'income' ? t('analytics.totalReceived') : t('analytics.totalSent'),
                       ]
                     }}

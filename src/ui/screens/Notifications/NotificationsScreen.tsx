@@ -3,7 +3,7 @@ import { ArrowLeft, Bell, Zap, ShieldAlert, CheckCircle2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import type { Transaction } from '@/core/types'
-import { satUnit } from '@/utils/format'
+import { useFormatSats } from '@/utils/format'
 
 export interface Notification {
   id: string
@@ -51,7 +51,8 @@ function formatTimeAgo(
 
 function generateNotificationsFromTransactions(
   transactions: Transaction[],
-  t: (key: string, options?: Record<string, unknown>) => string
+  t: (key: string, options?: Record<string, unknown>) => string,
+  formatSats: (amount: number) => string
 ): Notification[] {
   // Get recent completed transactions (last 7 days)
   const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
@@ -68,8 +69,8 @@ function generateNotificationsFromTransactions(
       : t('notifications.paymentSent'),
     message:
       tx.direction === 'receive'
-        ? t('notifications.youReceived', { amount: tx.amount.toLocaleString(), unit: satUnit(tx.amount) })
-        : t('notifications.youSent', { amount: tx.amount.toLocaleString(), unit: satUnit(tx.amount) }),
+        ? t('notifications.youReceived', { amount: formatSats(tx.amount) })
+        : t('notifications.youSent', { amount: formatSats(tx.amount) }),
     time: tx.createdAt,
     read: true, // Mark transaction notifications as read
   }))
@@ -83,10 +84,11 @@ export function NotificationsScreen({
   onClearAll,
 }: NotificationsScreenProps) {
   const { t, i18n } = useTranslation()
+  const formatSats = useFormatSats()
 
   // Generate notifications from transactions if not provided
   const notifications =
-    propNotifications || generateNotificationsFromTransactions(transactions, t)
+    propNotifications || generateNotificationsFromTransactions(transactions, t, formatSats)
 
   const unreadCount = notifications.filter((n) => !n.read).length
 

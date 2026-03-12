@@ -105,6 +105,19 @@ export interface PendingSendTokenRecord {
 }
 
 /**
+ * Pending received token record for offline P2PK token storage
+ * Stores tokens accepted offline, to be redeemed when online
+ */
+export interface PendingReceivedTokenRecord {
+  id: string        // primary key (random UUID)
+  token: string     // the cashu token string
+  mintUrl: string
+  amount: number
+  dleqStatus: 'valid' | 'missing' // only valid/missing tokens are stored (failed = rejected)
+  createdAt: number
+}
+
+/**
  * Mint metadata record for offline caching (NUT-06, url is the primary key)
  */
 export type MintMetadataRecord = MintMetadata
@@ -124,6 +137,7 @@ export class ZappiDatabase extends Dexie {
   pendingQuotes!: Table<PendingQuoteRecord, string>
   pendingMelts!: Table<PendingMeltRecord, string>
   pendingSendTokens!: Table<PendingSendTokenRecord, string>
+  pendingReceivedTokens!: Table<PendingReceivedTokenRecord, string>
   mintMetadata!: Table<MintMetadataRecord, string>
 
   constructor() {
@@ -162,6 +176,9 @@ export class ZappiDatabase extends Dexie {
 
       // Pending send tokens: Ecash send recovery (token saved after creation)
       pendingSendTokens: 'id, mintUrl, createdAt',
+
+      // Pending received tokens: offline P2PK tokens awaiting online redemption
+      pendingReceivedTokens: 'id, mintUrl, createdAt',
 
       // Mint metadata: indexed by url (NUT-06 cached info for offline support)
       mintMetadata: 'url, fetchedAt',
@@ -210,5 +227,6 @@ export async function clearAllData(): Promise<void> {
     db.pendingQuotes.clear(),
     db.pendingMelts.clear(),
     db.pendingSendTokens.clear(),
+    db.pendingReceivedTokens.clear(),
   ])
 }

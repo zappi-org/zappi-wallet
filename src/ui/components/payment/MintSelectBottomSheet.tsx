@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
 import { hapticTap } from '@/utils/haptic'
@@ -6,6 +6,7 @@ import { useAppStore } from '@/store'
 import { useWallet } from '@/hooks/use-wallet'
 import { useMintHealth } from '@/hooks/use-mint-health'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
+import { useCarouselScroll } from '@/hooks/use-carousel-scroll'
 import { MintCard, getVariantByIndex } from '@/ui/components/wallet/MintCard'
 import { Button } from '@/ui/components/common/Button'
 import type { MintInfo } from '@/core/types'
@@ -53,14 +54,6 @@ function MintSelectBottomSheetInner({
   const { getCachedStatus } = useMintHealth()
   const { getDisplayName, getIconUrl } = useMintMetadata(settings.mints)
 
-  const [localSelected, setLocalSelected] = useState<string | null>(selectedMintUrl)
-  const carouselRef = useRef<HTMLDivElement>(null)
-  const rafRef = useRef(0)
-  const cachedGapRef = useRef<number | null>(null)
-
-  // Cleanup RAF on unmount
-  useEffect(() => () => cancelAnimationFrame(rafRef.current), [])
-
   // Build mint list
   const mints: MintInfo[] = settings.mints.map((url: string) => ({
     url,
@@ -72,47 +65,30 @@ function MintSelectBottomSheetInner({
 
   const filteredMints = filterFn ? mints.filter(filterFn) : mints
 
+  const [localSelected, setLocalSelected] = useState<string | null>(
+    selectedMintUrl || filteredMints[0]?.url || null
+  )
+
+  const { carouselRef, handleScroll, scrollToIndex } = useCarouselScroll({
+    itemCount: filteredMints.length,
+    onIndexChange: (index) => {
+      const mint = filteredMints[index]
+      if (mint) setLocalSelected(mint.url)
+    },
+    fallbackGap: 12,
+  })
+
   // Scroll to selected card on mount
   useEffect(() => {
-    if (localSelected && carouselRef.current) {
+    if (localSelected) {
       const idx = filteredMints.findIndex((m) => m.url === localSelected)
       if (idx > 0) {
-        requestAnimationFrame(() => {
-          const el = carouselRef.current
-          if (!el) return
-          const card = el.children[idx] as HTMLElement | undefined
-          if (card) {
-            el.scrollTo({
-              left: card.offsetLeft - el.clientWidth / 2 + card.clientWidth / 2,
-              behavior: 'instant',
-            })
-          }
-        })
+        requestAnimationFrame(() => scrollToIndex(idx))
       }
     }
     // Only on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // Track closest card on every scroll frame (like HomeScreen carousel)
-  const handleScroll = useCallback(() => {
-    cancelAnimationFrame(rafRef.current)
-    rafRef.current = requestAnimationFrame(() => {
-      const el = carouselRef.current
-      if (!el || filteredMints.length === 0) return
-      const scrollLeft = el.scrollLeft
-      const firstCard = el.children[0] as HTMLElement | undefined
-      if (!firstCard) return
-      const gap = cachedGapRef.current ?? (cachedGapRef.current = parseFloat(getComputedStyle(el).gap) || 12)
-      const cardWidth = firstCard.offsetWidth + gap
-      const index = Math.round(scrollLeft / cardWidth)
-      const clampedIndex = Math.max(0, Math.min(index, filteredMints.length - 1))
-      const mint = filteredMints[clampedIndex]
-      if (mint) {
-        setLocalSelected(mint.url)
-      }
-    })
-  }, [filteredMints])
 
   const handleConfirm = useCallback(() => {
     if (localSelected) {

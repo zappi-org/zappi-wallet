@@ -2,7 +2,7 @@ import { Plus, ChevronRight } from 'lucide-react'
 import { Trans, useTranslation } from 'react-i18next'
 import { BottomSheet, Modal, Button } from '../../components/common'
 import { cn } from '@/components/ui/utils'
-import { satUnit } from '@/utils/format'
+import { useFormatSats } from '@/utils/format'
 import { LIMITS } from '@/core/constants'
 import { MintDetailsModal, type MintInfo } from '@/ui/components/modals/MintDetailsModal'
 import { MintIcon } from './SettingsHelpers'
@@ -44,6 +44,7 @@ export function MintsBottomSheet({
   onCancelRemoveMint,
 }: MintsBottomSheetProps) {
   const { t } = useTranslation()
+  const formatSats = useFormatSats()
 
   return (
     <>
@@ -105,7 +106,7 @@ export function MintsBottomSheet({
                     <div className="flex items-center gap-2 shrink-0">
                       <div className="text-right">
                         <span className="text-sm font-bold text-foreground">
-                          <span className="text-[10px] text-foreground-muted font-medium">{satUnit(mintBalance)}</span> {mintBalance.toLocaleString()}
+                          {formatSats(mintBalance)}
                         </span>
                       </div>
                       <ChevronRight className="w-4 h-4 text-foreground-muted" />
@@ -129,7 +130,7 @@ export function MintsBottomSheet({
               return (
                 <Trans
                   i18nKey="settings.mintHasBalance"
-                  values={{ balance: balance.toLocaleString(), unit: satUnit(balance) }}
+                  values={{ formattedBalance: formatSats(balance) }}
                   components={{ bold: <strong className="font-bold text-foreground" /> }}
                 />
               )

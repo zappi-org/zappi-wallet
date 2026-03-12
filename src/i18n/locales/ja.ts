@@ -221,11 +221,14 @@ export default {
 
     // Mint Delete
     deleteMint: 'ミントを削除',
-    mintHasBalance: 'このミントには<bold>{{unit}} {{balance}}</bold>の残高があります。',
+    mintHasBalance: 'このミントには<bold>{{formattedBalance}}</bold>の残高があります。',
     deleteWarning: '削除すると残高にアクセスできなくなります。',
 
     // Language
     language: '言語',
+
+    // Unit Display
+    unitDisplay: '単位表示',
   },
 
   // Add Mint Screen
@@ -252,7 +255,7 @@ export default {
     loading: 'ミントリストを読み込み中...',
     loadError: 'ミントリストを読み込めませんでした。',
     addComplete: 'ミントを追加しました！',
-    recoveredTokens: '{{amount}} satを回復しました！',
+    recoveredTokens: '{{amount}}を回復しました！',
     mintAddedSuccess: '新しいミントが追加されました。',
   },
 
@@ -351,7 +354,7 @@ export default {
 
     // Amount Input
     enterAmount: '金額を入力',
-    amountInSats: 'sat単位',
+    amountInSats: '単位',
 
     // Zap
     zapSend: 'Zapを送る',
@@ -383,8 +386,8 @@ export default {
     createInvoiceError: 'インボイスの作成に失敗しました',
     recreateInvoice: '再作成',
     withdrawSource: '出金元',
-    minValidation: '最小 ₿ {{amount}}',
-    maxValidation: '最大 ₿ {{amount}}',
+    minValidation: '最小 {{amount}}',
+    maxValidation: '最大 {{amount}}',
 
     // Receive Screen
     creatingInvoice: 'インボイス作成中...',
@@ -481,8 +484,8 @@ export default {
     paymentReceived: '支払いを受け取りました',
     paymentSent: '支払いを送信しました',
     tokenReceived: 'トークンを受け取りました',
-    youReceived: '{{unit}} {{amount}} 受け取りました',
-    youSent: '{{unit}} {{amount}} 送信しました',
+    youReceived: '{{amount}} 受け取りました',
+    youSent: '{{amount}} 送信しました',
     justNow: 'たった今',
     minAgo: '{{count}}分前',
     hourAgo: '{{count}}時間前',
@@ -521,8 +524,8 @@ export default {
     decryptionFailed: '復号化に失敗しました',
     securityError: 'セキュリティエラーが発生しました',
     tokenSpent: 'すでに使用済みのトークンです',
-    insufficientBalance: '残高が不足しています ({{available}}/{{required}} sats)',
-    insufficientBalanceForFee: '手数料を含めると残高が不足しています\n保有 {{available}} sats、{{required}} sats + 手数料が必要',
+    insufficientBalance: '残高が不足しています (必要: {{required}}  保有: {{available}})',
+    insufficientBalanceForFee: '残高が不足しています (必要: {{required}} + 手数料  保有: {{available}})',
     mintConnection: 'ミントに接続できません',
     mintError: 'ミントでエラーが発生しました',
     invalidToken: '無効なトークンです',
@@ -530,6 +533,13 @@ export default {
     quoteNotFound: '見積もりが見つかりません',
     quoteExpired: '見積もりの有効期限が切れました',
     p2pkUnlockFailed: 'P2PKトークンのアンロックに失敗しました',
+    invalidInvoice: '無効なLightningインボイスです',
+    invoiceExpired: 'Lightningインボイスの有効期限が切れています',
+    lightningRouting: 'Lightning決済経路が見つかりません',
+    lightningPayment: 'Lightning決済に失敗しました',
+    zappiLinkRegistrationFailed: 'Lightning Addressの登録に失敗しました',
+    zappiLinkNotFound: 'Lightning Addressが見つかりません',
+    zappiLinkApiError: 'Zappi Linkサービスに接続できません',
     relayConnection: 'リレーに接続できません',
     eventPublishFailed: 'イベントの発行に失敗しました',
     eventNotFound: 'イベントが見つかりません',
@@ -549,18 +559,19 @@ export default {
     paymentSuccess: '支払い完了',
     paymentFailed: '支払いに失敗しました',
     tokenReceived: 'トークンを受け取りました',
-    ecashRecovered: '{{count}}件のEcash決済が復元されました（{{amount}} sats）',
+    ecashRecovered: '{{count}}件のEcash決済が復元されました（{{amount}}）',
     lightningArrived: '{{count}}件のLightning決済が到着しました',
+    offlineTokensRedeemed: '{{count}}件のオフライントークンが受取されました',
     lightningReceived: '{{unit}} {{amount}} Lightning決済が到着しました',
     lightningPaymentComplete: '{{unit}} {{amount}} Lightning決済完了',
     lightningSendFailed: 'Lightning送信に失敗しました',
     lightningSendComplete: '{{unit}} {{amount}} 送信完了（手数料: {{feeUnit}} {{fee}}）',
     invoiceCreateFailed: 'インボイスの作成に失敗しました',
     invoiceCreateOffline: 'オフライン時はインボイスを作成できません',
-    tokenReceivedAmount: '{{amount}} sats 受取完了',
+    tokenReceivedAmount: '{{amount}} 受取完了',
     paymentRequestFailed: 'Payment requestの作成に失敗しました',
-    sendComplete: '{{amount}} sats 送信完了',
-    swapComplete: '{{amount}} sats スワップ完了（手数料: {{fee}} sats）',
+    sendComplete: '{{amount}} 送信完了',
+    swapComplete: '{{amount}} スワップ完了（手数料: {{fee}}）',
     swapOffline: 'オフライン時はスワップできません',
     offlineCannotPay: 'オフライン時は決済できません',
     balanceLoadFailed: '残高の読み込みに失敗しました',
@@ -571,7 +582,7 @@ export default {
     retrySuccess: '{{count}}件の再試行に成功',
     retryPartialFail: '{{count}}件の再試行に失敗',
     retryFailed: '再試行に失敗しました',
-    ecashTokenReceived: '{{amount}} sats Ecashトークン受信完了',
+    ecashTokenReceived: '{{amount}} Ecashトークン受信完了',
     noMintsRegistered: '登録されたミントがありません',
     noReachableMints: '接続可能なミントがありません',
     mintSwitched: '別のミントに切り替えました: {{name}}',
@@ -591,7 +602,7 @@ export default {
     loadError: 'ミント情報を取得できませんでした。',
     deleteConfirm: '削除を確認',
     deleteMint: 'ミントを削除',
-    balanceWarning: 'このミントに{{unit}} {{amount}}が残っています。削除する前に他のミントへ送金することをお勧めします。',
+    balanceWarning: 'このミントに{{formattedAmount}}が残っています。削除する前に他のミントへ送金することをお勧めします。',
   },
 
   // Send
@@ -643,7 +654,7 @@ export default {
       networkDelay: 'ネットワーク状況により時間がかかる場合があります',
     },
     complete: {
-      message: '{{destination}}に\n₿ {{amount}}の送金が完了しました',
+      message: '{{destination}}に\n{{amount}}の送金が完了しました',
       confirm: '完了',
       details: '詳細',
     },
@@ -675,25 +686,38 @@ export default {
       cancel: 'キャンセル',
     },
     complete: {
-      message: '{{mint}}に\n₿ {{amount}}入金されました',
+      message: '{{mint}}に\n{{amount}}入金されました',
       done: '完了',
     },
     token: {
       title: 'トークン確認',
-      canReceive: '{{mint}}で受け取れるトークンです',
+      canReceive: '{{amount}}を\n{{mint}}に\n受け取れます。',
       receiveMint: '受取ミント',
       amount: '金額',
       receive: '受取',
     },
     untrusted: {
       title: 'トークン確認',
-      warning: '{{mint}}は登録されていないミントです',
-      question: 'このミントを知っていますか？自分のミントで受け取ることもできます。',
-      myMint: '自分のミントで受取',
-      addAndReceive: '追加して受取',
+      warningFrom: '未登録の\n{{mint}}から',
+      warningNeedConfirm: '{{amount}}を受け取るには\n確認が必要です。',
+      explanation: '知らないミントなら追加せずに\n自分のミントで受け取ることもできます。',
+      myMint: '自分の\nミントで受取',
+      myMintSub: '手数料が発生します。',
+      addAndReceive: '追加して\n受取',
+      addAndReceiveSub: 'このミントを信頼します',
       feeNote: '手数料が発生する場合があります',
       receiveWithMint: 'このミントで受取',
     },
+    offline: {
+      p2pkAccepted: 'P2PKで保護されたトークンです。オフラインで安全に受取でき、再接続時に自動検証されます。',
+      dleqMissing: 'DLEQ検証ができません。トークンの真正性を確認できないリスクがあります。それでも受取りますか？',
+      dleqFailed: 'DLEQ検証に失敗しました。偽造トークンの可能性があるため受取できません。',
+      nonP2PKError: 'オフラインではP2PKで保護されたトークンのみ受取可能です。接続後に再試行してください。',
+      untrustedNeedsOnline: '未登録ミントからのトークンを受取るにはインターネット接続が必要です。',
+      receiveOffline: 'オフラインで受取',
+      acceptAnyway: 'リスクを承知で受取',
+    },
+    swapFeeTooHigh: 'スワップ手数料（{{fee}}）がトークン金額（{{amount}}）以上のため受け取れません',
   },
 
   // Error Boundary

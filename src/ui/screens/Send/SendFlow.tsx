@@ -13,6 +13,7 @@ import { useState, useCallback, useRef } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
 import { useNetwork } from '@/hooks/use-network'
+import { sendTokenViaDM, getRecipientDMRelays } from '@/services/nostr-dm'
 import { useAppStore } from '@/store'
 import { useTranslation } from 'react-i18next'
 import { createMeltQuote } from '@/coco/cashuService'
@@ -271,7 +272,7 @@ export function SendFlow({
 
           if (token && validatedData.parsed.hasNostrTransport && validatedData.parsed.nostrTarget) {
             // Send token via Nostr DM
-            const { sendTokenViaDM, getRecipientDMRelays } = await import('@/services/nostr-dm')
+            // nostr-dm is already in main bundle (statically imported by useGiftWrapListener)
             const nostrPrivkey = useAppStore.getState().nostrPrivkey
             const settings = useAppStore.getState().settings
 
@@ -314,9 +315,9 @@ export function SendFlow({
       console.error('[SendFlow] Send error:', err)
       const message = err instanceof InsufficientBalanceError
         ? translateError(err)
-        : err instanceof Error ? err.message : t('payment.sendFailed')
+        : t('payment.sendFailed')
       setState((prev) => ({ ...prev, step: 'confirm', error: message }))
-      addToast({ type: 'error', message, duration: 4000 })
+      addToast({ type: 'error', message, duration: err instanceof InsufficientBalanceError ? 4000 : 3000 })
     } finally {
       isProcessingRef.current = false
     }
@@ -379,10 +380,8 @@ export function SendFlow({
         step: 'token-create',
         createdToken: null,
       }))
-    } catch (err) {
-      // Token may have been already spent
-      const message = err instanceof Error ? err.message : t('payment.tokenReclaimFailed')
-      addToast({ type: 'error', message, duration: 3000 })
+    } catch {
+      addToast({ type: 'error', message: t('payment.tokenReclaimFailed'), duration: 3000 })
     }
   }, [state.createdToken, onReceiveToken, addToast, t])
 

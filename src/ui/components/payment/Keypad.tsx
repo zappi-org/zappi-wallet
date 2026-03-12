@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../common'
-import { satUnit } from '@/utils/format'
+import { useSatUnit, useFormatSats } from '@/utils/format'
 
 export interface KeypadProps {
   value: string
@@ -34,6 +34,8 @@ export function Keypad({
   balanceLabel,
 }: KeypadProps) {
   const { t } = useTranslation()
+  const unit = useSatUnit()
+  const formatSats = useFormatSats()
   const resolvedDisplayLabel = displayLabel ?? t('common.amount')
   const resolvedBalanceLabel = balanceLabel ?? t('common.balance')
   const handlePress = useCallback(
@@ -98,15 +100,16 @@ export function Keypad({
         <div className="flex-1 flex flex-col justify-center items-center py-6">
           {balance !== undefined ? (
             <p className="text-muted-foreground text-xs mb-2">
-              {resolvedBalanceLabel}: {satUnit(balance)} {balance.toLocaleString()}
+              {resolvedBalanceLabel}: {formatSats(balance)}
             </p>
           ) : (
             <p className="text-muted-foreground text-xs mb-2">{resolvedDisplayLabel}</p>
           )}
-          <p className="text-muted-foreground text-base mb-1">{satUnit(numericValue)}</p>
+          {unit === '₿' && <p className="text-muted-foreground text-base mb-1">{unit}</p>}
           <p className="text-4xl font-bold font-mono tabular-nums">
             {formattedValue}
           </p>
+          {unit !== '₿' && <p className="text-muted-foreground text-base mt-1">{unit}</p>}
         </div>
       )}
 

@@ -1,4 +1,5 @@
 import { decode } from 'light-bolt11-decoder';
+import { InvalidInvoiceError } from '@/core/errors/lightning';
 
 export interface DecodedInvoice {
   paymentRequest: string;
@@ -55,7 +56,7 @@ export function decodeInvoice(pr: string): DecodedInvoice {
     };
   } catch (error) {
     console.error('Failed to decode invoice:', error);
-    throw new Error('올바르지 않은 Lightning 인보이스입니다');
+    throw new InvalidInvoiceError('Failed to decode invoice', error);
   }
 }
 

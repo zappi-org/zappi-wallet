@@ -221,11 +221,14 @@ export default {
 
     // Mint Delete
     deleteMint: 'Eliminar Mint',
-    mintHasBalance: 'Este mint tiene un saldo de <bold>{{unit}} {{balance}}</bold>.',
+    mintHasBalance: 'Este mint tiene un saldo de <bold>{{formattedBalance}}</bold>.',
     deleteWarning: 'Eliminar hará el saldo inaccesible.',
 
     // Language
     language: 'Idioma',
+
+    // Unit Display
+    unitDisplay: 'Unidad',
   },
 
   // Add Mint Screen
@@ -252,7 +255,7 @@ export default {
     loading: 'Cargando lista de mints...',
     loadError: 'No se pudo cargar la lista de mints.',
     addComplete: '¡Mint agregado!',
-    recoveredTokens: '¡{{amount}} sat recuperados!',
+    recoveredTokens: '¡{{amount}} recuperados!',
     mintAddedSuccess: 'Nuevo mint ha sido agregado.',
   },
 
@@ -313,8 +316,8 @@ export default {
     addressPlaceholder: 'user@getalby.com o lnbc...',
     lightningAddressPlaceholder: 'Dirección Lightning o factura',
     enterDestination: 'Ingresa la dirección de destino',
-    minAmountError: 'Mínimo {{amount}} sats',
-    maxAmountError: 'Máximo {{amount}} sats',
+    minAmountError: 'Mínimo {{amount}}',
+    maxAmountError: 'Máximo {{amount}}',
     invalidAddressOrInvoice: 'Dirección o factura Lightning inválida',
     invalidLightningAddress: 'Dirección Lightning inválida',
     cannotVerifyAddress: 'No se puede verificar la dirección Lightning',
@@ -379,7 +382,7 @@ export default {
 
     // Amount Input
     enterAmount: 'Ingresa monto',
-    amountInSats: 'en sats',
+    amountInSats: 'unidad',
 
     // Zap
     zapSend: 'Enviar Zap',
@@ -413,8 +416,8 @@ export default {
     createInvoiceError: 'No se pudo crear la factura',
     recreateInvoice: 'Crear de nuevo',
     withdrawSource: 'Fuente de retiro',
-    minValidation: 'Mínimo ₿ {{amount}}',
-    maxValidation: 'Máximo ₿ {{amount}}',
+    minValidation: 'Mínimo {{amount}}',
+    maxValidation: 'Máximo {{amount}}',
 
     // Receive Screen
     creatingInvoice: 'Creando factura...',
@@ -511,8 +514,8 @@ export default {
     paymentReceived: 'Pago recibido',
     paymentSent: 'Pago enviado',
     tokenReceived: 'Token recibido',
-    youReceived: 'Recibiste {{unit}} {{amount}}',
-    youSent: 'Enviaste {{unit}} {{amount}}',
+    youReceived: 'Recibiste {{amount}}',
+    youSent: 'Enviaste {{amount}}',
     justNow: 'Ahora mismo',
     minAgo: 'hace {{count}} min',
     hourAgo: 'hace {{count}} hora',
@@ -551,8 +554,8 @@ export default {
     decryptionFailed: 'Error de desencriptación',
     securityError: 'Ocurrió un error de seguridad',
     tokenSpent: 'El token ya fue usado',
-    insufficientBalance: 'Saldo insuficiente ({{available}}/{{required}} sats)',
-    insufficientBalanceForFee: 'Saldo insuficiente con comisión\nDisponible {{available}} sats, necesario {{required}} sats + comisión',
+    insufficientBalance: 'Saldo insuficiente (necesario: {{required}}  disponible: {{available}})',
+    insufficientBalanceForFee: 'Saldo insuficiente (necesario: {{required}} + comisión  disponible: {{available}})',
     mintConnection: 'No se puede conectar al mint',
     mintError: 'Ocurrió un error en el mint',
     invalidToken: 'Token inválido',
@@ -560,6 +563,13 @@ export default {
     quoteNotFound: 'Cotización no encontrada',
     quoteExpired: 'La cotización ha expirado',
     p2pkUnlockFailed: 'Error al desbloquear token P2PK',
+    invalidInvoice: 'Factura Lightning inválida',
+    invoiceExpired: 'La factura Lightning ha expirado',
+    lightningRouting: 'No se encontró una ruta de pago Lightning',
+    lightningPayment: 'El pago Lightning falló',
+    zappiLinkRegistrationFailed: 'Error al registrar Lightning Address',
+    zappiLinkNotFound: 'Lightning Address no encontrada',
+    zappiLinkApiError: 'No se puede conectar al servicio Zappi Link',
     relayConnection: 'No se puede conectar al relay',
     eventPublishFailed: 'Error al publicar evento',
     eventNotFound: 'Evento no encontrado',
@@ -579,18 +589,19 @@ export default {
     paymentSuccess: 'Pago completado',
     paymentFailed: 'Pago fallido',
     tokenReceived: 'Token recibido',
-    ecashRecovered: '{{count}} pago(s) Ecash recuperado(s) ({{amount}} sats)',
+    ecashRecovered: '{{count}} pago(s) Ecash recuperado(s) ({{amount}})',
     lightningArrived: '{{count}} pago(s) Lightning recibido(s)',
+    offlineTokensRedeemed: '{{count}} token(s) offline canjeado(s)',
     lightningReceived: '{{unit}} {{amount}} pago Lightning recibido',
     lightningPaymentComplete: '{{unit}} {{amount}} pago Lightning completado',
     lightningSendFailed: 'Error al enviar pago Lightning',
     lightningSendComplete: '{{unit}} {{amount}} enviado (comisión: {{feeUnit}} {{fee}})',
     invoiceCreateFailed: 'Error al crear factura',
     invoiceCreateOffline: 'No se puede crear factura sin conexión',
-    tokenReceivedAmount: '{{amount}} sats recibidos',
+    tokenReceivedAmount: '{{amount}} recibidos',
     paymentRequestFailed: 'Error al crear solicitud de pago',
-    sendComplete: '{{amount}} sats enviados',
-    swapComplete: '{{amount}} sats intercambiados (comisión: {{fee}} sats)',
+    sendComplete: '{{amount}} enviados',
+    swapComplete: '{{amount}} intercambiados (comisión: {{fee}})',
     swapOffline: 'No se puede intercambiar sin conexión',
     offlineCannotPay: 'No se puede pagar sin conexión',
     balanceLoadFailed: 'Error al cargar saldo',
@@ -601,7 +612,7 @@ export default {
     retrySuccess: '{{count}} reintento(s) exitoso(s)',
     retryPartialFail: '{{count}} reintento(s) fallido(s)',
     retryFailed: 'Reintento fallido',
-    ecashTokenReceived: '{{amount}} sats token Ecash recibido',
+    ecashTokenReceived: '{{amount}} token Ecash recibido',
     noMintsRegistered: 'No hay mints registrados',
     noReachableMints: 'No hay mints accesibles',
     mintSwitched: 'Cambiado al mint: {{name}}',
@@ -621,7 +632,7 @@ export default {
     loadError: 'No se pudo obtener la info del mint.',
     deleteConfirm: 'Confirmar eliminación',
     deleteMint: 'Eliminar Mint',
-    balanceWarning: '{{unit}} {{amount}} restantes en este mint. Se recomienda transferir a otro mint antes de eliminar.',
+    balanceWarning: '{{formattedAmount}} restantes en este mint. Se recomienda transferir a otro mint antes de eliminar.',
   },
 
   // Send
@@ -673,7 +684,7 @@ export default {
       networkDelay: 'Puede tomar un momento según la red',
     },
     complete: {
-      message: '{{destination}}\n₿ {{amount}} enviados',
+      message: '{{destination}}\n{{amount}} enviados',
       confirm: 'Listo',
       details: 'Detalles',
     },
@@ -705,25 +716,38 @@ export default {
       cancel: 'Cancelar',
     },
     complete: {
-      message: '{{mint}}\n₿ {{amount}} recibidos',
+      message: '{{mint}}\n{{amount}} recibidos',
       done: 'Listo',
     },
     token: {
       title: 'Confirmación de Token',
-      canReceive: 'Puedes recibir este token en {{mint}}',
+      canReceive: 'Puedes recibir\n{{amount}} en\nmi {{mint}}.',
       receiveMint: 'Mint de Recepción',
       amount: 'Monto',
       receive: 'Recibir',
     },
     untrusted: {
       title: 'Confirmación de Token',
-      warning: '{{mint}} no es un mint registrado',
-      question: '¿Conoces este mint? También puedes recibir en tu propio mint.',
-      myMint: 'Recibir en mi mint',
-      addAndReceive: 'Agregar y recibir',
+      warningFrom: 'Desde el mint\nno registrado {{mint}}',
+      warningNeedConfirm: 'Para recibir {{amount}},\nse necesita confirmación.',
+      explanation: 'Si no conoces este mint,\npuedes recibir en tu propio mint.',
+      myMint: 'Recibir en\nmi mint',
+      myMintSub: 'Se aplicará una tarifa.',
+      addAndReceive: 'Agregar y\nrecibir',
+      addAndReceiveSub: 'Confío en este mint',
       feeNote: 'Puede aplicar una tarifa',
       receiveWithMint: 'Recibir con este mint',
     },
+    offline: {
+      p2pkAccepted: 'Este token está protegido por P2PK. Se puede recibir sin conexión y se verificará al reconectarse.',
+      dleqMissing: 'Verificación DLEQ no disponible. No se puede confirmar la autenticidad del token. ¿Aceptar bajo su propio riesgo?',
+      dleqFailed: 'La verificación DLEQ falló. Este token puede ser falsificado y no se puede recibir.',
+      nonP2PKError: 'Solo los tokens protegidos por P2PK se pueden recibir sin conexión. Conéctese e intente de nuevo.',
+      untrustedNeedsOnline: 'Se necesita conexión a internet para recibir tokens de un mint no registrado.',
+      receiveOffline: 'Recibir sin conexión',
+      acceptAnyway: 'Aceptar bajo mi riesgo',
+    },
+    swapFeeTooHigh: 'La comisión de swap ({{fee}}) es igual o mayor al monto del token ({{amount}})',
   },
 
   // Error Boundary

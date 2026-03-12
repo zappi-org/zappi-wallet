@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
 import { usePayment, useWallet, useMintMetadata } from '@/hooks'
-import { satUnit } from '@/utils/format'
+import { useSatUnit, useFormatSats } from '@/utils/format'
 import cardLogo from '@/assets/card-logo.svg'
 
 export interface TransferScreenProps {
@@ -67,6 +67,8 @@ function MintIcon({
 
 export function TransferScreen({ onBack, onTransactionComplete }: TransferScreenProps) {
   const { t } = useTranslation()
+  const unit = useSatUnit()
+  const formatSats = useFormatSats()
   // Get mint URLs from settings (the actual source of truth)
   const mintUrls = useAppStore((s) => s.settings.mints)
   const balance = useAppStore((s) => s.balance)
@@ -184,7 +186,7 @@ export function TransferScreen({ onBack, onTransactionComplete }: TransferScreen
           </h2>
           <div className="bg-white/60 px-4 py-2 rounded-full border border-white/50 mb-6 shadow-sm">
             <p className="text-foreground font-bold text-base">
-              {satUnit(Number(amount))} {Number(amount).toLocaleString()}
+              {formatSats(Number(amount))}
             </p>
           </div>
           <button
@@ -275,7 +277,7 @@ export function TransferScreen({ onBack, onTransactionComplete }: TransferScreen
                         {fromMint ? fromMint.name : t('payment.selectMint')}
                       </span>
                       <span className="text-[10px] text-foreground-muted">
-                        {t('common.balance')}: {satUnit(fromMint?.balance || 0)} {(fromMint?.balance || 0).toLocaleString()}
+                        {t('common.balance')}: {formatSats(fromMint?.balance || 0)}
                       </span>
                     </div>
                   </div>
@@ -337,7 +339,7 @@ export function TransferScreen({ onBack, onTransactionComplete }: TransferScreen
                         {fromMint ? fromMint.name : t('payment.selectMint')}
                       </span>
                       <span className="text-[10px] text-foreground-muted">
-                        {t('common.balance')}: {satUnit(fromMint?.balance || 0)} {(fromMint?.balance || 0).toLocaleString()}
+                        {t('common.balance')}: {formatSats(fromMint?.balance || 0)}
                       </span>
                     </div>
                   </div>
@@ -384,14 +386,16 @@ export function TransferScreen({ onBack, onTransactionComplete }: TransferScreen
             {isInsufficientFunds ? t('payment.insufficientBalance') : t('common.amount')}
           </span>
           <div className="flex items-baseline justify-center gap-2 w-full">
-            <span
-              className={cn(
-                'text-lg font-bold',
-                isInsufficientFunds ? 'text-accent-danger' : 'text-foreground-muted'
-              )}
-            >
-              {satUnit(numericAmount)}
-            </span>
+            {unit === '₿' && (
+              <span
+                className={cn(
+                  'text-lg font-bold',
+                  isInsufficientFunds ? 'text-accent-danger' : 'text-foreground-muted'
+                )}
+              >
+                {unit}
+              </span>
+            )}
             <input
               type="text"
               inputMode="numeric"
@@ -407,15 +411,25 @@ export function TransferScreen({ onBack, onTransactionComplete }: TransferScreen
               )}
               style={{ width: amount ? `${amount.length + 1}ch` : '2ch' }}
             />
+            {unit !== '₿' && (
+              <span
+                className={cn(
+                  'text-lg font-bold',
+                  isInsufficientFunds ? 'text-accent-danger' : 'text-foreground-muted'
+                )}
+              >
+                {unit}
+              </span>
+            )}
           </div>
           {isInsufficientFunds && (
             <div className="text-[10px] font-bold text-accent-danger mt-2 bg-white/50 px-2 py-1 rounded-full">
-              {satUnit(currentBalance)} {t('payment.maxAmount', { amount: currentBalance.toLocaleString() })}
+              {t('payment.maxAmount', { amount: formatSats(currentBalance) })}
             </div>
           )}
           {!isInsufficientFunds && activeTab === 'melt' && numericAmount > 0 && (
             <div className="flex items-center gap-2 mt-2 px-2 py-1 bg-accent-warning-bright/10 rounded-full text-accent-warning-bright-text text-[10px] font-bold">
-              <span>{t('transfer.estimatedFee', { amount: 2 })}</span>
+              <span>{t('transfer.estimatedFee', { amount: formatSats(2) })}</span>
             </div>
           )}
         </div>
@@ -519,7 +533,7 @@ export function TransferScreen({ onBack, onTransactionComplete }: TransferScreen
                                 isSelected ? 'text-white/70' : 'text-foreground-muted'
                               )}
                             >
-                              {satUnit(mintBalance)} {mintBalance.toLocaleString()}
+                              {formatSats(mintBalance)}
                             </span>
                           </div>
                         </div>

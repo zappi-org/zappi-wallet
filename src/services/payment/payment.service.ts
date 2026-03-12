@@ -6,7 +6,7 @@ import { getDatabase, type PendingQuoteRecord, type PendingMeltRecord, type Pend
 import { ok, err, type Result } from '@/core/types'
 import type { MintQuote, PaymentRequest } from '@/core/types'
 import type { BaseError } from '@/core/errors'
-import { MintConnectionError, InsufficientBalanceError, MintError, classifyCashuError } from '@/core/errors'
+import { MintConnectionError, InsufficientBalanceError, classifyCashuError, InvalidInvoiceError, InvoiceExpiredError } from '@/core/errors'
 import {
   isBolt11Invoice,
   decodeInvoice,
@@ -140,7 +140,7 @@ export class PaymentService {
       })
     } catch (error) {
       console.error('createLightningInvoice error:', error)
-      return err(new MintConnectionError(error instanceof Error ? error.message : 'Failed to create invoice'))
+      return err(classifyCashuError(error))
     }
   }
 
@@ -242,7 +242,7 @@ export class PaymentService {
       }
 
       console.error('claimPayment error:', error)
-      return err(new MintConnectionError(error instanceof Error ? error.message : 'Failed to claim payment'))
+      return err(classifyCashuError(error))
     } finally {
       this.claimInFlight.delete(quoteId)
     }
@@ -301,7 +301,7 @@ export class PaymentService {
       })
     } catch (error) {
       console.error('receiveEcash error:', error)
-      return err(new MintConnectionError(error instanceof Error ? error.message : 'Failed to receive ecash'))
+      return err(classifyCashuError(error))
     }
   }
 
@@ -334,7 +334,7 @@ export class PaymentService {
         const decoded = decodeInvoice(invoice)
 
         if (decoded.isExpired) {
-          return err(new MintConnectionError('Invoice has expired'))
+          return err(new InvoiceExpiredError('Invoice has expired'))
         }
 
         invoiceAmount = decoded.amountSats
@@ -343,7 +343,7 @@ export class PaymentService {
           invoiceAmount = amount
         }
       } else {
-        return err(new MintConnectionError('Invalid Lightning Address or invoice'))
+        return err(new InvalidInvoiceError('Invalid Lightning Address or invoice'))
       }
 
       // Get all balances from Coco
@@ -477,7 +477,25 @@ export class PaymentService {
       return err(new MintConnectionError('No mint available for payment'))
     } catch (error) {
       console.error('sendLightning error:', error)
-      return err(new MintConnectionError(error instanceof Error ? error.message : 'Lightning payment failed'))
+      return err(classifyCashuError(error))
+    }
+  }
+
+  /**
+   * Estimate the Lightning fee for a cross-mint swap (non-destructive).
+   * Creates mint quote + melt quote but does NOT pay.
+   * Returns fee_reserve in sats, or throws on failure.
+   */
+  async estimateSwapFee(
+    fromMintUrl: string,
+    toMintUrl: string,
+    amount: number,
+  ): Promise<{ fee: number; totalNeeded: number }> {
+    const mintQuote = await cocoCreateMintQuote(toMintUrl, amount)
+    const meltQuote = await cocoCreateMeltQuote(fromMintUrl, mintQuote.request)
+    return {
+      fee: meltQuote.fee_reserve,
+      totalNeeded: meltQuote.amount + meltQuote.fee_reserve,
     }
   }
 
@@ -577,12 +595,7 @@ export class PaymentService {
       })
     } catch (error) {
       console.error('mintSwap error:', error)
-      // Classify the error for better user feedback
-      if (error instanceof Error) {
-        const classified = classifyCashuError(error)
-        return err(classified)
-      }
-      return err(new MintError(fromMintUrl, undefined, 'Mint swap failed', error))
+      return err(classifyCashuError(error))
     }
   }
 
@@ -732,6 +745,81 @@ export class PaymentService {
     await db.pendingSendTokens.delete(id)
   }
 
+  // ===== Pending Received Token Management (Offline P2PK Recovery) =====
+
+  /**
+   * Store a token accepted offline for later redemption
+   */
+  async storeOfflineToken(
+    token: string,
+    amount: number,
+    mintUrl: string,
+    dleqStatus: 'valid' | 'missing',
+  ): Promise<string> {
+    const db = getDatabase()
+    const id = `pending-recv-${crypto.randomUUID()}`
+    await db.pendingReceivedTokens.put({
+      id,
+      token,
+      mintUrl,
+      amount,
+      dleqStatus,
+      createdAt: Date.now(),
+    })
+    return id
+  }
+
+  /**
+   * Redeem all pending received tokens (called on online recovery)
+   * Returns count of successfully redeemed and failed tokens
+   */
+  async redeemPendingReceivedTokens(): Promise<{ redeemed: number; failed: number }> {
+    const db = getDatabase()
+    const pendingTokens = await db.pendingReceivedTokens.toArray()
+
+    if (pendingTokens.length === 0) return { redeemed: 0, failed: 0 }
+
+    const idsToDelete: string[] = []
+    const results = await Promise.allSettled(
+      pendingTokens.map(async (pending) => {
+        const result = await this.receiveEcash(pending.token)
+        if (result.isOk()) {
+          idsToDelete.push(pending.id)
+          console.log(`[OfflineRecovery] Redeemed token ${pending.id}: ${pending.amount} sats`)
+          return true
+        }
+        // Token already spent or permanently unredeemable — remove it
+        if (result.error.code === 'TOKEN_SPENT' || result.error.code === 'INVALID_TOKEN' || result.error.code === 'INVALID_PROOF') {
+          idsToDelete.push(pending.id)
+          console.warn(`[OfflineRecovery] Token ${pending.id} ${result.error.code}, removing`)
+        } else {
+          // Transient errors (network, mint down) — leave for next retry
+          // But clean up old entries to prevent infinite retry
+          const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
+          if (Date.now() - pending.createdAt > MAX_AGE_MS) {
+            idsToDelete.push(pending.id)
+            console.warn(`[OfflineRecovery] Token ${pending.id} expired after 7 days, removing`)
+          }
+        }
+        return false
+      })
+    )
+
+    // Batch delete all processed tokens
+    if (idsToDelete.length > 0) {
+      await db.pendingReceivedTokens.bulkDelete(idsToDelete)
+    }
+
+    let redeemed = 0
+    let failed = 0
+    for (const r of results) {
+      if (r.status === 'fulfilled' && r.value) redeemed++
+      else failed++
+    }
+
+    return { redeemed, failed }
+  }
+
   /**
    * Get all pending quotes (for recovery)
    */
@@ -800,26 +888,29 @@ export class PaymentService {
   }
 
   /**
-   * Recover all pending operations (quotes, melts, send tokens)
+   * Recover all pending operations (quotes, melts, send tokens, offline received tokens)
    * Should be called at app init, on visibility change, etc.
    */
   async recoverAll(): Promise<{
     quotes: { recovered: number; failed: number; expired: number }
     melts: { recovered: number; failed: number }
     sendTokens: { reclaimed: number; recorded: number }
+    receivedTokens: { redeemed: number; failed: number }
   }> {
     const { recoverPendingMelts, recoverPendingSendTokens } = await import('@/coco/cashuService')
 
-    const [quotes, melts, sendTokens] = await Promise.allSettled([
+    const [quotes, melts, sendTokens, receivedTokens] = await Promise.allSettled([
       this.recoverPendingQuotes(),
       recoverPendingMelts(),
       recoverPendingSendTokens(),
+      this.redeemPendingReceivedTokens(),
     ])
 
     return {
       quotes: quotes.status === 'fulfilled' ? quotes.value : { recovered: 0, failed: 0, expired: 0 },
       melts: melts.status === 'fulfilled' ? melts.value : { recovered: 0, failed: 0 },
       sendTokens: sendTokens.status === 'fulfilled' ? sendTokens.value : { reclaimed: 0, recorded: 0 },
+      receivedTokens: receivedTokens.status === 'fulfilled' ? receivedTokens.value : { redeemed: 0, failed: 0 },
     }
   }
 

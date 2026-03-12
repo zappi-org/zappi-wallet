@@ -7,6 +7,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useSatUnit } from '@/utils/format'
 import { useAppStore } from '@/store'
 import { hapticTap, hapticError } from '@/utils/haptic'
 import { MintCardSelector } from '@/ui/components/wallet'
@@ -37,6 +38,7 @@ export function ReceiveInputStep({
   isLoading = false,
 }: ReceiveInputStepProps) {
   const { t } = useTranslation()
+  const unit = useSatUnit()
   const settings = useAppStore((s) => s.settings)
   const nostrPubkey = useAppStore((s) => s.nostrPubkey)
   const addToast = useAppStore((s) => s.addToast)
@@ -165,14 +167,18 @@ export function ReceiveInputStep({
         <div>
           <p className="text-[20px] font-normal text-foreground-muted leading-snug">{t('receive.howMuch')}</p>
           <div className="relative">
-            <span className="absolute left-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-[22px]">₿</span>
+            {unit === '₿' ? (
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-[22px]">{unit}</span>
+            ) : (
+              <span className="absolute right-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-[18px]">{unit}</span>
+            )}
             <input
               type="text"
               inputMode="numeric"
               value={amount ? Number(amount).toLocaleString() : '0'}
               onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ''))}
               onFocus={(e) => { if (!amount) e.target.select() }}
-              className={`w-full bg-transparent border-0 border-b border-b-gray-200 rounded-none pl-8 py-2 text-[22px] font-bold focus:outline-none focus:border-b-foreground transition-colors ${amount ? 'text-foreground' : 'text-foreground-muted/40'}`}
+              className={`w-full bg-transparent border-0 border-b border-b-gray-200 rounded-none ${unit === '₿' ? 'pl-8' : 'pr-12'} py-2 text-[22px] font-bold focus:outline-none focus:border-b-foreground transition-colors ${amount ? 'text-foreground' : 'text-foreground-muted/40'}`}
             />
           </div>
         </div>

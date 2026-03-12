@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { MintInfo } from "@/core/types";
 import { cn } from "@/lib/utils";
+import { useFormatSats } from "@/utils/format";
 import cardLogo from "@/assets/card-logo.svg";
 import cardBg from "@/assets/card-bg.png";
 import cardNoise from "@/assets/card-noise.png";
@@ -85,6 +86,7 @@ export function MintCard({
   onCreateToken,
 }: MintCardProps) {
   const { t } = useTranslation();
+  const formatSats = useFormatSats();
   const displayName = getMintShortName(mint.url, mint.name);
   return (
     <div
@@ -140,8 +142,7 @@ export function MintCard({
             className="absolute z-10 font-['Montserrat'] font-semibold text-[15.6px] text-[#fafafa] leading-normal"
             style={{ top: '80%', left: '9.3%' }}
           >
-            <span className="text-[#fafafa]">₿</span>
-            {` ${mint.balance.toLocaleString()}`}
+            {formatSats(mint.balance)}
           </p>
         </>
       )}

@@ -8,8 +8,9 @@ import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { hapticSuccess, hapticTap } from '@/utils/haptic'
-import { CoinBounceAnimation } from '@/ui/components/payment'
+import { useFormatSats } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
+import tokenReceiveSuccessImg from '@/assets/token-receive-success.png'
 
 interface ReceiveCompleteStepProps {
   amount: number
@@ -23,6 +24,7 @@ export function ReceiveCompleteStep({
   onComplete,
 }: ReceiveCompleteStepProps) {
   const { t } = useTranslation()
+  const formatSats = useFormatSats()
   const settings = useAppStore((s) => s.settings)
   const { getDisplayName } = useMintMetadata(settings.mints)
   const mintName = mintUrl ? getDisplayName(mintUrl) : ''
@@ -53,14 +55,18 @@ export function ReceiveCompleteStep({
         <p className="text-[22px] font-medium leading-relaxed whitespace-pre-line text-center">
           {t('receive.complete.message', {
             mint: mintName,
-            amount: amount.toLocaleString(),
+            amount: formatSats(amount),
           })}
         </p>
       </div>
 
-      {/* Animation centered */}
+      {/* Success image centered */}
       <div className="flex-1 flex items-center justify-center">
-        <CoinBounceAnimation />
+        <img
+          src={tokenReceiveSuccessImg}
+          alt=""
+          className="w-80 h-80 object-contain"
+        />
       </div>
 
       {/* Bottom Action — no border */}

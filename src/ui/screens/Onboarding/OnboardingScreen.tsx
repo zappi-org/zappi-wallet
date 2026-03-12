@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 
 import { ArrowLeft, Copy, Check, ShieldCheck, RefreshCw, Key, Plus, Delete } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import creatingWalletSvg from '@/assets/creating-wallet.svg'
 
 export type OnboardingStep = 'welcome' | 'mnemonic' | 'pin' | 'pin-confirm' | 'recovering' | 'complete'
 
@@ -506,12 +507,17 @@ export function OnboardingScreen({
 
         <div className="animate-fadeIn w-full max-w-md flex flex-col items-center text-center relative z-10">
           <div
-            className="animate-fadeIn w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-6"
+            className="animate-fadeIn mb-6"
             role="status"
             aria-live="polite"
             aria-label={mode === 'import' ? t('onboarding.recoveringWallet') : t('onboarding.creatingWallet')}
           >
-            <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" aria-hidden="true" />
+            <img
+              src={creatingWalletSvg}
+              alt=""
+              className="w-24 h-24"
+              aria-hidden="true"
+            />
           </div>
 
           <h2 className="text-2xl font-bold mb-2">

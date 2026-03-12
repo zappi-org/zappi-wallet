@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowRightLeft, Search, Zap, Ba
 import { useTranslation } from 'react-i18next'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { Transaction } from '@/core/types'
-import { satUnit } from '@/utils/format'
+import { useFormatSats } from '@/utils/format'
 import { useMintMetadata } from '@/hooks'
 
 export interface HistoryScreenProps {
@@ -48,6 +48,7 @@ const TransactionItem = memo(function TransactionItem({
   getMintName?: (url: string) => string
 }) {
   const { t, i18n } = useTranslation()
+  const formatSats = useFormatSats()
   const isReceive = transaction.direction === 'receive'
   const statusColors = {
     pending: 'text-accent-warning-bright',
@@ -132,9 +133,9 @@ const TransactionItem = memo(function TransactionItem({
       <div className="flex flex-col items-end gap-0.5">
         <span className={`text-xs font-bold ${isSwap ? 'text-accent-primary' : isReceive ? 'text-card-green-dark' : 'text-foreground'}`}>
           {isSwap ? (
-            <>{satUnit(transaction.amount)} {transaction.amount.toLocaleString()}</>
+            <>{formatSats(transaction.amount)}</>
           ) : (
-            <>{isReceive ? '+' : '-'}{satUnit(transaction.amount)} {transaction.amount.toLocaleString()}</>
+            <>{isReceive ? '+' : '-'}{formatSats(transaction.amount)}</>
           )}
         </span>
         <div className="flex items-center gap-2">

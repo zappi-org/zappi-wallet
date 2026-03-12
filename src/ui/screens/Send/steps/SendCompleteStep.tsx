@@ -7,6 +7,7 @@ import { useEffect, useRef } from 'react'
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { hapticSuccess, hapticTap } from '@/utils/haptic'
+import { useFormatSats } from '@/utils/format'
 import sendSuccessImg from '@/assets/send-success.png'
 import { Button } from '@/ui/components/common/Button'
 import type { SendableValidatedData } from '../SendFlow'
@@ -37,6 +38,7 @@ export function SendCompleteStep({
   onComplete,
 }: SendCompleteStepProps) {
   const { t } = useTranslation()
+  const formatSats = useFormatSats()
   const destination = getDestinationDisplay(validatedData)
   const hasTriggeredHaptic = useRef(false)
 
@@ -63,7 +65,7 @@ export function SendCompleteStep({
       {/* Text — centered, pushed down a bit */}
       <div className="px-6 pt-24">
         <p className="text-[22px] font-medium leading-relaxed whitespace-pre-line text-center">
-          {t('send.complete.message', { destination, amount: amount.toLocaleString() })}
+          {t('send.complete.message', { destination, amount: formatSats(amount) })}
         </p>
       </div>
 
