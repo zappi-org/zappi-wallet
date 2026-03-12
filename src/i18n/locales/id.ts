@@ -673,7 +673,7 @@ export default {
       networkDelay: 'Mungkin memerlukan waktu tergantung jaringan',
     },
     complete: {
-      message: '{{amount}} sats terkirim ke {{destination}}',
+      message: '{{destination}}\n₿ {{amount}} terkirim',
       confirm: 'Selesai',
       details: 'Detail',
     },
@@ -705,7 +705,7 @@ export default {
       cancel: 'Batal',
     },
     complete: {
-      message: '{{amount}} sats diterima di {{mint}}',
+      message: '{{mint}}\n₿ {{amount}} diterima',
       done: 'Selesai',
     },
     token: {

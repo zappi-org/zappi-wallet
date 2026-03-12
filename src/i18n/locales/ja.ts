@@ -643,7 +643,7 @@ export default {
       networkDelay: 'ネットワーク状況により時間がかかる場合があります',
     },
     complete: {
-      message: '{{destination}}に{{amount}} satsの送金が完了しました',
+      message: '{{destination}}に\n₿ {{amount}}の送金が完了しました',
       confirm: '完了',
       details: '詳細',
     },
@@ -675,7 +675,7 @@ export default {
       cancel: 'キャンセル',
     },
     complete: {
-      message: '{{mint}}に{{amount}} sats入金されました',
+      message: '{{mint}}に\n₿ {{amount}}入金されました',
       done: '完了',
     },
     token: {

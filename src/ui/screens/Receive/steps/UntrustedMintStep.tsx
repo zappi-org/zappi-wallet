@@ -4,13 +4,14 @@
  * Modern layout: bg-[#faf9f6], no border-t
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { ArrowLeft, AlertTriangle, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { hapticTap } from '@/utils/haptic'
 import { formatSats } from '@/utils/format'
 import { MintSelectBottomSheet } from '@/ui/components/payment'
 import { Button } from '@/ui/components/common/Button'
+import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import type { ValidatedCashuToken } from '@/ui/components/scanner/InputValidator'
 
 interface UntrustedMintStepProps {
@@ -18,14 +19,6 @@ interface UntrustedMintStepProps {
   onAddAndReceive: () => Promise<void>
   onSwapToMyMint: (targetMintUrl: string) => Promise<void>
   token: ValidatedCashuToken
-}
-
-function getMintDisplayName(mintUrl: string): string {
-  try {
-    return new URL(mintUrl).hostname
-  } catch {
-    return mintUrl
-  }
 }
 
 export function UntrustedMintStep({
@@ -37,7 +30,9 @@ export function UntrustedMintStep({
   const { t } = useTranslation()
   const [isProcessing, setIsProcessing] = useState(false)
   const [showMintSelect, setShowMintSelect] = useState(false)
-  const mintName = getMintDisplayName(token.mintUrl)
+  const mintUrls = useMemo(() => [token.mintUrl], [token.mintUrl])
+  const { getDisplayName } = useMintMetadata(mintUrls)
+  const mintName = getDisplayName(token.mintUrl)
 
   const handleAddAndReceive = useCallback(async () => {
     setIsProcessing(true)

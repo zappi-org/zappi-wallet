@@ -7,6 +7,7 @@ import { useEffect, useRef } from 'react'
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { hapticSuccess, hapticTap } from '@/utils/haptic'
+import sendSuccessImg from '@/assets/send-success.png'
 import { Button } from '@/ui/components/common/Button'
 import type { SendableValidatedData } from '../SendFlow'
 
@@ -59,19 +60,19 @@ export function SendCompleteStep({
 
   return (
     <div className="flex flex-col h-full bg-[#faf9f6]">
-      {/* Text at top — left-aligned */}
-      <div className="px-6 pt-14">
-        <p className="text-[22px] font-medium leading-relaxed">
+      {/* Text — centered, pushed down a bit */}
+      <div className="px-6 pt-24">
+        <p className="text-[22px] font-medium leading-relaxed whitespace-pre-line text-center">
           {t('send.complete.message', { destination, amount: amount.toLocaleString() })}
         </p>
       </div>
 
       {/* Success character image — centered with entrance animation */}
-      <div className="flex-1 flex items-center justify-center -mt-6">
+      <div className="flex-1 flex items-center justify-center">
         <motion.img
-          src="/send-success.png"
+          src={sendSuccessImg}
           alt="Success"
-          className="w-64 h-64 object-contain"
+          className="w-80 h-80 object-contain"
           initial={{ scale: 0, opacity: 0, rotate: -12 }}
           animate={{ scale: 1, opacity: 1, rotate: 0 }}
           transition={{ type: 'spring', stiffness: 260, damping: 18, delay: 0.1 }}

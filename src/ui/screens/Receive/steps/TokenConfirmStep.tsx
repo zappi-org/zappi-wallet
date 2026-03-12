@@ -3,26 +3,19 @@
  * Modern layout: bg-[#faf9f6], flat detail panel, no border-t
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { hapticTap } from '@/utils/haptic'
 import { formatSats } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
+import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import type { ValidatedCashuToken } from '@/ui/components/scanner/InputValidator'
 
 interface TokenConfirmStepProps {
   onBack: () => void
   onReceive: () => Promise<void>
   token: ValidatedCashuToken
-}
-
-function getMintDisplayName(mintUrl: string): string {
-  try {
-    return new URL(mintUrl).hostname
-  } catch {
-    return mintUrl
-  }
 }
 
 export function TokenConfirmStep({
@@ -32,7 +25,9 @@ export function TokenConfirmStep({
 }: TokenConfirmStepProps) {
   const { t } = useTranslation()
   const [isReceiving, setIsReceiving] = useState(false)
-  const mintName = getMintDisplayName(token.mintUrl)
+  const mintUrls = useMemo(() => [token.mintUrl], [token.mintUrl])
+  const { getDisplayName } = useMintMetadata(mintUrls)
+  const mintName = getDisplayName(token.mintUrl)
 
   const handleReceive = useCallback(async () => {
     setIsReceiving(true)

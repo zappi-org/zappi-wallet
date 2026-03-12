@@ -777,7 +777,7 @@ export default {
       networkDelay: '네트워크 상황에 따라 시간이 걸릴 수 있어요',
     },
     complete: {
-      message: '{{destination}}로 {{amount}} sats 전송을 완료했어요',
+      message: '{{destination}}로\n₿ {{amount}} 전송을 완료했어요',
       confirm: '확인',
       details: '세부정보',
     },
@@ -809,7 +809,7 @@ export default {
       cancel: '취소',
     },
     complete: {
-      message: '{{mint}}에 {{amount}} sats가 입금되었어요',
+      message: '{{mint}}에\n₿ {{amount}} 입금되었어요',
       done: '확인',
     },
     token: {

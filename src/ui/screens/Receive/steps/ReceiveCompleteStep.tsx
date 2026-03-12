@@ -49,8 +49,8 @@ export function ReceiveCompleteStep({
   return (
     <div className="flex flex-col h-full bg-[#faf9f6]">
       {/* Text at top — left-aligned */}
-      <div className="px-6 pt-14">
-        <p className="text-[22px] font-medium leading-relaxed">
+      <div className="px-6 pt-24">
+        <p className="text-[22px] font-medium leading-relaxed whitespace-pre-line text-center">
           {t('receive.complete.message', {
             mint: mintName,
             amount: amount.toLocaleString(),

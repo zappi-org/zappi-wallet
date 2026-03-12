@@ -673,7 +673,7 @@ export default {
       networkDelay: 'Puede tomar un momento según la red',
     },
     complete: {
-      message: '{{amount}} sats enviados a {{destination}}',
+      message: '{{destination}}\n₿ {{amount}} enviados',
       confirm: 'Listo',
       details: 'Detalles',
     },
@@ -705,7 +705,7 @@ export default {
       cancel: 'Cancelar',
     },
     complete: {
-      message: '{{amount}} sats recibidos en {{mint}}',
+      message: '{{mint}}\n₿ {{amount}} recibidos',
       done: 'Listo',
     },
     token: {

@@ -774,7 +774,7 @@ export default {
       networkDelay: 'This may take a moment depending on the network',
     },
     complete: {
-      message: 'Sent {{amount}} sats to {{destination}}',
+      message: '{{destination}}\n₿ {{amount}} sent',
       confirm: 'Done',
       details: 'Details',
     },
@@ -806,7 +806,7 @@ export default {
       cancel: 'Cancel',
     },
     complete: {
-      message: '{{amount}} sats received at {{mint}}',
+      message: '{{mint}}\n₿ {{amount}} received',
       done: 'Done',
     },
     token: {
