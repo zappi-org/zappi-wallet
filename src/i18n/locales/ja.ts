@@ -661,6 +661,10 @@ export default {
     howMuch: 'いくら受け取りますか？',
     memoPlaceholder: 'メモ（任意）',
     receiveToken: 'トークンを受取',
+    createRequest: 'リクエスト作成',
+    scanQr: 'QRコードをスキャン',
+    tokenInput: 'トークン入力',
+    tokenInputPlaceholder: 'トークンを入力してください',
     next: '次へ',
     amountRequired: '金額を入力してください',
     qr: {

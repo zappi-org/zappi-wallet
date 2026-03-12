@@ -471,17 +471,17 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
                     </p>
                   </div>
                 ) : (
-                  <div className="w-full overflow-x-auto pb-3 pt-1 scrollbar-hide">
-                    <div className="flex px-2 gap-2 min-w-max justify-center mx-auto">
+                  <div className="w-full overflow-x-auto pb-3 pt-1 scrollbar-hide snap-x snap-mandatory">
+                    <div className="flex gap-3 px-[calc(50%-var(--card-w)/2)]">
                       {mintInfos.map((mint, idx) => (
-                        <MintCard
-                          key={mint.url}
-                          mint={mint}
-                          size="sm"
-                          variant={getVariantByIndex(idx)}
-                          isSelected={selectedMintUrl === mint.url}
-                          onClick={() => setSelectedMintUrl(mint.url)}
-                        />
+                        <div key={mint.url} className="snap-center shrink-0">
+                          <MintCard
+                            mint={mint}
+                            variant={getVariantByIndex(idx)}
+                            isSelected={selectedMintUrl === mint.url}
+                            onClick={() => setSelectedMintUrl(mint.url)}
+                          />
+                        </div>
                       ))}
                     </div>
                   </div>

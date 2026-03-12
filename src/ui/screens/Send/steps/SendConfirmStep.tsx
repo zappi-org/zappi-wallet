@@ -169,7 +169,7 @@ export function SendConfirmStep({
             hapticTap()
             onConfirm()
           }}
-          className="w-full !bg-[#3b7df5] !text-white !rounded-lg !h-14 !text-lg shadow-lg shadow-[#3b7df5]/25"
+          className="w-full !bg-[#3b7df5] !text-white !rounded-[14px] !h-14 !text-lg shadow-lg shadow-[#3b7df5]/25"
         >
           {t('send.confirm.send')}
         </Button>

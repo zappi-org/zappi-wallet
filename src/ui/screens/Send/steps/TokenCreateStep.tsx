@@ -7,11 +7,9 @@ import { useState, useCallback } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useWallet } from '@/hooks/use-wallet'
-import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
 import { hapticTap } from '@/utils/haptic'
-import { formatSats } from '@/utils/format'
-import { MintSelectBottomSheet } from '@/ui/components/payment'
+import { MintCardSelector } from '@/ui/components/wallet'
 import { Button } from '@/ui/components/common/Button'
 
 interface TokenCreateStepProps {
@@ -32,7 +30,6 @@ export function TokenCreateStep({
   const { t } = useTranslation()
   const { balance } = useWallet()
   const settings = useAppStore((s) => s.settings)
-  const { getDisplayName } = useMintMetadata(settings.mints)
   const addToast = useAppStore((s) => s.addToast)
 
   const [amount, setAmount] = useState(initialAmount > 0 ? String(initialAmount) : '')
@@ -40,10 +37,8 @@ export function TokenCreateStep({
   const [selectedMintUrl, setSelectedMintUrl] = useState<string | null>(
     initialMintUrl || settings.mints[0] || null
   )
-  const [showMintSelect, setShowMintSelect] = useState(false)
 
   const mintBalance = selectedMintUrl ? (balance.byMint[selectedMintUrl] || 0) : 0
-  const mintName = selectedMintUrl ? getDisplayName(selectedMintUrl) : ''
 
   const handleNext = useCallback(() => {
     const numericAmount = parseInt(amount, 10)
@@ -78,47 +73,43 @@ export function TokenCreateStep({
         <h1 className="absolute inset-0 flex items-center justify-center text-lg font-semibold pointer-events-none">{t('send.tokenCreate.title')}</h1>
       </header>
 
+      {/* Mint Card Selector — outside scroll container for full-width overflow */}
+      <div className="shrink-0 pt-6 pb-8">
+        <MintCardSelector
+          selectedMintUrl={selectedMintUrl}
+          onSelect={setSelectedMintUrl}
+          filterFn={(mint) => mint.balance > 0}
+        />
+      </div>
+
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6 pt-6 space-y-12">
-        {/* Mint — narrative text + change button on right */}
+      <div className="flex-1 overflow-y-auto px-6 space-y-10">
+        {/* Amount */}
         <div>
-          <div className="flex items-center justify-between">
-            <p className="text-[22px] leading-snug">
-              <span className="font-normal">{t('send.fromMintPrefix')}</span>
-              <span className="font-bold">{mintName || t('payment.selectMint')}</span>
-              <span className="font-normal text-foreground-muted">{t('send.fromMintSuffix')}</span>
-            </p>
-            <button
-              onClick={() => setShowMintSelect(true)}
-              className="text-sm text-accent-primary font-medium px-3 py-1.5 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] flex items-center shrink-0"
-            >
-              {t('common.change')}
-            </button>
+          <p className="text-[20px] font-normal text-foreground-muted leading-snug">{t('send.tokenCreate.howMuch')}</p>
+          <div className="relative">
+            <span className="absolute left-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-[22px]">₿</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={amount ? Number(amount).toLocaleString() : '0'}
+              onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ''))}
+              onFocus={(e) => { if (!amount) e.target.select() }}
+              className={`w-full bg-transparent border-0 border-b border-b-gray-200 rounded-none pl-8 py-2 text-[22px] font-bold focus:outline-none focus:border-b-foreground transition-colors ${amount ? 'text-foreground' : 'text-foreground-muted/40'}`}
+            />
           </div>
-          <p className="text-[15px] text-foreground-muted mt-1">{t('common.balance')} {formatSats(mintBalance)}</p>
         </div>
 
-        {/* Amount — question as input placeholder */}
-        <div className="relative">
-          {amount && <span className="absolute left-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-[22px]">₿</span>}
+        {/* Memo */}
+        <div>
+          <p className="text-[16px] font-normal text-foreground-muted leading-snug">{t('send.tokenCreate.memo')} ({t('send.tokenCreate.memoPlaceholder')})</p>
           <input
             type="text"
-            inputMode="numeric"
-            value={amount ? Number(amount).toLocaleString() : ''}
-            onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ''))}
-            placeholder={t('send.tokenCreate.howMuch')}
-            className={`w-full bg-transparent border-0 border-b border-b-gray-200 rounded-none py-2 text-[22px] focus:outline-none focus:border-b-foreground transition-colors ${amount ? 'pl-8 font-bold text-foreground' : 'pl-0 font-normal text-foreground placeholder:text-foreground-muted/40'}`}
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            className="w-full bg-transparent border-0 border-b border-b-gray-200 rounded-none px-0 py-2 text-[18px] font-normal text-foreground focus:outline-none focus:border-b-foreground transition-colors"
           />
         </div>
-
-        {/* Memo — question as input placeholder */}
-        <input
-          type="text"
-          value={memo}
-          onChange={(e) => setMemo(e.target.value)}
-          placeholder={t('send.tokenCreate.memo')}
-          className="w-full bg-transparent border-0 border-b border-b-gray-200 rounded-none px-0 py-2 text-[22px] font-bold text-foreground placeholder:font-normal placeholder:text-foreground-muted/40 focus:outline-none focus:border-b-foreground transition-colors"
-        />
       </div>
 
       {/* Bottom Action — no border-t */}
@@ -128,20 +119,12 @@ export function TokenCreateStep({
           size="xl"
           onClick={handleNext}
           loading={isLoading}
-          className="w-full !bg-[#3b7df5] !text-white !rounded-lg !h-14 !text-lg shadow-lg shadow-[#3b7df5]/25"
+          className="w-full !bg-[#3b7df5] !text-white !rounded-[14px] !h-14 !text-lg shadow-lg shadow-[#3b7df5]/25"
         >
           {t('send.next')}
         </Button>
       </div>
 
-      {/* Mint Select */}
-      <MintSelectBottomSheet
-        isOpen={showMintSelect}
-        onClose={() => setShowMintSelect(false)}
-        onSelect={setSelectedMintUrl}
-        selectedMintUrl={selectedMintUrl}
-        filterFn={(mint) => mint.balance > 0}
-      />
     </div>
   )
 }

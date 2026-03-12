@@ -434,7 +434,7 @@ export default function MainApp() {
     )
   }, [services.payment, services.transactionRepo, refreshBalance])
 
-  const handleReceiveToken = useCallback(async (token: string): Promise<{ success: boolean; amount?: number; transactionId?: string }> => {
+  const handleReceiveToken = useCallback(async (token: string): Promise<{ success: boolean; amount?: number; transactionId?: string; error?: { code?: string; message?: string } }> => {
     const result = await services.payment.receiveEcash(token)
     if (result.isOk()) {
       // Refresh balance and transaction history
@@ -443,7 +443,7 @@ export default function MainApp() {
       setTransactions(txHistory)
       return { success: true, amount: result.value.amount, transactionId: result.value.transactionId }
     }
-    return { success: false }
+    return { success: false, error: result.error }
   }, [services.payment, refreshBalance, services.transactionRepo])
 
   // Payment received callback

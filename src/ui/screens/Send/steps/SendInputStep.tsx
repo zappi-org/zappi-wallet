@@ -5,14 +5,12 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { ArrowLeft, Clipboard, ScanLine } from 'lucide-react'
+import { ArrowLeft, Clipboard, Camera } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useWallet } from '@/hooks/use-wallet'
-import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
 import { hapticTap } from '@/utils/haptic'
-import { formatSats } from '@/utils/format'
-import { MintSelectBottomSheet } from '@/ui/components/payment'
+import { MintCardSelector } from '@/ui/components/wallet'
 import { Button } from '@/ui/components/common/Button'
 import { QrScanner } from '@/ui/components/common/QrScanner'
 import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
@@ -48,7 +46,6 @@ export function SendInputStep({
   const { t } = useTranslation()
   const { balance } = useWallet()
   const settings = useAppStore((s) => s.settings)
-  const { getDisplayName } = useMintMetadata(settings.mints)
   const addToast = useAppStore((s) => s.addToast)
 
   // State
@@ -57,7 +54,6 @@ export function SendInputStep({
   const [selectedMintUrl, setSelectedMintUrl] = useState<string | null>(
     initialMintUrl || settings.mints[0] || null
   )
-  const [showMintSelect, setShowMintSelect] = useState(false)
   const [showScanner, setShowScanner] = useState(false)
   const [detectedType, setDetectedType] = useState<string | null>(
     initialValidatedData?.type || null
@@ -98,9 +94,8 @@ export function SendInputStep({
     return () => clearTimeout(detectTimeoutRef.current)
   }, [destination])
 
-  // Selected mint info
+  // Selected mint balance (for validation)
   const mintBalance = selectedMintUrl ? (balance.byMint[selectedMintUrl] || 0) : 0
-  const mintName = selectedMintUrl ? getDisplayName(selectedMintUrl) : ''
 
   // Process external input (scan/paste) with auto-advance
   const processExternalInput = useCallback((input: string) => {
@@ -234,50 +229,41 @@ export function SendInputStep({
         </button>
       </header>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6 pt-10 space-y-12">
-        {/* Mint — narrative text + change button on right */}
-        <div>
-          <div className="flex items-center justify-between">
-            <p className="text-[22px] leading-snug">
-              <span className="font-normal">{t('send.fromMintPrefix')}</span>
-              <span className="font-bold">{mintName || t('payment.selectMint')}</span>
-              <span className="font-normal text-foreground-muted">{t('send.fromMintSuffix')}</span>
-            </p>
-            <button
-              onClick={() => setShowMintSelect(true)}
-              className="text-sm text-accent-primary font-medium px-3 py-1.5 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] flex items-center shrink-0"
-            >
-              {t('common.change')}
-            </button>
-          </div>
-          <p className="text-[15px] text-foreground-muted mt-1">{t('common.balance')} {formatSats(mintBalance)}</p>
-        </div>
+      {/* Mint Card Selector — outside scroll container for full-width overflow */}
+      <div className="shrink-0 pt-6 pb-8">
+        <MintCardSelector
+          selectedMintUrl={selectedMintUrl}
+          onSelect={setSelectedMintUrl}
+          filterFn={(mint) => mint.balance > 0}
+        />
+      </div>
 
-        {/* Destination — question as input placeholder */}
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto px-6 space-y-10">
+        {/* Destination */}
         <div>
-          <div className="flex items-center gap-1">
+          <p className="text-[20px] font-normal text-foreground-muted leading-snug">{t('send.whereTo')}</p>
+          <div className="flex items-end gap-1 border-b border-b-gray-200 focus-within:border-b-foreground transition-colors">
             <input
               type="text"
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
-              placeholder={t('send.whereTo')}
-              className="flex-1 min-w-0 bg-transparent border-0 border-b border-b-gray-200 rounded-none px-0 py-2 text-[22px] font-bold text-foreground placeholder:font-normal placeholder:text-foreground-muted/40 focus:outline-none focus:border-b-foreground transition-colors"
+              className="flex-1 min-w-0 bg-transparent border-0 rounded-none px-0 py-2 text-[22px] font-bold text-foreground focus:outline-none"
             />
-            <div className="flex items-center gap-0.5 shrink-0">
+            <div className="flex items-center gap-0.5 shrink-0 pb-1">
               <button
                 onClick={handlePaste}
                 aria-label={t('scanner.paste')}
                 className="p-2 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
-                <Clipboard className="w-4.5 h-4.5 text-accent-primary" />
+                <Clipboard className="w-5.5 h-5.5 text-accent-primary" />
               </button>
               <button
                 onClick={() => setShowScanner(true)}
                 aria-label={t('scanner.title')}
                 className="p-2 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
-                <ScanLine className="w-4.5 h-4.5 text-accent-primary" />
+                <Camera className="w-5.5 h-5.5 text-accent-primary" />
               </button>
             </div>
           </div>
@@ -289,22 +275,25 @@ export function SendInputStep({
           )}
         </div>
 
-        {/* Amount — question as input placeholder, comma-formatted */}
-        <div className="relative">
-          {amount && <span className="absolute left-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-[22px]">₿</span>}
-          <input
-            ref={amountInputRef}
-            type="text"
-            inputMode="numeric"
-            value={amount ? Number(amount).toLocaleString() : ''}
-            onChange={(e) => {
-              const v = e.target.value.replace(/[^0-9]/g, '')
-              setAmount(v)
-            }}
-            disabled={isAmountFixed}
-            placeholder={t('send.howMuch')}
-            className={`w-full bg-transparent border-0 border-b border-b-gray-200 rounded-none py-2 text-[22px] focus:outline-none focus:border-b-foreground transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${amount ? 'pl-8 font-bold text-foreground' : 'pl-0 font-normal text-foreground placeholder:text-foreground-muted/40'}`}
-          />
+        {/* Amount */}
+        <div>
+          <p className="text-[20px] font-normal text-foreground-muted leading-snug">{t('send.howMuch')}</p>
+          <div className="relative">
+            <span className="absolute left-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-[22px]">₿</span>
+            <input
+              ref={amountInputRef}
+              type="text"
+              inputMode="numeric"
+              value={amount ? Number(amount).toLocaleString() : '0'}
+              onChange={(e) => {
+                const v = e.target.value.replace(/[^0-9]/g, '')
+                setAmount(v)
+              }}
+              onFocus={(e) => { if (!amount) e.target.select() }}
+              disabled={isAmountFixed}
+              className={`w-full bg-transparent border-0 border-b border-b-gray-200 rounded-none pl-8 py-2 text-[22px] font-bold focus:outline-none focus:border-b-foreground transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${amount ? 'text-foreground' : 'text-foreground-muted/40'}`}
+            />
+          </div>
         </div>
       </div>
 
@@ -315,20 +304,11 @@ export function SendInputStep({
           size="xl"
           onClick={handleNext}
           loading={isLoading}
-          className="w-full !bg-[#3b7df5] !text-white !rounded-lg !h-14 !text-lg shadow-lg shadow-[#3b7df5]/25"
+          className="w-full !bg-[#3b7df5] !text-white !rounded-[14px] !h-14 !text-lg shadow-lg shadow-[#3b7df5]/25"
         >
           {t('send.next')}
         </Button>
       </div>
-
-      {/* Mint Select Bottom Sheet */}
-      <MintSelectBottomSheet
-        isOpen={showMintSelect}
-        onClose={() => setShowMintSelect(false)}
-        onSelect={setSelectedMintUrl}
-        selectedMintUrl={selectedMintUrl}
-        filterFn={(mint) => mint.balance > 0}
-      />
 
       {/* QR Scanner Modal */}
       {showScanner && (

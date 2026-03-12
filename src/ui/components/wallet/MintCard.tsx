@@ -7,12 +7,10 @@ import cardBg from "@/assets/card-bg.png";
 import cardNoise from "@/assets/card-noise.png";
 
 export type MintCardVariant = "light" | "medium" | "dark" | "darker";
-export type MintCardSize = "sm" | "md";
 
 interface MintCardProps {
   mint: MintInfo;
   variant?: MintCardVariant;
-  size?: MintCardSize;
   isSelected?: boolean;
   hideBalance?: boolean;
   onClick?: () => void;
@@ -22,18 +20,10 @@ interface MintCardProps {
 /**
  * Mint logo component with fallback to default card logo
  */
-function MintLogo({
-  iconUrl,
-  size = "md"
-}: {
-  iconUrl?: string;
-  size?: "sm" | "md"
-}) {
+function MintLogo({ iconUrl }: { iconUrl?: string }) {
   const [hasError, setHasError] = useState(false);
 
-  const sizeClasses = size === "sm"
-    ? "w-5 h-5 sm:w-6 sm:h-6"
-    : "w-6 h-6";
+  const sizeClasses = "w-6 h-6";
 
   // Use default card logo if no iconUrl or load error
   if (!iconUrl || hasError) {
@@ -86,18 +76,9 @@ const variantFilters = {
   dark: "hue-rotate(-30deg) brightness(0.82)",
 } as const;
 
-// Small card gradient config (kept for SendScreen carousel)
-const smGradientConfig = {
-  light: { from: "#e8a87c", to: "#d4735e" },
-  medium: { from: "#d4a574", to: "#c47d5c" },
-  dark: { from: "#c98e6e", to: "#b86b4f" },
-  darker: { from: "#d9b08c", to: "#c88a6a" },
-} as const;
-
 export function MintCard({
   mint,
   variant = "medium",
-  size = "md",
   isSelected,
   hideBalance,
   onClick,
@@ -105,67 +86,6 @@ export function MintCard({
 }: MintCardProps) {
   const { t } = useTranslation();
   const displayName = getMintShortName(mint.url, mint.name);
-
-  // Small card variant (for carousel in SendScreen)
-  if (size === "sm") {
-    const config = smGradientConfig[variant];
-    return (
-      <div
-        onClick={onClick}
-        className={cn(
-          "relative rounded-sm overflow-hidden cursor-pointer transition-all shadow-lg border border-white/5 clip-rounded-3xl active:scale-[0.95] touch-manipulation",
-          isSelected === true && "ring-2 ring-primary ring-offset-2 ring-offset-background",
-          isSelected === false && "opacity-50 scale-[0.92]",
-          "h-[18vh] max-h-[140px] min-w-[105px] w-[33vw] max-w-[120px]"
-        )}
-      >
-        {/* Gradient Background */}
-        <div
-          className="absolute inset-0"
-          style={{ background: `linear-gradient(155deg, ${config.from} 0%, ${config.to} 100%)` }}
-        />
-
-        {/* Online status dot - bottom right */}
-        <div
-          role="status"
-          aria-label={mint.isOnline ? 'Online' : 'Offline'}
-          className={cn(
-            "absolute bottom-2 right-2 z-20 w-[6px] h-[6px] rounded-full border border-white/30",
-            mint.isOnline
-              ? "bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.5)]"
-              : "bg-red-400 shadow-[0_0_4px_rgba(248,113,113,0.5)]"
-          )}
-        />
-
-        {/* Content */}
-        <div className="relative z-10 h-full p-2.5 flex flex-col justify-between">
-          {/* Header: Logo & Name */}
-          <div className="flex justify-between items-start">
-            <MintLogo iconUrl={mint.iconUrl} size="sm" />
-            <div className="font-['Montserrat'] font-bold text-[9px] leading-tight tracking-wide text-white drop-shadow-lg text-right max-w-[50%] flex flex-col items-end">
-              {displayName.split(/[\s-]+/).slice(0, 2).map((word, i) => (
-                <span key={i}>{word}</span>
-              ))}
-            </div>
-          </div>
-
-          {/* Balance - Bottom Left */}
-          {!hideBalance && (
-            <div className="flex flex-col">
-              <span className="text-[6px] font-bold uppercase tracking-[0.15em] text-white/60">
-                Balance
-              </span>
-              <span className="font-['Montserrat'] text-xs font-bold text-white tracking-tight drop-shadow-md">
-                <span className="text-[#b6b6b6]">₿</span> {mint.balance.toLocaleString()}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Medium card variant (for Home screen carousel)
   return (
     <div
       onClick={onClick}
@@ -200,7 +120,7 @@ export function MintCard({
           className="rounded-full flex items-center justify-center overflow-hidden shrink-0"
           style={{ width: '25px', height: '25px' }}
         >
-          <MintLogo iconUrl={mint.iconUrl} size="md" />
+          <MintLogo iconUrl={mint.iconUrl} />
         </div>
         <p className="font-['Montserrat'] font-bold text-[15.6px] text-[#fafafa] uppercase leading-normal whitespace-nowrap">
           {displayName}

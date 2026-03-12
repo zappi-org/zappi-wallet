@@ -117,7 +117,7 @@ export function UntrustedMintStep({
           size="xl"
           onClick={handleAddAndReceive}
           disabled={isProcessing}
-          className="w-full !bg-[#3b7df5] !text-white !rounded-lg !h-14 !text-lg shadow-lg shadow-[#3b7df5]/25"
+          className="w-full !bg-[#3b7df5] !text-white !rounded-[14px] !h-14 !text-lg shadow-lg shadow-[#3b7df5]/25"
         >
           {isProcessing ? (
             <span className="flex items-center gap-2">

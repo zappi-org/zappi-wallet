@@ -736,14 +736,14 @@ export default {
     fromMintSuffix: '에서',
     whereTo: '어디로 보내시겠어요?',
     placeholder: '인보이스, 주소, 결제요청을 입력하세요',
-    howMuch: '얼마나 보낼까요?',
+    howMuch: '얼마를 보낼까요?',
     createToken: '토큰 만들기',
     next: '다음',
     amountRequired: '금액을 입력해주세요',
     destinationRequired: '목적지를 입력해주세요',
     tokenCreate: {
       title: '토큰 만들기',
-      howMuch: '얼마치 토큰을 만들까요?',
+      howMuch: '얼마의 토큰을 만들까요?',
       memo: '메모',
       memoPlaceholder: '선택 사항',
     },
@@ -786,7 +786,7 @@ export default {
   // Receive
   receive: {
     title: '받기',
-    senderMethod: '보내는 사람이 어떤것을 사용하나요?',
+    senderMethod: '보내는 사람이 무엇을 사용하나요?',
     lightning: '라이트닝',
     ecash: '이캐시',
     toMint: '입금 민트',
@@ -795,6 +795,10 @@ export default {
     howMuch: '얼마를 받으시겠어요?',
     memoPlaceholder: '메모 (선택사항)',
     receiveToken: '토큰받기',
+    createRequest: '요청 생성',
+    scanQr: 'QR을 스캔하세요',
+    tokenInput: '토큰 입력',
+    tokenInputPlaceholder: '토큰을 입력하세요',
     next: '다음',
     amountRequired: '금액을 입력해주세요',
     qr: {

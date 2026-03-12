@@ -16,6 +16,7 @@ import { useAppStore } from '@/store'
 import { useTranslation } from 'react-i18next'
 import type { ValidatedData, ValidatedCashuToken } from '@/ui/components/scanner/InputValidator'
 
+import { TokenReceiveStep } from './steps/TokenReceiveStep'
 import { ReceiveInputStep } from './steps/ReceiveInputStep'
 import { ReceiveQRStep } from './steps/ReceiveQRStep'
 import { ReceiveCompleteStep } from './steps/ReceiveCompleteStep'
@@ -25,6 +26,7 @@ import { UntrustedMintStep } from './steps/UntrustedMintStep'
 // ============= Types =============
 
 export type ReceiveStep =
+  | 'token-receive'
   | 'input'
   | 'qr'
   | 'complete'
@@ -69,7 +71,7 @@ export interface ReceiveFlowProps {
     onError?: (error: Error) => void
   ) => Promise<(() => void) | null>
   onPaymentReceived: (amount: number, type: 'lightning' | 'ecash') => void
-  onReceiveToken: (token: string) => Promise<{ success: boolean; amount?: number }>
+  onReceiveToken: (token: string) => Promise<{ success: boolean; amount?: number; error?: { code?: string; message?: string } }>
   onAddTrustedMint: (mintUrl: string) => Promise<boolean>
   // Pre-filled data
   validatedData?: ValidatedData
@@ -102,7 +104,7 @@ export function ReceiveFlow({
       const isTrusted = settings.mints.includes(initialValidatedData.mintUrl)
       return isTrusted ? 'token-confirm' : 'untrusted-mint'
     }
-    return 'input'
+    return 'token-receive'
   }
 
   const [state, setState] = useState<ReceiveFlowState>({
@@ -232,11 +234,21 @@ export function ReceiveFlow({
           receivedAmount: result.amount || state.scannedToken!.amountSats,
         }))
       } else {
-        addToast({ type: 'error', message: t('payment.tokenReceiveFailed'), duration: 3000 })
+        // Check if token was already spent
+        const errorMsg = result.error?.message?.toLowerCase() || ''
+        const isAlreadySpent = errorMsg.includes('already spent') || errorMsg.includes('token spent')
+        const message = isAlreadySpent
+          ? t('payment.tokenAlreadySpent')
+          : t('payment.tokenReceiveFailed')
+        addToast({ type: 'error', message, duration: 3000 })
       }
     } catch (err) {
       console.error('[ReceiveFlow] Token receive error:', err)
-      const message = err instanceof Error ? err.message : t('payment.tokenReceiveFailed')
+      const errMsg = err instanceof Error ? err.message.toLowerCase() : ''
+      const isAlreadySpent = errMsg.includes('already spent') || errMsg.includes('token spent')
+      const message = isAlreadySpent
+        ? t('payment.tokenAlreadySpent')
+        : (err instanceof Error ? err.message : t('payment.tokenReceiveFailed'))
       addToast({ type: 'error', message, duration: 3000 })
     } finally {
       isProcessingRef.current = false
@@ -288,12 +300,21 @@ export function ReceiveFlow({
   return (
     <div className="h-dvh bg-background text-foreground font-sans flex flex-col pt-safe">
       <AnimatePresence mode="wait">
+        {state.step === 'token-receive' && (
+          <PageTransition key="token-receive" variant="page" className="flex-1">
+            <TokenReceiveStep
+              onBack={onBack}
+              onTokenDetected={handleTokenDetected}
+              onGoToCreateRequest={() => goToStep('input')}
+            />
+          </PageTransition>
+        )}
+
         {state.step === 'input' && (
           <PageTransition key="receive-input" variant="page" className="flex-1">
             <ReceiveInputStep
-              onBack={onBack}
+              onBack={() => goToStep('token-receive')}
               onNext={handleInputNext}
-              onTokenDetected={handleTokenDetected}
               initialAmount={state.amount}
               initialMintUrl={state.selectedMintUrl}
               isLoading={isLoading}
@@ -331,7 +352,7 @@ export function ReceiveFlow({
         {state.step === 'token-confirm' && state.scannedToken && (
           <PageTransition key="token-confirm" variant="page" className="flex-1">
             <TokenConfirmStep
-              onBack={onBack}
+              onBack={() => goToStep('token-receive')}
               onReceive={handleTokenReceive}
               token={state.scannedToken}
             />
@@ -341,7 +362,7 @@ export function ReceiveFlow({
         {state.step === 'untrusted-mint' && state.scannedToken && (
           <PageTransition key="untrusted-mint" variant="page" className="flex-1">
             <UntrustedMintStep
-              onBack={onBack}
+              onBack={() => goToStep('token-receive')}
               onAddAndReceive={handleAddTrustAndReceive}
               onSwapToMyMint={handleSwapToMyMint}
               token={state.scannedToken}

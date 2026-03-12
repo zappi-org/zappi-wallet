@@ -691,6 +691,10 @@ export default {
     howMuch: '¿Cuánto recibir?',
     memoPlaceholder: 'Memo (opcional)',
     receiveToken: 'Recibir Token',
+    createRequest: 'Crear solicitud',
+    scanQr: 'Escanear código QR',
+    tokenInput: 'Entrada de token',
+    tokenInputPlaceholder: 'Ingrese un token',
     next: 'Siguiente',
     amountRequired: 'Ingresa un monto',
     qr: {

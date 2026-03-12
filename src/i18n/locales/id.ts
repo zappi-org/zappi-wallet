@@ -691,6 +691,10 @@ export default {
     howMuch: 'Berapa yang akan diterima?',
     memoPlaceholder: 'Memo (opsional)',
     receiveToken: 'Terima Token',
+    createRequest: 'Buat Permintaan',
+    scanQr: 'Pindai kode QR',
+    tokenInput: 'Input token',
+    tokenInputPlaceholder: 'Masukkan token',
     next: 'Lanjut',
     amountRequired: 'Masukkan jumlah',
     qr: {

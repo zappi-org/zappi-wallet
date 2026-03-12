@@ -186,7 +186,7 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
   }
 
   return (
-    <div className="relative w-full overflow-hidden rounded-xl bg-black">
+    <div className="relative w-full overflow-hidden rounded-[14px] bg-black">
       <video
         ref={videoRef}
         className="w-full aspect-square object-cover"
