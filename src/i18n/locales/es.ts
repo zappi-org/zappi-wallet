@@ -84,10 +84,6 @@ export default {
     pleaseWait: 'Por favor espera',
 
     // Complete
-    setupComplete: '¡Configuración completa!',
-    walletRecovered: 'Tu billetera ha sido recuperada exitosamente.',
-    walletCreated: 'Tu nueva billetera ha sido creada.',
-    getStarted: 'Comenzar',
     walletSetupFailed: 'Error al configurar la billetera. Por favor intenta de nuevo.',
   },
 

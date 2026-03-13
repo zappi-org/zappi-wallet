@@ -84,10 +84,6 @@ export default {
     pleaseWait: 'Mohon tunggu',
 
     // Complete
-    setupComplete: 'Pengaturan Selesai!',
-    walletRecovered: 'Dompet Anda berhasil dipulihkan.',
-    walletCreated: 'Dompet baru Anda telah dibuat.',
-    getStarted: 'Mulai',
     walletSetupFailed: 'Pengaturan dompet gagal. Silakan coba lagi.',
   },
 

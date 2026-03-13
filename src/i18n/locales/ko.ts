@@ -84,10 +84,6 @@ export default {
     pleaseWait: '잠시만 기다려주세요',
 
     // Complete
-    setupComplete: '설정 완료!',
-    walletRecovered: '지갑이 성공적으로 복구되었습니다.',
-    walletCreated: '새 지갑이 생성되었습니다.',
-    getStarted: '시작하기',
     walletSetupFailed: '지갑 설정에 실패했습니다. 다시 시도해주세요.',
   },
 

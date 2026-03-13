@@ -4,7 +4,7 @@ import { ArrowLeft, Copy, Check, ShieldCheck, RefreshCw, Key, Plus, Delete } fro
 import { useTranslation } from 'react-i18next'
 import creatingWalletSvg from '@/assets/creating-wallet.svg'
 
-export type OnboardingStep = 'welcome' | 'mnemonic' | 'pin' | 'pin-confirm' | 'recovering' | 'complete'
+export type OnboardingStep = 'welcome' | 'mnemonic' | 'pin' | 'pin-confirm' | 'recovering'
 
 export interface OnboardingScreenProps {
   onComplete: (data: OnboardingData) => Promise<boolean>
@@ -153,7 +153,8 @@ export function OnboardingScreen({
       })
 
       if (success) {
-        setStep('complete')
+        window.location.reload()
+        return
       } else {
         // Go back to pin-confirm on failure
         setStep('pin-confirm')
@@ -515,7 +516,7 @@ export function OnboardingScreen({
             <img
               src={creatingWalletSvg}
               alt=""
-              className="w-24 h-24"
+              className="w-80 h-80"
               aria-hidden="true"
             />
           </div>
@@ -537,32 +538,5 @@ export function OnboardingScreen({
     )
   }
 
-  // Render Complete step
-  return (
-    <div className="fixed inset-0 bg-background text-foreground flex flex-col items-center justify-center p-4 pt-safe pb-safe overflow-hidden overscroll-none">
-      {/* Background blobs */}
-      <div className="absolute top-[-20%] right-[-20%] w-[80vh] h-[80vh] bg-accent-primary/10 rounded-full blur-3xl transform-gpu pointer-events-none" />
-      <div className="absolute bottom-[-20%] left-[-20%] w-[80vh] h-[80vh] bg-primary/5 rounded-full blur-3xl transform-gpu pointer-events-none" />
-
-      <div className="animate-fadeIn w-full max-w-md flex flex-col items-center text-center relative z-10">
-        <div className="animate-fadeIn w-24 h-24 rounded-full bg-accent-primary/20 flex items-center justify-center mb-4">
-          <Check className="w-10 h-10 text-accent-primary" />
-        </div>
-
-        <h2 className="text-2xl font-bold mb-2">{t('onboarding.setupComplete')}</h2>
-        <p className="text-foreground-muted text-base mb-12">
-          {mode === 'import'
-            ? t('onboarding.walletRecovered')
-            : t('onboarding.walletCreated')}
-        </p>
-
-        <button
-          onClick={() => window.location.reload()}
-          className="w-full bg-primary text-primary-foreground py-3 rounded-2xl font-bold text-base shadow-lg hover:bg-primary-hover active:scale-[0.98] transition-all"
-        >
-          {t('onboarding.getStarted')}
-        </button>
-      </div>
-    </div>
-  )
+  return null
 }

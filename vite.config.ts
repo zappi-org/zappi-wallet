@@ -88,7 +88,6 @@ export default defineConfig({
       workbox: {
         // Precache all static assets
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-        skipWaiting: true,
         clientsClaim: true,
         cleanupOutdatedCaches: true,
         // Runtime caching for fonts and CDN resources

@@ -84,10 +84,6 @@ export default {
     pleaseWait: 'Please wait',
 
     // Complete
-    setupComplete: 'Setup Complete!',
-    walletRecovered: 'Your wallet has been successfully recovered.',
-    walletCreated: 'Your new wallet has been created.',
-    getStarted: 'Get Started',
     walletSetupFailed: 'Wallet setup failed. Please try again.',
   },
 

@@ -84,10 +84,6 @@ export default {
     pleaseWait: 'お待ちください',
 
     // Complete
-    setupComplete: 'セットアップ完了！',
-    walletRecovered: 'ウォレットが正常に復元されました。',
-    walletCreated: '新しいウォレットが作成されました。',
-    getStarted: '始める',
     walletSetupFailed: 'ウォレットのセットアップに失敗しました。もう一度お試しください。',
   },
 
