@@ -521,7 +521,7 @@ export function OnboardingScreen({
             />
           </div>
 
-          <h2 className="text-2xl font-bold mb-2">
+          <h2 className="text-[22px] font-bold mb-2">
             {mode === 'import' ? t('onboarding.recoveringWallet') : t('onboarding.creatingWallet')}
           </h2>
           <p className="text-foreground-muted text-base mb-4 whitespace-pre-line">
@@ -530,7 +530,7 @@ export function OnboardingScreen({
               : t('onboarding.creatingWalletDesc')
             }
           </p>
-          <p className="text-foreground-muted text-xs">
+          <p className="text-foreground-muted text-sm">
             {t('onboarding.pleaseWait')}
           </p>
         </div>

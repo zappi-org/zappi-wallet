@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
-import { Lock, Delete } from "lucide-react";
+import { Delete } from "lucide-react";
+import zappiLogo from "@/assets/zappi.png";
 import { useTranslation } from "react-i18next";
 import { CountdownTimer } from "@/ui/components/common";
 import {
@@ -18,7 +19,7 @@ const FaceIdIcon = ({ className }: { className?: string }) => (
     strokeWidth="1.5"
     strokeLinecap="round"
     strokeLinejoin="round"
-    className={className || "w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8"}
+    className={className || "w-6 h-6"}
   >
     <path d="M9 10V9" />
     <path d="M15 10V9" />
@@ -190,108 +191,100 @@ export function LockScreen({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-primary text-primary-foreground flex flex-col items-center p-3 pt-safe pb-safe">
-      {/* Background Ambient - simple gradient, no blur */}
-      <div className="absolute inset-0 bg-gradient-to-bl from-accent-primary/20 to-transparent pointer-events-none" />
+    <div className="fixed inset-0 z-[100] bg-background text-foreground flex flex-col p-4 pt-safe pb-safe overflow-hidden overscroll-none">
+      <div className="flex-1 flex flex-col max-w-md mx-auto w-full">
+        {/* Top Section */}
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <img src={zappiLogo} alt="" className="w-16 h-16 mb-4" aria-hidden="true" />
 
-      {/* Top Section - uses flex-1 to take remaining space */}
-      <div className="flex-1 flex flex-col items-center justify-center relative z-10 min-h-0">
-        <div className="w-16 h-16 sm:w-18 sm:h-18 md:w-20 md:h-20 bg-background/10 rounded-full flex items-center justify-center mb-3 sm:mb-4 md:mb-5 ring-1 ring-background/20">
-          <Lock className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-primary-foreground" />
-        </div>
-
-        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight mb-1 sm:mb-1.5">
-          {t('lock.welcomeBack')}
-        </h2>
-        <p className="text-primary-foreground/60 text-xs sm:text-sm">
-          {t('lock.enterPin')}
-        </p>
-
-        {/* Password Dots */}
-        <div
-          className="flex gap-3 sm:gap-3.5 md:gap-4 mt-6 sm:mt-7 md:mt-8"
-          style={shake ? { animation: 'shake 0.4s ease-in-out' } : undefined}
-        >
-          {[...Array(6)].map((_, i) => (
-            <div
-              key={i}
-              className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 rounded-full"
-              style={{
-                backgroundColor: shake
-                  ? 'rgba(248, 113, 113, 0.5)'
-                  : password.length > i
-                    ? '#e4e0d5'
-                    : 'transparent',
-                border: shake
-                  ? '1px solid #f87171'
-                  : password.length > i
-                    ? '1px solid #e4e0d5'
-                    : '1px solid rgba(228, 224, 213, 0.3)',
-                transform: password.length > i ? 'scale(1.1)' : 'scale(1)',
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <p className="text-red-400 text-xs sm:text-sm mt-2 sm:mt-3 font-bold animate-pulse">
-            {error}
+          <p className="text-foreground-muted text-sm mb-6">
+            {t('lock.enterPin')}
           </p>
-        )}
 
-        {/* Lockout Message */}
-        {isLockedOut && lockoutUntil && (
-          <CountdownTimer expiryMs={lockoutUntil} onExpired={handleLockoutExpired}>
-            {(remainingSeconds) => (
-              <p className="text-red-400 text-xs sm:text-sm text-center mt-1 sm:mt-1.5">
-                {t('lock.tryAgainIn', { time: formatSeconds(remainingSeconds) })}
-              </p>
-            )}
-          </CountdownTimer>
-        )}
-
-        {/* Passkey Button */}
-        {passkeyAvailable && !isLockedOut && (
-          <button
-            onClick={handlePasskeyAuth}
-            disabled={isLoading}
-            className="mt-4 sm:mt-5 md:mt-6 p-3 sm:p-3.5 md:p-4 rounded-full bg-background/10 hover:bg-background/20 transition-all active:scale-95 disabled:opacity-50"
-            aria-label={t('lock.faceIdUnlock')}
+          {/* PIN dots */}
+          <div
+            className="flex gap-3 mb-6"
+            style={shake ? { animation: 'shake 0.4s ease-in-out' } : undefined}
           >
-            <FaceIdIcon />
-          </button>
-        )}
-      </div>
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className="w-4 h-4 rounded-full"
+                style={{
+                  transform: password.length > i ? 'scale(1)' : 'scale(0.75)',
+                  backgroundColor: shake
+                    ? 'rgba(248, 113, 113, 0.5)'
+                    : password.length > i
+                      ? '#264032'
+                      : 'rgba(38, 64, 50, 0.2)',
+                  border: shake
+                    ? '1px solid #f87171'
+                    : 'none',
+                }}
+              />
+            ))}
+          </div>
 
-      {/* Keypad - fixed height */}
-      <div className="grid grid-cols-3 gap-x-4 gap-y-2 sm:gap-x-5 sm:gap-y-3 md:gap-x-6 md:gap-y-4 pb-3 sm:pb-4 relative z-10 shrink-0">
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+          {/* Error Message */}
+          {error && (
+            <div className="animate-fadeIn bg-accent-danger/10 text-accent-danger px-3 py-2 rounded-xl text-xs font-bold mb-3">
+              {error}
+            </div>
+          )}
+
+          {/* Lockout Message */}
+          {isLockedOut && lockoutUntil && (
+            <CountdownTimer expiryMs={lockoutUntil} onExpired={handleLockoutExpired}>
+              {(remainingSeconds) => (
+                <p className="text-accent-danger text-xs text-center mt-1">
+                  {t('lock.tryAgainIn', { time: formatSeconds(remainingSeconds) })}
+                </p>
+              )}
+            </CountdownTimer>
+          )}
+
+          {/* Passkey Button */}
+          {passkeyAvailable && !isLockedOut && (
+            <button
+              onClick={handlePasskeyAuth}
+              disabled={isLoading}
+              className="mt-4 p-3 rounded-full bg-primary/5 hover:bg-primary/10 transition-all active:scale-95 disabled:opacity-50"
+              aria-label={t('lock.faceIdUnlock')}
+            >
+              <FaceIdIcon />
+            </button>
+          )}
+        </div>
+
+        {/* Numeric Keypad */}
+        <div className="grid grid-cols-3 gap-3 pb-6 shrink-0">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+            <button
+              key={num}
+              onPointerDown={(e) => { e.preventDefault(); handleKeyPress(num.toString()) }}
+              disabled={isLockedOut || isLoading}
+              className="h-14 rounded-xl text-xl font-bold text-foreground hover:bg-black/5 active:bg-black/10 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              {num}
+            </button>
+          ))}
+          <div />
           <button
-            key={num}
-            onPointerDown={(e) => { e.preventDefault(); handleKeyPress(num.toString()) }}
+            onPointerDown={(e) => { e.preventDefault(); handleKeyPress("0") }}
             disabled={isLockedOut || isLoading}
-            className="w-[72px] h-[72px] sm:w-[78px] sm:h-[78px] md:w-[84px] md:h-[84px] rounded-full text-2xl sm:text-3xl md:text-4xl font-medium text-primary-foreground hover:bg-background/10 active:bg-background/20 flex items-center justify-center mx-auto disabled:opacity-50 touch-manipulation"
+            className="h-14 rounded-xl text-xl font-bold text-foreground hover:bg-black/5 active:bg-black/10 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            {num}
+            0
           </button>
-        ))}
-        <div />
-        <button
-          onPointerDown={(e) => { e.preventDefault(); handleKeyPress("0") }}
-          disabled={isLockedOut || isLoading}
-          className="w-[72px] h-[72px] sm:w-[78px] sm:h-[78px] md:w-[84px] md:h-[84px] rounded-full text-2xl sm:text-3xl md:text-4xl font-medium text-primary-foreground hover:bg-background/10 active:bg-background/20 flex items-center justify-center mx-auto disabled:opacity-50 touch-manipulation"
-        >
-          0
-        </button>
-        <button
-          onPointerDown={(e) => { e.preventDefault(); handleKeyPress("delete") }}
-          disabled={isLockedOut || isLoading}
-          aria-label={t('common.delete')}
-          className="w-[72px] h-[72px] sm:w-[78px] sm:h-[78px] md:w-[84px] md:h-[84px] rounded-full text-primary-foreground hover:bg-background/10 active:bg-background/20 flex items-center justify-center mx-auto disabled:opacity-50 touch-manipulation"
-        >
-          <Delete className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8" />
-        </button>
+          <button
+            onPointerDown={(e) => { e.preventDefault(); handleKeyPress("delete") }}
+            disabled={isLockedOut || isLoading}
+            aria-label={t('common.delete')}
+            className="h-14 rounded-xl text-foreground hover:bg-black/5 active:bg-black/10 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <Delete className="w-5 h-5" />
+          </button>
+        </div>
       </div>
     </div>
   );
