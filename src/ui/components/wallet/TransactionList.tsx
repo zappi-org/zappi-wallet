@@ -100,7 +100,7 @@ export function TransactionList({
 
       {transactions.length === 0 ? (
         <div className="flex items-center justify-center h-[75px] text-foreground-muted">
-          <p className="text-xs opacity-50">{t('home.noTransactions')}</p>
+          <p className="text-sm opacity-60">{t('home.noTransactions')}</p>
         </div>
       ) : (
       <div className="flex flex-col border border-black/10 rounded-[13px] overflow-hidden gap-0">

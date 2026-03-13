@@ -179,6 +179,7 @@ export function OnboardingScreen({
     setMnemonicError('')
     setPinError('')
     if (targetStep === 'pin') {
+      setPin('')
       setConfirmPin('')
     }
     if (targetStep === 'mnemonic') {
@@ -469,7 +470,7 @@ export function OnboardingScreen({
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
               <button
                 key={num}
-                onClick={() => handlePinInput(num.toString())}
+                onPointerDown={(e) => { e.preventDefault(); handlePinInput(num.toString()); }}
                 disabled={isLoading}
                 className="h-14 rounded-xl text-xl font-bold text-foreground hover:bg-black/5 active:bg-black/10 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
@@ -478,14 +479,14 @@ export function OnboardingScreen({
             ))}
             <div />
             <button
-              onClick={() => handlePinInput('0')}
+              onPointerDown={(e) => { e.preventDefault(); handlePinInput('0'); }}
               disabled={isLoading}
               className="h-14 rounded-xl text-xl font-bold text-foreground hover:bg-black/5 active:bg-black/10 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               0
             </button>
             <button
-              onClick={handlePinDelete}
+              onPointerDown={(e) => { e.preventDefault(); handlePinDelete(); }}
               disabled={isLoading}
               aria-label={t('common.delete')}
               className="h-14 rounded-xl text-foreground hover:bg-black/5 active:bg-black/10 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"

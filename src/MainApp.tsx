@@ -769,6 +769,38 @@ export default function MainApp() {
     setCurrentScreen(target)
   }, [previousScreen])
 
+  // Android back button support via History API
+  useEffect(() => {
+    if (!window.history.state?.screen) {
+      window.history.replaceState({ screen: 'home' }, '')
+    }
+  }, [])
+
+  useEffect(() => {
+    if (currentScreen === 'home') {
+      window.history.replaceState({ screen: 'home' }, '')
+    } else if (window.history.state?.screen !== currentScreen) {
+      window.history.pushState({ screen: currentScreen }, '')
+    }
+  }, [currentScreen])
+
+  const currentScreenRef = useRef(currentScreen)
+  currentScreenRef.current = currentScreen
+  const handleBackRef = useRef(handleBack)
+  handleBackRef.current = handleBack
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (currentScreenRef.current === 'home') {
+        window.history.pushState({ screen: 'home' }, '')
+      } else {
+        handleBackRef.current()
+      }
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
   // Preload lazy screens after home is visible
   useEffect(() => {
     if (isInitializing || isLocked) return

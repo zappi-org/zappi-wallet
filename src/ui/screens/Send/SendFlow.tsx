@@ -438,7 +438,17 @@ export function SendFlow({
         {state.step === 'confirm' && (
           <PageTransition key="send-confirm" variant="page" className="flex-1">
             <SendConfirmStep
-              onBack={() => goToStep('input')}
+              onBack={() => {
+                setState((prev) => ({
+                  ...prev,
+                  step: 'input',
+                  validatedData: null,
+                  destination: '',
+                  fee: 0,
+                  meltQuoteId: null,
+                  error: null,
+                }))
+              }}
               onConfirm={handleConfirmSend}
               validatedData={state.validatedData!}
               amount={state.amount}

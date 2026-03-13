@@ -97,6 +97,15 @@ export function TokenCreatedStep({
     }
   }, [token])
 
+  // Auto-dismiss after token is claimed
+  const onCompleteRef = useRef(onComplete)
+  useEffect(() => { onCompleteRef.current = onComplete })
+  useEffect(() => {
+    if (!isSpent) return
+    const timer = setTimeout(() => onCompleteRef.current(), 3000)
+    return () => clearTimeout(timer)
+  }, [isSpent])
+
   const handleCopy = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(token)
@@ -136,7 +145,7 @@ export function TokenCreatedStep({
     <div className="flex flex-col h-full bg-[#faf9f6]">
       {/* Header — no border */}
       <header className="flex items-center justify-center px-4 py-3">
-        <h1 className="text-lg font-semibold">{t('send.tokenCreated.title')}</h1>
+        <h1 className="text-lg font-semibold">{isSpent ? t('send.tokenCreated.claimedTitle') : t('send.tokenCreated.title')}</h1>
       </header>
 
       {/* Content */}

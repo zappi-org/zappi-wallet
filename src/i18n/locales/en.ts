@@ -44,6 +44,7 @@ export default {
     tryAgainIn: 'Try again in {{time}}',
     faceIdUnlock: 'Unlock with Face ID',
     errorOccurred: 'An error occurred.',
+    biometricFailed: 'Biometric authentication failed. Please enter your PIN.',
   },
 
   // Onboarding
@@ -757,6 +758,7 @@ export default {
       copy: 'Copy',
       cancel: 'Reclaim Token',
       confirm: 'Done',
+      claimedTitle: 'Token Claimed',
       claimed: 'Token has been claimed',
       alreadySpent: 'Token was already claimed',
     },

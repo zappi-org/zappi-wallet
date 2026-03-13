@@ -4,7 +4,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { ArrowLeft, Clipboard } from 'lucide-react'
+import { ArrowLeft, ClipboardPaste } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { QrScanner } from '@/ui/components/common/QrScanner'
 import { detectInputType } from './InputTypeDetector'
@@ -195,7 +195,7 @@ export function UnifiedScanner({ isOpen, onClose, onValidated }: UnifiedScannerP
               disabled={state === 'validating'}
               title={t('scanner.paste')}
             >
-              <Clipboard className="w-5 h-5 text-accent-primary" />
+              <ClipboardPaste className="w-5 h-5 text-accent-primary" />
             </button>
           </div>
         </div>

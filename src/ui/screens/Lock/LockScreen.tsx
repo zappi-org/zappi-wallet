@@ -3,6 +3,7 @@ import { Delete } from "lucide-react";
 import zappiLogo from "@/assets/zappi.png";
 import { useTranslation } from "react-i18next";
 import { CountdownTimer } from "@/ui/components/common";
+import { useAppStore } from "@/store";
 import {
   isPasskeySupported,
   isPasskeyRegistered,
@@ -43,6 +44,7 @@ export function LockScreen({
   lockoutDurationMinutes = 15,
 }: LockScreenProps) {
   const { t } = useTranslation();
+  const addToast = useAppStore((s) => s.addToast);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -107,11 +109,15 @@ export function LockScreen({
         }
       }
     } catch {
-      // Passkey failed silently
-    } finally {
-      setIsLoading(false);
+      // fall through to toast
     }
-  }, [isLockedOut, isLoading, onUnlock]);
+    addToast({
+      type: 'error',
+      message: t('lock.biometricFailed'),
+      duration: 3000,
+    });
+    setIsLoading(false);
+  }, [isLockedOut, isLoading, onUnlock, addToast, t]);
 
   const handleKeyPress = useCallback(
     (key: string) => {

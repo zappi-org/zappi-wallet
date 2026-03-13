@@ -44,6 +44,7 @@ export default {
     tryAgainIn: 'Coba lagi dalam {{time}}',
     faceIdUnlock: 'Buka dengan Face ID',
     errorOccurred: 'Terjadi kesalahan.',
+    biometricFailed: 'Autentikasi biometrik gagal. Silakan masukkan PIN.',
   },
 
   // Onboarding
@@ -656,6 +657,7 @@ export default {
       copy: 'Salin',
       cancel: 'Klaim Kembali',
       confirm: 'Selesai',
+      claimedTitle: 'Token Diklaim',
       claimed: 'Token telah diklaim',
       alreadySpent: 'Token sudah diklaim',
     },

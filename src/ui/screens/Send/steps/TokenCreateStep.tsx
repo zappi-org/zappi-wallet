@@ -41,6 +41,7 @@ export function TokenCreateStep({
   )
 
   const mintBalance = selectedMintUrl ? (balance.byMint[selectedMintUrl] || 0) : 0
+  const isOverBalance = !!(amount && parseInt(amount, 10) > mintBalance)
 
   const handleNext = useCallback(() => {
     const numericAmount = parseInt(amount, 10)
@@ -98,12 +99,16 @@ export function TokenCreateStep({
             <input
               type="text"
               inputMode="numeric"
-              value={amount ? Number(amount).toLocaleString() : '0'}
+              value={amount ? Number(amount).toLocaleString() : ''}
+              placeholder="0"
               onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ''))}
               onFocus={(e) => { if (!amount) e.target.select() }}
               className={`w-full bg-transparent border-0 border-b border-b-gray-200 rounded-none ${unit === '₿' ? 'pl-8' : 'pr-12'} py-2 text-[22px] font-bold focus:outline-none focus:border-b-foreground transition-colors ${amount ? 'text-foreground' : 'text-foreground-muted/40'}`}
             />
           </div>
+          {isOverBalance && (
+            <p className="text-red-500 text-xs mt-1 font-medium">{t('payment.insufficientBalance')}</p>
+          )}
         </div>
 
         {/* Memo */}
@@ -125,6 +130,7 @@ export function TokenCreateStep({
           size="xl"
           onClick={handleNext}
           loading={isLoading}
+          disabled={isOverBalance}
           className="w-full !bg-[#3b7df5] !text-white !rounded-[14px] !h-14 !text-lg shadow-lg shadow-[#3b7df5]/25"
         >
           {t('send.next')}

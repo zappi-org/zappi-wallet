@@ -8,7 +8,7 @@
     </radialGradient>
   </defs>
 
-  <rect width="100%" height="100%" fill="#f8f9fa" />
+  <rect width="100%" height="100%" fill="transparent" />
 
   <ellipse cx="400" cy="520" rx="250" ry="30" fill="#000000" opacity="0.1" />
 

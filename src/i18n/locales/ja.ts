@@ -44,6 +44,7 @@ export default {
     tryAgainIn: '{{time}}後に再試行してください',
     faceIdUnlock: 'Face IDでロック解除',
     errorOccurred: 'エラーが発生しました。',
+    biometricFailed: '生体認証に失敗しました。PINを入力してください。',
   },
 
   // Onboarding
@@ -626,6 +627,7 @@ export default {
       copy: 'コピー',
       cancel: 'トークンを回収',
       confirm: '完了',
+      claimedTitle: 'トークン受取完了',
       claimed: 'トークンが受け取られました',
       alreadySpent: 'すでに受け取られたトークンです',
     },

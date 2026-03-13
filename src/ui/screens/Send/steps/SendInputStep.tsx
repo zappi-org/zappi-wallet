@@ -5,7 +5,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { ArrowLeft, Clipboard, Camera } from 'lucide-react'
+import { ArrowLeft, ClipboardPaste, Camera } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useSatUnit } from '@/utils/format'
 import { useWallet } from '@/hooks/use-wallet'
@@ -98,6 +98,7 @@ export function SendInputStep({
 
   // Selected mint balance (for validation)
   const mintBalance = selectedMintUrl ? (balance.byMint[selectedMintUrl] || 0) : 0
+  const isOverBalance = !!(amount && parseInt(amount, 10) > mintBalance)
 
   // Process external input (scan/paste) with auto-advance
   const processExternalInput = useCallback((input: string) => {
@@ -258,7 +259,7 @@ export function SendInputStep({
                 aria-label={t('scanner.paste')}
                 className="p-2 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
-                <Clipboard className="w-5.5 h-5.5 text-accent-primary" />
+                <ClipboardPaste className="w-5.5 h-5.5 text-accent-primary" />
               </button>
               <button
                 onClick={() => setShowScanner(true)}
@@ -290,16 +291,20 @@ export function SendInputStep({
               ref={amountInputRef}
               type="text"
               inputMode="numeric"
-              value={amount ? Number(amount).toLocaleString() : '0'}
+              value={amount ? Number(amount).toLocaleString() : ''}
+              placeholder="0"
               onChange={(e) => {
                 const v = e.target.value.replace(/[^0-9]/g, '')
                 setAmount(v)
               }}
               onFocus={(e) => { if (!amount) e.target.select() }}
-              disabled={isAmountFixed}
+              disabled={isAmountFixed || !detectedType}
               className={`w-full bg-transparent border-0 border-b border-b-gray-200 rounded-none ${unit === '₿' ? 'pl-8' : 'pr-12'} py-2 text-[22px] font-bold focus:outline-none focus:border-b-foreground transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${amount ? 'text-foreground' : 'text-foreground-muted/40'}`}
             />
           </div>
+          {isOverBalance && (
+            <p className="text-red-500 text-xs mt-1 font-medium">{t('payment.insufficientBalance')}</p>
+          )}
         </div>
       </div>
 
@@ -310,6 +315,7 @@ export function SendInputStep({
           size="xl"
           onClick={handleNext}
           loading={isLoading}
+          disabled={isOverBalance}
           className="w-full !bg-[#3b7df5] !text-white !rounded-[14px] !h-14 !text-lg shadow-lg shadow-[#3b7df5]/25"
         >
           {t('send.next')}

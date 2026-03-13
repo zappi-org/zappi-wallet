@@ -44,6 +44,7 @@ export default {
     tryAgainIn: '{{time}} 후 다시 시도하세요',
     faceIdUnlock: 'Face ID로 잠금 해제',
     errorOccurred: '오류가 발생했습니다.',
+    biometricFailed: '생체인증에 실패했습니다. PIN을 입력해주세요.',
   },
 
   // Onboarding
@@ -760,6 +761,7 @@ export default {
       copy: '복사',
       cancel: '토큰 회수',
       confirm: '확인',
+      claimedTitle: '토큰 수령 완료',
       claimed: '토큰이 수령되었습니다',
       alreadySpent: '이미 수령된 토큰입니다',
     },

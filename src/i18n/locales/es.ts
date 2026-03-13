@@ -44,6 +44,7 @@ export default {
     tryAgainIn: 'Intenta de nuevo en {{time}}',
     faceIdUnlock: 'Desbloquear con Face ID',
     errorOccurred: 'Ocurrió un error.',
+    biometricFailed: 'Autenticación biométrica fallida. Ingresa tu PIN.',
   },
 
   // Onboarding
@@ -656,6 +657,7 @@ export default {
       copy: 'Copiar',
       cancel: 'Recuperar Token',
       confirm: 'Listo',
+      claimedTitle: 'Token Reclamado',
       claimed: 'Token reclamado',
       alreadySpent: 'Token ya fue reclamado',
     },

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, startTransition, useCallback } from "react";
 import { useCarouselScroll } from "@/hooks/use-carousel-scroll";
 import { User, ArrowDownLeft, ArrowUpRight, Plus } from "lucide-react";
+import { hapticTap } from "@/utils/haptic";
 
 import { useTranslation } from "react-i18next";
 import { MintCard, getVariantByIndex } from "../../components/wallet/MintCard";
@@ -156,7 +157,7 @@ export function HomeScreen({
   }, [onValidatedScan, scanMode]);
 
   return (
-    <div className="h-dvh bg-[#faf9f6] text-gray-900 font-sans max-w-md mx-auto overflow-hidden flex flex-col pt-safe">
+    <div className="h-dvh bg-[#faf9f6] text-gray-900 font-sans overflow-hidden flex flex-col pt-safe">
       {/* Header */}
       <header className="flex items-center justify-end px-3 shrink-0">
         <button
@@ -175,7 +176,7 @@ export function HomeScreen({
       <main className="flex-1 flex flex-col overflow-y-auto min-h-0">
         {/* Balance */}
         <div
-          className="flex flex-col items-center gap-1 shrink-0 pb-1.5 pt-8 cursor-pointer active:opacity-70 transition-opacity"
+          className="flex flex-col items-center gap-1 shrink-0 pb-1.5 pt-8 cursor-pointer"
           onClick={() => {
             const updated = { balanceHidden: !settings.balanceHidden }
             updateSettings(updated)
@@ -187,15 +188,15 @@ export function HomeScreen({
           <p className="font-['Amiri_Quran_Colored',sans-serif] text-xl font-bold text-[#86868b]">Total</p>
           <div className="flex items-center gap-2 py-0.5">
             {settings.balanceHidden ? (
-              <span className="font-['Montserrat'] font-bold text-[clamp(2.25rem,9vw,2.75rem)] text-[#2e0f0f] tracking-[5px]">••••</span>
+              <span className="font-['Montserrat'] font-bold text-[clamp(2.25rem,9vw,2.75rem)] text-[#2e0f0f] tracking-[2px]">••••</span>
             ) : isLoadingBalance ? (
-              <span className="font-['Montserrat'] font-bold text-[clamp(2.25rem,9vw,2.75rem)] text-[#2e0f0f] tracking-[5px] animate-shimmer">...</span>
+              <span className="font-['Montserrat'] font-bold text-[clamp(2.25rem,9vw,2.75rem)] text-[#2e0f0f] tracking-[2px] animate-shimmer">...</span>
             ) : (
               <>
                 {unit === '₿' && (
                   <span className="font-['Montserrat'] font-bold text-[clamp(2rem,8vw,2.5rem)] text-[#9d817a] tracking-[-1px]">{unit}</span>
                 )}
-                <span className="font-['Montserrat'] font-bold text-[clamp(2.25rem,9vw,2.75rem)] text-[#2e0f0f] tracking-[5px]">
+                <span className="font-['Montserrat'] font-bold text-[clamp(2.25rem,9vw,2.75rem)] text-[#2e0f0f] tracking-[2px]">
                   {totalBalance.toLocaleString()}
                 </span>
                 {unit !== '₿' && (
@@ -229,7 +230,7 @@ export function HomeScreen({
                   <div
                     key={mint.url}
                     ref={(el) => { cardRefs.current[idx] = el; }}
-                    className="snap-center shrink-0 will-change-transform"
+                    className="snap-center snap-always shrink-0 will-change-transform"
                     onClick={() => handleMintClick(idx)}
                   >
                     <MintCard
@@ -279,21 +280,22 @@ export function HomeScreen({
       </main>
 
       {/* Action Row — always fixed at bottom */}
-      <div className="shrink-0 flex items-start justify-center gap-4 pt-3 pb-3 bg-[#faf9f6] pb-safe">
+      <div className="shrink-0 flex items-start justify-evenly pt-3 pb-3 bg-[#faf9f6] pb-safe">
         <button
-          onClick={handleReceiveClick}
+          onClick={() => { hapticTap(); handleReceiveClick(); }}
           className="flex flex-col items-center gap-1.5 w-20 active:scale-95 transition-transform"
         >
-          <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center">
+          <div className="w-[60px] h-[60px] bg-white rounded-full flex items-center justify-center shadow-[0px_2px_1px_0px_rgba(0,0,0,0.25)]">
             <ArrowDownLeft className="w-6 h-6 text-[#5B7A54]" strokeWidth={2} />
           </div>
           <span className="font-['Outfit'] font-bold text-xs text-[#1d1d1f] leading-normal">{t('common.receive')}</span>
         </button>
         <button
-          onClick={handleSendClick}
-          className="flex flex-col items-center gap-1.5 w-20 active:scale-95 transition-transform"
+          onClick={() => { hapticTap(); handleSendClick(); }}
+          disabled={mints[clampedMintIndex]?.balance === 0}
+          className="flex flex-col items-center gap-1.5 w-20 active:scale-95 transition-transform disabled:opacity-40"
         >
-          <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center">
+          <div className="w-[60px] h-[60px] bg-white rounded-full flex items-center justify-center shadow-[0px_2px_1px_0px_rgba(0,0,0,0.25)]">
             <ArrowUpRight className="w-6 h-6 text-[#D4A03D]" strokeWidth={2} />
           </div>
           <span className="font-['Outfit'] font-bold text-xs text-[#1d1d1f] leading-normal">{t('common.send')}</span>

@@ -5,7 +5,7 @@
  */
 
 import { useState, useCallback } from 'react'
-import { ArrowLeft, Clipboard } from 'lucide-react'
+import { ArrowLeft, ClipboardPaste } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { QrScanner } from '@/ui/components/common/QrScanner'
 import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
@@ -145,7 +145,7 @@ export function TokenReceiveStep({
           <p className="text-[20px] font-normal text-foreground-muted leading-snug mb-3">
             {t('receive.scanQr')}
           </p>
-          <div className="relative rounded-[14px] overflow-hidden aspect-square max-h-[50vh]">
+          <div className="relative rounded-[14px] overflow-hidden aspect-square max-h-[50vh] max-w-sm mx-auto">
             <QrScanner
               onScan={handleScan}
               active={state !== 'validating'}
@@ -182,7 +182,8 @@ export function TokenReceiveStep({
                 }
               }}
               disabled={state === 'validating'}
-              className="flex-1 min-w-0 bg-transparent border-0 rounded-none px-0 py-2 text-[22px] font-bold text-foreground placeholder:text-foreground-muted/40 placeholder:font-normal focus:outline-none disabled:opacity-50"
+              placeholder={t('receive.tokenInputPlaceholder')}
+              className="flex-1 min-w-0 bg-transparent border-0 rounded-none px-0 py-2 text-[22px] font-bold text-foreground placeholder:text-foreground-muted/40 placeholder:font-normal placeholder:text-base focus:outline-none disabled:opacity-50"
             />
             <div className="shrink-0 pb-1">
               <button
@@ -191,7 +192,7 @@ export function TokenReceiveStep({
                 aria-label={t('scanner.paste')}
                 className="p-2 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50"
               >
-                <Clipboard className="w-5.5 h-5.5 text-accent-primary" />
+                <ClipboardPaste className="w-5.5 h-5.5 text-accent-primary" />
               </button>
             </div>
           </div>
