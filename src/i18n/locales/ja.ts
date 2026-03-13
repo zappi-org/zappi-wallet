@@ -79,8 +79,8 @@ export default {
     // Processing
     creatingWallet: 'ウォレット作成中',
     recoveringWallet: 'ウォレット復元中',
-    creatingWalletDesc: '新しいウォレットを\n作成しています...',
-    recoveringWalletDesc: 'Nostrからプロファイルを取得し\nトークンを復元しています...',
+    creatingWalletDesc: '新しいウォレットを作成しています...',
+    recoveringWalletDesc: 'Nostrからプロファイルを取得しトークンを復元しています...',
     pleaseWait: 'お待ちください',
 
     // Complete

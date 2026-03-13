@@ -79,8 +79,8 @@ export default {
     // Processing
     creatingWallet: '지갑 생성 중',
     recoveringWallet: '지갑 복구 중',
-    creatingWalletDesc: '새 지갑을\n생성하고 있습니다...',
-    recoveringWalletDesc: 'Nostr에서 프로필을 가져오고\n토큰을 복구하고 있습니다...',
+    creatingWalletDesc: '새 지갑을 생성하고 있습니다...',
+    recoveringWalletDesc: 'Nostr에서 프로필을 가져오고 토큰을 복구하고 있습니다...',
     pleaseWait: '잠시만 기다려주세요',
 
     // Complete

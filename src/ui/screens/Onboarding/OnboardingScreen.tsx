@@ -471,7 +471,7 @@ export function OnboardingScreen({
                 key={num}
                 onClick={() => handlePinInput(num.toString())}
                 disabled={isLoading}
-                className="h-14 rounded-xl text-xl font-bold text-foreground hover:bg-white/50 active:bg-white/80 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="h-14 rounded-xl text-xl font-bold text-foreground hover:bg-black/5 active:bg-black/10 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 {num}
               </button>
@@ -480,7 +480,7 @@ export function OnboardingScreen({
             <button
               onClick={() => handlePinInput('0')}
               disabled={isLoading}
-              className="h-14 rounded-xl text-xl font-bold text-foreground hover:bg-white/50 active:bg-white/80 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="h-14 rounded-xl text-xl font-bold text-foreground hover:bg-black/5 active:bg-black/10 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               0
             </button>
@@ -488,7 +488,7 @@ export function OnboardingScreen({
               onClick={handlePinDelete}
               disabled={isLoading}
               aria-label={t('common.delete')}
-              className="h-14 rounded-xl text-foreground hover:bg-white/50 active:bg-white/80 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="h-14 rounded-xl text-foreground hover:bg-black/5 active:bg-black/10 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <Delete className="w-5 h-5" />
             </button>

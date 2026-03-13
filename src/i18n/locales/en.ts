@@ -79,8 +79,8 @@ export default {
     // Processing
     creatingWallet: 'Creating Wallet',
     recoveringWallet: 'Recovering Wallet',
-    creatingWalletDesc: 'Creating your\nnew wallet...',
-    recoveringWalletDesc: 'Fetching profile from Nostr\nand recovering tokens...',
+    creatingWalletDesc: 'Creating your new wallet...',
+    recoveringWalletDesc: 'Fetching profile from Nostr and recovering tokens...',
     pleaseWait: 'Please wait',
 
     // Complete

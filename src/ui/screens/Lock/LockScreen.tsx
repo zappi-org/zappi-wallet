@@ -195,21 +195,21 @@ export function LockScreen({
       <div className="flex-1 flex flex-col max-w-md mx-auto w-full">
         {/* Top Section */}
         <div className="flex-1 flex flex-col items-center justify-center">
-          <img src={zappiLogo} alt="" className="w-16 h-16 mb-4" aria-hidden="true" />
+          <img src={zappiLogo} alt="" className="w-24 h-24 mb-6" aria-hidden="true" />
 
-          <p className="text-foreground-muted text-sm mb-6">
+          <p className="text-foreground-muted text-base mb-8">
             {t('lock.enterPin')}
           </p>
 
           {/* PIN dots */}
           <div
-            className="flex gap-3 mb-6"
+            className="flex gap-4 mb-6"
             style={shake ? { animation: 'shake 0.4s ease-in-out' } : undefined}
           >
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <div
                 key={i}
-                className="w-4 h-4 rounded-full"
+                className="w-5 h-5 rounded-full"
                 style={{
                   transform: password.length > i ? 'scale(1)' : 'scale(0.75)',
                   backgroundColor: shake

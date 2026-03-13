@@ -79,8 +79,8 @@ export default {
     // Processing
     creatingWallet: 'Membuat Dompet',
     recoveringWallet: 'Memulihkan Dompet',
-    creatingWalletDesc: 'Membuat dompet\nbaru Anda...',
-    recoveringWalletDesc: 'Mengambil profil dari Nostr\ndan memulihkan token...',
+    creatingWalletDesc: 'Membuat dompet baru Anda...',
+    recoveringWalletDesc: 'Mengambil profil dari Nostr dan memulihkan token...',
     pleaseWait: 'Mohon tunggu',
 
     // Complete

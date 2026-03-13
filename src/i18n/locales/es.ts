@@ -79,8 +79,8 @@ export default {
     // Processing
     creatingWallet: 'Creando billetera',
     recoveringWallet: 'Recuperando billetera',
-    creatingWalletDesc: 'Creando tu\nnueva billetera...',
-    recoveringWalletDesc: 'Obteniendo perfil de Nostr\ny recuperando tokens...',
+    creatingWalletDesc: 'Creando tu nueva billetera...',
+    recoveringWalletDesc: 'Obteniendo perfil de Nostr y recuperando tokens...',
     pleaseWait: 'Por favor espera',
 
     // Complete
