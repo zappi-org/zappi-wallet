@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie'
-import type { Transaction, FailedSwap, WalletSettings, MintMetadata } from '@/core/types'
+import type { Transaction, FailedSwap, WalletSettings, MintMetadata, ExchangeRateCache } from '@/core/types'
 import type { ProcessedEvent, SyncAnchor } from '@/core/types'
 import { DATABASE } from '@/core/constants'
 
@@ -123,6 +123,11 @@ export interface PendingReceivedTokenRecord {
 export type MintMetadataRecord = MintMetadata
 
 /**
+ * Exchange rate cache record for offline support (single record, id = 'current')
+ */
+export type ExchangeRateCacheRecord = ExchangeRateCache
+
+/**
  * Zappi Database
  */
 export class ZappiDatabase extends Dexie {
@@ -139,6 +144,7 @@ export class ZappiDatabase extends Dexie {
   pendingSendTokens!: Table<PendingSendTokenRecord, string>
   pendingReceivedTokens!: Table<PendingReceivedTokenRecord, string>
   mintMetadata!: Table<MintMetadataRecord, string>
+  exchangeRates!: Table<ExchangeRateCacheRecord, string>
 
   constructor() {
     super(DATABASE.NAME)
@@ -182,6 +188,9 @@ export class ZappiDatabase extends Dexie {
 
       // Mint metadata: indexed by url (NUT-06 cached info for offline support)
       mintMetadata: 'url, fetchedAt',
+
+      // Exchange rates: single record cache for offline support
+      exchangeRates: 'id',
     })
   }
 }

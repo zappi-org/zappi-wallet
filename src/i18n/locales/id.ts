@@ -33,6 +33,7 @@ export default {
     notifications: 'Notifikasi',
     syncing: 'Sinkronisasi',
     change: 'Ubah',
+    search: 'Cari',
   },
 
   // Lock Screen
@@ -226,6 +227,11 @@ export default {
 
     // Unit Display
     unitDisplay: 'Satuan',
+
+    // Fiat Currency
+    fiatCurrency: 'Mata Uang Fiat',
+    showFiatConversion: 'Tampilkan Harga Fiat',
+    selectCurrency: 'Pilih Mata Uang',
   },
 
   // Add Mint Screen

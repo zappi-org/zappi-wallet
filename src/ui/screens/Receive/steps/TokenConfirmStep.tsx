@@ -16,7 +16,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { ArrowLeft, ChevronRight, WifiOff, AlertTriangle, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { hapticTap } from '@/utils/haptic'
-import { useFormatSats } from '@/utils/format'
+import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
 import { MintSelectBottomSheet } from '@/ui/components/payment'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
@@ -43,6 +43,7 @@ export function TokenConfirmStep({
 }: TokenConfirmStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
+  const formatFiat = useFormatFiat()
   const settings = useAppStore((s) => s.settings)
   const p2pkPubkey = useAppStore(selectP2pkPubkey)
   const [isReceiving, setIsReceiving] = useState(false)
@@ -165,7 +166,12 @@ export function TokenConfirmStep({
 
           <div className={`flex items-center justify-between ${!isSwapDisabled ? 'pr-[18px]' : ''}`}>
             <span className="text-[15px] text-foreground-muted">{t('receive.token.amount')}</span>
-            <span className="text-[15px] font-semibold">{formattedAmount}</span>
+            <div className="text-right">
+              <span className="text-[15px] font-semibold">{formattedAmount}</span>
+              {(() => { const f = formatFiat(token.amountSats); return f ? (
+                <p className="text-[13px] text-foreground-muted">≈ {f}</p>
+              ) : null })()}
+            </div>
           </div>
           {token.memo && (
             <div className={`flex items-center justify-between ${!isSwapDisabled ? 'pr-[18px]' : ''}`}>

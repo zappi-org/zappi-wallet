@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import type { Transaction, TokenState } from '@/core/types'
-import { useFormatSats } from '@/utils/format'
+import { useFormatSats, useFormatFiat, formatTransactionFiat } from '@/utils/format'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
 import { TransactionRepository } from '@/data/repositories/transaction.repository'
@@ -39,6 +39,7 @@ export default function TransactionDetailScreen({
 }: TransactionDetailScreenProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
+  const formatFiat = useFormatFiat()
   const { getDisplayName } = useMintMetadata(mintUrls)
   const [tx, setTx] = useState(initialTx)
   const [showDetails, setShowDetails] = useState(false)
@@ -311,11 +312,12 @@ export default function TransactionDetailScreen({
             {isReceive ? '+' : isSwap ? '' : '-'}{formatSats(tx.amount)}
           </span>
 
-          {tx.fiatAmount != null && tx.fiatCurrency && (
-            <span className="text-sm text-foreground-muted">
-              ≈ {tx.fiatAmount.toLocaleString(undefined, { style: 'currency', currency: tx.fiatCurrency })}
-            </span>
-          )}
+          {(() => {
+            const f = formatTransactionFiat(tx, formatFiat)
+            return f ? (
+              <span className="text-sm text-foreground-muted">≈ {f}</span>
+            ) : null
+          })()}
 
           <span className={`px-3 py-1 rounded-full text-[11px] font-bold border ${statusConfig.bg} ${statusConfig.color} ${statusConfig.border}`}>
             {statusConfig.label}

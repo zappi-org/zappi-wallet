@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { hapticTap } from '@/utils/haptic'
-import { useFormatSats } from '@/utils/format'
+import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
 import type { SendableValidatedData } from '../SendFlow'
 
@@ -74,6 +74,7 @@ export function SendConfirmStep({
 }: SendConfirmStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
+  const formatFiat = useFormatFiat()
   const settings = useAppStore((s) => s.settings)
   const { getDisplayName } = useMintMetadata(settings.mints)
 
@@ -110,6 +111,9 @@ export function SendConfirmStep({
           <p className="text-[24px] font-bold leading-snug">
             {formatSats(amount)} {t('send.confirm.amountSuffix')}
           </p>
+          {(() => { const f = formatFiat(amount); return f ? (
+            <p className="text-[15px] text-foreground-muted">≈ {f}</p>
+          ) : null })()}
           <p className="text-[24px] font-medium leading-snug">
             {t('send.confirm.questionEnd')}
           </p>
@@ -147,7 +151,12 @@ export function SendConfirmStep({
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[15px] font-semibold">{t('send.confirm.total')}</span>
-                <span className="text-[15px] font-bold">{formatSats(totalAmount)}</span>
+                <div className="text-right">
+                  <span className="text-[15px] font-bold">{formatSats(totalAmount)}</span>
+                  {(() => { const f = formatFiat(totalAmount); return f ? (
+                    <p className="text-[13px] text-foreground-muted">≈ {f}</p>
+                  ) : null })()}
+                </div>
               </div>
             </>
           )}

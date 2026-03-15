@@ -6,12 +6,12 @@
 import { useState, useCallback } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { useSatUnit } from '@/utils/format'
 import { useWallet } from '@/hooks/use-wallet'
 import { useAppStore } from '@/store'
 import { hapticTap } from '@/utils/haptic'
 import { MintCardSelector } from '@/ui/components/wallet'
 import { Button } from '@/ui/components/common/Button'
+import { AmountInput } from '@/ui/components/common/AmountInput'
 
 interface TokenCreateStepProps {
   onBack: () => void
@@ -29,7 +29,6 @@ export function TokenCreateStep({
   isLoading = false,
 }: TokenCreateStepProps) {
   const { t } = useTranslation()
-  const unit = useSatUnit()
   const { balance } = useWallet()
   const settings = useAppStore((s) => s.settings)
   const addToast = useAppStore((s) => s.addToast)
@@ -88,32 +87,12 @@ export function TokenCreateStep({
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 space-y-10">
         {/* Amount */}
-        <div>
-          <p className="text-[20px] font-normal text-foreground-muted leading-snug">{t('send.tokenCreate.howMuch')}</p>
-          <div className="relative">
-            {unit === '₿' ? (
-              <span className="absolute left-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-[22px]">{unit}</span>
-            ) : (
-              <span className="absolute right-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-[18px]">{unit}</span>
-            )}
-            <input
-              type="text"
-              inputMode="numeric"
-              value={amount ? Number(amount).toLocaleString() : ''}
-              placeholder="0"
-              onChange={(e) => {
-                const v = e.target.value.replace(/[^0-9]/g, '')
-                if (Number(v) > 2_100_000_000_000_000) return
-                setAmount(v)
-              }}
-              onFocus={(e) => { if (!amount) e.target.select() }}
-              className={`w-full bg-transparent border-0 border-b border-b-gray-200 rounded-none ${unit === '₿' ? 'pl-8' : 'pr-12'} py-2 text-[22px] font-bold focus:outline-none focus:border-b-foreground transition-colors ${amount ? 'text-foreground' : 'text-foreground-muted/40'}`}
-            />
-          </div>
-          {isOverBalance && (
-            <p className="text-red-500 text-sm mt-1 font-bold">{t('payment.insufficientBalance')}</p>
-          )}
-        </div>
+        <AmountInput
+          amount={amount}
+          onAmountChange={setAmount}
+          label={t('send.tokenCreate.howMuch')}
+          error={isOverBalance ? t('payment.insufficientBalance') : null}
+        />
 
         {/* Memo */}
         <div>

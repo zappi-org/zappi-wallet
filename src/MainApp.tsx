@@ -54,6 +54,7 @@ import { deleteCocoData, clearWalletCache } from '@/coco'
 import { resetWalletCache } from '@/data/cache/wallet-cache'
 import type { Transaction } from '@/core/types'
 import { satUnit, formatSats } from '@/utils/format'
+import { exchangeRateService } from '@/services/exchange-rate'
 
 /** Sum all recovery counts into a single total */
 function totalRecoveredCount(recovery: Awaited<ReturnType<PaymentService['recoverAll']>>): number {
@@ -122,15 +123,29 @@ export default function MainApp() {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
 
   // Services (initialized once)
-  const [services] = useState(() => ({
-    security: new SecurityService(),
-    wallet: new WalletService(),
-    payment: new PaymentService(),
-    sync: new SyncService(),
-    profile: new ProfileService(),
-    settingsRepo: new SettingsRepository(),
-    transactionRepo: new TransactionRepository(),
-  }))
+  const [services] = useState(() => {
+    const transactionRepo = new TransactionRepository()
+
+    // Inject fiat snapshot provider (avoids store coupling inside repository)
+    transactionRepo.setFiatSnapshotProvider(() => {
+      const state = useAppStore.getState()
+      const currency = state.settings.fiatCurrency ?? 'USD'
+      const show = state.settings.showFiatConversion ?? true
+      const rate = state.allRates?.[currency] ?? null
+      if (!show || !rate) return null
+      return { fiatCurrency: currency, exchangeRate: rate }
+    })
+
+    return {
+      security: new SecurityService(),
+      wallet: new WalletService(),
+      payment: new PaymentService(),
+      sync: new SyncService(),
+      profile: new ProfileService(),
+      settingsRepo: new SettingsRepository(),
+      transactionRepo,
+    }
+  })
 
   /** Refresh balance + transaction history in parallel */
   const refreshAll = useCallback(async () => {
@@ -160,6 +175,10 @@ export default function MainApp() {
         // Load transaction history
         const txHistory = await services.transactionRepo.findAll({ limit: 100 })
         setTransactions(txHistory)
+
+        // Load cached exchange rates first, then fetch fresh in background
+        await exchangeRateService.loadCachedRates().catch(() => {})
+        exchangeRateService.fetchRates().catch(() => {})
 
         // Data retention: clean up old records
         services.transactionRepo.deleteOlderThan(90).catch(() => {})
@@ -313,6 +332,9 @@ export default function MainApp() {
     // Visibility change handler - re-check when app comes to foreground
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
+        // Refresh exchange rates (throttled — no-op if recently fetched)
+        exchangeRateService.refreshIfStale().catch(() => {})
+
         console.log('[Background] App visible, recovering pending operations')
         try {
           const recovery = await services.payment.recoverAll()

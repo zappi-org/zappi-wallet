@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { ArrowLeft, Trash2, Info, Copy, Check, AlertTriangle, ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
-import { useFormatSats } from '@/utils/format'
+import { useFormatSats, useFormatFiat } from '@/utils/format'
 
 export interface MintInfo {
   url: string
@@ -65,6 +65,7 @@ export function MintDetailsModal({
 }: MintDetailsModalProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
+  const formatFiat = useFormatFiat()
   const [copied, setCopied] = useState(false)
   const [copiedContact, setCopiedContact] = useState<number | null>(null)
   const [copiedPubkey, setCopiedPubkey] = useState(false)
@@ -231,9 +232,14 @@ export function MintDetailsModal({
               <div className="bg-white/50 p-3 rounded-xl border border-white/60 space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-xs font-medium text-foreground-muted">{t('common.balance')}</span>
-                  <span className="font-bold text-foreground">
-                    {formatSats(mint.balance)}
-                  </span>
+                  <div className="text-right">
+                    <span className="font-bold text-foreground">
+                      {formatSats(mint.balance)}
+                    </span>
+                    {(() => { const f = formatFiat(mint.balance); return f ? (
+                      <p className="text-[10px] text-foreground-muted">{f}</p>
+                    ) : null })()}
+                  </div>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-xs font-medium text-foreground-muted">URL</span>

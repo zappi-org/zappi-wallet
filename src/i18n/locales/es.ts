@@ -33,6 +33,7 @@ export default {
     notifications: 'Notificaciones',
     syncing: 'Sincronizando',
     change: 'Cambiar',
+    search: 'Buscar',
   },
 
   // Lock Screen
@@ -226,6 +227,11 @@ export default {
 
     // Unit Display
     unitDisplay: 'Unidad',
+
+    // Fiat Currency
+    fiatCurrency: 'Moneda Fiduciaria',
+    showFiatConversion: 'Mostrar Precio Fiat',
+    selectCurrency: 'Seleccionar Moneda',
   },
 
   // Add Mint Screen

@@ -10,7 +10,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { ArrowLeft, AlertTriangle, Loader2, WifiOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { hapticTap } from '@/utils/haptic'
-import { useFormatSats } from '@/utils/format'
+import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { MintSelectBottomSheet } from '@/ui/components/payment'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import type { ValidatedCashuToken } from '@/ui/components/scanner/InputValidator'
@@ -32,6 +32,7 @@ export function UntrustedMintStep({
 }: UntrustedMintStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
+  const formatFiat = useFormatFiat()
   const [swapLoading, setSwapLoading] = useState(false)
   const [addLoading, setAddLoading] = useState(false)
   const [showMintSelect, setShowMintSelect] = useState(false)
@@ -90,6 +91,9 @@ export function UntrustedMintStep({
           {'\n'}
           {t('receive.untrusted.warningNeedConfirm', { amount: formattedAmount })}
         </p>
+        {(() => { const f = formatFiat(token.amountSats); return f ? (
+          <p className="text-[15px] text-foreground-muted">≈ {f}</p>
+        ) : null })()}
 
         <p className="text-[15px] text-foreground-muted text-center leading-relaxed whitespace-pre-line">
           {t('receive.untrusted.explanation')}

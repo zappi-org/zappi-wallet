@@ -33,6 +33,7 @@ export default {
     notifications: '알림',
     syncing: '동기화 중',
     change: '변경',
+    search: '검색',
   },
 
   // Lock Screen
@@ -226,6 +227,11 @@ export default {
 
     // Unit Display
     unitDisplay: '단위 표시',
+
+    // Fiat Currency
+    fiatCurrency: '법정화폐 단위',
+    showFiatConversion: '법정화폐 표시',
+    selectCurrency: '통화 선택',
 
     // POS Management
     posManagement: 'POS 관리',

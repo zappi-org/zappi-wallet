@@ -33,6 +33,7 @@ export default {
     notifications: '通知',
     syncing: '同期中',
     change: '変更',
+    search: '検索',
   },
 
   // Lock Screen
@@ -226,6 +227,11 @@ export default {
 
     // Unit Display
     unitDisplay: '単位表示',
+
+    // Fiat Currency
+    fiatCurrency: '法定通貨',
+    showFiatConversion: '法定通貨を表示',
+    selectCurrency: '通貨を選択',
   },
 
   // Add Mint Screen

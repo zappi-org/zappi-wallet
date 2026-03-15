@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { hapticTap, hapticSuccess } from '@/utils/haptic'
-import { useFormatSats } from '@/utils/format'
+import { useFormatSats, useFormatFiat } from '@/utils/format'
 import type { ReceiveMethod } from '../ReceiveFlow'
 
 interface ReceiveQRStepProps {
@@ -50,6 +50,7 @@ export function ReceiveQRStep({
 }: ReceiveQRStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
+  const formatFiat = useFormatFiat()
   const settings = useAppStore((s) => s.settings)
   const addToast = useAppStore((s) => s.addToast)
   const { getDisplayName } = useMintMetadata(settings.mints)
@@ -182,6 +183,9 @@ export function ReceiveQRStep({
 
         {/* Amount */}
         <p className="text-3xl font-bold">{formatSats(amount)}</p>
+        {(() => { const f = formatFiat(amount); return f ? (
+          <p className="text-sm text-foreground-muted -mt-2">≈ {f}</p>
+        ) : null })()}
 
         {/* QR Code */}
         {qrValue && (

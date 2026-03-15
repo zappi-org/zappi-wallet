@@ -43,24 +43,3 @@ export function MintIcon({
   )
 }
 
-// Toggle Switch Component
-export function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean }) {
-  return (
-    <button
-      role="switch"
-      aria-checked={checked}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        'w-10 h-6 rounded-full transition-colors relative flex items-center px-1 shadow-inner',
-        checked ? 'bg-primary' : 'bg-foreground-muted/30',
-        disabled && 'opacity-50 cursor-not-allowed'
-      )}
-    >
-      <div
-        className="w-4 h-4 bg-white rounded-full shadow-md transition-transform duration-200"
-        style={{ transform: `translateX(${checked ? 16 : 0}px)` }}
-      />
-    </button>
-  )
-}

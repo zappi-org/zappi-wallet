@@ -1,5 +1,7 @@
 import { useCallback } from 'react'
 import { useAppStore } from '@/store'
+import { FIAT_CURRENCIES } from '@/core/types/fiat'
+import { useShallow } from 'zustand/shallow'
 
 type UnitDisplay = 'bip177' | 'sats'
 
@@ -39,4 +41,119 @@ export function useSatUnit(): string {
 export function useFormatSats(): (amount: number) => string {
   const unit = useAppStore((s) => s.settings.unitDisplay ?? 'bip177')
   return useCallback((amount: number) => formatAmount(amount, unit), [unit])
+}
+
+// ── Fiat conversion (pure functions) ──
+
+export function satsToFiat(sats: number, btcRate: number): number {
+  return (sats / 100_000_000) * btcRate
+}
+
+export function fiatToSats(fiat: number, btcRate: number): number {
+  return Math.round((fiat / btcRate) * 100_000_000)
+}
+
+// ── Fiat formatting ──
+
+/** O(1) lookup map for currency info */
+const FIAT_CURRENCY_MAP = new Map(FIAT_CURRENCIES.map(c => [c.code, c]))
+
+export { FIAT_CURRENCY_MAP }
+
+/** Cache Intl.NumberFormat instances by key to avoid re-creation */
+const formatterCache = new Map<string, Intl.NumberFormat>()
+
+/**
+ * Format a fiat amount with currency symbol using Intl.NumberFormat.
+ * For small amounts (< 1), shows up to 4 decimal places.
+ * Caches formatter instances for performance.
+ */
+export function formatFiatAmount(amount: number, currency: string): string {
+  const fractionDigits = amount !== 0 && Math.abs(amount) < 1 ? 4 : 2
+  const key = `${currency}:${fractionDigits}`
+
+  try {
+    let fmt = formatterCache.get(key)
+    if (!fmt) {
+      fmt = new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: fractionDigits,
+      })
+      formatterCache.set(key, fmt)
+    }
+    return fmt.format(amount)
+  } catch {
+    // Fallback for unknown currency codes
+    return `${currency} ${amount.toFixed(fractionDigits)}`
+  }
+}
+
+// ── Derive exchange rate from store (internal helper) ──
+
+function getExchangeRateFromStore(): { rate: number | null; currency: string; show: boolean } {
+  const state = useAppStore.getState()
+  const currency = state.settings.fiatCurrency ?? 'USD'
+  const show = state.settings.showFiatConversion ?? true
+  const rate = state.allRates?.[currency] ?? null
+  return { rate, currency, show }
+}
+
+// ── Reactive hooks for fiat (React component JSX) ──
+
+/**
+ * Returns a formatter that converts sats to a fiat string.
+ * Returns null if exchange rate is unavailable or fiat display is off.
+ *
+ * Uses a single shallow selector to minimize Zustand subscriptions.
+ */
+export function useFormatFiat(): (sats: number) => string | null {
+  const { rate, currency, show } = useAppStore(
+    useShallow((s) => {
+      const cur = s.settings.fiatCurrency ?? 'USD'
+      return {
+        rate: s.allRates?.[cur] ?? null,
+        currency: cur,
+        show: s.settings.showFiatConversion ?? true,
+      }
+    }),
+  )
+
+  return useCallback(
+    (sats: number) => {
+      if (!show || !rate) return null
+      const fiat = satsToFiat(sats, rate)
+      return formatFiatAmount(fiat, currency)
+    },
+    [rate, currency, show],
+  )
+}
+
+// ── Transaction fiat helper (prefer stored snapshot, fallback to live) ──
+
+/**
+ * Returns fiat string for a transaction, preferring the stored snapshot
+ * (historical accuracy) over the live exchange rate.
+ */
+export function formatTransactionFiat(
+  tx: { fiatAmount?: number | null; fiatCurrency?: string | null; amount: number },
+  liveFiatFormatter: (sats: number) => string | null,
+): string | null {
+  if (tx.fiatAmount != null && tx.fiatCurrency) {
+    return formatFiatAmount(tx.fiatAmount, tx.fiatCurrency)
+  }
+  return liveFiatFormatter(tx.amount)
+}
+
+// ── Non-reactive fiat (services, callbacks) ──
+
+/**
+ * Format sats as fiat string using current store state.
+ * Returns null if rate unavailable or display disabled.
+ */
+export function formatFiat(sats: number): string | null {
+  const { rate, currency, show } = getExchangeRateFromStore()
+  if (!show || !rate) return null
+  return formatFiatAmount(satsToFiat(sats, rate), currency)
 }

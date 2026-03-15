@@ -6,7 +6,9 @@ import { Button, Modal, BottomSheet, PinInput } from '../../components/common'
 import { useAppStore } from '@/store'
 import { encodeNpub } from '@/services/crypto'
 import { normalizeRelayUrl } from '@/utils/url'
-import { satUnit } from '@/utils/format'
+import { satUnit, FIAT_CURRENCY_MAP } from '@/utils/format'
+import { CurrencyPickerBottomSheet } from './CurrencyPickerBottomSheet'
+import { Switch } from '@/ui/components/common/Switch'
 import { restoreWallet, getBalances, recoverPendingQuotes } from '@/coco'
 import { LIMITS, ZAPPI_LINK_URL } from '@/core/constants'
 import { clearMintData } from '@/data/database/schema'
@@ -77,6 +79,8 @@ export function SettingsScreen({
   const [isRegistering, setIsRegistering] = useState(false)
   const [autoLockEnabled, setAutoLockEnabled] = useState(settings.autoLockEnabled)
   const [autoLockTimeout, setAutoLockTimeout] = useState(String(settings.autoLockTimeoutMinutes))
+
+  const [showCurrencyPicker, setShowCurrencyPicker] = useState(false)
 
   const [showMintsModal, setShowMintsModal] = useState(false)
   const [showRelaysModal, setShowRelaysModal] = useState(false)
@@ -644,6 +648,43 @@ export function SettingsScreen({
           </div>
         </section>
 
+        {/* Fiat Currency Section */}
+        <section>
+          <h3 className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted mb-2 px-2">{t('settings.fiatCurrency')}</h3>
+          <div className="bg-white/60 rounded-2xl overflow-hidden shadow-sm border border-white/50">
+            {/* Currency selector */}
+            <button
+              onClick={() => setShowCurrencyPicker(true)}
+              className="w-full p-3 flex items-center justify-between hover:bg-white/40 transition-colors text-left border-b border-white/30"
+            >
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-primary/10 rounded-xl text-foreground">
+                  <Coins className="w-4 h-4" />
+                </div>
+                <span className="font-bold text-xs">{t('settings.fiatCurrency')}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-foreground-muted bg-background px-2 py-1 rounded-lg">
+                  {(() => {
+                    const code = settings.fiatCurrency ?? 'USD'
+                    const info = FIAT_CURRENCY_MAP.get(code)
+                    return info ? `${info.symbol} ${info.code}` : code
+                  })()}
+                </span>
+                <ChevronRight className="w-4 h-4 text-foreground-muted" />
+              </div>
+            </button>
+            {/* Show fiat toggle */}
+            <div className="p-3 flex items-center justify-between">
+              <span className="font-bold text-xs">{t('settings.showFiatConversion')}</span>
+              <Switch
+                checked={settings.showFiatConversion ?? true}
+                onChange={(v) => saveSettings({ showFiatConversion: v })}
+              />
+            </div>
+          </div>
+        </section>
+
         {/* Wallet Management Section */}
         <WalletManagementSection
           mintsCount={settings.mints.length}
@@ -951,6 +992,17 @@ export function SettingsScreen({
           ))}
         </div>
       </BottomSheet>
+
+      {/* Currency Selection Modal */}
+      <CurrencyPickerBottomSheet
+        isOpen={showCurrencyPicker}
+        onClose={() => setShowCurrencyPicker(false)}
+        currentCurrency={settings.fiatCurrency ?? 'USD'}
+        onSelect={(code) => {
+          saveSettings({ fiatCurrency: code })
+          setShowCurrencyPicker(false)
+        }}
+      />
     </div>
   )
 }

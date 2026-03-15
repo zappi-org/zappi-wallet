@@ -1,6 +1,6 @@
 import { Lock, Key, Smartphone, ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Toggle } from './SettingsHelpers'
+import { Switch } from '@/ui/components/common/Switch'
 
 export interface SecuritySectionProps {
   autoLockEnabled: boolean
@@ -52,7 +52,7 @@ export function SecuritySection({
                   <span className="text-[10px] text-foreground-muted">{t('common.min')}</span>
                 </div>
               )}
-              <Toggle checked={autoLockEnabled} onChange={onAutoLockToggle} />
+              <Switch checked={autoLockEnabled} onChange={onAutoLockToggle} />
             </div>
           </div>
         </div>
@@ -69,7 +69,7 @@ export function SecuritySection({
                 <span className="text-[10px] text-foreground-muted">{t('settings.biometric')}</span>
               </div>
             </div>
-            <Toggle checked={passkeyEnabled} onChange={onPasskeyToggle} />
+            <Switch checked={passkeyEnabled} onChange={onPasskeyToggle} />
           </div>
         )}
 

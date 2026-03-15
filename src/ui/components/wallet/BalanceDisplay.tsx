@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { WalletBalance } from '@/core/types'
-import { useFormatSats } from '@/utils/format'
+import { useFormatSats, useFormatFiat } from '@/utils/format'
 
 export interface BalanceDisplayProps {
   balance: WalletBalance
@@ -16,6 +16,7 @@ export function BalanceDisplay({
 }: BalanceDisplayProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
+  const formatFiat = useFormatFiat()
   const isLarge = size === 'large'
   const [showModal, setShowModal] = useState(false)
 
@@ -58,6 +59,11 @@ export function BalanceDisplay({
               {formatSats(balance.total)}
             </span>
           )}
+          {(() => { const f = formatFiat(balance.total); return !isInitialLoad && f ? (
+            <span className={`text-foreground-muted ${isLarge ? 'text-sm' : 'text-xs'}`}>
+              ≈ {f}
+            </span>
+          ) : null })()}
         </div>
       </button>
 

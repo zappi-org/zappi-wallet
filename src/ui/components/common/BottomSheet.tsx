@@ -1,5 +1,5 @@
-import { type ReactNode } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
+import { type ReactNode, useCallback } from 'react'
+import { motion, AnimatePresence, type PanInfo } from 'motion/react'
 
 export interface BottomSheetProps {
   isOpen: boolean
@@ -13,6 +13,15 @@ export interface BottomSheetProps {
  * Use for: mint list selection, relay list selection, transaction details
  */
 export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetProps) {
+  const handleDragEnd = useCallback(
+    (_: unknown, info: PanInfo) => {
+      if (info.offset.y > 100 || info.velocity.y > 500) {
+        onClose()
+      }
+    },
+    [onClose],
+  )
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -33,11 +42,15 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.6 }}
+            onDragEnd={handleDragEnd}
             transition={{ duration: 0.25, ease: 'easeOut' }}
             className="fixed bottom-0 left-0 right-0 bg-background-elevated rounded-t-lg max-h-[70vh] overflow-hidden z-[70]"
           >
             {/* Handle */}
-            <div className="flex justify-center py-2">
+            <div className="flex justify-center py-2 cursor-grab active:cursor-grabbing touch-none">
               <div className="w-8 h-1 bg-foreground-subtle rounded-full" />
             </div>
 

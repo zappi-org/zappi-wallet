@@ -7,11 +7,11 @@
 import { useState, useCallback, useMemo } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { useSatUnit } from '@/utils/format'
 import { useAppStore } from '@/store'
 import { hapticTap, hapticError } from '@/utils/haptic'
 import { MintCardSelector } from '@/ui/components/wallet'
 import { Button } from '@/ui/components/common/Button'
+import { AmountInput } from '@/ui/components/common/AmountInput'
 import { createNostrPaymentRequest } from '@/services/cashu/nut18'
 import { encodeNprofile } from '@/services/crypto'
 import type { ReceiveMethod } from '../ReceiveFlow'
@@ -38,7 +38,6 @@ export function ReceiveInputStep({
   isLoading = false,
 }: ReceiveInputStepProps) {
   const { t } = useTranslation()
-  const unit = useSatUnit()
   const settings = useAppStore((s) => s.settings)
   const nostrPubkey = useAppStore((s) => s.nostrPubkey)
   const addToast = useAppStore((s) => s.addToast)
@@ -164,29 +163,11 @@ export function ReceiveInputStep({
         </div>
 
         {/* Amount */}
-        <div>
-          <p className="text-[20px] font-normal text-foreground-muted leading-snug">{t('receive.howMuch')}</p>
-          <div className="relative">
-            {unit === '₿' ? (
-              <span className="absolute left-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-[22px]">{unit}</span>
-            ) : (
-              <span className="absolute right-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-[18px]">{unit}</span>
-            )}
-            <input
-              type="text"
-              inputMode="numeric"
-              value={amount ? Number(amount).toLocaleString() : ''}
-              placeholder="0"
-              onChange={(e) => {
-                const v = e.target.value.replace(/[^0-9]/g, '')
-                if (Number(v) > 2_100_000_000_000_000) return
-                setAmount(v)
-              }}
-              onFocus={(e) => { if (!amount) e.target.select() }}
-              className={`w-full bg-transparent border-0 border-b border-b-gray-200 rounded-none ${unit === '₿' ? 'pl-8' : 'pr-12'} py-2 text-[22px] font-bold focus:outline-none focus:border-b-foreground transition-colors ${amount ? 'text-foreground' : 'text-foreground-muted/40'}`}
-            />
-          </div>
-        </div>
+        <AmountInput
+          amount={amount}
+          onAmountChange={setAmount}
+          label={t('receive.howMuch')}
+        />
 
         {/* Memo — optional, only for ecash */}
         {method === 'ecash' && (

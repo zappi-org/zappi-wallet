@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { hapticSuccess, hapticTap } from '@/utils/haptic'
-import { useFormatSats } from '@/utils/format'
+import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
 import tokenReceiveSuccessImg from '@/assets/token-receive-success.png'
 
@@ -25,6 +25,7 @@ export function ReceiveCompleteStep({
 }: ReceiveCompleteStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
+  const formatFiat = useFormatFiat()
   const settings = useAppStore((s) => s.settings)
   const { getDisplayName } = useMintMetadata(settings.mints)
   const mintName = mintUrl ? getDisplayName(mintUrl) : ''
@@ -58,6 +59,9 @@ export function ReceiveCompleteStep({
             amount: formatSats(amount),
           })}
         </p>
+        {(() => { const f = formatFiat(amount); return f ? (
+          <p className="text-[15px] text-foreground-muted text-center mt-1">≈ {f}</p>
+        ) : null })()}
       </div>
 
       {/* Success image centered */}

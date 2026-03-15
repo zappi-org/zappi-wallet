@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { EllipsisVertical } from "lucide-react";
 import type { MintInfo } from "@/core/types";
 import { cn } from "@/lib/utils";
-import { useFormatSats } from "@/utils/format";
+import { useFormatSats, useFormatFiat } from "@/utils/format";
 import cardLogo from "@/assets/card-logo.svg";
 import cardBg from "@/assets/card-bg.png";
 import cardNoise from "@/assets/card-noise.png";
@@ -90,6 +90,7 @@ export function MintCard({
 }: MintCardProps) {
   const { t } = useTranslation();
   const formatSats = useFormatSats();
+  const toFiat = useFormatFiat();
   const displayName = mint.alias || getMintShortName(mint.url, mint.name);
   const showMintSubName = !!mint.alias && !!mint.mintName;
   return (
@@ -161,12 +162,22 @@ export function MintCard({
           >
             BALANCE
           </p>
-          <p
-            className="absolute z-10 font-['Montserrat'] font-semibold text-[15.6px] text-[#fafafa] leading-normal"
+          <div
+            className="absolute z-10 flex items-baseline gap-2"
             style={{ top: '80%', left: '9.3%' }}
           >
-            {formatSats(mint.balance)}
-          </p>
+            <p className="font-['Montserrat'] font-semibold text-[15.6px] text-[#fafafa] leading-normal">
+              {formatSats(mint.balance)}
+            </p>
+            {(() => {
+              const fiatStr = toFiat(mint.balance)
+              return fiatStr ? (
+                <span className="font-['Montserrat'] text-[11px] text-white/60 leading-normal">
+                  ≈ {fiatStr}
+                </span>
+              ) : null
+            })()}
+          </div>
         </>
       )}
 

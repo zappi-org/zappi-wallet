@@ -33,6 +33,7 @@ export default {
     notifications: 'Notifications',
     syncing: 'Syncing',
     change: 'Change',
+    search: 'Search',
   },
 
   // Lock Screen
@@ -226,6 +227,11 @@ export default {
 
     // Unit Display
     unitDisplay: 'Unit Display',
+
+    // Fiat Currency
+    fiatCurrency: 'Fiat Currency',
+    showFiatConversion: 'Show Fiat Price',
+    selectCurrency: 'Select Currency',
 
     // POS Management
     posManagement: 'POS Management',

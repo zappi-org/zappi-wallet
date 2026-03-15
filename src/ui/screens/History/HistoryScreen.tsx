@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowRightLeft, Search, Zap, Ba
 import { useTranslation } from 'react-i18next'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { Transaction } from '@/core/types'
-import { useFormatSats } from '@/utils/format'
+import { useFormatSats, useFormatFiat, formatTransactionFiat } from '@/utils/format'
 import { useMintMetadata } from '@/hooks'
 
 export interface HistoryScreenProps {
@@ -49,6 +49,7 @@ const TransactionItem = memo(function TransactionItem({
 }) {
   const { t, i18n } = useTranslation()
   const formatSats = useFormatSats()
+  const formatFiat = useFormatFiat()
   const isReceive = transaction.direction === 'receive'
   const statusColors = {
     pending: 'text-accent-warning-bright',
@@ -138,6 +139,12 @@ const TransactionItem = memo(function TransactionItem({
             <>{isReceive ? '+' : '-'}{formatSats(transaction.amount)}</>
           )}
         </span>
+        {(() => {
+          const f = formatTransactionFiat(transaction, formatFiat)
+          return f ? (
+            <span className="text-[10px] text-foreground-muted">{f}</span>
+          ) : null
+        })()}
         <div className="flex items-center gap-2">
           <span className={`text-[10px] font-medium ${statusColors[transaction.status]}`}>
             {statusLabels[transaction.status]}

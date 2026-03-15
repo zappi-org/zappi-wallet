@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Clock, Banknote } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useFormatSats } from '@/utils/format'
+import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { useMintMetadata } from '@/hooks'
 import type { PendingItem } from '@/hooks/usePendingItems'
 
@@ -60,6 +60,7 @@ function MintLogo({ mintUrl }: { mintUrl: string }) {
 export function PendingItemsList({ items, mintUrl, maxItems = 5 }: PendingItemsListProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
+  const formatFiat = useFormatFiat()
 
   const displayed = items.slice(0, maxItems)
 
@@ -111,12 +112,17 @@ export function PendingItemsList({ items, mintUrl, maxItems = 5 }: PendingItemsL
                 </p>
               </div>
             </div>
-            <p className={cn(
-              "font-['Inter'] font-semibold text-sm shrink-0 ml-3",
-              isToken ? 'text-[#e85d3a]' : 'text-[#1d1d1f]'
-            )}>
-              {formatSats(item.amount)}
-            </p>
+            <div className="shrink-0 ml-3 text-right">
+              <p className={cn(
+                "font-['Inter'] font-semibold text-sm",
+                isToken ? 'text-[#e85d3a]' : 'text-[#1d1d1f]'
+              )}>
+                {formatSats(item.amount)}
+              </p>
+              {(() => { const f = formatFiat(item.amount); return f ? (
+                <p className="font-['Inter'] text-[10px] text-[#86868b]">{f}</p>
+              ) : null })()}
+            </div>
           </div>
         )
       })}

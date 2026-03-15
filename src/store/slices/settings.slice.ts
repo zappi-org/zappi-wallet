@@ -38,6 +38,8 @@ const defaultSettings: WalletSettings = {
   expertModeEnabled: false,
   manualMintSelectionEnabled: false,
   balanceHidden: false,
+  fiatCurrency: 'USD',
+  showFiatConversion: true,
 }
 
 /**

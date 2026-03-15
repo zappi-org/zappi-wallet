@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
 import { usePayment, useWallet, useMintMetadata } from '@/hooks'
-import { useSatUnit, useFormatSats } from '@/utils/format'
+import { useSatUnit, useFormatSats, useFormatFiat } from '@/utils/format'
 import cardLogo from '@/assets/card-logo.svg'
 
 export interface TransferScreenProps {
@@ -70,6 +70,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
   const { t } = useTranslation()
   const unit = useSatUnit()
   const formatSats = useFormatSats()
+  const formatFiat = useFormatFiat()
   // Get mint URLs from settings (the actual source of truth)
   const mintUrls = useAppStore((s) => s.settings.mints)
   const balance = useAppStore((s) => s.balance)
@@ -187,11 +188,14 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
           <h2 className="text-2xl font-bold text-foreground mb-2 tracking-tight">
             {activeTab === 'swap' ? t('transfer.swapComplete') : t('payment.paymentSuccess')}
           </h2>
-          <div className="bg-white/60 px-4 py-2 rounded-full border border-white/50 mb-6 shadow-sm">
+          <div className="bg-white/60 px-4 py-2 rounded-full border border-white/50 mb-2 shadow-sm">
             <p className="text-foreground font-bold text-base">
               {formatSats(Number(amount))}
             </p>
           </div>
+          {(() => { const f = formatFiat(Number(amount)); return f ? (
+            <p className="text-sm text-foreground-muted mb-6">≈ {f}</p>
+          ) : null })()}
           <button
             onClick={handleDone}
             className="w-full max-w-[200px] bg-primary text-white py-3 rounded-2xl font-bold hover:bg-primary-hover transition-colors shadow-lg"

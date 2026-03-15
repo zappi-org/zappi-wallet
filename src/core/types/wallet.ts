@@ -1,4 +1,5 @@
 import type { Proof } from '@cashu/cashu-ts'
+import type { FiatCurrency } from './fiat'
 
 /**
  * Network state for online/offline handling
@@ -183,6 +184,10 @@ export interface WalletSettings {
   /** User-defined mint aliases: { mintUrl: "지갑 1" } */
   mintAliases?: Record<string, string>
   posDevices?: POSDevice[]
+  /** Preferred fiat currency for display (default: 'USD') */
+  fiatCurrency?: FiatCurrency
+  /** Whether to show fiat conversion alongside BTC amounts (default: true) */
+  showFiatConversion?: boolean
 }
 
 /**

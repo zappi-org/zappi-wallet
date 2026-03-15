@@ -9,7 +9,7 @@ import { TransactionList } from "../../components/wallet/TransactionList";
 import { UnifiedScanner, type ValidatedData } from "../../components/scanner";
 import { useWallet, useMintHealth, useMintMetadata } from "@/hooks";
 import { useAppStore } from "@/store";
-import { useSatUnit } from "@/utils/format";
+import { useSatUnit, useFormatFiat } from "@/utils/format";
 import type { MintInfo, Transaction } from "@/core/types";
 import { TransactionRepository } from "@/data/repositories/transaction.repository";
 
@@ -52,6 +52,7 @@ export function HomeScreen({
 }: HomeScreenProps) {
   const { t } = useTranslation();
   const unit = useSatUnit();
+  const toFiat = useFormatFiat();
   const [localTransactions, setLocalTransactions] = useState<Transaction[]>([]);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scanMode, setScanMode] = useState<'send' | 'receive'>('send');
@@ -209,6 +210,14 @@ export function HomeScreen({
               </>
             )}
           </div>
+          {!settings.balanceHidden && !isLoadingBalance && (() => {
+            const fiatStr = toFiat(totalBalance)
+            return fiatStr ? (
+              <p className="font-['Montserrat'] text-sm font-medium text-[#86868b] tracking-wide">
+                ≈ {fiatStr}
+              </p>
+            ) : null
+          })()}
         </div>
 
         {/* Card Carousel */}
