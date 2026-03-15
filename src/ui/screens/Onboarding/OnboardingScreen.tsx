@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 
-import { ArrowLeft, Copy, Check, ShieldCheck, RefreshCw, Key, Plus, Delete } from 'lucide-react'
+import { ArrowLeft, Copy, Check, ShieldCheck, RefreshCw, Key, Plus } from 'lucide-react'
+import { NumericKeypad } from '@/ui/components/common/NumericKeypad'
 import { useTranslation } from 'react-i18next'
 import creatingWalletSvg from '@/assets/creating-wallet.svg'
 
@@ -107,31 +108,34 @@ export function OnboardingScreen({
     setStep('pin')
   }, [mode, mnemonicWords, backupConfirmed, onValidateMnemonic, t])
 
-  // PIN handlers using numeric keypad - functional updates to avoid stale closures
-  const handlePinInput = useCallback((num: string) => {
-    if (step === 'pin') {
-      setPin(prev => {
-        if (prev.length >= 6) return prev
-        const newPin = prev + num
-        if (newPin.length === 6) {
-          setTimeout(() => setStep('pin-confirm'), 200)
-        }
-        return newPin
-      })
-    } else if (step === 'pin-confirm') {
-      setConfirmPin(prev => prev.length < 6 ? prev + num : prev)
-    }
-    setPinError(prev => prev ? '' : prev)
-  }, [step])
+  // PIN keypad handler — stable ref so NumericKeypad memo is never broken
+  const stepRef = useRef(step)
+  useEffect(() => { stepRef.current = step }, [step])
 
-  const handlePinDelete = useCallback(() => {
-    if (step === 'pin') {
-      setPin(prev => prev.slice(0, -1))
-    } else if (step === 'pin-confirm') {
-      setConfirmPin(prev => prev.slice(0, -1))
+  const handlePinKeyPress = useCallback((key: string) => {
+    const currentStep = stepRef.current
+    if (key === 'delete') {
+      if (currentStep === 'pin') {
+        setPin(prev => prev.slice(0, -1))
+      } else if (currentStep === 'pin-confirm') {
+        setConfirmPin(prev => prev.slice(0, -1))
+      }
+    } else {
+      if (currentStep === 'pin') {
+        setPin(prev => {
+          if (prev.length >= 6) return prev
+          const newPin = prev + key
+          if (newPin.length === 6) {
+            setTimeout(() => setStep('pin-confirm'), 200)
+          }
+          return newPin
+        })
+      } else if (currentStep === 'pin-confirm') {
+        setConfirmPin(prev => prev.length < 6 ? prev + key : prev)
+      }
     }
-    setPinError(prev => prev ? '' : prev)
-  }, [step])
+    setPinError('')
+  }, [])
 
   // PIN confirm - complete onboarding
   const handlePinComplete = useCallback(async () => {
@@ -465,35 +469,12 @@ export function OnboardingScreen({
             )}
           </div>
 
-          {/* Numeric Keypad */}
-          <div className="grid grid-cols-3 gap-3 pb-6">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-              <button
-                key={num}
-                onPointerDown={(e) => { e.preventDefault(); handlePinInput(num.toString()); }}
-                disabled={isLoading}
-                className="h-14 rounded-xl text-xl font-bold text-foreground hover:bg-black/5 active:bg-black/10 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                {num}
-              </button>
-            ))}
-            <div />
-            <button
-              onPointerDown={(e) => { e.preventDefault(); handlePinInput('0'); }}
-              disabled={isLoading}
-              className="h-14 rounded-xl text-xl font-bold text-foreground hover:bg-black/5 active:bg-black/10 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              0
-            </button>
-            <button
-              onPointerDown={(e) => { e.preventDefault(); handlePinDelete(); }}
-              disabled={isLoading}
-              aria-label={t('common.delete')}
-              className="h-14 rounded-xl text-foreground hover:bg-black/5 active:bg-black/10 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <Delete className="w-5 h-5" />
-            </button>
-          </div>
+          {/* Numeric Keypad — memoized, won't re-render on pin changes */}
+          <NumericKeypad
+            onKeyPress={handlePinKeyPress}
+            disabled={isLoading}
+            deleteAriaLabel={t('common.delete')}
+          />
         </div>
       </div>
     )

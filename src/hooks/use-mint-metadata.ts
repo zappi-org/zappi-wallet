@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { mintMetadataService, metadataEvents } from '@/services/mint-metadata'
+import { useAppStore } from '@/store'
 import type { MintMetadata } from '@/core/types'
 
 /**
@@ -55,10 +56,26 @@ export function useMintMetadata(mintUrls: string[]) {
     return unsubscribe
   }, [])
 
+  const mintAliases = useAppStore((s) => s.settings.mintAliases)
+
   /**
-   * Get display name for a mint (from metadata or fallback to hostname)
+   * Get display name for a mint (alias > metadata > hostname)
    */
   const getDisplayName = useCallback(
+    (mintUrl: string): string => {
+      const alias = mintAliases?.[mintUrl]
+      if (alias) return alias
+      const metadata = metadataMap.get(mintUrl)
+      if (metadata?.name) return metadata.name
+      return mintMetadataService.extractHostname(mintUrl)
+    },
+    [metadataMap, mintAliases]
+  )
+
+  /**
+   * Get original mint name from metadata (ignoring alias)
+   */
+  const getOriginalName = useCallback(
     (mintUrl: string): string => {
       const metadata = metadataMap.get(mintUrl)
       if (metadata?.name) return metadata.name
@@ -99,6 +116,7 @@ export function useMintMetadata(mintUrls: string[]) {
     metadataMap,
     isLoading,
     getDisplayName,
+    getOriginalName,
     getIconUrl,
     getMetadata,
     refreshMetadata,

@@ -251,7 +251,8 @@ export function SendInputStep({
               type="text"
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
-              className="flex-1 min-w-0 bg-transparent border-0 rounded-none px-0 py-2 text-[22px] font-bold text-foreground focus:outline-none"
+              placeholder={t('send.placeholder')}
+              className="flex-1 min-w-0 bg-transparent border-0 rounded-none px-0 py-2 text-[22px] font-bold text-foreground placeholder:text-foreground-muted/40 placeholder:text-[16px] placeholder:font-normal focus:outline-none"
             />
             <div className="flex items-center gap-0.5 shrink-0 pb-1">
               <button
@@ -295,15 +296,16 @@ export function SendInputStep({
               placeholder="0"
               onChange={(e) => {
                 const v = e.target.value.replace(/[^0-9]/g, '')
+                if (Number(v) > 2_100_000_000_000_000) return
                 setAmount(v)
               }}
               onFocus={(e) => { if (!amount) e.target.select() }}
-              disabled={isAmountFixed || !detectedType}
+              disabled={isAmountFixed}
               className={`w-full bg-transparent border-0 border-b border-b-gray-200 rounded-none ${unit === '₿' ? 'pl-8' : 'pr-12'} py-2 text-[22px] font-bold focus:outline-none focus:border-b-foreground transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${amount ? 'text-foreground' : 'text-foreground-muted/40'}`}
             />
           </div>
           {isOverBalance && (
-            <p className="text-red-500 text-xs mt-1 font-medium">{t('payment.insufficientBalance')}</p>
+            <p className="text-red-500 text-sm mt-1 font-bold">{t('payment.insufficientBalance')}</p>
           )}
         </div>
       </div>

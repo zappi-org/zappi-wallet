@@ -20,6 +20,7 @@ import cardLogo from '@/assets/card-logo.svg'
 export interface TransferScreenProps {
   onBack: () => void
   onTransactionComplete?: () => void
+  initialFromMintUrl?: string
 }
 
 type TransferTab = 'swap' | 'melt'
@@ -65,7 +66,7 @@ function MintIcon({
   )
 }
 
-export function TransferScreen({ onBack, onTransactionComplete }: TransferScreenProps) {
+export function TransferScreen({ onBack, onTransactionComplete, initialFromMintUrl }: TransferScreenProps) {
   const { t } = useTranslation()
   const unit = useSatUnit()
   const formatSats = useFormatSats()
@@ -81,9 +82,11 @@ export function TransferScreen({ onBack, onTransactionComplete }: TransferScreen
   const [status, setStatus] = useState<TransferStatus>('idle')
   const [error, setError] = useState<string | null>(null)
 
-  // Swap State
-  const [fromMintUrl, setFromMintUrl] = useState<string>(mintUrls[0] || '')
-  const [toMintUrl, setToMintUrl] = useState<string>(mintUrls[1] || mintUrls[0] || '')
+  // Swap State — respect initialFromMintUrl if provided
+  const resolvedInitialFrom = initialFromMintUrl && mintUrls.includes(initialFromMintUrl) ? initialFromMintUrl : (mintUrls[0] || '')
+  const resolvedInitialTo = mintUrls.find(u => u !== resolvedInitialFrom) || mintUrls[0] || ''
+  const [fromMintUrl, setFromMintUrl] = useState<string>(resolvedInitialFrom)
+  const [toMintUrl, setToMintUrl] = useState<string>(resolvedInitialTo)
 
   // Melt State
   const [lnAddress, setLnAddress] = useState('')
@@ -402,6 +405,7 @@ export function TransferScreen({ onBack, onTransactionComplete }: TransferScreen
               value={amount ? parseInt(amount).toLocaleString() : ''}
               onChange={(e) => {
                 const val = e.target.value.replace(/[^0-9]/g, '')
+                if (Number(val) > 2_100_000_000_000_000) return
                 setAmount(val)
               }}
               placeholder="0"

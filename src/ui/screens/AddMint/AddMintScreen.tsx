@@ -121,8 +121,11 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
 
       // Add mint to settings and persist to IndexedDB
       const newMints = [...mints, normalizedUrl]
+      const existingAliases = settings.mintAliases || {}
+      const nextNumber = Object.keys(existingAliases).length + 1
+      const newAliases = { ...existingAliases, [normalizedUrl]: t('mintDetail.defaultName', { number: nextNumber }) }
       if (onSaveSettings) {
-        await onSaveSettings({ mints: newMints })
+        await onSaveSettings({ mints: newMints, mintAliases: newAliases })
       }
 
       setProgressStep('restoring')
@@ -164,7 +167,7 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
       setIsAdding(false)
       setProgressStep(null)
     }
-  }, [url, mints, isAtLimit, onSaveSettings, onBack, onSuccess, setBalance, t])
+  }, [url, mints, isAtLimit, onSaveSettings, onBack, onSuccess, setBalance, t, settings.mintAliases])
 
   const handleSelectRecommended = (mintUrl: string) => {
     setUrl(mintUrl)

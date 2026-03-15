@@ -11,6 +11,7 @@ import { checkAndRefreshAnchor } from '@/services/anchor'
 import { getP2PKPubkey } from '@/services/crypto'
 import { InsufficientBalanceError } from '@/core/errors/cashu'
 import { translateError } from '@/core/errors/translate'
+import { clearMintData } from '@/data/database/schema'
 
 // Tier 1: Always loaded (critical path for authenticated users)
 import { HomeScreen } from '@/ui/screens/Home/HomeScreen'
@@ -30,16 +31,17 @@ const AddMintScreen = lazy(() => import('@/ui/screens/AddMint/AddMintScreen'))
 const AmountActionScreen = lazy(() => import('@/ui/screens/AmountAction/AmountActionScreen'))
 const UsernameChangeScreen = lazy(() => import('@/ui/screens/Settings/UsernameChangeScreen'))
 const TransactionDetailScreen = lazy(() => import('@/ui/screens/TransactionDetail/TransactionDetailScreen'))
+const MintDetailScreen = lazy(() => import('@/ui/screens/MintDetail/MintDetailScreen').then(m => ({ default: m.MintDetailScreen })))
 
 // Unified Send/Receive flows
 import { SendFlow } from '@/ui/screens/Send/SendFlow'
 import { ReceiveFlow } from '@/ui/screens/Receive/ReceiveFlow'
 import type { ValidatedData } from '@/ui/components/scanner'
 import { ToastContainer } from '@/ui/components'
-import { MintDetailsModal } from '@/ui/components/modals/MintDetailsModal'
 import type { MintInfo } from '@/core/types'
 
 // Services
+import { removePasskey } from '@/services/passkey'
 import { SecurityService } from '@/services/security/security.service'
 import { WalletService } from '@/services/wallet/wallet.service'
 import { PaymentService } from '@/services/payment/payment.service'
@@ -58,7 +60,7 @@ function totalRecoveredCount(recovery: Awaited<ReturnType<PaymentService['recove
   return recovery.quotes.recovered + recovery.melts.recovered + recovery.sendTokens.reclaimed + recovery.receivedTokens.redeemed
 }
 
-type Screen = 'home' | 'settings' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail'
+type Screen = 'home' | 'settings' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail' | 'mint-detail'
 
 export default function MainApp() {
   const { t } = useTranslation()
@@ -99,9 +101,9 @@ export default function MainApp() {
   const [previousScreen, setPreviousScreen] = useState<Screen | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
 
-  // MintDetailsModal state
+  // MintDetail screen state
   const [selectedMint, setSelectedMint] = useState<MintInfo | null>(null)
-  const [showMintDetails, setShowMintDetails] = useState(false)
+  const [selectedMintIndex, setSelectedMintIndex] = useState(0)
 
   // Scanned amount state (for AmountActionScreen)
   const [scannedAmount, setScannedAmount] = useState<number>(0)
@@ -662,6 +664,7 @@ export default function MainApp() {
       await services.settingsRepo.clearAll()
       await services.transactionRepo.deleteAll()
       await deleteCocoData()
+      removePasskey()
 
       clearWalletCache()
       resetWalletCache()
@@ -848,9 +851,11 @@ export default function MainApp() {
           onTransactions={() => setCurrentScreen('history')}
           onNotifications={() => setCurrentScreen('notifications')}
           onAddMint={() => setCurrentScreen('add-mint')}
-          onMintDetails={(mint) => {
+          onMintDetails={(mint, index) => {
             setSelectedMint(mint)
-            setShowMintDetails(true)
+            setSelectedMintIndex(index)
+            setPreviousScreen('home')
+            setCurrentScreen('mint-detail')
           }}
           onValidatedScan={handleValidatedScan}
           onSend={(mintUrl) => {
@@ -943,6 +948,7 @@ export default function MainApp() {
         <TransferScreen
           onBack={handleBack}
           onTransactionComplete={refreshAll}
+          initialFromMintUrl={activeMintUrl ?? undefined}
         />
       )}
 
@@ -1046,22 +1052,71 @@ export default function MainApp() {
           mintUrls={settings.mints}
         />
       )}
+
+      {currentScreen === 'mint-detail' && selectedMint && (
+        <MintDetailScreen
+          mint={selectedMint}
+          mintIndex={selectedMintIndex}
+          onBack={handleBack}
+          onSend={(mintUrl) => {
+            setPreviousScreen('mint-detail')
+            setSendInitialStep('input')
+            setActiveMintUrl(mintUrl)
+            setValidatedScanData(null)
+            setScannedAmount(0)
+            setCurrentScreen('send')
+          }}
+          onReceive={(mintUrl) => {
+            setPreviousScreen('mint-detail')
+            setActiveMintUrl(mintUrl)
+            setValidatedScanData(null)
+            setScannedAmount(0)
+            setCurrentScreen('receive')
+          }}
+          onSwap={(mintUrl) => {
+            setPreviousScreen('mint-detail')
+            setActiveMintUrl(mintUrl)
+            setCurrentScreen('transfer')
+          }}
+          onCreateToken={(mintUrl) => {
+            setPreviousScreen('mint-detail')
+            setSendInitialStep('token-create')
+            setActiveMintUrl(mintUrl)
+            setValidatedScanData(null)
+            setScannedAmount(0)
+            setCurrentScreen('send')
+          }}
+          onDeleteMint={(url) => {
+            const newMints = settings.mints.filter(m => m !== url)
+            const { [url]: _, ...remainingAliases } = settings.mintAliases || {}
+            setCurrentScreen('home')
+            addToast({ type: 'success', message: t('mintDetail.mintDeleted') })
+            handleSaveSettings({ mints: newMints, mintAliases: remainingAliases })
+            clearMintData(url)
+          }}
+          onRenameMint={(url, newName) => {
+            const newAliases = { ...settings.mintAliases, [url]: newName }
+            handleSaveSettings({ mintAliases: newAliases })
+            if (selectedMint && selectedMint.url === url) {
+              setSelectedMint({ ...selectedMint, alias: newName, name: newName })
+            }
+          }}
+          onSelectTransaction={(tx) => {
+            setSelectedTransaction(tx)
+            setPreviousScreen('mint-detail')
+            setCurrentScreen('transaction-detail')
+          }}
+          onTransactions={() => {
+            setPreviousScreen('mint-detail')
+            setCurrentScreen('history')
+          }}
+          transactions={transactions}
+        />
+      )}
           </Suspense>
         </PageTransition>
       </AnimatePresence>
       </div>
-
-      {/* MintDetailsModal */}
-      <MintDetailsModal
-        isOpen={showMintDetails}
-        mint={selectedMint}
-        onClose={() => setShowMintDetails(false)}
-        onDelete={async (url) => {
-          const newMints = settings.mints.filter(m => m !== url)
-          await handleSaveSettings({ mints: newMints })
-          setShowMintDetails(false)
-        }}
-      />
 
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />

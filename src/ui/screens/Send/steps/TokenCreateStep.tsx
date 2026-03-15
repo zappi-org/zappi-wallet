@@ -101,13 +101,17 @@ export function TokenCreateStep({
               inputMode="numeric"
               value={amount ? Number(amount).toLocaleString() : ''}
               placeholder="0"
-              onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ''))}
+              onChange={(e) => {
+                const v = e.target.value.replace(/[^0-9]/g, '')
+                if (Number(v) > 2_100_000_000_000_000) return
+                setAmount(v)
+              }}
               onFocus={(e) => { if (!amount) e.target.select() }}
               className={`w-full bg-transparent border-0 border-b border-b-gray-200 rounded-none ${unit === '₿' ? 'pl-8' : 'pr-12'} py-2 text-[22px] font-bold focus:outline-none focus:border-b-foreground transition-colors ${amount ? 'text-foreground' : 'text-foreground-muted/40'}`}
             />
           </div>
           {isOverBalance && (
-            <p className="text-red-500 text-xs mt-1 font-medium">{t('payment.insufficientBalance')}</p>
+            <p className="text-red-500 text-sm mt-1 font-bold">{t('payment.insufficientBalance')}</p>
           )}
         </div>
 

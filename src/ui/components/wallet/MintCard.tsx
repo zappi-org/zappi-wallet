@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { EllipsisVertical } from "lucide-react";
 import type { MintInfo } from "@/core/types";
 import { cn } from "@/lib/utils";
 import { useFormatSats } from "@/utils/format";
@@ -15,6 +16,7 @@ interface MintCardProps {
   isSelected?: boolean;
   hideBalance?: boolean;
   onClick?: () => void;
+  onDetail?: () => void;
   onCreateToken?: () => void;
 }
 
@@ -83,16 +85,19 @@ export function MintCard({
   isSelected,
   hideBalance,
   onClick,
+  onDetail,
   onCreateToken,
 }: MintCardProps) {
   const { t } = useTranslation();
   const formatSats = useFormatSats();
-  const displayName = getMintShortName(mint.url, mint.name);
+  const displayName = mint.alias || getMintShortName(mint.url, mint.name);
+  const showMintSubName = !!mint.alias && !!mint.mintName;
   return (
     <div
       onClick={onClick}
       className={cn(
-        "relative w-[var(--card-w)] aspect-[280/176] rounded-[13px] overflow-hidden cursor-pointer transition-transform touch-manipulation [&:active:not(:has(:active))]:scale-[0.98]",
+        "relative w-[var(--card-w)] aspect-[280/176] rounded-[13px] overflow-hidden transition-transform touch-manipulation",
+        onClick && "cursor-pointer [&:active:not(:has(:active))]:scale-[0.98]",
         "shadow-[0px_4px_4px_0px_rgba(0,0,0,0.2)]",
         isSelected === true && "ring-2 ring-primary ring-offset-3 ring-offset-background",
         isSelected === false && "opacity-70"
@@ -115,19 +120,37 @@ export function MintCard({
 
       {/* Mint Logo + Name — top-left */}
       <div
-        className="absolute z-10 flex items-center gap-2"
+        className="absolute z-10 flex items-start gap-2"
         style={{ top: '13%', left: '9.3%' }}
       >
         <div
-          className="rounded-full flex items-center justify-center overflow-hidden shrink-0"
-          style={{ width: '25px', height: '25px' }}
+          className="rounded-full flex items-center justify-center overflow-hidden shrink-0 h-[27px]"
+          style={{ width: '25px', minHeight: '25px' }}
         >
           <MintLogo iconUrl={mint.iconUrl} />
         </div>
-        <p className="font-['Montserrat'] font-bold text-[15.6px] text-[#fafafa] uppercase leading-normal whitespace-nowrap">
-          {displayName}
-        </p>
+        <div className="flex flex-col">
+          <p className="font-['Montserrat'] font-bold text-[18px] text-[#fafafa] leading-[27px] whitespace-nowrap">
+            {displayName}
+          </p>
+          {showMintSubName && (
+            <p className="font-['Montserrat'] font-medium text-[10px] text-white/60 leading-tight whitespace-nowrap">
+              {mint.mintName}
+            </p>
+          )}
+        </div>
       </div>
+
+      {/* Detail button — top-right */}
+      {onDetail && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onDetail(); }}
+          className="absolute z-20 w-9 h-9 flex items-center justify-center rounded-full active:bg-white/10 transition-colors"
+          style={{ top: '10%', right: '4%' }}
+        >
+          <EllipsisVertical className="w-5 h-5 text-white/80" />
+        </button>
+      )}
 
       {/* BALANCE label & amount */}
       {!hideBalance && (

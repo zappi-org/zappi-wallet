@@ -212,6 +212,27 @@ export async function resetDatabase(): Promise<void> {
 }
 
 /**
+ * Clear all data related to a specific mint
+ * Removes proofs, pending items, failed swaps, and metadata.
+ * Transactions are kept for historical reference.
+ */
+export async function clearMintData(mintUrl: string): Promise<void> {
+  const db = getDatabase()
+  const normalized = mintUrl.endsWith('/') ? mintUrl.slice(0, -1) : mintUrl
+  const variants = [normalized, normalized + '/']
+
+  await Promise.all([
+    db.proofs.where('mintUrl').anyOf(variants).delete(),
+    db.failedSwaps.where('mintUrl').anyOf(variants).delete(),
+    db.pendingQuotes.where('mintUrl').anyOf(variants).delete(),
+    db.pendingMelts.where('mintUrl').anyOf(variants).delete(),
+    db.pendingSendTokens.where('mintUrl').anyOf(variants).delete(),
+    db.pendingReceivedTokens.where('mintUrl').anyOf(variants).delete(),
+    db.mintMetadata.where('url').anyOf(variants).delete(),
+  ])
+}
+
+/**
  * Clear all data (for logout)
  */
 export async function clearAllData(): Promise<void> {

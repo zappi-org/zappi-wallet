@@ -9,6 +9,7 @@ import { normalizeRelayUrl } from '@/utils/url'
 import { satUnit } from '@/utils/format'
 import { restoreWallet, getBalances, recoverPendingQuotes } from '@/coco'
 import { LIMITS, ZAPPI_LINK_URL } from '@/core/constants'
+import { clearMintData } from '@/data/database/schema'
 import { ProfileService } from '@/services/profile/profile.service'
 import { NostrService } from '@/services/nostr/nostr.service'
 import { ZappiLinkService } from '@/services/zappi-link'
@@ -307,6 +308,7 @@ export function SettingsScreen({
     } else {
       const newMints = settings.mints.filter((m) => m !== url)
       saveSettings({ mints: newMints })
+      clearMintData(url)
     }
   }, [settings.mints, saveSettings, balanceByMint])
 
@@ -314,6 +316,7 @@ export function SettingsScreen({
     if (!mintToDelete) return
     const newMints = settings.mints.filter((m) => m !== mintToDelete)
     await saveSettings({ mints: newMints })
+    clearMintData(mintToDelete)
     setMintToDelete(null)
   }, [mintToDelete, settings.mints, saveSettings])
 

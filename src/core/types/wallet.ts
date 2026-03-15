@@ -11,6 +11,10 @@ export type NetworkState = 'ONLINE' | 'OFFLINE' | 'SYNCING' | 'ERROR'
 export interface MintInfo {
   url: string
   name?: string
+  /** User-defined alias (e.g. "지갑 1") — takes display priority over name */
+  alias?: string
+  /** Original mint name from NUT-06 metadata */
+  mintName?: string
   iconUrl?: string
   balance: number
   isOnline: boolean
@@ -176,6 +180,8 @@ export interface WalletSettings {
   language?: SupportedLanguage
   /** Amount display format: BIP-177 (₿ 1,000) or sats (1,000 sats) */
   unitDisplay?: 'bip177' | 'sats'
+  /** User-defined mint aliases: { mintUrl: "지갑 1" } */
+  mintAliases?: Record<string, string>
   posDevices?: POSDevice[]
 }
 
