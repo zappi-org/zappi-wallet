@@ -3,7 +3,6 @@ import { Trash2, ChevronRight, Copy, Check, Store } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useTranslation } from 'react-i18next'
 import { Button, Modal, PinInput } from '../../components/common'
-import { cn } from '@/components/ui/utils'
 import { derivePOSSubKey, getP2PKPubkey } from '@/services/crypto'
 import type { POSDevice, POSProvisioningPayload, WalletSettings } from '@/core/types'
 
