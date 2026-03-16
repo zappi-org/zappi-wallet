@@ -103,7 +103,7 @@ export default {
 
   // Action Buttons
   actions: {
-    transfer: 'Transferir',
+    transfer: 'Mover Saldo',
     scan: 'Escanear',
     analytics: 'Análisis',
   },
@@ -159,10 +159,6 @@ export default {
     logout: 'Cerrar sesión',
     version: 'Zappi v1.0.0',
 
-    // Tools
-    tools: 'Herramientas',
-    transferDescription: 'Transferir tokens entre mints',
-    analyticsDescription: 'Ver estadísticas de gastos e ingresos',
     updateAvailable: 'Actualización disponible',
 
     // Mints
@@ -222,6 +218,9 @@ export default {
     mintHasBalance: 'Este mint tiene un saldo de <bold>{{formattedBalance}}</bold>.',
     deleteWarning: 'Eliminar hará el saldo inaccesible.',
 
+    // Preferences
+    preferences: 'Preferencias',
+
     // Language
     language: 'Idioma',
 
@@ -229,7 +228,7 @@ export default {
     unitDisplay: 'Unidad',
 
     // Fiat Currency
-    fiatCurrency: 'Moneda Fiduciaria',
+    fiatCurrency: 'Moneda',
     showFiatConversion: 'Mostrar Precio Fiat',
     selectCurrency: 'Seleccionar Moneda',
   },

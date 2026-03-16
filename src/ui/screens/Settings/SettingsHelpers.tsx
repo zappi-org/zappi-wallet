@@ -19,7 +19,7 @@ export function MintIcon({
 
   if (iconUrl) {
     return (
-      <div className={cn(sizeClasses, 'rounded-full overflow-hidden bg-white/50 shrink-0', className)}>
+      <div className={cn(sizeClasses, 'rounded-sm overflow-hidden bg-foreground/[0.04] shrink-0', className)}>
         <img
           src={iconUrl}
           alt="Mint icon"
@@ -35,11 +35,10 @@ export function MintIcon({
   return (
     <div className={cn(
       sizeClasses,
-      'rounded-full bg-gradient-to-br from-primary to-accent-primary flex items-center justify-center shrink-0',
+      'rounded-sm bg-foreground/[0.06] flex items-center justify-center shrink-0',
       className
     )}>
-      <Database className={cn(fallbackIconSize, 'text-white/80')} />
+      <Database className={cn(fallbackIconSize, 'text-foreground-muted')} />
     </div>
   )
 }
-

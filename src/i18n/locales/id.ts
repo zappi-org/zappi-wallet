@@ -103,7 +103,7 @@ export default {
 
   // Action Buttons
   actions: {
-    transfer: 'Transfer',
+    transfer: 'Pindah Saldo',
     scan: 'Pindai',
     analytics: 'Analitik',
   },
@@ -159,10 +159,6 @@ export default {
     logout: 'Keluar',
     version: 'Zappi v1.0.0',
 
-    // Tools
-    tools: 'Alat',
-    transferDescription: 'Transfer token antar mint',
-    analyticsDescription: 'Lihat statistik pengeluaran dan penerimaan',
     updateAvailable: 'Pembaruan tersedia',
 
     // Mints
@@ -222,6 +218,9 @@ export default {
     mintHasBalance: 'Mint ini memiliki saldo <bold>{{formattedBalance}}</bold>.',
     deleteWarning: 'Menghapus akan membuat saldo tidak dapat diakses.',
 
+    // Preferences
+    preferences: 'Preferensi',
+
     // Language
     language: 'Bahasa',
 
@@ -229,7 +228,7 @@ export default {
     unitDisplay: 'Satuan',
 
     // Fiat Currency
-    fiatCurrency: 'Mata Uang Fiat',
+    fiatCurrency: 'Mata Uang',
     showFiatConversion: 'Tampilkan Harga Fiat',
     selectCurrency: 'Pilih Mata Uang',
   },

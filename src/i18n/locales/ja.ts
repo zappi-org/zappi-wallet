@@ -103,7 +103,7 @@ export default {
 
   // Action Buttons
   actions: {
-    transfer: '送金',
+    transfer: '残高移動',
     scan: 'スキャン',
     analytics: '分析',
   },
@@ -159,10 +159,6 @@ export default {
     logout: 'ログアウト',
     version: 'Zappi v1.0.0',
 
-    // Tools
-    tools: 'ツール',
-    transferDescription: 'ミント間でトークンを転送',
-    analyticsDescription: '支出と受取の統計を確認',
     updateAvailable: 'アップデートがあります',
 
     // Mints
@@ -222,6 +218,9 @@ export default {
     mintHasBalance: 'このミントには<bold>{{formattedBalance}}</bold>の残高があります。',
     deleteWarning: '削除すると残高にアクセスできなくなります。',
 
+    // Preferences
+    preferences: '環境設定',
+
     // Language
     language: '言語',
 
@@ -229,7 +228,7 @@ export default {
     unitDisplay: '単位表示',
 
     // Fiat Currency
-    fiatCurrency: '法定通貨',
+    fiatCurrency: '通貨',
     showFiatConversion: '法定通貨を表示',
     selectCurrency: '通貨を選択',
   },

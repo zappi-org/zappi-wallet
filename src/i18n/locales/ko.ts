@@ -103,9 +103,9 @@ export default {
 
   // Action Buttons
   actions: {
-    transfer: 'Transfer',
+    transfer: '잔액 이동',
     scan: 'Scan',
-    analytics: 'Analytics',
+    analytics: '활동 분석',
   },
 
   // Settings
@@ -115,7 +115,7 @@ export default {
     // Profile
     profile: '프로필',
     zappiUser: 'Zappi 사용자',
-    lightningAddress: 'Lightning Address',
+    lightningAddress: '라이트닝 주소',
     registerLightningAddress: 'Lightning Address 등록',
     registeringLightningAddress: '등록 중...',
     lightningAddressRequired: 'Lightning 결제를 수취하려면 Lightning Address를 등록해야 합니다.',
@@ -159,10 +159,6 @@ export default {
     logout: '로그아웃',
     version: 'Zappi v1.0.0',
 
-    // Tools
-    tools: '도구',
-    transferDescription: '민트 간 토큰 전송',
-    analyticsDescription: '지출 및 수입 통계 보기',
     updateAvailable: '새 업데이트가 있습니다',
 
     // Mints
@@ -222,6 +218,9 @@ export default {
     mintHasBalance: '이 민트에 <bold>{{formattedBalance}}</bold>의 잔액이 있습니다.',
     deleteWarning: '삭제하면 해당 잔액에 접근할 수 없게 됩니다.',
 
+    // Preferences
+    preferences: '환경설정',
+
     // Language
     language: '언어',
 
@@ -229,7 +228,7 @@ export default {
     unitDisplay: '단위 표시',
 
     // Fiat Currency
-    fiatCurrency: '법정화폐 단위',
+    fiatCurrency: '단위',
     showFiatConversion: '법정화폐 표시',
     selectCurrency: '통화 선택',
 

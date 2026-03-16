@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 
-import { ArrowLeft, ChevronRight, Check, AlertTriangle, LogOut, Globe, ShieldCheck, Download, ArrowLeftRight, BarChart3, Coins } from 'lucide-react'
+import { ArrowLeft, ChevronRight, ChevronDown, ChevronsUpDown, Check, AlertTriangle, ShieldCheck, Download, SlidersHorizontal } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button, Modal, BottomSheet, PinInput } from '../../components/common'
 import { useAppStore } from '@/store'
@@ -551,22 +551,21 @@ export function SettingsScreen({
   }, [])
 
   return (
-    <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe overflow-hidden z-[60]"
-    >
+    <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe overflow-hidden z-[60]">
       {/* Header */}
-      <header className="flex items-center px-3 pt-4 relative z-50">
-        <button onClick={onBack} aria-label={t('common.back')} className="p-2 rounded-full bg-white/60 shadow-sm hover:shadow-md transition-all hover:bg-background-card backdrop-blur-md">
-          <ArrowLeft className="w-4 h-4" />
+      <header className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-border relative z-50">
+        <button onClick={onBack} aria-label={t('common.back')} className="p-1">
+          <ArrowLeft className="w-5 h-5 text-foreground" />
         </button>
-        <h2 className="text-base font-bold tracking-tight ml-3">{t('settings.title')}</h2>
+        <h2 className="text-base font-semibold tracking-tight">{t('settings.title')}</h2>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-32">
+      <div className="flex-1 overflow-y-auto pb-32">
         {/* Update Button */}
         {updateAvailable && (
           <button
             onClick={() => updateSW()}
-            className="w-full bg-[#1d1d1f] text-white p-3 rounded-2xl font-bold flex items-center justify-center gap-2 transition-colors active:scale-[0.98]"
+            className="w-full bg-foreground text-background-card px-4 py-3 font-semibold text-[13px] flex items-center justify-center gap-2 active:opacity-80"
           >
             <Download className="w-4 h-4" />
             {t('settings.updateAvailable')}
@@ -579,7 +578,83 @@ export function SettingsScreen({
           npubCopied={npubCopied}
           encodeNpub={encodeNpub}
           onCopyNpub={handleCopyNpub}
+          lightningAddress={settings.lightningAddress}
+          isRegistering={isRegistering}
+          onRegisterLightningAddress={handleRegisterLightningAddress}
+          onOpenUsernameChange={onChangeUsername}
+          onAnalytics={onAnalytics}
         />
+
+        {/* Preferences Section */}
+        <section>
+          <p className="text-[12px] font-semibold uppercase tracking-wide text-foreground-muted px-4 pt-6 pb-2 flex items-center gap-1.5">
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            {t('settings.preferences')}
+          </p>
+          <div className="bg-background-card">
+            {/* Language */}
+            <button
+              onClick={() => setShowLanguageModal(true)}
+              className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
+            >
+              <span className="text-[14px] font-medium">{t('settings.language')}</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[14px] text-foreground-muted">
+                  {SUPPORTED_LANGUAGES.find(l => l.code === currentLang)?.nativeName || 'English'}
+                </span>
+                <ChevronRight className="w-4 h-4 text-foreground-subtle" />
+              </div>
+            </button>
+
+            {/* Unit Display — tap to toggle */}
+            <button
+              onClick={() => saveSettings({ unitDisplay: (settings.unitDisplay ?? 'bip177') === 'sats' ? 'bip177' : 'sats' })}
+              className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
+            >
+              <span className="text-[14px] font-medium">{t('settings.unitDisplay')}</span>
+              <div className="flex items-center gap-1">
+                <span className="text-[14px] text-foreground-muted">
+                  {(settings.unitDisplay ?? 'bip177') === 'sats' ? 'sats' : '₿ (BIP-177)'}
+                </span>
+                <ChevronsUpDown className="w-3.5 h-3.5 text-foreground-subtle" />
+              </div>
+            </button>
+
+            {/* Fiat Conversion Toggle */}
+            <div className="px-4 py-3.5 flex items-center justify-between">
+              <span className="text-[14px] font-medium">{t('settings.showFiatConversion')}</span>
+              <Switch
+                checked={settings.showFiatConversion ?? true}
+                onChange={(v) => saveSettings({ showFiatConversion: v })}
+              />
+            </div>
+
+            {/* Fiat Currency Picker — sub-row when fiat is enabled */}
+            <div
+              className="grid transition-[grid-template-rows] duration-200 ease-out"
+              style={{ gridTemplateRows: (settings.showFiatConversion ?? true) ? '1fr' : '0fr' }}
+            >
+              <div className="overflow-hidden">
+                <button
+                  onClick={() => setShowCurrencyPicker(true)}
+                  className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
+                >
+                  <span className="text-[14px] text-foreground-muted">{t('settings.fiatCurrency')}</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[14px] text-foreground-muted">
+                      {(() => {
+                        const code = settings.fiatCurrency ?? 'USD'
+                        const info = FIAT_CURRENCY_MAP.get(code)
+                        return info ? `${info.flag} ${info.symbol}` : code
+                      })()}
+                    </span>
+                    <ChevronDown className="w-3.5 h-3.5 text-foreground-subtle" />
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* Security Section */}
         <SecuritySection
@@ -593,98 +668,6 @@ export function SettingsScreen({
           onOpenPinChange={() => setShowPasswordModal(true)}
         />
 
-        {/* Language Section */}
-        <section>
-          <h3 className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted mb-2 px-2">{t('settings.language')}</h3>
-          <div className="bg-white/60 rounded-2xl overflow-hidden shadow-sm border border-white/50">
-            <button
-              onClick={() => setShowLanguageModal(true)}
-              className="w-full p-3 flex items-center justify-between hover:bg-white/40 transition-colors text-left"
-            >
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-primary/10 rounded-xl text-foreground">
-                  <Globe className="w-4 h-4" />
-                </div>
-                <span className="font-bold text-xs">{t('settings.language')}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-foreground-muted bg-background px-2 py-1 rounded-lg">
-                  {SUPPORTED_LANGUAGES.find(l => l.code === currentLang)?.nativeName || 'English'}
-                </span>
-                <ChevronRight className="w-4 h-4 text-foreground-muted" />
-              </div>
-            </button>
-          </div>
-        </section>
-
-        {/* Unit Display Section */}
-        <section>
-          <h3 className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted mb-2 px-2">{t('settings.unitDisplay')}</h3>
-          <div className="bg-white/60 rounded-2xl overflow-hidden shadow-sm border border-white/50">
-            <div className="p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-primary/10 rounded-xl text-foreground">
-                  <Coins className="w-4 h-4" />
-                </div>
-                <span className="font-bold text-xs">{t('settings.unitDisplay')}</span>
-              </div>
-              <div className="flex bg-background rounded-lg p-0.5">
-                {(['bip177', 'sats'] as const).map((unit) => (
-                  <button
-                    key={unit}
-                    onClick={() => saveSettings({ unitDisplay: unit })}
-                    className={cn(
-                      'px-3 py-1.5 rounded-md text-xs font-bold transition-all',
-                      (settings.unitDisplay ?? 'bip177') === unit
-                        ? 'bg-primary text-white shadow-sm'
-                        : 'text-foreground-muted hover:text-foreground',
-                    )}
-                  >
-                    {unit === 'bip177' ? '₿' : 'sats'}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Fiat Currency Section */}
-        <section>
-          <h3 className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted mb-2 px-2">{t('settings.fiatCurrency')}</h3>
-          <div className="bg-white/60 rounded-2xl overflow-hidden shadow-sm border border-white/50">
-            {/* Currency selector */}
-            <button
-              onClick={() => setShowCurrencyPicker(true)}
-              className="w-full p-3 flex items-center justify-between hover:bg-white/40 transition-colors text-left border-b border-white/30"
-            >
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-primary/10 rounded-xl text-foreground">
-                  <Coins className="w-4 h-4" />
-                </div>
-                <span className="font-bold text-xs">{t('settings.fiatCurrency')}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-foreground-muted bg-background px-2 py-1 rounded-lg">
-                  {(() => {
-                    const code = settings.fiatCurrency ?? 'USD'
-                    const info = FIAT_CURRENCY_MAP.get(code)
-                    return info ? `${info.symbol} ${info.code}` : code
-                  })()}
-                </span>
-                <ChevronRight className="w-4 h-4 text-foreground-muted" />
-              </div>
-            </button>
-            {/* Show fiat toggle */}
-            <div className="p-3 flex items-center justify-between">
-              <span className="font-bold text-xs">{t('settings.showFiatConversion')}</span>
-              <Switch
-                checked={settings.showFiatConversion ?? true}
-                onChange={(v) => saveSettings({ showFiatConversion: v })}
-              />
-            </div>
-          </div>
-        </section>
-
         {/* Wallet Management Section */}
         <WalletManagementSection
           mintsCount={settings.mints.length}
@@ -693,71 +676,30 @@ export function SettingsScreen({
           onOpenRelays={() => setShowRelaysModal(true)}
           onOpenRestore={() => setShowRestoreModal(true)}
           onOpenBackup={() => setShowBackupModal(true)}
+          onTransfer={onTransfer}
         />
-
-        {/* Tools Section */}
-        <section>
-          <h3 className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted mb-2 px-2">{t('settings.tools')}</h3>
-          <div className="bg-white/60 rounded-2xl overflow-hidden shadow-sm border border-white/50">
-            <button
-              onClick={onTransfer}
-              className="w-full p-3 flex items-center justify-between hover:bg-white/40 transition-colors text-left border-b border-white/30"
-            >
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-primary/10 rounded-xl text-foreground">
-                  <ArrowLeftRight className="w-4 h-4" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="font-bold text-xs">{t('actions.transfer')}</span>
-                  <span className="text-[10px] text-foreground-muted">{t('settings.transferDescription')}</span>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-foreground-muted" />
-            </button>
-            <button
-              onClick={onAnalytics}
-              className="w-full p-3 flex items-center justify-between hover:bg-white/40 transition-colors text-left"
-            >
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-primary/10 rounded-xl text-foreground">
-                  <BarChart3 className="w-4 h-4" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="font-bold text-xs">{t('actions.analytics')}</span>
-                  <span className="text-[10px] text-foreground-muted">{t('settings.analyticsDescription')}</span>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-foreground-muted" />
-            </button>
-          </div>
-        </section>
 
         {/* POS Management Section */}
         <POSProvisioningSection
           settings={settings}
           nostrPubkey={nostrPubkey}
           nostrPrivkey={nostrPrivkey}
-          lightningAddress={settings.lightningAddress}
-          isRegistering={isRegistering}
-          onRegisterLightningAddress={handleRegisterLightningAddress}
-          onOpenUsernameChange={onChangeUsername}
           onBackupMnemonic={onBackupMnemonic}
           onSaveSettings={saveSettings}
         />
 
-        {/* Logout Section */}
-        <section>
+        {/* Logout */}
+        <div className="px-4 pt-8">
           <button
             onClick={() => setShowLogoutModal(true)}
-            className="w-full bg-accent-danger/10 hover:bg-accent-danger/20 border border-accent-danger/20 text-accent-danger p-3 rounded-2xl font-bold flex items-center justify-center gap-2 transition-colors"
+            className="w-full py-3.5 text-accent-danger text-[14px] font-semibold flex items-center justify-center gap-2 border border-border rounded-sm active:bg-background-hover"
           >
-            <LogOut className="w-4 h-4" />
             {t('settings.logout')}
           </button>
-          <div className="text-center mt-4">
-            <span className="text-[10px] font-bold text-foreground-muted/50 uppercase tracking-widest">{t('settings.version')}</span>
-          </div>
-        </section>
+          <p className="text-center mt-4 text-[10px] text-foreground-muted/50 uppercase tracking-widest">
+            {t('settings.version')}
+          </p>
+        </div>
       </div>
 
       {/* PIN Change Modal */}
@@ -789,17 +731,17 @@ export function SettingsScreen({
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="bg-accent-danger/10 border border-accent-danger/20 p-3 rounded-xl flex gap-2">
+            <div className="border-l-2 border-accent-danger bg-accent-danger/[0.06] p-3 flex gap-2">
               <AlertTriangle className="w-5 h-5 text-accent-danger shrink-0" />
-              <p className="text-[10px] text-accent-danger font-bold leading-relaxed">
+              <p className="text-[11px] text-accent-danger font-semibold leading-relaxed">
                 {t('settings.mnemonicWarning')}
               </p>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-1.5">
               {mnemonic.split(' ').map((word, i) => (
-                <div key={i} className="flex items-center gap-2 bg-white/60 p-2 rounded-xl border border-white/50">
-                  <span className="text-[10px] font-bold text-foreground-muted/50 w-4">{i + 1}</span>
-                  <span className="text-xs font-bold text-foreground">{word}</span>
+                <div key={i} className="flex items-center gap-2 bg-background p-2 rounded-sm border border-border">
+                  <span className="text-[10px] font-semibold text-foreground-muted/50 w-4">{i + 1}</span>
+                  <span className="text-[12px] font-semibold text-foreground">{word}</span>
                 </div>
               ))}
             </div>
@@ -818,10 +760,10 @@ export function SettingsScreen({
       >
         <div className="py-3">
           <div className="flex flex-col items-center text-center gap-3 mb-4">
-            <div className="w-14 h-14 rounded-full bg-accent-danger/10 flex items-center justify-center text-accent-danger">
+            <div className="w-12 h-12 rounded-sm bg-accent-danger/[0.08] flex items-center justify-center text-accent-danger">
               <AlertTriangle className="w-6 h-6" />
             </div>
-            <p className="text-xs text-foreground-muted">
+            <p className="text-[12px] text-foreground-muted">
               {t('settings.logoutWarning')}
             </p>
           </div>
@@ -839,10 +781,10 @@ export function SettingsScreen({
               onClick={handleLogout}
               disabled={logoutPin.length !== 6 || isLoggingOut}
               className={cn(
-                'flex-1 p-2 rounded-xl font-bold transition-colors shadow-lg',
+                'flex-1 py-2 rounded-sm font-semibold text-[13px] transition-colors',
                 logoutPin.length !== 6 || isLoggingOut
                   ? 'bg-accent-danger/50 text-white/50 cursor-not-allowed'
-                  : 'bg-accent-danger text-white hover:bg-accent-danger-hover shadow-accent-danger/30'
+                  : 'bg-accent-danger text-white active:opacity-80'
               )}
             >
               {isLoggingOut ? t('common.processing') : t('settings.logout')}
@@ -854,7 +796,7 @@ export function SettingsScreen({
       {/* Passkey Registration Modal */}
       <Modal isOpen={showPasskeyModal} onClose={resetPasskeyModal} title={t('settings.passkeySetup')}>
         <div className="py-3">
-          <p className="text-xs text-foreground-muted text-center mb-3">
+          <p className="text-[12px] text-foreground-muted text-center mb-3">
             {t('settings.passkeyDescription')}
           </p>
           <PinInput value={passkeyPin} onChange={handlePasskeyPinChange} label={t('settings.enterPinLabel')} error={passkeyError} />
@@ -867,7 +809,7 @@ export function SettingsScreen({
       {/* Passkey Remove Modal */}
       <Modal isOpen={showPasskeyRemoveModal} onClose={resetPasskeyModal} title={t('settings.passkeyRemove')}>
         <div className="py-3">
-          <p className="text-xs text-foreground-muted text-center mb-3">
+          <p className="text-[12px] text-foreground-muted text-center mb-3">
             {t('settings.passkeyRemoveDescription')}
           </p>
           <PinInput value={passkeyPin} onChange={handlePasskeyPinChange} label={t('settings.enterPinLabel')} error={passkeyError} />
@@ -886,10 +828,10 @@ export function SettingsScreen({
         <div className="space-y-3">
           {!isRestoring && !restoreResult && (
             <>
-              <p className="text-xs text-foreground-muted">
+              <p className="text-[12px] text-foreground-muted">
                 {t('settings.restoreDescription')}
               </p>
-              <p className="text-xs text-foreground-muted">{t('settings.registeredMints', { count: settings.mints.length })}</p>
+              <p className="text-[12px] text-foreground-muted">{t('settings.registeredMints', { count: settings.mints.length })}</p>
               <div className="flex gap-2">
                 <Button variant="secondary" size="lg" onClick={() => setShowRestoreModal(false)} className="flex-1">
                   {t('common.cancel')}
@@ -911,19 +853,19 @@ export function SettingsScreen({
                   <ShieldCheck className="w-6 h-6 text-foreground" />
                 </div>
               </div>
-              <p className="font-bold text-foreground">{t('settings.verifying')}</p>
-              {restoreProgress && <p className="text-[10px] text-foreground-muted mt-2">{restoreProgress}</p>}
+              <p className="font-semibold text-foreground">{t('settings.verifying')}</p>
+              {restoreProgress && <p className="text-[11px] text-foreground-muted mt-2">{restoreProgress}</p>}
             </div>
           )}
           {restoreResult && (
             <div className="text-center py-3">
               <div className={cn(
-                'w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3',
-                restoreResult.success ? 'bg-accent-primary/20 text-accent-primary' : 'bg-accent-danger/20 text-accent-danger'
+                'w-12 h-12 rounded-sm flex items-center justify-center mx-auto mb-3',
+                restoreResult.success ? 'bg-accent-primary/[0.1] text-accent-primary' : 'bg-accent-danger/[0.1] text-accent-danger'
               )}>
                 {restoreResult.success ? <Check className="w-6 h-6" /> : <AlertTriangle className="w-6 h-6" />}
               </div>
-              <p className="font-bold text-foreground">{restoreResult.message}</p>
+              <p className="font-semibold text-foreground">{restoreResult.message}</p>
               <Button variant="primary" size="lg" onClick={() => { setShowRestoreModal(false); setRestoreResult(null) }} className="w-full mt-3">
                 {t('common.confirm')}
               </Button>
@@ -971,23 +913,23 @@ export function SettingsScreen({
         onClose={() => setShowLanguageModal(false)}
         title={t('settings.language')}
       >
-        <div className="p-3 space-y-2">
+        <div className="divide-y divide-border">
           {SUPPORTED_LANGUAGES.map((lang) => (
             <button
               key={lang.code}
               onClick={() => handleLanguageChange(lang.code)}
               className={cn(
-                'w-full p-3 rounded-xl border flex items-center justify-between transition-all',
+                'w-full px-4 py-3 flex items-center justify-between text-left',
                 currentLang === lang.code
-                  ? 'bg-primary border-primary text-white'
-                  : 'bg-white/60 border-white/50 text-foreground hover:bg-white/80'
+                  ? 'bg-primary/[0.04]'
+                  : 'active:bg-background-hover'
               )}
             >
               <div className="flex items-center gap-3">
-                <span className="font-bold text-sm">{lang.nativeName}</span>
-                <span className="text-[10px] opacity-70">{lang.name}</span>
+                <span className="text-[13px] font-medium">{lang.nativeName}</span>
+                <span className="text-[11px] text-foreground-muted">{lang.name}</span>
               </div>
-              {currentLang === lang.code && <Check className="w-4 h-4" />}
+              {currentLang === lang.code && <Check className="w-4 h-4 text-primary" />}
             </button>
           ))}
         </div>
