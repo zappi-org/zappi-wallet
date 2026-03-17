@@ -140,7 +140,7 @@ export function ReceiveInputStep({
           <div className="relative flex p-1.5 bg-[#f0f0f0] rounded-[14px]">
             {/* Sliding indicator */}
             <div
-              className="absolute top-1.5 bottom-1.5 w-[calc(50%-3px)] bg-[#3b7df5] rounded-[10px] shadow-sm transition-transform duration-250 ease-out"
+              className="absolute top-1.5 bottom-1.5 w-[calc(50%-3px)] bg-brand rounded-[10px] shadow-sm transition-transform duration-250 ease-out"
               style={{ left: '6px', transform: method === 'ecash' ? 'translateX(100%)' : 'translateX(0)' }}
             />
             <button
@@ -187,11 +187,11 @@ export function ReceiveInputStep({
       {/* Bottom Action */}
       <div className="p-5 pb-safe">
         <Button
-          variant="primary"
+          variant="brand"
           size="xl"
           onClick={handleNext}
           loading={isLoading}
-          className="w-full !bg-[#3b7df5] !text-white !rounded-[14px] !h-14 !text-lg shadow-lg shadow-[#3b7df5]/25"
+          className="w-full"
         >
           {t('receive.next')}
         </Button>

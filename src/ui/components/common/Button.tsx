@@ -1,6 +1,6 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
 
-export type ButtonVariant = 'primary' | 'secondary' | 'destructive' | 'ghost' | 'outline'
+export type ButtonVariant = 'primary' | 'secondary' | 'destructive' | 'ghost' | 'outline' | 'brand'
 export type ButtonSize = 'sm' | 'md' | 'lg' | 'xl'
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -17,13 +17,14 @@ const variantStyles: Record<ButtonVariant, string> = {
   destructive: 'bg-accent-danger text-white hover:bg-accent-danger/90',
   ghost: 'bg-transparent text-foreground-muted hover:bg-background-card',
   outline: 'border border-input bg-background hover:bg-background-card',
+  brand: 'bg-brand text-white rounded-[14px] shadow-lg shadow-brand/25 hover:bg-brand/90',
 }
 
 const sizeStyles: Record<ButtonSize, string> = {
   sm: 'h-7 px-2 text-xs rounded-md',
   md: 'h-8 px-3 text-sm rounded-lg',
   lg: 'h-10 px-4 text-base rounded-lg',
-  xl: 'h-12 px-6 text-lg rounded-lg',
+  xl: 'h-14 px-6 text-lg rounded-[14px]',
 }
 
 // Touch feedback styles (Section 17.3)

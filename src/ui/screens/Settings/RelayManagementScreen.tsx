@@ -34,13 +34,18 @@ export function RelayManagementScreen({
 
   // Check relay health on mount
   useEffect(() => {
+    const sockets: WebSocket[] = []
+    const timeouts: ReturnType<typeof setTimeout>[] = []
+
     relays.forEach((url) => {
       try {
         const ws = new WebSocket(url)
+        sockets.push(ws)
         const timeout = setTimeout(() => {
           ws.close()
           setRelayStatus((p) => ({ ...p, [url]: false }))
         }, 5000)
+        timeouts.push(timeout)
         ws.onopen = () => {
           clearTimeout(timeout)
           ws.close()
@@ -48,12 +53,18 @@ export function RelayManagementScreen({
         }
         ws.onerror = () => {
           clearTimeout(timeout)
+          ws.close()
           setRelayStatus((p) => ({ ...p, [url]: false }))
         }
       } catch {
         setRelayStatus((p) => ({ ...p, [url]: false }))
       }
     })
+
+    return () => {
+      timeouts.forEach(clearTimeout)
+      sockets.forEach((ws) => { try { ws.close() } catch { /* already closed */ } })
+    }
   }, [relays])
 
   const handleAdd = useCallback(async () => {

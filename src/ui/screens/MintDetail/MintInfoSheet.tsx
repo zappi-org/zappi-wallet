@@ -2,33 +2,12 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { X, Copy, Check, QrCode, ExternalLink, Pencil } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
-import type { MintInfo } from '@/core/types'
+import type { MintInfo, MintInfoData } from '@/core/types'
+import { NUT_NAMES, getSupportedNuts } from '@/core/constants'
+import { formatMintHost } from '@/utils/url'
 import { MintUrlQrModal } from './MintUrlQrModal'
 import { SupportedNutsModal } from './SupportedNutsModal'
 import { DeleteMintSheet } from './DeleteMintSheet'
-
-interface MintInfoData {
-  name?: string
-  pubkey?: string
-  version?: string
-  description?: string
-  description_long?: string
-  contact?: Array<{ method: string; info: string }>
-  nuts?: Record<string, unknown>
-  motd?: string
-  units?: string[]
-}
-
-// NUT names mapping
-const NUT_NAMES: Record<string, string> = {
-  '0': 'Cryptography', '1': 'Mint Keys', '2': 'Keysets', '3': 'Swap',
-  '4': 'Mint (Lightning)', '5': 'Melt (Lightning)', '6': 'Mint Info',
-  '7': 'State Check', '8': 'Fee Return', '9': 'Restore',
-  '10': 'Spending Conditions', '11': 'P2PK', '12': 'DLEQ Proofs',
-  '13': 'Deterministic Secrets', '14': 'HTLC', '15': 'MPP',
-  '17': 'WebSocket', '18': 'Payment Request', '19': 'Cached Responses',
-  '20': 'Signature on Quote',
-}
 
 export interface MintInfoSheetProps {
   isOpen: boolean
@@ -104,22 +83,11 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename }: Min
     setIsEditingName(false)
   }, [mint?.url, editNameValue, onRename])
 
-  const getSupportedNuts = (): string[] => {
-    if (!mintInfo?.nuts) return []
-    return Object.keys(mintInfo.nuts)
-      .filter((k) => k.match(/^\d+$/))
-      .sort((a, b) => parseInt(a) - parseInt(b))
-  }
-
-  const formatMintUrl = (url: string) => {
-    try { return new URL(url).hostname } catch { return url }
-  }
-
   if (!isOpen || !mint) return null
 
-  const aliasName = mint.alias || mint.name || formatMintUrl(mint.url)
+  const aliasName = mint.alias || mint.name || formatMintHost(mint.url)
   const originalMintName = mintInfo?.name || mint.mintName
-  const nuts = getSupportedNuts()
+  const nuts = getSupportedNuts(mintInfo?.nuts)
 
   return (
     <>
@@ -314,7 +282,7 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename }: Min
                         <span className="text-sm text-[#86868b]">{t('mintDetail.supportedProtocols')}</span>
                         <button
                           onClick={() => setShowNuts(true)}
-                          className="text-sm text-[#3b7df5] font-medium"
+                          className="text-sm text-brand font-medium"
                         >
                           {t('mintDetail.viewAll')}
                         </button>

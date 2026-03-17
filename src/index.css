@@ -21,6 +21,7 @@
   --color-accent-warning-bright: var(--accent-warning-bright);
   --color-accent-warning-bright-text: var(--accent-warning-bright-text);
   --color-accent-danger: var(--accent-danger);
+  --color-brand: var(--brand);
   --color-primary-hover: var(--primary-hover);
   --color-primary-hover-light: var(--primary-hover-light);
   --color-secondary-hover: var(--secondary-hover);
@@ -95,6 +96,9 @@
   --foreground: #2C2C2C;
   --foreground-muted: #8B8B8B;
   --foreground-subtle: #ABABAB;
+
+  /* Brand (interactive) */
+  --brand: #3b7df5;
 
   /* Accent Colors */
   --accent-primary: #5B7A54;

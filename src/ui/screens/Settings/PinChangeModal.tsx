@@ -1,73 +1,48 @@
 import { useTranslation } from 'react-i18next'
 import { Modal, PinInput } from '../../components/common'
+import type { usePinChange } from './usePinChange'
 
-export type PinChangeStep = 'current' | 'new' | 'confirm'
+export type { PinChangeStep } from './usePinChange'
+
+type PinChangeState = ReturnType<typeof usePinChange>
 
 export interface PinChangeModalProps {
-  isOpen: boolean
-  step: PinChangeStep
-  currentPin: string
-  newPin: string
-  confirmPin: string
-  pinError: string
-  isVerifyingPin: boolean
-  isChangingPin: boolean
-  onCurrentPinChange: (value: string) => void
-  onNewPinChange: (value: string) => void
-  onConfirmPinChange: (value: string) => void
-  onCurrentPinSubmit: () => void
-  onPinChangeSubmit: () => void
-  onClose: () => void
+  pinChange: PinChangeState
 }
 
-export function PinChangeModal({
-  isOpen,
-  step,
-  currentPin,
-  newPin,
-  confirmPin,
-  pinError,
-  isVerifyingPin,
-  isChangingPin,
-  onCurrentPinChange,
-  onNewPinChange,
-  onConfirmPinChange,
-  onCurrentPinSubmit,
-  onPinChangeSubmit,
-  onClose,
-}: PinChangeModalProps) {
+export function PinChangeModal({ pinChange }: PinChangeModalProps) {
   const { t } = useTranslation()
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={t('settings.changePin')}>
+    <Modal isOpen={pinChange.isOpen} onClose={pinChange.close} title={t('settings.changePin')}>
       <div className="py-3">
-        {step === 'current' && (
+        {pinChange.step === 'current' && (
           <PinInput
-            value={currentPin}
-            onChange={onCurrentPinChange}
+            value={pinChange.currentPin}
+            onChange={pinChange.handleCurrentPinChange}
             label={t('settings.currentPinLabel')}
-            error={pinError}
+            error={pinChange.error}
             submitLabel={t('common.next')}
-            onSubmit={onCurrentPinSubmit}
-            loading={isVerifyingPin}
+            onSubmit={pinChange.handleCurrentPinSubmit}
+            loading={pinChange.isVerifying}
           />
         )}
-        {step === 'new' && (
+        {pinChange.step === 'new' && (
           <PinInput
-            value={newPin}
-            onChange={onNewPinChange}
+            value={pinChange.newPin}
+            onChange={pinChange.handleNewPinChange}
             label={t('settings.newPinLabel')}
           />
         )}
-        {step === 'confirm' && (
+        {pinChange.step === 'confirm' && (
           <PinInput
-            value={confirmPin}
-            onChange={onConfirmPinChange}
+            value={pinChange.confirmPin}
+            onChange={pinChange.handleConfirmPinChange}
             label={t('settings.confirmPinLabel')}
-            error={pinError}
+            error={pinChange.error}
             submitLabel={t('settings.change')}
-            onSubmit={onPinChangeSubmit}
-            loading={isChangingPin}
+            onSubmit={pinChange.handlePinChangeSubmit}
+            loading={pinChange.isChanging}
           />
         )}
       </div>

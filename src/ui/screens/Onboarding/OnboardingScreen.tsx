@@ -267,7 +267,7 @@ export function OnboardingScreen({
       <div className="fixed inset-0 bg-background text-foreground flex flex-col items-center justify-center p-4 pt-safe pb-safe overflow-hidden overscroll-none">
         <div className="w-full max-w-sm flex flex-col items-center text-center">
           <img src={zappiImg} alt="Zappi" className="w-40 h-40 object-contain mb-4" />
-          <h1 className="font-['Outfit'] font-bold text-3xl text-[#3b7df5] mb-1">{t('onboarding.appName')}</h1>
+          <h1 className="font-['Outfit'] font-bold text-3xl text-brand mb-1">{t('onboarding.appName')}</h1>
           <p className="text-[#86868b] text-sm mb-12">
             {t('onboarding.tagline')}
           </p>
@@ -275,7 +275,7 @@ export function OnboardingScreen({
           <div className="w-full space-y-4 mb-10">
             <button
               onClick={handleCreate}
-              className="w-full bg-[#3b7df5] text-white py-3.5 rounded-[14px] font-semibold text-base shadow-lg shadow-[#3b7df5]/25 active:scale-[0.98] transition-all"
+              className="w-full bg-brand text-white py-3.5 rounded-[14px] font-semibold text-base shadow-lg shadow-brand/25 active:scale-[0.98] transition-all"
             >
               {t('onboarding.createWallet')}
             </button>
@@ -329,7 +329,7 @@ export function OnboardingScreen({
             {mode === 'import' && (
               <div className="relative flex p-1 bg-[#f0f0f0] rounded-[10px] mb-4">
                 <div
-                  className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-[#3b7df5] rounded-[8px] shadow-sm transition-transform duration-200 ease-out"
+                  className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-brand rounded-[8px] shadow-sm transition-transform duration-200 ease-out"
                   style={{ left: '4px', transform: wordCount === 24 ? 'translateX(100%)' : 'translateX(0)' }}
                 />
                 <button
@@ -427,7 +427,7 @@ export function OnboardingScreen({
                     }}
                     className="flex items-center gap-1.5 text-[13px] font-medium text-[#86868b] active:opacity-60 transition-opacity px-3 py-2"
                   >
-                    {mnemonicCopied ? <Check className="w-4 h-4 text-[#3b7df5]" /> : <Copy className="w-4 h-4" />}
+                    {mnemonicCopied ? <Check className="w-4 h-4 text-brand" /> : <Copy className="w-4 h-4" />}
                     {mnemonicCopied ? t('common.copied') : t('onboarding.copyToClipboard')}
                   </button>
                   <span className="text-[#e0e0e0]">|</span>
@@ -451,7 +451,7 @@ export function OnboardingScreen({
                   <div className={`
                     w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors
                     ${backupConfirmed
-                      ? 'border-[#3b7df5] bg-[#3b7df5]'
+                      ? 'border-brand bg-brand'
                       : 'border-[#c0c0c0]'}
                   `}>
                     {backupConfirmed && (
@@ -493,8 +493,8 @@ export function OnboardingScreen({
               className={`
                 w-full py-3.5 rounded-[14px] font-semibold text-base transition-all
                 ${(mode === 'create' && !backupConfirmed) || (mode === 'import' && !isImportComplete)
-                  ? 'bg-[#3b7df5]/20 text-[#3b7df5]/40 cursor-not-allowed'
-                  : 'bg-[#3b7df5] text-white shadow-lg shadow-[#3b7df5]/25 active:scale-[0.98]'}
+                  ? 'bg-brand/20 text-brand/40 cursor-not-allowed'
+                  : 'bg-brand text-white shadow-lg shadow-brand/25 active:scale-[0.98]'}
               `}
             >
               {mode === 'create' ? t('onboarding.recordComplete') : t('onboarding.recoverWallet')}
@@ -543,7 +543,7 @@ export function OnboardingScreen({
                   aria-hidden="true"
                   style={{
                     transform: currentPin.length > i ? 'scale(1)' : 'scale(0.75)',
-                    backgroundColor: currentPin.length > i ? '#3b7df5' : 'rgba(59, 125, 245, 0.2)',
+                    backgroundColor: currentPin.length > i ? 'var(--brand)' : 'color-mix(in srgb, var(--brand) 20%, transparent)',
                   }}
                 />
               ))}
@@ -557,7 +557,7 @@ export function OnboardingScreen({
 
             {isLoading && (
               <div className="animate-fadeIn flex flex-col items-center gap-3 mt-4">
-                <div className="w-5 h-5 border-2 border-[#3b7df5] border-t-transparent rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-brand border-t-transparent rounded-full animate-spin" />
                 <span className="text-[#86868b] text-[13px]">
                   {loadingMessage}
                 </span>

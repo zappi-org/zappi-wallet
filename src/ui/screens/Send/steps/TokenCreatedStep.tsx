@@ -213,13 +213,13 @@ export function TokenCreatedStep({
           </button>
         )}
         <Button
-          variant="primary"
+          variant="brand"
           size="xl"
           onClick={() => {
             hapticTap()
             onComplete()
           }}
-          className="w-full !bg-[#3b7df5] !text-white !rounded-[14px] !h-14 !text-lg shadow-lg shadow-[#3b7df5]/25"
+          className="w-full"
         >
           {t('send.tokenCreated.confirm')}
         </Button>

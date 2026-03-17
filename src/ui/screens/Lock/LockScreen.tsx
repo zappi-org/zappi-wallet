@@ -221,8 +221,8 @@ export function LockScreen({
                   backgroundColor: shake
                     ? 'rgba(248, 113, 113, 0.5)'
                     : password.length > i
-                      ? '#3b7df5'
-                      : 'rgba(59, 125, 245, 0.2)',
+                      ? 'var(--brand)'
+                      : 'color-mix(in srgb, var(--brand) 20%, transparent)',
                   border: shake
                     ? '1px solid #f87171'
                     : 'none',

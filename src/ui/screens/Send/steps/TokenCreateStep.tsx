@@ -109,12 +109,12 @@ export function TokenCreateStep({
       {/* Bottom Action — no border-t */}
       <div className="p-5 pb-safe">
         <Button
-          variant="primary"
+          variant="brand"
           size="xl"
           onClick={handleNext}
           loading={isLoading}
           disabled={isOverBalance}
-          className="w-full !bg-[#3b7df5] !text-white !rounded-[14px] !h-14 !text-lg shadow-lg shadow-[#3b7df5]/25"
+          className="w-full"
         >
           {t('send.next')}
         </Button>

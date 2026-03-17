@@ -107,7 +107,7 @@ export function PendingItemsScreen({ items, mintUrl, onBack }: PendingItemsScree
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t('mintDetail.search')}
-            className="w-full bg-gray-100 rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#1d1d1f] placeholder:text-[#86868b] outline-none focus:ring-2 focus:ring-[#3b7df5]/30"
+            className="w-full bg-gray-100 rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#1d1d1f] placeholder:text-[#86868b] outline-none focus:ring-2 focus:ring-brand/30"
           />
         </div>
       </div>
@@ -138,7 +138,7 @@ export function PendingItemsScreen({ items, mintUrl, onBack }: PendingItemsScree
             className={cn(
               'px-3 py-1 rounded-full text-xs font-medium transition-colors border',
               requestFilter === 'ecash'
-                ? 'bg-[#3b7df5] text-white border-[#3b7df5]'
+                ? 'bg-brand text-white border-brand'
                 : 'bg-white text-[#86868b] border-gray-200'
             )}
           >
@@ -149,7 +149,7 @@ export function PendingItemsScreen({ items, mintUrl, onBack }: PendingItemsScree
             className={cn(
               'px-3 py-1 rounded-full text-xs font-medium transition-colors border',
               requestFilter === 'lightning'
-                ? 'bg-[#3b7df5] text-white border-[#3b7df5]'
+                ? 'bg-brand text-white border-brand'
                 : 'bg-white text-[#86868b] border-gray-200'
             )}
           >

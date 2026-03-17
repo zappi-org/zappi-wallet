@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { WalletBalance } from '@/core/types'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
+import { formatMintHost } from '@/utils/url'
 
 export interface BalanceDisplayProps {
   balance: WalletBalance
@@ -29,14 +30,6 @@ export function BalanceDisplay({
   const isSyncing = isLoading && hasExistingBalance
   const isInitialLoad = isLoading && !hasExistingBalance
 
-  const formatMintUrl = (url: string) => {
-    try {
-      const parsed = new URL(url)
-      return parsed.hostname
-    } catch {
-      return url
-    }
-  }
 
   return (
     <>
@@ -111,7 +104,7 @@ export function BalanceDisplay({
                   <div className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-status-online" />
                     <span className="text-xs truncate max-w-[150px]">
-                      {formatMintUrl(mintUrl)}
+                      {formatMintHost(mintUrl)}
                     </span>
                   </div>
                   <span className="font-medium tabular-nums text-xs">

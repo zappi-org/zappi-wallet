@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 
 import {
   ArrowLeft,
@@ -9,11 +9,13 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { ProgressStepper } from '@/ui/components/common/ProgressStepper'
 import { useAppStore } from '@/store'
 import { usePayment, useWallet, useMintMetadata } from '@/hooks'
 import { useSatUnit, useFormatSats, useFormatFiat } from '@/utils/format'
 import { MintCard, getVariantByIndex } from '@/ui/components/wallet/MintCard'
 import type { MintInfo } from '@/core/types'
+import { getMintBalance as getMintBalanceUtil } from '@/utils/url'
 import { MintIcon } from '@/ui/screens/Settings/SettingsHelpers'
 
 export interface TransferScreenProps {
@@ -51,25 +53,29 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
   const [toMintUrl, setToMintUrl] = useState<string>(resolvedInitialTo)
   const [isMintSelectorOpen, setIsMintSelectorOpen] = useState<'from' | 'to' | null>(null)
 
-  const getMintBalance = (url: string) => {
-    const normalized = url.endsWith('/') ? url.slice(0, -1) : url
-    return balance.byMint[normalized] || balance.byMint[url] || 0
-  }
+  const getMintBalance = useCallback((url: string) =>
+    getMintBalanceUtil(url, balance.byMint)
+  , [balance.byMint])
 
   const currentBalance = fromMintUrl ? getMintBalance(fromMintUrl) : 0
   const numericAmount = parseInt(amount) || 0
   const isInsufficientFunds = numericAmount > currentBalance
 
-  const buildMintInfo = (url: string): MintInfo => ({
-    url,
-    alias: getDisplayName(url),
-    iconUrl: getIconUrl(url),
-    balance: getMintBalance(url),
+  const fromMintInfo = useMemo(() => fromMintUrl ? ({
+    url: fromMintUrl,
+    alias: getDisplayName(fromMintUrl),
+    iconUrl: getIconUrl(fromMintUrl),
+    balance: getMintBalance(fromMintUrl),
     isOnline: true,
-  })
+  } satisfies MintInfo) : null, [fromMintUrl, getDisplayName, getIconUrl, getMintBalance])
 
-  const fromMintInfo = fromMintUrl ? buildMintInfo(fromMintUrl) : null
-  const toMintInfo = toMintUrl ? buildMintInfo(toMintUrl) : null
+  const toMintInfo = useMemo(() => toMintUrl ? ({
+    url: toMintUrl,
+    alias: getDisplayName(toMintUrl),
+    iconUrl: getIconUrl(toMintUrl),
+    balance: getMintBalance(toMintUrl),
+    isOnline: true,
+  } satisfies MintInfo) : null, [toMintUrl, getDisplayName, getIconUrl, getMintBalance])
 
   const fromVariant = getVariantByIndex(mintUrls.indexOf(fromMintUrl))
   const toVariant = getVariantByIndex(mintUrls.indexOf(toMintUrl))
@@ -124,16 +130,14 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
     }
   }, [isInsufficientFunds, numericAmount, fromMintUrl, toMintUrl, isDrain, mintSwap, loadBalance, onTransactionComplete, onBack, t])
 
-  const progressMessages: Record<Exclude<ProgressStep, null>, string> = {
+  const progressMessages = useMemo<Record<Exclude<ProgressStep, null>, string>>(() => ({
     quoting: t('transfer.quoting'),
     melting: t('transfer.melting'),
     minting: t('transfer.minting'),
-  }
+  }), [t])
 
   // Processing / Success — full screen
   if (status === 'processing' || status === 'success') {
-    const currentStepIndex = progressStep ? PROGRESS_ORDER.indexOf(progressStep) : PROGRESS_ORDER.length
-
     return (
       <div className="h-dvh bg-background text-foreground flex flex-col pt-safe pb-safe z-[60]">
         <header className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-border">
@@ -152,7 +156,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
                     <MintCard mint={fromMintInfo} variant={fromVariant} hideBalance />
                   </div>
                 )}
-                <ArrowRightLeft className="w-5 h-5 text-[#3b7df5] shrink-0" />
+                <ArrowRightLeft className="w-5 h-5 text-brand shrink-0" />
                 {toMintInfo && (
                   <div className="animate-cardFlipIn" style={{ animationDelay: '0.2s' }}>
                     <MintCard mint={toMintInfo} variant={toVariant} hideBalance />
@@ -160,44 +164,17 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
                 )}
               </div>
               <h3 className="text-[16px] font-bold text-foreground mb-1">{t('transfer.transferComplete')}</h3>
-              <p className="text-[14px] font-semibold text-[#3b7df5]">{formatSats(transferredAmount)}</p>
+              <p className="text-[14px] font-semibold text-brand">{formatSats(transferredAmount)}</p>
               {(() => { const f = formatFiat(transferredAmount); return f ? <p className="text-[12px] text-foreground-muted mt-0.5">≈ {f}</p> : null })()}
             </div>
           ) : (
             <div className="flex flex-col items-center text-center">
-              <div className="w-12 h-12 border-3 border-[#3b7df5]/20 border-t-[#3b7df5] rounded-full animate-spin mb-6" />
+              <div className="w-12 h-12 border-3 border-brand/20 border-t-brand rounded-full animate-spin mb-6" />
               <p className="text-[16px] font-semibold text-foreground mb-1">
                 {getDisplayName(fromMintUrl)} → {getDisplayName(toMintUrl)}
               </p>
-              <p className="text-[14px] font-bold text-[#3b7df5] mb-6">{formatSats(numericAmount)}</p>
-              <div className="inline-flex flex-col space-y-3">
-                {PROGRESS_ORDER.map((step, i) => {
-                  const isDone = currentStepIndex > i
-                  const isCurrent = currentStepIndex === i
-                  return (
-                    <div key={step} className="flex items-center gap-2.5">
-                      <div className={cn(
-                        'w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors',
-                        isDone ? 'bg-[#3b7df5]' : isCurrent ? 'bg-[#3b7df5]' : 'bg-foreground/10'
-                      )}>
-                        {isDone ? (
-                          <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                        ) : isCurrent ? (
-                          <div className="w-2 h-2 bg-white rounded-full" />
-                        ) : (
-                          <span className="text-[10px] font-bold text-foreground-muted">{i + 1}</span>
-                        )}
-                      </div>
-                      <span className={cn(
-                        'text-[13px]',
-                        isDone ? 'text-foreground-muted' : isCurrent ? 'text-foreground font-medium' : 'text-foreground-muted/50'
-                      )}>
-                        {progressMessages[step]}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
+              <p className="text-[14px] font-bold text-brand mb-6">{formatSats(numericAmount)}</p>
+              <ProgressStepper steps={PROGRESS_ORDER} currentStep={progressStep} labels={progressMessages} />
             </div>
           )}
         </div>
@@ -234,7 +211,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
         <div className="flex justify-center my-2">
           <button
             onClick={handleSwapMints}
-            className="w-9 h-9 bg-[#3b7df5] rounded-full flex items-center justify-center text-white active:scale-90 transition-transform"
+            className="w-9 h-9 bg-brand rounded-full flex items-center justify-center text-white active:scale-90 transition-transform"
           >
             <ArrowRightLeft className="w-3.5 h-3.5" />
           </button>
@@ -307,7 +284,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
               className={cn(
                 'text-[13px] font-semibold px-4 py-1.5 rounded-full transition-colors mt-1',
                 isDrain
-                  ? 'bg-[#3b7df5] text-white'
+                  ? 'bg-brand text-white'
                   : 'bg-foreground/[0.06] text-foreground-muted active:bg-foreground/10'
               )}
             >
@@ -333,7 +310,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
             'w-full py-3.5 rounded-sm font-semibold text-[14px] flex items-center justify-center gap-2 transition-colors',
             isInsufficientFunds || numericAmount <= 0 || isProcessingPayment || fromMintUrl === toMintUrl
               ? 'bg-foreground/10 text-foreground-muted cursor-not-allowed'
-              : 'bg-[#3b7df5] text-white active:opacity-80'
+              : 'bg-brand text-white active:opacity-80'
           )}
         >
           {isProcessingPayment ? (

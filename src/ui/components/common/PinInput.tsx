@@ -71,8 +71,8 @@ export function PinInput({
             style={{
               transform: i < value.length ? 'scale(1)' : 'scale(0.75)',
               backgroundColor: i < value.length
-                ? '#3b7df5'
-                : 'rgba(59, 125, 245, 0.2)',
+                ? 'var(--brand)'
+                : 'color-mix(in srgb, var(--brand) 20%, transparent)',
             }}
           />
         ))}
@@ -93,8 +93,8 @@ export function PinInput({
           className={`
             w-full py-3.5 rounded-[14px] font-semibold text-base transition-all
             ${isSubmitDisabled
-              ? 'bg-[#3b7df5]/20 text-[#3b7df5]/40 cursor-not-allowed'
-              : 'bg-[#3b7df5] text-white shadow-lg shadow-[#3b7df5]/25 active:scale-[0.98]'}
+              ? 'bg-brand/20 text-brand/40 cursor-not-allowed'
+              : 'bg-brand text-white shadow-lg shadow-brand/25 active:scale-[0.98]'}
           `}
         >
           {loading ? (

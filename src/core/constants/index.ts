@@ -153,3 +153,4 @@ export const LIMITS = {
 } as const
 
 export { FIAT_CURRENCIES } from './fiat'
+export { NUT_NAMES, getNutName, getSupportedNuts } from './nuts'

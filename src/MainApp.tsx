@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AnimatePresence } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import { useAppStore } from '@/store'
 import { useWallet } from '@/hooks/use-wallet'
 import { useNetwork } from '@/hooks/use-network'
 import { useGiftWrapListener } from '@/hooks/useGiftWrapListener'
 import { useCrossTabSync, broadcastSync } from '@/hooks/use-cross-tab-sync'
+import { useSwipeBack } from '@/hooks/use-swipe-back'
 import { useStateReconstruction } from '@/hooks/useStateReconstruction'
 import { checkAndRefreshAnchor } from '@/services/anchor'
 import { getP2PKPubkey } from '@/services/crypto'
@@ -388,7 +389,6 @@ export default function MainApp() {
         // Set nostr key pair in store (for Coco seedGetter)
         setNostrKeyPair(result.value.publicKey, result.value.privateKey)
         setP2pkPubkey(getP2PKPubkey(result.value.privateKey))
-
         setLocked(false)
         // Refresh balance after unlock
         await refreshBalance()
@@ -828,6 +828,13 @@ export default function MainApp() {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
+  // Swipe-back gesture (left edge → right)
+  useSwipeBack(useCallback(() => {
+    if (currentScreenRef.current !== 'home') {
+      handleBackRef.current()
+    }
+  }, []))
+
   // Preload lazy screens after home is visible
   useEffect(() => {
     if (isInitializing || isLocked) return
@@ -857,15 +864,12 @@ export default function MainApp() {
     )
   }
 
-  // Lock screen
-  if (isLocked) {
-    return <LockScreen onUnlock={handleUnlock} />
-  }
-
   // Main app
   return (
     <>
       <div className="relative h-dvh overflow-hidden">
+      {/* App screens — always mounted; pointer-events blocked while locked */}
+      <div className={isLocked ? 'contents pointer-events-none' : 'contents'}>
       <AnimatePresence mode="sync">
         <PageTransition key={currentScreen} variant="fade" className="absolute inset-0">
           <Suspense fallback={<LoadingFallback />}>
@@ -1161,6 +1165,23 @@ export default function MainApp() {
       )}
           </Suspense>
         </PageTransition>
+      </AnimatePresence>
+      </div>
+
+      {/* Lock screen overlay — fades out on unlock, inert blocks ghost clicks underneath */}
+      <AnimatePresence>
+        {isLocked && (
+          <motion.div
+            key="lock-screen"
+            initial={false}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="absolute inset-0 z-50"
+            style={{ pointerEvents: 'auto' }}
+          >
+            <LockScreen onUnlock={handleUnlock} />
+          </motion.div>
+        )}
       </AnimatePresence>
       </div>
 

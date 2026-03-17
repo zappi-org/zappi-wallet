@@ -76,7 +76,7 @@ export function ProfileSection({
                 'py-1.5 px-3 font-semibold text-[13px] flex items-center gap-1.5 rounded-sm transition-colors',
                 isRegistering
                   ? 'text-foreground-muted cursor-wait'
-                  : 'border border-[#3b7df5] text-[#3b7df5] active:opacity-80'
+                  : 'border border-brand text-brand active:opacity-80'
               )}
             >
               {isRegistering ? (

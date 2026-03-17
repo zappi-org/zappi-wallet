@@ -6,6 +6,7 @@ import { Modal, BottomSheet, PinInput } from '../../components/common'
 import { useAppStore } from '@/store'
 import { encodeNpub } from '@/services/crypto'
 import { satUnit, FIAT_CURRENCY_MAP } from '@/utils/format'
+import { formatMintHost } from '@/utils/url'
 import { CurrencyPickerBottomSheet } from './CurrencyPickerBottomSheet'
 import { Switch } from '@/ui/components/common/Switch'
 import { restoreWallet, getBalances, recoverPendingQuotes } from '@/coco'
@@ -18,7 +19,6 @@ import {
   isPasskeyRegistered,
   registerPasskey,
   removePasskey,
-  updatePasskeyPin,
 } from '@/services/passkey'
 import { cn } from '@/components/ui/utils'
 import { SUPPORTED_LANGUAGES, changeLanguage, getCurrentLanguage } from '@/i18n'
@@ -28,7 +28,8 @@ import { ProfileSection } from './ProfileSection'
 import { SecuritySection } from './SecuritySection'
 import { WalletManagementSection } from './WalletManagementSection'
 import { POSProvisioningSection } from './POSProvisioningSection'
-import { PinChangeModal, type PinChangeStep } from './PinChangeModal'
+import { PinChangeModal } from './PinChangeModal'
+import { usePinChange } from './usePinChange'
 
 export interface SettingsScreenProps {
   onBack: () => void
@@ -76,17 +77,8 @@ export function SettingsScreen({
 
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false)
 
-  const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [showBackupModal, setShowBackupModal] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
-
-  const [pinChangeStep, setPinChangeStep] = useState<PinChangeStep>('current')
-  const [currentPin, setCurrentPin] = useState('')
-  const [newPin, setNewPin] = useState('')
-  const [confirmPin, setConfirmPin] = useState('')
-  const [pinError, setPinError] = useState('')
-  const [isVerifyingPin, setIsVerifyingPin] = useState(false)
-  const [isChangingPin, setIsChangingPin] = useState(false)
 
   const [backupPin, setBackupPin] = useState('')
   const [mnemonic, setMnemonic] = useState('')
@@ -113,6 +105,12 @@ export function SettingsScreen({
   const [passkeyError, setPasskeyError] = useState('')
   const [isRegisteringPasskey, setIsRegisteringPasskey] = useState(false)
   const [isRemovingPasskey, setIsRemovingPasskey] = useState(false)
+
+  const pinChange = usePinChange({
+    onVerifyPin,
+    onChangePassword,
+    onPasskeyDesynced: () => setPasskeyEnabled(false),
+  })
 
   useEffect(() => {
     setPasskeySupported(isPasskeySupported())
@@ -277,90 +275,6 @@ export function SettingsScreen({
   }, [saveSettings])
 
 
-  const handleCurrentPinChange = useCallback((value: string) => {
-    setCurrentPin(value)
-    setPinError('')
-  }, [])
-
-  const handleNewPinChange = useCallback((value: string) => {
-    setNewPin(value)
-    setPinError('')
-    if (value.length === 6) {
-      setTimeout(() => setPinChangeStep('confirm'), 200)
-    }
-  }, [])
-
-  const handleConfirmPinChange = useCallback((value: string) => {
-    setConfirmPin(value)
-    setPinError('')
-  }, [])
-
-  const handlePinChangeSubmit = useCallback(async () => {
-    if (newPin !== confirmPin) {
-      setPinError(t('settings.pinChangeError'))
-      setConfirmPin('')
-      return
-    }
-    setIsChangingPin(true)
-    setPinError('')
-    try {
-      const success = await onChangePassword(currentPin, newPin)
-      if (success) {
-        if (isPasskeyRegistered()) {
-          const pinUpdated = await updatePasskeyPin(newPin)
-          if (!pinUpdated) {
-            // Passkey PIN desync — remove passkey to prevent stale PIN login failure
-            removePasskey()
-            setPasskeyEnabled(false)
-          }
-        }
-        setShowPasswordModal(false)
-        setPinChangeStep('current')
-        setCurrentPin('')
-        setNewPin('')
-        setConfirmPin('')
-      } else {
-        setPinError(t('settings.wrongCurrentPin'))
-        setPinChangeStep('current')
-        setCurrentPin('')
-        setNewPin('')
-        setConfirmPin('')
-      }
-    } catch {
-      setPinError(t('lock.errorOccurred'))
-    } finally {
-      setIsChangingPin(false)
-    }
-  }, [newPin, confirmPin, currentPin, onChangePassword, t])
-
-  const resetPinChangeModal = useCallback(() => {
-    setShowPasswordModal(false)
-    setPinChangeStep('current')
-    setCurrentPin('')
-    setNewPin('')
-    setConfirmPin('')
-    setPinError('')
-  }, [])
-
-  const handleCurrentPinSubmit = useCallback(async () => {
-    if (currentPin.length !== 6) return
-    setIsVerifyingPin(true)
-    setPinError('')
-    try {
-      const valid = await onVerifyPin(currentPin)
-      if (valid) {
-        setPinChangeStep('new')
-      } else {
-        setPinError(t('settings.wrongPin'))
-        setCurrentPin('')
-      }
-    } catch {
-      setPinError(t('lock.errorOccurred'))
-    } finally {
-      setIsVerifyingPin(false)
-    }
-  }, [currentPin, onVerifyPin, t])
-
   const handleBackupPinChange = useCallback((value: string) => {
     setBackupPin(value)
     setBackupError('')
@@ -429,7 +343,7 @@ export function SettingsScreen({
 
       for (let i = 0; i < mints.length; i++) {
         const mintUrl = mints[i]
-        setRestoreProgress(`${i + 1}/${mints.length}: ${new URL(mintUrl).hostname}`)
+        setRestoreProgress(`${i + 1}/${mints.length}: ${formatMintHost(mintUrl)}`)
         try {
           await restoreWallet(mintUrl)
         } catch (err) {
@@ -579,7 +493,7 @@ export function SettingsScreen({
           onAutoLockToggle={handleAutoLockToggle}
           onAutoLockTimeoutChange={handleAutoLockTimeoutChange}
           onPasskeyToggle={handlePasskeyToggle}
-          onOpenPinChange={() => setShowPasswordModal(true)}
+          onOpenPinChange={pinChange.open}
         />
 
         {/* Wallet Management Section */}
@@ -617,22 +531,7 @@ export function SettingsScreen({
       </div>
 
       {/* PIN Change Modal */}
-      <PinChangeModal
-        isOpen={showPasswordModal}
-        step={pinChangeStep}
-        currentPin={currentPin}
-        newPin={newPin}
-        confirmPin={confirmPin}
-        pinError={pinError}
-        isVerifyingPin={isVerifyingPin}
-        isChangingPin={isChangingPin}
-        onCurrentPinChange={handleCurrentPinChange}
-        onNewPinChange={handleNewPinChange}
-        onConfirmPinChange={handleConfirmPinChange}
-        onCurrentPinSubmit={handleCurrentPinSubmit}
-        onPinChangeSubmit={handlePinChangeSubmit}
-        onClose={resetPinChangeModal}
-      />
+      <PinChangeModal pinChange={pinChange} />
 
       {/* Backup Modal */}
       <Modal isOpen={showBackupModal} onClose={resetBackupModal} title={t('settings.mnemonicBackup')}>
@@ -685,7 +584,7 @@ export function SettingsScreen({
                 }}
                 className="flex items-center gap-1.5 text-[13px] font-medium text-[#86868b] active:opacity-60 transition-opacity px-3 py-2"
               >
-                {backupCopied ? <Check className="w-4 h-4 text-[#3b7df5]" /> : <Copy className="w-4 h-4" />}
+                {backupCopied ? <Check className="w-4 h-4 text-brand" /> : <Copy className="w-4 h-4" />}
                 {backupCopied ? t('common.copied') : t('onboarding.copyToClipboard')}
               </button>
             </div>

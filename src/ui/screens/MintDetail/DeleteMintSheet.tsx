@@ -194,7 +194,7 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
 
           {step === 'swapping' && (
             <div className="flex flex-col items-center gap-4 py-8">
-              <Loader2 className="w-12 h-12 text-[#3b7df5] animate-spin" />
+              <Loader2 className="w-12 h-12 text-brand animate-spin" />
               <p className="text-lg font-['Outfit'] font-medium text-[#1d1d1f] text-center">
                 {t('mintDetail.swapping')}
               </p>

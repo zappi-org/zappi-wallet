@@ -187,7 +187,7 @@ export function MintDetailScreen({
               {pendingItems.length > 5 && (
                 <button
                   onClick={() => { hapticTap(); setShowPendingItems(true) }}
-                  className="font-['Outfit'] font-medium text-[13px] text-[#3b7df5]"
+                  className="font-['Outfit'] font-medium text-[13px] text-brand"
                 >
                   {t('mintDetail.seeMore')}
                 </button>
@@ -206,7 +206,7 @@ export function MintDetailScreen({
             {filteredTransactions.length > 5 && onTransactions && (
               <button
                 onClick={onTransactions}
-                className="font-['Outfit'] font-medium text-[13px] text-[#3b7df5]"
+                className="font-['Outfit'] font-medium text-[13px] text-brand"
               >
                 {t('mintDetail.seeDetails')}
               </button>

@@ -1,39 +1,18 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { ArrowLeft, Plus, ChevronDown, Trash2, Copy, Check, QrCode, ExternalLink } from 'lucide-react'
 import { Trans, useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useMintHealth } from '@/hooks/use-mint-health'
-import { LIMITS } from '@/core/constants'
+import { LIMITS, getNutName, getSupportedNuts } from '@/core/constants'
+import { formatMintHost, getMintBalance as getMintBalanceUtil } from '@/utils/url'
+import type { MintInfoData } from '@/core/types'
 import { clearMintData } from '@/data/database/schema'
 import { cn } from '@/components/ui/utils'
 import { Modal } from '@/ui/components/common'
 import { MintIcon } from './SettingsHelpers'
 import { MintUrlQrModal } from '@/ui/screens/MintDetail/MintUrlQrModal'
-
-// NUT names mapping
-const NUT_NAMES: Record<string, string> = {
-  '0': 'Cryptography', '1': 'Mint Keys', '2': 'Keysets', '3': 'Swap',
-  '4': 'Mint (Lightning)', '5': 'Melt (Lightning)', '6': 'Mint Info',
-  '7': 'State Check', '8': 'Fee Return', '9': 'Restore',
-  '10': 'Spending Conditions', '11': 'P2PK', '12': 'DLEQ Proofs',
-  '13': 'Deterministic Secrets', '14': 'HTLC', '15': 'MPP',
-  '17': 'WebSocket', '18': 'Payment Request', '19': 'Cached Responses',
-  '20': 'Signature on Quote',
-}
-const getNutName = (nut: string) => NUT_NAMES[nut] || `NUT-${nut.padStart(2, '0')}`
-
-interface MintInfoData {
-  name?: string
-  pubkey?: string
-  version?: string
-  description?: string
-  description_long?: string
-  contact?: Array<{ method: string; info: string }>
-  nuts?: Record<string, unknown>
-  motd?: string
-}
 
 export interface MintManagementScreenProps {
   onBack: () => void
@@ -68,14 +47,21 @@ export function MintManagementScreen({
 
   useEffect(() => { checkAllMints() }, [checkAllMints])
 
+  // Ref to guard against duplicate fetches without causing callback identity changes
+  const fetchedRef = useRef<Set<string>>(new Set())
+
   const fetchMintInfo = useCallback((url: string) => {
-    if (mintInfoCache[url] !== undefined) return
+    if (fetchedRef.current.has(url)) return
+    fetchedRef.current.add(url)
     setMintInfoCache((p) => ({ ...p, [url]: 'loading' }))
     fetch(`${url.replace(/\/$/, '')}/v1/info`)
       .then((res) => res.json())
       .then((data) => setMintInfoCache((p) => ({ ...p, [url]: data })))
-      .catch(() => setMintInfoCache((p) => ({ ...p, [url]: null })))
-  }, [mintInfoCache])
+      .catch(() => {
+        fetchedRef.current.delete(url)
+        setMintInfoCache((p) => ({ ...p, [url]: null }))
+      })
+  }, [])
 
   const handleToggle = useCallback((url: string) => {
     setExpandedMint((prev) => {
@@ -105,19 +91,7 @@ export function MintManagementScreen({
     clearMintData(urlToDelete)
   }, [mintToDelete, settings.mints, onSaveSettings, expandedMint])
 
-  const getMintBalance = (url: string) => {
-    const normalized = url.endsWith('/') ? url.slice(0, -1) : url
-    return balanceByMint[normalized] || balanceByMint[url] || 0
-  }
-
-  const formatMintUrl = (url: string) => {
-    try { return new URL(url).hostname } catch { return url }
-  }
-
-  const getSupportedNuts = (data: MintInfoData | null): string[] => {
-    if (!data?.nuts) return []
-    return Object.keys(data.nuts).filter((k) => /^\d+$/.test(k)).sort((a, b) => parseInt(a) - parseInt(b))
-  }
+  const getBalance = (url: string) => getMintBalanceUtil(url, balanceByMint)
 
   const mints = settings.mints
   const emptySlots = LIMITS.MAX_MINTS - mints.length
@@ -158,7 +132,7 @@ export function MintManagementScreen({
           {/* Filled slots */}
           {mints.map((url) => {
             const isExpanded = expandedMint === url
-            const balance = getMintBalance(url)
+            const balance = getBalance(url)
             const status = getCachedStatus(url)
             const rawInfo = mintInfoCache[url]
             const isLoading = rawInfo === 'loading'
@@ -185,7 +159,7 @@ export function MintManagementScreen({
                       )}
                     </div>
                     <span className="text-[11px] text-foreground-muted truncate block">
-                      {formatMintUrl(url)}
+                      {formatMintHost(url)}
                     </span>
                   </div>
                   <span className="text-[13px] font-semibold text-foreground shrink-0">
@@ -223,7 +197,7 @@ export function MintManagementScreen({
                               onClick={() => handleCopy(url, `url-${url}`)}
                               className="flex items-center gap-1.5 text-[12px] font-mono text-foreground-muted active:opacity-60 max-w-[180px]"
                             >
-                              <span className="truncate">{formatMintUrl(url)}</span>
+                              <span className="truncate">{formatMintHost(url)}</span>
                               {copiedField === `url-${url}`
                                 ? <Check className="w-3.5 h-3.5 text-accent-primary shrink-0" />
                                 : <Copy className="w-3.5 h-3.5 shrink-0" />}
@@ -322,13 +296,15 @@ export function MintManagementScreen({
                                 </div>
                               </>
                             )}
-                            {getSupportedNuts(infoData).length > 0 && (
+                            {(() => {
+                              const nuts = getSupportedNuts(infoData?.nuts)
+                              return nuts.length > 0 ? (
                               <>
                                 <div className="border-t border-border/50" />
                                 <div className="py-3">
                                   <span className="text-[13px] font-medium text-foreground">{t('mintDetails.supportedNuts')}</span>
                                   <div className="flex flex-wrap gap-1 mt-2">
-                                    {getSupportedNuts(infoData).map((nut) => (
+                                    {nuts.map((nut) => (
                                       <span key={nut} className="px-1.5 py-0.5 bg-foreground/[0.06] text-foreground text-[11px] rounded-sm">
                                         <span className="font-mono opacity-60">{nut.padStart(2, '0')}</span>
                                         <span className="mx-0.5">·</span>
@@ -338,7 +314,7 @@ export function MintManagementScreen({
                                   </div>
                                 </div>
                               </>
-                            )}
+                            ) : null })()}
                           </>
                         ) : infoData === null ? (
                           <div className="py-3 border-t border-border">
@@ -396,9 +372,7 @@ export function MintManagementScreen({
               {getDisplayName(mintToDelete || '')}
             </p>
             {(() => {
-              const url = mintToDelete || ''
-              const normalized = url.endsWith('/') ? url.slice(0, -1) : url
-              const balance = balanceByMint[normalized] || balanceByMint[url] || 0
+              const balance = getBalance(mintToDelete || '')
               return balance > 0 ? (
                 <>
                   <p className="text-[14px] text-foreground">

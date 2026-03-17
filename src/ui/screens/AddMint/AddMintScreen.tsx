@@ -1,12 +1,13 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 
-import { ArrowLeft, Plus, Check, AlertCircle, TrendingUp, Loader2 } from 'lucide-react'
+import { ArrowLeft, Plus, AlertCircle, TrendingUp, Loader2, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { ProgressStepper } from '@/ui/components/common/ProgressStepper'
 import { useAppStore } from '@/store'
 import { mintMetadataService } from '@/services/mint-metadata'
 import { restoreWallet, getBalances } from '@/coco'
-import { normalizeMintUrl } from '@/utils/url'
+import { normalizeMintUrl, formatMintHost } from '@/utils/url'
 import { LIMITS } from '@/core/constants'
 import { formatSats } from '@/utils/format'
 import { MintCard, getVariantByIndex } from '@/ui/components/wallet/MintCard'
@@ -69,11 +70,11 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
   const displayMintCount = isAdding ? mintCountBeforeAdd.current : mints.length
   const isAtLimit = displayMintCount >= LIMITS.MAX_MINTS
 
-  const progressMessages: Record<Exclude<ProgressStep, null>, string> = {
+  const progressMessages = useMemo<Record<Exclude<ProgressStep, null>, string>>(() => ({
     validating: t('addMint.validating'),
     adding: t('addMint.adding'),
     restoring: t('addMint.restoring'),
-  }
+  }), [t])
 
   // Auto-load global mint list on mount
   useEffect(() => {
@@ -92,7 +93,8 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
     }
     load()
     return () => { cancelled = true }
-  }, [t])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- t causes re-fetch on language change; error message is non-critical
+  }, [])
 
   const handleRetryDiscovery = useCallback(async () => {
     setIsLoadingDiscovery(true)
@@ -124,7 +126,7 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
     }
 
     mintCountBeforeAdd.current = mints.length
-    const displayName = mintName || (() => { try { return new URL(targetUrl).hostname } catch { return targetUrl } })()
+    const displayName = mintName || formatMintHost(targetUrl)
     setAddingMintName(displayName)
     setAddingMintUrl(normalizedUrl)
     setIsAdding(true)
@@ -192,8 +194,6 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
 
   // Full-screen progress view (adding or success)
   if (isAdding || success) {
-    const currentStepIndex = progressStep ? PROGRESS_ORDER.indexOf(progressStep) : PROGRESS_ORDER.length
-
     return (
       <div className="h-dvh bg-background text-foreground flex flex-col pt-safe pb-safe z-[60]">
         {/* Header */}
@@ -224,7 +224,7 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
                   />
                 </div>
                 <h3 className="text-[16px] font-bold text-foreground mb-1">
-                  <span className="text-[#3b7df5]">{addingMintAlias || addingMintName}</span>
+                  <span className="text-brand">{addingMintAlias || addingMintName}</span>
                   {t('addMint.hasBeenAdded')}
                 </h3>
                 {recoveredAmount && recoveredAmount > 0 && (
@@ -236,39 +236,12 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
             )
           })() : (
             <div className="flex flex-col items-center text-center">
-              <div className="w-12 h-12 border-3 border-[#3b7df5]/20 border-t-[#3b7df5] rounded-full animate-spin mb-6" />
-              <p className="text-[18px] font-bold text-[#3b7df5] mb-1">{addingMintName}</p>
+              <div className="w-12 h-12 border-3 border-brand/20 border-t-brand rounded-full animate-spin mb-6" />
+              <p className="text-[18px] font-bold text-brand mb-1">{addingMintName}</p>
               <p className="text-[13px] text-foreground-muted mb-6">
-                {(() => { try { return new URL(addingMintUrl || '').hostname } catch { return addingMintUrl } })()}
+                {formatMintHost(addingMintUrl || '')}
               </p>
-              <div className="inline-flex flex-col space-y-3">
-                {PROGRESS_ORDER.map((step, i) => {
-                  const isDone = currentStepIndex > i
-                  const isCurrent = currentStepIndex === i
-                  return (
-                    <div key={step} className="flex items-center gap-2.5">
-                      <div className={cn(
-                        'w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors',
-                        isDone ? 'bg-[#3b7df5]' : isCurrent ? 'bg-[#3b7df5]' : 'bg-foreground/10'
-                      )}>
-                        {isDone ? (
-                          <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                        ) : isCurrent ? (
-                          <div className="w-2 h-2 bg-white rounded-full" />
-                        ) : (
-                          <span className="text-[10px] font-bold text-foreground-muted">{i + 1}</span>
-                        )}
-                      </div>
-                      <span className={cn(
-                        'text-[13px]',
-                        isDone ? 'text-foreground-muted' : isCurrent ? 'text-foreground font-medium' : 'text-foreground-muted/50'
-                      )}>
-                        {progressMessages[step]}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
+              <ProgressStepper steps={PROGRESS_ORDER} currentStep={progressStep} labels={progressMessages} />
             </div>
           )}
         </div>
@@ -358,7 +331,7 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
                 (m) => m === mint.url || m === normalizedMintUrl
               )
               const totalTx = mint.n_mints + mint.n_melts
-              const displayName = mint.name || (() => { try { return new URL(mint.url).hostname } catch { return mint.url } })()
+              const displayName = mint.name || formatMintHost(mint.url)
 
               return (
                 <div

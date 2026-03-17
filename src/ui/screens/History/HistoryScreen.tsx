@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { Transaction } from '@/core/types'
 import { useFormatSats, useFormatFiat, formatTransactionFiat } from '@/utils/format'
+import { formatMintHost } from '@/utils/url'
 import { useMintMetadata } from '@/hooks'
 
 export interface HistoryScreenProps {
@@ -29,14 +30,6 @@ function getLocaleCode(lang: string): string {
   return localeMap[lang] || 'en-US'
 }
 
-function formatMintUrl(url: string): string {
-  try {
-    const parsed = new URL(url)
-    return parsed.hostname
-  } catch {
-    return url
-  }
-}
 
 const TransactionItem = memo(function TransactionItem({
   transaction,
@@ -113,10 +106,10 @@ const TransactionItem = memo(function TransactionItem({
           {isSwap ? (
             <div className="flex flex-col text-[10px] text-foreground-muted font-medium">
               <span className="truncate max-w-[140px]">
-                {getMintName ? getMintName(fromMintUrl) : formatMintUrl(fromMintUrl)}
+                {getMintName ? getMintName(fromMintUrl) : formatMintHost(fromMintUrl)}
               </span>
               <span className="truncate max-w-[140px]">
-                → {toMintUrl ? (getMintName ? getMintName(toMintUrl) : formatMintUrl(toMintUrl)) : ''}
+                → {toMintUrl ? (getMintName ? getMintName(toMintUrl) : formatMintHost(toMintUrl)) : ''}
               </span>
             </div>
           ) : (
@@ -126,7 +119,7 @@ const TransactionItem = memo(function TransactionItem({
                 ? (transaction.metadata.destination as string).includes('@')
                   ? (transaction.metadata.destination as string)
                   : `${(transaction.metadata.destination as string).slice(0, 20)}...`
-                : (getMintName ? getMintName(transaction.mintUrl) : formatMintUrl(transaction.mintUrl))}
+                : (getMintName ? getMintName(transaction.mintUrl) : formatMintHost(transaction.mintUrl))}
             </span>
           )}
         </div>

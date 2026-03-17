@@ -84,7 +84,7 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
         />
 
         {/* Title */}
-        <h1 className="font-['Outfit'] font-bold text-3xl text-[#3b7df5] mb-1">ZAPPI</h1>
+        <h1 className="font-['Outfit'] font-bold text-3xl text-brand mb-1">ZAPPI</h1>
         <p className="text-[#86868b] text-sm mb-8">Bitcoin eCash Wallet</p>
 
         {/* Install card */}
@@ -100,7 +100,7 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
           {deferredPrompt && (
             <button
               onClick={handleInstall}
-              className="w-full py-3.5 mb-4 bg-[#3b7df5] text-white font-semibold rounded-[14px] shadow-lg shadow-[#3b7df5]/25 active:scale-[0.98] transition-all"
+              className="w-full py-3.5 mb-4 bg-brand text-white font-semibold rounded-[14px] shadow-lg shadow-brand/25 active:scale-[0.98] transition-all"
             >
               앱 설치하기
             </button>
@@ -113,7 +113,7 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
               <ol className="space-y-3">
                 {steps.items.map((item, i) => (
                   <li key={i} className="flex items-start gap-3">
-                    <span className="shrink-0 w-6 h-6 rounded-full bg-[#3b7df5] text-white text-xs font-bold flex items-center justify-center mt-0.5">
+                    <span className="shrink-0 w-6 h-6 rounded-full bg-brand text-white text-xs font-bold flex items-center justify-center mt-0.5">
                       {i + 1}
                     </span>
                     <span className="text-[13px] text-[#1d1d1f] leading-relaxed">{item}</span>

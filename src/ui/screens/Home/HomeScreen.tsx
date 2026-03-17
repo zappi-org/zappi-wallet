@@ -10,6 +10,7 @@ import { UnifiedScanner, type ValidatedData } from "../../components/scanner";
 import { useWallet, useMintHealth, useMintMetadata } from "@/hooks";
 import { useAppStore } from "@/store";
 import { useSatUnit, useFormatFiat } from "@/utils/format";
+import { getMintBalance } from "@/utils/url";
 import type { MintInfo, Transaction } from "@/core/types";
 import { TransactionRepository } from "@/data/repositories/transaction.repository";
 
@@ -93,7 +94,6 @@ export function HomeScreen({
   const mints: MintInfo[] = useMemo(() => {
     return mintUrls.map((url) => {
       const cachedStatus = getCachedStatus(url);
-      const normalizedUrl = url.endsWith("/") ? url.slice(0, -1) : url;
       const alias = mintAliases?.[url];
       return {
         url,
@@ -101,7 +101,7 @@ export function HomeScreen({
         alias,
         mintName: getOriginalName(url),
         iconUrl: getIconUrl(url),
-        balance: balance.byMint[normalizedUrl] || balance.byMint[url] || 0,
+        balance: getMintBalance(url, balance.byMint),
         isOnline: cachedStatus?.isOnline ?? true,
         lastChecked: cachedStatus?.lastChecked,
       };
@@ -164,7 +164,7 @@ export function HomeScreen({
   return (
     <div className="h-dvh bg-[#faf9f6] text-gray-900 font-sans overflow-hidden flex flex-col pt-safe">
       {/* Header */}
-      <header className="flex items-center justify-end px-3 shrink-0">
+      <header className="flex items-center justify-end px-4 pt-4 pb-3 shrink-0">
         <button
           onClick={onSettings}
           aria-label={t('common.settings')}

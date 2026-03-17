@@ -105,7 +105,7 @@ export function SendConfirmStep({
       <div className="flex-1 flex flex-col px-6">
         <div className="pt-16 text-center space-y-1">
           <p className="text-[24px] leading-snug">
-            <span className="font-bold text-[#3b7df5]">{recipient}</span>
+            <span className="font-bold text-brand">{recipient}</span>
             <span className="font-medium">{t('send.confirm.toSuffix')}</span>
           </p>
           <p className="text-[24px] font-bold leading-snug">
@@ -173,13 +173,13 @@ export function SendConfirmStep({
       {/* Bottom Action — no border-t */}
       <div className="p-5 pb-safe">
         <Button
-          variant="primary"
+          variant="brand"
           size="xl"
           onClick={() => {
             hapticTap()
             onConfirm()
           }}
-          className="w-full !bg-[#3b7df5] !text-white !rounded-[14px] !h-14 !text-lg shadow-lg shadow-[#3b7df5]/25"
+          className="w-full"
         >
           {t('send.confirm.send')}
         </Button>
