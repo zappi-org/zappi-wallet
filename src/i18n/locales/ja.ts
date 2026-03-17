@@ -177,6 +177,9 @@ export default {
     maxRelaysReached: '最大{{max}}個のリレーが許可されています',
     relayDeleteRequired: 'さらに追加するには既存のリレーを削除してください。',
     nostrRelay: 'Nostrリレー',
+    addRelay: 'リレーを追加',
+    deleteRelay: 'リレーを削除',
+    confirmDeleteRelay: '削除しますか？',
 
     // PIN Change
     currentPinLabel: '現在のPINを入力',
@@ -219,6 +222,7 @@ export default {
     deleteMint: 'ミントを削除',
     mintHasBalance: 'このミントには<bold>{{formattedBalance}}</bold>の残高があります。',
     deleteWarning: '削除すると残高にアクセスできなくなります。',
+    confirmDeleteMint: '削除しますか？',
 
     // Preferences
     preferences: '環境設定',
@@ -260,6 +264,7 @@ export default {
     loadError: 'ミントリストを読み込めませんでした。',
     addComplete: 'ミントを追加しました！',
     recoveredTokens: '{{amount}}を回復しました！',
+    hasBeenAdded: 'が追加されました。',
     mintAddedSuccess: '新しいミントが追加されました。',
   },
 

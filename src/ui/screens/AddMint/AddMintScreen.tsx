@@ -1,6 +1,6 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 
-import { ArrowLeft, Plus, Search, Check, AlertCircle, Globe, TrendingUp, X, Loader2 } from 'lucide-react'
+import { ArrowLeft, Plus, Check, AlertCircle, TrendingUp, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
@@ -9,30 +9,14 @@ import { restoreWallet, getBalances } from '@/coco'
 import { normalizeMintUrl } from '@/utils/url'
 import { LIMITS } from '@/core/constants'
 import { formatSats } from '@/utils/format'
+import { MintCard, getVariantByIndex } from '@/ui/components/wallet/MintCard'
+import type { MintInfo } from '@/core/types'
 
 export interface AddMintScreenProps {
   onBack: () => void
   onSuccess?: () => void
   onSaveSettings?: (settings: Record<string, unknown>) => Promise<void>
 }
-
-const RECOMMENDED_MINTS = [
-  {
-    url: 'https://mint.minibits.cash/Bitcoin',
-    name: 'Minibits',
-    descriptionKey: 'addMint.mintDescMinibits',
-  },
-  {
-    url: 'https://mint.coinos.io',
-    name: 'Coinos',
-    descriptionKey: 'addMint.mintDescCoinos',
-  },
-  {
-    url: 'https://mint.lnbits.com/cashu/api/v1/AptDNABNBXv8gpuywhx6NV',
-    name: 'LNbits',
-    descriptionKey: 'addMint.mintDescLnbits',
-  },
-]
 
 // 8333.space API response type
 interface DiscoveredMint {
@@ -47,7 +31,6 @@ async function fetchDiscoveredMints(): Promise<DiscoveredMint[]> {
   const response = await fetch('https://api.audit.8333.space/mints')
   if (!response.ok) throw new Error('Failed to fetch mints')
   const data = await response.json()
-  // Filter only OK mints and sort by activity
   return data
     .filter((m: DiscoveredMint) => m.state === 'OK')
     .sort((a: DiscoveredMint, b: DiscoveredMint) =>
@@ -56,6 +39,8 @@ async function fetchDiscoveredMints(): Promise<DiscoveredMint[]> {
 }
 
 type ProgressStep = 'validating' | 'adding' | 'restoring' | null
+
+const PROGRESS_ORDER: Exclude<ProgressStep, null>[] = ['validating', 'adding', 'restoring']
 
 export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScreenProps) {
   const { t } = useTranslation()
@@ -66,17 +51,20 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
   const [success, setSuccess] = useState(false)
   const [recoveredAmount, setRecoveredAmount] = useState<number | null>(null)
 
-  // Mint discovery state
-  const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(false)
+  // Global mint discovery state (auto-loaded)
   const [discoveredMints, setDiscoveredMints] = useState<DiscoveredMint[]>([])
-  const [isLoadingDiscovery, setIsLoadingDiscovery] = useState(false)
+  const [isLoadingDiscovery, setIsLoadingDiscovery] = useState(true)
   const [discoveryError, setDiscoveryError] = useState<string | null>(null)
+
+  const [addingMintName, setAddingMintName] = useState<string | null>(null)
+  const [addingMintUrl, setAddingMintUrl] = useState<string | null>(null)
+  const [addingMintIconUrl, setAddingMintIconUrl] = useState<string | undefined>(undefined)
+  const [addingMintAlias, setAddingMintAlias] = useState<string | null>(null)
 
   const settings = useAppStore((s) => s.settings)
   const mints = settings.mints
   const setBalance = useAppStore((s) => s.setBalance)
 
-  // Freeze the displayed count during add process to prevent premature badge/limit update
   const mintCountBeforeAdd = useRef(mints.length)
   const displayMintCount = isAdding ? mintCountBeforeAdd.current : mints.length
   const isAtLimit = displayMintCount >= LIMITS.MAX_MINTS
@@ -87,50 +75,83 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
     restoring: t('addMint.restoring'),
   }
 
-  const handleAdd = useCallback(async () => {
-    if (!url) return
+  // Auto-load global mint list on mount
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoadingDiscovery(true)
+      setDiscoveryError(null)
+      try {
+        const result = await fetchDiscoveredMints()
+        if (!cancelled) setDiscoveredMints(result)
+      } catch {
+        if (!cancelled) setDiscoveryError(t('addMint.loadError'))
+      } finally {
+        if (!cancelled) setIsLoadingDiscovery(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [t])
 
-    // Check limit
+  const handleRetryDiscovery = useCallback(async () => {
+    setIsLoadingDiscovery(true)
+    setDiscoveryError(null)
+    try {
+      const result = await fetchDiscoveredMints()
+      setDiscoveredMints(result)
+    } catch {
+      setDiscoveryError(t('addMint.loadError'))
+    } finally {
+      setIsLoadingDiscovery(false)
+    }
+  }, [t])
+
+  const handleAdd = useCallback(async (mintUrl?: string, mintName?: string) => {
+    const targetUrl = mintUrl || url
+    if (!targetUrl) return
+
     if (isAtLimit) {
       setError(t('addMint.maxMintsReached', { max: LIMITS.MAX_MINTS }))
       return
     }
 
-    // Normalize URL (auto-add https:// if missing, remove trailing slash)
-    const normalizedUrl = normalizeMintUrl(url)
+    const normalizedUrl = normalizeMintUrl(targetUrl)
 
-    // Check if already added
     if (mints.some((m) => m === normalizedUrl)) {
       setError(t('addMint.alreadyAdded'))
       return
     }
 
     mintCountBeforeAdd.current = mints.length
+    const displayName = mintName || (() => { try { return new URL(targetUrl).hostname } catch { return targetUrl } })()
+    setAddingMintName(displayName)
+    setAddingMintUrl(normalizedUrl)
     setIsAdding(true)
     setError(null)
     setProgressStep('validating')
 
     try {
-      // Fetch and cache mint metadata (validates mint and stores for offline use)
       const metadata = await mintMetadataService.fetchAndCache(normalizedUrl)
       if (!metadata) {
         throw new Error(t('addMint.addFailed'))
       }
+      setAddingMintIconUrl(metadata.iconUrl)
 
       setProgressStep('adding')
 
-      // Add mint to settings and persist to IndexedDB
       const newMints = [...mints, normalizedUrl]
       const existingAliases = settings.mintAliases || {}
       const nextNumber = Object.keys(existingAliases).length + 1
-      const newAliases = { ...existingAliases, [normalizedUrl]: t('mintDetail.defaultName', { number: nextNumber }) }
+      const alias = t('mintDetail.defaultName', { number: nextNumber })
+      const newAliases = { ...existingAliases, [normalizedUrl]: alias }
+      setAddingMintAlias(alias)
       if (onSaveSettings) {
         await onSaveSettings({ mints: newMints, mintAliases: newAliases })
       }
 
       setProgressStep('restoring')
 
-      // Restore tokens from the new mint (check for unused proofs)
       try {
         const beforeBalances = await getBalances()
         const beforeTotal = Object.values(beforeBalances).reduce((sum, b) => sum + b, 0)
@@ -154,7 +175,7 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
       setTimeout(() => {
         onSuccess?.()
         onBack()
-      }, 1500)
+      }, 3000)
     } catch (err) {
       if (err instanceof TypeError) {
         setError(t('addMint.addFailed'))
@@ -169,47 +190,87 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
     }
   }, [url, mints, isAtLimit, onSaveSettings, onBack, onSuccess, setBalance, t, settings.mintAliases])
 
-  const handleSelectRecommended = (mintUrl: string) => {
-    setUrl(mintUrl)
-    setError(null)
-  }
+  // Full-screen progress view (adding or success)
+  if (isAdding || success) {
+    const currentStepIndex = progressStep ? PROGRESS_ORDER.indexOf(progressStep) : PROGRESS_ORDER.length
 
-  const handleOpenDiscovery = useCallback(async () => {
-    setIsDiscoveryOpen(true)
-    setIsLoadingDiscovery(true)
-    setDiscoveryError(null)
-
-    try {
-      const mints = await fetchDiscoveredMints()
-      setDiscoveredMints(mints)
-    } catch {
-      setDiscoveryError(t('addMint.loadError'))
-    } finally {
-      setIsLoadingDiscovery(false)
-    }
-  }, [t])
-
-  const handleSelectDiscovered = (mintUrl: string) => {
-    setUrl(mintUrl)
-    setError(null)
-    setIsDiscoveryOpen(false)
-  }
-
-  if (success) {
     return (
-      <div className="animate-fadeIn h-dvh bg-background flex flex-col items-center justify-center p-4 text-center pt-safe pb-safe">
-        <div className="animate-fadeIn flex flex-col items-center">
-          <div className="w-20 h-20 bg-accent-primary rounded-full flex items-center justify-center text-white mb-4 shadow-xl">
-            <div className="animate-fadeIn">
-              <Check className="w-10 h-10" strokeWidth={3} />
+      <div className="h-dvh bg-background text-foreground flex flex-col pt-safe pb-safe z-[60]">
+        {/* Header */}
+        <header className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-border">
+          <div className="p-1 w-7" />
+          <h2 className="text-base font-semibold tracking-tight flex-1 text-center">{t('addMint.title')}</h2>
+          <div className="w-7" />
+        </header>
+
+        <div className="flex-1 flex flex-col items-center justify-center px-6">
+          {success ? (() => {
+            const cardMintInfo: MintInfo = {
+              url: addingMintUrl || '',
+              alias: addingMintAlias || undefined,
+              mintName: addingMintName || undefined,
+              iconUrl: addingMintIconUrl,
+              balance: recoveredAmount || 0,
+              isOnline: true,
+            }
+            const variantIndex = mintCountBeforeAdd.current
+            return (
+              <div className="animate-fadeIn flex flex-col items-center text-center">
+                <div className="animate-cardFlipIn mb-6" style={{ perspective: '800px' }}>
+                  <MintCard
+                    mint={cardMintInfo}
+                    variant={getVariantByIndex(variantIndex)}
+                    hideBalance={false}
+                  />
+                </div>
+                <h3 className="text-[16px] font-bold text-foreground mb-1">
+                  <span className="text-[#3b7df5]">{addingMintAlias || addingMintName}</span>
+                  {t('addMint.hasBeenAdded')}
+                </h3>
+                {recoveredAmount && recoveredAmount > 0 && (
+                  <p className="text-[13px] text-foreground-muted">
+                    {t('addMint.recoveredTokens', { amount: formatSats(recoveredAmount) })}
+                  </p>
+                )}
+              </div>
+            )
+          })() : (
+            <div className="flex flex-col items-center text-center">
+              <div className="w-12 h-12 border-3 border-[#3b7df5]/20 border-t-[#3b7df5] rounded-full animate-spin mb-6" />
+              <p className="text-[18px] font-bold text-[#3b7df5] mb-1">{addingMintName}</p>
+              <p className="text-[13px] text-foreground-muted mb-6">
+                {(() => { try { return new URL(addingMintUrl || '').hostname } catch { return addingMintUrl } })()}
+              </p>
+              <div className="inline-flex flex-col space-y-3">
+                {PROGRESS_ORDER.map((step, i) => {
+                  const isDone = currentStepIndex > i
+                  const isCurrent = currentStepIndex === i
+                  return (
+                    <div key={step} className="flex items-center gap-2.5">
+                      <div className={cn(
+                        'w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors',
+                        isDone ? 'bg-[#3b7df5]' : isCurrent ? 'bg-[#3b7df5]' : 'bg-foreground/10'
+                      )}>
+                        {isDone ? (
+                          <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                        ) : isCurrent ? (
+                          <div className="w-2 h-2 bg-white rounded-full" />
+                        ) : (
+                          <span className="text-[10px] font-bold text-foreground-muted">{i + 1}</span>
+                        )}
+                      </div>
+                      <span className={cn(
+                        'text-[13px]',
+                        isDone ? 'text-foreground-muted' : isCurrent ? 'text-foreground font-medium' : 'text-foreground-muted/50'
+                      )}>
+                        {progressMessages[step]}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-          </div>
-          <h2 className="text-xl font-bold text-foreground mb-2">{t('addMint.addComplete')}</h2>
-          <p className="text-foreground-muted">
-            {recoveredAmount && recoveredAmount > 0
-              ? t('addMint.recoveredTokens', { amount: formatSats(recoveredAmount) })
-              : t('addMint.mintAddedSuccess')}
-          </p>
+          )}
         </div>
       </div>
     )
@@ -218,293 +279,128 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
   return (
     <div className="animate-slideInUp h-dvh bg-background text-foreground flex flex-col font-sans relative overflow-hidden z-[60] pt-safe">
       {/* Header */}
-      <header className="flex items-center justify-between px-3 pt-4 relative z-50">
-        <div className="flex items-center">
-          <button
-            onClick={onBack}
-            aria-label={t('common.back')}
-            className="p-2 rounded-full bg-white/60 shadow-sm hover:shadow-md transition-all hover:bg-background-card backdrop-blur-md"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <h2 className="text-base font-bold tracking-tight ml-3">{t('addMint.title')}</h2>
-        </div>
+      <header className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-border">
+        <button onClick={onBack} aria-label={t('common.back')} className="p-1">
+          <ArrowLeft className="w-5 h-5 text-foreground" />
+        </button>
+        <h2 className="text-base font-semibold tracking-tight flex-1">{t('addMint.title')}</h2>
         <span className={cn(
-          "text-xs font-bold px-2 py-1 rounded-full",
-          isAtLimit
-            ? "bg-accent-danger/20 text-accent-danger"
-            : "bg-primary/10 text-foreground-muted"
+          "text-[11px] font-semibold",
+          isAtLimit ? "text-accent-danger" : "text-foreground-muted"
         )}>
           {displayMintCount}/{LIMITS.MAX_MINTS}
         </span>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        {/* Input Section */}
-        <div className="space-y-2">
-          <label className="text-xs font-bold text-foreground-muted ml-2">{t('addMint.mintUrl')}</label>
-          <div
+      {/* URL Input */}
+      <div className="px-4 pt-4 pb-2 space-y-2">
+        <div className="flex gap-2">
+          <input
+            type="url"
+            value={url}
+            onChange={(e) => { setUrl(e.target.value); setError(null) }}
+            placeholder={t('addMint.urlPlaceholder')}
+            className="flex-1 px-3 py-2.5 rounded-sm bg-background border border-border text-[13px] focus:outline-none focus:ring-1 focus:ring-foreground/20 placeholder:text-foreground-muted/50"
+          />
+          <button
+            onClick={() => handleAdd()}
+            disabled={!url || isAtLimit}
             className={cn(
-              'bg-white/60 p-3 rounded-xl border flex items-center gap-2 shadow-sm transition-all',
-              error
-                ? 'border-accent-danger/50 focus-within:ring-2 focus-within:ring-accent-danger/20'
-                : 'border-white/50 focus-within:ring-2 focus-within:ring-primary/20'
+              'px-4 py-2.5 rounded-sm font-semibold text-[13px] shrink-0 transition-colors',
+              url && !isAtLimit
+                ? 'bg-foreground text-background-card active:opacity-80'
+                : 'bg-foreground/10 text-foreground-muted cursor-not-allowed'
             )}
           >
-            <Search className="w-4 h-4 text-foreground-muted" />
-            <input
-              type="url"
-              value={url}
-              onChange={(e) => {
-                setUrl(e.target.value)
-                setError(null)
-              }}
-              placeholder={t('addMint.urlPlaceholder')}
-              className="flex-1 bg-transparent outline-none font-medium placeholder:text-foreground-muted/50"
-            />
-          </div>
-          {error && (
-            <div className="flex items-center gap-2 text-accent-danger ml-2">
-              <AlertCircle className="w-3 h-3" />
-              <p className="text-[10px] font-medium">{error}</p>
-            </div>
-          )}
+            <Plus className="w-4 h-4" />
+          </button>
         </div>
-
-        {/* Recommended Mints */}
-        <div className="space-y-2">
-          <label className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted ml-2">
-            {t('addMint.recommended')}
-          </label>
-          <div className="space-y-2">
-            {RECOMMENDED_MINTS.map((mint, i) => {
-              const normalizedMintUrl = mint.url.replace(/\/$/, '')
-              const isCurrentlyAdding = isAdding && (url === mint.url || url === normalizedMintUrl)
-              const isAlreadyAdded = !isCurrentlyAdding && mints.some((m) => m === mint.url || m === normalizedMintUrl)
-              const isSelected = url === mint.url
-
-              return (
-                <button
-                  key={i}
-                  onClick={() => !isAlreadyAdded && !isCurrentlyAdding && handleSelectRecommended(mint.url)}
-                  disabled={isAlreadyAdded || isCurrentlyAdding}
-                  className={cn(
-                    'w-full p-3 rounded-xl border flex items-center justify-between group transition-all text-left',
-                    isCurrentlyAdding
-                      ? 'bg-primary/10 border-primary/30 cursor-default'
-                      : isAlreadyAdded
-                      ? 'bg-accent-primary/10 border-accent-primary/30 cursor-default'
-                      : isSelected
-                      ? 'bg-primary/10 border-primary/30'
-                      : 'bg-white/40 hover:bg-white/60 border-white/30'
-                  )}
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-foreground">{mint.name}</h3>
-                      {isCurrentlyAdding && (
-                        <span className="text-[10px] font-bold text-foreground bg-primary/20 px-2 py-0.5 rounded-full">
-                          {t('addMint.adding')}
-                        </span>
-                      )}
-                      {isAlreadyAdded && (
-                        <span className="text-[10px] font-bold text-accent-primary bg-accent-primary/20 px-2 py-0.5 rounded-full">
-                          {t('addMint.added')}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-foreground-muted">{t(mint.descriptionKey)}</p>
-                  </div>
-                  {isCurrentlyAdding ? (
-                    <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
-                      <div className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                    </div>
-                  ) : isAlreadyAdded ? (
-                    <div className="w-6 h-6 rounded-full bg-accent-primary/20 flex items-center justify-center text-accent-primary">
-                      <Check className="w-3 h-3" />
-                    </div>
-                  ) : (
-                    <div
-                      className={cn(
-                        'w-6 h-6 rounded-full flex items-center justify-center transition-opacity text-foreground',
-                        isSelected
-                          ? 'bg-primary/20 opacity-100'
-                          : 'bg-primary/10 opacity-0 group-hover:opacity-100'
-                      )}
-                    >
-                      <Plus className="w-3 h-3" />
-                    </div>
-                  )}
-                </button>
-              )
-            })}
+        {error && (
+          <div className="flex items-center gap-1.5 text-accent-danger ml-1">
+            <AlertCircle className="w-3 h-3 shrink-0" />
+            <p className="text-[11px] font-medium">{error}</p>
           </div>
-        </div>
-
-        {/* Discover More Mints */}
-        <button
-          onClick={handleOpenDiscovery}
-          disabled={isAtLimit}
-          className={cn(
-            "w-full p-3 rounded-xl border flex items-center justify-between group transition-all",
-            isAtLimit
-              ? "bg-foreground-muted/10 border-foreground-muted/20 cursor-not-allowed opacity-50"
-              : "bg-white/40 hover:bg-white/60 border-white/30"
-          )}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-              <Globe className="w-4 h-4 text-foreground" />
-            </div>
-            <div className="text-left">
-              <h3 className="font-bold text-foreground text-sm">{t('addMint.discoverMints')}</h3>
-              <p className="text-[10px] text-foreground-muted">{t('addMint.discoverDescription')}</p>
-            </div>
-          </div>
-          <Search className="w-4 h-4 text-foreground-muted group-hover:text-foreground transition-colors" />
-        </button>
-
+        )}
         {isAtLimit && (
-          <p className="text-[10px] text-accent-danger text-center">
+          <p className="text-[11px] text-accent-danger ml-1">
             {t('settings.mintDeleteMaxReached')}
           </p>
         )}
       </div>
 
-      {/* Bottom Action */}
-      <div className="p-4 bg-gradient-to-t from-background to-transparent pt-8 pb-safe">
-        <button
-          onClick={handleAdd}
-          disabled={!url || isAdding}
-          className={cn(
-            'w-full p-3 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg',
-            url
-              ? 'bg-primary text-primary-foreground hover:bg-primary-hover shadow-primary/20'
-              : 'bg-foreground-muted/20 text-foreground-muted cursor-not-allowed'
-          )}
-        >
-          {isAdding ? (
-            <>
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              <span>{progressStep ? progressMessages[progressStep] : t('common.processing')}</span>
-            </>
-          ) : (
-            <>
-              <Plus className="w-4 h-4" />
-              <span>{t('settings.addMint')}</span>
-            </>
-          )}
-        </button>
-      </div>
+      {/* Global Mint List */}
+      <div className="flex-1 overflow-y-auto">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground-muted px-4 pt-3 pb-2">
+          {t('addMint.worldwide')}
+        </p>
 
-      {/* Mint Discovery Modal */}
-        {isDiscoveryOpen && (
-          <div
-            className="animate-fadeIn fixed inset-0 bg-black/50 z-[100] flex items-end justify-center"
-            onClick={() => setIsDiscoveryOpen(false)}
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="animate-slideInUp bg-background w-full max-h-[80vh] rounded-t-3xl flex flex-col"
+        {isLoadingDiscovery ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 text-foreground-muted animate-spin mb-2" />
+            <p className="text-[12px] text-foreground-muted">{t('addMint.loading')}</p>
+          </div>
+        ) : discoveryError ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <AlertCircle className="w-6 h-6 text-accent-danger mb-2" />
+            <p className="text-[12px] text-accent-danger mb-3">{discoveryError}</p>
+            <button
+              onClick={handleRetryDiscovery}
+              className="px-4 py-2 bg-foreground text-background-card rounded-sm text-[12px] font-semibold active:opacity-80"
             >
-              {/* Handle */}
-              <div className="flex justify-center py-3">
-                <div className="w-10 h-1 bg-primary/20 rounded-full" />
-              </div>
+              {t('common.retry')}
+            </button>
+          </div>
+        ) : (
+          <div className="bg-background-card divide-y divide-border pb-safe">
+            {discoveredMints.map((mint, i) => {
+              const normalizedMintUrl = normalizeMintUrl(mint.url)
+              const isAlreadyAdded = mints.some(
+                (m) => m === mint.url || m === normalizedMintUrl
+              )
+              const totalTx = mint.n_mints + mint.n_melts
+              const displayName = mint.name || (() => { try { return new URL(mint.url).hostname } catch { return mint.url } })()
 
-              {/* Header */}
-              <div className="flex items-center justify-between px-4 pb-3">
-                <h3 className="text-base font-bold text-foreground">{t('addMint.worldwide')}</h3>
-                <button
-                  onClick={() => setIsDiscoveryOpen(false)}
-                  aria-label={t('common.close')}
-                  className="p-2 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
+              return (
+                <div
+                  key={i}
+                  className={cn(
+                    'w-full px-4 py-3 flex items-center gap-3',
+                    (isAlreadyAdded || isAtLimit) && 'opacity-50'
+                  )}
                 >
-                  <X className="w-4 h-4 text-foreground" />
-                </button>
-              </div>
-
-              {/* Content */}
-              <div className="flex-1 overflow-y-auto px-4 pb-safe">
-                {isLoadingDiscovery ? (
-                  <div className="flex flex-col items-center justify-center py-12">
-                    <Loader2 className="w-8 h-8 text-foreground animate-spin mb-3" />
-                    <p className="text-sm text-foreground-muted">{t('addMint.loading')}</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px] font-medium text-foreground truncate">
+                        {displayName}
+                      </span>
+                      {isAlreadyAdded && (
+                        <Check className="w-3.5 h-3.5 text-accent-primary shrink-0" />
+                      )}
+                    </div>
+                    <span className="text-[11px] text-foreground-muted truncate block">
+                      {mint.url.replace('https://', '')}
+                    </span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <TrendingUp className="w-3 h-3 text-foreground-muted" />
+                      <span className="text-[10px] text-foreground-muted">
+                        {t('addMint.transactions', { count: totalTx })}
+                      </span>
+                    </div>
                   </div>
-                ) : discoveryError ? (
-                  <div className="flex flex-col items-center justify-center py-12">
-                    <AlertCircle className="w-8 h-8 text-accent-danger mb-3" />
-                    <p className="text-sm text-accent-danger">{discoveryError}</p>
+                  {!isAlreadyAdded && !isAtLimit && (
                     <button
-                      onClick={handleOpenDiscovery}
-                      className="mt-3 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium"
+                      onClick={() => handleAdd(mint.url, displayName)}
+                      className="w-8 h-8 flex items-center justify-center rounded-sm bg-foreground/[0.06] active:bg-foreground/15 shrink-0"
                     >
-                      {t('common.retry')}
+                      <Plus className="w-4 h-4 text-foreground-muted" />
                     </button>
-                  </div>
-                ) : (
-                  <div className="space-y-2 pb-4">
-                    <p className="text-[10px] text-foreground-muted mb-3">
-                      {t('addMint.auditDescription')}
-                    </p>
-                    {discoveredMints.map((mint, i) => {
-                      const normalizedMintUrl = normalizeMintUrl(mint.url)
-                      const isAlreadyAdded = mints.some(
-                        (m) => m === mint.url || m === normalizedMintUrl
-                      )
-                      const totalTx = mint.n_mints + mint.n_melts
-
-                      return (
-                        <button
-                          key={i}
-                          onClick={() => !isAlreadyAdded && !isAtLimit && handleSelectDiscovered(mint.url)}
-                          disabled={isAlreadyAdded || isAtLimit}
-                          className={cn(
-                            'w-full p-3 rounded-xl border flex items-center justify-between transition-all text-left',
-                            isAlreadyAdded
-                              ? 'bg-accent-primary/10 border-accent-primary/30 cursor-default'
-                              : isAtLimit
-                              ? 'bg-foreground-muted/10 border-foreground-muted/20 cursor-not-allowed opacity-50'
-                              : 'bg-white/40 hover:bg-white/60 border-white/30'
-                          )}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-bold text-foreground text-sm truncate">
-                                {mint.name || new URL(mint.url).hostname}
-                              </h4>
-                              {isAlreadyAdded && (
-                                <span className="text-[10px] font-bold text-accent-primary bg-accent-primary/20 px-2 py-0.5 rounded-full shrink-0">
-                                  {t('addMint.added')}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[10px] text-foreground-muted truncate">{mint.url}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <TrendingUp className="w-3 h-3 text-foreground-muted" />
-                              <span className="text-[10px] text-foreground-muted">
-                                {t('addMint.transactions', { count: totalTx })}
-                              </span>
-                            </div>
-                          </div>
-                          {isAlreadyAdded ? (
-                            <div className="w-6 h-6 rounded-full bg-accent-primary/20 flex items-center justify-center text-accent-primary shrink-0 ml-2">
-                              <Check className="w-3 h-3" />
-                            </div>
-                          ) : (
-                            <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-foreground shrink-0 ml-2">
-                              <Plus className="w-3 h-3" />
-                            </div>
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
+      </div>
     </div>
   )
 }

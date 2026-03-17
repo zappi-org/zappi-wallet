@@ -177,6 +177,9 @@ export default {
     maxRelaysReached: 'Maksimal {{max}} relay diperbolehkan',
     relayDeleteRequired: 'Hapus relay yang ada untuk menambah lebih banyak.',
     nostrRelay: 'Relay Nostr',
+    addRelay: 'Tambah Relay',
+    deleteRelay: 'Hapus Relay',
+    confirmDeleteRelay: 'Hapus relay ini?',
 
     // PIN Change
     currentPinLabel: 'Masukkan PIN saat ini',
@@ -219,6 +222,7 @@ export default {
     deleteMint: 'Hapus Mint',
     mintHasBalance: 'Mint ini memiliki saldo <bold>{{formattedBalance}}</bold>.',
     deleteWarning: 'Menghapus akan membuat saldo tidak dapat diakses.',
+    confirmDeleteMint: 'Hapus mint ini?',
 
     // Preferences
     preferences: 'Preferensi',
@@ -260,6 +264,7 @@ export default {
     loadError: 'Tidak dapat memuat daftar mint.',
     addComplete: 'Mint ditambahkan!',
     recoveredTokens: '{{amount}} dipulihkan!',
+    hasBeenAdded: ' telah ditambahkan.',
     mintAddedSuccess: 'Mint baru telah ditambahkan.',
   },
 

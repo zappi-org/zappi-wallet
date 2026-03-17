@@ -177,6 +177,9 @@ export default {
     maxRelaysReached: 'Maximum of {{max}} relays allowed',
     relayDeleteRequired: 'Delete existing relays to add more.',
     nostrRelay: 'Nostr Relay',
+    addRelay: 'Add Relay',
+    deleteRelay: 'Delete Relay',
+    confirmDeleteRelay: 'Delete this relay?',
 
     // PIN Change
     currentPinLabel: 'Enter current PIN',
@@ -219,6 +222,7 @@ export default {
     deleteMint: 'Delete Mint',
     mintHasBalance: 'This mint has a balance of <bold>{{formattedBalance}}</bold>.',
     deleteWarning: 'Deleting will make the balance inaccessible.',
+    confirmDeleteMint: 'Delete this mint?',
 
     // Preferences
     preferences: 'Preferences',
@@ -275,6 +279,7 @@ export default {
     loadError: 'Could not load mint list.',
     addComplete: 'Mint added!',
     recoveredTokens: '{{amount}} recovered!',
+    hasBeenAdded: ' has been added.',
     mintAddedSuccess: 'New mint has been added.',
   },
 

@@ -5,13 +5,11 @@ import { useTranslation } from 'react-i18next'
 import { Modal, BottomSheet, PinInput } from '../../components/common'
 import { useAppStore } from '@/store'
 import { encodeNpub } from '@/services/crypto'
-import { normalizeRelayUrl } from '@/utils/url'
 import { satUnit, FIAT_CURRENCY_MAP } from '@/utils/format'
 import { CurrencyPickerBottomSheet } from './CurrencyPickerBottomSheet'
 import { Switch } from '@/ui/components/common/Switch'
 import { restoreWallet, getBalances, recoverPendingQuotes } from '@/coco'
-import { LIMITS, ZAPPI_LINK_URL } from '@/core/constants'
-import { clearMintData } from '@/data/database/schema'
+import { ZAPPI_LINK_URL } from '@/core/constants'
 import { ProfileService } from '@/services/profile/profile.service'
 import { NostrService } from '@/services/nostr/nostr.service'
 import { ZappiLinkService } from '@/services/zappi-link'
@@ -23,9 +21,6 @@ import {
   updatePasskeyPin,
 } from '@/services/passkey'
 import { cn } from '@/components/ui/utils'
-import { useMintMetadata } from '@/hooks/use-mint-metadata'
-import { useMintHealth } from '@/hooks/use-mint-health'
-import { type MintInfo } from '@/ui/components/modals/MintDetailsModal'
 import { SUPPORTED_LANGUAGES, changeLanguage, getCurrentLanguage } from '@/i18n'
 import { updateSW } from '@/registerSW'
 
@@ -33,8 +28,6 @@ import { ProfileSection } from './ProfileSection'
 import { SecuritySection } from './SecuritySection'
 import { WalletManagementSection } from './WalletManagementSection'
 import { POSProvisioningSection } from './POSProvisioningSection'
-import { MintsBottomSheet } from './MintsBottomSheet'
-import { RelaysBottomSheet } from './RelaysBottomSheet'
 import { PinChangeModal, type PinChangeStep } from './PinChangeModal'
 
 export interface SettingsScreenProps {
@@ -44,7 +37,8 @@ export interface SettingsScreenProps {
   onLogout: (password: string) => Promise<boolean>
   onVerifyPin: (pin: string) => Promise<boolean>
   onSaveSettings: (settings: Record<string, unknown>) => Promise<void>
-  onAddMint?: () => void
+  onMintManagement?: () => void
+  onRelayManagement?: () => void
   onChangeUsername?: () => void
   onTransfer?: () => void
   onAnalytics?: () => void
@@ -57,7 +51,8 @@ export function SettingsScreen({
   onLogout,
   onVerifyPin,
   onSaveSettings,
-  onAddMint,
+  onMintManagement,
+  onRelayManagement,
   onChangeUsername,
   onTransfer,
   onAnalytics,
@@ -70,7 +65,6 @@ export function SettingsScreen({
   const nostrPrivkey = useAppStore((state) => state.nostrPrivkey)
   const p2pkPubkey = useAppStore((state) => state.p2pkPubkey)
   const setBalance = useAppStore((state) => state.setBalance)
-  const balanceByMint = useAppStore((state) => state.balance.byMint)
   const updateAvailable = useAppStore((state) => state.updateAvailable)
 
   const [showLanguageModal, setShowLanguageModal] = useState(false)
@@ -81,13 +75,6 @@ export function SettingsScreen({
   const [autoLockTimeout, setAutoLockTimeout] = useState(settings.autoLockTimeoutMinutes)
 
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false)
-
-  const [showMintsModal, setShowMintsModal] = useState(false)
-  const [showRelaysModal, setShowRelaysModal] = useState(false)
-  const [newRelayUrl, setNewRelayUrl] = useState('')
-  const [isValidatingRelay, setIsValidatingRelay] = useState(false)
-  const [relayError, setRelayError] = useState('')
-  const [mintToDelete, setMintToDelete] = useState<string | null>(null)
 
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [showBackupModal, setShowBackupModal] = useState(false)
@@ -117,15 +104,6 @@ export function SettingsScreen({
 
   const [npubCopied, setNpubCopied] = useState(false)
   const [backupCopied, setBackupCopied] = useState(false)
-
-  const [selectedMint, setSelectedMint] = useState<MintInfo | null>(null)
-  const { getDisplayName, getIconUrl } = useMintMetadata(settings.mints)
-  const { getCachedStatus, checkAllMints } = useMintHealth()
-
-  // Check mint health on mount
-  useEffect(() => {
-    checkAllMints()
-  }, [checkAllMints])
 
   const [passkeySupported, setPasskeySupported] = useState(false)
   const [passkeyEnabled, setPasskeyEnabled] = useState(false)
@@ -298,67 +276,6 @@ export function SettingsScreen({
     await saveSettings({ autoLockTimeoutMinutes: value })
   }, [saveSettings])
 
-
-  const handleRemoveMint = useCallback((url: string) => {
-    // Normalize URL for balance lookup (remove trailing slash)
-    const normalizedUrl = url.endsWith('/') ? url.slice(0, -1) : url
-    const mintBalance = balanceByMint[normalizedUrl] || balanceByMint[url] || 0
-    if (mintBalance > 0) {
-      setMintToDelete(url)
-    } else {
-      const newMints = settings.mints.filter((m) => m !== url)
-      saveSettings({ mints: newMints })
-      clearMintData(url)
-    }
-  }, [settings.mints, saveSettings, balanceByMint])
-
-  const confirmRemoveMint = useCallback(async () => {
-    if (!mintToDelete) return
-    const newMints = settings.mints.filter((m) => m !== mintToDelete)
-    await saveSettings({ mints: newMints })
-    clearMintData(mintToDelete)
-    setMintToDelete(null)
-  }, [mintToDelete, settings.mints, saveSettings])
-
-  const handleAddRelay = useCallback(async () => {
-    if (!newRelayUrl.trim()) return
-    setRelayError('')
-
-    // Check limit
-    if (settings.relays.length >= LIMITS.MAX_RELAYS) {
-      setRelayError(t('settings.maxRelaysReached', { max: LIMITS.MAX_RELAYS }))
-      return
-    }
-
-    const url = normalizeRelayUrl(newRelayUrl)
-
-    if (settings.relays.includes(url)) {
-      setRelayError(t('settings.relayExists'))
-      return
-    }
-
-    setIsValidatingRelay(true)
-    try {
-      const ws = new WebSocket(url)
-      await new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(() => { ws.close(); reject(new Error('Connection timeout')) }, 5000)
-        ws.onopen = () => { clearTimeout(timeout); ws.close(); resolve() }
-        ws.onerror = () => { clearTimeout(timeout); reject(new Error('Connection failed')) }
-      })
-      const newRelays = [...settings.relays, url]
-      await saveSettings({ relays: newRelays })
-      setNewRelayUrl('')
-    } catch {
-      setRelayError(t('settings.relayConnectionFailed'))
-    } finally {
-      setIsValidatingRelay(false)
-    }
-  }, [newRelayUrl, settings.relays, saveSettings, t])
-
-  const handleRemoveRelay = useCallback(async (url: string) => {
-    const newRelays = settings.relays.filter((r) => r !== url)
-    await saveSettings({ relays: newRelays })
-  }, [settings.relays, saveSettings])
 
   const handleCurrentPinChange = useCallback((value: string) => {
     setCurrentPin(value)
@@ -669,8 +586,8 @@ export function SettingsScreen({
         <WalletManagementSection
           mintsCount={settings.mints.length}
           relaysCount={settings.relays.length}
-          onOpenMints={() => setShowMintsModal(true)}
-          onOpenRelays={() => setShowRelaysModal(true)}
+          onOpenMints={() => onMintManagement?.()}
+          onOpenRelays={() => onRelayManagement?.()}
           onOpenRestore={() => setShowRestoreModal(true)}
           onOpenBackup={() => setShowBackupModal(true)}
           onTransfer={onTransfer}
@@ -902,39 +819,6 @@ export function SettingsScreen({
           )}
         </div>
       </Modal>
-
-      {/* Mints BottomSheet */}
-      <MintsBottomSheet
-        isOpen={showMintsModal}
-        mints={settings.mints}
-        balanceByMint={balanceByMint}
-        selectedMint={selectedMint}
-        mintToDelete={mintToDelete}
-        getDisplayName={getDisplayName}
-        getIconUrl={getIconUrl}
-        getCachedStatus={getCachedStatus}
-        onClose={() => setShowMintsModal(false)}
-        onAddMint={() => { setShowMintsModal(false); onAddMint?.() }}
-        onSelectMint={setSelectedMint}
-        onCloseMintDetails={() => setSelectedMint(null)}
-        onRemoveMint={handleRemoveMint}
-        onConfirmRemoveMint={confirmRemoveMint}
-        onCancelRemoveMint={() => setMintToDelete(null)}
-      />
-
-      {/* Relays BottomSheet */}
-      <RelaysBottomSheet
-        isOpen={showRelaysModal}
-        relays={settings.relays}
-        newRelayUrl={newRelayUrl}
-        isValidatingRelay={isValidatingRelay}
-        relayError={relayError}
-        onClose={() => { setShowRelaysModal(false); setRelayError(''); setNewRelayUrl('') }}
-        onNewRelayUrlChange={setNewRelayUrl}
-        onRelayErrorClear={() => setRelayError('')}
-        onAddRelay={handleAddRelay}
-        onRemoveRelay={handleRemoveRelay}
-      />
 
       {/* Language Selection Modal */}
       <BottomSheet

@@ -364,3 +364,14 @@
   50% { transform: scale(1.2) }
 }
 .animate-pulseScale { animation: pulseScale 1.5s ease-in-out infinite }
+
+@keyframes cardFlipIn {
+  0% { transform: rotateY(-90deg) scale(0.8); opacity: 0 }
+  50% { transform: rotateY(10deg) scale(1.02); opacity: 1 }
+  70% { transform: rotateY(-5deg) scale(1) }
+  100% { transform: rotateY(0deg) scale(1) }
+}
+.animate-cardFlipIn {
+  animation: cardFlipIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transform-style: preserve-3d;
+}

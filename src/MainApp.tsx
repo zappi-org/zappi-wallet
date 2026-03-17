@@ -32,6 +32,8 @@ const AmountActionScreen = lazy(() => import('@/ui/screens/AmountAction/AmountAc
 const UsernameChangeScreen = lazy(() => import('@/ui/screens/Settings/UsernameChangeScreen'))
 const TransactionDetailScreen = lazy(() => import('@/ui/screens/TransactionDetail/TransactionDetailScreen'))
 const MintDetailScreen = lazy(() => import('@/ui/screens/MintDetail/MintDetailScreen').then(m => ({ default: m.MintDetailScreen })))
+const MintManagementScreen = lazy(() => import('@/ui/screens/Settings/MintManagementScreen'))
+const RelayManagementScreen = lazy(() => import('@/ui/screens/Settings/RelayManagementScreen'))
 
 // Unified Send/Receive flows
 import { SendFlow } from '@/ui/screens/Send/SendFlow'
@@ -61,7 +63,7 @@ function totalRecoveredCount(recovery: Awaited<ReturnType<PaymentService['recove
   return recovery.quotes.recovered + recovery.melts.recovered + recovery.sendTokens.reclaimed + recovery.receivedTokens.redeemed
 }
 
-type Screen = 'home' | 'settings' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail' | 'mint-detail'
+type Screen = 'home' | 'settings' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'mint-management' | 'relay-management' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail' | 'mint-detail'
 
 export default function MainApp() {
   const { t } = useTranslation()
@@ -921,9 +923,13 @@ export default function MainApp() {
           onLogout={handleLogout}
           onVerifyPin={handleVerifyPin}
           onSaveSettings={handleSaveSettings}
-          onAddMint={() => {
+          onMintManagement={() => {
             setPreviousScreen('settings')
-            setCurrentScreen('add-mint')
+            setCurrentScreen('mint-management')
+          }}
+          onRelayManagement={() => {
+            setPreviousScreen('settings')
+            setCurrentScreen('relay-management')
           }}
           onChangeUsername={() => {
             setPreviousScreen('settings')
@@ -993,6 +999,24 @@ export default function MainApp() {
             setPreviousScreen(null)
             setCurrentScreen(backTo)
           }}
+          onSaveSettings={handleSaveSettings}
+        />
+      )}
+
+      {currentScreen === 'mint-management' && (
+        <MintManagementScreen
+          onBack={handleBack}
+          onAddMint={() => {
+            setPreviousScreen('mint-management')
+            setCurrentScreen('add-mint')
+          }}
+          onSaveSettings={handleSaveSettings}
+        />
+      )}
+
+      {currentScreen === 'relay-management' && (
+        <RelayManagementScreen
+          onBack={handleBack}
           onSaveSettings={handleSaveSettings}
         />
       )}

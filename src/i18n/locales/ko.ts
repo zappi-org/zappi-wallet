@@ -177,6 +177,9 @@ export default {
     maxRelaysReached: '최대 {{max}}개의 릴레이만 추가할 수 있습니다',
     relayDeleteRequired: '릴레이를 더 추가하려면 기존 릴레이를 삭제하세요.',
     nostrRelay: 'Nostr Relay',
+    addRelay: '릴레이 추가',
+    deleteRelay: '릴레이 삭제',
+    confirmDeleteRelay: '삭제하시겠습니까?',
 
     // PIN Change
     currentPinLabel: '현재 PIN 입력',
@@ -219,6 +222,7 @@ export default {
     deleteMint: '민트 삭제',
     mintHasBalance: '이 민트에 <bold>{{formattedBalance}}</bold>의 잔액이 있습니다.',
     deleteWarning: '삭제하면 해당 잔액에 접근할 수 없게 됩니다.',
+    confirmDeleteMint: '삭제하시겠습니까?',
 
     // Preferences
     preferences: '환경설정',
@@ -275,6 +279,7 @@ export default {
     loadError: '민트 목록을 불러올 수 없습니다.',
     addComplete: '민트 추가 완료!',
     recoveredTokens: '{{amount}}이 복원되었습니다!',
+    hasBeenAdded: '이(가) 추가되었습니다.',
     mintAddedSuccess: '새로운 민트가 추가되었습니다.',
   },
 
