@@ -461,7 +461,7 @@ export default {
 
   // Transfer Screen
   transfer: {
-    title: 'Transfer',
+    title: 'Pindah Saldo',
     from: 'Dari Mint',
     to: 'Ke Mint',
     transferAmount: 'Jumlah Transfer',
@@ -471,6 +471,11 @@ export default {
     swapFailed: 'Transfer gagal',
     sameMintsError: 'Tidak dapat transfer ke mint yang sama',
     selectDifferentMint: 'Pilih mint yang berbeda',
+    transferAll: 'Semua',
+    quoting: 'Mendapatkan penawaran...',
+    melting: 'Menarik...',
+    minting: 'Menyetor...',
+    transferComplete: 'Transfer selesai!',
   },
 
   // History Screen

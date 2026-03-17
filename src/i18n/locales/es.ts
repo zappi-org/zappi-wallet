@@ -461,7 +461,7 @@ export default {
 
   // Transfer Screen
   transfer: {
-    title: 'Transferir',
+    title: 'Mover Saldo',
     from: 'Desde Mint',
     to: 'Hacia Mint',
     transferAmount: 'Monto a transferir',
@@ -471,6 +471,11 @@ export default {
     swapFailed: 'Transferencia fallida',
     sameMintsError: 'No se puede transferir al mismo mint',
     selectDifferentMint: 'Selecciona un mint diferente',
+    transferAll: 'Todo',
+    quoting: 'Obteniendo cotización...',
+    melting: 'Retirando...',
+    minting: 'Depositando...',
+    transferComplete: '¡Transferencia completada!',
   },
 
   // History Screen

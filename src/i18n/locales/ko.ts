@@ -482,7 +482,7 @@ export default {
 
   // Transfer Screen
   transfer: {
-    title: '전송',
+    title: '잔액 이동',
     from: '보내는 민트',
     to: '받는 민트',
     transferAmount: '전송 금액',
@@ -493,6 +493,11 @@ export default {
     sameMintsError: '같은 민트로는 전송할 수 없습니다',
     selectDifferentMint: '다른 민트를 선택하세요',
     estimatedFee: '예상 수수료: ~{{amount}}',
+    transferAll: '전액',
+    quoting: '견적 확인 중...',
+    melting: '출금 중...',
+    minting: '입금 중...',
+    transferComplete: '이동 완료!',
   },
 
   // History Screen

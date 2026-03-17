@@ -431,7 +431,7 @@ export default {
 
   // Transfer Screen
   transfer: {
-    title: '送金',
+    title: '残高移動',
     from: '送金元ミント',
     to: '送金先ミント',
     transferAmount: '送金額',
@@ -441,6 +441,11 @@ export default {
     swapFailed: '送金に失敗しました',
     sameMintsError: '同じミントには送金できません',
     selectDifferentMint: '別のミントを選択してください',
+    transferAll: '全額',
+    quoting: '見積もり中...',
+    melting: '出金中...',
+    minting: '入金中...',
+    transferComplete: '送金完了！',
   },
 
   // History Screen

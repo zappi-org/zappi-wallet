@@ -482,7 +482,7 @@ export default {
 
   // Transfer Screen
   transfer: {
-    title: 'Transfer',
+    title: 'Move Balance',
     from: 'From Mint',
     to: 'To Mint',
     transferAmount: 'Transfer Amount',
@@ -493,6 +493,11 @@ export default {
     sameMintsError: 'Cannot transfer to the same mint',
     selectDifferentMint: 'Select a different mint',
     estimatedFee: 'Est. Fee: ~{{amount}}',
+    transferAll: 'All',
+    quoting: 'Getting quote...',
+    melting: 'Withdrawing...',
+    minting: 'Depositing...',
+    transferComplete: 'Transfer complete!',
   },
 
   // History Screen
