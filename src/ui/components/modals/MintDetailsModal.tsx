@@ -192,48 +192,48 @@ export function MintDetailsModal({
           {/* Backdrop */}
           <div
             onClick={handleClose}
-            className="absolute inset-0 bg-black/20 backdrop-blur-sm pointer-events-auto animate-fadeIn"
+            className="absolute inset-0 bg-black/20 pointer-events-auto animate-fadeIn"
           />
 
           {/* Modal */}
           <div
-            className="bg-background w-full sm:w-[400px] sm:rounded-2xl rounded-t-2xl p-4 pointer-events-auto relative z-10 shadow-2xl pb-safe max-h-[85vh] overflow-y-auto animate-slideInUp"
+            className="bg-background-card w-full sm:w-[400px] sm:rounded-sm rounded-t-sm p-4 pointer-events-auto relative z-10 shadow-xl pb-safe max-h-[85vh] overflow-y-auto animate-slideInUp"
           >
             {/* Drag Handle */}
-            <div className="w-10 h-1 bg-primary/10 rounded-full mx-auto mb-4" />
+            <div className="w-10 h-1 bg-foreground/10 rounded-sm mx-auto mb-4" />
 
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-foreground">
+              <div className="flex items-center gap-2 min-w-0">
+                <h2 className="text-base font-semibold text-foreground truncate">
                   {mintInfoData?.name || mint.name || formatMintUrl(mint.url)}
                 </h2>
-                <div
+                <span
                   className={cn(
-                    'px-2 py-0.5 rounded-full text-[10px] font-bold border',
+                    'px-1.5 py-0.5 text-[10px] font-bold shrink-0',
                     isOnline
-                      ? 'bg-accent-primary/10 text-accent-primary border-accent-primary/20'
-                      : 'bg-accent-danger/10 text-accent-danger border-accent-danger/20'
+                      ? 'text-accent-primary'
+                      : 'text-accent-danger'
                   )}
                 >
                   {isOnline ? 'ONLINE' : 'OFFLINE'}
-                </div>
+                </span>
               </div>
               <button
                 onClick={handleClose}
-                className="min-w-[44px] min-h-[44px] flex items-center justify-center bg-primary/5 rounded-full hover:bg-primary/10 transition-colors"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center shrink-0"
               >
                 <ArrowLeft className="w-4 h-4 text-foreground" />
               </button>
             </div>
 
-            <div className="space-y-3">
-              {/* Basic Info Card */}
-              <div className="bg-white/50 p-3 rounded-xl border border-white/60 space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-medium text-foreground-muted">{t('common.balance')}</span>
+            <div className="space-y-0">
+              {/* Basic Info */}
+              <div className="divide-y divide-border">
+                <div className="flex justify-between items-center py-3">
+                  <span className="text-[13px] font-medium text-foreground-muted">{t('common.balance')}</span>
                   <div className="text-right">
-                    <span className="font-bold text-foreground">
+                    <span className="text-[13px] font-semibold text-foreground">
                       {formatSats(mint.balance)}
                     </span>
                     {(() => { const f = formatFiat(mint.balance); return f ? (
@@ -241,11 +241,11 @@ export function MintDetailsModal({
                     ) : null })()}
                   </div>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-medium text-foreground-muted">URL</span>
+                <div className="flex justify-between items-center py-3">
+                  <span className="text-[13px] font-medium text-foreground-muted">URL</span>
                   <button
                     onClick={handleCopy}
-                    className="flex items-center gap-2 text-xs font-mono text-foreground bg-primary/5 px-2 py-1 rounded hover:bg-primary/10 transition-colors max-w-[200px]"
+                    className="flex items-center gap-1.5 text-[12px] font-mono text-foreground-muted active:opacity-60 max-w-[200px]"
                   >
                     <span className="truncate">{formatMintUrl(mint.url)}</span>
                     {copied ? (
@@ -258,20 +258,18 @@ export function MintDetailsModal({
               </div>
 
               {/* Mint Info Section (Expandable) */}
-              <div className="bg-white/30 rounded-xl border border-white/50 overflow-hidden">
+              <div className="border-t border-border">
                 <button
                   onClick={() => setShowMintInfo(!showMintInfo)}
-                  className="w-full flex items-center justify-between p-3 hover:bg-white/20 transition-colors"
+                  className="w-full flex items-center justify-between py-3 active:bg-background-hover transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-foreground">
-                      <Info className="w-3.5 h-3.5" />
-                    </div>
-                    <span className="font-bold text-foreground text-xs">{t('mintDetails.mintInfo')}</span>
+                    <Info className="w-4 h-4 text-foreground-muted" />
+                    <span className="text-[13px] font-medium text-foreground">{t('mintDetails.mintInfo')}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     {isLoadingInfo && (
-                      <div className="w-3.5 h-3.5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                      <div className="w-3.5 h-3.5 border-2 border-foreground/10 border-t-foreground rounded-full animate-spin" />
                     )}
                     <ChevronDown
                       className={cn(
@@ -283,37 +281,35 @@ export function MintDetailsModal({
                 </button>
 
                 {showMintInfo && (
-                    <div
-                      className="overflow-hidden animate-fadeIn"
-                    >
-                      <div className="px-3 pb-3 space-y-2 border-t border-white/30 pt-2">
+                    <div className="overflow-hidden animate-fadeIn">
+                      <div className="pb-3 space-y-3">
                         {mintInfoData ? (
                           <>
                             {/* Description */}
                             {mintInfoData.description && (
                               <div>
-                                <span className="text-[10px] font-bold text-foreground-muted uppercase">{t('mintDetails.description')}</span>
-                                <p className="text-xs text-foreground mt-0.5">{mintInfoData.description}</p>
+                                <span className="text-[10px] font-semibold text-foreground-muted uppercase tracking-wide">{t('mintDetails.description')}</span>
+                                <p className="text-[12px] text-foreground mt-0.5">{mintInfoData.description}</p>
                               </div>
                             )}
 
                             {/* MOTD */}
                             {mintInfoData.motd && (
-                              <div className="bg-primary/5 p-2 rounded-lg">
-                                <span className="text-[10px] font-bold text-foreground-muted uppercase">{t('mintDetails.motd')}</span>
-                                <p className="text-xs text-foreground mt-0.5">{mintInfoData.motd}</p>
+                              <div className="border-l-2 border-foreground/20 pl-3">
+                                <span className="text-[10px] font-semibold text-foreground-muted uppercase tracking-wide">{t('mintDetails.motd')}</span>
+                                <p className="text-[12px] text-foreground mt-0.5">{mintInfoData.motd}</p>
                               </div>
                             )}
 
                             {/* Supported NUTs */}
                             {getSupportedNuts().length > 0 && (
                               <div>
-                                <span className="text-[10px] font-bold text-foreground-muted uppercase">{t('mintDetails.supportedNuts')}</span>
+                                <span className="text-[10px] font-semibold text-foreground-muted uppercase tracking-wide">{t('mintDetails.supportedNuts')}</span>
                                 <div className="flex flex-wrap gap-1 mt-1">
                                   {getSupportedNuts().map((nut) => (
                                     <span
                                       key={nut}
-                                      className="px-1.5 py-0.5 bg-primary/10 text-foreground text-[10px] rounded"
+                                      className="px-1.5 py-0.5 bg-foreground/[0.06] text-foreground text-[10px]"
                                     >
                                       <span className="font-mono opacity-60">{nut.padStart(2, '0')}</span>
                                       <span className="mx-0.5">·</span>
@@ -327,17 +323,17 @@ export function MintDetailsModal({
                             {/* Contact */}
                             {mintInfoData.contact && mintInfoData.contact.length > 0 && (
                               <div>
-                                <span className="text-[10px] font-bold text-foreground-muted uppercase">{t('mintDetails.contact')}</span>
+                                <span className="text-[10px] font-semibold text-foreground-muted uppercase tracking-wide">{t('mintDetails.contact')}</span>
                                 <div className="space-y-1.5 mt-1">
                                   {mintInfoData.contact.map((c, i) => (
                                     <div key={i} className="flex items-center justify-between gap-2">
-                                      <div className="text-xs text-foreground min-w-0">
+                                      <div className="text-[12px] text-foreground min-w-0">
                                         <span className="font-medium">{c.method}:</span>{' '}
                                         <span className="font-mono text-[10px] break-all">{c.info}</span>
                                       </div>
                                       <button
                                         onClick={() => handleCopyContact(c.info, i)}
-                                        className="min-w-[44px] min-h-[44px] flex items-center justify-center bg-primary/5 rounded hover:bg-primary/10 transition-colors shrink-0"
+                                        className="min-w-[44px] min-h-[44px] flex items-center justify-center active:opacity-60 shrink-0"
                                       >
                                         {copiedContact === i ? (
                                           <Check className="w-3 h-3 text-accent-primary" />
@@ -354,14 +350,14 @@ export function MintDetailsModal({
                             {/* Pubkey */}
                             {mintInfoData.pubkey && (
                               <div>
-                                <span className="text-[10px] font-bold text-foreground-muted uppercase">Pubkey</span>
+                                <span className="text-[10px] font-semibold text-foreground-muted uppercase tracking-wide">Pubkey</span>
                                 <div className="flex items-start justify-between gap-2 mt-0.5">
                                   <p className="text-[10px] font-mono text-foreground break-all opacity-70">
                                     {mintInfoData.pubkey}
                                   </p>
                                   <button
                                     onClick={handleCopyPubkey}
-                                    className="min-w-[44px] min-h-[44px] flex items-center justify-center bg-primary/5 rounded hover:bg-primary/10 transition-colors shrink-0"
+                                    className="min-w-[44px] min-h-[44px] flex items-center justify-center active:opacity-60 shrink-0"
                                   >
                                     {copiedPubkey ? (
                                       <Check className="w-3 h-3 text-accent-primary" />
@@ -374,7 +370,7 @@ export function MintDetailsModal({
                             )}
                           </>
                         ) : (
-                          <p className="text-xs text-foreground-muted text-center py-2">
+                          <p className="text-[12px] text-foreground-muted text-center py-2">
                             {isLoadingInfo ? t('mintDetails.loadingInfo') : t('mintDetails.loadError')}
                           </p>
                         )}
@@ -383,53 +379,41 @@ export function MintDetailsModal({
                   )}
               </div>
 
-              {/* Actions */}
-              <div className="space-y-2">
-                {onDelete && (
+              {/* Delete */}
+              {onDelete && (
+                <div className="border-t border-border pt-3">
                   <button
                     onClick={handleDelete}
                     className={cn(
-                      'w-full flex items-center justify-between p-3 rounded-xl transition-colors mt-3',
+                      'w-full flex items-center gap-2 px-3 py-3 rounded-sm transition-colors',
                       showDeleteConfirm
                         ? 'bg-accent-danger text-white'
-                        : 'bg-accent-danger/10 hover:bg-accent-danger/20'
+                        : 'active:bg-background-hover'
                     )}
                   >
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={cn(
-                          'w-7 h-7 rounded-full flex items-center justify-center',
-                          showDeleteConfirm
-                            ? 'bg-white/20 text-white'
-                            : 'bg-accent-danger/20 text-accent-danger'
-                        )}
-                      >
-                        {showDeleteConfirm ? (
-                          <AlertTriangle className="w-3.5 h-3.5" />
-                        ) : (
-                          <Trash2 className="w-3.5 h-3.5" />
-                        )}
-                      </div>
-                      <span
-                        className={cn(
-                          'font-bold text-xs',
-                          showDeleteConfirm ? 'text-white' : 'text-accent-danger'
-                        )}
-                      >
-                        {showDeleteConfirm ? t('mintDetails.deleteConfirm') : t('mintDetails.deleteMint')}
-                      </span>
-                    </div>
+                    {showDeleteConfirm ? (
+                      <AlertTriangle className="w-4 h-4" />
+                    ) : (
+                      <Trash2 className="w-4 h-4 text-accent-danger" />
+                    )}
+                    <span
+                      className={cn(
+                        'text-[13px] font-semibold',
+                        showDeleteConfirm ? 'text-white' : 'text-accent-danger'
+                      )}
+                    >
+                      {showDeleteConfirm ? t('mintDetails.deleteConfirm') : t('mintDetails.deleteMint')}
+                    </span>
                   </button>
-                )}
-              </div>
 
-              {/* Warning for non-empty balance */}
-              {mint.balance > 0 && showDeleteConfirm && (
-                <div className="bg-accent-warning-bright/10 text-accent-warning-bright-text p-3 rounded-xl text-xs font-medium flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <p>
-                    {t('mintDetails.balanceWarning', { formattedAmount: formatSats(mint.balance) })}
-                  </p>
+                  {/* Warning for non-empty balance */}
+                  {mint.balance > 0 && showDeleteConfirm && (
+                    <div className="border-l-2 border-accent-danger mt-2 pl-3 py-2">
+                      <p className="text-[12px] text-accent-danger font-medium">
+                        {t('mintDetails.balanceWarning', { formattedAmount: formatSats(mint.balance) })}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

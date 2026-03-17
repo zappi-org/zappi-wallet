@@ -215,14 +215,14 @@ export function LockScreen({
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <div
                 key={i}
-                className="w-5 h-5 rounded-full"
+                className="w-4 h-4 rounded-full"
                 style={{
                   transform: password.length > i ? 'scale(1)' : 'scale(0.75)',
                   backgroundColor: shake
                     ? 'rgba(248, 113, 113, 0.5)'
                     : password.length > i
-                      ? '#264032'
-                      : 'rgba(38, 64, 50, 0.2)',
+                      ? '#3b7df5'
+                      : 'rgba(59, 125, 245, 0.2)',
                   border: shake
                     ? '1px solid #f87171'
                     : 'none',

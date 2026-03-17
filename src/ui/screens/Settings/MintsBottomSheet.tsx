@@ -1,6 +1,6 @@
 import { Plus, ChevronRight } from 'lucide-react'
 import { Trans, useTranslation } from 'react-i18next'
-import { BottomSheet, Modal, Button } from '../../components/common'
+import { BottomSheet, Modal } from '../../components/common'
 import { cn } from '@/components/ui/utils'
 import { useFormatSats } from '@/utils/format'
 import { LIMITS } from '@/core/constants'
@@ -135,12 +135,15 @@ export function MintsBottomSheet({
           </p>
           <p className="text-[12px] text-accent-danger font-semibold">{t('settings.deleteWarning')}</p>
           <div className="flex gap-2">
-            <Button variant="secondary" size="md" onClick={onCancelRemoveMint} className="flex-1">
+            <button
+              onClick={onCancelRemoveMint}
+              className="flex-1 py-2.5 rounded-sm bg-background text-foreground font-semibold text-[13px] active:opacity-80 border border-border"
+            >
               {t('common.cancel')}
-            </Button>
+            </button>
             <button
               onClick={onConfirmRemoveMint}
-              className="flex-1 py-2 rounded-sm bg-accent-danger text-white font-semibold text-[13px] active:opacity-80"
+              className="flex-1 py-2.5 rounded-sm bg-accent-danger text-white font-semibold text-[13px] active:opacity-80"
             >
               {t('common.delete')}
             </button>

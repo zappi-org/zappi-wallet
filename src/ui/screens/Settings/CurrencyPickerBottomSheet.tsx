@@ -65,7 +65,7 @@ export function CurrencyPickerBottomSheet({
               className={cn(
                 'w-full px-3 py-3 flex items-center justify-between text-left',
                 currentCurrency === currency.code
-                  ? 'bg-primary/[0.04]'
+                  ? 'bg-foreground/[0.04]'
                   : 'active:bg-background-hover',
               )}
             >

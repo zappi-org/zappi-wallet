@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 
-import { ArrowLeft, ChevronRight, ChevronDown, ChevronsUpDown, Check, AlertTriangle, ShieldCheck, Download, SlidersHorizontal } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronsUpDown, Check, Copy, AlertTriangle, ShieldCheck, Download, SlidersHorizontal } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Button, Modal, BottomSheet, PinInput } from '../../components/common'
+import { Modal, BottomSheet, PinInput } from '../../components/common'
 import { useAppStore } from '@/store'
 import { encodeNpub } from '@/services/crypto'
 import { normalizeRelayUrl } from '@/utils/url'
@@ -78,7 +78,7 @@ export function SettingsScreen({
 
   const [isRegistering, setIsRegistering] = useState(false)
   const [autoLockEnabled, setAutoLockEnabled] = useState(settings.autoLockEnabled)
-  const [autoLockTimeout, setAutoLockTimeout] = useState(String(settings.autoLockTimeoutMinutes))
+  const [autoLockTimeout, setAutoLockTimeout] = useState(settings.autoLockTimeoutMinutes)
 
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false)
 
@@ -116,6 +116,7 @@ export function SettingsScreen({
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   const [npubCopied, setNpubCopied] = useState(false)
+  const [backupCopied, setBackupCopied] = useState(false)
 
   const [selectedMint, setSelectedMint] = useState<MintInfo | null>(null)
   const { getDisplayName, getIconUrl } = useMintMetadata(settings.mints)
@@ -292,14 +293,9 @@ export function SettingsScreen({
     await saveSettings({ autoLockEnabled: enabled })
   }, [saveSettings])
 
-  const handleAutoLockTimeoutChange = useCallback(async (value: string) => {
-    const numValue = parseInt(value, 10)
-    if (!isNaN(numValue) && numValue >= 1 && numValue <= 60) {
-      setAutoLockTimeout(value)
-      await saveSettings({ autoLockTimeoutMinutes: numValue })
-    } else {
-      setAutoLockTimeout(value)
-    }
+  const handleAutoLockTimeoutChange = useCallback(async (value: number) => {
+    setAutoLockTimeout(value)
+    await saveSettings({ autoLockTimeoutMinutes: value })
   }, [saveSettings])
 
 
@@ -548,6 +544,7 @@ export function SettingsScreen({
     setBackupPin('')
     setMnemonic('')
     setBackupError('')
+    setBackupCopied(false)
   }, [])
 
   return (
@@ -602,7 +599,7 @@ export function SettingsScreen({
                 <span className="text-[14px] text-foreground-muted">
                   {SUPPORTED_LANGUAGES.find(l => l.code === currentLang)?.nativeName || 'English'}
                 </span>
-                <ChevronRight className="w-4 h-4 text-foreground-subtle" />
+                <ChevronDown className="w-3.5 h-3.5 text-foreground-subtle" />
               </div>
             </button>
 
@@ -724,30 +721,63 @@ export function SettingsScreen({
       <Modal isOpen={showBackupModal} onClose={resetBackupModal} title={t('settings.mnemonicBackup')}>
         {!mnemonic ? (
           <div className="py-3">
-            <PinInput value={backupPin} onChange={handleBackupPinChange} label={t('settings.enterPinLabel')} error={backupError} />
-            <Button variant="primary" size="lg" onClick={handleBackupMnemonic} loading={isLoadingBackup} disabled={backupPin.length !== 6} className="w-full mt-4">
-              {t('common.confirm')}
-            </Button>
+            <PinInput
+              value={backupPin}
+              onChange={handleBackupPinChange}
+              label={t('settings.enterPinLabel')}
+              error={backupError}
+              submitLabel={t('common.confirm')}
+              onSubmit={handleBackupMnemonic}
+              loading={isLoadingBackup}
+            />
           </div>
         ) : (
-          <div className="space-y-3">
-            <div className="border-l-2 border-accent-danger bg-accent-danger/[0.06] p-3 flex gap-2">
-              <AlertTriangle className="w-5 h-5 text-accent-danger shrink-0" />
-              <p className="text-[11px] text-accent-danger font-semibold leading-relaxed">
-                {t('settings.mnemonicWarning')}
-              </p>
+          <div className="space-y-4">
+            <p className="text-[13px] text-[#86868b] leading-relaxed whitespace-pre-line">
+              {t('settings.mnemonicWarning')}
+            </p>
+            <div className="bg-white rounded-sm p-4">
+              {(() => {
+                const mnemonicWords = mnemonic.split(' ')
+                const cols = mnemonicWords.length > 12 ? 'grid-cols-3' : 'grid-cols-2'
+                return (
+                  <div className={`grid ${cols} gap-x-3 gap-y-0`}>
+                    {mnemonicWords.map((word, i) => (
+                      <div
+                        key={i}
+                        className={`flex items-center gap-2 py-2.5 ${
+                          i < mnemonicWords.length - (mnemonicWords.length > 12 ? 3 : 2)
+                            ? 'border-b border-[#f0f0f0]'
+                            : ''
+                        }`}
+                      >
+                        <span className="text-[12px] tabular-nums text-[#c0c0c0] w-5 text-right shrink-0">{i + 1}</span>
+                        <span className="text-[14px] font-medium text-[#1d1d1f]">{word}</span>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
             </div>
-            <div className="grid grid-cols-3 gap-1.5">
-              {mnemonic.split(' ').map((word, i) => (
-                <div key={i} className="flex items-center gap-2 bg-background p-2 rounded-sm border border-border">
-                  <span className="text-[10px] font-semibold text-foreground-muted/50 w-4">{i + 1}</span>
-                  <span className="text-[12px] font-semibold text-foreground">{word}</span>
-                </div>
-              ))}
+            <div className="flex items-center justify-center">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(mnemonic)
+                  setBackupCopied(true)
+                  setTimeout(() => setBackupCopied(false), 2000)
+                }}
+                className="flex items-center gap-1.5 text-[13px] font-medium text-[#86868b] active:opacity-60 transition-opacity px-3 py-2"
+              >
+                {backupCopied ? <Check className="w-4 h-4 text-[#3b7df5]" /> : <Copy className="w-4 h-4" />}
+                {backupCopied ? t('common.copied') : t('onboarding.copyToClipboard')}
+              </button>
             </div>
-            <Button variant="secondary" size="lg" onClick={resetBackupModal} className="w-full">
+            <button
+              onClick={resetBackupModal}
+              className="w-full py-3.5 rounded-sm font-semibold text-[13px] bg-foreground text-background-card active:opacity-80 transition-all"
+            >
               {t('common.close')}
-            </Button>
+            </button>
           </div>
         )}
       </Modal>
@@ -767,55 +797,45 @@ export function SettingsScreen({
               {t('settings.logoutWarning')}
             </p>
           </div>
-          <PinInput value={logoutPin} onChange={handleLogoutPinChange} label={t('settings.enterPinLabel')} error={logoutError} />
-          <div className="flex gap-2 mt-4">
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={() => { setShowLogoutModal(false); setLogoutPin(''); setLogoutError('') }}
-              className="flex-1"
-            >
-              {t('common.cancel')}
-            </Button>
-            <button
-              onClick={handleLogout}
-              disabled={logoutPin.length !== 6 || isLoggingOut}
-              className={cn(
-                'flex-1 py-2 rounded-sm font-semibold text-[13px] transition-colors',
-                logoutPin.length !== 6 || isLoggingOut
-                  ? 'bg-accent-danger/50 text-white/50 cursor-not-allowed'
-                  : 'bg-accent-danger text-white active:opacity-80'
-              )}
-            >
-              {isLoggingOut ? t('common.processing') : t('settings.logout')}
-            </button>
-          </div>
+          <PinInput
+            value={logoutPin}
+            onChange={handleLogoutPinChange}
+            label={t('settings.enterPinLabel')}
+            error={logoutError}
+            submitLabel={t('settings.logout')}
+            onSubmit={handleLogout}
+            loading={isLoggingOut}
+          />
         </div>
       </Modal>
 
       {/* Passkey Registration Modal */}
       <Modal isOpen={showPasskeyModal} onClose={resetPasskeyModal} title={t('settings.passkeySetup')}>
         <div className="py-3">
-          <p className="text-[12px] text-foreground-muted text-center mb-3">
-            {t('settings.passkeyDescription')}
-          </p>
-          <PinInput value={passkeyPin} onChange={handlePasskeyPinChange} label={t('settings.enterPinLabel')} error={passkeyError} />
-          <Button variant="primary" size="lg" onClick={handlePasskeyRegister} loading={isRegisteringPasskey} disabled={passkeyPin.length !== 6} className="w-full mt-4">
-            {t('settings.register')}
-          </Button>
+          <PinInput
+            value={passkeyPin}
+            onChange={handlePasskeyPinChange}
+            label={t('settings.passkeyDescription')}
+            error={passkeyError}
+            submitLabel={t('settings.register')}
+            onSubmit={handlePasskeyRegister}
+            loading={isRegisteringPasskey}
+          />
         </div>
       </Modal>
 
       {/* Passkey Remove Modal */}
       <Modal isOpen={showPasskeyRemoveModal} onClose={resetPasskeyModal} title={t('settings.passkeyRemove')}>
         <div className="py-3">
-          <p className="text-[12px] text-foreground-muted text-center mb-3">
-            {t('settings.passkeyRemoveDescription')}
-          </p>
-          <PinInput value={passkeyPin} onChange={handlePasskeyPinChange} label={t('settings.enterPinLabel')} error={passkeyError} />
-          <Button variant="destructive" size="lg" onClick={handlePasskeyRemove} loading={isRemovingPasskey} disabled={passkeyPin.length !== 6} className="w-full mt-4">
-            {t('settings.remove')}
-          </Button>
+          <PinInput
+            value={passkeyPin}
+            onChange={handlePasskeyPinChange}
+            label={t('settings.passkeyRemoveDescription')}
+            error={passkeyError}
+            submitLabel={t('settings.remove')}
+            onSubmit={handlePasskeyRemove}
+            loading={isRemovingPasskey}
+          />
         </div>
       </Modal>
 
@@ -833,12 +853,18 @@ export function SettingsScreen({
               </p>
               <p className="text-[12px] text-foreground-muted">{t('settings.registeredMints', { count: settings.mints.length })}</p>
               <div className="flex gap-2">
-                <Button variant="secondary" size="lg" onClick={() => setShowRestoreModal(false)} className="flex-1">
+                <button
+                  onClick={() => setShowRestoreModal(false)}
+                  className="flex-1 py-2.5 rounded-sm bg-background text-foreground font-semibold text-[13px] active:opacity-80 border border-border"
+                >
                   {t('common.cancel')}
-                </Button>
-                <Button variant="primary" size="lg" onClick={handleRestoreTokens} className="flex-1">
+                </button>
+                <button
+                  onClick={handleRestoreTokens}
+                  className="flex-1 py-2.5 rounded-sm bg-foreground text-background-card font-semibold text-[13px] active:opacity-80"
+                >
                   {t('settings.startVerification')}
-                </Button>
+                </button>
               </div>
             </>
           )}
@@ -846,7 +872,7 @@ export function SettingsScreen({
             <div className="text-center py-6">
               <div className="relative mb-4 mx-auto w-16 h-16">
                 <div
-                  className="w-16 h-16 rounded-full border-4 border-primary/10 border-t-primary animate-spin"
+                  className="w-16 h-16 rounded-full border-4 border-foreground/10 border-t-foreground animate-spin"
                   style={{ animationDuration: '2s' }}
                 />
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -866,9 +892,12 @@ export function SettingsScreen({
                 {restoreResult.success ? <Check className="w-6 h-6" /> : <AlertTriangle className="w-6 h-6" />}
               </div>
               <p className="font-semibold text-foreground">{restoreResult.message}</p>
-              <Button variant="primary" size="lg" onClick={() => { setShowRestoreModal(false); setRestoreResult(null) }} className="w-full mt-3">
+              <button
+                onClick={() => { setShowRestoreModal(false); setRestoreResult(null) }}
+                className="w-full mt-3 py-2.5 rounded-sm bg-foreground text-background-card font-semibold text-[13px] active:opacity-80"
+              >
                 {t('common.confirm')}
-              </Button>
+              </button>
             </div>
           )}
         </div>
@@ -921,7 +950,7 @@ export function SettingsScreen({
               className={cn(
                 'w-full px-4 py-3 flex items-center justify-between text-left',
                 currentLang === lang.code
-                  ? 'bg-primary/[0.04]'
+                  ? 'bg-foreground/[0.04]'
                   : 'active:bg-background-hover'
               )}
             >
@@ -929,7 +958,7 @@ export function SettingsScreen({
                 <span className="text-[13px] font-medium">{lang.nativeName}</span>
                 <span className="text-[11px] text-foreground-muted">{lang.name}</span>
               </div>
-              {currentLang === lang.code && <Check className="w-4 h-4 text-primary" />}
+              {currentLang === lang.code && <Check className="w-4 h-4 text-foreground" />}
             </button>
           ))}
         </div>

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Modal, Button, PinInput } from '../../components/common'
+import { Modal, PinInput } from '../../components/common'
 
 export type PinChangeStep = 'current' | 'new' | 'confirm'
 
@@ -42,23 +42,33 @@ export function PinChangeModal({
     <Modal isOpen={isOpen} onClose={onClose} title={t('settings.changePin')}>
       <div className="py-3">
         {step === 'current' && (
-          <>
-            <PinInput value={currentPin} onChange={onCurrentPinChange} label={t('settings.currentPinLabel')} error={pinError} />
-            <Button variant="primary" size="lg" onClick={onCurrentPinSubmit} loading={isVerifyingPin} disabled={currentPin.length !== 6} className="w-full mt-6">
-              {t('common.next')}
-            </Button>
-          </>
+          <PinInput
+            value={currentPin}
+            onChange={onCurrentPinChange}
+            label={t('settings.currentPinLabel')}
+            error={pinError}
+            submitLabel={t('common.next')}
+            onSubmit={onCurrentPinSubmit}
+            loading={isVerifyingPin}
+          />
         )}
         {step === 'new' && (
-          <PinInput value={newPin} onChange={onNewPinChange} length={6} label={t('settings.newPinLabel')} />
+          <PinInput
+            value={newPin}
+            onChange={onNewPinChange}
+            label={t('settings.newPinLabel')}
+          />
         )}
         {step === 'confirm' && (
-          <>
-            <PinInput value={confirmPin} onChange={onConfirmPinChange} length={6} label={t('settings.confirmPinLabel')} error={pinError} />
-            <Button variant="primary" size="lg" onClick={onPinChangeSubmit} loading={isChangingPin} disabled={confirmPin.length !== 6} className="w-full mt-6">
-              {t('settings.change')}
-            </Button>
-          </>
+          <PinInput
+            value={confirmPin}
+            onChange={onConfirmPinChange}
+            label={t('settings.confirmPinLabel')}
+            error={pinError}
+            submitLabel={t('settings.change')}
+            onSubmit={onPinChangeSubmit}
+            loading={isChangingPin}
+          />
         )}
       </div>
     </Modal>

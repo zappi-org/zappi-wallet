@@ -42,6 +42,9 @@ i18n
       lookupLocalStorage: 'zappi-language',
     },
   })
+  .then(() => {
+    document.documentElement.lang = i18n.language?.split('-')[0] || 'en'
+  })
 
 export default i18n
 
@@ -49,6 +52,7 @@ export default i18n
 export const changeLanguage = (lang: SupportedLanguage) => {
   i18n.changeLanguage(lang)
   localStorage.setItem('zappi-language', lang)
+  document.documentElement.lang = lang
 }
 
 // Get current language

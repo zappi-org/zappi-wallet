@@ -53,23 +53,24 @@ export default {
     // Welcome
     appName: 'Zappi',
     tagline: 'Bitcoin 결제를 쉽고 빠르게',
-    createWallet: '새 지갑 만들기',
-    importWallet: '기존 지갑 복구',
+    createWallet: '신규 생성하기',
+    importWallet: '이미 지갑이 있어요',
     securePrivateFast: 'Secure • Private • Fast',
 
     // Mnemonic
-    secretRecoveryKey: '비밀 복구 키',
+    secretRecoveryKey: '니모닉',
     walletRecovery: '지갑 복구',
-    mnemonicWarning: '이 12개 단어를 반드시 기록하세요. 기기를 분실하면 이것만이 자금을 복구할 수 있는 유일한 방법입니다.',
-    enterRecoveryPhrase: '비밀 복구 문구를 입력하여 지갑을 복원하세요.',
+    mnemonicWarning: '지갑을 복구할 수 있는 유일한 수단입니다.\n반드시 안전한 곳에 순서대로 기록해주세요.',
+    enterRecoveryPhrase: '기존 지갑의 니모닉을 입력해주세요.',
     words12: '12 단어',
     words24: '24 단어',
-    copyToClipboard: '클립보드에 복사',
-    mnemonicSavedConfirm: '니모닉을 안전하게 기록했습니다',
-    recordComplete: '기록 완료',
-    recoverWallet: '지갑 복구',
-    invalidMnemonic: '유효하지 않은 니모닉입니다. 모든 단어를 정확히 입력하세요.',
-    backupConfirmRequired: '니모닉을 백업했는지 확인해주세요.',
+    copyToClipboard: '복사',
+    regenerateMnemonic: '다시 생성',
+    mnemonicSavedConfirm: '순서대로 안전한 곳에 기록했습니다',
+    recordComplete: '다음',
+    recoverWallet: '복구하기',
+    invalidMnemonic: '올바르지 않은 니모닉입니다. 단어를 다시 확인해주세요.',
+    backupConfirmRequired: '니모닉을 기록했는지 확인해주세요.',
 
     // PIN
     setPin: 'PIN 설정',
@@ -81,9 +82,9 @@ export default {
     // Processing
     creatingWallet: '지갑 생성 중',
     recoveringWallet: '지갑 복구 중',
-    creatingWalletDesc: '새 지갑을 생성하고 있습니다...',
+    creatingWalletDesc: '새 지갑을 생성하고 있습니다',
     recoveringWalletDesc: 'Nostr에서 프로필을 가져오고 토큰을 복구하고 있습니다...',
-    pleaseWait: '잠시만 기다려주세요',
+    pleaseWait: '잠시만 기다려주세요...',
 
     // Complete
     walletSetupFailed: '지갑 설정에 실패했습니다. 다시 시도해주세요.',
@@ -116,7 +117,7 @@ export default {
     profile: '프로필',
     zappiUser: 'Zappi 사용자',
     lightningAddress: '라이트닝 주소',
-    registerLightningAddress: 'Lightning Address 등록',
+    registerLightningAddress: '생성하기',
     registeringLightningAddress: '등록 중...',
     lightningAddressRequired: 'Lightning 결제를 수취하려면 Lightning Address를 등록해야 합니다.',
     lightningAddressRegistered: 'Lightning Address가 등록되었습니다',
@@ -143,6 +144,7 @@ export default {
     // Security
     security: '보안',
     autoLock: '자동 잠금',
+    autoLockTimeout: '잠금 시간',
     faceIdTouchId: 'Face ID / Touch ID',
     biometric: '생체 인증',
     changePin: 'PIN 변경',
