@@ -1,6 +1,7 @@
 import type { Manager } from 'coco-cashu-core';
 import { useAppStore } from '@/store';
 import { broadcastSync } from '@/hooks/use-cross-tab-sync';
+import { TransactionRepository } from '@/data/repositories/transaction.repository';
 import i18n from '@/i18n';
 import { satUnit } from '@/utils/format';
 
@@ -33,10 +34,34 @@ export function connectCocoToStore(manager: Manager): void {
     unsubscribers.push(manager.on(event, () => updateBalances()));
   }
 
-  // Mint quote 상환 시 잔액 업데이트 + toast + store 정리
-  const unsubMintQuoteRedeemed = manager.on('mint-quote:redeemed', (event) => {
+  // Mint quote 상환 시 잔액 업데이트 + 거래 기록 + toast + store 정리
+  const transactionRepo = new TransactionRepository();
+  const unsubMintQuoteRedeemed = manager.on('mint-quote:redeemed', async (event) => {
     updateBalances();
     const { removePendingQuote, addToast } = useAppStore.getState();
+
+    // 거래 기록 작성 (idempotent — claimPayment이 먼저 쓸 수 있음)
+    const txId = `tx-${event.quoteId}`;
+    try {
+      const existing = await transactionRepo.findById(txId);
+      if (!existing) {
+        await transactionRepo.create({
+          id: txId,
+          direction: 'receive',
+          type: 'lightning',
+          amount: event.quote.amount,
+          mintUrl: event.mintUrl,
+          status: 'completed',
+          createdAt: Date.now(),
+          completedAt: Date.now(),
+          bolt11: event.quote.request,
+          metadata: { quoteId: event.quoteId },
+        });
+      }
+    } catch (e) {
+      console.error('[Coco Bridge] Failed to write transaction record:', e);
+    }
+
     removePendingQuote(event.quoteId);
     addToast({
       type: 'success',

@@ -61,7 +61,7 @@ import { exchangeRateService } from '@/services/exchange-rate'
 
 /** Sum all recovery counts into a single total */
 function totalRecoveredCount(recovery: Awaited<ReturnType<PaymentService['recoverAll']>>): number {
-  return recovery.quotes.recovered + recovery.melts.recovered + recovery.sendTokens.reclaimed + recovery.receivedTokens.redeemed
+  return recovery.melts.recovered + recovery.sendTokens.reclaimed + recovery.receivedTokens.redeemed
 }
 
 type Screen = 'home' | 'settings' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'mint-management' | 'relay-management' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail' | 'mint-detail'
@@ -87,7 +87,6 @@ export default function MainApp() {
   const setNostrKeyPair = useAppStore((state) => state.setNostrKeyPair)
   const setP2pkPubkey = useAppStore((state) => state.setP2pkPubkey)
   const setSettings = useAppStore((state) => state.setSettings)
-  const setPendingQuotes = useAppStore((state) => state.setPendingQuotes)
   const addPendingQuote = useAppStore((state) => state.addPendingQuote)
 
   // Hooks
@@ -194,7 +193,7 @@ export default function MainApp() {
           const recovery = await services.payment.recoverAll()
           const totalRecovered = totalRecoveredCount(recovery)
           if (totalRecovered > 0) {
-            console.log(`Recovered: ${recovery.quotes.recovered} quotes, ${recovery.melts.recovered} melts, ${recovery.sendTokens.reclaimed} reclaimed, ${recovery.receivedTokens.redeemed} offline tokens`)
+            console.log(`Recovered: ${recovery.melts.recovered} melts, ${recovery.sendTokens.reclaimed} reclaimed, ${recovery.receivedTokens.redeemed} offline tokens`)
             const newBalance = await services.wallet.getBalance()
             setBalance(newBalance)
           }
@@ -274,20 +273,14 @@ export default function MainApp() {
     let cancelled = false
 
     const setupSubscription = async () => {
-      // First, try to recover any pending operations
+      // Recover pending operations (melts, send tokens, offline tokens)
+      // Quote recovery is handled by Coco watcher (watchExistingPendingOnStart)
       try {
         const recovery = await services.payment.recoverAll()
-        const totalRecovered = totalRecoveredCount(recovery)
-        if (totalRecovered > 0) {
-          console.log(`[Init] Recovered: ${recovery.quotes.recovered} quotes, ${recovery.melts.recovered} melts, ${recovery.sendTokens.reclaimed} reclaimed, ${recovery.receivedTokens.redeemed} offline tokens`)
+        const hasRecovery = recovery.melts.recovered > 0 || recovery.sendTokens.reclaimed > 0 || recovery.receivedTokens.redeemed > 0
+        if (hasRecovery) {
+          console.log(`[Init] Recovered: ${recovery.melts.recovered} melts, ${recovery.sendTokens.reclaimed} reclaimed, ${recovery.receivedTokens.redeemed} offline tokens`)
           await refreshAll()
-          if (recovery.quotes.recovered > 0) {
-            addToast({
-              type: 'success',
-              message: t('toast.lightningArrived', { count: recovery.quotes.recovered }),
-              duration: 4000,
-            })
-          }
           if (recovery.receivedTokens.redeemed > 0) {
             addToast({
               type: 'success',
@@ -302,24 +295,9 @@ export default function MainApp() {
 
       if (cancelled) return
 
-      // Load active pending quotes into store (for UI display)
-      try {
-        const allQuotes = await services.payment.getPendingQuotes()
-        const now = Date.now()
-        const activeQuotes = allQuotes.filter((q) =>
-          (!q.expiresAt || q.expiresAt > now) && (!q.createdAt || (now - q.createdAt) < 24 * 60 * 60 * 1000)
-        )
-        setPendingQuotes(activeQuotes.map((q) => ({
-          quoteId: q.quoteId,
-          mintUrl: q.mintUrl,
-          amount: q.amount,
-          invoice: q.invoice,
-          expiry: q.expiresAt || 0,
-        })))
-      } catch (e) {
-        console.error('[Init] Failed to load pending quotes:', e)
-      }
-      // Payment detection is handled by Coco watcher (mint-quote:redeemed event in bridge.ts)
+      // Pending quote store is populated by handleCreateInvoice during this session.
+      // On restart, Coco watcher handles recovery (watchExistingPendingOnStart).
+      // Payment detection: Coco watcher → mint-quote:redeemed → bridge.ts
     }
 
     setupSubscription()
@@ -333,17 +311,10 @@ export default function MainApp() {
         console.log('[Background] App visible, recovering pending operations')
         try {
           const recovery = await services.payment.recoverAll()
-          const totalRecovered = totalRecoveredCount(recovery)
-          if (totalRecovered > 0) {
+          const hasRecovery = recovery.melts.recovered > 0 || recovery.sendTokens.reclaimed > 0 || recovery.receivedTokens.redeemed > 0
+          if (hasRecovery) {
             await refreshAll()
             broadcastSync('balance_changed')
-            if (recovery.quotes.recovered > 0) {
-              addToast({
-                type: 'success',
-                message: t('toast.lightningArrived', { count: recovery.quotes.recovered }),
-                duration: 4000,
-              })
-            }
             if (recovery.receivedTokens.redeemed > 0) {
               addToast({
                 type: 'success',
@@ -367,7 +338,7 @@ export default function MainApp() {
       // Disconnect all WebSockets
       services.payment.disconnectAllWebSockets()
     }
-  }, [isLocked, isInitializing, services.payment, refreshAll, addToast, setPendingQuotes, t])
+  }, [isLocked, isInitializing, services.payment, refreshAll, addToast, t])
 
   // Handle unlock
   const handleUnlock = useCallback(async (password: string): Promise<boolean> => {
