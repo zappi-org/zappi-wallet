@@ -1,0 +1,65 @@
+---
+name: implement
+description: Implement code changes from an approved plan. Reads .pipeline/plan.md, creates branch, writes code matching project style, adds tests, commits. Use when user says "/implement", "구현해", or as first step of "/go" pipeline. Outputs to .pipeline/implement-report.md.
+---
+
+# Implement
+
+Read `.pipeline/plan.md` and write production code.
+
+## Input
+
+- `.pipeline/plan.md` — the approved plan (Change Spec + Test Plan)
+- `.pipeline/analysis.md` — for context on root cause and affected files
+
+## Workflow
+
+### Step 1: Branch
+Create branch from current HEAD. Name: `<type>/<slug>` where:
+- type: `fix` or `feat` (from analysis.md type field)
+- slug: kebab-case from plan title, max 5 words
+
+### Step 2: Style Discovery
+Read the files listed in Change Spec + 1-2 neighboring files to learn:
+- Import ordering and style
+- Naming conventions (camelCase, kebab-case, etc.)
+- Component patterns (hooks, props, state management)
+- Error handling patterns
+
+Match existing style exactly. Do not introduce new patterns.
+
+### Step 3: Code
+For each file in Change Spec:
+- Read the current file
+- Implement the pseudocode as real code, following discovered style
+- If a better approach than the pseudocode is found, note it in the report
+
+**Autonomy rules:**
+- Fix lint/typecheck errors automatically
+- Fix minor deviations from plan automatically
+- **STOP and propose** if: schema changes, type signature breaking changes, or scope beyond plan
+
+### Step 4: Tests
+Implement the tests from plan.md Test Plan section:
+- Match existing test patterns (see `src/__tests__/` for conventions)
+- Run tests to verify they pass
+
+### Step 5: Verify & Commit
+1. Run `npx tsc --noEmit` — fix type errors if any
+2. Run `npx vitest run <changed test files>` — fix failures if any
+3. Stage all changed files
+4. Commit with message: `<type>: <plan title summary>`
+   - Include `Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>`
+5. Write report to `.pipeline/implement-report.md`
+
+## Output
+
+Write to `.pipeline/implement-report.md`. Follow format in [references/output-format.md](references/output-format.md).
+Show a summary to the user: branch name, files changed, test results, any deviations from plan.
+
+## Rules
+
+- Read actual code before editing. Never edit blind.
+- One commit for the entire change.
+- If plan's pseudocode conflicts with existing code style, follow existing style.
+- Never skip tests. If plan has no Test Plan, add basic regression tests anyway.
