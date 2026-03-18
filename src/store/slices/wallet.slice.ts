@@ -1,6 +1,14 @@
 import type { StateCreator } from 'zustand'
 import type { WalletBalance, MintInfo } from '@/core/types'
 
+export interface PendingQuote {
+  quoteId: string
+  mintUrl: string
+  amount: number
+  invoice: string
+  expiry: number
+}
+
 /**
  * Wallet state
  */
@@ -13,12 +21,18 @@ export interface WalletState {
   mints: MintInfo[]
   activeMintUrl: string | null
 
+  // Pending Lightning quotes
+  pendingQuotes: PendingQuote[]
+
   // Actions
   setBalance: (balance: WalletBalance) => void
   setLoadingBalance: (loading: boolean) => void
   setMints: (mints: MintInfo[]) => void
   setActiveMint: (mintUrl: string | null) => void
   updateMintStatus: (mintUrl: string, isOnline: boolean) => void
+  setPendingQuotes: (quotes: PendingQuote[]) => void
+  addPendingQuote: (quote: PendingQuote) => void
+  removePendingQuote: (quoteId: string) => void
   reset: () => void
 }
 
@@ -30,6 +44,7 @@ const initialState = {
   isLoadingBalance: false,
   mints: [] as MintInfo[],
   activeMintUrl: null as string | null,
+  pendingQuotes: [] as PendingQuote[],
 }
 
 /**
@@ -53,6 +68,18 @@ export const createWalletSlice: StateCreator<WalletState> = (set) => ({
           ? { ...mint, isOnline, lastChecked: Date.now() }
           : mint
       ),
+    })),
+
+  setPendingQuotes: (pendingQuotes) => set({ pendingQuotes }),
+
+  addPendingQuote: (quote) =>
+    set((state) => ({
+      pendingQuotes: [...state.pendingQuotes.filter((q) => q.quoteId !== quote.quoteId), quote],
+    })),
+
+  removePendingQuote: (quoteId) =>
+    set((state) => ({
+      pendingQuotes: state.pendingQuotes.filter((q) => q.quoteId !== quoteId),
     })),
 
   reset: () => set(initialState),

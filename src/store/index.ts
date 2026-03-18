@@ -54,6 +54,7 @@ export const useAppStore = create<AppState>()(
           isLoadingBalance: false,
           mints: [],
           activeMintUrl: null,
+          pendingQuotes: [],
           // Network
           networkState: 'ONLINE',
           wasOffline: false,
@@ -107,7 +108,7 @@ export const useAppStore = create<AppState>()(
 )
 
 // Re-export slice types
-export type { WalletState } from './slices/wallet.slice'
+export type { WalletState, PendingQuote } from './slices/wallet.slice'
 export type { NetworkSliceState } from './slices/network.slice'
 export type { SyncSliceState } from './slices/sync.slice'
 export type { UISliceState, Toast, ModalState } from './slices/ui.slice'

@@ -1,5 +1,8 @@
 import type { Manager } from 'coco-cashu-core';
 import { useAppStore } from '@/store';
+import { broadcastSync } from '@/hooks/use-cross-tab-sync';
+import i18n from '@/i18n';
+import { satUnit } from '@/utils/format';
 
 // Coco 이벤트 구독 해제 함수들
 let unsubscribers: (() => void)[] = [];
@@ -25,33 +28,23 @@ export function connectCocoToStore(manager: Manager): void {
     }
   };
 
-  // Proof 저장 시 잔액 업데이트
-  const unsubProofsSaved = manager.on('proofs:saved', () => {
-    updateBalances();
-  });
-  unsubscribers.push(unsubProofsSaved);
+  // Proof 변경 시 잔액 업데이트
+  for (const event of ['proofs:saved', 'proofs:state-changed', 'proofs:deleted', 'proofs:wiped'] as const) {
+    unsubscribers.push(manager.on(event, () => updateBalances()));
+  }
 
-  // Proof 상태 변경 시 잔액 업데이트
-  const unsubProofsStateChanged = manager.on('proofs:state-changed', () => {
+  // Mint quote 상환 시 잔액 업데이트 + toast + store 정리
+  const unsubMintQuoteRedeemed = manager.on('mint-quote:redeemed', (event) => {
     updateBalances();
-  });
-  unsubscribers.push(unsubProofsStateChanged);
-
-  // Proof 삭제 시 잔액 업데이트
-  const unsubProofsDeleted = manager.on('proofs:deleted', () => {
-    updateBalances();
-  });
-  unsubscribers.push(unsubProofsDeleted);
-
-  // Proof 전체 삭제 시 잔액 업데이트
-  const unsubProofsWiped = manager.on('proofs:wiped', () => {
-    updateBalances();
-  });
-  unsubscribers.push(unsubProofsWiped);
-
-  // Mint quote 상환 시 잔액 업데이트
-  const unsubMintQuoteRedeemed = manager.on('mint-quote:redeemed', () => {
-    updateBalances();
+    const { removePendingQuote, addToast } = useAppStore.getState();
+    removePendingQuote(event.quoteId);
+    addToast({
+      type: 'success',
+      message: i18n.t('toast.lightningReceived', { unit: satUnit(), amount: event.quote.amount.toLocaleString() }),
+      duration: 4000,
+    });
+    broadcastSync('balance_changed');
+    console.log(`[Coco Bridge] Quote redeemed: ${event.quoteId} (${event.quote.amount} sats from ${event.mintUrl})`);
   });
   unsubscribers.push(unsubMintQuoteRedeemed);
 

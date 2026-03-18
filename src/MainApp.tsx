@@ -87,6 +87,8 @@ export default function MainApp() {
   const setNostrKeyPair = useAppStore((state) => state.setNostrKeyPair)
   const setP2pkPubkey = useAppStore((state) => state.setP2pkPubkey)
   const setSettings = useAppStore((state) => state.setSettings)
+  const setPendingQuotes = useAppStore((state) => state.setPendingQuotes)
+  const addPendingQuote = useAppStore((state) => state.addPendingQuote)
 
   // Hooks
   const { refreshBalance } = useWallet()
@@ -263,8 +265,6 @@ export default function MainApp() {
     runAnchorAndReconstruction()
   }, [isLocked, isInitializing, nostrPubkey, nostrPrivkey, reconstruct, refreshAll, addToast, t])
 
-  // WebSocket subscription for pending Lightning quotes (NUT-17)
-  const wsSubscriptionRef = useRef<(() => void) | null>(null)
   const isSendingEcashRef = useRef(false)
 
   useEffect(() => {
@@ -302,32 +302,24 @@ export default function MainApp() {
 
       if (cancelled) return
 
-      // Subscribe to pending quotes via WebSocket (with polling fallback)
+      // Load active pending quotes into store (for UI display)
       try {
-        const canceller = await services.payment.subscribeToPendingQuotes(
-          async (mintUrl, _quoteId, amount) => {
-            console.log(`[WSS] Payment received: ${satUnit()} ${amount} from ${mintUrl}`)
-            await refreshAll()
-            broadcastSync('balance_changed')
-            addToast({
-              type: 'success',
-              message: t('toast.lightningReceived', { unit: satUnit(), amount: amount.toLocaleString() }),
-              duration: 4000,
-            })
-          },
-          (error) => {
-            console.error('[WSS] Subscription error:', error)
-          }
+        const allQuotes = await services.payment.getPendingQuotes()
+        const now = Date.now()
+        const activeQuotes = allQuotes.filter((q) =>
+          (!q.expiresAt || q.expiresAt > now) && (!q.createdAt || (now - q.createdAt) < 24 * 60 * 60 * 1000)
         )
-
-        if (!cancelled) {
-          wsSubscriptionRef.current = canceller
-        } else {
-          canceller()
-        }
+        setPendingQuotes(activeQuotes.map((q) => ({
+          quoteId: q.quoteId,
+          mintUrl: q.mintUrl,
+          amount: q.amount,
+          invoice: q.invoice,
+          expiry: q.expiresAt || 0,
+        })))
       } catch (e) {
-        console.error('[WSS] Failed to setup subscription:', e)
+        console.error('[Init] Failed to load pending quotes:', e)
       }
+      // Payment detection is handled by Coco watcher (mint-quote:redeemed event in bridge.ts)
     }
 
     setupSubscription()
@@ -372,14 +364,10 @@ export default function MainApp() {
       cancelled = true
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       // Cancel WebSocket subscription
-      if (wsSubscriptionRef.current) {
-        wsSubscriptionRef.current()
-        wsSubscriptionRef.current = null
-      }
       // Disconnect all WebSockets
       services.payment.disconnectAllWebSockets()
     }
-  }, [isLocked, isInitializing, services.payment, refreshAll, addToast, t])
+  }, [isLocked, isInitializing, services.payment, refreshAll, addToast, setPendingQuotes, t])
 
   // Handle unlock
   const handleUnlock = useCallback(async (password: string): Promise<boolean> => {
@@ -439,14 +427,22 @@ export default function MainApp() {
 
     const result = await services.payment.createLightningInvoice(amount, mintUrl)
     if (result.isOk()) {
+      const { quote } = result.value
+      addPendingQuote({
+        quoteId: quote.quoteId,
+        mintUrl,
+        amount,
+        invoice: quote.request,
+        expiry: quote.expiry * 1000,
+      })
       return {
-        invoice: result.value.quote.request,
-        quoteId: result.value.quote.quoteId,
-        expiry: result.value.quote.expiry,
+        invoice: quote.request,
+        quoteId: quote.quoteId,
+        expiry: quote.expiry,
       }
     }
     return null
-  }, [services.payment])
+  }, [services.payment, addPendingQuote])
 
   // Subscribe to quote — handles polling + WebSocket internally
   const handleSubscribeToQuote = useCallback(async (
