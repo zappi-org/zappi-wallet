@@ -41,7 +41,7 @@ function scanResult(data: string): ScanResult {
 }
 
 describe('QrScanner deduplication', () => {
-  let onScan: ReturnType<typeof vi.fn>
+  let onScan: ReturnType<typeof vi.fn<(result: string) => void>>
 
   beforeEach(() => {
     cleanup()
