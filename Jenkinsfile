@@ -2,9 +2,8 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME     = 'zappi-wallet'
-        IMAGE_TAG      = "build-${env.BUILD_NUMBER}"
-        CONTAINER_PORT = '3020'
+        IMAGE_NAME = 'zappi-wallet'
+        IMAGE_TAG  = "build-${env.BUILD_NUMBER}"
     }
 
     stages {
@@ -17,26 +16,46 @@ pipeline {
         stage('Build') {
             steps {
                 sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
-                sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest"
+            }
+        }
+
+        stage('Tag') {
+            steps {
+                script {
+                    if (env.BRANCH_NAME == 'alpha') {
+                        sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest"
+                    } else if (env.BRANCH_NAME == 'staging') {
+                        sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:staging"
+                    }
+                }
             }
         }
 
         stage('Deploy') {
             steps {
-                sh """
-                    docker compose -p zappi-wallet down || true
-                    docker compose -p zappi-wallet up -d
-                """
+                script {
+                    if (env.BRANCH_NAME == 'alpha') {
+                        sh """
+                            docker compose -p zappi-wallet down || true
+                            docker compose -p zappi-wallet up -d
+                        """
+                    } else if (env.BRANCH_NAME == 'staging') {
+                        sh """
+                            docker compose -f docker-compose.staging.yml -p zappi-wallet-staging down || true
+                            docker compose -f docker-compose.staging.yml -p zappi-wallet-staging up -d
+                        """
+                    }
+                }
             }
         }
     }
 
     post {
         failure {
-            echo "Build failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+            echo "Build failed: ${env.JOB_NAME} #${env.BUILD_NUMBER} (${env.BRANCH_NAME})"
         }
         success {
-            echo "Build succeeded: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+            echo "Build succeeded: ${env.JOB_NAME} #${env.BUILD_NUMBER} (${env.BRANCH_NAME})"
         }
         always {
             cleanWs()
