@@ -7,7 +7,7 @@
  * 향후 Coco에 P2PK 지원 PR 후 이 레이어 제거 가능.
  */
 
-import { Wallet, Mint, getDecodedToken, type Proof } from '@cashu/cashu-ts';
+import { Wallet, Mint, getDecodedToken, type Proof, type Token } from '@cashu/cashu-ts';
 import { getCocoManager } from './manager';
 
 // cashu-ts Wallet 캐시
@@ -103,7 +103,8 @@ export async function sendToken(
 ): Promise<string> {
   const manager = await getCocoManager();
 
-  let token: { mint: string; proofs: Proof[] };
+  await ensureMintTrusted(manager, mintUrl);
+  let token: Token;
   try {
     token = await manager.wallet.send(mintUrl, amount);
   } catch (err) {
@@ -184,6 +185,17 @@ export async function getBalances(): Promise<{ [mintUrl: string]: number }> {
 }
 
 /**
+ * Ensure mint is registered and trusted in Coco before operations
+ */
+async function ensureMintTrusted(manager: Awaited<ReturnType<typeof getCocoManager>>, mintUrl: string): Promise<void> {
+  const mints = await manager.mint.getAllMints();
+  const exists = mints.some((m) => m.mintUrl === mintUrl);
+  if (!exists) {
+    await manager.mint.addMint(mintUrl, { trusted: true });
+  }
+}
+
+/**
  * Mint Quote 생성 (입금)
  */
 export async function createMintQuote(
@@ -191,6 +203,7 @@ export async function createMintQuote(
   amount: number
 ): Promise<{ quote: string; request: string; expiry: number }> {
   const manager = await getCocoManager();
+  await ensureMintTrusted(manager, mintUrl);
   const quote = await manager.quotes.createMintQuote(mintUrl, amount);
   return {
     quote: quote.quote,
@@ -209,6 +222,7 @@ export async function redeemMintQuote(
   expectedAmount: number
 ): Promise<Proof[]> {
   const manager = await getCocoManager();
+  await ensureMintTrusted(manager, mintUrl);
 
   // Get balance before redemption
   const balancesBefore = await manager.wallet.getBalances();
@@ -242,6 +256,7 @@ export async function createMeltQuote(
   fee_reserve: number;
 }> {
   const manager = await getCocoManager();
+  await ensureMintTrusted(manager, mintUrl);
   const quote = await manager.quotes.createMeltQuote(mintUrl, invoice);
   return {
     quote: quote.quote,
@@ -258,6 +273,7 @@ export async function payMeltQuote(
   quoteId: string
 ): Promise<void> {
   const manager = await getCocoManager();
+  await ensureMintTrusted(manager, mintUrl);
   await manager.quotes.payMeltQuote(mintUrl, quoteId);
 }
 

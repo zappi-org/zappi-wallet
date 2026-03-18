@@ -1,16 +1,13 @@
 /**
  * Coco Manager - Singleton instance for Cashu wallet operations
  */
-import { Manager, ConsoleLogger } from 'coco-cashu-core';
+import { initializeCoco, type Manager, ConsoleLogger } from 'coco-cashu-core';
 import { IndexedDbRepositories } from 'coco-cashu-indexeddb';
 import { getSeed } from './seedGetter';
 import { connectCocoToStore } from './bridge';
 
 let managerInstance: Manager | null = null;
 let initPromise: Promise<Manager> | null = null;
-
-// Timeout for watcher initialization (5 seconds)
-const WATCHER_INIT_TIMEOUT_MS = 5000;
 
 /**
  * Initialize and get the Coco Manager instance
@@ -30,39 +27,28 @@ export async function getCocoManager(): Promise<Manager> {
 }
 
 async function initializeManager(): Promise<Manager> {
-  // Create IndexedDB repositories
   const repos = new IndexedDbRepositories({
     name: 'zappi-coco-wallet',
   });
-  await repos.init();
 
-  // Create logger
   const logger = new ConsoleLogger('coco', { level: 'info' });
 
-  // Create manager with seed getter
-  const manager = new Manager(repos, getSeed, logger);
+  const isOnline = typeof navigator !== 'undefined' && navigator.onLine;
 
-  // Enable watchers for automatic state tracking (with timeout for offline resilience)
-  // Watchers may try to connect to mints, so we add timeout and catch errors
-  if (navigator.onLine) {
-    try {
-      const watcherPromise = Promise.all([
-        manager.enableMintQuoteWatcher({ watchExistingPendingOnStart: true }),
-        manager.enableProofStateWatcher(),
-      ]);
-      // Prevent unhandled rejection if timeout wins the race
-      watcherPromise.catch(() => {})
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Watcher init timeout')), WATCHER_INIT_TIMEOUT_MS)
-      );
-      await Promise.race([watcherPromise, timeoutPromise]);
-    } catch (err) {
-      console.warn('[Coco] Watcher initialization failed or timed out:', err);
-      // Continue without watchers - they can be enabled later when online
-    }
-  } else {
-    console.log('[Coco] Offline - skipping watcher initialization');
-  }
+  const manager = await initializeCoco({
+    repo: repos,
+    seedGetter: getSeed,
+    logger,
+    watchers: isOnline
+      ? {
+          mintQuoteWatcher: { watchExistingPendingOnStart: true },
+          proofStateWatcher: { watchExistingInflightOnStart: true },
+        }
+      : {
+          mintQuoteWatcher: { disabled: true },
+          proofStateWatcher: { disabled: true },
+        },
+  });
 
   managerInstance = manager;
 
