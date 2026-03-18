@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useBackHandler } from '@/hooks/use-back-handler'
 
 /** Minimum movement to decide axis lock direction */
@@ -22,13 +22,10 @@ type GestureAxis = 'none' | 'horizontal' | 'vertical'
  * - Skips touches inside horizontally scrollable containers (carousels, etc.)
  * - Uses BackHandlerContext to dispatch back navigation
  *
- * Returns `isSwiping` boolean (state changes only twice per gesture: start/end).
- * Continuous values (offset, progress) are applied directly to DOM via refs
- * to avoid per-frame React re-renders.
+ * All DOM mutations happen via refs — zero React re-renders during gestures.
  */
 export function useSwipeBack() {
   const { goBack } = useBackHandler()
-  const [isSwiping, setIsSwiping] = useState(false)
 
   // goBack is stable (useCallback with []), but ref guards against future changes
   const goBackRef = useRef(goBack)
@@ -93,7 +90,6 @@ export function useSwipeBack() {
       }
       state.tracking = false
       state.axis = 'none'
-      setIsSwiping(false)
     }
 
     /** Shared animation-end logic for commit and snap-back */
@@ -123,7 +119,6 @@ export function useSwipeBack() {
         target.style.transform = ''
         target.style.willChange = ''
         overlay?.remove()
-        setIsSwiping(false)
         onDone?.()
       }, ANIMATION_DURATION)
     }
@@ -185,7 +180,6 @@ export function useSwipeBack() {
           state.target.style.willChange = 'transform'
           state.target.style.transition = 'none'
           state.overlay = createOverlay()
-          setIsSwiping(true)
         }
       }
 
@@ -215,11 +209,10 @@ export function useSwipeBack() {
         (velocity > COMMIT_VELOCITY || ratio > COMMIT_DISTANCE_RATIO)
 
       if (shouldCommit && state.target) {
-        animateEnd(
-          `translateX(${window.innerWidth}px)`,
-          'cubic-bezier(0.2, 0, 0, 1)',
-          () => goBackRef.current(),
-        )
+        // Immediately clean up and trigger back — let AnimatePresence handle
+        // the visual transition (avoids double-animation flash)
+        cleanup()
+        goBackRef.current()
       } else if (state.target) {
         animateEnd('translateX(0)', 'cubic-bezier(0.2, 0.9, 0.3, 1)')
       } else {
@@ -245,5 +238,4 @@ export function useSwipeBack() {
     }
   }, [])
 
-  return { isSwiping }
 }

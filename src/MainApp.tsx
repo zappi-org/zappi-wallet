@@ -68,8 +68,6 @@ function totalRecoveredCount(recovery: Awaited<ReturnType<PaymentService['recove
 
 type Screen = 'home' | 'settings' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'mint-management' | 'relay-management' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail' | 'mint-detail'
 
-const noop = () => {}
-
 export default function MainApp() {
   return (
     <BackHandlerProvider>
@@ -862,7 +860,7 @@ function MainAppInner() {
   }, [goBack])
 
   // Swipe-back gesture
-  const { isSwiping } = useSwipeBack()
+  useSwipeBack()
 
   // Preload lazy screens after home is visible
   useEffect(() => {
@@ -881,19 +879,6 @@ function MainAppInner() {
   void isOnline
   void isRecovering
 
-  // Render previous screen as background layer during swipe-back gesture
-  const transactionsRef = useRef(transactions)
-  useEffect(() => { transactionsRef.current = transactions }, [transactions])
-
-  const renderPreviousScreen = useCallback(() => {
-    switch (previousScreen) {
-      case 'home':
-        return <HomeScreen onSettings={noop} transactions={transactionsRef.current} />
-      default:
-        return <div className="h-dvh bg-background" />
-    }
-  }, [previousScreen])
-
   // Loading state
   if (isInitializing) {
     return (
@@ -910,15 +895,6 @@ function MainAppInner() {
   return (
     <>
       <div className="relative h-dvh overflow-hidden">
-      {/* Previous screen layer — visible behind current screen during swipe gesture */}
-      {isSwiping && previousScreen && (
-        <div className="absolute inset-0 z-0 pointer-events-none">
-          <Suspense fallback={<LoadingFallback />}>
-            {renderPreviousScreen()}
-          </Suspense>
-        </div>
-      )}
-
       {/* App screens — always mounted; pointer-events blocked while locked */}
       <div className={isLocked ? 'contents pointer-events-none' : 'contents'}>
       <AnimatePresence mode="sync">
