@@ -32,6 +32,8 @@ export interface MintMetadata {
   description?: string
   pubkey?: string
   fetchedAt: number
+  /** Whether mint supports NUT-18 HTTP POST transport (from NUT-06 nuts field) */
+  nuts18HttpSupported?: boolean
 }
 
 /**

@@ -730,6 +730,11 @@ export default {
       willNotify: 'Kami akan memberi tahu saat pembayaran masuk ke {{mint}}',
       cancel: 'Batal',
     },
+    transport: {
+      nostrAndHttp: 'Nostr + HTTP mendengarkan',
+      httpOnly: 'HTTP mendengarkan (Nostr terputus)',
+      nostrOnly: 'Nostr mendengarkan',
+    },
     complete: {
       message: '{{mint}}\n{{amount}} diterima',
       done: 'Selesai',
