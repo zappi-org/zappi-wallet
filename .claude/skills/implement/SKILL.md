@@ -46,11 +46,12 @@ Implement the tests from plan.md Test Plan section:
 
 ### Step 5: Verify & Commit
 1. Run `npx tsc --noEmit` — fix type errors if any
-2. Run `npx vitest run <changed test files>` — fix failures if any
-3. Stage all changed files
-4. Commit with message: `<type>: <plan title summary>`
+2. Run `npx eslint <changed source files>` — fix lint errors if any
+3. Run `npx vitest run <changed test files>` — fix failures if any
+4. Stage all changed files
+5. Commit with message: `<type>: <plan title summary>`
    - Include `Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>`
-5. Write report to `.pipeline/implement-report.md`
+6. Write report to `.pipeline/implement-report.md`
 
 ## Output
 
