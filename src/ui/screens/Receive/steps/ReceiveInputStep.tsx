@@ -12,8 +12,9 @@ import { hapticTap, hapticError } from '@/utils/haptic'
 import { MintCardSelector } from '@/ui/components/wallet'
 import { Button } from '@/ui/components/common/Button'
 import { AmountInput } from '@/ui/components/common/AmountInput'
-import { createNostrPaymentRequest } from '@/services/cashu/nut18'
+import { createNostrPaymentRequest, createDualTransportPaymentRequest } from '@/services/cashu/nut18'
 import { encodeNprofile } from '@/services/crypto'
+import { useMintNut18Support } from '@/hooks/use-mint-nut18-support'
 import type { ReceiveMethod } from '../ReceiveFlow'
 
 interface ReceiveInputStepProps {
@@ -24,6 +25,7 @@ interface ReceiveInputStepProps {
     mintUrl: string
     ecashRequest?: string
     ecashRequestId?: string
+    httpEndpoint?: string
   }) => void
   initialAmount?: number
   initialMintUrl?: string | null
@@ -49,6 +51,9 @@ export function ReceiveInputStep({
     initialMintUrl || settings.mints[0] || null
   )
   const [memo, setMemo] = useState('')
+
+  // Check if selected mint supports NUT-18 HTTP transport
+  const { supportsHttp } = useMintNut18Support(selectedMintUrl)
 
   // User's nprofile for ecash Nostr transport
   const userNprofile = useMemo(() => {
@@ -81,22 +86,45 @@ export function ReceiveInputStep({
         return
       }
 
-      const result = createNostrPaymentRequest({
-        amount: numericAmount,
-        mints: [selectedMintUrl],
-        nostrTarget: userNprofile,
-        description: memo.trim() || undefined,
-        singleUse: true,
-        idPrefix: 'wallet',
-      })
+      if (supportsHttp) {
+        // Dual transport: Nostr (primary) + HTTP POST (fallback)
+        const result = createDualTransportPaymentRequest({
+          amount: numericAmount,
+          mints: [selectedMintUrl],
+          nostrTarget: userNprofile,
+          mintUrl: selectedMintUrl,
+          description: memo.trim() || undefined,
+          singleUse: true,
+          idPrefix: 'wallet',
+        })
 
-      onNext({
-        method: 'ecash',
-        amount: numericAmount,
-        mintUrl: selectedMintUrl,
-        ecashRequest: result.request,
-        ecashRequestId: result.id,
-      })
+        onNext({
+          method: 'ecash',
+          amount: numericAmount,
+          mintUrl: selectedMintUrl,
+          ecashRequest: result.request,
+          ecashRequestId: result.id,
+          httpEndpoint: result.httpEndpoint,
+        })
+      } else {
+        // Nostr-only transport
+        const result = createNostrPaymentRequest({
+          amount: numericAmount,
+          mints: [selectedMintUrl],
+          nostrTarget: userNprofile,
+          description: memo.trim() || undefined,
+          singleUse: true,
+          idPrefix: 'wallet',
+        })
+
+        onNext({
+          method: 'ecash',
+          amount: numericAmount,
+          mintUrl: selectedMintUrl,
+          ecashRequest: result.request,
+          ecashRequestId: result.id,
+        })
+      }
     } else {
       onNext({
         method: 'lightning',
@@ -104,7 +132,7 @@ export function ReceiveInputStep({
         mintUrl: selectedMintUrl,
       })
     }
-  }, [method, amount, memo, selectedMintUrl, userNprofile, onNext, addToast, t])
+  }, [method, amount, memo, selectedMintUrl, userNprofile, supportsHttp, onNext, addToast, t])
 
   return (
     <div className="flex flex-col h-full bg-[#faf9f6]">

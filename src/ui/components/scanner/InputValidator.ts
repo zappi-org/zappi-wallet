@@ -121,6 +121,8 @@ export interface ParsedCashuRequest {
   // Convenience accessors
   hasNostrTransport: boolean
   nostrTarget?: string // npub or hex pubkey for nostr transport
+  hasPostTransport: boolean
+  postTarget?: string  // HTTP POST endpoint URL
   p2pkPubkey?: string  // extracted from nut10 when kind === 'P2PK'
 }
 
@@ -396,8 +398,9 @@ export function decodeCashuRequest(request: string): ParsedCashuRequest {
     }
   }
 
-  // Find nostr transport
+  // Find transports
   const nostrTransport = transports.find((t) => t.type === 'nostr')
+  const postTransport = transports.find((t) => t.type === 'post')
 
   // Parse NUT-10 spending conditions (e.g., P2PK lock)
   let nut10: { kind: string; data: string; tags?: string[][] } | undefined
@@ -432,6 +435,8 @@ export function decodeCashuRequest(request: string): ParsedCashuRequest {
     nut10,
     hasNostrTransport: !!nostrTransport,
     nostrTarget: nostrTransport?.target,
+    hasPostTransport: !!postTransport,
+    postTarget: postTransport?.target,
     p2pkPubkey,
   }
 }

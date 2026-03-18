@@ -831,6 +831,11 @@ export default {
       willNotify: 'We will notify you when payment arrives at {{mint}}',
       cancel: 'Cancel',
     },
+    transport: {
+      nostrAndHttp: 'Nostr + HTTP listening',
+      httpOnly: 'HTTP listening (Nostr disconnected)',
+      nostrOnly: 'Nostr listening',
+    },
     complete: {
       message: '{{mint}}\n{{amount}} received',
       done: 'Done',

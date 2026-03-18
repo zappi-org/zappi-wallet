@@ -120,6 +120,7 @@ export function useGiftWrapListener() {
   const addDebugLog = useAppStore((state) => state.addDebugLog)
   const addToast = useAppStore((state) => state.addToast)
   const setLastReceivedPayment = useAppStore((state) => state.setLastReceivedPayment)
+  const setNostrConnectionStatus = useAppStore((state) => state.setNostrConnectionStatus)
 
   const poolRef = useRef<SimplePool | null>(null)
   const subsRef = useRef<Array<{ unsub: () => void }>>([])
@@ -524,10 +525,12 @@ export function useGiftWrapListener() {
       // Skip if offline
       if (!navigator.onLine) {
         console.log('[GiftWrap] Offline - skipping relay connections')
+        setNostrConnectionStatus('disconnected')
         return
       }
 
       try {
+        setNostrConnectionStatus('connecting')
         const pool = new SimplePool()
         poolRef.current = pool
 
@@ -573,9 +576,12 @@ export function useGiftWrapListener() {
           }
         }
 
-        console.log(`[GiftWrap] Listening for payments on ${subsRef.current.length} relays`)
+        const connectedCount = subsRef.current.length
+        console.log(`[GiftWrap] Listening for payments on ${connectedCount} relays`)
+        setNostrConnectionStatus(connectedCount > 0 ? 'connected' : 'disconnected')
       } catch (error) {
         console.error('[GiftWrap] Failed to start listener:', error)
+        setNostrConnectionStatus('disconnected')
       }
     }
 
@@ -612,6 +618,7 @@ export function useGiftWrapListener() {
       subsRef.current = []
       poolRef.current = null
       configKeyRef.current = ''
+      setNostrConnectionStatus('disconnected')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nostrPubkey, nostrPrivkey, settings?.relays])

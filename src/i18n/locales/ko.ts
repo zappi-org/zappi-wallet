@@ -834,6 +834,11 @@ export default {
       willNotify: '{{mint}}에 입금되면 알려드릴게요',
       cancel: '취소',
     },
+    transport: {
+      nostrAndHttp: 'Nostr + HTTP 대기중',
+      httpOnly: 'HTTP 대기중 (Nostr 연결 실패)',
+      nostrOnly: 'Nostr 대기중',
+    },
     complete: {
       message: '{{mint}}에\n{{amount}} 입금되었어요',
       done: '확인',

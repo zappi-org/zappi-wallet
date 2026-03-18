@@ -83,6 +83,7 @@ export interface ReceiveFlowState {
   // Ecash (NUT-18)
   ecashRequest: string | null
   ecashRequestId: string | null
+  httpEndpoint: string | null
   // Token receive
   scannedToken: ValidatedCashuToken | null
   isTrustedMint: boolean
@@ -161,6 +162,7 @@ export function ReceiveFlow({
     quoteExpiry: null,
     ecashRequest: null,
     ecashRequestId: null,
+    httpEndpoint: null,
     scannedToken: initialValidatedData?.type === 'cashu-token' ? initialValidatedData : null,
     isTrustedMint: initialValidatedData?.type === 'cashu-token'
       ? settings.mints.includes(initialValidatedData.mintUrl)
@@ -222,6 +224,7 @@ export function ReceiveFlow({
     // For ecash: request + requestId already created in step
     ecashRequest?: string
     ecashRequestId?: string
+    httpEndpoint?: string
   }) => {
     if (isProcessingRef.current) return
     isProcessingRef.current = true
@@ -265,6 +268,7 @@ export function ReceiveFlow({
           selectedMintUrl: data.mintUrl,
           ecashRequest: data.ecashRequest || null,
           ecashRequestId: data.ecashRequestId || null,
+          httpEndpoint: data.httpEndpoint || null,
         }))
       }
     } catch (err) {
@@ -501,6 +505,7 @@ export function ReceiveFlow({
               quoteId={state.quoteId}
               ecashRequest={state.ecashRequest}
               ecashRequestId={state.ecashRequestId}
+              httpEndpoint={state.httpEndpoint}
               onSubscribeToQuote={onSubscribeToQuote}
             />
           </PageTransition>

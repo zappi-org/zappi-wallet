@@ -27,6 +27,10 @@ export interface SyncSliceState {
   lastReceivedAmount: number
   lastReceivedEventId: string | null
 
+  // NUT-18 transport status (for ReceiveQRStep)
+  activeTransports: ('nostr' | 'http')[]
+  nostrConnectionStatus: 'connected' | 'disconnected' | 'connecting'
+
   // Actions
   setSyncState: (state: SyncState) => void
   setLastSyncAt: (timestamp: number | null) => void
@@ -39,6 +43,8 @@ export interface SyncSliceState {
   setLastEventTimestamp: (timestamp: number) => void
   triggerTxRefresh: () => void
   setLastReceivedPayment: (requestId: string | null, amount: number, eventId?: string | null) => void
+  setActiveTransports: (transports: ('nostr' | 'http')[]) => void
+  setNostrConnectionStatus: (status: 'connected' | 'disconnected' | 'connecting') => void
   reset: () => void
 }
 
@@ -58,6 +64,8 @@ const initialState = {
   lastReceivedRequestId: null as string | null,
   lastReceivedAmount: 0,
   lastReceivedEventId: null as string | null,
+  activeTransports: [] as ('nostr' | 'http')[],
+  nostrConnectionStatus: 'disconnected' as 'connected' | 'disconnected' | 'connecting',
 }
 
 /**
@@ -98,6 +106,10 @@ export const createSyncSlice: StateCreator<SyncSliceState> = (set) => ({
 
   setLastReceivedPayment: (lastReceivedRequestId, lastReceivedAmount, lastReceivedEventId = null) =>
     set({ lastReceivedRequestId, lastReceivedAmount, lastReceivedEventId }),
+
+  setActiveTransports: (activeTransports) => set({ activeTransports }),
+
+  setNostrConnectionStatus: (nostrConnectionStatus) => set({ nostrConnectionStatus }),
 
   reset: () => set(initialState),
 })

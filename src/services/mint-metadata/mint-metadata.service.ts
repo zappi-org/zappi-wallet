@@ -21,6 +21,30 @@ interface MintInfoResponse {
 }
 
 /**
+ * Check if mint supports NUT-18 HTTP POST transport from NUT-06 nuts field.
+ * Checks for nuts["18"] with methods/supported containing "post".
+ */
+function checkNut18HttpSupport(nuts?: Record<string, unknown>): boolean {
+  if (!nuts || !nuts['18']) return false
+  const nut18 = nuts['18'] as Record<string, unknown>
+
+  // Check various possible field names for transport support
+  const methods = nut18.methods ?? nut18.supported ?? nut18.transports ?? nut18.supported_transports
+  if (Array.isArray(methods)) {
+    return methods.some((m: unknown) => {
+      if (typeof m === 'string') return m === 'post'
+      if (typeof m === 'object' && m !== null && 'type' in m) return (m as { type: string }).type === 'post'
+      return false
+    })
+  }
+
+  // If nuts["18"] exists with disabled: false or just exists, assume basic support
+  if (typeof nut18.disabled === 'boolean') return !nut18.disabled
+
+  return false
+}
+
+/**
  * Refresh interval for mint metadata (24 hours)
  */
 const METADATA_REFRESH_INTERVAL = 24 * 60 * 60 * 1000
@@ -147,6 +171,14 @@ class MintMetadataService {
   }
 
   /**
+   * Check if mint supports NUT-18 HTTP POST transport
+   */
+  async supportsNut18Http(mintUrl: string): Promise<boolean> {
+    const metadata = await this.getMetadata(mintUrl)
+    return metadata?.nuts18HttpSupported ?? false
+  }
+
+  /**
    * Extract hostname from URL as fallback display name
    */
   extractHostname(url: string): string {
@@ -184,6 +216,7 @@ class MintMetadataService {
         description: info.description,
         pubkey: info.pubkey,
         fetchedAt: Date.now(),
+        nuts18HttpSupported: checkNut18HttpSupport(info.nuts),
       }
 
       await this.repository.save(metadata)

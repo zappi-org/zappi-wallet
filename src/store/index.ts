@@ -71,6 +71,8 @@ export const useAppStore = create<AppState>()(
           eventsProcessed: 0,
           lastEventTimestamp: 0,
           txRefreshTrigger: 0,
+          activeTransports: [],
+          nostrConnectionStatus: 'disconnected',
           // UI
           isLocked: true,
           isUnlocking: false,

@@ -730,6 +730,11 @@ export default {
       willNotify: 'Te notificaremos cuando el pago llegue a {{mint}}',
       cancel: 'Cancelar',
     },
+    transport: {
+      nostrAndHttp: 'Nostr + HTTP escuchando',
+      httpOnly: 'HTTP escuchando (Nostr desconectado)',
+      nostrOnly: 'Nostr escuchando',
+    },
     complete: {
       message: '{{mint}}\n{{amount}} recibidos',
       done: 'Listo',

@@ -141,6 +141,72 @@ export function createPostPaymentRequest(options: {
 }
 
 /**
+ * Create a NUT-18 payment request with dual transport (Nostr primary + HTTP POST fallback).
+ * Nostr is listed first (primary), HTTP POST second (fallback).
+ */
+export function createDualTransportPaymentRequest(options: {
+  amount?: number
+  mints: string[]
+  nostrTarget: string   // npub or nprofile
+  mintUrl: string       // mint URL for constructing HTTP endpoint
+  description?: string
+  singleUse?: boolean
+  idPrefix?: string
+}): { request: string; id: string; httpEndpoint: string } {
+  const { amount, mints, nostrTarget, mintUrl, description, singleUse = true, idPrefix } = options
+
+  const id = generateRequestId(idPrefix)
+  const httpEndpoint = buildHttpEndpoint(mintUrl, id)
+
+  const paymentRequest: PaymentRequest = {
+    id,
+    amount,
+    unit: 'sat',
+    mints,
+    description,
+    singleUse,
+    transports: [
+      {
+        type: 'nostr',
+        target: nostrTarget,
+      },
+      {
+        type: 'post',
+        target: httpEndpoint,
+      },
+    ],
+  }
+
+  return {
+    request: encodePaymentRequest(paymentRequest),
+    id,
+    httpEndpoint,
+  }
+}
+
+/**
+ * Check if request has HTTP POST transport
+ */
+export function hasPostTransport(request: PaymentRequest): boolean {
+  return request.transports.some((t) => t.type === 'post')
+}
+
+/**
+ * Get HTTP POST transport target URL
+ */
+export function getPostTarget(request: PaymentRequest): string | null {
+  const transport = request.transports.find((t) => t.type === 'post')
+  return transport?.target || null
+}
+
+/**
+ * Build HTTP endpoint URL for NUT-18 payment request on a mint
+ */
+export function buildHttpEndpoint(mintUrl: string, requestId: string): string {
+  return `${mintUrl.replace(/\/$/, '')}/v1/payment-request/${requestId}`
+}
+
+/**
  * Encode a payment request to creqA... string
  */
 export function encodePaymentRequest(request: PaymentRequest): string {

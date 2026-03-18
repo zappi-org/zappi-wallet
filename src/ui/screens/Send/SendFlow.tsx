@@ -14,6 +14,7 @@ import { AnimatePresence } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
 import { useNetwork } from '@/hooks/use-network'
 import { sendTokenViaDM, getRecipientDMRelays } from '@/services/nostr-dm'
+import { sendTokenViaHttp } from '@/services/cashu/nut18-http'
 import { useAppStore } from '@/store'
 import { useTranslation } from 'react-i18next'
 import { createMeltQuote } from '@/coco/cashuService'
@@ -270,32 +271,55 @@ export function SendFlow({
             memo: state.memo || validatedData.parsed.description,
           })
 
-          if (token && validatedData.parsed.hasNostrTransport && validatedData.parsed.nostrTarget) {
-            // Send token via Nostr DM
-            // nostr-dm is already in main bundle (statically imported by useGiftWrapListener)
-            const nostrPrivkey = useAppStore.getState().nostrPrivkey
-            const settings = useAppStore.getState().settings
+          if (token) {
+            const memo = state.memo || validatedData.parsed.description
 
-            if (nostrPrivkey) {
-              const relays = await getRecipientDMRelays(
-                validatedData.parsed.nostrTarget,
-                settings.relays || []
-              )
-              const dmResult = await sendTokenViaDM({
-                recipientPubkey: validatedData.parsed.nostrTarget,
-                token,
-                memo: state.memo || validatedData.parsed.description,
-                requestId: validatedData.parsed.id,
-                senderPrivkey: nostrPrivkey,
-                relays,
-              })
-              success = dmResult.success
-              if (dmResult.success) {
-                setState((prev) => ({ ...prev, dmSent: true }))
+            // Try Nostr transport first (primary)
+            if (validatedData.parsed.hasNostrTransport && validatedData.parsed.nostrTarget) {
+              const nostrPrivkey = useAppStore.getState().nostrPrivkey
+              const settings = useAppStore.getState().settings
+
+              if (nostrPrivkey) {
+                try {
+                  const relays = await getRecipientDMRelays(
+                    validatedData.parsed.nostrTarget,
+                    settings.relays || []
+                  )
+                  const dmResult = await sendTokenViaDM({
+                    recipientPubkey: validatedData.parsed.nostrTarget,
+                    token,
+                    memo,
+                    requestId: validatedData.parsed.id,
+                    senderPrivkey: nostrPrivkey,
+                    relays,
+                  })
+                  success = dmResult.success
+                  if (dmResult.success) {
+                    setState((prev) => ({ ...prev, dmSent: true }))
+                  }
+                } catch (err) {
+                  console.warn('[SendFlow] Nostr DM failed, checking HTTP fallback:', err)
+                  success = false
+                }
               }
             }
-          } else {
-            success = !!token
+
+            // Fallback to HTTP POST if Nostr failed or unavailable
+            if (!success && validatedData.parsed.hasPostTransport && validatedData.parsed.postTarget) {
+              console.log('[SendFlow] Attempting HTTP POST fallback')
+              const httpResult = await sendTokenViaHttp({
+                endpoint: validatedData.parsed.postTarget,
+                token,
+                requestId: validatedData.parsed.id,
+                memo,
+              })
+              success = httpResult.success
+            }
+
+            // No transport available — token was created, treat as success
+            if (!success && !validatedData.parsed.hasNostrTransport && !validatedData.parsed.hasPostTransport) {
+              success = true
+            }
           }
           break
         }

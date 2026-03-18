@@ -700,6 +700,11 @@ export default {
       willNotify: '{{mint}}に入金されたらお知らせします',
       cancel: 'キャンセル',
     },
+    transport: {
+      nostrAndHttp: 'Nostr + HTTP 待機中',
+      httpOnly: 'HTTP 待機中 (Nostr 切断)',
+      nostrOnly: 'Nostr 待機中',
+    },
     complete: {
       message: '{{mint}}に\n{{amount}}入金されました',
       done: '完了',
