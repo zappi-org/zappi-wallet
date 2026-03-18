@@ -76,6 +76,7 @@ export interface SendFlowProps {
   onSendLightning: (addressOrInvoice: string, amount: number, mintUrl?: string) => Promise<boolean>
   onCreateEcashToken: (amount: number, mintUrl?: string, options?: { p2pkPubkey?: string; memo?: string }) => Promise<string | null>
   onReceiveToken: (token: string) => Promise<boolean | { success: boolean; amount?: number }>
+  onMintSwap?: (fromMintUrl: string, toMintUrl: string, amount: number) => Promise<{ success: boolean; amount?: number; error?: string }>
   // Pre-filled data from scanner
   validatedData?: ValidatedData
   initialAmount?: number
@@ -92,6 +93,7 @@ export function SendFlow({
   onSendLightning,
   onCreateEcashToken,
   onReceiveToken,
+  onMintSwap,
   validatedData: initialValidatedData,
   initialAmount,
   initialMintUrl,
@@ -265,15 +267,36 @@ export function SendFlow({
           break
 
         case 'cashu-request': {
-          // Create ecash token with P2PK if specified
-          const token = await onCreateEcashToken(amount, selectedMintUrl, {
+          const requestedMints = validatedData.parsed.mints
+          const memo = state.memo || validatedData.parsed.description
+          let tokenMintUrl = selectedMintUrl
+
+          // Mint mismatch check: if request specifies mints and our selected mint isn't in the list,
+          // swap our balance to the requested mint first
+          if (requestedMints.length > 0 && !requestedMints.includes(selectedMintUrl)) {
+            const targetMint = requestedMints[0] // Use first requested mint
+            console.log(`[SendFlow] Mint mismatch: selected=${selectedMintUrl}, requested=${targetMint}. Swapping.`)
+
+            if (onMintSwap) {
+              const swapResult = await onMintSwap(selectedMintUrl, targetMint, amount)
+              if (!swapResult.success) {
+                addToast({ type: 'error', message: t('payment.sendFailed'), duration: 3000 })
+                break
+              }
+              tokenMintUrl = targetMint
+            } else {
+              // No swap handler — warn and proceed with selected mint anyway
+              console.warn('[SendFlow] No onMintSwap handler, sending from non-matching mint')
+            }
+          }
+
+          // Create ecash token on the correct mint
+          const token = await onCreateEcashToken(amount, tokenMintUrl, {
             p2pkPubkey: validatedData.parsed.p2pkPubkey,
-            memo: state.memo || validatedData.parsed.description,
+            memo,
           })
 
           if (token) {
-            const memo = state.memo || validatedData.parsed.description
-
             // Try Nostr transport first (primary)
             if (validatedData.parsed.hasNostrTransport && validatedData.parsed.nostrTarget) {
               const nostrPrivkey = useAppStore.getState().nostrPrivkey
@@ -345,7 +368,7 @@ export function SendFlow({
     } finally {
       isProcessingRef.current = false
     }
-  }, [state, onSendLightning, onCreateEcashToken, isOnline, addToast, t])
+  }, [state, onSendLightning, onCreateEcashToken, onMintSwap, isOnline, addToast, t])
 
   /** Token create step → create token */
   const handleTokenCreate = useCallback(async (data: {

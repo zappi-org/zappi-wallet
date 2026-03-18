@@ -520,6 +520,21 @@ export default function MainApp() {
     return { success: true, amount: swapResult.value.amount }
   }, [services.payment, refreshAll])
 
+  /** Cross-mint swap for send flow: swap balance from source to target mint */
+  const handleMintSwap = useCallback(async (
+    fromMintUrl: string,
+    toMintUrl: string,
+    amount: number,
+  ): Promise<{ success: boolean; amount?: number; error?: string }> => {
+    const swapResult = await services.payment.mintSwap(fromMintUrl, toMintUrl, amount)
+    if (swapResult.isErr()) {
+      const e = swapResult.error
+      return { success: false, error: translateError(e) }
+    }
+    refreshAll().catch((e) => console.error('[MainApp] refreshAll after send swap:', e))
+    return { success: true, amount: swapResult.value.amount }
+  }, [services.payment, refreshAll])
+
   /** Store offline P2PK token for later redemption */
   const handleStoreOfflineToken = useCallback(async (
     token: string,
@@ -1056,6 +1071,7 @@ export default function MainApp() {
           onSendLightning={handleSendLightning}
           onCreateEcashToken={handleCreateEcashToken}
           onReceiveToken={handleReceiveToken}
+          onMintSwap={handleMintSwap}
           validatedData={validatedScanData || undefined}
           initialAmount={scannedAmount || undefined}
           initialMintUrl={activeMintUrl}
