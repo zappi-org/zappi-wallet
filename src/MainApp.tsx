@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useCallback, useRef, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'motion/react'
 import { useAppStore } from '@/store'
@@ -894,8 +894,8 @@ function MainAppInner() {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [goBack])
 
-  // Swipe-back gesture
-  useSwipeBack()
+  // Swipe-back gesture + programmatic animated back
+  const { animatedGoBack } = useSwipeBack()
 
   // Preload lazy screens after home is visible
   useEffect(() => {
@@ -914,23 +914,11 @@ function MainAppInner() {
   void isOnline
   void isRecovering
 
-  // Swipe transition: skip PageTransition enter animation when navigating via gesture
+  // Swipe transition: skip PageTransition enter/exit animation when navigating via gesture.
+  // Read directly during render — no state, no extra render cycle.
+  // The flag is set synchronously before goBack() in useSwipeBack's commit path,
+  // and cleared in a rAF callback after React has committed.
   const skipAnim = swipeTransition.isActive()
-
-  // Reset swipe wrapper position before paint (useLayoutEffect runs before browser paint)
-  useLayoutEffect(() => {
-    if (!swipeTransition.isActive()) return
-    swipeTransition.clear()
-    const wrapper = document.querySelector('[data-swipe-target]') as HTMLElement
-    if (wrapper) {
-      wrapper.style.transition = 'none'
-      wrapper.style.transform = ''
-      wrapper.style.willChange = ''
-      requestAnimationFrame(() => { wrapper.style.transition = '' })
-    }
-    const prevEl = document.querySelector('[data-prev-screen]') as HTMLElement
-    if (prevEl) prevEl.style.visibility = 'hidden'
-  }, [currentScreen])
 
 
   // Loading state
@@ -980,7 +968,7 @@ function MainAppInner() {
       case 'settings':
         return (
           <SettingsScreen
-            onBack={handleBack}
+            onBack={animatedGoBack}
             onChangePassword={handleChangePassword}
             onBackupMnemonic={handleBackupMnemonic}
             onLogout={handleLogout}
@@ -997,7 +985,7 @@ function MainAppInner() {
       case 'username-change':
         return (
           <UsernameChangeScreen
-            onBack={handleBack}
+            onBack={animatedGoBack}
             onSaveSettings={handleSaveSettings}
           />
         )
@@ -1005,7 +993,7 @@ function MainAppInner() {
       case 'history':
         return (
           <HistoryScreen
-            onBack={handleBack}
+            onBack={animatedGoBack}
             transactions={transactions}
             onSelectTransaction={(tx) => {
               setSelectedTransaction(tx)
@@ -1017,7 +1005,7 @@ function MainAppInner() {
       case 'notifications':
         return (
           <NotificationsScreen
-            onBack={handleBack}
+            onBack={animatedGoBack}
             transactions={transactions}
           />
         )
@@ -1025,7 +1013,7 @@ function MainAppInner() {
       case 'transfer':
         return (
           <TransferScreen
-            onBack={handleBack}
+            onBack={animatedGoBack}
             onTransactionComplete={refreshAll}
             initialFromMintUrl={activeMintUrl ?? undefined}
           />
@@ -1034,7 +1022,7 @@ function MainAppInner() {
       case 'analytics':
         return (
           <AnalyticsScreen
-            onBack={handleBack}
+            onBack={animatedGoBack}
             transactions={transactions}
           />
         )
@@ -1042,8 +1030,8 @@ function MainAppInner() {
       case 'add-mint':
         return (
           <AddMintScreen
-            onBack={handleBack}
-            onSuccess={handleBack}
+            onBack={animatedGoBack}
+            onSuccess={animatedGoBack}
             onSaveSettings={handleSaveSettings}
           />
         )
@@ -1051,7 +1039,7 @@ function MainAppInner() {
       case 'mint-management':
         return (
           <MintManagementScreen
-            onBack={handleBack}
+            onBack={animatedGoBack}
             onAddMint={() => navigate('add-mint')}
             onSaveSettings={handleSaveSettings}
           />
@@ -1060,7 +1048,7 @@ function MainAppInner() {
       case 'relay-management':
         return (
           <RelayManagementScreen
-            onBack={handleBack}
+            onBack={animatedGoBack}
             onSaveSettings={handleSaveSettings}
           />
         )
@@ -1070,7 +1058,7 @@ function MainAppInner() {
           <AmountActionScreen
             amount={scannedAmount}
             mode={scanMode}
-            onBack={handleBack}
+            onBack={animatedGoBack}
             onSend={(amount) => {
               setScannedAmount(amount)
               setValidatedScanData(null)
@@ -1088,7 +1076,7 @@ function MainAppInner() {
       case 'send':
         return (
           <SendFlow
-            onBack={handleBack}
+            onBack={animatedGoBack}
             onComplete={resetToHome}
             onSendLightning={handleSendLightning}
             onCreateEcashToken={handleCreateEcashToken}
@@ -1104,7 +1092,7 @@ function MainAppInner() {
       case 'receive':
         return (
           <ReceiveFlow
-            onBack={handleBack}
+            onBack={animatedGoBack}
             onComplete={resetToHome}
             onCreateInvoice={handleCreateInvoice}
             onSubscribeToQuote={handleSubscribeToQuote}
@@ -1126,7 +1114,7 @@ function MainAppInner() {
             transaction={selectedTransaction}
             onBack={() => {
               setSelectedTransaction(null)
-              handleBack()
+              animatedGoBack()
             }}
             mintUrls={settings.mints}
           />
@@ -1137,7 +1125,7 @@ function MainAppInner() {
           <MintDetailScreen
             mint={selectedMint}
             mintIndex={selectedMintIndex}
-            onBack={handleBack}
+            onBack={animatedGoBack}
             onSend={(mintUrl) => navigateToSend(mintUrl)}
             onReceive={(mintUrl) => navigateToReceive(mintUrl)}
             onSwap={(mintUrl) => {
@@ -1196,7 +1184,7 @@ function MainAppInner() {
       {/* Current screen — swipe gesture wrapper (plain div to avoid motion.div conflicts) */}
       <div data-swipe-target className="absolute inset-0 z-10">
       <div className={isLocked ? 'contents pointer-events-none' : 'contents'}>
-      <AnimatePresence mode="sync">
+      <AnimatePresence mode="sync" custom={skipAnim}>
         <PageTransition key={currentScreen} variant="fade" className="absolute inset-0" skipInitial={skipAnim}>
           <Suspense fallback={<LoadingFallback />}>
             {renderScreen(currentScreen)}

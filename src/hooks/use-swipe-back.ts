@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useBackHandler } from '@/hooks/use-back-handler'
 import { swipeTransition } from '@/lib/swipe-transition'
 
@@ -23,17 +23,24 @@ type GestureAxis = 'none' | 'horizontal' | 'vertical'
  * - Skips touches inside horizontally scrollable containers (carousels, etc.)
  * - Uses BackHandlerContext to dispatch back navigation
  *
- * Targets `[data-swipe-target]` — a plain wrapper div in MainApp that wraps
- * AnimatePresence. This separates gesture transforms from motion/react's
- * internal animation system, preventing conflicts.
+ * Flow-internal detection:
+ * - When handlerCount > 1, the next goBack() will be consumed by a flow
+ *   (e.g., ReceiveFlow step navigation), not by MainApp's screen stack pop.
+ * - In this case, the swipe gesture works for tactile feedback but does NOT
+ *   show the previous screen layer or overlay (since the "previous" is a
+ *   different step within the same component, not a separate screen).
  *
- * All DOM mutations happen via refs — zero React re-renders during gestures.
+ * Returns `animatedGoBack` — a programmatic back navigation with slide
+ * animation, suitable for back button handlers.
  */
 export function useSwipeBack() {
-  const { goBack } = useBackHandler()
+  const { goBack, handlerCount } = useBackHandler()
 
   const goBackRef = useRef(goBack)
   useEffect(() => { goBackRef.current = goBack }, [goBack])
+
+  const handlerCountRef = useRef(handlerCount)
+  useEffect(() => { handlerCountRef.current = handlerCount }, [handlerCount])
 
   const stateRef = useRef({
     tracking: false,
@@ -42,6 +49,7 @@ export function useSwipeBack() {
     startY: 0,
     startTime: 0,
     currentX: 0,
+    isFlowBack: false,
     overlay: null as HTMLDivElement | null,
     target: null as HTMLElement | null,
     prevScreen: null as HTMLElement | null,
@@ -49,6 +57,7 @@ export function useSwipeBack() {
 
   const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // ── Gesture effect ──────────────────────────────────────────────────────
   useEffect(() => {
     const state = stateRef.current
 
@@ -99,9 +108,58 @@ export function useSwipeBack() {
       }
       state.tracking = false
       state.axis = 'none'
+      state.isFlowBack = false
+    }
+
+    /** Animate target to endX, then run callbacks: afterAnimation (sync) → afterPaint (rAF) */
+    function animateEnd(
+      endX: string,
+      easing: string,
+      afterAnimation?: () => void,
+      afterPaint?: () => void,
+    ) {
+      const target = state.target!
+      const overlay = state.overlay
+      const prevScreen = state.prevScreen
+
+      target.style.transition = `transform ${ANIMATION_DURATION}ms ${easing}`
+      target.style.transform = `translateX(${endX})`
+      if (overlay) {
+        overlay.style.transition = `opacity ${ANIMATION_DURATION}ms ease-out`
+        overlay.style.opacity = '0'
+      }
+
+      // Release state refs (DOM elements kept for the animation callback)
+      state.target = null
+      state.overlay = null
+      state.prevScreen = null
+      state.tracking = false
+      state.axis = 'none'
+      state.isFlowBack = false
+
+      pendingTimerRef.current = setTimeout(() => {
+        pendingTimerRef.current = null
+
+        afterAnimation?.()
+
+        // Reset DOM styles
+        target.style.transition = 'none'
+        target.style.transform = ''
+        target.style.willChange = ''
+        overlay?.remove()
+        if (prevScreen) prevScreen.style.visibility = 'hidden'
+
+        // Re-enable CSS transitions + run post-paint callback
+        requestAnimationFrame(() => {
+          target.style.transition = ''
+          afterPaint?.()
+        })
+      }, ANIMATION_DURATION)
     }
 
     function onTouchStart(e: TouchEvent) {
+      // Don't start new gesture while an animation is in progress
+      if (pendingTimerRef.current) return
       if (isInsideHorizontalScroller(e.target)) return
 
       const touch = e.touches[0]
@@ -153,19 +211,23 @@ export function useSwipeBack() {
 
       // Acquire target on first recognized horizontal move
       if (!state.target) {
+        // Determine if back will be consumed internally by a flow
+        state.isFlowBack = handlerCountRef.current() > 1
+
         state.target = getSwipeTarget()
         if (state.target) {
           state.target.style.willChange = 'transform'
           state.target.style.transition = 'none'
 
-          // Insert overlay as sibling before the wrapper (z-5, between prev layer z-0 and wrapper z-10)
-          state.overlay = createOverlay()
-          state.target.parentElement!.insertBefore(state.overlay, state.target)
+          // Only show prev screen + overlay for MainApp-level navigation
+          if (!state.isFlowBack) {
+            state.overlay = createOverlay()
+            state.target.parentElement!.insertBefore(state.overlay, state.target)
 
-          // Show previous screen layer
-          state.prevScreen = getPrevScreen()
-          if (state.prevScreen) {
-            state.prevScreen.style.visibility = 'visible'
+            state.prevScreen = getPrevScreen()
+            if (state.prevScreen) {
+              state.prevScreen.style.visibility = 'visible'
+            }
           }
         }
       }
@@ -178,51 +240,6 @@ export function useSwipeBack() {
           state.overlay.style.opacity = String(0.4 * (1 - progress))
         }
       }
-    }
-
-    /** Animate target to endX, then run callbacks: afterAnimation (sync) → afterPaint (rAF) */
-    function animateEnd(
-      endX: string,
-      easing: string,
-      afterAnimation?: () => void,
-      afterPaint?: () => void,
-    ) {
-      const target = state.target!
-      const overlay = state.overlay
-      const prevScreen = state.prevScreen
-
-      target.style.transition = `transform ${ANIMATION_DURATION}ms ${easing}`
-      target.style.transform = `translateX(${endX})`
-      if (overlay) {
-        overlay.style.transition = `opacity ${ANIMATION_DURATION}ms ease-out`
-        overlay.style.opacity = '0'
-      }
-
-      // Release state refs (DOM elements kept for the animation callback)
-      state.target = null
-      state.overlay = null
-      state.prevScreen = null
-      state.tracking = false
-      state.axis = 'none'
-
-      pendingTimerRef.current = setTimeout(() => {
-        pendingTimerRef.current = null
-
-        afterAnimation?.()
-
-        // Reset DOM styles
-        target.style.transition = 'none'
-        target.style.transform = ''
-        target.style.willChange = ''
-        overlay?.remove()
-        if (prevScreen) prevScreen.style.visibility = 'hidden'
-
-        // Re-enable CSS transitions + run post-paint callback
-        requestAnimationFrame(() => {
-          target.style.transition = ''
-          afterPaint?.()
-        })
-      }, ANIMATION_DURATION)
     }
 
     function onTouchEnd() {
@@ -241,13 +258,21 @@ export function useSwipeBack() {
         (velocity > COMMIT_VELOCITY || ratio > COMMIT_DISTANCE_RATIO)
 
       if (shouldCommit && state.target) {
-        animateEnd(
-          `${window.innerWidth}px`,
-          'cubic-bezier(0.2, 0, 0, 1)',
-          () => { swipeTransition.mark(); goBackRef.current() },
-          () => { swipeTransition.clear() },
-        )
+        if (state.isFlowBack) {
+          // Flow-internal: snap back immediately, let flow handle step animation
+          cleanup()
+          goBackRef.current()
+        } else {
+          // MainApp-level: slide off-screen, then navigate
+          animateEnd(
+            `${window.innerWidth}px`,
+            'cubic-bezier(0.2, 0, 0, 1)',
+            () => { swipeTransition.mark(); goBackRef.current() },
+            () => { swipeTransition.clear() },
+          )
+        }
       } else if (state.target) {
+        // Cancel: snap back to origin
         animateEnd('0', 'cubic-bezier(0.2, 0.9, 0.3, 1)')
       } else {
         cleanup()
@@ -271,4 +296,63 @@ export function useSwipeBack() {
       window.removeEventListener('touchcancel', cleanup)
     }
   }, [])
+
+  // ── Programmatic back with slide animation ─────────────────────────────
+  const animatedGoBack = useCallback(() => {
+    // Don't start if animation is already in progress
+    if (pendingTimerRef.current) return
+
+    // Flow-internal: let the flow handle its own step animation
+    if (handlerCountRef.current() > 1) {
+      goBackRef.current()
+      return
+    }
+
+    const target = document.querySelector('[data-swipe-target]') as HTMLElement
+    const prevScreen = document.querySelector('[data-prev-screen]') as HTMLElement
+
+    // No prev screen → nothing to animate back to (e.g., already on home)
+    if (!target || !prevScreen) {
+      goBackRef.current()
+      return
+    }
+
+    // Show previous screen underneath
+    prevScreen.style.visibility = 'visible'
+
+    // Create overlay between layers
+    const overlay = document.createElement('div')
+    overlay.style.cssText =
+      'position:absolute;inset:0;background:black;opacity:0.4;z-index:5;pointer-events:none;'
+    target.parentElement!.insertBefore(overlay, target)
+
+    // Animate current screen sliding off to the right
+    target.style.willChange = 'transform'
+    target.style.transition = `transform ${ANIMATION_DURATION}ms cubic-bezier(0.2, 0, 0, 1)`
+    target.style.transform = `translateX(${window.innerWidth}px)`
+    overlay.style.transition = `opacity ${ANIMATION_DURATION}ms ease-out`
+    overlay.style.opacity = '0'
+
+    pendingTimerRef.current = setTimeout(() => {
+      pendingTimerRef.current = null
+
+      // Navigate via handler stack
+      swipeTransition.mark()
+      goBackRef.current()
+
+      // Synchronous DOM reset — before React paints the new screen
+      target.style.transition = 'none'
+      target.style.transform = ''
+      target.style.willChange = ''
+      overlay.remove()
+      prevScreen.style.visibility = 'hidden'
+
+      requestAnimationFrame(() => {
+        target.style.transition = ''
+        swipeTransition.clear()
+      })
+    }, ANIMATION_DURATION)
+  }, [])
+
+  return { animatedGoBack }
 }

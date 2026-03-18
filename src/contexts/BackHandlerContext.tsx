@@ -20,8 +20,10 @@ export function BackHandlerProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const handlerCount = useCallback(() => stackRef.current.length, [])
+
   return (
-    <BackHandlerContext.Provider value={{ pushBackHandler, goBack }}>
+    <BackHandlerContext.Provider value={{ pushBackHandler, goBack, handlerCount }}>
       {children}
     </BackHandlerContext.Provider>
   )
