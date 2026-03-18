@@ -10,7 +10,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { ArrowLeft, AlertTriangle, Loader2, WifiOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { hapticTap } from '@/utils/haptic'
-import { useFormatSats } from '@/utils/format'
+import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { MintSelectBottomSheet } from '@/ui/components/payment'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import type { ValidatedCashuToken } from '@/ui/components/scanner/InputValidator'
@@ -32,6 +32,7 @@ export function UntrustedMintStep({
 }: UntrustedMintStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
+  const formatFiat = useFormatFiat()
   const [swapLoading, setSwapLoading] = useState(false)
   const [addLoading, setAddLoading] = useState(false)
   const [showMintSelect, setShowMintSelect] = useState(false)
@@ -90,6 +91,9 @@ export function UntrustedMintStep({
           {'\n'}
           {t('receive.untrusted.warningNeedConfirm', { amount: formattedAmount })}
         </p>
+        {(() => { const f = formatFiat(token.amountSats); return f ? (
+          <p className="text-[15px] text-foreground-muted">≈ {f}</p>
+        ) : null })()}
 
         <p className="text-[15px] text-foreground-muted text-center leading-relaxed whitespace-pre-line">
           {t('receive.untrusted.explanation')}
@@ -132,7 +136,7 @@ export function UntrustedMintStep({
           <button
             onClick={handleAddAndReceive}
             disabled={buttonsDisabled}
-            className="flex-1 bg-[#3b7df5] rounded-[14px] px-4 py-5 flex flex-col justify-between min-h-[140px] active:scale-[0.97] transition-transform disabled:opacity-50 shadow-lg shadow-[#3b7df5]/25"
+            className="flex-1 bg-brand rounded-[14px] px-4 py-5 flex flex-col justify-between min-h-[140px] active:scale-[0.97] transition-transform disabled:opacity-50 shadow-lg shadow-brand/25"
           >
             {addLoading ? (
               <Loader2 className="w-5 h-5 animate-spin text-white" />

@@ -180,11 +180,11 @@ function MintSelectBottomSheetInner({
         {/* Confirm Button */}
         <div className="px-5 pt-4 pb-4">
           <Button
-            variant="primary"
+            variant="brand"
             size="xl"
             disabled={!localSelected}
             onClick={handleConfirm}
-            className="w-full !bg-[#3b7df5] !text-white !rounded-xl !h-14 !text-lg"
+            className="w-full"
           >
             {buttonLabel || t('payment.selectThisMint')}
           </Button>

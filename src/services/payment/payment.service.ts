@@ -506,10 +506,11 @@ export class PaymentService {
   async mintSwap(
     fromMintUrl: string,
     toMintUrl: string,
-    amount: number
+    amount: number,
+    options?: { drain?: boolean }
   ): Promise<Result<MintSwapResult, BaseError>> {
     try {
-      console.log(`[MintSwap] Starting swap: ${amount} sats from ${fromMintUrl} to ${toMintUrl}`)
+      console.log(`[MintSwap] Starting swap: ${amount} sats from ${fromMintUrl} to ${toMintUrl}${options?.drain ? ' (drain mode)' : ''}`)
 
       // 1. Check source mint balance
       const balances = await cocoGetBalances()
@@ -519,18 +520,36 @@ export class PaymentService {
         return err(new InsufficientBalanceError(amount, sourceBalance))
       }
 
-      // 2. Create mint quote on target mint (generates Lightning invoice)
-      console.log('[MintSwap] Creating mint quote on target mint...')
-      const mintQuote = await cocoCreateMintQuote(toMintUrl, amount)
-      const invoice = mintQuote.request
+      // 2. Create quotes and verify balance (with drain retry)
+      let swapAmount = amount
+      let mintQuote: Awaited<ReturnType<typeof cocoCreateMintQuote>>
+      let meltQuote: Awaited<ReturnType<typeof cocoCreateMeltQuote>>
 
-      // 3. Create melt quote on source mint for that invoice
+      // First attempt with requested amount
+      console.log('[MintSwap] Creating mint quote on target mint...')
+      mintQuote = await cocoCreateMintQuote(toMintUrl, swapAmount)
+
       console.log('[MintSwap] Creating melt quote on source mint...')
-      const meltQuote = await cocoCreateMeltQuote(fromMintUrl, invoice)
-      const totalNeeded = meltQuote.amount + meltQuote.fee_reserve
+      meltQuote = await cocoCreateMeltQuote(fromMintUrl, mintQuote.request)
+      let totalNeeded = meltQuote.amount + meltQuote.fee_reserve
       console.log(`[MintSwap] Melt quote created: amount=${meltQuote.amount}, fee_reserve=${meltQuote.fee_reserve}, totalNeeded=${totalNeeded}, sourceBalance=${sourceBalance}`)
 
-      // 4. Verify sufficient balance including fee
+      // If balance insufficient and drain mode: retry with adjusted amount
+      if (sourceBalance < totalNeeded && options?.drain) {
+        const adjustedAmount = amount - meltQuote.fee_reserve
+        if (adjustedAmount <= 0) {
+          return err(new InsufficientBalanceError(totalNeeded, sourceBalance))
+        }
+        console.log(`[MintSwap] Drain: fee exceeds balance, retrying with ${adjustedAmount} sats (fee=${meltQuote.fee_reserve})`)
+        swapAmount = adjustedAmount
+
+        mintQuote = await cocoCreateMintQuote(toMintUrl, swapAmount)
+        meltQuote = await cocoCreateMeltQuote(fromMintUrl, mintQuote.request)
+        totalNeeded = meltQuote.amount + meltQuote.fee_reserve
+        console.log(`[MintSwap] Drain retry: amount=${meltQuote.amount}, fee_reserve=${meltQuote.fee_reserve}, totalNeeded=${totalNeeded}`)
+      }
+
+      // Final balance check
       if (sourceBalance < totalNeeded) {
         console.log(`[MintSwap] Insufficient balance: need ${totalNeeded} but have ${sourceBalance}`)
         return err(new InsufficientBalanceError(totalNeeded, sourceBalance))
@@ -542,7 +561,7 @@ export class PaymentService {
       await this.savePendingQuote(
         mintQuote.quote,
         toMintUrl,
-        amount,
+        swapAmount,
         mintQuote.request,
         mintQuote.expiry ? mintQuote.expiry * 1000 : undefined
       )
@@ -559,7 +578,7 @@ export class PaymentService {
 
       // 7. Redeem mint quote on target mint (receive the tokens)
       console.log('[MintSwap] Redeeming mint quote on target mint...')
-      await cocoRedeemMintQuote(toMintUrl, mintQuote.quote, amount)
+      await cocoRedeemMintQuote(toMintUrl, mintQuote.quote, swapAmount)
 
       // 7.5. Remove pending quote (redeem succeeded)
       await this.removePendingQuote(mintQuote.quote)
@@ -569,12 +588,12 @@ export class PaymentService {
         id: `tx-swap-${crypto.randomUUID()}`,
         direction: 'send',
         type: 'swap',
-        amount, // The amount swapped
+        amount: swapAmount, // The amount swapped (may be less than requested in drain mode)
         mintUrl: fromMintUrl,
         status: 'completed',
         createdAt: Date.now(),
         completedAt: Date.now(),
-        memo: `${amount} sats`,
+        memo: `${swapAmount} sats`,
         metadata: {
           swapType: 'mint_swap',
           fromMintUrl,
@@ -583,11 +602,11 @@ export class PaymentService {
         },
       })
 
-      console.log(`[MintSwap] Swap completed successfully: ${amount} sats`)
+      console.log(`[MintSwap] Swap completed successfully: ${swapAmount} sats`)
 
       return ok({
         success: true,
-        amount,
+        amount: swapAmount,
         fee: meltQuote.fee_reserve,
         fromMintUrl,
         toMintUrl,

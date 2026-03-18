@@ -1,4 +1,4 @@
-import { Database, Server, ShieldCheck, FileKey, RefreshCcw, ChevronRight } from 'lucide-react'
+import { ChevronRight, Wallet } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 export interface WalletManagementSectionProps {
@@ -8,6 +8,7 @@ export interface WalletManagementSectionProps {
   onOpenRelays: () => void
   onOpenRestore: () => void
   onOpenBackup: () => void
+  onTransfer?: () => void
 }
 
 export function WalletManagementSection({
@@ -17,78 +18,61 @@ export function WalletManagementSection({
   onOpenRelays,
   onOpenRestore,
   onOpenBackup,
+  onTransfer,
 }: WalletManagementSectionProps) {
   const { t } = useTranslation()
 
   return (
     <section>
-      <h3 className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted mb-2 px-2">{t('settings.walletManagement')}</h3>
-      <div className="bg-white/60 rounded-2xl overflow-hidden shadow-sm border border-white/50 divide-y divide-primary/5">
-        {/* Manage Mints */}
+      <p className="text-[12px] font-semibold uppercase tracking-wide text-foreground-muted px-4 pt-6 pb-2 flex items-center gap-1.5">
+        <Wallet className="w-3.5 h-3.5" />
+        {t('settings.walletManagement')}
+      </p>
+      <div className="bg-background-card">
         <button
           onClick={onOpenMints}
-          className="w-full p-3 flex items-center justify-between hover:bg-white/40 transition-colors text-left"
+          className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
         >
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-primary/10 rounded-xl text-foreground">
-              <Database className="w-4 h-4" />
-            </div>
-            <span className="font-bold text-xs">{t('settings.manageMints')}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-foreground-muted bg-background px-2 py-1 rounded-lg">{t('settings.mintCount', { count: mintsCount })}</span>
-            <ChevronRight className="w-4 h-4 text-foreground-muted" />
+          <span className="text-[14px] font-medium">{t('settings.manageMints')}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[14px] text-foreground-muted">{mintsCount}</span>
+            <ChevronRight className="w-4 h-4 text-foreground-subtle" />
           </div>
         </button>
 
-        {/* Manage Relays */}
         <button
           onClick={onOpenRelays}
-          className="w-full p-3 flex items-center justify-between hover:bg-white/40 transition-colors text-left"
+          className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
         >
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-primary/10 rounded-xl text-foreground">
-              <Server className="w-4 h-4" />
-            </div>
-            <span className="font-bold text-xs">{t('settings.manageRelays')}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-foreground-muted bg-background px-2 py-1 rounded-lg">{t('settings.mintCount', { count: relaysCount })}</span>
-            <ChevronRight className="w-4 h-4 text-foreground-muted" />
+          <span className="text-[14px] font-medium">{t('settings.manageRelays')}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[14px] text-foreground-muted">{relaysCount}</span>
+            <ChevronRight className="w-4 h-4 text-foreground-subtle" />
           </div>
         </button>
 
-        {/* Verify Balance */}
+        <button
+          onClick={onTransfer}
+          className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
+        >
+          <span className="text-[14px] font-medium">{t('actions.transfer')}</span>
+          <ChevronRight className="w-4 h-4 text-foreground-subtle" />
+        </button>
+
         <button
           onClick={onOpenRestore}
-          className="w-full p-3 flex items-center justify-between hover:bg-white/40 transition-colors text-left"
+          className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
         >
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-primary/10 rounded-xl text-foreground">
-              <ShieldCheck className="w-4 h-4" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-bold text-xs">{t('settings.verifyBalance')}</span>
-              <span className="text-[10px] text-foreground-muted">{t('settings.findUnusedTokens')}</span>
-            </div>
-          </div>
-          <div className="bg-primary/10 p-2 rounded-full">
-            <RefreshCcw className="w-3.5 h-3.5 text-foreground" />
-          </div>
+          <span className="text-[14px] font-medium">{t('settings.verifyBalance')}</span>
+          <ChevronRight className="w-4 h-4 text-foreground-subtle" />
         </button>
 
-        {/* Mnemonic Backup */}
         <button
           onClick={onOpenBackup}
-          className="w-full p-3 flex items-center justify-between hover:bg-white/40 transition-colors text-left"
+          className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
         >
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-primary/10 rounded-xl text-foreground">
-              <FileKey className="w-4 h-4" />
-            </div>
-            <span className="font-bold text-xs">{t('settings.mnemonicBackup')}</span>
-          </div>
-          <ChevronRight className="w-4 h-4 text-foreground-muted" />
+          <span className="text-[14px] font-medium">{t('settings.mnemonicBackup')}</span>
+          <ChevronRight className="w-4 h-4 text-foreground-subtle" />
         </button>
       </div>
     </section>

@@ -19,7 +19,7 @@ export function MintIcon({
 
   if (iconUrl) {
     return (
-      <div className={cn(sizeClasses, 'rounded-full overflow-hidden bg-white/50 shrink-0', className)}>
+      <div className={cn(sizeClasses, 'rounded-sm overflow-hidden bg-foreground/[0.04] shrink-0', className)}>
         <img
           src={iconUrl}
           alt="Mint icon"
@@ -35,32 +35,10 @@ export function MintIcon({
   return (
     <div className={cn(
       sizeClasses,
-      'rounded-full bg-gradient-to-br from-primary to-accent-primary flex items-center justify-center shrink-0',
+      'rounded-sm bg-foreground/[0.06] flex items-center justify-center shrink-0',
       className
     )}>
-      <Database className={cn(fallbackIconSize, 'text-white/80')} />
+      <Database className={cn(fallbackIconSize, 'text-foreground-muted')} />
     </div>
-  )
-}
-
-// Toggle Switch Component
-export function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean }) {
-  return (
-    <button
-      role="switch"
-      aria-checked={checked}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        'w-10 h-6 rounded-full transition-colors relative flex items-center px-1 shadow-inner',
-        checked ? 'bg-primary' : 'bg-foreground-muted/30',
-        disabled && 'opacity-50 cursor-not-allowed'
-      )}
-    >
-      <div
-        className="w-4 h-4 bg-white rounded-full shadow-md transition-transform duration-200"
-        style={{ transform: `translateX(${checked ? 16 : 0}px)` }}
-      />
-    </button>
   )
 }

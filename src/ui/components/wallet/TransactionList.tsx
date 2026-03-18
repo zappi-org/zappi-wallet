@@ -3,7 +3,7 @@ import { ArrowDownLeft, ArrowUpRight, ArrowRightLeft, Zap, Heart } from "lucide-
 import { useTranslation } from "react-i18next";
 import type { Transaction } from "@/core/types";
 import { useMintMetadata } from "@/hooks";
-import { useFormatSats } from "@/utils/format";
+import { useFormatSats, useFormatFiat, formatTransactionFiat } from "@/utils/format";
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -39,6 +39,7 @@ export function TransactionList({
 }: TransactionListProps) {
   const { t, i18n } = useTranslation();
   const formatSats = useFormatSats();
+  const toFiat = useFormatFiat();
   const displayTransactions = transactions.slice(0, maxItems);
 
   // Localized date formatting
@@ -177,6 +178,14 @@ export function TransactionList({
                       : `- ${formatSats(tx.amount)}`
                   }
                 </span>
+                {(() => {
+                  const fiatStr = formatTransactionFiat(tx, toFiat)
+                  return fiatStr ? (
+                    <span className="font-['Outfit'] font-medium text-[11px] text-[#86868b]/70 leading-normal">
+                      ≈ {fiatStr}
+                    </span>
+                  ) : null
+                })()}
                 <span className="font-['Outfit'] font-medium text-[12px] text-[#86868b] leading-normal">
                   {formatDateLocalized(tx.createdAt)}
                 </span>

@@ -1,9 +1,8 @@
 import { useState, useCallback, useMemo } from 'react'
-import { Monitor, Plus, Trash2, ChevronRight, Copy, Check, Zap, Pencil } from 'lucide-react'
+import { Trash2, ChevronRight, Copy, Check, Store } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useTranslation } from 'react-i18next'
 import { Button, Modal, PinInput } from '../../components/common'
-import { cn } from '@/components/ui/utils'
 import { derivePOSSubKey, getP2PKPubkey } from '@/services/crypto'
 import type { POSDevice, POSProvisioningPayload, WalletSettings } from '@/core/types'
 
@@ -11,10 +10,6 @@ export interface POSProvisioningSectionProps {
   settings: WalletSettings
   nostrPubkey: string | null
   nostrPrivkey: string | null
-  lightningAddress: string | undefined
-  isRegistering: boolean
-  onRegisterLightningAddress: () => void
-  onOpenUsernameChange?: () => void
   onBackupMnemonic: (password: string) => Promise<string | null>
   onSaveSettings: (updates: Record<string, unknown>) => Promise<void>
 }
@@ -23,10 +18,6 @@ export function POSProvisioningSection({
   settings,
   nostrPubkey,
   nostrPrivkey,
-  lightningAddress,
-  isRegistering,
-  onRegisterLightningAddress,
-  onOpenUsernameChange,
   onBackupMnemonic,
   onSaveSettings,
 }: POSProvisioningSectionProps) {
@@ -44,13 +35,11 @@ export function POSProvisioningSection({
 
   const posDevices = useMemo(() => settings.posDevices ?? [], [settings.posDevices])
 
-  // Parse zappiLink info from Lightning Address + stored API URL
   const parseLightningAddress = useCallback(() => {
     const la = settings.lightningAddress
     if (!la || !la.includes('@')) return null
     const [user] = la.split('@')
     if (!user) return null
-    // Use stored API URL from LNURL callback, fallback to domain
     const zappiLinkUrl = settings.zappiLinkApiUrl || `https://${la.split('@')[1]}`
     return { zappiLinkUrl, zappiLinkUser: user }
   }, [settings.lightningAddress, settings.zappiLinkApiUrl])
@@ -61,7 +50,6 @@ export function POSProvisioningSection({
     setPinError('')
 
     try {
-      // Decrypt mnemonic with PIN
       const mnemonic = await onBackupMnemonic(pin)
       if (!mnemonic) {
         setPinError(t('settings.wrongPin'))
@@ -70,15 +58,12 @@ export function POSProvisioningSection({
         return
       }
 
-      // Compute next POS index
       const nextIndex = posDevices.length > 0
         ? Math.max(...posDevices.map(d => d.index)) + 1
         : 0
 
-      // Derive sub-keypair
       const subKey = derivePOSSubKey(mnemonic, nextIndex)
 
-      // Get wallet's P2PK pubkey (re-lock target)
       const walletP2pkPubkey = nostrPrivkey
         ? getP2PKPubkey(nostrPrivkey)
         : null
@@ -89,7 +74,6 @@ export function POSProvisioningSection({
         return
       }
 
-      // Build provisioning payload
       const lightningInfo = parseLightningAddress()
       const payload: POSProvisioningPayload = {
         version: 1,
@@ -108,7 +92,6 @@ export function POSProvisioningSection({
         relays: settings.relays,
       }
 
-      // Encode as zpos1 + base64url
       const jsonStr = JSON.stringify(payload)
       const base64 = btoa(jsonStr)
         .replace(/\+/g, '-')
@@ -116,7 +99,6 @@ export function POSProvisioningSection({
         .replace(/=+$/, '')
       const encoded = `zpos1${base64}`
 
-      // Save device record
       const label = deviceLabel.trim() || `POS ${nextIndex + 1}`
       const newDevice: POSDevice = {
         index: nextIndex,
@@ -128,7 +110,6 @@ export function POSProvisioningSection({
       const updatedDevices = [...posDevices, newDevice]
       await onSaveSettings({ posDevices: updatedDevices })
 
-      // Show QR
       setQrPayload(encoded)
       setShowAddModal(false)
       setShowQrModal(true)
@@ -168,73 +149,26 @@ export function POSProvisioningSection({
   return (
     <>
       <section>
-        <h3 className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted mb-2 px-2">{t('settings.posManagement')}</h3>
-        <div className="bg-white/60 rounded-2xl overflow-hidden shadow-sm border border-white/50 divide-y divide-primary/5">
-          {/* Lightning Address */}
-          <div className="p-3">
-            <label className="text-[10px] font-bold text-foreground-muted ml-1 block mb-1.5">{t('settings.lightningAddress')}</label>
-            {lightningAddress ? (
-              <div className="flex items-center gap-2 bg-accent-primary/5 p-2.5 rounded-xl">
-                <Zap className="w-4 h-4 text-accent-primary shrink-0" />
-                <span className="text-xs font-bold text-foreground truncate">{lightningAddress}</span>
-                <button
-                  onClick={onOpenUsernameChange}
-                  className="p-1 text-foreground-muted hover:text-accent-primary transition-colors shrink-0 ml-auto"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ) : (
-              <>
-                <p className="text-[10px] text-foreground-muted mb-2 ml-1">
-                  {t('settings.lightningAddressRequired')}
-                </p>
-                <button
-                  onClick={onRegisterLightningAddress}
-                  disabled={isRegistering}
-                  className={cn(
-                    'w-full p-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all',
-                    isRegistering
-                      ? 'bg-primary/10 text-foreground-muted cursor-wait'
-                      : 'bg-primary text-white hover:bg-primary-hover shadow-lg shadow-primary/20 active:scale-[0.98]'
-                  )}
-                >
-                  {isRegistering ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                      {t('settings.registeringLightningAddress')}
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="w-3.5 h-3.5" />
-                      {t('settings.registerLightningAddress')}
-                    </>
-                  )}
-                </button>
-              </>
-            )}
-          </div>
-
+        <p className="text-[12px] font-semibold uppercase tracking-wide text-foreground-muted px-4 pt-6 pb-2 flex items-center gap-1.5">
+          <Store className="w-3.5 h-3.5" />
+          {t('settings.posManagement')}
+        </p>
+        <div className="bg-background-card">
           {/* Device list */}
           {posDevices.map((device) => (
             <div
               key={device.index}
-              className="p-3 flex items-center justify-between"
+              className="px-4 py-3.5 flex items-center justify-between"
             >
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-primary/10 rounded-xl text-foreground">
-                  <Monitor className="w-4 h-4" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="font-bold text-xs">{device.label}</span>
-                  <span className="text-[10px] text-foreground-muted">
-                    #{device.index} &middot; {new Date(device.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
+              <div>
+                <span className="text-[14px] font-medium block">{device.label}</span>
+                <span className="text-[12px] text-foreground-muted">
+                  #{device.index} &middot; {new Date(device.createdAt).toLocaleDateString()}
+                </span>
               </div>
               <button
                 onClick={() => setShowRemoveModal(device)}
-                className="p-2 text-foreground-muted hover:text-accent-danger transition-colors"
+                className="p-2 text-foreground-muted active:text-accent-danger"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -242,7 +176,7 @@ export function POSProvisioningSection({
           ))}
 
           {posDevices.length === 0 && (
-            <div className="p-3 text-center text-[10px] text-foreground-muted">
+            <div className="px-4 py-3.5 text-center text-[12px] text-foreground-muted">
               {t('settings.noPosDevices')}
             </div>
           )}
@@ -250,15 +184,10 @@ export function POSProvisioningSection({
           {/* Add device button */}
           <button
             onClick={() => setShowAddModal(true)}
-            className="w-full p-3 flex items-center justify-between hover:bg-white/40 transition-colors text-left"
+            className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
           >
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-accent-primary/10 rounded-xl text-accent-primary">
-                <Plus className="w-4 h-4" />
-              </div>
-              <span className="font-bold text-xs">{t('settings.addPosDevice')}</span>
-            </div>
-            <ChevronRight className="w-4 h-4 text-foreground-muted" />
+            <span className="text-[14px] font-medium text-accent-primary">{t('settings.addPosDevice')}</span>
+            <ChevronRight className="w-4 h-4 text-foreground-subtle" />
           </button>
         </div>
       </section>
@@ -267,16 +196,15 @@ export function POSProvisioningSection({
       <Modal isOpen={showAddModal} onClose={resetAddModal} title={t('settings.posProvisioningTitle')}>
         <div className="py-3 space-y-4">
           {!settings.lightningAddress && (
-            <div className="bg-accent-warning/10 border border-accent-warning/20 p-3 rounded-xl">
-              <p className="text-[10px] text-accent-warning font-bold">
+            <div className="border-l-2 border-accent-warning bg-accent-warning/[0.06] p-3">
+              <p className="text-[11px] text-accent-warning font-semibold">
                 {t('settings.posNoLightningAddress')}
               </p>
             </div>
           )}
 
-          {/* Device label input */}
           <div>
-            <label className="text-xs font-bold text-foreground-muted mb-1 block">
+            <label className="text-[12px] font-semibold text-foreground-muted mb-1 block">
               {t('settings.posDeviceLabel')}
             </label>
             <input
@@ -284,11 +212,10 @@ export function POSProvisioningSection({
               value={deviceLabel}
               onChange={(e) => setDeviceLabel(e.target.value)}
               placeholder={t('settings.posDeviceLabelPlaceholder')}
-              className="w-full p-2.5 rounded-xl border border-primary/10 bg-white/60 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="w-full p-2.5 rounded-sm border border-border bg-background text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
-          {/* PIN input */}
           <PinInput
             value={pin}
             onChange={(v) => { setPin(v); setPinError('') }}
@@ -316,17 +243,17 @@ export function POSProvisioningSection({
         title={t('settings.posProvisioningTitle')}
       >
         <div className="py-3 space-y-4">
-          <p className="text-xs text-foreground-muted text-center">
+          <p className="text-[12px] text-foreground-muted text-center">
             {t('settings.posProvisioningDescription')}
           </p>
 
-          <div className="flex justify-center p-4 bg-white rounded-2xl">
+          <div className="flex justify-center p-4 bg-white">
             <QRCodeSVG value={qrPayload} size={220} level="L" />
           </div>
 
           <button
             onClick={handleCopy}
-            className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl border border-primary/10 bg-white/60 text-xs font-bold transition-colors hover:bg-white/80"
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-sm border border-border text-[13px] font-semibold active:bg-background-hover"
           >
             {copied ? (
               <>
@@ -359,13 +286,12 @@ export function POSProvisioningSection({
         title={t('settings.posDeviceRemove')}
       >
         <div className="py-3 space-y-3">
-          <p className="text-xs text-foreground-muted">
+          <p className="text-[12px] text-foreground-muted">
             {t('settings.posDeviceRemoveWarning')}
           </p>
           {showRemoveModal && (
-            <div className="flex items-center gap-2 bg-white/60 p-3 rounded-xl border border-white/50">
-              <Monitor className="w-4 h-4 text-foreground-muted" />
-              <span className="font-bold text-sm">{showRemoveModal.label}</span>
+            <div className="bg-background p-3 border border-border rounded-sm">
+              <span className="font-semibold text-[13px]">{showRemoveModal.label}</span>
             </div>
           )}
           <div className="flex gap-2">
@@ -379,7 +305,7 @@ export function POSProvisioningSection({
             </Button>
             <button
               onClick={handleRemoveDevice}
-              className="flex-1 p-2 rounded-xl font-bold bg-accent-danger text-white hover:bg-accent-danger-hover shadow-lg shadow-accent-danger/30 transition-colors"
+              className="flex-1 py-2 rounded-sm font-semibold text-[13px] bg-accent-danger text-white active:opacity-80"
             >
               {t('settings.posDeviceRemove')}
             </button>

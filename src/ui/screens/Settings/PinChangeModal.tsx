@@ -1,64 +1,49 @@
 import { useTranslation } from 'react-i18next'
-import { Modal, Button, PinInput } from '../../components/common'
+import { Modal, PinInput } from '../../components/common'
+import type { usePinChange } from './usePinChange'
 
-export type PinChangeStep = 'current' | 'new' | 'confirm'
+export type { PinChangeStep } from './usePinChange'
+
+type PinChangeState = ReturnType<typeof usePinChange>
 
 export interface PinChangeModalProps {
-  isOpen: boolean
-  step: PinChangeStep
-  currentPin: string
-  newPin: string
-  confirmPin: string
-  pinError: string
-  isVerifyingPin: boolean
-  isChangingPin: boolean
-  onCurrentPinChange: (value: string) => void
-  onNewPinChange: (value: string) => void
-  onConfirmPinChange: (value: string) => void
-  onCurrentPinSubmit: () => void
-  onPinChangeSubmit: () => void
-  onClose: () => void
+  pinChange: PinChangeState
 }
 
-export function PinChangeModal({
-  isOpen,
-  step,
-  currentPin,
-  newPin,
-  confirmPin,
-  pinError,
-  isVerifyingPin,
-  isChangingPin,
-  onCurrentPinChange,
-  onNewPinChange,
-  onConfirmPinChange,
-  onCurrentPinSubmit,
-  onPinChangeSubmit,
-  onClose,
-}: PinChangeModalProps) {
+export function PinChangeModal({ pinChange }: PinChangeModalProps) {
   const { t } = useTranslation()
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={t('settings.changePin')}>
+    <Modal isOpen={pinChange.isOpen} onClose={pinChange.close} title={t('settings.changePin')}>
       <div className="py-3">
-        {step === 'current' && (
-          <>
-            <PinInput value={currentPin} onChange={onCurrentPinChange} label={t('settings.currentPinLabel')} error={pinError} />
-            <Button variant="primary" size="lg" onClick={onCurrentPinSubmit} loading={isVerifyingPin} disabled={currentPin.length !== 6} className="w-full mt-6">
-              {t('common.next')}
-            </Button>
-          </>
+        {pinChange.step === 'current' && (
+          <PinInput
+            value={pinChange.currentPin}
+            onChange={pinChange.handleCurrentPinChange}
+            label={t('settings.currentPinLabel')}
+            error={pinChange.error}
+            submitLabel={t('common.next')}
+            onSubmit={pinChange.handleCurrentPinSubmit}
+            loading={pinChange.isVerifying}
+          />
         )}
-        {step === 'new' && (
-          <PinInput value={newPin} onChange={onNewPinChange} length={6} label={t('settings.newPinLabel')} />
+        {pinChange.step === 'new' && (
+          <PinInput
+            value={pinChange.newPin}
+            onChange={pinChange.handleNewPinChange}
+            label={t('settings.newPinLabel')}
+          />
         )}
-        {step === 'confirm' && (
-          <>
-            <PinInput value={confirmPin} onChange={onConfirmPinChange} length={6} label={t('settings.confirmPinLabel')} error={pinError} />
-            <Button variant="primary" size="lg" onClick={onPinChangeSubmit} loading={isChangingPin} disabled={confirmPin.length !== 6} className="w-full mt-6">
-              {t('settings.change')}
-            </Button>
-          </>
+        {pinChange.step === 'confirm' && (
+          <PinInput
+            value={pinChange.confirmPin}
+            onChange={pinChange.handleConfirmPinChange}
+            label={t('settings.confirmPinLabel')}
+            error={pinChange.error}
+            submitLabel={t('settings.change')}
+            onSubmit={pinChange.handlePinChangeSubmit}
+            loading={pinChange.isChanging}
+          />
         )}
       </div>
     </Modal>

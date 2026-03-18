@@ -258,7 +258,7 @@ export function usePayment() {
    * Swap tokens between mints via Lightning
    */
   const mintSwap = useCallback(
-    async (fromMintUrl: string, toMintUrl: string, amount: number) => {
+    async (fromMintUrl: string, toMintUrl: string, amount: number, options?: { drain?: boolean }) => {
       if (!canPerformOnlineOps) {
         addToast({
           type: 'error',
@@ -270,7 +270,7 @@ export function usePayment() {
       setProcessingPayment(true)
       try {
         const paymentService = getPaymentService()
-        const result = await paymentService.mintSwap(fromMintUrl, toMintUrl, amount)
+        const result = await paymentService.mintSwap(fromMintUrl, toMintUrl, amount, options)
 
         if (result.isErr()) {
           addToast({

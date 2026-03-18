@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { QRCodeSVG } from 'qrcode.react'
 import { hapticTap, hapticSuccess } from '@/utils/haptic'
 import { useAppStore } from '@/store'
-import { useFormatSats } from '@/utils/format'
+import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
 import { checkProofsSpent, subscribeProofSpent } from '@/services/cashu'
 import { getDecodedToken } from '@cashu/cashu-ts'
@@ -30,6 +30,7 @@ export function TokenCreatedStep({
 }: TokenCreatedStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
+  const formatFiat = useFormatFiat()
   const addToast = useAppStore((s) => s.addToast)
   const [isCopied, setIsCopied] = useState(false)
   const [isSpent, setIsSpent] = useState(false)
@@ -157,10 +158,16 @@ export function TokenCreatedStep({
             </div>
             <p className="text-lg font-semibold text-center">{t('send.tokenCreated.claimed')}</p>
             <p className="text-foreground-muted text-sm">{formatSats(amount)}</p>
+            {(() => { const f = formatFiat(amount); return f ? (
+              <p className="text-foreground-muted text-xs">≈ {f}</p>
+            ) : null })()}
           </div>
         ) : (
           <>
             <p className="text-3xl font-bold">{formatSats(amount)}</p>
+            {(() => { const f = formatFiat(amount); return f ? (
+              <p className="text-sm text-foreground-muted">≈ {f}</p>
+            ) : null })()}
 
             <div className="bg-white p-4 rounded-2xl shadow-sm">
               <QRCodeSVG
@@ -206,13 +213,13 @@ export function TokenCreatedStep({
           </button>
         )}
         <Button
-          variant="primary"
+          variant="brand"
           size="xl"
           onClick={() => {
             hapticTap()
             onComplete()
           }}
-          className="w-full !bg-[#3b7df5] !text-white !rounded-[14px] !h-14 !text-lg shadow-lg shadow-[#3b7df5]/25"
+          className="w-full"
         >
           {t('send.tokenCreated.confirm')}
         </Button>

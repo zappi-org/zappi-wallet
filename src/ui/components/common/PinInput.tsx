@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from 'react'
+import { NumericKeypad } from './NumericKeypad'
 
 export interface PinInputProps {
   value: string
@@ -7,11 +8,14 @@ export interface PinInputProps {
   disabled?: boolean
   error?: string
   label?: string
+  /** When provided, renders a submit button below the keypad */
+  submitLabel?: string
+  /** Called when submit button is pressed (requires submitLabel) */
+  onSubmit?: () => void
+  /** Shows loading state on submit button */
+  loading?: boolean
 }
 
-/**
- * 6-digit PIN input component with numeric keypad
- */
 export function PinInput({
   value,
   onChange,
@@ -19,11 +23,14 @@ export function PinInput({
   disabled = false,
   error,
   label,
+  submitLabel,
+  onSubmit,
+  loading = false,
 }: PinInputProps) {
   const handleKeyPress = useCallback((key: string) => {
     if (disabled) return
 
-    if (key === '⌫') {
+    if (key === 'delete') {
       onChange(value.slice(0, -1))
     } else if (value.length < length) {
       onChange(value + key)
@@ -46,65 +53,57 @@ export function PinInput({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [disabled, value, length, onChange])
 
-  const keys = [
-    ['1', '2', '3'],
-    ['4', '5', '6'],
-    ['7', '8', '9'],
-    ['', '0', '⌫'],
-  ]
+  const isComplete = value.length === length
+  const isSubmitDisabled = !isComplete || disabled || loading
 
   return (
     <div className="flex flex-col items-center w-full max-w-sm mx-auto">
-      {/* Label */}
       {label && (
-        <p className="text-muted-foreground mb-4">{label}</p>
+        <p className="text-foreground-muted text-sm mb-4">{label}</p>
       )}
 
-      {/* PIN Dots - fixed display */}
-      <div className="flex gap-3 mb-6 min-h-[16px]">
-        {[...Array(length)].map((_, i) => (
+      {/* PIN Dots */}
+      <div className="flex gap-4 mb-6 min-h-[16px]">
+        {Array.from({ length }, (_, i) => (
           <div
             key={i}
-            className={`w-4 h-4 rounded-full transition-all ${
-              i < value.length ? 'bg-primary scale-110' : 'bg-muted'
-            }`}
+            className="w-4 h-4 rounded-full transition-transform"
+            style={{
+              transform: i < value.length ? 'scale(1)' : 'scale(0.75)',
+              backgroundColor: i < value.length
+                ? 'var(--brand)'
+                : 'color-mix(in srgb, var(--brand) 20%, transparent)',
+            }}
           />
         ))}
       </div>
 
-      {/* Error Message */}
       {error && (
-        <p className="text-destructive text-xs text-center mb-4">{error}</p>
+        <p className="text-accent-danger text-xs text-center mb-4">{error}</p>
       )}
 
-      {/* Keypad */}
-      <div className="w-full px-3">
-        <div className="grid grid-cols-3 gap-3">
-          {keys.map((row, rowIndex) =>
-            row.map((key, keyIndex) => {
-              if (key === '') {
-                return <div key={`${rowIndex}-${keyIndex}`} />
-              }
-              return (
-                <button
-                  key={`${rowIndex}-${keyIndex}`}
-                  type="button"
-                  onPointerDown={(e) => { e.preventDefault(); handleKeyPress(key) }}
-                  disabled={disabled}
-                  className={`
-                    py-4 text-xl font-medium rounded-lg transition-all
-                    active:scale-95 active:opacity-80 touch-manipulation
-                    bg-muted hover:bg-muted/80
-                    disabled:opacity-50 disabled:pointer-events-none
-                  `}
-                >
-                  {key}
-                </button>
-              )
-            })
-          )}
-        </div>
+      <div className="w-full">
+        <NumericKeypad onKeyPress={handleKeyPress} disabled={disabled} />
       </div>
+
+      {submitLabel && (
+        <button
+          onClick={onSubmit}
+          disabled={isSubmitDisabled}
+          className={`
+            w-full py-3.5 rounded-[14px] font-semibold text-base transition-all
+            ${isSubmitDisabled
+              ? 'bg-brand/20 text-brand/40 cursor-not-allowed'
+              : 'bg-brand text-white shadow-lg shadow-brand/25 active:scale-[0.98]'}
+          `}
+        >
+          {loading ? (
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+          ) : (
+            submitLabel
+          )}
+        </button>
+      )}
     </div>
   )
 }

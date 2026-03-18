@@ -117,7 +117,19 @@ export const STORAGE_KEYS = {
  */
 export const DATABASE = {
   NAME: 'zappi_wallet_db',
-  VERSION: 8,
+  VERSION: 9,
+} as const
+
+/**
+ * Exchange rate configurations
+ */
+export const EXCHANGE_RATE = {
+  /** Minimum interval between API calls (60 seconds) */
+  THROTTLE_MS: 60_000,
+  /** Rate considered stale after 5 minutes (triggers background refresh) */
+  STALE_MS: 5 * 60_000,
+  /** API request timeout */
+  FETCH_TIMEOUT: 10_000,
 } as const
 
 /**
@@ -139,3 +151,6 @@ export const LIMITS = {
   /** Maximum number of relays */
   MAX_RELAYS: 5,
 } as const
+
+export { FIAT_CURRENCIES } from './fiat'
+export { NUT_NAMES, getNutName, getSupportedNuts } from './nuts'

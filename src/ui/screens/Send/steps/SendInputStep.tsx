@@ -7,12 +7,12 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { ArrowLeft, ClipboardPaste, Camera } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { useSatUnit } from '@/utils/format'
 import { useWallet } from '@/hooks/use-wallet'
 import { useAppStore } from '@/store'
 import { hapticTap } from '@/utils/haptic'
 import { MintCardSelector } from '@/ui/components/wallet'
 import { Button } from '@/ui/components/common/Button'
+import { AmountInput } from '@/ui/components/common/AmountInput'
 import { QrScanner } from '@/ui/components/common/QrScanner'
 import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
 import { decodeCashuRequest } from '@/ui/components/scanner/InputValidator'
@@ -45,7 +45,6 @@ export function SendInputStep({
   isLoading = false,
 }: SendInputStepProps) {
   const { t } = useTranslation()
-  const unit = useSatUnit()
   const { balance } = useWallet()
   const settings = useAppStore((s) => s.settings)
   const addToast = useAppStore((s) => s.addToast)
@@ -251,7 +250,8 @@ export function SendInputStep({
               type="text"
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
-              className="flex-1 min-w-0 bg-transparent border-0 rounded-none px-0 py-2 text-[22px] font-bold text-foreground focus:outline-none"
+              placeholder={t('send.placeholder')}
+              className="flex-1 min-w-0 bg-transparent border-0 rounded-none px-0 py-2 text-[22px] font-bold text-foreground placeholder:text-foreground-muted/40 placeholder:text-[16px] placeholder:font-normal focus:outline-none"
             />
             <div className="flex items-center gap-0.5 shrink-0 pb-1">
               <button
@@ -279,44 +279,25 @@ export function SendInputStep({
         </div>
 
         {/* Amount */}
-        <div>
-          <p className="text-[20px] font-normal text-foreground-muted leading-snug">{t('send.howMuch')}</p>
-          <div className="relative">
-            {unit === '₿' ? (
-              <span className="absolute left-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-[22px]">{unit}</span>
-            ) : (
-              <span className="absolute right-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-[18px]">{unit}</span>
-            )}
-            <input
-              ref={amountInputRef}
-              type="text"
-              inputMode="numeric"
-              value={amount ? Number(amount).toLocaleString() : ''}
-              placeholder="0"
-              onChange={(e) => {
-                const v = e.target.value.replace(/[^0-9]/g, '')
-                setAmount(v)
-              }}
-              onFocus={(e) => { if (!amount) e.target.select() }}
-              disabled={isAmountFixed || !detectedType}
-              className={`w-full bg-transparent border-0 border-b border-b-gray-200 rounded-none ${unit === '₿' ? 'pl-8' : 'pr-12'} py-2 text-[22px] font-bold focus:outline-none focus:border-b-foreground transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${amount ? 'text-foreground' : 'text-foreground-muted/40'}`}
-            />
-          </div>
-          {isOverBalance && (
-            <p className="text-red-500 text-xs mt-1 font-medium">{t('payment.insufficientBalance')}</p>
-          )}
-        </div>
+        <AmountInput
+          amount={amount}
+          onAmountChange={setAmount}
+          label={t('send.howMuch')}
+          inputRef={amountInputRef}
+          disabled={isAmountFixed}
+          error={isOverBalance ? t('payment.insufficientBalance') : null}
+        />
       </div>
 
       {/* Bottom Action */}
       <div className="p-5 pb-safe">
         <Button
-          variant="primary"
+          variant="brand"
           size="xl"
           onClick={handleNext}
           loading={isLoading}
           disabled={isOverBalance}
-          className="w-full !bg-[#3b7df5] !text-white !rounded-[14px] !h-14 !text-lg shadow-lg shadow-[#3b7df5]/25"
+          className="w-full"
         >
           {t('send.next')}
         </Button>

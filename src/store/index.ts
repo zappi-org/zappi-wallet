@@ -6,6 +6,7 @@ import { createSyncSlice, type SyncSliceState } from './slices/sync.slice'
 import { createUISlice, type UISliceState } from './slices/ui.slice'
 import { createSettingsSlice, type SettingsSliceState } from './slices/settings.slice'
 import { createDebugSlice, type DebugSliceState } from './slices/debug.slice'
+import { createFiatSlice, type FiatSliceState } from './slices/fiat.slice'
 import { DEFAULT_MINTS, DEFAULT_RELAYS } from '@/core/constants'
 
 /**
@@ -17,7 +18,8 @@ export interface AppState
     SyncSliceState,
     UISliceState,
     SettingsSliceState,
-    DebugSliceState {
+    DebugSliceState,
+    FiatSliceState {
   // Global reset
   resetAll: () => void
 }
@@ -34,6 +36,7 @@ export const useAppStore = create<AppState>()(
       ...createUISlice(...args),
       ...createSettingsSlice(...args),
       ...createDebugSlice(...args),
+      ...createFiatSlice(...args),
 
       // Global reset (for logout)
       resetAll: () => {
@@ -93,6 +96,9 @@ export const useAppStore = create<AppState>()(
           // Debug
           debugLogs: [],
           maxDebugLogs: 100,
+          // Fiat
+          exchangeRateFetchedAt: null,
+          allRates: null,
         })
       },
     })),
@@ -107,3 +113,4 @@ export type { SyncSliceState } from './slices/sync.slice'
 export type { UISliceState, Toast, ModalState } from './slices/ui.slice'
 export type { SettingsSliceState } from './slices/settings.slice'
 export type { DebugSliceState, GiftWrapLog } from './slices/debug.slice'
+export type { FiatSliceState } from './slices/fiat.slice'

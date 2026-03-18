@@ -7,7 +7,7 @@ import { useEffect, useRef } from 'react'
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { hapticSuccess, hapticTap } from '@/utils/haptic'
-import { useFormatSats } from '@/utils/format'
+import { useFormatSats, useFormatFiat } from '@/utils/format'
 import sendSuccessImg from '@/assets/send-success.png'
 import { Button } from '@/ui/components/common/Button'
 import type { SendableValidatedData } from '../SendFlow'
@@ -39,6 +39,7 @@ export function SendCompleteStep({
 }: SendCompleteStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
+  const formatFiat = useFormatFiat()
   const destination = getDestinationDisplay(validatedData)
   const hasTriggeredHaptic = useRef(false)
 
@@ -67,6 +68,9 @@ export function SendCompleteStep({
         <p className="text-[22px] font-medium leading-relaxed whitespace-pre-line text-center">
           {t('send.complete.message', { destination, amount: formatSats(amount) })}
         </p>
+        {(() => { const f = formatFiat(amount); return f ? (
+          <p className="text-[15px] text-foreground-muted text-center mt-1">≈ {f}</p>
+        ) : null })()}
       </div>
 
       {/* Success character image — centered with entrance animation */}
@@ -84,13 +88,13 @@ export function SendCompleteStep({
       {/* Bottom button */}
       <div className="p-5 pb-safe">
         <Button
-          variant="primary"
+          variant="brand"
           size="xl"
           onClick={() => {
             hapticTap()
             onComplete()
           }}
-          className="w-full !bg-[#3b7df5] !text-white !rounded-[14px] !h-14 !text-lg shadow-lg shadow-[#3b7df5]/25"
+          className="w-full"
         >
           {t('send.complete.confirm')}
         </Button>

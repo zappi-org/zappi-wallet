@@ -33,6 +33,7 @@ export default {
     notifications: '알림',
     syncing: '동기화 중',
     change: '변경',
+    search: '검색',
   },
 
   // Lock Screen
@@ -52,23 +53,24 @@ export default {
     // Welcome
     appName: 'Zappi',
     tagline: 'Bitcoin 결제를 쉽고 빠르게',
-    createWallet: '새 지갑 만들기',
-    importWallet: '기존 지갑 복구',
+    createWallet: '신규 생성하기',
+    importWallet: '이미 지갑이 있어요',
     securePrivateFast: 'Secure • Private • Fast',
 
     // Mnemonic
-    secretRecoveryKey: '비밀 복구 키',
+    secretRecoveryKey: '니모닉',
     walletRecovery: '지갑 복구',
-    mnemonicWarning: '이 12개 단어를 반드시 기록하세요. 기기를 분실하면 이것만이 자금을 복구할 수 있는 유일한 방법입니다.',
-    enterRecoveryPhrase: '비밀 복구 문구를 입력하여 지갑을 복원하세요.',
+    mnemonicWarning: '지갑을 복구할 수 있는 유일한 수단입니다.\n반드시 안전한 곳에 순서대로 기록해주세요.',
+    enterRecoveryPhrase: '기존 지갑의 니모닉을 입력해주세요.',
     words12: '12 단어',
     words24: '24 단어',
-    copyToClipboard: '클립보드에 복사',
-    mnemonicSavedConfirm: '니모닉을 안전하게 기록했습니다',
-    recordComplete: '기록 완료',
-    recoverWallet: '지갑 복구',
-    invalidMnemonic: '유효하지 않은 니모닉입니다. 모든 단어를 정확히 입력하세요.',
-    backupConfirmRequired: '니모닉을 백업했는지 확인해주세요.',
+    copyToClipboard: '복사',
+    regenerateMnemonic: '다시 생성',
+    mnemonicSavedConfirm: '순서대로 안전한 곳에 기록했습니다',
+    recordComplete: '다음',
+    recoverWallet: '복구하기',
+    invalidMnemonic: '올바르지 않은 니모닉입니다. 단어를 다시 확인해주세요.',
+    backupConfirmRequired: '니모닉을 기록했는지 확인해주세요.',
 
     // PIN
     setPin: 'PIN 설정',
@@ -80,9 +82,9 @@ export default {
     // Processing
     creatingWallet: '지갑 생성 중',
     recoveringWallet: '지갑 복구 중',
-    creatingWalletDesc: '새 지갑을 생성하고 있습니다...',
+    creatingWalletDesc: '새 지갑을 생성하고 있습니다',
     recoveringWalletDesc: 'Nostr에서 프로필을 가져오고 토큰을 복구하고 있습니다...',
-    pleaseWait: '잠시만 기다려주세요',
+    pleaseWait: '잠시만 기다려주세요...',
 
     // Complete
     walletSetupFailed: '지갑 설정에 실패했습니다. 다시 시도해주세요.',
@@ -102,9 +104,9 @@ export default {
 
   // Action Buttons
   actions: {
-    transfer: 'Transfer',
+    transfer: '잔액 이동',
     scan: 'Scan',
-    analytics: 'Analytics',
+    analytics: '활동 분석',
   },
 
   // Settings
@@ -114,8 +116,8 @@ export default {
     // Profile
     profile: '프로필',
     zappiUser: 'Zappi 사용자',
-    lightningAddress: 'Lightning Address',
-    registerLightningAddress: 'Lightning Address 등록',
+    lightningAddress: '라이트닝 주소',
+    registerLightningAddress: '생성하기',
     registeringLightningAddress: '등록 중...',
     lightningAddressRequired: 'Lightning 결제를 수취하려면 Lightning Address를 등록해야 합니다.',
     lightningAddressRegistered: 'Lightning Address가 등록되었습니다',
@@ -142,6 +144,7 @@ export default {
     // Security
     security: '보안',
     autoLock: '자동 잠금',
+    autoLockTimeout: '잠금 시간',
     faceIdTouchId: 'Face ID / Touch ID',
     biometric: '생체 인증',
     changePin: 'PIN 변경',
@@ -158,10 +161,6 @@ export default {
     logout: '로그아웃',
     version: 'Zappi v1.0.0',
 
-    // Tools
-    tools: '도구',
-    transferDescription: '민트 간 토큰 전송',
-    analyticsDescription: '지출 및 수입 통계 보기',
     updateAvailable: '새 업데이트가 있습니다',
 
     // Mints
@@ -178,6 +177,9 @@ export default {
     maxRelaysReached: '최대 {{max}}개의 릴레이만 추가할 수 있습니다',
     relayDeleteRequired: '릴레이를 더 추가하려면 기존 릴레이를 삭제하세요.',
     nostrRelay: 'Nostr Relay',
+    addRelay: '릴레이 추가',
+    deleteRelay: '릴레이 삭제',
+    confirmDeleteRelay: '삭제하시겠습니까?',
 
     // PIN Change
     currentPinLabel: '현재 PIN 입력',
@@ -220,12 +222,21 @@ export default {
     deleteMint: '민트 삭제',
     mintHasBalance: '이 민트에 <bold>{{formattedBalance}}</bold>의 잔액이 있습니다.',
     deleteWarning: '삭제하면 해당 잔액에 접근할 수 없게 됩니다.',
+    confirmDeleteMint: '삭제하시겠습니까?',
+
+    // Preferences
+    preferences: '환경설정',
 
     // Language
     language: '언어',
 
     // Unit Display
     unitDisplay: '단위 표시',
+
+    // Fiat Currency
+    fiatCurrency: '단위',
+    showFiatConversion: '법정화폐 표시',
+    selectCurrency: '통화 선택',
 
     // POS Management
     posManagement: 'POS 관리',
@@ -268,6 +279,7 @@ export default {
     loadError: '민트 목록을 불러올 수 없습니다.',
     addComplete: '민트 추가 완료!',
     recoveredTokens: '{{amount}}이 복원되었습니다!',
+    hasBeenAdded: '이(가) 추가되었습니다.',
     mintAddedSuccess: '새로운 민트가 추가되었습니다.',
   },
 
@@ -470,7 +482,7 @@ export default {
 
   // Transfer Screen
   transfer: {
-    title: '전송',
+    title: '잔액 이동',
     from: '보내는 민트',
     to: '받는 민트',
     transferAmount: '전송 금액',
@@ -481,6 +493,11 @@ export default {
     sameMintsError: '같은 민트로는 전송할 수 없습니다',
     selectDifferentMint: '다른 민트를 선택하세요',
     estimatedFee: '예상 수수료: ~{{amount}}',
+    transferAll: '전액',
+    quoting: '견적 확인 중...',
+    melting: '출금 중...',
+    minting: '입금 중...',
+    transferComplete: '이동 완료!',
   },
 
   // History Screen
@@ -743,7 +760,7 @@ export default {
     fromMintPrefix: '내 ',
     fromMintSuffix: '에서',
     whereTo: '어디로 보내시겠어요?',
-    placeholder: '인보이스, 주소, 결제요청을 입력하세요',
+    placeholder: '라이트닝 주소, 인보이스, 지불요청...',
     howMuch: '얼마를 보낼까요?',
     createToken: '토큰 만들기',
     next: '다음',
@@ -850,6 +867,70 @@ export default {
       acceptAnyway: '위험 감수하고 받기',
     },
     swapFeeTooHigh: '스왑 수수료({{fee}})가 토큰 금액({{amount}})보다 크거나 같아 받을 수 없습니다',
+  },
+
+  // Mint Detail Screen
+  mintDetail: {
+    title: '민트 상세정보',
+    send: '보내기',
+    receive: '받기',
+    swap: '스왑',
+    pendingItems: '대기중 항목',
+    seeMore: '더보기',
+    transactions: '거래내역',
+    seeDetails: '자세히보기',
+    ecashToken: '이캐시 토큰',
+    lightningRequest: '라이트닝 요청',
+    ecashRequest: '이캐시 요청',
+    expiresIn: '만료 {{time}} 뒤',
+    created: '생성: {{date}}',
+    noPendingItems: '대기중인 항목이 없습니다',
+    noTransactions: '거래내역이 없습니다',
+    // 민트 별칭
+    editName: '이름 변경',
+    namePlaceholder: '이름을 입력하세요',
+    defaultName: '지갑 {{number}}',
+    // 민트 정보 서브화면
+    mintInfo: '민트 정보',
+    announcement: '공지',
+    description: '설명',
+    mintUrl: '민트 URL',
+    mintContact: '민트 연락처',
+    details: 'Details',
+    version: '버전',
+    units: '지원 단위',
+    supportedProtocols: '지원 프로토콜',
+    viewAll: '전체 보기',
+    copy: '복사하기',
+    copied: '복사됨',
+    showQr: 'QR 표시',
+    dangerZone: 'Danger zone',
+    emptyAndDelete: '잔액을 비우고 민트를 지우기',
+    // 삭제 플로우
+    deleteMint: '민트 지우기',
+    deleteConfirmMessage: '정말로 민트를 지우시겠어요?',
+    balanceRemaining: '{{mint}}에 {{amount}} 이 남아있어요.\n\n잔액을 다른 민트로 보내거나\n다른 사람에게 보낼 수 있어요.',
+    emptyMint: '비울 민트',
+    fillMint: '채울 민트',
+    sendElsewhere: '다른 곳으로 보내기',
+    emptyAndDeleteBtn: '비우고 삭제하기',
+    deleteComplete: '{{mint}}를 모두 비우고 삭제했어요.',
+    swapping: '잔액을 이동하는 중...',
+    swapFailed: '잔액 이동에 실패했습니다. 다시 시도해주세요.',
+    retry: '다시 시도',
+    mintDeleted: '민트가 삭제되었습니다.',
+    no: '아니요',
+    delete: '삭제하기',
+    // 대기중 항목 전체화면
+    pendingAll: '대기 항목',
+    tabAll: '전체',
+    tabTokens: '토큰',
+    tabRequests: '요청',
+    unclaimedTokens: '수령되지 않은 토큰',
+    pendingRequests: '대기중인 요청들',
+    filterEcash: '이캐시',
+    filterLightning: '라이트닝',
+    search: '검색',
   },
 
   // Error Boundary

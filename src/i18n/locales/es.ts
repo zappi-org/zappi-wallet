@@ -33,6 +33,7 @@ export default {
     notifications: 'Notificaciones',
     syncing: 'Sincronizando',
     change: 'Cambiar',
+    search: 'Buscar',
   },
 
   // Lock Screen
@@ -53,22 +54,23 @@ export default {
     appName: 'Zappi',
     tagline: 'Pagos de Bitcoin fáciles y rápidos',
     createWallet: 'Crear nueva billetera',
-    importWallet: 'Restaurar billetera existente',
+    importWallet: 'Ya tengo una billetera',
     securePrivateFast: 'Seguro • Privado • Rápido',
 
     // Mnemonic
     secretRecoveryKey: 'Clave de recuperación secreta',
     walletRecovery: 'Recuperación de billetera',
-    mnemonicWarning: 'Escribe estas 12 palabras. Esta es la única manera de recuperar tus fondos si pierdes tu dispositivo.',
-    enterRecoveryPhrase: 'Ingresa tu frase de recuperación secreta para restaurar tu billetera.',
+    mnemonicWarning: 'Esta es la única forma de recuperar tu billetera.\nAnota las palabras en orden y guárdalas en un lugar seguro.',
+    enterRecoveryPhrase: 'Ingresa la clave de recuperación de tu billetera existente.',
     words12: '12 Palabras',
     words24: '24 Palabras',
-    copyToClipboard: 'Copiar al portapapeles',
-    mnemonicSavedConfirm: 'He guardado mi mnemónico de forma segura',
-    recordComplete: 'Registro completo',
-    recoverWallet: 'Recuperar billetera',
-    invalidMnemonic: 'Mnemónico inválido. Por favor ingresa todas las palabras correctamente.',
-    backupConfirmRequired: 'Por favor confirma que has respaldado tu mnemónico.',
+    copyToClipboard: 'Copiar',
+    regenerateMnemonic: 'Generar nueva clave',
+    mnemonicSavedConfirm: 'Las he anotado en orden en un lugar seguro',
+    recordComplete: 'Siguiente',
+    recoverWallet: 'Recuperar',
+    invalidMnemonic: 'Clave de recuperación inválida. Revisa las palabras e intenta de nuevo.',
+    backupConfirmRequired: 'Confirma que has anotado tu clave de recuperación.',
 
     // PIN
     setPin: 'Establecer PIN',
@@ -102,7 +104,7 @@ export default {
 
   // Action Buttons
   actions: {
-    transfer: 'Transferir',
+    transfer: 'Mover Saldo',
     scan: 'Escanear',
     analytics: 'Análisis',
   },
@@ -115,7 +117,7 @@ export default {
     profile: 'Perfil',
     zappiUser: 'Usuario Zappi',
     lightningAddress: 'Dirección Lightning',
-    registerLightningAddress: 'Registrar dirección Lightning',
+    registerLightningAddress: 'Registrar',
     registeringLightningAddress: 'Registrando...',
     lightningAddressRequired: 'Registre una dirección Lightning para recibir pagos Lightning.',
     lightningAddressRegistered: 'Dirección Lightning registrada',
@@ -142,6 +144,7 @@ export default {
     // Security
     security: 'Seguridad',
     autoLock: 'Bloqueo automático',
+    autoLockTimeout: 'Bloquear después de',
     faceIdTouchId: 'Face ID / Touch ID',
     biometric: 'Biométrico',
     changePin: 'Cambiar PIN',
@@ -158,10 +161,6 @@ export default {
     logout: 'Cerrar sesión',
     version: 'Zappi v1.0.0',
 
-    // Tools
-    tools: 'Herramientas',
-    transferDescription: 'Transferir tokens entre mints',
-    analyticsDescription: 'Ver estadísticas de gastos e ingresos',
     updateAvailable: 'Actualización disponible',
 
     // Mints
@@ -178,6 +177,9 @@ export default {
     maxRelaysReached: 'Máximo de {{max}} relays permitidos',
     relayDeleteRequired: 'Elimina relays existentes para agregar más.',
     nostrRelay: 'Relay Nostr',
+    addRelay: 'Agregar Relay',
+    deleteRelay: 'Eliminar Relay',
+    confirmDeleteRelay: '¿Eliminar este relay?',
 
     // PIN Change
     currentPinLabel: 'Ingresa PIN actual',
@@ -220,12 +222,21 @@ export default {
     deleteMint: 'Eliminar Mint',
     mintHasBalance: 'Este mint tiene un saldo de <bold>{{formattedBalance}}</bold>.',
     deleteWarning: 'Eliminar hará el saldo inaccesible.',
+    confirmDeleteMint: '¿Eliminar este mint?',
+
+    // Preferences
+    preferences: 'Preferencias',
 
     // Language
     language: 'Idioma',
 
     // Unit Display
     unitDisplay: 'Unidad',
+
+    // Fiat Currency
+    fiatCurrency: 'Moneda',
+    showFiatConversion: 'Mostrar Precio Fiat',
+    selectCurrency: 'Seleccionar Moneda',
   },
 
   // Add Mint Screen
@@ -253,6 +264,7 @@ export default {
     loadError: 'No se pudo cargar la lista de mints.',
     addComplete: '¡Mint agregado!',
     recoveredTokens: '¡{{amount}} recuperados!',
+    hasBeenAdded: ' ha sido agregado.',
     mintAddedSuccess: 'Nuevo mint ha sido agregado.',
   },
 
@@ -449,7 +461,7 @@ export default {
 
   // Transfer Screen
   transfer: {
-    title: 'Transferir',
+    title: 'Mover Saldo',
     from: 'Desde Mint',
     to: 'Hacia Mint',
     transferAmount: 'Monto a transferir',
@@ -459,6 +471,11 @@ export default {
     swapFailed: 'Transferencia fallida',
     sameMintsError: 'No se puede transferir al mismo mint',
     selectDifferentMint: 'Selecciona un mint diferente',
+    transferAll: 'Todo',
+    quoting: 'Obteniendo cotización...',
+    melting: 'Retirando...',
+    minting: 'Depositando...',
+    transferComplete: '¡Transferencia completada!',
   },
 
   // History Screen
@@ -639,7 +656,7 @@ export default {
     fromMintPrefix: 'Mi ',
     fromMintSuffix: ' desde',
     whereTo: '¿A dónde enviar?',
-    placeholder: 'Ingresa factura, dirección o solicitud de pago',
+    placeholder: 'Dirección Lightning, factura, solicitud de pago...',
     howMuch: '¿Cuánto enviar?',
     createToken: 'Crear Token',
     next: 'Siguiente',
@@ -746,6 +763,66 @@ export default {
       acceptAnyway: 'Aceptar bajo mi riesgo',
     },
     swapFeeTooHigh: 'La comisión de swap ({{fee}}) es igual o mayor al monto del token ({{amount}})',
+  },
+
+  // Mint Detail Screen
+  mintDetail: {
+    title: 'Detalle del Mint',
+    send: 'Enviar',
+    receive: 'Recibir',
+    swap: 'Intercambiar',
+    pendingItems: 'Elementos pendientes',
+    seeMore: 'Ver más',
+    transactions: 'Transacciones',
+    seeDetails: 'Ver detalles',
+    ecashToken: 'Token Ecash',
+    lightningRequest: 'Solicitud Lightning',
+    ecashRequest: 'Solicitud Ecash',
+    expiresIn: 'Expira en {{time}}',
+    created: 'Creado: {{date}}',
+    noPendingItems: 'No hay elementos pendientes',
+    noTransactions: 'No hay transacciones',
+    editName: 'Renombrar',
+    namePlaceholder: 'Ingrese un nombre',
+    defaultName: 'Billetera {{number}}',
+    mintInfo: 'Info del Mint',
+    announcement: 'Anuncio',
+    description: 'Descripción',
+    mintUrl: 'URL del Mint',
+    mintContact: 'Contacto del Mint',
+    details: 'Detalles',
+    version: 'Versión',
+    units: 'Unidades soportadas',
+    supportedProtocols: 'Protocolos soportados',
+    viewAll: 'Ver todo',
+    copy: 'Copiar',
+    copied: 'Copiado',
+    showQr: 'Mostrar QR',
+    dangerZone: 'Zona peligrosa',
+    emptyAndDelete: 'Vaciar saldo y eliminar mint',
+    deleteMint: 'Eliminar Mint',
+    deleteConfirmMessage: '¿Seguro que quieres eliminar este mint?',
+    balanceRemaining: 'Quedan {{amount}} en {{mint}}.\n\nPuedes enviar el saldo a otro mint o a otra persona.',
+    emptyMint: 'Mint a vaciar',
+    fillMint: 'Mint destino',
+    sendElsewhere: 'Enviar a otro lugar',
+    emptyAndDeleteBtn: 'Vaciar y eliminar',
+    deleteComplete: '{{mint}} ha sido vaciado y eliminado.',
+    swapping: 'Moviendo saldo...',
+    swapFailed: 'Error al mover el saldo. Inténtelo de nuevo.',
+    retry: 'Reintentar',
+    mintDeleted: 'El mint ha sido eliminado.',
+    no: 'No',
+    delete: 'Eliminar',
+    pendingAll: 'Elementos pendientes',
+    tabAll: 'Todo',
+    tabTokens: 'Tokens',
+    tabRequests: 'Solicitudes',
+    unclaimedTokens: 'Tokens no reclamados',
+    pendingRequests: 'Solicitudes pendientes',
+    filterEcash: 'Ecash',
+    filterLightning: 'Lightning',
+    search: 'Buscar',
   },
 
   // Error Boundary

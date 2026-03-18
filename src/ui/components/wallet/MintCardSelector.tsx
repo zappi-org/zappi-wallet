@@ -10,6 +10,7 @@ import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useMintHealth } from '@/hooks/use-mint-health'
 import { useCarouselScroll } from '@/hooks/use-carousel-scroll'
 import { useAppStore } from '@/store'
+import { getMintBalance } from '@/utils/url'
 import type { MintInfo } from '@/core/types'
 
 interface MintCardSelectorProps {
@@ -31,12 +32,11 @@ export function MintCardSelector({
   const mints = useMemo(() => {
     const all = settings.mints.map((url): MintInfo => {
       const cachedStatus = getCachedStatus(url)
-      const normalizedUrl = url.endsWith('/') ? url.slice(0, -1) : url
       return {
         url,
         name: getDisplayName(url),
         iconUrl: getIconUrl(url),
-        balance: balance.byMint[normalizedUrl] || balance.byMint[url] || 0,
+        balance: getMintBalance(url, balance.byMint),
         isOnline: cachedStatus?.isOnline ?? true,
         lastChecked: cachedStatus?.lastChecked,
       }

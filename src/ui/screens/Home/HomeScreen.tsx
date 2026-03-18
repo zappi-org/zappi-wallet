@@ -9,7 +9,8 @@ import { TransactionList } from "../../components/wallet/TransactionList";
 import { UnifiedScanner, type ValidatedData } from "../../components/scanner";
 import { useWallet, useMintHealth, useMintMetadata } from "@/hooks";
 import { useAppStore } from "@/store";
-import { useSatUnit } from "@/utils/format";
+import { useSatUnit, useFormatFiat } from "@/utils/format";
+import { getMintBalance } from "@/utils/url";
 import type { MintInfo, Transaction } from "@/core/types";
 import { TransactionRepository } from "@/data/repositories/transaction.repository";
 
@@ -27,7 +28,7 @@ export interface HomeScreenProps {
   onNotifications?: () => void;
   onTransactions?: () => void;
   onAddMint?: () => void;
-  onMintDetails?: (mint: MintInfo) => void;
+  onMintDetails?: (mint: MintInfo, index: number) => void;
   onValidatedScan?: (data: ValidatedData, mode: 'send' | 'receive') => void;
   onSend?: (activeMintUrl?: string) => void;
   onReceive?: (activeMintUrl?: string) => void;
@@ -52,6 +53,7 @@ export function HomeScreen({
 }: HomeScreenProps) {
   const { t } = useTranslation();
   const unit = useSatUnit();
+  const toFiat = useFormatFiat();
   const [localTransactions, setLocalTransactions] = useState<Transaction[]>([]);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scanMode, setScanMode] = useState<'send' | 'receive'>('send');
@@ -66,7 +68,7 @@ export function HomeScreen({
   const updateSettings = useAppStore((state) => state.updateSettings);
   const updateAvailable = useAppStore((state) => state.updateAvailable);
   const txRefreshTrigger = useAppStore((state) => state.txRefreshTrigger);
-  const { getDisplayName, getIconUrl } = useMintMetadata(settings?.mints || []);
+  const { getDisplayName, getOriginalName, getIconUrl } = useMintMetadata(settings?.mints || []);
 
   // Load transactions from DB if not provided via props
   useEffect(() => {
@@ -88,20 +90,23 @@ export function HomeScreen({
 
   // Build mint info from settings.mints with online status and metadata
   const mintUrls = settings.mints;
+  const mintAliases = settings.mintAliases;
   const mints: MintInfo[] = useMemo(() => {
     return mintUrls.map((url) => {
       const cachedStatus = getCachedStatus(url);
-      const normalizedUrl = url.endsWith("/") ? url.slice(0, -1) : url;
+      const alias = mintAliases?.[url];
       return {
         url,
         name: getDisplayName(url),
+        alias,
+        mintName: getOriginalName(url),
         iconUrl: getIconUrl(url),
-        balance: balance.byMint[normalizedUrl] || balance.byMint[url] || 0,
+        balance: getMintBalance(url, balance.byMint),
         isOnline: cachedStatus?.isOnline ?? true,
         lastChecked: cachedStatus?.lastChecked,
       };
     });
-  }, [mintUrls, balance.byMint, getCachedStatus, getDisplayName, getIconUrl]);
+  }, [mintUrls, balance.byMint, getCachedStatus, getDisplayName, getOriginalName, getIconUrl, mintAliases]);
 
   const totalBalance = balance.total;
 
@@ -129,7 +134,7 @@ export function HomeScreen({
   }, [transactions, mints, clampedMintIndex]);
 
   const handleMintClick = (index: number) => {
-    onMintDetails?.(mints[index]);
+    onMintDetails?.(mints[index], index);
   };
 
   const handleSendClick = useCallback(() => {
@@ -159,7 +164,7 @@ export function HomeScreen({
   return (
     <div className="h-dvh bg-[#faf9f6] text-gray-900 font-sans overflow-hidden flex flex-col pt-safe">
       {/* Header */}
-      <header className="flex items-center justify-end px-3 shrink-0">
+      <header className="flex items-center justify-end px-4 pt-4 pb-3 shrink-0">
         <button
           onClick={onSettings}
           aria-label={t('common.settings')}
@@ -205,6 +210,14 @@ export function HomeScreen({
               </>
             )}
           </div>
+          {!settings.balanceHidden && !isLoadingBalance && (() => {
+            const fiatStr = toFiat(totalBalance)
+            return fiatStr ? (
+              <p className="font-['Montserrat'] text-sm font-medium text-[#86868b] tracking-wide">
+                ≈ {fiatStr}
+              </p>
+            ) : null
+          })()}
         </div>
 
         {/* Card Carousel */}
@@ -231,12 +244,12 @@ export function HomeScreen({
                     key={mint.url}
                     ref={(el) => { cardRefs.current[idx] = el; }}
                     className="snap-center snap-always shrink-0 will-change-transform"
-                    onClick={() => handleMintClick(idx)}
                   >
                     <MintCard
                       mint={mint}
                       variant={getVariantByIndex(idx)}
                       hideBalance={settings.balanceHidden}
+                      onDetail={() => handleMintClick(idx)}
                       onCreateToken={onCreateToken ? () => onCreateToken(mint.url) : undefined}
                     />
                   </div>

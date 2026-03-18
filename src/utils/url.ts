@@ -17,6 +17,22 @@ export function normalizeMintUrl(url: string): string {
 }
 
 /**
+ * Extract hostname from URL for display
+ */
+export function formatMintHost(url: string): string {
+  try { return new URL(url).hostname } catch { return url }
+}
+
+/**
+ * Get mint balance with URL normalization fallback
+ * Handles both trailing-slash and non-trailing-slash variants
+ */
+export function getMintBalance(url: string, balanceByMint: Record<string, number>): number {
+  const normalized = url.endsWith('/') ? url.slice(0, -1) : url
+  return balanceByMint[normalized] || balanceByMint[url] || 0
+}
+
+/**
  * Normalize relay URL (go-nostr convention)
  * - Converts http:// to ws://, https:// to wss://
  * - Adds wss:// if no protocol

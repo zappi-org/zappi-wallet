@@ -47,7 +47,12 @@ export function useWallet() {
    * Load balance from Coco (the single source of truth)
    */
   const loadBalance = useCallback(async () => {
-    setLoadingBalance(true)
+    // Stale-while-revalidate: only show loading spinner on initial load.
+    // If we already have balance data, keep showing it while refreshing.
+    const hasExistingData = Object.keys(useAppStore.getState().balance.byMint).length > 0
+    if (!hasExistingData) {
+      setLoadingBalance(true)
+    }
     try {
       // Use Coco's balance (where proofs are actually stored)
       const cocoBalances = await cocoGetBalances()

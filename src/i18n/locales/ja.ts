@@ -33,6 +33,7 @@ export default {
     notifications: '通知',
     syncing: '同期中',
     change: '変更',
+    search: '検索',
   },
 
   // Lock Screen
@@ -52,23 +53,24 @@ export default {
     // Welcome
     appName: 'Zappi',
     tagline: 'Bitcoinの支払いを簡単・高速に',
-    createWallet: '新しいウォレットを作成',
-    importWallet: '既存のウォレットを復元',
+    createWallet: '新規作成',
+    importWallet: 'すでにウォレットがあります',
     securePrivateFast: '安全 • プライベート • 高速',
 
     // Mnemonic
     secretRecoveryKey: '秘密のリカバリーキー',
     walletRecovery: 'ウォレットの復元',
-    mnemonicWarning: 'この12個の単語を必ず書き留めてください。デバイスを紛失した場合、これが資金を回復する唯一の方法です。',
-    enterRecoveryPhrase: '秘密のリカバリーフレーズを入力してウォレットを復元してください。',
+    mnemonicWarning: 'ウォレットを復元する唯一の手段です。\n必ず順番通りに安全な場所に記録してください。',
+    enterRecoveryPhrase: '既存のウォレットのリカバリーキーを入力してください。',
     words12: '12単語',
     words24: '24単語',
-    copyToClipboard: 'クリップボードにコピー',
-    mnemonicSavedConfirm: 'ニーモニックを安全に記録しました',
-    recordComplete: '記録完了',
-    recoverWallet: 'ウォレットを復元',
-    invalidMnemonic: '無効なニーモニックです。すべての単語を正確に入力してください。',
-    backupConfirmRequired: 'ニーモニックをバックアップしたことを確認してください。',
+    copyToClipboard: 'コピー',
+    regenerateMnemonic: '別のキーを生成',
+    mnemonicSavedConfirm: '順番通りに安全な場所に記録しました',
+    recordComplete: '次へ',
+    recoverWallet: '復元する',
+    invalidMnemonic: '無効なリカバリーキーです。単語を確認してもう一度お試しください。',
+    backupConfirmRequired: 'リカバリーキーを記録したことを確認してください。',
 
     // PIN
     setPin: 'PINを設定',
@@ -102,7 +104,7 @@ export default {
 
   // Action Buttons
   actions: {
-    transfer: '送金',
+    transfer: '残高移動',
     scan: 'スキャン',
     analytics: '分析',
   },
@@ -115,7 +117,7 @@ export default {
     profile: 'プロフィール',
     zappiUser: 'Zappiユーザー',
     lightningAddress: 'Lightningアドレス',
-    registerLightningAddress: 'Lightningアドレスを登録',
+    registerLightningAddress: '登録',
     registeringLightningAddress: '登録中...',
     lightningAddressRequired: 'Lightning決済を受け取るにはLightningアドレスの登録が必要です。',
     lightningAddressRegistered: 'Lightningアドレスが登録されました',
@@ -142,6 +144,7 @@ export default {
     // Security
     security: 'セキュリティ',
     autoLock: '自動ロック',
+    autoLockTimeout: 'ロック時間',
     faceIdTouchId: 'Face ID / Touch ID',
     biometric: '生体認証',
     changePin: 'PINを変更',
@@ -158,10 +161,6 @@ export default {
     logout: 'ログアウト',
     version: 'Zappi v1.0.0',
 
-    // Tools
-    tools: 'ツール',
-    transferDescription: 'ミント間でトークンを転送',
-    analyticsDescription: '支出と受取の統計を確認',
     updateAvailable: 'アップデートがあります',
 
     // Mints
@@ -178,6 +177,9 @@ export default {
     maxRelaysReached: '最大{{max}}個のリレーが許可されています',
     relayDeleteRequired: 'さらに追加するには既存のリレーを削除してください。',
     nostrRelay: 'Nostrリレー',
+    addRelay: 'リレーを追加',
+    deleteRelay: 'リレーを削除',
+    confirmDeleteRelay: '削除しますか？',
 
     // PIN Change
     currentPinLabel: '現在のPINを入力',
@@ -220,12 +222,21 @@ export default {
     deleteMint: 'ミントを削除',
     mintHasBalance: 'このミントには<bold>{{formattedBalance}}</bold>の残高があります。',
     deleteWarning: '削除すると残高にアクセスできなくなります。',
+    confirmDeleteMint: '削除しますか？',
+
+    // Preferences
+    preferences: '環境設定',
 
     // Language
     language: '言語',
 
     // Unit Display
     unitDisplay: '単位表示',
+
+    // Fiat Currency
+    fiatCurrency: '通貨',
+    showFiatConversion: '法定通貨を表示',
+    selectCurrency: '通貨を選択',
   },
 
   // Add Mint Screen
@@ -253,6 +264,7 @@ export default {
     loadError: 'ミントリストを読み込めませんでした。',
     addComplete: 'ミントを追加しました！',
     recoveredTokens: '{{amount}}を回復しました！',
+    hasBeenAdded: 'が追加されました。',
     mintAddedSuccess: '新しいミントが追加されました。',
   },
 
@@ -419,7 +431,7 @@ export default {
 
   // Transfer Screen
   transfer: {
-    title: '送金',
+    title: '残高移動',
     from: '送金元ミント',
     to: '送金先ミント',
     transferAmount: '送金額',
@@ -429,6 +441,11 @@ export default {
     swapFailed: '送金に失敗しました',
     sameMintsError: '同じミントには送金できません',
     selectDifferentMint: '別のミントを選択してください',
+    transferAll: '全額',
+    quoting: '見積もり中...',
+    melting: '出金中...',
+    minting: '入金中...',
+    transferComplete: '送金完了！',
   },
 
   // History Screen
@@ -609,7 +626,7 @@ export default {
     fromMintPrefix: '',
     fromMintSuffix: 'から',
     whereTo: 'どこに送りますか？',
-    placeholder: 'インボイス、アドレス、支払いリクエストを入力',
+    placeholder: 'Lightningアドレス、インボイス、支払いリクエスト...',
     howMuch: 'いくら送りますか？',
     createToken: 'トークンを作成',
     next: '次へ',
@@ -716,6 +733,66 @@ export default {
       acceptAnyway: 'リスクを承知で受取',
     },
     swapFeeTooHigh: 'スワップ手数料（{{fee}}）がトークン金額（{{amount}}）以上のため受け取れません',
+  },
+
+  // Mint Detail Screen
+  mintDetail: {
+    title: 'ミント詳細',
+    send: '送金',
+    receive: '受取',
+    swap: 'スワップ',
+    pendingItems: '保留中の項目',
+    seeMore: 'もっと見る',
+    transactions: '取引履歴',
+    seeDetails: '詳細を見る',
+    ecashToken: 'Ecashトークン',
+    lightningRequest: 'Lightningリクエスト',
+    ecashRequest: 'Ecashリクエスト',
+    expiresIn: '{{time}}後に期限切れ',
+    created: '作成: {{date}}',
+    noPendingItems: '保留中の項目はありません',
+    noTransactions: '取引履歴はありません',
+    editName: '名前を変更',
+    namePlaceholder: '名前を入力してください',
+    defaultName: 'ウォレット {{number}}',
+    mintInfo: 'ミント情報',
+    announcement: 'お知らせ',
+    description: '説明',
+    mintUrl: 'ミントURL',
+    mintContact: 'ミント連絡先',
+    details: '詳細',
+    version: 'バージョン',
+    units: '対応単位',
+    supportedProtocols: '対応プロトコル',
+    viewAll: 'すべて見る',
+    copy: 'コピー',
+    copied: 'コピーしました',
+    showQr: 'QR表示',
+    dangerZone: '危険ゾーン',
+    emptyAndDelete: '残高を空にしてミントを削除',
+    deleteMint: 'ミント削除',
+    deleteConfirmMessage: '本当にこのミントを削除しますか？',
+    balanceRemaining: '{{mint}}に{{amount}}が残っています。\n\n残高を別のミントに送金するか、他の人に送ることができます。',
+    emptyMint: '空にするミント',
+    fillMint: '送金先ミント',
+    sendElsewhere: '別の場所に送金',
+    emptyAndDeleteBtn: '空にして削除',
+    deleteComplete: '{{mint}}を空にして削除しました。',
+    swapping: '残高を移動中...',
+    swapFailed: '残高の移動に失敗しました。もう一度お試しください。',
+    retry: '再試行',
+    mintDeleted: 'ミントが削除されました。',
+    no: 'いいえ',
+    delete: '削除',
+    pendingAll: '保留中の項目',
+    tabAll: 'すべて',
+    tabTokens: 'トークン',
+    tabRequests: 'リクエスト',
+    unclaimedTokens: '未受取トークン',
+    pendingRequests: '保留中のリクエスト',
+    filterEcash: 'Ecash',
+    filterLightning: 'Lightning',
+    search: '検索',
   },
 
   // Error Boundary

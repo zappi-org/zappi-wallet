@@ -33,6 +33,7 @@ export default {
     notifications: 'Notifications',
     syncing: 'Syncing',
     change: 'Change',
+    search: 'Search',
   },
 
   // Lock Screen
@@ -53,22 +54,23 @@ export default {
     appName: 'Zappi',
     tagline: 'Bitcoin payments made easy and fast',
     createWallet: 'Create New Wallet',
-    importWallet: 'Restore Existing Wallet',
+    importWallet: 'I already have a wallet',
     securePrivateFast: 'Secure • Private • Fast',
 
     // Mnemonic
     secretRecoveryKey: 'Secret Recovery Key',
     walletRecovery: 'Wallet Recovery',
-    mnemonicWarning: 'Write down these 12 words. This is the only way to recover your funds if you lose your device.',
-    enterRecoveryPhrase: 'Enter your secret recovery phrase to restore your wallet.',
+    mnemonicWarning: 'This is the only way to recover your wallet.\nWrite the words down in order and keep them safe.',
+    enterRecoveryPhrase: 'Enter the recovery key from your existing wallet.',
     words12: '12 Words',
     words24: '24 Words',
-    copyToClipboard: 'Copy to Clipboard',
-    mnemonicSavedConfirm: 'I have safely recorded my mnemonic',
-    recordComplete: 'Recording Complete',
-    recoverWallet: 'Recover Wallet',
-    invalidMnemonic: 'Invalid mnemonic. Please enter all words correctly.',
-    backupConfirmRequired: 'Please confirm you have backed up your mnemonic.',
+    copyToClipboard: 'Copy',
+    regenerateMnemonic: 'Generate new key',
+    mnemonicSavedConfirm: 'I have written them down in order',
+    recordComplete: 'Next',
+    recoverWallet: 'Recover',
+    invalidMnemonic: 'Invalid recovery key. Please check your words and try again.',
+    backupConfirmRequired: 'Please confirm you have written down your recovery key.',
 
     // PIN
     setPin: 'Set PIN',
@@ -102,7 +104,7 @@ export default {
 
   // Action Buttons
   actions: {
-    transfer: 'Transfer',
+    transfer: 'Move Balance',
     scan: 'Scan',
     analytics: 'Analytics',
   },
@@ -115,7 +117,7 @@ export default {
     profile: 'Profile',
     zappiUser: 'Zappi User',
     lightningAddress: 'Lightning Address',
-    registerLightningAddress: 'Register Lightning Address',
+    registerLightningAddress: 'Register',
     registeringLightningAddress: 'Registering...',
     lightningAddressRequired: 'Register a Lightning Address to receive Lightning payments.',
     lightningAddressRegistered: 'Lightning Address registered',
@@ -142,6 +144,7 @@ export default {
     // Security
     security: 'Security',
     autoLock: 'Auto Lock',
+    autoLockTimeout: 'Lock after',
     faceIdTouchId: 'Face ID / Touch ID',
     biometric: 'Biometric',
     changePin: 'Change PIN',
@@ -158,10 +161,6 @@ export default {
     logout: 'Logout',
     version: 'Zappi v1.0.0',
 
-    // Tools
-    tools: 'Tools',
-    transferDescription: 'Transfer tokens between mints',
-    analyticsDescription: 'View spending and receiving stats',
     updateAvailable: 'Update available',
 
     // Mints
@@ -178,6 +177,9 @@ export default {
     maxRelaysReached: 'Maximum of {{max}} relays allowed',
     relayDeleteRequired: 'Delete existing relays to add more.',
     nostrRelay: 'Nostr Relay',
+    addRelay: 'Add Relay',
+    deleteRelay: 'Delete Relay',
+    confirmDeleteRelay: 'Delete this relay?',
 
     // PIN Change
     currentPinLabel: 'Enter current PIN',
@@ -220,12 +222,21 @@ export default {
     deleteMint: 'Delete Mint',
     mintHasBalance: 'This mint has a balance of <bold>{{formattedBalance}}</bold>.',
     deleteWarning: 'Deleting will make the balance inaccessible.',
+    confirmDeleteMint: 'Delete this mint?',
+
+    // Preferences
+    preferences: 'Preferences',
 
     // Language
     language: 'Language',
 
     // Unit Display
     unitDisplay: 'Unit Display',
+
+    // Fiat Currency
+    fiatCurrency: 'Currency',
+    showFiatConversion: 'Show Fiat Price',
+    selectCurrency: 'Select Currency',
 
     // POS Management
     posManagement: 'POS Management',
@@ -268,6 +279,7 @@ export default {
     loadError: 'Could not load mint list.',
     addComplete: 'Mint added!',
     recoveredTokens: '{{amount}} recovered!',
+    hasBeenAdded: ' has been added.',
     mintAddedSuccess: 'New mint has been added.',
   },
 
@@ -470,7 +482,7 @@ export default {
 
   // Transfer Screen
   transfer: {
-    title: 'Transfer',
+    title: 'Move Balance',
     from: 'From Mint',
     to: 'To Mint',
     transferAmount: 'Transfer Amount',
@@ -481,6 +493,11 @@ export default {
     sameMintsError: 'Cannot transfer to the same mint',
     selectDifferentMint: 'Select a different mint',
     estimatedFee: 'Est. Fee: ~{{amount}}',
+    transferAll: 'All',
+    quoting: 'Getting quote...',
+    melting: 'Withdrawing...',
+    minting: 'Depositing...',
+    transferComplete: 'Transfer complete!',
   },
 
   // History Screen
@@ -740,7 +757,7 @@ export default {
     fromMintPrefix: 'My ',
     fromMintSuffix: ' from',
     whereTo: 'Where to send?',
-    placeholder: 'Enter invoice, address, or payment request',
+    placeholder: 'Lightning address, invoice, payment request...',
     howMuch: 'How much to send?',
     createToken: 'Create Token',
     next: 'Next',
@@ -847,6 +864,66 @@ export default {
       acceptAnyway: 'Accept at my own risk',
     },
     swapFeeTooHigh: 'Swap fee ({{fee}}) equals or exceeds the token amount ({{amount}})',
+  },
+
+  // Mint Detail Screen
+  mintDetail: {
+    title: 'Mint Detail',
+    send: 'Send',
+    receive: 'Receive',
+    swap: 'Swap',
+    pendingItems: 'Pending Items',
+    seeMore: 'See More',
+    transactions: 'Transactions',
+    seeDetails: 'See Details',
+    ecashToken: 'Ecash Token',
+    lightningRequest: 'Lightning Request',
+    ecashRequest: 'Ecash Request',
+    expiresIn: 'Expires in {{time}}',
+    created: 'Created: {{date}}',
+    noPendingItems: 'No pending items',
+    noTransactions: 'No transactions',
+    editName: 'Rename',
+    namePlaceholder: 'Enter a name',
+    defaultName: 'Wallet {{number}}',
+    mintInfo: 'Mint Info',
+    announcement: 'Announcement',
+    description: 'Description',
+    mintUrl: 'Mint URL',
+    mintContact: 'Mint Contact',
+    details: 'Details',
+    version: 'Version',
+    units: 'Supported Units',
+    supportedProtocols: 'Supported Protocols',
+    viewAll: 'View All',
+    copy: 'Copy',
+    copied: 'Copied',
+    showQr: 'Show QR',
+    dangerZone: 'Danger zone',
+    emptyAndDelete: 'Empty balance and delete mint',
+    deleteMint: 'Delete Mint',
+    deleteConfirmMessage: 'Are you sure you want to delete this mint?',
+    balanceRemaining: '{{amount}} remaining in {{mint}}.\n\nYou can send the balance to another mint or to someone else.',
+    emptyMint: 'Empty Mint',
+    fillMint: 'Fill Mint',
+    sendElsewhere: 'Send elsewhere',
+    emptyAndDeleteBtn: 'Empty and Delete',
+    deleteComplete: '{{mint}} has been emptied and deleted.',
+    swapping: 'Moving balance...',
+    swapFailed: 'Failed to move balance. Please try again.',
+    retry: 'Retry',
+    mintDeleted: 'Mint has been deleted.',
+    no: 'No',
+    delete: 'Delete',
+    pendingAll: 'Pending Items',
+    tabAll: 'All',
+    tabTokens: 'Tokens',
+    tabRequests: 'Requests',
+    unclaimedTokens: 'Unclaimed Tokens',
+    pendingRequests: 'Pending Requests',
+    filterEcash: 'Ecash',
+    filterLightning: 'Lightning',
+    search: 'Search',
   },
 
   // Error Boundary

@@ -204,7 +204,7 @@ export function TokenReceiveStep({
         <button
           onClick={handleSubmitInput}
           disabled={state === 'validating' || !tokenInput.trim()}
-          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-[14px] bg-[#3b7df5] text-white font-medium shadow-lg shadow-[#3b7df5]/25 active:scale-[0.98] active:opacity-90 transition-all duration-100 disabled:opacity-40 disabled:cursor-not-allowed min-h-[52px] text-lg"
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-[14px] bg-brand text-white font-medium shadow-lg shadow-brand/25 active:scale-[0.98] active:opacity-90 transition-all duration-100 disabled:opacity-40 disabled:cursor-not-allowed min-h-[52px] text-lg"
         >
           {t('receive.token.receive')}
         </button>

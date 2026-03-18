@@ -1,4 +1,5 @@
 import { getDatabase } from '@/data/database'
+import { satsToFiat } from '@/utils/format'
 import type { Transaction, TransactionDirection, TransactionStatus } from '@/core/types'
 
 export interface FindAllOptions {
@@ -6,19 +7,52 @@ export interface FindAllOptions {
   offset?: number
 }
 
+export interface FiatSnapshot {
+  fiatCurrency: string
+  exchangeRate: number
+}
+
 /**
  * Repository for managing transaction records
  */
 export class TransactionRepository {
+  private fiatSnapshotProvider: (() => FiatSnapshot | null) | null = null
+
   private get table() {
     return getDatabase().transactions
   }
 
   /**
-   * Save a transaction (insert or update)
+   * Register a provider that returns current fiat snapshot data.
+   * Called once during app initialization to inject the dependency
+   * without coupling to any specific state management library.
+   */
+  setFiatSnapshotProvider(provider: () => FiatSnapshot | null): void {
+    this.fiatSnapshotProvider = provider
+  }
+
+  /**
+   * Save a transaction (insert or update).
+   * Auto-fills fiat fields if exchange rate is available and not already set.
    */
   async save(transaction: Transaction): Promise<void> {
-    await this.table.put(transaction)
+    await this.table.put(this.enrichWithFiat(transaction))
+  }
+
+  /**
+   * Enrich transaction with fiat snapshot if missing and provider available
+   */
+  private enrichWithFiat(tx: Transaction): Transaction {
+    if (tx.fiatAmount != null) return tx // Already has fiat data
+    if (!this.fiatSnapshotProvider) return tx
+    const snapshot = this.fiatSnapshotProvider()
+    if (!snapshot) return tx
+    return {
+      ...tx,
+      fiatAmount: satsToFiat(tx.amount, snapshot.exchangeRate),
+      fiatCurrency: snapshot.fiatCurrency,
+      exchangeRate: snapshot.exchangeRate,
+    }
   }
 
   /**

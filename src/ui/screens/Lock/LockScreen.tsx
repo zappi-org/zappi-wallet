@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect } from "react";
-import { Delete } from "lucide-react";
 import zappiLogo from "@/assets/zappi.png";
 import { useTranslation } from "react-i18next";
 import { CountdownTimer } from "@/ui/components/common";
+import { NumericKeypad } from "@/ui/components/common/NumericKeypad";
 import { useAppStore } from "@/store";
 import {
   isPasskeySupported,
@@ -55,17 +55,14 @@ export function LockScreen({
 
   // Check passkey availability
   useEffect(() => {
-    const checkPasskey = () => {
-      const available = isPasskeySupported() && isPasskeyRegistered();
-      setPasskeyAvailable(available);
-    };
-    checkPasskey();
+    const available = isPasskeySupported() && isPasskeyRegistered();
+    setPasskeyAvailable(available);
   }, []);
 
-  // Auto-trigger passkey on mount if available
+  // Auto-trigger passkey on mount if available (silent — no toast on failure)
   useEffect(() => {
     if (passkeyAvailable && !isLoading) {
-      handlePasskeyAuth();
+      handlePasskeyAuth(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [passkeyAvailable]);
@@ -92,7 +89,7 @@ export function LockScreen({
 
   const isLockedOut = lockoutUntil !== null && lockoutUntil > Date.now();
 
-  const handlePasskeyAuth = useCallback(async () => {
+  const handlePasskeyAuth = useCallback(async (silent = false) => {
     if (isLockedOut || isLoading) return;
 
     setIsLoading(true);
@@ -109,28 +106,29 @@ export function LockScreen({
         }
       }
     } catch {
-      // fall through to toast
+      // fall through
     }
-    addToast({
-      type: 'error',
-      message: t('lock.biometricFailed'),
-      duration: 3000,
-    });
+    if (!silent) {
+      addToast({
+        type: 'error',
+        message: t('lock.biometricFailed'),
+        duration: 3000,
+      });
+    }
     setIsLoading(false);
   }, [isLockedOut, isLoading, onUnlock, addToast, t]);
 
+  // Stable callback — uses functional updates so no dependency on password
   const handleKeyPress = useCallback(
     (key: string) => {
-      if (isLockedOut || isLoading) return;
-
       if (key === "delete") {
         setPassword((prev) => prev.slice(0, -1));
       } else {
         setPassword((prev) => prev.length < 20 ? prev + key : prev);
       }
-      setError((prev) => prev ? "" : prev);
+      setError("");
     },
-    [isLockedOut, isLoading]
+    []
   );
 
   const handleSubmit = useCallback(async () => {
@@ -196,6 +194,8 @@ export function LockScreen({
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
 
+  const keypadDisabled = isLockedOut || isLoading;
+
   return (
     <div className="fixed inset-0 z-[100] bg-background text-foreground flex flex-col p-4 pt-safe pb-safe overflow-hidden overscroll-none">
       <div className="flex-1 flex flex-col max-w-md mx-auto w-full">
@@ -215,14 +215,14 @@ export function LockScreen({
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <div
                 key={i}
-                className="w-5 h-5 rounded-full"
+                className="w-4 h-4 rounded-full"
                 style={{
                   transform: password.length > i ? 'scale(1)' : 'scale(0.75)',
                   backgroundColor: shake
                     ? 'rgba(248, 113, 113, 0.5)'
                     : password.length > i
-                      ? '#264032'
-                      : 'rgba(38, 64, 50, 0.2)',
+                      ? 'var(--brand)'
+                      : 'color-mix(in srgb, var(--brand) 20%, transparent)',
                   border: shake
                     ? '1px solid #f87171'
                     : 'none',
@@ -252,7 +252,7 @@ export function LockScreen({
           {/* Passkey Button */}
           {passkeyAvailable && !isLockedOut && (
             <button
-              onClick={handlePasskeyAuth}
+              onClick={() => handlePasskeyAuth()}
               disabled={isLoading}
               className="mt-4 p-3 rounded-full bg-primary/5 hover:bg-primary/10 transition-all active:scale-95 disabled:opacity-50"
               aria-label={t('lock.faceIdUnlock')}
@@ -262,35 +262,12 @@ export function LockScreen({
           )}
         </div>
 
-        {/* Numeric Keypad */}
-        <div className="grid grid-cols-3 gap-3 pb-6 shrink-0">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-            <button
-              key={num}
-              onPointerDown={(e) => { e.preventDefault(); handleKeyPress(num.toString()) }}
-              disabled={isLockedOut || isLoading}
-              className="h-14 rounded-xl text-xl font-bold text-foreground hover:bg-black/5 active:bg-black/10 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              {num}
-            </button>
-          ))}
-          <div />
-          <button
-            onPointerDown={(e) => { e.preventDefault(); handleKeyPress("0") }}
-            disabled={isLockedOut || isLoading}
-            className="h-14 rounded-xl text-xl font-bold text-foreground hover:bg-black/5 active:bg-black/10 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            0
-          </button>
-          <button
-            onPointerDown={(e) => { e.preventDefault(); handleKeyPress("delete") }}
-            disabled={isLockedOut || isLoading}
-            aria-label={t('common.delete')}
-            className="h-14 rounded-xl text-foreground hover:bg-black/5 active:bg-black/10 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            <Delete className="w-5 h-5" />
-          </button>
-        </div>
+        {/* Numeric Keypad — memoized, won't re-render on password changes */}
+        <NumericKeypad
+          onKeyPress={handleKeyPress}
+          disabled={keypadDisabled}
+          deleteAriaLabel={t('common.delete')}
+        />
       </div>
     </div>
   );

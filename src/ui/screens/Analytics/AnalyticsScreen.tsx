@@ -5,7 +5,7 @@ import { AreaChart, Area, Tooltip, ResponsiveContainer, XAxis, Legend } from 're
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import type { Transaction } from '@/core/types'
-import { useFormatSats } from '@/utils/format'
+import { useFormatSats, useFormatFiat } from '@/utils/format'
 
 export interface AnalyticsScreenProps {
   onBack: () => void
@@ -17,6 +17,7 @@ type TimeRange = 'week' | 'month'
 export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
+  const formatFiat = useFormatFiat()
   const [timeRange, setTimeRange] = useState<TimeRange>('week')
   const [now] = useState(() => Date.now())
 
@@ -224,6 +225,9 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
             <h3 className="text-lg font-bold text-foreground">
               +{formatAmount(analytics.income)}
             </h3>
+            {(() => { const f = formatFiat(analytics.income); return f ? (
+              <span className="text-[10px] text-foreground-muted">{f}</span>
+            ) : null })()}
             <span
               className={cn(
                 'text-[8px] font-bold',
@@ -244,6 +248,9 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
             <h3 className="text-lg font-bold text-foreground">
               -{formatAmount(analytics.spending)}
             </h3>
+            {(() => { const f = formatFiat(analytics.spending); return f ? (
+              <span className="text-[10px] text-foreground-muted">{f}</span>
+            ) : null })()}
             <span
               className={cn(
                 'text-[8px] font-bold',

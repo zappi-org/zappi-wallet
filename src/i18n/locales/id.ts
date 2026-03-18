@@ -33,6 +33,7 @@ export default {
     notifications: 'Notifikasi',
     syncing: 'Sinkronisasi',
     change: 'Ubah',
+    search: 'Cari',
   },
 
   // Lock Screen
@@ -53,22 +54,23 @@ export default {
     appName: 'Zappi',
     tagline: 'Pembayaran Bitcoin mudah dan cepat',
     createWallet: 'Buat Dompet Baru',
-    importWallet: 'Pulihkan Dompet',
+    importWallet: 'Saya sudah punya dompet',
     securePrivateFast: 'Aman • Privat • Cepat',
 
     // Mnemonic
     secretRecoveryKey: 'Kunci Pemulihan Rahasia',
     walletRecovery: 'Pemulihan Dompet',
-    mnemonicWarning: 'Tulis 12 kata ini. Ini satu-satunya cara untuk memulihkan dana Anda jika perangkat hilang.',
-    enterRecoveryPhrase: 'Masukkan frasa pemulihan rahasia untuk memulihkan dompet Anda.',
+    mnemonicWarning: 'Ini satu-satunya cara untuk memulihkan dompet Anda.\nCatat kata-kata secara berurutan dan simpan di tempat yang aman.',
+    enterRecoveryPhrase: 'Masukkan kunci pemulihan dari dompet Anda yang sudah ada.',
     words12: '12 Kata',
     words24: '24 Kata',
-    copyToClipboard: 'Salin ke Clipboard',
-    mnemonicSavedConfirm: 'Saya telah menyimpan mnemonic dengan aman',
-    recordComplete: 'Pencatatan Selesai',
-    recoverWallet: 'Pulihkan Dompet',
-    invalidMnemonic: 'Mnemonic tidak valid. Masukkan semua kata dengan benar.',
-    backupConfirmRequired: 'Harap konfirmasi bahwa Anda telah mencadangkan mnemonic.',
+    copyToClipboard: 'Salin',
+    regenerateMnemonic: 'Buat kunci baru',
+    mnemonicSavedConfirm: 'Sudah saya catat secara berurutan di tempat yang aman',
+    recordComplete: 'Lanjut',
+    recoverWallet: 'Pulihkan',
+    invalidMnemonic: 'Kunci pemulihan tidak valid. Periksa kata-kata Anda dan coba lagi.',
+    backupConfirmRequired: 'Harap konfirmasi bahwa Anda telah mencatat kunci pemulihan.',
 
     // PIN
     setPin: 'Atur PIN',
@@ -102,7 +104,7 @@ export default {
 
   // Action Buttons
   actions: {
-    transfer: 'Transfer',
+    transfer: 'Pindah Saldo',
     scan: 'Pindai',
     analytics: 'Analitik',
   },
@@ -115,7 +117,7 @@ export default {
     profile: 'Profil',
     zappiUser: 'Pengguna Zappi',
     lightningAddress: 'Alamat Lightning',
-    registerLightningAddress: 'Daftarkan Alamat Lightning',
+    registerLightningAddress: 'Daftar',
     registeringLightningAddress: 'Mendaftar...',
     lightningAddressRequired: 'Daftarkan Alamat Lightning untuk menerima pembayaran Lightning.',
     lightningAddressRegistered: 'Alamat Lightning terdaftar',
@@ -142,6 +144,7 @@ export default {
     // Security
     security: 'Keamanan',
     autoLock: 'Kunci Otomatis',
+    autoLockTimeout: 'Kunci setelah',
     faceIdTouchId: 'Face ID / Touch ID',
     biometric: 'Biometrik',
     changePin: 'Ubah PIN',
@@ -158,10 +161,6 @@ export default {
     logout: 'Keluar',
     version: 'Zappi v1.0.0',
 
-    // Tools
-    tools: 'Alat',
-    transferDescription: 'Transfer token antar mint',
-    analyticsDescription: 'Lihat statistik pengeluaran dan penerimaan',
     updateAvailable: 'Pembaruan tersedia',
 
     // Mints
@@ -178,6 +177,9 @@ export default {
     maxRelaysReached: 'Maksimal {{max}} relay diperbolehkan',
     relayDeleteRequired: 'Hapus relay yang ada untuk menambah lebih banyak.',
     nostrRelay: 'Relay Nostr',
+    addRelay: 'Tambah Relay',
+    deleteRelay: 'Hapus Relay',
+    confirmDeleteRelay: 'Hapus relay ini?',
 
     // PIN Change
     currentPinLabel: 'Masukkan PIN saat ini',
@@ -220,12 +222,21 @@ export default {
     deleteMint: 'Hapus Mint',
     mintHasBalance: 'Mint ini memiliki saldo <bold>{{formattedBalance}}</bold>.',
     deleteWarning: 'Menghapus akan membuat saldo tidak dapat diakses.',
+    confirmDeleteMint: 'Hapus mint ini?',
+
+    // Preferences
+    preferences: 'Preferensi',
 
     // Language
     language: 'Bahasa',
 
     // Unit Display
     unitDisplay: 'Satuan',
+
+    // Fiat Currency
+    fiatCurrency: 'Mata Uang',
+    showFiatConversion: 'Tampilkan Harga Fiat',
+    selectCurrency: 'Pilih Mata Uang',
   },
 
   // Add Mint Screen
@@ -253,6 +264,7 @@ export default {
     loadError: 'Tidak dapat memuat daftar mint.',
     addComplete: 'Mint ditambahkan!',
     recoveredTokens: '{{amount}} dipulihkan!',
+    hasBeenAdded: ' telah ditambahkan.',
     mintAddedSuccess: 'Mint baru telah ditambahkan.',
   },
 
@@ -449,7 +461,7 @@ export default {
 
   // Transfer Screen
   transfer: {
-    title: 'Transfer',
+    title: 'Pindah Saldo',
     from: 'Dari Mint',
     to: 'Ke Mint',
     transferAmount: 'Jumlah Transfer',
@@ -459,6 +471,11 @@ export default {
     swapFailed: 'Transfer gagal',
     sameMintsError: 'Tidak dapat transfer ke mint yang sama',
     selectDifferentMint: 'Pilih mint yang berbeda',
+    transferAll: 'Semua',
+    quoting: 'Mendapatkan penawaran...',
+    melting: 'Menarik...',
+    minting: 'Menyetor...',
+    transferComplete: 'Transfer selesai!',
   },
 
   // History Screen
@@ -639,7 +656,7 @@ export default {
     fromMintPrefix: '',
     fromMintSuffix: ' dari',
     whereTo: 'Kirim ke mana?',
-    placeholder: 'Masukkan invoice, alamat, atau permintaan pembayaran',
+    placeholder: 'Alamat Lightning, invoice, permintaan pembayaran...',
     howMuch: 'Berapa yang akan dikirim?',
     createToken: 'Buat Token',
     next: 'Lanjut',
@@ -746,6 +763,66 @@ export default {
       acceptAnyway: 'Terima dengan risiko saya',
     },
     swapFeeTooHigh: 'Biaya swap ({{fee}}) sama atau lebih besar dari jumlah token ({{amount}})',
+  },
+
+  // Mint Detail Screen
+  mintDetail: {
+    title: 'Detail Mint',
+    send: 'Kirim',
+    receive: 'Terima',
+    swap: 'Tukar',
+    pendingItems: 'Item Tertunda',
+    seeMore: 'Lihat Lainnya',
+    transactions: 'Transaksi',
+    seeDetails: 'Lihat Detail',
+    ecashToken: 'Token Ecash',
+    lightningRequest: 'Permintaan Lightning',
+    ecashRequest: 'Permintaan Ecash',
+    expiresIn: 'Kedaluwarsa dalam {{time}}',
+    created: 'Dibuat: {{date}}',
+    noPendingItems: 'Tidak ada item tertunda',
+    noTransactions: 'Tidak ada transaksi',
+    editName: 'Ganti Nama',
+    namePlaceholder: 'Masukkan nama',
+    defaultName: 'Dompet {{number}}',
+    mintInfo: 'Info Mint',
+    announcement: 'Pengumuman',
+    description: 'Deskripsi',
+    mintUrl: 'URL Mint',
+    mintContact: 'Kontak Mint',
+    details: 'Detail',
+    version: 'Versi',
+    units: 'Unit yang Didukung',
+    supportedProtocols: 'Protokol yang Didukung',
+    viewAll: 'Lihat Semua',
+    copy: 'Salin',
+    copied: 'Disalin',
+    showQr: 'Tampilkan QR',
+    dangerZone: 'Zona berbahaya',
+    emptyAndDelete: 'Kosongkan saldo dan hapus mint',
+    deleteMint: 'Hapus Mint',
+    deleteConfirmMessage: 'Yakin ingin menghapus mint ini?',
+    balanceRemaining: '{{amount}} tersisa di {{mint}}.\n\nAnda bisa mengirim saldo ke mint lain atau ke orang lain.',
+    emptyMint: 'Mint yang dikosongkan',
+    fillMint: 'Mint tujuan',
+    sendElsewhere: 'Kirim ke tempat lain',
+    emptyAndDeleteBtn: 'Kosongkan dan Hapus',
+    deleteComplete: '{{mint}} telah dikosongkan dan dihapus.',
+    swapping: 'Memindahkan saldo...',
+    swapFailed: 'Gagal memindahkan saldo. Silakan coba lagi.',
+    retry: 'Coba lagi',
+    mintDeleted: 'Mint telah dihapus.',
+    no: 'Tidak',
+    delete: 'Hapus',
+    pendingAll: 'Item Tertunda',
+    tabAll: 'Semua',
+    tabTokens: 'Token',
+    tabRequests: 'Permintaan',
+    unclaimedTokens: 'Token Belum Diklaim',
+    pendingRequests: 'Permintaan Tertunda',
+    filterEcash: 'Ecash',
+    filterLightning: 'Lightning',
+    search: 'Cari',
   },
 
   // Error Boundary

@@ -61,6 +61,7 @@ export function PageTransition({
 
   return (
     <motion.div
+      data-swipe-target=""
       variants={variants[variant]}
       initial="initial"
       animate="animate"
