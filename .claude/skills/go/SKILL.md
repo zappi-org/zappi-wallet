@@ -52,6 +52,7 @@ Show the user:
 
 ## Rules
 
+- **상위 브랜치 머지는 항상 유저 의사결정.** `/go`는 하위 브랜치에서만 작업한다. staging/main 머지는 `/ship`에서 유저 확인 후 진행.
 - Never skip `/review`. Even trivial fixes get reviewed.
 - If review verdict is `block`, flag it prominently to the user.
 - Test failures after `/fix` are reported but do NOT block the pipeline — user decides.

@@ -77,6 +77,7 @@ Show the user: staging commit hash, files changed, PR URL (if created).
 
 ## Rules
 
+- **상위 브랜치 머지는 항상 유저 의사결정.** 자동으로 머지/push 하지 않는다. 머지 대상 브랜치, 타이밍, 방법을 유저에게 확인받는다.
 - Always squash merge. Never fast-forward or regular merge to staging.
 - One commit per feature/fix on staging. Branch history stays on the branch.
 - Do NOT push to main directly. Use PR for main.
