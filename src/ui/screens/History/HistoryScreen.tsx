@@ -302,7 +302,6 @@ export function HistoryScreen({
           placeholder={t('scanner.inputPlaceholder')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          autoFocus
           className="w-full bg-white/60 p-3 rounded-xl border border-white/50 focus:border-primary/30 outline-none text-foreground placeholder:text-foreground-muted/50"
         />
       </div>
