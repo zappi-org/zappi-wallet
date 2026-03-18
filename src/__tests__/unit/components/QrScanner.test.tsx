@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, cleanup } from '@testing-library/react'
+import { render, cleanup, act } from '@testing-library/react'
 import type { ScanResult } from 'qr-scanner'
 
 // Capture the scan callback passed to QrScannerLib constructor
@@ -26,9 +26,11 @@ vi.mock('@gandlaf21/bc-ur', () => ({
   URDecoder: vi.fn(),
 }))
 
+// Stable reference to prevent useEffect re-runs from changing `t` identity
+const stableT = (key: string) => key
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: stableT,
   }),
 }))
 
@@ -48,11 +50,10 @@ describe('QrScanner deduplication', () => {
   })
 
   async function renderScanner() {
-    render(<QrScanner onScan={onScan} active={true} />)
-    // Wait for async scanner init (hasCamera + start)
-    await vi.waitFor(() => {
-      expect(capturedScanCallback).not.toBeNull()
+    await act(async () => {
+      render(<QrScanner onScan={onScan} active={true} />)
     })
+    expect(capturedScanCallback).not.toBeNull()
   }
 
   it('should call onScan once for repeated identical data', async () => {
@@ -104,7 +105,9 @@ describe('QrScanner deduplication', () => {
     expect(onScan).toHaveBeenCalledTimes(1)
 
     // Unmount and remount
-    cleanup()
+    await act(async () => {
+      cleanup()
+    })
     capturedScanCallback = null
     onScan.mockClear()
 
