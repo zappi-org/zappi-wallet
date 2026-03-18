@@ -14,6 +14,7 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const scannerRef = useRef<QrScannerLib | null>(null)
   const urDecoderRef = useRef<URDecoder | null>(null)
+  const lastScannedDataRef = useRef<string | null>(null)
   const [isReady, setIsReady] = useState(false)
   const [hasCamera, setHasCamera] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
@@ -47,13 +48,16 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
       if (decoder.isComplete() && decoder.isSuccess()) {
         const ur = decoder.resultUR()
         const decoded = ur.decodeCBOR()
+        lastScannedDataRef.current = decoded.toString()
         onScanRef.current(decoded.toString())
         // Reset decoder for next scan
         urDecoderRef.current = null
         setUrProgress(0)
       }
     } else {
-      // Regular single QR code
+      // Skip if same data as last scan
+      if (data === lastScannedDataRef.current) return
+      lastScannedDataRef.current = data
       onScanRef.current(data)
     }
   }, [])
@@ -87,7 +91,7 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
           highlightCodeOutline: true,
           onDecodeError: () => {}, // Silent decode errors
           preferredCamera: 'environment', // Use back camera on mobile
-          maxScansPerSecond: 60, // Increase scan frequency (default: 25)
+          maxScansPerSecond: 10, // UR multipart QR frames transition at ~5-8fps
           // Expand scan region to full video for better recognition
           calculateScanRegion: (v) => ({
             x: 0,
@@ -141,6 +145,7 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
         scannerRef.current = null
       }
       urDecoderRef.current = null
+      lastScannedDataRef.current = null
       setUrProgress(0)
       setIsReady(false)
     }
