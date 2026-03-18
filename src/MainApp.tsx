@@ -7,6 +7,8 @@ import { useNetwork } from '@/hooks/use-network'
 import { useGiftWrapListener } from '@/hooks/useGiftWrapListener'
 import { useCrossTabSync, broadcastSync } from '@/hooks/use-cross-tab-sync'
 import { useSwipeBack } from '@/hooks/use-swipe-back'
+import { BackHandlerProvider } from '@/contexts/BackHandlerContext'
+import { useBackHandler } from '@/hooks/use-back-handler'
 import { useStateReconstruction } from '@/hooks/useStateReconstruction'
 import { checkAndRefreshAnchor } from '@/services/anchor'
 import { getP2PKPubkey } from '@/services/crypto'
@@ -66,7 +68,17 @@ function totalRecoveredCount(recovery: Awaited<ReturnType<PaymentService['recove
 
 type Screen = 'home' | 'settings' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'mint-management' | 'relay-management' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail' | 'mint-detail'
 
+const noop = () => {}
+
 export default function MainApp() {
+  return (
+    <BackHandlerProvider>
+      <MainAppInner />
+    </BackHandlerProvider>
+  )
+}
+
+function MainAppInner() {
   const { t } = useTranslation()
   // Store state
   const isLocked = useAppStore((state) => state.isLocked)
@@ -807,6 +819,21 @@ export default function MainApp() {
     setCurrentScreen(target)
   }, [previousScreen])
 
+  // Register MainApp's handleBack as the base-level back handler
+  const { pushBackHandler, goBack } = useBackHandler()
+  const currentScreenRef = useRef(currentScreen)
+  currentScreenRef.current = currentScreen
+  const handleBackRef = useRef(handleBack)
+  handleBackRef.current = handleBack
+
+  useEffect(() => {
+    return pushBackHandler(() => {
+      if (currentScreenRef.current === 'home') return false
+      handleBackRef.current()
+      return true
+    })
+  }, [pushBackHandler])
+
   // Android back button support via History API
   useEffect(() => {
     if (!window.history.state?.screen) {
@@ -822,29 +849,20 @@ export default function MainApp() {
     }
   }, [currentScreen])
 
-  const currentScreenRef = useRef(currentScreen)
-  currentScreenRef.current = currentScreen
-  const handleBackRef = useRef(handleBack)
-  handleBackRef.current = handleBack
-
   useEffect(() => {
     const handlePopState = () => {
       if (currentScreenRef.current === 'home') {
         window.history.pushState({ screen: 'home' }, '')
       } else {
-        handleBackRef.current()
+        goBack()
       }
     }
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
-  }, [])
+  }, [goBack])
 
-  // Swipe-back gesture (left edge → right)
-  useSwipeBack(useCallback(() => {
-    if (currentScreenRef.current !== 'home') {
-      handleBackRef.current()
-    }
-  }, []))
+  // Swipe-back gesture
+  const { isSwiping } = useSwipeBack()
 
   // Preload lazy screens after home is visible
   useEffect(() => {
@@ -863,6 +881,19 @@ export default function MainApp() {
   void isOnline
   void isRecovering
 
+  // Render previous screen as background layer during swipe-back gesture
+  const transactionsRef = useRef(transactions)
+  useEffect(() => { transactionsRef.current = transactions }, [transactions])
+
+  const renderPreviousScreen = useCallback(() => {
+    switch (previousScreen) {
+      case 'home':
+        return <HomeScreen onSettings={noop} transactions={transactionsRef.current} />
+      default:
+        return <div className="h-dvh bg-background" />
+    }
+  }, [previousScreen])
+
   // Loading state
   if (isInitializing) {
     return (
@@ -879,6 +910,15 @@ export default function MainApp() {
   return (
     <>
       <div className="relative h-dvh overflow-hidden">
+      {/* Previous screen layer — visible behind current screen during swipe gesture */}
+      {isSwiping && previousScreen && (
+        <div className="absolute inset-0 z-0 pointer-events-none">
+          <Suspense fallback={<LoadingFallback />}>
+            {renderPreviousScreen()}
+          </Suspense>
+        </div>
+      )}
+
       {/* App screens — always mounted; pointer-events blocked while locked */}
       <div className={isLocked ? 'contents pointer-events-none' : 'contents'}>
       <AnimatePresence mode="sync">

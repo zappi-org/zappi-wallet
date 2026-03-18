@@ -9,9 +9,10 @@
  * This component is purely UI + step management.
  */
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
+import { useBackHandler } from '@/hooks/use-back-handler'
 import { useNetwork } from '@/hooks/use-network'
 import { sendTokenViaDM, getRecipientDMRelays } from '@/services/nostr-dm'
 import { sendTokenViaHttp } from '@/services/cashu/nut18-http'
@@ -438,6 +439,28 @@ export function SendFlow({
     setState((prev) => ({ ...prev, step, error: null }))
   }, [])
 
+  // Register internal back handler for swipe-back gesture
+  const { pushBackHandler } = useBackHandler()
+
+  useEffect(() => {
+    // confirm → input with state reset
+    if (state.step === 'confirm') {
+      return pushBackHandler(() => {
+        setState((prev) => ({
+          ...prev,
+          step: 'input',
+          validatedData: null,
+          destination: '',
+          fee: 0,
+          meltQuoteId: null,
+          error: null,
+        }))
+        return true
+      })
+    }
+    // input, token-create are root steps → no internal back (falls through to MainApp)
+    // token-created, sending, complete → no back navigation
+  }, [state.step, pushBackHandler])
 
   // ============= Render =============
 

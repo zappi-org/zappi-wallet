@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useBackHandler } from '@/hooks/use-back-handler'
 
 /** Minimum movement to decide axis lock direction */
 const AXIS_LOCK_THRESHOLD = 10
@@ -19,8 +20,20 @@ type GestureAxis = 'none' | 'horizontal' | 'vertical'
  * - Commits on velocity > 500 px/s OR distance > 35% screen width
  * - Cancels with spring snap-back otherwise
  * - Skips touches inside horizontally scrollable containers (carousels, etc.)
+ * - Uses BackHandlerContext to dispatch back navigation
+ *
+ * Returns `isSwiping` boolean (state changes only twice per gesture: start/end).
+ * Continuous values (offset, progress) are applied directly to DOM via refs
+ * to avoid per-frame React re-renders.
  */
-export function useSwipeBack(onBack: () => void) {
+export function useSwipeBack() {
+  const { goBack } = useBackHandler()
+  const [isSwiping, setIsSwiping] = useState(false)
+
+  // goBack is stable (useCallback with []), but ref guards against future changes
+  const goBackRef = useRef(goBack)
+  useEffect(() => { goBackRef.current = goBack }, [goBack])
+
   const stateRef = useRef({
     tracking: false,
     axis: 'none' as GestureAxis,
@@ -32,6 +45,9 @@ export function useSwipeBack(onBack: () => void) {
     target: null as HTMLElement | null,
   })
 
+  // Track pending timeouts for cleanup on unmount
+  const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   useEffect(() => {
     const state = stateRef.current
 
@@ -41,17 +57,15 @@ export function useSwipeBack(onBack: () => void) {
       return null
     }
 
-    /** Check if touch target is inside a horizontally scrollable element */
     function isInsideHorizontalScroller(el: EventTarget | null): boolean {
-      let node = el as HTMLElement | null
+      const target = el as HTMLElement | null
+      if (target?.closest?.('[data-horizontal-scroll]')) return true
+
+      let node = target
       while (node && node !== document.body) {
-        const style = window.getComputedStyle(node)
-        const overflowX = style.overflowX
-        if (
-          (overflowX === 'scroll' || overflowX === 'auto') &&
-          node.scrollWidth > node.clientWidth
-        ) {
-          return true
+        if (node.scrollWidth > node.clientWidth) {
+          const overflowX = window.getComputedStyle(node).overflowX
+          if (overflowX === 'scroll' || overflowX === 'auto') return true
         }
         node = node.parentElement
       }
@@ -79,6 +93,39 @@ export function useSwipeBack(onBack: () => void) {
       }
       state.tracking = false
       state.axis = 'none'
+      setIsSwiping(false)
+    }
+
+    /** Shared animation-end logic for commit and snap-back */
+    function animateEnd(
+      targetTransform: string,
+      easing: string,
+      onDone?: () => void,
+    ) {
+      const target = state.target!
+      const overlay = state.overlay
+
+      target.style.transition = `transform ${ANIMATION_DURATION}ms ${easing}`
+      target.style.transform = targetTransform
+      if (overlay) {
+        overlay.style.transition = `opacity ${ANIMATION_DURATION}ms ease-out`
+        overlay.style.opacity = '0'
+      }
+
+      state.target = null
+      state.overlay = null
+      state.tracking = false
+      state.axis = 'none'
+
+      pendingTimerRef.current = setTimeout(() => {
+        pendingTimerRef.current = null
+        target.style.transition = ''
+        target.style.transform = ''
+        target.style.willChange = ''
+        overlay?.remove()
+        setIsSwiping(false)
+        onDone?.()
+      }, ANIMATION_DURATION)
     }
 
     function onTouchStart(e: TouchEvent) {
@@ -122,7 +169,6 @@ export function useSwipeBack(onBack: () => void) {
 
       if (state.axis !== 'horizontal') return
 
-      // Prevent browser scroll while swiping
       e.preventDefault()
 
       if (dx <= 0) {
@@ -139,9 +185,11 @@ export function useSwipeBack(onBack: () => void) {
           state.target.style.willChange = 'transform'
           state.target.style.transition = 'none'
           state.overlay = createOverlay()
+          setIsSwiping(true)
         }
       }
 
+      // Apply transform directly to DOM (no React state updates in hot path)
       if (state.target) {
         state.target.style.transform = `translateX(${dx}px)`
         if (state.overlay) {
@@ -167,60 +215,35 @@ export function useSwipeBack(onBack: () => void) {
         (velocity > COMMIT_VELOCITY || ratio > COMMIT_DISTANCE_RATIO)
 
       if (shouldCommit && state.target) {
-        state.target.style.transition = `transform ${ANIMATION_DURATION}ms cubic-bezier(0.2, 0, 0, 1)`
-        state.target.style.transform = `translateX(${window.innerWidth}px)`
-        if (state.overlay) {
-          state.overlay.style.transition = `opacity ${ANIMATION_DURATION}ms ease-out`
-          state.overlay.style.opacity = '0'
-        }
-        const target = state.target
-        const overlay = state.overlay
-        setTimeout(() => {
-          target.style.transition = ''
-          target.style.transform = ''
-          target.style.willChange = ''
-          overlay?.remove()
-          onBack()
-        }, ANIMATION_DURATION)
-        state.target = null
-        state.overlay = null
-        state.tracking = false
-        state.axis = 'none'
+        animateEnd(
+          `translateX(${window.innerWidth}px)`,
+          'cubic-bezier(0.2, 0, 0, 1)',
+          () => goBackRef.current(),
+        )
       } else if (state.target) {
-        // Snap back
-        state.target.style.transition = `transform ${ANIMATION_DURATION}ms cubic-bezier(0.2, 0.9, 0.3, 1)`
-        state.target.style.transform = 'translateX(0)'
-        if (state.overlay) {
-          state.overlay.style.transition = `opacity ${ANIMATION_DURATION}ms ease-out`
-          state.overlay.style.opacity = '0'
-        }
-        const target = state.target
-        const overlay = state.overlay
-        setTimeout(() => {
-          target.style.transition = ''
-          target.style.willChange = ''
-          overlay?.remove()
-        }, ANIMATION_DURATION)
-        state.target = null
-        state.overlay = null
-        state.tracking = false
-        state.axis = 'none'
+        animateEnd('translateX(0)', 'cubic-bezier(0.2, 0.9, 0.3, 1)')
       } else {
         cleanup()
       }
     }
 
-    // touchstart: passive (no preventDefault needed)
-    // touchmove: non-passive to allow preventDefault when gesture is active
     window.addEventListener('touchstart', onTouchStart, { passive: true })
     window.addEventListener('touchmove', onTouchMove, { passive: false })
     window.addEventListener('touchend', onTouchEnd, { passive: true })
+    window.addEventListener('touchcancel', cleanup, { passive: true })
 
     return () => {
       cleanup()
+      if (pendingTimerRef.current) {
+        clearTimeout(pendingTimerRef.current)
+        pendingTimerRef.current = null
+      }
       window.removeEventListener('touchstart', onTouchStart)
       window.removeEventListener('touchmove', onTouchMove)
       window.removeEventListener('touchend', onTouchEnd)
+      window.removeEventListener('touchcancel', cleanup)
     }
-  }, [onBack])
+  }, [])
+
+  return { isSwiping }
 }
