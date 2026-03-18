@@ -42,7 +42,7 @@ async function initializeManager(): Promise<Manager> {
     watchers: isOnline
       ? {
           mintQuoteWatcher: { watchExistingPendingOnStart: true },
-          proofStateWatcher: { watchExistingInflightOnStart: true },
+          proofStateWatcher: {},
         }
       : {
           mintQuoteWatcher: { disabled: true },
