@@ -1,11 +1,11 @@
 ---
 name: ship
-description: "Create a PR from pipeline artifacts. Compiles analysis, plan, review, test results, and QA checklist into a PR description. Use when user says \"/ship\" after completing /go and manual QA."
+description: "Squash-merge branch into staging and optionally create a PR. Compiles pipeline artifacts into a clean single commit. Use when user says \"/ship\" after completing /go and manual QA."
 ---
 
 # Ship
 
-Create a pull request from the current pipeline state.
+Squash-merge the current branch into staging as a single clean commit.
 
 ## Precondition
 
@@ -23,13 +23,27 @@ If any are missing, warn but proceed with what's available.
 
 ### Step 1: Gather Context
 Read all `.pipeline/*.md` files.
-Run `git log main..HEAD --oneline` to get commit list.
+Run `git log staging..HEAD --oneline` to get commit list from the branch.
 
-### Step 2: Push
-Push the current branch to remote with `-u` flag.
+### Step 2: Squash Merge to Staging
+```
+git checkout staging
+git merge --squash <branch>
+git commit -m "<type>: <plan title>"
+```
 
-### Step 3: Create PR
-Use `gh pr create` with:
+This collapses all branch commits into a single commit on staging.
+Commit message format: `<fix|feat>: <plan.md title>` with details from analysis + plan.
+
+### Step 3: Push
+Push staging to remote.
+
+### Step 4: Cleanup (optional)
+Ask user if they want to delete the feature branch (local + remote).
+
+### Step 5: Create PR (if targeting main)
+If the user wants a PR to main instead of direct staging merge:
+- Use `gh pr create` from staging to main
 - **Title**: from plan.md title, prefixed with type (fix/feat)
 - **Body**: compiled from pipeline artifacts
 
@@ -58,11 +72,13 @@ Use `gh pr create` with:
 Generated with pipeline: /start → /go → /ship
 ```
 
-### Step 4: Report
-Show the PR URL to the user.
+### Step 6: Report
+Show the user: staging commit hash, files changed, PR URL (if created).
 
 ## Rules
 
-- Do NOT push to main/master directly. Always create PR.
+- Always squash merge. Never fast-forward or regular merge to staging.
+- One commit per feature/fix on staging. Branch history stays on the branch.
+- Do NOT push to main directly. Use PR for main.
 - Include the QA checklist in the PR body so it can be checked off during review.
-- If review verdict was `request-changes` or `block`, include a warning in the PR description.
+- If review verdict was `request-changes` or `block`, include a warning.
