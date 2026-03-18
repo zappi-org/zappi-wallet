@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useBackHandler } from '@/hooks/use-back-handler'
+import { swipeTransition } from '@/lib/swipe-transition'
 
 /** Minimum movement to decide axis lock direction */
 const AXIS_LOCK_THRESHOLD = 10
@@ -7,7 +8,7 @@ const AXIS_LOCK_THRESHOLD = 10
 const COMMIT_DISTANCE_RATIO = 0.35
 /** If velocity exceeds this (px/s) → commit regardless of distance */
 const COMMIT_VELOCITY = 500
-/** Snap-back / commit animation duration (ms) */
+/** Slide-off / snap-back animation duration (ms) */
 const ANIMATION_DURATION = 280
 
 type GestureAxis = 'none' | 'horizontal' | 'vertical'
@@ -22,12 +23,15 @@ type GestureAxis = 'none' | 'horizontal' | 'vertical'
  * - Skips touches inside horizontally scrollable containers (carousels, etc.)
  * - Uses BackHandlerContext to dispatch back navigation
  *
+ * Targets `[data-swipe-target]` — a plain wrapper div in MainApp that wraps
+ * AnimatePresence. This separates gesture transforms from motion/react's
+ * internal animation system, preventing conflicts.
+ *
  * All DOM mutations happen via refs — zero React re-renders during gestures.
  */
 export function useSwipeBack() {
   const { goBack } = useBackHandler()
 
-  // goBack is stable (useCallback with []), but ref guards against future changes
   const goBackRef = useRef(goBack)
   useEffect(() => { goBackRef.current = goBack }, [goBack])
 
@@ -40,18 +44,20 @@ export function useSwipeBack() {
     currentX: 0,
     overlay: null as HTMLDivElement | null,
     target: null as HTMLElement | null,
+    prevScreen: null as HTMLElement | null,
   })
 
-  // Track pending timeouts for cleanup on unmount
   const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     const state = stateRef.current
 
     function getSwipeTarget(): HTMLElement | null {
-      const els = document.querySelectorAll('[data-swipe-target]')
-      if (els.length > 0) return els[els.length - 1] as HTMLElement
-      return null
+      return document.querySelector('[data-swipe-target]') as HTMLElement
+    }
+
+    function getPrevScreen(): HTMLElement | null {
+      return document.querySelector('[data-prev-screen]') as HTMLElement
     }
 
     function isInsideHorizontalScroller(el: EventTarget | null): boolean {
@@ -72,8 +78,7 @@ export function useSwipeBack() {
     function createOverlay(): HTMLDivElement {
       const overlay = document.createElement('div')
       overlay.style.cssText =
-        'position:fixed;inset:0;background:black;opacity:0;z-index:9998;pointer-events:none;transition:none;'
-      document.body.appendChild(overlay)
+        'position:absolute;inset:0;background:black;opacity:0;z-index:5;pointer-events:none;transition:none;'
       return overlay
     }
 
@@ -88,39 +93,12 @@ export function useSwipeBack() {
         state.target.style.willChange = ''
         state.target = null
       }
-      state.tracking = false
-      state.axis = 'none'
-    }
-
-    /** Shared animation-end logic for commit and snap-back */
-    function animateEnd(
-      targetTransform: string,
-      easing: string,
-      onDone?: () => void,
-    ) {
-      const target = state.target!
-      const overlay = state.overlay
-
-      target.style.transition = `transform ${ANIMATION_DURATION}ms ${easing}`
-      target.style.transform = targetTransform
-      if (overlay) {
-        overlay.style.transition = `opacity ${ANIMATION_DURATION}ms ease-out`
-        overlay.style.opacity = '0'
+      if (state.prevScreen) {
+        state.prevScreen.style.visibility = 'hidden'
+        state.prevScreen = null
       }
-
-      state.target = null
-      state.overlay = null
       state.tracking = false
       state.axis = 'none'
-
-      pendingTimerRef.current = setTimeout(() => {
-        pendingTimerRef.current = null
-        target.style.transition = ''
-        target.style.transform = ''
-        target.style.willChange = ''
-        overlay?.remove()
-        onDone?.()
-      }, ANIMATION_DURATION)
     }
 
     function onTouchStart(e: TouchEvent) {
@@ -173,24 +151,78 @@ export function useSwipeBack() {
 
       state.currentX = touch.clientX
 
-      // Acquire target on first recognized move
+      // Acquire target on first recognized horizontal move
       if (!state.target) {
         state.target = getSwipeTarget()
         if (state.target) {
           state.target.style.willChange = 'transform'
           state.target.style.transition = 'none'
+
+          // Insert overlay as sibling before the wrapper (z-5, between prev layer z-0 and wrapper z-10)
           state.overlay = createOverlay()
+          state.target.parentElement!.insertBefore(state.overlay, state.target)
+
+          // Show previous screen layer
+          state.prevScreen = getPrevScreen()
+          if (state.prevScreen) {
+            state.prevScreen.style.visibility = 'visible'
+          }
         }
       }
 
-      // Apply transform directly to DOM (no React state updates in hot path)
+      // Apply transform directly to wrapper (no React state updates in hot path)
       if (state.target) {
         state.target.style.transform = `translateX(${dx}px)`
         if (state.overlay) {
           const progress = Math.min(dx / window.innerWidth, 1)
-          state.overlay.style.opacity = String(0.15 * (1 - progress))
+          state.overlay.style.opacity = String(0.4 * (1 - progress))
         }
       }
+    }
+
+    /** Animate target to endX, then run callbacks: afterAnimation (sync) → afterPaint (rAF) */
+    function animateEnd(
+      endX: string,
+      easing: string,
+      afterAnimation?: () => void,
+      afterPaint?: () => void,
+    ) {
+      const target = state.target!
+      const overlay = state.overlay
+      const prevScreen = state.prevScreen
+
+      target.style.transition = `transform ${ANIMATION_DURATION}ms ${easing}`
+      target.style.transform = `translateX(${endX})`
+      if (overlay) {
+        overlay.style.transition = `opacity ${ANIMATION_DURATION}ms ease-out`
+        overlay.style.opacity = '0'
+      }
+
+      // Release state refs (DOM elements kept for the animation callback)
+      state.target = null
+      state.overlay = null
+      state.prevScreen = null
+      state.tracking = false
+      state.axis = 'none'
+
+      pendingTimerRef.current = setTimeout(() => {
+        pendingTimerRef.current = null
+
+        afterAnimation?.()
+
+        // Reset DOM styles
+        target.style.transition = 'none'
+        target.style.transform = ''
+        target.style.willChange = ''
+        overlay?.remove()
+        if (prevScreen) prevScreen.style.visibility = 'hidden'
+
+        // Re-enable CSS transitions + run post-paint callback
+        requestAnimationFrame(() => {
+          target.style.transition = ''
+          afterPaint?.()
+        })
+      }, ANIMATION_DURATION)
     }
 
     function onTouchEnd() {
@@ -209,12 +241,14 @@ export function useSwipeBack() {
         (velocity > COMMIT_VELOCITY || ratio > COMMIT_DISTANCE_RATIO)
 
       if (shouldCommit && state.target) {
-        // Immediately clean up and trigger back — let AnimatePresence handle
-        // the visual transition (avoids double-animation flash)
-        cleanup()
-        goBackRef.current()
+        animateEnd(
+          `${window.innerWidth}px`,
+          'cubic-bezier(0.2, 0, 0, 1)',
+          () => { swipeTransition.mark(); goBackRef.current() },
+          () => { swipeTransition.clear() },
+        )
       } else if (state.target) {
-        animateEnd('translateX(0)', 'cubic-bezier(0.2, 0.9, 0.3, 1)')
+        animateEnd('0', 'cubic-bezier(0.2, 0.9, 0.3, 1)')
       } else {
         cleanup()
       }
@@ -237,5 +271,4 @@ export function useSwipeBack() {
       window.removeEventListener('touchcancel', cleanup)
     }
   }, [])
-
 }

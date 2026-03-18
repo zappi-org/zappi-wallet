@@ -43,6 +43,8 @@ export interface PageTransitionProps {
   children: ReactNode
   variant?: 'page' | 'modal' | 'fade'
   className?: string
+  /** Skip the enter animation (used by swipe-back to avoid double-animation) */
+  skipInitial?: boolean
 }
 
 /**
@@ -52,6 +54,7 @@ export function PageTransition({
   children,
   variant = 'page',
   className = '',
+  skipInitial = false,
 }: PageTransitionProps) {
   const variants = {
     page: pageVariants,
@@ -61,9 +64,8 @@ export function PageTransition({
 
   return (
     <motion.div
-      data-swipe-target=""
       variants={variants[variant]}
-      initial="initial"
+      initial={skipInitial ? false : 'initial'}
       animate="animate"
       exit="exit"
       transition={{ duration: 0.2, ease: 'easeOut' }}

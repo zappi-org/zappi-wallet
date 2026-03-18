@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'motion/react'
 import { useAppStore } from '@/store'
@@ -7,6 +7,7 @@ import { useNetwork } from '@/hooks/use-network'
 import { useGiftWrapListener } from '@/hooks/useGiftWrapListener'
 import { useCrossTabSync, broadcastSync } from '@/hooks/use-cross-tab-sync'
 import { useSwipeBack } from '@/hooks/use-swipe-back'
+import { swipeTransition } from '@/lib/swipe-transition'
 import { BackHandlerProvider } from '@/contexts/BackHandlerContext'
 import { useBackHandler } from '@/hooks/use-back-handler'
 import { useStateReconstruction } from '@/hooks/useStateReconstruction'
@@ -112,9 +113,11 @@ function MainAppInner() {
   useGiftWrapListener()
   useCrossTabSync()
 
-  // Local state
-  const [currentScreen, setCurrentScreen] = useState<Screen>('home')
-  const [previousScreen, setPreviousScreen] = useState<Screen | null>(null)
+  // Navigation stack — all visited screens, most recent on top
+  const [screenStack, setScreenStack] = useState<Screen[]>(['home'])
+  const currentScreen = screenStack[screenStack.length - 1]
+  const prevScreenInStack = screenStack.length > 1 ? screenStack[screenStack.length - 2] : null
+
   const [transactions, setTransactions] = useState<Transaction[]>([])
 
   // MintDetail screen state
@@ -136,6 +139,44 @@ function MainAppInner() {
 
   // Transaction detail state
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
+
+  /** Max navigation depth — prevents unbounded stack growth */
+  const MAX_STACK_DEPTH = 15
+
+  /** Push a new screen onto the navigation stack */
+  const navigate = useCallback((screen: Screen) => {
+    setScreenStack(prev => {
+      const next = [...prev, screen]
+      return next.length > MAX_STACK_DEPTH ? next.slice(-MAX_STACK_DEPTH) : next
+    })
+  }, [])
+
+  /** Pop the top screen — returns to the previous screen in the stack */
+  const handleBack = useCallback(() => {
+    setScreenStack(prev => prev.length > 1 ? prev.slice(0, -1) : prev)
+  }, [])
+
+  /** Reset the entire stack to home (used by onComplete handlers) */
+  const resetToHome = useCallback(() => {
+    setScreenStack(['home'])
+  }, [])
+
+  /** Prepare state and navigate to send screen */
+  const navigateToSend = useCallback((mintUrl: string | null, step: 'input' | 'token-create' = 'input') => {
+    setSendInitialStep(step)
+    setActiveMintUrl(mintUrl)
+    setValidatedScanData(null)
+    setScannedAmount(0)
+    navigate('send')
+  }, [navigate])
+
+  /** Prepare state and navigate to receive screen */
+  const navigateToReceive = useCallback((mintUrl: string | null) => {
+    setActiveMintUrl(mintUrl)
+    setValidatedScanData(null)
+    setScannedAmount(0)
+    navigate('receive')
+  }, [navigate])
 
   // Services (initialized once)
   const [services] = useState(() => {
@@ -409,27 +450,27 @@ function MainAppInner() {
       case 'lnurl-pay':
       case 'cashu-request':
         setSendInitialStep('input')
-        setCurrentScreen('send')
+        navigate('send')
         break
 
       case 'lnurl-withdraw':
-        setCurrentScreen('receive')
+        navigate('receive')
         break
 
       case 'cashu-token':
-        setCurrentScreen('receive')
+        navigate('receive')
         break
 
       case 'amount':
         setScannedAmount(data.amount)
         setScanMode(mode)
-        setCurrentScreen('amount-action')
+        navigate('amount-action')
         break
 
       default:
         console.warn('[App] Unknown validated data type:', data)
     }
-  }, [])
+  }, [navigate])
 
   // Payment modal handlers
   const handleCreateInvoice = useCallback(async (amount: number, mintUrl: string) => {
@@ -811,12 +852,6 @@ function MainAppInner() {
     }
   }, [settings, services.settingsRepo, services.profile, setSettings, nostrPrivkey, nostrPubkey])
 
-  const handleBack = useCallback(() => {
-    const target = previousScreen || 'home'
-    setPreviousScreen(null)
-    setCurrentScreen(target)
-  }, [previousScreen])
-
   // Register MainApp's handleBack as the base-level back handler
   const { pushBackHandler, goBack } = useBackHandler()
   const currentScreenRef = useRef(currentScreen)
@@ -879,6 +914,25 @@ function MainAppInner() {
   void isOnline
   void isRecovering
 
+  // Swipe transition: skip PageTransition enter animation when navigating via gesture
+  const skipAnim = swipeTransition.isActive()
+
+  // Reset swipe wrapper position before paint (useLayoutEffect runs before browser paint)
+  useLayoutEffect(() => {
+    if (!swipeTransition.isActive()) return
+    swipeTransition.clear()
+    const wrapper = document.querySelector('[data-swipe-target]') as HTMLElement
+    if (wrapper) {
+      wrapper.style.transition = 'none'
+      wrapper.style.transform = ''
+      wrapper.style.willChange = ''
+      requestAnimationFrame(() => { wrapper.style.transition = '' })
+    }
+    const prevEl = document.querySelector('[data-prev-screen]') as HTMLElement
+    if (prevEl) prevEl.style.visibility = 'hidden'
+  }, [currentScreen])
+
+
   // Loading state
   if (isInitializing) {
     return (
@@ -891,310 +945,266 @@ function MainAppInner() {
     )
   }
 
+  // ---------------------------------------------------------------------------
+  // renderScreen — maps a Screen name to its JSX.
+  // Used for both the current screen (interactive) and the previous screen
+  // (non-interactive background layer visible during swipe-back gestures).
+  // ---------------------------------------------------------------------------
+  function renderScreen(screen: Screen) {
+    switch (screen) {
+      case 'home':
+        return (
+          <HomeScreen
+            onSettings={() => navigate('settings')}
+            onTransactions={() => navigate('history')}
+            onNotifications={() => navigate('notifications')}
+            onAddMint={() => navigate('add-mint')}
+            onMintDetails={(mint, index) => {
+              setSelectedMint(mint)
+              setSelectedMintIndex(index)
+              navigate('mint-detail')
+            }}
+            onValidatedScan={handleValidatedScan}
+            onSend={(mintUrl) => navigateToSend(mintUrl || null)}
+            onReceive={(mintUrl) => navigateToReceive(mintUrl || null)}
+            onCreateToken={(mintUrl) => navigateToSend(mintUrl || null, 'token-create')}
+            onSelectTransaction={(tx) => {
+              setSelectedTransaction(tx)
+              navigate('transaction-detail')
+            }}
+            onSaveSettings={handleSaveSettings}
+            transactions={transactions}
+          />
+        )
+
+      case 'settings':
+        return (
+          <SettingsScreen
+            onBack={handleBack}
+            onChangePassword={handleChangePassword}
+            onBackupMnemonic={handleBackupMnemonic}
+            onLogout={handleLogout}
+            onVerifyPin={handleVerifyPin}
+            onSaveSettings={handleSaveSettings}
+            onMintManagement={() => navigate('mint-management')}
+            onRelayManagement={() => navigate('relay-management')}
+            onChangeUsername={() => navigate('username-change')}
+            onTransfer={() => navigate('transfer')}
+            onAnalytics={() => navigate('analytics')}
+          />
+        )
+
+      case 'username-change':
+        return (
+          <UsernameChangeScreen
+            onBack={handleBack}
+            onSaveSettings={handleSaveSettings}
+          />
+        )
+
+      case 'history':
+        return (
+          <HistoryScreen
+            onBack={handleBack}
+            transactions={transactions}
+            onSelectTransaction={(tx) => {
+              setSelectedTransaction(tx)
+              navigate('transaction-detail')
+            }}
+          />
+        )
+
+      case 'notifications':
+        return (
+          <NotificationsScreen
+            onBack={handleBack}
+            transactions={transactions}
+          />
+        )
+
+      case 'transfer':
+        return (
+          <TransferScreen
+            onBack={handleBack}
+            onTransactionComplete={refreshAll}
+            initialFromMintUrl={activeMintUrl ?? undefined}
+          />
+        )
+
+      case 'analytics':
+        return (
+          <AnalyticsScreen
+            onBack={handleBack}
+            transactions={transactions}
+          />
+        )
+
+      case 'add-mint':
+        return (
+          <AddMintScreen
+            onBack={handleBack}
+            onSuccess={handleBack}
+            onSaveSettings={handleSaveSettings}
+          />
+        )
+
+      case 'mint-management':
+        return (
+          <MintManagementScreen
+            onBack={handleBack}
+            onAddMint={() => navigate('add-mint')}
+            onSaveSettings={handleSaveSettings}
+          />
+        )
+
+      case 'relay-management':
+        return (
+          <RelayManagementScreen
+            onBack={handleBack}
+            onSaveSettings={handleSaveSettings}
+          />
+        )
+
+      case 'amount-action':
+        return (
+          <AmountActionScreen
+            amount={scannedAmount}
+            mode={scanMode}
+            onBack={handleBack}
+            onSend={(amount) => {
+              setScannedAmount(amount)
+              setValidatedScanData(null)
+              setSendInitialStep('input')
+              navigate('send')
+            }}
+            onReceive={(amount) => {
+              setScannedAmount(amount)
+              setValidatedScanData(null)
+              navigate('receive')
+            }}
+          />
+        )
+
+      case 'send':
+        return (
+          <SendFlow
+            onBack={handleBack}
+            onComplete={resetToHome}
+            onSendLightning={handleSendLightning}
+            onCreateEcashToken={handleCreateEcashToken}
+            onReceiveToken={handleReceiveToken}
+            onMintSwap={handleMintSwap}
+            validatedData={validatedScanData || undefined}
+            initialAmount={scannedAmount || undefined}
+            initialMintUrl={activeMintUrl}
+            initialStep={sendInitialStep}
+          />
+        )
+
+      case 'receive':
+        return (
+          <ReceiveFlow
+            onBack={handleBack}
+            onComplete={resetToHome}
+            onCreateInvoice={handleCreateInvoice}
+            onSubscribeToQuote={handleSubscribeToQuote}
+            onPaymentReceived={handlePaymentReceived}
+            onReceiveToken={handleReceiveToken}
+            onAddTrustedMint={handleAddTrustedMint}
+            onSwapReceive={handleSwapReceive}
+            onEstimateSwapFee={handleEstimateSwapFee}
+            onStoreOfflineToken={handleStoreOfflineToken}
+            validatedData={validatedScanData || undefined}
+            initialAmount={scannedAmount || undefined}
+            initialMintUrl={activeMintUrl}
+          />
+        )
+
+      case 'transaction-detail':
+        return selectedTransaction ? (
+          <TransactionDetailScreen
+            transaction={selectedTransaction}
+            onBack={() => {
+              setSelectedTransaction(null)
+              handleBack()
+            }}
+            mintUrls={settings.mints}
+          />
+        ) : null
+
+      case 'mint-detail':
+        return selectedMint ? (
+          <MintDetailScreen
+            mint={selectedMint}
+            mintIndex={selectedMintIndex}
+            onBack={handleBack}
+            onSend={(mintUrl) => navigateToSend(mintUrl)}
+            onReceive={(mintUrl) => navigateToReceive(mintUrl)}
+            onSwap={(mintUrl) => {
+              setActiveMintUrl(mintUrl)
+              navigate('transfer')
+            }}
+            onCreateToken={(mintUrl) => navigateToSend(mintUrl, 'token-create')}
+            onDeleteMint={(url) => {
+              const newMints = settings.mints.filter(m => m !== url)
+              const { [url]: _, ...remainingAliases } = settings.mintAliases || {}
+              resetToHome()
+              addToast({ type: 'success', message: t('mintDetail.mintDeleted') })
+              handleSaveSettings({ mints: newMints, mintAliases: remainingAliases })
+              clearMintData(url)
+            }}
+            onRenameMint={(url, newName) => {
+              const newAliases = { ...settings.mintAliases, [url]: newName }
+              handleSaveSettings({ mintAliases: newAliases })
+              if (selectedMint && selectedMint.url === url) {
+                setSelectedMint({ ...selectedMint, alias: newName, name: newName })
+              }
+            }}
+            onSelectTransaction={(tx) => {
+              setSelectedTransaction(tx)
+              navigate('transaction-detail')
+            }}
+            onTransactions={() => navigate('history')}
+            transactions={transactions}
+          />
+        ) : null
+
+      default:
+        return null
+    }
+  }
+
   // Main app
   return (
     <>
       <div className="relative h-dvh overflow-hidden">
-      {/* App screens — always mounted; pointer-events blocked while locked */}
+      {/* Previous screen layer — always the correct prev screen from the navigation stack.
+          Visible behind the current screen during swipe-back gestures.
+          Hidden by default; useSwipeBack toggles visibility via [data-prev-screen]. */}
+      {prevScreenInStack && (
+        <div
+          data-prev-screen
+          className="absolute inset-0 z-0 pointer-events-none"
+          style={{ visibility: 'hidden' }}
+        >
+          <Suspense fallback={<LoadingFallback />}>
+            {renderScreen(prevScreenInStack)}
+          </Suspense>
+        </div>
+      )}
+
+      {/* Current screen — swipe gesture wrapper (plain div to avoid motion.div conflicts) */}
+      <div data-swipe-target className="absolute inset-0 z-10">
       <div className={isLocked ? 'contents pointer-events-none' : 'contents'}>
       <AnimatePresence mode="sync">
-        <PageTransition key={currentScreen} variant="fade" className="absolute inset-0">
+        <PageTransition key={currentScreen} variant="fade" className="absolute inset-0" skipInitial={skipAnim}>
           <Suspense fallback={<LoadingFallback />}>
-      {currentScreen === 'home' && (
-        <HomeScreen
-          onSettings={() => setCurrentScreen('settings')}
-          onTransactions={() => setCurrentScreen('history')}
-          onNotifications={() => setCurrentScreen('notifications')}
-          onAddMint={() => setCurrentScreen('add-mint')}
-          onMintDetails={(mint, index) => {
-            setSelectedMint(mint)
-            setSelectedMintIndex(index)
-            setPreviousScreen('home')
-            setCurrentScreen('mint-detail')
-          }}
-          onValidatedScan={handleValidatedScan}
-          onSend={(mintUrl) => {
-            setPreviousScreen('home')
-            setSendInitialStep('input')
-            setActiveMintUrl(mintUrl || null)
-            setValidatedScanData(null)
-            setScannedAmount(0)
-            setCurrentScreen('send')
-          }}
-          onReceive={(mintUrl) => {
-            setPreviousScreen('home')
-            setActiveMintUrl(mintUrl || null)
-            setValidatedScanData(null)
-            setScannedAmount(0)
-            setCurrentScreen('receive')
-          }}
-          onCreateToken={(mintUrl) => {
-            setPreviousScreen('home')
-            setSendInitialStep('token-create')
-            setActiveMintUrl(mintUrl || null)
-            setValidatedScanData(null)
-            setScannedAmount(0)
-            setCurrentScreen('send')
-          }}
-          onSelectTransaction={(tx) => {
-            setSelectedTransaction(tx)
-            setPreviousScreen('home')
-            setCurrentScreen('transaction-detail')
-          }}
-          onSaveSettings={handleSaveSettings}
-          transactions={transactions}
-        />
-      )}
-
-      {currentScreen === 'settings' && (
-        <SettingsScreen
-          onBack={handleBack}
-          onChangePassword={handleChangePassword}
-          onBackupMnemonic={handleBackupMnemonic}
-          onLogout={handleLogout}
-          onVerifyPin={handleVerifyPin}
-          onSaveSettings={handleSaveSettings}
-          onMintManagement={() => {
-            setPreviousScreen('settings')
-            setCurrentScreen('mint-management')
-          }}
-          onRelayManagement={() => {
-            setPreviousScreen('settings')
-            setCurrentScreen('relay-management')
-          }}
-          onChangeUsername={() => {
-            setPreviousScreen('settings')
-            setCurrentScreen('username-change')
-          }}
-          onTransfer={() => {
-            setPreviousScreen('settings')
-            setCurrentScreen('transfer')
-          }}
-          onAnalytics={() => {
-            setPreviousScreen('settings')
-            setCurrentScreen('analytics')
-          }}
-        />
-      )}
-
-      {currentScreen === 'username-change' && (
-        <UsernameChangeScreen
-          onBack={handleBack}
-          onSaveSettings={handleSaveSettings}
-        />
-      )}
-
-      {currentScreen === 'history' && (
-        <HistoryScreen
-          onBack={handleBack}
-          transactions={transactions}
-          onSelectTransaction={(tx) => {
-            setSelectedTransaction(tx)
-            setPreviousScreen('history')
-            setCurrentScreen('transaction-detail')
-          }}
-        />
-      )}
-
-      {currentScreen === 'notifications' && (
-        <NotificationsScreen
-          onBack={handleBack}
-          transactions={transactions}
-        />
-      )}
-
-      {currentScreen === 'transfer' && (
-        <TransferScreen
-          onBack={handleBack}
-          onTransactionComplete={refreshAll}
-          initialFromMintUrl={activeMintUrl ?? undefined}
-        />
-      )}
-
-      {currentScreen === 'analytics' && (
-        <AnalyticsScreen
-          onBack={handleBack}
-          transactions={transactions}
-        />
-      )}
-
-      {currentScreen === 'add-mint' && (
-        <AddMintScreen
-          onBack={() => {
-            const backTo = previousScreen || 'home'
-            setPreviousScreen(null)
-            setCurrentScreen(backTo)
-          }}
-          onSuccess={() => {
-            const backTo = previousScreen || 'home'
-            setPreviousScreen(null)
-            setCurrentScreen(backTo)
-          }}
-          onSaveSettings={handleSaveSettings}
-        />
-      )}
-
-      {currentScreen === 'mint-management' && (
-        <MintManagementScreen
-          onBack={handleBack}
-          onAddMint={() => {
-            setPreviousScreen('mint-management')
-            setCurrentScreen('add-mint')
-          }}
-          onSaveSettings={handleSaveSettings}
-        />
-      )}
-
-      {currentScreen === 'relay-management' && (
-        <RelayManagementScreen
-          onBack={handleBack}
-          onSaveSettings={handleSaveSettings}
-        />
-      )}
-
-      {currentScreen === 'amount-action' && (
-        <AmountActionScreen
-          amount={scannedAmount}
-          mode={scanMode}
-          onBack={handleBack}
-          onSend={(amount) => {
-            setScannedAmount(amount)
-            setValidatedScanData(null)
-            setSendInitialStep('input')
-            setPreviousScreen('amount-action')
-            setCurrentScreen('send')
-          }}
-          onReceive={(amount) => {
-            setScannedAmount(amount)
-            setValidatedScanData(null)
-            setPreviousScreen('amount-action')
-            setCurrentScreen('receive')
-          }}
-        />
-      )}
-
-      {currentScreen === 'send' && (
-        <SendFlow
-          onBack={() => {
-            const backTo = previousScreen || 'home'
-            setPreviousScreen(null)
-            setCurrentScreen(backTo)
-          }}
-          onComplete={() => {
-            setPreviousScreen(null)
-            setCurrentScreen('home')
-          }}
-          onSendLightning={handleSendLightning}
-          onCreateEcashToken={handleCreateEcashToken}
-          onReceiveToken={handleReceiveToken}
-          onMintSwap={handleMintSwap}
-          validatedData={validatedScanData || undefined}
-          initialAmount={scannedAmount || undefined}
-          initialMintUrl={activeMintUrl}
-          initialStep={sendInitialStep}
-        />
-      )}
-
-      {currentScreen === 'receive' && (
-        <ReceiveFlow
-          onBack={() => {
-            const backTo = previousScreen || 'home'
-            setPreviousScreen(null)
-            setCurrentScreen(backTo)
-          }}
-          onComplete={() => {
-            setPreviousScreen(null)
-            setCurrentScreen('home')
-          }}
-          onCreateInvoice={handleCreateInvoice}
-          onSubscribeToQuote={handleSubscribeToQuote}
-          onPaymentReceived={handlePaymentReceived}
-          onReceiveToken={handleReceiveToken}
-          onAddTrustedMint={handleAddTrustedMint}
-          onSwapReceive={handleSwapReceive}
-          onEstimateSwapFee={handleEstimateSwapFee}
-          onStoreOfflineToken={handleStoreOfflineToken}
-          validatedData={validatedScanData || undefined}
-          initialAmount={scannedAmount || undefined}
-          initialMintUrl={activeMintUrl}
-        />
-      )}
-
-      {currentScreen === 'transaction-detail' && selectedTransaction && (
-        <TransactionDetailScreen
-          transaction={selectedTransaction}
-          onBack={() => {
-            setSelectedTransaction(null)
-            handleBack()
-          }}
-          mintUrls={settings.mints}
-        />
-      )}
-
-      {currentScreen === 'mint-detail' && selectedMint && (
-        <MintDetailScreen
-          mint={selectedMint}
-          mintIndex={selectedMintIndex}
-          onBack={handleBack}
-          onSend={(mintUrl) => {
-            setPreviousScreen('mint-detail')
-            setSendInitialStep('input')
-            setActiveMintUrl(mintUrl)
-            setValidatedScanData(null)
-            setScannedAmount(0)
-            setCurrentScreen('send')
-          }}
-          onReceive={(mintUrl) => {
-            setPreviousScreen('mint-detail')
-            setActiveMintUrl(mintUrl)
-            setValidatedScanData(null)
-            setScannedAmount(0)
-            setCurrentScreen('receive')
-          }}
-          onSwap={(mintUrl) => {
-            setPreviousScreen('mint-detail')
-            setActiveMintUrl(mintUrl)
-            setCurrentScreen('transfer')
-          }}
-          onCreateToken={(mintUrl) => {
-            setPreviousScreen('mint-detail')
-            setSendInitialStep('token-create')
-            setActiveMintUrl(mintUrl)
-            setValidatedScanData(null)
-            setScannedAmount(0)
-            setCurrentScreen('send')
-          }}
-          onDeleteMint={(url) => {
-            const newMints = settings.mints.filter(m => m !== url)
-            const { [url]: _, ...remainingAliases } = settings.mintAliases || {}
-            setCurrentScreen('home')
-            addToast({ type: 'success', message: t('mintDetail.mintDeleted') })
-            handleSaveSettings({ mints: newMints, mintAliases: remainingAliases })
-            clearMintData(url)
-          }}
-          onRenameMint={(url, newName) => {
-            const newAliases = { ...settings.mintAliases, [url]: newName }
-            handleSaveSettings({ mintAliases: newAliases })
-            if (selectedMint && selectedMint.url === url) {
-              setSelectedMint({ ...selectedMint, alias: newName, name: newName })
-            }
-          }}
-          onSelectTransaction={(tx) => {
-            setSelectedTransaction(tx)
-            setPreviousScreen('mint-detail')
-            setCurrentScreen('transaction-detail')
-          }}
-          onTransactions={() => {
-            setPreviousScreen('mint-detail')
-            setCurrentScreen('history')
-          }}
-          transactions={transactions}
-        />
-      )}
+            {renderScreen(currentScreen)}
           </Suspense>
         </PageTransition>
       </AnimatePresence>
       </div>
+      </div>{/* close data-swipe-target wrapper */}
 
       {/* Lock screen overlay — fades out on unlock, inert blocks ghost clicks underneath */}
       <AnimatePresence>
