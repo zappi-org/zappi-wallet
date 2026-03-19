@@ -19,6 +19,8 @@ Create branch from current HEAD. Name: `<type>/<slug>` where:
 - type: `fix` or `feat` (from analysis.md type field)
 - slug: kebab-case from plan title, max 5 words
 
+**유저 승인 필요:** 브랜치 생성 전에 브랜치 이름을 유저에게 보여주고 승인을 받는다.
+
 ### Step 2: Style Discovery
 Read the files listed in Change Spec + 1-2 neighboring files to learn:
 - Import ordering and style
@@ -49,9 +51,10 @@ Implement the tests from plan.md Test Plan section:
 2. Run `npx eslint <changed source files>` — fix lint errors if any
 3. Run `npx vitest run <changed test files>` — fix failures if any
 4. Stage all changed files
-5. Commit with message: `<type>: <plan title summary>`
+5. **유저 승인 필요:** 커밋 메시지와 변경 파일 목록을 유저에게 보여주고 승인을 받는다.
+6. Commit with message: `<type>: <plan title summary>`
    - Include `Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>`
-6. Write report to `.pipeline/implement-report.md`
+7. Write report to `.pipeline/implement-report.md`
 
 ## Output
 
@@ -60,6 +63,7 @@ Show a summary to the user: branch name, files changed, test results, any deviat
 
 ## Rules
 
+- **브랜치 생성, 커밋, 푸쉬는 항상 유저 승인 후 실행한다.** 자동으로 브랜치를 만들거나 커밋/푸쉬하지 않는다.
 - Read actual code before editing. Never edit blind.
 - One commit for the entire change.
 - If plan's pseudocode conflicts with existing code style, follow existing style.
