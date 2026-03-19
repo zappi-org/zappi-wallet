@@ -403,6 +403,26 @@ function MainAppInner() {
               })
             }
           }
+
+          // Sync store pendingQuotes with DB after recovery
+          if (recovery.quotes.recovered > 0 || recovery.quotes.expired > 0) {
+            try {
+              const allQuotes = await services.payment.getPendingQuotes()
+              const now = Date.now()
+              const activeQuotes = allQuotes.filter((q) =>
+                (!q.expiresAt || q.expiresAt > now) && (!q.createdAt || (now - q.createdAt) < 24 * 60 * 60 * 1000)
+              )
+              setPendingQuotes(activeQuotes.map((q) => ({
+                quoteId: q.quoteId,
+                mintUrl: q.mintUrl,
+                amount: q.amount,
+                invoice: q.invoice,
+                expiry: q.expiresAt || 0,
+              })))
+            } catch (e) {
+              console.error('[Background] Failed to sync pending quotes store:', e)
+            }
+          }
         } catch (e) {
           console.error('[Background] Failed to recover pending operations:', e)
         }
