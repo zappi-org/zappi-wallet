@@ -4,33 +4,28 @@ import { motion, AnimatePresence } from 'motion/react'
 /**
  * Page transition animation variants (Section 17.6)
  */
-/**
- * Variant functions accept a `custom` boolean (passed from AnimatePresence).
- * When custom=true (swipe-back transition), exit animation is suppressed
- * to prevent the exiting screen from flashing over the new screen.
- */
 const pageVariants = {
   initial: { opacity: 0, x: 20 },
   animate: { opacity: 1, x: 0 },
-  exit: (skipExit: boolean) => skipExit
-    ? { opacity: 0, transition: { duration: 0 } }
-    : { opacity: 0, x: -20 },
+  exit: { opacity: 0, x: -20 },
 }
 
+/**
+ * Modal animation variants
+ */
 const modalVariants = {
   initial: { opacity: 0, scale: 0.95 },
   animate: { opacity: 1, scale: 1 },
-  exit: (skipExit: boolean) => skipExit
-    ? { opacity: 0, transition: { duration: 0 } }
-    : { opacity: 0, scale: 0.95 },
+  exit: { opacity: 0, scale: 0.95 },
 }
 
+/**
+ * Fade animation variants
+ */
 const fadeVariants = {
   initial: { opacity: 0 },
   animate: { opacity: 1 },
-  exit: (skipExit: boolean) => skipExit
-    ? { opacity: 0, transition: { duration: 0 } }
-    : { opacity: 0 },
+  exit: { opacity: 0 },
 }
 
 /**
@@ -48,8 +43,6 @@ export interface PageTransitionProps {
   children: ReactNode
   variant?: 'page' | 'modal' | 'fade'
   className?: string
-  /** Skip the enter animation (used by swipe-back to avoid double-animation) */
-  skipInitial?: boolean
 }
 
 /**
@@ -59,7 +52,6 @@ export function PageTransition({
   children,
   variant = 'page',
   className = '',
-  skipInitial = false,
 }: PageTransitionProps) {
   const variants = {
     page: pageVariants,
@@ -70,7 +62,7 @@ export function PageTransition({
   return (
     <motion.div
       variants={variants[variant]}
-      initial={skipInitial ? false : 'initial'}
+      initial="initial"
       animate="animate"
       exit="exit"
       transition={{ duration: 0.2, ease: 'easeOut' }}

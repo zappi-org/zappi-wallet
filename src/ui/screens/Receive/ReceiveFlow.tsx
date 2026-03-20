@@ -13,7 +13,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
-import { useBackHandler } from '@/hooks/use-back-handler'
 import { useNetwork } from '@/hooks/use-network'
 import { useAppStore } from '@/store'
 import { selectP2pkPubkey } from '@/store/selectors'
@@ -467,24 +466,6 @@ export function ReceiveFlow({
     setState((prev) => ({ ...prev, step }))
   }, [])
 
-  // Register internal back handler for swipe-back gesture
-  const { pushBackHandler } = useBackHandler()
-
-  useEffect(() => {
-    const backMap: Partial<Record<ReceiveStep, ReceiveStep>> = {
-      'input': 'token-receive',
-      'qr': 'input',
-      'token-confirm': 'token-receive',
-      'untrusted-mint': 'token-receive',
-    }
-    const prev = backMap[state.step]
-    if (!prev) return // token-receive (root) or complete — no internal back
-
-    return pushBackHandler(() => {
-      goToStep(prev)
-      return true
-    })
-  }, [state.step, pushBackHandler, goToStep])
 
   // ============= Render =============
 
