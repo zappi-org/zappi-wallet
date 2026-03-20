@@ -108,9 +108,14 @@ export default function TransactionDetailScreen({
 
       if (spentCount === states.length) {
         const repo = new TransactionRepository()
-        await repo.update(tx.id, { tokenState: 'spent' as TokenState })
-        setTx((prev) => ({ ...prev, tokenState: 'spent' as TokenState }))
-        addToast({ type: 'error', message: t('txDetail.alreadySpent'), duration: 3000 })
+        await repo.update(tx.id, { tokenState: 'spent' as TokenState, status: 'completed', completedAt: Date.now() })
+        setTx((prev) => ({ ...prev, tokenState: 'spent' as TokenState, status: 'completed', completedAt: Date.now() }))
+        // pendingSendToken 제거
+        const { getDatabase } = await import('@/data/database/schema')
+        const spentDb = getDatabase()
+        await spentDb.pendingSendTokens.delete(tx.id).catch(() => {})
+        useAppStore.getState().triggerTxRefresh()
+        addToast({ type: 'info', message: t('txDetail.alreadySpent'), duration: 3000 })
         return
       }
 

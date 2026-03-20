@@ -680,6 +680,12 @@ export default function MainApp() {
     if (handledTokenIdsRef.current.has(txId)) return
     handledTokenIdsRef.current.add(txId)
 
+    // 이미 reclaimed된 경우 덮어쓰지 않음
+    const existing = await services.transactionRepo.findById(txId)
+    if (existing && existing.status === 'failed' && existing.failureReason === 'reclaimed') {
+      return
+    }
+
     await services.transactionRepo.update(txId, {
       status: 'completed',
       tokenState: 'spent',
@@ -778,13 +784,15 @@ export default function MainApp() {
 
   // ─── NUT-18 전송 완료 콜백 ───
   const handleCompleteEcashSend = useCallback(async (txId: string) => {
+    handledTokenIdsRef.current.add(txId)
     await services.transactionRepo.update(txId, {
       status: 'completed',
+      tokenState: 'spent',
       completedAt: Date.now(),
     })
     await services.payment.removePendingSendToken(txId)
     setTransactions((prev) => prev.map((t) =>
-      t.id === txId ? { ...t, status: 'completed' as const, completedAt: Date.now() } : t
+      t.id === txId ? { ...t, status: 'completed' as const, tokenState: 'spent' as const, completedAt: Date.now() } : t
     ))
     // 모니터링 해제 (transport로 보냈으므로 별도 추적 불필요)
     const monitor = tokenMonitorsRef.current.get(txId)
