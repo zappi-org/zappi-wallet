@@ -94,7 +94,120 @@ export async function receiveToken(token: string): Promise<void> {
 }
 
 /**
- * 토큰 전송 (send)
+ * 토큰 전송 준비 (SendApi.prepareSend)
+ * proof 예약 + 수수료 계산. 실행 전 수수료를 확인할 수 있다.
+ * 이후 executeSendToken()으로 실행하거나 rollbackSendToken()으로 취소.
+ */
+export async function prepareSendToken(mintUrl: string, amount: number): Promise<{
+  operationId: string;
+  fee: number;
+  needsSwap: boolean;
+}> {
+  const manager = await getCocoManager();
+  await ensureMintTrusted(manager, mintUrl);
+
+  try {
+    const prepared = await manager.send.prepareSend(mintUrl, amount);
+    return { operationId: prepared.id, fee: prepared.fee, needsSwap: prepared.needsSwap };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('Not enough funds')) {
+      const { InsufficientBalanceError } = await import('@/core/errors/cashu');
+      const balances = await manager.wallet.getBalances();
+      const available = balances[mintUrl] || 0;
+
+      if (available >= amount) {
+        throw new InsufficientBalanceError(amount, available, err, 1);
+      } else {
+        throw new InsufficientBalanceError(amount, available, err);
+      }
+    }
+    throw err;
+  }
+}
+
+/**
+ * 토큰 전송 실행 (SendApi.executePreparedSend)
+ * prepareSendToken() 이후 호출하여 토큰을 생성한다.
+ * P2PK 옵션 제공 시 cashu-ts로 추가 swap하여 P2PK 잠금 토큰 생성.
+ *
+ * 실행 후 ProofStateWatcher가 자동으로 proof 상태를 감시하여
+ * 수령자가 토큰을 수령하면 send:finalized 이벤트를 발행한다.
+ */
+export async function executeSendToken(
+  operationId: string,
+  options?: { p2pkPubkey?: string; memo?: string }
+): Promise<{ token: string }> {
+  const manager = await getCocoManager();
+  const { token } = await manager.send.executePreparedSend(operationId);
+  const { getEncodedToken } = await import('@cashu/cashu-ts');
+
+  if (options?.p2pkPubkey) {
+    // P2PK lock: swap unlocked proofs into P2PK-locked proofs via cashu-ts
+    const mintUrl = token.mint;
+    const wallet = await getCashuWallet(mintUrl);
+    const encodedUnlocked = getEncodedToken(token);
+    const decoded = getDecodedToken(encodedUnlocked);
+
+    let p2pkProofs: Proof[];
+    let changeProofs: Proof[];
+    try {
+      const amount = decoded.proofs.reduce((sum, p) => sum + p.amount, 0);
+      const result = await wallet.send(
+        amount,
+        decoded.proofs,
+        { includeFees: true },
+        { send: { type: 'p2pk', options: { pubkey: options.p2pkPubkey } } }
+      );
+      p2pkProofs = result.send;
+      changeProofs = result.keep;
+    } catch (swapError) {
+      // P2PK swap failed — rollback the SDK operation to reclaim proofs
+      console.error('[cashuService] P2PK swap failed, rolling back send operation:', swapError);
+      try {
+        await manager.send.rollback(operationId);
+        console.log('[cashuService] Successfully rolled back send operation after P2PK swap failure');
+      } catch (rollbackError) {
+        // Rollback failed — try direct reclaim as fallback
+        console.error('[cashuService] Rollback failed, trying direct reclaim:', rollbackError);
+        try {
+          await manager.wallet.receive(encodedUnlocked);
+        } catch (reclaimError) {
+          console.error('[cashuService] Failed to reclaim proofs (may need manual recovery):', reclaimError);
+        }
+      }
+      throw swapError;
+    }
+
+    // Return change proofs (denomination rounding) to Coco
+    if (changeProofs.length > 0) {
+      try {
+        const changeToken = getEncodedToken({ mint: mintUrl, proofs: changeProofs });
+        await manager.wallet.receive(changeToken);
+      } catch (changeError) {
+        console.error('[cashuService] Failed to return change proofs to Coco:', changeError);
+        console.error('[cashuService] Lost change proofs:', JSON.stringify(changeProofs));
+      }
+    }
+
+    return { token: getEncodedToken({ mint: mintUrl, proofs: p2pkProofs, memo: options?.memo }) };
+  }
+
+  return { token: getEncodedToken({ ...token, memo: options?.memo }) };
+}
+
+/**
+ * 토큰 전송 롤백 (SendApi.rollback)
+ * pending 상태의 토큰을 회수한다. send:rolled-back 이벤트가 자동 발행된다.
+ */
+export async function rollbackSendToken(operationId: string): Promise<void> {
+  const manager = await getCocoManager();
+  await manager.send.rollback(operationId);
+}
+
+/**
+ * @deprecated Use prepareSendToken() + executeSendToken() instead.
+ * 토큰 전송 (send) — 레거시 API
  * P2PK 옵션 제공 시 cashu-ts로 swap하여 P2PK 잠금 토큰 생성
  */
 export async function sendToken(
@@ -420,40 +533,78 @@ export async function recoverPendingMelts(): Promise<{
 /**
  * Recover pending send tokens (Ecash sends that may not have completed)
  *
- * Two phases of pending records:
- * - token=undefined: Crash during cocoSendToken. Proofs may or may not be consumed.
- *   We can't recover the token, but we record the potential loss.
- * - token=set: Token was created but tx record wasn't saved.
- *   Try to reclaim (receiveToken). If "already spent", record as send.
+ * Three recovery paths:
+ * 1. SDK operations (operationId exists): SDK's recoverPendingOperations() handles
+ *    auto-finalize (proofs spent) or resumes watching (proofs pending).
+ *    sendTokenObserver picks up the resulting events.
+ * 2. Legacy phase 1 (no operationId, no token): Crash during token creation.
+ *    Record as failed send.
+ * 3. Legacy phase 2 (no operationId, token exists): Token created but tx not saved.
+ *    Try reclaim; if spent, record as completed send.
  */
 export async function recoverPendingSendTokens(): Promise<{
   reclaimed: number;
   recorded: number;
 }> {
+  const manager = await getCocoManager();
   const { getDatabase } = await import('@/data/database/schema');
   const db = getDatabase();
+
+  // 1. SDK가 pending send operation 자동 복구
+  //    → finalize if proofs spent, keep watching if still pending
+  //    → send:finalized / send:rolled-back 이벤트 → sendTokenObserver가 처리
+  try {
+    await manager.send.recoverPendingOperations();
+    console.log('[Recovery] SDK recoverPendingOperations completed');
+  } catch (error) {
+    console.error('[Recovery] SDK recoverPendingOperations failed:', error);
+  }
 
   const pendingTokens = await db.pendingSendTokens.toArray();
   if (pendingTokens.length === 0) return { reclaimed: 0, recorded: 0 };
 
   console.log(`[Recovery] Found ${pendingTokens.length} pending send tokens`);
+
+  // Separate SDK-managed vs legacy
+  const sdkTokens = pendingTokens.filter(p => p.operationId);
+  const legacyTokens = pendingTokens.filter(p => !p.operationId);
+
   let reclaimed = 0;
   let recorded = 0;
   const maxAge = 24 * 60 * 60 * 1000;
 
-  for (const pending of pendingTokens) {
-    // 정상 pending ecash-token은 스킵 (MainApp.checkPendingTokenStates가 처리)
+  // 2. SDK-managed: clean up already finalized/rolled-back entries
+  for (const pending of sdkTokens) {
+    try {
+      const op = await manager.send.getOperation(pending.operationId!);
+      if (op && (op.state === 'finalized' || op.state === 'rolled_back')) {
+        // sendTokenObserver should have handled this, but clean up just in case
+        await db.pendingSendTokens.delete(pending.id);
+        console.log(`[Recovery] Cleaned up SDK send token (${op.state}): ${pending.id}`);
+      }
+      // 'pending' state: ProofStateWatcher is monitoring, leave it
+    } catch (error) {
+      console.error(`[Recovery] Failed to check SDK send operation ${pending.operationId}:`, error);
+      // Clean up old entries that can't be recovered
+      if (Date.now() - pending.createdAt > maxAge) {
+        await db.pendingSendTokens.delete(pending.id);
+      }
+    }
+  }
+
+  // 3. Legacy recovery (no operationId)
+  for (const pending of legacyTokens) {
     const existingTx = await db.transactions.get(pending.id);
+
+    // 정상 pending ecash-token은 스킵
     if (existingTx && existingTx.status === 'pending' && existingTx.type === 'ecash-token') {
       console.log(`[Recovery] Skipping normal pending ecash-token: ${pending.id}`);
       continue;
     }
 
-    // Phase 1 record: token was never created (crash during cocoSendToken)
+    // Phase 1: token was never created (crash during cocoSendToken)
     if (!pending.token) {
       console.warn(`[Recovery] Send intent without token: ${pending.id} (${pending.amount} sats)`);
-      // Proofs may have been consumed by Coco without returning a token.
-      // We cannot recover - record as failed send so the user knows.
       if (!existingTx) {
         await db.transactions.put({
           id: pending.id,
@@ -472,9 +623,8 @@ export async function recoverPendingSendTokens(): Promise<{
       continue;
     }
 
-    // Phase 2 record: token exists but tx wasn't saved (crash after cocoSendToken)
+    // Phase 2: token exists but tx wasn't saved (crash after cocoSendToken)
     try {
-      // Try to reclaim the token (receive it back)
       await receiveToken(pending.token);
       await db.pendingSendTokens.delete(pending.id);
       reclaimed++;
@@ -482,7 +632,6 @@ export async function recoverPendingSendTokens(): Promise<{
     } catch (error) {
       const errorMsg = String(error).toLowerCase();
       if (errorMsg.includes('already spent') || errorMsg.includes('token already spent')) {
-        // Token was sent to recipient - create send transaction record
         if (!existingTx) {
           await db.transactions.put({
             id: pending.id,
@@ -501,7 +650,6 @@ export async function recoverPendingSendTokens(): Promise<{
         console.log(`[Recovery] Created send tx for spent token: ${pending.amount} sats`);
       } else {
         console.error(`[Recovery] Failed to recover send token ${pending.id}:`, error);
-        // Clean up old entries that can't be recovered
         if (Date.now() - pending.createdAt > maxAge) {
           await db.pendingSendTokens.delete(pending.id);
         }

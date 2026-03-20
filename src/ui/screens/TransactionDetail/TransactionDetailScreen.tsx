@@ -9,14 +9,17 @@ import {
   Trash2,
   Loader2,
   MoreVertical,
+  QrCode,
 } from 'lucide-react'
 import type { Transaction, TokenState } from '@/core/types'
 import { useFormatSats, useFormatFiat, formatTransactionFiat } from '@/utils/format'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
 import { TransactionRepository } from '@/data/repositories/transaction.repository'
+import { markSendFinalized, markSendReclaimed } from '@/coco/sendTokenObserver'
 import { getDecodedToken } from '@cashu/cashu-ts'
 import { ArrowLeft } from 'lucide-react'
+import { TokenQrModal } from './TokenQrModal'
 
 export interface TransactionDetailScreenProps {
   transaction: Transaction
@@ -38,6 +41,7 @@ export default function TransactionDetailScreen({
   const [isReclaiming, setIsReclaiming] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showTokenQr, setShowTokenQr] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const addToast = useAppStore((s) => s.addToast)
 
@@ -97,57 +101,70 @@ export default function TransactionDetailScreen({
     if (!tx.token) return
     setIsReclaiming(true)
     try {
-      const { CashuService } = await import('@/services/cashu/cashu.service')
-      const cashu = new CashuService()
-      const decoded = getDecodedToken(tx.token)
-      const wallet = await cashu.getWallet(decoded.mint)
-      const states = await wallet.checkProofsStates(decoded.proofs)
+      if (tx.operationId) {
+        // SDK 경로: rollback이 proof 상태 확인 + 회수를 한번에 처리
+        const { rollbackSendToken } = await import('@/coco/cashuService')
+        try {
+          await rollbackSendToken(tx.operationId)
+          await markSendReclaimed(tx.id)
+          setTx((prev) => ({ ...prev, tokenState: 'spent' as TokenState, status: 'completed' as const, completedAt: Date.now(), failureReason: 'reclaimed' }))
+          addToast({ type: 'success', message: t('txDetail.reclaimSuccess'), duration: 3000 })
+        } catch (err) {
+          const msg = String(err).toLowerCase()
+          if (msg.includes('spent') || msg.includes('finalized')) {
+            // 이미 수령됨 → finalize 시도 후 완료 처리
+            try {
+              const { getCocoManager } = await import('@/coco/manager')
+              const manager = await getCocoManager()
+              await manager.send.finalize(tx.operationId).catch(() => {})
+            } catch { /* finalize 실패해도 DB는 업데이트 */ }
+            await markSendFinalized(tx.id)
+            setTx((prev) => ({ ...prev, tokenState: 'spent' as TokenState, status: 'completed', completedAt: Date.now() }))
+            addToast({ type: 'info', message: t('txDetail.alreadySpent'), duration: 3000 })
+          } else {
+            throw err
+          }
+        }
+      } else {
+        // 레거시 경로 (operationId 없는 이전 트랜잭션)
+        const { CashuService } = await import('@/services/cashu/cashu.service')
+        const cashu = new CashuService()
+        const decoded = getDecodedToken(tx.token)
+        const wallet = await cashu.getWallet(decoded.mint)
+        const states = await wallet.checkProofsStates(decoded.proofs)
 
-      const spentCount = states.filter((s) => s.state === 'SPENT').length
-      const pendingCount = states.filter((s) => s.state === 'PENDING').length
+        const spentCount = states.filter((s) => s.state === 'SPENT').length
+        const pendingCount = states.filter((s) => s.state === 'PENDING').length
 
-      if (spentCount === states.length) {
-        const repo = new TransactionRepository()
-        await repo.update(tx.id, { tokenState: 'spent' as TokenState, status: 'completed', completedAt: Date.now() })
-        setTx((prev) => ({ ...prev, tokenState: 'spent' as TokenState, status: 'completed', completedAt: Date.now() }))
-        // pendingSendToken 제거
-        const { getDatabase } = await import('@/data/database/schema')
-        const spentDb = getDatabase()
-        await spentDb.pendingSendTokens.delete(tx.id).catch(() => {})
-        useAppStore.getState().triggerTxRefresh()
-        addToast({ type: 'info', message: t('txDetail.alreadySpent'), duration: 3000 })
-        return
+        if (spentCount === states.length) {
+          await markSendFinalized(tx.id)
+          setTx((prev) => ({ ...prev, tokenState: 'spent' as TokenState, status: 'completed', completedAt: Date.now() }))
+          addToast({ type: 'info', message: t('txDetail.alreadySpent'), duration: 3000 })
+          return
+        }
+
+        if (pendingCount > 0) {
+          const repo = new TransactionRepository()
+          await repo.update(tx.id, { tokenState: 'pending' as TokenState })
+          setTx((prev) => ({ ...prev, tokenState: 'pending' as TokenState }))
+          addToast({ type: 'error', message: t('txDetail.tokenPending'), duration: 3000 })
+          return
+        }
+
+        const { receiveToken } = await import('@/coco/cashuService')
+        await receiveToken(tx.token)
+
+        await markSendReclaimed(tx.id)
+        setTx((prev) => ({ ...prev, tokenState: 'spent' as TokenState, status: 'completed' as const, completedAt: Date.now(), failureReason: 'reclaimed' }))
+        addToast({ type: 'success', message: t('txDetail.reclaimSuccess'), duration: 3000 })
       }
-
-      if (pendingCount > 0) {
-        const repo = new TransactionRepository()
-        await repo.update(tx.id, { tokenState: 'pending' as TokenState })
-        setTx((prev) => ({ ...prev, tokenState: 'pending' as TokenState }))
-        addToast({ type: 'error', message: t('txDetail.tokenPending'), duration: 3000 })
-        return
-      }
-
-      const { receiveToken } = await import('@/coco/cashuService')
-      await receiveToken(tx.token)
-
-      const repo = new TransactionRepository()
-      await repo.update(tx.id, { tokenState: 'spent' as TokenState, status: 'failed', failureReason: 'reclaimed' })
-      setTx((prev) => ({ ...prev, tokenState: 'spent' as TokenState, status: 'failed', failureReason: 'reclaimed' }))
-
-      // pendingSendToken 제거
-      const { getDatabase } = await import('@/data/database/schema')
-      const db = getDatabase()
-      await db.pendingSendTokens.delete(tx.id).catch(() => {})
-
-      useAppStore.getState().triggerTxRefresh()
-      addToast({ type: 'success', message: t('txDetail.reclaimSuccess'), duration: 3000 })
     } catch (err) {
       console.error('[TxDetail] Check & reclaim failed:', err)
       addToast({ type: 'error', message: t('txDetail.reclaimFailed'), duration: 3000 })
     } finally {
       setIsReclaiming(false)
     }
-  }, [tx.token, tx.id, addToast, t])
+  }, [tx.token, tx.operationId, tx.id, addToast, t])
 
   // ─── Share ───
   const handleShare = useCallback(async () => {
@@ -349,7 +366,7 @@ export default function TransactionDetailScreen({
           <p className="text-[12px] font-semibold text-foreground-muted uppercase tracking-wider mb-1">
             {t('txDetail.txInfo')}
           </p>
-          <div className="bg-white/60 rounded-2xl px-4">
+          <div className="bg-white/60 rounded px-4">
             <InfoRow label={t('txDetail.type')} value={typeLabel} />
             {tx.memo && <InfoRow label={t('txDetail.memo')} value={tx.memo} />}
             {sourceLabel && <InfoRow label={t('txDetail.source')} value={sourceLabel} />}
@@ -359,21 +376,63 @@ export default function TransactionDetailScreen({
                 <span className="text-[15px] font-medium text-accent-danger">{tx.failureReason}</span>
               </div>
             )}
-            {/* TX ID — full display, tap to copy */}
-            <button
-              onClick={() => handleCopy(tx.id, 'txId')}
-              className="flex items-start justify-between gap-3 w-full py-3 border-b border-border/30 last:border-b-0 active:bg-black/[0.02] transition-colors"
-            >
-              <span className="text-[15px] text-foreground-muted shrink-0">{t('txDetail.txId')}</span>
-              <span className="text-[13px] font-mono text-foreground-muted text-right break-all leading-relaxed flex-1">
+            {/* TX ID */}
+            <div className="py-3 border-b border-border/30 last:border-b-0">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[15px] text-foreground-muted">{t('txDetail.txId')}</span>
+                <button
+                  onClick={() => handleCopy(tx.id, 'txId')}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/[0.04] transition-colors"
+                >
+                  {copiedField === 'txId' ? (
+                    <Check className="w-4 h-4 text-card-green-dark" />
+                  ) : (
+                    <Copy className="w-4 h-4 text-foreground-muted" />
+                  )}
+                </button>
+              </div>
+              <p className="text-[13px] font-mono text-foreground-muted break-all leading-relaxed">
                 {tx.id}
-              </span>
-              {copiedField === 'txId' ? (
-                <Check className="w-3.5 h-3.5 text-card-green-dark shrink-0 mt-0.5" />
-              ) : (
-                <Copy className="w-3.5 h-3.5 text-foreground-muted/50 shrink-0 mt-0.5" />
-              )}
-            </button>
+              </p>
+            </div>
+
+            {/* Token */}
+            {showUnclaimedCard && tx.token && (
+              <div className="py-3 border-b border-border/30 last:border-b-0">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[15px] text-foreground-muted">{t('txDetail.sentToken')}</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleCopy(tx.token!, 'token')}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/[0.04] transition-colors"
+                    >
+                      {copiedField === 'token' ? (
+                        <Check className="w-4 h-4 text-card-green-dark" />
+                      ) : (
+                        <Copy className="w-4 h-4 text-foreground-muted" />
+                      )}
+                    </button>
+                    {typeof navigator.share === 'function' && (
+                      <button
+                        onClick={handleShare}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/[0.04] transition-colors"
+                      >
+                        <Share2 className="w-4 h-4 text-foreground-muted" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setShowTokenQr(true)}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/[0.04] transition-colors"
+                    >
+                      <QrCode className="w-4 h-4 text-foreground-muted" />
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[13px] font-mono text-foreground-muted break-all leading-relaxed line-clamp-3">
+                  {tx.token}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -383,7 +442,7 @@ export default function TransactionDetailScreen({
             <p className="text-[12px] font-semibold text-foreground-muted uppercase tracking-wider mb-1">
               {t('txDetail.paymentInfo')}
             </p>
-            <div className="bg-white/60 rounded-2xl px-4">
+            <div className="bg-white/60 rounded px-4">
               {typeof metadata?.destination === 'string' && (
                 <InfoRow label={t('txDetail.destination')} value={metadata.destination} copyable field="destination" />
               )}
@@ -404,7 +463,7 @@ export default function TransactionDetailScreen({
             <p className="text-[12px] font-semibold text-foreground-muted uppercase tracking-wider mb-1">
               {t('txDetail.details')}
             </p>
-            <div className="bg-white/60 rounded-2xl px-4">
+            <div className="bg-white/60 rounded px-4">
               {tx.bolt11 && (
                 <InfoRow label={t('txDetail.bolt11')} value={tx.bolt11} copyable field="bolt11" />
               )}
@@ -421,7 +480,7 @@ export default function TransactionDetailScreen({
             <p className="text-[12px] font-semibold text-foreground-muted uppercase tracking-wider mb-1">
               {t('txDetail.swapInfo')}
             </p>
-            <div className="bg-white/60 rounded-2xl px-4">
+            <div className="bg-white/60 rounded px-4">
               {typeof metadata.fromMintUrl === 'string' && (
                 <InfoRow label={t('txDetail.fromMint')} value={getDisplayName(metadata.fromMintUrl)} />
               )}
@@ -446,7 +505,7 @@ export default function TransactionDetailScreen({
             <p className="text-[12px] font-semibold text-foreground-muted uppercase tracking-wider mb-1">
               {t('txDetail.orderItems')}
             </p>
-            <div className="bg-white/60 rounded-2xl px-4 py-1">
+            <div className="bg-white/60 rounded px-4 py-1">
               {kioskOrder.items.map((item, i) => (
                 <div key={i} className="flex items-center justify-between py-2.5 border-b border-border/30 last:border-b-0">
                   <span className="text-[15px] text-foreground">
@@ -468,43 +527,36 @@ export default function TransactionDetailScreen({
           </div>
         )}
 
-        {/* ── eCash Unclaimed Context Card ── */}
+        {/* ── eCash Unclaimed: Reclaim action ── */}
         {showUnclaimedCard && (
           <div className="px-5 mt-6">
-            <div className="bg-accent-primary/5 rounded-2xl p-4">
-              <p className="text-[15px] text-foreground mb-3">
-                {t('txDetail.unclaimedNotice')}
-              </p>
-              <div className="flex gap-2">
-                {typeof navigator.share === 'function' && (
-                  <button
-                    onClick={handleShare}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[15px] font-semibold bg-white/80 hover:bg-white transition-colors text-foreground"
-                  >
-                    <Share2 className="w-4 h-4" />
-                    {t('txDetail.share')}
-                  </button>
-                )}
-                <button
-                  onClick={handleCheckAndReclaim}
-                  disabled={isReclaiming}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[15px] font-semibold bg-card-green-dark text-white hover:bg-card-green-darker transition-colors disabled:opacity-50"
-                >
-                  {isReclaiming ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Undo2 className="w-4 h-4" />
-                  )}
-                  {isReclaiming ? t('txDetail.reclaiming') : t('txDetail.reclaimAction')}
-                </button>
-              </div>
-            </div>
+            <button
+              onClick={handleCheckAndReclaim}
+              disabled={isReclaiming}
+              className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl text-[14px] font-medium text-foreground-muted hover:text-foreground hover:bg-black/[0.03] transition-colors disabled:opacity-50"
+            >
+              {isReclaiming ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Undo2 className="w-4 h-4" />
+              )}
+              {isReclaiming ? t('txDetail.reclaiming') : t('txDetail.reclaimAction')}
+            </button>
           </div>
         )}
 
         {/* bottom spacing */}
         <div className="h-8" />
       </div>
+
+      {/* Token QR Modal */}
+      {tx.token && (
+        <TokenQrModal
+          isOpen={showTokenQr}
+          token={tx.token}
+          onClose={() => setShowTokenQr(false)}
+        />
+      )}
 
       {/* Delete Confirmation Overlay */}
       {showDeleteConfirm && (

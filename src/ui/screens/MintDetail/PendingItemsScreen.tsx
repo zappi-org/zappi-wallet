@@ -13,6 +13,7 @@ interface PendingItemsScreenProps {
   items: PendingItem[]
   mintUrl: string
   onBack: () => void
+  onItemClick?: (item: PendingItem) => void
 }
 
 function groupByDate(items: PendingItem[], t: (key: string) => string): Array<{ label: string; items: PendingItem[] }> {
@@ -41,7 +42,7 @@ function groupByDate(items: PendingItem[], t: (key: string) => string): Array<{ 
   return Object.entries(groups).map(([label, items]) => ({ label, items }))
 }
 
-export function PendingItemsScreen({ items, mintUrl, onBack }: PendingItemsScreenProps) {
+export function PendingItemsScreen({ items, mintUrl, onBack, onItemClick }: PendingItemsScreenProps) {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<Tab>('all')
   const [requestFilter, setRequestFilter] = useState<RequestFilter>('all')
@@ -169,7 +170,7 @@ export function PendingItemsScreen({ items, mintUrl, onBack }: PendingItemsScree
             {groups.map(({ label, items: groupItems }) => (
               <div key={label}>
                 <p className="text-xs font-medium text-[#86868b] mb-2">{label}</p>
-                <PendingItemsList items={groupItems} mintUrl={mintUrl} maxItems={999} />
+                <PendingItemsList items={groupItems} mintUrl={mintUrl} maxItems={999} onItemClick={onItemClick} />
               </div>
             ))}
           </div>

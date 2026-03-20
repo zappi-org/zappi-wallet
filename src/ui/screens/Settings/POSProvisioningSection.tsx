@@ -161,7 +161,7 @@ export function POSProvisioningSection({
               className="px-4 py-3.5 flex items-center justify-between"
             >
               <div>
-                <span className="text-[14px] font-medium block">{device.label}</span>
+                <span className="text-[15px] font-medium block">{device.label}</span>
                 <span className="text-[12px] text-foreground-muted">
                   #{device.index} &middot; {new Date(device.createdAt).toLocaleDateString()}
                 </span>
@@ -186,7 +186,7 @@ export function POSProvisioningSection({
             onClick={() => setShowAddModal(true)}
             className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
           >
-            <span className="text-[14px] font-medium text-accent-primary">{t('settings.addPosDevice')}</span>
+            <span className="text-[15px] font-medium text-accent-primary">{t('settings.addPosDevice')}</span>
             <ChevronRight className="w-4 h-4 text-foreground-subtle" />
           </button>
         </div>

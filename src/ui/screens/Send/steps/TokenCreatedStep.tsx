@@ -2,6 +2,8 @@
  * TokenCreatedStep — Token created, show QR + share/copy buttons
  * Cancel button reclaims the token
  * Modern layout: bg-[#faf9f6], no border-t
+ *
+ * Token spending detection via SDK send:finalized event (not custom polling)
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react'
@@ -12,14 +14,11 @@ import { hapticTap, hapticSuccess } from '@/utils/haptic'
 import { useAppStore } from '@/store'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
-import { CashuService } from '@/services/cashu/cashu.service'
-import { getDecodedToken } from '@cashu/cashu-ts'
-
-const cashu = new CashuService()
 
 interface TokenCreatedStepProps {
   token: string
   amount: number
+  operationId?: string
   onCancel: () => void
   onComplete: () => void
 }
@@ -27,6 +26,7 @@ interface TokenCreatedStepProps {
 export function TokenCreatedStep({
   token,
   amount,
+  operationId,
   onCancel,
   onComplete,
 }: TokenCreatedStepProps) {
@@ -39,66 +39,41 @@ export function TokenCreatedStep({
   const [isCanceling, setIsCanceling] = useState(false)
   const spentGuardRef = useRef(false)
 
-  // Monitor token spending
+  const handleSpent = useCallback(() => {
+    if (spentGuardRef.current) return
+    spentGuardRef.current = true
+    setIsSpent(true)
+    hapticSuccess()
+  }, [])
+
+  // Monitor token spending via SDK send:finalized event
   useEffect(() => {
-    let pollTimer: ReturnType<typeof setInterval>
+    if (!operationId) return
+
     let unsubscribe: (() => void) | undefined
     let mounted = true
 
-    const handleSpent = () => {
-      if (spentGuardRef.current || !mounted) return
-      spentGuardRef.current = true
-      setIsSpent(true)
-      hapticSuccess()
-    }
-
-    const startMonitoring = async () => {
+    const subscribe = async () => {
       try {
-        const decoded = getDecodedToken(token)
-        const proofs = decoded.proofs
-        const mintUrl = decoded.mint
-
-        let pollCount = 0
-        pollTimer = setInterval(async () => {
-          if (spentGuardRef.current || !mounted) return
-          pollCount++
-          if (pollCount > 60) {
-            clearInterval(pollTimer)
-            return
-          }
-          try {
-            const spentSecrets = await cashu.checkProofsSpent(mintUrl, proofs)
-            if (spentSecrets.length > 0) {
-              clearInterval(pollTimer)
-              handleSpent()
-            }
-          } catch {
-            // Ignore polling errors
-          }
-        }, 3000)
-
-        try {
-          const cleanup = await cashu.subscribeProofSpent(mintUrl, proofs, () => {
-            clearInterval(pollTimer)
+        const { getCocoManager } = await import('@/coco/manager')
+        const manager = await getCocoManager()
+        unsubscribe = manager.on('send:finalized', ({ operationId: finId }) => {
+          if (mounted && finId === operationId) {
             handleSpent()
-          })
-          if (cleanup) unsubscribe = cleanup
-        } catch {
-          // WS subscription optional
-        }
+          }
+        })
       } catch {
-        // Token decode error
+        // Manager not initialized — ignore
       }
     }
 
-    startMonitoring()
+    subscribe()
 
     return () => {
       mounted = false
-      clearInterval(pollTimer)
       unsubscribe?.()
     }
-  }, [token])
+  }, [operationId, handleSpent])
 
   // Auto-dismiss after token is claimed
   const onCompleteRef = useRef(onComplete)

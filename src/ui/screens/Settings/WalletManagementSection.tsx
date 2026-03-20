@@ -33,9 +33,9 @@ export function WalletManagementSection({
           onClick={onOpenMints}
           className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
         >
-          <span className="text-[14px] font-medium">{t('settings.manageMints')}</span>
+          <span className="text-[15px] font-medium">{t('settings.manageMints')}</span>
           <div className="flex items-center gap-1.5">
-            <span className="text-[14px] text-foreground-muted">{mintsCount}</span>
+            <span className="text-[15px] text-foreground-muted">{mintsCount}</span>
             <ChevronRight className="w-4 h-4 text-foreground-subtle" />
           </div>
         </button>
@@ -44,9 +44,9 @@ export function WalletManagementSection({
           onClick={onOpenRelays}
           className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
         >
-          <span className="text-[14px] font-medium">{t('settings.manageRelays')}</span>
+          <span className="text-[15px] font-medium">{t('settings.manageRelays')}</span>
           <div className="flex items-center gap-1.5">
-            <span className="text-[14px] text-foreground-muted">{relaysCount}</span>
+            <span className="text-[15px] text-foreground-muted">{relaysCount}</span>
             <ChevronRight className="w-4 h-4 text-foreground-subtle" />
           </div>
         </button>
@@ -55,7 +55,7 @@ export function WalletManagementSection({
           onClick={onTransfer}
           className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
         >
-          <span className="text-[14px] font-medium">{t('actions.transfer')}</span>
+          <span className="text-[15px] font-medium">{t('actions.transfer')}</span>
           <ChevronRight className="w-4 h-4 text-foreground-subtle" />
         </button>
 
@@ -63,7 +63,7 @@ export function WalletManagementSection({
           onClick={onOpenRestore}
           className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
         >
-          <span className="text-[14px] font-medium">{t('settings.verifyBalance')}</span>
+          <span className="text-[15px] font-medium">{t('settings.verifyBalance')}</span>
           <ChevronRight className="w-4 h-4 text-foreground-subtle" />
         </button>
 
@@ -71,7 +71,7 @@ export function WalletManagementSection({
           onClick={onOpenBackup}
           className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
         >
-          <span className="text-[14px] font-medium">{t('settings.mnemonicBackup')}</span>
+          <span className="text-[15px] font-medium">{t('settings.mnemonicBackup')}</span>
           <ChevronRight className="w-4 h-4 text-foreground-subtle" />
         </button>
       </div>

@@ -63,6 +63,7 @@ export interface SendFlowState {
   memo: string
   createdToken: string | null
   createdTxId: string | null
+  createdOperationId: string | null
   fee: number
   meltQuoteId: string | null
   error: string | null
@@ -75,7 +76,7 @@ export interface SendFlowProps {
   onComplete: () => void
   // MainApp handlers
   onSendLightning: (addressOrInvoice: string, amount: number, mintUrl?: string) => Promise<boolean>
-  onCreateEcashToken: (amount: number, mintUrl?: string, options?: { p2pkPubkey?: string; memo?: string }) => Promise<{ token: string; txId: string } | null>
+  onCreateEcashToken: (amount: number, mintUrl?: string, options?: { p2pkPubkey?: string; memo?: string }) => Promise<{ token: string; txId: string; operationId: string } | null>
   onCompleteEcashSend?: (txId: string) => Promise<void>
   onCancelEcashToken?: (txId: string) => Promise<void>
   onReceiveToken: (token: string) => Promise<boolean | { success: boolean; amount?: number }>
@@ -97,7 +98,8 @@ export function SendFlow({
   onCreateEcashToken,
   onCompleteEcashSend,
   onCancelEcashToken,
-  onReceiveToken,
+  // onReceiveToken is kept in props interface for callers but no longer used internally
+  // SDK rollback handles proof reclaim atomically via onCancelEcashToken
   onMintSwap,
   validatedData: initialValidatedData,
   initialAmount,
@@ -145,6 +147,7 @@ export function SendFlow({
     memo: '',
     createdToken: null,
     createdTxId: null,
+    createdOperationId: null,
     fee: 0,
     meltQuoteId: null,
     error: null,
@@ -413,6 +416,7 @@ export function SendFlow({
           step: 'token-created',
           createdToken: result.token,
           createdTxId: result.txId,
+          createdOperationId: result.operationId,
           amount: data.amount,
           selectedMintUrl: data.mintUrl,
           memo: data.memo,
@@ -432,25 +436,24 @@ export function SendFlow({
     }
   }, [isOnline, onCreateEcashToken, addToast, t])
 
-  /** Token created → cancel (reclaim token) */
+  /** Token created → cancel (reclaim token via SDK rollback) */
   const handleTokenCancel = useCallback(async () => {
-    if (!state.createdToken) return
+    if (!state.createdTxId) return
 
     try {
-      await onReceiveToken(state.createdToken)
-      if (state.createdTxId) {
-        await onCancelEcashToken?.(state.createdTxId)
-      }
+      // SDK rollback이 proof 회수 + 이벤트 발행을 원자적으로 처리
+      await onCancelEcashToken?.(state.createdTxId)
       setState((prev) => ({
         ...prev,
         step: 'token-create',
         createdToken: null,
         createdTxId: null,
+        createdOperationId: null,
       }))
     } catch {
       addToast({ type: 'error', message: t('payment.tokenReclaimFailed'), duration: 3000 })
     }
-  }, [state.createdToken, state.createdTxId, onReceiveToken, onCancelEcashToken, addToast, t])
+  }, [state.createdTxId, onCancelEcashToken, addToast, t])
 
   // ============= Navigation helpers =============
 
@@ -496,6 +499,7 @@ export function SendFlow({
             <TokenCreatedStep
               token={state.createdToken!}
               amount={state.amount}
+              operationId={state.createdOperationId ?? undefined}
               onCancel={handleTokenCancel}
               onComplete={onComplete}
             />

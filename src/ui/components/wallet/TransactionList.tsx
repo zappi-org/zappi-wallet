@@ -3,7 +3,8 @@ import { ArrowDownLeft, ArrowUpRight, ArrowRightLeft, Zap, Heart } from "lucide-
 import { useTranslation } from "react-i18next";
 import type { Transaction } from "@/core/types";
 import { useMintMetadata } from "@/hooks";
-import { useFormatSats, useFormatFiat, formatTransactionFiat } from "@/utils/format";
+import { useFormatSats, useFormatFiat, formatTransactionFiat, formatDateLocalized } from "@/utils/format";
+import { cn } from "@/lib/utils";
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -11,6 +12,7 @@ interface TransactionListProps {
   onTransactionClick?: (tx: Transaction) => void;
   maxItems?: number;
   showHeader?: boolean;
+  className?: string;
 }
 
 // Get icon based on transaction type and direction
@@ -36,35 +38,12 @@ export function TransactionList({
   onTransactionClick,
   maxItems = 5,
   showHeader = true,
+  className,
 }: TransactionListProps) {
   const { t, i18n } = useTranslation();
   const formatSats = useFormatSats();
   const toFiat = useFormatFiat();
   const displayTransactions = transactions.slice(0, maxItems);
-
-  // Localized date formatting
-  const formatDateLocalized = (timestamp: number): string => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffDays = Math.floor(
-      (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
-    );
-    const locale = i18n.language === 'ko' ? 'ko-KR' : i18n.language === 'ja' ? 'ja-JP' : i18n.language === 'es' ? 'es-ES' : i18n.language === 'id' ? 'id-ID' : 'en-US';
-
-    if (diffDays === 0) {
-      return `${t('history.today')}, ${date.toLocaleTimeString(locale, {
-        hour: "2-digit",
-        minute: "2-digit",
-      })}`;
-    }
-    if (diffDays === 1) {
-      return `${t('history.yesterday')}, ${date.toLocaleTimeString(locale, {
-        hour: "2-digit",
-        minute: "2-digit",
-      })}`;
-    }
-    return date.toLocaleDateString(locale, { month: "short", day: "numeric" });
-  };
 
   // Collect all mint URLs for metadata lookup
   const mintUrls = useMemo(() => {
@@ -84,7 +63,7 @@ export function TransactionList({
   const { getDisplayName } = useMintMetadata(mintUrls);
 
   return (
-    <div className="flex flex-col w-full px-6 py-1">
+    <div className={cn("flex flex-col w-full px-6 py-1", className)}>
       {showHeader && (
         <div className="flex items-center justify-between pt-[4px] mb-2">
           <div />
@@ -187,7 +166,7 @@ export function TransactionList({
                   ) : null
                 })()}
                 <span className="font-['Outfit'] font-medium text-[12px] text-[#86868b] leading-normal">
-                  {formatDateLocalized(tx.createdAt)}
+                  {formatDateLocalized(tx.createdAt, i18n.language, t('history.today'), t('history.yesterday'))}
                 </span>
               </div>
             </div>

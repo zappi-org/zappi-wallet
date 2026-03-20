@@ -146,6 +146,48 @@ export function formatTransactionFiat(
   return liveFiatFormatter(tx.amount)
 }
 
+// ── Locale + date helpers ──
+
+const LOCALE_MAP: Record<string, string> = {
+  ko: 'ko-KR',
+  ja: 'ja-JP',
+  es: 'es-ES',
+  id: 'id-ID',
+  en: 'en-US',
+}
+
+export function getLocaleCode(language: string): string {
+  return LOCALE_MAP[language] || 'en-US'
+}
+
+export function formatDateLocalized(
+  timestamp: number,
+  language: string,
+  todayLabel: string,
+  yesterdayLabel: string,
+): string {
+  const date = new Date(timestamp)
+  const now = new Date()
+  const diffDays = Math.floor(
+    (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
+  )
+  const locale = getLocaleCode(language)
+
+  if (diffDays === 0) {
+    return `${todayLabel}, ${date.toLocaleTimeString(locale, {
+      hour: '2-digit',
+      minute: '2-digit',
+    })}`
+  }
+  if (diffDays === 1) {
+    return `${yesterdayLabel}, ${date.toLocaleTimeString(locale, {
+      hour: '2-digit',
+      minute: '2-digit',
+    })}`
+  }
+  return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' })
+}
+
 // ── Non-reactive fiat (services, callbacks) ──
 
 /**

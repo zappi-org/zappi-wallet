@@ -425,9 +425,9 @@ export function SettingsScreen({
               onClick={() => setShowLanguageModal(true)}
               className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
             >
-              <span className="text-[14px] font-medium">{t('settings.language')}</span>
+              <span className="text-[15px] font-medium">{t('settings.language')}</span>
               <div className="flex items-center gap-1.5">
-                <span className="text-[14px] text-foreground-muted">
+                <span className="text-[15px] text-foreground-muted">
                   {SUPPORTED_LANGUAGES.find(l => l.code === currentLang)?.nativeName || 'English'}
                 </span>
                 <ChevronDown className="w-3.5 h-3.5 text-foreground-subtle" />
@@ -439,9 +439,9 @@ export function SettingsScreen({
               onClick={() => saveSettings({ unitDisplay: (settings.unitDisplay ?? 'bip177') === 'sats' ? 'bip177' : 'sats' })}
               className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
             >
-              <span className="text-[14px] font-medium">{t('settings.unitDisplay')}</span>
+              <span className="text-[15px] font-medium">{t('settings.unitDisplay')}</span>
               <div className="flex items-center gap-1">
-                <span className="text-[14px] text-foreground-muted">
+                <span className="text-[15px] text-foreground-muted">
                   {(settings.unitDisplay ?? 'bip177') === 'sats' ? 'sats' : '₿ (BIP-177)'}
                 </span>
                 <ChevronsUpDown className="w-3.5 h-3.5 text-foreground-subtle" />
@@ -450,7 +450,7 @@ export function SettingsScreen({
 
             {/* Fiat Conversion Toggle */}
             <div className="px-4 py-3.5 flex items-center justify-between">
-              <span className="text-[14px] font-medium">{t('settings.showFiatConversion')}</span>
+              <span className="text-[15px] font-medium">{t('settings.showFiatConversion')}</span>
               <Switch
                 checked={settings.showFiatConversion ?? true}
                 onChange={(v) => saveSettings({ showFiatConversion: v })}
@@ -467,9 +467,9 @@ export function SettingsScreen({
                   onClick={() => setShowCurrencyPicker(true)}
                   className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
                 >
-                  <span className="text-[14px] text-foreground-muted">{t('settings.fiatCurrency')}</span>
+                  <span className="text-[15px] text-foreground-muted">{t('settings.fiatCurrency')}</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-[14px] text-foreground-muted">
+                    <span className="text-[15px] text-foreground-muted">
                       {(() => {
                         const code = settings.fiatCurrency ?? 'USD'
                         const info = FIAT_CURRENCY_MAP.get(code)
@@ -520,7 +520,7 @@ export function SettingsScreen({
         <div className="px-4 pt-8">
           <button
             onClick={() => setShowLogoutModal(true)}
-            className="w-full py-3.5 text-accent-danger text-[14px] font-semibold flex items-center justify-center gap-2 border border-border rounded-sm active:bg-background-hover"
+            className="w-full py-3.5 text-accent-danger text-[15px] font-semibold flex items-center justify-center gap-2 border border-border rounded-sm active:bg-background-hover"
           >
             {t('settings.logout')}
           </button>
@@ -568,7 +568,7 @@ export function SettingsScreen({
                         }`}
                       >
                         <span className="text-[12px] tabular-nums text-[#c0c0c0] w-5 text-right shrink-0">{i + 1}</span>
-                        <span className="text-[14px] font-medium text-[#1d1d1f]">{word}</span>
+                        <span className="text-[15px] font-medium text-[#1d1d1f]">{word}</span>
                       </div>
                     ))}
                   </div>

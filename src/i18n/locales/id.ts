@@ -829,6 +829,8 @@ export default {
     filterEcash: 'Ecash',
     filterLightning: 'Lightning',
     search: 'Cari',
+    pendingExpiry: 'Kedaluwarsa',
+    pendingExpired: 'Kedaluwarsa',
   },
 
   // Error Boundary

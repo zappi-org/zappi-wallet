@@ -571,7 +571,7 @@ export default {
     alreadySpent: '이미 수령된 토큰입니다',
     tokenPending: '토큰이 처리 중입니다',
     cancelSend: '전송 취소',
-    sentToken: '전송 토큰',
+    sentToken: '토큰',
     receivedToken: '수신 토큰',
     copyToken: '토큰 복사',
     share: '공유',
@@ -593,7 +593,7 @@ export default {
     reclaimAction: '다시 가져오기',
 
     // Section titles
-    txInfo: '거래 정보',
+    txInfo: '정보',
     paymentInfo: '결제 정보',
     swapInfo: '스왑 정보',
 
@@ -954,6 +954,8 @@ export default {
     filterEcash: '이캐시',
     filterLightning: '라이트닝',
     search: '검색',
+    pendingExpiry: '만료',
+    pendingExpired: '만료됨',
   },
 
   // Error Boundary

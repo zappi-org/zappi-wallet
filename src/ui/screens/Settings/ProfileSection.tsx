@@ -40,7 +40,7 @@ export function ProfileSection({
             onClick={onCopyNpub}
             className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
           >
-            <span className="text-[14px] font-medium">npub</span>
+            <span className="text-[15px] font-medium">npub</span>
             <div className="flex items-center gap-1.5">
               <span className="text-[13px] text-foreground-muted font-mono truncate max-w-[180px]">
                 {encodeNpub(nostrPubkey)}
@@ -60,15 +60,15 @@ export function ProfileSection({
             onClick={onOpenUsernameChange}
             className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
           >
-            <span className="text-[14px] font-medium">{t('settings.lightningAddress')}</span>
+            <span className="text-[15px] font-medium">{t('settings.lightningAddress')}</span>
             <div className="flex items-center gap-1.5">
-              <span className="text-[14px] text-foreground-muted">{lightningAddress}</span>
+              <span className="text-[15px] text-foreground-muted">{lightningAddress}</span>
               <ChevronRight className="w-4 h-4 text-foreground-subtle shrink-0" />
             </div>
           </button>
         ) : (
           <div className="px-4 py-3.5 flex items-center justify-between">
-            <span className="text-[14px] font-medium">{t('settings.lightningAddress')}</span>
+            <span className="text-[15px] font-medium">{t('settings.lightningAddress')}</span>
             <button
               onClick={onRegisterLightningAddress}
               disabled={isRegistering}
@@ -96,7 +96,7 @@ export function ProfileSection({
           onClick={onAnalytics}
           className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
         >
-          <span className="text-[14px] font-medium">{t('actions.analytics')}</span>
+          <span className="text-[15px] font-medium">{t('actions.analytics')}</span>
           <ChevronRight className="w-4 h-4 text-foreground-subtle" />
         </button>
       </div>

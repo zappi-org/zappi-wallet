@@ -245,7 +245,7 @@ export function RelayManagementScreen({
             <p className="text-[16px] font-semibold text-accent-primary">
               {relayToDelete ? formatRelayUrl(relayToDelete) : ''}
             </p>
-            <p className="text-[14px] text-foreground">
+            <p className="text-[15px] text-foreground">
               {t('settings.confirmDeleteRelay')}
             </p>
           </div>

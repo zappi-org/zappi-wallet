@@ -184,7 +184,7 @@ export function MintManagementScreen({
                         <div className="flex justify-between items-center py-3">
                           <span className="text-[13px] font-medium text-foreground">{t('common.balance')}</span>
                           <div className="text-right">
-                            <span className="text-[14px] font-semibold text-foreground">{formatSats(balance)}</span>
+                            <span className="text-[15px] font-semibold text-foreground">{formatSats(balance)}</span>
                             {(() => { const f = formatFiat(balance); return f ? <p className="text-[11px] text-foreground-muted">{f}</p> : null })()}
                           </div>
                         </div>
@@ -375,7 +375,7 @@ export function MintManagementScreen({
               const balance = getBalance(mintToDelete || '')
               return balance > 0 ? (
                 <>
-                  <p className="text-[14px] text-foreground">
+                  <p className="text-[15px] text-foreground">
                     {t('settings.confirmDeleteMint')}
                   </p>
                   <p className="text-[13px] text-foreground-muted mt-2">
@@ -388,7 +388,7 @@ export function MintManagementScreen({
                   <p className="text-[13px] text-accent-danger font-semibold">{t('settings.deleteWarning')}</p>
                 </>
               ) : (
-                <p className="text-[14px] text-foreground">
+                <p className="text-[15px] text-foreground">
                   {t('settings.confirmDeleteMint')}
                 </p>
               )

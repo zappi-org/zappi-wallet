@@ -10,6 +10,8 @@ import { useAppStore } from '@/store'
 import type { MintInfo, Transaction } from '@/core/types'
 import { MintInfoSheet } from './MintInfoSheet'
 import { PendingItemsScreen } from './PendingItemsScreen'
+import { PendingItemDetailSheet } from './PendingItemDetailSheet'
+import type { PendingItem } from '@/hooks/usePendingItems'
 
 export interface MintDetailScreenProps {
   mint: MintInfo
@@ -44,6 +46,7 @@ export function MintDetailScreen({
   const settings = useAppStore((s) => s.settings)
   const [showMintInfo, setShowMintInfo] = useState(false)
   const [showPendingItems, setShowPendingItems] = useState(false)
+  const [selectedPendingItem, setSelectedPendingItem] = useState<PendingItem | null>(null)
   const [isEditingName, setIsEditingName] = useState(false)
   const [editNameValue, setEditNameValue] = useState('')
   const nameInputRef = useRef<HTMLInputElement>(null)
@@ -63,6 +66,24 @@ export function MintDetailScreen({
     }
     setIsEditingName(false)
   }, [mint.url, editNameValue, onRenameMint])
+
+  const handlePendingItemClick = useCallback(async (item: PendingItem) => {
+    hapticTap()
+    if (item.type === 'ecash-request') {
+      // ecash-request has a matching transaction — navigate to TransactionDetailScreen
+      try {
+        const { getDatabase } = await import('@/data/database/schema')
+        const db = getDatabase()
+        const tx = await db.transactions.get(item.id)
+        if (tx) {
+          onSelectTransaction(tx)
+          return
+        }
+      } catch { /* fallthrough to detail sheet */ }
+    }
+    // lightning-request, unclaimed-token → show detail sheet
+    setSelectedPendingItem(item)
+  }, [onSelectTransaction])
 
   const variant = getVariantByIndex(mintIndex)
   const { items: pendingItems } = usePendingItems(mint.url)
@@ -89,6 +110,7 @@ export function MintDetailScreen({
         items={pendingItems}
         mintUrl={mint.url}
         onBack={() => setShowPendingItems(false)}
+        onItemClick={handlePendingItemClick}
       />
     )
   }
@@ -167,7 +189,7 @@ export function MintDetailScreen({
               disabled={key === 'send' && mint.balance === 0}
               className="flex flex-col items-center gap-1.5 w-20 active:scale-95 transition-transform disabled:opacity-40"
             >
-              <div className="w-12 h-12 bg-[#1d1d1f] rounded-full flex items-center justify-center">
+              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-[0px_2px_1px_0px_rgba(0,0,0,0.25)]">
                 <Icon className="w-[22px] h-[22px]" style={{ color }} strokeWidth={2} />
               </div>
               <span className="font-['Outfit'] font-medium text-xs text-[#1d1d1f]">
@@ -193,7 +215,7 @@ export function MintDetailScreen({
                 </button>
               )}
             </div>
-            <PendingItemsList items={pendingItems} mintUrl={mint.url} maxItems={5} />
+            <PendingItemsList items={pendingItems} mintUrl={mint.url} maxItems={5} onItemClick={handlePendingItemClick} />
           </section>
         )}
 
@@ -217,6 +239,7 @@ export function MintDetailScreen({
               transactions={filteredTransactions}
               onTransactionClick={onSelectTransaction}
               showHeader={false}
+              className="px-0 py-0"
             />
           ) : (
             <p className="text-sm text-[#86868b] text-center py-4">
@@ -233,6 +256,13 @@ export function MintDetailScreen({
         onClose={() => setShowMintInfo(false)}
         onDelete={onDeleteMint}
         onRename={onRenameMint}
+      />
+
+      {/* Pending Item Detail Sheet */}
+      <PendingItemDetailSheet
+        isOpen={!!selectedPendingItem}
+        item={selectedPendingItem}
+        onClose={() => setSelectedPendingItem(null)}
       />
     </div>
   )

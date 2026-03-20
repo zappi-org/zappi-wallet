@@ -88,6 +88,8 @@ export interface PendingSendTokenRecord {
   token?: string   // the cashu token string (undefined if crash before token creation)
   mintUrl: string
   amount: number
+  /** SDK SendOperation.id — for linking with coco-cashu-core's SendApi */
+  operationId?: string
   createdAt: number
 }
 
@@ -136,8 +138,8 @@ export class ZappiDatabase extends Dexie {
     super(DATABASE.NAME)
 
     this.version(DATABASE.VERSION).stores({
-      // Transactions: indexed by id, direction, type, status, createdAt, mintUrl
-      transactions: 'id, direction, type, status, createdAt, mintUrl, source',
+      // Transactions: indexed by id, direction, type, status, createdAt, mintUrl, operationId
+      transactions: 'id, direction, type, status, createdAt, mintUrl, source, operationId',
 
       // Failed swaps: indexed by id, mintUrl, isRetryable, createdAt
       failedSwaps: 'id, mintUrl, isRetryable, createdAt, errorCode',

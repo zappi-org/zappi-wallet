@@ -1,7 +1,7 @@
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Clock, Banknote } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { useFormatSats, useFormatFiat } from '@/utils/format'
+import { Clock, ArrowDownLeft, ArrowUpRight, Zap } from 'lucide-react'
+import { useFormatSats, useFormatFiat, formatDateLocalized } from '@/utils/format'
 import { useMintMetadata } from '@/hooks'
 import type { PendingItem } from '@/hooks/usePendingItems'
 
@@ -9,21 +9,7 @@ interface PendingItemsListProps {
   items: PendingItem[]
   mintUrl: string
   maxItems?: number
-}
-
-function formatRelativeDate(timestamp: number, t: (key: string) => string): string {
-  const now = new Date()
-  const date = new Date(timestamp)
-  const isToday = now.toDateString() === date.toDateString()
-  const yesterday = new Date(now)
-  yesterday.setDate(yesterday.getDate() - 1)
-  const isYesterday = yesterday.toDateString() === date.toDateString()
-
-  const time = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-
-  if (isToday) return `${t('mintDetail.created').replace('{{date}}', '')}${time}`
-  if (isYesterday) return `${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${time}`
-  return `${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${time}`
+  onItemClick?: (item: PendingItem) => void
 }
 
 function formatExpiry(expiresAt: number, t: (key: string, opts?: Record<string, string>) => string): string | null {
@@ -39,30 +25,26 @@ function formatExpiry(expiresAt: number, t: (key: string, opts?: Record<string, 
   return t('mintDetail.expiresIn', { time: `${minutes}m` })
 }
 
-function MintLogo({ mintUrl }: { mintUrl: string }) {
-  const { getIconUrl } = useMintMetadata([mintUrl])
-  const iconUrl = getIconUrl(mintUrl)
-
-  if (iconUrl) {
-    return (
-      <img
-        src={iconUrl}
-        alt=""
-        className="w-5 h-5 rounded-full object-cover"
-        onError={(e) => { e.currentTarget.style.display = 'none' }}
-      />
-    )
+function getPendingIcon(type: PendingItem['type']) {
+  switch (type) {
+    case 'unclaimed-token':
+      return { Icon: ArrowDownLeft, color: 'text-[#5B7A54]' } // green — receive
+    case 'lightning-request':
+      return { Icon: Zap, color: 'text-[#5B7A54]' }           // green — receive
+    case 'ecash-request':
+      return { Icon: ArrowUpRight, color: 'text-[#D4A03D]' }  // gold — send
   }
-
-  return <Banknote className="w-5 h-5 text-white" />
 }
 
-export function PendingItemsList({ items, mintUrl, maxItems = 5 }: PendingItemsListProps) {
-  const { t } = useTranslation()
+export function PendingItemsList({ items, mintUrl, maxItems = 5, onItemClick }: PendingItemsListProps) {
+  const { t, i18n } = useTranslation()
   const formatSats = useFormatSats()
-  const formatFiat = useFormatFiat()
+  const toFiat = useFormatFiat()
 
   const displayed = items.slice(0, maxItems)
+
+  const mintUrls = useMemo(() => [mintUrl], [mintUrl])
+  const { getDisplayName } = useMintMetadata(mintUrls)
 
   if (displayed.length === 0) {
     return (
@@ -73,55 +55,66 @@ export function PendingItemsList({ items, mintUrl, maxItems = 5 }: PendingItemsL
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col border border-black/10 rounded-[13px] overflow-hidden gap-0">
       {displayed.map((item) => {
-        const isToken = item.type === 'unclaimed-token'
+        const { Icon, color } = getPendingIcon(item.type)
+
         const title = item.memo
           || (item.type === 'unclaimed-token' ? t('mintDetail.ecashToken')
             : item.type === 'lightning-request' ? t('mintDetail.lightningRequest')
             : t('mintDetail.ecashRequest'))
 
-        const dateStr = formatRelativeDate(item.createdAt, t)
+        const subtitle = getDisplayName(mintUrl)
         const expiryStr = item.expiresAt ? formatExpiry(item.expiresAt, t) : null
 
         return (
           <div
             key={item.id}
-            className="bg-white flex items-center justify-between px-4 py-3 rounded-xl"
+            onClick={() => onItemClick?.(item)}
+            className="flex items-center justify-between bg-[#faf9f6] rounded-[16px] h-[75px] px-[16px] py-[12px] cursor-pointer"
           >
-            <div className="flex gap-3 items-center min-w-0">
-              <div className={cn(
-                'w-9 h-9 rounded-full flex items-center justify-center shrink-0',
-                isToken ? 'bg-[#1d1d1f]' : 'bg-[#86868b]'
-              )}>
-                {isToken ? (
-                  <MintLogo mintUrl={mintUrl} />
-                ) : (
-                  <Clock className="w-5 h-5 text-white" />
-                )}
+            <div className="flex items-center gap-[12px]">
+              <div className="w-[44px] h-[44px] rounded-full flex items-center justify-center shrink-0 bg-[#e6e6e6]">
+                <Icon size={20} strokeWidth={1.5} className={color} />
               </div>
-              <div className="min-w-0">
-                <p className="font-['Outfit'] font-medium text-sm text-[#1d1d1f] truncate">
+              <div className="flex flex-col gap-[2px]">
+                <h3 className="font-['Outfit'] font-bold text-[14px] text-[#1d1d1f] leading-normal">
                   {title}
-                </p>
-                <p className="font-['Outfit'] text-xs text-[#86868b]">
-                  {dateStr}
+                </h3>
+                <div className="flex items-center gap-1">
+                  <p className="font-['Outfit'] font-medium text-[12px] text-[#86868b] truncate max-w-[140px] leading-normal">
+                    {subtitle}
+                  </p>
                   {expiryStr && (
-                    <span className="text-[#e85d3a] ml-2">{expiryStr}</span>
+                    <>
+                      <span className="text-[#86868b] text-[10px]">·</span>
+                      <span className="font-['Outfit'] font-medium text-[11px] text-[#e85d3a] leading-normal flex items-center gap-0.5">
+                        <Clock size={10} strokeWidth={2} />
+                        {expiryStr}
+                      </span>
+                    </>
                   )}
-                </p>
+                </div>
               </div>
             </div>
-            <div className="shrink-0 ml-3 text-right">
-              <p className={cn(
-                "font-['Inter'] font-semibold text-sm",
-                isToken ? 'text-[#e85d3a]' : 'text-[#1d1d1f]'
-              )}>
-                {formatSats(item.amount)}
-              </p>
-              {(() => { const f = formatFiat(item.amount); return f ? (
-                <p className="font-['Inter'] text-[10px] text-[#86868b]">{f}</p>
-              ) : null })()}
+            <div className="flex flex-col items-end gap-[2px]">
+              <span className="font-['Outfit'] font-bold text-[14px] text-[#1d1d1f] leading-normal">
+                {item.type === 'ecash-request'
+                  ? `- ${formatSats(item.amount)}`
+                  : `+ ${formatSats(item.amount)}`
+                }
+              </span>
+              {(() => {
+                const fiatStr = toFiat(item.amount)
+                return fiatStr ? (
+                  <span className="font-['Outfit'] font-medium text-[11px] text-[#86868b]/70 leading-normal">
+                    ≈ {fiatStr}
+                  </span>
+                ) : null
+              })()}
+              <span className="font-['Outfit'] font-medium text-[12px] text-[#86868b] leading-normal">
+                {formatDateLocalized(item.createdAt, i18n.language, t('history.today'), t('history.yesterday'))}
+              </span>
             </div>
           </div>
         )

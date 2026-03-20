@@ -51,8 +51,8 @@ import { SyncService } from '@/services/sync/sync.service'
 import { ProfileService } from '@/services/profile/profile.service'
 import { SettingsRepository } from '@/data/repositories/settings.repository'
 import { TransactionRepository } from '@/data/repositories/transaction.repository'
-import { sendToken as cocoSendToken, getBalances as cocoGetBalances } from '@/coco/cashuService'
-import { deleteCocoData, clearWalletCache } from '@/coco'
+import { getBalances as cocoGetBalances } from '@/coco/cashuService'
+import { deleteCocoData, clearWalletCache, markSendFinalized, markSendReclaimed } from '@/coco'
 import { resetWalletCache } from '@/data/cache/wallet-cache'
 import type { Transaction } from '@/core/types'
 import { satUnit, formatSats } from '@/utils/format'
@@ -248,116 +248,6 @@ export default function MainApp() {
   }, [isLocked, isInitializing, nostrPubkey, nostrPrivkey, reconstruct, refreshAll, addToast, t])
 
   const isSendingEcashRef = useRef(false)
-  const tokenMonitorsRef = useRef<Map<string, { wsCancel?: () => void; pollTimer?: ReturnType<typeof setInterval> }>>(new Map())
-  const handledTokenIdsRef = useRef<Set<string>>(new Set())
-
-  // ─── Token State Monitoring (3-Layer) ───
-
-  const onTokenSpentDetected = useCallback(async (txId: string) => {
-    if (handledTokenIdsRef.current.has(txId)) return
-    handledTokenIdsRef.current.add(txId)
-
-    // 이미 reclaimed된 경우 덮어쓰지 않음
-    const existing = await services.transactionRepo.findById(txId)
-    if (existing && existing.status === 'failed' && existing.failureReason === 'reclaimed') {
-      return
-    }
-
-    await services.transactionRepo.update(txId, {
-      status: 'completed',
-      tokenState: 'spent',
-      completedAt: Date.now(),
-    })
-    await services.payment.removePendingSendToken(txId)
-    setTransactions((prev) => prev.map((t) =>
-      t.id === txId ? { ...t, status: 'completed' as const, tokenState: 'spent' as const, completedAt: Date.now() } : t
-    ))
-
-    // Cleanup monitoring
-    const monitor = tokenMonitorsRef.current.get(txId)
-    if (monitor) {
-      monitor.wsCancel?.()
-      if (monitor.pollTimer) clearInterval(monitor.pollTimer)
-      tokenMonitorsRef.current.delete(txId)
-    }
-
-    useAppStore.getState().triggerTxRefresh()
-  }, [services.transactionRepo, services.payment])
-
-  const startTokenStateMonitoring = useCallback(async (txId: string, mintUrl: string, token: string) => {
-    if (tokenMonitorsRef.current.has(txId)) return
-    if (handledTokenIdsRef.current.has(txId)) return
-
-    const { CashuService } = await import('@/services/cashu/cashu.service')
-    const cashu = new CashuService()
-    const { getDecodedToken } = await import('@cashu/cashu-ts')
-    const decoded = getDecodedToken(token)
-    const monitor: { wsCancel?: () => void; pollTimer?: ReturnType<typeof setInterval> } = {}
-
-    // Layer 1: NUT-17 WebSocket (proof 1개만 — cashu.me 패턴)
-    const canceller = await cashu.subscribeProofSpent(
-      mintUrl,
-      [decoded.proofs[0]],
-      () => onTokenSpentDetected(txId),
-    )
-
-    if (canceller) {
-      monitor.wsCancel = canceller
-      tokenMonitorsRef.current.set(txId, monitor)
-      return // NUT-17 성공 → polling 불필요
-    }
-
-    // Layer 2: polling fallback (5sec × 12 = 60sec)
-    let nInterval = 0
-    monitor.pollTimer = setInterval(async () => {
-      nInterval++
-      if (nInterval > 12) {
-        clearInterval(monitor.pollTimer!)
-        monitor.pollTimer = undefined
-        return
-      }
-      try {
-        const spentSecrets = await cashu.checkProofsSpent(mintUrl, decoded.proofs)
-        if (spentSecrets.length > 0) {
-          clearInterval(monitor.pollTimer!)
-          monitor.pollTimer = undefined
-          await onTokenSpentDetected(txId)
-        }
-      } catch (e) {
-        console.warn('[TokenMonitor] poll error:', e)
-      }
-    }, 5000)
-    tokenMonitorsRef.current.set(txId, monitor)
-  }, [onTokenSpentDetected])
-
-  const checkPendingTokenStates = useCallback(async () => {
-    try {
-      const { getDatabase } = await import('@/data/database/schema')
-      const db = getDatabase()
-      const allTxs = await db.transactions.toArray()
-      const pendingTokenTxs = allTxs.filter((tx) => tx.type === 'ecash-token' && tx.status === 'pending')
-
-      if (pendingTokenTxs.length === 0) return
-
-      const { CashuService } = await import('@/services/cashu/cashu.service')
-      const cashu = new CashuService()
-      const { getDecodedToken } = await import('@cashu/cashu-ts')
-
-      for (const tx of pendingTokenTxs) {
-        if (!tx.token) continue
-        const decoded = getDecodedToken(tx.token)
-        const spentSecrets = await cashu.checkProofsSpent(tx.mintUrl, decoded.proofs)
-
-        if (spentSecrets.length > 0) {
-          await onTokenSpentDetected(tx.id)
-        } else if (!tokenMonitorsRef.current.has(tx.id)) {
-          startTokenStateMonitoring(tx.id, tx.mintUrl, tx.token)
-        }
-      }
-    } catch (e) {
-      console.error('[TokenMonitor] checkPendingTokenStates error:', e)
-    }
-  }, [onTokenSpentDetected, startTokenStateMonitoring])
 
   useEffect(() => {
     // Only subscribe when app is unlocked and initialized
@@ -400,11 +290,6 @@ export default function MainApp() {
 
       if (cancelled) return
 
-      // 3.5. pending ecash-token 상태 체크 + 모니터링 시작
-      await checkPendingTokenStates()
-
-      if (cancelled) return
-
       // 4. 잔액 + 거래내역 + pending quotes 동기화
       await refreshAll()
       broadcastSync('balance_changed')
@@ -423,6 +308,13 @@ export default function MainApp() {
     // Visibility change handler - re-check when app comes to foreground
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
+        // Resume SDK subscriptions (WS reconnect + polling)
+        try {
+          const { getCocoManager } = await import('@/coco/manager')
+          const manager = await getCocoManager()
+          manager.resumeSubscriptions()
+        } catch { /* ignore if not initialized */ }
+
         // Refresh exchange rates (throttled — no-op if recently fetched)
         exchangeRateService.refreshIfStale().catch(() => {})
 
@@ -444,10 +336,7 @@ export default function MainApp() {
           console.error('[Background] Failed to recover pending operations:', e)
         }
 
-        // pending ecash-token 상태 체크 + 모니터링 재시작
-        await checkPendingTokenStates()
-
-        // 항상 잔액 + pending quotes 동기화
+        // 잔액 + pending quotes 동기화
         // (Coco watcher가 백그라운드에서 redeem했을 수 있으므로 recovery 결과와 무관하게 실행)
         await refreshAll()
         broadcastSync('balance_changed')
@@ -458,27 +347,24 @@ export default function MainApp() {
         } catch (e) {
           console.error('[Background] Failed to sync pending quotes store:', e)
         }
+      } else {
+        // Pause SDK subscriptions (배터리 절약)
+        try {
+          const { getCocoManager } = await import('@/coco/manager')
+          const manager = await getCocoManager()
+          manager.pauseSubscriptions()
+        } catch { /* ignore if not initialized */ }
       }
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
-    const monitors = tokenMonitorsRef.current
-
     return () => {
       cancelled = true
       document.removeEventListener('visibilitychange', handleVisibilityChange)
-      // Cancel WebSocket subscription
-      // Disconnect all WebSockets
       services.payment.disconnectAllWebSockets()
-      // Cleanup token monitors
-      monitors.forEach((monitor) => {
-        monitor.wsCancel?.()
-        if (monitor.pollTimer) clearInterval(monitor.pollTimer)
-      })
-      monitors.clear()
     }
-  }, [isLocked, isInitializing, services.payment, refreshAll, addToast, setPendingQuotes, checkPendingTokenStates, t])
+  }, [isLocked, isInitializing, services.payment, refreshAll, addToast, setPendingQuotes, t])
 
   // Handle unlock
   const handleUnlock = useCallback(async (password: string): Promise<boolean> => {
@@ -703,7 +589,7 @@ export default function MainApp() {
     return true
   }, [services.payment, refreshAll, addToast, t])
 
-  const handleCreateEcashToken = useCallback(async (amount: number, preferredMintUrl?: string, options?: { p2pkPubkey?: string; memo?: string }): Promise<{ token: string; txId: string } | null> => {
+  const handleCreateEcashToken = useCallback(async (amount: number, preferredMintUrl?: string, options?: { p2pkPubkey?: string; memo?: string }): Promise<{ token: string; txId: string; operationId: string } | null> => {
     if (isSendingEcashRef.current) return null
     isSendingEcashRef.current = true
     try {
@@ -726,26 +612,12 @@ export default function MainApp() {
         mintUrl = sufficientMints[0][0]
       }
 
+      // SDK SendApi: prepare → execute
+      const { prepareSendToken, executeSendToken } = await import('@/coco/cashuService')
+      const { operationId } = await prepareSendToken(mintUrl, amount)
+      const { token } = await executeSendToken(operationId, options)
+
       const txId = `tx-ecash-send-${crypto.randomUUID()}`
-
-      // Phase 1: intent 기록 (crash recovery용)
-      await services.payment.savePendingSendToken({
-        id: txId,
-        mintUrl,
-        amount,
-        createdAt: Date.now(),
-      })
-
-      const token = await cocoSendToken(mintUrl, amount, options)
-
-      // Phase 2: token 기록 (crash recovery용)
-      await services.payment.savePendingSendToken({
-        id: txId,
-        token,
-        mintUrl,
-        amount,
-        createdAt: Date.now(),
-      })
 
       const tx: Transaction = {
         id: txId,
@@ -758,20 +630,28 @@ export default function MainApp() {
         memo: options?.memo,
         token,
         tokenState: 'unspent',
+        operationId,
       }
       await services.transactionRepo.save(tx)
       setTransactions((prev) => [tx, ...prev])
 
-      // pendingSendToken 유지 — 수령 확인 후 제거
+      // pendingSendToken 저장 (crash recovery용)
+      await services.payment.savePendingSendToken({
+        id: txId,
+        token,
+        mintUrl,
+        amount,
+        operationId,
+        createdAt: Date.now(),
+      })
 
       await refreshBalance()
-
       broadcastSync('balance_changed')
 
-      // 3-layer 모니터링 시작
-      startTokenStateMonitoring(txId, mintUrl, token)
+      // SDK ProofStateWatcher가 자동으로 proof 상태 감시
+      // → send:finalized → sendTokenObserver가 Transaction 상태 업데이트
 
-      return { token, txId }
+      return { token, txId, operationId }
     } catch (error) {
       console.error('Failed to create ecash token:', error)
       if (error instanceof InsufficientBalanceError) throw error
@@ -779,50 +659,36 @@ export default function MainApp() {
     } finally {
       isSendingEcashRef.current = false
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- startTokenStateMonitoring is stable via ref
   }, [services.transactionRepo, services.payment, refreshBalance])
 
   // ─── NUT-18 전송 완료 콜백 ───
   const handleCompleteEcashSend = useCallback(async (txId: string) => {
-    handledTokenIdsRef.current.add(txId)
-    await services.transactionRepo.update(txId, {
-      status: 'completed',
-      tokenState: 'spent',
-      completedAt: Date.now(),
-    })
-    await services.payment.removePendingSendToken(txId)
+    const tx = await services.transactionRepo.findById(txId)
+    if (tx?.operationId) {
+      const { getCocoManager } = await import('@/coco/manager')
+      const manager = await getCocoManager()
+      await manager.send.finalize(tx.operationId)
+    }
+    // SDK/레거시 공통: 공유 함수로 DB 상태 전이
+    await markSendFinalized(txId)
     setTransactions((prev) => prev.map((t) =>
       t.id === txId ? { ...t, status: 'completed' as const, tokenState: 'spent' as const, completedAt: Date.now() } : t
     ))
-    // 모니터링 해제 (transport로 보냈으므로 별도 추적 불필요)
-    const monitor = tokenMonitorsRef.current.get(txId)
-    if (monitor) {
-      monitor.wsCancel?.()
-      if (monitor.pollTimer) clearInterval(monitor.pollTimer)
-      tokenMonitorsRef.current.delete(txId)
-    }
-  }, [services.transactionRepo, services.payment])
+  }, [services.transactionRepo])
 
   // ─── 토큰 취소(reclaim) 콜백 ───
   const handleCancelEcashToken = useCallback(async (txId: string) => {
-    await services.transactionRepo.update(txId, {
-      status: 'failed',
-      failureReason: 'reclaimed',
-      tokenState: 'spent',
-    })
-    await services.payment.removePendingSendToken(txId)
-    setTransactions((prev) => prev.map((t) =>
-      t.id === txId ? { ...t, status: 'failed' as const, failureReason: 'reclaimed', tokenState: 'spent' as const } : t
-    ))
-    // 모니터링 해제
-    const monitor = tokenMonitorsRef.current.get(txId)
-    if (monitor) {
-      monitor.wsCancel?.()
-      if (monitor.pollTimer) clearInterval(monitor.pollTimer)
-      tokenMonitorsRef.current.delete(txId)
+    const tx = await services.transactionRepo.findById(txId)
+    if (tx?.operationId) {
+      const { rollbackSendToken } = await import('@/coco/cashuService')
+      await rollbackSendToken(tx.operationId)
     }
-    useAppStore.getState().triggerTxRefresh()
-  }, [services.transactionRepo, services.payment])
+    // SDK/레거시 공통: 공유 함수로 DB 상태 전이
+    await markSendReclaimed(txId)
+    setTransactions((prev) => prev.map((t) =>
+      t.id === txId ? { ...t, status: 'completed' as const, failureReason: 'reclaimed', tokenState: 'spent' as const, completedAt: Date.now() } : t
+    ))
+  }, [services.transactionRepo])
 
   // Settings handlers
   const handleChangePassword = useCallback(async (oldPassword: string, newPassword: string): Promise<boolean> => {

@@ -947,6 +947,8 @@ export default {
     filterEcash: 'Ecash',
     filterLightning: 'Lightning',
     search: 'Search',
+    pendingExpiry: 'Expiry',
+    pendingExpired: 'Expired',
   },
 
   // Error Boundary

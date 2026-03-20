@@ -3,6 +3,7 @@ import { useAppStore } from '@/store';
 import { broadcastSync } from '@/hooks/use-cross-tab-sync';
 import i18n from '@/i18n';
 import { satUnit } from '@/utils/format';
+import { connectSendTokenObserver, disconnectSendTokenObserver } from './sendTokenObserver';
 
 // Coco 이벤트 구독 해제 함수들
 let unsubscribers: (() => void)[] = [];
@@ -76,6 +77,9 @@ export function connectCocoToStore(manager: Manager): void {
   // 초기 잔액 로드
   updateBalances();
 
+  // Send token observer (send:finalized/rolled-back → Transaction DB 업데이트)
+  connectSendTokenObserver(manager);
+
   console.log('[Coco Bridge] Connected to store');
 }
 
@@ -87,5 +91,6 @@ export function disconnectCocoFromStore(): void {
     unsub();
   }
   unsubscribers = [];
+  disconnectSendTokenObserver();
   console.log('[Coco Bridge] Disconnected from store');
 }

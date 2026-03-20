@@ -799,6 +799,8 @@ export default {
     filterEcash: 'Ecash',
     filterLightning: 'Lightning',
     search: '検索',
+    pendingExpiry: '有効期限',
+    pendingExpired: '期限切れ',
   },
 
   // Error Boundary

@@ -829,6 +829,8 @@ export default {
     filterEcash: 'Ecash',
     filterLightning: 'Lightning',
     search: 'Buscar',
+    pendingExpiry: 'Vencimiento',
+    pendingExpired: 'Vencido',
   },
 
   // Error Boundary

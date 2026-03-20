@@ -37,21 +37,21 @@ export function SecuritySection({
           onClick={onOpenPinChange}
           className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
         >
-          <span className="text-[14px] font-medium">{t('settings.changePin')}</span>
+          <span className="text-[15px] font-medium">{t('settings.changePin')}</span>
           <ChevronRight className="w-4 h-4 text-foreground-subtle" />
         </button>
 
         {/* Biometrics */}
         {passkeySupported && (
           <div className="px-4 py-3.5 flex items-center justify-between">
-            <span className="text-[14px] font-medium">{t('settings.faceIdTouchId')}</span>
+            <span className="text-[15px] font-medium">{t('settings.faceIdTouchId')}</span>
             <Switch checked={passkeyEnabled} onChange={onPasskeyToggle} />
           </div>
         )}
 
         {/* Auto Lock Toggle */}
         <div className="px-4 py-3.5 flex items-center justify-between">
-          <span className="text-[14px] font-medium">{t('settings.autoLock')}</span>
+          <span className="text-[15px] font-medium">{t('settings.autoLock')}</span>
           <Switch checked={autoLockEnabled} onChange={onAutoLockToggle} />
         </div>
 
@@ -88,9 +88,9 @@ function AutoLockTimeoutPicker({ value, onChange }: { value: number; onChange: (
       onClick={cycleNext}
       className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
     >
-      <span className="text-[14px] text-foreground-muted">{t('settings.autoLockTimeout')}</span>
+      <span className="text-[15px] text-foreground-muted">{t('settings.autoLockTimeout')}</span>
       <div className="flex items-center gap-1">
-        <span className="text-[14px] text-foreground-muted">
+        <span className="text-[15px] text-foreground-muted">
           {value}{t('common.min')}
         </span>
         <ChevronsUpDown className="w-3.5 h-3.5 text-foreground-subtle" />
