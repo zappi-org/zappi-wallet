@@ -17,7 +17,7 @@ import { sendTokenViaDM, getRecipientDMRelays } from '@/services/nostr-dm'
 import { sendTokenViaHttp } from '@/services/cashu/nut18-http'
 import { useAppStore } from '@/store'
 import { useTranslation } from 'react-i18next'
-import { prepareMelt, rollbackMelt } from '@/coco/cashuService'
+import { createMeltQuote } from '@/coco/cashuService'
 import { InsufficientBalanceError } from '@/core/errors/cashu'
 import { translateError } from '@/core/errors/translate'
 import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
@@ -210,11 +210,10 @@ export function SendFlow({
 
       if (validated.type === 'bolt11') {
         try {
-          const meltOp = await prepareMelt(data.selectedMintUrl, validated.invoice)
-          fee = meltOp.fee_reserve + meltOp.swap_fee
-          meltQuoteId = meltOp.quoteId
-          // Rollback immediately — this is just a fee estimate, actual melt happens in sendLightning
-          await rollbackMelt(meltOp.operationId, 'fee estimation only').catch(() => {})
+          const meltQuote = await createMeltQuote(data.selectedMintUrl, validated.invoice)
+          fee = meltQuote.fee_reserve
+          meltQuoteId = meltQuote.quoteId
+          // No rollback needed — createMeltQuote doesn't reserve proofs
         } catch (err) {
           console.error('[SendFlow] Melt quote failed:', err)
           addToast({ type: 'error', message: t('payment.feeEstimateFailed'), duration: 3000 })
