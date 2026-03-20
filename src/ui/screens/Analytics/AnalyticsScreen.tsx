@@ -139,7 +139,7 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
     // Group by transaction type
     const byMethod: Record<string, number> = {}
     spending.forEach((tx) => {
-      const method = tx.type || 'ecash'
+      const method = tx.type === 'ecash-token' ? 'ecash' : (tx.type || 'ecash')
       byMethod[method] = (byMethod[method] || 0) + tx.amount
     })
 

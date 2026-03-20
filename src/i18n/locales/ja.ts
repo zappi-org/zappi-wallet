@@ -465,6 +465,7 @@ export default {
     lightningSend: 'Lightning送金',
     ecashReceive: 'Ecash受取',
     ecashSend: 'Ecash送金',
+    ecashToken: 'トークン作成',
     swap: 'スワップ',
 
     // Status

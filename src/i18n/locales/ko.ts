@@ -517,6 +517,7 @@ export default {
     lightningSend: 'Lightning 전송',
     ecashReceive: 'Ecash 수신',
     ecashSend: 'Ecash 전송',
+    ecashToken: '토큰 만들기',
     swap: '스왑',
 
     // Status
@@ -578,6 +579,23 @@ export default {
     delete: '삭제',
     deleteConfirm: '이 거래 기록을 삭제하시겠습니까?',
     deleteWarning: '삭제 후 복구할 수 없습니다.',
+
+    // Context sentences
+    receivedFrom: '{{mint}}에서 받음',
+    receivedToWallet: '{{wallet}}(으)로 받음',
+    sentViaLightning: '{{address}}(으)로 보냄',
+    sentEcash: '이캐시 전송',
+    tokenCreated: '토큰 만들기',
+    receivedEcash: '이캐시 수령',
+    swappedAt: '{{mint}}에서 스왑',
+    receivedFromPOS: '{{name}}에서 받음',
+    unclaimedNotice: '아직 수령되지 않았어요',
+    reclaimAction: '다시 가져오기',
+
+    // Section titles
+    txInfo: '거래 정보',
+    paymentInfo: '결제 정보',
+    swapInfo: '스왑 정보',
 
     // Kiosk order
     orderItems: '주문 내역',

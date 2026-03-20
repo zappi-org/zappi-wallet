@@ -62,6 +62,7 @@ export interface SendFlowState {
   amount: number
   memo: string
   createdToken: string | null
+  createdTxId: string | null
   fee: number
   meltQuoteId: string | null
   error: string | null
@@ -74,7 +75,9 @@ export interface SendFlowProps {
   onComplete: () => void
   // MainApp handlers
   onSendLightning: (addressOrInvoice: string, amount: number, mintUrl?: string) => Promise<boolean>
-  onCreateEcashToken: (amount: number, mintUrl?: string, options?: { p2pkPubkey?: string; memo?: string }) => Promise<string | null>
+  onCreateEcashToken: (amount: number, mintUrl?: string, options?: { p2pkPubkey?: string; memo?: string }) => Promise<{ token: string; txId: string } | null>
+  onCompleteEcashSend?: (txId: string) => Promise<void>
+  onCancelEcashToken?: (txId: string) => Promise<void>
   onReceiveToken: (token: string) => Promise<boolean | { success: boolean; amount?: number }>
   onMintSwap?: (fromMintUrl: string, toMintUrl: string, amount: number) => Promise<{ success: boolean; amount?: number; error?: string }>
   // Pre-filled data from scanner
@@ -92,6 +95,8 @@ export function SendFlow({
   onComplete,
   onSendLightning,
   onCreateEcashToken,
+  onCompleteEcashSend,
+  onCancelEcashToken,
   onReceiveToken,
   onMintSwap,
   validatedData: initialValidatedData,
@@ -139,6 +144,7 @@ export function SendFlow({
     amount: getInitialAmount(),
     memo: '',
     createdToken: null,
+    createdTxId: null,
     fee: 0,
     meltQuoteId: null,
     error: null,
@@ -293,12 +299,14 @@ export function SendFlow({
           }
 
           // Create ecash token on the correct mint
-          const token = await onCreateEcashToken(amount, tokenMintUrl, {
+          const result = await onCreateEcashToken(amount, tokenMintUrl, {
             p2pkPubkey: validatedData.parsed.p2pkPubkey,
             memo,
           })
 
-          if (token) {
+          if (result) {
+            const { token, txId } = result
+
             // Try Nostr transport first (primary)
             if (validatedData.parsed.hasNostrTransport && validatedData.parsed.nostrTarget) {
               const nostrPrivkey = useAppStore.getState().nostrPrivkey
@@ -345,6 +353,11 @@ export function SendFlow({
             if (!success && !validatedData.parsed.hasNostrTransport && !validatedData.parsed.hasPostTransport) {
               success = true
             }
+
+            // Transport 성공 시 거래 완료 처리
+            if (success) {
+              await onCompleteEcashSend?.(txId)
+            }
           }
           break
         }
@@ -370,7 +383,7 @@ export function SendFlow({
     } finally {
       isProcessingRef.current = false
     }
-  }, [state, onSendLightning, onCreateEcashToken, onMintSwap, isOnline, addToast, t])
+  }, [state, onSendLightning, onCreateEcashToken, onCompleteEcashSend, onMintSwap, isOnline, addToast, t])
 
   /** Token create step → create token */
   const handleTokenCreate = useCallback(async (data: {
@@ -390,15 +403,16 @@ export function SendFlow({
     }
 
     try {
-      const token = await onCreateEcashToken(data.amount, data.mintUrl, {
+      const result = await onCreateEcashToken(data.amount, data.mintUrl, {
         memo: data.memo || undefined,
       })
 
-      if (token) {
+      if (result) {
         setState((prev) => ({
           ...prev,
           step: 'token-created',
-          createdToken: token,
+          createdToken: result.token,
+          createdTxId: result.txId,
           amount: data.amount,
           selectedMintUrl: data.mintUrl,
           memo: data.memo,
@@ -424,15 +438,19 @@ export function SendFlow({
 
     try {
       await onReceiveToken(state.createdToken)
+      if (state.createdTxId) {
+        await onCancelEcashToken?.(state.createdTxId)
+      }
       setState((prev) => ({
         ...prev,
         step: 'token-create',
         createdToken: null,
+        createdTxId: null,
       }))
     } catch {
       addToast({ type: 'error', message: t('payment.tokenReclaimFailed'), duration: 3000 })
     }
-  }, [state.createdToken, onReceiveToken, addToast, t])
+  }, [state.createdToken, state.createdTxId, onReceiveToken, onCancelEcashToken, addToast, t])
 
   // ============= Navigation helpers =============
 

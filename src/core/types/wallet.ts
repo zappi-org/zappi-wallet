@@ -52,7 +52,7 @@ export type TransactionDirection = 'receive' | 'send'
 /**
  * Transaction type
  */
-export type TransactionType = 'lightning' | 'ecash' | 'nutzap' | 'swap'
+export type TransactionType = 'lightning' | 'ecash' | 'ecash-token' | 'nutzap' | 'swap'
 
 /**
  * Transaction status

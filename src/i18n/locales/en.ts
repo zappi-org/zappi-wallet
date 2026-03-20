@@ -517,6 +517,7 @@ export default {
     lightningSend: 'Lightning Send',
     ecashReceive: 'Ecash Receive',
     ecashSend: 'Ecash Send',
+    ecashToken: 'Token Created',
     swap: 'Swap',
 
     // Status
@@ -576,6 +577,23 @@ export default {
     delete: 'Delete',
     deleteConfirm: 'Delete this transaction record?',
     deleteWarning: 'This cannot be undone.',
+
+    // Context sentences
+    receivedFrom: 'Received from {{mint}}',
+    receivedToWallet: 'Received to {{wallet}}',
+    sentViaLightning: 'Sent to {{address}}',
+    sentEcash: 'eCash sent',
+    tokenCreated: 'Token created',
+    receivedEcash: 'eCash received',
+    swappedAt: 'Swapped at {{mint}}',
+    receivedFromPOS: 'Received from {{name}}',
+    unclaimedNotice: 'Not yet claimed',
+    reclaimAction: 'Reclaim tokens',
+
+    // Section titles
+    txInfo: 'Transaction info',
+    paymentInfo: 'Payment info',
+    swapInfo: 'Swap info',
 
     orderItems: 'Order Items',
     orderTotal: 'Total',

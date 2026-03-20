@@ -495,6 +495,7 @@ export default {
     lightningSend: 'Envío Lightning',
     ecashReceive: 'Recepción Ecash',
     ecashSend: 'Envío Ecash',
+    ecashToken: 'Token creado',
     swap: 'Intercambio',
 
     // Status

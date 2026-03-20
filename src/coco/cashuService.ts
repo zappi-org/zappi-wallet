@@ -442,17 +442,23 @@ export async function recoverPendingSendTokens(): Promise<{
   const maxAge = 24 * 60 * 60 * 1000;
 
   for (const pending of pendingTokens) {
+    // 정상 pending ecash-token은 스킵 (MainApp.checkPendingTokenStates가 처리)
+    const existingTx = await db.transactions.get(pending.id);
+    if (existingTx && existingTx.status === 'pending' && existingTx.type === 'ecash-token') {
+      console.log(`[Recovery] Skipping normal pending ecash-token: ${pending.id}`);
+      continue;
+    }
+
     // Phase 1 record: token was never created (crash during cocoSendToken)
     if (!pending.token) {
       console.warn(`[Recovery] Send intent without token: ${pending.id} (${pending.amount} sats)`);
       // Proofs may have been consumed by Coco without returning a token.
       // We cannot recover - record as failed send so the user knows.
-      const existingTx = await db.transactions.get(pending.id);
       if (!existingTx) {
         await db.transactions.put({
           id: pending.id,
           direction: 'send',
-          type: 'ecash',
+          type: 'ecash-token',
           amount: pending.amount,
           mintUrl: pending.mintUrl,
           status: 'failed',
@@ -466,7 +472,7 @@ export async function recoverPendingSendTokens(): Promise<{
       continue;
     }
 
-    // Phase 2 record: token exists but tx wasn't saved
+    // Phase 2 record: token exists but tx wasn't saved (crash after cocoSendToken)
     try {
       // Try to reclaim the token (receive it back)
       await receiveToken(pending.token);
@@ -477,17 +483,17 @@ export async function recoverPendingSendTokens(): Promise<{
       const errorMsg = String(error).toLowerCase();
       if (errorMsg.includes('already spent') || errorMsg.includes('token already spent')) {
         // Token was sent to recipient - create send transaction record
-        const existingTx = await db.transactions.get(pending.id);
         if (!existingTx) {
           await db.transactions.put({
             id: pending.id,
             direction: 'send',
-            type: 'ecash',
+            type: 'ecash-token',
             amount: pending.amount,
             mintUrl: pending.mintUrl,
             status: 'completed',
             createdAt: pending.createdAt,
             completedAt: Date.now(),
+            tokenState: 'spent',
           });
         }
         await db.pendingSendTokens.delete(pending.id);

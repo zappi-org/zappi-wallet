@@ -85,6 +85,7 @@ const TransactionItem = memo(function TransactionItem({
     if (transaction.type === 'lightning') {
       return isReceive ? t('history.lightningReceive') : t('history.lightningSend')
     }
+    if (transaction.type === 'ecash-token') return t('history.ecashToken')
     return isReceive ? t('history.ecashReceive') : t('history.ecashSend')
   }
 

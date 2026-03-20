@@ -495,6 +495,7 @@ export default {
     lightningSend: 'Kirim Lightning',
     ecashReceive: 'Terima Ecash',
     ecashSend: 'Kirim Ecash',
+    ecashToken: 'Token dibuat',
     swap: 'Swap',
 
     // Status
