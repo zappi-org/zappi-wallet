@@ -251,6 +251,114 @@ export default function MainApp() {
   const tokenMonitorsRef = useRef<Map<string, { wsCancel?: () => void; pollTimer?: ReturnType<typeof setInterval> }>>(new Map())
   const handledTokenIdsRef = useRef<Set<string>>(new Set())
 
+  // ─── Token State Monitoring (3-Layer) ───
+
+  const onTokenSpentDetected = useCallback(async (txId: string) => {
+    if (handledTokenIdsRef.current.has(txId)) return
+    handledTokenIdsRef.current.add(txId)
+
+    // 이미 reclaimed된 경우 덮어쓰지 않음
+    const existing = await services.transactionRepo.findById(txId)
+    if (existing && existing.status === 'failed' && existing.failureReason === 'reclaimed') {
+      return
+    }
+
+    await services.transactionRepo.update(txId, {
+      status: 'completed',
+      tokenState: 'spent',
+      completedAt: Date.now(),
+    })
+    await services.payment.removePendingSendToken(txId)
+    setTransactions((prev) => prev.map((t) =>
+      t.id === txId ? { ...t, status: 'completed' as const, tokenState: 'spent' as const, completedAt: Date.now() } : t
+    ))
+
+    // Cleanup monitoring
+    const monitor = tokenMonitorsRef.current.get(txId)
+    if (monitor) {
+      monitor.wsCancel?.()
+      if (monitor.pollTimer) clearInterval(monitor.pollTimer)
+      tokenMonitorsRef.current.delete(txId)
+    }
+
+    useAppStore.getState().triggerTxRefresh()
+  }, [services.transactionRepo, services.payment])
+
+  const startTokenStateMonitoring = useCallback(async (txId: string, mintUrl: string, token: string) => {
+    if (tokenMonitorsRef.current.has(txId)) return
+    if (handledTokenIdsRef.current.has(txId)) return
+
+    const { CashuService } = await import('@/services/cashu/cashu.service')
+    const cashu = new CashuService()
+    const { getDecodedToken } = await import('@cashu/cashu-ts')
+    const decoded = getDecodedToken(token)
+    const monitor: { wsCancel?: () => void; pollTimer?: ReturnType<typeof setInterval> } = {}
+
+    // Layer 1: NUT-17 WebSocket (proof 1개만 — cashu.me 패턴)
+    const canceller = await cashu.subscribeProofSpent(
+      mintUrl,
+      [decoded.proofs[0]],
+      () => onTokenSpentDetected(txId),
+    )
+
+    if (canceller) {
+      monitor.wsCancel = canceller
+      tokenMonitorsRef.current.set(txId, monitor)
+      return // NUT-17 성공 → polling 불필요
+    }
+
+    // Layer 2: polling fallback (5sec × 12 = 60sec)
+    let nInterval = 0
+    monitor.pollTimer = setInterval(async () => {
+      nInterval++
+      if (nInterval > 12) {
+        clearInterval(monitor.pollTimer!)
+        monitor.pollTimer = undefined
+        return
+      }
+      try {
+        const spentSecrets = await cashu.checkProofsSpent(mintUrl, decoded.proofs)
+        if (spentSecrets.length > 0) {
+          clearInterval(monitor.pollTimer!)
+          monitor.pollTimer = undefined
+          await onTokenSpentDetected(txId)
+        }
+      } catch (e) {
+        console.warn('[TokenMonitor] poll error:', e)
+      }
+    }, 5000)
+    tokenMonitorsRef.current.set(txId, monitor)
+  }, [onTokenSpentDetected])
+
+  const checkPendingTokenStates = useCallback(async () => {
+    try {
+      const { getDatabase } = await import('@/data/database/schema')
+      const db = getDatabase()
+      const allTxs = await db.transactions.toArray()
+      const pendingTokenTxs = allTxs.filter((tx) => tx.type === 'ecash-token' && tx.status === 'pending')
+
+      if (pendingTokenTxs.length === 0) return
+
+      const { CashuService } = await import('@/services/cashu/cashu.service')
+      const cashu = new CashuService()
+      const { getDecodedToken } = await import('@cashu/cashu-ts')
+
+      for (const tx of pendingTokenTxs) {
+        if (!tx.token) continue
+        const decoded = getDecodedToken(tx.token)
+        const spentSecrets = await cashu.checkProofsSpent(tx.mintUrl, decoded.proofs)
+
+        if (spentSecrets.length > 0) {
+          await onTokenSpentDetected(tx.id)
+        } else if (!tokenMonitorsRef.current.has(tx.id)) {
+          startTokenStateMonitoring(tx.id, tx.mintUrl, tx.token)
+        }
+      }
+    } catch (e) {
+      console.error('[TokenMonitor] checkPendingTokenStates error:', e)
+    }
+  }, [onTokenSpentDetected, startTokenStateMonitoring])
+
   useEffect(() => {
     // Only subscribe when app is unlocked and initialized
     if (isLocked || isInitializing) return
@@ -673,114 +781,6 @@ export default function MainApp() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- startTokenStateMonitoring is stable via ref
   }, [services.transactionRepo, services.payment, refreshBalance])
-
-  // ─── Token State Monitoring (3-Layer) ───
-
-  const onTokenSpentDetected = useCallback(async (txId: string) => {
-    if (handledTokenIdsRef.current.has(txId)) return
-    handledTokenIdsRef.current.add(txId)
-
-    // 이미 reclaimed된 경우 덮어쓰지 않음
-    const existing = await services.transactionRepo.findById(txId)
-    if (existing && existing.status === 'failed' && existing.failureReason === 'reclaimed') {
-      return
-    }
-
-    await services.transactionRepo.update(txId, {
-      status: 'completed',
-      tokenState: 'spent',
-      completedAt: Date.now(),
-    })
-    await services.payment.removePendingSendToken(txId)
-    setTransactions((prev) => prev.map((t) =>
-      t.id === txId ? { ...t, status: 'completed' as const, tokenState: 'spent' as const, completedAt: Date.now() } : t
-    ))
-
-    // Cleanup monitoring
-    const monitor = tokenMonitorsRef.current.get(txId)
-    if (monitor) {
-      monitor.wsCancel?.()
-      if (monitor.pollTimer) clearInterval(monitor.pollTimer)
-      tokenMonitorsRef.current.delete(txId)
-    }
-
-    useAppStore.getState().triggerTxRefresh()
-  }, [services.transactionRepo, services.payment])
-
-  const startTokenStateMonitoring = useCallback(async (txId: string, mintUrl: string, token: string) => {
-    if (tokenMonitorsRef.current.has(txId)) return
-    if (handledTokenIdsRef.current.has(txId)) return
-
-    const { CashuService } = await import('@/services/cashu/cashu.service')
-    const cashu = new CashuService()
-    const { getDecodedToken } = await import('@cashu/cashu-ts')
-    const decoded = getDecodedToken(token)
-    const monitor: { wsCancel?: () => void; pollTimer?: ReturnType<typeof setInterval> } = {}
-
-    // Layer 1: NUT-17 WebSocket (proof 1개만 — cashu.me 패턴)
-    const canceller = await cashu.subscribeProofSpent(
-      mintUrl,
-      [decoded.proofs[0]],
-      () => onTokenSpentDetected(txId),
-    )
-
-    if (canceller) {
-      monitor.wsCancel = canceller
-      tokenMonitorsRef.current.set(txId, monitor)
-      return // NUT-17 성공 → polling 불필요
-    }
-
-    // Layer 2: polling fallback (5sec × 12 = 60sec)
-    let nInterval = 0
-    monitor.pollTimer = setInterval(async () => {
-      nInterval++
-      if (nInterval > 12) {
-        clearInterval(monitor.pollTimer!)
-        monitor.pollTimer = undefined
-        return
-      }
-      try {
-        const spentSecrets = await cashu.checkProofsSpent(mintUrl, decoded.proofs)
-        if (spentSecrets.length > 0) {
-          clearInterval(monitor.pollTimer!)
-          monitor.pollTimer = undefined
-          await onTokenSpentDetected(txId)
-        }
-      } catch (e) {
-        console.warn('[TokenMonitor] poll error:', e)
-      }
-    }, 5000)
-    tokenMonitorsRef.current.set(txId, monitor)
-  }, [onTokenSpentDetected])
-
-  const checkPendingTokenStates = useCallback(async () => {
-    try {
-      const { getDatabase } = await import('@/data/database/schema')
-      const db = getDatabase()
-      const allTxs = await db.transactions.toArray()
-      const pendingTokenTxs = allTxs.filter((tx) => tx.type === 'ecash-token' && tx.status === 'pending')
-
-      if (pendingTokenTxs.length === 0) return
-
-      const { CashuService } = await import('@/services/cashu/cashu.service')
-      const cashu = new CashuService()
-      const { getDecodedToken } = await import('@cashu/cashu-ts')
-
-      for (const tx of pendingTokenTxs) {
-        if (!tx.token) continue
-        const decoded = getDecodedToken(tx.token)
-        const spentSecrets = await cashu.checkProofsSpent(tx.mintUrl, decoded.proofs)
-
-        if (spentSecrets.length > 0) {
-          await onTokenSpentDetected(tx.id)
-        } else if (!tokenMonitorsRef.current.has(tx.id)) {
-          startTokenStateMonitoring(tx.id, tx.mintUrl, tx.token)
-        }
-      }
-    } catch (e) {
-      console.error('[TokenMonitor] checkPendingTokenStates error:', e)
-    }
-  }, [onTokenSpentDetected, startTokenStateMonitoring])
 
   // ─── NUT-18 전송 완료 콜백 ───
   const handleCompleteEcashSend = useCallback(async (txId: string) => {
