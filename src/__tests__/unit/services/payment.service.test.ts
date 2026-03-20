@@ -31,17 +31,13 @@ vi.mock('@cashu/cashu-ts', () => {
 })
 
 // Mock CashuService
-const mockCreateMintQuote = vi.fn()
 const mockCheckMintQuote = vi.fn()
-const mockRedeemMintQuote = vi.fn()
 const mockReceiveToken = vi.fn()
 const mockEncodeToken = vi.fn()
 
 vi.mock('@/services/cashu/cashu.service', () => {
   class MockCashuService {
-    createMintQuote = mockCreateMintQuote
     checkMintQuote = mockCheckMintQuote
-    redeemMintQuote = mockRedeemMintQuote
     receiveToken = mockReceiveToken
     encodeToken = mockEncodeToken
     decodeToken = vi.fn().mockReturnValue({
@@ -158,33 +154,7 @@ describe('PaymentService', () => {
     vi.clearAllMocks()
 
     // Default mock implementations
-    mockCreateMintQuote.mockResolvedValue({
-      isOk: () => true,
-      isErr: () => false,
-      value: {
-        quoteId: 'quote-123',
-        mintUrl: testMintUrl,
-        amount: 1000,
-        request: 'lnbc1000n1mock...',
-        state: 'UNPAID',
-        expiry: Math.floor(Date.now() / 1000) + 3600,
-      },
-    })
-
     mockCheckMintQuote.mockResolvedValue('PAID')
-
-    mockRedeemMintQuote.mockResolvedValue({
-      isOk: () => true,
-      isErr: () => false,
-      value: [
-        { id: 'k1', amount: 512, secret: 's1', C: 'c1' },
-        { id: 'k1', amount: 256, secret: 's2', C: 'c2' },
-        { id: 'k1', amount: 128, secret: 's3', C: 'c3' },
-        { id: 'k1', amount: 64, secret: 's4', C: 'c4' },
-        { id: 'k1', amount: 32, secret: 's5', C: 'c5' },
-        { id: 'k1', amount: 8, secret: 's6', C: 'c6' },
-      ],
-    })
 
     mockReceiveToken.mockResolvedValue({
       isOk: () => true,
@@ -261,11 +231,7 @@ describe('PaymentService', () => {
 
     it('should return error if no mints available', async () => {
       mockGetMints.mockResolvedValue([])
-      mockCreateMintQuote.mockResolvedValue({
-        isOk: () => false,
-        isErr: () => true,
-        error: { code: 'NO_MINT' },
-      })
+      mockCocoCreateMintQuote.mockRejectedValue(new Error('NO_MINT'))
 
       const result = await service.createLightningInvoice(1000)
 

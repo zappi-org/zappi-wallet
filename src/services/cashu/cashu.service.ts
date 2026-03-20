@@ -9,7 +9,6 @@ import {
 import { getWalletCache } from '@/data/cache'
 import { ok, err, type Result } from '@/core/types'
 import { classifyCashuError, type BaseError } from '@/core/errors'
-import type { MintQuote, MeltQuote } from '@/core/types'
 
 /**
  * Type for subscription canceller function
@@ -22,23 +21,6 @@ export type SubscriptionCanceller = () => void
 export interface ReceiveResult {
   proofs: Proof[]
   mintUrl: string
-}
-
-/**
- * Result of melting tokens
- */
-export interface MeltResult {
-  paid: boolean
-  preimage?: string
-  change: Proof[]
-}
-
-/**
- * Result of creating send proofs
- */
-export interface SendProofsResult {
-  send: Proof[]
-  keep: Proof[]
 }
 
 /**
@@ -72,31 +54,7 @@ export class CashuService {
     this.walletCache.clear()
   }
 
-  // ===== Mint Operations =====
-
-  /**
-   * Create a mint quote (Lightning invoice for receiving)
-   */
-  async createMintQuote(
-    mintUrl: string,
-    amount: number
-  ): Promise<Result<MintQuote, BaseError>> {
-    try {
-      const wallet = await this.getWallet(mintUrl)
-      const quote = await wallet.createMintQuote(amount)
-
-      return ok({
-        quoteId: quote.quote,
-        mintUrl,
-        amount,
-        request: quote.request,
-        state: quote.state as MintQuote['state'],
-        expiry: quote.expiry,
-      })
-    } catch (error) {
-      return err(classifyCashuError(error))
-    }
-  }
+  // ===== Quote Status =====
 
   /**
    * Check mint quote status
@@ -108,75 +66,6 @@ export class CashuService {
     const wallet = await this.getWallet(mintUrl)
     const quote = await wallet.checkMintQuote(quoteId)
     return quote.state
-  }
-
-  /**
-   * Redeem a paid mint quote to get proofs
-   */
-  async redeemMintQuote(
-    mintUrl: string,
-    quoteId: string,
-    amount: number
-  ): Promise<Result<Proof[], BaseError>> {
-    try {
-      const wallet = await this.getWallet(mintUrl)
-      const proofs = await wallet.mintProofs(amount, quoteId)
-      return ok(proofs)
-    } catch (error) {
-      return err(classifyCashuError(error))
-    }
-  }
-
-  // ===== Melt Operations =====
-
-  /**
-   * Create a melt quote (for paying Lightning invoice)
-   */
-  async createMeltQuote(
-    mintUrl: string,
-    invoice: string
-  ): Promise<Result<MeltQuote, BaseError>> {
-    try {
-      const wallet = await this.getWallet(mintUrl)
-      const quote = await wallet.createMeltQuote(invoice)
-
-      return ok({
-        quoteId: quote.quote,
-        mintUrl,
-        amount: quote.amount,
-        feeReserve: quote.fee_reserve,
-        request: invoice,
-        state: quote.state as MeltQuote['state'],
-        expiry: quote.expiry,
-      })
-    } catch (error) {
-      return err(classifyCashuError(error))
-    }
-  }
-
-  /**
-   * Melt tokens (pay Lightning invoice)
-   */
-  async meltTokens(
-    mintUrl: string,
-    quoteId: string,
-    proofs: Proof[]
-  ): Promise<Result<MeltResult, BaseError>> {
-    try {
-      const wallet = await this.getWallet(mintUrl)
-      // Get the full quote object first
-      const quoteResponse = await wallet.checkMeltQuoteBolt11(quoteId)
-      // Use the ops API for melting
-      const result = await wallet.ops.meltBolt11(quoteResponse, proofs).run()
-
-      return ok({
-        paid: result.quote.state === 'PAID',
-        preimage: result.quote.payment_preimage ?? undefined,
-        change: result.change,
-      })
-    } catch (error) {
-      return err(classifyCashuError(error))
-    }
   }
 
   // ===== Token Operations =====
@@ -228,31 +117,82 @@ export class CashuService {
   }
 
   /**
-   * Create proofs for sending (swap to specific amount)
-   */
-  async createSendProofs(
-    mintUrl: string,
-    amount: number,
-    proofs: Proof[]
-  ): Promise<Result<SendProofsResult, BaseError>> {
-    try {
-      const wallet = await this.getWallet(mintUrl)
-      const result = await wallet.send(amount, proofs)
-
-      return ok({
-        send: result.send,
-        keep: result.keep,
-      })
-    } catch (error) {
-      return err(classifyCashuError(error))
-    }
-  }
-
-  /**
    * Get total amount from proofs
    */
   getTotalAmount(proofs: Proof[]): number {
     return proofs.reduce((sum, p) => sum + p.amount, 0)
+  }
+
+  // ===== Proof State Operations =====
+
+  /**
+   * Check which proofs have been spent
+   * Returns the secrets of spent proofs
+   */
+  async checkProofsSpent(
+    mintUrl: string,
+    proofs: Array<{ secret: string }>
+  ): Promise<string[]> {
+    const wallet = await this.getWallet(mintUrl)
+    const states = await wallet.checkProofsStates(proofs)
+
+    const spentSecrets: string[] = []
+    states.forEach((state, index) => {
+      if (String(state.state) === 'SPENT') {
+        spentSecrets.push(proofs[index].secret)
+      }
+    })
+
+    return spentSecrets
+  }
+
+  /**
+   * Subscribe to proof spent state via WebSocket (NUT-17)
+   * Returns a canceller function, or null if WebSocket is not supported (caller should fall back to polling)
+   */
+  async subscribeProofSpent(
+    mintUrl: string,
+    proofs: Array<{ C: string; amount: number; secret: string; id: string }>,
+    onSpent: () => void,
+    onError?: (error: Error) => void
+  ): Promise<(() => void) | null> {
+    try {
+      const wallet = await this.getWallet(mintUrl)
+
+      // Check if mint supports WebSocket (NUT-17)
+      const mintInfo = await wallet.mint.getInfo()
+      const nut17 = (mintInfo as { nuts?: Record<string, unknown> }).nuts?.['17']
+      if (!nut17) {
+        console.log('[WebSocket] Mint does not support NUT-17 WebSocket')
+        return null
+      }
+
+      // Ensure WebSocket is connected
+      if (!wallet.mint.webSocketConnection) {
+        await wallet.mint.connectWebSocket()
+      }
+
+      // Subscribe to proof state updates
+      const canceller = await wallet.on.proofStateUpdates(
+        proofs,
+        (payload) => {
+          console.log('[WebSocket] Proof state update:', payload.state)
+          if (String(payload.state) === 'SPENT') {
+            onSpent()
+          }
+        },
+        (error: Error) => {
+          console.error('[WebSocket] Proof state subscription error:', error)
+          canceller()
+          onError?.(error)
+        }
+      )
+
+      return canceller
+    } catch (error) {
+      console.warn('[WebSocket] Failed to subscribe to proof state updates:', error)
+      return null
+    }
   }
 
   // ===== WebSocket Operations (NUT-17) =====
