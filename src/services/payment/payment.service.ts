@@ -18,8 +18,9 @@ import {
 } from '@/services/lnurl'
 import {
   createMintQuote as cocoCreateMintQuote,
-  createMeltQuote as cocoCreateMeltQuote,
-  payMeltQuote as cocoPayMeltQuote,
+  prepareMelt as cocoPrepareMelt,
+  executeMelt as cocoExecuteMelt,
+  rollbackMelt as cocoRollbackMelt,
   getBalances as cocoGetBalances,
   redeemMintQuote as cocoRedeemMintQuote,
   receiveToken as cocoReceiveToken,
@@ -388,14 +389,13 @@ export class PaymentService {
         const available = cocoBalances[targetMint] || 0
         console.log(`[sendLightning] Trying mint ${targetMint} with balance ${available} sats`)
 
-        let meltQuoteId: string | null = null
+        let meltOp: Awaited<ReturnType<typeof cocoPrepareMelt>> | null = null
         try {
-          // Create melt quote to get exact fee
-          console.log('Creating melt quote for invoice:', invoice.substring(0, 50) + '...')
-          const meltQuote = await cocoCreateMeltQuote(targetMint, invoice)
-          meltQuoteId = meltQuote.quote
-          const totalNeeded = meltQuote.amount + meltQuote.fee_reserve
-          console.log(`Melt quote: amount=${meltQuote.amount}, fee=${meltQuote.fee_reserve}, total=${totalNeeded}`)
+          // Prepare melt (2-phase: reserves proofs, creates quote)
+          console.log('Preparing melt for invoice:', invoice.substring(0, 50) + '...')
+          meltOp = await cocoPrepareMelt(targetMint, invoice)
+          const totalNeeded = meltOp.amount + meltOp.fee_reserve + meltOp.swap_fee
+          console.log(`Melt prepared: amount=${meltOp.amount}, fee_reserve=${meltOp.fee_reserve}, swap_fee=${meltOp.swap_fee}, total=${totalNeeded}`)
 
           // Check if this mint has enough balance
           if (available < totalNeeded) {
@@ -404,27 +404,29 @@ export class PaymentService {
             if (!bestAttempt || gap < bestAttempt.gap) {
               bestAttempt = { mint: targetMint, needed: totalNeeded, available, gap }
             }
+            await cocoRollbackMelt(meltOp.operationId, 'insufficient balance')
+            meltOp = null
             continue // Try next mint
           }
 
-          // Save pending melt BEFORE payment (for crash recovery)
+          // Save pending melt BEFORE execution (for crash recovery)
           await this.savePendingMelt({
-            meltQuoteId: meltQuote.quote,
+            meltQuoteId: meltOp.quoteId,
             mintUrl: targetMint,
             amount: invoiceAmount,
-            fee: meltQuote.fee_reserve,
+            fee: meltOp.fee_reserve + meltOp.swap_fee,
             destination: addressOrInvoice,
             createdAt: Date.now(),
           })
 
-          // Execute melt using Coco (handles proof selection internally)
-          console.log('Executing melt via Coco...')
-          await cocoPayMeltQuote(targetMint, meltQuote.quote)
+          // Execute melt (2-phase: performs the Lightning payment)
+          console.log('Executing melt...')
+          await cocoExecuteMelt(meltOp.operationId)
           console.log('Melt completed successfully')
 
           // Use deterministic transaction ID based on melt quote
-          const transactionId = `tx-melt-${meltQuote.quote}`
-          const actualFee = meltQuote.fee_reserve
+          const transactionId = `tx-melt-${meltOp.quoteId}`
+          const actualFee = meltOp.fee_reserve + meltOp.swap_fee
 
           // Create transaction record
           await this.transactionRepo.create({
@@ -444,7 +446,7 @@ export class PaymentService {
           })
 
           // Clean up pending melt
-          await this.removePendingMelt(meltQuote.quote)
+          await this.removePendingMelt(meltOp.quoteId)
 
           return ok({
             paid: true,
@@ -455,9 +457,14 @@ export class PaymentService {
           })
         } catch (meltError) {
           console.error(`[sendLightning] Mint ${targetMint} melt failed:`, meltError)
-          // Clean up pending melt on explicit failure (payment wasn't sent)
-          if (meltQuoteId) {
-            await this.removePendingMelt(meltQuoteId).catch(() => {})
+          // Rollback to reclaim reserved proofs
+          if (meltOp) {
+            try {
+              await cocoRollbackMelt(meltOp.operationId, 'melt failed')
+            } catch (rollbackError) {
+              console.error('[sendLightning] Rollback also failed:', rollbackError)
+            }
+            await this.removePendingMelt(meltOp.quoteId).catch(() => {})
           }
           // Continue to try next mint
         }
@@ -492,10 +499,13 @@ export class PaymentService {
     amount: number,
   ): Promise<{ fee: number; totalNeeded: number }> {
     const mintQuote = await cocoCreateMintQuote(toMintUrl, amount)
-    const meltQuote = await cocoCreateMeltQuote(fromMintUrl, mintQuote.request)
+    const meltOp = await cocoPrepareMelt(fromMintUrl, mintQuote.request)
+    const fee = meltOp.fee_reserve + meltOp.swap_fee
+    // Rollback immediately — this was just an estimate
+    await cocoRollbackMelt(meltOp.operationId, 'fee estimation only')
     return {
-      fee: meltQuote.fee_reserve,
-      totalNeeded: meltQuote.amount + meltQuote.fee_reserve,
+      fee,
+      totalNeeded: meltOp.amount + fee,
     }
   }
 
@@ -520,44 +530,45 @@ export class PaymentService {
         return err(new InsufficientBalanceError(amount, sourceBalance))
       }
 
-      // 2. Create quotes and verify balance (with drain retry)
+      // 2. Create mint quote on target + prepare melt on source (2-phase)
       let swapAmount = amount
       let mintQuote: Awaited<ReturnType<typeof cocoCreateMintQuote>>
-      let meltQuote: Awaited<ReturnType<typeof cocoCreateMeltQuote>>
+      let meltOp: Awaited<ReturnType<typeof cocoPrepareMelt>>
 
       // First attempt with requested amount
       console.log('[MintSwap] Creating mint quote on target mint...')
       mintQuote = await cocoCreateMintQuote(toMintUrl, swapAmount)
 
-      console.log('[MintSwap] Creating melt quote on source mint...')
-      meltQuote = await cocoCreateMeltQuote(fromMintUrl, mintQuote.request)
-      let totalNeeded = meltQuote.amount + meltQuote.fee_reserve
-      console.log(`[MintSwap] Melt quote created: amount=${meltQuote.amount}, fee_reserve=${meltQuote.fee_reserve}, totalNeeded=${totalNeeded}, sourceBalance=${sourceBalance}`)
+      console.log('[MintSwap] Preparing melt on source mint...')
+      meltOp = await cocoPrepareMelt(fromMintUrl, mintQuote.request)
+      let totalNeeded = meltOp.amount + meltOp.fee_reserve + meltOp.swap_fee
+      console.log(`[MintSwap] Melt prepared: amount=${meltOp.amount}, fee_reserve=${meltOp.fee_reserve}, swap_fee=${meltOp.swap_fee}, totalNeeded=${totalNeeded}, sourceBalance=${sourceBalance}`)
 
-      // If balance insufficient and drain mode: retry with adjusted amount
+      // If balance insufficient and drain mode: rollback and retry with adjusted amount
       if (sourceBalance < totalNeeded && options?.drain) {
-        const adjustedAmount = amount - meltQuote.fee_reserve
+        const adjustedAmount = amount - meltOp.fee_reserve - meltOp.swap_fee
         if (adjustedAmount <= 0) {
+          await cocoRollbackMelt(meltOp.operationId, 'drain: adjusted amount <= 0')
           return err(new InsufficientBalanceError(totalNeeded, sourceBalance))
         }
-        console.log(`[MintSwap] Drain: fee exceeds balance, retrying with ${adjustedAmount} sats (fee=${meltQuote.fee_reserve})`)
+        console.log(`[MintSwap] Drain: fee exceeds balance, rolling back and retrying with ${adjustedAmount} sats`)
+        await cocoRollbackMelt(meltOp.operationId, 'drain: retry with adjusted amount')
         swapAmount = adjustedAmount
 
         mintQuote = await cocoCreateMintQuote(toMintUrl, swapAmount)
-        meltQuote = await cocoCreateMeltQuote(fromMintUrl, mintQuote.request)
-        totalNeeded = meltQuote.amount + meltQuote.fee_reserve
-        console.log(`[MintSwap] Drain retry: amount=${meltQuote.amount}, fee_reserve=${meltQuote.fee_reserve}, totalNeeded=${totalNeeded}`)
+        meltOp = await cocoPrepareMelt(fromMintUrl, mintQuote.request)
+        totalNeeded = meltOp.amount + meltOp.fee_reserve + meltOp.swap_fee
+        console.log(`[MintSwap] Drain retry: amount=${meltOp.amount}, fee_reserve=${meltOp.fee_reserve}, swap_fee=${meltOp.swap_fee}, totalNeeded=${totalNeeded}`)
       }
 
       // Final balance check
       if (sourceBalance < totalNeeded) {
         console.log(`[MintSwap] Insufficient balance: need ${totalNeeded} but have ${sourceBalance}`)
+        await cocoRollbackMelt(meltOp.operationId, 'insufficient balance')
         return err(new InsufficientBalanceError(totalNeeded, sourceBalance))
       }
 
-      // 5. Save pending quote BEFORE melt (for crash recovery)
-      // If crash after melt but before redeem, recoverPendingQuotes will pick this up
-      // If melt fails, we clean up in the catch block below
+      // 5. Save pending quote BEFORE melt execution (for crash recovery)
       await this.savePendingQuote(
         mintQuote.quote,
         toMintUrl,
@@ -566,12 +577,17 @@ export class PaymentService {
         mintQuote.expiry ? mintQuote.expiry * 1000 : undefined
       )
 
-      // 6. Execute melt (pay the invoice from source mint)
-      console.log('[MintSwap] Paying invoice via melt...')
+      // 6. Execute melt (2-phase: performs the Lightning payment)
+      console.log('[MintSwap] Executing melt...')
       try {
-        await cocoPayMeltQuote(fromMintUrl, meltQuote.quote)
+        await cocoExecuteMelt(meltOp.operationId)
       } catch (meltError) {
-        // Melt failed explicitly — invoice was NOT paid, clean up pending quote
+        // Melt failed — rollback to reclaim reserved proofs
+        try {
+          await cocoRollbackMelt(meltOp.operationId, 'melt failed')
+        } catch (rollbackError) {
+          console.error('[MintSwap] Rollback also failed:', rollbackError)
+        }
         await this.removePendingQuote(mintQuote.quote).catch(() => {})
         throw meltError
       }
@@ -584,11 +600,12 @@ export class PaymentService {
       await this.removePendingQuote(mintQuote.quote)
 
       // 8. Create transaction record
+      const fee = meltOp.fee_reserve + meltOp.swap_fee
       const transactionId = await this.transactionRepo.create({
         id: `tx-swap-${crypto.randomUUID()}`,
         direction: 'send',
         type: 'swap',
-        amount: swapAmount, // The amount swapped (may be less than requested in drain mode)
+        amount: swapAmount,
         mintUrl: fromMintUrl,
         status: 'completed',
         createdAt: Date.now(),
@@ -598,7 +615,7 @@ export class PaymentService {
           swapType: 'mint_swap',
           fromMintUrl,
           toMintUrl,
-          fee: meltQuote.fee_reserve,
+          fee,
         },
       })
 
@@ -607,7 +624,7 @@ export class PaymentService {
       return ok({
         success: true,
         amount: swapAmount,
-        fee: meltQuote.fee_reserve,
+        fee,
         fromMintUrl,
         toMintUrl,
         transactionId,
