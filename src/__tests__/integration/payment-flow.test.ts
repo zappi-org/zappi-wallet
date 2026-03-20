@@ -25,6 +25,12 @@ vi.mock('@cashu/cashu-ts', () => {
   }
 })
 
+// Mock Coco cashuService — getBalance now reads from Coco
+const mockCocoBalances: Record<string, number> = {}
+vi.mock('@/coco/cashuService', () => ({
+  getBalances: vi.fn(async () => ({ ...mockCocoBalances })),
+}))
+
 // Mock SettingsRepository
 vi.mock('@/data/repositories/settings.repository', () => {
   class MockSettingsRepository {
@@ -47,6 +53,7 @@ describe('Payment Flow Integration', () => {
     await resetDatabase()
     clearWalletCache()
     vi.clearAllMocks()
+    for (const key of Object.keys(mockCocoBalances)) delete mockCocoBalances[key]
 
     walletService = new WalletService()
     transactionRepo = new TransactionRepository()
@@ -63,10 +70,7 @@ describe('Payment Flow Integration', () => {
     })
 
     it('should update balance when adding proofs', async () => {
-      await walletService.addProofs('https://mint.example.com', [
-        { id: 'k1', amount: 100, secret: 's1', C: 'c1' },
-        { id: 'k1', amount: 50, secret: 's2', C: 'c2' },
-      ])
+      mockCocoBalances['https://mint.example.com'] = 150
 
       const balance = await walletService.getBalance()
       expect(balance.total).toBe(150)
@@ -74,13 +78,8 @@ describe('Payment Flow Integration', () => {
     })
 
     it('should track balance across multiple mints', async () => {
-      await walletService.addProofs('https://mint1.example.com', [
-        { id: 'k1', amount: 500, secret: 's1', C: 'c1' },
-      ])
-
-      await walletService.addProofs('https://mint2.example.com', [
-        { id: 'k2', amount: 300, secret: 's2', C: 'c2' },
-      ])
+      mockCocoBalances['https://mint1.example.com'] = 500
+      mockCocoBalances['https://mint2.example.com'] = 300
 
       const balance = await walletService.getBalance()
       expect(balance.total).toBe(800)
@@ -262,20 +261,17 @@ describe('Payment Flow Integration', () => {
 
       await walletService.addProofs('https://mint.example.com', proofs)
 
-      let balance = await walletService.getBalance()
-      expect(balance.total).toBe(175)
-
       // Spend the first proof
       await walletService.removeProofs('https://mint.example.com', [proofs[0]])
 
-      balance = await walletService.getBalance()
-      expect(balance.total).toBe(75)
+      let remaining = await walletService.getProofs('https://mint.example.com')
+      expect(remaining).toHaveLength(2)
 
       // Spend remaining proofs
       await walletService.removeProofs('https://mint.example.com', [proofs[1], proofs[2]])
 
-      balance = await walletService.getBalance()
-      expect(balance.total).toBe(0)
+      remaining = await walletService.getProofs('https://mint.example.com')
+      expect(remaining).toHaveLength(0)
     })
   })
 })

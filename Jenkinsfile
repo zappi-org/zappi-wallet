@@ -26,6 +26,8 @@ pipeline {
                         sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest"
                     } else if (env.BRANCH_NAME == 'staging') {
                         sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:staging"
+                    } else if (env.BRANCH_NAME == 'nightly') {
+                        sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:nightly"
                     }
                 }
             }
@@ -43,6 +45,11 @@ pipeline {
                         sh """
                             docker compose -f docker-compose.staging.yml -p zappi-wallet-staging down || true
                             docker compose -f docker-compose.staging.yml -p zappi-wallet-staging up -d
+                        """
+                    } else if (env.BRANCH_NAME == 'nightly') {
+                        sh """
+                            docker compose -f docker-compose.nightly.yml -p zappi-wallet-nightly down || true
+                            docker compose -f docker-compose.nightly.yml -p zappi-wallet-nightly up -d
                         """
                     }
                 }

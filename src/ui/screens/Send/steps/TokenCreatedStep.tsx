@@ -12,8 +12,10 @@ import { hapticTap, hapticSuccess } from '@/utils/haptic'
 import { useAppStore } from '@/store'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
-import { checkProofsSpent, subscribeProofSpent } from '@/services/cashu'
+import { CashuService } from '@/services/cashu/cashu.service'
 import { getDecodedToken } from '@cashu/cashu-ts'
+
+const cashu = new CashuService()
 
 interface TokenCreatedStepProps {
   token: string
@@ -65,7 +67,7 @@ export function TokenCreatedStep({
             return
           }
           try {
-            const spentSecrets = await checkProofsSpent(mintUrl, proofs)
+            const spentSecrets = await cashu.checkProofsSpent(mintUrl, proofs)
             if (spentSecrets.length > 0) {
               clearInterval(pollTimer)
               handleSpent()
@@ -76,7 +78,7 @@ export function TokenCreatedStep({
         }, 3000)
 
         try {
-          const cleanup = await subscribeProofSpent(mintUrl, proofs, () => {
+          const cleanup = await cashu.subscribeProofSpent(mintUrl, proofs, () => {
             clearInterval(pollTimer)
             handleSpent()
           })

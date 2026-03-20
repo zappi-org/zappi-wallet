@@ -2,7 +2,7 @@ import type { Proof, MintQuoteBolt11Response } from '@cashu/cashu-ts'
 import { CashuService, type SubscriptionCanceller } from '@/services/cashu/cashu.service'
 import { WalletService } from '@/services/wallet/wallet.service'
 import { TransactionRepository } from '@/data/repositories/transaction.repository'
-import { getDatabase, type PendingQuoteRecord, type PendingMeltRecord, type PendingSendTokenRecord } from '@/data/database/schema'
+import { getDatabase, type PendingMeltRecord, type PendingSendTokenRecord } from '@/data/database/schema'
 import { ok, err, type Result } from '@/core/types'
 import type { MintQuote, PaymentRequest } from '@/core/types'
 import type { BaseError } from '@/core/errors'
@@ -18,12 +18,15 @@ import {
 } from '@/services/lnurl'
 import {
   createMintQuote as cocoCreateMintQuote,
-  createMeltQuote as cocoCreateMeltQuote,
-  payMeltQuote as cocoPayMeltQuote,
+  prepareMelt as cocoPrepareMelt,
+  executeMelt as cocoExecuteMelt,
+  rollbackMelt as cocoRollbackMelt,
   getBalances as cocoGetBalances,
   redeemMintQuote as cocoRedeemMintQuote,
   receiveToken as cocoReceiveToken,
 } from '@/coco/cashuService'
+import { getMintQuote as cocoGetMintQuote } from '@/coco/manager'
+import { markQuoteAsSwap, unmarkQuoteAsSwap } from '@/coco/bridge'
 import { getDecodedToken } from '@cashu/cashu-ts'
 
 /**
@@ -125,15 +128,8 @@ export class PaymentService {
         expiry,
       }
 
-      // Save pending quote for recovery with expiry (convert to ms)
+      // Coco already stores the quote internally via createMintQuote()
       // Transaction record is created later when payment is confirmed (in claimPayment)
-      await this.savePendingQuote(
-        quoteId,
-        targetMint,
-        amount,
-        request,
-        expiry * 1000 // Convert seconds to milliseconds
-      )
 
       return ok({
         quote,
@@ -174,7 +170,6 @@ export class PaymentService {
     const existingTx = await this.transactionRepo.findById(transactionId)
     if (existingTx && existingTx.status === 'completed') {
       console.log('[claimPayment] Quote already claimed:', quoteId)
-      await this.removePendingQuote(quoteId)
       return ok({
         proofs: [],
         amount: existingTx.amount,
@@ -184,10 +179,9 @@ export class PaymentService {
 
     this.claimInFlight.add(quoteId)
     try {
-      // Fetch bolt11 from pending quote before redeeming
-      const db = getDatabase()
-      const pendingQuote = await db.pendingQuotes.get(quoteId)
-      const bolt11 = pendingQuote?.invoice
+      // Fetch bolt11 from Coco's internal quote DB
+      const cocoQuote = await cocoGetMintQuote(mintUrl, quoteId)
+      const bolt11 = cocoQuote?.request
 
       // Redeem the quote using Coco (stores proofs automatically)
       // Coco manages proofs internally, so we get an empty array back
@@ -215,9 +209,6 @@ export class PaymentService {
           metadata: { quoteId },
         })
       }
-
-      // Remove pending quote
-      await this.removePendingQuote(quoteId)
 
       return ok({
         proofs: [], // Coco manages proofs internally
@@ -388,14 +379,13 @@ export class PaymentService {
         const available = cocoBalances[targetMint] || 0
         console.log(`[sendLightning] Trying mint ${targetMint} with balance ${available} sats`)
 
-        let meltQuoteId: string | null = null
+        let meltOp: Awaited<ReturnType<typeof cocoPrepareMelt>> | null = null
         try {
-          // Create melt quote to get exact fee
-          console.log('Creating melt quote for invoice:', invoice.substring(0, 50) + '...')
-          const meltQuote = await cocoCreateMeltQuote(targetMint, invoice)
-          meltQuoteId = meltQuote.quote
-          const totalNeeded = meltQuote.amount + meltQuote.fee_reserve
-          console.log(`Melt quote: amount=${meltQuote.amount}, fee=${meltQuote.fee_reserve}, total=${totalNeeded}`)
+          // Prepare melt (2-phase: reserves proofs, creates quote)
+          console.log('Preparing melt for invoice:', invoice.substring(0, 50) + '...')
+          meltOp = await cocoPrepareMelt(targetMint, invoice)
+          const totalNeeded = meltOp.amount + meltOp.fee_reserve + meltOp.swap_fee
+          console.log(`Melt prepared: amount=${meltOp.amount}, fee_reserve=${meltOp.fee_reserve}, swap_fee=${meltOp.swap_fee}, total=${totalNeeded}`)
 
           // Check if this mint has enough balance
           if (available < totalNeeded) {
@@ -404,27 +394,29 @@ export class PaymentService {
             if (!bestAttempt || gap < bestAttempt.gap) {
               bestAttempt = { mint: targetMint, needed: totalNeeded, available, gap }
             }
+            await cocoRollbackMelt(meltOp.operationId, 'insufficient balance')
+            meltOp = null
             continue // Try next mint
           }
 
-          // Save pending melt BEFORE payment (for crash recovery)
+          // Save pending melt BEFORE execution (for crash recovery)
           await this.savePendingMelt({
-            meltQuoteId: meltQuote.quote,
+            meltQuoteId: meltOp.quoteId,
             mintUrl: targetMint,
             amount: invoiceAmount,
-            fee: meltQuote.fee_reserve,
+            fee: meltOp.fee_reserve + meltOp.swap_fee,
             destination: addressOrInvoice,
             createdAt: Date.now(),
           })
 
-          // Execute melt using Coco (handles proof selection internally)
-          console.log('Executing melt via Coco...')
-          await cocoPayMeltQuote(targetMint, meltQuote.quote)
+          // Execute melt (2-phase: performs the Lightning payment)
+          console.log('Executing melt...')
+          await cocoExecuteMelt(meltOp.operationId)
           console.log('Melt completed successfully')
 
           // Use deterministic transaction ID based on melt quote
-          const transactionId = `tx-melt-${meltQuote.quote}`
-          const actualFee = meltQuote.fee_reserve
+          const transactionId = `tx-melt-${meltOp.quoteId}`
+          const actualFee = meltOp.fee_reserve + meltOp.swap_fee
 
           // Create transaction record
           await this.transactionRepo.create({
@@ -444,7 +436,7 @@ export class PaymentService {
           })
 
           // Clean up pending melt
-          await this.removePendingMelt(meltQuote.quote)
+          await this.removePendingMelt(meltOp.quoteId)
 
           return ok({
             paid: true,
@@ -455,9 +447,14 @@ export class PaymentService {
           })
         } catch (meltError) {
           console.error(`[sendLightning] Mint ${targetMint} melt failed:`, meltError)
-          // Clean up pending melt on explicit failure (payment wasn't sent)
-          if (meltQuoteId) {
-            await this.removePendingMelt(meltQuoteId).catch(() => {})
+          // Rollback to reclaim reserved proofs
+          if (meltOp) {
+            try {
+              await cocoRollbackMelt(meltOp.operationId, 'melt failed')
+            } catch (rollbackError) {
+              console.error('[sendLightning] Rollback also failed:', rollbackError)
+            }
+            await this.removePendingMelt(meltOp.quoteId).catch(() => {})
           }
           // Continue to try next mint
         }
@@ -492,10 +489,15 @@ export class PaymentService {
     amount: number,
   ): Promise<{ fee: number; totalNeeded: number }> {
     const mintQuote = await cocoCreateMintQuote(toMintUrl, amount)
-    const meltQuote = await cocoCreateMeltQuote(fromMintUrl, mintQuote.request)
+    const meltOp = await cocoPrepareMelt(fromMintUrl, mintQuote.request)
+    const fee = meltOp.fee_reserve + meltOp.swap_fee
+    // Rollback immediately — this was just an estimate
+    await cocoRollbackMelt(meltOp.operationId, 'fee estimation only').catch((err) => {
+      console.error('[estimateSwapFee] Rollback failed:', err)
+    })
     return {
-      fee: meltQuote.fee_reserve,
-      totalNeeded: meltQuote.amount + meltQuote.fee_reserve,
+      fee,
+      totalNeeded: meltOp.amount + fee,
     }
   }
 
@@ -509,6 +511,7 @@ export class PaymentService {
     amount: number,
     options?: { drain?: boolean }
   ): Promise<Result<MintSwapResult, BaseError>> {
+    let mintQuote: Awaited<ReturnType<typeof cocoCreateMintQuote>> | undefined
     try {
       console.log(`[MintSwap] Starting swap: ${amount} sats from ${fromMintUrl} to ${toMintUrl}${options?.drain ? ' (drain mode)' : ''}`)
 
@@ -520,85 +523,116 @@ export class PaymentService {
         return err(new InsufficientBalanceError(amount, sourceBalance))
       }
 
-      // 2. Create quotes and verify balance (with drain retry)
+      // 2. Create mint quote on target + prepare melt on source (2-phase)
       let swapAmount = amount
-      let mintQuote: Awaited<ReturnType<typeof cocoCreateMintQuote>>
-      let meltQuote: Awaited<ReturnType<typeof cocoCreateMeltQuote>>
+      let meltOp: Awaited<ReturnType<typeof cocoPrepareMelt>>
 
       // First attempt with requested amount
       console.log('[MintSwap] Creating mint quote on target mint...')
       mintQuote = await cocoCreateMintQuote(toMintUrl, swapAmount)
+      markQuoteAsSwap(mintQuote.quote)
 
-      console.log('[MintSwap] Creating melt quote on source mint...')
-      meltQuote = await cocoCreateMeltQuote(fromMintUrl, mintQuote.request)
-      let totalNeeded = meltQuote.amount + meltQuote.fee_reserve
-      console.log(`[MintSwap] Melt quote created: amount=${meltQuote.amount}, fee_reserve=${meltQuote.fee_reserve}, totalNeeded=${totalNeeded}, sourceBalance=${sourceBalance}`)
+      console.log('[MintSwap] Preparing melt on source mint...')
+      meltOp = await cocoPrepareMelt(fromMintUrl, mintQuote.request)
+      let totalNeeded = meltOp.amount + meltOp.fee_reserve + meltOp.swap_fee
+      console.log(`[MintSwap] Melt prepared: amount=${meltOp.amount}, fee_reserve=${meltOp.fee_reserve}, swap_fee=${meltOp.swap_fee}, totalNeeded=${totalNeeded}, sourceBalance=${sourceBalance}`)
 
-      // If balance insufficient and drain mode: retry with adjusted amount
+      // If balance insufficient and drain mode: rollback and retry with adjusted amount
       if (sourceBalance < totalNeeded && options?.drain) {
-        const adjustedAmount = amount - meltQuote.fee_reserve
+        const adjustedAmount = amount - meltOp.fee_reserve - meltOp.swap_fee
         if (adjustedAmount <= 0) {
+          await cocoRollbackMelt(meltOp.operationId, 'drain: adjusted amount <= 0')
+          unmarkQuoteAsSwap(mintQuote!.quote)
           return err(new InsufficientBalanceError(totalNeeded, sourceBalance))
         }
-        console.log(`[MintSwap] Drain: fee exceeds balance, retrying with ${adjustedAmount} sats (fee=${meltQuote.fee_reserve})`)
+        console.log(`[MintSwap] Drain: fee exceeds balance, rolling back and retrying with ${adjustedAmount} sats`)
+        await cocoRollbackMelt(meltOp.operationId, 'drain: retry with adjusted amount')
         swapAmount = adjustedAmount
 
+        unmarkQuoteAsSwap(mintQuote.quote)
         mintQuote = await cocoCreateMintQuote(toMintUrl, swapAmount)
-        meltQuote = await cocoCreateMeltQuote(fromMintUrl, mintQuote.request)
-        totalNeeded = meltQuote.amount + meltQuote.fee_reserve
-        console.log(`[MintSwap] Drain retry: amount=${meltQuote.amount}, fee_reserve=${meltQuote.fee_reserve}, totalNeeded=${totalNeeded}`)
+        markQuoteAsSwap(mintQuote.quote)
+        meltOp = await cocoPrepareMelt(fromMintUrl, mintQuote.request)
+        totalNeeded = meltOp.amount + meltOp.fee_reserve + meltOp.swap_fee
+        console.log(`[MintSwap] Drain retry: amount=${meltOp.amount}, fee_reserve=${meltOp.fee_reserve}, swap_fee=${meltOp.swap_fee}, totalNeeded=${totalNeeded}`)
       }
 
       // Final balance check
       if (sourceBalance < totalNeeded) {
         console.log(`[MintSwap] Insufficient balance: need ${totalNeeded} but have ${sourceBalance}`)
+        await cocoRollbackMelt(meltOp.operationId, 'insufficient balance')
+        unmarkQuoteAsSwap(mintQuote!.quote)
         return err(new InsufficientBalanceError(totalNeeded, sourceBalance))
       }
 
-      // 5. Save pending quote BEFORE melt (for crash recovery)
-      // If crash after melt but before redeem, recoverPendingQuotes will pick this up
-      // If melt fails, we clean up in the catch block below
-      await this.savePendingQuote(
-        mintQuote.quote,
-        toMintUrl,
-        swapAmount,
-        mintQuote.request,
-        mintQuote.expiry ? mintQuote.expiry * 1000 : undefined
-      )
+      // 5. Coco already stores the mint quote internally via createMintQuote()
 
-      // 6. Execute melt (pay the invoice from source mint)
-      console.log('[MintSwap] Paying invoice via melt...')
+      // 6. Execute melt (2-phase: performs the Lightning payment)
+      console.log('[MintSwap] Executing melt...')
       try {
-        await cocoPayMeltQuote(fromMintUrl, meltQuote.quote)
+        await cocoExecuteMelt(meltOp.operationId)
       } catch (meltError) {
-        // Melt failed explicitly — invoice was NOT paid, clean up pending quote
-        await this.removePendingQuote(mintQuote.quote).catch(() => {})
+        // Melt failed — rollback to reclaim reserved proofs
+        try {
+          await cocoRollbackMelt(meltOp.operationId, 'melt failed')
+        } catch (rollbackError) {
+          console.error('[MintSwap] Rollback also failed:', rollbackError)
+        }
         throw meltError
       }
 
       // 7. Redeem mint quote on target mint (receive the tokens)
+      // MintQuoteWatcher may have already redeemed this quote automatically,
+      // so "already pending" or "already issued" errors are safe to ignore.
       console.log('[MintSwap] Redeeming mint quote on target mint...')
-      await cocoRedeemMintQuote(toMintUrl, mintQuote.quote, swapAmount)
+      try {
+        await cocoRedeemMintQuote(toMintUrl, mintQuote.quote, swapAmount)
+      } catch (redeemError) {
+        const msg = String(redeemError).toLowerCase()
+        if (msg.includes('already pending') || msg.includes('already issued') || msg.includes('already redeemed')) {
+          console.log('[MintSwap] Quote already redeemed by MintQuoteWatcher, continuing')
+        } else {
+          throw redeemError
+        }
+      }
 
-      // 7.5. Remove pending quote (redeem succeeded)
-      await this.removePendingQuote(mintQuote.quote)
+      // 8. Create transaction records (send from source + receive on target)
+      const fee = meltOp.fee_reserve + meltOp.swap_fee
+      const now = Date.now()
+      const swapId = crypto.randomUUID()
 
-      // 8. Create transaction record
       const transactionId = await this.transactionRepo.create({
-        id: `tx-swap-${crypto.randomUUID()}`,
+        id: `tx-swap-send-${swapId}`,
         direction: 'send',
         type: 'swap',
-        amount: swapAmount, // The amount swapped (may be less than requested in drain mode)
+        amount: swapAmount,
         mintUrl: fromMintUrl,
         status: 'completed',
-        createdAt: Date.now(),
-        completedAt: Date.now(),
+        createdAt: now,
+        completedAt: now,
         memo: `${swapAmount} sats`,
         metadata: {
           swapType: 'mint_swap',
           fromMintUrl,
           toMintUrl,
-          fee: meltQuote.fee_reserve,
+          fee,
+        },
+      })
+
+      await this.transactionRepo.create({
+        id: `tx-swap-recv-${swapId}`,
+        direction: 'receive',
+        type: 'swap',
+        amount: swapAmount,
+        mintUrl: toMintUrl,
+        status: 'completed',
+        createdAt: now,
+        completedAt: now,
+        memo: `${swapAmount} sats`,
+        metadata: {
+          swapType: 'mint_swap',
+          fromMintUrl,
+          toMintUrl,
         },
       })
 
@@ -607,13 +641,14 @@ export class PaymentService {
       return ok({
         success: true,
         amount: swapAmount,
-        fee: meltQuote.fee_reserve,
+        fee,
         fromMintUrl,
         toMintUrl,
         transactionId,
       })
     } catch (error) {
       console.error('mintSwap error:', error)
+      if (mintQuote) unmarkQuoteAsSwap(mintQuote.quote)
       return err(classifyCashuError(error))
     }
   }
@@ -686,46 +721,6 @@ export class PaymentService {
    */
   getTotalAmount(proofs: Proof[]): number {
     return proofs.reduce((sum, p) => sum + p.amount, 0)
-  }
-
-  /**
-   * Save a pending quote to the database
-   */
-  async savePendingQuote(
-    quoteId: string,
-    mintUrl: string,
-    amount: number,
-    invoice: string,
-    expiresAt?: number
-  ): Promise<void> {
-    const db = getDatabase()
-    await db.pendingQuotes.put({
-      quoteId,
-      mintUrl,
-      amount,
-      invoice,
-      createdAt: Date.now(),
-      expiresAt,
-    })
-  }
-
-  /**
-   * Remove a pending quote from the database
-   */
-  async removePendingQuote(quoteId: string): Promise<void> {
-    const db = getDatabase()
-    await db.pendingQuotes.delete(quoteId)
-  }
-
-  /**
-   * Clean up a leftover pending transaction (from old code that created them at invoice time)
-   * Only deletes if the transaction exists and is still 'pending'
-   */
-  private async cleanupPendingTransaction(transactionId: string): Promise<void> {
-    const tx = await this.transactionRepo.findById(transactionId)
-    if (tx && tx.status === 'pending') {
-      await this.transactionRepo.delete(transactionId)
-    }
   }
 
   // ===== Pending Melt Management (Lightning Send Recovery) =====
@@ -840,73 +835,6 @@ export class PaymentService {
   }
 
   /**
-   * Get all pending quotes (for recovery)
-   */
-  async getPendingQuotes(): Promise<PendingQuoteRecord[]> {
-    const db = getDatabase()
-    return db.pendingQuotes.toArray()
-  }
-
-  /**
-   * Try to recover pending quotes - check and claim any that are paid
-   */
-  async recoverPendingQuotes(): Promise<{
-    recovered: number
-    failed: number
-    expired: number
-  }> {
-    const pendingQuotes = await this.getPendingQuotes()
-    let recovered = 0
-    let failed = 0
-    let expired = 0
-
-    const now = Date.now()
-    const maxAge = 24 * 60 * 60 * 1000 // 24 hours max age
-
-    for (const quote of pendingQuotes) {
-      const transactionId = `tx-${quote.quoteId}`
-
-      // Check if quote has expired
-      if (quote.expiresAt && quote.expiresAt < now) {
-        await this.removePendingQuote(quote.quoteId)
-        // Clean up any leftover pending transaction from old code
-        await this.cleanupPendingTransaction(transactionId)
-        expired++
-        continue
-      }
-
-      // Remove quotes older than 24 hours (even without expiry)
-      if (!quote.expiresAt && quote.createdAt && (now - quote.createdAt) > maxAge) {
-        await this.removePendingQuote(quote.quoteId)
-        // Clean up any leftover pending transaction from old code
-        await this.cleanupPendingTransaction(transactionId)
-        expired++
-        continue
-      }
-
-      try {
-        // Check if payment was received
-        const isPaid = await this.checkPaymentStatus(quote.mintUrl, quote.quoteId)
-        if (isPaid) {
-          // Claim the tokens (also creates completed transaction)
-          const result = await this.claimPayment(quote.mintUrl, quote.quoteId, quote.amount)
-          if (result.isOk()) {
-            await this.removePendingQuote(quote.quoteId)
-            recovered++
-          } else {
-            failed++
-          }
-        }
-      } catch {
-        // Quote might have expired or mint is unreachable
-        failed++
-      }
-    }
-
-    return { recovered, failed, expired }
-  }
-
-  /**
    * Recover all pending operations (quotes, melts, send tokens, offline received tokens)
    * Should be called at app init, on visibility change, etc.
    */
@@ -916,10 +844,10 @@ export class PaymentService {
     sendTokens: { reclaimed: number; recorded: number }
     receivedTokens: { redeemed: number; failed: number }
   }> {
-    const { recoverPendingMelts, recoverPendingSendTokens } = await import('@/coco/cashuService')
+    const { recoverPendingQuotes, recoverPendingMelts, recoverPendingSendTokens } = await import('@/coco/cashuService')
 
     const [quotes, melts, sendTokens, receivedTokens] = await Promise.allSettled([
-      this.recoverPendingQuotes(),
+      recoverPendingQuotes(),
       recoverPendingMelts(),
       recoverPendingSendTokens(),
       this.redeemPendingReceivedTokens(),
@@ -1076,7 +1004,8 @@ export class PaymentService {
    * Disconnect all WebSocket connections
    */
   async disconnectAllWebSockets(): Promise<void> {
-    const pendingQuotes = await this.getPendingQuotes()
+    const { getPendingMintQuotes } = await import('@/coco/manager')
+    const pendingQuotes = await getPendingMintQuotes()
     const mintUrls = new Set(pendingQuotes.map((q) => q.mintUrl))
 
     for (const mintUrl of mintUrls) {

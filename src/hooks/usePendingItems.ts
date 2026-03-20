@@ -26,11 +26,19 @@ export function usePendingItems(mintUrl: string) {
     try {
       const db = getDatabase()
 
-      const [receivedTokens, quotes, sendTokens] = await Promise.all([
+      const { getPendingMintQuotes } = await import('@/coco/manager')
+
+      const [receivedTokens, cocoQuotes, sendTokens] = await Promise.all([
         db.pendingReceivedTokens.where('mintUrl').anyOf([normalized, normalized + '/']).toArray(),
-        db.pendingQuotes.where('mintUrl').anyOf([normalized, normalized + '/']).toArray(),
+        getPendingMintQuotes(),
         db.pendingSendTokens.where('mintUrl').anyOf([normalized, normalized + '/']).toArray(),
       ])
+
+      // Filter Coco quotes by mintUrl (matching the normalized URL pattern)
+      const matchingQuotes = cocoQuotes.filter((q) => {
+        const qNorm = normalizeUrl(q.mintUrl)
+        return qNorm === normalized
+      })
 
       const merged: PendingItem[] = [
         ...receivedTokens.map((t) => ({
@@ -40,13 +48,13 @@ export function usePendingItems(mintUrl: string) {
           mintUrl: t.mintUrl,
           createdAt: t.createdAt,
         })),
-        ...quotes.map((q) => ({
-          id: q.quoteId,
+        ...matchingQuotes.map((q) => ({
+          id: q.quote,
           type: 'lightning-request' as const,
           amount: q.amount,
           mintUrl: q.mintUrl,
-          createdAt: q.createdAt,
-          expiresAt: q.expiresAt,
+          createdAt: q.expiry ? (q.expiry - 600) * 1000 : Date.now(), // estimate: expiry minus typical 10min window
+          expiresAt: q.expiry ? q.expiry * 1000 : undefined,
         })),
         ...sendTokens.map((s) => ({
           id: s.id,

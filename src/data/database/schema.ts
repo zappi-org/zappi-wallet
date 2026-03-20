@@ -66,19 +66,6 @@ export interface ProofRecord {
 }
 
 /**
- * Pending quote record for DB storage
- * Stores Lightning quotes that haven't been claimed yet
- */
-export interface PendingQuoteRecord {
-  quoteId: string // primary key
-  mintUrl: string
-  amount: number
-  invoice: string
-  createdAt: number
-  expiresAt?: number // quote expiration time
-}
-
-/**
  * Pending melt record for Lightning send recovery
  * Stores melt quote info before payment to recover from crashes
  */
@@ -139,7 +126,6 @@ export class ZappiDatabase extends Dexie {
   encryptedWallet!: Table<EncryptedWalletRecord, string>
   lockState!: Table<LockStateRecord, string>
   proofs!: Table<ProofRecord, string>
-  pendingQuotes!: Table<PendingQuoteRecord, string>
   pendingMelts!: Table<PendingMeltRecord, string>
   pendingSendTokens!: Table<PendingSendTokenRecord, string>
   pendingReceivedTokens!: Table<PendingReceivedTokenRecord, string>
@@ -173,9 +159,6 @@ export class ZappiDatabase extends Dexie {
 
       // Proofs: indexed by id, mintUrl, secret
       proofs: 'id, mintUrl, secret',
-
-      // Pending quotes: indexed by quoteId, mintUrl, createdAt
-      pendingQuotes: 'quoteId, mintUrl, createdAt',
 
       // Pending melts: Lightning send recovery (melt quote info before payment)
       pendingMelts: 'meltQuoteId, mintUrl, createdAt',
@@ -233,7 +216,6 @@ export async function clearMintData(mintUrl: string): Promise<void> {
   await Promise.all([
     db.proofs.where('mintUrl').anyOf(variants).delete(),
     db.failedSwaps.where('mintUrl').anyOf(variants).delete(),
-    db.pendingQuotes.where('mintUrl').anyOf(variants).delete(),
     db.pendingMelts.where('mintUrl').anyOf(variants).delete(),
     db.pendingSendTokens.where('mintUrl').anyOf(variants).delete(),
     db.pendingReceivedTokens.where('mintUrl').anyOf(variants).delete(),
@@ -254,7 +236,6 @@ export async function clearAllData(): Promise<void> {
     db.settings.clear(),
     db.encryptedWallet.clear(),
     db.lockState.clear(),
-    db.pendingQuotes.clear(),
     db.pendingMelts.clear(),
     db.pendingSendTokens.clear(),
     db.pendingReceivedTokens.clear(),

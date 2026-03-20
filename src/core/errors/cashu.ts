@@ -196,6 +196,10 @@ export function classifyCashuError(error: unknown): BaseError {
     return new MintConnectionError('unknown', error)
   }
 
+  if (msg.includes('not trusted') || msg.includes('unknown mint')) {
+    return new MintConnectionError('unknown', error)
+  }
+
   if (msg.includes('connect') || msg.includes('network') || msg.includes('fetch')) {
     return new MintConnectionError('unknown', error)
   }
