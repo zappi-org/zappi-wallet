@@ -1,1 +1,0 @@
-feat: Coco watcher로 결제 감지 위임. bridge.ts에 mint-quote:redeemed → toast + store 정리. MainApp subscribeToPendingQuotes 자체 폴링 제거. store.pendingQuotes를 getPendingMintQuotes()에서 채움.

@@ -332,13 +332,7 @@ function MainAppInner() {
         if (totalRecovered > 0) {
           console.log(`[Init] Recovered: ${recovery.quotes.recovered} quotes, ${recovery.melts.recovered} melts, ${recovery.sendTokens.reclaimed} reclaimed, ${recovery.receivedTokens.redeemed} offline tokens`)
           await refreshAll()
-          if (recovery.quotes.recovered > 0) {
-            addToast({
-              type: 'success',
-              message: t('toast.lightningArrived', { count: recovery.quotes.recovered }),
-              duration: 4000,
-            })
-          }
+          // Lightning toast는 bridge.ts (mint-quote:redeemed)가 전역으로 담당
           if (recovery.receivedTokens.redeemed > 0) {
             addToast({
               type: 'success',
@@ -388,13 +382,7 @@ function MainAppInner() {
           if (totalRecovered > 0) {
             await refreshAll()
             broadcastSync('balance_changed')
-            if (recovery.quotes.recovered > 0) {
-              addToast({
-                type: 'success',
-                message: t('toast.lightningArrived', { count: recovery.quotes.recovered }),
-                duration: 4000,
-              })
-            }
+            // Lightning toast는 bridge.ts (mint-quote:redeemed)가 전역으로 담당
             if (recovery.receivedTokens.redeemed > 0) {
               addToast({
                 type: 'success',
@@ -623,22 +611,14 @@ function MainAppInner() {
   }, [services.payment])
 
   // Payment received callback
+  // Lightning toast는 bridge.ts (mint-quote:redeemed)가 전역으로 담당
   const handlePaymentReceived = useCallback(async (
-    receivedAmount: number,
-    type: 'lightning' | 'ecash',
+    _receivedAmount: number,
+    _type: 'lightning' | 'ecash',
   ) => {
     refreshAll().catch((e) => console.error('[MainApp] refreshAll after payment received:', e))
     broadcastSync('balance_changed')
-
-    // Show toast notification only for Lightning (Ecash has its own success screen)
-    if (type === 'lightning') {
-      addToast({
-        type: 'success',
-        message: t('toast.lightningPaymentComplete', { unit: satUnit(), amount: receivedAmount.toLocaleString() }),
-        duration: 4000,
-      })
-    }
-  }, [refreshAll, addToast, t])
+  }, [refreshAll])
 
   // Send modal handlers
   const handleSendLightning = useCallback(async (addressOrInvoice: string, amount: number, mintUrl?: string): Promise<boolean> => {
