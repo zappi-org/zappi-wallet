@@ -245,36 +245,71 @@ export async function redeemMintQuote(
 }
 
 /**
- * Melt Quote 생성 (출금 견적)
+ * Melt 준비 (2-phase: prepare)
+ * proof를 reserve하고 quote를 생성한다. 실패 시 rollbackMelt로 복구.
  */
-export async function createMeltQuote(
+export async function prepareMelt(
   mintUrl: string,
   invoice: string
 ): Promise<{
-  quote: string;
+  operationId: string;
+  quoteId: string;
   amount: number;
   fee_reserve: number;
+  swap_fee: number;
 }> {
   const manager = await getCocoManager();
   await ensureMintTrusted(manager, mintUrl);
-  const quote = await manager.quotes.createMeltQuote(mintUrl, invoice);
+  const operation = await manager.quotes.prepareMeltBolt11(mintUrl, invoice);
   return {
-    quote: quote.quote,
-    amount: quote.amount,
-    fee_reserve: quote.fee_reserve,
+    operationId: operation.id,
+    quoteId: operation.quoteId,
+    amount: operation.amount,
+    fee_reserve: operation.fee_reserve,
+    swap_fee: operation.swap_fee,
   };
 }
 
 /**
- * Melt Quote 결제 (Lightning 출금)
+ * Melt 실행 (2-phase: execute)
+ * prepare된 operation을 실행하여 Lightning 결제를 수행한다.
  */
-export async function payMeltQuote(
-  mintUrl: string,
-  quoteId: string
+export async function executeMelt(
+  operationId: string
+): Promise<{ state: string }> {
+  const manager = await getCocoManager();
+  const result = await manager.quotes.executeMelt(operationId);
+  return { state: result.state };
+}
+
+/**
+ * Melt 롤백
+ * prepare 또는 실패한 operation의 reserved proof를 복구한다.
+ */
+export async function rollbackMelt(
+  operationId: string,
+  reason?: string
 ): Promise<void> {
   const manager = await getCocoManager();
-  await ensureMintTrusted(manager, mintUrl);
-  await manager.quotes.payMeltQuote(mintUrl, quoteId);
+  await manager.quotes.rollbackMelt(operationId, reason);
+}
+
+/**
+ * Pending melt operation 목록 조회 (recovery용)
+ */
+export async function getPendingMeltOperations(): Promise<
+  Array<{ id: string; mintUrl: string; quoteId: string; amount: number; fee_reserve: number; createdAt: number }>
+> {
+  const manager = await getCocoManager();
+  const ops = await manager.quotes.getPendingMeltOperations();
+  return ops.map(op => ({
+    id: op.id,
+    mintUrl: op.mintUrl,
+    quoteId: 'quoteId' in op ? (op as { quoteId: string }).quoteId : '',
+    amount: 'amount' in op ? (op as { amount: number }).amount : 0,
+    fee_reserve: 'fee_reserve' in op ? (op as { fee_reserve: number }).fee_reserve : 0,
+    createdAt: op.createdAt,
+  }));
 }
 
 /**
@@ -302,80 +337,79 @@ export function clearWalletCache(): void {
 
 /**
  * Check melt quote status (for Lightning send recovery)
+ * Uses coco API to avoid dual cashu-ts version issues
  */
 export async function checkMeltQuoteStatus(
   mintUrl: string,
   quoteId: string
 ): Promise<{ state: string; paid: boolean }> {
-  const wallet = await getCashuWallet(mintUrl);
-  const quote = await wallet.checkMeltQuoteBolt11(quoteId);
-  return { state: quote.state, paid: quote.state === 'PAID' };
+  const manager = await getCocoManager();
+  const result = await manager.quotes.checkPendingMeltByQuote(mintUrl, quoteId);
+  if (!result) return { state: 'UNKNOWN', paid: false };
+  return { state: result, paid: result === 'finalize' };
 }
 
 /**
- * Recover pending melt quotes (Lightning sends that may have completed without a transaction record)
+ * Recover pending melt operations via coco's 2-phase API.
+ * Also handles legacy pendingMelts table entries from before the migration.
  */
 export async function recoverPendingMelts(): Promise<{
   recovered: number;
   failed: number;
 }> {
+  const manager = await getCocoManager();
   const { getDatabase } = await import('@/data/database/schema');
   const db = getDatabase();
 
-  const pendingMelts = await db.pendingMelts.toArray();
-  if (pendingMelts.length === 0) return { recovered: 0, failed: 0 };
-
-  console.log(`[Recovery] Found ${pendingMelts.length} pending melts`);
   let recovered = 0;
   let failed = 0;
   const maxAge = 24 * 60 * 60 * 1000;
+  const now = Date.now();
 
-  for (const melt of pendingMelts) {
-    try {
-      const { state, paid } = await checkMeltQuoteStatus(melt.mintUrl, melt.meltQuoteId);
+  // 1. Recover coco pending melt operations (new 2-phase API)
+  try {
+    const pendingOps = await manager.quotes.getPendingMeltOperations();
+    console.log(`[Recovery] Found ${pendingOps.length} pending melt operations`);
 
-      if (paid) {
-        // Payment was sent - create transaction record
-        const transactionId = `tx-melt-${melt.meltQuoteId}`;
-        const existingTx = await db.transactions.get(transactionId);
-        if (!existingTx) {
-          await db.transactions.put({
-            id: transactionId,
-            direction: 'send',
-            type: 'lightning',
-            amount: melt.amount,
-            mintUrl: melt.mintUrl,
-            status: 'completed',
-            createdAt: melt.createdAt,
-            completedAt: Date.now(),
-            metadata: {
-              fee: melt.fee,
-              destination: melt.destination,
-            },
-          });
+    for (const op of pendingOps) {
+      try {
+        const result = await manager.quotes.checkPendingMelt(op.id);
+        if (result === 'finalize') {
+          // Payment completed — coco handles finalization internally
+          recovered++;
+          console.log(`[Recovery] Melt operation ${op.id} finalized`);
+        } else if (result === 'rollback') {
+          // Payment failed — rollback to reclaim proofs
+          await manager.quotes.rollbackMelt(op.id, 'recovery: payment failed');
+          recovered++;
+          console.log(`[Recovery] Melt operation ${op.id} rolled back`);
+        } else if (op.createdAt && (now - op.createdAt) > maxAge) {
+          // Still pending after 24h — force rollback
+          console.warn(`[Recovery] Melt operation ${op.id} stuck >24h, rolling back`);
+          await manager.quotes.rollbackMelt(op.id, 'recovery: expired');
+          failed++;
         }
-        await db.pendingMelts.delete(melt.meltQuoteId);
-        recovered++;
-        console.log(`[Recovery] Recovered melt ${melt.meltQuoteId}: ${melt.amount} sats`);
-      } else if (state === 'UNPAID') {
-        // Payment was NOT sent - clean up if old
-        if (Date.now() - melt.createdAt > maxAge) {
-          await db.pendingMelts.delete(melt.meltQuoteId);
-        }
-      } else if (Date.now() - melt.createdAt > maxAge) {
-        // PENDING or unknown state: clean up if older than maxAge
-        // Mint should resolve within 24h; if not, it's stuck
-        console.warn(`[Recovery] Melt ${melt.meltQuoteId} stuck in state '${state}' for >24h, removing`);
-        await db.pendingMelts.delete(melt.meltQuoteId);
+        // 'stay_pending': leave for next recovery cycle
+      } catch (error) {
+        console.error(`[Recovery] Failed to recover melt operation ${op.id}:`, error);
         failed++;
       }
-    } catch (error) {
-      console.error(`[Recovery] Failed to check melt ${melt.meltQuoteId}:`, error);
-      if (Date.now() - melt.createdAt > maxAge) {
-        await db.pendingMelts.delete(melt.meltQuoteId);
-      }
-      failed++;
     }
+  } catch (error) {
+    console.error('[Recovery] Failed to get pending melt operations:', error);
+  }
+
+  // 2. Clean up legacy pendingMelts table entries
+  try {
+    const legacyMelts = await db.pendingMelts.toArray();
+    for (const melt of legacyMelts) {
+      if (now - melt.createdAt > maxAge) {
+        await db.pendingMelts.delete(melt.meltQuoteId);
+        console.log(`[Recovery] Cleaned up legacy pending melt: ${melt.meltQuoteId}`);
+      }
+    }
+  } catch (error) {
+    console.error('[Recovery] Failed to clean up legacy pending melts:', error);
   }
 
   console.log(`[Recovery] Melts: ${recovered} recovered, ${failed} failed`);

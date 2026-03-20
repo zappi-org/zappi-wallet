@@ -68,6 +68,18 @@ describe('Cashu Errors', () => {
 
       expect(error).toBeInstanceOf(MintConnectionError)
     })
+
+    it('should classify "not trusted" error as MintConnectionError', () => {
+      const error = classifyCashuError('Mint https://example.com is not trusted')
+
+      expect(error).toBeInstanceOf(MintConnectionError)
+    })
+
+    it('should classify "unknown mint" error as MintConnectionError', () => {
+      const error = classifyCashuError('Unknown mint error')
+
+      expect(error).toBeInstanceOf(MintConnectionError)
+    })
   })
 })
 

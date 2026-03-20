@@ -102,21 +102,40 @@ vi.mock('@/data/repositories/settings.repository', () => {
   }
 })
 
+// Mock Lightning service
+vi.mock('@/services/lightning', () => ({
+  isBolt11Invoice: vi.fn().mockReturnValue(true),
+  decodeInvoice: vi.fn().mockReturnValue({
+    amountSats: 100,
+    isExpired: false,
+    paymentHash: 'hash123',
+  }),
+  isValidLightningAddress: vi.fn().mockReturnValue(false),
+}))
+
+// Mock LNURL service
+vi.mock('@/services/lnurl', () => ({
+  resolveLightningAddress: vi.fn(),
+  fetchLnurlPayInvoice: vi.fn(),
+}))
+
 // Mock Coco cashu service - use vi.hoisted to avoid hoisting issues
 const {
   mockCocoCreateMintQuote,
   mockCocoRedeemMintQuote,
   mockCocoReceiveToken,
   mockCocoGetBalances,
-  mockCocoCreateMeltQuote,
-  mockCocoPayMeltQuote,
+  mockCocoPrepareMelt,
+  mockCocoExecuteMelt,
+  mockCocoRollbackMelt,
 } = vi.hoisted(() => ({
   mockCocoCreateMintQuote: vi.fn(),
   mockCocoRedeemMintQuote: vi.fn(),
   mockCocoReceiveToken: vi.fn(),
   mockCocoGetBalances: vi.fn(),
-  mockCocoCreateMeltQuote: vi.fn(),
-  mockCocoPayMeltQuote: vi.fn(),
+  mockCocoPrepareMelt: vi.fn(),
+  mockCocoExecuteMelt: vi.fn(),
+  mockCocoRollbackMelt: vi.fn(),
 }))
 
 vi.mock('@/coco/cashuService', () => ({
@@ -124,8 +143,9 @@ vi.mock('@/coco/cashuService', () => ({
   redeemMintQuote: mockCocoRedeemMintQuote,
   receiveToken: mockCocoReceiveToken,
   getBalances: mockCocoGetBalances,
-  createMeltQuote: mockCocoCreateMeltQuote,
-  payMeltQuote: mockCocoPayMeltQuote,
+  prepareMelt: mockCocoPrepareMelt,
+  executeMelt: mockCocoExecuteMelt,
+  rollbackMelt: mockCocoRollbackMelt,
 }))
 
 describe('PaymentService', () => {
@@ -203,6 +223,15 @@ describe('PaymentService', () => {
     mockCocoGetBalances.mockResolvedValue({
       [testMintUrl]: 1000,
     })
+    mockCocoPrepareMelt.mockResolvedValue({
+      operationId: 'op-123',
+      quoteId: 'melt-quote-123',
+      amount: 100,
+      fee_reserve: 2,
+      swap_fee: 0,
+    })
+    mockCocoExecuteMelt.mockResolvedValue({ state: 'finalized' })
+    mockCocoRollbackMelt.mockResolvedValue(undefined)
 
     service = new PaymentService()
   })
@@ -342,6 +371,140 @@ describe('PaymentService', () => {
       const total = service.getTotalAmount(proofs)
 
       expect(total).toBe(150)
+    })
+  })
+
+  describe('mintSwap', () => {
+    const fromMint = 'https://mint-a.com'
+    const toMint = 'https://mint-b.com'
+
+    beforeEach(() => {
+      mockCocoGetBalances.mockResolvedValue({ [fromMint]: 1000 })
+      mockCocoPrepareMelt.mockResolvedValue({
+        operationId: 'op-swap-1',
+        quoteId: 'melt-q-1',
+        amount: 100,
+        fee_reserve: 2,
+        swap_fee: 1,
+      })
+    })
+
+    it('success: prepareMelt → executeMelt → redeemMintQuote', async () => {
+      const result = await service.mintSwap(fromMint, toMint, 100)
+
+      expect(result.isOk()).toBe(true)
+      expect(mockCocoCreateMintQuote).toHaveBeenCalledWith(toMint, 100)
+      expect(mockCocoPrepareMelt).toHaveBeenCalledWith(fromMint, 'lnbc1000n1mock...')
+      expect(mockCocoExecuteMelt).toHaveBeenCalledWith('op-swap-1')
+      expect(mockCocoRedeemMintQuote).toHaveBeenCalledWith(toMint, 'quote-123', 100)
+      if (result.isOk()) {
+        expect(result.value.fee).toBe(3) // fee_reserve + swap_fee
+      }
+    })
+
+    it('melt 실패 시: rollbackMelt 호출되고 에러 반환', async () => {
+      mockCocoExecuteMelt.mockRejectedValueOnce(new Error('Mint error'))
+
+      const result = await service.mintSwap(fromMint, toMint, 100)
+
+      expect(result.isErr()).toBe(true)
+      expect(mockCocoRollbackMelt).toHaveBeenCalledWith('op-swap-1', 'melt failed')
+    })
+
+    it('rollback도 실패 시: 에러 로그만 남기고 원래 에러 반환', async () => {
+      mockCocoExecuteMelt.mockRejectedValueOnce(new Error('Mint error'))
+      mockCocoRollbackMelt.mockRejectedValueOnce(new Error('Rollback failed'))
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const result = await service.mintSwap(fromMint, toMint, 100)
+
+      expect(result.isErr()).toBe(true)
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[MintSwap] Rollback also failed:',
+        expect.any(Error)
+      )
+      consoleSpy.mockRestore()
+    })
+
+    it('drain mode: 잔액 부족 시 rollback 후 재시도', async () => {
+      mockCocoGetBalances.mockResolvedValue({ [fromMint]: 100 })
+      // First prepare: too expensive
+      mockCocoPrepareMelt
+        .mockResolvedValueOnce({
+          operationId: 'op-1',
+          quoteId: 'melt-q-1',
+          amount: 100,
+          fee_reserve: 5,
+          swap_fee: 2,
+        })
+        // Second prepare: adjusted amount
+        .mockResolvedValueOnce({
+          operationId: 'op-2',
+          quoteId: 'melt-q-2',
+          amount: 93,
+          fee_reserve: 5,
+          swap_fee: 2,
+        })
+      mockCocoCreateMintQuote
+        .mockResolvedValueOnce({ quote: 'q1', request: 'lnbc1...', expiry: 9999 })
+        .mockResolvedValueOnce({ quote: 'q2', request: 'lnbc2...', expiry: 9999 })
+
+      const result = await service.mintSwap(fromMint, toMint, 100, { drain: true })
+
+      expect(mockCocoRollbackMelt).toHaveBeenCalledWith('op-1', 'drain: retry with adjusted amount')
+      expect(mockCocoExecuteMelt).toHaveBeenCalledWith('op-2')
+      expect(result.isOk()).toBe(true)
+    })
+
+    it('drain mode: 조정 금액이 0 이하이면 InsufficientBalanceError', async () => {
+      mockCocoGetBalances.mockResolvedValue({ [fromMint]: 10 })
+      mockCocoPrepareMelt.mockResolvedValueOnce({
+        operationId: 'op-1',
+        quoteId: 'melt-q-1',
+        amount: 10,
+        fee_reserve: 8,
+        swap_fee: 5,
+      })
+
+      const result = await service.mintSwap(fromMint, toMint, 10, { drain: true })
+
+      expect(result.isErr()).toBe(true)
+      expect(mockCocoRollbackMelt).toHaveBeenCalledWith('op-1', 'drain: adjusted amount <= 0')
+    })
+  })
+
+  describe('sendLightning (2-phase melt)', () => {
+    beforeEach(() => {
+      mockCocoGetBalances.mockResolvedValue({ [testMintUrl]: 1000 })
+      mockCocoPrepareMelt.mockResolvedValue({
+        operationId: 'op-send-1',
+        quoteId: 'melt-send-q-1',
+        amount: 100,
+        fee_reserve: 2,
+        swap_fee: 0,
+      })
+    })
+
+    it('success: prepareMelt → executeMelt', async () => {
+      const result = await service.sendLightning('lnbc100n1mock...', 100, testMintUrl)
+
+      expect(result.isOk()).toBe(true)
+      expect(mockCocoPrepareMelt).toHaveBeenCalledWith(testMintUrl, 'lnbc100n1mock...')
+      expect(mockCocoExecuteMelt).toHaveBeenCalledWith('op-send-1')
+      if (result.isOk()) {
+        expect(result.value.paid).toBe(true)
+        expect(result.value.fee).toBe(2)
+      }
+    })
+
+    it('melt 실패 시: rollbackMelt 호출', async () => {
+      mockCocoExecuteMelt.mockRejectedValueOnce(new Error('Payment failed'))
+
+      const result = await service.sendLightning('lnbc100n1mock...', 100, testMintUrl)
+
+      // Should fall through to error since all mints failed
+      expect(result.isErr()).toBe(true)
+      expect(mockCocoRollbackMelt).toHaveBeenCalledWith('op-send-1', 'melt failed')
     })
   })
 })
