@@ -26,6 +26,7 @@ import {
   receiveToken as cocoReceiveToken,
 } from '@/coco/cashuService'
 import { getMintQuote as cocoGetMintQuote } from '@/coco/manager'
+import { markQuoteAsSwap, unmarkQuoteAsSwap } from '@/coco/bridge'
 import { getDecodedToken } from '@cashu/cashu-ts'
 
 /**
@@ -510,6 +511,7 @@ export class PaymentService {
     amount: number,
     options?: { drain?: boolean }
   ): Promise<Result<MintSwapResult, BaseError>> {
+    let mintQuote: Awaited<ReturnType<typeof cocoCreateMintQuote>> | undefined
     try {
       console.log(`[MintSwap] Starting swap: ${amount} sats from ${fromMintUrl} to ${toMintUrl}${options?.drain ? ' (drain mode)' : ''}`)
 
@@ -523,12 +525,12 @@ export class PaymentService {
 
       // 2. Create mint quote on target + prepare melt on source (2-phase)
       let swapAmount = amount
-      let mintQuote: Awaited<ReturnType<typeof cocoCreateMintQuote>>
       let meltOp: Awaited<ReturnType<typeof cocoPrepareMelt>>
 
       // First attempt with requested amount
       console.log('[MintSwap] Creating mint quote on target mint...')
       mintQuote = await cocoCreateMintQuote(toMintUrl, swapAmount)
+      markQuoteAsSwap(mintQuote.quote)
 
       console.log('[MintSwap] Preparing melt on source mint...')
       meltOp = await cocoPrepareMelt(fromMintUrl, mintQuote.request)
@@ -540,13 +542,16 @@ export class PaymentService {
         const adjustedAmount = amount - meltOp.fee_reserve - meltOp.swap_fee
         if (adjustedAmount <= 0) {
           await cocoRollbackMelt(meltOp.operationId, 'drain: adjusted amount <= 0')
+          unmarkQuoteAsSwap(mintQuote!.quote)
           return err(new InsufficientBalanceError(totalNeeded, sourceBalance))
         }
         console.log(`[MintSwap] Drain: fee exceeds balance, rolling back and retrying with ${adjustedAmount} sats`)
         await cocoRollbackMelt(meltOp.operationId, 'drain: retry with adjusted amount')
         swapAmount = adjustedAmount
 
+        unmarkQuoteAsSwap(mintQuote.quote)
         mintQuote = await cocoCreateMintQuote(toMintUrl, swapAmount)
+        markQuoteAsSwap(mintQuote.quote)
         meltOp = await cocoPrepareMelt(fromMintUrl, mintQuote.request)
         totalNeeded = meltOp.amount + meltOp.fee_reserve + meltOp.swap_fee
         console.log(`[MintSwap] Drain retry: amount=${meltOp.amount}, fee_reserve=${meltOp.fee_reserve}, swap_fee=${meltOp.swap_fee}, totalNeeded=${totalNeeded}`)
@@ -556,6 +561,7 @@ export class PaymentService {
       if (sourceBalance < totalNeeded) {
         console.log(`[MintSwap] Insufficient balance: need ${totalNeeded} but have ${sourceBalance}`)
         await cocoRollbackMelt(meltOp.operationId, 'insufficient balance')
+        unmarkQuoteAsSwap(mintQuote!.quote)
         return err(new InsufficientBalanceError(totalNeeded, sourceBalance))
       }
 
@@ -642,6 +648,7 @@ export class PaymentService {
       })
     } catch (error) {
       console.error('mintSwap error:', error)
+      if (mintQuote) unmarkQuoteAsSwap(mintQuote.quote)
       return err(classifyCashuError(error))
     }
   }

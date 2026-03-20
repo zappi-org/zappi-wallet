@@ -7,6 +7,17 @@ import { satUnit } from '@/utils/format';
 // Coco 이벤트 구독 해제 함수들
 let unsubscribers: (() => void)[] = [];
 
+// 스왑 quote 필터링 — bridge 토스트 억제용
+const swapQuoteIds = new Set<string>();
+
+export function markQuoteAsSwap(quoteId: string): void {
+  swapQuoteIds.add(quoteId);
+}
+
+export function unmarkQuoteAsSwap(quoteId: string): void {
+  swapQuoteIds.delete(quoteId);
+}
+
 /**
  * Coco Manager 이벤트를 Zustand 스토어에 연결
  */
@@ -38,11 +49,19 @@ export function connectCocoToStore(manager: Manager): void {
     updateBalances();
     const { removePendingQuote, addToast } = useAppStore.getState();
     removePendingQuote(event.quoteId);
-    addToast({
-      type: 'success',
-      message: i18n.t('toast.lightningReceived', { unit: satUnit(), amount: event.quote.amount.toLocaleString() }),
-      duration: 4000,
-    });
+
+    // 스왑 quote는 토스트 억제 (use-payment.ts에서 swap 전용 토스트 표시)
+    if (swapQuoteIds.has(event.quoteId)) {
+      swapQuoteIds.delete(event.quoteId);
+      console.log(`[Coco Bridge] Swap quote redeemed (toast suppressed): ${event.quoteId}`);
+    } else {
+      addToast({
+        type: 'success',
+        message: i18n.t('toast.lightningReceived', { unit: satUnit(), amount: event.quote.amount.toLocaleString() }),
+        duration: 4000,
+      });
+    }
+
     broadcastSync('balance_changed');
     console.log(`[Coco Bridge] Quote redeemed: ${event.quoteId} (${event.quote.amount} sats from ${event.mintUrl})`);
   });
