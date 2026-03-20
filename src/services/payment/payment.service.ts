@@ -612,23 +612,43 @@ export class PaymentService {
       // 7.5. Remove pending quote (redeem succeeded or already handled)
       await this.removePendingQuote(mintQuote.quote)
 
-      // 8. Create transaction record
+      // 8. Create transaction records (send from source + receive on target)
       const fee = meltOp.fee_reserve + meltOp.swap_fee
+      const now = Date.now()
+      const swapId = crypto.randomUUID()
+
       const transactionId = await this.transactionRepo.create({
-        id: `tx-swap-${crypto.randomUUID()}`,
+        id: `tx-swap-send-${swapId}`,
         direction: 'send',
         type: 'swap',
         amount: swapAmount,
         mintUrl: fromMintUrl,
         status: 'completed',
-        createdAt: Date.now(),
-        completedAt: Date.now(),
+        createdAt: now,
+        completedAt: now,
         memo: `${swapAmount} sats`,
         metadata: {
           swapType: 'mint_swap',
           fromMintUrl,
           toMintUrl,
           fee,
+        },
+      })
+
+      await this.transactionRepo.create({
+        id: `tx-swap-recv-${swapId}`,
+        direction: 'receive',
+        type: 'swap',
+        amount: swapAmount,
+        mintUrl: toMintUrl,
+        status: 'completed',
+        createdAt: now,
+        completedAt: now,
+        memo: `${swapAmount} sats`,
+        metadata: {
+          swapType: 'mint_swap',
+          fromMintUrl,
+          toMintUrl,
         },
       })
 
