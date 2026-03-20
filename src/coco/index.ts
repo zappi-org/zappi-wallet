@@ -1,5 +1,5 @@
 // Coco Manager
-export { getCocoManager, resetCocoManager, isCocoInitialized, deleteCocoData } from './manager';
+export { getCocoManager, resetCocoManager, isCocoInitialized, deleteCocoData, getPendingMintQuotes, getMintQuote, enableWatchers } from './manager';
 
 // Seed/PIN management
 export {
@@ -26,4 +26,5 @@ export {
   addMint,
   clearWalletCache,
   recoverPendingQuotes,
+  getActivePendingQuotes,
 } from './cashuService';

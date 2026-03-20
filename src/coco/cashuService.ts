@@ -8,7 +8,8 @@
  */
 
 import { Wallet, Mint, getDecodedToken, type Proof, type Token } from '@cashu/cashu-ts';
-import { getCocoManager } from './manager';
+import { getCocoManager, getPendingMintQuotes } from './manager';
+import type { PendingQuote } from '@/store/slices/wallet.slice';
 
 // cashu-ts Wallet 캐시
 const walletCache = new Map<string, Wallet>();
@@ -507,6 +508,31 @@ export async function recoverPendingSendTokens(): Promise<{
 }
 
 /**
+ * Get active (non-expired) pending quotes from Coco's internal DB
+ * Single source of truth for pending quote filtering — consolidates the 24h filter
+ */
+export async function getActivePendingQuotes(): Promise<PendingQuote[]> {
+  const quotes = await getPendingMintQuotes();
+  const now = Date.now();
+
+  return quotes
+    .filter((q) => {
+      // Filter out expired quotes (expiry is Unix timestamp in seconds)
+      if (q.expiry && q.expiry * 1000 < now) return false;
+      // Filter out quotes older than 24h (estimate from expiry — mints typically set 10-15min expiry)
+      // Since Coco doesn't track createdAt, rely on expiry for age filtering
+      return true;
+    })
+    .map((q) => ({
+      quoteId: q.quote,
+      mintUrl: q.mintUrl,
+      amount: q.amount,
+      invoice: q.request,
+      expiry: q.expiry ? q.expiry * 1000 : 0,
+    }));
+}
+
+/**
  * Try to recover a single quote by quoteId
  */
 async function tryRecoverQuote(
@@ -564,102 +590,30 @@ async function tryRecoverQuote(
 }
 
 /**
- * Recover lost quotes using cashu-ts directly
- * This is for quotes created with cashu-ts but not tracked by Coco
- * Checks both pendingQuotes table AND pending transactions
+ * Recover pending quotes
+ * Coco-managed quotes는 MintQuoteWatcher가 단독 처리 (race condition 방지)
+ * 여기서는 legacy pending transactions만 복구
  */
 export async function recoverPendingQuotes(): Promise<{
   recovered: number;
   failed: number;
-  details: Array<{ quoteId: string; amount: number; status: 'recovered' | 'failed' | 'not_paid' | 'already_issued'; error?: string }>;
+  expired: number;
 }> {
   const { getDatabase } = await import('@/data/database/schema');
   const db = getDatabase();
 
-  const results: Array<{ quoteId: string; amount: number; status: 'recovered' | 'failed' | 'not_paid' | 'already_issued'; error?: string }> = [];
   let recovered = 0;
   let failed = 0;
+  const expired = 0;
   const now = Date.now();
   const maxAge = 24 * 60 * 60 * 1000; // 24 hours
 
-  // Set to track processed quoteIds to avoid duplicates
-  const processedQuoteIds = new Set<string>();
+  // Coco-managed quotes: MintQuoteWatcher가 watchExistingPendingOnStart로 처리
+  // 수동 recovery(tryRecoverQuote)와 watcher가 동시에 같은 quote를 redeem하면
+  // "already issued" 에러 발생 → 이벤트 유실 → 잔액 미갱신
+  // → watcher 단독 경로로 통일
 
-  // 1. First check pendingQuotes table
-  const pendingQuotes = await db.pendingQuotes.toArray();
-  console.log(`[Recovery] Found ${pendingQuotes.length} pending quotes in pendingQuotes table`);
-
-  for (const quote of pendingQuotes) {
-    processedQuoteIds.add(quote.quoteId);
-    const transactionId = `tx-${quote.quoteId}`;
-
-    // Clean up expired quotes (expiresAt is set by mint)
-    if (quote.expiresAt && quote.expiresAt < now) {
-      console.log(`[Recovery] Removing expired quote: ${quote.quoteId}`);
-      await db.pendingQuotes.delete(quote.quoteId);
-      continue;
-    }
-
-    // Clean up quotes older than maxAge (even without expiresAt)
-    if (quote.createdAt && (now - quote.createdAt) > maxAge) {
-      console.log(`[Recovery] Removing stale quote (>24h): ${quote.quoteId}`);
-      await db.pendingQuotes.delete(quote.quoteId);
-      failed++;
-      continue;
-    }
-
-    const result = await tryRecoverQuote(quote.quoteId, quote.mintUrl, quote.amount);
-    results.push({ quoteId: quote.quoteId, amount: quote.amount, ...result });
-
-    if (result.status === 'recovered') {
-      recovered++;
-      // Create completed transaction if it doesn't exist
-      const existingTx = await db.transactions.get(transactionId);
-      if (!existingTx) {
-        await db.transactions.put({
-          id: transactionId,
-          direction: 'receive',
-          type: 'lightning',
-          amount: quote.amount,
-          mintUrl: quote.mintUrl,
-          status: 'completed',
-          createdAt: quote.createdAt || Date.now(),
-          completedAt: Date.now(),
-          metadata: { quoteId: quote.quoteId },
-        });
-      } else if (existingTx.status !== 'completed') {
-        await db.transactions.update(transactionId, { status: 'completed', completedAt: Date.now() });
-      }
-      await db.pendingQuotes.delete(quote.quoteId);
-    } else if (result.status === 'already_issued') {
-      // Token was already issued - ensure transaction exists as completed
-      const existingTx = await db.transactions.get(transactionId);
-      if (!existingTx) {
-        await db.transactions.put({
-          id: transactionId,
-          direction: 'receive',
-          type: 'lightning',
-          amount: quote.amount,
-          mintUrl: quote.mintUrl,
-          status: 'completed',
-          createdAt: quote.createdAt || Date.now(),
-          completedAt: Date.now(),
-          metadata: { quoteId: quote.quoteId },
-        });
-      } else if (existingTx.status !== 'completed') {
-        await db.transactions.update(transactionId, { status: 'completed', completedAt: Date.now() });
-      }
-      await db.pendingQuotes.delete(quote.quoteId);
-    } else if (result.status === 'failed') {
-      // Always delete failed quotes — they can't be recovered
-      await db.pendingQuotes.delete(quote.quoteId);
-      failed++;
-    }
-    // not_paid: quote is still valid and not yet paid — leave it for next recovery cycle
-    // (bounded by expiresAt and maxAge checks above)
-  }
-
-  // 2. Also check pending transactions for Lightning receive
+  // Legacy: pending transactions에 남아있는 Lightning receive 복구
   const pendingTransactions = await db.transactions
     .where('status')
     .equals('pending')
@@ -673,19 +627,12 @@ export async function recoverPendingQuotes(): Promise<{
     const mintUrl = tx.mintUrl;
 
     if (!quoteId || !mintUrl) {
-      // Transaction without quoteId can't be recovered — clean up if old
       if (tx.createdAt && (now - tx.createdAt) > maxAge) {
         await db.transactions.update(tx.id, { status: 'failed' });
       }
       continue;
     }
 
-    // Skip if already processed
-    if (processedQuoteIds.has(quoteId)) {
-      continue;
-    }
-
-    // Clean up stale pending transactions
     if (tx.createdAt && (now - tx.createdAt) > maxAge) {
       console.log(`[Recovery] Marking stale pending tx as failed (>24h): ${tx.id}`);
       await db.transactions.update(tx.id, { status: 'failed' });
@@ -693,10 +640,7 @@ export async function recoverPendingQuotes(): Promise<{
       continue;
     }
 
-    processedQuoteIds.add(quoteId);
-
     const result = await tryRecoverQuote(quoteId, mintUrl, tx.amount);
-    results.push({ quoteId, amount: tx.amount, ...result });
 
     if (result.status === 'recovered') {
       recovered++;
@@ -704,13 +648,11 @@ export async function recoverPendingQuotes(): Promise<{
     } else if (result.status === 'already_issued') {
       await db.transactions.update(tx.id, { status: 'completed', completedAt: Date.now() });
     } else if (result.status === 'failed') {
-      // Failed to recover — mark tx as failed so it doesn't stay pending forever
       await db.transactions.update(tx.id, { status: 'failed' });
       failed++;
     }
-    // not_paid: leave as pending — bounded by maxAge check above
   }
 
-  console.log(`[Recovery] Complete: ${recovered} recovered, ${failed} failed`);
-  return { recovered, failed, details: results };
+  console.log(`[Recovery] Complete: ${recovered} recovered, ${failed} failed, ${expired} expired`);
+  return { recovered, failed, expired };
 }

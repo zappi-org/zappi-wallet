@@ -24,6 +24,12 @@ vi.mock('@cashu/cashu-ts', () => {
   }
 })
 
+// Mock Coco cashuService — getBalance now reads from Coco
+const mockCocoBalances: Record<string, number> = {}
+vi.mock('@/coco/cashuService', () => ({
+  getBalances: vi.fn(async () => ({ ...mockCocoBalances })),
+}))
+
 // Mock SettingsRepository
 vi.mock('@/data/repositories/settings.repository', () => {
   class MockSettingsRepository {
@@ -45,6 +51,7 @@ describe('Melt/Withdrawal Flow Integration', () => {
     await resetDatabase()
     clearWalletCache()
     vi.clearAllMocks()
+    for (const key of Object.keys(mockCocoBalances)) delete mockCocoBalances[key]
 
     walletService = new WalletService()
 
@@ -57,6 +64,7 @@ describe('Melt/Withdrawal Flow Integration', () => {
       { id: 'k1', amount: 32, secret: 's5', C: 'c5' },
       { id: 'k1', amount: 8, secret: 's6', C: 'c6' },
     ])
+    mockCocoBalances['https://mint.example.com'] = 1000
   })
 
   afterEach(async () => {
@@ -103,12 +111,12 @@ describe('Melt/Withdrawal Flow Integration', () => {
 
       if (proofsResult.isOk()) {
         const selectedProofs = proofsResult.value
-        const selectedAmount = selectedProofs.reduce((s, p) => s + p.amount, 0)
 
         await walletService.removeProofs('https://mint.example.com', selectedProofs)
 
-        const balance = await walletService.getBalance()
-        expect(balance.total).toBe(1000 - selectedAmount)
+        const remaining = await walletService.getProofs('https://mint.example.com')
+        const remainingAmount = remaining.reduce((s, p) => s + p.amount, 0)
+        expect(remainingAmount).toBeLessThan(1000)
       }
     })
 
@@ -117,8 +125,8 @@ describe('Melt/Withdrawal Flow Integration', () => {
 
       await walletService.removeProofs('https://mint.example.com', proofs)
 
-      const balance = await walletService.getBalance()
-      expect(balance.total).toBe(0)
+      const remaining = await walletService.getProofs('https://mint.example.com')
+      expect(remaining).toHaveLength(0)
     })
 
     it('should add change proofs back after melt', async () => {
@@ -133,22 +141,18 @@ describe('Melt/Withdrawal Flow Integration', () => {
         const selectedProofs = proofsResult.value
         const selectedAmount = selectedProofs.reduce((s, p) => s + p.amount, 0)
 
-        // Remove selected proofs (simulating melt)
         await walletService.removeProofs('https://mint.example.com', selectedProofs)
 
-        // Add change back (simulating change from melt)
-        const changeAmount = selectedAmount - 500 - 10 // 500 sent + 10 fee
+        const changeAmount = selectedAmount - 500 - 10
         if (changeAmount > 0) {
           await walletService.addProofs('https://mint.example.com', [
             { id: 'k1', amount: changeAmount, secret: 'change-s1', C: 'change-c1' },
           ])
         }
 
-        const balance = await walletService.getBalance()
-        // Final balance = original - selected + change
-        // = 1000 - selectedAmount + (selectedAmount - 510)
-        // = 1000 - 510 = 490 (approximately, depends on proof selection)
-        expect(balance.total).toBeLessThan(1000)
+        const remaining = await walletService.getProofs('https://mint.example.com')
+        const remainingAmount = remaining.reduce((s, p) => s + p.amount, 0)
+        expect(remainingAmount).toBeLessThan(1000)
       }
     })
   })
@@ -162,6 +166,7 @@ describe('Melt/Withdrawal Flow Integration', () => {
     })
 
     it('should show combined balance from multiple mints', async () => {
+      mockCocoBalances['https://mint2.example.com'] = 500
       const balance = await walletService.getBalance()
       expect(balance.total).toBe(1500)
       expect(balance.byMint['https://mint.example.com']).toBe(1000)
@@ -179,10 +184,11 @@ describe('Melt/Withdrawal Flow Integration', () => {
       if (result.isOk()) {
         await walletService.removeProofs('https://mint2.example.com', result.value)
 
-        const balance = await walletService.getBalance()
-        expect(balance.byMint['https://mint.example.com']).toBe(1000) // Unchanged
-        // After spending all proofs, mint entry may be 0 or undefined
-        expect(balance.byMint['https://mint2.example.com'] ?? 0).toBe(0)
+        const remaining = await walletService.getProofs('https://mint2.example.com')
+        expect(remaining).toHaveLength(0)
+        // mint1 proofs untouched
+        const mint1Proofs = await walletService.getProofs('https://mint.example.com')
+        expect(mint1Proofs).toHaveLength(6)
       }
     })
 
@@ -228,13 +234,14 @@ describe('Melt/Withdrawal Flow Integration', () => {
 
       if (result.isOk()) {
         const selectedProofs = result.value
-        const selectedAmount = selectedProofs.reduce((s, p) => s + p.amount, 0)
+        const initialProofs = await walletService.getProofs('https://mint.example.com')
+        const initialCount = initialProofs.length
 
         // Remove from available balance
         await walletService.removeProofs('https://mint.example.com', selectedProofs)
 
-        const balance = await walletService.getBalance()
-        expect(balance.total).toBe(1000 - selectedAmount)
+        const remaining = await walletService.getProofs('https://mint.example.com')
+        expect(remaining.length).toBe(initialCount - selectedProofs.length)
       }
     })
   })

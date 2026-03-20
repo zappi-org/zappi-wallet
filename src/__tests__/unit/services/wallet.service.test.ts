@@ -47,6 +47,12 @@ vi.mock('@/services/cashu/cashu.service', () => ({
   })),
 }))
 
+// Mock Coco cashuService
+const mockCocoBalances: Record<string, number> = {}
+vi.mock('@/coco/cashuService', () => ({
+  getBalances: vi.fn(async () => ({ ...mockCocoBalances })),
+}))
+
 // Mock SettingsRepository
 vi.mock('@/data/repositories/settings.repository', () => {
   class MockSettingsRepository {
@@ -67,6 +73,8 @@ describe('WalletService', () => {
   beforeEach(async () => {
     await resetDatabase()
     clearWalletCache()
+    // Clear Coco mock balances
+    for (const key of Object.keys(mockCocoBalances)) delete mockCocoBalances[key]
     service = new WalletService()
   })
 
@@ -76,14 +84,8 @@ describe('WalletService', () => {
 
   describe('getBalance', () => {
     it('should return total balance from all mints', async () => {
-      // Add some proofs first via transaction
-      await service.addProofs('https://mint1.com', [
-        { id: 'k1', amount: 100, secret: 's1', C: 'c1' },
-        { id: 'k1', amount: 50, secret: 's2', C: 'c2' },
-      ])
-      await service.addProofs('https://mint2.com', [
-        { id: 'k2', amount: 200, secret: 's3', C: 'c3' },
-      ])
+      mockCocoBalances['https://mint1.com'] = 150
+      mockCocoBalances['https://mint2.com'] = 200
 
       const balance = await service.getBalance()
 
@@ -101,9 +103,7 @@ describe('WalletService', () => {
 
   describe('getBalanceByMint', () => {
     it('should return balance for specific mint', async () => {
-      await service.addProofs('https://mint1.com', [
-        { id: 'k1', amount: 100, secret: 's1', C: 'c1' },
-      ])
+      mockCocoBalances['https://mint1.com'] = 100
 
       const balance = await service.getBalanceByMint('https://mint1.com')
 
@@ -118,13 +118,13 @@ describe('WalletService', () => {
   })
 
   describe('addProofs', () => {
-    it('should add proofs and update balance', async () => {
+    it('should add proofs to Dexie storage', async () => {
       await service.addProofs('https://mint.com', [
         { id: 'k1', amount: 100, secret: 's1', C: 'c1' },
       ])
 
-      const balance = await service.getBalanceByMint('https://mint.com')
-      expect(balance).toBe(100)
+      const proofs = await service.getProofs('https://mint.com')
+      expect(proofs).toHaveLength(1)
     })
   })
 
@@ -180,8 +180,9 @@ describe('WalletService', () => {
         { id: 'k1', amount: 100, secret: 's1', C: 'c1' },
       ])
 
-      const balance = await service.getBalanceByMint('https://mint.com')
-      expect(balance).toBe(50)
+      const proofs = await service.getProofs('https://mint.com')
+      expect(proofs).toHaveLength(1)
+      expect(proofs[0].amount).toBe(50)
     })
   })
 

@@ -93,7 +93,7 @@ function MainAppInner() {
   const setInitializing = useAppStore((state) => state.setInitializing)
   const addToast = useAppStore((state) => state.addToast)
   const removeToast = useAppStore((state) => state.removeToast)
-  const setBalance = useAppStore((state) => state.setBalance)
+
   const setFailedSwapsCount = useAppStore((state) => state.setFailedSwapsCount)
   const setNostrKeyPair = useAppStore((state) => state.setNostrKeyPair)
   const setP2pkPubkey = useAppStore((state) => state.setP2pkPubkey)
@@ -212,17 +212,13 @@ function MainAppInner() {
     setTransactions(txHistory)
   }, [refreshBalance, services.transactionRepo])
 
-  // Initialize app (wallet is guaranteed to exist when MainApp loads)
+  // Initialize app — Coco 무관 작업만 (Coco는 unlock 후 setupSubscription에서 초기화)
   useEffect(() => {
     const init = async () => {
       try {
         // Load settings from IndexedDB (secure storage)
         const savedSettings = await services.settingsRepo.getSettings()
         setSettings(savedSettings)
-
-        // Load cached balance
-        const cachedBalance = await services.wallet.getBalance()
-        setBalance(cachedBalance)
 
         // Load failed swaps count
         const swaps = await services.sync.getFailedSwaps()
@@ -239,19 +235,6 @@ function MainAppInner() {
         // Data retention: clean up old records
         services.transactionRepo.deleteOlderThan(90).catch(() => {})
         services.sync.cleanupOldData().catch(() => {})
-
-        // Recover all pending operations (quotes, melts, send tokens)
-        try {
-          const recovery = await services.payment.recoverAll()
-          const totalRecovered = totalRecoveredCount(recovery)
-          if (totalRecovered > 0) {
-            console.log(`Recovered: ${recovery.quotes.recovered} quotes, ${recovery.melts.recovered} melts, ${recovery.sendTokens.reclaimed} reclaimed, ${recovery.receivedTokens.redeemed} offline tokens`)
-            const newBalance = await services.wallet.getBalance()
-            setBalance(newBalance)
-          }
-        } catch (e) {
-          console.error('Failed to recover pending operations:', e)
-        }
       } catch (error) {
         console.error('Init error:', error)
       } finally {
@@ -260,7 +243,7 @@ function MainAppInner() {
     }
 
     init()
-  }, [services, setBalance, setFailedSwapsCount, setInitializing, setSettings])
+  }, [services, setFailedSwapsCount, setInitializing, setSettings])
 
   // Reload transactions and balance when txRefreshTrigger changes (e.g., GiftWrap token receipt)
   useEffect(() => {
@@ -325,14 +308,26 @@ function MainAppInner() {
     let cancelled = false
 
     const setupSubscription = async () => {
-      // First, try to recover any pending operations
+      // Coco 초기화 (seed가 필요하므로 unlock 후에만 실행)
+      // 1. Coco manager 초기화 + bridge 연결
+      try {
+        const { getCocoManager, enableWatchers } = await import('@/coco/manager')
+        await getCocoManager()
+
+        // 2. Watchers 활성화 (seed 준비됨)
+        await enableWatchers()
+      } catch (e) {
+        console.error('[Init] Failed to initialize Coco:', e)
+      }
+
+      if (cancelled) return
+
+      // 3. Balance 로드 + pending operations recovery
       try {
         const recovery = await services.payment.recoverAll()
         const totalRecovered = totalRecoveredCount(recovery)
         if (totalRecovered > 0) {
           console.log(`[Init] Recovered: ${recovery.quotes.recovered} quotes, ${recovery.melts.recovered} melts, ${recovery.sendTokens.reclaimed} reclaimed, ${recovery.receivedTokens.redeemed} offline tokens`)
-          await refreshAll()
-          // Lightning toast는 bridge.ts (mint-quote:redeemed)가 전역으로 담당
           if (recovery.receivedTokens.redeemed > 0) {
             addToast({
               type: 'success',
@@ -347,24 +342,17 @@ function MainAppInner() {
 
       if (cancelled) return
 
-      // Load active pending quotes into store (for UI display)
+      // 4. 잔액 + 거래내역 + pending quotes 동기화
+      await refreshAll()
+      broadcastSync('balance_changed')
+
       try {
-        const allQuotes = await services.payment.getPendingQuotes()
-        const now = Date.now()
-        const activeQuotes = allQuotes.filter((q) =>
-          (!q.expiresAt || q.expiresAt > now) && (!q.createdAt || (now - q.createdAt) < 24 * 60 * 60 * 1000)
-        )
-        setPendingQuotes(activeQuotes.map((q) => ({
-          quoteId: q.quoteId,
-          mintUrl: q.mintUrl,
-          amount: q.amount,
-          invoice: q.invoice,
-          expiry: q.expiresAt || 0,
-        })))
+        const { getActivePendingQuotes } = await import('@/coco/cashuService')
+        const activeQuotes = await getActivePendingQuotes()
+        setPendingQuotes(activeQuotes)
       } catch (e) {
         console.error('[Init] Failed to load pending quotes:', e)
       }
-      // Payment detection is handled by Coco watcher (mint-quote:redeemed event in bridge.ts)
     }
 
     setupSubscription()
@@ -380,8 +368,6 @@ function MainAppInner() {
           const recovery = await services.payment.recoverAll()
           const totalRecovered = totalRecoveredCount(recovery)
           if (totalRecovered > 0) {
-            await refreshAll()
-            broadcastSync('balance_changed')
             // Lightning toast는 bridge.ts (mint-quote:redeemed)가 전역으로 담당
             if (recovery.receivedTokens.redeemed > 0) {
               addToast({
@@ -391,28 +377,20 @@ function MainAppInner() {
               })
             }
           }
-
-          // Sync store pendingQuotes with DB after recovery
-          if (recovery.quotes.recovered > 0 || recovery.quotes.expired > 0) {
-            try {
-              const allQuotes = await services.payment.getPendingQuotes()
-              const now = Date.now()
-              const activeQuotes = allQuotes.filter((q) =>
-                (!q.expiresAt || q.expiresAt > now) && (!q.createdAt || (now - q.createdAt) < 24 * 60 * 60 * 1000)
-              )
-              setPendingQuotes(activeQuotes.map((q) => ({
-                quoteId: q.quoteId,
-                mintUrl: q.mintUrl,
-                amount: q.amount,
-                invoice: q.invoice,
-                expiry: q.expiresAt || 0,
-              })))
-            } catch (e) {
-              console.error('[Background] Failed to sync pending quotes store:', e)
-            }
-          }
         } catch (e) {
           console.error('[Background] Failed to recover pending operations:', e)
+        }
+
+        // 항상 잔액 + pending quotes 동기화
+        // (Coco watcher가 백그라운드에서 redeem했을 수 있으므로 recovery 결과와 무관하게 실행)
+        await refreshAll()
+        broadcastSync('balance_changed')
+        try {
+          const { getActivePendingQuotes } = await import('@/coco/cashuService')
+          const activeQuotes = await getActivePendingQuotes()
+          setPendingQuotes(activeQuotes)
+        } catch (e) {
+          console.error('[Background] Failed to sync pending quotes store:', e)
         }
       }
     }

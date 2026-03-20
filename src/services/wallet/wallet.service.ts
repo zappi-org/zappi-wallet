@@ -5,6 +5,7 @@ import { InsufficientBalanceError } from '@/core/errors'
 import { ok, err, type Result } from '@/core/types'
 import type { WalletBalance } from '@/core/types'
 import type { BaseError } from '@/core/errors'
+import { getBalances as cocoGetBalances } from '@/coco/cashuService'
 
 /**
  * Normalize mint URL (remove trailing slash)
@@ -36,18 +37,16 @@ export class WalletService {
 
   /**
    * Get total balance across all mints
-   * Uses IndexedDB proofs as the single source of truth (eNuts-style)
+   * Uses Coco's internal DB as the single source of truth
    */
   async getBalance(): Promise<WalletBalance> {
-    const proofs = await this.db.proofs.toArray()
-
+    const cocoBalances = await cocoGetBalances()
     const byMint: Record<string, number> = {}
     let total = 0
 
-    for (const proof of proofs) {
-      const mintUrl = normalizeMintUrl(proof.mintUrl)
-      byMint[mintUrl] = (byMint[mintUrl] || 0) + proof.amount
-      total += proof.amount
+    for (const [mintUrl, balance] of Object.entries(cocoBalances)) {
+      byMint[mintUrl] = balance
+      total += balance
     }
 
     return { total, byMint }
@@ -55,16 +54,17 @@ export class WalletService {
 
   /**
    * Get balance for a specific mint
-   * Uses IndexedDB proofs as the single source of truth
+   * Uses Coco's internal DB as the single source of truth
    */
   async getBalanceByMint(mintUrl: string): Promise<number> {
     const normalizedUrl = normalizeMintUrl(mintUrl)
-    const proofs = await this.db.proofs
-      .where('mintUrl')
-      .equals(normalizedUrl)
-      .toArray()
+    const cocoBalances = await cocoGetBalances()
 
-    return proofs.reduce((sum, p) => sum + p.amount, 0)
+    for (const [url, balance] of Object.entries(cocoBalances)) {
+      if (normalizeMintUrl(url) === normalizedUrl) return balance
+    }
+
+    return 0
   }
 
   /**
