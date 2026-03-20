@@ -595,10 +595,21 @@ export class PaymentService {
       }
 
       // 7. Redeem mint quote on target mint (receive the tokens)
+      // MintQuoteWatcher may have already redeemed this quote automatically,
+      // so "already pending" or "already issued" errors are safe to ignore.
       console.log('[MintSwap] Redeeming mint quote on target mint...')
-      await cocoRedeemMintQuote(toMintUrl, mintQuote.quote, swapAmount)
+      try {
+        await cocoRedeemMintQuote(toMintUrl, mintQuote.quote, swapAmount)
+      } catch (redeemError) {
+        const msg = String(redeemError).toLowerCase()
+        if (msg.includes('already pending') || msg.includes('already issued') || msg.includes('already redeemed')) {
+          console.log('[MintSwap] Quote already redeemed by MintQuoteWatcher, continuing')
+        } else {
+          throw redeemError
+        }
+      }
 
-      // 7.5. Remove pending quote (redeem succeeded)
+      // 7.5. Remove pending quote (redeem succeeded or already handled)
       await this.removePendingQuote(mintQuote.quote)
 
       // 8. Create transaction record
