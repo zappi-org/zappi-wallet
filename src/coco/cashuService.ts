@@ -368,7 +368,7 @@ export async function recoverPendingMelts(): Promise<{
           await manager.quotes.rollbackMelt(op.id, 'recovery: payment failed');
           recovered++;
           console.log(`[Recovery] Melt operation ${op.id} rolled back`);
-        } else if (op.createdAt && (now - op.createdAt * 1000) > maxAge) {
+        } else if (op.createdAt && (now - op.createdAt) > maxAge) {
           // Still pending after 24h — force rollback
           console.warn(`[Recovery] Melt operation ${op.id} stuck >24h, rolling back`);
           await manager.quotes.rollbackMelt(op.id, 'recovery: expired');

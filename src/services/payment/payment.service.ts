@@ -502,7 +502,9 @@ export class PaymentService {
     const meltOp = await cocoPrepareMelt(fromMintUrl, mintQuote.request)
     const fee = meltOp.fee_reserve + meltOp.swap_fee
     // Rollback immediately — this was just an estimate
-    await cocoRollbackMelt(meltOp.operationId, 'fee estimation only')
+    await cocoRollbackMelt(meltOp.operationId, 'fee estimation only').catch((err) => {
+      console.error('[estimateSwapFee] Rollback failed:', err)
+    })
     return {
       fee,
       totalNeeded: meltOp.amount + fee,
