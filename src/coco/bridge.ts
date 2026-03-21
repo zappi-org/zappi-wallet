@@ -57,8 +57,8 @@ export function connectCocoToStore(manager: Manager): void {
     removePendingQuote(event.quoteId);
 
     // 스왑 quote는 토스트 억제 (use-payment.ts에서 swap 전용 토스트 표시)
+    // delete는 하지 않음 — observer가 swap 여부 확인 후 정리
     if (swapQuoteIds.has(event.quoteId)) {
-      swapQuoteIds.delete(event.quoteId);
       console.log(`[Coco Bridge] Swap quote redeemed (toast suppressed): ${event.quoteId}`);
     } else {
       addToast({

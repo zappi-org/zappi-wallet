@@ -30,15 +30,16 @@ vi.mock('@/hooks/use-cross-tab-sync', () => ({
   broadcastSync: vi.fn(),
 }))
 
-// Mock bridge (isSwapQuote)
+// Mock bridge (isSwapQuote, unmarkQuoteAsSwap)
 const mockIsSwapQuote = vi.fn().mockReturnValue(false)
+const mockUnmarkQuoteAsSwap = vi.fn()
 vi.mock('@/coco/bridge', () => ({
   isSwapQuote: (...args: unknown[]) => mockIsSwapQuote(...args),
+  unmarkQuoteAsSwap: (...args: unknown[]) => mockUnmarkQuoteAsSwap(...args),
 }))
 
 import { recordLightningReceive, connectMintQuoteObserver, disconnectMintQuoteObserver } from '@/coco/mintQuoteObserver'
 import { broadcastSync } from '@/hooks/use-cross-tab-sync'
-import { useAppStore } from '@/store'
 import type { Manager } from 'coco-cashu-core'
 
 describe('mintQuoteObserver', () => {
@@ -158,6 +159,7 @@ describe('mintQuoteObserver', () => {
       }
 
       expect(mockDb.transactions.put).not.toHaveBeenCalled()
+      expect(mockUnmarkQuoteAsSwap).toHaveBeenCalledWith('swap-q-1')
     })
   })
 })

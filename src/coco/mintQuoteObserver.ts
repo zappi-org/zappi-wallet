@@ -15,7 +15,7 @@
 import type { Manager } from 'coco-cashu-core';
 import { useAppStore } from '@/store';
 import { broadcastSync } from '@/hooks/use-cross-tab-sync';
-import { isSwapQuote } from './bridge';
+import { isSwapQuote, unmarkQuoteAsSwap } from './bridge';
 
 let unsubscribers: (() => void)[] = [];
 
@@ -65,8 +65,11 @@ export function connectMintQuoteObserver(manager: Manager): void {
   disconnectMintQuoteObserver();
 
   const unsubRedeemed = manager.on('mint-quote:redeemed', async (event) => {
-    // 스왑 quote는 별도 swap 거래가 기록되므로 skip
-    if (isSwapQuote(event.quoteId)) return;
+    // 스왑 quote는 별도 swap 거래가 기록되므로 skip + Set 정리
+    if (isSwapQuote(event.quoteId)) {
+      unmarkQuoteAsSwap(event.quoteId);
+      return;
+    }
 
     try {
       const recorded = await recordLightningReceive({
