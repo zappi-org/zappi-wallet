@@ -76,7 +76,7 @@ export function HomeScreen({
   // Pull-to-refresh
   const ptrThreshold = 80;
   const noopRefresh = useCallback(async () => {}, []);
-  const { scrollContainerRef, pullDistance, isPulling, isRefreshing } = usePullToRefresh({
+  const { scrollContainerRef, pullDistance, isPulling, isRefreshing, isDismissing } = usePullToRefresh({
     onRefresh: onRefresh ?? noopRefresh,
     threshold: ptrThreshold,
   });
@@ -191,12 +191,12 @@ export function HomeScreen({
       {/* Scrollable content */}
       <main ref={scrollContainerRef} className="flex-1 flex flex-col overflow-y-auto min-h-0">
         {/* Pull-to-refresh indicator */}
-        {(pullDistance > 0 || isRefreshing) && (
+        {(pullDistance > 0 || isRefreshing || isDismissing) && (
           <div
-            className={`flex items-center justify-center shrink-0 overflow-hidden ${!isPulling ? 'transition-[height] duration-200' : ''}`}
+            className={`flex items-center justify-center shrink-0 overflow-hidden ${!isPulling ? 'transition-[height,opacity] duration-200' : ''}`}
             style={{
-              height: isRefreshing ? 48 : pullDistance,
-              opacity: isRefreshing ? 1 : Math.min(pullDistance / ptrThreshold, 1),
+              height: isDismissing ? 0 : isRefreshing ? 48 : pullDistance,
+              opacity: isDismissing ? 0 : isRefreshing ? 1 : Math.min(pullDistance / ptrThreshold, 1),
             }}
           >
             <LoaderCircle

@@ -165,34 +165,38 @@ export default function MainApp() {
 
   /** Manual pull-to-refresh handler */
   const handleManualRefresh = useCallback(async () => {
-    // 1. Pending operations 복구
-    try {
-      const recovery = await services.payment.recoverAll()
-      if (recovery.receivedTokens.redeemed > 0) {
+    // 1. 빠른 로컬 갱신 + 느린 네트워크 복구를 병렬 실행
+    const [, , recoveryResult] = await Promise.all([
+      // 잔액 + 거래내역 (로컬 DB — 빠름)
+      refreshAll(),
+      // Pending quotes (로컬 DB — 빠름)
+      import('@/coco/cashuService')
+        .then(({ getActivePendingQuotes }) => getActivePendingQuotes())
+        .then((quotes) => setPendingQuotes(quotes))
+        .catch((e) => console.error('[Refresh] Failed to sync pending quotes:', e)),
+      // Pending operations 복구 (네트워크 — 느림)
+      services.payment.recoverAll().catch((e) => {
+        console.error('[Refresh] Failed to recover pending operations:', e)
+        return null
+      }),
+    ])
+
+    broadcastSync('balance_changed')
+
+    // 2. 복구된 항목이 있으면 잔액 재갱신
+    if (recoveryResult && totalRecoveredCount(recoveryResult) > 0) {
+      if (recoveryResult.receivedTokens.redeemed > 0) {
         addToast({
           type: 'success',
-          message: t('toast.offlineTokensRedeemed', { count: recovery.receivedTokens.redeemed }),
+          message: t('toast.offlineTokensRedeemed', { count: recoveryResult.receivedTokens.redeemed }),
           duration: 4000,
         })
       }
-    } catch (e) {
-      console.error('[Refresh] Failed to recover pending operations:', e)
+      await refreshAll()
+      broadcastSync('balance_changed')
     }
 
-    // 2. 잔액 + 거래내역 새로고침
-    await refreshAll()
-    broadcastSync('balance_changed')
-
-    // 3. Pending quotes 동기화
-    try {
-      const { getActivePendingQuotes } = await import('@/coco/cashuService')
-      const activeQuotes = await getActivePendingQuotes()
-      setPendingQuotes(activeQuotes)
-    } catch (e) {
-      console.error('[Refresh] Failed to sync pending quotes:', e)
-    }
-
-    // 4. 민트 상태 + 환율 (fire-and-forget)
+    // 3. 민트 상태 + 환율 (fire-and-forget)
     checkAllMints()
     exchangeRateService.refreshIfStale().catch(() => {})
   }, [services.payment, refreshAll, addToast, setPendingQuotes, checkAllMints, t])

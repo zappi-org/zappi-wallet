@@ -17,6 +17,8 @@ interface UsePullToRefreshReturn {
   isPulling: boolean
   /** Whether a refresh is currently in progress */
   isRefreshing: boolean
+  /** Whether the indicator is animating away after refresh completes */
+  isDismissing: boolean
 }
 
 /**
@@ -33,6 +35,7 @@ export function usePullToRefresh({
   const [pullDistance, setPullDistance] = useState(0)
   const [isPulling, setIsPulling] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isDismissing, setIsDismissing] = useState(false)
 
   // Mutable refs — avoid re-creating callbacks on every state change
   const startYRef = useRef(0)
@@ -94,8 +97,13 @@ export function usePullToRefresh({
       } catch (e) {
         console.error('[PullToRefresh] Refresh failed:', e)
       } finally {
+        // Dismiss animation — set isDismissing briefly before fully hiding
+        setIsDismissing(true)
+        // Wait for CSS transition to complete before unmounting
+        await new Promise((r) => setTimeout(r, 250))
         isRefreshingRef.current = false
         setIsRefreshing(false)
+        setIsDismissing(false)
       }
     } else {
       setPullDistance(0)
@@ -117,5 +125,5 @@ export function usePullToRefresh({
     }
   }, [handleTouchStart, handleTouchMove, handleTouchEnd])
 
-  return { scrollContainerRef, pullDistance, isPulling, isRefreshing }
+  return { scrollContainerRef, pullDistance, isPulling, isRefreshing, isDismissing }
 }
