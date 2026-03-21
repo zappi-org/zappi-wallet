@@ -29,7 +29,7 @@ vi.mock('@/coco/cashuService', () => ({
 
 const mockAddToast = vi.fn()
 const mockSetPendingQuotes = vi.fn()
-let mockRefreshAll: ReturnType<typeof vi.fn>
+let mockRefreshAll: () => Promise<void>
 
 function makeRecovery(overrides: Partial<Record<string, Record<string, number>>> = {}): RecoverAllResult {
   return {
@@ -69,7 +69,7 @@ describe('totalRecoveredCount', () => {
 
 describe('notifyRecovery', () => {
   beforeEach(() => {
-    mockRefreshAll = vi.fn().mockResolvedValue(undefined)
+    mockRefreshAll = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
     vi.clearAllMocks()
   })
 
@@ -132,7 +132,7 @@ describe('notifyRecovery', () => {
 
 describe('syncPendingQuotes', () => {
   beforeEach(() => {
-    mockRefreshAll = vi.fn().mockResolvedValue(undefined)
+    mockRefreshAll = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
     vi.clearAllMocks()
   })
 
@@ -175,7 +175,7 @@ describe('syncPendingQuotes', () => {
 
 describe('syncAfterRecovery', () => {
   beforeEach(() => {
-    mockRefreshAll = vi.fn().mockResolvedValue(undefined)
+    mockRefreshAll = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
     vi.clearAllMocks()
   })
 
