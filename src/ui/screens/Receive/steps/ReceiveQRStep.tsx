@@ -266,7 +266,7 @@ export function ReceiveQRStep({
         {/* Amount */}
         <p className="text-display font-display">{formatSats(amount)}</p>
         {(() => { const f = formatFiat(amount); return f ? (
-          <p className="text-caption text-foreground-muted -mt-2">≈ {f}</p>
+          <p className="text-caption text-foreground-muted -mt-2">{f}</p>
         ) : null })()}
 
         {/* QR Code */}

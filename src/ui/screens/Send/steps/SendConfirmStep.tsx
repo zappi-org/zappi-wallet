@@ -112,7 +112,7 @@ export function SendConfirmStep({
             {formatSats(amount)} {t('send.confirm.amountSuffix')}
           </p>
           {(() => { const f = formatFiat(amount); return f ? (
-            <p className="text-body text-foreground-muted">≈ {f}</p>
+            <p className="text-body text-foreground-muted">{f}</p>
           ) : null })()}
           <p className="text-amount-lg font-medium leading-snug">
             {t('send.confirm.questionEnd')}
@@ -154,7 +154,7 @@ export function SendConfirmStep({
                 <div className="text-right">
                   <span className="text-body font-bold">{formatSats(totalAmount)}</span>
                   {(() => { const f = formatFiat(totalAmount); return f ? (
-                    <p className="text-caption text-foreground-muted">≈ {f}</p>
+                    <p className="text-caption text-foreground-muted">{f}</p>
                   ) : null })()}
                 </div>
               </div>

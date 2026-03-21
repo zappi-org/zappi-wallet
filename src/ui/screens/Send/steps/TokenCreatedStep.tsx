@@ -136,14 +136,14 @@ export function TokenCreatedStep({
             <p className="text-subtitle text-center">{t('send.tokenCreated.claimed')}</p>
             <p className="text-foreground-muted text-caption font-display">{formatSats(amount)}</p>
             {(() => { const f = formatFiat(amount); return f ? (
-              <p className="text-foreground-muted text-label">≈ {f}</p>
+              <p className="text-foreground-muted text-label">{f}</p>
             ) : null })()}
           </div>
         ) : (
           <>
             <p className="text-display font-display">{formatSats(amount)}</p>
             {(() => { const f = formatFiat(amount); return f ? (
-              <p className="text-caption text-foreground-muted">≈ {f}</p>
+              <p className="text-caption text-foreground-muted">{f}</p>
             ) : null })()}
 
             <div className="bg-background-card p-4 rounded-2xl shadow-sm">

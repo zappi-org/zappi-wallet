@@ -6,9 +6,10 @@ interface SettingsDetailPageProps {
   title: string
   onBack: () => void
   children: ReactNode
+  noScroll?: boolean
 }
 
-export function SettingsDetailPage({ title, onBack, children }: SettingsDetailPageProps) {
+export function SettingsDetailPage({ title, onBack, children, noScroll }: SettingsDetailPageProps) {
   const { t } = useTranslation()
 
   return (
@@ -19,7 +20,7 @@ export function SettingsDetailPage({ title, onBack, children }: SettingsDetailPa
         </button>
         <h2 className="text-body font-semibold tracking-tight">{title}</h2>
       </header>
-      <div className="flex-1 overflow-y-auto">
+      <div className={noScroll ? "flex-1 flex flex-col overflow-hidden" : "flex-1 overflow-y-auto"}>
         {children}
       </div>
     </div>

@@ -25,7 +25,7 @@ export function AmountDisplay({
     <div className={cn('flex flex-col items-center', className)}>
       <span className={cn(styles.amount, 'text-foreground')}>{formatSats(amount)}</span>
       {fiat && (
-        <span className={cn(styles.fiat, 'text-foreground-muted')}>≈ {fiat}</span>
+        <span className={cn(styles.fiat, 'text-foreground-muted')}>{fiat}</span>
       )}
     </div>
   )

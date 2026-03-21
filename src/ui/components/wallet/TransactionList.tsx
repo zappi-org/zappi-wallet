@@ -161,7 +161,7 @@ export function TransactionList({
                   const fiatStr = formatTransactionFiat(tx, toFiat)
                   return fiatStr ? (
                     <span className="text-overline text-foreground-muted/70 leading-normal">
-                      ≈ {fiatStr}
+                      {fiatStr}
                     </span>
                   ) : null
                 })()}

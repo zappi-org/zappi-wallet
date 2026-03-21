@@ -45,9 +45,9 @@ export function FiatSettingPage({ onBack, saveSettings }: FiatSettingPageProps) 
   }, [search, currentCurrency])
 
   return (
-    <SettingsDetailPage title={t('settings.showFiatConversion')} onBack={onBack}>
+    <SettingsDetailPage title={t('settings.showFiatConversion')} onBack={onBack} noScroll={showFiat}>
       {/* Toggle */}
-      <div className="px-5 py-4 flex items-center justify-between border-b border-border">
+      <div className="px-5 py-4 flex items-center justify-between border-b border-border shrink-0">
         <p className="text-body font-medium">{t('settings.showFiatConversion')}</p>
         <Switch checked={showFiat} onChange={handleToggle} />
       </div>
@@ -55,7 +55,7 @@ export function FiatSettingPage({ onBack, saveSettings }: FiatSettingPageProps) 
       {/* Currency list (only when enabled) */}
       {showFiat && (
         <>
-          <div className="px-5 py-3">
+          <div className="px-5 py-3 shrink-0">
             <input
               type="text"
               value={search}
@@ -64,7 +64,7 @@ export function FiatSettingPage({ onBack, saveSettings }: FiatSettingPageProps) 
               className="w-full px-3 py-2.5 rounded-xl bg-background border border-border text-caption focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
-          <div className="pb-safe">
+          <div className="flex-1 overflow-y-auto pb-safe">
             {sorted.map((currency) => (
               <button
                 key={currency.code}

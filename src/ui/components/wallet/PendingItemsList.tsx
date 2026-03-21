@@ -109,7 +109,7 @@ export function PendingItemsList({ items, mintUrl, maxItems = 5, onItemClick }: 
                 const fiatStr = toFiat(item.amount)
                 return fiatStr ? (
                   <span className="text-overline text-foreground-muted/70 leading-normal">
-                    ≈ {fiatStr}
+                    {fiatStr}
                   </span>
                 ) : null
               })()}

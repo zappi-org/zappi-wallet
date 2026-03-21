@@ -92,7 +92,7 @@ export function UntrustedMintStep({
           {t('receive.untrusted.warningNeedConfirm', { amount: formattedAmount })}
         </p>
         {(() => { const f = formatFiat(token.amountSats); return f ? (
-          <p className="text-body text-foreground-muted">≈ {f}</p>
+          <p className="text-body text-foreground-muted">{f}</p>
         ) : null })()}
 
         <p className="text-body text-foreground-muted text-center leading-relaxed whitespace-pre-line">

@@ -6,6 +6,7 @@ import { FIAT_CURRENCY_MAP } from '@/utils/format'
 import { isPasskeySupported, isPasskeyRegistered } from '@/services/passkey'
 import { getCurrentLanguage, SUPPORTED_LANGUAGES } from '@/i18n'
 import { updateSW } from '@/registerSW'
+import { Switch } from '@/ui/components/common/Switch'
 import { SettingsRow } from './components/SettingsRow'
 import type { SettingsPage } from './SettingsScreen'
 
@@ -19,6 +20,7 @@ interface SettingsMainListProps {
   onRelayManagement?: () => void
   onTransfer?: () => void
   onAnalytics?: () => void
+  onFaceIdToggle: (enabled: boolean) => void
   onOpenPinChange: () => void
   onOpenRestore: () => void
   onOpenBackup: () => void
@@ -35,6 +37,7 @@ export function SettingsMainList({
   onRelayManagement,
   onTransfer,
   onAnalytics,
+  onFaceIdToggle,
   onOpenPinChange,
   onOpenRestore,
   onOpenBackup,
@@ -62,7 +65,6 @@ export function SettingsMainList({
 
   const passkeySupported = isPasskeySupported()
   const passkeyEnabled = isPasskeyRegistered()
-  const faceIdValue = passkeyEnabled ? t('settings.active') : null
 
   const posDevices = settings.posDevices ?? []
   const posValue = posDevices.length > 0 ? t('settings.posDeviceCount', { count: posDevices.length }) : null
@@ -70,7 +72,7 @@ export function SettingsMainList({
   const npubDisplay = nostrPubkey ? encodeNpub(nostrPubkey) : null
 
   return (
-    <div className="flex-1 overflow-y-auto pb-32">
+    <div className="flex-1 overflow-y-auto pb-safe">
       {/* Update banner */}
       {updateAvailable && (
         <button
@@ -153,11 +155,10 @@ export function SettingsMainList({
             onPress={onOpenPinChange}
           />
           {passkeySupported && (
-            <SettingsRow
-              label={t('settings.faceIdTouchId')}
-              value={faceIdValue}
-              onPress={() => onNavigate('faceId')}
-            />
+            <div className="px-4 py-3.5 flex items-center justify-between min-h-[52px]">
+              <span className="text-body font-medium">{t('settings.faceIdTouchId')}</span>
+              <Switch checked={passkeyEnabled} onChange={onFaceIdToggle} />
+            </div>
           )}
           <SettingsRow
             label={t('settings.autoLock')}
@@ -215,16 +216,17 @@ export function SettingsMainList({
       )}
 
       {/* Logout */}
-      <section className="px-4 pt-8">
-        <SettingsRow
-          label={t('settings.logout')}
-          onPress={onOpenLogout}
-          variant="danger"
-        />
+      <div className="px-4 pt-8">
+        <button
+          onClick={onOpenLogout}
+          className="w-full py-3.5 bg-accent-danger text-white text-body font-semibold flex items-center justify-center gap-2 rounded-xl active:opacity-80 transition-opacity"
+        >
+          {t('settings.logout')}
+        </button>
         <p className="text-center mt-4 text-overline text-foreground-muted/50 uppercase tracking-widest">
           {t('settings.version')}
         </p>
-      </section>
+      </div>
     </div>
   )
 }

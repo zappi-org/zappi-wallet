@@ -181,7 +181,7 @@ export function HomeScreen({
       <main className="flex-1 flex flex-col overflow-y-auto min-h-0">
         {/* Balance */}
         <div
-          className="flex flex-col items-center gap-3 shrink-0 pb-1.5 pt-8 cursor-pointer"
+          className="flex flex-col items-center gap-1 shrink-0 pb-1.5 pt-8 cursor-pointer"
           onClick={() => {
             const updated = { balanceHidden: !settings.balanceHidden }
             updateSettings(updated)
@@ -190,7 +190,7 @@ export function HomeScreen({
           role="button"
           aria-label={settings.balanceHidden ? t('home.showBalance') : t('home.hideBalance')}
         >
-          <p className="text-caption text-foreground-muted">Total</p>
+          <p className="text-subtitle text-foreground-muted">Total</p>
           <div className="flex items-center gap-2 py-0.5">
             {settings.balanceHidden ? (
               <span className="text-display text-foreground tracking-[2px]">••••</span>
@@ -199,13 +199,13 @@ export function HomeScreen({
             ) : (
               <>
                 {unit === '₿' && (
-                  <span className="text-label text-foreground-muted tracking-[-1px]">{unit}</span>
+                  <span className="text-body text-foreground-muted tracking-[-1px]">{unit}</span>
                 )}
                 <span className="text-display font-display text-foreground tracking-[2px]">
                   {totalBalance.toLocaleString()}
                 </span>
                 {unit !== '₿' && (
-                  <span className="text-label text-foreground-muted">{unit}</span>
+                  <span className="text-body text-foreground-muted">{unit}</span>
                 )}
               </>
             )}
@@ -213,8 +213,8 @@ export function HomeScreen({
           {!settings.balanceHidden && !isLoadingBalance && (() => {
             const fiatStr = toFiat(totalBalance)
             return fiatStr ? (
-              <p className="text-caption font-medium text-foreground-muted tracking-wide">
-                ≈ {fiatStr}
+              <p className="text-body font-medium text-foreground-muted tracking-wide">
+                {fiatStr}
               </p>
             ) : null
           })()}

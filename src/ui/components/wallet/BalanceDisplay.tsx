@@ -54,7 +54,7 @@ export function BalanceDisplay({
           )}
           {(() => { const f = formatFiat(balance.total); return !isInitialLoad && f ? (
             <span className={`text-foreground-muted ${isLarge ? 'text-caption' : 'text-label'}`}>
-              ≈ {f}
+              {f}
             </span>
           ) : null })()}
         </div>

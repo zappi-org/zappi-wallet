@@ -115,7 +115,7 @@ export function AmountInput({
           </div>
           {amount && (
             <p className="text-foreground-muted text-caption mt-1">
-              ≈ {Number(amount).toLocaleString()} sats
+              {Number(amount).toLocaleString()} sats
             </p>
           )}
         </>
@@ -140,7 +140,7 @@ export function AmountInput({
             />
           </div>
           {fiatHint && (
-            <p className="text-foreground-muted text-caption mt-1">≈ {fiatHint}</p>
+            <p className="text-foreground-muted text-caption mt-1">{fiatHint}</p>
           )}
         </>
       )}

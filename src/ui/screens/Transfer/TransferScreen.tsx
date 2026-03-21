@@ -165,7 +165,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
               </div>
               <h3 className="text-body font-bold text-foreground mb-1">{t('transfer.transferComplete')}</h3>
               <p className="text-caption font-semibold text-brand">{formatSats(transferredAmount)}</p>
-              {(() => { const f = formatFiat(transferredAmount); return f ? <p className="text-label text-foreground-muted mt-0.5">≈ {f}</p> : null })()}
+              {(() => { const f = formatFiat(transferredAmount); return f ? <p className="text-label text-foreground-muted mt-0.5">{f}</p> : null })()}
             </div>
           ) : (
             <div className="flex flex-col items-center text-center">
@@ -272,7 +272,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
               </span>
             )}
           </div>
-          {(() => { const f = formatFiat(numericAmount); return f ? <p className="text-caption text-foreground-muted">≈ {f}</p> : null })()}
+          {(() => { const f = formatFiat(numericAmount); return f ? <p className="text-caption text-foreground-muted">{f}</p> : null })()}
           {isInsufficientFunds && (
             <p className="text-caption font-semibold text-accent-danger">
               {t('payment.maxAmount', { amount: formatSats(currentBalance) })}

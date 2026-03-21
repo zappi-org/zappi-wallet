@@ -169,7 +169,7 @@ export function TokenConfirmStep({
             <div className="text-right">
               <span className="text-body font-semibold">{formattedAmount}</span>
               {(() => { const f = formatFiat(token.amountSats); return f ? (
-                <p className="text-caption text-foreground-muted">≈ {f}</p>
+                <p className="text-caption text-foreground-muted">{f}</p>
               ) : null })()}
             </div>
           </div>

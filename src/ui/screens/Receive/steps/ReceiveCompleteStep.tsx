@@ -60,7 +60,7 @@ export function ReceiveCompleteStep({
           })}
         </p>
         {(() => { const f = formatFiat(amount); return f ? (
-          <p className="text-body text-foreground-muted text-center mt-1">≈ {f}</p>
+          <p className="text-body text-foreground-muted text-center mt-1">{f}</p>
         ) : null })()}
       </div>
 

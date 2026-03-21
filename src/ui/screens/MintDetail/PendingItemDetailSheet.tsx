@@ -129,7 +129,7 @@ export function PendingItemDetailSheet({ isOpen, item, onClose }: PendingItemDet
               </p>
               {fiatStr && (
                 <p className="text-caption text-foreground-muted">
-                  ≈ {fiatStr}
+                  {fiatStr}
                 </p>
               )}
             </div>

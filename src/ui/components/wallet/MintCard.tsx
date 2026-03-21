@@ -155,30 +155,25 @@ export function MintCard({
 
       {/* BALANCE label & amount */}
       {!hideBalance && (
-        <>
-          <p
-            className="absolute z-10 font-display text-caption font-semibold text-white leading-normal whitespace-nowrap"
-            style={{ top: '71%', left: '9.3%' }}
-          >
+        <div
+          className="absolute z-10 flex flex-col gap-0.5"
+          style={{ bottom: '8%', left: '9.3%' }}
+        >
+          <p className="font-display text-caption font-semibold text-white leading-normal whitespace-nowrap">
             Balance
           </p>
-          <div
-            className="absolute z-10 flex items-baseline gap-2"
-            style={{ top: '80%', left: '9.3%' }}
-          >
-            <p className="font-display text-body-bold text-white leading-normal">
-              {formatSats(mint.balance)}
-            </p>
-            {(() => {
-              const fiatStr = toFiat(mint.balance)
-              return fiatStr ? (
-                <span className="font-display text-overline text-white/60 leading-normal">
-                  ≈ {fiatStr}
-                </span>
-              ) : null
-            })()}
-          </div>
-        </>
+          <p className="font-display text-body-bold text-white leading-normal">
+            {formatSats(mint.balance)}
+          </p>
+          {(() => {
+            const fiatStr = toFiat(mint.balance)
+            return fiatStr ? (
+              <span className="font-display text-overline text-white/60 leading-normal">
+                {fiatStr}
+              </span>
+            ) : null
+          })()}
+        </div>
       )}
 
       {/* Create Token button */}

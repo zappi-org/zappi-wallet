@@ -21,11 +21,16 @@ import { SettingsMainList } from './SettingsMainList'
 import { LanguageSettingPage } from './pages/LanguageSettingPage'
 import { UnitDisplaySettingPage } from './pages/UnitDisplaySettingPage'
 import { FiatSettingPage } from './pages/FiatSettingPage'
-import { FaceIdSettingPage } from './pages/FaceIdSettingPage'
+import {
+  isPasskeySupported,
+  isPasskeyRegistered,
+  registerPasskey,
+  removePasskey,
+} from '@/services/passkey'
 import { AutoLockSettingPage } from './pages/AutoLockSettingPage'
 import { POSSettingPage } from './pages/POSSettingPage'
 
-export type SettingsPage = 'language' | 'unitDisplay' | 'fiat' | 'faceId' | 'autoLock' | 'pos'
+export type SettingsPage = 'language' | 'unitDisplay' | 'fiat' | 'autoLock' | 'pos'
 
 export interface SettingsScreenProps {
   onBack: () => void
@@ -95,6 +100,53 @@ export function SettingsScreen({
     onChangePassword,
     onPasskeyDesynced: () => {},
   })
+
+  // Face ID
+  const [showFaceIdModal, setShowFaceIdModal] = useState(false)
+  const [faceIdAction, setFaceIdAction] = useState<'register' | 'remove'>('register')
+  const [faceIdPin, setFaceIdPin] = useState('')
+  const [faceIdError, setFaceIdError] = useState('')
+  const [faceIdLoading, setFaceIdLoading] = useState(false)
+
+  const handleFaceIdToggle = useCallback((enabled: boolean) => {
+    setFaceIdAction(enabled ? 'register' : 'remove')
+    setFaceIdPin('')
+    setFaceIdError('')
+    setShowFaceIdModal(true)
+  }, [])
+
+  const handleFaceIdSubmit = useCallback(async () => {
+    if (faceIdPin.length !== 6) return
+    setFaceIdLoading(true)
+    setFaceIdError('')
+    try {
+      if (faceIdAction === 'register') {
+        const success = await registerPasskey(faceIdPin)
+        if (success) {
+          setShowFaceIdModal(false)
+        } else {
+          setFaceIdError(t('settings.passkeyRegisterFailed'))
+        }
+      } else {
+        const valid = await onVerifyPin(faceIdPin)
+        if (valid) {
+          removePasskey()
+          setShowFaceIdModal(false)
+        } else {
+          setFaceIdError(t('settings.wrongPin'))
+          setFaceIdPin('')
+        }
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message === 'PRF_NOT_SUPPORTED') {
+        setFaceIdError(t('settings.passkeyPRFNotSupported'))
+      } else {
+        setFaceIdError(t('lock.errorOccurred'))
+      }
+    } finally {
+      setFaceIdLoading(false)
+    }
+  }, [faceIdPin, faceIdAction, onVerifyPin, t])
 
   // Save settings helper
   const saveSettings = useCallback(async (updates: Record<string, unknown>) => {
@@ -264,8 +316,6 @@ export function SettingsScreen({
         return <UnitDisplaySettingPage onBack={() => setSettingsPage(null)} saveSettings={saveSettings} />
       case 'fiat':
         return <FiatSettingPage onBack={() => setSettingsPage(null)} saveSettings={saveSettings} />
-      case 'faceId':
-        return <FaceIdSettingPage onBack={() => setSettingsPage(null)} onVerifyPin={onVerifyPin} />
       case 'autoLock':
         return <AutoLockSettingPage onBack={() => setSettingsPage(null)} saveSettings={saveSettings} />
       case 'pos':
@@ -305,6 +355,7 @@ export function SettingsScreen({
         onRelayManagement={onRelayManagement}
         onTransfer={onTransfer}
         onAnalytics={onAnalytics}
+        onFaceIdToggle={handleFaceIdToggle}
         onOpenPinChange={pinChange.open}
         onOpenRestore={() => setShowRestoreModal(true)}
         onOpenBackup={() => setShowBackupModal(true)}
@@ -322,6 +373,25 @@ export function SettingsScreen({
 
       {/* PIN Change Modal */}
       <PinChangeModal pinChange={pinChange} />
+
+      {/* Face ID PIN Modal */}
+      <Modal
+        isOpen={showFaceIdModal}
+        onClose={() => { setShowFaceIdModal(false); setFaceIdPin(''); setFaceIdError('') }}
+        title={t('settings.faceIdTouchId')}
+      >
+        <div className="py-3">
+          <PinInput
+            value={faceIdPin}
+            onChange={(v) => { setFaceIdPin(v); setFaceIdError('') }}
+            label={faceIdAction === 'register' ? t('settings.passkeyDescription') : t('settings.passkeyRemoveDescription')}
+            error={faceIdError}
+            submitLabel={faceIdAction === 'register' ? t('settings.register') : t('settings.remove')}
+            onSubmit={handleFaceIdSubmit}
+            loading={faceIdLoading}
+          />
+        </div>
+      </Modal>
 
       {/* Backup Modal */}
       <Modal isOpen={showBackupModal} onClose={resetBackupModal} title={t('settings.mnemonicBackup')}>

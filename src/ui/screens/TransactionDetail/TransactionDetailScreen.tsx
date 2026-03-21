@@ -340,7 +340,7 @@ export default function TransactionDetailScreen({
           {(() => {
             const f = formatTransactionFiat(tx, formatFiat)
             return f ? (
-              <span className="text-body text-foreground-muted mt-1">≈ {f}</span>
+              <span className="text-body text-foreground-muted mt-1">{f}</span>
             ) : null
           })()}
 
