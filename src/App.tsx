@@ -164,10 +164,11 @@ function App() {
         // Publish wallet's kind:10019, 10002, 10050 to ZS relays
         if (mints.length > 0) {
           try {
+            const p2pkPubkey = getP2PKPubkey(result.value.privateKey)
             const publishResult = await profile.publishProfile(
               result.value.privateKey,
               mints,
-              result.value.publicKey,
+              p2pkPubkey,
               relays,
               zsRelays
             )
