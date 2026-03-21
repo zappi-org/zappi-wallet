@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook } from '@testing-library/react'
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh'
 
 function createMockElement(scrollTop = 0) {
@@ -18,9 +18,6 @@ function createMockElement(scrollTop = 0) {
   }
 }
 
-function touchEvent(clientY: number): TouchEvent {
-  return { touches: [{ clientY }], preventDefault: vi.fn() } as unknown as TouchEvent
-}
 
 describe('usePullToRefresh', () => {
   let onRefresh: ReturnType<typeof vi.fn>
