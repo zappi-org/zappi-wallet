@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, startTransition, useCallback } from "react";
 import { useCarouselScroll } from "@/hooks/use-carousel-scroll";
-import { User, ArrowDownLeft, ArrowUpRight, Plus } from "lucide-react";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
+import { User, ArrowDownLeft, ArrowUpRight, Plus, LoaderCircle } from "lucide-react";
 import { hapticTap } from "@/utils/haptic";
 
 import { useTranslation } from "react-i18next";
@@ -35,6 +36,7 @@ export interface HomeScreenProps {
   onCreateToken?: (mintUrl: string) => void;
   onSelectTransaction?: (tx: Transaction) => void;
   onSaveSettings?: (settings: Record<string, unknown>) => Promise<void>;
+  onRefresh?: () => Promise<void>;
   transactions?: Transaction[];
 }
 
@@ -49,6 +51,7 @@ export function HomeScreen({
   onCreateToken,
   onSelectTransaction,
   onSaveSettings,
+  onRefresh,
   transactions: propTransactions,
 }: HomeScreenProps) {
   const { t } = useTranslation();
@@ -69,6 +72,14 @@ export function HomeScreen({
   const updateAvailable = useAppStore((state) => state.updateAvailable);
   const txRefreshTrigger = useAppStore((state) => state.txRefreshTrigger);
   const { getDisplayName, getOriginalName, getIconUrl } = useMintMetadata(settings?.mints || []);
+
+  // Pull-to-refresh
+  const ptrThreshold = 80;
+  const noopRefresh = useCallback(async () => {}, []);
+  const { scrollContainerRef, pullDistance, isPulling, isRefreshing } = usePullToRefresh({
+    onRefresh: onRefresh ?? noopRefresh,
+    threshold: ptrThreshold,
+  });
 
   // Load transactions from DB if not provided via props
   useEffect(() => {
@@ -162,7 +173,7 @@ export function HomeScreen({
   }, [onValidatedScan, scanMode]);
 
   return (
-    <div className="h-dvh bg-background text-foreground font-primary overflow-hidden flex flex-col pt-safe">
+    <div className="h-dvh bg-background text-foreground font-primary overflow-hidden flex flex-col pt-safe" style={{ overscrollBehaviorY: 'contain' }}>
       {/* Header */}
       <header className="flex items-center justify-end px-5 pt-4 pb-3 shrink-0">
         <button
@@ -178,7 +189,23 @@ export function HomeScreen({
       </header>
 
       {/* Scrollable content */}
-      <main className="flex-1 flex flex-col overflow-y-auto min-h-0">
+      <main ref={scrollContainerRef} className="flex-1 flex flex-col overflow-y-auto min-h-0">
+        {/* Pull-to-refresh indicator */}
+        {(pullDistance > 0 || isRefreshing) && (
+          <div
+            className={`flex items-center justify-center shrink-0 overflow-hidden ${!isPulling ? 'transition-[height] duration-200' : ''}`}
+            style={{
+              height: isRefreshing ? 48 : pullDistance,
+              opacity: isRefreshing ? 1 : Math.min(pullDistance / ptrThreshold, 1),
+            }}
+          >
+            <LoaderCircle
+              className={`w-6 h-6 text-foreground-muted ${isRefreshing ? 'animate-spin' : ''}`}
+              style={!isRefreshing ? { transform: `rotate(${pullDistance * 3}deg)` } : undefined}
+            />
+          </div>
+        )}
+
         {/* Balance */}
         <div
           className="flex flex-col items-center gap-1 shrink-0 pb-1.5 pt-8 cursor-pointer"
