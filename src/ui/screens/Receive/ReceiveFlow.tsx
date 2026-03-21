@@ -114,6 +114,7 @@ export interface ReceiveFlowProps {
   onSwapReceive: (token: string, sourceMintUrl: string, targetMintUrl: string, amount: number) => Promise<{ success: boolean; amount?: number; error?: { code?: string; message?: string } }>
   onEstimateSwapFee: (fromMintUrl: string, toMintUrl: string, amount: number) => Promise<{ fee: number; totalNeeded: number } | null>
   onStoreOfflineToken: (token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing') => Promise<{ success: boolean }>
+  onActivateListening?: () => void
   // Pre-filled data
   validatedData?: ValidatedData
   initialAmount?: number
@@ -133,6 +134,7 @@ export function ReceiveFlow({
   onSwapReceive,
   onEstimateSwapFee,
   onStoreOfflineToken,
+  onActivateListening,
   validatedData: initialValidatedData,
   initialAmount,
   initialMintUrl,
@@ -487,6 +489,7 @@ export function ReceiveFlow({
             <ReceiveInputStep
               onBack={() => goToStep('token-receive')}
               onNext={handleInputNext}
+              onActivateListening={onActivateListening}
               initialAmount={state.amount}
               initialMintUrl={state.selectedMintUrl}
               isLoading={isLoading}

@@ -99,7 +99,7 @@ export default function MainApp() {
 
   // Gift Wrap Listener - listens for NIP-17 DMs containing Cashu tokens (NUT-18 responses)
   // This runs when unlocked with nostr keys and settings loaded
-  useGiftWrapListener()
+  const { activateListening } = useGiftWrapListener()
   useCrossTabSync()
 
   // Local state
@@ -1114,6 +1114,7 @@ export default function MainApp() {
           onSwapReceive={handleSwapReceive}
           onEstimateSwapFee={handleEstimateSwapFee}
           onStoreOfflineToken={handleStoreOfflineToken}
+          onActivateListening={activateListening}
           validatedData={validatedScanData || undefined}
           initialAmount={scannedAmount || undefined}
           initialMintUrl={activeMintUrl}

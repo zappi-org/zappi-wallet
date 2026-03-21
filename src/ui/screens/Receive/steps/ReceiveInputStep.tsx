@@ -27,6 +27,7 @@ interface ReceiveInputStepProps {
     ecashRequestId?: string
     httpEndpoint?: string
   }) => void
+  onActivateListening?: () => void
   initialAmount?: number
   initialMintUrl?: string | null
   isLoading?: boolean
@@ -35,6 +36,7 @@ interface ReceiveInputStepProps {
 export function ReceiveInputStep({
   onBack,
   onNext,
+  onActivateListening,
   initialAmount = 0,
   initialMintUrl,
   isLoading = false,
@@ -86,6 +88,9 @@ export function ReceiveInputStep({
         return
       }
 
+      // NUT-18 요청 생성 → Active 모드로 전환 (5초 간격 health check)
+      onActivateListening?.()
+
       if (supportsHttp) {
         // Dual transport: Nostr (primary) + HTTP POST (fallback)
         const result = createDualTransportPaymentRequest({
@@ -132,7 +137,7 @@ export function ReceiveInputStep({
         mintUrl: selectedMintUrl,
       })
     }
-  }, [method, amount, memo, selectedMintUrl, userNprofile, supportsHttp, onNext, addToast, t])
+  }, [method, amount, memo, selectedMintUrl, userNprofile, supportsHttp, onNext, onActivateListening, addToast, t])
 
   return (
     <div className="flex flex-col h-full bg-background">
