@@ -20,10 +20,10 @@ function createMockElement(scrollTop = 0) {
 
 
 describe('usePullToRefresh', () => {
-  let onRefresh: ReturnType<typeof vi.fn>
+  let onRefresh: () => Promise<void>
 
   beforeEach(() => {
-    onRefresh = vi.fn().mockResolvedValue(undefined)
+    onRefresh = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
   })
 
   afterEach(() => {
