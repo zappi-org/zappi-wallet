@@ -165,16 +165,9 @@ export default function MainApp() {
 
   /** Manual pull-to-refresh handler */
   const handleManualRefresh = useCallback(async () => {
-    // 1. 빠른 로컬 갱신 + 느린 네트워크 복구를 병렬 실행
-    const [, , recoveryResult] = await Promise.all([
-      // 잔액 + 거래내역 (로컬 DB — 빠름)
+    // 1. 잔액/거래 로컬 갱신 + 네트워크 복구 병렬 실행
+    const [, recoveryResult] = await Promise.all([
       refreshAll(),
-      // Pending quotes (로컬 DB — 빠름)
-      import('@/coco/cashuService')
-        .then(({ getActivePendingQuotes }) => getActivePendingQuotes())
-        .then((quotes) => setPendingQuotes(quotes))
-        .catch((e) => console.error('[Refresh] Failed to sync pending quotes:', e)),
-      // Pending operations 복구 (네트워크 — 느림)
       services.payment.recoverAll().catch((e) => {
         console.error('[Refresh] Failed to recover pending operations:', e)
         return null
@@ -196,7 +189,16 @@ export default function MainApp() {
       broadcastSync('balance_changed')
     }
 
-    // 3. 민트 상태 + 환율 (fire-and-forget)
+    // 3. Pending quotes — recovery 이후에 읽어야 최신 상태 반영
+    try {
+      const { getActivePendingQuotes } = await import('@/coco/cashuService')
+      const activeQuotes = await getActivePendingQuotes()
+      setPendingQuotes(activeQuotes)
+    } catch (e) {
+      console.error('[Refresh] Failed to sync pending quotes:', e)
+    }
+
+    // 4. 민트 상태 + 환율 (fire-and-forget)
     checkAllMints()
     exchangeRateService.refreshIfStale().catch(() => {})
   }, [services.payment, refreshAll, addToast, setPendingQuotes, checkAllMints, t])
