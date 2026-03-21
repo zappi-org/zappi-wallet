@@ -62,33 +62,33 @@ export function PWAInstallScreen({ onBypass }: PWAInstallScreenProps) {
     <div className="space-y-4">
       <div className="flex items-start gap-3 p-3 bg-background-card rounded-lg">
         <div className="w-8 h-8 bg-accent-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
-          <span className="text-lg">1</span>
+          <span className="text-subtitle">1</span>
         </div>
         <div>
           <p className="font-medium mb-1">{t('pwa.iosShareButton')}</p>
           <div className="flex items-center gap-2 text-muted-foreground">
             <ShareIcon />
-            <span className="text-xs">{t('pwa.iosFindIcon')}</span>
+            <span className="text-label">{t('pwa.iosFindIcon')}</span>
           </div>
         </div>
       </div>
 
       <div className="flex items-start gap-3 p-3 bg-background-card rounded-lg">
         <div className="w-8 h-8 bg-accent-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
-          <span className="text-lg">2</span>
+          <span className="text-subtitle">2</span>
         </div>
         <div>
           <p className="font-medium mb-1">{t('pwa.iosAddToHome')}</p>
           <div className="flex items-center gap-2 text-muted-foreground">
             <PlusSquareIcon />
-            <span className="text-xs">{t('pwa.iosScrollFind')}</span>
+            <span className="text-label">{t('pwa.iosScrollFind')}</span>
           </div>
         </div>
       </div>
 
       <div className="flex items-start gap-3 p-3 bg-background-card rounded-lg">
         <div className="w-8 h-8 bg-accent-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
-          <span className="text-lg">3</span>
+          <span className="text-subtitle">3</span>
         </div>
         <div>
           <p className="font-medium">{t('pwa.iosAddComplete')}</p>
@@ -101,33 +101,33 @@ export function PWAInstallScreen({ onBypass }: PWAInstallScreenProps) {
     <div className="space-y-4">
       <div className="flex items-start gap-3 p-3 bg-background-card rounded-lg">
         <div className="w-8 h-8 bg-accent-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
-          <span className="text-lg">1</span>
+          <span className="text-subtitle">1</span>
         </div>
         <div>
           <p className="font-medium mb-1">{t('pwa.androidOpenMenu')}</p>
           <div className="flex items-center gap-2 text-muted-foreground">
             <MenuIcon />
-            <span className="text-xs">{t('pwa.androidMenuIcon')}</span>
+            <span className="text-label">{t('pwa.androidMenuIcon')}</span>
           </div>
         </div>
       </div>
 
       <div className="flex items-start gap-3 p-3 bg-background-card rounded-lg">
         <div className="w-8 h-8 bg-accent-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
-          <span className="text-lg">2</span>
+          <span className="text-subtitle">2</span>
         </div>
         <div>
           <p className="font-medium mb-1">{t('pwa.androidInstallApp')}</p>
           <div className="flex items-center gap-2 text-muted-foreground">
             <DownloadIcon />
-            <span className="text-xs">{t('pwa.androidFindInMenu')}</span>
+            <span className="text-label">{t('pwa.androidFindInMenu')}</span>
           </div>
         </div>
       </div>
 
       <div className="flex items-start gap-3 p-3 bg-background-card rounded-lg">
         <div className="w-8 h-8 bg-accent-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
-          <span className="text-lg">3</span>
+          <span className="text-subtitle">3</span>
         </div>
         <div>
           <p className="font-medium">{t('pwa.androidTapInstall')}</p>
@@ -140,27 +140,27 @@ export function PWAInstallScreen({ onBypass }: PWAInstallScreenProps) {
     <div className="space-y-4">
       <div className="flex items-start gap-3 p-3 bg-background-card rounded-lg">
         <div className="w-8 h-8 bg-accent-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
-          <span className="text-lg">1</span>
+          <span className="text-subtitle">1</span>
         </div>
         <div>
           <p className="font-medium mb-1">{t('pwa.desktopClickIcon')}</p>
           <div className="flex items-center gap-2 text-muted-foreground">
             <DownloadIcon />
-            <span className="text-xs">{t('pwa.desktopOrMenu')}</span>
+            <span className="text-label">{t('pwa.desktopOrMenu')}</span>
           </div>
         </div>
       </div>
 
       <div className="flex items-start gap-3 p-3 bg-background-card rounded-lg">
         <div className="w-8 h-8 bg-accent-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
-          <span className="text-lg">2</span>
+          <span className="text-subtitle">2</span>
         </div>
         <div>
           <p className="font-medium">{t('pwa.desktopClickInstall')}</p>
         </div>
       </div>
 
-      <p className="text-xs text-muted-foreground text-center">
+      <p className="text-label text-muted-foreground text-center">
         {t('pwa.desktopBrowserSupport')}
       </p>
     </div>
@@ -170,7 +170,7 @@ export function PWAInstallScreen({ onBypass }: PWAInstallScreenProps) {
     <div className="flex flex-col min-h-dvh bg-background p-4 pt-safe pb-safe">
       <div className="flex-1 flex flex-col items-center justify-center text-center">
         {/* Logo */}
-        <h1 className="text-4xl font-bold mb-3">ZAPPI</h1>
+        <h1 className="text-title text-brand mb-3">ZAPPI</h1>
         <p className="text-muted-foreground mb-6">{t('pwa.tagline')}</p>
 
         {/* Install Message */}
@@ -179,8 +179,8 @@ export function PWAInstallScreen({ onBypass }: PWAInstallScreenProps) {
             <div className="w-14 h-14 bg-accent-primary/20 rounded-full flex items-center justify-center mx-auto mb-3">
               <DownloadIcon />
             </div>
-            <h2 className="text-lg font-semibold mb-2">{t('pwa.installRequired')}</h2>
-            <p className="text-muted-foreground text-xs whitespace-pre-line">
+            <h2 className="text-subtitle font-semibold mb-2">{t('pwa.installRequired')}</h2>
+            <p className="text-muted-foreground text-label whitespace-pre-line">
               {t('pwa.installRequiredDesc')}
             </p>
           </div>
@@ -198,7 +198,7 @@ export function PWAInstallScreen({ onBypass }: PWAInstallScreenProps) {
             <div className="space-y-4">
               {/* Platform-specific instructions */}
               <div className="text-left">
-                <h3 className="text-base font-semibold mb-3 text-center">
+                <h3 className="text-body font-semibold mb-3 text-center">
                   {platform === 'ios' && 'iOS (Safari)'}
                   {platform === 'android' && 'Android (Chrome)'}
                   {platform === 'desktop' && t('pwa.desktopBrowser')}
@@ -209,7 +209,7 @@ export function PWAInstallScreen({ onBypass }: PWAInstallScreenProps) {
                 {platform === 'desktop' && renderDesktopInstructions()}
               </div>
 
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 {t('pwa.afterInstall')}
               </p>
             </div>

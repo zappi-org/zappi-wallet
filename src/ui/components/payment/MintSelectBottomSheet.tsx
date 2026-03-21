@@ -118,16 +118,16 @@ function MintSelectBottomSheetInner({
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
-        className="fixed bottom-0 left-0 right-0 bg-[#fffdf6] border-t border-[rgba(133,133,133,0.23)] rounded-t-[20px] z-[70] pb-safe"
+        className="fixed bottom-0 left-0 right-0 bg-background-card border-t border-border rounded-t-[20px] z-[70] pb-safe"
       >
         {/* Handle */}
         <div className="flex justify-center py-2">
-          <div className="w-8 h-1 bg-foreground-subtle rounded-full" />
+          <div className="w-10 h-1 bg-foreground-subtle rounded-full" />
         </div>
 
         {/* Header */}
         <div className="flex items-center justify-center px-4 pb-3">
-          <h3 className="font-semibold text-lg text-foreground">
+          <h3 className="text-subtitle text-foreground">
             {t('payment.selectMint')}
           </h3>
         </div>
@@ -163,7 +163,7 @@ function MintSelectBottomSheetInner({
               <div
                 key={idx}
                 className={`w-1.5 h-1.5 rounded-full ${
-                  localSelected === mint.url ? 'bg-[#1d1d1f]' : 'bg-[#d9d9d9]'
+                  localSelected === mint.url ? 'bg-foreground' : 'bg-border'
                 }`}
               />
             ))}
@@ -172,7 +172,7 @@ function MintSelectBottomSheetInner({
 
         {/* Info text (e.g. estimated fee) */}
         {infoText && (
-          <p className="text-center text-sm text-foreground-muted mt-2 px-6">
+          <p className="text-center text-caption text-foreground-muted mt-2 px-6">
             {infoText}
           </p>
         )}

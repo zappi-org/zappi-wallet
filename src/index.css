@@ -1,7 +1,15 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* ============================================================
+   ZAPPI WALLET — Design Token System
+   Brand: #515AC0 (Indigo)
+   Background: #F8F9FC (Cool White)
+   Typography: Outfit (primary) + Montserrat (display/amounts)
+   ============================================================ */
+
 @theme inline {
+  /* Radius */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -9,6 +17,12 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+
+  /* Font Families */
+  --font-primary: 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-display: 'Montserrat', 'Outfit', system-ui, sans-serif;
+
+  /* Semantic Color Tokens → Tailwind utilities (bg-*, text-*, border-*) */
   --color-background: var(--background);
   --color-background-card: var(--background-card);
   --color-background-elevated: var(--background-elevated);
@@ -22,6 +36,11 @@
   --color-accent-warning-bright-text: var(--accent-warning-bright-text);
   --color-accent-danger: var(--accent-danger);
   --color-brand: var(--brand);
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
   --color-primary-hover: var(--primary-hover);
   --color-primary-hover-light: var(--primary-hover-light);
   --color-secondary-hover: var(--secondary-hover);
@@ -33,6 +52,7 @@
   --color-badge-ecash-text: var(--badge-ecash-text);
   --color-badge-ecash-hover: var(--badge-ecash-hover);
   --color-badge-lightning-bg: var(--badge-lightning-bg);
+  --color-badge-lightning-text: var(--badge-lightning-text);
   --color-badge-lightning-hover: var(--badge-lightning-hover);
   --color-foreground-timestamp: var(--foreground-timestamp);
   --color-status-online: var(--status-online);
@@ -40,10 +60,10 @@
   --color-status-pending: var(--status-pending);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
-  --color-card-green-light: var(--card-green-light);
-  --color-card-green-medium: var(--card-green-medium);
-  --color-card-green-dark: var(--card-green-dark);
-  --color-card-green-darker: var(--card-green-darker);
+  --color-card-brand-light: var(--card-brand-light);
+  --color-card-brand-medium: var(--card-brand-medium);
+  --color-card-brand-dark: var(--card-brand-dark);
+  --color-card-brand-darker: var(--card-brand-darker);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
@@ -58,6 +78,8 @@
   --color-border: var(--border);
   --color-border-visible: var(--border-visible);
   --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
   --color-ring: var(--ring);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -75,110 +97,127 @@
 }
 
 :root {
-  /* Light Theme - White + Navy */
   --radius: 1.5rem;
 
   /* Card dimensions */
   --card-w: clamp(280px, 80vw, 360px);
 
-  /* Background */
-  --background: #faf9f6;
-  --background-card: #FFFFFF;
+  /* ---- Primitive: Brand (Indigo) ---- */
+  --brand-50:  #EDEEFF;
+  --brand-100: #D5D8F4;
+  --brand-200: #B3B8EA;
+  --brand-300: #8A92DB;
+  --brand-400: #6B75CD;
+  --brand-500: #515AC0;
+  --brand-600: #454DA8;
+  --brand-700: #3A4190;
+  --brand-800: #2D3370;
+  --brand-900: #1E2250;
+
+  /* ---- Primitive: Neutral (Cool Gray) ---- */
+  --neutral-50:  #F8F9FC;
+  --neutral-100: #F0F1F5;
+  --neutral-200: #E5E6EB;
+  --neutral-300: #D1D3DA;
+  --neutral-400: #A0A3AD;
+  --neutral-500: #86868B;
+  --neutral-600: #636366;
+  --neutral-700: #3A3A3C;
+  --neutral-800: #1D1D1F;
+  --neutral-900: #0A0A0A;
+
+  /* ---- Primitive: Semantic ---- */
+  --success:  #34C759;
+  --warning:  #D4A03D;
+  --danger:   #C45D3E;
+
+  /* ---- Semantic: Background ---- */
+  --background:          var(--neutral-50);
+  --background-card:     #FFFFFF;
   --background-elevated: #FFFFFF;
 
-  /* Card Gradients (sage green palette) */
-  --card-green-light: #7BA873;
-  --card-green-medium: #5B8A50;
-  --card-green-dark: #3D5E3A;
-  --card-green-darker: #2A3E25;
+  /* ---- Semantic: Foreground ---- */
+  --foreground:          var(--neutral-800);
+  --foreground-muted:    var(--neutral-500);
+  --foreground-subtle:   var(--neutral-400);
+  --foreground-timestamp: var(--neutral-400);
 
-  /* Foreground */
-  --foreground: #2C2C2C;
-  --foreground-muted: #8B8B8B;
-  --foreground-subtle: #ABABAB;
+  /* ---- Semantic: Brand ---- */
+  --brand: var(--brand-500);
 
-  /* Brand (interactive) */
-  --brand: #3b7df5;
+  /* ---- Semantic: Accent ---- */
+  --accent-primary:              var(--brand-500);
+  --accent-success:              var(--success);
+  --accent-warning:              var(--warning);
+  --accent-warning-bright:       #F3C300;
+  --accent-warning-bright-text:  #B39200;
+  --accent-danger:               var(--danger);
 
-  /* Accent Colors */
-  --accent-primary: #5B7A54;
-  --accent-success: #5B7A54;
-  --accent-warning: #d4a03d;
-  --accent-warning-bright: #f3c300;
-  --accent-warning-bright-text: #b39200;
-  --accent-danger: #C45D3E;
+  /* ---- Semantic: Hover States ---- */
+  --primary-hover:        var(--brand-400);
+  --primary-hover-light:  var(--brand-300);
+  --secondary-hover:      var(--brand-100);
+  --accent-primary-hover: var(--brand-400);
+  --accent-danger-hover:  #A84D32;
+  --background-hover:     var(--neutral-100);
+  --background-warm-hover: var(--neutral-100);
 
-  /* Hover States */
-  --primary-hover: #4a6b45;
-  --primary-hover-light: #6b8a64;
-  --secondary-hover: #a9c099;
-  --accent-primary-hover: #4a6b45;
-  --accent-danger-hover: #A84D32;
-  --background-hover: #F0EDE9;
-  --background-warm-hover: #EDEAE6;
+  /* ---- Semantic: Badge ---- */
+  --badge-ecash-bg:         var(--brand-50);
+  --badge-ecash-text:       var(--brand-500);
+  --badge-ecash-hover:      var(--brand-100);
+  --badge-lightning-bg:     #FEF7E6;
+  --badge-lightning-text:   var(--warning);
+  --badge-lightning-hover:  #FDF0CC;
 
-  /* Badge Colors */
-  --badge-ecash-bg: #f0e8f4;
-  --badge-ecash-text: #7c5c8b;
-  --badge-ecash-hover: #e8dced;
-  --badge-lightning-bg: #EDF2EA;
-  --badge-lightning-hover: #d8e8dc;
+  /* ---- Semantic: Status ---- */
+  --status-online:  var(--success);
+  --status-offline: var(--danger);
+  --status-pending: var(--warning);
 
-  /* Misc */
-  --foreground-timestamp: #ABABAB;
+  /* ---- Semantic: Card Gradients (Indigo) ---- */
+  --card-brand-light:   #7B82D1;
+  --card-brand-medium:  var(--brand-500);
+  --card-brand-dark:    var(--brand-700);
+  --card-brand-darker:  var(--brand-800);
 
-  /* Status */
-  --status-online: #5B7A54;
-  --status-offline: #C45D3E;
-  --status-pending: #d4a03d;
+  /* ---- shadcn/ui compatibility tokens ---- */
+  --card:                   #FFFFFF;
+  --card-foreground:        var(--neutral-800);
+  --popover:                #FFFFFF;
+  --popover-foreground:     var(--neutral-800);
+  --primary:                var(--brand-500);
+  --primary-foreground:     #FFFFFF;
+  --secondary:              var(--neutral-100);
+  --secondary-foreground:   var(--neutral-800);
+  --muted:                  var(--neutral-100);
+  --muted-foreground:       var(--neutral-500);
+  --accent:                 var(--brand-500);
+  --accent-foreground:      #FFFFFF;
+  --destructive:            var(--danger);
+  --border:                 var(--neutral-200);
+  --border-visible:         var(--neutral-200);
+  --input:                  var(--neutral-100);
+  --input-background:       #FFFFFF;
+  --switch-background:      var(--neutral-300);
+  --ring:                   var(--brand-500);
 
-  /* Card & Popover */
-  --card: #FFFFFF;
-  --card-foreground: #2C2C2C;
-  --popover: #FFFFFF;
-  --popover-foreground: #2C2C2C;
+  /* ---- Charts (Indigo scale) ---- */
+  --chart-1: var(--brand-500);
+  --chart-2: var(--brand-700);
+  --chart-3: var(--brand-300);
+  --chart-4: var(--neutral-500);
+  --chart-5: var(--warning);
 
-  /* Primary */
-  --primary: #5B7A54;
-  --primary-foreground: #FFFFFF;
-
-  /* Secondary */
-  --secondary: #EDEAE6;
-  --secondary-foreground: #2C2C2C;
-
-  /* Muted */
-  --muted: #EDEAE6;
-  --muted-foreground: #8B8B8B;
-
-  /* Accent */
-  --accent: #5B7A54;
-  --accent-foreground: #FFFFFF;
-
-  /* Destructive */
-  --destructive: #C45D3E;
-
-  /* Borders & Inputs */
-  --border: #E8E5E0;
-  --border-visible: #E8E5E0;
-  --input: #F0EDE9;
-  --ring: #5B7A54;
-
-  /* Charts */
-  --chart-1: #5B7A54;
-  --chart-2: #3D5E3A;
-  --chart-3: #6B5B4E;
-  --chart-4: #8B8B8B;
-  --chart-5: #d4a03d;
-
-  /* Sidebar */
-  --sidebar: #FFFFFF;
-  --sidebar-foreground: #2C2C2C;
-  --sidebar-primary: #5B7A54;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #5B7A54;
-  --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: #E8E5E0;
-  --sidebar-ring: #5B7A54;
+  /* ---- Sidebar ---- */
+  --sidebar:                     #FFFFFF;
+  --sidebar-foreground:          var(--neutral-800);
+  --sidebar-primary:             var(--brand-500);
+  --sidebar-primary-foreground:  #FFFFFF;
+  --sidebar-accent:              var(--brand-500);
+  --sidebar-accent-foreground:   #FFFFFF;
+  --sidebar-border:              var(--neutral-200);
+  --sidebar-ring:                var(--brand-500);
 }
 
 
@@ -190,12 +229,38 @@
     @apply h-dvh overflow-hidden;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-primary;
     overscroll-behavior: none;
   }
 }
 
-/* Safe Area Insets for PWA */
+/* ============================================================
+   Typography Utility Classes — Toss-style
+   극단적 크기 대비 + 굵기로 위계 + 본문 15px 통일
+   ============================================================ */
+@layer utilities {
+  /* Display — Montserrat, 잔액/금액 */
+  .text-display     { font-family: var(--font-display); font-size: 2.25rem;   line-height: 1.1;  font-weight: 700; }
+  .text-amount-lg   { font-family: var(--font-display); font-size: 1.5rem;    line-height: 1.15; font-weight: 700; }
+  .text-amount      { font-family: var(--font-display); font-size: 1.125rem;  line-height: 1.2;  font-weight: 600; }
+
+  /* Heading — Outfit */
+  .text-title       { font-size: 1.375rem;  line-height: 1.3; font-weight: 700; }
+  .text-subtitle    { font-size: 1.0625rem; line-height: 1.3; font-weight: 600; }
+
+  /* Body — Outfit, 15px 통일 */
+  .text-body        { font-size: 0.9375rem; line-height: 1.5; font-weight: 400; }
+  .text-body-bold   { font-size: 0.9375rem; line-height: 1.5; font-weight: 600; }
+
+  /* Small — Outfit */
+  .text-caption     { font-size: 0.8125rem; line-height: 1.4; font-weight: 400; }
+  .text-label       { font-size: 0.75rem;   line-height: 1.4; font-weight: 500; }
+  .text-overline    { font-size: 0.6875rem; line-height: 1.3; font-weight: 500; }
+}
+
+/* ============================================================
+   Safe Area Insets for PWA
+   ============================================================ */
 :root {
   --safe-area-inset-top: env(safe-area-inset-top, 0px);
   --safe-area-inset-right: env(safe-area-inset-right, 0px);
@@ -203,7 +268,6 @@
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
 }
 
-/* Safe area utilities */
 .pt-safe {
   padding-top: env(safe-area-inset-top, 0px);
 }
@@ -212,7 +276,11 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* PIN shake animation */
+/* ============================================================
+   Animations — color-agnostic, 유지
+   ============================================================ */
+
+/* PIN shake */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   20% { transform: translateX(-10px); }
@@ -221,36 +289,26 @@
   80% { transform: translateX(10px); }
 }
 
-/* PWA Install Prompt Animation (cashu.me style) */
+/* PWA Install bounce */
 @keyframes bounce-slow {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-8px);
-  }
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
 }
-
 .animate-bounce-slow {
   animation: bounce-slow 2s ease-in-out infinite;
 }
 
-/* Balance Shimmer Effect */
+/* Balance Shimmer — indigo tint */
 @keyframes shimmer {
-  0% {
-    background-position: -200% center;
-  }
-  100% {
-    background-position: 200% center;
-  }
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
 }
-
 .animate-shimmer {
   background: linear-gradient(
     90deg,
     currentColor 0%,
     currentColor 40%,
-    oklch(0.7 0.15 60) 50%,
+    oklch(0.65 0.18 280) 50%,
     currentColor 60%,
     currentColor 100%
   );
@@ -261,7 +319,7 @@
   animation: shimmer 1.5s ease-in-out infinite;
 }
 
-/* Scrollbar Hide Utility */
+/* Scrollbar */
 @layer utilities {
   .scrollbar-hide {
     -ms-overflow-style: none;
@@ -272,23 +330,23 @@
   }
 }
 
-/* Green Card Gradient Utilities */
+/* Card Gradient Utilities — Indigo */
 @layer utilities {
   .bg-card-gradient-light {
-    background: linear-gradient(135deg, var(--card-green-light) 0%, var(--card-green-medium) 100%);
+    background: linear-gradient(135deg, var(--card-brand-light) 0%, var(--card-brand-medium) 100%);
   }
   .bg-card-gradient-medium {
-    background: linear-gradient(135deg, var(--card-green-medium) 0%, var(--card-green-dark) 100%);
+    background: linear-gradient(135deg, var(--card-brand-medium) 0%, var(--card-brand-dark) 100%);
   }
   .bg-card-gradient-dark {
-    background: linear-gradient(135deg, var(--card-green-dark) 0%, var(--card-green-darker) 100%);
+    background: linear-gradient(135deg, var(--card-brand-dark) 0%, var(--card-brand-darker) 100%);
   }
   .bg-card-gradient-darker {
-    background: linear-gradient(135deg, var(--card-green-darker) 0%, #1a2e22 100%);
+    background: linear-gradient(135deg, var(--card-brand-darker) 0%, #161D45 100%);
   }
 }
 
-/* Fix for iOS Safari PWA blur + rounded corner rendering bug */
+/* iOS Safari PWA blur + rounded corner fix */
 @layer utilities {
   .clip-rounded-2xl {
     -webkit-mask-image: radial-gradient(white, black);
@@ -300,29 +358,18 @@
   }
 }
 
-/* QR Scanner Scanning Line Animation */
+/* QR Scanner */
 @keyframes scan-line {
-  0% {
-    top: 10%;
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  90% {
-    opacity: 1;
-  }
-  100% {
-    top: 90%;
-    opacity: 0;
-  }
+  0% { top: 10%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { top: 90%; opacity: 0; }
 }
-
 .animate-scan-line {
   animation: scan-line 2s ease-in-out infinite;
 }
 
-/* Performance-optimized CSS animations (replacing motion library) */
+/* Transition animations */
 @keyframes fadeIn {
   from { opacity: 0 }
   to { opacity: 1 }

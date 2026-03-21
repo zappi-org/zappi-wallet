@@ -147,16 +147,16 @@ function TokenReceiveBottomSheetInner({
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
-        className="fixed bottom-0 left-0 right-0 bg-[#fffdf6] border-t border-[rgba(133,133,133,0.23)] rounded-t-[20px] z-[70] pb-safe"
+        className="fixed bottom-0 left-0 right-0 bg-background-card border-t border-border rounded-t-[20px] z-[70] pb-safe"
       >
         {/* Handle */}
         <div className="flex justify-center py-2">
-          <div className="w-8 h-1 bg-foreground-subtle rounded-full" />
+          <div className="w-10 h-1 bg-foreground-subtle rounded-full" />
         </div>
 
         {/* Header */}
         <div className="flex items-center justify-center px-4 pb-3">
-          <h3 className="font-semibold text-lg text-foreground">
+          <h3 className="text-subtitle text-foreground">
             {t('payment.receiveToken')}
           </h3>
         </div>
@@ -172,9 +172,9 @@ function TokenReceiveBottomSheetInner({
             {/* Validating overlay */}
             {state === 'validating' && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                <div className="bg-white rounded-2xl p-4 flex flex-col items-center gap-2 shadow-xl">
+                <div className="bg-background-card rounded-2xl p-4 flex flex-col items-center gap-2 shadow-xl">
                   <div className="w-8 h-8 border-3 border-accent-primary border-t-transparent rounded-full animate-spin" />
-                  <p className="text-foreground text-sm font-medium">
+                  <p className="text-foreground text-caption font-medium">
                     {t('scanner.validating')}
                   </p>
                 </div>
@@ -188,7 +188,7 @@ function TokenReceiveBottomSheetInner({
           <button
             onClick={handlePaste}
             disabled={state === 'validating'}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl border border-[rgba(133,133,133,0.23)] bg-white text-foreground font-medium active:scale-95 active:opacity-80 transition-all duration-100 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl border border-border bg-background-card text-foreground font-medium active:scale-95 active:opacity-80 transition-all duration-100 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
           >
             <Clipboard className="w-5 h-5 text-accent-primary" />
             {t('scanner.paste')}

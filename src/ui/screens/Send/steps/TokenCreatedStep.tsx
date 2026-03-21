@@ -1,7 +1,7 @@
 /**
  * TokenCreatedStep — Token created, show QR + share/copy buttons
  * Cancel button reclaims the token
- * Modern layout: bg-[#faf9f6], no border-t
+ * Modern layout: bg-background, no border-t
  *
  * Token spending detection via SDK send:finalized event (not custom polling)
  */
@@ -120,10 +120,10 @@ export function TokenCreatedStep({
   }, [isSpent, onCancel, addToast, t])
 
   return (
-    <div className="flex flex-col h-full bg-[#faf9f6]">
+    <div className="flex flex-col h-full bg-background">
       {/* Header — no border */}
       <header className="flex items-center justify-center px-4 py-3">
-        <h1 className="text-lg font-semibold">{isSpent ? t('send.tokenCreated.claimedTitle') : t('send.tokenCreated.title')}</h1>
+        <h1 className="text-subtitle">{isSpent ? t('send.tokenCreated.claimedTitle') : t('send.tokenCreated.title')}</h1>
       </header>
 
       {/* Content */}
@@ -133,20 +133,20 @@ export function TokenCreatedStep({
             <div className="w-16 h-16 rounded-full bg-accent-primary/10 flex items-center justify-center">
               <Check className="w-8 h-8 text-accent-primary" />
             </div>
-            <p className="text-lg font-semibold text-center">{t('send.tokenCreated.claimed')}</p>
-            <p className="text-foreground-muted text-sm">{formatSats(amount)}</p>
+            <p className="text-subtitle text-center">{t('send.tokenCreated.claimed')}</p>
+            <p className="text-foreground-muted text-caption font-display">{formatSats(amount)}</p>
             {(() => { const f = formatFiat(amount); return f ? (
-              <p className="text-foreground-muted text-xs">≈ {f}</p>
+              <p className="text-foreground-muted text-label">≈ {f}</p>
             ) : null })()}
           </div>
         ) : (
           <>
-            <p className="text-3xl font-bold">{formatSats(amount)}</p>
+            <p className="text-display font-display">{formatSats(amount)}</p>
             {(() => { const f = formatFiat(amount); return f ? (
-              <p className="text-sm text-foreground-muted">≈ {f}</p>
+              <p className="text-caption text-foreground-muted">≈ {f}</p>
             ) : null })()}
 
-            <div className="bg-white p-4 rounded-2xl shadow-sm">
+            <div className="bg-background-card p-4 rounded-2xl shadow-sm">
               <QRCodeSVG
                 value={token}
                 size={200}
@@ -159,7 +159,7 @@ export function TokenCreatedStep({
               <button
                 onClick={handleShare}
                 aria-label={t('send.tokenCreated.share')}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[#f0f0f0] font-medium text-sm active:scale-95 transition-transform min-h-[44px]"
+                className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-muted font-medium text-caption active:scale-95 transition-transform min-h-[44px]"
               >
                 <Share2 className="w-4 h-4" />
                 {t('send.tokenCreated.share')}
@@ -167,7 +167,7 @@ export function TokenCreatedStep({
               <button
                 onClick={handleCopy}
                 aria-label={t('send.tokenCreated.copy')}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[#f0f0f0] font-medium text-sm active:scale-95 transition-transform min-h-[44px]"
+                className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-muted font-medium text-caption active:scale-95 transition-transform min-h-[44px]"
               >
                 {isCopied ? <Check className="w-4 h-4 text-accent-primary" /> : <Copy className="w-4 h-4" />}
                 {isCopied ? t('common.copied') : t('send.tokenCreated.copy')}
@@ -178,12 +178,12 @@ export function TokenCreatedStep({
       </div>
 
       {/* Bottom — no border-t, no bg */}
-      <div className="p-5 pb-safe space-y-3">
+      <div className="p-4 pb-safe space-y-2">
         {!isSpent && (
           <button
             onClick={handleCancel}
             disabled={isCanceling}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-accent-danger font-medium text-sm disabled:opacity-50 min-h-[44px]"
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-accent-danger font-medium text-caption disabled:opacity-50 min-h-[44px]"
           >
             <X className="w-4 h-4" />
             {isCanceling ? t('common.processing') : t('send.tokenCreated.cancel')}

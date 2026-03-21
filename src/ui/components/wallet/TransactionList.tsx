@@ -70,7 +70,7 @@ export function TransactionList({
           {onSeeAll && (
             <button
               onClick={onSeeAll}
-              className={`font-['Outfit'] font-medium text-[12px] text-[#86868b] hover:text-[#1d1d1f] transition-colors ${transactions.length === 0 ? 'invisible' : ''}`}
+              className={`text-label text-foreground-muted hover:text-foreground transition-colors ${transactions.length === 0 ? 'invisible' : ''}`}
             >
               {t('home.seeAll')}
             </button>
@@ -80,10 +80,10 @@ export function TransactionList({
 
       {transactions.length === 0 ? (
         <div className="flex items-center justify-center h-[75px] text-foreground-muted">
-          <p className="text-sm opacity-60">{t('home.noTransactions')}</p>
+          <p className="text-caption opacity-60">{t('home.noTransactions')}</p>
         </div>
       ) : (
-      <div className="flex flex-col border border-black/10 rounded-[13px] overflow-hidden gap-0">
+      <div className="flex flex-col border border-border rounded-[13px] overflow-hidden gap-0">
         {displayTransactions.map((tx) => {
           const Icon = getTransactionIcon(tx);
           const isSwap = tx.type === "swap";
@@ -105,7 +105,7 @@ export function TransactionList({
           if (isSwap && !tx.memo) {
             title = t('history.swap');
             subtitle = "";
-            amountColor = "text-gray-500";
+            amountColor = "text-foreground-muted";
           } else {
             title = tx.memo || (isIncome ? t('history.received') : t('history.sent'));
             if (tx.type === "lightning" && tx.direction === "send" && tx.metadata?.destination) {
@@ -119,37 +119,37 @@ export function TransactionList({
             } else {
               subtitle = getDisplayName(tx.mintUrl);
             }
-            amountColor = isIncome ? "text-[#1d1d1f]" : "text-[#1d1d1f]";
+            amountColor = isIncome ? "text-foreground" : "text-foreground";
           }
 
           return (
             <div
               key={tx.id}
               onClick={() => onTransactionClick?.(tx)}
-              className="flex items-center justify-between bg-[#faf9f6] rounded-[16px] h-[75px] px-[16px] py-[12px] cursor-pointer"
+              className="flex items-center justify-between bg-background-card rounded-[16px] h-[75px] px-[16px] py-[12px] cursor-pointer"
             >
               <div className="flex items-center gap-[12px]">
-                <div className="w-[44px] h-[44px] rounded-full flex items-center justify-center shrink-0 bg-[#e6e6e6]">
-                  <Icon size={20} strokeWidth={1.5} className={isSwap ? "text-[#1d1d1f]" : isIncome ? "text-[#5B7A54]" : "text-[#D4A03D]"} />
+                <div className={cn("w-[44px] h-[44px] rounded-full flex items-center justify-center shrink-0", isSwap ? "bg-foreground/[0.06]" : isIncome ? "bg-accent-success/10" : "bg-accent-warning/10")}>
+                  <Icon size={20} strokeWidth={1.5} className={isSwap ? "text-foreground" : isIncome ? "text-accent-success" : "text-accent-warning"} />
                 </div>
                 <div className="flex flex-col gap-[2px]">
-                  <h3 className="font-['Outfit'] font-bold text-[14px] text-[#1d1d1f] leading-normal">
+                  <h3 className="text-body-bold text-foreground leading-normal">
                     {title}
                   </h3>
                   {isSwap ? (
-                    <div className="flex flex-col font-['Outfit'] font-medium text-[12px] text-[#86868b] leading-normal">
+                    <div className="flex flex-col text-label text-foreground-muted leading-normal">
                       <span className="truncate max-w-[140px]">{fromMintName}</span>
                       <span className="truncate max-w-[140px]">→ {toMintName}</span>
                     </div>
                   ) : (
-                    <p className="font-['Outfit'] font-medium text-[12px] text-[#86868b] truncate max-w-[160px] leading-normal">
+                    <p className="text-label text-foreground-muted truncate max-w-[160px] leading-normal">
                       {subtitle}
                     </p>
                   )}
                 </div>
               </div>
               <div className="flex flex-col items-end gap-[2px]">
-                <span className={`font-['Outfit'] font-bold text-[14px] ${amountColor} leading-normal`}>
+                <span className={`text-body-bold font-display ${amountColor} leading-normal`}>
                   {isSwap
                     ? formatSats(tx.amount)
                     : isIncome
@@ -160,12 +160,12 @@ export function TransactionList({
                 {(() => {
                   const fiatStr = formatTransactionFiat(tx, toFiat)
                   return fiatStr ? (
-                    <span className="font-['Outfit'] font-medium text-[11px] text-[#86868b]/70 leading-normal">
+                    <span className="text-overline text-foreground-muted/70 leading-normal">
                       ≈ {fiatStr}
                     </span>
                   ) : null
                 })()}
-                <span className="font-['Outfit'] font-medium text-[12px] text-[#86868b] leading-normal">
+                <span className="text-label text-foreground-muted leading-normal">
                   {formatDateLocalized(tx.createdAt, i18n.language, t('history.today'), t('history.yesterday'))}
                 </span>
               </div>

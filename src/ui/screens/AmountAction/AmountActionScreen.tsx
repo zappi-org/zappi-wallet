@@ -59,7 +59,7 @@ export function AmountActionScreen({
   if (mode) {
     return (
       <div className="h-dvh bg-background text-foreground font-sans flex flex-col pt-safe pb-safe items-center justify-center">
-        <p className="text-5xl font-bold tracking-tight">{formatSats(amount)}</p>
+        <p className="text-display tracking-tight">{formatSats(amount)}</p>
       </div>
     )
   }
@@ -75,14 +75,14 @@ export function AmountActionScreen({
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-lg font-semibold">{headerTitle}</h1>
+        <h1 className="text-subtitle">{headerTitle}</h1>
         <div className="w-11" />
       </header>
 
       {/* Content */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 gap-8">
         {/* Amount Display */}
-        <p className="text-5xl font-bold tracking-tight text-center">
+        <p className="text-display tracking-tight text-center">
           {formatSats(amount)}
         </p>
 
@@ -90,7 +90,7 @@ export function AmountActionScreen({
         <div className="w-full max-w-sm flex flex-col gap-3">
           <button
             onClick={handleSend}
-            className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-background-card text-foreground hover:bg-background-hover shadow-lg border border-border active:scale-[0.95] transition-all min-h-[56px]"
+            className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-brand text-white shadow-lg shadow-brand/25 active:scale-[0.95] transition-all min-h-[56px]"
           >
             <ArrowUpRight className="w-5 h-5" />
             <span className="font-semibold">{t('amountAction.send')}</span>
@@ -98,7 +98,7 @@ export function AmountActionScreen({
 
           <button
             onClick={handleReceive}
-            className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-background-card text-foreground hover:bg-background-hover shadow-lg border border-border active:scale-[0.95] transition-all min-h-[56px]"
+            className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-background-card text-foreground hover:bg-background-hover border border-border active:scale-[0.95] transition-all min-h-[56px]"
           >
             <ArrowDownLeft className="w-5 h-5" />
             <span className="font-semibold">{t('amountAction.receive')}</span>

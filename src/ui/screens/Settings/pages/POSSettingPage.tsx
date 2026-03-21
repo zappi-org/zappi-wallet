@@ -1,12 +1,14 @@
 import { useState, useCallback, useMemo } from 'react'
-import { Trash2, ChevronRight, Copy, Check, Store } from 'lucide-react'
+import { Trash2, Plus, Copy, Check } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useTranslation } from 'react-i18next'
-import { Button, Modal, PinInput } from '../../components/common'
+import { Button, Modal, PinInput } from '@/ui/components/common'
 import { derivePOSSubKey, getP2PKPubkey } from '@/services/crypto'
 import type { POSDevice, POSProvisioningPayload, WalletSettings } from '@/core/types'
+import { SettingsDetailPage } from '../components/SettingsDetailPage'
 
-export interface POSProvisioningSectionProps {
+interface POSSettingPageProps {
+  onBack: () => void
   settings: WalletSettings
   nostrPubkey: string | null
   nostrPrivkey: string | null
@@ -14,13 +16,14 @@ export interface POSProvisioningSectionProps {
   onSaveSettings: (updates: Record<string, unknown>) => Promise<void>
 }
 
-export function POSProvisioningSection({
+export function POSSettingPage({
+  onBack,
   settings,
   nostrPubkey,
   nostrPrivkey,
   onBackupMnemonic,
   onSaveSettings,
-}: POSProvisioningSectionProps) {
+}: POSSettingPageProps) {
   const { t } = useTranslation()
 
   const [showAddModal, setShowAddModal] = useState(false)
@@ -63,10 +66,7 @@ export function POSProvisioningSection({
         : 0
 
       const subKey = derivePOSSubKey(mnemonic, nextIndex)
-
-      const walletP2pkPubkey = nostrPrivkey
-        ? getP2PKPubkey(nostrPrivkey)
-        : null
+      const walletP2pkPubkey = nostrPrivkey ? getP2PKPubkey(nostrPrivkey) : null
 
       if (!walletP2pkPubkey || !nostrPubkey) {
         setPinError('Wallet keys not available')
@@ -134,9 +134,7 @@ export function POSProvisioningSection({
       await navigator.clipboard.writeText(qrPayload)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    } catch {
-      // Clipboard API not available
-    }
+    } catch { /* ignore */ }
   }, [qrPayload])
 
   const resetAddModal = useCallback(() => {
@@ -147,22 +145,22 @@ export function POSProvisioningSection({
   }, [])
 
   return (
-    <>
-      <section>
-        <p className="text-[12px] font-semibold uppercase tracking-wide text-foreground-muted px-4 pt-6 pb-2 flex items-center gap-1.5">
-          <Store className="w-3.5 h-3.5" />
-          {t('settings.posManagement')}
-        </p>
-        <div className="bg-background-card">
-          {/* Device list */}
-          {posDevices.map((device) => (
+    <SettingsDetailPage title={t('settings.posManagement')} onBack={onBack}>
+      {/* Device list */}
+      <div className="py-2">
+        {posDevices.length === 0 ? (
+          <div className="px-5 py-8 text-center">
+            <p className="text-caption text-foreground-muted">{t('settings.noPosDevices')}</p>
+          </div>
+        ) : (
+          posDevices.map((device) => (
             <div
               key={device.index}
-              className="px-4 py-3.5 flex items-center justify-between"
+              className="px-5 py-3.5 flex items-center justify-between"
             >
               <div>
-                <span className="text-[15px] font-medium block">{device.label}</span>
-                <span className="text-[12px] text-foreground-muted">
+                <span className="text-body font-medium block">{device.label}</span>
+                <span className="text-label text-foreground-muted">
                   #{device.index} &middot; {new Date(device.createdAt).toLocaleDateString()}
                 </span>
               </div>
@@ -173,38 +171,31 @@ export function POSProvisioningSection({
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
-          ))}
+          ))
+        )}
 
-          {posDevices.length === 0 && (
-            <div className="px-4 py-3.5 text-center text-[12px] text-foreground-muted">
-              {t('settings.noPosDevices')}
-            </div>
-          )}
-
-          {/* Add device button */}
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
-          >
-            <span className="text-[15px] font-medium text-accent-primary">{t('settings.addPosDevice')}</span>
-            <ChevronRight className="w-4 h-4 text-foreground-subtle" />
-          </button>
-        </div>
-      </section>
+        {/* Add device button */}
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="w-full px-5 py-3.5 flex items-center gap-2 active:bg-background-hover text-left"
+        >
+          <Plus className="w-4 h-4 text-accent-primary" />
+          <span className="text-body font-medium text-accent-primary">{t('settings.addPosDevice')}</span>
+        </button>
+      </div>
 
       {/* Add Device Modal */}
       <Modal isOpen={showAddModal} onClose={resetAddModal} title={t('settings.posProvisioningTitle')}>
         <div className="py-3 space-y-4">
           {!settings.lightningAddress && (
             <div className="border-l-2 border-accent-warning bg-accent-warning/[0.06] p-3">
-              <p className="text-[11px] text-accent-warning font-semibold">
+              <p className="text-overline text-accent-warning font-semibold">
                 {t('settings.posNoLightningAddress')}
               </p>
             </div>
           )}
-
           <div>
-            <label className="text-[12px] font-semibold text-foreground-muted mb-1 block">
+            <label className="text-label text-foreground-muted mb-1 block">
               {t('settings.posDeviceLabel')}
             </label>
             <input
@@ -212,17 +203,15 @@ export function POSProvisioningSection({
               value={deviceLabel}
               onChange={(e) => setDeviceLabel(e.target.value)}
               placeholder={t('settings.posDeviceLabelPlaceholder')}
-              className="w-full p-2.5 rounded-sm border border-border bg-background text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full p-2.5 rounded-xl border border-border bg-background text-caption focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
-
           <PinInput
             value={pin}
             onChange={(v) => { setPin(v); setPinError('') }}
             label={t('settings.enterPinLabel')}
             error={pinError}
           />
-
           <Button
             variant="primary"
             size="lg"
@@ -243,17 +232,15 @@ export function POSProvisioningSection({
         title={t('settings.posProvisioningTitle')}
       >
         <div className="py-3 space-y-4">
-          <p className="text-[12px] text-foreground-muted text-center">
+          <p className="text-label text-foreground-muted text-center">
             {t('settings.posProvisioningDescription')}
           </p>
-
           <div className="flex justify-center p-4 bg-white">
             <QRCodeSVG value={qrPayload} size={220} level="L" />
           </div>
-
           <button
             onClick={handleCopy}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-sm border border-border text-[13px] font-semibold active:bg-background-hover"
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-border text-caption font-semibold active:bg-background-hover"
           >
             {copied ? (
               <>
@@ -267,7 +254,6 @@ export function POSProvisioningSection({
               </>
             )}
           </button>
-
           <Button
             variant="primary"
             size="lg"
@@ -286,12 +272,12 @@ export function POSProvisioningSection({
         title={t('settings.posDeviceRemove')}
       >
         <div className="py-3 space-y-3">
-          <p className="text-[12px] text-foreground-muted">
+          <p className="text-label text-foreground-muted">
             {t('settings.posDeviceRemoveWarning')}
           </p>
           {showRemoveModal && (
-            <div className="bg-background p-3 border border-border rounded-sm">
-              <span className="font-semibold text-[13px]">{showRemoveModal.label}</span>
+            <div className="bg-background p-3 border border-border rounded-xl">
+              <span className="font-semibold text-caption">{showRemoveModal.label}</span>
             </div>
           )}
           <div className="flex gap-2">
@@ -305,13 +291,13 @@ export function POSProvisioningSection({
             </Button>
             <button
               onClick={handleRemoveDevice}
-              className="flex-1 py-2 rounded-sm font-semibold text-[13px] bg-accent-danger text-white active:opacity-80"
+              className="flex-1 py-2 rounded-xl font-semibold text-caption bg-accent-danger text-white active:opacity-80"
             >
               {t('settings.posDeviceRemove')}
             </button>
           </div>
         </div>
       </Modal>
-    </>
+    </SettingsDetailPage>
   )
 }

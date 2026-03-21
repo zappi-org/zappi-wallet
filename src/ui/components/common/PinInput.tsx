@@ -59,7 +59,7 @@ export function PinInput({
   return (
     <div className="flex flex-col items-center w-full max-w-sm mx-auto">
       {label && (
-        <p className="text-foreground-muted text-sm mb-4">{label}</p>
+        <p className="text-foreground-muted text-caption mb-4">{label}</p>
       )}
 
       {/* PIN Dots */}
@@ -79,7 +79,7 @@ export function PinInput({
       </div>
 
       {error && (
-        <p className="text-accent-danger text-xs text-center mb-4">{error}</p>
+        <p className="text-accent-danger text-label text-center mb-4">{error}</p>
       )}
 
       <div className="w-full">
@@ -91,9 +91,9 @@ export function PinInput({
           onClick={onSubmit}
           disabled={isSubmitDisabled}
           className={`
-            w-full py-3.5 rounded-[14px] font-semibold text-base transition-all
+            w-full py-3.5 rounded-[14px] font-semibold text-body transition-all
             ${isSubmitDisabled
-              ? 'bg-brand/20 text-brand/40 cursor-not-allowed'
+              ? 'bg-muted text-foreground/30 cursor-not-allowed'
               : 'bg-brand text-white shadow-lg shadow-brand/25 active:scale-[0.98]'}
           `}
         >

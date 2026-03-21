@@ -19,7 +19,7 @@ export function SendingAnimation({ className = '', scale = 1 }: SendingAnimation
             .za-leg1 { animation: za-run-leg1 0.5s infinite ease-in-out; transform-origin: 200px 320px; }
             .za-leg2 { animation: za-run-leg2 0.5s infinite ease-in-out; transform-origin: 300px 320px; }
             .za-dust { animation: za-dust-puff 0.5s infinite ease-out; transform-origin: 100px 390px; }
-            .za-speed-line { stroke: #123c8a; stroke-width: 4; stroke-linecap: round; animation: za-wind 0.4s infinite ease-in-out alternate; }
+            .za-speed-line { stroke: var(--brand-700); stroke-width: 4; stroke-linecap: round; animation: za-wind 0.4s infinite ease-in-out alternate; }
             .za-sl-1 { animation-delay: 0s; }
             .za-sl-2 { animation-delay: 0.2s; }
             .za-sl-3 { animation-delay: 0.1s; }
@@ -44,7 +44,7 @@ export function SendingAnimation({ className = '', scale = 1 }: SendingAnimation
           <line x1="340" y1="450" x2="390" y2="430" />
         </g>
 
-        <g className="za-dust" fill="#185adb">
+        <g className="za-dust" fill="var(--brand)">
           <circle cx="80" cy="380" r="20" />
           <circle cx="50" cy="390" r="15" />
           <circle cx="110" cy="390" r="15" />
@@ -52,9 +52,9 @@ export function SendingAnimation({ className = '', scale = 1 }: SendingAnimation
         </g>
 
         <g className="za-character">
-          <path className="za-leg2" d="M 300 320 Q 300 380 300 400 L 260 400" fill="none" stroke="#185adb" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round" />
-          <path className="za-leg1" d="M 200 320 Q 200 380 200 400 L 160 400" fill="none" stroke="#185adb" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M 250 120 L 280 180 L 370 150 L 330 220 L 400 290 L 320 310 L 310 380 L 260 330 L 180 380 L 190 300 L 100 280 L 160 220 L 130 140 L 210 170 Z" fill="#185adb" stroke="#185adb" strokeWidth="30" strokeLinejoin="round" />
+          <path className="za-leg2" d="M 300 320 Q 300 380 300 400 L 260 400" fill="none" stroke="var(--brand)" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round" />
+          <path className="za-leg1" d="M 200 320 Q 200 380 200 400 L 160 400" fill="none" stroke="var(--brand)" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M 250 120 L 280 180 L 370 150 L 330 220 L 400 290 L 320 310 L 310 380 L 260 330 L 180 380 L 190 300 L 100 280 L 160 220 L 130 140 L 210 170 Z" fill="var(--brand)" stroke="var(--brand)" strokeWidth="30" strokeLinejoin="round" />
           <ellipse cx="230" cy="240" rx="8" ry="12" fill="#fbd2c2" />
           <ellipse cx="270" cy="240" rx="8" ry="12" fill="#fbd2c2" />
           <path d="M 235 270 Q 250 295 265 270" stroke="#fbd2c2" strokeWidth="10" strokeLinecap="round" fill="none" />

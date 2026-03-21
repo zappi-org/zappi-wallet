@@ -252,6 +252,11 @@ export default {
     posProvisioningDone: 'POS device provisioned successfully.',
     posDeviceRemove: 'Remove Device',
     posDeviceRemoveWarning: 'This POS device will no longer be able to accept payments. Remove?',
+
+    // Descriptions
+    active: 'Active',
+    autoLockDescription: 'Automatically lock after inactivity',
+    faceIdDescription: 'Use biometric authentication to unlock',
   },
 
   // Add Mint Screen
@@ -775,7 +780,7 @@ export default {
     fromMintPrefix: 'My ',
     fromMintSuffix: ' from',
     whereTo: 'Where to send?',
-    placeholder: 'Lightning address, invoice, payment request...',
+    placeholder: 'Enter address or invoice',
     howMuch: 'How much to send?',
     createToken: 'Create Token',
     next: 'Next',

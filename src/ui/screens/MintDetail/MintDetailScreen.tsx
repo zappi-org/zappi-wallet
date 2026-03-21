@@ -99,9 +99,9 @@ export function MintDetailScreen({
   }, [transactions, mint.url])
 
   const actions = [
-    { key: 'send', label: t('mintDetail.send'), icon: ArrowUpRight, color: '#D4A03D', onClick: () => onSend(mint.url) },
-    { key: 'receive', label: t('mintDetail.receive'), icon: ArrowDownLeft, color: '#5B7A54', onClick: () => onReceive(mint.url) },
-    { key: 'swap', label: t('mintDetail.swap'), icon: ArrowLeftRight, color: '#6B7280', onClick: () => onSwap(mint.url) },
+    { key: 'send', label: t('mintDetail.send'), icon: ArrowUpRight, colorClass: 'text-accent-warning', onClick: () => onSend(mint.url) },
+    { key: 'receive', label: t('mintDetail.receive'), icon: ArrowDownLeft, colorClass: 'text-accent-success', onClick: () => onReceive(mint.url) },
+    { key: 'swap', label: t('mintDetail.swap'), icon: ArrowLeftRight, colorClass: 'text-foreground-muted', onClick: () => onSwap(mint.url) },
   ]
 
   if (showPendingItems) {
@@ -116,25 +116,25 @@ export function MintDetailScreen({
   }
 
   return (
-    <div className="h-dvh bg-[#faf9f6] flex flex-col pt-safe">
+    <div className="h-dvh bg-background flex flex-col pt-safe">
       {/* Header */}
       <header className="flex items-center justify-between px-4 h-14 shrink-0">
         <button
           onClick={() => { hapticTap(); onBack() }}
-          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-background-hover transition-colors"
           aria-label={t('common.back')}
         >
-          <ArrowLeft className="w-5 h-5 text-[#1d1d1f]" />
+          <ArrowLeft className="w-5 h-5 text-foreground" />
         </button>
-        <h1 className="font-['Outfit'] font-bold text-lg text-[#1d1d1f]">
+        <h1 className="text-subtitle text-foreground">
           {t('mintDetail.title')}
         </h1>
         <button
           onClick={() => { hapticTap(); setShowMintInfo(true) }}
-          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-background-hover transition-colors"
           aria-label={t('mintDetail.mintInfo')}
         >
-          <EllipsisVertical className="w-5 h-5 text-[#1d1d1f]" />
+          <EllipsisVertical className="w-5 h-5 text-foreground" />
         </button>
       </header>
 
@@ -163,36 +163,36 @@ export function MintDetailScreen({
                 onBlur={handleSaveName}
                 placeholder={t('mintDetail.namePlaceholder')}
                 maxLength={10}
-                className="font-['Outfit'] font-semibold text-base text-[#1d1d1f] text-center bg-gray-100 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-primary/30 w-48"
+                className="font-semibold text-body text-foreground text-center bg-muted rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-primary/30 w-48"
               />
-              <span className="text-[11px] text-[#86868b]">{editNameValue.length}/10</span>
+              <span className="text-overline text-foreground-muted">{editNameValue.length}/10</span>
             </div>
           ) : (
             <button
               onClick={handleStartEditName}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors group"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-background-hover transition-colors group"
             >
-              <span className="font-['Outfit'] font-semibold text-base text-[#1d1d1f]">
+              <span className="font-semibold text-body text-foreground">
                 {displayAlias}
               </span>
-              <Pencil className="w-3.5 h-3.5 text-[#86868b] opacity-60 group-hover:opacity-100 transition-opacity" />
+              <Pencil className="w-3.5 h-3.5 text-foreground-muted opacity-60 group-hover:opacity-100 transition-opacity" />
             </button>
           )}
         </div>
 
         {/* Action Row */}
-        <div className="bg-white rounded-xl shadow-[0px_1px_4px_0px_rgba(0,0,0,0.08)] py-3 flex items-start justify-evenly">
-          {actions.map(({ key, label, icon: Icon, color, onClick }) => (
+        <div className="bg-background-card rounded-xl shadow-sm py-3 flex items-start justify-evenly">
+          {actions.map(({ key, label, icon: Icon, colorClass, onClick }) => (
             <button
               key={key}
               onClick={() => { hapticTap(); onClick() }}
               disabled={key === 'send' && mint.balance === 0}
               className="flex flex-col items-center gap-1.5 w-20 active:scale-95 transition-transform disabled:opacity-40"
             >
-              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-[0px_2px_1px_0px_rgba(0,0,0,0.25)]">
-                <Icon className="w-[22px] h-[22px]" style={{ color }} strokeWidth={2} />
+              <div className="w-12 h-12 bg-background-card rounded-full flex items-center justify-center shadow-[0px_2px_1px_0px_rgba(0,0,0,0.25)]">
+                <Icon className={`w-[22px] h-[22px] ${colorClass}`} strokeWidth={2} />
               </div>
-              <span className="font-['Outfit'] font-medium text-xs text-[#1d1d1f]">
+              <span className="text-label text-foreground">
                 {label}
               </span>
             </button>
@@ -203,13 +203,13 @@ export function MintDetailScreen({
         {pendingItems.length > 0 && (
           <section>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-['Inter'] font-semibold text-[15px] text-[#1d1d1f]">
+              <h2 className="text-overline uppercase tracking-wide text-foreground-muted">
                 {t('mintDetail.pendingItems')}
               </h2>
               {pendingItems.length > 5 && (
                 <button
                   onClick={() => { hapticTap(); setShowPendingItems(true) }}
-                  className="font-['Outfit'] font-medium text-[13px] text-brand"
+                  className="font-medium text-caption text-brand"
                 >
                   {t('mintDetail.seeMore')}
                 </button>
@@ -222,13 +222,13 @@ export function MintDetailScreen({
         {/* Transactions */}
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-['Inter'] font-semibold text-[15px] text-[#1d1d1f]">
+            <h2 className="text-overline uppercase tracking-wide text-foreground-muted">
               {t('mintDetail.transactions')}
             </h2>
             {filteredTransactions.length > 5 && onTransactions && (
               <button
                 onClick={onTransactions}
-                className="font-['Outfit'] font-medium text-[13px] text-brand"
+                className="font-medium text-caption text-brand"
               >
                 {t('mintDetail.seeDetails')}
               </button>
@@ -242,7 +242,7 @@ export function MintDetailScreen({
               className="px-0 py-0"
             />
           ) : (
-            <p className="text-sm text-[#86868b] text-center py-4">
+            <p className="text-caption text-foreground-muted text-center py-4">
               {t('mintDetail.noTransactions')}
             </p>
           )}

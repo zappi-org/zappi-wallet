@@ -43,7 +43,7 @@ function MintLogo({ iconUrl }: { iconUrl?: string }) {
     <img
       src={iconUrl}
       alt="Mint Logo"
-      className={cn(sizeClasses, "object-contain rounded-sm")}
+      className={cn(sizeClasses, "object-contain rounded")}
       onError={() => setHasError(true)}
     />
   );
@@ -131,11 +131,11 @@ export function MintCard({
           <MintLogo iconUrl={mint.iconUrl} />
         </div>
         <div className="flex flex-col">
-          <p className="font-['Montserrat'] font-bold text-[18px] text-[#fafafa] leading-[27px] whitespace-nowrap">
+          <p className="font-display text-amount text-white leading-[27px] whitespace-nowrap">
             {displayName}
           </p>
           {showMintSubName && (
-            <p className="font-['Montserrat'] font-medium text-[10px] text-white/60 leading-tight whitespace-nowrap">
+            <p className="font-display text-overline text-white/60 leading-tight whitespace-nowrap">
               {mint.mintName}
             </p>
           )}
@@ -146,7 +146,7 @@ export function MintCard({
       {onDetail && (
         <button
           onClick={(e) => { e.stopPropagation(); onDetail(); }}
-          className="absolute z-20 w-9 h-9 flex items-center justify-center rounded-full active:bg-white/10 transition-colors"
+          className="absolute z-20 w-11 h-11 flex items-center justify-center rounded-full active:bg-white/10 transition-colors"
           style={{ top: '10%', right: '4%' }}
         >
           <EllipsisVertical className="w-5 h-5 text-white/80" />
@@ -157,22 +157,22 @@ export function MintCard({
       {!hideBalance && (
         <>
           <p
-            className="absolute z-10 font-['Montserrat'] font-semibold text-[13px] text-white leading-normal whitespace-nowrap"
+            className="absolute z-10 font-display text-caption font-semibold text-white leading-normal whitespace-nowrap"
             style={{ top: '71%', left: '9.3%' }}
           >
-            BALANCE
+            Balance
           </p>
           <div
             className="absolute z-10 flex items-baseline gap-2"
             style={{ top: '80%', left: '9.3%' }}
           >
-            <p className="font-['Montserrat'] font-semibold text-[15.6px] text-[#fafafa] leading-normal">
+            <p className="font-display text-body-bold text-white leading-normal">
               {formatSats(mint.balance)}
             </p>
             {(() => {
               const fiatStr = toFiat(mint.balance)
               return fiatStr ? (
-                <span className="font-['Montserrat'] text-[11px] text-white/60 leading-normal">
+                <span className="font-display text-overline text-white/60 leading-normal">
                   ≈ {fiatStr}
                 </span>
               ) : null
@@ -186,7 +186,7 @@ export function MintCard({
         <button
           onClick={(e) => { e.stopPropagation(); onCreateToken(); }}
           disabled={mint.balance === 0}
-          className="absolute z-20 bg-[#c49a9a] border border-[#b88a8a] rounded-[8px] px-4 py-2 font-['Outfit'] font-semibold text-[13px] text-white hover:bg-[#d4a8a8] active:scale-90 active:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          className="absolute z-20 bg-white/20 border border-white/10 rounded-[8px] px-4 py-2 text-caption font-semibold text-white hover:bg-white/30 active:scale-90 active:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           style={{ right: '5%', top: '74%' }}
         >
           {t('payment.createToken')}

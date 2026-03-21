@@ -44,16 +44,16 @@ export function BalanceDisplay({
       >
         <div className={`flex items-baseline gap-2 ${isLarge ? 'justify-center' : ''}`}>
           {isInitialLoad ? (
-            <span className={isLarge ? 'text-4xl font-bold' : 'text-2xl font-bold'}>
+            <span className={isLarge ? 'text-display font-bold' : 'text-amount-lg font-bold'}>
               <span className={`inline-block ${isLarge ? 'w-28 h-10' : 'w-16 h-6'} bg-muted animate-pulse rounded`} />
             </span>
           ) : (
-            <span className={`font-bold tabular-nums ${isLarge ? 'text-4xl' : 'text-2xl'} ${isSyncing ? 'animate-shimmer' : ''}`}>
+            <span className={`font-display font-bold tabular-nums ${isLarge ? 'text-display' : 'text-amount-lg'} ${isSyncing ? 'animate-shimmer' : ''}`}>
               {formatSats(balance.total)}
             </span>
           )}
           {(() => { const f = formatFiat(balance.total); return !isInitialLoad && f ? (
-            <span className={`text-foreground-muted ${isLarge ? 'text-sm' : 'text-xs'}`}>
+            <span className={`text-foreground-muted ${isLarge ? 'text-caption' : 'text-label'}`}>
               ≈ {f}
             </span>
           ) : null })()}
@@ -72,7 +72,7 @@ export function BalanceDisplay({
           >
             {/* Header */}
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-base font-semibold">{t('mintDetails.mintBalance')}</h3>
+              <h3 className="text-body font-semibold">{t('mintDetails.mintBalance')}</h3>
               <button
                 onClick={() => setShowModal(false)}
                 className="p-1 rounded-lg hover:bg-muted transition-all active:scale-90"
@@ -103,11 +103,11 @@ export function BalanceDisplay({
                 >
                   <div className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-status-online" />
-                    <span className="text-xs truncate max-w-[150px]">
+                    <span className="text-label truncate max-w-[150px]">
                       {formatMintHost(mintUrl)}
                     </span>
                   </div>
-                  <span className="font-medium tabular-nums text-xs">
+                  <span className="font-display tabular-nums text-label">
                     {formatSats(amount)}
                   </span>
                 </div>
@@ -116,8 +116,8 @@ export function BalanceDisplay({
 
             {/* Total */}
             <div className="flex items-center justify-between p-2 border-t border-border">
-              <span className="font-medium text-xs">{t('home.totalBalance')}</span>
-              <span className="font-bold tabular-nums text-base">
+              <span className="text-label">{t('home.totalBalance')}</span>
+              <span className="font-display font-bold tabular-nums text-body">
                 {formatSats(balance.total)}
               </span>
             </div>

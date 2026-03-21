@@ -35,10 +35,10 @@ export function ActionButton({
         className,
       )}
     >
-      <div className="w-14 h-14 bg-white rounded-[13px] flex items-center justify-center shadow-action">
+      <div className="w-14 h-14 bg-background-card rounded-[13px] flex items-center justify-center shadow-action">
         <div className={iconColorStyles[color]}>{icon}</div>
       </div>
-      <span className="text-body-sm text-foreground-muted font-medium">{label}</span>
+      <span className="text-caption text-foreground-muted font-medium">{label}</span>
     </button>
   )
 }

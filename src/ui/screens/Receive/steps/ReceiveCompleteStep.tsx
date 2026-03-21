@@ -50,17 +50,17 @@ export function ReceiveCompleteStep({
   }, [])
 
   return (
-    <div className="flex flex-col h-full bg-[#faf9f6]">
+    <div className="flex flex-col h-full bg-background">
       {/* Text at top — left-aligned */}
       <div className="px-6 pt-24">
-        <p className="text-[22px] font-medium leading-relaxed whitespace-pre-line text-center">
+        <p className="text-title font-medium leading-relaxed whitespace-pre-line text-center">
           {t('receive.complete.message', {
             mint: mintName,
             amount: formatSats(amount),
           })}
         </p>
         {(() => { const f = formatFiat(amount); return f ? (
-          <p className="text-[15px] text-foreground-muted text-center mt-1">≈ {f}</p>
+          <p className="text-body text-foreground-muted text-center mt-1">≈ {f}</p>
         ) : null })()}
       </div>
 
@@ -74,7 +74,7 @@ export function ReceiveCompleteStep({
       </div>
 
       {/* Bottom Action — no border */}
-      <div className="p-5 pb-safe">
+      <div className="p-4 pb-safe">
         <Button
           variant="brand"
           size="xl"

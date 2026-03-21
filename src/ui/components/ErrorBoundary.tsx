@@ -35,14 +35,14 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="h-dvh bg-background text-foreground font-sans flex flex-col items-center justify-center p-6 pt-safe pb-safe">
           <div className="flex flex-col items-center gap-4 text-center max-w-xs">
-            <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center text-3xl">
+            <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center text-title">
               !
             </div>
-            <h1 className="text-xl font-bold">{t('error.unexpectedTitle')}</h1>
-            <p className="text-foreground-muted text-sm">{t('error.unexpectedMessage')}</p>
+            <h1 className="text-title">{t('error.unexpectedTitle')}</h1>
+            <p className="text-foreground-muted text-caption">{t('error.unexpectedMessage')}</p>
             <button
               onClick={this.handleReload}
-              className="mt-4 px-8 py-3 bg-primary text-white rounded-xl font-semibold active:scale-95 transition-transform"
+              className="mt-4 px-5 py-3.5 bg-primary text-white rounded-xl font-semibold active:scale-95 transition-transform"
             >
               {t('error.reload')}
             </button>

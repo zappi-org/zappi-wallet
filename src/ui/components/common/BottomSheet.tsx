@@ -50,14 +50,14 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
             className="fixed bottom-0 left-0 right-0 bg-background-elevated rounded-t-lg max-h-[70vh] overflow-hidden z-[70]"
           >
             {/* Handle */}
-            <div className="flex justify-center py-2 cursor-grab active:cursor-grabbing touch-none">
-              <div className="w-8 h-1 bg-foreground-subtle rounded-full" />
+            <div className="flex justify-center py-2.5 cursor-grab active:cursor-grabbing touch-none">
+              <div className="w-10 h-1 bg-foreground-subtle rounded-full" />
             </div>
 
             {/* Header */}
             {title && (
-              <div className="px-2.5 pb-1.5 border-b border-foreground-subtle/20">
-                <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+              <div className="px-5 pb-3 border-b border-foreground-subtle/20">
+                <h3 className="text-subtitle text-foreground text-center">{title}</h3>
               </div>
             )}
 
@@ -98,7 +98,7 @@ export function BottomSheetItem({
       disabled={disabled}
       aria-selected={selected}
       className={`
-        w-full flex items-center gap-1.5 p-3 min-h-[44px] text-left
+        w-full flex items-center gap-3 px-5 py-3 min-h-[48px] text-left
         active:scale-95 active:opacity-80 transition-all duration-100
         ${selected ? 'bg-accent-primary/10' : 'hover:bg-foreground-subtle/10'}
         ${disabled ? 'opacity-50 pointer-events-none' : ''}
@@ -106,15 +106,15 @@ export function BottomSheetItem({
     >
       {icon && <span className="text-foreground-muted">{icon}</span>}
       <div className="flex-1 min-w-0">
-        <div className={`text-xs ${selected ? 'text-accent-primary' : 'text-foreground'}`}>
+        <div className={`text-label ${selected ? 'text-accent-primary' : 'text-foreground'}`}>
           {title}
         </div>
         {subtitle && (
-          <div className="text-[10px] text-foreground-muted truncate">{subtitle}</div>
+          <div className="text-overline text-foreground-muted truncate">{subtitle}</div>
         )}
       </div>
       {selected && (
-        <span className="text-accent-primary text-sm" aria-hidden="true">✓</span>
+        <span className="text-accent-primary text-caption" aria-hidden="true">✓</span>
       )}
     </button>
   )

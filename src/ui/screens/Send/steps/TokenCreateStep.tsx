@@ -62,17 +62,17 @@ export function TokenCreateStep({
   }, [amount, selectedMintUrl, mintBalance, memo, onNext, addToast, t])
 
   return (
-    <div className="flex flex-col h-full bg-[#faf9f6]">
+    <div className="flex flex-col h-full bg-background">
       {/* Header — no border */}
       <header className="relative flex items-center px-4 py-3">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="p-2 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10"
+          className="p-2 rounded-lg hover:bg-background-hover transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="absolute inset-0 flex items-center justify-center text-lg font-semibold pointer-events-none">{t('send.tokenCreate.title')}</h1>
+        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle pointer-events-none">{t('send.tokenCreate.title')}</h1>
       </header>
 
       {/* Mint Card Selector — outside scroll container for full-width overflow */}
@@ -85,7 +85,7 @@ export function TokenCreateStep({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6 space-y-10">
+      <div className="flex-1 overflow-y-auto px-6 space-y-6">
         {/* Amount */}
         <AmountInput
           amount={amount}
@@ -96,18 +96,18 @@ export function TokenCreateStep({
 
         {/* Memo */}
         <div>
-          <p className="text-[16px] font-normal text-foreground-muted leading-snug">{t('send.tokenCreate.memo')} ({t('send.tokenCreate.memoPlaceholder')})</p>
+          <p className="text-label text-foreground-muted leading-snug">{t('send.tokenCreate.memo')} ({t('send.tokenCreate.memoPlaceholder')})</p>
           <input
             type="text"
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
-            className="w-full bg-transparent border-0 border-b border-b-gray-200 rounded-none px-0 py-2 text-[18px] font-normal text-foreground focus:outline-none focus:border-b-foreground transition-colors"
+            className="w-full bg-transparent border-0 border-b border-b-border rounded-none px-0 py-2 text-subtitle font-semibold text-foreground focus:outline-none focus:border-b-foreground transition-colors"
           />
         </div>
       </div>
 
       {/* Bottom Action — no border-t */}
-      <div className="p-5 pb-safe">
+      <div className="p-4 pb-safe">
         <Button
           variant="brand"
           size="xl"

@@ -144,9 +144,9 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
     })
 
     const categories = [
-      { name: 'Lightning', key: 'lightning', color: '#264032' },
-      { name: 'Ecash', key: 'ecash', color: '#5c6b5d' },
-      { name: 'Other', key: 'other', color: '#8a9a8b' },
+      { name: 'Lightning', key: 'lightning', color: 'var(--chart-1)' },
+      { name: 'Ecash', key: 'ecash', color: 'var(--chart-2)' },
+      { name: 'Other', key: 'other', color: 'var(--chart-3)' },
     ]
 
     const total = Object.values(byMethod).reduce((sum, val) => sum + val, 0)
@@ -173,15 +173,15 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
   return (
     <div className="h-dvh bg-background text-foreground flex flex-col font-sans relative overflow-hidden z-[60] pt-safe">
       {/* Header */}
-      <header className="flex items-center px-3 pt-4 relative z-50">
+      <header className="flex items-center px-5 pt-4 relative z-50">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="p-2 rounded-full bg-white/60 shadow-sm hover:shadow-md transition-all hover:bg-background-card backdrop-blur-md"
+          className="p-2 rounded-full bg-background-card hover:shadow-md transition-all hover:bg-background-card"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
-        <h2 className="text-base font-bold tracking-tight ml-3">{t('analytics.title')}</h2>
+        <h2 className="text-body font-bold tracking-tight ml-3">{t('analytics.title')}</h2>
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-32">
@@ -191,9 +191,9 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
             <button
               onClick={() => setTimeRange('week')}
               className={cn(
-                'px-3 py-2 rounded-full text-xs font-bold transition-all',
+                'px-3 py-2 rounded-full text-label transition-all',
                 timeRange === 'week'
-                  ? 'bg-white shadow-sm text-foreground'
+                  ? 'bg-background-card shadow-sm text-foreground'
                   : 'text-foreground-muted hover:text-foreground'
               )}
             >
@@ -202,9 +202,9 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
             <button
               onClick={() => setTimeRange('month')}
               className={cn(
-                'px-3 py-2 rounded-full text-xs font-bold transition-all',
+                'px-3 py-2 rounded-full text-label transition-all',
                 timeRange === 'month'
-                  ? 'bg-white shadow-sm text-foreground'
+                  ? 'bg-background-card shadow-sm text-foreground'
                   : 'text-foreground-muted hover:text-foreground'
               )}
             >
@@ -215,22 +215,22 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
 
         {/* Total Spent / Received Cards */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-white/60 p-3 rounded-2xl border border-white/50 shadow-sm">
+          <div className="bg-background-card p-4 rounded-2xl ">
             <div className="flex items-center gap-2 mb-2">
               <div className="bg-accent-primary/20 p-2 rounded-full">
                 <TrendingDown className="w-3 h-3 text-accent-primary" />
               </div>
-              <span className="text-[10px] font-bold text-foreground-muted">{t('analytics.totalReceived')}</span>
+              <span className="text-overline font-bold text-foreground-muted">{t('analytics.totalReceived')}</span>
             </div>
-            <h3 className="text-lg font-bold text-foreground">
+            <h3 className="text-subtitle font-display text-foreground">
               +{formatAmount(analytics.income)}
             </h3>
             {(() => { const f = formatFiat(analytics.income); return f ? (
-              <span className="text-[10px] text-foreground-muted">{f}</span>
+              <span className="text-overline text-foreground-muted">{f}</span>
             ) : null })()}
             <span
               className={cn(
-                'text-[8px] font-bold',
+                'text-overline font-bold',
                 analytics.incomeChange >= 0 ? 'text-accent-primary' : 'text-accent-danger'
               )}
             >
@@ -238,22 +238,22 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
               {analytics.incomeChange}%
             </span>
           </div>
-          <div className="bg-white/60 p-3 rounded-2xl border border-white/50 shadow-sm">
+          <div className="bg-background-card p-4 rounded-2xl ">
             <div className="flex items-center gap-2 mb-2">
               <div className="bg-accent-danger/20 p-2 rounded-full">
                 <TrendingUp className="w-3 h-3 text-accent-danger" />
               </div>
-              <span className="text-[10px] font-bold text-foreground-muted">{t('analytics.totalSent')}</span>
+              <span className="text-overline font-bold text-foreground-muted">{t('analytics.totalSent')}</span>
             </div>
-            <h3 className="text-lg font-bold text-foreground">
+            <h3 className="text-subtitle font-display text-foreground">
               -{formatAmount(analytics.spending)}
             </h3>
             {(() => { const f = formatFiat(analytics.spending); return f ? (
-              <span className="text-[10px] text-foreground-muted">{f}</span>
+              <span className="text-overline text-foreground-muted">{f}</span>
             ) : null })()}
             <span
               className={cn(
-                'text-[8px] font-bold',
+                'text-overline font-bold',
                 analytics.spendingChange <= 0 ? 'text-accent-primary' : 'text-accent-danger'
               )}
             >
@@ -264,10 +264,10 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
         </div>
 
         {/* Chart Section */}
-        <section className="bg-white/60 p-4 rounded-2xl border border-white/50 shadow-sm">
+        <section className="bg-background-card p-4 rounded-2xl ">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-sm text-foreground">{t('analytics.overview')}</h3>
-            <span className="text-[10px] font-bold text-foreground-muted">
+            <h3 className="text-overline uppercase tracking-wide text-foreground-muted">{t('analytics.overview')}</h3>
+            <span className="text-overline font-bold text-foreground-muted">
               {timeRange === 'week' ? t('analytics.thisWeek') : t('analytics.thisMonth')}
             </span>
           </div>
@@ -278,28 +278,28 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
                 <AreaChart data={chartData}>
                   <defs>
                     <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#5c8b65" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#5c8b65" stopOpacity={0} />
+                      <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="colorSpending" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#264032" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#264032" stopOpacity={0} />
+                      <stop offset="5%" stopColor="var(--chart-2)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="var(--chart-2)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <XAxis
                     dataKey="name"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#5c6b5d', fontSize: 10 }}
+                    tick={{ fill: 'var(--foreground-muted)', fontSize: 10 }}
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#e4e0d5',
+                      backgroundColor: 'var(--background)',
                       borderRadius: '12px',
-                      border: 'none',
+                      border: '1px solid var(--border)',
                       boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                     }}
-                    itemStyle={{ color: '#264032', fontWeight: 'bold' }}
+                    itemStyle={{ color: 'var(--foreground)', fontWeight: 'bold' }}
                     formatter={(value, name) => {
                       const numValue = typeof value === 'number' ? value : 0
                       return [
@@ -313,7 +313,7 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
                     align="right"
                     wrapperStyle={{ paddingBottom: '10px' }}
                     formatter={(value) => (
-                      <span style={{ color: '#5c6b5d', fontSize: '10px', fontWeight: 'bold' }}>
+                      <span style={{ color: 'var(--foreground-muted)', fontSize: '10px', fontWeight: 'bold' }}>
                         {value === 'income' ? t('analytics.totalReceived') : t('analytics.totalSent')}
                       </span>
                     )}
@@ -321,7 +321,7 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
                   <Area
                     type="monotone"
                     dataKey="income"
-                    stroke="#5c8b65"
+                    stroke="var(--chart-1)"
                     strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#colorIncome)"
@@ -329,7 +329,7 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
                   <Area
                     type="monotone"
                     dataKey="spending"
-                    stroke="#264032"
+                    stroke="var(--chart-2)"
                     strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#colorSpending)"
@@ -339,7 +339,7 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
             </div>
           ) : (
             <div className="h-48 flex items-center justify-center text-foreground-muted">
-              <p className="text-xs">{t('analytics.noData')}</p>
+              <p className="text-label">{t('analytics.noData')}</p>
             </div>
           )}
         </section>
@@ -347,19 +347,19 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
         {/* Spending Breakdown */}
         {spendingBreakdown.length > 0 && (
           <section>
-            <h3 className="font-bold text-sm text-foreground mb-3 px-2">{t('analytics.totalSent')}</h3>
+            <h3 className="text-overline uppercase tracking-wide text-foreground-muted mb-3 px-2">{t('analytics.totalSent')}</h3>
             <div className="space-y-2">
               {spendingBreakdown.map((item) => (
                 <div
                   key={item.key}
-                  className="bg-white/40 p-3 rounded-xl flex items-center justify-between"
+                  className="bg-background-card p-3 rounded-xl flex items-center justify-between"
                 >
                   <div className="flex items-center gap-2">
                     <div
                       className="w-2.5 h-2.5 rounded-full"
                       style={{ backgroundColor: item.color }}
                     />
-                    <span className="font-bold text-xs text-foreground">
+                    <span className="text-label text-foreground">
                       {item.name}
                     </span>
                   </div>
@@ -373,7 +373,7 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
                         }}
                       />
                     </div>
-                    <span className="font-bold text-xs text-foreground min-w-[50px] text-right">
+                    <span className="text-label font-display text-foreground min-w-[50px] text-right">
                       {formatAmount(item.value)}
                     </span>
                   </div>
@@ -386,11 +386,11 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
         {/* Empty State */}
         {transactions.length === 0 && (
           <div className="flex flex-col items-center justify-center py-10 text-center">
-            <div className="w-12 h-12 bg-white/60 rounded-full flex items-center justify-center mb-3">
+            <div className="w-12 h-12 bg-background-card rounded-full flex items-center justify-center mb-3">
               <TrendingUp className="w-6 h-6 text-foreground-muted" />
             </div>
-            <h3 className="font-bold text-sm text-foreground mb-2">{t('analytics.noData')}</h3>
-            <p className="text-xs text-foreground-muted">
+            <h3 className="text-overline uppercase tracking-wide text-foreground-muted mb-2">{t('analytics.noData')}</h3>
+            <p className="text-label text-foreground-muted">
               {t('history.noTransactions')}
             </p>
           </div>

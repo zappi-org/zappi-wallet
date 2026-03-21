@@ -26,19 +26,19 @@ export function ProgressStepper<T extends string>({
         return (
           <div key={step} className="flex items-center gap-2.5">
             <div className={cn(
-              'w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors',
+              'w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-colors',
               isDone || isCurrent ? 'bg-brand' : 'bg-foreground/10'
             )}>
               {isDone ? (
-                <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                <Check className="w-4 h-4 text-white" strokeWidth={3} />
               ) : isCurrent ? (
                 <div className="w-2 h-2 bg-white rounded-full" />
               ) : (
-                <span className="text-[10px] font-bold text-foreground-muted">{i + 1}</span>
+                <span className="text-overline font-bold text-foreground-muted">{i + 1}</span>
               )}
             </div>
             <span className={cn(
-              'text-[13px]',
+              'text-caption',
               isDone ? 'text-foreground-muted' : isCurrent ? 'text-foreground font-medium' : 'text-foreground-muted/50'
             )}>
               {labels[step]}

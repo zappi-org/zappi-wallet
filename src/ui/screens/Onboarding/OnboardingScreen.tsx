@@ -267,27 +267,27 @@ export function OnboardingScreen({
       <div className="fixed inset-0 bg-background text-foreground flex flex-col items-center justify-center p-4 pt-safe pb-safe overflow-hidden overscroll-none">
         <div className="w-full max-w-sm flex flex-col items-center text-center">
           <img src={zappiImg} alt="Zappi" className="w-40 h-40 object-contain mb-4" />
-          <h1 className="font-['Outfit'] font-bold text-3xl text-brand mb-1">{t('onboarding.appName')}</h1>
-          <p className="text-[#86868b] text-sm mb-12">
+          <h1 className="text-title text-brand mb-1">{t('onboarding.appName')}</h1>
+          <p className="text-caption text-foreground-muted mb-12">
             {t('onboarding.tagline')}
           </p>
 
           <div className="w-full space-y-4 mb-10">
             <button
               onClick={handleCreate}
-              className="w-full bg-brand text-white py-3.5 rounded-[14px] font-semibold text-base shadow-lg shadow-brand/25 active:scale-[0.98] transition-all"
+              className="w-full bg-brand text-white py-3.5 rounded-[14px] font-semibold text-body shadow-lg shadow-brand/25 active:scale-[0.98] transition-all"
             >
               {t('onboarding.createWallet')}
             </button>
             <button
               onClick={handleImport}
-              className="w-full text-[#86868b] text-sm font-medium underline underline-offset-2 active:opacity-60 transition-opacity"
+              className="w-full text-foreground-muted text-caption font-medium underline underline-offset-2 active:opacity-60 transition-opacity"
             >
               {t('onboarding.importWallet')}
             </button>
           </div>
 
-          <p className="text-[10px] text-foreground-muted font-medium uppercase tracking-widest">
+          <p className="text-overline text-foreground-muted uppercase tracking-widest">
             {t('onboarding.securePrivateFast')}
           </p>
         </div>
@@ -300,7 +300,7 @@ export function OnboardingScreen({
     const words = mode === 'create' ? mnemonic.split(' ') : mnemonicWords
 
     return (
-      <div className="fixed inset-0 bg-[#faf9f6] text-foreground flex flex-col pt-safe pb-safe overflow-hidden overscroll-none">
+      <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe pb-safe overflow-hidden overscroll-none">
         <div className="flex-1 flex flex-col max-w-md mx-auto w-full">
           {/* Header */}
           <header className="px-5 py-3 flex items-center">
@@ -316,10 +316,10 @@ export function OnboardingScreen({
           <div className="flex-1 overflow-y-auto px-5">
             {/* Title area */}
             <div className="mb-5">
-              <h2 className="text-xl font-bold text-[#1d1d1f] mb-1">
+              <h2 className="text-title text-foreground mb-1">
                 {mode === 'create' ? t('onboarding.secretRecoveryKey') : t('onboarding.walletRecovery')}
               </h2>
-              <p className="text-[13px] text-[#86868b] leading-relaxed whitespace-pre-line">
+              <p className="text-caption text-foreground-muted leading-relaxed whitespace-pre-line">
                 {mode === 'create'
                   ? t('onboarding.mnemonicWarning')
                   : t('onboarding.enterRecoveryPhrase')}
@@ -327,23 +327,23 @@ export function OnboardingScreen({
             </div>
 
             {mode === 'import' && (
-              <div className="relative flex p-1 bg-[#f0f0f0] rounded-[10px] mb-4">
+              <div className="relative flex p-1 bg-muted rounded-[10px] mb-4">
                 <div
                   className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-brand rounded-[8px] shadow-sm transition-transform duration-200 ease-out"
                   style={{ left: '4px', transform: wordCount === 24 ? 'translateX(100%)' : 'translateX(0)' }}
                 />
                 <button
                   onClick={() => handleWordCountChange(12)}
-                  className={`relative z-10 flex-1 py-2 rounded-[8px] font-semibold text-[13px] transition-colors duration-200 ${
-                    wordCount === 12 ? 'text-white' : 'text-[#86868b]'
+                  className={`relative z-10 flex-1 py-2 rounded-[8px] text-caption font-semibold transition-colors duration-200 ${
+                    wordCount === 12 ? 'text-white' : 'text-foreground-muted'
                   }`}
                 >
                   {t('onboarding.words12')}
                 </button>
                 <button
                   onClick={() => handleWordCountChange(24)}
-                  className={`relative z-10 flex-1 py-2 rounded-[8px] font-semibold text-[13px] transition-colors duration-200 ${
-                    wordCount === 24 ? 'text-white' : 'text-[#86868b]'
+                  className={`relative z-10 flex-1 py-2 rounded-[8px] text-caption font-semibold transition-colors duration-200 ${
+                    wordCount === 24 ? 'text-white' : 'text-foreground-muted'
                   }`}
                 >
                   {t('onboarding.words24')}
@@ -352,20 +352,20 @@ export function OnboardingScreen({
             )}
 
             {/* Word grid */}
-            <div className="bg-white rounded-2xl p-4 mb-4">
-              <div className={`grid ${wordCount === 24 ? 'grid-cols-3' : 'grid-cols-2'} gap-x-3 gap-y-0`}>
+            <div className="bg-background-card rounded-2xl p-4 mb-4">
+              <div className={`grid ${wordCount === 24 ? 'grid-cols-3' : 'grid-cols-2'} gap-x-3 gap-y-1`}>
                 {(mode === 'create' ? words : mnemonicWords).map((word, i) => (
                   <div
                     key={i}
                     className={`flex items-center gap-2 py-2.5 ${
                       i < (mode === 'create' ? words : mnemonicWords).length - (wordCount === 24 ? 3 : 2)
-                        ? 'border-b border-[#f0f0f0]'
+                        ? 'border-b border-muted'
                         : ''
                     }`}
                   >
-                    <span className="text-[12px] tabular-nums text-[#c0c0c0] w-5 text-right shrink-0">{i + 1}</span>
+                    <span className="text-label tabular-nums text-foreground-subtle w-5 text-right shrink-0">{i + 1}</span>
                     {mode === 'create' ? (
-                      <span className="text-[14px] font-medium text-[#1d1d1f]">{word}</span>
+                      <span className="text-body font-medium text-foreground">{word}</span>
                     ) : (
                       <input
                         ref={(el) => { inputRefs.current[i] = el }}
@@ -388,7 +388,7 @@ export function OnboardingScreen({
                             }
                           }, 150)
                         }}
-                        className="flex-1 bg-transparent outline-none text-[14px] font-medium text-[#1d1d1f] min-w-0"
+                        className="flex-1 bg-transparent outline-none text-body font-medium text-foreground min-w-0"
                         autoCapitalize="none"
                         autoCorrect="off"
                         spellCheck={false}
@@ -407,7 +407,7 @@ export function OnboardingScreen({
                     key={s}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => handleSelectSuggestion(s)}
-                    className="px-3 py-1.5 bg-white rounded-lg text-[13px] font-medium text-[#1d1d1f] active:bg-[#f0f0f0] transition-colors"
+                    className="px-3 py-1.5 bg-background-card rounded-lg text-caption font-medium text-foreground active:bg-muted transition-colors"
                   >
                     {s}
                   </button>
@@ -425,15 +425,15 @@ export function OnboardingScreen({
                       setMnemonicCopied(true)
                       setTimeout(() => setMnemonicCopied(false), 2000)
                     }}
-                    className="flex items-center gap-1.5 text-[13px] font-medium text-[#86868b] active:opacity-60 transition-opacity px-3 py-2"
+                    className="flex items-center gap-1.5 text-caption font-medium text-foreground-muted active:opacity-60 transition-opacity px-3 py-2"
                   >
                     {mnemonicCopied ? <Check className="w-4 h-4 text-brand" /> : <Copy className="w-4 h-4" />}
                     {mnemonicCopied ? t('common.copied') : t('onboarding.copyToClipboard')}
                   </button>
-                  <span className="text-[#e0e0e0]">|</span>
+                  <span className="text-border">|</span>
                   <button
                     onClick={handleRegenerate}
-                    className="flex items-center gap-1.5 text-[13px] font-medium text-[#86868b] active:opacity-60 transition-opacity px-3 py-2"
+                    className="flex items-center gap-1.5 text-caption font-medium text-foreground-muted active:opacity-60 transition-opacity px-3 py-2"
                   >
                     <RefreshCw className="w-4 h-4" />
                     {t('onboarding.regenerateMnemonic')}
@@ -452,13 +452,13 @@ export function OnboardingScreen({
                     w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors
                     ${backupConfirmed
                       ? 'border-brand bg-brand'
-                      : 'border-[#c0c0c0]'}
+                      : 'border-foreground-subtle'}
                   `}>
                     {backupConfirmed && (
                       <Check className="w-3.5 h-3.5 text-white" />
                     )}
                   </div>
-                  <span className={`text-[13px] text-left leading-snug ${backupConfirmed ? 'text-[#1d1d1f] font-medium' : 'text-[#86868b]'}`}>
+                  <span className={`text-caption text-left leading-snug ${backupConfirmed ? 'text-foreground font-medium' : 'text-foreground-muted'}`}>
                     {t('onboarding.mnemonicSavedConfirm')}
                   </span>
                 </button>
@@ -466,8 +466,8 @@ export function OnboardingScreen({
             )}
 
             {mnemonicError && (
-              <div className="animate-fadeIn mt-4 bg-accent-danger/[0.08] px-3 py-2.5 rounded-sm">
-                <p className="text-[12px] text-accent-danger font-semibold">{mnemonicError}</p>
+              <div className="animate-fadeIn mt-4 bg-accent-danger/[0.08] px-3 py-2.5 rounded-xl">
+                <p className="text-label text-accent-danger font-semibold">{mnemonicError}</p>
               </div>
             )}
           </div>
@@ -477,7 +477,7 @@ export function OnboardingScreen({
             {mode === 'import' && (
               <button
                 onClick={handlePasteFromClipboard}
-                className="w-full flex items-center justify-center gap-1.5 py-3 text-[13px] font-medium text-[#86868b] active:opacity-60 transition-opacity"
+                className="w-full flex items-center justify-center gap-1.5 py-3 text-caption font-medium text-foreground-muted active:opacity-60 transition-opacity"
               >
                 <ClipboardPaste className="w-4 h-4" />
                 {t('common.paste')}
@@ -491,9 +491,9 @@ export function OnboardingScreen({
                 isLoading
               }
               className={`
-                w-full py-3.5 rounded-[14px] font-semibold text-base transition-all
+                w-full py-3.5 rounded-[14px] font-semibold text-body transition-all
                 ${(mode === 'create' && !backupConfirmed) || (mode === 'import' && !isImportComplete)
-                  ? 'bg-brand/20 text-brand/40 cursor-not-allowed'
+                  ? 'bg-muted text-foreground/30 cursor-not-allowed'
                   : 'bg-brand text-white shadow-lg shadow-brand/25 active:scale-[0.98]'}
               `}
             >
@@ -511,7 +511,7 @@ export function OnboardingScreen({
     const currentPin = isConfirming ? confirmPin : pin
 
     return (
-      <div className="fixed inset-0 bg-[#faf9f6] text-foreground flex flex-col pt-safe pb-safe overflow-hidden overscroll-none">
+      <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe pb-safe overflow-hidden overscroll-none">
         <div className="flex-1 flex flex-col max-w-md mx-auto w-full">
           {/* Header */}
           <header className="px-5 py-3 flex items-center">
@@ -525,13 +525,13 @@ export function OnboardingScreen({
           </header>
 
           <div className="flex-1 flex flex-col items-center justify-center px-5">
-            <p className="text-foreground-muted text-base mb-8 text-center">
+            <p className="text-foreground-muted text-body mb-8 text-center">
               {isConfirming ? t('onboarding.reenterPin') : t('onboarding.enterNewPin')}
             </p>
 
             {/* PIN dots */}
             <div
-              className="flex gap-4"
+              className="flex gap-3"
               role="status"
               aria-live="polite"
               aria-label={t('onboarding.pinDigitsEntered', { count: currentPin.length, total: 6 })}
@@ -550,7 +550,7 @@ export function OnboardingScreen({
             </div>
 
             {(pinError || error) && (
-              <div className="animate-fadeIn border-l-2 border-accent-danger bg-accent-danger/[0.06] px-3 py-2 text-[12px] text-accent-danger font-semibold mt-4">
+              <div className="animate-fadeIn border-l-2 border-accent-danger bg-accent-danger/[0.06] px-3 py-2 text-label text-accent-danger font-semibold mt-4">
                 {pinError || error}
               </div>
             )}
@@ -558,7 +558,7 @@ export function OnboardingScreen({
             {isLoading && (
               <div className="animate-fadeIn flex flex-col items-center gap-3 mt-4">
                 <div className="w-5 h-5 border-2 border-brand border-t-transparent rounded-full animate-spin" />
-                <span className="text-[#86868b] text-[13px]">
+                <span className="text-caption text-foreground-muted">
                   {loadingMessage}
                 </span>
               </div>
@@ -594,13 +594,13 @@ export function OnboardingScreen({
             />
           </div>
 
-          <h2 className="text-xl font-bold mb-2">
+          <h2 className="text-title mb-2">
             {mode === 'import'
               ? t('onboarding.recoveringWalletDesc')
               : t('onboarding.creatingWalletDesc')
             }
           </h2>
-          <p className="text-[#86868b] text-[13px]">
+          <p className="text-caption text-foreground-muted">
             {t('onboarding.pleaseWait')}
           </p>
         </div>

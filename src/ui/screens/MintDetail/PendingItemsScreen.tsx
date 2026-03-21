@@ -28,9 +28,9 @@ function groupByDate(items: PendingItem[], t: (key: string) => string): Array<{ 
     let label: string
 
     if (date.toDateString() === now.toDateString()) {
-      label = t('mintDetail.today') || '오늘'
+      label = t('mintDetail.today') || 'Today'
     } else if (date.toDateString() === yesterday.toDateString()) {
-      label = t('mintDetail.yesterday') || '어제'
+      label = t('mintDetail.yesterday') || 'Yesterday'
     } else {
       label = date.toLocaleDateString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit' })
     }
@@ -84,16 +84,16 @@ export function PendingItemsScreen({ items, mintUrl, onBack, onItemClick }: Pend
   ]
 
   return (
-    <div className="h-dvh bg-[#faf9f6] flex flex-col pt-safe">
+    <div className="h-dvh bg-background flex flex-col pt-safe">
       {/* Header */}
       <header className="flex items-center justify-between px-4 h-14 shrink-0">
         <button
           onClick={() => { hapticTap(); onBack() }}
-          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-background-hover transition-colors"
         >
-          <ArrowLeft className="w-5 h-5 text-[#1d1d1f]" />
+          <ArrowLeft className="w-5 h-5 text-foreground" />
         </button>
-        <h1 className="font-['Outfit'] font-bold text-lg text-[#1d1d1f]">
+        <h1 className="text-subtitle text-foreground">
           {t('mintDetail.pendingAll')}
         </h1>
         <div className="w-10" />
@@ -102,13 +102,13 @@ export function PendingItemsScreen({ items, mintUrl, onBack, onItemClick }: Pend
       {/* Search */}
       <div className="px-4 pb-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#86868b]" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t('mintDetail.search')}
-            className="w-full bg-gray-100 rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#1d1d1f] placeholder:text-[#86868b] outline-none focus:ring-2 focus:ring-brand/30"
+            className="w-full bg-muted rounded-xl pl-10 pr-4 py-2.5 text-caption text-foreground placeholder:text-foreground-muted outline-none focus:ring-2 focus:ring-brand/30"
           />
         </div>
       </div>
@@ -120,10 +120,10 @@ export function PendingItemsScreen({ items, mintUrl, onBack, onItemClick }: Pend
             key={key}
             onClick={() => { setActiveTab(key); setRequestFilter('all') }}
             className={cn(
-              'px-4 py-1.5 rounded-full text-sm font-medium transition-colors',
+              'px-4 py-1.5 rounded-full text-caption font-medium transition-colors',
               activeTab === key
-                ? 'bg-[#1d1d1f] text-white'
-                : 'bg-gray-100 text-[#86868b]'
+                ? 'bg-brand text-white'
+                : 'bg-muted text-foreground-muted'
             )}
           >
             {label}
@@ -137,10 +137,10 @@ export function PendingItemsScreen({ items, mintUrl, onBack, onItemClick }: Pend
           <button
             onClick={() => setRequestFilter('ecash')}
             className={cn(
-              'px-3 py-1 rounded-full text-xs font-medium transition-colors border',
+              'px-3 py-1 rounded-full text-label font-medium transition-colors border',
               requestFilter === 'ecash'
                 ? 'bg-brand text-white border-brand'
-                : 'bg-white text-[#86868b] border-gray-200'
+                : 'bg-background-card text-foreground-muted border-border'
             )}
           >
             {t('mintDetail.filterEcash')}
@@ -148,10 +148,10 @@ export function PendingItemsScreen({ items, mintUrl, onBack, onItemClick }: Pend
           <button
             onClick={() => setRequestFilter('lightning')}
             className={cn(
-              'px-3 py-1 rounded-full text-xs font-medium transition-colors border',
+              'px-3 py-1 rounded-full text-label font-medium transition-colors border',
               requestFilter === 'lightning'
                 ? 'bg-brand text-white border-brand'
-                : 'bg-white text-[#86868b] border-gray-200'
+                : 'bg-background-card text-foreground-muted border-border'
             )}
           >
             {t('mintDetail.filterLightning')}
@@ -162,14 +162,14 @@ export function PendingItemsScreen({ items, mintUrl, onBack, onItemClick }: Pend
       {/* Content */}
       <main className="flex-1 overflow-y-auto px-4 pb-8">
         {groups.length === 0 ? (
-          <p className="text-sm text-[#86868b] text-center py-8">
+          <p className="text-caption text-foreground-muted text-center py-8">
             {t('mintDetail.noPendingItems')}
           </p>
         ) : (
           <div className="space-y-4">
             {groups.map(({ label, items: groupItems }) => (
               <div key={label}>
-                <p className="text-xs font-medium text-[#86868b] mb-2">{label}</p>
+                <p className="text-label font-medium text-foreground-muted mb-2">{label}</p>
                 <PendingItemsList items={groupItems} mintUrl={mintUrl} maxItems={999} onItemClick={onItemClick} />
               </div>
             ))}

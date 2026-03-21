@@ -237,6 +237,11 @@ export default {
     fiatCurrency: 'Moneda',
     showFiatConversion: 'Mostrar Precio Fiat',
     selectCurrency: 'Seleccionar Moneda',
+
+    // Descriptions
+    active: 'Activo',
+    autoLockDescription: 'Bloquear automáticamente tras inactividad',
+    faceIdDescription: 'Usar autenticación biométrica para desbloquear',
   },
 
   // Add Mint Screen
@@ -657,7 +662,7 @@ export default {
     fromMintPrefix: 'Mi ',
     fromMintSuffix: ' desde',
     whereTo: '¿A dónde enviar?',
-    placeholder: 'Dirección Lightning, factura, solicitud de pago...',
+    placeholder: 'Ingresa dirección o factura',
     howMuch: '¿Cuánto enviar?',
     createToken: 'Crear Token',
     next: 'Siguiente',

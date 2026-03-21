@@ -15,11 +15,11 @@ export function SettingsSection({ label, children, className }: SettingsSectionP
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
       {label && (
-        <span className="text-body-sm text-foreground-muted px-1">
+        <span className="text-caption text-foreground-muted px-1">
           {label}
         </span>
       )}
-      <div className="bg-white/60 backdrop-blur-xl rounded-[13px] overflow-hidden border border-white/40 shadow-sm divide-y divide-black/[0.06]">
+      <div className="bg-background-card rounded-[13px] overflow-hidden divide-y divide-foreground/[0.06]">
         {children}
       </div>
     </div>
@@ -58,8 +58,8 @@ export function SettingsItem({
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
       className={cn(
-        'w-full flex items-center gap-3 px-4 py-2.5 transition-colors min-h-[44px]',
-        onClick && !disabled && 'hover:bg-black/[0.02] active:bg-black/[0.04]',
+        'w-full flex items-center gap-3 px-5 py-3.5 transition-colors min-h-[48px]',
+        onClick && !disabled && 'hover:bg-foreground/[0.02] active:bg-foreground/[0.04]',
         disabled && 'opacity-40 cursor-not-allowed',
         className,
       )}
@@ -70,13 +70,13 @@ export function SettingsItem({
 
       <div className="flex-1 min-w-0 text-left">
         <span className={cn(
-          'text-body-lg block',
+          'text-body block',
           destructive ? 'text-accent-danger' : 'text-foreground',
         )}>
           {label}
         </span>
         {subtitle && (
-          <span className="text-body-sm text-foreground-muted block truncate mt-0.5">
+          <span className="text-caption text-foreground-muted block truncate mt-0.5">
             {subtitle}
           </span>
         )}

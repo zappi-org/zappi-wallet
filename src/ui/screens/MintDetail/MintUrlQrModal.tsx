@@ -36,16 +36,16 @@ export function MintUrlQrModal({ isOpen, url, onClose }: MintUrlQrModalProps) {
         onClick={onClose}
         className="absolute inset-0 bg-black/30 backdrop-blur-sm pointer-events-auto animate-fadeIn"
       />
-      <div className="bg-[#faf9f6] w-[340px] rounded-2xl pointer-events-auto relative z-10 shadow-2xl animate-slideInUp overflow-hidden">
+      <div className="bg-background w-full max-w-[340px] rounded-2xl pointer-events-auto relative z-10 shadow-2xl animate-slideInUp overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-4">
+        <div className="flex items-center justify-between px-5 py-5">
           <div className="w-9" />
-          <h3 className="font-['Outfit'] font-bold text-lg text-[#1d1d1f]">
+          <h3 className="text-subtitle text-foreground">
             {t('mintDetail.mintUrl')}
           </h3>
           <button
             onClick={onClose}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100"
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-muted"
           >
             <X className="w-4 h-4" />
           </button>
@@ -53,7 +53,7 @@ export function MintUrlQrModal({ isOpen, url, onClose }: MintUrlQrModalProps) {
 
         {/* QR Code */}
         <div className="flex justify-center px-8 py-4">
-          <div className="bg-white p-4 rounded-2xl shadow-sm">
+          <div className="bg-background-card p-4 rounded-2xl shadow-sm">
             <QRCodeSVG value={url} size={200} level="M" />
           </div>
         </div>
@@ -62,7 +62,7 @@ export function MintUrlQrModal({ isOpen, url, onClose }: MintUrlQrModalProps) {
         <div className="px-6 pb-6 pt-2">
           <button
             onClick={handleCopy}
-            className="w-full flex items-center justify-center gap-2 bg-[#1d1d1f] text-white py-4 rounded-xl font-['Outfit'] font-semibold text-sm active:scale-[0.98] transition-transform"
+            className="w-full flex items-center justify-center gap-2 bg-brand text-white py-3.5 rounded-xl font-semibold text-caption active:scale-[0.98] transition-transform"
           >
             {copied ? (
               <><Check className="w-4 h-4" /> {t('mintDetail.copied')}</>

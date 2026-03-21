@@ -332,15 +332,15 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
   return (
     <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe overflow-hidden z-[60]">
       {/* Header */}
-      <header className="flex items-center px-3 pt-4 relative z-50">
+      <header className="flex items-center px-5 pt-4 relative z-50">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="p-2 rounded-lg bg-white/60 shadow-sm hover:shadow-md transition-all hover:bg-background-card backdrop-blur-md"
+          className="p-2 rounded-lg bg-background-card hover:shadow-md transition-all hover:bg-background-card"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
-        <h2 className="text-base font-bold tracking-tight ml-3">
+        <h2 className="text-body font-bold tracking-tight ml-3">
           {t('settings.changeUsername')}
         </h2>
       </header>
@@ -350,10 +350,10 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
         <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6">
           <Loader2 className="w-12 h-12 text-accent-primary animate-spin" />
           <div className="flex flex-col items-center gap-2">
-            <p className="text-base font-bold text-foreground">
+            <p className="text-body font-bold text-foreground">
               {t('settings.changingUsername')}
             </p>
-            <div className="flex flex-col items-center gap-1 text-sm text-foreground-muted">
+            <div className="flex flex-col items-center gap-1 text-caption text-foreground-muted">
               <span>{prevAddressRef.current}</span>
               <span>↓</span>
               <span className="font-bold text-foreground">{newUsername}@{ZAPPI_LINK_DOMAIN}</span>
@@ -365,13 +365,13 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
           <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-32">
             {/* Current address */}
             <section>
-              <label className="text-[10px] font-bold text-foreground-muted mb-1 block px-2">
+              <label className="text-overline font-bold text-foreground-muted mb-1 block px-2">
                 {t('settings.currentAddress')}
               </label>
-              <div className="bg-white/60 rounded-lg p-3 shadow-sm border border-white/50">
+              <div className="bg-background-card rounded-lg p-3">
                 <div className="flex items-center gap-2">
                   <Zap className="w-4 h-4 text-accent-primary shrink-0" />
-                  <span className="text-xs font-bold text-foreground truncate">
+                  <span className="text-label text-foreground truncate">
                     {settings.lightningAddress || '-'}
                   </span>
                 </div>
@@ -380,21 +380,21 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
 
             {/* New username input */}
             <section>
-              <label className="text-[10px] font-bold text-foreground-muted mb-1 block px-2">
+              <label className="text-overline font-bold text-foreground-muted mb-1 block px-2">
                 {t('settings.newUsername')}
               </label>
-              <div className="bg-white/60 rounded-lg p-3 shadow-sm border border-white/50">
+              <div className="bg-background-card rounded-lg p-3">
                 <div className="flex items-center gap-1">
                   <input
                     type="text"
                     value={newUsername}
                     onChange={(e) => setNewUsername(e.target.value.toLowerCase())}
                     placeholder="username"
-                    className="flex-1 p-2.5 rounded-md border border-primary/10 bg-white/60 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className="flex-1 p-2.5 rounded-md border border-primary/10 bg-background-card text-caption focus:outline-none focus:ring-2 focus:ring-primary/20"
                     maxLength={20}
                     autoFocus
                   />
-                  <span className="text-xs text-foreground-muted shrink-0">
+                  <span className="text-label text-foreground-muted shrink-0">
                     @{ZAPPI_LINK_DOMAIN}
                   </span>
                 </div>
@@ -407,14 +407,14 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
                     ) : usernameAvailable ? (
                       <>
                         <CheckCircle2 className="w-3 h-3 text-accent-success" />
-                        <span className="text-[10px] text-accent-success font-bold">
+                        <span className="text-overline text-accent-success font-bold">
                           {t('settings.usernameAvailable')}
                         </span>
                       </>
                     ) : usernameError ? (
                       <>
                         <XCircle className="w-3 h-3 text-accent-danger" />
-                        <span className="text-[10px] text-accent-danger font-bold">
+                        <span className="text-overline text-accent-danger font-bold">
                           {usernameError}
                         </span>
                       </>
@@ -427,25 +427,25 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
             {/* Fee info */}
             {serverDefaults && addressFee > 0 && (
               <section>
-                <label className="text-[10px] font-bold text-foreground-muted mb-1 block px-2">
+                <label className="text-overline font-bold text-foreground-muted mb-1 block px-2">
                   {t('settings.changeFee')}
                 </label>
-                <div className="bg-white/60 rounded-lg p-3 shadow-sm border border-white/50 space-y-1.5">
+                <div className="bg-background-card rounded-lg p-3 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-foreground-muted">
+                    <span className="text-overline text-foreground-muted">
                       {t('settings.changeFee')}
                     </span>
-                    <span className="text-xs font-bold">
+                    <span className="text-label font-display">
                       {formatSats(addressFee)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-foreground-muted">
+                    <span className="text-overline text-foreground-muted">
                       {t('common.balance')}
                     </span>
                     <span
                       className={cn(
-                        'text-xs font-bold',
+                        'text-label font-display',
                         canAfford ? 'text-foreground' : 'text-accent-danger'
                       )}
                     >
@@ -453,7 +453,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
                     </span>
                   </div>
                   {!canAfford && selectedMintUrl && (
-                    <p className="text-[10px] text-accent-danger font-bold mt-1">
+                    <p className="text-overline text-accent-danger font-bold mt-1">
                       {t('settings.insufficientBalance')}
                     </p>
                   )}
@@ -464,12 +464,12 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
             {/* Mint selection (only when fee > 0) */}
             {serverDefaults && addressFee > 0 && (
               <section>
-                <label className="text-[10px] font-bold text-foreground-muted mb-1 block px-2">
+                <label className="text-overline font-bold text-foreground-muted mb-1 block px-2">
                   {t('settings.paymentMint')}
                 </label>
                 {mintInfos.length === 0 ? (
-                  <div className="bg-white/60 rounded-lg p-3 shadow-sm border border-white/50">
-                    <p className="text-[10px] text-accent-danger font-bold text-center">
+                  <div className="bg-background-card rounded-lg p-3">
+                    <p className="text-overline text-accent-danger font-bold text-center">
                       {t('settings.noPayableMint')}
                     </p>
                   </div>
@@ -493,7 +493,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
                 {/* Swap warning for non-accepted mints */}
                 {selectedMintUrl && !isAcceptedMint && (
                   <div className="mt-2 p-3 bg-accent-warning/5 rounded-lg border border-accent-warning/10">
-                    <p className="text-[10px] text-accent-warning font-bold">
+                    <p className="text-overline text-accent-warning font-bold">
                       {t('settings.additionalFeeWarning')}
                     </p>
                   </div>

@@ -199,7 +199,7 @@ export default function TransactionDetailScreen({
   const statusConfig = useMemo(() => {
     switch (tx.status) {
       case 'completed':
-        return { label: t('history.completed'), color: 'text-card-green-dark' }
+        return { label: t('history.completed'), color: 'text-card-brand-dark' }
       case 'pending':
         return { label: t('history.pendingStatus'), color: 'text-badge-lightning-text' }
       case 'failed':
@@ -270,11 +270,11 @@ export default function TransactionDetailScreen({
         }`}
         disabled={!copyable}
       >
-        <span className="text-[15px] text-foreground-muted">{label}</span>
-        <span className="text-[15px] font-medium text-foreground text-right max-w-[60%] truncate flex items-center gap-1.5">
+        <span className="text-body text-foreground-muted">{label}</span>
+        <span className="text-body font-medium text-foreground text-right max-w-[60%] truncate flex items-center gap-1.5">
           {copyable ? truncateStr(value) : value}
           {copyable && copiedField === field && (
-            <Check className="w-3.5 h-3.5 text-card-green-dark shrink-0" />
+            <Check className="w-3.5 h-3.5 text-card-brand-dark shrink-0" />
           )}
         </span>
       </button>
@@ -308,13 +308,13 @@ export default function TransactionDetailScreen({
             <MoreVertical className="w-5 h-5 text-foreground-muted" />
           </button>
           {showMenu && (
-            <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-border/50 py-1 min-w-[140px] z-50">
+            <div className="absolute right-0 top-full mt-1 bg-background-card rounded-xl shadow-lg border border-border/50 py-1 min-w-[140px] z-50">
               <button
                 onClick={() => {
                   setShowMenu(false)
                   setShowDeleteConfirm(true)
                 }}
-                className="w-full flex items-center gap-2 px-4 py-2.5 text-[14px] text-accent-danger hover:bg-accent-danger/5 transition-colors"
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-caption text-accent-danger hover:bg-accent-danger/5 transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
                 {t('txDetail.delete')}
@@ -330,8 +330,8 @@ export default function TransactionDetailScreen({
         {/* ── Hero: Amount + Context ── */}
         <div className="flex flex-col items-center px-6 pt-6 pb-8">
           {/* Amount */}
-          <span className={`text-[36px] font-bold tracking-tight leading-tight ${
-            isReceive ? 'text-card-green-dark' : 'text-foreground'
+          <span className={`text-display font-display tracking-tight leading-tight ${
+            isReceive ? 'text-card-brand-dark' : 'text-foreground'
           }`}>
             {isReceive ? '+' : isSwap ? '' : '-'}{formatSats(tx.amount)}
           </span>
@@ -340,22 +340,22 @@ export default function TransactionDetailScreen({
           {(() => {
             const f = formatTransactionFiat(tx, formatFiat)
             return f ? (
-              <span className="text-[15px] text-foreground-muted mt-1">≈ {f}</span>
+              <span className="text-body text-foreground-muted mt-1">≈ {f}</span>
             ) : null
           })()}
 
           {/* Context sentence */}
-          <span className="text-[15px] text-foreground-muted mt-3">
+          <span className="text-body text-foreground-muted mt-3">
             {contextSentence}
           </span>
 
           {/* Time + Status */}
           <div className="flex items-center gap-1.5 mt-1.5">
-            <span className="text-[15px] text-foreground-muted">
+            <span className="text-body text-foreground-muted">
               {formatDate(tx.createdAt)}
             </span>
-            <span className="text-[15px] text-foreground-muted">·</span>
-            <span className={`text-[13px] font-medium ${statusConfig.color}`}>
+            <span className="text-body text-foreground-muted">·</span>
+            <span className={`text-caption font-medium ${statusConfig.color}`}>
               {statusConfig.label}
             </span>
           </div>
@@ -363,35 +363,35 @@ export default function TransactionDetailScreen({
 
         {/* ── Transaction Info Section ── */}
         <div className="px-5">
-          <p className="text-[12px] font-semibold text-foreground-muted uppercase tracking-wider mb-1">
+          <p className="text-label text-foreground-muted uppercase tracking-wider mb-1">
             {t('txDetail.txInfo')}
           </p>
-          <div className="bg-white/60 rounded px-4">
+          <div className="bg-background-card rounded px-4">
             <InfoRow label={t('txDetail.type')} value={typeLabel} />
             {tx.memo && <InfoRow label={t('txDetail.memo')} value={tx.memo} />}
             {sourceLabel && <InfoRow label={t('txDetail.source')} value={sourceLabel} />}
             {tx.failureReason && tx.failureReason !== 'reclaimed' && (
               <div className="flex items-center justify-between py-3 border-b border-border/30 last:border-b-0">
-                <span className="text-[15px] text-foreground-muted">{t('txDetail.failureReason')}</span>
-                <span className="text-[15px] font-medium text-accent-danger">{tx.failureReason}</span>
+                <span className="text-body text-foreground-muted">{t('txDetail.failureReason')}</span>
+                <span className="text-body font-medium text-accent-danger">{tx.failureReason}</span>
               </div>
             )}
             {/* TX ID */}
             <div className="py-3 border-b border-border/30 last:border-b-0">
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[15px] text-foreground-muted">{t('txDetail.txId')}</span>
+                <span className="text-body text-foreground-muted">{t('txDetail.txId')}</span>
                 <button
                   onClick={() => handleCopy(tx.id, 'txId')}
                   className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/[0.04] transition-colors"
                 >
                   {copiedField === 'txId' ? (
-                    <Check className="w-4 h-4 text-card-green-dark" />
+                    <Check className="w-4 h-4 text-card-brand-dark" />
                   ) : (
                     <Copy className="w-4 h-4 text-foreground-muted" />
                   )}
                 </button>
               </div>
-              <p className="text-[13px] font-mono text-foreground-muted break-all leading-relaxed">
+              <p className="text-caption font-mono text-foreground-muted break-all leading-relaxed">
                 {tx.id}
               </p>
             </div>
@@ -400,14 +400,14 @@ export default function TransactionDetailScreen({
             {showUnclaimedCard && tx.token && (
               <div className="py-3 border-b border-border/30 last:border-b-0">
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[15px] text-foreground-muted">{t('txDetail.sentToken')}</span>
+                  <span className="text-body text-foreground-muted">{t('txDetail.sentToken')}</span>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleCopy(tx.token!, 'token')}
                       className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/[0.04] transition-colors"
                     >
                       {copiedField === 'token' ? (
-                        <Check className="w-4 h-4 text-card-green-dark" />
+                        <Check className="w-4 h-4 text-card-brand-dark" />
                       ) : (
                         <Copy className="w-4 h-4 text-foreground-muted" />
                       )}
@@ -428,7 +428,7 @@ export default function TransactionDetailScreen({
                     </button>
                   </div>
                 </div>
-                <p className="text-[13px] font-mono text-foreground-muted break-all leading-relaxed line-clamp-3">
+                <p className="text-caption font-mono text-foreground-muted break-all leading-relaxed line-clamp-3">
                   {tx.token}
                 </p>
               </div>
@@ -439,10 +439,10 @@ export default function TransactionDetailScreen({
         {/* ── Lightning Send: Payment Info ── */}
         {isLightning && !isReceive && (
           <div className="px-5 mt-6">
-            <p className="text-[12px] font-semibold text-foreground-muted uppercase tracking-wider mb-1">
+            <p className="text-label text-foreground-muted uppercase tracking-wider mb-1">
               {t('txDetail.paymentInfo')}
             </p>
-            <div className="bg-white/60 rounded px-4">
+            <div className="bg-background-card rounded px-4">
               {typeof metadata?.destination === 'string' && (
                 <InfoRow label={t('txDetail.destination')} value={metadata.destination} copyable field="destination" />
               )}
@@ -460,10 +460,10 @@ export default function TransactionDetailScreen({
         {/* ── Lightning Receive ── */}
         {isLightning && isReceive && (tx.bolt11 || typeof metadata?.quoteId === 'string') && (
           <div className="px-5 mt-6">
-            <p className="text-[12px] font-semibold text-foreground-muted uppercase tracking-wider mb-1">
+            <p className="text-label text-foreground-muted uppercase tracking-wider mb-1">
               {t('txDetail.details')}
             </p>
-            <div className="bg-white/60 rounded px-4">
+            <div className="bg-background-card rounded px-4">
               {tx.bolt11 && (
                 <InfoRow label={t('txDetail.bolt11')} value={tx.bolt11} copyable field="bolt11" />
               )}
@@ -477,10 +477,10 @@ export default function TransactionDetailScreen({
         {/* ── Swap Info ── */}
         {isSwap && metadata && (
           <div className="px-5 mt-6">
-            <p className="text-[12px] font-semibold text-foreground-muted uppercase tracking-wider mb-1">
+            <p className="text-label text-foreground-muted uppercase tracking-wider mb-1">
               {t('txDetail.swapInfo')}
             </p>
-            <div className="bg-white/60 rounded px-4">
+            <div className="bg-background-card rounded px-4">
               {typeof metadata.fromMintUrl === 'string' && (
                 <InfoRow label={t('txDetail.fromMint')} value={getDisplayName(metadata.fromMintUrl)} />
               )}
@@ -502,24 +502,24 @@ export default function TransactionDetailScreen({
         {/* ── Kiosk Order Items ── */}
         {kioskOrder && (
           <div className="px-5 mt-6">
-            <p className="text-[12px] font-semibold text-foreground-muted uppercase tracking-wider mb-1">
+            <p className="text-label text-foreground-muted uppercase tracking-wider mb-1">
               {t('txDetail.orderItems')}
             </p>
-            <div className="bg-white/60 rounded px-4 py-1">
+            <div className="bg-background-card rounded px-4 py-1">
               {kioskOrder.items.map((item, i) => (
                 <div key={i} className="flex items-center justify-between py-2.5 border-b border-border/30 last:border-b-0">
-                  <span className="text-[15px] text-foreground">
+                  <span className="text-body text-foreground">
                     {item.productName} <span className="text-foreground-muted">x{item.quantity}</span>
                   </span>
-                  <span className="text-[15px] font-mono font-medium text-foreground">
+                  <span className="text-body font-display font-mono font-medium text-foreground">
                     {formatSats(item.subtotal)}
                   </span>
                 </div>
               ))}
               <div className="h-px bg-border/50 -mx-4" />
               <div className="flex items-center justify-between py-3">
-                <span className="text-[15px] font-bold text-foreground">{t('txDetail.orderTotal')}</span>
-                <span className="text-[15px] font-mono font-bold text-foreground">
+                <span className="text-body font-bold text-foreground">{t('txDetail.orderTotal')}</span>
+                <span className="text-body font-display font-mono font-bold text-foreground">
                   {formatSats(kioskOrder.total)}
                 </span>
               </div>
@@ -533,7 +533,7 @@ export default function TransactionDetailScreen({
             <button
               onClick={handleCheckAndReclaim}
               disabled={isReclaiming}
-              className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl text-[14px] font-medium text-foreground-muted hover:text-foreground hover:bg-black/[0.03] transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl text-caption font-medium text-foreground-muted hover:text-foreground hover:bg-black/[0.03] transition-colors disabled:opacity-50"
             >
               {isReclaiming ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -562,21 +562,21 @@ export default function TransactionDetailScreen({
       {showDeleteConfirm && (
         <div className="absolute inset-0 z-50 flex items-end bg-black/40" onClick={() => setShowDeleteConfirm(false)}>
           <div
-            className="w-full bg-white rounded-t-3xl p-6 pb-safe space-y-4"
+            className="w-full bg-background-card rounded-t-3xl p-6 pb-safe space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="text-[15px] font-semibold text-foreground">{t('txDetail.deleteConfirm')}</p>
-            <p className="text-[15px] text-foreground-muted">{t('txDetail.deleteWarning')}</p>
+            <p className="text-body font-semibold text-foreground">{t('txDetail.deleteConfirm')}</p>
+            <p className="text-body text-foreground-muted">{t('txDetail.deleteWarning')}</p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 py-3 rounded-xl text-[14px] font-semibold bg-black/[0.04] text-foreground hover:bg-black/[0.06] transition-colors"
+                className="flex-1 py-3 rounded-xl text-caption font-semibold bg-black/[0.04] text-foreground hover:bg-black/[0.06] transition-colors"
               >
                 {t('common.cancel')}
               </button>
               <button
                 onClick={handleDelete}
-                className="flex-1 py-3 rounded-xl text-[14px] font-semibold bg-accent-danger text-white hover:bg-accent-danger/90 transition-colors"
+                className="flex-1 py-3 rounded-xl text-caption font-semibold bg-accent-danger text-white hover:bg-accent-danger/90 transition-colors"
               >
                 {t('txDetail.delete')}
               </button>

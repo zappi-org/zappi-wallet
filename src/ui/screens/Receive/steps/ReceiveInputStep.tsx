@@ -135,17 +135,17 @@ export function ReceiveInputStep({
   }, [method, amount, memo, selectedMintUrl, userNprofile, supportsHttp, onNext, addToast, t])
 
   return (
-    <div className="flex flex-col h-full bg-[#faf9f6]">
+    <div className="flex flex-col h-full bg-background">
       {/* Header */}
       <header className="relative flex items-center px-4 py-3">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="p-2 -ml-2 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10"
+          className="p-2 -ml-2 rounded-lg hover:bg-background-hover transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="absolute inset-0 flex items-center justify-center text-lg font-semibold pointer-events-none">
+        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle pointer-events-none">
           {t('receive.createRequest')}
         </h1>
       </header>
@@ -159,13 +159,13 @@ export function ReceiveInputStep({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6 space-y-10">
+      <div className="flex-1 overflow-y-auto px-6 space-y-6">
         {/* Method Tabs — segment control */}
         <div className="space-y-2">
-          <p className="text-[20px] font-normal text-foreground-muted leading-snug">
+          <p className="text-label font-normal text-foreground-muted leading-snug">
             {t('receive.senderMethod')}
           </p>
-          <div className="relative flex p-1.5 bg-[#f0f0f0] rounded-[14px]">
+          <div className="relative flex p-1.5 bg-muted rounded-[14px]">
             {/* Sliding indicator */}
             <div
               className="absolute top-1.5 bottom-1.5 w-[calc(50%-3px)] bg-brand rounded-[10px] shadow-sm transition-transform duration-250 ease-out"
@@ -173,7 +173,7 @@ export function ReceiveInputStep({
             />
             <button
               onClick={() => { setMethod('lightning'); hapticTap() }}
-              className={`relative z-10 flex-1 py-2.5 rounded-[10px] font-medium text-sm transition-colors duration-200 min-h-[44px] ${
+              className={`relative z-10 flex-1 py-2.5 rounded-[10px] font-medium text-caption transition-colors duration-200 min-h-[44px] ${
                 method === 'lightning' ? 'text-white' : 'text-foreground-muted'
               }`}
             >
@@ -181,7 +181,7 @@ export function ReceiveInputStep({
             </button>
             <button
               onClick={() => { setMethod('ecash'); hapticTap() }}
-              className={`relative z-10 flex-1 py-2.5 rounded-[10px] font-medium text-sm transition-colors duration-200 min-h-[44px] ${
+              className={`relative z-10 flex-1 py-2.5 rounded-[10px] font-medium text-caption transition-colors duration-200 min-h-[44px] ${
                 method === 'ecash' ? 'text-white' : 'text-foreground-muted'
               }`}
             >
@@ -200,20 +200,20 @@ export function ReceiveInputStep({
         {/* Memo — optional, only for ecash */}
         {method === 'ecash' && (
           <div>
-            <p className="text-[16px] font-normal text-foreground-muted leading-snug">{t('receive.memoPlaceholder')}</p>
+            <p className="text-label text-foreground-muted leading-snug">{t('receive.memoPlaceholder')}</p>
             <input
               type="text"
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
               maxLength={100}
-              className="w-full bg-transparent border-0 border-b border-b-gray-200 rounded-none py-2 text-[18px] font-normal text-foreground focus:outline-none focus:border-b-foreground transition-colors"
+              className="w-full bg-transparent border-0 border-b border-b-border rounded-none py-2 text-subtitle font-semibold text-foreground focus:outline-none focus:border-b-foreground transition-colors"
             />
           </div>
         )}
       </div>
 
       {/* Bottom Action */}
-      <div className="p-5 pb-safe">
+      <div className="p-4 pb-safe">
         <Button
           variant="brand"
           size="xl"

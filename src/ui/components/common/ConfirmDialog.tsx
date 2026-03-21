@@ -54,7 +54,7 @@ export function ConfirmDialog({
           </div>
         )}
 
-        <h3 className="text-heading-md text-foreground">{title}</h3>
+        <h3 className="text-subtitle text-foreground">{title}</h3>
 
         {description && (
           <p className="text-body text-foreground-muted mt-1.5 max-w-[280px]">

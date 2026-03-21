@@ -16,10 +16,10 @@ export function DetailRow({
 }: DetailRowProps) {
   return (
     <div className={cn('flex items-center justify-between gap-4', className)}>
-      <span className={cn('text-body-lg text-foreground-muted shrink-0', bold && 'text-foreground font-medium')}>
+      <span className={cn('text-body text-foreground-muted shrink-0', bold && 'text-foreground font-medium')}>
         {label}
       </span>
-      <span className={cn('text-body-lg font-medium text-foreground text-right truncate', bold && 'font-semibold')}>
+      <span className={cn('text-body font-medium text-foreground text-right truncate', bold && 'font-semibold')}>
         {value}
       </span>
     </div>

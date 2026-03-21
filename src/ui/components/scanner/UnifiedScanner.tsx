@@ -152,7 +152,7 @@ export function UnifiedScanner({ isOpen, onClose, onValidated }: UnifiedScannerP
         className="fixed inset-0 z-50 bg-background animate-fadeIn pt-safe pb-safe"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border-visible">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border-visible">
           <button
             onClick={onClose}
             className="p-3 -ml-3 rounded-lg hover:bg-border-visible transition-colors"
@@ -160,14 +160,14 @@ export function UnifiedScanner({ isOpen, onClose, onValidated }: UnifiedScannerP
           >
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
-          <h1 className="text-lg font-semibold text-foreground">
+          <h1 className="text-subtitle text-foreground">
             {t('scanner.title')}
           </h1>
           <div className="w-9" /> {/* Spacer for centering */}
         </div>
 
         {/* Content */}
-        <div className="flex flex-col p-4 gap-4">
+        <div className="flex flex-col px-5 py-4 gap-4">
           {/* QR Scanner */}
           <div className="relative">
             <QrScanner
@@ -186,7 +186,7 @@ export function UnifiedScanner({ isOpen, onClose, onValidated }: UnifiedScannerP
               onPaste={handleKeyboardPaste}
               onKeyDown={handleKeyDown}
               placeholder={t('scanner.inputPlaceholder')}
-              className="w-full px-4 py-3 pr-12 rounded-xl bg-white border border-border-visible text-foreground placeholder:text-secondary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+              className="w-full px-4 py-3 pr-12 rounded-xl bg-background-card border border-border-visible text-foreground placeholder:text-secondary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
               disabled={state === 'validating'}
             />
             <button
@@ -205,7 +205,7 @@ export function UnifiedScanner({ isOpen, onClose, onValidated }: UnifiedScannerP
           <div
             className="absolute inset-0 flex items-center justify-center bg-black/50 z-10 animate-fadeIn"
           >
-            <div className="bg-white rounded-2xl p-6 flex flex-col items-center gap-3 shadow-xl">
+            <div className="bg-background-card rounded-2xl p-6 flex flex-col items-center gap-3 shadow-xl">
               <div className="w-10 h-10 border-3 border-accent-primary border-t-transparent rounded-full animate-spin" />
               <p className="text-foreground font-medium">{t('scanner.validating')}</p>
             </div>

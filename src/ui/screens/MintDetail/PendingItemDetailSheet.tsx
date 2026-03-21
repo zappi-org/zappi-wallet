@@ -98,37 +98,37 @@ export function PendingItemDetailSheet({ isOpen, item, onClose }: PendingItemDet
       />
 
       {/* Sheet */}
-      <div className="bg-[#faf9f6] w-full rounded-t-2xl pointer-events-auto relative z-10 shadow-2xl pb-safe max-h-[80vh] overflow-y-auto animate-slideInUp">
+      <div className="bg-background w-full rounded-t-2xl pointer-events-auto relative z-10 shadow-2xl pb-safe max-h-[80vh] overflow-y-auto animate-slideInUp">
         {/* Header */}
-        <div className="sticky top-0 bg-[#faf9f6] z-10 flex items-center justify-between px-4 py-4 border-b border-gray-100">
+        <div className="sticky top-0 bg-background z-10 flex items-center justify-between px-4 py-4 border-b border-border">
           <div className="w-9" />
-          <h2 className="font-['Outfit'] font-bold text-lg text-[#1d1d1f]">
+          <h2 className="text-subtitle text-foreground">
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100"
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-muted"
           >
-            <X className="w-4 h-4 text-[#1d1d1f]" />
+            <X className="w-4 h-4 text-foreground" />
           </button>
         </div>
 
         <div className="px-6 py-6 space-y-6">
           {/* Icon + Amount */}
           <div className="flex flex-col items-center gap-3">
-            <div className="w-16 h-16 rounded-full flex items-center justify-center bg-[#e6e6e6]">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center bg-muted">
               {item.type === 'unclaimed-token' ? (
-                <ArrowDownLeft size={28} strokeWidth={1.5} className="text-[#5B7A54]" />
+                <ArrowDownLeft size={28} strokeWidth={1.5} className="text-accent-success" />
               ) : (
-                <Zap size={28} strokeWidth={1.5} className="text-[#5B7A54]" />
+                <Zap size={28} strokeWidth={1.5} className="text-accent-success" />
               )}
             </div>
             <div className="text-center">
-              <p className="font-['Outfit'] font-bold text-[28px] text-[#1d1d1f]">
+              <p className="font-display text-amount-lg text-foreground">
                 + {formatSats(item.amount)}
               </p>
               {fiatStr && (
-                <p className="font-['Outfit'] font-medium text-[14px] text-[#86868b]">
+                <p className="text-caption text-foreground-muted">
                   ≈ {fiatStr}
                 </p>
               )}
@@ -136,12 +136,12 @@ export function PendingItemDetailSheet({ isOpen, item, onClose }: PendingItemDet
           </div>
 
           {/* Details */}
-          <div className="bg-gray-50 rounded-xl overflow-hidden">
+          <div className="bg-input rounded-xl overflow-hidden">
             {/* Status */}
             <DetailRow
               label={t('history.pendingStatus')}
               value={
-                <span className="flex items-center gap-1 text-[#D4A03D]">
+                <span className="flex items-center gap-1 text-accent-warning">
                   <Clock size={14} />
                   {t('history.pending')}
                 </span>
@@ -174,7 +174,7 @@ export function PendingItemDetailSheet({ isOpen, item, onClose }: PendingItemDet
               <DetailRow
                 label={t('mintDetail.pendingExpiry')}
                 value={
-                  <span className="text-[#e85d3a]">{expiryRemaining}</span>
+                  <span className="text-accent-danger">{expiryRemaining}</span>
                 }
                 border
               />
@@ -193,21 +193,21 @@ export function PendingItemDetailSheet({ isOpen, item, onClose }: PendingItemDet
           {/* Invoice (for lightning-request) */}
           {item.type === 'lightning-request' && invoice && (
             <div>
-              <p className="font-['Outfit'] font-semibold text-sm text-[#1d1d1f] mb-2">
+              <p className="font-semibold text-caption text-foreground mb-2">
                 {t('txDetail.bolt11')}
               </p>
-              <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between gap-2">
-                <span className="text-xs font-mono text-[#86868b] truncate">
+              <div className="bg-input rounded-xl px-4 py-3 flex items-center justify-between gap-2">
+                <span className="text-label font-mono text-foreground-muted truncate">
                   {invoice.slice(0, 40)}...
                 </span>
                 <button
                   onClick={() => handleCopy(invoice, 'invoice')}
-                  className="w-9 h-9 flex items-center justify-center rounded-lg bg-white border border-gray-200 shrink-0"
+                  className="w-9 h-9 flex items-center justify-center rounded-lg bg-background-card border border-border shrink-0"
                 >
                   {copiedField === 'invoice' ? (
-                    <Check className="w-4 h-4 text-green-600" />
+                    <Check className="w-4 h-4 text-accent-success" />
                   ) : (
-                    <Copy className="w-4 h-4 text-[#86868b]" />
+                    <Copy className="w-4 h-4 text-foreground-muted" />
                   )}
                 </button>
               </div>
@@ -229,9 +229,9 @@ function DetailRow({
   border?: boolean
 }) {
   return (
-    <div className={`flex items-center justify-between px-4 py-3 ${border ? 'border-t border-gray-100' : ''}`}>
-      <span className="text-sm text-[#86868b]">{label}</span>
-      <span className="text-sm text-[#1d1d1f] font-medium text-right">{value}</span>
+    <div className={`flex items-center justify-between px-4 py-3 ${border ? 'border-t border-border' : ''}`}>
+      <span className="text-caption text-foreground-muted">{label}</span>
+      <span className="text-caption text-foreground font-medium text-right">{value}</span>
     </div>
   )
 }

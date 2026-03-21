@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { cn } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
 import { Clock, ArrowDownLeft, ArrowUpRight, Zap } from 'lucide-react'
 import { useFormatSats, useFormatFiat, formatDateLocalized } from '@/utils/format'
@@ -28,11 +29,11 @@ function formatExpiry(expiresAt: number, t: (key: string, opts?: Record<string, 
 function getPendingIcon(type: PendingItem['type']) {
   switch (type) {
     case 'unclaimed-token':
-      return { Icon: ArrowDownLeft, color: 'text-[#5B7A54]' } // green — receive
+      return { Icon: ArrowDownLeft, color: 'text-accent-success' } // green — receive
     case 'lightning-request':
-      return { Icon: Zap, color: 'text-[#5B7A54]' }           // green — receive
+      return { Icon: Zap, color: 'text-accent-success' }           // green — receive
     case 'ecash-request':
-      return { Icon: ArrowUpRight, color: 'text-[#D4A03D]' }  // gold — send
+      return { Icon: ArrowUpRight, color: 'text-accent-warning' }  // gold — send
   }
 }
 
@@ -48,14 +49,14 @@ export function PendingItemsList({ items, mintUrl, maxItems = 5, onItemClick }: 
 
   if (displayed.length === 0) {
     return (
-      <p className="text-sm text-[#86868b] text-center py-4">
+      <p className="text-caption text-foreground-muted text-center py-4">
         {t('mintDetail.noPendingItems')}
       </p>
     )
   }
 
   return (
-    <div className="flex flex-col border border-black/10 rounded-[13px] overflow-hidden gap-0">
+    <div className="flex flex-col border border-border rounded-[13px] overflow-hidden gap-0">
       {displayed.map((item) => {
         const { Icon, color } = getPendingIcon(item.type)
 
@@ -71,24 +72,24 @@ export function PendingItemsList({ items, mintUrl, maxItems = 5, onItemClick }: 
           <div
             key={item.id}
             onClick={() => onItemClick?.(item)}
-            className="flex items-center justify-between bg-[#faf9f6] rounded-[16px] h-[75px] px-[16px] py-[12px] cursor-pointer"
+            className="flex items-center justify-between bg-background-card rounded-[16px] h-[75px] px-[16px] py-[12px] cursor-pointer"
           >
             <div className="flex items-center gap-[12px]">
-              <div className="w-[44px] h-[44px] rounded-full flex items-center justify-center shrink-0 bg-[#e6e6e6]">
+              <div className={cn("w-[44px] h-[44px] rounded-full flex items-center justify-center shrink-0", item.type === 'ecash-request' ? "bg-accent-warning/10" : "bg-accent-success/10")}>
                 <Icon size={20} strokeWidth={1.5} className={color} />
               </div>
               <div className="flex flex-col gap-[2px]">
-                <h3 className="font-['Outfit'] font-bold text-[14px] text-[#1d1d1f] leading-normal">
+                <h3 className="text-caption font-bold text-foreground leading-normal">
                   {title}
                 </h3>
                 <div className="flex items-center gap-1">
-                  <p className="font-['Outfit'] font-medium text-[12px] text-[#86868b] truncate max-w-[140px] leading-normal">
+                  <p className="text-label text-foreground-muted truncate max-w-[140px] leading-normal">
                     {subtitle}
                   </p>
                   {expiryStr && (
                     <>
-                      <span className="text-[#86868b] text-[10px]">·</span>
-                      <span className="font-['Outfit'] font-medium text-[11px] text-[#e85d3a] leading-normal flex items-center gap-0.5">
+                      <span className="text-foreground-muted text-overline">·</span>
+                      <span className="text-overline text-accent-danger leading-normal flex items-center gap-0.5">
                         <Clock size={10} strokeWidth={2} />
                         {expiryStr}
                       </span>
@@ -98,7 +99,7 @@ export function PendingItemsList({ items, mintUrl, maxItems = 5, onItemClick }: 
               </div>
             </div>
             <div className="flex flex-col items-end gap-[2px]">
-              <span className="font-['Outfit'] font-bold text-[14px] text-[#1d1d1f] leading-normal">
+              <span className="font-semibold font-display text-caption text-foreground leading-normal">
                 {item.type === 'ecash-request'
                   ? `- ${formatSats(item.amount)}`
                   : `+ ${formatSats(item.amount)}`
@@ -107,12 +108,12 @@ export function PendingItemsList({ items, mintUrl, maxItems = 5, onItemClick }: 
               {(() => {
                 const fiatStr = toFiat(item.amount)
                 return fiatStr ? (
-                  <span className="font-['Outfit'] font-medium text-[11px] text-[#86868b]/70 leading-normal">
+                  <span className="text-overline text-foreground-muted/70 leading-normal">
                     ≈ {fiatStr}
                   </span>
                 ) : null
               })()}
-              <span className="font-['Outfit'] font-medium text-[12px] text-[#86868b] leading-normal">
+              <span className="text-label text-foreground-muted leading-normal">
                 {formatDateLocalized(item.createdAt, i18n.language, t('history.today'), t('history.yesterday'))}
               </span>
             </div>

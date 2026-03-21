@@ -73,7 +73,7 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
   const steps = getInstallSteps(platform, deferredPrompt !== null)
 
   return (
-    <div className="h-dvh bg-[#faf9f6] flex flex-col pt-safe pb-safe max-w-md mx-auto">
+    <div className="h-dvh bg-background flex flex-col pt-safe pb-safe max-w-md mx-auto">
       {/* Center content */}
       <div className="flex-1 flex flex-col items-center justify-center px-5">
         {/* Mascot */}
@@ -84,16 +84,16 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
         />
 
         {/* Title */}
-        <h1 className="font-['Outfit'] font-bold text-3xl text-brand mb-1">ZAPPI</h1>
-        <p className="text-[#86868b] text-sm mb-8">Bitcoin eCash Wallet</p>
+        <h1 className="text-title text-brand mb-1">ZAPPI</h1>
+        <p className="text-caption text-foreground-muted mb-8">Bitcoin eCash Wallet</p>
 
         {/* Install card */}
-        <div className="w-full bg-white/80 backdrop-blur-sm rounded-2xl p-5 shadow-sm">
-          <p className="text-[15px] font-semibold text-[#1d1d1f] text-center mb-1">
-            홈 화면에 설치해주세요
+        <div className="w-full bg-background-card rounded-2xl p-5">
+          <p className="text-body font-semibold text-foreground text-center mb-1">
+            Install to Home Screen
           </p>
-          <p className="text-[12px] text-[#86868b] text-center mb-5">
-            안전한 결제를 위해 앱 설치가 필요합니다
+          <p className="text-label text-foreground-muted text-center mb-5">
+            App installation is required for secure payments
           </p>
 
           {/* Native install button */}
@@ -102,26 +102,26 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
               onClick={handleInstall}
               className="w-full py-3.5 mb-4 bg-brand text-white font-semibold rounded-[14px] shadow-lg shadow-brand/25 active:scale-[0.98] transition-all"
             >
-              앱 설치하기
+              Install App
             </button>
           )}
 
           {/* Platform-specific steps */}
           {steps && (
             <div>
-              <p className="text-[12px] font-semibold text-[#86868b] mb-3">{steps.title}</p>
+              <p className="text-label text-foreground-muted mb-3">{steps.title}</p>
               <ol className="space-y-3">
                 {steps.items.map((item, i) => (
                   <li key={i} className="flex items-start gap-3">
-                    <span className="shrink-0 w-6 h-6 rounded-full bg-brand text-white text-xs font-bold flex items-center justify-center mt-0.5">
+                    <span className="shrink-0 w-6 h-6 rounded-full bg-brand text-white text-label font-bold flex items-center justify-center mt-0.5">
                       {i + 1}
                     </span>
-                    <span className="text-[13px] text-[#1d1d1f] leading-relaxed">{item}</span>
+                    <span className="text-caption text-foreground leading-relaxed">{item}</span>
                   </li>
                 ))}
               </ol>
               {steps.footnote && (
-                <p className="text-[11px] text-[#86868b] mt-3">{steps.footnote}</p>
+                <p className="text-overline text-foreground-muted mt-3">{steps.footnote}</p>
               )}
             </div>
           )}
@@ -133,9 +133,9 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
         <div className="shrink-0 px-5 pb-5">
           <button
             onClick={() => setIsInstalled(true)}
-            className="w-full text-xs text-[#86868b] hover:text-[#1d1d1f] underline underline-offset-2 transition-colors"
+            className="w-full text-label text-foreground-muted hover:text-foreground underline underline-offset-2 transition-colors"
           >
-            설치 없이 진입 (테스트용)
+            Skip install (dev only)
           </button>
         </div>
       )}
@@ -143,7 +143,7 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
   )
 }
 
-/* ─── Install Steps by Platform ─── */
+/* --- Install Steps by Platform --- */
 
 interface InstallSteps {
   title: string
@@ -156,21 +156,21 @@ function getInstallSteps(platform: 'ios' | 'android' | 'desktop', hasNativePromp
 
   if (platform === 'ios') {
     return {
-      title: 'Safari에서',
+      title: 'In Safari',
       items: [
-        '하단 공유(↑) 버튼 선택',
-        '"홈 화면에 추가" 선택',
-        '우측 상단 "추가" 선택',
+        'Tap the Share button at the bottom',
+        'Select "Add to Home Screen"',
+        'Tap "Add" in the top right',
       ],
     }
   }
 
   if (platform === 'android') {
     return {
-      title: 'Chrome에서',
+      title: 'In Chrome',
       items: [
-        '우측 상단 ⋮ 메뉴 선택',
-        '"앱 설치" 또는 "홈 화면에 추가" 선택',
+        'Tap the menu icon in the top right',
+        'Select "Install app" or "Add to Home screen"',
       ],
     }
   }
@@ -179,31 +179,31 @@ function getInstallSteps(platform: 'ios' | 'android' | 'desktop', hasNativePromp
 
   if (browser === 'safari') {
     return {
-      title: 'Safari에서',
+      title: 'In Safari',
       items: [
-        '메뉴바 → "파일" 선택',
-        '"Dock에 추가..." 선택',
+        'Go to Menu Bar > "File"',
+        'Select "Add to Dock..."',
       ],
-      footnote: '또는 공유 → Dock에 추가 (Sonoma+)',
+      footnote: 'Or Share > Add to Dock (Sonoma+)',
     }
   }
 
   if (browser === 'edge') {
     return {
-      title: 'Edge에서',
+      title: 'In Edge',
       items: [
-        '우측 상단 ··· 메뉴 선택',
-        '"앱" → "이 사이트를 앱으로 설치"',
+        'Click the ... menu in the top right',
+        '"Apps" > "Install this site as an app"',
       ],
     }
   }
 
   return {
-    title: 'Chrome에서',
+    title: 'In Chrome',
     items: [
-      '우측 상단 ⋮ 메뉴 선택',
-      '"저장 및 공유" → "페이지를 앱으로 설치"',
+      'Click the menu icon in the top right',
+      '"Save and share" > "Install page as app"',
     ],
-    footnote: '또는 주소창 오른쪽 설치 아이콘 선택',
+    footnote: 'Or click the install icon in the address bar',
   }
 }

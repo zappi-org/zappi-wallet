@@ -19,16 +19,16 @@ export function SupportedNutsModal({ isOpen, nuts, nutNames, onClose }: Supporte
         onClick={onClose}
         className="absolute inset-0 bg-black/30 backdrop-blur-sm pointer-events-auto animate-fadeIn"
       />
-      <div className="bg-[#faf9f6] w-[340px] max-h-[70vh] rounded-2xl pointer-events-auto relative z-10 shadow-2xl animate-slideInUp overflow-hidden flex flex-col">
+      <div className="bg-background w-[340px] max-h-[70vh] rounded-2xl pointer-events-auto relative z-10 shadow-2xl animate-slideInUp overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-4 shrink-0">
+        <div className="flex items-center justify-between px-5 py-5 shrink-0">
           <div className="w-9" />
-          <h3 className="font-['Outfit'] font-bold text-lg text-[#1d1d1f]">
+          <h3 className="text-subtitle text-foreground">
             {t('mintDetail.supportedProtocols')}
           </h3>
           <button
             onClick={onClose}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100"
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-muted"
           >
             <X className="w-4 h-4" />
           </button>
@@ -36,16 +36,16 @@ export function SupportedNutsModal({ isOpen, nuts, nutNames, onClose }: Supporte
 
         {/* NUT List */}
         <div className="px-6 pb-6 overflow-y-auto">
-          <div className="bg-white rounded-xl overflow-hidden border border-gray-100">
+          <div className="bg-background-card rounded-xl overflow-hidden border border-border">
             {nuts.map((nut, i) => (
               <div
                 key={nut}
-                className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? 'border-t border-gray-50' : ''}`}
+                className={`flex items-center gap-3 px-5 py-3.5 ${i > 0 ? 'border-t border-border' : ''}`}
               >
-                <span className="font-mono text-xs text-[#86868b] w-8 shrink-0">
+                <span className="font-mono text-label text-foreground-muted w-8 shrink-0">
                   {nut.padStart(2, '0')}
                 </span>
-                <span className="text-sm text-[#1d1d1f]">
+                <span className="text-caption text-foreground">
                   {nutNames[nut] || `NUT-${nut.padStart(2, '0')}`}
                 </span>
               </div>
@@ -57,7 +57,7 @@ export function SupportedNutsModal({ isOpen, nuts, nutNames, onClose }: Supporte
         <div className="px-6 pb-6 shrink-0">
           <button
             onClick={onClose}
-            className="w-full bg-[#1d1d1f] text-white py-4 rounded-xl font-['Outfit'] font-semibold text-sm active:scale-[0.98] transition-transform"
+            className="w-full bg-brand text-white py-3.5 rounded-xl font-semibold text-caption active:scale-[0.98] transition-transform"
           >
             {t('common.close')}
           </button>

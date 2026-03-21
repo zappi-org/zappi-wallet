@@ -56,6 +56,12 @@ export function AmountInput({
     setIsFiatMode(!isFiatMode)
   }, [isFiatMode, amount, exchangeRate])
 
+  const formatFiatInput = (raw: string) => {
+    const [int, dec] = raw.split('.')
+    const formatted = int ? Number(int).toLocaleString() : ''
+    return dec !== undefined ? `${formatted}.${dec}` : formatted
+  }
+
   const handleFiatChange = useCallback((rawValue: string) => {
     const v = rawValue.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1')
     setFiatInput(v)
@@ -80,11 +86,11 @@ export function AmountInput({
   return (
     <div>
       <div className="flex items-center justify-between">
-        <p className="text-[20px] font-normal text-foreground-muted leading-snug">{label}</p>
+        <p className="text-label text-foreground-muted leading-snug">{label}</p>
         {exchangeRate && showFiat && !disabled && (
           <button
             onClick={handleToggleMode}
-            className="text-xs font-bold text-accent-primary px-2 py-1 rounded-lg hover:bg-accent-primary/10 transition-colors"
+            className="text-label font-bold text-accent-primary px-3 py-1 rounded-full bg-accent-primary/10 hover:bg-accent-primary/15 transition-colors"
           >
             {isFiatMode ? `→ ${unit}` : `→ ${fiatCurrency}`}
           </button>
@@ -93,22 +99,22 @@ export function AmountInput({
       {isFiatMode && exchangeRate ? (
         <>
           <div className="relative">
-            <span className="absolute left-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-[22px]">
+            <span className="absolute left-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-title">
               {currencySymbol}
             </span>
             <input
               ref={inputRef}
               type="text"
               inputMode="decimal"
-              value={fiatInput}
+              value={fiatInput ? formatFiatInput(fiatInput) : ''}
               placeholder="0"
               onChange={(e) => handleFiatChange(e.target.value)}
               onFocus={(e) => { if (!fiatInput) e.target.select() }}
-              className={`w-full bg-transparent border-0 border-b border-b-gray-200 rounded-none pl-8 py-2 text-[22px] font-bold focus:outline-none focus:border-b-foreground transition-colors ${fiatInput ? 'text-foreground' : 'text-foreground-muted/40'}`}
+              className={`w-full bg-transparent border-0 border-b border-b-border rounded-none pl-8 py-2 text-title font-bold focus:outline-none focus:border-b-foreground transition-colors ${fiatInput ? 'text-foreground' : 'text-foreground-muted/40'}`}
             />
           </div>
           {amount && (
-            <p className="text-foreground-muted text-sm mt-1">
+            <p className="text-foreground-muted text-caption mt-1">
               ≈ {Number(amount).toLocaleString()} sats
             </p>
           )}
@@ -117,9 +123,9 @@ export function AmountInput({
         <>
           <div className="relative">
             {unit === '₿' ? (
-              <span className="absolute left-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-[22px]">{unit}</span>
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-title">{unit}</span>
             ) : (
-              <span className="absolute right-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-[18px]">{unit}</span>
+              <span className="absolute right-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-subtitle">{unit}</span>
             )}
             <input
               ref={inputRef}
@@ -130,16 +136,16 @@ export function AmountInput({
               onChange={(e) => handleSatsChange(e.target.value)}
               onFocus={(e) => { if (!amount) e.target.select() }}
               disabled={disabled}
-              className={`w-full bg-transparent border-0 border-b border-b-gray-200 rounded-none ${unit === '₿' ? 'pl-8' : 'pr-12'} py-2 text-[22px] font-bold focus:outline-none focus:border-b-foreground transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${amount ? 'text-foreground' : 'text-foreground-muted/40'}`}
+              className={`w-full bg-transparent border-0 border-b border-b-border rounded-none ${unit === '₿' ? 'pl-8' : 'pr-12'} py-2 text-title font-bold focus:outline-none focus:border-b-foreground transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${amount ? 'text-foreground' : 'text-foreground-muted/40'}`}
             />
           </div>
           {fiatHint && (
-            <p className="text-foreground-muted text-sm mt-1">≈ {fiatHint}</p>
+            <p className="text-foreground-muted text-caption mt-1">≈ {fiatHint}</p>
           )}
         </>
       )}
       {error && (
-        <p className="text-red-500 text-sm mt-1 font-bold">{error}</p>
+        <p className="text-accent-danger text-caption mt-1 font-bold">{error}</p>
       )}
     </div>
   )

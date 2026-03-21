@@ -20,7 +20,7 @@ export function SegmentControl<T extends string>({
     <div className={cn('relative flex p-[3px] bg-foreground/[0.06] rounded-[10px]', className)}>
       {/* Sliding indicator */}
       <div
-        className="absolute top-[3px] bottom-[3px] bg-white rounded-[8px] shadow-sm transition-transform duration-200 ease-out"
+        className="absolute top-[3px] bottom-[3px] bg-background-card rounded-[8px] shadow-sm transition-transform duration-200 ease-out"
         style={{
           width: `calc(${100 / count}% - 3px)`,
           left: 3,
@@ -33,7 +33,7 @@ export function SegmentControl<T extends string>({
           key={option.value}
           onClick={() => onChange(option.value)}
           className={cn(
-            'relative z-10 flex-1 py-[7px] text-body-sm font-semibold transition-colors duration-150',
+            'relative z-10 flex-1 min-h-[40px] py-[7px] text-caption font-semibold transition-colors duration-150',
             value === option.value ? 'text-foreground' : 'text-foreground-muted',
           )}
         >

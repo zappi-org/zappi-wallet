@@ -237,6 +237,11 @@ export default {
     fiatCurrency: 'Mata Uang',
     showFiatConversion: 'Tampilkan Harga Fiat',
     selectCurrency: 'Pilih Mata Uang',
+
+    // Descriptions
+    active: 'Aktif',
+    autoLockDescription: 'Kunci otomatis setelah tidak aktif',
+    faceIdDescription: 'Gunakan autentikasi biometrik untuk membuka',
   },
 
   // Add Mint Screen
@@ -657,7 +662,7 @@ export default {
     fromMintPrefix: '',
     fromMintSuffix: ' dari',
     whereTo: 'Kirim ke mana?',
-    placeholder: 'Alamat Lightning, invoice, permintaan pembayaran...',
+    placeholder: 'Masukkan alamat atau invoice',
     howMuch: 'Berapa yang akan dikirim?',
     createToken: 'Buat Token',
     next: 'Lanjut',

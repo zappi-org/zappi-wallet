@@ -203,13 +203,13 @@ export function LockScreen({
         <div className="flex-1 flex flex-col items-center justify-center">
           <img src={zappiLogo} alt="" className="w-24 h-24 mb-6" aria-hidden="true" />
 
-          <p className="text-foreground-muted text-base mb-8">
+          <p className="text-foreground-muted text-body mb-8">
             {t('lock.enterPin')}
           </p>
 
           {/* PIN dots */}
           <div
-            className="flex gap-4 mb-6"
+            className="flex gap-3 mb-6"
             style={shake ? { animation: 'shake 0.4s ease-in-out' } : undefined}
           >
             {[0, 1, 2, 3, 4, 5].map((i) => (
@@ -219,12 +219,12 @@ export function LockScreen({
                 style={{
                   transform: password.length > i ? 'scale(1)' : 'scale(0.75)',
                   backgroundColor: shake
-                    ? 'rgba(248, 113, 113, 0.5)'
+                    ? 'color-mix(in srgb, var(--accent-danger) 50%, transparent)'
                     : password.length > i
                       ? 'var(--brand)'
                       : 'color-mix(in srgb, var(--brand) 20%, transparent)',
                   border: shake
-                    ? '1px solid #f87171'
+                    ? '1px solid var(--accent-danger)'
                     : 'none',
                 }}
               />
@@ -233,7 +233,7 @@ export function LockScreen({
 
           {/* Error Message */}
           {error && (
-            <div className="animate-fadeIn bg-accent-danger/10 text-accent-danger px-3 py-2 rounded-xl text-xs font-bold mb-3">
+            <div className="animate-fadeIn border-l-2 border-accent-danger bg-accent-danger/[0.06] px-3 py-2 text-label text-accent-danger mb-3">
               {error}
             </div>
           )}
@@ -242,7 +242,7 @@ export function LockScreen({
           {isLockedOut && lockoutUntil && (
             <CountdownTimer expiryMs={lockoutUntil} onExpired={handleLockoutExpired}>
               {(remainingSeconds) => (
-                <p className="text-accent-danger text-xs text-center mt-1">
+                <p className="text-accent-danger text-label text-center mt-1">
                   {t('lock.tryAgainIn', { time: formatSeconds(remainingSeconds) })}
                 </p>
               )}

@@ -27,8 +27,8 @@ export function ListItem({
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
       className={cn(
-        'w-full flex items-center gap-3 px-4 py-3 min-h-[52px] transition-colors',
-        onClick && !disabled && 'hover:bg-black/[0.02] active:bg-black/[0.04] cursor-pointer',
+        'w-full flex items-center gap-3 px-5 py-3.5 min-h-[52px] transition-colors',
+        onClick && !disabled && 'hover:bg-foreground/[0.02] active:bg-foreground/[0.04] cursor-pointer',
         disabled && 'opacity-40 cursor-not-allowed',
         className,
       )}
@@ -38,11 +38,11 @@ export function ListItem({
       )}
 
       <div className="flex-1 min-w-0 text-left">
-        <span className="text-body-lg text-foreground block truncate">
+        <span className="text-body text-foreground block truncate">
           {title}
         </span>
         {subtitle && (
-          <span className="text-body-sm text-foreground-muted block truncate mt-0.5">
+          <span className="text-caption text-foreground-muted block truncate mt-0.5">
             {subtitle}
           </span>
         )}

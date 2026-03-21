@@ -88,33 +88,33 @@ export function SendConfirmStep({
     : undefined
 
   return (
-    <div className="flex flex-col h-full bg-[#faf9f6]">
+    <div className="flex flex-col h-full bg-background">
       {/* Header — no border */}
       <header className="relative flex items-center px-4 py-3">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="p-2 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10"
+          className="p-2 rounded-lg hover:bg-background-hover transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="absolute inset-0 flex items-center justify-center text-lg font-semibold pointer-events-none">{t('send.confirm.title')}</h1>
+        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle pointer-events-none">{t('send.confirm.title')}</h1>
       </header>
 
       {/* Question text — upper area, Toss style */}
       <div className="flex-1 flex flex-col px-6">
         <div className="pt-16 text-center space-y-1">
-          <p className="text-[24px] leading-snug">
+          <p className="text-amount-lg leading-snug">
             <span className="font-bold text-brand">{recipient}</span>
             <span className="font-medium">{t('send.confirm.toSuffix')}</span>
           </p>
-          <p className="text-[24px] font-bold leading-snug">
+          <p className="text-amount-lg font-bold leading-snug">
             {formatSats(amount)} {t('send.confirm.amountSuffix')}
           </p>
           {(() => { const f = formatFiat(amount); return f ? (
-            <p className="text-[15px] text-foreground-muted">≈ {f}</p>
+            <p className="text-body text-foreground-muted">≈ {f}</p>
           ) : null })()}
-          <p className="text-[24px] font-medium leading-snug">
+          <p className="text-amount-lg font-medium leading-snug">
             {t('send.confirm.questionEnd')}
           </p>
         </div>
@@ -123,38 +123,38 @@ export function SendConfirmStep({
         <div className="flex-1" />
 
         {/* Detail rows — flat, no card background */}
-        <div className="space-y-4 mb-4 px-1">
+        <div className="space-y-3 mb-4 px-1">
           <div className="flex items-center justify-between">
-            <span className="text-[15px] text-foreground-muted">{t('send.confirm.method')}</span>
-            <span className="text-[15px] font-semibold">{method}</span>
+            <span className="text-body text-foreground-muted">{t('send.confirm.method')}</span>
+            <span className="text-body font-semibold">{method}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[15px] text-foreground-muted">{t('send.confirm.sourceMint')}</span>
-            <span className="text-[15px] font-semibold truncate max-w-[200px]">{mintName}</span>
+            <span className="text-body text-foreground-muted">{t('send.confirm.sourceMint')}</span>
+            <span className="text-body font-semibold truncate max-w-[200px]">{mintName}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[15px] text-foreground-muted">{t('send.confirm.recipient')}</span>
-            <span className="text-[15px] font-semibold truncate max-w-[200px]">{recipientDetail}</span>
+            <span className="text-body text-foreground-muted">{t('send.confirm.recipient')}</span>
+            <span className="text-body font-semibold truncate max-w-[200px]">{recipientDetail}</span>
           </div>
           {memo && (
             <div className="flex items-center justify-between">
-              <span className="text-[15px] text-foreground-muted">{t('send.confirm.memo')}</span>
-              <span className="text-[15px] font-semibold truncate max-w-[200px]">{memo}</span>
+              <span className="text-body text-foreground-muted">{t('send.confirm.memo')}</span>
+              <span className="text-body font-semibold truncate max-w-[200px]">{memo}</span>
             </div>
           )}
           {fee > 0 && (
             <>
-              <div className="border-t border-black/5" />
+              <div className="border-t border-border" />
               <div className="flex items-center justify-between">
-                <span className="text-[15px] text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
-                <span className="text-[15px] font-semibold">{formatSats(fee)}</span>
+                <span className="text-body text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
+                <span className="text-body font-semibold">{formatSats(fee)}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[15px] font-semibold">{t('send.confirm.total')}</span>
+                <span className="text-body font-semibold">{t('send.confirm.total')}</span>
                 <div className="text-right">
-                  <span className="text-[15px] font-bold">{formatSats(totalAmount)}</span>
+                  <span className="text-body font-bold">{formatSats(totalAmount)}</span>
                   {(() => { const f = formatFiat(totalAmount); return f ? (
-                    <p className="text-[13px] text-foreground-muted">≈ {f}</p>
+                    <p className="text-caption text-foreground-muted">≈ {f}</p>
                   ) : null })()}
                 </div>
               </div>
@@ -164,14 +164,14 @@ export function SendConfirmStep({
 
         {/* Error */}
         {error && (
-          <div className="px-4 py-3 bg-accent-danger/10 rounded-xl text-accent-danger text-sm mb-4">
+          <div className="px-4 py-3 bg-accent-danger/10 rounded-xl text-accent-danger text-caption mb-4">
             {error}
           </div>
         )}
       </div>
 
       {/* Bottom Action — no border-t */}
-      <div className="p-5 pb-safe">
+      <div className="p-4 pb-safe">
         <Button
           variant="brand"
           size="xl"

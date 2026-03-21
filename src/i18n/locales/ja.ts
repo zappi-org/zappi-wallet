@@ -237,6 +237,11 @@ export default {
     fiatCurrency: '通貨',
     showFiatConversion: '法定通貨を表示',
     selectCurrency: '通貨を選択',
+
+    // Descriptions
+    active: '有効',
+    autoLockDescription: '非アクティブ時に自動ロック',
+    faceIdDescription: '生体認証でロック解除',
   },
 
   // Add Mint Screen
@@ -627,7 +632,7 @@ export default {
     fromMintPrefix: '',
     fromMintSuffix: 'から',
     whereTo: 'どこに送りますか？',
-    placeholder: 'Lightningアドレス、インボイス、支払いリクエスト...',
+    placeholder: 'アドレスまたはインボイスを入力',
     howMuch: 'いくら送りますか？',
     createToken: 'トークンを作成',
     next: '次へ',

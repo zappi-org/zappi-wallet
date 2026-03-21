@@ -99,18 +99,18 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename }: Min
         />
 
         {/* Sheet */}
-        <div className="bg-[#faf9f6] w-full rounded-t-2xl pointer-events-auto relative z-10 shadow-2xl pb-safe max-h-[90vh] overflow-y-auto animate-slideInUp">
+        <div className="bg-background w-full rounded-t-2xl pointer-events-auto relative z-10 shadow-2xl pb-safe max-h-[90vh] overflow-y-auto animate-slideInUp">
           {/* Header */}
-          <div className="sticky top-0 bg-[#faf9f6] z-10 flex items-center justify-between px-4 py-4 border-b border-gray-100">
+          <div className="sticky top-0 bg-background z-10 flex items-center justify-between px-4 py-4 border-b border-border">
             <div className="w-9" />
-            <h2 className="font-['Outfit'] font-bold text-lg text-[#1d1d1f]">
+            <h2 className="text-subtitle text-foreground">
               {t('mintDetail.mintInfo')}
             </h2>
             <button
               onClick={onClose}
-              className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100"
+              className="w-9 h-9 flex items-center justify-center rounded-full bg-muted"
             >
-              <X className="w-4 h-4 text-[#1d1d1f]" />
+              <X className="w-4 h-4 text-foreground" />
             </button>
           </div>
 
@@ -120,8 +120,8 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename }: Min
               {mint.iconUrl ? (
                 <img src={mint.iconUrl} alt="" className="w-12 h-12 rounded-full object-cover" />
               ) : (
-                <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
-                  <span className="text-lg font-bold text-gray-400">{aliasName[0]?.toUpperCase()}</span>
+                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                  <span className="text-subtitle text-foreground-muted">{aliasName[0]?.toUpperCase()}</span>
                 </div>
               )}
               {isEditingName ? (
@@ -135,70 +135,70 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename }: Min
                     onBlur={handleSaveName}
                     placeholder={t('mintDetail.namePlaceholder')}
                     maxLength={10}
-                    className="font-['Outfit'] font-bold text-xl text-[#1d1d1f] text-center bg-gray-100 rounded-lg px-3 py-1 outline-none focus:ring-2 focus:ring-primary/30 w-48"
+                    className="text-title text-foreground text-center bg-muted rounded-lg px-3 py-1 outline-none focus:ring-2 focus:ring-primary/30 w-48"
                   />
-                  <span className="text-[11px] text-[#86868b]">{editNameValue.length}/10</span>
+                  <span className="text-overline text-foreground-muted">{editNameValue.length}/10</span>
                 </div>
               ) : (
                 <button
                   onClick={handleStartEditName}
                   className="flex items-center gap-1.5 group"
                 >
-                  <p className="font-['Outfit'] font-bold text-xl text-[#1d1d1f]">{aliasName}</p>
-                  <Pencil className="w-3.5 h-3.5 text-[#86868b] opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <p className="text-title text-foreground">{aliasName}</p>
+                  <Pencil className="w-3.5 h-3.5 text-foreground-muted opacity-0 group-hover:opacity-100 transition-opacity" />
                 </button>
               )}
               {originalMintName && originalMintName !== aliasName && (
-                <p className="text-xs text-[#86868b]">{originalMintName}</p>
+                <p className="text-label text-foreground-muted">{originalMintName}</p>
               )}
             </div>
 
             {isLoading ? (
               <div className="flex justify-center py-8">
-                <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                <div className="w-6 h-6 border-2 border-border border-t-foreground-muted rounded-full animate-spin" />
               </div>
             ) : (
               <>
                 {/* Announcement (MOTD) */}
                 {mintInfo?.motd && (
                   <InfoCard label={t('mintDetail.announcement')}>
-                    <p className="text-sm text-[#1d1d1f]">{mintInfo.motd}</p>
+                    <p className="text-caption text-foreground">{mintInfo.motd}</p>
                   </InfoCard>
                 )}
 
                 {/* Description */}
                 {mintInfo?.description && (
                   <InfoCard label={t('mintDetail.description')}>
-                    <p className="text-sm text-[#1d1d1f]">{mintInfo.description}</p>
+                    <p className="text-caption text-foreground">{mintInfo.description}</p>
                     {mintInfo.description_long && (
-                      <p className="text-sm text-[#86868b] mt-1">{mintInfo.description_long}</p>
+                      <p className="text-caption text-foreground-muted mt-1">{mintInfo.description_long}</p>
                     )}
                   </InfoCard>
                 )}
 
                 {/* Mint URL */}
                 <div>
-                  <p className="font-['Outfit'] font-semibold text-base text-[#1d1d1f] mb-2">
+                  <p className="text-overline uppercase tracking-wide text-foreground-muted mb-2">
                     {t('mintDetail.mintUrl')}
                   </p>
-                  <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between gap-2">
-                    <span className="text-sm font-mono text-[#1d1d1f] truncate">{mint.url}</span>
+                  <div className="bg-input rounded-xl px-4 py-3 flex items-center justify-between gap-2">
+                    <span className="text-caption font-mono text-foreground truncate">{mint.url}</span>
                     <div className="flex gap-1 shrink-0">
                       <button
                         onClick={() => handleCopy(mint.url, 'url')}
-                        className="w-9 h-9 flex items-center justify-center rounded-lg bg-white border border-gray-200"
+                        className="w-9 h-9 flex items-center justify-center rounded-lg bg-background-card border border-border"
                       >
                         {copiedField === 'url' ? (
-                          <Check className="w-4 h-4 text-green-600" />
+                          <Check className="w-4 h-4 text-accent-success" />
                         ) : (
-                          <Copy className="w-4 h-4 text-[#86868b]" />
+                          <Copy className="w-4 h-4 text-foreground-muted" />
                         )}
                       </button>
                       <button
                         onClick={() => setShowQr(true)}
-                        className="w-9 h-9 flex items-center justify-center rounded-lg bg-white border border-gray-200"
+                        className="w-9 h-9 flex items-center justify-center rounded-lg bg-background-card border border-border"
                       >
-                        <QrCode className="w-4 h-4 text-[#86868b]" />
+                        <QrCode className="w-4 h-4 text-foreground-muted" />
                       </button>
                     </div>
                   </div>
@@ -207,23 +207,23 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename }: Min
                 {/* Contact */}
                 {mintInfo?.contact && mintInfo.contact.length > 0 && (
                   <div>
-                    <p className="font-['Outfit'] font-semibold text-base text-[#1d1d1f] mb-2">
+                    <p className="text-overline uppercase tracking-wide text-foreground-muted mb-2">
                       {t('mintDetail.mintContact')}
                     </p>
-                    <div className="bg-gray-50 rounded-xl overflow-hidden">
+                    <div className="bg-input rounded-xl overflow-hidden">
                       {mintInfo.contact.map((c, i) => (
                         <div
                           key={i}
                           className={cn(
                             'flex items-center justify-between px-4 py-3',
-                            i > 0 && 'border-t border-gray-100'
+                            i > 0 && 'border-t border-border'
                           )}
                         >
                           <div className="flex items-center gap-3 min-w-0">
-                            <ExternalLink className="w-4 h-4 text-[#86868b] shrink-0" />
+                            <ExternalLink className="w-4 h-4 text-foreground-muted shrink-0" />
                             <div className="min-w-0">
-                              <p className="text-xs text-[#86868b] font-medium">{c.method}</p>
-                              <p className="text-sm text-[#1d1d1f] truncate">{c.info}</p>
+                              <p className="text-label text-foreground-muted font-medium">{c.method}</p>
+                              <p className="text-caption text-foreground truncate">{c.info}</p>
                             </div>
                           </div>
                           <button
@@ -231,9 +231,9 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename }: Min
                             className="w-9 h-9 flex items-center justify-center shrink-0"
                           >
                             {copiedField === `contact-${i}` ? (
-                              <Check className="w-4 h-4 text-green-600" />
+                              <Check className="w-4 h-4 text-accent-success" />
                             ) : (
-                              <Copy className="w-4 h-4 text-[#86868b]" />
+                              <Copy className="w-4 h-4 text-foreground-muted" />
                             )}
                           </button>
                         </div>
@@ -244,24 +244,24 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename }: Min
 
                 {/* Details Section */}
                 <div>
-                  <p className="font-['Outfit'] font-semibold text-base text-[#1d1d1f] mb-2">
+                  <p className="text-overline uppercase tracking-wide text-foreground-muted mb-2">
                     {t('mintDetail.details')}
                   </p>
-                  <div className="bg-gray-50 rounded-xl overflow-hidden">
+                  <div className="bg-input rounded-xl overflow-hidden">
                     {/* Version */}
                     {mintInfo?.version && (
                       <div className="flex items-center justify-between px-4 py-3">
-                        <span className="text-sm text-[#86868b]">{t('mintDetail.version')}</span>
+                        <span className="text-caption text-foreground-muted">{t('mintDetail.version')}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-mono text-[#1d1d1f]">{mintInfo.version}</span>
+                          <span className="text-caption font-mono text-foreground">{mintInfo.version}</span>
                           <button
                             onClick={() => handleCopy(mintInfo.version!, 'version')}
                             className="w-7 h-7 flex items-center justify-center"
                           >
                             {copiedField === 'version' ? (
-                              <Check className="w-3.5 h-3.5 text-green-600" />
+                              <Check className="w-3.5 h-3.5 text-accent-success" />
                             ) : (
-                              <Copy className="w-3.5 h-3.5 text-[#86868b]" />
+                              <Copy className="w-3.5 h-3.5 text-foreground-muted" />
                             )}
                           </button>
                         </div>
@@ -270,19 +270,19 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename }: Min
 
                     {/* Units */}
                     {mintInfo?.units && mintInfo.units.length > 0 && (
-                      <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-                        <span className="text-sm text-[#86868b]">{t('mintDetail.units')}</span>
-                        <span className="text-sm text-[#1d1d1f]">{mintInfo.units.join(', ')}</span>
+                      <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                        <span className="text-caption text-foreground-muted">{t('mintDetail.units')}</span>
+                        <span className="text-caption text-foreground">{mintInfo.units.join(', ')}</span>
                       </div>
                     )}
 
                     {/* Supported Protocols */}
                     {nuts.length > 0 && (
-                      <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-                        <span className="text-sm text-[#86868b]">{t('mintDetail.supportedProtocols')}</span>
+                      <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                        <span className="text-caption text-foreground-muted">{t('mintDetail.supportedProtocols')}</span>
                         <button
                           onClick={() => setShowNuts(true)}
-                          className="text-sm text-brand font-medium"
+                          className="text-caption text-brand font-medium"
                         >
                           {t('mintDetail.viewAll')}
                         </button>
@@ -291,21 +291,21 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename }: Min
 
                     {/* Pubkey */}
                     {mintInfo?.pubkey && (
-                      <div className="px-4 py-3 border-t border-gray-100">
+                      <div className="px-4 py-3 border-t border-border">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-[#86868b]">Pubkey</span>
+                          <span className="text-caption text-foreground-muted">Pubkey</span>
                           <button
                             onClick={() => handleCopy(mintInfo.pubkey!, 'pubkey')}
                             className="w-7 h-7 flex items-center justify-center"
                           >
                             {copiedField === 'pubkey' ? (
-                              <Check className="w-3.5 h-3.5 text-green-600" />
+                              <Check className="w-3.5 h-3.5 text-accent-success" />
                             ) : (
-                              <Copy className="w-3.5 h-3.5 text-[#86868b]" />
+                              <Copy className="w-3.5 h-3.5 text-foreground-muted" />
                             )}
                           </button>
                         </div>
-                        <p className="text-xs font-mono text-[#86868b] break-all mt-1">
+                        <p className="text-label font-mono text-foreground-muted break-all mt-1">
                           {mintInfo.pubkey}
                         </p>
                       </div>
@@ -316,12 +316,12 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename }: Min
                 {/* Danger Zone */}
                 {onDelete && (
                   <div>
-                    <p className="font-['Outfit'] font-semibold text-base text-[#1d1d1f] mb-2">
+                    <p className="text-overline uppercase tracking-wide text-foreground-muted mb-2">
                       {t('mintDetail.dangerZone')}
                     </p>
                     <button
                       onClick={() => setShowDelete(true)}
-                      className="w-full border-2 border-red-400 rounded-xl py-4 text-red-500 font-['Outfit'] font-semibold text-sm hover:bg-red-50 transition-colors"
+                      className="w-full bg-accent-danger text-white rounded-xl py-4 font-semibold text-caption hover:bg-accent-danger/90 transition-colors"
                     >
                       {t('mintDetail.emptyAndDelete')}
                     </button>
@@ -361,8 +361,8 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename }: Min
 
 function InfoCard({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="bg-gray-50 rounded-xl px-4 py-3">
-      <p className="text-xs font-semibold text-[#86868b] uppercase mb-1">{label}</p>
+    <div className="bg-input rounded-xl px-4 py-3">
+      <p className="text-label text-foreground-muted uppercase mb-1">{label}</p>
       {children}
     </div>
   )

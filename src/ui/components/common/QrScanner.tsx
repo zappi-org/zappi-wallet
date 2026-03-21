@@ -185,7 +185,7 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
             <path d="M21.83 14.83A2 2 0 0 0 22 14V9a2 2 0 0 0-2-2h-9" />
           </svg>
         </div>
-        <p className="text-muted-foreground text-center">{t('scanner.cameraNotFound')}</p>
+        <p className="text-foreground-muted text-center">{t('scanner.cameraNotFound')}</p>
       </div>
     )
   }
@@ -203,7 +203,7 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
       {!isReady && !errorMessage && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50">
           <div className="w-10 h-10 border-2 border-accent-primary border-t-transparent rounded-full animate-spin mb-3" />
-          <p className="text-white/70 text-sm">{t('scanner.cameraPreparing')}</p>
+          <p className="text-white/70 text-caption">{t('scanner.cameraPreparing')}</p>
         </div>
       )}
 
@@ -212,8 +212,8 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
         <div className="absolute bottom-4 left-4 right-4">
           <div className="bg-black/70 rounded-lg p-3">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-white/90 text-xs font-medium">{t('scanner.multipartScanning')}</span>
-              <span className="text-accent-primary text-xs font-bold">{Math.round(urProgress * 100)}%</span>
+              <span className="text-white/90 text-label">{t('scanner.multipartScanning')}</span>
+              <span className="text-accent-primary text-label font-bold">{Math.round(urProgress * 100)}%</span>
             </div>
             <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">
               <div
@@ -230,7 +230,7 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
         <div className="absolute inset-0 flex items-center justify-center bg-black/80">
           <div className="text-center p-4">
             <p className="text-destructive mb-2">{errorMessage}</p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-caption text-foreground-muted">
               {t('scanner.enableCameraPermission')}
             </p>
           </div>

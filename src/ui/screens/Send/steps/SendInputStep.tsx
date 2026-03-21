@@ -209,23 +209,23 @@ export function SendInputStep({
   }, [destination, amount, selectedMintUrl, mintBalance, validatedData, onNext, addToast, t])
 
   return (
-    <div className="flex flex-col h-full bg-[#faf9f6]">
+    <div className="flex flex-col h-full bg-background">
       {/* Header — no border */}
       <header className="relative flex items-center justify-between px-4 py-3">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="p-2 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10"
+          className="p-2 rounded-lg hover:bg-background-hover transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="absolute inset-0 flex items-center justify-center text-lg font-semibold pointer-events-none">{t('send.title')}</h1>
+        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle pointer-events-none">{t('send.title')}</h1>
         <button
           onClick={() => {
             hapticTap()
             onGoToTokenCreate()
           }}
-          className="text-sm text-accent-primary font-medium min-h-[44px] px-2 flex items-center justify-center rounded-lg hover:bg-black/5 active:bg-black/10 transition-colors z-10"
+          className="text-label text-accent-primary font-medium min-h-[44px] px-2 flex items-center justify-center rounded-lg hover:bg-background-hover active:bg-background-hover transition-colors z-10"
         >
           {t('send.createToken')}
         </button>
@@ -241,30 +241,30 @@ export function SendInputStep({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6 space-y-10">
+      <div className="flex-1 overflow-y-auto px-6 space-y-6">
         {/* Destination */}
         <div>
-          <p className="text-[20px] font-normal text-foreground-muted leading-snug">{t('send.whereTo')}</p>
-          <div className="flex items-end gap-1 border-b border-b-gray-200 focus-within:border-b-foreground transition-colors">
+          <p className="text-label font-normal text-foreground-muted leading-snug">{t('send.whereTo')}</p>
+          <div className="flex items-end gap-1 border-b border-b-border focus-within:border-b-foreground transition-colors">
             <input
               type="text"
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
               placeholder={t('send.placeholder')}
-              className="flex-1 min-w-0 bg-transparent border-0 rounded-none px-0 py-2 text-[22px] font-bold text-foreground placeholder:text-foreground-muted/40 placeholder:text-[16px] placeholder:font-normal focus:outline-none"
+              className="flex-1 min-w-0 bg-transparent border-0 rounded-none px-0 py-2 text-subtitle font-semibold text-foreground placeholder:text-foreground-muted/40 placeholder:font-normal focus:outline-none"
             />
             <div className="flex items-center gap-0.5 shrink-0 pb-1">
               <button
                 onClick={handlePaste}
                 aria-label={t('scanner.paste')}
-                className="p-2 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className="p-2 rounded-lg hover:bg-background-hover transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <ClipboardPaste className="w-5.5 h-5.5 text-accent-primary" />
               </button>
               <button
                 onClick={() => setShowScanner(true)}
                 aria-label={t('scanner.title')}
-                className="p-2 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className="p-2 rounded-lg hover:bg-background-hover transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <Camera className="w-5.5 h-5.5 text-accent-primary" />
               </button>
@@ -272,7 +272,7 @@ export function SendInputStep({
           </div>
           {/* Detected type badge */}
           {detectedType && (
-            <span className="inline-block text-xs px-2.5 py-1 mt-1.5 rounded-full bg-accent-primary/10 text-accent-primary font-medium">
+            <span className="inline-block text-label px-2.5 py-1 mt-1.5 rounded-full bg-accent-primary/10 text-accent-primary font-medium">
               {detectedType.replace('-', ' ')}
             </span>
           )}
@@ -290,7 +290,7 @@ export function SendInputStep({
       </div>
 
       {/* Bottom Action */}
-      <div className="p-5 pb-safe">
+      <div className="p-4 pb-safe">
         <Button
           variant="brand"
           size="xl"
@@ -305,16 +305,16 @@ export function SendInputStep({
 
       {/* QR Scanner Modal */}
       {showScanner && (
-        <div className="fixed inset-0 z-50 bg-[#faf9f6] pt-safe pb-safe">
+        <div className="fixed inset-0 z-50 bg-background pt-safe pb-safe">
           <div className="flex items-center px-4 py-3">
             <button
               onClick={() => setShowScanner(false)}
               aria-label={t('common.back')}
-              className="p-2 -ml-2 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+              className="p-2 -ml-2 rounded-lg hover:bg-background-hover transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h2 className="text-lg font-semibold ml-2">{t('scanner.title')}</h2>
+            <h2 className="text-subtitle ml-2">{t('scanner.title')}</h2>
           </div>
           <div className="p-4">
             <QrScanner onScan={handleScan} active={showScanner} />

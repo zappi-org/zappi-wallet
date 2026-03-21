@@ -27,7 +27,7 @@ export function EmptyState({
         </div>
       )}
 
-      <p className="text-heading-md text-foreground">{title}</p>
+      <p className="text-subtitle text-foreground">{title}</p>
 
       {description && (
         <p className="text-body text-foreground-muted mt-1.5 max-w-[260px] leading-relaxed">

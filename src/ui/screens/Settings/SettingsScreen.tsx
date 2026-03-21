@@ -1,35 +1,31 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
-
-import { ArrowLeft, ChevronDown, ChevronsUpDown, Check, Copy, AlertTriangle, ShieldCheck, Download, SlidersHorizontal } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, Check, Copy, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Modal, BottomSheet, PinInput } from '../../components/common'
+import { AnimatePresence } from 'motion/react'
+import { PageTransition } from '@/ui/components/common/PageTransition'
+import { Modal, PinInput } from '../../components/common'
 import { useAppStore } from '@/store'
 import { encodeNpub } from '@/services/crypto'
-import { satUnit, FIAT_CURRENCY_MAP } from '@/utils/format'
+import { satUnit } from '@/utils/format'
 import { formatMintHost } from '@/utils/url'
-import { CurrencyPickerBottomSheet } from './CurrencyPickerBottomSheet'
-import { Switch } from '@/ui/components/common/Switch'
 import { restoreWallet, getBalances, recoverPendingQuotes } from '@/coco'
 import { ZAPPI_LINK_URL } from '@/core/constants'
 import { ProfileService } from '@/services/profile/profile.service'
 import { NostrService } from '@/services/nostr/nostr.service'
 import { ZappiLinkService } from '@/services/zappi-link'
-import {
-  isPasskeySupported,
-  isPasskeyRegistered,
-  registerPasskey,
-  removePasskey,
-} from '@/services/passkey'
 import { cn } from '@/components/ui/utils'
-import { SUPPORTED_LANGUAGES, changeLanguage, getCurrentLanguage } from '@/i18n'
-import { updateSW } from '@/registerSW'
 
-import { ProfileSection } from './ProfileSection'
-import { SecuritySection } from './SecuritySection'
-import { WalletManagementSection } from './WalletManagementSection'
-import { POSProvisioningSection } from './POSProvisioningSection'
 import { PinChangeModal } from './PinChangeModal'
 import { usePinChange } from './usePinChange'
+import { SettingsMainList } from './SettingsMainList'
+import { LanguageSettingPage } from './pages/LanguageSettingPage'
+import { UnitDisplaySettingPage } from './pages/UnitDisplaySettingPage'
+import { FiatSettingPage } from './pages/FiatSettingPage'
+import { FaceIdSettingPage } from './pages/FaceIdSettingPage'
+import { AutoLockSettingPage } from './pages/AutoLockSettingPage'
+import { POSSettingPage } from './pages/POSSettingPage'
+
+export type SettingsPage = 'language' | 'unitDisplay' | 'fiat' | 'faceId' | 'autoLock' | 'pos'
 
 export interface SettingsScreenProps {
   onBack: () => void
@@ -66,140 +62,41 @@ export function SettingsScreen({
   const nostrPrivkey = useAppStore((state) => state.nostrPrivkey)
   const p2pkPubkey = useAppStore((state) => state.p2pkPubkey)
   const setBalance = useAppStore((state) => state.setBalance)
-  const updateAvailable = useAppStore((state) => state.updateAvailable)
 
-  const [showLanguageModal, setShowLanguageModal] = useState(false)
-  const [currentLang, setCurrentLang] = useState(getCurrentLanguage())
+  // Internal sub-page navigation
+  const [settingsPage, setSettingsPage] = useState<SettingsPage | null>(null)
 
+  // Lightning address registration
   const [isRegistering, setIsRegistering] = useState(false)
-  const [autoLockEnabled, setAutoLockEnabled] = useState(settings.autoLockEnabled)
-  const [autoLockTimeout, setAutoLockTimeout] = useState(settings.autoLockTimeoutMinutes)
 
-  const [showCurrencyPicker, setShowCurrencyPicker] = useState(false)
-
+  // Backup modal
   const [showBackupModal, setShowBackupModal] = useState(false)
-  const [showLogoutModal, setShowLogoutModal] = useState(false)
-
   const [backupPin, setBackupPin] = useState('')
   const [mnemonic, setMnemonic] = useState('')
   const [backupError, setBackupError] = useState('')
   const [isLoadingBackup, setIsLoadingBackup] = useState(false)
+  const [backupCopied, setBackupCopied] = useState(false)
 
+  // Restore modal
   const [showRestoreModal, setShowRestoreModal] = useState(false)
   const [isRestoring, setIsRestoring] = useState(false)
   const [restoreProgress, setRestoreProgress] = useState('')
   const [restoreResult, setRestoreResult] = useState<{ success: boolean; message: string } | null>(null)
 
+  // Logout modal
+  const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [logoutPin, setLogoutPin] = useState('')
   const [logoutError, setLogoutError] = useState('')
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
-  const [npubCopied, setNpubCopied] = useState(false)
-  const [backupCopied, setBackupCopied] = useState(false)
-
-  const [passkeySupported, setPasskeySupported] = useState(false)
-  const [passkeyEnabled, setPasskeyEnabled] = useState(false)
-  const [showPasskeyModal, setShowPasskeyModal] = useState(false)
-  const [showPasskeyRemoveModal, setShowPasskeyRemoveModal] = useState(false)
-  const [passkeyPin, setPasskeyPin] = useState('')
-  const [passkeyError, setPasskeyError] = useState('')
-  const [isRegisteringPasskey, setIsRegisteringPasskey] = useState(false)
-  const [isRemovingPasskey, setIsRemovingPasskey] = useState(false)
-
+  // PIN change
   const pinChange = usePinChange({
     onVerifyPin,
     onChangePassword,
-    onPasskeyDesynced: () => setPasskeyEnabled(false),
+    onPasskeyDesynced: () => {},
   })
 
-  useEffect(() => {
-    setPasskeySupported(isPasskeySupported())
-    setPasskeyEnabled(isPasskeyRegistered())
-  }, [])
-
-  const handleCopyNpub = useCallback(() => {
-    if (nostrPubkey) {
-      navigator.clipboard.writeText(encodeNpub(nostrPubkey))
-      setNpubCopied(true)
-      setTimeout(() => setNpubCopied(false), 2000)
-      addToast({ type: 'success', message: t('toast.copied'), duration: 2000 })
-    }
-  }, [nostrPubkey, addToast, t])
-
-  const handlePasskeyToggle = useCallback((enabled: boolean) => {
-    if (enabled) {
-      setShowPasskeyModal(true)
-    } else {
-      setShowPasskeyRemoveModal(true)
-    }
-    setPasskeyPin('')
-    setPasskeyError('')
-  }, [])
-
-  const handlePasskeyPinChange = useCallback((value: string) => {
-    setPasskeyPin(value)
-    setPasskeyError('')
-  }, [])
-
-  const handlePasskeyRegister = useCallback(async () => {
-    if (passkeyPin.length !== 6) return
-    setIsRegisteringPasskey(true)
-    setPasskeyError('')
-    try {
-      const success = await registerPasskey(passkeyPin)
-      if (success) {
-        setPasskeyEnabled(true)
-        setShowPasskeyModal(false)
-        setPasskeyPin('')
-      } else {
-        setPasskeyError(t('settings.passkeyRegisterFailed'))
-      }
-    } catch (err) {
-      if (err instanceof Error && err.message === 'PRF_NOT_SUPPORTED') {
-        setPasskeyError(t('settings.passkeyPRFNotSupported'))
-      } else {
-        setPasskeyError(t('lock.errorOccurred'))
-      }
-    } finally {
-      setIsRegisteringPasskey(false)
-    }
-  }, [passkeyPin, t])
-
-  const handlePasskeyRemove = useCallback(async () => {
-    if (passkeyPin.length !== 6) return
-    setIsRemovingPasskey(true)
-    setPasskeyError('')
-    try {
-      const valid = await onVerifyPin(passkeyPin)
-      if (valid) {
-        removePasskey()
-        setPasskeyEnabled(false)
-        setShowPasskeyRemoveModal(false)
-        setPasskeyPin('')
-      } else {
-        setPasskeyError(t('settings.wrongPin'))
-        setPasskeyPin('')
-      }
-    } catch {
-      setPasskeyError(t('lock.errorOccurred'))
-    } finally {
-      setIsRemovingPasskey(false)
-    }
-  }, [passkeyPin, onVerifyPin, t])
-
-  const resetPasskeyModal = useCallback(() => {
-    setShowPasskeyModal(false)
-    setShowPasskeyRemoveModal(false)
-    setPasskeyPin('')
-    setPasskeyError('')
-  }, [])
-
-  const handleLanguageChange = useCallback((langCode: string) => {
-    changeLanguage(langCode as 'ko' | 'en' | 'es' | 'ja' | 'id')
-    setCurrentLang(langCode as 'ko' | 'en' | 'es' | 'ja' | 'id')
-    setShowLanguageModal(false)
-  }, [])
-
+  // Save settings helper
   const saveSettings = useCallback(async (updates: Record<string, unknown>) => {
     updateSettings(updates)
     await onSaveSettings({ ...settings, ...updates })
@@ -229,57 +126,41 @@ export function SettingsScreen({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nostrPubkey])
 
+  const handleCopyNpub = useCallback(() => {
+    if (nostrPubkey) {
+      navigator.clipboard.writeText(encodeNpub(nostrPubkey))
+      addToast({ type: 'success', message: t('toast.copied'), duration: 2000 })
+    }
+  }, [nostrPubkey, addToast, t])
+
   const handleRegisterLightningAddress = useCallback(async () => {
     if (!nostrPrivkey || !p2pkPubkey) return
     setIsRegistering(true)
-
     try {
-      // 1. Publish Kind 10019 so zappi-link can read mints/relays/p2pk
       await services.profile.publishNutzapInfo(
         nostrPrivkey,
         settings.mints,
         p2pkPubkey,
         settings.relays,
       )
-
-      // 2. Register address via NIP-98
       const result = await zappiLinkService.registerAddress(nostrPrivkey)
       if (result.isErr()) {
-        console.error('[Settings] Lightning Address registration failed:', result.error)
         addToast({ type: 'error', message: t('settings.lightningAddressRegistrationFailed') })
         return
       }
-
-      // 3. Save to settings
       await saveSettings({
         lightningAddress: result.value.address,
         zappiLinkApiUrl: ZAPPI_LINK_URL,
       })
       addToast({ type: 'success', message: t('settings.lightningAddressRegistered') })
-    } catch (error) {
-      console.error('[Settings] Lightning Address registration error:', error)
+    } catch {
       addToast({ type: 'error', message: t('settings.lightningAddressRegistrationFailed') })
     } finally {
       setIsRegistering(false)
     }
   }, [nostrPrivkey, p2pkPubkey, settings.mints, settings.relays, services.profile, zappiLinkService, saveSettings, addToast, t])
 
-  const handleAutoLockToggle = useCallback(async (enabled: boolean) => {
-    setAutoLockEnabled(enabled)
-    await saveSettings({ autoLockEnabled: enabled })
-  }, [saveSettings])
-
-  const handleAutoLockTimeoutChange = useCallback(async (value: number) => {
-    setAutoLockTimeout(value)
-    await saveSettings({ autoLockTimeoutMinutes: value })
-  }, [saveSettings])
-
-
-  const handleBackupPinChange = useCallback((value: string) => {
-    setBackupPin(value)
-    setBackupError('')
-  }, [])
-
+  // Backup handlers
   const handleBackupMnemonic = useCallback(async () => {
     if (backupPin.length !== 6) return
     setIsLoadingBackup(true)
@@ -299,11 +180,15 @@ export function SettingsScreen({
     }
   }, [backupPin, onBackupMnemonic, t])
 
-  const handleLogoutPinChange = useCallback((value: string) => {
-    setLogoutPin(value)
-    setLogoutError('')
+  const resetBackupModal = useCallback(() => {
+    setShowBackupModal(false)
+    setBackupPin('')
+    setMnemonic('')
+    setBackupError('')
+    setBackupCopied(false)
   }, [])
 
+  // Logout handlers
   const handleLogout = useCallback(async () => {
     if (logoutPin.length !== 6) return
     setIsLoggingOut(true)
@@ -321,6 +206,7 @@ export function SettingsScreen({
     }
   }, [logoutPin, onLogout, t])
 
+  // Restore handlers
   const handleRestoreTokens = useCallback(async () => {
     const mints = settings.mints
     if (mints.length === 0) {
@@ -361,8 +247,7 @@ export function SettingsScreen({
         setRestoreResult({ success: true, message: t('settings.noMissingBalance') })
       }
       setBalance({ total: afterTotal, byMint: afterBalances })
-    } catch (err) {
-      console.error('[Settings] Restore error:', err)
+    } catch {
       setRestoreResult({ success: false, message: t('settings.verificationError') })
     } finally {
       setIsRestoring(false)
@@ -370,13 +255,34 @@ export function SettingsScreen({
     }
   }, [settings.mints, setBalance, t])
 
-  const resetBackupModal = useCallback(() => {
-    setShowBackupModal(false)
-    setBackupPin('')
-    setMnemonic('')
-    setBackupError('')
-    setBackupCopied(false)
-  }, [])
+  // Render sub-page
+  const renderPage = () => {
+    switch (settingsPage) {
+      case 'language':
+        return <LanguageSettingPage onBack={() => setSettingsPage(null)} />
+      case 'unitDisplay':
+        return <UnitDisplaySettingPage onBack={() => setSettingsPage(null)} saveSettings={saveSettings} />
+      case 'fiat':
+        return <FiatSettingPage onBack={() => setSettingsPage(null)} saveSettings={saveSettings} />
+      case 'faceId':
+        return <FaceIdSettingPage onBack={() => setSettingsPage(null)} onVerifyPin={onVerifyPin} />
+      case 'autoLock':
+        return <AutoLockSettingPage onBack={() => setSettingsPage(null)} saveSettings={saveSettings} />
+      case 'pos':
+        return (
+          <POSSettingPage
+            onBack={() => setSettingsPage(null)}
+            settings={settings}
+            nostrPubkey={nostrPubkey}
+            nostrPrivkey={nostrPrivkey}
+            onBackupMnemonic={onBackupMnemonic}
+            onSaveSettings={saveSettings}
+          />
+        )
+      default:
+        return null
+    }
+  }
 
   return (
     <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe overflow-hidden z-[60]">
@@ -385,150 +291,34 @@ export function SettingsScreen({
         <button onClick={onBack} aria-label={t('common.back')} className="p-1">
           <ArrowLeft className="w-5 h-5 text-foreground" />
         </button>
-        <h2 className="text-base font-semibold tracking-tight">{t('settings.title')}</h2>
+        <h2 className="text-body font-semibold tracking-tight">{t('settings.title')}</h2>
       </header>
 
-      <div className="flex-1 overflow-y-auto pb-32">
-        {/* Update Button */}
-        {updateAvailable && (
-          <button
-            onClick={() => updateSW()}
-            className="w-full bg-foreground text-background-card px-4 py-3 font-semibold text-[13px] flex items-center justify-center gap-2 active:opacity-80"
-          >
-            <Download className="w-4 h-4" />
-            {t('settings.updateAvailable')}
-          </button>
+      {/* Main list */}
+      <SettingsMainList
+        onNavigate={setSettingsPage}
+        onCopyNpub={handleCopyNpub}
+        onRegisterLightningAddress={handleRegisterLightningAddress}
+        isRegistering={isRegistering}
+        onOpenUsernameChange={onChangeUsername}
+        onMintManagement={onMintManagement}
+        onRelayManagement={onRelayManagement}
+        onTransfer={onTransfer}
+        onAnalytics={onAnalytics}
+        onOpenPinChange={pinChange.open}
+        onOpenRestore={() => setShowRestoreModal(true)}
+        onOpenBackup={() => setShowBackupModal(true)}
+        onOpenLogout={() => setShowLogoutModal(true)}
+      />
+
+      {/* Sub-page overlay */}
+      <AnimatePresence mode="wait">
+        {settingsPage && (
+          <PageTransition key={settingsPage} variant="page" className="absolute inset-0 z-[65]">
+            {renderPage()}
+          </PageTransition>
         )}
-
-        {/* Profile Section */}
-        <ProfileSection
-          nostrPubkey={nostrPubkey}
-          npubCopied={npubCopied}
-          encodeNpub={encodeNpub}
-          onCopyNpub={handleCopyNpub}
-          lightningAddress={settings.lightningAddress}
-          isRegistering={isRegistering}
-          onRegisterLightningAddress={handleRegisterLightningAddress}
-          onOpenUsernameChange={onChangeUsername}
-          onAnalytics={onAnalytics}
-        />
-
-        {/* Preferences Section */}
-        <section>
-          <p className="text-[12px] font-semibold uppercase tracking-wide text-foreground-muted px-4 pt-6 pb-2 flex items-center gap-1.5">
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            {t('settings.preferences')}
-          </p>
-          <div className="bg-background-card">
-            {/* Language */}
-            <button
-              onClick={() => setShowLanguageModal(true)}
-              className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
-            >
-              <span className="text-[15px] font-medium">{t('settings.language')}</span>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[15px] text-foreground-muted">
-                  {SUPPORTED_LANGUAGES.find(l => l.code === currentLang)?.nativeName || 'English'}
-                </span>
-                <ChevronDown className="w-3.5 h-3.5 text-foreground-subtle" />
-              </div>
-            </button>
-
-            {/* Unit Display — tap to toggle */}
-            <button
-              onClick={() => saveSettings({ unitDisplay: (settings.unitDisplay ?? 'bip177') === 'sats' ? 'bip177' : 'sats' })}
-              className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
-            >
-              <span className="text-[15px] font-medium">{t('settings.unitDisplay')}</span>
-              <div className="flex items-center gap-1">
-                <span className="text-[15px] text-foreground-muted">
-                  {(settings.unitDisplay ?? 'bip177') === 'sats' ? 'sats' : '₿ (BIP-177)'}
-                </span>
-                <ChevronsUpDown className="w-3.5 h-3.5 text-foreground-subtle" />
-              </div>
-            </button>
-
-            {/* Fiat Conversion Toggle */}
-            <div className="px-4 py-3.5 flex items-center justify-between">
-              <span className="text-[15px] font-medium">{t('settings.showFiatConversion')}</span>
-              <Switch
-                checked={settings.showFiatConversion ?? true}
-                onChange={(v) => saveSettings({ showFiatConversion: v })}
-              />
-            </div>
-
-            {/* Fiat Currency Picker — sub-row when fiat is enabled */}
-            <div
-              className="grid transition-[grid-template-rows] duration-200 ease-out"
-              style={{ gridTemplateRows: (settings.showFiatConversion ?? true) ? '1fr' : '0fr' }}
-            >
-              <div className="overflow-hidden">
-                <button
-                  onClick={() => setShowCurrencyPicker(true)}
-                  className="w-full px-4 py-3.5 flex items-center justify-between active:bg-background-hover text-left"
-                >
-                  <span className="text-[15px] text-foreground-muted">{t('settings.fiatCurrency')}</span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-[15px] text-foreground-muted">
-                      {(() => {
-                        const code = settings.fiatCurrency ?? 'USD'
-                        const info = FIAT_CURRENCY_MAP.get(code)
-                        return info ? `${info.flag} ${info.symbol}` : code
-                      })()}
-                    </span>
-                    <ChevronDown className="w-3.5 h-3.5 text-foreground-subtle" />
-                  </div>
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Security Section */}
-        <SecuritySection
-          autoLockEnabled={autoLockEnabled}
-          autoLockTimeout={autoLockTimeout}
-          passkeySupported={passkeySupported}
-          passkeyEnabled={passkeyEnabled}
-          onAutoLockToggle={handleAutoLockToggle}
-          onAutoLockTimeoutChange={handleAutoLockTimeoutChange}
-          onPasskeyToggle={handlePasskeyToggle}
-          onOpenPinChange={pinChange.open}
-        />
-
-        {/* Wallet Management Section */}
-        <WalletManagementSection
-          mintsCount={settings.mints.length}
-          relaysCount={settings.relays.length}
-          onOpenMints={() => onMintManagement?.()}
-          onOpenRelays={() => onRelayManagement?.()}
-          onOpenRestore={() => setShowRestoreModal(true)}
-          onOpenBackup={() => setShowBackupModal(true)}
-          onTransfer={onTransfer}
-        />
-
-        {/* POS Management Section */}
-        <POSProvisioningSection
-          settings={settings}
-          nostrPubkey={nostrPubkey}
-          nostrPrivkey={nostrPrivkey}
-          onBackupMnemonic={onBackupMnemonic}
-          onSaveSettings={saveSettings}
-        />
-
-        {/* Logout */}
-        <div className="px-4 pt-8">
-          <button
-            onClick={() => setShowLogoutModal(true)}
-            className="w-full py-3.5 text-accent-danger text-[15px] font-semibold flex items-center justify-center gap-2 border border-border rounded-sm active:bg-background-hover"
-          >
-            {t('settings.logout')}
-          </button>
-          <p className="text-center mt-4 text-[10px] text-foreground-muted/50 uppercase tracking-widest">
-            {t('settings.version')}
-          </p>
-        </div>
-      </div>
+      </AnimatePresence>
 
       {/* PIN Change Modal */}
       <PinChangeModal pinChange={pinChange} />
@@ -539,7 +329,7 @@ export function SettingsScreen({
           <div className="py-3">
             <PinInput
               value={backupPin}
-              onChange={handleBackupPinChange}
+              onChange={(v) => { setBackupPin(v); setBackupError('') }}
               label={t('settings.enterPinLabel')}
               error={backupError}
               submitLabel={t('common.confirm')}
@@ -549,10 +339,10 @@ export function SettingsScreen({
           </div>
         ) : (
           <div className="space-y-4">
-            <p className="text-[13px] text-[#86868b] leading-relaxed whitespace-pre-line">
+            <p className="text-caption text-foreground-muted leading-relaxed whitespace-pre-line">
               {t('settings.mnemonicWarning')}
             </p>
-            <div className="bg-white rounded-sm p-4">
+            <div className="bg-background-card rounded-xl p-4">
               {(() => {
                 const mnemonicWords = mnemonic.split(' ')
                 const cols = mnemonicWords.length > 12 ? 'grid-cols-3' : 'grid-cols-2'
@@ -563,12 +353,12 @@ export function SettingsScreen({
                         key={i}
                         className={`flex items-center gap-2 py-2.5 ${
                           i < mnemonicWords.length - (mnemonicWords.length > 12 ? 3 : 2)
-                            ? 'border-b border-[#f0f0f0]'
+                            ? 'border-b border-border'
                             : ''
                         }`}
                       >
-                        <span className="text-[12px] tabular-nums text-[#c0c0c0] w-5 text-right shrink-0">{i + 1}</span>
-                        <span className="text-[15px] font-medium text-[#1d1d1f]">{word}</span>
+                        <span className="text-label tabular-nums text-foreground-subtle w-5 text-right shrink-0">{i + 1}</span>
+                        <span className="text-body font-medium text-foreground">{word}</span>
                       </div>
                     ))}
                   </div>
@@ -582,7 +372,7 @@ export function SettingsScreen({
                   setBackupCopied(true)
                   setTimeout(() => setBackupCopied(false), 2000)
                 }}
-                className="flex items-center gap-1.5 text-[13px] font-medium text-[#86868b] active:opacity-60 transition-opacity px-3 py-2"
+                className="flex items-center gap-1.5 text-caption font-medium text-foreground-muted active:opacity-60 transition-opacity px-3 py-2"
               >
                 {backupCopied ? <Check className="w-4 h-4 text-brand" /> : <Copy className="w-4 h-4" />}
                 {backupCopied ? t('common.copied') : t('onboarding.copyToClipboard')}
@@ -590,7 +380,7 @@ export function SettingsScreen({
             </div>
             <button
               onClick={resetBackupModal}
-              className="w-full py-3.5 rounded-sm font-semibold text-[13px] bg-foreground text-background-card active:opacity-80 transition-all"
+              className="w-full py-3.5 rounded-xl font-semibold text-caption bg-brand text-white active:opacity-80 transition-all"
             >
               {t('common.close')}
             </button>
@@ -606,51 +396,21 @@ export function SettingsScreen({
       >
         <div className="py-3">
           <div className="flex flex-col items-center text-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-sm bg-accent-danger/[0.08] flex items-center justify-center text-accent-danger">
+            <div className="w-12 h-12 rounded-xl bg-accent-danger/[0.08] flex items-center justify-center text-accent-danger">
               <AlertTriangle className="w-6 h-6" />
             </div>
-            <p className="text-[12px] text-foreground-muted">
+            <p className="text-label text-foreground-muted">
               {t('settings.logoutWarning')}
             </p>
           </div>
           <PinInput
             value={logoutPin}
-            onChange={handleLogoutPinChange}
+            onChange={(v) => { setLogoutPin(v); setLogoutError('') }}
             label={t('settings.enterPinLabel')}
             error={logoutError}
             submitLabel={t('settings.logout')}
             onSubmit={handleLogout}
             loading={isLoggingOut}
-          />
-        </div>
-      </Modal>
-
-      {/* Passkey Registration Modal */}
-      <Modal isOpen={showPasskeyModal} onClose={resetPasskeyModal} title={t('settings.passkeySetup')}>
-        <div className="py-3">
-          <PinInput
-            value={passkeyPin}
-            onChange={handlePasskeyPinChange}
-            label={t('settings.passkeyDescription')}
-            error={passkeyError}
-            submitLabel={t('settings.register')}
-            onSubmit={handlePasskeyRegister}
-            loading={isRegisteringPasskey}
-          />
-        </div>
-      </Modal>
-
-      {/* Passkey Remove Modal */}
-      <Modal isOpen={showPasskeyRemoveModal} onClose={resetPasskeyModal} title={t('settings.passkeyRemove')}>
-        <div className="py-3">
-          <PinInput
-            value={passkeyPin}
-            onChange={handlePasskeyPinChange}
-            label={t('settings.passkeyRemoveDescription')}
-            error={passkeyError}
-            submitLabel={t('settings.remove')}
-            onSubmit={handlePasskeyRemove}
-            loading={isRemovingPasskey}
           />
         </div>
       </Modal>
@@ -664,20 +424,20 @@ export function SettingsScreen({
         <div className="space-y-3">
           {!isRestoring && !restoreResult && (
             <>
-              <p className="text-[12px] text-foreground-muted">
+              <p className="text-label text-foreground-muted">
                 {t('settings.restoreDescription')}
               </p>
-              <p className="text-[12px] text-foreground-muted">{t('settings.registeredMints', { count: settings.mints.length })}</p>
+              <p className="text-label text-foreground-muted">{t('settings.registeredMints', { count: settings.mints.length })}</p>
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowRestoreModal(false)}
-                  className="flex-1 py-2.5 rounded-sm bg-background text-foreground font-semibold text-[13px] active:opacity-80 border border-border"
+                  className="flex-1 py-2.5 rounded-xl bg-background text-foreground font-semibold text-caption active:opacity-80 border border-border"
                 >
                   {t('common.cancel')}
                 </button>
                 <button
                   onClick={handleRestoreTokens}
-                  className="flex-1 py-2.5 rounded-sm bg-foreground text-background-card font-semibold text-[13px] active:opacity-80"
+                  className="flex-1 py-2.5 rounded-xl bg-brand text-white font-semibold text-caption active:opacity-80"
                 >
                   {t('settings.startVerification')}
                 </button>
@@ -696,13 +456,13 @@ export function SettingsScreen({
                 </div>
               </div>
               <p className="font-semibold text-foreground">{t('settings.verifying')}</p>
-              {restoreProgress && <p className="text-[11px] text-foreground-muted mt-2">{restoreProgress}</p>}
+              {restoreProgress && <p className="text-overline text-foreground-muted mt-2">{restoreProgress}</p>}
             </div>
           )}
           {restoreResult && (
             <div className="text-center py-3">
               <div className={cn(
-                'w-12 h-12 rounded-sm flex items-center justify-center mx-auto mb-3',
+                'w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3',
                 restoreResult.success ? 'bg-accent-primary/[0.1] text-accent-primary' : 'bg-accent-danger/[0.1] text-accent-danger'
               )}>
                 {restoreResult.success ? <Check className="w-6 h-6" /> : <AlertTriangle className="w-6 h-6" />}
@@ -710,7 +470,7 @@ export function SettingsScreen({
               <p className="font-semibold text-foreground">{restoreResult.message}</p>
               <button
                 onClick={() => { setShowRestoreModal(false); setRestoreResult(null) }}
-                className="w-full mt-3 py-2.5 rounded-sm bg-foreground text-background-card font-semibold text-[13px] active:opacity-80"
+                className="w-full mt-3 py-2.5 rounded-xl bg-brand text-white font-semibold text-caption active:opacity-80"
               >
                 {t('common.confirm')}
               </button>
@@ -718,45 +478,6 @@ export function SettingsScreen({
           )}
         </div>
       </Modal>
-
-      {/* Language Selection Modal */}
-      <BottomSheet
-        isOpen={showLanguageModal}
-        onClose={() => setShowLanguageModal(false)}
-        title={t('settings.language')}
-      >
-        <div className="divide-y divide-border">
-          {SUPPORTED_LANGUAGES.map((lang) => (
-            <button
-              key={lang.code}
-              onClick={() => handleLanguageChange(lang.code)}
-              className={cn(
-                'w-full px-4 py-3 flex items-center justify-between text-left',
-                currentLang === lang.code
-                  ? 'bg-foreground/[0.04]'
-                  : 'active:bg-background-hover'
-              )}
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-[13px] font-medium">{lang.nativeName}</span>
-                <span className="text-[11px] text-foreground-muted">{lang.name}</span>
-              </div>
-              {currentLang === lang.code && <Check className="w-4 h-4 text-foreground" />}
-            </button>
-          ))}
-        </div>
-      </BottomSheet>
-
-      {/* Currency Selection Modal */}
-      <CurrencyPickerBottomSheet
-        isOpen={showCurrencyPicker}
-        onClose={() => setShowCurrencyPicker(false)}
-        currentCurrency={settings.fiatCurrency ?? 'USD'}
-        onSelect={(code) => {
-          saveSettings({ fiatCurrency: code })
-          setShowCurrencyPicker(false)
-        }}
-      />
     </div>
   )
 }

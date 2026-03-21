@@ -1,7 +1,7 @@
 /**
  * ReceiveQRStep — Display QR code for invoice/payment request
  * Subscribes to payment detection (Lightning: quote subscription, Ecash: GiftWrap listener + HTTP polling)
- * Modern layout: bg-[#faf9f6], no borders
+ * Modern layout: bg-background, no borders
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react'
@@ -243,35 +243,35 @@ export function ReceiveQRStep({
   }, [method, invoice, ecashRequest, handleCopy])
 
   return (
-    <div className="flex flex-col h-full bg-[#faf9f6]">
+    <div className="flex flex-col h-full bg-background">
       {/* Header — no border */}
       <header className="flex items-center justify-between px-4 py-3">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="p-2 -ml-2 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+          className="p-2 -ml-2 rounded-lg hover:bg-muted transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-lg font-semibold">{t('receive.qr.title')}</h1>
+        <h1 className="text-subtitle">{t('receive.qr.title')}</h1>
         <div className="w-11" />
       </header>
 
       {/* Content */}
       <div className="flex-1 flex flex-col items-center justify-center p-5 gap-5">
-        <p className="text-sm text-foreground-muted text-center">
+        <p className="text-caption text-foreground-muted text-center">
           {t('receive.qr.showToSender')}
         </p>
 
         {/* Amount */}
-        <p className="text-3xl font-bold">{formatSats(amount)}</p>
+        <p className="text-display font-display">{formatSats(amount)}</p>
         {(() => { const f = formatFiat(amount); return f ? (
-          <p className="text-sm text-foreground-muted -mt-2">≈ {f}</p>
+          <p className="text-caption text-foreground-muted -mt-2">≈ {f}</p>
         ) : null })()}
 
         {/* QR Code */}
         {qrValue && (
-          <div className="bg-white p-4 rounded-2xl shadow-sm">
+          <div className="bg-background-card p-3 rounded-xl shadow-sm">
             <QRCodeSVG
               value={qrValue}
               size={200}
@@ -288,29 +288,29 @@ export function ReceiveQRStep({
               <div className="animate-pulse">
                 <Radio className="w-4 h-4 text-accent-primary" />
               </div>
-              <span className="text-sm text-foreground-muted">
+              <span className="text-caption text-foreground-muted">
                 {t('receive.qr.willNotify', { mint: mintName })}
               </span>
             </div>
             {/* Transport detail badge */}
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/5">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted">
               {transportStatus === 'nostr-and-http' && (
                 <>
                   <Wifi className="w-3 h-3 text-green-600" />
                   <Globe className="w-3 h-3 text-blue-500" />
-                  <span className="text-xs text-foreground-muted">{t('receive.transport.nostrAndHttp')}</span>
+                  <span className="text-label text-foreground-muted">{t('receive.transport.nostrAndHttp')}</span>
                 </>
               )}
               {transportStatus === 'http-only' && (
                 <>
                   <Globe className="w-3 h-3 text-blue-500" />
-                  <span className="text-xs text-amber-600">{t('receive.transport.httpOnly')}</span>
+                  <span className="text-label text-amber-600">{t('receive.transport.httpOnly')}</span>
                 </>
               )}
               {transportStatus === 'nostr-only' && (
                 <>
                   <Wifi className="w-3 h-3 text-green-600" />
-                  <span className="text-xs text-foreground-muted">{t('receive.transport.nostrOnly')}</span>
+                  <span className="text-label text-foreground-muted">{t('receive.transport.nostrOnly')}</span>
                 </>
               )}
             </div>
@@ -320,7 +320,7 @@ export function ReceiveQRStep({
             <div className="animate-pulse">
               <Radio className="w-4 h-4 text-accent-primary" />
             </div>
-            <span className="text-sm text-foreground-muted">
+            <span className="text-caption text-foreground-muted">
               {t('receive.qr.willNotify', { mint: mintName })}
             </span>
           </div>
@@ -330,14 +330,14 @@ export function ReceiveQRStep({
         <div className="flex gap-3 w-full max-w-xs">
           <button
             onClick={handleShare}
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[#f0f0f0] font-medium text-sm active:scale-95 transition-transform min-h-[44px]"
+            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-muted font-medium text-caption active:scale-95 transition-transform min-h-[44px]"
           >
             <Share2 className="w-4 h-4" />
             {t('receive.qr.share')}
           </button>
           <button
             onClick={handleCopy}
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[#f0f0f0] font-medium text-sm active:scale-95 transition-transform min-h-[44px]"
+            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-muted font-medium text-caption active:scale-95 transition-transform min-h-[44px]"
           >
             {copied ? <Check className="w-4 h-4 text-accent-primary" /> : <Copy className="w-4 h-4" />}
             {copied ? t('common.copied') : t('common.copy')}
@@ -346,10 +346,10 @@ export function ReceiveQRStep({
       </div>
 
       {/* Bottom — Cancel, no border */}
-      <div className="p-5 pb-safe">
+      <div className="p-4 pb-safe">
         <button
           onClick={onBack}
-          className="w-full text-center text-sm text-foreground-muted font-medium py-3 min-h-[44px]"
+          className="w-full text-center text-label text-foreground-muted font-medium py-3.5 min-h-[44px]"
         >
           {t('receive.qr.cancel')}
         </button>

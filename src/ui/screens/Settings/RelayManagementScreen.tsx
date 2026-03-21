@@ -119,11 +119,11 @@ export function RelayManagementScreen({
         <button onClick={onBack} aria-label={t('common.back')} className="p-1">
           <ArrowLeft className="w-5 h-5 text-foreground" />
         </button>
-        <h2 className="text-base font-semibold tracking-tight flex-1">{t('settings.manageRelays')}</h2>
+        <h2 className="text-body font-semibold tracking-tight flex-1">{t('settings.manageRelays')}</h2>
         {/* Slot indicator */}
         <div className="flex items-center gap-1.5">
           <span className={cn(
-            "text-[11px] font-mono mr-0.5",
+            "text-overline font-mono mr-0.5",
             isAtLimit ? "text-accent-danger" : "text-foreground-muted"
           )}>
             {relays.length}/{LIMITS.MAX_RELAYS}
@@ -131,7 +131,7 @@ export function RelayManagementScreen({
           {relays.map((url) => (
             <div
               key={url}
-              className="w-6 h-6 rounded-sm bg-foreground/[0.06] flex items-center justify-center shrink-0"
+              className="w-6 h-6 rounded bg-foreground/[0.06] flex items-center justify-center shrink-0"
             >
               <Server className="w-3.5 h-3.5 text-foreground-muted" />
             </div>
@@ -139,7 +139,7 @@ export function RelayManagementScreen({
           {Array.from({ length: emptySlots }, (_, i) => (
             <div
               key={`empty-${i}`}
-              className="w-6 h-6 rounded-sm border border-dashed border-foreground/20 shrink-0"
+              className="w-6 h-6 rounded border border-dashed border-foreground/20 shrink-0"
             />
           ))}
         </div>
@@ -155,15 +155,15 @@ export function RelayManagementScreen({
             onChange={(e) => { setNewRelayUrl(e.target.value); setError('') }}
             placeholder={t('settings.relayPlaceholder')}
             disabled={isValidating || isAtLimit}
-            className="flex-1 px-3 py-2.5 rounded-sm bg-background border border-border text-[13px] focus:outline-none focus:ring-1 focus:ring-foreground/20 placeholder:text-foreground-muted/50 disabled:opacity-50"
+            className="flex-1 px-3 py-2.5 rounded-xl bg-background border border-border text-caption focus:outline-none focus:ring-1 focus:ring-foreground/20 placeholder:text-foreground-muted/50 disabled:opacity-50"
           />
           <button
             onClick={handleAdd}
             disabled={!newRelayUrl.trim() || isValidating || isAtLimit}
             className={cn(
-              'px-4 py-2.5 rounded-sm font-semibold text-[13px] shrink-0 flex items-center gap-2 transition-colors',
+              'px-4 py-2.5 rounded-xl font-semibold text-caption shrink-0 flex items-center gap-2 transition-colors',
               newRelayUrl.trim() && !isValidating && !isAtLimit
-                ? 'bg-foreground text-background-card active:opacity-80'
+                ? 'bg-brand text-white active:opacity-80'
                 : 'bg-foreground/10 text-foreground-muted cursor-not-allowed'
             )}
           >
@@ -177,11 +177,11 @@ export function RelayManagementScreen({
         {error && (
           <div className="flex items-center gap-1.5 text-accent-danger ml-1">
             <AlertCircle className="w-3 h-3 shrink-0" />
-            <p className="text-[11px] font-medium">{error}</p>
+            <p className="text-overline">{error}</p>
           </div>
         )}
         {isAtLimit && !error && (
-          <p className="text-[11px] text-accent-danger ml-1">
+          <p className="text-overline text-accent-danger ml-1">
             {t('settings.relayDeleteRequired')}
           </p>
         )}
@@ -195,12 +195,12 @@ export function RelayManagementScreen({
             const status = relayStatus[url]
             return (
               <div key={url} className="w-full px-4 py-3 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-sm bg-foreground/[0.06] flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-foreground/[0.06] flex items-center justify-center shrink-0">
                   <Server className="w-4 h-4 text-foreground-muted" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[13px] font-medium text-foreground truncate">
+                    <span className="text-caption font-medium text-foreground truncate">
                       {formatRelayUrl(url)}
                     </span>
                     {status !== undefined && (
@@ -210,7 +210,7 @@ export function RelayManagementScreen({
                       )} />
                     )}
                   </div>
-                  <span className="text-[11px] text-foreground-muted">{t('settings.nostrRelay')}</span>
+                  <span className="text-overline text-foreground-muted">{t('settings.nostrRelay')}</span>
                 </div>
                 <button
                   onClick={() => setRelayToDelete(url)}
@@ -229,10 +229,10 @@ export function RelayManagementScreen({
               onClick={() => inputRef.current?.focus()}
               className="w-full px-4 py-3 flex items-center gap-3 active:bg-background-hover text-left"
             >
-              <div className="w-8 h-8 rounded-sm border border-dashed border-foreground/20 flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-lg border border-dashed border-foreground/20 flex items-center justify-center shrink-0">
                 <Plus className="w-4 h-4 text-foreground-muted" />
               </div>
-              <span className="text-[13px] text-foreground-muted">{t('settings.addRelay')}</span>
+              <span className="text-caption text-foreground-muted">{t('settings.addRelay')}</span>
             </button>
           ))}
         </div>
@@ -242,23 +242,23 @@ export function RelayManagementScreen({
       <Modal isOpen={!!relayToDelete} onClose={() => setRelayToDelete(null)} title={t('settings.deleteRelay')}>
         <div className="py-4 space-y-4">
           <div className="text-center space-y-1">
-            <p className="text-[16px] font-semibold text-accent-primary">
+            <p className="text-subtitle text-accent-primary">
               {relayToDelete ? formatRelayUrl(relayToDelete) : ''}
             </p>
-            <p className="text-[15px] text-foreground">
+            <p className="text-body text-foreground">
               {t('settings.confirmDeleteRelay')}
             </p>
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => setRelayToDelete(null)}
-              className="flex-1 py-2.5 rounded-sm bg-background text-foreground font-semibold text-[13px] active:opacity-80 border border-border"
+              className="flex-1 py-2.5 rounded-xl bg-background text-foreground font-semibold text-caption active:opacity-80 border border-border"
             >
               {t('common.cancel')}
             </button>
             <button
               onClick={confirmRemoveRelay}
-              className="flex-1 py-2.5 rounded-sm bg-accent-danger text-white font-semibold text-[13px] active:opacity-80"
+              className="flex-1 py-2.5 rounded-xl bg-accent-danger text-white font-semibold text-caption active:opacity-80"
             >
               {t('common.delete')}
             </button>

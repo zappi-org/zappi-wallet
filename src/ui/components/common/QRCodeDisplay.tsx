@@ -13,7 +13,7 @@ export function QRCodeDisplay({
   className,
 }: QRCodeDisplayProps) {
   return (
-    <div className={cn('bg-white p-4 rounded-[13px] shadow-sm', className)}>
+    <div className={cn('bg-background-card p-4 rounded-[13px] shadow-sm', className)}>
       <QRCodeSVG
         value={value}
         size={size}

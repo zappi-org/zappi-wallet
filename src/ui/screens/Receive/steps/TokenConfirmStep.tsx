@@ -92,18 +92,18 @@ export function TokenConfirmStep({
   }, [])
 
   return (
-    <div className="flex flex-col h-full bg-[#faf9f6]">
+    <div className="flex flex-col h-full bg-background">
       {/* Header */}
       <header className="relative flex items-center px-4 py-3">
         <button
           onClick={onBack}
           disabled={isReceiving}
           aria-label={t('common.back')}
-          className="p-2 rounded-lg hover:bg-black/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10 disabled:opacity-50"
+          className="p-2 rounded-lg hover:bg-background-hover transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10 disabled:opacity-50"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="absolute inset-0 flex items-center justify-center text-lg font-semibold pointer-events-none">
+        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle pointer-events-none">
           {t('receive.token.title')}
         </h1>
       </header>
@@ -112,7 +112,7 @@ export function TokenConfirmStep({
       <div className="flex-1 flex flex-col px-6">
         {/* Main message — left-aligned, top area */}
         <div className="pt-16">
-          <p className="text-[24px] font-medium leading-snug whitespace-pre-line">
+          <p className="text-amount-lg font-medium leading-snug whitespace-pre-line">
             {t('receive.token.canReceive', { amount: formattedAmount, mint: mintName })}
           </p>
         </div>
@@ -121,25 +121,25 @@ export function TokenConfirmStep({
         {offlineState === 'ok' && (
           <div className="mt-6 flex items-start gap-2 bg-blue-50 rounded-xl p-4">
             <ShieldCheck className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
-            <p className="text-sm text-blue-700">{t('receive.offline.p2pkAccepted')}</p>
+            <p className="text-caption text-blue-700">{t('receive.offline.p2pkAccepted')}</p>
           </div>
         )}
         {offlineState === 'dleq-missing' && (
           <div className="mt-6 flex items-start gap-2 bg-amber-50 rounded-xl p-4">
             <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-            <p className="text-sm text-amber-700">{t('receive.offline.dleqMissing')}</p>
+            <p className="text-caption text-amber-700">{t('receive.offline.dleqMissing')}</p>
           </div>
         )}
         {offlineState === 'dleq-failed' && (
           <div className="mt-6 flex items-start gap-2 bg-red-50 rounded-xl p-4">
             <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-            <p className="text-sm text-red-700">{t('receive.offline.dleqFailed')}</p>
+            <p className="text-caption text-red-700">{t('receive.offline.dleqFailed')}</p>
           </div>
         )}
         {offlineState === 'no-p2pk' && (
-          <div className="mt-6 flex items-start gap-2 bg-gray-100 rounded-xl p-4">
-            <WifiOff className="w-5 h-5 text-gray-500 shrink-0 mt-0.5" />
-            <p className="text-sm text-gray-700">{t('receive.offline.nonP2PKError')}</p>
+          <div className="mt-6 flex items-start gap-2 bg-muted rounded-xl p-4">
+            <WifiOff className="w-5 h-5 text-foreground-muted shrink-0 mt-0.5" />
+            <p className="text-caption text-foreground">{t('receive.offline.nonP2PKError')}</p>
           </div>
         )}
 
@@ -147,7 +147,7 @@ export function TokenConfirmStep({
         <div className="flex-1" />
 
         {/* Detail rows */}
-        <div className="space-y-4 mb-4 px-1">
+        <div className="space-y-3 mb-4 px-1">
           {/* Mint row — tappable (disabled offline) */}
           <button
             onClick={() => {
@@ -155,35 +155,35 @@ export function TokenConfirmStep({
               setShowMintSelect(true)
             }}
             disabled={isReceiving || isSwapDisabled}
-            className="w-full flex items-center justify-between min-h-[44px] -mx-1 px-1 rounded-lg hover:bg-black/5 active:bg-black/5 transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-between min-h-[44px] -mx-1 px-1 rounded-lg hover:bg-background-hover active:bg-background-hover transition-colors disabled:opacity-50"
           >
-            <span className="text-[15px] text-foreground-muted">{t('receive.token.receiveMint')}</span>
+            <span className="text-body text-foreground-muted">{t('receive.token.receiveMint')}</span>
             <span className="flex items-center gap-0.5">
-              <span className="text-[15px] font-semibold truncate max-w-[180px]">{mintName}</span>
+              <span className="text-body font-semibold truncate max-w-[180px]">{mintName}</span>
               {!isSwapDisabled && <ChevronRight className="w-4 h-4 text-foreground-muted shrink-0" />}
             </span>
           </button>
 
           <div className={`flex items-center justify-between ${!isSwapDisabled ? 'pr-[18px]' : ''}`}>
-            <span className="text-[15px] text-foreground-muted">{t('receive.token.amount')}</span>
+            <span className="text-body text-foreground-muted">{t('receive.token.amount')}</span>
             <div className="text-right">
-              <span className="text-[15px] font-semibold">{formattedAmount}</span>
+              <span className="text-body font-semibold">{formattedAmount}</span>
               {(() => { const f = formatFiat(token.amountSats); return f ? (
-                <p className="text-[13px] text-foreground-muted">≈ {f}</p>
+                <p className="text-caption text-foreground-muted">≈ {f}</p>
               ) : null })()}
             </div>
           </div>
           {token.memo && (
             <div className={`flex items-center justify-between ${!isSwapDisabled ? 'pr-[18px]' : ''}`}>
-              <span className="text-[15px] text-foreground-muted">{t('common.memo')}</span>
-              <span className="text-[15px] font-semibold truncate max-w-[200px]">{token.memo}</span>
+              <span className="text-body text-foreground-muted">{t('common.memo')}</span>
+              <span className="text-body font-semibold truncate max-w-[200px]">{token.memo}</span>
             </div>
           )}
         </div>
       </div>
 
       {/* Bottom Action */}
-      <div className="p-5 pb-safe">
+      <div className="p-4 pb-safe">
         <Button
           variant="brand"
           size="xl"

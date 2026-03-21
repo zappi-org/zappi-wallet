@@ -252,6 +252,11 @@ export default {
     posProvisioningDone: 'POS 디바이스가 성공적으로 등록되었습니다.',
     posDeviceRemove: '디바이스 제거',
     posDeviceRemoveWarning: '이 POS 디바이스는 더 이상 결제를 수취할 수 없습니다. 제거하시겠습니까?',
+
+    // Descriptions
+    active: '사용 중',
+    autoLockDescription: '비활동 시 자동으로 잠금',
+    faceIdDescription: '생체인증으로 잠금 해제',
   },
 
   // Add Mint Screen
@@ -778,7 +783,7 @@ export default {
     fromMintPrefix: '내 ',
     fromMintSuffix: '에서',
     whereTo: '어디로 보내시겠어요?',
-    placeholder: '라이트닝 주소, 인보이스, 지불요청...',
+    placeholder: '주소 또는 인보이스 입력',
     howMuch: '얼마를 보낼까요?',
     createToken: '토큰 만들기',
     next: '다음',

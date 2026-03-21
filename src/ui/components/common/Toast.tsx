@@ -86,7 +86,7 @@ export function Toast({ toast, onDismiss }: ToastProps) {
       onClick={handleClick}
     >
       <span className="flex-shrink-0">{icons[toast.type]}</span>
-      <p className="flex-1 text-sm font-medium whitespace-pre-line">{toast.message}</p>
+      <p className="flex-1 text-caption font-medium whitespace-pre-line">{toast.message}</p>
       <button
         onClick={(e) => { e.stopPropagation(); handleDismiss() }}
         className="flex-shrink-0 p-1 rounded hover:bg-white/20 transition-all active:scale-90"

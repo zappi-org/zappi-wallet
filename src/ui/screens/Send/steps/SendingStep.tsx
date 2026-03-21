@@ -30,13 +30,13 @@ export function SendingStep({ validatedData }: SendingStepProps) {
   const destination = getDestinationDisplay(validatedData)
 
   return (
-    <div className="flex flex-col h-full bg-[#faf9f6] pb-safe">
+    <div className="flex flex-col h-full bg-background pb-safe">
       {/* Text — centered horizontally, pushed down a bit */}
       <div className="px-6 pt-20 text-center">
-        <p className="text-[22px] font-medium leading-relaxed">
+        <p className="text-title font-medium leading-relaxed">
           {t('send.sending.message', { destination })}
         </p>
-        <p className="text-[15px] text-foreground-muted mt-1">
+        <p className="text-body text-foreground-muted mt-1">
           {t('send.sending.networkDelay')}
         </p>
       </div>

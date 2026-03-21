@@ -115,9 +115,9 @@ export function Modal({
       >
         {/* Header */}
         {(title || showCloseButton) && (
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
             {title && (
-              <h2 id="modal-title" className="text-base font-semibold">
+              <h2 id="modal-title" className="text-subtitle">
                 {title}
               </h2>
             )}
@@ -147,7 +147,7 @@ export function Modal({
         )}
 
         {/* Content */}
-        <div className="px-4 py-3">{children}</div>
+        <div className="px-5 py-4">{children}</div>
       </div>
     </div>,
     document.body

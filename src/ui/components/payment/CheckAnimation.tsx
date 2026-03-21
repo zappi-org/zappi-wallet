@@ -16,7 +16,7 @@ interface CheckAnimationProps {
 
 export function CheckAnimation({
   className = '',
-  color = '#10B981',
+  color = 'var(--accent-success)',
   size = 96,
 }: CheckAnimationProps) {
   const strokeWidth = 3

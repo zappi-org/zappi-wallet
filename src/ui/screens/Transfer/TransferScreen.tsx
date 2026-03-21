@@ -142,7 +142,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
       <div className="h-dvh bg-background text-foreground flex flex-col pt-safe pb-safe z-[60]">
         <header className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-border">
           <div className="p-1 w-7" />
-          <h2 className="text-base font-semibold tracking-tight flex-1 text-center">{t('transfer.title')}</h2>
+          <h2 className="text-body font-semibold tracking-tight flex-1 text-center">{t('transfer.title')}</h2>
           <div className="w-7" />
         </header>
 
@@ -163,17 +163,17 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
                   </div>
                 )}
               </div>
-              <h3 className="text-[16px] font-bold text-foreground mb-1">{t('transfer.transferComplete')}</h3>
-              <p className="text-[14px] font-semibold text-brand">{formatSats(transferredAmount)}</p>
-              {(() => { const f = formatFiat(transferredAmount); return f ? <p className="text-[12px] text-foreground-muted mt-0.5">≈ {f}</p> : null })()}
+              <h3 className="text-body font-bold text-foreground mb-1">{t('transfer.transferComplete')}</h3>
+              <p className="text-caption font-semibold text-brand">{formatSats(transferredAmount)}</p>
+              {(() => { const f = formatFiat(transferredAmount); return f ? <p className="text-label text-foreground-muted mt-0.5">≈ {f}</p> : null })()}
             </div>
           ) : (
             <div className="flex flex-col items-center text-center">
               <div className="w-12 h-12 border-3 border-brand/20 border-t-brand rounded-full animate-spin mb-6" />
-              <p className="text-[16px] font-semibold text-foreground mb-1">
+              <p className="text-body font-semibold text-foreground mb-1">
                 {getDisplayName(fromMintUrl)} → {getDisplayName(toMintUrl)}
               </p>
-              <p className="text-[14px] font-bold text-brand mb-6">{formatSats(numericAmount)}</p>
+              <p className="text-caption font-bold text-brand mb-6">{formatSats(numericAmount)}</p>
               <ProgressStepper steps={PROGRESS_ORDER} currentStep={progressStep} labels={progressMessages} />
             </div>
           )}
@@ -189,21 +189,21 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
         <button onClick={onBack} aria-label={t('common.back')} className="p-1">
           <ArrowLeft className="w-5 h-5 text-foreground" />
         </button>
-        <h2 className="text-base font-semibold tracking-tight flex-1">{t('transfer.title')}</h2>
+        <h2 className="text-body font-semibold tracking-tight flex-1">{t('transfer.title')}</h2>
       </header>
 
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-28">
         {/* From Mint Row */}
         <button
           onClick={() => setIsMintSelectorOpen('from')}
-          className="w-full px-3 py-3 rounded-sm bg-background-card border border-border flex items-center gap-3 active:bg-background-hover transition-colors"
+          className="w-full px-4 py-3 rounded-xl bg-background-card flex items-center gap-3 active:bg-background-hover transition-colors"
         >
           <MintIcon url={fromMintUrl} getIconUrl={getIconUrl} size="sm" />
           <div className="flex-1 min-w-0 text-left">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">{t('transfer.from')}</p>
-            <p className="text-[14px] font-medium text-foreground truncate">{getDisplayName(fromMintUrl)}</p>
+            <p className="text-overline uppercase tracking-wide text-foreground-muted">{t('transfer.from')}</p>
+            <p className="text-caption font-medium text-foreground truncate">{getDisplayName(fromMintUrl)}</p>
           </div>
-          <span className="text-[13px] font-medium text-foreground-muted shrink-0">{formatSats(currentBalance)}</span>
+          <span className="text-caption font-medium text-foreground-muted shrink-0">{formatSats(currentBalance)}</span>
           <ChevronRight className="w-4 h-4 text-foreground-subtle shrink-0" />
         </button>
 
@@ -220,33 +220,33 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
         {/* To Mint Row */}
         <button
           onClick={() => setIsMintSelectorOpen('to')}
-          className="w-full px-3 py-3 rounded-sm bg-background-card border border-border flex items-center gap-3 active:bg-background-hover transition-colors"
+          className="w-full px-4 py-3 rounded-xl bg-background-card flex items-center gap-3 active:bg-background-hover transition-colors"
         >
           <MintIcon url={toMintUrl} getIconUrl={getIconUrl} size="sm" />
           <div className="flex-1 min-w-0 text-left">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">{t('transfer.to')}</p>
-            <p className="text-[14px] font-medium text-foreground truncate">{getDisplayName(toMintUrl)}</p>
+            <p className="text-overline uppercase tracking-wide text-foreground-muted">{t('transfer.to')}</p>
+            <p className="text-caption font-medium text-foreground truncate">{getDisplayName(toMintUrl)}</p>
           </div>
-          <span className="text-[13px] font-medium text-foreground-muted shrink-0">{formatSats(toMintUrl ? getMintBalance(toMintUrl) : 0)}</span>
+          <span className="text-caption font-medium text-foreground-muted shrink-0">{formatSats(toMintUrl ? getMintBalance(toMintUrl) : 0)}</span>
           <ChevronRight className="w-4 h-4 text-foreground-subtle shrink-0" />
         </button>
 
         {/* Amount Input */}
         <div className={cn(
-          'mt-6 p-6 rounded-sm border flex flex-col items-center justify-center gap-3 transition-all',
+          'mt-6 p-6 rounded-2xl border flex flex-col items-center justify-center gap-3 transition-all',
           isInsufficientFunds
             ? 'bg-accent-danger/5 border-accent-danger/30'
             : 'bg-foreground/[0.02] border-border'
         )}>
           <span className={cn(
-            'text-[13px] font-semibold uppercase tracking-wide',
+            'text-caption font-semibold uppercase tracking-wide',
             isInsufficientFunds ? 'text-accent-danger' : 'text-foreground-muted'
           )}>
             {isInsufficientFunds ? t('payment.insufficientBalance') : t('common.amount')}
           </span>
           <div className="flex items-center justify-center gap-1.5 w-full">
             {unit === '₿' && (
-              <span className={cn('text-4xl font-bold', isInsufficientFunds ? 'text-accent-danger' : 'text-foreground-muted')}>
+              <span className={cn('text-display', isInsufficientFunds ? 'text-accent-danger' : 'text-foreground-muted')}>
                 {unit}
               </span>
             )}
@@ -261,20 +261,20 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
               }}
               placeholder="0"
               className={cn(
-                'bg-transparent text-4xl font-bold text-center outline-none placeholder:text-foreground/20 min-w-[1ch] w-auto',
+                'bg-transparent text-display text-center outline-none placeholder:text-foreground/20 min-w-[1ch] w-auto',
                 isInsufficientFunds ? 'text-accent-danger' : 'text-foreground'
               )}
               style={{ width: amount ? `${amount.length + 1}ch` : '2ch' }}
             />
             {unit !== '₿' && (
-              <span className={cn('text-4xl font-bold', isInsufficientFunds ? 'text-accent-danger' : 'text-foreground-muted')}>
+              <span className={cn('text-display', isInsufficientFunds ? 'text-accent-danger' : 'text-foreground-muted')}>
                 {unit}
               </span>
             )}
           </div>
-          {(() => { const f = formatFiat(numericAmount); return f ? <p className="text-[14px] text-foreground-muted">≈ {f}</p> : null })()}
+          {(() => { const f = formatFiat(numericAmount); return f ? <p className="text-caption text-foreground-muted">≈ {f}</p> : null })()}
           {isInsufficientFunds && (
-            <p className="text-[13px] font-semibold text-accent-danger">
+            <p className="text-caption font-semibold text-accent-danger">
               {t('payment.maxAmount', { amount: formatSats(currentBalance) })}
             </p>
           )}
@@ -282,7 +282,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
             <button
               onClick={handleTransferAll}
               className={cn(
-                'text-[13px] font-semibold px-4 py-1.5 rounded-full transition-colors mt-1',
+                'text-caption font-semibold px-4 py-1.5 rounded-full transition-colors mt-1',
                 isDrain
                   ? 'bg-brand text-white'
                   : 'bg-foreground/[0.06] text-foreground-muted active:bg-foreground/10'
@@ -296,7 +296,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
         {/* Error */}
         {error && (
           <div className="mt-3 flex items-center justify-center gap-1.5 text-accent-danger">
-            <p className="text-[12px] font-medium">{error}</p>
+            <p className="text-label">{error}</p>
           </div>
         )}
       </div>
@@ -307,7 +307,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
           onClick={handleAction}
           disabled={isInsufficientFunds || numericAmount <= 0 || isProcessingPayment || fromMintUrl === toMintUrl}
           className={cn(
-            'w-full py-3.5 rounded-sm font-semibold text-[14px] flex items-center justify-center gap-2 transition-colors',
+            'w-full py-3.5 rounded-[14px] font-semibold text-caption flex items-center justify-center gap-2 transition-colors',
             isInsufficientFunds || numericAmount <= 0 || isProcessingPayment || fromMintUrl === toMintUrl
               ? 'bg-foreground/10 text-foreground-muted cursor-not-allowed'
               : 'bg-brand text-white active:opacity-80'
@@ -338,7 +338,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-4 pt-4 pb-3 border-b border-border">
-              <h3 className="text-[14px] font-semibold text-foreground">{t('payment.selectMint')}</h3>
+              <h3 className="text-caption font-semibold text-foreground">{t('payment.selectMint')}</h3>
             </div>
             <div className="p-2 flex flex-col gap-1 max-h-[50vh] overflow-y-auto">
               {mintUrls.map((url) => {
@@ -358,7 +358,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
                     }}
                     disabled={isDisabled}
                     className={cn(
-                      'px-3 py-3 rounded-sm flex items-center gap-3 transition-colors',
+                      'px-4 py-3 rounded-xl flex items-center gap-3 transition-colors',
                       isSelected
                         ? 'bg-foreground text-background-card'
                         : 'active:bg-background-hover disabled:opacity-40 disabled:cursor-not-allowed'
@@ -366,10 +366,10 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
                   >
                     <MintIcon url={url} getIconUrl={getIconUrl} size="sm" />
                     <div className="flex-1 min-w-0 text-left">
-                      <span className={cn('text-[13px] font-medium truncate block', isSelected ? 'text-background-card' : 'text-foreground')}>
+                      <span className={cn('text-caption font-medium truncate block', isSelected ? 'text-background-card' : 'text-foreground')}>
                         {getDisplayName(url)}
                       </span>
-                      <span className={cn('text-[11px]', isSelected ? 'text-background-card/70' : 'text-foreground-muted')}>
+                      <span className={cn('text-overline', isSelected ? 'text-background-card/70' : 'text-foreground-muted')}>
                         {formatSats(mintBalance)}
                       </span>
                     </div>

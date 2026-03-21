@@ -99,17 +99,17 @@ export function Keypad({
       {showDisplay && (
         <div className="flex-1 flex flex-col justify-center items-center py-6">
           {balance !== undefined ? (
-            <p className="text-muted-foreground text-xs mb-2">
+            <p className="text-muted-foreground text-label mb-2">
               {resolvedBalanceLabel}: {formatSats(balance)}
             </p>
           ) : (
-            <p className="text-muted-foreground text-xs mb-2">{resolvedDisplayLabel}</p>
+            <p className="text-muted-foreground text-label mb-2">{resolvedDisplayLabel}</p>
           )}
-          {unit === '₿' && <p className="text-muted-foreground text-base mb-1">{unit}</p>}
-          <p className="text-4xl font-bold font-mono tabular-nums">
+          {unit === '₿' && <p className="text-muted-foreground text-body mb-1">{unit}</p>}
+          <p className="text-display tabular-nums">
             {formattedValue}
           </p>
-          {unit !== '₿' && <p className="text-muted-foreground text-base mt-1">{unit}</p>}
+          {unit !== '₿' && <p className="text-muted-foreground text-body mt-1">{unit}</p>}
         </div>
       )}
 
@@ -123,7 +123,7 @@ export function Keypad({
               onPointerDown={(e) => { e.preventDefault(); handlePress(key) }}
               disabled={disabled}
               className={`
-                py-4 text-xl font-medium rounded-lg
+                min-h-[56px] py-4 text-title rounded-lg
                 active:scale-95 active:opacity-80 touch-manipulation
                 ${
                   key === 'C'

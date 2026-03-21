@@ -92,10 +92,10 @@ const TransactionItem = memo(function TransactionItem({
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center justify-between p-3 rounded-2xl bg-white hover:shadow-md border border-primary/5 transition-shadow cursor-pointer group animate-fadeIn"
+      className="w-full flex items-center justify-between p-4 rounded-2xl bg-background-card hover:shadow-md border border-primary/5 transition-shadow cursor-pointer group animate-fadeIn min-h-[44px]"
     >
       <div className="flex items-center gap-3">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
           isSwap
             ? 'bg-badge-lightning-bg text-accent-primary group-hover:bg-badge-lightning-hover'
             : 'bg-background-card text-foreground group-hover:bg-background'
@@ -103,9 +103,9 @@ const TransactionItem = memo(function TransactionItem({
           {getIcon()}
         </div>
         <div className="flex flex-col gap-0.5 text-left">
-          <span className="text-xs font-bold text-foreground">{getTitle()}</span>
+          <span className="text-label text-foreground">{getTitle()}</span>
           {isSwap ? (
-            <div className="flex flex-col text-[10px] text-foreground-muted font-medium">
+            <div className="flex flex-col text-overline text-foreground-muted">
               <span className="truncate max-w-[140px]">
                 {getMintName ? getMintName(fromMintUrl) : formatMintHost(fromMintUrl)}
               </span>
@@ -114,7 +114,7 @@ const TransactionItem = memo(function TransactionItem({
               </span>
             </div>
           ) : (
-            <span className="text-[10px] text-foreground-muted font-medium truncate max-w-[150px]">
+            <span className="text-overline text-foreground-muted truncate max-w-[150px]">
               {/* For Lightning sends, show destination if available */}
               {transaction.type === 'lightning' && transaction.direction === 'send' && transaction.metadata?.destination
                 ? (transaction.metadata.destination as string).includes('@')
@@ -126,7 +126,7 @@ const TransactionItem = memo(function TransactionItem({
         </div>
       </div>
       <div className="flex flex-col items-end gap-0.5">
-        <span className={`text-xs font-bold ${isSwap ? 'text-accent-primary' : isReceive ? 'text-card-green-dark' : 'text-foreground'}`}>
+        <span className={`text-label font-display ${isSwap ? 'text-accent-primary' : isReceive ? 'text-card-brand-dark' : 'text-foreground'}`}>
           {isSwap ? (
             <>{formatSats(transaction.amount)}</>
           ) : (
@@ -136,14 +136,14 @@ const TransactionItem = memo(function TransactionItem({
         {(() => {
           const f = formatTransactionFiat(transaction, formatFiat)
           return f ? (
-            <span className="text-[10px] text-foreground-muted">{f}</span>
+            <span className="text-overline text-foreground-muted">{f}</span>
           ) : null
         })()}
         <div className="flex items-center gap-2">
-          <span className={`text-[10px] font-medium ${statusColors[transaction.status]}`}>
+          <span className={`text-overline ${statusColors[transaction.status]}`}>
             {statusLabels[transaction.status]}
           </span>
-          <span className="text-[10px] text-foreground-timestamp font-medium">{new Date(transaction.createdAt).toLocaleTimeString(getLocaleCode(i18n.language), { hour: '2-digit', minute: '2-digit' })}</span>
+          <span className="text-overline text-foreground-timestamp">{new Date(transaction.createdAt).toLocaleTimeString(getLocaleCode(i18n.language), { hour: '2-digit', minute: '2-digit' })}</span>
         </div>
       </div>
     </button>
@@ -273,21 +273,21 @@ export function HistoryScreen({
       className="h-dvh bg-background text-foreground flex flex-col font-sans relative overflow-hidden z-[60] pt-safe"
     >
       {/* Header */}
-      <header className="flex items-center justify-between px-3 pt-4 relative z-50">
+      <header className="flex items-center justify-between px-5 pt-4 relative z-50">
         <div className="flex items-center">
           <button
             onClick={onBack}
             aria-label={t('common.back')}
-            className="p-2 rounded-full bg-white/80 shadow-sm hover:shadow-md transition-all hover:bg-background-card"
+            className="p-2 rounded-full bg-background-card hover:shadow-md transition-all hover:bg-background-card"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <h2 className="text-base font-bold tracking-tight ml-3">{t('history.title')}</h2>
+          <h2 className="text-body font-bold tracking-tight ml-3">{t('history.title')}</h2>
         </div>
         <button
           onClick={() => setShowSearch(!showSearch)}
-          className={`p-2 rounded-full transition-all shadow-sm ${
-            showSearch ? 'bg-primary text-primary-foreground' : 'bg-white/80 hover:shadow-md hover:bg-background-card'
+          className={`p-2 rounded-full transition-all ${
+            showSearch ? 'bg-primary text-primary-foreground' : 'bg-background-card hover:shadow-md hover:bg-background-card'
           }`}
         >
           <Search className="w-4 h-4" />
@@ -303,7 +303,7 @@ export function HistoryScreen({
           placeholder={t('scanner.inputPlaceholder')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full bg-white/60 p-3 rounded-xl border border-white/50 focus:border-primary/30 outline-none text-foreground placeholder:text-foreground-muted/50"
+          className="w-full bg-background-card p-3 rounded-xl focus:border-primary/30 outline-none text-foreground placeholder:text-foreground-muted/50"
         />
       </div>
 
@@ -313,10 +313,10 @@ export function HistoryScreen({
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+            className={`px-4 py-1.5 rounded-full text-label transition-all ${
               filter === f
                 ? 'bg-primary text-primary-foreground'
-                : 'bg-white/50 text-foreground-muted hover:bg-white'
+                : 'bg-background-card/50 text-foreground-muted hover:bg-background-card'
             }`}
           >
             {filterLabels[f]}
@@ -329,15 +329,15 @@ export function HistoryScreen({
         {isLoading ? (
           <div className="space-y-2">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-16 bg-white/40 rounded-2xl animate-pulse" />
+              <div key={i} className="h-16 bg-background-card/40 rounded-2xl animate-pulse" />
             ))}
           </div>
         ) : flatItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="w-12 h-12 bg-white/60 rounded-full flex items-center justify-center mb-3">
+            <div className="w-12 h-12 bg-background-card rounded-full flex items-center justify-center mb-3">
               <Banknote className="w-6 h-6 text-foreground-muted" />
             </div>
-            <p className="text-xs text-foreground-muted font-medium">
+            <p className="text-label text-foreground-muted">
               {t('history.noTransactions')}
             </p>
           </div>
@@ -361,7 +361,7 @@ export function HistoryScreen({
                   }}
                 >
                   {item.type === 'header' ? (
-                    <h3 className="text-xs font-bold text-foreground-muted pt-4 pb-2 px-2">
+                    <h3 className="text-label text-foreground-muted pt-4 pb-2 px-2">
                       {item.label}
                     </h3>
                   ) : (

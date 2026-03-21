@@ -80,17 +80,17 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
         onClick={step === 'swapping' ? undefined : onClose}
         className="absolute inset-0 bg-black/30 backdrop-blur-sm pointer-events-auto animate-fadeIn"
       />
-      <div className="bg-[#fffdf6] w-full rounded-t-2xl pointer-events-auto relative z-10 shadow-2xl pb-safe animate-slideInUp border border-gray-200/30">
+      <div className="bg-background w-full rounded-t-2xl pointer-events-auto relative z-10 shadow-2xl pb-safe animate-slideInUp border border-border/30">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-4">
           <div className="w-9" />
-          <h3 className="font-['Inter'] font-semibold text-lg text-red-600">
+          <h3 className="text-subtitle text-accent-danger">
             {t('mintDetail.deleteMint')}
           </h3>
           <button
             onClick={onClose}
             disabled={step === 'swapping'}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 disabled:opacity-40"
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-muted disabled:opacity-40"
           >
             <X className="w-4 h-4" />
           </button>
@@ -99,19 +99,19 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
         <div className="px-6 pb-6">
           {step === 'confirm-empty' && (
             <div className="space-y-6">
-              <p className="text-center text-lg font-['Outfit'] font-medium text-[#1d1d1f]">
+              <p className="text-center text-subtitle font-medium text-foreground">
                 {t('mintDetail.deleteConfirmMessage')}
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={onClose}
-                  className="flex-1 py-4 rounded-xl bg-gray-100 font-['Outfit'] font-semibold text-sm text-[#1d1d1f]"
+                  className="flex-1 py-4 rounded-xl bg-muted font-semibold text-caption text-foreground"
                 >
                   {t('mintDetail.no')}
                 </button>
                 <button
                   onClick={handleDelete}
-                  className="flex-1 py-4 rounded-xl bg-red-500 font-['Outfit'] font-semibold text-sm text-white"
+                  className="flex-1 py-4 rounded-xl bg-accent-danger font-semibold text-caption text-white"
                 >
                   {t('mintDetail.delete')}
                 </button>
@@ -121,7 +121,7 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
 
           {step === 'has-balance' && (
             <div className="space-y-5">
-              <p className="text-lg font-['Outfit'] font-medium text-[#1d1d1f] whitespace-pre-line">
+              <p className="text-subtitle font-medium text-foreground whitespace-pre-line">
                 {t('mintDetail.balanceRemaining', {
                   mint: mintName,
                   amount: formatSats(mint.balance),
@@ -130,42 +130,42 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
 
               {/* Source mint */}
               <div>
-                <p className="text-base font-['Outfit'] font-semibold text-[#1d1d1f] mb-2">
+                <p className="text-body font-semibold text-foreground mb-2">
                   {t('mintDetail.emptyMint')}
                 </p>
-                <div className="bg-gray-100 rounded-xl px-4 py-3">
-                  <span className="text-base font-['Outfit'] text-[#1d1d1f]">{mintName}</span>
+                <div className="bg-muted rounded-xl px-4 py-3">
+                  <span className="text-body text-foreground">{mintName}</span>
                 </div>
               </div>
 
               {/* Arrow */}
               <div className="flex justify-center">
-                <ArrowDown className="w-5 h-5 text-[#1d1d1f]" />
+                <ArrowDown className="w-5 h-5 text-foreground" />
               </div>
 
               {/* Target mint */}
               <div>
-                <p className="text-base font-['Outfit'] font-semibold text-[#1d1d1f] mb-2">
+                <p className="text-body font-semibold text-foreground mb-2">
                   {t('mintDetail.fillMint')}
                 </p>
                 {otherMints.length > 0 ? (
                   <div className="relative">
                     <button
                       onClick={() => setShowMintPicker(!showMintPicker)}
-                      className="w-full bg-gray-100 rounded-xl px-4 py-3 flex items-center justify-between"
+                      className="w-full bg-muted rounded-xl px-4 py-3 flex items-center justify-between"
                     >
-                      <span className="text-base font-['Outfit'] text-[#1d1d1f]">
+                      <span className="text-body text-foreground">
                         {effectiveTargetUrl ? getDisplayName(effectiveTargetUrl) : ''}
                       </span>
-                      <ChevronDown className={cn('w-4 h-4 text-[#86868b] transition-transform', showMintPicker && 'rotate-180')} />
+                      <ChevronDown className={cn('w-4 h-4 text-foreground-muted transition-transform', showMintPicker && 'rotate-180')} />
                     </button>
                     {showMintPicker && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 z-10 overflow-hidden">
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-background-card rounded-xl shadow-lg border border-border z-10 overflow-hidden">
                         {otherMints.map((url) => (
                           <button
                             key={url}
                             onClick={() => { setTargetMintUrl(url); setShowMintPicker(false) }}
-                            className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 transition-colors"
+                            className="w-full px-4 py-3 text-left text-caption hover:bg-background-hover transition-colors"
                           >
                             {getDisplayName(url)}
                           </button>
@@ -174,8 +174,8 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
                     )}
                   </div>
                 ) : (
-                  <div className="bg-gray-100 rounded-xl px-4 py-3">
-                    <span className="text-sm text-[#86868b]">{t('mintDetail.sendElsewhere')}</span>
+                  <div className="bg-muted rounded-xl px-4 py-3">
+                    <span className="text-caption text-foreground-muted">{t('mintDetail.sendElsewhere')}</span>
                   </div>
                 )}
               </div>
@@ -184,7 +184,7 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
               <div className="space-y-3 pt-2">
                 <button
                   onClick={handleDelete}
-                  className="w-full py-4 rounded-xl bg-red-500 font-['Inter'] font-semibold text-base text-white active:scale-[0.98] transition-transform"
+                  className="w-full py-4 rounded-xl bg-accent-danger font-semibold text-body text-white active:scale-[0.98] transition-transform"
                 >
                   {t('mintDetail.emptyAndDeleteBtn')}
                 </button>
@@ -195,7 +195,7 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
           {step === 'swapping' && (
             <div className="flex flex-col items-center gap-4 py-8">
               <Loader2 className="w-12 h-12 text-brand animate-spin" />
-              <p className="text-lg font-['Outfit'] font-medium text-[#1d1d1f] text-center">
+              <p className="text-subtitle font-medium text-foreground text-center">
                 {t('mintDetail.swapping')}
               </p>
             </div>
@@ -203,20 +203,20 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
 
           {step === 'error' && (
             <div className="flex flex-col items-center gap-4 py-8">
-              <AlertCircle className="w-12 h-12 text-red-500" />
-              <p className="text-base font-['Outfit'] font-medium text-[#1d1d1f] text-center">
+              <AlertCircle className="w-12 h-12 text-accent-danger" />
+              <p className="text-body font-medium text-foreground text-center">
                 {swapError}
               </p>
               <div className="flex gap-3 w-full">
                 <button
                   onClick={onClose}
-                  className="flex-1 py-4 rounded-xl bg-gray-100 font-['Outfit'] font-semibold text-sm text-[#1d1d1f]"
+                  className="flex-1 py-4 rounded-xl bg-muted font-semibold text-caption text-foreground"
                 >
                   {t('common.close')}
                 </button>
                 <button
                   onClick={() => setStep('has-balance')}
-                  className="flex-1 py-4 rounded-xl bg-[#1d1d1f] font-['Outfit'] font-semibold text-sm text-white"
+                  className="flex-1 py-4 rounded-xl bg-brand font-semibold text-caption text-white"
                 >
                   {t('mintDetail.retry')}
                 </button>

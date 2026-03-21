@@ -121,15 +121,15 @@ export function NotificationsScreen({
   return (
     <div className="h-dvh bg-background text-foreground flex flex-col font-sans relative overflow-hidden z-[60] pt-safe">
       {/* Header */}
-      <header className="flex items-center px-3 pt-4 relative z-50">
+      <header className="flex items-center px-5 pt-4 relative z-50">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="p-2 rounded-full bg-white/60 shadow-sm hover:shadow-md transition-all hover:bg-background-card backdrop-blur-md"
+          className="p-2 rounded-full bg-background-card hover:shadow-md transition-all hover:bg-background-card"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
-        <h2 className="text-base font-bold tracking-tight ml-3">{t('notifications.title')}</h2>
+        <h2 className="text-body font-bold tracking-tight ml-3">{t('notifications.title')}</h2>
         <div className="ml-auto bg-primary/10 p-2 rounded-full relative">
           <Bell className="w-4 h-4 text-foreground" />
           {unreadCount > 0 && (
@@ -143,7 +143,7 @@ export function NotificationsScreen({
         <div className="px-4 pt-3">
           <button
             onClick={onClearAll}
-            className="text-[10px] font-bold text-foreground-muted hover:text-foreground transition-colors"
+            className="text-overline font-bold text-foreground-muted hover:text-foreground transition-colors"
           >
             {t('notifications.clearAll')}
           </button>
@@ -151,16 +151,16 @@ export function NotificationsScreen({
       )}
 
       {/* Notifications List */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 pb-32">
+      <div className="flex-1 overflow-y-auto p-4 space-y-2 pb-32">
         {notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-16 h-16 bg-white/60 rounded-full flex items-center justify-center mb-4 shadow-sm">
+            <div className="w-16 h-16 bg-background-card rounded-full flex items-center justify-center mb-4">
               <Bell className="w-6 h-6 text-foreground-muted" />
             </div>
-            <h3 className="text-base font-bold text-foreground mb-2">
+            <h3 className="text-body font-bold text-foreground mb-2">
               {t('notifications.noNotifications')}
             </h3>
-            <p className="text-foreground-muted text-xs">
+            <p className="text-foreground-muted text-label">
               {t('notifications.allCaughtUp')}
             </p>
           </div>
@@ -174,15 +174,15 @@ export function NotificationsScreen({
                   onClick={() => onMarkRead?.(notif.id)}
                   className={cn(
                     'animate-fadeIn',
-                    'p-3 rounded-2xl border transition-colors cursor-pointer flex gap-3',
+                    'p-4 rounded-2xl border transition-colors cursor-pointer flex gap-3 min-h-[44px]',
                     notif.read
-                      ? 'bg-white/30 border-white/20'
-                      : 'bg-white/70 border-white/60 shadow-sm'
+                      ? 'bg-background-card border-primary/5'
+                      : 'bg-background-card border-primary/10'
                   )}
                 >
                   <div
                     className={cn(
-                      'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
+                      'w-10 h-10 rounded-full flex items-center justify-center shrink-0',
                       getIconStyle(notif.type)
                     )}
                   >
@@ -197,17 +197,17 @@ export function NotificationsScreen({
                     <div className="flex justify-between items-start mb-1">
                       <h3
                         className={cn(
-                          'font-bold text-xs',
+                          'text-label',
                           notif.read ? 'text-foreground-muted' : 'text-foreground'
                         )}
                       >
                         {notif.title}
                       </h3>
-                      <span className="text-[8px] font-bold text-foreground-muted/60 shrink-0 ml-2">
+                      <span className="text-overline font-bold text-foreground-muted/60 shrink-0 ml-2">
                         {formatTimeAgo(notif.time, t, i18n.language)}
                       </span>
                     </div>
-                    <p className="text-[10px] text-foreground-muted leading-relaxed font-medium">
+                    <p className="text-overline text-foreground-muted leading-relaxed">
                       {notif.message}
                     </p>
                   </div>
@@ -219,7 +219,7 @@ export function NotificationsScreen({
             })}
 
             <div className="text-center py-6">
-              <span className="text-[10px] font-bold text-foreground-muted/40 uppercase tracking-widest">
+              <span className="text-overline font-bold text-foreground-muted/40 uppercase tracking-widest">
                 {t('notifications.endOfNotifications')}
               </span>
             </div>
