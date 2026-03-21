@@ -101,6 +101,20 @@ export function usePullToRefresh({
     })
   }, [maxPull, threshold])
 
+  const finalizeDismiss = useCallback(() => {
+    clearTimeout(dismissTimerRef.current)
+    isRefreshingRef.current = false
+    setIsRefreshing(false)
+    setIsDismissing(false)
+  }, [])
+
+  // Only finalize on the height transition ending during dismiss phase
+  const handleDismissEnd = useCallback((e: React.TransitionEvent) => {
+    if (!isRefreshingRef.current) return
+    if (e.propertyName !== 'height' || e.target !== e.currentTarget) return
+    finalizeDismiss()
+  }, [finalizeDismiss])
+
   const handleTouchEnd = useCallback(async () => {
     const currentPull = pullDistanceRef.current
     if (!trackingRef.current && !currentPull) return
@@ -128,20 +142,6 @@ export function usePullToRefresh({
       setPastThreshold(false)
     }
   }, [threshold, finalizeDismiss])
-
-  const finalizeDismiss = useCallback(() => {
-    clearTimeout(dismissTimerRef.current)
-    isRefreshingRef.current = false
-    setIsRefreshing(false)
-    setIsDismissing(false)
-  }, [])
-
-  // Only finalize on the height transition ending during dismiss phase
-  const handleDismissEnd = useCallback((e: React.TransitionEvent) => {
-    if (!isRefreshingRef.current) return
-    if (e.propertyName !== 'height' || e.target !== e.currentTarget) return
-    finalizeDismiss()
-  }, [finalizeDismiss])
 
   useEffect(() => {
     const el = scrollContainerRef.current
