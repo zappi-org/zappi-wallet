@@ -5,7 +5,7 @@ interface UsePullToRefreshOptions {
   onRefresh: () => Promise<void>
   /** Pull distance (px) required to trigger refresh */
   threshold?: number
-  /** Maximum pull distance (px) with damping */
+  /** Maximum pull distance (px) — asymptotic limit for exponential damping */
   maxPull?: number
 }
 
@@ -15,10 +15,20 @@ interface UsePullToRefreshReturn {
   pullDistance: number
   /** Whether the user is actively dragging */
   isPulling: boolean
+  /** Whether pull has crossed the trigger threshold */
+  pastThreshold: boolean
   /** Whether a refresh is currently in progress */
   isRefreshing: boolean
   /** Whether the indicator is animating away after refresh completes */
   isDismissing: boolean
+  /** Call from indicator's onTransitionEnd to finalize dismiss */
+  handleDismissEnd: () => void
+}
+
+/** Exponential damping — feels like a spring. Asymptotically approaches maxPull. */
+function applyDamping(rawDelta: number, maxPull: number): number {
+  const k = 0.4
+  return maxPull * (1 - Math.exp((-k * rawDelta) / maxPull))
 }
 
 /**
@@ -29,11 +39,12 @@ interface UsePullToRefreshReturn {
 export function usePullToRefresh({
   onRefresh,
   threshold = 80,
-  maxPull = 120,
+  maxPull = 128,
 }: UsePullToRefreshOptions): UsePullToRefreshReturn {
   const scrollContainerRef = useRef<HTMLElement>(null)
   const [pullDistance, setPullDistance] = useState(0)
   const [isPulling, setIsPulling] = useState(false)
+  const [pastThreshold, setPastThreshold] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isDismissing, setIsDismissing] = useState(false)
 
@@ -56,6 +67,7 @@ export function usePullToRefresh({
     startYRef.current = e.touches[0].clientY
     trackingRef.current = true
     setIsPulling(true)
+    setPastThreshold(false)
   }, [])
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
@@ -69,17 +81,21 @@ export function usePullToRefresh({
       cancelAnimationFrame(rafRef.current)
       setPullDistance(0)
       setIsPulling(false)
+      setPastThreshold(false)
       return
     }
 
-    const damped = Math.min(deltaY * 0.5, maxPull)
+    const damped = applyDamping(deltaY, maxPull)
     if (damped > 0) {
       e.preventDefault()
     }
     pullDistanceRef.current = damped
     cancelAnimationFrame(rafRef.current)
-    rafRef.current = requestAnimationFrame(() => setPullDistance(damped))
-  }, [maxPull])
+    rafRef.current = requestAnimationFrame(() => {
+      setPullDistance(damped)
+      setPastThreshold(damped >= threshold)
+    })
+  }, [maxPull, threshold])
 
   const handleTouchEnd = useCallback(async () => {
     const currentPull = pullDistanceRef.current
@@ -92,23 +108,27 @@ export function usePullToRefresh({
       isRefreshingRef.current = true
       setIsRefreshing(true)
       setPullDistance(0)
+      setPastThreshold(false)
       try {
         await onRefreshRef.current()
       } catch (e) {
         console.error('[PullToRefresh] Refresh failed:', e)
       } finally {
-        // Dismiss animation — set isDismissing briefly before fully hiding
+        // Dismiss via CSS transitionend instead of setTimeout
         setIsDismissing(true)
-        // Wait for CSS transition to complete before unmounting
-        await new Promise((r) => setTimeout(r, 250))
-        isRefreshingRef.current = false
-        setIsRefreshing(false)
-        setIsDismissing(false)
       }
     } else {
       setPullDistance(0)
+      setPastThreshold(false)
     }
   }, [threshold])
+
+  // Listen for transitionend on the indicator to finalize dismiss
+  const handleDismissEnd = useCallback(() => {
+    isRefreshingRef.current = false
+    setIsRefreshing(false)
+    setIsDismissing(false)
+  }, [])
 
   useEffect(() => {
     const el = scrollContainerRef.current
@@ -125,5 +145,13 @@ export function usePullToRefresh({
     }
   }, [handleTouchStart, handleTouchMove, handleTouchEnd])
 
-  return { scrollContainerRef, pullDistance, isPulling, isRefreshing, isDismissing }
+  return {
+    scrollContainerRef,
+    pullDistance,
+    isPulling,
+    pastThreshold,
+    isRefreshing,
+    isDismissing,
+    handleDismissEnd,
+  }
 }

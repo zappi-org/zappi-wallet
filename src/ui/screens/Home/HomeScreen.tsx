@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, startTransition, useCallback } from "react";
 import { useCarouselScroll } from "@/hooks/use-carousel-scroll";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
-import { User, ArrowDownLeft, ArrowUpRight, Plus, LoaderCircle } from "lucide-react";
+import { User, ArrowDownLeft, ArrowUpRight, Plus, LoaderCircle, ArrowDown } from "lucide-react";
 import { hapticTap } from "@/utils/haptic";
 
 import { useTranslation } from "react-i18next";
@@ -76,7 +76,7 @@ export function HomeScreen({
   // Pull-to-refresh
   const ptrThreshold = 80;
   const noopRefresh = useCallback(async () => {}, []);
-  const { scrollContainerRef, pullDistance, isPulling, isRefreshing, isDismissing } = usePullToRefresh({
+  const { scrollContainerRef, pullDistance, isPulling, pastThreshold, isRefreshing, isDismissing, handleDismissEnd } = usePullToRefresh({
     onRefresh: onRefresh ?? noopRefresh,
     threshold: ptrThreshold,
   });
@@ -198,11 +198,15 @@ export function HomeScreen({
               height: isDismissing ? 0 : isRefreshing ? 48 : pullDistance,
               opacity: isDismissing ? 0 : isRefreshing ? 1 : Math.min(pullDistance / ptrThreshold, 1),
             }}
+            onTransitionEnd={isDismissing ? handleDismissEnd : undefined}
           >
-            <LoaderCircle
-              className={`w-6 h-6 text-foreground-muted ${isRefreshing ? 'animate-spin' : ''}`}
-              style={!isRefreshing ? { transform: `rotate(${pullDistance * 3}deg)` } : undefined}
-            />
+            {isRefreshing ? (
+              <LoaderCircle className="w-6 h-6 text-foreground-muted animate-spin" />
+            ) : (
+              <ArrowDown
+                className={`w-5 h-5 text-foreground-muted transition-transform duration-150 ${pastThreshold ? 'rotate-180' : ''}`}
+              />
+            )}
           </div>
         )}
 
