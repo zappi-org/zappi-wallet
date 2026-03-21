@@ -183,7 +183,12 @@ export default function MainApp() {
     // 3. Pending quotes 동기화
     await syncPendingQuotes()
 
-    // 4. 민트 상태 + 환율 (fire-and-forget)
+    // 4. Pending quote 결제 상태 강제 재확인 (watcher cycle)
+    import('@/coco/manager').then(({ recheckPendingMintQuotes }) =>
+      recheckPendingMintQuotes().catch((e) => console.error('[Refresh] Failed to recheck pending quotes:', e))
+    )
+
+    // 5. 민트 상태 + 환율 (fire-and-forget)
     checkAllMints()
     exchangeRateService.refreshIfStale().catch(() => {})
   }, [services.payment, refreshAll, notifyRecovery, syncPendingQuotes, checkAllMints])
@@ -323,9 +328,10 @@ export default function MainApp() {
       if (document.visibilityState === 'visible') {
         // Resume SDK subscriptions (WS reconnect + polling)
         try {
-          const { getCocoManager } = await import('@/coco/manager')
+          const { getCocoManager, recheckPendingMintQuotes } = await import('@/coco/manager')
           const manager = await getCocoManager()
           manager.resumeSubscriptions()
+          recheckPendingMintQuotes().catch((e) => console.error('[Background] Failed to recheck pending quotes:', e))
         } catch { /* ignore if not initialized */ }
 
         // Refresh exchange rates (throttled — no-op if recently fetched)

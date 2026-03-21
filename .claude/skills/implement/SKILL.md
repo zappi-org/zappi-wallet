@@ -47,7 +47,7 @@ Implement the tests from plan.md Test Plan section:
 - Run tests to verify they pass
 
 ### Step 5: Verify & Commit
-1. Run `npx tsc --noEmit` — fix type errors if any
+1. Run `npx tsc -b` — fix type errors if any (CI와 동일한 명령어. `--noEmit`은 테스트 파일을 검증하지 않을 수 있음)
 2. Run `npx eslint <changed source files>` — fix lint errors if any
 3. Run `npx vitest run <changed test files>` — fix failures if any
 4. Stage all changed files
