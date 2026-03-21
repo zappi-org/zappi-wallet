@@ -4,6 +4,7 @@ import { broadcastSync } from '@/hooks/use-cross-tab-sync';
 import i18n from '@/i18n';
 import { satUnit } from '@/utils/format';
 import { connectSendTokenObserver, disconnectSendTokenObserver } from './sendTokenObserver';
+import { connectMintQuoteObserver, disconnectMintQuoteObserver } from './mintQuoteObserver';
 
 // Coco 이벤트 구독 해제 함수들
 let unsubscribers: (() => void)[] = [];
@@ -17,6 +18,10 @@ export function markQuoteAsSwap(quoteId: string): void {
 
 export function unmarkQuoteAsSwap(quoteId: string): void {
   swapQuoteIds.delete(quoteId);
+}
+
+export function isSwapQuote(quoteId: string): boolean {
+  return swapQuoteIds.has(quoteId);
 }
 
 /**
@@ -52,8 +57,8 @@ export function connectCocoToStore(manager: Manager): void {
     removePendingQuote(event.quoteId);
 
     // 스왑 quote는 토스트 억제 (use-payment.ts에서 swap 전용 토스트 표시)
+    // delete는 하지 않음 — observer가 swap 여부 확인 후 정리
     if (swapQuoteIds.has(event.quoteId)) {
-      swapQuoteIds.delete(event.quoteId);
       console.log(`[Coco Bridge] Swap quote redeemed (toast suppressed): ${event.quoteId}`);
     } else {
       addToast({
@@ -80,6 +85,9 @@ export function connectCocoToStore(manager: Manager): void {
   // Send token observer (send:finalized/rolled-back → Transaction DB 업데이트)
   connectSendTokenObserver(manager);
 
+  // Mint quote observer (mint-quote:redeemed → Transaction DB 기록)
+  connectMintQuoteObserver(manager);
+
   console.log('[Coco Bridge] Connected to store');
 }
 
@@ -92,5 +100,6 @@ export function disconnectCocoFromStore(): void {
   }
   unsubscribers = [];
   disconnectSendTokenObserver();
+  disconnectMintQuoteObserver();
   console.log('[Coco Bridge] Disconnected from store');
 }

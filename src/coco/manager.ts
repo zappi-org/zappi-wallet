@@ -128,6 +128,18 @@ export async function enableWatchers(): Promise<void> {
 }
 
 /**
+ * Cycle MintQuoteWatcher to force re-check all pending quotes against mint servers.
+ * Used by pull-to-refresh and visibility change handlers to catch missed WebSocket notifications.
+ */
+export async function recheckPendingMintQuotes(): Promise<void> {
+  if (!watchersEnabled) return;
+
+  const manager = await getCocoManager();
+  await manager.disableMintQuoteWatcher();
+  await manager.enableMintQuoteWatcher({ watchExistingPendingOnStart: true });
+}
+
+/**
  * Get all pending (UNPAID/PAID) mint quotes from Coco's internal DB
  */
 export async function getPendingMintQuotes(): Promise<MintQuote[]> {
