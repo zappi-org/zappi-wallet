@@ -29,7 +29,7 @@ export interface MeltQuote {
 }
 
 /**
- * NUT-18 Payment request
+ * NUT-18/NUT-26 Payment request
  */
 export interface PaymentRequest {
   id: string
@@ -39,7 +39,7 @@ export interface PaymentRequest {
   description?: string
   singleUse: boolean
   p2pkPubkey?: string
-  encoded: string // creqA... format
+  encoded: string // creqB... (NUT-26 bech32m) or creqA... (legacy CBOR)
 }
 
 /**

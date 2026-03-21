@@ -6,7 +6,7 @@
 import i18n from '@/i18n'
 import { resolveLightningAddress, type LnurlPayParams } from '@/services/lnurl'
 import { bech32 } from '@scure/base'
-import { decode as decodeCbor } from 'cbor-x'
+import { decodePaymentRequest } from '@/services/cashu/nut18'
 import type {
   InputType,
   Bolt11Input,
@@ -332,105 +332,39 @@ function validateCashuRequest(input: CashuRequestInput): ValidationResult {
 }
 
 /**
- * Decode NUT-18 Payment Request
- * Supports both creqA... and cashu:// formats
- * NUT-18 uses CBOR encoding for the payload
+ * Decode payment request (NUT-18 creqA / NUT-26 creqB / cashu:// / bitcoin:)
+ * Delegates to nut18.ts which uses cashu-ts PaymentRequest class
  */
 export function decodeCashuRequest(request: string): ParsedCashuRequest {
-  let base64Data: string
+  const decoded = decodePaymentRequest(request)
 
-  if (request.toLowerCase().startsWith('cashu://')) {
-    // cashu:// URI format - handle both path and query formats
-    const uriContent = request.slice(8) // Remove 'cashu://'
-    if (uriContent.toLowerCase().startsWith('creqa')) {
-      base64Data = uriContent.slice(5) // Remove 'creqA'
-    } else if (uriContent.includes('request=')) {
-      const match = uriContent.match(/request=([^&]+)/i)
-      if (match && match[1].toLowerCase().startsWith('creqa')) {
-        base64Data = match[1].slice(5)
-      } else {
-        throw new Error('Invalid cashu:// URI format')
-      }
-    } else {
-      throw new Error('Invalid cashu:// URI format')
-    }
-  } else if (request.toLowerCase().startsWith('creqa')) {
-    // creqA... format
-    base64Data = request.slice(5) // Remove 'creqA' prefix
-  } else {
-    throw new Error('Unknown Cashu request format')
-  }
+  const transports: CashuRequestTransport[] = decoded.transports.map((t) => ({
+    type: t.type,
+    target: t.target,
+  }))
 
-  // Base64url decode to bytes
-  let padded = base64Data.replace(/-/g, '+').replace(/_/g, '/')
-  // Add padding if needed
-  while (padded.length % 4) {
-    padded += '='
-  }
-  const binaryString = atob(padded)
-  const bytes = new Uint8Array(binaryString.length)
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i)
-  }
-
-  // Decode CBOR
-  const data = decodeCbor(bytes)
-
-  // NUT-18 CBOR structure:
-  // i = id (optional)
-  // a = amount (optional)
-  // u = unit (default: sat)
-  // m = mints (array of URLs)
-  // d = description (optional)
-  // s = single_use (optional, default: true)
-  // t = transport (array of transport objects)
-  // - t.t = transport type ("nostr", "post")
-  // - t.a = address (npub for nostr, URL for post)
-
-  // Parse transport array
-  const transports: CashuRequestTransport[] = []
-  if (data.t && Array.isArray(data.t)) {
-    for (const t of data.t) {
-      transports.push({
-        type: t.t || 'unknown',
-        target: t.a || '',
-      })
-    }
-  }
-
-  // Find transports
   const nostrTransport = transports.find((t) => t.type === 'nostr')
   const postTransport = transports.find((t) => t.type === 'post')
 
-  // Parse NUT-10 spending conditions (e.g., P2PK lock)
+  // Extract NUT-10 spending conditions (P2PK lock)
   let nut10: { kind: string; data: string; tags?: string[][] } | undefined
   let p2pkPubkey: string | undefined
-  if (data.nut10 && typeof data.nut10 === 'object') {
-    nut10 = {
-      kind: data.nut10.k || '',
-      data: data.nut10.d || '',
-      tags: data.nut10.t,
-    }
+  if (decoded.nut10) {
+    nut10 = decoded.nut10
     if (nut10.kind === 'P2PK' && nut10.data) {
-      // Validate compressed secp256k1 pubkey: 02/03 prefix + 64 hex chars
       if (/^(02|03)[0-9a-fA-F]{64}$/.test(nut10.data)) {
         p2pkPubkey = nut10.data
-      } else {
-        console.warn('[InputValidator] Invalid P2PK pubkey format:', nut10.data)
       }
     }
   }
 
-  // Generate an ID from data or use provided
-  const id = data.i || `req-${Date.now().toString(36)}`
-
   return {
-    id,
-    amount: data.a,
-    unit: data.u || 'sat',
-    mints: data.m || [],
-    singleUse: data.s ?? true,
-    description: data.d,
+    id: decoded.id,
+    amount: decoded.amount,
+    unit: decoded.unit,
+    mints: decoded.mints,
+    singleUse: decoded.singleUse,
+    description: decoded.description,
     transports,
     nut10,
     hasNostrTransport: !!nostrTransport,

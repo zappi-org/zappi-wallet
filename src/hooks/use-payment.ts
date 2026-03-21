@@ -9,7 +9,6 @@ import {
 import { PaymentService } from '@/services/payment/payment.service'
 import { translateError } from '@/core/errors/translate'
 import { formatSats } from '@/utils/format'
-import type { PaymentRequest } from '@/core/types'
 
 /**
  * Hook for payment operations
@@ -187,35 +186,6 @@ export function usePayment() {
   )
 
   /**
-   * Create a NUT-18 payment request
-   */
-  const createPaymentRequest = useCallback(
-    async (
-      amount: number,
-      mintUrl: string,
-      p2pkPubkey?: string
-    ): Promise<PaymentRequest | null> => {
-      const paymentService = getPaymentService()
-      const result = await paymentService.createPaymentRequest(
-        amount,
-        mintUrl,
-        p2pkPubkey
-      )
-
-      if (result.isErr()) {
-        addToast({
-          type: 'error',
-          message: t('toast.paymentRequestFailed'),
-        })
-        return null
-      }
-
-      return result.value
-    },
-    [getPaymentService, addToast, t]
-  )
-
-  /**
    * Send Lightning payment (melt to pay invoice or Lightning address)
    */
   const sendLightning = useCallback(
@@ -307,7 +277,6 @@ export function usePayment() {
     startPolling,
     claimPayment,
     receiveEcash,
-    createPaymentRequest,
     sendLightning,
     mintSwap,
     setCurrentAmount,

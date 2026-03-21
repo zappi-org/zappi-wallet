@@ -109,6 +109,11 @@ export const mockCashuTs = {
     unit: 'sat',
   }),
   PaymentRequest: vi.fn().mockImplementation(() => ({
-    toEncodedRequest: () => 'creqAmock...',
+    toEncodedCreqA: () => 'creqAmock...',
+    toEncodedCreqB: () => 'CREQB1MOCK...',
   })),
+  PaymentRequestTransportType: {
+    NOSTR: 0,
+    POST: 1,
+  },
 }

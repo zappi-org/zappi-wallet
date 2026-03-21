@@ -1,7 +1,7 @@
 /**
  * ReceiveInputStep — Request creation for receive flow
- * Method tab (Lightning/eCash), mint selection, amount input
- * Accessed via "요청 생성" from the main TokenReceiveStep
+ * Creates both Lightning invoice data and eCash payment request simultaneously
+ * for unified BIP-321 QR code generation
  */
 
 import { useState, useCallback, useMemo } from 'react'
@@ -15,12 +15,10 @@ import { AmountInput } from '@/ui/components/common/AmountInput'
 import { createNostrPaymentRequest, createDualTransportPaymentRequest } from '@/services/cashu/nut18'
 import { encodeNprofile } from '@/services/crypto'
 import { useMintNut18Support } from '@/hooks/use-mint-nut18-support'
-import type { ReceiveMethod } from '../ReceiveFlow'
 
 interface ReceiveInputStepProps {
   onBack: () => void
   onNext: (data: {
-    method: ReceiveMethod
     amount: number
     mintUrl: string
     ecashRequest?: string
@@ -45,7 +43,6 @@ export function ReceiveInputStep({
   const addToast = useAppStore((s) => s.addToast)
 
   // State
-  const [method, setMethod] = useState<ReceiveMethod>('lightning')
   const [amount, setAmount] = useState(initialAmount > 0 ? String(initialAmount) : '')
   const [selectedMintUrl, setSelectedMintUrl] = useState<string | null>(
     initialMintUrl || settings.mints[0] || null
@@ -65,7 +62,7 @@ export function ReceiveInputStep({
     }
   }, [nostrPubkey, settings.relays])
 
-  // Handle next
+  // Handle next — always create ecash request alongside Lightning
   const handleNext = useCallback(() => {
     const numericAmount = parseInt(amount, 10)
     if (!numericAmount || numericAmount <= 0) {
@@ -79,13 +76,12 @@ export function ReceiveInputStep({
 
     hapticTap()
 
-    if (method === 'ecash') {
-      if (!userNprofile) {
-        hapticError()
-        addToast({ type: 'error', message: t('errors.generic'), duration: 3000 })
-        return
-      }
+    // Always create ecash payment request for unified QR
+    let ecashRequest: string | undefined
+    let ecashRequestId: string | undefined
+    let httpEndpoint: string | undefined
 
+    if (userNprofile) {
       if (supportsHttp) {
         // Dual transport: Nostr (primary) + HTTP POST (fallback)
         const result = createDualTransportPaymentRequest({
@@ -97,15 +93,9 @@ export function ReceiveInputStep({
           singleUse: true,
           idPrefix: 'wallet',
         })
-
-        onNext({
-          method: 'ecash',
-          amount: numericAmount,
-          mintUrl: selectedMintUrl,
-          ecashRequest: result.request,
-          ecashRequestId: result.id,
-          httpEndpoint: result.httpEndpoint,
-        })
+        ecashRequest = result.request
+        ecashRequestId = result.id
+        httpEndpoint = result.httpEndpoint
       } else {
         // Nostr-only transport
         const result = createNostrPaymentRequest({
@@ -116,23 +106,23 @@ export function ReceiveInputStep({
           singleUse: true,
           idPrefix: 'wallet',
         })
-
-        onNext({
-          method: 'ecash',
-          amount: numericAmount,
-          mintUrl: selectedMintUrl,
-          ecashRequest: result.request,
-          ecashRequestId: result.id,
-        })
+        ecashRequest = result.request
+        ecashRequestId = result.id
       }
     } else {
-      onNext({
-        method: 'lightning',
-        amount: numericAmount,
-        mintUrl: selectedMintUrl,
-      })
+      // No Nostr profile — Lightning-only fallback (shouldn't happen in zappi-wallet)
+      hapticError()
+      console.warn('[ReceiveInputStep] No Nostr profile available, Lightning-only mode')
     }
-  }, [method, amount, memo, selectedMintUrl, userNprofile, supportsHttp, onNext, addToast, t])
+
+    onNext({
+      amount: numericAmount,
+      mintUrl: selectedMintUrl,
+      ecashRequest,
+      ecashRequestId,
+      httpEndpoint,
+    })
+  }, [amount, memo, selectedMintUrl, userNprofile, supportsHttp, onNext, addToast, t])
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -160,36 +150,6 @@ export function ReceiveInputStep({
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 space-y-6">
-        {/* Method Tabs — segment control */}
-        <div className="space-y-2">
-          <p className="text-label font-normal text-foreground-muted leading-snug">
-            {t('receive.senderMethod')}
-          </p>
-          <div className="relative flex p-1.5 bg-muted rounded-[14px]">
-            {/* Sliding indicator */}
-            <div
-              className="absolute top-1.5 bottom-1.5 w-[calc(50%-3px)] bg-brand rounded-[10px] shadow-sm transition-transform duration-250 ease-out"
-              style={{ left: '6px', transform: method === 'ecash' ? 'translateX(100%)' : 'translateX(0)' }}
-            />
-            <button
-              onClick={() => { setMethod('lightning'); hapticTap() }}
-              className={`relative z-10 flex-1 py-2.5 rounded-[10px] font-medium text-caption transition-colors duration-200 min-h-[44px] ${
-                method === 'lightning' ? 'text-white' : 'text-foreground-muted'
-              }`}
-            >
-              {t('receive.lightning')}
-            </button>
-            <button
-              onClick={() => { setMethod('ecash'); hapticTap() }}
-              className={`relative z-10 flex-1 py-2.5 rounded-[10px] font-medium text-caption transition-colors duration-200 min-h-[44px] ${
-                method === 'ecash' ? 'text-white' : 'text-foreground-muted'
-              }`}
-            >
-              {t('receive.ecash')}
-            </button>
-          </div>
-        </div>
-
         {/* Amount */}
         <AmountInput
           amount={amount}
@@ -197,19 +157,17 @@ export function ReceiveInputStep({
           label={t('receive.howMuch')}
         />
 
-        {/* Memo — optional, only for ecash */}
-        {method === 'ecash' && (
-          <div>
-            <p className="text-label text-foreground-muted leading-snug">{t('receive.memoPlaceholder')}</p>
-            <input
-              type="text"
-              value={memo}
-              onChange={(e) => setMemo(e.target.value)}
-              maxLength={100}
-              className="w-full bg-transparent border-0 border-b border-b-border rounded-none py-2 text-subtitle font-semibold text-foreground focus:outline-none focus:border-b-foreground transition-colors"
-            />
-          </div>
-        )}
+        {/* Memo — optional, used as ecash request description */}
+        <div>
+          <p className="text-label text-foreground-muted leading-snug">{t('receive.memoPlaceholder')}</p>
+          <input
+            type="text"
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            maxLength={100}
+            className="w-full bg-transparent border-0 border-b border-b-border rounded-none py-2 text-subtitle font-semibold text-foreground focus:outline-none focus:border-b-foreground transition-colors"
+          />
+        </div>
       </div>
 
       {/* Bottom Action */}

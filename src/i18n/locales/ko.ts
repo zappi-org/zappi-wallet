@@ -861,6 +861,8 @@ export default {
       nostrAndHttp: 'Nostr + HTTP 대기중',
       httpOnly: 'HTTP 대기중 (Nostr 연결 실패)',
       nostrOnly: 'Nostr 대기중',
+      unified: 'Lightning + eCash 대기중',
+      lightningOnly: 'Lightning 대기중',
     },
     complete: {
       message: '{{mint}}에\n{{amount}} 입금되었어요',

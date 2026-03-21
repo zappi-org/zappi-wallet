@@ -740,6 +740,8 @@ export default {
       nostrAndHttp: 'Nostr + HTTP escuchando',
       httpOnly: 'HTTP escuchando (Nostr desconectado)',
       nostrOnly: 'Nostr escuchando',
+      unified: 'Lightning + eCash escuchando',
+      lightningOnly: 'Lightning escuchando',
     },
     complete: {
       message: '{{mint}}\n{{amount}} recibidos',

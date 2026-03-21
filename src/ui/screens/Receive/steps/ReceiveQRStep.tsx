@@ -1,11 +1,11 @@
 /**
- * ReceiveQRStep — Display QR code for invoice/payment request
- * Subscribes to payment detection (Lightning: quote subscription, Ecash: GiftWrap listener + HTTP polling)
- * Modern layout: bg-background, no borders
+ * ReceiveQRStep — Display unified BIP-321 QR code
+ * Subscribes to BOTH Lightning + eCash payment detection simultaneously.
+ * First detection wins; both subscriptions are cancelled.
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { ArrowLeft, Copy, Check, Share2, Radio, Wifi, Globe } from 'lucide-react'
+import { ArrowLeft, Copy, Check, Share2, Radio, Wifi, Globe, Zap } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
@@ -13,13 +13,12 @@ import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { hapticTap, hapticSuccess } from '@/utils/haptic'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { startNut18HttpPoller } from '@/services/cashu/nut18-http'
+import { buildUnifiedBitcoinUri } from '@/services/cashu/nut18'
 import { receiveP2PKToken } from '@/coco'
-import type { ReceiveMethod } from '../ReceiveFlow'
 
 interface ReceiveQRStepProps {
   onBack: () => void
-  onPaymentDetected: (amount: number) => void
-  method: ReceiveMethod
+  onPaymentDetected: (amount: number, method: 'lightning' | 'ecash') => void
   amount: number
   mintUrl: string
   // Lightning
@@ -42,7 +41,6 @@ interface ReceiveQRStepProps {
 export function ReceiveQRStep({
   onBack,
   onPaymentDetected,
-  method,
   amount,
   mintUrl,
   invoice,
@@ -61,17 +59,46 @@ export function ReceiveQRStep({
   const [copied, setCopied] = useState(false)
 
   const mintName = getDisplayName(mintUrl)
-  const qrValue = method === 'lightning' ? invoice?.toUpperCase() : ecashRequest
 
   // Nostr connection status from store
   const nostrConnectionStatus = useAppStore((s) => s.nostrConnectionStatus)
+  const setPendingEcashRequestId = useAppStore((s) => s.setPendingEcashRequestId)
+
+  // Register/unregister pending ecash request ID for GiftWrapListener matching
+  useEffect(() => {
+    if (ecashRequestId) {
+      setPendingEcashRequestId(ecashRequestId)
+    }
+    return () => {
+      setPendingEcashRequestId(null)
+    }
+  }, [ecashRequestId, setPendingEcashRequestId])
+
+  // Shared payment detection guard — first detection wins
+  const paymentDetectedRef = useRef(false)
+
+  // Build QR value: unified BIP-321 when both available, fallback otherwise
+  const qrValue = (() => {
+    if (invoice && ecashRequest) {
+      return buildUnifiedBitcoinUri({
+        lightningInvoice: invoice,
+        cashuRequest: ecashRequest,
+      })
+    }
+    if (invoice) return invoice.toUpperCase()
+    if (ecashRequest) return ecashRequest
+    return null
+  })()
+
+  // Text for copy/share (same as QR value)
+  const shareText = qrValue
 
   // ======= Lightning payment subscription =======
   const [resubTrigger, setResubTrigger] = useState(0)
 
   // Re-subscribe on visibility change (app returning from background)
   useEffect(() => {
-    if (method !== 'lightning' || !quoteId) return
+    if (!quoteId) return
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         setResubTrigger((v) => v + 1)
@@ -79,20 +106,21 @@ export function ReceiveQRStep({
     }
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [method, quoteId])
+  }, [quoteId])
 
-  // Subscribe to quote for Lightning
+  // Subscribe to Lightning quote
   useEffect(() => {
-    if (method !== 'lightning' || !quoteId) return
+    if (!quoteId) return
 
     let cancelled = false
     let unsubscribe: (() => void) | null = null
 
     const handlePaid = () => {
-      if (cancelled) return
+      if (cancelled || paymentDetectedRef.current) return
+      paymentDetectedRef.current = true
       cancelled = true
       hapticSuccess()
-      onPaymentDetected(amount)
+      onPaymentDetected(amount, 'lightning')
     }
 
     const setup = async () => {
@@ -109,7 +137,7 @@ export function ReceiveQRStep({
         }
         if (canceller) unsubscribe = canceller
       } catch (err) {
-        console.warn('[ReceiveQR] Subscription setup failed:', err)
+        console.warn('[ReceiveQR] Lightning subscription setup failed:', err)
       }
     }
 
@@ -119,31 +147,30 @@ export function ReceiveQRStep({
       cancelled = true
       unsubscribe?.()
     }
-  }, [method, quoteId, amount, mintUrl, onSubscribeToQuote, onPaymentDetected, resubTrigger])
+  }, [quoteId, amount, mintUrl, onSubscribeToQuote, onPaymentDetected, resubTrigger])
 
   // ======= Ecash NUT-18 payment detection (Nostr) =======
   const lastReceivedRequestId = useAppStore((s) => s.lastReceivedRequestId)
   const lastReceivedAmount = useAppStore((s) => s.lastReceivedAmount)
   const setLastReceivedPayment = useAppStore((s) => s.setLastReceivedPayment)
-  const paymentDetectedRef = useRef(false)
 
   useEffect(() => {
-    if (method !== 'ecash' || !ecashRequestId || !lastReceivedRequestId) return
+    if (!ecashRequestId || !lastReceivedRequestId) return
     if (paymentDetectedRef.current) return
 
     if (lastReceivedRequestId === ecashRequestId) {
       paymentDetectedRef.current = true
       hapticSuccess()
-      onPaymentDetected(lastReceivedAmount)
+      onPaymentDetected(lastReceivedAmount, 'ecash')
       setLastReceivedPayment(null, 0)
     }
-  }, [method, ecashRequestId, lastReceivedRequestId, lastReceivedAmount, setLastReceivedPayment, onPaymentDetected])
+  }, [ecashRequestId, lastReceivedRequestId, lastReceivedAmount, setLastReceivedPayment, onPaymentDetected])
 
   // ======= Ecash NUT-18 HTTP polling (fallback) =======
   const httpPollerRef = useRef<{ cancel: () => void } | null>(null)
 
   useEffect(() => {
-    if (method !== 'ecash' || !httpEndpoint || !ecashRequestId) return
+    if (!httpEndpoint || !ecashRequestId) return
 
     const poller = startNut18HttpPoller({
       endpoint: httpEndpoint,
@@ -159,22 +186,19 @@ export function ReceiveQRStep({
       console.log(`[ReceiveQR] HTTP payment received for ${payload.requestId}`)
 
       try {
-        // Process the token via P2PK receive
         const p2pkPrivkey = useAppStore.getState().nostrPrivkey
         if (p2pkPrivkey) {
           const result = await receiveP2PKToken(payload.token, p2pkPrivkey)
           hapticSuccess()
-          onPaymentDetected(result.amount)
+          onPaymentDetected(result.amount, 'ecash')
         } else {
-          // Fallback: try to detect amount from token
           hapticSuccess()
-          onPaymentDetected(amount)
+          onPaymentDetected(amount, 'ecash')
         }
       } catch (error) {
         console.error('[ReceiveQR] HTTP token processing error:', error)
-        // Still notify with requested amount on error
         hapticSuccess()
-        onPaymentDetected(amount)
+        onPaymentDetected(amount, 'ecash')
       }
     })
 
@@ -186,7 +210,7 @@ export function ReceiveQRStep({
       poller.cancel()
       httpPollerRef.current = null
     }
-  }, [method, httpEndpoint, ecashRequestId, amount, onPaymentDetected])
+  }, [httpEndpoint, ecashRequestId, amount, onPaymentDetected])
 
   // Cancel HTTP poller when payment detected via Nostr
   useEffect(() => {
@@ -198,15 +222,18 @@ export function ReceiveQRStep({
 
   // ======= Transport status =======
   const getTransportStatus = () => {
-    if (method !== 'ecash') return null
-
-    const hasNostr = nostrConnectionStatus === 'connected'
+    const hasLightning = !!invoice
+    const hasNostr = nostrConnectionStatus === 'connected' && !!ecashRequest
     const hasHttp = !!httpEndpoint
 
+    if (hasLightning && hasNostr && hasHttp) return 'unified-full'
+    if (hasLightning && hasNostr) return 'unified-nostr'
+    if (hasLightning && hasHttp) return 'unified-http'
+    if (hasLightning) return 'lightning-only'
     if (hasNostr && hasHttp) return 'nostr-and-http'
-    if (hasHttp && !hasNostr) return 'http-only'
-    if (hasNostr && !hasHttp) return 'nostr-only'
-    return 'nostr-only' // connecting state
+    if (hasNostr) return 'nostr-only'
+    if (hasHttp) return 'http-only'
+    return 'lightning-only'
   }
 
   const transportStatus = getTransportStatus()
@@ -214,10 +241,9 @@ export function ReceiveQRStep({
   // ======= Actions =======
 
   const handleCopy = useCallback(async () => {
-    const text = method === 'lightning' ? invoice : ecashRequest
-    if (!text) return
+    if (!shareText) return
     try {
-      await navigator.clipboard.writeText(text)
+      await navigator.clipboard.writeText(shareText)
       setCopied(true)
       hapticTap()
       addToast({ type: 'success', message: t('common.copied'), duration: 2000 })
@@ -225,22 +251,21 @@ export function ReceiveQRStep({
     } catch {
       addToast({ type: 'error', message: t('errors.clipboardError'), duration: 3000 })
     }
-  }, [method, invoice, ecashRequest, addToast, t])
+  }, [shareText, addToast, t])
 
   const handleShare = useCallback(async () => {
-    const text = method === 'lightning' ? invoice : ecashRequest
-    if (!text) return
+    if (!shareText) return
     hapticTap()
     try {
       if (navigator.share) {
-        await navigator.share({ text })
+        await navigator.share({ text: shareText })
       } else {
         await handleCopy()
       }
     } catch {
       // User cancelled share
     }
-  }, [method, invoice, ecashRequest, handleCopy])
+  }, [shareText, handleCopy])
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -282,40 +307,7 @@ export function ReceiveQRStep({
         )}
 
         {/* Transport status indicator */}
-        {method === 'ecash' && transportStatus ? (
-          <div className="flex flex-col items-center gap-1.5">
-            <div className="flex items-center gap-2 px-4 py-2 bg-accent-primary/10 rounded-full">
-              <div className="animate-pulse">
-                <Radio className="w-4 h-4 text-accent-primary" />
-              </div>
-              <span className="text-caption text-foreground-muted">
-                {t('receive.qr.willNotify', { mint: mintName })}
-              </span>
-            </div>
-            {/* Transport detail badge */}
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted">
-              {transportStatus === 'nostr-and-http' && (
-                <>
-                  <Wifi className="w-3 h-3 text-green-600" />
-                  <Globe className="w-3 h-3 text-blue-500" />
-                  <span className="text-label text-foreground-muted">{t('receive.transport.nostrAndHttp')}</span>
-                </>
-              )}
-              {transportStatus === 'http-only' && (
-                <>
-                  <Globe className="w-3 h-3 text-blue-500" />
-                  <span className="text-label text-amber-600">{t('receive.transport.httpOnly')}</span>
-                </>
-              )}
-              {transportStatus === 'nostr-only' && (
-                <>
-                  <Wifi className="w-3 h-3 text-green-600" />
-                  <span className="text-label text-foreground-muted">{t('receive.transport.nostrOnly')}</span>
-                </>
-              )}
-            </div>
-          </div>
-        ) : (
+        <div className="flex flex-col items-center gap-1.5">
           <div className="flex items-center gap-2 px-4 py-2 bg-accent-primary/10 rounded-full">
             <div className="animate-pulse">
               <Radio className="w-4 h-4 text-accent-primary" />
@@ -324,7 +316,43 @@ export function ReceiveQRStep({
               {t('receive.qr.willNotify', { mint: mintName })}
             </span>
           </div>
-        )}
+          {/* Transport detail badge */}
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted">
+            {transportStatus.startsWith('unified') && (
+              <>
+                <Zap className="w-3 h-3 text-amber-500" />
+                <Wifi className="w-3 h-3 text-green-600" />
+                {transportStatus === 'unified-full' && <Globe className="w-3 h-3 text-blue-500" />}
+                <span className="text-label text-foreground-muted">{t('receive.transport.unified')}</span>
+              </>
+            )}
+            {transportStatus === 'lightning-only' && (
+              <>
+                <Zap className="w-3 h-3 text-amber-500" />
+                <span className="text-label text-foreground-muted">{t('receive.transport.lightningOnly')}</span>
+              </>
+            )}
+            {transportStatus === 'nostr-and-http' && (
+              <>
+                <Wifi className="w-3 h-3 text-green-600" />
+                <Globe className="w-3 h-3 text-blue-500" />
+                <span className="text-label text-foreground-muted">{t('receive.transport.nostrAndHttp')}</span>
+              </>
+            )}
+            {transportStatus === 'nostr-only' && (
+              <>
+                <Wifi className="w-3 h-3 text-green-600" />
+                <span className="text-label text-foreground-muted">{t('receive.transport.nostrOnly')}</span>
+              </>
+            )}
+            {transportStatus === 'http-only' && (
+              <>
+                <Globe className="w-3 h-3 text-blue-500" />
+                <span className="text-label text-amber-600">{t('receive.transport.httpOnly')}</span>
+              </>
+            )}
+          </div>
+        </div>
 
         {/* Action buttons */}
         <div className="flex gap-3 w-full max-w-xs">

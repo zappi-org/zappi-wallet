@@ -4,7 +4,7 @@ import { WalletService } from '@/services/wallet/wallet.service'
 import { TransactionRepository } from '@/data/repositories/transaction.repository'
 import { getDatabase, type PendingMeltRecord, type PendingSendTokenRecord } from '@/data/database/schema'
 import { ok, err, type Result } from '@/core/types'
-import type { MintQuote, PaymentRequest } from '@/core/types'
+import type { MintQuote } from '@/core/types'
 import type { BaseError } from '@/core/errors'
 import { MintConnectionError, InsufficientBalanceError, classifyCashuError, InvalidInvoiceError, InvoiceExpiredError } from '@/core/errors'
 import {
@@ -651,69 +651,6 @@ export class PaymentService {
       if (mintQuote) unmarkQuoteAsSwap(mintQuote.quote)
       return err(classifyCashuError(error))
     }
-  }
-
-  /**
-   * Create a NUT-18 payment request for receiving ecash
-   */
-  async createPaymentRequest(
-    amount: number,
-    mintUrl: string,
-    p2pkPubkey?: string
-  ): Promise<Result<PaymentRequest, BaseError>> {
-    const id = crypto.randomUUID()
-
-    // Build the payment request
-    const paymentRequest: PaymentRequest = {
-      id,
-      amount,
-      unit: 'sat',
-      mints: [mintUrl],
-      singleUse: true,
-      p2pkPubkey,
-      encoded: this.encodePaymentRequest({
-        id,
-        amount,
-        unit: 'sat',
-        mints: [mintUrl],
-        p2pkPubkey,
-      }),
-    }
-
-    return ok(paymentRequest)
-  }
-
-  /**
-   * Encode a payment request to creqA... format
-   */
-  private encodePaymentRequest(request: {
-    id: string
-    amount: number
-    unit: string
-    mints: string[]
-    p2pkPubkey?: string
-  }): string {
-    // NUT-18 payment request format
-    const data: Record<string, unknown> = {
-      i: request.id,
-      a: request.amount,
-      u: request.unit,
-      m: request.mints,
-      s: true, // singleUse
-    }
-
-    if (request.p2pkPubkey) {
-      data.t = { kind: 'P2PK', data: request.p2pkPubkey }
-    }
-
-    // Base64url encode
-    const json = JSON.stringify(data)
-    const base64 = btoa(json)
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '')
-
-    return `creqA${base64}`
   }
 
   /**

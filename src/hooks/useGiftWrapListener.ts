@@ -377,12 +377,15 @@ export function useGiftWrapListener() {
       }
 
       // Check for raw Cashu token first (simple DM with just a token)
+      // NUT-18 spec: other wallets send cashuB token string directly
       if (isRawCashuToken(content)) {
         console.log('[GiftWrap] Raw Cashu token received in DM')
         const txId = `dm-token-${event.id.substring(0, 12)}`
         const alreadyProcessed = await isTxProcessed(txId)
         if (alreadyProcessed) return
-        const success = await processToken(content.trim(), txId, event.id, url)
+        // Match to pending ecash request if ReceiveQR is active
+        const pendingRequestId = useAppStore.getState().pendingEcashRequestId
+        const success = await processToken(content.trim(), txId, event.id, url, pendingRequestId ?? undefined)
         await maybeAck(txId, success)
         return
       }

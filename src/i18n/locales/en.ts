@@ -858,6 +858,8 @@ export default {
       nostrAndHttp: 'Nostr + HTTP listening',
       httpOnly: 'HTTP listening (Nostr disconnected)',
       nostrOnly: 'Nostr listening',
+      unified: 'Lightning + eCash listening',
+      lightningOnly: 'Lightning listening',
     },
     complete: {
       message: '{{mint}}\n{{amount}} received',
