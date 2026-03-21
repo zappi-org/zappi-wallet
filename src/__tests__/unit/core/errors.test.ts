@@ -195,6 +195,12 @@ describe('Cashu Errors', () => {
       expect(error).toBeInstanceOf(InvoiceExpiredError)
     })
 
+    it('should classify "already spent" in detail as TokenSpentError even with non-10002 code', () => {
+      const error = classifyCashuError(new MintOperationError(11000, 'Token already spent'))
+
+      expect(error).toBeInstanceOf(TokenSpentError)
+    })
+
     it('should classify unknown code as MintError with code preserved', () => {
       const error = classifyCashuError(new MintOperationError(99999, 'Something unexpected'))
 

@@ -218,9 +218,19 @@ function classifyMintOperationError(error: MintOperationError): BaseError {
     return new InvoiceExpiredError(message, error)
   }
 
+  // Token spent from mint side (code가 10002가 아닌 경우 대비)
+  if (detail.includes('already spent') || detail.includes('token spent')) {
+    return new TokenSpentError(message, error)
+  }
+
   // Insufficient balance from mint side
   if (detail.includes('insufficient') || detail.includes('not enough')) {
     return new InsufficientBalanceError(0, 0, error)
+  }
+
+  // Invalid proof/token from mint side
+  if (detail.includes('invalid proof') || detail.includes('invalid token')) {
+    return new InvalidTokenError(message, error)
   }
 
   // Default: preserve code for debugging
