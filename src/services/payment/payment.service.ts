@@ -27,6 +27,7 @@ import {
 } from '@/coco/cashuService'
 import { getMintQuote as cocoGetMintQuote } from '@/coco/manager'
 import { markQuoteAsSwap, unmarkQuoteAsSwap } from '@/coco/bridge'
+import { recordLightningReceive } from '@/coco/mintQuoteObserver'
 import { getDecodedToken } from '@cashu/cashu-ts'
 
 /**
@@ -187,28 +188,8 @@ export class PaymentService {
       // Coco manages proofs internally, so we get an empty array back
       await cocoRedeemMintQuote(mintUrl, quoteId, amount)
 
-      // Create or update transaction as completed
-      // (handles both new flow where no pending tx exists, and old flow where it might)
-      if (existingTx) {
-        await this.transactionRepo.update(transactionId, {
-          status: 'completed',
-          completedAt: Date.now(),
-          ...(bolt11 && !existingTx.bolt11 ? { bolt11 } : {}),
-        })
-      } else {
-        await this.transactionRepo.create({
-          id: transactionId,
-          direction: 'receive',
-          type: 'lightning',
-          amount,
-          mintUrl,
-          status: 'completed',
-          createdAt: Date.now(),
-          completedAt: Date.now(),
-          bolt11,
-          metadata: { quoteId },
-        })
-      }
+      // Transaction DB 기록 (idempotent — observer와 공유)
+      await recordLightningReceive({ quoteId, mintUrl, amount, bolt11 })
 
       return ok({
         proofs: [], // Coco manages proofs internally
