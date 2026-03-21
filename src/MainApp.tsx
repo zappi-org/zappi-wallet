@@ -4,6 +4,7 @@ import { AnimatePresence } from 'motion/react'
 import { useAppStore } from '@/store'
 import { useWallet } from '@/hooks/use-wallet'
 import { useNetwork } from '@/hooks/use-network'
+import { useMintHealth } from '@/hooks/use-mint-health'
 import { useGiftWrapListener } from '@/hooks/useGiftWrapListener'
 import { useCrossTabSync, broadcastSync } from '@/hooks/use-cross-tab-sync'
 import { useStateReconstruction } from '@/hooks/useStateReconstruction'
@@ -93,6 +94,7 @@ export default function MainApp() {
   // Hooks
   const { refreshBalance } = useWallet()
   const { isOnline } = useNetwork()
+  const { checkAllMints } = useMintHealth()
 
   // State Reconstruction hook (ZAP-06)
   const { reconstruct, isRecovering } = useStateReconstruction()
@@ -160,6 +162,40 @@ export default function MainApp() {
     ])
     setTransactions(txHistory)
   }, [refreshBalance, services.transactionRepo])
+
+  /** Manual pull-to-refresh handler */
+  const handleManualRefresh = useCallback(async () => {
+    // 1. Pending operations 복구
+    try {
+      const recovery = await services.payment.recoverAll()
+      if (recovery.receivedTokens.redeemed > 0) {
+        addToast({
+          type: 'success',
+          message: t('toast.offlineTokensRedeemed', { count: recovery.receivedTokens.redeemed }),
+          duration: 4000,
+        })
+      }
+    } catch (e) {
+      console.error('[Refresh] Failed to recover pending operations:', e)
+    }
+
+    // 2. 잔액 + 거래내역 새로고침
+    await refreshAll()
+    broadcastSync('balance_changed')
+
+    // 3. Pending quotes 동기화
+    try {
+      const { getActivePendingQuotes } = await import('@/coco/cashuService')
+      const activeQuotes = await getActivePendingQuotes()
+      setPendingQuotes(activeQuotes)
+    } catch (e) {
+      console.error('[Refresh] Failed to sync pending quotes:', e)
+    }
+
+    // 4. 민트 상태 + 환율 (fire-and-forget)
+    checkAllMints()
+    exchangeRateService.refreshIfStale().catch(() => {})
+  }, [services.payment, refreshAll, addToast, setPendingQuotes, checkAllMints, t])
 
   // Initialize app — Coco 무관 작업만 (Coco는 unlock 후 setupSubscription에서 초기화)
   useEffect(() => {
@@ -940,6 +976,7 @@ export default function MainApp() {
             setCurrentScreen('transaction-detail')
           }}
           onSaveSettings={handleSaveSettings}
+          onRefresh={handleManualRefresh}
           transactions={transactions}
         />
       )}
