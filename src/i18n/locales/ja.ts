@@ -710,6 +710,8 @@ export default {
       nostrAndHttp: 'Nostr + HTTP 待機中',
       httpOnly: 'HTTP 待機中 (Nostr 切断)',
       nostrOnly: 'Nostr 待機中',
+      unified: 'Lightning + eCash 待機中',
+      lightningOnly: 'Lightning 待機中',
     },
     complete: {
       message: '{{mint}}に\n{{amount}}入金されました',

@@ -313,20 +313,6 @@ describe('PaymentService', () => {
     })
   })
 
-  describe('createPaymentRequest', () => {
-    it('should create a NUT-18 payment request', async () => {
-      const result = await service.createPaymentRequest(1000, testMintUrl, 'p2pk-pubkey')
-
-      expect(result.isOk()).toBe(true)
-      if (result.isOk()) {
-        expect(result.value.amount).toBe(1000)
-        expect(result.value.mints).toContain(testMintUrl)
-        expect(result.value.p2pkPubkey).toBe('p2pk-pubkey')
-        expect(result.value.encoded).toMatch(/^creq/)
-      }
-    })
-  })
-
   describe('getTotalReceived', () => {
     it('should calculate total amount from proofs', () => {
       const proofs = [

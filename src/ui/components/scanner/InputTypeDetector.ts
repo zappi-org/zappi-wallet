@@ -5,6 +5,7 @@
 
 import { isBolt11Invoice, decodeInvoice, isValidLightningAddress } from '@/services/lightning'
 import { getDecodedToken } from '@cashu/cashu-ts'
+import { parseBitcoinUri } from '@/services/cashu/nut18'
 
 // ============= Types =============
 
@@ -76,7 +77,12 @@ export function detectInputType(input: string): InputType {
 
   const normalized = trimmed.toLowerCase()
 
-  // 1. BOLT11 Invoice
+  // 1. bitcoin: URI (BIP-321) — must check before bolt11
+  if (normalized.startsWith('bitcoin:')) {
+    return detectBitcoinUri(trimmed)
+  }
+
+  // 2. BOLT11 Invoice
   if (isBolt11Invoice(trimmed)) {
     return detectBolt11(trimmed)
   }
@@ -102,8 +108,8 @@ export function detectInputType(input: string): InputType {
     return detectCashuToken(trimmed)
   }
 
-  // 5. Cashu Request / NUT-18 (creqA... or cashu://)
-  if (normalized.startsWith('creqa') || normalized.startsWith('cashu://')) {
+  // 5. Cashu Request / NUT-18/NUT-26 (creqA..., creqB..., CREQB..., cashu://)
+  if (/^creq[ab]/i.test(trimmed) || normalized.startsWith('cashu://')) {
     return {
       type: 'cashu-request',
       request: trimmed,
@@ -175,6 +181,34 @@ function detectCashuToken(token: string): CashuTokenInput | UnknownInput {
       input: token,
     }
   }
+}
+
+/**
+ * Detect bitcoin: URI (BIP-321)
+ * - bitcoin:?creq=CREQB1... → cashu-request (extract creq)
+ * - bitcoin:?lightning=LNBC... (no creq) → bolt11 (extract lightning)
+ * - bitcoin:?lightning=...&creq=... → cashu-request (creq takes priority, unified QR)
+ */
+function detectBitcoinUri(uri: string): InputType {
+  const parsed = parseBitcoinUri(uri)
+  if (!parsed) {
+    return { type: 'unknown', input: uri }
+  }
+
+  // If creq is present, treat as cashu request (unified QR or standalone)
+  if (parsed.creq) {
+    return {
+      type: 'cashu-request',
+      request: parsed.creq,
+    }
+  }
+
+  // If only lightning, treat as bolt11
+  if (parsed.lightning) {
+    return detectBolt11(parsed.lightning)
+  }
+
+  return { type: 'unknown', input: uri }
 }
 
 // ============= Helper Functions =============

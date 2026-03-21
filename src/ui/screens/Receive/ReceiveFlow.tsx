@@ -218,12 +218,10 @@ export function ReceiveFlow({
 
   // ============= Step Transitions =============
 
-  /** Input → create invoice/request → QR step */
+  /** Input → create Lightning invoice + use ecash data → QR step (unified) */
   const handleInputNext = useCallback(async (data: {
-    method: ReceiveMethod
     amount: number
     mintUrl: string
-    // For ecash: request + requestId already created in step
     ecashRequest?: string
     ecashRequestId?: string
     httpEndpoint?: string
@@ -240,39 +238,32 @@ export function ReceiveFlow({
     }
 
     try {
-      if (data.method === 'lightning') {
-        // Create Lightning invoice
-        const result = await onCreateInvoice(data.amount, data.mintUrl)
-        if (!result) {
-          addToast({ type: 'error', message: t('payment.createInvoiceFailed'), duration: 3000 })
-          isProcessingRef.current = false
-          setIsLoading(false)
-          return
-        }
+      // Always create Lightning invoice
+      const invoiceResult = await onCreateInvoice(data.amount, data.mintUrl)
 
-        setState((prev) => ({
-          ...prev,
-          step: 'qr',
-          method: 'lightning',
-          amount: data.amount,
-          selectedMintUrl: data.mintUrl,
-          invoice: result.invoice,
-          quoteId: result.quoteId,
-          quoteExpiry: result.expiry,
-        }))
-      } else {
-        // Ecash: request is already created in ReceiveInputStep
-        setState((prev) => ({
-          ...prev,
-          step: 'qr',
-          method: 'ecash',
-          amount: data.amount,
-          selectedMintUrl: data.mintUrl,
-          ecashRequest: data.ecashRequest || null,
-          ecashRequestId: data.ecashRequestId || null,
-          httpEndpoint: data.httpEndpoint || null,
-        }))
+      // If Lightning invoice creation fails but we have ecash request, still proceed
+      if (!invoiceResult && !data.ecashRequest) {
+        addToast({ type: 'error', message: t('payment.createInvoiceFailed'), duration: 3000 })
+        isProcessingRef.current = false
+        setIsLoading(false)
+        return
       }
+
+      setState((prev) => ({
+        ...prev,
+        step: 'qr',
+        method: 'lightning', // default; actual method determined at payment detection
+        amount: data.amount,
+        selectedMintUrl: data.mintUrl,
+        // Lightning data
+        invoice: invoiceResult?.invoice || null,
+        quoteId: invoiceResult?.quoteId || null,
+        quoteExpiry: invoiceResult?.expiry || null,
+        // Ecash data (always present when Nostr is available)
+        ecashRequest: data.ecashRequest || null,
+        ecashRequestId: data.ecashRequestId || null,
+        httpEndpoint: data.httpEndpoint || null,
+      }))
     } catch (err) {
       console.error('[ReceiveFlow] Input next error:', err)
       addToast({ type: 'error', message: t('errors.generic'), duration: 3000 })
@@ -283,14 +274,15 @@ export function ReceiveFlow({
   }, [isOnline, onCreateInvoice, addToast, t])
 
   /** Payment received → complete */
-  const handlePaymentDetected = useCallback((amount: number) => {
-    onPaymentReceived(amount, state.method)
+  const handlePaymentDetected = useCallback((amount: number, method: 'lightning' | 'ecash') => {
+    onPaymentReceived(amount, method)
     setState((prev) => ({
       ...prev,
       step: 'complete',
+      method,
       receivedAmount: amount,
     }))
-  }, [state.method, onPaymentReceived])
+  }, [onPaymentReceived])
 
   /** Token scanned from TokenReceiveBottomSheet */
   const handleTokenDetected = useCallback(async (token: ValidatedCashuToken) => {
@@ -502,7 +494,6 @@ export function ReceiveFlow({
             <ReceiveQRStep
               onBack={() => goToStep('input')}
               onPaymentDetected={handlePaymentDetected}
-              method={state.method}
               amount={state.amount}
               mintUrl={state.selectedMintUrl!}
               invoice={state.invoice}

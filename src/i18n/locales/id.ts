@@ -740,6 +740,8 @@ export default {
       nostrAndHttp: 'Nostr + HTTP mendengarkan',
       httpOnly: 'HTTP mendengarkan (Nostr terputus)',
       nostrOnly: 'Nostr mendengarkan',
+      unified: 'Lightning + eCash mendengarkan',
+      lightningOnly: 'Lightning mendengarkan',
     },
     complete: {
       message: '{{mint}}\n{{amount}} diterima',

@@ -14,7 +14,7 @@
     "postinstall": "patch-package"
   },
   "dependencies": {
-    "@cashu/cashu-ts": "^3.2.2",
+    "@cashu/cashu-ts": "^3.6.1",
     "@gandlaf21/bc-ur": "^1.1.12",
     "@noble/ciphers": "^2.1.1",
     "@noble/curves": "^2.0.1",
@@ -51,7 +51,6 @@
     "@scure/bip39": "^2.0.1",
     "@tanstack/react-virtual": "^3.13.18",
     "@testing-library/dom": "^10.4.1",
-    "cbor-x": "^1.6.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

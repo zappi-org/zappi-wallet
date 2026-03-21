@@ -55,34 +55,33 @@ const RELAY_TIMEOUT_MS = 10000
  * Send a Cashu token via NIP-17 encrypted DM
  * Used for responding to NUT-18 payment requests with Nostr transport
  *
- * Sends in V4 JSON format for compatibility with cashu.me:
- * {id: requestId, mint, unit, proofs}
- *
+ * NUT-18 spec: PaymentRequestPayload JSON format
+ * { id, mint, unit, proofs, memo? }
+ * This is what cashu.me and other wallets expect.
  * Falls back to raw token if decoding fails.
  */
 export async function sendTokenViaDM(options: SendTokenDMOptions): Promise<DMSendResult> {
   const { recipientPubkey, token, requestId, senderPrivkey, relays } = options
 
-  // Try to convert to V4 JSON format (what cashu.me expects)
+  // Build NUT-18 PaymentRequestPayload JSON
   let content = token
   try {
-    // Dynamic import to avoid circular dependencies
     const { getDecodedToken } = await import('@cashu/cashu-ts')
     const decoded = getDecodedToken(token)
 
-    // Build V4 JSON format with request ID
-    const memo = options.memo || decoded.memo
-    const v4Token = {
-      id: requestId,  // NUT-18 request ID for correlation
+    const payload: Record<string, unknown> = {
+      id: requestId,
       mint: decoded.mint,
       unit: decoded.unit || 'sat',
       proofs: decoded.proofs,
-      ...(memo ? { memo } : {}),
     }
-    content = JSON.stringify(v4Token)
+    const memo = options.memo || decoded.memo
+    if (memo) payload.memo = memo
+
+    content = JSON.stringify(payload)
   } catch (err) {
     // Fallback to raw token if decoding fails
-    console.warn('[NostrDM] Failed to convert to V4 JSON, sending raw token:', err)
+    console.warn('[NostrDM] Failed to build PaymentRequestPayload, sending raw token:', err)
   }
 
   return sendDM({
