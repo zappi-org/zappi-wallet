@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, startTransition, useCallback } from "react";
 import { useCarouselScroll } from "@/hooks/use-carousel-scroll";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
-import { User, ArrowDownLeft, ArrowUpRight, Plus, LoaderCircle } from "lucide-react";
+import { User, ArrowDownLeft, ArrowUpRight, Plus, LoaderCircle, ArrowDown } from "lucide-react";
 import { hapticTap } from "@/utils/haptic";
 
 import { useTranslation } from "react-i18next";
@@ -76,7 +76,7 @@ export function HomeScreen({
   // Pull-to-refresh
   const ptrThreshold = 80;
   const noopRefresh = useCallback(async () => {}, []);
-  const { scrollContainerRef, pullDistance, isPulling, isRefreshing } = usePullToRefresh({
+  const { scrollContainerRef, pullDistance, isPulling, pastThreshold, isRefreshing, isDismissing, handleDismissEnd } = usePullToRefresh({
     onRefresh: onRefresh ?? noopRefresh,
     threshold: ptrThreshold,
   });
@@ -191,18 +191,22 @@ export function HomeScreen({
       {/* Scrollable content */}
       <main ref={scrollContainerRef} className="flex-1 flex flex-col overflow-y-auto min-h-0">
         {/* Pull-to-refresh indicator */}
-        {(pullDistance > 0 || isRefreshing) && (
+        {(pullDistance > 0 || isRefreshing || isDismissing) && (
           <div
-            className={`flex items-center justify-center shrink-0 overflow-hidden ${!isPulling ? 'transition-[height] duration-200' : ''}`}
+            className={`flex items-center justify-center shrink-0 overflow-hidden ${!isPulling ? 'transition-[height,opacity] duration-200' : ''}`}
             style={{
-              height: isRefreshing ? 48 : pullDistance,
-              opacity: isRefreshing ? 1 : Math.min(pullDistance / ptrThreshold, 1),
+              height: isDismissing ? 0 : isRefreshing ? 48 : pullDistance,
+              opacity: isDismissing ? 0 : isRefreshing ? 1 : Math.min(pullDistance / ptrThreshold, 1),
             }}
+            onTransitionEnd={handleDismissEnd}
           >
-            <LoaderCircle
-              className={`w-6 h-6 text-foreground-muted ${isRefreshing ? 'animate-spin' : ''}`}
-              style={!isRefreshing ? { transform: `rotate(${pullDistance * 3}deg)` } : undefined}
-            />
+            {isRefreshing ? (
+              <LoaderCircle className="w-6 h-6 text-foreground-muted animate-spin" />
+            ) : (
+              <ArrowDown
+                className={`w-5 h-5 text-foreground-muted transition-transform duration-150 ${pastThreshold ? 'rotate-180' : ''}`}
+              />
+            )}
           </div>
         )}
 

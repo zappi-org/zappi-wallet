@@ -5,7 +5,7 @@ interface UsePullToRefreshOptions {
   onRefresh: () => Promise<void>
   /** Pull distance (px) required to trigger refresh */
   threshold?: number
-  /** Maximum pull distance (px) with damping */
+  /** Maximum pull distance (px) — asymptotic limit for exponential damping */
   maxPull?: number
 }
 
@@ -15,8 +15,20 @@ interface UsePullToRefreshReturn {
   pullDistance: number
   /** Whether the user is actively dragging */
   isPulling: boolean
+  /** Whether pull has crossed the trigger threshold */
+  pastThreshold: boolean
   /** Whether a refresh is currently in progress */
   isRefreshing: boolean
+  /** Whether the indicator is animating away after refresh completes */
+  isDismissing: boolean
+  /** Bind to indicator's onTransitionEnd to finalize dismiss */
+  handleDismissEnd: (e: React.TransitionEvent) => void
+}
+
+/** Exponential damping — feels like a spring. Asymptotically approaches maxPull. */
+function applyDamping(rawDelta: number, maxPull: number): number {
+  const k = 0.4
+  return maxPull * (1 - Math.exp((-k * rawDelta) / maxPull))
 }
 
 /**
@@ -27,12 +39,14 @@ interface UsePullToRefreshReturn {
 export function usePullToRefresh({
   onRefresh,
   threshold = 80,
-  maxPull = 120,
+  maxPull = 128,
 }: UsePullToRefreshOptions): UsePullToRefreshReturn {
   const scrollContainerRef = useRef<HTMLElement>(null)
   const [pullDistance, setPullDistance] = useState(0)
   const [isPulling, setIsPulling] = useState(false)
+  const [pastThreshold, setPastThreshold] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isDismissing, setIsDismissing] = useState(false)
 
   // Mutable refs — avoid re-creating callbacks on every state change
   const startYRef = useRef(0)
@@ -40,11 +54,15 @@ export function usePullToRefresh({
   const pullDistanceRef = useRef(0)
   const isRefreshingRef = useRef(false)
   const rafRef = useRef(0)
+  const dismissTimerRef = useRef(0)
   const onRefreshRef = useRef(onRefresh)
   onRefreshRef.current = onRefresh
 
-  // Cleanup RAF on unmount
-  useEffect(() => () => cancelAnimationFrame(rafRef.current), [])
+  // Cleanup on unmount
+  useEffect(() => () => {
+    cancelAnimationFrame(rafRef.current)
+    clearTimeout(dismissTimerRef.current)
+  }, [])
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
     const el = scrollContainerRef.current
@@ -53,6 +71,7 @@ export function usePullToRefresh({
     startYRef.current = e.touches[0].clientY
     trackingRef.current = true
     setIsPulling(true)
+    setPastThreshold(false)
   }, [])
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
@@ -66,17 +85,35 @@ export function usePullToRefresh({
       cancelAnimationFrame(rafRef.current)
       setPullDistance(0)
       setIsPulling(false)
+      setPastThreshold(false)
       return
     }
 
-    const damped = Math.min(deltaY * 0.5, maxPull)
+    const damped = applyDamping(deltaY, maxPull)
     if (damped > 0) {
       e.preventDefault()
     }
     pullDistanceRef.current = damped
     cancelAnimationFrame(rafRef.current)
-    rafRef.current = requestAnimationFrame(() => setPullDistance(damped))
-  }, [maxPull])
+    rafRef.current = requestAnimationFrame(() => {
+      setPullDistance(damped)
+      setPastThreshold(damped >= threshold)
+    })
+  }, [maxPull, threshold])
+
+  const finalizeDismiss = useCallback(() => {
+    clearTimeout(dismissTimerRef.current)
+    isRefreshingRef.current = false
+    setIsRefreshing(false)
+    setIsDismissing(false)
+  }, [])
+
+  // Only finalize on the height transition ending during dismiss phase
+  const handleDismissEnd = useCallback((e: React.TransitionEvent) => {
+    if (!isRefreshingRef.current) return
+    if (e.propertyName !== 'height' || e.target !== e.currentTarget) return
+    finalizeDismiss()
+  }, [finalizeDismiss])
 
   const handleTouchEnd = useCallback(async () => {
     const currentPull = pullDistanceRef.current
@@ -89,18 +126,25 @@ export function usePullToRefresh({
       isRefreshingRef.current = true
       setIsRefreshing(true)
       setPullDistance(0)
+      setPastThreshold(false)
       try {
-        await onRefreshRef.current()
+        await Promise.all([
+          onRefreshRef.current(),
+          new Promise((r) => setTimeout(r, 400)),
+        ])
       } catch (e) {
         console.error('[PullToRefresh] Refresh failed:', e)
       } finally {
-        isRefreshingRef.current = false
-        setIsRefreshing(false)
+        // Dismiss via CSS transitionend + fallback timeout
+        setIsDismissing(true)
+        // Safety: if transitionend doesn't fire (browser quirk), force cleanup
+        dismissTimerRef.current = window.setTimeout(finalizeDismiss, 300)
       }
     } else {
       setPullDistance(0)
+      setPastThreshold(false)
     }
-  }, [threshold])
+  }, [threshold, finalizeDismiss])
 
   useEffect(() => {
     const el = scrollContainerRef.current
@@ -117,5 +161,13 @@ export function usePullToRefresh({
     }
   }, [handleTouchStart, handleTouchMove, handleTouchEnd])
 
-  return { scrollContainerRef, pullDistance, isPulling, isRefreshing }
+  return {
+    scrollContainerRef,
+    pullDistance,
+    isPulling,
+    pastThreshold,
+    isRefreshing,
+    isDismissing,
+    handleDismissEnd,
+  }
 }

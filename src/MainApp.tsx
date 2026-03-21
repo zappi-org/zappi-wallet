@@ -165,25 +165,31 @@ export default function MainApp() {
 
   /** Manual pull-to-refresh handler */
   const handleManualRefresh = useCallback(async () => {
-    // 1. Pending operations 복구
-    try {
-      const recovery = await services.payment.recoverAll()
-      if (recovery.receivedTokens.redeemed > 0) {
+    // 1. 잔액/거래 로컬 갱신 + 네트워크 복구 병렬 실행
+    const [, recoveryResult] = await Promise.all([
+      refreshAll(),
+      services.payment.recoverAll().catch((e) => {
+        console.error('[Refresh] Failed to recover pending operations:', e)
+        return null
+      }),
+    ])
+
+    broadcastSync('balance_changed')
+
+    // 2. 복구된 항목이 있으면 잔액 재갱신
+    if (recoveryResult && totalRecoveredCount(recoveryResult) > 0) {
+      if (recoveryResult.receivedTokens.redeemed > 0) {
         addToast({
           type: 'success',
-          message: t('toast.offlineTokensRedeemed', { count: recovery.receivedTokens.redeemed }),
+          message: t('toast.offlineTokensRedeemed', { count: recoveryResult.receivedTokens.redeemed }),
           duration: 4000,
         })
       }
-    } catch (e) {
-      console.error('[Refresh] Failed to recover pending operations:', e)
+      await refreshAll()
+      broadcastSync('balance_changed')
     }
 
-    // 2. 잔액 + 거래내역 새로고침
-    await refreshAll()
-    broadcastSync('balance_changed')
-
-    // 3. Pending quotes 동기화
+    // 3. Pending quotes — recovery 이후에 읽어야 최신 상태 반영
     try {
       const { getActivePendingQuotes } = await import('@/coco/cashuService')
       const activeQuotes = await getActivePendingQuotes()
