@@ -16,7 +16,6 @@ import {
   LightningRoutingError,
   LightningPaymentError,
   InvalidInvoiceError,
-  InvoiceExpiredError,
 } from '@/core/errors'
 import {
   NetworkError as CocoNetworkError,
