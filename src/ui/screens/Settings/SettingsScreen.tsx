@@ -22,8 +22,6 @@ import { LanguageSettingPage } from './pages/LanguageSettingPage'
 import { UnitDisplaySettingPage } from './pages/UnitDisplaySettingPage'
 import { FiatSettingPage } from './pages/FiatSettingPage'
 import {
-  isPasskeySupported,
-  isPasskeyRegistered,
   registerPasskey,
   removePasskey,
 } from '@/services/passkey'
