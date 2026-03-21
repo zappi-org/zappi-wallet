@@ -1,5 +1,18 @@
 import { BaseError } from './base'
 import { formatSats } from '@/utils/format'
+import {
+  NetworkError as CocoNetworkError,
+  MintFetchError,
+  MintOperationError,
+  ProofOperationError,
+  PaymentRequestError,
+  HttpResponseError,
+  OperationInProgressError,
+  UnknownMintError,
+  ProofValidationError,
+  TokenValidationError,
+} from 'coco-cashu-core'
+import { LightningRoutingError, LightningPaymentError, InvalidInvoiceError, InvoiceExpiredError } from './lightning'
 
 /**
  * Token has already been spent
@@ -179,9 +192,97 @@ export class P2PKUnlockError extends BaseError {
 }
 
 /**
+ * Classify MintOperationError by NUT-00 code and detail message
+ */
+function classifyMintOperationError(error: MintOperationError): BaseError {
+  const { code, message } = error
+  const detail = message.toLowerCase()
+
+  // NUT-00 error codes — token/proof errors (10000-series)
+  if (code === 10002) return new TokenSpentError(message, error)
+  if (code === 10003) return new InvalidProofError(message, error)
+
+  // NUT-00 error codes — quote/melt errors (20000-series)
+  if (code === 20001) return new QuoteNotFoundError(message, error)
+  if (code === 20002) return new MintError('unknown', String(code), message, error)
+  if (code === 20007) return new QuoteExpiredError(message, error)
+
+  // Lightning-specific: NUT-00 spec에 Lightning 전용 code가 없으므로 detail 기반
+  if (/\brouting\b|\broute\b|\bno_route\b/.test(detail)) {
+    return new LightningRoutingError(message, error)
+  }
+  if (/\bpayment\b/.test(detail) && /\b(?:fail|error)/.test(detail)) {
+    return new LightningPaymentError(message, error)
+  }
+  if (/\binvoice\b/.test(detail) && /\bexpir/.test(detail)) {
+    return new InvoiceExpiredError(message, error)
+  }
+
+  // Insufficient balance from mint side
+  if (detail.includes('insufficient') || detail.includes('not enough')) {
+    return new InsufficientBalanceError(0, 0, error)
+  }
+
+  // Default: preserve code for debugging
+  return new MintError('unknown', String(code), message, error)
+}
+
+/**
  * Classify Cashu error from raw error
+ *
+ * Phase 1: Coco SDK 타입드 에러 (instanceof)
+ * Phase 2: 문자열 폴백 (cashu-ts 등 non-Coco 에러용)
  */
 export function classifyCashuError(error: unknown): BaseError {
+  // Phase 1: Coco SDK typed errors
+  if (error instanceof CocoNetworkError) {
+    return new MintConnectionError('unknown', error)
+  }
+
+  if (error instanceof MintFetchError) {
+    return new MintConnectionError(error.mintUrl, error)
+  }
+
+  if (error instanceof UnknownMintError) {
+    return new MintConnectionError('unknown', error)
+  }
+
+  if (error instanceof ProofOperationError) {
+    const proofMsg = error.message.toLowerCase()
+    if (proofMsg.includes('not enough') || proofMsg.includes('insufficient')) {
+      return new InsufficientBalanceError(0, 0, error)
+    }
+    return new InvalidProofError(error.message, error)
+  }
+
+  if (error instanceof PaymentRequestError) {
+    return new InvalidInvoiceError(error.message, error)
+  }
+
+  if (error instanceof OperationInProgressError) {
+    return new MintError('unknown', undefined, `Operation already in progress: ${error.operationId}`, error)
+  }
+
+  if (error instanceof TokenValidationError) {
+    return new InvalidTokenError(error.message, error)
+  }
+
+  if (error instanceof ProofValidationError) {
+    return new InvalidProofError(error.message, error)
+  }
+
+  if (error instanceof MintOperationError) {
+    return classifyMintOperationError(error)
+  }
+
+  if (error instanceof HttpResponseError) {
+    if (error.status >= 500) {
+      return new MintConnectionError('unknown', error)
+    }
+    return new MintError('unknown', String(error.status), error.message, error)
+  }
+
+  // Phase 2: String fallback (cashu-ts, plain Error, etc.)
   const msg = String(error).toLowerCase()
 
   if (msg.includes('already spent') || msg.includes('token spent')) {
