@@ -74,6 +74,7 @@ export default function MainApp() {
   const settings = useAppStore((state) => state.settings)
   const nostrPubkey = useAppStore((state) => state.nostrPubkey)
   const nostrPrivkey = useAppStore((state) => state.nostrPrivkey)
+  const p2pkPubkey = useAppStore((state) => state.p2pkPubkey)
   const txRefreshTrigger = useAppStore((state) => state.txRefreshTrigger)
 
   // Store actions
@@ -98,7 +99,7 @@ export default function MainApp() {
 
   // Gift Wrap Listener - listens for NIP-17 DMs containing Cashu tokens (NUT-18 responses)
   // This runs when unlocked with nostr keys and settings loaded
-  useGiftWrapListener()
+  const { activateListening } = useGiftWrapListener()
   useCrossTabSync()
 
   // Local state
@@ -741,13 +742,13 @@ export default function MainApp() {
     const mintsChanged = newMints && JSON.stringify(newMints) !== JSON.stringify(settings.mints)
     const relaysChanged = newRelays && JSON.stringify(newRelays) !== JSON.stringify(settings.relays)
 
-    if ((mintsChanged || relaysChanged) && nostrPrivkey && nostrPubkey) {
+    if ((mintsChanged || relaysChanged) && nostrPrivkey && p2pkPubkey) {
       try {
         console.log('[Settings] Mints/relays changed, republishing kind:10019...')
         const publishResult = await services.profile.publishProfile(
           nostrPrivkey,
           newMints || settings.mints,
-          nostrPubkey,
+          p2pkPubkey,
           newRelays || settings.relays
         )
         if (publishResult.isOk()) {
@@ -760,7 +761,7 @@ export default function MainApp() {
       }
     }
     broadcastSync('settings_changed')
-  }, [services.settingsRepo, services.profile, settings, setSettings, nostrPrivkey, nostrPubkey])
+  }, [services.settingsRepo, services.profile, settings, setSettings, nostrPrivkey, p2pkPubkey])
 
   // Handle adding a trusted mint (from receive screen)
   const handleAddTrustedMint = useCallback(async (mintUrl: string): Promise<boolean> => {
@@ -790,13 +791,13 @@ export default function MainApp() {
       await services.settingsRepo.saveSettings({ ...settings, mints: newMints })
       setSettings({ ...settings, mints: newMints })
 
-      if (nostrPrivkey && nostrPubkey && typeof services.profile.publishProfile === 'function') {
+      if (nostrPrivkey && p2pkPubkey && typeof services.profile.publishProfile === 'function') {
         try {
           console.log('[App] Re-publishing profile with updated mints...')
           const publishResult = await services.profile.publishProfile(
             nostrPrivkey,
             newMints,
-            nostrPubkey,
+            p2pkPubkey,
             settings.relays
           )
           if (publishResult.isOk()) {
@@ -816,7 +817,7 @@ export default function MainApp() {
       console.error('[App] Failed to add trusted mint:', error)
       return false
     }
-  }, [settings, services.settingsRepo, services.profile, setSettings, nostrPrivkey, nostrPubkey])
+  }, [settings, services.settingsRepo, services.profile, setSettings, nostrPrivkey, p2pkPubkey])
 
   const handleBack = useCallback(() => {
     const target = previousScreen || 'home'
@@ -1113,6 +1114,7 @@ export default function MainApp() {
           onSwapReceive={handleSwapReceive}
           onEstimateSwapFee={handleEstimateSwapFee}
           onStoreOfflineToken={handleStoreOfflineToken}
+          onActivateListening={activateListening}
           validatedData={validatedScanData || undefined}
           initialAmount={scannedAmount || undefined}
           initialMintUrl={activeMintUrl}

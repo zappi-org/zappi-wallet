@@ -11,7 +11,7 @@ export const DEFAULT_MINTS = [
  */
 export const DEFAULT_RELAYS = [
   'wss://relay.damus.io',
-  'wss://relay.nostr.band',
+  'wss://nostr.vulpem.com',
   'wss://nos.lol',
 ] as const
 
@@ -20,7 +20,7 @@ export const DEFAULT_RELAYS = [
  * TODO: Replace with actual ZS domain when ready
  * Set to empty string to skip ZS lookup and use DEFAULT_RELAYS
  */
-export const ZS_DOMAIN = 'alpha-api.zappi.space'
+export const ZS_DOMAIN = ''
 
 /**
  * Nostr event kinds

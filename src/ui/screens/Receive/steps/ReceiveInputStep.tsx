@@ -25,6 +25,7 @@ interface ReceiveInputStepProps {
     ecashRequestId?: string
     httpEndpoint?: string
   }) => void
+  onActivateListening?: () => void
   initialAmount?: number
   initialMintUrl?: string | null
   isLoading?: boolean
@@ -33,6 +34,7 @@ interface ReceiveInputStepProps {
 export function ReceiveInputStep({
   onBack,
   onNext,
+  onActivateListening,
   initialAmount = 0,
   initialMintUrl,
   isLoading = false,
@@ -81,6 +83,9 @@ export function ReceiveInputStep({
     let ecashRequestId: string | undefined
     let httpEndpoint: string | undefined
 
+    // NUT-18 요청 생성 → Active 모드로 전환 (5초 간격 health check)
+    onActivateListening?.()
+
     if (userNprofile) {
       if (supportsHttp) {
         // Dual transport: Nostr (primary) + HTTP POST (fallback)
@@ -122,7 +127,7 @@ export function ReceiveInputStep({
       ecashRequestId,
       httpEndpoint,
     })
-  }, [amount, memo, selectedMintUrl, userNprofile, supportsHttp, onNext, addToast, t])
+  }, [amount, memo, selectedMintUrl, userNprofile, supportsHttp, onNext, onActivateListening, addToast, t])
 
   return (
     <div className="flex flex-col h-full bg-background">

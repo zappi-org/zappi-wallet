@@ -18,6 +18,11 @@ import { formatSats } from '@/utils/format'
 // Connection timeout for each relay (5 seconds)
 const RELAY_CONNECTION_TIMEOUT_MS = 5000
 
+// 2-Tier health check intervals
+const PASSIVE_HEALTH_CHECK_INTERVAL_MS = 30_000    // 30초
+const ACTIVE_HEALTH_CHECK_INTERVAL_MS = 5_000      // 5초
+const DEFAULT_ACTIVE_DURATION_MS = 30 * 60 * 1000  // 30분
+
 // Repositories (singleton instances)
 const processedEventRepo = new ProcessedEventRepository()
 const transactionRepo = new TransactionRepository()
@@ -123,8 +128,15 @@ export function useGiftWrapListener() {
   const setNostrConnectionStatus = useAppStore((state) => state.setNostrConnectionStatus)
 
   const poolRef = useRef<SimplePool | null>(null)
-  const subsRef = useRef<Array<{ unsub: () => void }>>([])
+  // relay별 연결+구독 상태 추적 (url → { relay, close })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const relaySubsRef = useRef<Map<string, { relay: any; close: () => void }>>(new Map())
   const configKeyRef = useRef<string>('')
+
+  // 2-Tier health check refs
+  const healthCheckTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const modeRef = useRef<'passive' | 'active'>('passive')
+  const activeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Send delivery ACK to POS device (fire-and-forget)
   const sendDeliveryAck = useCallback(async (posPubkey: string, txId: string) => {
@@ -487,6 +499,113 @@ export function useGiftWrapListener() {
     }
   }, [nostrPrivkey, setLastEventTimestamp, addDebugLog, processToken, isPOSDevice, sendDeliveryAck])
 
+  // processGiftWrap를 ref로 유지 — reconnection 시 최신 콜백 사용
+  const processGiftWrapRef = useRef(processGiftWrap)
+  processGiftWrapRef.current = processGiftWrap
+
+  // ─── 개별 relay 재연결+재구독 ───
+  const reconnectRelay = useCallback(async (pool: SimplePool, url: string) => {
+    try {
+      const existing = relaySubsRef.current.get(url)
+      if (existing) {
+        try { existing.close() } catch { /* ignore */ }
+      }
+
+      const relayPromise = pool.ensureRelay(url)
+      relayPromise.catch(() => {})
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Connection timeout')), RELAY_CONNECTION_TIMEOUT_MS)
+      )
+
+      const relay = await Promise.race([relayPromise, timeoutPromise])
+
+      // since 갱신 — missed events 캐치
+      const lastTimestamp = useAppStore.getState().lastEventTimestamp
+      const since = lastTimestamp || Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60
+      const pubkey = useAppStore.getState().nostrPubkey
+      if (!pubkey) return
+
+      const filter = { kinds: [1059], '#p': [pubkey], since }
+      const sub = relay.subscribe([filter], {
+        onevent: (event: { id: string; created_at?: number }) => {
+          processGiftWrapRef.current(event, url)
+        },
+      })
+
+      relaySubsRef.current.set(url, { relay, close: () => sub.close() })
+      console.log(`[GiftWrap] Reconnected to ${url}`)
+    } catch (err) {
+      console.warn(`[GiftWrap] Failed to reconnect to ${url}:`, err)
+      relaySubsRef.current.delete(url)
+    }
+  }, [])
+
+  // ─── Health check: 끊어진 relay만 재연결 ───
+  const runHealthCheck = useCallback(async () => {
+    const pool = poolRef.current
+    if (!pool || !navigator.onLine) return
+
+    const relays = useAppStore.getState().settings.relays
+    if (!relays?.length) return
+
+    for (const url of relays) {
+      const entry = relaySubsRef.current.get(url)
+      if (!entry || !entry.relay.connected) {
+        console.log(`[GiftWrap] Health check: reconnecting ${url}`)
+        await reconnectRelay(pool, url)
+      }
+    }
+
+    const connectedCount = [...relaySubsRef.current.values()].filter(e => e.relay.connected).length
+    setNostrConnectionStatus(connectedCount > 0 ? 'connected' : 'disconnected')
+  }, [reconnectRelay, setNostrConnectionStatus])
+
+  // ─── 타이머 관리 ───
+  const stopHealthCheckTimer = useCallback(() => {
+    if (healthCheckTimerRef.current) {
+      clearInterval(healthCheckTimerRef.current)
+      healthCheckTimerRef.current = null
+    }
+  }, [])
+
+  const startHealthCheckTimer = useCallback(() => {
+    stopHealthCheckTimer()
+    const interval = modeRef.current === 'active'
+      ? ACTIVE_HEALTH_CHECK_INTERVAL_MS
+      : PASSIVE_HEALTH_CHECK_INTERVAL_MS
+    healthCheckTimerRef.current = setInterval(() => runHealthCheck(), interval)
+  }, [stopHealthCheckTimer, runHealthCheck])
+
+  // ─── 모드 전환 API ───
+  const activateListening = useCallback((durationMs = DEFAULT_ACTIVE_DURATION_MS) => {
+    modeRef.current = 'active'
+    if (activeTimeoutRef.current) clearTimeout(activeTimeoutRef.current)
+
+    // 즉시 health check + 짧은 주기 타이머 시작
+    runHealthCheck()
+    startHealthCheckTimer()
+
+    // 자동 Passive 복귀
+    activeTimeoutRef.current = setTimeout(() => {
+      modeRef.current = 'passive'
+      activeTimeoutRef.current = null
+      startHealthCheckTimer()
+      console.log('[GiftWrap] Passive mode restored')
+    }, durationMs)
+
+    console.log(`[GiftWrap] Active mode (${durationMs / 1000}s)`)
+  }, [runHealthCheck, startHealthCheckTimer])
+
+  const deactivateListening = useCallback(() => {
+    modeRef.current = 'passive'
+    if (activeTimeoutRef.current) {
+      clearTimeout(activeTimeoutRef.current)
+      activeTimeoutRef.current = null
+    }
+    startHealthCheckTimer()
+    console.log('[GiftWrap] Passive mode restored')
+  }, [startHealthCheckTimer])
+
   // Start listener
   useEffect(() => {
     // Debug: log the state of conditions
@@ -510,22 +629,20 @@ export function useGiftWrapListener() {
       return
     }
 
-    // Different config = clean up old connections first
+    // Config 변경 시 기존 연결 정리
     if (configKeyRef.current !== '') {
       console.log('[GiftWrap] Config changed, reconnecting...')
-      for (const sub of subsRef.current) {
-        sub.unsub()
+      stopHealthCheckTimer()
+      for (const entry of relaySubsRef.current.values()) {
+        try { entry.close() } catch { /* ignore */ }
       }
-      subsRef.current = []
-      if (poolRef.current) {
-        poolRef.current = null
-      }
+      relaySubsRef.current.clear()
+      poolRef.current = null
     }
 
     configKeyRef.current = newConfigKey
 
     const startListener = async () => {
-      // Skip if offline
       if (!navigator.onLine) {
         console.log('[GiftWrap] Offline - skipping relay connections')
         setNostrConnectionStatus('disconnected')
@@ -539,49 +656,17 @@ export function useGiftWrapListener() {
 
         console.log('[GiftWrap] Connecting to relays:', settings.relays)
 
-        // Get last event timestamp for fetching missed events
-        const lastTimestamp = useAppStore.getState().lastEventTimestamp
-        // Fetch events from last 7 days if no timestamp, otherwise from last known event
-        const since = lastTimestamp || Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60
-
-        // Subscribe to kind:1059 (Gift Wrap) events for our pubkey
-        // Include 'since' to fetch events we might have missed while offline
-        const filter = {
-          kinds: [1059],
-          '#p': [nostrPubkey],
-          since,
-        }
-
-        // Connect to each relay individually with timeout
+        // 개별 relay 연결+구독
         for (const url of settings.relays) {
-          try {
-            // Add timeout to relay connection
-            const relayPromise = pool.ensureRelay(url)
-            // Prevent unhandled rejection if timeout wins the race
-            relayPromise.catch(() => {})
-            const timeoutPromise = new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error('Connection timeout')), RELAY_CONNECTION_TIMEOUT_MS)
-            )
-
-            const relay = await Promise.race([relayPromise, timeoutPromise])
-            console.log(`[GiftWrap] Connected to ${url}`)
-
-            const sub = relay.subscribe([filter], {
-              onevent: (event) => {
-                processGiftWrap(event, url)
-              },
-            })
-
-            subsRef.current.push({ unsub: () => sub.close() })
-          } catch (err) {
-            console.warn(`[GiftWrap] Failed to connect to ${url}:`, err)
-            // Continue to next relay instead of failing completely
-          }
+          await reconnectRelay(pool, url)
         }
 
-        const connectedCount = subsRef.current.length
+        const connectedCount = relaySubsRef.current.size
         console.log(`[GiftWrap] Listening for payments on ${connectedCount} relays`)
         setNostrConnectionStatus(connectedCount > 0 ? 'connected' : 'disconnected')
+
+        // Health check 타이머 시작
+        startHealthCheckTimer()
       } catch (error) {
         console.error('[GiftWrap] Failed to start listener:', error)
         setNostrConnectionStatus('disconnected')
@@ -590,35 +675,45 @@ export function useGiftWrapListener() {
 
     startListener()
 
-    // Subscribe to network status changes for reconnection
+    // Network status → 온라인 복귀 시 health check
     const unsubNetwork = subscribeNetworkStatus((isOnline) => {
-      if (isOnline && subsRef.current.length === 0) {
-        console.log('[GiftWrap] Back online - reconnecting to relays')
-        startListener()
+      if (isOnline) {
+        console.log('[GiftWrap] Back online - running health check')
+        runHealthCheck()
+        startHealthCheckTimer()
+      } else {
+        stopHealthCheckTimer()
       }
     })
 
-    // Handle visibility change - reconnect and fetch missed events when app comes back
+    // Visibility → foreground 복귀 시 즉시 health check
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log('[GiftWrap] App visible - checking for missed events')
-        // Re-start listener to fetch any missed events (since filter will catch them)
-        if (subsRef.current.length === 0 && navigator.onLine) {
-          startListener()
-        }
+        console.log('[GiftWrap] App visible - running health check')
+        runHealthCheck()
+        startHealthCheckTimer()
+      } else {
+        stopHealthCheckTimer()
       }
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
-    // Cleanup on unmount
+    // Cleanup — ref를 로컬 변수로 캡처 (React cleanup 시점 안전)
+    const subs = relaySubsRef.current
     return () => {
+      stopHealthCheckTimer()
+      if (activeTimeoutRef.current) {
+        clearTimeout(activeTimeoutRef.current)
+        activeTimeoutRef.current = null
+      }
+      modeRef.current = 'passive'
       unsubNetwork()
       document.removeEventListener('visibilitychange', handleVisibilityChange)
-      for (const sub of subsRef.current) {
-        sub.unsub()
+      for (const entry of subs.values()) {
+        try { entry.close() } catch { /* ignore */ }
       }
-      subsRef.current = []
+      subs.clear()
       poolRef.current = null
       configKeyRef.current = ''
       setNostrConnectionStatus('disconnected')
@@ -627,6 +722,8 @@ export function useGiftWrapListener() {
   }, [nostrPubkey, nostrPrivkey, settings?.relays])
 
   return {
-    isConnected: subsRef.current.length > 0,
+    isConnected: relaySubsRef.current.size > 0,
+    activateListening,
+    deactivateListening,
   }
 }
