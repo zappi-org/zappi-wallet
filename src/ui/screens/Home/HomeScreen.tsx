@@ -198,7 +198,7 @@ export function HomeScreen({
               height: isDismissing ? 0 : isRefreshing ? 48 : pullDistance,
               opacity: isDismissing ? 0 : isRefreshing ? 1 : Math.min(pullDistance / ptrThreshold, 1),
             }}
-            onTransitionEnd={isDismissing ? handleDismissEnd : undefined}
+            onTransitionEnd={handleDismissEnd}
           >
             {isRefreshing ? (
               <LoaderCircle className="w-6 h-6 text-foreground-muted animate-spin" />

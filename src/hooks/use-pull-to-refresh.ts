@@ -21,8 +21,8 @@ interface UsePullToRefreshReturn {
   isRefreshing: boolean
   /** Whether the indicator is animating away after refresh completes */
   isDismissing: boolean
-  /** Call from indicator's onTransitionEnd to finalize dismiss */
-  handleDismissEnd: () => void
+  /** Bind to indicator's onTransitionEnd to finalize dismiss */
+  handleDismissEnd: (e: React.TransitionEvent) => void
 }
 
 /** Exponential damping — feels like a spring. Asymptotically approaches maxPull. */
@@ -54,11 +54,15 @@ export function usePullToRefresh({
   const pullDistanceRef = useRef(0)
   const isRefreshingRef = useRef(false)
   const rafRef = useRef(0)
+  const dismissTimerRef = useRef(0)
   const onRefreshRef = useRef(onRefresh)
   onRefreshRef.current = onRefresh
 
-  // Cleanup RAF on unmount
-  useEffect(() => () => cancelAnimationFrame(rafRef.current), [])
+  // Cleanup on unmount
+  useEffect(() => () => {
+    cancelAnimationFrame(rafRef.current)
+    clearTimeout(dismissTimerRef.current)
+  }, [])
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
     const el = scrollContainerRef.current
@@ -114,21 +118,30 @@ export function usePullToRefresh({
       } catch (e) {
         console.error('[PullToRefresh] Refresh failed:', e)
       } finally {
-        // Dismiss via CSS transitionend instead of setTimeout
+        // Dismiss via CSS transitionend + fallback timeout
         setIsDismissing(true)
+        // Safety: if transitionend doesn't fire (browser quirk), force cleanup
+        dismissTimerRef.current = window.setTimeout(finalizeDismiss, 300)
       }
     } else {
       setPullDistance(0)
       setPastThreshold(false)
     }
-  }, [threshold])
+  }, [threshold, finalizeDismiss])
 
-  // Listen for transitionend on the indicator to finalize dismiss
-  const handleDismissEnd = useCallback(() => {
+  const finalizeDismiss = useCallback(() => {
+    clearTimeout(dismissTimerRef.current)
     isRefreshingRef.current = false
     setIsRefreshing(false)
     setIsDismissing(false)
   }, [])
+
+  // Only finalize on the height transition ending during dismiss phase
+  const handleDismissEnd = useCallback((e: React.TransitionEvent) => {
+    if (!isRefreshingRef.current) return
+    if (e.propertyName !== 'height' || e.target !== e.currentTarget) return
+    finalizeDismiss()
+  }, [finalizeDismiss])
 
   useEffect(() => {
     const el = scrollContainerRef.current
