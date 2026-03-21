@@ -7,6 +7,7 @@ import { useNetwork } from '@/hooks/use-network'
 import { useMintHealth } from '@/hooks/use-mint-health'
 import { useGiftWrapListener } from '@/hooks/useGiftWrapListener'
 import { useCrossTabSync, broadcastSync } from '@/hooks/use-cross-tab-sync'
+import { useSyncAfterRecovery, totalRecoveredCount } from '@/hooks/use-sync-after-recovery'
 import { useStateReconstruction } from '@/hooks/useStateReconstruction'
 import { checkAndRefreshAnchor } from '@/services/anchor'
 import { getP2PKPubkey } from '@/services/crypto'
@@ -59,10 +60,6 @@ import type { Transaction } from '@/core/types'
 import { satUnit, formatSats } from '@/utils/format'
 import { exchangeRateService } from '@/services/exchange-rate'
 
-/** Sum all recovery counts into a single total */
-function totalRecoveredCount(recovery: Awaited<ReturnType<PaymentService['recoverAll']>>): number {
-  return recovery.quotes.recovered + recovery.melts.recovered + recovery.sendTokens.reclaimed + recovery.receivedTokens.redeemed
-}
 
 type Screen = 'home' | 'settings' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'mint-management' | 'relay-management' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail' | 'mint-detail'
 
@@ -88,7 +85,6 @@ export default function MainApp() {
   const setNostrKeyPair = useAppStore((state) => state.setNostrKeyPair)
   const setP2pkPubkey = useAppStore((state) => state.setP2pkPubkey)
   const setSettings = useAppStore((state) => state.setSettings)
-  const setPendingQuotes = useAppStore((state) => state.setPendingQuotes)
   const addPendingQuote = useAppStore((state) => state.addPendingQuote)
 
   // Hooks
@@ -163,6 +159,8 @@ export default function MainApp() {
     setTransactions(txHistory)
   }, [refreshBalance, services.transactionRepo])
 
+  const { notifyRecovery, syncPendingQuotes, syncAfterRecovery } = useSyncAfterRecovery({ refreshAll })
+
   /** Manual pull-to-refresh handler */
   const handleManualRefresh = useCallback(async () => {
     // 1. 잔액/거래 로컬 갱신 + 네트워크 복구 병렬 실행
@@ -173,35 +171,22 @@ export default function MainApp() {
         return null
       }),
     ])
-
     broadcastSync('balance_changed')
 
-    // 2. 복구된 항목이 있으면 잔액 재갱신
+    // 2. 복구된 항목이 있으면 토스트 + 잔액 재갱신
     if (recoveryResult && totalRecoveredCount(recoveryResult) > 0) {
-      if (recoveryResult.receivedTokens.redeemed > 0) {
-        addToast({
-          type: 'success',
-          message: t('toast.offlineTokensRedeemed', { count: recoveryResult.receivedTokens.redeemed }),
-          duration: 4000,
-        })
-      }
+      notifyRecovery(recoveryResult)
       await refreshAll()
       broadcastSync('balance_changed')
     }
 
-    // 3. Pending quotes — recovery 이후에 읽어야 최신 상태 반영
-    try {
-      const { getActivePendingQuotes } = await import('@/coco/cashuService')
-      const activeQuotes = await getActivePendingQuotes()
-      setPendingQuotes(activeQuotes)
-    } catch (e) {
-      console.error('[Refresh] Failed to sync pending quotes:', e)
-    }
+    // 3. Pending quotes 동기화
+    await syncPendingQuotes()
 
     // 4. 민트 상태 + 환율 (fire-and-forget)
     checkAllMints()
     exchangeRateService.refreshIfStale().catch(() => {})
-  }, [services.payment, refreshAll, addToast, setPendingQuotes, checkAllMints, t])
+  }, [services.payment, refreshAll, notifyRecovery, syncPendingQuotes, checkAllMints])
 
   // Initialize app — Coco 무관 작업만 (Coco는 unlock 후 setupSubscription에서 초기화)
   useEffect(() => {
@@ -314,18 +299,12 @@ export default function MainApp() {
       if (cancelled) return
 
       // 3. Balance 로드 + pending operations recovery
+      let recovery = null
       try {
-        const recovery = await services.payment.recoverAll()
+        recovery = await services.payment.recoverAll()
         const totalRecovered = totalRecoveredCount(recovery)
         if (totalRecovered > 0) {
           console.log(`[Init] Recovered: ${recovery.quotes.recovered} quotes, ${recovery.melts.recovered} melts, ${recovery.sendTokens.reclaimed} reclaimed, ${recovery.receivedTokens.redeemed} offline tokens`)
-          if (recovery.receivedTokens.redeemed > 0) {
-            addToast({
-              type: 'success',
-              message: t('toast.offlineTokensRedeemed', { count: recovery.receivedTokens.redeemed }),
-              duration: 4000,
-            })
-          }
         }
       } catch (e) {
         console.error('[Init] Failed to recover pending operations:', e)
@@ -334,16 +313,7 @@ export default function MainApp() {
       if (cancelled) return
 
       // 4. 잔액 + 거래내역 + pending quotes 동기화
-      await refreshAll()
-      broadcastSync('balance_changed')
-
-      try {
-        const { getActivePendingQuotes } = await import('@/coco/cashuService')
-        const activeQuotes = await getActivePendingQuotes()
-        setPendingQuotes(activeQuotes)
-      } catch (e) {
-        console.error('[Init] Failed to load pending quotes:', e)
-      }
+      await syncAfterRecovery(recovery)
     }
 
     setupSubscription()
@@ -361,35 +331,17 @@ export default function MainApp() {
         // Refresh exchange rates (throttled — no-op if recently fetched)
         exchangeRateService.refreshIfStale().catch(() => {})
 
+        // Recovery + 잔액/pending quotes 동기화
+        // (Coco watcher가 백그라운드에서 redeem했을 수 있으므로 recovery 결과와 무관하게 실행)
         console.log('[Background] App visible, recovering pending operations')
+        let recovery = null
         try {
-          const recovery = await services.payment.recoverAll()
-          const totalRecovered = totalRecoveredCount(recovery)
-          if (totalRecovered > 0) {
-            // Lightning toast는 bridge.ts (mint-quote:redeemed)가 전역으로 담당
-            if (recovery.receivedTokens.redeemed > 0) {
-              addToast({
-                type: 'success',
-                message: t('toast.offlineTokensRedeemed', { count: recovery.receivedTokens.redeemed }),
-                duration: 4000,
-              })
-            }
-          }
+          recovery = await services.payment.recoverAll()
         } catch (e) {
           console.error('[Background] Failed to recover pending operations:', e)
         }
 
-        // 잔액 + pending quotes 동기화
-        // (Coco watcher가 백그라운드에서 redeem했을 수 있으므로 recovery 결과와 무관하게 실행)
-        await refreshAll()
-        broadcastSync('balance_changed')
-        try {
-          const { getActivePendingQuotes } = await import('@/coco/cashuService')
-          const activeQuotes = await getActivePendingQuotes()
-          setPendingQuotes(activeQuotes)
-        } catch (e) {
-          console.error('[Background] Failed to sync pending quotes store:', e)
-        }
+        await syncAfterRecovery(recovery)
       } else {
         // Pause SDK subscriptions (배터리 절약)
         try {
@@ -407,7 +359,7 @@ export default function MainApp() {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       services.payment.disconnectAllWebSockets()
     }
-  }, [isLocked, isInitializing, services.payment, refreshAll, addToast, setPendingQuotes, t])
+  }, [isLocked, isInitializing, services.payment, syncAfterRecovery])
 
   // Handle unlock
   const handleUnlock = useCallback(async (password: string): Promise<boolean> => {
