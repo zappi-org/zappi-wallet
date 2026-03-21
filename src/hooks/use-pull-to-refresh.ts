@@ -128,7 +128,10 @@ export function usePullToRefresh({
       setPullDistance(0)
       setPastThreshold(false)
       try {
-        await onRefreshRef.current()
+        await Promise.all([
+          onRefreshRef.current(),
+          new Promise((r) => setTimeout(r, 400)),
+        ])
       } catch (e) {
         console.error('[PullToRefresh] Refresh failed:', e)
       } finally {
