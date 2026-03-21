@@ -144,61 +144,77 @@ describe('Cashu Errors', () => {
     })
   })
 
-  describe('classifyCashuError - MintOperationError NUT-00 codes', () => {
-    it('should classify code 10002 as TokenSpentError', () => {
-      const error = classifyCashuError(new MintOperationError(10002, 'Token already spent'))
-
-      expect(error).toBeInstanceOf(TokenSpentError)
-    })
-
-    it('should classify code 10003 as InvalidProofError', () => {
-      const error = classifyCashuError(new MintOperationError(10003, 'Invalid proof'))
+  describe('classifyCashuError - MintOperationError codes (cdk-mintd v0.15)', () => {
+    // 10xxx: proof verification
+    it('should classify code 10001 (TokenNotVerified) as InvalidProofError', () => {
+      const error = classifyCashuError(new MintOperationError(10001, 'Token not verified'))
 
       expect(error).toBeInstanceOf(InvalidProofError)
     })
 
-    it('should classify code 20001 as QuoteNotFoundError', () => {
-      const error = classifyCashuError(new MintOperationError(20001, 'Quote not found'))
+    // 11xxx: input/output errors
+    it('should classify code 11001 (TokenAlreadySpent) as TokenSpentError', () => {
+      const error = classifyCashuError(new MintOperationError(11001, 'Token Already Spent'))
 
-      expect(error).toBeInstanceOf(QuoteNotFoundError)
+      expect(error).toBeInstanceOf(TokenSpentError)
     })
 
-    it('should classify code 20007 as QuoteExpiredError', () => {
-      const error = classifyCashuError(new MintOperationError(20007, 'Quote expired'))
+    it('should classify code 11002 (TokenPending) as TokenSpentError', () => {
+      const error = classifyCashuError(new MintOperationError(11002, 'Token Pending'))
 
-      expect(error).toBeInstanceOf(QuoteExpiredError)
+      expect(error).toBeInstanceOf(TokenSpentError)
     })
 
-    it('should classify routing failure as LightningRoutingError', () => {
-      const error = classifyCashuError(new MintOperationError(20006, 'Lightning payment routing failed'))
+    it('should classify code 11005 (TransactionUnbalanced/Insufficient) as InsufficientBalanceError', () => {
+      const error = classifyCashuError(new MintOperationError(11005, 'Insufficient funds'))
 
-      expect(error).toBeInstanceOf(LightningRoutingError)
-      expect(error.isRetryable).toBe(true)
+      expect(error).toBeInstanceOf(InsufficientBalanceError)
     })
 
-    it('should classify "no_route" as LightningRoutingError', () => {
-      const error = classifyCashuError(new MintOperationError(20006, 'no_route to destination'))
-
-      expect(error).toBeInstanceOf(LightningRoutingError)
-    })
-
-    it('should classify payment failure as LightningPaymentError', () => {
-      const error = classifyCashuError(new MintOperationError(20006, 'Lightning payment failed'))
+    // 20xxx: quote/payment errors
+    it('should classify code 20004 (LightningError) as LightningPaymentError', () => {
+      const error = classifyCashuError(new MintOperationError(20004, 'Payment failed'))
 
       expect(error).toBeInstanceOf(LightningPaymentError)
       expect(error.isRetryable).toBe(false)
     })
 
-    it('should classify invoice expired in detail as InvoiceExpiredError', () => {
-      const error = classifyCashuError(new MintOperationError(20006, 'Invoice has expired'))
+    it('should classify code 20007 (QuoteExpired) as QuoteExpiredError', () => {
+      const error = classifyCashuError(new MintOperationError(20007, 'Expired quote'))
 
-      expect(error).toBeInstanceOf(InvoiceExpiredError)
+      expect(error).toBeInstanceOf(QuoteExpiredError)
     })
 
-    it('should classify "already spent" in detail as TokenSpentError even with non-10002 code', () => {
-      const error = classifyCashuError(new MintOperationError(11000, 'Token already spent'))
+    it('should classify code 20002 (TokensAlreadyIssued) as MintError', () => {
+      const error = classifyCashuError(new MintOperationError(20002, 'Quote already issued'))
+
+      expect(error).toBeInstanceOf(MintError)
+    })
+
+    // Detail-based fallback
+    it('should classify routing failure in detail as LightningRoutingError', () => {
+      const error = classifyCashuError(new MintOperationError(20004, 'Lightning routing failed'))
+
+      expect(error).toBeInstanceOf(LightningRoutingError)
+      expect(error.isRetryable).toBe(true)
+    })
+
+    it('should classify "unknown quote" in detail as QuoteNotFoundError (cdk 50000)', () => {
+      const error = classifyCashuError(new MintOperationError(50000, 'Unknown quote'))
+
+      expect(error).toBeInstanceOf(QuoteNotFoundError)
+    })
+
+    it('should classify "already spent" in detail as TokenSpentError (non-standard code)', () => {
+      const error = classifyCashuError(new MintOperationError(99999, 'Token already spent'))
 
       expect(error).toBeInstanceOf(TokenSpentError)
+    })
+
+    it('should classify "not verified" in detail as InvalidProofError', () => {
+      const error = classifyCashuError(new MintOperationError(50000, 'Could not verify DLEQ proof'))
+
+      expect(error).toBeInstanceOf(InvalidProofError)
     })
 
     it('should classify unknown code as MintError with code preserved', () => {

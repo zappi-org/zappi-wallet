@@ -198,16 +198,30 @@ function classifyMintOperationError(error: MintOperationError): BaseError {
   const { code, message } = error
   const detail = message.toLowerCase()
 
-  // NUT-00 error codes — token/proof errors (10000-series)
-  if (code === 10002) return new TokenSpentError(message, error)
-  if (code === 10003) return new InvalidProofError(message, error)
+  // ── Code-based classification (cdk-mintd v0.15 기준) ──
 
-  // NUT-00 error codes — quote/melt errors (20000-series)
-  if (code === 20001) return new QuoteNotFoundError(message, error)
-  if (code === 20002) return new MintError('unknown', String(code), message, error)
+  // 10xxx: proof verification
+  if (code === 10001) return new InvalidProofError(message, error)
+
+  // 11xxx: input/output errors
+  if (code === 11001) return new TokenSpentError(message, error)
+  if (code === 11002) return new TokenSpentError(message, error) // token pending → spent 취급
+  if (code === 11005) return new InsufficientBalanceError(0, 0, error)
+
+  // 20xxx: quote/payment errors
+  if (code === 20002) return new MintError('unknown', String(code), message, error) // already issued
+  if (code === 20004) {
+    // cdk는 모든 Lightning 에러를 20004로 통합 — detail로 routing 구분
+    if (/\brouting\b|\broute\b|\bno_route\b/.test(detail)) {
+      return new LightningRoutingError(message, error)
+    }
+    return new LightningPaymentError(message, error)
+  }
   if (code === 20007) return new QuoteExpiredError(message, error)
 
-  // Lightning-specific: NUT-00 spec에 Lightning 전용 code가 없으므로 detail 기반
+  // ── Detail-based fallback (mint 구현체별 차이 대비) ──
+
+  // Lightning routing/payment (non-20004 code에서도 detail 기반 매칭)
   if (/\brouting\b|\broute\b|\bno_route\b/.test(detail)) {
     return new LightningRoutingError(message, error)
   }
@@ -218,19 +232,24 @@ function classifyMintOperationError(error: MintOperationError): BaseError {
     return new InvoiceExpiredError(message, error)
   }
 
-  // Token spent from mint side (code가 10002가 아닌 경우 대비)
+  // Token spent
   if (detail.includes('already spent') || detail.includes('token spent')) {
     return new TokenSpentError(message, error)
   }
 
-  // Insufficient balance from mint side
+  // Insufficient balance
   if (detail.includes('insufficient') || detail.includes('not enough')) {
     return new InsufficientBalanceError(0, 0, error)
   }
 
-  // Invalid proof/token from mint side
-  if (detail.includes('invalid proof') || detail.includes('invalid token')) {
-    return new InvalidTokenError(message, error)
+  // Quote not found (cdk는 50000 catch-all로 보냄)
+  if (detail.includes('unknown quote') || detail.includes('quote not found')) {
+    return new QuoteNotFoundError(message, error)
+  }
+
+  // Invalid proof/token
+  if (detail.includes('invalid proof') || detail.includes('invalid token') || detail.includes('not verified') || detail.includes('could not verify')) {
+    return new InvalidProofError(message, error)
   }
 
   // Default: preserve code for debugging
