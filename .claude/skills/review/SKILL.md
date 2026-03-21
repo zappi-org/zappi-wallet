@@ -25,7 +25,7 @@ Check `.pipeline/plan.md` against `.pipeline/analysis.md`:
 - Does the test plan cover the fix adequately?
 
 ### Phase 2: Code Review
-Run `git diff main...HEAD` and review:
+Detect base branch dynamically: run `git log --oneline --merges -1` or check `.pipeline/input.md` context. Then run `git diff <base-branch>...HEAD` and review:
 - **Correctness**: Does the code actually fix the root cause?
 - **Style**: Does it match existing project patterns?
 - **Side effects**: Could this change break anything else?

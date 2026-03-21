@@ -15,7 +15,7 @@ Generate a manual QA checklist for real-device testing.
 ## Workflow
 
 ### Step 1: Diff Analysis
-Run `git diff main...HEAD` (or appropriate base branch) to see all changes.
+Detect base branch: check which branch the current branch was created from (e.g., nightly, staging, main). Run `git diff <base-branch>...HEAD` to see all changes.
 Identify which screens, flows, and user interactions are affected.
 
 ### Step 2: Read Plan Context

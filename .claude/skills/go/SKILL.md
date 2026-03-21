@@ -22,13 +22,15 @@ Check the report:
 - If `status: blocked` → show Proposals to user, stop.
 - If `status: success` or `partial` → continue.
 
-### Step 2: Parallel Execution
-Run these three in parallel (use Agent tool):
+### Step 2: Parallel Execution (MUST)
+**CRITICAL: This step is NOT optional. ALWAYS run all three before presenting results.**
+
+Run these three in parallel using the Agent tool (3 concurrent agents):
 - `/review` — plan + code review
 - `/test` — full test suite
 - `/qa` — manual QA checklist
 
-Wait for all three to complete.
+Wait for all three to complete. Do NOT skip any. Do NOT present results to the user before all three finish.
 
 ### Step 3: Handle Test Failures
 If `/test` reports failures:

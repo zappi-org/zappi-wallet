@@ -1,11 +1,17 @@
 ---
 name: ship
-description: "Squash-merge branch into staging and optionally create a PR. Compiles pipeline artifacts into a clean single commit. Use when user says \"/ship\" after completing /go and manual QA."
+description: "Squash-merge branch into a target branch and optionally create a PR. Use when user says \"/ship\" or \"/ship <target-branch>\" after completing /go and manual QA."
 ---
 
 # Ship
 
-Squash-merge the current branch into staging as a single clean commit.
+Squash-merge the current branch into a user-specified target branch as a single clean commit.
+
+## Arguments
+
+- `<target-branch>` — the branch to squash-merge into. **Required.**
+  - If not provided as argument, ask the user before proceeding. Do NOT assume staging or any default.
+  - Examples: `/ship nightly`, `/ship staging`, `/ship main`
 
 ## Precondition
 
@@ -23,27 +29,34 @@ If any are missing, warn but proceed with what's available.
 
 ### Step 1: Gather Context
 Read all `.pipeline/*.md` files.
-Run `git log staging..HEAD --oneline` to get commit list from the branch.
+Run `git log <target-branch>..HEAD --oneline` to get commit list from the branch.
 
-### Step 2: Squash Merge to Staging
+### Step 2: Confirm
+Show the user:
+- Source branch (current)
+- Target branch
+- Commit list to be squashed
+- Ask for confirmation before proceeding.
+
+### Step 3: Squash Merge
 ```
-git checkout staging
-git merge --squash <branch>
+git checkout <target-branch>
+git merge --squash <source-branch>
 git commit -m "<type>: <plan title>"
 ```
 
-This collapses all branch commits into a single commit on staging.
+This collapses all branch commits into a single commit on the target branch.
 Commit message format: `<fix|feat>: <plan.md title>` with details from analysis + plan.
 
-### Step 3: Push
-Push staging to remote.
+### Step 4: Push
+Push the target branch to remote.
 
-### Step 4: Cleanup (optional)
+### Step 5: Cleanup (optional)
 Ask user if they want to delete the feature branch (local + remote).
 
-### Step 5: Create PR (if targeting main)
-If the user wants a PR to main instead of direct staging merge:
-- Use `gh pr create` from staging to main
+### Step 6: Create PR (optional)
+If the user wants a PR to another branch (e.g., target → main):
+- Use `gh pr create` with base set to the PR target
 - **Title**: from plan.md title, prefixed with type (fix/feat)
 - **Body**: compiled from pipeline artifacts
 
@@ -72,14 +85,15 @@ If the user wants a PR to main instead of direct staging merge:
 Generated with pipeline: /start → /go → /ship
 ```
 
-### Step 6: Report
-Show the user: staging commit hash, files changed, PR URL (if created).
+### Step 7: Report
+Show the user: target branch, commit hash, files changed, PR URL (if created).
 
 ## Rules
 
-- **상위 브랜치 머지는 항상 유저 의사결정.** 자동으로 머지/push 하지 않는다. 머지 대상 브랜치, 타이밍, 방법을 유저에게 확인받는다.
-- Always squash merge. Never fast-forward or regular merge to staging.
-- One commit per feature/fix on staging. Branch history stays on the branch.
+- **머지 대상은 항상 유저가 지정한다.** 인자 없이 호출 시 반드시 물어본다. 절대 기본값으로 진행하지 않는다.
+- Always squash merge. Never fast-forward or regular merge.
+- One commit per feature/fix on the target branch. Branch history stays on the source branch.
 - Do NOT push to main directly. Use PR for main.
 - Include the QA checklist in the PR body so it can be checked off during review.
 - If review verdict was `request-changes` or `block`, include a warning.
+- `.pipeline/` 파일은 기본적으로 로컬에 보존한다. 유저가 명시적으로 삭제를 요청한 경우에만 삭제.

@@ -64,6 +64,7 @@ Show a summary to the user: branch name, files changed, test results, any deviat
 ## Rules
 
 - **브랜치 생성, 커밋, 푸쉬는 항상 유저 승인 후 실행한다.** 자동으로 브랜치를 만들거나 커밋/푸쉬하지 않는다.
+- **`.pipeline/` 파일은 git에 올리지 않는다.** 커밋 시 `.pipeline/` 경로의 파일을 staging하지 않는다. 이 디렉토리는 로컬 작업용이다.
 - Read actual code before editing. Never edit blind.
 - One commit for the entire change.
 - If plan's pseudocode conflicts with existing code style, follow existing style.
