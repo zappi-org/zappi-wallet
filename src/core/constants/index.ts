@@ -11,7 +11,7 @@ export const DEFAULT_MINTS = [
  */
 export const DEFAULT_RELAYS = [
   'wss://relay.damus.io',
-  'wss://relay.nostr.band',
+  'wss://nostr.vulpem.com',
   'wss://nos.lol',
 ] as const
 
