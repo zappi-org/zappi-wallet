@@ -58,25 +58,20 @@ export function useMintMetadata(mintUrls: string[]) {
 
   const mintAliases = useAppStore((s) => s.settings.mintAliases)
 
-  // Stable refs for callbacks — avoids re-creating callbacks on every metadata update
-  const metadataMapRef = useRef(metadataMap)
-  useEffect(() => { metadataMapRef.current = metadataMap })
-  const mintAliasesRef = useRef(mintAliases)
-  useEffect(() => { mintAliasesRef.current = mintAliases })
-
   /**
    * Get display name for a mint (alias > metadata > hostname)
-   * Stable reference — reads from refs, not state
+   * Deps include metadataMap & mintAliases — callback reference changes when data changes,
+   * which signals downstream useMemo/useCallback consumers to recalculate.
    */
   const getDisplayName = useCallback(
     (mintUrl: string): string => {
-      const alias = mintAliasesRef.current?.[mintUrl]
+      const alias = mintAliases?.[mintUrl]
       if (alias) return alias
-      const metadata = metadataMapRef.current.get(mintUrl)
+      const metadata = metadataMap.get(mintUrl)
       if (metadata?.name) return metadata.name
       return mintMetadataService.extractHostname(mintUrl)
     },
-    []
+    [metadataMap, mintAliases]
   )
 
   /**
@@ -84,11 +79,11 @@ export function useMintMetadata(mintUrls: string[]) {
    */
   const getOriginalName = useCallback(
     (mintUrl: string): string => {
-      const metadata = metadataMapRef.current.get(mintUrl)
+      const metadata = metadataMap.get(mintUrl)
       if (metadata?.name) return metadata.name
       return mintMetadataService.extractHostname(mintUrl)
     },
-    []
+    [metadataMap]
   )
 
   /**
@@ -96,9 +91,9 @@ export function useMintMetadata(mintUrls: string[]) {
    */
   const getIconUrl = useCallback(
     (mintUrl: string): string | undefined => {
-      return metadataMapRef.current.get(mintUrl)?.iconUrl
+      return metadataMap.get(mintUrl)?.iconUrl
     },
-    []
+    [metadataMap]
   )
 
   /**
@@ -106,9 +101,9 @@ export function useMintMetadata(mintUrls: string[]) {
    */
   const getMetadata = useCallback(
     (mintUrl: string): MintMetadata | undefined => {
-      return metadataMapRef.current.get(mintUrl)
+      return metadataMap.get(mintUrl)
     },
-    []
+    [metadataMap]
   )
 
   /**
