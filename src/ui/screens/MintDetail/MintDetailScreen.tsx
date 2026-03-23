@@ -8,6 +8,8 @@ import { usePendingItems } from '@/hooks/usePendingItems'
 import { hapticTap } from '@/utils/haptic'
 import { useAppStore } from '@/store'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
+import { useWallet } from '@/hooks'
+import { getMintBalance } from '@/utils/url'
 import type { MintInfo, Transaction } from '@/core/types'
 import { MintInfoSheet } from './MintInfoSheet'
 import { PendingItemsScreen } from './PendingItemsScreen'
@@ -71,8 +73,8 @@ export function MintDetailScreen({
 
   const handlePendingItemClick = useCallback(async (item: PendingItem) => {
     hapticTap()
-    if (item.type === 'ecash-request') {
-      // ecash-request has a matching transaction — navigate to TransactionDetailScreen
+    if (item.type === 'sent-token') {
+      // sent-token has a matching transaction — navigate to TransactionDetailScreen
       try {
         const { getDatabase } = await import('@/data/database/schema')
         const db = getDatabase()
@@ -89,6 +91,13 @@ export function MintDetailScreen({
 
   const variant = getVariantByIndex(mintIndex)
   const { items: pendingItems } = usePendingItems(mint.url)
+
+  // Live balance from wallet (prop snapshot may be stale after reclaim/receive)
+  const { balance } = useWallet()
+  const liveMint = useMemo<MintInfo>(
+    () => ({ ...mint, balance: getMintBalance(mint.url, balance.byMint) }),
+    [mint, balance.byMint],
+  )
 
   // Filter transactions by this mint
   const filteredTransactions = useMemo(() => {
@@ -112,9 +121,9 @@ export function MintDetailScreen({
   if (showPendingItems) {
     return (
       <PendingItemsScreen
-        items={pendingItems}
         onBack={() => setShowPendingItems(false)}
         onItemClick={handlePendingItemClick}
+        initialMintUrls={[mint.url]}
       />
     )
   }
@@ -147,7 +156,7 @@ export function MintDetailScreen({
         {/* Mint Card */}
         <div className="flex justify-center">
           <MintCard
-            mint={mint}
+            mint={liveMint}
             variant={variant}
             hideBalance={settings.balanceHidden}
             onCreateToken={() => onCreateToken(mint.url)}

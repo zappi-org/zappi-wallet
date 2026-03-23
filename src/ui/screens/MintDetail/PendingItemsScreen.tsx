@@ -1,20 +1,25 @@
 import { useState, useMemo, useCallback } from 'react'
-import { ArrowLeft, Search, Calendar } from 'lucide-react'
+import { ArrowLeft, Search, Calendar, CreditCard } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { useAppStore } from '@/store'
+import { stripTrailingSlash } from '@/utils/url'
 import { PendingItemsList } from '@/ui/components/wallet/PendingItemsList'
 import { PendingItemDetailScreen } from './PendingItemDetailScreen'
 import { DateFilterSheet } from '@/ui/components/common/DateFilterSheet'
+import { MintFilterSheet } from '@/ui/components/common/MintFilterSheet'
 import { type DateFilterValue, computeDateCutoff, getDateFilterLabel, isDateFilterActive, formatDateGroupLabel } from '@/utils/dateFilter'
 import { hapticTap } from '@/utils/haptic'
+import { useAllPendingItems } from '@/hooks/usePendingItems'
 import type { PendingItem } from '@/hooks/usePendingItems'
+import { useAvailableMints, getMintFilterLabel } from '@/hooks/useAvailableMints'
 
-type Tab = 'all' | 'received' | 'sent'
+type Tab = 'all' | 'request' | 'token'
 
 interface PendingItemsScreenProps {
-  items: PendingItem[]
   onBack: () => void
   onItemClick?: (item: PendingItem) => void
+  initialMintUrls?: string[]
 }
 
 function groupByDate(items: PendingItem[], t: (key: string, opts?: Record<string, string>) => string): Array<{ label: string; items: PendingItem[] }> {
@@ -27,14 +32,25 @@ function groupByDate(items: PendingItem[], t: (key: string, opts?: Record<string
   return Object.entries(groups).map(([label, items]) => ({ label, items }))
 }
 
-export function PendingItemsScreen({ items, onBack, onItemClick }: PendingItemsScreenProps) {
+export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: PendingItemsScreenProps) {
   'use no memo' // Date.now() in useMemo is flagged as impure by React Compiler
   const { t } = useTranslation()
+
+  // Load all pending items across all mints
+  const settings = useAppStore((state) => state.settings)
+  const { items } = useAllPendingItems(settings.mints)
   const [activeTab, setActiveTab] = useState<Tab>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedItem, setSelectedItem] = useState<PendingItem | null>(null)
   const [dateFilter, setDateFilter] = useState<DateFilterValue>({ preset: 'all', range: undefined })
   const [showDateFilter, setShowDateFilter] = useState(false)
+  const [showMintFilter, setShowMintFilter] = useState(false)
+  const [selectedMintUrls, setSelectedMintUrls] = useState<Set<string>>(
+    () => new Set(initialMintUrls ?? []),
+  )
+
+  // Build available mints for filter
+  const { availableMints, getDisplayName } = useAvailableMints()
 
   const handleItemClick = useCallback((item: PendingItem) => {
     hapticTap()
@@ -48,8 +64,16 @@ export function PendingItemsScreen({ items, onBack, onItemClick }: PendingItemsS
   // Date filter cutoff
   const dateCutoff = useMemo(() => computeDateCutoff(dateFilter), [dateFilter])
 
+  const isMintFiltered = selectedMintUrls.size > 0
+
   const filteredItems = useMemo(() => {
     let result = items
+
+    // Mint filter
+    if (selectedMintUrls.size > 0) {
+      const normalizedSet = new Set(Array.from(selectedMintUrls).map(stripTrailingSlash))
+      result = result.filter((i) => normalizedSet.has(stripTrailingSlash(i.mintUrl)))
+    }
 
     // Date filter
     if (dateCutoff) {
@@ -57,10 +81,10 @@ export function PendingItemsScreen({ items, onBack, onItemClick }: PendingItemsS
     }
 
     // Tab filter
-    if (activeTab === 'received') {
-      result = result.filter(i => i.type === 'unclaimed-token' || i.type === 'receive-request')
-    } else if (activeTab === 'sent') {
-      result = result.filter(i => i.type === 'ecash-request')
+    if (activeTab === 'request') {
+      result = result.filter(i => i.type === 'receive-request')
+    } else if (activeTab === 'token') {
+      result = result.filter(i => i.type === 'unclaimed-token' || i.type === 'sent-token')
     }
 
     // Search
@@ -72,18 +96,23 @@ export function PendingItemsScreen({ items, onBack, onItemClick }: PendingItemsS
     }
 
     return result
-  }, [items, activeTab, dateCutoff, searchQuery])
+  }, [items, activeTab, dateCutoff, searchQuery, selectedMintUrls])
 
   const groups = useMemo(() => groupByDate(filteredItems, t), [filteredItems, t])
 
   const tabs: Array<{ key: Tab; label: string }> = [
     { key: 'all', label: t('history.all') },
-    { key: 'received', label: t('mintDetail.tabReceived') },
-    { key: 'sent', label: t('mintDetail.tabSent') },
+    { key: 'request', label: t('mintDetail.tabRequest') },
+    { key: 'token', label: t('mintDetail.tabToken') },
   ]
 
   const dateFilterLabel = useMemo(() => getDateFilterLabel(dateFilter, t), [dateFilter, t])
   const isDateFiltered = isDateFilterActive(dateFilter)
+
+  const mintFilterLabel = useMemo(
+    () => getMintFilterLabel(selectedMintUrls, getDisplayName, t),
+    [selectedMintUrls, getDisplayName, t],
+  )
 
   if (selectedItem) {
     return (
@@ -110,18 +139,34 @@ export function PendingItemsScreen({ items, onBack, onItemClick }: PendingItemsS
             {t('mintDetail.pendingAll')}
           </h2>
         </div>
-        <button
-          onClick={() => setShowDateFilter(true)}
-          className={cn(
-            'h-10 rounded-lg flex items-center gap-1.5 px-2.5 transition-colors',
-            isDateFiltered
-              ? 'bg-primary/10 text-primary'
-              : 'hover:bg-black/[0.04] active:bg-black/[0.06] text-foreground'
+        <div className="flex items-center gap-1">
+          {availableMints.length > 1 && (
+            <button
+              onClick={() => setShowMintFilter(true)}
+              className={cn(
+                'h-10 rounded-lg flex items-center gap-1.5 px-2.5 transition-colors',
+                isMintFiltered
+                  ? 'bg-primary/10 text-primary'
+                  : 'hover:bg-black/[0.04] active:bg-black/[0.06] text-foreground'
+              )}
+            >
+              <CreditCard className="w-[18px] h-[18px]" strokeWidth={1.8} />
+              <span className="text-label font-medium max-w-[80px] truncate">{mintFilterLabel}</span>
+            </button>
           )}
-        >
-          <Calendar className="w-[18px] h-[18px]" strokeWidth={1.8} />
-          <span className="text-label font-medium">{dateFilterLabel}</span>
-        </button>
+          <button
+            onClick={() => setShowDateFilter(true)}
+            className={cn(
+              'h-10 rounded-lg flex items-center gap-1.5 px-2.5 transition-colors',
+              isDateFiltered
+                ? 'bg-primary/10 text-primary'
+                : 'hover:bg-black/[0.04] active:bg-black/[0.06] text-foreground'
+            )}
+          >
+            <Calendar className="w-[18px] h-[18px]" strokeWidth={1.8} />
+            <span className="text-label font-medium">{dateFilterLabel}</span>
+          </button>
+        </div>
       </header>
 
       {/* Search */}
@@ -180,6 +225,15 @@ export function PendingItemsScreen({ items, onBack, onItemClick }: PendingItemsS
         onClose={() => setShowDateFilter(false)}
         value={dateFilter}
         onChange={setDateFilter}
+      />
+
+      {/* Mint Filter Sheet */}
+      <MintFilterSheet
+        isOpen={showMintFilter}
+        onClose={() => setShowMintFilter(false)}
+        mints={availableMints}
+        selectedUrls={selectedMintUrls}
+        onChange={setSelectedMintUrls}
       />
     </div>
   )

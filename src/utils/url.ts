@@ -24,11 +24,18 @@ export function formatMintHost(url: string): string {
 }
 
 /**
+ * Strip trailing slash from URL (lightweight normalization for comparison)
+ */
+export function stripTrailingSlash(url: string): string {
+  return url.endsWith('/') ? url.slice(0, -1) : url
+}
+
+/**
  * Get mint balance with URL normalization fallback
  * Handles both trailing-slash and non-trailing-slash variants
  */
 export function getMintBalance(url: string, balanceByMint: Record<string, number>): number {
-  const normalized = url.endsWith('/') ? url.slice(0, -1) : url
+  const normalized = stripTrailingSlash(url)
   return balanceByMint[normalized] || balanceByMint[url] || 0
 }
 

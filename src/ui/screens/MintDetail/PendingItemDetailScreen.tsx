@@ -127,9 +127,9 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
     ? t('mintDetail.ecashToken')
     : item.type === 'receive-request'
       ? t('mintDetail.receiveRequest')
-      : t('mintDetail.ecashRequest')
+      : t('mintDetail.sentToken')
 
-  const isReceive = item.type !== 'ecash-request'
+  const isReceive = item.type !== 'sent-token'
 
   const fiatStr = toFiat(item.amount)
 
@@ -310,7 +310,7 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
         </div>
       )}
 
-      {item.type === 'ecash-request' && (
+      {item.type === 'sent-token' && (
         <div className="px-5 pb-4 pt-2 shrink-0">
           <button
             onClick={handleReclaim}

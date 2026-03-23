@@ -622,7 +622,26 @@ export async function recoverPendingSendTokens(): Promise<{
     // Phase 2: token exists but tx wasn't saved (crash after cocoSendToken)
     try {
       await receiveToken(pending.token);
-      await db.pendingSendTokens.delete(pending.id);
+      if (existingTx) {
+        const { markSendReclaimed } = await import('@/coco/sendTokenObserver');
+        await markSendReclaimed(pending.id);
+      } else {
+        // tx가 없는 경우 (crash 직후) — receive 거래만 생성
+        const now = Date.now();
+        const reclaimTxId = `${pending.id}-reclaim`;
+        await db.transactions.put({
+          id: reclaimTxId,
+          direction: 'receive',
+          type: 'ecash-token',
+          amount: pending.amount,
+          mintUrl: pending.mintUrl,
+          status: 'completed',
+          createdAt: now,
+          completedAt: now,
+          metadata: { reclaimedFrom: pending.id },
+        });
+        await db.pendingSendTokens.delete(pending.id);
+      }
       reclaimed++;
       console.log(`[Recovery] Reclaimed ecash token: ${pending.amount} sats`);
     } catch (error) {

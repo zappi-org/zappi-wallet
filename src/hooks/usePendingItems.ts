@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getDatabase } from '@/data/database/schema'
+import { stripTrailingSlash } from '@/utils/url'
 
 export interface PendingItem {
   id: string
-  type: 'unclaimed-token' | 'receive-request' | 'ecash-request'
+  type: 'unclaimed-token' | 'receive-request' | 'sent-token'
   amount: number
   mintUrl: string
   memo?: string
@@ -13,72 +14,81 @@ export interface PendingItem {
   operationId?: string
 }
 
-function normalizeUrl(url: string): string {
-  return url.endsWith('/') ? url.slice(0, -1) : url
+// ─── Shared transform: raw DB records → PendingItem[] ───
+
+interface RawSources {
+  receivedTokens: Array<{ id: string; amount: number; mintUrl: string; createdAt: number; token: string }>
+  cocoQuotes: Array<{ quote: string; amount: number; mintUrl: string; expiry?: number }>
+  sendTokens: Array<{ id: string; amount: number; mintUrl: string; createdAt: number; token?: string; operationId?: string }>
 }
+
+function mergePendingItems({ receivedTokens, cocoQuotes, sendTokens }: RawSources): PendingItem[] {
+  const merged: PendingItem[] = [
+    ...receivedTokens.map((t) => ({
+      id: t.id,
+      type: 'unclaimed-token' as const,
+      amount: t.amount,
+      mintUrl: t.mintUrl,
+      createdAt: t.createdAt,
+      token: t.token,
+    })),
+    ...cocoQuotes.map((q) => ({
+      id: q.quote,
+      type: 'receive-request' as const,
+      amount: q.amount,
+      mintUrl: q.mintUrl,
+      createdAt: q.expiry ? (q.expiry - 600) * 1000 : Date.now(),
+      expiresAt: q.expiry ? q.expiry * 1000 : undefined,
+    })),
+    ...sendTokens.map((s) => ({
+      id: s.id,
+      type: 'sent-token' as const,
+      amount: s.amount,
+      mintUrl: s.mintUrl,
+      createdAt: s.createdAt,
+      token: s.token,
+      operationId: s.operationId,
+    })),
+  ]
+
+  // Filter out expired lightning requests
+  const now = Date.now()
+  const valid = merged.filter((item) => {
+    if (item.expiresAt && item.expiresAt < now) return false
+    return true
+  })
+
+  valid.sort((a, b) => b.createdAt - a.createdAt)
+  return valid
+}
+
+// ─── Hooks ───
 
 export function usePendingItems(mintUrl: string) {
   const [items, setItems] = useState<PendingItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  const normalized = normalizeUrl(mintUrl)
+  const normalized = stripTrailingSlash(mintUrl)
 
   const refresh = useCallback(async () => {
     setIsLoading(true)
     try {
       const db = getDatabase()
-
       const { getPendingMintQuotes } = await import('@/coco/manager')
+      const variants = [normalized, normalized + '/']
 
       const [receivedTokens, cocoQuotes, sendTokens] = await Promise.all([
-        db.pendingReceivedTokens.where('mintUrl').anyOf([normalized, normalized + '/']).toArray(),
+        db.pendingReceivedTokens.where('mintUrl').anyOf(variants).toArray(),
         getPendingMintQuotes(),
-        db.pendingSendTokens.where('mintUrl').anyOf([normalized, normalized + '/']).toArray(),
+        db.pendingSendTokens.where('mintUrl').anyOf(variants).toArray(),
       ])
 
-      // Filter Coco quotes by mintUrl (matching the normalized URL pattern)
-      const matchingQuotes = cocoQuotes.filter((q) => {
-        const qNorm = normalizeUrl(q.mintUrl)
-        return qNorm === normalized
-      })
+      // Filter Coco quotes by mintUrl
+      const matchingQuotes = cocoQuotes.filter((q) =>
+        stripTrailingSlash(q.mintUrl) === normalized
+      )
 
-      const merged: PendingItem[] = [
-        ...receivedTokens.map((t) => ({
-          id: t.id,
-          type: 'unclaimed-token' as const,
-          amount: t.amount,
-          mintUrl: t.mintUrl,
-          createdAt: t.createdAt,
-          token: t.token,
-        })),
-        ...matchingQuotes.map((q) => ({
-          id: q.quote,
-          type: 'receive-request' as const,
-          amount: q.amount,
-          mintUrl: q.mintUrl,
-          createdAt: q.expiry ? (q.expiry - 600) * 1000 : Date.now(),
-          expiresAt: q.expiry ? q.expiry * 1000 : undefined,
-        })),
-        ...sendTokens.map((s) => ({
-          id: s.id,
-          type: 'ecash-request' as const,
-          amount: s.amount,
-          mintUrl: s.mintUrl,
-          createdAt: s.createdAt,
-          token: s.token,
-          operationId: s.operationId,
-        })),
-      ]
-
-      // Filter out expired lightning requests
-      const now = Date.now()
-      const valid = merged.filter((item) => {
-        if (item.expiresAt && item.expiresAt < now) return false
-        return true
-      })
-
-      valid.sort((a, b) => b.createdAt - a.createdAt)
-      setItems(valid)
+      setItems(mergePendingItems({ receivedTokens, cocoQuotes: matchingQuotes, sendTokens }))
     } catch (e) {
       console.error('[usePendingItems] Failed to load:', e)
       setItems([])
@@ -86,6 +96,44 @@ export function usePendingItems(mintUrl: string) {
       setIsLoading(false)
     }
   }, [normalized])
+
+  useEffect(() => {
+    refresh()
+  }, [refresh])
+
+  return { items, isLoading, refresh }
+}
+
+/**
+ * Hook to load pending items for ALL mints.
+ * Used by PendingItemsScreen when accessed with mint filter support.
+ */
+export function useAllPendingItems(mintUrls: string[]) {
+  const [items, setItems] = useState<PendingItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  const mintUrlsKey = mintUrls.join(',')
+
+  const refresh = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const db = getDatabase()
+      const { getPendingMintQuotes } = await import('@/coco/manager')
+
+      const [receivedTokens, cocoQuotes, sendTokens] = await Promise.all([
+        db.pendingReceivedTokens.toArray(),
+        getPendingMintQuotes(),
+        db.pendingSendTokens.toArray(),
+      ])
+
+      setItems(mergePendingItems({ receivedTokens, cocoQuotes, sendTokens }))
+    } catch (e) {
+      console.error('[useAllPendingItems] Failed to load:', e)
+      setItems([])
+    } finally {
+      setIsLoading(false)
+    }
+  }, [mintUrlsKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     refresh()

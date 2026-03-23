@@ -523,6 +523,7 @@ export default {
     ecashReceive: 'Ecash Receive',
     ecashSend: 'Ecash Send',
     ecashToken: 'Token Created',
+    ecashReclaim: 'Token Reclaimed',
     nutzap: 'NutZap',
     swap: 'Swap',
 
@@ -543,6 +544,9 @@ export default {
     period3m: '3M',
     periodAll: 'All',
     dateFilter: 'Date Filter',
+    mintFilter: 'Wallet Filter',
+    allMints: 'All Wallets',
+    mintCount: '{{count}} Wallets',
   },
 
   // Transaction Detail Screen
@@ -606,7 +610,7 @@ export default {
     swappedAt: 'Swapped at {{mint}}',
     receivedFromPOS: 'Received from {{name}}',
     unclaimedNotice: 'Not yet claimed',
-    reclaimAction: 'Reclaim tokens',
+    reclaimAction: 'Reclaim Token',
 
     // Section titles
     txInfo: 'Transaction info',
@@ -931,7 +935,7 @@ export default {
     seeDetails: 'See Details',
     ecashToken: 'Received Token',
     receiveRequest: 'Receive Request',
-    ecashRequest: 'Unclaimed Token',
+    sentToken: 'Unclaimed Token',
     expiresIn: 'Expires in {{time}}',
     created: 'Created: {{date}}',
     noPendingItems: 'No pending items',
@@ -971,8 +975,8 @@ export default {
     delete: 'Delete',
     pendingAll: 'Pending Items',
     tabAll: 'All',
-    tabReceived: 'Income',
-    tabSent: 'Expense',
+    tabRequest: 'Requests',
+    tabToken: 'Tokens',
     unclaimedTokens: 'Unclaimed Tokens',
     pendingRequests: 'Pending Requests',
     search: 'Search',
@@ -985,7 +989,7 @@ export default {
     redeemAction: 'Redeem Now',
     redeemSuccess: 'Token redeemed',
     redeemFailed: 'Failed to redeem',
-    reclaimAction: 'Reclaim',
+    reclaimAction: 'Reclaim Token',
   },
 
   // Error Boundary

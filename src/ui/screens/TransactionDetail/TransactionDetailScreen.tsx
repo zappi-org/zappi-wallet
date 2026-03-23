@@ -185,15 +185,18 @@ export default function TransactionDetailScreen({
   }, [tx.id, onBack])
 
   // ─── Type label ───
+  const isReclaimed = isEcashToken && !!metadata?.reclaimedFrom
+
   const typeLabel = useMemo(() => {
     if (isSwap) return t('history.swap')
     if (isLightning && isReceive) return t('history.lightningReceive')
     if (isLightning && !isReceive) return t('history.lightningSend')
     if (isNutzap) return 'NutZap'
+    if (isReclaimed) return t('history.ecashReclaim')
     if (isEcashToken) return t('history.ecashToken')
     if (isEcash && isReceive) return t('history.ecashReceive')
     return t('history.ecashSend')
-  }, [isSwap, isLightning, isEcash, isEcashToken, isNutzap, isReceive, t])
+  }, [isSwap, isLightning, isEcash, isEcashToken, isNutzap, isReceive, isReclaimed, t])
 
   // ─── Status config ───
   const statusConfig = useMemo(() => {
@@ -230,12 +233,13 @@ export default function TransactionDetailScreen({
     }
 
     // Send (ecash-token or ecash)
+    if (isReclaimed) return t('history.ecashReclaim')
     if (isEcashToken) return t('txDetail.tokenCreated')
     if (isEcash) return t('txDetail.sentEcash')
     // Lightning send without destination
     if (isLightning) return t('history.lightningSend')
     return typeLabel
-  }, [tx, isSwap, isLightning, isReceive, isEcash, isEcashToken, metadata, getDisplayName, typeLabel, t])
+  }, [tx, isSwap, isLightning, isReceive, isEcash, isEcashToken, isReclaimed, metadata, getDisplayName, typeLabel, t])
 
   // ─── Source label ───
   const sourceLabel = useMemo(() => {

@@ -501,6 +501,7 @@ export default {
     ecashReceive: 'Recepción Ecash',
     ecashSend: 'Envío Ecash',
     ecashToken: 'Token creado',
+    ecashReclaim: 'Token recuperado',
     nutzap: 'NutZap',
     swap: 'Intercambio',
 
@@ -521,6 +522,9 @@ export default {
     period3m: '3 Mes',
     periodAll: 'Todo',
     dateFilter: 'Filtrar por Fecha',
+    mintFilter: 'Filtro de Billetera',
+    allMints: 'Todas las Billeteras',
+    mintCount: '{{count}} Billeteras',
   },
 
   // Analytics Screen
@@ -813,7 +817,7 @@ export default {
     seeDetails: 'Ver detalles',
     ecashToken: 'Token Recibido',
     receiveRequest: 'Solicitud de recepción',
-    ecashRequest: 'Token No Reclamado',
+    sentToken: 'Token No Reclamado',
     expiresIn: 'Expira en {{time}}',
     created: 'Creado: {{date}}',
     noPendingItems: 'No hay elementos pendientes',
@@ -853,8 +857,8 @@ export default {
     delete: 'Eliminar',
     pendingAll: 'Elementos pendientes',
     tabAll: 'Todo',
-    tabReceived: 'Ingresos',
-    tabSent: 'Gastos',
+    tabRequest: 'Solicitudes',
+    tabToken: 'Tokens',
     unclaimedTokens: 'Tokens no reclamados',
     pendingRequests: 'Solicitudes pendientes',
     search: 'Buscar',
@@ -867,7 +871,7 @@ export default {
     redeemAction: 'Canjear ahora',
     redeemSuccess: 'Token canjeado',
     redeemFailed: 'Error al canjear',
-    reclaimAction: 'Recuperar',
+    reclaimAction: 'Recuperar token',
   },
 
   // Error Boundary

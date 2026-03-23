@@ -501,6 +501,7 @@ export default {
     ecashReceive: 'Terima Ecash',
     ecashSend: 'Kirim Ecash',
     ecashToken: 'Token dibuat',
+    ecashReclaim: 'Token diklaim kembali',
     nutzap: 'NutZap',
     swap: 'Swap',
 
@@ -521,6 +522,9 @@ export default {
     period3m: '3 Bln',
     periodAll: 'Semua',
     dateFilter: 'Filter Tanggal',
+    mintFilter: 'Filter Dompet',
+    allMints: 'Semua Dompet',
+    mintCount: '{{count}} Dompet',
   },
 
   // Analytics Screen
@@ -813,7 +817,7 @@ export default {
     seeDetails: 'Lihat Detail',
     ecashToken: 'Token Diterima',
     receiveRequest: 'Permintaan penerimaan',
-    ecashRequest: 'Token Belum Diklaim',
+    sentToken: 'Token Belum Diklaim',
     expiresIn: 'Kedaluwarsa dalam {{time}}',
     created: 'Dibuat: {{date}}',
     noPendingItems: 'Tidak ada item tertunda',
@@ -853,8 +857,8 @@ export default {
     delete: 'Hapus',
     pendingAll: 'Item Tertunda',
     tabAll: 'Semua',
-    tabReceived: 'Pemasukan',
-    tabSent: 'Pengeluaran',
+    tabRequest: 'Permintaan',
+    tabToken: 'Token',
     unclaimedTokens: 'Token Belum Diklaim',
     pendingRequests: 'Permintaan Tertunda',
     search: 'Cari',
@@ -867,7 +871,7 @@ export default {
     redeemAction: 'Tebus Sekarang',
     redeemSuccess: 'Token ditebus',
     redeemFailed: 'Gagal menebus',
-    reclaimAction: 'Klaim kembali',
+    reclaimAction: 'Klaim kembali token',
   },
 
   // Error Boundary

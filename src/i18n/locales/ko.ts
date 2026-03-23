@@ -523,6 +523,7 @@ export default {
     ecashReceive: 'Ecash 수신',
     ecashSend: 'Ecash 전송',
     ecashToken: '토큰 만들기',
+    ecashReclaim: '토큰 회수',
     nutzap: 'NutZap',
     swap: '스왑',
 
@@ -543,6 +544,9 @@ export default {
     period3m: '3개월',
     periodAll: '전체',
     dateFilter: '기간 선택',
+    mintFilter: '지갑 필터',
+    allMints: '전체 지갑',
+    mintCount: '{{count}}개 지갑',
   },
 
   // Transaction Detail Screen
@@ -608,7 +612,7 @@ export default {
     swappedAt: '{{mint}}에서 스왑',
     receivedFromPOS: '{{name}}에서 받음',
     unclaimedNotice: '아직 수령되지 않았어요',
-    reclaimAction: '다시 가져오기',
+    reclaimAction: '토큰 회수',
 
     // Section titles
     txInfo: '정보',
@@ -934,7 +938,7 @@ export default {
     seeDetails: '더보기',
     ecashToken: '수신 토큰',
     receiveRequest: '받기 요청',
-    ecashRequest: '미수령 토큰',
+    sentToken: '미수령 토큰',
     expiresIn: '만료 {{time}} 뒤',
     created: '생성: {{date}}',
     noPendingItems: '대기중인 항목이 없습니다',
@@ -978,8 +982,8 @@ export default {
     // 대기중 항목 전체화면
     pendingAll: '대기중 항목',
     tabAll: '전체',
-    tabReceived: '입금',
-    tabSent: '출금',
+    tabRequest: '요청',
+    tabToken: '토큰',
     unclaimedTokens: '수령되지 않은 토큰',
     pendingRequests: '대기중인 요청들',
     search: '검색',
@@ -992,7 +996,7 @@ export default {
     redeemAction: '지금 수령',
     redeemSuccess: '토큰을 수령했습니다',
     redeemFailed: '수령에 실패했습니다',
-    reclaimAction: '회수',
+    reclaimAction: '토큰 회수',
   },
 
   // Error Boundary

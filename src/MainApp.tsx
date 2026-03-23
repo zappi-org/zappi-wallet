@@ -122,6 +122,9 @@ export default function MainApp() {
   // Active mint from HomeScreen carousel
   const [activeMintUrl, setActiveMintUrl] = useState<string | null>(null)
 
+  // History screen initial mint filter
+  const [historyInitialMintUrls, setHistoryInitialMintUrls] = useState<string[] | undefined>(undefined)
+
   // Transaction detail state
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
 
@@ -684,11 +687,8 @@ export default function MainApp() {
       const { rollbackSendToken } = await import('@/coco/cashuService')
       await rollbackSendToken(tx.operationId)
     }
-    // SDK/레거시 공통: 공유 함수로 DB 상태 전이
+    // SDK/레거시 공통: 공유 함수로 DB 상태 전이 (회수 receive 거래도 자동 생성됨)
     await markSendReclaimed(txId)
-    setTransactions((prev) => prev.map((t) =>
-      t.id === txId ? { ...t, status: 'completed' as const, failureReason: 'reclaimed', tokenState: 'spent' as const, completedAt: Date.now() } : t
-    ))
   }, [services.transactionRepo])
 
   // Settings handlers
@@ -901,7 +901,10 @@ export default function MainApp() {
       {currentScreen === 'home' && (
         <HomeScreen
           onSettings={() => setCurrentScreen('settings')}
-          onTransactions={() => setCurrentScreen('history')}
+          onTransactions={(mintUrl?: string) => {
+            setHistoryInitialMintUrls(mintUrl ? [mintUrl] : undefined)
+            setCurrentScreen('history')
+          }}
           onNotifications={() => setCurrentScreen('notifications')}
           onAddMint={() => setCurrentScreen('add-mint')}
           onMintDetails={(mint, index) => {
@@ -987,6 +990,7 @@ export default function MainApp() {
         <HistoryScreen
           onBack={handleBack}
           transactions={transactions}
+          initialMintUrls={historyInitialMintUrls}
           onSelectTransaction={(tx) => {
             setSelectedTransaction(tx)
             setPreviousScreen('history')
@@ -1166,6 +1170,7 @@ export default function MainApp() {
             setCurrentScreen('transaction-detail')
           }}
           onTransactions={() => {
+            setHistoryInitialMintUrls(selectedMint ? [selectedMint.url] : undefined)
             setPreviousScreen('mint-detail')
             setCurrentScreen('history')
           }}

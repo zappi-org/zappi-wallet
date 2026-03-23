@@ -1,16 +1,20 @@
 import { useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Search, Banknote, Calendar } from 'lucide-react'
+import { ArrowLeft, Search, Banknote, Calendar, CreditCard } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { motion, AnimatePresence } from 'motion/react'
-import type { Transaction } from '@/core/types'
-import { useMintMetadata } from '@/hooks'
+import type { Transaction, MintInfo } from '@/core/types'
+import { useAppStore } from '@/store'
+import { useWallet, useMintMetadata } from '@/hooks'
+import { getMintBalance, stripTrailingSlash } from '@/utils/url'
 import { EmptyState } from '@/ui/components/common/EmptyState'
 import { TransactionListSkeleton } from '@/ui/components/common/Skeleton'
 import { DateFilterSheet } from '@/ui/components/common/DateFilterSheet'
+import { MintFilterSheet } from '@/ui/components/common/MintFilterSheet'
 import { type DateFilterValue, computeDateCutoff, getDateFilterLabel, isDateFilterActive, formatDateGroupLabel } from '@/utils/dateFilter'
 import { TransactionRow } from '@/ui/components/wallet/TransactionRow'
 import { getTitle } from '@/ui/components/wallet/transactionHelpers'
+import { getMintFilterLabel } from '@/hooks/useAvailableMints'
 import { cn } from '@/lib/utils'
 
 // ─── Types ───
@@ -23,6 +27,7 @@ export interface HistoryScreenProps {
   isLoading?: boolean
   onSelectTransaction?: (tx: Transaction) => void
   initialFilter?: FilterType
+  initialMintUrls?: string[]
 }
 
 type FlatItem =
@@ -37,6 +42,7 @@ export function HistoryScreen({
   isLoading = false,
   onSelectTransaction,
   initialFilter,
+  initialMintUrls,
 }: HistoryScreenProps) {
   'use no memo' // useVirtualizer returns mutable functions incompatible with React Compiler
   const { t } = useTranslation()
@@ -44,10 +50,17 @@ export function HistoryScreen({
   const [dateFilter, setDateFilter] = useState<DateFilterValue>({ preset: 'all', range: undefined })
   const [searchQuery, setSearchQuery] = useState('')
   const [showDateFilter, setShowDateFilter] = useState(false)
+  const [showMintFilter, setShowMintFilter] = useState(false)
+  const [selectedMintUrls, setSelectedMintUrls] = useState<Set<string>>(
+    () => new Set(initialMintUrls ?? []),
+  )
 
-  // Mint metadata
+  // Build available mints for filter from store
+  const settings = useAppStore((state) => state.settings)
+
+  // Mint metadata — include settings.mints so filter sheet gets names & icons
   const mintUrls = useMemo(() => {
-    const urls = new Set<string>()
+    const urls = new Set<string>(settings.mints)
     transactions.forEach((tx) => {
       urls.add(tx.mintUrl)
       if (tx.type === 'swap') {
@@ -56,18 +69,38 @@ export function HistoryScreen({
       }
     })
     return Array.from(urls)
-  }, [transactions])
+  }, [transactions, settings.mints])
 
-  const { getDisplayName } = useMintMetadata(mintUrls)
+  const { getDisplayName, getIconUrl } = useMintMetadata(mintUrls)
+  const { balance } = useWallet()
+
+  const availableMints: MintInfo[] = useMemo(() => {
+    return settings.mints.map((url) => ({
+      url,
+      name: getDisplayName(url),
+      alias: settings.mintAliases?.[url],
+      balance: getMintBalance(url, balance.byMint),
+      iconUrl: getIconUrl(url),
+      isOnline: true,
+    }))
+  }, [settings.mints, settings.mintAliases, balance.byMint, getDisplayName, getIconUrl])
 
   // ─── Date filter cutoff ───
   const dateCutoff = useMemo(() => computeDateCutoff(dateFilter), [dateFilter])
 
   // ─── Filtered transactions ───
+  const isMintFiltered = selectedMintUrls.size > 0
+
   const filteredTransactions = useMemo(() => {
     let filtered = [...transactions]
       .filter((tx) => tx.status === 'completed')
       .sort((a, b) => b.createdAt - a.createdAt)
+
+    // Mint filter
+    if (selectedMintUrls.size > 0) {
+      const normalizedSet = new Set(Array.from(selectedMintUrls).map(stripTrailingSlash))
+      filtered = filtered.filter((tx) => normalizedSet.has(stripTrailingSlash(tx.mintUrl)))
+    }
 
     // Date filter
     if (dateCutoff) {
@@ -99,7 +132,7 @@ export function HistoryScreen({
     }
 
     return filtered
-  }, [transactions, filter, dateCutoff, searchQuery, t])
+  }, [transactions, filter, dateCutoff, searchQuery, selectedMintUrls, t])
 
   // ─── Flat items for virtualizer (grouped by date) ───
   const flatItems = useMemo(() => {
@@ -139,6 +172,11 @@ export function HistoryScreen({
   const dateFilterLabel = useMemo(() => getDateFilterLabel(dateFilter, t), [dateFilter, t])
   const isDateFiltered = isDateFilterActive(dateFilter)
 
+  const mintFilterLabel = useMemo(
+    () => getMintFilterLabel(selectedMintUrls, getDisplayName, t),
+    [selectedMintUrls, getDisplayName, t],
+  )
+
   return (
     <div className="h-dvh bg-background text-foreground flex flex-col font-sans relative overflow-hidden z-[60] pt-safe">
       {/* Header */}
@@ -154,6 +192,20 @@ export function HistoryScreen({
           <h2 className="text-body font-bold tracking-tight ml-2">{t('history.title')}</h2>
         </div>
         <div className="flex items-center gap-1">
+          {availableMints.length > 1 && (
+            <button
+              onClick={() => setShowMintFilter(true)}
+              className={cn(
+                'h-10 rounded-lg flex items-center gap-1.5 px-2.5 transition-colors',
+                isMintFiltered
+                  ? 'bg-primary/10 text-primary'
+                  : 'hover:bg-black/[0.04] active:bg-black/[0.06] text-foreground'
+              )}
+            >
+              <CreditCard className="w-[18px] h-[18px]" strokeWidth={1.8} />
+              <span className="text-label font-medium max-w-[80px] truncate">{mintFilterLabel}</span>
+            </button>
+          )}
           <button
             onClick={() => setShowDateFilter(true)}
             className={cn(
@@ -220,7 +272,7 @@ export function HistoryScreen({
         ) : (
           <AnimatePresence mode="wait">
             <motion.div
-              key={`${filter}-${dateFilter.preset}-${dateFilter.range?.from?.getTime()}-${searchQuery}`}
+              key={`${filter}-${dateFilter.preset}-${dateFilter.range?.from?.getTime()}-${searchQuery}-${selectedMintUrls.size}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -270,6 +322,15 @@ export function HistoryScreen({
         onClose={() => setShowDateFilter(false)}
         value={dateFilter}
         onChange={setDateFilter}
+      />
+
+      {/* Mint Filter Sheet */}
+      <MintFilterSheet
+        isOpen={showMintFilter}
+        onClose={() => setShowMintFilter(false)}
+        mints={availableMints}
+        selectedUrls={selectedMintUrls}
+        onChange={setSelectedMintUrls}
       />
     </div>
   )

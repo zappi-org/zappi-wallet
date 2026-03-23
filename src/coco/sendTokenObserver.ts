@@ -46,6 +46,9 @@ export async function markSendFinalized(txId: string): Promise<boolean> {
 /**
  * 토큰이 회수되어 reclaimed 상태로 전이 (rolled-back)
  * observer의 send:rolled-back 이벤트 및 UI에서 직접 호출 가능
+ *
+ * 1. 원본 send 거래를 reclaimed로 마킹
+ * 2. 별도의 receive 거래를 생성하여 회수 내역을 거래내역에 표시
  */
 export async function markSendReclaimed(txId: string): Promise<boolean> {
   const { getDatabase } = await import('@/data/database/schema');
@@ -55,12 +58,33 @@ export async function markSendReclaimed(txId: string): Promise<boolean> {
   // 이미 reclaimed 처리됨
   if (tx.status === 'completed' && tx.failureReason === 'reclaimed') return false;
 
+  const now = Date.now();
+
+  // 원본 send 거래 마킹
   await db.transactions.update(txId, {
     status: 'completed',
     failureReason: 'reclaimed',
     tokenState: 'spent' as TokenState,
-    completedAt: Date.now(),
+    completedAt: now,
   });
+
+  // 회수 receive 거래 생성
+  const reclaimTxId = `${txId}-reclaim`;
+  const existing = await db.transactions.get(reclaimTxId);
+  if (!existing) {
+    await db.transactions.put({
+      id: reclaimTxId,
+      direction: 'receive',
+      type: tx.type,
+      amount: tx.amount,
+      mintUrl: tx.mintUrl,
+      status: 'completed',
+      createdAt: now,
+      completedAt: now,
+      metadata: { reclaimedFrom: txId },
+    });
+  }
+
   await db.pendingSendTokens.delete(txId).catch(() => {});
 
   useAppStore.getState().triggerTxRefresh();

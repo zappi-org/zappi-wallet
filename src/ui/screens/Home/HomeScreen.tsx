@@ -27,7 +27,7 @@ const getTransactionRepo = () => {
 export interface HomeScreenProps {
   onSettings: () => void;
   onNotifications?: () => void;
-  onTransactions?: () => void;
+  onTransactions?: (mintUrl?: string) => void;
   onAddMint?: () => void;
   onMintDetails?: (mint: MintInfo, index: number) => void;
   onValidatedScan?: (data: ValidatedData, mode: 'send' | 'receive') => void;
@@ -316,7 +316,7 @@ export function HomeScreen({
         <div className="min-h-[110px] pb-6">
           <TransactionList
             transactions={filteredTransactions}
-            onSeeAll={onTransactions}
+            onSeeAll={() => onTransactions?.(mints[clampedMintIndex]?.url)}
             onTransactionClick={onSelectTransaction}
             maxItems={1}
             showDate

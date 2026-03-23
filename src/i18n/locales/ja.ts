@@ -471,6 +471,7 @@ export default {
     ecashReceive: 'Ecash受取',
     ecashSend: 'Ecash送金',
     ecashToken: 'トークン作成',
+    ecashReclaim: 'トークン回収',
     nutzap: 'NutZap',
     swap: 'スワップ',
 
@@ -491,6 +492,9 @@ export default {
     period3m: '3ヶ月',
     periodAll: '全期間',
     dateFilter: '期間選択',
+    mintFilter: 'ウォレットフィルター',
+    allMints: 'すべてのウォレット',
+    mintCount: '{{count}}件のウォレット',
   },
 
   // Analytics Screen
@@ -783,7 +787,7 @@ export default {
     seeDetails: '詳細を見る',
     ecashToken: '受信トークン',
     receiveRequest: '受取リクエスト',
-    ecashRequest: '未受領トークン',
+    sentToken: '未受領トークン',
     expiresIn: '{{time}}後に期限切れ',
     created: '作成: {{date}}',
     noPendingItems: '保留中の項目はありません',
@@ -823,8 +827,8 @@ export default {
     delete: '削除',
     pendingAll: '保留中の項目',
     tabAll: 'すべて',
-    tabReceived: '入金',
-    tabSent: '出金',
+    tabRequest: 'リクエスト',
+    tabToken: 'トークン',
     unclaimedTokens: '未受取トークン',
     pendingRequests: '保留中のリクエスト',
     search: '検索',
@@ -837,7 +841,7 @@ export default {
     redeemAction: '今すぐ受け取る',
     redeemSuccess: 'トークンを受け取りました',
     redeemFailed: '受け取りに失敗しました',
-    reclaimAction: '回収',
+    reclaimAction: 'トークン回収',
   },
 
   // Error Boundary
