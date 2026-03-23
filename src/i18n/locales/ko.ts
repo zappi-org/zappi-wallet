@@ -97,7 +97,7 @@ export default {
     hideBalance: '잔액 숨기기',
     myMints: '내 민트',
     addFirstMint: '첫 번째 민트를 추가하세요',
-    recentTransactions: '거래내역',
+    recentTransactions: '최근 거래',
     noTransactions: '거래내역이 없습니다',
     seeAll: '더보기',
   },

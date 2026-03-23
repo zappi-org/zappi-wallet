@@ -12,6 +12,7 @@ interface TransactionListProps {
   maxItems?: number
   showHeader?: boolean
   showDate?: boolean
+  title?: string
   className?: string
 }
 
@@ -22,6 +23,7 @@ export function TransactionList({
   maxItems = 5,
   showHeader = true,
   showDate = false,
+  title,
   className,
 }: TransactionListProps) {
   const { t } = useTranslation()
@@ -43,8 +45,12 @@ export function TransactionList({
   return (
     <div className={cn('flex flex-col w-full px-6 py-1', className)}>
       {showHeader && (
-        <div className="flex items-center justify-between pt-[4px] mb-2">
-          <div />
+        <div className="flex items-center justify-between pt-[4px] mb-2 px-4">
+          {title ? (
+            <h2 className="text-label font-semibold text-foreground-muted">{title}</h2>
+          ) : (
+            <div />
+          )}
           {onSeeAll && (
             <button
               onClick={onSeeAll}

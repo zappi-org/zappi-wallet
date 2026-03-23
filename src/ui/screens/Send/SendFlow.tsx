@@ -216,7 +216,9 @@ export function SendFlow({
           fee = meltOp.fee_reserve + meltOp.swap_fee
           meltQuoteId = meltOp.quoteId
           // Rollback immediately — this is just a fee estimate, actual melt happens in sendLightning
-          await rollbackMelt(meltOp.operationId, 'fee estimation only').catch(() => {})
+          await rollbackMelt(meltOp.operationId, 'fee estimation only').catch((e) =>
+            console.error('[SendFlow] Fee estimation rollback FAILED:', e)
+          )
         } catch (err) {
           console.error('[SendFlow] Melt quote failed:', err)
           addToast({ type: 'error', message: t('payment.feeEstimateFailed'), duration: 3000 })

@@ -20,9 +20,11 @@ interface RawSources {
   receivedTokens: Array<{ id: string; amount: number; mintUrl: string; createdAt: number; token: string }>
   cocoQuotes: Array<{ quote: string; amount: number; mintUrl: string; expiry?: number }>
   sendTokens: Array<{ id: string; amount: number; mintUrl: string; createdAt: number; token?: string; operationId?: string }>
+  /** memo lookup from transactions table (sendToken.id → tx.memo) */
+  memoMap?: Map<string, string>
 }
 
-function mergePendingItems({ receivedTokens, cocoQuotes, sendTokens }: RawSources): PendingItem[] {
+function mergePendingItems({ receivedTokens, cocoQuotes, sendTokens, memoMap }: RawSources): PendingItem[] {
   const merged: PendingItem[] = [
     ...receivedTokens.map((t) => ({
       id: t.id,
@@ -48,6 +50,7 @@ function mergePendingItems({ receivedTokens, cocoQuotes, sendTokens }: RawSource
       createdAt: s.createdAt,
       token: s.token,
       operationId: s.operationId,
+      memo: memoMap?.get(s.id),
     })),
   ]
 
@@ -83,12 +86,19 @@ export function usePendingItems(mintUrl: string) {
         db.pendingSendTokens.where('mintUrl').anyOf(variants).toArray(),
       ])
 
+      // Batch-fetch memos from transactions for send tokens
+      const memoMap = new Map<string, string>()
+      if (sendTokens.length > 0) {
+        const txs = await db.transactions.bulkGet(sendTokens.map((s) => s.id))
+        txs.forEach((tx) => { if (tx?.memo) memoMap.set(tx.id, tx.memo) })
+      }
+
       // Filter Coco quotes by mintUrl
       const matchingQuotes = cocoQuotes.filter((q) =>
         stripTrailingSlash(q.mintUrl) === normalized
       )
 
-      setItems(mergePendingItems({ receivedTokens, cocoQuotes: matchingQuotes, sendTokens }))
+      setItems(mergePendingItems({ receivedTokens, cocoQuotes: matchingQuotes, sendTokens, memoMap }))
     } catch (e) {
       console.error('[usePendingItems] Failed to load:', e)
       setItems([])
@@ -126,7 +136,14 @@ export function useAllPendingItems(mintUrls: string[]) {
         db.pendingSendTokens.toArray(),
       ])
 
-      setItems(mergePendingItems({ receivedTokens, cocoQuotes, sendTokens }))
+      // Batch-fetch memos from transactions for send tokens
+      const memoMap = new Map<string, string>()
+      if (sendTokens.length > 0) {
+        const txs = await db.transactions.bulkGet(sendTokens.map((s) => s.id))
+        txs.forEach((tx) => { if (tx?.memo) memoMap.set(tx.id, tx.memo) })
+      }
+
+      setItems(mergePendingItems({ receivedTokens, cocoQuotes, sendTokens, memoMap }))
     } catch (e) {
       console.error('[useAllPendingItems] Failed to load:', e)
       setItems([])

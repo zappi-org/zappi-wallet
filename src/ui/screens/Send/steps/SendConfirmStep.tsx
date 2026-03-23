@@ -110,7 +110,9 @@ export function SendConfirmStep({
         const meltOp = await prepareMelt(mintUrl, mintQuote.request)
         pendingOperationId = meltOp.operationId
         const fee = meltOp.fee_reserve + meltOp.swap_fee
-        await rollbackMelt(meltOp.operationId, 'fee estimation only').catch(() => {})
+        await rollbackMelt(meltOp.operationId, 'fee estimation only').catch((e) =>
+          console.error('[SendConfirmStep] Fee estimation rollback FAILED:', e)
+        )
         pendingOperationId = null
         if (!cancelled) {
           setEstimatedFee(fee)
@@ -130,7 +132,9 @@ export function SendConfirmStep({
     return () => {
       cancelled = true
       if (pendingOperationId) {
-        rollbackMelt(pendingOperationId, 'cleanup on unmount').catch(() => {})
+        rollbackMelt(pendingOperationId, 'cleanup on unmount').catch((e) =>
+          console.error('[SendConfirmStep] Unmount rollback FAILED:', e)
+        )
       }
     }
   }, [targetMintUrl, amount, mintUrl])

@@ -230,13 +230,13 @@ export function HomeScreen({
             ) : (
               <>
                 {unit === '₿' && (
-                  <span className="text-body text-foreground-muted tracking-[-1px]">{unit}</span>
+                  <span className="text-title text-foreground-muted tracking-[-1px]">{unit}</span>
                 )}
                 <span className="text-display font-display text-foreground tracking-[2px]">
                   {totalBalance.toLocaleString()}
                 </span>
                 {unit !== '₿' && (
-                  <span className="text-body text-foreground-muted">{unit}</span>
+                  <span className="text-title text-foreground-muted">{unit}</span>
                 )}
               </>
             )}
@@ -320,6 +320,7 @@ export function HomeScreen({
             onTransactionClick={onSelectTransaction}
             maxItems={1}
             showDate
+            title={t('home.recentTransactions')}
           />
         </div>
       </main>

@@ -97,7 +97,7 @@ export default {
     hideBalance: 'Hide balance',
     myMints: 'My Mints',
     addFirstMint: 'Add your first mint',
-    recentTransactions: 'History',
+    recentTransactions: 'Recent',
     noTransactions: 'No transactions yet',
     seeAll: 'See More',
   },
