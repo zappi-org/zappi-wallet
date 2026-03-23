@@ -13,6 +13,7 @@ vi.mock('@/hooks', () => ({
   useMintMetadata: () => ({
     getDisplayName: (url: string) => url,
   }),
+  useWallet: () => ({ balance: 0 }),
 }))
 
 vi.mock('@/utils/format', () => ({
