@@ -37,6 +37,7 @@ function makeRecovery(overrides: Partial<Record<string, Record<string, number>>>
     melts: { recovered: 0, failed: 0 },
     sendTokens: { reclaimed: 0, recorded: 0 },
     receivedTokens: { redeemed: 0, failed: 0 },
+    httpReceives: { recovered: 0 },
     ...overrides,
   } as RecoverAllResult
 }
