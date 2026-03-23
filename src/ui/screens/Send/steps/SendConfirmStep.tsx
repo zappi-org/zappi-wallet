@@ -95,19 +95,23 @@ export function SendConfirmStep({
   const [feeLoading, setFeeLoading] = useState(validatedData.type === 'my-wallet')
   const [feeError, setFeeError] = useState(false)
 
+  const targetMintUrl = validatedData.type === 'my-wallet' ? validatedData.targetMintUrl : null
+
   useEffect(() => {
-    if (validatedData.type !== 'my-wallet') return
+    if (!targetMintUrl) return
+    const target = targetMintUrl // narrow for closure
 
     let cancelled = false
-
-    const { targetMintUrl } = validatedData
+    let pendingOperationId: string | null = null
 
     async function estimateFee() {
       try {
-        const mintQuote = await createMintQuote(targetMintUrl, amount)
+        const mintQuote = await createMintQuote(target, amount)
         const meltOp = await prepareMelt(mintUrl, mintQuote.request)
+        pendingOperationId = meltOp.operationId
         const fee = meltOp.fee_reserve + meltOp.swap_fee
         await rollbackMelt(meltOp.operationId, 'fee estimation only').catch(() => {})
+        pendingOperationId = null
         if (!cancelled) {
           setEstimatedFee(fee)
           setFeeLoading(false)
@@ -123,8 +127,13 @@ export function SendConfirmStep({
     }
 
     estimateFee()
-    return () => { cancelled = true }
-  }, [validatedData, amount, mintUrl])
+    return () => {
+      cancelled = true
+      if (pendingOperationId) {
+        rollbackMelt(pendingOperationId, 'cleanup on unmount').catch(() => {})
+      }
+    }
+  }, [targetMintUrl, amount, mintUrl])
 
   const fee = estimatedFee ?? 0
   const recipient = getRecipientDisplay(validatedData, t)
@@ -162,9 +171,9 @@ export function SendConfirmStep({
           <p className="text-amount-lg font-bold leading-snug">
             {formatSats(amount)} {t('send.confirm.amountSuffix')}
           </p>
-          {(() => { const f = formatFiat(amount); return f ? (
-            <p className="text-body text-foreground-muted">{f}</p>
-          ) : null })()}
+          {formatFiat(amount) && (
+            <p className="text-body text-foreground-muted">{formatFiat(amount)}</p>
+          )}
           <p className="text-amount-lg font-medium leading-snug">
             {isMyWallet ? t('send.confirm.transferQuestionEnd') : t('send.confirm.questionEnd')}
           </p>
@@ -221,9 +230,9 @@ export function SendConfirmStep({
                 <span className="text-body font-semibold">{t('send.confirm.total')}</span>
                 <div className="text-right">
                   <span className="text-body font-bold">{formatSats(totalAmount)}</span>
-                  {(() => { const f = formatFiat(totalAmount); return f ? (
-                    <p className="text-caption text-foreground-muted">{f}</p>
-                  ) : null })()}
+                  {formatFiat(totalAmount) && (
+                    <p className="text-caption text-foreground-muted">{formatFiat(totalAmount)}</p>
+                  )}
                 </div>
               </div>
             </>

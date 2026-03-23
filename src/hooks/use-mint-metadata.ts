@@ -58,18 +58,25 @@ export function useMintMetadata(mintUrls: string[]) {
 
   const mintAliases = useAppStore((s) => s.settings.mintAliases)
 
+  // Stable refs for callbacks — avoids re-creating callbacks on every metadata update
+  const metadataMapRef = useRef(metadataMap)
+  useEffect(() => { metadataMapRef.current = metadataMap })
+  const mintAliasesRef = useRef(mintAliases)
+  useEffect(() => { mintAliasesRef.current = mintAliases })
+
   /**
    * Get display name for a mint (alias > metadata > hostname)
+   * Stable reference — reads from refs, not state
    */
   const getDisplayName = useCallback(
     (mintUrl: string): string => {
-      const alias = mintAliases?.[mintUrl]
+      const alias = mintAliasesRef.current?.[mintUrl]
       if (alias) return alias
-      const metadata = metadataMap.get(mintUrl)
+      const metadata = metadataMapRef.current.get(mintUrl)
       if (metadata?.name) return metadata.name
       return mintMetadataService.extractHostname(mintUrl)
     },
-    [metadataMap, mintAliases]
+    []
   )
 
   /**
@@ -77,11 +84,11 @@ export function useMintMetadata(mintUrls: string[]) {
    */
   const getOriginalName = useCallback(
     (mintUrl: string): string => {
-      const metadata = metadataMap.get(mintUrl)
+      const metadata = metadataMapRef.current.get(mintUrl)
       if (metadata?.name) return metadata.name
       return mintMetadataService.extractHostname(mintUrl)
     },
-    [metadataMap]
+    []
   )
 
   /**
@@ -89,9 +96,9 @@ export function useMintMetadata(mintUrls: string[]) {
    */
   const getIconUrl = useCallback(
     (mintUrl: string): string | undefined => {
-      return metadataMap.get(mintUrl)?.iconUrl
+      return metadataMapRef.current.get(mintUrl)?.iconUrl
     },
-    [metadataMap]
+    []
   )
 
   /**
@@ -99,9 +106,9 @@ export function useMintMetadata(mintUrls: string[]) {
    */
   const getMetadata = useCallback(
     (mintUrl: string): MintMetadata | undefined => {
-      return metadataMap.get(mintUrl)
+      return metadataMapRef.current.get(mintUrl)
     },
-    [metadataMap]
+    []
   )
 
   /**

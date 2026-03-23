@@ -1087,7 +1087,6 @@ export default function MainApp() {
           onCreateEcashToken={handleCreateEcashToken}
           onCompleteEcashSend={handleCompleteEcashSend}
           onCancelEcashToken={handleCancelEcashToken}
-          onReceiveToken={handleReceiveToken}
           onMintSwap={handleMintSwap}
           validatedData={validatedScanData || undefined}
           initialAmount={scannedAmount || undefined}

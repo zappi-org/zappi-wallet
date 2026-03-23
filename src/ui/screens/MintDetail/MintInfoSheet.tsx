@@ -3,7 +3,6 @@ import { X, Copy, Check, QrCode, ExternalLink, Pencil } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
-import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import type { MintInfo, MintInfoData } from '@/core/types'
 import { NUT_NAMES, getSupportedNuts } from '@/core/constants'
 import { formatMintHost } from '@/utils/url'
@@ -18,6 +17,7 @@ export interface MintInfoSheetProps {
   onClose: () => void
   onDelete?: (url: string) => void
   onRename?: (url: string, newName: string) => void
+  getDisplayName: (url: string) => string
 }
 
 async function copyToClipboard(text: string) {
@@ -33,11 +33,10 @@ async function copyToClipboard(text: string) {
   }
 }
 
-export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename }: MintInfoSheetProps) {
+export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, getDisplayName }: MintInfoSheetProps) {
   const { t } = useTranslation()
   const settings = useAppStore((s) => s.settings)
   const addToast = useAppStore((s) => s.addToast)
-  const { getDisplayName } = useMintMetadata(settings.mints)
   const [mintInfo, setMintInfo] = useState<MintInfoData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [copiedField, setCopiedField] = useState<string | null>(null)

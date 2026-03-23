@@ -16,7 +16,6 @@ import { getDestinationDisplay } from '../sendDisplayHelpers'
 interface SendCompleteStepProps {
   validatedData: SendableValidatedData
   amount: number
-  fee: number
   onComplete: () => void
 }
 
@@ -56,9 +55,9 @@ export function SendCompleteStep({
         <p className="text-title font-medium leading-relaxed whitespace-pre-line text-center">
           {t('send.complete.message', { destination, amount: formatSats(amount) })}
         </p>
-        {(() => { const f = formatFiat(amount); return f ? (
-          <p className="text-body text-foreground-muted text-center mt-1">{f}</p>
-        ) : null })()}
+        {formatFiat(amount) && (
+          <p className="text-body text-foreground-muted text-center mt-1">{formatFiat(amount)}</p>
+        )}
       </div>
 
       {/* Success character image — centered with entrance animation */}

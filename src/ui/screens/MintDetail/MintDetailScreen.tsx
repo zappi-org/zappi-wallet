@@ -240,6 +240,7 @@ export function MintDetailScreen({
         onClose={() => setShowMintInfo(false)}
         onDelete={onDeleteMint}
         onRename={onRenameMint}
+        getDisplayName={getDisplayName}
       />
 
     </div>

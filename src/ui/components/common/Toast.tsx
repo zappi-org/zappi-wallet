@@ -76,7 +76,7 @@ export function Toast({ toast, onDismiss }: ToastProps) {
   return (
     <div
       className={`
-        flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg
+        flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg
         transition-all duration-200
         ${variantStyles[toast.type]}
         ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}

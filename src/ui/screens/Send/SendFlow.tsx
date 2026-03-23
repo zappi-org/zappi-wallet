@@ -81,7 +81,6 @@ export interface SendFlowProps {
   onCreateEcashToken: (amount: number, mintUrl?: string, options?: { p2pkPubkey?: string; memo?: string }) => Promise<{ token: string; txId: string; operationId: string } | null>
   onCompleteEcashSend?: (txId: string) => Promise<void>
   onCancelEcashToken?: (txId: string) => Promise<void>
-  onReceiveToken: (token: string) => Promise<boolean | { success: boolean; amount?: number }>
   onMintSwap?: (fromMintUrl: string, toMintUrl: string, amount: number) => Promise<{ success: boolean; amount?: number; error?: string }>
   // Pre-filled data from scanner
   validatedData?: ValidatedData
@@ -100,8 +99,6 @@ export function SendFlow({
   onCreateEcashToken,
   onCompleteEcashSend,
   onCancelEcashToken,
-  // onReceiveToken is kept in props interface for callers but no longer used internally
-  // SDK rollback handles proof reclaim atomically via onCancelEcashToken
   onMintSwap,
   validatedData: initialValidatedData,
   initialAmount,
@@ -554,7 +551,6 @@ export function SendFlow({
             <SendCompleteStep
               validatedData={state.validatedData!}
               amount={state.amount}
-              fee={state.fee}
               onComplete={onComplete}
             />
           </PageTransition>

@@ -71,6 +71,8 @@ export function SendInputStep({
   const [showMyWallets, setShowMyWallets] = useState(false)
 
   const amountInputRef = useRef<HTMLInputElement>(null)
+  const validatedDataRef = useRef(validatedData)
+  useEffect(() => { validatedDataRef.current = validatedData })
 
   /** Filter out types not meaningful as a send destination */
   const toDisplayType = (type: string) =>
@@ -118,7 +120,8 @@ export function SendInputStep({
 
     // Immediate — @ prefix
     if (destination.startsWith('@')) {
-      if (validatedData?.type === 'my-wallet' && destination === `@${validatedData.targetMintName}`) {
+      const current = validatedDataRef.current
+      if (current?.type === 'my-wallet' && destination === `@${current.targetMintName}`) {
         setShowMyWallets(false)
         return
       }
@@ -141,7 +144,7 @@ export function SendInputStep({
     }, 300)
 
     return () => clearTimeout(detectTimeoutRef.current)
-  }, [destination]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [destination])
 
   // Selected mint balance (for validation)
   const mintBalance = selectedMintUrl ? (balance.byMint[selectedMintUrl] || 0) : 0
