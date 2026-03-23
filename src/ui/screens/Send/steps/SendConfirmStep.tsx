@@ -100,7 +100,7 @@ export function SendConfirmStep({
 
     let cancelled = false
 
-    const targetMintUrl = validatedData.type === 'my-wallet' ? validatedData.targetMintUrl : ''
+    const { targetMintUrl } = validatedData
 
     async function estimateFee() {
       try {

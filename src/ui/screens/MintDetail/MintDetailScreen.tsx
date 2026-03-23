@@ -12,6 +12,7 @@ import type { MintInfo, Transaction } from '@/core/types'
 import { MintInfoSheet } from './MintInfoSheet'
 import { PendingItemsScreen } from './PendingItemsScreen'
 import { PendingItemDetailScreen } from './PendingItemDetailScreen'
+import { isDuplicateMintName } from './mintNameUtils'
 import type { PendingItem } from '@/hooks/usePendingItems'
 
 export interface MintDetailScreenProps {
@@ -59,10 +60,7 @@ export function MintDetailScreen({
   const handleSaveName = useCallback(() => {
     const trimmed = editNameValue.trim()
     if (trimmed && onRenameMint) {
-      const isDuplicate = settings.mints.some(
-        (url) => url !== mint.url && getDisplayName(url).toLowerCase() === trimmed.toLowerCase()
-      )
-      if (isDuplicate) {
+      if (isDuplicateMintName(trimmed, mint.url, settings.mints, getDisplayName)) {
         addToast({ type: 'error', message: t('mintDetail.duplicateName'), duration: 3000 })
         return
       }

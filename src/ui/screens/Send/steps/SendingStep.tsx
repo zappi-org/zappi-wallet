@@ -6,25 +6,11 @@
 import { useTranslation } from 'react-i18next'
 import { SendingAnimation } from '@/ui/components/payment'
 import type { SendableValidatedData } from '../SendFlow'
+import { getDestinationDisplay } from '../sendDisplayHelpers'
 
 interface SendingStepProps {
   validatedData: SendableValidatedData
   amount: number
-}
-
-function getDestinationDisplay(data: SendableValidatedData): string {
-  switch (data.type) {
-    case 'bolt11':
-      return data.description || 'Lightning'
-    case 'lightning-address':
-      return data.address
-    case 'lnurl-pay':
-      return data.params?.domain || 'LNURL'
-    case 'cashu-request':
-      return 'eCash'
-    case 'my-wallet':
-      return data.targetMintName
-  }
 }
 
 export function SendingStep({ validatedData }: SendingStepProps) {

@@ -7,6 +7,7 @@ import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import type { MintInfo, MintInfoData } from '@/core/types'
 import { NUT_NAMES, getSupportedNuts } from '@/core/constants'
 import { formatMintHost } from '@/utils/url'
+import { isDuplicateMintName } from './mintNameUtils'
 import { MintUrlQrModal } from './MintUrlQrModal'
 import { SupportedNutsModal } from './SupportedNutsModal'
 import { DeleteMintSheet } from './DeleteMintSheet'
@@ -83,10 +84,7 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename }: Min
     if (!mint?.url) return
     const trimmed = editNameValue.trim()
     if (trimmed && onRename) {
-      const isDuplicate = settings.mints.some(
-        (url) => url !== mint.url && getDisplayName(url).toLowerCase() === trimmed.toLowerCase()
-      )
-      if (isDuplicate) {
+      if (isDuplicateMintName(trimmed, mint.url, settings.mints, getDisplayName)) {
         addToast({ type: 'error', message: t('mintDetail.duplicateName'), duration: 3000 })
         return
       }

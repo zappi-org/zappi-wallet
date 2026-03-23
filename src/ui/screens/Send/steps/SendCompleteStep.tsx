@@ -11,27 +11,13 @@ import { useFormatSats, useFormatFiat } from '@/utils/format'
 import sendSuccessImg from '@/assets/send-success.png'
 import { Button } from '@/ui/components/common/Button'
 import type { SendableValidatedData } from '../SendFlow'
+import { getDestinationDisplay } from '../sendDisplayHelpers'
 
 interface SendCompleteStepProps {
   validatedData: SendableValidatedData
   amount: number
   fee: number
   onComplete: () => void
-}
-
-function getDestinationDisplay(data: SendableValidatedData): string {
-  switch (data.type) {
-    case 'bolt11':
-      return data.description || 'Lightning'
-    case 'lightning-address':
-      return data.address
-    case 'lnurl-pay':
-      return data.params?.domain || 'LNURL'
-    case 'cashu-request':
-      return 'eCash'
-    case 'my-wallet':
-      return data.targetMintName
-  }
 }
 
 export function SendCompleteStep({
