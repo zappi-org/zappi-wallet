@@ -97,9 +97,9 @@ export default {
     hideBalance: '잔액 숨기기',
     myMints: '내 민트',
     addFirstMint: '첫 번째 민트를 추가하세요',
-    recentTransactions: '거래 내역',
-    noTransactions: '거래 내역이 없습니다',
-    seeAll: '더 보기',
+    recentTransactions: '거래내역',
+    noTransactions: '거래내역이 없습니다',
+    seeAll: '더보기',
   },
 
   // Action Buttons
@@ -507,8 +507,8 @@ export default {
 
   // History Screen
   history: {
-    title: '거래 내역',
-    noTransactions: '거래 내역이 없습니다',
+    title: '거래내역',
+    noTransactions: '거래내역이 없습니다',
     all: '전체',
     sent: '보냄',
     received: '받음',
@@ -523,6 +523,7 @@ export default {
     ecashReceive: 'Ecash 수신',
     ecashSend: 'Ecash 전송',
     ecashToken: '토큰 만들기',
+    nutzap: 'NutZap',
     swap: '스왑',
 
     // Status
@@ -530,6 +531,18 @@ export default {
     pendingStatus: '처리 중',
     failedStatus: '실패',
     andMore: '외 {{count}}건',
+
+    // Redesigned history screen
+    income: '입금',
+    expense: '출금',
+    pendingTab: '대기중',
+    searchPlaceholder: '검색',
+    noTransactionsDesc: '거래가 생기면 여기에 표시됩니다',
+    period1w: '1주',
+    period1m: '1개월',
+    period3m: '3개월',
+    periodAll: '전체',
+    dateFilter: '기간 선택',
   },
 
   // Transaction Detail Screen
@@ -906,12 +919,13 @@ export default {
     receive: '받기',
     swap: '스왑',
     pendingItems: '대기중 항목',
+    pending: '대기중',
     seeMore: '더보기',
     transactions: '거래내역',
-    seeDetails: '자세히보기',
-    ecashToken: '이캐시 토큰',
-    lightningRequest: '라이트닝 요청',
-    ecashRequest: '이캐시 요청',
+    seeDetails: '더보기',
+    ecashToken: '수신 토큰',
+    receiveRequest: '받기 요청',
+    ecashRequest: '미수령 토큰',
     expiresIn: '만료 {{time}} 뒤',
     created: '생성: {{date}}',
     noPendingItems: '대기중인 항목이 없습니다',
@@ -952,17 +966,23 @@ export default {
     no: '아니요',
     delete: '삭제하기',
     // 대기중 항목 전체화면
-    pendingAll: '대기 항목',
+    pendingAll: '대기중 항목',
     tabAll: '전체',
-    tabTokens: '토큰',
-    tabRequests: '요청',
+    tabReceived: '입금',
+    tabSent: '출금',
     unclaimedTokens: '수령되지 않은 토큰',
     pendingRequests: '대기중인 요청들',
-    filterEcash: '이캐시',
-    filterLightning: '라이트닝',
     search: '검색',
     pendingExpiry: '만료',
     pendingExpired: '만료됨',
+  },
+
+  // Pending Item Actions
+  pending: {
+    redeemAction: '지금 수령',
+    redeemSuccess: '토큰을 수령했습니다',
+    redeemFailed: '수령에 실패했습니다',
+    reclaimAction: '회수',
   },
 
   // Error Boundary

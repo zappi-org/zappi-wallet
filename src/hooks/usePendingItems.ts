@@ -3,12 +3,14 @@ import { getDatabase } from '@/data/database/schema'
 
 export interface PendingItem {
   id: string
-  type: 'unclaimed-token' | 'lightning-request' | 'ecash-request'
+  type: 'unclaimed-token' | 'receive-request' | 'ecash-request'
   amount: number
   mintUrl: string
   memo?: string
   createdAt: number
   expiresAt?: number
+  token?: string
+  operationId?: string
 }
 
 function normalizeUrl(url: string): string {
@@ -47,13 +49,14 @@ export function usePendingItems(mintUrl: string) {
           amount: t.amount,
           mintUrl: t.mintUrl,
           createdAt: t.createdAt,
+          token: t.token,
         })),
         ...matchingQuotes.map((q) => ({
           id: q.quote,
-          type: 'lightning-request' as const,
+          type: 'receive-request' as const,
           amount: q.amount,
           mintUrl: q.mintUrl,
-          createdAt: q.expiry ? (q.expiry - 600) * 1000 : Date.now(), // estimate: expiry minus typical 10min window
+          createdAt: q.expiry ? (q.expiry - 600) * 1000 : Date.now(),
           expiresAt: q.expiry ? q.expiry * 1000 : undefined,
         })),
         ...sendTokens.map((s) => ({
@@ -62,6 +65,8 @@ export function usePendingItems(mintUrl: string) {
           amount: s.amount,
           mintUrl: s.mintUrl,
           createdAt: s.createdAt,
+          token: s.token,
+          operationId: s.operationId,
         })),
       ]
 

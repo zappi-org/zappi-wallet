@@ -523,6 +523,7 @@ export default {
     ecashReceive: 'Ecash Receive',
     ecashSend: 'Ecash Send',
     ecashToken: 'Token Created',
+    nutzap: 'NutZap',
     swap: 'Swap',
 
     // Status
@@ -530,6 +531,18 @@ export default {
     pendingStatus: 'Processing',
     failedStatus: 'Failed',
     andMore: 'and {{count}} more',
+
+    // Redesigned history screen
+    income: 'Income',
+    expense: 'Expense',
+    pendingTab: 'Pending',
+    searchPlaceholder: 'Search',
+    noTransactionsDesc: 'Transactions will appear here',
+    period1w: '1W',
+    period1m: '1M',
+    period3m: '3M',
+    periodAll: 'All',
+    dateFilter: 'Date Filter',
   },
 
   // Transaction Detail Screen
@@ -903,12 +916,13 @@ export default {
     receive: 'Receive',
     swap: 'Swap',
     pendingItems: 'Pending Items',
+    pending: 'Pending',
     seeMore: 'See More',
     transactions: 'Transactions',
     seeDetails: 'See Details',
-    ecashToken: 'Ecash Token',
-    lightningRequest: 'Lightning Request',
-    ecashRequest: 'Ecash Request',
+    ecashToken: 'Received Token',
+    receiveRequest: 'Receive Request',
+    ecashRequest: 'Unclaimed Token',
     expiresIn: 'Expires in {{time}}',
     created: 'Created: {{date}}',
     noPendingItems: 'No pending items',
@@ -947,15 +961,21 @@ export default {
     delete: 'Delete',
     pendingAll: 'Pending Items',
     tabAll: 'All',
-    tabTokens: 'Tokens',
-    tabRequests: 'Requests',
+    tabReceived: 'Income',
+    tabSent: 'Expense',
     unclaimedTokens: 'Unclaimed Tokens',
     pendingRequests: 'Pending Requests',
-    filterEcash: 'Ecash',
-    filterLightning: 'Lightning',
     search: 'Search',
     pendingExpiry: 'Expiry',
     pendingExpired: 'Expired',
+  },
+
+  // Pending Item Actions
+  pending: {
+    redeemAction: 'Redeem Now',
+    redeemSuccess: 'Token redeemed',
+    redeemFailed: 'Failed to redeem',
+    reclaimAction: 'Reclaim',
   },
 
   // Error Boundary

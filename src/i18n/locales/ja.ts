@@ -471,6 +471,7 @@ export default {
     ecashReceive: 'Ecash受取',
     ecashSend: 'Ecash送金',
     ecashToken: 'トークン作成',
+    nutzap: 'NutZap',
     swap: 'スワップ',
 
     // Status
@@ -478,6 +479,18 @@ export default {
     pendingStatus: '処理中',
     failedStatus: '失敗',
     andMore: '他{{count}}件',
+
+    // Redesigned history screen
+    income: '入金',
+    expense: '出金',
+    pendingTab: '保留中',
+    searchPlaceholder: '検索',
+    noTransactionsDesc: '取引が発生するとここに表示されます',
+    period1w: '1週',
+    period1m: '1ヶ月',
+    period3m: '3ヶ月',
+    periodAll: '全期間',
+    dateFilter: '期間選択',
   },
 
   // Analytics Screen
@@ -755,12 +768,13 @@ export default {
     receive: '受取',
     swap: 'スワップ',
     pendingItems: '保留中の項目',
+    pending: '保留中',
     seeMore: 'もっと見る',
     transactions: '取引履歴',
     seeDetails: '詳細を見る',
-    ecashToken: 'Ecashトークン',
-    lightningRequest: 'Lightningリクエスト',
-    ecashRequest: 'Ecashリクエスト',
+    ecashToken: '受信トークン',
+    receiveRequest: '受取リクエスト',
+    ecashRequest: '未受領トークン',
     expiresIn: '{{time}}後に期限切れ',
     created: '作成: {{date}}',
     noPendingItems: '保留中の項目はありません',
@@ -799,15 +813,21 @@ export default {
     delete: '削除',
     pendingAll: '保留中の項目',
     tabAll: 'すべて',
-    tabTokens: 'トークン',
-    tabRequests: 'リクエスト',
+    tabReceived: '入金',
+    tabSent: '出金',
     unclaimedTokens: '未受取トークン',
     pendingRequests: '保留中のリクエスト',
-    filterEcash: 'Ecash',
-    filterLightning: 'Lightning',
     search: '検索',
     pendingExpiry: '有効期限',
     pendingExpired: '期限切れ',
+  },
+
+  // Pending Item Actions
+  pending: {
+    redeemAction: '今すぐ受け取る',
+    redeemSuccess: 'トークンを受け取りました',
+    redeemFailed: '受け取りに失敗しました',
+    reclaimAction: '回収',
   },
 
   // Error Boundary

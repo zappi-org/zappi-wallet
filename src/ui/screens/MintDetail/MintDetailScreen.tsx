@@ -10,7 +10,7 @@ import { useAppStore } from '@/store'
 import type { MintInfo, Transaction } from '@/core/types'
 import { MintInfoSheet } from './MintInfoSheet'
 import { PendingItemsScreen } from './PendingItemsScreen'
-import { PendingItemDetailSheet } from './PendingItemDetailSheet'
+import { PendingItemDetailScreen } from './PendingItemDetailScreen'
 import type { PendingItem } from '@/hooks/usePendingItems'
 
 export interface MintDetailScreenProps {
@@ -81,7 +81,7 @@ export function MintDetailScreen({
         }
       } catch { /* fallthrough to detail sheet */ }
     }
-    // lightning-request, unclaimed-token → show detail sheet
+    // receive-request, unclaimed-token → show detail screen
     setSelectedPendingItem(item)
   }, [onSelectTransaction])
 
@@ -99,16 +99,24 @@ export function MintDetailScreen({
   }, [transactions, mint.url])
 
   const actions = [
-    { key: 'send', label: t('mintDetail.send'), icon: ArrowUpRight, colorClass: 'text-accent-warning', onClick: () => onSend(mint.url) },
-    { key: 'receive', label: t('mintDetail.receive'), icon: ArrowDownLeft, colorClass: 'text-accent-success', onClick: () => onReceive(mint.url) },
-    { key: 'swap', label: t('mintDetail.swap'), icon: ArrowLeftRight, colorClass: 'text-foreground-muted', onClick: () => onSwap(mint.url) },
+    { key: 'send', label: t('mintDetail.send'), icon: ArrowUpRight, colorClass: 'text-accent-warning', bgClass: 'bg-accent-warning/10', onClick: () => onSend(mint.url) },
+    { key: 'receive', label: t('mintDetail.receive'), icon: ArrowDownLeft, colorClass: 'text-accent-success', bgClass: 'bg-accent-success/10', onClick: () => onReceive(mint.url) },
+    { key: 'swap', label: t('mintDetail.swap'), icon: ArrowLeftRight, colorClass: 'text-foreground-muted', bgClass: 'bg-foreground/[0.06]', onClick: () => onSwap(mint.url) },
   ]
+
+  if (selectedPendingItem) {
+    return (
+      <PendingItemDetailScreen
+        item={selectedPendingItem}
+        onBack={() => setSelectedPendingItem(null)}
+      />
+    )
+  }
 
   if (showPendingItems) {
     return (
       <PendingItemsScreen
         items={pendingItems}
-        mintUrl={mint.url}
         onBack={() => setShowPendingItems(false)}
         onItemClick={handlePendingItemClick}
       />
@@ -181,18 +189,18 @@ export function MintDetailScreen({
         </div>
 
         {/* Action Row */}
-        <div className="bg-background-card rounded-xl shadow-sm py-3 flex items-start justify-evenly">
-          {actions.map(({ key, label, icon: Icon, colorClass, onClick }) => (
+        <div className="py-3 flex items-start justify-evenly">
+          {actions.map(({ key, label, icon: Icon, colorClass, bgClass, onClick }) => (
             <button
               key={key}
               onClick={() => { hapticTap(); onClick() }}
               disabled={key === 'send' && mint.balance === 0}
               className="flex flex-col items-center gap-1.5 w-20 active:scale-95 transition-transform disabled:opacity-40"
             >
-              <div className="w-12 h-12 bg-background-card rounded-full flex items-center justify-center shadow-[0px_2px_1px_0px_rgba(0,0,0,0.25)]">
-                <Icon className={`w-[22px] h-[22px] ${colorClass}`} strokeWidth={2} />
+              <div className={`w-[52px] h-[52px] ${bgClass} rounded-full flex items-center justify-center shadow-[0px_2px_1px_0px_rgba(0,0,0,0.25)]`}>
+                <Icon className={`w-6 h-6 ${colorClass}`} strokeWidth={2} />
               </div>
-              <span className="text-label text-foreground">
+              <span className="text-label font-bold text-foreground leading-normal">
                 {label}
               </span>
             </button>
@@ -203,32 +211,30 @@ export function MintDetailScreen({
         {pendingItems.length > 0 && (
           <section>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-overline uppercase tracking-wide text-foreground-muted">
+              <h2 className="text-label font-semibold text-foreground-muted">
                 {t('mintDetail.pendingItems')}
               </h2>
-              {pendingItems.length > 5 && (
-                <button
-                  onClick={() => { hapticTap(); setShowPendingItems(true) }}
-                  className="font-medium text-caption text-brand"
-                >
-                  {t('mintDetail.seeMore')}
-                </button>
-              )}
+              <button
+                onClick={() => { hapticTap(); setShowPendingItems(true) }}
+                className="font-medium text-caption text-foreground-muted"
+              >
+                {t('mintDetail.seeMore')}
+              </button>
             </div>
-            <PendingItemsList items={pendingItems} mintUrl={mint.url} maxItems={5} onItemClick={handlePendingItemClick} />
+            <PendingItemsList items={pendingItems} maxItems={5} showDate onItemClick={handlePendingItemClick} />
           </section>
         )}
 
         {/* Transactions */}
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-overline uppercase tracking-wide text-foreground-muted">
+            <h2 className="text-label font-semibold text-foreground-muted">
               {t('mintDetail.transactions')}
             </h2>
-            {filteredTransactions.length > 5 && onTransactions && (
+            {onTransactions && (
               <button
                 onClick={onTransactions}
-                className="font-medium text-caption text-brand"
+                className="font-medium text-caption text-foreground-muted"
               >
                 {t('mintDetail.seeDetails')}
               </button>
@@ -239,6 +245,7 @@ export function MintDetailScreen({
               transactions={filteredTransactions}
               onTransactionClick={onSelectTransaction}
               showHeader={false}
+              showDate
               className="px-0 py-0"
             />
           ) : (
@@ -258,12 +265,6 @@ export function MintDetailScreen({
         onRename={onRenameMint}
       />
 
-      {/* Pending Item Detail Sheet */}
-      <PendingItemDetailSheet
-        isOpen={!!selectedPendingItem}
-        item={selectedPendingItem}
-        onClose={() => setSelectedPendingItem(null)}
-      />
     </div>
   )
 }

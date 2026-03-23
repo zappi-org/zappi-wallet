@@ -107,6 +107,18 @@ export interface PendingReceivedTokenRecord {
 }
 
 /**
+ * Pending ecash receive record for HTTP transport recovery
+ * Stores NUT-18 HTTP endpoints so background recovery can check for payments
+ */
+export interface PendingEcashReceiveRecord {
+  requestId: string    // primary key (NUT-18 request ID)
+  httpEndpoint: string // mint HTTP endpoint URL
+  mintUrl: string
+  amount: number
+  createdAt: number
+}
+
+/**
  * Mint metadata record for offline caching (NUT-06, url is the primary key)
  */
 export type MintMetadataRecord = MintMetadata
@@ -131,6 +143,7 @@ export class ZappiDatabase extends Dexie {
   pendingMelts!: Table<PendingMeltRecord, string>
   pendingSendTokens!: Table<PendingSendTokenRecord, string>
   pendingReceivedTokens!: Table<PendingReceivedTokenRecord, string>
+  pendingEcashReceives!: Table<PendingEcashReceiveRecord, string>
   mintMetadata!: Table<MintMetadataRecord, string>
   exchangeRates!: Table<ExchangeRateCacheRecord, string>
 
@@ -170,6 +183,9 @@ export class ZappiDatabase extends Dexie {
 
       // Pending received tokens: offline P2PK tokens awaiting online redemption
       pendingReceivedTokens: 'id, mintUrl, createdAt',
+
+      // Pending ecash receives: NUT-18 HTTP transport recovery
+      pendingEcashReceives: 'requestId, mintUrl, createdAt',
 
       // Mint metadata: indexed by url (NUT-06 cached info for offline support)
       mintMetadata: 'url, fetchedAt',
@@ -221,6 +237,7 @@ export async function clearMintData(mintUrl: string): Promise<void> {
     db.pendingMelts.where('mintUrl').anyOf(variants).delete(),
     db.pendingSendTokens.where('mintUrl').anyOf(variants).delete(),
     db.pendingReceivedTokens.where('mintUrl').anyOf(variants).delete(),
+    db.pendingEcashReceives.where('mintUrl').anyOf(variants).delete(),
     db.mintMetadata.where('url').anyOf(variants).delete(),
   ])
 }
@@ -241,5 +258,6 @@ export async function clearAllData(): Promise<void> {
     db.pendingMelts.clear(),
     db.pendingSendTokens.clear(),
     db.pendingReceivedTokens.clear(),
+    db.pendingEcashReceives.clear(),
   ])
 }

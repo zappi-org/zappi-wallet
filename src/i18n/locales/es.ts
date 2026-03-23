@@ -501,6 +501,7 @@ export default {
     ecashReceive: 'Recepción Ecash',
     ecashSend: 'Envío Ecash',
     ecashToken: 'Token creado',
+    nutzap: 'NutZap',
     swap: 'Intercambio',
 
     // Status
@@ -508,6 +509,18 @@ export default {
     pendingStatus: 'Procesando',
     failedStatus: 'Fallido',
     andMore: 'y {{count}} más',
+
+    // Redesigned history screen
+    income: 'Ingresos',
+    expense: 'Gastos',
+    pendingTab: 'Pendiente',
+    searchPlaceholder: 'Buscar',
+    noTransactionsDesc: 'Las transacciones aparecerán aquí',
+    period1w: '1 Sem',
+    period1m: '1 Mes',
+    period3m: '3 Mes',
+    periodAll: 'Todo',
+    dateFilter: 'Filtrar por Fecha',
   },
 
   // Analytics Screen
@@ -785,12 +798,13 @@ export default {
     receive: 'Recibir',
     swap: 'Intercambiar',
     pendingItems: 'Elementos pendientes',
+    pending: 'Pendiente',
     seeMore: 'Ver más',
     transactions: 'Transacciones',
     seeDetails: 'Ver detalles',
-    ecashToken: 'Token Ecash',
-    lightningRequest: 'Solicitud Lightning',
-    ecashRequest: 'Solicitud Ecash',
+    ecashToken: 'Token Recibido',
+    receiveRequest: 'Solicitud de recepción',
+    ecashRequest: 'Token No Reclamado',
     expiresIn: 'Expira en {{time}}',
     created: 'Creado: {{date}}',
     noPendingItems: 'No hay elementos pendientes',
@@ -829,15 +843,21 @@ export default {
     delete: 'Eliminar',
     pendingAll: 'Elementos pendientes',
     tabAll: 'Todo',
-    tabTokens: 'Tokens',
-    tabRequests: 'Solicitudes',
+    tabReceived: 'Ingresos',
+    tabSent: 'Gastos',
     unclaimedTokens: 'Tokens no reclamados',
     pendingRequests: 'Solicitudes pendientes',
-    filterEcash: 'Ecash',
-    filterLightning: 'Lightning',
     search: 'Buscar',
     pendingExpiry: 'Vencimiento',
     pendingExpired: 'Vencido',
+  },
+
+  // Pending Item Actions
+  pending: {
+    redeemAction: 'Canjear ahora',
+    redeemSuccess: 'Token canjeado',
+    redeemFailed: 'Error al canjear',
+    reclaimAction: 'Recuperar',
   },
 
   // Error Boundary

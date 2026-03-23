@@ -16,6 +16,13 @@ import { startNut18HttpPoller } from '@/services/cashu/nut18-http'
 import { buildUnifiedBitcoinUri } from '@/services/cashu/nut18'
 import { receiveP2PKToken } from '@/coco'
 
+/** Fire-and-forget cleanup of pending ecash receive DB record */
+function cleanupPendingEcashReceive(requestId: string) {
+  import('@/data/database/schema').then(({ getDatabase }) => {
+    getDatabase().pendingEcashReceives.delete(requestId)
+  }).catch(() => {})
+}
+
 interface ReceiveQRStepProps {
   onBack: () => void
   onPaymentDetected: (amount: number, method: 'lightning' | 'ecash') => void
@@ -121,6 +128,10 @@ export function ReceiveQRStep({
       cancelled = true
       hapticSuccess()
       onPaymentDetected(amount, 'lightning')
+      // Cleanup HTTP recovery record (Lightning paid, HTTP no longer needed)
+      if (ecashRequestId) {
+        cleanupPendingEcashReceive(ecashRequestId)
+      }
     }
 
     const setup = async () => {
@@ -147,7 +158,7 @@ export function ReceiveQRStep({
       cancelled = true
       unsubscribe?.()
     }
-  }, [quoteId, amount, mintUrl, onSubscribeToQuote, onPaymentDetected, resubTrigger])
+  }, [quoteId, amount, mintUrl, onSubscribeToQuote, onPaymentDetected, resubTrigger, ecashRequestId])
 
   // ======= Ecash NUT-18 payment detection (Nostr) =======
   const lastReceivedRequestId = useAppStore((s) => s.lastReceivedRequestId)
@@ -163,6 +174,8 @@ export function ReceiveQRStep({
       hapticSuccess()
       onPaymentDetected(lastReceivedAmount, 'ecash')
       setLastReceivedPayment(null, 0)
+      // Cleanup recovery record
+      cleanupPendingEcashReceive(ecashRequestId)
     }
   }, [ecashRequestId, lastReceivedRequestId, lastReceivedAmount, setLastReceivedPayment, onPaymentDetected])
 
@@ -171,6 +184,17 @@ export function ReceiveQRStep({
 
   useEffect(() => {
     if (!httpEndpoint || !ecashRequestId) return
+
+    // Persist for background recovery (in case user leaves this screen)
+    import('@/data/database/schema').then(({ getDatabase }) => {
+      getDatabase().pendingEcashReceives.put({
+        requestId: ecashRequestId,
+        httpEndpoint,
+        mintUrl,
+        amount,
+        createdAt: Date.now(),
+      })
+    }).catch(() => {})
 
     const poller = startNut18HttpPoller({
       endpoint: httpEndpoint,
@@ -195,6 +219,8 @@ export function ReceiveQRStep({
           hapticSuccess()
           onPaymentDetected(amount, 'ecash')
         }
+        // Cleanup recovery record
+        cleanupPendingEcashReceive(ecashRequestId!)
       } catch (error) {
         console.error('[ReceiveQR] HTTP token processing error:', error)
         hapticSuccess()
@@ -210,7 +236,7 @@ export function ReceiveQRStep({
       poller.cancel()
       httpPollerRef.current = null
     }
-  }, [httpEndpoint, ecashRequestId, amount, onPaymentDetected])
+  }, [httpEndpoint, ecashRequestId, amount, mintUrl, onPaymentDetected])
 
   // Cancel HTTP poller when payment detected via Nostr
   useEffect(() => {

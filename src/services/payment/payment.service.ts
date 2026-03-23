@@ -726,12 +726,8 @@ export class PaymentService {
           console.warn(`[OfflineRecovery] Token ${pending.id} ${result.error.code}, removing`)
         } else {
           // Transient errors (network, mint down) — leave for next retry
-          // But clean up old entries to prevent infinite retry
-          const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
-          if (Date.now() - pending.createdAt > MAX_AGE_MS) {
-            idsToDelete.push(pending.id)
-            console.warn(`[OfflineRecovery] Token ${pending.id} expired after 7 days, removing`)
-          }
+          // ecash proofs never expire; keep retrying indefinitely
+          console.warn(`[OfflineRecovery] Token ${pending.id} transient error, will retry`)
         }
         return false
       })
@@ -761,14 +757,18 @@ export class PaymentService {
     melts: { recovered: number; failed: number }
     sendTokens: { reclaimed: number; recorded: number }
     receivedTokens: { redeemed: number; failed: number }
+    httpReceives: { recovered: number }
   }> {
     const { recoverPendingQuotes, recoverPendingMelts, recoverPendingSendTokens } = await import('@/coco/cashuService')
 
-    const [quotes, melts, sendTokens, receivedTokens] = await Promise.allSettled([
+    const { recoverPendingEcashReceives } = await import('@/services/cashu/nut18-recovery')
+
+    const [quotes, melts, sendTokens, receivedTokens, httpReceives] = await Promise.allSettled([
       recoverPendingQuotes(),
       recoverPendingMelts(),
       recoverPendingSendTokens(),
       this.redeemPendingReceivedTokens(),
+      recoverPendingEcashReceives(),
     ])
 
     return {
@@ -776,6 +776,7 @@ export class PaymentService {
       melts: melts.status === 'fulfilled' ? melts.value : { recovered: 0, failed: 0 },
       sendTokens: sendTokens.status === 'fulfilled' ? sendTokens.value : { reclaimed: 0, recorded: 0 },
       receivedTokens: receivedTokens.status === 'fulfilled' ? receivedTokens.value : { redeemed: 0, failed: 0 },
+      httpReceives: httpReceives.status === 'fulfilled' ? httpReceives.value : { recovered: 0 },
     }
   }
 

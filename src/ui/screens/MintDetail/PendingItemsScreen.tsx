@@ -1,70 +1,69 @@
-import { useState, useMemo } from 'react'
-import { ArrowLeft, Search } from 'lucide-react'
+import { useState, useMemo, useCallback } from 'react'
+import { ArrowLeft, Search, Calendar } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { PendingItemsList } from '@/ui/components/wallet/PendingItemsList'
+import { PendingItemDetailScreen } from './PendingItemDetailScreen'
+import { DateFilterSheet } from '@/ui/components/common/DateFilterSheet'
+import { type DateFilterValue, computeDateCutoff, getDateFilterLabel, isDateFilterActive, formatDateGroupLabel } from '@/utils/dateFilter'
 import { hapticTap } from '@/utils/haptic'
 import type { PendingItem } from '@/hooks/usePendingItems'
 
-type Tab = 'all' | 'tokens' | 'requests'
-type RequestFilter = 'all' | 'ecash' | 'lightning'
+type Tab = 'all' | 'received' | 'sent'
 
 interface PendingItemsScreenProps {
   items: PendingItem[]
-  mintUrl: string
   onBack: () => void
   onItemClick?: (item: PendingItem) => void
 }
 
-function groupByDate(items: PendingItem[], t: (key: string) => string): Array<{ label: string; items: PendingItem[] }> {
-  const now = new Date()
-  const yesterday = new Date(now)
-  yesterday.setDate(yesterday.getDate() - 1)
-
+function groupByDate(items: PendingItem[], t: (key: string, opts?: Record<string, string>) => string): Array<{ label: string; items: PendingItem[] }> {
   const groups: Record<string, PendingItem[]> = {}
-
   for (const item of items) {
-    const date = new Date(item.createdAt)
-    let label: string
-
-    if (date.toDateString() === now.toDateString()) {
-      label = t('mintDetail.today') || 'Today'
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      label = t('mintDetail.yesterday') || 'Yesterday'
-    } else {
-      label = date.toLocaleDateString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit' })
-    }
-
+    const label = formatDateGroupLabel(item.createdAt, t)
     if (!groups[label]) groups[label] = []
     groups[label].push(item)
   }
-
   return Object.entries(groups).map(([label, items]) => ({ label, items }))
 }
 
-export function PendingItemsScreen({ items, mintUrl, onBack, onItemClick }: PendingItemsScreenProps) {
+export function PendingItemsScreen({ items, onBack, onItemClick }: PendingItemsScreenProps) {
+  'use no memo' // Date.now() in useMemo is flagged as impure by React Compiler
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<Tab>('all')
-  const [requestFilter, setRequestFilter] = useState<RequestFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedItem, setSelectedItem] = useState<PendingItem | null>(null)
+  const [dateFilter, setDateFilter] = useState<DateFilterValue>({ preset: 'all', range: undefined })
+  const [showDateFilter, setShowDateFilter] = useState(false)
+
+  const handleItemClick = useCallback((item: PendingItem) => {
+    hapticTap()
+    if (onItemClick) {
+      onItemClick(item)
+    } else {
+      setSelectedItem(item)
+    }
+  }, [onItemClick])
+
+  // Date filter cutoff
+  const dateCutoff = useMemo(() => computeDateCutoff(dateFilter), [dateFilter])
 
   const filteredItems = useMemo(() => {
     let result = items
 
-    // Tab filter
-    if (activeTab === 'tokens') {
-      result = result.filter((i) => i.type === 'unclaimed-token')
-    } else if (activeTab === 'requests') {
-      result = result.filter((i) => i.type !== 'unclaimed-token')
-      // Sub-filter for requests
-      if (requestFilter === 'ecash') {
-        result = result.filter((i) => i.type === 'ecash-request')
-      } else if (requestFilter === 'lightning') {
-        result = result.filter((i) => i.type === 'lightning-request')
-      }
+    // Date filter
+    if (dateCutoff) {
+      result = result.filter(i => i.createdAt >= dateCutoff.from && i.createdAt <= dateCutoff.to)
     }
 
-    // Search filter
+    // Tab filter
+    if (activeTab === 'received') {
+      result = result.filter(i => i.type === 'unclaimed-token' || i.type === 'receive-request')
+    } else if (activeTab === 'sent') {
+      result = result.filter(i => i.type === 'ecash-request')
+    }
+
+    // Search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       result = result.filter((i) =>
@@ -73,34 +72,60 @@ export function PendingItemsScreen({ items, mintUrl, onBack, onItemClick }: Pend
     }
 
     return result
-  }, [items, activeTab, requestFilter, searchQuery])
+  }, [items, activeTab, dateCutoff, searchQuery])
 
-  const groups = groupByDate(filteredItems, t)
+  const groups = useMemo(() => groupByDate(filteredItems, t), [filteredItems, t])
 
   const tabs: Array<{ key: Tab; label: string }> = [
-    { key: 'all', label: t('mintDetail.tabAll') },
-    { key: 'tokens', label: t('mintDetail.tabTokens') },
-    { key: 'requests', label: t('mintDetail.tabRequests') },
+    { key: 'all', label: t('history.all') },
+    { key: 'received', label: t('mintDetail.tabReceived') },
+    { key: 'sent', label: t('mintDetail.tabSent') },
   ]
+
+  const dateFilterLabel = useMemo(() => getDateFilterLabel(dateFilter, t), [dateFilter, t])
+  const isDateFiltered = isDateFilterActive(dateFilter)
+
+  if (selectedItem) {
+    return (
+      <PendingItemDetailScreen
+        item={selectedItem}
+        onBack={() => setSelectedItem(null)}
+      />
+    )
+  }
 
   return (
     <div className="h-dvh bg-background flex flex-col pt-safe">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 h-14 shrink-0">
+      <header className="flex items-center justify-between px-5 pt-4 shrink-0">
+        <div className="flex items-center">
+          <button
+            onClick={() => { hapticTap(); onBack() }}
+            aria-label={t('common.back')}
+            className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-black/[0.04] active:bg-black/[0.06] transition-colors"
+          >
+            <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
+          </button>
+          <h2 className="text-body font-bold tracking-tight ml-2">
+            {t('mintDetail.pendingAll')}
+          </h2>
+        </div>
         <button
-          onClick={() => { hapticTap(); onBack() }}
-          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-background-hover transition-colors"
+          onClick={() => setShowDateFilter(true)}
+          className={cn(
+            'h-10 rounded-lg flex items-center gap-1.5 px-2.5 transition-colors',
+            isDateFiltered
+              ? 'bg-primary/10 text-primary'
+              : 'hover:bg-black/[0.04] active:bg-black/[0.06] text-foreground'
+          )}
         >
-          <ArrowLeft className="w-5 h-5 text-foreground" />
+          <Calendar className="w-[18px] h-[18px]" strokeWidth={1.8} />
+          <span className="text-label font-medium">{dateFilterLabel}</span>
         </button>
-        <h1 className="text-subtitle text-foreground">
-          {t('mintDetail.pendingAll')}
-        </h1>
-        <div className="w-10" />
       </header>
 
       {/* Search */}
-      <div className="px-4 pb-3">
+      <div className="px-5 pb-3 pt-2">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted" />
           <input
@@ -108,22 +133,22 @@ export function PendingItemsScreen({ items, mintUrl, onBack, onItemClick }: Pend
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t('mintDetail.search')}
-            className="w-full bg-muted rounded-xl pl-10 pr-4 py-2.5 text-caption text-foreground placeholder:text-foreground-muted outline-none focus:ring-2 focus:ring-brand/30"
+            className="w-full bg-background-card rounded-xl pl-10 pr-4 py-2.5 text-body text-foreground placeholder:text-foreground-muted/50 outline-none"
           />
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="px-4 pb-3 flex gap-2">
+      <div className="px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
         {tabs.map(({ key, label }) => (
           <button
             key={key}
-            onClick={() => { setActiveTab(key); setRequestFilter('all') }}
+            onClick={() => setActiveTab(key)}
             className={cn(
-              'px-4 py-1.5 rounded-full text-caption font-medium transition-colors',
+              'px-4 py-1.5 rounded-full text-label transition-all whitespace-nowrap',
               activeTab === key
-                ? 'bg-brand text-white'
-                : 'bg-muted text-foreground-muted'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-background-card/50 text-foreground-muted hover:bg-background-card'
             )}
           >
             {label}
@@ -131,51 +156,31 @@ export function PendingItemsScreen({ items, mintUrl, onBack, onItemClick }: Pend
         ))}
       </div>
 
-      {/* Request sub-filter */}
-      {activeTab === 'requests' && (
-        <div className="px-4 pb-3 flex gap-2">
-          <button
-            onClick={() => setRequestFilter('ecash')}
-            className={cn(
-              'px-3 py-1 rounded-full text-label font-medium transition-colors border',
-              requestFilter === 'ecash'
-                ? 'bg-brand text-white border-brand'
-                : 'bg-background-card text-foreground-muted border-border'
-            )}
-          >
-            {t('mintDetail.filterEcash')}
-          </button>
-          <button
-            onClick={() => setRequestFilter('lightning')}
-            className={cn(
-              'px-3 py-1 rounded-full text-label font-medium transition-colors border',
-              requestFilter === 'lightning'
-                ? 'bg-brand text-white border-brand'
-                : 'bg-background-card text-foreground-muted border-border'
-            )}
-          >
-            {t('mintDetail.filterLightning')}
-          </button>
-        </div>
-      )}
-
       {/* Content */}
-      <main className="flex-1 overflow-y-auto px-4 pb-8">
+      <main className="flex-1 overflow-y-auto px-4 pb-safe">
         {groups.length === 0 ? (
           <p className="text-caption text-foreground-muted text-center py-8">
             {t('mintDetail.noPendingItems')}
           </p>
         ) : (
-          <div className="space-y-4">
+          <div>
             {groups.map(({ label, items: groupItems }) => (
               <div key={label}>
-                <p className="text-label font-medium text-foreground-muted mb-2">{label}</p>
-                <PendingItemsList items={groupItems} mintUrl={mintUrl} maxItems={999} onItemClick={onItemClick} />
+                <h3 className="text-body font-bold text-foreground pt-5 pb-2 px-1">{label}</h3>
+                <PendingItemsList items={groupItems} maxItems={999} onItemClick={handleItemClick} />
               </div>
             ))}
           </div>
         )}
       </main>
+
+      {/* Date Filter Sheet */}
+      <DateFilterSheet
+        isOpen={showDateFilter}
+        onClose={() => setShowDateFilter(false)}
+        value={dateFilter}
+        onChange={setDateFilter}
+      />
     </div>
   )
 }

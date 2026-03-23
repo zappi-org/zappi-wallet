@@ -47,7 +47,7 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
             dragElastic={{ top: 0, bottom: 0.6 }}
             onDragEnd={handleDragEnd}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="fixed bottom-0 left-0 right-0 bg-background-elevated rounded-t-lg max-h-[70vh] overflow-hidden z-[70]"
+            className="fixed bottom-0 left-0 right-0 bg-background-elevated rounded-t-lg max-h-[85vh] overflow-hidden z-[70]"
           >
             {/* Handle */}
             <div className="flex justify-center py-2.5 cursor-grab active:cursor-grabbing touch-none">
@@ -62,7 +62,7 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
             )}
 
             {/* Scrollable content area */}
-            <div className="overflow-y-auto max-h-[calc(70vh-60px)] pb-safe">
+            <div className="overflow-y-auto max-h-[calc(85vh-60px)] pb-safe">
               {children}
             </div>
           </motion.div>

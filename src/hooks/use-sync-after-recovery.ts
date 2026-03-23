@@ -8,7 +8,7 @@ export type RecoverAllResult = Awaited<ReturnType<PaymentService['recoverAll']>>
 
 /** Sum all recovery counts into a single total */
 export function totalRecoveredCount(recovery: RecoverAllResult): number {
-  return recovery.quotes.recovered + recovery.melts.recovered + recovery.sendTokens.reclaimed + recovery.receivedTokens.redeemed
+  return recovery.quotes.recovered + recovery.melts.recovered + recovery.sendTokens.reclaimed + recovery.receivedTokens.redeemed + recovery.httpReceives.recovered
 }
 
 interface UseSyncAfterRecoveryParams {

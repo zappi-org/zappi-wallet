@@ -1,51 +1,41 @@
-import { useMemo } from 'react'
-import { cn } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
-import { Clock, ArrowDownLeft, ArrowUpRight, Zap } from 'lucide-react'
-import { useFormatSats, useFormatFiat, formatDateLocalized } from '@/utils/format'
-import { useMintMetadata } from '@/hooks'
+import { useFormatSats, getLocaleCode } from '@/utils/format'
+import { cn } from '@/lib/utils'
+import { formatMD } from '@/utils/dateFilter'
 import type { PendingItem } from '@/hooks/usePendingItems'
 
 interface PendingItemsListProps {
   items: PendingItem[]
-  mintUrl: string
   maxItems?: number
+  showDate?: boolean
   onItemClick?: (item: PendingItem) => void
 }
 
-function formatExpiry(expiresAt: number, t: (key: string, opts?: Record<string, string>) => string): string | null {
+function getItemTypeLabel(item: PendingItem, t: (key: string) => string): string {
+  if (item.type === 'unclaimed-token') return t('mintDetail.ecashToken')
+  if (item.type === 'receive-request') return t('mintDetail.receiveRequest')
+  return t('mintDetail.ecashRequest')
+}
+
+function getItemTitle(item: PendingItem, t: (key: string) => string): string {
+  return item.memo || getItemTypeLabel(item, t)
+}
+
+function formatExpiry(expiresAt: number): string | null {
   const remaining = expiresAt - Date.now()
   if (remaining <= 0) return null
-
   const hours = Math.floor(remaining / (1000 * 60 * 60))
   const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60))
-
-  if (hours > 0) {
-    return t('mintDetail.expiresIn', { time: `${hours}h ${minutes}m` })
-  }
-  return t('mintDetail.expiresIn', { time: `${minutes}m` })
+  if (hours > 0) return `${hours}h ${minutes}m`
+  return `${minutes}m`
 }
 
-function getPendingIcon(type: PendingItem['type']) {
-  switch (type) {
-    case 'unclaimed-token':
-      return { Icon: ArrowDownLeft, color: 'text-accent-success' } // green — receive
-    case 'lightning-request':
-      return { Icon: Zap, color: 'text-accent-success' }           // green — receive
-    case 'ecash-request':
-      return { Icon: ArrowUpRight, color: 'text-accent-warning' }  // gold — send
-  }
-}
-
-export function PendingItemsList({ items, mintUrl, maxItems = 5, onItemClick }: PendingItemsListProps) {
+export function PendingItemsList({ items, maxItems = 5, showDate = false, onItemClick }: PendingItemsListProps) {
   const { t, i18n } = useTranslation()
   const formatSats = useFormatSats()
-  const toFiat = useFormatFiat()
+  const locale = getLocaleCode(i18n.language)
 
   const displayed = items.slice(0, maxItems)
-
-  const mintUrls = useMemo(() => [mintUrl], [mintUrl])
-  const { getDisplayName } = useMintMetadata(mintUrls)
 
   if (displayed.length === 0) {
     return (
@@ -56,67 +46,51 @@ export function PendingItemsList({ items, mintUrl, maxItems = 5, onItemClick }: 
   }
 
   return (
-    <div className="flex flex-col border border-border rounded-[13px] overflow-hidden gap-0">
-      {displayed.map((item) => {
-        const { Icon, color } = getPendingIcon(item.type)
+    <div className="flex flex-col">
+      {displayed.map((item, index) => {
+        const isSend = item.type === 'ecash-request'
+        const title = getItemTitle(item, t)
+        const typeLabel = getItemTypeLabel(item, t)
+        const date = new Date(item.createdAt)
+        const timeOnly = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+        const timeStr = showDate ? `${formatMD(date)} ${timeOnly}` : timeOnly
+        const expiryStr = item.expiresAt ? formatExpiry(item.expiresAt) : null
+        const isLast = index === displayed.length - 1
 
-        const title = item.memo
-          || (item.type === 'unclaimed-token' ? t('mintDetail.ecashToken')
-            : item.type === 'lightning-request' ? t('mintDetail.lightningRequest')
-            : t('mintDetail.ecashRequest'))
-
-        const subtitle = getDisplayName(mintUrl)
-        const expiryStr = item.expiresAt ? formatExpiry(item.expiresAt, t) : null
+        // Subtitle: "10:35 | 미수령 토큰" or "10:35 | 미수령 토큰 · 만료 2h 30m"
+        const subtitle = expiryStr
+          ? `${timeStr} | ${typeLabel} · ${t('mintDetail.pendingExpiry')} ${expiryStr}`
+          : `${timeStr} | ${typeLabel}`
 
         return (
-          <div
-            key={item.id}
-            onClick={() => onItemClick?.(item)}
-            className="flex items-center justify-between bg-background-card rounded-[16px] h-[75px] px-[16px] py-[12px] cursor-pointer"
-          >
-            <div className="flex items-center gap-[12px]">
-              <div className={cn("w-[44px] h-[44px] rounded-full flex items-center justify-center shrink-0", item.type === 'ecash-request' ? "bg-accent-warning/10" : "bg-accent-success/10")}>
-                <Icon size={20} strokeWidth={1.5} className={color} />
+          <div key={item.id}>
+            <button
+              onClick={() => onItemClick?.(item)}
+              className="w-full flex items-center justify-between py-3.5 px-4 min-h-[44px] cursor-pointer active:bg-black/[0.02] transition-colors"
+            >
+              {/* Left: title + subtitle */}
+              <div className="flex flex-col gap-0.5 text-left min-w-0 flex-1 mr-4">
+                <span className="text-body font-semibold text-foreground leading-normal truncate">{title}</span>
+                <span className="text-label text-foreground-muted leading-normal truncate">{subtitle}</span>
               </div>
-              <div className="flex flex-col gap-[2px]">
-                <h3 className="text-caption font-bold text-foreground leading-normal">
-                  {title}
-                </h3>
-                <div className="flex items-center gap-1">
-                  <p className="text-label text-foreground-muted truncate max-w-[140px] leading-normal">
-                    {subtitle}
-                  </p>
-                  {expiryStr && (
-                    <>
-                      <span className="text-foreground-muted text-overline">·</span>
-                      <span className="text-overline text-accent-danger leading-normal flex items-center gap-0.5">
-                        <Clock size={10} strokeWidth={2} />
-                        {expiryStr}
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-col items-end gap-[2px]">
-              <span className="font-semibold font-display text-caption text-foreground leading-normal">
-                {item.type === 'ecash-request'
-                  ? `- ${formatSats(item.amount)}`
-                  : `+ ${formatSats(item.amount)}`
-                }
-              </span>
-              {(() => {
-                const fiatStr = toFiat(item.amount)
-                return fiatStr ? (
-                  <span className="text-overline text-foreground-muted/70 leading-normal">
-                    {fiatStr}
+
+              {/* Right: amount + status */}
+              <div className="flex flex-col items-end gap-0.5 shrink-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-status-pending animate-pulse" />
+                  <span className={cn(
+                    'text-amount font-display leading-normal opacity-60',
+                    isSend ? 'text-foreground' : 'text-primary',
+                  )}>
+                    {isSend ? `-${formatSats(item.amount)}` : formatSats(item.amount)}
                   </span>
-                ) : null
-              })()}
-              <span className="text-label text-foreground-muted leading-normal">
-                {formatDateLocalized(item.createdAt, i18n.language, t('history.today'), t('history.yesterday'))}
-              </span>
-            </div>
+                </div>
+                <span className="text-label text-foreground-muted leading-normal">
+                  {t('mintDetail.pending')}
+                </span>
+              </div>
+            </button>
+            {!isLast && <div className="h-px bg-border/30 mx-4" />}
           </div>
         )
       })}

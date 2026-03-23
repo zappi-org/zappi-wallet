@@ -1,188 +1,51 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowRightLeft, Search, Zap, Banknote } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
+import { ArrowLeft, Search, Banknote, Calendar } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { motion, AnimatePresence } from 'motion/react'
 import type { Transaction } from '@/core/types'
-import { useFormatSats, useFormatFiat, formatTransactionFiat } from '@/utils/format'
-import { formatMintHost } from '@/utils/url'
 import { useMintMetadata } from '@/hooks'
+import { EmptyState } from '@/ui/components/common/EmptyState'
+import { TransactionListSkeleton } from '@/ui/components/common/Skeleton'
+import { DateFilterSheet } from '@/ui/components/common/DateFilterSheet'
+import { type DateFilterValue, computeDateCutoff, getDateFilterLabel, isDateFilterActive, formatDateGroupLabel } from '@/utils/dateFilter'
+import { TransactionRow } from '@/ui/components/wallet/TransactionRow'
+import { getTitle } from '@/ui/components/wallet/transactionHelpers'
+import { cn } from '@/lib/utils'
+
+// ─── Types ───
+
+export type FilterType = 'all' | 'income' | 'expense'
 
 export interface HistoryScreenProps {
   onBack: () => void
   transactions: Transaction[]
   isLoading?: boolean
   onSelectTransaction?: (tx: Transaction) => void
-}
-
-type FilterType = 'all' | 'income' | 'expense' | 'swap'
-
-interface GroupedTransactions {
-  label: string
-  transactions: Transaction[]
+  initialFilter?: FilterType
 }
 
 type FlatItem =
   | { type: 'header'; label: string }
   | { type: 'transaction'; tx: Transaction }
 
-function getLocaleCode(lang: string): string {
-  const localeMap: Record<string, string> = { ko: 'ko-KR', ja: 'ja-JP', es: 'es-ES', id: 'id-ID', en: 'en-US' }
-  return localeMap[lang] || 'en-US'
-}
-
-
-const TransactionItem = memo(function TransactionItem({
-  transaction,
-  onClick,
-  getMintName,
-}: {
-  transaction: Transaction
-  onClick?: () => void
-  getMintName?: (url: string) => string
-}) {
-  const { t, i18n } = useTranslation()
-  const formatSats = useFormatSats()
-  const formatFiat = useFormatFiat()
-  const isReceive = transaction.direction === 'receive'
-  const statusColors = {
-    pending: 'text-accent-warning-bright',
-    completed: 'text-accent-primary',
-    failed: 'text-accent-danger',
-  }
-  const statusLabels = {
-    pending: t('history.pendingStatus'),
-    completed: t('history.completed'),
-    failed: t('history.failedStatus'),
-  }
-
-  // Check if this is a swap transaction
-  const isSwap = transaction.type === 'swap'
-  const fromMintUrl = isSwap ? (transaction.metadata?.fromMintUrl as string) || transaction.mintUrl : transaction.mintUrl
-  const toMintUrl = isSwap ? (transaction.metadata?.toMintUrl as string) : null
-
-  // Determine icon based on transaction type
-  const getIcon = () => {
-    if (isSwap) {
-      return <ArrowRightLeft className="w-4 h-4" />
-    }
-    if (transaction.type === 'lightning') {
-      return <Zap className="w-4 h-4" />
-    }
-    if (isReceive) {
-      return <ArrowDownLeft className="w-4 h-4" />
-    }
-    return <ArrowUpRight className="w-4 h-4" />
-  }
-
-  // Generate title
-  const getTitle = () => {
-    if (transaction.memo) {
-      return transaction.memo
-    }
-    if (isSwap) {
-      return t('history.swap')
-    }
-    if (transaction.type === 'lightning') {
-      return isReceive ? t('history.lightningReceive') : t('history.lightningSend')
-    }
-    if (transaction.type === 'ecash-token') return t('history.ecashToken')
-    return isReceive ? t('history.ecashReceive') : t('history.ecashSend')
-  }
-
-  return (
-    <button
-      onClick={onClick}
-      className="w-full flex items-center justify-between p-4 rounded-2xl bg-background-card hover:shadow-md border border-primary/5 transition-shadow cursor-pointer group animate-fadeIn min-h-[44px]"
-    >
-      <div className="flex items-center gap-3">
-        <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
-          isSwap
-            ? 'bg-badge-lightning-bg text-accent-primary group-hover:bg-badge-lightning-hover'
-            : 'bg-background-card text-foreground group-hover:bg-background'
-        }`}>
-          {getIcon()}
-        </div>
-        <div className="flex flex-col gap-0.5 text-left">
-          <span className="text-label text-foreground">{getTitle()}</span>
-          {isSwap ? (
-            <div className="flex flex-col text-overline text-foreground-muted">
-              <span className="truncate max-w-[140px]">
-                {getMintName ? getMintName(fromMintUrl) : formatMintHost(fromMintUrl)}
-              </span>
-              <span className="truncate max-w-[140px]">
-                → {toMintUrl ? (getMintName ? getMintName(toMintUrl) : formatMintHost(toMintUrl)) : ''}
-              </span>
-            </div>
-          ) : (
-            <span className="text-overline text-foreground-muted truncate max-w-[150px]">
-              {/* For Lightning sends, show destination if available */}
-              {transaction.type === 'lightning' && transaction.direction === 'send' && transaction.metadata?.destination
-                ? (transaction.metadata.destination as string).includes('@')
-                  ? (transaction.metadata.destination as string)
-                  : `${(transaction.metadata.destination as string).slice(0, 20)}...`
-                : (getMintName ? getMintName(transaction.mintUrl) : formatMintHost(transaction.mintUrl))}
-            </span>
-          )}
-        </div>
-      </div>
-      <div className="flex flex-col items-end gap-0.5">
-        <span className={`text-label font-display ${isSwap ? 'text-accent-primary' : isReceive ? 'text-card-brand-dark' : 'text-foreground'}`}>
-          {isSwap ? (
-            <>{formatSats(transaction.amount)}</>
-          ) : (
-            <>{isReceive ? '+' : '-'}{formatSats(transaction.amount)}</>
-          )}
-        </span>
-        {(() => {
-          const f = formatTransactionFiat(transaction, formatFiat)
-          return f ? (
-            <span className="text-overline text-foreground-muted">{f}</span>
-          ) : null
-        })()}
-        <div className="flex items-center gap-2">
-          <span className={`text-overline ${statusColors[transaction.status]}`}>
-            {statusLabels[transaction.status]}
-          </span>
-          <span className="text-overline text-foreground-timestamp">{new Date(transaction.createdAt).toLocaleTimeString(getLocaleCode(i18n.language), { hour: '2-digit', minute: '2-digit' })}</span>
-        </div>
-      </div>
-    </button>
-  )
-})
+// ─── Main Screen ───
 
 export function HistoryScreen({
   onBack,
   transactions,
   isLoading = false,
   onSelectTransaction,
+  initialFilter,
 }: HistoryScreenProps) {
   'use no memo' // useVirtualizer returns mutable functions incompatible with React Compiler
-  const { t, i18n } = useTranslation()
-  const [filter, setFilter] = useState<FilterType>('all')
+  const { t } = useTranslation()
+  const [filter, setFilter] = useState<FilterType>(initialFilter ?? 'all')
+  const [dateFilter, setDateFilter] = useState<DateFilterValue>({ preset: 'all', range: undefined })
   const [searchQuery, setSearchQuery] = useState('')
-  const [showSearch, setShowSearch] = useState(false)
+  const [showDateFilter, setShowDateFilter] = useState(false)
 
-  // Date formatting helper with i18n support
-  const formatDateLabel = useCallback((timestamp: number): string => {
-    const date = new Date(timestamp)
-    const now = new Date()
-    const yesterday = new Date(now)
-    yesterday.setDate(yesterday.getDate() - 1)
-    const locale = getLocaleCode(i18n.language)
-
-    if (date.toDateString() === now.toDateString()) {
-      return t('history.today', { defaultValue: 'Today' })
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return t('history.yesterday', { defaultValue: 'Yesterday' })
-    } else {
-      return date.toLocaleDateString(locale, {
-        month: 'long',
-        day: 'numeric',
-      })
-    }
-  }, [t, i18n.language])
-
-  // Extract unique mint URLs for metadata lookup (including swap from/to mints)
+  // Mint metadata
   const mintUrls = useMemo(() => {
     const urls = new Set<string>()
     transactions.forEach((tx) => {
@@ -197,127 +60,141 @@ export function HistoryScreen({
 
   const { getDisplayName } = useMintMetadata(mintUrls)
 
-  // Filter and group transactions by date
-  const groupedTransactions = useMemo(() => {
-    const groups: Map<string, Transaction[]> = new Map()
+  // ─── Date filter cutoff ───
+  const dateCutoff = useMemo(() => computeDateCutoff(dateFilter), [dateFilter])
 
-    // Filter transactions - only show completed
+  // ─── Filtered transactions ───
+  const filteredTransactions = useMemo(() => {
     let filtered = [...transactions]
       .filter((tx) => tx.status === 'completed')
       .sort((a, b) => b.createdAt - a.createdAt)
 
-    // Apply type filter
-    if (filter === 'income') {
-      filtered = filtered.filter((tx) => tx.direction === 'receive' && tx.type !== 'swap')
-    } else if (filter === 'expense') {
-      filtered = filtered.filter((tx) => tx.direction === 'send' && tx.type !== 'swap')
-    } else if (filter === 'swap') {
-      filtered = filtered.filter((tx) => tx.type === 'swap')
+    // Date filter
+    if (dateCutoff) {
+      filtered = filtered.filter((tx) => tx.createdAt >= dateCutoff.from && tx.createdAt <= dateCutoff.to)
     }
 
-    // Apply search filter
+    // Tab filter
+    switch (filter) {
+      case 'income':
+        filtered = filtered.filter((tx) => tx.direction === 'receive' && tx.type !== 'swap')
+        break
+      case 'expense':
+        filtered = filtered.filter((tx) => tx.direction === 'send' && tx.type !== 'swap')
+        break
+    }
+
+    // Search
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
       filtered = filtered.filter((tx) => {
         const memo = tx.memo?.toLowerCase() || ''
         const mint = tx.mintUrl.toLowerCase()
+        const typeLabel = getTitle(tx, t).toLowerCase()
+        const source = tx.source ? t(`txDetail.source.${tx.source}`).toLowerCase() : ''
         return memo.includes(query) || mint.includes(query)
+          || typeLabel.includes(query) || source.includes(query)
+          || String(tx.amount).includes(query)
       })
     }
 
-    for (const tx of filtered) {
-      const dateLabel = formatDateLabel(tx.createdAt)
-      const existing = groups.get(dateLabel) || []
-      groups.set(dateLabel, [...existing, tx])
-    }
+    return filtered
+  }, [transactions, filter, dateCutoff, searchQuery, t])
 
-    const result: GroupedTransactions[] = []
-    groups.forEach((txs, label) => {
-      result.push({ label, transactions: txs })
-    })
-
-    return result
-  }, [transactions, filter, searchQuery, formatDateLabel])
-
-  // Flatten grouped transactions for virtualization
+  // ─── Flat items for virtualizer (grouped by date) ───
   const flatItems = useMemo(() => {
     const items: FlatItem[] = []
-    for (const group of groupedTransactions) {
-      items.push({ type: 'header', label: group.label })
-      for (const tx of group.transactions) {
-        items.push({ type: 'transaction', tx })
+    let currentLabel = ''
+    for (const tx of filteredTransactions) {
+      const label = formatDateGroupLabel(tx.createdAt, t)
+      if (label !== currentLabel) {
+        currentLabel = label
+        items.push({ type: 'header', label })
       }
+      items.push({ type: 'transaction', tx })
     }
     return items
-  }, [groupedTransactions])
+  }, [filteredTransactions, t])
 
-  // Virtual list setup
+  // ─── Virtualizer ───
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer is known-incompatible with React Compiler; 'use no memo' above opts out
   const virtualizer = useVirtualizer({
     count: flatItems.length,
     getScrollElement: () => scrollContainerRef.current,
-    estimateSize: (index) => flatItems[index].type === 'header' ? 40 : 76,
+    estimateSize: (index) => {
+      const item = flatItems[index]
+      if (item.type === 'header') return 44
+      return 56
+    },
     overscan: 10,
   })
 
   const filterLabels: Record<FilterType, string> = {
     all: t('history.all'),
-    income: t('history.received'),
-    expense: t('history.sent'),
-    swap: t('history.swap'),
+    income: t('history.income'),
+    expense: t('history.expense'),
   }
 
+  const dateFilterLabel = useMemo(() => getDateFilterLabel(dateFilter, t), [dateFilter, t])
+  const isDateFiltered = isDateFilterActive(dateFilter)
+
   return (
-    <div
-      className="h-dvh bg-background text-foreground flex flex-col font-sans relative overflow-hidden z-[60] pt-safe"
-    >
+    <div className="h-dvh bg-background text-foreground flex flex-col font-sans relative overflow-hidden z-[60] pt-safe">
       {/* Header */}
       <header className="flex items-center justify-between px-5 pt-4 relative z-50">
         <div className="flex items-center">
           <button
             onClick={onBack}
             aria-label={t('common.back')}
-            className="p-2 rounded-full bg-background-card hover:shadow-md transition-all hover:bg-background-card"
+            className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-black/[0.04] active:bg-black/[0.06] transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
           </button>
-          <h2 className="text-body font-bold tracking-tight ml-3">{t('history.title')}</h2>
+          <h2 className="text-body font-bold tracking-tight ml-2">{t('history.title')}</h2>
         </div>
-        <button
-          onClick={() => setShowSearch(!showSearch)}
-          className={`p-2 rounded-full transition-all ${
-            showSearch ? 'bg-primary text-primary-foreground' : 'bg-background-card hover:shadow-md hover:bg-background-card'
-          }`}
-        >
-          <Search className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setShowDateFilter(true)}
+            className={cn(
+              'h-10 rounded-lg flex items-center gap-1.5 px-2.5 transition-colors',
+              isDateFiltered
+                ? 'bg-primary/10 text-primary'
+                : 'hover:bg-black/[0.04] active:bg-black/[0.06] text-foreground'
+            )}
+          >
+            <Calendar className="w-[18px] h-[18px]" strokeWidth={1.8} />
+            <span className="text-label font-medium">{dateFilterLabel}</span>
+          </button>
+        </div>
       </header>
 
       {/* Search Bar */}
-      <div
-        className={`overflow-hidden transition-all duration-200 ease-out bg-background ${showSearch ? 'max-h-20 opacity-100 px-4 pb-3' : 'max-h-0 opacity-0'}`}
-      >
-        <input
-          type="text"
-          placeholder={t('scanner.inputPlaceholder')}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full bg-background-card p-3 rounded-xl focus:border-primary/30 outline-none text-foreground placeholder:text-foreground-muted/50"
-        />
+      <div className="px-5 pb-3 pt-2">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted" />
+          <input
+            type="text"
+            placeholder={t('history.searchPlaceholder')}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-background-card pl-10 pr-4 py-2.5 rounded-xl outline-none text-body text-foreground placeholder:text-foreground-muted/50"
+          />
+        </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="px-4 py-3 flex gap-2 overflow-x-auto scrollbar-hide">
-        {(['all', 'income', 'expense', 'swap'] as FilterType[]).map((f) => (
+      {/* Filter Tabs */}
+      <div className="px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
+        {(['all', 'income', 'expense'] as FilterType[]).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`px-4 py-1.5 rounded-full text-label transition-all ${
+            className={cn(
+              'px-4 py-1.5 rounded-full text-label transition-all whitespace-nowrap',
               filter === f
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-background-card/50 text-foreground-muted hover:bg-background-card'
-            }`}
+            )}
           >
             {filterLabels[f]}
           </button>
@@ -325,60 +202,75 @@ export function HistoryScreen({
       </div>
 
       {/* List */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 pb-32">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 pb-safe">
         {isLoading ? (
-          <div className="space-y-2">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-16 bg-background-card/40 rounded-2xl animate-pulse" />
-            ))}
-          </div>
+          <TransactionListSkeleton count={6} />
         ) : flatItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="w-12 h-12 bg-background-card rounded-full flex items-center justify-center mb-3">
-              <Banknote className="w-6 h-6 text-foreground-muted" />
-            </div>
-            <p className="text-label text-foreground-muted">
-              {t('history.noTransactions')}
-            </p>
-          </div>
-        ) : (
-          <div
-            style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
           >
-            {virtualizer.getVirtualItems().map((virtualRow) => {
-              const item = flatItems[virtualRow.index]
-              return (
-                <div
-                  key={virtualRow.key}
-                  data-index={virtualRow.index}
-                  ref={virtualizer.measureElement}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                >
-                  {item.type === 'header' ? (
-                    <h3 className="text-label text-foreground-muted pt-4 pb-2 px-2">
-                      {item.label}
-                    </h3>
-                  ) : (
-                    <div className="pb-2">
-                      <TransactionItem
-                        transaction={item.tx}
-                        onClick={() => onSelectTransaction?.(item.tx)}
-                        getMintName={getDisplayName}
-                      />
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+            <EmptyState
+              icon={<Banknote className="w-6 h-6" />}
+              title={t('history.noTransactions')}
+              description={t('history.noTransactionsDesc')}
+            />
+          </motion.div>
+        ) : (
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`${filter}-${dateFilter.preset}-${dateFilter.range?.from?.getTime()}-${searchQuery}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}
+            >
+              {virtualizer.getVirtualItems().map((virtualRow) => {
+                const item = flatItems[virtualRow.index]
+                return (
+                  <div
+                    key={virtualRow.key}
+                    data-index={virtualRow.index}
+                    ref={virtualizer.measureElement}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    {item.type === 'header' ? (
+                      <h3 className="text-body font-bold text-foreground pt-5 pb-2 px-1">
+                        {item.label}
+                      </h3>
+                    ) : (
+                      <>
+                        <TransactionRow
+                          transaction={item.tx}
+                          onClick={() => onSelectTransaction?.(item.tx)}
+                          getMintName={getDisplayName}
+                        />
+                        <div className="h-px bg-border/30 mx-4" />
+                      </>
+                    )}
+                  </div>
+                )
+              })}
+            </motion.div>
+          </AnimatePresence>
         )}
       </div>
+
+      {/* Date Filter Sheet */}
+      <DateFilterSheet
+        isOpen={showDateFilter}
+        onClose={() => setShowDateFilter(false)}
+        value={dateFilter}
+        onChange={setDateFilter}
+      />
     </div>
   )
 }

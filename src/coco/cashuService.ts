@@ -571,7 +571,6 @@ export async function recoverPendingSendTokens(): Promise<{
 
   let reclaimed = 0;
   let recorded = 0;
-  const maxAge = 24 * 60 * 60 * 1000;
 
   // 2. SDK-managed: clean up already finalized/rolled-back entries
   for (const pending of sdkTokens) {
@@ -585,10 +584,7 @@ export async function recoverPendingSendTokens(): Promise<{
       // 'pending' state: ProofStateWatcher is monitoring, leave it
     } catch (error) {
       console.error(`[Recovery] Failed to check SDK send operation ${pending.operationId}:`, error);
-      // Clean up old entries that can't be recovered
-      if (Date.now() - pending.createdAt > maxAge) {
-        await db.pendingSendTokens.delete(pending.id);
-      }
+      // ecash proofs never expire; keep for future retry
     }
   }
 
@@ -649,10 +645,8 @@ export async function recoverPendingSendTokens(): Promise<{
         recorded++;
         console.log(`[Recovery] Created send tx for spent token: ${pending.amount} sats`);
       } else {
+        // Transient error (network, mint down) — keep for future retry
         console.error(`[Recovery] Failed to recover send token ${pending.id}:`, error);
-        if (Date.now() - pending.createdAt > maxAge) {
-          await db.pendingSendTokens.delete(pending.id);
-        }
       }
     }
   }

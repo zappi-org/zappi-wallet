@@ -501,6 +501,7 @@ export default {
     ecashReceive: 'Terima Ecash',
     ecashSend: 'Kirim Ecash',
     ecashToken: 'Token dibuat',
+    nutzap: 'NutZap',
     swap: 'Swap',
 
     // Status
@@ -508,6 +509,18 @@ export default {
     pendingStatus: 'Memproses',
     failedStatus: 'Gagal',
     andMore: 'dan {{count}} lagi',
+
+    // Redesigned history screen
+    income: 'Pemasukan',
+    expense: 'Pengeluaran',
+    pendingTab: 'Tertunda',
+    searchPlaceholder: 'Cari',
+    noTransactionsDesc: 'Transaksi akan muncul di sini',
+    period1w: '1 Mg',
+    period1m: '1 Bln',
+    period3m: '3 Bln',
+    periodAll: 'Semua',
+    dateFilter: 'Filter Tanggal',
   },
 
   // Analytics Screen
@@ -785,12 +798,13 @@ export default {
     receive: 'Terima',
     swap: 'Tukar',
     pendingItems: 'Item Tertunda',
+    pending: 'Tertunda',
     seeMore: 'Lihat Lainnya',
     transactions: 'Transaksi',
     seeDetails: 'Lihat Detail',
-    ecashToken: 'Token Ecash',
-    lightningRequest: 'Permintaan Lightning',
-    ecashRequest: 'Permintaan Ecash',
+    ecashToken: 'Token Diterima',
+    receiveRequest: 'Permintaan penerimaan',
+    ecashRequest: 'Token Belum Diklaim',
     expiresIn: 'Kedaluwarsa dalam {{time}}',
     created: 'Dibuat: {{date}}',
     noPendingItems: 'Tidak ada item tertunda',
@@ -829,15 +843,21 @@ export default {
     delete: 'Hapus',
     pendingAll: 'Item Tertunda',
     tabAll: 'Semua',
-    tabTokens: 'Token',
-    tabRequests: 'Permintaan',
+    tabReceived: 'Pemasukan',
+    tabSent: 'Pengeluaran',
     unclaimedTokens: 'Token Belum Diklaim',
     pendingRequests: 'Permintaan Tertunda',
-    filterEcash: 'Ecash',
-    filterLightning: 'Lightning',
     search: 'Cari',
     pendingExpiry: 'Kedaluwarsa',
     pendingExpired: 'Kedaluwarsa',
+  },
+
+  // Pending Item Actions
+  pending: {
+    redeemAction: 'Tebus Sekarang',
+    redeemSuccess: 'Token ditebus',
+    redeemFailed: 'Gagal menebus',
+    reclaimAction: 'Klaim kembali',
   },
 
   // Error Boundary
