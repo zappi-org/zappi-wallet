@@ -68,11 +68,7 @@ export function SendInputStep({
   const [validatedData, setValidatedData] = useState<SendableValidatedData | null>(
     initialValidatedData || null
   )
-  const [showMyWallets, setShowMyWallets] = useState(false)
-
   const amountInputRef = useRef<HTMLInputElement>(null)
-  const validatedDataRef = useRef(validatedData)
-  useEffect(() => { validatedDataRef.current = validatedData })
 
   /** Filter out types not meaningful as a send destination */
   const toDisplayType = (type: string) =>
@@ -80,6 +76,34 @@ export function SendInputStep({
 
   // Is amount fixed (e.g. bolt11 with amount)?
   const isAmountFixed = validatedData?.type === 'bolt11' && validatedData.amountSats > 0
+
+  /**
+   * Wrapper around setDestination — clears detection state immediately
+   * when destination becomes empty or changes to @ prefix.
+   * Keeps setState calls in event handlers (not effects) to avoid lint violations.
+   */
+  const updateDestination = useCallback((newDest: string) => {
+    setDestination(newDest)
+    const trimmed = newDest.trim()
+    if (!trimmed) {
+      setDetectedType(null)
+      setValidatedData(null)
+    } else if (trimmed.startsWith('@')) {
+      // Clear detection unless it's a no-op (wallet already selected with matching name)
+      // Note: handleSelectMyWallet sets validatedData AFTER this, so clearing here is safe
+      setDetectedType(null)
+      setValidatedData(null)
+    }
+  }, [])
+
+  // Derive showMyWallets from destination + validatedData (not state)
+  const showMyWallets = useMemo(() => {
+    const trimmed = destination.trim()
+    if (!trimmed || !trimmed.startsWith('@')) return false
+    // If wallet already selected and destination matches, don't show list
+    if (validatedData?.type === 'my-wallet' && destination === `@${validatedData.targetMintName}`) return false
+    return true
+  }, [destination, validatedData])
 
   // My wallets list (exclude currently selected source mint)
   const myWallets = useMemo(() => {
@@ -103,37 +127,13 @@ export function SendInputStep({
   // Is source mint same as target wallet? (conflict)
   const isSameWallet = validatedData?.type === 'my-wallet' && validatedData.targetMintUrl === selectedMintUrl
 
-  // Detect input type on destination change
-  // Immediate: empty input, @ prefix (no computation needed)
-  // Debounced: detectInputType (heavier parsing)
+  // Debounced input type detection (only for non-empty, non-@ destinations)
   const detectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   useEffect(() => {
     clearTimeout(detectTimeoutRef.current)
 
-    // Immediate — empty
-    if (!destination.trim()) {
-      setDetectedType(null)
-      setValidatedData(null)
-      setShowMyWallets(false)
-      return
-    }
+    if (!destination.trim() || destination.startsWith('@')) return
 
-    // Immediate — @ prefix
-    if (destination.startsWith('@')) {
-      const current = validatedDataRef.current
-      if (current?.type === 'my-wallet' && destination === `@${current.targetMintName}`) {
-        setShowMyWallets(false)
-        return
-      }
-      setDetectedType(null)
-      setShowMyWallets(true)
-      setValidatedData(null)
-      return
-    }
-
-    setShowMyWallets(false)
-
-    // Debounced — input type detection
     detectTimeoutRef.current = setTimeout(() => {
       const detected = detectInputType(destination)
       setDetectedType(toDisplayType(detected.type))
@@ -160,16 +160,14 @@ export function SendInputStep({
       targetMintName: walletName,
     })
     setDetectedType('my-wallet')
-    setShowMyWallets(false)
     setTimeout(() => amountInputRef.current?.focus(), 150)
   }, [])
 
   // Handle "내 지갑으로 보내기" button tap
   const handleMyWalletButton = useCallback(() => {
     hapticTap()
-    setDestination('@')
-    setShowMyWallets(true)
-  }, [])
+    updateDestination('@')
+  }, [updateDestination])
 
   // Process external input (scan/paste) with auto-advance
   const processExternalInput = useCallback((input: string) => {
@@ -321,7 +319,7 @@ export function SendInputStep({
             <input
               type="text"
               value={destination}
-              onChange={(e) => setDestination(e.target.value)}
+              onChange={(e) => updateDestination(e.target.value)}
               placeholder={t('send.placeholder')}
               className="flex-1 min-w-0 bg-transparent border-0 rounded-none px-0 py-2 text-subtitle font-semibold text-foreground placeholder:text-foreground-muted/40 placeholder:font-normal focus:outline-none"
             />
