@@ -51,6 +51,7 @@ export type ValidatedData =
   | ValidatedLnurlWithdraw
   | ValidatedCashuToken
   | ValidatedCashuRequest
+  | ValidatedMyWallet
   | ValidatedAmount
 
 export interface ValidatedBolt11 {
@@ -124,6 +125,12 @@ export interface ParsedCashuRequest {
   hasPostTransport: boolean
   postTarget?: string  // HTTP POST endpoint URL
   p2pkPubkey?: string  // extracted from nut10 when kind === 'P2PK'
+}
+
+export interface ValidatedMyWallet {
+  type: 'my-wallet'
+  targetMintUrl: string
+  targetMintName: string
 }
 
 export interface ValidatedAmount {

@@ -319,6 +319,7 @@ export function HomeScreen({
             onSeeAll={onTransactions}
             onTransactionClick={onSelectTransaction}
             maxItems={1}
+            showDate
           />
         </div>
       </main>

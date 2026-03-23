@@ -22,6 +22,8 @@ function getDestinationDisplay(data: SendableValidatedData): string {
       return data.params?.domain || 'LNURL'
     case 'cashu-request':
       return 'eCash'
+    case 'my-wallet':
+      return data.targetMintName
   }
 }
 

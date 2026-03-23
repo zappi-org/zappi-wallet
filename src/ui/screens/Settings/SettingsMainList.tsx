@@ -96,7 +96,6 @@ export function SettingsMainList({
               value={npubDisplay}
               onPress={onCopyNpub}
               variant="copy"
-              mono
               truncateValue
             />
           )}

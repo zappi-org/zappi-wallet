@@ -28,6 +28,7 @@ import {
   type ValidatedLightningAddress,
   type ValidatedLnurlPay,
   type ValidatedCashuRequest,
+  type ValidatedMyWallet,
 } from '@/ui/components/scanner/InputValidator'
 
 import { SendInputStep } from './steps/SendInputStep'
@@ -53,6 +54,7 @@ export type SendableValidatedData =
   | ValidatedLightningAddress
   | ValidatedLnurlPay
   | ValidatedCashuRequest
+  | ValidatedMyWallet
 
 export interface SendFlowState {
   step: SendStep
@@ -134,7 +136,7 @@ export function SendFlow({
 
   const isSendableData = (data?: ValidatedData): data is SendableValidatedData => {
     if (!data) return false
-    return ['bolt11', 'lightning-address', 'lnurl-pay', 'cashu-request'].includes(data.type)
+    return ['bolt11', 'lightning-address', 'lnurl-pay', 'cashu-request', 'my-wallet'].includes(data.type)
   }
 
   // Flow state
@@ -207,7 +209,7 @@ export function SendFlow({
         validated = result.data
       }
 
-      // Get fee estimate for Lightning payments
+      // Get fee estimate for Lightning payments (skip for my-wallet — estimated in confirm step)
       let fee = 0
       let meltQuoteId: string | null = null
 
@@ -276,6 +278,14 @@ export function SendFlow({
         case 'lnurl-pay':
           success = await onSendLightning(validatedData.lnurl, amount, selectedMintUrl)
           break
+
+        case 'my-wallet': {
+          if (onMintSwap) {
+            const swapResult = await onMintSwap(selectedMintUrl, validatedData.targetMintUrl, amount)
+            success = swapResult.success
+          }
+          break
+        }
 
         case 'cashu-request': {
           const requestedMints = validatedData.parsed.mints

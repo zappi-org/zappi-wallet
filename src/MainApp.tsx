@@ -1138,26 +1138,6 @@ export default function MainApp() {
           mint={selectedMint}
           mintIndex={selectedMintIndex}
           onBack={handleBack}
-          onSend={(mintUrl) => {
-            setPreviousScreen('mint-detail')
-            setSendInitialStep('input')
-            setActiveMintUrl(mintUrl)
-            setValidatedScanData(null)
-            setScannedAmount(0)
-            setCurrentScreen('send')
-          }}
-          onReceive={(mintUrl) => {
-            setPreviousScreen('mint-detail')
-            setActiveMintUrl(mintUrl)
-            setValidatedScanData(null)
-            setScannedAmount(0)
-            setCurrentScreen('receive')
-          }}
-          onSwap={(mintUrl) => {
-            setPreviousScreen('mint-detail')
-            setActiveMintUrl(mintUrl)
-            setCurrentScreen('transfer')
-          }}
           onCreateToken={(mintUrl) => {
             setPreviousScreen('mint-detail')
             setSendInitialStep('token-create')

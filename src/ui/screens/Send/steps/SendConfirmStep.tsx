@@ -3,13 +3,15 @@
  * Figma 275:128: question text at top 1/3, flat detail panel near bottom, button at very bottom
  */
 
-import { ArrowLeft } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { hapticTap } from '@/utils/haptic'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
+import { createMintQuote, prepareMelt, rollbackMelt } from '@/coco/cashuService'
 import type { SendableValidatedData } from '../SendFlow'
 
 interface SendConfirmStepProps {
@@ -32,6 +34,8 @@ function getRecipientDisplay(data: SendableValidatedData, t: (key: string) => st
       return data.params?.domain || 'LNURL'
     case 'cashu-request':
       return t('send.confirm.ecashRequest')
+    case 'my-wallet':
+      return data.targetMintName
   }
 }
 
@@ -49,10 +53,14 @@ function getRecipientDetail(data: SendableValidatedData): string {
       const req = data.request
       return `${req.slice(0, 8)}...${req.slice(-4)}`
     }
+    case 'my-wallet': {
+      const url = data.targetMintUrl
+      return `${url.slice(0, 20)}...`
+    }
   }
 }
 
-function getMethodLabel(type: SendableValidatedData['type']): string {
+function getMethodLabel(type: SendableValidatedData['type'], t: (key: string) => string): string {
   switch (type) {
     case 'bolt11':
     case 'lightning-address':
@@ -60,6 +68,8 @@ function getMethodLabel(type: SendableValidatedData['type']): string {
       return 'Lightning'
     case 'cashu-request':
       return 'eCash'
+    case 'my-wallet':
+      return t('send.confirm.internalTransfer')
   }
 }
 
@@ -68,7 +78,7 @@ export function SendConfirmStep({
   onConfirm,
   validatedData,
   amount,
-  fee,
+  fee: initialFee,
   mintUrl,
   error,
 }: SendConfirmStepProps) {
@@ -78,14 +88,55 @@ export function SendConfirmStep({
   const settings = useAppStore((s) => s.settings)
   const { getDisplayName } = useMintMetadata(settings.mints)
 
+  // Async fee estimation for my-wallet transfers
+  const [estimatedFee, setEstimatedFee] = useState<number | null>(
+    validatedData.type === 'my-wallet' ? null : initialFee
+  )
+  const [feeLoading, setFeeLoading] = useState(validatedData.type === 'my-wallet')
+  const [feeError, setFeeError] = useState(false)
+
+  useEffect(() => {
+    if (validatedData.type !== 'my-wallet') return
+
+    let cancelled = false
+
+    const targetMintUrl = validatedData.type === 'my-wallet' ? validatedData.targetMintUrl : ''
+
+    async function estimateFee() {
+      try {
+        const mintQuote = await createMintQuote(targetMintUrl, amount)
+        const meltOp = await prepareMelt(mintUrl, mintQuote.request)
+        const fee = meltOp.fee_reserve + meltOp.swap_fee
+        await rollbackMelt(meltOp.operationId, 'fee estimation only').catch(() => {})
+        if (!cancelled) {
+          setEstimatedFee(fee)
+          setFeeLoading(false)
+        }
+      } catch (err) {
+        console.warn('[SendConfirmStep] Fee estimation failed:', err)
+        if (!cancelled) {
+          setEstimatedFee(0)
+          setFeeLoading(false)
+          setFeeError(true)
+        }
+      }
+    }
+
+    estimateFee()
+    return () => { cancelled = true }
+  }, [validatedData, amount, mintUrl])
+
+  const fee = estimatedFee ?? 0
   const recipient = getRecipientDisplay(validatedData, t)
   const recipientDetail = getRecipientDetail(validatedData)
-  const method = getMethodLabel(validatedData.type)
+  const method = getMethodLabel(validatedData.type, t)
   const mintName = getDisplayName(mintUrl)
   const totalAmount = amount + fee
   const memo = validatedData.type === 'bolt11' ? validatedData.description
     : validatedData.type === 'cashu-request' ? validatedData.parsed.description
     : undefined
+
+  const isMyWallet = validatedData.type === 'my-wallet'
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -115,7 +166,7 @@ export function SendConfirmStep({
             <p className="text-body text-foreground-muted">{f}</p>
           ) : null })()}
           <p className="text-amount-lg font-medium leading-snug">
-            {t('send.confirm.questionEnd')}
+            {isMyWallet ? t('send.confirm.transferQuestionEnd') : t('send.confirm.questionEnd')}
           </p>
         </div>
 
@@ -132,17 +183,34 @@ export function SendConfirmStep({
             <span className="text-body text-foreground-muted">{t('send.confirm.sourceMint')}</span>
             <span className="text-body font-semibold truncate max-w-[200px]">{mintName}</span>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-body text-foreground-muted">{t('send.confirm.recipient')}</span>
-            <span className="text-body font-semibold truncate max-w-[200px]">{recipientDetail}</span>
-          </div>
+          {isMyWallet && (
+            <div className="flex items-center justify-between">
+              <span className="text-body text-foreground-muted">{t('send.confirm.targetWallet')}</span>
+              <span className="text-body font-semibold truncate max-w-[200px]">{validatedData.targetMintName}</span>
+            </div>
+          )}
+          {!isMyWallet && (
+            <div className="flex items-center justify-between">
+              <span className="text-body text-foreground-muted">{t('send.confirm.recipient')}</span>
+              <span className="text-body font-semibold truncate max-w-[200px]">{recipientDetail}</span>
+            </div>
+          )}
           {memo && (
             <div className="flex items-center justify-between">
               <span className="text-body text-foreground-muted">{t('send.confirm.memo')}</span>
               <span className="text-body font-semibold truncate max-w-[200px]">{memo}</span>
             </div>
           )}
-          {fee > 0 && (
+          {/* Fee section */}
+          {feeLoading ? (
+            <>
+              <div className="border-t border-border" />
+              <div className="flex items-center justify-between">
+                <span className="text-body text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
+                <Loader2 className="w-4 h-4 text-foreground-muted animate-spin" />
+              </div>
+            </>
+          ) : fee > 0 ? (
             <>
               <div className="border-t border-border" />
               <div className="flex items-center justify-between">
@@ -159,7 +227,15 @@ export function SendConfirmStep({
                 </div>
               </div>
             </>
-          )}
+          ) : feeError ? (
+            <>
+              <div className="border-t border-border" />
+              <div className="flex items-center justify-between">
+                <span className="text-body text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
+                <span className="text-caption text-foreground-muted">{t('send.confirm.feeEstimateFailed')}</span>
+              </div>
+            </>
+          ) : null}
         </div>
 
         {/* Error */}
@@ -179,9 +255,10 @@ export function SendConfirmStep({
             hapticTap()
             onConfirm()
           }}
+          disabled={feeLoading}
           className="w-full"
         >
-          {t('send.confirm.send')}
+          {isMyWallet ? t('send.confirm.transfer') : t('send.confirm.send')}
         </Button>
       </div>
     </div>

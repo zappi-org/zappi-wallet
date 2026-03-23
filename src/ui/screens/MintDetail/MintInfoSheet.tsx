@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { X, Copy, Check, QrCode, ExternalLink, Pencil } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { useAppStore } from '@/store'
+import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import type { MintInfo, MintInfoData } from '@/core/types'
 import { NUT_NAMES, getSupportedNuts } from '@/core/constants'
 import { formatMintHost } from '@/utils/url'
@@ -32,6 +34,9 @@ async function copyToClipboard(text: string) {
 
 export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename }: MintInfoSheetProps) {
   const { t } = useTranslation()
+  const settings = useAppStore((s) => s.settings)
+  const addToast = useAppStore((s) => s.addToast)
+  const { getDisplayName } = useMintMetadata(settings.mints)
   const [mintInfo, setMintInfo] = useState<MintInfoData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [copiedField, setCopiedField] = useState<string | null>(null)
@@ -78,10 +83,17 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename }: Min
     if (!mint?.url) return
     const trimmed = editNameValue.trim()
     if (trimmed && onRename) {
+      const isDuplicate = settings.mints.some(
+        (url) => url !== mint.url && getDisplayName(url).toLowerCase() === trimmed.toLowerCase()
+      )
+      if (isDuplicate) {
+        addToast({ type: 'error', message: t('mintDetail.duplicateName'), duration: 3000 })
+        return
+      }
       onRename(mint.url, trimmed)
     }
     setIsEditingName(false)
-  }, [mint?.url, editNameValue, onRename])
+  }, [mint?.url, editNameValue, onRename, settings.mints, getDisplayName, addToast, t])
 
   if (!isOpen || !mint) return null
 

@@ -2,14 +2,18 @@
  * SendInputStep — Main input screen for send flow
  * Toss-style underline inputs, label+action buttons on same row
  * Auto-advance on scan/paste when enough data is available
+ * Supports @ prefix for "send to my wallet" (internal mint swap)
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react'
-import { ArrowLeft, ClipboardPaste, Camera } from 'lucide-react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { ArrowLeft, ClipboardPaste, Camera, ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useWallet } from '@/hooks/use-wallet'
+import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
 import { hapticTap } from '@/utils/haptic'
+import { useFormatSats } from '@/utils/format'
+import { getMintBalance } from '@/utils/url'
 import { MintCardSelector } from '@/ui/components/wallet'
 import { Button } from '@/ui/components/common/Button'
 import { AmountInput } from '@/ui/components/common/AmountInput'
@@ -48,6 +52,8 @@ export function SendInputStep({
   const { balance } = useWallet()
   const settings = useAppStore((s) => s.settings)
   const addToast = useAppStore((s) => s.addToast)
+  const formatSats = useFormatSats()
+  const { getDisplayName } = useMintMetadata(settings.mints)
 
   // State
   const [destination, setDestination] = useState(initialDestination)
@@ -62,6 +68,7 @@ export function SendInputStep({
   const [validatedData, setValidatedData] = useState<SendableValidatedData | null>(
     initialValidatedData || null
   )
+  const [showMyWallets, setShowMyWallets] = useState(false)
 
   const amountInputRef = useRef<HTMLInputElement>(null)
 
@@ -72,32 +79,94 @@ export function SendInputStep({
   // Is amount fixed (e.g. bolt11 with amount)?
   const isAmountFixed = validatedData?.type === 'bolt11' && validatedData.amountSats > 0
 
-  // Detect input type on destination change (debounced, typing only)
+  // My wallets list (exclude currently selected source mint)
+  const myWallets = useMemo(() => {
+    return settings.mints
+      .filter((url) => url !== selectedMintUrl)
+      .map((url) => ({
+        url,
+        name: getDisplayName(url),
+        balance: getMintBalance(url, balance.byMint),
+      }))
+  }, [settings.mints, selectedMintUrl, getDisplayName, balance.byMint])
+
+  // Filter my wallets by @ search query
+  const filteredWallets = useMemo(() => {
+    if (!destination.startsWith('@')) return myWallets
+    const query = destination.slice(1).toLowerCase()
+    if (!query) return myWallets
+    return myWallets.filter((w) => w.name.toLowerCase().includes(query))
+  }, [myWallets, destination])
+
+  // Is source mint same as target wallet? (conflict)
+  const isSameWallet = validatedData?.type === 'my-wallet' && validatedData.targetMintUrl === selectedMintUrl
+
+  // Detect input type on destination change
+  // Immediate: empty input, @ prefix (no computation needed)
+  // Debounced: detectInputType (heavier parsing)
   const detectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   useEffect(() => {
     clearTimeout(detectTimeoutRef.current)
-    detectTimeoutRef.current = setTimeout(() => {
-      if (!destination.trim()) {
-        setDetectedType(null)
-        setValidatedData(null)
+
+    // Immediate — empty
+    if (!destination.trim()) {
+      setDetectedType(null)
+      setValidatedData(null)
+      setShowMyWallets(false)
+      return
+    }
+
+    // Immediate — @ prefix
+    if (destination.startsWith('@')) {
+      if (validatedData?.type === 'my-wallet' && destination === `@${validatedData.targetMintName}`) {
+        setShowMyWallets(false)
         return
       }
+      setDetectedType(null)
+      setShowMyWallets(true)
+      setValidatedData(null)
+      return
+    }
 
+    setShowMyWallets(false)
+
+    // Debounced — input type detection
+    detectTimeoutRef.current = setTimeout(() => {
       const detected = detectInputType(destination)
       setDetectedType(toDisplayType(detected.type))
 
-      // Auto-fill amount for bolt11
       if (detected.type === 'bolt11' && detected.amountSats > 0) {
         setAmount(String(detected.amountSats))
       }
     }, 300)
 
     return () => clearTimeout(detectTimeoutRef.current)
-  }, [destination])
+  }, [destination]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Selected mint balance (for validation)
   const mintBalance = selectedMintUrl ? (balance.byMint[selectedMintUrl] || 0) : 0
   const isOverBalance = !!(amount && parseInt(amount, 10) > mintBalance)
+
+  // Handle my wallet selection
+  const handleSelectMyWallet = useCallback((walletUrl: string, walletName: string) => {
+    hapticTap()
+    setDestination(`@${walletName}`)
+    setValidatedData({
+      type: 'my-wallet',
+      targetMintUrl: walletUrl,
+      targetMintName: walletName,
+    })
+    setDetectedType('my-wallet')
+    setShowMyWallets(false)
+    setTimeout(() => amountInputRef.current?.focus(), 150)
+  }, [])
+
+  // Handle "내 지갑으로 보내기" button tap
+  const handleMyWalletButton = useCallback(() => {
+    hapticTap()
+    setDestination('@')
+    setShowMyWallets(true)
+  }, [])
 
   // Process external input (scan/paste) with auto-advance
   const processExternalInput = useCallback((input: string) => {
@@ -270,11 +339,46 @@ export function SendInputStep({
               </button>
             </div>
           </div>
+
           {/* Detected type badge */}
-          {detectedType && (
+          {detectedType && detectedType !== 'my-wallet' && (
             <span className="inline-block text-label px-2.5 py-1 mt-1.5 rounded-full bg-accent-primary/10 text-accent-primary font-medium">
               {detectedType.replace('-', ' ')}
             </span>
+          )}
+
+          {/* "내 지갑으로 보내기" button — shown when no destination entered and wallets exist */}
+          {!destination && myWallets.length > 0 && (
+            <button
+              onClick={handleMyWalletButton}
+              className="flex items-center gap-1 mt-3 text-label text-accent-primary font-medium active:opacity-70 transition-opacity"
+            >
+              <span>{t('send.myWallet')}</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* My wallets dropdown */}
+          {showMyWallets && (
+            <div className="mt-2">
+              <p className="text-label text-foreground-muted font-medium py-2">{t('send.myWalletList')}</p>
+              {filteredWallets.length > 0 ? (
+                filteredWallets.map((wallet) => (
+                  <button
+                    key={wallet.url}
+                    onClick={() => handleSelectMyWallet(wallet.url, wallet.name)}
+                    className="w-full flex items-center justify-between py-3 border-b border-border active:bg-background-hover transition-colors"
+                  >
+                    <span className="text-body font-medium text-foreground">{wallet.name}</span>
+                    <span className="text-caption text-foreground-muted">{formatSats(wallet.balance)}</span>
+                  </button>
+                ))
+              ) : (
+                <p className="text-caption text-foreground-muted py-3">
+                  {t('send.noOtherWallets')}
+                </p>
+              )}
+            </div>
           )}
         </div>
 
@@ -285,7 +389,13 @@ export function SendInputStep({
           label={t('send.howMuch')}
           inputRef={amountInputRef}
           disabled={isAmountFixed}
-          error={isOverBalance ? t('payment.insufficientBalance') : null}
+          error={
+            isSameWallet
+              ? t('send.sameWalletError')
+              : isOverBalance
+                ? t('payment.insufficientBalance')
+                : null
+          }
         />
       </div>
 
@@ -296,7 +406,7 @@ export function SendInputStep({
           size="xl"
           onClick={handleNext}
           loading={isLoading}
-          disabled={isOverBalance}
+          disabled={isOverBalance || isSameWallet}
           className="w-full"
         >
           {t('send.next')}

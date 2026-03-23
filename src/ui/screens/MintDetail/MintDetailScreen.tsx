@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useCallback } from 'react'
-import { ArrowLeft, ArrowUpRight, ArrowDownLeft, ArrowLeftRight, EllipsisVertical, Pencil } from 'lucide-react'
+import { ArrowLeft, EllipsisVertical, Pencil } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { MintCard, getVariantByIndex } from '@/ui/components/wallet/MintCard'
 import { TransactionList } from '@/ui/components/wallet/TransactionList'
@@ -7,6 +7,7 @@ import { PendingItemsList } from '@/ui/components/wallet/PendingItemsList'
 import { usePendingItems } from '@/hooks/usePendingItems'
 import { hapticTap } from '@/utils/haptic'
 import { useAppStore } from '@/store'
+import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import type { MintInfo, Transaction } from '@/core/types'
 import { MintInfoSheet } from './MintInfoSheet'
 import { PendingItemsScreen } from './PendingItemsScreen'
@@ -17,9 +18,6 @@ export interface MintDetailScreenProps {
   mint: MintInfo
   mintIndex: number
   onBack: () => void
-  onSend: (mintUrl: string) => void
-  onReceive: (mintUrl: string) => void
-  onSwap: (mintUrl: string) => void
   onCreateToken: (mintUrl: string) => void
   onDeleteMint: (url: string) => void
   onRenameMint?: (url: string, newName: string) => void
@@ -32,9 +30,6 @@ export function MintDetailScreen({
   mint,
   mintIndex,
   onBack,
-  onSend,
-  onReceive,
-  onSwap,
   onCreateToken,
   onDeleteMint,
   onRenameMint,
@@ -44,6 +39,8 @@ export function MintDetailScreen({
 }: MintDetailScreenProps) {
   const { t } = useTranslation()
   const settings = useAppStore((s) => s.settings)
+  const addToast = useAppStore((s) => s.addToast)
+  const { getDisplayName } = useMintMetadata(settings.mints)
   const [showMintInfo, setShowMintInfo] = useState(false)
   const [showPendingItems, setShowPendingItems] = useState(false)
   const [selectedPendingItem, setSelectedPendingItem] = useState<PendingItem | null>(null)
@@ -62,10 +59,17 @@ export function MintDetailScreen({
   const handleSaveName = useCallback(() => {
     const trimmed = editNameValue.trim()
     if (trimmed && onRenameMint) {
+      const isDuplicate = settings.mints.some(
+        (url) => url !== mint.url && getDisplayName(url).toLowerCase() === trimmed.toLowerCase()
+      )
+      if (isDuplicate) {
+        addToast({ type: 'error', message: t('mintDetail.duplicateName'), duration: 3000 })
+        return
+      }
       onRenameMint(mint.url, trimmed)
     }
     setIsEditingName(false)
-  }, [mint.url, editNameValue, onRenameMint])
+  }, [mint.url, editNameValue, onRenameMint, settings.mints, getDisplayName, addToast, t])
 
   const handlePendingItemClick = useCallback(async (item: PendingItem) => {
     hapticTap()
@@ -97,12 +101,6 @@ export function MintDetailScreen({
       return txUrl === normalized || txUrl === url
     })
   }, [transactions, mint.url])
-
-  const actions = [
-    { key: 'send', label: t('mintDetail.send'), icon: ArrowUpRight, colorClass: 'text-accent-warning', bgClass: 'bg-accent-warning/10', onClick: () => onSend(mint.url) },
-    { key: 'receive', label: t('mintDetail.receive'), icon: ArrowDownLeft, colorClass: 'text-accent-success', bgClass: 'bg-accent-success/10', onClick: () => onReceive(mint.url) },
-    { key: 'swap', label: t('mintDetail.swap'), icon: ArrowLeftRight, colorClass: 'text-foreground-muted', bgClass: 'bg-foreground/[0.06]', onClick: () => onSwap(mint.url) },
-  ]
 
   if (selectedPendingItem) {
     return (
@@ -186,25 +184,6 @@ export function MintDetailScreen({
               <Pencil className="w-3.5 h-3.5 text-foreground-muted opacity-60 group-hover:opacity-100 transition-opacity" />
             </button>
           )}
-        </div>
-
-        {/* Action Row */}
-        <div className="py-3 flex items-start justify-evenly">
-          {actions.map(({ key, label, icon: Icon, colorClass, bgClass, onClick }) => (
-            <button
-              key={key}
-              onClick={() => { hapticTap(); onClick() }}
-              disabled={key === 'send' && mint.balance === 0}
-              className="flex flex-col items-center gap-1.5 w-20 active:scale-95 transition-transform disabled:opacity-40"
-            >
-              <div className={`w-[52px] h-[52px] ${bgClass} rounded-full flex items-center justify-center shadow-[0px_2px_1px_0px_rgba(0,0,0,0.25)]`}>
-                <Icon className={`w-6 h-6 ${colorClass}`} strokeWidth={2} />
-              </div>
-              <span className="text-label font-bold text-foreground leading-normal">
-                {label}
-              </span>
-            </button>
-          ))}
         </div>
 
         {/* Pending Items */}
