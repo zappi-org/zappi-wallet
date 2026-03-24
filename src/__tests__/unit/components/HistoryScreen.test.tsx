@@ -7,6 +7,7 @@ vi.mock('react-i18next', () => ({
     t: stableT,
     i18n: { language: 'en' },
   }),
+  initReactI18next: { type: '3rdParty', init: () => {} },
 }))
 
 vi.mock('@/hooks', () => ({
