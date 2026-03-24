@@ -871,6 +871,7 @@ export default {
     tabToken: 'Token',
     unclaimedTokens: 'Token Belum Diklaim',
     pendingRequests: 'Permintaan Tertunda',
+    filterType: 'Jenis',
     search: 'Cari',
     pendingExpiry: 'Kedaluwarsa',
     pendingExpired: 'Kedaluwarsa',

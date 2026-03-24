@@ -989,6 +989,7 @@ export default {
     tabToken: 'Tokens',
     unclaimedTokens: 'Unclaimed Tokens',
     pendingRequests: 'Pending Requests',
+    filterType: 'Type',
     search: 'Search',
     pendingExpiry: 'Expiry',
     pendingExpired: 'Expired',

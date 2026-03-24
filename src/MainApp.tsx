@@ -991,11 +991,6 @@ export default function MainApp() {
           onBack={handleBack}
           transactions={transactions}
           initialMintUrls={historyInitialMintUrls}
-          onSelectTransaction={(tx) => {
-            setSelectedTransaction(tx)
-            setPreviousScreen('history')
-            setCurrentScreen('transaction-detail')
-          }}
         />
       )}
 

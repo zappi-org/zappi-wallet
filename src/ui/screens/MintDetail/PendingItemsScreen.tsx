@@ -1,13 +1,14 @@
 import { useState, useMemo, useCallback } from 'react'
-import { ArrowLeft, Search, Calendar, CreditCard } from 'lucide-react'
+import { ArrowLeft, Search, Calendar, CreditCard, ListFilter } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
 import { stripTrailingSlash } from '@/utils/url'
 import { PendingItemsList } from '@/ui/components/wallet/PendingItemsList'
 import { PendingItemDetailScreen } from './PendingItemDetailScreen'
 import { DateFilterSheet } from '@/ui/components/common/DateFilterSheet'
 import { MintFilterSheet } from '@/ui/components/common/MintFilterSheet'
+import { BottomSheet, BottomSheetItem } from '@/ui/components/common/BottomSheet'
+import { FilterChip } from '@/ui/components/common/FilterChip'
 import { type DateFilterValue, computeDateCutoff, getDateFilterLabel, isDateFilterActive, formatDateGroupLabel } from '@/utils/dateFilter'
 import { hapticTap } from '@/utils/haptic'
 import { useAllPendingItems } from '@/hooks/usePendingItems'
@@ -15,6 +16,8 @@ import type { PendingItem } from '@/hooks/usePendingItems'
 import { useAvailableMints, getMintFilterLabel } from '@/hooks/useAvailableMints'
 
 type Tab = 'all' | 'request' | 'token'
+
+type OpenSheet = 'type' | 'date' | 'mint' | null
 
 interface PendingItemsScreenProps {
   onBack: () => void
@@ -36,20 +39,19 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
   'use no memo' // Date.now() in useMemo is flagged as impure by React Compiler
   const { t } = useTranslation()
 
-  // Load all pending items across all mints
   const settings = useAppStore((state) => state.settings)
   const { items } = useAllPendingItems(settings.mints)
   const [activeTab, setActiveTab] = useState<Tab>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedItem, setSelectedItem] = useState<PendingItem | null>(null)
   const [dateFilter, setDateFilter] = useState<DateFilterValue>({ preset: 'all', range: undefined })
-  const [showDateFilter, setShowDateFilter] = useState(false)
-  const [showMintFilter, setShowMintFilter] = useState(false)
+  const [openSheet, setOpenSheet] = useState<OpenSheet>(null)
   const [selectedMintUrls, setSelectedMintUrls] = useState<Set<string>>(
     () => new Set(initialMintUrls ?? []),
   )
 
-  // Build available mints for filter
+  const closeSheet = useCallback(() => setOpenSheet(null), [])
+
   const { availableMints, getDisplayName } = useAvailableMints()
 
   const handleItemClick = useCallback((item: PendingItem) => {
@@ -65,29 +67,26 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
   const dateCutoff = useMemo(() => computeDateCutoff(dateFilter), [dateFilter])
 
   const isMintFiltered = selectedMintUrls.size > 0
+  const isTypeFiltered = activeTab !== 'all'
 
   const filteredItems = useMemo(() => {
     let result = items
 
-    // Mint filter
     if (selectedMintUrls.size > 0) {
       const normalizedSet = new Set(Array.from(selectedMintUrls).map(stripTrailingSlash))
       result = result.filter((i) => normalizedSet.has(stripTrailingSlash(i.mintUrl)))
     }
 
-    // Date filter
     if (dateCutoff) {
       result = result.filter(i => i.createdAt >= dateCutoff.from && i.createdAt <= dateCutoff.to)
     }
 
-    // Tab filter
     if (activeTab === 'request') {
       result = result.filter(i => i.type === 'receive-request')
     } else if (activeTab === 'token') {
       result = result.filter(i => i.type === 'unclaimed-token' || i.type === 'sent-token')
     }
 
-    // Search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       result = result.filter((i) =>
@@ -100,11 +99,11 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
 
   const groups = useMemo(() => groupByDate(filteredItems, t), [filteredItems, t])
 
-  const tabs: Array<{ key: Tab; label: string }> = [
-    { key: 'all', label: t('history.all') },
-    { key: 'request', label: t('mintDetail.tabRequest') },
-    { key: 'token', label: t('mintDetail.tabToken') },
-  ]
+  const tabLabels = useMemo<Record<Tab, string>>(() => ({
+    all: t('history.all'),
+    request: t('mintDetail.tabRequest'),
+    token: t('mintDetail.tabToken'),
+  }), [t])
 
   const dateFilterLabel = useMemo(() => getDateFilterLabel(dateFilter, t), [dateFilter, t])
   const isDateFiltered = isDateFilterActive(dateFilter)
@@ -113,6 +112,11 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
     () => getMintFilterLabel(selectedMintUrls, getDisplayName, t),
     [selectedMintUrls, getDisplayName, t],
   )
+
+  const handleTabSelect = useCallback((tab: Tab) => {
+    setActiveTab(tab)
+    setOpenSheet(null)
+  }, [])
 
   if (selectedItem) {
     return (
@@ -126,47 +130,17 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
   return (
     <div className="h-dvh bg-background flex flex-col pt-safe">
       {/* Header */}
-      <header className="flex items-center justify-between px-5 pt-4 shrink-0">
-        <div className="flex items-center">
-          <button
-            onClick={() => { hapticTap(); onBack() }}
-            aria-label={t('common.back')}
-            className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-black/[0.04] active:bg-black/[0.06] transition-colors"
-          >
-            <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
-          </button>
-          <h2 className="text-body font-bold tracking-tight ml-2">
-            {t('mintDetail.pendingAll')}
-          </h2>
-        </div>
-        <div className="flex items-center gap-1">
-          {availableMints.length > 1 && (
-            <button
-              onClick={() => setShowMintFilter(true)}
-              className={cn(
-                'h-10 rounded-lg flex items-center gap-1.5 px-2.5 transition-colors',
-                isMintFiltered
-                  ? 'bg-primary/10 text-primary'
-                  : 'hover:bg-black/[0.04] active:bg-black/[0.06] text-foreground'
-              )}
-            >
-              <CreditCard className="w-[18px] h-[18px]" strokeWidth={1.8} />
-              <span className="text-label font-medium max-w-[80px] truncate">{mintFilterLabel}</span>
-            </button>
-          )}
-          <button
-            onClick={() => setShowDateFilter(true)}
-            className={cn(
-              'h-10 rounded-lg flex items-center gap-1.5 px-2.5 transition-colors',
-              isDateFiltered
-                ? 'bg-primary/10 text-primary'
-                : 'hover:bg-black/[0.04] active:bg-black/[0.06] text-foreground'
-            )}
-          >
-            <Calendar className="w-[18px] h-[18px]" strokeWidth={1.8} />
-            <span className="text-label font-medium">{dateFilterLabel}</span>
-          </button>
-        </div>
+      <header className="flex items-center px-5 pt-4 shrink-0">
+        <button
+          onClick={() => { hapticTap(); onBack() }}
+          aria-label={t('common.back')}
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-black/[0.04] active:bg-black/[0.06] transition-colors"
+        >
+          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
+        </button>
+        <h2 className="text-body font-bold tracking-tight ml-2">
+          {t('mintDetail.pendingAll')}
+        </h2>
       </header>
 
       {/* Search */}
@@ -183,22 +157,29 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Filter Chips */}
       <div className="px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
-        {tabs.map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => setActiveTab(key)}
-            className={cn(
-              'px-4 py-1.5 rounded-full text-label transition-all whitespace-nowrap',
-              activeTab === key
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-background-card/50 text-foreground-muted hover:bg-background-card'
-            )}
-          >
-            {label}
-          </button>
-        ))}
+        <FilterChip
+          icon={<ListFilter className="w-3.5 h-3.5" strokeWidth={1.8} />}
+          label={isTypeFiltered ? tabLabels[activeTab] : t('mintDetail.filterType')}
+          active={isTypeFiltered}
+          onClick={() => setOpenSheet('type')}
+        />
+        <FilterChip
+          icon={<Calendar className="w-3.5 h-3.5" strokeWidth={1.8} />}
+          label={isDateFiltered ? dateFilterLabel : t('history.dateFilter')}
+          active={isDateFiltered}
+          onClick={() => setOpenSheet('date')}
+        />
+        {availableMints.length > 1 && (
+          <FilterChip
+            icon={<CreditCard className="w-3.5 h-3.5" strokeWidth={1.8} />}
+            label={isMintFiltered ? mintFilterLabel : t('history.mintFilter')}
+            active={isMintFiltered}
+            onClick={() => setOpenSheet('mint')}
+            truncate
+          />
+        )}
       </div>
 
       {/* Content */}
@@ -219,18 +200,30 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
         )}
       </main>
 
+      {/* Type Filter Sheet */}
+      <BottomSheet isOpen={openSheet === 'type'} onClose={closeSheet} title={t('mintDetail.filterType')}>
+        {(['all', 'request', 'token'] as Tab[]).map((tab) => (
+          <BottomSheetItem
+            key={tab}
+            title={tabLabels[tab]}
+            selected={activeTab === tab}
+            onClick={() => handleTabSelect(tab)}
+          />
+        ))}
+      </BottomSheet>
+
       {/* Date Filter Sheet */}
       <DateFilterSheet
-        isOpen={showDateFilter}
-        onClose={() => setShowDateFilter(false)}
+        isOpen={openSheet === 'date'}
+        onClose={closeSheet}
         value={dateFilter}
         onChange={setDateFilter}
       />
 
       {/* Mint Filter Sheet */}
       <MintFilterSheet
-        isOpen={showMintFilter}
-        onClose={() => setShowMintFilter(false)}
+        isOpen={openSheet === 'mint'}
+        onClose={closeSheet}
         mints={availableMints}
         selectedUrls={selectedMintUrls}
         onChange={setSelectedMintUrls}

@@ -841,6 +841,7 @@ export default {
     tabToken: 'トークン',
     unclaimedTokens: '未受取トークン',
     pendingRequests: '保留中のリクエスト',
+    filterType: '種類',
     search: '検索',
     pendingExpiry: '有効期限',
     pendingExpired: '期限切れ',

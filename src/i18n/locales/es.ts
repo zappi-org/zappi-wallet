@@ -871,6 +871,7 @@ export default {
     tabToken: 'Tokens',
     unclaimedTokens: 'Tokens no reclamados',
     pendingRequests: 'Solicitudes pendientes',
+    filterType: 'Tipo',
     search: 'Buscar',
     pendingExpiry: 'Vencimiento',
     pendingExpired: 'Vencido',

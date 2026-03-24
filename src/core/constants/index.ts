@@ -2,6 +2,7 @@
  * Default mints
  */
 export const DEFAULT_MINTS = [
+  'https://mint.minibits.cash/Bitcoin',
   'https://mint.cubabitcoin.org',
   'https://mint.lnserver.com',
 ] as const

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Search, Banknote, Calendar, CreditCard, Download, FileSpreadsheet, ListFilter } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -17,7 +17,10 @@ import { TransactionRow } from '@/ui/components/wallet/TransactionRow'
 import { getTitle } from '@/ui/components/wallet/transactionHelpers'
 import { getMintFilterLabel } from '@/hooks/useAvailableMints'
 import { exportTransactionsCsv } from '@/utils/exportTransactions'
-import { cn } from '@/lib/utils'
+import { FilterChip } from '@/ui/components/common/FilterChip'
+import { Spinner } from '@/ui/components/common/Spinner'
+
+const TransactionDetailScreen = lazy(() => import('@/ui/screens/TransactionDetail/TransactionDetailScreen'))
 
 // ─── Types ───
 
@@ -29,7 +32,6 @@ export interface HistoryScreenProps {
   onBack: () => void
   transactions: Transaction[]
   isLoading?: boolean
-  onSelectTransaction?: (tx: Transaction) => void
   initialFilter?: FilterType
   initialMintUrls?: string[]
 }
@@ -38,36 +40,12 @@ type FlatItem =
   | { type: 'header'; label: string }
   | { type: 'transaction'; tx: Transaction }
 
-// ─── Filter Chip ───
-
-function FilterChip({ icon, label, active, onClick, truncate }: {
-  icon: ReactNode
-  label: string
-  active: boolean
-  onClick: () => void
-  truncate?: boolean
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'h-8 rounded-full flex items-center gap-1.5 px-3 text-label font-medium transition-colors whitespace-nowrap',
-        active ? 'bg-primary/10 text-primary' : 'bg-background-card text-foreground-muted',
-      )}
-    >
-      {icon}
-      <span className={truncate ? 'max-w-[80px] truncate' : undefined}>{label}</span>
-    </button>
-  )
-}
-
 // ─── Main Screen ───
 
 export function HistoryScreen({
   onBack,
   transactions,
   isLoading = false,
-  onSelectTransaction,
   initialFilter,
   initialMintUrls,
 }: HistoryScreenProps) {
@@ -77,6 +55,7 @@ export function HistoryScreen({
   const [dateFilter, setDateFilter] = useState<DateFilterValue>({ preset: 'all', range: undefined })
   const [searchQuery, setSearchQuery] = useState('')
   const [openSheet, setOpenSheet] = useState<OpenSheet>(null)
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
   const [selectedMintUrls, setSelectedMintUrls] = useState<Set<string>>(
     () => new Set(initialMintUrls ?? []),
   )
@@ -224,6 +203,18 @@ export function HistoryScreen({
     addToast({ message: t('history.exportSuccess'), type: 'success' })
   }, [filteredTransactions, getDisplayName, addToast, t])
 
+  if (selectedTransaction) {
+    return (
+      <Suspense fallback={<div className="h-dvh flex items-center justify-center bg-background"><Spinner /></div>}>
+        <TransactionDetailScreen
+          transaction={selectedTransaction}
+          onBack={() => setSelectedTransaction(null)}
+          mintUrls={settings.mints}
+        />
+      </Suspense>
+    )
+  }
+
   return (
     <div className="h-dvh bg-background text-foreground flex flex-col font-sans relative overflow-hidden z-[60] pt-safe">
       {/* Header */}
@@ -335,7 +326,7 @@ export function HistoryScreen({
                       <>
                         <TransactionRow
                           transaction={item.tx}
-                          onClick={() => onSelectTransaction?.(item.tx)}
+                          onClick={() => setSelectedTransaction(item.tx)}
                           getMintName={getDisplayName}
                         />
                         <div className="h-px bg-border/30 mx-4" />

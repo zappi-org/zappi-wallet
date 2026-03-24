@@ -996,6 +996,7 @@ export default {
     tabToken: '토큰',
     unclaimedTokens: '수령되지 않은 토큰',
     pendingRequests: '대기중인 요청들',
+    filterType: '유형',
     search: '검색',
     pendingExpiry: '만료',
     pendingExpired: '만료됨',
