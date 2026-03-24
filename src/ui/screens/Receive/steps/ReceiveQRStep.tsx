@@ -6,8 +6,8 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { ArrowLeft, Copy, Check, Share2, Radio, Wifi, Globe, Zap } from 'lucide-react'
-import { QRCodeSVG } from 'qrcode.react'
 import { useTranslation } from 'react-i18next'
+import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { useAppStore } from '@/store'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { hapticTap, hapticSuccess } from '@/utils/haptic'
@@ -322,14 +322,11 @@ export function ReceiveQRStep({
 
         {/* QR Code */}
         {qrValue && (
-          <div className="bg-background-card p-3 rounded-xl shadow-sm">
-            <QRCodeSVG
-              value={qrValue}
-              size={200}
-              level="M"
-              includeMargin={false}
-            />
-          </div>
+          <QRCodeDisplay
+            value={qrValue}
+            size={200}
+            className="rounded-xl p-3"
+          />
         )}
 
         {/* Transport status indicator */}

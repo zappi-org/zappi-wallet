@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { Trash2, Plus, Copy, Check } from 'lucide-react'
-import { QRCodeSVG } from 'qrcode.react'
 import { useTranslation } from 'react-i18next'
+import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { Button, Modal, PinInput } from '@/ui/components/common'
 import { derivePOSSubKey, getP2PKPubkey } from '@/services/crypto'
 import type { POSDevice, POSProvisioningPayload, WalletSettings } from '@/core/types'
@@ -235,8 +235,8 @@ export function POSSettingPage({
           <p className="text-label text-foreground-muted text-center">
             {t('settings.posProvisioningDescription')}
           </p>
-          <div className="flex justify-center p-4 bg-white">
-            <QRCodeSVG value={qrPayload} size={220} level="L" />
+          <div className="flex justify-center">
+            <QRCodeDisplay value={qrPayload} size={220} level="L" />
           </div>
           <button
             onClick={handleCopy}

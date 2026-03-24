@@ -9,10 +9,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Share2, Copy, X, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { QRCodeSVG } from 'qrcode.react'
 import { hapticTap, hapticSuccess } from '@/utils/haptic'
 import { useAppStore } from '@/store'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
+import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { Button } from '@/ui/components/common/Button'
 
 interface TokenCreatedStepProps {
@@ -146,14 +146,11 @@ export function TokenCreatedStep({
               <p className="text-caption text-foreground-muted">{f}</p>
             ) : null })()}
 
-            <div className="bg-background-card p-4 rounded-2xl shadow-sm">
-              <QRCodeSVG
-                value={token}
-                size={200}
-                level="M"
-                includeMargin={false}
-              />
-            </div>
+            <QRCodeDisplay
+              value={token}
+              size={200}
+              className="rounded-2xl"
+            />
 
             <div className="flex gap-3 w-full max-w-xs">
               <button

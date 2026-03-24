@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { X, Copy, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { QRCodeSVG } from 'qrcode.react'
+import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 
 interface MintUrlQrModalProps {
   isOpen: boolean
@@ -53,9 +53,7 @@ export function MintUrlQrModal({ isOpen, url, onClose }: MintUrlQrModalProps) {
 
         {/* QR Code */}
         <div className="flex justify-center px-8 py-4">
-          <div className="bg-background-card p-4 rounded-2xl shadow-sm">
-            <QRCodeSVG value={url} size={200} level="M" />
-          </div>
+          <QRCodeDisplay value={url} size={200} className="rounded-2xl" />
         </div>
 
         {/* Copy button */}

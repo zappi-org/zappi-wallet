@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { X, Copy, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { QRCodeSVG } from 'qrcode.react'
+import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 
 interface TokenQrModalProps {
   isOpen: boolean
@@ -53,9 +53,12 @@ export function TokenQrModal({ isOpen, token, onClose }: TokenQrModalProps) {
 
         {/* QR Code */}
         <div className="flex justify-center px-8 py-4">
-          <div className="bg-background-card p-4 rounded-2xl shadow-sm">
-            <QRCodeSVG value={token} size={200} level="L" />
-          </div>
+          <QRCodeDisplay
+            value={token}
+            size={200}
+            level="L"
+            className="rounded-2xl"
+          />
         </div>
 
         {/* Copy button */}
