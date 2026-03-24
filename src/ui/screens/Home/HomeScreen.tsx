@@ -298,7 +298,7 @@ export function HomeScreen({
         </div>
 
         {/* Transaction List — filtered by selected mint */}
-        <div className="min-h-[110px] pb-6">
+        <div className="min-h-[110px] pb-6 mt-4 w-[calc(var(--card-w)+2rem)] mx-auto">
           <TransactionList
             transactions={filteredTransactions}
             onSeeAll={() => onTransactions?.(mints[clampedMintIndex]?.url)}
@@ -306,6 +306,7 @@ export function HomeScreen({
             maxItems={1}
             showDate
             title={t('home.recentTransactions')}
+            className="px-0"
           />
         </div>
       </main>

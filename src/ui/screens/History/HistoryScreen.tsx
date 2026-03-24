@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Search, Banknote, Calendar, CreditCard } from 'lucide-react'
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
+import { ArrowLeft, Search, Banknote, Calendar, CreditCard, Download, FileSpreadsheet, ListFilter } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { motion, AnimatePresence } from 'motion/react'
@@ -11,15 +11,19 @@ import { EmptyState } from '@/ui/components/common/EmptyState'
 import { TransactionListSkeleton } from '@/ui/components/common/Skeleton'
 import { DateFilterSheet } from '@/ui/components/common/DateFilterSheet'
 import { MintFilterSheet } from '@/ui/components/common/MintFilterSheet'
+import { BottomSheet, BottomSheetItem } from '@/ui/components/common/BottomSheet'
 import { type DateFilterValue, computeDateCutoff, getDateFilterLabel, isDateFilterActive, formatDateGroupLabel } from '@/utils/dateFilter'
 import { TransactionRow } from '@/ui/components/wallet/TransactionRow'
 import { getTitle } from '@/ui/components/wallet/transactionHelpers'
 import { getMintFilterLabel } from '@/hooks/useAvailableMints'
+import { exportTransactionsCsv } from '@/utils/exportTransactions'
 import { cn } from '@/lib/utils'
 
 // ─── Types ───
 
 export type FilterType = 'all' | 'income' | 'expense'
+
+type OpenSheet = 'type' | 'date' | 'mint' | 'export' | null
 
 export interface HistoryScreenProps {
   onBack: () => void
@@ -33,6 +37,29 @@ export interface HistoryScreenProps {
 type FlatItem =
   | { type: 'header'; label: string }
   | { type: 'transaction'; tx: Transaction }
+
+// ─── Filter Chip ───
+
+function FilterChip({ icon, label, active, onClick, truncate }: {
+  icon: ReactNode
+  label: string
+  active: boolean
+  onClick: () => void
+  truncate?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'h-8 rounded-full flex items-center gap-1.5 px-3 text-label font-medium transition-colors whitespace-nowrap',
+        active ? 'bg-primary/10 text-primary' : 'bg-background-card text-foreground-muted',
+      )}
+    >
+      {icon}
+      <span className={truncate ? 'max-w-[80px] truncate' : undefined}>{label}</span>
+    </button>
+  )
+}
 
 // ─── Main Screen ───
 
@@ -49,16 +76,17 @@ export function HistoryScreen({
   const [filter, setFilter] = useState<FilterType>(initialFilter ?? 'all')
   const [dateFilter, setDateFilter] = useState<DateFilterValue>({ preset: 'all', range: undefined })
   const [searchQuery, setSearchQuery] = useState('')
-  const [showDateFilter, setShowDateFilter] = useState(false)
-  const [showMintFilter, setShowMintFilter] = useState(false)
+  const [openSheet, setOpenSheet] = useState<OpenSheet>(null)
   const [selectedMintUrls, setSelectedMintUrls] = useState<Set<string>>(
     () => new Set(initialMintUrls ?? []),
   )
 
-  // Build available mints for filter from store
-  const settings = useAppStore((state) => state.settings)
+  const closeSheet = useCallback(() => setOpenSheet(null), [])
 
-  // Mint metadata — include settings.mints so filter sheet gets names & icons
+  const settings = useAppStore((state) => state.settings)
+  const addToast = useAppStore((state) => state.addToast)
+
+  // Mint metadata
   const mintUrls = useMemo(() => {
     const urls = new Set<string>(settings.mints)
     transactions.forEach((tx) => {
@@ -90,24 +118,22 @@ export function HistoryScreen({
 
   // ─── Filtered transactions ───
   const isMintFiltered = selectedMintUrls.size > 0
+  const isTypeFiltered = filter !== 'all'
 
   const filteredTransactions = useMemo(() => {
-    let filtered = [...transactions]
+    let filtered = transactions
       .filter((tx) => tx.status === 'completed')
       .sort((a, b) => b.createdAt - a.createdAt)
 
-    // Mint filter
     if (selectedMintUrls.size > 0) {
       const normalizedSet = new Set(Array.from(selectedMintUrls).map(stripTrailingSlash))
       filtered = filtered.filter((tx) => normalizedSet.has(stripTrailingSlash(tx.mintUrl)))
     }
 
-    // Date filter
     if (dateCutoff) {
       filtered = filtered.filter((tx) => tx.createdAt >= dateCutoff.from && tx.createdAt <= dateCutoff.to)
     }
 
-    // Tab filter
     switch (filter) {
       case 'income':
         filtered = filtered.filter((tx) => tx.direction === 'receive' && tx.type !== 'swap')
@@ -117,7 +143,6 @@ export function HistoryScreen({
         break
     }
 
-    // Search
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
       filtered = filtered.filter((tx) => {
@@ -163,11 +188,12 @@ export function HistoryScreen({
     overscan: 10,
   })
 
-  const filterLabels: Record<FilterType, string> = {
+  // ─── Filter labels ───
+  const filterLabels = useMemo<Record<FilterType, string>>(() => ({
     all: t('history.all'),
     income: t('history.income'),
     expense: t('history.expense'),
-  }
+  }), [t])
 
   const dateFilterLabel = useMemo(() => getDateFilterLabel(dateFilter, t), [dateFilter, t])
   const isDateFiltered = isDateFilterActive(dateFilter)
@@ -176,6 +202,27 @@ export function HistoryScreen({
     () => getMintFilterLabel(selectedMintUrls, getDisplayName, t),
     [selectedMintUrls, getDisplayName, t],
   )
+
+  // ─── Type filter selection ───
+  const handleTypeSelect = useCallback((type: FilterType) => {
+    setFilter(type)
+    setOpenSheet(null)
+  }, [])
+
+  // ─── Export ───
+  const handleExportPress = useCallback(() => {
+    if (filteredTransactions.length === 0) {
+      addToast({ message: t('history.exportEmpty'), type: 'error' })
+      return
+    }
+    setOpenSheet('export')
+  }, [filteredTransactions.length, addToast, t])
+
+  const handleExportConfirm = useCallback(() => {
+    setOpenSheet(null)
+    exportTransactionsCsv({ transactions: filteredTransactions, getMintName: getDisplayName })
+    addToast({ message: t('history.exportSuccess'), type: 'success' })
+  }, [filteredTransactions, getDisplayName, addToast, t])
 
   return (
     <div className="h-dvh bg-background text-foreground flex flex-col font-sans relative overflow-hidden z-[60] pt-safe">
@@ -191,34 +238,13 @@ export function HistoryScreen({
           </button>
           <h2 className="text-body font-bold tracking-tight ml-2">{t('history.title')}</h2>
         </div>
-        <div className="flex items-center gap-1">
-          {availableMints.length > 1 && (
-            <button
-              onClick={() => setShowMintFilter(true)}
-              className={cn(
-                'h-10 rounded-lg flex items-center gap-1.5 px-2.5 transition-colors',
-                isMintFiltered
-                  ? 'bg-primary/10 text-primary'
-                  : 'hover:bg-black/[0.04] active:bg-black/[0.06] text-foreground'
-              )}
-            >
-              <CreditCard className="w-[18px] h-[18px]" strokeWidth={1.8} />
-              <span className="text-label font-medium max-w-[80px] truncate">{mintFilterLabel}</span>
-            </button>
-          )}
-          <button
-            onClick={() => setShowDateFilter(true)}
-            className={cn(
-              'h-10 rounded-lg flex items-center gap-1.5 px-2.5 transition-colors',
-              isDateFiltered
-                ? 'bg-primary/10 text-primary'
-                : 'hover:bg-black/[0.04] active:bg-black/[0.06] text-foreground'
-            )}
-          >
-            <Calendar className="w-[18px] h-[18px]" strokeWidth={1.8} />
-            <span className="text-label font-medium">{dateFilterLabel}</span>
-          </button>
-        </div>
+        <button
+          onClick={handleExportPress}
+          aria-label={t('history.export')}
+          className="h-10 rounded-lg flex items-center gap-1.5 px-2.5 hover:bg-black/[0.04] active:bg-black/[0.06] transition-colors text-foreground"
+        >
+          <Download className="w-[18px] h-[18px]" strokeWidth={1.8} />
+        </button>
       </header>
 
       {/* Search Bar */}
@@ -235,22 +261,29 @@ export function HistoryScreen({
         </div>
       </div>
 
-      {/* Filter Tabs */}
+      {/* Filter Chips */}
       <div className="px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
-        {(['all', 'income', 'expense'] as FilterType[]).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={cn(
-              'px-4 py-1.5 rounded-full text-label transition-all whitespace-nowrap',
-              filter === f
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-background-card/50 text-foreground-muted hover:bg-background-card'
-            )}
-          >
-            {filterLabels[f]}
-          </button>
-        ))}
+        <FilterChip
+          icon={<ListFilter className="w-3.5 h-3.5" strokeWidth={1.8} />}
+          label={isTypeFiltered ? filterLabels[filter] : t('history.filterType')}
+          active={isTypeFiltered}
+          onClick={() => setOpenSheet('type')}
+        />
+        <FilterChip
+          icon={<Calendar className="w-3.5 h-3.5" strokeWidth={1.8} />}
+          label={isDateFiltered ? dateFilterLabel : t('history.dateFilter')}
+          active={isDateFiltered}
+          onClick={() => setOpenSheet('date')}
+        />
+        {availableMints.length > 1 && (
+          <FilterChip
+            icon={<CreditCard className="w-3.5 h-3.5" strokeWidth={1.8} />}
+            label={isMintFiltered ? mintFilterLabel : t('history.mintFilter')}
+            active={isMintFiltered}
+            onClick={() => setOpenSheet('mint')}
+            truncate
+          />
+        )}
       </div>
 
       {/* List */}
@@ -316,22 +349,58 @@ export function HistoryScreen({
         )}
       </div>
 
+      {/* Type Filter Sheet */}
+      <BottomSheet isOpen={openSheet === 'type'} onClose={closeSheet} title={t('history.filterType')}>
+        {(['all', 'income', 'expense'] as FilterType[]).map((f) => (
+          <BottomSheetItem
+            key={f}
+            title={filterLabels[f]}
+            selected={filter === f}
+            onClick={() => handleTypeSelect(f)}
+          />
+        ))}
+      </BottomSheet>
+
       {/* Date Filter Sheet */}
       <DateFilterSheet
-        isOpen={showDateFilter}
-        onClose={() => setShowDateFilter(false)}
+        isOpen={openSheet === 'date'}
+        onClose={closeSheet}
         value={dateFilter}
         onChange={setDateFilter}
       />
 
       {/* Mint Filter Sheet */}
       <MintFilterSheet
-        isOpen={showMintFilter}
-        onClose={() => setShowMintFilter(false)}
+        isOpen={openSheet === 'mint'}
+        onClose={closeSheet}
         mints={availableMints}
         selectedUrls={selectedMintUrls}
         onChange={setSelectedMintUrls}
       />
+
+      {/* Export Confirmation Sheet */}
+      <BottomSheet isOpen={openSheet === 'export'} onClose={closeSheet} title={t('history.export')}>
+        <div className="px-5 py-4 flex flex-col gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <FileSpreadsheet className="w-5 h-5 text-primary" strokeWidth={1.8} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-body font-semibold text-foreground">CSV (.csv)</p>
+              <p className="text-caption text-foreground-muted">{t('history.exportCsvDesc')}</p>
+            </div>
+          </div>
+          <p className="text-caption text-foreground-muted">
+            {t('history.exportCount', { count: filteredTransactions.length })}
+          </p>
+          <button
+            onClick={handleExportConfirm}
+            className="w-full py-3 rounded-xl bg-primary text-primary-foreground text-body font-semibold active:scale-[0.98] transition-transform"
+          >
+            {t('history.exportDownload')}
+          </button>
+        </div>
+      </BottomSheet>
     </div>
   )
 }

@@ -106,7 +106,7 @@ export function BottomSheetItem({
     >
       {icon && <span className="text-foreground-muted">{icon}</span>}
       <div className="flex-1 min-w-0">
-        <div className={`text-label ${selected ? 'text-accent-primary' : 'text-foreground'}`}>
+        <div className={`text-body ${selected ? 'text-accent-primary' : 'text-foreground'}`}>
           {title}
         </div>
         {subtitle && (

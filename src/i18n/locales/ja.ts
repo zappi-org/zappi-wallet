@@ -485,6 +485,7 @@ export default {
     income: '入金',
     expense: '出金',
     pendingTab: '保留中',
+    filterType: '種類',
     searchPlaceholder: '検索',
     noTransactionsDesc: '取引が発生するとここに表示されます',
     period1w: '1週',
@@ -495,6 +496,15 @@ export default {
     mintFilter: 'ウォレットフィルター',
     allMints: 'すべてのウォレット',
     mintCount: '{{count}}件のウォレット',
+
+    // Export
+    export: 'エクスポート',
+    exportSuccess: 'ファイルが保存されました',
+    exportEmpty: 'エクスポートする取引がありません',
+    exportFileName: '取引履歴',
+    exportCsvDesc: 'Excel、Numbers、Google Sheetsで開けます',
+    exportCount: '{{count}}件の取引',
+    exportDownload: 'ダウンロード',
   },
 
   // Analytics Screen

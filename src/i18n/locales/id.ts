@@ -515,6 +515,7 @@ export default {
     income: 'Pemasukan',
     expense: 'Pengeluaran',
     pendingTab: 'Tertunda',
+    filterType: 'Jenis',
     searchPlaceholder: 'Cari',
     noTransactionsDesc: 'Transaksi akan muncul di sini',
     period1w: '1 Mg',
@@ -525,6 +526,15 @@ export default {
     mintFilter: 'Filter Dompet',
     allMints: 'Semua Dompet',
     mintCount: '{{count}} Dompet',
+
+    // Export
+    export: 'Ekspor',
+    exportSuccess: 'File berhasil disimpan',
+    exportEmpty: 'Tidak ada transaksi untuk diekspor',
+    exportFileName: 'transaksi',
+    exportCsvDesc: 'Bisa dibuka di Excel, Numbers, Google Sheets',
+    exportCount: '{{count}} transaksi',
+    exportDownload: 'Unduh',
   },
 
   // Analytics Screen

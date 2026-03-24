@@ -515,6 +515,7 @@ export default {
     income: 'Ingresos',
     expense: 'Gastos',
     pendingTab: 'Pendiente',
+    filterType: 'Tipo',
     searchPlaceholder: 'Buscar',
     noTransactionsDesc: 'Las transacciones aparecerán aquí',
     period1w: '1 Sem',
@@ -525,6 +526,15 @@ export default {
     mintFilter: 'Filtro de Billetera',
     allMints: 'Todas las Billeteras',
     mintCount: '{{count}} Billeteras',
+
+    // Export
+    export: 'Exportar',
+    exportSuccess: 'Archivo guardado correctamente',
+    exportEmpty: 'No hay transacciones para exportar',
+    exportFileName: 'transacciones',
+    exportCsvDesc: 'Se abre en Excel, Numbers, Google Sheets',
+    exportCount: '{{count}} transacciones',
+    exportDownload: 'Descargar',
   },
 
   // Analytics Screen

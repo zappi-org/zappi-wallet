@@ -537,6 +537,7 @@ export default {
     income: 'Income',
     expense: 'Expense',
     pendingTab: 'Pending',
+    filterType: 'Type',
     searchPlaceholder: 'Search',
     noTransactionsDesc: 'Transactions will appear here',
     period1w: '1W',
@@ -547,6 +548,15 @@ export default {
     mintFilter: 'Wallet Filter',
     allMints: 'All Wallets',
     mintCount: '{{count}} Wallets',
+
+    // Export
+    export: 'Export',
+    exportSuccess: 'File saved successfully',
+    exportEmpty: 'No transactions to export',
+    exportFileName: 'transactions',
+    exportCsvDesc: 'Opens in Excel, Numbers, Google Sheets',
+    exportCount: '{{count}} transactions',
+    exportDownload: 'Download',
   },
 
   // Transaction Detail Screen

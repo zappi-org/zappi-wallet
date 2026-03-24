@@ -537,6 +537,7 @@ export default {
     income: '입금',
     expense: '출금',
     pendingTab: '대기중',
+    filterType: '내역 유형',
     searchPlaceholder: '검색',
     noTransactionsDesc: '거래가 생기면 여기에 표시됩니다',
     period1w: '1주',
@@ -547,6 +548,15 @@ export default {
     mintFilter: '지갑 필터',
     allMints: '전체 지갑',
     mintCount: '{{count}}개 지갑',
+
+    // Export
+    export: '내보내기',
+    exportSuccess: '파일이 저장되었습니다',
+    exportEmpty: '내보낼 거래내역이 없습니다',
+    exportFileName: '거래내역',
+    exportCsvDesc: 'Excel, Numbers, Google Sheets에서 열 수 있습니다',
+    exportCount: '총 {{count}}건의 거래내역',
+    exportDownload: '다운로드',
   },
 
   // Transaction Detail Screen
