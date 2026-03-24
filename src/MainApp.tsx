@@ -52,7 +52,7 @@ import { PaymentService } from '@/services/payment/payment.service'
 import { SyncService } from '@/services/sync/sync.service'
 import { ProfileService } from '@/services/profile/profile.service'
 import { SettingsRepository } from '@/data/repositories/settings.repository'
-import { TransactionRepository } from '@/data/repositories/transaction.repository'
+import { getTransactionRepo } from '@/data/repositories/transaction.repository'
 import { getBalances as cocoGetBalances } from '@/coco/cashuService'
 import { deleteCocoData, clearWalletCache, markSendFinalized, markSendReclaimed } from '@/coco'
 import { resetWalletCache } from '@/data/cache/wallet-cache'
@@ -130,7 +130,7 @@ export default function MainApp() {
 
   // Services (initialized once)
   const [services] = useState(() => {
-    const transactionRepo = new TransactionRepository()
+    const transactionRepo = getTransactionRepo()
 
     // Inject fiat snapshot provider (avoids store coupling inside repository)
     transactionRepo.setFiatSnapshotProvider(() => {

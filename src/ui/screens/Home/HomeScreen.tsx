@@ -13,16 +13,7 @@ import { useAppStore } from "@/store";
 import { useSatUnit, useFormatFiat } from "@/utils/format";
 import { getMintBalance } from "@/utils/url";
 import type { MintInfo, Transaction } from "@/core/types";
-import { TransactionRepository } from "@/data/repositories/transaction.repository";
-
-// Singleton repository instance to avoid recreation
-let transactionRepoInstance: TransactionRepository | null = null;
-const getTransactionRepo = () => {
-  if (!transactionRepoInstance) {
-    transactionRepoInstance = new TransactionRepository();
-  }
-  return transactionRepoInstance;
-};
+import { getTransactionRepo } from "@/data/repositories/transaction.repository";
 
 export interface HomeScreenProps {
   onSettings: () => void;
@@ -74,11 +65,9 @@ export function HomeScreen({
   const { getDisplayName, getOriginalName, getIconUrl } = useMintMetadata(settings?.mints || []);
 
   // Pull-to-refresh
-  const ptrThreshold = 80;
   const noopRefresh = useCallback(async () => {}, []);
-  const { scrollContainerRef, pullDistance, isPulling, pastThreshold, isRefreshing, isDismissing, handleDismissEnd } = usePullToRefresh({
+  const { scrollContainerRef, indicatorRef, iconRef, isRefreshing } = usePullToRefresh({
     onRefresh: onRefresh ?? noopRefresh,
-    threshold: ptrThreshold,
   });
 
   // Load transactions from DB if not provided via props
@@ -190,25 +179,21 @@ export function HomeScreen({
 
       {/* Scrollable content */}
       <main ref={scrollContainerRef} className="flex-1 flex flex-col overflow-y-auto min-h-0">
-        {/* Pull-to-refresh indicator */}
-        {(pullDistance > 0 || isRefreshing || isDismissing) && (
-          <div
-            className={`flex items-center justify-center shrink-0 overflow-hidden ${!isPulling ? 'transition-[height,opacity] duration-200' : ''}`}
-            style={{
-              height: isDismissing ? 0 : isRefreshing ? 48 : pullDistance,
-              opacity: isDismissing ? 0 : isRefreshing ? 1 : Math.min(pullDistance / ptrThreshold, 1),
-            }}
-            onTransitionEnd={handleDismissEnd}
-          >
-            {isRefreshing ? (
-              <LoaderCircle className="w-6 h-6 text-foreground-muted animate-spin" />
-            ) : (
-              <ArrowDown
-                className={`w-5 h-5 text-foreground-muted transition-transform duration-150 ${pastThreshold ? 'rotate-180' : ''}`}
-              />
-            )}
-          </div>
-        )}
+        {/* Pull-to-refresh indicator — height/opacity driven by hook via ref */}
+        <div
+          ref={indicatorRef}
+          className="flex items-center justify-center shrink-0 overflow-hidden"
+          style={{ height: 0, opacity: 0 }}
+        >
+          {isRefreshing ? (
+            <LoaderCircle className="w-6 h-6 text-foreground-muted animate-spin" />
+          ) : (
+            <ArrowDown
+              ref={iconRef}
+              className="w-5 h-5 text-foreground-muted transition-transform duration-150"
+            />
+          )}
+        </div>
 
         {/* Balance */}
         <div

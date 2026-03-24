@@ -5,7 +5,7 @@ import { getDecodedToken } from '@cashu/cashu-ts'
 import { useAppStore } from '@/store'
 import { receiveP2PKToken } from '@/coco'
 import { ProcessedEventRepository } from '@/data/repositories/processed-event.repository'
-import { TransactionRepository } from '@/data/repositories/transaction.repository'
+import { getTransactionRepo } from '@/data/repositories/transaction.repository'
 import { FailedSwapRepository } from '@/data/repositories/failed-swap.repository'
 import type { CachedAnchor } from '@/services/anchor'
 import type { ZapMessage, ZapPaymentFulfillment } from '@/types'
@@ -22,7 +22,7 @@ const NETWORK_TIMEOUT_MS = 15000
 
 // Repositories (singleton instances)
 const processedEventRepo = new ProcessedEventRepository()
-const transactionRepo = new TransactionRepository()
+const transactionRepo = getTransactionRepo()
 const failedSwapRepo = new FailedSwapRepository()
 
 export interface ReconstructionProgress {

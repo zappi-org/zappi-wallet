@@ -73,17 +73,20 @@ const mockCreateTransaction = vi.fn()
 const mockUpdateTransaction = vi.fn()
 const mockFindById = vi.fn()
 
-vi.mock('@/data/repositories/transaction.repository', () => {
-  class MockTransactionRepository {
-    create = mockCreateTransaction
-    update = mockUpdateTransaction
-    findById = mockFindById
-    save = vi.fn()
-  }
-  return {
-    TransactionRepository: MockTransactionRepository,
-  }
-})
+vi.mock('@/data/repositories/transaction.repository', () => ({
+  TransactionRepository: vi.fn(),
+  getTransactionRepo: vi.fn(),
+}))
+
+// Wire up mock after hoisting
+import { getTransactionRepo } from '@/data/repositories/transaction.repository'
+const mockRepoInstance = {
+  create: mockCreateTransaction,
+  update: mockUpdateTransaction,
+  findById: mockFindById,
+  save: vi.fn(),
+}
+vi.mocked(getTransactionRepo).mockReturnValue(mockRepoInstance as unknown as ReturnType<typeof getTransactionRepo>)
 
 // Mock SettingsRepository
 vi.mock('@/data/repositories/settings.repository', () => {

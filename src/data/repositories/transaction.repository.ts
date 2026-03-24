@@ -166,3 +166,19 @@ export class TransactionRepository {
     return this.table.where('createdAt').below(cutoff).delete()
   }
 }
+
+// ─── Singleton ───
+
+let _instance: TransactionRepository | null = null
+
+/**
+ * Get the shared TransactionRepository singleton.
+ * All callers share the same instance so that the fiat snapshot
+ * provider (set once at app init) is available everywhere.
+ */
+export function getTransactionRepo(): TransactionRepository {
+  if (!_instance) {
+    _instance = new TransactionRepository()
+  }
+  return _instance
+}

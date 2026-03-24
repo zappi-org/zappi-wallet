@@ -31,14 +31,14 @@ export async function recordLightningReceive(params: {
   amount: number;
   bolt11?: string;
 }): Promise<boolean> {
-  const { getDatabase } = await import('@/data/database/schema');
-  const db = getDatabase();
+  const { getTransactionRepo } = await import('@/data/repositories/transaction.repository');
+  const repo = getTransactionRepo();
   const txId = `tx-${params.quoteId}`;
 
-  const existing = await db.transactions.get(txId);
+  const existing = await repo.findById(txId);
   if (existing) return false; // 이미 기록됨
 
-  await db.transactions.put({
+  await repo.save({
     id: txId,
     direction: 'receive' as const,
     type: 'lightning' as const,

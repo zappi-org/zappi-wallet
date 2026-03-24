@@ -15,7 +15,7 @@ import type { Transaction, TokenState } from '@/core/types'
 import { useFormatSats, useFormatFiat, formatTransactionFiat } from '@/utils/format'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
-import { TransactionRepository } from '@/data/repositories/transaction.repository'
+import { getTransactionRepo } from '@/data/repositories/transaction.repository'
 import { markSendFinalized, markSendReclaimed } from '@/coco/sendTokenObserver'
 import { getDecodedToken } from '@cashu/cashu-ts'
 import { ArrowLeft } from 'lucide-react'
@@ -144,7 +144,7 @@ export default function TransactionDetailScreen({
         }
 
         if (pendingCount > 0) {
-          const repo = new TransactionRepository()
+          const repo = getTransactionRepo()
           await repo.update(tx.id, { tokenState: 'pending' as TokenState })
           setTx((prev) => ({ ...prev, tokenState: 'pending' as TokenState }))
           addToast({ type: 'error', message: t('txDetail.tokenPending'), duration: 3000 })
@@ -178,7 +178,7 @@ export default function TransactionDetailScreen({
 
   // ─── Delete ───
   const handleDelete = useCallback(async () => {
-    const repo = new TransactionRepository()
+    const repo = getTransactionRepo()
     await repo.delete(tx.id)
     useAppStore.getState().triggerTxRefresh()
     onBack()

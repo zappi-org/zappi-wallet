@@ -13,7 +13,7 @@ import { normalizeMintUrl } from '@/utils/url'
 import { NostrService } from '@/services/nostr/nostr.service'
 import { ZappiLinkService, type ServerDefaults } from '@/services/zappi-link'
 import { PaymentService } from '@/services/payment/payment.service'
-import { TransactionRepository } from '@/data/repositories/transaction.repository'
+import { getTransactionRepo } from '@/data/repositories/transaction.repository'
 import { sendToken } from '@/coco'
 import { BaseError } from '@/core/errors/base'
 import { translateError } from '@/core/errors/translate'
@@ -243,7 +243,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
         swapFee = swapResult.value.fee
 
         // Update swap transaction memo + total cost (including swap fee)
-        const transactionRepo = new TransactionRepository()
+        const transactionRepo = getTransactionRepo()
         await transactionRepo.update(swapResult.value.transactionId, {
           memo: t('settings.addressChangeFee', { username: newUsername }),
           amount: fee + swapFee,
@@ -273,7 +273,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
 
       // Record fee transaction (only for direct payment; swap already recorded)
       if (fee > 0 && isAccepted) {
-        const transactionRepo = new TransactionRepository()
+        const transactionRepo = getTransactionRepo()
         await transactionRepo.create({
           id: `tx-fee-${crypto.randomUUID()}`,
           direction: 'send',

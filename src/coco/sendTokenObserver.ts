@@ -26,17 +26,18 @@ let unsubscribers: (() => void)[] = [];
  * observer의 send:finalized 이벤트 및 UI에서 직접 호출 가능
  */
 export async function markSendFinalized(txId: string): Promise<boolean> {
+  const { getTransactionRepo } = await import('@/data/repositories/transaction.repository');
   const { getDatabase } = await import('@/data/database/schema');
-  const db = getDatabase();
-  const tx = await db.transactions.get(txId);
+  const repo = getTransactionRepo();
+  const tx = await repo.findById(txId);
   if (!tx || tx.status === 'completed') return false;
 
-  await db.transactions.update(txId, {
+  await repo.update(txId, {
     status: 'completed',
     tokenState: 'spent' as TokenState,
     completedAt: Date.now(),
   });
-  await db.pendingSendTokens.delete(txId).catch(() => {});
+  await getDatabase().pendingSendTokens.delete(txId).catch(() => {});
 
   useAppStore.getState().triggerTxRefresh();
   broadcastSync('balance_changed');
@@ -51,9 +52,10 @@ export async function markSendFinalized(txId: string): Promise<boolean> {
  * 2. 별도의 receive 거래를 생성하여 회수 내역을 거래내역에 표시
  */
 export async function markSendReclaimed(txId: string): Promise<boolean> {
+  const { getTransactionRepo } = await import('@/data/repositories/transaction.repository');
   const { getDatabase } = await import('@/data/database/schema');
-  const db = getDatabase();
-  const tx = await db.transactions.get(txId);
+  const repo = getTransactionRepo();
+  const tx = await repo.findById(txId);
   if (!tx) return false;
   // 이미 reclaimed 처리됨
   if (tx.status === 'completed' && tx.failureReason === 'reclaimed') return false;
@@ -61,18 +63,18 @@ export async function markSendReclaimed(txId: string): Promise<boolean> {
   const now = Date.now();
 
   // 원본 send 거래 마킹
-  await db.transactions.update(txId, {
+  await repo.update(txId, {
     status: 'completed',
     failureReason: 'reclaimed',
     tokenState: 'spent' as TokenState,
     completedAt: now,
   });
 
-  // 회수 receive 거래 생성
+  // 회수 receive 거래 생성 (repo.save → enrichWithFiat 적용)
   const reclaimTxId = `${txId}-reclaim`;
-  const existing = await db.transactions.get(reclaimTxId);
+  const existing = await repo.findById(reclaimTxId);
   if (!existing) {
-    await db.transactions.put({
+    await repo.save({
       id: reclaimTxId,
       direction: 'receive',
       type: tx.type,
@@ -85,7 +87,7 @@ export async function markSendReclaimed(txId: string): Promise<boolean> {
     });
   }
 
-  await db.pendingSendTokens.delete(txId).catch(() => {});
+  await getDatabase().pendingSendTokens.delete(txId).catch(() => {});
 
   useAppStore.getState().triggerTxRefresh();
   broadcastSync('balance_changed');

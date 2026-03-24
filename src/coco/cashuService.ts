@@ -589,6 +589,7 @@ export async function recoverPendingSendTokens(): Promise<{
   }
 
   // 3. Legacy recovery (no operationId)
+  const { getTransactionRepo } = await import('@/data/repositories/transaction.repository');
   for (const pending of legacyTokens) {
     const existingTx = await db.transactions.get(pending.id);
 
@@ -602,7 +603,7 @@ export async function recoverPendingSendTokens(): Promise<{
     if (!pending.token) {
       console.warn(`[Recovery] Send intent without token: ${pending.id} (${pending.amount} sats)`);
       if (!existingTx) {
-        await db.transactions.put({
+        await getTransactionRepo().save({
           id: pending.id,
           direction: 'send',
           type: 'ecash-token',
@@ -629,7 +630,7 @@ export async function recoverPendingSendTokens(): Promise<{
         // tx가 없는 경우 (crash 직후) — receive 거래만 생성
         const now = Date.now();
         const reclaimTxId = `${pending.id}-reclaim`;
-        await db.transactions.put({
+        await getTransactionRepo().save({
           id: reclaimTxId,
           direction: 'receive',
           type: 'ecash-token',
@@ -648,7 +649,7 @@ export async function recoverPendingSendTokens(): Promise<{
       const errorMsg = String(error).toLowerCase();
       if (errorMsg.includes('already spent') || errorMsg.includes('token already spent')) {
         if (!existingTx) {
-          await db.transactions.put({
+          await getTransactionRepo().save({
             id: pending.id,
             direction: 'send',
             type: 'ecash-token',

@@ -1,132 +1,166 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
 
+// ─── State Machine ───
+
+type PtrState = 'idle' | 'detecting' | 'pulling' | 'rejected' | 'refreshing' | 'completing'
+
+// ─── Constants ───
+
+/** Minimum movement (px) before deciding gesture direction */
+const DEAD_ZONE = 10
+/** Material Design standard easing */
+const EASE_OUT = 'cubic-bezier(0.4, 0, 0.2, 1)'
+
+// ─── Types ───
+
 interface UsePullToRefreshOptions {
   /** Async callback to execute when refresh is triggered */
   onRefresh: () => Promise<void>
-  /** Pull distance (px) required to trigger refresh */
+  /** Pull distance (px) required to trigger refresh (default 80) */
   threshold?: number
-  /** Maximum pull distance (px) — asymptotic limit for exponential damping */
+  /** Maximum pull distance — asymptotic limit (default 128) */
   maxPull?: number
 }
 
 interface UsePullToRefreshReturn {
+  /** Attach to the scrollable container */
   scrollContainerRef: React.RefObject<HTMLElement | null>
-  /** Current pull distance in px (0 when not pulling) */
-  pullDistance: number
-  /** Whether the user is actively dragging */
-  isPulling: boolean
-  /** Whether pull has crossed the trigger threshold */
-  pastThreshold: boolean
-  /** Whether a refresh is currently in progress */
+  /** Attach to the PTR indicator wrapper — hook drives its style directly */
+  indicatorRef: React.RefObject<HTMLDivElement | null>
+  /** Attach to the arrow icon element inside the indicator */
+  iconRef: React.RefObject<SVGSVGElement | null>
+  /** true while the refresh promise is running (discrete state for conditional rendering) */
   isRefreshing: boolean
-  /** Whether the indicator is animating away after refresh completes */
-  isDismissing: boolean
-  /** Bind to indicator's onTransitionEnd to finalize dismiss */
-  handleDismissEnd: (e: React.TransitionEvent) => void
 }
 
-/** Exponential damping — feels like a spring. Asymptotically approaches maxPull. */
+// ─── Damping ───
+
+/** Exponential damping — asymptotically approaches maxPull. */
 function applyDamping(rawDelta: number, maxPull: number): number {
   const k = 0.4
   return maxPull * (1 - Math.exp((-k * rawDelta) / maxPull))
 }
 
-/**
- * Touch-based pull-to-refresh hook for scrollable containers.
- * Attach scrollContainerRef to the scrollable element.
- * Only activates when scrollTop === 0 and user drags downward.
- */
+// ─── Hook ───
+
 export function usePullToRefresh({
   onRefresh,
   threshold = 80,
   maxPull = 128,
 }: UsePullToRefreshOptions): UsePullToRefreshReturn {
   const scrollContainerRef = useRef<HTMLElement>(null)
-  const [pullDistance, setPullDistance] = useState(0)
-  const [isPulling, setIsPulling] = useState(false)
-  const [pastThreshold, setPastThreshold] = useState(false)
+  const indicatorRef = useRef<HTMLDivElement>(null)
+  const iconRef = useRef<SVGSVGElement>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [isDismissing, setIsDismissing] = useState(false)
 
-  // Mutable refs — avoid re-creating callbacks on every state change
+  // Mutable refs (no re-renders during drag)
+  const stateRef = useRef<PtrState>('idle')
+  const startXRef = useRef(0)
   const startYRef = useRef(0)
-  const trackingRef = useRef(false)
-  const pullDistanceRef = useRef(0)
-  const isRefreshingRef = useRef(false)
+  const distanceRef = useRef(0)
   const rafRef = useRef(0)
-  const dismissTimerRef = useRef(0)
   const onRefreshRef = useRef(onRefresh)
   onRefreshRef.current = onRefresh
 
-  // Cleanup on unmount
+  // Cleanup
   useEffect(() => () => {
     cancelAnimationFrame(rafRef.current)
-    clearTimeout(dismissTimerRef.current)
   }, [])
+
+  // ─── Direct DOM update (no React state) ───
+  const applyIndicatorStyle = useCallback((distance: number, transition?: string) => {
+    const el = indicatorRef.current
+    if (!el) return
+    el.style.transition = transition ?? ''
+    el.style.height = `${distance}px`
+    el.style.opacity = String(Math.min(distance / threshold, 1))
+
+    const icon = iconRef.current
+    if (icon) {
+      icon.style.transform = distance >= threshold ? 'rotate(180deg)' : 'rotate(0deg)'
+    }
+  }, [threshold])
+
+  const resetIndicator = useCallback((animated: boolean) => {
+    distanceRef.current = 0
+    if (animated) {
+      applyIndicatorStyle(0, `height 200ms ${EASE_OUT}, opacity 200ms ${EASE_OUT}`)
+    } else {
+      applyIndicatorStyle(0)
+    }
+  }, [applyIndicatorStyle])
+
+  // ─── Touch Handlers ───
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
     const el = scrollContainerRef.current
-    if (!el || el.scrollTop > 0 || isRefreshingRef.current) return
+    if (!el || el.scrollTop > 0 || stateRef.current === 'refreshing' || stateRef.current === 'completing') return
 
+    startXRef.current = e.touches[0].clientX
     startYRef.current = e.touches[0].clientY
-    trackingRef.current = true
-    setIsPulling(true)
-    setPastThreshold(false)
+    stateRef.current = 'detecting'
   }, [])
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
-    if (!trackingRef.current) return
+    const state = stateRef.current
+    if (state === 'idle' || state === 'rejected' || state === 'refreshing' || state === 'completing') return
 
-    const deltaY = e.touches[0].clientY - startYRef.current
-    if (deltaY < 0) {
-      // Scrolling up — stop tracking
-      trackingRef.current = false
-      pullDistanceRef.current = 0
+    const dx = e.touches[0].clientX - startXRef.current
+    const dy = e.touches[0].clientY - startYRef.current
+
+    if (state === 'detecting') {
+      const distance = Math.sqrt(dx * dx + dy * dy)
+      if (distance < DEAD_ZONE) return
+
+      if (Math.abs(dy) > Math.abs(dx) && dy > 0) {
+        stateRef.current = 'pulling'
+      } else {
+        stateRef.current = 'rejected'
+        return
+      }
+    }
+
+    if (dy <= 0) {
+      stateRef.current = 'rejected'
       cancelAnimationFrame(rafRef.current)
-      setPullDistance(0)
-      setIsPulling(false)
-      setPastThreshold(false)
+      resetIndicator(true)
       return
     }
 
-    const damped = applyDamping(deltaY, maxPull)
-    if (damped > 0) {
+    if (e.cancelable) {
       e.preventDefault()
     }
-    pullDistanceRef.current = damped
+
+    const damped = applyDamping(dy, maxPull)
+    distanceRef.current = damped
+
     cancelAnimationFrame(rafRef.current)
     rafRef.current = requestAnimationFrame(() => {
-      setPullDistance(damped)
-      setPastThreshold(damped >= threshold)
+      applyIndicatorStyle(damped)
     })
-  }, [maxPull, threshold])
-
-  const finalizeDismiss = useCallback(() => {
-    clearTimeout(dismissTimerRef.current)
-    isRefreshingRef.current = false
-    setIsRefreshing(false)
-    setIsDismissing(false)
-  }, [])
-
-  // Only finalize on the height transition ending during dismiss phase
-  const handleDismissEnd = useCallback((e: React.TransitionEvent) => {
-    if (!isRefreshingRef.current) return
-    if (e.propertyName !== 'height' || e.target !== e.currentTarget) return
-    finalizeDismiss()
-  }, [finalizeDismiss])
+  }, [maxPull, applyIndicatorStyle, resetIndicator])
 
   const handleTouchEnd = useCallback(async () => {
-    const currentPull = pullDistanceRef.current
-    if (!trackingRef.current && !currentPull) return
-    trackingRef.current = false
-    pullDistanceRef.current = 0
-    setIsPulling(false)
+    const state = stateRef.current
+    if (state !== 'pulling' && state !== 'detecting') {
+      if (state === 'rejected') stateRef.current = 'idle'
+      return
+    }
 
-    if (currentPull >= threshold && !isRefreshingRef.current) {
-      isRefreshingRef.current = true
+    cancelAnimationFrame(rafRef.current)
+    const el = indicatorRef.current
+    if (!el) {
+      stateRef.current = 'idle'
+      return
+    }
+
+    if (distanceRef.current >= threshold) {
+      stateRef.current = 'refreshing'
       setIsRefreshing(true)
-      setPullDistance(0)
-      setPastThreshold(false)
+
+      // Snap to spinner resting height
+      applyIndicatorStyle(48, `height 200ms ${EASE_OUT}, opacity 200ms ${EASE_OUT}`)
+
       try {
         await Promise.all([
           onRefreshRef.current(),
@@ -135,16 +169,41 @@ export function usePullToRefresh({
       } catch (e) {
         console.error('[PullToRefresh] Refresh failed:', e)
       } finally {
-        // Dismiss via CSS transitionend + fallback timeout
-        setIsDismissing(true)
-        // Safety: if transitionend doesn't fire (browser quirk), force cleanup
-        dismissTimerRef.current = window.setTimeout(finalizeDismiss, 300)
+        stateRef.current = 'completing'
+        resetIndicator(true)
+
+        const onEnd = (ev: TransitionEvent) => {
+          if (ev.propertyName !== 'height') return
+          el.removeEventListener('transitionend', onEnd)
+          stateRef.current = 'idle'
+          setIsRefreshing(false)
+        }
+        el.addEventListener('transitionend', onEnd)
+
+        // Safety fallback — also cleans up listener
+        setTimeout(() => {
+          if (stateRef.current === 'completing') {
+            el.removeEventListener('transitionend', onEnd)
+            stateRef.current = 'idle'
+            setIsRefreshing(false)
+          }
+        }, 300)
       }
     } else {
-      setPullDistance(0)
-      setPastThreshold(false)
+      stateRef.current = 'idle'
+      resetIndicator(true)
     }
-  }, [threshold, finalizeDismiss])
+  }, [threshold, applyIndicatorStyle, resetIndicator])
+
+  const handleTouchCancel = useCallback(() => {
+    if (stateRef.current === 'pulling' || stateRef.current === 'detecting') {
+      cancelAnimationFrame(rafRef.current)
+      stateRef.current = 'idle'
+      resetIndicator(true)
+    }
+  }, [resetIndicator])
+
+  // ─── Bind listeners ───
 
   useEffect(() => {
     const el = scrollContainerRef.current
@@ -153,21 +212,20 @@ export function usePullToRefresh({
     el.addEventListener('touchstart', handleTouchStart, { passive: true })
     el.addEventListener('touchmove', handleTouchMove, { passive: false })
     el.addEventListener('touchend', handleTouchEnd)
+    el.addEventListener('touchcancel', handleTouchCancel)
 
     return () => {
       el.removeEventListener('touchstart', handleTouchStart)
       el.removeEventListener('touchmove', handleTouchMove)
       el.removeEventListener('touchend', handleTouchEnd)
+      el.removeEventListener('touchcancel', handleTouchCancel)
     }
-  }, [handleTouchStart, handleTouchMove, handleTouchEnd])
+  }, [handleTouchStart, handleTouchMove, handleTouchEnd, handleTouchCancel])
 
   return {
     scrollContainerRef,
-    pullDistance,
-    isPulling,
-    pastThreshold,
+    indicatorRef,
+    iconRef,
     isRefreshing,
-    isDismissing,
-    handleDismissEnd,
   }
 }

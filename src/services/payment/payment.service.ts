@@ -1,7 +1,7 @@
 import type { Proof, MintQuoteBolt11Response } from '@cashu/cashu-ts'
 import { CashuService, type SubscriptionCanceller } from '@/services/cashu/cashu.service'
 import { WalletService } from '@/services/wallet/wallet.service'
-import { TransactionRepository } from '@/data/repositories/transaction.repository'
+import { getTransactionRepo, type TransactionRepository } from '@/data/repositories/transaction.repository'
 import { getDatabase, type PendingMeltRecord, type PendingSendTokenRecord } from '@/data/database/schema'
 import { ok, err, type Result } from '@/core/types'
 import type { MintQuote } from '@/core/types'
@@ -92,7 +92,7 @@ export class PaymentService {
   constructor() {
     this.cashuService = new CashuService()
     this.walletService = new WalletService()
-    this.transactionRepo = new TransactionRepository()
+    this.transactionRepo = getTransactionRepo()
   }
 
   /**

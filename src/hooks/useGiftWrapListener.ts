@@ -8,7 +8,7 @@ import { receiveP2PKToken } from '@/coco'
 import { sendDM } from '@/services/nostr-dm'
 import { subscribeNetworkStatus } from '@/hooks/useNetworkStatus'
 import { ProcessedEventRepository } from '@/data/repositories/processed-event.repository'
-import { TransactionRepository } from '@/data/repositories/transaction.repository'
+import { getTransactionRepo } from '@/data/repositories/transaction.repository'
 import { FailedSwapRepository } from '@/data/repositories/failed-swap.repository'
 import type { ZapMessage, ZapPaymentFulfillment } from '@/types'
 import type { Transaction, FailedSwap, ProcessedEvent } from '@/core/types'
@@ -25,7 +25,7 @@ const DEFAULT_ACTIVE_DURATION_MS = 30 * 60 * 1000  // 30분
 
 // Repositories (singleton instances)
 const processedEventRepo = new ProcessedEventRepository()
-const transactionRepo = new TransactionRepository()
+const transactionRepo = getTransactionRepo()
 const failedSwapRepo = new FailedSwapRepository()
 
 // Helper functions for IndexedDB-based tx_id tracking
