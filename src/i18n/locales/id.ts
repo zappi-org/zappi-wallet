@@ -883,6 +883,12 @@ export default {
     redeemSuccess: 'Token ditebus',
     redeemFailed: 'Gagal menebus',
     reclaimAction: 'Klaim kembali token',
+    payment: 'Pembayaran',
+    unified: 'Terpadu',
+    ecashRequest: 'Permintaan Ecash',
+    lightningInvoice: 'Invoice Lightning',
+    quoteStatus: 'Status',
+    redeemQuote: 'Tebus',
   },
 
   // Error Boundary

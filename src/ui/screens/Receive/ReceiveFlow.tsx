@@ -52,6 +52,8 @@ async function checkSwapFeeTooHigh(
   return false
 }
 
+import { createReceiveRequest, completeReceiveRequest } from '@/services/receive-request'
+import { buildUnifiedBitcoinUri } from '@/services/cashu/nut18'
 import { TokenReceiveStep } from './steps/TokenReceiveStep'
 import { ReceiveInputStep } from './steps/ReceiveInputStep'
 import { ReceiveQRStep } from './steps/ReceiveQRStep'
@@ -84,6 +86,8 @@ export interface ReceiveFlowState {
   ecashRequest: string | null
   ecashRequestId: string | null
   httpEndpoint: string | null
+  // Receive request entity
+  receiveRequestId: string | null
   // Token receive
   scannedToken: ValidatedCashuToken | null
   isTrustedMint: boolean
@@ -165,6 +169,7 @@ export function ReceiveFlow({
     ecashRequest: null,
     ecashRequestId: null,
     httpEndpoint: null,
+    receiveRequestId: null,
     scannedToken: initialValidatedData?.type === 'cashu-token' ? initialValidatedData : null,
     isTrustedMint: initialValidatedData?.type === 'cashu-token'
       ? settings.mints.includes(initialValidatedData.mintUrl)
@@ -249,6 +254,36 @@ export function ReceiveFlow({
         return
       }
 
+      // Build BIP-321 URI if both payment methods available
+      const invoice = invoiceResult?.invoice || null
+      const ecashReq = data.ecashRequest || null
+      const bip321Uri = (invoice && ecashReq)
+        ? buildUnifiedBitcoinUri({ lightningInvoice: invoice, cashuRequest: ecashReq })
+        : undefined
+
+      // Persist as ReceiveRequest entity (source of truth for pending display)
+      let receiveRequestId: string | null = null
+      if (invoiceResult) {
+        const requestId = crypto.randomUUID()
+        try {
+          await createReceiveRequest({
+            id: requestId,
+            amount: data.amount,
+            mintUrl: data.mintUrl,
+            expiresAt: invoiceResult.expiry * 1000,
+            quoteId: invoiceResult.quoteId,
+            invoice: invoiceResult.invoice,
+            ecashRequest: ecashReq || undefined,
+            ecashRequestId: data.ecashRequestId || undefined,
+            httpEndpoint: data.httpEndpoint || undefined,
+            bip321Uri,
+          })
+          receiveRequestId = requestId
+        } catch (err) {
+          console.error('[ReceiveFlow] Failed to persist ReceiveRequest:', err)
+        }
+      }
+
       setState((prev) => ({
         ...prev,
         step: 'qr',
@@ -256,13 +291,15 @@ export function ReceiveFlow({
         amount: data.amount,
         selectedMintUrl: data.mintUrl,
         // Lightning data
-        invoice: invoiceResult?.invoice || null,
+        invoice,
         quoteId: invoiceResult?.quoteId || null,
         quoteExpiry: invoiceResult?.expiry || null,
         // Ecash data (always present when Nostr is available)
-        ecashRequest: data.ecashRequest || null,
+        ecashRequest: ecashReq,
         ecashRequestId: data.ecashRequestId || null,
         httpEndpoint: data.httpEndpoint || null,
+        // ReceiveRequest entity (null if DB write failed)
+        receiveRequestId,
       }))
     } catch (err) {
       console.error('[ReceiveFlow] Input next error:', err)
@@ -276,12 +313,18 @@ export function ReceiveFlow({
   /** Payment received → complete */
   const handlePaymentDetected = useCallback((amount: number, method: 'lightning' | 'ecash') => {
     onPaymentReceived(amount, method)
-    setState((prev) => ({
-      ...prev,
-      step: 'complete',
-      method,
-      receivedAmount: amount,
-    }))
+    setState((prev) => {
+      if (prev.receiveRequestId) {
+        void completeReceiveRequest(prev.receiveRequestId, method)
+          .catch((err) => console.error('[ReceiveFlow] Failed to complete ReceiveRequest:', err))
+      }
+      return {
+        ...prev,
+        step: 'complete',
+        method,
+        receivedAmount: amount,
+      }
+    })
   }, [onPaymentReceived])
 
   /** Token scanned from TokenReceiveBottomSheet */

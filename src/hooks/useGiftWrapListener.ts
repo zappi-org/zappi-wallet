@@ -252,6 +252,11 @@ export function useGiftWrapListener() {
       if (requestId) {
         console.log(`[GiftWrap] Notifying of payment for request: ${requestId}`)
         setLastReceivedPayment(requestId, result.amount, eventId)
+
+        import('@/services/receive-request').then(({ completeByEcashRequestId }) => {
+          completeByEcashRequestId(requestId)
+            .catch((err) => console.warn('[GiftWrap] ReceiveRequest completion failed:', err))
+        }).catch((err) => console.warn('[GiftWrap] ReceiveRequest import failed:', err))
       }
 
       // Trigger transaction history refresh
@@ -310,6 +315,10 @@ export function useGiftWrapListener() {
             // Notify ReceiveFlow if applicable
             if (requestId) {
               setLastReceivedPayment(requestId, amount, eventId)
+              import('@/services/receive-request').then(({ completeByEcashRequestId }) => {
+                completeByEcashRequestId(requestId)
+                  .catch((err) => console.warn('[GiftWrap] ReceiveRequest completion failed:', err))
+              }).catch((err) => console.warn('[GiftWrap] ReceiveRequest import failed:', err))
             }
             triggerTxRefresh()
           }

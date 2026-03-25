@@ -107,15 +107,35 @@ export interface PendingReceivedTokenRecord {
 }
 
 /**
- * Pending ecash receive record for HTTP transport recovery
- * Stores NUT-18 HTTP endpoints so background recovery can check for payments
+ * Receive request — first-class domain entity for pending receive requests.
+ * Owns both Lightning (coco quote) and NUT-18 (ecash) payment methods.
+ * Source of truth for pending receive item display.
  */
-export interface PendingEcashReceiveRecord {
-  requestId: string    // primary key (NUT-18 request ID)
-  httpEndpoint: string // mint HTTP endpoint URL
-  mintUrl: string
+export type ReceiveRequestStatus = 'pending' | 'completed' | 'expired' | 'cancelled'
+
+export interface ReceiveRequestRecord {
+  id: string                    // primary key (UUID)
+  status: ReceiveRequestStatus
   amount: number
+  mintUrl: string
   createdAt: number
+  expiresAt: number             // unix ms
+
+  // Lightning payment method
+  quoteId: string               // coco mint quote ID (needed for minting)
+  invoice: string               // bolt11 invoice
+
+  // NUT-18 payment method (optional — Lightning-only requests possible)
+  ecashRequest?: string         // creqB/creqA encoded NUT-18 payment request
+  ecashRequestId?: string       // NUT-18 request ID (for matching incoming payments)
+  httpEndpoint?: string         // HTTP transport endpoint URL
+
+  // BIP-321 unified URI
+  bip321Uri?: string            // bitcoin:?lightning=...&creq=...
+
+  // Completion info
+  completedAt?: number
+  completedMethod?: 'lightning' | 'ecash'
 }
 
 /**
@@ -143,7 +163,7 @@ export class ZappiDatabase extends Dexie {
   pendingMelts!: Table<PendingMeltRecord, string>
   pendingSendTokens!: Table<PendingSendTokenRecord, string>
   pendingReceivedTokens!: Table<PendingReceivedTokenRecord, string>
-  pendingEcashReceives!: Table<PendingEcashReceiveRecord, string>
+  receiveRequests!: Table<ReceiveRequestRecord, string>
   mintMetadata!: Table<MintMetadataRecord, string>
   exchangeRates!: Table<ExchangeRateCacheRecord, string>
 
@@ -184,8 +204,8 @@ export class ZappiDatabase extends Dexie {
       // Pending received tokens: offline P2PK tokens awaiting online redemption
       pendingReceivedTokens: 'id, mintUrl, createdAt',
 
-      // Pending ecash receives: NUT-18 HTTP transport recovery
-      pendingEcashReceives: 'requestId, mintUrl, createdAt',
+      // Receive requests: unified receive request entity (Lightning + NUT-18)
+      receiveRequests: 'id, status, mintUrl, quoteId, ecashRequestId, createdAt',
 
       // Mint metadata: indexed by url (NUT-06 cached info for offline support)
       mintMetadata: 'url, fetchedAt',
@@ -237,7 +257,7 @@ export async function clearMintData(mintUrl: string): Promise<void> {
     db.pendingMelts.where('mintUrl').anyOf(variants).delete(),
     db.pendingSendTokens.where('mintUrl').anyOf(variants).delete(),
     db.pendingReceivedTokens.where('mintUrl').anyOf(variants).delete(),
-    db.pendingEcashReceives.where('mintUrl').anyOf(variants).delete(),
+    db.receiveRequests.where('mintUrl').anyOf(variants).delete(),
     db.mintMetadata.where('url').anyOf(variants).delete(),
   ])
 }
@@ -258,6 +278,6 @@ export async function clearAllData(): Promise<void> {
     db.pendingMelts.clear(),
     db.pendingSendTokens.clear(),
     db.pendingReceivedTokens.clear(),
-    db.pendingEcashReceives.clear(),
+    db.receiveRequests.clear(),
   ])
 }

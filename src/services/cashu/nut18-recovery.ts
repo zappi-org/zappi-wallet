@@ -6,12 +6,14 @@
  *
  * Called once per recoverAll() (app start, foreground, manual refresh).
  * No continuous polling — single GET check per pending record.
+ *
+ * Source of truth: ReceiveRequest table (status='pending' + httpEndpoint present).
  */
 
-import { getDatabase } from '@/data/database/schema'
 import { useAppStore } from '@/store'
 import { receiveP2PKToken } from '@/coco'
 import { getEncodedToken, type Proof } from '@cashu/cashu-ts'
+import { getPendingHttpReceiveRequests, completeReceiveRequest } from '@/services/receive-request'
 
 const REQUEST_TIMEOUT_MS = 8000
 
@@ -24,23 +26,18 @@ interface PaymentRequestPayload {
 }
 
 export async function recoverPendingEcashReceives(): Promise<{ recovered: number }> {
-  const db = getDatabase()
-  const pending = await db.pendingEcashReceives.toArray()
-
-  if (pending.length === 0) return { recovered: 0 }
-
-  // Skip requests currently being polled by ReceiveQRStep
   const activeRequestId = useAppStore.getState().pendingEcashRequestId
   const p2pkPrivkey = useAppStore.getState().nostrPrivkey
 
-  const eligible = pending.filter((r) => r.requestId !== activeRequestId)
-  if (eligible.length === 0) return { recovered: 0 }
-
   if (!p2pkPrivkey) {
-    // Wallet not unlocked yet → preserve all records for next recovery attempt
-    console.log('[NUT18-Recovery] Privkey not available, deferring all records')
+    console.log('[NUT18-Recovery] Privkey not available, deferring')
     return { recovered: 0 }
   }
+
+  const pending = await getPendingHttpReceiveRequests()
+  const eligible = pending.filter((r) => r.ecashRequestId !== activeRequestId)
+
+  if (eligible.length === 0) return { recovered: 0 }
 
   const results = await Promise.allSettled(
     eligible.map(async (record) => {
@@ -48,40 +45,34 @@ export async function recoverPendingEcashReceives(): Promise<{ recovered: number
       const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
       try {
-        const response = await fetch(record.httpEndpoint, {
+        const response = await fetch(record.httpEndpoint!, {
           method: 'GET',
           headers: { 'Accept': 'application/json' },
           signal: controller.signal,
         })
         clearTimeout(timeout)
 
-        // 404 = mint has no data (not paid or already consumed) → cleanup
-        if (response.status === 404) {
-          await db.pendingEcashReceives.delete(record.requestId)
-          return false
-        }
-
-        if (!response.ok) return false // transient server error → retry next time
+        if (response.status === 404) return false
+        if (!response.ok) return false
 
         const payload = await response.json() as PaymentRequestPayload
         if (!payload.proofs?.length || !payload.mint) return false
 
-        // Receive the token (requires P2PK privkey to unlock)
         const token = getEncodedToken({ mint: payload.mint, proofs: payload.proofs })
         await receiveP2PKToken(token, p2pkPrivkey)
-        await db.pendingEcashReceives.delete(record.requestId)
-        console.log(`[NUT18-Recovery] Recovered ${record.amount} sats from HTTP: ${record.requestId}`)
+        await completeReceiveRequest(record.id, 'ecash')
+        console.log(`[NUT18-Recovery] Recovered ${record.amount} sats: ${record.ecashRequestId}`)
         return true
       } catch (err) {
         clearTimeout(timeout)
         const msg = String(err).toLowerCase()
         if (msg.includes('spent') || msg.includes('already')) {
-          // Already received via Nostr → cleanup
-          await db.pendingEcashReceives.delete(record.requestId)
+          // Already received via another path → mark completed
+          await completeReceiveRequest(record.id, 'ecash')
         } else if (err instanceof Error && err.name === 'AbortError') {
           // Timeout → retry next time
         } else {
-          console.warn(`[NUT18-Recovery] Check failed for ${record.requestId}:`, err)
+          console.warn(`[NUT18-Recovery] Check failed for ${record.ecashRequestId}:`, err)
         }
         return false
       }

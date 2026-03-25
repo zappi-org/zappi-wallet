@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import { ArrowLeft, Copy, Check, Clock, Loader2 } from 'lucide-react'
+import { ArrowLeft, Copy, Check, Clock, Loader2, RefreshCw, Download, QrCode } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useFormatSats, useFormatFiat, getLocaleCode } from '@/utils/format'
 import { useMintMetadata } from '@/hooks'
 import { useAppStore } from '@/store'
+import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import type { PendingItem } from '@/hooks/usePendingItems'
 
 export interface PendingItemDetailScreenProps {
@@ -29,24 +30,26 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
   const formatSats = useFormatSats()
   const toFiat = useFormatFiat()
   const [copiedField, setCopiedField] = useState<string | null>(null)
-  const [invoice, setInvoice] = useState<string | null>(null)
+  const [invoice, setInvoice] = useState<string | null>(item.invoice || null)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [quoteStatus, setQuoteStatus] = useState<string | null>(null)
+  const [isCheckingQuote, setIsCheckingQuote] = useState(false)
+  const [isRedeeming, setIsRedeeming] = useState(false)
+  const [qrValue, setQrValue] = useState<string | null>(null)
   const addToast = useAppStore((s) => s.addToast)
 
   const mintUrls = useMemo(() => [item.mintUrl], [item.mintUrl])
   const { getDisplayName } = useMintMetadata(mintUrls)
+  const quoteId = item.quoteId || item.id
 
-  // Fetch invoice for receive-request
+  // Fetch invoice from coco for orphan quotes (no invoice in item)
   useEffect(() => {
-    if (item.type !== 'receive-request') {
-      setInvoice(null)
-      return
-    }
+    if (item.type !== 'receive-request' || item.invoice) return
     let cancelled = false
     ;(async () => {
       try {
         const { getMintQuote } = await import('@/coco/manager')
-        const quote = await getMintQuote(item.mintUrl, item.id)
+        const quote = await getMintQuote(item.mintUrl, quoteId)
         if (!cancelled && quote?.request) {
           setInvoice(quote.request)
         }
@@ -55,7 +58,7 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
       }
     })()
     return () => { cancelled = true }
-  }, [item.type, item.mintUrl, item.id])
+  }, [item.type, item.mintUrl, item.invoice, quoteId])
 
   const handleCopy = useCallback(async (text: string, field: string) => {
     await copyToClipboard(text)
@@ -121,6 +124,48 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
     }
   }, [item.operationId, item.token, item.id, onBack, addToast, t])
 
+  const handleCheckQuote = useCallback(async () => {
+    setIsCheckingQuote(true)
+    setQuoteStatus(null)
+    try {
+      const { getMintQuote } = await import('@/coco/manager')
+      const quote = await getMintQuote(item.mintUrl, quoteId)
+      if (quote) {
+        setQuoteStatus(quote.state)
+      } else {
+        setQuoteStatus('UNKNOWN')
+      }
+    } catch {
+      setQuoteStatus('ERROR')
+    } finally {
+      setIsCheckingQuote(false)
+    }
+  }, [item.mintUrl, quoteId])
+
+  const handleRedeemQuote = useCallback(async () => {
+    setIsRedeeming(true)
+    try {
+      const { redeemMintQuote } = await import('@/coco/cashuService')
+      await redeemMintQuote(item.mintUrl, quoteId, item.amount)
+
+      if (item.quoteId) {
+        const { findByQuoteId, completeReceiveRequest } = await import('@/services/receive-request')
+        const req = await findByQuoteId(quoteId)
+        if (req && req.status === 'pending') {
+          await completeReceiveRequest(req.id, 'lightning')
+        }
+      }
+
+      addToast({ type: 'success', message: t('pending.redeemSuccess'), duration: 2000 })
+      onBack()
+    } catch (err) {
+      console.error('[PendingDetail] Redeem quote failed:', err)
+      addToast({ type: 'error', message: t('pending.redeemFailed'), duration: 2000 })
+    } finally {
+      setIsRedeeming(false)
+    }
+  }, [item.mintUrl, item.quoteId, quoteId, item.amount, onBack, addToast, t])
+
   const locale = getLocaleCode(i18n.language)
 
   const title = item.type === 'unclaimed-token'
@@ -153,6 +198,44 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
 
   function truncateStr(s: string, max = 36) {
     return s.length > max ? `${s.slice(0, 16)}...${s.slice(-16)}` : s
+  }
+
+  function CopyableSection({ label, value, field, showQr }: {
+    label: string
+    value: string
+    field: string
+    showQr?: boolean
+  }) {
+    return (
+      <div className="py-3 border-b border-border/30 last:border-b-0">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-body text-foreground-muted">{label}</span>
+          <div className="flex items-center gap-1">
+            {showQr && (
+              <button
+                onClick={() => setQrValue(value)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/[0.04] transition-colors"
+              >
+                <QrCode className="w-4 h-4 text-foreground-muted" />
+              </button>
+            )}
+            <button
+              onClick={() => handleCopy(value, field)}
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/[0.04] transition-colors"
+            >
+              {copiedField === field ? (
+                <Check className="w-4 h-4 text-card-brand-dark" />
+              ) : (
+                <Copy className="w-4 h-4 text-foreground-muted" />
+              )}
+            </button>
+          </div>
+        </div>
+        <p className="text-caption font-mono text-foreground-muted break-all leading-relaxed line-clamp-3">
+          {value}
+        </p>
+      </div>
+    )
   }
 
   function InfoRow({ label, value, copyable, field }: {
@@ -241,54 +324,99 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
               </div>
             )}
 
-            {/* Item ID */}
-            <div className="py-3 border-b border-border/30 last:border-b-0">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-body text-foreground-muted">ID</span>
-                <button
-                  onClick={() => handleCopy(item.id, 'itemId')}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/[0.04] transition-colors"
-                >
-                  {copiedField === 'itemId' ? (
-                    <Check className="w-4 h-4 text-card-brand-dark" />
+            {item.type === 'receive-request' && item.quoteId && (
+              <div className="flex items-center justify-between py-3 border-b border-border/30 last:border-b-0">
+                <span className="text-body text-foreground-muted">{t('pending.quoteStatus')}</span>
+                <div className="flex items-center gap-2">
+                  {quoteStatus ? (
+                    <span className={`text-body font-semibold ${
+                      quoteStatus === 'PAID' ? 'text-card-brand-dark' :
+                      quoteStatus === 'ISSUED' ? 'text-foreground-muted' :
+                      quoteStatus === 'UNPAID' ? 'text-badge-lightning-text' :
+                      'text-accent-danger'
+                    }`}>
+                      {quoteStatus}
+                    </span>
                   ) : (
-                    <Copy className="w-4 h-4 text-foreground-muted" />
+                    <span className="text-body text-foreground-muted">—</span>
                   )}
-                </button>
-              </div>
-              <p className="text-caption font-mono text-foreground-muted break-all leading-relaxed">
-                {item.id}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Invoice (for receive-request) */}
-        {item.type === 'receive-request' && invoice && (
-          <div className="px-5 mt-6">
-            <p className="text-label text-foreground-muted uppercase tracking-wider mb-1">
-              {t('txDetail.bolt11')}
-            </p>
-            <div className="bg-background-card rounded px-4">
-              <div className="py-3">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-body text-foreground-muted">Invoice</span>
                   <button
-                    onClick={() => handleCopy(invoice, 'invoice')}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/[0.04] transition-colors"
+                    onClick={handleCheckQuote}
+                    disabled={isCheckingQuote}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/[0.04] transition-colors disabled:opacity-50"
                   >
-                    {copiedField === 'invoice' ? (
-                      <Check className="w-4 h-4 text-card-brand-dark" />
+                    {isCheckingQuote ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-foreground-muted" />
                     ) : (
-                      <Copy className="w-4 h-4 text-foreground-muted" />
+                      <RefreshCw className="w-4 h-4 text-foreground-muted" />
                     )}
                   </button>
                 </div>
-                <p className="text-caption font-mono text-foreground-muted break-all leading-relaxed line-clamp-3">
-                  {invoice}
-                </p>
               </div>
+            )}
+          </div>
+        </div>
+
+        {/* Payment Methods (for receive-request) */}
+        {item.type === 'receive-request' && (
+          <div className="px-5 mt-6">
+            <p className="text-label text-foreground-muted uppercase tracking-wider mb-1">
+              {t('pending.payment')}
+            </p>
+            <div className="bg-background-card rounded px-4">
+              {item.bip321Uri && (
+                <CopyableSection
+                  label={t('pending.unified')}
+                  value={item.bip321Uri}
+                  field="bip321Uri"
+                  showQr
+                />
+              )}
+
+              {item.ecashRequest && (
+                <CopyableSection
+                  label={t('pending.ecashRequest')}
+                  value={item.ecashRequest}
+                  field="ecashRequest"
+                  showQr
+                />
+              )}
+
+              {invoice && (
+                <CopyableSection
+                  label={t('pending.lightningInvoice')}
+                  value={invoice}
+                  field="invoice"
+                  showQr
+                />
+              )}
+
+              {item.quoteId && (
+                <CopyableSection
+                  label="Quote ID"
+                  value={item.quoteId}
+                  field="quoteId"
+                />
+              )}
             </div>
+          </div>
+        )}
+
+        {/* Redeem button (when quote is PAID) */}
+        {item.type === 'receive-request' && quoteStatus === 'PAID' && (
+          <div className="px-5 mt-4">
+            <button
+              onClick={handleRedeemQuote}
+              disabled={isRedeeming}
+              className="w-full py-3.5 rounded-xl bg-brand text-white font-semibold text-caption flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] transition-transform"
+            >
+              {isRedeeming ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              {t('pending.redeemQuote')}
+            </button>
           </div>
         )}
 
@@ -320,6 +448,46 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
             {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             {t('pending.reclaimAction')}
           </button>
+        </div>
+      )}
+
+      {/* QR Modal */}
+      {qrValue && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center pointer-events-none">
+          <div
+            onClick={() => setQrValue(null)}
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm pointer-events-auto animate-fadeIn"
+          />
+          <div className="bg-background w-full max-w-[340px] rounded-2xl pointer-events-auto relative z-10 shadow-2xl animate-slideInUp overflow-hidden">
+            <div className="flex items-center justify-end px-5 pt-5">
+              <button
+                onClick={() => setQrValue(null)}
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-muted"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex justify-center px-8 py-6">
+              <QRCodeDisplay
+                value={qrValue}
+                size={220}
+                level="L"
+                className="rounded-2xl"
+              />
+            </div>
+            <div className="px-6 pb-6">
+              <button
+                onClick={() => handleCopy(qrValue, 'qrModal')}
+                className="w-full flex items-center justify-center gap-2 bg-background-card text-foreground border border-border py-3.5 rounded-xl font-semibold text-caption active:scale-[0.98] transition-transform shadow-sm"
+              >
+                {copiedField === 'qrModal' ? (
+                  <><Check className="w-4 h-4" /> {t('common.copied')}</>
+                ) : (
+                  <><Copy className="w-4 h-4" /> {t('common.copy')}</>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

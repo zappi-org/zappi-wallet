@@ -853,6 +853,12 @@ export default {
     redeemSuccess: 'トークンを受け取りました',
     redeemFailed: '受け取りに失敗しました',
     reclaimAction: 'トークン回収',
+    payment: '決済',
+    unified: '統合',
+    ecashRequest: 'Ecashリクエスト',
+    lightningInvoice: 'ライトニングインボイス',
+    quoteStatus: 'ステータス',
+    redeemQuote: '手動受領',
   },
 
   // Error Boundary

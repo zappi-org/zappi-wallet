@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getDatabase } from '@/data/database/schema'
 import { stripTrailingSlash } from '@/utils/url'
+import { getPendingReceiveRequests } from '@/services/receive-request'
 
 export interface PendingItem {
   id: string
@@ -12,19 +13,29 @@ export interface PendingItem {
   expiresAt?: number
   token?: string
   operationId?: string
+  // ReceiveRequest data (for receive-request type)
+  quoteId?: string
+  invoice?: string
+  ecashRequest?: string
+  ecashRequestId?: string
+  bip321Uri?: string
+  httpEndpoint?: string
 }
 
 // ─── Shared transform: raw DB records → PendingItem[] ───
 
 interface RawSources {
   receivedTokens: Array<{ id: string; amount: number; mintUrl: string; createdAt: number; token: string }>
-  cocoQuotes: Array<{ quote: string; amount: number; mintUrl: string; expiry?: number }>
+  receiveRequests: Array<{
+    id: string; amount: number; mintUrl: string; createdAt: number; expiresAt: number
+    quoteId: string; invoice: string
+    ecashRequest?: string; ecashRequestId?: string; httpEndpoint?: string; bip321Uri?: string
+  }>
   sendTokens: Array<{ id: string; amount: number; mintUrl: string; createdAt: number; token?: string; operationId?: string }>
-  /** memo lookup from transactions table (sendToken.id → tx.memo) */
   memoMap?: Map<string, string>
 }
 
-function mergePendingItems({ receivedTokens, cocoQuotes, sendTokens, memoMap }: RawSources): PendingItem[] {
+function mergePendingItems({ receivedTokens, receiveRequests, sendTokens, memoMap }: RawSources): PendingItem[] {
   const merged: PendingItem[] = [
     ...receivedTokens.map((t) => ({
       id: t.id,
@@ -34,13 +45,19 @@ function mergePendingItems({ receivedTokens, cocoQuotes, sendTokens, memoMap }: 
       createdAt: t.createdAt,
       token: t.token,
     })),
-    ...cocoQuotes.map((q) => ({
-      id: q.quote,
+    ...receiveRequests.map((r) => ({
+      id: r.id,
       type: 'receive-request' as const,
-      amount: q.amount,
-      mintUrl: q.mintUrl,
-      createdAt: q.expiry ? (q.expiry - 600) * 1000 : Date.now(),
-      expiresAt: q.expiry ? q.expiry * 1000 : undefined,
+      amount: r.amount,
+      mintUrl: r.mintUrl,
+      createdAt: r.createdAt,
+      expiresAt: r.expiresAt,
+      quoteId: r.quoteId,
+      invoice: r.invoice,
+      ecashRequest: r.ecashRequest,
+      ecashRequestId: r.ecashRequestId,
+      bip321Uri: r.bip321Uri,
+      httpEndpoint: r.httpEndpoint,
     })),
     ...sendTokens.map((s) => ({
       id: s.id,
@@ -54,7 +71,6 @@ function mergePendingItems({ receivedTokens, cocoQuotes, sendTokens, memoMap }: 
     })),
   ]
 
-  // Filter out expired lightning requests
   const now = Date.now()
   const valid = merged.filter((item) => {
     if (item.expiresAt && item.expiresAt < now) return false
@@ -77,28 +93,21 @@ export function usePendingItems(mintUrl: string) {
     setIsLoading(true)
     try {
       const db = getDatabase()
-      const { getPendingMintQuotes } = await import('@/coco/manager')
       const variants = [normalized, normalized + '/']
 
-      const [receivedTokens, cocoQuotes, sendTokens] = await Promise.all([
+      const [receivedTokens, receiveRequests, sendTokens] = await Promise.all([
         db.pendingReceivedTokens.where('mintUrl').anyOf(variants).toArray(),
-        getPendingMintQuotes(),
+        getPendingReceiveRequests(variants),
         db.pendingSendTokens.where('mintUrl').anyOf(variants).toArray(),
       ])
 
-      // Batch-fetch memos from transactions for send tokens
       const memoMap = new Map<string, string>()
       if (sendTokens.length > 0) {
         const txs = await db.transactions.bulkGet(sendTokens.map((s) => s.id))
         txs.forEach((tx) => { if (tx?.memo) memoMap.set(tx.id, tx.memo) })
       }
 
-      // Filter Coco quotes by mintUrl
-      const matchingQuotes = cocoQuotes.filter((q) =>
-        stripTrailingSlash(q.mintUrl) === normalized
-      )
-
-      setItems(mergePendingItems({ receivedTokens, cocoQuotes: matchingQuotes, sendTokens, memoMap }))
+      setItems(mergePendingItems({ receivedTokens, receiveRequests, sendTokens, memoMap }))
     } catch (e) {
       console.error('[usePendingItems] Failed to load:', e)
       setItems([])
@@ -128,22 +137,20 @@ export function useAllPendingItems(mintUrls: string[]) {
     setIsLoading(true)
     try {
       const db = getDatabase()
-      const { getPendingMintQuotes } = await import('@/coco/manager')
 
-      const [receivedTokens, cocoQuotes, sendTokens] = await Promise.all([
+      const [receivedTokens, receiveRequests, sendTokens] = await Promise.all([
         db.pendingReceivedTokens.toArray(),
-        getPendingMintQuotes(),
+        getPendingReceiveRequests(),
         db.pendingSendTokens.toArray(),
       ])
 
-      // Batch-fetch memos from transactions for send tokens
       const memoMap = new Map<string, string>()
       if (sendTokens.length > 0) {
         const txs = await db.transactions.bulkGet(sendTokens.map((s) => s.id))
         txs.forEach((tx) => { if (tx?.memo) memoMap.set(tx.id, tx.memo) })
       }
 
-      setItems(mergePendingItems({ receivedTokens, cocoQuotes, sendTokens, memoMap }))
+      setItems(mergePendingItems({ receivedTokens, receiveRequests, sendTokens, memoMap }))
     } catch (e) {
       console.error('[useAllPendingItems] Failed to load:', e)
       setItems([])

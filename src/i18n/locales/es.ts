@@ -883,6 +883,12 @@ export default {
     redeemSuccess: 'Token canjeado',
     redeemFailed: 'Error al canjear',
     reclaimAction: 'Recuperar token',
+    payment: 'Pago',
+    unified: 'Unificado',
+    ecashRequest: 'Solicitud Ecash',
+    lightningInvoice: 'Factura Lightning',
+    quoteStatus: 'Estado',
+    redeemQuote: 'Canjear',
   },
 
   // Error Boundary

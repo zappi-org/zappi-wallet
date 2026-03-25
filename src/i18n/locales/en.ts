@@ -1001,6 +1001,12 @@ export default {
     redeemSuccess: 'Token redeemed',
     redeemFailed: 'Failed to redeem',
     reclaimAction: 'Reclaim Token',
+    payment: 'Payment',
+    unified: 'Unified',
+    ecashRequest: 'Ecash Request',
+    lightningInvoice: 'Lightning Invoice',
+    quoteStatus: 'Status',
+    redeemQuote: 'Redeem',
   },
 
   // Error Boundary

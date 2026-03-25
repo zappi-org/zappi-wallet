@@ -1008,6 +1008,12 @@ export default {
     redeemSuccess: '토큰을 수령했습니다',
     redeemFailed: '수령에 실패했습니다',
     reclaimAction: '토큰 회수',
+    payment: '결제',
+    unified: '통합',
+    ecashRequest: 'Ecash 요청',
+    lightningInvoice: '라이트닝 인보이스',
+    quoteStatus: '상태',
+    redeemQuote: '수동 수령',
   },
 
   // Error Boundary

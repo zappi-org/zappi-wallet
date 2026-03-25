@@ -5,6 +5,7 @@ import i18n from '@/i18n';
 import { satUnit } from '@/utils/format';
 import { connectSendTokenObserver, disconnectSendTokenObserver } from './sendTokenObserver';
 import { connectMintQuoteObserver, disconnectMintQuoteObserver } from './mintQuoteObserver';
+import { findByQuoteId, completeReceiveRequest } from '@/services/receive-request';
 
 // Coco 이벤트 구독 해제 함수들
 let unsubscribers: (() => void)[] = [];
@@ -67,6 +68,14 @@ export function connectCocoToStore(manager: Manager): void {
         duration: 4000,
       });
     }
+
+    // Mark associated ReceiveRequest as completed
+    findByQuoteId(event.quoteId).then((req) => {
+      if (req && req.status === 'pending') {
+        completeReceiveRequest(req.id, 'lightning')
+          .catch((err) => console.error('[Coco Bridge] Failed to complete ReceiveRequest:', err));
+      }
+    }).catch((err) => console.warn('[Coco Bridge] ReceiveRequest lookup failed:', err));
 
     broadcastSync('balance_changed');
     console.log(`[Coco Bridge] Quote redeemed: ${event.quoteId} (${event.quote.amount} sats from ${event.mintUrl})`);
