@@ -140,10 +140,8 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
   if (status === 'processing' || status === 'success') {
     return (
       <div className="h-dvh bg-background text-foreground flex flex-col pt-safe pb-safe z-[60]">
-        <header className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-border">
-          <div className="p-1 w-7" />
-          <h2 className="text-body font-semibold tracking-tight flex-1 text-center">{t('transfer.title')}</h2>
-          <div className="w-7" />
+        <header className="flex items-center justify-center px-5 h-14 shrink-0">
+          <h2 className="text-subtitle">{t('transfer.title')}</h2>
         </header>
 
         <div className="flex-1 flex flex-col items-center justify-center px-6">
@@ -185,11 +183,15 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
   return (
     <div className="h-dvh bg-background text-foreground flex flex-col font-sans relative overflow-hidden z-[60] pt-safe">
       {/* Header */}
-      <header className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-border">
-        <button onClick={onBack} aria-label={t('common.back')} className="p-1">
-          <ArrowLeft className="w-5 h-5 text-foreground" />
+      <header className="flex items-center gap-2 px-5 h-14 shrink-0">
+        <button
+          onClick={onBack}
+          aria-label={t('common.back')}
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
+        >
+          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="text-body font-semibold tracking-tight flex-1">{t('transfer.title')}</h2>
+        <h2 className="text-subtitle">{t('transfer.title')}</h2>
       </header>
 
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-28">
@@ -211,7 +213,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
         <div className="flex justify-center my-2">
           <button
             onClick={handleSwapMints}
-            className="w-9 h-9 bg-brand rounded-full flex items-center justify-center text-white active:scale-90 transition-transform"
+            className="w-9 h-9 bg-brand rounded-full flex items-center justify-center text-white active:scale-95 transition-transform"
           >
             <ArrowRightLeft className="w-3.5 h-3.5" />
           </button>

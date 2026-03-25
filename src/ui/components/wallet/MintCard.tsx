@@ -181,7 +181,7 @@ export function MintCard({
         <button
           onClick={(e) => { e.stopPropagation(); onCreateToken(); }}
           disabled={mint.balance === 0}
-          className="absolute z-20 bg-white/20 border border-white/10 rounded-[8px] px-4 py-2 text-caption font-semibold text-white hover:bg-white/30 active:scale-90 active:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          className="absolute z-20 bg-white/20 border border-white/10 rounded-lg px-4 py-2 text-caption font-semibold text-white hover:bg-white/30 active:scale-95 active:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           style={{ right: '5%', top: '74%' }}
         >
           {t('payment.createToken')}

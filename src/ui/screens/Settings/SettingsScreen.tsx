@@ -14,8 +14,9 @@ import { ProfileService } from '@/services/profile/profile.service'
 import { NostrService } from '@/services/nostr/nostr.service'
 import { ZappiLinkService } from '@/services/zappi-link'
 import { cn } from '@/components/ui/utils'
+import { Button } from '@/ui/components/common/Button'
 
-import { PinChangeModal } from './PinChangeModal'
+import { PinChangePage } from './pages/PinChangePage'
 import { usePinChange } from './usePinChange'
 import { SettingsMainList } from './SettingsMainList'
 import { LanguageSettingPage } from './pages/LanguageSettingPage'
@@ -338,11 +339,15 @@ export function SettingsScreen({
   return (
     <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe overflow-hidden z-[60]">
       {/* Header */}
-      <header className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-border relative z-50">
-        <button onClick={onBack} aria-label={t('common.back')} className="p-1">
-          <ArrowLeft className="w-5 h-5 text-foreground" />
+      <header className="flex items-center gap-2 px-5 h-14 shrink-0 relative z-50">
+        <button
+          onClick={onBack}
+          aria-label={t('common.back')}
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
+        >
+          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="text-body font-semibold tracking-tight">{t('settings.title')}</h2>
+        <h2 className="text-subtitle">{t('settings.title')}</h2>
       </header>
 
       {/* Main list */}
@@ -372,8 +377,14 @@ export function SettingsScreen({
         )}
       </AnimatePresence>
 
-      {/* PIN Change Modal */}
-      <PinChangeModal pinChange={pinChange} />
+      {/* PIN Change — Full-screen page */}
+      <AnimatePresence mode="wait">
+        {pinChange.isOpen && (
+          <PageTransition key="pin-change" variant="page" className="absolute inset-0 z-[66]">
+            <PinChangePage pinChange={pinChange} />
+          </PageTransition>
+        )}
+      </AnimatePresence>
 
       {/* Face ID PIN Modal */}
       <Modal
@@ -449,12 +460,9 @@ export function SettingsScreen({
                 {backupCopied ? t('common.copied') : t('onboarding.copyToClipboard')}
               </button>
             </div>
-            <button
-              onClick={resetBackupModal}
-              className="w-full py-3.5 rounded-xl font-semibold text-caption bg-brand text-white active:opacity-80 transition-all"
-            >
+            <Button variant="brand" size="lg" onClick={resetBackupModal} className="w-full">
               {t('common.close')}
-            </button>
+            </Button>
           </div>
         )}
       </Modal>
@@ -470,7 +478,7 @@ export function SettingsScreen({
             <div className="w-12 h-12 rounded-xl bg-accent-danger/[0.08] flex items-center justify-center text-accent-danger">
               <AlertTriangle className="w-6 h-6" />
             </div>
-            <p className="text-label text-foreground-muted">
+            <p className="text-body text-foreground-muted">
               {t('settings.logoutWarning')}
             </p>
           </div>
@@ -495,23 +503,17 @@ export function SettingsScreen({
         <div className="space-y-3">
           {!isRestoring && !restoreResult && (
             <>
-              <p className="text-label text-foreground-muted">
+              <p className="text-body text-foreground-muted">
                 {t('settings.restoreDescription')}
               </p>
-              <p className="text-label text-foreground-muted">{t('settings.registeredMints', { count: settings.mints.length })}</p>
+              <p className="text-caption text-foreground-muted">{t('settings.registeredMints', { count: settings.mints.length })}</p>
               <div className="flex gap-2">
-                <button
-                  onClick={() => setShowRestoreModal(false)}
-                  className="flex-1 py-2.5 rounded-xl bg-background text-foreground font-semibold text-caption active:opacity-80 border border-border"
-                >
+                <Button variant="outline" size="lg" onClick={() => setShowRestoreModal(false)} className="flex-1">
                   {t('common.cancel')}
-                </button>
-                <button
-                  onClick={handleRestoreTokens}
-                  className="flex-1 py-2.5 rounded-xl bg-brand text-white font-semibold text-caption active:opacity-80"
-                >
+                </Button>
+                <Button variant="brand" size="lg" onClick={handleRestoreTokens} className="flex-1">
                   {t('settings.startVerification')}
-                </button>
+                </Button>
               </div>
             </>
           )}
@@ -534,17 +536,14 @@ export function SettingsScreen({
             <div className="text-center py-3">
               <div className={cn(
                 'w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3',
-                restoreResult.success ? 'bg-accent-primary/[0.1] text-accent-primary' : 'bg-accent-danger/[0.1] text-accent-danger'
+                restoreResult.success ? 'bg-accent-primary/10 text-accent-primary' : 'bg-accent-danger/10 text-accent-danger'
               )}>
                 {restoreResult.success ? <Check className="w-6 h-6" /> : <AlertTriangle className="w-6 h-6" />}
               </div>
               <p className="font-semibold text-foreground">{restoreResult.message}</p>
-              <button
-                onClick={() => { setShowRestoreModal(false); setRestoreResult(null) }}
-                className="w-full mt-3 py-2.5 rounded-xl bg-brand text-white font-semibold text-caption active:opacity-80"
-              >
+              <Button variant="brand" size="lg" onClick={() => { setShowRestoreModal(false); setRestoreResult(null) }} className="w-full mt-3">
                 {t('common.confirm')}
-              </button>
+              </Button>
             </div>
           )}
         </div>

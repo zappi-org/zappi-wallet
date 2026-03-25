@@ -86,7 +86,7 @@ export function AmountInput({
   return (
     <div>
       <div className="flex items-center justify-between">
-        <p className="text-label text-foreground-muted leading-snug">{label}</p>
+        <p className="text-caption text-foreground-muted leading-snug">{label}</p>
         {exchangeRate && showFiat && !disabled && (
           <button
             onClick={handleToggleMode}

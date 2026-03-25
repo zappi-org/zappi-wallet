@@ -909,7 +909,7 @@ export default {
     },
     token: {
       title: 'Token Confirmation',
-      canReceive: 'You can receive\n{{amount}} to\nmy {{mint}}.',
+      canReceive: 'Receive {{amount}}\nfrom {{mint}}?',
       receiveMint: 'Receive Mint',
       amount: 'Amount',
       receive: 'Receive',

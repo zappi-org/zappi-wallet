@@ -3,6 +3,7 @@ import { ArrowLeft, Plus, ChevronDown, Trash2, Copy, Check, QrCode, ExternalLink
 import { Trans, useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
+import { Button } from '@/ui/components/common/Button'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useMintHealth } from '@/hooks/use-mint-health'
 import { LIMITS, getNutName, getSupportedNuts } from '@/core/constants'
@@ -99,11 +100,15 @@ export function MintManagementScreen({
   return (
     <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe overflow-hidden z-[60]">
       {/* Header */}
-      <header className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-border">
-        <button onClick={onBack} aria-label={t('common.back')} className="p-1">
-          <ArrowLeft className="w-5 h-5 text-foreground" />
+      <header className="flex items-center gap-2 px-5 h-14 shrink-0">
+        <button
+          onClick={onBack}
+          aria-label={t('common.back')}
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
+        >
+          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="text-body font-semibold tracking-tight flex-1">{t('settings.manageMints')}</h2>
+        <h2 className="text-subtitle flex-1">{t('settings.manageMints')}</h2>
         {/* Slot indicator */}
         <div className="flex items-center gap-1.5">
           <span className="text-overline font-mono text-foreground-muted mr-0.5">
@@ -158,7 +163,7 @@ export function MintManagementScreen({
                         )} />
                       )}
                     </div>
-                    <span className="text-overline text-foreground-muted truncate block">
+                    <span className="text-label text-foreground-muted truncate block">
                       {formatMintHost(url)}
                     </span>
                   </div>
@@ -395,18 +400,12 @@ export function MintManagementScreen({
             })()}
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={() => setMintToDelete(null)}
-              className="flex-1 py-2.5 rounded-xl bg-background text-foreground font-semibold text-caption active:opacity-80 border border-border"
-            >
+            <Button variant="outline" size="lg" onClick={() => setMintToDelete(null)} className="flex-1">
               {t('common.cancel')}
-            </button>
-            <button
-              onClick={confirmRemoveMint}
-              className="flex-1 py-2.5 rounded-xl bg-accent-danger text-white font-semibold text-caption active:opacity-80"
-            >
+            </Button>
+            <Button variant="destructive" size="lg" onClick={confirmRemoveMint} className="flex-1">
               {t('common.delete')}
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>

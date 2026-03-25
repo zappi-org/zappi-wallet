@@ -785,7 +785,7 @@ export default {
     },
     token: {
       title: 'Confirmación de Token',
-      canReceive: 'Puedes recibir\n{{amount}} en\nmi {{mint}}.',
+      canReceive: '¿Recibir {{amount}}\nde {{mint}}?',
       receiveMint: 'Mint de Recepción',
       amount: 'Monto',
       receive: 'Recibir',

@@ -130,15 +130,15 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
   return (
     <div className="h-dvh bg-background flex flex-col pt-safe">
       {/* Header */}
-      <header className="flex items-center px-5 pt-4 shrink-0">
+      <header className="flex items-center gap-2 px-5 h-14 shrink-0">
         <button
           onClick={() => { hapticTap(); onBack() }}
           aria-label={t('common.back')}
-          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-black/[0.04] active:bg-black/[0.06] transition-colors"
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
         >
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="text-body font-bold tracking-tight ml-2">
+        <h2 className="text-subtitle">
           {t('mintDetail.pendingAll')}
         </h2>
       </header>

@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 
 import { ArrowLeft, Copy, Check, RefreshCw, ClipboardPaste } from 'lucide-react'
 import { NumericKeypad } from '@/ui/components/common/NumericKeypad'
+import { Button } from '@/ui/components/common/Button'
 import { useTranslation } from 'react-i18next'
 import { wordlist } from '@scure/bip39/wordlists/english.js'
 import creatingWalletSvg from '@/assets/creating-wallet.svg'
@@ -272,19 +273,13 @@ export function OnboardingScreen({
             {t('onboarding.tagline')}
           </p>
 
-          <div className="w-full space-y-4 mb-10">
-            <button
-              onClick={handleCreate}
-              className="w-full bg-brand text-white py-3.5 rounded-[14px] font-semibold text-body shadow-lg shadow-brand/25 active:scale-[0.98] transition-all"
-            >
+          <div className="w-full space-y-3 mb-10">
+            <Button variant="brand" size="xl" onClick={handleCreate} className="w-full">
               {t('onboarding.createWallet')}
-            </button>
-            <button
-              onClick={handleImport}
-              className="w-full text-foreground-muted text-caption font-medium underline underline-offset-2 active:opacity-60 transition-opacity"
-            >
+            </Button>
+            <Button variant="outline" size="xl" onClick={handleImport} className="w-full">
               {t('onboarding.importWallet')}
-            </button>
+            </Button>
           </div>
 
           <p className="text-overline text-foreground-muted uppercase tracking-widest">
@@ -303,13 +298,13 @@ export function OnboardingScreen({
       <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe pb-safe overflow-hidden overscroll-none">
         <div className="flex-1 flex flex-col max-w-md mx-auto w-full">
           {/* Header */}
-          <header className="px-5 py-3 flex items-center">
+          <header className="flex items-center px-5 h-14 shrink-0">
             <button
               onClick={() => goBack('welcome')}
               aria-label={t('common.back')}
-              className="p-1 -ml-1 active:opacity-60 transition-opacity"
+              className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
             </button>
           </header>
 
@@ -327,14 +322,14 @@ export function OnboardingScreen({
             </div>
 
             {mode === 'import' && (
-              <div className="relative flex p-1 bg-muted rounded-[10px] mb-4">
+              <div className="relative flex p-1 bg-muted rounded-lg mb-4">
                 <div
-                  className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-brand rounded-[8px] shadow-sm transition-transform duration-200 ease-out"
+                  className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-brand rounded-md shadow-sm transition-transform duration-200 ease-out"
                   style={{ left: '4px', transform: wordCount === 24 ? 'translateX(100%)' : 'translateX(0)' }}
                 />
                 <button
                   onClick={() => handleWordCountChange(12)}
-                  className={`relative z-10 flex-1 py-2 rounded-[8px] text-caption font-semibold transition-colors duration-200 ${
+                  className={`relative z-10 flex-1 py-2 rounded-md text-caption font-semibold transition-colors duration-200 ${
                     wordCount === 12 ? 'text-white' : 'text-foreground-muted'
                   }`}
                 >
@@ -342,7 +337,7 @@ export function OnboardingScreen({
                 </button>
                 <button
                   onClick={() => handleWordCountChange(24)}
-                  className={`relative z-10 flex-1 py-2 rounded-[8px] text-caption font-semibold transition-colors duration-200 ${
+                  className={`relative z-10 flex-1 py-2 rounded-md text-caption font-semibold transition-colors duration-200 ${
                     wordCount === 24 ? 'text-white' : 'text-foreground-muted'
                   }`}
                 >
@@ -353,14 +348,15 @@ export function OnboardingScreen({
 
             {/* Word grid */}
             <div className="bg-background-card rounded-2xl p-4 mb-4">
-              <div className={`grid ${wordCount === 24 ? 'grid-cols-3' : 'grid-cols-2'} gap-x-3 gap-y-1`}>
-                {(mode === 'create' ? words : mnemonicWords).map((word, i) => (
+              <div className={`grid grid-flow-col ${wordCount === 24 ? 'grid-cols-3 grid-rows-8' : 'grid-cols-2 grid-rows-6'} gap-x-3 gap-y-1`}>
+                {(mode === 'create' ? words : mnemonicWords).map((word, i) => {
+                  const rows = wordCount === 24 ? 8 : 6
+                  const isLastRow = (i + 1) % rows === 0
+                  return (
                   <div
                     key={i}
                     className={`flex items-center gap-2 py-2.5 ${
-                      i < (mode === 'create' ? words : mnemonicWords).length - (wordCount === 24 ? 3 : 2)
-                        ? 'border-b border-muted'
-                        : ''
+                      !isLastRow ? 'border-b border-muted' : ''
                     }`}
                   >
                     <span className="text-label tabular-nums text-foreground-subtle w-5 text-right shrink-0">{i + 1}</span>
@@ -395,7 +391,8 @@ export function OnboardingScreen({
                       />
                     )}
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
 
@@ -483,22 +480,19 @@ export function OnboardingScreen({
                 {t('common.paste')}
               </button>
             )}
-            <button
+            <Button
+              variant="brand"
+              size="xl"
               onClick={handleMnemonicNext}
               disabled={
                 (mode === 'create' && !backupConfirmed) ||
                 (mode === 'import' && !isImportComplete) ||
                 isLoading
               }
-              className={`
-                w-full py-3.5 rounded-[14px] font-semibold text-body transition-all
-                ${(mode === 'create' && !backupConfirmed) || (mode === 'import' && !isImportComplete)
-                  ? 'bg-muted text-foreground/30 cursor-not-allowed'
-                  : 'bg-brand text-white shadow-lg shadow-brand/25 active:scale-[0.98]'}
-              `}
+              className="w-full"
             >
               {mode === 'create' ? t('onboarding.recordComplete') : t('onboarding.recoverWallet')}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -514,13 +508,13 @@ export function OnboardingScreen({
       <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe pb-safe overflow-hidden overscroll-none">
         <div className="flex-1 flex flex-col max-w-md mx-auto w-full">
           {/* Header */}
-          <header className="px-5 py-3 flex items-center">
+          <header className="flex items-center px-5 h-14 shrink-0">
             <button
               onClick={() => goBack(isConfirming ? 'pin' : 'mnemonic')}
               aria-label={t('common.back')}
-              className="p-1 -ml-1 active:opacity-60 transition-opacity"
+              className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
             </button>
           </header>
 
@@ -550,7 +544,7 @@ export function OnboardingScreen({
             </div>
 
             {(pinError || error) && (
-              <div className="animate-fadeIn border-l-2 border-accent-danger bg-accent-danger/[0.06] px-3 py-2 text-label text-accent-danger font-semibold mt-4">
+              <div className="animate-fadeIn border-l-2 border-accent-danger bg-accent-danger/[0.06] px-3 py-2 text-caption text-accent-danger font-medium mt-4">
                 {pinError || error}
               </div>
             )}

@@ -134,7 +134,7 @@ export function TokenCreatedStep({
               <Check className="w-8 h-8 text-accent-primary" />
             </div>
             <p className="text-subtitle text-center">{t('send.tokenCreated.claimed')}</p>
-            <p className="text-foreground-muted text-caption font-display">{formatSats(amount)}</p>
+            <p className="text-foreground-muted text-amount font-display">{formatSats(amount)}</p>
             {(() => { const f = formatFiat(amount); return f ? (
               <p className="text-foreground-muted text-label">{f}</p>
             ) : null })()}

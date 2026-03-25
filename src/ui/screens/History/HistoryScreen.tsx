@@ -223,16 +223,16 @@ export function HistoryScreen({
           <button
             onClick={onBack}
             aria-label={t('common.back')}
-            className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-black/[0.04] active:bg-black/[0.06] transition-colors"
+            className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
           >
             <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
           </button>
-          <h2 className="text-body font-bold tracking-tight ml-2">{t('history.title')}</h2>
+          <h2 className="text-subtitle ml-2">{t('history.title')}</h2>
         </div>
         <button
           onClick={handleExportPress}
           aria-label={t('history.export')}
-          className="h-10 rounded-lg flex items-center gap-1.5 px-2.5 hover:bg-black/[0.04] active:bg-black/[0.06] transition-colors text-foreground"
+          className="h-10 rounded-lg flex items-center gap-1.5 px-2.5 hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors text-foreground"
         >
           <Download className="w-[18px] h-[18px]" strokeWidth={1.8} />
         </button>
@@ -319,7 +319,7 @@ export function HistoryScreen({
                     }}
                   >
                     {item.type === 'header' ? (
-                      <h3 className="text-body font-bold text-foreground pt-5 pb-2 px-1">
+                      <h3 className="text-caption font-semibold text-foreground-muted pt-5 pb-2 px-1">
                         {item.label}
                       </h3>
                     ) : (

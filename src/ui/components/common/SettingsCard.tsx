@@ -19,7 +19,7 @@ export function SettingsSection({ label, children, className }: SettingsSectionP
           {label}
         </span>
       )}
-      <div className="bg-background-card rounded-[13px] overflow-hidden divide-y divide-foreground/[0.06]">
+      <div className="bg-background-card rounded-xl overflow-hidden divide-y divide-foreground/[0.06]">
         {children}
       </div>
     </div>

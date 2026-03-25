@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { X, Copy, Check, QrCode, ExternalLink, Pencil } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { Button } from '@/ui/components/common/Button'
 import { useAppStore } from '@/store'
 import type { MintInfo, MintInfoData } from '@/core/types'
 import { NUT_NAMES, getSupportedNuts } from '@/core/constants'
@@ -328,12 +329,9 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, getDi
                     <p className="text-overline uppercase tracking-wide text-foreground-muted mb-2">
                       {t('mintDetail.dangerZone')}
                     </p>
-                    <button
-                      onClick={() => setShowDelete(true)}
-                      className="w-full bg-accent-danger text-white rounded-xl py-4 font-semibold text-caption hover:bg-accent-danger/90 transition-colors"
-                    >
+                    <Button variant="destructive" size="lg" onClick={() => setShowDelete(true)} className="w-full">
                       {t('mintDetail.emptyAndDelete')}
-                    </button>
+                    </Button>
                   </div>
                 )}
               </>

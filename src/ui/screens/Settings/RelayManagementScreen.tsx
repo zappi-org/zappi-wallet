@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { ArrowLeft, Plus, Trash2, Server, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
+import { Button } from '@/ui/components/common/Button'
 import { normalizeRelayUrl } from '@/utils/url'
 import { LIMITS } from '@/core/constants'
 import { cn } from '@/components/ui/utils'
@@ -115,11 +116,15 @@ export function RelayManagementScreen({
   return (
     <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe overflow-hidden z-[60]">
       {/* Header */}
-      <header className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-border">
-        <button onClick={onBack} aria-label={t('common.back')} className="p-1">
-          <ArrowLeft className="w-5 h-5 text-foreground" />
+      <header className="flex items-center gap-2 px-5 h-14 shrink-0">
+        <button
+          onClick={onBack}
+          aria-label={t('common.back')}
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
+        >
+          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="text-body font-semibold tracking-tight flex-1">{t('settings.manageRelays')}</h2>
+        <h2 className="text-subtitle flex-1">{t('settings.manageRelays')}</h2>
         {/* Slot indicator */}
         <div className="flex items-center gap-1.5">
           <span className={cn(
@@ -210,7 +215,7 @@ export function RelayManagementScreen({
                       )} />
                     )}
                   </div>
-                  <span className="text-overline text-foreground-muted">{t('settings.nostrRelay')}</span>
+                  <span className="text-label text-foreground-muted">{t('settings.nostrRelay')}</span>
                 </div>
                 <button
                   onClick={() => setRelayToDelete(url)}
@@ -250,18 +255,12 @@ export function RelayManagementScreen({
             </p>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={() => setRelayToDelete(null)}
-              className="flex-1 py-2.5 rounded-xl bg-background text-foreground font-semibold text-caption active:opacity-80 border border-border"
-            >
+            <Button variant="outline" size="lg" onClick={() => setRelayToDelete(null)} className="flex-1">
               {t('common.cancel')}
-            </button>
-            <button
-              onClick={confirmRemoveRelay}
-              className="flex-1 py-2.5 rounded-xl bg-accent-danger text-white font-semibold text-caption active:opacity-80"
-            >
+            </Button>
+            <Button variant="destructive" size="lg" onClick={confirmRemoveRelay} className="flex-1">
               {t('common.delete')}
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>

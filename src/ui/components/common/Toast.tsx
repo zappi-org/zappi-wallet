@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Toast as ToastType } from '@/store'
 
 export interface ToastProps {
@@ -43,6 +44,7 @@ const icons = {
 }
 
 export function Toast({ toast, onDismiss }: ToastProps) {
+  const { t } = useTranslation()
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
@@ -89,8 +91,8 @@ export function Toast({ toast, onDismiss }: ToastProps) {
       <p className="flex-1 text-caption font-medium whitespace-pre-line">{toast.message}</p>
       <button
         onClick={(e) => { e.stopPropagation(); handleDismiss() }}
-        className="flex-shrink-0 p-1 rounded hover:bg-white/20 transition-all active:scale-90"
-        aria-label="Close"
+        className="flex-shrink-0 p-1 rounded hover:bg-white/20 transition-all active:scale-95"
+        aria-label={t('common.close')}
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="18" y1="6" x2="6" y2="18" />

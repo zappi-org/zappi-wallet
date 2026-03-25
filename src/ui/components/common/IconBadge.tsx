@@ -21,9 +21,9 @@ const colorStyles: Record<IconBadgeColor, string> = {
 }
 
 const sizeStyles: Record<IconBadgeSize, string> = {
-  sm: 'w-[30px] h-[30px] rounded-[8px]',
-  md: 'w-9 h-9 rounded-[10px]',
-  lg: 'w-11 h-11 rounded-[12px]',
+  sm: 'w-[30px] h-[30px] rounded-lg',
+  md: 'w-9 h-9 rounded-lg',
+  lg: 'w-11 h-11 rounded-xl',
 }
 
 export function IconBadge({

@@ -332,15 +332,15 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
   return (
     <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe overflow-hidden z-[60]">
       {/* Header */}
-      <header className="flex items-center px-5 pt-4 relative z-50">
+      <header className="flex items-center gap-2 px-5 h-14 shrink-0 relative z-50">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="p-2 rounded-lg bg-background-card hover:shadow-md transition-all hover:bg-background-card"
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="text-body font-bold tracking-tight ml-3">
+        <h2 className="text-subtitle">
           {t('settings.changeUsername')}
         </h2>
       </header>
@@ -407,14 +407,14 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
                     ) : usernameAvailable ? (
                       <>
                         <CheckCircle2 className="w-3 h-3 text-accent-success" />
-                        <span className="text-overline text-accent-success font-bold">
+                        <span className="text-caption text-accent-success font-medium">
                           {t('settings.usernameAvailable')}
                         </span>
                       </>
                     ) : usernameError ? (
                       <>
                         <XCircle className="w-3 h-3 text-accent-danger" />
-                        <span className="text-overline text-accent-danger font-bold">
+                        <span className="text-caption text-accent-danger font-medium">
                           {usernameError}
                         </span>
                       </>
@@ -453,7 +453,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
                     </span>
                   </div>
                   {!canAfford && selectedMintUrl && (
-                    <p className="text-overline text-accent-danger font-bold mt-1">
+                    <p className="text-caption text-accent-danger font-medium mt-1">
                       {t('settings.insufficientBalance')}
                     </p>
                   )}
@@ -469,7 +469,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
                 </label>
                 {mintInfos.length === 0 ? (
                   <div className="bg-background-card rounded-lg p-3">
-                    <p className="text-overline text-accent-danger font-bold text-center">
+                    <p className="text-caption text-accent-danger font-medium text-center">
                       {t('settings.noPayableMint')}
                     </p>
                   </div>

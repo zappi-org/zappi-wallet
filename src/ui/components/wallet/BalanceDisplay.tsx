@@ -75,7 +75,7 @@ export function BalanceDisplay({
               <h3 className="text-body font-semibold">{t('mintDetails.mintBalance')}</h3>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-1 rounded-lg hover:bg-muted transition-all active:scale-90"
+                className="p-1 rounded-lg hover:bg-muted transition-all active:scale-95"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"

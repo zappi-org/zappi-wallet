@@ -157,7 +157,7 @@ export function TokenConfirmStep({
             disabled={isReceiving || isSwapDisabled}
             className="w-full flex items-center justify-between min-h-[44px] -mx-1 px-1 rounded-lg hover:bg-background-hover active:bg-background-hover transition-colors disabled:opacity-50"
           >
-            <span className="text-body text-foreground-muted">{t('receive.token.receiveMint')}</span>
+            <span className="text-caption text-foreground-muted">{t('receive.token.receiveMint')}</span>
             <span className="flex items-center gap-0.5">
               <span className="text-body font-semibold truncate max-w-[180px]">{mintName}</span>
               {!isSwapDisabled && <ChevronRight className="w-4 h-4 text-foreground-muted shrink-0" />}
@@ -165,7 +165,7 @@ export function TokenConfirmStep({
           </button>
 
           <div className={`flex items-center justify-between ${!isSwapDisabled ? 'pr-[18px]' : ''}`}>
-            <span className="text-body text-foreground-muted">{t('receive.token.amount')}</span>
+            <span className="text-caption text-foreground-muted">{t('receive.token.amount')}</span>
             <div className="text-right">
               <span className="text-body font-semibold">{formattedAmount}</span>
               {(() => { const f = formatFiat(token.amountSats); return f ? (
@@ -175,7 +175,7 @@ export function TokenConfirmStep({
           </div>
           {token.memo && (
             <div className={`flex items-center justify-between ${!isSwapDisabled ? 'pr-[18px]' : ''}`}>
-              <span className="text-body text-foreground-muted">{t('common.memo')}</span>
+              <span className="text-caption text-foreground-muted">{t('common.memo')}</span>
               <span className="text-body font-semibold truncate max-w-[200px]">{token.memo}</span>
             </div>
           )}

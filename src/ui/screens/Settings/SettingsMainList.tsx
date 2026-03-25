@@ -1,6 +1,7 @@
 import { Download } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
+import { Button } from '@/ui/components/common/Button'
 import { encodeNpub } from '@/services/crypto'
 import { FIAT_CURRENCY_MAP } from '@/utils/format'
 import { isPasskeySupported, isPasskeyRegistered } from '@/services/passkey'
@@ -220,12 +221,9 @@ export function SettingsMainList({
 
       {/* Logout */}
       <div className="px-4 pt-8">
-        <button
-          onClick={onOpenLogout}
-          className="w-full py-3.5 bg-accent-danger text-white text-body font-semibold flex items-center justify-center gap-2 rounded-xl active:opacity-80 transition-opacity"
-        >
+        <Button variant="destructive" size="lg" onClick={onOpenLogout} className="w-full">
           {t('settings.logout')}
-        </button>
+        </Button>
         <p className="text-center mt-4 text-overline text-foreground-muted/50 uppercase tracking-widest">
           {t('settings.version')}
         </p>

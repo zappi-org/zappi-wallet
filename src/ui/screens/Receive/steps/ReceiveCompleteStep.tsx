@@ -10,7 +10,9 @@ import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { hapticSuccess, hapticTap } from '@/utils/haptic'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
+import { motion } from 'motion/react'
 import tokenReceiveSuccessImg from '@/assets/token-receive-success.png'
+import { Confetti } from '@/ui/components/payment/Confetti'
 
 interface ReceiveCompleteStepProps {
   amount: number
@@ -50,8 +52,10 @@ export function ReceiveCompleteStep({
   }, [])
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      {/* Text at top — left-aligned */}
+    <div className="flex flex-col h-full bg-background relative">
+      <Confetti />
+
+      {/* Text at top */}
       <div className="px-6 pt-24">
         <p className="text-title font-medium leading-relaxed whitespace-pre-line text-center">
           {t('receive.complete.message', {
@@ -66,10 +70,13 @@ export function ReceiveCompleteStep({
 
       {/* Success image centered */}
       <div className="flex-1 flex items-center justify-center">
-        <img
+        <motion.img
           src={tokenReceiveSuccessImg}
           alt=""
           className="w-80 h-80 object-contain"
+          initial={{ scale: 0, opacity: 0, rotate: -12 }}
+          animate={{ scale: 1, opacity: 1, rotate: 0 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 18, delay: 0.1 }}
         />
       </div>
 

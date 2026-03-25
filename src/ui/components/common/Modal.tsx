@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 
 export interface ModalProps {
   isOpen: boolean
@@ -27,6 +28,7 @@ export function Modal({
   closeOnOverlayClick = true,
   size = 'md',
 }: ModalProps) {
+  const { t } = useTranslation()
   const overlayRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
 
@@ -124,8 +126,8 @@ export function Modal({
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className="ml-auto p-3 rounded-lg hover:bg-muted transition-all active:scale-90 active:opacity-80"
-                aria-label="Close"
+                className="ml-auto p-3 rounded-lg hover:bg-muted transition-all active:scale-95 active:opacity-80"
+                aria-label={t('common.close')}
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"

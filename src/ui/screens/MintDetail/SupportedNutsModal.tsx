@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { Button } from '@/ui/components/common/Button'
 
 interface SupportedNutsModalProps {
   isOpen: boolean
@@ -55,12 +56,9 @@ export function SupportedNutsModal({ isOpen, nuts, nutNames, onClose }: Supporte
 
         {/* Close button */}
         <div className="px-6 pb-6 shrink-0">
-          <button
-            onClick={onClose}
-            className="w-full bg-brand text-white py-3.5 rounded-xl font-semibold text-caption active:scale-[0.98] transition-transform"
-          >
+          <Button variant="brand" size="lg" onClick={onClose} className="w-full">
             {t('common.close')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

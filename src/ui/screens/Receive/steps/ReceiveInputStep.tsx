@@ -170,7 +170,7 @@ export function ReceiveInputStep({
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
             maxLength={100}
-            className="w-full bg-transparent border-0 border-b border-b-border rounded-none py-2 text-subtitle font-semibold text-foreground focus:outline-none focus:border-b-foreground transition-colors"
+            className="w-full bg-transparent border-0 border-b border-b-border rounded-none py-2 text-body font-medium text-foreground focus:outline-none focus:border-b-foreground transition-colors"
           />
         </div>
       </div>

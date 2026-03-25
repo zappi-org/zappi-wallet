@@ -183,7 +183,7 @@ export function TokenReceiveStep({
               }}
               disabled={state === 'validating'}
               placeholder={t('receive.tokenInputPlaceholder')}
-              className="flex-1 min-w-0 bg-transparent border-0 rounded-none px-0 py-2 text-subtitle font-semibold text-foreground placeholder:text-foreground-muted/40 placeholder:font-normal focus:outline-none disabled:opacity-50"
+              className="flex-1 min-w-0 bg-transparent border-0 rounded-none px-0 py-2 text-body font-medium text-foreground placeholder:text-foreground-muted/40 placeholder:font-normal focus:outline-none disabled:opacity-50"
             />
             <div className="shrink-0 pb-1">
               <button

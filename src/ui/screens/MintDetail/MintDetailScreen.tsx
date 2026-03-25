@@ -197,7 +197,7 @@ export function MintDetailScreen({
         {pendingItems.length > 0 && (
           <section>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-label font-semibold text-foreground-muted">
+              <h2 className="text-caption font-semibold text-foreground-muted">
                 {t('mintDetail.pendingItems')}
               </h2>
               <button
@@ -214,7 +214,7 @@ export function MintDetailScreen({
         {/* Transactions */}
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-label font-semibold text-foreground-muted">
+            <h2 className="text-caption font-semibold text-foreground-muted">
               {t('mintDetail.transactions')}
             </h2>
             {onTransactions && (
