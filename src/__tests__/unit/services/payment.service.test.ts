@@ -242,24 +242,6 @@ describe('PaymentService', () => {
     })
   })
 
-  describe('pollForPayment', () => {
-    it('should return true when payment is received', async () => {
-      mockCheckMintQuote.mockResolvedValue('PAID')
-
-      const isPaid = await service.checkPaymentStatus(testMintUrl, 'quote-123')
-
-      expect(isPaid).toBe(true)
-    })
-
-    it('should return false when payment is not yet received', async () => {
-      mockCheckMintQuote.mockResolvedValue('UNPAID')
-
-      const isPaid = await service.checkPaymentStatus(testMintUrl, 'quote-123')
-
-      expect(isPaid).toBe(false)
-    })
-  })
-
   describe('claimPayment', () => {
     it('should claim tokens after payment and store them', async () => {
       const result = await service.claimPayment(testMintUrl, 'quote-123', 100)

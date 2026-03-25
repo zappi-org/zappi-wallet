@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import {
@@ -16,7 +16,6 @@ import { formatSats } from '@/utils/format'
 export function usePayment() {
   const { t } = useTranslation()
   const paymentServiceRef = useRef<PaymentService | null>(null)
-  const [pollingQuoteId, setPollingQuoteId] = useState<string | null>(null)
 
   // Get payment service singleton
   const getPaymentService = useCallback(() => {
@@ -68,59 +67,6 @@ export function usePayment() {
       }
     },
     [canPerformOnlineOps, getPaymentService, setProcessingPayment, addToast, t]
-  )
-
-  /**
-   * Poll for payment status
-   */
-  const checkPaymentStatus = useCallback(
-    async (mintUrl: string, quoteId: string): Promise<boolean> => {
-      const paymentService = getPaymentService()
-      return paymentService.checkPaymentStatus(mintUrl, quoteId)
-    },
-    [getPaymentService]
-  )
-
-  /**
-   * Start polling for payment
-   */
-  const startPolling = useCallback(
-    (
-      mintUrl: string,
-      quoteId: string,
-      onPaid: (mintUrl: string, quoteId: string) => void,
-      intervalMs: number = 2000,
-      maxAttempts: number = 300 // 10 min at 2s interval
-    ) => {
-      setPollingQuoteId(quoteId)
-      let attemptCount = 0
-
-      const intervalId = setInterval(async () => {
-        attemptCount++
-        if (attemptCount > maxAttempts) {
-          clearInterval(intervalId)
-          setPollingQuoteId(null)
-          return
-        }
-        try {
-          const isPaid = await checkPaymentStatus(mintUrl, quoteId)
-          if (isPaid) {
-            clearInterval(intervalId)
-            setPollingQuoteId(null)
-            onPaid(mintUrl, quoteId)
-          }
-        } catch (error) {
-          console.error('[usePayment] Polling error:', error)
-        }
-      }, intervalMs)
-
-      // Return cleanup function
-      return () => {
-        clearInterval(intervalId)
-        setPollingQuoteId(null)
-      }
-    },
-    [checkPaymentStatus]
   )
 
   /**
@@ -268,13 +214,9 @@ export function usePayment() {
     isProcessingPayment,
     currentAmount,
     canPerformOnlineOps,
-    isPolling: pollingQuoteId !== null,
-    pollingQuoteId,
 
     // Actions
     createInvoice,
-    checkPaymentStatus,
-    startPolling,
     claimPayment,
     receiveEcash,
     sendLightning,

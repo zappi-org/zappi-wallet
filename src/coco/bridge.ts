@@ -54,7 +54,7 @@ export function connectCocoToStore(manager: Manager): void {
   // (거래 DB 기록은 mintQuoteObserver가 담당)
   const unsubMintQuoteRedeemed = manager.on('mint-quote:redeemed', (event) => {
     updateBalances();
-    const { removePendingQuote, addToast } = useAppStore.getState();
+    const { removePendingQuote, addToast, setLastRedeemedQuote } = useAppStore.getState();
 
     removePendingQuote(event.quoteId);
 
@@ -68,6 +68,8 @@ export function connectCocoToStore(manager: Manager): void {
         message: i18n.t('toast.lightningReceived', { unit: satUnit(), amount: event.quote.amount.toLocaleString() }),
         duration: 4000,
       });
+      // ReceiveQRStep이 Lightning 결제 감지할 수 있도록 store에 기록
+      setLastRedeemedQuote(event.quoteId, event.quote.amount);
     }
 
     broadcastSync('balance_changed');

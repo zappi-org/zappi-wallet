@@ -367,7 +367,6 @@ export default function MainApp() {
     return () => {
       cancelled = true
       document.removeEventListener('visibilitychange', handleVisibilityChange)
-      services.payment.disconnectAllWebSockets()
     }
   }, [isLocked, isInitializing, services.payment, syncAfterRecovery])
 
@@ -446,28 +445,6 @@ export default function MainApp() {
     }
     return null
   }, [services.payment, addPendingQuote])
-
-  // Subscribe to quote — handles polling + WebSocket internally
-  const handleSubscribeToQuote = useCallback(async (
-    mintUrl: string,
-    quoteId: string,
-    amount: number,
-    onPaid: () => void,
-    onError?: (error: Error) => void
-  ): Promise<(() => void) | null> => {
-    if (!mintUrl) return null
-
-    return services.payment.subscribeToQuote(
-      mintUrl,
-      quoteId,
-      amount,
-      async () => {
-        refreshAll().catch((e) => console.error('[MainApp] refreshAll after quote paid:', e))
-        onPaid()
-      },
-      onError
-    )
-  }, [services.payment, refreshAll])
 
   const handleReceiveToken = useCallback(async (token: string): Promise<{ success: boolean; amount?: number; transactionId?: string; error?: { code?: string; message?: string } }> => {
     const result = await services.payment.receiveEcash(token)
@@ -1085,7 +1062,6 @@ export default function MainApp() {
             setCurrentScreen('home')
           }}
           onCreateInvoice={handleCreateInvoice}
-          onSubscribeToQuote={handleSubscribeToQuote}
           onPaymentReceived={handlePaymentReceived}
           onReceiveToken={handleReceiveToken}
           onAddTrustedMint={handleAddTrustedMint}
