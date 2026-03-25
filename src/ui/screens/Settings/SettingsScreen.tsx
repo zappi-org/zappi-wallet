@@ -27,8 +27,9 @@ import {
 } from '@/services/passkey'
 import { AutoLockSettingPage } from './pages/AutoLockSettingPage'
 import { POSSettingPage } from './pages/POSSettingPage'
+import { PrivacySettingPage } from './pages/PrivacySettingPage'
 
-export type SettingsPage = 'language' | 'unitDisplay' | 'fiat' | 'autoLock' | 'pos'
+export type SettingsPage = 'language' | 'unitDisplay' | 'fiat' | 'autoLock' | 'pos' | 'privacy'
 
 export interface SettingsScreenProps {
   onBack: () => void
@@ -327,6 +328,8 @@ export function SettingsScreen({
             onSaveSettings={saveSettings}
           />
         )
+      case 'privacy':
+        return <PrivacySettingPage onBack={() => setSettingsPage(null)} saveSettings={saveSettings} />
       default:
         return null
     }

@@ -125,6 +125,8 @@ export interface ParsedCashuRequest {
   hasPostTransport: boolean
   postTarget?: string  // HTTP POST endpoint URL
   p2pkPubkey?: string  // extracted from nut10 when kind === 'P2PK'
+  /** Bolt11 from unified bitcoin: URI (routing layer에서 사용) */
+  lightningInvoice?: string
 }
 
 export interface ValidatedMyWallet {
@@ -320,7 +322,7 @@ function validateCashuToken(input: CashuTokenInput): ValidationResult {
 
 function validateCashuRequest(input: CashuRequestInput): ValidationResult {
   try {
-    const parsed = decodeCashuRequest(input.request)
+    const parsed = decodeCashuRequest(input.request, input.lightningInvoice)
     return {
       valid: true,
       data: {
@@ -342,7 +344,7 @@ function validateCashuRequest(input: CashuRequestInput): ValidationResult {
  * Decode payment request (NUT-18 creqA / NUT-26 creqB / cashu:// / bitcoin:)
  * Delegates to nut18.ts which uses cashu-ts PaymentRequest class
  */
-export function decodeCashuRequest(request: string): ParsedCashuRequest {
+export function decodeCashuRequest(request: string, lightningInvoice?: string): ParsedCashuRequest {
   const decoded = decodePaymentRequest(request)
 
   const transports: CashuRequestTransport[] = decoded.transports.map((t) => ({
@@ -379,6 +381,7 @@ export function decodeCashuRequest(request: string): ParsedCashuRequest {
     hasPostTransport: !!postTransport,
     postTarget: postTransport?.target,
     p2pkPubkey,
+    lightningInvoice,
   }
 }
 

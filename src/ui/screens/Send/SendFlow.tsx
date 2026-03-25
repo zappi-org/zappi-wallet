@@ -13,11 +13,8 @@ import { useState, useCallback, useRef } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
 import { useNetwork } from '@/hooks/use-network'
-import { sendTokenViaDM, getRecipientDMRelays } from '@/services/nostr-dm'
-import { sendTokenViaHttp } from '@/services/cashu/nut18-http'
 import { useAppStore } from '@/store'
 import { useTranslation } from 'react-i18next'
-import { prepareMelt, rollbackMelt } from '@/coco/cashuService'
 import { InsufficientBalanceError } from '@/core/errors/cashu'
 import { translateError } from '@/core/errors/translate'
 import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
@@ -30,6 +27,29 @@ import {
   type ValidatedCashuRequest,
   type ValidatedMyWallet,
 } from '@/ui/components/scanner/InputValidator'
+import {
+  selectRoute,
+  selectSourceMint,
+  findCommonMints,
+  estimateRouteFee,
+  PaymentRoute,
+  ROUTE_LABELS,
+  type RouteSelection,
+  type RouteContext,
+  type RouteExecutionResult,
+} from '@/services/payment/routing'
+import { getBalances as cocoGetBalances } from '@/coco/cashuService'
+
+// ============= Helpers =============
+
+function getAddressOrInvoice(data: SendableValidatedData): string | undefined {
+  switch (data.type) {
+    case 'bolt11': return data.invoice
+    case 'lightning-address': return data.address
+    case 'lnurl-pay': return data.lnurl
+    default: return undefined
+  }
+}
 
 import { SendInputStep } from './steps/SendInputStep'
 import { TokenCreateStep } from './steps/TokenCreateStep'
@@ -67,21 +87,22 @@ export interface SendFlowState {
   createdTxId: string | null
   createdOperationId: string | null
   fee: number
-  meltQuoteId: string | null
   error: string | null
   // NUT-18 specific
   dmSent: boolean
+  // Routing
+  routeSelection: RouteSelection | null
 }
 
 export interface SendFlowProps {
   onBack: () => void
   onComplete: () => void
-  // MainApp handlers
-  onSendLightning: (addressOrInvoice: string, amount: number, mintUrl?: string) => Promise<boolean>
+  // Routing-based send handler (primary)
+  onExecuteRoute: (selection: RouteSelection, context: RouteContext) => Promise<RouteExecutionResult | null>
+  // Token create handler (for token-create step only, not routing)
   onCreateEcashToken: (amount: number, mintUrl?: string, options?: { p2pkPubkey?: string; memo?: string }) => Promise<{ token: string; txId: string; operationId: string } | null>
   onCompleteEcashSend?: (txId: string) => Promise<void>
   onCancelEcashToken?: (txId: string) => Promise<void>
-  onMintSwap?: (fromMintUrl: string, toMintUrl: string, amount: number) => Promise<{ success: boolean; amount?: number; error?: string }>
   // Pre-filled data from scanner
   validatedData?: ValidatedData
   initialAmount?: number
@@ -95,11 +116,10 @@ export interface SendFlowProps {
 export function SendFlow({
   onBack,
   onComplete,
-  onSendLightning,
+  onExecuteRoute,
   onCreateEcashToken,
   onCompleteEcashSend,
   onCancelEcashToken,
-  onMintSwap,
   validatedData: initialValidatedData,
   initialAmount,
   initialMintUrl,
@@ -148,9 +168,9 @@ export function SendFlow({
     createdTxId: null,
     createdOperationId: null,
     fee: 0,
-    meltQuoteId: null,
     error: null,
     dmSent: false,
+    routeSelection: null,
   })
 
   // Loading state for async operations
@@ -206,26 +226,68 @@ export function SendFlow({
         validated = result.data
       }
 
-      // Get fee estimate for Lightning payments (skip for my-wallet — estimated in confirm step)
+      // Route selection + fee estimation
       let fee = 0
-      let meltQuoteId: string | null = null
+      let routeSel: RouteSelection | null = null
 
-      if (validated.type === 'bolt11') {
-        try {
-          const meltOp = await prepareMelt(data.selectedMintUrl, validated.invoice)
-          fee = meltOp.fee_reserve + meltOp.swap_fee
-          meltQuoteId = meltOp.quoteId
-          // Rollback immediately — this is just a fee estimate, actual melt happens in sendLightning
-          await rollbackMelt(meltOp.operationId, 'fee estimation only').catch((e) =>
-            console.error('[SendFlow] Fee estimation rollback FAILED:', e)
-          )
-        } catch (err) {
-          console.error('[SendFlow] Melt quote failed:', err)
-          addToast({ type: 'error', message: t('payment.feeEstimateFailed'), duration: 3000 })
+      try {
+        const balances = await cocoGetBalances()
+        const route = selectRoute({
+          validatedData: validated,
+          senderMints: balances,
+          amount: data.amount,
+          privacyMode: useAppStore.getState().settings.senderPrivacyMode ?? false,
+          lightningInvoice: validated.type === 'cashu-request' ? validated.parsed.lightningInvoice : undefined,
+        })
+
+        if (route === PaymentRoute.CANNOT_SEND) {
+          addToast({ type: 'error', message: t('payment.cannotSend'), duration: 3000 })
           isProcessingRef.current = false
           setIsLoading(false)
           return
         }
+
+        // Determine source + target mints
+        const commonMints = validated.type === 'cashu-request' && validated.parsed.mints.length > 0
+          ? findCommonMints(Object.keys(balances).filter((m) => balances[m] > 0), validated.parsed.mints)
+          : []
+        const sourceMint = selectSourceMint(route, balances, data.amount, commonMints) || data.selectedMintUrl
+
+        let targetMint: string | undefined
+        if (route === PaymentRoute.TOKEN_TRANSFER || route === PaymentRoute.LN_INTERNAL) {
+          targetMint = commonMints[0]
+        } else if (route === PaymentRoute.LN_CROSS_MINT || route === PaymentRoute.MINT_AND_DM) {
+          targetMint = validated.type === 'cashu-request' ? validated.parsed.mints[0]
+            : validated.type === 'my-wallet' ? validated.targetMintUrl
+            : undefined
+        }
+
+        // Resolve invoice for LN routes
+        let invoice: string | undefined
+        if (validated.type === 'bolt11') invoice = validated.invoice
+        else if (validated.type === 'cashu-request') invoice = validated.parsed.lightningInvoice
+
+        // Fee estimation
+        const feeEstimate = await estimateRouteFee(route, sourceMint, data.amount, targetMint, invoice)
+        fee = feeEstimate.fee
+
+        routeSel = {
+          route,
+          amount: data.amount,
+          sourceMintUrl: sourceMint,
+          targetMintUrl: targetMint,
+          invoice,
+          estimatedFee: fee,
+          reason: ROUTE_LABELS[route],
+        }
+
+        console.log(`[SendFlow] Route selected: #${route} ${ROUTE_LABELS[route]} (fee: ${fee} sat)`)
+      } catch (err) {
+        console.error('[SendFlow] Route selection / fee estimation failed:', err)
+        addToast({ type: 'error', message: t('payment.feeEstimateFailed'), duration: 3000 })
+        isProcessingRef.current = false
+        setIsLoading(false)
+        return
       }
 
       setState((prev) => ({
@@ -236,7 +298,7 @@ export function SendFlow({
         selectedMintUrl: data.selectedMintUrl,
         validatedData: validated!,
         fee,
-        meltQuoteId,
+            routeSelection: routeSel,
         error: null,
       }))
     } catch (err) {
@@ -248,9 +310,9 @@ export function SendFlow({
     }
   }, [isOnline, addToast, t])
 
-  /** Confirm step → execute send */
+  /** Confirm step → execute send via routing layer */
   const handleConfirmSend = useCallback(async () => {
-    if (isProcessingRef.current || !state.validatedData || !state.selectedMintUrl) return
+    if (isProcessingRef.current || !state.validatedData || !state.selectedMintUrl || !state.routeSelection) return
 
     if (!isOnline) {
       addToast({ type: 'error', message: t('common.offlineRequired'), duration: 3000 })
@@ -261,121 +323,24 @@ export function SendFlow({
     setState((prev) => ({ ...prev, step: 'sending', error: null }))
 
     try {
-      const { validatedData, amount, selectedMintUrl } = state
+      const { validatedData, routeSelection, memo } = state
 
-      let success = false
-
-      switch (validatedData.type) {
-        case 'bolt11':
-          success = await onSendLightning(validatedData.invoice, amount, selectedMintUrl)
-          break
-
-        case 'lightning-address':
-          success = await onSendLightning(validatedData.address, amount, selectedMintUrl)
-          break
-
-        case 'lnurl-pay':
-          success = await onSendLightning(validatedData.lnurl, amount, selectedMintUrl)
-          break
-
-        case 'my-wallet': {
-          if (onMintSwap) {
-            const swapResult = await onMintSwap(selectedMintUrl, validatedData.targetMintUrl, amount)
-            success = swapResult.success
-          }
-          break
-        }
-
-        case 'cashu-request': {
-          const requestedMints = validatedData.parsed.mints
-          const memo = state.memo || validatedData.parsed.description
-          let tokenMintUrl = selectedMintUrl
-
-          // Mint mismatch check: if request specifies mints and our selected mint isn't in the list,
-          // swap our balance to the requested mint first
-          if (requestedMints.length > 0 && !requestedMints.includes(selectedMintUrl)) {
-            const targetMint = requestedMints[0] // Use first requested mint
-            console.log(`[SendFlow] Mint mismatch: selected=${selectedMintUrl}, requested=${targetMint}. Swapping.`)
-
-            if (onMintSwap) {
-              const swapResult = await onMintSwap(selectedMintUrl, targetMint, amount)
-              if (!swapResult.success) {
-                addToast({ type: 'error', message: t('payment.sendFailed'), duration: 3000 })
-                break
-              }
-              tokenMintUrl = targetMint
-            } else {
-              // No swap handler — warn and proceed with selected mint anyway
-              console.warn('[SendFlow] No onMintSwap handler, sending from non-matching mint')
-            }
-          }
-
-          // Create ecash token on the correct mint
-          const result = await onCreateEcashToken(amount, tokenMintUrl, {
-            p2pkPubkey: validatedData.parsed.p2pkPubkey,
-            memo,
-          })
-
-          if (result) {
-            const { token, txId } = result
-
-            // Try Nostr transport first (primary)
-            if (validatedData.parsed.hasNostrTransport && validatedData.parsed.nostrTarget) {
-              const nostrPrivkey = useAppStore.getState().nostrPrivkey
-              const settings = useAppStore.getState().settings
-
-              if (nostrPrivkey) {
-                try {
-                  const relays = await getRecipientDMRelays(
-                    validatedData.parsed.nostrTarget,
-                    settings.relays || []
-                  )
-                  const dmResult = await sendTokenViaDM({
-                    recipientPubkey: validatedData.parsed.nostrTarget,
-                    token,
-                    memo,
-                    requestId: validatedData.parsed.id,
-                    senderPrivkey: nostrPrivkey,
-                    relays,
-                  })
-                  success = dmResult.success
-                  if (dmResult.success) {
-                    setState((prev) => ({ ...prev, dmSent: true }))
-                  }
-                } catch (err) {
-                  console.warn('[SendFlow] Nostr DM failed, checking HTTP fallback:', err)
-                  success = false
-                }
-              }
-            }
-
-            // Fallback to HTTP POST if Nostr failed or unavailable
-            if (!success && validatedData.parsed.hasPostTransport && validatedData.parsed.postTarget) {
-              console.log('[SendFlow] Attempting HTTP POST fallback')
-              const httpResult = await sendTokenViaHttp({
-                endpoint: validatedData.parsed.postTarget,
-                token,
-                requestId: validatedData.parsed.id,
-                memo,
-              })
-              success = httpResult.success
-            }
-
-            // No transport available — token was created, treat as success
-            if (!success && !validatedData.parsed.hasNostrTransport && !validatedData.parsed.hasPostTransport) {
-              success = true
-            }
-
-            // Transport 성공 시 거래 완료 처리
-            if (success) {
-              await onCompleteEcashSend?.(txId)
-            }
-          }
-          break
-        }
+      // Build route context
+      const storeState = useAppStore.getState()
+      const context: RouteContext = {
+        parsedCreq: validatedData.type === 'cashu-request' ? validatedData.parsed : undefined,
+        nostrPrivkey: storeState.nostrPrivkey || undefined,
+        relays: storeState.settings.relays || [],
+        memo: memo || (validatedData.type === 'cashu-request' ? validatedData.parsed.description : undefined),
+        addressOrInvoice: getAddressOrInvoice(validatedData),
       }
 
-      if (success) {
+      const result = await onExecuteRoute(routeSelection, context)
+
+      if (result?.success) {
+        if (result.transportUsed === 'nostr') {
+          setState((prev) => ({ ...prev, dmSent: true }))
+        }
         setState((prev) => ({ ...prev, step: 'complete' }))
       } else {
         setState((prev) => ({
@@ -395,7 +360,7 @@ export function SendFlow({
     } finally {
       isProcessingRef.current = false
     }
-  }, [state, onSendLightning, onCreateEcashToken, onCompleteEcashSend, onMintSwap, isOnline, addToast, t])
+  }, [state, onExecuteRoute, isOnline, addToast, t])
 
   /** Token create step → create token */
   const handleTokenCreate = useCallback(async (data: {
@@ -525,8 +490,7 @@ export function SendFlow({
                   validatedData: null,
                   destination: '',
                   fee: 0,
-                  meltQuoteId: null,
-                  error: null,
+                                error: null,
                 }))
               }}
               onConfirm={handleConfirmSend}

@@ -41,6 +41,7 @@ const RelayManagementScreen = lazy(() => import('@/ui/screens/Settings/RelayMana
 import { SendFlow } from '@/ui/screens/Send/SendFlow'
 import { ReceiveFlow } from '@/ui/screens/Receive/ReceiveFlow'
 import type { ValidatedData } from '@/ui/components/scanner'
+import type { RouteSelection, RouteContext, RouteExecutionResult } from '@/services/payment/routing'
 import { ToastContainer } from '@/ui/components'
 import type { MintInfo } from '@/core/types'
 
@@ -537,6 +538,29 @@ export default function MainApp() {
     return { success: true, amount: swapResult.value.amount }
   }, [services.payment, refreshAll])
 
+  /** Unified send handler via routing layer */
+  const handleExecuteRoute = useCallback(async (
+    selection: RouteSelection,
+    context: RouteContext,
+  ): Promise<RouteExecutionResult | null> => {
+    try {
+      const { executeRoute } = await import('@/services/payment/routing')
+      const result = await executeRoute(selection, context)
+
+      if (result.isOk()) {
+        refreshAll().catch((e) => console.error('[MainApp] refreshAll after route execution:', e))
+        return result.value
+      }
+
+      console.error('[MainApp] Route execution failed:', result.error)
+      addToast({ type: 'error', message: translateError(result.error), duration: 4000 })
+      return null
+    } catch (error) {
+      console.error('[MainApp] handleExecuteRoute error:', error)
+      return null
+    }
+  }, [refreshAll, addToast])
+
   /** Store offline P2PK token for later redemption */
   const handleStoreOfflineToken = useCallback(async (
     token: string,
@@ -562,36 +586,6 @@ export default function MainApp() {
     refreshAll().catch((e) => console.error('[MainApp] refreshAll after payment received:', e))
     broadcastSync('balance_changed')
   }, [refreshAll])
-
-  // Send modal handlers
-  const handleSendLightning = useCallback(async (addressOrInvoice: string, amount: number, mintUrl?: string): Promise<boolean> => {
-    const result = await services.payment.sendLightning(addressOrInvoice, amount, mintUrl)
-
-    if (result.isErr()) {
-      console.error('Lightning send failed:', result.error)
-      addToast({
-        type: 'error',
-        message: translateError(result.error),
-        duration: 4000,
-      })
-      return false
-    }
-
-    console.log('Lightning payment sent:', result.value)
-
-    // Fire-and-forget so toast always shows
-    refreshAll().catch((e) => console.error('[MainApp] refreshAll after lightning send:', e))
-
-    addToast({
-      type: 'success',
-      message: t('toast.lightningSendComplete', { unit: satUnit(), amount: result.value.amount.toLocaleString(), feeUnit: satUnit(), fee: result.value.fee }),
-      duration: 4000,
-    })
-
-    broadcastSync('balance_changed')
-
-    return true
-  }, [services.payment, refreshAll, addToast, t])
 
   const handleCreateEcashToken = useCallback(async (amount: number, preferredMintUrl?: string, options?: { p2pkPubkey?: string; memo?: string }): Promise<{ token: string; txId: string; operationId: string } | null> => {
     if (isSendingEcashRef.current) return null
@@ -1082,11 +1076,10 @@ export default function MainApp() {
             setPreviousScreen(null)
             setCurrentScreen('home')
           }}
-          onSendLightning={handleSendLightning}
+          onExecuteRoute={handleExecuteRoute}
           onCreateEcashToken={handleCreateEcashToken}
           onCompleteEcashSend={handleCompleteEcashSend}
           onCancelEcashToken={handleCancelEcashToken}
-          onMintSwap={handleMintSwap}
           validatedData={validatedScanData || undefined}
           initialAmount={scannedAmount || undefined}
           initialMintUrl={activeMintUrl}
