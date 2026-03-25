@@ -29,14 +29,6 @@ interface ReceiveQRStepProps {
   ecashRequest: string | null
   ecashRequestId: string | null
   httpEndpoint: string | null
-  // Lightning subscription
-  onSubscribeToQuote: (
-    mintUrl: string,
-    quoteId: string,
-    amount: number,
-    onPaid: () => void,
-    onError?: (error: Error) => void
-  ) => Promise<(() => void) | null>
 }
 
 export function ReceiveQRStep({
@@ -49,7 +41,6 @@ export function ReceiveQRStep({
   ecashRequest,
   ecashRequestId,
   httpEndpoint,
-  onSubscribeToQuote,
 }: ReceiveQRStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
@@ -94,61 +85,22 @@ export function ReceiveQRStep({
   // Text for copy/share (same as QR value)
   const shareText = qrValue
 
-  // ======= Lightning payment subscription =======
-  const [resubTrigger, setResubTrigger] = useState(0)
+  // ======= Lightning payment detection (via Coco MintQuoteWatcher → store) =======
+  const lastRedeemedQuoteId = useAppStore((s) => s.lastRedeemedQuoteId)
+  const lastRedeemedQuoteAmount = useAppStore((s) => s.lastRedeemedQuoteAmount)
+  const setLastRedeemedQuote = useAppStore((s) => s.setLastRedeemedQuote)
 
-  // Re-subscribe on visibility change (app returning from background)
   useEffect(() => {
-    if (!quoteId) return
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        setResubTrigger((v) => v + 1)
-      }
-    }
-    document.addEventListener('visibilitychange', handleVisibility)
-    return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [quoteId])
+    if (!quoteId || !lastRedeemedQuoteId) return
+    if (paymentDetectedRef.current) return
 
-  // Subscribe to Lightning quote
-  useEffect(() => {
-    if (!quoteId) return
-
-    let cancelled = false
-    let unsubscribe: (() => void) | null = null
-
-    const handlePaid = () => {
-      if (cancelled || paymentDetectedRef.current) return
+    if (lastRedeemedQuoteId === quoteId) {
       paymentDetectedRef.current = true
-      cancelled = true
+      setLastRedeemedQuote(null, 0)
       hapticSuccess()
-      onPaymentDetected(amount, 'lightning')
+      onPaymentDetected(lastRedeemedQuoteAmount ?? amount, 'lightning')
     }
-
-    const setup = async () => {
-      try {
-        const canceller = await onSubscribeToQuote(
-          mintUrl,
-          quoteId,
-          amount,
-          handlePaid,
-        )
-        if (cancelled) {
-          canceller?.()
-          return
-        }
-        if (canceller) unsubscribe = canceller
-      } catch (err) {
-        console.warn('[ReceiveQR] Lightning subscription setup failed:', err)
-      }
-    }
-
-    setup()
-
-    return () => {
-      cancelled = true
-      unsubscribe?.()
-    }
-  }, [quoteId, amount, mintUrl, onSubscribeToQuote, onPaymentDetected, resubTrigger, ecashRequestId])
+  }, [quoteId, lastRedeemedQuoteId, lastRedeemedQuoteAmount, setLastRedeemedQuote, amount, onPaymentDetected, ecashRequestId])
 
   // ======= Ecash NUT-18 payment detection (Nostr) =======
   const lastReceivedRequestId = useAppStore((s) => s.lastReceivedRequestId)

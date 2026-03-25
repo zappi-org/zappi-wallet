@@ -27,6 +27,10 @@ export interface SyncSliceState {
   lastReceivedAmount: number
   lastReceivedEventId: string | null
 
+  // Lightning mint-quote:redeemed state (for ReceiveQRStep)
+  lastRedeemedQuoteId: string | null
+  lastRedeemedQuoteAmount: number
+
   // NUT-18 pending request ID (set by ReceiveQRStep while waiting for payment)
   pendingEcashRequestId: string | null
 
@@ -46,6 +50,7 @@ export interface SyncSliceState {
   setLastEventTimestamp: (timestamp: number) => void
   triggerTxRefresh: () => void
   setLastReceivedPayment: (requestId: string | null, amount: number, eventId?: string | null) => void
+  setLastRedeemedQuote: (quoteId: string | null, amount: number) => void
   setPendingEcashRequestId: (requestId: string | null) => void
   setActiveTransports: (transports: ('nostr' | 'http')[]) => void
   setNostrConnectionStatus: (status: 'connected' | 'disconnected' | 'connecting') => void
@@ -68,6 +73,8 @@ const initialState = {
   lastReceivedRequestId: null as string | null,
   lastReceivedAmount: 0,
   lastReceivedEventId: null as string | null,
+  lastRedeemedQuoteId: null as string | null,
+  lastRedeemedQuoteAmount: 0,
   pendingEcashRequestId: null as string | null,
   activeTransports: [] as ('nostr' | 'http')[],
   nostrConnectionStatus: 'disconnected' as 'connected' | 'disconnected' | 'connecting',
@@ -111,6 +118,9 @@ export const createSyncSlice: StateCreator<SyncSliceState> = (set) => ({
 
   setLastReceivedPayment: (lastReceivedRequestId, lastReceivedAmount, lastReceivedEventId = null) =>
     set({ lastReceivedRequestId, lastReceivedAmount, lastReceivedEventId }),
+
+  setLastRedeemedQuote: (lastRedeemedQuoteId, lastRedeemedQuoteAmount) =>
+    set({ lastRedeemedQuoteId, lastRedeemedQuoteAmount }),
 
   setPendingEcashRequestId: (pendingEcashRequestId) => set({ pendingEcashRequestId }),
 

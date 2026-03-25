@@ -53,6 +53,8 @@ describe('Bridge: mint-quote:redeemed event', () => {
       balance: { total: 0, byMint: {} },
       pendingQuotes: [],
       toasts: [],
+      lastRedeemedQuoteId: null,
+      lastRedeemedQuoteAmount: 0,
     })
     vi.clearAllMocks()
   })
@@ -128,6 +130,38 @@ describe('Bridge: mint-quote:redeemed event', () => {
     })
 
     expect(broadcastSync).toHaveBeenCalledWith('balance_changed')
+  })
+
+  it('sets lastRedeemedQuote in store for ReceiveQRStep detection', async () => {
+    const { manager, emit } = createMockManager()
+    connectCocoToStore(manager as unknown as import('coco-cashu-core').Manager)
+
+    await emit('mint-quote:redeemed', {
+      mintUrl: 'https://mint.example.com',
+      quoteId: 'q-paid-1',
+      quote: { amount: 750, request: 'lnbc750n1test', quote: 'q-paid-1', unit: 'sat', state: 'ISSUED', expiry: 0 },
+    })
+
+    const { lastRedeemedQuoteId, lastRedeemedQuoteAmount } = useAppStore.getState()
+    expect(lastRedeemedQuoteId).toBe('q-paid-1')
+    expect(lastRedeemedQuoteAmount).toBe(750)
+  })
+
+  it('does NOT set lastRedeemedQuote for swap quotes', async () => {
+    const { markQuoteAsSwap } = await import('@/coco/bridge')
+    markQuoteAsSwap('q-swap-1')
+
+    const { manager, emit } = createMockManager()
+    connectCocoToStore(manager as unknown as import('coco-cashu-core').Manager)
+
+    await emit('mint-quote:redeemed', {
+      mintUrl: 'https://mint.example.com',
+      quoteId: 'q-swap-1',
+      quote: { amount: 500, request: 'lnbc500n1test', quote: 'q-swap-1', unit: 'sat', state: 'ISSUED', expiry: 0 },
+    })
+
+    const { lastRedeemedQuoteId } = useAppStore.getState()
+    expect(lastRedeemedQuoteId).toBeNull()
   })
 
   it('updates balance on proofs:saved event', async () => {

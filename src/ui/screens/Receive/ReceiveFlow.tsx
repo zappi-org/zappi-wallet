@@ -105,13 +105,6 @@ export interface ReceiveFlowProps {
     quoteId: string
     expiry: number
   } | null>
-  onSubscribeToQuote: (
-    mintUrl: string,
-    quoteId: string,
-    amount: number,
-    onPaid: () => void,
-    onError?: (error: Error) => void
-  ) => Promise<(() => void) | null>
   onPaymentReceived: (amount: number, type: 'lightning' | 'ecash') => void
   onReceiveToken: (token: string) => Promise<{ success: boolean; amount?: number; error?: { code?: string; message?: string } }>
   onAddTrustedMint: (mintUrl: string) => Promise<boolean>
@@ -131,7 +124,6 @@ export function ReceiveFlow({
   onBack,
   onComplete,
   onCreateInvoice,
-  onSubscribeToQuote,
   onPaymentReceived,
   onReceiveToken,
   onAddTrustedMint,
@@ -544,7 +536,6 @@ export function ReceiveFlow({
               ecashRequest={state.ecashRequest}
               ecashRequestId={state.ecashRequestId}
               httpEndpoint={state.httpEndpoint}
-              onSubscribeToQuote={onSubscribeToQuote}
             />
           </PageTransition>
         )}
