@@ -62,20 +62,29 @@ export function SendInputStep({
     initialMintUrl || settings.mints[0] || null
   )
   const [showScanner, setShowScanner] = useState(false)
-  const [detectedType, setDetectedType] = useState<string | null>(
-    initialValidatedData?.type || null
+  const [detectedTypes, setDetectedTypes] = useState<string[]>(
+    initialValidatedData?.type ? [initialValidatedData.type] : []
   )
   const [validatedData, setValidatedData] = useState<SendableValidatedData | null>(
     initialValidatedData || null
   )
   const amountInputRef = useRef<HTMLInputElement>(null)
 
-  /** Filter out types not meaningful as a send destination */
-  const toDisplayType = (type: string) =>
-    type === 'unknown' || type === 'amount' ? null : type
+  /** Build badge labels from detected input */
+  const toBadgeTypes = (detected: ReturnType<typeof detectInputType>): string[] => {
+    if (detected.type === 'unknown' || detected.type === 'amount') return []
+    const badges: string[] = [detected.type]
+    // unified QR: cashu-request가 lightning도 포함하면 배지 추가
+    if (detected.type === 'cashu-request' && detected.lightningInvoice) {
+      badges.push('lightning')
+    }
+    return badges
+  }
 
-  // Is amount fixed (e.g. bolt11 with amount)?
-  const isAmountFixed = validatedData?.type === 'bolt11' && validatedData.amountSats > 0
+  // 입력에 amount가 포함되어 있으면 변경 불가
+  const isAmountFixed =
+    (validatedData?.type === 'bolt11' && validatedData.amountSats > 0) ||
+    (validatedData?.type === 'cashu-request' && !!validatedData.parsed.amount && validatedData.parsed.amount > 0)
 
   /**
    * Wrapper around setDestination — clears detection state immediately
@@ -86,12 +95,12 @@ export function SendInputStep({
     setDestination(newDest)
     const trimmed = newDest.trim()
     if (!trimmed) {
-      setDetectedType(null)
+      setDetectedTypes([])
       setValidatedData(null)
     } else if (trimmed.startsWith('@')) {
       // Clear detection unless it's a no-op (wallet already selected with matching name)
       // Note: handleSelectMyWallet sets validatedData AFTER this, so clearing here is safe
-      setDetectedType(null)
+      setDetectedTypes([])
       setValidatedData(null)
     }
   }, [])
@@ -134,12 +143,23 @@ export function SendInputStep({
 
     if (!destination.trim() || destination.startsWith('@')) return
 
-    detectTimeoutRef.current = setTimeout(() => {
+    detectTimeoutRef.current = setTimeout(async () => {
       const detected = detectInputType(destination)
-      setDetectedType(toDisplayType(detected.type))
+      setDetectedTypes(toBadgeTypes(detected))
 
       if (detected.type === 'bolt11' && detected.amountSats > 0) {
         setAmount(String(detected.amountSats))
+      } else if (detected.type === 'cashu-request') {
+        try {
+          const result = await validateInput(detected)
+          if (result.valid && result.data.type === 'cashu-request') {
+            const sendable = result.data as SendableValidatedData
+            setValidatedData(sendable)
+            if (result.data.parsed.amount && result.data.parsed.amount > 0) {
+              setAmount(String(result.data.parsed.amount))
+            }
+          }
+        } catch { /* decode failed, ignore */ }
       }
     }, 300)
 
@@ -159,7 +179,7 @@ export function SendInputStep({
       targetMintUrl: walletUrl,
       targetMintName: walletName,
     })
-    setDetectedType('my-wallet')
+    setDetectedTypes(['my-wallet'])
     setTimeout(() => amountInputRef.current?.focus(), 150)
   }, [])
 
@@ -178,7 +198,7 @@ export function SendInputStep({
     hapticTap()
 
     const detected = detectInputType(trimmed)
-    setDetectedType(toDisplayType(detected.type))
+    setDetectedTypes(toBadgeTypes(detected))
 
     if (detected.type === 'unknown') {
       setTimeout(() => amountInputRef.current?.focus(), 150)
@@ -337,11 +357,15 @@ export function SendInputStep({
             </div>
           </div>
 
-          {/* Detected type badge */}
-          {detectedType && detectedType !== 'my-wallet' && (
-            <span className="inline-block text-label px-2.5 py-1 mt-1.5 rounded-full bg-accent-primary/10 text-accent-primary font-medium">
-              {detectedType.replace('-', ' ')}
-            </span>
+          {/* Detected type badges */}
+          {detectedTypes.length > 0 && !detectedTypes.includes('my-wallet') && (
+            <div className="flex gap-1.5 mt-1.5">
+              {detectedTypes.map((badge) => (
+                <span key={badge} className="inline-block text-label px-2.5 py-1 rounded-full bg-accent-primary/10 text-accent-primary font-medium">
+                  {badge.replace('-', ' ')}
+                </span>
+              ))}
+            </div>
           )}
 
           {/* "내 지갑으로 보내기" button — shown when no destination entered and wallets exist */}

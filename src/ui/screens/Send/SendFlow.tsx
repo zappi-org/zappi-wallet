@@ -499,6 +499,7 @@ export function SendFlow({
               fee={state.fee}
               mintUrl={state.selectedMintUrl!}
               error={state.error}
+              route={state.routeSelection?.route}
             />
           </PageTransition>
         )}
