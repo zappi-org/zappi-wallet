@@ -185,7 +185,6 @@ export class PaymentService {
       const bolt11 = cocoQuote?.request
 
       // Redeem the quote using Coco (stores proofs automatically)
-      // Coco manages proofs internally, so we get an empty array back
       await cocoRedeemMintQuote(mintUrl, quoteId, amount)
 
       // Transaction DB 기록 (idempotent — observer와 공유)
@@ -923,12 +922,15 @@ export class PaymentService {
    * Disconnect all WebSocket connections
    */
   async disconnectAllWebSockets(): Promise<void> {
-    const { getPendingMintQuotes } = await import('@/coco/manager')
-    const pendingQuotes = await getPendingMintQuotes()
-    const mintUrls = new Set(pendingQuotes.map((q) => q.mintUrl))
-
-    for (const mintUrl of mintUrls) {
-      await this.cashuService.disconnectWebSocket(mintUrl)
+    try {
+      const { getCocoManager } = await import('@/coco/manager')
+      const manager = await getCocoManager()
+      const mints = await manager.mint.getAllMints()
+      for (const mint of mints) {
+        await this.cashuService.disconnectWebSocket(mint.mintUrl).catch(() => {})
+      }
+    } catch {
+      // Manager not initialized — nothing to disconnect
     }
   }
 }
