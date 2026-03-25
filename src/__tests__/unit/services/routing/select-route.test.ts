@@ -38,7 +38,7 @@ function makeLightningAddress(): ValidatedLightningAddress {
   return {
     type: 'lightning-address',
     address: 'user@example.com',
-    lnurlParams: { callback: 'https://example.com/lnurlp/user/callback', minSendable: 1000, maxSendable: 1000000, metadata: '[]', domain: 'example.com' },
+    lnurlParams: { tag: 'payRequest', callback: 'https://example.com/lnurlp/user/callback', minSendable: 1000, maxSendable: 1000000, metadata: '[]', domain: 'example.com' },
   }
 }
 
@@ -46,7 +46,7 @@ function makeLnurlPay(): ValidatedLnurlPay {
   return {
     type: 'lnurl-pay',
     lnurl: 'lnurl1test',
-    params: { callback: 'https://example.com/lnurlp/callback', minSendable: 1000, maxSendable: 1000000, metadata: '[]', domain: 'example.com' },
+    params: { tag: 'payRequest', callback: 'https://example.com/lnurlp/callback', minSendable: 1000, maxSendable: 1000000, metadata: '[]', domain: 'example.com' },
   }
 }
 

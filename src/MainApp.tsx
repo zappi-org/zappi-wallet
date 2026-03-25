@@ -58,7 +58,7 @@ import { getBalances as cocoGetBalances } from '@/coco/cashuService'
 import { deleteCocoData, clearWalletCache, markSendFinalized, markSendReclaimed } from '@/coco'
 import { resetWalletCache } from '@/data/cache/wallet-cache'
 import type { Transaction } from '@/core/types'
-import { satUnit, formatSats } from '@/utils/format'
+import { formatSats } from '@/utils/format'
 import { exchangeRateService } from '@/services/exchange-rate'
 
 
@@ -523,20 +523,6 @@ export default function MainApp() {
     return { success: true, amount: swapResult.value.amount }
   }, [services.payment, refreshAll])
 
-  /** Cross-mint swap for send flow: swap balance from source to target mint */
-  const handleMintSwap = useCallback(async (
-    fromMintUrl: string,
-    toMintUrl: string,
-    amount: number,
-  ): Promise<{ success: boolean; amount?: number; error?: string }> => {
-    const swapResult = await services.payment.mintSwap(fromMintUrl, toMintUrl, amount)
-    if (swapResult.isErr()) {
-      const e = swapResult.error
-      return { success: false, error: translateError(e) }
-    }
-    refreshAll().catch((e) => console.error('[MainApp] refreshAll after send swap:', e))
-    return { success: true, amount: swapResult.value.amount }
-  }, [services.payment, refreshAll])
 
   /** Unified send handler via routing layer */
   const handleExecuteRoute = useCallback(async (

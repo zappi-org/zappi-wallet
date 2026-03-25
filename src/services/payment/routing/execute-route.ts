@@ -7,7 +7,7 @@
 
 import { ok, err, type Result } from '@/core/types'
 import type { BaseError } from '@/core/errors'
-import { InsufficientBalanceError, classifyCashuError } from '@/core/errors'
+import { classifyCashuError } from '@/core/errors'
 import { PaymentRoute, type RouteSelection, type RouteContext, type RouteExecutionResult } from './types'
 import {
   prepareSendToken,
@@ -82,7 +82,7 @@ async function executeMeltToLn(
     }
 
     const result = await executeMeltFlow(selection.sourceMintUrl, invoice, selection.amount, context.addressOrInvoice || invoice)
-    if (result.isErr()) return result
+    if (result.isErr()) return err(result.error)
 
     const { meltResult, actualFee } = result.value
 

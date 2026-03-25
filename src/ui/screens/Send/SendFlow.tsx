@@ -118,7 +118,7 @@ export function SendFlow({
   onComplete,
   onExecuteRoute,
   onCreateEcashToken,
-  onCompleteEcashSend,
+  onCompleteEcashSend: _onCompleteEcashSend,
   onCancelEcashToken,
   validatedData: initialValidatedData,
   initialAmount,
