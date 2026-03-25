@@ -52,9 +52,11 @@ export function connectCocoToStore(manager: Manager): void {
   }
 
   // Mint quote 상환 시 잔액 업데이트 + toast + store 정리
+  // (거래 DB 기록은 mintQuoteObserver가 담당)
   const unsubMintQuoteRedeemed = manager.on('mint-quote:redeemed', (event) => {
     updateBalances();
     const { removePendingQuote, addToast } = useAppStore.getState();
+
     removePendingQuote(event.quoteId);
 
     // 스왑 quote는 토스트 억제 (use-payment.ts에서 swap 전용 토스트 표시)

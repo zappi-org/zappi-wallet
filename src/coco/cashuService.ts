@@ -298,6 +298,7 @@ export async function getBalances(): Promise<{ [mintUrl: string]: number }> {
   return manager.wallet.getBalances();
 }
 
+
 /**
  * Ensure mint is registered and trusted in Coco before operations
  */
