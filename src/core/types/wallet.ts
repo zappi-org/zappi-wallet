@@ -192,6 +192,8 @@ export interface WalletSettings {
   fiatCurrency?: FiatCurrency
   /** Whether to show fiat conversion alongside BTC amounts (default: true) */
   showFiatConversion?: boolean
+  /** Sender Privacy mode: prefer routes where the mint cannot link sender to receiver, even at higher fees */
+  senderPrivacyMode?: boolean
 }
 
 /**

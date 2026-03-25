@@ -140,6 +140,10 @@ export function SettingsMainList({
             value={fiatValue}
             onPress={() => onNavigate('fiat')}
           />
+          <SettingsRow
+            label={t('settings.privacy')}
+            onPress={() => onNavigate('privacy')}
+          />
         </div>
       </section>
 

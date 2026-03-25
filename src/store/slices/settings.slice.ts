@@ -40,6 +40,7 @@ const defaultSettings: WalletSettings = {
   balanceHidden: false,
   fiatCurrency: 'USD',
   showFiatConversion: true,
+  senderPrivacyMode: false,
 }
 
 /**

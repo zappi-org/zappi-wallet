@@ -19,7 +19,7 @@ import { Button } from '@/ui/components/common/Button'
 import { AmountInput } from '@/ui/components/common/AmountInput'
 import { QrScanner } from '@/ui/components/common/QrScanner'
 import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
-import { decodeCashuRequest } from '@/ui/components/scanner/InputValidator'
+import { validateInput } from '@/ui/components/scanner/InputValidator'
 import type { SendableValidatedData } from '../SendFlow'
 
 interface SendInputStepProps {
@@ -62,20 +62,29 @@ export function SendInputStep({
     initialMintUrl || settings.mints[0] || null
   )
   const [showScanner, setShowScanner] = useState(false)
-  const [detectedType, setDetectedType] = useState<string | null>(
-    initialValidatedData?.type || null
+  const [detectedTypes, setDetectedTypes] = useState<string[]>(
+    initialValidatedData?.type ? [initialValidatedData.type] : []
   )
   const [validatedData, setValidatedData] = useState<SendableValidatedData | null>(
     initialValidatedData || null
   )
   const amountInputRef = useRef<HTMLInputElement>(null)
 
-  /** Filter out types not meaningful as a send destination */
-  const toDisplayType = (type: string) =>
-    type === 'unknown' || type === 'amount' ? null : type
+  /** Build badge labels from detected input */
+  const toBadgeTypes = (detected: ReturnType<typeof detectInputType>): string[] => {
+    if (detected.type === 'unknown' || detected.type === 'amount') return []
+    const badges: string[] = [detected.type]
+    // unified QR: cashu-request가 lightning도 포함하면 배지 추가
+    if (detected.type === 'cashu-request' && detected.lightningInvoice) {
+      badges.push('lightning')
+    }
+    return badges
+  }
 
-  // Is amount fixed (e.g. bolt11 with amount)?
-  const isAmountFixed = validatedData?.type === 'bolt11' && validatedData.amountSats > 0
+  // 입력에 amount가 포함되어 있으면 변경 불가
+  const isAmountFixed =
+    (validatedData?.type === 'bolt11' && validatedData.amountSats > 0) ||
+    (validatedData?.type === 'cashu-request' && !!validatedData.parsed.amount && validatedData.parsed.amount > 0)
 
   /**
    * Wrapper around setDestination — clears detection state immediately
@@ -86,12 +95,12 @@ export function SendInputStep({
     setDestination(newDest)
     const trimmed = newDest.trim()
     if (!trimmed) {
-      setDetectedType(null)
+      setDetectedTypes([])
       setValidatedData(null)
     } else if (trimmed.startsWith('@')) {
       // Clear detection unless it's a no-op (wallet already selected with matching name)
       // Note: handleSelectMyWallet sets validatedData AFTER this, so clearing here is safe
-      setDetectedType(null)
+      setDetectedTypes([])
       setValidatedData(null)
     }
   }, [])
@@ -134,12 +143,23 @@ export function SendInputStep({
 
     if (!destination.trim() || destination.startsWith('@')) return
 
-    detectTimeoutRef.current = setTimeout(() => {
+    detectTimeoutRef.current = setTimeout(async () => {
       const detected = detectInputType(destination)
-      setDetectedType(toDisplayType(detected.type))
+      setDetectedTypes(toBadgeTypes(detected))
 
       if (detected.type === 'bolt11' && detected.amountSats > 0) {
         setAmount(String(detected.amountSats))
+      } else if (detected.type === 'cashu-request') {
+        try {
+          const result = await validateInput(detected)
+          if (result.valid && result.data.type === 'cashu-request') {
+            const sendable = result.data as SendableValidatedData
+            setValidatedData(sendable)
+            if (result.data.parsed.amount && result.data.parsed.amount > 0) {
+              setAmount(String(result.data.parsed.amount))
+            }
+          }
+        } catch { /* decode failed, ignore */ }
       }
     }, 300)
 
@@ -159,7 +179,7 @@ export function SendInputStep({
       targetMintUrl: walletUrl,
       targetMintName: walletName,
     })
-    setDetectedType('my-wallet')
+    setDetectedTypes(['my-wallet'])
     setTimeout(() => amountInputRef.current?.focus(), 150)
   }, [])
 
@@ -169,8 +189,8 @@ export function SendInputStep({
     updateDestination('@')
   }, [updateDestination])
 
-  // Process external input (scan/paste) with auto-advance
-  const processExternalInput = useCallback((input: string) => {
+  // Process external input (scan/paste): detect → validate → auto-advance
+  const processExternalInput = useCallback(async (input: string) => {
     const trimmed = input.trim()
     if (!trimmed) return
 
@@ -178,54 +198,50 @@ export function SendInputStep({
     hapticTap()
 
     const detected = detectInputType(trimmed)
-    setDetectedType(toDisplayType(detected.type))
+    setDetectedTypes(toBadgeTypes(detected))
 
-    // bolt11 with amount → auto-advance
-    if (detected.type === 'bolt11' && detected.amountSats > 0) {
-      setAmount(String(detected.amountSats))
-      if (selectedMintUrl) {
-        setTimeout(() => {
-          onNext({
-            destination: trimmed,
-            amount: detected.amountSats,
-            selectedMintUrl: selectedMintUrl!,
-          })
-        }, 300)
-        return
-      }
-    }
-
-    // Auto-fill amount for bolt11 without enough to auto-advance
-    if (detected.type === 'bolt11' && detected.amountSats > 0) {
-      setAmount(String(detected.amountSats))
-    }
-
-    // cashu-request with amount → auto-fill and auto-advance
-    if (detected.type === 'cashu-request') {
-      try {
-        const parsed = decodeCashuRequest(detected.request)
-        if (parsed.amount && parsed.amount > 0) {
-          setAmount(String(parsed.amount))
-          if (selectedMintUrl) {
-            setTimeout(() => {
-              onNext({
-                destination: trimmed,
-                amount: parsed.amount!,
-                selectedMintUrl: selectedMintUrl!,
-              })
-            }, 300)
-            return
-          }
-        }
-      } catch {
-        // decode failed, fall through to manual input
-      }
-    }
-
-    // Focus amount input for types that need it
-    if (detected.type !== 'unknown') {
+    if (detected.type === 'unknown') {
       setTimeout(() => amountInputRef.current?.focus(), 150)
+      return
     }
+
+    // Full validation (async) — preserves lightningInvoice for unified QR
+    const result = await validateInput(detected)
+    if (!result.valid) return
+
+    const validated = result.data
+    if (!['bolt11', 'lightning-address', 'lnurl-pay', 'cashu-request', 'my-wallet'].includes(validated.type)) return
+
+    const sendable = validated as SendableValidatedData
+    setValidatedData(sendable)
+
+    // Extract amount if available
+    let detectedAmount = 0
+    if (sendable.type === 'bolt11' && sendable.amountSats > 0) {
+      detectedAmount = sendable.amountSats
+    } else if (sendable.type === 'cashu-request' && sendable.parsed.amount && sendable.parsed.amount > 0) {
+      detectedAmount = sendable.parsed.amount
+    }
+
+    if (detectedAmount > 0) {
+      setAmount(String(detectedAmount))
+    }
+
+    // Auto-advance when amount + mint are ready
+    if (detectedAmount > 0 && selectedMintUrl) {
+      setTimeout(() => {
+        onNext({
+          destination: trimmed,
+          amount: detectedAmount,
+          selectedMintUrl: selectedMintUrl!,
+          validatedData: sendable,
+        })
+      }, 300)
+      return
+    }
+
+    // Focus amount input for manual entry
+    setTimeout(() => amountInputRef.current?.focus(), 150)
   }, [selectedMintUrl, onNext])
 
   // Handle paste
@@ -341,11 +357,15 @@ export function SendInputStep({
             </div>
           </div>
 
-          {/* Detected type badge */}
-          {detectedType && detectedType !== 'my-wallet' && (
-            <span className="inline-block text-label px-2.5 py-1 mt-1.5 rounded-full bg-accent-primary/10 text-accent-primary font-medium">
-              {detectedType.replace('-', ' ')}
-            </span>
+          {/* Detected type badges */}
+          {detectedTypes.length > 0 && !detectedTypes.includes('my-wallet') && (
+            <div className="flex gap-1.5 mt-1.5">
+              {detectedTypes.map((badge) => (
+                <span key={badge} className="inline-block text-label px-2.5 py-1 rounded-full bg-accent-primary/10 text-accent-primary font-medium">
+                  {badge.replace('-', ' ')}
+                </span>
+              ))}
+            </div>
           )}
 
           {/* "내 지갑으로 보내기" button — shown when no destination entered and wallets exist */}

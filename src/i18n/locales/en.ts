@@ -253,6 +253,11 @@ export default {
     posDeviceRemove: 'Remove Device',
     posDeviceRemoveWarning: 'This POS device will no longer be able to accept payments. Remove?',
 
+    // Privacy
+    privacy: 'Privacy',
+    senderPrivacyMode: 'Sender Privacy Mode',
+    senderPrivacyModeDescription: 'Prefer routes where the mint cannot link sender and receiver, even if fees are higher',
+
     // Descriptions
     active: 'Active',
     autoLockDescription: 'Automatically lock after inactivity',
@@ -349,6 +354,7 @@ export default {
     paying: 'Paying...',
     paymentFailed: 'Payment failed',
     sendFailed: 'Send failed',
+    cannotSend: 'Cannot send to this destination',
     paymentSuccess: 'Payment complete!',
     addressOrInvoice: 'Lightning Address or Invoice',
     addressPlaceholder: 'user@getalby.com or lnbc...',

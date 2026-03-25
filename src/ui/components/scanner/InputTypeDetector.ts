@@ -50,7 +50,8 @@ export interface CashuTokenInput {
 export interface CashuRequestInput {
   type: 'cashu-request'
   request: string
-  // Parsed data will be added by validator
+  /** Bolt11 from bitcoin: URI's lightning= field (unified QR) */
+  lightningInvoice?: string
 }
 
 export interface AmountInput {
@@ -196,10 +197,12 @@ function detectBitcoinUri(uri: string): InputType {
   }
 
   // If creq is present, treat as cashu request (unified QR or standalone)
+  // Preserve lightning invoice for routing (unified QR: creq + lightning)
   if (parsed.creq) {
     return {
       type: 'cashu-request',
       request: parsed.creq,
+      lightningInvoice: parsed.lightning,
     }
   }
 

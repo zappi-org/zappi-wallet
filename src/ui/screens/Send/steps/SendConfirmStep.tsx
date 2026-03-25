@@ -13,6 +13,7 @@ import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
 import { createMintQuote, prepareMelt, rollbackMelt } from '@/coco/cashuService'
 import type { SendableValidatedData } from '../SendFlow'
+import { PaymentRoute } from '@/services/payment/routing'
 
 interface SendConfirmStepProps {
   onBack: () => void
@@ -22,54 +23,83 @@ interface SendConfirmStepProps {
   fee: number
   mintUrl: string
   error: string | null
+  route?: PaymentRoute
 }
 
-function getRecipientDisplay(data: SendableValidatedData, t: (key: string) => string): string {
-  switch (data.type) {
-    case 'bolt11':
-      return data.description || t('send.confirm.lightningInvoice')
-    case 'lightning-address':
-      return data.address
-    case 'lnurl-pay':
-      return data.params?.domain || 'LNURL'
-    case 'cashu-request':
-      return t('send.confirm.ecashRequest')
-    case 'my-wallet':
-      return data.targetMintName
+interface ConfirmDisplayInfo {
+  method: string
+  recipient: string
+  recipientDetail: string
+  memo?: string
+}
+
+function getConfirmDisplayInfo(
+  data: SendableValidatedData,
+  route: PaymentRoute | undefined,
+  t: (key: string) => string,
+): ConfirmDisplayInfo {
+  // Route-aware: unified QR에서 LN 라우트가 선택되면 lightning invoice 기반 표시
+  const isLnRoute = route === PaymentRoute.LN_INTERNAL || route === PaymentRoute.LN_CROSS_MINT || route === PaymentRoute.MELT_TO_LN
+  const isTokenRoute = route === PaymentRoute.TOKEN_TRANSFER || route === PaymentRoute.OWN_MINT_TOKEN || route === PaymentRoute.MINT_AND_DM
+
+  if (isLnRoute && data.type === 'cashu-request' && data.parsed.lightningInvoice) {
+    const inv = data.parsed.lightningInvoice
+    return {
+      method: 'Lightning',
+      recipient: t('send.confirm.lightningInvoice'),
+      recipientDetail: `${inv.slice(0, 12).toLowerCase()}...${inv.slice(-4).toLowerCase()}`,
+      memo: data.parsed.description,
+    }
   }
-}
 
-function getRecipientDetail(data: SendableValidatedData): string {
+  if (isTokenRoute && data.type === 'cashu-request') {
+    const req = data.request
+    return {
+      method: 'eCash',
+      recipient: t('send.confirm.ecashRequest'),
+      recipientDetail: `${req.slice(0, 8)}...${req.slice(-4)}`,
+      memo: data.parsed.description,
+    }
+  }
+
   switch (data.type) {
     case 'bolt11': {
       const inv = data.invoice
-      return `${inv.slice(0, 8)}...${inv.slice(-4)}`
+      return {
+        method: 'Lightning',
+        recipient: data.description || t('send.confirm.lightningInvoice'),
+        recipientDetail: `${inv.slice(0, 8)}...${inv.slice(-4)}`,
+        memo: data.description,
+      }
     }
     case 'lightning-address':
-      return data.address
+      return {
+        method: 'Lightning',
+        recipient: data.address,
+        recipientDetail: data.address,
+      }
     case 'lnurl-pay':
-      return data.params?.domain || 'LNURL'
+      return {
+        method: 'Lightning',
+        recipient: data.params?.domain || 'LNURL',
+        recipientDetail: data.params?.domain || 'LNURL',
+      }
     case 'cashu-request': {
+      // fallback (route 없을 때)
       const req = data.request
-      return `${req.slice(0, 8)}...${req.slice(-4)}`
+      return {
+        method: 'eCash',
+        recipient: t('send.confirm.ecashRequest'),
+        recipientDetail: `${req.slice(0, 8)}...${req.slice(-4)}`,
+        memo: data.parsed.description,
+      }
     }
-    case 'my-wallet': {
-      const url = data.targetMintUrl
-      return `${url.slice(0, 20)}...`
-    }
-  }
-}
-
-function getMethodLabel(type: SendableValidatedData['type'], t: (key: string) => string): string {
-  switch (type) {
-    case 'bolt11':
-    case 'lightning-address':
-    case 'lnurl-pay':
-      return 'Lightning'
-    case 'cashu-request':
-      return 'eCash'
     case 'my-wallet':
-      return t('send.confirm.internalTransfer')
+      return {
+        method: t('send.confirm.internalTransfer'),
+        recipient: data.targetMintName,
+        recipientDetail: `${data.targetMintUrl.slice(0, 20)}...`,
+      }
   }
 }
 
@@ -81,6 +111,7 @@ export function SendConfirmStep({
   fee: initialFee,
   mintUrl,
   error,
+  route,
 }: SendConfirmStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
@@ -140,14 +171,10 @@ export function SendConfirmStep({
   }, [targetMintUrl, amount, mintUrl])
 
   const fee = estimatedFee ?? 0
-  const recipient = getRecipientDisplay(validatedData, t)
-  const recipientDetail = getRecipientDetail(validatedData)
-  const method = getMethodLabel(validatedData.type, t)
+  const display = getConfirmDisplayInfo(validatedData, route, t)
+  const { method, recipient, recipientDetail, memo } = display
   const mintName = getDisplayName(mintUrl)
   const totalAmount = amount + fee
-  const memo = validatedData.type === 'bolt11' ? validatedData.description
-    : validatedData.type === 'cashu-request' ? validatedData.parsed.description
-    : undefined
 
   const isMyWallet = validatedData.type === 'my-wallet'
 

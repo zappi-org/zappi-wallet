@@ -52,7 +52,7 @@ export const TIMEOUTS = {
   /** Mint API request timeout */
   MINT_REQUEST: 10000,
   /** Mint quote polling interval */
-  MINT_QUOTE_POLL: 2000,
+  MINT_QUOTE_POLL: 8000,
   /** Watcher initialization timeout */
   WATCHER_INIT: 5000,
   /** Minimum interval between state reconstructions */

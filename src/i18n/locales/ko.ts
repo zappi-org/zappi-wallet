@@ -253,6 +253,11 @@ export default {
     posDeviceRemove: '디바이스 제거',
     posDeviceRemoveWarning: '이 POS 디바이스는 더 이상 결제를 수취할 수 없습니다. 제거하시겠습니까?',
 
+    // Privacy
+    privacy: '프라이버시',
+    senderPrivacyMode: '보내기 프라이버시 모드',
+    senderPrivacyModeDescription: '수수료가 높더라도 민트가 송수신자를 연결할 수 없는 경로를 선택합니다',
+
     // Descriptions
     active: '사용 중',
     autoLockDescription: '비활동 시 자동으로 잠금',
@@ -349,6 +354,7 @@ export default {
     paying: '결제 중...',
     paymentFailed: '결제에 실패했습니다',
     sendFailed: '전송 실패',
+    cannotSend: '전송할 수 없는 형식입니다',
     paymentSuccess: '결제 완료!',
     addressOrInvoice: 'Lightning Address 또는 인보이스',
     addressPlaceholder: 'user@getalby.com 또는 lnbc...',

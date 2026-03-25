@@ -856,7 +856,7 @@ export class PaymentService {
     amount: number,
     onPaid: (result: ClaimPaymentResult) => void,
     onError?: (error: Error) => void,
-    intervalMs: number = 2000
+    intervalMs: number = 8000
   ): SubscriptionCanceller {
     let cancelled = false
     const startTime = Date.now()
