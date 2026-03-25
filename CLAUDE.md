@@ -15,3 +15,26 @@
 
 코드 작성 스타일
 편법을 이용한 점진적 편집보다 근본적인 문제를 찾은 후 코드 교체를 선호한다
+
+## Design Context
+
+### Users
+- **Primary**: 비트코인/Cashu에 관심 있는 일반 사용자 ~ 숙련자
+- **Context**: 모바일 PWA로 일상적 결제, 송수신, 자산 관리
+- **Job to be done**: 빠르고 안전하게 비트코인을 보내고 받기. 잔액 확인, 거래 내역 관리
+
+### Brand Personality
+**신뢰 · 세련 · 편안** (Trustworthy · Refined · Comfortable)
+
+### Aesthetic Direction
+- **References**: Toss (큰 숫자, 직관적 플로우, 따뜻한 느낌) + Apple Wallet (극도의 미니멀, 화이트 스페이스, 깔끔한 카드 UI)
+- **Anti-references**: 레거시 금융 앱, 과한 스큐어모피즘, 암호화폐 밈 문화, 기업용 대시보드
+- **Theme**: Light mode, #F8F9FC 배경, #515AC0 인디고 브랜드
+- **Typography**: Outfit(본문) + Montserrat(금액/디스플레이)
+
+### Design Principles
+1. **Less is more** — 화면에 꼭 필요한 것만. 빈 공간은 고급스러움의 증거
+2. **Numbers speak loudest** — 금액과 잔액이 시각적 주인공
+3. **One action at a time** — 한 화면에 하나의 핵심 행동
+4. **Trust through clarity** — 모호함 없는 명확한 상태 표시
+5. **Warm precision** — 정밀하되 차갑지 않게. 토스처럼 따뜻한 톤 + Apple처럼 정제된 레이아웃

@@ -77,7 +77,7 @@ export const TransactionRow = memo(function TransactionRow({
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center justify-between py-3.5 px-4 min-h-[44px] cursor-pointer active:bg-black/[0.02] transition-colors"
+      className="w-full flex items-center justify-between py-3.5 px-4 min-h-[44px] cursor-pointer active:bg-foreground/[0.02] transition-colors"
     >
       {/* Left: title + subtitle */}
       <div className="flex flex-col gap-0.5 text-left min-w-0 flex-1 mr-4">

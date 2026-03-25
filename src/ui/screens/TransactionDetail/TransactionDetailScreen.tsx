@@ -15,6 +15,7 @@ import type { Transaction, TokenState } from '@/core/types'
 import { useFormatSats, useFormatFiat, formatTransactionFiat } from '@/utils/format'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
+import { Button } from '@/ui/components/common/Button'
 import { getTransactionRepo } from '@/data/repositories/transaction.repository'
 import { markSendFinalized, markSendReclaimed } from '@/coco/sendTokenObserver'
 import { getDecodedToken } from '@cashu/cashu-ts'
@@ -270,7 +271,7 @@ export default function TransactionDetailScreen({
       <button
         onClick={copyable && field ? () => handleCopy(value, field) : undefined}
         className={`flex items-center justify-between w-full py-3 border-b border-border/30 last:border-b-0 ${
-          copyable ? 'active:bg-black/[0.02] transition-colors' : ''
+          copyable ? 'active:bg-foreground/[0.02] transition-colors' : ''
         }`}
         disabled={!copyable}
       >
@@ -298,8 +299,8 @@ export default function TransactionDetailScreen({
       <header className="flex items-center px-4 h-14 shrink-0">
         <button
           onClick={onBack}
-          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-black/[0.04] active:bg-black/[0.06] transition-colors"
-          aria-label="Back"
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
+          aria-label={t('common.back')}
         >
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
@@ -307,7 +308,7 @@ export default function TransactionDetailScreen({
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setShowMenu((v) => !v)}
-            className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-black/[0.04] active:bg-black/[0.06] transition-colors"
+            className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
           >
             <MoreVertical className="w-5 h-5 text-foreground-muted" />
           </button>
@@ -386,7 +387,7 @@ export default function TransactionDetailScreen({
                 <span className="text-body text-foreground-muted">{t('txDetail.txId')}</span>
                 <button
                   onClick={() => handleCopy(tx.id, 'txId')}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/[0.04] transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-foreground/[0.04] transition-colors"
                 >
                   {copiedField === 'txId' ? (
                     <Check className="w-4 h-4 text-card-brand-dark" />
@@ -408,7 +409,7 @@ export default function TransactionDetailScreen({
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleCopy(tx.token!, 'token')}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/[0.04] transition-colors"
+                      className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-foreground/[0.04] transition-colors"
                     >
                       {copiedField === 'token' ? (
                         <Check className="w-4 h-4 text-card-brand-dark" />
@@ -419,14 +420,14 @@ export default function TransactionDetailScreen({
                     {typeof navigator.share === 'function' && (
                       <button
                         onClick={handleShare}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/[0.04] transition-colors"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-foreground/[0.04] transition-colors"
                       >
                         <Share2 className="w-4 h-4 text-foreground-muted" />
                       </button>
                     )}
                     <button
                       onClick={() => setShowTokenQr(true)}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/[0.04] transition-colors"
+                      className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-foreground/[0.04] transition-colors"
                     >
                       <QrCode className="w-4 h-4 text-foreground-muted" />
                     </button>
@@ -537,7 +538,7 @@ export default function TransactionDetailScreen({
             <button
               onClick={handleCheckAndReclaim}
               disabled={isReclaiming}
-              className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl text-caption font-medium text-foreground-muted hover:text-foreground hover:bg-black/[0.03] transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl text-caption font-medium text-foreground-muted hover:text-foreground hover:bg-foreground/[0.03] transition-colors disabled:opacity-50"
             >
               {isReclaiming ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -572,18 +573,12 @@ export default function TransactionDetailScreen({
             <p className="text-body font-semibold text-foreground">{t('txDetail.deleteConfirm')}</p>
             <p className="text-body text-foreground-muted">{t('txDetail.deleteWarning')}</p>
             <div className="flex gap-3">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 py-3 rounded-xl text-caption font-semibold bg-black/[0.04] text-foreground hover:bg-black/[0.06] transition-colors"
-              >
+              <Button variant="outline" size="lg" onClick={() => setShowDeleteConfirm(false)} className="flex-1">
                 {t('common.cancel')}
-              </button>
-              <button
-                onClick={handleDelete}
-                className="flex-1 py-3 rounded-xl text-caption font-semibold bg-accent-danger text-white hover:bg-accent-danger/90 transition-colors"
-              >
+              </Button>
+              <Button variant="destructive" size="lg" onClick={handleDelete} className="flex-1">
                 {t('txDetail.delete')}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

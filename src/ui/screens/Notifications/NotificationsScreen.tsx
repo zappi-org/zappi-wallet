@@ -121,15 +121,15 @@ export function NotificationsScreen({
   return (
     <div className="h-dvh bg-background text-foreground flex flex-col font-sans relative overflow-hidden z-[60] pt-safe">
       {/* Header */}
-      <header className="flex items-center px-5 pt-4 relative z-50">
+      <header className="flex items-center gap-2 px-5 h-14 shrink-0 relative z-50">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="p-2 rounded-full bg-background-card hover:shadow-md transition-all hover:bg-background-card"
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="text-body font-bold tracking-tight ml-3">{t('notifications.title')}</h2>
+        <h2 className="text-subtitle flex-1">{t('notifications.title')}</h2>
         <div className="ml-auto bg-primary/10 p-2 rounded-full relative">
           <Bell className="w-4 h-4 text-foreground" />
           {unreadCount > 0 && (
@@ -197,17 +197,17 @@ export function NotificationsScreen({
                     <div className="flex justify-between items-start mb-1">
                       <h3
                         className={cn(
-                          'text-label',
+                          'text-body font-medium',
                           notif.read ? 'text-foreground-muted' : 'text-foreground'
                         )}
                       >
                         {notif.title}
                       </h3>
-                      <span className="text-overline font-bold text-foreground-muted/60 shrink-0 ml-2">
+                      <span className="text-label text-foreground-muted/60 shrink-0 ml-2">
                         {formatTimeAgo(notif.time, t, i18n.language)}
                       </span>
                     </div>
-                    <p className="text-overline text-foreground-muted leading-relaxed">
+                    <p className="text-caption text-foreground-muted leading-relaxed">
                       {notif.message}
                     </p>
                   </div>

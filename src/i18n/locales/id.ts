@@ -785,7 +785,7 @@ export default {
     },
     token: {
       title: 'Konfirmasi Token',
-      canReceive: 'Anda dapat menerima\n{{amount}} ke\n{{mint}} saya.',
+      canReceive: 'Terima {{amount}}\ndari {{mint}}?',
       receiveMint: 'Mint Penerima',
       amount: 'Jumlah',
       receive: 'Terima',

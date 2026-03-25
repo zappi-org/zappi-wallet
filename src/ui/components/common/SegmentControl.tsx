@@ -17,10 +17,10 @@ export function SegmentControl<T extends string>({
   const count = options.length
 
   return (
-    <div className={cn('relative flex p-[3px] bg-foreground/[0.06] rounded-[10px]', className)}>
+    <div className={cn('relative flex p-[3px] bg-foreground/[0.06] rounded-lg', className)}>
       {/* Sliding indicator */}
       <div
-        className="absolute top-[3px] bottom-[3px] bg-background-card rounded-[8px] shadow-sm transition-transform duration-200 ease-out"
+        className="absolute top-[3px] bottom-[3px] bg-background-card rounded-md shadow-sm transition-transform duration-200 ease-out"
         style={{
           width: `calc(${100 / count}% - 3px)`,
           left: 3,

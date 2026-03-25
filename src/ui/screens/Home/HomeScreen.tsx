@@ -197,7 +197,7 @@ export function HomeScreen({
 
         {/* Balance */}
         <div
-          className="flex flex-col items-center gap-1 shrink-0 pb-1.5 pt-8 cursor-pointer"
+          className="flex flex-col items-center shrink-0 pt-10 pb-2 cursor-pointer"
           onClick={() => {
             const updated = { balanceHidden: !settings.balanceHidden }
             updateSettings(updated)
@@ -206,8 +206,8 @@ export function HomeScreen({
           role="button"
           aria-label={settings.balanceHidden ? t('home.showBalance') : t('home.hideBalance')}
         >
-          <p className="text-subtitle text-foreground-muted">Total</p>
-          <div className="flex items-center gap-2 py-0.5">
+          <p className="text-caption text-foreground-subtle tracking-wide uppercase">Total</p>
+          <div className="flex items-baseline gap-1.5 mt-1">
             {settings.balanceHidden ? (
               <span className="text-display text-foreground tracking-[2px]">••••</span>
             ) : isLoadingBalance ? (
@@ -215,13 +215,13 @@ export function HomeScreen({
             ) : (
               <>
                 {unit === '₿' && (
-                  <span className="text-title text-foreground-muted tracking-[-1px]">{unit}</span>
+                  <span className="text-amount-lg text-foreground-muted">{unit}</span>
                 )}
-                <span className="text-display font-display text-foreground tracking-[2px]">
+                <span className="text-display font-display text-foreground tracking-[-0.5px]">
                   {totalBalance.toLocaleString()}
                 </span>
                 {unit !== '₿' && (
-                  <span className="text-title text-foreground-muted">{unit}</span>
+                  <span className="text-amount-lg text-foreground-muted">{unit}</span>
                 )}
               </>
             )}
@@ -229,7 +229,7 @@ export function HomeScreen({
           {!settings.balanceHidden && !isLoadingBalance && (() => {
             const fiatStr = toFiat(totalBalance)
             return fiatStr ? (
-              <p className="text-body font-medium text-foreground-muted tracking-wide">
+              <p className="text-caption text-foreground-subtle mt-0.5">
                 {fiatStr}
               </p>
             ) : null
@@ -237,7 +237,7 @@ export function HomeScreen({
         </div>
 
         {/* Card Carousel */}
-        <div className="relative w-full pt-10 pb-8">
+        <div className="relative w-full pt-6 pb-6">
           {mints.length === 0 ? (
             <div className="flex justify-center items-center px-5">
               <button
@@ -317,8 +317,8 @@ export function HomeScreen({
           onClick={() => { hapticTap(); handleReceiveClick(); }}
           className="flex flex-col items-center gap-1.5 w-20 active:scale-95 transition-transform"
         >
-          <div className="w-[60px] h-[60px] bg-accent-success/10 rounded-full flex items-center justify-center shadow-[0px_2px_1px_0px_rgba(0,0,0,0.25)]">
-            <ArrowDownLeft className="w-6 h-6 text-accent-success" strokeWidth={2} />
+          <div className="w-[56px] h-[56px] bg-accent-success/8 rounded-full flex items-center justify-center shadow-sm">
+            <ArrowDownLeft className="w-6 h-6 text-accent-success" strokeWidth={1.8} />
           </div>
           <span className="text-label font-bold text-foreground leading-normal">{t('common.receive')}</span>
         </button>
@@ -327,8 +327,8 @@ export function HomeScreen({
           disabled={mints[clampedMintIndex]?.balance === 0}
           className="flex flex-col items-center gap-1.5 w-20 active:scale-95 transition-transform disabled:opacity-40"
         >
-          <div className="w-[60px] h-[60px] bg-brand/10 rounded-full flex items-center justify-center shadow-[0px_2px_1px_0px_rgba(0,0,0,0.25)]">
-            <ArrowUpRight className="w-6 h-6 text-accent-warning" strokeWidth={2} />
+          <div className="w-[56px] h-[56px] bg-brand/8 rounded-full flex items-center justify-center shadow-sm">
+            <ArrowUpRight className="w-6 h-6 text-accent-warning" strokeWidth={1.8} />
           </div>
           <span className="text-label font-bold text-foreground leading-normal">{t('common.send')}</span>
         </button>

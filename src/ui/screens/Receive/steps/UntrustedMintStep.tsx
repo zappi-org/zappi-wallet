@@ -118,7 +118,7 @@ export function UntrustedMintStep({
               setShowMintSelect(true)
             }}
             disabled={buttonsDisabled}
-            className="flex-1 bg-muted rounded-[14px] px-4 py-5 flex flex-col justify-between min-h-[140px] active:scale-[0.97] transition-transform disabled:opacity-50"
+            className="flex-1 bg-muted rounded-[14px] px-4 py-5 flex flex-col justify-between min-h-[140px] active:scale-[0.98] transition-transform disabled:opacity-50"
           >
             {swapLoading ? (
               <Loader2 className="w-5 h-5 animate-spin text-foreground" />
@@ -136,7 +136,7 @@ export function UntrustedMintStep({
           <button
             onClick={handleAddAndReceive}
             disabled={buttonsDisabled}
-            className="flex-1 bg-brand rounded-[14px] px-4 py-5 flex flex-col justify-between min-h-[140px] active:scale-[0.97] transition-transform disabled:opacity-50 shadow-lg shadow-brand/25"
+            className="flex-1 bg-brand rounded-[14px] px-4 py-5 flex flex-col justify-between min-h-[140px] active:scale-[0.98] transition-transform disabled:opacity-50 shadow-lg shadow-brand/25"
           >
             {addLoading ? (
               <Loader2 className="w-5 h-5 animate-spin text-white" />

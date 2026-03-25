@@ -47,7 +47,7 @@ export function ConfirmDialog({
       <div className="flex flex-col items-center text-center pt-2 pb-1">
         {icon && (
           <div className={cn(
-            'w-14 h-14 rounded-[13px] flex items-center justify-center mb-4',
+            'w-14 h-14 rounded-xl flex items-center justify-center mb-4',
             iconBgColors[iconColor],
           )}>
             <div className={iconTextColors[iconColor]}>{icon}</div>

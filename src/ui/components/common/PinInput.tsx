@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from 'react'
 import { NumericKeypad } from './NumericKeypad'
+import { Button } from './Button'
 
 export interface PinInputProps {
   value: string
@@ -67,7 +68,7 @@ export function PinInput({
         {Array.from({ length }, (_, i) => (
           <div
             key={i}
-            className="w-4 h-4 rounded-full transition-transform"
+            className="w-4 h-4 rounded-full transition-all duration-150"
             style={{
               transform: i < value.length ? 'scale(1)' : 'scale(0.75)',
               backgroundColor: i < value.length
@@ -79,7 +80,7 @@ export function PinInput({
       </div>
 
       {error && (
-        <p className="text-accent-danger text-label text-center mb-4">{error}</p>
+        <p className="text-accent-danger text-caption font-medium text-center mb-4">{error}</p>
       )}
 
       <div className="w-full">
@@ -87,22 +88,16 @@ export function PinInput({
       </div>
 
       {submitLabel && (
-        <button
+        <Button
+          variant="brand"
+          size="xl"
           onClick={onSubmit}
           disabled={isSubmitDisabled}
-          className={`
-            w-full py-3.5 rounded-[14px] font-semibold text-body transition-all
-            ${isSubmitDisabled
-              ? 'bg-muted text-foreground/30 cursor-not-allowed'
-              : 'bg-brand text-white shadow-lg shadow-brand/25 active:scale-[0.98]'}
-          `}
+          loading={loading}
+          className="w-full"
         >
-          {loading ? (
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
-          ) : (
-            submitLabel
-          )}
-        </button>
+          {submitLabel}
+        </Button>
       )}
     </div>
   )

@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { X, ArrowDown, ChevronDown, Loader2, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { Button } from '@/ui/components/common/Button'
 import { useFormatSats } from '@/utils/format'
 import { useAppStore } from '@/store'
 import { useMintMetadata, usePayment } from '@/hooks'
@@ -103,18 +104,12 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
                 {t('mintDetail.deleteConfirmMessage')}
               </p>
               <div className="flex gap-3">
-                <button
-                  onClick={onClose}
-                  className="flex-1 py-4 rounded-xl bg-muted font-semibold text-caption text-foreground"
-                >
+                <Button variant="secondary" size="lg" onClick={onClose} className="flex-1">
                   {t('mintDetail.no')}
-                </button>
-                <button
-                  onClick={handleDelete}
-                  className="flex-1 py-4 rounded-xl bg-accent-danger font-semibold text-caption text-white"
-                >
+                </Button>
+                <Button variant="destructive" size="lg" onClick={handleDelete} className="flex-1">
                   {t('mintDetail.delete')}
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -182,12 +177,14 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
 
               {/* Actions */}
               <div className="space-y-3 pt-2">
-                <button
+                <Button
+                  variant="destructive"
+                  size="xl"
                   onClick={handleDelete}
-                  className="w-full py-4 rounded-xl bg-accent-danger font-semibold text-body text-white active:scale-[0.98] transition-transform"
+                  className="w-full"
                 >
                   {t('mintDetail.emptyAndDeleteBtn')}
-                </button>
+                </Button>
               </div>
             </div>
           )}

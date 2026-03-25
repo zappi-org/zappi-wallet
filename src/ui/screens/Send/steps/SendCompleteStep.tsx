@@ -10,6 +10,7 @@ import { hapticSuccess, hapticTap } from '@/utils/haptic'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import sendSuccessImg from '@/assets/send-success.png'
 import { Button } from '@/ui/components/common/Button'
+import { Confetti } from '@/ui/components/payment/Confetti'
 import type { SendableValidatedData } from '../SendFlow'
 import { getDestinationDisplay } from '../sendDisplayHelpers'
 
@@ -49,7 +50,9 @@ export function SendCompleteStep({
   }, [])
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full bg-background relative">
+      <Confetti />
+
       {/* Text — centered, pushed down a bit */}
       <div className="px-6 pt-24">
         <p className="text-title font-medium leading-relaxed whitespace-pre-line text-center">

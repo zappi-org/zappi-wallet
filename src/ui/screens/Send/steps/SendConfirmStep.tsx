@@ -169,8 +169,8 @@ export function SendConfirmStep({
       <div className="flex-1 flex flex-col px-6">
         <div className="pt-16 text-center space-y-1">
           <p className="text-amount-lg leading-snug">
-            <span className="font-bold text-brand">{recipient}</span>
-            <span className="font-medium">{t('send.confirm.toSuffix')}</span>
+            <span className="font-semibold text-brand">{recipient}</span>
+            <span className="font-medium text-foreground">{t('send.confirm.toSuffix')}</span>
           </p>
           <p className="text-amount-lg font-bold leading-snug">
             {formatSats(amount)} {t('send.confirm.amountSuffix')}
@@ -189,49 +189,49 @@ export function SendConfirmStep({
         {/* Detail rows — flat, no card background */}
         <div className="space-y-3 mb-4 px-1">
           <div className="flex items-center justify-between">
-            <span className="text-body text-foreground-muted">{t('send.confirm.method')}</span>
+            <span className="text-caption text-foreground-muted">{t('send.confirm.method')}</span>
             <span className="text-body font-semibold">{method}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-body text-foreground-muted">{t('send.confirm.sourceMint')}</span>
+            <span className="text-caption text-foreground-muted">{t('send.confirm.sourceMint')}</span>
             <span className="text-body font-semibold truncate max-w-[200px]">{mintName}</span>
           </div>
           {isMyWallet && (
             <div className="flex items-center justify-between">
-              <span className="text-body text-foreground-muted">{t('send.confirm.targetWallet')}</span>
+              <span className="text-caption text-foreground-muted">{t('send.confirm.targetWallet')}</span>
               <span className="text-body font-semibold truncate max-w-[200px]">{validatedData.targetMintName}</span>
             </div>
           )}
           {!isMyWallet && (
             <div className="flex items-center justify-between">
-              <span className="text-body text-foreground-muted">{t('send.confirm.recipient')}</span>
+              <span className="text-caption text-foreground-muted">{t('send.confirm.recipient')}</span>
               <span className="text-body font-semibold truncate max-w-[200px]">{recipientDetail}</span>
             </div>
           )}
           {memo && (
             <div className="flex items-center justify-between">
-              <span className="text-body text-foreground-muted">{t('send.confirm.memo')}</span>
+              <span className="text-caption text-foreground-muted">{t('send.confirm.memo')}</span>
               <span className="text-body font-semibold truncate max-w-[200px]">{memo}</span>
             </div>
           )}
           {/* Fee section */}
           {feeLoading ? (
             <>
-              <div className="border-t border-border" />
+              <div className="border-t border-border mt-1 pt-1" />
               <div className="flex items-center justify-between">
-                <span className="text-body text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
+                <span className="text-caption text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
                 <Loader2 className="w-4 h-4 text-foreground-muted animate-spin" />
               </div>
             </>
           ) : fee > 0 ? (
             <>
-              <div className="border-t border-border" />
+              <div className="border-t border-border mt-1 pt-1" />
               <div className="flex items-center justify-between">
-                <span className="text-body text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
+                <span className="text-caption text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
                 <span className="text-body font-semibold">{formatSats(fee)}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-body font-semibold">{t('send.confirm.total')}</span>
+                <span className="text-body font-bold">{t('send.confirm.total')}</span>
                 <div className="text-right">
                   <span className="text-body font-bold">{formatSats(totalAmount)}</span>
                   {formatFiat(totalAmount) && (
@@ -242,9 +242,9 @@ export function SendConfirmStep({
             </>
           ) : feeError ? (
             <>
-              <div className="border-t border-border" />
+              <div className="border-t border-border mt-1 pt-1" />
               <div className="flex items-center justify-between">
-                <span className="text-body text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
+                <span className="text-caption text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
                 <span className="text-caption text-foreground-muted">{t('send.confirm.feeEstimateFailed')}</span>
               </div>
             </>

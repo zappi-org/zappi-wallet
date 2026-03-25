@@ -58,7 +58,7 @@ export function QRCodeDisplay({
   }
 
   return (
-    <div className={cn('bg-background-card p-4 rounded-[13px] shadow-sm', className)}>
+    <div className={cn('bg-background-card p-4 rounded-xl shadow-sm', className)}>
       <QRCodeSVG
         value={value}
         size={size}
@@ -118,7 +118,7 @@ function AnimatedQR({
   const displayFrame = (frame.index % totalFragments) + 1
 
   return (
-    <div className={cn('bg-background-card p-4 rounded-[13px] shadow-sm relative', className)}>
+    <div className={cn('bg-background-card p-4 rounded-xl shadow-sm relative', className)}>
       <QRCodeSVG
         value={frame.value}
         size={size}

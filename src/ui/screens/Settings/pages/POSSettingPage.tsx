@@ -289,12 +289,9 @@ export function POSSettingPage({
             >
               {t('common.cancel')}
             </Button>
-            <button
-              onClick={handleRemoveDevice}
-              className="flex-1 py-2 rounded-xl font-semibold text-caption bg-accent-danger text-white active:opacity-80"
-            >
+            <Button variant="destructive" size="lg" onClick={handleRemoveDevice} className="flex-1">
               {t('settings.posDeviceRemove')}
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>

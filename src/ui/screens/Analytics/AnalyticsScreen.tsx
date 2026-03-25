@@ -173,15 +173,15 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
   return (
     <div className="h-dvh bg-background text-foreground flex flex-col font-sans relative overflow-hidden z-[60] pt-safe">
       {/* Header */}
-      <header className="flex items-center px-5 pt-4 relative z-50">
+      <header className="flex items-center gap-2 px-5 h-14 shrink-0 relative z-50">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="p-2 rounded-full bg-background-card hover:shadow-md transition-all hover:bg-background-card"
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="text-body font-bold tracking-tight ml-3">{t('analytics.title')}</h2>
+        <h2 className="text-subtitle">{t('analytics.title')}</h2>
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-32">
@@ -220,7 +220,7 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
               <div className="bg-accent-primary/20 p-2 rounded-full">
                 <TrendingDown className="w-3 h-3 text-accent-primary" />
               </div>
-              <span className="text-overline font-bold text-foreground-muted">{t('analytics.totalReceived')}</span>
+              <span className="text-label font-semibold text-foreground-muted">{t('analytics.totalReceived')}</span>
             </div>
             <h3 className="text-subtitle font-display text-foreground">
               +{formatAmount(analytics.income)}
@@ -243,7 +243,7 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
               <div className="bg-accent-danger/20 p-2 rounded-full">
                 <TrendingUp className="w-3 h-3 text-accent-danger" />
               </div>
-              <span className="text-overline font-bold text-foreground-muted">{t('analytics.totalSent')}</span>
+              <span className="text-label font-semibold text-foreground-muted">{t('analytics.totalSent')}</span>
             </div>
             <h3 className="text-subtitle font-display text-foreground">
               -{formatAmount(analytics.spending)}
@@ -267,7 +267,7 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
         <section className="bg-background-card p-4 rounded-2xl ">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-overline uppercase tracking-wide text-foreground-muted">{t('analytics.overview')}</h3>
-            <span className="text-overline font-bold text-foreground-muted">
+            <span className="text-label font-semibold text-foreground-muted">
               {timeRange === 'week' ? t('analytics.thisWeek') : t('analytics.thisMonth')}
             </span>
           </div>
@@ -373,7 +373,7 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
                         }}
                       />
                     </div>
-                    <span className="text-label font-display text-foreground min-w-[50px] text-right">
+                    <span className="text-caption font-display text-foreground min-w-[50px] text-right">
                       {formatAmount(item.value)}
                     </span>
                   </div>

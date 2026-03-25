@@ -28,7 +28,7 @@ const sizeStyles: Record<ButtonSize, string> = {
 }
 
 // Touch feedback styles (Section 17.3)
-const touchFeedbackStyles = 'active:scale-95 active:opacity-80 transition-all duration-100'
+const touchFeedbackStyles = 'active:scale-[0.98] active:opacity-80 transition-all duration-100'
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (

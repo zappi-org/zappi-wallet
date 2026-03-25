@@ -39,8 +39,8 @@ export function CopyButton({
   }, [value])
 
   const variantStyles = {
-    default: 'bg-foreground/[0.06] hover:bg-foreground/[0.09] active:scale-[0.97]',
-    ghost: 'hover:bg-foreground/[0.04] active:scale-[0.97]',
+    default: 'bg-foreground/[0.06] hover:bg-foreground/[0.09] active:scale-[0.98]',
+    ghost: 'hover:bg-foreground/[0.04] active:scale-[0.98]',
   }
 
   return (
@@ -53,7 +53,7 @@ export function CopyButton({
       )}
     >
       {copied ? (
-        <Check className="w-4 h-4 text-accent-success" strokeWidth={2} />
+        <Check className="w-4 h-4 text-accent-success" strokeWidth={1.8} />
       ) : (
         <Copy className="w-4 h-4 text-foreground-muted" strokeWidth={1.8} />
       )}

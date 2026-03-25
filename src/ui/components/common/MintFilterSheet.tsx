@@ -91,7 +91,7 @@ function MintFilterContent({
           </span>
         </div>
         {isAllSelected && (
-          <Check className="w-[18px] h-[18px] text-primary flex-shrink-0" strokeWidth={2} />
+          <Check className="w-[18px] h-[18px] text-primary flex-shrink-0" strokeWidth={1.8} />
         )}
       </button>
 
@@ -129,7 +129,7 @@ function MintFilterContent({
             </div>
 
             {isSelected && (
-              <Check className="w-[18px] h-[18px] text-primary flex-shrink-0" strokeWidth={2} />
+              <Check className="w-[18px] h-[18px] text-primary flex-shrink-0" strokeWidth={1.8} />
             )}
           </button>
         )

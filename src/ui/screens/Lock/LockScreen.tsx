@@ -215,7 +215,7 @@ export function LockScreen({
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <div
                 key={i}
-                className="w-4 h-4 rounded-full"
+                className="w-4 h-4 rounded-full transition-all duration-150"
                 style={{
                   transform: password.length > i ? 'scale(1)' : 'scale(0.75)',
                   backgroundColor: shake
@@ -233,7 +233,7 @@ export function LockScreen({
 
           {/* Error Message */}
           {error && (
-            <div className="animate-fadeIn border-l-2 border-accent-danger bg-accent-danger/[0.06] px-3 py-2 text-label text-accent-danger mb-3">
+            <div className="animate-fadeIn border-l-2 border-accent-danger bg-accent-danger/[0.06] px-3 py-2 text-caption text-accent-danger font-medium mb-3">
               {error}
             </div>
           )}

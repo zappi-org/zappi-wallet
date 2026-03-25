@@ -3,6 +3,7 @@ import { ArrowLeft, Copy, Check, Clock, Loader2, RefreshCw, Download, QrCode } f
 import { useTranslation } from 'react-i18next'
 import { useFormatSats, useFormatFiat, getLocaleCode } from '@/utils/format'
 import { useMintMetadata } from '@/hooks'
+import { Button } from '@/ui/components/common/Button'
 import { useAppStore } from '@/store'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import type { PendingItem } from '@/hooks/usePendingItems'
@@ -214,14 +215,14 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
             {showQr && (
               <button
                 onClick={() => setQrValue(value)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/[0.04] transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-foreground/[0.04] transition-colors"
               >
                 <QrCode className="w-4 h-4 text-foreground-muted" />
               </button>
             )}
             <button
               onClick={() => handleCopy(value, field)}
-              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/[0.04] transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-foreground/[0.04] transition-colors"
             >
               {copiedField === field ? (
                 <Check className="w-4 h-4 text-card-brand-dark" />
@@ -248,7 +249,7 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
       <button
         onClick={copyable && field ? () => handleCopy(value, field) : undefined}
         className={`flex items-center justify-between w-full py-3 border-b border-border/30 last:border-b-0 ${
-          copyable ? 'active:bg-black/[0.02] transition-colors' : ''
+          copyable ? 'active:bg-foreground/[0.02] transition-colors' : ''
         }`}
         disabled={!copyable}
       >
@@ -269,7 +270,7 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
       <header className="flex items-center px-4 h-14 shrink-0">
         <button
           onClick={onBack}
-          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-black/[0.04] active:bg-black/[0.06] transition-colors"
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
           aria-label={t('common.back')}
         >
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
@@ -343,7 +344,7 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
                   <button
                     onClick={handleCheckQuote}
                     disabled={isCheckingQuote}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/[0.04] transition-colors disabled:opacity-50"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-foreground/[0.04] transition-colors disabled:opacity-50"
                   >
                     {isCheckingQuote ? (
                       <Loader2 className="w-4 h-4 animate-spin text-foreground-muted" />
@@ -405,18 +406,17 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
         {/* Redeem button (when quote is PAID) */}
         {item.type === 'receive-request' && quoteStatus === 'PAID' && (
           <div className="px-5 mt-4">
-            <button
+            <Button
+              variant="brand"
+              size="lg"
               onClick={handleRedeemQuote}
               disabled={isRedeeming}
-              className="w-full py-3.5 rounded-xl bg-brand text-white font-semibold text-caption flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] transition-transform"
+              loading={isRedeeming}
+              icon={!isRedeeming ? <Download className="w-4 h-4" /> : undefined}
+              className="w-full"
             >
-              {isRedeeming ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Download className="w-4 h-4" />
-              )}
               {t('pending.redeemQuote')}
-            </button>
+            </Button>
           </div>
         )}
 
@@ -427,14 +427,16 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
       {/* Action Button (type-specific) */}
       {item.type === 'unclaimed-token' && (
         <div className="px-5 pb-4 pt-2 shrink-0">
-          <button
+          <Button
+            variant="brand"
+            size="lg"
             onClick={handleRedeem}
             disabled={isProcessing || !item.token}
-            className="w-full py-3.5 rounded-xl bg-brand text-white font-semibold text-caption flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] transition-transform"
+            loading={isProcessing}
+            className="w-full"
           >
-            {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             {t('pending.redeemAction')}
-          </button>
+          </Button>
         </div>
       )}
 

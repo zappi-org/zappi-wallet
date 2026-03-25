@@ -3,6 +3,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { ArrowLeft, Plus, AlertCircle, TrendingUp, Loader2, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { Button } from '@/ui/components/common/Button'
 import { ProgressStepper } from '@/ui/components/common/ProgressStepper'
 import { useAppStore } from '@/store'
 import { mintMetadataService } from '@/services/mint-metadata'
@@ -252,11 +253,15 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
   return (
     <div className="animate-slideInUp h-dvh bg-background text-foreground flex flex-col font-sans relative overflow-hidden z-[60] pt-safe">
       {/* Header */}
-      <header className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-border">
-        <button onClick={onBack} aria-label={t('common.back')} className="p-1">
-          <ArrowLeft className="w-5 h-5 text-foreground" />
+      <header className="flex items-center gap-2 px-5 h-14 shrink-0">
+        <button
+          onClick={onBack}
+          aria-label={t('common.back')}
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
+        >
+          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="text-body font-semibold tracking-tight flex-1">{t('addMint.title')}</h2>
+        <h2 className="text-subtitle flex-1">{t('addMint.title')}</h2>
         <span className={cn(
           "text-overline",
           isAtLimit ? "text-accent-danger" : "text-foreground-muted"
@@ -316,12 +321,9 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
           <div className="flex flex-col items-center justify-center py-12">
             <AlertCircle className="w-6 h-6 text-accent-danger mb-2" />
             <p className="text-label text-accent-danger mb-3">{discoveryError}</p>
-            <button
-              onClick={handleRetryDiscovery}
-              className="px-4 py-2 bg-brand text-white rounded-xl text-label active:opacity-80"
-            >
+            <Button variant="brand" size="sm" onClick={handleRetryDiscovery}>
               {t('common.retry')}
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="bg-background-card divide-y divide-border pb-safe">

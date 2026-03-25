@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { X, Copy, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
+import { Button } from '@/ui/components/common/Button'
 
 interface MintUrlQrModalProps {
   isOpen: boolean
@@ -58,16 +59,13 @@ export function MintUrlQrModal({ isOpen, url, onClose }: MintUrlQrModalProps) {
 
         {/* Copy button */}
         <div className="px-6 pb-6 pt-2">
-          <button
-            onClick={handleCopy}
-            className="w-full flex items-center justify-center gap-2 bg-brand text-white py-3.5 rounded-xl font-semibold text-caption active:scale-[0.98] transition-transform"
-          >
+          <Button variant="brand" size="lg" onClick={handleCopy} className="w-full">
             {copied ? (
               <><Check className="w-4 h-4" /> {t('mintDetail.copied')}</>
             ) : (
               <><Copy className="w-4 h-4" /> {t('mintDetail.copy')}</>
             )}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

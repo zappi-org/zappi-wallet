@@ -314,7 +314,7 @@ export function SendInputStep({
       <div className="flex-1 overflow-y-auto px-6 space-y-6">
         {/* Destination */}
         <div>
-          <p className="text-label font-normal text-foreground-muted leading-snug">{t('send.whereTo')}</p>
+          <p className="text-caption text-foreground-muted leading-snug">{t('send.whereTo')}</p>
           <div className="flex items-end gap-1 border-b border-b-border focus-within:border-b-foreground transition-colors">
             <input
               type="text"

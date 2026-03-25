@@ -101,7 +101,7 @@ export function TokenCreateStep({
             type="text"
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
-            className="w-full bg-transparent border-0 border-b border-b-border rounded-none px-0 py-2 text-subtitle font-semibold text-foreground focus:outline-none focus:border-b-foreground transition-colors"
+            className="w-full bg-transparent border-0 border-b border-b-border rounded-none px-0 py-2 text-body font-medium text-foreground focus:outline-none focus:border-b-foreground transition-colors"
           />
         </div>
       </div>

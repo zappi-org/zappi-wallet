@@ -755,7 +755,7 @@ export default {
     },
     token: {
       title: 'トークン確認',
-      canReceive: '{{amount}}を\n{{mint}}に\n受け取れます。',
+      canReceive: '{{mint}}から\n{{amount}}\n受け取りますか？',
       receiveMint: '受取ミント',
       amount: '金額',
       receive: '受取',

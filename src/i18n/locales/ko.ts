@@ -906,7 +906,7 @@ export default {
     },
     token: {
       title: '토큰 확인',
-      canReceive: '{{amount}}을\n내 {{mint}}에\n받을 수 있어요.',
+      canReceive: '{{mint}}에서\n{{amount}}\n받을까요?',
       receiveMint: '받을 민트',
       amount: '금액',
       receive: '받기',
