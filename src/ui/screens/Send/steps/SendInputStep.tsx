@@ -19,7 +19,7 @@ import { Button } from '@/ui/components/common/Button'
 import { AmountInput } from '@/ui/components/common/AmountInput'
 import { QrScanner } from '@/ui/components/common/QrScanner'
 import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
-import { decodeCashuRequest } from '@/ui/components/scanner/InputValidator'
+import { validateInput } from '@/ui/components/scanner/InputValidator'
 import type { SendableValidatedData } from '../SendFlow'
 
 interface SendInputStepProps {
@@ -169,8 +169,8 @@ export function SendInputStep({
     updateDestination('@')
   }, [updateDestination])
 
-  // Process external input (scan/paste) with auto-advance
-  const processExternalInput = useCallback((input: string) => {
+  // Process external input (scan/paste): detect → validate → auto-advance
+  const processExternalInput = useCallback(async (input: string) => {
     const trimmed = input.trim()
     if (!trimmed) return
 
@@ -180,52 +180,48 @@ export function SendInputStep({
     const detected = detectInputType(trimmed)
     setDetectedType(toDisplayType(detected.type))
 
-    // bolt11 with amount → auto-advance
-    if (detected.type === 'bolt11' && detected.amountSats > 0) {
-      setAmount(String(detected.amountSats))
-      if (selectedMintUrl) {
-        setTimeout(() => {
-          onNext({
-            destination: trimmed,
-            amount: detected.amountSats,
-            selectedMintUrl: selectedMintUrl!,
-          })
-        }, 300)
-        return
-      }
-    }
-
-    // Auto-fill amount for bolt11 without enough to auto-advance
-    if (detected.type === 'bolt11' && detected.amountSats > 0) {
-      setAmount(String(detected.amountSats))
-    }
-
-    // cashu-request with amount → auto-fill and auto-advance
-    if (detected.type === 'cashu-request') {
-      try {
-        const parsed = decodeCashuRequest(detected.request)
-        if (parsed.amount && parsed.amount > 0) {
-          setAmount(String(parsed.amount))
-          if (selectedMintUrl) {
-            setTimeout(() => {
-              onNext({
-                destination: trimmed,
-                amount: parsed.amount!,
-                selectedMintUrl: selectedMintUrl!,
-              })
-            }, 300)
-            return
-          }
-        }
-      } catch {
-        // decode failed, fall through to manual input
-      }
-    }
-
-    // Focus amount input for types that need it
-    if (detected.type !== 'unknown') {
+    if (detected.type === 'unknown') {
       setTimeout(() => amountInputRef.current?.focus(), 150)
+      return
     }
+
+    // Full validation (async) — preserves lightningInvoice for unified QR
+    const result = await validateInput(detected)
+    if (!result.valid) return
+
+    const validated = result.data
+    if (!['bolt11', 'lightning-address', 'lnurl-pay', 'cashu-request', 'my-wallet'].includes(validated.type)) return
+
+    const sendable = validated as SendableValidatedData
+    setValidatedData(sendable)
+
+    // Extract amount if available
+    let detectedAmount = 0
+    if (sendable.type === 'bolt11' && sendable.amountSats > 0) {
+      detectedAmount = sendable.amountSats
+    } else if (sendable.type === 'cashu-request' && sendable.parsed.amount && sendable.parsed.amount > 0) {
+      detectedAmount = sendable.parsed.amount
+    }
+
+    if (detectedAmount > 0) {
+      setAmount(String(detectedAmount))
+    }
+
+    // Auto-advance when amount + mint are ready
+    if (detectedAmount > 0 && selectedMintUrl) {
+      setTimeout(() => {
+        onNext({
+          destination: trimmed,
+          amount: detectedAmount,
+          selectedMintUrl: selectedMintUrl!,
+          validatedData: sendable,
+        })
+      }, 300)
+      return
+    }
+
+    // Focus amount input for manual entry
+    setTimeout(() => amountInputRef.current?.focus(), 150)
   }, [selectedMintUrl, onNext])
 
   // Handle paste
