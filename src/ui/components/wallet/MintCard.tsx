@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Pencil } from "lucide-react";
 import type { MintInfo } from "@/core/types";
 import { cn } from "@/lib/utils";
 import { useFormatSats, useFormatFiat } from "@/utils/format";
@@ -20,6 +20,7 @@ interface MintCardProps {
   onDetail?: () => void;
   onSend?: () => void;
   onReceive?: () => void;
+  onRename?: (newName: string) => void;
   sendDisabled?: boolean;
 }
 
@@ -90,12 +91,39 @@ export function MintCard({
   onDetail,
   onSend,
   onReceive,
+  onRename,
   sendDisabled,
 }: MintCardProps) {
   const { t } = useTranslation();
   const formatSats = useFormatSats();
   const toFiat = useFormatFiat();
   const displayName = mint.alias || getMintShortName(mint.url, mint.name);
+
+  // Inline rename state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(displayName);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleStartEdit = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditValue(displayName);
+    setIsEditing(true);
+  }, [displayName]);
+
+  const handleSave = useCallback(() => {
+    const trimmed = editValue.trim();
+    if (trimmed && trimmed !== displayName) {
+      onRename?.(trimmed);
+    }
+    setIsEditing(false);
+  }, [editValue, displayName, onRename]);
 
   return (
     <div
@@ -135,9 +163,33 @@ export function MintCard({
           <div className="rounded-full flex items-center justify-center overflow-hidden shrink-0 w-[25px] h-[27px]">
             <MintLogo iconUrl={mint.iconUrl} />
           </div>
-          <p className="font-display text-body-bold font-semibold text-white leading-tight whitespace-nowrap truncate min-w-0">
-            {displayName}
-          </p>
+          {isEditing && onRename ? (
+            <input
+              ref={inputRef}
+              type="text"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value.slice(0, 10))}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSave() }}
+              onBlur={handleSave}
+              maxLength={10}
+              className="font-display text-body-bold font-semibold text-white leading-tight bg-white/15 rounded-md px-2 py-0.5 outline-none min-w-0 w-32"
+            />
+          ) : (
+            <button
+              onClick={onRename ? handleStartEdit : undefined}
+              className={cn(
+                "flex items-center gap-1.5 min-w-0",
+                onRename && "cursor-pointer"
+              )}
+            >
+              <span className="font-display text-body-bold font-semibold text-white leading-tight whitespace-nowrap truncate">
+                {displayName}
+              </span>
+              {onRename && (
+                <Pencil className="w-3 h-3 text-white/50 shrink-0" />
+              )}
+            </button>
+          )}
         </div>
 
         {/* Bottom: Balance */}

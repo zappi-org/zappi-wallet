@@ -1,5 +1,5 @@
-import { useState, useMemo, useRef, useCallback } from 'react'
-import { ArrowLeft, EllipsisVertical, Pencil } from 'lucide-react'
+import { useState, useMemo, useCallback } from 'react'
+import { ArrowLeft, EllipsisVertical } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { MintCard, getVariantByIndex } from '@/ui/components/wallet/MintCard'
 import { TransactionList } from '@/ui/components/wallet/TransactionList'
@@ -47,29 +47,6 @@ export function MintDetailScreen({
   const [showMintInfo, setShowMintInfo] = useState(false)
   const [showPendingItems, setShowPendingItems] = useState(false)
   const [selectedPendingItem, setSelectedPendingItem] = useState<PendingItem | null>(null)
-  const [isEditingName, setIsEditingName] = useState(false)
-  const [editNameValue, setEditNameValue] = useState('')
-  const nameInputRef = useRef<HTMLInputElement>(null)
-
-  const displayAlias = mint.alias || mint.name || ''
-
-  const handleStartEditName = useCallback(() => {
-    setEditNameValue(displayAlias)
-    setIsEditingName(true)
-    setTimeout(() => nameInputRef.current?.focus(), 50)
-  }, [displayAlias])
-
-  const handleSaveName = useCallback(() => {
-    const trimmed = editNameValue.trim()
-    if (trimmed && onRenameMint) {
-      if (isDuplicateMintName(trimmed, mint.url, settings.mints, getDisplayName)) {
-        addToast({ type: 'error', message: t('mintDetail.duplicateName'), duration: 3000 })
-        return
-      }
-      onRenameMint(mint.url, trimmed)
-    }
-    setIsEditingName(false)
-  }, [mint.url, editNameValue, onRenameMint, settings.mints, getDisplayName, addToast, t])
 
   const handlePendingItemClick = useCallback(async (item: PendingItem) => {
     hapticTap()
@@ -153,43 +130,20 @@ export function MintDetailScreen({
 
       {/* Scrollable Content */}
       <main className="flex-1 overflow-y-auto px-4 pb-8 space-y-6">
-        {/* Mint Card */}
+        {/* Mint Card — with inline rename */}
         <div className="flex justify-center">
           <MintCard
             mint={liveMint}
             variant={variant}
             hideBalance={settings.balanceHidden}
+            onRename={(newName) => {
+              if (isDuplicateMintName(newName, mint.url, settings.mints, getDisplayName)) {
+                addToast({ type: 'error', message: t('mintDetail.duplicateName'), duration: 3000 })
+                return
+              }
+              onRenameMint?.(mint.url, newName)
+            }}
           />
-        </div>
-
-        {/* Editable Name */}
-        <div className="flex justify-center -mt-2">
-          {isEditingName ? (
-            <div className="flex flex-col items-center gap-1">
-              <input
-                ref={nameInputRef}
-                type="text"
-                value={editNameValue}
-                onChange={(e) => setEditNameValue(e.target.value.slice(0, 10))}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleSaveName() }}
-                onBlur={handleSaveName}
-                placeholder={t('mintDetail.namePlaceholder')}
-                maxLength={10}
-                className="font-semibold text-body text-foreground text-center bg-muted rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-primary/30 w-48"
-              />
-              <span className="text-overline font-medium text-foreground-muted">{editNameValue.length}/10</span>
-            </div>
-          ) : (
-            <button
-              onClick={handleStartEditName}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-background-hover transition-colors group"
-            >
-              <span className="font-semibold text-body text-foreground">
-                {displayAlias}
-              </span>
-              <Pencil className="w-3.5 h-3.5 text-foreground-muted opacity-60 group-hover:opacity-100 transition-opacity" />
-            </button>
-          )}
         </div>
 
         {/* Pending Items */}

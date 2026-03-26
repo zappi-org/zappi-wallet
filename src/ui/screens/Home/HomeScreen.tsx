@@ -250,7 +250,23 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* Scrollable transaction area */}
+      {/* Transaction section header — fixed */}
+      <div className="shrink-0 w-[calc(var(--card-w)+2rem)] mx-auto flex items-center justify-between pt-4 pb-2 px-4">
+        <h2 className="text-caption font-semibold text-foreground-muted">{t('home.recentTransactions')}</h2>
+        {filteredTransactions.length > 0 && (
+          <button
+            onClick={() => onTransactions?.(mints[clampedMintIndex]?.url)}
+            className="flex items-center gap-0.5 text-caption font-medium text-brand hover:text-brand-700 active:scale-95 transition-all"
+          >
+            {t('home.seeAll')}
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="mt-px">
+              <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {/* Scrollable transaction list */}
       <main ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0 pb-safe">
         {/* Pull-to-refresh indicator */}
         <div
@@ -268,15 +284,14 @@ export function HomeScreen({
           )}
         </div>
 
-        {/* Transaction List */}
-        <div className="pb-6 mt-4 w-[calc(var(--card-w)+2rem)] mx-auto">
+        {/* Transaction List — header hidden, managed above */}
+        <div className="pb-6 w-[calc(var(--card-w)+2rem)] mx-auto">
           <TransactionList
             transactions={filteredTransactions}
-            onSeeAll={() => onTransactions?.(mints[clampedMintIndex]?.url)}
             onTransactionClick={onSelectTransaction}
             maxItems={5}
             showDate
-            title={t('home.recentTransactions')}
+            showHeader={false}
             className="px-0"
           />
         </div>
