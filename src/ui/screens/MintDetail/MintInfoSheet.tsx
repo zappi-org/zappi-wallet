@@ -113,7 +113,7 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, getDi
           {/* Header */}
           <div className="sticky top-0 bg-background z-10 flex items-center justify-between px-4 py-4 border-b border-border">
             <div className="w-9" />
-            <h2 className="text-subtitle text-foreground">
+            <h2 className="text-subtitle font-semibold text-foreground">
               {t('mintDetail.mintInfo')}
             </h2>
             <button
@@ -131,7 +131,7 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, getDi
                 <img src={mint.iconUrl} alt="" className="w-12 h-12 rounded-full object-cover" />
               ) : (
                 <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-                  <span className="text-subtitle text-foreground-muted">{aliasName[0]?.toUpperCase()}</span>
+                  <span className="text-subtitle font-semibold text-foreground-muted">{aliasName[0]?.toUpperCase()}</span>
                 </div>
               )}
               {isEditingName ? (
@@ -145,21 +145,21 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, getDi
                     onBlur={handleSaveName}
                     placeholder={t('mintDetail.namePlaceholder')}
                     maxLength={10}
-                    className="text-title text-foreground text-center bg-muted rounded-lg px-3 py-1 outline-none focus:ring-2 focus:ring-primary/30 w-48"
+                    className="text-title font-bold text-foreground text-center bg-muted rounded-lg px-3 py-1 outline-none focus:ring-2 focus:ring-primary/30 w-48"
                   />
-                  <span className="text-overline text-foreground-muted">{editNameValue.length}/10</span>
+                  <span className="text-overline font-medium text-foreground-muted">{editNameValue.length}/10</span>
                 </div>
               ) : (
                 <button
                   onClick={handleStartEditName}
                   className="flex items-center gap-1.5 group"
                 >
-                  <p className="text-title text-foreground">{aliasName}</p>
+                  <p className="text-title font-bold text-foreground">{aliasName}</p>
                   <Pencil className="w-3.5 h-3.5 text-foreground-muted opacity-0 group-hover:opacity-100 transition-opacity" />
                 </button>
               )}
               {originalMintName && originalMintName !== aliasName && (
-                <p className="text-label text-foreground-muted">{originalMintName}</p>
+                <p className="text-label font-medium text-foreground-muted">{originalMintName}</p>
               )}
             </div>
 
@@ -188,7 +188,7 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, getDi
 
                 {/* Mint URL */}
                 <div>
-                  <p className="text-overline uppercase tracking-wide text-foreground-muted mb-2">
+                  <p className="text-caption font-medium uppercase tracking-wide text-foreground-muted mb-2">
                     {t('mintDetail.mintUrl')}
                   </p>
                   <div className="bg-input rounded-xl px-4 py-3 flex items-center justify-between gap-2">
@@ -217,7 +217,7 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, getDi
                 {/* Contact */}
                 {mintInfo?.contact && mintInfo.contact.length > 0 && (
                   <div>
-                    <p className="text-overline uppercase tracking-wide text-foreground-muted mb-2">
+                    <p className="text-caption font-medium uppercase tracking-wide text-foreground-muted mb-2">
                       {t('mintDetail.mintContact')}
                     </p>
                     <div className="bg-input rounded-xl overflow-hidden">
@@ -254,7 +254,7 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, getDi
 
                 {/* Details Section */}
                 <div>
-                  <p className="text-overline uppercase tracking-wide text-foreground-muted mb-2">
+                  <p className="text-caption font-medium uppercase tracking-wide text-foreground-muted mb-2">
                     {t('mintDetail.details')}
                   </p>
                   <div className="bg-input rounded-xl overflow-hidden">
@@ -315,7 +315,7 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, getDi
                             )}
                           </button>
                         </div>
-                        <p className="text-label font-mono text-foreground-muted break-all mt-1">
+                        <p className="text-label font-medium font-mono text-foreground-muted break-all mt-1">
                           {mintInfo.pubkey}
                         </p>
                       </div>
@@ -326,7 +326,7 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, getDi
                 {/* Danger Zone */}
                 {onDelete && (
                   <div>
-                    <p className="text-overline uppercase tracking-wide text-foreground-muted mb-2">
+                    <p className="text-caption font-medium uppercase tracking-wide text-foreground-muted mb-2">
                       {t('mintDetail.dangerZone')}
                     </p>
                     <Button variant="destructive" size="lg" onClick={() => setShowDelete(true)} className="w-full">
@@ -369,7 +369,7 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, getDi
 function InfoCard({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="bg-input rounded-xl px-4 py-3">
-      <p className="text-label text-foreground-muted uppercase mb-1">{label}</p>
+      <p className="text-label font-medium text-foreground-muted uppercase mb-1">{label}</p>
       {children}
     </div>
   )

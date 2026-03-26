@@ -58,31 +58,31 @@ export function AmountActionScreen({
   // If mode is set, we'll navigate away via useEffect — show minimal loading
   if (mode) {
     return (
-      <div className="h-dvh bg-background text-foreground font-sans flex flex-col pt-safe pb-safe items-center justify-center">
-        <p className="text-display tracking-tight">{formatSats(amount)}</p>
+      <div className="h-dvh bg-background text-foreground font-primary flex flex-col pt-safe pb-safe items-center justify-center">
+        <p className="text-display font-bold font-display tracking-tight">{formatSats(amount)}</p>
       </div>
     )
   }
 
   return (
-    <div className="h-dvh bg-background text-foreground font-sans flex flex-col pt-safe pb-safe">
+    <div className="h-dvh bg-background text-foreground font-primary flex flex-col pt-safe pb-safe">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-border-visible">
+      <header className="relative flex items-center justify-between px-4 py-3 border-b border-border-visible">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="p-2 -ml-2 rounded-lg hover:bg-border-visible transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+          className="p-2 -ml-2 rounded-lg hover:bg-border-visible transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-subtitle">{headerTitle}</h1>
+        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{headerTitle}</h1>
         <div className="w-11" />
       </header>
 
       {/* Content */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 gap-8">
         {/* Amount Display */}
-        <p className="text-display tracking-tight text-center">
+        <p className="text-display font-bold font-display tracking-tight text-center">
           {formatSats(amount)}
         </p>
 

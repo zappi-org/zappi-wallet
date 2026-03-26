@@ -223,15 +223,15 @@ export function ReceiveQRStep({
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header — no border */}
-      <header className="flex items-center justify-between px-4 py-3">
+      <header className="relative flex items-center justify-between px-4 py-3">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="p-2 -ml-2 rounded-lg hover:bg-muted transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+          className="p-2 -ml-2 rounded-lg hover:bg-muted transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-subtitle">{t('receive.qr.title')}</h1>
+        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('receive.qr.title')}</h1>
         <div className="w-11" />
       </header>
 
@@ -242,7 +242,7 @@ export function ReceiveQRStep({
         </p>
 
         {/* Amount */}
-        <p className="text-display font-display">{formatSats(amount)}</p>
+        <p className="text-display font-bold font-display">{formatSats(amount)}</p>
         {(() => { const f = formatFiat(amount); return f ? (
           <p className="text-caption text-foreground-muted -mt-2">{f}</p>
         ) : null })()}
@@ -273,32 +273,32 @@ export function ReceiveQRStep({
                 <Zap className="w-3 h-3 text-amber-500" />
                 <Wifi className="w-3 h-3 text-green-600" />
                 {transportStatus === 'unified-full' && <Globe className="w-3 h-3 text-blue-500" />}
-                <span className="text-label text-foreground-muted">{t('receive.transport.unified')}</span>
+                <span className="text-label font-medium text-foreground-muted">{t('receive.transport.unified')}</span>
               </>
             )}
             {transportStatus === 'lightning-only' && (
               <>
                 <Zap className="w-3 h-3 text-amber-500" />
-                <span className="text-label text-foreground-muted">{t('receive.transport.lightningOnly')}</span>
+                <span className="text-label font-medium text-foreground-muted">{t('receive.transport.lightningOnly')}</span>
               </>
             )}
             {transportStatus === 'nostr-and-http' && (
               <>
                 <Wifi className="w-3 h-3 text-green-600" />
                 <Globe className="w-3 h-3 text-blue-500" />
-                <span className="text-label text-foreground-muted">{t('receive.transport.nostrAndHttp')}</span>
+                <span className="text-label font-medium text-foreground-muted">{t('receive.transport.nostrAndHttp')}</span>
               </>
             )}
             {transportStatus === 'nostr-only' && (
               <>
                 <Wifi className="w-3 h-3 text-green-600" />
-                <span className="text-label text-foreground-muted">{t('receive.transport.nostrOnly')}</span>
+                <span className="text-label font-medium text-foreground-muted">{t('receive.transport.nostrOnly')}</span>
               </>
             )}
             {transportStatus === 'http-only' && (
               <>
                 <Globe className="w-3 h-3 text-blue-500" />
-                <span className="text-label text-amber-600">{t('receive.transport.httpOnly')}</span>
+                <span className="text-label font-medium text-amber-600">{t('receive.transport.httpOnly')}</span>
               </>
             )}
           </div>

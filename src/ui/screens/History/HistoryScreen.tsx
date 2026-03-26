@@ -216,23 +216,21 @@ export function HistoryScreen({
   }
 
   return (
-    <div className="h-dvh bg-background text-foreground flex flex-col font-sans relative overflow-hidden z-[60] pt-safe">
+    <div className="h-dvh bg-background text-foreground flex flex-col font-primary relative overflow-hidden z-[60] pt-safe">
       {/* Header */}
-      <header className="flex items-center justify-between px-5 pt-4 relative z-50">
-        <div className="flex items-center">
-          <button
-            onClick={onBack}
-            aria-label={t('common.back')}
-            className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
-          >
-            <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
-          </button>
-          <h2 className="text-subtitle ml-2">{t('history.title')}</h2>
-        </div>
+      <header className="relative flex items-center justify-between px-5 h-14 shrink-0 z-50">
+        <button
+          onClick={onBack}
+          aria-label={t('common.back')}
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
+        >
+          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
+        </button>
+        <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('history.title')}</h2>
         <button
           onClick={handleExportPress}
           aria-label={t('history.export')}
-          className="h-10 rounded-lg flex items-center gap-1.5 px-2.5 hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors text-foreground"
+          className="h-10 rounded-lg flex items-center gap-1.5 px-2.5 hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors text-foreground z-10"
         >
           <Download className="w-[18px] h-[18px]" strokeWidth={1.8} />
         </button>

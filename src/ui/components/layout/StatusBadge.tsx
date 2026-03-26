@@ -30,7 +30,7 @@ export function StatusBadge({ status, showLabel = false }: StatusBadgeProps) {
         }`}
       />
       {showLabel && (
-        <span className="text-label text-foreground-muted">{t(statusLabelKeys[status])}</span>
+        <span className="text-label font-medium text-foreground-muted">{t(statusLabelKeys[status])}</span>
       )}
     </div>
   )

@@ -40,7 +40,7 @@ export function AutoLockSettingPage({ onBack, saveSettings }: AutoLockSettingPag
       {/* Timeout options (only when enabled) */}
       {autoLockEnabled && (
         <div className="py-2">
-          <p className="px-5 pt-4 pb-2 text-overline uppercase tracking-wide text-foreground-muted">
+          <p className="px-5 pt-4 pb-2 text-caption font-medium uppercase tracking-wide text-foreground-muted">
             {t('settings.autoLockTimeout')}
           </p>
           {TIMEOUT_OPTIONS.map((minutes) => (

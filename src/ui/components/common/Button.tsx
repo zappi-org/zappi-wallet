@@ -21,10 +21,10 @@ const variantStyles: Record<ButtonVariant, string> = {
 }
 
 const sizeStyles: Record<ButtonSize, string> = {
-  sm: 'h-8 px-3 text-label rounded-lg',
+  sm: 'h-8 px-3 text-label font-medium rounded-lg',
   md: 'h-9 px-4 text-caption rounded-lg',
   lg: 'h-12 px-5 text-body rounded-xl',
-  xl: 'h-14 px-6 text-subtitle rounded-[14px]',
+  xl: 'h-14 px-6 text-subtitle font-semibold rounded-[14px]',
 }
 
 // Touch feedback styles (Section 17.3)

@@ -82,15 +82,16 @@ export function PinChangePage({ pinChange }: PinChangePageProps) {
     <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe pb-safe overflow-hidden z-[65]">
       <div className="flex-1 flex flex-col max-w-md mx-auto w-full">
         {/* Header */}
-        <header className="flex items-center gap-2 px-5 h-14 shrink-0">
+        <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
           <button
             onClick={close}
             aria-label={t('common.back')}
-            className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
+            className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
           >
             <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
           </button>
-          <h1 className="text-subtitle text-foreground">{t('settings.changePin')}</h1>
+          <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold text-foreground pointer-events-none">{t('settings.changePin')}</h1>
+          <div className="w-10" />
         </header>
 
         {/* Content */}

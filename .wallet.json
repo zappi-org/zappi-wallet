@@ -1,0 +1,17 @@
+{
+  "nsec": "nsec1hzsc5s24kw2g6varj8prulk9hzht70r2f60v7gszwspawumran7qqkdnnv",
+  "npub": "npub1829hfyggtmfj6r6asryfh4xeglfgc4ecrxflve2yqkclm848ax0qh5rvah",
+  "balance": 0,
+  "relays": [
+    "wss://relay.damus.io",
+    "wss://nos.lol",
+    "wss://relay.nostr.band",
+    "wss://nostr.mutinywallet.com"
+  ],
+  "mints": [
+    "https://mint.coinos.io",
+    "https://mint.lnvoltz.com",
+    "https://mint.chorus.community"
+  ],
+  "mintInfoCache": {}
+}

@@ -82,7 +82,7 @@ export const TransactionRow = memo(function TransactionRow({
       {/* Left: title + subtitle */}
       <div className="flex flex-col gap-0.5 text-left min-w-0 flex-1 mr-4">
         <span className="text-body font-semibold text-foreground leading-normal truncate">{title}</span>
-        <span className="text-label text-foreground-muted leading-normal truncate">{subtitle}</span>
+        <span className="text-label font-medium text-foreground-muted leading-normal truncate">{subtitle}</span>
       </div>
 
       {/* Right: amount + fiat */}
@@ -90,11 +90,11 @@ export const TransactionRow = memo(function TransactionRow({
         <div className="flex items-center gap-1.5">
           {isPending && <span className="w-1.5 h-1.5 rounded-full bg-status-pending animate-pulse" />}
           {isFailed && <span className="w-1.5 h-1.5 rounded-full bg-accent-danger" />}
-          <span className={cn('text-amount font-display leading-normal', amountColor)}>
+          <span className={cn('text-amount font-semibold font-display leading-normal', amountColor)}>
             {amountPrefix}{formatSats(tx.amount)}
           </span>
         </div>
-        {fiatStr && <span className="text-label text-foreground-muted/70 leading-normal">{fiatStr}</span>}
+        {fiatStr && <span className="text-label font-medium text-foreground-muted/70 leading-normal">{fiatStr}</span>}
       </div>
     </button>
   )

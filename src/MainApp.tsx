@@ -112,7 +112,7 @@ export default function MainApp() {
 
   // Scanned amount state (for AmountActionScreen)
   const [scannedAmount, setScannedAmount] = useState<number>(0)
-  const [scanMode, setScanMode] = useState<'send' | 'receive' | undefined>()
+  const [scanMode, _setScanMode] = useState<'send' | 'receive' | undefined>()
 
   // Validated scan data state (for unified payment screens)
   const [validatedScanData, setValidatedScanData] = useState<ValidatedData | null>(null)
@@ -389,39 +389,6 @@ export default function MainApp() {
       return false
     }
   }, [services.security, setLocked, setNostrKeyPair, setP2pkPubkey, refreshBalance])
-
-  // Handle validated scan data - route to appropriate screen based on type
-  const handleValidatedScan = useCallback((data: ValidatedData, mode?: 'send' | 'receive') => {
-    console.log('[App] Validated scan data:', data, 'mode:', mode)
-    setValidatedScanData(data)
-
-    switch (data.type) {
-      case 'bolt11':
-      case 'lightning-address':
-      case 'lnurl-pay':
-      case 'cashu-request':
-        setSendInitialStep('input')
-        setCurrentScreen('send')
-        break
-
-      case 'lnurl-withdraw':
-        setCurrentScreen('receive')
-        break
-
-      case 'cashu-token':
-        setCurrentScreen('receive')
-        break
-
-      case 'amount':
-        setScannedAmount(data.amount)
-        setScanMode(mode)
-        setCurrentScreen('amount-action')
-        break
-
-      default:
-        console.warn('[App] Unknown validated data type:', data)
-    }
-  }, [])
 
   // Payment modal handlers
   const handleCreateInvoice = useCallback(async (amount: number, mintUrl: string) => {
@@ -836,7 +803,7 @@ export default function MainApp() {
     return (
       <div className="flex items-center justify-center h-dvh bg-background">
         <div className="text-center">
-          <h1 className="text-title text-brand mb-4">ZAPPI</h1>
+          <h1 className="text-title font-bold text-brand mb-4">ZAPPI</h1>
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
         </div>
       </div>
@@ -870,7 +837,6 @@ export default function MainApp() {
             setPreviousScreen('home')
             setCurrentScreen('mint-detail')
           }}
-          onValidatedScan={handleValidatedScan}
           onSend={(mintUrl) => {
             setPreviousScreen('home')
             setSendInitialStep('input')
@@ -885,14 +851,6 @@ export default function MainApp() {
             setValidatedScanData(null)
             setScannedAmount(0)
             setCurrentScreen('receive')
-          }}
-          onCreateToken={(mintUrl) => {
-            setPreviousScreen('home')
-            setSendInitialStep('token-create')
-            setActiveMintUrl(mintUrl || null)
-            setValidatedScanData(null)
-            setScannedAmount(0)
-            setCurrentScreen('send')
           }}
           onSelectTransaction={(tx) => {
             setSelectedTransaction(tx)

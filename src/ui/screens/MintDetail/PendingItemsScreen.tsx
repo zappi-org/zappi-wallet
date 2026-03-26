@@ -130,17 +130,18 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
   return (
     <div className="h-dvh bg-background flex flex-col pt-safe">
       {/* Header */}
-      <header className="flex items-center gap-2 px-5 h-14 shrink-0">
+      <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
         <button
           onClick={() => { hapticTap(); onBack() }}
           aria-label={t('common.back')}
-          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
         >
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="text-subtitle">
+        <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">
           {t('mintDetail.pendingAll')}
         </h2>
+        <div className="w-10" />
       </header>
 
       {/* Search */}

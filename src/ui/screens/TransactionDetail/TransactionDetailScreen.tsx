@@ -335,7 +335,7 @@ export default function TransactionDetailScreen({
         {/* ── Hero: Amount + Context ── */}
         <div className="flex flex-col items-center px-6 pt-6 pb-8">
           {/* Amount */}
-          <span className={`text-display font-display tracking-tight leading-tight ${
+          <span className={`text-display font-bold font-display tracking-tight leading-tight ${
             isReceive ? 'text-card-brand-dark' : 'text-foreground'
           }`}>
             {isReceive ? '+' : isSwap ? '' : '-'}{formatSats(tx.amount)}
@@ -368,7 +368,7 @@ export default function TransactionDetailScreen({
 
         {/* ── Transaction Info Section ── */}
         <div className="px-5">
-          <p className="text-label text-foreground-muted uppercase tracking-wider mb-1">
+          <p className="text-label font-medium text-foreground-muted uppercase tracking-wider mb-1">
             {t('txDetail.txInfo')}
           </p>
           <div className="bg-background-card rounded px-4">
@@ -444,7 +444,7 @@ export default function TransactionDetailScreen({
         {/* ── Lightning Send: Payment Info ── */}
         {isLightning && !isReceive && (
           <div className="px-5 mt-6">
-            <p className="text-label text-foreground-muted uppercase tracking-wider mb-1">
+            <p className="text-label font-medium text-foreground-muted uppercase tracking-wider mb-1">
               {t('txDetail.paymentInfo')}
             </p>
             <div className="bg-background-card rounded px-4">
@@ -465,7 +465,7 @@ export default function TransactionDetailScreen({
         {/* ── Lightning Receive ── */}
         {isLightning && isReceive && (tx.bolt11 || typeof metadata?.quoteId === 'string') && (
           <div className="px-5 mt-6">
-            <p className="text-label text-foreground-muted uppercase tracking-wider mb-1">
+            <p className="text-label font-medium text-foreground-muted uppercase tracking-wider mb-1">
               {t('txDetail.details')}
             </p>
             <div className="bg-background-card rounded px-4">
@@ -482,7 +482,7 @@ export default function TransactionDetailScreen({
         {/* ── Swap Info ── */}
         {isSwap && metadata && (
           <div className="px-5 mt-6">
-            <p className="text-label text-foreground-muted uppercase tracking-wider mb-1">
+            <p className="text-label font-medium text-foreground-muted uppercase tracking-wider mb-1">
               {t('txDetail.swapInfo')}
             </p>
             <div className="bg-background-card rounded px-4">
@@ -507,7 +507,7 @@ export default function TransactionDetailScreen({
         {/* ── Kiosk Order Items ── */}
         {kioskOrder && (
           <div className="px-5 mt-6">
-            <p className="text-label text-foreground-muted uppercase tracking-wider mb-1">
+            <p className="text-label font-medium text-foreground-muted uppercase tracking-wider mb-1">
               {t('txDetail.orderItems')}
             </p>
             <div className="bg-background-card rounded px-4 py-1">

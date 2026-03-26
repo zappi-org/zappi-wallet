@@ -119,18 +119,18 @@ export function NotificationsScreen({
   }
 
   return (
-    <div className="h-dvh bg-background text-foreground flex flex-col font-sans relative overflow-hidden z-[60] pt-safe">
+    <div className="h-dvh bg-background text-foreground flex flex-col font-primary relative overflow-hidden z-[60] pt-safe">
       {/* Header */}
-      <header className="flex items-center gap-2 px-5 h-14 shrink-0 relative z-50">
+      <header className="relative flex items-center justify-between px-5 h-14 shrink-0 z-50">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
         >
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="text-subtitle flex-1">{t('notifications.title')}</h2>
-        <div className="ml-auto bg-primary/10 p-2 rounded-full relative">
+        <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('notifications.title')}</h2>
+        <div className="bg-primary/10 p-2 rounded-full relative z-10">
           <Bell className="w-4 h-4 text-foreground" />
           {unreadCount > 0 && (
             <div className="absolute top-2 right-2.5 w-2 h-2 bg-accent-danger rounded-full border border-background" />
@@ -160,7 +160,7 @@ export function NotificationsScreen({
             <h3 className="text-body font-bold text-foreground mb-2">
               {t('notifications.noNotifications')}
             </h3>
-            <p className="text-foreground-muted text-label">
+            <p className="text-foreground-muted text-label font-medium">
               {t('notifications.allCaughtUp')}
             </p>
           </div>
@@ -203,7 +203,7 @@ export function NotificationsScreen({
                       >
                         {notif.title}
                       </h3>
-                      <span className="text-label text-foreground-muted/60 shrink-0 ml-2">
+                      <span className="text-label font-medium text-foreground-muted/60 shrink-0 ml-2">
                         {formatTimeAgo(notif.time, t, i18n.language)}
                       </span>
                     </div>

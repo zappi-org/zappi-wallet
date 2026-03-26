@@ -24,7 +24,7 @@ export const NumericKeypad = memo(function NumericKeypad({
           key={num}
           onPointerDown={(e) => { e.preventDefault(); onKeyPress(num.toString()) }}
           disabled={disabled}
-          className="h-14 rounded-xl text-title text-foreground hover:bg-foreground/5 active:bg-foreground/10 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="h-14 rounded-xl text-title font-bold text-foreground hover:bg-foreground/5 active:bg-foreground/10 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           {num}
         </button>
@@ -33,7 +33,7 @@ export const NumericKeypad = memo(function NumericKeypad({
       <button
         onPointerDown={(e) => { e.preventDefault(); onKeyPress('0') }}
         disabled={disabled}
-        className="h-14 rounded-xl text-title text-foreground hover:bg-foreground/5 active:bg-foreground/10 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="h-14 rounded-xl text-title font-bold text-foreground hover:bg-foreground/5 active:bg-foreground/10 active:scale-95 flex items-center justify-center disabled:opacity-50 touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         0
       </button>

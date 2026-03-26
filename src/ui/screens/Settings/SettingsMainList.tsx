@@ -87,7 +87,7 @@ export function SettingsMainList({
 
       {/* Profile */}
       <section>
-        <p className="text-overline uppercase tracking-wide text-foreground-muted px-4 pt-6 pb-2">
+        <p className="text-caption font-medium uppercase tracking-wide text-foreground-muted px-4 pt-6 pb-2">
           {t('settings.profile')}
         </p>
         <div className="bg-background-card">
@@ -122,7 +122,7 @@ export function SettingsMainList({
 
       {/* Preferences */}
       <section>
-        <p className="text-overline uppercase tracking-wide text-foreground-muted px-4 pt-6 pb-2">
+        <p className="text-caption font-medium uppercase tracking-wide text-foreground-muted px-4 pt-6 pb-2">
           {t('settings.preferences')}
         </p>
         <div className="bg-background-card">
@@ -150,7 +150,7 @@ export function SettingsMainList({
 
       {/* Security */}
       <section>
-        <p className="text-overline uppercase tracking-wide text-foreground-muted px-4 pt-6 pb-2">
+        <p className="text-caption font-medium uppercase tracking-wide text-foreground-muted px-4 pt-6 pb-2">
           {t('settings.security')}
         </p>
         <div className="bg-background-card">
@@ -174,7 +174,7 @@ export function SettingsMainList({
 
       {/* Wallet Management */}
       <section>
-        <p className="text-overline uppercase tracking-wide text-foreground-muted px-4 pt-6 pb-2">
+        <p className="text-caption font-medium uppercase tracking-wide text-foreground-muted px-4 pt-6 pb-2">
           {t('settings.walletManagement')}
         </p>
         <div className="bg-background-card">
@@ -206,7 +206,7 @@ export function SettingsMainList({
       {/* POS Management */}
       {(posDevices.length > 0 || settings.lightningAddress) && (
         <section>
-          <p className="text-overline uppercase tracking-wide text-foreground-muted px-4 pt-6 pb-2">
+          <p className="text-caption font-medium uppercase tracking-wide text-foreground-muted px-4 pt-6 pb-2">
             {t('settings.posManagement')}
           </p>
           <div className="bg-background-card">
@@ -224,7 +224,7 @@ export function SettingsMainList({
         <Button variant="destructive" size="lg" onClick={onOpenLogout} className="w-full">
           {t('settings.logout')}
         </Button>
-        <p className="text-center mt-4 text-overline text-foreground-muted/50 uppercase tracking-widest">
+        <p className="text-center mt-4 text-overline font-medium text-foreground-muted/50 uppercase tracking-widest">
           {t('settings.version')}
         </p>
       </div>

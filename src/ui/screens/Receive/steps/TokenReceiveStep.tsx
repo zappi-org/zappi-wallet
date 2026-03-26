@@ -124,7 +124,7 @@ export function TokenReceiveStep({
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle pointer-events-none">
+        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">
           {t('receive.title')}
         </h1>
         <button
@@ -204,7 +204,7 @@ export function TokenReceiveStep({
         <button
           onClick={handleSubmitInput}
           disabled={state === 'validating' || !tokenInput.trim()}
-          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-[14px] bg-brand text-white font-medium shadow-lg shadow-brand/25 active:scale-[0.98] active:opacity-90 transition-all duration-100 disabled:opacity-40 disabled:cursor-not-allowed min-h-[52px] text-subtitle"
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-[14px] bg-brand text-white font-medium shadow-lg shadow-brand/25 active:scale-[0.98] active:opacity-90 transition-all duration-100 disabled:opacity-40 disabled:cursor-not-allowed min-h-[52px] text-subtitle font-semibold"
         >
           {t('receive.token.receive')}
         </button>

@@ -41,7 +41,7 @@ export function MintUrlQrModal({ isOpen, url, onClose }: MintUrlQrModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-5">
           <div className="w-9" />
-          <h3 className="text-subtitle text-foreground">
+          <h3 className="text-subtitle font-semibold text-foreground">
             {t('mintDetail.mintUrl')}
           </h3>
           <button

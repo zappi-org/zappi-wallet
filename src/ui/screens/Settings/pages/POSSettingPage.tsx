@@ -160,7 +160,7 @@ export function POSSettingPage({
             >
               <div>
                 <span className="text-body font-medium block">{device.label}</span>
-                <span className="text-label text-foreground-muted">
+                <span className="text-label font-medium text-foreground-muted">
                   #{device.index} &middot; {new Date(device.createdAt).toLocaleDateString()}
                 </span>
               </div>
@@ -195,7 +195,7 @@ export function POSSettingPage({
             </div>
           )}
           <div>
-            <label className="text-label text-foreground-muted mb-1 block">
+            <label className="text-label font-medium text-foreground-muted mb-1 block">
               {t('settings.posDeviceLabel')}
             </label>
             <input
@@ -232,7 +232,7 @@ export function POSSettingPage({
         title={t('settings.posProvisioningTitle')}
       >
         <div className="py-3 space-y-4">
-          <p className="text-label text-foreground-muted text-center">
+          <p className="text-label font-medium text-foreground-muted text-center">
             {t('settings.posProvisioningDescription')}
           </p>
           <div className="flex justify-center">
@@ -272,7 +272,7 @@ export function POSSettingPage({
         title={t('settings.posDeviceRemove')}
       >
         <div className="py-3 space-y-3">
-          <p className="text-label text-foreground-muted">
+          <p className="text-label font-medium text-foreground-muted">
             {t('settings.posDeviceRemoveWarning')}
           </p>
           {showRemoveModal && (

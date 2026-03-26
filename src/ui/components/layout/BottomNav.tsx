@@ -37,7 +37,7 @@ export function BottomNav({ items, activeId, onSelect }: BottomNavProps) {
                   </span>
                 )}
               </div>
-              <span className="text-label">{item.label}</span>
+              <span className="text-label font-medium">{item.label}</span>
             </button>
           )
         })}

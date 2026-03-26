@@ -189,23 +189,23 @@ export function SendConfirmStep({
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle pointer-events-none">{t('send.confirm.title')}</h1>
+        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('send.confirm.title')}</h1>
       </header>
 
       {/* Question text — upper area, Toss style */}
       <div className="flex-1 flex flex-col px-6">
         <div className="pt-16 text-center space-y-1">
-          <p className="text-amount-lg leading-snug">
+          <p className="text-amount-lg font-bold font-display leading-snug">
             <span className="font-semibold text-brand">{recipient}</span>
             <span className="font-medium text-foreground">{t('send.confirm.toSuffix')}</span>
           </p>
-          <p className="text-amount-lg font-bold leading-snug">
+          <p className="text-amount-lg font-bold font-display leading-snug">
             {formatSats(amount)} {t('send.confirm.amountSuffix')}
           </p>
           {formatFiat(amount) && (
             <p className="text-body text-foreground-muted">{formatFiat(amount)}</p>
           )}
-          <p className="text-amount-lg font-medium leading-snug">
+          <p className="text-amount-lg font-medium font-display leading-snug">
             {isMyWallet ? t('send.confirm.transferQuestionEnd') : t('send.confirm.questionEnd')}
           </p>
         </div>

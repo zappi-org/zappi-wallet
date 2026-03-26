@@ -84,7 +84,7 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
         />
 
         {/* Title */}
-        <h1 className="text-title text-brand mb-1">ZAPPI</h1>
+        <h1 className="text-title font-bold text-brand mb-1">ZAPPI</h1>
         <p className="text-caption text-foreground-muted mb-8">Bitcoin eCash Wallet</p>
 
         {/* Install card */}
@@ -92,7 +92,7 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
           <p className="text-body font-semibold text-foreground text-center mb-1">
             Install to Home Screen
           </p>
-          <p className="text-label text-foreground-muted text-center mb-5">
+          <p className="text-label font-medium text-foreground-muted text-center mb-5">
             App installation is required for secure payments
           </p>
 
@@ -109,7 +109,7 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
           {/* Platform-specific steps */}
           {steps && (
             <div>
-              <p className="text-label text-foreground-muted mb-3">{steps.title}</p>
+              <p className="text-label font-medium text-foreground-muted mb-3">{steps.title}</p>
               <ol className="space-y-3">
                 {steps.items.map((item, i) => (
                   <li key={i} className="flex items-start gap-3">
@@ -121,7 +121,7 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
                 ))}
               </ol>
               {steps.footnote && (
-                <p className="text-overline text-foreground-muted mt-3">{steps.footnote}</p>
+                <p className="text-overline font-medium text-foreground-muted mt-3">{steps.footnote}</p>
               )}
             </div>
           )}
@@ -133,7 +133,7 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
         <div className="shrink-0 px-5 pb-5">
           <button
             onClick={() => setIsInstalled(true)}
-            className="w-full text-label text-foreground-muted hover:text-foreground underline underline-offset-2 transition-colors"
+            className="w-full text-label font-medium text-foreground-muted hover:text-foreground underline underline-offset-2 transition-colors"
           >
             Skip install (dev only)
           </button>

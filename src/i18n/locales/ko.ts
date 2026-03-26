@@ -291,6 +291,8 @@ export default {
     recoveredTokens: '{{amount}}이 복원되었습니다!',
     hasBeenAdded: '이(가) 추가되었습니다.',
     mintAddedSuccess: '새로운 민트가 추가되었습니다.',
+    confirmTitle: '이 민트를 추가할까요?',
+    confirmAdd: '추가',
   },
 
   // Scanner
@@ -551,7 +553,7 @@ export default {
     period3m: '3개월',
     periodAll: '전체',
     dateFilter: '기간 선택',
-    mintFilter: '지갑 필터',
+    mintFilter: '지갑 선택',
     allMints: '전체 지갑',
     mintCount: '{{count}}개 지갑',
 

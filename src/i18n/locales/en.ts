@@ -291,6 +291,8 @@ export default {
     recoveredTokens: '{{amount}} recovered!',
     hasBeenAdded: ' has been added.',
     mintAddedSuccess: 'New mint has been added.',
+    confirmTitle: 'Add this mint?',
+    confirmAdd: 'Add',
   },
 
   // Scanner

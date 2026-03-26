@@ -84,7 +84,7 @@ export function FiatSettingPage({ onBack, saveSettings }: FiatSettingPageProps) 
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-label text-foreground-muted">{currency.symbol}</span>
+                  <span className="text-label font-medium text-foreground-muted">{currency.symbol}</span>
                   {currentCurrency === currency.code && (
                     <Check className="w-4 h-4 text-accent-primary" />
                   )}

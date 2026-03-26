@@ -57,7 +57,7 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
             {/* Header */}
             {title && (
               <div className="px-5 pb-3 border-b border-foreground-subtle/20">
-                <h3 className="text-subtitle text-foreground text-center">{title}</h3>
+                <h3 className="text-subtitle font-semibold text-foreground text-center">{title}</h3>
               </div>
             )}
 
@@ -110,7 +110,7 @@ export function BottomSheetItem({
           {title}
         </div>
         {subtitle && (
-          <div className="text-overline text-foreground-muted truncate">{subtitle}</div>
+          <div className="text-overline font-medium text-foreground-muted truncate">{subtitle}</div>
         )}
       </div>
       {selected && (

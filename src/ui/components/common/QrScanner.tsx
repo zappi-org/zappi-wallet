@@ -212,7 +212,7 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
         <div className="absolute bottom-4 left-4 right-4">
           <div className="bg-black/70 rounded-lg p-3">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-white/90 text-label">{t('scanner.multipartScanning')}</span>
+              <span className="text-white/90 text-label font-medium">{t('scanner.multipartScanning')}</span>
               <span className="text-accent-primary text-label font-bold">{Math.round(urProgress * 100)}%</span>
             </div>
             <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">

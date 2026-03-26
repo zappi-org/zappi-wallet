@@ -171,17 +171,18 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
   }
 
   return (
-    <div className="h-dvh bg-background text-foreground flex flex-col font-sans relative overflow-hidden z-[60] pt-safe">
+    <div className="h-dvh bg-background text-foreground flex flex-col font-primary relative overflow-hidden z-[60] pt-safe">
       {/* Header */}
-      <header className="flex items-center gap-2 px-5 h-14 shrink-0 relative z-50">
+      <header className="relative flex items-center justify-between px-5 h-14 shrink-0 z-50">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
         >
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="text-subtitle">{t('analytics.title')}</h2>
+        <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('analytics.title')}</h2>
+        <div className="w-10" />
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-32">
@@ -191,7 +192,7 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
             <button
               onClick={() => setTimeRange('week')}
               className={cn(
-                'px-3 py-2 rounded-full text-label transition-all',
+                'px-3 py-2 rounded-full text-label font-medium transition-all',
                 timeRange === 'week'
                   ? 'bg-background-card shadow-sm text-foreground'
                   : 'text-foreground-muted hover:text-foreground'
@@ -202,7 +203,7 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
             <button
               onClick={() => setTimeRange('month')}
               className={cn(
-                'px-3 py-2 rounded-full text-label transition-all',
+                'px-3 py-2 rounded-full text-label font-medium transition-all',
                 timeRange === 'month'
                   ? 'bg-background-card shadow-sm text-foreground'
                   : 'text-foreground-muted hover:text-foreground'
@@ -222,11 +223,11 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
               </div>
               <span className="text-label font-semibold text-foreground-muted">{t('analytics.totalReceived')}</span>
             </div>
-            <h3 className="text-subtitle font-display text-foreground">
+            <h3 className="text-subtitle font-semibold font-display text-foreground">
               +{formatAmount(analytics.income)}
             </h3>
             {(() => { const f = formatFiat(analytics.income); return f ? (
-              <span className="text-overline text-foreground-muted">{f}</span>
+              <span className="text-overline font-medium text-foreground-muted">{f}</span>
             ) : null })()}
             <span
               className={cn(
@@ -245,11 +246,11 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
               </div>
               <span className="text-label font-semibold text-foreground-muted">{t('analytics.totalSent')}</span>
             </div>
-            <h3 className="text-subtitle font-display text-foreground">
+            <h3 className="text-subtitle font-semibold font-display text-foreground">
               -{formatAmount(analytics.spending)}
             </h3>
             {(() => { const f = formatFiat(analytics.spending); return f ? (
-              <span className="text-overline text-foreground-muted">{f}</span>
+              <span className="text-overline font-medium text-foreground-muted">{f}</span>
             ) : null })()}
             <span
               className={cn(
@@ -266,7 +267,7 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
         {/* Chart Section */}
         <section className="bg-background-card p-4 rounded-2xl ">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-overline uppercase tracking-wide text-foreground-muted">{t('analytics.overview')}</h3>
+            <h3 className="text-caption font-medium uppercase tracking-wide text-foreground-muted">{t('analytics.overview')}</h3>
             <span className="text-label font-semibold text-foreground-muted">
               {timeRange === 'week' ? t('analytics.thisWeek') : t('analytics.thisMonth')}
             </span>
@@ -339,7 +340,7 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
             </div>
           ) : (
             <div className="h-48 flex items-center justify-center text-foreground-muted">
-              <p className="text-label">{t('analytics.noData')}</p>
+              <p className="text-label font-medium">{t('analytics.noData')}</p>
             </div>
           )}
         </section>
@@ -347,7 +348,7 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
         {/* Spending Breakdown */}
         {spendingBreakdown.length > 0 && (
           <section>
-            <h3 className="text-overline uppercase tracking-wide text-foreground-muted mb-3 px-2">{t('analytics.totalSent')}</h3>
+            <h3 className="text-caption font-medium uppercase tracking-wide text-foreground-muted mb-3 px-2">{t('analytics.totalSent')}</h3>
             <div className="space-y-2">
               {spendingBreakdown.map((item) => (
                 <div
@@ -359,7 +360,7 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
                       className="w-2.5 h-2.5 rounded-full"
                       style={{ backgroundColor: item.color }}
                     />
-                    <span className="text-label text-foreground">
+                    <span className="text-label font-medium text-foreground">
                       {item.name}
                     </span>
                   </div>
@@ -389,8 +390,8 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
             <div className="w-12 h-12 bg-background-card rounded-full flex items-center justify-center mb-3">
               <TrendingUp className="w-6 h-6 text-foreground-muted" />
             </div>
-            <h3 className="text-overline uppercase tracking-wide text-foreground-muted mb-2">{t('analytics.noData')}</h3>
-            <p className="text-label text-foreground-muted">
+            <h3 className="text-caption font-medium uppercase tracking-wide text-foreground-muted mb-2">{t('analytics.noData')}</h3>
+            <p className="text-label font-medium text-foreground-muted">
               {t('history.noTransactions')}
             </p>
           </div>

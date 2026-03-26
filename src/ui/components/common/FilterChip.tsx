@@ -14,7 +14,8 @@ export function FilterChip({ icon, label, active, onClick, truncate }: FilterChi
     <button
       onClick={onClick}
       className={cn(
-        'h-8 rounded-full flex items-center gap-1.5 px-3 text-label font-medium transition-colors whitespace-nowrap',
+        'h-8 rounded-full flex items-center gap-1.5 px-3 font-medium transition-colors whitespace-nowrap',
+        'text-caption font-medium',
         active ? 'bg-primary/10 text-primary' : 'bg-background-card text-foreground-muted',
       )}
     >

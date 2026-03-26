@@ -103,7 +103,7 @@ export function TokenConfirmStep({
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle pointer-events-none">
+        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">
           {t('receive.token.title')}
         </h1>
       </header>
@@ -112,7 +112,7 @@ export function TokenConfirmStep({
       <div className="flex-1 flex flex-col px-6">
         {/* Main message — left-aligned, top area */}
         <div className="pt-16">
-          <p className="text-amount-lg font-medium leading-snug whitespace-pre-line">
+          <p className="text-amount-lg font-medium font-display leading-snug whitespace-pre-line">
             {t('receive.token.canReceive', { amount: formattedAmount, mint: mintName })}
           </p>
         </div>

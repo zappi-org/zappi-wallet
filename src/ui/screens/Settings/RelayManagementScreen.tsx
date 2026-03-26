@@ -116,19 +116,19 @@ export function RelayManagementScreen({
   return (
     <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe overflow-hidden z-[60]">
       {/* Header */}
-      <header className="flex items-center gap-2 px-5 h-14 shrink-0">
+      <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
         >
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="text-subtitle flex-1">{t('settings.manageRelays')}</h2>
+        <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('settings.manageRelays')}</h2>
         {/* Slot indicator */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 z-10">
           <span className={cn(
-            "text-overline font-mono mr-0.5",
+            "text-overline font-medium font-mono mr-0.5",
             isAtLimit ? "text-accent-danger" : "text-foreground-muted"
           )}>
             {relays.length}/{LIMITS.MAX_RELAYS}
@@ -182,11 +182,11 @@ export function RelayManagementScreen({
         {error && (
           <div className="flex items-center gap-1.5 text-accent-danger ml-1">
             <AlertCircle className="w-3 h-3 shrink-0" />
-            <p className="text-overline">{error}</p>
+            <p className="text-overline font-medium">{error}</p>
           </div>
         )}
         {isAtLimit && !error && (
-          <p className="text-overline text-accent-danger ml-1">
+          <p className="text-overline font-medium text-accent-danger ml-1">
             {t('settings.relayDeleteRequired')}
           </p>
         )}
@@ -215,7 +215,7 @@ export function RelayManagementScreen({
                       )} />
                     )}
                   </div>
-                  <span className="text-label text-foreground-muted">{t('settings.nostrRelay')}</span>
+                  <span className="text-label font-medium text-foreground-muted">{t('settings.nostrRelay')}</span>
                 </div>
                 <button
                   onClick={() => setRelayToDelete(url)}
@@ -247,7 +247,7 @@ export function RelayManagementScreen({
       <Modal isOpen={!!relayToDelete} onClose={() => setRelayToDelete(null)} title={t('settings.deleteRelay')}>
         <div className="py-4 space-y-4">
           <div className="text-center space-y-1">
-            <p className="text-subtitle text-accent-primary">
+            <p className="text-subtitle font-semibold text-accent-primary">
               {relayToDelete ? formatRelayUrl(relayToDelete) : ''}
             </p>
             <p className="text-body text-foreground">

@@ -22,6 +22,28 @@
   --font-primary: 'Outfit', system-ui, -apple-system, sans-serif;
   --font-display: 'Montserrat', 'Outfit', system-ui, sans-serif;
 
+  /* Typography Scale — registered as Tailwind text-* utilities */
+  --text-display: 2.25rem;
+  --text-display--line-height: 1.1;
+  --text-amount-lg: 1.5rem;
+  --text-amount-lg--line-height: 1.15;
+  --text-amount: 1.125rem;
+  --text-amount--line-height: 1.2;
+  --text-title: 1.375rem;
+  --text-title--line-height: 1.3;
+  --text-subtitle: 1.0625rem;
+  --text-subtitle--line-height: 1.3;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.5;
+  --text-body-bold: 0.9375rem;
+  --text-body-bold--line-height: 1.5;
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.4;
+  --text-label: 0.75rem;
+  --text-label--line-height: 1.4;
+  --text-overline: 0.6875rem;
+  --text-overline--line-height: 1.3;
+
   /* Semantic Color Tokens → Tailwind utilities (bg-*, text-*, border-*) */
   --color-background: var(--background);
   --color-background-card: var(--background-card);
@@ -64,6 +86,12 @@
   --color-card-brand-medium: var(--card-brand-medium);
   --color-card-brand-dark: var(--card-brand-dark);
   --color-card-brand-darker: var(--card-brand-darker);
+  --color-card-color-coral: var(--card-color-coral);
+  --color-card-color-teal: var(--card-color-teal);
+  --color-card-color-slate: var(--card-color-slate);
+  --color-card-color-amber: var(--card-color-amber);
+  --color-card-color-plum: var(--card-color-plum);
+  --color-card-color-forest: var(--card-color-forest);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
@@ -175,11 +203,17 @@
   --status-offline: var(--danger);
   --status-pending: var(--warning);
 
-  /* ---- Semantic: Card Gradients (Indigo) ---- */
-  --card-brand-light:   #7B82D1;
-  --card-brand-medium:  var(--brand-500);
-  --card-brand-dark:    var(--brand-700);
-  --card-brand-darker:  var(--brand-800);
+  /* ---- Semantic: Card Solid Colors ---- */
+  --card-brand-light:   #8B91D9;  /* Indigo */
+  --card-brand-medium:  #6B73CE;  /* Indigo */
+  --card-brand-dark:    #515AC0;  /* Indigo */
+  --card-brand-darker:  #3A4190;  /* Indigo */
+  --card-color-coral:   #C75D4A;  /* Warm coral */
+  --card-color-teal:    #3A9E8F;  /* Teal */
+  --card-color-slate:   #5A6578;  /* Cool slate */
+  --card-color-amber:   #B8863A;  /* Warm amber */
+  --card-color-plum:    #8B5A8A;  /* Soft plum */
+  --card-color-forest:  #4A7C5E;  /* Forest green */
 
   /* ---- shadcn/ui compatibility tokens ---- */
   --card:                   #FFFFFF;
@@ -225,6 +259,10 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Form elements don't inherit font by default in browsers */
+  button, input, select, textarea {
+    font: inherit;
+  }
   html, body, #root {
     @apply h-dvh overflow-hidden;
   }
@@ -235,28 +273,12 @@
 }
 
 /* ============================================================
-   Typography Utility Classes — Toss-style
-   극단적 크기 대비 + 굵기로 위계 + 본문 15px 통일
+   Typography — font-weight & font-family are now separate.
+   Size + line-height are registered in @theme as --text-* variables
+   so Tailwind generates native text-display, text-caption, etc.
+   Use font-bold/font-semibold/font-medium for weight.
+   Use font-display for Montserrat.
    ============================================================ */
-@layer utilities {
-  /* Display — Montserrat, 잔액/금액 */
-  .text-display     { font-family: var(--font-display); font-size: 2.25rem;   line-height: 1.1;  font-weight: 700; }
-  .text-amount-lg   { font-family: var(--font-display); font-size: 1.5rem;    line-height: 1.15; font-weight: 700; }
-  .text-amount      { font-family: var(--font-display); font-size: 1.125rem;  line-height: 1.2;  font-weight: 600; }
-
-  /* Heading — Outfit */
-  .text-title       { font-size: 1.375rem;  line-height: 1.3; font-weight: 700; }
-  .text-subtitle    { font-size: 1.0625rem; line-height: 1.3; font-weight: 600; }
-
-  /* Body — Outfit, 15px 통일 */
-  .text-body        { font-size: 0.9375rem; line-height: 1.5; font-weight: 400; }
-  .text-body-bold   { font-size: 0.9375rem; line-height: 1.5; font-weight: 600; }
-
-  /* Small — Outfit */
-  .text-caption     { font-size: 0.8125rem; line-height: 1.4; font-weight: 400; }
-  .text-label       { font-size: 0.75rem;   line-height: 1.4; font-weight: 500; }
-  .text-overline    { font-size: 0.6875rem; line-height: 1.3; font-weight: 500; }
-}
 
 /* ============================================================
    Safe Area Insets for PWA
@@ -330,20 +352,20 @@
   }
 }
 
-/* Card Gradient Utilities — Indigo */
+/* Card Solid Color Utilities */
 @layer utilities {
-  .bg-card-gradient-light {
-    background: linear-gradient(135deg, var(--card-brand-light) 0%, var(--card-brand-medium) 100%);
-  }
-  .bg-card-gradient-medium {
-    background: linear-gradient(135deg, var(--card-brand-medium) 0%, var(--card-brand-dark) 100%);
-  }
-  .bg-card-gradient-dark {
-    background: linear-gradient(135deg, var(--card-brand-dark) 0%, var(--card-brand-darker) 100%);
-  }
-  .bg-card-gradient-darker {
-    background: linear-gradient(135deg, var(--card-brand-darker) 0%, #161D45 100%);
-  }
+  .bg-card-indigo     { background: var(--card-brand-dark); }
+  .bg-card-coral      { background: var(--card-color-coral); }
+  .bg-card-teal       { background: var(--card-color-teal); }
+  .bg-card-slate      { background: var(--card-color-slate); }
+  .bg-card-amber      { background: var(--card-color-amber); }
+  .bg-card-plum       { background: var(--card-color-plum); }
+  .bg-card-forest     { background: var(--card-color-forest); }
+  /* Legacy aliases */
+  .bg-card-gradient-light   { background: var(--card-brand-light); }
+  .bg-card-gradient-medium  { background: var(--card-brand-medium); }
+  .bg-card-gradient-dark    { background: var(--card-brand-dark); }
+  .bg-card-gradient-darker  { background: var(--card-brand-darker); }
 }
 
 /* iOS Safari PWA blur + rounded corner fix */

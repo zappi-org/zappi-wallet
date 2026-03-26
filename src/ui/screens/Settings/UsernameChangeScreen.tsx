@@ -332,17 +332,18 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
   return (
     <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe overflow-hidden z-[60]">
       {/* Header */}
-      <header className="flex items-center gap-2 px-5 h-14 shrink-0 relative z-50">
+      <header className="relative flex items-center justify-between px-5 h-14 shrink-0 z-50">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
         >
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="text-subtitle">
+        <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">
           {t('settings.changeUsername')}
         </h2>
+        <div className="w-10" />
       </header>
 
       {isChanging ? (
@@ -371,7 +372,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
               <div className="bg-background-card rounded-lg p-3">
                 <div className="flex items-center gap-2">
                   <Zap className="w-4 h-4 text-accent-primary shrink-0" />
-                  <span className="text-label text-foreground truncate">
+                  <span className="text-label font-medium text-foreground truncate">
                     {settings.lightningAddress || '-'}
                   </span>
                 </div>
@@ -394,7 +395,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
                     maxLength={20}
                     autoFocus
                   />
-                  <span className="text-label text-foreground-muted shrink-0">
+                  <span className="text-label font-medium text-foreground-muted shrink-0">
                     @{ZAPPI_LINK_DOMAIN}
                   </span>
                 </div>
@@ -432,20 +433,20 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
                 </label>
                 <div className="bg-background-card rounded-lg p-3 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-overline text-foreground-muted">
+                    <span className="text-overline font-medium text-foreground-muted">
                       {t('settings.changeFee')}
                     </span>
-                    <span className="text-label font-display">
+                    <span className="text-label font-medium font-display">
                       {formatSats(addressFee)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-overline text-foreground-muted">
+                    <span className="text-overline font-medium text-foreground-muted">
                       {t('common.balance')}
                     </span>
                     <span
                       className={cn(
-                        'text-label font-display',
+                        'text-label font-medium font-display',
                         canAfford ? 'text-foreground' : 'text-accent-danger'
                       )}
                     >

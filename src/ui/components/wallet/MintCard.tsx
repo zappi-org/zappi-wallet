@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { EllipsisVertical } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import type { MintInfo } from "@/core/types";
 import { cn } from "@/lib/utils";
 import { useFormatSats, useFormatFiat } from "@/utils/format";
+import { hapticTap } from "@/utils/haptic";
 import cardLogo from "@/assets/card-logo.svg";
-import cardBg from "@/assets/card-bg.png";
 import cardNoise from "@/assets/card-noise.png";
+import zappiLogo from "@/assets/zappi.png";
 
-export type MintCardVariant = "light" | "medium" | "dark" | "darker";
+export type MintCardVariant = "light" | "medium" | "dark" | "darker" | "indigo" | "coral" | "teal" | "slate" | "amber" | "plum" | "forest";
 
 interface MintCardProps {
   mint: MintInfo;
@@ -17,18 +18,15 @@ interface MintCardProps {
   hideBalance?: boolean;
   onClick?: () => void;
   onDetail?: () => void;
-  onCreateToken?: () => void;
+  onSend?: () => void;
+  onReceive?: () => void;
+  sendDisabled?: boolean;
 }
 
-/**
- * Mint logo component with fallback to default card logo
- */
 function MintLogo({ iconUrl }: { iconUrl?: string }) {
   const [hasError, setHasError] = useState(false);
-
   const sizeClasses = "w-6 h-6";
 
-  // Use default card logo if no iconUrl or load error
   if (!iconUrl || hasError) {
     return (
       <img
@@ -49,14 +47,12 @@ function MintLogo({ iconUrl }: { iconUrl?: string }) {
   );
 }
 
-// Get variant based on index (for automatic color assignment)
 // eslint-disable-next-line react-refresh/only-export-components
 export function getVariantByIndex(index: number): MintCardVariant {
-  const variants: MintCardVariant[] = ["darker", "medium", "light", "dark"];
+  const variants: MintCardVariant[] = ["indigo", "coral", "teal", "slate", "amber", "plum", "forest"];
   return variants[index % variants.length];
 }
 
-// Extract short name from mint URL
 function getMintShortName(url: string, name?: string): string {
   if (name) return name;
   try {
@@ -71,13 +67,19 @@ function getMintShortName(url: string, name?: string): string {
   }
 }
 
-// Warm-tone card variant filters (hue-rotate + brightness to create variety from single bg image)
-const variantFilters = {
-  darker: "none",
-  light: "hue-rotate(15deg) brightness(1.05)",
-  medium: "hue-rotate(-15deg) brightness(0.92)",
-  dark: "hue-rotate(-30deg) brightness(0.82)",
-} as const;
+const variantColorClass: Record<MintCardVariant, string> = {
+  indigo: "bg-card-indigo",
+  coral: "bg-card-coral",
+  teal: "bg-card-teal",
+  slate: "bg-card-slate",
+  amber: "bg-card-amber",
+  plum: "bg-card-plum",
+  forest: "bg-card-forest",
+  light: "bg-card-gradient-light",
+  medium: "bg-card-gradient-medium",
+  dark: "bg-card-gradient-dark",
+  darker: "bg-card-gradient-darker",
+};
 
 export function MintCard({
   mint,
@@ -86,106 +88,112 @@ export function MintCard({
   hideBalance,
   onClick,
   onDetail,
-  onCreateToken,
+  onSend,
+  onReceive,
+  sendDisabled,
 }: MintCardProps) {
   const { t } = useTranslation();
   const formatSats = useFormatSats();
   const toFiat = useFormatFiat();
   const displayName = mint.alias || getMintShortName(mint.url, mint.name);
-  const showMintSubName = !!mint.alias && !!mint.mintName;
+
   return (
     <div
-      onClick={onClick}
       className={cn(
-        "relative w-[var(--card-w)] aspect-[280/176] rounded-[13px] overflow-hidden transition-transform touch-manipulation",
-        onClick && "cursor-pointer [&:active:not(:has(:active))]:scale-[0.98]",
-        "shadow-[0px_4px_4px_0px_rgba(0,0,0,0.2)]",
+        "relative w-[var(--card-w)] rounded-[13px] overflow-hidden touch-manipulation",
+        "shadow-[0px_4px_8px_0px_rgba(0,0,0,0.15)]",
         isSelected === true && "ring-2 ring-primary ring-offset-3 ring-offset-background",
         isSelected === false && "opacity-70"
       )}
     >
-      {/* Background — extends under border */}
-      <img
-        alt=""
-        className="absolute max-w-none object-cover pointer-events-none"
-        src={cardBg}
-        style={{ inset: 0, width: '100%', height: '100%', filter: variantFilters[variant] }}
-      />
-
-      {/* Noise texture */}
+      {/* Card Body */}
       <div
-        aria-hidden="true"
-        className="absolute opacity-5 pointer-events-none"
-        style={{ inset: 0, backgroundImage: `url('${cardNoise}')`, backgroundSize: '200% 200%', backgroundPosition: 'top left' }}
-      />
-
-      {/* Mint Logo + Name — top-left */}
-      <div
-        className="absolute z-10 flex items-start gap-2"
-        style={{ top: '13%', left: '9.3%' }}
+        onClick={onDetail ?? onClick}
+        className={cn(
+          "relative aspect-[280/160] flex flex-col justify-between p-5",
+          variantColorClass[variant],
+          (onDetail || onClick) && "cursor-pointer active:brightness-95 transition-all"
+        )}
       >
+        {/* Noise texture */}
         <div
-          className="rounded-full flex items-center justify-center overflow-hidden shrink-0 h-[27px]"
-          style={{ width: '25px', minHeight: '25px' }}
-        >
-          <MintLogo iconUrl={mint.iconUrl} />
-        </div>
-        <div className="flex flex-col">
-          <p className="font-display text-amount text-white leading-[27px] whitespace-nowrap">
+          aria-hidden="true"
+          className="absolute inset-0 opacity-[0.04] pointer-events-none"
+          style={{ backgroundImage: `url('${cardNoise}')`, backgroundSize: '200% 200%', backgroundPosition: 'top left' }}
+        />
+
+        {/* Zappi logo watermark — bottom right */}
+        <img
+          src={zappiLogo}
+          alt=""
+          aria-hidden="true"
+          className="absolute bottom-2 right-3 w-24 h-24 opacity-80 pointer-events-none"
+        />
+
+        {/* Top: Logo + Name */}
+        <div className="relative z-10 flex items-center gap-2.5">
+          <div className="rounded-full flex items-center justify-center overflow-hidden shrink-0 w-[25px] h-[27px]">
+            <MintLogo iconUrl={mint.iconUrl} />
+          </div>
+          <p className="font-display text-body-bold font-semibold text-white leading-tight whitespace-nowrap truncate min-w-0">
             {displayName}
           </p>
-          {showMintSubName && (
-            <p className="font-display text-overline text-white/60 leading-tight whitespace-nowrap">
-              {mint.mintName}
-            </p>
+        </div>
+
+        {/* Bottom: Balance */}
+        <div className="relative z-10">
+          <p className="font-display text-overline font-medium text-white/50 uppercase tracking-wider">
+            Balance
+          </p>
+          {hideBalance ? (
+            <p className="font-display text-amount-lg font-bold text-white/80 tracking-[2px] mt-0.5">••••</p>
+          ) : (
+            <>
+              <p className="font-display text-amount-lg font-bold text-white leading-tight mt-0.5">
+                {formatSats(mint.balance)}
+              </p>
+              {(() => {
+                const fiatStr = toFiat(mint.balance);
+                return fiatStr ? (
+                  <p className="font-display text-overline font-medium text-white/45 leading-normal mt-0.5">
+                    {fiatStr}
+                  </p>
+                ) : null;
+              })()}
+            </>
           )}
         </div>
       </div>
 
-      {/* Detail button — top-right */}
-      {onDetail && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onDetail(); }}
-          className="absolute z-20 w-11 h-11 flex items-center justify-center rounded-full active:bg-white/10 transition-colors"
-          style={{ top: '10%', right: '4%' }}
-        >
-          <EllipsisVertical className="w-5 h-5 text-white/80" />
-        </button>
-      )}
-
-      {/* BALANCE label & amount */}
-      {!hideBalance && (
-        <div
-          className="absolute z-10 flex flex-col gap-0.5"
-          style={{ bottom: '8%', left: '9.3%' }}
-        >
-          <p className="font-display text-caption font-semibold text-white leading-normal whitespace-nowrap">
-            Balance
-          </p>
-          <p className="font-display text-body-bold text-white leading-normal">
-            {formatSats(mint.balance)}
-          </p>
-          {(() => {
-            const fiatStr = toFiat(mint.balance)
-            return fiatStr ? (
-              <span className="font-display text-overline text-white/60 leading-normal">
-                {fiatStr}
-              </span>
-            ) : null
-          })()}
+      {/* Card Footer — Action Buttons */}
+      {(onReceive || onSend) && (
+        <div className={cn("relative", variantColorClass[variant])}>
+          <div className="h-px bg-white/12" />
+          <div className="bg-black/8 flex">
+            {onReceive && (
+              <button
+                onClick={(e) => { e.stopPropagation(); hapticTap(); onReceive(); }}
+                className="flex-1 flex items-center justify-center gap-2 py-3 text-white active:bg-white/10 transition-colors"
+              >
+                <ArrowDownLeft className="w-[18px] h-[18px]" strokeWidth={2} />
+                <span className="text-caption font-semibold">{t('common.receive')}</span>
+              </button>
+            )}
+            {onReceive && onSend && (
+              <div className="w-px bg-white/12 my-2" />
+            )}
+            {onSend && (
+              <button
+                onClick={(e) => { e.stopPropagation(); hapticTap(); onSend(); }}
+                disabled={sendDisabled}
+                className="flex-1 flex items-center justify-center gap-2 py-3 text-white active:bg-white/10 transition-colors disabled:opacity-40"
+              >
+                <ArrowUpRight className="w-[18px] h-[18px]" strokeWidth={2} />
+                <span className="text-caption font-semibold">{t('common.send')}</span>
+              </button>
+            )}
+          </div>
         </div>
-      )}
-
-      {/* Create Token button */}
-      {onCreateToken && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onCreateToken(); }}
-          disabled={mint.balance === 0}
-          className="absolute z-20 bg-white/20 border border-white/10 rounded-lg px-4 py-2 text-caption font-semibold text-white hover:bg-white/30 active:scale-95 active:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-          style={{ right: '5%', top: '74%' }}
-        >
-          {t('payment.createToken')}
-        </button>
       )}
     </div>
   );

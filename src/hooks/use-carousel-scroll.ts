@@ -61,8 +61,8 @@ export function useCarouselScroll({
       const distance = Math.abs(containerCenter - cardCenter)
       const maxDistance = card.offsetWidth + gap
       const progress = Math.min(distance / maxDistance, 1)
-      const scale = 1 - progress * 0.08
-      const opacity = 1 - progress * 0.25
+      const scale = 1 - progress * 0.12
+      const opacity = 1 - progress * 0.35
       card.style.transform = `scale(${scale})`
       card.style.opacity = `${opacity}`
     })

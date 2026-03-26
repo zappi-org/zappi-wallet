@@ -499,7 +499,7 @@ export function ReceiveFlow({
   // ============= Render =============
 
   return (
-    <div className="h-dvh bg-background text-foreground font-sans flex flex-col pt-safe">
+    <div className="h-dvh bg-background text-foreground font-primary flex flex-col pt-safe">
       <AnimatePresence mode="wait">
         {state.step === 'token-receive' && (
           <PageTransition key="token-receive" variant="page" className="flex-1">

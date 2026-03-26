@@ -71,7 +71,7 @@ export function PendingItemsList({ items, maxItems = 5, showDate = false, onItem
               {/* Left: title + subtitle */}
               <div className="flex flex-col gap-0.5 text-left min-w-0 flex-1 mr-4">
                 <span className="text-body font-semibold text-foreground leading-normal truncate">{title}</span>
-                <span className="text-label text-foreground-muted leading-normal truncate">{subtitle}</span>
+                <span className="text-label font-medium text-foreground-muted leading-normal truncate">{subtitle}</span>
               </div>
 
               {/* Right: amount + status */}
@@ -79,13 +79,13 @@ export function PendingItemsList({ items, maxItems = 5, showDate = false, onItem
                 <div className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-status-pending animate-pulse" />
                   <span className={cn(
-                    'text-amount font-display leading-normal opacity-60',
+                    'text-amount font-semibold font-display leading-normal opacity-60',
                     isSend ? 'text-foreground' : 'text-primary',
                   )}>
                     {isSend ? `-${formatSats(item.amount)}` : formatSats(item.amount)}
                   </span>
                 </div>
-                <span className="text-label text-foreground-muted leading-normal">
+                <span className="text-label font-medium text-foreground-muted leading-normal">
                   {t('mintDetail.pending')}
                 </span>
               </div>

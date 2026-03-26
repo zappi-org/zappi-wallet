@@ -72,7 +72,7 @@ export function TokenCreateStep({
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle pointer-events-none">{t('send.tokenCreate.title')}</h1>
+        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('send.tokenCreate.title')}</h1>
       </header>
 
       {/* Mint Card Selector — outside scroll container for full-width overflow */}
@@ -96,7 +96,7 @@ export function TokenCreateStep({
 
         {/* Memo */}
         <div>
-          <p className="text-label text-foreground-muted leading-snug">{t('send.tokenCreate.memo')} ({t('send.tokenCreate.memoPlaceholder')})</p>
+          <p className="text-label font-medium text-foreground-muted leading-snug">{t('send.tokenCreate.memo')} ({t('send.tokenCreate.memoPlaceholder')})</p>
           <input
             type="text"
             value={memo}

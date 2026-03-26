@@ -77,7 +77,7 @@ export function UntrustedMintStep({
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle pointer-events-none">
+        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">
           {t('receive.untrusted.title')}
         </h1>
       </header>
@@ -123,7 +123,7 @@ export function UntrustedMintStep({
             {swapLoading ? (
               <Loader2 className="w-5 h-5 animate-spin text-foreground" />
             ) : (
-              <p className="text-amount font-semibold leading-tight text-left whitespace-pre-line">
+              <p className="text-amount font-semibold font-display leading-tight text-left whitespace-pre-line">
                 {t('receive.untrusted.myMint')}
               </p>
             )}
@@ -141,7 +141,7 @@ export function UntrustedMintStep({
             {addLoading ? (
               <Loader2 className="w-5 h-5 animate-spin text-white" />
             ) : (
-              <p className="text-amount font-semibold leading-tight text-left text-white whitespace-pre-line">
+              <p className="text-amount font-semibold font-display leading-tight text-left text-white whitespace-pre-line">
                 {t('receive.untrusted.addAndReceive')}
               </p>
             )}

@@ -85,7 +85,7 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-4">
           <div className="w-9" />
-          <h3 className="text-subtitle text-accent-danger">
+          <h3 className="text-subtitle font-semibold text-accent-danger">
             {t('mintDetail.deleteMint')}
           </h3>
           <button

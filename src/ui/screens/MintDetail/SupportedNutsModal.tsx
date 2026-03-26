@@ -24,7 +24,7 @@ export function SupportedNutsModal({ isOpen, nuts, nutNames, onClose }: Supporte
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-5 shrink-0">
           <div className="w-9" />
-          <h3 className="text-subtitle text-foreground">
+          <h3 className="text-subtitle font-semibold text-foreground">
             {t('mintDetail.supportedProtocols')}
           </h3>
           <button
@@ -43,7 +43,7 @@ export function SupportedNutsModal({ isOpen, nuts, nutNames, onClose }: Supporte
                 key={nut}
                 className={`flex items-center gap-3 px-5 py-3.5 ${i > 0 ? 'border-t border-border' : ''}`}
               >
-                <span className="font-mono text-label text-foreground-muted w-8 shrink-0">
+                <span className="font-mono text-label font-medium text-foreground-muted w-8 shrink-0">
                   {nut.padStart(2, '0')}
                 </span>
                 <span className="text-caption text-foreground">

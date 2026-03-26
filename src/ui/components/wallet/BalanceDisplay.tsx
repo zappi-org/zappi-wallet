@@ -44,7 +44,7 @@ export function BalanceDisplay({
       >
         <div className={`flex items-baseline gap-2 ${isLarge ? 'justify-center' : ''}`}>
           {isInitialLoad ? (
-            <span className={isLarge ? 'text-display font-bold' : 'text-amount-lg font-bold'}>
+            <span className={isLarge ? 'text-display font-bold font-display' : 'text-amount-lg font-bold font-display'}>
               <span className={`inline-block ${isLarge ? 'w-28 h-10' : 'w-16 h-6'} bg-muted animate-pulse rounded`} />
             </span>
           ) : (
@@ -53,7 +53,7 @@ export function BalanceDisplay({
             </span>
           )}
           {(() => { const f = formatFiat(balance.total); return !isInitialLoad && f ? (
-            <span className={`text-foreground-muted ${isLarge ? 'text-caption' : 'text-label'}`}>
+            <span className={`text-foreground-muted ${isLarge ? 'text-caption' : 'text-label font-medium'}`}>
               {f}
             </span>
           ) : null })()}
@@ -103,11 +103,11 @@ export function BalanceDisplay({
                 >
                   <div className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-status-online" />
-                    <span className="text-label truncate max-w-[150px]">
+                    <span className="text-label font-medium truncate max-w-[150px]">
                       {formatMintHost(mintUrl)}
                     </span>
                   </div>
-                  <span className="font-display tabular-nums text-label">
+                  <span className="font-display tabular-nums text-label font-medium">
                     {formatSats(amount)}
                   </span>
                 </div>
@@ -116,7 +116,7 @@ export function BalanceDisplay({
 
             {/* Total */}
             <div className="flex items-center justify-between p-2 border-t border-border">
-              <span className="text-label">{t('home.totalBalance')}</span>
+              <span className="text-label font-medium">{t('home.totalBalance')}</span>
               <span className="font-display font-bold tabular-nums text-body">
                 {formatSats(balance.total)}
               </span>

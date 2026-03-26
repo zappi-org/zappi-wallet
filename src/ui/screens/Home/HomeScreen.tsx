@@ -1,13 +1,11 @@
 import { useState, useEffect, useMemo, startTransition, useCallback } from "react";
 import { useCarouselScroll } from "@/hooks/use-carousel-scroll";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
-import { User, ArrowDownLeft, ArrowUpRight, Plus, LoaderCircle, ArrowDown } from "lucide-react";
-import { hapticTap } from "@/utils/haptic";
+import { User, Plus, LoaderCircle, ArrowDown } from "lucide-react";
 
 import { useTranslation } from "react-i18next";
 import { MintCard, getVariantByIndex } from "../../components/wallet/MintCard";
 import { TransactionList } from "../../components/wallet/TransactionList";
-import { UnifiedScanner, type ValidatedData } from "../../components/scanner";
 import { useWallet, useMintHealth, useMintMetadata } from "@/hooks";
 import { useAppStore } from "@/store";
 import { useSatUnit, useFormatFiat } from "@/utils/format";
@@ -21,10 +19,8 @@ export interface HomeScreenProps {
   onTransactions?: (mintUrl?: string) => void;
   onAddMint?: () => void;
   onMintDetails?: (mint: MintInfo, index: number) => void;
-  onValidatedScan?: (data: ValidatedData, mode: 'send' | 'receive') => void;
   onSend?: (activeMintUrl?: string) => void;
   onReceive?: (activeMintUrl?: string) => void;
-  onCreateToken?: (mintUrl: string) => void;
   onSelectTransaction?: (tx: Transaction) => void;
   onSaveSettings?: (settings: Record<string, unknown>) => Promise<void>;
   onRefresh?: () => Promise<void>;
@@ -36,10 +32,8 @@ export function HomeScreen({
   onTransactions,
   onAddMint,
   onMintDetails,
-  onValidatedScan,
   onSend,
   onReceive,
-  onCreateToken,
   onSelectTransaction,
   onSaveSettings,
   onRefresh,
@@ -49,11 +43,8 @@ export function HomeScreen({
   const unit = useSatUnit();
   const toFiat = useFormatFiat();
   const [localTransactions, setLocalTransactions] = useState<Transaction[]>([]);
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [scanMode, setScanMode] = useState<'send' | 'receive'>('send');
   const [activeMintIndex, setActiveMintIndex] = useState(0);
 
-  // Use prop transactions if provided, otherwise use local state
   const transactions = propTransactions ?? localTransactions;
 
   const { balance, isLoadingBalance } = useWallet();
@@ -70,7 +61,6 @@ export function HomeScreen({
     onRefresh: onRefresh ?? noopRefresh,
   });
 
-  // Load transactions from DB if not provided via props
   useEffect(() => {
     if (propTransactions) return;
     const loadTransactions = async () => {
@@ -83,12 +73,10 @@ export function HomeScreen({
     loadTransactions();
   }, [balance.total, propTransactions, txRefreshTrigger]);
 
-  // Check mint health on mount
   useEffect(() => {
     checkAllMints();
   }, [checkAllMints]);
 
-  // Build mint info from settings.mints with online status and metadata
   const mintUrls = settings.mints;
   const mintAliases = settings.mintAliases;
   const mints: MintInfo[] = useMemo(() => {
@@ -110,7 +98,6 @@ export function HomeScreen({
 
   const totalBalance = balance.total;
 
-  // Carousel scroll tracking with real-time scale effect
   const { carouselRef, cardRefs, handleScroll } = useCarouselScroll({
     itemCount: mints.length,
     onIndexChange: setActiveMintIndex,
@@ -118,10 +105,8 @@ export function HomeScreen({
     fallbackGap: 24,
   });
 
-  // Clamp activeMintIndex to valid range without effect setState
   const clampedMintIndex = mints.length === 0 ? 0 : Math.min(activeMintIndex, mints.length - 1);
 
-  // Filter transactions by selected mint
   const filteredTransactions = useMemo(() => {
     const selectedMint = mints[clampedMintIndex];
     if (!selectedMint) return transactions;
@@ -133,33 +118,15 @@ export function HomeScreen({
     });
   }, [transactions, mints, clampedMintIndex]);
 
-  const handleMintClick = (index: number) => {
-    onMintDetails?.(mints[index], index);
-  };
-
   const handleSendClick = useCallback(() => {
-    if (onSend) {
-      const activeMint = mints[clampedMintIndex];
-      onSend(activeMint?.url);
-    } else {
-      setScanMode('send');
-      setIsScannerOpen(true);
-    }
+    const activeMint = mints[clampedMintIndex];
+    onSend?.(activeMint?.url);
   }, [onSend, mints, clampedMintIndex]);
 
   const handleReceiveClick = useCallback(() => {
-    if (onReceive) {
-      const activeMint = mints[clampedMintIndex];
-      onReceive(activeMint?.url);
-    } else {
-      setScanMode('receive');
-      setIsScannerOpen(true);
-    }
+    const activeMint = mints[clampedMintIndex];
+    onReceive?.(activeMint?.url);
   }, [onReceive, mints, clampedMintIndex]);
-
-  const handleValidated = useCallback((data: ValidatedData) => {
-    onValidatedScan?.(data, scanMode);
-  }, [onValidatedScan, scanMode]);
 
   return (
     <div className="h-dvh bg-background text-foreground font-primary overflow-hidden flex flex-col pt-safe" style={{ overscrollBehaviorY: 'contain' }}>
@@ -177,27 +144,11 @@ export function HomeScreen({
         </button>
       </header>
 
-      {/* Scrollable content */}
-      <main ref={scrollContainerRef} className="flex-1 flex flex-col overflow-y-auto min-h-0">
-        {/* Pull-to-refresh indicator — height/opacity driven by hook via ref */}
+      {/* Fixed top: Balance + Cards */}
+      <div className="shrink-0">
+        {/* Total Balance — Hero */}
         <div
-          ref={indicatorRef}
-          className="flex items-center justify-center shrink-0 overflow-hidden"
-          style={{ height: 0, opacity: 0 }}
-        >
-          {isRefreshing ? (
-            <LoaderCircle className="w-6 h-6 text-foreground-muted animate-spin" />
-          ) : (
-            <ArrowDown
-              ref={iconRef}
-              className="w-5 h-5 text-foreground-muted transition-transform duration-150"
-            />
-          )}
-        </div>
-
-        {/* Balance */}
-        <div
-          className="flex flex-col items-center shrink-0 pt-10 pb-2 cursor-pointer"
+          className="flex flex-col items-center pt-4 pb-1 cursor-pointer"
           onClick={() => {
             const updated = { balanceHidden: !settings.balanceHidden }
             updateSettings(updated)
@@ -209,19 +160,19 @@ export function HomeScreen({
           <p className="text-caption text-foreground-subtle tracking-wide uppercase">Total</p>
           <div className="flex items-baseline gap-1.5 mt-1">
             {settings.balanceHidden ? (
-              <span className="text-display text-foreground tracking-[2px]">••••</span>
+              <span className="text-display font-bold font-display text-foreground tracking-[2px]">••••</span>
             ) : isLoadingBalance ? (
-              <span className="text-display text-foreground tracking-[2px] animate-shimmer">...</span>
+              <span className="text-display font-bold font-display text-foreground tracking-[2px] animate-shimmer">...</span>
             ) : (
               <>
                 {unit === '₿' && (
-                  <span className="text-amount-lg text-foreground-muted">{unit}</span>
+                  <span className="text-display font-bold font-display text-foreground">{unit}</span>
                 )}
-                <span className="text-display font-display text-foreground tracking-[-0.5px]">
+                <span className="text-display font-bold font-display text-foreground tracking-[-0.5px]">
                   {totalBalance.toLocaleString()}
                 </span>
                 {unit !== '₿' && (
-                  <span className="text-amount-lg text-foreground-muted">{unit}</span>
+                  <span className="text-display font-bold font-display text-foreground">{unit}</span>
                 )}
               </>
             )}
@@ -237,7 +188,7 @@ export function HomeScreen({
         </div>
 
         {/* Card Carousel */}
-        <div className="relative w-full pt-6 pb-6">
+        <div className="relative w-full pt-4 pb-2">
           {mints.length === 0 ? (
             <div className="flex justify-center items-center px-5">
               <button
@@ -253,7 +204,7 @@ export function HomeScreen({
               <div
                 ref={carouselRef}
                 onScroll={handleScroll}
-                className="flex gap-4 px-[calc(50%-var(--card-w)/2)] overflow-x-auto overflow-y-visible snap-x snap-mandatory scrollbar-hide pb-2"
+                className="flex gap-1 px-[calc(50%-var(--card-w)/2)] overflow-x-auto overflow-y-visible snap-x snap-mandatory scrollbar-hide pb-2"
               >
                 {mints.map((mint, idx) => (
                   <div
@@ -265,8 +216,9 @@ export function HomeScreen({
                       mint={mint}
                       variant={getVariantByIndex(idx)}
                       hideBalance={settings.balanceHidden}
-                      onDetail={() => handleMintClick(idx)}
-                      onCreateToken={onCreateToken ? () => onCreateToken(mint.url) : undefined}
+                      onDetail={() => onMintDetails?.(mints[idx], idx)}
+                      onSend={handleSendClick}
+                      onReceive={handleReceiveClick}
                     />
                   </div>
                 ))}
@@ -296,50 +248,39 @@ export function HomeScreen({
             </>
           )}
         </div>
+      </div>
 
-        {/* Transaction List — filtered by selected mint */}
-        <div className="min-h-[110px] pb-6 mt-4 w-[calc(var(--card-w)+2rem)] mx-auto">
+      {/* Scrollable transaction area */}
+      <main ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0 pb-safe">
+        {/* Pull-to-refresh indicator */}
+        <div
+          ref={indicatorRef}
+          className="flex items-center justify-center shrink-0 overflow-hidden"
+          style={{ height: 0, opacity: 0 }}
+        >
+          {isRefreshing ? (
+            <LoaderCircle className="w-6 h-6 text-foreground-muted animate-spin" />
+          ) : (
+            <ArrowDown
+              ref={iconRef}
+              className="w-5 h-5 text-foreground-muted transition-transform duration-150"
+            />
+          )}
+        </div>
+
+        {/* Transaction List */}
+        <div className="pb-6 mt-4 w-[calc(var(--card-w)+2rem)] mx-auto">
           <TransactionList
             transactions={filteredTransactions}
             onSeeAll={() => onTransactions?.(mints[clampedMintIndex]?.url)}
             onTransactionClick={onSelectTransaction}
-            maxItems={1}
+            maxItems={5}
             showDate
             title={t('home.recentTransactions')}
             className="px-0"
           />
         </div>
       </main>
-
-      {/* Action Row — always fixed at bottom */}
-      <div className="shrink-0 flex items-start justify-evenly pt-3 pb-3 bg-background pb-safe">
-        <button
-          onClick={() => { hapticTap(); handleReceiveClick(); }}
-          className="flex flex-col items-center gap-1.5 w-20 active:scale-95 transition-transform"
-        >
-          <div className="w-[56px] h-[56px] bg-accent-success/8 rounded-full flex items-center justify-center shadow-sm">
-            <ArrowDownLeft className="w-6 h-6 text-accent-success" strokeWidth={1.8} />
-          </div>
-          <span className="text-label font-bold text-foreground leading-normal">{t('common.receive')}</span>
-        </button>
-        <button
-          onClick={() => { hapticTap(); handleSendClick(); }}
-          disabled={mints[clampedMintIndex]?.balance === 0}
-          className="flex flex-col items-center gap-1.5 w-20 active:scale-95 transition-transform disabled:opacity-40"
-        >
-          <div className="w-[56px] h-[56px] bg-brand/8 rounded-full flex items-center justify-center shadow-sm">
-            <ArrowUpRight className="w-6 h-6 text-accent-warning" strokeWidth={1.8} />
-          </div>
-          <span className="text-label font-bold text-foreground leading-normal">{t('common.send')}</span>
-        </button>
-      </div>
-
-      {/* Unified Scanner */}
-      <UnifiedScanner
-        isOpen={isScannerOpen}
-        onClose={() => setIsScannerOpen(false)}
-        onValidated={handleValidated}
-      />
     </div>
   );
 }

@@ -33,7 +33,7 @@ export function MintDetailScreen({
   mint,
   mintIndex,
   onBack,
-  onCreateToken,
+  onCreateToken: _onCreateToken,
   onDeleteMint,
   onRenameMint,
   onSelectTransaction,
@@ -131,23 +131,23 @@ export function MintDetailScreen({
   return (
     <div className="h-dvh bg-background flex flex-col pt-safe">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 h-14 shrink-0">
+      <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
         <button
           onClick={() => { hapticTap(); onBack() }}
-          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-background-hover transition-colors"
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
           aria-label={t('common.back')}
         >
-          <ArrowLeft className="w-5 h-5 text-foreground" />
+          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h1 className="text-subtitle text-foreground">
+        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold text-foreground pointer-events-none">
           {t('mintDetail.title')}
         </h1>
         <button
           onClick={() => { hapticTap(); setShowMintInfo(true) }}
-          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-background-hover transition-colors"
+          className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
           aria-label={t('mintDetail.mintInfo')}
         >
-          <EllipsisVertical className="w-5 h-5 text-foreground" />
+          <EllipsisVertical className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
       </header>
 
@@ -159,7 +159,6 @@ export function MintDetailScreen({
             mint={liveMint}
             variant={variant}
             hideBalance={settings.balanceHidden}
-            onCreateToken={() => onCreateToken(mint.url)}
           />
         </div>
 
@@ -178,7 +177,7 @@ export function MintDetailScreen({
                 maxLength={10}
                 className="font-semibold text-body text-foreground text-center bg-muted rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-primary/30 w-48"
               />
-              <span className="text-overline text-foreground-muted">{editNameValue.length}/10</span>
+              <span className="text-overline font-medium text-foreground-muted">{editNameValue.length}/10</span>
             </div>
           ) : (
             <button
@@ -202,9 +201,12 @@ export function MintDetailScreen({
               </h2>
               <button
                 onClick={() => { hapticTap(); setShowPendingItems(true) }}
-                className="font-medium text-caption text-foreground-muted"
+                className="flex items-center gap-0.5 text-caption font-medium text-brand hover:text-brand-700 active:scale-95 transition-all"
               >
                 {t('mintDetail.seeMore')}
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="mt-px">
+                  <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </button>
             </div>
             <PendingItemsList items={pendingItems} maxItems={5} showDate onItemClick={handlePendingItemClick} />
@@ -220,9 +222,12 @@ export function MintDetailScreen({
             {onTransactions && (
               <button
                 onClick={onTransactions}
-                className="font-medium text-caption text-foreground-muted"
+                className="flex items-center gap-0.5 text-caption font-medium text-brand hover:text-brand-700 active:scale-95 transition-all"
               >
                 {t('mintDetail.seeDetails')}
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="mt-px">
+                  <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </button>
             )}
           </div>

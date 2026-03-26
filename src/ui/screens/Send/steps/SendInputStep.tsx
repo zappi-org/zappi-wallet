@@ -305,7 +305,7 @@ export function SendInputStep({
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle pointer-events-none">{t('send.title')}</h1>
+        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('send.title')}</h1>
         <button
           onClick={() => {
             hapticTap()
@@ -437,15 +437,16 @@ export function SendInputStep({
       {/* QR Scanner Modal */}
       {showScanner && (
         <div className="fixed inset-0 z-50 bg-background pt-safe pb-safe">
-          <div className="flex items-center px-4 py-3">
+          <div className="relative flex items-center justify-between px-4 py-3">
             <button
               onClick={() => setShowScanner(false)}
               aria-label={t('common.back')}
-              className="p-2 -ml-2 rounded-lg hover:bg-background-hover transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+              className="p-2 -ml-2 rounded-lg hover:bg-background-hover transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h2 className="text-subtitle ml-2">{t('scanner.title')}</h2>
+            <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('scanner.title')}</h2>
+            <div className="w-10" />
           </div>
           <div className="p-4">
             <QrScanner onScan={handleScan} active={showScanner} />

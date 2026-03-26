@@ -242,7 +242,7 @@ export function LockScreen({
           {isLockedOut && lockoutUntil && (
             <CountdownTimer expiryMs={lockoutUntil} onExpired={handleLockoutExpired}>
               {(remainingSeconds) => (
-                <p className="text-accent-danger text-label text-center mt-1">
+                <p className="text-accent-danger text-label font-medium text-center mt-1">
                   {t('lock.tryAgainIn', { time: formatSeconds(remainingSeconds) })}
                 </p>
               )}

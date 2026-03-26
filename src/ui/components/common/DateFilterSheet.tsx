@@ -116,7 +116,7 @@ function DateFilterContent({ value, onChange, onClose }: {
       </div>
 
       {/* Selected range display */}
-      <p className="text-center text-label text-foreground-muted">{rangeLabel}</p>
+      <p className="text-center text-label font-medium text-foreground-muted">{rangeLabel}</p>
 
       {/* Apply */}
       <button

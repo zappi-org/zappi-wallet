@@ -8,9 +8,9 @@ export interface AmountDisplayProps {
 }
 
 const sizeStyles = {
-  sm: { amount: 'text-amount font-semibold', fiat: 'text-caption' },
-  md: { amount: 'text-amount-lg', fiat: 'text-caption' },
-  lg: { amount: 'text-display', fiat: 'text-body' },
+  sm: { amount: 'text-amount font-semibold font-display', fiat: 'text-caption' },
+  md: { amount: 'text-amount-lg font-bold font-display', fiat: 'text-caption' },
+  lg: { amount: 'text-display font-bold font-display', fiat: 'text-body' },
 }
 
 export function AmountDisplay({

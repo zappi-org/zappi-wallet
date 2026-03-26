@@ -40,7 +40,7 @@ export function TokenQrModal({ isOpen, token, onClose }: TokenQrModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-5">
           <div className="w-9" />
-          <h3 className="text-subtitle text-foreground">
+          <h3 className="text-subtitle font-semibold text-foreground">
             {t('txDetail.sentToken')}
           </h3>
           <button

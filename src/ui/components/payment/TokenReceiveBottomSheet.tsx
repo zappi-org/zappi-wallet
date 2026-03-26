@@ -156,7 +156,7 @@ function TokenReceiveBottomSheetInner({
 
         {/* Header */}
         <div className="flex items-center justify-center px-4 pb-3">
-          <h3 className="text-subtitle text-foreground">
+          <h3 className="text-subtitle font-semibold text-foreground">
             {t('payment.receiveToken')}
           </h3>
         </div>

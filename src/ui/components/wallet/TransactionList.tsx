@@ -47,16 +47,19 @@ export function TransactionList({
       {showHeader && (
         <div className="flex items-center justify-between pt-[4px] mb-2 px-4">
           {title ? (
-            <h2 className="text-label font-semibold text-foreground-muted">{title}</h2>
+            <h2 className="text-caption font-semibold text-foreground-muted">{title}</h2>
           ) : (
             <div />
           )}
           {onSeeAll && (
             <button
               onClick={onSeeAll}
-              className={`text-label text-foreground-muted hover:text-foreground transition-colors ${transactions.length === 0 ? 'invisible' : ''}`}
+              className={`flex items-center gap-0.5 text-caption font-medium text-brand hover:text-brand-700 active:scale-95 transition-all ${transactions.length === 0 ? 'invisible' : ''}`}
             >
               {t('home.seeAll')}
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="mt-px">
+                <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             </button>
           )}
         </div>

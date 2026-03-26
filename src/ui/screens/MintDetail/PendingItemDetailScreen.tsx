@@ -281,7 +281,7 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
       <div className="flex-1 overflow-y-auto">
         {/* Hero: Amount + Context */}
         <div className="flex flex-col items-center px-6 pt-6 pb-8">
-          <span className={`text-display font-display tracking-tight leading-tight ${
+          <span className={`text-display font-bold font-display tracking-tight leading-tight ${
             isReceive ? 'text-card-brand-dark' : 'text-foreground'
           }`}>
             {isReceive ? '+' : '-'}{formatSats(item.amount)}
@@ -310,7 +310,7 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
 
         {/* Info Section */}
         <div className="px-5">
-          <p className="text-label text-foreground-muted uppercase tracking-wider mb-1">
+          <p className="text-label font-medium text-foreground-muted uppercase tracking-wider mb-1">
             {t('txDetail.txInfo')}
           </p>
           <div className="bg-background-card rounded px-4">
@@ -361,7 +361,7 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
         {/* Payment Methods (for receive-request) */}
         {item.type === 'receive-request' && (
           <div className="px-5 mt-6">
-            <p className="text-label text-foreground-muted uppercase tracking-wider mb-1">
+            <p className="text-label font-medium text-foreground-muted uppercase tracking-wider mb-1">
               {t('pending.payment')}
             </p>
             <div className="bg-background-card rounded px-4">

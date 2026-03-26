@@ -33,12 +33,12 @@ export class ErrorBoundary extends Component<Props, State> {
       const t = (key: string) => i18n.t(key)
 
       return (
-        <div className="h-dvh bg-background text-foreground font-sans flex flex-col items-center justify-center p-6 pt-safe pb-safe">
+        <div className="h-dvh bg-background text-foreground font-primary flex flex-col items-center justify-center p-6 pt-safe pb-safe">
           <div className="flex flex-col items-center gap-4 text-center max-w-xs">
-            <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center text-title">
+            <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center text-title font-bold">
               !
             </div>
-            <h1 className="text-title">{t('error.unexpectedTitle')}</h1>
+            <h1 className="text-title font-bold">{t('error.unexpectedTitle')}</h1>
             <p className="text-foreground-muted text-caption">{t('error.unexpectedMessage')}</p>
             <button
               onClick={this.handleReload}

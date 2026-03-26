@@ -123,7 +123,7 @@ function MintFilterContent({
               >
                 {displayName}
               </div>
-              <div className="text-overline text-foreground-muted">
+              <div className="text-overline font-medium text-foreground-muted">
                 {mint.balance.toLocaleString()} sats
               </div>
             </div>

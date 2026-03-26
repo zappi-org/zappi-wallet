@@ -140,7 +140,7 @@ export function ReceiveInputStep({
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle pointer-events-none">
+        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">
           {t('receive.createRequest')}
         </h1>
       </header>
@@ -164,7 +164,7 @@ export function ReceiveInputStep({
 
         {/* Memo — optional, used as ecash request description */}
         <div>
-          <p className="text-label text-foreground-muted leading-snug">{t('receive.memoPlaceholder')}</p>
+          <p className="text-label font-medium text-foreground-muted leading-snug">{t('receive.memoPlaceholder')}</p>
           <input
             type="text"
             value={memo}

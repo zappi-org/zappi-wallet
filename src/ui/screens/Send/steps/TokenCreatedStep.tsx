@@ -123,7 +123,7 @@ export function TokenCreatedStep({
     <div className="flex flex-col h-full bg-background">
       {/* Header — no border */}
       <header className="flex items-center justify-center px-4 py-3">
-        <h1 className="text-subtitle">{isSpent ? t('send.tokenCreated.claimedTitle') : t('send.tokenCreated.title')}</h1>
+        <h1 className="text-subtitle font-semibold">{isSpent ? t('send.tokenCreated.claimedTitle') : t('send.tokenCreated.title')}</h1>
       </header>
 
       {/* Content */}
@@ -133,15 +133,15 @@ export function TokenCreatedStep({
             <div className="w-16 h-16 rounded-full bg-accent-primary/10 flex items-center justify-center">
               <Check className="w-8 h-8 text-accent-primary" />
             </div>
-            <p className="text-subtitle text-center">{t('send.tokenCreated.claimed')}</p>
-            <p className="text-foreground-muted text-amount font-display">{formatSats(amount)}</p>
+            <p className="text-subtitle font-semibold text-center">{t('send.tokenCreated.claimed')}</p>
+            <p className="text-foreground-muted text-amount font-semibold font-display">{formatSats(amount)}</p>
             {(() => { const f = formatFiat(amount); return f ? (
-              <p className="text-foreground-muted text-label">{f}</p>
+              <p className="text-foreground-muted text-label font-medium">{f}</p>
             ) : null })()}
           </div>
         ) : (
           <>
-            <p className="text-display font-display">{formatSats(amount)}</p>
+            <p className="text-display font-bold font-display">{formatSats(amount)}</p>
             {(() => { const f = formatFiat(amount); return f ? (
               <p className="text-caption text-foreground-muted">{f}</p>
             ) : null })()}

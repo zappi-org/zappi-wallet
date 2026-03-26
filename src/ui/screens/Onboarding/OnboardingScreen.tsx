@@ -268,7 +268,7 @@ export function OnboardingScreen({
       <div className="fixed inset-0 bg-background text-foreground flex flex-col items-center justify-center p-4 pt-safe pb-safe overflow-hidden overscroll-none">
         <div className="w-full max-w-sm flex flex-col items-center text-center">
           <img src={zappiImg} alt="Zappi" className="w-40 h-40 object-contain mb-4" />
-          <h1 className="text-title text-brand mb-1">{t('onboarding.appName')}</h1>
+          <h1 className="text-title font-bold text-brand mb-1">{t('onboarding.appName')}</h1>
           <p className="text-caption text-foreground-muted mb-12">
             {t('onboarding.tagline')}
           </p>
@@ -282,7 +282,7 @@ export function OnboardingScreen({
             </Button>
           </div>
 
-          <p className="text-overline text-foreground-muted uppercase tracking-widest">
+          <p className="text-overline font-medium text-foreground-muted uppercase tracking-widest">
             {t('onboarding.securePrivateFast')}
           </p>
         </div>
@@ -311,7 +311,7 @@ export function OnboardingScreen({
           <div className="flex-1 overflow-y-auto px-5">
             {/* Title area */}
             <div className="mb-5">
-              <h2 className="text-title text-foreground mb-1">
+              <h2 className="text-title font-bold text-foreground mb-1">
                 {mode === 'create' ? t('onboarding.secretRecoveryKey') : t('onboarding.walletRecovery')}
               </h2>
               <p className="text-caption text-foreground-muted leading-relaxed whitespace-pre-line">
@@ -359,7 +359,7 @@ export function OnboardingScreen({
                       !isLastRow ? 'border-b border-muted' : ''
                     }`}
                   >
-                    <span className="text-label tabular-nums text-foreground-subtle w-5 text-right shrink-0">{i + 1}</span>
+                    <span className="text-label font-medium tabular-nums text-foreground-subtle w-5 text-right shrink-0">{i + 1}</span>
                     {mode === 'create' ? (
                       <span className="text-body font-medium text-foreground">{word}</span>
                     ) : (
@@ -588,7 +588,7 @@ export function OnboardingScreen({
             />
           </div>
 
-          <h2 className="text-title mb-2">
+          <h2 className="text-title font-bold mb-2">
             {mode === 'import'
               ? t('onboarding.recoveringWalletDesc')
               : t('onboarding.creatingWalletDesc')

@@ -100,18 +100,18 @@ export function MintManagementScreen({
   return (
     <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe overflow-hidden z-[60]">
       {/* Header */}
-      <header className="flex items-center gap-2 px-5 h-14 shrink-0">
+      <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
         >
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="text-subtitle flex-1">{t('settings.manageMints')}</h2>
+        <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('settings.manageMints')}</h2>
         {/* Slot indicator */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-overline font-mono text-foreground-muted mr-0.5">
+        <div className="flex items-center gap-1.5 z-10">
+          <span className="text-overline font-medium font-mono text-foreground-muted mr-0.5">
             {mints.length}/{LIMITS.MAX_MINTS}
           </span>
           {mints.map((url) => (
@@ -163,7 +163,7 @@ export function MintManagementScreen({
                         )} />
                       )}
                     </div>
-                    <span className="text-label text-foreground-muted truncate block">
+                    <span className="text-label font-medium text-foreground-muted truncate block">
                       {formatMintHost(url)}
                     </span>
                   </div>
@@ -190,7 +190,7 @@ export function MintManagementScreen({
                           <span className="text-caption font-medium text-foreground">{t('common.balance')}</span>
                           <div className="text-right">
                             <span className="text-body font-semibold text-foreground">{formatSats(balance)}</span>
-                            {(() => { const f = formatFiat(balance); return f ? <p className="text-overline text-foreground-muted">{f}</p> : null })()}
+                            {(() => { const f = formatFiat(balance); return f ? <p className="text-overline font-medium text-foreground-muted">{f}</p> : null })()}
                           </div>
                         </div>
                         <div className="border-t border-border/50" />
@@ -200,7 +200,7 @@ export function MintManagementScreen({
                           <div className="flex items-center gap-1.5">
                             <button
                               onClick={() => handleCopy(url, `url-${url}`)}
-                              className="flex items-center gap-1.5 text-label font-mono text-foreground-muted active:opacity-60 max-w-[180px]"
+                              className="flex items-center gap-1.5 text-label font-medium font-mono text-foreground-muted active:opacity-60 max-w-[180px]"
                             >
                               <span className="truncate">{formatMintHost(url)}</span>
                               {copiedField === `url-${url}`
@@ -236,7 +236,7 @@ export function MintManagementScreen({
                                       </div>
                                       <button
                                         onClick={() => handleCopy(c.info, `contact-${i}-${url}`)}
-                                        className="flex items-center gap-1.5 text-label font-mono text-foreground-muted active:opacity-60 min-w-0"
+                                        className="flex items-center gap-1.5 text-label font-medium font-mono text-foreground-muted active:opacity-60 min-w-0"
                                       >
                                         <span className="truncate">{c.info}</span>
                                         {copiedField === `contact-${i}-${url}`
@@ -257,7 +257,7 @@ export function MintManagementScreen({
                                     onClick={() => handleCopy(infoData.pubkey!, `pubkey-${url}`)}
                                     className="flex items-start gap-1.5 active:opacity-60 min-w-0"
                                   >
-                                    <p className="text-overline font-mono text-foreground break-all opacity-70 text-right">{infoData.pubkey}</p>
+                                    <p className="text-overline font-medium font-mono text-foreground break-all opacity-70 text-right">{infoData.pubkey}</p>
                                     {copiedField === `pubkey-${url}`
                                       ? <Check className="w-3.5 h-3.5 text-accent-primary shrink-0 mt-0.5" />
                                       : <Copy className="w-3.5 h-3.5 text-foreground-muted shrink-0 mt-0.5" />}
@@ -273,7 +273,7 @@ export function MintManagementScreen({
                                   <span className="text-caption font-medium text-foreground">Version</span>
                                   <button
                                     onClick={() => handleCopy(infoData.version!, `version-${url}`)}
-                                    className="flex items-center gap-1.5 text-label text-foreground active:opacity-60"
+                                    className="flex items-center gap-1.5 text-label font-medium text-foreground active:opacity-60"
                                   >
                                     <span>{infoData.version}</span>
                                     {copiedField === `version-${url}`
@@ -288,7 +288,7 @@ export function MintManagementScreen({
                                 <div className="border-t border-border/50" />
                                 <div className="flex justify-between items-start py-3 gap-4">
                                   <span className="text-caption font-medium text-foreground shrink-0">{t('mintDetails.description')}</span>
-                                  <p className="text-label text-foreground/80 text-right leading-relaxed">{infoData.description}</p>
+                                  <p className="text-label font-medium text-foreground/80 text-right leading-relaxed">{infoData.description}</p>
                                 </div>
                               </>
                             )}
@@ -297,7 +297,7 @@ export function MintManagementScreen({
                                 <div className="border-t border-border/50" />
                                 <div className="flex justify-between items-start py-3 gap-4">
                                   <span className="text-caption font-medium text-foreground shrink-0">{t('mintDetails.motd')}</span>
-                                  <p className="text-label text-foreground/80 text-right leading-relaxed">{infoData.motd}</p>
+                                  <p className="text-label font-medium text-foreground/80 text-right leading-relaxed">{infoData.motd}</p>
                                 </div>
                               </>
                             )}
@@ -310,7 +310,7 @@ export function MintManagementScreen({
                                   <span className="text-caption font-medium text-foreground">{t('mintDetails.supportedNuts')}</span>
                                   <div className="flex flex-wrap gap-1 mt-2">
                                     {nuts.map((nut) => (
-                                      <span key={nut} className="px-1.5 py-0.5 bg-foreground/[0.06] text-foreground text-overline rounded-sm">
+                                      <span key={nut} className="px-1.5 py-0.5 bg-foreground/[0.06] text-foreground text-overline font-medium rounded-sm">
                                         <span className="font-mono opacity-60">{nut.padStart(2, '0')}</span>
                                         <span className="mx-0.5">·</span>
                                         {getNutName(nut)}
@@ -323,7 +323,7 @@ export function MintManagementScreen({
                           </>
                         ) : infoData === null ? (
                           <div className="py-3 border-t border-border">
-                            <p className="text-label text-foreground-muted text-center">
+                            <p className="text-label font-medium text-foreground-muted text-center">
                               {t('mintDetails.loadError')}
                             </p>
                           </div>
@@ -373,7 +373,7 @@ export function MintManagementScreen({
       <Modal isOpen={!!mintToDelete} onClose={() => setMintToDelete(null)} title={t('settings.deleteMint')}>
         <div className="py-4 space-y-4">
           <div className="text-center space-y-1">
-            <p className="text-subtitle text-accent-primary">
+            <p className="text-subtitle font-semibold text-accent-primary">
               {getDisplayName(mintToDelete || '')}
             </p>
             {(() => {
