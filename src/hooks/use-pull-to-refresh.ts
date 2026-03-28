@@ -90,16 +90,39 @@ export function usePullToRefresh({
     }
   }, [applyIndicatorStyle])
 
+  // ─── Helpers ───
+
+  /** Walk up from touch target to find the nearest vertically scrollable ancestor */
+  const findScrollableAncestor = useCallback((target: EventTarget | null): HTMLElement | null => {
+    let node = target as HTMLElement | null
+    const container = scrollContainerRef.current
+    while (node && node !== container) {
+      const { overflowY } = getComputedStyle(node)
+      if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight) {
+        return node
+      }
+      node = node.parentElement
+    }
+    return null
+  }, [])
+
   // ─── Touch Handlers ───
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
     const el = scrollContainerRef.current
-    if (!el || el.scrollTop > 0 || stateRef.current === 'refreshing' || stateRef.current === 'completing') return
+    if (!el || stateRef.current === 'refreshing' || stateRef.current === 'completing') return
+
+    // Check if touch started inside a scrolled inner container
+    const scrollable = findScrollableAncestor(e.target)
+    if (scrollable && scrollable.scrollTop > 0) return
+
+    // Check the main container too
+    if (el.scrollTop > 0) return
 
     startXRef.current = e.touches[0].clientX
     startYRef.current = e.touches[0].clientY
     stateRef.current = 'detecting'
-  }, [])
+  }, [findScrollableAncestor])
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
     const state = stateRef.current
