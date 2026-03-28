@@ -61,9 +61,6 @@ export function SettingsMainList({
   const passkeySupported = isPasskeySupported()
   const passkeyEnabled = isPasskeyRegistered()
 
-  const posDevices = settings.posDevices ?? []
-  const posValue = posDevices.length > 0 ? t('settings.posDeviceCount', { count: posDevices.length }) : null
-
   const npubDisplay = nostrPubkey ? encodeNpub(nostrPubkey) : null
 
   return (
@@ -193,8 +190,8 @@ export function SettingsMainList({
         </div>
       </section>
 
-      {/* POS Management */}
-      {(posDevices.length > 0 || settings.lightningAddress) && (
+      {/* POS/KIOSK Management — hidden for alpha */}
+      {/* {(posDevices.length > 0 || settings.lightningAddress) && (
         <section>
           <p className="text-caption font-medium uppercase tracking-wide text-foreground-muted px-4 pt-6 pb-2">
             {t('settings.posManagement')}
@@ -207,7 +204,7 @@ export function SettingsMainList({
             />
           </div>
         </section>
-      )}
+      )} */}
 
       {/* Logout */}
       <div className="px-4 pt-8">
