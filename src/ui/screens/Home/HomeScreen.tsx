@@ -164,13 +164,13 @@ export function HomeScreen({
               </>
             )}
           </div>
-          {!settings.balanceHidden && !isLoadingBalance && (() => {
-            const fiatStr = toFiat(totalBalance)
+          {(() => {
+            const fiatStr = !isLoadingBalance ? toFiat(totalBalance) : null
             return fiatStr ? (
-              <p className="text-caption text-foreground-subtle mt-0.5">
+              <p className={`text-caption text-foreground-subtle mt-0.5 ${settings.balanceHidden ? 'invisible' : ''}`}>
                 {fiatStr}
               </p>
-            ) : null
+            ) : <p className="text-caption mt-0.5 invisible">-</p>
           })()}
         </div>
 
