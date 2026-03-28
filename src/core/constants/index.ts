@@ -2,8 +2,8 @@
  * Default mints
  */
 export const DEFAULT_MINTS = [
-  'https://21mint.me',
   'https://mint.lnserver.com',
+  'https://21mint.me',
   'https://m7.mountainlake.io',
 ] as const
 

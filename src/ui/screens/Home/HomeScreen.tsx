@@ -131,7 +131,25 @@ export function HomeScreen({
       {/* Header spacer */}
       <div className="shrink-0 h-12" />
 
-      {/* Fixed top: Balance + Cards */}
+      {/* Scrollable content — PTR wraps everything */}
+      <main ref={scrollContainerRef} className="flex-1 flex flex-col overflow-y-auto min-h-0 pb-safe">
+        {/* Pull-to-refresh indicator */}
+        <div
+          ref={indicatorRef}
+          className="flex items-center justify-center shrink-0 overflow-hidden"
+          style={{ height: 0, opacity: 0 }}
+        >
+          {isRefreshing ? (
+            <LoaderCircle className="w-6 h-6 text-foreground-muted animate-spin" />
+          ) : (
+            <ArrowDown
+              ref={iconRef}
+              className="w-5 h-5 text-foreground-muted transition-transform duration-150"
+            />
+          )}
+        </div>
+
+      {/* Balance + Cards */}
       <div className="shrink-0">
         {/* Total Balance — Hero */}
         <div
@@ -253,25 +271,7 @@ export function HomeScreen({
         )}
       </div>
 
-      {/* Scrollable transaction list */}
-      <main ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0 pb-safe">
-        {/* Pull-to-refresh indicator */}
-        <div
-          ref={indicatorRef}
-          className="flex items-center justify-center shrink-0 overflow-hidden"
-          style={{ height: 0, opacity: 0 }}
-        >
-          {isRefreshing ? (
-            <LoaderCircle className="w-6 h-6 text-foreground-muted animate-spin" />
-          ) : (
-            <ArrowDown
-              ref={iconRef}
-              className="w-5 h-5 text-foreground-muted transition-transform duration-150"
-            />
-          )}
-        </div>
-
-        {/* Transaction List — header hidden, managed above */}
+      {/* Transaction List */}
         <div className="pb-28 w-[calc(var(--card-w)+2rem)] mx-auto">
           <TransactionList
             transactions={filteredTransactions}
