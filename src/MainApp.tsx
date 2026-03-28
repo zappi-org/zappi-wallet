@@ -780,6 +780,10 @@ export default function MainApp() {
     const target = previousScreen || 'home'
     setPreviousScreen(null)
     setCurrentScreen(target)
+    // 탭 화면으로 돌아가면 서브페이지 플래그 리셋 (엣지 스와이프 뒤로가기 대응)
+    if (SCREEN_TO_TAB[target]) {
+      setHasSettingsSubPage(false)
+    }
   }, [previousScreen])
 
   // Android back button support via History API

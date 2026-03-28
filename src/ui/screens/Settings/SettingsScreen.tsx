@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { AlertTriangle, Check, Copy, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence } from 'motion/react'
@@ -107,6 +107,31 @@ export function SettingsScreen({
   useEffect(() => {
     onSubPageChange?.(settingsPage !== null || pinChange.isOpen)
   }, [settingsPage, pinChange.isOpen, onSubPageChange])
+
+  // 서브페이지 진입/이탈 시 history 연동 (iOS 엣지 스와이프 뒤로가기 대응)
+  const settingsPageRef = useRef(settingsPage)
+  useEffect(() => {
+    const prev = settingsPageRef.current
+    settingsPageRef.current = settingsPage
+
+    if (settingsPage !== null && prev === null) {
+      // 서브페이지 진입 → history push
+      window.history.pushState({ screen: 'settings', subPage: settingsPage }, '')
+    }
+  }, [settingsPage])
+
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      // 서브페이지가 열려있을 때 popstate → 서브페이지 닫기
+      if (settingsPageRef.current !== null) {
+        e.stopImmediatePropagation()
+        setSettingsPage(null)
+      }
+    }
+    // 캡처링 단계에서 먼저 잡아서 MainApp의 popstate 핸들러보다 우선 처리
+    window.addEventListener('popstate', handlePopState, true)
+    return () => window.removeEventListener('popstate', handlePopState, true)
+  }, [])
 
   // Face ID
   const [showFaceIdModal, setShowFaceIdModal] = useState(false)
