@@ -1,13 +1,16 @@
 /**
- * TokenReceiveStep — Main receive screen (fullscreen)
- * QR scanner + token text input with paste button
- * "요청 생성" button navigates to the Lightning/eCash request creation flow
+ * TokenReceiveStep — First screen of the receive flow (conversational)
+ * "받을 게 있나요?" with optional token paste/scan input.
+ * Empty input → go to amount step. Token input → validate and route.
  */
 
 import { useState, useCallback } from 'react'
-import { ArrowLeft, ClipboardPaste } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
+import { Trans } from 'react-i18next'
+import { CameraFilled } from '@/ui/components/icons/CameraFilled'
 import { useTranslation } from 'react-i18next'
 import { QrScanner } from '@/ui/components/common/QrScanner'
+import { Button } from '@/ui/components/common/Button'
 import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
 import { validateInput, type ValidatedCashuToken } from '@/ui/components/scanner/InputValidator'
 import { hapticTap, hapticError } from '@/utils/haptic'
@@ -15,8 +18,9 @@ import { useAppStore } from '@/store'
 
 interface TokenReceiveStepProps {
   onBack: () => void
-  onTokenDetected: (validated: ValidatedCashuToken) => void
-  onGoToCreateRequest: () => void
+  onTokenDetected: (token: ValidatedCashuToken) => void
+  onNext: () => void
+  mintUrl: string
 }
 
 type StepState = 'idle' | 'validating'
@@ -24,12 +28,15 @@ type StepState = 'idle' | 'validating'
 export function TokenReceiveStep({
   onBack,
   onTokenDetected,
-  onGoToCreateRequest,
+  onNext,
+  mintUrl: _mintUrl,
 }: TokenReceiveStepProps) {
   const { t } = useTranslation()
   const addToast = useAppStore((s) => s.addToast)
+
   const [state, setState] = useState<StepState>('idle')
   const [tokenInput, setTokenInput] = useState('')
+  const [showScanner, setShowScanner] = useState(false)
 
   const handleDetectedInput = useCallback(
     async (input: string) => {
@@ -85,92 +92,51 @@ export function TokenReceiveStep({
 
   const handleScan = useCallback(
     (result: string) => {
+      setShowScanner(false)
       handleDetectedInput(result)
     },
     [handleDetectedInput],
   )
 
-  const handlePaste = useCallback(async () => {
-    try {
-      const text = await navigator.clipboard.readText()
-      if (text) {
-        setTokenInput(text.trim())
-        handleDetectedInput(text)
-      }
-    } catch {
-      addToast({
-        type: 'error',
-        message: t('errors.clipboardError'),
-        duration: 3000,
-      })
+  const handleNext = useCallback(() => {
+    const trimmed = tokenInput.trim()
+    if (!trimmed) {
+      // Empty input → go to amount step
+      hapticTap()
+      onNext()
+      return
     }
-  }, [handleDetectedInput, addToast, t])
-
-  // Submit manually typed/pasted token from textarea
-  const handleSubmitInput = useCallback(() => {
-    if (tokenInput.trim()) {
-      handleDetectedInput(tokenInput)
-    }
-  }, [tokenInput, handleDetectedInput])
+    // Has text → validate as token
+    handleDetectedInput(trimmed)
+  }, [tokenInput, onNext, handleDetectedInput])
 
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <header className="relative flex items-center justify-between px-4 py-3">
+      <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="p-2 -ml-2 rounded-lg hover:bg-background-hover transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10"
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
         <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">
           {t('receive.title')}
         </h1>
-        <button
-          onClick={() => {
-            hapticTap()
-            onGoToCreateRequest()
-          }}
-          className="text-label text-accent-primary font-medium min-h-[44px] px-2 flex items-center justify-center rounded-lg hover:bg-background-hover active:bg-background-hover transition-colors z-10"
-        >
-          {t('receive.createRequest')}
-        </button>
+        <div className="w-10" />
       </header>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-5 pt-4 space-y-8">
-        {/* QR Scanner */}
-        <div>
-          <p className="text-label font-normal text-foreground-muted leading-snug mb-3">
-            {t('receive.scanQr')}
-          </p>
-          <div className="relative rounded-[14px] overflow-hidden aspect-square max-h-[50vh] max-w-sm mx-auto">
-            <QrScanner
-              onScan={handleScan}
-              active={state !== 'validating'}
-            />
+      <div className="flex-1 overflow-y-auto px-6 pt-6">
+        {/* Question */}
+        <h2 className="text-heading font-semibold text-foreground">
+          {t('receive.tokenInputStep.haveToken')}
+        </h2>
 
-            {/* Validating overlay */}
-            {state === 'validating' && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                <div className="bg-background-card rounded-2xl p-4 flex flex-col items-center gap-2 shadow-xl">
-                  <div className="w-8 h-8 border-3 border-accent-primary border-t-transparent rounded-full animate-spin" />
-                  <p className="text-foreground text-caption font-medium">
-                    {t('scanner.validating')}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Token Input */}
-        <div>
-          <p className="text-label font-normal text-foreground-muted leading-snug">
-            {t('receive.tokenInput')}
-          </p>
-          <div className="flex items-end gap-1 border-b border-b-border focus-within:border-b-foreground transition-colors">
+        {/* Token input — same style as send destination */}
+        <div className="mt-6">
+          <div className="flex items-center border-b border-border focus-within:border-foreground/20 transition-colors">
             <input
               type="text"
               value={tokenInput}
@@ -178,37 +144,90 @@ export function TokenReceiveStep({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault()
-                  handleSubmitInput()
+                  handleNext()
                 }
               }}
               disabled={state === 'validating'}
-              placeholder={t('receive.tokenInputPlaceholder')}
-              className="flex-1 min-w-0 bg-transparent border-0 rounded-none px-0 py-2 text-body font-medium text-foreground placeholder:text-foreground-muted/40 placeholder:font-normal focus:outline-none disabled:opacity-50"
+              onPaste={(e) => {
+                e.preventDefault()
+                const text = e.clipboardData.getData('text')
+                if (text) {
+                  setTokenInput(text.trim())
+                  handleDetectedInput(text.trim())
+                }
+              }}
+              placeholder={t('receive.tokenInputStep.placeholder')}
+              className="flex-1 min-w-0 bg-transparent py-1.5 text-title font-medium text-foreground placeholder:text-foreground-muted placeholder:font-medium focus:outline-none disabled:opacity-50"
             />
-            <div className="shrink-0 pb-1">
-              <button
-                onClick={handlePaste}
-                disabled={state === 'validating'}
-                aria-label={t('scanner.paste')}
-                className="p-2 rounded-lg hover:bg-background-hover transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50"
-              >
-                <ClipboardPaste className="w-5.5 h-5.5 text-accent-primary" />
-              </button>
-            </div>
+            <button
+              onClick={() => setShowScanner(true)}
+              disabled={state === 'validating'}
+              aria-label={t('scanner.title')}
+              className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors shrink-0 disabled:opacity-50"
+            >
+              <CameraFilled className="text-foreground-muted" />
+            </button>
+          </div>
+
+          {/* Validating spinner — fixed height */}
+          <div className="h-7 mt-1 flex items-center">
+            {state === 'validating' && (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+                <p className="text-caption text-foreground-muted">{t('scanner.validating')}</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Bottom Action */}
-      <div className="p-4 pb-safe">
-        <button
-          onClick={handleSubmitInput}
-          disabled={state === 'validating' || !tokenInput.trim()}
-          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-[14px] bg-brand text-white font-medium shadow-lg shadow-brand/25 active:scale-[0.98] active:opacity-90 transition-all duration-100 disabled:opacity-40 disabled:cursor-not-allowed min-h-[52px] text-subtitle font-semibold"
+      {/* Bottom — hint + button */}
+      <div className="px-6 pb-6 pb-safe shrink-0">
+        {!tokenInput.trim() && (
+          <div className="flex items-start gap-2.5 bg-foreground/[0.04] rounded-xl px-4 py-3 mb-3">
+            <span className="text-caption leading-relaxed mt-px">💡</span>
+            <p className="text-caption text-foreground-muted leading-relaxed">
+              <Trans
+                i18nKey="receive.tokenInputStep.hint"
+                components={{ b: <span className="font-semibold text-foreground" /> }}
+              />
+            </p>
+          </div>
+        )}
+        <Button
+          variant="brand"
+          size="xl"
+          onClick={handleNext}
+          loading={state === 'validating'}
+          className="w-full"
         >
-          {t('receive.token.receive')}
-        </button>
+          {tokenInput.trim() ? t('receive.next') : t('common.no')}
+        </Button>
       </div>
+
+      {/* QR Scanner Modal — center modal */}
+      {showScanner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={() => setShowScanner(false)}>
+          <div className="absolute inset-0 bg-black/60" />
+          <div
+            className="relative bg-background rounded-2xl w-full max-w-sm overflow-hidden animate-scaleIn"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4">
+              <h2 className="text-subtitle font-semibold">{t('scanner.title')}</h2>
+              <button
+                onClick={() => setShowScanner(false)}
+                className="text-body font-medium text-brand active:opacity-70"
+              >
+                {t('common.close')}
+              </button>
+            </div>
+            <div className="px-4 pb-5">
+              <QrScanner onScan={handleScan} active={showScanner} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

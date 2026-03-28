@@ -68,18 +68,19 @@ export function UntrustedMintStep({
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <header className="relative flex items-center px-4 py-3">
+      <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
         <button
           onClick={onBack}
           disabled={isProcessing}
           aria-label={t('common.back')}
-          className="p-2 rounded-lg hover:bg-background-hover transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10 disabled:opacity-50"
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10 disabled:opacity-50"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
         <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">
           {t('receive.untrusted.title')}
         </h1>
+        <div className="w-10" />
       </header>
 
       {/* Content — centered warning */}

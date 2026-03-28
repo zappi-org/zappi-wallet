@@ -117,9 +117,6 @@ export default function MainApp() {
   // Validated scan data state (for unified payment screens)
   const [validatedScanData, setValidatedScanData] = useState<ValidatedData | null>(null)
 
-  // Send flow initial step (for token-create from home)
-  const [sendInitialStep, setSendInitialStep] = useState<'input' | 'token-create'>('input')
-
   // Active mint from HomeScreen carousel
   const [activeMintUrl, setActiveMintUrl] = useState<string | null>(null)
 
@@ -839,7 +836,7 @@ export default function MainApp() {
           }}
           onSend={(mintUrl) => {
             setPreviousScreen('home')
-            setSendInitialStep('input')
+
             setActiveMintUrl(mintUrl || null)
             setValidatedScanData(null)
             setScannedAmount(0)
@@ -973,7 +970,7 @@ export default function MainApp() {
           onSend={(amount) => {
             setScannedAmount(amount)
             setValidatedScanData(null)
-            setSendInitialStep('input')
+
             setPreviousScreen('amount-action')
             setCurrentScreen('send')
           }}
@@ -1004,7 +1001,6 @@ export default function MainApp() {
           validatedData={validatedScanData || undefined}
           initialAmount={scannedAmount || undefined}
           initialMintUrl={activeMintUrl}
-          initialStep={sendInitialStep}
         />
       )}
 
@@ -1051,7 +1047,6 @@ export default function MainApp() {
           onBack={handleBack}
           onCreateToken={(mintUrl) => {
             setPreviousScreen('mint-detail')
-            setSendInitialStep('token-create')
             setActiveMintUrl(mintUrl)
             setValidatedScanData(null)
             setScannedAmount(0)

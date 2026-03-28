@@ -5,6 +5,10 @@
  * - Ecash send (NUT-18 cashu-request via Nostr DM)
  * - Token create (create + QR share)
  *
+ * New conversational multi-step flow:
+ * destination → amount → confirm → sending → complete
+ * destination → amount → token-confirm → token-created
+ *
  * Business logic stays in MainApp handlers (passed as props).
  * This component is purely UI + step management.
  */
@@ -52,7 +56,8 @@ function getAddressOrInvoice(data: SendableValidatedData): string | undefined {
 }
 
 import { SendInputStep } from './steps/SendInputStep'
-import { TokenCreateStep } from './steps/TokenCreateStep'
+import { SendAmountStep } from './steps/SendAmountStep'
+import { SendTokenConfirmStep } from './steps/SendTokenConfirmStep'
 import { TokenCreatedStep } from './steps/TokenCreatedStep'
 import { SendConfirmStep } from './steps/SendConfirmStep'
 import { SendingStep } from './steps/SendingStep'
@@ -61,12 +66,13 @@ import { SendCompleteStep } from './steps/SendCompleteStep'
 // ============= Types =============
 
 export type SendStep =
-  | 'input'
-  | 'token-create'
-  | 'token-created'
+  | 'destination'
+  | 'amount'
   | 'confirm'
   | 'sending'
   | 'complete'
+  | 'token-confirm'
+  | 'token-created'
 
 /** Validated data types that are "sendable" (not token, not amount) */
 export type SendableValidatedData =
@@ -83,6 +89,10 @@ export interface SendFlowState {
   validatedData: SendableValidatedData | null
   amount: number
   memo: string
+  isFiatMode: boolean
+  fiatAmount: string
+  skippedAmount: boolean
+  isTokenMode: boolean
   createdToken: string | null
   createdTxId: string | null
   createdOperationId: string | null
@@ -107,7 +117,7 @@ export interface SendFlowProps {
   validatedData?: ValidatedData
   initialAmount?: number
   initialMintUrl?: string | null
-  // Direct entry to token-create step (from HomeScreen token button)
+  // Legacy: initialStep mapped to new flow
   initialStep?: 'input' | 'token-create'
 }
 
@@ -156,14 +166,24 @@ export function SendFlow({
     return ['bolt11', 'lightning-address', 'lnurl-pay', 'cashu-request', 'my-wallet'].includes(data.type)
   }
 
+  // Map legacy initialStep to new step
+  const getInitialStep = (): SendStep => {
+    if (initialStep === 'token-create') return 'amount'
+    return 'destination'
+  }
+
   // Flow state
   const [state, setState] = useState<SendFlowState>({
-    step: initialStep,
+    step: getInitialStep(),
     selectedMintUrl: initialMintUrl || null,
     destination: getInitialDestination(),
     validatedData: isSendableData(initialValidatedData) ? initialValidatedData : null,
     amount: getInitialAmount(),
     memo: '',
+    isFiatMode: false,
+    fiatAmount: '',
+    skippedAmount: false,
+    isTokenMode: initialStep === 'token-create',
     createdToken: null,
     createdTxId: null,
     createdOperationId: null,
@@ -179,14 +199,79 @@ export function SendFlow({
   // Prevent double-tap
   const isProcessingRef = useRef(false)
 
+  // ============= Route Selection Logic =============
+
+  /** Perform route selection + fee estimation (shared between destination auto-advance and amount next) */
+  const performRouteSelection = useCallback(async (
+    validated: SendableValidatedData,
+    amount: number,
+    mintUrl: string,
+  ): Promise<{ fee: number; routeSelection: RouteSelection } | null> => {
+    try {
+      const balances = await cocoGetBalances()
+      const route = selectRoute({
+        validatedData: validated,
+        senderMints: balances,
+        amount,
+        privacyMode: useAppStore.getState().settings.senderPrivacyMode ?? false,
+        lightningInvoice: validated.type === 'cashu-request' ? validated.parsed.lightningInvoice : undefined,
+      })
+
+      if (route === PaymentRoute.CANNOT_SEND) {
+        addToast({ type: 'error', message: t('payment.cannotSend'), duration: 3000 })
+        return null
+      }
+
+      // Determine source + target mints
+      const commonMints = validated.type === 'cashu-request' && validated.parsed.mints.length > 0
+        ? findCommonMints(Object.keys(balances).filter((m) => balances[m] > 0), validated.parsed.mints)
+        : []
+      const sourceMint = selectSourceMint(route, balances, amount, commonMints) || mintUrl
+
+      let targetMint: string | undefined
+      if (route === PaymentRoute.TOKEN_TRANSFER || route === PaymentRoute.LN_INTERNAL) {
+        targetMint = commonMints[0]
+      } else if (route === PaymentRoute.LN_CROSS_MINT || route === PaymentRoute.MINT_AND_DM) {
+        targetMint = validated.type === 'cashu-request' ? validated.parsed.mints[0]
+          : validated.type === 'my-wallet' ? validated.targetMintUrl
+          : undefined
+      }
+
+      // Resolve invoice for LN routes
+      let invoice: string | undefined
+      if (validated.type === 'bolt11') invoice = validated.invoice
+      else if (validated.type === 'cashu-request') invoice = validated.parsed.lightningInvoice
+
+      // Fee estimation
+      const feeEstimate = await estimateRouteFee(route, sourceMint, amount, targetMint, invoice)
+      const fee = feeEstimate.fee
+
+      const routeSelection: RouteSelection = {
+        route,
+        amount,
+        sourceMintUrl: sourceMint,
+        targetMintUrl: targetMint,
+        invoice,
+        estimatedFee: fee,
+        reason: ROUTE_LABELS[route],
+      }
+
+      console.log(`[SendFlow] Route selected: #${route} ${ROUTE_LABELS[route]} (fee: ${fee} sat)`)
+      return { fee, routeSelection }
+    } catch (err) {
+      console.error('[SendFlow] Route selection / fee estimation failed:', err)
+      addToast({ type: 'error', message: t('payment.feeEstimateFailed'), duration: 3000 })
+      return null
+    }
+  }, [addToast, t])
+
   // ============= Step Transitions =============
 
-  /** Input step → validate & get fee quote → confirm step */
-  const handleInputNext = useCallback(async (data: {
+  /** Destination step → determine token mode or send mode, advance to amount or confirm */
+  const handleDestinationNext = useCallback(async (data: {
     destination: string
-    amount: number
-    selectedMintUrl: string
     validatedData?: SendableValidatedData
+    amountFromInvoice?: number
   }) => {
     if (isProcessingRef.current) return
     isProcessingRef.current = true
@@ -200,7 +285,20 @@ export function SendFlow({
     }
 
     try {
-      // If no validatedData, detect and validate the destination
+      // Empty destination → token mode
+      if (!data.destination) {
+        setState((prev) => ({
+          ...prev,
+          step: 'amount',
+          destination: '',
+          validatedData: null,
+          isTokenMode: true,
+          error: null,
+        }))
+        return
+      }
+
+      // Validate destination if no validatedData provided
       let validated = data.validatedData
       if (!validated) {
         const detected = detectInputType(data.destination)
@@ -226,65 +324,96 @@ export function SendFlow({
         validated = result.data
       }
 
-      // Route selection + fee estimation
-      let fee = 0
-      let routeSel: RouteSelection | null = null
-
-      try {
-        const balances = await cocoGetBalances()
-        const route = selectRoute({
-          validatedData: validated,
-          senderMints: balances,
-          amount: data.amount,
-          privacyMode: useAppStore.getState().settings.senderPrivacyMode ?? false,
-          lightningInvoice: validated.type === 'cashu-request' ? validated.parsed.lightningInvoice : undefined,
-        })
-
-        if (route === PaymentRoute.CANNOT_SEND) {
-          addToast({ type: 'error', message: t('payment.cannotSend'), duration: 3000 })
+      // If invoice has amount → check balance, then skip amount step
+      if (data.amountFromInvoice && data.amountFromInvoice > 0 && state.selectedMintUrl) {
+        // Balance check before auto-advance
+        const mintBalance = useAppStore.getState().balance?.byMint?.[state.selectedMintUrl] || 0
+        if (data.amountFromInvoice > mintBalance) {
+          const { formatSats: fmtSats } = await import('@/utils/format')
+          addToast({ type: 'error', message: `${t('payment.insufficientBalance')} (${t('send.confirm.requestAmount', '요청')} ${fmtSats(data.amountFromInvoice)} / ${t('common.balance')} ${fmtSats(mintBalance)})`, duration: 4000 })
           isProcessingRef.current = false
           setIsLoading(false)
           return
         }
 
-        // Determine source + target mints
-        const commonMints = validated.type === 'cashu-request' && validated.parsed.mints.length > 0
-          ? findCommonMints(Object.keys(balances).filter((m) => balances[m] > 0), validated.parsed.mints)
-          : []
-        const sourceMint = selectSourceMint(route, balances, data.amount, commonMints) || data.selectedMintUrl
-
-        let targetMint: string | undefined
-        if (route === PaymentRoute.TOKEN_TRANSFER || route === PaymentRoute.LN_INTERNAL) {
-          targetMint = commonMints[0]
-        } else if (route === PaymentRoute.LN_CROSS_MINT || route === PaymentRoute.MINT_AND_DM) {
-          targetMint = validated.type === 'cashu-request' ? validated.parsed.mints[0]
-            : validated.type === 'my-wallet' ? validated.targetMintUrl
-            : undefined
+        const routeResult = await performRouteSelection(validated, data.amountFromInvoice, state.selectedMintUrl)
+        if (!routeResult) {
+          isProcessingRef.current = false
+          setIsLoading(false)
+          return
         }
 
-        // Resolve invoice for LN routes
-        let invoice: string | undefined
-        if (validated.type === 'bolt11') invoice = validated.invoice
-        else if (validated.type === 'cashu-request') invoice = validated.parsed.lightningInvoice
+        setState((prev) => ({
+          ...prev,
+          step: 'confirm',
+          destination: data.destination,
+          validatedData: validated!,
+          amount: data.amountFromInvoice!,
+          skippedAmount: true,
+          isTokenMode: false,
+          fee: routeResult.fee,
+          routeSelection: routeResult.routeSelection,
+          error: null,
+        }))
+        return
+      }
 
-        // Fee estimation
-        const feeEstimate = await estimateRouteFee(route, sourceMint, data.amount, targetMint, invoice)
-        fee = feeEstimate.fee
+      // Destination with no pre-set amount → go to amount step
+      setState((prev) => ({
+        ...prev,
+        step: 'amount',
+        destination: data.destination,
+        validatedData: validated!,
+        isTokenMode: false,
+        error: null,
+      }))
+    } catch (err) {
+      console.error('[SendFlow] Destination validation error:', err)
+      addToast({ type: 'error', message: t('errors.generic'), duration: 3000 })
+    } finally {
+      isProcessingRef.current = false
+      setIsLoading(false)
+    }
+  }, [isOnline, addToast, t, state.selectedMintUrl, performRouteSelection])
 
-        routeSel = {
-          route,
+  /** Amount step → token-confirm (token mode) or route selection + confirm (send mode) */
+  const handleAmountNext = useCallback(async (data: { amount: number; memo: string; isFiatMode: boolean; fiatAmount: string }) => {
+    if (isProcessingRef.current) return
+    isProcessingRef.current = true
+    setIsLoading(true)
+
+    if (!isOnline) {
+      addToast({ type: 'error', message: t('common.offlineRequired'), duration: 3000 })
+      isProcessingRef.current = false
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      // Token mode → go to token-confirm
+      if (state.isTokenMode) {
+        setState((prev) => ({
+          ...prev,
+          step: 'token-confirm',
           amount: data.amount,
-          sourceMintUrl: sourceMint,
-          targetMintUrl: targetMint,
-          invoice,
-          estimatedFee: fee,
-          reason: ROUTE_LABELS[route],
-        }
+          memo: data.memo,
+          isFiatMode: data.isFiatMode,
+          fiatAmount: data.fiatAmount,
+          error: null,
+        }))
+        return
+      }
 
-        console.log(`[SendFlow] Route selected: #${route} ${ROUTE_LABELS[route]} (fee: ${fee} sat)`)
-      } catch (err) {
-        console.error('[SendFlow] Route selection / fee estimation failed:', err)
-        addToast({ type: 'error', message: t('payment.feeEstimateFailed'), duration: 3000 })
+      // Send mode → route selection + fee estimation
+      if (!state.validatedData || !state.selectedMintUrl) {
+        addToast({ type: 'error', message: t('errors.generic'), duration: 3000 })
+        isProcessingRef.current = false
+        setIsLoading(false)
+        return
+      }
+
+      const routeResult = await performRouteSelection(state.validatedData, data.amount, state.selectedMintUrl)
+      if (!routeResult) {
         isProcessingRef.current = false
         setIsLoading(false)
         return
@@ -293,22 +422,22 @@ export function SendFlow({
       setState((prev) => ({
         ...prev,
         step: 'confirm',
-        destination: data.destination,
         amount: data.amount,
-        selectedMintUrl: data.selectedMintUrl,
-        validatedData: validated!,
-        fee,
-            routeSelection: routeSel,
+        memo: data.memo,
+        isFiatMode: data.isFiatMode,
+        fiatAmount: data.fiatAmount,
+        fee: routeResult.fee,
+        routeSelection: routeResult.routeSelection,
         error: null,
       }))
     } catch (err) {
-      console.error('[SendFlow] Input validation error:', err)
+      console.error('[SendFlow] Amount next error:', err)
       addToast({ type: 'error', message: t('errors.generic'), duration: 3000 })
     } finally {
       isProcessingRef.current = false
       setIsLoading(false)
     }
-  }, [isOnline, addToast, t])
+  }, [isOnline, state.isTokenMode, state.validatedData, state.selectedMintUrl, performRouteSelection, addToast, t])
 
   /** Confirm step → execute send via routing layer */
   const handleConfirmSend = useCallback(async () => {
@@ -343,12 +472,12 @@ export function SendFlow({
         }
         setState((prev) => ({ ...prev, step: 'complete' }))
       } else {
+        // MainApp already shows error toast via handleExecuteRoute
         setState((prev) => ({
           ...prev,
           step: 'confirm',
           error: t('payment.sendFailed'),
         }))
-        addToast({ type: 'error', message: t('payment.sendFailed'), duration: 3000 })
       }
     } catch (err) {
       console.error('[SendFlow] Send error:', err)
@@ -356,18 +485,17 @@ export function SendFlow({
         ? translateError(err)
         : t('payment.sendFailed')
       setState((prev) => ({ ...prev, step: 'confirm', error: message }))
-      addToast({ type: 'error', message, duration: err instanceof InsufficientBalanceError ? 4000 : 3000 })
+      // Only show toast for errors not already handled by MainApp
+      if (err instanceof InsufficientBalanceError) {
+        addToast({ type: 'error', message, duration: 4000 })
+      }
     } finally {
       isProcessingRef.current = false
     }
   }, [state, onExecuteRoute, isOnline, addToast, t])
 
-  /** Token create step → create token */
-  const handleTokenCreate = useCallback(async (data: {
-    amount: number
-    mintUrl: string
-    memo: string
-  }) => {
+  /** Token confirm step → create token */
+  const handleTokenCreate = useCallback(async () => {
     if (isProcessingRef.current) return
     isProcessingRef.current = true
     setIsLoading(true)
@@ -379,9 +507,16 @@ export function SendFlow({
       return
     }
 
+    if (!state.selectedMintUrl) {
+      addToast({ type: 'error', message: t('payment.selectMint'), duration: 3000 })
+      isProcessingRef.current = false
+      setIsLoading(false)
+      return
+    }
+
     try {
-      const result = await onCreateEcashToken(data.amount, data.mintUrl, {
-        memo: data.memo || undefined,
+      const result = await onCreateEcashToken(state.amount, state.selectedMintUrl, {
+        memo: state.memo || undefined,
       })
 
       if (result) {
@@ -391,9 +526,6 @@ export function SendFlow({
           createdToken: result.token,
           createdTxId: result.txId,
           createdOperationId: result.operationId,
-          amount: data.amount,
-          selectedMintUrl: data.mintUrl,
-          memo: data.memo,
         }))
       } else {
         addToast({ type: 'error', message: t('payment.tokenCreateFailed'), duration: 3000 })
@@ -408,18 +540,17 @@ export function SendFlow({
       isProcessingRef.current = false
       setIsLoading(false)
     }
-  }, [isOnline, onCreateEcashToken, addToast, t])
+  }, [isOnline, state.amount, state.selectedMintUrl, state.memo, onCreateEcashToken, addToast, t])
 
   /** Token created → cancel (reclaim token via SDK rollback) */
   const handleTokenCancel = useCallback(async () => {
     if (!state.createdTxId) return
 
     try {
-      // SDK rollback이 proof 회수 + 이벤트 발행을 원자적으로 처리
       await onCancelEcashToken?.(state.createdTxId)
       setState((prev) => ({
         ...prev,
-        step: 'token-create',
+        step: 'amount',
         createdToken: null,
         createdTxId: null,
         createdOperationId: null,
@@ -429,40 +560,50 @@ export function SendFlow({
     }
   }, [state.createdTxId, onCancelEcashToken, addToast, t])
 
-  // ============= Navigation helpers =============
-
-  const goToStep = useCallback((step: SendStep) => {
-    setState((prev) => ({ ...prev, step, error: null }))
-  }, [])
-
-
   // ============= Render =============
 
   return (
     <div className="h-dvh bg-background text-foreground font-primary flex flex-col pt-safe">
       <AnimatePresence mode="wait">
-        {state.step === 'input' && (
-          <PageTransition key="send-input" variant="page" className="flex-1">
+        {state.step === 'destination' && (
+          <PageTransition key="send-destination" variant="page" className="flex-1">
             <SendInputStep
               onBack={onBack}
-              onNext={handleInputNext}
-              onGoToTokenCreate={() => goToStep('token-create')}
+              onNext={handleDestinationNext}
               initialDestination={state.destination}
-              initialAmount={state.amount}
-              initialMintUrl={state.selectedMintUrl}
               initialValidatedData={state.validatedData}
+              mintUrl={state.selectedMintUrl || ''}
               isLoading={isLoading}
             />
           </PageTransition>
         )}
 
-        {state.step === 'token-create' && (
-          <PageTransition key="token-create" variant="page" className="flex-1">
-            <TokenCreateStep
-              onBack={onBack}
-              onNext={handleTokenCreate}
+        {state.step === 'amount' && (
+          <PageTransition key="send-amount" variant="page" className="flex-1">
+            <SendAmountStep
+              onBack={() => setState((prev) => ({ ...prev, step: 'destination', error: null }))}
+              onNext={handleAmountNext}
+              mintUrl={state.selectedMintUrl || ''}
+              destination={state.destination}
+              validatedData={state.validatedData || undefined}
+              isTokenMode={state.isTokenMode}
               initialAmount={state.amount}
-              initialMintUrl={state.selectedMintUrl}
+              initialMemo={state.memo}
+              initialFiatMode={state.isFiatMode}
+              initialFiatAmount={state.fiatAmount}
+              isLoading={isLoading}
+            />
+          </PageTransition>
+        )}
+
+        {state.step === 'token-confirm' && (
+          <PageTransition key="token-confirm" variant="page" className="flex-1">
+            <SendTokenConfirmStep
+              onBack={() => setState((prev) => ({ ...prev, step: 'amount', error: null }))}
+              onConfirm={handleTokenCreate}
+              amount={state.amount}
+              mintUrl={state.selectedMintUrl || ''}
+              memo={state.memo}
               isLoading={isLoading}
             />
           </PageTransition>
@@ -486,11 +627,11 @@ export function SendFlow({
               onBack={() => {
                 setState((prev) => ({
                   ...prev,
-                  step: 'input',
-                  validatedData: null,
-                  destination: '',
+                  step: prev.skippedAmount ? 'destination' : 'amount',
                   fee: 0,
-                                error: null,
+                  routeSelection: null,
+                  skippedAmount: false,
+                  error: null,
                 }))
               }}
               onConfirm={handleConfirmSend}
@@ -500,6 +641,9 @@ export function SendFlow({
               mintUrl={state.selectedMintUrl!}
               error={state.error}
               route={state.routeSelection?.route}
+              isFiatMode={state.isFiatMode}
+              fiatAmount={state.fiatAmount}
+              userMemo={state.memo}
             />
           </PageTransition>
         )}
@@ -519,6 +663,8 @@ export function SendFlow({
               validatedData={state.validatedData!}
               amount={state.amount}
               onComplete={onComplete}
+              isFiatMode={state.isFiatMode}
+              fiatAmount={state.fiatAmount}
             />
           </PageTransition>
         )}

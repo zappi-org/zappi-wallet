@@ -121,52 +121,56 @@ export function TokenCreatedStep({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header — no border */}
-      <header className="flex items-center justify-center px-4 py-3">
-        <h1 className="text-subtitle font-semibold">{isSpent ? t('send.tokenCreated.claimedTitle') : t('send.tokenCreated.title')}</h1>
+      {/* Header */}
+      <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
+        <div className="w-10" />
+        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">
+          {isSpent ? t('send.tokenCreated.claimedTitle') : t('send.tokenCreated.title')}
+        </h1>
+        <div className="w-10" />
       </header>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col items-center justify-center p-5 gap-6">
+      <div className="flex-1 flex flex-col items-center justify-center p-5">
         {isSpent ? (
-          <div className="flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-3">
             <div className="w-16 h-16 rounded-full bg-accent-primary/10 flex items-center justify-center">
               <Check className="w-8 h-8 text-accent-primary" />
             </div>
             <p className="text-subtitle font-semibold text-center">{t('send.tokenCreated.claimed')}</p>
             <p className="text-foreground-muted text-amount font-semibold font-display">{formatSats(amount)}</p>
             {(() => { const f = formatFiat(amount); return f ? (
-              <p className="text-foreground-muted text-label font-medium">{f}</p>
+              <p className="text-foreground-muted text-body font-medium">{f}</p>
             ) : null })()}
           </div>
         ) : (
           <>
             <p className="text-display font-bold font-display">{formatSats(amount)}</p>
             {(() => { const f = formatFiat(amount); return f ? (
-              <p className="text-caption text-foreground-muted">{f}</p>
+              <p className="text-body text-foreground-muted mt-1">{f}</p>
             ) : null })()}
 
+            <div className="mt-5 cursor-pointer active:scale-95 transition-transform" onClick={handleCopy}>
             <QRCodeDisplay
               value={token}
               size={200}
               className="rounded-2xl"
             />
+            </div>
 
-            <div className="flex gap-3 w-full max-w-xs">
+            <div className="flex gap-10 mt-5">
               <button
                 onClick={handleShare}
-                aria-label={t('send.tokenCreated.share')}
-                className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-muted font-medium text-caption active:scale-95 transition-transform min-h-[44px]"
+                className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 transition-all"
               >
                 <Share2 className="w-4 h-4" />
                 {t('send.tokenCreated.share')}
               </button>
               <button
                 onClick={handleCopy}
-                aria-label={t('send.tokenCreated.copy')}
-                className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-muted font-medium text-caption active:scale-95 transition-transform min-h-[44px]"
+                className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 transition-all"
               >
-                {isCopied ? <Check className="w-4 h-4 text-accent-primary" /> : <Copy className="w-4 h-4" />}
+                {isCopied ? <Check className="w-4 h-4 text-brand" /> : <Copy className="w-4 h-4" />}
                 {isCopied ? t('common.copied') : t('send.tokenCreated.copy')}
               </button>
             </div>
@@ -180,7 +184,7 @@ export function TokenCreatedStep({
           <button
             onClick={handleCancel}
             disabled={isCanceling}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-accent-danger font-medium text-caption disabled:opacity-50 min-h-[44px]"
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-accent-danger font-medium text-body disabled:opacity-50 min-h-[44px]"
           >
             <X className="w-4 h-4" />
             {isCanceling ? t('common.processing') : t('send.tokenCreated.cancel')}

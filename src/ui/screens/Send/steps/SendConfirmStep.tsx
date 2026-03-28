@@ -5,11 +5,11 @@
 
 import { useState, useEffect } from 'react'
 import { ArrowLeft, Loader2 } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation, Trans } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { hapticTap } from '@/utils/haptic'
-import { useFormatSats, useFormatFiat } from '@/utils/format'
+import { useFormatSats, useFormatFiat, FIAT_CURRENCY_MAP } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
 import { createMintQuote, prepareMelt, rollbackMelt } from '@/coco/cashuService'
 import type { SendableValidatedData } from '../SendFlow'
@@ -24,6 +24,9 @@ interface SendConfirmStepProps {
   mintUrl: string
   error: string | null
   route?: PaymentRoute
+  isFiatMode?: boolean
+  fiatAmount?: string
+  userMemo?: string
 }
 
 interface ConfirmDisplayInfo {
@@ -112,6 +115,9 @@ export function SendConfirmStep({
   mintUrl,
   error,
   route,
+  isFiatMode = false,
+  fiatAmount,
+  userMemo,
 }: SendConfirmStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
@@ -172,7 +178,8 @@ export function SendConfirmStep({
 
   const fee = estimatedFee ?? 0
   const display = getConfirmDisplayInfo(validatedData, route, t)
-  const { method, recipient, recipientDetail, memo } = display
+  const { method, recipientDetail, memo: displayMemo } = display
+  const memo = userMemo || displayMemo
   const mintName = getDisplayName(mintUrl)
   const totalAmount = amount + fee
 
@@ -180,101 +187,102 @@ export function SendConfirmStep({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header — no border */}
-      <header className="relative flex items-center px-4 py-3">
+      {/* Header */}
+      <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="p-2 rounded-lg hover:bg-background-hover transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10"
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
         <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('send.confirm.title')}</h1>
+        <div className="w-10" />
       </header>
 
-      {/* Question text — upper area, Toss style */}
-      <div className="flex-1 flex flex-col px-6">
-        <div className="pt-16 text-center space-y-1">
-          <p className="text-amount-lg font-bold font-display leading-snug">
-            <span className="font-semibold text-brand">{recipient}</span>
-            <span className="font-medium text-foreground">{t('send.confirm.toSuffix')}</span>
+      {/* Centered content — flowing sentence like Toss */}
+      <div className="flex-1 flex flex-col items-center justify-center px-8">
+        <div className="text-center">
+          <p className="text-heading font-semibold whitespace-pre-line">
+            <Trans
+              i18nKey={isMyWallet ? "send.confirm.fullTransferQuestion" : "send.confirm.fullQuestion"}
+              values={{
+                mint: mintName,
+                recipient: recipientDetail.includes('@') ? recipientDetail.split('@')[0] : recipientDetail,
+                amount: isFiatMode && fiatAmount
+                  ? `${FIAT_CURRENCY_MAP.get(settings.fiatCurrency ?? 'USD')?.symbol ?? ''}${Number(fiatAmount).toLocaleString()}`
+                  : formatSats(amount),
+                target: isMyWallet ? (validatedData as { targetMintName: string }).targetMintName : '',
+              }}
+              components={{ b: <span className="text-brand" /> }}
+            />
           </p>
-          <p className="text-amount-lg font-bold font-display leading-snug">
-            {formatSats(amount)} {t('send.confirm.amountSuffix')}
-          </p>
-          {formatFiat(amount) && (
-            <p className="text-body text-foreground-muted">{formatFiat(amount)}</p>
-          )}
-          <p className="text-amount-lg font-medium font-display leading-snug">
-            {isMyWallet ? t('send.confirm.transferQuestionEnd') : t('send.confirm.questionEnd')}
+          <p className="text-body text-foreground-muted mt-3">
+            {isFiatMode ? formatSats(amount) : (formatFiat(amount) || '')}
           </p>
         </div>
+      </div>
 
-        {/* Spacer */}
-        <div className="flex-1" />
-
-        {/* Detail rows — flat, no card background */}
-        <div className="space-y-3 mb-4 px-1">
-          <div className="flex items-center justify-between">
-            <span className="text-caption text-foreground-muted">{t('send.confirm.method')}</span>
-            <span className="text-body font-semibold">{method}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-caption text-foreground-muted">{t('send.confirm.sourceMint')}</span>
-            <span className="text-body font-semibold truncate max-w-[200px]">{mintName}</span>
-          </div>
-          {isMyWallet && (
-            <div className="flex items-center justify-between">
-              <span className="text-caption text-foreground-muted">{t('send.confirm.targetWallet')}</span>
-              <span className="text-body font-semibold truncate max-w-[200px]">{validatedData.targetMintName}</span>
-            </div>
-          )}
-          {!isMyWallet && (
-            <div className="flex items-center justify-between">
-              <span className="text-caption text-foreground-muted">{t('send.confirm.recipient')}</span>
-              <span className="text-body font-semibold truncate max-w-[200px]">{recipientDetail}</span>
-            </div>
-          )}
+      {/* Detail rows + button at bottom */}
+      <div className="px-6 pb-6 pb-safe shrink-0">
+        {/* Detail rows */}
+        <div className="mb-4">
+          {/* 메모 */}
           {memo && (
-            <div className="flex items-center justify-between">
-              <span className="text-caption text-foreground-muted">{t('send.confirm.memo')}</span>
-              <span className="text-body font-semibold truncate max-w-[200px]">{memo}</span>
+            <div className="flex justify-between py-2.5 border-b border-border/50">
+              <span className="text-body text-foreground-muted">{t('send.confirm.memo')}</span>
+              <span className="text-body font-medium text-foreground truncate max-w-[200px]">{memo}</span>
             </div>
           )}
+          {/* 전송 방식 */}
+          <div className="flex justify-between py-2.5 border-b border-border/50">
+            <span className="text-body text-foreground-muted">{t('send.confirm.method')}</span>
+            <span className="text-body font-medium text-foreground">{method}</span>
+          </div>
+          {/* 출금 지갑 */}
+          <div className="flex justify-between py-2.5 border-b border-border/50">
+            <span className="text-body text-foreground-muted">{t('send.confirm.sourceMint')}</span>
+            <span className="text-body font-medium text-foreground truncate max-w-[200px]">{mintName}</span>
+          </div>
+          {/* 받는이 */}
+          {isMyWallet ? (
+            <div className="flex justify-between py-2.5 border-b border-border/50">
+              <span className="text-body text-foreground-muted">{t('send.confirm.targetWallet')}</span>
+              <span className="text-body font-medium text-foreground truncate max-w-[200px]">{validatedData.targetMintName}</span>
+            </div>
+          ) : recipientDetail ? (
+            <div className="flex justify-between py-2.5 border-b border-border/50">
+              <span className="text-body text-foreground-muted">{t('send.confirm.recipient')}</span>
+              <span className="text-body font-medium text-foreground truncate max-w-[200px]">{recipientDetail}</span>
+            </div>
+          ) : null}
           {/* Fee section */}
           {feeLoading ? (
-            <>
-              <div className="border-t border-border mt-1 pt-1" />
-              <div className="flex items-center justify-between">
-                <span className="text-caption text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
-                <Loader2 className="w-4 h-4 text-foreground-muted animate-spin" />
-              </div>
-            </>
+            <div className="flex justify-between py-2.5 border-b border-border/50">
+              <span className="text-body text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
+              <Loader2 className="w-4 h-4 text-foreground-muted animate-spin" />
+            </div>
           ) : fee > 0 ? (
             <>
-              <div className="border-t border-border mt-1 pt-1" />
-              <div className="flex items-center justify-between">
-                <span className="text-caption text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
-                <span className="text-body font-semibold">{formatSats(fee)}</span>
+              <div className="flex justify-between py-2.5 border-b border-border/50">
+                <span className="text-body text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
+                <span className="text-body font-medium text-foreground">{formatSats(fee)}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-body font-bold">{t('send.confirm.total')}</span>
+              <div className="flex justify-between py-2.5">
+                <span className="text-body font-bold text-foreground">{t('send.confirm.total')}</span>
                 <div className="text-right">
-                  <span className="text-body font-bold">{formatSats(totalAmount)}</span>
+                  <span className="text-body font-bold text-foreground">{formatSats(totalAmount)}</span>
                   {formatFiat(totalAmount) && (
-                    <p className="text-caption text-foreground-muted">{formatFiat(totalAmount)}</p>
+                    <p className="text-body text-foreground-muted">{formatFiat(totalAmount)}</p>
                   )}
                 </div>
               </div>
             </>
           ) : feeError ? (
-            <>
-              <div className="border-t border-border mt-1 pt-1" />
-              <div className="flex items-center justify-between">
-                <span className="text-caption text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
-                <span className="text-caption text-foreground-muted">{t('send.confirm.feeEstimateFailed')}</span>
-              </div>
-            </>
+            <div className="flex justify-between py-2.5 border-b border-border/50">
+              <span className="text-body text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
+              <span className="text-body text-foreground-muted">{t('send.confirm.feeEstimateFailed')}</span>
+            </div>
           ) : null}
         </div>
 
@@ -284,10 +292,7 @@ export function SendConfirmStep({
             {error}
           </div>
         )}
-      </div>
 
-      {/* Bottom Action — no border-t */}
-      <div className="p-4 pb-safe">
         <Button
           variant="brand"
           size="xl"

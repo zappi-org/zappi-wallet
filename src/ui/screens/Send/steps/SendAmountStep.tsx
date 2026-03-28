@@ -1,53 +1,51 @@
 /**
- * ReceiveInputStep — Amount input for receive request creation
- * Conversational "얼마를 요청할까요?" with amount + memo inputs.
- * Creates both Lightning invoice data and eCash payment request simultaneously
- * for unified BIP-321 QR code generation.
+ * SendAmountStep — Conversational amount input step
+ * "얼마를 보낼까요?" / "얼마를 만들까요?" with large centered amount
  */
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { ArrowLeft } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation, Trans } from 'react-i18next'
+import { useWallet } from '@/hooks/use-wallet'
 import { useAppStore } from '@/store'
+import { hapticTap } from '@/utils/haptic'
+import { useFormatSats, useSatUnit, useFormatFiat, satsToFiat, fiatToSats, FIAT_CURRENCY_MAP } from '@/utils/format'
 import { useShallow } from 'zustand/shallow'
-import { hapticTap, hapticError } from '@/utils/haptic'
-import { useSatUnit, useFormatFiat, satsToFiat, fiatToSats, FIAT_CURRENCY_MAP } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
-import { createNostrPaymentRequest, createDualTransportPaymentRequest } from '@/services/cashu/nut18'
-import { encodeNprofile } from '@/services/crypto'
-import { useMintNut18Support } from '@/hooks/use-mint-nut18-support'
+import { getMintBalance } from '@/utils/url'
+import type { SendableValidatedData } from '../SendFlow'
 
-interface ReceiveInputStepProps {
+interface SendAmountStepProps {
   onBack: () => void
-  onNext: (data: {
-    amount: number
-    mintUrl: string
-    ecashRequest?: string
-    ecashRequestId?: string
-    httpEndpoint?: string
-  }) => void
-  onActivateListening?: () => void
+  onNext: (data: { amount: number; memo: string; isFiatMode: boolean; fiatAmount: string }) => void
+  mintUrl: string
+  destination?: string
+  validatedData?: SendableValidatedData
+  isTokenMode: boolean
   initialAmount?: number
-  initialMintUrl?: string | null
+  initialMemo?: string
+  initialFiatMode?: boolean
+  initialFiatAmount?: string
   isLoading?: boolean
 }
 
-export function ReceiveInputStep({
+export function SendAmountStep({
   onBack,
   onNext,
-  onActivateListening,
+  mintUrl,
+  destination,
+  validatedData,
+  isTokenMode,
   initialAmount = 0,
-  initialMintUrl,
+  initialMemo = '',
+  initialFiatMode = false,
+  initialFiatAmount = '',
   isLoading = false,
-}: ReceiveInputStepProps) {
+}: SendAmountStepProps) {
   const { t } = useTranslation()
-  const settings = useAppStore((s) => s.settings)
-  const nostrPubkey = useAppStore((s) => s.nostrPubkey)
+  const { balance } = useWallet()
   const addToast = useAppStore((s) => s.addToast)
-
-  // Use initialMintUrl directly (no mint selection in this step)
-  const mintUrl = initialMintUrl || settings.mints[0] || null
-
+  const formatSats = useFormatSats()
   const unit = useSatUnit()
   const toFiat = useFormatFiat()
   const { fiatCurrency, showFiat, exchangeRate } = useAppStore(
@@ -59,25 +57,39 @@ export function ReceiveInputStep({
   )
   const currencySymbol = FIAT_CURRENCY_MAP.get(fiatCurrency)?.symbol ?? fiatCurrency
 
-  // State
   const [amount, setAmount] = useState(initialAmount > 0 ? String(initialAmount) : '')
-  const [memo, setMemo] = useState('')
-  const [isFiatMode, setIsFiatMode] = useState(false)
-  const [fiatInput, setFiatInput] = useState('')
+  const [memo, setMemo] = useState(initialMemo)
+  const [isFiatMode, setIsFiatMode] = useState(initialFiatMode)
+  const [fiatInput, setFiatInput] = useState(initialFiatAmount)
+  const amountInputRef = useRef<HTMLInputElement>(null)
+
+  const mintBalance = getMintBalance(mintUrl, balance.byMint)
   const numericAmount = parseInt(amount, 10) || 0
+  const isOverBalance = numericAmount > mintBalance
 
-  // Check if selected mint supports NUT-18 HTTP transport
-  const { supportsHttp } = useMintNut18Support(mintUrl)
+  // Amount is fixed when bolt11 or cashu-request with amount
+  const isAmountFixed =
+    (validatedData?.type === 'bolt11' && validatedData.amountSats > 0) ||
+    (validatedData?.type === 'cashu-request' && !!validatedData.parsed.amount && validatedData.parsed.amount > 0)
 
-  // User's nprofile for ecash Nostr transport
-  const userNprofile = useMemo(() => {
-    if (!nostrPubkey || !settings.relays?.length) return null
-    try {
-      return encodeNprofile(nostrPubkey, settings.relays)
-    } catch {
-      return null
+  // Destination display
+  const destinationDisplay = (() => {
+    if (!destination) return null
+    if (validatedData?.type === 'my-wallet') return validatedData.targetMintName
+    if (validatedData?.type === 'lightning-address') return validatedData.address
+    if (validatedData?.type === 'lnurl-pay') return validatedData.params?.domain || 'LNURL'
+    if (validatedData?.type === 'bolt11') {
+      const inv = validatedData.invoice
+      return `${inv.slice(0, 8)}...${inv.slice(-4)}`
     }
-  }, [nostrPubkey, settings.relays])
+    if (validatedData?.type === 'cashu-request') {
+      const req = validatedData.request
+      return `${req.slice(0, 8)}...${req.slice(-4)}`
+    }
+    // Fallback: truncate raw destination
+    if (destination.length > 20) return `${destination.slice(0, 16)}...${destination.slice(-4)}`
+    return destination
+  })()
 
   const handleToggleFiat = useCallback(() => {
     if (!exchangeRate) return
@@ -99,70 +111,18 @@ export function ReceiveInputStep({
     }
   }, [exchangeRate])
 
-  // Handle next — always create ecash request alongside Lightning
   const handleNext = useCallback(() => {
-    const numericAmount = parseInt(amount, 10)
     if (!numericAmount || numericAmount <= 0) {
-      addToast({ type: 'error', message: t('receive.amountRequired'), duration: 3000 })
+      addToast({ type: 'error', message: t('send.amountRequired'), duration: 3000 })
       return
     }
-    if (!mintUrl) {
-      addToast({ type: 'error', message: t('payment.selectMint'), duration: 3000 })
+    if (numericAmount > mintBalance) {
+      addToast({ type: 'error', message: t('payment.insufficientBalance'), duration: 3000 })
       return
     }
-
     hapticTap()
-
-    // Always create ecash payment request for unified QR
-    let ecashRequest: string | undefined
-    let ecashRequestId: string | undefined
-    let httpEndpoint: string | undefined
-
-    // NUT-18 요청 생성 → Active 모드로 전환 (5초 간격 health check)
-    onActivateListening?.()
-
-    if (userNprofile) {
-      if (supportsHttp) {
-        // Dual transport: Nostr (primary) + HTTP POST (fallback)
-        const result = createDualTransportPaymentRequest({
-          amount: numericAmount,
-          mints: [mintUrl],
-          nostrTarget: userNprofile,
-          mintUrl: mintUrl,
-          description: memo.trim() || undefined,
-          singleUse: true,
-          idPrefix: 'wallet',
-        })
-        ecashRequest = result.request
-        ecashRequestId = result.id
-        httpEndpoint = result.httpEndpoint
-      } else {
-        // Nostr-only transport
-        const result = createNostrPaymentRequest({
-          amount: numericAmount,
-          mints: [mintUrl],
-          nostrTarget: userNprofile,
-          description: memo.trim() || undefined,
-          singleUse: true,
-          idPrefix: 'wallet',
-        })
-        ecashRequest = result.request
-        ecashRequestId = result.id
-      }
-    } else {
-      // No Nostr profile — Lightning-only fallback (shouldn't happen in zappi-wallet)
-      hapticError()
-      console.warn('[ReceiveInputStep] No Nostr profile available, Lightning-only mode')
-    }
-
-    onNext({
-      amount: numericAmount,
-      mintUrl: mintUrl,
-      ecashRequest,
-      ecashRequestId,
-      httpEndpoint,
-    })
-  }, [amount, memo, mintUrl, userNprofile, supportsHttp, onNext, onActivateListening, addToast, t])
+    onNext({ amount: numericAmount, memo, isFiatMode, fiatAmount: fiatInput })
+  }, [numericAmount, mintBalance, memo, isFiatMode, fiatInput, onNext, addToast, t])
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -176,25 +136,51 @@ export function ReceiveInputStep({
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
         <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">
-          {t('receive.title')}
+          {t('send.title')}
         </h1>
         <div className="w-10" />
       </header>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 pt-6">
+        {/* Destination label */}
+        {destinationDisplay && (() => {
+          const isLnAddress = validatedData?.type === 'lightning-address' && destinationDisplay.includes('@')
+          if (isLnAddress) {
+            const [user, domain] = destinationDisplay.split('@')
+            return (
+              <div className="mb-4">
+                <p className="text-heading font-semibold">
+                  <Trans i18nKey="send.confirm.recipientTo" values={{ recipient: user }}
+                    components={{ b: <span className="text-brand" /> }} />
+                </p>
+                <p className="text-subtitle text-foreground-muted">
+                  {domain}
+                </p>
+              </div>
+            )
+          }
+          return (
+            <p className="text-heading font-semibold truncate mb-4">
+              <Trans i18nKey="send.confirm.recipientTo" values={{ recipient: destinationDisplay }}
+                components={{ b: <span className="text-brand" /> }} />
+            </p>
+          )
+        })()}
+
         {/* Question */}
         <h2 className="text-heading font-semibold text-foreground">
-          {t('receive.amountStep.howMuchRequest')}
+          {isTokenMode ? t('send.amount.howMuchToken') : t('send.amount.howMuchSend')}
         </h2>
 
-        {/* Amount — underline style, consistent with send */}
+        {/* Amount — underline style, consistent with address input */}
         <div className="mt-6">
           <div className="flex items-center border-b border-border focus-within:border-foreground/20 transition-colors">
             {isFiatMode ? (
               <>
                 <span className="text-title font-medium text-foreground-muted shrink-0">{currencySymbol}</span>
                 <input
+                  ref={amountInputRef}
                   type="text"
                   inputMode="decimal"
                   value={fiatInput ? Number(fiatInput).toLocaleString() : ''}
@@ -210,6 +196,7 @@ export function ReceiveInputStep({
                   <span className="text-title font-medium text-foreground-muted shrink-0">{unit}</span>
                 )}
                 <input
+                  ref={amountInputRef}
                   type="text"
                   inputMode="numeric"
                   value={amount ? Number(amount).toLocaleString() : ''}
@@ -220,14 +207,15 @@ export function ReceiveInputStep({
                     if (Number(v) > 2_100_000_000_000_000) return
                     setAmount(v)
                   }}
-                  className="flex-1 min-w-0 bg-transparent py-1.5 text-title font-medium text-foreground placeholder:text-foreground-muted placeholder:font-medium focus:outline-none"
+                  disabled={isAmountFixed}
+                  className="flex-1 min-w-0 bg-transparent py-1.5 text-title font-medium text-foreground placeholder:text-foreground-muted placeholder:font-medium focus:outline-none disabled:opacity-60"
                 />
                 {unit !== '₿' && (
                   <span className="text-title font-medium text-foreground-muted shrink-0 ml-1">{unit}</span>
                 )}
               </>
             )}
-            {exchangeRate && showFiat && (
+            {exchangeRate && showFiat && !isAmountFixed && (
               <button
                 type="button"
                 onClick={handleToggleFiat}
@@ -241,20 +229,22 @@ export function ReceiveInputStep({
               </button>
             )}
           </div>
-          {/* Conversion — fixed height */}
+          {/* Conversion / error — fixed height to prevent layout shift */}
           <div className="h-7 mt-1.5 flex items-center">
-            <p className="text-subtitle text-foreground-muted">
-              {isFiatMode
-                ? unit === '₿'
-                  ? `₿${numericAmount > 0 ? Number(amount).toLocaleString() : '0'}`
-                  : `${numericAmount > 0 ? Number(amount).toLocaleString() : '0'} ${unit}`
-                : toFiat(numericAmount) ?? `${currencySymbol}0`
-              }
-            </p>
+            {isOverBalance ? (
+              <p className="text-subtitle text-accent-danger font-semibold">{t('payment.insufficientBalance')} ({t('common.balance')} {formatSats(mintBalance)})</p>
+            ) : (
+              <p className="text-subtitle text-foreground-muted">
+                {isFiatMode
+                  ? formatSats(numericAmount)
+                  : toFiat(numericAmount) ?? `${currencySymbol}0`
+                }
+              </p>
+            )}
           </div>
         </div>
 
-        {/* Memo — underline style */}
+        {/* Memo — underline style, consistent */}
         <div className="mt-6">
           <div className="flex items-center border-b border-border focus-within:border-foreground/20 transition-colors">
             <input
@@ -262,8 +252,7 @@ export function ReceiveInputStep({
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleNext() } }}
-              maxLength={100}
-              placeholder={t('receive.amountStep.addMemo')}
+              placeholder={t('send.amount.addMemo')}
               className="flex-1 min-w-0 bg-transparent py-1.5 text-title-sm font-medium text-foreground placeholder:text-foreground-muted placeholder:font-medium focus:outline-none"
             />
           </div>
@@ -276,10 +265,11 @@ export function ReceiveInputStep({
           variant="brand"
           size="xl"
           onClick={handleNext}
+          disabled={!numericAmount || numericAmount <= 0 || isOverBalance}
           loading={isLoading}
           className="w-full"
         >
-          {t('receive.next')}
+          {t('send.next')}
         </Button>
       </div>
     </div>

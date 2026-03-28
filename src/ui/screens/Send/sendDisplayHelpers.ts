@@ -5,7 +5,7 @@ export function getDestinationDisplay(data: SendableValidatedData): string {
     case 'bolt11':
       return data.description || 'Lightning'
     case 'lightning-address':
-      return data.address
+      return data.address.includes('@') ? data.address.split('@')[0] : data.address
     case 'lnurl-pay':
       return data.params?.domain || 'LNURL'
     case 'cashu-request':

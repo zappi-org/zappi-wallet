@@ -5,8 +5,6 @@
 
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useAppStore } from '@/store'
-import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { hapticSuccess, hapticTap } from '@/utils/haptic'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
@@ -22,15 +20,12 @@ interface ReceiveCompleteStepProps {
 
 export function ReceiveCompleteStep({
   amount,
-  mintUrl,
+  mintUrl: _mintUrl,
   onComplete,
 }: ReceiveCompleteStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
-  const settings = useAppStore((s) => s.settings)
-  const { getDisplayName } = useMintMetadata(settings.mints)
-  const mintName = mintUrl ? getDisplayName(mintUrl) : ''
   const hasTriggeredHaptic = useRef(false)
 
   // Haptic on mount
@@ -55,33 +50,32 @@ export function ReceiveCompleteStep({
     <div className="flex flex-col h-full bg-background relative">
       <Confetti />
 
-      {/* Text at top */}
-      <div className="px-6 pt-24">
-        <p className="text-title font-medium leading-relaxed whitespace-pre-line text-center">
-          {t('receive.complete.message', {
-            mint: mintName,
-            amount: formatSats(amount),
-          })}
-        </p>
-        {(() => { const f = formatFiat(amount); return f ? (
-          <p className="text-body text-foreground-muted text-center mt-1">{f}</p>
-        ) : null })()}
-      </div>
-
-      {/* Success image centered */}
-      <div className="flex-1 flex items-center justify-center">
+      {/* Centered content — same structure as SendCompleteStep */}
+      <div className="flex-1 flex flex-col items-center justify-center px-8">
+        {/* Character — small, with entrance animation */}
         <motion.img
           src={tokenReceiveSuccessImg}
           alt=""
-          className="w-80 h-80 object-contain"
-          initial={{ scale: 0, opacity: 0, rotate: -12 }}
-          animate={{ scale: 1, opacity: 1, rotate: 0 }}
-          transition={{ type: 'spring', stiffness: 260, damping: 18, delay: 0.1 }}
+          className="w-[120px] h-[120px] object-contain mb-6"
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.1 }}
         />
+
+        {/* Sentence */}
+        <div className="text-center">
+          <p className="text-heading font-semibold whitespace-pre-line">
+            {t('receive.complete.fullMessage', { amount: formatSats(amount) })}
+          </p>
+        </div>
+
+        {(() => { const f = formatFiat(amount); return f ? (
+          <p className="text-body text-foreground-muted mt-3">{f}</p>
+        ) : null })()}
       </div>
 
-      {/* Bottom Action — no border */}
-      <div className="p-4 pb-safe">
+      {/* Bottom button */}
+      <div className="px-6 pb-6 pb-safe shrink-0">
         <Button
           variant="brand"
           size="xl"

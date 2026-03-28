@@ -1,66 +1,53 @@
 /**
- * SendInputStep — Main input screen for send flow
- * Toss-style underline inputs, label+action buttons on same row
- * Auto-advance on scan/paste when enough data is available
- * Supports @ prefix for "send to my wallet" (internal mint swap)
+ * SendInputStep — Destination-only step (rewritten)
+ * Conversational "누구에게 보낼까요?" with single destination input.
+ * Auto-advance when bolt11 with amount is scanned/pasted.
+ * Supports @wallet detection for internal mint transfers.
+ * Empty destination → token mode (skips to amount step).
  */
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
-import { ArrowLeft, ClipboardPaste, Camera, ChevronRight } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
-import { useWallet } from '@/hooks/use-wallet'
+import { ArrowLeft } from 'lucide-react'
+import { CameraFilled } from '@/ui/components/icons/CameraFilled'
+import cardLogo from '@/assets/card-logo.svg'
+import { getInputTypeLabel } from '@/utils/inputTypeLabel'
+import { useTranslation, Trans } from 'react-i18next'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
 import { hapticTap } from '@/utils/haptic'
-import { useFormatSats } from '@/utils/format'
-import { getMintBalance } from '@/utils/url'
-import { MintCardSelector } from '@/ui/components/wallet'
 import { Button } from '@/ui/components/common/Button'
-import { AmountInput } from '@/ui/components/common/AmountInput'
 import { QrScanner } from '@/ui/components/common/QrScanner'
 import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
 import { validateInput } from '@/ui/components/scanner/InputValidator'
 import type { SendableValidatedData } from '../SendFlow'
 
-interface SendInputStepProps {
+interface SendDestinationStepProps {
   onBack: () => void
   onNext: (data: {
     destination: string
-    amount: number
-    selectedMintUrl: string
     validatedData?: SendableValidatedData
+    amountFromInvoice?: number
   }) => void
-  onGoToTokenCreate: () => void
   initialDestination?: string
-  initialAmount?: number
-  initialMintUrl?: string | null
   initialValidatedData?: SendableValidatedData | null
+  mintUrl: string
   isLoading?: boolean
 }
 
 export function SendInputStep({
   onBack,
   onNext,
-  onGoToTokenCreate,
   initialDestination = '',
-  initialAmount = 0,
-  initialMintUrl,
   initialValidatedData,
+  mintUrl,
   isLoading = false,
-}: SendInputStepProps) {
+}: SendDestinationStepProps) {
   const { t } = useTranslation()
-  const { balance } = useWallet()
   const settings = useAppStore((s) => s.settings)
-  const addToast = useAppStore((s) => s.addToast)
-  const formatSats = useFormatSats()
-  const { getDisplayName } = useMintMetadata(settings.mints)
+  const { getDisplayName, getIconUrl } = useMintMetadata(settings.mints)
 
   // State
   const [destination, setDestination] = useState(initialDestination)
-  const [amount, setAmount] = useState(initialAmount > 0 ? String(initialAmount) : '')
-  const [selectedMintUrl, setSelectedMintUrl] = useState<string | null>(
-    initialMintUrl || settings.mints[0] || null
-  )
   const [showScanner, setShowScanner] = useState(false)
   const [detectedTypes, setDetectedTypes] = useState<string[]>(
     initialValidatedData?.type ? [initialValidatedData.type] : []
@@ -68,48 +55,37 @@ export function SendInputStep({
   const [validatedData, setValidatedData] = useState<SendableValidatedData | null>(
     initialValidatedData || null
   )
-  const amountInputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   /** Build badge labels from detected input */
   const toBadgeTypes = (detected: ReturnType<typeof detectInputType>): string[] => {
     if (detected.type === 'unknown' || detected.type === 'amount') return []
     const badges: string[] = [detected.type]
-    // unified QR: cashu-request가 lightning도 포함하면 배지 추가
     if (detected.type === 'cashu-request' && detected.lightningInvoice) {
       badges.push('lightning')
     }
     return badges
   }
 
-  // 입력에 amount가 포함되어 있으면 변경 불가
-  const isAmountFixed =
-    (validatedData?.type === 'bolt11' && validatedData.amountSats > 0) ||
-    (validatedData?.type === 'cashu-request' && !!validatedData.parsed.amount && validatedData.parsed.amount > 0)
-
   /**
    * Wrapper around setDestination — clears detection state immediately
    * when destination becomes empty or changes to @ prefix.
-   * Keeps setState calls in event handlers (not effects) to avoid lint violations.
    */
   const updateDestination = useCallback((newDest: string) => {
     setDestination(newDest)
+    // Always clear previous validation when input changes
+    setValidatedData(null)
+    setDetectedTypes([])
     const trimmed = newDest.trim()
-    if (!trimmed) {
-      setDetectedTypes([])
-      setValidatedData(null)
-    } else if (trimmed.startsWith('@')) {
-      // Clear detection unless it's a no-op (wallet already selected with matching name)
-      // Note: handleSelectMyWallet sets validatedData AFTER this, so clearing here is safe
-      setDetectedTypes([])
-      setValidatedData(null)
+    if (trimmed.startsWith('@')) {
+      // @ prefix handled separately for wallet list
     }
   }, [])
 
-  // Derive showMyWallets from destination + validatedData (not state)
+  // Derive showMyWallets from destination + validatedData
   const showMyWallets = useMemo(() => {
     const trimmed = destination.trim()
     if (!trimmed || !trimmed.startsWith('@')) return false
-    // If wallet already selected and destination matches, don't show list
     if (validatedData?.type === 'my-wallet' && destination === `@${validatedData.targetMintName}`) return false
     return true
   }, [destination, validatedData])
@@ -117,13 +93,13 @@ export function SendInputStep({
   // My wallets list (exclude currently selected source mint)
   const myWallets = useMemo(() => {
     return settings.mints
-      .filter((url) => url !== selectedMintUrl)
+      .filter((url) => url !== mintUrl)
       .map((url) => ({
         url,
         name: getDisplayName(url),
-        balance: getMintBalance(url, balance.byMint),
+        iconUrl: getIconUrl(url),
       }))
-  }, [settings.mints, selectedMintUrl, getDisplayName, balance.byMint])
+  }, [settings.mints, mintUrl, getDisplayName, getIconUrl])
 
   // Filter my wallets by @ search query
   const filteredWallets = useMemo(() => {
@@ -133,8 +109,17 @@ export function SendInputStep({
     return myWallets.filter((w) => w.name.toLowerCase().includes(query))
   }, [myWallets, destination])
 
-  // Is source mint same as target wallet? (conflict)
-  const isSameWallet = validatedData?.type === 'my-wallet' && validatedData.targetMintUrl === selectedMintUrl
+  // Handle my wallet selection
+  const handleSelectMyWallet = useCallback((walletUrl: string, walletName: string) => {
+    hapticTap()
+    setDestination(`@${walletName}`)
+    setValidatedData({
+      type: 'my-wallet',
+      targetMintUrl: walletUrl,
+      targetMintName: walletName,
+    })
+    setDetectedTypes(['my-wallet'])
+  }, [])
 
   // Debounced input type detection (only for non-empty, non-@ destinations)
   const detectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -147,17 +132,11 @@ export function SendInputStep({
       const detected = detectInputType(destination)
       setDetectedTypes(toBadgeTypes(detected))
 
-      if (detected.type === 'bolt11' && detected.amountSats > 0) {
-        setAmount(String(detected.amountSats))
-      } else if (detected.type === 'cashu-request') {
+      if (detected.type === 'cashu-request') {
         try {
           const result = await validateInput(detected)
           if (result.valid && result.data.type === 'cashu-request') {
-            const sendable = result.data as SendableValidatedData
-            setValidatedData(sendable)
-            if (result.data.parsed.amount && result.data.parsed.amount > 0) {
-              setAmount(String(result.data.parsed.amount))
-            }
+            setValidatedData(result.data as SendableValidatedData)
           }
         } catch { /* decode failed, ignore */ }
       }
@@ -166,30 +145,7 @@ export function SendInputStep({
     return () => clearTimeout(detectTimeoutRef.current)
   }, [destination])
 
-  // Selected mint balance (for validation)
-  const mintBalance = selectedMintUrl ? (balance.byMint[selectedMintUrl] || 0) : 0
-  const isOverBalance = !!(amount && parseInt(amount, 10) > mintBalance)
-
-  // Handle my wallet selection
-  const handleSelectMyWallet = useCallback((walletUrl: string, walletName: string) => {
-    hapticTap()
-    setDestination(`@${walletName}`)
-    setValidatedData({
-      type: 'my-wallet',
-      targetMintUrl: walletUrl,
-      targetMintName: walletName,
-    })
-    setDetectedTypes(['my-wallet'])
-    setTimeout(() => amountInputRef.current?.focus(), 150)
-  }, [])
-
-  // Handle "내 지갑으로 보내기" button tap
-  const handleMyWalletButton = useCallback(() => {
-    hapticTap()
-    updateDestination('@')
-  }, [updateDestination])
-
-  // Process external input (scan/paste): detect → validate → auto-advance
+  // Process external input (scan/paste): detect → validate → auto-advance if has amount
   const processExternalInput = useCallback(async (input: string) => {
     const trimmed = input.trim()
     if (!trimmed) return
@@ -200,12 +156,9 @@ export function SendInputStep({
     const detected = detectInputType(trimmed)
     setDetectedTypes(toBadgeTypes(detected))
 
-    if (detected.type === 'unknown') {
-      setTimeout(() => amountInputRef.current?.focus(), 150)
-      return
-    }
+    if (detected.type === 'unknown') return
 
-    // Full validation (async) — preserves lightningInvoice for unified QR
+    // Full validation
     const result = await validateInput(detected)
     if (!result.valid) return
 
@@ -223,38 +176,21 @@ export function SendInputStep({
       detectedAmount = sendable.parsed.amount
     }
 
+    // Auto-advance when amount is embedded in the input
     if (detectedAmount > 0) {
-      setAmount(String(detectedAmount))
-    }
-
-    // Auto-advance when amount + mint are ready
-    if (detectedAmount > 0 && selectedMintUrl) {
       setTimeout(() => {
         onNext({
           destination: trimmed,
-          amount: detectedAmount,
-          selectedMintUrl: selectedMintUrl!,
           validatedData: sendable,
+          amountFromInvoice: detectedAmount,
         })
       }, 300)
       return
     }
 
-    // Focus amount input for manual entry
-    setTimeout(() => amountInputRef.current?.focus(), 150)
-  }, [selectedMintUrl, onNext])
-
-  // Handle paste
-  const handlePaste = useCallback(async () => {
-    try {
-      const text = await navigator.clipboard.readText()
-      if (text) {
-        processExternalInput(text)
-      }
-    } catch {
-      addToast({ type: 'error', message: t('errors.clipboardError'), duration: 3000 })
-    }
-  }, [processExternalInput, addToast, t])
+    // Otherwise just proceed to next with validated data, no amount
+    // User will click Next manually
+  }, [onNext])
 
   // Handle QR scan
   const handleScan = useCallback((result: string) => {
@@ -262,194 +198,203 @@ export function SendInputStep({
     processExternalInput(result)
   }, [processExternalInput])
 
-  // Handle next
+  // Handle next — empty destination means token mode, otherwise validate fully
   const handleNext = useCallback(() => {
-    if (!destination.trim()) {
-      addToast({ type: 'error', message: t('send.destinationRequired'), duration: 3000 })
-      return
-    }
-
-    const numericAmount = parseInt(amount, 10)
-    if (!numericAmount || numericAmount <= 0) {
-      addToast({ type: 'error', message: t('send.amountRequired'), duration: 3000 })
-      return
-    }
-
-    if (!selectedMintUrl) {
-      addToast({ type: 'error', message: t('payment.selectMint'), duration: 3000 })
-      return
-    }
-
-    if (numericAmount > mintBalance) {
-      addToast({ type: 'error', message: t('payment.insufficientBalance'), duration: 3000 })
-      return
-    }
-
+    const trimmed = destination.trim()
     hapticTap()
-    onNext({
-      destination: destination.trim(),
-      amount: numericAmount,
-      selectedMintUrl,
-      validatedData: validatedData || undefined,
-    })
-  }, [destination, amount, selectedMintUrl, mintBalance, validatedData, onNext, addToast, t])
+
+    if (!trimmed) {
+      // Token mode: no destination
+      onNext({ destination: '' })
+      return
+    }
+
+    // If already validated, extract amount if available and proceed
+    if (validatedData) {
+      let amountFromInvoice = 0
+      if (validatedData.type === 'bolt11' && validatedData.amountSats > 0) {
+        amountFromInvoice = validatedData.amountSats
+      } else if (validatedData.type === 'cashu-request' && validatedData.parsed?.amount && validatedData.parsed.amount > 0) {
+        amountFromInvoice = validatedData.parsed.amount
+      }
+      onNext({
+        destination: trimmed,
+        validatedData,
+        amountFromInvoice: amountFromInvoice > 0 ? amountFromInvoice : undefined,
+      })
+      return
+    }
+
+    // Not yet validated — run full validation
+    processExternalInput(trimmed)
+  }, [destination, validatedData, onNext, processExternalInput])
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header — no border */}
-      <header className="relative flex items-center justify-between px-4 py-3">
+      {/* Header */}
+      <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="p-2 rounded-lg hover:bg-background-hover transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10"
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('send.title')}</h1>
-        <button
-          onClick={() => {
-            hapticTap()
-            onGoToTokenCreate()
-          }}
-          className="text-label text-accent-primary font-medium min-h-[44px] px-2 flex items-center justify-center rounded-lg hover:bg-background-hover active:bg-background-hover transition-colors z-10"
-        >
-          {t('send.createToken')}
-        </button>
+        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">
+          {t('send.title')}
+        </h1>
+        <div className="w-10" />
       </header>
 
-      {/* Mint Card Selector — outside scroll container for full-width overflow */}
-      <div className="shrink-0 pt-6 pb-8">
-        <MintCardSelector
-          selectedMintUrl={selectedMintUrl}
-          onSelect={setSelectedMintUrl}
-          filterFn={(mint) => mint.balance > 0}
-        />
-      </div>
-
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6 space-y-6">
-        {/* Destination */}
-        <div>
-          <p className="text-caption text-foreground-muted leading-snug">{t('send.whereTo')}</p>
-          <div className="flex items-end gap-1 border-b border-b-border focus-within:border-b-foreground transition-colors">
+      <div className="flex-1 overflow-y-auto px-6 pt-6">
+        {/* Question */}
+        <h2 className="text-heading font-semibold text-foreground">
+          {t('send.destination.whoToSend')}
+        </h2>
+
+        {/* Destination input — placeholder smaller than title */}
+        <div className="mt-6">
+          <div className="flex items-center border-b border-border focus-within:border-foreground/20 transition-colors">
             <input
+              ref={inputRef}
               type="text"
               value={destination}
               onChange={(e) => updateDestination(e.target.value)}
-              placeholder={t('send.placeholder')}
-              className="flex-1 min-w-0 bg-transparent border-0 rounded-none px-0 py-2 text-subtitle font-semibold text-foreground placeholder:text-foreground-muted/40 placeholder:font-normal focus:outline-none"
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleNext() } }}
+              onPaste={(e) => {
+                e.preventDefault()
+                const text = e.clipboardData.getData('text')
+                if (text) processExternalInput(text)
+              }}
+              placeholder={t('send.destination.placeholder')}
+              className="flex-1 min-w-0 bg-transparent py-1.5 text-title font-medium text-foreground placeholder:text-foreground-muted placeholder:font-medium focus:outline-none"
             />
-            <div className="flex items-center gap-0.5 shrink-0 pb-1">
-              <button
-                onClick={handlePaste}
-                aria-label={t('scanner.paste')}
-                className="p-2 rounded-lg hover:bg-background-hover transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-              >
-                <ClipboardPaste className="w-5.5 h-5.5 text-accent-primary" />
-              </button>
-              <button
-                onClick={() => setShowScanner(true)}
-                aria-label={t('scanner.title')}
-                className="p-2 rounded-lg hover:bg-background-hover transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-              >
-                <Camera className="w-5.5 h-5.5 text-accent-primary" />
-              </button>
-            </div>
+            <button
+              onClick={() => setShowScanner(true)}
+              aria-label={t('scanner.title')}
+              className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors shrink-0"
+            >
+              <CameraFilled className="text-foreground-muted" />
+            </button>
           </div>
 
-          {/* Detected type badges */}
-          {detectedTypes.length > 0 && !detectedTypes.includes('my-wallet') && (
-            <div className="flex gap-1.5 mt-1.5">
-              {detectedTypes.map((badge) => (
-                <span key={badge} className="inline-block text-label px-2.5 py-1 rounded-full bg-accent-primary/10 text-accent-primary font-medium">
-                  {badge.replace('-', ' ')}
-                </span>
-              ))}
-            </div>
-          )}
+          {/* Detected type badge — fixed space below underline */}
+          <div className="h-7 flex items-center mt-1">
+            {detectedTypes.length > 0 && !detectedTypes.includes('my-wallet') && (
+              <div className="flex gap-1.5">
+                {detectedTypes.map((badge) => (
+                  <span key={badge} className="inline-block text-label font-medium px-2.5 py-0.5 rounded-full bg-brand/10 text-brand">
+                    {getInputTypeLabel(badge)}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
 
-          {/* "내 지갑으로 보내기" button — shown when no destination entered and wallets exist */}
-          {!destination && myWallets.length > 0 && (
-            <button
-              onClick={handleMyWalletButton}
-              className="flex items-center gap-1 mt-3 text-label text-accent-primary font-medium active:opacity-70 transition-opacity"
-            >
-              <span>{t('send.myWallet')}</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          )}
-
-          {/* My wallets dropdown */}
-          {showMyWallets && (
-            <div className="mt-2">
-              <p className="text-label text-foreground-muted font-medium py-2">{t('send.myWalletList')}</p>
-              {filteredWallets.length > 0 ? (
-                filteredWallets.map((wallet) => (
-                  <button
-                    key={wallet.url}
-                    onClick={() => handleSelectMyWallet(wallet.url, wallet.name)}
-                    className="w-full flex items-center justify-between py-3 border-b border-border active:bg-background-hover transition-colors"
-                  >
-                    <span className="text-body font-medium text-foreground">{wallet.name}</span>
-                    <span className="text-caption text-foreground-muted">{formatSats(wallet.balance)}</span>
-                  </button>
-                ))
-              ) : (
-                <p className="text-caption text-foreground-muted py-3">
-                  {t('send.noOtherWallets')}
-                </p>
-              )}
-            </div>
-          )}
         </div>
 
-        {/* Amount */}
-        <AmountInput
-          amount={amount}
-          onAmountChange={setAmount}
-          label={t('send.howMuch')}
-          inputRef={amountInputRef}
-          disabled={isAmountFixed}
-          error={
-            isSameWallet
-              ? t('send.sameWalletError')
-              : isOverBalance
-                ? t('payment.insufficientBalance')
-                : null
-          }
-        />
+        {/* My wallets — visible when not in @ search mode */}
+        {myWallets.length > 0 && !showMyWallets && (
+          <div className="mt-3">
+            <p className="text-body font-semibold text-foreground mb-3">{t('send.myWalletList')}</p>
+            {myWallets.map((wallet) => (
+              <button
+                key={wallet.url}
+                onClick={() => handleSelectMyWallet(wallet.url, wallet.name)}
+                className="w-full flex items-center gap-3 py-3 border-b border-border/40 active:bg-foreground/[0.03] transition-colors"
+              >
+                <img
+                  src={wallet.iconUrl || cardLogo}
+                  alt=""
+                  className="w-9 h-9 rounded-full object-contain shrink-0 bg-foreground/[0.04]"
+                />
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-subtitle font-medium text-foreground truncate">{wallet.name}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* My wallets dropdown — @ search mode */}
+        {showMyWallets && (
+          <div className="mt-4">
+            <p className="text-body font-semibold text-foreground mb-3">{t('send.myWalletList')}</p>
+            {filteredWallets.length > 0 ? (
+              filteredWallets.map((wallet) => (
+                <button
+                  key={wallet.url}
+                  onClick={() => handleSelectMyWallet(wallet.url, wallet.name)}
+                  className="w-full flex items-center gap-3 py-3 border-b border-border/40 active:bg-foreground/[0.03] transition-colors"
+                >
+                  <img
+                    src={wallet.iconUrl || cardLogo}
+                    alt=""
+                    className="w-9 h-9 rounded-full object-contain shrink-0 bg-foreground/[0.04]"
+                  />
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="text-subtitle font-medium text-foreground truncate">{wallet.name}</p>
+                  </div>
+                  </button>
+              ))
+            ) : (
+              <p className="text-caption text-foreground-muted py-3">
+                {t('send.noOtherWallets')}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Bottom Action */}
-      <div className="p-4 pb-safe">
+      {/* Bottom — hint + button */}
+      <div className="px-6 pb-6 pb-safe shrink-0">
+        {!destination.trim() && (
+          <div className="flex items-start gap-2.5 bg-foreground/[0.04] rounded-xl px-4 py-3 mb-3">
+            <span className="text-caption leading-relaxed mt-px">💡</span>
+            <p className="text-caption text-foreground-muted leading-relaxed whitespace-pre-line">
+              <Trans
+                i18nKey="send.destination.hint"
+                components={{ b: <span className="font-semibold text-foreground" /> }}
+              />
+            </p>
+          </div>
+        )}
         <Button
           variant="brand"
           size="xl"
           onClick={handleNext}
           loading={isLoading}
-          disabled={isOverBalance || isSameWallet}
           className="w-full"
         >
-          {t('send.next')}
+          {destination.trim() ? t('send.next') : t('common.skip')}
         </Button>
       </div>
 
-      {/* QR Scanner Modal */}
+      {/* QR Scanner Modal — center modal */}
       {showScanner && (
-        <div className="fixed inset-0 z-50 bg-background pt-safe pb-safe">
-          <div className="relative flex items-center justify-between px-4 py-3">
-            <button
-              onClick={() => setShowScanner(false)}
-              aria-label={t('common.back')}
-              className="p-2 -ml-2 rounded-lg hover:bg-background-hover transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('scanner.title')}</h2>
-            <div className="w-10" />
-          </div>
-          <div className="p-4">
-            <QrScanner onScan={handleScan} active={showScanner} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={() => setShowScanner(false)}>
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/60" />
+          {/* Modal */}
+          <div
+            className="relative bg-background rounded-2xl w-full max-w-sm overflow-hidden animate-scaleIn"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4">
+              <h2 className="text-subtitle font-semibold">{t('scanner.title')}</h2>
+              <button
+                onClick={() => setShowScanner(false)}
+                className="text-body font-medium text-brand active:opacity-70"
+              >
+                {t('common.close')}
+              </button>
+            </div>
+            {/* Camera */}
+            <div className="px-4 pb-5">
+              <QrScanner onScan={handleScan} active={showScanner} />
+            </div>
           </div>
         </div>
       )}

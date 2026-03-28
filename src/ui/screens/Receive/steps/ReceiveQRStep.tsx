@@ -5,11 +5,10 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { ArrowLeft, Copy, Check, Share2, Radio, Wifi, Globe, Zap } from 'lucide-react'
+import { ArrowLeft, Copy, Check, Share2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { useAppStore } from '@/store'
-import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { hapticTap, hapticSuccess } from '@/utils/haptic'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { startNut18HttpPoller } from '@/services/cashu/nut18-http'
@@ -45,15 +44,9 @@ export function ReceiveQRStep({
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
-  const settings = useAppStore((s) => s.settings)
   const addToast = useAppStore((s) => s.addToast)
-  const { getDisplayName } = useMintMetadata(settings.mints)
   const [copied, setCopied] = useState(false)
 
-  const mintName = getDisplayName(mintUrl)
-
-  // Nostr connection status from store
-  const nostrConnectionStatus = useAppStore((s) => s.nostrConnectionStatus)
   const setPendingEcashRequestId = useAppStore((s) => s.setPendingEcashRequestId)
 
   // Register/unregister pending ecash request ID for GiftWrapListener matching
@@ -173,24 +166,6 @@ export function ReceiveQRStep({
     }
   }, [lastReceivedRequestId])
 
-  // ======= Transport status =======
-  const getTransportStatus = () => {
-    const hasLightning = !!invoice
-    const hasNostr = nostrConnectionStatus === 'connected' && !!ecashRequest
-    const hasHttp = !!httpEndpoint
-
-    if (hasLightning && hasNostr && hasHttp) return 'unified-full'
-    if (hasLightning && hasNostr) return 'unified-nostr'
-    if (hasLightning && hasHttp) return 'unified-http'
-    if (hasLightning) return 'lightning-only'
-    if (hasNostr && hasHttp) return 'nostr-and-http'
-    if (hasNostr) return 'nostr-only'
-    if (hasHttp) return 'http-only'
-    return 'lightning-only'
-  }
-
-  const transportStatus = getTransportStatus()
-
   // ======= Actions =======
 
   const handleCopy = useCallback(async () => {
@@ -222,115 +197,57 @@ export function ReceiveQRStep({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header — no border */}
-      <header className="relative flex items-center justify-between px-4 py-3">
+      {/* Header */}
+      <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
         <button
           onClick={onBack}
           aria-label={t('common.back')}
-          className="p-2 -ml-2 rounded-lg hover:bg-muted transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10"
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
         <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('receive.qr.title')}</h1>
-        <div className="w-11" />
+        <div className="w-10" />
       </header>
 
-      {/* Content */}
-      <div className="flex-1 flex flex-col items-center justify-center p-5 gap-5">
-        <p className="text-caption text-foreground-muted text-center">
-          {t('receive.qr.showToSender')}
+      {/* Content — centered */}
+      <div className="flex-1 flex flex-col items-center px-6 pt-6">
+        {/* Message */}
+        <p className="text-heading font-semibold text-center whitespace-pre-line">
+          {t('receive.qr.fullMessage', { amount: formatSats(amount) })}
         </p>
-
-        {/* Amount */}
-        <p className="text-display font-bold font-display">{formatSats(amount)}</p>
         {(() => { const f = formatFiat(amount); return f ? (
-          <p className="text-caption text-foreground-muted -mt-2">{f}</p>
+          <p className="text-body text-foreground-muted mt-2">{f}</p>
         ) : null })()}
 
         {/* QR Code */}
         {qrValue && (
-          <QRCodeDisplay
-            value={qrValue}
-            size={200}
-            className="rounded-xl p-3"
-          />
+          <div className="mt-6 cursor-pointer active:scale-95 transition-transform" onClick={handleCopy}>
+            <QRCodeDisplay
+              value={qrValue}
+              size={200}
+              className="rounded-2xl p-3 shadow-[0_2px_12px_rgba(0,0,0,0.08)]"
+            />
+          </div>
         )}
 
-        {/* Transport status indicator */}
-        <div className="flex flex-col items-center gap-1.5">
-          <div className="flex items-center gap-2 px-4 py-2 bg-accent-primary/10 rounded-full">
-            <div className="animate-pulse">
-              <Radio className="w-4 h-4 text-accent-primary" />
-            </div>
-            <span className="text-caption text-foreground-muted">
-              {t('receive.qr.willNotify', { mint: mintName })}
-            </span>
-          </div>
-          {/* Transport detail badge */}
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted">
-            {transportStatus.startsWith('unified') && (
-              <>
-                <Zap className="w-3 h-3 text-amber-500" />
-                <Wifi className="w-3 h-3 text-green-600" />
-                {transportStatus === 'unified-full' && <Globe className="w-3 h-3 text-blue-500" />}
-                <span className="text-label font-medium text-foreground-muted">{t('receive.transport.unified')}</span>
-              </>
-            )}
-            {transportStatus === 'lightning-only' && (
-              <>
-                <Zap className="w-3 h-3 text-amber-500" />
-                <span className="text-label font-medium text-foreground-muted">{t('receive.transport.lightningOnly')}</span>
-              </>
-            )}
-            {transportStatus === 'nostr-and-http' && (
-              <>
-                <Wifi className="w-3 h-3 text-green-600" />
-                <Globe className="w-3 h-3 text-blue-500" />
-                <span className="text-label font-medium text-foreground-muted">{t('receive.transport.nostrAndHttp')}</span>
-              </>
-            )}
-            {transportStatus === 'nostr-only' && (
-              <>
-                <Wifi className="w-3 h-3 text-green-600" />
-                <span className="text-label font-medium text-foreground-muted">{t('receive.transport.nostrOnly')}</span>
-              </>
-            )}
-            {transportStatus === 'http-only' && (
-              <>
-                <Globe className="w-3 h-3 text-blue-500" />
-                <span className="text-label font-medium text-amber-600">{t('receive.transport.httpOnly')}</span>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Action buttons */}
-        <div className="flex gap-3 w-full max-w-xs">
+        {/* Action buttons — minimal text style */}
+        <div className="flex gap-10 mt-6">
           <button
             onClick={handleShare}
-            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-muted font-medium text-caption active:scale-95 transition-transform min-h-[44px]"
+            className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 transition-all"
           >
-            <Share2 className="w-4 h-4" />
+            <Share2 className="w-5 h-5" />
             {t('receive.qr.share')}
           </button>
           <button
             onClick={handleCopy}
-            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-muted font-medium text-caption active:scale-95 transition-transform min-h-[44px]"
+            className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 transition-all"
           >
-            {copied ? <Check className="w-4 h-4 text-accent-primary" /> : <Copy className="w-4 h-4" />}
+            {copied ? <Check className="w-5 h-5 text-brand" /> : <Copy className="w-5 h-5" />}
             {copied ? t('common.copied') : t('common.copy')}
           </button>
         </div>
-      </div>
-
-      {/* Bottom — Cancel, no border */}
-      <div className="p-4 pb-safe">
-        <button
-          onClick={onBack}
-          className="w-full text-center text-label text-foreground-muted font-medium py-3.5 min-h-[44px]"
-        >
-          {t('receive.qr.cancel')}
-        </button>
       </div>
     </div>
   )

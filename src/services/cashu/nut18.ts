@@ -379,10 +379,16 @@ export function parseBitcoinUri(input: string): {
     const queryString = input.slice(queryStart + 1)
     const params = new URLSearchParams(queryString)
 
-    return {
-      creq: params.get('creq') || undefined,
-      lightning: params.get('lightning') || undefined,
-    }
+    // Case-insensitive parameter lookup (QR codes may encode as uppercase)
+    let creq: string | undefined
+    let lightning: string | undefined
+    params.forEach((value, key) => {
+      const k = key.toLowerCase()
+      if (k === 'creq') creq = value
+      if (k === 'lightning') lightning = value
+    })
+
+    return { creq, lightning }
   } catch {
     return null
   }

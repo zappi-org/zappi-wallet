@@ -1,11 +1,10 @@
 /**
  * SendCompleteStep — Send success screen
- * Success character image centered, text at top, two buttons at bottom
  */
 
 import { useEffect, useRef } from 'react'
 import { motion } from 'motion/react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation, Trans } from 'react-i18next'
 import { hapticSuccess, hapticTap } from '@/utils/haptic'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import sendSuccessImg from '@/assets/send-success.png'
@@ -18,12 +17,16 @@ interface SendCompleteStepProps {
   validatedData: SendableValidatedData
   amount: number
   onComplete: () => void
+  isFiatMode?: boolean
+  fiatAmount?: string
 }
 
 export function SendCompleteStep({
   validatedData,
   amount,
   onComplete,
+  isFiatMode = false,
+  fiatAmount,
 }: SendCompleteStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
@@ -49,34 +52,48 @@ export function SendCompleteStep({
     return () => clearTimeout(timer)
   }, [])
 
+  // Main amount display — respect fiat mode
+  const mainAmount = isFiatMode && fiatAmount
+    ? `${fiatAmount}`
+    : formatSats(amount)
+  const subAmount = isFiatMode
+    ? formatSats(amount)
+    : (formatFiat(amount) || '')
+
   return (
     <div className="flex flex-col h-full bg-background relative">
       <Confetti />
 
-      {/* Text — centered, pushed down a bit */}
-      <div className="px-6 pt-24">
-        <p className="text-title font-medium leading-relaxed whitespace-pre-line text-center">
-          {t('send.complete.message', { destination, amount: formatSats(amount) })}
-        </p>
-        {formatFiat(amount) && (
-          <p className="text-body text-foreground-muted text-center mt-1">{formatFiat(amount)}</p>
-        )}
-      </div>
-
-      {/* Success character image — centered with entrance animation */}
-      <div className="flex-1 flex items-center justify-center">
+      {/* Centered content */}
+      <div className="flex-1 flex flex-col items-center justify-center px-8">
+        {/* Character — small, with entrance animation */}
         <motion.img
           src={sendSuccessImg}
           alt="Success"
-          className="w-80 h-80 object-contain"
-          initial={{ scale: 0, opacity: 0, rotate: -12 }}
-          animate={{ scale: 1, opacity: 1, rotate: 0 }}
-          transition={{ type: 'spring', stiffness: 260, damping: 18, delay: 0.1 }}
+          className="w-[120px] h-[120px] object-contain mb-6"
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.1 }}
         />
+
+        {/* Sentence — single Trans for natural word order per language */}
+        <div className="text-center">
+          <p className="text-heading font-semibold text-foreground whitespace-pre-line">
+            <Trans
+              i18nKey="send.complete.fullMessage"
+              values={{ recipient: destination, amount: mainAmount }}
+              components={{ b: <span className="text-brand" /> }}
+            />
+          </p>
+        </div>
+
+        {subAmount && (
+          <p className="text-body text-foreground-muted mt-3">{subAmount}</p>
+        )}
       </div>
 
       {/* Bottom button */}
-      <div className="p-4 pb-safe">
+      <div className="px-6 pb-6 pb-safe shrink-0">
         <Button
           variant="brand"
           size="xl"

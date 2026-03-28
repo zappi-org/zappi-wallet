@@ -14,7 +14,7 @@
 
 import { useState, useCallback, useMemo } from 'react'
 import { ArrowLeft, ChevronRight, WifiOff, AlertTriangle, ShieldCheck } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation, Trans } from 'react-i18next'
 import { hapticTap } from '@/utils/haptic'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
@@ -94,96 +94,86 @@ export function TokenConfirmStep({
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <header className="relative flex items-center px-4 py-3">
+      <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
         <button
           onClick={onBack}
           disabled={isReceiving}
           aria-label={t('common.back')}
-          className="p-2 rounded-lg hover:bg-background-hover transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center z-10 disabled:opacity-50"
+          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10 disabled:opacity-50"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
         <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">
           {t('receive.token.title')}
         </h1>
+        <div className="w-10" />
       </header>
 
-      {/* Content */}
-      <div className="flex-1 flex flex-col px-6">
-        {/* Main message — left-aligned, top area */}
-        <div className="pt-16">
-          <p className="text-amount-lg font-medium font-display leading-snug whitespace-pre-line">
-            {t('receive.token.canReceive', { amount: formattedAmount, mint: mintName })}
+      {/* Centered content — same pattern as confirm screens */}
+      <div className="flex-1 flex flex-col items-center justify-center px-8">
+        <div className="text-center">
+          <p className="text-heading font-semibold whitespace-pre-line">
+            <Trans
+              i18nKey="receive.token.fullConfirmQuestion"
+              values={{ mint: mintName, amount: formattedAmount }}
+              components={{ b: <span className="text-brand" /> }}
+            />
           </p>
         </div>
 
+        {formatFiat(token.amountSats) && (
+          <p className="text-body text-foreground-muted mt-3">{formatFiat(token.amountSats)}</p>
+        )}
+
         {/* Offline banners */}
         {offlineState === 'ok' && (
-          <div className="mt-6 flex items-start gap-2 bg-blue-50 rounded-xl p-4">
-            <ShieldCheck className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+          <div className="mt-4 flex items-start gap-2 bg-blue-50 rounded-xl p-3 max-w-[300px]">
+            <ShieldCheck className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
             <p className="text-caption text-blue-700">{t('receive.offline.p2pkAccepted')}</p>
           </div>
         )}
         {offlineState === 'dleq-missing' && (
-          <div className="mt-6 flex items-start gap-2 bg-amber-50 rounded-xl p-4">
-            <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <div className="mt-4 flex items-start gap-2 bg-amber-50 rounded-xl p-3 max-w-[300px]">
+            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
             <p className="text-caption text-amber-700">{t('receive.offline.dleqMissing')}</p>
           </div>
         )}
         {offlineState === 'dleq-failed' && (
-          <div className="mt-6 flex items-start gap-2 bg-red-50 rounded-xl p-4">
-            <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+          <div className="mt-4 flex items-start gap-2 bg-red-50 rounded-xl p-3 max-w-[300px]">
+            <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
             <p className="text-caption text-red-700">{t('receive.offline.dleqFailed')}</p>
           </div>
         )}
         {offlineState === 'no-p2pk' && (
-          <div className="mt-6 flex items-start gap-2 bg-muted rounded-xl p-4">
-            <WifiOff className="w-5 h-5 text-foreground-muted shrink-0 mt-0.5" />
+          <div className="mt-4 flex items-start gap-2 bg-muted rounded-xl p-3 max-w-[300px]">
+            <WifiOff className="w-4 h-4 text-foreground-muted shrink-0 mt-0.5" />
             <p className="text-caption text-foreground">{t('receive.offline.nonP2PKError')}</p>
           </div>
         )}
+      </div>
 
-        {/* Spacer */}
-        <div className="flex-1" />
-
-        {/* Detail rows */}
-        <div className="space-y-3 mb-4 px-1">
-          {/* Mint row — tappable (disabled offline) */}
+      {/* Detail rows + button at bottom */}
+      <div className="px-6 pb-6 pb-safe shrink-0">
+        <div className="mb-4">
+          {/* Mint row — tappable */}
           <button
-            onClick={() => {
-              hapticTap()
-              setShowMintSelect(true)
-            }}
+            onClick={() => { hapticTap(); setShowMintSelect(true) }}
             disabled={isReceiving || isSwapDisabled}
-            className="w-full flex items-center justify-between min-h-[44px] -mx-1 px-1 rounded-lg hover:bg-background-hover active:bg-background-hover transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-between py-2.5 border-b border-border/50 disabled:opacity-50"
           >
-            <span className="text-caption text-foreground-muted">{t('receive.token.receiveMint')}</span>
+            <span className="text-body text-foreground-muted">{t('receive.token.receiveMint')}</span>
             <span className="flex items-center gap-0.5">
-              <span className="text-body font-semibold truncate max-w-[180px]">{mintName}</span>
+              <span className="text-body font-medium text-foreground truncate max-w-[180px]">{mintName}</span>
               {!isSwapDisabled && <ChevronRight className="w-4 h-4 text-foreground-muted shrink-0" />}
             </span>
           </button>
-
-          <div className={`flex items-center justify-between ${!isSwapDisabled ? 'pr-[18px]' : ''}`}>
-            <span className="text-caption text-foreground-muted">{t('receive.token.amount')}</span>
-            <div className="text-right">
-              <span className="text-body font-semibold">{formattedAmount}</span>
-              {(() => { const f = formatFiat(token.amountSats); return f ? (
-                <p className="text-caption text-foreground-muted">{f}</p>
-              ) : null })()}
-            </div>
-          </div>
           {token.memo && (
-            <div className={`flex items-center justify-between ${!isSwapDisabled ? 'pr-[18px]' : ''}`}>
-              <span className="text-caption text-foreground-muted">{t('common.memo')}</span>
-              <span className="text-body font-semibold truncate max-w-[200px]">{token.memo}</span>
+            <div className="flex items-center justify-between py-2.5 border-b border-border/50">
+              <span className="text-body text-foreground-muted">{t('common.memo')}</span>
+              <span className="text-body font-medium text-foreground truncate max-w-[200px]">{token.memo}</span>
             </div>
           )}
         </div>
-      </div>
-
-      {/* Bottom Action */}
-      <div className="p-4 pb-safe">
         <Button
           variant="brand"
           size="xl"

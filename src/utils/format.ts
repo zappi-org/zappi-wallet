@@ -18,7 +18,7 @@ function formatAmount(amount: number, unit: UnitDisplay): string {
   if (unit === 'sats') {
     return `${formatted} ${amount === 1 ? 'sat' : 'sats'}`
   }
-  return `₿ ${formatted}`
+  return `₿${formatted}`
 }
 
 // ── Non-reactive (callbacks, services, error messages) ──

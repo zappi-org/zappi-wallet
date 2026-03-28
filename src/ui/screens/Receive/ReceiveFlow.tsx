@@ -64,8 +64,8 @@ import { UntrustedMintStep } from './steps/UntrustedMintStep'
 // ============= Types =============
 
 export type ReceiveStep =
-  | 'token-receive'
-  | 'input'
+  | 'token-input'
+  | 'amount'
   | 'qr'
   | 'complete'
   | 'token-confirm'
@@ -147,7 +147,7 @@ export function ReceiveFlow({
       const isTrusted = settings.mints.includes(initialValidatedData.mintUrl)
       return isTrusted ? 'token-confirm' : 'untrusted-mint'
     }
-    return 'token-receive'
+    return 'token-input'
   }
 
   const [state, setState] = useState<ReceiveFlowState>({
@@ -501,20 +501,21 @@ export function ReceiveFlow({
   return (
     <div className="h-dvh bg-background text-foreground font-primary flex flex-col pt-safe">
       <AnimatePresence mode="wait">
-        {state.step === 'token-receive' && (
-          <PageTransition key="token-receive" variant="page" className="flex-1">
+        {state.step === 'token-input' && (
+          <PageTransition key="token-input" variant="page" className="flex-1">
             <TokenReceiveStep
               onBack={onBack}
               onTokenDetected={handleTokenDetected}
-              onGoToCreateRequest={() => goToStep('input')}
+              onNext={() => goToStep('amount')}
+              mintUrl={state.selectedMintUrl || settings.mints[0]}
             />
           </PageTransition>
         )}
 
-        {state.step === 'input' && (
-          <PageTransition key="receive-input" variant="page" className="flex-1">
+        {state.step === 'amount' && (
+          <PageTransition key="receive-amount" variant="page" className="flex-1">
             <ReceiveInputStep
-              onBack={() => goToStep('token-receive')}
+              onBack={() => setState(prev => ({ ...prev, step: 'token-input' }))}
               onNext={handleInputNext}
               onActivateListening={onActivateListening}
               initialAmount={state.amount}
@@ -527,7 +528,7 @@ export function ReceiveFlow({
         {state.step === 'qr' && (
           <PageTransition key="receive-qr" variant="page" className="flex-1">
             <ReceiveQRStep
-              onBack={() => goToStep('input')}
+              onBack={() => goToStep('amount')}
               onPaymentDetected={handlePaymentDetected}
               amount={state.amount}
               mintUrl={state.selectedMintUrl!}
@@ -553,7 +554,7 @@ export function ReceiveFlow({
         {state.step === 'token-confirm' && state.scannedToken && (
           <PageTransition key="token-confirm" variant="page" className="flex-1">
             <TokenConfirmStep
-              onBack={() => goToStep('token-receive')}
+              onBack={() => goToStep('token-input')}
               onReceive={handleTokenReceive}
               token={state.scannedToken}
               isOnline={isOnline}
@@ -565,7 +566,7 @@ export function ReceiveFlow({
         {state.step === 'untrusted-mint' && state.scannedToken && (
           <PageTransition key="untrusted-mint" variant="page" className="flex-1">
             <UntrustedMintStep
-              onBack={() => goToStep('token-receive')}
+              onBack={() => goToStep('token-input')}
               onAddAndReceive={handleAddTrustAndReceive}
               onSwapToMyMint={handleSwapToMyMint}
               token={state.scannedToken}

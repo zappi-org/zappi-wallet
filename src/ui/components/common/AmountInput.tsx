@@ -99,7 +99,7 @@ export function AmountInput({
       {isFiatMode && exchangeRate ? (
         <>
           <div className="relative">
-            <span className="absolute left-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-title">
+            <span className="absolute left-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-amount-lg font-display">
               {currencySymbol}
             </span>
             <input
@@ -110,7 +110,7 @@ export function AmountInput({
               placeholder="0"
               onChange={(e) => handleFiatChange(e.target.value)}
               onFocus={(e) => { if (!fiatInput) e.target.select() }}
-              className={`w-full bg-transparent border-0 border-b border-b-border rounded-none pl-8 py-2 text-title font-bold focus:outline-none focus:border-b-foreground transition-colors ${fiatInput ? 'text-foreground' : 'text-foreground-muted/40'}`}
+              className={`w-full bg-transparent border-0 border-b border-b-border rounded-none pl-8 py-2 text-amount-lg font-bold font-display focus:outline-none focus:border-b-foreground transition-colors ${fiatInput ? 'text-foreground' : 'text-foreground-muted/40'}`}
             />
           </div>
           {amount && (
@@ -123,9 +123,9 @@ export function AmountInput({
         <>
           <div className="relative">
             {unit === '₿' ? (
-              <span className="absolute left-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-title">{unit}</span>
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-amount-lg font-display">{unit}</span>
             ) : (
-              <span className="absolute right-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-subtitle">{unit}</span>
+              <span className="absolute right-0 top-1/2 -translate-y-1/2 text-foreground-muted font-medium text-amount-lg font-display">{unit}</span>
             )}
             <input
               ref={inputRef}
@@ -136,7 +136,7 @@ export function AmountInput({
               onChange={(e) => handleSatsChange(e.target.value)}
               onFocus={(e) => { if (!amount) e.target.select() }}
               disabled={disabled}
-              className={`w-full bg-transparent border-0 border-b border-b-border rounded-none ${unit === '₿' ? 'pl-8' : 'pr-12'} py-2 text-title font-bold focus:outline-none focus:border-b-foreground transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${amount ? 'text-foreground' : 'text-foreground-muted/40'}`}
+              className={`w-full bg-transparent border-0 border-b border-b-border rounded-none ${unit === '₿' ? 'pl-8' : 'pr-12'} py-2 text-amount-lg font-bold font-display focus:outline-none focus:border-b-foreground transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${amount ? 'text-foreground' : 'text-foreground-muted/40'}`}
             />
           </div>
           {fiatHint && (
