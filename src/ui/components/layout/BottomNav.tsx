@@ -20,7 +20,7 @@ export function BottomNav({ items, activeId, visible, onSelect }: BottomNavProps
   return (
     <div
       className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none"
-      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)' }}
     >
       <AnimatePresence>
         {visible && (

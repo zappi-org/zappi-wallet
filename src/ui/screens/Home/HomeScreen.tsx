@@ -129,7 +129,7 @@ export function HomeScreen({
   return (
     <div className="h-dvh bg-background text-foreground font-primary overflow-hidden flex flex-col pt-safe" style={{ overscrollBehaviorY: 'contain' }}>
       {/* Header spacer */}
-      <div className="shrink-0 h-2" />
+      <div className="shrink-0 h-12" />
 
       {/* Fixed top: Balance + Cards */}
       <div className="shrink-0">
