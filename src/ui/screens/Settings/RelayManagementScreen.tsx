@@ -103,8 +103,14 @@ export function RelayManagementScreen({
     }
   }, [newRelayUrl, relays, isAtLimit, onSaveSettings, t])
 
+  const isAtMinimum = relays.length <= LIMITS.MIN_RELAYS
+
   const confirmRemoveRelay = useCallback(async () => {
     if (!relayToDelete) return
+    if (relays.length <= LIMITS.MIN_RELAYS) {
+      setRelayToDelete(null)
+      return
+    }
     const urlToDelete = relayToDelete
     setRelayToDelete(null)
     const newRelays = relays.filter((r) => r !== urlToDelete)
@@ -125,29 +131,12 @@ export function RelayManagementScreen({
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
         <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('settings.manageRelays')}</h2>
-        {/* Slot indicator */}
-        <div className="flex items-center gap-1.5 z-10">
-          <span className={cn(
-            "text-overline font-medium font-mono mr-0.5",
-            isAtLimit ? "text-accent-danger" : "text-foreground-muted"
-          )}>
-            {relays.length}/{LIMITS.MAX_RELAYS}
-          </span>
-          {relays.map((url) => (
-            <div
-              key={url}
-              className="w-6 h-6 rounded bg-foreground/[0.06] flex items-center justify-center shrink-0"
-            >
-              <Server className="w-3.5 h-3.5 text-foreground-muted" />
-            </div>
-          ))}
-          {Array.from({ length: emptySlots }, (_, i) => (
-            <div
-              key={`empty-${i}`}
-              className="w-6 h-6 rounded border border-dashed border-foreground/20 shrink-0"
-            />
-          ))}
-        </div>
+        <span className={cn(
+          "text-caption font-semibold font-mono z-10 tabular-nums",
+          isAtLimit ? "text-accent-danger" : "text-foreground-muted"
+        )}>
+          {relays.length}<span className="text-foreground-muted/50">/{LIMITS.MAX_RELAYS}</span>
+        </span>
       </header>
 
       {/* URL Input */}
@@ -190,6 +179,11 @@ export function RelayManagementScreen({
             {t('settings.relayDeleteRequired')}
           </p>
         )}
+        {isAtMinimum && !error && (
+          <p className="text-overline font-medium text-foreground-muted ml-1">
+            {t('settings.minRelaysRequired', { min: LIMITS.MIN_RELAYS })}
+          </p>
+        )}
       </div>
 
       {/* Relay List */}
@@ -218,8 +212,14 @@ export function RelayManagementScreen({
                   <span className="text-label font-medium text-foreground-muted">{t('settings.nostrRelay')}</span>
                 </div>
                 <button
-                  onClick={() => setRelayToDelete(url)}
-                  className="p-2 text-foreground-muted active:text-accent-danger shrink-0"
+                  onClick={() => !isAtMinimum && setRelayToDelete(url)}
+                  disabled={isAtMinimum}
+                  className={cn(
+                    "p-2 shrink-0",
+                    isAtMinimum
+                      ? "text-foreground-muted/30 cursor-not-allowed"
+                      : "text-foreground-muted active:text-accent-danger"
+                  )}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>

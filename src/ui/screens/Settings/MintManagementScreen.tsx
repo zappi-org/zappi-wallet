@@ -84,6 +84,10 @@ export function MintManagementScreen({
 
   const confirmRemoveMint = useCallback(async () => {
     if (!mintToDelete) return
+    if (settings.mints.length <= LIMITS.MIN_MINTS) {
+      setMintToDelete(null)
+      return
+    }
     const urlToDelete = mintToDelete
     setMintToDelete(null)
     if (expandedMint === urlToDelete) setExpandedMint(null)
@@ -96,6 +100,7 @@ export function MintManagementScreen({
 
   const mints = settings.mints
   const emptySlots = LIMITS.MAX_MINTS - mints.length
+  const isAtMinimumMints = mints.length <= LIMITS.MIN_MINTS
 
   return (
     <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe overflow-hidden z-[60]">
@@ -109,27 +114,9 @@ export function MintManagementScreen({
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
         <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('settings.manageMints')}</h2>
-        {/* Slot indicator */}
-        <div className="flex items-center gap-1.5 z-10">
-          <span className="text-overline font-medium font-mono text-foreground-muted mr-0.5">
-            {mints.length}/{LIMITS.MAX_MINTS}
-          </span>
-          {mints.map((url) => (
-            <button
-              key={url}
-              onClick={() => setExpandedMint(url)}
-              className="w-6 h-6 rounded overflow-hidden shrink-0"
-            >
-              <MintIcon url={url} getIconUrl={getIconUrl} size="sm" className="w-6 h-6" />
-            </button>
-          ))}
-          {Array.from({ length: emptySlots }, (_, i) => (
-            <div
-              key={`empty-${i}`}
-              className="w-6 h-6 rounded border border-dashed border-foreground/20 shrink-0"
-            />
-          ))}
-        </div>
+        <span className="text-caption font-semibold font-mono z-10 tabular-nums text-foreground-muted">
+          {mints.length}<span className="text-foreground-muted/50">/{LIMITS.MAX_MINTS}</span>
+        </span>
       </header>
 
       <div className="flex-1 overflow-y-auto pb-safe">
@@ -331,13 +318,20 @@ export function MintManagementScreen({
 
                         {/* Delete — inside card, separated */}
                         <div className="border-t border-border" />
-                        <button
-                          onClick={() => handleRemoveMint(url)}
-                          className="w-full flex items-center justify-center gap-1.5 py-3 active:opacity-60"
-                        >
-                          <Trash2 className="w-4 h-4 text-accent-danger" />
-                          <span className="text-caption font-semibold text-accent-danger">{t('mintDetails.deleteMint')}</span>
-                        </button>
+                        {isAtMinimumMints ? (
+                          <div className="w-full flex items-center justify-center gap-1.5 py-3">
+                            <Trash2 className="w-4 h-4 text-foreground-muted/30" />
+                            <span className="text-caption font-medium text-foreground-muted/50">{t('settings.minMintsRequired', { min: LIMITS.MIN_MINTS })}</span>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleRemoveMint(url)}
+                            className="w-full flex items-center justify-center gap-1.5 py-3 active:opacity-60"
+                          >
+                            <Trash2 className="w-4 h-4 text-accent-danger" />
+                            <span className="text-caption font-semibold text-accent-danger">{t('mintDetails.deleteMint')}</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

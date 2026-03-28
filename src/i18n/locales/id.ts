@@ -185,6 +185,8 @@ export default {
     addRelay: 'Tambah Relay',
     deleteRelay: 'Hapus Relay',
     confirmDeleteRelay: 'Hapus relay ini?',
+    minRelaysRequired: 'Minimal {{min}} relay diperlukan',
+    minMintsRequired: 'Minimal {{min}} mint diperlukan',
 
     // PIN Change
     currentPinLabel: 'Masukkan PIN saat ini',

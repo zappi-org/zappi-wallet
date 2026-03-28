@@ -151,6 +151,10 @@ export const LIMITS = {
   MAX_MINTS: 5,
   /** Maximum number of relays */
   MAX_RELAYS: 5,
+  /** Minimum number of relays */
+  MIN_RELAYS: 2,
+  /** Minimum number of mints */
+  MIN_MINTS: 2,
 } as const
 
 export { FIAT_CURRENCIES } from './fiat'

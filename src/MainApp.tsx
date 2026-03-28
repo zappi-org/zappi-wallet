@@ -14,6 +14,7 @@ import { getP2PKPubkey } from '@/services/crypto'
 import { InsufficientBalanceError } from '@/core/errors/cashu'
 import { translateError, setMintNameResolver } from '@/core/errors/translate'
 import { clearMintData } from '@/data/database/schema'
+import { LIMITS } from '@/core/constants'
 
 // Tier 1: Always loaded (critical path for authenticated users)
 import { HomeScreen } from '@/ui/screens/Home/HomeScreen'
@@ -1115,6 +1116,10 @@ export default function MainApp() {
             setCurrentScreen('send')
           }}
           onDeleteMint={(url) => {
+            if (settings.mints.length <= LIMITS.MIN_MINTS) {
+              addToast({ type: 'warning', message: t('settings.minMintsRequired', { min: LIMITS.MIN_MINTS }) })
+              return
+            }
             const newMints = settings.mints.filter(m => m !== url)
             const { [url]: _, ...remainingAliases } = settings.mintAliases || {}
             setCurrentScreen('home')

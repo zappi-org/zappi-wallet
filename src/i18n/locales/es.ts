@@ -185,6 +185,8 @@ export default {
     addRelay: 'Agregar Relay',
     deleteRelay: 'Eliminar Relay',
     confirmDeleteRelay: '¿Eliminar este relay?',
+    minRelaysRequired: 'Se requieren al menos {{min}} relays',
+    minMintsRequired: 'Se requieren al menos {{min}} mints',
 
     // PIN Change
     currentPinLabel: 'Ingresa PIN actual',

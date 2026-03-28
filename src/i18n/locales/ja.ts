@@ -185,6 +185,8 @@ export default {
     addRelay: 'リレーを追加',
     deleteRelay: 'リレーを削除',
     confirmDeleteRelay: '削除しますか？',
+    minRelaysRequired: '最低{{min}}個のリレーが必要です',
+    minMintsRequired: '最低{{min}}個のミントが必要です',
 
     // PIN Change
     currentPinLabel: '現在のPINを入力',

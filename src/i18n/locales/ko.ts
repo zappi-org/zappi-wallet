@@ -185,6 +185,8 @@ export default {
     addRelay: '릴레이 추가',
     deleteRelay: '릴레이 삭제',
     confirmDeleteRelay: '삭제하시겠습니까?',
+    minRelaysRequired: '최소 {{min}}개의 릴레이가 필요합니다',
+    minMintsRequired: '최소 {{min}}개의 민트가 필요합니다',
 
     // PIN Change
     currentPinLabel: '현재 PIN 입력',
