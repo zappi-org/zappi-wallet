@@ -13,7 +13,7 @@ import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { MintSelectBottomSheet } from '@/ui/components/payment'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
-import cardLogo from '@/assets/card-logo.svg'
+import { MintIcon } from '@/ui/components/common/MintIcon'
 import type { ValidatedCashuToken } from '@/ui/components/scanner/InputValidator'
 
 interface UntrustedMintStepProps {
@@ -103,13 +103,7 @@ export function UntrustedMintStep({
 
         {/* Origin card */}
         <div className="flex items-center gap-2.5 bg-white border border-border/50 rounded-[14px] px-4 py-3 max-w-[280px] shadow-sm">
-          <div className="w-9 h-9 rounded-[10px] overflow-hidden shrink-0 flex items-center justify-center bg-accent-warning/10">
-            {mintIconUrl ? (
-              <img src={mintIconUrl} alt="" className="w-6 h-6 object-contain" onError={(e) => { (e.target as HTMLImageElement).src = cardLogo }} />
-            ) : (
-              <img src={cardLogo} alt="" className="w-6 h-6 object-contain" />
-            )}
-          </div>
+          <MintIcon iconUrl={mintIconUrl} className="w-9 h-9 rounded-[10px] bg-accent-warning/10" />
           <p className="text-caption text-foreground-muted leading-snug">
             <span className="font-semibold text-foreground">{mintName}</span>
             {' · '}
@@ -138,7 +132,7 @@ export function UntrustedMintStep({
           disabled={buttonsDisabled}
           className="w-full bg-brand rounded-[14px] px-5 py-[18px] flex items-center gap-3.5 active:scale-[0.98] transition-transform disabled:opacity-50 shadow-lg shadow-brand/25"
         >
-          <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-[10px] bg-white/20 flex items-center justify-center shrink-0">
             {addLoading ? (
               <Loader2 className="w-5 h-5 animate-spin text-white" />
             ) : (
@@ -161,7 +155,7 @@ export function UntrustedMintStep({
           disabled={buttonsDisabled}
           className="w-full bg-muted rounded-[14px] px-5 py-[18px] flex items-center gap-3.5 active:scale-[0.98] transition-transform disabled:opacity-50"
         >
-          <div className="w-10 h-10 rounded-xl bg-foreground/[0.06] flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-[10px] bg-foreground/[0.06] flex items-center justify-center shrink-0">
             {swapLoading ? (
               <Loader2 className="w-5 h-5 animate-spin text-foreground" />
             ) : (

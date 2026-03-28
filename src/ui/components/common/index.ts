@@ -27,3 +27,4 @@ export {
 export { QrScanner, type QrScannerProps } from './QrScanner'
 export { PinInput, type PinInputProps } from './PinInput'
 export { CountdownTimer } from './CountdownTimer'
+export { MintIcon } from './MintIcon'

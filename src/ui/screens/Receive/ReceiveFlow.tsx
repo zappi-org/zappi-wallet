@@ -31,6 +31,15 @@ function isAlreadySpentError(error?: { code?: string; message?: string } | null)
   return msg.includes('already spent') || msg.includes('token spent')
 }
 
+/** Get user-facing error message for token receive failures */
+function getTokenErrorMessage(
+  error: { code?: string; message?: string } | null | undefined,
+  t: (key: string) => string,
+): string {
+  if (isAlreadySpentError(error)) return t('payment.tokenAlreadySpent')
+  return error?.message || t('payment.tokenReceiveFailed')
+}
+
 /** Returns true if swap fee is too high (fee >= amount) and shows a toast */
 async function checkSwapFeeTooHigh(
   onEstimateSwapFee: ReceiveFlowProps['onEstimateSwapFee'],
@@ -420,17 +429,11 @@ export function ReceiveFlow({
           duration: 5000,
         })
       } else {
-        const message = isAlreadySpentError(result.error)
-          ? t('payment.tokenAlreadySpent')
-          : result.error?.message || t('payment.tokenReceiveFailed')
-        addToast({ type: 'error', message, duration: 3000 })
+        addToast({ type: 'error', message: getTokenErrorMessage(result.error, t), duration: 3000 })
       }
     } catch (err) {
       console.error('[ReceiveFlow] Token receive error:', err)
-      const message = isAlreadySpentError(err instanceof Error ? { message: err.message } : null)
-        ? t('payment.tokenAlreadySpent')
-        : t('payment.tokenReceiveFailed')
-      addToast({ type: 'error', message, duration: 3000 })
+      addToast({ type: 'error', message: getTokenErrorMessage(err instanceof Error ? { message: err.message } : null, t), duration: 3000 })
     } finally {
       isProcessingRef.current = false
     }
@@ -490,10 +493,7 @@ export function ReceiveFlow({
           selectedMintUrl: targetMintUrl,
         }))
       } else {
-        const message = isAlreadySpentError(result.error)
-          ? t('payment.tokenAlreadySpent')
-          : result.error?.message || t('payment.tokenReceiveFailed')
-        addToast({ type: 'error', message, duration: 3000 })
+        addToast({ type: 'error', message: getTokenErrorMessage(result.error, t), duration: 3000 })
       }
     } catch (err) {
       console.error('[ReceiveFlow] Swap to my mint error:', err)

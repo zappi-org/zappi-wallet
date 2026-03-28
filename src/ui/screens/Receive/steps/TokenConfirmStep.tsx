@@ -14,12 +14,13 @@
  * - Offline: mint change (swap) disabled
  */
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, type ReactNode } from 'react'
 import { ArrowLeft, ChevronRight, WifiOff, AlertTriangle, ShieldCheck, Loader2 } from 'lucide-react'
 import { useTranslation, Trans } from 'react-i18next'
 import { hapticTap } from '@/utils/haptic'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
+import { MintIcon } from '@/ui/components/common/MintIcon'
 import { MintSelectBottomSheet } from '@/ui/components/payment'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
@@ -27,7 +28,14 @@ import { selectP2pkPubkey } from '@/store/selectors'
 import { isP2PKLockedToUser } from '@/utils/token'
 import type { ValidatedCashuToken } from '@/ui/components/scanner/InputValidator'
 import type { DleqResult } from '@/utils/token'
-import cardLogo from '@/assets/card-logo.svg'
+
+// Offline state banner config
+const OFFLINE_BANNERS: Record<string, { icon: ReactNode; bg: string; textColor: string; key: string }> = {
+  ok: { icon: <ShieldCheck className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />, bg: 'bg-blue-50', textColor: 'text-blue-700', key: 'receive.offline.p2pkAccepted' },
+  'dleq-missing': { icon: <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />, bg: 'bg-amber-50', textColor: 'text-amber-700', key: 'receive.offline.dleqMissing' },
+  'dleq-failed': { icon: <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />, bg: 'bg-red-50', textColor: 'text-red-700', key: 'receive.offline.dleqFailed' },
+  'no-p2pk': { icon: <WifiOff className="w-4 h-4 text-foreground-muted shrink-0 mt-0.5" />, bg: 'bg-muted', textColor: 'text-foreground', key: 'receive.offline.nonP2PKError' },
+}
 
 interface TokenConfirmStepProps {
   onBack: () => void
@@ -128,6 +136,8 @@ export function TokenConfirmStep({
     setShowMintSelect(false)
   }, [])
 
+  const banner = offlineState ? OFFLINE_BANNERS[offlineState] : null
+
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
@@ -159,14 +169,7 @@ export function TokenConfirmStep({
 
             {/* Origin card */}
             <div className="flex items-center gap-2.5 bg-white border border-border/50 rounded-[14px] px-4 py-3 mt-5 max-w-[280px] shadow-sm">
-              <div className="w-9 h-9 rounded-[10px] overflow-hidden shrink-0 flex items-center justify-center bg-brand/10">
-                <img
-                  src={tokenMintIconUrl || cardLogo}
-                  alt=""
-                  className="w-6 h-6 object-contain"
-                  onError={(e) => { (e.target as HTMLImageElement).src = cardLogo }}
-                />
-              </div>
+              <MintIcon iconUrl={tokenMintIconUrl} className="w-9 h-9 rounded-[10px] bg-brand/10" />
               <p className="text-caption text-foreground-muted leading-snug">
                 <span className="font-semibold text-foreground">{tokenMintName}</span>
                 {t('receive.token.tokenFromSuffix')}
@@ -189,15 +192,13 @@ export function TokenConfirmStep({
               disabled={isProcessing || isReceiveDisabled}
               className="w-full bg-brand rounded-[14px] px-5 py-[18px] flex items-center gap-3.5 active:scale-[0.98] transition-transform disabled:opacity-50 shadow-lg shadow-brand/25"
             >
-              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0 overflow-hidden">
-                {isReceiving ? (
+              {isReceiving ? (
+                <div className="w-10 h-10 rounded-[10px] bg-white/20 flex items-center justify-center shrink-0">
                   <Loader2 className="w-5 h-5 animate-spin text-white" />
-                ) : tokenMintIconUrl ? (
-                  <img src={tokenMintIconUrl} alt="" className="w-6 h-6 object-contain" onError={(e) => { (e.target as HTMLImageElement).src = cardLogo }} />
-                ) : (
-                  <img src={cardLogo} alt="" className="w-6 h-6 object-contain" />
-                )}
-              </div>
+                </div>
+              ) : (
+                <MintIcon iconUrl={tokenMintIconUrl} className="w-10 h-10 rounded-[10px] bg-white/20" />
+              )}
               <div className="flex-1 min-w-0 text-left">
                 <p className="text-body font-bold text-white truncate">
                   {t('receive.token.receiveDirectly', { mint: tokenMintName })}
@@ -214,15 +215,13 @@ export function TokenConfirmStep({
               disabled={isProcessing || isSwapDisabled}
               className="w-full bg-muted rounded-[14px] px-5 py-[18px] flex items-center gap-3.5 active:scale-[0.98] transition-transform disabled:opacity-50"
             >
-              <div className="w-10 h-10 rounded-xl bg-foreground/[0.06] flex items-center justify-center shrink-0 overflow-hidden">
-                {swapLoading ? (
+              {swapLoading ? (
+                <div className="w-10 h-10 rounded-[10px] bg-foreground/[0.06] flex items-center justify-center shrink-0">
                   <Loader2 className="w-5 h-5 animate-spin text-foreground" />
-                ) : activeMintIconUrl ? (
-                  <img src={activeMintIconUrl} alt="" className="w-6 h-6 object-contain" onError={(e) => { (e.target as HTMLImageElement).src = cardLogo }} />
-                ) : (
-                  <img src={cardLogo} alt="" className="w-6 h-6 object-contain" />
-                )}
-              </div>
+                </div>
+              ) : (
+                <MintIcon iconUrl={activeMintIconUrl} className="w-10 h-10 rounded-[10px] bg-foreground/[0.06]" />
+              )}
               <div className="flex-1 min-w-0 text-left">
                 <p className="text-body font-bold text-foreground truncate">
                   {t('receive.token.receiveViaSwap', { mint: activeMintName })}
@@ -252,29 +251,11 @@ export function TokenConfirmStep({
               <p className="text-body text-foreground-muted mt-3">{formatFiat(token.amountSats)}</p>
             )}
 
-            {/* Offline banners */}
-            {offlineState === 'ok' && (
-              <div className="mt-4 flex items-start gap-2 bg-blue-50 rounded-xl p-3 max-w-[300px]">
-                <ShieldCheck className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                <p className="text-caption text-blue-700">{t('receive.offline.p2pkAccepted')}</p>
-              </div>
-            )}
-            {offlineState === 'dleq-missing' && (
-              <div className="mt-4 flex items-start gap-2 bg-amber-50 rounded-xl p-3 max-w-[300px]">
-                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                <p className="text-caption text-amber-700">{t('receive.offline.dleqMissing')}</p>
-              </div>
-            )}
-            {offlineState === 'dleq-failed' && (
-              <div className="mt-4 flex items-start gap-2 bg-red-50 rounded-xl p-3 max-w-[300px]">
-                <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                <p className="text-caption text-red-700">{t('receive.offline.dleqFailed')}</p>
-              </div>
-            )}
-            {offlineState === 'no-p2pk' && (
-              <div className="mt-4 flex items-start gap-2 bg-muted rounded-xl p-3 max-w-[300px]">
-                <WifiOff className="w-4 h-4 text-foreground-muted shrink-0 mt-0.5" />
-                <p className="text-caption text-foreground">{t('receive.offline.nonP2PKError')}</p>
+            {/* Offline banner */}
+            {banner && (
+              <div className={`mt-4 flex items-start gap-2 ${banner.bg} rounded-xl p-3 max-w-[300px]`}>
+                {banner.icon}
+                <p className={`text-caption ${banner.textColor}`}>{t(banner.key)}</p>
               </div>
             )}
           </div>
