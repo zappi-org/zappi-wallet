@@ -399,6 +399,7 @@ export function SendInputStep({
                         src={wallet.iconUrl || cardLogo}
                         alt=""
                         className="w-9 h-9 rounded-full object-contain shrink-0 bg-foreground/[0.04]"
+                        onError={(e) => { (e.target as HTMLImageElement).src = cardLogo }}
                       />
                       <div className="flex-1 min-w-0 text-left">
                         <p className="text-subtitle font-medium text-foreground truncate">{wallet.name}</p>

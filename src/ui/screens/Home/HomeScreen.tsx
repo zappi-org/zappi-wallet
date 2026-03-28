@@ -272,7 +272,7 @@ export function HomeScreen({
         </div>
 
         {/* Transaction List — header hidden, managed above */}
-        <div className="pb-20 w-[calc(var(--card-w)+2rem)] mx-auto">
+        <div className="pb-28 w-[calc(var(--card-w)+2rem)] mx-auto">
           <TransactionList
             transactions={filteredTransactions}
             onTransactionClick={onSelectTransaction}
