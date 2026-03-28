@@ -135,6 +135,16 @@ export interface ValidatedMyWallet {
   targetMintName: string
 }
 
+export interface ValidatedNpubContact {
+  type: 'npub-contact'
+  npub: string
+  pubkeyHex: string
+  contactName: string
+  mints: string[]
+  relays?: string[]
+  p2pkPubkey?: string
+}
+
 export interface ValidatedAmount {
   type: 'amount'
   amount: number

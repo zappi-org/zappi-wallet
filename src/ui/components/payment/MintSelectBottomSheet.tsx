@@ -90,13 +90,16 @@ function MintSelectBottomSheetInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const selectedMint = filteredMints.find((m) => m.url === localSelected)
+  const selectedHasBalance = (selectedMint?.balance ?? 0) > 0
+
   const handleConfirm = useCallback(() => {
-    if (localSelected) {
+    if (localSelected && selectedHasBalance) {
       hapticTap()
       onSelect(localSelected)
       onClose()
     }
-  }, [localSelected, onSelect, onClose])
+  }, [localSelected, selectedHasBalance, onSelect, onClose])
 
   return (
     <>
@@ -136,12 +139,12 @@ function MintSelectBottomSheetInner({
         <div
           ref={carouselRef}
           onScroll={handleScroll}
-          className="flex gap-3 px-[calc(50%-var(--card-w)/2)] overflow-x-auto snap-x snap-mandatory scrollbar-hide py-2"
+          className="flex gap-2 px-[calc(50%-var(--card-w)/2)] overflow-x-auto snap-x snap-mandatory scrollbar-hide py-2"
         >
           {filteredMints.map((mint, idx) => (
             <div
               key={mint.url}
-              className="snap-center shrink-0"
+              className="snap-center snap-always shrink-0"
             >
               <MintCard
                 mint={mint}
@@ -182,7 +185,7 @@ function MintSelectBottomSheetInner({
           <Button
             variant="brand"
             size="xl"
-            disabled={!localSelected}
+            disabled={!localSelected || !selectedHasBalance}
             onClick={handleConfirm}
             className="w-full"
           >

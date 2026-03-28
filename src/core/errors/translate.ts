@@ -1,6 +1,6 @@
 import i18n from '@/i18n'
 import type { BaseError } from './base'
-import type { InsufficientBalanceError } from './cashu'
+import type { InsufficientBalanceError, MintConnectionError } from './cashu'
 import { formatSats } from '@/utils/format'
 
 const ERROR_KEY_MAP: Record<string, string> = {
@@ -48,9 +48,28 @@ const ERROR_KEY_MAP: Record<string, string> = {
   UNKNOWN: 'errors.unknownError',
 }
 
+let mintNameResolver: ((mintUrl: string) => string | null) | null = null
+
+export function setMintNameResolver(resolver: (mintUrl: string) => string | null): void {
+  mintNameResolver = resolver
+}
+
 export function translateError(error: BaseError): string {
   const key = ERROR_KEY_MAP[error.code]
   if (!key) return error.toUserMessage()
+
+  if (error.code === 'MINT_CONNECTION') {
+    const e = error as MintConnectionError
+    let mintName = e.mintUrl
+    try {
+      const hostname = new URL(e.mintUrl).hostname
+      mintName = hostname
+    } catch { /* fallback to url */ }
+    if (mintNameResolver) {
+      mintName = mintNameResolver(e.mintUrl) || mintName
+    }
+    return i18n.t(key, { mint: mintName })
+  }
 
   if (error.code === 'INSUFFICIENT_BALANCE') {
     const e = error as InsufficientBalanceError

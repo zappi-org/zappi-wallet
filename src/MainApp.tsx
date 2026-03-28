@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence } from 'motion/react'
 import { useAppStore } from '@/store'
@@ -12,7 +12,7 @@ import { useStateReconstruction } from '@/hooks/useStateReconstruction'
 import { checkAndRefreshAnchor } from '@/services/anchor'
 import { getP2PKPubkey } from '@/services/crypto'
 import { InsufficientBalanceError } from '@/core/errors/cashu'
-import { translateError } from '@/core/errors/translate'
+import { translateError, setMintNameResolver } from '@/core/errors/translate'
 import { clearMintData } from '@/data/database/schema'
 
 // Tier 1: Always loaded (critical path for authenticated users)
@@ -20,9 +20,12 @@ import { HomeScreen } from '@/ui/screens/Home/HomeScreen'
 import { LockScreen } from '@/ui/screens/Lock/LockScreen'
 import { LoadingFallback } from '@/ui/components/common/LoadingFallback'
 import { PageTransition } from '@/ui/components/common/PageTransition'
+import { BottomNav } from '@/ui/components/layout/BottomNav'
+import { Wallet, BookUser, Settings as SettingsIcon } from 'lucide-react'
 
 // Tier 2: Lazy loaded (frequently used)
 const SettingsScreen = lazy(() => import('@/ui/screens/Settings/SettingsScreen'))
+const ContactsScreen = lazy(() => import('@/ui/screens/Contacts/ContactsScreen'))
 const HistoryScreen = lazy(() => import('@/ui/screens/History/HistoryScreen'))
 const TransferScreen = lazy(() => import('@/ui/screens/Transfer/TransferScreen'))
 const NotificationsScreen = lazy(() => import('@/ui/screens/Notifications/NotificationsScreen'))
@@ -54,6 +57,7 @@ import { SyncService } from '@/services/sync/sync.service'
 import { ProfileService } from '@/services/profile/profile.service'
 import { SettingsRepository } from '@/data/repositories/settings.repository'
 import { getTransactionRepo } from '@/data/repositories/transaction.repository'
+import { getContactRepo } from '@/data/repositories/contact.repository'
 import { getBalances as cocoGetBalances } from '@/coco/cashuService'
 import { deleteCocoData, clearWalletCache, markSendFinalized, markSendReclaimed } from '@/coco'
 import { resetWalletCache } from '@/data/cache/wallet-cache'
@@ -62,7 +66,17 @@ import { formatSats } from '@/utils/format'
 import { exchangeRateService } from '@/services/exchange-rate'
 
 
-type Screen = 'home' | 'settings' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'mint-management' | 'relay-management' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail' | 'mint-detail'
+type Screen = 'home' | 'settings' | 'contacts' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'mint-management' | 'relay-management' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail' | 'mint-detail'
+
+type TabId = 'wallet' | 'contacts' | 'settings'
+const TAB_SCREENS: Record<TabId, Screen> = { wallet: 'home', contacts: 'contacts', settings: 'settings' }
+const SCREEN_TO_TAB: Partial<Record<Screen, TabId>> = { home: 'wallet', contacts: 'contacts', settings: 'settings' }
+
+// Register mint name resolver for error messages
+setMintNameResolver((mintUrl) => {
+  const state = useAppStore.getState()
+  return state.settings.mintAliases?.[mintUrl] || null
+})
 
 export default function MainApp() {
   const { t } = useTranslation()
@@ -105,6 +119,25 @@ export default function MainApp() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('home')
   const [previousScreen, setPreviousScreen] = useState<Screen | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  // Derive active tab from current screen
+  const activeTab: TabId = SCREEN_TO_TAB[currentScreen] ?? 'wallet'
+
+  // Bottom nav items
+  const navItems = useMemo(() => [
+    { id: 'wallet', label: t('nav.wallet'), icon: <Wallet className="w-[22px] h-[22px]" strokeWidth={1.6} /> },
+    { id: 'contacts', label: t('nav.contacts'), icon: <BookUser className="w-[22px] h-[22px]" strokeWidth={1.6} /> },
+    { id: 'settings', label: t('nav.settings'), icon: <SettingsIcon className="w-[22px] h-[22px]" strokeWidth={1.6} /> },
+  ], [t])
+
+  // Whether current screen is a tab screen (show bottom nav)
+  const [hasSettingsSubPage, setHasSettingsSubPage] = useState(false)
+  const isTabScreen = !!SCREEN_TO_TAB[currentScreen] && !hasSettingsSubPage
+
+  // Handle tab selection
+  const handleTabSelect = useCallback((tabId: string) => {
+    setCurrentScreen(TAB_SCREENS[tabId as TabId])
+    setPreviousScreen(null)
+  }, [])
 
   // MintDetail screen state
   const [selectedMint, setSelectedMint] = useState<MintInfo | null>(null)
@@ -121,6 +154,9 @@ export default function MainApp() {
 
   // History screen initial mint filter
   const [historyInitialMintUrls, setHistoryInitialMintUrls] = useState<string[] | undefined>(undefined)
+
+  // Contact info for send flow (from address book)
+  const [contactInfo, setContactInfo] = useState<{ address: string; displayName: string } | null>(null)
 
   // Transaction detail state
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
@@ -636,6 +672,7 @@ export default function MainApp() {
       await services.security.deleteWallet()
       await services.settingsRepo.clearAll()
       await services.transactionRepo.deleteAll()
+      await getContactRepo().deleteAll()
       await deleteCocoData()
       removePasskey()
 
@@ -782,6 +819,7 @@ export default function MainApp() {
     if (isInitializing || isLocked) return
     const timer = setTimeout(() => {
       import('@/ui/screens/Settings/SettingsScreen')
+      import('@/ui/screens/Contacts/ContactsScreen')
       import('@/ui/screens/History/HistoryScreen')
       import('@/ui/screens/Transfer/TransferScreen')
       import('@/ui/screens/Notifications/NotificationsScreen')
@@ -820,7 +858,6 @@ export default function MainApp() {
           <Suspense fallback={<LoadingFallback />}>
       {currentScreen === 'home' && (
         <HomeScreen
-          onSettings={() => setCurrentScreen('settings')}
           onTransactions={(mintUrl?: string) => {
             setHistoryInitialMintUrls(mintUrl ? [mintUrl] : undefined)
             setCurrentScreen('history')
@@ -861,7 +898,7 @@ export default function MainApp() {
 
       {currentScreen === 'settings' && (
         <SettingsScreen
-          onBack={handleBack}
+          onBack={() => handleTabSelect('wallet')}
           onChangePassword={handleChangePassword}
           onBackupMnemonic={handleBackupMnemonic}
           onLogout={handleLogout}
@@ -886,6 +923,20 @@ export default function MainApp() {
           onAnalytics={() => {
             setPreviousScreen('settings')
             setCurrentScreen('analytics')
+          }}
+          onSubPageChange={setHasSettingsSubPage}
+        />
+      )}
+
+      {currentScreen === 'contacts' && (
+        <ContactsScreen
+          onSendToContact={(validatedData, displayName, mintUrl) => {
+            setPreviousScreen('contacts')
+            setActiveMintUrl(mintUrl)
+            setValidatedScanData(validatedData)
+            setScannedAmount(0)
+            setContactInfo({ address: '', displayName })
+            setCurrentScreen('send')
           }}
         />
       )}
@@ -987,10 +1038,12 @@ export default function MainApp() {
           onBack={() => {
             const backTo = previousScreen || 'home'
             setPreviousScreen(null)
+            setContactInfo(null)
             setCurrentScreen(backTo)
           }}
           onComplete={() => {
             setPreviousScreen(null)
+            setContactInfo(null)
             setCurrentScreen('home')
           }}
           onExecuteRoute={handleExecuteRoute}
@@ -1000,6 +1053,8 @@ export default function MainApp() {
           validatedData={validatedScanData || undefined}
           initialAmount={scannedAmount || undefined}
           initialMintUrl={activeMintUrl}
+          initialDestination={contactInfo?.address || undefined}
+          initialDisplayName={contactInfo?.displayName || undefined}
         />
       )}
 
@@ -1066,6 +1121,10 @@ export default function MainApp() {
               setSelectedMint({ ...selectedMint, alias: newName, name: newName })
             }
           }}
+          onChangeMintColor={(url, color) => {
+            const newColors = { ...settings.mintColors, [url]: color }
+            handleSaveSettings({ mintColors: newColors })
+          }}
           onSelectTransaction={(tx) => {
             setSelectedTransaction(tx)
             setPreviousScreen('mint-detail')
@@ -1083,6 +1142,14 @@ export default function MainApp() {
         </PageTransition>
       </AnimatePresence>
       </div>
+
+      {/* Bottom Navigation — slides in/out */}
+      <BottomNav
+        items={navItems}
+        activeId={activeTab}
+        visible={isTabScreen}
+        onSelect={handleTabSelect}
+      />
 
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />

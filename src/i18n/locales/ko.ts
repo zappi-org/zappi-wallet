@@ -58,6 +58,9 @@ export default {
     createWallet: '신규 생성하기',
     importWallet: '이미 지갑이 있어요',
     securePrivateFast: 'Secure • Private • Fast',
+    invitePlaceholder: '초대 코드',
+    inviteInvalidCount: '올바르지 않은 초대 코드입니다 ({{current}}/{{max}})',
+    inviteLocked: '시도 횟수를 초과했습니다. 5분 후 다시 시도해주세요.',
 
     // Mnemonic
     secretRecoveryKey: '니모닉',
@@ -124,7 +127,7 @@ export default {
     lightningAddressRequired: 'Lightning 결제를 수취하려면 Lightning Address를 등록해야 합니다.',
     lightningAddressRegistered: 'Lightning Address가 등록되었습니다',
     lightningAddressRegistrationFailed: 'Lightning Address 등록에 실패했습니다',
-    changeUsername: 'Username 변경',
+    changeUsername: '라이트닝 주소 변경',
     currentAddress: '현재 주소',
     newUsername: '새 username',
     usernameAvailable: '사용 가능',
@@ -734,7 +737,7 @@ export default {
     tokenSpent: '이미 사용된 토큰입니다',
     insufficientBalance: '잔액이 부족해요 (필요: {{required}}  보유: {{available}})',
     insufficientBalanceForFee: '수수료 포함 시 잔액이 부족해요 (필요: {{required}} + 수수료  보유: {{available}})',
-    mintConnection: '민트에 연결할 수 없습니다',
+    mintConnection: '{{mint}} 민트에 연결할 수 없습니다',
     mintError: '민트에서 오류가 발생했습니다',
     invalidToken: '유효하지 않은 토큰입니다',
     invalidProof: '전송을 처리할 수 없어요. 잠시 후 다시 시도해주세요.',
@@ -826,7 +829,7 @@ export default {
     next: '다음',
     myWallet: '내 지갑으로 보내기',
     noOtherWallets: '다른 지갑이 없습니다',
-    myWalletList: '내 지갑 목록',
+    myWalletList: '내 민트 목록',
     sameWalletError: '같은 지갑으로는 보낼 수 없어요',
     amountRequired: '금액을 입력해주세요',
     destinationRequired: '목적지를 입력해주세요',
@@ -835,6 +838,7 @@ export default {
       whoToSend: '누구에게 보낼까요?',
       placeholder: '주소 또는 요청 입력 (선택사항)',
       hint: '건너뛰면 현금처럼 직접 건넬 수 있는 <b>토큰</b>을 만들어요',
+      unrecognized: '인식할 수 없는 주소 형식입니다',
     },
     amount: {
       sendTo: '{{destination}}에게',
@@ -1013,7 +1017,7 @@ export default {
     editName: '이름 변경',
     namePlaceholder: '이름을 입력하세요',
     duplicateName: '이미 사용 중인 이름이에요',
-    defaultName: '지갑 {{number}}',
+    defaultName: '민트 {{number}}',
     // 민트 정보 서브화면
     mintInfo: '민트 정보',
     announcement: '공지',
@@ -1028,6 +1032,8 @@ export default {
     copy: '복사하기',
     copied: '복사됨',
     showQr: 'QR 표시',
+    cardName: '카드 이름',
+    cardColor: '카드 색상',
     dangerZone: 'Danger zone',
     emptyAndDelete: '잔액을 비우고 민트를 지우기',
     // 삭제 플로우
@@ -1077,5 +1083,41 @@ export default {
     unexpectedTitle: '예기치 않은 오류가 발생했습니다',
     unexpectedMessage: '앱에 문제가 발생했습니다. 새로고침하여 다시 시도해주세요.',
     reload: '새로고침',
+  },
+
+  // Bottom Navigation
+  nav: {
+    wallet: '지갑',
+    contacts: '연락처',
+    settings: '설정',
+  },
+
+  // Address Book / Contacts
+  contacts: {
+    title: '연락처',
+    addContact: '연락처 추가',
+    editContact: '연락처 수정',
+    deleteConfirm: '이 연락처를 삭제하시겠습니까?',
+    name: '이름',
+    namePlaceholder: '연락처 이름',
+    address: '주소',
+    addressPlaceholder: '라이트닝 주소, npub 등',
+    memoPlaceholder: '메모',
+    optional: '선택',
+    nameRequired: '이름을 입력해주세요',
+    addressRequired: '주소를 입력해주세요',
+    emptyTitle: '아직 연락처가 없습니다',
+    emptyDescription: '자주 보내는 주소를 저장하세요',
+    noResults: '일치하는 연락처가 없습니다',
+    onlyLightningOrNpub: '라이트닝 주소 또는 npub만 등록할 수 있습니다',
+    verificationFailed: '주소 확인에 실패했습니다',
+    verify: {
+      invalidFormat: '올바르지 않은 주소 형식입니다',
+      notReachable: '주소에 접근할 수 없습니다',
+      invalidNpub: '올바르지 않은 npub입니다',
+      noNutzapInfo: '이 npub에 NutZap 정보가 없습니다',
+      noMints: '이 npub에 등록된 민트가 없습니다',
+      decodeFailed: '주소를 해석할 수 없습니다',
+    },
   },
 }

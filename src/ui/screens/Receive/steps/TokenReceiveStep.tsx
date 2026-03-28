@@ -186,7 +186,7 @@ export function TokenReceiveStep({
           loading={state === 'validating'}
           className="w-full"
         >
-          {tokenInput.trim() ? t('receive.next') : t('common.no')}
+          {t('receive.next')}
         </Button>
       </div>
 

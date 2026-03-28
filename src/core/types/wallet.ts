@@ -187,6 +187,8 @@ export interface WalletSettings {
   unitDisplay?: 'bip177' | 'sats'
   /** User-defined mint aliases: { mintUrl: "지갑 1" } */
   mintAliases?: Record<string, string>
+  /** User-defined mint card colors: { mintUrl: "indigo" | "#FF5500" } */
+  mintColors?: Record<string, string>
   posDevices?: POSDevice[]
   /** Preferred fiat currency for display (default: 'USD') */
   fiatCurrency?: FiatCurrency

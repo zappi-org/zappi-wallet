@@ -347,9 +347,8 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
       </header>
 
       {isChanging ? (
-        /* Processing screen */
         <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6">
-          <Loader2 className="w-12 h-12 text-accent-primary animate-spin" />
+          <Loader2 className="w-12 h-12 text-brand animate-spin" />
           <div className="flex flex-col items-center gap-2">
             <p className="text-body font-bold text-foreground">
               {t('settings.changingUsername')}
@@ -363,122 +362,80 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
         </div>
       ) : (
         <>
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-32">
+          <div className="flex-1 overflow-y-auto px-6 pt-6 pb-32">
             {/* Current address */}
-            <section>
-              <label className="text-overline font-bold text-foreground-muted mb-1 block px-2">
-                {t('settings.currentAddress')}
-              </label>
-              <div className="bg-background-card rounded-lg p-3">
-                <div className="flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-accent-primary shrink-0" />
-                  <span className="text-label font-medium text-foreground truncate">
-                    {settings.lightningAddress || '-'}
-                  </span>
-                </div>
-              </div>
-            </section>
+            <p className="text-body font-medium text-foreground-muted">{t('settings.currentAddress')}</p>
+            <div className="flex items-center gap-2 mt-1.5 mb-8">
+              <Zap className="w-5 h-5 text-brand shrink-0" />
+              <span className="text-subtitle font-medium text-foreground truncate">
+                {settings.lightningAddress || '-'}
+              </span>
+            </div>
 
             {/* New username input */}
-            <section>
-              <label className="text-overline font-bold text-foreground-muted mb-1 block px-2">
-                {t('settings.newUsername')}
-              </label>
-              <div className="bg-background-card rounded-lg p-3">
-                <div className="flex items-center gap-1">
-                  <input
-                    type="text"
-                    value={newUsername}
-                    onChange={(e) => setNewUsername(e.target.value.toLowerCase())}
-                    placeholder="username"
-                    className="flex-1 p-2.5 rounded-md border border-primary/10 bg-background-card text-caption focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    maxLength={20}
-                    autoFocus
-                  />
-                  <span className="text-label font-medium text-foreground-muted shrink-0">
-                    @{ZAPPI_LINK_DOMAIN}
-                  </span>
-                </div>
+            <p className="text-body font-medium text-foreground-muted mb-1.5">{t('settings.newUsername')}</p>
+            <div className="flex items-center border-b border-border focus-within:border-foreground/20 transition-colors">
+              <input
+                type="text"
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value.toLowerCase())}
+                placeholder="username"
+                className="flex-1 min-w-0 bg-transparent py-2.5 text-subtitle font-medium text-foreground placeholder:text-foreground-muted focus:outline-none"
+                maxLength={20}
+                autoFocus
+              />
+              <span className="text-body text-foreground-muted shrink-0">@{ZAPPI_LINK_DOMAIN}</span>
+            </div>
 
-                {/* Validation status */}
-                {newUsername && (
-                  <div className="mt-1.5 ml-1 flex items-center gap-1.5">
-                    {isCheckingUsername ? (
-                      <Loader2 className="w-3 h-3 text-foreground-muted animate-spin" />
-                    ) : usernameAvailable ? (
-                      <>
-                        <CheckCircle2 className="w-3 h-3 text-accent-success" />
-                        <span className="text-caption text-accent-success font-medium">
-                          {t('settings.usernameAvailable')}
-                        </span>
-                      </>
-                    ) : usernameError ? (
-                      <>
-                        <XCircle className="w-3 h-3 text-accent-danger" />
-                        <span className="text-caption text-accent-danger font-medium">
-                          {usernameError}
-                        </span>
-                      </>
-                    ) : null}
+            {/* Validation status */}
+            <div className="h-7 flex items-center mt-1.5">
+              {newUsername && (
+                isCheckingUsername ? (
+                  <Loader2 className="w-4 h-4 text-foreground-muted animate-spin" />
+                ) : usernameAvailable ? (
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-accent-success" />
+                    <span className="text-body text-accent-success font-medium">{t('settings.usernameAvailable')}</span>
                   </div>
-                )}
-              </div>
-            </section>
+                ) : usernameError ? (
+                  <div className="flex items-center gap-1.5">
+                    <XCircle className="w-4 h-4 text-accent-danger" />
+                    <span className="text-body text-accent-danger font-medium">{usernameError}</span>
+                  </div>
+                ) : null
+              )}
+            </div>
 
             {/* Fee info */}
             {serverDefaults && addressFee > 0 && (
-              <section>
-                <label className="text-overline font-bold text-foreground-muted mb-1 block px-2">
-                  {t('settings.changeFee')}
-                </label>
-                <div className="bg-background-card rounded-lg p-3 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-overline font-medium text-foreground-muted">
-                      {t('settings.changeFee')}
-                    </span>
-                    <span className="text-label font-medium font-display">
-                      {formatSats(addressFee)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-overline font-medium text-foreground-muted">
-                      {t('common.balance')}
-                    </span>
-                    <span
-                      className={cn(
-                        'text-label font-medium font-display',
-                        canAfford ? 'text-foreground' : 'text-accent-danger'
-                      )}
-                    >
-                      {formatSats(selectedBalance)}
-                    </span>
-                  </div>
-                  {!canAfford && selectedMintUrl && (
-                    <p className="text-caption text-accent-danger font-medium mt-1">
-                      {t('settings.insufficientBalance')}
-                    </p>
-                  )}
+              <div className="mt-6 space-y-2">
+                <div className="flex items-center justify-between py-2.5 border-b border-border/50">
+                  <span className="text-body text-foreground-muted">{t('settings.changeFee')}</span>
+                  <span className="text-body font-semibold font-display">{formatSats(addressFee)}</span>
                 </div>
-              </section>
+                <div className="flex items-center justify-between py-2.5">
+                  <span className="text-body text-foreground-muted">{t('common.balance')}</span>
+                  <span className={cn('text-body font-semibold font-display', canAfford ? 'text-foreground' : 'text-accent-danger')}>
+                    {formatSats(selectedBalance)}
+                  </span>
+                </div>
+                {!canAfford && selectedMintUrl && (
+                  <p className="text-body text-accent-danger">{t('settings.insufficientBalance')}</p>
+                )}
+              </div>
             )}
 
-            {/* Mint selection (only when fee > 0) */}
+            {/* Mint selection */}
             {serverDefaults && addressFee > 0 && (
-              <section>
-                <label className="text-overline font-bold text-foreground-muted mb-1 block px-2">
-                  {t('settings.paymentMint')}
-                </label>
+              <div className="mt-6">
+                <p className="text-body font-medium text-foreground-muted mb-2">{t('settings.paymentMint')}</p>
                 {mintInfos.length === 0 ? (
-                  <div className="bg-background-card rounded-lg p-3">
-                    <p className="text-caption text-accent-danger font-medium text-center">
-                      {t('settings.noPayableMint')}
-                    </p>
-                  </div>
+                  <p className="text-body text-accent-danger text-center py-4">{t('settings.noPayableMint')}</p>
                 ) : (
-                  <div className="w-full overflow-x-auto pb-3 pt-1 scrollbar-hide snap-x snap-mandatory">
-                    <div className="flex gap-3 px-[calc(50%-var(--card-w)/2)]">
+                  <div className="w-[calc(100%+3rem)] -mx-6 overflow-x-auto pb-3 pt-1 scrollbar-hide snap-x snap-mandatory">
+                    <div className="flex gap-2 px-[calc(50%-var(--card-w)/2)]">
                       {mintInfos.map((mint, idx) => (
-                        <div key={mint.url} className="snap-center shrink-0">
+                        <div key={mint.url} className="snap-center snap-always shrink-0">
                           <MintCard
                             mint={mint}
                             variant={getVariantByIndex(idx)}
@@ -490,46 +447,26 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
                     </div>
                   </div>
                 )}
-
-                {/* Swap warning for non-accepted mints */}
                 {selectedMintUrl && !isAcceptedMint && (
-                  <div className="mt-2 p-3 bg-accent-warning/5 rounded-lg border border-accent-warning/10">
-                    <p className="text-overline text-accent-warning font-bold">
-                      {t('settings.additionalFeeWarning')}
-                    </p>
-                  </div>
+                  <p className="text-body text-accent-warning mt-2">{t('settings.additionalFeeWarning')}</p>
                 )}
-              </section>
+              </div>
             )}
           </div>
 
-          {/* Bottom action bar */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 pb-safe bg-gradient-to-t from-background via-background to-transparent">
-            <div className="flex gap-2">
-              <Button
-                variant="secondary"
-                size="lg"
-                onClick={onBack}
-                className="flex-1"
-              >
-                {t('common.cancel')}
-              </Button>
-              <Button
-                variant="primary"
-                size="lg"
-                onClick={handleConfirm}
-                disabled={
-                  !usernameAvailable ||
-                  (addressFee > 0 && !canAfford) ||
-                  isCheckingUsername
-                }
-                className="flex-1"
-              >
-                {addressFee > 0
-                  ? `${t('settings.changeUsername')} (${formatSats(addressFee)})`
-                  : t('settings.changeUsername')}
-              </Button>
-            </div>
+          {/* Bottom action */}
+          <div className="absolute bottom-0 left-0 right-0 px-6 pb-6 pb-safe bg-gradient-to-t from-background via-background to-transparent pt-4">
+            <Button
+              variant="brand"
+              size="xl"
+              onClick={handleConfirm}
+              disabled={!usernameAvailable || (addressFee > 0 && !canAfford) || isCheckingUsername}
+              className="w-full"
+            >
+              {addressFee > 0
+                ? `${t('common.change')} (${formatSats(addressFee)})`
+                : t('common.change')}
+            </Button>
           </div>
         </>
       )}

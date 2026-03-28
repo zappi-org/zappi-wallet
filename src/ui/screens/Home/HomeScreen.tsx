@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo, startTransition, useCallback } from "react";
 import { useCarouselScroll } from "@/hooks/use-carousel-scroll";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
-import { User, Plus, LoaderCircle, ArrowDown } from "lucide-react";
+import { Plus, LoaderCircle, ArrowDown } from "lucide-react";
 
 import { useTranslation } from "react-i18next";
-import { MintCard, getVariantByIndex } from "../../components/wallet/MintCard";
+import { MintCard, resolveMintColor } from "../../components/wallet/MintCard";
 import { TransactionList } from "../../components/wallet/TransactionList";
 import { useWallet, useMintHealth, useMintMetadata } from "@/hooks";
 import { useAppStore } from "@/store";
@@ -14,7 +14,7 @@ import type { MintInfo, Transaction } from "@/core/types";
 import { getTransactionRepo } from "@/data/repositories/transaction.repository";
 
 export interface HomeScreenProps {
-  onSettings: () => void;
+  onSettings?: () => void;
   onNotifications?: () => void;
   onTransactions?: (mintUrl?: string) => void;
   onAddMint?: () => void;
@@ -28,7 +28,6 @@ export interface HomeScreenProps {
 }
 
 export function HomeScreen({
-  onSettings,
   onTransactions,
   onAddMint,
   onMintDetails,
@@ -51,7 +50,6 @@ export function HomeScreen({
   const { checkAllMints, getCachedStatus } = useMintHealth();
   const settings = useAppStore((state) => state.settings);
   const updateSettings = useAppStore((state) => state.updateSettings);
-  const updateAvailable = useAppStore((state) => state.updateAvailable);
   const txRefreshTrigger = useAppStore((state) => state.txRefreshTrigger);
   const { getDisplayName, getOriginalName, getIconUrl } = useMintMetadata(settings?.mints || []);
 
@@ -130,19 +128,8 @@ export function HomeScreen({
 
   return (
     <div className="h-dvh bg-background text-foreground font-primary overflow-hidden flex flex-col pt-safe" style={{ overscrollBehaviorY: 'contain' }}>
-      {/* Header */}
-      <header className="flex items-center justify-end px-5 pt-4 pb-3 shrink-0">
-        <button
-          onClick={onSettings}
-          aria-label={t('common.settings')}
-          className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-background-hover transition-colors relative"
-        >
-          <User className="w-6 h-6 text-foreground" />
-          {updateAvailable && (
-            <span className="absolute -top-0.5 -right-1 font-bold text-overline text-accent-danger leading-none">New</span>
-          )}
-        </button>
-      </header>
+      {/* Header spacer */}
+      <div className="shrink-0 h-2" />
 
       {/* Fixed top: Balance + Cards */}
       <div className="shrink-0">
@@ -214,7 +201,7 @@ export function HomeScreen({
                   >
                     <MintCard
                       mint={mint}
-                      variant={getVariantByIndex(idx)}
+                      {...resolveMintColor(mint.url, idx, settings.mintColors)}
                       hideBalance={settings.balanceHidden}
                       onDetail={() => onMintDetails?.(mints[idx], idx)}
                       onSend={handleSendClick}
@@ -285,7 +272,7 @@ export function HomeScreen({
         </div>
 
         {/* Transaction List — header hidden, managed above */}
-        <div className="pb-6 w-[calc(var(--card-w)+2rem)] mx-auto">
+        <div className="pb-20 w-[calc(var(--card-w)+2rem)] mx-auto">
           <TransactionList
             transactions={filteredTransactions}
             onTransactionClick={onSelectTransaction}

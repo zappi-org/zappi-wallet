@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowDownLeft, ArrowUpRight, Pencil } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import type { MintInfo } from "@/core/types";
 import { cn } from "@/lib/utils";
 import { useFormatSats, useFormatFiat } from "@/utils/format";
@@ -14,6 +14,8 @@ export type MintCardVariant = "light" | "medium" | "dark" | "darker" | "indigo" 
 interface MintCardProps {
   mint: MintInfo;
   variant?: MintCardVariant;
+  /** Custom hex color override (e.g. "#FF5500") */
+  customColor?: string;
   isSelected?: boolean;
   hideBalance?: boolean;
   onClick?: () => void;
@@ -50,8 +52,29 @@ function MintLogo({ iconUrl }: { iconUrl?: string }) {
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function getVariantByIndex(index: number): MintCardVariant {
-  const variants: MintCardVariant[] = ["indigo", "coral", "teal", "slate", "amber", "plum", "forest"];
+  const variants: MintCardVariant[] = ["indigo", "coral", "amber", "teal", "slate", "plum", "forest"];
   return variants[index % variants.length];
+}
+
+/** Preset variant names for color picker */
+// eslint-disable-next-line react-refresh/only-export-components
+export const CARD_PRESET_VARIANTS: MintCardVariant[] = ["indigo", "coral", "amber", "teal", "slate", "plum", "forest"];
+
+/** Hex colors for preset variants (single source of truth) */
+// eslint-disable-next-line react-refresh/only-export-components
+export const VARIANT_HEX: Record<string, string> = {
+  indigo: '#515AC0', coral: '#C75D4A', amber: '#B8863A',
+  teal: '#3A9E8F', slate: '#5A6578', plum: '#8B5A8A', forest: '#4A7C5E',
+};
+
+/** Resolve mint color from settings: returns { variant, customColor } */
+// eslint-disable-next-line react-refresh/only-export-components
+export function resolveMintColor(mintUrl: string, index: number, mintColors?: Record<string, string>): { variant: MintCardVariant; customColor?: string } {
+  const saved = mintColors?.[mintUrl]
+  if (!saved) return { variant: getVariantByIndex(index) }
+  if (saved.startsWith('#')) return { variant: getVariantByIndex(index), customColor: saved }
+  if (CARD_PRESET_VARIANTS.includes(saved as MintCardVariant)) return { variant: saved as MintCardVariant }
+  return { variant: getVariantByIndex(index) }
 }
 
 function getMintShortName(url: string, name?: string): string {
@@ -85,6 +108,7 @@ const variantColorClass: Record<MintCardVariant, string> = {
 export function MintCard({
   mint,
   variant = "medium",
+  customColor,
   isSelected,
   hideBalance,
   onClick,
@@ -111,12 +135,6 @@ export function MintCard({
     }
   }, [isEditing]);
 
-  const handleStartEdit = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditValue(displayName);
-    setIsEditing(true);
-  }, [displayName]);
-
   const handleSave = useCallback(() => {
     const trimmed = editValue.trim();
     if (trimmed && trimmed !== displayName) {
@@ -139,9 +157,10 @@ export function MintCard({
         onClick={onDetail ?? onClick}
         className={cn(
           "relative aspect-[280/160] flex flex-col justify-between p-5",
-          variantColorClass[variant],
+          !customColor && variantColorClass[variant],
           (onDetail || onClick) && "cursor-pointer active:brightness-95 transition-all"
         )}
+        style={customColor ? { backgroundColor: customColor } : undefined}
       >
         {/* Noise texture */}
         <div
@@ -155,40 +174,34 @@ export function MintCard({
           src={zappiLogo}
           alt=""
           aria-hidden="true"
-          className="absolute bottom-2 right-3 w-24 h-24 opacity-80 pointer-events-none"
+          className="absolute bottom-2 right-3 w-20 h-20 opacity-80 pointer-events-none"
         />
 
         {/* Top: Logo + Name */}
-        <div className="relative z-10 flex items-center gap-2.5">
-          <div className="rounded-full flex items-center justify-center overflow-hidden shrink-0 w-[25px] h-[27px]">
-            <MintLogo iconUrl={mint.iconUrl} />
-          </div>
-          {isEditing && onRename ? (
-            <input
-              ref={inputRef}
-              type="text"
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value.slice(0, 10))}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleSave() }}
-              onBlur={handleSave}
-              maxLength={10}
-              className="font-display text-body-bold font-semibold text-white leading-tight bg-white/15 rounded-md px-2 py-0.5 outline-none min-w-0 w-32"
-            />
-          ) : (
-            <button
-              onClick={onRename ? handleStartEdit : undefined}
-              className={cn(
-                "flex items-center gap-1.5 min-w-0",
-                onRename && "cursor-pointer"
-              )}
-            >
-              <span className="font-display text-body-bold font-semibold text-white leading-tight whitespace-nowrap truncate">
+        <div className="relative z-10">
+          <div className="flex items-center gap-2">
+            <div className="rounded-full flex items-center justify-center overflow-hidden shrink-0 w-[22px] h-[22px]">
+              <MintLogo iconUrl={mint.iconUrl} />
+            </div>
+            {isEditing && onRename ? (
+              <input
+                ref={inputRef}
+                type="text"
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value.slice(0, 10))}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSave() }}
+                onBlur={handleSave}
+                maxLength={10}
+                className="font-display text-body font-semibold text-white leading-tight bg-white/15 rounded-md px-2 py-0.5 outline-none min-w-0 w-32"
+              />
+            ) : (
+              <span className="font-display text-amount font-bold text-white leading-tight whitespace-nowrap truncate">
                 {displayName}
               </span>
-              {onRename && (
-                <Pencil className="w-3 h-3 text-white/50 shrink-0" />
-              )}
-            </button>
+            )}
+          </div>
+          {mint.mintName && mint.mintName !== displayName && (
+            <p className="text-overline text-white/40 truncate leading-tight mt-0.5 ml-[30px]">{mint.mintName}</p>
           )}
         </div>
 
@@ -219,7 +232,7 @@ export function MintCard({
 
       {/* Card Footer — Action Buttons */}
       {(onReceive || onSend) && (
-        <div className={cn("relative", variantColorClass[variant])}>
+        <div className={cn("relative", !customColor && variantColorClass[variant])} style={customColor ? { backgroundColor: customColor } : undefined}>
           <div className="h-px bg-white/12" />
           <div className="bg-black/8 flex">
             {onReceive && (

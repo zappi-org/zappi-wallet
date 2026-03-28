@@ -33,7 +33,6 @@ import {
 } from '@/ui/components/scanner/InputValidator'
 import {
   selectRoute,
-  selectSourceMint,
   findCommonMints,
   estimateRouteFee,
   PaymentRoute,
@@ -117,6 +116,8 @@ export interface SendFlowProps {
   validatedData?: ValidatedData
   initialAmount?: number
   initialMintUrl?: string | null
+  initialDestination?: string
+  initialDisplayName?: string
   // Legacy: initialStep mapped to new flow
   initialStep?: 'input' | 'token-create'
 }
@@ -133,14 +134,18 @@ export function SendFlow({
   validatedData: initialValidatedData,
   initialAmount,
   initialMintUrl,
+  initialDestination,
+  initialDisplayName,
   initialStep = 'input',
 }: SendFlowProps) {
   const { t } = useTranslation()
   const { isOnline } = useNetwork()
   const addToast = useAppStore((s) => s.addToast)
 
-  // Determine initial destination from validatedData
+  // Determine initial destination from validatedData or initialDestination
   const getInitialDestination = (): string => {
+    if (initialDisplayName) return initialDisplayName
+    if (initialDestination) return initialDestination
     if (!initialValidatedData) return ''
     switch (initialValidatedData.type) {
       case 'bolt11': return initialValidatedData.invoice
@@ -169,6 +174,8 @@ export function SendFlow({
   // Map legacy initialStep to new step
   const getInitialStep = (): SendStep => {
     if (initialStep === 'token-create') return 'amount'
+    // Skip destination when validated data is already provided (from address book)
+    if (initialValidatedData && isSendableData(initialValidatedData)) return 'amount'
     return 'destination'
   }
 
@@ -223,14 +230,20 @@ export function SendFlow({
       }
 
       // Determine source + target mints
-      const commonMints = validated.type === 'cashu-request' && validated.parsed.mints.length > 0
-        ? findCommonMints(Object.keys(balances).filter((m) => balances[m] > 0), validated.parsed.mints)
+      const receiverMints = validated.type === 'cashu-request' ? validated.parsed.mints
         : []
-      const sourceMint = selectSourceMint(route, balances, amount, commonMints) || mintUrl
+      const commonMints = receiverMints.length > 0
+        ? findCommonMints(Object.keys(balances).filter((m) => balances[m] > 0), receiverMints)
+        : []
+      // User's selected mint takes priority
+      const sourceMint = mintUrl
 
       let targetMint: string | undefined
       if (route === PaymentRoute.TOKEN_TRANSFER || route === PaymentRoute.LN_INTERNAL) {
-        targetMint = commonMints[0]
+        // Prefer source mint as target (same mint = no cross-mint fee)
+        const sourceNorm = sourceMint.replace(/\/+$/, '').toLowerCase()
+        const sourceAsTarget = commonMints.find((m) => m.replace(/\/+$/, '').toLowerCase() === sourceNorm)
+        targetMint = sourceAsTarget || commonMints[0]
       } else if (route === PaymentRoute.LN_CROSS_MINT || route === PaymentRoute.MINT_AND_DM) {
         targetMint = validated.type === 'cashu-request' ? validated.parsed.mints[0]
           : validated.type === 'my-wallet' ? validated.targetMintUrl
@@ -456,6 +469,7 @@ export function SendFlow({
 
       // Build route context
       const storeState = useAppStore.getState()
+
       const context: RouteContext = {
         parsedCreq: validatedData.type === 'cashu-request' ? validatedData.parsed : undefined,
         nostrPrivkey: storeState.nostrPrivkey || undefined,
@@ -572,6 +586,7 @@ export function SendFlow({
               onBack={onBack}
               onNext={handleDestinationNext}
               initialDestination={state.destination}
+              initialAddress={initialDestination}
               initialValidatedData={state.validatedData}
               mintUrl={state.selectedMintUrl || ''}
               isLoading={isLoading}
@@ -582,7 +597,13 @@ export function SendFlow({
         {state.step === 'amount' && (
           <PageTransition key="send-amount" variant="page" className="flex-1">
             <SendAmountStep
-              onBack={() => setState((prev) => ({ ...prev, step: 'destination', error: null }))}
+              onBack={() => {
+                if (getInitialStep() === 'amount') {
+                  onBack()
+                } else {
+                  setState((prev) => ({ ...prev, step: 'destination', error: null }))
+                }
+              }}
               onNext={handleAmountNext}
               mintUrl={state.selectedMintUrl || ''}
               destination={state.destination}
@@ -639,6 +660,7 @@ export function SendFlow({
               validatedData={state.validatedData!}
               amount={state.amount}
               fee={state.fee}
+              displayName={initialDisplayName || (state.destination !== getAddressOrInvoice(state.validatedData!) ? state.destination : undefined)}
               mintUrl={state.selectedMintUrl!}
               error={state.error}
               route={state.routeSelection?.route}

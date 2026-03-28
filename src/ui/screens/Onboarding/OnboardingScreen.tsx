@@ -30,6 +30,66 @@ export function OnboardingScreen({
   const { t } = useTranslation()
   const [step, setStep] = useState<OnboardingStep>('welcome')
   const [mode, setMode] = useState<'create' | 'import'>('create')
+
+  // Invite code gate
+  const [inviteUnlocked, setInviteUnlocked] = useState(false)
+  const [inviteCode, setInviteCode] = useState('')
+  const [inviteError, setInviteError] = useState('')
+  const [inviteAttempts, setInviteAttempts] = useState(() => {
+    const saved = localStorage.getItem('zappi_invite_attempts')
+    return saved ? parseInt(saved, 10) : 0
+  })
+  const [inviteLockUntil, setInviteLockUntil] = useState(() => {
+    const saved = localStorage.getItem('zappi_invite_lock_until')
+    return saved ? parseInt(saved, 10) : 0
+  })
+
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (inviteLockUntil <= 0) return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [inviteLockUntil])
+  const isInviteLocked = inviteLockUntil > now
+
+  const handleInviteSubmit = useCallback(() => {
+    if (isInviteLocked) return
+
+    const trimmed = inviteCode.trim()
+    const MASTER = 'weareallzappi!'
+    const ALPHA = 'Hizappi!'
+    // KST = UTC+9, 2025-03-29 18:00 KST = 2025-03-29 09:00 UTC
+    // KST 2026-03-29 18:00 = UTC 2026-03-29 09:00
+    const ALPHA_EXPIRY = new Date('2026-03-29T09:00:00Z').getTime()
+
+    if (trimmed === MASTER) {
+      setInviteUnlocked(true)
+      localStorage.setItem('zappi_invite_attempts', '0')
+      return
+    }
+
+    if (trimmed === ALPHA && Date.now() < ALPHA_EXPIRY) {
+      setInviteUnlocked(true)
+      localStorage.setItem('zappi_invite_attempts', '0')
+      return
+    }
+
+    const newAttempts = inviteAttempts + 1
+    setInviteAttempts(newAttempts)
+    localStorage.setItem('zappi_invite_attempts', String(newAttempts))
+
+    if (newAttempts >= 5) {
+      const lockUntil = Date.now() + 5 * 60 * 1000
+      setInviteLockUntil(lockUntil)
+      localStorage.setItem('zappi_invite_lock_until', String(lockUntil))
+      setInviteAttempts(0)
+      localStorage.setItem('zappi_invite_attempts', '0')
+      setInviteError(t('onboarding.inviteLocked'))
+    } else {
+      setInviteError(t('onboarding.inviteInvalidCount', { current: newAttempts, max: 5 }))
+    }
+    setInviteCode('')
+  }, [inviteCode, inviteAttempts, isInviteLocked, t])
   const [mnemonic, setMnemonic] = useState('')
   const [mnemonicWords, setMnemonicWords] = useState<string[]>(Array(12).fill(''))
   const [wordCount, setWordCount] = useState<12 | 24>(12)
@@ -273,18 +333,57 @@ export function OnboardingScreen({
             {t('onboarding.tagline')}
           </p>
 
-          <div className="w-full space-y-3 mb-10">
-            <Button variant="brand" size="xl" onClick={handleCreate} className="w-full">
-              {t('onboarding.createWallet')}
-            </Button>
-            <Button variant="outline" size="xl" onClick={handleImport} className="w-full">
-              {t('onboarding.importWallet')}
-            </Button>
-          </div>
-
-          <p className="text-overline font-medium text-foreground-muted uppercase tracking-widest">
-            {t('onboarding.securePrivateFast')}
-          </p>
+          {inviteUnlocked ? (
+            <>
+              <div className="w-full space-y-3 mb-10">
+                <Button variant="brand" size="xl" onClick={handleCreate} className="w-full">
+                  {t('onboarding.createWallet')}
+                </Button>
+                <Button variant="outline" size="xl" onClick={handleImport} className="w-full">
+                  {t('onboarding.importWallet')}
+                </Button>
+              </div>
+              <p className="text-overline font-medium text-foreground-muted uppercase tracking-widest">
+                {t('onboarding.securePrivateFast')}
+              </p>
+            </>
+          ) : (
+            <div className="w-full max-w-[280px]">
+              <div className="flex items-center border-b border-border focus-within:border-foreground/20 transition-colors">
+                <input
+                  type="text"
+                  value={inviteCode}
+                  onChange={(e) => { setInviteCode(e.target.value); setInviteError('') }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleInviteSubmit() }}
+                  placeholder={t('onboarding.invitePlaceholder')}
+                  disabled={isInviteLocked}
+                  className="flex-1 bg-transparent py-2 text-body font-medium text-foreground text-center placeholder:text-foreground-muted focus:outline-none disabled:opacity-40"
+                />
+              </div>
+              {inviteError && (
+                <p className="text-caption text-accent-danger text-center mt-2">{inviteError}</p>
+              )}
+              {isInviteLocked && (() => {
+                const remainSec = Math.max(0, Math.ceil((inviteLockUntil - now) / 1000))
+                const min = Math.floor(remainSec / 60)
+                const sec = remainSec % 60
+                return (
+                  <p className="text-caption text-foreground-muted text-center mt-1">
+                    {min}:{sec.toString().padStart(2, '0')}
+                  </p>
+                )
+              })()}
+              <Button
+                variant="brand"
+                size="xl"
+                onClick={handleInviteSubmit}
+                disabled={!inviteCode.trim() || isInviteLocked}
+                className="w-full mt-4"
+              >
+                {t('common.confirm')}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     )

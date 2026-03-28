@@ -15,6 +15,8 @@ export interface PinInputProps {
   onSubmit?: () => void
   /** Shows loading state on submit button */
   loading?: boolean
+  /** Button variant for submit button (default: 'brand') */
+  submitVariant?: 'brand' | 'destructive'
 }
 
 export function PinInput({
@@ -27,6 +29,7 @@ export function PinInput({
   submitLabel,
   onSubmit,
   loading = false,
+  submitVariant = 'brand',
 }: PinInputProps) {
   const handleKeyPress = useCallback((key: string) => {
     if (disabled) return
@@ -89,7 +92,7 @@ export function PinInput({
 
       {submitLabel && (
         <Button
-          variant="brand"
+          variant={submitVariant}
           size="xl"
           onClick={onSubmit}
           disabled={isSubmitDisabled}

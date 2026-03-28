@@ -7,6 +7,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { Zap, Hash, Link } from 'lucide-react'
 import { CameraFilled } from '@/ui/components/icons/CameraFilled'
 import cardLogo from '@/assets/card-logo.svg'
 import { getInputTypeLabel } from '@/utils/inputTypeLabel'
@@ -18,8 +19,11 @@ import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
 import { HintBox } from '@/ui/components/common/HintBox'
+import { SegmentControl } from '@/ui/components/common/SegmentControl'
 import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
 import { validateInput } from '@/ui/components/scanner/InputValidator'
+import { getContactRepo } from '@/data/repositories/contact.repository'
+import type { Contact, ContactAddressType } from '@/core/types'
 import type { SendableValidatedData } from '../SendFlow'
 
 /** Build badge labels from detected input */
@@ -40,6 +44,8 @@ interface SendDestinationStepProps {
     amountFromInvoice?: number
   }) => void
   initialDestination?: string
+  /** Raw address for auto-validation (when different from display destination) */
+  initialAddress?: string
   initialValidatedData?: SendableValidatedData | null
   mintUrl: string
   isLoading?: boolean
@@ -49,12 +55,14 @@ export function SendInputStep({
   onBack,
   onNext,
   initialDestination = '',
+  initialAddress,
   initialValidatedData,
   mintUrl,
   isLoading = false,
 }: SendDestinationStepProps) {
   const { t } = useTranslation()
   const settings = useAppStore((s) => s.settings)
+  const addToast = useAppStore((s) => s.addToast)
   const { getDisplayName, getIconUrl } = useMintMetadata(settings.mints)
 
   // State
@@ -68,6 +76,18 @@ export function SendInputStep({
   )
   const inputRef = useRef<HTMLInputElement>(null)
   const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const validatedDataRef = useRef<SendableValidatedData | null>(null)
+  // Store the raw address when displayName is used (contact selection)
+  const rawAddressRef = useRef<string | null>(null)
+
+  // Address book contacts
+  const [contacts, setContacts] = useState<Contact[]>([])
+  useEffect(() => {
+    getContactRepo().findAll().then(setContacts)
+  }, [])
+
+  // Segment: wallets vs contacts
+  const [listTab, setListTab] = useState<'wallets' | 'contacts'>('wallets')
 
   /**
    * Wrapper around setDestination — clears detection state immediately
@@ -146,28 +166,34 @@ export function SendInputStep({
   // Cleanup auto-advance timer on unmount
   useEffect(() => () => clearTimeout(autoAdvanceTimerRef.current), [])
 
-  // Process external input (scan/paste): detect → validate → auto-advance if has amount
-  const processExternalInput = useCallback(async (input: string) => {
+  // Unified input processing: detect → validate → set state → auto-advance if amount embedded
+  // Used by paste, scan, contact click, and next button
+  const processExternalInput = useCallback(async (input: string, displayName?: string) => {
     const trimmed = input.trim()
-    if (!trimmed) return
+    if (!trimmed) return false
 
-    setDestination(trimmed)
-    hapticTap()
+    // Clear previous state
+    setValidatedData(null)
+    validatedDataRef.current = null
+    rawAddressRef.current = displayName ? trimmed : null
+    setDestination(displayName || trimmed)
 
     const detected = detectInputType(trimmed)
-    setDetectedTypes(toBadgeTypes(detected))
+    // Don't show type badge when selecting from contacts (displayName means contact)
+    setDetectedTypes(displayName ? [] : toBadgeTypes(detected))
 
-    if (detected.type === 'unknown') return
+    if (detected.type === 'unknown') return false
 
-    // Full validation
+    // Full validation (async — network calls for lightning-address, lnurl, npub)
     const result = await validateInput(detected)
-    if (!result.valid) return
+    if (!result.valid) return false
 
     const validated = result.data
-    if (!['bolt11', 'lightning-address', 'lnurl-pay', 'cashu-request', 'my-wallet'].includes(validated.type)) return
+    if (!['bolt11', 'lightning-address', 'lnurl-pay', 'cashu-request', 'my-wallet'].includes(validated.type)) return false
 
     const sendable = validated as SendableValidatedData
     setValidatedData(sendable)
+    validatedDataRef.current = sendable
 
     // Extract amount if available
     let detectedAmount = 0
@@ -181,16 +207,15 @@ export function SendInputStep({
     if (detectedAmount > 0) {
       autoAdvanceTimerRef.current = setTimeout(() => {
         onNext({
-          destination: trimmed,
+          destination: displayName || trimmed,
           validatedData: sendable,
           amountFromInvoice: detectedAmount,
         })
       }, 300)
-      return
+      return 'auto-advanced'
     }
 
-    // Otherwise just proceed to next with validated data, no amount
-    // User will click Next manually
+    return true
   }, [onNext])
 
   // Handle QR scan
@@ -199,36 +224,74 @@ export function SendInputStep({
     processExternalInput(result)
   }, [processExternalInput])
 
+  // Validating state for loading indicator on next button
+  const [isValidating, setIsValidating] = useState(false)
+
+  /** Extract embedded amount from validated data */
+  const getAmountFromData = (data: SendableValidatedData): number => {
+    if (data.type === 'bolt11' && data.amountSats > 0) return data.amountSats
+    if (data.type === 'cashu-request' && data.parsed?.amount && data.parsed.amount > 0) return data.parsed.amount
+    return 0
+  }
+
+  /** Proceed to next step with validated data */
+  const advanceWithData = useCallback((displayDest: string, data: SendableValidatedData) => {
+    const amt = getAmountFromData(data)
+    onNext({
+      destination: displayDest,
+      validatedData: data,
+      amountFromInvoice: amt > 0 ? amt : undefined,
+    })
+  }, [onNext])
+
   // Handle next — empty destination means token mode, otherwise validate fully
-  const handleNext = useCallback(() => {
+  const handleNext = useCallback(async () => {
     const trimmed = destination.trim()
     hapticTap()
 
     if (!trimmed) {
-      // Token mode: no destination
       onNext({ destination: '' })
       return
     }
 
-    // If already validated, extract amount if available and proceed
+    // Already validated → proceed immediately
     if (validatedData) {
-      let amountFromInvoice = 0
-      if (validatedData.type === 'bolt11' && validatedData.amountSats > 0) {
-        amountFromInvoice = validatedData.amountSats
-      } else if (validatedData.type === 'cashu-request' && validatedData.parsed?.amount && validatedData.parsed.amount > 0) {
-        amountFromInvoice = validatedData.parsed.amount
-      }
-      onNext({
-        destination: trimmed,
-        validatedData,
-        amountFromInvoice: amountFromInvoice > 0 ? amountFromInvoice : undefined,
-      })
+      advanceWithData(trimmed, validatedData)
       return
     }
 
-    // Not yet validated — run full validation
-    processExternalInput(trimmed)
-  }, [destination, validatedData, onNext, processExternalInput])
+    // Not yet validated — validate now (show loading on button)
+    setIsValidating(true)
+    const addressToValidate = rawAddressRef.current || trimmed
+    const displayName = rawAddressRef.current ? trimmed : undefined
+    const ok = await processExternalInput(addressToValidate, displayName)
+    setIsValidating(false)
+
+    if (ok === true && validatedDataRef.current) {
+      advanceWithData(displayName || addressToValidate, validatedDataRef.current)
+    } else if (!ok) {
+      addToast({ type: 'error', message: t('send.destination.unrecognized'), duration: 3000 })
+    }
+  }, [destination, validatedData, onNext, processExternalInput, advanceWithData, addToast, t])
+
+  // Auto-validate when initialAddress is provided (from address book)
+  // On success, auto-advance to amount step
+  const autoValidatedRef = useRef(false)
+  useEffect(() => {
+    if (initialAddress && !initialValidatedData && !autoValidatedRef.current) {
+      autoValidatedRef.current = true
+      rawAddressRef.current = initialAddress
+      const id = requestAnimationFrame(async () => {
+        setIsValidating(true)
+        const ok = await processExternalInput(initialAddress, initialDestination || undefined)
+        setIsValidating(false)
+        if (ok === true && validatedDataRef.current) {
+          advanceWithData(initialDestination || initialAddress, validatedDataRef.current)
+        }
+      })
+      return () => cancelAnimationFrame(id)
+    }
+  }, [initialAddress, initialDestination, initialValidatedData, processExternalInput, advanceWithData])
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -282,29 +345,6 @@ export function SendInputStep({
 
         </div>
 
-        {/* My wallets — visible when not in @ search mode */}
-        {myWallets.length > 0 && !showMyWallets && (
-          <div className="mt-3">
-            <p className="text-body font-semibold text-foreground mb-3">{t('send.myWalletList')}</p>
-            {myWallets.map((wallet) => (
-              <button
-                key={wallet.url}
-                onClick={() => handleSelectMyWallet(wallet.url, wallet.name)}
-                className="w-full flex items-center gap-3 py-3 border-b border-border/40 active:bg-foreground/[0.03] transition-colors"
-              >
-                <img
-                  src={wallet.iconUrl || cardLogo}
-                  alt=""
-                  className="w-9 h-9 rounded-full object-contain shrink-0 bg-foreground/[0.04]"
-                />
-                <div className="flex-1 min-w-0 text-left">
-                  <p className="text-subtitle font-medium text-foreground truncate">{wallet.name}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-
         {/* My wallets dropdown — @ search mode */}
         {showMyWallets && (
           <div className="mt-4">
@@ -333,6 +373,79 @@ export function SendInputStep({
             )}
           </div>
         )}
+
+        {/* Segment: My Wallets / Contacts */}
+        {!showMyWallets && (myWallets.length > 0 || contacts.length > 0) && (
+          <div className="mt-4">
+            <SegmentControl
+              value={listTab}
+              onChange={setListTab}
+              options={[
+                { value: 'wallets' as const, label: t('send.myWalletList') },
+                { value: 'contacts' as const, label: t('contacts.title') },
+              ]}
+            />
+
+            <div className="mt-3 max-h-[240px] overflow-y-auto">
+              {listTab === 'wallets' ? (
+                myWallets.length > 0 ? (
+                  myWallets.map((wallet) => (
+                    <button
+                      key={wallet.url}
+                      onClick={() => handleSelectMyWallet(wallet.url, wallet.name)}
+                      className="w-full flex items-center gap-3 py-3 border-b border-border/40 active:bg-foreground/[0.03] transition-colors"
+                    >
+                      <img
+                        src={wallet.iconUrl || cardLogo}
+                        alt=""
+                        className="w-9 h-9 rounded-full object-contain shrink-0 bg-foreground/[0.04]"
+                      />
+                      <div className="flex-1 min-w-0 text-left">
+                        <p className="text-subtitle font-medium text-foreground truncate">{wallet.name}</p>
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-caption text-foreground-muted py-6 text-center">{t('send.noOtherWallets')}</p>
+                )
+              ) : (
+                contacts.length > 0 ? (
+                  contacts.map((contact) => {
+                    const iconMap: Record<ContactAddressType, typeof Zap> = { lightning: Zap, npub: Hash, custom: Link }
+                    const Icon = iconMap[contact.addressType]
+                    const isNpub = contact.addressType === 'npub'
+                    return (
+                      <button
+                        key={contact.id}
+                        disabled={isNpub}
+                        onClick={() => {
+                          if (isNpub) return
+                          hapticTap()
+                          setDestination(contact.name)
+                          rawAddressRef.current = contact.address
+                          setValidatedData(null)
+                          validatedDataRef.current = null
+                          setDetectedTypes([])
+                        }}
+                        className={`w-full flex items-center gap-3 py-3 border-b border-border/40 transition-colors ${isNpub ? 'opacity-40' : 'active:bg-foreground/[0.03]'}`}
+                      >
+                        <div className="w-9 h-9 rounded-full bg-brand/8 flex items-center justify-center shrink-0">
+                          <Icon className="w-4 h-4 text-brand" />
+                        </div>
+                        <div className="flex-1 min-w-0 text-left">
+                          <p className="text-subtitle font-medium text-foreground truncate">{contact.name}</p>
+                          <p className="text-caption text-foreground-muted truncate">{contact.address}</p>
+                        </div>
+                      </button>
+                    )
+                  })
+                ) : (
+                  <p className="text-caption text-foreground-muted py-6 text-center">{t('contacts.emptyTitle')}</p>
+                )
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Bottom — hint + button */}
@@ -351,10 +464,10 @@ export function SendInputStep({
           variant="brand"
           size="xl"
           onClick={handleNext}
-          loading={isLoading}
+          loading={isLoading || isValidating}
           className="w-full"
         >
-          {destination.trim() ? t('send.next') : t('common.skip')}
+          {t('send.next')}
         </Button>
       </div>
 

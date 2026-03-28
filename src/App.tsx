@@ -1,5 +1,15 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { useAppStore } from '@/store'
+import i18n from '@/i18n'
+
+/** Generate mint aliases from a list, preserving existing ones */
+function generateMintAliases(mints: string[], existing?: Record<string, string>): Record<string, string> {
+  const aliases: Record<string, string> = {}
+  mints.forEach((url, idx) => {
+    aliases[url] = existing?.[url] || i18n.t('mintDetail.defaultName', { number: idx + 1 })
+  })
+  return aliases
+}
 
 // Lightweight imports only — no heavy services, hooks, or screens
 import { getP2PKPubkey } from '@/services/crypto'
@@ -89,16 +99,21 @@ function App() {
         if (recoveredProfile && recoveredProfile.mints.length > 0) {
           console.log('[Onboarding] Found profile on Nostr:', recoveredProfile)
 
+          const recoveredAliases = generateMintAliases(recoveredProfile.mints)
+          const recoveredRelays = recoveredProfile.relays.length > 0 ? recoveredProfile.relays : currentSettings.relays
+
           await services.settingsRepo.saveSettings({
             ...currentSettings,
             mints: recoveredProfile.mints,
-            relays: recoveredProfile.relays.length > 0 ? recoveredProfile.relays : currentSettings.relays,
+            relays: recoveredRelays,
+            mintAliases: recoveredAliases,
           })
 
           setSettings({
             ...currentSettings,
             mints: recoveredProfile.mints,
-            relays: recoveredProfile.relays.length > 0 ? recoveredProfile.relays : currentSettings.relays,
+            relays: recoveredRelays,
+            mintAliases: recoveredAliases,
           })
 
           mintsToRestore = recoveredProfile.mints
@@ -146,17 +161,31 @@ function App() {
             relays = zsConfig.relays
             zsRelays = zsConfig.relays
 
+            const mintAliases = generateMintAliases(mints)
+
             await services.settingsRepo.saveSettings({
               ...currentSettings,
               mints,
               relays,
+              mintAliases,
             })
-            setSettings({ ...currentSettings, mints, relays })
+            setSettings({ ...currentSettings, mints, relays, mintAliases })
           } else {
             console.log('[Onboarding] ZS config not available, using defaults')
           }
         } catch (e) {
           console.warn('[Onboarding] Failed to fetch ZS configuration, using defaults:', e)
+        }
+
+        // Ensure mint aliases exist (covers ZS config miss / default mints path)
+        if (mints.length > 0) {
+          const existingAliases = (await services.settingsRepo.getSettings()).mintAliases || {}
+          const hasAllAliases = mints.every((url) => !!existingAliases[url])
+          if (!hasAllAliases) {
+            const mintAliases = generateMintAliases(mints, existingAliases)
+            await services.settingsRepo.saveSettings({ ...currentSettings, mints, relays, mintAliases })
+            setSettings({ ...currentSettings, mints, relays, mintAliases })
+          }
         }
 
         console.log('[Onboarding] Mints:', mints, 'Relays:', relays)

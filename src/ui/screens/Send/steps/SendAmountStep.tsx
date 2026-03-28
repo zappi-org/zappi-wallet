@@ -3,7 +3,7 @@
  * "얼마를 보낼까요?" / "얼마를 만들까요?" with large centered amount
  */
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation, Trans } from 'react-i18next'
 import { useWallet } from '@/hooks/use-wallet'
 import { useAppStore } from '@/store'
@@ -13,6 +13,7 @@ import { useFiatToggle } from '@/hooks/use-fiat-toggle'
 import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { getMintBalance } from '@/utils/url'
+import { findContactName } from '../sendDisplayHelpers'
 import type { SendableValidatedData } from '../SendFlow'
 
 interface SendAmountStepProps {
@@ -66,9 +67,18 @@ export function SendAmountStep({
     (validatedData?.type === 'bolt11' && validatedData.amountSats > 0) ||
     (validatedData?.type === 'cashu-request' && !!validatedData.parsed.amount && validatedData.parsed.amount > 0)
 
+  // Contact name lookup
+  const [contactName, setContactName] = useState<string | null>(null)
+  useEffect(() => {
+    if (!destination) return
+    const addr = validatedData?.type === 'lightning-address' ? validatedData.address : destination
+    findContactName(addr).then(setContactName)
+  }, [destination, validatedData])
+
   // Destination display
   const destinationDisplay = useMemo(() => {
     if (!destination) return null
+    if (contactName) return contactName
     if (validatedData?.type === 'my-wallet') return validatedData.targetMintName
     if (validatedData?.type === 'lightning-address') return validatedData.address
     if (validatedData?.type === 'lnurl-pay') return validatedData.params?.domain || 'LNURL'
@@ -80,10 +90,15 @@ export function SendAmountStep({
       const req = validatedData.request
       return `${req.slice(0, 8)}...${req.slice(-4)}`
     }
-    // Fallback: truncate raw destination
     if (destination.length > 20) return `${destination.slice(0, 16)}...${destination.slice(-4)}`
     return destination
-  }, [destination, validatedData])
+  }, [destination, validatedData, contactName])
+
+  // Sub-info for destination (address detail below name)
+  const destinationDetail = useMemo(() => {
+    if (contactName && validatedData?.type === 'lightning-address') return validatedData.address
+    return null
+  }, [validatedData, contactName])
 
   const handleNext = useCallback(() => {
     if (!numericAmount || numericAmount <= 0) {
@@ -106,6 +121,21 @@ export function SendAmountStep({
       <div className="flex-1 overflow-y-auto px-6 pt-6">
         {/* Destination label */}
         {destinationDisplay && (() => {
+          // npub-contact or contact name matched: show name + detail
+          if (destinationDetail) {
+            return (
+              <div className="mb-4">
+                <p className="text-heading font-semibold">
+                  <Trans i18nKey="send.confirm.recipientTo" values={{ recipient: destinationDisplay }}
+                    components={{ b: <span className="text-brand" /> }} />
+                </p>
+                <p className="text-caption text-foreground-muted mt-0.5">
+                  {destinationDetail}
+                </p>
+              </div>
+            )
+          }
+          // Lightning address: user in brand + domain below
           const isLnAddress = validatedData?.type === 'lightning-address' && destinationDisplay.includes('@')
           if (isLnAddress) {
             const [user, domain] = destinationDisplay.split('@')
@@ -192,14 +222,14 @@ export function SendAmountStep({
           <div className="h-7 mt-1.5 flex items-center">
             {isOverBalance ? (
               <p className="text-subtitle text-accent-danger font-semibold">{t('payment.insufficientBalance')} ({t('common.balance')} {formatSats(mintBalance)})</p>
-            ) : (
+            ) : showFiat ? (
               <p className="text-subtitle text-foreground-muted">
                 {isFiatMode
                   ? formatSats(numericAmount)
                   : toFiat(numericAmount) ?? `${currencySymbol}0`
                 }
               </p>
-            )}
+            ) : null}
           </div>
         </div>
 

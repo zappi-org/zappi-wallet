@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { ArrowLeft, EllipsisVertical } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { MintCard, getVariantByIndex } from '@/ui/components/wallet/MintCard'
+import { MintCard, resolveMintColor } from '@/ui/components/wallet/MintCard'
 import { TransactionList } from '@/ui/components/wallet/TransactionList'
 import { PendingItemsList } from '@/ui/components/wallet/PendingItemsList'
 import { usePendingItems } from '@/hooks/usePendingItems'
@@ -14,7 +14,6 @@ import type { MintInfo, Transaction } from '@/core/types'
 import { MintInfoSheet } from './MintInfoSheet'
 import { PendingItemsScreen } from './PendingItemsScreen'
 import { PendingItemDetailScreen } from './PendingItemDetailScreen'
-import { isDuplicateMintName } from './mintNameUtils'
 import type { PendingItem } from '@/hooks/usePendingItems'
 
 export interface MintDetailScreenProps {
@@ -24,6 +23,7 @@ export interface MintDetailScreenProps {
   onCreateToken: (mintUrl: string) => void
   onDeleteMint: (url: string) => void
   onRenameMint?: (url: string, newName: string) => void
+  onChangeMintColor?: (url: string, color: string) => void
   onSelectTransaction: (tx: Transaction) => void
   onTransactions?: () => void
   transactions: Transaction[]
@@ -36,13 +36,13 @@ export function MintDetailScreen({
   onCreateToken: _onCreateToken,
   onDeleteMint,
   onRenameMint,
+  onChangeMintColor,
   onSelectTransaction,
   onTransactions,
   transactions,
 }: MintDetailScreenProps) {
   const { t } = useTranslation()
   const settings = useAppStore((s) => s.settings)
-  const addToast = useAppStore((s) => s.addToast)
   const { getDisplayName } = useMintMetadata(settings.mints)
   const [showMintInfo, setShowMintInfo] = useState(false)
   const [showPendingItems, setShowPendingItems] = useState(false)
@@ -66,7 +66,7 @@ export function MintDetailScreen({
     setSelectedPendingItem(item)
   }, [onSelectTransaction])
 
-  const variant = getVariantByIndex(mintIndex)
+  const { variant, customColor } = resolveMintColor(mint.url, mintIndex, settings.mintColors)
   const { items: pendingItems } = usePendingItems(mint.url)
 
   // Live balance from wallet (prop snapshot may be stale after reclaim/receive)
@@ -135,14 +135,8 @@ export function MintDetailScreen({
           <MintCard
             mint={liveMint}
             variant={variant}
+            customColor={customColor}
             hideBalance={settings.balanceHidden}
-            onRename={(newName) => {
-              if (isDuplicateMintName(newName, mint.url, settings.mints, getDisplayName)) {
-                addToast({ type: 'error', message: t('mintDetail.duplicateName'), duration: 3000 })
-                return
-              }
-              onRenameMint?.(mint.url, newName)
-            }}
           />
         </div>
 
@@ -208,6 +202,7 @@ export function MintDetailScreen({
         onClose={() => setShowMintInfo(false)}
         onDelete={onDeleteMint}
         onRename={onRenameMint}
+        onChangeColor={onChangeMintColor}
         getDisplayName={getDisplayName}
       />
 

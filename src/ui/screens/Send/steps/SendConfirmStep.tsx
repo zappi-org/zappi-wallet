@@ -28,6 +28,8 @@ interface SendConfirmStepProps {
   isFiatMode?: boolean
   fiatAmount?: string
   userMemo?: string
+  /** Display name from address book (overrides default recipient display) */
+  displayName?: string
 }
 
 interface ConfirmDisplayInfo {
@@ -41,6 +43,7 @@ function getConfirmDisplayInfo(
   data: SendableValidatedData,
   route: PaymentRoute | undefined,
   t: (key: string) => string,
+  displayName?: string,
 ): ConfirmDisplayInfo {
   // Route-aware: unified QR에서 LN 라우트가 선택되면 lightning invoice 기반 표시
   const isLnRoute = route === PaymentRoute.LN_INTERNAL || route === PaymentRoute.LN_CROSS_MINT || route === PaymentRoute.MELT_TO_LN
@@ -79,7 +82,7 @@ function getConfirmDisplayInfo(
     case 'lightning-address':
       return {
         method: 'Lightning',
-        recipient: data.address,
+        recipient: displayName || data.address,
         recipientDetail: data.address,
       }
     case 'lnurl-pay':
@@ -119,6 +122,7 @@ export function SendConfirmStep({
   isFiatMode = false,
   fiatAmount,
   userMemo,
+  displayName,
 }: SendConfirmStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
@@ -178,8 +182,8 @@ export function SendConfirmStep({
   }, [targetMintUrl, amount, mintUrl])
 
   const fee = estimatedFee ?? 0
-  const display = getConfirmDisplayInfo(validatedData, route, t)
-  const { method, recipientDetail, memo: displayMemo } = display
+  const display = getConfirmDisplayInfo(validatedData, route, t, displayName)
+  const { method, recipient: recipientName, recipientDetail, memo: displayMemo } = display
   const memo = userMemo || displayMemo
   const mintName = getDisplayName(mintUrl)
   const totalAmount = amount + fee
@@ -198,7 +202,7 @@ export function SendConfirmStep({
               i18nKey={isMyWallet ? "send.confirm.fullTransferQuestion" : "send.confirm.fullQuestion"}
               values={{
                 mint: mintName,
-                recipient: recipientDetail.includes('@') ? recipientDetail.split('@')[0] : recipientDetail,
+                recipient: recipientName.includes('@') ? recipientName.split('@')[0] : recipientName,
                 amount: isFiatMode && fiatAmount
                   ? `${FIAT_CURRENCY_MAP.get(settings.fiatCurrency ?? 'USD')?.symbol ?? ''}${Number(fiatAmount).toLocaleString()}`
                   : formatSats(amount),
@@ -207,9 +211,11 @@ export function SendConfirmStep({
               components={{ b: <span className="text-brand" /> }}
             />
           </p>
-          <p className="text-body text-foreground-muted mt-3">
-            {isFiatMode ? formatSats(amount) : (formatFiat(amount) || '')}
-          </p>
+          {(isFiatMode || formatFiat(amount)) && (
+            <p className="text-body text-foreground-muted mt-3">
+              {isFiatMode ? formatSats(amount) : formatFiat(amount)}
+            </p>
+          )}
         </div>
       </div>
 

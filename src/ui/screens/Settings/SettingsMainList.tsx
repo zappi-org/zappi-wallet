@@ -13,13 +13,10 @@ import type { SettingsPage } from './SettingsScreen'
 
 interface SettingsMainListProps {
   onNavigate: (page: SettingsPage) => void
-  onCopyNpub: () => void
   onRegisterLightningAddress: () => void
   isRegistering: boolean
-  onOpenUsernameChange?: () => void
   onMintManagement?: () => void
   onRelayManagement?: () => void
-  onTransfer?: () => void
   onAnalytics?: () => void
   onFaceIdToggle: (enabled: boolean) => void
   onOpenPinChange: () => void
@@ -30,13 +27,10 @@ interface SettingsMainListProps {
 
 export function SettingsMainList({
   onNavigate,
-  onCopyNpub,
   onRegisterLightningAddress,
   isRegistering,
-  onOpenUsernameChange,
   onMintManagement,
   onRelayManagement,
-  onTransfer,
   onAnalytics,
   onFaceIdToggle,
   onOpenPinChange,
@@ -73,7 +67,7 @@ export function SettingsMainList({
   const npubDisplay = nostrPubkey ? encodeNpub(nostrPubkey) : null
 
   return (
-    <div className="flex-1 overflow-y-auto pb-safe">
+    <div className="flex-1 overflow-y-auto pb-28">
       {/* Update banner */}
       {updateAvailable && (
         <button
@@ -93,10 +87,9 @@ export function SettingsMainList({
         <div className="bg-background-card">
           {npubDisplay && (
             <SettingsRow
-              label="npub"
+              label="Nostr"
               value={npubDisplay}
-              onPress={onCopyNpub}
-              variant="copy"
+              onPress={() => onNavigate('npubDetail')}
               truncateValue
             />
           )}
@@ -104,7 +97,8 @@ export function SettingsMainList({
             <SettingsRow
               label={t('settings.lightningAddress')}
               value={settings.lightningAddress}
-              onPress={() => onOpenUsernameChange?.()}
+              onPress={() => onNavigate('lightningDetail')}
+              truncateValue
             />
           ) : (
             <SettingsRow
@@ -187,10 +181,6 @@ export function SettingsMainList({
             label={t('settings.manageRelays')}
             value={String(settings.relays.length)}
             onPress={() => onRelayManagement?.()}
-          />
-          <SettingsRow
-            label={t('actions.transfer')}
-            onPress={() => onTransfer?.()}
           />
           <SettingsRow
             label={t('settings.verifyBalance')}

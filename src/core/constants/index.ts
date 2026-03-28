@@ -2,9 +2,9 @@
  * Default mints
  */
 export const DEFAULT_MINTS = [
-  'https://mint.minibits.cash/Bitcoin',
-  'https://mint.cubabitcoin.org',
+  'https://21mint.me',
   'https://mint.lnserver.com',
+  'https://m7.mountainlake.io',
 ] as const
 
 /**
@@ -118,7 +118,7 @@ export const STORAGE_KEYS = {
  */
 export const DATABASE = {
   NAME: 'zappi_wallet_db',
-  VERSION: 12,
+  VERSION: 13,
 } as const
 
 /**

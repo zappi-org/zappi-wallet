@@ -226,6 +226,7 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
           {success ? (() => {
             const cardMintInfo: MintInfo = {
               url: addingMintUrl || '',
+              name: addingMintAlias || addingMintName || undefined,
               alias: addingMintAlias || undefined,
               mintName: addingMintName || undefined,
               iconUrl: addingMintIconUrl,
@@ -234,20 +235,20 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
             }
             const variantIndex = mintCountBeforeAdd.current
             return (
-              <div className="animate-fadeIn flex flex-col items-center text-center">
-                <div className="animate-cardFlipIn mb-6" style={{ perspective: '800px' }}>
+              <div className="animate-fadeIn flex flex-col items-center">
+                <div className="animate-cardFlipIn mb-6 text-left" style={{ perspective: '800px' }}>
                   <MintCard
                     mint={cardMintInfo}
                     variant={getVariantByIndex(variantIndex)}
                     hideBalance={false}
                   />
                 </div>
-                <h3 className="text-subtitle font-bold text-foreground mb-1">
+                <h3 className="text-subtitle font-bold text-foreground mb-1 text-center">
                   <span className="text-brand">{addingMintAlias || addingMintName}</span>
                   {t('addMint.hasBeenAdded')}
                 </h3>
                 {recoveredAmount && recoveredAmount > 0 && (
-                  <p className="text-caption text-foreground-muted">
+                  <p className="text-caption text-foreground-muted text-center">
                     {t('addMint.recoveredTokens', { amount: formatSats(recoveredAmount) })}
                   </p>
                 )}

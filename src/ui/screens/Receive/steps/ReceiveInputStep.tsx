@@ -136,7 +136,7 @@ export function ReceiveInputStep({
       ecashRequestId,
       httpEndpoint,
     })
-  }, [amount, memo, mintUrl, userNprofile, supportsHttp, onNext, onActivateListening, addToast, t])
+  }, [numericAmount, memo, mintUrl, userNprofile, supportsHttp, onNext, onActivateListening, addToast, t])
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -204,14 +204,16 @@ export function ReceiveInputStep({
           </div>
           {/* Conversion — fixed height */}
           <div className="h-7 mt-1.5 flex items-center">
-            <p className="text-subtitle text-foreground-muted">
-              {isFiatMode
-                ? unit === '₿'
-                  ? `₿${numericAmount > 0 ? Number(amount).toLocaleString() : '0'}`
-                  : `${numericAmount > 0 ? Number(amount).toLocaleString() : '0'} ${unit}`
-                : toFiat(numericAmount) ?? `${currencySymbol}0`
-              }
-            </p>
+            {showFiat && (
+              <p className="text-subtitle text-foreground-muted">
+                {isFiatMode
+                  ? unit === '₿'
+                    ? `₿${numericAmount > 0 ? Number(amount).toLocaleString() : '0'}`
+                    : `${numericAmount > 0 ? Number(amount).toLocaleString() : '0'} ${unit}`
+                  : toFiat(numericAmount) ?? `${currencySymbol}0`
+                }
+              </p>
+            )}
           </div>
         </div>
 

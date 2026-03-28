@@ -23,9 +23,9 @@ function getPresetRange(preset: Preset): DateRange | undefined {
   if (preset === 'all') return undefined
   const to = new Date()
   const from = new Date(
-    preset === '1w' ? Date.now() - 7 * DAY_MS
-      : preset === '1m' ? Date.now() - 30 * DAY_MS
-      : Date.now() - 90 * DAY_MS,
+    preset === '1w' ? Date.now() - 6 * DAY_MS
+      : preset === '1m' ? Date.now() - 29 * DAY_MS
+      : Date.now() - 89 * DAY_MS,
   )
   return { from, to }
 }
@@ -73,14 +73,12 @@ function DateFilterContent({ value, onChange, onClose }: {
   const calendarLocale = useMemo(() => localeMap[i18n.language] || enUS, [i18n.language])
 
   const rangeLabel = useMemo(() => {
-    if (activePreset) {
-      return presets.find((p) => p.key === activePreset)?.label || ''
-    }
+    if (activePreset === 'all') return t('history.periodAll')
     if (selectedRange?.from && selectedRange?.to) {
       return `${formatMD(selectedRange.from)} - ${formatMD(selectedRange.to)}`
     }
     return t('history.periodAll')
-  }, [activePreset, selectedRange, presets, t])
+  }, [activePreset, selectedRange, t])
 
   return (
     <div className="px-5 pt-3 pb-4 space-y-4">

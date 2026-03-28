@@ -1,11 +1,10 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import { ArrowLeft, AlertTriangle, Check, Copy, ShieldCheck } from 'lucide-react'
+import { AlertTriangle, Check, Copy, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
 import { Modal, PinInput } from '../../components/common'
 import { useAppStore } from '@/store'
-import { encodeNpub } from '@/services/crypto'
 import { satUnit } from '@/utils/format'
 import { formatMintHost } from '@/utils/url'
 import { restoreWallet, getBalances, recoverPendingQuotes } from '@/coco'
@@ -29,8 +28,10 @@ import {
 import { AutoLockSettingPage } from './pages/AutoLockSettingPage'
 import { POSSettingPage } from './pages/POSSettingPage'
 import { PrivacySettingPage } from './pages/PrivacySettingPage'
+import { NpubDetailPage } from './pages/NpubDetailPage'
+import { LightningDetailPage } from './pages/LightningDetailPage'
 
-export type SettingsPage = 'language' | 'unitDisplay' | 'fiat' | 'autoLock' | 'pos' | 'privacy'
+export type SettingsPage = 'language' | 'unitDisplay' | 'fiat' | 'autoLock' | 'pos' | 'privacy' | 'npubDetail' | 'lightningDetail'
 
 export interface SettingsScreenProps {
   onBack: () => void
@@ -44,10 +45,11 @@ export interface SettingsScreenProps {
   onChangeUsername?: () => void
   onTransfer?: () => void
   onAnalytics?: () => void
+  onSubPageChange?: (hasSubPage: boolean) => void
 }
 
 export function SettingsScreen({
-  onBack,
+  onBack: _onBack,
   onChangePassword,
   onBackupMnemonic,
   onLogout,
@@ -56,8 +58,8 @@ export function SettingsScreen({
   onMintManagement,
   onRelayManagement,
   onChangeUsername,
-  onTransfer,
   onAnalytics,
+  onSubPageChange,
 }: SettingsScreenProps) {
   const { t } = useTranslation()
   const settings = useAppStore((state) => state.settings)
@@ -100,6 +102,11 @@ export function SettingsScreen({
     onChangePassword,
     onPasskeyDesynced: () => {},
   })
+
+  // Notify parent when sub-page opens/closes (for bottom nav animation)
+  useEffect(() => {
+    onSubPageChange?.(settingsPage !== null || pinChange.isOpen)
+  }, [settingsPage, pinChange.isOpen, onSubPageChange])
 
   // Face ID
   const [showFaceIdModal, setShowFaceIdModal] = useState(false)
@@ -177,13 +184,6 @@ export function SettingsScreen({
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nostrPubkey])
-
-  const handleCopyNpub = useCallback(() => {
-    if (nostrPubkey) {
-      navigator.clipboard.writeText(encodeNpub(nostrPubkey))
-      addToast({ type: 'success', message: t('toast.copied'), duration: 2000 })
-    }
-  }, [nostrPubkey, addToast, t])
 
   const handleRegisterLightningAddress = useCallback(async () => {
     if (!nostrPrivkey || !p2pkPubkey) return
@@ -331,22 +331,25 @@ export function SettingsScreen({
         )
       case 'privacy':
         return <PrivacySettingPage onBack={() => setSettingsPage(null)} saveSettings={saveSettings} />
+      case 'npubDetail':
+        return <NpubDetailPage onBack={() => setSettingsPage(null)} />
+      case 'lightningDetail':
+        return (
+          <LightningDetailPage
+            onBack={() => setSettingsPage(null)}
+            onChangeUsername={onChangeUsername}
+          />
+        )
       default:
         return null
     }
   }
 
   return (
-    <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe overflow-hidden z-[60]">
+    <div className="h-full bg-background text-foreground flex flex-col pt-safe overflow-hidden">
       {/* Header */}
       <header className="relative flex items-center justify-between px-5 h-14 shrink-0 z-50">
-        <button
-          onClick={onBack}
-          aria-label={t('common.back')}
-          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
-        >
-          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
-        </button>
+        <div className="w-10" />
         <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('settings.title')}</h2>
         <div className="w-10" />
       </header>
@@ -354,13 +357,10 @@ export function SettingsScreen({
       {/* Main list */}
       <SettingsMainList
         onNavigate={setSettingsPage}
-        onCopyNpub={handleCopyNpub}
         onRegisterLightningAddress={handleRegisterLightningAddress}
         isRegistering={isRegistering}
-        onOpenUsernameChange={onChangeUsername}
         onMintManagement={onMintManagement}
         onRelayManagement={onRelayManagement}
-        onTransfer={onTransfer}
         onAnalytics={onAnalytics}
         onFaceIdToggle={handleFaceIdToggle}
         onOpenPinChange={pinChange.open}
@@ -479,7 +479,7 @@ export function SettingsScreen({
             <div className="w-12 h-12 rounded-xl bg-accent-danger/[0.08] flex items-center justify-center text-accent-danger">
               <AlertTriangle className="w-6 h-6" />
             </div>
-            <p className="text-body text-foreground-muted">
+            <p className="text-body font-semibold text-accent-danger">
               {t('settings.logoutWarning')}
             </p>
           </div>
@@ -491,6 +491,7 @@ export function SettingsScreen({
             submitLabel={t('settings.logout')}
             onSubmit={handleLogout}
             loading={isLoggingOut}
+            submitVariant="destructive"
           />
         </div>
       </Modal>
