@@ -28,7 +28,7 @@ export function BottomNav({ items, activeId, visible, onSelect }: BottomNavProps
           transition={{ type: 'spring', stiffness: 400, damping: 30 }}
           className="fixed z-50 left-1/2 -translate-x-1/2 rounded-full px-1.5 py-1.5 w-[calc(100%-2rem)] max-w-sm pointer-events-auto"
           style={{
-            bottom: 'env(safe-area-inset-bottom, 0px)',
+            bottom: '0px',
             background: 'rgba(255, 255, 255, 0.06)',
             backdropFilter: 'blur(28px) saturate(200%)',
             WebkitBackdropFilter: 'blur(28px) saturate(200%)',
