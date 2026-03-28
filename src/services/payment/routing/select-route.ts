@@ -48,7 +48,9 @@ export function selectRoute(input: RouteInput): PaymentRoute {
     const commonMints = findCommonMints(senderMintUrls, parsed.mints)
 
     if (commonMints.length > 0) {
-      // creq + m + common mints → eCash direct transfer preferred (no fee)
+      // creq + m + common mints
+      if (privacyMode) return PaymentRoute.TOKEN_TRANSFER
+      if (hasLn) return PaymentRoute.LN_INTERNAL
       return PaymentRoute.TOKEN_TRANSFER
     } else {
       // creq + m + no common mints
