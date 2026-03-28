@@ -1,7 +1,9 @@
 /**
  * TokenConfirmStep — Confirm receiving a token from a trusted mint
- * Figma layout: left-aligned message at top, flat detail rows near bottom, CTA at bottom
- * Mint row is tappable with ">" to open MintSelectBottomSheet
+ *
+ * Two layouts:
+ * 1. Same-mint: simple confirm with single "받기" button + mint change option
+ * 2. Cross-mint: two-card choice (receive at token mint vs swap to active mint)
  *
  * Offline support:
  * - Online: normal receive (same mint or cross-mint swap)
@@ -13,7 +15,7 @@
  */
 
 import { useState, useCallback, useMemo } from 'react'
-import { ArrowLeft, ChevronRight, WifiOff, AlertTriangle, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, ChevronRight, WifiOff, AlertTriangle, ShieldCheck, Loader2 } from 'lucide-react'
 import { useTranslation, Trans } from 'react-i18next'
 import { hapticTap } from '@/utils/haptic'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
@@ -25,6 +27,7 @@ import { selectP2pkPubkey } from '@/store/selectors'
 import { isP2PKLockedToUser } from '@/utils/token'
 import type { ValidatedCashuToken } from '@/ui/components/scanner/InputValidator'
 import type { DleqResult } from '@/utils/token'
+import cardLogo from '@/assets/card-logo.svg'
 
 interface TokenConfirmStepProps {
   onBack: () => void
@@ -32,6 +35,8 @@ interface TokenConfirmStepProps {
   token: ValidatedCashuToken
   isOnline: boolean
   dleqStatus: DleqResult | null
+  /** The mint the user was on when they initiated receive */
+  initialMintUrl?: string | null
 }
 
 export function TokenConfirmStep({
@@ -40,6 +45,7 @@ export function TokenConfirmStep({
   token,
   isOnline,
   dleqStatus,
+  initialMintUrl,
 }: TokenConfirmStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
@@ -47,15 +53,23 @@ export function TokenConfirmStep({
   const settings = useAppStore((s) => s.settings)
   const p2pkPubkey = useAppStore(selectP2pkPubkey)
   const [isReceiving, setIsReceiving] = useState(false)
+  const [swapLoading, setSwapLoading] = useState(false)
   const [showMintSelect, setShowMintSelect] = useState(false)
   const [selectedMintUrl, setSelectedMintUrl] = useState(token.mintUrl)
+
+  const isCrossMint = !!initialMintUrl && initialMintUrl !== token.mintUrl
+  const isProcessing = isReceiving || swapLoading
 
   const allMintUrls = useMemo(
     () => [...new Set([token.mintUrl, ...settings.mints])],
     [token.mintUrl, settings.mints],
   )
-  const { getDisplayName } = useMintMetadata(allMintUrls)
+  const { getDisplayName, getIconUrl } = useMintMetadata(allMintUrls)
+  const tokenMintName = getDisplayName(token.mintUrl)
+  const activeMintName = initialMintUrl ? getDisplayName(initialMintUrl) : ''
   const mintName = getDisplayName(selectedMintUrl)
+  const tokenMintIconUrl = getIconUrl(token.mintUrl)
+  const activeMintIconUrl = initialMintUrl ? getIconUrl(initialMintUrl) : undefined
   const formattedAmount = formatSats(token.amountSats)
 
   // Offline P2PK check
@@ -65,17 +79,17 @@ export function TokenConfirmStep({
 
   // Determine offline receive eligibility
   const offlineState = useMemo(() => {
-    if (isOnline) return null // Online = no restrictions
-
+    if (isOnline) return null
     if (!isP2PK) return 'no-p2pk' as const
     if (dleqStatus === 'failed') return 'dleq-failed' as const
     if (dleqStatus === 'missing') return 'dleq-missing' as const
-    return 'ok' as const // P2PK + DLEQ valid
+    return 'ok' as const
   }, [isOnline, isP2PK, dleqStatus])
 
   const isReceiveDisabled = offlineState === 'no-p2pk' || offlineState === 'dleq-failed'
-  const isSwapDisabled = !isOnline // Swap requires online
+  const isSwapDisabled = !isOnline
 
+  // Same-mint: receive directly
   const handleReceive = useCallback(async () => {
     setIsReceiving(true)
     hapticTap()
@@ -85,6 +99,29 @@ export function TokenConfirmStep({
       setIsReceiving(false)
     }
   }, [onReceive, selectedMintUrl])
+
+  // Cross-mint: receive at token's original mint (no swap)
+  const handleReceiveDirect = useCallback(async () => {
+    setIsReceiving(true)
+    hapticTap()
+    try {
+      await onReceive()
+    } finally {
+      setIsReceiving(false)
+    }
+  }, [onReceive])
+
+  // Cross-mint: swap to active mint
+  const handleReceiveViaSwap = useCallback(async () => {
+    if (!initialMintUrl) return
+    setSwapLoading(true)
+    hapticTap()
+    try {
+      await onReceive(initialMintUrl)
+    } finally {
+      setSwapLoading(false)
+    }
+  }, [onReceive, initialMintUrl])
 
   const handleMintSelect = useCallback((mintUrl: string) => {
     setSelectedMintUrl(mintUrl)
@@ -97,7 +134,7 @@ export function TokenConfirmStep({
       <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
         <button
           onClick={onBack}
-          disabled={isReceiving}
+          disabled={isProcessing}
           aria-label={t('common.back')}
           className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10 disabled:opacity-50"
         >
@@ -109,94 +146,186 @@ export function TokenConfirmStep({
         <div className="w-10" />
       </header>
 
-      {/* Centered content — same pattern as confirm screens */}
-      <div className="flex-1 flex flex-col items-center justify-center px-8">
-        <div className="text-center">
-          <p className="text-heading font-semibold whitespace-pre-line">
-            <Trans
-              i18nKey="receive.token.fullConfirmQuestion"
-              values={{ mint: mintName, amount: formattedAmount }}
-              components={{ b: <span className="text-brand" /> }}
-            />
-          </p>
-        </div>
+      {isCrossMint ? (
+        /* ============= Cross-mint: two-card choice ============= */
+        <>
+          <div className="flex-1 flex flex-col items-center justify-center px-8">
+            <p className="text-heading font-semibold text-center whitespace-pre-line">
+              {t('receive.token.crossMintQuestion', { amount: formattedAmount })}
+            </p>
+            {formatFiat(token.amountSats) && (
+              <p className="text-body text-foreground-muted mt-3">{formatFiat(token.amountSats)}</p>
+            )}
 
-        {formatFiat(token.amountSats) && (
-          <p className="text-body text-foreground-muted mt-3">{formatFiat(token.amountSats)}</p>
-        )}
-
-        {/* Offline banners */}
-        {offlineState === 'ok' && (
-          <div className="mt-4 flex items-start gap-2 bg-blue-50 rounded-xl p-3 max-w-[300px]">
-            <ShieldCheck className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-            <p className="text-caption text-blue-700">{t('receive.offline.p2pkAccepted')}</p>
-          </div>
-        )}
-        {offlineState === 'dleq-missing' && (
-          <div className="mt-4 flex items-start gap-2 bg-amber-50 rounded-xl p-3 max-w-[300px]">
-            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-            <p className="text-caption text-amber-700">{t('receive.offline.dleqMissing')}</p>
-          </div>
-        )}
-        {offlineState === 'dleq-failed' && (
-          <div className="mt-4 flex items-start gap-2 bg-red-50 rounded-xl p-3 max-w-[300px]">
-            <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-            <p className="text-caption text-red-700">{t('receive.offline.dleqFailed')}</p>
-          </div>
-        )}
-        {offlineState === 'no-p2pk' && (
-          <div className="mt-4 flex items-start gap-2 bg-muted rounded-xl p-3 max-w-[300px]">
-            <WifiOff className="w-4 h-4 text-foreground-muted shrink-0 mt-0.5" />
-            <p className="text-caption text-foreground">{t('receive.offline.nonP2PKError')}</p>
-          </div>
-        )}
-      </div>
-
-      {/* Detail rows + button at bottom */}
-      <div className="px-6 pb-6 pb-safe shrink-0">
-        <div className="mb-4">
-          {/* Mint row — tappable */}
-          <button
-            onClick={() => { hapticTap(); setShowMintSelect(true) }}
-            disabled={isReceiving || isSwapDisabled}
-            className="w-full flex items-center justify-between py-2.5 border-b border-border/50 disabled:opacity-50"
-          >
-            <span className="text-body text-foreground-muted">{t('receive.token.receiveMint')}</span>
-            <span className="flex items-center gap-0.5">
-              <span className="text-body font-medium text-foreground truncate max-w-[180px]">{mintName}</span>
-              {!isSwapDisabled && <ChevronRight className="w-4 h-4 text-foreground-muted shrink-0" />}
-            </span>
-          </button>
-          {token.memo && (
-            <div className="flex items-center justify-between py-2.5 border-b border-border/50">
-              <span className="text-body text-foreground-muted">{t('common.memo')}</span>
-              <span className="text-body font-medium text-foreground truncate max-w-[200px]">{token.memo}</span>
+            {/* Origin card */}
+            <div className="flex items-center gap-2.5 bg-white border border-border/50 rounded-[14px] px-4 py-3 mt-5 max-w-[280px] shadow-sm">
+              <div className="w-9 h-9 rounded-[10px] overflow-hidden shrink-0 flex items-center justify-center bg-brand/10">
+                <img
+                  src={tokenMintIconUrl || cardLogo}
+                  alt=""
+                  className="w-6 h-6 object-contain"
+                  onError={(e) => { (e.target as HTMLImageElement).src = cardLogo }}
+                />
+              </div>
+              <p className="text-caption text-foreground-muted leading-snug">
+                <span className="font-semibold text-foreground">{tokenMintName}</span>
+                {t('receive.token.tokenFromSuffix')}
+              </p>
             </div>
-          )}
-        </div>
-        <Button
-          variant="brand"
-          size="xl"
-          onClick={handleReceive}
-          loading={isReceiving}
-          disabled={isReceiveDisabled}
-          className="w-full"
-        >
-          {!isOnline && offlineState === 'ok'
-            ? t('receive.offline.receiveOffline')
-            : !isOnline && offlineState === 'dleq-missing'
-              ? t('receive.offline.acceptAnyway')
-              : t('receive.token.receive')}
-        </Button>
-      </div>
 
-      {/* Mint Select Bottom Sheet */}
-      <MintSelectBottomSheet
-        isOpen={showMintSelect}
-        onClose={() => setShowMintSelect(false)}
-        onSelect={handleMintSelect}
-        selectedMintUrl={selectedMintUrl}
-      />
+            {/* Offline banner */}
+            {!isOnline && (
+              <div className="mt-4 flex items-center gap-2 bg-muted rounded-xl p-3 max-w-[300px]">
+                <WifiOff className="w-4 h-4 text-foreground-muted shrink-0" />
+                <p className="text-caption text-foreground">{t('receive.offline.nonP2PKError')}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="px-5 pb-6 pb-safe shrink-0 space-y-2.5">
+            {/* Receive at token mint (primary) */}
+            <button
+              onClick={handleReceiveDirect}
+              disabled={isProcessing || isReceiveDisabled}
+              className="w-full bg-brand rounded-[14px] px-5 py-[18px] flex items-center gap-3.5 active:scale-[0.98] transition-transform disabled:opacity-50 shadow-lg shadow-brand/25"
+            >
+              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0 overflow-hidden">
+                {isReceiving ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-white" />
+                ) : tokenMintIconUrl ? (
+                  <img src={tokenMintIconUrl} alt="" className="w-6 h-6 object-contain" onError={(e) => { (e.target as HTMLImageElement).src = cardLogo }} />
+                ) : (
+                  <img src={cardLogo} alt="" className="w-6 h-6 object-contain" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-body font-bold text-white truncate">
+                  {t('receive.token.receiveDirectly', { mint: tokenMintName })}
+                </p>
+                <p className="text-caption text-white/70 mt-0.5">
+                  {t('receive.token.receiveDirectlySub')}
+                </p>
+              </div>
+            </button>
+
+            {/* Swap to active mint (secondary) */}
+            <button
+              onClick={handleReceiveViaSwap}
+              disabled={isProcessing || isSwapDisabled}
+              className="w-full bg-muted rounded-[14px] px-5 py-[18px] flex items-center gap-3.5 active:scale-[0.98] transition-transform disabled:opacity-50"
+            >
+              <div className="w-10 h-10 rounded-xl bg-foreground/[0.06] flex items-center justify-center shrink-0 overflow-hidden">
+                {swapLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-foreground" />
+                ) : activeMintIconUrl ? (
+                  <img src={activeMintIconUrl} alt="" className="w-6 h-6 object-contain" onError={(e) => { (e.target as HTMLImageElement).src = cardLogo }} />
+                ) : (
+                  <img src={cardLogo} alt="" className="w-6 h-6 object-contain" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-body font-bold text-foreground truncate">
+                  {t('receive.token.receiveViaSwap', { mint: activeMintName })}
+                </p>
+                <p className="text-caption text-foreground-muted mt-0.5">
+                  {t('receive.token.receiveViaSwapSub')}
+                </p>
+              </div>
+            </button>
+          </div>
+        </>
+      ) : (
+        /* ============= Same-mint: existing single-button layout ============= */
+        <>
+          <div className="flex-1 flex flex-col items-center justify-center px-8">
+            <div className="text-center">
+              <p className="text-heading font-semibold whitespace-pre-line">
+                <Trans
+                  i18nKey="receive.token.fullConfirmQuestion"
+                  values={{ mint: mintName, amount: formattedAmount }}
+                  components={{ b: <span className="text-brand" /> }}
+                />
+              </p>
+            </div>
+
+            {formatFiat(token.amountSats) && (
+              <p className="text-body text-foreground-muted mt-3">{formatFiat(token.amountSats)}</p>
+            )}
+
+            {/* Offline banners */}
+            {offlineState === 'ok' && (
+              <div className="mt-4 flex items-start gap-2 bg-blue-50 rounded-xl p-3 max-w-[300px]">
+                <ShieldCheck className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                <p className="text-caption text-blue-700">{t('receive.offline.p2pkAccepted')}</p>
+              </div>
+            )}
+            {offlineState === 'dleq-missing' && (
+              <div className="mt-4 flex items-start gap-2 bg-amber-50 rounded-xl p-3 max-w-[300px]">
+                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                <p className="text-caption text-amber-700">{t('receive.offline.dleqMissing')}</p>
+              </div>
+            )}
+            {offlineState === 'dleq-failed' && (
+              <div className="mt-4 flex items-start gap-2 bg-red-50 rounded-xl p-3 max-w-[300px]">
+                <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                <p className="text-caption text-red-700">{t('receive.offline.dleqFailed')}</p>
+              </div>
+            )}
+            {offlineState === 'no-p2pk' && (
+              <div className="mt-4 flex items-start gap-2 bg-muted rounded-xl p-3 max-w-[300px]">
+                <WifiOff className="w-4 h-4 text-foreground-muted shrink-0 mt-0.5" />
+                <p className="text-caption text-foreground">{t('receive.offline.nonP2PKError')}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="px-6 pb-6 pb-safe shrink-0">
+            <div className="mb-4">
+              {/* Mint row — tappable */}
+              <button
+                onClick={() => { hapticTap(); setShowMintSelect(true) }}
+                disabled={isProcessing || isSwapDisabled}
+                className="w-full flex items-center justify-between py-2.5 border-b border-border/50 disabled:opacity-50"
+              >
+                <span className="text-body text-foreground-muted">{t('receive.token.receiveMint')}</span>
+                <span className="flex items-center gap-0.5">
+                  <span className="text-body font-medium text-foreground truncate max-w-[180px]">{mintName}</span>
+                  {!isSwapDisabled && <ChevronRight className="w-4 h-4 text-foreground-muted shrink-0" />}
+                </span>
+              </button>
+              {token.memo && (
+                <div className="flex items-center justify-between py-2.5 border-b border-border/50">
+                  <span className="text-body text-foreground-muted">{t('common.memo')}</span>
+                  <span className="text-body font-medium text-foreground truncate max-w-[200px]">{token.memo}</span>
+                </div>
+              )}
+            </div>
+            <Button
+              variant="brand"
+              size="xl"
+              onClick={handleReceive}
+              loading={isReceiving}
+              disabled={isReceiveDisabled}
+              className="w-full"
+            >
+              {!isOnline && offlineState === 'ok'
+                ? t('receive.offline.receiveOffline')
+                : !isOnline && offlineState === 'dleq-missing'
+                  ? t('receive.offline.acceptAnyway')
+                  : t('receive.token.receive')}
+            </Button>
+          </div>
+
+          {/* Mint Select Bottom Sheet */}
+          <MintSelectBottomSheet
+            isOpen={showMintSelect}
+            onClose={() => setShowMintSelect(false)}
+            onSelect={handleMintSelect}
+            selectedMintUrl={selectedMintUrl}
+            allowEmpty
+          />
+        </>
+      )}
     </div>
   )
 }

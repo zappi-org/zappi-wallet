@@ -745,8 +745,12 @@ export default function MainApp() {
       }
 
       const newMints = [...settings.mints, url]
-      await services.settingsRepo.saveSettings({ ...settings, mints: newMints })
-      setSettings({ ...settings, mints: newMints })
+      const existingAliases = settings.mintAliases || {}
+      const nextNumber = Object.keys(existingAliases).length + 1
+      const alias = t('mintDetail.defaultName', { number: nextNumber })
+      const newAliases = { ...existingAliases, [url]: alias }
+      await services.settingsRepo.saveSettings({ ...settings, mints: newMints, mintAliases: newAliases })
+      setSettings({ ...settings, mints: newMints, mintAliases: newAliases })
 
       if (nostrPrivkey && p2pkPubkey && typeof services.profile.publishProfile === 'function') {
         try {
@@ -774,7 +778,7 @@ export default function MainApp() {
       console.error('[App] Failed to add trusted mint:', error)
       return false
     }
-  }, [settings, services.settingsRepo, services.profile, setSettings, nostrPrivkey, p2pkPubkey])
+  }, [settings, services.settingsRepo, services.profile, setSettings, nostrPrivkey, p2pkPubkey, t])
 
   const handleBack = useCallback(() => {
     const target = previousScreen || 'home'

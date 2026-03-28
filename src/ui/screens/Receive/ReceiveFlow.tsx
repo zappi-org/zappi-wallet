@@ -405,6 +405,20 @@ export function ReceiveFlow({
           receivedAmount: result.amount || token.amountSats,
           selectedMintUrl: effectiveTargetMint,
         }))
+      } else if (isCrossMintSwap && !isAlreadySpentError(result.error)) {
+        // Swap failed but token was already received on source mint
+        onPaymentReceived(token.amountSats, 'ecash')
+        setState((prev) => ({
+          ...prev,
+          step: 'complete',
+          receivedAmount: token.amountSats,
+          selectedMintUrl: sourceMintUrl,
+        }))
+        addToast({
+          type: 'error',
+          message: t('receive.swapFailedButReceived', { amount: formatSats(token.amountSats) }),
+          duration: 5000,
+        })
       } else {
         const message = isAlreadySpentError(result.error)
           ? t('payment.tokenAlreadySpent')
@@ -559,6 +573,7 @@ export function ReceiveFlow({
               token={state.scannedToken}
               isOnline={isOnline}
               dleqStatus={state.dleqStatus}
+              initialMintUrl={initialMintUrl}
             />
           </PageTransition>
         )}

@@ -22,6 +22,8 @@ export interface MintSelectBottomSheetProps {
   buttonLabel?: string
   /** Additional info text below cards (e.g. estimated fee) */
   infoText?: string
+  /** Allow selecting mints with zero balance (e.g. for receive flows) */
+  allowEmpty?: boolean
 }
 
 /**
@@ -47,6 +49,7 @@ function MintSelectBottomSheetInner({
   filterFn,
   buttonLabel,
   infoText,
+  allowEmpty,
 }: Omit<MintSelectBottomSheetProps, 'isOpen'>) {
   const { t } = useTranslation()
   const { balance } = useWallet()
@@ -94,12 +97,12 @@ function MintSelectBottomSheetInner({
   const selectedHasBalance = (selectedMint?.balance ?? 0) > 0
 
   const handleConfirm = useCallback(() => {
-    if (localSelected && selectedHasBalance) {
+    if (localSelected && (allowEmpty || selectedHasBalance)) {
       hapticTap()
       onSelect(localSelected)
       onClose()
     }
-  }, [localSelected, selectedHasBalance, onSelect, onClose])
+  }, [localSelected, allowEmpty, selectedHasBalance, onSelect, onClose])
 
   return (
     <>
@@ -185,7 +188,7 @@ function MintSelectBottomSheetInner({
           <Button
             variant="brand"
             size="xl"
-            disabled={!localSelected || !selectedHasBalance}
+            disabled={!localSelected || (!allowEmpty && !selectedHasBalance)}
             onClick={handleConfirm}
             className="w-full"
           >
