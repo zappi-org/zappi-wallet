@@ -4,13 +4,14 @@
  */
 
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { useTranslation, Trans } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { hapticTap } from '@/utils/haptic'
 import { useFormatSats, useFormatFiat, FIAT_CURRENCY_MAP } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
+import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { createMintQuote, prepareMelt, rollbackMelt } from '@/coco/cashuService'
 import type { SendableValidatedData } from '../SendFlow'
 import { PaymentRoute } from '@/services/payment/routing'
@@ -187,18 +188,7 @@ export function SendConfirmStep({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
-        <button
-          onClick={onBack}
-          aria-label={t('common.back')}
-          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
-        >
-          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
-        </button>
-        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('send.confirm.title')}</h1>
-        <div className="w-10" />
-      </header>
+      <ScreenHeader title={t('send.confirm.title')} onBack={onBack} />
 
       {/* Centered content — flowing sentence like Toss */}
       <div className="flex-1 flex flex-col items-center justify-center px-8">

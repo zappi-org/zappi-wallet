@@ -467,10 +467,11 @@ export function SendFlow({
       const result = await onExecuteRoute(routeSelection, context)
 
       if (result?.success) {
-        if (result.transportUsed === 'nostr') {
-          setState((prev) => ({ ...prev, dmSent: true }))
-        }
-        setState((prev) => ({ ...prev, step: 'complete' }))
+        setState((prev) => ({
+          ...prev,
+          step: 'complete',
+          ...(result.transportUsed === 'nostr' ? { dmSent: true } : {}),
+        }))
       } else {
         // MainApp already shows error toast via handleExecuteRoute
         setState((prev) => ({

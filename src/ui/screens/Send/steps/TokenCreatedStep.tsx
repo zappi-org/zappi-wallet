@@ -14,6 +14,7 @@ import { useAppStore } from '@/store'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { Button } from '@/ui/components/common/Button'
+import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 
 interface TokenCreatedStepProps {
   token: string
@@ -121,14 +122,7 @@ export function TokenCreatedStep({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
-        <div className="w-10" />
-        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">
-          {isSpent ? t('send.tokenCreated.claimedTitle') : t('send.tokenCreated.title')}
-        </h1>
-        <div className="w-10" />
-      </header>
+      <ScreenHeader title={isSpent ? t('send.tokenCreated.claimedTitle') : t('send.tokenCreated.title')} />
 
       {/* Content */}
       <div className="flex-1 flex flex-col items-center justify-center p-5">

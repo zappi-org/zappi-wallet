@@ -112,7 +112,6 @@ export default function MainApp() {
 
   // Scanned amount state (for AmountActionScreen)
   const [scannedAmount, setScannedAmount] = useState<number>(0)
-  const [scanMode, _setScanMode] = useState<'send' | 'receive' | undefined>()
 
   // Validated scan data state (for unified payment screens)
   const [validatedScanData, setValidatedScanData] = useState<ValidatedData | null>(null)
@@ -965,7 +964,7 @@ export default function MainApp() {
       {currentScreen === 'amount-action' && (
         <AmountActionScreen
           amount={scannedAmount}
-          mode={scanMode}
+          mode={undefined}
           onBack={handleBack}
           onSend={(amount) => {
             setScannedAmount(amount)

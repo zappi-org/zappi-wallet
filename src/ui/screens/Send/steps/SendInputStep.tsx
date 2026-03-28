@@ -7,7 +7,6 @@
  */
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
-import { ArrowLeft } from 'lucide-react'
 import { CameraFilled } from '@/ui/components/icons/CameraFilled'
 import cardLogo from '@/assets/card-logo.svg'
 import { getInputTypeLabel } from '@/utils/inputTypeLabel'
@@ -16,10 +15,22 @@ import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
 import { hapticTap } from '@/utils/haptic'
 import { Button } from '@/ui/components/common/Button'
-import { QrScanner } from '@/ui/components/common/QrScanner'
+import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
+import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
+import { HintBox } from '@/ui/components/common/HintBox'
 import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
 import { validateInput } from '@/ui/components/scanner/InputValidator'
 import type { SendableValidatedData } from '../SendFlow'
+
+/** Build badge labels from detected input */
+function toBadgeTypes(detected: ReturnType<typeof detectInputType>): string[] {
+  if (detected.type === 'unknown' || detected.type === 'amount') return []
+  const badges: string[] = [detected.type]
+  if (detected.type === 'cashu-request' && detected.lightningInvoice) {
+    badges.push('lightning')
+  }
+  return badges
+}
 
 interface SendDestinationStepProps {
   onBack: () => void
@@ -56,16 +67,7 @@ export function SendInputStep({
     initialValidatedData || null
   )
   const inputRef = useRef<HTMLInputElement>(null)
-
-  /** Build badge labels from detected input */
-  const toBadgeTypes = (detected: ReturnType<typeof detectInputType>): string[] => {
-    if (detected.type === 'unknown' || detected.type === 'amount') return []
-    const badges: string[] = [detected.type]
-    if (detected.type === 'cashu-request' && detected.lightningInvoice) {
-      badges.push('lightning')
-    }
-    return badges
-  }
+  const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   /**
    * Wrapper around setDestination — clears detection state immediately
@@ -76,10 +78,6 @@ export function SendInputStep({
     // Always clear previous validation when input changes
     setValidatedData(null)
     setDetectedTypes([])
-    const trimmed = newDest.trim()
-    if (trimmed.startsWith('@')) {
-      // @ prefix handled separately for wallet list
-    }
   }, [])
 
   // Derive showMyWallets from destination + validatedData
@@ -145,6 +143,9 @@ export function SendInputStep({
     return () => clearTimeout(detectTimeoutRef.current)
   }, [destination])
 
+  // Cleanup auto-advance timer on unmount
+  useEffect(() => () => clearTimeout(autoAdvanceTimerRef.current), [])
+
   // Process external input (scan/paste): detect → validate → auto-advance if has amount
   const processExternalInput = useCallback(async (input: string) => {
     const trimmed = input.trim()
@@ -178,7 +179,7 @@ export function SendInputStep({
 
     // Auto-advance when amount is embedded in the input
     if (detectedAmount > 0) {
-      setTimeout(() => {
+      autoAdvanceTimerRef.current = setTimeout(() => {
         onNext({
           destination: trimmed,
           validatedData: sendable,
@@ -231,20 +232,7 @@ export function SendInputStep({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
-        <button
-          onClick={onBack}
-          aria-label={t('common.back')}
-          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
-        >
-          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
-        </button>
-        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">
-          {t('send.title')}
-        </h1>
-        <div className="w-10" />
-      </header>
+      <ScreenHeader title={t('send.title')} onBack={onBack} />
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 pt-6">
@@ -350,15 +338,14 @@ export function SendInputStep({
       {/* Bottom — hint + button */}
       <div className="px-6 pb-6 pb-safe shrink-0">
         {!destination.trim() && (
-          <div className="flex items-start gap-2.5 bg-foreground/[0.04] rounded-xl px-4 py-3 mb-3">
-            <span className="text-caption leading-relaxed mt-px">💡</span>
-            <p className="text-caption text-foreground-muted leading-relaxed whitespace-pre-line">
+          <HintBox className="mb-3">
+            <p className="whitespace-pre-line">
               <Trans
                 i18nKey="send.destination.hint"
                 components={{ b: <span className="font-semibold text-foreground" /> }}
               />
             </p>
-          </div>
+          </HintBox>
         )}
         <Button
           variant="brand"
@@ -371,33 +358,7 @@ export function SendInputStep({
         </Button>
       </div>
 
-      {/* QR Scanner Modal — center modal */}
-      {showScanner && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={() => setShowScanner(false)}>
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/60" />
-          {/* Modal */}
-          <div
-            className="relative bg-background rounded-2xl w-full max-w-sm overflow-hidden animate-scaleIn"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4">
-              <h2 className="text-subtitle font-semibold">{t('scanner.title')}</h2>
-              <button
-                onClick={() => setShowScanner(false)}
-                className="text-body font-medium text-brand active:opacity-70"
-              >
-                {t('common.close')}
-              </button>
-            </div>
-            {/* Camera */}
-            <div className="px-4 pb-5">
-              <QrScanner onScan={handleScan} active={showScanner} />
-            </div>
-          </div>
-        </div>
-      )}
+      <QrScannerModal isOpen={showScanner} onClose={() => setShowScanner(false)} onScan={handleScan} />
     </div>
   )
 }

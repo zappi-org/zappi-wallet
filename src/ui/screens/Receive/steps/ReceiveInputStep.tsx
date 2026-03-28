@@ -6,13 +6,13 @@
  */
 
 import { useState, useCallback, useMemo } from 'react'
-import { ArrowLeft } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
-import { useShallow } from 'zustand/shallow'
 import { hapticTap, hapticError } from '@/utils/haptic'
-import { useSatUnit, useFormatFiat, satsToFiat, fiatToSats, FIAT_CURRENCY_MAP } from '@/utils/format'
+import { useSatUnit, useFormatFiat } from '@/utils/format'
+import { useFiatToggle } from '@/hooks/use-fiat-toggle'
 import { Button } from '@/ui/components/common/Button'
+import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { createNostrPaymentRequest, createDualTransportPaymentRequest } from '@/services/cashu/nut18'
 import { encodeNprofile } from '@/services/crypto'
 import { useMintNut18Support } from '@/hooks/use-mint-nut18-support'
@@ -50,20 +50,15 @@ export function ReceiveInputStep({
 
   const unit = useSatUnit()
   const toFiat = useFormatFiat()
-  const { fiatCurrency, showFiat, exchangeRate } = useAppStore(
-    useShallow((s) => ({
-      fiatCurrency: s.settings.fiatCurrency ?? 'USD',
-      showFiat: s.settings.showFiatConversion ?? true,
-      exchangeRate: s.allRates?.[s.settings.fiatCurrency ?? 'USD'] ?? null,
-    })),
-  )
-  const currencySymbol = FIAT_CURRENCY_MAP.get(fiatCurrency)?.symbol ?? fiatCurrency
 
   // State
   const [amount, setAmount] = useState(initialAmount > 0 ? String(initialAmount) : '')
   const [memo, setMemo] = useState('')
-  const [isFiatMode, setIsFiatMode] = useState(false)
-  const [fiatInput, setFiatInput] = useState('')
+
+  const {
+    isFiatMode, fiatInput, currencySymbol, showFiat, exchangeRate,
+    handleToggleFiat, handleFiatChange,
+  } = useFiatToggle(amount, setAmount)
   const numericAmount = parseInt(amount, 10) || 0
 
   // Check if selected mint supports NUT-18 HTTP transport
@@ -79,29 +74,8 @@ export function ReceiveInputStep({
     }
   }, [nostrPubkey, settings.relays])
 
-  const handleToggleFiat = useCallback(() => {
-    if (!exchangeRate) return
-    if (!isFiatMode && amount) {
-      const fiat = satsToFiat(Number(amount), exchangeRate)
-      setFiatInput(fiat >= 1 ? Math.round(fiat).toString() : fiat.toFixed(2))
-    }
-    setIsFiatMode(!isFiatMode)
-  }, [isFiatMode, amount, exchangeRate])
-
-  const handleFiatChange = useCallback((rawValue: string) => {
-    const v = rawValue.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1')
-    setFiatInput(v)
-    const num = parseFloat(v)
-    if (!isNaN(num) && num > 0 && exchangeRate) {
-      setAmount(String(fiatToSats(num, exchangeRate)))
-    } else {
-      setAmount('')
-    }
-  }, [exchangeRate])
-
   // Handle next — always create ecash request alongside Lightning
   const handleNext = useCallback(() => {
-    const numericAmount = parseInt(amount, 10)
     if (!numericAmount || numericAmount <= 0) {
       addToast({ type: 'error', message: t('receive.amountRequired'), duration: 3000 })
       return
@@ -166,20 +140,7 @@ export function ReceiveInputStep({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
-        <button
-          onClick={onBack}
-          aria-label={t('common.back')}
-          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
-        >
-          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
-        </button>
-        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">
-          {t('receive.title')}
-        </h1>
-        <div className="w-10" />
-      </header>
+      <ScreenHeader title={t('receive.title')} onBack={onBack} />
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 pt-6">

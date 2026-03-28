@@ -3,15 +3,15 @@
  * "얼마를 보낼까요?" / "얼마를 만들까요?" with large centered amount
  */
 
-import { useState, useCallback, useRef } from 'react'
-import { ArrowLeft } from 'lucide-react'
+import { useState, useCallback, useMemo } from 'react'
 import { useTranslation, Trans } from 'react-i18next'
 import { useWallet } from '@/hooks/use-wallet'
 import { useAppStore } from '@/store'
 import { hapticTap } from '@/utils/haptic'
-import { useFormatSats, useSatUnit, useFormatFiat, satsToFiat, fiatToSats, FIAT_CURRENCY_MAP } from '@/utils/format'
-import { useShallow } from 'zustand/shallow'
+import { useFormatSats, useSatUnit, useFormatFiat } from '@/utils/format'
+import { useFiatToggle } from '@/hooks/use-fiat-toggle'
 import { Button } from '@/ui/components/common/Button'
+import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { getMintBalance } from '@/utils/url'
 import type { SendableValidatedData } from '../SendFlow'
 
@@ -48,20 +48,14 @@ export function SendAmountStep({
   const formatSats = useFormatSats()
   const unit = useSatUnit()
   const toFiat = useFormatFiat()
-  const { fiatCurrency, showFiat, exchangeRate } = useAppStore(
-    useShallow((s) => ({
-      fiatCurrency: s.settings.fiatCurrency ?? 'USD',
-      showFiat: s.settings.showFiatConversion ?? true,
-      exchangeRate: s.allRates?.[s.settings.fiatCurrency ?? 'USD'] ?? null,
-    })),
-  )
-  const currencySymbol = FIAT_CURRENCY_MAP.get(fiatCurrency)?.symbol ?? fiatCurrency
 
   const [amount, setAmount] = useState(initialAmount > 0 ? String(initialAmount) : '')
   const [memo, setMemo] = useState(initialMemo)
-  const [isFiatMode, setIsFiatMode] = useState(initialFiatMode)
-  const [fiatInput, setFiatInput] = useState(initialFiatAmount)
-  const amountInputRef = useRef<HTMLInputElement>(null)
+
+  const {
+    isFiatMode, fiatInput, currencySymbol, showFiat, exchangeRate,
+    handleToggleFiat, handleFiatChange,
+  } = useFiatToggle(amount, setAmount, { initialFiatMode, initialFiatAmount })
 
   const mintBalance = getMintBalance(mintUrl, balance.byMint)
   const numericAmount = parseInt(amount, 10) || 0
@@ -73,7 +67,7 @@ export function SendAmountStep({
     (validatedData?.type === 'cashu-request' && !!validatedData.parsed.amount && validatedData.parsed.amount > 0)
 
   // Destination display
-  const destinationDisplay = (() => {
+  const destinationDisplay = useMemo(() => {
     if (!destination) return null
     if (validatedData?.type === 'my-wallet') return validatedData.targetMintName
     if (validatedData?.type === 'lightning-address') return validatedData.address
@@ -89,27 +83,7 @@ export function SendAmountStep({
     // Fallback: truncate raw destination
     if (destination.length > 20) return `${destination.slice(0, 16)}...${destination.slice(-4)}`
     return destination
-  })()
-
-  const handleToggleFiat = useCallback(() => {
-    if (!exchangeRate) return
-    if (!isFiatMode && amount) {
-      const fiat = satsToFiat(Number(amount), exchangeRate)
-      setFiatInput(fiat >= 1 ? Math.round(fiat).toString() : fiat.toFixed(2))
-    }
-    setIsFiatMode(!isFiatMode)
-  }, [isFiatMode, amount, exchangeRate])
-
-  const handleFiatChange = useCallback((rawValue: string) => {
-    const v = rawValue.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1')
-    setFiatInput(v)
-    const num = parseFloat(v)
-    if (!isNaN(num) && num > 0 && exchangeRate) {
-      setAmount(String(fiatToSats(num, exchangeRate)))
-    } else {
-      setAmount('')
-    }
-  }, [exchangeRate])
+  }, [destination, validatedData])
 
   const handleNext = useCallback(() => {
     if (!numericAmount || numericAmount <= 0) {
@@ -126,20 +100,7 @@ export function SendAmountStep({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
-        <button
-          onClick={onBack}
-          aria-label={t('common.back')}
-          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
-        >
-          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
-        </button>
-        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">
-          {t('send.title')}
-        </h1>
-        <div className="w-10" />
-      </header>
+      <ScreenHeader title={t('send.title')} onBack={onBack} />
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 pt-6">
@@ -180,7 +141,6 @@ export function SendAmountStep({
               <>
                 <span className="text-title font-medium text-foreground-muted shrink-0">{currencySymbol}</span>
                 <input
-                  ref={amountInputRef}
                   type="text"
                   inputMode="decimal"
                   value={fiatInput ? Number(fiatInput).toLocaleString() : ''}
@@ -196,7 +156,6 @@ export function SendAmountStep({
                   <span className="text-title font-medium text-foreground-muted shrink-0">{unit}</span>
                 )}
                 <input
-                  ref={amountInputRef}
                   type="text"
                   inputMode="numeric"
                   value={amount ? Number(amount).toLocaleString() : ''}

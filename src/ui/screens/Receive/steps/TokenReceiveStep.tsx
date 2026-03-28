@@ -5,12 +5,13 @@
  */
 
 import { useState, useCallback } from 'react'
-import { ArrowLeft } from 'lucide-react'
 import { Trans } from 'react-i18next'
 import { CameraFilled } from '@/ui/components/icons/CameraFilled'
 import { useTranslation } from 'react-i18next'
-import { QrScanner } from '@/ui/components/common/QrScanner'
+import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
+import { HintBox } from '@/ui/components/common/HintBox'
 import { Button } from '@/ui/components/common/Button'
+import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
 import { validateInput, type ValidatedCashuToken } from '@/ui/components/scanner/InputValidator'
 import { hapticTap, hapticError } from '@/utils/haptic'
@@ -112,20 +113,7 @@ export function TokenReceiveStep({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
-        <button
-          onClick={onBack}
-          aria-label={t('common.back')}
-          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
-        >
-          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
-        </button>
-        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">
-          {t('receive.title')}
-        </h1>
-        <div className="w-10" />
-      </header>
+      <ScreenHeader title={t('receive.title')} onBack={onBack} />
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 pt-6">
@@ -184,15 +172,12 @@ export function TokenReceiveStep({
       {/* Bottom — hint + button */}
       <div className="px-6 pb-6 pb-safe shrink-0">
         {!tokenInput.trim() && (
-          <div className="flex items-start gap-2.5 bg-foreground/[0.04] rounded-xl px-4 py-3 mb-3">
-            <span className="text-caption leading-relaxed mt-px">💡</span>
-            <p className="text-caption text-foreground-muted leading-relaxed">
-              <Trans
-                i18nKey="receive.tokenInputStep.hint"
-                components={{ b: <span className="font-semibold text-foreground" /> }}
-              />
-            </p>
-          </div>
+          <HintBox className="mb-3">
+            <Trans
+              i18nKey="receive.tokenInputStep.hint"
+              components={{ b: <span className="font-semibold text-foreground" /> }}
+            />
+          </HintBox>
         )}
         <Button
           variant="brand"
@@ -205,29 +190,7 @@ export function TokenReceiveStep({
         </Button>
       </div>
 
-      {/* QR Scanner Modal — center modal */}
-      {showScanner && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={() => setShowScanner(false)}>
-          <div className="absolute inset-0 bg-black/60" />
-          <div
-            className="relative bg-background rounded-2xl w-full max-w-sm overflow-hidden animate-scaleIn"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-5 py-4">
-              <h2 className="text-subtitle font-semibold">{t('scanner.title')}</h2>
-              <button
-                onClick={() => setShowScanner(false)}
-                className="text-body font-medium text-brand active:opacity-70"
-              >
-                {t('common.close')}
-              </button>
-            </div>
-            <div className="px-4 pb-5">
-              <QrScanner onScan={handleScan} active={showScanner} />
-            </div>
-          </div>
-        </div>
-      )}
+      <QrScannerModal isOpen={showScanner} onClose={() => setShowScanner(false)} onScan={handleScan} />
     </div>
   )
 }
