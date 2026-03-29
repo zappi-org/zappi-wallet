@@ -37,7 +37,7 @@ export function MintUrlQrModal({ isOpen, url, onClose }: MintUrlQrModalProps) {
         onClick={onClose}
         className="absolute inset-0 bg-black/30 backdrop-blur-sm pointer-events-auto animate-fadeIn"
       />
-      <div className="bg-background w-full max-w-[340px] rounded-2xl pointer-events-auto relative z-10 shadow-2xl animate-slideInUp overflow-hidden">
+      <div className="bg-background w-full max-w-[92vw] rounded-2xl pointer-events-auto relative z-10 shadow-2xl animate-slideInUp overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-5">
           <div className="w-9" />

@@ -8,6 +8,9 @@
  * Uses continuous UREncoder.nextPart() to produce true fountain-coded
  * frames (Luby Transform). This means the scanner can start at any frame,
  * miss frames, and still decode — redundant frames fill in the gaps.
+ *
+ * Sizing: QR fills 65% of viewport width, capped at 360px on large screens.
+ * The `size` prop controls SVG render resolution (default 400 for sharpness).
  */
 
 import { useState, useEffect, useMemo } from 'react'
@@ -29,6 +32,12 @@ const MAX_FRAGMENT_LENGTH = 150
 /** Frame interval in ms (~4 fps, matches Cashu.me behavior) */
 const FRAME_INTERVAL_MS = 250
 
+/** SVG render resolution — large enough for sharp scaling */
+const RENDER_SIZE = 400
+
+/** Max display width on large screens */
+const MAX_DISPLAY_WIDTH = 360
+
 export interface QRCodeDisplayProps {
   value: string
   size?: number
@@ -39,11 +48,12 @@ export interface QRCodeDisplayProps {
 
 export function QRCodeDisplay({
   value,
-  size = 200,
+  size,
   className,
   level = 'M',
 }: QRCodeDisplayProps) {
   const isAnimated = value.length > ANIMATED_THRESHOLD
+  const renderSize = size ?? RENDER_SIZE
 
   if (isAnimated) {
     // key={value} forces remount on value change, resetting all state cleanly
@@ -51,19 +61,23 @@ export function QRCodeDisplay({
       <AnimatedQR
         key={value}
         value={value}
-        size={size}
+        renderSize={renderSize}
         className={className}
       />
     )
   }
 
   return (
-    <div className={cn('bg-background-card p-4 rounded-xl shadow-sm', className)}>
+    <div
+      className={cn('bg-background-card p-4 rounded-xl shadow-sm', className)}
+      style={{ width: '65vw', maxWidth: MAX_DISPLAY_WIDTH }}
+    >
       <QRCodeSVG
         value={value}
-        size={size}
+        size={renderSize}
         level={level}
         includeMargin={false}
+        style={{ width: '100%', height: 'auto' }}
       />
     </div>
   )
@@ -81,11 +95,11 @@ export function QRCodeDisplay({
  */
 function AnimatedQR({
   value,
-  size,
+  renderSize,
   className,
 }: {
   value: string
-  size: number
+  renderSize: number
   className?: string
 }) {
   // Create encoder and consume first frame synchronously (safe — runs once per mount)
@@ -118,12 +132,16 @@ function AnimatedQR({
   const displayFrame = (frame.index % totalFragments) + 1
 
   return (
-    <div className={cn('bg-background-card p-4 rounded-xl shadow-sm relative', className)}>
+    <div
+      className={cn('bg-background-card p-4 rounded-xl shadow-sm relative', className)}
+      style={{ width: '65vw', maxWidth: MAX_DISPLAY_WIDTH }}
+    >
       <QRCodeSVG
         value={frame.value}
-        size={size}
+        size={renderSize}
         level="L"
         includeMargin={false}
+        style={{ width: '100%', height: 'auto' }}
       />
       {/* Frame indicator */}
       <div className="absolute bottom-1.5 left-0 right-0 flex justify-center">
