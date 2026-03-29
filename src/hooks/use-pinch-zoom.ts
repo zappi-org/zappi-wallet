@@ -28,7 +28,7 @@ function getTouchDistance(t1: Touch, t2: Touch): number {
  *
  * Platform strategy:
  * - Android: native camera zoom via `applyConstraints({ advanced: [{ zoom }] })`
- * - iOS/fallback: CSS `transform: scale()` for visual zoom + scan region crop for decoder zoom
+ * - iOS/fallback: direct DOM transform for real-time visual zoom + scan region crop for decoder zoom
  */
 export function usePinchZoom({
   containerRef,
@@ -78,30 +78,37 @@ export function usePinchZoom({
     }
   }, [scannerRef])
 
-  // Apply zoom level to camera or CSS
-  const applyZoom = useCallback((level: number) => {
+  // Apply zoom — direct DOM manipulation for real-time feedback
+  const applyZoomImmediate = useCallback((level: number) => {
     const clamped = Math.max(minZoom, Math.min(maxZoom, level))
     zoomRef.current = clamped
-    setZoomLevel(clamped)
 
-    if (!isNativeZoomRef.current) return
-
-    // Android: native camera zoom
     const scanner = scannerRef.current
     if (!scanner) return
 
-    try {
-      const stream = scanner.$video.srcObject
-      if (!(stream instanceof MediaStream)) return
-
-      const track = stream.getVideoTracks()[0]
-      if (!track) return
-
-      const { min, max } = nativeZoomRange.current
-      const nativeZoom = min + ((clamped - minZoom) / (maxZoom - minZoom)) * (max - min)
-      track.applyConstraints({ advanced: [{ zoom: nativeZoom } as MediaTrackConstraintSet] })
-    } catch {
-      // Fallback: CSS zoom will still work via videoStyle
+    if (isNativeZoomRef.current) {
+      // Android: native camera zoom
+      try {
+        const stream = scanner.$video.srcObject
+        if (!(stream instanceof MediaStream)) return
+        const track = stream.getVideoTracks()[0]
+        if (!track) return
+        const { min, max } = nativeZoomRange.current
+        const nativeZoom = min + ((clamped - minZoom) / (maxZoom - minZoom)) * (max - min)
+        track.applyConstraints({ advanced: [{ zoom: nativeZoom } as MediaTrackConstraintSet] })
+      } catch {
+        // ignore
+      }
+    } else {
+      // iOS: direct DOM transform for instant visual feedback
+      const video = scanner.$video
+      if (clamped > 1) {
+        video.style.transform = `scale(${clamped})`
+        video.style.transformOrigin = 'center center'
+      } else {
+        video.style.transform = ''
+        video.style.transformOrigin = ''
+      }
     }
   }, [scannerRef, minZoom, maxZoom])
 
@@ -132,13 +139,15 @@ export function usePinchZoom({
         const currentDistance = getTouchDistance(e.touches[0], e.touches[1])
         const scale = currentDistance / initialDistance.current
         const newZoom = initialZoom.current * scale
-        applyZoom(newZoom)
+        applyZoomImmediate(newZoom)
       })
     }
 
     const onTouchEnd = (e: TouchEvent) => {
       if (e.touches.length < 2) {
         isPinching.current = false
+        // Sync React state after gesture ends (for zoom indicator + scan region)
+        setZoomLevel(zoomRef.current)
       }
     }
 
@@ -152,7 +161,7 @@ export function usePinchZoom({
       container.removeEventListener('touchend', onTouchEnd)
       cancelAnimationFrame(rafId.current)
     }
-  }, [enabled, containerRef, checkCapabilities, applyZoom])
+  }, [enabled, containerRef, checkCapabilities, applyZoomImmediate])
 
   // Reset when disabled
   useEffect(() => {
@@ -163,10 +172,18 @@ export function usePinchZoom({
       capabilitiesChecked.current = false
       isNativeZoomRef.current = false
       setIsNativeZoom(false)
-    }
-  }, [enabled])
 
-  // CSS transform for iOS (visual zoom) — no-op on Android (native zoom handles it)
+      // Reset DOM transform
+      const scanner = scannerRef.current
+      if (scanner) {
+        scanner.$video.style.transform = ''
+        scanner.$video.style.transformOrigin = ''
+      }
+    }
+  }, [enabled, scannerRef])
+
+  // CSS transform for initial render / non-gesture state
+  // During gestures, DOM is manipulated directly for real-time feedback
   const videoStyle: CSSProperties = isNativeZoom
     ? {}
     : zoomLevel > 1
@@ -177,7 +194,6 @@ export function usePinchZoom({
   const getScanRegion = useCallback((video: HTMLVideoElement): ScanRegion => {
     const z = zoomRef.current
     if (z <= 1 || isNativeZoomRef.current) {
-      // No zoom or native zoom — scan full frame
       return {
         x: 0,
         y: 0,
@@ -188,7 +204,6 @@ export function usePinchZoom({
       }
     }
 
-    // iOS digital zoom: crop center region
     const cropWidth = video.videoWidth / z
     const cropHeight = video.videoHeight / z
     return {

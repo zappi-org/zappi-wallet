@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import QrScannerLib, { type ScanResult } from 'qr-scanner'
 import { URDecoder } from '@gandlaf21/bc-ur'
-import { Flashlight, FlashlightOff, Image } from 'lucide-react'
+import { Image } from 'lucide-react'
 import { usePinchZoom } from '@/hooks/use-pinch-zoom'
 
 export interface QrScannerProps {
@@ -22,10 +22,6 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
   const [hasCamera, setHasCamera] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const [urProgress, setUrProgress] = useState(0)
-
-  // Flash state
-  const [flashAvailable, setFlashAvailable] = useState(false)
-  const [flashOn, setFlashOn] = useState(false)
 
   // Pinch-to-zoom
   const { zoomLevel, videoStyle, getScanRegion } = usePinchZoom({
@@ -103,18 +99,6 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
     }
   }, [t])
 
-  // Flash toggle handler
-  const handleFlashToggle = useCallback(async () => {
-    const scanner = scannerRef.current
-    if (!scanner) return
-    try {
-      await scanner.toggleFlash()
-      setFlashOn(scanner.isFlashOn())
-    } catch {
-      // Flash may become unavailable mid-session
-    }
-  }, [])
-
   // Initialize and cleanup scanner
   useEffect(() => {
     const video = videoRef.current
@@ -160,14 +144,6 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
           if (mounted) {
             setIsReady(true)
             setErrorMessage('')
-
-            // Check flash availability after camera starts
-            try {
-              const hasFlash = await scanner.hasFlash()
-              if (mounted) setFlashAvailable(hasFlash)
-            } catch {
-              // Flash check failed — leave as unavailable
-            }
           }
         } catch (err) {
           if (!mounted) return
@@ -202,8 +178,6 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
       if (imageErrorTimer.current) clearTimeout(imageErrorTimer.current)
       setUrProgress(0)
       setIsReady(false)
-      setFlashAvailable(false)
-      setFlashOn(false)
     }
   }, [handleScan, active, t])
 
@@ -227,7 +201,6 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
       scanner.stop()
       // eslint-disable-next-line react-hooks/set-state-in-effect -- sync reset on active toggle
       setIsReady(false)
-      setFlashOn(false)
     }
   }, [active])
 
@@ -264,22 +237,7 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
         </div>
       )}
 
-      {/* Flash toggle — top right */}
-      {flashAvailable && (
-        <button
-          onClick={handleFlashToggle}
-          className="absolute top-3 right-3 p-1.5 rounded-[10px] bg-black/50 backdrop-blur-sm active:bg-black/70 transition-colors z-10"
-          aria-label={flashOn ? t('scanner.flashOff') : t('scanner.flashOn')}
-        >
-          {flashOn ? (
-            <FlashlightOff className="w-6 h-6 text-white" strokeWidth={1.8} />
-          ) : (
-            <Flashlight className="w-6 h-6 text-white" strokeWidth={1.8} />
-          )}
-        </button>
-      )}
-
-      {/* Image upload — bottom left */}
+      {/* Image upload — bottom right */}
       <input
         ref={fileInputRef}
         type="file"
