@@ -46,7 +46,7 @@ function createMockManager(balances: Record<string, number> = {}) {
   return { manager, emit }
 }
 
-describe('Bridge: mint-quote:redeemed event', () => {
+describe('Bridge: mint-op:finalized event', () => {
   beforeEach(() => {
     disconnectCocoFromStore()
     useAppStore.setState({
@@ -59,7 +59,7 @@ describe('Bridge: mint-quote:redeemed event', () => {
     vi.clearAllMocks()
   })
 
-  it('updates balance when mint-quote:redeemed fires', async () => {
+  it('updates balance when mint-op:finalized fires', async () => {
     const { manager, emit } = createMockManager({ 'https://mint.example.com': 1000 })
     connectCocoToStore(manager as unknown as import('coco-cashu-core').Manager)
 
@@ -68,13 +68,13 @@ describe('Bridge: mint-quote:redeemed event', () => {
       expect(useAppStore.getState().balance.total).toBe(1000)
     })
 
-    // Simulate watcher redeeming a quote — balance increases
+    // Simulate watcher finalizing a mint operation — balance increases
     manager.wallet.getBalances.mockResolvedValue({ 'https://mint.example.com': 2000 })
 
-    await emit('mint-quote:redeemed', {
+    await emit('mint-op:finalized', {
       mintUrl: 'https://mint.example.com',
-      quoteId: 'q-paid-1',
-      quote: { amount: 1000, request: 'lnbc1000n1test', quote: 'q-paid-1', unit: 'sat', state: 'ISSUED', expiry: 0 },
+      operationId: 'op-1',
+      operation: { state: 'finalized', quoteId: 'q-paid-1', amount: 1000, request: 'lnbc1000n1test', expiry: 0, mintUrl: 'https://mint.example.com' },
     })
 
     expect(useAppStore.getState().balance.total).toBe(2000)
@@ -95,10 +95,10 @@ describe('Bridge: mint-quote:redeemed event', () => {
     })
     expect(useAppStore.getState().pendingQuotes).toHaveLength(1)
 
-    await emit('mint-quote:redeemed', {
+    await emit('mint-op:finalized', {
       mintUrl: 'https://mint.example.com',
-      quoteId: 'q-paid-1',
-      quote: { amount: 1000, request: 'lnbc1000n1test', quote: 'q-paid-1', unit: 'sat', state: 'ISSUED', expiry: 0 },
+      operationId: 'op-1',
+      operation: { state: 'finalized', quoteId: 'q-paid-1', amount: 1000, request: 'lnbc1000n1test', expiry: 0, mintUrl: 'https://mint.example.com' },
     })
 
     expect(useAppStore.getState().pendingQuotes).toHaveLength(0)
@@ -108,10 +108,10 @@ describe('Bridge: mint-quote:redeemed event', () => {
     const { manager, emit } = createMockManager()
     connectCocoToStore(manager as unknown as import('coco-cashu-core').Manager)
 
-    await emit('mint-quote:redeemed', {
+    await emit('mint-op:finalized', {
       mintUrl: 'https://mint.example.com',
-      quoteId: 'q-paid-1',
-      quote: { amount: 500, request: 'lnbc500n1test', quote: 'q-paid-1', unit: 'sat', state: 'ISSUED', expiry: 0 },
+      operationId: 'op-1',
+      operation: { state: 'finalized', quoteId: 'q-paid-1', amount: 500, request: 'lnbc500n1test', expiry: 0, mintUrl: 'https://mint.example.com' },
     })
 
     const toasts = useAppStore.getState().toasts
@@ -123,10 +123,10 @@ describe('Bridge: mint-quote:redeemed event', () => {
     const { manager, emit } = createMockManager()
     connectCocoToStore(manager as unknown as import('coco-cashu-core').Manager)
 
-    await emit('mint-quote:redeemed', {
+    await emit('mint-op:finalized', {
       mintUrl: 'https://mint.example.com',
-      quoteId: 'q-paid-1',
-      quote: { amount: 1000, request: 'lnbc1000n1test', quote: 'q-paid-1', unit: 'sat', state: 'ISSUED', expiry: 0 },
+      operationId: 'op-1',
+      operation: { state: 'finalized', quoteId: 'q-paid-1', amount: 1000, request: 'lnbc1000n1test', expiry: 0, mintUrl: 'https://mint.example.com' },
     })
 
     expect(broadcastSync).toHaveBeenCalledWith('balance_changed')
@@ -136,10 +136,10 @@ describe('Bridge: mint-quote:redeemed event', () => {
     const { manager, emit } = createMockManager()
     connectCocoToStore(manager as unknown as import('coco-cashu-core').Manager)
 
-    await emit('mint-quote:redeemed', {
+    await emit('mint-op:finalized', {
       mintUrl: 'https://mint.example.com',
-      quoteId: 'q-paid-1',
-      quote: { amount: 750, request: 'lnbc750n1test', quote: 'q-paid-1', unit: 'sat', state: 'ISSUED', expiry: 0 },
+      operationId: 'op-1',
+      operation: { state: 'finalized', quoteId: 'q-paid-1', amount: 750, request: 'lnbc750n1test', expiry: 0, mintUrl: 'https://mint.example.com' },
     })
 
     const { lastRedeemedQuoteId, lastRedeemedQuoteAmount } = useAppStore.getState()
@@ -154,10 +154,10 @@ describe('Bridge: mint-quote:redeemed event', () => {
     const { manager, emit } = createMockManager()
     connectCocoToStore(manager as unknown as import('coco-cashu-core').Manager)
 
-    await emit('mint-quote:redeemed', {
+    await emit('mint-op:finalized', {
       mintUrl: 'https://mint.example.com',
-      quoteId: 'q-swap-1',
-      quote: { amount: 500, request: 'lnbc500n1test', quote: 'q-swap-1', unit: 'sat', state: 'ISSUED', expiry: 0 },
+      operationId: 'op-swap-1',
+      operation: { state: 'finalized', quoteId: 'q-swap-1', amount: 500, request: 'lnbc500n1test', expiry: 0, mintUrl: 'https://mint.example.com' },
     })
 
     const { lastRedeemedQuoteId } = useAppStore.getState()

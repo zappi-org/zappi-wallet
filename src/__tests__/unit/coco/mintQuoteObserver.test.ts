@@ -100,7 +100,7 @@ describe('mintQuoteObserver', () => {
   })
 
   describe('connectMintQuoteObserver', () => {
-    it('records transaction on mint-quote:redeemed event', async () => {
+    it('records transaction on mint-op:finalized event', async () => {
       type EventHandler = (payload: unknown) => void | Promise<void>
       const handlers = new Map<string, EventHandler[]>()
 
@@ -115,12 +115,12 @@ describe('mintQuoteObserver', () => {
       connectMintQuoteObserver(manager as unknown as Manager)
 
       // Emit event
-      const eventHandlers = handlers.get('mint-quote:redeemed') || []
+      const eventHandlers = handlers.get('mint-op:finalized') || []
       for (const h of eventHandlers) {
         await h({
-          quoteId: 'q-2',
           mintUrl: 'https://mint.example.com',
-          quote: { amount: 500, request: 'lnbc500n1test' },
+          operationId: 'op-2',
+          operation: { state: 'finalized', quoteId: 'q-2', amount: 500, request: 'lnbc500n1test', expiry: 0, mintUrl: 'https://mint.example.com' },
         })
       }
 
@@ -149,12 +149,12 @@ describe('mintQuoteObserver', () => {
 
       connectMintQuoteObserver(manager as unknown as Manager)
 
-      const eventHandlers = handlers.get('mint-quote:redeemed') || []
+      const eventHandlers = handlers.get('mint-op:finalized') || []
       for (const h of eventHandlers) {
         await h({
-          quoteId: 'swap-q-1',
           mintUrl: 'https://mint.example.com',
-          quote: { amount: 1000, request: 'lnbc1000n1test' },
+          operationId: 'op-swap-1',
+          operation: { state: 'finalized', quoteId: 'swap-q-1', amount: 1000, request: 'lnbc1000n1test', expiry: 0, mintUrl: 'https://mint.example.com' },
         })
       }
 

@@ -51,30 +51,32 @@ export function connectCocoToStore(manager: Manager): void {
     unsubscribers.push(manager.on(event, () => updateBalances()));
   }
 
-  // Mint quote 상환 시 잔액 업데이트 + toast + store 정리
+  // Mint operation 완료 시 잔액 업데이트 + toast + store 정리
   // (거래 DB 기록은 mintQuoteObserver가 담당)
-  const unsubMintQuoteRedeemed = manager.on('mint-quote:redeemed', (event) => {
+  const unsubMintOpFinalized = manager.on('mint-op:finalized', (event) => {
     updateBalances();
+    const { operation, mintUrl } = event;
+    if (operation.state !== 'finalized') return;
     const { removePendingQuote, addToast, setLastRedeemedQuote } = useAppStore.getState();
 
-    removePendingQuote(event.quoteId);
+    removePendingQuote(operation.quoteId);
 
     // 스왑 quote는 토스트 억제 (use-payment.ts에서 swap 전용 토스트 표시)
     // delete는 하지 않음 — observer가 swap 여부 확인 후 정리
-    if (swapQuoteIds.has(event.quoteId)) {
-      console.log(`[Coco Bridge] Swap quote redeemed (toast suppressed): ${event.quoteId}`);
+    if (swapQuoteIds.has(operation.quoteId)) {
+      console.log(`[Coco Bridge] Swap quote redeemed (toast suppressed): ${operation.quoteId}`);
     } else {
       addToast({
         type: 'success',
-        message: i18n.t('toast.lightningReceived', { unit: satUnit(), amount: event.quote.amount.toLocaleString() }),
+        message: i18n.t('toast.lightningReceived', { unit: satUnit(), amount: operation.amount.toLocaleString() }),
         duration: 4000,
       });
       // ReceiveQRStep이 Lightning 결제 감지할 수 있도록 store에 기록
-      setLastRedeemedQuote(event.quoteId, event.quote.amount);
+      setLastRedeemedQuote(operation.quoteId, operation.amount);
     }
 
     // Mark associated ReceiveRequest as completed
-    findByQuoteId(event.quoteId).then((req) => {
+    findByQuoteId(operation.quoteId).then((req) => {
       if (req && req.status === 'pending') {
         completeReceiveRequest(req.id, 'lightning')
           .catch((err) => console.error('[Coco Bridge] Failed to complete ReceiveRequest:', err));
@@ -82,9 +84,9 @@ export function connectCocoToStore(manager: Manager): void {
     }).catch((err) => console.warn('[Coco Bridge] ReceiveRequest lookup failed:', err));
 
     broadcastSync('balance_changed');
-    console.log(`[Coco Bridge] Quote redeemed: ${event.quoteId} (${event.quote.amount} sats from ${event.mintUrl})`);
+    console.log(`[Coco Bridge] Mint op finalized: ${operation.quoteId} (${operation.amount} sats from ${mintUrl})`);
   });
-  unsubscribers.push(unsubMintQuoteRedeemed);
+  unsubscribers.push(unsubMintOpFinalized);
 
   // Melt quote 결제 시 잔액 업데이트
   const unsubMeltQuotePaid = manager.on('melt-quote:paid', () => {
@@ -98,7 +100,7 @@ export function connectCocoToStore(manager: Manager): void {
   // Send token observer (send:finalized/rolled-back → Transaction DB 업데이트)
   connectSendTokenObserver(manager);
 
-  // Mint quote observer (mint-quote:redeemed → Transaction DB 기록)
+  // Mint quote observer (mint-op:finalized → Transaction DB 기록)
   connectMintQuoteObserver(manager);
 
   console.log('[Coco Bridge] Connected to store');

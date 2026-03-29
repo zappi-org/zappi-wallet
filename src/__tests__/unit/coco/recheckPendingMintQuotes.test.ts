@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const { mockManager } = vi.hoisted(() => {
   const mockManager = {
-    enableMintQuoteWatcher: vi.fn().mockResolvedValue(undefined),
-    disableMintQuoteWatcher: vi.fn().mockResolvedValue(undefined),
+    enableMintOperationWatcher: vi.fn().mockResolvedValue(undefined),
+    disableMintOperationWatcher: vi.fn().mockResolvedValue(undefined),
     enableProofStateWatcher: vi.fn().mockResolvedValue(undefined),
     wallet: { getBalances: vi.fn().mockResolvedValue({}) },
     on: vi.fn().mockReturnValue(() => {}),
@@ -42,8 +42,8 @@ describe('recheckPendingMintQuotes', () => {
   it('does nothing when watchers are not enabled', async () => {
     await recheckPendingMintQuotes()
 
-    expect(mockManager.disableMintQuoteWatcher).not.toHaveBeenCalled()
-    expect(mockManager.enableMintQuoteWatcher).not.toHaveBeenCalled()
+    expect(mockManager.disableMintOperationWatcher).not.toHaveBeenCalled()
+    expect(mockManager.enableMintOperationWatcher).not.toHaveBeenCalled()
   })
 
   it('cycles watcher with watchExistingPendingOnStart when watchers are enabled', async () => {
@@ -53,8 +53,8 @@ describe('recheckPendingMintQuotes', () => {
 
     await recheckPendingMintQuotes()
 
-    expect(mockManager.disableMintQuoteWatcher).toHaveBeenCalledOnce()
-    expect(mockManager.enableMintQuoteWatcher).toHaveBeenCalledWith({ watchExistingPendingOnStart: true })
+    expect(mockManager.disableMintOperationWatcher).toHaveBeenCalledOnce()
+    expect(mockManager.enableMintOperationWatcher).toHaveBeenCalledWith({ watchExistingPendingOnStart: true })
   })
 
   it('calls disable before enable (correct order)', async () => {
@@ -63,10 +63,10 @@ describe('recheckPendingMintQuotes', () => {
     vi.clearAllMocks()
 
     const callOrder: string[] = []
-    mockManager.disableMintQuoteWatcher.mockImplementation(async () => {
+    mockManager.disableMintOperationWatcher.mockImplementation(async () => {
       callOrder.push('disable')
     })
-    mockManager.enableMintQuoteWatcher.mockImplementation(async () => {
+    mockManager.enableMintOperationWatcher.mockImplementation(async () => {
       callOrder.push('enable')
     })
 
@@ -75,13 +75,13 @@ describe('recheckPendingMintQuotes', () => {
     expect(callOrder).toEqual(['disable', 'enable'])
   })
 
-  it('propagates errors from disableMintQuoteWatcher', async () => {
+  it('propagates errors from disableMintOperationWatcher', async () => {
     await getCocoManager()
     await enableWatchers()
     vi.clearAllMocks()
 
     const error = new Error('disable failed')
-    mockManager.disableMintQuoteWatcher.mockRejectedValueOnce(error)
+    mockManager.disableMintOperationWatcher.mockRejectedValueOnce(error)
 
     await expect(recheckPendingMintQuotes()).rejects.toThrow('disable failed')
   })

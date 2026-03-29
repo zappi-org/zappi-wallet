@@ -319,11 +319,11 @@ export async function createMintQuote(
 ): Promise<{ quote: string; request: string; expiry: number }> {
   const manager = await getCocoManager();
   await ensureMintTrusted(manager, mintUrl);
-  const quote = await manager.quotes.createMintQuote(mintUrl, amount);
+  const op = await manager.ops.mint.prepare({ mintUrl, amount, method: 'bolt11', methodData: {} });
   return {
-    quote: quote.quote,
-    request: quote.request,
-    expiry: quote.expiry,
+    quote: op.quoteId,
+    request: op.request,
+    expiry: op.expiry,
   };
 }
 
@@ -344,7 +344,9 @@ export async function redeemMintQuote(
   const balanceBefore = balancesBefore[mintUrl] || 0;
 
   // Redeem the quote (proofs are stored internally by Coco)
-  await manager.quotes.redeemMintQuote(mintUrl, quoteId);
+  const mintOp = await manager.ops.mint.getByQuote(mintUrl, quoteId);
+  if (!mintOp) throw new Error(`Mint operation not found for quote ${quoteId}`);
+  await manager.ops.mint.execute(mintOp);
 
   // Get balance after redemption
   const balancesAfter = await manager.wallet.getBalances();

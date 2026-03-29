@@ -44,7 +44,7 @@ async function initializeManager(): Promise<Manager> {
     seedGetter: getSeed,
     logger,
     watchers: {
-      mintQuoteWatcher: { disabled: true },
+      mintOperationWatcher: { disabled: true },
       proofStateWatcher: { disabled: true },
     },
   });
@@ -120,7 +120,7 @@ export async function enableWatchers(): Promise<void> {
   const isOnline = typeof navigator !== 'undefined' && navigator.onLine;
 
   if (isOnline) {
-    await manager.enableMintQuoteWatcher({ watchExistingPendingOnStart: true });
+    await manager.enableMintOperationWatcher({ watchExistingPendingOnStart: true });
     await manager.enableProofStateWatcher();
     watchersEnabled = true;
     console.log('[Coco] Watchers enabled');
@@ -135,8 +135,8 @@ export async function recheckPendingMintQuotes(): Promise<void> {
   if (!watchersEnabled) return;
 
   const manager = await getCocoManager();
-  await manager.disableMintQuoteWatcher();
-  await manager.enableMintQuoteWatcher({ watchExistingPendingOnStart: true });
+  await manager.disableMintOperationWatcher();
+  await manager.enableMintOperationWatcher({ watchExistingPendingOnStart: true });
 }
 
 /**

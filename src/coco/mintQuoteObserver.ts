@@ -1,12 +1,12 @@
 /**
  * Mint Quote Observer
  *
- * SDK의 mint-quote:redeemed 이벤트를 구독하여
+ * SDK의 mint-op:finalized 이벤트를 구독하여
  * Transaction DB에 Lightning receive 거래를 자동 기록한다.
  *
  * bridge.ts의 SRP를 유지하기 위해 별도 모듈로 분리:
  * - bridge.ts: Coco events → Zustand store (balance, toast)
- * - mintQuoteObserver.ts: mint-quote:redeemed → Transaction DB
+ * - mintQuoteObserver.ts: mint-op:finalized → Transaction DB
  *
  * recordLightningReceive: observer + claimPayment 양쪽에서 호출 가능한
  * idempotent 거래 기록 함수. DB 기록을 한 곳에서 관리한다.
@@ -59,27 +59,30 @@ export async function recordLightningReceive(params: {
 // ─── Observer 연결 ───
 
 /**
- * SDK mint-quote:redeemed 이벤트를 Transaction DB에 연결
+ * SDK mint-op:finalized 이벤트를 Transaction DB에 연결
  */
 export function connectMintQuoteObserver(manager: Manager): void {
   disconnectMintQuoteObserver();
 
-  const unsubRedeemed = manager.on('mint-quote:redeemed', async (event) => {
+  const unsubRedeemed = manager.on('mint-op:finalized', async (event) => {
+    const { operation, mintUrl } = event;
+    if (operation.state !== 'finalized') return;
+
     // 스왑 quote는 별도 swap 거래가 기록되므로 skip + Set 정리
-    if (isSwapQuote(event.quoteId)) {
-      unmarkQuoteAsSwap(event.quoteId);
+    if (isSwapQuote(operation.quoteId)) {
+      unmarkQuoteAsSwap(operation.quoteId);
       return;
     }
 
     try {
       const recorded = await recordLightningReceive({
-        quoteId: event.quoteId,
-        mintUrl: event.mintUrl,
-        amount: event.quote.amount,
-        bolt11: event.quote.request,
+        quoteId: operation.quoteId,
+        mintUrl,
+        amount: operation.amount,
+        bolt11: operation.request,
       });
       if (recorded) {
-        console.log(`[MintQuoteObserver] Recorded: ${event.quoteId} (${event.quote.amount} sats from ${event.mintUrl})`);
+        console.log(`[MintQuoteObserver] Recorded: ${operation.quoteId} (${operation.amount} sats from ${mintUrl})`);
       }
     } catch (error) {
       console.error('[MintQuoteObserver] Failed to record transaction:', error);
