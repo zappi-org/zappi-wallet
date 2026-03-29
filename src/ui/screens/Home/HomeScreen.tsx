@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, startTransition, useCallback } from "react";
 import { useCarouselScroll } from "@/hooks/use-carousel-scroll";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
-import { Plus, LoaderCircle, ArrowDown } from "lucide-react";
+import { Plus, LoaderCircle, ArrowDown, ChevronRight } from "lucide-react";
 
 import { useTranslation } from "react-i18next";
 import { MintCard, resolveMintColor } from "../../components/wallet/MintCard";
@@ -262,9 +262,7 @@ export function HomeScreen({
             className="flex items-center gap-0.5 text-caption font-medium text-brand hover:text-brand-700 active:scale-95 transition-all"
           >
             {t('home.seeAll')}
-            <svg width="10" height="16" viewBox="0 0 10 16" fill="none" className="mt-px -mr-0.5">
-              <path d="M2 2l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            <ChevronRight className="w-4 h-4" strokeWidth={2} />
           </button>
         )}
       </div>

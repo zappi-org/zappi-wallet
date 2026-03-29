@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
-import { ArrowLeft, EllipsisVertical } from 'lucide-react'
+import { ArrowLeft, EllipsisVertical, ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { MintCard, resolveMintColor } from '@/ui/components/wallet/MintCard'
 import { TransactionList } from '@/ui/components/wallet/TransactionList'
@@ -154,9 +154,7 @@ export function MintDetailScreen({
                   className="flex items-center gap-0.5 text-caption font-medium text-brand hover:text-brand-700 active:scale-95 transition-all"
                 >
                   {t('mintDetail.seeMore')}
-                  <svg width="10" height="16" viewBox="0 0 10 16" fill="none" className="mt-px">
-                    <path d="M2 2l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                  <ChevronRight className="w-4 h-4" strokeWidth={2} />
                 </button>
               </div>
               <PendingItemsList items={pendingItems} maxItems={5} showDate onItemClick={handlePendingItemClick} />
@@ -175,9 +173,7 @@ export function MintDetailScreen({
                   className="flex items-center gap-0.5 text-caption font-medium text-brand hover:text-brand-700 active:scale-95 transition-all"
                 >
                   {t('mintDetail.seeDetails')}
-                  <svg width="10" height="16" viewBox="0 0 10 16" fill="none" className="mt-px">
-                    <path d="M2 2l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                  <ChevronRight className="w-4 h-4" strokeWidth={2} />
                 </button>
               )}
             </div>
