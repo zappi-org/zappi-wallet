@@ -96,7 +96,7 @@ export class SecurityService {
     const encoded = encoder.encode(data)
 
     const encrypted = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
+      { name: 'AES-GCM', iv: new Uint8Array(iv) },
       key,
       encoded
     )
@@ -114,14 +114,14 @@ export class SecurityService {
   async decrypt(encrypted: EncryptedData, password: string): Promise<string> {
     const salt = hexToBytes(encrypted.salt)
     const iv = hexToBytes(encrypted.iv)
-    const encryptedBuffer = this.base64ToArrayBuffer(encrypted.encryptedData)
+    const encryptedBytes = new Uint8Array(this.base64ToArrayBuffer(encrypted.encryptedData))
 
     const key = await this.deriveKey(password, salt)
 
     const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
+      { name: 'AES-GCM', iv: new Uint8Array(iv) },
       key,
-      encryptedBuffer
+      encryptedBytes
     )
 
     const decoder = new TextDecoder()
@@ -406,7 +406,7 @@ export class SecurityService {
     return crypto.subtle.deriveKey(
       {
         name: 'PBKDF2',
-        salt: salt.buffer as ArrayBuffer,
+        salt: new Uint8Array(salt),
         iterations: 100000,
         hash: 'SHA-256',
       },
@@ -438,6 +438,6 @@ export class SecurityService {
     for (let i = 0; i < binary.length; i++) {
       bytes[i] = binary.charCodeAt(i)
     }
-    return bytes.buffer
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
   }
 }
