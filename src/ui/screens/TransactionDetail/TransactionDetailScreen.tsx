@@ -117,7 +117,7 @@ export default function TransactionDetailScreen({
             try {
               const { getCocoManager } = await import('@/coco/manager')
               const manager = await getCocoManager()
-              await manager.send.finalize(tx.operationId).catch(() => {})
+              await manager.ops.send.finalize(tx.operationId).catch(() => {})
             } catch { /* finalize 실패해도 DB는 업데이트 */ }
             await markSendFinalized(tx.id)
             setTx((prev) => ({ ...prev, tokenState: 'spent' as TokenState, status: 'completed', completedAt: Date.now() }))

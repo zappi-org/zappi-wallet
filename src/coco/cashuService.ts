@@ -94,7 +94,7 @@ export async function receiveToken(token: string): Promise<void> {
 }
 
 /**
- * 토큰 전송 준비 (SendApi.prepareSend)
+ * 토큰 전송 준비 (ops.send.prepare)
  * proof 예약 + 수수료 계산. 실행 전 수수료를 확인할 수 있다.
  * 이후 executeSendToken()으로 실행하거나 rollbackSendToken()으로 취소.
  */
@@ -107,7 +107,7 @@ export async function prepareSendToken(mintUrl: string, amount: number): Promise
   await ensureMintTrusted(manager, mintUrl);
 
   try {
-    const prepared = await manager.send.prepareSend(mintUrl, amount);
+    const prepared = await manager.ops.send.prepare({ mintUrl, amount });
     return { operationId: prepared.id, fee: prepared.fee, needsSwap: prepared.needsSwap };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -127,7 +127,7 @@ export async function prepareSendToken(mintUrl: string, amount: number): Promise
 }
 
 /**
- * 토큰 전송 실행 (SendApi.executePreparedSend)
+ * 토큰 전송 실행 (ops.send.execute)
  * prepareSendToken() 이후 호출하여 토큰을 생성한다.
  * P2PK 옵션 제공 시 cashu-ts로 추가 swap하여 P2PK 잠금 토큰 생성.
  *
@@ -139,7 +139,7 @@ export async function executeSendToken(
   options?: { p2pkPubkey?: string; memo?: string }
 ): Promise<{ token: string }> {
   const manager = await getCocoManager();
-  const { token } = await manager.send.executePreparedSend(operationId);
+  const { token } = await manager.ops.send.execute(operationId);
   const { getEncodedToken } = await import('@cashu/cashu-ts');
 
   if (options?.p2pkPubkey) {
@@ -162,14 +162,14 @@ export async function executeSendToken(
       p2pkProofs = result.send;
       changeProofs = result.keep;
     } catch (swapError) {
-      // P2PK swap failed — rollback the SDK operation to reclaim proofs
-      console.error('[cashuService] P2PK swap failed, rolling back send operation:', swapError);
+      // P2PK swap failed — reclaim the SDK operation to recover proofs
+      console.error('[cashuService] P2PK swap failed, reclaiming send operation:', swapError);
       try {
-        await manager.send.rollback(operationId);
-        console.log('[cashuService] Successfully rolled back send operation after P2PK swap failure');
+        await manager.ops.send.reclaim(operationId);
+        console.log('[cashuService] Successfully reclaimed send operation after P2PK swap failure');
       } catch (rollbackError) {
-        // Rollback failed — try direct reclaim as fallback
-        console.error('[cashuService] Rollback failed, trying direct reclaim:', rollbackError);
+        // Reclaim failed — try direct receive as fallback
+        console.error('[cashuService] Reclaim failed, trying direct receive:', rollbackError);
         try {
           await manager.wallet.receive(encodedUnlocked);
         } catch (reclaimError) {
@@ -197,12 +197,17 @@ export async function executeSendToken(
 }
 
 /**
- * 토큰 전송 롤백 (SendApi.rollback)
- * pending 상태의 토큰을 회수한다. send:rolled-back 이벤트가 자동 발행된다.
+ * 토큰 전송 취소/회수 (ops.send.cancel / ops.send.reclaim)
+ * prepared 상태면 cancel, pending 상태면 reclaim. send:rolled-back 이벤트가 자동 발행된다.
  */
 export async function rollbackSendToken(operationId: string): Promise<void> {
   const manager = await getCocoManager();
-  await manager.send.rollback(operationId);
+  const op = await manager.ops.send.get(operationId);
+  if (op?.state === 'prepared') {
+    await manager.ops.send.cancel(operationId);
+  } else {
+    await manager.ops.send.reclaim(operationId);
+  }
 }
 
 /**
@@ -220,7 +225,9 @@ export async function sendToken(
   await ensureMintTrusted(manager, mintUrl);
   let token: Token;
   try {
-    token = await manager.wallet.send(mintUrl, amount);
+    const prepared = await manager.ops.send.prepare({ mintUrl, amount });
+    const result = await manager.ops.send.execute(prepared);
+    token = result.token;
   } catch (err) {
     // "Not enough funds" 에러를 정확한 InsufficientBalanceError로 변환
     const msg = err instanceof Error ? err.message : String(err);
@@ -377,7 +384,7 @@ export async function prepareMelt(
 }> {
   const manager = await getCocoManager();
   await ensureMintTrusted(manager, mintUrl);
-  const operation = await manager.quotes.prepareMeltBolt11(mintUrl, invoice);
+  const operation = await manager.ops.melt.prepare({ mintUrl, method: 'bolt11', methodData: { invoice } });
   return {
     operationId: operation.id,
     quoteId: operation.quoteId,
@@ -395,20 +402,25 @@ export async function executeMelt(
   operationId: string
 ): Promise<{ state: string }> {
   const manager = await getCocoManager();
-  const result = await manager.quotes.executeMelt(operationId);
+  const result = await manager.ops.melt.execute(operationId);
   return { state: result.state };
 }
 
 /**
- * Melt 롤백
- * prepare 또는 실패한 operation의 reserved proof를 복구한다.
+ * Melt 취소/회수
+ * prepared 상태면 cancel, pending/executing/failed 상태면 reclaim.
  */
 export async function rollbackMelt(
   operationId: string,
   reason?: string
 ): Promise<void> {
   const manager = await getCocoManager();
-  await manager.quotes.rollbackMelt(operationId, reason);
+  const op = await manager.ops.melt.get(operationId);
+  if (op?.state === 'prepared') {
+    await manager.ops.melt.cancel(operationId, reason);
+  } else {
+    await manager.ops.melt.reclaim(operationId, reason);
+  }
 }
 
 /**
@@ -418,7 +430,7 @@ export async function getPendingMeltOperations(): Promise<
   Array<{ id: string; mintUrl: string; quoteId: string; amount: number; fee_reserve: number; createdAt: number }>
 > {
   const manager = await getCocoManager();
-  const ops = await manager.quotes.getPendingMeltOperations();
+  const ops = await manager.ops.melt.listInFlight();
   return ops.map(op => ({
     id: op.id,
     mintUrl: op.mintUrl,
@@ -461,9 +473,10 @@ export async function checkMeltQuoteStatus(
   quoteId: string
 ): Promise<{ state: string; paid: boolean }> {
   const manager = await getCocoManager();
-  const result = await manager.quotes.checkPendingMeltByQuote(mintUrl, quoteId);
-  if (!result) return { state: 'UNKNOWN', paid: false };
-  return { state: result, paid: result === 'finalize' };
+  const op = await manager.ops.melt.getByQuote(mintUrl, quoteId);
+  if (!op) return { state: 'UNKNOWN', paid: false };
+  const refreshed = await manager.ops.melt.refresh(op.id);
+  return { state: refreshed.state, paid: refreshed.state === 'finalized' };
 }
 
 /**
@@ -483,30 +496,31 @@ export async function recoverPendingMelts(): Promise<{
   const maxAge = 24 * 60 * 60 * 1000;
   const now = Date.now();
 
-  // 1. Recover coco pending melt operations (new 2-phase API)
+  // 1. Recover coco pending melt operations via ops.melt API
   try {
-    const pendingOps = await manager.quotes.getPendingMeltOperations();
+    const pendingOps = await manager.ops.melt.listInFlight();
     console.log(`[Recovery] Found ${pendingOps.length} pending melt operations`);
 
     for (const op of pendingOps) {
       try {
-        const result = await manager.quotes.checkPendingMelt(op.id);
-        if (result === 'finalize') {
-          // Payment completed — coco handles finalization internally
+        const refreshed = await manager.ops.melt.refresh(op.id);
+        if (refreshed.state === 'finalized') {
           recovered++;
           console.log(`[Recovery] Melt operation ${op.id} finalized`);
-        } else if (result === 'rollback') {
-          // Payment failed — rollback to reclaim proofs
-          await manager.quotes.rollbackMelt(op.id, 'recovery: payment failed');
+        } else if (refreshed.state === 'rolled_back') {
           recovered++;
-          console.log(`[Recovery] Melt operation ${op.id} rolled back`);
+          console.log(`[Recovery] Melt operation ${op.id} already rolled back`);
+        } else if (refreshed.state === 'failed') {
+          await manager.ops.melt.reclaim(op.id, 'recovery: payment failed');
+          recovered++;
+          console.log(`[Recovery] Melt operation ${op.id} reclaimed after failure`);
         } else if (op.createdAt && (now - op.createdAt) > maxAge) {
-          // Still pending after 24h — force rollback
-          console.warn(`[Recovery] Melt operation ${op.id} stuck >24h, rolling back`);
-          await manager.quotes.rollbackMelt(op.id, 'recovery: expired');
+          // Still pending after 24h — force reclaim
+          console.warn(`[Recovery] Melt operation ${op.id} stuck >24h, reclaiming`);
+          await manager.ops.melt.reclaim(op.id, 'recovery: expired');
           failed++;
         }
-        // 'stay_pending': leave for next recovery cycle
+        // pending/executing: leave for next recovery cycle
       } catch (error) {
         console.error(`[Recovery] Failed to recover melt operation ${op.id}:`, error);
         failed++;
@@ -557,7 +571,7 @@ export async function recoverPendingSendTokens(): Promise<{
   //    → finalize if proofs spent, keep watching if still pending
   //    → send:finalized / send:rolled-back 이벤트 → sendTokenObserver가 처리
   try {
-    await manager.send.recoverPendingOperations();
+    await manager.ops.send.recovery.run();
     console.log('[Recovery] SDK recoverPendingOperations completed');
   } catch (error) {
     console.error('[Recovery] SDK recoverPendingOperations failed:', error);
@@ -578,7 +592,7 @@ export async function recoverPendingSendTokens(): Promise<{
   // 2. SDK-managed: clean up already finalized/rolled-back entries
   for (const pending of sdkTokens) {
     try {
-      const op = await manager.send.getOperation(pending.operationId!);
+      const op = await manager.ops.send.get(pending.operationId!);
       if (op && (op.state === 'finalized' || op.state === 'rolled_back')) {
         // sendTokenObserver should have handled this, but clean up just in case
         await db.pendingSendTokens.delete(pending.id);

@@ -1,28 +1,28 @@
-import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react'
-import { useTranslation } from 'react-i18next'
-import { AnimatePresence } from 'motion/react'
-import { useAppStore } from '@/store'
-import { useWallet } from '@/hooks/use-wallet'
-import { useNetwork } from '@/hooks/use-network'
+import { LIMITS } from '@/core/constants'
+import { InsufficientBalanceError } from '@/core/errors/cashu'
+import { setMintNameResolver, translateError } from '@/core/errors/translate'
+import { clearMintData } from '@/data/database/schema'
+import { broadcastSync, useCrossTabSync } from '@/hooks/use-cross-tab-sync'
 import { useMintHealth } from '@/hooks/use-mint-health'
+import { useNetwork } from '@/hooks/use-network'
+import { totalRecoveredCount, useSyncAfterRecovery } from '@/hooks/use-sync-after-recovery'
+import { useWallet } from '@/hooks/use-wallet'
 import { useGiftWrapListener } from '@/hooks/useGiftWrapListener'
-import { useCrossTabSync, broadcastSync } from '@/hooks/use-cross-tab-sync'
-import { useSyncAfterRecovery, totalRecoveredCount } from '@/hooks/use-sync-after-recovery'
 import { useStateReconstruction } from '@/hooks/useStateReconstruction'
 import { checkAndRefreshAnchor } from '@/services/anchor'
 import { getP2PKPubkey } from '@/services/crypto'
-import { InsufficientBalanceError } from '@/core/errors/cashu'
-import { translateError, setMintNameResolver } from '@/core/errors/translate'
-import { clearMintData } from '@/data/database/schema'
-import { LIMITS } from '@/core/constants'
+import { useAppStore } from '@/store'
+import { AnimatePresence } from 'motion/react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 // Tier 1: Always loaded (critical path for authenticated users)
-import { HomeScreen } from '@/ui/screens/Home/HomeScreen'
-import { LockScreen } from '@/ui/screens/Lock/LockScreen'
 import { LoadingFallback } from '@/ui/components/common/LoadingFallback'
 import { PageTransition } from '@/ui/components/common/PageTransition'
 import { BottomNav } from '@/ui/components/layout/BottomNav'
-import { Wallet, BookUser, Settings as SettingsIcon } from 'lucide-react'
+import { HomeScreen } from '@/ui/screens/Home/HomeScreen'
+import { LockScreen } from '@/ui/screens/Lock/LockScreen'
+import { BookUser, Settings as SettingsIcon, Wallet } from 'lucide-react'
 
 // Tier 2: Lazy loaded (frequently used)
 const SettingsScreen = lazy(() => import('@/ui/screens/Settings/SettingsScreen'))
@@ -42,29 +42,29 @@ const MintManagementScreen = lazy(() => import('@/ui/screens/Settings/MintManage
 const RelayManagementScreen = lazy(() => import('@/ui/screens/Settings/RelayManagementScreen'))
 
 // Unified Send/Receive flows
-import { SendFlow } from '@/ui/screens/Send/SendFlow'
-import { ReceiveFlow } from '@/ui/screens/Receive/ReceiveFlow'
-import type { ValidatedData } from '@/ui/components/scanner'
-import type { RouteSelection, RouteContext, RouteExecutionResult } from '@/services/payment/routing'
-import { ToastContainer } from '@/ui/components'
 import type { MintInfo } from '@/core/types'
+import type { RouteContext, RouteExecutionResult, RouteSelection } from '@/services/payment/routing'
+import { ToastContainer } from '@/ui/components'
+import type { ValidatedData } from '@/ui/components/scanner'
+import { ReceiveFlow } from '@/ui/screens/Receive/ReceiveFlow'
+import { SendFlow } from '@/ui/screens/Send/SendFlow'
 
 // Services
-import { removePasskey } from '@/services/passkey'
-import { SecurityService } from '@/services/security/security.service'
-import { WalletService } from '@/services/wallet/wallet.service'
-import { PaymentService } from '@/services/payment/payment.service'
-import { SyncService } from '@/services/sync/sync.service'
-import { ProfileService } from '@/services/profile/profile.service'
+import { clearWalletCache, deleteCocoData, markSendFinalized, markSendReclaimed } from '@/coco'
+import { getBalances as cocoGetBalances } from '@/coco/cashuService'
+import type { Transaction } from '@/core/types'
+import { resetWalletCache } from '@/data/cache/wallet-cache'
+import { getContactRepo } from '@/data/repositories/contact.repository'
 import { SettingsRepository } from '@/data/repositories/settings.repository'
 import { getTransactionRepo } from '@/data/repositories/transaction.repository'
-import { getContactRepo } from '@/data/repositories/contact.repository'
-import { getBalances as cocoGetBalances } from '@/coco/cashuService'
-import { deleteCocoData, clearWalletCache, markSendFinalized, markSendReclaimed } from '@/coco'
-import { resetWalletCache } from '@/data/cache/wallet-cache'
-import type { Transaction } from '@/core/types'
-import { formatSats } from '@/utils/format'
 import { exchangeRateService } from '@/services/exchange-rate'
+import { removePasskey } from '@/services/passkey'
+import { PaymentService } from '@/services/payment/payment.service'
+import { ProfileService } from '@/services/profile/profile.service'
+import { SecurityService } from '@/services/security/security.service'
+import { SyncService } from '@/services/sync/sync.service'
+import { WalletService } from '@/services/wallet/wallet.service'
+import { formatSats } from '@/utils/format'
 
 
 type Screen = 'home' | 'settings' | 'contacts' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'mint-management' | 'relay-management' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail' | 'mint-detail'
@@ -628,7 +628,7 @@ export default function MainApp() {
     if (tx?.operationId) {
       const { getCocoManager } = await import('@/coco/manager')
       const manager = await getCocoManager()
-      await manager.send.finalize(tx.operationId)
+      await manager.ops.send.finalize(tx.operationId)
     }
     // SDK/레거시 공통: 공유 함수로 DB 상태 전이
     await markSendFinalized(txId)
