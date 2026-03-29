@@ -49,16 +49,16 @@ export function NpubDetailPage({ onBack }: NpubDetailPageProps) {
         </button>
 
         {/* Address text */}
-        <p className="mt-6 text-caption text-foreground-muted text-center break-all leading-relaxed px-4 max-w-[320px]">
+        <p className="mt-6 text-body font-medium text-foreground text-center break-all leading-relaxed px-4">
           {npub}
         </p>
 
         {/* Copy button */}
         <Button variant="brand" size="lg" onClick={handleCopy} className="w-full max-w-[320px] mt-6">
           {copied ? (
-            <><Check className="w-4 h-4" /> {t('common.copied')}</>
+            <><Check className="w-4 h-4 mr-2" /> {t('common.copied')}</>
           ) : (
-            <><Copy className="w-4 h-4" /> {t('common.copy')}</>
+            <><Copy className="w-4 h-4 mr-2" /> {t('common.copy')}</>
           )}
         </Button>
       </div>

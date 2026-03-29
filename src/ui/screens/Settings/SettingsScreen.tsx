@@ -30,8 +30,14 @@ import { POSSettingPage } from './pages/POSSettingPage'
 import { PrivacySettingPage } from './pages/PrivacySettingPage'
 import { NpubDetailPage } from './pages/NpubDetailPage'
 import { LightningDetailPage } from './pages/LightningDetailPage'
+import { ProfileCategoryPage } from './pages/ProfileCategoryPage'
+import { PreferencesCategoryPage } from './pages/PreferencesCategoryPage'
+import { SecurityCategoryPage } from './pages/SecurityCategoryPage'
+import { WalletCategoryPage } from './pages/WalletCategoryPage'
 
-export type SettingsPage = 'language' | 'unitDisplay' | 'fiat' | 'autoLock' | 'pos' | 'privacy' | 'npubDetail' | 'lightningDetail'
+export type SettingsPage =
+  | 'category-profile' | 'category-preferences' | 'category-security' | 'category-wallet'
+  | 'language' | 'unitDisplay' | 'fiat' | 'autoLock' | 'pos' | 'privacy' | 'npubDetail' | 'lightningDetail'
 
 export interface SettingsScreenProps {
   onBack: () => void
@@ -70,8 +76,22 @@ export function SettingsScreen({
   const p2pkPubkey = useAppStore((state) => state.p2pkPubkey)
   const setBalance = useAppStore((state) => state.setBalance)
 
-  // Internal sub-page navigation
-  const [settingsPage, setSettingsPage] = useState<SettingsPage | null>(null)
+  // Two-layer navigation: category (z-65) + detail (z-66)
+  type CategoryPage = 'category-profile' | 'category-preferences' | 'category-security' | 'category-wallet'
+  const [categoryPage, setCategoryPage] = useState<CategoryPage | null>(null)
+  const [detailPage, setDetailPage] = useState<Exclude<SettingsPage, CategoryPage> | null>(null)
+
+  // Unified setter for SettingsMainList and category pages
+  const navigateTo = useCallback((page: SettingsPage) => {
+    if (page.startsWith('category-')) {
+      setCategoryPage(page as CategoryPage)
+    } else {
+      setDetailPage(page as Exclude<SettingsPage, CategoryPage>)
+    }
+  }, [])
+
+  // Derived: any sub-page is open
+  const hasSubPage = categoryPage !== null || detailPage !== null
 
   // Lightning address registration
   const [isRegistering, setIsRegistering] = useState(false)
@@ -105,30 +125,37 @@ export function SettingsScreen({
 
   // Notify parent when sub-page opens/closes (for bottom nav animation)
   useEffect(() => {
-    onSubPageChange?.(settingsPage !== null || pinChange.isOpen)
-  }, [settingsPage, pinChange.isOpen, onSubPageChange])
+    onSubPageChange?.(hasSubPage || pinChange.isOpen)
+  }, [hasSubPage, pinChange.isOpen, onSubPageChange])
 
   // 서브페이지 진입/이탈 시 history 연동 (iOS 엣지 스와이프 뒤로가기 대응)
-  const settingsPageRef = useRef(settingsPage)
+  const prevHasSubPageRef = useRef(false)
   useEffect(() => {
-    const prev = settingsPageRef.current
-    settingsPageRef.current = settingsPage
+    const prev = prevHasSubPageRef.current
+    prevHasSubPageRef.current = hasSubPage
 
-    if (settingsPage !== null && prev === null) {
-      // 서브페이지 진입 → history push
-      window.history.pushState({ screen: 'settings', subPage: settingsPage }, '')
+    if (hasSubPage && !prev) {
+      window.history.pushState({ screen: 'settings' }, '')
     }
-  }, [settingsPage])
+  }, [hasSubPage])
+
+  const detailPageRef = useRef(detailPage)
+  const categoryPageRef = useRef(categoryPage)
+  useEffect(() => { detailPageRef.current = detailPage }, [detailPage])
+  useEffect(() => { categoryPageRef.current = categoryPage }, [categoryPage])
 
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
-      // 서브페이지가 열려있을 때 popstate → 서브페이지 닫기
-      if (settingsPageRef.current !== null) {
+      if (detailPageRef.current !== null) {
         e.stopImmediatePropagation()
-        setSettingsPage(null)
+        setDetailPage(null)
+        return
+      }
+      if (categoryPageRef.current !== null) {
+        e.stopImmediatePropagation()
+        setCategoryPage(null)
       }
     }
-    // 캡처링 단계에서 먼저 잡아서 MainApp의 popstate 핸들러보다 우선 처리
     window.addEventListener('popstate', handlePopState, true)
     return () => window.removeEventListener('popstate', handlePopState, true)
   }, [])
@@ -332,21 +359,66 @@ export function SettingsScreen({
     }
   }, [settings.mints, setBalance, t])
 
-  // Render sub-page
-  const renderPage = () => {
-    switch (settingsPage) {
+  // Render category page (z-65)
+  const renderCategoryPage = () => {
+    switch (categoryPage) {
+      case 'category-profile':
+        return (
+          <ProfileCategoryPage
+            onBack={() => setCategoryPage(null)}
+            onNavigate={navigateTo}
+            onRegisterLightningAddress={handleRegisterLightningAddress}
+            isRegistering={isRegistering}
+            onAnalytics={onAnalytics}
+          />
+        )
+      case 'category-preferences':
+        return (
+          <PreferencesCategoryPage
+            onBack={() => setCategoryPage(null)}
+            onNavigate={navigateTo}
+          />
+        )
+      case 'category-security':
+        return (
+          <SecurityCategoryPage
+            onBack={() => setCategoryPage(null)}
+            onNavigate={navigateTo}
+            onFaceIdToggle={handleFaceIdToggle}
+            onOpenPinChange={pinChange.open}
+          />
+        )
+      case 'category-wallet':
+        return (
+          <WalletCategoryPage
+            onBack={() => setCategoryPage(null)}
+            onMintManagement={onMintManagement}
+            onRelayManagement={onRelayManagement}
+            onOpenRestore={() => setShowRestoreModal(true)}
+            onOpenBackup={() => setShowBackupModal(true)}
+          />
+        )
+      default:
+        return null
+    }
+  }
+
+  // Render detail page (z-66, on top of category)
+  const renderDetailPage = () => {
+    const closeDetail = () => setDetailPage(null)
+    switch (detailPage) {
       case 'language':
-        return <LanguageSettingPage onBack={() => setSettingsPage(null)} />
+        return <LanguageSettingPage onBack={closeDetail} />
       case 'unitDisplay':
-        return <UnitDisplaySettingPage onBack={() => setSettingsPage(null)} saveSettings={saveSettings} />
+        return <UnitDisplaySettingPage onBack={closeDetail} saveSettings={saveSettings} />
       case 'fiat':
-        return <FiatSettingPage onBack={() => setSettingsPage(null)} saveSettings={saveSettings} />
+        return <FiatSettingPage onBack={closeDetail} saveSettings={saveSettings} />
       case 'autoLock':
-        return <AutoLockSettingPage onBack={() => setSettingsPage(null)} saveSettings={saveSettings} />
+        return <AutoLockSettingPage onBack={closeDetail} saveSettings={saveSettings} />
       case 'pos':
         return (
           <POSSettingPage
-            onBack={() => setSettingsPage(null)}
+            onBack={closeDetail}
             settings={settings}
             nostrPubkey={nostrPubkey}
             nostrPrivkey={nostrPrivkey}
@@ -355,13 +427,13 @@ export function SettingsScreen({
           />
         )
       case 'privacy':
-        return <PrivacySettingPage onBack={() => setSettingsPage(null)} saveSettings={saveSettings} />
+        return <PrivacySettingPage onBack={closeDetail} saveSettings={saveSettings} />
       case 'npubDetail':
-        return <NpubDetailPage onBack={() => setSettingsPage(null)} />
+        return <NpubDetailPage onBack={closeDetail} />
       case 'lightningDetail':
         return (
           <LightningDetailPage
-            onBack={() => setSettingsPage(null)}
+            onBack={closeDetail}
             onChangeUsername={onChangeUsername}
           />
         )
@@ -381,24 +453,24 @@ export function SettingsScreen({
 
       {/* Main list */}
       <SettingsMainList
-        onNavigate={setSettingsPage}
-        onRegisterLightningAddress={handleRegisterLightningAddress}
-        isRegistering={isRegistering}
-        onMintManagement={onMintManagement}
-        onRelayManagement={onRelayManagement}
-        onAnalytics={onAnalytics}
-        onFaceIdToggle={handleFaceIdToggle}
-        onOpenPinChange={pinChange.open}
-        onOpenRestore={() => setShowRestoreModal(true)}
-        onOpenBackup={() => setShowBackupModal(true)}
+        onNavigate={navigateTo}
         onOpenLogout={() => setShowLogoutModal(true)}
       />
 
-      {/* Sub-page overlay */}
+      {/* Category page overlay (z-65) */}
       <AnimatePresence mode="wait">
-        {settingsPage && (
-          <PageTransition key={settingsPage} variant="page" className="absolute inset-0 z-[65]">
-            {renderPage()}
+        {categoryPage && (
+          <PageTransition key={categoryPage} variant="page" className="absolute inset-0 z-[65]">
+            {renderCategoryPage()}
+          </PageTransition>
+        )}
+      </AnimatePresence>
+
+      {/* Detail page overlay (z-66, on top of category) */}
+      <AnimatePresence mode="wait">
+        {detailPage && (
+          <PageTransition key={detailPage} variant="page" className="absolute inset-0 z-[66]">
+            {renderDetailPage()}
           </PageTransition>
         )}
       </AnimatePresence>
@@ -406,7 +478,7 @@ export function SettingsScreen({
       {/* PIN Change — Full-screen page */}
       <AnimatePresence mode="wait">
         {pinChange.isOpen && (
-          <PageTransition key="pin-change" variant="page" className="absolute inset-0 z-[66]">
+          <PageTransition key="pin-change" variant="page" className="absolute inset-0 z-[67]">
             <PinChangePage pinChange={pinChange} />
           </PageTransition>
         )}

@@ -160,7 +160,7 @@ export function HomeScreen({
           role="button"
           aria-label={settings.balanceHidden ? t('home.showBalance') : t('home.hideBalance')}
         >
-          <p className="text-caption text-foreground-subtle tracking-wide uppercase">Total</p>
+          <p className="text-body font-medium text-foreground-muted tracking-wide uppercase">Total</p>
           <div className="flex items-baseline gap-1.5 mt-1">
             {settings.balanceHidden ? (
               <span className="text-display font-bold font-display text-foreground tracking-[2px]">••••</span>
@@ -183,10 +183,10 @@ export function HomeScreen({
           {(() => {
             const fiatStr = !isLoadingBalance ? toFiat(totalBalance) : null
             return fiatStr ? (
-              <p className={`text-caption text-foreground-subtle mt-0.5 ${settings.balanceHidden ? 'invisible' : ''}`}>
+              <p className={`text-body text-foreground-muted mt-0.5 ${settings.balanceHidden ? 'invisible' : ''}`}>
                 {fiatStr}
               </p>
-            ) : <p className="text-caption mt-0.5 invisible">-</p>
+            ) : <p className="text-body mt-0.5 invisible">-</p>
           })()}
         </div>
 
@@ -196,7 +196,7 @@ export function HomeScreen({
             <div className="flex justify-center items-center px-5">
               <button
                 onClick={onAddMint}
-                className="w-[var(--card-w)] aspect-[280/176] rounded-[13px] border-2 border-dashed border-border flex flex-col items-center justify-center text-foreground-subtle gap-2"
+                className="w-[var(--card-w)] aspect-[280/176] rounded-card border-2 border-dashed border-border flex flex-col items-center justify-center text-foreground-subtle gap-2"
               >
                 <Plus className="w-6 h-6" />
                 <span className="text-caption font-medium">{t('home.addFirstMint')}</span>
@@ -254,7 +254,7 @@ export function HomeScreen({
       </div>
 
       {/* Transaction section header — fixed */}
-      <div className="shrink-0 w-[calc(var(--card-w)+2rem)] mx-auto flex items-center justify-between pt-4 pb-2 px-4">
+      <div className="shrink-0 w-[var(--card-w)] mx-auto flex items-center justify-between pt-4 pb-2">
         <h2 className="text-caption font-semibold text-foreground-muted">{t('home.recentTransactions')}</h2>
         {filteredTransactions.length > 0 && (
           <button
@@ -262,8 +262,8 @@ export function HomeScreen({
             className="flex items-center gap-0.5 text-caption font-medium text-brand hover:text-brand-700 active:scale-95 transition-all"
           >
             {t('home.seeAll')}
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="mt-px">
-              <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <svg width="10" height="16" viewBox="0 0 10 16" fill="none" className="mt-px -mr-0.5">
+              <path d="M2 2l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
         )}
@@ -271,7 +271,7 @@ export function HomeScreen({
 
       {/* Scrollable transaction list */}
       <main className="flex-1 overflow-y-auto min-h-0 pb-safe">
-        <div className="pb-28 w-[calc(var(--card-w)+2rem)] mx-auto">
+        <div className="pb-28 w-[var(--card-w)] mx-auto">
           <TransactionList
             transactions={filteredTransactions}
             onTransactionClick={onSelectTransaction}

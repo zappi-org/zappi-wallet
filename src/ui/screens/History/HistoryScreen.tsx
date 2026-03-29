@@ -245,13 +245,13 @@ export function HistoryScreen({
             placeholder={t('history.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-background-card pl-10 pr-4 py-2.5 rounded-xl outline-none text-body text-foreground placeholder:text-foreground-muted/50"
+            className="w-full bg-background-card pl-10 pr-4 py-2.5 rounded-card outline-none text-body text-foreground placeholder:text-foreground-muted"
           />
         </div>
       </div>
 
       {/* Filter Chips */}
-      <div className="px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
+      <div className="px-5 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
         <FilterChip
           icon={<ListFilter className="w-3.5 h-3.5" strokeWidth={1.8} />}
           label={isTypeFiltered ? filterLabels[filter] : t('history.filterType')}
@@ -276,7 +276,7 @@ export function HistoryScreen({
       </div>
 
       {/* List */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 pb-safe">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-5 pb-safe">
         {isLoading ? (
           <TransactionListSkeleton count={6} />
         ) : flatItems.length === 0 ? (
@@ -317,7 +317,7 @@ export function HistoryScreen({
                     }}
                   >
                     {item.type === 'header' ? (
-                      <h3 className="text-caption font-semibold text-foreground-muted pt-5 pb-2 px-1">
+                      <h3 className="text-caption font-semibold text-foreground-muted pt-5 pb-2">
                         {item.label}
                       </h3>
                     ) : (
@@ -327,7 +327,7 @@ export function HistoryScreen({
                           onClick={() => setSelectedTransaction(item.tx)}
                           getMintName={getDisplayName}
                         />
-                        <div className="h-px bg-border/30 mx-4" />
+                        <div className="h-px bg-border/30" />
                       </>
                     )}
                   </div>

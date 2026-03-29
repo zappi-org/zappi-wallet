@@ -120,6 +120,7 @@ export default {
 
     // Profile
     profile: 'プロフィール',
+    profileDesc: 'Nostr、ライトニングアドレス、分析',
     zappiUser: 'Zappiユーザー',
     lightningAddress: 'Lightningアドレス',
     registerLightningAddress: '登録',
@@ -148,6 +149,7 @@ export default {
 
     // Security
     security: 'セキュリティ',
+    securityDesc: 'PIN変更、Face ID、自動ロック',
     autoLock: '自動ロック',
     autoLockTimeout: 'ロック時間',
     faceIdTouchId: 'Face ID / Touch ID',
@@ -156,6 +158,7 @@ export default {
 
     // Wallet Management
     walletManagement: 'ウォレット管理',
+    walletManagementDesc: 'ミント、リレー、残高確認、バックアップ',
     manageMints: 'ミント管理',
     manageRelays: 'リレー管理',
     verifyBalance: '残高確認',
@@ -233,6 +236,7 @@ export default {
 
     // Preferences
     preferences: '環境設定',
+    preferencesDesc: '言語、単位、通貨、プライバシー',
 
     // Language
     language: '言語',
@@ -321,6 +325,10 @@ export default {
     cameraPreparing: 'カメラ準備中...',
     multipartScanning: 'マルチパートQRスキャン中...',
     enableCameraPermission: '設定でカメラの許可を有効にしてください',
+    flashOn: 'フラッシュON',
+    flashOff: 'フラッシュOFF',
+    uploadImage: '画像からQRスキャン',
+    noQrFound: 'QRコードが見つかりません',
     invalidCashuRequest: '無効なCashuリクエストです',
     invalidNostrProfile: '無効なNostrプロフィールです',
     invalidNostrEvent: '無効なNostrイベントです',
@@ -831,15 +839,15 @@ export default {
     next: '次へ',
     myWallet: '自分のウォレットに送る',
     noOtherWallets: '他のウォレットがありません',
-    myWalletList: 'マイウォレット',
+    myWalletList: '自分に送る',
     sameWalletError: '同じウォレットには送れません',
     amountRequired: '金額を入力してください',
     destinationRequired: '送金先を入力してください',
     destination: {
       accountFrom: '<b>{{mint}}</b>から',
       whoToSend: '誰に送りますか？',
-      placeholder: 'アドレスまたはリクエストを入力（任意）',
-      hint: 'スキップすると現金のように手渡しできる<b>トークン</b>を作成します',
+      placeholder: 'アドレスまたはインボイスを入力',
+      hint: 'アドレスなしで<b>トークン</b>を作成し、現金のように渡すこともできます',
       unrecognized: '認識できないアドレス形式です',
     },
     amount: {
@@ -934,8 +942,8 @@ export default {
     tokenInputStep: {
       accountTo: '<b>{{mint}}</b>へ',
       haveToken: '受け取るトークンがありますか？',
-      placeholder: 'トークン入力（任意）',
-      hint: 'なければ<b>リクエスト</b>を作成できます',
+      placeholder: 'トークン入力',
+      hint: 'トークンがなければ<b>インボイス</b>を作成して支払いを請求できます',
     },
     amountStep: {
       howMuchRequest: 'いくらリクエストしますか？',

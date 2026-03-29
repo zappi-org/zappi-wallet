@@ -61,9 +61,9 @@ export function MintUrlQrModal({ isOpen, url, onClose }: MintUrlQrModalProps) {
         <div className="px-6 pb-6 pt-2">
           <Button variant="brand" size="lg" onClick={handleCopy} className="w-full">
             {copied ? (
-              <><Check className="w-4 h-4" /> {t('mintDetail.copied')}</>
+              <><Check className="w-4 h-4 mr-2" /> {t('mintDetail.copied')}</>
             ) : (
-              <><Copy className="w-4 h-4" /> {t('mintDetail.copy')}</>
+              <><Copy className="w-4 h-4 mr-2" /> {t('mintDetail.copy')}</>
             )}
           </Button>
         </div>

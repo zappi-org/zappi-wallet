@@ -129,9 +129,9 @@ export function MintDetailScreen({
       </header>
 
       {/* Scrollable Content */}
-      <main className="flex-1 overflow-y-auto px-4 pb-8 space-y-6">
+      <main className="flex-1 overflow-y-auto pb-8">
         {/* Mint Card — with inline rename */}
-        <div className="flex justify-center">
+        <div className="flex justify-center pt-2">
           <MintCard
             mint={liveMint}
             variant={variant}
@@ -140,59 +140,62 @@ export function MintDetailScreen({
           />
         </div>
 
-        {/* Pending Items */}
-        {pendingItems.length > 0 && (
+        {/* Content aligned to card width */}
+        <div className="w-[var(--card-w)] mx-auto space-y-6 mt-6">
+          {/* Pending Items */}
+          {pendingItems.length > 0 && (
+            <section>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-caption font-semibold text-foreground-muted">
+                  {t('mintDetail.pendingItems')}
+                </h2>
+                <button
+                  onClick={() => { hapticTap(); setShowPendingItems(true) }}
+                  className="flex items-center gap-0.5 text-caption font-medium text-brand hover:text-brand-700 active:scale-95 transition-all"
+                >
+                  {t('mintDetail.seeMore')}
+                  <svg width="10" height="16" viewBox="0 0 10 16" fill="none" className="mt-px">
+                    <path d="M2 2l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              </div>
+              <PendingItemsList items={pendingItems} maxItems={5} showDate onItemClick={handlePendingItemClick} />
+            </section>
+          )}
+
+          {/* Transactions */}
           <section>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-caption font-semibold text-foreground-muted">
-                {t('mintDetail.pendingItems')}
+                {t('mintDetail.transactions')}
               </h2>
-              <button
-                onClick={() => { hapticTap(); setShowPendingItems(true) }}
-                className="flex items-center gap-0.5 text-caption font-medium text-brand hover:text-brand-700 active:scale-95 transition-all"
-              >
-                {t('mintDetail.seeMore')}
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="mt-px">
-                  <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
+              {onTransactions && (
+                <button
+                  onClick={onTransactions}
+                  className="flex items-center gap-0.5 text-caption font-medium text-brand hover:text-brand-700 active:scale-95 transition-all"
+                >
+                  {t('mintDetail.seeDetails')}
+                  <svg width="10" height="16" viewBox="0 0 10 16" fill="none" className="mt-px">
+                    <path d="M2 2l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              )}
             </div>
-            <PendingItemsList items={pendingItems} maxItems={5} showDate onItemClick={handlePendingItemClick} />
-          </section>
-        )}
-
-        {/* Transactions */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-caption font-semibold text-foreground-muted">
-              {t('mintDetail.transactions')}
-            </h2>
-            {onTransactions && (
-              <button
-                onClick={onTransactions}
-                className="flex items-center gap-0.5 text-caption font-medium text-brand hover:text-brand-700 active:scale-95 transition-all"
-              >
-                {t('mintDetail.seeDetails')}
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="mt-px">
-                  <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
+            {filteredTransactions.length > 0 ? (
+              <TransactionList
+                transactions={filteredTransactions}
+                onTransactionClick={onSelectTransaction}
+                showHeader={false}
+                showDate
+                className="px-0 py-0"
+              />
+            ) : (
+              <p className="text-caption text-foreground-muted text-center py-4">
+                {t('mintDetail.noTransactions')}
+              </p>
             )}
-          </div>
-          {filteredTransactions.length > 0 ? (
-            <TransactionList
-              transactions={filteredTransactions}
-              onTransactionClick={onSelectTransaction}
-              showHeader={false}
-              showDate
-              className="px-0 py-0"
-            />
-          ) : (
-            <p className="text-caption text-foreground-muted text-center py-4">
-              {t('mintDetail.noTransactions')}
-            </p>
-          )}
-        </section>
+          </section>
+        </div>
       </main>
 
       {/* Mint Info Sheet */}

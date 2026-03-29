@@ -5,6 +5,7 @@ import { AreaChart, Area, Tooltip, ResponsiveContainer, XAxis, Legend } from 're
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import type { Transaction } from '@/core/types'
+import { SegmentControl } from '@/ui/components/common/SegmentControl'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 
 export interface AnalyticsScreenProps {
@@ -187,32 +188,14 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-32">
         {/* Time Range Selector */}
-        <div className="flex justify-center">
-          <div className="bg-primary/10 p-1 rounded-full flex">
-            <button
-              onClick={() => setTimeRange('week')}
-              className={cn(
-                'px-3 py-2 rounded-full text-label font-medium transition-all',
-                timeRange === 'week'
-                  ? 'bg-background-card shadow-sm text-foreground'
-                  : 'text-foreground-muted hover:text-foreground'
-              )}
-            >
-              {t('analytics.thisWeek')}
-            </button>
-            <button
-              onClick={() => setTimeRange('month')}
-              className={cn(
-                'px-3 py-2 rounded-full text-label font-medium transition-all',
-                timeRange === 'month'
-                  ? 'bg-background-card shadow-sm text-foreground'
-                  : 'text-foreground-muted hover:text-foreground'
-              )}
-            >
-              {t('analytics.thisMonth')}
-            </button>
-          </div>
-        </div>
+        <SegmentControl
+          value={timeRange}
+          onChange={setTimeRange}
+          options={[
+            { value: 'week', label: t('analytics.thisWeek') },
+            { value: 'month', label: t('analytics.thisMonth') },
+          ]}
+        />
 
         {/* Total Spent / Received Cards */}
         <div className="grid grid-cols-2 gap-3">

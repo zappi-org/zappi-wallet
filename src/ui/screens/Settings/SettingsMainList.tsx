@@ -1,67 +1,29 @@
-import { Download } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import { User, Settings, Lock, Wallet, ChevronRight, Download } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { Button } from '@/ui/components/common/Button'
-import { encodeNpub } from '@/services/crypto'
-import { FIAT_CURRENCY_MAP } from '@/utils/format'
-import { isPasskeySupported, isPasskeyRegistered } from '@/services/passkey'
-import { getCurrentLanguage, SUPPORTED_LANGUAGES } from '@/i18n'
 import { updateSW } from '@/registerSW'
-import { Switch } from '@/ui/components/common/Switch'
-import { SettingsRow } from './components/SettingsRow'
 import type { SettingsPage } from './SettingsScreen'
 
 interface SettingsMainListProps {
   onNavigate: (page: SettingsPage) => void
-  onRegisterLightningAddress: () => void
-  isRegistering: boolean
-  onMintManagement?: () => void
-  onRelayManagement?: () => void
-  onAnalytics?: () => void
-  onFaceIdToggle: (enabled: boolean) => void
-  onOpenPinChange: () => void
-  onOpenRestore: () => void
-  onOpenBackup: () => void
   onOpenLogout: () => void
 }
 
+const categories: { Icon: LucideIcon; titleKey: string; descKey: string; page: SettingsPage }[] = [
+  { Icon: User, titleKey: 'settings.profile', descKey: 'settings.profileDesc', page: 'category-profile' },
+  { Icon: Settings, titleKey: 'settings.preferences', descKey: 'settings.preferencesDesc', page: 'category-preferences' },
+  { Icon: Lock, titleKey: 'settings.security', descKey: 'settings.securityDesc', page: 'category-security' },
+  { Icon: Wallet, titleKey: 'settings.walletManagement', descKey: 'settings.walletManagementDesc', page: 'category-wallet' },
+]
+
 export function SettingsMainList({
   onNavigate,
-  onRegisterLightningAddress,
-  isRegistering,
-  onMintManagement,
-  onRelayManagement,
-  onAnalytics,
-  onFaceIdToggle,
-  onOpenPinChange,
-  onOpenRestore,
-  onOpenBackup,
   onOpenLogout,
 }: SettingsMainListProps) {
   const { t } = useTranslation()
-  const settings = useAppStore((s) => s.settings)
-  const nostrPubkey = useAppStore((s) => s.nostrPubkey)
   const updateAvailable = useAppStore((s) => s.updateAvailable)
-
-  const currentLang = getCurrentLanguage()
-  const langName = SUPPORTED_LANGUAGES.find(l => l.code === currentLang)?.nativeName || 'English'
-  const unitLabel = (settings.unitDisplay ?? 'bip177') === 'sats' ? 'sats' : '₿ (BIP-177)'
-  const showFiat = settings.showFiatConversion ?? true
-  const fiatValue = showFiat
-    ? (() => {
-        const code = settings.fiatCurrency ?? 'USD'
-        const info = FIAT_CURRENCY_MAP.get(code)
-        return info ? `${info.flag} ${info.symbol} ${code}` : code
-      })()
-    : null
-
-  const autoLockEnabled = settings.autoLockEnabled
-  const autoLockValue = autoLockEnabled ? `${settings.autoLockTimeoutMinutes}${t('common.min')}` : null
-
-  const passkeySupported = isPasskeySupported()
-  const passkeyEnabled = isPasskeyRegistered()
-
-  const npubDisplay = nostrPubkey ? encodeNpub(nostrPubkey) : null
 
   return (
     <div className="flex-1 overflow-y-auto pb-28">
@@ -76,135 +38,23 @@ export function SettingsMainList({
         </button>
       )}
 
-      {/* Profile */}
-      <section>
-        <p className="text-caption font-medium uppercase tracking-wide text-foreground-muted px-4 pt-6 pb-2">
-          {t('settings.profile')}
-        </p>
-        <div className="bg-background-card">
-          {npubDisplay && (
-            <SettingsRow
-              label="Nostr"
-              value={npubDisplay}
-              onPress={() => onNavigate('npubDetail')}
-              truncateValue
-            />
-          )}
-          {settings.lightningAddress ? (
-            <SettingsRow
-              label={t('settings.lightningAddress')}
-              value={settings.lightningAddress}
-              onPress={() => onNavigate('lightningDetail')}
-              truncateValue
-            />
-          ) : (
-            <SettingsRow
-              label={t('settings.lightningAddress')}
-              value={isRegistering ? t('settings.registeringLightningAddress') : t('settings.registerLightningAddress')}
-              onPress={onRegisterLightningAddress}
-            />
-          )}
-          <SettingsRow
-            label={t('actions.analytics')}
-            onPress={() => onAnalytics?.()}
-          />
-        </div>
-      </section>
-
-      {/* Preferences */}
-      <section>
-        <p className="text-caption font-medium uppercase tracking-wide text-foreground-muted px-4 pt-6 pb-2">
-          {t('settings.preferences')}
-        </p>
-        <div className="bg-background-card">
-          <SettingsRow
-            label={t('settings.language')}
-            value={langName}
-            onPress={() => onNavigate('language')}
-          />
-          <SettingsRow
-            label={t('settings.unitDisplay')}
-            value={unitLabel}
-            onPress={() => onNavigate('unitDisplay')}
-          />
-          <SettingsRow
-            label={t('settings.showFiatConversion')}
-            value={fiatValue}
-            onPress={() => onNavigate('fiat')}
-          />
-          <SettingsRow
-            label={t('settings.privacy')}
-            onPress={() => onNavigate('privacy')}
-          />
-        </div>
-      </section>
-
-      {/* Security */}
-      <section>
-        <p className="text-caption font-medium uppercase tracking-wide text-foreground-muted px-4 pt-6 pb-2">
-          {t('settings.security')}
-        </p>
-        <div className="bg-background-card">
-          <SettingsRow
-            label={t('settings.changePin')}
-            onPress={onOpenPinChange}
-          />
-          {passkeySupported && (
-            <div className="px-4 py-3.5 flex items-center justify-between min-h-[52px]">
-              <span className="text-body font-medium">{t('settings.faceIdTouchId')}</span>
-              <Switch checked={passkeyEnabled} onChange={onFaceIdToggle} />
+      {/* Category cards */}
+      <div className="px-4 pt-4 flex flex-col gap-2.5">
+        {categories.map(({ Icon, titleKey, descKey, page }) => (
+          <button
+            key={page}
+            onClick={() => onNavigate(page)}
+            className="w-full bg-background-card rounded-card px-4 py-4 flex items-center gap-3.5 active:scale-[0.98] active:opacity-80 transition-all text-left"
+          >
+            <Icon className="w-[22px] h-[22px] text-foreground-muted shrink-0" strokeWidth={1.8} />
+            <div className="flex-1 min-w-0">
+              <p className="text-body font-semibold text-foreground">{t(titleKey)}</p>
+              <p className="text-caption text-foreground-muted mt-0.5 truncate">{t(descKey)}</p>
             </div>
-          )}
-          <SettingsRow
-            label={t('settings.autoLock')}
-            value={autoLockValue}
-            onPress={() => onNavigate('autoLock')}
-          />
-        </div>
-      </section>
-
-      {/* Wallet Management */}
-      <section>
-        <p className="text-caption font-medium uppercase tracking-wide text-foreground-muted px-4 pt-6 pb-2">
-          {t('settings.walletManagement')}
-        </p>
-        <div className="bg-background-card">
-          <SettingsRow
-            label={t('settings.manageMints')}
-            value={String(settings.mints.length)}
-            onPress={() => onMintManagement?.()}
-          />
-          <SettingsRow
-            label={t('settings.manageRelays')}
-            value={String(settings.relays.length)}
-            onPress={() => onRelayManagement?.()}
-          />
-          <SettingsRow
-            label={t('settings.verifyBalance')}
-            onPress={onOpenRestore}
-          />
-          <SettingsRow
-            label={t('settings.mnemonicBackup')}
-            onPress={onOpenBackup}
-          />
-        </div>
-      </section>
-
-      {/* POS/KIOSK Management — hidden for alpha */}
-      {/* {(posDevices.length > 0 || settings.lightningAddress) && (
-        <section>
-          <p className="text-caption font-medium uppercase tracking-wide text-foreground-muted px-4 pt-6 pb-2">
-            {t('settings.posManagement')}
-          </p>
-          <div className="bg-background-card">
-            <SettingsRow
-              label={t('settings.posManagement')}
-              value={posValue}
-              onPress={() => onNavigate('pos')}
-            />
-          </div>
-        </section>
-      )} */}
+            <ChevronRight className="w-[18px] h-[18px] text-foreground-subtle shrink-0" strokeWidth={1.8} />
+          </button>
+        ))}
+      </div>
 
       {/* Logout */}
       <div className="px-4 pt-8">

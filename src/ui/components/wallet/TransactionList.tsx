@@ -80,7 +80,7 @@ export function TransactionList({
                 showDate={showDate}
               />
               {index < displayTransactions.length - 1 && (
-                <div className="h-px bg-border/30 mx-4" />
+                <div className="h-px bg-border/30" />
               )}
             </div>
           ))}

@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import QrScannerLib, { type ScanResult } from 'qr-scanner'
 import { URDecoder } from '@gandlaf21/bc-ur'
+import { Flashlight, FlashlightOff, Image } from 'lucide-react'
+import { usePinchZoom } from '@/hooks/use-pinch-zoom'
 
 export interface QrScannerProps {
   onScan: (result: string) => void
@@ -11,6 +13,7 @@ export interface QrScannerProps {
 
 export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
   const { t } = useTranslation()
+  const containerRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const scannerRef = useRef<QrScannerLib | null>(null)
   const urDecoderRef = useRef<URDecoder | null>(null)
@@ -20,13 +23,26 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
   const [errorMessage, setErrorMessage] = useState('')
   const [urProgress, setUrProgress] = useState(0)
 
+  // Flash state
+  const [flashAvailable, setFlashAvailable] = useState(false)
+  const [flashOn, setFlashOn] = useState(false)
+
+  // Pinch-to-zoom
+  const { zoomLevel, videoStyle, getScanRegion } = usePinchZoom({
+    containerRef,
+    scannerRef,
+    enabled: active && isReady,
+  })
+  const getScanRegionRef = useRef(getScanRegion)
+
   // Stable callback refs
   const onScanRef = useRef(onScan)
   const onErrorRef = useRef(onError)
   useEffect(() => {
     onScanRef.current = onScan
     onErrorRef.current = onError
-  }, [onScan, onError])
+    getScanRegionRef.current = getScanRegion
+  }, [onScan, onError, getScanRegion])
 
   const handleScan = useCallback((result: ScanResult) => {
     if (!result?.data) return
@@ -62,6 +78,43 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
     }
   }, [])
 
+  // Image upload
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [imageError, setImageError] = useState('')
+  const imageErrorTimer = useRef<ReturnType<typeof setTimeout>>(null)
+
+  const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Reset input so same file can be selected again
+    e.target.value = ''
+    setImageError('')
+    if (imageErrorTimer.current) clearTimeout(imageErrorTimer.current)
+
+    try {
+      const result = await QrScannerLib.scanImage(file, { returnDetailedScanResult: true })
+      if (result?.data) {
+        onScanRef.current(result.data)
+      }
+    } catch {
+      setImageError(t('scanner.noQrFound'))
+      imageErrorTimer.current = setTimeout(() => setImageError(''), 3000)
+    }
+  }, [t])
+
+  // Flash toggle handler
+  const handleFlashToggle = useCallback(async () => {
+    const scanner = scannerRef.current
+    if (!scanner) return
+    try {
+      await scanner.toggleFlash()
+      setFlashOn(scanner.isFlashOn())
+    } catch {
+      // Flash may become unavailable mid-session
+    }
+  }, [])
+
   // Initialize and cleanup scanner
   useEffect(() => {
     const video = videoRef.current
@@ -81,26 +134,18 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
         return
       }
 
-      // Create scanner instance with optimized settings for better recognition
+      // Create scanner instance
       const scanner = new QrScannerLib(
         video,
         handleScan,
         {
           returnDetailedScanResult: true,
-          highlightScanRegion: true,
-          highlightCodeOutline: true,
-          onDecodeError: () => {}, // Silent decode errors
-          preferredCamera: 'environment', // Use back camera on mobile
-          maxScansPerSecond: 10, // UR multipart QR frames transition at ~5-8fps
-          // Expand scan region to full video for better recognition
-          calculateScanRegion: (v) => ({
-            x: 0,
-            y: 0,
-            width: v.videoWidth,
-            height: v.videoHeight,
-            downScaledWidth: 800, // Higher resolution for better recognition
-            downScaledHeight: 800,
-          }),
+          highlightScanRegion: false,
+          highlightCodeOutline: false,
+          onDecodeError: () => {},
+          preferredCamera: 'environment',
+          maxScansPerSecond: 10,
+          calculateScanRegion: (v) => getScanRegionRef.current(v),
         }
       )
 
@@ -115,6 +160,14 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
           if (mounted) {
             setIsReady(true)
             setErrorMessage('')
+
+            // Check flash availability after camera starts
+            try {
+              const hasFlash = await scanner.hasFlash()
+              if (mounted) setFlashAvailable(hasFlash)
+            } catch {
+              // Flash check failed — leave as unavailable
+            }
           }
         } catch (err) {
           if (!mounted) return
@@ -146,8 +199,11 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
       }
       urDecoderRef.current = null
       lastScannedDataRef.current = null
+      if (imageErrorTimer.current) clearTimeout(imageErrorTimer.current)
       setUrProgress(0)
       setIsReady(false)
+      setFlashAvailable(false)
+      setFlashOn(false)
     }
   }, [handleScan, active, t])
 
@@ -169,8 +225,9 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
         })
     } else {
       scanner.stop()
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync reset on active toggle
       setIsReady(false)
+      setFlashOn(false)
     }
   }, [active])
 
@@ -191,13 +248,59 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
   }
 
   return (
-    <div className="relative w-full overflow-hidden rounded-[14px] bg-black">
+    <div ref={containerRef} className="relative w-full overflow-hidden rounded-[14px] bg-black">
       <video
         ref={videoRef}
         className="w-full aspect-square object-cover"
+        style={videoStyle}
         playsInline
         muted
       />
+
+      {/* Zoom indicator */}
+      {zoomLevel > 1 && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/50 backdrop-blur-sm pointer-events-none z-10">
+          <span className="text-white text-label font-medium">{zoomLevel.toFixed(1)}x</span>
+        </div>
+      )}
+
+      {/* Flash toggle — top right */}
+      {flashAvailable && (
+        <button
+          onClick={handleFlashToggle}
+          className="absolute top-3 right-3 p-1.5 rounded-[10px] bg-black/50 backdrop-blur-sm active:bg-black/70 transition-colors z-10"
+          aria-label={flashOn ? t('scanner.flashOff') : t('scanner.flashOn')}
+        >
+          {flashOn ? (
+            <FlashlightOff className="w-6 h-6 text-white" strokeWidth={1.8} />
+          ) : (
+            <Flashlight className="w-6 h-6 text-white" strokeWidth={1.8} />
+          )}
+        </button>
+      )}
+
+      {/* Image upload — bottom left */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleImageUpload}
+        className="hidden"
+      />
+      <button
+        onClick={() => fileInputRef.current?.click()}
+        className="absolute bottom-3 right-3 p-1.5 rounded-[10px] bg-black/50 backdrop-blur-sm active:bg-black/70 transition-colors z-10"
+        aria-label={t('scanner.uploadImage')}
+      >
+        <Image className="w-6 h-6 text-white" strokeWidth={1.8} />
+      </button>
+
+      {/* Image scan error toast */}
+      {imageError && (
+        <div className="absolute bottom-14 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-black/70 backdrop-blur-sm z-10">
+          <span className="text-white text-caption font-medium">{imageError}</span>
+        </div>
+      )}
 
       {/* Loading overlay */}
       {!isReady && !errorMessage && (

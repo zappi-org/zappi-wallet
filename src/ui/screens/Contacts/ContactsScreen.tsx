@@ -136,14 +136,14 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
       {/* Search */}
       {contacts.length > 0 && (
         <div className="px-4 pb-2">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-background-card border border-border">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-card bg-background-card border border-border">
             <Search className="w-4 h-4 text-foreground-muted shrink-0" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t('common.search')}
-              className="flex-1 bg-transparent text-body focus:outline-none placeholder:text-foreground-muted/50"
+              className="flex-1 bg-transparent text-body focus:outline-none placeholder:text-foreground-muted"
             />
           </div>
         </div>
@@ -175,8 +175,8 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
                     onClick={() => handleToggle(contact.id)}
                     className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-foreground/[0.02] transition-colors"
                   >
-                    <div className="w-10 h-10 rounded-full bg-brand/8 flex items-center justify-center shrink-0">
-                      <Icon className="w-[18px] h-[18px] text-brand" />
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${contact.addressType === 'lightning' ? 'bg-amber-500' : contact.addressType === 'npub' ? 'bg-purple-500' : 'bg-foreground-muted'}`}>
+                      <Icon className="w-[18px] h-[18px] text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-body font-medium text-foreground truncate">{contact.name}</p>
@@ -198,7 +198,7 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
                           <button
                             onClick={() => handleSend(contact)}
                             disabled={isSending || contact.addressType === 'npub'}
-                            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-brand text-white text-caption font-semibold active:opacity-80 transition-opacity disabled:opacity-40"
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-card bg-brand text-white text-caption font-semibold active:opacity-80 transition-opacity disabled:opacity-40"
                           >
                             {isSending ? (
                               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -209,14 +209,14 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
                           </button>
                           <button
                             onClick={() => handleEdit(contact)}
-                            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-foreground/[0.06] text-foreground text-caption font-semibold active:opacity-80 transition-opacity"
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-card bg-foreground/[0.06] text-foreground text-caption font-semibold active:opacity-80 transition-opacity"
                           >
                             <Pencil className="w-3.5 h-3.5" />
                             {t('contacts.editContact')}
                           </button>
                           <button
                             onClick={() => setDeleteTarget(contact)}
-                            className="flex items-center justify-center w-10 h-10 rounded-xl bg-foreground/[0.06] active:opacity-80 transition-opacity"
+                            className="flex items-center justify-center w-10 h-10 rounded-card bg-foreground/[0.06] active:opacity-80 transition-opacity"
                           >
                             <Trash2 className="w-3.5 h-3.5 text-accent-danger" />
                           </button>

@@ -120,6 +120,7 @@ export default {
 
     // Profile
     profile: '프로필',
+    profileDesc: 'Nostr, 라이트닝 주소, 분석',
     zappiUser: 'Zappi 사용자',
     lightningAddress: '라이트닝 주소',
     registerLightningAddress: '생성하기',
@@ -148,6 +149,7 @@ export default {
 
     // Security
     security: '보안',
+    securityDesc: 'PIN 변경, Face ID, 자동 잠금',
     autoLock: '자동 잠금',
     autoLockTimeout: '잠금 시간',
     faceIdTouchId: 'Face ID / Touch ID',
@@ -156,6 +158,7 @@ export default {
 
     // Wallet Management
     walletManagement: '지갑 관리',
+    walletManagementDesc: '민트, 릴레이, 잔액 확인, 백업',
     manageMints: '민트 관리',
     manageRelays: '릴레이 관리',
     verifyBalance: '잔액 검증',
@@ -233,6 +236,7 @@ export default {
 
     // Preferences
     preferences: '환경설정',
+    preferencesDesc: '언어, 단위, 통화, 프라이버시',
 
     // Language
     language: '언어',
@@ -321,6 +325,10 @@ export default {
     cameraPreparing: '카메라 준비 중...',
     multipartScanning: '멀티파트 QR 스캔 중...',
     enableCameraPermission: '설정에서 카메라 권한을 허용해주세요',
+    flashOn: '플래시 켜기',
+    flashOff: '플래시 끄기',
+    uploadImage: '이미지에서 QR 스캔',
+    noQrFound: 'QR 코드를 찾을 수 없습니다',
     invalidCashuRequest: '유효하지 않은 Cashu 요청입니다',
     invalidNostrProfile: '유효하지 않은 Nostr 프로필입니다',
     invalidNostrEvent: '유효하지 않은 Nostr 이벤트입니다',
@@ -810,7 +818,7 @@ export default {
     description: '설명',
     motd: '공지',
     supportedNuts: '지원 NUTs',
-    contact: '연락처',
+    contact: '주소록',
     loadingInfo: '정보를 불러오는 중...',
     loadError: '민트 정보를 가져올 수 없습니다.',
     deleteConfirm: '삭제 확인',
@@ -831,15 +839,15 @@ export default {
     next: '다음',
     myWallet: '내 지갑으로 보내기',
     noOtherWallets: '다른 지갑이 없습니다',
-    myWalletList: '내 민트 목록',
+    myWalletList: '나에게 보내기',
     sameWalletError: '같은 지갑으로는 보낼 수 없어요',
     amountRequired: '금액을 입력해주세요',
     destinationRequired: '목적지를 입력해주세요',
     destination: {
       accountFrom: '<b>{{mint}}</b>에서',
       whoToSend: '누구에게 보낼까요?',
-      placeholder: '주소 또는 요청 입력 (선택사항)',
-      hint: '건너뛰면 현금처럼 직접 건넬 수 있는 <b>토큰</b>을 만들어요',
+      placeholder: '주소 또는 인보이스 입력',
+      hint: '주소 입력 없이 <b>토큰</b>을 만들어서 현금처럼 건넬 수도 있어요',
       unrecognized: '인식할 수 없는 주소 형식입니다',
     },
     amount: {
@@ -934,8 +942,8 @@ export default {
     tokenInputStep: {
       accountTo: '<b>{{mint}}</b>으로',
       haveToken: '받을 토큰이 있나요?',
-      placeholder: '토큰 입력 (선택사항)',
-      hint: '없다면 <b>요청</b>을 만들 수 있어요',
+      placeholder: '토큰 입력',
+      hint: '토큰이 없다면 <b>인보이스</b>를 만들어서 결제를 청구할 수도 있어요',
     },
     amountStep: {
       howMuchRequest: '얼마를 요청할까요?',
@@ -1036,7 +1044,7 @@ export default {
     announcement: '공지',
     description: '설명',
     mintUrl: '민트 URL',
-    mintContact: '민트 연락처',
+    mintContact: '민트 주소록',
     details: 'Details',
     version: '버전',
     units: '지원 단위',
@@ -1101,27 +1109,27 @@ export default {
   // Bottom Navigation
   nav: {
     wallet: '지갑',
-    contacts: '연락처',
+    contacts: '주소록',
     settings: '설정',
   },
 
   // Address Book / Contacts
   contacts: {
-    title: '연락처',
-    addContact: '연락처 추가',
-    editContact: '연락처 수정',
-    deleteConfirm: '이 연락처를 삭제하시겠습니까?',
+    title: '주소록',
+    addContact: '주소록 추가',
+    editContact: '주소록 수정',
+    deleteConfirm: '이 주소를 삭제하시겠습니까?',
     name: '이름',
-    namePlaceholder: '연락처 이름',
+    namePlaceholder: '주소록 이름',
     address: '주소',
     addressPlaceholder: '라이트닝 주소, npub 등',
     memoPlaceholder: '메모',
     optional: '선택',
     nameRequired: '이름을 입력해주세요',
     addressRequired: '주소를 입력해주세요',
-    emptyTitle: '아직 연락처가 없습니다',
+    emptyTitle: '아직 주소록이 비어있습니다',
     emptyDescription: '자주 보내는 주소를 저장하세요',
-    noResults: '일치하는 연락처가 없습니다',
+    noResults: '일치하는 주소가 없습니다',
     onlyLightningOrNpub: '라이트닝 주소 또는 npub만 등록할 수 있습니다',
     verificationFailed: '주소 확인에 실패했습니다',
     verify: {

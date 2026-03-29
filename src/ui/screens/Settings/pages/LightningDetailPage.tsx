@@ -56,16 +56,16 @@ export function LightningDetailPage({ onBack, onChangeUsername }: LightningDetai
         {/* Copy button */}
         <Button variant="brand" size="lg" onClick={handleCopy} className="w-full max-w-[320px] mt-6">
           {copied ? (
-            <><Check className="w-4 h-4" /> {t('common.copied')}</>
+            <><Check className="w-4 h-4 mr-2" /> {t('common.copied')}</>
           ) : (
-            <><Copy className="w-4 h-4" /> {t('common.copy')}</>
+            <><Copy className="w-4 h-4 mr-2" /> {t('common.copy')}</>
           )}
         </Button>
 
         {/* Change username */}
         {onChangeUsername && (
           <Button variant="outline" size="lg" onClick={onChangeUsername} className="w-full max-w-[320px] mt-3">
-            <Pencil className="w-4 h-4" />
+            <Pencil className="w-4 h-4 mr-2" />
             {t('common.change')}
           </Button>
         )}

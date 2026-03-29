@@ -120,6 +120,7 @@ export default {
 
     // Profile
     profile: 'Profile',
+    profileDesc: 'Nostr, Lightning Address, Analytics',
     zappiUser: 'Zappi User',
     lightningAddress: 'Lightning Address',
     registerLightningAddress: 'Register',
@@ -148,6 +149,7 @@ export default {
 
     // Security
     security: 'Security',
+    securityDesc: 'PIN, Face ID, Auto Lock',
     autoLock: 'Auto Lock',
     autoLockTimeout: 'Lock after',
     faceIdTouchId: 'Face ID / Touch ID',
@@ -156,6 +158,7 @@ export default {
 
     // Wallet Management
     walletManagement: 'Wallet Management',
+    walletManagementDesc: 'Mints, Relays, Balance, Backup',
     manageMints: 'Manage Mints',
     manageRelays: 'Manage Relays',
     verifyBalance: 'Verify Balance',
@@ -233,6 +236,7 @@ export default {
 
     // Preferences
     preferences: 'Preferences',
+    preferencesDesc: 'Language, Unit, Currency, Privacy',
 
     // Language
     language: 'Language',
@@ -321,6 +325,10 @@ export default {
     cameraPreparing: 'Preparing camera...',
     multipartScanning: 'Scanning multipart QR...',
     enableCameraPermission: 'Please enable camera permission in settings',
+    flashOn: 'Flash on',
+    flashOff: 'Flash off',
+    uploadImage: 'Scan QR from image',
+    noQrFound: 'No QR code found',
     invalidCashuRequest: 'Invalid Cashu request',
     invalidNostrProfile: 'Invalid Nostr profile',
     invalidNostrEvent: 'Invalid Nostr event',
@@ -828,15 +836,15 @@ export default {
     next: 'Next',
     myWallet: 'Send to my wallet',
     noOtherWallets: 'No other wallets',
-    myWalletList: 'My wallets',
+    myWalletList: 'Send to myself',
     sameWalletError: 'Cannot send to the same wallet',
     amountRequired: 'Please enter an amount',
     destinationRequired: 'Please enter a destination',
     destination: {
       accountFrom: 'From <b>{{mint}}</b>',
       whoToSend: 'Who are you sending to?',
-      placeholder: 'Address or request (optional)',
-      hint: 'Skip to create a <b>token</b> you can hand over like cash',
+      placeholder: 'Address or invoice',
+      hint: 'Without an address, you can create a <b>token</b> to hand over like cash',
       unrecognized: 'Unrecognized address format',
     },
     amount: {
@@ -931,8 +939,8 @@ export default {
     tokenInputStep: {
       accountTo: 'To <b>{{mint}}</b>',
       haveToken: 'Have a token to receive?',
-      placeholder: 'Enter token (optional)',
-      hint: 'If not, you can create a <b>request</b>',
+      placeholder: 'Enter token',
+      hint: 'No token? You can create an <b>invoice</b> to request payment',
     },
     amountStep: {
       howMuchRequest: 'How much to request?',

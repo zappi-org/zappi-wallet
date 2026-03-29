@@ -27,6 +27,8 @@ declare module 'qr-scanner' {
   }
 
   export default class QrScanner {
+    $video: HTMLVideoElement
+
     constructor(
       video: HTMLVideoElement,
       onDecode: (result: ScanResult) => void,
@@ -50,7 +52,7 @@ declare module 'qr-scanner' {
     static listCameras(requestLabels?: boolean): Promise<{ id: string; label: string }[]>
     static scanImage(
       image: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement | string | File | Blob | URL,
-      options?: { scanRegion?: ScanRegion; qrEngine?: Worker; canvas?: HTMLCanvasElement }
+      options?: { scanRegion?: ScanRegion; qrEngine?: Worker; canvas?: HTMLCanvasElement; returnDetailedScanResult?: boolean }
     ): Promise<ScanResult>
   }
 }

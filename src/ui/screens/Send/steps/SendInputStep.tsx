@@ -18,7 +18,6 @@ import { hapticTap } from '@/utils/haptic'
 import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
-import { HintBox } from '@/ui/components/common/HintBox'
 import { SegmentControl } from '@/ui/components/common/SegmentControl'
 import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
 import { validateInput } from '@/ui/components/scanner/InputValidator'
@@ -303,6 +302,14 @@ export function SendInputStep({
         <h2 className="text-heading font-semibold text-foreground">
           {t('send.destination.whoToSend')}
         </h2>
+        {!destination.trim() && (
+          <p className="text-body text-foreground/70 leading-relaxed mt-2 break-keep">
+            <Trans
+              i18nKey="send.destination.hint"
+              components={{ b: <span className="font-semibold text-foreground" /> }}
+            />
+          </p>
+        )}
 
         {/* Destination input — placeholder smaller than title */}
         <div className="mt-6">
@@ -449,18 +456,8 @@ export function SendInputStep({
         )}
       </div>
 
-      {/* Bottom — hint + button */}
+      {/* Bottom — button */}
       <div className="px-6 pb-6 pb-safe shrink-0">
-        {!destination.trim() && (
-          <HintBox className="mb-3">
-            <p className="whitespace-pre-line">
-              <Trans
-                i18nKey="send.destination.hint"
-                components={{ b: <span className="font-semibold text-foreground" /> }}
-              />
-            </p>
-          </HintBox>
-        )}
         <Button
           variant="brand"
           size="xl"

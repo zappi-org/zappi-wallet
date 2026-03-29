@@ -17,14 +17,14 @@ const variantStyles: Record<ButtonVariant, string> = {
   destructive: 'bg-accent-danger text-white hover:bg-accent-danger/90',
   ghost: 'bg-transparent text-foreground-muted hover:bg-background-card',
   outline: 'border border-input bg-background hover:bg-background-card',
-  brand: 'bg-brand text-white rounded-xl shadow-lg shadow-brand/25 hover:bg-brand/90',
+  brand: 'bg-brand text-white rounded-card shadow-lg shadow-brand/25 hover:bg-brand/90',
 }
 
 const sizeStyles: Record<ButtonSize, string> = {
-  sm: 'h-8 px-3 text-label font-medium rounded-lg',
-  md: 'h-9 px-4 text-caption rounded-lg',
-  lg: 'h-12 px-5 text-body rounded-lg',
-  xl: 'h-14 px-6 text-subtitle font-semibold rounded-xl',
+  sm: 'h-8 px-3 text-label font-medium rounded-card',
+  md: 'h-9 px-4 text-caption rounded-card',
+  lg: 'h-12 px-5 text-body rounded-card',
+  xl: 'h-14 px-6 text-subtitle font-semibold rounded-card',
 }
 
 // Touch feedback styles (Section 17.3)

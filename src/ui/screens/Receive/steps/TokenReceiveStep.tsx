@@ -9,7 +9,6 @@ import { Trans } from 'react-i18next'
 import { CameraFilled } from '@/ui/components/icons/CameraFilled'
 import { useTranslation } from 'react-i18next'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
-import { HintBox } from '@/ui/components/common/HintBox'
 import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
@@ -121,6 +120,14 @@ export function TokenReceiveStep({
         <h2 className="text-heading font-semibold text-foreground">
           {t('receive.tokenInputStep.haveToken')}
         </h2>
+        {!tokenInput.trim() && (
+          <p className="text-body text-foreground/70 leading-relaxed mt-2 break-keep">
+            <Trans
+              i18nKey="receive.tokenInputStep.hint"
+              components={{ b: <span className="font-semibold text-foreground" /> }}
+            />
+          </p>
+        )}
 
         {/* Token input — same style as send destination */}
         <div className="mt-6">
@@ -169,16 +176,8 @@ export function TokenReceiveStep({
         </div>
       </div>
 
-      {/* Bottom — hint + button */}
+      {/* Bottom — button */}
       <div className="px-6 pb-6 pb-safe shrink-0">
-        {!tokenInput.trim() && (
-          <HintBox className="mb-3">
-            <Trans
-              i18nKey="receive.tokenInputStep.hint"
-              components={{ b: <span className="font-semibold text-foreground" /> }}
-            />
-          </HintBox>
-        )}
         <Button
           variant="brand"
           size="xl"

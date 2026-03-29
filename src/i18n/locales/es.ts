@@ -120,6 +120,7 @@ export default {
 
     // Profile
     profile: 'Perfil',
+    profileDesc: 'Nostr, Dirección Lightning, Análisis',
     zappiUser: 'Usuario Zappi',
     lightningAddress: 'Dirección Lightning',
     registerLightningAddress: 'Registrar',
@@ -148,6 +149,7 @@ export default {
 
     // Security
     security: 'Seguridad',
+    securityDesc: 'PIN, Face ID, Bloqueo automático',
     autoLock: 'Bloqueo automático',
     autoLockTimeout: 'Bloquear después de',
     faceIdTouchId: 'Face ID / Touch ID',
@@ -156,6 +158,7 @@ export default {
 
     // Wallet Management
     walletManagement: 'Gestión de billetera',
+    walletManagementDesc: 'Mints, Relays, Saldo, Respaldo',
     manageMints: 'Gestionar Mints',
     manageRelays: 'Gestionar Relays',
     verifyBalance: 'Verificar saldo',
@@ -233,6 +236,7 @@ export default {
 
     // Preferences
     preferences: 'Preferencias',
+    preferencesDesc: 'Idioma, Unidad, Moneda, Privacidad',
 
     // Language
     language: 'Idioma',
@@ -321,6 +325,10 @@ export default {
     cameraPreparing: 'Preparando cámara...',
     multipartScanning: 'Escaneando QR multiparte...',
     enableCameraPermission: 'Habilita el permiso de cámara en la configuración',
+    flashOn: 'Flash encendido',
+    flashOff: 'Flash apagado',
+    uploadImage: 'Escanear QR desde imagen',
+    noQrFound: 'No se encontró código QR',
     invalidCashuRequest: 'Solicitud Cashu inválida',
     invalidNostrProfile: 'Perfil Nostr inválido',
     invalidNostrEvent: 'Evento Nostr inválido',
@@ -824,15 +832,15 @@ export default {
     next: 'Siguiente',
     myWallet: 'Enviar a mi billetera',
     noOtherWallets: 'No hay otras billeteras',
-    myWalletList: 'Mis billeteras',
+    myWalletList: 'Enviarme a mí',
     sameWalletError: 'No se puede enviar a la misma billetera',
     amountRequired: 'Ingresa un monto',
     destinationRequired: 'Ingresa un destino',
     destination: {
       accountFrom: 'Desde <b>{{mint}}</b>',
       whoToSend: '¿A quién enviar?',
-      placeholder: 'Dirección o solicitud (opcional)',
-      hint: 'Omite para crear un <b>token</b> que puedes entregar como efectivo',
+      placeholder: 'Dirección o factura',
+      hint: 'Sin dirección, puedes crear un <b>token</b> y entregarlo como efectivo',
       unrecognized: 'Formato de dirección no reconocido',
     },
     amount: {
@@ -927,8 +935,8 @@ export default {
     tokenInputStep: {
       accountTo: 'A <b>{{mint}}</b>',
       haveToken: '¿Tienes un token para recibir?',
-      placeholder: 'Ingresa un token (opcional)',
-      hint: 'Si no, puedes crear una <b>solicitud</b>',
+      placeholder: 'Ingresa un token',
+      hint: '¿Sin token? Puedes crear una <b>factura</b> para solicitar pago',
     },
     amountStep: {
       howMuchRequest: '¿Cuánto solicitar?',

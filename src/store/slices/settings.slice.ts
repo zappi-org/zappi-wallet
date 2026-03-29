@@ -39,7 +39,7 @@ const defaultSettings: WalletSettings = {
   manualMintSelectionEnabled: false,
   balanceHidden: false,
   fiatCurrency: 'USD',
-  showFiatConversion: false,
+  showFiatConversion: true,
   senderPrivacyMode: false,
 }
 

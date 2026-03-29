@@ -120,6 +120,7 @@ export default {
 
     // Profile
     profile: 'Profil',
+    profileDesc: 'Nostr, Alamat Lightning, Analitik',
     zappiUser: 'Pengguna Zappi',
     lightningAddress: 'Alamat Lightning',
     registerLightningAddress: 'Daftar',
@@ -148,6 +149,7 @@ export default {
 
     // Security
     security: 'Keamanan',
+    securityDesc: 'PIN, Face ID, Kunci Otomatis',
     autoLock: 'Kunci Otomatis',
     autoLockTimeout: 'Kunci setelah',
     faceIdTouchId: 'Face ID / Touch ID',
@@ -156,6 +158,7 @@ export default {
 
     // Wallet Management
     walletManagement: 'Manajemen Dompet',
+    walletManagementDesc: 'Mint, Relay, Saldo, Cadangan',
     manageMints: 'Kelola Mint',
     manageRelays: 'Kelola Relay',
     verifyBalance: 'Verifikasi Saldo',
@@ -233,6 +236,7 @@ export default {
 
     // Preferences
     preferences: 'Preferensi',
+    preferencesDesc: 'Bahasa, Unit, Mata Uang, Privasi',
 
     // Language
     language: 'Bahasa',
@@ -321,6 +325,10 @@ export default {
     cameraPreparing: 'Menyiapkan kamera...',
     multipartScanning: 'Memindai QR multipart...',
     enableCameraPermission: 'Aktifkan izin kamera di pengaturan',
+    flashOn: 'Flash nyala',
+    flashOff: 'Flash mati',
+    uploadImage: 'Pindai QR dari gambar',
+    noQrFound: 'Kode QR tidak ditemukan',
     invalidCashuRequest: 'Permintaan Cashu tidak valid',
     invalidNostrProfile: 'Profil Nostr tidak valid',
     invalidNostrEvent: 'Acara Nostr tidak valid',
@@ -824,15 +832,15 @@ export default {
     next: 'Lanjut',
     myWallet: 'Kirim ke dompet saya',
     noOtherWallets: 'Tidak ada dompet lain',
-    myWalletList: 'Dompet saya',
+    myWalletList: 'Kirim ke diri sendiri',
     sameWalletError: 'Tidak bisa kirim ke dompet yang sama',
     amountRequired: 'Masukkan jumlah',
     destinationRequired: 'Masukkan tujuan',
     destination: {
       accountFrom: 'Dari <b>{{mint}}</b>',
       whoToSend: 'Kirim ke siapa?',
-      placeholder: 'Alamat atau permintaan (opsional)',
-      hint: 'Lewati untuk membuat <b>token</b> yang bisa diberikan seperti uang tunai',
+      placeholder: 'Alamat atau invoice',
+      hint: 'Tanpa alamat, Anda bisa membuat <b>token</b> dan memberikannya seperti uang tunai',
       unrecognized: 'Format alamat tidak dikenali',
     },
     amount: {
@@ -927,8 +935,8 @@ export default {
     tokenInputStep: {
       accountTo: 'Ke <b>{{mint}}</b>',
       haveToken: 'Punya token untuk diterima?',
-      placeholder: 'Masukkan token (opsional)',
-      hint: 'Jika tidak, Anda bisa membuat <b>permintaan</b>',
+      placeholder: 'Masukkan token',
+      hint: 'Tidak punya token? Anda bisa membuat <b>invoice</b> untuk meminta pembayaran',
     },
     amountStep: {
       howMuchRequest: 'Berapa yang diminta?',

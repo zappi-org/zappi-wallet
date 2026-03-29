@@ -146,7 +146,7 @@ export function MintCard({
   return (
     <div
       className={cn(
-        "relative w-[var(--card-w)] rounded-[13px] overflow-hidden touch-manipulation",
+        "relative w-[var(--card-w)] rounded-card overflow-hidden touch-manipulation",
         "shadow-[0px_4px_8px_0px_rgba(0,0,0,0.15)]",
         isSelected === true && "ring-2 ring-primary ring-offset-3 ring-offset-background",
         isSelected === false && "opacity-70"
@@ -241,7 +241,7 @@ export function MintCard({
                 className="flex-1 flex items-center justify-center gap-2 py-3 text-white active:bg-white/10 transition-colors"
               >
                 <ArrowDownLeft className="w-[18px] h-[18px]" strokeWidth={2} />
-                <span className="text-caption font-semibold">{t('common.receive')}</span>
+                <span className="text-subtitle font-semibold">{t('common.receive')}</span>
               </button>
             )}
             {onReceive && onSend && (
@@ -254,7 +254,7 @@ export function MintCard({
                 className="flex-1 flex items-center justify-center gap-2 py-3 text-white active:bg-white/10 transition-colors disabled:opacity-40"
               >
                 <ArrowUpRight className="w-[18px] h-[18px]" strokeWidth={2} />
-                <span className="text-caption font-semibold">{t('common.send')}</span>
+                <span className="text-subtitle font-semibold">{t('common.send')}</span>
               </button>
             )}
           </div>
