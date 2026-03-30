@@ -10,15 +10,16 @@ import type { BaseError } from '@/core/errors'
 import { classifyCashuError } from '@/core/errors'
 import { PaymentRoute, type RouteSelection, type RouteContext, type RouteExecutionResult } from './types'
 import {
-  prepareSendToken,
-  executeSendToken,
-  rollbackSendToken,
+  prepareSend,
+  executeSend,
+  rollbackSend,
   prepareMelt,
   executeMelt as cocoExecuteMelt,
   rollbackMelt,
   createMintQuote,
   redeemMintQuote,
-} from '@/coco/cashuService'
+  type SendTarget,
+} from '@/modules/cashu/internal/cashu-backend'
 import { markQuoteAsSwap, unmarkQuoteAsSwap } from '@/coco/bridge'
 import { getTransactionRepo } from '@/data/repositories/transaction.repository'
 import { getDatabase } from '@/data/database/schema'
@@ -261,12 +262,16 @@ async function executeTokenSendFlow(
   let operationId: string | undefined
 
   try {
-    // 1. Prepare + execute token
-    const prepared = await prepareSendToken(mintUrl, selection.amount)
+    // 1. Prepare (P2PK target은 prepare 시점에 지정) + execute token
+    const p2pkPubkey = context.parsedCreq?.p2pkPubkey
+    const target: SendTarget | undefined = p2pkPubkey
+      ? { type: 'p2pk', pubkey: p2pkPubkey }
+      : undefined
+
+    const prepared = await prepareSend({ mintUrl, amount: selection.amount, target })
     operationId = prepared.operationId
 
-    const { token } = await executeSendToken(prepared.operationId, {
-      p2pkPubkey: context.parsedCreq?.p2pkPubkey,
+    const { token } = await executeSend(prepared.operationId, {
       memo: context.memo,
     })
 
@@ -315,7 +320,7 @@ async function executeTokenSendFlow(
     })
   } catch (error) {
     if (operationId) {
-      try { await rollbackSendToken(operationId) } catch { /* ignore */ }
+      try { await rollbackSend(operationId) } catch { /* ignore */ }
     }
     console.error('[Router] executeTokenSendFlow failed:', error)
     return err(classifyCashuError(error))

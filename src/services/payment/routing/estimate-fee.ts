@@ -7,12 +7,12 @@
 
 import { PaymentRoute } from './types'
 import {
-  prepareSendToken,
-  rollbackSendToken,
+  prepareSend,
+  rollbackSend,
   prepareMelt,
   rollbackMelt,
   createMintQuote,
-} from '@/coco/cashuService'
+} from '@/modules/cashu/internal/cashu-backend'
 
 export interface FeeEstimate {
   /** Estimated fee in sats */
@@ -69,9 +69,9 @@ export async function estimateRouteFee(
 /** Token send fee: swap input_fee only */
 async function estimateTokenFee(mintUrl: string, amount: number): Promise<FeeEstimate> {
   try {
-    const prepared = await prepareSendToken(mintUrl, amount)
+    const prepared = await prepareSend({ mintUrl, amount })
     const fee = prepared.fee
-    await rollbackSendToken(prepared.operationId).catch((e) =>
+    await rollbackSend(prepared.operationId).catch((e) =>
       console.error('[estimateTokenFee] rollback failed:', e),
     )
     return { fee, totalNeeded: amount + fee }
