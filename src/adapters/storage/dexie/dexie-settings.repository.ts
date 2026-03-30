@@ -10,7 +10,7 @@ export class DexieSettingsRepository implements SettingsRepository {
   private legacy = new LegacySettingsRepository()
 
   async getSettings(): Promise<WalletSettingsData> {
-    return this.legacy.getSettings()
+    return this.legacy.getSettings() as Promise<WalletSettingsData>
   }
 
   async saveSettings(settings: WalletSettingsData): Promise<void> {
