@@ -11,7 +11,6 @@ import type {
   PreparedPayment,
   ExecutingPayment,
   FeeEstimate,
-  ParsedInput,
   RecoveryReport,
 } from '@/core/ports/driven/payment-method.port'
 import { sat, toNumber } from '@/core/domain/amount'
@@ -45,30 +44,6 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
   }
 
   constructor(private backend: EcashBackend) {}
-
-  parseInput(input: string): ParsedInput | null {
-    const trimmed = input.trim()
-
-    // cashu token (cashuA..., cashuB...)
-    if (/^cashu[ab]/i.test(trimmed)) {
-      return {
-        method: 'ecash',
-        protocol: 'cashu-token',
-        destination: trimmed,
-      }
-    }
-
-    // cashu request (creqA..., creqB...)
-    if (/^creq[ab]/i.test(trimmed)) {
-      return {
-        method: 'ecash',
-        protocol: 'cashu-request',
-        destination: trimmed,
-      }
-    }
-
-    return null
-  }
 
   async estimateFee(params: SendParams): Promise<FeeEstimate> {
     try {

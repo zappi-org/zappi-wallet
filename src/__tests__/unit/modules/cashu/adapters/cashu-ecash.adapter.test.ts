@@ -43,62 +43,6 @@ describe('CashuEcashAdapter', () => {
     expect(adapter.capabilities.canEstimateFee).toBe(true)
   })
 
-  // ─── parseInput ───
-
-  describe('parseInput', () => {
-    it('parses cashu token (cashuB)', () => {
-      const result = adapter.parseInput('cashuBpXh...')
-      expect(result).toEqual({
-        method: 'ecash',
-        protocol: 'cashu-token',
-        destination: 'cashuBpXh...',
-      })
-    })
-
-    it('parses cashu token (cashuA)', () => {
-      const result = adapter.parseInput('cashuAeyJ...')
-      expect(result).not.toBeNull()
-      expect(result!.protocol).toBe('cashu-token')
-    })
-
-    it('parses cashu request (creqB)', () => {
-      const result = adapter.parseInput('creqBpXh...')
-      expect(result).toEqual({
-        method: 'ecash',
-        protocol: 'cashu-request',
-        destination: 'creqBpXh...',
-      })
-    })
-
-    it('parses cashu request (creqA)', () => {
-      const result = adapter.parseInput('creqAeyJ...')
-      expect(result).not.toBeNull()
-      expect(result!.protocol).toBe('cashu-request')
-    })
-
-    it('is case insensitive', () => {
-      expect(adapter.parseInput('CASHUB...')).not.toBeNull()
-      expect(adapter.parseInput('CREQB...')).not.toBeNull()
-    })
-
-    it('returns null for bolt11 invoice', () => {
-      expect(adapter.parseInput('lnbc1000n1...')).toBeNull()
-    })
-
-    it('returns null for lightning address', () => {
-      expect(adapter.parseInput('user@wallet.com')).toBeNull()
-    })
-
-    it('returns null for empty string', () => {
-      expect(adapter.parseInput('')).toBeNull()
-    })
-
-    it('trims whitespace', () => {
-      const result = adapter.parseInput('  cashuBpXh...  ')
-      expect(result!.destination).toBe('cashuBpXh...')
-    })
-  })
-
   // ─── estimateFee ───
 
   describe('estimateFee', () => {

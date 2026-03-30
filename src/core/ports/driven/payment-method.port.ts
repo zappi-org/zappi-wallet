@@ -10,7 +10,7 @@ export interface PaymentMethodAdapter {
     canEstimateFee: boolean
   }
 
-  parseInput(input: string): ParsedInput | null
+  parseInput?(input: string): ParsedInput | null
   createReceiveRequest?(params: ReceiveParams): Promise<ReceiveRequest>
   estimateFee(params: SendParams): Promise<FeeEstimate>
   prepareSend(params: SendParams): Promise<PreparedPayment>

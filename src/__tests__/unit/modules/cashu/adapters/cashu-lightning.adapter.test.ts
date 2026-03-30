@@ -47,47 +47,6 @@ describe('CashuLightningAdapter', () => {
     expect(adapter.capabilities.canEstimateFee).toBe(true)
   })
 
-  // ─── parseInput ───
-
-  describe('parseInput', () => {
-    it('parses bolt11 invoice', () => {
-      const result = adapter.parseInput('lnbc1000n1pj...')
-      expect(result).toEqual({
-        method: 'lightning',
-        protocol: 'bolt11',
-        destination: 'lnbc1000n1pj...',
-      })
-    })
-
-    it('parses testnet invoice', () => {
-      const result = adapter.parseInput('lntb500n1...')
-      expect(result).not.toBeNull()
-      expect(result!.protocol).toBe('bolt11')
-    })
-
-    it('parses lightning address', () => {
-      const result = adapter.parseInput('user@wallet.com')
-      expect(result).toEqual({
-        method: 'lightning',
-        protocol: 'lnurl',
-        destination: 'user@wallet.com',
-      })
-    })
-
-    it('returns null for cashu token', () => {
-      expect(adapter.parseInput('cashuBpXh...')).toBeNull()
-    })
-
-    it('returns null for empty string', () => {
-      expect(adapter.parseInput('')).toBeNull()
-    })
-
-    it('trims whitespace', () => {
-      const result = adapter.parseInput('  lnbc1000n1pj...  ')
-      expect(result!.destination).toBe('lnbc1000n1pj...')
-    })
-  })
-
   // ─── createReceiveRequest ───
 
   describe('createReceiveRequest', () => {

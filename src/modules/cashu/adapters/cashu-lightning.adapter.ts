@@ -13,7 +13,6 @@ import type {
   ReceiveParams,
   ReceiveRequest,
   FeeEstimate,
-  ParsedInput,
   RecoveryReport,
 } from '@/core/ports/driven/payment-method.port'
 import { sat, toNumber } from '@/core/domain/amount'
@@ -52,29 +51,6 @@ export class CashuLightningAdapter implements PaymentMethodAdapter {
   }
 
   constructor(private backend: LightningBackend) {}
-
-  parseInput(input: string): ParsedInput | null {
-    // bolt11 invoice detection
-    const lower = input.toLowerCase().trim()
-    if (lower.startsWith('lnbc') || lower.startsWith('lntb') || lower.startsWith('lnbcrt')) {
-      return {
-        method: 'lightning',
-        protocol: 'bolt11',
-        destination: input.trim(),
-      }
-    }
-
-    // lightning address detection
-    if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(input.trim())) {
-      return {
-        method: 'lightning',
-        protocol: 'lnurl',
-        destination: input.trim(),
-      }
-    }
-
-    return null
-  }
 
   async createReceiveRequest(params: ReceiveParams): Promise<ReceiveRequest> {
     const amount = toNumber(params.amount)
