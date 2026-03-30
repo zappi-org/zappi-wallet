@@ -1,0 +1,136 @@
+/**
+ * CashuEcashAdapter — PaymentMethodAdapter for eCash token send/receive
+ *
+ * execute-route.ts의 executeTokenSendFlow 로직을 adapter로 추출.
+ * EcashBackend를 주입받아 Coco SDK에 직접 의존하지 않음.
+ */
+
+import type {
+  PaymentMethodAdapter,
+  SendParams,
+  PreparedPayment,
+  ExecutingPayment,
+  FeeEstimate,
+  ParsedInput,
+  RecoveryReport,
+} from '@/core/ports/driven/payment-method.port'
+import { sat, toNumber } from '@/core/domain/amount'
+
+// ─── Backend interface (DI용) ───
+
+export type SendTarget = { type: 'p2pk'; pubkey: string }
+
+export interface EcashBackend {
+  prepareSend(params: {
+    mintUrl: string
+    amount: number
+    target?: SendTarget
+  }): Promise<{ operationId: string; fee: number; needsSwap: boolean }>
+  executeSend(operationId: string, options?: { memo?: string }): Promise<{ token: string }>
+  rollbackSend(operationId: string): Promise<void>
+  receiveToken(token: string): Promise<void>
+  recoverPendingSendTokens(): Promise<{ reclaimed: number; recorded: number }>
+}
+
+// ─── Adapter ───
+
+export class CashuEcashAdapter implements PaymentMethodAdapter {
+  readonly id = 'cashu:ecash'
+  readonly moduleId = 'cashu'
+  readonly supportedUnits = ['sat']
+  readonly capabilities = {
+    canSend: true,
+    canReceive: true,
+    canEstimateFee: true,
+  }
+
+  constructor(private backend: EcashBackend) {}
+
+  parseInput(input: string): ParsedInput | null {
+    const trimmed = input.trim()
+
+    // cashu token (cashuA..., cashuB...)
+    if (/^cashu[ab]/i.test(trimmed)) {
+      return {
+        method: 'ecash',
+        protocol: 'cashu-token',
+        destination: trimmed,
+      }
+    }
+
+    // cashu request (creqA..., creqB...)
+    if (/^creq[ab]/i.test(trimmed)) {
+      return {
+        method: 'ecash',
+        protocol: 'cashu-request',
+        destination: trimmed,
+      }
+    }
+
+    return null
+  }
+
+  async estimateFee(params: SendParams): Promise<FeeEstimate> {
+    try {
+      const prepared = await this.backend.prepareSend({
+        mintUrl: params.mintUrl,
+        amount: toNumber(params.amount),
+      })
+      const fee = prepared.fee
+      await this.backend.rollbackSend(prepared.operationId).catch(() => {})
+      return { fee: sat(fee), method: 'ecash', protocol: 'cashu-token' }
+    } catch {
+      return { fee: sat(0), method: 'ecash', protocol: 'cashu-token' }
+    }
+  }
+
+  async prepareSend(params: SendParams): Promise<PreparedPayment> {
+    // destination에서 P2PK target 추출 (이미 resolve된 상태)
+    const target = (params as SendParamsWithTarget).target
+
+    const prepared = await this.backend.prepareSend({
+      mintUrl: params.mintUrl,
+      amount: toNumber(params.amount),
+      target,
+    })
+
+    return {
+      id: prepared.operationId,
+      method: 'ecash',
+      protocol: 'cashu-token',
+      amount: params.amount,
+      fee: sat(prepared.fee),
+      memo: params.memo,
+    }
+  }
+
+  async executeSend(preparedId: string, memo?: string): Promise<ExecutingPayment & { token: string }> {
+    const result = await this.backend.executeSend(preparedId, { memo })
+    return { id: preparedId, state: 'pending', token: result.token }
+  }
+
+  async cancelPrepared(preparedId: string): Promise<void> {
+    await this.backend.rollbackSend(preparedId)
+  }
+
+  async reclaimFailed(operationId: string): Promise<void> {
+    await this.backend.rollbackSend(operationId)
+  }
+
+  async recoverPending(): Promise<RecoveryReport> {
+    const result = await this.backend.recoverPendingSendTokens()
+    return { recovered: result.reclaimed, failed: 0 }
+  }
+
+  // ─── Receive (non-port) ───
+
+  async receive(token: string): Promise<void> {
+    await this.backend.receiveToken(token)
+  }
+}
+
+// ─── Extended params ───
+
+export interface SendParamsWithTarget extends SendParams {
+  target?: SendTarget
+}

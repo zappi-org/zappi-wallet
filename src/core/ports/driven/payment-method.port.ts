@@ -11,7 +11,7 @@ export interface PaymentMethodAdapter {
   }
 
   parseInput(input: string): ParsedInput | null
-  createReceiveRequest(params: ReceiveParams): Promise<ReceiveRequest>
+  createReceiveRequest?(params: ReceiveParams): Promise<ReceiveRequest>
   estimateFee(params: SendParams): Promise<FeeEstimate>
   prepareSend(params: SendParams): Promise<PreparedPayment>
   executeSend(preparedId: string): Promise<ExecutingPayment>
