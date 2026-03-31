@@ -43,6 +43,8 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
     canEstimateFee: true,
   }
 
+  private pendingMemos = new Map<string, string>()
+
   constructor(private backend: EcashBackend) {}
 
   async estimateFee(params: SendParams): Promise<FeeEstimate> {
@@ -69,6 +71,10 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
       target,
     })
 
+    if (params.memo) {
+      this.pendingMemos.set(prepared.operationId, params.memo)
+    }
+
     return {
       id: prepared.operationId,
       method: 'ecash',
@@ -79,12 +85,15 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
     }
   }
 
-  async executeSend(preparedId: string, memo?: string): Promise<ExecutingPayment & { token: string }> {
+  async executeSend(preparedId: string): Promise<ExecutingPayment & { token: string }> {
+    const memo = this.pendingMemos.get(preparedId)
+    this.pendingMemos.delete(preparedId)
     const result = await this.backend.executeSend(preparedId, { memo })
     return { id: preparedId, state: 'pending', token: result.token }
   }
 
   async cancelPrepared(preparedId: string): Promise<void> {
+    this.pendingMemos.delete(preparedId)
     await this.backend.rollbackSend(preparedId)
   }
 

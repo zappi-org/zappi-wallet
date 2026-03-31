@@ -120,12 +120,40 @@ describe('CashuEcashAdapter', () => {
 
   describe('executeSend', () => {
     it('executes send and returns token', async () => {
-      const result = await adapter.executeSend('send-op-1', 'test memo')
+      const result = await adapter.executeSend('send-op-1')
 
-      expect(backend.executeSend).toHaveBeenCalledWith('send-op-1', { memo: 'test memo' })
+      expect(backend.executeSend).toHaveBeenCalledWith('send-op-1', { memo: undefined })
       expect(result.id).toBe('send-op-1')
       expect(result.state).toBe('pending')
       expect(result.token).toBe('cashuBtest_token_string')
+    })
+
+    it('passes memo from prepareSend to executeSend', async () => {
+      await adapter.prepareSend({
+        destination: 'cashuA...',
+        amount: sat(500),
+        mintUrl: 'https://mint.test',
+        memo: 'test memo',
+      })
+
+      await adapter.executeSend('send-op-1')
+
+      expect(backend.executeSend).toHaveBeenCalledWith('send-op-1', { memo: 'test memo' })
+    })
+
+    it('clears memo after executeSend', async () => {
+      await adapter.prepareSend({
+        destination: 'cashuA...',
+        amount: sat(500),
+        mintUrl: 'https://mint.test',
+        memo: 'once only',
+      })
+
+      await adapter.executeSend('send-op-1')
+      // 두 번째 호출은 memo가 없어야 함
+      await adapter.executeSend('send-op-1')
+
+      expect(backend.executeSend).toHaveBeenLastCalledWith('send-op-1', { memo: undefined })
     })
   })
 
