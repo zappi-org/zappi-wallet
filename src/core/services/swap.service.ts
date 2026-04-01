@@ -206,7 +206,7 @@ export class SwapService implements SwapUseCase {
 
   // ─── Private helpers ───
 
-  private findLightningAdapter(accountId: string): PaymentMethodAdapter | undefined {
+  private findLightningAdapter(_accountId: string): PaymentMethodAdapter | undefined {
     for (const module of this.modules) {
       if (!module.isEnabled()) continue
       // swap은 lightning adapter 사용 (melt on source, mint on target)

@@ -282,7 +282,7 @@ export class PaymentService implements PaymentUseCase {
     return undefined
   }
 
-  private findAdaptersForAccount(accountId: string): PaymentMethodAdapter[] {
+  private findAdaptersForAccount(_accountId: string): PaymentMethodAdapter[] {
     const result: PaymentMethodAdapter[] = []
     for (const module of this.modules) {
       if (!module.isEnabled()) continue
