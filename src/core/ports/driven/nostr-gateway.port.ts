@@ -17,4 +17,12 @@ export interface NostrGateway {
     filters: NostrFilter[],
     handler: (event: NostrEvent) => void,
   ): () => void
+
+  sendDirectMessage(params: DirectMessageParams): Promise<void>
+}
+
+export interface DirectMessageParams {
+  recipientPubkey: string
+  content: string
+  relays: string[]
 }

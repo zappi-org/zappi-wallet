@@ -88,7 +88,7 @@ describe('CashuEcashAdapter', () => {
       expect(backend.prepareSend).toHaveBeenCalledWith({
         mintUrl: 'https://mint.test',
         amount: 500,
-        target: undefined,
+        lockingCondition: undefined,
       })
       expect(result.id).toBe('send-op-1')
       expect(result.method).toBe('ecash')
@@ -97,18 +97,18 @@ describe('CashuEcashAdapter', () => {
       expect(result.memo).toBe('coffee')
     })
 
-    it('prepares send with P2PK target via options', async () => {
+    it('prepares send with P2PK lockingCondition via options', async () => {
       await adapter.prepareSend({
         destination: 'creqBpXh...',
         amount: sat(500),
         accountId: 'https://mint.test',
-        options: { target: { type: 'p2pk', pubkey: '02abc...' } },
+        options: { lockingCondition: { kind: 'P2PK', data: '02abc...' } },
       })
 
       expect(backend.prepareSend).toHaveBeenCalledWith({
         mintUrl: 'https://mint.test',
         amount: 500,
-        target: { type: 'p2pk', pubkey: '02abc...' },
+        lockingCondition: { kind: 'P2PK', data: '02abc...' },
       })
     })
   })

@@ -23,6 +23,10 @@ export function createCashuBackend(): CashuModuleBackend {
     rollbackSend: backend.rollbackSend,
     receiveToken: backend.receiveToken,
     recoverPendingSendTokens: backend.recoverPendingSendTokens,
+    // PaymentRequest (NUT-18)
+    parsePaymentRequest: backend.parsePaymentRequest,
+    preparePaymentRequest: backend.preparePaymentRequest,
+    executePaymentRequest: backend.executePaymentRequest,
     // Module-level
     getBalances: backend.getBalances,
   }

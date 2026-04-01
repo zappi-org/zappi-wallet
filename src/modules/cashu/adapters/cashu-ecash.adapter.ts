@@ -20,13 +20,17 @@ import { sat, toNumber } from '@/core/domain/amount'
 
 // ─── Backend interface (DI용) ───
 
-export type SendTarget = { type: 'p2pk'; pubkey: string }
+export interface LockingCondition {
+  kind: 'P2PK'
+  data: string
+  tags?: string[][]
+}
 
 export interface EcashBackend {
   prepareSend(params: {
     mintUrl: string
     amount: number
-    target?: SendTarget
+    lockingCondition?: LockingCondition
   }): Promise<{ operationId: string; fee: number; needsSwap: boolean }>
   executeSend(operationId: string, options?: { memo?: string }): Promise<{ token: string }>
   rollbackSend(operationId: string): Promise<void>
@@ -67,12 +71,12 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
   }
 
   async prepareSend(params: SendParams): Promise<PreparedPayment> {
-    const target = params.options?.target as SendTarget | undefined
+    const lockingCondition = params.options?.lockingCondition as LockingCondition | undefined
 
     const prepared = await this.backend.prepareSend({
       mintUrl: params.accountId,
       amount: toNumber(params.amount),
-      target,
+      lockingCondition,
     })
 
     if (params.memo) {

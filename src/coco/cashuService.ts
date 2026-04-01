@@ -68,10 +68,10 @@ export async function sendToken(
   amount: number,
   options?: { p2pkPubkey?: string; memo?: string },
 ): Promise<string> {
-  const target = options?.p2pkPubkey
-    ? { type: 'p2pk' as const, pubkey: options.p2pkPubkey }
+  const lockingCondition = options?.p2pkPubkey
+    ? { kind: 'P2PK' as const, data: options.p2pkPubkey }
     : undefined;
-  const prepared = await backend.prepareSend({ mintUrl, amount, target });
+  const prepared = await backend.prepareSend({ mintUrl, amount, lockingCondition });
   const { token } = await backend.executeSend(prepared.operationId, { memo: options?.memo });
   return token;
 }

@@ -214,4 +214,31 @@ describe('NostrGatewayAdapter', () => {
       expect(mockSub.close).toHaveBeenCalled()
     })
   })
+
+  // ─── sendDirectMessage ───
+
+  describe('sendDirectMessage', () => {
+    it('wraps content as NIP-17 gift wrap and publishes', async () => {
+      await gateway.sendDirectMessage({
+        recipientPubkey: 'recipient-hex',
+        content: 'cashuBtoken...',
+        relays: ['wss://relay.test'],
+      })
+
+      // connect called with relays
+      expect(mockEnsureRelay).toHaveBeenCalledWith('wss://relay.test')
+      // publish called with wrapped event
+      expect(mockPublish).toHaveBeenCalled()
+    })
+
+    it('throws when all relays fail', async () => {
+      mockPublish.mockReturnValueOnce([Promise.reject(new Error('fail'))])
+
+      await expect(gateway.sendDirectMessage({
+        recipientPubkey: 'recipient-hex',
+        content: 'cashuBtoken...',
+        relays: ['wss://relay.test'],
+      })).rejects.toThrow('Failed to send direct message')
+    })
+  })
 })

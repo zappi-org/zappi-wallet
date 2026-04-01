@@ -18,7 +18,7 @@ import {
   rollbackMelt,
   createMintQuote,
   redeemMintQuote,
-  type SendTarget,
+  type LockingCondition,
 } from '@/modules/cashu/internal/cashu-backend'
 import { markQuoteAsSwap, unmarkQuoteAsSwap } from '@/coco/bridge'
 import { getTransactionRepo } from '@/data/repositories/transaction.repository'
@@ -262,13 +262,13 @@ async function executeTokenSendFlow(
   let operationId: string | undefined
 
   try {
-    // 1. Prepare (P2PK target은 prepare 시점에 지정) + execute token
+    // 1. Prepare (P2PK는 prepare 시점에 lockingCondition으로 지정) + execute token
     const p2pkPubkey = context.parsedCreq?.p2pkPubkey
-    const target: SendTarget | undefined = p2pkPubkey
-      ? { type: 'p2pk', pubkey: p2pkPubkey }
+    const lockingCondition: LockingCondition | undefined = p2pkPubkey
+      ? { kind: 'P2PK', data: p2pkPubkey }
       : undefined
 
-    const prepared = await prepareSend({ mintUrl, amount: selection.amount, target })
+    const prepared = await prepareSend({ mintUrl, amount: selection.amount, lockingCondition })
     operationId = prepared.operationId
 
     const { token } = await executeSend(prepared.operationId, {

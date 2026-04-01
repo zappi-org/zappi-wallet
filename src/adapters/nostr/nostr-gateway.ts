@@ -9,9 +9,10 @@ import { SimplePool } from 'nostr-tools/pool'
 import type {
   NostrGateway,
   RelayStatus,
+  DirectMessageParams,
 } from '@/core/ports/driven/nostr-gateway.port'
 import type { NostrEvent, NostrFilter, UnsignedNostrEvent } from '@/core/domain/nostr'
-import { signEvent } from './internal/nostr-crypto'
+import { signEvent, wrapEvent } from './internal/nostr-crypto'
 
 export interface NostrGatewayConfig {
   privateKeyHex: string
@@ -115,6 +116,26 @@ export class NostrGatewayAdapter implements NostrGateway {
       for (const cleanup of cleanups) {
         cleanup()
       }
+    }
+  }
+
+  async sendDirectMessage(params: DirectMessageParams): Promise<void> {
+    const wrapped = wrapEvent(
+      this.config.privateKeyHex,
+      params.recipientPubkey,
+      params.content,
+    )
+
+    await this.connect(params.relays)
+
+    const relays = params.relays
+    const results = await Promise.allSettled(
+      this.pool.publish(relays, wrapped as Parameters<typeof this.pool.publish>[1]),
+    )
+    const succeeded = results.filter(r => r.status === 'fulfilled').length
+
+    if (succeeded === 0) {
+      throw new Error('Failed to send direct message to any relay')
     }
   }
 }
