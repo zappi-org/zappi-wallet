@@ -8,7 +8,7 @@
 
 import * as backend from '@/modules/cashu/internal/cashu-backend';
 import type { Proof } from '@cashu/cashu-ts';
-import type { PendingQuote } from '@/store/slices/wallet.slice';
+import type { PendingQuote } from '@/core/domain/quote';
 
 // ─── Token 수신 ───
 

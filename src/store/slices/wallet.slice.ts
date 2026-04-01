@@ -1,13 +1,8 @@
 import type { StateCreator } from 'zustand'
 import type { WalletBalance, MintInfo } from '@/core/types'
+import type { PendingQuote } from '@/core/domain/quote'
 
-export interface PendingQuote {
-  quoteId: string
-  mintUrl: string
-  amount: number
-  invoice: string
-  expiry: number
-}
+export type { PendingQuote }
 
 /**
  * Wallet state

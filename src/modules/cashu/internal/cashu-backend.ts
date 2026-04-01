@@ -7,7 +7,7 @@
  */
 
 import { getCocoManager, getPendingMintQuotes } from './coco-sdk';
-import type { PendingQuote } from '@/store/slices/wallet.slice';
+import type { PendingQuote } from '@/core/domain/quote';
 
 // ─── Types ───
 
