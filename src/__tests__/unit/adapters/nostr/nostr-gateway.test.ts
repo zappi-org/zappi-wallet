@@ -215,11 +215,11 @@ describe('NostrGatewayAdapter', () => {
     })
   })
 
-  // ─── sendDirectMessage ───
+  // ─── sendPrivateDirectMessage ───
 
-  describe('sendDirectMessage', () => {
+  describe('sendPrivateDirectMessage', () => {
     it('wraps content as NIP-17 gift wrap and publishes', async () => {
-      await gateway.sendDirectMessage({
+      await gateway.sendPrivateDirectMessage({
         recipientPubkey: 'recipient-hex',
         content: 'cashuBtoken...',
         relays: ['wss://relay.test'],
@@ -234,7 +234,7 @@ describe('NostrGatewayAdapter', () => {
     it('throws when all relays fail', async () => {
       mockPublish.mockReturnValueOnce([Promise.reject(new Error('fail'))])
 
-      await expect(gateway.sendDirectMessage({
+      await expect(gateway.sendPrivateDirectMessage({
         recipientPubkey: 'recipient-hex',
         content: 'cashuBtoken...',
         relays: ['wss://relay.test'],

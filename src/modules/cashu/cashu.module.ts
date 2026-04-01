@@ -138,7 +138,7 @@ export class CashuModule implements WalletModule {
     // Nostr DM transport
     const nostrContext = params.options?.nostrContext as { recipientPubkey: string; relays: string[] } | undefined
     if (result.type === 'inband' && result.token && nostrContext && this.nostrGateway) {
-      await this.nostrGateway.sendDirectMessage({
+      await this.nostrGateway.sendPrivateDirectMessage({
         recipientPubkey: nostrContext.recipientPubkey,
         content: result.token,
         relays: nostrContext.relays,

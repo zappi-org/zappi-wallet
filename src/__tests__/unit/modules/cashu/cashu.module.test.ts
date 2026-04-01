@@ -319,7 +319,7 @@ describe('CashuModule', () => {
         publish: vi.fn().mockResolvedValue({ id: 'ev-1', pubkey: '', created_at: 0, kind: 1, tags: [], content: '', sig: '' }),
         queryEvents: vi.fn().mockResolvedValue([]),
         subscribe: vi.fn().mockReturnValue(() => {}),
-        sendDirectMessage: vi.fn().mockResolvedValue(undefined),
+        sendPrivateDirectMessage: vi.fn().mockResolvedValue(undefined),
       }
       module = new CashuModule(backend, mockGateway)
 
@@ -345,7 +345,7 @@ describe('CashuModule', () => {
         },
       })
 
-      expect(mockGateway.sendDirectMessage).toHaveBeenCalledWith({
+      expect(mockGateway.sendPrivateDirectMessage).toHaveBeenCalledWith({
         recipientPubkey: 'abc123',
         content: 'cashuBtoken...',
         relays: ['wss://relay.test'],

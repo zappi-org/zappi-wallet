@@ -18,7 +18,7 @@ export interface NostrGateway {
     handler: (event: NostrEvent) => void,
   ): () => void
 
-  sendDirectMessage(params: DirectMessageParams): Promise<void>
+  sendPrivateDirectMessage(params: DirectMessageParams): Promise<void>
 }
 
 export interface DirectMessageParams {

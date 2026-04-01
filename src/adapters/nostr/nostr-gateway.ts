@@ -119,7 +119,7 @@ export class NostrGatewayAdapter implements NostrGateway {
     }
   }
 
-  async sendDirectMessage(params: DirectMessageParams): Promise<void> {
+  async sendPrivateDirectMessage(params: DirectMessageParams): Promise<void> {
     const wrapped = wrapEvent(
       this.config.privateKeyHex,
       params.recipientPubkey,
