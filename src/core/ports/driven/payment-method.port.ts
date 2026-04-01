@@ -1,7 +1,7 @@
 import type { Amount } from '@/core/domain/amount'
 
 export interface PaymentMethodAdapter {
-  readonly id: string            // 'cashu:lightning', 'fedi:ecash'
+  readonly id: string            // 'cashu:lightning', 'cashu:ecash'
   readonly moduleId: string
   readonly supportedUnits: string[]
   readonly capabilities: {
@@ -10,23 +10,27 @@ export interface PaymentMethodAdapter {
     canEstimateFee: boolean
   }
 
-  parseInput?(input: string): ParsedInput | null
-  createReceiveRequest?(params: ReceiveParams): Promise<ReceiveRequest>
+  // ─── 보내기 ───
   estimateFee(params: SendParams): Promise<FeeEstimate>
   prepareSend(params: SendParams): Promise<PreparedPayment>
   executeSend(preparedId: string): Promise<ExecutingPayment>
   cancelPrepared(preparedId: string): Promise<void>
   reclaimFailed(operationId: string): Promise<void>
-  recoverPending(): Promise<RecoveryReport>
 
-  /** ecash token 직접 수신 (cashu:ecash 등) */
-  receiveToken?(token: string): Promise<ReceiveCompletedResult>
+  // ─── 받기 요청 (상대방에게 "나에게 보내줘") ───
+  createReceiveRequest(params: ReceiveParams): Promise<ReceiveRequest>
 
-  /** 수신 완료 콜백 등록 (Lightning invoice paid, swap 완료 감지용) */
+  // ─── 받기 실행 (이미 존재하는 것을 내 지갑에 넣기) ───
+  redeem?(input: string): Promise<RedeemResult>
+
+  // ─── 수신 완료 감지 (비동기 수신 — invoice paid, swap 완료 등) ───
   onReceiveCompleted?(
     requestId: string,
     handler: (result: ReceiveCompletedResult) => void,
   ): () => void
+
+  // ─── 복구 ───
+  recoverPending(): Promise<RecoveryReport>
 }
 
 export interface SendParams {
@@ -34,7 +38,6 @@ export interface SendParams {
   amount: Amount
   accountId: string
   memo?: string
-  /** adapter-specific options (P2PK target 등) */
   options?: Record<string, unknown>
 }
 
@@ -71,24 +74,24 @@ export interface FeeEstimate {
 export interface ExecutingPayment {
   id: string
   state: string
-  /** adapter-specific result data (ecash: { token: "cashuA..." } 등) */
   data?: Record<string, unknown>
 }
 
-export interface ParsedInput {
+export interface RedeemResult {
+  requestId: string
+  amount: Amount
   method: string
   protocol: string
-  destination: string
-  amount?: Amount
-}
-
-export interface RecoveryReport {
-  recovered: number
-  failed: number
+  completed: boolean
 }
 
 export interface ReceiveCompletedResult {
   requestId: string
   amount: Amount
   completedAt: number
+}
+
+export interface RecoveryReport {
+  recovered: number
+  failed: number
 }

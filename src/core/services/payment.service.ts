@@ -17,15 +17,14 @@ import type {
   PaymentUseCase,
   PaymentMethodInfo,
   SendResult,
-  ReceiveTokenResult,
   RecoveryReport,
 } from '@/core/ports/driving/payment.usecase'
 import type { WalletModule, ModuleBalance } from '@/core/ports/driven/wallet-module.port'
 import type {
   PaymentMethodAdapter,
   FeeEstimate,
-  ParsedInput,
   ReceiveRequest,
+  RedeemResult,
 } from '@/core/ports/driven/payment-method.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 
@@ -51,18 +50,6 @@ export class PaymentService implements PaymentUseCase {
       capabilities: { ...a.capabilities },
       supportedUnits: [...a.supportedUnits],
     }))
-  }
-
-  parseInput(input: string): ParsedInput | null {
-    for (const module of this.modules) {
-      if (!module.isEnabled()) continue
-      for (const adapter of module.getPaymentAdapters()) {
-        if (!adapter.parseInput) continue
-        const result = adapter.parseInput(input)
-        if (result) return result
-      }
-    }
-    return null
   }
 
   // ─── Send ───
@@ -187,23 +174,24 @@ export class PaymentService implements PaymentUseCase {
     }
   }
 
-  // ─── Receive Token ───
+  // ─── Redeem ───
 
-  async receiveToken(params: {
+  async redeem(params: {
     adapterId: string
-    token: string
-  }): Promise<Result<ReceiveTokenResult, PaymentError>> {
+    input: string
+  }): Promise<Result<RedeemResult, PaymentError>> {
     const adapter = this.findAdapter(params.adapterId)
     if (!adapter) {
       return Err({ code: 'ADAPTER_NOT_FOUND', message: `Adapter not found: ${params.adapterId}` })
     }
-    if (!adapter.receiveToken) {
-      return Err({ code: 'ADAPTER_NOT_FOUND', message: `Adapter does not support receiveToken: ${params.adapterId}` })
+
+    if (!adapter.redeem) {
+      return Err({ code: 'ADAPTER_NOT_FOUND', message: `Adapter ${params.adapterId} does not support redeem` })
     }
 
     try {
-      const result = await adapter.receiveToken(params.token)
-      return Ok({ amount: result.amount })
+      const result = await adapter.redeem(params.input)
+      return Ok(result)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error'
       return Err({ code: 'UNKNOWN', message })

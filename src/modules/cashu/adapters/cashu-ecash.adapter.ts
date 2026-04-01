@@ -12,7 +12,9 @@ import type {
   ExecutingPayment,
   FeeEstimate,
   RecoveryReport,
-  ReceiveCompletedResult,
+  ReceiveParams,
+  ReceiveRequest,
+  RedeemResult,
 } from '@/core/ports/driven/payment-method.port'
 import { sat, toNumber } from '@/core/domain/amount'
 
@@ -28,7 +30,7 @@ export interface EcashBackend {
   }): Promise<{ operationId: string; fee: number; needsSwap: boolean }>
   executeSend(operationId: string, options?: { memo?: string }): Promise<{ token: string }>
   rollbackSend(operationId: string): Promise<void>
-  receiveToken(token: string): Promise<void>
+  receiveToken(token: string): Promise<{ amount: number }>
   recoverPendingSendTokens(): Promise<{ reclaimed: number; recorded: number }>
 }
 
@@ -48,6 +50,8 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
 
   constructor(private backend: EcashBackend) {}
 
+  // ─── 보내기 ───
+
   async estimateFee(params: SendParams): Promise<FeeEstimate> {
     try {
       const prepared = await this.backend.prepareSend({
@@ -63,7 +67,6 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
   }
 
   async prepareSend(params: SendParams): Promise<PreparedPayment> {
-    // P2PK target은 options에서 추출
     const target = params.options?.target as SendTarget | undefined
 
     const prepared = await this.backend.prepareSend({
@@ -106,17 +109,24 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
     await this.backend.rollbackSend(operationId)
   }
 
+  // ─── 받기 요청 ───
+
+  async createReceiveRequest(_params: ReceiveParams): Promise<ReceiveRequest> {
+    // creq 생성은 CashuModule이 조율 (keyring + relay + nostr 재료 필요)
+    throw new Error('Use CashuModule.createReceiveRequest() for ecash receive requests')
+  }
+
+  // ─── 받기 실행 (redeem) ───
+
+  async redeem(input: string): Promise<RedeemResult> {
+    const { amount } = await this.backend.receiveToken(input)
+    return { requestId: '', amount: sat(amount), method: 'ecash', protocol: 'cashu-token', completed: true }
+  }
+
+  // ─── 복구 ───
+
   async recoverPending(): Promise<RecoveryReport> {
     const result = await this.backend.recoverPendingSendTokens()
     return { recovered: result.reclaimed, failed: 0 }
-  }
-
-  async receiveToken(token: string): Promise<ReceiveCompletedResult> {
-    await this.backend.receiveToken(token)
-    return {
-      requestId: '',
-      amount: sat(0), // 실제 금액은 token 파싱으로 확인 — backend에서 제공
-      completedAt: Date.now(),
-    }
   }
 }

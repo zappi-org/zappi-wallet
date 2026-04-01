@@ -3,8 +3,8 @@ import type { Result } from '@/core/domain/result'
 import type { PaymentError } from '@/core/errors/payment.errors'
 import type {
   FeeEstimate,
-  ParsedInput,
   ReceiveRequest,
+  RedeemResult,
 } from '@/core/ports/driven/payment-method.port'
 import type { ModuleBalance } from '@/core/ports/driven/wallet-module.port'
 
@@ -40,10 +40,10 @@ export interface PaymentUseCase {
     description?: string
   }): Promise<Result<ReceiveRequest, PaymentError>>
 
-  receiveToken(params: {
+  redeem(params: {
     adapterId: string
-    token: string
-  }): Promise<Result<ReceiveTokenResult, PaymentError>>
+    input: string
+  }): Promise<Result<RedeemResult, PaymentError>>
 
   estimateFee(params: {
     accountId: string
@@ -52,7 +52,6 @@ export interface PaymentUseCase {
     amount: Amount
   }): Promise<Result<FeeEstimate, PaymentError>>
 
-  parseInput(input: string): ParsedInput | null
   recoverAll(): Promise<RecoveryReport[]>
 }
 
@@ -60,10 +59,6 @@ export interface SendResult {
   transactionId: string
   state: string
   data?: Record<string, unknown>
-}
-
-export interface ReceiveTokenResult {
-  amount: Amount
 }
 
 export interface RecoveryReport {

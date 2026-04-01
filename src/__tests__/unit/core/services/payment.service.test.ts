@@ -22,6 +22,11 @@ function createMockAdapter(overrides?: Partial<PaymentMethodAdapter>): PaymentMe
     executeSend: vi.fn().mockResolvedValue({ id: 'prepared-1', state: 'finalized' }),
     cancelPrepared: vi.fn().mockResolvedValue(undefined),
     reclaimFailed: vi.fn().mockResolvedValue(undefined),
+    createReceiveRequest: vi.fn().mockResolvedValue({
+      id: 'req-1', method: 'lightning', protocol: 'bolt11',
+      encoded: 'lnbc...', amount: sat(1000),
+    }),
+    redeem: vi.fn().mockResolvedValue({ amount: sat(500), method: 'lightning', protocol: 'bolt11' }),
     recoverPending: vi.fn().mockResolvedValue({ recovered: 0, failed: 0 }),
     ...overrides,
   }
@@ -106,30 +111,6 @@ describe('PaymentService', () => {
       // Should be a plain object, not the adapter instance
       expect(methods[0]).not.toBe(adapter)
       expect(methods[0]).not.toHaveProperty('prepareSend')
-    })
-  })
-
-  // ─── parseInput ───
-
-  describe('parseInput', () => {
-    it('returns first matching result', () => {
-      const mockAdapter = createMockAdapter({
-        parseInput: vi.fn().mockReturnValue({
-          method: 'lightning', protocol: 'bolt11',
-          destination: 'lnbc1000...', amount: sat(1000),
-        }),
-      })
-      const mod = createMockModule([mockAdapter])
-      service = new PaymentService([mod], txRepo, eventBus)
-
-      const result = service.parseInput('lnbc1000...')
-      expect(result).not.toBeNull()
-      expect(result!.method).toBe('lightning')
-    })
-
-    it('returns null when no adapter matches', () => {
-      const result = service.parseInput('unknown-input')
-      expect(result).toBeNull()
     })
   })
 
@@ -251,16 +232,6 @@ describe('PaymentService', () => {
       expect(txRepo.save).toHaveBeenCalled()
     })
 
-    it('returns error when adapter has no createReceiveRequest', async () => {
-      // Default mock adapter has no createReceiveRequest
-      const result = await service.receive({
-        accountId: 'https://mint.test',
-        adapterId: 'cashu:lightning',
-        amount: sat(1000),
-      })
-
-      expect(result.ok).toBe(false)
-    })
   })
 
   // ─── estimateFee ───
@@ -291,32 +262,30 @@ describe('PaymentService', () => {
     })
   })
 
-  // ─── receiveToken ───
+  // ─── redeem ───
 
-  describe('receiveToken', () => {
-    it('delegates to adapter receiveToken', async () => {
+  describe('redeem', () => {
+    it('delegates to adapter redeem', async () => {
       const ecashAdapter = createMockAdapter({
         id: 'cashu:ecash',
-        receiveToken: vi.fn().mockResolvedValue({
-          requestId: '', amount: sat(500), completedAt: Date.now(),
-        }),
+        redeem: vi.fn().mockResolvedValue({ requestId: '', amount: sat(500), method: 'ecash', protocol: 'cashu-token', completed: true }),
       })
       const mod = createMockModule([ecashAdapter])
       service = new PaymentService([mod], txRepo, eventBus)
 
-      const result = await service.receiveToken({
+      const result = await service.redeem({
         adapterId: 'cashu:ecash',
-        token: 'cashuBtest...',
+        input: 'cashuBtest...',
       })
 
       expect(result.ok).toBe(true)
-      expect(ecashAdapter.receiveToken).toHaveBeenCalledWith('cashuBtest...')
+      expect(ecashAdapter.redeem).toHaveBeenCalledWith('cashuBtest...')
     })
 
-    it('returns error when adapter has no receiveToken', async () => {
-      const result = await service.receiveToken({
-        adapterId: 'cashu:lightning',
-        token: 'cashuBtest...',
+    it('returns error when adapter not found', async () => {
+      const result = await service.redeem({
+        adapterId: 'nonexistent',
+        input: 'cashuBtest...',
       })
 
       expect(result.ok).toBe(false)

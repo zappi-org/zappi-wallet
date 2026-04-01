@@ -18,7 +18,7 @@ function createMockBackend(): EcashBackend {
       token: 'cashuBtest_token_string',
     }),
     rollbackSend: vi.fn().mockResolvedValue(undefined),
-    receiveToken: vi.fn().mockResolvedValue(undefined),
+    receiveToken: vi.fn().mockResolvedValue({ amount: 500 }),
     recoverPendingSendTokens: vi.fn().mockResolvedValue({ reclaimed: 3, recorded: 1 }),
   }
 }
@@ -184,14 +184,18 @@ describe('CashuEcashAdapter', () => {
     })
   })
 
-  // ─── receiveToken ───
+  // ─── redeem ───
 
-  describe('receiveToken', () => {
-    it('delegates to backend receiveToken and returns result', async () => {
-      const result = await adapter.receiveToken('cashuBpXh...')
+  describe('redeem', () => {
+    it('delegates to backend receiveToken and returns RedeemResult', async () => {
+      const result = await adapter.redeem('cashuBpXh...')
 
       expect(backend.receiveToken).toHaveBeenCalledWith('cashuBpXh...')
-      expect(result.completedAt).toBeGreaterThan(0)
+      expect(toNumber(result.amount)).toBe(500)
+      expect(result.method).toBe('ecash')
+      expect(result.protocol).toBe('cashu-token')
+      expect(result.completed).toBe(true)
+      expect(result.requestId).toBe('')
     })
   })
 })

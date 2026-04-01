@@ -30,7 +30,7 @@ export async function receiveP2PKToken(
 }
 
 export async function receiveToken(token: string): Promise<void> {
-  return backend.receiveToken(token);
+  await backend.receiveToken(token);
 }
 
 // ─── Token 전송 ───

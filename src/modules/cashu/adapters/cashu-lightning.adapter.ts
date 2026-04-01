@@ -37,7 +37,6 @@ export interface LightningBackend {
   }>
   redeemMintQuote(mintUrl: string, quoteId: string, expectedAmount: number): Promise<void>
   recoverPendingMelts(): Promise<{ recovered: number; failed: number }>
-  /** mint quote 결제 완료 감지 콜백 */
   onMintQuotePaid?(quoteId: string, handler: () => void): () => void
 }
 
@@ -55,35 +54,7 @@ export class CashuLightningAdapter implements PaymentMethodAdapter {
 
   constructor(private backend: LightningBackend) {}
 
-  async createReceiveRequest(params: ReceiveParams): Promise<ReceiveRequest> {
-    const amount = toNumber(params.amount)
-    const quote = await this.backend.createMintQuote(params.accountId, amount)
-
-    return {
-      id: quote.quote,
-      method: 'lightning',
-      protocol: 'bolt11',
-      encoded: quote.request,
-      amount: params.amount,
-      expiresAt: quote.expiry * 1000,
-    }
-  }
-
-  onReceiveCompleted(
-    requestId: string,
-    handler: (result: ReceiveCompletedResult) => void,
-  ): () => void {
-    if (!this.backend.onMintQuotePaid) {
-      return () => {}
-    }
-    return this.backend.onMintQuotePaid(requestId, () => {
-      handler({
-        requestId,
-        amount: sat(0), // 실제 금액은 quote에서 확인 필요 — backend에서 제공
-        completedAt: Date.now(),
-      })
-    })
-  }
+  // ─── 보내기 ───
 
   async estimateFee(params: SendParams): Promise<FeeEstimate> {
     const invoice = params.destination
@@ -128,6 +99,42 @@ export class CashuLightningAdapter implements PaymentMethodAdapter {
   async reclaimFailed(operationId: string): Promise<void> {
     await this.backend.rollbackMelt(operationId, 'reclaim failed operation')
   }
+
+  // ─── 받기 요청 ───
+
+  async createReceiveRequest(params: ReceiveParams): Promise<ReceiveRequest> {
+    const amount = toNumber(params.amount)
+    const quote = await this.backend.createMintQuote(params.accountId, amount)
+
+    return {
+      id: quote.quote,
+      method: 'lightning',
+      protocol: 'bolt11',
+      encoded: quote.request,
+      amount: params.amount,
+      expiresAt: quote.expiry * 1000,
+    }
+  }
+
+  // ─── 수신 완료 감지 ───
+
+  onReceiveCompleted(
+    requestId: string,
+    handler: (result: ReceiveCompletedResult) => void,
+  ): () => void {
+    if (!this.backend.onMintQuotePaid) {
+      return () => {}
+    }
+    return this.backend.onMintQuotePaid(requestId, () => {
+      handler({
+        requestId,
+        amount: sat(0),
+        completedAt: Date.now(),
+      })
+    })
+  }
+
+  // ─── 복구 ───
 
   async recoverPending(): Promise<RecoveryReport> {
     return this.backend.recoverPendingMelts()
