@@ -39,6 +39,7 @@ function createMockModule(adapters: PaymentMethodAdapter[]): WalletModule {
     initialize: vi.fn(),
     dispose: vi.fn(),
     isEnabled: vi.fn().mockReturnValue(true),
+    send: vi.fn().mockResolvedValue({ operationId: 'op-1', state: 'completed' }),
     getPaymentAdapters: vi.fn().mockReturnValue(adapters),
     getCapabilities: vi.fn().mockReturnValue([]),
     getBalance: vi.fn().mockResolvedValue({
@@ -117,10 +118,9 @@ describe('PaymentService', () => {
   // ─── send ───
 
   describe('send', () => {
-    it('orchestrates prepare → execute → tx record → events', async () => {
+    it('delegates to module.send and records tx + events', async () => {
       const result = await service.send({
         accountId: 'https://mint.test',
-        adapterId: 'cashu:lightning',
         destination: 'lnbc1000n1...',
         amount: sat(1000),
         memo: 'test',
@@ -129,9 +129,11 @@ describe('PaymentService', () => {
       expect(result.ok).toBe(true)
       if (!result.ok) return
 
-      expect(result.value.state).toBe('finalized')
-      expect(adapter.prepareSend).toHaveBeenCalled()
-      expect(adapter.executeSend).toHaveBeenCalledWith('prepared-1')
+      expect(result.value.state).toBe('completed')
+      expect(module.send).toHaveBeenCalledWith(expect.objectContaining({
+        destination: 'lnbc1000n1...',
+        accountId: 'https://mint.test',
+      }))
       expect(txRepo.save).toHaveBeenCalled()
       expect(txRepo.update).toHaveBeenCalled()
       expect(eventBus.emit).toHaveBeenCalledWith(
@@ -142,66 +144,50 @@ describe('PaymentService', () => {
       )
     })
 
-    it('returns error for unknown adapter', async () => {
+    it('returns error when no module found for account', async () => {
+      const disabledMod = createMockModule([adapter])
+      vi.mocked(disabledMod.isEnabled).mockReturnValue(false)
+      service = new PaymentService([disabledMod], txRepo, eventBus)
+
       const result = await service.send({
-        accountId: 'https://mint.test',
-        adapterId: 'unknown:adapter',
+        accountId: 'https://unknown.test',
         destination: 'lnbc...',
         amount: sat(1000),
       })
 
       expect(result.ok).toBe(false)
       if (result.ok) return
-      expect(result.error.code).toBe('ADAPTER_NOT_FOUND')
+      expect(result.error.code).toBe('MODULE_NOT_FOUND')
     })
 
-    it('handles execute failure gracefully', async () => {
-      vi.mocked(adapter.executeSend).mockRejectedValue(new Error('melt failed'))
+    it('handles module.send failure gracefully', async () => {
+      vi.mocked(module.send).mockRejectedValue(new Error('send failed'))
 
       const result = await service.send({
         accountId: 'https://mint.test',
-        adapterId: 'cashu:lightning',
         destination: 'lnbc...',
         amount: sat(1000),
       })
 
       expect(result.ok).toBe(false)
       if (result.ok) return
-      expect(result.error.message).toBe('melt failed')
+      expect(result.error.message).toBe('send failed')
       expect(eventBus.emit).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'payment:failed' }),
       )
     })
 
-    it('cancels prepared payment on execute failure to prevent proof leak', async () => {
-      vi.mocked(adapter.executeSend).mockRejectedValue(new Error('melt failed'))
-
+    it('passes options to module.send', async () => {
       await service.send({
         accountId: 'https://mint.test',
-        adapterId: 'cashu:lightning',
-        destination: 'lnbc...',
-        amount: sat(1000),
-      })
-
-      expect(adapter.cancelPrepared).toHaveBeenCalledWith('prepared-1')
-    })
-
-    it('passes options to adapter', async () => {
-      const ecashAdapter = createMockAdapter({ id: 'cashu:ecash' })
-      const mod = createMockModule([ecashAdapter])
-      service = new PaymentService([mod], txRepo, eventBus)
-
-      await service.send({
-        accountId: 'https://mint.test',
-        adapterId: 'cashu:ecash',
-        destination: 'creq...',
+        destination: 'creqBtest...',
         amount: sat(500),
-        options: { target: { type: 'p2pk', pubkey: '02abc' } },
+        options: { lockingCondition: { kind: 'P2PK', data: '02abc' } },
       })
 
-      expect(ecashAdapter.prepareSend).toHaveBeenCalledWith(
+      expect(module.send).toHaveBeenCalledWith(
         expect.objectContaining({
-          options: { target: { type: 'p2pk', pubkey: '02abc' } },
+          options: { lockingCondition: { kind: 'P2PK', data: '02abc' } },
         }),
       )
     })

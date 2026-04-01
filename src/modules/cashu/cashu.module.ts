@@ -4,6 +4,9 @@
  * CashuBackend + Lightning/Ecash adapters를 조립하여
  * WalletModule port를 구현하는 Driven Adapter.
  *
+ * destination을 보고 프로토콜 판단 + 적절한 adapter 위임.
+ * PaymentService는 destination 내용을 모름 — module에 위임할 뿐.
+ *
  * internal/ (Coco SDK)을 직접 import하지 않음 — factory가 담당.
  */
 
@@ -11,10 +14,12 @@ import type {
   WalletModule,
   ModuleBalance,
   ModuleCapability,
+  SendParams as ModuleSendParams,
+  SendResult as ModuleSendResult,
 } from '@/core/ports/driven/wallet-module.port'
 import type { PaymentMethodAdapter } from '@/core/ports/driven/payment-method.port'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
-import { sat, add } from '@/core/domain/amount'
+import { sat, add, toNumber } from '@/core/domain/amount'
 import {
   CashuLightningAdapter,
   type LightningBackend,
@@ -65,6 +70,8 @@ export class CashuModule implements WalletModule {
   readonly id = 'cashu'
   readonly displayName = 'Cashu'
 
+  private lightningAdapter!: CashuLightningAdapter
+  private ecashAdapter!: CashuEcashAdapter
   private adapters: PaymentMethodAdapter[] = []
   private initialized = false
   private eventHandlers = new Map<string, Set<(...args: unknown[]) => void>>()
@@ -75,10 +82,9 @@ export class CashuModule implements WalletModule {
   ) {}
 
   async initialize(_seed: Uint8Array, _derivationPath: string): Promise<void> {
-    this.adapters = [
-      new CashuLightningAdapter(this.backend),
-      new CashuEcashAdapter(this.backend),
-    ]
+    this.lightningAdapter = new CashuLightningAdapter(this.backend)
+    this.ecashAdapter = new CashuEcashAdapter(this.backend)
+    this.adapters = [this.lightningAdapter, this.ecashAdapter]
     this.initialized = true
   }
 
@@ -91,6 +97,77 @@ export class CashuModule implements WalletModule {
   isEnabled(): boolean {
     return this.initialized
   }
+
+  // ─── Send (프로토콜 판단 + adapter 위임) ───
+
+  private readonly protocolRoutes = [
+    { test: isCreq, handler: (p: ModuleSendParams) => this.sendCreq(p) },
+    { test: isLightning, handler: (p: ModuleSendParams) => this.sendViaLightning(p) },
+  ]
+
+  async send(params: ModuleSendParams): Promise<ModuleSendResult> {
+    const route = this.protocolRoutes.find(r => r.test(params.destination))
+    if (!route) {
+      throw new Error(`Unsupported destination format: ${params.destination.substring(0, 10)}...`)
+    }
+    return route.handler(params)
+  }
+
+  private async sendCreq(params: ModuleSendParams): Promise<ModuleSendResult> {
+    const resolved = await this.backend.parsePaymentRequest(params.destination)
+    const lockingCondition = params.options?.lockingCondition as LockingCondition | undefined
+
+    const prepared = await this.backend.preparePaymentRequest(resolved, {
+      mintUrl: params.accountId,
+      amount: resolved.amount ?? toNumber(params.amount),
+    })
+
+    let result: CreqExecutionResult
+    if (lockingCondition) {
+      const sendPrepared = await this.backend.prepareSend({
+        mintUrl: params.accountId,
+        amount: resolved.amount ?? toNumber(params.amount),
+        lockingCondition,
+      })
+      const { token } = await this.backend.executeSend(sendPrepared.operationId)
+      result = { type: resolved.transport.type === 'http' ? 'http' : 'inband', token }
+    } else {
+      result = await this.backend.executePaymentRequest(prepared)
+    }
+
+    // Nostr DM transport
+    const nostrContext = params.options?.nostrContext as { recipientPubkey: string; relays: string[] } | undefined
+    if (result.type === 'inband' && result.token && nostrContext && this.nostrGateway) {
+      await this.nostrGateway.sendDirectMessage({
+        recipientPubkey: nostrContext.recipientPubkey,
+        content: result.token,
+        relays: nostrContext.relays,
+      })
+    }
+
+    return {
+      operationId: prepared.operationId,
+      state: 'completed',
+      data: { type: result.type, token: result.token },
+    }
+  }
+
+  private async sendViaLightning(params: ModuleSendParams): Promise<ModuleSendResult> {
+    const prepared = await this.lightningAdapter.prepareSend({
+      destination: params.destination,
+      amount: params.amount,
+      accountId: params.accountId,
+      memo: params.memo,
+    })
+    const result = await this.lightningAdapter.executeSend(prepared.id)
+    return {
+      operationId: prepared.id,
+      state: result.state,
+      data: result.data,
+    }
+  }
+
+  // ─── Query ───
 
   getPaymentAdapters(): PaymentMethodAdapter[] {
     return this.adapters
@@ -117,60 +194,6 @@ export class CashuModule implements WalletModule {
     }
   }
 
-  // ─── NUT-18 Payment Request ───
-
-  /**
-   * creq 결제.
-   * HTTP transport → Coco가 POST 자동 처리.
-   * inband → token 반환 + NostrGateway로 DM 전송.
-   */
-  async payCreq(
-    creqString: string,
-    accountId: string,
-    options?: {
-      nostrContext?: { recipientPubkey: string; relays: string[] }
-      lockingCondition?: LockingCondition
-    },
-  ): Promise<CreqExecutionResult> {
-    const resolved = await this.backend.parsePaymentRequest(creqString)
-
-    // lockingCondition이 명시되면 prepareSend로 직접 처리 (P2PK lock 등)
-    // 없으면 기존 PaymentRequest 경로
-    const lockingCondition = options?.lockingCondition
-    const amount = resolved.amount
-
-    const prepared = await this.backend.preparePaymentRequest(resolved, {
-      mintUrl: accountId,
-      amount,
-    })
-
-    // P2PK locking condition이 있으면 prepareSend 경로로 전환
-    let result: CreqExecutionResult
-    if (lockingCondition) {
-      // PaymentRequest의 send operation을 취소하고 P2PK로 재준비
-      // TODO: Coco가 PaymentRequest + P2PK를 동시에 지원하면 간소화 가능
-      const sendPrepared = await this.backend.prepareSend({
-        mintUrl: accountId,
-        amount: amount ?? 0,
-        lockingCondition,
-      })
-      const { token } = await this.backend.executeSend(sendPrepared.operationId)
-      result = { type: resolved.transport.type === 'http' ? 'http' : 'inband', token }
-    } else {
-      result = await this.backend.executePaymentRequest(prepared)
-    }
-
-    if (result.type === 'inband' && result.token && options?.nostrContext && this.nostrGateway) {
-      await this.nostrGateway.sendDirectMessage({
-        recipientPubkey: options.nostrContext.recipientPubkey,
-        content: result.token,
-        relays: options.nostrContext.relays,
-      })
-    }
-
-    return result
-  }
-
   // ─── Events ───
 
   on(event: string, handler: (...args: unknown[]) => void): () => void {
@@ -182,4 +205,16 @@ export class CashuModule implements WalletModule {
       this.eventHandlers.get(event)?.delete(handler)
     }
   }
+}
+
+// ─── Protocol detection (module 내부) ───
+
+function isCreq(destination: string): boolean {
+  return /^creq[ab]/i.test(destination)
+}
+
+function isLightning(destination: string): boolean {
+  const lower = destination.toLowerCase()
+  return lower.startsWith('lnbc') || lower.startsWith('lntb') || lower.startsWith('lnbcrt')
+    || lower.startsWith('lno') // bolt12 offer
 }

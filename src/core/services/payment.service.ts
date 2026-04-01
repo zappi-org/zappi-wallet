@@ -56,81 +56,76 @@ export class PaymentService implements PaymentUseCase {
 
   async send(params: {
     accountId: string
-    adapterId: string
     destination: string
     amount: Amount
     memo?: string
     options?: Record<string, unknown>
   }): Promise<Result<SendResult, PaymentError>> {
-    const adapter = this.findAdapter(params.adapterId)
-    if (!adapter) {
-      return Err({ code: 'ADAPTER_NOT_FOUND', message: `Adapter not found: ${params.adapterId}` })
+    const module = this.findModuleForAccount(params.accountId)
+    if (!module) {
+      return Err({ code: 'MODULE_NOT_FOUND', message: `No module found for account: ${params.accountId}` })
     }
 
     const txId = crypto.randomUUID()
-    let preparedId: string | undefined
 
     try {
-      const prepared = await adapter.prepareSend({
-        destination: params.destination,
-        amount: params.amount,
-        accountId: params.accountId,
-        memo: params.memo,
-        options: params.options,
-      })
-      preparedId = prepared.id
-
       const tx = createTransaction({
         id: txId,
         direction: 'send',
-        method: prepared.method,
-        protocol: prepared.protocol,
-        amount: prepared.amount,
+        method: module.id,
+        protocol: '',
+        amount: params.amount,
         accountId: params.accountId,
         memo: params.memo,
       })
       await this.txRepo.save(tx)
 
-      const executing = await adapter.executeSend(prepared.id)
+      const result = await module.send({
+        destination: params.destination,
+        accountId: params.accountId,
+        amount: params.amount,
+        memo: params.memo,
+        options: params.options,
+      })
 
       const completed = completeTransaction(tx)
       await this.txRepo.update(txId, {
         status: 'completed',
         completedAt: completed.completedAt,
-        metadata: executing.data,
+        metadata: result.data,
       })
 
       this.eventBus.emit({
         type: 'payment:completed',
-        payload: { txId, method: prepared.method, amount: prepared.amount },
+        payload: { txId, method: module.id, amount: params.amount },
       })
       this.eventBus.emit({
         type: 'balance:changed',
-        payload: { moduleId: adapter.moduleId, accountId: params.accountId },
+        payload: { moduleId: module.id, accountId: params.accountId },
       })
 
       return Ok({
         transactionId: txId,
-        state: executing.state,
-        data: executing.data,
+        state: result.state,
+        data: result.data,
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error'
-
-      // prepared payment가 있으면 rollback하여 proof 누수 방지
-      if (preparedId) {
-        await adapter.cancelPrepared(preparedId).catch(() => {})
-      }
 
       await this.txRepo.update(txId, { status: 'failed', completedAt: Date.now() }).catch(() => {})
 
       this.eventBus.emit({
         type: 'payment:failed',
-        payload: { txId, method: adapter.id, error: message },
+        payload: { txId, method: module.id, error: message },
       })
 
       return Err({ code: 'UNKNOWN', message })
     }
+  }
+
+  private findModuleForAccount(_accountId: string): WalletModule | undefined {
+    // TODO: accountId로 정확한 module 매칭 (현재는 첫 번째 enabled module 반환)
+    return this.modules.find(m => m.isEnabled())
   }
 
   // ─── Receive ───

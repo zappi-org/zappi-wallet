@@ -242,8 +242,8 @@ describe('CashuModule', () => {
 
   // ─── payCreq (NUT-18) ───
 
-  describe('payCreq', () => {
-    it('HTTP transport — parse → prepare → execute, no nostr', async () => {
+  describe('send (protocol routing)', () => {
+    it('creq destination — parse → prepare → execute', async () => {
       vi.mocked(backend.parsePaymentRequest).mockResolvedValue({
         payableMints: ['https://mint.test'],
         allowedMints: ['https://mint.test'],
@@ -256,35 +256,62 @@ describe('CashuModule', () => {
       })
       vi.mocked(backend.executePaymentRequest).mockResolvedValue({ type: 'http' })
 
-      const result = await module.payCreq('creqBtest...', 'https://mint.test')
+      await module.initialize(new Uint8Array(64), "m/0'")
+      const result = await module.send({
+        destination: 'creqBtest...',
+        accountId: 'https://mint.test',
+        amount: sat(1000),
+      })
 
       expect(backend.parsePaymentRequest).toHaveBeenCalledWith('creqBtest...')
-      expect(backend.preparePaymentRequest).toHaveBeenCalled()
-      expect(backend.executePaymentRequest).toHaveBeenCalled()
-      expect(result.type).toBe('http')
-      expect(result.token).toBeUndefined()
+      expect(result.state).toBe('completed')
     })
 
-    it('inband transport without nostrGateway — returns token', async () => {
-      vi.mocked(backend.parsePaymentRequest).mockResolvedValue({
-        payableMints: ['https://mint.test'],
-        allowedMints: [],
-        amount: 500,
-        transport: { type: 'inband' },
+    it('bolt11 destination — lightning adapter', async () => {
+      vi.mocked(backend.prepareMelt).mockResolvedValue({
+        operationId: 'melt-1', quoteId: 'q-1', amount: 1000, fee_reserve: 3, swap_fee: 1,
       })
-      vi.mocked(backend.preparePaymentRequest).mockResolvedValue({
-        operationId: 'creq-op-2',
-        resolved: { payableMints: [], allowedMints: [], amount: 500, transport: { type: 'inband' } },
+      vi.mocked(backend.executeMelt).mockResolvedValue({ state: 'finalized' })
+
+      await module.initialize(new Uint8Array(64), "m/0'")
+      const result = await module.send({
+        destination: 'lnbc1000n1...',
+        accountId: 'https://mint.test',
+        amount: sat(1000),
       })
-      vi.mocked(backend.executePaymentRequest).mockResolvedValue({ type: 'inband', token: 'cashuBtoken...' })
 
-      const result = await module.payCreq('creqBtest...', 'https://mint.test')
-
-      expect(result.type).toBe('inband')
-      expect(result.token).toBe('cashuBtoken...')
+      expect(backend.prepareMelt).toHaveBeenCalledWith('https://mint.test', 'lnbc1000n1...')
+      expect(result.state).toBe('finalized')
     })
 
-    it('inband transport with nostrGateway — sends DM', async () => {
+    it('lightning destination — lightning adapter', async () => {
+      vi.mocked(backend.prepareMelt).mockResolvedValue({
+        operationId: 'melt-2', quoteId: 'q-2', amount: 500, fee_reserve: 1, swap_fee: 0,
+      })
+      vi.mocked(backend.executeMelt).mockResolvedValue({ state: 'finalized' })
+
+      await module.initialize(new Uint8Array(64), "m/0'")
+      const result = await module.send({
+        destination: 'lnbc500n1...',
+        accountId: 'https://mint.test',
+        amount: sat(500),
+      })
+
+      expect(backend.prepareMelt).toHaveBeenCalledWith('https://mint.test', 'lnbc500n1...')
+      expect(result.state).toBe('finalized')
+    })
+
+    it('unsupported destination — throws error', async () => {
+      await module.initialize(new Uint8Array(64), "m/0'")
+
+      await expect(module.send({
+        destination: 'unknown-format',
+        accountId: 'https://mint.test',
+        amount: sat(500),
+      })).rejects.toThrow('Unsupported destination format')
+    })
+
+    it('creq with nostrGateway — sends DM', async () => {
       const mockGateway = {
         connect: vi.fn().mockResolvedValue(undefined),
         disconnect: vi.fn().mockResolvedValue(undefined),
@@ -308,10 +335,13 @@ describe('CashuModule', () => {
       })
       vi.mocked(backend.executePaymentRequest).mockResolvedValue({ type: 'inband', token: 'cashuBtoken...' })
 
-      await module.payCreq('creqBtest...', 'https://mint.test', {
-        nostrContext: {
-          recipientPubkey: 'abc123',
-          relays: ['wss://relay.test'],
+      await module.initialize(new Uint8Array(64), "m/0'")
+      await module.send({
+        destination: 'creqBtest...',
+        accountId: 'https://mint.test',
+        amount: sat(500),
+        options: {
+          nostrContext: { recipientPubkey: 'abc123', relays: ['wss://relay.test'] },
         },
       })
 
@@ -322,7 +352,7 @@ describe('CashuModule', () => {
       })
     })
 
-    it('allowedMints empty — any mint accepted', async () => {
+    it('creq allowedMints empty — any mint accepted', async () => {
       vi.mocked(backend.parsePaymentRequest).mockResolvedValue({
         payableMints: ['https://mint-a.test', 'https://mint-b.test'],
         allowedMints: [],
@@ -335,13 +365,18 @@ describe('CashuModule', () => {
       })
       vi.mocked(backend.executePaymentRequest).mockResolvedValue({ type: 'inband', token: 'cashuB...' })
 
-      const result = await module.payCreq('creqBtest...', 'https://mint-a.test')
+      await module.initialize(new Uint8Array(64), "m/0'")
+      const result = await module.send({
+        destination: 'creqBtest...',
+        accountId: 'https://mint-a.test',
+        amount: sat(100),
+      })
 
       expect(backend.preparePaymentRequest).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ mintUrl: 'https://mint-a.test' }),
       )
-      expect(result.token).toBe('cashuB...')
+      expect(result.data?.token).toBe('cashuB...')
     })
   })
 

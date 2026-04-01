@@ -26,7 +26,6 @@ export interface PaymentUseCase {
 
   send(params: {
     accountId: string
-    adapterId: string
     destination: string
     amount: Amount
     memo?: string

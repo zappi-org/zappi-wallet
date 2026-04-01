@@ -10,6 +10,7 @@ function createMockModule(overrides?: Partial<WalletModule>): WalletModule {
     initialize: vi.fn(),
     dispose: vi.fn(),
     isEnabled: vi.fn().mockReturnValue(true),
+    send: vi.fn().mockResolvedValue({ operationId: '', state: 'completed' }),
     getPaymentAdapters: vi.fn().mockReturnValue([]),
     getCapabilities: vi.fn().mockReturnValue([]),
     getBalance: vi.fn().mockResolvedValue({
