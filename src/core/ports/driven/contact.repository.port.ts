@@ -1,11 +1,6 @@
-export interface Contact {
-  id: string
-  name: string
-  address: string
-  addressType: string
-  createdAt: number
-  updatedAt: number
-}
+import type { Contact } from '@/core/domain/contact'
+
+export type { Contact }
 
 export interface ContactRepository {
   save(contact: Contact): Promise<void>

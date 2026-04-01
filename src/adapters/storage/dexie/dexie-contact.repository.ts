@@ -1,7 +1,7 @@
 import type {
-  Contact,
   ContactRepository,
 } from '@/core/ports/driven/contact.repository.port'
+import type { Contact } from '@/core/domain/contact'
 import type { Contact as LegacyContact } from '@/core/types'
 import { getContactRepo } from '@/data/repositories/contact.repository'
 
@@ -9,19 +9,25 @@ function toDomain(legacy: LegacyContact): Contact {
   return {
     id: legacy.id,
     name: legacy.name,
-    address: legacy.address,
-    addressType: legacy.addressType,
+    addresses: [{
+      value: legacy.address,
+      type: legacy.addressType === 'npub' ? 'npub' : 'email',
+    }],
     createdAt: legacy.createdAt,
     updatedAt: legacy.updatedAt,
   }
 }
 
 function toLegacy(domain: Contact): LegacyContact {
+  const first = domain.addresses[0]
   return {
     id: domain.id,
     name: domain.name,
-    address: domain.address,
-    addressType: domain.addressType as LegacyContact['addressType'],
+    address: first?.value ?? '',
+    addressType: first?.type === 'npub' ? 'npub'
+      : first?.type === 'nprofile' ? 'npub'
+      : first?.type === 'email' ? 'lightning'
+      : 'custom',
     createdAt: domain.createdAt,
     updatedAt: domain.updatedAt,
   }
