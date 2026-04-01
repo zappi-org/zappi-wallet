@@ -127,7 +127,7 @@ describe('CashuModule', () => {
       await lightning.prepareSend({
         destination: 'lnbc1000n1...',
         amount: sat(1000),
-        mintUrl: 'https://mint.test',
+        accountId: 'https://mint.test',
       })
 
       expect(backend.prepareMelt).toHaveBeenCalledWith('https://mint.test', 'lnbc1000n1...')
@@ -146,7 +146,7 @@ describe('CashuModule', () => {
       await ecash.prepareSend({
         destination: 'cashuA...',
         amount: sat(500),
-        mintUrl: 'https://mint.test',
+        accountId: 'https://mint.test',
       })
 
       expect(backend.prepareSend).toHaveBeenCalledWith({

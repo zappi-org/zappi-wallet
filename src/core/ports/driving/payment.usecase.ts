@@ -4,14 +4,25 @@ import type { PaymentError } from '@/core/errors/payment.errors'
 import type {
   FeeEstimate,
   ParsedInput,
-  PaymentMethodAdapter,
   ReceiveRequest,
 } from '@/core/ports/driven/payment-method.port'
 import type { ModuleBalance } from '@/core/ports/driven/wallet-module.port'
 
+/** UI가 adapter를 직접 참조하지 않도록 DTO로 노출 */
+export interface PaymentMethodInfo {
+  id: string        // 'cashu:lightning', 'cashu:ecash'
+  moduleId: string
+  capabilities: {
+    canSend: boolean
+    canReceive: boolean
+    canEstimateFee: boolean
+  }
+  supportedUnits: string[]
+}
+
 export interface PaymentUseCase {
   getAccounts(): Promise<ModuleBalance[]>
-  getMethodsForAccount(accountId: string): PaymentMethodAdapter[]
+  getMethodsForAccount(accountId: string): PaymentMethodInfo[]
 
   send(params: {
     accountId: string
@@ -19,6 +30,7 @@ export interface PaymentUseCase {
     destination: string
     amount: Amount
     memo?: string
+    options?: Record<string, unknown>
   }): Promise<Result<SendResult, PaymentError>>
 
   receive(params: {
@@ -27,6 +39,11 @@ export interface PaymentUseCase {
     amount: Amount
     description?: string
   }): Promise<Result<ReceiveRequest, PaymentError>>
+
+  receiveToken(params: {
+    adapterId: string
+    token: string
+  }): Promise<Result<ReceiveTokenResult, PaymentError>>
 
   estimateFee(params: {
     accountId: string
@@ -42,6 +59,11 @@ export interface PaymentUseCase {
 export interface SendResult {
   transactionId: string
   state: string
+  data?: Record<string, unknown>
+}
+
+export interface ReceiveTokenResult {
+  amount: Amount
 }
 
 export interface RecoveryReport {

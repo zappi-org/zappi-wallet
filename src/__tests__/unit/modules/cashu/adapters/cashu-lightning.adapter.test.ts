@@ -53,7 +53,7 @@ describe('CashuLightningAdapter', () => {
     it('creates mint quote and returns receive request', async () => {
       const result = await adapter.createReceiveRequest({
         amount: sat(1000),
-        mintUrl: 'https://mint.test',
+        accountId: 'https://mint.test',
       })
 
       expect(backend.createMintQuote).toHaveBeenCalledWith('https://mint.test', 1000)
@@ -73,7 +73,7 @@ describe('CashuLightningAdapter', () => {
       const result = await adapter.estimateFee({
         destination: 'lnbc1000n1...',
         amount: sat(1000),
-        mintUrl: 'https://mint.test',
+        accountId: 'https://mint.test',
       })
 
       expect(backend.prepareMelt).toHaveBeenCalledWith('https://mint.test', 'lnbc1000n1...')
@@ -88,7 +88,7 @@ describe('CashuLightningAdapter', () => {
       const result = await adapter.estimateFee({
         destination: 'lnbc1000n1...',
         amount: sat(1000),
-        mintUrl: 'https://mint.test',
+        accountId: 'https://mint.test',
       })
 
       expect(toNumber(result.fee)).toBe(0)
@@ -108,7 +108,7 @@ describe('CashuLightningAdapter', () => {
       const result = await adapter.estimateFee({
         destination: 'lnbc...',
         amount: sat(1000),
-        mintUrl: 'https://mint.test',
+        accountId: 'https://mint.test',
       })
 
       expect(toNumber(result.fee)).toBe(5)
@@ -122,7 +122,7 @@ describe('CashuLightningAdapter', () => {
       const result = await adapter.prepareSend({
         destination: 'lnbc1000n1...',
         amount: sat(1000),
-        mintUrl: 'https://mint.test',
+        accountId: 'https://mint.test',
         memo: 'test payment',
       })
 

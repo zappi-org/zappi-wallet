@@ -12,6 +12,7 @@ import type {
   ExecutingPayment,
   FeeEstimate,
   RecoveryReport,
+  ReceiveCompletedResult,
 } from '@/core/ports/driven/payment-method.port'
 import { sat, toNumber } from '@/core/domain/amount'
 
@@ -50,7 +51,7 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
   async estimateFee(params: SendParams): Promise<FeeEstimate> {
     try {
       const prepared = await this.backend.prepareSend({
-        mintUrl: params.mintUrl,
+        mintUrl: params.accountId,
         amount: toNumber(params.amount),
       })
       const fee = prepared.fee
@@ -62,11 +63,11 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
   }
 
   async prepareSend(params: SendParams): Promise<PreparedPayment> {
-    // destination에서 P2PK target 추출 (이미 resolve된 상태)
-    const target = (params as SendParamsWithTarget).target
+    // P2PK target은 options에서 추출
+    const target = params.options?.target as SendTarget | undefined
 
     const prepared = await this.backend.prepareSend({
-      mintUrl: params.mintUrl,
+      mintUrl: params.accountId,
       amount: toNumber(params.amount),
       target,
     })
@@ -85,11 +86,15 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
     }
   }
 
-  async executeSend(preparedId: string): Promise<ExecutingPayment & { token: string }> {
+  async executeSend(preparedId: string): Promise<ExecutingPayment> {
     const memo = this.pendingMemos.get(preparedId)
     this.pendingMemos.delete(preparedId)
     const result = await this.backend.executeSend(preparedId, { memo })
-    return { id: preparedId, state: 'pending', token: result.token }
+    return {
+      id: preparedId,
+      state: 'pending',
+      data: { token: result.token },
+    }
   }
 
   async cancelPrepared(preparedId: string): Promise<void> {
@@ -106,15 +111,12 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
     return { recovered: result.reclaimed, failed: 0 }
   }
 
-  // ─── Receive (non-port) ───
-
-  async receive(token: string): Promise<void> {
+  async receiveToken(token: string): Promise<ReceiveCompletedResult> {
     await this.backend.receiveToken(token)
+    return {
+      requestId: '',
+      amount: sat(0), // 실제 금액은 token 파싱으로 확인 — backend에서 제공
+      completedAt: Date.now(),
+    }
   }
-}
-
-// ─── Extended params ───
-
-export interface SendParamsWithTarget extends SendParams {
-  target?: SendTarget
 }

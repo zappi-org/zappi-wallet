@@ -14,6 +14,7 @@ import type {
   ReceiveRequest,
   FeeEstimate,
   RecoveryReport,
+  ReceiveCompletedResult,
 } from '@/core/ports/driven/payment-method.port'
 import { sat, toNumber } from '@/core/domain/amount'
 
@@ -36,6 +37,8 @@ export interface LightningBackend {
   }>
   redeemMintQuote(mintUrl: string, quoteId: string, expectedAmount: number): Promise<void>
   recoverPendingMelts(): Promise<{ recovered: number; failed: number }>
+  /** mint quote 결제 완료 감지 콜백 */
+  onMintQuotePaid?(quoteId: string, handler: () => void): () => void
 }
 
 // ─── Adapter ───
@@ -54,7 +57,7 @@ export class CashuLightningAdapter implements PaymentMethodAdapter {
 
   async createReceiveRequest(params: ReceiveParams): Promise<ReceiveRequest> {
     const amount = toNumber(params.amount)
-    const quote = await this.backend.createMintQuote(params.mintUrl, amount)
+    const quote = await this.backend.createMintQuote(params.accountId, amount)
 
     return {
       id: quote.quote,
@@ -66,12 +69,28 @@ export class CashuLightningAdapter implements PaymentMethodAdapter {
     }
   }
 
+  onReceiveCompleted(
+    requestId: string,
+    handler: (result: ReceiveCompletedResult) => void,
+  ): () => void {
+    if (!this.backend.onMintQuotePaid) {
+      return () => {}
+    }
+    return this.backend.onMintQuotePaid(requestId, () => {
+      handler({
+        requestId,
+        amount: sat(0), // 실제 금액은 quote에서 확인 필요 — backend에서 제공
+        completedAt: Date.now(),
+      })
+    })
+  }
+
   async estimateFee(params: SendParams): Promise<FeeEstimate> {
     const invoice = params.destination
     let meltOp: Awaited<ReturnType<LightningBackend['prepareMelt']>> | null = null
 
     try {
-      meltOp = await this.backend.prepareMelt(params.mintUrl, invoice)
+      meltOp = await this.backend.prepareMelt(params.accountId, invoice)
       const fee = meltOp.fee_reserve + meltOp.swap_fee
       await this.backend.rollbackMelt(meltOp.operationId, 'fee estimation only').catch(() => {})
       return { fee: sat(fee), method: 'lightning', protocol: 'bolt11' }
@@ -84,7 +103,7 @@ export class CashuLightningAdapter implements PaymentMethodAdapter {
   }
 
   async prepareSend(params: SendParams): Promise<PreparedPayment> {
-    const meltOp = await this.backend.prepareMelt(params.mintUrl, params.destination)
+    const meltOp = await this.backend.prepareMelt(params.accountId, params.destination)
     const fee = meltOp.fee_reserve + meltOp.swap_fee
 
     return {

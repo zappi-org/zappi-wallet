@@ -18,13 +18,24 @@ export interface PaymentMethodAdapter {
   cancelPrepared(preparedId: string): Promise<void>
   reclaimFailed(operationId: string): Promise<void>
   recoverPending(): Promise<RecoveryReport>
+
+  /** ecash token 직접 수신 (cashu:ecash 등) */
+  receiveToken?(token: string): Promise<ReceiveCompletedResult>
+
+  /** 수신 완료 콜백 등록 (Lightning invoice paid, swap 완료 감지용) */
+  onReceiveCompleted?(
+    requestId: string,
+    handler: (result: ReceiveCompletedResult) => void,
+  ): () => void
 }
 
 export interface SendParams {
   destination: string
   amount: Amount
-  mintUrl: string
+  accountId: string
   memo?: string
+  /** adapter-specific options (P2PK target 등) */
+  options?: Record<string, unknown>
 }
 
 export interface PreparedPayment {
@@ -38,7 +49,7 @@ export interface PreparedPayment {
 
 export interface ReceiveParams {
   amount: Amount
-  mintUrl: string
+  accountId: string
   description?: string
 }
 
@@ -60,6 +71,8 @@ export interface FeeEstimate {
 export interface ExecutingPayment {
   id: string
   state: string
+  /** adapter-specific result data (ecash: { token: "cashuA..." } 등) */
+  data?: Record<string, unknown>
 }
 
 export interface ParsedInput {
@@ -72,4 +85,10 @@ export interface ParsedInput {
 export interface RecoveryReport {
   recovered: number
   failed: number
+}
+
+export interface ReceiveCompletedResult {
+  requestId: string
+  amount: Amount
+  completedAt: number
 }

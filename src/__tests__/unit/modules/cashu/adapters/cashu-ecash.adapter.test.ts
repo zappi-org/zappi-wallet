@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   CashuEcashAdapter,
   type EcashBackend,
-  type SendParamsWithTarget,
 } from '@/modules/cashu/adapters/cashu-ecash.adapter'
 import { sat, toNumber } from '@/core/domain/amount'
 
@@ -50,7 +49,7 @@ describe('CashuEcashAdapter', () => {
       const result = await adapter.estimateFee({
         destination: 'cashuBpXh...',
         amount: sat(500),
-        mintUrl: 'https://mint.test',
+        accountId: 'https://mint.test',
       })
 
       expect(backend.prepareSend).toHaveBeenCalledWith({
@@ -68,7 +67,7 @@ describe('CashuEcashAdapter', () => {
       const result = await adapter.estimateFee({
         destination: 'cashuBpXh...',
         amount: sat(500),
-        mintUrl: 'https://mint.test',
+        accountId: 'https://mint.test',
       })
 
       expect(toNumber(result.fee)).toBe(0)
@@ -82,7 +81,7 @@ describe('CashuEcashAdapter', () => {
       const result = await adapter.prepareSend({
         destination: 'cashuBpXh...',
         amount: sat(500),
-        mintUrl: 'https://mint.test',
+        accountId: 'https://mint.test',
         memo: 'coffee',
       })
 
@@ -98,15 +97,13 @@ describe('CashuEcashAdapter', () => {
       expect(result.memo).toBe('coffee')
     })
 
-    it('prepares send with P2PK target', async () => {
-      const params: SendParamsWithTarget = {
+    it('prepares send with P2PK target via options', async () => {
+      await adapter.prepareSend({
         destination: 'creqBpXh...',
         amount: sat(500),
-        mintUrl: 'https://mint.test',
-        target: { type: 'p2pk', pubkey: '02abc...' },
-      }
-
-      await adapter.prepareSend(params)
+        accountId: 'https://mint.test',
+        options: { target: { type: 'p2pk', pubkey: '02abc...' } },
+      })
 
       expect(backend.prepareSend).toHaveBeenCalledWith({
         mintUrl: 'https://mint.test',
@@ -119,20 +116,20 @@ describe('CashuEcashAdapter', () => {
   // ─── executeSend ───
 
   describe('executeSend', () => {
-    it('executes send and returns token', async () => {
+    it('executes send and returns token in data', async () => {
       const result = await adapter.executeSend('send-op-1')
 
       expect(backend.executeSend).toHaveBeenCalledWith('send-op-1', { memo: undefined })
       expect(result.id).toBe('send-op-1')
       expect(result.state).toBe('pending')
-      expect(result.token).toBe('cashuBtest_token_string')
+      expect(result.data?.token).toBe('cashuBtest_token_string')
     })
 
     it('passes memo from prepareSend to executeSend', async () => {
       await adapter.prepareSend({
         destination: 'cashuA...',
         amount: sat(500),
-        mintUrl: 'https://mint.test',
+        accountId: 'https://mint.test',
         memo: 'test memo',
       })
 
@@ -145,7 +142,7 @@ describe('CashuEcashAdapter', () => {
       await adapter.prepareSend({
         destination: 'cashuA...',
         amount: sat(500),
-        mintUrl: 'https://mint.test',
+        accountId: 'https://mint.test',
         memo: 'once only',
       })
 
@@ -187,12 +184,14 @@ describe('CashuEcashAdapter', () => {
     })
   })
 
-  // ─── receive ───
+  // ─── receiveToken ───
 
-  describe('receive', () => {
-    it('delegates to backend receiveToken', async () => {
-      await adapter.receive('cashuBpXh...')
+  describe('receiveToken', () => {
+    it('delegates to backend receiveToken and returns result', async () => {
+      const result = await adapter.receiveToken('cashuBpXh...')
+
       expect(backend.receiveToken).toHaveBeenCalledWith('cashuBpXh...')
+      expect(result.completedAt).toBeGreaterThan(0)
     })
   })
 })
