@@ -37,6 +37,7 @@ export interface LightningBackend {
   }>
   redeemMintQuote(mintUrl: string, quoteId: string, expectedAmount: number): Promise<void>
   recoverPendingMelts(): Promise<{ recovered: number; failed: number }>
+  recoverPendingQuotes(): Promise<{ recovered: number; failed: number; expired: number }>
   onMintQuotePaid?(quoteId: string, handler: () => void): () => void
 }
 
@@ -137,6 +138,15 @@ export class CashuLightningAdapter implements PaymentMethodAdapter {
   // ─── 복구 ───
 
   async recoverPending(): Promise<RecoveryReport> {
-    return this.backend.recoverPendingMelts()
+    const [melts, quotes] = await Promise.allSettled([
+      this.backend.recoverPendingMelts(),
+      this.backend.recoverPendingQuotes(),
+    ])
+    const meltResult = melts.status === 'fulfilled' ? melts.value : { recovered: 0, failed: 0 }
+    const quoteResult = quotes.status === 'fulfilled' ? quotes.value : { recovered: 0, failed: 0 }
+    return {
+      recovered: meltResult.recovered + quoteResult.recovered,
+      failed: meltResult.failed + quoteResult.failed,
+    }
   }
 }

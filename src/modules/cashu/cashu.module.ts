@@ -62,6 +62,7 @@ export interface PaymentRequestBackend {
 
 export interface CashuModuleBackend extends LightningBackend, EcashBackend, PaymentRequestBackend {
   getBalances(): Promise<{ [mintUrl: string]: number }>
+  recoverPendingQuotes(): Promise<{ recovered: number; failed: number; expired: number }>
 }
 
 // ─── Module ───
@@ -203,6 +204,15 @@ export class CashuModule implements WalletModule {
     this.eventHandlers.get(event)!.add(handler)
     return () => {
       this.eventHandlers.get(event)?.delete(handler)
+    }
+  }
+
+  emit(event: string, ...args: unknown[]): void {
+    const handlers = this.eventHandlers.get(event)
+    if (handlers) {
+      for (const handler of handlers) {
+        handler(...args)
+      }
     }
   }
 }

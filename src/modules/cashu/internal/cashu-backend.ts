@@ -353,266 +353,43 @@ export async function addMint(mintUrl: string): Promise<void> {
 }
 
 // ─── Recovery ───
+// Recovery 로직은 cashu-recovery.ts로 이동됨.
+// SDK ops를 recovery 인터페이스로 노출하는 헬퍼.
 
-export async function recoverPendingMelts(): Promise<{ recovered: number; failed: number }> {
+export async function getMeltRecoveryOps() {
   const manager = await getCocoManager();
-  const { getDatabase } = await import('@/data/database/schema');
-  const db = getDatabase();
-
-  let recovered = 0;
-  let failed = 0;
-  const maxAge = 24 * 60 * 60 * 1000;
-  const now = Date.now();
-
-  try {
-    const pendingOps = await manager.ops.melt.listInFlight();
-    console.log(`[Recovery] Found ${pendingOps.length} pending melt operations`);
-
-    for (const op of pendingOps) {
-      try {
-        const refreshed = await manager.ops.melt.refresh(op.id);
-        if (refreshed.state === 'finalized') {
-          recovered++;
-        } else if (refreshed.state === 'rolled_back') {
-          recovered++;
-        } else if (refreshed.state === 'failed') {
-          await manager.ops.melt.reclaim(op.id, 'recovery: payment failed');
-          recovered++;
-        } else if (op.createdAt && (now - op.createdAt) > maxAge) {
-          await manager.ops.melt.reclaim(op.id, 'recovery: expired');
-          failed++;
-        }
-      } catch (error) {
-        console.error(`[Recovery] Failed to recover melt operation ${op.id}:`, error);
-        failed++;
-      }
-    }
-  } catch (error) {
-    console.error('[Recovery] Failed to get pending melt operations:', error);
-  }
-
-  // Legacy pendingMelts cleanup
-  try {
-    const legacyMelts = await db.pendingMelts.toArray();
-    for (const melt of legacyMelts) {
-      if (now - melt.createdAt > maxAge) {
-        await db.pendingMelts.delete(melt.meltQuoteId);
-      }
-    }
-  } catch (error) {
-    console.error('[Recovery] Failed to clean up legacy pending melts:', error);
-  }
-
-  console.log(`[Recovery] Melts: ${recovered} recovered, ${failed} failed`);
-  return { recovered, failed };
+  return {
+    listInFlight: () => manager.ops.melt.listInFlight(),
+    refresh: (id: string) => manager.ops.melt.refresh(id),
+    reclaim: (id: string, reason: string) => manager.ops.melt.reclaim(id, reason),
+  };
 }
 
-export async function recoverPendingSendTokens(): Promise<{ reclaimed: number; recorded: number }> {
+export async function getSendRecoveryOps() {
   const manager = await getCocoManager();
-  const { getDatabase } = await import('@/data/database/schema');
-  const db = getDatabase();
-
-  // 1. SDK recovery
-  try {
-    await manager.ops.send.recovery.run();
-    console.log('[Recovery] SDK recoverPendingOperations completed');
-  } catch (error) {
-    console.error('[Recovery] SDK recoverPendingOperations failed:', error);
-  }
-
-  const pendingTokens = await db.pendingSendTokens.toArray();
-  if (pendingTokens.length === 0) return { reclaimed: 0, recorded: 0 };
-
-  console.log(`[Recovery] Found ${pendingTokens.length} pending send tokens`);
-
-  const sdkTokens = pendingTokens.filter(p => p.operationId);
-  const legacyTokens = pendingTokens.filter(p => !p.operationId);
-
-  let reclaimed = 0;
-  let recorded = 0;
-
-  // 2. SDK-managed cleanup
-  for (const pending of sdkTokens) {
-    try {
-      const op = await manager.ops.send.get(pending.operationId!);
-      if (op && (op.state === 'finalized' || op.state === 'rolled_back')) {
-        await db.pendingSendTokens.delete(pending.id);
-      }
-    } catch (error) {
-      console.error(`[Recovery] Failed to check SDK send operation ${pending.operationId}:`, error);
-    }
-  }
-
-  // 3. Legacy recovery
-  const { getTransactionRepo } = await import('@/data/repositories/transaction.repository');
-  for (const pending of legacyTokens) {
-    const existingTx = await db.transactions.get(pending.id);
-
-    if (existingTx && existingTx.status === 'pending' && existingTx.type === 'ecash-token') {
-      continue;
-    }
-
-    if (!pending.token) {
-      if (!existingTx) {
-        await getTransactionRepo().save({
-          id: pending.id,
-          direction: 'send',
-          type: 'ecash-token',
-          amount: pending.amount,
-          mintUrl: pending.mintUrl,
-          status: 'failed',
-          createdAt: pending.createdAt,
-          completedAt: Date.now(),
-          metadata: { error: 'crash_during_token_creation' },
-        });
-      }
-      await db.pendingSendTokens.delete(pending.id);
-      recorded++;
-      continue;
-    }
-
-    try {
-      await receiveToken(pending.token);
-      if (existingTx) {
-        const { markSendReclaimed } = await import('@/coco/sendTokenObserver');
-        await markSendReclaimed(pending.id);
-      } else {
-        const now = Date.now();
-        const reclaimTxId = `${pending.id}-reclaim`;
-        await getTransactionRepo().save({
-          id: reclaimTxId,
-          direction: 'receive',
-          type: 'ecash-token',
-          amount: pending.amount,
-          mintUrl: pending.mintUrl,
-          status: 'completed',
-          createdAt: now,
-          completedAt: now,
-          metadata: { reclaimedFrom: pending.id },
-        });
-        await db.pendingSendTokens.delete(pending.id);
-      }
-      reclaimed++;
-    } catch (error) {
-      const errorMsg = String(error).toLowerCase();
-      if (errorMsg.includes('already spent') || errorMsg.includes('token already spent')) {
-        if (!existingTx) {
-          await getTransactionRepo().save({
-            id: pending.id,
-            direction: 'send',
-            type: 'ecash-token',
-            amount: pending.amount,
-            mintUrl: pending.mintUrl,
-            status: 'completed',
-            createdAt: pending.createdAt,
-            completedAt: Date.now(),
-            tokenState: 'spent',
-          });
-        }
-        await db.pendingSendTokens.delete(pending.id);
-        recorded++;
-      } else {
-        console.error(`[Recovery] Failed to recover send token ${pending.id}:`, error);
-      }
-    }
-  }
-
-  console.log(`[Recovery] Send tokens: ${reclaimed} reclaimed, ${recorded} recorded`);
-  return { reclaimed, recorded };
+  return {
+    runRecovery: () => manager.ops.send.recovery.run(),
+    get: (operationId: string) => manager.ops.send.get(operationId),
+  };
 }
 
-export async function recoverPendingQuotes(): Promise<{
-  recovered: number;
-  failed: number;
-  expired: number;
-}> {
-  const { getDatabase } = await import('@/data/database/schema');
-  const db = getDatabase();
-
-  let recovered = 0;
-  let failed = 0;
-  const expired = 0;
-  const now = Date.now();
-  const maxAge = 24 * 60 * 60 * 1000;
-
-  // Legacy pending Lightning receive transactions
-  const pendingTransactions = await db.transactions
-    .where('status')
-    .equals('pending')
-    .and(tx => tx.type === 'lightning' && tx.direction === 'receive')
-    .toArray();
-
-  console.log(`[Recovery] Found ${pendingTransactions.length} pending Lightning receive transactions`);
-
-  for (const tx of pendingTransactions) {
-    const quoteId = tx.metadata?.quoteId as string | undefined;
-    const mintUrl = tx.mintUrl;
-
-    if (!quoteId || !mintUrl) {
-      if (tx.createdAt && (now - tx.createdAt) > maxAge) {
-        await db.transactions.update(tx.id, { status: 'failed' });
-      }
-      continue;
-    }
-
-    if (tx.createdAt && (now - tx.createdAt) > maxAge) {
-      await db.transactions.update(tx.id, { status: 'failed' });
-      failed++;
-      continue;
-    }
-
-    const result = await tryRecoverQuote(quoteId, mintUrl, tx.amount);
-
-    if (result.status === 'recovered') {
-      recovered++;
-      await db.transactions.update(tx.id, { status: 'completed', completedAt: Date.now() });
-    } else if (result.status === 'already_issued') {
-      await db.transactions.update(tx.id, { status: 'completed', completedAt: Date.now() });
-    } else if (result.status === 'failed') {
-      await db.transactions.update(tx.id, { status: 'failed' });
-      failed++;
-    }
-  }
-
-  console.log(`[Recovery] Complete: ${recovered} recovered, ${failed} failed, ${expired} expired`);
-  return { recovered, failed, expired };
-}
-
-/**
- * Legacy quote recovery — cashu-ts 직접 사용 (Coco에 mint quote recovery API 없음).
- * Phase 7에서 legacy pending tx 정리 후 제거 대상.
- */
-async function tryRecoverQuote(
-  quoteId: string,
-  mintUrl: string,
-  amount: number,
-): Promise<{ status: 'recovered' | 'failed' | 'not_paid' | 'already_issued'; error?: string }> {
-  try {
-    const { Wallet, Mint, getEncodedToken } = await import('@cashu/cashu-ts');
-    const mint = new Mint(mintUrl);
-    const wallet = new Wallet(mint);
-    await wallet.loadMint();
-
-    const quoteStatus = await wallet.checkMintQuote(quoteId);
-
-    if (quoteStatus.state === 'ISSUED') {
-      return { status: 'already_issued' };
-    }
-
-    if (quoteStatus.state !== 'PAID') {
-      return { status: 'not_paid' };
-    }
-
-    const proofs = await wallet.mintProofs(amount, quoteId);
-    const token = getEncodedToken({ mint: mintUrl, proofs });
-    await receiveToken(token);
-
-    return { status: 'recovered' };
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    if (errorMsg.includes('already issued')) {
-      return { status: 'already_issued' };
-    }
-    return { status: 'failed', error: errorMsg };
-  }
+export async function getQuoteRecoveryOps() {
+  return {
+    async checkMintQuote(quoteId: string, mintUrl: string) {
+      const { Wallet, Mint } = await import('@cashu/cashu-ts');
+      const mint = new Mint(mintUrl);
+      const wallet = new Wallet(mint);
+      await wallet.loadMint();
+      return wallet.checkMintQuote(quoteId);
+    },
+    async mintAndReceive(quoteId: string, mintUrl: string, amount: number) {
+      const { Wallet, Mint, getEncodedToken } = await import('@cashu/cashu-ts');
+      const mint = new Mint(mintUrl);
+      const wallet = new Wallet(mint);
+      await wallet.loadMint();
+      const proofs = await wallet.mintProofs(amount, quoteId);
+      const token = getEncodedToken({ mint: mintUrl, proofs });
+      await receiveToken(token);
+    },
+  };
 }

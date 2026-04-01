@@ -25,6 +25,7 @@ function createMockBackend(): LightningBackend {
     }),
     redeemMintQuote: vi.fn().mockResolvedValue(undefined),
     recoverPendingMelts: vi.fn().mockResolvedValue({ recovered: 2, failed: 0 }),
+    recoverPendingQuotes: vi.fn().mockResolvedValue({ recovered: 0, failed: 0, expired: 0 }),
   }
 }
 

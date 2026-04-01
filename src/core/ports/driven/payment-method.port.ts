@@ -91,7 +91,15 @@ export interface ReceiveCompletedResult {
   completedAt: number
 }
 
+export interface RecoveryDetail {
+  id: string
+  kind: string
+  status: 'recovered' | 'failed' | 'expired'
+  error?: string
+}
+
 export interface RecoveryReport {
   recovered: number
   failed: number
+  details?: RecoveryDetail[]
 }

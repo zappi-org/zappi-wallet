@@ -157,14 +157,29 @@ export function clearWalletCache(): void {
   // 하위 호환을 위해 빈 함수 유지
 }
 
-// ─── Recovery ───
+// ─── Recovery (포트 경유 — cashu-recovery.ts 위임) ───
 
 export async function recoverPendingMelts(): Promise<{ recovered: number; failed: number }> {
-  return backend.recoverPendingMelts();
+  const { recoverPendingMelts } = await import('@/modules/cashu/internal/cashu-recovery')
+  const { getMeltRecoveryOps } = await import('@/modules/cashu/internal/cashu-backend')
+  const { DexiePendingOperationRepository } = await import('@/adapters/storage/dexie/dexie-pending-operation.repository')
+  return recoverPendingMelts({
+    pendingOpRepo: new DexiePendingOperationRepository(),
+    meltOps: await getMeltRecoveryOps(),
+  })
 }
 
 export async function recoverPendingSendTokens(): Promise<{ reclaimed: number; recorded: number }> {
-  return backend.recoverPendingSendTokens();
+  const { recoverPendingSendTokens } = await import('@/modules/cashu/internal/cashu-recovery')
+  const { getSendRecoveryOps } = await import('@/modules/cashu/internal/cashu-backend')
+  const { DexiePendingOperationRepository } = await import('@/adapters/storage/dexie/dexie-pending-operation.repository')
+  const { DexieTransactionRepository } = await import('@/adapters/storage/dexie/dexie-transaction.repository')
+  return recoverPendingSendTokens({
+    pendingOpRepo: new DexiePendingOperationRepository(),
+    txRepo: new DexieTransactionRepository(),
+    sendOps: await getSendRecoveryOps(),
+    receiveToken: async (token: string) => backend.receiveToken(token),
+  })
 }
 
 export async function recoverPendingQuotes(): Promise<{
@@ -172,5 +187,13 @@ export async function recoverPendingQuotes(): Promise<{
   failed: number;
   expired: number;
 }> {
-  return backend.recoverPendingQuotes();
+  const { recoverPendingQuotes } = await import('@/modules/cashu/internal/cashu-recovery')
+  const { getQuoteRecoveryOps } = await import('@/modules/cashu/internal/cashu-backend')
+  const { DexiePendingOperationRepository } = await import('@/adapters/storage/dexie/dexie-pending-operation.repository')
+  const { DexieTransactionRepository } = await import('@/adapters/storage/dexie/dexie-transaction.repository')
+  return recoverPendingQuotes({
+    pendingOpRepo: new DexiePendingOperationRepository(),
+    txRepo: new DexieTransactionRepository(),
+    quoteOps: await getQuoteRecoveryOps(),
+  })
 }

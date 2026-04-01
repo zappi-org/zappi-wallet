@@ -14,6 +14,7 @@ function createMockBackend(): CashuModuleBackend {
     createMintQuote: vi.fn(),
     redeemMintQuote: vi.fn(),
     recoverPendingMelts: vi.fn(),
+    recoverPendingQuotes: vi.fn(),
     // EcashBackend
     prepareSend: vi.fn(),
     executeSend: vi.fn(),
