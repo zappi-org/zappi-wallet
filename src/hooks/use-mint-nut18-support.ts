@@ -1,5 +1,5 @@
 import { useSyncExternalStore, useCallback, useRef } from 'react'
-import { mintMetadataService } from '@/modules/cashu'
+import { mintMetadataService } from '@/modules/cashu/metadata'
 
 /**
  * Hook to check if a mint supports NUT-18 HTTP POST transport.

@@ -1,6 +1,6 @@
 import { getDatabase } from '@/data/database'
 import type { MintMetadata } from '@/core/types'
-import type { MetadataStore } from '@/modules/cashu/internal/mint-metadata'
+import type { MetadataStore } from '@/modules/cashu/internal/metadata-store'
 
 /**
  * Repository for managing mint metadata (NUT-06) with offline caching
