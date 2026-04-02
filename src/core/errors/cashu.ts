@@ -1,5 +1,4 @@
 import { BaseError } from './base'
-import { formatSats } from '@/utils/format'
 import {
   NetworkError as CocoNetworkError,
   MintFetchError,
@@ -18,15 +17,11 @@ import { LightningRoutingError, LightningPaymentError, InvalidInvoiceError, Invo
  * Token has already been spent
  */
 export class TokenSpentError extends BaseError {
-  readonly code = 'TOKEN_SPENT'
+  readonly code = 'TOKEN_SPENT' as const
   readonly isRetryable = false
 
   constructor(message = 'Token has already been spent', cause?: unknown) {
     super(message, cause)
-  }
-
-  toUserMessage(): string {
-    return '이미 사용된 토큰입니다'
   }
 }
 
@@ -34,7 +29,7 @@ export class TokenSpentError extends BaseError {
  * Insufficient balance for operation
  */
 export class InsufficientBalanceError extends BaseError {
-  readonly code = 'INSUFFICIENT_BALANCE'
+  readonly code = 'INSUFFICIENT_BALANCE' as const
   readonly isRetryable = false
 
   constructor(
@@ -56,20 +51,13 @@ export class InsufficientBalanceError extends BaseError {
   get isFeeShortage(): boolean {
     return this.fee > 0 && this.available >= this.required
   }
-
-  toUserMessage(): string {
-    if (this.isFeeShortage) {
-      return `수수료 포함 시 잔액이 부족해요 (필요: ${formatSats(this.required)} + 수수료  보유: ${formatSats(this.available)})`
-    }
-    return `잔액이 부족해요 (필요: ${formatSats(this.required)}  보유: ${formatSats(this.available)})`
-  }
 }
 
 /**
  * Cannot connect to mint
  */
 export class MintConnectionError extends BaseError {
-  readonly code = 'MINT_CONNECTION'
+  readonly code = 'MINT_CONNECTION' as const
   readonly isRetryable = true
 
   constructor(
@@ -78,17 +66,13 @@ export class MintConnectionError extends BaseError {
   ) {
     super(`Cannot connect to mint: ${mintUrl}`, cause)
   }
-
-  toUserMessage(): string {
-    return '민트에 연결할 수 없습니다'
-  }
 }
 
 /**
  * Mint returned an error
  */
 export class MintError extends BaseError {
-  readonly code = 'MINT_ERROR'
+  readonly code = 'MINT_ERROR' as const
   readonly isRetryable = false
 
   constructor(
@@ -99,25 +83,17 @@ export class MintError extends BaseError {
   ) {
     super(message || `Mint error from ${mintUrl}: ${mintErrorCode}`, cause)
   }
-
-  toUserMessage(): string {
-    return '민트에서 오류가 발생했습니다'
-  }
 }
 
 /**
  * Invalid token format or signature
  */
 export class InvalidTokenError extends BaseError {
-  readonly code = 'INVALID_TOKEN'
+  readonly code = 'INVALID_TOKEN' as const
   readonly isRetryable = false
 
   constructor(message = 'Invalid token', cause?: unknown) {
     super(message, cause)
-  }
-
-  toUserMessage(): string {
-    return '유효하지 않은 토큰입니다'
   }
 }
 
@@ -125,15 +101,11 @@ export class InvalidTokenError extends BaseError {
  * Invalid proof
  */
 export class InvalidProofError extends BaseError {
-  readonly code = 'INVALID_PROOF'
+  readonly code = 'INVALID_PROOF' as const
   readonly isRetryable = false
 
   constructor(message = 'Invalid proof', cause?: unknown) {
     super(message, cause)
-  }
-
-  toUserMessage(): string {
-    return '유효하지 않은 증명입니다'
   }
 }
 
@@ -141,7 +113,7 @@ export class InvalidProofError extends BaseError {
  * Quote not found or expired
  */
 export class QuoteNotFoundError extends BaseError {
-  readonly code = 'QUOTE_NOT_FOUND'
+  readonly code = 'QUOTE_NOT_FOUND' as const
   readonly isRetryable = false
 
   constructor(
@@ -150,17 +122,13 @@ export class QuoteNotFoundError extends BaseError {
   ) {
     super(`Quote not found: ${quoteId}`, cause)
   }
-
-  toUserMessage(): string {
-    return '견적을 찾을 수 없습니다'
-  }
 }
 
 /**
  * Quote expired
  */
 export class QuoteExpiredError extends BaseError {
-  readonly code = 'QUOTE_EXPIRED'
+  readonly code = 'QUOTE_EXPIRED' as const
   readonly isRetryable = false
 
   constructor(
@@ -169,25 +137,17 @@ export class QuoteExpiredError extends BaseError {
   ) {
     super(`Quote expired: ${quoteId}`, cause)
   }
-
-  toUserMessage(): string {
-    return '견적이 만료되었습니다'
-  }
 }
 
 /**
  * P2PK unlock failed
  */
 export class P2PKUnlockError extends BaseError {
-  readonly code = 'P2PK_UNLOCK_FAILED'
+  readonly code = 'P2PK_UNLOCK_FAILED' as const
   readonly isRetryable = false
 
   constructor(message = 'Failed to unlock P2PK token', cause?: unknown) {
     super(message, cause)
-  }
-
-  toUserMessage(): string {
-    return 'P2PK 토큰 언락에 실패했습니다'
   }
 }
 

@@ -1,0 +1,59 @@
+/**
+ * Central error code registry.
+ *
+ * Every BaseError subclass must use one of these codes.
+ * UI layer derives i18n keys from codes via convention:
+ *   TOKEN_SPENT → errors.tokenSpent
+ */
+export type ErrorCode =
+  // Cashu
+  | 'TOKEN_SPENT'
+  | 'INSUFFICIENT_BALANCE'
+  | 'MINT_CONNECTION'
+  | 'MINT_ERROR'
+  | 'INVALID_TOKEN'
+  | 'INVALID_PROOF'
+  | 'QUOTE_NOT_FOUND'
+  | 'QUOTE_EXPIRED'
+  | 'P2PK_UNLOCK_FAILED'
+  // Lightning
+  | 'INVALID_INVOICE'
+  | 'INVOICE_EXPIRED'
+  | 'LIGHTNING_ROUTING'
+  | 'LIGHTNING_PAYMENT'
+  // Security
+  | 'INVALID_MNEMONIC'
+  | 'INVALID_PASSWORD'
+  | 'NO_WALLET'
+  | 'CREATE_WALLET_FAILED'
+  | 'UNLOCK_FAILED'
+  | 'CHANGE_PASSWORD_FAILED'
+  | 'GET_MNEMONIC_FAILED'
+  | 'VERIFY_FAILED'
+  | 'ENCRYPTION_FAILED'
+  | 'DECRYPTION_FAILED'
+  // Nostr
+  | 'RELAY_CONNECTION'
+  | 'EVENT_PUBLISH_FAILED'
+  | 'EVENT_NOT_FOUND'
+  | 'MESSAGE_DECRYPTION_FAILED'
+  | 'NIP05_LOOKUP_FAILED'
+  | 'INVALID_SIGNATURE'
+  // Zappi Link
+  | 'ZAPPI_LINK_REGISTRATION_FAILED'
+  | 'ZAPPI_LINK_NOT_FOUND'
+  | 'ZAPPI_LINK_API_ERROR'
+  // Payment routing
+  | 'MINT_UNREACHABLE'
+  | 'MODULE_NOT_FOUND'
+  | 'ADAPTER_NOT_FOUND'
+  | 'INVALID_DESTINATION'
+  | 'AMOUNT_TOO_SMALL'
+  | 'AMOUNT_TOO_LARGE'
+  | 'NFC_UNAVAILABLE'
+  | 'NFC_WRITE_FAILED'
+  | 'SWAP_FAILED'
+  // Base
+  | 'NETWORK_ERROR'
+  | 'TIMEOUT'
+  | 'UNKNOWN'

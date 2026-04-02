@@ -7,7 +7,7 @@ import {
   selectCanPerformOnlineOps,
 } from '@/store/selectors'
 import { PaymentService } from '@/services/payment/payment.service'
-import { translateError } from '@/core/errors/translate'
+import { toErrorMessage } from '@/utils/error-message'
 import { formatSats } from '@/utils/format'
 
 /**
@@ -152,7 +152,7 @@ export function usePayment() {
         if (result.isErr()) {
           addToast({
             type: 'error',
-            message: translateError(result.error),
+            message: toErrorMessage(result.error),
           })
           return null
         }
@@ -191,7 +191,7 @@ export function usePayment() {
         if (result.isErr()) {
           addToast({
             type: 'error',
-            message: translateError(result.error),
+            message: toErrorMessage(result.error),
           })
           return null
         }

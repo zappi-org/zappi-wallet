@@ -4,7 +4,7 @@ import { BaseError } from './base'
  * Cannot connect to relay
  */
 export class RelayConnectionError extends BaseError {
-  readonly code = 'RELAY_CONNECTION'
+  readonly code = 'RELAY_CONNECTION' as const
   readonly isRetryable = true
 
   constructor(
@@ -13,17 +13,13 @@ export class RelayConnectionError extends BaseError {
   ) {
     super(`Cannot connect to relay: ${relayUrl}`, cause)
   }
-
-  toUserMessage(): string {
-    return '릴레이에 연결할 수 없습니다'
-  }
 }
 
 /**
  * Event publish failed
  */
 export class EventPublishError extends BaseError {
-  readonly code = 'EVENT_PUBLISH_FAILED'
+  readonly code = 'EVENT_PUBLISH_FAILED' as const
   readonly isRetryable = true
 
   constructor(
@@ -33,17 +29,13 @@ export class EventPublishError extends BaseError {
   ) {
     super(`Failed to publish event kind ${eventKind} to relays: ${failedRelays.join(', ')}`, cause)
   }
-
-  toUserMessage(): string {
-    return '이벤트 발행에 실패했습니다'
-  }
 }
 
 /**
  * Event not found
  */
 export class EventNotFoundError extends BaseError {
-  readonly code = 'EVENT_NOT_FOUND'
+  readonly code = 'EVENT_NOT_FOUND' as const
   readonly isRetryable = false
 
   constructor(
@@ -53,25 +45,17 @@ export class EventNotFoundError extends BaseError {
   ) {
     super(eventId ? `Event not found: ${eventId}` : 'Event not found with given filter', cause)
   }
-
-  toUserMessage(): string {
-    return '이벤트를 찾을 수 없습니다'
-  }
 }
 
 /**
  * NIP-17 decryption failed
  */
 export class DecryptionError extends BaseError {
-  readonly code = 'DECRYPTION_FAILED'
+  readonly code = 'MESSAGE_DECRYPTION_FAILED' as const
   readonly isRetryable = false
 
   constructor(message = 'Failed to decrypt message', cause?: unknown) {
     super(message, cause)
-  }
-
-  toUserMessage(): string {
-    return '메시지 복호화에 실패했습니다'
   }
 }
 
@@ -79,7 +63,7 @@ export class DecryptionError extends BaseError {
  * NIP-05 lookup failed
  */
 export class Nip05LookupError extends BaseError {
-  readonly code = 'NIP05_LOOKUP_FAILED'
+  readonly code = 'NIP05_LOOKUP_FAILED' as const
   readonly isRetryable = true
 
   constructor(
@@ -88,17 +72,13 @@ export class Nip05LookupError extends BaseError {
   ) {
     super(`NIP-05 lookup failed for: ${identifier}`, cause)
   }
-
-  toUserMessage(): string {
-    return 'NIP-05 조회에 실패했습니다'
-  }
 }
 
 /**
  * Invalid event signature
  */
 export class InvalidSignatureError extends BaseError {
-  readonly code = 'INVALID_SIGNATURE'
+  readonly code = 'INVALID_SIGNATURE' as const
   readonly isRetryable = false
 
   constructor(
@@ -106,10 +86,6 @@ export class InvalidSignatureError extends BaseError {
     cause?: unknown
   ) {
     super(`Invalid signature for event: ${eventId}`, cause)
-  }
-
-  toUserMessage(): string {
-    return '유효하지 않은 서명입니다'
   }
 }
 

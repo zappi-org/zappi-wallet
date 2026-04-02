@@ -4,15 +4,11 @@ import { BaseError } from './base'
  * Lightning Address registration failed
  */
 export class ZappiLinkRegistrationError extends BaseError {
-  readonly code = 'ZAPPI_LINK_REGISTRATION_FAILED'
+  readonly code = 'ZAPPI_LINK_REGISTRATION_FAILED' as const
   readonly isRetryable = true
 
   constructor(message = 'Failed to register Lightning Address', cause?: unknown) {
     super(message, cause)
-  }
-
-  toUserMessage(): string {
-    return 'Lightning Address 등록에 실패했습니다'
   }
 }
 
@@ -20,15 +16,11 @@ export class ZappiLinkRegistrationError extends BaseError {
  * Address not found (404)
  */
 export class ZappiLinkNotFoundError extends BaseError {
-  readonly code = 'ZAPPI_LINK_NOT_FOUND'
+  readonly code = 'ZAPPI_LINK_NOT_FOUND' as const
   readonly isRetryable = false
 
   constructor(cause?: unknown) {
     super('No Lightning Address found for this account', cause)
-  }
-
-  toUserMessage(): string {
-    return 'Lightning Address를 찾을 수 없습니다'
   }
 }
 
@@ -36,7 +28,7 @@ export class ZappiLinkNotFoundError extends BaseError {
  * Generic zappi-link API error
  */
 export class ZappiLinkApiError extends BaseError {
-  readonly code = 'ZAPPI_LINK_API_ERROR'
+  readonly code = 'ZAPPI_LINK_API_ERROR' as const
   readonly isRetryable = true
 
   constructor(
@@ -45,9 +37,5 @@ export class ZappiLinkApiError extends BaseError {
     cause?: unknown
   ) {
     super(`${message} (HTTP ${statusCode})`, cause)
-  }
-
-  toUserMessage(): string {
-    return 'Zappi Link 서비스에 연결할 수 없습니다'
   }
 }

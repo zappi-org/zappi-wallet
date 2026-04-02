@@ -1,6 +1,6 @@
 import { LIMITS } from '@/core/constants'
 import { InsufficientBalanceError } from '@/core/errors/cashu'
-import { setMintNameResolver, translateError } from '@/core/errors/translate'
+import { setMintNameResolver, toErrorMessage } from '@/utils/error-message'
 import { clearMintData } from '@/data/database/schema'
 import { broadcastSync, useCrossTabSync } from '@/hooks/use-cross-tab-sync'
 import { useMintHealth } from '@/hooks/use-mint-health'
@@ -454,7 +454,7 @@ export default function MainApp() {
       return { success: true, amount: result.value.amount, transactionId: result.value.transactionId }
     }
     const e = result.error
-    return { success: false, error: { code: e.code, message: translateError(e) } }
+    return { success: false, error: { code: e.code, message: toErrorMessage(e) } }
   }, [services.payment, refreshAll])
 
   /** Estimate Lightning fee for cross-mint swap (non-destructive) */
@@ -482,7 +482,7 @@ export default function MainApp() {
     const receiveResult = await services.payment.receiveEcash(token)
     if (receiveResult.isErr()) {
       const e = receiveResult.error
-      return { success: false, error: { code: e.code, message: translateError(e) } }
+      return { success: false, error: { code: e.code, message: toErrorMessage(e) } }
     }
 
     // 2. Swap from source to target mint via Lightning
@@ -492,7 +492,7 @@ export default function MainApp() {
       // Refresh is best-effort so user can see the balance
       refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap fail:', e))
       const e = swapResult.error
-      return { success: false, error: { code: e.code, message: translateError(e) } }
+      return { success: false, error: { code: e.code, message: toErrorMessage(e) } }
     }
 
     // 3. Success — refresh is best-effort, must not mask success
@@ -516,7 +516,7 @@ export default function MainApp() {
       }
 
       console.error('[MainApp] Route execution failed:', result.error)
-      addToast({ type: 'error', message: translateError(result.error), duration: 4000 })
+      addToast({ type: 'error', message: toErrorMessage(result.error), duration: 4000 })
       return null
     } catch (error) {
       console.error('[MainApp] handleExecuteRoute error:', error)

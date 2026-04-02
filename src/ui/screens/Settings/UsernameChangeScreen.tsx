@@ -16,7 +16,7 @@ import { PaymentService } from '@/services/payment/payment.service'
 import { getTransactionRepo } from '@/data/repositories/transaction.repository'
 import { sendToken } from '@/coco'
 import { BaseError } from '@/core/errors/base'
-import { translateError } from '@/core/errors/translate'
+import { toErrorMessage } from '@/utils/error-message'
 import { ZAPPI_LINK_DOMAIN } from '@/core/constants'
 
 const USERNAME_REGEX = /^[a-z0-9]{3,20}$/
@@ -236,7 +236,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
           fee
         )
         if (swapResult.isErr()) {
-          addToast({ type: 'error', message: translateError(swapResult.error) })
+          addToast({ type: 'error', message: toErrorMessage(swapResult.error) })
           return
         }
         paymentMintUrl = normalizeMintUrl(targetMint)
@@ -257,7 +257,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
           cashuToken = await sendToken(paymentMintUrl, fee)
         } catch (sendError) {
           const message = sendError instanceof BaseError
-            ? translateError(sendError)
+            ? toErrorMessage(sendError)
             : t('settings.paymentFailed')
           addToast({ type: 'error', message })
           return
@@ -267,7 +267,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
       // Submit username change
       const result = await zappiLinkService.changeUsername(nostrPrivkey, newUsername, cashuToken)
       if (result.isErr()) {
-        addToast({ type: 'error', message: translateError(result.error) })
+        addToast({ type: 'error', message: toErrorMessage(result.error) })
         return
       }
 
@@ -304,7 +304,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
     } catch (error) {
       console.error('[UsernameChange] Error:', error)
       const message = error instanceof BaseError
-        ? translateError(error)
+        ? toErrorMessage(error)
         : t('settings.usernameChangeFailed')
       addToast({ type: 'error', message })
     } finally {
