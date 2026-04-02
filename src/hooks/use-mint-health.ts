@@ -2,7 +2,7 @@ import { useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { mintHealthService, type MintHealthStatus } from '@/services/mint-health'
-import { mintMetadataService } from '@/services/mint-metadata'
+import { mintMetadataService } from '@/modules/cashu'
 import { useNetwork } from './use-network'
 
 interface EnsureOnlineMintOptions {

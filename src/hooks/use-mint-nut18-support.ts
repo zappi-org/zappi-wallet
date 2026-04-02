@@ -1,5 +1,5 @@
 import { useSyncExternalStore, useCallback, useRef } from 'react'
-import { mintMetadataService } from '@/services/mint-metadata/mint-metadata.service'
+import { mintMetadataService } from '@/modules/cashu'
 
 /**
  * Hook to check if a mint supports NUT-18 HTTP POST transport.
@@ -20,7 +20,7 @@ export function useMintNut18Support(mintUrl: string | null) {
       cacheRef.current = { url: mintUrl, value: false }
 
       if (mintUrl) {
-        mintMetadataService.supportsNut18Http(mintUrl).then((supported) => {
+        mintMetadataService.supports(mintUrl, 18).then((supported) => {
           if (cacheRef.current.url === mintUrl && cacheRef.current.value !== supported) {
             cacheRef.current = { url: mintUrl, value: supported }
             for (const listener of listenersRef.current) listener()

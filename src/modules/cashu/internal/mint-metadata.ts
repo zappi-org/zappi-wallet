@@ -1,7 +1,17 @@
-import { MintMetadataRepository } from '@/data/repositories'
 import type { MintMetadata } from '@/core/types'
 import { TIMEOUTS } from '@/core/constants'
 import { metadataEvents } from './metadata-events'
+
+/**
+ * Storage interface for mint metadata.
+ * Implemented by data layer (e.g. Dexie repository).
+ */
+export interface MetadataStore {
+  get(mintUrl: string): Promise<MintMetadata | null>
+  getMany(mintUrls: string[]): Promise<Map<string, MintMetadata>>
+  save(metadata: MintMetadata): Promise<void>
+  clear(): Promise<void>
+}
 
 /**
  * NUT-06 mint info response
@@ -20,28 +30,73 @@ interface MintInfoResponse {
   nuts?: Record<string, unknown>
 }
 
-/**
- * Check if mint supports NUT-18 HTTP POST transport from NUT-06 nuts field.
- * Checks for nuts["18"] with methods/supported containing "post".
- */
-function checkNut18HttpSupport(nuts?: Record<string, unknown>): boolean {
-  if (!nuts || !nuts['18']) return false
-  const nut18 = nuts['18'] as Record<string, unknown>
+// ─── NUT query helpers ───
 
-  // Check various possible field names for transport support
-  const methods = nut18.methods ?? nut18.supported ?? nut18.transports ?? nut18.supported_transports
-  if (Array.isArray(methods)) {
-    return methods.some((m: unknown) => {
-      if (typeof m === 'string') return m === 'post'
-      if (typeof m === 'object' && m !== null && 'type' in m) return (m as { type: string }).type === 'post'
-      return false
-    })
+/**
+ * Check if a mint supports a given NUT.
+ * Handles both { supported: true } and { methods: [...], disabled: false } patterns.
+ */
+export function nutSupported(nuts: Record<string, unknown> | undefined, nut: number): boolean {
+  if (!nuts) return false
+  const entry = nuts[String(nut)]
+  if (!entry || typeof entry !== 'object') return false
+
+  const obj = entry as Record<string, unknown>
+
+  // Explicitly disabled
+  if (obj.disabled === true) return false
+
+  // { supported: true } or { supported: [...] }
+  if ('supported' in obj) {
+    return obj.supported === true || Array.isArray(obj.supported)
   }
 
-  // If nuts["18"] exists with disabled: false or just exists, assume basic support
-  if (typeof nut18.disabled === 'boolean') return !nut18.disabled
+  // { methods: [...] } — presence means supported
+  if ('methods' in obj && Array.isArray(obj.methods)) {
+    return obj.methods.length > 0
+  }
 
-  return false
+  // Any other object with fields = supported (e.g. NUT-19 { ttl, cached_endpoints }, NUT-29 { max_batch_size })
+  return Object.keys(obj).length > 0
+}
+
+/** Payment method info from NUT-06 methods array */
+export interface NutMethod {
+  method: string
+  unit: string
+  minAmount?: number
+  maxAmount?: number
+}
+
+/**
+ * Get payment methods for a NUT (e.g. NUT 4, 5, 15, 23, 25).
+ * Returns empty array if NUT has no methods field.
+ */
+export function nutMethods(nuts: Record<string, unknown> | undefined, nut: number): NutMethod[] {
+  if (!nuts) return []
+  const entry = nuts[String(nut)]
+  if (!entry || typeof entry !== 'object') return []
+
+  const obj = entry as Record<string, unknown>
+  if (!Array.isArray(obj.methods)) return []
+
+  return obj.methods.map((m: unknown) => {
+    const method = m as Record<string, unknown>
+    return {
+      method: String(method.method ?? ''),
+      unit: String(method.unit ?? ''),
+      minAmount: typeof method.min_amount === 'number' ? method.min_amount : undefined,
+      maxAmount: typeof method.max_amount === 'number' ? method.max_amount : undefined,
+    }
+  })
+}
+
+/**
+ * Get raw NUT config for advanced queries (e.g. NUT-17 commands, NUT-19 ttl, NUT-29 max_batch_size).
+ */
+export function nutConfig(nuts: Record<string, unknown> | undefined, nut: number): unknown {
+  if (!nuts) return undefined
+  return nuts[String(nut)]
 }
 
 /**
@@ -51,32 +106,28 @@ const METADATA_REFRESH_INTERVAL = 24 * 60 * 60 * 1000
 
 /**
  * Service for fetching and caching mint metadata (NUT-06)
- * Supports offline-first operation with IndexedDB caching
+ * Supports offline-first operation with injected storage.
  */
-class MintMetadataService {
-  private repository = new MintMetadataRepository()
+export class MintMetadataService {
   private inFlightRequests = new Map<string, Promise<MintMetadata | null>>()
+
+  constructor(private store: MetadataStore) {}
 
   /**
    * Get metadata for a mint (from cache if available, fetch if needed)
-   * Returns cached data immediately for offline support
    */
   async getMetadata(mintUrl: string): Promise<MintMetadata | null> {
-    // Always try cache first for offline support
-    const cached = await this.repository.get(mintUrl)
+    const cached = await this.store.get(mintUrl)
 
-    // If cached and fresh, return it
     if (cached && !this.isStale(cached)) {
       return cached
     }
 
-    // Try to refresh in background if stale but still return cached
     if (cached) {
       this.refreshInBackground(mintUrl)
       return cached
     }
 
-    // No cache, need to fetch
     return this.fetchAndCache(mintUrl)
   }
 
@@ -84,12 +135,10 @@ class MintMetadataService {
    * Get metadata for multiple mints
    */
   async getMetadataForMints(mintUrls: string[]): Promise<Map<string, MintMetadata>> {
-    const cachedMap = await this.repository.getMany(mintUrls)
+    const cachedMap = await this.store.getMany(mintUrls)
 
-    // Find mints that need fetching
     const needsFetch = mintUrls.filter((url) => !cachedMap.has(url))
 
-    // Fetch missing metadata in parallel
     if (needsFetch.length > 0) {
       const fetchPromises = needsFetch.map((url) => this.fetchAndCache(url))
       const results = await Promise.allSettled(fetchPromises)
@@ -101,7 +150,6 @@ class MintMetadataService {
       })
     }
 
-    // Refresh stale entries in background
     for (const [url, metadata] of cachedMap) {
       if (this.isStale(metadata)) {
         this.refreshInBackground(url)
@@ -115,7 +163,6 @@ class MintMetadataService {
    * Fetch metadata from mint and cache it
    */
   async fetchAndCache(mintUrl: string): Promise<MintMetadata | null> {
-    // Dedupe in-flight requests
     const existing = this.inFlightRequests.get(mintUrl)
     if (existing) return existing
 
@@ -137,10 +184,10 @@ class MintMetadataService {
   }
 
   /**
-   * Fetch metadata only if not cached (for mints that were offline during initial fetch)
+   * Fetch metadata only if not cached
    */
   async refreshIfMissing(mintUrl: string): Promise<void> {
-    const cached = await this.repository.get(mintUrl)
+    const cached = await this.store.get(mintUrl)
     if (!cached) {
       await this.fetchAndCache(mintUrl)
     }
@@ -150,14 +197,14 @@ class MintMetadataService {
    * Clear all cached metadata
    */
   async clearCache(): Promise<void> {
-    await this.repository.clear()
+    await this.store.clear()
   }
 
   /**
    * Get display name for a mint (from cache or fallback to hostname)
    */
   async getDisplayName(mintUrl: string): Promise<string> {
-    const metadata = await this.repository.get(mintUrl)
+    const metadata = await this.store.get(mintUrl)
     if (metadata?.name) return metadata.name
     return this.extractHostname(mintUrl)
   }
@@ -166,16 +213,24 @@ class MintMetadataService {
    * Get icon URL for a mint (from cache)
    */
   async getIconUrl(mintUrl: string): Promise<string | undefined> {
-    const metadata = await this.repository.get(mintUrl)
+    const metadata = await this.store.get(mintUrl)
     return metadata?.iconUrl
   }
 
   /**
-   * Check if mint supports NUT-18 HTTP POST transport
+   * Check if mint supports a specific NUT
    */
-  async supportsNut18Http(mintUrl: string): Promise<boolean> {
+  async supports(mintUrl: string, nut: number): Promise<boolean> {
     const metadata = await this.getMetadata(mintUrl)
-    return metadata?.nuts18HttpSupported ?? false
+    return nutSupported(metadata?.nuts, nut)
+  }
+
+  /**
+   * Get payment methods for a specific NUT
+   */
+  async getMethods(mintUrl: string, nut: number): Promise<NutMethod[]> {
+    const metadata = await this.getMetadata(mintUrl)
+    return nutMethods(metadata?.nuts, nut)
   }
 
   /**
@@ -216,10 +271,10 @@ class MintMetadataService {
         description: info.description,
         pubkey: info.pubkey,
         fetchedAt: Date.now(),
-        nuts18HttpSupported: checkNut18HttpSupport(info.nuts),
+        nuts: info.nuts,
       }
 
-      await this.repository.save(metadata)
+      await this.store.save(metadata)
       metadataEvents.emit(mintUrl, metadata)
       return metadata
     } catch (error) {
@@ -237,11 +292,6 @@ class MintMetadataService {
   }
 
   private refreshInBackground(mintUrl: string): void {
-    // Fire and forget refresh
-    this.fetchAndCache(mintUrl).catch(() => {
-      // Ignore errors - we still have cached data
-    })
+    this.fetchAndCache(mintUrl).catch(() => {})
   }
 }
-
-export const mintMetadataService = new MintMetadataService()

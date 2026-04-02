@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { mintMetadataService, metadataEvents } from '@/services/mint-metadata'
+import { mintMetadataService, metadataEvents } from '@/modules/cashu'
 import { useAppStore } from '@/store'
 import type { MintMetadata } from '@/core/types'
 
