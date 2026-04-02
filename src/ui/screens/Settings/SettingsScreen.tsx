@@ -11,7 +11,7 @@ import { restoreWallet, getBalances, recoverPendingQuotes } from '@/coco'
 import { ZAPPI_LINK_URL } from '@/core/constants'
 import { ProfileService } from '@/services/profile/profile.service'
 import { NostrService } from '@/services/nostr/nostr.service'
-import { ZappiLinkService } from '@/services/zappi-link'
+import { ZappiLinkAdapter } from '@/adapters/zappi-link/zappi-link.adapter'
 import { cn } from '@/components/ui/utils'
 import { Button } from '@/ui/components/common/Button'
 
@@ -219,7 +219,7 @@ export function SettingsScreen({
     nostr: new NostrService(),
   }))
   const zappiLinkService = useMemo(
-    () => new ZappiLinkService(services.nostr),
+    () => new ZappiLinkAdapter(services.nostr.createNip98AuthToken.bind(services.nostr)),
     [services.nostr]
   )
 

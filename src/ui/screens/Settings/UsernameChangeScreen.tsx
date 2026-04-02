@@ -11,7 +11,8 @@ import { useMintHealth } from '@/hooks/use-mint-health'
 import type { MintInfo } from '@/core/types'
 import { normalizeMintUrl } from '@/utils/url'
 import { NostrService } from '@/services/nostr/nostr.service'
-import { ZappiLinkService, type ServerDefaults } from '@/services/zappi-link'
+import { ZappiLinkAdapter } from '@/adapters/zappi-link/zappi-link.adapter'
+import type { ProviderDefaults } from '@/core/ports/driven/lightning-address.port'
 import { PaymentService } from '@/services/payment/payment.service'
 import { getTransactionRepo } from '@/data/repositories/transaction.repository'
 import { sendToken } from '@/coco'
@@ -45,7 +46,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
     payment: new PaymentService(),
   }))
   const zappiLinkService = useMemo(
-    () => new ZappiLinkService(services.nostr),
+    () => new ZappiLinkAdapter(services.nostr.createNip98AuthToken.bind(services.nostr)),
     [services.nostr]
   )
 
@@ -54,8 +55,8 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
   const [usernameError, setUsernameError] = useState('')
   const [isCheckingUsername, setIsCheckingUsername] = useState(false)
-  const [serverDefaults, setServerDefaults] = useState<ServerDefaults | null>(null)
-  const serverDefaultsRef = useRef<ServerDefaults | null>(null)
+  const [serverDefaults, setProviderDefaults] = useState<ProviderDefaults | null>(null)
+  const serverDefaultsRef = useRef<ProviderDefaults | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Mint selection
@@ -66,7 +67,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
   const prevAddressRef = useRef(settings.lightningAddress || '-')
 
   // --- Auto-select best mint ---
-  const autoSelectMint = useCallback((defaults: ServerDefaults) => {
+  const autoSelectMint = useCallback((defaults: ProviderDefaults) => {
     const fee = defaults.addressFee
     const mintEntries = Object.entries(balanceByMint)
       .map(([url, balance]) => ({ url, balance }))
@@ -146,7 +147,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
           const defaultsResult = await zappiLinkService.getDefaults()
           if (defaultsResult.isOk()) {
             serverDefaultsRef.current = defaultsResult.value
-            setServerDefaults(defaultsResult.value)
+            setProviderDefaults(defaultsResult.value)
             autoSelectMint(defaultsResult.value)
           } else {
             setUsernameAvailable(false)
