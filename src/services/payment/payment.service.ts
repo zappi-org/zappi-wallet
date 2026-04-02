@@ -6,7 +6,8 @@ import { getDatabase, type PendingMeltRecord, type PendingSendTokenRecord } from
 import { ok, err, type Result } from '@/core/types'
 import type { MintQuote } from '@/core/types'
 import type { BaseError } from '@/core/errors'
-import { MintConnectionError, InsufficientBalanceError, classifyCashuError, InvalidInvoiceError, InvoiceExpiredError } from '@/core/errors'
+import { MintConnectionError, InsufficientBalanceError, InvalidInvoiceError, InvoiceExpiredError } from '@/core/errors'
+import { classifyCashuError } from '@/modules/cashu'
 import {
   isBolt11Invoice,
   decodeInvoice,

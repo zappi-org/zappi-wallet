@@ -7,7 +7,7 @@
 
 import { ok, err, type Result } from '@/core/types'
 import type { BaseError } from '@/core/errors'
-import { classifyCashuError } from '@/core/errors'
+import { classifyCashuError } from '@/modules/cashu'
 import { PaymentRoute, type RouteSelection, type RouteContext, type RouteExecutionResult } from './types'
 import {
   prepareSend,

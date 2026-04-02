@@ -7,7 +7,8 @@ import {
 } from '@cashu/cashu-ts'
 import { getWalletCache } from '@/data/cache'
 import { ok, err, type Result } from '@/core/types'
-import { classifyCashuError, type BaseError } from '@/core/errors'
+import { classifyCashuError } from '@/modules/cashu'
+import type { BaseError } from '@/core/errors'
 
 /**
  * Result of receiving a token
