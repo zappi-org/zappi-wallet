@@ -68,9 +68,19 @@ export interface LnurlPayEndpointParams {
   metadata: string
 }
 
+// ─── Generic LNURL response (tag 판별용) ───
+
+export type LnurlResponse =
+  | ({ tag: 'payRequest' } & LnurlPayParams)
+  | ({ tag: 'withdrawRequest' } & LnurlWithdrawParams)
+  | ({ tag: 'login' } & LnurlAuthParams)
+
 // ─── Gateway ───
 
 export interface LnurlGateway {
+  // Generic — URL → tag 판별 후 typed params 반환
+  fetchLnurl(url: string): Promise<LnurlResponse>
+
   // Pay — LUD-06, LUD-16 (Lightning Address → invoice)
   resolvePay(address: string): Promise<LnurlPayParams>
   fetchInvoice(

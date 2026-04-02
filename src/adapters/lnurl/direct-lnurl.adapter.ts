@@ -1,6 +1,7 @@
 import { decode } from 'light-bolt11-decoder'
 import type {
   LnurlGateway,
+  LnurlResponse,
   LnurlPayParams,
   LnurlPayResult,
   LnurlWithdrawParams,
@@ -14,6 +15,60 @@ export class DirectLnurlAdapter implements LnurlGateway {
 
   constructor(options?: { timeout?: number }) {
     this.timeout = options?.timeout ?? 10_000
+  }
+
+  async fetchLnurl(url: string): Promise<LnurlResponse> {
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(this.timeout),
+    })
+    if (!res.ok) {
+      throw new Error(`Failed to fetch LNURL: ${res.status}`)
+    }
+
+    const data = await res.json()
+    if (data.status === 'ERROR') {
+      throw new Error(data.reason || 'LNURL endpoint returned error')
+    }
+
+    const domain = (() => {
+      try { return new URL(data.callback ?? url).hostname } catch { return '' }
+    })()
+
+    switch (data.tag) {
+      case 'payRequest':
+        return {
+          tag: 'payRequest',
+          callback: data.callback,
+          minSendable: data.minSendable,
+          maxSendable: data.maxSendable,
+          metadata: data.metadata,
+          commentAllowed: data.commentAllowed,
+          domain,
+          allowsNostr: data.allowsNostr,
+          nostrPubkey: data.nostrPubkey,
+          payerData: data.payerData,
+        }
+      case 'withdrawRequest':
+        return {
+          tag: 'withdrawRequest',
+          callback: data.callback,
+          k1: data.k1,
+          minWithdrawable: data.minWithdrawable,
+          maxWithdrawable: data.maxWithdrawable,
+          defaultDescription: data.defaultDescription ?? '',
+          domain,
+        }
+      case 'login':
+        return {
+          tag: 'login',
+          callback: data.callback,
+          k1: data.k1,
+          domain,
+          action: data.action,
+        }
+      default:
+        throw new Error(`Unknown LNURL tag: ${data.tag}`)
+    }
   }
 
   async resolvePay(address: string): Promise<LnurlPayParams> {
