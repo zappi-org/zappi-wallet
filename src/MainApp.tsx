@@ -10,7 +10,8 @@ import { useWallet } from '@/hooks/use-wallet'
 import { useGiftWrapListener } from '@/hooks/useGiftWrapListener'
 import { useStateReconstruction } from '@/hooks/useStateReconstruction'
 import { checkAndRefreshAnchor } from '@/services/anchor'
-import { getP2PKPubkey } from '@/services/crypto'
+import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
+import { getCocoManager } from '@/coco/manager'
 import { useAppStore } from '@/store'
 import { AnimatePresence } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -176,14 +177,19 @@ export default function MainApp() {
       return { fiatCurrency: currency, exchangeRate: rate }
     })
 
+    const security = new SecurityService()
+    security.setOnMnemonicReady((mnemonic) => {
+      import('@/coco/seedGetter').then(({ setCachedMnemonic }) => setCachedMnemonic(mnemonic))
+    })
     return {
-      security: new SecurityService(),
+      security,
       wallet: new WalletService(),
       payment: new PaymentService(),
       sync: new SyncService(),
       profile: new ProfileService(),
       settingsRepo: new SettingsRepository(),
       transactionRepo,
+      p2pkKeyManager: new CocoP2PKKeyManager(async () => (await getCocoManager()).keyring),
     }
   })
 
@@ -410,7 +416,8 @@ export default function MainApp() {
       if (result.isOk()) {
         // Set nostr key pair in store (for Coco seedGetter)
         setNostrKeyPair(result.value.publicKey, result.value.privateKey)
-        setP2pkPubkey(getP2PKPubkey(result.value.privateKey))
+        const { pubkey: p2pkPub } = await services.p2pkKeyManager.getCurrentKey()
+        setP2pkPubkey(p2pkPub)
 
         setLocked(false)
         // Refresh balance after unlock

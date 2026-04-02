@@ -47,6 +47,11 @@ interface StoredWallet {
  * - Password-based encryption (AES-256-GCM)
  */
 export class SecurityService {
+  private onMnemonicReady?: (mnemonic: string) => void
+
+  setOnMnemonicReady(callback: (mnemonic: string) => void): void {
+    this.onMnemonicReady = callback
+  }
   /**
    * Generate a new BIP-39 mnemonic
    * @param wordCount 12 or 24 words
@@ -234,6 +239,9 @@ export class SecurityService {
       localStorage.setItem(WALLET_STORAGE_KEY, JSON.stringify(wallet))
       localStorage.setItem(PASSWORD_HASH_KEY, JSON.stringify({ passwordHash, passwordSalt }))
 
+      // Notify listener (e.g. Coco SDK seed cache)
+      this.onMnemonicReady?.(mnemonic)
+
       // Store keys in session for use during this session
       this.cachedKeys = keys
 
@@ -264,6 +272,9 @@ export class SecurityService {
       // Decrypt mnemonic and derive keys
       const mnemonic = await this.decrypt(wallet.encryptedMnemonic, password)
       const keys = this.deriveNostrKeys(mnemonic)
+
+      // Notify listener (e.g. Coco SDK seed cache)
+      this.onMnemonicReady?.(mnemonic)
 
       // Cache keys for this session
       this.cachedKeys = keys

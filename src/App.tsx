@@ -12,7 +12,8 @@ function generateMintAliases(mints: string[], existing?: Record<string, string>)
 }
 
 // Lightweight imports only — no heavy services, hooks, or screens
-import { getP2PKPubkey } from '@/services/crypto'
+import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
+import { getCocoManager } from '@/coco/manager'
 import { SecurityService } from '@/services/security/security.service'
 import { SettingsRepository } from '@/data/repositories/settings.repository'
 import { OnboardingScreen } from '@/ui/screens/Onboarding/OnboardingScreen'
@@ -30,10 +31,17 @@ function App() {
   const [isOnboarded, setIsOnboarded] = useState<boolean | null>(null)
 
   // Services (lightweight only)
-  const [services] = useState(() => ({
-    security: new SecurityService(),
-    settingsRepo: new SettingsRepository(),
-  }))
+  const [services] = useState(() => {
+    const security = new SecurityService()
+    security.setOnMnemonicReady((mnemonic) => {
+      import('@/coco/seedGetter').then(({ setCachedMnemonic }) => setCachedMnemonic(mnemonic))
+    })
+    return {
+      security,
+      settingsRepo: new SettingsRepository(),
+      p2pkKeyManager: new CocoP2PKKeyManager(async () => (await getCocoManager()).keyring),
+    }
+  })
 
   // Check if wallet exists (determines onboarding vs main app)
   useEffect(() => {
@@ -77,7 +85,8 @@ function App() {
 
       // Set nostr key pair in store (needed by dynamically imported ProfileService)
       setNostrKeyPair(result.value.publicKey, result.value.privateKey)
-      setP2pkPubkey(getP2PKPubkey(result.value.privateKey))
+      const { pubkey: p2pkPub } = await services.p2pkKeyManager.getCurrentKey()
+      setP2pkPubkey(p2pkPub)
 
       // Get current settings for mints/relays
       const currentSettings = await services.settingsRepo.getSettings()
@@ -193,7 +202,7 @@ function App() {
         // Publish wallet's kind:10019, 10002, 10050 to ZS relays
         if (mints.length > 0) {
           try {
-            const p2pkPubkey = getP2PKPubkey(result.value.privateKey)
+            const { pubkey: p2pkPubkey } = await services.p2pkKeyManager.getCurrentKey()
             const publishResult = await profile.publishProfile(
               result.value.privateKey,
               mints,
