@@ -1,0 +1,108 @@
+/**
+ * ProfileService — 프로필 이벤트 발행/조회 오케스트레이터 (ZAP-144)
+ *
+ * 이벤트 조립은 domain/profile.ts 순수 함수.
+ * 발행/조회는 NostrGateway 포트.
+ * 설정 저장은 SettingsRepository 포트.
+ */
+
+import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
+import type { SettingsRepository } from '@/core/ports/driven/settings.repository.port'
+import type { Nip05Resolver } from '@/core/ports/driven/nip05-resolver.port'
+import type { NutZapInfo } from '@/core/domain/nutzap'
+import { NOSTR_KINDS } from '@/core/constants'
+import { parseNutZapInfo } from '@/core/domain/nutzap'
+import {
+  buildNutZapInfoEvent,
+  buildRelayListEvent,
+  buildDMRelayListEvent,
+  parseRelayList,
+  parseDMRelayList,
+} from '@/core/domain/profile'
+
+export class ProfileService {
+  constructor(
+    private readonly nostr: Pick<NostrGateway, 'publish' | 'queryEvents'>,
+    private readonly settings: Pick<SettingsRepository, 'getSettings' | 'saveSettings'>,
+    private readonly nip05: Nip05Resolver,
+  ) {}
+
+  // ─── 발행 ───
+
+  async publishNutZapInfo(
+    pubkey: string,
+    mints: string[],
+    p2pkPubkey?: string,
+    relays?: string[],
+  ): Promise<void> {
+    const event = buildNutZapInfoEvent(pubkey, mints, p2pkPubkey, relays)
+    await this.nostr.publish(event)
+  }
+
+  async publishRelayList(pubkey: string, relays: string[]): Promise<void> {
+    const event = buildRelayListEvent(pubkey, relays)
+    await this.nostr.publish(event)
+  }
+
+  async publishDMRelayList(pubkey: string, relays: string[]): Promise<void> {
+    const event = buildDMRelayListEvent(pubkey, relays)
+    await this.nostr.publish(event)
+  }
+
+  async publishAll(
+    pubkey: string,
+    mints: string[],
+    relays: string[],
+    p2pkPubkey?: string,
+    dmRelays?: string[],
+  ): Promise<void> {
+    await Promise.all([
+      this.publishNutZapInfo(pubkey, mints, p2pkPubkey, relays),
+      this.publishRelayList(pubkey, relays),
+      this.publishDMRelayList(pubkey, dmRelays ?? relays),
+    ])
+  }
+
+  // ─── 조회 ───
+
+  async fetchNutZapInfo(pubkey: string): Promise<NutZapInfo | undefined> {
+    const events = await this.nostr.queryEvents([
+      { kinds: [NOSTR_KINDS.NUTZAP_INFO], authors: [pubkey], limit: 1 },
+    ])
+    if (events.length === 0) return undefined
+
+    const info = parseNutZapInfo(events[0])
+    if (info.mints.length === 0) return undefined
+    return info
+  }
+
+  async fetchRelayList(pubkey: string): Promise<string[]> {
+    const events = await this.nostr.queryEvents([
+      { kinds: [NOSTR_KINDS.RELAY_LIST], authors: [pubkey], limit: 1 },
+    ])
+    if (events.length === 0) return []
+    return parseRelayList(events[0])
+  }
+
+  async fetchDMRelayList(pubkey: string): Promise<string[]> {
+    const events = await this.nostr.queryEvents([
+      { kinds: [NOSTR_KINDS.DM_RELAY_LIST], authors: [pubkey], limit: 1 },
+    ])
+    if (events.length === 0) return []
+    return parseDMRelayList(events[0])
+  }
+
+  // ─── 설정 저장 ───
+
+  async saveProfileSettings(mints: string[], relays: string[]): Promise<void> {
+    const current = await this.settings.getSettings()
+    await this.settings.saveSettings({ ...current, mints, relays })
+  }
+
+  // ─── ZS relay 조회 ───
+
+  async resolveRelaysFromNip05(address: string): Promise<string[]> {
+    const result = await this.nip05.resolve(address)
+    return result?.relays ?? []
+  }
+}
