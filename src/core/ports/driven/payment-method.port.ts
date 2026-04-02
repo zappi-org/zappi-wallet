@@ -54,6 +54,7 @@ export interface ReceiveParams {
   amount: Amount
   accountId: string
   description?: string
+  protocol?: string
 }
 
 export interface ReceiveRequest {
