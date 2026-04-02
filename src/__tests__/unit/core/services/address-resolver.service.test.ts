@@ -80,8 +80,8 @@ describe('AddressResolverService', () => {
       expect(result.type).toBe('email')
       expect(result.pubkey).toBe(PUBKEY)
       expect(result.relays).toEqual(['wss://relay.test'])
-      expect(result.capabilities.nutZap?.mints).toEqual(['https://mint-a.test', 'https://mint-b.test'])
-      expect(result.capabilities.nutZap?.p2pkPubkey).toBe('02abc123')
+      expect(result.capabilities.directToken?.mints).toEqual(['https://mint-a.test', 'https://mint-b.test'])
+      expect(result.capabilities.directToken?.p2pkPubkey).toBe('02abc123')
       expect(result.capabilities.lnurl).toEqual(LNURL_PAY)
     })
 
@@ -94,7 +94,7 @@ describe('AddressResolverService', () => {
       expect(result.type).toBe('email')
       expect(result.pubkey).toBeUndefined()
       expect(result.capabilities.lnurl).toEqual(LNURL_PAY)
-      expect(result.capabilities.nutZap).toBeUndefined()
+      expect(result.capabilities.directToken).toBeUndefined()
     })
 
     it('returns empty capabilities when nothing resolves', async () => {
@@ -104,13 +104,13 @@ describe('AddressResolverService', () => {
       expect(result.capabilities).toEqual({})
     })
 
-    it('omits nutZap when no k10019 event', async () => {
+    it('omits directToken when no k10019 event', async () => {
       vi.mocked(nip05.resolve).mockResolvedValue({ pubkey: PUBKEY, relays: [] })
       vi.mocked(nostr.queryEvents).mockResolvedValue([])
 
       const result = await service.resolve('alice@domain.test')
 
-      expect(result.capabilities.nutZap).toBeUndefined()
+      expect(result.capabilities.directToken).toBeUndefined()
     })
   })
 
@@ -124,7 +124,7 @@ describe('AddressResolverService', () => {
 
       expect(result.type).toBe('npub')
       expect(result.pubkey).toBe(PUBKEY)
-      expect(result.capabilities.nutZap?.mints).toHaveLength(2)
+      expect(result.capabilities.directToken?.mints).toHaveLength(2)
       expect(result.capabilities.lnurl).toBeUndefined()
     })
 
@@ -148,7 +148,7 @@ describe('AddressResolverService', () => {
       expect(result.type).toBe('nprofile')
       expect(result.pubkey).toBe(PUBKEY)
       expect(result.relays).toEqual(['wss://relay.test', 'wss://relay2.test'])
-      expect(result.capabilities.nutZap).toBeDefined()
+      expect(result.capabilities.directToken).toBeDefined()
     })
   })
 

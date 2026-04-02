@@ -7,7 +7,6 @@
 
 import type { ContactAddressType } from '@/core/domain/contact'
 import type { NostrFilter } from '@/core/domain/nostr'
-import type { NutZapInfo } from '@/core/domain/nutzap'
 import type { LnurlPayParams } from '@/core/ports/driven/lnurl-gateway.port'
 import type { Nip05Resolver } from '@/core/ports/driven/nip05-resolver.port'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
@@ -17,13 +16,18 @@ import { parseNutZapInfo } from '@/core/domain/nutzap'
 
 // ─── Types ───
 
+export interface DirectTokenInfo {
+  mints: string[]
+  p2pkPubkey?: string
+}
+
 export interface PaymentCapabilities {
   address: string
   type: ContactAddressType
   pubkey?: string
   relays?: string[]
   capabilities: {
-    nutZap?: NutZapInfo
+    directToken?: DirectTokenInfo
     lnurl?: LnurlPayParams
     bolt12?: { offer: string }
   }
@@ -60,8 +64,8 @@ export class AddressResolverService {
     }
 
     const { pubkey, relays } = nip05Result
-    const [nutZap, lnurl] = await Promise.all([
-      this.fetchNutZapInfo(pubkey),
+    const [directToken, lnurl] = await Promise.all([
+      this.fetchDirectTokenInfo(pubkey),
       this.resolveLnurl(address),
     ])
 
@@ -70,7 +74,7 @@ export class AddressResolverService {
       type: 'email',
       pubkey,
       relays: relays.length > 0 ? relays : undefined,
-      capabilities: compact({ nutZap, lnurl }),
+      capabilities: compact({ directToken, lnurl }),
     }
   }
 
@@ -81,37 +85,37 @@ export class AddressResolverService {
 
   private async resolveNpub(address: string): Promise<PaymentCapabilities> {
     const pubkey = npubDecode(address)
-    const nutZap = await this.fetchNutZapInfo(pubkey)
+    const directToken = await this.fetchDirectTokenInfo(pubkey)
 
     return {
       address,
       type: 'npub',
       pubkey,
-      capabilities: compact({ nutZap }),
+      capabilities: compact({ directToken }),
     }
   }
 
   private async resolveNprofile(address: string): Promise<PaymentCapabilities> {
     const { pubkey, relays } = nprofileDecode(address)
-    const nutZap = await this.fetchNutZapInfo(pubkey)
+    const directToken = await this.fetchDirectTokenInfo(pubkey)
 
     return {
       address,
       type: 'nprofile',
       pubkey,
       relays,
-      capabilities: compact({ nutZap }),
+      capabilities: compact({ directToken }),
     }
   }
 
-  private async fetchNutZapInfo(pubkey: string): Promise<NutZapInfo | undefined> {
+  private async fetchDirectTokenInfo(pubkey: string): Promise<DirectTokenInfo | undefined> {
     const filter: NostrFilter = { kinds: [10019], authors: [pubkey], limit: 1 }
     const events = await this.nostr.queryEvents([filter])
     if (events.length === 0) return undefined
 
     const info = parseNutZapInfo(events[0])
     if (info.mints.length === 0) return undefined
-    return info
+    return { mints: info.mints, p2pkPubkey: info.p2pkPubkey }
   }
 
   private async resolveLnurl(address: string): Promise<LnurlPayParams | undefined> {
