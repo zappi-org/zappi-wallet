@@ -17,7 +17,7 @@ export class EncryptionAdapter implements Encryption {
     const encoded = new TextEncoder().encode(data)
 
     const encrypted = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
+      { name: 'AES-GCM', iv: iv as Uint8Array<ArrayBuffer> },
       key,
       encoded,
     )
@@ -37,7 +37,7 @@ export class EncryptionAdapter implements Encryption {
     const key = await this.deriveKey(password, salt)
 
     const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv },
+      { name: 'AES-GCM', iv: iv as Uint8Array<ArrayBuffer> },
       key,
       cipherBytes,
     )
