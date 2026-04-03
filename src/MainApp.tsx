@@ -62,7 +62,7 @@ import { getTransactionRepo } from '@/data/repositories/transaction.repository'
 import { exchangeRateService } from '@/services/exchange-rate'
 import { removePasskey } from '@/ui/services/passkey'
 import { PaymentService } from '@/services/payment/payment.service'
-import { ProfileService } from '@/services/profile/profile.service'
+import { createProfileService } from '@/composition/profile'
 import { createSecurityService } from '@/composition/security'
 import { SyncService } from '@/services/sync/sync.service'
 import { WalletService } from '@/services/wallet/wallet.service'
@@ -184,7 +184,6 @@ export default function MainApp() {
       wallet: new WalletService(),
       payment: new PaymentService(),
       sync: new SyncService(),
-      profile: new ProfileService(),
       settingsRepo: new SettingsRepository(),
       transactionRepo,
       p2pkKeyManager: new CocoP2PKKeyManager(async () => (await getCocoManager()).keyring),
@@ -714,23 +713,22 @@ export default function MainApp() {
     if ((mintsChanged || relaysChanged) && nostrPrivkey && p2pkPubkey) {
       try {
         console.log('[Settings] Mints/relays changed, republishing kind:10019...')
-        const publishResult = await services.profile.publishProfile(
-          nostrPrivkey,
+        const nostrGw = new NostrGatewayAdapter({ privateKeyHex: nostrPrivkey })
+        await nostrGw.connect(settings.relays)
+        const profileSvc = createProfileService(nostrGw, services.settingsRepo)
+        await profileSvc.publishAll(
+          nostrPubkey!,
           newMints || settings.mints,
+          newRelays || settings.relays,
           p2pkPubkey,
-          newRelays || settings.relays
         )
-        if (publishResult.isOk()) {
-          console.log('[Settings] Profile republished successfully')
-        } else {
-          console.warn('[Settings] Failed to republish profile:', publishResult.error)
-        }
+        console.log('[Settings] Profile republished successfully')
       } catch (e) {
         console.warn('[Settings] Failed to republish profile:', e)
       }
     }
     broadcastSync('settings_changed')
-  }, [services.settingsRepo, services.profile, settings, setSettings, nostrPrivkey, p2pkPubkey])
+  }, [services.settingsRepo, settings, setSettings, nostrPrivkey, nostrPubkey, p2pkPubkey])
 
   // Handle adding a trusted mint (from receive screen)
   const handleAddTrustedMint = useCallback(async (mintUrl: string): Promise<boolean> => {
@@ -764,20 +762,19 @@ export default function MainApp() {
       await services.settingsRepo.saveSettings({ ...settings, mints: newMints, mintAliases: newAliases })
       setSettings({ ...settings, mints: newMints, mintAliases: newAliases })
 
-      if (nostrPrivkey && p2pkPubkey && typeof services.profile.publishProfile === 'function') {
+      if (nostrPrivkey && p2pkPubkey) {
         try {
           console.log('[App] Re-publishing profile with updated mints...')
-          const publishResult = await services.profile.publishProfile(
-            nostrPrivkey,
+          const nostrGw = new NostrGatewayAdapter({ privateKeyHex: nostrPrivkey })
+          await nostrGw.connect(settings.relays)
+          const profileSvc = createProfileService(nostrGw, services.settingsRepo)
+          await profileSvc.publishAll(
+            nostrPubkey!,
             newMints,
+            settings.relays,
             p2pkPubkey,
-            settings.relays
           )
-          if (publishResult.isOk()) {
-            console.log('[App] Profile republished successfully')
-          } else {
-            console.warn('[App] Failed to republish profile:', publishResult.error)
-          }
+          console.log('[App] Profile republished successfully')
         } catch (e) {
           console.warn('[App] Failed to republish profile:', e)
         }
@@ -790,7 +787,7 @@ export default function MainApp() {
       console.error('[App] Failed to add trusted mint:', error)
       return false
     }
-  }, [settings, services.settingsRepo, services.profile, setSettings, nostrPrivkey, p2pkPubkey, t])
+  }, [settings, services.settingsRepo, setSettings, nostrPrivkey, nostrPubkey, p2pkPubkey, t])
 
   const handleBack = useCallback(() => {
     const target = previousScreen || 'home'

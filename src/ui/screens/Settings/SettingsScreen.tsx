@@ -9,7 +9,8 @@ import { satUnit } from '@/utils/format'
 import { formatMintHost } from '@/utils/url'
 import { restoreWallet, getBalances, recoverPendingQuotes } from '@/coco'
 import { ZAPPI_LINK_URL } from '@/core/constants'
-import { ProfileService } from '@/services/profile/profile.service'
+import { createProfileService } from '@/composition/profile'
+import { NostrGatewayAdapter } from '@/adapters/nostr/nostr-gateway'
 import { NostrService } from '@/services/nostr/nostr.service'
 import { ZappiLinkAdapter } from '@/adapters/zappi-link/zappi-link.adapter'
 import { cn } from '@/components/ui/utils'
@@ -215,7 +216,7 @@ export function SettingsScreen({
 
   // Services for zappi-link registration
   const [services] = useState(() => ({
-    profile: new ProfileService(),
+    // profile created lazily in handlers (needs NostrGateway with privateKey)
     nostr: new NostrService(),
   }))
   const zappiLinkService = useMemo(
@@ -241,8 +242,11 @@ export function SettingsScreen({
     if (!nostrPrivkey || !p2pkPubkey) return
     setIsRegistering(true)
     try {
-      await services.profile.publishNutzapInfo(
-        nostrPrivkey,
+      const nostrGw = new NostrGatewayAdapter({ privateKeyHex: nostrPrivkey })
+      await nostrGw.connect(settings.relays)
+      const profileSvc = createProfileService(nostrGw, { getSettings: async () => ({} as never), saveSettings: async () => {} })
+      await profileSvc.publishNutZapInfo(
+        nostrPubkey!,
         settings.mints,
         p2pkPubkey,
         settings.relays,
@@ -262,7 +266,7 @@ export function SettingsScreen({
     } finally {
       setIsRegistering(false)
     }
-  }, [nostrPrivkey, p2pkPubkey, settings.mints, settings.relays, services.profile, zappiLinkService, saveSettings, addToast, t])
+  }, [nostrPrivkey, nostrPubkey, p2pkPubkey, settings.mints, settings.relays, zappiLinkService, saveSettings, addToast, t])
 
   // Backup handlers
   const handleBackupMnemonic = useCallback(async () => {

@@ -1,14 +1,16 @@
 /**
- * ProfileService — 프로필 이벤트 발행/조회 오케스트레이터 (ZAP-144)
+ * ProfileService — ProfileUseCase 구현 (ZAP-144 → ZAP-160)
  *
  * 이벤트 조립은 domain/profile.ts 순수 함수.
  * 발행/조회는 NostrGateway 포트.
  * 설정 저장은 SettingsRepository 포트.
+ * NIP-05 조회는 Nip05Resolver 포트.
  */
 
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
 import type { SettingsRepository } from '@/core/ports/driven/settings.repository.port'
 import type { Nip05Resolver } from '@/core/ports/driven/nip05-resolver.port'
+import type { ProfileUseCase, RecoveredProfile, ZSConfiguration } from '@/core/ports/driving/profile.usecase'
 import type { NutZapInfo } from '@/core/domain/nutzap'
 import { NOSTR_KINDS } from '@/core/constants'
 import { parseNutZapInfo } from '@/core/domain/nutzap'
@@ -17,10 +19,9 @@ import {
   buildRelayListEvent,
   buildDMRelayListEvent,
   parseRelayList,
-  parseDMRelayList,
 } from '@/core/domain/profile'
 
-export class ProfileService {
+export class ProfileService implements ProfileUseCase {
   constructor(
     private readonly nostr: Pick<NostrGateway, 'publish' | 'queryEvents'>,
     private readonly settings: Pick<SettingsRepository, 'getSettings' | 'saveSettings'>,
@@ -84,12 +85,41 @@ export class ProfileService {
     return parseRelayList(events[0])
   }
 
-  async fetchDMRelayList(pubkey: string): Promise<string[]> {
-    const events = await this.nostr.queryEvents([
-      { kinds: [NOSTR_KINDS.DM_RELAY_LIST], authors: [pubkey], limit: 1 },
-    ])
-    if (events.length === 0) return []
-    return parseDMRelayList(events[0])
+  // ─── 복구 ───
+
+  async recoverProfile(pubkey: string): Promise<RecoveredProfile | null> {
+    const nutzapInfo = await this.fetchNutZapInfo(pubkey)
+    if (!nutzapInfo || nutzapInfo.mints.length === 0) return null
+
+    const relayList = await this.fetchRelayList(pubkey)
+    const relays = relayList.length > 0 ? relayList : (nutzapInfo.relays ?? [])
+
+    return {
+      mints: nutzapInfo.mints,
+      relays,
+      p2pkPubkey: nutzapInfo.p2pkPubkey,
+    }
+  }
+
+  // ─── ZS 설정 ───
+
+  async fetchZSConfiguration(zsDomain: string): Promise<ZSConfiguration | null> {
+    if (!zsDomain) return null
+
+    try {
+      const nip05Result = await this.nip05.resolve(`_@${zsDomain}`)
+      if (!nip05Result || nip05Result.relays.length === 0) return null
+
+      const nutzapInfo = await this.fetchNutZapInfo(nip05Result.pubkey)
+      if (!nutzapInfo || nutzapInfo.mints.length === 0) return null
+
+      return {
+        relays: nip05Result.relays,
+        mints: nutzapInfo.mints,
+      }
+    } catch {
+      return null
+    }
   }
 
   // ─── 설정 저장 ───

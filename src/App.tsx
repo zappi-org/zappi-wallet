@@ -88,15 +88,18 @@ function App() {
       // Get current settings for mints/relays
       const currentSettings = await services.settingsRepo.getSettings()
 
-      // Phase 2: Dynamic import heavy services (user sees "recovering" spinner)
-      const { ProfileService } = await import('@/services/profile/profile.service')
-      const profile = new ProfileService()
+      // Phase 2: Create profile service with NostrGateway
+      const { NostrGatewayAdapter } = await import('@/adapters/nostr/nostr-gateway')
+      const { createProfileService } = await import('@/composition/profile')
+      const nostrGateway = new NostrGatewayAdapter({ privateKeyHex: result.value.keys.privateKey })
+      await nostrGateway.connect(currentSettings.relays)
+      const profile = createProfileService(nostrGateway, services.settingsRepo)
 
       if (data.isRecovery) {
         // RECOVERY MODE: Fetch settings from Nostr, then restore tokens
         console.log('[Onboarding] Recovery mode - fetching profile from Nostr')
 
-        const recoveredProfile = await profile.recoverProfileFromNostr(
+        const recoveredProfile = await profile.recoverProfile(
           result.value.keys.publicKey
         )
 
@@ -160,7 +163,8 @@ function App() {
         let zsRelays: string[] | undefined
 
         try {
-          const zsConfig = await profile.fetchZSConfiguration()
+          const { ZS_DOMAIN } = await import('@/core/constants')
+          const zsConfig = await profile.fetchZSConfiguration(ZS_DOMAIN)
           if (zsConfig) {
             console.log('[Onboarding] ZS config fetched - mints:', zsConfig.mints, 'relays:', zsConfig.relays)
             mints = zsConfig.mints
@@ -200,19 +204,14 @@ function App() {
         if (mints.length > 0) {
           try {
             const { pubkey: p2pkPubkey } = await services.p2pkKeyManager.getCurrentKey()
-            const publishResult = await profile.publishProfile(
-              result.value.keys.privateKey,
+            await profile.publishAll(
+              result.value.keys.publicKey,
               mints,
-              p2pkPubkey,
               relays,
-              zsRelays
+              p2pkPubkey,
+              zsRelays,
             )
-
-            if (publishResult.isOk()) {
-              console.log('[Onboarding] Profile published successfully')
-            } else {
-              console.warn('[Onboarding] Failed to publish profile:', publishResult.error)
-            }
+            console.log('[Onboarding] Profile published successfully')
           } catch (e) {
             console.warn('[Onboarding] Failed to publish profile:', e)
           }
