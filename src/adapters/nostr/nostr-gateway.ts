@@ -10,9 +10,12 @@ import type {
   NostrGateway,
   RelayStatus,
   DirectMessageParams,
+  GiftWrapParams,
+  FetchGiftWrapsParams,
+  UnwrappedMessage,
 } from '@/core/ports/driven/nostr-gateway.port'
 import type { NostrEvent, NostrFilter, UnsignedNostrEvent } from '@/core/domain/nostr'
-import { signEvent, wrapEvent } from './internal/nostr-crypto'
+import { signEvent, wrapEvent, unwrapEvent } from './internal/nostr-crypto'
 
 export interface NostrGatewayConfig {
   privateKeyHex: string
@@ -137,5 +140,55 @@ export class NostrGatewayAdapter implements NostrGateway {
     if (succeeded === 0) {
       throw new Error('Failed to send direct message to any relay')
     }
+  }
+
+  async sendGiftWrap(params: GiftWrapParams): Promise<NostrEvent> {
+    const wrapped = wrapEvent(
+      this.config.privateKeyHex,
+      params.recipientPubkey,
+      params.content,
+    )
+
+    await this.connect(params.relays)
+
+    const results = await Promise.allSettled(
+      this.pool.publish(params.relays, wrapped as Parameters<typeof this.pool.publish>[1]),
+    )
+    const succeeded = results.filter(r => r.status === 'fulfilled').length
+
+    if (succeeded === 0) {
+      throw new Error('Failed to publish gift wrap to any relay')
+    }
+
+    return wrapped
+  }
+
+  async fetchGiftWraps(params: FetchGiftWrapsParams): Promise<UnwrappedMessage[]> {
+    await this.connect(params.relays)
+
+    const events = await this.pool.querySync(
+      params.relays,
+      { kinds: [1059], '#p': [params.recipientPubkey] } as Parameters<typeof this.pool.querySync>[1],
+      { maxWait: this.defaultTimeout },
+    )
+
+    const messages: UnwrappedMessage[] = []
+    for (const event of events) {
+      try {
+        const unwrapped = unwrapEvent(
+          event as unknown as NostrEvent,
+          this.config.privateKeyHex,
+        )
+        messages.push({
+          eventId: (event as unknown as NostrEvent).id,
+          content: unwrapped.content,
+          sender: unwrapped.sender,
+        })
+      } catch {
+        // Not our message or decryption failed
+      }
+    }
+
+    return messages
   }
 }

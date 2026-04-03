@@ -7,7 +7,7 @@ import { receiveP2PKToken } from '@/coco'
 import { ProcessedEventRepository } from '@/data/repositories/processed-event.repository'
 import { getTransactionRepo } from '@/data/repositories/transaction.repository'
 import { FailedSwapRepository } from '@/data/repositories/failed-swap.repository'
-import type { CachedAnchor } from '@/services/anchor'
+import type { AnchorData as CachedAnchor } from '@/core/ports/driven/anchor.port'
 import type { ZapMessage, ZapPaymentFulfillment } from '@/types'
 import type { Transaction, FailedSwap, ProcessedEvent } from '@/core/types'
 

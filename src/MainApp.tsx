@@ -9,7 +9,8 @@ import { totalRecoveredCount, useSyncAfterRecovery } from '@/hooks/use-sync-afte
 import { useWallet } from '@/hooks/use-wallet'
 import { useGiftWrapListener } from '@/hooks/useGiftWrapListener'
 import { useStateReconstruction } from '@/hooks/useStateReconstruction'
-import { checkAndRefreshAnchor } from '@/services/anchor'
+import { createAnchorService } from '@/core/composition/anchor'
+import { NostrGatewayAdapter } from '@/adapters/nostr/nostr-gateway'
 import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
 import { getCocoManager } from '@/coco/manager'
 import { useAppStore } from '@/store'
@@ -287,7 +288,13 @@ export default function MainApp() {
 
       try {
         // Step 1: Check and refresh anchor
-        const { anchor, isRecoveryMode, oldestAnchor } = await checkAndRefreshAnchor()
+        const nostrGateway = new NostrGatewayAdapter({ privateKeyHex: nostrPrivkey! })
+        const anchorService = createAnchorService(nostrGateway)
+        const { anchor, isRecoveryMode, oldestAnchor } = await anchorService.check({
+          privateKey: nostrPrivkey!,
+          publicKey: nostrPubkey!,
+          relays: settings.relays,
+        })
 
         if (!anchor) {
           console.log('[App] No anchor available - skipping reconstruction')

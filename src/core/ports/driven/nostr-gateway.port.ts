@@ -19,10 +19,33 @@ export interface NostrGateway {
   ): () => void
 
   sendPrivateDirectMessage(params: DirectMessageParams): Promise<void>
+
+  /** Send NIP-17 gift wrap and return the wrapped event */
+  sendGiftWrap(params: GiftWrapParams): Promise<NostrEvent>
+
+  /** Query and unwrap NIP-17 gift wrap events */
+  fetchGiftWraps(params: FetchGiftWrapsParams): Promise<UnwrappedMessage[]>
 }
 
 export interface DirectMessageParams {
   recipientPubkey: string
   content: string
   relays: string[]
+}
+
+export interface GiftWrapParams {
+  recipientPubkey: string
+  content: string
+  relays: string[]
+}
+
+export interface FetchGiftWrapsParams {
+  recipientPubkey: string
+  relays: string[]
+}
+
+export interface UnwrappedMessage {
+  eventId: string
+  content: string
+  sender: string
 }
