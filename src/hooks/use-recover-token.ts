@@ -11,22 +11,29 @@ import {
   selectHasPendingItems,
   selectConfiguredRelays,
 } from '@/store/selectors'
-import { SyncService } from '@/services/sync/sync.service'
+import { NostrGatewayAdapter } from '@/adapters/nostr/nostr-gateway'
+import { createRecoverTokenService } from '@/composition/recover-token'
+import type { RecoverTokenUseCase } from '@/core/ports/driving/recover-token.usecase'
 
 /**
- * Hook for sync operations
+ * Hook for NUT-18 Direct Token recovery operations
  */
-export function useSync() {
+export function useRecoverToken() {
   const { t } = useTranslation()
-  const syncServiceRef = useRef<SyncService | null>(null)
+  const serviceRef = useRef<RecoverTokenUseCase | null>(null)
 
-  // Get sync service singleton
-  const getSyncService = useCallback(() => {
-    if (!syncServiceRef.current) {
-      syncServiceRef.current = new SyncService()
+  const nostrPrivkey = useAppStore((state) => state.nostrPrivkey)
+  const nostrPubkey = useAppStore((state) => state.nostrPubkey)
+
+  // Lazy create — needs NostrGateway with privateKey
+  const getService = useCallback(() => {
+    if (!nostrPrivkey) return null
+    if (!serviceRef.current) {
+      const nostrGateway = new NostrGatewayAdapter({ privateKeyHex: nostrPrivkey })
+      serviceRef.current = createRecoverTokenService(nostrGateway)
     }
-    return syncServiceRef.current
-  }, [])
+    return serviceRef.current
+  }, [nostrPrivkey])
 
   // Store state
   const syncState = useAppStore(selectSyncState)
@@ -47,57 +54,55 @@ export function useSync() {
   const resetSyncProgress = useAppStore((state) => state.resetSyncProgress)
   const addToast = useAppStore((state) => state.addToast)
 
-  /**
-   * Load sync status from service
-   */
   const loadSyncStatus = useCallback(async () => {
-    const syncService = getSyncService()
-    const status = await syncService.getSyncStatus()
+    const service = getService()
+    if (!service) return
+
+    const status = await service.getSyncStatus()
 
     if (status.lastSyncAt) {
       setLastSyncAt(status.lastSyncAt)
     }
     setPendingRetries(status.pendingRetries)
 
-    const currentAnchor = await syncService.getAnchor()
+    const currentAnchor = await service.getAnchor()
     setAnchor(currentAnchor)
-  }, [getSyncService, setLastSyncAt, setPendingRetries, setAnchor])
+  }, [getService, setLastSyncAt, setPendingRetries, setAnchor])
 
-  /**
-   * Update the sync anchor
-   */
   const updateAnchor = useCallback(
     async (timestamp?: number) => {
-      const syncService = getSyncService()
+      const service = getService()
+      if (!service) return
+
       const ts = timestamp ?? Math.floor(Date.now() / 1000)
-      await syncService.updateAnchor(ts)
-      const newAnchor = await syncService.getAnchor()
+      await service.updateAnchor(ts)
+      const newAnchor = await service.getAnchor()
       setAnchor(newAnchor)
     },
-    [getSyncService, setAnchor]
+    [getService, setAnchor],
   )
 
-  /**
-   * Reconstruct state (sync missed events)
-   */
   const reconstructState = useCallback(
     async (relays?: string[]) => {
+      const service = getService()
+      if (!service || !nostrPrivkey || !nostrPubkey) return null
+
       setSyncState('syncing')
       resetSyncProgress()
 
       try {
-        const syncService = getSyncService()
         const targetRelays = relays ?? configuredRelays
 
         if (targetRelays.length === 0) {
-          addToast({
-            type: 'warning',
-            message: t('toast.noRelays'),
-          })
+          addToast({ type: 'warning', message: t('toast.noRelays') })
           return null
         }
 
-        const result = await syncService.reconstructState(targetRelays)
+        const result = await service.reconstructState({
+          privateKey: nostrPrivkey,
+          publicKey: nostrPubkey,
+          relays: targetRelays,
+        })
 
         setLastSyncAt(Date.now())
         setSyncState('completed')
@@ -119,37 +124,32 @@ export function useSync() {
         return result
       } catch {
         setSyncState('error')
-        addToast({
-          type: 'error',
-          message: t('toast.syncFailed'),
-        })
+        addToast({ type: 'error', message: t('toast.syncFailed') })
         return null
       }
     },
     [
-      getSyncService,
+      getService,
+      nostrPrivkey,
+      nostrPubkey,
       configuredRelays,
       setSyncState,
       setLastSyncAt,
       resetSyncProgress,
       addToast,
       t,
-    ]
+    ],
   )
 
-  /**
-   * Retry failed swaps
-   */
   const retryFailedSwaps = useCallback(async () => {
+    const service = getService()
+    if (!service) return null
+
     setSyncState('syncing')
 
     try {
-      const syncService = getSyncService()
-      const result = await syncService.retryFailedSwaps()
-
-      // Reload sync status to get updated counts
+      const result = await service.retryFailedSwaps()
       await loadSyncStatus()
-
       setSyncState('completed')
 
       if (result.succeeded > 0) {
@@ -169,40 +169,10 @@ export function useSync() {
       return result
     } catch {
       setSyncState('error')
-      addToast({
-        type: 'error',
-        message: t('toast.retryFailed'),
-      })
+      addToast({ type: 'error', message: t('toast.retryFailed') })
       return null
     }
-  }, [getSyncService, loadSyncStatus, setSyncState, addToast, t])
-
-  /**
-   * Check if an event has been processed
-   */
-  const isEventProcessed = useCallback(
-    async (eventId: string): Promise<boolean> => {
-      const syncService = getSyncService()
-      return syncService.isEventProcessed(eventId)
-    },
-    [getSyncService]
-  )
-
-  /**
-   * Mark an event as processed
-   */
-  const markEventProcessed = useCallback(
-    async (
-      eventId: string,
-      result: 'success' | 'failed' | 'skipped',
-      txId?: string,
-      error?: string
-    ) => {
-      const syncService = getSyncService()
-      await syncService.markEventProcessed(eventId, result, txId, error)
-    },
-    [getSyncService]
-  )
+  }, [getService, loadSyncStatus, setSyncState, addToast, t])
 
   return {
     // State
@@ -220,8 +190,6 @@ export function useSync() {
     updateAnchor,
     reconstructState,
     retryFailedSwaps,
-    isEventProcessed,
-    markEventProcessed,
     setSyncProgress,
   }
 }

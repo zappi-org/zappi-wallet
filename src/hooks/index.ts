@@ -1,6 +1,6 @@
 export * from './use-wallet'
 export * from './use-payment'
-export * from './use-sync'
+export * from './use-recover-token'
 export * from './use-network'
 export * from './use-mint-health'
 export * from './use-mint-metadata'

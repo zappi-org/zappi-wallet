@@ -64,7 +64,7 @@ import { removePasskey } from '@/ui/services/passkey'
 import { PaymentService } from '@/services/payment/payment.service'
 import { createProfileService } from '@/composition/profile'
 import { createSecurityService } from '@/composition/security'
-import { SyncService } from '@/services/sync/sync.service'
+import { FailedSwapStoreAdapter } from '@/adapters/storage/failed-swap-store.adapter'
 import { WalletService } from '@/services/wallet/wallet.service'
 import { formatSats } from '@/utils/format'
 
@@ -183,7 +183,6 @@ export default function MainApp() {
       security,
       wallet: new WalletService(),
       payment: new PaymentService(),
-      sync: new SyncService(),
       settingsRepo: new SettingsRepository(),
       transactionRepo,
       p2pkKeyManager: new CocoP2PKKeyManager(async () => (await getCocoManager()).keyring),
@@ -242,7 +241,8 @@ export default function MainApp() {
         setSettings(savedSettings)
 
         // Load failed swaps count
-        const swaps = await services.sync.getFailedSwaps()
+        const failedSwapStore = new FailedSwapStoreAdapter()
+        const swaps = await failedSwapStore.findAll()
         setFailedSwapsCount(swaps.length)
 
         // Load transaction history
@@ -255,7 +255,7 @@ export default function MainApp() {
 
         // Data retention: clean up old records
         services.transactionRepo.deleteOlderThan(90).catch(() => {})
-        services.sync.cleanupOldData().catch(() => {})
+        failedSwapStore.cleanupNonRetryable(30).catch(() => {})
       } catch (error) {
         console.error('Init error:', error)
       } finally {
