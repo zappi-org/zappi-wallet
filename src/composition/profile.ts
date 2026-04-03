@@ -8,8 +8,8 @@ import type { ProfileUseCase } from '@/core/ports/driving/profile.usecase'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
 
 interface SettingsAccess {
-  getSettings(): Promise<{ mints: string[]; relays: string[]; [key: string]: unknown }>
-  saveSettings(settings: { mints: string[]; relays: string[]; [key: string]: unknown }): Promise<void>
+  getSettings(): Promise<{ mints: string[]; relays: string[] }>
+  saveSettings(settings: { mints: string[]; relays: string[] }): Promise<void>
 }
 
 export function createProfileService(

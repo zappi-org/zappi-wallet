@@ -8,8 +8,13 @@
  */
 
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
-import type { SettingsRepository } from '@/core/ports/driven/settings.repository.port'
 import type { Nip05Resolver } from '@/core/ports/driven/nip05-resolver.port'
+
+/** ProfileService가 실제로 사용하는 settings 최소 인터페이스 */
+interface ProfileSettings {
+  getSettings(): Promise<{ mints: string[]; relays: string[] }>
+  saveSettings(settings: { mints: string[]; relays: string[] }): Promise<void>
+}
 import type { ProfileUseCase, RecoveredProfile, ZSConfiguration } from '@/core/ports/driving/profile.usecase'
 import type { NutZapInfo } from '@/core/domain/nutzap'
 import { NOSTR_KINDS } from '@/core/constants'
@@ -24,7 +29,7 @@ import {
 export class ProfileService implements ProfileUseCase {
   constructor(
     private readonly nostr: Pick<NostrGateway, 'publish' | 'queryEvents'>,
-    private readonly settings: Pick<SettingsRepository, 'getSettings' | 'saveSettings'>,
+    private readonly settings: ProfileSettings,
     private readonly nip05: Nip05Resolver,
   ) {}
 
