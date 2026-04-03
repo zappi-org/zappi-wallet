@@ -8,20 +8,15 @@
 import type { KeyManager } from '@/core/ports/driven/key-manager.port'
 import type { Encryption } from '@/core/ports/driven/encryption.port'
 import type { SecureStorage, StoredWallet } from '@/core/ports/driven/secure-storage.port'
+import type { SeedCache } from '@/core/ports/driven/seed-cache.port'
 import type { KeyPair } from '@/core/domain/key-manager'
+import type { SecurityUseCase, UnlockResult } from '@/core/ports/driving/security.usecase'
 import { ok, err, type Result } from '@/core/types/result'
 import { SecurityError } from '@/core/errors/security'
 
-// ─── Types ───
-
-export interface UnlockResult {
-  keys: KeyPair
-  bip39Seed: Uint8Array
-}
-
 // ─── Service ───
 
-export class SecurityService {
+export class SecurityService implements SecurityUseCase {
   private cachedKeys: KeyPair | null = null
   private cachedSeed: Uint8Array | null = null
 
@@ -29,6 +24,7 @@ export class SecurityService {
     private readonly keyManager: KeyManager,
     private readonly encryption: Encryption,
     private readonly storage: SecureStorage,
+    private readonly seedCache: SeedCache,
   ) {}
 
   // ─── Wallet lifecycle ───
@@ -66,6 +62,7 @@ export class SecurityService {
 
       this.cachedKeys = keys
       this.cachedSeed = bip39Seed
+      this.seedCache.cacheMnemonic(mnemonic)
 
       return ok({ keys, bip39Seed })
     } catch (error) {
@@ -91,6 +88,7 @@ export class SecurityService {
 
       this.cachedKeys = keys
       this.cachedSeed = bip39Seed
+      this.seedCache.cacheMnemonic(mnemonic)
 
       return ok({ keys, bip39Seed })
     } catch (error) {
@@ -169,6 +167,17 @@ export class SecurityService {
     await this.storage.deleteWallet()
     this.cachedKeys = null
     this.cachedSeed = null
+    this.seedCache.clearCache()
+  }
+
+  // ─── KeyManager delegates ───
+
+  generateMnemonic(strength: 128 | 256 = 128): string {
+    return this.keyManager.generateMnemonic(strength)
+  }
+
+  validateMnemonic(mnemonic: string): boolean {
+    return this.keyManager.validateMnemonic(mnemonic)
   }
 
   // ─── Session cache ───
@@ -184,6 +193,7 @@ export class SecurityService {
   lock(): void {
     this.cachedKeys = null
     this.cachedSeed = null
+    this.seedCache.clearCache()
   }
 }
 

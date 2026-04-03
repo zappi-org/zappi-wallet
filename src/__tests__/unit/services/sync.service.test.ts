@@ -98,19 +98,14 @@ vi.mock('@/services/nostr/giftwrap', () => {
   }
 })
 
-// Mock SecurityService - use vi.hoisted
-const { mockGetCachedKeys } = vi.hoisted(() => ({
-  mockGetCachedKeys: vi.fn(),
-}))
+// Mock Zustand store
+const mockNostrPrivkey = vi.hoisted(() => ({ value: 'mock-private-key-hex' as string | null }))
 
-vi.mock('@/services/security/security.service', () => {
-  class MockSecurityService {
-    getCachedKeys = mockGetCachedKeys
-  }
-  return {
-    SecurityService: MockSecurityService,
-  }
-})
+vi.mock('@/store', () => ({
+  useAppStore: {
+    getState: () => ({ nostrPrivkey: mockNostrPrivkey.value }),
+  },
+}))
 
 // Mock PaymentService
 const mockReceiveEcash = vi.fn()
@@ -139,10 +134,7 @@ describe('SyncService', () => {
     mockMarkEventProcessed.mockResolvedValue(undefined)
     mockGetRetryableSwaps.mockResolvedValue([])
     mockQueryEvents.mockResolvedValue([])
-    mockGetCachedKeys.mockReturnValue({
-      privateKey: 'mock-private-key-hex',
-      publicKey: 'mock-public-key-hex',
-    })
+    mockNostrPrivkey.value = 'mock-private-key-hex'
     mockProcessGiftWrapForNutZap.mockReturnValue(null)
 
     service = new SyncService()

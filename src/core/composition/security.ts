@@ -1,0 +1,22 @@
+/**
+ * Composition root for SecurityUseCase
+ *
+ * Adapter → Port → Service 와이어링.
+ * UI에서 import하는 유일한 진입점.
+ */
+
+import { KeyManagerAdapter } from '@/adapters/crypto/key-manager.adapter'
+import { EncryptionAdapter } from '@/adapters/crypto/encryption.adapter'
+import { SecureStorageAdapter } from '@/adapters/storage/secure-storage.adapter'
+import { SeedCacheAdapter } from '@/adapters/coco/seed-cache.adapter'
+import { SecurityService } from '@/core/services/security.service'
+import type { SecurityUseCase } from '@/core/ports/driving/security.usecase'
+
+export function createSecurityService(): SecurityUseCase {
+  return new SecurityService(
+    new KeyManagerAdapter(),
+    new EncryptionAdapter(),
+    new SecureStorageAdapter(),
+    new SeedCacheAdapter(),
+  )
+}

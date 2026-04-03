@@ -14,7 +14,7 @@ function generateMintAliases(mints: string[], existing?: Record<string, string>)
 // Lightweight imports only — no heavy services, hooks, or screens
 import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
 import { getCocoManager } from '@/coco/manager'
-import { SecurityService } from '@/services/security/security.service'
+import { createSecurityService } from '@/core/composition/security'
 import { SettingsRepository } from '@/data/repositories/settings.repository'
 import { OnboardingScreen } from '@/ui/screens/Onboarding/OnboardingScreen'
 
@@ -32,10 +32,7 @@ function App() {
 
   // Services (lightweight only)
   const [services] = useState(() => {
-    const security = new SecurityService()
-    security.setOnMnemonicReady((mnemonic) => {
-      import('@/coco/seedGetter').then(({ setCachedMnemonic }) => setCachedMnemonic(mnemonic))
-    })
+    const security = createSecurityService()
     return {
       security,
       settingsRepo: new SettingsRepository(),
@@ -51,7 +48,7 @@ function App() {
         const savedSettings = await services.settingsRepo.getSettings()
         setSettings(savedSettings)
 
-        const hasWallet = await services.security.hasEncryptedWallet()
+        const hasWallet = await services.security.hasWallet()
         setIsOnboarded(hasWallet)
       } catch (error) {
         console.error('Init error:', error)
@@ -84,7 +81,7 @@ function App() {
       console.log('[Onboarding] Wallet created successfully')
 
       // Set nostr key pair in store (needed by dynamically imported ProfileService)
-      setNostrKeyPair(result.value.publicKey, result.value.privateKey)
+      setNostrKeyPair(result.value.keys.publicKey, result.value.keys.privateKey)
       const { pubkey: p2pkPub } = await services.p2pkKeyManager.getCurrentKey()
       setP2pkPubkey(p2pkPub)
 
@@ -100,7 +97,7 @@ function App() {
         console.log('[Onboarding] Recovery mode - fetching profile from Nostr')
 
         const recoveredProfile = await profile.recoverProfileFromNostr(
-          result.value.publicKey
+          result.value.keys.publicKey
         )
 
         let mintsToRestore: string[] = []
@@ -204,7 +201,7 @@ function App() {
           try {
             const { pubkey: p2pkPubkey } = await services.p2pkKeyManager.getCurrentKey()
             const publishResult = await profile.publishProfile(
-              result.value.privateKey,
+              result.value.keys.privateKey,
               mints,
               p2pkPubkey,
               relays,

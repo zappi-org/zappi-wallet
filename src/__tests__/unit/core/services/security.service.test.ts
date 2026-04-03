@@ -3,6 +3,7 @@ import { SecurityService } from '@/core/services/security.service'
 import type { KeyManager } from '@/core/ports/driven/key-manager.port'
 import type { Encryption, EncryptedData } from '@/core/ports/driven/encryption.port'
 import type { SecureStorage, StoredWallet } from '@/core/ports/driven/secure-storage.port'
+import type { SeedCache } from '@/core/ports/driven/seed-cache.port'
 
 // ─── Fixtures ───
 
@@ -49,7 +50,12 @@ function createMocks() {
     }),
   }
 
-  return { keyManager, encryption, storage, getStoredWallet: () => storedWallet }
+  const seedCache: SeedCache = {
+    cacheMnemonic: vi.fn(),
+    clearCache: vi.fn(),
+  }
+
+  return { keyManager, encryption, storage, seedCache, getStoredWallet: () => storedWallet }
 }
 
 // ─── Tests ───
@@ -65,7 +71,7 @@ describe('SecurityService', () => {
     keyManager = mocks.keyManager
     encryption = mocks.encryption
     storage = mocks.storage
-    service = new SecurityService(keyManager, encryption, storage)
+    service = new SecurityService(keyManager, encryption, storage, mocks.seedCache)
   })
 
   // ─── createWallet ───

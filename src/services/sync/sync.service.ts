@@ -4,7 +4,7 @@ import { FailedSwapRepository } from '@/data/repositories/failed-swap.repository
 import { NostrService } from '@/services/nostr/nostr.service'
 import { processGiftWrapForNutZap } from '@/services/nostr/giftwrap'
 import { PaymentService } from '@/services/payment/payment.service'
-import { SecurityService } from '@/services/security/security.service'
+import { useAppStore } from '@/store'
 import { TIMEOUTS, NOSTR_KINDS, RETRY } from '@/core/constants'
 import type { SyncAnchor, SyncResult, ProcessedEvent } from '@/core/types'
 
@@ -36,7 +36,6 @@ export class SyncService {
   private failedSwapRepo: FailedSwapRepository
   private nostrService: NostrService
   private paymentService: PaymentService
-  private securityService: SecurityService
   private isSyncing: boolean = false
 
   constructor() {
@@ -45,7 +44,6 @@ export class SyncService {
     this.failedSwapRepo = new FailedSwapRepository()
     this.nostrService = new NostrService()
     this.paymentService = new PaymentService()
-    this.securityService = new SecurityService()
   }
 
   // ===== Anchor Management =====
@@ -137,8 +135,8 @@ export class SyncService {
 
     try {
       // Get private key for decryption
-      const keys = this.securityService.getCachedKeys()
-      if (!keys) {
+      const { nostrPrivkey } = useAppStore.getState()
+      if (!nostrPrivkey) {
         result.errors.push('Wallet not unlocked - cannot decrypt events')
         return result
       }
@@ -161,7 +159,7 @@ export class SyncService {
 
         try {
           // Decrypt gift wrap and extract NutZap
-          const nutzap = processGiftWrapForNutZap(event, keys.privateKey)
+          const nutzap = processGiftWrapForNutZap(event, nostrPrivkey)
 
           if (!nutzap) {
             // Not a NutZap or failed to decrypt - mark as processed anyway

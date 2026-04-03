@@ -62,7 +62,7 @@ import { exchangeRateService } from '@/services/exchange-rate'
 import { removePasskey } from '@/services/passkey'
 import { PaymentService } from '@/services/payment/payment.service'
 import { ProfileService } from '@/services/profile/profile.service'
-import { SecurityService } from '@/services/security/security.service'
+import { createSecurityService } from '@/core/composition/security'
 import { SyncService } from '@/services/sync/sync.service'
 import { WalletService } from '@/services/wallet/wallet.service'
 import { formatSats } from '@/utils/format'
@@ -177,10 +177,7 @@ export default function MainApp() {
       return { fiatCurrency: currency, exchangeRate: rate }
     })
 
-    const security = new SecurityService()
-    security.setOnMnemonicReady((mnemonic) => {
-      import('@/coco/seedGetter').then(({ setCachedMnemonic }) => setCachedMnemonic(mnemonic))
-    })
+    const security = createSecurityService()
     return {
       security,
       wallet: new WalletService(),
@@ -414,8 +411,8 @@ export default function MainApp() {
     try {
       const result = await services.security.unlock(password)
       if (result.isOk()) {
-        // Set nostr key pair in store (for Coco seedGetter)
-        setNostrKeyPair(result.value.publicKey, result.value.privateKey)
+        // Set nostr key pair in store
+        setNostrKeyPair(result.value.keys.publicKey, result.value.keys.privateKey)
         const { pubkey: p2pkPub } = await services.p2pkKeyManager.getCurrentKey()
         setP2pkPubkey(p2pkPub)
 
