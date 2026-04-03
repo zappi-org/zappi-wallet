@@ -24,7 +24,7 @@ import { FiatSettingPage } from './pages/FiatSettingPage'
 import {
   registerPasskey,
   removePasskey,
-} from '@/services/passkey'
+} from '@/ui/services/passkey'
 import { AutoLockSettingPage } from './pages/AutoLockSettingPage'
 import { POSSettingPage } from './pages/POSSettingPage'
 import { PrivacySettingPage } from './pages/PrivacySettingPage'

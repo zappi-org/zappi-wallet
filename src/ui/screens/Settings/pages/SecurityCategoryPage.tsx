@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
-import { isPasskeySupported, isPasskeyRegistered } from '@/services/passkey'
+import { isPasskeySupported, isPasskeyRegistered } from '@/ui/services/passkey'
 import { SettingsDetailPage } from '../components/SettingsDetailPage'
 import { SettingsRow } from '../components/SettingsRow'
 import { Switch } from '@/ui/components/common/Switch'

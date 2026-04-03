@@ -8,7 +8,7 @@ import {
   isPasskeySupported,
   isPasskeyRegistered,
   authenticateWithPasskey,
-} from "@/services/passkey";
+} from "@/ui/services/passkey";
 
 // Face ID icon
 const FaceIdIcon = ({ className }: { className?: string }) => (
