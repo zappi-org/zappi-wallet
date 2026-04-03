@@ -1,5 +1,5 @@
 /**
- * CashuLightningAdapter — PaymentMethodAdapter for Lightning (melt/mint)
+ * CashuBolt11Adapter — PaymentMethodAdapter for bolt11 Lightning (melt/mint)
  *
  * execute-route.ts의 executeMeltFlow / estimateMeltFee 로직을 adapter로 추출.
  * CashuBackend를 주입받아 Coco SDK에 의존하지 않음.
@@ -43,9 +43,10 @@ export interface LightningBackend {
 
 // ─── Adapter ───
 
-export class CashuLightningAdapter implements PaymentMethodAdapter {
-  readonly id = 'cashu:lightning'
+export class CashuBolt11Adapter implements PaymentMethodAdapter {
+  readonly id = 'cashu:bolt11'
   readonly moduleId = 'cashu'
+  readonly protocol = 'bolt11' as const
   readonly supportedUnits = ['sat']
   readonly capabilities = {
     canSend: true,

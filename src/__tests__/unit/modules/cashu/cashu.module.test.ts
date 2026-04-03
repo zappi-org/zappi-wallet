@@ -104,7 +104,7 @@ describe('CashuModule', () => {
 
       const adapters = module.getPaymentAdapters()
       expect(adapters).toHaveLength(2)
-      expect(adapters[0].id).toBe('cashu:lightning')
+      expect(adapters[0].id).toBe('cashu:bolt11')
       expect(adapters[1].id).toBe('cashu:ecash')
     })
 
@@ -165,12 +165,12 @@ describe('CashuModule', () => {
   // ─── Capabilities ───
 
   describe('getCapabilities', () => {
-    it('returns lightning and ecash capabilities', () => {
+    it('returns bolt11 and ecash capabilities', () => {
       const capabilities = module.getCapabilities()
 
       expect(capabilities).toHaveLength(2)
-      expect(capabilities[0]).toEqual({ id: 'lightning', operations: ['send', 'receive'] })
-      expect(capabilities[1]).toEqual({ id: 'ecash', operations: ['send', 'receive'] })
+      expect(capabilities[0]).toEqual({ id: 'bolt11', protocol: 'bolt11', operations: ['send', 'receive'] })
+      expect(capabilities[1]).toEqual({ id: 'ecash', protocol: 'ecash', operations: ['send', 'receive'] })
     })
   })
 

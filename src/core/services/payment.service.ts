@@ -47,6 +47,7 @@ export class PaymentService implements PaymentUseCase {
     return adapter.map(a => ({
       id: a.id,
       moduleId: a.moduleId,
+      protocol: a.protocol,
       capabilities: { ...a.capabilities },
       supportedUnits: [...a.supportedUnits],
     }))

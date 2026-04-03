@@ -21,9 +21,9 @@ import type { PaymentMethodAdapter } from '@/core/ports/driven/payment-method.po
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
 import { sat, add, toNumber } from '@/core/domain/amount'
 import {
-  CashuLightningAdapter,
+  CashuBolt11Adapter,
   type LightningBackend,
-} from './adapters/cashu-lightning.adapter'
+} from './adapters/cashu-bolt11.adapter'
 import {
   CashuEcashAdapter,
   type EcashBackend,
@@ -71,7 +71,7 @@ export class CashuModule implements WalletModule {
   readonly id = 'cashu'
   readonly displayName = 'Cashu'
 
-  private lightningAdapter!: CashuLightningAdapter
+  private bolt11Adapter!: CashuBolt11Adapter
   private ecashAdapter!: CashuEcashAdapter
   private adapters: PaymentMethodAdapter[] = []
   private initialized = false
@@ -83,9 +83,9 @@ export class CashuModule implements WalletModule {
   ) {}
 
   async initialize(_seed: Uint8Array, _derivationPath: string): Promise<void> {
-    this.lightningAdapter = new CashuLightningAdapter(this.backend)
+    this.bolt11Adapter = new CashuBolt11Adapter(this.backend)
     this.ecashAdapter = new CashuEcashAdapter(this.backend)
-    this.adapters = [this.lightningAdapter, this.ecashAdapter]
+    this.adapters = [this.bolt11Adapter, this.ecashAdapter]
     this.initialized = true
   }
 
@@ -154,13 +154,13 @@ export class CashuModule implements WalletModule {
   }
 
   private async sendViaLightning(params: ModuleSendParams): Promise<ModuleSendResult> {
-    const prepared = await this.lightningAdapter.prepareSend({
+    const prepared = await this.bolt11Adapter.prepareSend({
       destination: params.destination,
       amount: params.amount,
       accountId: params.accountId,
       memo: params.memo,
     })
-    const result = await this.lightningAdapter.executeSend(prepared.id)
+    const result = await this.bolt11Adapter.executeSend(prepared.id)
     return {
       operationId: prepared.id,
       state: result.state,
@@ -176,8 +176,8 @@ export class CashuModule implements WalletModule {
 
   getCapabilities(): ModuleCapability[] {
     return [
-      { id: 'lightning', operations: ['send', 'receive'] },
-      { id: 'ecash', operations: ['send', 'receive'] },
+      { id: 'bolt11', protocol: 'bolt11', operations: ['send', 'receive'] },
+      { id: 'ecash', protocol: 'ecash', operations: ['send', 'receive'] },
     ]
   }
 

@@ -10,8 +10,9 @@ import { sat, toNumber } from '@/core/domain/amount'
 
 function createMockAdapter(overrides?: Partial<PaymentMethodAdapter>): PaymentMethodAdapter {
   return {
-    id: 'cashu:lightning',
+    id: 'cashu:bolt11',
     moduleId: 'cashu',
+    protocol: 'bolt11',
     supportedUnits: ['sat'],
     capabilities: { canSend: true, canReceive: true, canEstimateFee: true },
     estimateFee: vi.fn().mockResolvedValue({ fee: sat(3), method: 'lightning', protocol: 'bolt11' }),
@@ -106,7 +107,8 @@ describe('PaymentService', () => {
       const methods = service.getMethodsForAccount('https://mint.test')
 
       expect(methods).toHaveLength(1)
-      expect(methods[0].id).toBe('cashu:lightning')
+      expect(methods[0].id).toBe('cashu:bolt11')
+      expect(methods[0].protocol).toBe('bolt11')
       expect(methods[0].moduleId).toBe('cashu')
       expect(methods[0].capabilities.canSend).toBe(true)
       // Should be a plain object, not the adapter instance
@@ -208,7 +210,7 @@ describe('PaymentService', () => {
 
       const result = await service.receive({
         accountId: 'https://mint.test',
-        adapterId: 'cashu:lightning',
+        adapterId: 'cashu:bolt11',
         amount: sat(1000),
       })
 
@@ -226,7 +228,7 @@ describe('PaymentService', () => {
     it('delegates to adapter', async () => {
       const result = await service.estimateFee({
         accountId: 'https://mint.test',
-        adapterId: 'cashu:lightning',
+        adapterId: 'cashu:bolt11',
         destination: 'lnbc...',
         amount: sat(1000),
       })

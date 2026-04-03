@@ -46,7 +46,7 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
         receiveToken: async (token: string) => backend.receiveToken(token),
       })
     },
-    // Recovery (quotes) — exposed for CashuLightningAdapter
+    // Recovery (quotes) — exposed for CashuBolt11Adapter
     async recoverPendingQuotes() {
       const quoteOps = await backend.getQuoteRecoveryOps()
       return recoverPendingQuotes({

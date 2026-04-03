@@ -10,8 +10,9 @@ import type { ModuleBalance } from '@/core/ports/driven/wallet-module.port'
 
 /** UI가 adapter를 직접 참조하지 않도록 DTO로 노출 */
 export interface PaymentMethodInfo {
-  id: string        // 'cashu:lightning', 'cashu:ecash'
+  id: string        // 'cashu:bolt11', 'cashu:bolt12', 'cashu:ecash'
   moduleId: string
+  protocol: 'bolt11' | 'bolt12' | 'ecash'
   capabilities: {
     canSend: boolean
     canReceive: boolean

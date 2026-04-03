@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
-  CashuLightningAdapter,
+  CashuBolt11Adapter,
   type LightningBackend,
-} from '@/modules/cashu/adapters/cashu-lightning.adapter'
+} from '@/modules/cashu/adapters/cashu-bolt11.adapter'
 import { sat, toNumber } from '@/core/domain/amount'
 
 // ─── Mock Backend ───
@@ -29,19 +29,20 @@ function createMockBackend(): LightningBackend {
   }
 }
 
-describe('CashuLightningAdapter', () => {
-  let adapter: CashuLightningAdapter
+describe('CashuBolt11Adapter', () => {
+  let adapter: CashuBolt11Adapter
   let backend: LightningBackend
 
   beforeEach(() => {
     backend = createMockBackend()
-    adapter = new CashuLightningAdapter(backend)
+    adapter = new CashuBolt11Adapter(backend)
   })
 
   // ─── Identity ───
 
   it('has correct id and capabilities', () => {
-    expect(adapter.id).toBe('cashu:lightning')
+    expect(adapter.id).toBe('cashu:bolt11')
+    expect(adapter.protocol).toBe('bolt11')
     expect(adapter.moduleId).toBe('cashu')
     expect(adapter.capabilities.canSend).toBe(true)
     expect(adapter.capabilities.canReceive).toBe(true)

@@ -43,6 +43,7 @@ export interface EcashBackend {
 export class CashuEcashAdapter implements PaymentMethodAdapter {
   readonly id = 'cashu:ecash'
   readonly moduleId = 'cashu'
+  readonly protocol = 'ecash' as const
   readonly supportedUnits = ['sat']
   readonly capabilities = {
     canSend: true,

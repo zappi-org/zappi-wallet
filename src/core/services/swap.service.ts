@@ -211,7 +211,7 @@ export class SwapService implements SwapUseCase {
       if (!module.isEnabled()) continue
       // swap은 lightning adapter 사용 (melt on source, mint on target)
       const lightning = module.getPaymentAdapters().find(a =>
-        a.id.includes('lightning') && a.capabilities.canSend && a.capabilities.canReceive,
+        a.protocol === 'bolt11' && a.capabilities.canSend && a.capabilities.canReceive,
       )
       if (lightning) return lightning
     }

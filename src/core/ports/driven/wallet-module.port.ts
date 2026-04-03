@@ -40,5 +40,6 @@ export interface ModuleBalance {
 
 export interface ModuleCapability {
   id: string
+  protocol: 'bolt11' | 'bolt12' | 'ecash'
   operations: string[]
 }

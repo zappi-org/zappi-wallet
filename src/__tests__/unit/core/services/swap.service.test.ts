@@ -10,8 +10,9 @@ import { sat, toNumber } from '@/core/domain/amount'
 
 function createMockLightningAdapter(overrides?: Partial<PaymentMethodAdapter>): PaymentMethodAdapter {
   return {
-    id: 'cashu:lightning',
+    id: 'cashu:bolt11',
     moduleId: 'cashu',
+    protocol: 'bolt11',
     supportedUnits: ['sat'],
     capabilities: { canSend: true, canReceive: true, canEstimateFee: true },
     estimateFee: vi.fn().mockResolvedValue({ fee: sat(3), method: 'lightning', protocol: 'bolt11' }),

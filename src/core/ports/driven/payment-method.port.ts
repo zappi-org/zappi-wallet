@@ -1,8 +1,9 @@
 import type { Amount } from '@/core/domain/amount'
 
 export interface PaymentMethodAdapter {
-  readonly id: string            // 'cashu:lightning', 'cashu:ecash'
+  readonly id: string            // 'cashu:bolt11', 'cashu:bolt12', 'cashu:ecash'
   readonly moduleId: string
+  readonly protocol: 'bolt11' | 'bolt12' | 'ecash'
   readonly supportedUnits: string[]
   readonly capabilities: {
     canSend: boolean

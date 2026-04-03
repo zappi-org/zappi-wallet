@@ -163,7 +163,7 @@ describe('RecoverTokenService', () => {
         () => new Promise((resolve) => setTimeout(() => resolve([]), 100)),
       )
 
-      const [r1, r2] = await Promise.all([
+      const [, r2] = await Promise.all([
         service.reconstructState(params),
         service.reconstructState(params),
       ])
