@@ -6,7 +6,7 @@
  */
 
 import type { LnurlGateway } from '@/core/ports/driven/lnurl-gateway.port'
-import type { ParsedInput } from '@/core/ports/driving/input-router.usecase'
+import type { InputRouterUseCase, ParsedInput } from '@/core/ports/driving/input-router.usecase'
 import { lnurlDecode } from '@/core/domain/nostr-address'
 
 // Re-export for backward compatibility
@@ -14,7 +14,7 @@ export type { ParsedInput }
 
 // ─── Service ───
 
-export class InputRouter {
+export class InputRouter implements InputRouterUseCase {
   constructor(
     private readonly lnurl: Pick<LnurlGateway, 'fetchLnurl'>,
   ) {}

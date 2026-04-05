@@ -11,7 +11,7 @@ import type { LnurlPayParams } from '@/core/ports/driven/lnurl-gateway.port'
 import type { Nip05Resolver } from '@/core/ports/driven/nip05-resolver.port'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
 import type { LnurlGateway } from '@/core/ports/driven/lnurl-gateway.port'
-import type { PaymentCapabilities, DirectTokenInfo } from '@/core/ports/driving/address-resolver.usecase'
+import type { AddressResolverUseCase, PaymentCapabilities, DirectTokenInfo } from '@/core/ports/driving/address-resolver.usecase'
 import { npubDecode, nprofileDecode } from '@/core/domain/nostr-address'
 import { parseNutZapInfo } from '@/core/domain/nutzap'
 
@@ -20,7 +20,7 @@ export type { PaymentCapabilities, DirectTokenInfo }
 
 // ─── Service ───
 
-export class AddressResolverService {
+export class AddressResolverService implements AddressResolverUseCase {
   constructor(
     private readonly nip05: Nip05Resolver,
     private readonly nostr: Pick<NostrGateway, 'queryEvents'>,
