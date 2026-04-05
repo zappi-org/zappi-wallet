@@ -137,7 +137,7 @@ export async function rollbackSend(operationId: string): Promise<void> {
  * 토큰 수령 (일반 + P2PK 모두).
  * Coco RC50의 ops.receive가 P2PK unlock을 내부 처리한다.
  */
-export async function receiveToken(token: string): Promise<{ amount: number }> {
+export async function receiveToken(token: string): Promise<{ amount: number; mintUrl: string }> {
   const manager = await getCocoManager();
 
   // mint 등록 확인 + amount 파싱
@@ -149,7 +149,7 @@ export async function receiveToken(token: string): Promise<{ amount: number }> {
   const prepared = await manager.ops.receive.prepare({ token });
   await manager.ops.receive.execute(prepared);
 
-  return { amount };
+  return { amount, mintUrl: decoded.mint };
 }
 
 // ─── Mint (Lightning 수신) ───

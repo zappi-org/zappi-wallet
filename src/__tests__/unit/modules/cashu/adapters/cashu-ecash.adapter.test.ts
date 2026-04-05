@@ -18,7 +18,7 @@ function createMockBackend(): EcashBackend {
       token: 'cashuBtest_token_string',
     }),
     rollbackSend: vi.fn().mockResolvedValue(undefined),
-    receiveToken: vi.fn().mockResolvedValue({ amount: 500 }),
+    receiveToken: vi.fn().mockResolvedValue({ amount: 500, mintUrl: 'https://mint.test' }),
     recoverPendingSendTokens: vi.fn().mockResolvedValue({ reclaimed: 3, recorded: 1 }),
   }
 }
@@ -192,10 +192,11 @@ describe('CashuEcashAdapter', () => {
 
       expect(backend.receiveToken).toHaveBeenCalledWith('cashuBpXh...')
       expect(toNumber(result.amount)).toBe(500)
-      expect(result.method).toBe('ecash')
+      expect(result.method).toBe('cashu:ecash')
       expect(result.protocol).toBe('cashu-token')
       expect(result.completed).toBe(true)
-      expect(result.requestId).toBe('')
+      expect(result.requestId).not.toBe('')
+      expect(result.accountId).toBe('https://mint.test')
     })
   })
 })

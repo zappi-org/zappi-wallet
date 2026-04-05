@@ -256,7 +256,7 @@ describe('PaymentService', () => {
     it('delegates to adapter redeem', async () => {
       const ecashAdapter = createMockAdapter({
         id: 'cashu:ecash',
-        redeem: vi.fn().mockResolvedValue({ requestId: '', amount: sat(500), method: 'ecash', protocol: 'cashu-token', completed: true }),
+        redeem: vi.fn().mockResolvedValue({ requestId: 'tx-ecash-1', amount: sat(500), method: 'cashu:ecash', protocol: 'cashu-token', completed: true, accountId: 'https://mint.test' }),
       })
       const mod = createMockModule([ecashAdapter])
       service = new PaymentService([mod], txRepo, eventBus)
@@ -268,6 +268,19 @@ describe('PaymentService', () => {
 
       expect(result.ok).toBe(true)
       expect(ecashAdapter.redeem).toHaveBeenCalledWith('cashuBtest...')
+      // Transaction saved with correct fields
+      expect(txRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'tx-ecash-1',
+          direction: 'receive',
+          method: 'cashu:ecash',
+          accountId: 'https://mint.test',
+          status: 'completed',
+        }),
+      )
+      expect(eventBus.emit).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'balance:changed' }),
+      )
     })
 
     it('returns error when adapter not found', async () => {

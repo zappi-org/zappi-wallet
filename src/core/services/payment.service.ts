@@ -195,7 +195,7 @@ export class PaymentService implements PaymentUseCase {
         method: result.method,
         protocol: result.protocol,
         amount: result.amount,
-        accountId: adapter.moduleId,
+        accountId: result.accountId ?? adapter.moduleId,
       })
       const completed = completeTransaction(tx)
       await this.txRepo.save(completed)
