@@ -224,9 +224,7 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
       let receivedAmount: number
 
       // Phase 5: PaymentUseCase.redeem() 경유 (new path)
-      console.log('[GiftWrap] registryRef.current:', registryRef.current ? 'available' : 'null')
       if (registryRef.current?.payment) {
-        console.log('[GiftWrap] Using NEW path: PaymentUseCase.redeem()')
         const redeemResult = await registryRef.current.payment.redeem({ adapterId: 'cashu:ecash', input: token })
         if (!redeemResult.ok) {
           throw new Error(redeemResult.error.message)
@@ -234,7 +232,6 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
         receivedAmount = toNumber(redeemResult.value.amount)
       } else {
         // Fallback: old Coco direct
-        console.log('[GiftWrap] Using OLD fallback path: receiveP2PKToken()')
         const p2pkPrivkey = useAppStore.getState().nostrPrivkey
         if (!p2pkPrivkey) {
           throw new Error('Private key not available for P2PK signature')
