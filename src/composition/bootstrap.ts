@@ -25,6 +25,7 @@ import { createPaymentService } from './payment'
 import { createBalanceService } from './balance'
 import { createSwapService } from './swap'
 import { createContactService } from './contact'
+import { connectEventStoreBridge } from './event-store-bridge'
 
 // ─── Types ───
 import type { WalletModule } from '@/core/ports/driven/wallet-module.port'
@@ -45,6 +46,8 @@ export interface BootstrapResult extends ServiceRegistry {
   readonly nostrGateway: NostrGateway
   /** CashuModule 인스턴스 (module.initialize() 호출 필요) */
   readonly cashuModule: CashuModule
+  /** EventBus → Store 브릿지 해제 함수 */
+  readonly disconnectBridge: () => void
 }
 
 // ─── Bootstrap ───
@@ -72,6 +75,9 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const swap = createSwapService(modules, txRepo, eventBus)
   const contact = createContactService(contactRepo)
 
+  // 5. EventBus → Store bridge (balance 처리는 old bridge 제거 시 활성화)
+  const disconnectBridge = connectEventStoreBridge(eventBus, { handleBalance: false })
+
   return {
     eventBus,
     payment,
@@ -81,5 +87,6 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     modules,
     nostrGateway,
     cashuModule,
+    disconnectBridge,
   }
 }
