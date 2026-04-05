@@ -38,6 +38,12 @@ function createMockRegistry(): ServiceRegistry {
       update: vi.fn(),
       delete: vi.fn(),
     } as unknown as ServiceRegistry['contact'],
+    inputRouter: {
+      classify: vi.fn(),
+    } as unknown as ServiceRegistry['inputRouter'],
+    addressResolver: {
+      resolve: vi.fn(),
+    } as unknown as ServiceRegistry['addressResolver'],
   }
 }
 

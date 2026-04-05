@@ -20,11 +20,17 @@ import { DexieContactRepository } from '@/adapters/storage/dexie/dexie-contact.r
 import { DexiePendingOperationRepository } from '@/adapters/storage/dexie/dexie-pending-operation.repository'
 import { NostrGatewayAdapter } from '@/adapters/nostr/nostr-gateway'
 
+// ─── Adapters (non-module) ───
+import { DirectLnurlAdapter } from '@/adapters/lnurl/direct-lnurl.adapter'
+import { Nip05ResolverAdapter } from '@/adapters/nip05/nip05-resolver'
+
 // ─── Composition Roots ───
 import { createPaymentService } from './payment'
 import { createBalanceService } from './balance'
 import { createSwapService } from './swap'
 import { createContactService } from './contact'
+import { createInputRouter } from './input-router'
+import { createAddressResolver } from './address-resolver'
 import { connectEventStoreBridge } from './event-store-bridge'
 
 // ─── Types ───
@@ -69,13 +75,19 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const cashuModule = new CashuModule(cashuBackend, nostrGateway)
   const modules: WalletModule[] = [cashuModule]
 
-  // 4. Services (via composition roots)
+  // 4. Non-module adapters
+  const lnurlAdapter = new DirectLnurlAdapter()
+  const nip05Adapter = new Nip05ResolverAdapter()
+
+  // 5. Services (via composition roots)
   const payment = createPaymentService(modules, txRepo, eventBus)
   const balance = createBalanceService(modules)
   const swap = createSwapService(modules, txRepo, eventBus)
   const contact = createContactService(contactRepo)
+  const inputRouter = createInputRouter(lnurlAdapter)
+  const addressResolver = createAddressResolver(nip05Adapter, nostrGateway, lnurlAdapter)
 
-  // 5. EventBus → Store bridge (balance 처리는 old bridge 제거 시 활성화)
+  // 6. EventBus → Store bridge (balance 처리는 old bridge 제거 시 활성화)
   const disconnectBridge = connectEventStoreBridge(eventBus, { handleBalance: false })
 
   return {
@@ -84,6 +96,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     balance,
     swap,
     contact,
+    inputRouter,
+    addressResolver,
     modules,
     nostrGateway,
     cashuModule,

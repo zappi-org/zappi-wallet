@@ -10,6 +10,8 @@ import type { PaymentUseCase } from '@/core/ports/driving/payment.usecase'
 import type { BalanceUseCase } from '@/core/ports/driving/balance.usecase'
 import type { SwapUseCase } from '@/core/ports/driving/swap.usecase'
 import type { ContactUseCase } from '@/core/ports/driving/contact.usecase'
+import type { InputRouterUseCase } from '@/core/ports/driving/input-router.usecase'
+import type { AddressResolverUseCase } from '@/core/ports/driving/address-resolver.usecase'
 
 export interface ServiceRegistry {
   readonly eventBus: EventBus
@@ -17,4 +19,6 @@ export interface ServiceRegistry {
   readonly balance: BalanceUseCase
   readonly swap: SwapUseCase
   readonly contact: ContactUseCase
+  readonly inputRouter: InputRouterUseCase
+  readonly addressResolver: AddressResolverUseCase
 }
