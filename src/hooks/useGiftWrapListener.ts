@@ -1,12 +1,12 @@
-import { useEffect, useRef, useCallback, useContext } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SimplePool, nip17 } from 'nostr-tools'
 import { hexToBytes } from '@noble/hashes/utils.js'
 import { useAppStore } from '@/store'
 import { getDecodedToken, getEncodedToken } from '@cashu/cashu-ts'
 import { receiveP2PKToken } from '@/coco'
-import { ServiceContext } from '@/hooks/service-context-value'
 import { toNumber } from '@/core/domain/amount'
+import type { ServiceRegistry } from '@/composition/types'
 import { sendDM } from '@/services/nostr-dm'
 import { subscribeNetworkStatus } from '@/hooks/useNetworkStatus'
 import { ProcessedEventRepository } from '@/data/repositories/processed-event.repository'
@@ -115,9 +115,8 @@ function isCashuV4JsonToken(msg: unknown): msg is CashuV4JsonToken {
   )
 }
 
-export function useGiftWrapListener() {
+export function useGiftWrapListener(registry?: ServiceRegistry | null) {
   const { t } = useTranslation()
-  const registry = useContext(ServiceContext)
   // Get state from unified store
   const settings = useAppStore((state) => state.settings)
   const nostrPubkey = useAppStore((state) => state.nostrPubkey)
@@ -225,7 +224,9 @@ export function useGiftWrapListener() {
       let receivedAmount: number
 
       // Phase 5: PaymentUseCase.redeem() 경유 (new path)
+      console.log('[GiftWrap] registryRef.current:', registryRef.current ? 'available' : 'null')
       if (registryRef.current?.payment) {
+        console.log('[GiftWrap] Using NEW path: PaymentUseCase.redeem()')
         const redeemResult = await registryRef.current.payment.redeem({ adapterId: 'cashu:ecash', input: token })
         if (!redeemResult.ok) {
           throw new Error(redeemResult.error.message)
@@ -233,6 +234,7 @@ export function useGiftWrapListener() {
         receivedAmount = toNumber(redeemResult.value.amount)
       } else {
         // Fallback: old Coco direct
+        console.log('[GiftWrap] Using OLD fallback path: receiveP2PKToken()')
         const p2pkPrivkey = useAppStore.getState().nostrPrivkey
         if (!p2pkPrivkey) {
           throw new Error('Private key not available for P2PK signature')

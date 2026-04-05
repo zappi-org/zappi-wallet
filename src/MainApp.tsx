@@ -109,6 +109,9 @@ export default function MainApp() {
   const setSettings = useAppStore((state) => state.setSettings)
   const addPendingQuote = useAppStore((state) => state.addPendingQuote)
 
+  // Service Registry (Phase 5: bootstrap 후 생성, unlock 전에는 null)
+  const [serviceRegistry, setServiceRegistry] = useState<BootstrapResult | null>(null)
+
   // Hooks
   const { refreshBalance } = useWallet()
   const { isOnline } = useNetwork()
@@ -119,7 +122,7 @@ export default function MainApp() {
 
   // Gift Wrap Listener - listens for NIP-17 DMs containing Cashu tokens (NUT-18 responses)
   // This runs when unlocked with nostr keys and settings loaded
-  const { activateListening } = useGiftWrapListener()
+  const { activateListening } = useGiftWrapListener(serviceRegistry)
   useCrossTabSync()
 
   // Local state
@@ -167,9 +170,6 @@ export default function MainApp() {
 
   // Transaction detail state
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
-
-  // Service Registry (Phase 5: bootstrap 후 생성, unlock 전에는 null)
-  const [serviceRegistry, setServiceRegistry] = useState<BootstrapResult | null>(null)
 
   // Services (initialized once)
   const [services] = useState(() => {
