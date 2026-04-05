@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { Plus, Search, Trash2, Pencil, Zap, Hash, Link, BookUser, ArrowUpRight, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'motion/react'
@@ -6,11 +6,11 @@ import { EmptyState } from '@/ui/components/common/EmptyState'
 import { ConfirmDialog } from '@/ui/components/common/ConfirmDialog'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { ContactFormModal } from './ContactFormModal'
-import { getContactRepo } from '@/data/repositories/contact.repository'
 import { detectAddressType } from '@/core/types/contact'
 import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
 import { validateInput, type ValidatedData } from '@/ui/components/scanner/InputValidator'
 import { useAppStore } from '@/store'
+import { useContacts } from '@/hooks/use-contacts'
 import type { Contact, ContactAddressType } from '@/core/types'
 
 export interface ContactsScreenProps {
@@ -27,7 +27,7 @@ const addressTypeIcon: Record<ContactAddressType, typeof Zap> = {
 export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
   const { t } = useTranslation()
   const addToast = useAppStore((s) => s.addToast)
-  const [contacts, setContacts] = useState<Contact[]>([])
+  const { contacts, createContact, updateContact, deleteContact: deleteContactById } = useContacts()
   const [searchQuery, setSearchQuery] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
@@ -35,18 +35,6 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [sendingId, setSendingId] = useState<string | null>(null)
   const [pendingSend, setPendingSend] = useState<{ data: ValidatedData; name: string } | null>(null)
-
-  const repo = useMemo(() => getContactRepo(), [])
-
-  const loadContacts = useCallback(async () => {
-    const all = await repo.findAll()
-    setContacts(all)
-  }, [repo])
-
-  useEffect(() => {
-    const id = requestAnimationFrame(() => { loadContacts() })
-    return () => cancelAnimationFrame(id)
-  }, [loadContacts])
 
   const filtered = useMemo(() => {
     if (!searchQuery.trim()) return contacts
@@ -57,28 +45,21 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
   }, [contacts, searchQuery])
 
   const handleSave = useCallback(async (data: { name: string; address: string }) => {
-    const now = Date.now()
-    const contact: Contact = editingContact
-      ? { ...editingContact, ...data, addressType: detectAddressType(data.address), updatedAt: now }
-      : {
-          id: crypto.randomUUID(),
-          ...data,
-          addressType: detectAddressType(data.address),
-          createdAt: now,
-          updatedAt: now,
-        }
-    await repo.save(contact)
+    const addressType = detectAddressType(data.address)
+    if (editingContact) {
+      await updateContact(editingContact.id, { ...data, addressType })
+    } else {
+      await createContact({ ...data, addressType })
+    }
     setEditingContact(null)
-    await loadContacts()
-  }, [editingContact, repo, loadContacts])
+  }, [editingContact, createContact, updateContact])
 
   const handleDelete = useCallback(async () => {
     if (!deleteTarget) return
-    await repo.delete(deleteTarget.id)
+    await deleteContactById(deleteTarget.id)
     setDeleteTarget(null)
     setExpandedId(null)
-    await loadContacts()
-  }, [deleteTarget, repo, loadContacts])
+  }, [deleteTarget, deleteContactById])
 
   const handleEdit = useCallback((contact: Contact) => {
     setEditingContact(contact)
