@@ -187,6 +187,24 @@ export class PaymentService implements PaymentUseCase {
 
     try {
       const result = await adapter.redeem(params.input)
+
+      // TX 기록 (redeem은 수신이므로 direction: receive)
+      const tx = createTransaction({
+        id: result.requestId,
+        direction: 'receive',
+        method: result.method,
+        protocol: result.protocol,
+        amount: result.amount,
+        accountId: adapter.moduleId,
+      })
+      const completed = completeTransaction(tx)
+      await this.txRepo.save(completed)
+
+      this.eventBus.emit({
+        type: 'balance:changed',
+        payload: { moduleId: adapter.moduleId, accountId: adapter.moduleId },
+      })
+
       return Ok(result)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error'
