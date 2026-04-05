@@ -208,10 +208,8 @@ export function usePayment() {
             return null
           }
 
-          addToast({
-            type: 'success',
-            message: t('toast.swapComplete', { amount: formatSats(toNumber(result.value.amount)), fee: formatSats(toNumber(result.value.fee)) }),
-          })
+          // success toast는 EventBus bridge(event-store-bridge.ts)가 swap:completed 이벤트로 표시
+          // 여기서 중복 toast를 표시하지 않음
 
           return {
             success: true,
