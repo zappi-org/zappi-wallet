@@ -9,6 +9,7 @@
 
 import { Ok, Err } from '@/core/domain/result'
 import type { Result } from '@/core/domain/result'
+import { sat, toNumber } from '@/core/domain/amount'
 import { createTransaction } from '@/core/domain/transaction'
 import type { PaymentError } from '@/core/errors/payment.errors'
 import type { EventBus } from '@/core/events/event-bus'
@@ -103,23 +104,59 @@ export class SwapService implements SwapUseCase {
 
     const sendTxId = crypto.randomUUID()
     const receiveTxId = crypto.randomUUID()
+    let swapAmount = params.amount
 
     try {
       // 1. Target에서 receive request 생성
-      const request = await targetLightning.createReceiveRequest({
-        amount: params.amount,
+      let request = await targetLightning.createReceiveRequest({
+        amount: swapAmount,
         accountId: params.targetAccountId,
       })
 
       // 2. Receive 완료 대기 등록 (send 전에 등록 — race condition 방지)
-      const receiveCompleted = this.waitForReceiveCompletion(targetLightning, request.id)
+      let receiveCompleted = this.waitForReceiveCompletion(targetLightning, request.id)
 
-      // 3. Source에서 send (melt)
-      const prepared = await sourceLightning.prepareSend({
+      // 3. Source에서 send (melt) 준비
+      let prepared = await sourceLightning.prepareSend({
         destination: request.encoded,
-        amount: params.amount,
+        amount: swapAmount,
         accountId: params.sourceAccountId,
       })
+
+      // 4. Drain mode: fee로 인해 잔액 부족 시 금액 조정 후 재시도
+      if (params.drain) {
+        const totalNeeded = toNumber(prepared.amount) + toNumber(prepared.fee)
+        const sourceModule = this.modules.find(m => m.isEnabled())
+        const sourceBalance = sourceModule
+          ? (await sourceModule.getBalance()).accounts
+              .find(a => a.id === params.sourceAccountId)?.amount
+          : undefined
+        const sourceBalanceNum = sourceBalance ? toNumber(sourceBalance) : 0
+
+        if (sourceBalanceNum < totalNeeded) {
+          // 첫 시도 취소
+          await sourceLightning.cancelPrepared(prepared.id)
+
+          // fee를 뺀 금액으로 재시도
+          const adjustedNum = toNumber(swapAmount) - toNumber(prepared.fee)
+          if (adjustedNum <= 0) {
+            return Err({ code: 'INSUFFICIENT_BALANCE', message: 'Balance too low to cover swap fees' })
+          }
+          swapAmount = sat(adjustedNum)
+
+          // 새 receive request + prepare
+          request = await targetLightning.createReceiveRequest({
+            amount: swapAmount,
+            accountId: params.targetAccountId,
+          })
+          receiveCompleted = this.waitForReceiveCompletion(targetLightning, request.id)
+          prepared = await sourceLightning.prepareSend({
+            destination: request.encoded,
+            amount: swapAmount,
+            accountId: params.sourceAccountId,
+          })
+        }
+      }
 
       // 4. Transaction 기록
       const sendTx = createTransaction({
@@ -137,7 +174,7 @@ export class SwapService implements SwapUseCase {
         direction: 'receive',
         method: request.method,
         protocol: request.protocol,
-        amount: params.amount,
+        amount: swapAmount,
         accountId: params.targetAccountId,
         intent: 'swap',
         linkedTxId: sendTxId,
@@ -164,7 +201,7 @@ export class SwapService implements SwapUseCase {
           receiveTxId,
           sourceAccountId: params.sourceAccountId,
           targetAccountId: params.targetAccountId,
-          amount: params.amount,
+          amount: swapAmount,
           fee: prepared.fee,
         },
       })
@@ -180,7 +217,7 @@ export class SwapService implements SwapUseCase {
       return Ok({
         sendTxId,
         receiveTxId,
-        amount: params.amount,
+        amount: swapAmount,
         fee: prepared.fee,
       })
     } catch (error) {

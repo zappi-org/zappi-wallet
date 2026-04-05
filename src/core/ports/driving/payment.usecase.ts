@@ -58,6 +58,7 @@ export interface PaymentUseCase {
 export interface SendResult {
   transactionId: string
   state: string
+  fee?: Amount
   data?: Record<string, unknown>
 }
 

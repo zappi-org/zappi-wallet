@@ -18,6 +18,8 @@ export interface SwapParams {
   sourceAccountId: string
   targetAccountId: string
   amount: Amount
+  /** true이면 fee를 amount에서 차감하여 전액 이체 */
+  drain?: boolean
 }
 
 export interface SwapEstimate {
