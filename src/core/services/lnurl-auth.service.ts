@@ -1,47 +1,55 @@
-import type { LnurlGateway, LnurlAuthParams } from '@/core/ports/driven/lnurl-gateway.port'
+import type { LnurlGateway } from '@/core/ports/driven/lnurl-gateway.port'
 import type { KeyDeriver } from '@/core/ports/driven/key-deriver.port'
+import { Ok, Err } from '@/core/domain/result'
+import type { Result } from '@/core/domain/result'
+import type { PaymentError } from '@/core/errors/payment.errors'
+import type {
+  LnurlAuthUseCase,
+  AuthRequest,
+  AuthResult,
+} from '@/core/ports/driving/lnurl-auth.usecase'
 
-export interface AuthRequest {
-  params: LnurlAuthParams
-  domain: string
-  action?: string
-}
-
-export interface AuthResult {
-  success: boolean
-  domain: string
-  reason?: string
-}
-
-export class LnurlAuthService {
+export class LnurlAuthService implements LnurlAuthUseCase {
   constructor(
     private readonly lnurl: Required<Pick<LnurlGateway, 'parseAuth' | 'authenticate'>>,
     private readonly keyDeriver: KeyDeriver,
   ) {}
 
-  async parseAuthUrl(url: string): Promise<AuthRequest> {
-    const params = await this.lnurl.parseAuth(url)
-
-    return {
-      params,
-      domain: params.domain,
-      action: params.action,
+  async parseAuthUrl(url: string): Promise<Result<AuthRequest, PaymentError>> {
+    try {
+      const params = await this.lnurl.parseAuth(url)
+      return Ok({
+        domain: params.domain,
+        action: params.action,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to parse auth URL'
+      return Err({ code: 'LNURL_PARSE_FAILED', message })
     }
   }
 
-  async confirmAuth(params: LnurlAuthParams): Promise<AuthResult> {
-    const k1Bytes = hexToBytes(params.k1)
+  async confirmAuth(url: string): Promise<Result<AuthResult, PaymentError>> {
+    try {
+      const params = await this.lnurl.parseAuth(url)
+      const k1Bytes = hexToBytes(params.k1)
 
-    const { publicKey } = await this.keyDeriver.deriveKey('lnurl-auth', params.domain)
-    const signature = await this.keyDeriver.sign(k1Bytes, 'lnurl-auth', params.domain)
+      const { publicKey } = await this.keyDeriver.deriveKey('lnurl-auth', params.domain)
+      const signature = await this.keyDeriver.sign(k1Bytes, 'lnurl-auth', params.domain)
 
-    const sigHex = bytesToHex(signature)
-    const result = await this.lnurl.authenticate(params, sigHex, publicKey)
+      const sigHex = bytesToHex(signature)
+      const result = await this.lnurl.authenticate(params, sigHex, publicKey)
 
-    return {
-      success: result.status === 'OK',
-      domain: params.domain,
-      reason: result.reason,
+      if (result.status !== 'OK') {
+        return Err({ code: 'AUTH_FAILED', message: result.reason || 'Authentication rejected' })
+      }
+
+      return Ok({
+        success: true,
+        domain: params.domain,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Authentication failed'
+      return Err({ code: 'AUTH_FAILED', message })
     }
   }
 }
