@@ -432,6 +432,8 @@ export default function MainApp() {
         const registry = createBootstrap({
           nostrPrivateKeyHex: result.value.keys.privateKey,
         })
+        // CashuModule 초기화 — BIP-39 seed��� adapter 생성
+        await registry.cashuModule.initialize(result.value.bip39Seed, "m/129372'/0'")
         setServiceRegistry(registry)
 
         setLocked(false)
