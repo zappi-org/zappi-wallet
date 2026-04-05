@@ -53,6 +53,10 @@ export type ErrorCode =
   | 'NFC_UNAVAILABLE'
   | 'NFC_WRITE_FAILED'
   | 'SWAP_FAILED'
+  // LNURL
+  | 'LNURL_PARSE_FAILED'
+  | 'WITHDRAW_FAILED'
+  | 'AUTH_FAILED'
   // Base
   | 'NETWORK_ERROR'
   | 'TIMEOUT'
