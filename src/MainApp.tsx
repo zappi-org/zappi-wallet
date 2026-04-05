@@ -69,6 +69,7 @@ import { PaymentService } from '@/services/payment/payment.service'
 import { createProfileService } from '@/composition/profile'
 import { createSecurityService } from '@/composition/security'
 import { FailedSwapStoreAdapter } from '@/adapters/storage/failed-swap-store.adapter'
+import { cleanupExpired as cleanupExpiredReceiveRequests } from '@/services/receive-request'
 import { WalletService } from '@/services/wallet/wallet.service'
 import { formatSats } from '@/utils/format'
 
@@ -263,6 +264,7 @@ export default function MainApp() {
         // Data retention: clean up old records
         services.transactionRepo.deleteOlderThan(90).catch(() => {})
         failedSwapStore.cleanupNonRetryable(30).catch(() => {})
+        cleanupExpiredReceiveRequests().catch(() => {})
       } catch (error) {
         console.error('Init error:', error)
       } finally {
