@@ -21,8 +21,8 @@ import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
 import { SegmentControl } from '@/ui/components/common/SegmentControl'
 import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
 import { validateInput } from '@/ui/components/scanner/InputValidator'
-import { getContactRepo } from '@/data/repositories/contact.repository'
-import type { Contact, ContactAddressType } from '@/core/types'
+import { useContacts } from '@/hooks/use-contacts'
+import type { ContactAddressType } from '@/core/types'
 import type { SendableValidatedData } from '../SendFlow'
 
 /** Build badge labels from detected input */
@@ -79,11 +79,8 @@ export function SendInputStep({
   // Store the raw address when displayName is used (contact selection)
   const rawAddressRef = useRef<string | null>(null)
 
-  // Address book contacts
-  const [contacts, setContacts] = useState<Contact[]>([])
-  useEffect(() => {
-    getContactRepo().findAll().then(setContacts)
-  }, [])
+  // Address book contacts (via ContactUseCase)
+  const { contacts } = useContacts()
 
   // Segment: wallets vs contacts
   const [listTab, setListTab] = useState<'wallets' | 'contacts'>('wallets')
