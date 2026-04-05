@@ -130,6 +130,10 @@ export function useGiftWrapListener() {
   const setLastReceivedPayment = useAppStore((state) => state.setLastReceivedPayment)
   const setNostrConnectionStatus = useAppStore((state) => state.setNostrConnectionStatus)
 
+  // registry를 ref로 추적 — processToken 콜백이 항상 최신 registry를 참조
+  const registryRef = useRef(registry)
+  registryRef.current = registry
+
   const poolRef = useRef<SimplePool | null>(null)
   // relay별 연결+구독 상태 추적 (url → { relay, close })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -221,8 +225,8 @@ export function useGiftWrapListener() {
       let receivedAmount: number
 
       // Phase 5: PaymentUseCase.redeem() 경유 (new path)
-      if (registry?.payment) {
-        const redeemResult = await registry.payment.redeem({ adapterId: 'cashu:ecash', input: token })
+      if (registryRef.current?.payment) {
+        const redeemResult = await registryRef.current.payment.redeem({ adapterId: 'cashu:ecash', input: token })
         if (!redeemResult.ok) {
           throw new Error(redeemResult.error.message)
         }
