@@ -13,6 +13,7 @@ import { useStateReconstruction } from '@/hooks/useStateReconstruction'
 import { createAnchorService } from '@/composition/anchor'
 import { createBootstrap, type BootstrapResult } from '@/composition/bootstrap'
 import { ServiceProvider } from '@/hooks/service-context'
+import { AppLifecycleWatcher } from '@/composition/app-lifecycle.watcher'
 import { NostrGatewayAdapter } from '@/adapters/nostr/nostr-gateway'
 import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
 import { getCocoManager } from '@/coco/manager'
@@ -375,9 +376,9 @@ export default function MainApp() {
 
     setupSubscription()
 
-    // Visibility change handler - re-check when app comes to foreground
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible') {
+    // Visibility change watcher — foreground/background 전환 감시
+    const lifecycleWatcher = new AppLifecycleWatcher({
+      onResume: async () => {
         // Resume SDK subscriptions (WS reconnect + polling)
         try {
           const { getCocoManager, recheckPendingMintQuotes } = await import('@/coco/manager')
@@ -390,7 +391,6 @@ export default function MainApp() {
         exchangeRateService.refreshIfStale().catch(() => {})
 
         // Recovery + 잔액/pending quotes 동기화
-        // (Coco watcher가 백그라운드에서 redeem했을 수 있으므로 recovery 결과와 무관하게 실행)
         console.log('[Background] App visible, recovering pending operations')
         let recovery = null
         try {
@@ -400,21 +400,21 @@ export default function MainApp() {
         }
 
         await syncAfterRecovery(recovery)
-      } else {
+      },
+      onPause: async () => {
         // Pause SDK subscriptions (배터리 절약)
         try {
           const { getCocoManager } = await import('@/coco/manager')
           const manager = await getCocoManager()
           manager.pauseSubscriptions()
         } catch { /* ignore if not initialized */ }
-      }
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
+      },
+    })
+    lifecycleWatcher.start()
 
     return () => {
       cancelled = true
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      lifecycleWatcher.stop()
     }
   }, [isLocked, isInitializing, services.payment, syncAfterRecovery])
 
