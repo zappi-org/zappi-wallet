@@ -63,22 +63,21 @@ const RELAY_TIMEOUT_MS = 10000
 export async function sendTokenViaDM(options: SendTokenDMOptions): Promise<DMSendResult> {
   const { recipientPubkey, token, requestId, senderPrivkey, relays } = options
 
-  // Build NUT-18 PaymentRequestPayload JSON
+  // Build NUT-18 PaymentRequestPayload JSON via domain function
   let content = token
   try {
     const { getDecodedToken } = await import('@cashu/cashu-ts')
+    const { buildPaymentPayload, serializePaymentPayload } = await import('@/core/domain/cashu-payment-payload')
     const decoded = getDecodedToken(token)
 
-    const payload: Record<string, unknown> = {
-      id: requestId,
+    const payload = buildPaymentPayload({
       mint: decoded.mint,
       unit: decoded.unit || 'sat',
-      proofs: decoded.proofs,
-    }
-    const memo = options.memo || decoded.memo
-    if (memo) payload.memo = memo
-
-    content = JSON.stringify(payload)
+      proofs: decoded.proofs as import('@/core/domain/cashu-payment-payload').CashuProof[],
+      id: requestId,
+      memo: options.memo || decoded.memo,
+    })
+    content = serializePaymentPayload(payload)
   } catch (err) {
     // Fallback to raw token if decoding fails
     console.warn('[NostrDM] Failed to build PaymentRequestPayload, sending raw token:', err)

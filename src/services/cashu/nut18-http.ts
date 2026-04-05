@@ -181,16 +181,17 @@ export async function sendTokenViaHttp(options: {
   const { endpoint, token, requestId, memo } = options
 
   try {
-    // Decode token to extract mint + proofs for PaymentRequestPayload
+    // Decode token → domain PaymentRequestPayload
+    const { buildPaymentPayload } = await import('@/core/domain/cashu-payment-payload')
     const decoded = getDecodedToken(token)
 
-    const payload: PaymentRequestPayload = {
-      id: requestId,
-      memo,
+    const payload = buildPaymentPayload({
       mint: decoded.mint,
       unit: 'sat',
-      proofs: decoded.proofs,
-    }
+      proofs: decoded.proofs as import('@/core/domain/cashu-payment-payload').CashuProof[],
+      id: requestId,
+      memo,
+    })
 
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), SEND_TIMEOUT_MS)
