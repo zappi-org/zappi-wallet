@@ -5,28 +5,16 @@
  * UI 레이어가 ParsedInput을 받아 적절한 서비스/화면으로 분기.
  */
 
-import type { ContactAddressType } from '@/core/domain/contact'
-import type {
-  LnurlGateway,
-  LnurlPayParams,
-  LnurlWithdrawParams,
-  LnurlAuthParams,
-} from '@/core/ports/driven/lnurl-gateway.port'
+import type { LnurlGateway } from '@/core/ports/driven/lnurl-gateway.port'
+import type { InputRouterUseCase, ParsedInput } from '@/core/ports/driving/input-router.usecase'
 import { lnurlDecode } from '@/core/domain/nostr-address'
 
-// ─── ParsedInput ───
-
-export type ParsedInput =
-  | { type: 'address'; value: string; addressType: ContactAddressType }
-  | { type: 'lnurl-pay'; params: LnurlPayParams }
-  | { type: 'lnurl-withdraw'; params: LnurlWithdrawParams }
-  | { type: 'lnurl-auth'; params: LnurlAuthParams }
-  | { type: 'invoice'; bolt11: string }
-  | { type: 'cashu-token'; token: string }
+// Re-export for backward compatibility
+export type { ParsedInput }
 
 // ─── Service ───
 
-export class InputRouter {
+export class InputRouter implements InputRouterUseCase {
   constructor(
     private readonly lnurl: Pick<LnurlGateway, 'fetchLnurl'>,
   ) {}

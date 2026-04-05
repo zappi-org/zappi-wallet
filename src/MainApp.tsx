@@ -1,4 +1,5 @@
 import { LIMITS } from '@/core/constants'
+import { sat, toNumber } from '@/core/domain/amount'
 import { InsufficientBalanceError } from '@/core/errors/cashu'
 import { setMintNameResolver, toErrorMessage } from '@/utils/error-message'
 import { clearMintData } from '@/data/database/schema'
@@ -10,6 +11,9 @@ import { useWallet } from '@/hooks/use-wallet'
 import { useGiftWrapListener } from '@/hooks/useGiftWrapListener'
 import { useStateReconstruction } from '@/hooks/useStateReconstruction'
 import { createAnchorService } from '@/composition/anchor'
+import { createBootstrap, type BootstrapResult } from '@/composition/bootstrap'
+import { ServiceProvider } from '@/hooks/service-context'
+import { AppLifecycleWatcher } from '@/composition/app-lifecycle.watcher'
 import { NostrGatewayAdapter } from '@/adapters/nostr/nostr-gateway'
 import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
 import { getCocoManager } from '@/coco/manager'
@@ -105,6 +109,9 @@ export default function MainApp() {
   const setSettings = useAppStore((state) => state.setSettings)
   const addPendingQuote = useAppStore((state) => state.addPendingQuote)
 
+  // Service Registry (Phase 5: bootstrap 후 생성, unlock 전에는 null)
+  const [serviceRegistry, setServiceRegistry] = useState<BootstrapResult | null>(null)
+
   // Hooks
   const { refreshBalance } = useWallet()
   const { isOnline } = useNetwork()
@@ -115,7 +122,7 @@ export default function MainApp() {
 
   // Gift Wrap Listener - listens for NIP-17 DMs containing Cashu tokens (NUT-18 responses)
   // This runs when unlocked with nostr keys and settings loaded
-  const { activateListening } = useGiftWrapListener()
+  const { activateListening } = useGiftWrapListener(serviceRegistry)
   useCrossTabSync()
 
   // Local state
@@ -369,9 +376,9 @@ export default function MainApp() {
 
     setupSubscription()
 
-    // Visibility change handler - re-check when app comes to foreground
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible') {
+    // Visibility change watcher — foreground/background 전환 감시
+    const lifecycleWatcher = new AppLifecycleWatcher({
+      onResume: async () => {
         // Resume SDK subscriptions (WS reconnect + polling)
         try {
           const { getCocoManager, recheckPendingMintQuotes } = await import('@/coco/manager')
@@ -384,7 +391,6 @@ export default function MainApp() {
         exchangeRateService.refreshIfStale().catch(() => {})
 
         // Recovery + 잔액/pending quotes 동기화
-        // (Coco watcher가 백그라운드에서 redeem했을 수 있으므로 recovery 결과와 무관하게 실행)
         console.log('[Background] App visible, recovering pending operations')
         let recovery = null
         try {
@@ -394,21 +400,21 @@ export default function MainApp() {
         }
 
         await syncAfterRecovery(recovery)
-      } else {
+      },
+      onPause: async () => {
         // Pause SDK subscriptions (배터리 절약)
         try {
           const { getCocoManager } = await import('@/coco/manager')
           const manager = await getCocoManager()
           manager.pauseSubscriptions()
         } catch { /* ignore if not initialized */ }
-      }
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
+      },
+    })
+    lifecycleWatcher.start()
 
     return () => {
       cancelled = true
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      lifecycleWatcher.stop()
     }
   }, [isLocked, isInitializing, services.payment, syncAfterRecovery])
 
@@ -421,6 +427,14 @@ export default function MainApp() {
         setNostrKeyPair(result.value.keys.publicKey, result.value.keys.privateKey)
         const { pubkey: p2pkPub } = await services.p2pkKeyManager.getCurrentKey()
         setP2pkPubkey(p2pkPub)
+
+        // Phase 5: Bootstrap service registry (new path, coexists with old)
+        const registry = createBootstrap({
+          nostrPrivateKeyHex: result.value.keys.privateKey,
+        })
+        // CashuModule 초기화 — BIP-39 seed��� adapter 생성
+        await registry.cashuModule.initialize(result.value.bip39Seed, "m/129372'/0'")
+        setServiceRegistry(registry)
 
         setLocked(false)
         // Refresh balance after unlock
@@ -437,6 +451,32 @@ export default function MainApp() {
   const handleCreateInvoice = useCallback(async (amount: number, mintUrl: string) => {
     if (!mintUrl) return null
 
+    // Phase 5: PaymentUseCase.receive() 경유 (new path)
+    if (serviceRegistry?.payment) {
+      const result = await serviceRegistry.payment.receive({
+        accountId: mintUrl,
+        adapterId: 'cashu:bolt11',
+        amount: sat(amount),
+      })
+      if (result.ok) {
+        const req = result.value
+        addPendingQuote({
+          quoteId: req.id,
+          mintUrl,
+          amount,
+          invoice: req.encoded,
+          expiry: req.expiresAt ? req.expiresAt : Date.now() + 10 * 60 * 1000,
+        })
+        return {
+          invoice: req.encoded,
+          quoteId: req.id,
+          expiry: req.expiresAt ? Math.floor(req.expiresAt / 1000) : Math.floor(Date.now() / 1000) + 600,
+        }
+      }
+      return null
+    }
+
+    // Fallback: old path
     const result = await services.payment.createLightningInvoice(amount, mintUrl)
     if (result.isOk()) {
       const { quote } = result.value
@@ -454,18 +494,28 @@ export default function MainApp() {
       }
     }
     return null
-  }, [services.payment, addPendingQuote])
+  }, [serviceRegistry, services.payment, addPendingQuote])
 
   const handleReceiveToken = useCallback(async (token: string): Promise<{ success: boolean; amount?: number; transactionId?: string; error?: { code?: string; message?: string } }> => {
+    // Phase 5: PaymentUseCase.redeem() 경유 (new path)
+    if (serviceRegistry?.payment) {
+      const result = await serviceRegistry.payment.redeem({ adapterId: 'cashu:ecash', input: token })
+      if (result.ok) {
+        refreshAll().catch((e) => console.error('[MainApp] refreshAll after receive failed:', e))
+        return { success: true, amount: toNumber(result.value.amount), transactionId: result.value.requestId }
+      }
+      return { success: false, error: { code: result.error.code, message: result.error.message } }
+    }
+
+    // Fallback: old path
     const result = await services.payment.receiveEcash(token)
     if (result.isOk()) {
-      // Token consumed — refresh is best-effort, must not mask success
       refreshAll().catch((e) => console.error('[MainApp] refreshAll after receive failed:', e))
       return { success: true, amount: result.value.amount, transactionId: result.value.transactionId }
     }
     const e = result.error
     return { success: false, error: { code: e.code, message: toErrorMessage(e) } }
-  }, [services.payment, refreshAll])
+  }, [serviceRegistry, services.payment, refreshAll])
 
   /** Estimate Lightning fee for cross-mint swap (non-destructive) */
   const handleEstimateSwapFee = useCallback(async (
@@ -473,13 +523,28 @@ export default function MainApp() {
     toMintUrl: string,
     amount: number,
   ): Promise<{ fee: number; totalNeeded: number } | null> => {
+    // Phase 5: SwapUseCase.estimateSwap() 경유
+    if (serviceRegistry?.swap) {
+      const result = await serviceRegistry.swap.estimateSwap({
+        sourceAccountId: fromMintUrl,
+        targetAccountId: toMintUrl,
+        amount: sat(amount),
+      })
+      if (result.ok) {
+        const fee = toNumber(result.value.fee)
+        return { fee, totalNeeded: amount + fee }
+      }
+      return null
+    }
+
+    // Fallback: old path
     try {
       return await services.payment.estimateSwapFee(fromMintUrl, toMintUrl, amount)
     } catch (error) {
       console.error('[MainApp] estimateSwapFee failed:', error)
       return null
     }
-  }, [services.payment])
+  }, [serviceRegistry, services.payment])
 
   /** Cross-mint swap receive: receive token on source mint, then swap to target */
   const handleSwapReceive = useCallback(async (
@@ -488,27 +553,46 @@ export default function MainApp() {
     targetMintUrl: string,
     amount: number,
   ): Promise<{ success: boolean; amount?: number; error?: { code?: string; message?: string } }> => {
-    // 1. Receive token on source mint (auto-registers in Coco)
+    // Phase 5: redeem + SwapUseCase 경유
+    if (serviceRegistry?.payment && serviceRegistry?.swap) {
+      // 1. Redeem token on source mint
+      const redeemResult = await serviceRegistry.payment.redeem({ adapterId: 'cashu:ecash', input: token })
+      if (!redeemResult.ok) {
+        return { success: false, error: { code: redeemResult.error.code, message: redeemResult.error.message } }
+      }
+
+      // 2. Swap from source to target
+      const swapResult = await serviceRegistry.swap.executeSwap({
+        sourceAccountId: sourceMintUrl,
+        targetAccountId: targetMintUrl,
+        amount: sat(amount),
+      })
+      if (!swapResult.ok) {
+        refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap fail:', e))
+        return { success: false, error: { code: swapResult.error.code, message: swapResult.error.message } }
+      }
+
+      refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap:', e))
+      return { success: true, amount: toNumber(swapResult.value.amount) }
+    }
+
+    // Fallback: old path
     const receiveResult = await services.payment.receiveEcash(token)
     if (receiveResult.isErr()) {
       const e = receiveResult.error
       return { success: false, error: { code: e.code, message: toErrorMessage(e) } }
     }
 
-    // 2. Swap from source to target mint via Lightning
     const swapResult = await services.payment.mintSwap(sourceMintUrl, targetMintUrl, amount)
     if (swapResult.isErr()) {
-      // Token was received but swap failed — balance is on source mint
-      // Refresh is best-effort so user can see the balance
       refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap fail:', e))
       const e = swapResult.error
       return { success: false, error: { code: e.code, message: toErrorMessage(e) } }
     }
 
-    // 3. Success — refresh is best-effort, must not mask success
     refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap:', e))
     return { success: true, amount: swapResult.value.amount }
-  }, [services.payment, refreshAll])
+  }, [serviceRegistry, services.payment, refreshAll])
 
 
   /** Unified send handler via routing layer */
@@ -866,8 +950,8 @@ export default function MainApp() {
     return <LockScreen onUnlock={handleUnlock} />
   }
 
-  // Main app
-  return (
+  // Main app content
+  const mainContent = (
     <>
       <div className="relative h-dvh overflow-hidden">
       <AnimatePresence mode="sync">
@@ -1176,4 +1260,15 @@ export default function MainApp() {
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
     </>
   )
+
+  // Phase 5: ServiceProvider로 감싸기 (registry 존재 시)
+  if (serviceRegistry) {
+    return (
+      <ServiceProvider registry={serviceRegistry}>
+        {mainContent}
+      </ServiceProvider>
+    )
+  }
+
+  return mainContent
 }

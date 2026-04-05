@@ -1,4 +1,4 @@
-import { useCallback, useRef, useMemo } from 'react'
+import { useCallback, useRef, useMemo, useContext } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import {
@@ -9,6 +9,8 @@ import {
 } from '@/store/selectors'
 import { WalletService } from '@/services/wallet/wallet.service'
 import { getBalances as cocoGetBalances } from '@/coco/cashuService'
+import { ServiceContext } from '@/hooks/service-context-value'
+import { toNumber } from '@/core/domain/amount'
 import type { Proof } from '@cashu/cashu-ts'
 
 /**
@@ -16,6 +18,7 @@ import type { Proof } from '@cashu/cashu-ts'
  */
 export function useWallet() {
   const { t } = useTranslation()
+  const registry = useContext(ServiceContext)
   const walletServiceRef = useRef<WalletService | null>(null)
 
   // Get wallet service singleton
@@ -44,29 +47,37 @@ export function useWallet() {
   const addToast = useAppStore((state) => state.addToast)
 
   /**
-   * Load balance from Coco (the single source of truth)
+   * Load balance — Phase 5: BalanceUseCase 경유 (new path), fallback to Coco
    */
   const loadBalance = useCallback(async () => {
-    // Stale-while-revalidate: only show loading spinner on initial load.
-    // If we already have balance data, keep showing it while refreshing.
     const hasExistingData = Object.keys(useAppStore.getState().balance.byMint).length > 0
     if (!hasExistingData) {
       setLoadingBalance(true)
     }
     try {
-      // Use Coco's balance (where proofs are actually stored)
-      const cocoBalances = await cocoGetBalances()
-
-      // Convert to WalletBalance format
-      const byMint: Record<string, number> = {}
-      let total = 0
-
-      for (const [mintUrl, balance] of Object.entries(cocoBalances)) {
-        byMint[mintUrl] = balance
-        total += balance
+      if (registry?.balance) {
+        // New path: BalanceUseCase.getByModule()
+        const moduleBalances = await registry.balance.getByModule()
+        const byMint: Record<string, number> = {}
+        let total = 0
+        for (const mb of moduleBalances) {
+          for (const account of mb.accounts) {
+            byMint[account.id] = toNumber(account.amount)
+            total += toNumber(account.amount)
+          }
+        }
+        setBalance({ total, byMint })
+      } else {
+        // Fallback: Coco direct
+        const cocoBalances = await cocoGetBalances()
+        const byMint: Record<string, number> = {}
+        let total = 0
+        for (const [mintUrl, balance] of Object.entries(cocoBalances)) {
+          byMint[mintUrl] = balance
+          total += balance
+        }
+        setBalance({ total, byMint })
       }
-
-      setBalance({ total, byMint })
     } catch (error) {
       console.error('Failed to load balance:', error)
       addToast({
@@ -76,7 +87,7 @@ export function useWallet() {
     } finally {
       setLoadingBalance(false)
     }
-  }, [setBalance, setLoadingBalance, addToast, t])
+  }, [registry, setBalance, setLoadingBalance, addToast, t])
 
   /**
    * Get balance for a specific mint

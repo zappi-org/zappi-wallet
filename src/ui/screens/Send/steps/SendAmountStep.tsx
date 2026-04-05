@@ -14,6 +14,7 @@ import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { getMintBalance } from '@/utils/url'
 import { findContactName } from '../sendDisplayHelpers'
+import { useContacts } from '@/hooks/use-contacts'
 import type { SendableValidatedData } from '../SendFlow'
 
 interface SendAmountStepProps {
@@ -67,13 +68,14 @@ export function SendAmountStep({
     (validatedData?.type === 'bolt11' && validatedData.amountSats > 0) ||
     (validatedData?.type === 'cashu-request' && !!validatedData.parsed.amount && validatedData.parsed.amount > 0)
 
-  // Contact name lookup
+  // Contact name lookup (via ContactUseCase)
+  const { findByAddress } = useContacts()
   const [contactName, setContactName] = useState<string | null>(null)
   useEffect(() => {
     if (!destination) return
     const addr = validatedData?.type === 'lightning-address' ? validatedData.address : destination
-    findContactName(addr).then(setContactName)
-  }, [destination, validatedData])
+    findContactName(addr, findByAddress).then(setContactName)
+  }, [destination, validatedData, findByAddress])
 
   // Destination display
   const destinationDisplay = useMemo(() => {

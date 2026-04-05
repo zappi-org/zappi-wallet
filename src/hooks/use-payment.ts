@@ -9,6 +9,9 @@ import {
 import { PaymentService } from '@/services/payment/payment.service'
 import { toErrorMessage } from '@/utils/error-message'
 import { formatSats } from '@/utils/format'
+import { sat, toNumber } from '@/core/domain/amount'
+import { ServiceContext } from '@/hooks/service-context-value'
+import { useContext } from 'react'
 
 /**
  * Hook for payment operations
@@ -172,7 +175,10 @@ export function usePayment() {
 
   /**
    * Swap tokens between mints via Lightning
+   * Phase 5: SwapUseCase 경유 (ServiceContext 사용 가능 시), fallback으로 old path
    */
+  const registry = useContext(ServiceContext)
+
   const mintSwap = useCallback(
     async (fromMintUrl: string, toMintUrl: string, amount: number, options?: { drain?: boolean }) => {
       if (!canPerformOnlineOps) {
@@ -185,6 +191,37 @@ export function usePayment() {
 
       setProcessingPayment(true)
       try {
+        // New path: SwapUseCase via ServiceContext
+        if (registry?.swap) {
+          const result = await registry.swap.executeSwap({
+            sourceAccountId: fromMintUrl,
+            targetAccountId: toMintUrl,
+            amount: sat(amount),
+            drain: options?.drain,
+          })
+
+          if (!result.ok) {
+            addToast({
+              type: 'error',
+              message: result.error.message,
+            })
+            return null
+          }
+
+          // success toast는 EventBus bridge(event-store-bridge.ts)가 swap:completed 이벤트로 표시
+          // 여기서 중복 toast를 표시하지 않음
+
+          return {
+            success: true,
+            amount: toNumber(result.value.amount),
+            fee: toNumber(result.value.fee),
+            fromMintUrl,
+            toMintUrl,
+            transactionId: result.value.sendTxId,
+          }
+        }
+
+        // Fallback: old PaymentService (ServiceContext 없을 때)
         const paymentService = getPaymentService()
         const result = await paymentService.mintSwap(fromMintUrl, toMintUrl, amount, options)
 
@@ -206,7 +243,7 @@ export function usePayment() {
         setProcessingPayment(false)
       }
     },
-    [canPerformOnlineOps, getPaymentService, setProcessingPayment, addToast, t]
+    [canPerformOnlineOps, registry, getPaymentService, setProcessingPayment, addToast, t]
   )
 
   return {

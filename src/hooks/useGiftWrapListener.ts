@@ -5,6 +5,8 @@ import { hexToBytes } from '@noble/hashes/utils.js'
 import { useAppStore } from '@/store'
 import { getDecodedToken, getEncodedToken } from '@cashu/cashu-ts'
 import { receiveP2PKToken } from '@/coco'
+import { toNumber } from '@/core/domain/amount'
+import type { ServiceRegistry } from '@/composition/types'
 import { sendDM } from '@/services/nostr-dm'
 import { subscribeNetworkStatus } from '@/hooks/useNetworkStatus'
 import { ProcessedEventRepository } from '@/data/repositories/processed-event.repository'
@@ -113,7 +115,7 @@ function isCashuV4JsonToken(msg: unknown): msg is CashuV4JsonToken {
   )
 }
 
-export function useGiftWrapListener() {
+export function useGiftWrapListener(registry?: ServiceRegistry | null) {
   const { t } = useTranslation()
   // Get state from unified store
   const settings = useAppStore((state) => state.settings)
@@ -126,6 +128,10 @@ export function useGiftWrapListener() {
   const addToast = useAppStore((state) => state.addToast)
   const setLastReceivedPayment = useAppStore((state) => state.setLastReceivedPayment)
   const setNostrConnectionStatus = useAppStore((state) => state.setNostrConnectionStatus)
+
+  // registry를 ref로 추적 — processToken 콜백이 항상 최신 registry를 참조
+  const registryRef = useRef(registry)
+  registryRef.current = registry
 
   const poolRef = useRef<SimplePool | null>(null)
   // relay별 연결+구독 상태 추적 (url → { relay, close })
@@ -212,15 +218,27 @@ export function useGiftWrapListener() {
         // Still process it, but log warning
       }
 
-      // Receive token to claim ownership (with P2PK signature)
+      // Receive token to claim ownership
       console.log('[GiftWrap] Receiving token to claim ownership...')
-      const p2pkPrivkey = useAppStore.getState().nostrPrivkey
-      if (!p2pkPrivkey) {
-        throw new Error('Private key not available for P2PK signature')
-      }
 
-      // Coco 기반 P2PK 토큰 수령 (proofs 자동 저장)
-      const result = await receiveP2PKToken(token, p2pkPrivkey)
+      let receivedAmount: number
+
+      // Phase 5: PaymentUseCase.redeem() 경유 (new path)
+      if (registryRef.current?.payment) {
+        const redeemResult = await registryRef.current.payment.redeem({ adapterId: 'cashu:ecash', input: token })
+        if (!redeemResult.ok) {
+          throw new Error(redeemResult.error.message)
+        }
+        receivedAmount = toNumber(redeemResult.value.amount)
+      } else {
+        // Fallback: old Coco direct
+        const p2pkPrivkey = useAppStore.getState().nostrPrivkey
+        if (!p2pkPrivkey) {
+          throw new Error('Private key not available for P2PK signature')
+        }
+        const result = await receiveP2PKToken(token, p2pkPrivkey)
+        receivedAmount = result.amount
+      }
 
       // Save transaction to new data layer (deterministic ID based on event to prevent duplicates)
       const txRecordId = `tx-gw-${eventId}`
@@ -230,8 +248,8 @@ export function useGiftWrapListener() {
           id: txRecordId,
           direction: 'receive',
           type: 'ecash',
-          amount: result.amount,
-          mintUrl: result.mintUrl,
+          amount: receivedAmount,
+          mintUrl,
           status: 'completed',
           createdAt: Date.now(),
           completedAt: Date.now(),
@@ -244,14 +262,14 @@ export function useGiftWrapListener() {
       }
 
       // Mark as processed in IndexedDB
-      await markTxProcessed(txId, eventId, 'success', result.amount)
+      await markTxProcessed(txId, eventId, 'success', receivedAmount)
 
-      console.log(`[GiftWrap] Successfully claimed ${result.amount} sat!`)
+      console.log(`[GiftWrap] Successfully claimed ${receivedAmount} sat!`)
 
       // Notify ReceiveFlow if this was a NUT-18 request fulfillment
       if (requestId) {
         console.log(`[GiftWrap] Notifying of payment for request: ${requestId}`)
-        setLastReceivedPayment(requestId, result.amount, eventId)
+        setLastReceivedPayment(requestId, receivedAmount, eventId)
 
         import('@/services/receive-request').then(({ completeByEcashRequestId }) => {
           completeByEcashRequestId(requestId)
@@ -265,7 +283,7 @@ export function useGiftWrapListener() {
       // Show toast notification
       addToast({
         type: 'success',
-        message: t('toast.ecashTokenReceived', { amount: formatSats(result.amount) }),
+        message: t('toast.ecashTokenReceived', { amount: formatSats(receivedAmount) }),
         duration: 5000,
       })
 
