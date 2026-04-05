@@ -11,27 +11,12 @@ import type { LnurlPayParams } from '@/core/ports/driven/lnurl-gateway.port'
 import type { Nip05Resolver } from '@/core/ports/driven/nip05-resolver.port'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
 import type { LnurlGateway } from '@/core/ports/driven/lnurl-gateway.port'
+import type { PaymentCapabilities, DirectTokenInfo } from '@/core/ports/driving/address-resolver.usecase'
 import { npubDecode, nprofileDecode } from '@/core/domain/nostr-address'
 import { parseNutZapInfo } from '@/core/domain/nutzap'
 
-// ─── Types ───
-
-export interface DirectTokenInfo {
-  mints: string[]
-  p2pkPubkey?: string
-}
-
-export interface PaymentCapabilities {
-  address: string
-  type: ContactAddressType
-  pubkey?: string
-  relays?: string[]
-  capabilities: {
-    directToken?: DirectTokenInfo
-    lnurl?: LnurlPayParams
-    bolt12?: { offer: string }
-  }
-}
+// Re-export for backward compatibility
+export type { PaymentCapabilities, DirectTokenInfo }
 
 // ─── Service ───
 
