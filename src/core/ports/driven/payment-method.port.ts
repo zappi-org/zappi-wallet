@@ -85,6 +85,7 @@ export interface RedeemResult {
   method: string
   protocol: string
   completed: boolean
+  accountId?: string
 }
 
 export interface ReceiveCompletedResult {

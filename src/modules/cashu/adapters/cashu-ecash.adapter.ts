@@ -34,7 +34,7 @@ export interface EcashBackend {
   }): Promise<{ operationId: string; fee: number; needsSwap: boolean }>
   executeSend(operationId: string, options?: { memo?: string }): Promise<{ token: string }>
   rollbackSend(operationId: string): Promise<void>
-  receiveToken(token: string): Promise<{ amount: number }>
+  receiveToken(token: string): Promise<{ amount: number; mintUrl: string }>
   recoverPendingSendTokens(): Promise<{ reclaimed: number; recorded: number }>
 }
 
@@ -124,8 +124,15 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
   // ─── 받기 실행 (redeem) ───
 
   async redeem(input: string): Promise<RedeemResult> {
-    const { amount } = await this.backend.receiveToken(input)
-    return { requestId: '', amount: sat(amount), method: 'ecash', protocol: 'cashu-token', completed: true }
+    const { amount, mintUrl } = await this.backend.receiveToken(input)
+    return {
+      requestId: crypto.randomUUID(),
+      amount: sat(amount),
+      method: 'cashu:ecash',
+      protocol: 'cashu-token',
+      completed: true,
+      accountId: mintUrl,
+    }
   }
 
   // ─── 복구 ───
