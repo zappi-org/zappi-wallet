@@ -10,6 +10,8 @@ import { useWallet } from '@/hooks/use-wallet'
 import { useGiftWrapListener } from '@/hooks/useGiftWrapListener'
 import { useStateReconstruction } from '@/hooks/useStateReconstruction'
 import { createAnchorService } from '@/composition/anchor'
+import { createBootstrap, type BootstrapResult } from '@/composition/bootstrap'
+import { ServiceProvider } from '@/hooks/service-context'
 import { NostrGatewayAdapter } from '@/adapters/nostr/nostr-gateway'
 import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
 import { getCocoManager } from '@/coco/manager'
@@ -163,6 +165,9 @@ export default function MainApp() {
 
   // Transaction detail state
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
+
+  // Service Registry (Phase 5: bootstrap 후 생성, unlock 전에는 null)
+  const [serviceRegistry, setServiceRegistry] = useState<BootstrapResult | null>(null)
 
   // Services (initialized once)
   const [services] = useState(() => {
@@ -421,6 +426,12 @@ export default function MainApp() {
         setNostrKeyPair(result.value.keys.publicKey, result.value.keys.privateKey)
         const { pubkey: p2pkPub } = await services.p2pkKeyManager.getCurrentKey()
         setP2pkPubkey(p2pkPub)
+
+        // Phase 5: Bootstrap service registry (new path, coexists with old)
+        const registry = createBootstrap({
+          nostrPrivateKeyHex: result.value.keys.privateKey,
+        })
+        setServiceRegistry(registry)
 
         setLocked(false)
         // Refresh balance after unlock
@@ -866,8 +877,8 @@ export default function MainApp() {
     return <LockScreen onUnlock={handleUnlock} />
   }
 
-  // Main app
-  return (
+  // Main app content
+  const mainContent = (
     <>
       <div className="relative h-dvh overflow-hidden">
       <AnimatePresence mode="sync">
@@ -1176,4 +1187,15 @@ export default function MainApp() {
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
     </>
   )
+
+  // Phase 5: ServiceProvider로 감싸기 (registry 존재 시)
+  if (serviceRegistry) {
+    return (
+      <ServiceProvider registry={serviceRegistry}>
+        {mainContent}
+      </ServiceProvider>
+    )
+  }
+
+  return mainContent
 }
