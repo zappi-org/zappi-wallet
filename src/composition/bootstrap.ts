@@ -23,6 +23,7 @@ import { NostrGatewayAdapter } from '@/adapters/nostr/nostr-gateway'
 // ─── Adapters (non-module) ───
 import { DirectLnurlAdapter } from '@/adapters/lnurl/direct-lnurl.adapter'
 import { Nip05ResolverAdapter } from '@/adapters/nip05/nip05-resolver'
+import { SettingsRepository } from '@/data/repositories/settings.repository'
 
 // ─── Composition Roots ───
 import { createPaymentService } from './payment'
@@ -31,6 +32,7 @@ import { createSwapService } from './swap'
 import { createContactService } from './contact'
 import { createInputRouter } from './input-router'
 import { createAddressResolver } from './address-resolver'
+import { createProfileService } from './profile'
 import { connectEventStoreBridge } from './event-store-bridge'
 
 // ─── Types ───
@@ -84,6 +86,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const balance = createBalanceService(modules)
   const swap = createSwapService(modules, txRepo, eventBus)
   const contact = createContactService(contactRepo)
+  const profile = createProfileService(nostrGateway, new SettingsRepository())
   const inputRouter = createInputRouter(lnurlAdapter)
   const addressResolver = createAddressResolver(nip05Adapter, nostrGateway, lnurlAdapter)
 
@@ -96,6 +99,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     balance,
     swap,
     contact,
+    profile,
     inputRouter,
     addressResolver,
     modules,

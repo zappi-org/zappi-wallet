@@ -14,6 +14,7 @@ import type { InputRouterUseCase } from '@/core/ports/driving/input-router.useca
 import type { AddressResolverUseCase } from '@/core/ports/driving/address-resolver.usecase'
 import type { WithdrawUseCase } from '@/core/ports/driving/withdraw.usecase'
 import type { LnurlAuthUseCase } from '@/core/ports/driving/lnurl-auth.usecase'
+import type { ProfileUseCase } from '@/core/ports/driving/profile.usecase'
 
 export interface ServiceRegistry {
   readonly eventBus: EventBus
@@ -23,6 +24,7 @@ export interface ServiceRegistry {
   readonly contact: ContactUseCase
   readonly inputRouter: InputRouterUseCase
   readonly addressResolver: AddressResolverUseCase
+  readonly profile: ProfileUseCase
   readonly withdraw?: WithdrawUseCase
   readonly lnurlAuth?: LnurlAuthUseCase
 }

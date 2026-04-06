@@ -1,5 +1,4 @@
 import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
-import { NostrGatewayAdapter } from '@/adapters/nostr/nostr-gateway'
 import { getCocoManager } from '@/coco/manager'
 import { AppLifecycleWatcher } from '@/composition/app-lifecycle.watcher'
 import { createBootstrap, type BootstrapResult } from '@/composition/bootstrap'
@@ -58,7 +57,6 @@ import { SendFlow } from '@/ui/screens/Send/SendFlow'
 import { FailedSwapStoreAdapter } from '@/adapters/storage/failed-swap-store.adapter'
 import { clearWalletCache, deleteCocoData, markSendFinalized, markSendReclaimed } from '@/coco'
 import { getBalances as cocoGetBalances } from '@/coco/cashuService'
-import { createProfileService } from '@/composition/profile'
 import { createSecurityService } from '@/composition/security'
 import type { Transaction } from '@/core/types'
 import { resetWalletCache } from '@/data/cache/wallet-cache'
@@ -284,7 +282,7 @@ export default function MainApp() {
   const anchorCheckedRef = useRef(false)
   useEffect(() => {
     // Only run when unlocked, not initializing, has keys, and hasn't been checked yet
-    if (isLocked || isInitializing || !nostrPubkey || !nostrPrivkey) return
+    if (isLocked || isInitializing || !nostrPubkey || !nostrPrivkey || !serviceRegistry) return
     if (anchorCheckedRef.current) return
 
     anchorCheckedRef.current = true
@@ -294,8 +292,8 @@ export default function MainApp() {
       setIsRecovering(true)
 
       try {
-        const nostrGateway = new NostrGatewayAdapter({ privateKeyHex: nostrPrivkey! })
-        const recoveryService = createRecoveryService(nostrGateway)
+        await serviceRegistry.nostrGateway.connect(settings.relays)
+        const recoveryService = createRecoveryService(serviceRegistry.nostrGateway)
 
         const result = await recoveryService.syncAll({
           privateKey: nostrPrivkey!,
@@ -321,7 +319,7 @@ export default function MainApp() {
     }
 
     runRecovery()
-  }, [isLocked, isInitializing, nostrPubkey, nostrPrivkey, refreshAll, addToast, t])
+  }, [isLocked, isInitializing, nostrPubkey, nostrPrivkey, serviceRegistry, refreshAll, addToast, t])
 
   const isSendingEcashRef = useRef(false)
 
@@ -772,6 +770,18 @@ export default function MainApp() {
     return false
   }, [services.security, services.settingsRepo, services.transactionRepo])
 
+  /** Profile republish — bootstrap의 profileService 경유 */
+  const republishProfile = useCallback(async (mints: string[], relays: string[]) => {
+    if (!serviceRegistry || !nostrPubkey || !p2pkPubkey) return
+    try {
+      await serviceRegistry.nostrGateway.connect(relays)
+      await serviceRegistry.profile.publishAll(nostrPubkey, mints, relays, p2pkPubkey)
+      console.log('[Profile] Republished successfully')
+    } catch (e) {
+      console.warn('[Profile] Failed to republish:', e)
+    }
+  }, [serviceRegistry, nostrPubkey, p2pkPubkey])
+
   const handleSaveSettings = useCallback(async (newSettings: Record<string, unknown>): Promise<void> => {
     const mergedSettings = { ...settings, ...newSettings }
     setSettings(mergedSettings)
@@ -784,25 +794,11 @@ export default function MainApp() {
     const mintsChanged = newMints && JSON.stringify(newMints) !== JSON.stringify(settings.mints)
     const relaysChanged = newRelays && JSON.stringify(newRelays) !== JSON.stringify(settings.relays)
 
-    if ((mintsChanged || relaysChanged) && nostrPrivkey && p2pkPubkey) {
-      try {
-        console.log('[Settings] Mints/relays changed, republishing kind:10019...')
-        const nostrGw = new NostrGatewayAdapter({ privateKeyHex: nostrPrivkey })
-        await nostrGw.connect(settings.relays)
-        const profileSvc = createProfileService(nostrGw, services.settingsRepo)
-        await profileSvc.publishAll(
-          nostrPubkey!,
-          newMints || settings.mints,
-          newRelays || settings.relays,
-          p2pkPubkey,
-        )
-        console.log('[Settings] Profile republished successfully')
-      } catch (e) {
-        console.warn('[Settings] Failed to republish profile:', e)
-      }
+    if ((mintsChanged || relaysChanged) && p2pkPubkey) {
+      republishProfile(newMints || settings.mints, newRelays || settings.relays)
     }
     broadcastSync('settings_changed')
-  }, [services.settingsRepo, settings, setSettings, nostrPrivkey, nostrPubkey, p2pkPubkey])
+  }, [services.settingsRepo, settings, setSettings, p2pkPubkey, republishProfile])
 
   // Handle adding a trusted mint (from receive screen)
   const handleAddTrustedMint = useCallback(async (mintUrl: string): Promise<boolean> => {
@@ -836,22 +832,8 @@ export default function MainApp() {
       await services.settingsRepo.saveSettings({ ...settings, mints: newMints, mintAliases: newAliases })
       setSettings({ ...settings, mints: newMints, mintAliases: newAliases })
 
-      if (nostrPrivkey && p2pkPubkey) {
-        try {
-          console.log('[App] Re-publishing profile with updated mints...')
-          const nostrGw = new NostrGatewayAdapter({ privateKeyHex: nostrPrivkey })
-          await nostrGw.connect(settings.relays)
-          const profileSvc = createProfileService(nostrGw, services.settingsRepo)
-          await profileSvc.publishAll(
-            nostrPubkey!,
-            newMints,
-            settings.relays,
-            p2pkPubkey,
-          )
-          console.log('[App] Profile republished successfully')
-        } catch (e) {
-          console.warn('[App] Failed to republish profile:', e)
-        }
+      if (p2pkPubkey) {
+        republishProfile(newMints, settings.relays)
       }
 
       console.log('[App] Added trusted mint:', url)
@@ -861,7 +843,7 @@ export default function MainApp() {
       console.error('[App] Failed to add trusted mint:', error)
       return false
     }
-  }, [settings, services.settingsRepo, setSettings, nostrPrivkey, nostrPubkey, p2pkPubkey, t])
+  }, [settings, services.settingsRepo, setSettings, p2pkPubkey, republishProfile, t])
 
   const handleBack = useCallback(() => {
     const target = previousScreen || 'home'
