@@ -174,6 +174,15 @@ export class DexieTransactionRepository implements TransactionRepository {
       results = results.filter((tx) => tx.status === legacyStatus)
     }
 
+    if (filter?.outcome) {
+      results = results.filter((tx) => {
+        if (filter.outcome === 'unclaimed') return tx.status === 'pending' && tx.tokenState === 'unspent'
+        if (filter.outcome === 'claimed') return tx.status === 'completed' && tx.failureReason !== 'reclaimed'
+        if (filter.outcome === 'reclaimed') return tx.status === 'completed' && tx.failureReason === 'reclaimed'
+        return true
+      })
+    }
+
     if (filter?.limit && results.length > filter.limit) {
       results = results.slice(0, filter.limit)
     }

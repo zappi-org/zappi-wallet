@@ -1,4 +1,4 @@
-import type { Transaction } from '@/core/domain/transaction'
+import type { Transaction, TransactionOutcome } from '@/core/domain/transaction'
 
 export interface TransactionRepository {
   save(tx: Transaction): Promise<void>
@@ -10,6 +10,7 @@ export interface TransactionRepository {
 export interface TransactionFilter {
   direction?: 'send' | 'receive'
   status?: 'pending' | 'settled' | 'failed'
+  outcome?: TransactionOutcome
   accountId?: string
   limit?: number
   offset?: number

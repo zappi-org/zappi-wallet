@@ -45,6 +45,10 @@ export interface PaymentUseCase {
     input: string
   }): Promise<Result<RedeemResult, PaymentError>>
 
+  reclaim(params: {
+    transactionId: string
+  }): Promise<Result<ReclaimResult, PaymentError>>
+
   estimateFee(params: {
     accountId: string
     adapterId: string
@@ -60,6 +64,11 @@ export interface SendResult {
   state: string
   fee?: Amount
   data?: Record<string, unknown>
+}
+
+export interface ReclaimResult {
+  transactionId: string
+  amount: Amount
 }
 
 export interface RecoveryReport {

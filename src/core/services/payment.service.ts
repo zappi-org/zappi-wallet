@@ -10,13 +10,14 @@
 import { Ok, Err } from '@/core/domain/result'
 import type { Result } from '@/core/domain/result'
 import type { Amount } from '@/core/domain/amount'
-import { createTransaction, settleAsDelivered } from '@/core/domain/transaction'
+import { createTransaction, settleAsDelivered, settleAsReclaimed } from '@/core/domain/transaction'
 import type { PaymentError } from '@/core/errors/payment.errors'
 import type { EventBus } from '@/core/events/event-bus'
 import type {
   PaymentUseCase,
   PaymentMethodInfo,
   SendResult,
+  ReclaimResult,
   RecoveryReport,
 } from '@/core/ports/driving/payment.usecase'
 import type { WalletModule, ModuleBalance } from '@/core/ports/driven/wallet-module.port'
@@ -220,6 +221,55 @@ export class PaymentService implements PaymentUseCase {
       })
 
       return Ok(result)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      return Err({ code: 'UNKNOWN', message })
+    }
+  }
+
+  // ─── Reclaim ───
+
+  async reclaim(params: {
+    transactionId: string
+  }): Promise<Result<ReclaimResult, PaymentError>> {
+    const tx = await this.txRepo.getById(params.transactionId)
+    if (!tx) {
+      return Err({ code: 'UNKNOWN', message: `Transaction not found: ${params.transactionId}` })
+    }
+    if (tx.outcome !== 'unclaimed') {
+      return Err({ code: 'UNKNOWN', message: `Transaction is not reclaimable (outcome: ${tx.outcome})` })
+    }
+
+    const operationId = tx.metadata?.operationId as string | undefined
+    if (!operationId) {
+      return Err({ code: 'UNKNOWN', message: 'No operationId found for reclaim' })
+    }
+
+    const adapter = this.findAdapter(tx.method)
+    if (!adapter) {
+      return Err({ code: 'ADAPTER_NOT_FOUND', message: `Adapter not found: ${tx.method}` })
+    }
+
+    try {
+      await adapter.cancelPrepared(operationId)
+
+      const reclaimed = settleAsReclaimed(tx)
+      await this.txRepo.update(tx.id, {
+        status: reclaimed.status,
+        outcome: reclaimed.outcome,
+        completedAt: reclaimed.completedAt,
+      })
+
+      this.eventBus.emit({
+        type: 'payment:completed',
+        payload: { txId: tx.id, method: tx.method, amount: tx.amount },
+      })
+      this.eventBus.emit({
+        type: 'balance:changed',
+        payload: { moduleId: adapter.moduleId, accountId: tx.accountId },
+      })
+
+      return Ok({ transactionId: tx.id, amount: tx.amount })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error'
       return Err({ code: 'UNKNOWN', message })
