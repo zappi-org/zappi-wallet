@@ -35,7 +35,7 @@ export interface PaymentMethodAdapter {
 }
 
 export interface SendParams {
-  destination: string
+  destination?: string
   amount: Amount
   accountId: string
   memo?: string

@@ -44,6 +44,11 @@ function createMockRegistry(): ServiceRegistry {
     addressResolver: {
       resolve: vi.fn(),
     } as unknown as ServiceRegistry['addressResolver'],
+    profile: {
+      getProfile: vi.fn(),
+      updateProfile: vi.fn(),
+      publish: vi.fn(),
+    } as unknown as ServiceRegistry['profile'],
   }
 }
 

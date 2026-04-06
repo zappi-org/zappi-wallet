@@ -190,8 +190,8 @@ export class SwapService implements SwapUseCase {
       // 7. Transaction 완료 처리
       const now = Date.now()
       await Promise.all([
-        this.txRepo.update(sendTxId, { status: 'completed', completedAt: now }),
-        this.txRepo.update(receiveTxId, { status: 'completed', completedAt: now }),
+        this.txRepo.update(sendTxId, { status: 'settled', outcome: 'claimed', completedAt: now }),
+        this.txRepo.update(receiveTxId, { status: 'settled', outcome: 'claimed', completedAt: now }),
       ])
 
       this.eventBus.emit({

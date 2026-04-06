@@ -107,15 +107,33 @@ export class CashuModule implements WalletModule {
   ]
 
   async send(params: ModuleSendParams): Promise<ModuleSendResult> {
-    const route = this.protocolRoutes.find(r => r.test(params.destination))
+    if (!params.destination) {
+      return this.createToken(params)
+    }
+    const route = this.protocolRoutes.find(r => r.test(params.destination!))
     if (!route) {
       throw new Error(`Unsupported destination format: ${params.destination.substring(0, 10)}...`)
     }
     return route.handler(params)
   }
 
+  private async createToken(params: ModuleSendParams): Promise<ModuleSendResult> {
+    const prepared = await this.ecashAdapter.prepareSend({
+      accountId: params.accountId,
+      amount: params.amount,
+      memo: params.memo,
+      options: params.options,
+    })
+    const result = await this.ecashAdapter.executeSend(prepared.id)
+    return {
+      operationId: prepared.id,
+      state: 'completed',
+      data: { token: result.data?.token },
+    }
+  }
+
   private async sendCreq(params: ModuleSendParams): Promise<ModuleSendResult> {
-    const resolved = await this.backend.parsePaymentRequest(params.destination)
+    const resolved = await this.backend.parsePaymentRequest(params.destination!)
     const lockingCondition = params.options?.lockingCondition as LockingCondition | undefined
 
     const prepared = await this.backend.preparePaymentRequest(resolved, {

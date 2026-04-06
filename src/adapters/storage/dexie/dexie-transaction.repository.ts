@@ -2,7 +2,7 @@ import type {
   TransactionRepository,
   TransactionFilter,
 } from '@/core/ports/driven/transaction.repository.port'
-import type { Transaction } from '@/core/domain/transaction'
+import type { Transaction, TransactionStatus, TransactionOutcome } from '@/core/domain/transaction'
 import type { TransactionIntent } from '@/core/domain/transaction'
 import type { Transaction as LegacyTransaction } from '@/core/types'
 import { sat, toNumber } from '@/core/domain/amount'
@@ -40,7 +40,41 @@ function methodToLegacyType(method: string, intent?: TransactionIntent): string 
   return 'lightning'
 }
 
+// ─── Legacy ↔ Domain status 변환 ───
+
+function legacyStatusToDomain(legacy: LegacyTransaction): { status: TransactionStatus; outcome?: TransactionOutcome } {
+  if (legacy.status === 'completed') {
+    if (legacy.failureReason === 'reclaimed') {
+      return { status: 'settled', outcome: 'reclaimed' }
+    }
+    return { status: 'settled', outcome: 'claimed' }
+  }
+  if (legacy.status === 'pending' && legacy.tokenState === 'unspent') {
+    return { status: 'pending', outcome: 'unclaimed' }
+  }
+  // 'pending' | 'failed' 는 그대로
+  return { status: legacy.status as TransactionStatus }
+}
+
+function domainStatusToLegacy(status: TransactionStatus, outcome?: TransactionOutcome): {
+  status: LegacyTransaction['status']
+  failureReason?: string
+  tokenState?: string
+} {
+  if (status === 'settled') {
+    if (outcome === 'reclaimed') {
+      return { status: 'completed', failureReason: 'reclaimed', tokenState: 'spent' }
+    }
+    return { status: 'completed', tokenState: 'spent' }
+  }
+  if (status === 'pending' && outcome === 'unclaimed') {
+    return { status: 'pending', tokenState: 'unspent' }
+  }
+  return { status }
+}
+
 function toDomain(legacy: LegacyTransaction): Transaction {
+  const { status, outcome } = legacyStatusToDomain(legacy)
   return {
     id: legacy.id,
     direction: legacy.direction,
@@ -48,7 +82,8 @@ function toDomain(legacy: LegacyTransaction): Transaction {
     protocol: TYPE_TO_PROTOCOL[legacy.type] ?? 'bolt11',
     amount: sat(legacy.amount),
     accountId: legacy.mintUrl,
-    status: legacy.status,
+    status,
+    outcome,
     createdAt: legacy.createdAt,
     completedAt: legacy.completedAt,
     memo: legacy.memo,
@@ -72,16 +107,18 @@ function toDomain(legacy: LegacyTransaction): Transaction {
 
 function toLegacy(domain: Transaction): LegacyTransaction {
   const meta = domain.metadata ?? {}
+  const { status, failureReason } = domainStatusToLegacy(domain.status, domain.outcome)
   return {
     id: domain.id,
     direction: domain.direction,
     type: methodToLegacyType(domain.method, domain.intent) as LegacyTransaction['type'],
     amount: toNumber(domain.amount),
     mintUrl: domain.accountId,
-    status: domain.status,
+    status,
     createdAt: domain.createdAt,
     completedAt: domain.completedAt,
     memo: domain.memo,
+    failureReason,
     metadata: {
       ...meta,
       ...(domain.linkedTxId != null && { linkedTxId: domain.linkedTxId }),
@@ -120,7 +157,8 @@ export class DexieTransactionRepository implements TransactionRepository {
     if (filter?.direction) {
       results = await this.repo.findByDirection(filter.direction)
     } else if (filter?.status) {
-      results = await this.repo.findByStatus(filter.status)
+      const legacyStatus = filter.status === 'settled' ? 'completed' : filter.status
+      results = await this.repo.findByStatus(legacyStatus)
     } else if (filter?.accountId) {
       results = await this.repo.findByMint(filter.accountId)
     } else {
@@ -132,7 +170,8 @@ export class DexieTransactionRepository implements TransactionRepository {
 
     // 추가 필터 적용 (기존 repo가 복합 필터를 지원 안 하므로)
     if (filter?.direction && filter?.status) {
-      results = results.filter((tx) => tx.status === filter.status)
+      const legacyStatus = filter.status === 'settled' ? 'completed' : filter.status
+      results = results.filter((tx) => tx.status === legacyStatus)
     }
 
     if (filter?.limit && results.length > filter.limit) {
@@ -145,7 +184,12 @@ export class DexieTransactionRepository implements TransactionRepository {
   async update(id: string, patch: Partial<Transaction>): Promise<void> {
     const legacyPatch: Partial<LegacyTransaction> = {}
 
-    if (patch.status !== undefined) legacyPatch.status = patch.status
+    if (patch.status !== undefined || patch.outcome !== undefined) {
+      const mapped = domainStatusToLegacy(patch.status ?? 'pending', patch.outcome)
+      if (patch.status !== undefined) legacyPatch.status = mapped.status
+      if (mapped.failureReason !== undefined) legacyPatch.failureReason = mapped.failureReason
+      if (mapped.tokenState !== undefined) (legacyPatch as Record<string, unknown>).tokenState = mapped.tokenState
+    }
     if (patch.completedAt !== undefined) legacyPatch.completedAt = patch.completedAt
     if (patch.memo !== undefined) legacyPatch.memo = patch.memo
     if (patch.metadata !== undefined) legacyPatch.metadata = patch.metadata

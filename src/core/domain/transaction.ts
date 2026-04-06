@@ -1,5 +1,7 @@
 import type { Amount } from './amount'
 
+export type TransactionStatus = 'pending' | 'settled' | 'failed'
+export type TransactionOutcome = 'unclaimed' | 'claimed' | 'reclaimed'
 export type TransactionIntent = 'swap' | 'nutzap'
 
 export interface Transaction {
@@ -9,7 +11,8 @@ export interface Transaction {
   readonly protocol: string     // 'bolt11', 'bolt12', 'nut18', 'cashu-token'
   readonly amount: Amount
   readonly accountId: string    // mint URL, federation ID
-  readonly status: 'pending' | 'completed' | 'failed'
+  readonly status: TransactionStatus
+  readonly outcome?: TransactionOutcome
   readonly createdAt: number
   readonly completedAt?: number
   readonly memo?: string
@@ -24,8 +27,12 @@ export function createTransaction(
   return { ...params, status: 'pending', createdAt: Date.now() }
 }
 
-export function completeTransaction(tx: Transaction): Transaction {
-  return { ...tx, status: 'completed', completedAt: Date.now() }
+export function settleAsDelivered(tx: Transaction): Transaction {
+  return { ...tx, status: 'settled', outcome: 'claimed', completedAt: Date.now() }
+}
+
+export function settleAsReclaimed(tx: Transaction): Transaction {
+  return { ...tx, status: 'settled', outcome: 'reclaimed', completedAt: Date.now() }
 }
 
 export function failTransaction(tx: Transaction, error?: string): Transaction {

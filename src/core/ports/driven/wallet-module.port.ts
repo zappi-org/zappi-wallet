@@ -2,7 +2,7 @@ import type { Amount } from '@/core/domain/amount'
 import type { PaymentMethodAdapter } from './payment-method.port'
 
 export interface SendParams {
-  destination: string
+  destination?: string
   accountId: string
   amount: Amount
   memo?: string

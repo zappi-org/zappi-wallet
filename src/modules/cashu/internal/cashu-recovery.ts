@@ -167,7 +167,8 @@ export async function recoverPendingSendTokens(
       if (existingTx) {
         // Mark original send as reclaimed + create receive record
         await txRepo.update(pending.id, {
-          status: 'completed',
+          status: 'settled',
+          outcome: 'reclaimed',
           completedAt: Date.now(),
           metadata: { ...existingTx.metadata, reclaimed: true },
         })
@@ -183,7 +184,8 @@ export async function recoverPendingSendTokens(
           protocol: 'cashu-token',
           amount: pending.amount,
           accountId: pending.accountId,
-          status: 'completed',
+          status: 'settled',
+          outcome: 'reclaimed',
           createdAt: now,
           completedAt: now,
           metadata: { reclaimedFrom: pending.id },
@@ -202,10 +204,10 @@ export async function recoverPendingSendTokens(
             protocol: 'cashu-token',
             amount: pending.amount,
             accountId: pending.accountId,
-            status: 'completed',
+            status: 'settled',
+            outcome: 'claimed',
             createdAt: pending.createdAt,
             completedAt: Date.now(),
-            metadata: { tokenState: 'spent' },
           })
         }
         await pendingOpRepo.delete(pending.id)
@@ -258,10 +260,10 @@ export async function recoverPendingQuotes(
       const quoteStatus = await quoteOps.checkMintQuote(quoteId, mintUrl)
 
       if (quoteStatus.state === 'ISSUED') {
-        await txRepo.update(op.id, { status: 'completed', completedAt: now })
+        await txRepo.update(op.id, { status: 'settled', outcome: 'claimed', completedAt: now })
       } else if (quoteStatus.state === 'PAID') {
         await quoteOps.mintAndReceive(quoteId, mintUrl, toNumber(op.amount))
-        await txRepo.update(op.id, { status: 'completed', completedAt: now })
+        await txRepo.update(op.id, { status: 'settled', outcome: 'claimed', completedAt: now })
         recovered++
       } else if (quoteStatus.state === 'UNPAID') {
         // still waiting — leave as pending
@@ -272,7 +274,7 @@ export async function recoverPendingQuotes(
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error)
       if (errorMsg.includes('already issued')) {
-        await txRepo.update(op.id, { status: 'completed', completedAt: now })
+        await txRepo.update(op.id, { status: 'settled', outcome: 'claimed', completedAt: now })
       } else {
         console.error(`[Recovery] Failed to recover quote ${quoteId}:`, error)
         failed++

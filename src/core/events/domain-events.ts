@@ -2,6 +2,7 @@ import type { Amount } from '@/core/domain/amount'
 
 export type DomainEvent =
   | PaymentCompletedEvent
+  | PaymentDeferredEvent
   | PaymentFailedEvent
   | BalanceChangedEvent
   | SwapCompletedEvent
@@ -10,6 +11,15 @@ export type DomainEvent =
 
 export interface PaymentCompletedEvent {
   type: 'payment:completed'
+  payload: {
+    txId: string
+    method: string
+    amount: Amount
+  }
+}
+
+export interface PaymentDeferredEvent {
+  type: 'payment:deferred'
   payload: {
     txId: string
     method: string

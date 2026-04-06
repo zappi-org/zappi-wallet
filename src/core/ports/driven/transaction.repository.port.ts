@@ -9,7 +9,7 @@ export interface TransactionRepository {
 
 export interface TransactionFilter {
   direction?: 'send' | 'receive'
-  status?: 'pending' | 'completed' | 'failed'
+  status?: 'pending' | 'settled' | 'failed'
   accountId?: string
   limit?: number
   offset?: number

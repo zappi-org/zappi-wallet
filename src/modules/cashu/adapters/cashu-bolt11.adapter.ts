@@ -59,7 +59,7 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter {
   // ─── 보내기 ───
 
   async estimateFee(params: SendParams): Promise<FeeEstimate> {
-    const invoice = params.destination
+    const invoice = params.destination!
     let meltOp: Awaited<ReturnType<LightningBackend['prepareMelt']>> | null = null
 
     try {
@@ -76,7 +76,7 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter {
   }
 
   async prepareSend(params: SendParams): Promise<PreparedPayment> {
-    const meltOp = await this.backend.prepareMelt(params.accountId, params.destination)
+    const meltOp = await this.backend.prepareMelt(params.accountId, params.destination!)
     const fee = meltOp.fee_reserve + meltOp.swap_fee
 
     return {

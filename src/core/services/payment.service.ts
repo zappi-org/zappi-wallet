@@ -10,7 +10,7 @@
 import { Ok, Err } from '@/core/domain/result'
 import type { Result } from '@/core/domain/result'
 import type { Amount } from '@/core/domain/amount'
-import { createTransaction, completeTransaction } from '@/core/domain/transaction'
+import { createTransaction, settleAsDelivered } from '@/core/domain/transaction'
 import type { PaymentError } from '@/core/errors/payment.errors'
 import type { EventBus } from '@/core/events/event-bus'
 import type {
@@ -57,7 +57,7 @@ export class PaymentService implements PaymentUseCase {
 
   async send(params: {
     accountId: string
-    destination: string
+    destination?: string
     amount: Amount
     memo?: string
     options?: Record<string, unknown>
@@ -81,6 +81,15 @@ export class PaymentService implements PaymentUseCase {
       })
       await this.txRepo.save(tx)
 
+      const isTokenCreate = !params.destination
+
+      const tx2 = isTokenCreate
+        ? { ...tx, outcome: 'unclaimed' as const }
+        : tx
+      if (isTokenCreate) {
+        await this.txRepo.update(txId, { outcome: 'unclaimed' })
+      }
+
       const result = await module.send({
         destination: params.destination,
         accountId: params.accountId,
@@ -89,15 +98,20 @@ export class PaymentService implements PaymentUseCase {
         options: params.options,
       })
 
-      const completed = completeTransaction(tx)
-      await this.txRepo.update(txId, {
-        status: 'completed',
-        completedAt: completed.completedAt,
-        metadata: result.data,
-      })
+      if (!isTokenCreate) {
+        const settled = settleAsDelivered(tx2)
+        await this.txRepo.update(txId, {
+          status: settled.status,
+          outcome: settled.outcome,
+          completedAt: settled.completedAt,
+          metadata: result.data,
+        })
+      } else {
+        await this.txRepo.update(txId, { metadata: result.data })
+      }
 
       this.eventBus.emit({
-        type: 'payment:completed',
+        type: isTokenCreate ? 'payment:deferred' : 'payment:completed',
         payload: { txId, method: module.id, amount: params.amount },
       })
       this.eventBus.emit({
@@ -197,8 +211,8 @@ export class PaymentService implements PaymentUseCase {
         amount: result.amount,
         accountId: result.accountId ?? adapter.moduleId,
       })
-      const completed = completeTransaction(tx)
-      await this.txRepo.save(completed)
+      const settled = settleAsDelivered(tx)
+      await this.txRepo.save(settled)
 
       this.eventBus.emit({
         type: 'balance:changed',
