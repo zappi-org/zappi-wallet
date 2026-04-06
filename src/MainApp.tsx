@@ -1,23 +1,22 @@
+import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
+import { NostrGatewayAdapter } from '@/adapters/nostr/nostr-gateway'
+import { getCocoManager } from '@/coco/manager'
+import { AppLifecycleWatcher } from '@/composition/app-lifecycle.watcher'
+import { createBootstrap, type BootstrapResult } from '@/composition/bootstrap'
+import { createRecoveryService } from '@/composition/recovery'
 import { LIMITS } from '@/core/constants'
 import { sat, toNumber } from '@/core/domain/amount'
 import { InsufficientBalanceError } from '@/core/errors/cashu'
-import { setMintNameResolver, toErrorMessage } from '@/utils/error-message'
 import { clearMintData } from '@/data/database/schema'
+import { ServiceProvider } from '@/hooks/service-context'
 import { broadcastSync, useCrossTabSync } from '@/hooks/use-cross-tab-sync'
 import { useMintHealth } from '@/hooks/use-mint-health'
 import { useNetwork } from '@/hooks/use-network'
 import { totalRecoveredCount, useSyncAfterRecovery } from '@/hooks/use-sync-after-recovery'
 import { useWallet } from '@/hooks/use-wallet'
 import { useGiftWrapListener } from '@/hooks/useGiftWrapListener'
-import { useStateReconstruction } from '@/hooks/useStateReconstruction'
-import { createAnchorService } from '@/composition/anchor'
-import { createBootstrap, type BootstrapResult } from '@/composition/bootstrap'
-import { ServiceProvider } from '@/hooks/service-context'
-import { AppLifecycleWatcher } from '@/composition/app-lifecycle.watcher'
-import { NostrGatewayAdapter } from '@/adapters/nostr/nostr-gateway'
-import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
-import { getCocoManager } from '@/coco/manager'
 import { useAppStore } from '@/store'
+import { setMintNameResolver, toErrorMessage } from '@/utils/error-message'
 import { AnimatePresence } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -56,21 +55,21 @@ import { ReceiveFlow } from '@/ui/screens/Receive/ReceiveFlow'
 import { SendFlow } from '@/ui/screens/Send/SendFlow'
 
 // Services
+import { FailedSwapStoreAdapter } from '@/adapters/storage/failed-swap-store.adapter'
 import { clearWalletCache, deleteCocoData, markSendFinalized, markSendReclaimed } from '@/coco'
 import { getBalances as cocoGetBalances } from '@/coco/cashuService'
+import { createProfileService } from '@/composition/profile'
+import { createSecurityService } from '@/composition/security'
 import type { Transaction } from '@/core/types'
 import { resetWalletCache } from '@/data/cache/wallet-cache'
 import { getContactRepo } from '@/data/repositories/contact.repository'
 import { SettingsRepository } from '@/data/repositories/settings.repository'
 import { getTransactionRepo } from '@/data/repositories/transaction.repository'
 import { exchangeRateService } from '@/services/exchange-rate'
-import { removePasskey } from '@/ui/services/passkey'
 import { PaymentService } from '@/services/payment/payment.service'
-import { createProfileService } from '@/composition/profile'
-import { createSecurityService } from '@/composition/security'
-import { FailedSwapStoreAdapter } from '@/adapters/storage/failed-swap-store.adapter'
 import { cleanupExpired as cleanupExpiredReceiveRequests } from '@/services/receive-request'
 import { WalletService } from '@/services/wallet/wallet.service'
+import { removePasskey } from '@/ui/services/passkey'
 import { formatSats } from '@/utils/format'
 
 
@@ -118,8 +117,7 @@ export default function MainApp() {
   const { isOnline } = useNetwork()
   const { checkAllMints } = useMintHealth()
 
-  // State Reconstruction hook (ZAP-06)
-  const { reconstruct, isRecovering } = useStateReconstruction()
+  const [isRecovering, setIsRecovering] = useState(false)
 
   // Gift Wrap Listener - listens for NIP-17 DMs containing Cashu tokens (NUT-18 responses)
   // This runs when unlocked with nostr keys and settings loaded
@@ -291,49 +289,39 @@ export default function MainApp() {
 
     anchorCheckedRef.current = true
 
-    const runAnchorAndReconstruction = async () => {
-      console.log('[App] Running anchor check and state reconstruction (ZAP-06)')
+    const runRecovery = async () => {
+      console.log('[App] Running recovery sync (anchor)')
+      setIsRecovering(true)
 
       try {
-        // Step 1: Check and refresh anchor
         const nostrGateway = new NostrGatewayAdapter({ privateKeyHex: nostrPrivkey! })
-        const anchorService = createAnchorService(nostrGateway)
-        const { anchor, isRecoveryMode, oldestAnchor } = await anchorService.check({
+        const recoveryService = createRecoveryService(nostrGateway)
+
+        const result = await recoveryService.syncAll({
           privateKey: nostrPrivkey!,
           publicKey: nostrPubkey!,
           relays: settings.relays,
         })
 
-        if (!anchor) {
-          console.log('[App] No anchor available - skipping reconstruction')
-          return
-        }
-
-        console.log(`[App] Anchor: ${new Date(anchor.timestamp * 1000).toISOString()}, Recovery mode: ${isRecoveryMode}`)
-
-        // Step 2: Run state reconstruction to recover missed payments
-        const result = await reconstruct(anchor, isRecoveryMode, oldestAnchor)
-
-        if (result.tokensRecovered > 0) {
-          console.log(`[App] Recovered ${result.tokensRecovered} tokens (${result.amountRecovered} sats)`)
-
-          // Refresh balance and transactions
+        if (result.tokensReceived > 0) {
+          console.log(`[App] Recovered ${result.tokensReceived} tokens (${result.amountReceived} sats)`)
           await refreshAll()
 
-          // Show toast notification
           addToast({
             type: 'success',
-            message: t('toast.ecashRecovered', { count: result.tokensRecovered, amount: formatSats(result.amountRecovered) }),
+            message: t('toast.ecashRecovered', { count: result.tokensReceived, amount: formatSats(result.amountReceived) }),
             duration: 5000,
           })
         }
       } catch (error) {
-        console.error('[App] Anchor/reconstruction error:', error)
+        console.error('[App] Recovery error:', error)
+      } finally {
+        setIsRecovering(false)
       }
     }
 
-    runAnchorAndReconstruction()
-  }, [isLocked, isInitializing, nostrPubkey, nostrPrivkey, reconstruct, refreshAll, addToast, t])
+    runRecovery()
+  }, [isLocked, isInitializing, nostrPubkey, nostrPrivkey, refreshAll, addToast, t])
 
   const isSendingEcashRef = useRef(false)
 

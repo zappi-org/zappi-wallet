@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { RecoverTokenService } from '@/core/services/recover-token.service'
+import { RecoveryService } from '@/core/services/recovery.service'
+import type { AnchorStore } from '@/core/ports/driven/anchor.port'
 import type { RecoveryStore } from '@/core/ports/driven/recovery-store.port'
 import type { FailedSwapStore } from '@/core/ports/driven/failed-swap-store.port'
 import type { TokenReceiver } from '@/core/ports/driven/token-receiver.port'
@@ -26,8 +27,15 @@ const NON_TOKEN_RUMOR = JSON.stringify({
 // ─── Mocks ───
 
 function createMocks() {
-  const nostr: Pick<NostrGateway, 'fetchGiftWraps'> = {
+  const nostr = {
     fetchGiftWraps: vi.fn().mockResolvedValue([]),
+    sendGiftWrap: vi.fn().mockResolvedValue({ id: 'event-1' }),
+  } as unknown as NostrGateway
+
+  const anchorStore: AnchorStore = {
+    getCachedAnchor: vi.fn().mockReturnValue(null),
+    setCachedAnchor: vi.fn(),
+    clearCachedAnchor: vi.fn(),
   }
 
   const recoveryStore: RecoveryStore = {
@@ -54,20 +62,21 @@ function createMocks() {
     }),
   }
 
-  return { nostr, recoveryStore, failedSwapStore, tokenReceiver }
+  return { nostr, anchorStore, recoveryStore, failedSwapStore, tokenReceiver }
 }
 
 // ─── Tests ───
 
-describe('RecoverTokenService', () => {
-  let service: RecoverTokenService
+describe('RecoveryService', () => {
+  let service: RecoveryService
   let mocks: ReturnType<typeof createMocks>
 
   beforeEach(() => {
     vi.clearAllMocks()
     mocks = createMocks()
-    service = new RecoverTokenService(
+    service = new RecoveryService(
       mocks.nostr,
+      mocks.anchorStore,
       mocks.recoveryStore,
       mocks.failedSwapStore,
       mocks.tokenReceiver,
@@ -235,22 +244,6 @@ describe('RecoverTokenService', () => {
       expect(mocks.failedSwapStore.update).toHaveBeenCalledWith('swap-1', expect.objectContaining({
         attemptCount: 2,
       }))
-    })
-  })
-
-  // ─── getAnchor / updateAnchor ───
-
-  describe('anchor management', () => {
-    it('returns null when no anchor', async () => {
-      expect(await service.getAnchor()).toBeNull()
-    })
-
-    it('saves anchor with timestamp', async () => {
-      await service.updateAnchor(1700000000)
-
-      expect(mocks.recoveryStore.saveAnchor).toHaveBeenCalledWith(
-        expect.objectContaining({ timestamp: 1700000000 }),
-      )
     })
   })
 

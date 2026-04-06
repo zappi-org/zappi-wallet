@@ -12,25 +12,24 @@ import {
   selectConfiguredRelays,
 } from '@/store/selectors'
 import { NostrGatewayAdapter } from '@/adapters/nostr/nostr-gateway'
-import { createRecoverTokenService } from '@/composition/recover-token'
-import type { RecoverTokenUseCase } from '@/core/ports/driving/recover-token.usecase'
+import { createRecoveryService } from '@/composition/recovery'
+import type { RecoveryUseCase } from '@/core/ports/driving/recovery.usecase'
 
 /**
- * Hook for NUT-18 Direct Token recovery operations
+ * Hook for recovery operations (anchor + token recovery + retry)
  */
-export function useRecoverToken() {
+export function useRecovery() {
   const { t } = useTranslation()
-  const serviceRef = useRef<RecoverTokenUseCase | null>(null)
+  const serviceRef = useRef<RecoveryUseCase | null>(null)
 
   const nostrPrivkey = useAppStore((state) => state.nostrPrivkey)
   const nostrPubkey = useAppStore((state) => state.nostrPubkey)
 
-  // Lazy create — needs NostrGateway with privateKey
   const getService = useCallback(() => {
     if (!nostrPrivkey) return null
     if (!serviceRef.current) {
       const nostrGateway = new NostrGatewayAdapter({ privateKeyHex: nostrPrivkey })
-      serviceRef.current = createRecoverTokenService(nostrGateway)
+      serviceRef.current = createRecoveryService(nostrGateway)
     }
     return serviceRef.current
   }, [nostrPrivkey])
@@ -48,7 +47,6 @@ export function useRecoverToken() {
   // Store actions
   const setSyncState = useAppStore((state) => state.setSyncState)
   const setLastSyncAt = useAppStore((state) => state.setLastSyncAt)
-  const setAnchor = useAppStore((state) => state.setAnchor)
   const setPendingRetries = useAppStore((state) => state.setPendingRetries)
   const setSyncProgress = useAppStore((state) => state.setSyncProgress)
   const resetSyncProgress = useAppStore((state) => state.resetSyncProgress)
@@ -64,25 +62,9 @@ export function useRecoverToken() {
       setLastSyncAt(status.lastSyncAt)
     }
     setPendingRetries(status.pendingRetries)
+  }, [getService, setLastSyncAt, setPendingRetries])
 
-    const currentAnchor = await service.getAnchor()
-    setAnchor(currentAnchor)
-  }, [getService, setLastSyncAt, setPendingRetries, setAnchor])
-
-  const updateAnchor = useCallback(
-    async (timestamp?: number) => {
-      const service = getService()
-      if (!service) return
-
-      const ts = timestamp ?? Math.floor(Date.now() / 1000)
-      await service.updateAnchor(ts)
-      const newAnchor = await service.getAnchor()
-      setAnchor(newAnchor)
-    },
-    [getService, setAnchor],
-  )
-
-  const reconstructState = useCallback(
+  const syncAll = useCallback(
     async (relays?: string[]) => {
       const service = getService()
       if (!service || !nostrPrivkey || !nostrPubkey) return null
@@ -98,7 +80,7 @@ export function useRecoverToken() {
           return null
         }
 
-        const result = await service.reconstructState({
+        const result = await service.syncAll({
           privateKey: nostrPrivkey,
           publicKey: nostrPubkey,
           relays: targetRelays,
@@ -107,10 +89,10 @@ export function useRecoverToken() {
         setLastSyncAt(Date.now())
         setSyncState('completed')
 
-        if (result.eventsProcessed > 0) {
+        if (result.tokensReceived > 0) {
           addToast({
             type: 'success',
-            message: t('toast.syncComplete', { count: result.eventsProcessed }),
+            message: t('toast.syncComplete', { count: result.tokensReceived }),
           })
         }
 
@@ -187,8 +169,7 @@ export function useRecoverToken() {
 
     // Actions
     loadSyncStatus,
-    updateAnchor,
-    reconstructState,
+    syncAll,
     retryFailedSwaps,
     setSyncProgress,
   }

@@ -1,32 +1,141 @@
 /**
- * RecoverTokenService — RecoverTokenUseCase 구현 (ZAP-161)
+ * RecoveryService — RecoveryUseCase 구현 (ZAP-140)
  *
- * 오프라인 동안 놓친 NUT-18 Direct Token을 복구.
- * NostrGateway로 gift wrap 조회 → parseDirectToken으로 파싱 → TokenReceiver로 수신.
+ * Anchor 관리 + 놓친 토큰 복구 + 실패 swap 재시도를 하나로 통합.
+ * 나중에 module.recover(since) 패턴으로 프로토콜 무관하게 확장 가능.
  */
 
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
+import type { AnchorStore, AnchorData } from '@/core/ports/driven/anchor.port'
 import type { RecoveryStore } from '@/core/ports/driven/recovery-store.port'
 import type { FailedSwapStore } from '@/core/ports/driven/failed-swap-store.port'
 import type { TokenReceiver } from '@/core/ports/driven/token-receiver.port'
 import type {
-  RecoverTokenUseCase,
+  RecoveryUseCase,
+  AnchorCheckResult,
   RetryResult,
   RecoveryStatus,
-} from '@/core/ports/driving/recover-token.usecase'
-import type { SyncAnchor, SyncResult, ProcessedEvent } from '@/core/types'
+} from '@/core/ports/driving/recovery.usecase'
+import type { SyncResult, ProcessedEvent } from '@/core/types'
 import { RETRY } from '@/core/constants'
 import { parseDirectToken } from '@/core/domain/direct-token'
 
-export class RecoverTokenService implements RecoverTokenUseCase {
+// ─── Anchor constants ───
+
+const ANCHOR_VALIDITY_SECONDS = 2 * 24 * 60 * 60
+const ANCHOR_MESSAGE_TYPE = 'zappi-anchor'
+const ANCHOR_VERSION = 1
+
+interface AnchorMessage {
+  type: typeof ANCHOR_MESSAGE_TYPE
+  v: typeof ANCHOR_VERSION
+  timestamp: number
+}
+
+function isAnchorValid(timestamp: number): boolean {
+  const now = Date.now()
+  const anchorTime = timestamp * 1000
+  return (now - anchorTime) < ANCHOR_VALIDITY_SECONDS * 1000
+}
+
+// ─── Service ───
+
+export class RecoveryService implements RecoveryUseCase {
   private isSyncing = false
 
   constructor(
-    private readonly nostr: Pick<NostrGateway, 'fetchGiftWraps'>,
+    private readonly nostr: NostrGateway,
+    private readonly anchorStore: AnchorStore,
     private readonly recoveryStore: RecoveryStore,
     private readonly failedSwapStore: FailedSwapStore,
     private readonly tokenReceiver: TokenReceiver,
   ) {}
+
+  // ─── syncAll (orchestration) ───
+
+  async syncAll(params: {
+    privateKey: string
+    publicKey: string
+    relays: string[]
+  }): Promise<SyncResult> {
+    const { anchor } = await this.check(params)
+
+    if (!anchor) {
+      return {
+        eventsProcessed: 0,
+        tokensReceived: 0,
+        amountReceived: 0,
+        failedSwaps: 0,
+        errors: [],
+        duration: 0,
+      }
+    }
+
+    const result = await this.reconstructState(params)
+
+    const retryResult = await this.retryFailedSwaps()
+    if (retryResult.errors.length > 0) {
+      result.errors.push(...retryResult.errors)
+    }
+
+    return result
+  }
+
+  // ─── Anchor check ───
+
+  private async check(params: {
+    privateKey: string
+    publicKey: string
+    relays: string[]
+  }): Promise<AnchorCheckResult> {
+    const localAnchor = this.anchorStore.getCachedAnchor()
+
+    if (localAnchor) {
+      if (!navigator.onLine) {
+        return { anchor: localAnchor, isRecoveryMode: false }
+      }
+
+      if (!isAnchorValid(localAnchor.timestamp)) {
+        const newAnchor = await this.publishAnchor(params)
+        return {
+          anchor: newAnchor || localAnchor,
+          isRecoveryMode: false,
+        }
+      }
+
+      return { anchor: localAnchor, isRecoveryMode: false }
+    }
+
+    if (!navigator.onLine) {
+      return { anchor: null, isRecoveryMode: false }
+    }
+
+    const remoteAnchors = await this.fetchAnchors(params)
+
+    if (remoteAnchors.length > 0) {
+      const oldestAnchor = remoteAnchors[0]
+      const newestAnchor = remoteAnchors[remoteAnchors.length - 1]
+
+      if (!isAnchorValid(newestAnchor.timestamp)) {
+        const newAnchor = await this.publishAnchor(params)
+        return {
+          anchor: newAnchor || newestAnchor,
+          isRecoveryMode: true,
+          oldestAnchor,
+        }
+      }
+
+      this.anchorStore.setCachedAnchor(newestAnchor)
+      return {
+        anchor: newestAnchor,
+        isRecoveryMode: true,
+        oldestAnchor,
+      }
+    }
+
+    const newAnchor = await this.publishAnchor(params)
+    return { anchor: newAnchor, isRecoveryMode: false }
+  }
 
   // ─── State reconstruction ───
 
@@ -53,7 +162,6 @@ export class RecoverTokenService implements RecoverTokenUseCase {
     this.isSyncing = true
 
     try {
-      // Fetch gift wraps from relays
       const messages = await this.nostr.fetchGiftWraps({
         recipientPubkey: params.publicKey,
         relays: params.relays,
@@ -109,9 +217,8 @@ export class RecoverTokenService implements RecoverTokenUseCase {
         }
       }
 
-      // Update anchor to current time
       const now = Math.floor(Date.now() / 1000)
-      await this.updateAnchor(now)
+      await this.recoveryStore.saveAnchor({ timestamp: now, updatedAt: Date.now() })
     } finally {
       this.isSyncing = false
       result.duration = Date.now() - startTime
@@ -127,7 +234,6 @@ export class RecoverTokenService implements RecoverTokenUseCase {
     const swaps = await this.failedSwapStore.getRetryable()
 
     for (const swap of swaps) {
-      // Exponential backoff
       if (swap.lastAttemptAt && swap.attemptCount > 0) {
         const delay = Math.min(
           RETRY.INITIAL_DELAY * Math.pow(RETRY.BACKOFF_MULTIPLIER, swap.attemptCount - 1),
@@ -136,7 +242,6 @@ export class RecoverTokenService implements RecoverTokenUseCase {
         if (Date.now() - swap.lastAttemptAt < delay) continue
       }
 
-      // Max attempts reached
       if (swap.attemptCount >= RETRY.MAX_ATTEMPTS) {
         await this.failedSwapStore.markAsNonRetryable(swap.id)
         result.failed++
@@ -191,23 +296,79 @@ export class RecoverTokenService implements RecoverTokenUseCase {
     }
   }
 
-  async getAnchor(): Promise<SyncAnchor | null> {
-    return this.recoveryStore.getAnchor()
-  }
-
-  async updateAnchor(timestamp: number): Promise<void> {
-    const anchor: SyncAnchor = {
-      timestamp,
-      updatedAt: Date.now(),
-    }
-    await this.recoveryStore.saveAnchor(anchor)
-  }
-
   async cleanupOldData(): Promise<void> {
     await this.failedSwapStore.cleanupNonRetryable(30)
   }
 
-  // ─── Private ───
+  // ─── Private: anchor ───
+
+  private async publishAnchor(params: {
+    publicKey: string
+    relays: string[]
+  }): Promise<AnchorData | null> {
+    try {
+      const now = Math.floor(Date.now() / 1000)
+      const message: AnchorMessage = {
+        type: ANCHOR_MESSAGE_TYPE,
+        v: ANCHOR_VERSION,
+        timestamp: now,
+      }
+
+      const event = await this.nostr.sendGiftWrap({
+        recipientPubkey: params.publicKey,
+        content: JSON.stringify(message),
+        relays: params.relays,
+      })
+
+      const anchor: AnchorData = {
+        timestamp: now,
+        eventId: event.id,
+        cachedAt: Date.now(),
+      }
+
+      this.anchorStore.setCachedAnchor(anchor)
+      return anchor
+    } catch (error) {
+      console.error('[RecoveryService] Failed to publish anchor:', error)
+      return null
+    }
+  }
+
+  private async fetchAnchors(params: {
+    publicKey: string
+    relays: string[]
+  }): Promise<AnchorData[]> {
+    try {
+      const messages = await this.nostr.fetchGiftWraps({
+        recipientPubkey: params.publicKey,
+        relays: params.relays,
+      })
+
+      const anchors: AnchorData[] = []
+      for (const msg of messages) {
+        try {
+          const content = JSON.parse(msg.content)
+          if (content.type === ANCHOR_MESSAGE_TYPE && content.v === ANCHOR_VERSION) {
+            anchors.push({
+              timestamp: content.timestamp,
+              eventId: msg.eventId,
+              cachedAt: Date.now(),
+            })
+          }
+        } catch {
+          // Not valid JSON or not an anchor
+        }
+      }
+
+      anchors.sort((a, b) => a.timestamp - b.timestamp)
+      return anchors
+    } catch (error) {
+      console.error('[RecoveryService] Failed to fetch anchors:', error)
+      return []
+    }
+  }
+
+  // ─── Private: event processing ───
 
   private async markProcessed(
     eventId: string,
