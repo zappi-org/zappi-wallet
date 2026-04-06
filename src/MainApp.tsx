@@ -415,8 +415,6 @@ export default function MainApp() {
       if (result.isOk()) {
         // Set nostr key pair in store
         setNostrKeyPair(result.value.keys.publicKey, result.value.keys.privateKey)
-        const { pubkey: p2pkPub } = await services.p2pkKeyManager.getCurrentKey()
-        setP2pkPubkey(p2pkPub)
 
         // Phase 5: Bootstrap service registry (new path, coexists with old)
         const registry = createBootstrap({
@@ -427,6 +425,8 @@ export default function MainApp() {
         setServiceRegistry(registry)
 
         setLocked(false)
+        // P2PK key — SDK init을 블로킹하지 않고 백그라운드 로드
+        services.p2pkKeyManager.getCurrentKey().then(({ pubkey }) => setP2pkPubkey(pubkey))
         // Refresh balance after unlock
         await refreshBalance()
         return true
