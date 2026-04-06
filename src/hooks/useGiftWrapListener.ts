@@ -4,7 +4,6 @@ import { SimplePool, nip17 } from 'nostr-tools'
 import { hexToBytes } from '@noble/hashes/utils.js'
 import { useAppStore } from '@/store'
 import { getDecodedToken, getEncodedToken } from '@cashu/cashu-ts'
-import { receiveP2PKToken } from '@/coco'
 import { toNumber } from '@/core/domain/amount'
 import type { ServiceRegistry } from '@/composition/types'
 import { sendDM } from '@/services/nostr-dm'
@@ -221,24 +220,16 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
       // Receive token to claim ownership
       console.log('[GiftWrap] Receiving token to claim ownership...')
 
-      let receivedAmount: number
-
-      // Phase 5: PaymentUseCase.redeem() 경유 (new path)
-      if (registryRef.current?.payment) {
-        const redeemResult = await registryRef.current.payment.redeem({ adapterId: 'cashu:ecash', input: token })
-        if (!redeemResult.ok) {
-          throw new Error(redeemResult.error.message)
-        }
-        receivedAmount = toNumber(redeemResult.value.amount)
-      } else {
-        // Fallback: old Coco direct
-        const p2pkPrivkey = useAppStore.getState().nostrPrivkey
-        if (!p2pkPrivkey) {
-          throw new Error('Private key not available for P2PK signature')
-        }
-        const result = await receiveP2PKToken(token, p2pkPrivkey)
-        receivedAmount = result.amount
+      if (!registryRef.current?.payment) {
+        console.warn('[GiftWrap] Registry not ready — skipping token')
+        return false
       }
+
+      const redeemResult = await registryRef.current.payment.redeem({ adapterId: 'cashu:ecash', input: token })
+      if (!redeemResult.ok) {
+        throw new Error(redeemResult.error.message)
+      }
+      const receivedAmount = toNumber(redeemResult.value.amount)
 
       // Save transaction to new data layer (deterministic ID based on event to prevent duplicates)
       const txRecordId = `tx-gw-${eventId}`
