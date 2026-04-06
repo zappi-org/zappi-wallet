@@ -105,10 +105,11 @@ export class PaymentService implements PaymentUseCase {
           status: settled.status,
           outcome: settled.outcome,
           completedAt: settled.completedAt,
+          protocol: result.protocol,
           metadata: result.data,
         })
       } else {
-        await this.txRepo.update(txId, { metadata: result.data })
+        await this.txRepo.update(txId, { protocol: result.protocol, metadata: result.data })
       }
 
       this.eventBus.emit({

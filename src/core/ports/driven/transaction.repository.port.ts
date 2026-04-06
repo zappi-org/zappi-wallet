@@ -11,6 +11,7 @@ export interface TransactionFilter {
   direction?: 'send' | 'receive'
   status?: 'pending' | 'settled' | 'failed'
   outcome?: TransactionOutcome
+  protocol?: string
   accountId?: string
   limit?: number
   offset?: number

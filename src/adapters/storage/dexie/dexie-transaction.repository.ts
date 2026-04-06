@@ -31,10 +31,11 @@ const TYPE_TO_INTENT: Record<string, TransactionIntent | undefined> = {
   nutzap: 'nutzap',
 }
 
-// domain method → legacy type 역매핑
-function methodToLegacyType(method: string, intent?: TransactionIntent): string {
+// domain method+protocol → legacy type 역매핑
+function methodToLegacyType(method: string, protocol?: string, intent?: TransactionIntent): string {
   if (intent === 'swap') return 'swap'
   if (intent === 'nutzap') return 'nutzap'
+  if (method === 'cashu:ecash' && protocol === 'cashu-token') return 'ecash-token'
   if (method === 'cashu:lightning') return 'lightning'
   if (method === 'cashu:ecash') return 'ecash'
   return 'lightning'
@@ -111,7 +112,7 @@ function toLegacy(domain: Transaction): LegacyTransaction {
   return {
     id: domain.id,
     direction: domain.direction,
-    type: methodToLegacyType(domain.method, domain.intent) as LegacyTransaction['type'],
+    type: methodToLegacyType(domain.method, domain.protocol, domain.intent) as LegacyTransaction['type'],
     amount: toNumber(domain.amount),
     mintUrl: domain.accountId,
     status,
@@ -174,6 +175,14 @@ export class DexieTransactionRepository implements TransactionRepository {
       results = results.filter((tx) => tx.status === legacyStatus)
     }
 
+    if (filter?.protocol) {
+      const domainProtocol = filter.protocol
+      results = results.filter((tx) => {
+        const legacyProtocol = TYPE_TO_PROTOCOL[tx.type]
+        return legacyProtocol === domainProtocol
+      })
+    }
+
     if (filter?.outcome) {
       results = results.filter((tx) => {
         if (filter.outcome === 'unclaimed') return tx.status === 'pending' && tx.tokenState === 'unspent'
@@ -198,6 +207,14 @@ export class DexieTransactionRepository implements TransactionRepository {
       if (patch.status !== undefined) legacyPatch.status = mapped.status
       if (mapped.failureReason !== undefined) legacyPatch.failureReason = mapped.failureReason
       if (mapped.tokenState !== undefined) (legacyPatch as Record<string, unknown>).tokenState = mapped.tokenState
+    }
+    if (patch.protocol !== undefined) {
+      // protocol 변경 시 기존 tx를 읽어서 method+protocol→type 역매핑
+      const existing = await this.repo.findById(id)
+      if (existing) {
+        const method = patch.method ?? TYPE_TO_METHOD[existing.type] ?? 'cashu:lightning'
+        legacyPatch.type = methodToLegacyType(method, patch.protocol, patch.intent) as LegacyTransaction['type']
+      }
     }
     if (patch.completedAt !== undefined) legacyPatch.completedAt = patch.completedAt
     if (patch.memo !== undefined) legacyPatch.memo = patch.memo
