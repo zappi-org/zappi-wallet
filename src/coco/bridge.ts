@@ -3,7 +3,7 @@ import { useAppStore } from '@/store';
 import { broadcastSync } from '@/hooks/use-cross-tab-sync';
 import i18n from '@/i18n';
 import { satUnit } from '@/utils/format';
-import { connectSendTokenObserver, disconnectSendTokenObserver } from './sendTokenObserver';
+import { disconnectSendTokenObserver } from './sendTokenObserver';
 import { connectMintQuoteObserver, disconnectMintQuoteObserver } from './mintQuoteObserver';
 import { findByQuoteId, completeReceiveRequest } from '@/services/receive-request';
 
@@ -97,8 +97,7 @@ export function connectCocoToStore(manager: Manager): void {
   // 초기 잔액 로드
   updateBalances();
 
-  // Send token observer (send:finalized/rolled-back → Transaction DB 업데이트)
-  connectSendTokenObserver(manager);
+  // Send token observer: MainApp에서 deps 주입하여 연결 (wiring-guide 참고)
 
   // Mint quote observer (mint-op:finalized → Transaction DB 기록)
   connectMintQuoteObserver(manager);

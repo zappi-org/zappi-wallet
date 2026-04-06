@@ -10,38 +10,55 @@
  *
  * markSendFinalized / markSendReclaimed: observer + UI 양쪽에서 호출 가능한
  * idempotent 상태 전이 함수. DB 업데이트를 한 곳에서 관리한다.
+ *
+ * 모든 DB 접근은 주입된 포트를 통해 수행 — 직접 Dexie/legacy repo 접근 없음.
  */
 
-import type { Manager } from 'coco-cashu-core';
-import type { TokenState } from '@/core/types';
-import { useAppStore } from '@/store';
-import { broadcastSync } from '@/hooks/use-cross-tab-sync';
+import type { Manager } from 'coco-cashu-core'
+import type { OperationMap } from '@/core/ports/driven/operation-map.port'
+import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
+import type { PendingOperationRepository } from '@/core/ports/driven/pending-operation.repository.port'
+import { createTransaction, settleAsDelivered } from '@/core/domain/transaction'
+import { useAppStore } from '@/store'
+import { broadcastSync } from '@/hooks/use-cross-tab-sync'
 
-let unsubscribers: (() => void)[] = [];
+// ─── 의존성 주입 ───
+
+export interface SendTokenObserverDeps {
+  operationMap: OperationMap
+  txRepo: TransactionRepository
+  pendingOps: PendingOperationRepository
+}
+
+let deps: SendTokenObserverDeps | null = null
+let unsubscribers: (() => void)[] = []
+
+function requireDeps(): SendTokenObserverDeps {
+  if (!deps) throw new Error('SendTokenObserver not initialized — call connectSendTokenObserver first')
+  return deps
+}
 
 // ─── 공유 상태 전이 함수 (idempotent) ───
 
 /**
- * 토큰이 수령되어 spent 상태로 전이 (finalized)
+ * 토큰이 수령되어 settled 상태로 전이 (finalized)
  * observer의 send:finalized 이벤트 및 UI에서 직접 호출 가능
  */
 export async function markSendFinalized(txId: string): Promise<boolean> {
-  const { getTransactionRepo } = await import('@/data/repositories/transaction.repository');
-  const { getDatabase } = await import('@/data/database/schema');
-  const repo = getTransactionRepo();
-  const tx = await repo.findById(txId);
-  if (!tx || tx.status === 'completed') return false;
+  const { txRepo, pendingOps } = requireDeps()
+  const tx = await txRepo.getById(txId)
+  if (!tx || tx.status === 'settled') return false
 
-  await repo.update(txId, {
-    status: 'completed',
-    tokenState: 'spent' as TokenState,
+  await txRepo.update(txId, {
+    status: 'settled',
+    outcome: 'claimed',
     completedAt: Date.now(),
-  });
-  await getDatabase().pendingSendTokens.delete(txId).catch(() => {});
+  })
+  await pendingOps.delete(txId).catch(() => {})
 
-  useAppStore.getState().triggerTxRefresh();
-  broadcastSync('balance_changed');
-  return true;
+  useAppStore.getState().triggerTxRefresh()
+  broadcastSync('balance_changed')
+  return true
 }
 
 /**
@@ -52,94 +69,82 @@ export async function markSendFinalized(txId: string): Promise<boolean> {
  * 2. 별도의 receive 거래를 생성하여 회수 내역을 거래내역에 표시
  */
 export async function markSendReclaimed(txId: string): Promise<boolean> {
-  const { getTransactionRepo } = await import('@/data/repositories/transaction.repository');
-  const { getDatabase } = await import('@/data/database/schema');
-  const repo = getTransactionRepo();
-  const tx = await repo.findById(txId);
-  if (!tx) return false;
-  // 이미 reclaimed 처리됨
-  if (tx.status === 'completed' && tx.failureReason === 'reclaimed') return false;
-
-  const now = Date.now();
+  const { txRepo, pendingOps } = requireDeps()
+  const tx = await txRepo.getById(txId)
+  if (!tx) return false
+  if (tx.status === 'settled' && tx.outcome === 'reclaimed') return false
 
   // 원본 send 거래 마킹
-  await repo.update(txId, {
-    status: 'completed',
-    failureReason: 'reclaimed',
-    tokenState: 'spent' as TokenState,
-    completedAt: now,
-  });
+  await txRepo.update(txId, {
+    status: 'settled',
+    outcome: 'reclaimed',
+    completedAt: Date.now(),
+  })
 
-  // 회수 receive 거래 생성 (repo.save → enrichWithFiat 적용)
-  const reclaimTxId = `${txId}-reclaim`;
-  const existing = await repo.findById(reclaimTxId);
+  // 회수 receive 거래 생성
+  const reclaimTxId = `${txId}-reclaim`
+  const existing = await txRepo.getById(reclaimTxId)
   if (!existing) {
-    await repo.save({
+    const reclaimTx = settleAsDelivered(createTransaction({
       id: reclaimTxId,
       direction: 'receive',
-      type: tx.type,
+      method: tx.method,
+      protocol: tx.protocol,
       amount: tx.amount,
-      mintUrl: tx.mintUrl,
-      status: 'completed',
-      createdAt: now,
-      completedAt: now,
+      accountId: tx.accountId,
       metadata: { reclaimedFrom: txId },
-    });
+    }))
+    await txRepo.save(reclaimTx)
   }
 
-  await getDatabase().pendingSendTokens.delete(txId).catch(() => {});
+  await pendingOps.delete(txId).catch(() => {})
 
-  useAppStore.getState().triggerTxRefresh();
-  broadcastSync('balance_changed');
-  return true;
+  useAppStore.getState().triggerTxRefresh()
+  broadcastSync('balance_changed')
+  return true
 }
 
 // ─── Observer 연결 ───
 
-async function findTxByOperationId(operationId: string) {
-  const { getDatabase } = await import('@/data/database/schema');
-  const db = getDatabase();
-  return db.transactions.where('operationId').equals(operationId).first();
-}
-
 /**
  * SDK send 이벤트를 Transaction DB에 연결
  */
-export function connectSendTokenObserver(manager: Manager): void {
-  disconnectSendTokenObserver();
+export function connectSendTokenObserver(manager: Manager, injected: SendTokenObserverDeps): void {
+  disconnectSendTokenObserver()
+  deps = injected
 
   // send:finalized — 수령자가 토큰을 수령하여 proof가 spent 확인됨
   const unsubFinalized = manager.on('send:finalized', async ({ operationId }) => {
-    if (!operationId) return;
+    if (!operationId) return
     try {
-      const tx = await findTxByOperationId(operationId);
-      if (!tx) return;
-      const updated = await markSendFinalized(tx.id);
+      const txId = await injected.operationMap.resolve(operationId)
+      if (!txId) return
+      const updated = await markSendFinalized(txId)
       if (updated) {
-        console.log(`[SendTokenObserver] Finalized: ${operationId} → tx ${tx.id}`);
+        console.log(`[SendTokenObserver] Finalized: ${operationId} → tx ${txId}`)
       }
     } catch (error) {
-      console.error('[SendTokenObserver] Failed to handle send:finalized:', error);
+      console.error('[SendTokenObserver] Failed to handle send:finalized:', error)
     }
-  });
+  })
 
   // send:rolled-back — 토큰 회수 완료 (proof reclaim swap 성공)
   const unsubRolledBack = manager.on('send:rolled-back', async ({ operationId }) => {
-    if (!operationId) return;
+    if (!operationId) return
     try {
-      const tx = await findTxByOperationId(operationId);
-      if (!tx) return;
-      const updated = await markSendReclaimed(tx.id);
+      const txId = await injected.operationMap.resolve(operationId)
+      if (!txId) return
+      const updated = await markSendReclaimed(txId)
       if (updated) {
-        console.log(`[SendTokenObserver] Rolled back: ${operationId} → tx ${tx.id}`);
+        console.log(`[SendTokenObserver] Rolled back: ${operationId} → tx ${txId}`)
       }
     } catch (error) {
-      console.error('[SendTokenObserver] Failed to handle send:rolled-back:', error);
+      console.error('[SendTokenObserver] Failed to handle send:rolled-back:', error)
     }
-  });
+  })
 
-  unsubscribers = [unsubFinalized, unsubRolledBack];
-  console.log('[SendTokenObserver] Connected');
+  unsubscribers = [unsubFinalized, unsubRolledBack]
+  console.log('[SendTokenObserver] Connected')
 }
 
 /**
@@ -147,7 +152,7 @@ export function connectSendTokenObserver(manager: Manager): void {
  */
 export function disconnectSendTokenObserver(): void {
   for (const unsub of unsubscribers) {
-    unsub();
+    unsub()
   }
-  unsubscribers = [];
+  unsubscribers = []
 }

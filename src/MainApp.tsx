@@ -334,9 +334,20 @@ export default function MainApp() {
       // 1. Coco manager 초기화 + bridge 연결
       try {
         const { getCocoManager, enableWatchers } = await import('@/coco/manager')
-        await getCocoManager()
+        const manager = await getCocoManager()
 
-        // 2. Watchers 활성화 (seed 준비됨)
+        // 2. Send token observer 연결 (deps 주입)
+        const { connectSendTokenObserver } = await import('@/coco/sendTokenObserver')
+        const { DexieOperationMap } = await import('@/adapters/storage/dexie/dexie-operation-map')
+        const { DexieTransactionRepository } = await import('@/adapters/storage/dexie/dexie-transaction.repository')
+        const { DexiePendingOperationRepository } = await import('@/adapters/storage/dexie/dexie-pending-operation.repository')
+        connectSendTokenObserver(manager, {
+          operationMap: new DexieOperationMap(),
+          txRepo: new DexieTransactionRepository(),
+          pendingOps: new DexiePendingOperationRepository(),
+        })
+
+        // 3. Watchers 활성화 (seed 준비됨)
         await enableWatchers()
       } catch (e) {
         console.error('[Init] Failed to initialize Coco:', e)
