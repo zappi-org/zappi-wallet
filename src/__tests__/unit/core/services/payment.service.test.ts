@@ -268,14 +268,14 @@ describe('PaymentService', () => {
 
       expect(result.ok).toBe(true)
       expect(ecashAdapter.redeem).toHaveBeenCalledWith('cashuBtest...')
-      // Transaction saved with correct fields
+      // Transaction saved with correct fields (randomUUID when no transactionId provided)
       expect(txRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({
-          id: 'tx-ecash-1',
           direction: 'receive',
           method: 'cashu:ecash',
           accountId: 'https://mint.test',
-          status: 'completed',
+          status: 'settled',
+          outcome: 'claimed',
         }),
       )
       expect(eventBus.emit).toHaveBeenCalledWith(

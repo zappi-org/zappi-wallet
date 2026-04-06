@@ -18,6 +18,7 @@ function createMockBackend(): EcashBackend {
       token: 'cashuBtest_token_string',
     }),
     rollbackSend: vi.fn().mockResolvedValue(undefined),
+    finalizeSend: vi.fn().mockResolvedValue(undefined),
     receiveToken: vi.fn().mockResolvedValue({ amount: 500, mintUrl: 'https://mint.test' }),
     recoverPendingSendTokens: vi.fn().mockResolvedValue({ reclaimed: 3, recorded: 1 }),
   }

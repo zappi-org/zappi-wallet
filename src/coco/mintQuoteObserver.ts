@@ -9,21 +9,43 @@
  * - mintQuoteObserver.ts: mint-op:finalized → Transaction DB
  *
  * recordLightningReceive: observer + claimPayment 양쪽에서 호출 가능한
- * idempotent 거래 기록 함수. DB 기록을 한 곳에서 관리한다.
+ * idempotent 거래 기록 함수.
+ *
+ * Phase 5: OperationMap이 주입되면 기존 pending TX를 settle하고,
+ * 없으면(과도기) 기존대로 새 TX를 생성한다.
  */
 
 import type { Manager } from 'coco-cashu-core';
+import type { OperationMap } from '@/core/ports/driven/operation-map.port';
+import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port';
+import { settleAsDelivered } from '@/core/domain/transaction';
 import { useAppStore } from '@/store';
 import { broadcastSync } from '@/hooks/use-cross-tab-sync';
 import { isSwapQuote, unmarkQuoteAsSwap } from './bridge';
 
 let unsubscribers: (() => void)[] = [];
 
+// ─── Phase 5 주입 대상 ───
+let injectedOperationMap: OperationMap | null = null;
+let injectedTxRepo: TransactionRepository | null = null;
+
+/**
+ * Phase 5: bootstrap에서 OperationMap + TransactionRepository 주입
+ * connectMintQuoteObserver 호출 전에 실행해야 함.
+ */
+export function injectDependencies(operationMap: OperationMap, txRepo: TransactionRepository): void {
+  injectedOperationMap = operationMap;
+  injectedTxRepo = txRepo;
+}
+
 // ─── 공유 거래 기록 함수 (idempotent) ───
 
 /**
- * Lightning receive 거래를 Transaction DB에 기록
- * 이미 존재하면 skip (idempotent)
+ * Lightning receive 거래를 Transaction DB에 기록.
+ *
+ * Phase 5 경로: OperationMap에서 quoteId → txId 조회 →
+ *   기존 pending TX가 있으면 settleAsDelivered로 전환.
+ * Fallback 경로 (과도기): OperationMap 없거나 매핑 없으면 기존대로 새 TX 생성.
  */
 export async function recordLightningReceive(params: {
   quoteId: string;
@@ -31,6 +53,27 @@ export async function recordLightningReceive(params: {
   amount: number;
   bolt11?: string;
 }): Promise<boolean> {
+  // Phase 5 경로: OperationMap → settle existing pending TX
+  if (injectedOperationMap && injectedTxRepo) {
+    const existingTxId = await injectedOperationMap.resolve(params.quoteId);
+    if (existingTxId) {
+      const existingTx = await injectedTxRepo.getById(existingTxId);
+      if (existingTx) {
+        if (existingTx.status === 'settled') return false; // 이미 처리됨
+        const settled = settleAsDelivered(existingTx);
+        await injectedTxRepo.update(existingTxId, {
+          status: settled.status,
+          outcome: settled.outcome,
+          completedAt: settled.completedAt,
+        });
+        useAppStore.getState().triggerTxRefresh();
+        broadcastSync('balance_changed');
+        return true;
+      }
+    }
+  }
+
+  // Fallback 경로 (과도기): 기존대로 새 TX 생성
   const { getTransactionRepo } = await import('@/data/repositories/transaction.repository');
   const repo = getTransactionRepo();
   const txId = `tx-${params.quoteId}`;

@@ -17,6 +17,7 @@ export interface PaymentMethodAdapter {
   executeSend(preparedId: string): Promise<ExecutingPayment>
   cancelPrepared(preparedId: string): Promise<void>
   reclaimFailed(operationId: string): Promise<void>
+  finalizeSend?(operationId: string): Promise<void>
 
   // ─── 받기 요청 (상대방에게 "나에게 보내줘") ───
   createReceiveRequest(params: ReceiveParams): Promise<ReceiveRequest>

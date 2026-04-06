@@ -112,6 +112,9 @@ export interface SendFlowProps {
   onCreateEcashToken: (amount: number, mintUrl?: string, options?: { p2pkPubkey?: string; memo?: string }) => Promise<{ token: string; txId: string; operationId: string } | null>
   onCompleteEcashSend?: (txId: string) => Promise<void>
   onCancelEcashToken?: (txId: string) => Promise<void>
+  // Cross-mint swap handler (my-wallet type)
+  onMintSwap?: (fromMintUrl: string, toMintUrl: string, amount: number) => Promise<{ success: boolean; amount?: number; fee?: number; transactionId?: string } | null>
+  onEstimateSwapFee?: (fromMintUrl: string, toMintUrl: string, amount: number) => Promise<{ fee: number; totalNeeded: number } | null>
   // Pre-filled data from scanner
   validatedData?: ValidatedData
   initialAmount?: number
@@ -131,6 +134,8 @@ export function SendFlow({
   onCreateEcashToken,
   onCompleteEcashSend: _onCompleteEcashSend,
   onCancelEcashToken,
+  onMintSwap,
+  onEstimateSwapFee: _onEstimateSwapFee,
   validatedData: initialValidatedData,
   initialAmount,
   initialMintUrl,
@@ -478,6 +483,21 @@ export function SendFlow({
         addressOrInvoice: getAddressOrInvoice(validatedData),
       }
 
+      // Phase 5: my-wallet 타입은 SwapUseCase 경유 (cross-mint invoice 자체 생성)
+      if (validatedData.type === 'my-wallet' && onMintSwap && routeSelection.targetMintUrl) {
+        const swapResult = await onMintSwap(
+          routeSelection.sourceMintUrl,
+          routeSelection.targetMintUrl,
+          routeSelection.amount,
+        )
+        if (swapResult?.success) {
+          setState((prev) => ({ ...prev, step: 'complete' }))
+        } else {
+          setState((prev) => ({ ...prev, step: 'confirm', error: t('payment.swapFailed') }))
+        }
+        return
+      }
+
       const result = await onExecuteRoute(routeSelection, context)
 
       if (result?.success) {
@@ -507,7 +527,7 @@ export function SendFlow({
     } finally {
       isProcessingRef.current = false
     }
-  }, [state, onExecuteRoute, isOnline, addToast, t])
+  }, [state, onExecuteRoute, onMintSwap, isOnline, addToast, t])
 
   /** Token confirm step → create token */
   const handleTokenCreate = useCallback(async () => {

@@ -34,6 +34,7 @@ export interface EcashBackend {
   }): Promise<{ operationId: string; fee: number; needsSwap: boolean }>
   executeSend(operationId: string, options?: { memo?: string }): Promise<{ token: string }>
   rollbackSend(operationId: string): Promise<void>
+  finalizeSend(operationId: string): Promise<void>
   receiveToken(token: string): Promise<{ amount: number; mintUrl: string }>
   recoverPendingSendTokens(): Promise<{ reclaimed: number; recorded: number }>
 }
@@ -112,6 +113,10 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
 
   async reclaimFailed(operationId: string): Promise<void> {
     await this.backend.rollbackSend(operationId)
+  }
+
+  async finalizeSend(operationId: string): Promise<void> {
+    await this.backend.finalizeSend(operationId)
   }
 
   // ─── 받기 요청 ───

@@ -131,6 +131,11 @@ export async function rollbackSend(operationId: string): Promise<void> {
   }
 }
 
+export async function finalizeSend(operationId: string): Promise<void> {
+  const manager = await getCocoManager();
+  await manager.ops.send.finalize(operationId);
+}
+
 // ─── Receive ───
 
 /**

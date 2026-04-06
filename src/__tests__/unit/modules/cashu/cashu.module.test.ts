@@ -19,6 +19,7 @@ function createMockBackend(): CashuModuleBackend {
     prepareSend: vi.fn(),
     executeSend: vi.fn(),
     rollbackSend: vi.fn(),
+    finalizeSend: vi.fn(),
     receiveToken: vi.fn(),
     recoverPendingSendTokens: vi.fn(),
     // PaymentRequest (NUT-18)

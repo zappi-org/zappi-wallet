@@ -55,8 +55,7 @@ import { SendFlow } from '@/ui/screens/Send/SendFlow'
 
 // Services
 import { FailedSwapStoreAdapter } from '@/adapters/storage/failed-swap-store.adapter'
-import { clearWalletCache, deleteCocoData, markSendFinalized, markSendReclaimed } from '@/coco'
-import { getBalances as cocoGetBalances } from '@/coco/cashuService'
+import { clearWalletCache, deleteCocoData } from '@/coco'
 import { createSecurityService } from '@/composition/security'
 import type { Transaction } from '@/core/types'
 import { resetWalletCache } from '@/data/cache/wallet-cache'
@@ -430,14 +429,21 @@ export default function MainApp() {
           nostrPrivateKeyHex: result.value.keys.privateKey,
         })
         // CashuModule 초기화 — BIP-39 seed��� adapter 생성
-        await registry.cashuModule.initialize(result.value.bip39Seed, "m/129372'/0'")
+        // Phase 5: mintQuoteObserver에 OperationMap + TxRepo 주입 (TX 이중 생성 방지)
+        const { injectDependencies } = await import('@/coco/mintQuoteObserver')
+        injectDependencies(registry.operationMap, registry.txRepo)
         setServiceRegistry(registry)
 
         setLocked(false)
+
+        // CashuModule 초기화 — fire-and-forget (UI 블로킹 제거, QA #4)
+        // SDK init 완료 후 balance 자동 갱신
+        registry.cashuModule.initialize(result.value.bip39Seed, "m/129372'/0'").then(() => {
+          refreshBalance().catch((e) => console.error('[Unlock] Post-init balance refresh failed:', e))
+        }).catch((e) => console.error('[Unlock] CashuModule init failed:', e))
+
         // P2PK key — SDK init을 블로킹하지 않고 백그라운드 로드
         services.p2pkKeyManager.getCurrentKey().then(({ pubkey }) => setP2pkPubkey(pubkey))
-        // Refresh balance after unlock
-        await refreshBalance()
         return true
       }
       return false
@@ -450,71 +456,48 @@ export default function MainApp() {
   const handleCreateInvoice = useCallback(async (amount: number, mintUrl: string) => {
     if (!mintUrl) return null
 
-    // Phase 5: PaymentUseCase.receive() 경유 (new path)
-    if (serviceRegistry?.payment) {
-      const result = await serviceRegistry.payment.receive({
-        accountId: mintUrl,
-        adapterId: 'cashu:bolt11',
-        amount: sat(amount),
-      })
-      if (result.ok) {
-        const req = result.value
-        addPendingQuote({
-          quoteId: req.id,
-          mintUrl,
-          amount,
-          invoice: req.encoded,
-          expiry: req.expiresAt ? req.expiresAt : Date.now() + 10 * 60 * 1000,
-        })
-        return {
-          invoice: req.encoded,
-          quoteId: req.id,
-          expiry: req.expiresAt ? Math.floor(req.expiresAt / 1000) : Math.floor(Date.now() / 1000) + 600,
-        }
-      }
+    // Phase 5: PaymentUseCase.receive() 경유
+    if (!serviceRegistry?.payment) {
+      console.warn('[MainApp] ServiceRegistry not ready — cannot create invoice')
       return null
     }
 
-    // Fallback: old path
-    const result = await services.payment.createLightningInvoice(amount, mintUrl)
-    if (result.isOk()) {
-      const { quote } = result.value
+    const result = await serviceRegistry.payment.receive({
+      accountId: mintUrl,
+      adapterId: 'cashu:bolt11',
+      amount: sat(amount),
+    })
+    if (result.ok) {
+      const req = result.value
       addPendingQuote({
-        quoteId: quote.quoteId,
+        quoteId: req.id,
         mintUrl,
         amount,
-        invoice: quote.request,
-        expiry: quote.expiry * 1000,
+        invoice: req.encoded,
+        expiry: req.expiresAt ? req.expiresAt : Date.now() + 10 * 60 * 1000,
       })
       return {
-        invoice: quote.request,
-        quoteId: quote.quoteId,
-        expiry: quote.expiry,
+        invoice: req.encoded,
+        quoteId: req.id,
+        expiry: req.expiresAt ? Math.floor(req.expiresAt / 1000) : Math.floor(Date.now() / 1000) + 600,
       }
     }
     return null
-  }, [serviceRegistry, services.payment, addPendingQuote])
+  }, [serviceRegistry, addPendingQuote])
 
   const handleReceiveToken = useCallback(async (token: string): Promise<{ success: boolean; amount?: number; transactionId?: string; error?: { code?: string; message?: string } }> => {
-    // Phase 5: PaymentUseCase.redeem() 경유 (new path)
-    if (serviceRegistry?.payment) {
-      const result = await serviceRegistry.payment.redeem({ adapterId: 'cashu:ecash', input: token })
-      if (result.ok) {
-        refreshAll().catch((e) => console.error('[MainApp] refreshAll after receive failed:', e))
-        return { success: true, amount: toNumber(result.value.amount), transactionId: result.value.requestId }
-      }
-      return { success: false, error: { code: result.error.code, message: result.error.message } }
+    // Phase 5: PaymentUseCase.redeem() 경유
+    if (!serviceRegistry?.payment) {
+      return { success: false, error: { code: 'NOT_READY', message: 'ServiceRegistry not ready' } }
     }
 
-    // Fallback: old path
-    const result = await services.payment.receiveEcash(token)
-    if (result.isOk()) {
+    const result = await serviceRegistry.payment.redeem({ adapterId: 'cashu:ecash', input: token })
+    if (result.ok) {
       refreshAll().catch((e) => console.error('[MainApp] refreshAll after receive failed:', e))
-      return { success: true, amount: result.value.amount, transactionId: result.value.transactionId }
+      return { success: true, amount: toNumber(result.value.amount), transactionId: result.value.requestId }
     }
-    const e = result.error
-    return { success: false, error: { code: e.code, message: toErrorMessage(e) } }
-  }, [serviceRegistry, services.payment, refreshAll])
+    return { success: false, error: { code: result.error.code, message: result.error.message } }
+  }, [serviceRegistry, refreshAll])
 
   /** Estimate Lightning fee for cross-mint swap (non-destructive) */
   const handleEstimateSwapFee = useCallback(async (
@@ -523,27 +506,53 @@ export default function MainApp() {
     amount: number,
   ): Promise<{ fee: number; totalNeeded: number } | null> => {
     // Phase 5: SwapUseCase.estimateSwap() 경유
-    if (serviceRegistry?.swap) {
-      const result = await serviceRegistry.swap.estimateSwap({
-        sourceAccountId: fromMintUrl,
-        targetAccountId: toMintUrl,
-        amount: sat(amount),
-      })
-      if (result.ok) {
-        const fee = toNumber(result.value.fee)
-        return { fee, totalNeeded: amount + fee }
-      }
+    if (!serviceRegistry?.swap) {
+      console.warn('[MainApp] ServiceRegistry not ready — cannot estimate swap fee')
       return null
     }
 
-    // Fallback: old path
-    try {
-      return await services.payment.estimateSwapFee(fromMintUrl, toMintUrl, amount)
-    } catch (error) {
-      console.error('[MainApp] estimateSwapFee failed:', error)
+    const result = await serviceRegistry.swap.estimateSwap({
+      sourceAccountId: fromMintUrl,
+      targetAccountId: toMintUrl,
+      amount: sat(amount),
+    })
+    if (result.ok) {
+      const fee = toNumber(result.value.fee)
+      return { fee, totalNeeded: amount + fee }
+    }
+    return null
+  }, [serviceRegistry])
+
+  /** Cross-mint swap: execute swap from source mint to target mint */
+  const handleMintSwap = useCallback(async (
+    fromMintUrl: string,
+    toMintUrl: string,
+    amount: number,
+  ): Promise<{ success: boolean; amount?: number; fee?: number; transactionId?: string } | null> => {
+    if (!serviceRegistry?.swap) {
+      console.warn('[MainApp] ServiceRegistry not ready — cannot perform swap')
       return null
     }
-  }, [serviceRegistry, services.payment])
+
+    const result = await serviceRegistry.swap.executeSwap({
+      sourceAccountId: fromMintUrl,
+      targetAccountId: toMintUrl,
+      amount: sat(amount),
+    })
+
+    if (!result.ok) {
+      addToast({ type: 'error', message: result.error.message, duration: 4000 })
+      return null
+    }
+
+    refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap:', e))
+    return {
+      success: true,
+      amount: toNumber(result.value.amount),
+      fee: toNumber(result.value.fee),
+      transactionId: result.value.sendTxId,
+    }
+  }, [serviceRegistry, refreshAll, addToast])
 
   /** Cross-mint swap receive: receive token on source mint, then swap to target */
   const handleSwapReceive = useCallback(async (
@@ -553,45 +562,30 @@ export default function MainApp() {
     amount: number,
   ): Promise<{ success: boolean; amount?: number; error?: { code?: string; message?: string } }> => {
     // Phase 5: redeem + SwapUseCase 경유
-    if (serviceRegistry?.payment && serviceRegistry?.swap) {
-      // 1. Redeem token on source mint
-      const redeemResult = await serviceRegistry.payment.redeem({ adapterId: 'cashu:ecash', input: token })
-      if (!redeemResult.ok) {
-        return { success: false, error: { code: redeemResult.error.code, message: redeemResult.error.message } }
-      }
-
-      // 2. Swap from source to target
-      const swapResult = await serviceRegistry.swap.executeSwap({
-        sourceAccountId: sourceMintUrl,
-        targetAccountId: targetMintUrl,
-        amount: sat(amount),
-      })
-      if (!swapResult.ok) {
-        refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap fail:', e))
-        return { success: false, error: { code: swapResult.error.code, message: swapResult.error.message } }
-      }
-
-      refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap:', e))
-      return { success: true, amount: toNumber(swapResult.value.amount) }
+    if (!serviceRegistry?.payment || !serviceRegistry?.swap) {
+      return { success: false, error: { code: 'NOT_READY', message: 'ServiceRegistry not ready' } }
     }
 
-    // Fallback: old path
-    const receiveResult = await services.payment.receiveEcash(token)
-    if (receiveResult.isErr()) {
-      const e = receiveResult.error
-      return { success: false, error: { code: e.code, message: toErrorMessage(e) } }
+    // 1. Redeem token on source mint
+    const redeemResult = await serviceRegistry.payment.redeem({ adapterId: 'cashu:ecash', input: token })
+    if (!redeemResult.ok) {
+      return { success: false, error: { code: redeemResult.error.code, message: redeemResult.error.message } }
     }
 
-    const swapResult = await services.payment.mintSwap(sourceMintUrl, targetMintUrl, amount)
-    if (swapResult.isErr()) {
+    // 2. Swap from source to target
+    const swapResult = await serviceRegistry.swap.executeSwap({
+      sourceAccountId: sourceMintUrl,
+      targetAccountId: targetMintUrl,
+      amount: sat(amount),
+    })
+    if (!swapResult.ok) {
       refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap fail:', e))
-      const e = swapResult.error
-      return { success: false, error: { code: e.code, message: toErrorMessage(e) } }
+      return { success: false, error: { code: swapResult.error.code, message: swapResult.error.message } }
     }
 
     refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap:', e))
-    return { success: true, amount: swapResult.value.amount }
-  }, [serviceRegistry, services.payment, refreshAll])
+    return { success: true, amount: toNumber(swapResult.value.amount) }
+  }, [serviceRegistry, refreshAll])
 
 
   /** Unified send handler via routing layer */
@@ -645,65 +639,34 @@ export default function MainApp() {
 
   const handleCreateEcashToken = useCallback(async (amount: number, preferredMintUrl?: string, options?: { p2pkPubkey?: string; memo?: string }): Promise<{ token: string; txId: string; operationId: string } | null> => {
     if (isSendingEcashRef.current) return null
+    if (!serviceRegistry?.payment) {
+      console.warn('[MainApp] ServiceRegistry not ready — cannot create ecash token')
+      return null
+    }
     isSendingEcashRef.current = true
     try {
-      const balances = await cocoGetBalances()
-
-      let mintUrl: string
-
-      if (preferredMintUrl && balances[preferredMintUrl] >= amount) {
-        mintUrl = preferredMintUrl
-      } else {
-        const sufficientMints = Object.entries(balances)
-          .filter(([, bal]) => bal >= amount)
-          .sort(([, a], [, b]) => a - b)
-
-        if (sufficientMints.length === 0) {
-          console.error('No mint has sufficient balance for', amount)
-          return null
-        }
-
-        mintUrl = sufficientMints[0][0]
-      }
-
-      // SDK SendApi: prepare → execute
-      const { prepareSendToken, executeSendToken } = await import('@/coco/cashuService')
-      const { operationId } = await prepareSendToken(mintUrl, amount)
-      const { token } = await executeSendToken(operationId, options)
-
-      const txId = `tx-ecash-send-${crypto.randomUUID()}`
-
-      const tx: Transaction = {
-        id: txId,
-        direction: 'send',
-        type: 'ecash-token',
-        amount,
-        mintUrl,
-        status: 'pending',
-        createdAt: Date.now(),
+      // Phase 5: PaymentUseCase.send(destination없음 = 토큰 생성)
+      // PaymentService가 내부적으로 민트 선택 + prepare/execute + TX 기록 전부 처리
+      const accountId = preferredMintUrl ?? ''
+      const result = await serviceRegistry.payment.send({
+        accountId,
+        amount: sat(amount),
         memo: options?.memo,
-        token,
-        tokenState: 'unspent',
-        operationId,
-      }
-      await services.transactionRepo.save(tx)
-      setTransactions((prev) => [tx, ...prev])
-
-      // pendingSendToken 저장 (crash recovery용)
-      await services.payment.savePendingSendToken({
-        id: txId,
-        token,
-        mintUrl,
-        amount,
-        operationId,
-        createdAt: Date.now(),
+        options: options?.p2pkPubkey ? { lockingCondition: { type: 'p2pk', data: options.p2pkPubkey } } : undefined,
       })
+
+      if (!result.ok) {
+        console.error('Failed to create ecash token:', result.error.message)
+        if (result.error.code === 'INSUFFICIENT_BALANCE') throw new InsufficientBalanceError(amount, 0)
+        return null
+      }
+
+      const token = (result.value.data?.token as string) ?? ''
+      const operationId = (result.value.data?.operationId as string) ?? ''
+      const txId = result.value.transactionId
 
       await refreshBalance()
       broadcastSync('balance_changed')
-
-      // SDK ProofStateWatcher가 자동으로 proof 상태 감시
-      // → send:finalized → sendTokenObserver가 Transaction 상태 업데이트
 
       return { token, txId, operationId }
     } catch (error) {
@@ -713,33 +676,34 @@ export default function MainApp() {
     } finally {
       isSendingEcashRef.current = false
     }
-  }, [services.transactionRepo, services.payment, refreshBalance])
+  }, [serviceRegistry, refreshBalance])
 
   // ─── NUT-18 전송 완료 콜백 ───
   const handleCompleteEcashSend = useCallback(async (txId: string) => {
-    const tx = await services.transactionRepo.findById(txId)
-    if (tx?.operationId) {
-      const { getCocoManager } = await import('@/coco/manager')
-      const manager = await getCocoManager()
-      await manager.ops.send.finalize(tx.operationId)
+    if (!serviceRegistry?.payment) {
+      console.warn('[MainApp] ServiceRegistry not ready — cannot complete send')
+      return
     }
-    // SDK/레거시 공통: 공유 함수로 DB 상태 전이
-    await markSendFinalized(txId)
+    const result = await serviceRegistry.payment.completeSend({ transactionId: txId })
+    if (!result.ok) {
+      console.error('[MainApp] CompleteSend failed:', result.error.message)
+    }
     setTransactions((prev) => prev.map((t) =>
       t.id === txId ? { ...t, status: 'completed' as const, tokenState: 'spent' as const, completedAt: Date.now() } : t
     ))
-  }, [services.transactionRepo])
+  }, [serviceRegistry])
 
   // ─── 토큰 취소(reclaim) 콜백 ───
   const handleCancelEcashToken = useCallback(async (txId: string) => {
-    const tx = await services.transactionRepo.findById(txId)
-    if (tx?.operationId) {
-      const { rollbackSendToken } = await import('@/coco/cashuService')
-      await rollbackSendToken(tx.operationId)
+    if (!serviceRegistry?.payment) {
+      console.warn('[MainApp] ServiceRegistry not ready — cannot reclaim token')
+      return
     }
-    // SDK/레거시 공통: 공유 함수로 DB 상태 전이 (회수 receive 거래도 자동 생성됨)
-    await markSendReclaimed(txId)
-  }, [services.transactionRepo])
+    const result = await serviceRegistry.payment.reclaim({ transactionId: txId })
+    if (!result.ok) {
+      console.error('[MainApp] Reclaim failed:', result.error.message)
+    }
+  }, [serviceRegistry])
 
   // Settings handlers
   const handleChangePassword = useCallback(async (oldPassword: string, newPassword: string): Promise<boolean> => {
@@ -1134,6 +1098,8 @@ export default function MainApp() {
           onCreateEcashToken={handleCreateEcashToken}
           onCompleteEcashSend={handleCompleteEcashSend}
           onCancelEcashToken={handleCancelEcashToken}
+          onMintSwap={handleMintSwap}
+          onEstimateSwapFee={handleEstimateSwapFee}
           validatedData={validatedScanData || undefined}
           initialAmount={scannedAmount || undefined}
           initialMintUrl={activeMintUrl}

@@ -43,7 +43,13 @@ export interface PaymentUseCase {
   redeem(params: {
     adapterId: string
     input: string
+    transactionId?: string
   }): Promise<Result<RedeemResult, PaymentError>>
+
+  /** 토큰 전송 완료 처리 (상대가 수령 확인 후 finalize) */
+  completeSend(params: {
+    transactionId: string
+  }): Promise<Result<{ transactionId: string }, PaymentError>>
 
   reclaim(params: {
     transactionId: string

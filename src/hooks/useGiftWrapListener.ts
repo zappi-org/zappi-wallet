@@ -12,7 +12,7 @@ import { ProcessedEventRepository } from '@/data/repositories/processed-event.re
 import { getTransactionRepo } from '@/data/repositories/transaction.repository'
 import { FailedSwapRepository } from '@/data/repositories/failed-swap.repository'
 import type { ZapMessage, ZapPaymentFulfillment } from '@/types'
-import type { Transaction, FailedSwap, ProcessedEvent } from '@/core/types'
+import type { FailedSwap, ProcessedEvent } from '@/core/types'
 import { parseTransactionSource } from '@/utils/transaction'
 import { formatSats } from '@/utils/format'
 
@@ -225,32 +225,17 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
         return false
       }
 
-      const redeemResult = await registryRef.current.payment.redeem({ adapterId: 'cashu:ecash', input: token })
+      // Phase 5: redeem에 deterministic txId 전달 → 단일 TX writer (이중 기록 방지)
+      const txRecordId = `tx-gw-${eventId}`
+      const redeemResult = await registryRef.current.payment.redeem({
+        adapterId: 'cashu:ecash',
+        input: token,
+        transactionId: txRecordId,
+      })
       if (!redeemResult.ok) {
         throw new Error(redeemResult.error.message)
       }
       const receivedAmount = toNumber(redeemResult.value.amount)
-
-      // Save transaction to new data layer (deterministic ID based on event to prevent duplicates)
-      const txRecordId = `tx-gw-${eventId}`
-      const existingTx = await transactionRepo.findById(txRecordId)
-      if (!existingTx) {
-        const tx: Transaction = {
-          id: txRecordId,
-          direction: 'receive',
-          type: 'ecash',
-          amount: receivedAmount,
-          mintUrl,
-          status: 'completed',
-          createdAt: Date.now(),
-          completedAt: Date.now(),
-          token,
-          source: parseTransactionSource(requestId),
-          memo,
-          metadata,
-        }
-        await transactionRepo.save(tx)
-      }
 
       // Mark as processed in IndexedDB
       await markTxProcessed(txId, eventId, 'success', receivedAmount)

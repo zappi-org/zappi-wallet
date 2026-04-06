@@ -18,6 +18,7 @@ import { createCashuBackend } from '@/modules/cashu/create-cashu-backend'
 import { DexieTransactionRepository } from '@/adapters/storage/dexie/dexie-transaction.repository'
 import { DexieContactRepository } from '@/adapters/storage/dexie/dexie-contact.repository'
 import { DexiePendingOperationRepository } from '@/adapters/storage/dexie/dexie-pending-operation.repository'
+import { DexieOperationMap } from '@/adapters/storage/dexie/dexie-operation-map'
 import { NostrGatewayAdapter } from '@/adapters/nostr/nostr-gateway'
 
 // ─── Adapters (non-module) ───
@@ -38,6 +39,8 @@ import { connectEventStoreBridge } from './event-store-bridge'
 // ─── Types ───
 import type { WalletModule } from '@/core/ports/driven/wallet-module.port'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
+import type { OperationMap } from '@/core/ports/driven/operation-map.port'
+import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { ServiceRegistry } from './types'
 
 // ─── Bootstrap Input ───
@@ -56,6 +59,10 @@ export interface BootstrapResult extends ServiceRegistry {
   readonly cashuModule: CashuModule
   /** EventBus → Store 브릿지 해제 함수 */
   readonly disconnectBridge: () => void
+  /** OperationMap 인스턴스 (mintQuoteObserver 등에서 사용) */
+  readonly operationMap: OperationMap
+  /** TransactionRepository 인스턴스 (observer 등에서 사용) */
+  readonly txRepo: TransactionRepository
 }
 
 // ─── Bootstrap ───
@@ -66,6 +73,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const txRepo = new DexieTransactionRepository()
   const contactRepo = new DexieContactRepository()
   const pendingOpRepo = new DexiePendingOperationRepository()
+  const operationMap = new DexieOperationMap()
 
   // 2. Nostr Gateway
   const nostrGateway = new NostrGatewayAdapter({
@@ -82,7 +90,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const nip05Adapter = new Nip05ResolverAdapter()
 
   // 5. Services (via composition roots)
-  const payment = createPaymentService(modules, txRepo, eventBus)
+  const payment = createPaymentService(modules, txRepo, eventBus, operationMap)
   const balance = createBalanceService(modules)
   const swap = createSwapService(modules, txRepo, eventBus)
   const contact = createContactService(contactRepo)
@@ -106,5 +114,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     nostrGateway,
     cashuModule,
     disconnectBridge,
+    operationMap,
+    txRepo,
   }
 }

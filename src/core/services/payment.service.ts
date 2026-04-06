@@ -28,12 +28,14 @@ import type {
   RedeemResult,
 } from '@/core/ports/driven/payment-method.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
+import type { OperationMap } from '@/core/ports/driven/operation-map.port'
 
 export class PaymentService implements PaymentUseCase {
   constructor(
     private modules: WalletModule[],
     private txRepo: TransactionRepository,
     private eventBus: EventBus,
+    private operationMap?: OperationMap,
   ) {}
 
   // ─── Query ───
@@ -176,8 +178,12 @@ export class PaymentService implements PaymentUseCase {
         amount: params.amount,
         accountId: params.accountId,
         memo: params.description,
+        metadata: { quoteId: request.id },
       })
       await this.txRepo.save(tx)
+
+      // quoteId → txId 매핑 등록 (mintQuoteObserver가 settle 시 사용)
+      this.operationMap?.register(request.id, request.id)
 
       return Ok(request)
     } catch (error) {
@@ -191,6 +197,7 @@ export class PaymentService implements PaymentUseCase {
   async redeem(params: {
     adapterId: string
     input: string
+    transactionId?: string
   }): Promise<Result<RedeemResult, PaymentError>> {
     const adapter = this.findAdapter(params.adapterId)
     if (!adapter) {
@@ -201,12 +208,27 @@ export class PaymentService implements PaymentUseCase {
       return Err({ code: 'ADAPTER_NOT_FOUND', message: `Adapter ${params.adapterId} does not support redeem` })
     }
 
+    // Idempotency: 지정된 txId로 이미 기록된 TX가 있으면 skip
+    const txId = params.transactionId ?? crypto.randomUUID()
+    if (params.transactionId) {
+      const existing = await this.txRepo.getById(txId)
+      if (existing) {
+        return Ok({
+          requestId: txId,
+          method: existing.method,
+          protocol: existing.protocol,
+          amount: existing.amount,
+          accountId: existing.accountId,
+        } as RedeemResult)
+      }
+    }
+
     try {
       const result = await adapter.redeem(params.input)
 
       // TX 기록 (redeem은 수신이므로 direction: receive)
       const tx = createTransaction({
-        id: result.requestId,
+        id: txId,
         direction: 'receive',
         method: result.method,
         protocol: result.protocol,
@@ -226,6 +248,43 @@ export class PaymentService implements PaymentUseCase {
       const message = error instanceof Error ? error.message : 'Unknown error'
       return Err({ code: 'UNKNOWN', message })
     }
+  }
+
+  // ─── Complete Send (finalize deferred token) ───
+
+  async completeSend(params: {
+    transactionId: string
+  }): Promise<Result<{ transactionId: string }, PaymentError>> {
+    const tx = await this.txRepo.getById(params.transactionId)
+    if (!tx) {
+      return Err({ code: 'UNKNOWN', message: `Transaction not found: ${params.transactionId}` })
+    }
+    if (tx.outcome !== 'unclaimed') {
+      return Err({ code: 'UNKNOWN', message: `Transaction is not completable (outcome: ${tx.outcome})` })
+    }
+
+    const operationId = tx.metadata?.operationId as string | undefined
+    if (operationId) {
+      // adapter에 finalize 위임 (SDK finalize 호출)
+      const adapter = this.findAdapter(tx.method)
+      if (adapter?.finalizeSend) {
+        await adapter.finalizeSend(operationId)
+      }
+    }
+
+    const settled = settleAsDelivered(tx)
+    await this.txRepo.update(tx.id, {
+      status: settled.status,
+      outcome: settled.outcome,
+      completedAt: settled.completedAt,
+    })
+
+    this.eventBus.emit({
+      type: 'payment:completed',
+      payload: { txId: tx.id, method: tx.method, amount: tx.amount },
+    })
+
+    return Ok({ transactionId: tx.id })
   }
 
   // ─── Reclaim ───
