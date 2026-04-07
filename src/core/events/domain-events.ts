@@ -8,7 +8,7 @@ export type DomainEvent =
   | SwapCompletedEvent
   | SwapFailedEvent
   | RecoveryCompletedEvent
-  | MintQuoteSettledEvent
+  | ReceiveSettledEvent
 
 export interface PaymentCompletedEvent {
   type: 'payment:completed'
@@ -75,12 +75,14 @@ export interface RecoveryCompletedEvent {
   }
 }
 
-export interface MintQuoteSettledEvent {
-  type: 'mint-quote:settled'
+export interface ReceiveSettledEvent {
+  type: 'receive:settled'
   payload: {
-    quoteId: string
+    requestId: string
     amount: number
-    mintUrl: string
-    isSwapQuote: boolean
+    accountId: string
+    method: string
+    isSwapStep: boolean
+    metadata?: Record<string, unknown>
   }
 }

@@ -96,29 +96,29 @@ export function connectEventStoreBridge(
     }),
   )
 
-  // mint-quote:settled → pending quote 제거 + toast + ReceiveRequest 완료
+  // receive:settled → pending quote 제거 + toast + ReceiveRequest 완료
   unsubscribers.push(
-    eventBus.on('mint-quote:settled', (event) => {
-      const { quoteId, amount, isSwapQuote } = event.payload
+    eventBus.on('receive:settled', (event) => {
+      const { requestId, amount, method, isSwapStep } = event.payload
       const { removePendingQuote, addToast, setLastRedeemedQuote } = useAppStore.getState()
 
-      removePendingQuote(quoteId)
+      removePendingQuote(requestId)
 
-      if (isSwapQuote) {
-        console.log(`[EventStoreBridge] Swap quote settled (toast suppressed): ${quoteId}`)
+      if (isSwapStep) {
+        console.log(`[EventStoreBridge] Swap step settled (toast suppressed): ${requestId}`)
       } else {
         addToast({
           type: 'success',
           message: i18n.t('toast.lightningReceived', { unit: satUnit(), amount: amount.toLocaleString() }),
           duration: 4000,
         })
-        setLastRedeemedQuote(quoteId, amount)
+        setLastRedeemedQuote(requestId, amount)
       }
 
       // ReceiveRequest 완료 처리
-      findByQuoteId(quoteId).then((req) => {
+      findByQuoteId(requestId).then((req) => {
         if (req && req.status === 'pending') {
-          completeReceiveRequest(req.id, 'lightning')
+          completeReceiveRequest(req.id, method as 'lightning' | 'ecash')
             .catch((err) => console.error('[EventStoreBridge] ReceiveRequest completion failed:', err))
         }
       }).catch((err) => console.warn('[EventStoreBridge] ReceiveRequest lookup failed:', err))

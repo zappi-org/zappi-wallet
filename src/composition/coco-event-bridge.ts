@@ -36,12 +36,13 @@ export function connectCocoEventBridge(
     if (operation.state !== 'finalized') return
 
     eventBus.emit({
-      type: 'mint-quote:settled',
+      type: 'receive:settled',
       payload: {
-        quoteId: operation.quoteId,
+        requestId: operation.quoteId,
         amount: operation.amount,
-        mintUrl,
-        isSwapQuote: isSwapQuote(operation.quoteId),
+        accountId: mintUrl,
+        method: 'lightning',
+        isSwapStep: isSwapQuote(operation.quoteId),
       },
     })
   }))
