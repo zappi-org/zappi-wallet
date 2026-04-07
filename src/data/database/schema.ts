@@ -115,8 +115,10 @@ export interface PendingReceivedTokenRecord {
   token: string     // the cashu token string
   mintUrl: string
   amount: number
-  dleqStatus: 'valid' | 'missing' // only valid/missing tokens are stored (failed = rejected)
   createdAt: number
+  metadata?: Record<string, unknown>
+  /** @deprecated — migrated to metadata.dleqStatus, kept for existing data compat */
+  dleqStatus?: 'valid' | 'missing'
 }
 
 /**

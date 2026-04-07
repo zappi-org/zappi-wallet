@@ -13,7 +13,7 @@ export class DexieOfflineTokenStore implements OfflineTokenStore {
     return db.pendingReceivedTokens.toArray()
   }
 
-  async put(record: { id: string; token: string; mintUrl: string; amount: number; dleqStatus: string; createdAt: number }) {
+  async put(record: { id: string; token: string; mintUrl: string; amount: number; createdAt: number; metadata?: Record<string, unknown> }) {
     const db = getDatabase()
     await db.pendingReceivedTokens.put(record as Parameters<typeof db.pendingReceivedTokens.put>[0])
   }

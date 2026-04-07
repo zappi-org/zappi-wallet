@@ -13,6 +13,6 @@ export interface PendingReceivedToken {
 
 export interface OfflineTokenStore {
   getAll(): Promise<PendingReceivedToken[]>
-  put(record: { id: string; token: string; mintUrl: string; amount: number; dleqStatus: string; createdAt: number }): Promise<void>
+  put(record: { id: string; token: string; mintUrl: string; amount: number; createdAt: number; metadata?: Record<string, unknown> }): Promise<void>
   bulkDelete(ids: string[]): Promise<void>
 }

@@ -71,8 +71,8 @@ export async function storeOfflineToken(
     token,
     mintUrl,
     amount,
-    dleqStatus,
     createdAt: Date.now(),
+    metadata: { dleqStatus },
   })
   return id
 }
