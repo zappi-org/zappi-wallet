@@ -50,7 +50,7 @@ export function MintDetailScreen({
 
   const handlePendingItemClick = useCallback(async (item: PendingItem) => {
     hapticTap()
-    if (item.type === 'sent-token') {
+    if (item.direction === 'send' && item.kind === 'token') {
       // sent-token has a matching transaction — navigate to TransactionDetailScreen
       try {
         const { getDatabase } = await import('@/data/database/schema')

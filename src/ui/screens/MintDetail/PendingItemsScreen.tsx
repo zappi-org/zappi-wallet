@@ -74,7 +74,7 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
 
     if (selectedMintUrls.size > 0) {
       const normalizedSet = new Set(Array.from(selectedMintUrls).map(stripTrailingSlash))
-      result = result.filter((i) => normalizedSet.has(stripTrailingSlash(i.mintUrl)))
+      result = result.filter((i) => normalizedSet.has(stripTrailingSlash(i.accountId)))
     }
 
     if (dateCutoff) {
@@ -82,9 +82,9 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
     }
 
     if (activeTab === 'request') {
-      result = result.filter(i => i.type === 'receive-request')
+      result = result.filter(i => i.kind === 'request')
     } else if (activeTab === 'token') {
-      result = result.filter(i => i.type === 'unclaimed-token' || i.type === 'sent-token')
+      result = result.filter(i => i.kind === 'token')
     }
 
     if (searchQuery.trim()) {

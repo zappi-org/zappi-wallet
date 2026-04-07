@@ -7,6 +7,7 @@ import { Button } from '@/ui/components/common/Button'
 import { useAppStore } from '@/store'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import type { PendingItem } from '@/hooks/usePendingItems'
+import { isReceiveRequest, isSendToken, isOfflineToken } from '@/ui/types/pending-item-details'
 
 export interface PendingItemDetailScreenProps {
   item: PendingItem
@@ -31,7 +32,12 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
   const formatSats = useFormatSats()
   const toFiat = useFormatFiat()
   const [copiedField, setCopiedField] = useState<string | null>(null)
-  const [invoice, setInvoice] = useState<string | null>(item.invoice || null)
+  const reqDetails = isReceiveRequest(item) ? item.details : undefined
+  const sendDetails = isSendToken(item) ? item.details : undefined
+  const offlineDetails = isOfflineToken(item) ? item.details : undefined
+  const tokenStr = sendDetails?.token ?? offlineDetails?.token
+  const operationId = sendDetails?.operationId
+  const [invoice, setInvoice] = useState<string | null>(reqDetails?.invoice || null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [quoteStatus, setQuoteStatus] = useState<string | null>(null)
   const [isCheckingQuote, setIsCheckingQuote] = useState(false)
@@ -39,18 +45,18 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
   const [qrValue, setQrValue] = useState<string | null>(null)
   const addToast = useAppStore((s) => s.addToast)
 
-  const mintUrls = useMemo(() => [item.mintUrl], [item.mintUrl])
+  const mintUrls = useMemo(() => [item.accountId], [item.accountId])
   const { getDisplayName } = useMintMetadata(mintUrls)
-  const quoteId = item.quoteId || item.id
+  const quoteId = reqDetails?.quoteId || item.id
 
   // Fetch invoice from coco for orphan quotes (no invoice in item)
   useEffect(() => {
-    if (item.type !== 'receive-request' || item.invoice) return
+    if (!reqDetails || reqDetails.invoice) return
     let cancelled = false
     ;(async () => {
       try {
         const { getMintQuote } = await import('@/coco/manager')
-        const quote = await getMintQuote(item.mintUrl, quoteId)
+        const quote = await getMintQuote(item.accountId, quoteId)
         if (!cancelled && quote?.request) {
           setInvoice(quote.request)
         }
@@ -59,7 +65,7 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
       }
     })()
     return () => { cancelled = true }
-  }, [item.type, item.mintUrl, item.invoice, quoteId])
+  }, [reqDetails, item.accountId, quoteId])
 
   const handleCopy = useCallback(async (text: string, field: string) => {
     await copyToClipboard(text)
@@ -70,12 +76,12 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
   // === Action handlers ===
 
   const handleRedeem = useCallback(async () => {
-    if (!item.token) return
+    if (!tokenStr) return
     setIsProcessing(true)
     try {
       const { PaymentService } = await import('@/services/payment/payment.service')
       const service = new PaymentService()
-      const result = await service.receiveEcash(item.token)
+      const result = await service.receiveEcash(tokenStr)
       if (result.isOk()) {
         const { getDatabase } = await import('@/data/database/schema')
         await getDatabase().pendingReceivedTokens.delete(item.id)
@@ -89,20 +95,20 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
     } finally {
       setIsProcessing(false)
     }
-  }, [item.token, item.id, onBack, addToast, t])
+  }, [tokenStr, item.id, onBack, addToast, t])
 
   const handleReclaim = useCallback(async () => {
-    if (!item.operationId && !item.token) return
+    if (!operationId && !tokenStr) return
     setIsProcessing(true)
     const { getDatabase } = await import('@/data/database/schema')
     const db = getDatabase()
     try {
-      if (item.operationId) {
+      if (operationId) {
         const { rollbackSendToken } = await import('@/coco/cashuService')
-        await rollbackSendToken(item.operationId)
-      } else if (item.token) {
+        await rollbackSendToken(operationId)
+      } else if (tokenStr) {
         const { receiveToken } = await import('@/coco/cashuService')
-        await receiveToken(item.token)
+        await receiveToken(tokenStr)
       }
       const { markSendReclaimed } = await import('@/coco/sendTokenObserver')
       await markSendReclaimed(item.id)
@@ -123,14 +129,14 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
     } finally {
       setIsProcessing(false)
     }
-  }, [item.operationId, item.token, item.id, onBack, addToast, t])
+  }, [operationId, tokenStr, item.id, onBack, addToast, t])
 
   const handleCheckQuote = useCallback(async () => {
     setIsCheckingQuote(true)
     setQuoteStatus(null)
     try {
       const { getMintQuote } = await import('@/coco/manager')
-      const quote = await getMintQuote(item.mintUrl, quoteId)
+      const quote = await getMintQuote(item.accountId, quoteId)
       if (quote) {
         setQuoteStatus(quote.state)
       } else {
@@ -141,15 +147,15 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
     } finally {
       setIsCheckingQuote(false)
     }
-  }, [item.mintUrl, quoteId])
+  }, [item.accountId, quoteId])
 
   const handleRedeemQuote = useCallback(async () => {
     setIsRedeeming(true)
     try {
       const { redeemMintQuote } = await import('@/coco/cashuService')
-      await redeemMintQuote(item.mintUrl, quoteId, item.amount)
+      await redeemMintQuote(item.accountId, quoteId, item.amount)
 
-      if (item.quoteId) {
+      if (reqDetails?.quoteId) {
         const { findByQuoteId, completeReceiveRequest } = await import('@/services/receive-request')
         const req = await findByQuoteId(quoteId)
         if (req && req.status === 'pending') {
@@ -165,17 +171,17 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
     } finally {
       setIsRedeeming(false)
     }
-  }, [item.mintUrl, item.quoteId, quoteId, item.amount, onBack, addToast, t])
+  }, [item.accountId, reqDetails?.quoteId, quoteId, item.amount, onBack, addToast, t])
 
   const locale = getLocaleCode(i18n.language)
 
-  const title = item.type === 'unclaimed-token'
+  const title = item.direction === 'receive' && item.kind === 'token'
     ? t('mintDetail.ecashToken')
-    : item.type === 'receive-request'
+    : item.direction === 'receive' && item.kind === 'request'
       ? t('mintDetail.receiveRequest')
       : t('mintDetail.sentToken')
 
-  const isReceive = item.type !== 'sent-token'
+  const isReceive = item.direction === 'receive'
 
   const fiatStr = toFiat(item.amount)
 
@@ -315,7 +321,7 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
           </p>
           <div className="bg-background-card rounded px-4">
             <InfoRow label={t('txDetail.type')} value={title} />
-            <InfoRow label={t('txDetail.mint')} value={getDisplayName(item.mintUrl)} />
+            <InfoRow label={t('txDetail.mint')} value={getDisplayName(item.accountId)} />
             {item.memo && <InfoRow label={t('txDetail.memo')} value={item.memo} />}
 
             {expiryRemaining && (
@@ -325,7 +331,7 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
               </div>
             )}
 
-            {item.type === 'receive-request' && item.quoteId && (
+            {reqDetails?.quoteId && (
               <div className="flex items-center justify-between py-3 border-b border-border/30 last:border-b-0">
                 <span className="text-body text-foreground-muted">{t('pending.quoteStatus')}</span>
                 <div className="flex items-center gap-2">
@@ -359,25 +365,25 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
         </div>
 
         {/* Payment Methods (for receive-request) */}
-        {item.type === 'receive-request' && (
+        {reqDetails && (
           <div className="px-5 mt-6">
             <p className="text-label font-medium text-foreground-muted uppercase tracking-wider mb-1">
               {t('pending.payment')}
             </p>
             <div className="bg-background-card rounded px-4">
-              {item.bip321Uri && (
+              {reqDetails.bip321Uri && (
                 <CopyableSection
                   label={t('pending.unified')}
-                  value={item.bip321Uri}
+                  value={reqDetails.bip321Uri}
                   field="bip321Uri"
                   showQr
                 />
               )}
 
-              {item.ecashRequest && (
+              {reqDetails.ecashRequest && (
                 <CopyableSection
                   label={t('pending.ecashRequest')}
-                  value={item.ecashRequest}
+                  value={reqDetails.ecashRequest}
                   field="ecashRequest"
                   showQr
                 />
@@ -392,10 +398,10 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
                 />
               )}
 
-              {item.quoteId && (
+              {reqDetails.quoteId && (
                 <CopyableSection
                   label="Quote ID"
-                  value={item.quoteId}
+                  value={reqDetails.quoteId}
                   field="quoteId"
                 />
               )}
@@ -404,7 +410,7 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
         )}
 
         {/* Redeem button (when quote is PAID) */}
-        {item.type === 'receive-request' && quoteStatus === 'PAID' && (
+        {reqDetails && quoteStatus === 'PAID' && (
           <div className="px-5 mt-4">
             <Button
               variant="brand"
@@ -425,13 +431,13 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
       </div>
 
       {/* Action Button (type-specific) */}
-      {item.type === 'unclaimed-token' && (
+      {item.direction === 'receive' && item.kind === 'token' && (
         <div className="px-5 pb-4 pt-2 shrink-0">
           <Button
             variant="brand"
             size="lg"
             onClick={handleRedeem}
-            disabled={isProcessing || !item.token}
+            disabled={isProcessing || !tokenStr}
             loading={isProcessing}
             className="w-full"
           >
@@ -440,11 +446,11 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
         </div>
       )}
 
-      {item.type === 'sent-token' && (
+      {item.direction === 'send' && item.kind === 'token' && (
         <div className="px-5 pb-4 pt-2 shrink-0">
           <button
             onClick={handleReclaim}
-            disabled={isProcessing || (!item.token && !item.operationId)}
+            disabled={isProcessing || (!tokenStr && !operationId)}
             className="w-full py-3.5 rounded-xl bg-foreground/[0.06] text-foreground font-semibold text-caption flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] transition-transform"
           >
             {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}

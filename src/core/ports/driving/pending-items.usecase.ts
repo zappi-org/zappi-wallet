@@ -1,21 +1,16 @@
 import type { PendingQuote } from '@/core/domain/quote'
 
-export interface PendingItem {
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface PendingItem<D = {}> {
   id: string
-  type: 'unclaimed-token' | 'receive-request' | 'sent-token'
+  direction: 'send' | 'receive'
+  kind: 'token' | 'request'
   amount: number
-  mintUrl: string
+  accountId: string
   memo?: string
   createdAt: number
   expiresAt?: number
-  token?: string
-  operationId?: string
-  quoteId?: string
-  invoice?: string
-  ecashRequest?: string
-  ecashRequestId?: string
-  bip321Uri?: string
-  httpEndpoint?: string
+  details?: D
 }
 
 export interface PendingItemsUseCase {

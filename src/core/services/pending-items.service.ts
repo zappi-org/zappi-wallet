@@ -50,25 +50,29 @@ export class PendingItemsService implements PendingItemsUseCase {
     const items: PendingItem[] = [
       ...receivedTokens.map((t) => ({
         id: t.id,
-        type: 'unclaimed-token' as const,
+        direction: 'receive' as const,
+        kind: 'token' as const,
         amount: t.amount,
-        mintUrl: t.mintUrl,
+        accountId: t.mintUrl,
         createdAt: t.createdAt,
-        token: t.token,
+        details: { token: t.token },
       })),
       ...receiveRequests.map((r) => ({
         id: r.id,
-        type: 'receive-request' as const,
+        direction: 'receive' as const,
+        kind: 'request' as const,
         amount: r.amount,
-        mintUrl: r.mintUrl,
+        accountId: r.mintUrl,
         createdAt: r.createdAt,
         expiresAt: r.expiresAt,
-        quoteId: r.quoteId,
-        invoice: r.invoice,
-        ecashRequest: r.ecashRequest,
-        ecashRequestId: r.ecashRequestId,
-        bip321Uri: r.bip321Uri,
-        httpEndpoint: r.httpEndpoint,
+        details: {
+          quoteId: r.quoteId,
+          invoice: r.invoice,
+          ecashRequest: r.ecashRequest,
+          ecashRequestId: r.ecashRequestId,
+          bip321Uri: r.bip321Uri,
+          httpEndpoint: r.httpEndpoint,
+        },
       })),
       ...await Promise.all(sendTokens.map(async (s) => {
         let memo: string | undefined
@@ -78,13 +82,13 @@ export class PendingItemsService implements PendingItemsUseCase {
         } catch { /* ignore */ }
         return {
           id: s.id,
-          type: 'sent-token' as const,
+          direction: 'send' as const,
+          kind: 'token' as const,
           amount: s.amount,
-          mintUrl: s.mintUrl,
+          accountId: s.mintUrl,
           createdAt: s.createdAt,
-          token: s.token,
-          operationId: s.operationId,
           memo,
+          details: { token: s.token, operationId: s.operationId },
         }
       })),
     ]
