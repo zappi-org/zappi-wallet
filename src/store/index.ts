@@ -66,7 +66,7 @@ export const useAppStore = create<AppState>()(
           lastSyncAt: null,
           anchor: null,
           pendingRetries: 0,
-          failedSwapsCount: 0,
+          failedIncomingsCount: 0,
           syncProgress: 0,
           eventsProcessed: 0,
           lastEventTimestamp: 0,

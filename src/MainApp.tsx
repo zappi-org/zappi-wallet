@@ -86,7 +86,7 @@ export default function MainApp() {
   const addToast = useAppStore((state) => state.addToast)
   const removeToast = useAppStore((state) => state.removeToast)
 
-  const setFailedSwapsCount = useAppStore((state) => state.setFailedSwapsCount)
+  const setFailedIncomingsCount = useAppStore((state) => state.setFailedIncomingsCount)
   const setNostrKeyPair = useAppStore((state) => state.setNostrKeyPair)
   const setP2pkPubkey = useAppStore((state) => state.setP2pkPubkey)
   const setSettings = useAppStore((state) => state.setSettings)
@@ -211,8 +211,8 @@ export default function MainApp() {
         setSettings(savedSettings)
 
         // Load failed swaps count
-        const swaps = await preUnlock.failedSwapStore.findAll()
-        setFailedSwapsCount(swaps.length)
+        const failedItems = await preUnlock.failedIncomingStore.findAll()
+        setFailedIncomingsCount(failedItems.length)
 
         // Load transaction history
         const txHistory = await preUnlock.txRepo.findAll({ limit: 100 })
@@ -224,7 +224,7 @@ export default function MainApp() {
 
         // Data retention: clean up old records
         preUnlock.txRepo.deleteOlderThan(90).catch(() => {})
-        preUnlock.failedSwapStore.cleanupNonRetryable(30).catch(() => {})
+        preUnlock.failedIncomingStore.cleanupNonRetryable(30).catch(() => {})
         preUnlock.cleanupExpiredReceiveRequests().catch(() => {})
       } catch (error) {
         console.error('Init error:', error)
@@ -234,7 +234,7 @@ export default function MainApp() {
     }
 
     init()
-  }, [preUnlock, setFailedSwapsCount, setInitializing, setSettings])
+  }, [preUnlock, setFailedIncomingsCount, setInitializing, setSettings])
 
   // Reload transactions and balance when txRefreshTrigger changes (e.g., GiftWrap token receipt)
   useEffect(() => {

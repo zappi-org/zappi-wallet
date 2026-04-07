@@ -1,4 +1,4 @@
-import type { FailedSwap, ProcessedEvent } from '@/core/types'
+import type { FailedIncoming, ProcessedEvent } from '@/core/types'
 
 export interface TokenProcessResult {
   success: boolean
@@ -32,6 +32,6 @@ export interface TokenProcessorUseCase {
   /** 이벤트 처리 완료 기록 */
   markEventProcessed(event: ProcessedEvent): Promise<void>
 
-  /** 실패한 스왑을 retry queue에 저장 */
-  saveFailedSwap(swap: FailedSwap): Promise<void>
+  /** 실패한 수신을 retry queue에 저장 */
+  saveFailedIncoming(item: FailedIncoming): Promise<void>
 }

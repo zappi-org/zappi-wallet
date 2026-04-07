@@ -21,7 +21,7 @@ export interface SyncResult {
   eventsProcessed: number
   tokensReceived: number
   amountReceived: number
-  failedSwaps: number
+  failedIncomings: number
   errors: string[]
   duration: number
 }
@@ -57,5 +57,5 @@ export interface ReconstructionOptions {
   /** Maximum number of events to process */
   limit?: number
   /** Whether to retry failed swaps */
-  retryFailedSwaps?: boolean
+  retryFailedIncomings?: boolean
 }

@@ -4,7 +4,7 @@
 
 import { AnchorStoreAdapter } from '@/adapters/storage/anchor-store.adapter'
 import { RecoveryStoreAdapter } from '@/adapters/storage/recovery-store.adapter'
-import { FailedSwapStoreAdapter } from '@/adapters/storage/failed-swap-store.adapter'
+import { FailedIncomingStoreAdapter } from '@/adapters/storage/failed-incoming-store.adapter'
 import { TokenReceiverAdapter } from '@/adapters/payment/token-receiver.adapter'
 import { RecoveryService } from '@/core/services/recovery.service'
 import type { RecoveryUseCase } from '@/core/ports/driving/recovery.usecase'
@@ -16,7 +16,7 @@ export function createRecoveryService(nostrGateway: NostrGateway, payment: Payme
     nostrGateway,
     new AnchorStoreAdapter(),
     new RecoveryStoreAdapter(),
-    new FailedSwapStoreAdapter(),
+    new FailedIncomingStoreAdapter(),
     new TokenReceiverAdapter(payment),
   )
 }

@@ -9,7 +9,7 @@ import type { ServiceRegistry } from '@/composition/types'
 import type { TokenProcessorUseCase } from '@/core/ports/driving/token-processor.usecase'
 import { subscribeNetworkStatus } from '@/hooks/useNetworkStatus'
 import type { ZapMessage, ZapPaymentFulfillment } from '@/types'
-import type { FailedSwap, ProcessedEvent } from '@/core/types'
+import type { FailedIncoming, ProcessedEvent } from '@/core/types'
 import { formatSats } from '@/utils/format'
 
 // Connection timeout for each relay (5 seconds)
@@ -286,10 +286,10 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
           // Mark as failed in IndexedDB
           await markTxProcessed(tp, txId, eventId, 'failed', amount, errorMsg)
 
-          const failedSwap: FailedSwap = {
+          const failedIncoming: FailedIncoming = {
             id: `fs-${crypto.randomUUID()}`,
-            token,
-            mintUrl: decoded.mint,
+            payload: token,
+            accountId: decoded.mint,
             amount,
             error: errorMsg,
             errorCode: 'SWAP_FAILED',
@@ -297,10 +297,10 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
             attemptCount: 1,
             lastAttemptAt: Date.now(),
             createdAt: Date.now(),
-            nostrEventId: eventId,
+            externalId: eventId,
             txId,
           }
-          await tp.saveFailedSwap(failedSwap)
+          await tp.saveFailedIncoming(failedIncoming)
           console.log('[GiftWrap] Added to retry queue')
         }
       } catch (queueError) {

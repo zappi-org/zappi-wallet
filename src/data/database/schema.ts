@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie'
-import type { Transaction, FailedSwap, WalletSettings, MintMetadata, ExchangeRateCache, Contact } from '@/core/types'
+import type { Transaction, WalletSettings, MintMetadata, ExchangeRateCache, Contact } from '@/core/types'
 import type { ProcessedEvent, SyncAnchor } from '@/core/types'
 import { DATABASE } from '@/core/constants'
 
@@ -9,9 +9,22 @@ import { DATABASE } from '@/core/constants'
 export type TransactionRecord = Transaction
 
 /**
- * Failed swap record for DB storage (id is the primary key)
+ * Failed incoming record for DB storage (id is the primary key)
  */
-export type FailedSwapRecord = FailedSwap
+export interface FailedIncomingRecord {
+  id: string
+  payload: string
+  accountId: string
+  amount: number
+  error: string
+  errorCode: string
+  isRetryable: boolean
+  attemptCount: number
+  lastAttemptAt: number
+  createdAt: number
+  externalId?: string
+  txId?: string
+}
 
 /**
  * Processed event record for DB storage (eventId is the primary key)
@@ -153,7 +166,7 @@ export type ExchangeRateCacheRecord = ExchangeRateCache
  */
 export class ZappiDatabase extends Dexie {
   transactions!: Table<TransactionRecord, string>
-  failedSwaps!: Table<FailedSwapRecord, string>
+  failedIncomings!: Table<FailedIncomingRecord, string>
   processedEvents!: Table<ProcessedEventRecord, string>
   syncAnchor!: Table<SyncAnchorRecord, string>
   settings!: Table<SettingsRecord, string>
@@ -175,8 +188,11 @@ export class ZappiDatabase extends Dexie {
       // Transactions: indexed by id, direction, type, status, createdAt, mintUrl, operationId
       transactions: 'id, direction, type, status, createdAt, mintUrl, source, operationId',
 
-      // Failed swaps: indexed by id, mintUrl, isRetryable, createdAt
-      failedSwaps: 'id, mintUrl, isRetryable, createdAt, errorCode',
+      // v14: old failedSwaps table deleted (data loss accepted — retry queue only)
+      failedSwaps: null,
+
+      // Failed incomings: indexed by id, accountId, isRetryable, createdAt
+      failedIncomings: 'id, accountId, isRetryable, createdAt, errorCode',
 
       // Processed events: indexed by eventId, txId, processedAt, result
       processedEvents: 'eventId, txId, processedAt, result',
@@ -247,7 +263,7 @@ export async function resetDatabase(): Promise<void> {
 
 /**
  * Clear all data related to a specific mint
- * Removes proofs, pending items, failed swaps, and metadata.
+ * Removes proofs, pending items, failed incomings, and metadata.
  * Transactions are kept for historical reference.
  */
 export async function clearMintData(mintUrl: string): Promise<void> {
@@ -257,7 +273,7 @@ export async function clearMintData(mintUrl: string): Promise<void> {
 
   await Promise.all([
     db.proofs.where('mintUrl').anyOf(variants).delete(),
-    db.failedSwaps.where('mintUrl').anyOf(variants).delete(),
+    db.failedIncomings.where('accountId').anyOf(variants).delete(),
     db.pendingMelts.where('mintUrl').anyOf(variants).delete(),
     db.pendingSendTokens.where('mintUrl').anyOf(variants).delete(),
     db.pendingReceivedTokens.where('mintUrl').anyOf(variants).delete(),
@@ -273,7 +289,7 @@ export async function clearAllData(): Promise<void> {
   const db = getDatabase()
   await Promise.all([
     db.transactions.clear(),
-    db.failedSwaps.clear(),
+    db.failedIncomings.clear(),
     db.processedEvents.clear(),
     db.syncAnchor.clear(),
     db.settings.clear(),

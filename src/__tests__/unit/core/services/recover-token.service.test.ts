@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { RecoveryService } from '@/core/services/recovery.service'
 import type { AnchorStore } from '@/core/ports/driven/anchor.port'
 import type { RecoveryStore } from '@/core/ports/driven/recovery-store.port'
-import type { FailedSwapStore } from '@/core/ports/driven/failed-swap-store.port'
+import type { FailedIncomingStore } from '@/core/ports/driven/failed-incoming-store.port'
 import type { TokenReceiver } from '@/core/ports/driven/token-receiver.port'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
 
@@ -45,7 +45,7 @@ function createMocks() {
     markEventProcessed: vi.fn().mockResolvedValue(undefined),
   }
 
-  const failedSwapStore: FailedSwapStore = {
+  const failedIncomingStore: FailedIncomingStore = {
     save: vi.fn().mockResolvedValue(undefined),
     getRetryable: vi.fn().mockResolvedValue([]),
     update: vi.fn().mockResolvedValue(undefined),
@@ -62,7 +62,7 @@ function createMocks() {
     }),
   }
 
-  return { nostr, anchorStore, recoveryStore, failedSwapStore, tokenReceiver }
+  return { nostr, anchorStore, recoveryStore, failedIncomingStore, tokenReceiver }
 }
 
 // ─── Tests ───
@@ -78,7 +78,7 @@ describe('RecoveryService', () => {
       mocks.nostr,
       mocks.anchorStore,
       mocks.recoveryStore,
-      mocks.failedSwapStore,
+      mocks.failedIncomingStore,
       mocks.tokenReceiver,
     )
   })
@@ -132,7 +132,7 @@ describe('RecoveryService', () => {
       )
     })
 
-    it('queues failed retryable swap', async () => {
+    it('queues failed retryable incoming', async () => {
       vi.mocked(mocks.nostr.fetchGiftWraps).mockResolvedValue([
         { eventId: 'ev-1', content: DIRECT_TOKEN_RUMOR, sender: 'sender-pubkey' },
       ])
@@ -143,10 +143,10 @@ describe('RecoveryService', () => {
 
       const result = await service.reconstructState(params)
 
-      expect(result.failedSwaps).toBe(1)
-      expect(mocks.failedSwapStore.save).toHaveBeenCalledWith(
+      expect(result.failedIncomings).toBe(1)
+      expect(mocks.failedIncomingStore.save).toHaveBeenCalledWith(
         expect.objectContaining({
-          token: 'cashuBtoken123',
+          payload: 'cashuBtoken123',
           isRetryable: true,
         }),
       )
@@ -163,8 +163,8 @@ describe('RecoveryService', () => {
 
       const result = await service.reconstructState(params)
 
-      expect(result.failedSwaps).toBe(0)
-      expect(mocks.failedSwapStore.save).not.toHaveBeenCalled()
+      expect(result.failedIncomings).toBe(0)
+      expect(mocks.failedIncomingStore.save).not.toHaveBeenCalled()
     })
 
     it('prevents concurrent sync', async () => {
@@ -191,15 +191,15 @@ describe('RecoveryService', () => {
     })
   })
 
-  // ─── retryFailedSwaps ───
+  // ─── retryFailedIncomings ───
 
-  describe('retryFailedSwaps', () => {
+  describe('retryFailedIncomings', () => {
     it('retries and succeeds', async () => {
-      vi.mocked(mocks.failedSwapStore.getRetryable).mockResolvedValue([
+      vi.mocked(mocks.failedIncomingStore.getRetryable).mockResolvedValue([
         {
-          id: 'swap-1',
-          token: 'cashuBtoken',
-          mintUrl: 'https://mint.test',
+          id: 'item-1',
+          payload: 'cashuBtoken',
+          accountId: 'https://mint.test',
           amount: 100,
           error: '',
           errorCode: '',
@@ -210,19 +210,19 @@ describe('RecoveryService', () => {
         },
       ])
 
-      const result = await service.retryFailedSwaps()
+      const result = await service.retryFailedIncomings()
 
       expect(result.succeeded).toBe(1)
       expect(result.failed).toBe(0)
-      expect(mocks.failedSwapStore.delete).toHaveBeenCalledWith('swap-1')
+      expect(mocks.failedIncomingStore.delete).toHaveBeenCalledWith('item-1')
     })
 
     it('handles retry failure', async () => {
-      vi.mocked(mocks.failedSwapStore.getRetryable).mockResolvedValue([
+      vi.mocked(mocks.failedIncomingStore.getRetryable).mockResolvedValue([
         {
-          id: 'swap-1',
-          token: 'cashuBtoken',
-          mintUrl: 'https://mint.test',
+          id: 'item-1',
+          payload: 'cashuBtoken',
+          accountId: 'https://mint.test',
           amount: 100,
           error: '',
           errorCode: '',
@@ -237,11 +237,11 @@ describe('RecoveryService', () => {
         error: { code: 'MINT_OFFLINE', message: 'Still offline', isRetryable: true },
       })
 
-      const result = await service.retryFailedSwaps()
+      const result = await service.retryFailedIncomings()
 
       expect(result.succeeded).toBe(0)
       expect(result.failed).toBe(1)
-      expect(mocks.failedSwapStore.update).toHaveBeenCalledWith('swap-1', expect.objectContaining({
+      expect(mocks.failedIncomingStore.update).toHaveBeenCalledWith('item-1', expect.objectContaining({
         attemptCount: 2,
       }))
     })
@@ -255,8 +255,8 @@ describe('RecoveryService', () => {
         timestamp: 1700000000,
         updatedAt: Date.now(),
       })
-      vi.mocked(mocks.failedSwapStore.getRetryable).mockResolvedValue([
-        { id: 'swap-1' } as never,
+      vi.mocked(mocks.failedIncomingStore.getRetryable).mockResolvedValue([
+        { id: 'item-1' } as never,
       ])
 
       const status = await service.getSyncStatus()

@@ -25,7 +25,7 @@ import { DexiePendingOperationRepository } from '@/adapters/storage/dexie/dexie-
 import { DexieOperationMap } from '@/adapters/storage/dexie/dexie-operation-map'
 import { DexieOfflineTokenStore } from '@/adapters/storage/dexie/dexie-offline-token-store'
 import { NostrGatewayAdapter } from '@/adapters/nostr/nostr-gateway'
-import { FailedSwapStoreAdapter } from '@/adapters/storage/failed-swap-store.adapter'
+import { FailedIncomingStoreAdapter } from '@/adapters/storage/failed-incoming-store.adapter'
 import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
 
 // ─── Adapters (non-module) ───
@@ -125,7 +125,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const contactRepo = new DexieContactRepository()
   const pendingOpRepo = new DexiePendingOperationRepository()
   const operationMap = new DexieOperationMap()
-  const failedSwapStore = new FailedSwapStoreAdapter()
+  const failedIncomingStore = new FailedIncomingStoreAdapter()
   const processedEventStore = new ProcessedEventRepository()
   const settingsRepo = new SettingsRepository()
 
@@ -225,7 +225,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
   // 9. Additional services
   const recovery = createRecoveryService(nostrGateway, payment)
-  const tokenProcessor = createTokenProcessorService(payment, nostrGateway, processedEventStore, failedSwapStore, txRepo)
+  const tokenProcessor = createTokenProcessorService(payment, nostrGateway, processedEventStore, failedIncomingStore, txRepo)
   const pendingItems = createPendingItemsService(txRepo)
 
   // 10. WithdrawUseCase / LnurlAuthUseCase — TODO: NoOp impl or real impl

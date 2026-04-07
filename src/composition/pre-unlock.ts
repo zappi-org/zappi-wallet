@@ -8,7 +8,7 @@
 
 import { SettingsRepository } from '@/data/repositories/settings.repository'
 import { getTransactionRepo } from '@/data/repositories/transaction.repository'
-import { FailedSwapStoreAdapter } from '@/adapters/storage/failed-swap-store.adapter'
+import { FailedIncomingStoreAdapter } from '@/adapters/storage/failed-incoming-store.adapter'
 import { exchangeRateService } from '@/services/exchange-rate'
 import { cleanupExpired as cleanupExpiredReceiveRequests } from '@/services/receive-request'
 import { useAppStore } from '@/store'
@@ -17,7 +17,7 @@ import type { Transaction } from '@/core/types'
 export interface PreUnlockServices {
   settingsRepo: SettingsRepository
   txRepo: ReturnType<typeof getTransactionRepo>
-  failedSwapStore: FailedSwapStoreAdapter
+  failedIncomingStore: FailedIncomingStoreAdapter
   exchangeRate: {
     loadCachedRates(): Promise<void>
     fetchRates(): void
@@ -42,7 +42,7 @@ export function createPreUnlockServices(): PreUnlockServices {
   return {
     settingsRepo: new SettingsRepository(),
     txRepo,
-    failedSwapStore: new FailedSwapStoreAdapter(),
+    failedIncomingStore: new FailedIncomingStoreAdapter(),
     exchangeRate: {
       loadCachedRates: () => exchangeRateService.loadCachedRates(),
       fetchRates: () => { exchangeRateService.fetchRates().catch(() => {}) },

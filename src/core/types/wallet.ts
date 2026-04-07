@@ -114,12 +114,12 @@ export interface StoredProof extends Proof {
 }
 
 /**
- * Failed swap info for retry queue
+ * Failed incoming payment for retry queue
  */
-export interface FailedSwap {
+export interface FailedIncoming {
   id: string
-  token: string
-  mintUrl: string
+  payload: string
+  accountId: string
   amount: number
   error: string
   errorCode: string
@@ -127,7 +127,7 @@ export interface FailedSwap {
   attemptCount: number
   lastAttemptAt: number
   createdAt: number
-  nostrEventId?: string
+  externalId?: string
   txId?: string
 }
 

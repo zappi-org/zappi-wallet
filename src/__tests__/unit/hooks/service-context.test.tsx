@@ -52,8 +52,8 @@ function createMockRegistry(): ServiceRegistry {
     recovery: {
       syncAll: vi.fn(),
       reconstructState: vi.fn(),
-      retryFailedSwaps: vi.fn(),
-      getFailedSwaps: vi.fn(),
+      retryFailedIncomings: vi.fn(),
+      getFailedIncomings: vi.fn(),
       getSyncStatus: vi.fn(),
       cleanupOldData: vi.fn(),
     } as unknown as ServiceRegistry['recovery'],
@@ -63,7 +63,7 @@ function createMockRegistry(): ServiceRegistry {
       isEventProcessed: vi.fn(),
       isEventProcessedByTxId: vi.fn(),
       markEventProcessed: vi.fn(),
-      saveFailedSwap: vi.fn(),
+      saveFailedIncoming: vi.fn(),
     } as unknown as ServiceRegistry['tokenProcessor'],
     pendingItems: {
       getByMint: vi.fn(),

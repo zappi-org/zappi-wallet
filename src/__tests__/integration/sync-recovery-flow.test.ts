@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { resetDatabase } from '@/data/database'
 import { clearWalletCache } from '@/data/cache'
 import { WalletService } from '@/services/wallet/wallet.service'
-import { FailedSwapRepository } from '@/data/repositories/failed-swap.repository'
+import { FailedIncomingRepository } from '@/data/repositories/failed-incoming.repository'
 import { ProcessedEventRepository } from '@/data/repositories/processed-event.repository'
 import { SettingsRepository } from '@/data/repositories/settings.repository'
 
@@ -62,7 +62,7 @@ vi.mock('@/services/cashu/cashu.service', () => {
 
 describe('Sync/Recovery Flow Integration', () => {
   let walletService: WalletService
-  let failedSwapRepo: FailedSwapRepository
+  let failedIncomingRepo: FailedIncomingRepository
   let processedEventRepo: ProcessedEventRepository
   let settingsRepo: SettingsRepository
 
@@ -73,7 +73,7 @@ describe('Sync/Recovery Flow Integration', () => {
     for (const key of Object.keys(mockCocoBalances)) delete mockCocoBalances[key]
 
     walletService = new WalletService()
-    failedSwapRepo = new FailedSwapRepository()
+    failedIncomingRepo = new FailedIncomingRepository()
     processedEventRepo = new ProcessedEventRepository()
     settingsRepo = new SettingsRepository()
   })
@@ -102,12 +102,12 @@ describe('Sync/Recovery Flow Integration', () => {
     })
   })
 
-  describe('Failed Swap Management', () => {
-    it('should add and retrieve failed swaps', async () => {
-      await failedSwapRepo.add({
-        id: 'swap1',
-        token: 'cashuAtoken1...',
-        mintUrl: 'https://mint.example.com',
+  describe('Failed Incoming Management', () => {
+    it('should add and retrieve failed incomings', async () => {
+      await failedIncomingRepo.add({
+        id: 'item1',
+        payload: 'cashuAtoken1...',
+        accountId: 'https://mint.example.com',
         amount: 100,
         error: 'Mint connection failed',
         errorCode: 'MINT_CONNECTION',
@@ -117,10 +117,10 @@ describe('Sync/Recovery Flow Integration', () => {
         createdAt: Date.now() - 7200000,
       })
 
-      await failedSwapRepo.add({
-        id: 'swap2',
-        token: 'cashuAtoken2...',
-        mintUrl: 'https://mint.example.com',
+      await failedIncomingRepo.add({
+        id: 'item2',
+        payload: 'cashuAtoken2...',
+        accountId: 'https://mint.example.com',
         amount: 200,
         error: 'Network error',
         errorCode: 'NETWORK',
@@ -130,15 +130,15 @@ describe('Sync/Recovery Flow Integration', () => {
         createdAt: Date.now() - 5400000,
       })
 
-      const retryable = await failedSwapRepo.getRetryable()
+      const retryable = await failedIncomingRepo.getRetryable()
       expect(retryable.length).toBe(2)
     })
 
-    it('should only return retryable swaps', async () => {
-      await failedSwapRepo.add({
-        id: 'swap1',
-        token: 'cashuAtoken1...',
-        mintUrl: 'https://mint.example.com',
+    it('should only return retryable items', async () => {
+      await failedIncomingRepo.add({
+        id: 'item1',
+        payload: 'cashuAtoken1...',
+        accountId: 'https://mint.example.com',
         amount: 100,
         error: 'Mint connection failed',
         errorCode: 'MINT_CONNECTION',
@@ -148,10 +148,10 @@ describe('Sync/Recovery Flow Integration', () => {
         createdAt: Date.now(),
       })
 
-      await failedSwapRepo.add({
-        id: 'swap2',
-        token: 'cashuAtoken2...',
-        mintUrl: 'https://mint.example.com',
+      await failedIncomingRepo.add({
+        id: 'item2',
+        payload: 'cashuAtoken2...',
+        accountId: 'https://mint.example.com',
         amount: 200,
         error: 'Token spent',
         errorCode: 'TOKEN_SPENT',
@@ -161,16 +161,16 @@ describe('Sync/Recovery Flow Integration', () => {
         createdAt: Date.now(),
       })
 
-      const retryable = await failedSwapRepo.getRetryable()
+      const retryable = await failedIncomingRepo.getRetryable()
       expect(retryable.length).toBe(1)
-      expect(retryable[0].id).toBe('swap1')
+      expect(retryable[0].id).toBe('item1')
     })
 
-    it('should delete swap after successful retry', async () => {
-      await failedSwapRepo.add({
-        id: 'swap1',
-        token: 'cashuAtoken1...',
-        mintUrl: 'https://mint.example.com',
+    it('should delete item after successful retry', async () => {
+      await failedIncomingRepo.add({
+        id: 'item1',
+        payload: 'cashuAtoken1...',
+        accountId: 'https://mint.example.com',
         amount: 100,
         error: 'Network error',
         errorCode: 'NETWORK',
@@ -180,20 +180,20 @@ describe('Sync/Recovery Flow Integration', () => {
         createdAt: Date.now(),
       })
 
-      let swaps = await failedSwapRepo.findAll()
-      expect(swaps.length).toBe(1)
+      let items = await failedIncomingRepo.findAll()
+      expect(items.length).toBe(1)
 
-      await failedSwapRepo.delete('swap1')
+      await failedIncomingRepo.delete('item1')
 
-      swaps = await failedSwapRepo.findAll()
-      expect(swaps.length).toBe(0)
+      items = await failedIncomingRepo.findAll()
+      expect(items.length).toBe(0)
     })
 
     it('should increment attempt count on retry', async () => {
-      await failedSwapRepo.add({
-        id: 'swap1',
-        token: 'cashuAtoken1...',
-        mintUrl: 'https://mint.example.com',
+      await failedIncomingRepo.add({
+        id: 'item1',
+        payload: 'cashuAtoken1...',
+        accountId: 'https://mint.example.com',
         amount: 100,
         error: 'Network error',
         errorCode: 'NETWORK',
@@ -203,16 +203,16 @@ describe('Sync/Recovery Flow Integration', () => {
         createdAt: Date.now() - 120000,
       })
 
-      const swap = await failedSwapRepo.getById('swap1')
-      expect(swap).not.toBeNull()
+      const item = await failedIncomingRepo.getById('item1')
+      expect(item).not.toBeNull()
 
-      await failedSwapRepo.save({
-        ...swap!,
-        attemptCount: swap!.attemptCount + 1,
+      await failedIncomingRepo.save({
+        ...item!,
+        attemptCount: item!.attemptCount + 1,
         lastAttemptAt: Date.now(),
       })
 
-      const updated = await failedSwapRepo.getById('swap1')
+      const updated = await failedIncomingRepo.getById('item1')
       expect(updated?.attemptCount).toBe(2)
     })
   })

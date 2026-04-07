@@ -8,7 +8,7 @@
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
 import type { AnchorStore, AnchorData } from '@/core/ports/driven/anchor.port'
 import type { RecoveryStore } from '@/core/ports/driven/recovery-store.port'
-import type { FailedSwapStore } from '@/core/ports/driven/failed-swap-store.port'
+import type { FailedIncomingStore } from '@/core/ports/driven/failed-incoming-store.port'
 import type { TokenReceiver } from '@/core/ports/driven/token-receiver.port'
 import type {
   RecoveryUseCase,
@@ -47,7 +47,7 @@ export class RecoveryService implements RecoveryUseCase {
     private readonly nostr: NostrGateway,
     private readonly anchorStore: AnchorStore,
     private readonly recoveryStore: RecoveryStore,
-    private readonly failedSwapStore: FailedSwapStore,
+    private readonly failedIncomingStore: FailedIncomingStore,
     private readonly tokenReceiver: TokenReceiver,
   ) {}
 
@@ -65,7 +65,7 @@ export class RecoveryService implements RecoveryUseCase {
         eventsProcessed: 0,
         tokensReceived: 0,
         amountReceived: 0,
-        failedSwaps: 0,
+        failedIncomings: 0,
         errors: [],
         duration: 0,
       }
@@ -73,7 +73,7 @@ export class RecoveryService implements RecoveryUseCase {
 
     const result = await this.reconstructState(params)
 
-    const retryResult = await this.retryFailedSwaps()
+    const retryResult = await this.retryFailedIncomings()
     if (retryResult.errors.length > 0) {
       result.errors.push(...retryResult.errors)
     }
@@ -149,7 +149,7 @@ export class RecoveryService implements RecoveryUseCase {
       eventsProcessed: 0,
       tokensReceived: 0,
       amountReceived: 0,
-      failedSwaps: 0,
+      failedIncomings: 0,
       errors: [],
       duration: 0,
     }
@@ -191,11 +191,11 @@ export class RecoveryService implements RecoveryUseCase {
             const { error } = receiveResult
 
             if (error.isRetryable) {
-              await this.failedSwapStore.save({
-                id: `swap-${msg.eventId}`,
-                nostrEventId: msg.eventId,
-                token: directToken.token,
-                mintUrl: directToken.mintUrl ?? '',
+              await this.failedIncomingStore.save({
+                id: `fi-${msg.eventId}`,
+                externalId: msg.eventId,
+                payload: directToken.token,
+                accountId: directToken.mintUrl ?? '',
                 amount: directToken.amount ?? 0,
                 error: error.message,
                 errorCode: error.code,
@@ -204,7 +204,7 @@ export class RecoveryService implements RecoveryUseCase {
                 lastAttemptAt: Date.now(),
                 createdAt: Date.now(),
               })
-              result.failedSwaps++
+              result.failedIncomings++
             }
 
             await this.markProcessed(msg.eventId, 'failed', undefined, error.message)
@@ -229,49 +229,49 @@ export class RecoveryService implements RecoveryUseCase {
 
   // ─── Failed swap retry ───
 
-  async retryFailedSwaps(): Promise<RetryResult> {
+  async retryFailedIncomings(): Promise<RetryResult> {
     const result: RetryResult = { succeeded: 0, failed: 0, errors: [] }
-    const swaps = await this.failedSwapStore.getRetryable()
+    const items = await this.failedIncomingStore.getRetryable()
 
-    for (const swap of swaps) {
-      if (swap.lastAttemptAt && swap.attemptCount > 0) {
+    for (const item of items) {
+      if (item.lastAttemptAt && item.attemptCount > 0) {
         const delay = Math.min(
-          RETRY.INITIAL_DELAY * Math.pow(RETRY.BACKOFF_MULTIPLIER, swap.attemptCount - 1),
+          RETRY.INITIAL_DELAY * Math.pow(RETRY.BACKOFF_MULTIPLIER, item.attemptCount - 1),
           RETRY.MAX_DELAY,
         )
-        if (Date.now() - swap.lastAttemptAt < delay) continue
+        if (Date.now() - item.lastAttemptAt < delay) continue
       }
 
-      if (swap.attemptCount >= RETRY.MAX_ATTEMPTS) {
-        await this.failedSwapStore.markAsNonRetryable(swap.id)
+      if (item.attemptCount >= RETRY.MAX_ATTEMPTS) {
+        await this.failedIncomingStore.markAsNonRetryable(item.id)
         result.failed++
-        result.errors.push(`Swap ${swap.id}: max attempts reached`)
+        result.errors.push(`Item ${item.id}: max attempts reached`)
         continue
       }
 
       try {
-        const receiveResult = await this.tokenReceiver.receiveToken(swap.token)
+        const receiveResult = await this.tokenReceiver.receiveToken(item.payload)
 
         if (receiveResult.ok) {
-          await this.failedSwapStore.delete(swap.id)
+          await this.failedIncomingStore.delete(item.id)
           result.succeeded++
         } else {
           const { error } = receiveResult
 
-          await this.failedSwapStore.update(swap.id, {
+          await this.failedIncomingStore.update(item.id, {
             isRetryable: error.isRetryable,
             error: error.message,
             errorCode: error.code,
-            attemptCount: swap.attemptCount + 1,
+            attemptCount: item.attemptCount + 1,
             lastAttemptAt: Date.now(),
           })
 
           result.failed++
-          result.errors.push(`Swap ${swap.id}: ${error.code}`)
+          result.errors.push(`Item ${item.id}: ${error.code}`)
         }
       } catch (error) {
         result.failed++
-        result.errors.push(`Swap ${swap.id}: ${error}`)
+        result.errors.push(`Item ${item.id}: ${error}`)
       }
     }
 
@@ -280,24 +280,24 @@ export class RecoveryService implements RecoveryUseCase {
 
   // ─── Queries ───
 
-  async getFailedSwaps() {
-    return this.failedSwapStore.findAll()
+  async getFailedIncomings() {
+    return this.failedIncomingStore.findAll()
   }
 
   async getSyncStatus(): Promise<RecoveryStatus> {
     const anchor = await this.recoveryStore.getAnchor()
-    const pendingSwaps = await this.failedSwapStore.getRetryable()
+    const pendingItems = await this.failedIncomingStore.getRetryable()
 
     return {
       hasAnchor: anchor !== null,
       lastSyncAt: anchor?.updatedAt,
-      pendingRetries: pendingSwaps.length,
+      pendingRetries: pendingItems.length,
       isSyncing: this.isSyncing,
     }
   }
 
   async cleanupOldData(): Promise<void> {
-    await this.failedSwapStore.cleanupNonRetryable(30)
+    await this.failedIncomingStore.cleanupNonRetryable(30)
   }
 
   // ─── Private: anchor ───

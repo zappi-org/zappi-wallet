@@ -1,5 +1,5 @@
 import type { AnchorData } from '@/core/ports/driven/anchor.port'
-import type { SyncResult, FailedSwap } from '@/core/types'
+import type { SyncResult, FailedIncoming } from '@/core/types'
 
 export interface AnchorCheckResult {
   anchor: AnchorData | null
@@ -35,11 +35,11 @@ export interface RecoveryUseCase {
     relays: string[]
   }): Promise<SyncResult>
 
-  /** Retry failed swaps only */
-  retryFailedSwaps(): Promise<RetryResult>
+  /** Retry failed incomings only */
+  retryFailedIncomings(): Promise<RetryResult>
 
-  /** Query failed swaps */
-  getFailedSwaps(): Promise<FailedSwap[]>
+  /** Query failed incomings */
+  getFailedIncomings(): Promise<FailedIncoming[]>
 
   /** Query recovery status */
   getSyncStatus(): Promise<RecoveryStatus>

@@ -1,6 +1,6 @@
 export * from './transaction.repository'
 export * from './processed-event.repository'
-export * from './failed-swap.repository'
+export * from './failed-incoming.repository'
 export * from './settings.repository'
 export * from './mint-metadata.repository'
 export * from './exchange-rate.repository'

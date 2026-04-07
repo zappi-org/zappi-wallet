@@ -12,7 +12,7 @@ export interface SyncSliceState {
 
   // Pending items
   pendingRetries: number
-  failedSwapsCount: number
+  failedIncomingsCount: number
 
   // Progress
   syncProgress: number // 0-100
@@ -43,7 +43,7 @@ export interface SyncSliceState {
   setLastSyncAt: (timestamp: number | null) => void
   setAnchor: (anchor: SyncAnchor | null) => void
   setPendingRetries: (count: number) => void
-  setFailedSwapsCount: (count: number) => void
+  setFailedIncomingsCount: (count: number) => void
   setSyncProgress: (progress: number) => void
   incrementEventsProcessed: () => void
   resetSyncProgress: () => void
@@ -65,7 +65,7 @@ const initialState = {
   lastSyncAt: null as number | null,
   anchor: null as SyncAnchor | null,
   pendingRetries: 0,
-  failedSwapsCount: 0,
+  failedIncomingsCount: 0,
   syncProgress: 0,
   eventsProcessed: 0,
   lastEventTimestamp: 0,
@@ -94,7 +94,7 @@ export const createSyncSlice: StateCreator<SyncSliceState> = (set) => ({
 
   setPendingRetries: (pendingRetries) => set({ pendingRetries }),
 
-  setFailedSwapsCount: (failedSwapsCount) => set({ failedSwapsCount }),
+  setFailedIncomingsCount: (failedIncomingsCount) => set({ failedIncomingsCount }),
 
   setSyncProgress: (syncProgress) => set({ syncProgress }),
 

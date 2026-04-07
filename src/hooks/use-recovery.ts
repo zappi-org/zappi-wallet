@@ -6,7 +6,7 @@ import {
   selectLastSyncAt,
   selectAnchor,
   selectPendingRetries,
-  selectFailedSwapsCount,
+  selectFailedIncomingsCount,
   selectSyncProgress,
   selectHasPendingItems,
   selectConfiguredRelays,
@@ -35,7 +35,7 @@ export function useRecovery() {
   const lastSyncAt = useAppStore(selectLastSyncAt)
   const anchor = useAppStore(selectAnchor)
   const pendingRetries = useAppStore(selectPendingRetries)
-  const failedSwapsCount = useAppStore(selectFailedSwapsCount)
+  const failedIncomingsCount = useAppStore(selectFailedIncomingsCount)
   const syncProgress = useAppStore(selectSyncProgress)
   const hasPendingItems = useAppStore(selectHasPendingItems)
   const configuredRelays = useAppStore(selectConfiguredRelays)
@@ -119,14 +119,14 @@ export function useRecovery() {
     ],
   )
 
-  const retryFailedSwaps = useCallback(async () => {
+  const retryFailedIncomings = useCallback(async () => {
     const service = getService()
     if (!service) return null
 
     setSyncState('syncing')
 
     try {
-      const result = await service.retryFailedSwaps()
+      const result = await service.retryFailedIncomings()
       await loadSyncStatus()
       setSyncState('completed')
 
@@ -158,7 +158,7 @@ export function useRecovery() {
     lastSyncAt,
     anchor,
     pendingRetries,
-    failedSwapsCount,
+    failedIncomingsCount,
     syncProgress,
     hasPendingItems,
     isSyncing: syncState === 'syncing',
@@ -166,7 +166,7 @@ export function useRecovery() {
     // Actions
     loadSyncStatus,
     syncAll,
-    retryFailedSwaps,
+    retryFailedIncomings,
     setSyncProgress,
   }
 }

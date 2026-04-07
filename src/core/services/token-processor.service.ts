@@ -9,9 +9,9 @@ import type { TokenProcessorUseCase, TokenProcessResult } from '@/core/ports/dri
 import type { PaymentUseCase } from '@/core/ports/driving/payment.usecase'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
 import type { ProcessedEventStore } from '@/core/ports/driven/processed-event-store.port'
-import type { FailedSwapStore } from '@/core/ports/driven/failed-swap-store.port'
+import type { FailedIncomingStore } from '@/core/ports/driven/failed-incoming-store.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
-import type { FailedSwap, ProcessedEvent } from '@/core/types'
+import type { FailedIncoming, ProcessedEvent } from '@/core/types'
 import { sat, toNumber } from '@/core/domain/amount'
 
 interface TokenDecoder {
@@ -23,7 +23,7 @@ export class TokenProcessorService implements TokenProcessorUseCase {
     private payment: PaymentUseCase,
     private nostrGateway: NostrGateway,
     private processedEventStore: ProcessedEventStore,
-    private failedSwapStore: FailedSwapStore,
+    private failedIncomingStore: FailedIncomingStore,
     private txRepo: TransactionRepository,
     private tokenDecoder: TokenDecoder,
   ) {}
@@ -135,10 +135,10 @@ export class TokenProcessorService implements TokenProcessorUseCase {
           error: errorMsg,
         })
 
-        await this.failedSwapStore.save({
+        await this.failedIncomingStore.save({
           id: `fs-${crypto.randomUUID()}`,
-          token,
-          mintUrl,
+          payload: token,
+          accountId: mintUrl,
           amount: totalAmount,
           error: errorMsg,
           errorCode: 'SWAP_FAILED',
@@ -146,7 +146,7 @@ export class TokenProcessorService implements TokenProcessorUseCase {
           attemptCount: 1,
           lastAttemptAt: Date.now(),
           createdAt: Date.now(),
-          nostrEventId: eventId,
+          externalId: eventId,
           txId: `tx-gw-${eventId}`,
         })
       } catch (queueError) {
@@ -178,7 +178,7 @@ export class TokenProcessorService implements TokenProcessorUseCase {
     await this.processedEventStore.save(event)
   }
 
-  async saveFailedSwap(swap: FailedSwap): Promise<void> {
-    await this.failedSwapStore.save(swap)
+  async saveFailedIncoming(item: FailedIncoming): Promise<void> {
+    await this.failedIncomingStore.save(item)
   }
 }
