@@ -25,6 +25,12 @@ export interface NostrGateway {
 
   /** Query and unwrap NIP-17 gift wrap events */
   fetchGiftWraps(params: FetchGiftWrapsParams): Promise<UnwrappedMessage[]>
+
+  /** Subscribe to gift wraps and deliver unwrapped messages to handler */
+  subscribeGiftWraps(
+    params: SubscribeGiftWrapsParams,
+    handler: (msg: UnwrappedMessage) => void,
+  ): () => void
 }
 
 export interface DirectMessageParams {
@@ -42,6 +48,11 @@ export interface GiftWrapParams {
 export interface FetchGiftWrapsParams {
   recipientPubkey: string
   relays: string[]
+}
+
+export interface SubscribeGiftWrapsParams {
+  recipientPubkey: string
+  since?: number
 }
 
 export interface UnwrappedMessage {

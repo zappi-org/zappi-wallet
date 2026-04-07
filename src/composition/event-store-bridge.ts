@@ -100,12 +100,21 @@ export function connectEventStoreBridge(
   unsubscribers.push(
     eventBus.on('receive:settled', (event) => {
       const { requestId, amount, method, isSwapStep } = event.payload
-      const { removePendingQuote, addToast, setLastRedeemedQuote } = useAppStore.getState()
+      const { removePendingQuote, addToast, setLastRedeemedQuote, setLastReceivedPayment, triggerTxRefresh } = useAppStore.getState()
 
       removePendingQuote(requestId)
 
       if (isSwapStep) {
         console.log(`[EventStoreBridge] Swap step settled (toast suppressed): ${requestId}`)
+      } else if (method === 'nostr-gift-wrap') {
+        // Ecash token received via gift wrap
+        addToast({
+          type: 'success',
+          message: i18n.t('toast.ecashTokenReceived', { amount: formatSats(amount) }),
+          duration: 5000,
+        })
+        setLastReceivedPayment(requestId, amount, event.payload.metadata?.eventId as string ?? null)
+        triggerTxRefresh()
       } else {
         addToast({
           type: 'success',

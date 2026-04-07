@@ -10,7 +10,6 @@ import { useMintHealth } from '@/hooks/use-mint-health'
 import { useNetwork } from '@/hooks/use-network'
 import { totalRecoveredCount, useSyncAfterRecovery } from '@/hooks/use-sync-after-recovery'
 import { useWallet } from '@/hooks/use-wallet'
-import { useGiftWrapListener } from '@/hooks/useGiftWrapListener'
 import { useAppStore } from '@/store'
 import { setMintNameResolver, toErrorMessage } from '@/utils/error-message'
 import { AnimatePresence } from 'motion/react'
@@ -102,9 +101,13 @@ export default function MainApp() {
 
   const [isRecovering, setIsRecovering] = useState(false)
 
-  // Gift Wrap Listener - listens for NIP-17 DMs containing Cashu tokens (NUT-18 responses)
-  // This runs when unlocked with nostr keys and settings loaded
-  const { activateListening } = useGiftWrapListener(serviceRegistry)
+  // Gift Wrap Watcher — lifecycle managed via serviceRegistry
+  useEffect(() => {
+    if (!serviceRegistry) return
+    serviceRegistry.giftWrapWatcher.start()
+    return () => serviceRegistry.giftWrapWatcher.stop()
+  }, [serviceRegistry])
+
   useCrossTabSync()
 
   // Local state
@@ -1057,7 +1060,6 @@ export default function MainApp() {
           onSwapReceive={handleSwapReceive}
           onEstimateSwapFee={handleEstimateSwapFee}
           onStoreOfflineToken={handleStoreOfflineToken}
-          onActivateListening={activateListening}
           validatedData={validatedScanData || undefined}
           initialAmount={scannedAmount || undefined}
           initialMintUrl={activeMintUrl}

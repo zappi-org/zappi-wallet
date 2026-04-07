@@ -326,6 +326,7 @@ describe('CashuModule', () => {
         sendPrivateDirectMessage: vi.fn().mockResolvedValue(undefined),
         sendGiftWrap: vi.fn().mockResolvedValue({ id: 'gw-1', pubkey: '', created_at: 0, kind: 1059, tags: [], content: '', sig: '' }),
         fetchGiftWraps: vi.fn().mockResolvedValue([]),
+        subscribeGiftWraps: vi.fn().mockReturnValue(() => {}),
       }
       module = new CashuModule(backend, mockGateway)
 

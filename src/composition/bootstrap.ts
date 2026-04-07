@@ -26,6 +26,7 @@ import { DexieOperationMap } from '@/adapters/storage/dexie/dexie-operation-map'
 import { DexieOfflineTokenStore } from '@/adapters/storage/dexie/dexie-offline-token-store'
 import { NostrGatewayAdapter } from '@/adapters/nostr/nostr-gateway'
 import { NostrPaymentTransport } from '@/adapters/nostr/nostr-payment-transport'
+import { derivePublicKey } from '@/adapters/nostr/internal/nostr-crypto'
 import { FailedIncomingStoreAdapter } from '@/adapters/storage/failed-incoming-store.adapter'
 import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
 
@@ -57,6 +58,7 @@ import { IncomingPaymentService } from '@/core/services/incoming-payment.service
 import { createPendingItemsService } from './pending-items'
 import { connectEventStoreBridge } from './event-store-bridge'
 import { connectCocoEventBridge } from './coco-event-bridge'
+import { GiftWrapWatcher } from './gift-wrap.watcher'
 
 // ─── Types ───
 import type { WalletModule } from '@/core/ports/driven/wallet-module.port'
@@ -111,6 +113,9 @@ export interface BootstrapResult extends ServiceRegistry {
 
   // ─── Routing (Phase 6에서 제거) ───
   executeRoute(selection: RouteSelection, context: RouteContext): Promise<RouteResult>
+
+  // ─── Gift wrap watcher ───
+  readonly giftWrapWatcher: GiftWrapWatcher
 
   // ─── P2PK, offline token ───
   readonly p2pkKeyManager: { getCurrentKey(): Promise<{ pubkey: string }> }
@@ -230,7 +235,18 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const incomingPayment = new IncomingPaymentService(payment, processedStore, failedIncomingStore)
   const pendingItems = createPendingItemsService(txRepo)
 
-  // 10. WithdrawUseCase / LnurlAuthUseCase — TODO: NoOp impl or real impl
+  // 10. Gift wrap watcher
+  const giftWrapWatcher = new GiftWrapWatcher({
+    nostrGateway,
+    incomingPayment,
+    eventBus,
+    recipientPubkey: derivePublicKey(deps.nostrPrivateKeyHex),
+    getRelays: () => useAppStore.getState().settings.relays || [],
+    getPosDevices: () => useAppStore.getState().settings.posDevices,
+    getPendingRequestId: () => useAppStore.getState().pendingEcashRequestId,
+  })
+
+  // 11. WithdrawUseCase / LnurlAuthUseCase — TODO: NoOp impl or real impl
   // Phase 5에서는 undefined 허용하지 않으므로 placeholder
   const withdraw = {} as ServiceRegistry['withdraw']
   const lnurlAuth = {} as ServiceRegistry['lnurlAuth']
@@ -285,6 +301,9 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     // Routing (Phase 6에서 제거)
     executeRoute: (selection: RouteSelection, context: RouteContext) =>
       legacyExecuteRoute(selection, { ...context, outgoingTransport }),
+
+    // Gift wrap watcher
+    giftWrapWatcher,
 
     // P2PK + offline token
     p2pkKeyManager,

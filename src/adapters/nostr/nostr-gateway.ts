@@ -3,6 +3,9 @@
  *
  * relay 통신만 담당. 로컬 연산(서명, 암호화 등)은 internal/nostr-crypto.ts에서 가져다 씀.
  * nostr-tools SimplePool을 직접 import하는 유일한 gateway 파일.
+ *
+ * 자동 재연결: connect() 이후 relay 끊김을 감지하고 subscription을 복원한다.
+ * network online/offline, document visibility 변경에도 반응.
  */
 
 import { SimplePool } from 'nostr-tools/pool'
@@ -12,6 +15,7 @@ import type {
   DirectMessageParams,
   GiftWrapParams,
   FetchGiftWrapsParams,
+  SubscribeGiftWrapsParams,
   UnwrappedMessage,
 } from '@/core/ports/driven/nostr-gateway.port'
 import type { NostrEvent, NostrFilter, UnsignedNostrEvent } from '@/core/domain/nostr'
@@ -20,34 +24,71 @@ import { signEvent, wrapEvent, unwrapEvent } from './internal/nostr-crypto'
 export interface NostrGatewayConfig {
   privateKeyHex: string
   defaultTimeout?: number
+  reconnectIntervalMs?: number
 }
+
+// ─── Internal types ───
+
+interface ActiveSubscription {
+  filters: NostrFilter[]
+  handler: (event: NostrEvent) => void
+  cleanups: Set<() => void>
+}
+
+const DEFAULT_RECONNECT_INTERVAL_MS = 30_000
+const RELAY_CONNECTION_TIMEOUT_MS = 5_000
 
 export class NostrGatewayAdapter implements NostrGateway {
   private pool: SimplePool
   private connectedRelays: Set<string> = new Set()
   private config: NostrGatewayConfig
   private readonly defaultTimeout: number
+  private readonly reconnectIntervalMs: number
+
+  // ─── Auto-reconnection state ───
+  private activeSubscriptions = new Map<number, ActiveSubscription>()
+  private nextSubId = 1
+  private reconnectTimer: ReturnType<typeof setInterval> | null = null
+  private networkCleanup: (() => void) | null = null
+  private visibilityHandler: (() => void) | null = null
+  private targetRelays: string[] = []
 
   constructor(config: NostrGatewayConfig) {
     this.pool = new SimplePool()
     this.config = config
     this.defaultTimeout = config.defaultTimeout ?? 5000
+    this.reconnectIntervalMs = config.reconnectIntervalMs ?? DEFAULT_RECONNECT_INTERVAL_MS
   }
 
   async connect(relays: string[]): Promise<void> {
+    this.targetRelays = [...relays]
+
     for (const url of relays) {
       try {
-        await this.pool.ensureRelay(url)
-        this.connectedRelays.add(url)
+        await this.connectRelay(url)
       } catch (error) {
         console.warn(`[NostrGateway] Failed to connect to ${url}:`, error)
       }
     }
+
+    this.startAutoReconnect()
   }
 
   async disconnect(): Promise<void> {
+    this.stopAutoReconnect()
+
+    // Clean up all subscriptions
+    for (const sub of this.activeSubscriptions.values()) {
+      for (const cleanup of sub.cleanups) {
+        try { cleanup() } catch { /* ignore */ }
+      }
+      sub.cleanups.clear()
+    }
+    this.activeSubscriptions.clear()
+
     this.pool.close(Array.from(this.connectedRelays))
     this.connectedRelays.clear()
+    this.targetRelays = []
   }
 
   getRelayStatus(): RelayStatus[] {
@@ -96,28 +137,19 @@ export class NostrGatewayAdapter implements NostrGateway {
     filters: NostrFilter[],
     handler: (event: NostrEvent) => void,
   ): () => void {
-    const relays = Array.from(this.connectedRelays)
-    const cleanups: (() => void)[] = []
+    const subId = this.nextSubId++
+    const cleanups = new Set<() => void>()
 
-    for (const filter of filters) {
-      for (const relayUrl of relays) {
-        this.pool.ensureRelay(relayUrl).then(relay => {
-          const sub = relay.subscribe(
-            [filter as Parameters<typeof relay.subscribe>[0][0]],
-            {
-              onevent: (event) => handler(event as unknown as NostrEvent),
-            },
-          )
-          cleanups.push(() => sub.close())
-        }).catch(error => {
-          console.warn(`[NostrGateway] Subscribe failed for ${relayUrl}:`, error)
-        })
-      }
-    }
+    this.activeSubscriptions.set(subId, { filters, handler, cleanups })
+    this.subscribeToRelays(filters, handler, cleanups)
 
     return () => {
-      for (const cleanup of cleanups) {
-        cleanup()
+      const sub = this.activeSubscriptions.get(subId)
+      if (sub) {
+        for (const cleanup of sub.cleanups) {
+          try { cleanup() } catch { /* ignore */ }
+        }
+        this.activeSubscriptions.delete(subId)
       }
     }
   }
@@ -190,5 +222,164 @@ export class NostrGatewayAdapter implements NostrGateway {
     }
 
     return messages
+  }
+
+  subscribeGiftWraps(
+    params: SubscribeGiftWrapsParams,
+    handler: (msg: UnwrappedMessage) => void,
+  ): () => void {
+    const filter: NostrFilter = {
+      kinds: [1059],
+      '#p': [params.recipientPubkey],
+      ...(params.since ? { since: params.since } : {}),
+    }
+
+    return this.subscribe([filter], (event: NostrEvent) => {
+      try {
+        const unwrapped = unwrapEvent(event, this.config.privateKeyHex)
+        handler({
+          eventId: event.id,
+          content: unwrapped.content,
+          sender: unwrapped.sender,
+        })
+      } catch {
+        // Not our message or decryption failed — skip
+      }
+    })
+  }
+
+  // ─── Auto-reconnection internals ───
+
+  private async connectRelay(url: string): Promise<void> {
+    const relayPromise = this.pool.ensureRelay(url)
+    relayPromise.catch(() => {})
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Connection timeout')), RELAY_CONNECTION_TIMEOUT_MS),
+    )
+
+    await Promise.race([relayPromise, timeoutPromise])
+    this.connectedRelays.add(url)
+  }
+
+  private subscribeToRelays(
+    filters: NostrFilter[],
+    handler: (event: NostrEvent) => void,
+    cleanups: Set<() => void>,
+  ): void {
+    const relays = Array.from(this.connectedRelays)
+
+    for (const filter of filters) {
+      for (const relayUrl of relays) {
+        this.pool.ensureRelay(relayUrl).then(relay => {
+          const sub = relay.subscribe(
+            [filter as Parameters<typeof relay.subscribe>[0][0]],
+            {
+              onevent: (event) => handler(event as unknown as NostrEvent),
+            },
+          )
+          cleanups.add(() => sub.close())
+        }).catch(error => {
+          console.warn(`[NostrGateway] Subscribe failed for ${relayUrl}:`, error)
+        })
+      }
+    }
+  }
+
+  private startAutoReconnect(): void {
+    if (this.reconnectTimer) return
+
+    // Periodic health check
+    this.reconnectTimer = setInterval(() => {
+      this.runHealthCheck().catch(e =>
+        console.warn('[NostrGateway] Health check failed:', e),
+      )
+    }, this.reconnectIntervalMs)
+
+    // Network online → immediate health check
+    if (typeof window !== 'undefined') {
+      const onOnline = () => {
+        console.log('[NostrGateway] Online — reconnecting')
+        this.runHealthCheck().catch(() => {})
+      }
+      const onOffline = () => {
+        console.log('[NostrGateway] Offline')
+      }
+      window.addEventListener('online', onOnline)
+      window.addEventListener('offline', onOffline)
+      this.networkCleanup = () => {
+        window.removeEventListener('online', onOnline)
+        window.removeEventListener('offline', onOffline)
+      }
+    }
+
+    // Visibility → foreground 복귀 시 health check
+    if (typeof document !== 'undefined') {
+      this.visibilityHandler = () => {
+        if (document.visibilityState === 'visible') {
+          console.log('[NostrGateway] Visible — reconnecting')
+          this.runHealthCheck().catch(() => {})
+        }
+      }
+      document.addEventListener('visibilitychange', this.visibilityHandler)
+    }
+  }
+
+  private stopAutoReconnect(): void {
+    if (this.reconnectTimer) {
+      clearInterval(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
+    if (this.networkCleanup) {
+      this.networkCleanup()
+      this.networkCleanup = null
+    }
+    if (this.visibilityHandler) {
+      document.removeEventListener('visibilitychange', this.visibilityHandler)
+      this.visibilityHandler = null
+    }
+  }
+
+  private async runHealthCheck(): Promise<void> {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return
+
+    // Prune relays that are no longer connected
+    for (const url of this.connectedRelays) {
+      try {
+        const relay = await this.pool.ensureRelay(url)
+        if (!relay.connected) {
+          this.connectedRelays.delete(url)
+        }
+      } catch {
+        this.connectedRelays.delete(url)
+      }
+    }
+
+    let reconnected = false
+
+    for (const url of this.targetRelays) {
+      if (!this.connectedRelays.has(url)) {
+        try {
+          await this.connectRelay(url)
+          reconnected = true
+          console.log(`[NostrGateway] Reconnected to ${url}`)
+        } catch {
+          // Will retry next cycle
+        }
+      }
+    }
+
+    // Re-subscribe on reconnected relays
+    if (reconnected && this.activeSubscriptions.size > 0) {
+      for (const sub of this.activeSubscriptions.values()) {
+        // Close old cleanups
+        for (const cleanup of sub.cleanups) {
+          try { cleanup() } catch { /* ignore */ }
+        }
+        sub.cleanups.clear()
+        // Re-subscribe on all connected relays
+        this.subscribeToRelays(sub.filters, sub.handler, sub.cleanups)
+      }
+      console.log(`[NostrGateway] Re-subscribed ${this.activeSubscriptions.size} subscriptions`)
+    }
   }
 }
