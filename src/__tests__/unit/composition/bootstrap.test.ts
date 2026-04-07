@@ -116,9 +116,9 @@ describe('bootstrap', () => {
     expect(result.cashuModule.initialize).toBeTypeOf('function')
   })
 
-  it('should expose recovery, tokenProcessor, and pendingItems use cases', () => {
+  it('should expose recovery, incomingPayment, and pendingItems use cases', () => {
     expect(result.recovery).toBeDefined()
-    expect(result.tokenProcessor).toBeDefined()
+    expect(result.incomingPayment).toBeDefined()
     expect(result.pendingItems).toBeDefined()
   })
 

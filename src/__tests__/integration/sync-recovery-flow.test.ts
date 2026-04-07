@@ -3,7 +3,7 @@ import { resetDatabase } from '@/data/database'
 import { clearWalletCache } from '@/data/cache'
 import { WalletService } from '@/services/wallet/wallet.service'
 import { FailedIncomingRepository } from '@/data/repositories/failed-incoming.repository'
-import { ProcessedEventRepository } from '@/data/repositories/processed-event.repository'
+import { ProcessedRepository } from '@/data/repositories/processed.repository'
 import { SettingsRepository } from '@/data/repositories/settings.repository'
 
 // Mock cashu-ts
@@ -63,7 +63,7 @@ vi.mock('@/services/cashu/cashu.service', () => {
 describe('Sync/Recovery Flow Integration', () => {
   let walletService: WalletService
   let failedIncomingRepo: FailedIncomingRepository
-  let processedEventRepo: ProcessedEventRepository
+  let processedRepo: ProcessedRepository
   let settingsRepo: SettingsRepository
 
   beforeEach(async () => {
@@ -74,7 +74,7 @@ describe('Sync/Recovery Flow Integration', () => {
 
     walletService = new WalletService()
     failedIncomingRepo = new FailedIncomingRepository()
-    processedEventRepo = new ProcessedEventRepository()
+    processedRepo = new ProcessedRepository()
     settingsRepo = new SettingsRepository()
   })
 
@@ -219,49 +219,49 @@ describe('Sync/Recovery Flow Integration', () => {
 
   describe('Processed Event Deduplication', () => {
     it('should mark event as processed', async () => {
-      await processedEventRepo.markProcessed({
-        eventId: 'event1',
+      await processedRepo.markProcessed({
+        externalId: 'event1',
         processedAt: Date.now(),
         result: 'success',
       })
 
-      const isProcessed = await processedEventRepo.isProcessed('event1')
+      const isProcessed = await processedRepo.isProcessed('event1')
       expect(isProcessed).toBe(true)
     })
 
     it('should return false for unprocessed events', async () => {
-      const isProcessed = await processedEventRepo.isProcessed('unknown-event')
+      const isProcessed = await processedRepo.isProcessed('unknown-event')
       expect(isProcessed).toBe(false)
     })
 
     it('should not duplicate processed events', async () => {
-      await processedEventRepo.markProcessed({
-        eventId: 'event1',
+      await processedRepo.markProcessed({
+        externalId: 'event1',
         processedAt: Date.now(),
         result: 'success',
       })
 
-      await processedEventRepo.markProcessed({
-        eventId: 'event1',
+      await processedRepo.markProcessed({
+        externalId: 'event1',
         processedAt: Date.now(),
         result: 'success',
       })
 
-      const count = await processedEventRepo.count()
+      const count = await processedRepo.count()
       expect(count).toBe(1)
     })
 
     it('should track failed events', async () => {
-      await processedEventRepo.markProcessed({
-        eventId: 'event1',
+      await processedRepo.markProcessed({
+        externalId: 'event1',
         processedAt: Date.now(),
         result: 'failed',
         error: 'Token already spent',
       })
 
-      const failed = await processedEventRepo.getFailed()
+      const failed = await processedRepo.getFailed()
       expect(failed.length).toBe(1)
-      expect(failed[0].eventId).toBe('event1')
+      expect(failed[0].externalId).toBe('event1')
       expect(failed[0].error).toBe('Token already spent')
     })
   })

@@ -32,7 +32,7 @@ import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
 import { DirectLnurlAdapter } from '@/adapters/lnurl/direct-lnurl.adapter'
 import { Nip05ResolverAdapter } from '@/adapters/nip05/nip05-resolver'
 import { SettingsRepository } from '@/data/repositories/settings.repository'
-import { ProcessedEventRepository } from '@/data/repositories/processed-event.repository'
+import { ProcessedRepository } from '@/data/repositories/processed.repository'
 
 // ─── Legacy services (composition root만 wrap 가능) ───
 import { exchangeRateService } from '@/services/exchange-rate'
@@ -52,7 +52,7 @@ import { createInputRouter } from './input-router'
 import { createAddressResolver } from './address-resolver'
 import { createProfileService } from './profile'
 import { createRecoveryService } from './recovery'
-import { createTokenProcessorService } from './token-processor'
+import { IncomingPaymentService } from '@/core/services/incoming-payment.service'
 import { createPendingItemsService } from './pending-items'
 import { connectEventStoreBridge } from './event-store-bridge'
 import { connectCocoEventBridge } from './coco-event-bridge'
@@ -126,7 +126,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const pendingOpRepo = new DexiePendingOperationRepository()
   const operationMap = new DexieOperationMap()
   const failedIncomingStore = new FailedIncomingStoreAdapter()
-  const processedEventStore = new ProcessedEventRepository()
+  const processedStore = new ProcessedRepository()
   const settingsRepo = new SettingsRepository()
 
   // 2. Nostr Gateway
@@ -225,7 +225,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
   // 9. Additional services
   const recovery = createRecoveryService(nostrGateway, payment)
-  const tokenProcessor = createTokenProcessorService(payment, nostrGateway, processedEventStore, failedIncomingStore, txRepo)
+  const incomingPayment = new IncomingPaymentService(payment, processedStore, failedIncomingStore)
   const pendingItems = createPendingItemsService(txRepo)
 
   // 10. WithdrawUseCase / LnurlAuthUseCase — TODO: NoOp impl or real impl
@@ -244,7 +244,9 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     inputRouter,
     addressResolver,
     recovery,
-    tokenProcessor,
+    incomingPayment,
+    processedStore,
+    nostrGateway,
     pendingItems,
     withdraw,
     lnurlAuth,

@@ -1,6 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 import type { Transaction, WalletSettings, MintMetadata, ExchangeRateCache, Contact } from '@/core/types'
-import type { ProcessedEvent, SyncAnchor } from '@/core/types'
+import type { ProcessedRecord, SyncAnchor } from '@/core/types'
 import { DATABASE } from '@/core/constants'
 
 /**
@@ -27,9 +27,9 @@ export interface FailedIncomingRecord {
 }
 
 /**
- * Processed event record for DB storage (eventId is the primary key)
+ * Processed record for DB storage (externalId is the primary key)
  */
-export type ProcessedEventRecord = ProcessedEvent
+export type ProcessedRecordEntry = ProcessedRecord
 
 /**
  * Sync anchor record for DB storage
@@ -167,7 +167,7 @@ export type ExchangeRateCacheRecord = ExchangeRateCache
 export class ZappiDatabase extends Dexie {
   transactions!: Table<TransactionRecord, string>
   failedIncomings!: Table<FailedIncomingRecord, string>
-  processedEvents!: Table<ProcessedEventRecord, string>
+  processedRecords!: Table<ProcessedRecordEntry, string>
   syncAnchor!: Table<SyncAnchorRecord, string>
   settings!: Table<SettingsRecord, string>
   encryptedWallet!: Table<EncryptedWalletRecord, string>
@@ -194,8 +194,11 @@ export class ZappiDatabase extends Dexie {
       // Failed incomings: indexed by id, accountId, isRetryable, createdAt
       failedIncomings: 'id, accountId, isRetryable, createdAt, errorCode',
 
-      // Processed events: indexed by eventId, txId, processedAt, result
-      processedEvents: 'eventId, txId, processedAt, result',
+      // v15: old processedEvents table deleted (dedup data loss accepted — crash recovery handles re-processing)
+      processedEvents: null,
+
+      // Processed records: indexed by externalId, txId, processedAt, result
+      processedRecords: 'externalId, txId, processedAt, result',
 
       // Sync anchor: single record
       syncAnchor: 'id',
@@ -290,7 +293,7 @@ export async function clearAllData(): Promise<void> {
   await Promise.all([
     db.transactions.clear(),
     db.failedIncomings.clear(),
-    db.processedEvents.clear(),
+    db.processedRecords.clear(),
     db.syncAnchor.clear(),
     db.settings.clear(),
     db.encryptedWallet.clear(),

@@ -17,8 +17,10 @@ import type { WithdrawUseCase } from '@/core/ports/driving/withdraw.usecase'
 import type { LnurlAuthUseCase } from '@/core/ports/driving/lnurl-auth.usecase'
 import type { ProfileUseCase } from '@/core/ports/driving/profile.usecase'
 import type { RecoveryUseCase } from '@/core/ports/driving/recovery.usecase'
-import type { TokenProcessorUseCase } from '@/core/ports/driving/token-processor.usecase'
+import type { IncomingPaymentUseCase } from '@/core/ports/driving/incoming-payment.usecase'
 import type { PendingItemsUseCase } from '@/core/ports/driving/pending-items.usecase'
+import type { ProcessedStore } from '@/core/ports/driven/processed-store.port'
+import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
 
 export interface ServiceRegistry {
   readonly eventBus: EventBus
@@ -30,7 +32,9 @@ export interface ServiceRegistry {
   readonly addressResolver: AddressResolverUseCase
   readonly profile: ProfileUseCase
   readonly recovery: RecoveryUseCase
-  readonly tokenProcessor: TokenProcessorUseCase
+  readonly incomingPayment: IncomingPaymentUseCase
+  readonly processedStore: ProcessedStore
+  readonly nostrGateway: NostrGateway
   readonly pendingItems: PendingItemsUseCase
   readonly withdraw: WithdrawUseCase
   readonly lnurlAuth: LnurlAuthUseCase

@@ -41,8 +41,8 @@ function createMocks() {
   const recoveryStore: RecoveryStore = {
     getAnchor: vi.fn().mockResolvedValue(null),
     saveAnchor: vi.fn().mockResolvedValue(undefined),
-    isEventProcessed: vi.fn().mockResolvedValue(false),
-    markEventProcessed: vi.fn().mockResolvedValue(undefined),
+    isProcessed: vi.fn().mockResolvedValue(false),
+    markProcessed: vi.fn().mockResolvedValue(undefined),
   }
 
   const failedIncomingStore: FailedIncomingStore = {
@@ -110,7 +110,7 @@ describe('RecoveryService', () => {
       vi.mocked(mocks.nostr.fetchGiftWraps).mockResolvedValue([
         { eventId: 'ev-1', content: DIRECT_TOKEN_RUMOR, sender: 'sender-pubkey' },
       ])
-      vi.mocked(mocks.recoveryStore.isEventProcessed).mockResolvedValue(true)
+      vi.mocked(mocks.recoveryStore.isProcessed).mockResolvedValue(true)
 
       const result = await service.reconstructState(params)
 
@@ -127,8 +127,8 @@ describe('RecoveryService', () => {
 
       expect(result.eventsProcessed).toBe(1)
       expect(result.tokensReceived).toBe(0)
-      expect(mocks.recoveryStore.markEventProcessed).toHaveBeenCalledWith(
-        expect.objectContaining({ eventId: 'ev-1', result: 'skipped' }),
+      expect(mocks.recoveryStore.markProcessed).toHaveBeenCalledWith(
+        expect.objectContaining({ externalId: 'ev-1', result: 'skipped' }),
       )
     })
 

@@ -57,14 +57,19 @@ function createMockRegistry(): ServiceRegistry {
       getSyncStatus: vi.fn(),
       cleanupOldData: vi.fn(),
     } as unknown as ServiceRegistry['recovery'],
-    tokenProcessor: {
-      processToken: vi.fn(),
-      sendDeliveryAck: vi.fn(),
-      isEventProcessed: vi.fn(),
-      isEventProcessedByTxId: vi.fn(),
-      markEventProcessed: vi.fn(),
-      saveFailedIncoming: vi.fn(),
-    } as unknown as ServiceRegistry['tokenProcessor'],
+    incomingPayment: {
+      processIncoming: vi.fn(),
+    } as unknown as ServiceRegistry['incomingPayment'],
+    processedStore: {
+      save: vi.fn(),
+      exists: vi.fn(),
+      existsByTxId: vi.fn(),
+      findById: vi.fn(),
+      findByTxId: vi.fn(),
+    } as unknown as ServiceRegistry['processedStore'],
+    nostrGateway: {
+      sendPrivateDirectMessage: vi.fn(),
+    } as unknown as ServiceRegistry['nostrGateway'],
     pendingItems: {
       getByMint: vi.fn(),
       getAll: vi.fn(),

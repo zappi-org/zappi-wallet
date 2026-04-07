@@ -3,13 +3,10 @@ import { useTranslation } from 'react-i18next'
 import { SimplePool, nip17 } from 'nostr-tools'
 import { hexToBytes } from '@noble/hashes/utils.js'
 import { useAppStore } from '@/store'
-import { getDecodedToken, getEncodedToken } from '@cashu/cashu-ts'
-import { toNumber } from '@/core/domain/amount'
+import { getEncodedToken } from '@cashu/cashu-ts'
 import type { ServiceRegistry } from '@/composition/types'
-import type { TokenProcessorUseCase } from '@/core/ports/driving/token-processor.usecase'
 import { subscribeNetworkStatus } from '@/hooks/useNetworkStatus'
 import type { ZapMessage, ZapPaymentFulfillment } from '@/types'
-import type { FailedIncoming, ProcessedEvent } from '@/core/types'
 import { formatSats } from '@/utils/format'
 
 // Connection timeout for each relay (5 seconds)
@@ -19,34 +16,6 @@ const RELAY_CONNECTION_TIMEOUT_MS = 5000
 const PASSIVE_HEALTH_CHECK_INTERVAL_MS = 30_000    // 30초
 const ACTIVE_HEALTH_CHECK_INTERVAL_MS = 5_000      // 5초
 const DEFAULT_ACTIVE_DURATION_MS = 30 * 60 * 1000  // 30분
-
-// Helper functions for IndexedDB-based tx_id tracking (via driving port)
-async function isTxProcessed(tokenProcessor: TokenProcessorUseCase, txId: string): Promise<boolean> {
-  return tokenProcessor.isEventProcessedByTxId(txId)
-}
-
-async function markTxProcessed(
-  tokenProcessor: TokenProcessorUseCase,
-  txId: string,
-  eventId: string,
-  result: 'success' | 'failed' | 'skipped',
-  _amount?: number,
-  error?: string
-): Promise<void> {
-  const event: ProcessedEvent = {
-    eventId,
-    txId,
-    processedAt: Date.now(),
-    result,
-    error,
-  }
-  try {
-    await tokenProcessor.markEventProcessed(event)
-  } catch {
-    // Handle race condition: multiple relays delivering the same event simultaneously
-    console.log(`[GiftWrap] txId already processed (race condition): ${txId}`)
-  }
-}
 
 function isPaymentFulfillment(msg: ZapMessage): msg is ZapPaymentFulfillment {
   return msg.type === 'payment_fulfillment'
@@ -137,12 +106,17 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
 
   // Send delivery ACK to POS device (fire-and-forget)
   const sendDeliveryAck = useCallback(async (posPubkey: string, txId: string) => {
-    if (!nostrPrivkey || !registryRef.current?.tokenProcessor) return
+    if (!nostrPrivkey || !registryRef.current?.nostrGateway) return
     const relays = useAppStore.getState().settings.relays
     if (relays.length === 0) return
 
     try {
-      await registryRef.current.tokenProcessor.sendDeliveryAck(posPubkey, txId, relays)
+      const ackContent = JSON.stringify({ type: 'delivery_ack', txId })
+      await registryRef.current.nostrGateway.sendPrivateDirectMessage({
+        recipientPubkey: posPubkey,
+        content: ackContent,
+        relays,
+      })
       console.log(`[GiftWrap] Sent delivery ACK for txId: ${txId}`)
     } catch (err) {
       console.warn('[GiftWrap] ACK send error:', err)
@@ -155,161 +129,65 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
     return devices.some(d => d.nostrPublicKey === pubkey)
   }, [])
 
-  // Process Cashu token from fulfillment. Returns true on success.
+  // Process incoming token via IncomingPaymentService. Returns true on success.
   const processToken = useCallback(async (token: string, txId: string, eventId: string, relay: string, requestId?: string, _memo?: string, _metadata?: Record<string, unknown>): Promise<boolean> => {
-    try {
-      // Validate token format
-      if (!token.startsWith('cashu')) {
-        console.log('[GiftWrap] Invalid token format')
-        addDebugLog({
-          relay,
-          type: 'payment_fulfillment',
-          txId,
-          status: 'failed',
-          error: 'Invalid token format',
-        })
-        return false
-      }
+    const reg = registryRef.current
+    if (!reg?.incomingPayment) {
+      console.warn('[GiftWrap] Registry not ready — skipping token')
+      return false
+    }
 
-      // Decode token
-      const decoded = getDecodedToken(token)
-      const mintUrl = decoded.mint
-      const proofs = decoded.proofs
+    const result = await reg.incomingPayment.processIncoming({
+      adapterId: 'cashu:ecash',
+      payload: token,
+      externalId: eventId,
+      memo: _memo,
+      metadata: _metadata,
+    })
 
-      if (!proofs || proofs.length === 0) {
-        console.log('[GiftWrap] No proofs in token')
-        addDebugLog({
-          relay,
-          type: 'payment_fulfillment',
-          txId,
-          mintUrl,
-          status: 'failed',
-          error: 'No proofs in token',
-        })
-        return false
-      }
+    if (result.status === 'already_processed') {
+      return false
+    }
 
-      const totalAmount = proofs.reduce((sum, p) => sum + p.amount, 0)
-      console.log(`[GiftWrap] Token details: ${totalAmount} sat from ${mintUrl}`)
+    if (result.status === 'success' && result.amount) {
+      console.log(`[GiftWrap] Successfully claimed ${result.amount} sat!`)
 
-      // Check if this mint is in our list
-      const trustedMints = useAppStore.getState().settings.mints
-      if (!trustedMints.includes(mintUrl)) {
-        console.log('[GiftWrap] Warning: Mint not in trusted list:', mintUrl)
-        // Still process it, but log warning
-      }
-
-      // Receive token to claim ownership
-      console.log('[GiftWrap] Receiving token to claim ownership...')
-
-      if (!registryRef.current?.payment) {
-        console.warn('[GiftWrap] Registry not ready — skipping token')
-        return false
-      }
-
-      // Phase 5: redeem에 deterministic txId 전달 → 단일 TX writer (이중 기록 방지)
-      const txRecordId = `tx-gw-${eventId}`
-      const redeemResult = await registryRef.current.payment.redeem({
-        adapterId: 'cashu:ecash',
-        input: token,
-        transactionId: txRecordId,
-      })
-      if (!redeemResult.ok) {
-        throw new Error(redeemResult.error.message)
-      }
-      const receivedAmount = toNumber(redeemResult.value.amount)
-
-      // Mark as processed in IndexedDB
-      await markTxProcessed(registryRef.current.tokenProcessor, txId, eventId, 'success', receivedAmount)
-
-      console.log(`[GiftWrap] Successfully claimed ${receivedAmount} sat!`)
-
-      // Notify ReceiveFlow if this was a NUT-18 request fulfillment
       if (requestId) {
-        console.log(`[GiftWrap] Notifying of payment for request: ${requestId}`)
-        setLastReceivedPayment(requestId, receivedAmount, eventId)
+        setLastReceivedPayment(requestId, result.amount, eventId)
       }
 
-      // Trigger transaction history refresh
       triggerTxRefresh()
 
-      // Show toast notification
       addToast({
         type: 'success',
-        message: t('toast.ecashTokenReceived', { amount: formatSats(receivedAmount) }),
+        message: t('toast.ecashTokenReceived', { amount: formatSats(result.amount) }),
         duration: 5000,
       })
 
-      // Log successful processing
       addDebugLog({
         relay,
         type: 'payment_fulfillment',
         txId,
-        amount: totalAmount,
+        amount: result.amount,
         unit: 'sat',
-        mintUrl,
         status: 'processed',
       })
 
       return true
-    } catch (error) {
-      const errorMsg = String(error)
-      console.error('[GiftWrap] Token processing error:', error)
-
-      // Check if token was already spent (means it was successfully claimed before)
-      const isAlreadySpent = errorMsg.toLowerCase().includes('already spent')
-
-      if (isAlreadySpent) {
-        // Token already claimed — tokenProcessor handles crash recovery internally
-        if (registryRef.current?.tokenProcessor) {
-          await markTxProcessed(registryRef.current.tokenProcessor, txId, eventId, 'skipped')
-        }
-        return false
-      }
-
-      // Log failure
-      addDebugLog({
-        relay,
-        type: 'payment_fulfillment',
-        txId,
-        status: 'failed',
-        error: errorMsg,
-      })
-
-      // Add to failed swaps queue for retry (only for real failures)
-      try {
-        const tp = registryRef.current?.tokenProcessor
-        if (tp) {
-          const decoded = getDecodedToken(token)
-          const amount = decoded.proofs.reduce((sum, p) => sum + p.amount, 0)
-
-          // Mark as failed in IndexedDB
-          await markTxProcessed(tp, txId, eventId, 'failed', amount, errorMsg)
-
-          const failedIncoming: FailedIncoming = {
-            id: `fs-${crypto.randomUUID()}`,
-            payload: token,
-            accountId: decoded.mint,
-            amount,
-            error: errorMsg,
-            errorCode: 'SWAP_FAILED',
-            isRetryable: true,
-            attemptCount: 1,
-            lastAttemptAt: Date.now(),
-            createdAt: Date.now(),
-            externalId: eventId,
-            txId,
-          }
-          await tp.saveFailedIncoming(failedIncoming)
-          console.log('[GiftWrap] Added to retry queue')
-        }
-      } catch (queueError) {
-        console.error('[GiftWrap] Failed to add to retry queue:', queueError)
-      }
-
-      return false
     }
-  }, [addDebugLog, setLastReceivedPayment, triggerTxRefresh, addToast, t])
+
+    // Failed
+    console.error('[GiftWrap] Token processing failed:', result.error)
+    addDebugLog({
+      relay,
+      type: 'payment_fulfillment',
+      txId,
+      status: 'failed',
+      error: result.error,
+    })
+
+    return false
+  }, [setLastReceivedPayment, triggerTxRefresh, addToast, addDebugLog, t])
 
   // Process a Gift Wrap event (kind:1059)
   const processGiftWrap = useCallback(async (event: { id: string; created_at?: number }, url: string) => {
@@ -318,9 +196,9 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
       return
     }
 
-    const tp = registryRef.current?.tokenProcessor
-    if (!tp) {
-      console.warn('[GiftWrap] TokenProcessor not ready — skipping event')
+    const ps = registryRef.current?.processedStore
+    if (!ps) {
+      console.warn('[GiftWrap] ProcessedStore not ready — skipping event')
       return
     }
 
@@ -349,8 +227,7 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
       if (isRawCashuToken(content)) {
         console.log('[GiftWrap] Raw Cashu token received in DM')
         const txId = `dm-token-${event.id.substring(0, 12)}`
-        const alreadyProcessed = await isTxProcessed(tp, txId)
-        if (alreadyProcessed) return
+        if (await ps.exists(event.id)) return
         // Match to pending ecash request if ReceiveQR is active
         const pendingRequestId = useAppStore.getState().pendingEcashRequestId
         const success = await processToken(content.trim(), txId, event.id, url, pendingRequestId ?? undefined)
@@ -371,8 +248,7 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
       // Check for NUT-18 token message format (from our sendTokenViaDM)
       if (isNut18TokenMessage(msg)) {
         const txId = msg.request_id || `nut18-${event.id.substring(0, 12)}`
-        const alreadyProcessed = await isTxProcessed(tp, txId)
-        if (alreadyProcessed) return
+        if (await ps.exists(event.id)) return
         // Pass request_id and memo to notify ReceiveFlow
         const success = await processToken(msg.token, txId, event.id, url, msg.request_id, msg.memo)
         await maybeAck(txId, success)
@@ -385,8 +261,7 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
         const requestId = msg.id
         // Use txId from POS delivery pipeline if present, else fall back to requestId
         const txId = msg.txId || requestId || `v4json-${event.id.substring(0, 12)}`
-        const alreadyProcessed = await isTxProcessed(tp, txId)
-        if (alreadyProcessed) return
+        if (await ps.exists(event.id)) return
         // Convert V4 JSON to encoded token format
         const mintUrl = msg.mint || ''
         if (!mintUrl) return
@@ -411,10 +286,8 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
 
         const zapMsg = msg as ZapMessage
 
-        // Check for duplicate tx_id using IndexedDB
-        const txId = zapMsg.content.tx_id
-        const alreadyProcessed = await isTxProcessed(tp, txId)
-        if (alreadyProcessed) {
+        // Check for duplicate event using externalId
+        if (await ps.exists(event.id)) {
           return
         }
 

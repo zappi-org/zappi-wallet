@@ -38,10 +38,10 @@ export interface OfflineQueueItem {
 }
 
 /**
- * Processed event record (for deduplication)
+ * Processed record (for deduplication)
  */
-export interface ProcessedEvent {
-  eventId: string
+export interface ProcessedRecord {
+  externalId: string
   txId?: string
   processedAt: number
   result: 'success' | 'failed' | 'skipped'

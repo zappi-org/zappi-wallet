@@ -16,7 +16,7 @@ import type {
   RetryResult,
   RecoveryStatus,
 } from '@/core/ports/driving/recovery.usecase'
-import type { SyncResult, ProcessedEvent } from '@/core/types'
+import type { SyncResult, ProcessedRecord } from '@/core/types'
 import { RETRY } from '@/core/constants'
 import { parseDirectToken } from '@/core/domain/direct-token'
 
@@ -168,7 +168,7 @@ export class RecoveryService implements RecoveryUseCase {
       })
 
       for (const msg of messages) {
-        if (await this.recoveryStore.isEventProcessed(msg.eventId)) {
+        if (await this.recoveryStore.isProcessed(msg.eventId)) {
           continue
         }
 
@@ -371,13 +371,13 @@ export class RecoveryService implements RecoveryUseCase {
   // ─── Private: event processing ───
 
   private async markProcessed(
-    eventId: string,
-    result: ProcessedEvent['result'],
+    externalId: string,
+    result: ProcessedRecord['result'],
     txId?: string,
     error?: string,
   ): Promise<void> {
-    await this.recoveryStore.markEventProcessed({
-      eventId,
+    await this.recoveryStore.markProcessed({
+      externalId,
       txId,
       processedAt: Date.now(),
       result,
