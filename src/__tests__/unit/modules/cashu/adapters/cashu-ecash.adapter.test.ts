@@ -21,6 +21,8 @@ function createMockBackend(): EcashBackend {
     finalizeSend: vi.fn().mockResolvedValue(undefined),
     receiveToken: vi.fn().mockResolvedValue({ amount: 500, mintUrl: 'https://mint.test' }),
     recoverPendingSendTokens: vi.fn().mockResolvedValue({ reclaimed: 3, recorded: 1 }),
+    redeemPendingReceivedTokens: vi.fn().mockResolvedValue({ redeemed: 0, failed: 0 }),
+    storeOfflineToken: vi.fn().mockResolvedValue('pending-recv-123'),
   }
 }
 

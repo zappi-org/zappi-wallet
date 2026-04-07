@@ -8,5 +8,6 @@ export interface ContactRepository {
   list(): Promise<Contact[]>
   update(id: string, patch: Partial<Contact>): Promise<void>
   delete(id: string): Promise<void>
+  deleteAll(): Promise<void>
   findByAddress(address: string): Promise<Contact | null>
 }

@@ -111,18 +111,15 @@ describe('bootstrap', () => {
     expect(result.contact).toBeDefined()
   })
 
-  it('should expose initialized modules', () => {
-    expect(result.modules).toHaveLength(1)
-    expect(result.modules[0]).toBe(result.cashuModule)
-  })
-
-  it('should expose NostrGateway instance', () => {
-    expect(result.nostrGateway).toBeDefined()
-  })
-
   it('should expose CashuModule for manual initialization', () => {
     expect(result.cashuModule).toBeDefined()
     expect(result.cashuModule.initialize).toBeTypeOf('function')
+  })
+
+  it('should expose recovery, tokenProcessor, and pendingItems use cases', () => {
+    expect(result.recovery).toBeDefined()
+    expect(result.tokenProcessor).toBeDefined()
+    expect(result.pendingItems).toBeDefined()
   })
 
   it('should create a real EventBus (not mocked)', () => {

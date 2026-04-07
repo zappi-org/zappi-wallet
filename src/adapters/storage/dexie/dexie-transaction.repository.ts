@@ -199,6 +199,19 @@ export class DexieTransactionRepository implements TransactionRepository {
     return results.map(toDomain)
   }
 
+  async findAll(filter?: { limit?: number }): Promise<Transaction[]> {
+    const results = await this.repo.findAll({ limit: filter?.limit })
+    return results.map(toDomain)
+  }
+
+  async deleteAll(): Promise<void> {
+    await this.repo.deleteAll()
+  }
+
+  async deleteOlderThan(days: number): Promise<void> {
+    await this.repo.deleteOlderThan(days)
+  }
+
   async update(id: string, patch: Partial<Transaction>): Promise<void> {
     const legacyPatch: Partial<LegacyTransaction> = {}
 

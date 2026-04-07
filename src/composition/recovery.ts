@@ -9,13 +9,14 @@ import { TokenReceiverAdapter } from '@/adapters/payment/token-receiver.adapter'
 import { RecoveryService } from '@/core/services/recovery.service'
 import type { RecoveryUseCase } from '@/core/ports/driving/recovery.usecase'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
+import type { PaymentUseCase } from '@/core/ports/driving/payment.usecase'
 
-export function createRecoveryService(nostrGateway: NostrGateway): RecoveryUseCase {
+export function createRecoveryService(nostrGateway: NostrGateway, payment: PaymentUseCase): RecoveryUseCase {
   return new RecoveryService(
     nostrGateway,
     new AnchorStoreAdapter(),
     new RecoveryStoreAdapter(),
     new FailedSwapStoreAdapter(),
-    new TokenReceiverAdapter(),
+    new TokenReceiverAdapter(payment),
   )
 }

@@ -63,6 +63,7 @@ export interface PaymentRequestBackend {
 export interface CashuModuleBackend extends LightningBackend, EcashBackend, PaymentRequestBackend {
   getBalances(): Promise<{ [mintUrl: string]: number }>
   recoverPendingQuotes(): Promise<{ recovered: number; failed: number; expired: number }>
+  storeOfflineToken(token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing'): Promise<string>
 }
 
 // ─── Module ───

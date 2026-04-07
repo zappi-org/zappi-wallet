@@ -1,14 +1,13 @@
-import { useCallback } from 'react'
+import { useCallback, useContext } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { broadcastSync } from '@/hooks/use-cross-tab-sync'
-import type { PaymentService } from '@/services/payment/payment.service'
-
-export type RecoverAllResult = Awaited<ReturnType<PaymentService['recoverAll']>>
+import { ServiceContext } from '@/hooks/service-context-value'
+import type { RecoveryReport } from '@/core/ports/driving/payment.usecase'
 
 /** Sum all recovery counts into a single total */
-export function totalRecoveredCount(recovery: RecoverAllResult): number {
-  return recovery.quotes.recovered + recovery.melts.recovered + recovery.sendTokens.reclaimed + recovery.receivedTokens.redeemed + recovery.httpReceives.recovered
+export function totalRecoveredCount(reports: RecoveryReport[]): number {
+  return reports.reduce((sum, r) => sum + r.recovered, 0)
 }
 
 interface UseSyncAfterRecoveryParams {
@@ -23,36 +22,38 @@ interface UseSyncAfterRecoveryParams {
  */
 export function useSyncAfterRecovery({ refreshAll }: UseSyncAfterRecoveryParams) {
   const { t } = useTranslation()
+  const registry = useContext(ServiceContext)
   const addToast = useAppStore((state) => state.addToast)
   const setPendingQuotes = useAppStore((state) => state.setPendingQuotes)
 
-  /** Show toast if offline tokens were redeemed */
-  const notifyRecovery = useCallback((recovery: RecoverAllResult | null) => {
-    if (recovery && totalRecoveredCount(recovery) > 0) {
-      if (recovery.receivedTokens.redeemed > 0) {
-        addToast({
-          type: 'success',
-          message: t('toast.offlineTokensRedeemed', { count: recovery.receivedTokens.redeemed }),
-          duration: 4000,
-        })
-      }
+  /** Show toast if items were recovered */
+  const notifyRecovery = useCallback((reports: RecoveryReport[] | null) => {
+    if (!reports) return
+    const total = totalRecoveredCount(reports)
+    if (total > 0) {
+      addToast({
+        type: 'success',
+        message: t('toast.offlineTokensRedeemed', { count: total }),
+        duration: 4000,
+      })
     }
   }, [addToast, t])
 
   /** Load active pending quotes into store */
   const syncPendingQuotes = useCallback(async () => {
     try {
-      const { getActivePendingQuotes } = await import('@/coco/cashuService')
-      const activeQuotes = await getActivePendingQuotes()
-      setPendingQuotes(activeQuotes)
+      if (registry?.pendingItems) {
+        const activeQuotes = await registry.pendingItems.getActivePendingQuotes()
+        setPendingQuotes(activeQuotes)
+      }
     } catch (e) {
       console.error('[Sync] Failed to sync pending quotes:', e)
     }
-  }, [setPendingQuotes])
+  }, [setPendingQuotes, registry])
 
   /** Full post-recovery sync: notify → refresh balance/tx → broadcast → quotes */
-  const syncAfterRecovery = useCallback(async (recovery: RecoverAllResult | null) => {
-    notifyRecovery(recovery)
+  const syncAfterRecovery = useCallback(async (reports: RecoveryReport[] | null) => {
+    notifyRecovery(reports)
     await refreshAll()
     broadcastSync('balance_changed')
     await syncPendingQuotes()

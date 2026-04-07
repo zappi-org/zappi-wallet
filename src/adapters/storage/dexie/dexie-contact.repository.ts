@@ -62,6 +62,10 @@ export class DexieContactRepository implements ContactRepository {
     await this.repo.delete(id)
   }
 
+  async deleteAll(): Promise<void> {
+    await this.repo.deleteAll()
+  }
+
   async findByAddress(address: string): Promise<Contact | null> {
     const legacy = await this.repo.findByAddress(address)
     return legacy ? toDomain(legacy) : null

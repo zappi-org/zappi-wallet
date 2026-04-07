@@ -14,10 +14,16 @@ import {
   recoverPendingSendTokens,
   recoverPendingQuotes,
 } from './internal/cashu-recovery'
+import type { OfflineTokenStore } from '@/core/ports/driven/offline-token-store.port'
+import {
+  redeemPendingReceivedTokens,
+  storeOfflineToken,
+} from './internal/offline-token-recovery'
 
 export interface CreateCashuBackendDeps {
   pendingOpRepo: PendingOperationRepository
   txRepo: TransactionRepository
+  offlineTokenStore: OfflineTokenStore
 }
 
 export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBackend {
@@ -47,6 +53,8 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
         receiveToken: async (token: string) => backend.receiveToken(token),
       })
     },
+    // Mint quote 결제 완료 감지 (스왑 완료 대기에 필요)
+    onMintQuotePaid: backend.onMintQuotePaid,
     // Recovery (quotes) — exposed for CashuBolt11Adapter
     async recoverPendingQuotes() {
       const quoteOps = await backend.getQuoteRecoveryOps()
@@ -55,6 +63,13 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
         txRepo: deps.txRepo,
         quoteOps,
       })
+    },
+    // Offline received token recovery
+    async redeemPendingReceivedTokens() {
+      return redeemPendingReceivedTokens(deps.offlineTokenStore, backend.receiveToken)
+    },
+    async storeOfflineToken(token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing') {
+      return storeOfflineToken(deps.offlineTokenStore, token, amount, mintUrl, dleqStatus)
     },
     // PaymentRequest (NUT-18)
     parsePaymentRequest: backend.parsePaymentRequest,

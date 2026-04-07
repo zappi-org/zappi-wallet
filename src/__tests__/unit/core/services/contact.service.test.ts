@@ -10,6 +10,7 @@ function createMockRepo(): ContactRepository {
     list: vi.fn().mockResolvedValue([]),
     update: vi.fn(),
     delete: vi.fn(),
+    deleteAll: vi.fn(),
     findByAddress: vi.fn().mockResolvedValue(null),
   }
 }

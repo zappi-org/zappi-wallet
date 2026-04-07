@@ -1,6 +1,24 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useSyncAfterRecovery, totalRecoveredCount, type RecoverAllResult } from '@/hooks/use-sync-after-recovery'
+import { useSyncAfterRecovery, totalRecoveredCount } from '@/hooks/use-sync-after-recovery'
+import type { RecoveryReport } from '@/core/ports/driving/payment.usecase'
+
+// Mock ServiceContext — vi.hoisted를 사용하여 hoisting 문제 해결
+const { mockGetActivePendingQuotes } = vi.hoisted(() => ({
+  mockGetActivePendingQuotes: vi.fn().mockResolvedValue([{ quoteId: 'q1' }]),
+}))
+vi.mock('@/hooks/service-context-value', async () => {
+  const { createContext } = await import('react')
+  return {
+    ServiceContext: createContext({
+      pendingItems: {
+        getActivePendingQuotes: mockGetActivePendingQuotes,
+        getByMint: vi.fn().mockResolvedValue([]),
+        getAll: vi.fn().mockResolvedValue([]),
+      },
+    }),
+  }
+})
 
 // Mock dependencies
 vi.mock('@/store', () => ({
@@ -23,48 +41,34 @@ vi.mock('@/hooks/use-cross-tab-sync', () => ({
   broadcastSync: vi.fn(),
 }))
 
-vi.mock('@/coco/cashuService', () => ({
-  getActivePendingQuotes: vi.fn().mockResolvedValue([{ quoteId: 'q1' }]),
-}))
 
 const mockAddToast = vi.fn()
 const mockSetPendingQuotes = vi.fn()
 let mockRefreshAll: () => Promise<void>
 
-function makeRecovery(overrides: Partial<Record<string, Record<string, number>>> = {}): RecoverAllResult {
-  return {
-    quotes: { recovered: 0, failed: 0, expired: 0 },
-    melts: { recovered: 0, failed: 0 },
-    sendTokens: { reclaimed: 0, recorded: 0 },
-    receivedTokens: { redeemed: 0, failed: 0 },
-    httpReceives: { recovered: 0 },
-    ...overrides,
-  } as RecoverAllResult
+function makeReports(...items: Array<Partial<RecoveryReport>>): RecoveryReport[] {
+  return items.map((item) => ({
+    moduleId: item.moduleId ?? 'cashu',
+    recovered: item.recovered ?? 0,
+    failed: item.failed ?? 0,
+  }))
 }
 
 describe('totalRecoveredCount', () => {
-  it('should return 0 when all counters are zero', () => {
-    expect(totalRecoveredCount(makeRecovery())).toBe(0)
+  it('should return 0 for empty array', () => {
+    expect(totalRecoveredCount([])).toBe(0)
   })
 
-  it('should sum recovered counts across all categories', () => {
-    const recovery = makeRecovery({
-      quotes: { recovered: 2, failed: 1, expired: 0 },
-      melts: { recovered: 1, failed: 0 },
-      sendTokens: { reclaimed: 3, recorded: 0 },
-      receivedTokens: { redeemed: 4, failed: 1 },
-    })
-    expect(totalRecoveredCount(recovery)).toBe(10) // 2 + 1 + 3 + 4
+  it('should return 0 when all recovered counts are zero', () => {
+    expect(totalRecoveredCount(makeReports({ recovered: 0 }, { recovered: 0 }))).toBe(0)
   })
 
-  it('should count only recovered/reclaimed/redeemed, not failed/expired', () => {
-    const recovery = makeRecovery({
-      quotes: { recovered: 0, failed: 5, expired: 3 },
-      melts: { recovered: 0, failed: 2 },
-      sendTokens: { reclaimed: 0, recorded: 1 },
-      receivedTokens: { redeemed: 0, failed: 4 },
-    })
-    expect(totalRecoveredCount(recovery)).toBe(0)
+  it('should sum recovered counts across all reports', () => {
+    const reports = makeReports(
+      { moduleId: 'cashu:bolt11', recovered: 2, failed: 1 },
+      { moduleId: 'cashu:ecash', recovered: 3, failed: 0 },
+    )
+    expect(totalRecoveredCount(reports)).toBe(5)
   })
 })
 
@@ -74,15 +78,13 @@ describe('notifyRecovery', () => {
     vi.clearAllMocks()
   })
 
-  it('should show toast when receivedTokens.redeemed > 0', () => {
+  it('should show toast when total recovered > 0', () => {
     const { result } = renderHook(() =>
       useSyncAfterRecovery({ refreshAll: mockRefreshAll })
     )
 
     act(() => {
-      result.current.notifyRecovery(makeRecovery({
-        receivedTokens: { redeemed: 3, failed: 0 },
-      }))
+      result.current.notifyRecovery(makeReports({ recovered: 3 }))
     })
 
     expect(mockAddToast).toHaveBeenCalledWith({
@@ -110,21 +112,7 @@ describe('notifyRecovery', () => {
     )
 
     act(() => {
-      result.current.notifyRecovery(makeRecovery())
-    })
-
-    expect(mockAddToast).not.toHaveBeenCalled()
-  })
-
-  it('should not show toast when recovery has non-zero total but redeemed is 0', () => {
-    const { result } = renderHook(() =>
-      useSyncAfterRecovery({ refreshAll: mockRefreshAll })
-    )
-
-    act(() => {
-      result.current.notifyRecovery(makeRecovery({
-        quotes: { recovered: 2, failed: 0, expired: 0 },
-      }))
+      result.current.notifyRecovery(makeReports({ recovered: 0, failed: 3 }))
     })
 
     expect(mockAddToast).not.toHaveBeenCalled()
@@ -154,8 +142,7 @@ describe('syncPendingQuotes', () => {
   })
 
   it('should swallow errors gracefully', async () => {
-    const cashuService = await import('@/coco/cashuService')
-    vi.mocked(cashuService.getActivePendingQuotes).mockRejectedValueOnce(new Error('DB error'))
+    mockGetActivePendingQuotes.mockRejectedValueOnce(new Error('DB error'))
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const { result } = renderHook(() =>
@@ -194,23 +181,19 @@ describe('syncAfterRecovery', () => {
       await result.current.syncAfterRecovery(null)
     })
 
-    expect(mockAddToast).not.toHaveBeenCalled() // null → no toast
+    expect(mockAddToast).not.toHaveBeenCalled()
     expect(mockRefreshAll).toHaveBeenCalledOnce()
     expect(broadcastSync).toHaveBeenCalledWith('balance_changed')
     expect(mockSetPendingQuotes).toHaveBeenCalledWith([{ quoteId: 'q1' }])
   })
 
-  it('should show toast and sync when recovery has redeemed tokens', async () => {
+  it('should show toast and sync when recovery has recovered items', async () => {
     const { result } = renderHook(() =>
       useSyncAfterRecovery({ refreshAll: mockRefreshAll })
     )
 
-    const recovery = makeRecovery({
-      receivedTokens: { redeemed: 5, failed: 0 },
-    })
-
     await act(async () => {
-      await result.current.syncAfterRecovery(recovery)
+      await result.current.syncAfterRecovery(makeReports({ recovered: 5 }))
     })
 
     expect(mockAddToast).toHaveBeenCalledOnce()

@@ -37,6 +37,8 @@ export interface EcashBackend {
   finalizeSend(operationId: string): Promise<void>
   receiveToken(token: string): Promise<{ amount: number; mintUrl: string }>
   recoverPendingSendTokens(): Promise<{ reclaimed: number; recorded: number }>
+  redeemPendingReceivedTokens(): Promise<{ redeemed: number; failed: number }>
+  storeOfflineToken(token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing'): Promise<string>
 }
 
 // ─── Adapter ───
@@ -143,7 +145,15 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
   // ─── 복구 ───
 
   async recoverPending(): Promise<RecoveryReport> {
-    const result = await this.backend.recoverPendingSendTokens()
-    return { recovered: result.reclaimed, failed: 0 }
+    const [sendResult, recvResult] = await Promise.allSettled([
+      this.backend.recoverPendingSendTokens(),
+      this.backend.redeemPendingReceivedTokens(),
+    ])
+    const send = sendResult.status === 'fulfilled' ? sendResult.value : { reclaimed: 0 }
+    const recv = recvResult.status === 'fulfilled' ? recvResult.value : { redeemed: 0, failed: 0 }
+    return {
+      recovered: send.reclaimed + recv.redeemed,
+      failed: recv.failed,
+    }
   }
 }

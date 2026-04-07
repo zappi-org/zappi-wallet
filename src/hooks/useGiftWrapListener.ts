@@ -6,14 +6,10 @@ import { useAppStore } from '@/store'
 import { getDecodedToken, getEncodedToken } from '@cashu/cashu-ts'
 import { toNumber } from '@/core/domain/amount'
 import type { ServiceRegistry } from '@/composition/types'
-import { sendDM } from '@/services/nostr-dm'
+import type { TokenProcessorUseCase } from '@/core/ports/driving/token-processor.usecase'
 import { subscribeNetworkStatus } from '@/hooks/useNetworkStatus'
-import { ProcessedEventRepository } from '@/data/repositories/processed-event.repository'
-import { getTransactionRepo } from '@/data/repositories/transaction.repository'
-import { FailedSwapRepository } from '@/data/repositories/failed-swap.repository'
 import type { ZapMessage, ZapPaymentFulfillment } from '@/types'
 import type { FailedSwap, ProcessedEvent } from '@/core/types'
-import { parseTransactionSource } from '@/utils/transaction'
 import { formatSats } from '@/utils/format'
 
 // Connection timeout for each relay (5 seconds)
@@ -24,17 +20,13 @@ const PASSIVE_HEALTH_CHECK_INTERVAL_MS = 30_000    // 30초
 const ACTIVE_HEALTH_CHECK_INTERVAL_MS = 5_000      // 5초
 const DEFAULT_ACTIVE_DURATION_MS = 30 * 60 * 1000  // 30분
 
-// Repositories (singleton instances)
-const processedEventRepo = new ProcessedEventRepository()
-const transactionRepo = getTransactionRepo()
-const failedSwapRepo = new FailedSwapRepository()
-
-// Helper functions for IndexedDB-based tx_id tracking
-async function isTxProcessed(txId: string): Promise<boolean> {
-  return processedEventRepo.existsByTxId(txId)
+// Helper functions for IndexedDB-based tx_id tracking (via driving port)
+async function isTxProcessed(tokenProcessor: TokenProcessorUseCase, txId: string): Promise<boolean> {
+  return tokenProcessor.isEventProcessedByTxId(txId)
 }
 
 async function markTxProcessed(
+  tokenProcessor: TokenProcessorUseCase,
   txId: string,
   eventId: string,
   result: 'success' | 'failed' | 'skipped',
@@ -49,7 +41,7 @@ async function markTxProcessed(
     error,
   }
   try {
-    await processedEventRepo.save(event)
+    await tokenProcessor.markEventProcessed(event)
   } catch {
     // Handle race condition: multiple relays delivering the same event simultaneously
     console.log(`[GiftWrap] txId already processed (race condition): ${txId}`)
@@ -145,23 +137,13 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
 
   // Send delivery ACK to POS device (fire-and-forget)
   const sendDeliveryAck = useCallback(async (posPubkey: string, txId: string) => {
-    if (!nostrPrivkey) return
+    if (!nostrPrivkey || !registryRef.current?.tokenProcessor) return
     const relays = useAppStore.getState().settings.relays
     if (relays.length === 0) return
 
     try {
-      const ackContent = JSON.stringify({ type: 'delivery_ack', txId })
-      const result = await sendDM({
-        recipientPubkey: posPubkey,
-        content: ackContent,
-        senderPrivkey: nostrPrivkey,
-        relays,
-      })
-      if (result.success) {
-        console.log(`[GiftWrap] Sent delivery ACK for txId: ${txId}`)
-      } else {
-        console.warn(`[GiftWrap] Failed to send ACK for txId: ${txId}`, result.error)
-      }
+      await registryRef.current.tokenProcessor.sendDeliveryAck(posPubkey, txId, relays)
+      console.log(`[GiftWrap] Sent delivery ACK for txId: ${txId}`)
     } catch (err) {
       console.warn('[GiftWrap] ACK send error:', err)
     }
@@ -174,7 +156,7 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
   }, [])
 
   // Process Cashu token from fulfillment. Returns true on success.
-  const processToken = useCallback(async (token: string, txId: string, eventId: string, relay: string, requestId?: string, memo?: string, metadata?: Record<string, unknown>): Promise<boolean> => {
+  const processToken = useCallback(async (token: string, txId: string, eventId: string, relay: string, requestId?: string, _memo?: string, _metadata?: Record<string, unknown>): Promise<boolean> => {
     try {
       // Validate token format
       if (!token.startsWith('cashu')) {
@@ -238,7 +220,7 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
       const receivedAmount = toNumber(redeemResult.value.amount)
 
       // Mark as processed in IndexedDB
-      await markTxProcessed(txId, eventId, 'success', receivedAmount)
+      await markTxProcessed(registryRef.current.tokenProcessor, txId, eventId, 'success', receivedAmount)
 
       console.log(`[GiftWrap] Successfully claimed ${receivedAmount} sat!`)
 
@@ -246,11 +228,6 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
       if (requestId) {
         console.log(`[GiftWrap] Notifying of payment for request: ${requestId}`)
         setLastReceivedPayment(requestId, receivedAmount, eventId)
-
-        import('@/services/receive-request').then(({ completeByEcashRequestId }) => {
-          completeByEcashRequestId(requestId)
-            .catch((err) => console.warn('[GiftWrap] ReceiveRequest completion failed:', err))
-        }).catch((err) => console.warn('[GiftWrap] ReceiveRequest import failed:', err))
       }
 
       // Trigger transaction history refresh
@@ -283,43 +260,10 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
       const isAlreadySpent = errorMsg.toLowerCase().includes('already spent')
 
       if (isAlreadySpent) {
-        // Token already claimed - ensure transaction record exists (may have been lost in a crash)
-        // Use deterministic ID based on eventId to prevent duplicate tx records
-        const txRecordId = `tx-gw-${eventId}`
-        try {
-          const existingTx = await transactionRepo.findById(txRecordId)
-          if (!existingTx) {
-            const decoded = getDecodedToken(token)
-            const amount = decoded.proofs.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0)
-            const mintUrl = decoded.mint
-            await transactionRepo.save({
-              id: txRecordId,
-              direction: 'receive',
-              type: 'ecash',
-              amount,
-              mintUrl,
-              status: 'completed',
-              createdAt: Date.now(),
-              completedAt: Date.now(),
-              token,
-              source: parseTransactionSource(requestId),
-              memo,
-              metadata,
-            })
-            // Notify ReceiveFlow if applicable
-            if (requestId) {
-              setLastReceivedPayment(requestId, amount, eventId)
-              import('@/services/receive-request').then(({ completeByEcashRequestId }) => {
-                completeByEcashRequestId(requestId)
-                  .catch((err) => console.warn('[GiftWrap] ReceiveRequest completion failed:', err))
-              }).catch((err) => console.warn('[GiftWrap] ReceiveRequest import failed:', err))
-            }
-            triggerTxRefresh()
-          }
-        } catch {
-          // Token decode failed - can't create transaction record, skip
+        // Token already claimed — tokenProcessor handles crash recovery internally
+        if (registryRef.current?.tokenProcessor) {
+          await markTxProcessed(registryRef.current.tokenProcessor, txId, eventId, 'skipped')
         }
-        await markTxProcessed(txId, eventId, 'skipped')
         return false
       }
 
@@ -334,28 +278,31 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
 
       // Add to failed swaps queue for retry (only for real failures)
       try {
-        const decoded = getDecodedToken(token)
-        const amount = decoded.proofs.reduce((sum, p) => sum + p.amount, 0)
+        const tp = registryRef.current?.tokenProcessor
+        if (tp) {
+          const decoded = getDecodedToken(token)
+          const amount = decoded.proofs.reduce((sum, p) => sum + p.amount, 0)
 
-        // Mark as failed in IndexedDB
-        await markTxProcessed(txId, eventId, 'failed', amount, errorMsg)
+          // Mark as failed in IndexedDB
+          await markTxProcessed(tp, txId, eventId, 'failed', amount, errorMsg)
 
-        const failedSwap: FailedSwap = {
-          id: `fs-${crypto.randomUUID()}`,
-          token,
-          mintUrl: decoded.mint,
-          amount,
-          error: errorMsg,
-          errorCode: 'SWAP_FAILED',
-          isRetryable: true,
-          attemptCount: 1,
-          lastAttemptAt: Date.now(),
-          createdAt: Date.now(),
-          nostrEventId: eventId,
-          txId,
+          const failedSwap: FailedSwap = {
+            id: `fs-${crypto.randomUUID()}`,
+            token,
+            mintUrl: decoded.mint,
+            amount,
+            error: errorMsg,
+            errorCode: 'SWAP_FAILED',
+            isRetryable: true,
+            attemptCount: 1,
+            lastAttemptAt: Date.now(),
+            createdAt: Date.now(),
+            nostrEventId: eventId,
+            txId,
+          }
+          await tp.saveFailedSwap(failedSwap)
+          console.log('[GiftWrap] Added to retry queue')
         }
-        await failedSwapRepo.save(failedSwap)
-        console.log('[GiftWrap] Added to retry queue')
       } catch (queueError) {
         console.error('[GiftWrap] Failed to add to retry queue:', queueError)
       }
@@ -368,6 +315,12 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
   const processGiftWrap = useCallback(async (event: { id: string; created_at?: number }, url: string) => {
     if (!nostrPrivkey) {
       console.log('[GiftWrap] No private key available')
+      return
+    }
+
+    const tp = registryRef.current?.tokenProcessor
+    if (!tp) {
+      console.warn('[GiftWrap] TokenProcessor not ready — skipping event')
       return
     }
 
@@ -396,7 +349,7 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
       if (isRawCashuToken(content)) {
         console.log('[GiftWrap] Raw Cashu token received in DM')
         const txId = `dm-token-${event.id.substring(0, 12)}`
-        const alreadyProcessed = await isTxProcessed(txId)
+        const alreadyProcessed = await isTxProcessed(tp, txId)
         if (alreadyProcessed) return
         // Match to pending ecash request if ReceiveQR is active
         const pendingRequestId = useAppStore.getState().pendingEcashRequestId
@@ -418,7 +371,7 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
       // Check for NUT-18 token message format (from our sendTokenViaDM)
       if (isNut18TokenMessage(msg)) {
         const txId = msg.request_id || `nut18-${event.id.substring(0, 12)}`
-        const alreadyProcessed = await isTxProcessed(txId)
+        const alreadyProcessed = await isTxProcessed(tp, txId)
         if (alreadyProcessed) return
         // Pass request_id and memo to notify ReceiveFlow
         const success = await processToken(msg.token, txId, event.id, url, msg.request_id, msg.memo)
@@ -432,7 +385,7 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
         const requestId = msg.id
         // Use txId from POS delivery pipeline if present, else fall back to requestId
         const txId = msg.txId || requestId || `v4json-${event.id.substring(0, 12)}`
-        const alreadyProcessed = await isTxProcessed(txId)
+        const alreadyProcessed = await isTxProcessed(tp, txId)
         if (alreadyProcessed) return
         // Convert V4 JSON to encoded token format
         const mintUrl = msg.mint || ''
@@ -460,7 +413,7 @@ export function useGiftWrapListener(registry?: ServiceRegistry | null) {
 
         // Check for duplicate tx_id using IndexedDB
         const txId = zapMsg.content.tx_id
-        const alreadyProcessed = await isTxProcessed(txId)
+        const alreadyProcessed = await isTxProcessed(tp, txId)
         if (alreadyProcessed) {
           return
         }

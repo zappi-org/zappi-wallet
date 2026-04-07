@@ -49,6 +49,29 @@ function createMockRegistry(): ServiceRegistry {
       updateProfile: vi.fn(),
       publish: vi.fn(),
     } as unknown as ServiceRegistry['profile'],
+    recovery: {
+      syncAll: vi.fn(),
+      reconstructState: vi.fn(),
+      retryFailedSwaps: vi.fn(),
+      getFailedSwaps: vi.fn(),
+      getSyncStatus: vi.fn(),
+      cleanupOldData: vi.fn(),
+    } as unknown as ServiceRegistry['recovery'],
+    tokenProcessor: {
+      processToken: vi.fn(),
+      sendDeliveryAck: vi.fn(),
+      isEventProcessed: vi.fn(),
+      isEventProcessedByTxId: vi.fn(),
+      markEventProcessed: vi.fn(),
+      saveFailedSwap: vi.fn(),
+    } as unknown as ServiceRegistry['tokenProcessor'],
+    pendingItems: {
+      getByMint: vi.fn(),
+      getAll: vi.fn(),
+      getActivePendingQuotes: vi.fn(),
+    } as unknown as ServiceRegistry['pendingItems'],
+    withdraw: {} as unknown as ServiceRegistry['withdraw'],
+    lnurlAuth: {} as unknown as ServiceRegistry['lnurlAuth'],
   }
 }
 

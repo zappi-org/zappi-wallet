@@ -378,6 +378,29 @@ export async function getSendRecoveryOps() {
   };
 }
 
+/**
+ * Mint quote 결제 완료 감지 콜백.
+ * SDK의 mint-op:finalized 이벤트를 구독하여 특정 quoteId 완료 시 handler 호출.
+ */
+export function onMintQuotePaid(quoteId: string, handler: () => void): () => void {
+  let unsub: (() => void) | null = null
+  let cancelled = false
+
+  getCocoManager().then((manager) => {
+    if (cancelled) return
+    unsub = manager.on('mint-op:finalized', (event) => {
+      if (event.operation.quoteId === quoteId && event.operation.state === 'finalized') {
+        handler()
+      }
+    })
+  }).catch(() => {})
+
+  return () => {
+    cancelled = true
+    unsub?.()
+  }
+}
+
 export async function getQuoteRecoveryOps() {
   return {
     async checkMintQuote(quoteId: string, mintUrl: string) {

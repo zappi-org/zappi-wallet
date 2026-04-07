@@ -4,7 +4,6 @@
 import { initializeCoco, type Manager, type MintQuote, ConsoleLogger } from 'coco-cashu-core';
 import { IndexedDbRepositories } from 'coco-cashu-indexeddb';
 import { getSeed } from './seedGetter';
-import { connectCocoToStore } from './bridge';
 
 let managerInstance: Manager | null = null;
 let initPromise: Promise<Manager> | null = null;
@@ -51,11 +50,8 @@ async function initializeManager(): Promise<Manager> {
 
   managerInstance = manager;
 
-  // Connect Coco events to Zustand store
-  // Watchers는 여기서 시작하지 않음 — seed(nostrPrivkey)가 unlock 후에야 사용 가능
-  // enableWatchers()를 unlock 후 호출해야 함
-  connectCocoToStore(manager);
-
+  // Phase 5: Coco → Store 브릿지는 composition/coco-event-bridge.ts가 담당
+  // connectCocoToStore는 더 이상 사용하지 않음 (Two Writers 해결)
   console.log('[Coco] Manager initialized (watchers pending — call enableWatchers() after unlock)');
 
   return manager;

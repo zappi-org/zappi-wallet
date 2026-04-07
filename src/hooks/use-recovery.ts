@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import {
@@ -11,28 +11,24 @@ import {
   selectHasPendingItems,
   selectConfiguredRelays,
 } from '@/store/selectors'
-import { NostrGatewayAdapter } from '@/adapters/nostr/nostr-gateway'
-import { createRecoveryService } from '@/composition/recovery'
+import { useContext } from 'react'
 import type { RecoveryUseCase } from '@/core/ports/driving/recovery.usecase'
+import { ServiceContext } from '@/hooks/service-context-value'
 
 /**
  * Hook for recovery operations (anchor + token recovery + retry)
  */
 export function useRecovery() {
   const { t } = useTranslation()
-  const serviceRef = useRef<RecoveryUseCase | null>(null)
+  const registry = useContext(ServiceContext)
 
   const nostrPrivkey = useAppStore((state) => state.nostrPrivkey)
   const nostrPubkey = useAppStore((state) => state.nostrPubkey)
 
-  const getService = useCallback(() => {
-    if (!nostrPrivkey) return null
-    if (!serviceRef.current) {
-      const nostrGateway = new NostrGatewayAdapter({ privateKeyHex: nostrPrivkey })
-      serviceRef.current = createRecoveryService(nostrGateway)
-    }
-    return serviceRef.current
-  }, [nostrPrivkey])
+  const getService = useCallback((): RecoveryUseCase | null => {
+    if (!registry) return null
+    return registry.recovery
+  }, [registry])
 
   // Store state
   const syncState = useAppStore(selectSyncState)

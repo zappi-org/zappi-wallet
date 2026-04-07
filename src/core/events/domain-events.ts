@@ -8,6 +8,7 @@ export type DomainEvent =
   | SwapCompletedEvent
   | SwapFailedEvent
   | RecoveryCompletedEvent
+  | MintQuoteSettledEvent
 
 export interface PaymentCompletedEvent {
   type: 'payment:completed'
@@ -71,5 +72,15 @@ export interface RecoveryCompletedEvent {
     moduleId: string
     recovered: number
     failed: number
+  }
+}
+
+export interface MintQuoteSettledEvent {
+  type: 'mint-quote:settled'
+  payload: {
+    quoteId: string
+    amount: number
+    mintUrl: string
+    isSwapQuote: boolean
   }
 }

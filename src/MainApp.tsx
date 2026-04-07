@@ -1,12 +1,9 @@
-import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
-import { getCocoManager } from '@/coco/manager'
 import { AppLifecycleWatcher } from '@/composition/app-lifecycle.watcher'
-import { createBootstrap, type BootstrapResult } from '@/composition/bootstrap'
-import { createRecoveryService } from '@/composition/recovery'
+import { createBootstrap, type BootstrapResult, type RouteContext, type RouteExecutionResult, type RouteSelection } from '@/composition/bootstrap'
+import { createPreUnlockServices } from '@/composition/pre-unlock'
 import { LIMITS } from '@/core/constants'
 import { sat, toNumber } from '@/core/domain/amount'
 import { InsufficientBalanceError } from '@/core/errors/cashu'
-import { clearMintData } from '@/data/database/schema'
 import { ServiceProvider } from '@/hooks/service-context'
 import { broadcastSync, useCrossTabSync } from '@/hooks/use-cross-tab-sync'
 import { useMintHealth } from '@/hooks/use-mint-health'
@@ -47,25 +44,14 @@ const RelayManagementScreen = lazy(() => import('@/ui/screens/Settings/RelayMana
 
 // Unified Send/Receive flows
 import type { MintInfo } from '@/core/types'
-import type { RouteContext, RouteExecutionResult, RouteSelection } from '@/services/payment/routing'
 import { ToastContainer } from '@/ui/components'
 import type { ValidatedData } from '@/ui/components/scanner'
 import { ReceiveFlow } from '@/ui/screens/Receive/ReceiveFlow'
 import { SendFlow } from '@/ui/screens/Send/SendFlow'
 
-// Services
-import { FailedSwapStoreAdapter } from '@/adapters/storage/failed-swap-store.adapter'
-import { clearWalletCache, deleteCocoData } from '@/coco'
+// Services (composition 경유만)
 import { createSecurityService } from '@/composition/security'
 import type { Transaction } from '@/core/types'
-import { resetWalletCache } from '@/data/cache/wallet-cache'
-import { getContactRepo } from '@/data/repositories/contact.repository'
-import { SettingsRepository } from '@/data/repositories/settings.repository'
-import { getTransactionRepo } from '@/data/repositories/transaction.repository'
-import { exchangeRateService } from '@/services/exchange-rate'
-import { PaymentService } from '@/services/payment/payment.service'
-import { cleanupExpired as cleanupExpiredReceiveRequests } from '@/services/receive-request'
-import { WalletService } from '@/services/wallet/wallet.service'
 import { removePasskey } from '@/ui/services/passkey'
 import { formatSats } from '@/utils/format'
 
@@ -167,48 +153,34 @@ export default function MainApp() {
   // Transaction detail state
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
 
-  // Services (initialized once)
-  const [services] = useState(() => {
-    const transactionRepo = getTransactionRepo()
-
-    // Inject fiat snapshot provider (avoids store coupling inside repository)
-    transactionRepo.setFiatSnapshotProvider(() => {
-      const state = useAppStore.getState()
-      const currency = state.settings.fiatCurrency ?? 'USD'
-      const show = state.settings.showFiatConversion ?? true
-      const rate = state.allRates?.[currency] ?? null
-      if (!show || !rate) return null
-      return { fiatCurrency: currency, exchangeRate: rate }
-    })
-
-    const security = createSecurityService()
-    return {
-      security,
-      wallet: new WalletService(),
-      payment: new PaymentService(),
-      settingsRepo: new SettingsRepository(),
-      transactionRepo,
-      p2pkKeyManager: new CocoP2PKKeyManager(async () => (await getCocoManager()).keyring),
-    }
-  })
+  // Pre-unlock services (unlock 전 settings/tx 로드에 필요, composition 경유)
+  const [preUnlock] = useState(() => ({
+    security: createSecurityService(),
+    ...createPreUnlockServices(),
+  }))
 
   /** Refresh balance + transaction history in parallel */
   const refreshAll = useCallback(async () => {
+    const balancePromise = serviceRegistry
+      ? serviceRegistry.refreshBalance()
+      : refreshBalance()
     const [, txHistory] = await Promise.all([
-      refreshBalance(),
-      services.transactionRepo.findAll({ limit: 100 }),
+      balancePromise,
+      preUnlock.txRepo.findAll({ limit: 100 }),
     ])
     setTransactions(txHistory)
-  }, [refreshBalance, services.transactionRepo])
+  }, [serviceRegistry, refreshBalance, preUnlock.txRepo])
 
   const { notifyRecovery, syncPendingQuotes, syncAfterRecovery } = useSyncAfterRecovery({ refreshAll })
 
   /** Manual pull-to-refresh handler */
   const handleManualRefresh = useCallback(async () => {
+    if (!serviceRegistry) return
+
     // 1. 잔액/거래 로컬 갱신 + 네트워크 복구 병렬 실행
     const [, recoveryResult] = await Promise.all([
       refreshAll(),
-      services.payment.recoverAll().catch((e) => {
+      serviceRegistry.payment.recoverAll().catch((e) => {
         console.error('[Refresh] Failed to recover pending operations:', e)
         return null
       }),
@@ -225,41 +197,35 @@ export default function MainApp() {
     // 3. Pending quotes 동기화
     await syncPendingQuotes()
 
-    // 4. Pending quote 결제 상태 강제 재확인 (watcher cycle)
-    import('@/coco/manager').then(({ recheckPendingMintQuotes }) =>
-      recheckPendingMintQuotes().catch((e) => console.error('[Refresh] Failed to recheck pending quotes:', e))
-    )
-
-    // 5. 민트 상태 + 환율 (fire-and-forget)
+    // 4. 민트 상태 + 환율 (fire-and-forget)
     checkAllMints()
-    exchangeRateService.refreshIfStale().catch(() => {})
-  }, [services.payment, refreshAll, notifyRecovery, syncPendingQuotes, checkAllMints])
+    serviceRegistry.exchangeRate.refreshIfStale().catch(() => {})
+  }, [serviceRegistry, refreshAll, notifyRecovery, syncPendingQuotes, checkAllMints])
 
   // Initialize app — Coco 무관 작업만 (Coco는 unlock 후 setupSubscription에서 초기화)
   useEffect(() => {
     const init = async () => {
       try {
         // Load settings from IndexedDB (secure storage)
-        const savedSettings = await services.settingsRepo.getSettings()
+        const savedSettings = await preUnlock.settingsRepo.getSettings()
         setSettings(savedSettings)
 
         // Load failed swaps count
-        const failedSwapStore = new FailedSwapStoreAdapter()
-        const swaps = await failedSwapStore.findAll()
+        const swaps = await preUnlock.failedSwapStore.findAll()
         setFailedSwapsCount(swaps.length)
 
         // Load transaction history
-        const txHistory = await services.transactionRepo.findAll({ limit: 100 })
+        const txHistory = await preUnlock.txRepo.findAll({ limit: 100 })
         setTransactions(txHistory)
 
         // Load cached exchange rates first, then fetch fresh in background
-        await exchangeRateService.loadCachedRates().catch(() => {})
-        exchangeRateService.fetchRates().catch(() => {})
+        await preUnlock.exchangeRate.loadCachedRates().catch(() => {})
+        preUnlock.exchangeRate.fetchRates()
 
         // Data retention: clean up old records
-        services.transactionRepo.deleteOlderThan(90).catch(() => {})
-        failedSwapStore.cleanupNonRetryable(30).catch(() => {})
-        cleanupExpiredReceiveRequests().catch(() => {})
+        preUnlock.txRepo.deleteOlderThan(90).catch(() => {})
+        preUnlock.failedSwapStore.cleanupNonRetryable(30).catch(() => {})
+        preUnlock.cleanupExpiredReceiveRequests().catch(() => {})
       } catch (error) {
         console.error('Init error:', error)
       } finally {
@@ -268,7 +234,7 @@ export default function MainApp() {
     }
 
     init()
-  }, [services, setFailedSwapsCount, setInitializing, setSettings])
+  }, [preUnlock, setFailedSwapsCount, setInitializing, setSettings])
 
   // Reload transactions and balance when txRefreshTrigger changes (e.g., GiftWrap token receipt)
   useEffect(() => {
@@ -291,10 +257,7 @@ export default function MainApp() {
       setIsRecovering(true)
 
       try {
-        await serviceRegistry.nostrGateway.connect(settings.relays)
-        const recoveryService = createRecoveryService(serviceRegistry.nostrGateway)
-
-        const result = await recoveryService.syncAll({
+        const result = await serviceRegistry.recovery.syncAll({
           privateKey: nostrPrivkey!,
           publicKey: nostrPubkey!,
           relays: settings.relays,
@@ -324,43 +287,27 @@ export default function MainApp() {
 
   useEffect(() => {
     // Only subscribe when app is unlocked and initialized
-    if (isLocked || isInitializing) return
+    if (isLocked || isInitializing || !serviceRegistry) return
 
     let cancelled = false
 
     const setupSubscription = async () => {
-      // Coco 초기화 (seed가 필요하므로 unlock 후에만 실행)
-      // 1. Coco manager 초기화 + bridge 연결
+      // 1. Coco 초기화 + observers + watchers + EventBus bridge (composition root 경유)
       try {
-        const { getCocoManager, enableWatchers } = await import('@/coco/manager')
-        const manager = await getCocoManager()
-
-        // 2. Send token observer 연결 (deps 주입)
-        const { connectSendTokenObserver } = await import('@/coco/sendTokenObserver')
-        const { DexieOperationMap } = await import('@/adapters/storage/dexie/dexie-operation-map')
-        const { DexieTransactionRepository } = await import('@/adapters/storage/dexie/dexie-transaction.repository')
-        const { DexiePendingOperationRepository } = await import('@/adapters/storage/dexie/dexie-pending-operation.repository')
-        connectSendTokenObserver(manager, {
-          operationMap: new DexieOperationMap(),
-          txRepo: new DexieTransactionRepository(),
-          pendingOps: new DexiePendingOperationRepository(),
-        })
-
-        // 3. Watchers 활성화 (seed 준비됨)
-        await enableWatchers()
+        await serviceRegistry.activate()
       } catch (e) {
-        console.error('[Init] Failed to initialize Coco:', e)
+        console.error('[Init] Failed to activate Coco:', e)
       }
 
       if (cancelled) return
 
-      // 3. Balance 로드 + pending operations recovery
+      // 2. Balance 로드 + pending operations recovery
       let recovery = null
       try {
-        recovery = await services.payment.recoverAll()
+        recovery = await serviceRegistry.payment.recoverAll()
         const totalRecovered = totalRecoveredCount(recovery)
         if (totalRecovered > 0) {
-          console.log(`[Init] Recovered: ${recovery.quotes.recovered} quotes, ${recovery.melts.recovered} melts, ${recovery.sendTokens.reclaimed} reclaimed, ${recovery.receivedTokens.redeemed} offline tokens`)
+          console.log(`[Init] Recovered: ${JSON.stringify(recovery)}`)
         }
       } catch (e) {
         console.error('[Init] Failed to recover pending operations:', e)
@@ -368,7 +315,7 @@ export default function MainApp() {
 
       if (cancelled) return
 
-      // 4. 잔액 + 거래내역 + pending quotes 동기화
+      // 3. 잔액 + 거래내역 + pending quotes 동기화
       await syncAfterRecovery(recovery)
     }
 
@@ -377,36 +324,20 @@ export default function MainApp() {
     // Visibility change watcher — foreground/background 전환 감시
     const lifecycleWatcher = new AppLifecycleWatcher({
       onResume: async () => {
-        // Resume SDK subscriptions (WS reconnect + polling)
-        try {
-          const { getCocoManager, recheckPendingMintQuotes } = await import('@/coco/manager')
-          const manager = await getCocoManager()
-          manager.resumeSubscriptions()
-          recheckPendingMintQuotes().catch((e) => console.error('[Background] Failed to recheck pending quotes:', e))
-        } catch { /* ignore if not initialized */ }
-
-        // Refresh exchange rates (throttled — no-op if recently fetched)
-        exchangeRateService.refreshIfStale().catch(() => {})
+        await serviceRegistry.onResume()
 
         // Recovery + 잔액/pending quotes 동기화
         console.log('[Background] App visible, recovering pending operations')
         let recovery = null
         try {
-          recovery = await services.payment.recoverAll()
+          recovery = await serviceRegistry.payment.recoverAll()
         } catch (e) {
           console.error('[Background] Failed to recover pending operations:', e)
         }
 
         await syncAfterRecovery(recovery)
       },
-      onPause: async () => {
-        // Pause SDK subscriptions (배터리 절약)
-        try {
-          const { getCocoManager } = await import('@/coco/manager')
-          const manager = await getCocoManager()
-          manager.pauseSubscriptions()
-        } catch { /* ignore if not initialized */ }
-      },
+      onPause: () => serviceRegistry.onPause(),
     })
     lifecycleWatcher.start()
 
@@ -414,12 +345,12 @@ export default function MainApp() {
       cancelled = true
       lifecycleWatcher.stop()
     }
-  }, [isLocked, isInitializing, services.payment, syncAfterRecovery])
+  }, [isLocked, isInitializing, serviceRegistry, syncAfterRecovery])
 
   // Handle unlock
   const handleUnlock = useCallback(async (password: string): Promise<boolean> => {
     try {
-      const result = await services.security.unlock(password)
+      const result = await preUnlock.security.unlock(password)
       if (result.isOk()) {
         // Set nostr key pair in store
         setNostrKeyPair(result.value.keys.publicKey, result.value.keys.privateKey)
@@ -428,29 +359,25 @@ export default function MainApp() {
         const registry = createBootstrap({
           nostrPrivateKeyHex: result.value.keys.privateKey,
         })
-        // CashuModule 초기화 — BIP-39 seed��� adapter 생성
-        // Phase 5: mintQuoteObserver에 OperationMap + TxRepo 주입 (TX 이중 생성 방지)
-        const { injectDependencies } = await import('@/coco/mintQuoteObserver')
-        injectDependencies(registry.operationMap, registry.txRepo)
         setServiceRegistry(registry)
 
         setLocked(false)
 
         // CashuModule 초기화 — fire-and-forget (UI 블로킹 제거, QA #4)
-        // SDK init 완료 후 balance 자동 갱신
+        // SDK init 완료 후 balance 갱신 (BootstrapResult.refreshBalance 사용)
         registry.cashuModule.initialize(result.value.bip39Seed, "m/129372'/0'").then(() => {
-          refreshBalance().catch((e) => console.error('[Unlock] Post-init balance refresh failed:', e))
+          registry.refreshBalance().catch((e) => console.error('[Unlock] Post-init balance refresh failed:', e))
         }).catch((e) => console.error('[Unlock] CashuModule init failed:', e))
 
         // P2PK key — SDK init을 블로킹하지 않고 백그라운드 로드
-        services.p2pkKeyManager.getCurrentKey().then(({ pubkey }) => setP2pkPubkey(pubkey))
+        registry.p2pkKeyManager.getCurrentKey().then(({ pubkey }) => setP2pkPubkey(pubkey))
         return true
       }
       return false
     } catch {
       return false
     }
-  }, [services.security, setLocked, setNostrKeyPair, setP2pkPubkey, refreshBalance])
+  }, [preUnlock.security, setLocked, setNostrKeyPair, setP2pkPubkey, refreshBalance])
 
   // Payment modal handlers
   const handleCreateInvoice = useCallback(async (amount: number, mintUrl: string) => {
@@ -593,9 +520,9 @@ export default function MainApp() {
     selection: RouteSelection,
     context: RouteContext,
   ): Promise<RouteExecutionResult | null> => {
+    if (!serviceRegistry) return null
     try {
-      const { executeRoute } = await import('@/services/payment/routing')
-      const result = await executeRoute(selection, context)
+      const result = await serviceRegistry.executeRoute(selection, context)
 
       if (result.isOk()) {
         refreshAll().catch((e) => console.error('[MainApp] refreshAll after route execution:', e))
@@ -609,7 +536,7 @@ export default function MainApp() {
       console.error('[MainApp] handleExecuteRoute error:', error)
       return null
     }
-  }, [refreshAll, addToast])
+  }, [serviceRegistry, refreshAll, addToast])
 
   /** Store offline P2PK token for later redemption */
   const handleStoreOfflineToken = useCallback(async (
@@ -618,14 +545,18 @@ export default function MainApp() {
     mintUrl: string,
     dleqStatus: 'valid' | 'missing',
   ): Promise<{ success: boolean }> => {
+    if (!serviceRegistry) {
+      console.warn('[MainApp] ServiceRegistry not ready — cannot store offline token')
+      return { success: false }
+    }
     try {
-      await services.payment.storeOfflineToken(token, amount, mintUrl, dleqStatus)
+      await serviceRegistry.storeOfflineToken(token, amount, mintUrl, dleqStatus)
       return { success: true }
     } catch (error) {
       console.error('[App] Failed to store offline token:', error)
       return { success: false }
     }
-  }, [services.payment])
+  }, [serviceRegistry])
 
   // Payment received callback
   // Lightning toast는 bridge.ts (mint-quote:redeemed)가 전역으로 담당
@@ -707,35 +638,36 @@ export default function MainApp() {
 
   // Settings handlers
   const handleChangePassword = useCallback(async (oldPassword: string, newPassword: string): Promise<boolean> => {
-    const result = await services.security.changePassword(oldPassword, newPassword)
+    const result = await preUnlock.security.changePassword(oldPassword, newPassword)
     return result.isOk()
-  }, [services.security])
+  }, [preUnlock.security])
 
   const handleVerifyPin = useCallback(async (pin: string): Promise<boolean> => {
-    const result = await services.security.verifyPassword(pin)
+    const result = await preUnlock.security.verifyPassword(pin)
     return result.isOk() && result.value
-  }, [services.security])
+  }, [preUnlock.security])
 
   const handleBackupMnemonic = useCallback(async (password: string): Promise<string | null> => {
-    const result = await services.security.getMnemonic(password)
+    const result = await preUnlock.security.getMnemonic(password)
     if (result.isOk()) {
       return result.value
     }
     return null
-  }, [services.security])
+  }, [preUnlock.security])
 
   const handleLogout = useCallback(async (password: string): Promise<boolean> => {
-    const result = await services.security.verifyPassword(password)
+    const result = await preUnlock.security.verifyPassword(password)
     if (result.isOk() && result.value) {
-      await services.security.deleteWallet()
-      await services.settingsRepo.clearAll()
-      await services.transactionRepo.deleteAll()
-      await getContactRepo().deleteAll()
-      await deleteCocoData()
+      await preUnlock.security.deleteWallet()
+      await preUnlock.settingsRepo.clearAll()
+      await preUnlock.txRepo.deleteAll()
+      if (serviceRegistry) {
+        await serviceRegistry.cleanup.deleteAllContacts()
+        await serviceRegistry.cleanup.deleteCocoData()
+        serviceRegistry.cleanup.clearWalletCache()
+        serviceRegistry.cleanup.resetWalletCache()
+      }
       removePasskey()
-
-      clearWalletCache()
-      resetWalletCache()
 
       useAppStore.getState().resetAll()
 
@@ -743,13 +675,12 @@ export default function MainApp() {
       return true
     }
     return false
-  }, [services.security, services.settingsRepo, services.transactionRepo])
+  }, [preUnlock.security, preUnlock.settingsRepo, preUnlock.txRepo, serviceRegistry])
 
   /** Profile republish — bootstrap의 profileService 경유 */
   const republishProfile = useCallback(async (mints: string[], relays: string[]) => {
     if (!serviceRegistry || !nostrPubkey || !p2pkPubkey) return
     try {
-      await serviceRegistry.nostrGateway.connect(relays)
       await serviceRegistry.profile.publishAll(nostrPubkey, mints, relays, p2pkPubkey)
       console.log('[Profile] Republished successfully')
     } catch (e) {
@@ -762,7 +693,7 @@ export default function MainApp() {
     setSettings(mergedSettings)
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await services.settingsRepo.saveSettings(mergedSettings as any)
+    await preUnlock.settingsRepo.saveSettings(mergedSettings as any)
 
     const newMints = newSettings.mints as string[] | undefined
     const newRelays = newSettings.relays as string[] | undefined
@@ -773,7 +704,7 @@ export default function MainApp() {
       republishProfile(newMints || settings.mints, newRelays || settings.relays)
     }
     broadcastSync('settings_changed')
-  }, [services.settingsRepo, settings, setSettings, p2pkPubkey, republishProfile])
+  }, [preUnlock.settingsRepo, settings, setSettings, p2pkPubkey, republishProfile])
 
   // Handle adding a trusted mint (from receive screen)
   const handleAddTrustedMint = useCallback(async (mintUrl: string): Promise<boolean> => {
@@ -804,7 +735,7 @@ export default function MainApp() {
       const nextNumber = Object.keys(existingAliases).length + 1
       const alias = t('mintDetail.defaultName', { number: nextNumber })
       const newAliases = { ...existingAliases, [url]: alias }
-      await services.settingsRepo.saveSettings({ ...settings, mints: newMints, mintAliases: newAliases })
+      await preUnlock.settingsRepo.saveSettings({ ...settings, mints: newMints, mintAliases: newAliases })
       setSettings({ ...settings, mints: newMints, mintAliases: newAliases })
 
       if (p2pkPubkey) {
@@ -818,7 +749,7 @@ export default function MainApp() {
       console.error('[App] Failed to add trusted mint:', error)
       return false
     }
-  }, [settings, services.settingsRepo, setSettings, p2pkPubkey, republishProfile, t])
+  }, [settings, preUnlock.settingsRepo, setSettings, p2pkPubkey, republishProfile, t])
 
   const handleBack = useCallback(() => {
     const target = previousScreen || 'home'
@@ -1166,7 +1097,7 @@ export default function MainApp() {
             setCurrentScreen('home')
             addToast({ type: 'success', message: t('mintDetail.mintDeleted') })
             handleSaveSettings({ mints: newMints, mintAliases: remainingAliases })
-            clearMintData(url)
+            serviceRegistry?.cleanup.clearMintData(url)
           }}
           onRenameMint={(url, newName) => {
             const newAliases = { ...settings.mintAliases, [url]: newName }

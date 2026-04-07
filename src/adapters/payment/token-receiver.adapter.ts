@@ -1,36 +1,36 @@
 import type { TokenReceiver, TokenReceiveResult, TokenReceiveError } from '@/core/ports/driven/token-receiver.port'
-import { PaymentService } from '@/services/payment/payment.service'
+import type { PaymentUseCase } from '@/core/ports/driving/payment.usecase'
+import { toNumber } from '@/core/domain/amount'
 
 /**
- * TokenReceiverAdapter — old PaymentService.receiveEcash()를 TokenReceiver port로 래핑.
- * PaymentService가 core use case로 전환되면 이 adapter도 교체.
+ * TokenReceiverAdapter — PaymentUseCase.redeem()을 TokenReceiver port로 래핑.
+ * 생성자 주입으로 composition root에서 PaymentUseCase 제공.
  */
 export class TokenReceiverAdapter implements TokenReceiver {
-  private payment = new PaymentService()
+  constructor(private payment: PaymentUseCase) {}
 
   async receiveToken(token: string): Promise<
     { ok: true; value: TokenReceiveResult } |
     { ok: false; error: TokenReceiveError }
   > {
-    const result = await this.payment.receiveEcash(token)
+    const result = await this.payment.redeem({ adapterId: 'cashu:ecash', input: token })
 
-    if (result.isOk()) {
+    if (result.ok) {
       return {
         ok: true,
         value: {
-          amount: result.value.amount,
-          transactionId: result.value.transactionId,
+          amount: toNumber(result.value.amount),
+          transactionId: result.value.requestId,
         },
       }
     }
 
-    const err = result.error as { code?: string; message?: string; isRetryable?: boolean }
     return {
       ok: false,
       error: {
-        code: err.code ?? 'UNKNOWN',
-        message: err.message ?? String(result.error),
-        isRetryable: err.isRetryable ?? false,
+        code: result.error.code ?? 'UNKNOWN',
+        message: result.error.message ?? 'Unknown error',
+        isRetryable: false,
       },
     }
   }

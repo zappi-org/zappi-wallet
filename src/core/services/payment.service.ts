@@ -112,6 +112,10 @@ export class PaymentService implements PaymentUseCase {
         })
       } else {
         await this.txRepo.update(txId, { protocol: result.protocol, metadata: result.data })
+        // operationMap에 등록 → sendTokenObserver가 send:finalized 시 txId 조회 가능
+        if (result.operationId) {
+          this.operationMap?.register(result.operationId, txId)
+        }
       }
 
       this.eventBus.emit({
