@@ -6,6 +6,7 @@
  */
 
 import type { ValidatedData, ParsedCashuRequest } from '@/ui/components/scanner/InputValidator'
+import type { OutgoingPaymentTransport } from '@/core/ports/driven/outgoing-payment-transport.port'
 
 // ============= Route Enum =============
 
@@ -73,6 +74,8 @@ export interface RouteContext {
   addressOrInvoice?: string
   /** Drain mode (for TransferScreen) */
   drain?: boolean
+  /** Outgoing payment transport (Nostr DM 등) */
+  outgoingTransport?: OutgoingPaymentTransport
 }
 
 export interface RouteExecutionResult {

@@ -24,7 +24,6 @@ import { markQuoteAsSwap, unmarkQuoteAsSwap } from '@/coco/bridge'
 import { getTransactionRepo } from '@/data/repositories/transaction.repository'
 import { getDatabase } from '@/data/database/schema'
 import { broadcastSync } from '@/hooks/use-cross-tab-sync'
-import { sendTokenViaDM, getRecipientDMRelays } from '@/services/nostr-dm'
 import { sendTokenViaHttp } from '@/services/cashu/nut18-http'
 import {
   isBolt11Invoice,
@@ -334,26 +333,20 @@ async function executeTransport(
   token: string,
   context: RouteContext,
 ): Promise<{ success: boolean; transportUsed: 'nostr' | 'post' | 'none' }> {
-  const { parsedCreq, nostrPrivkey, relays, memo } = context
+  const { parsedCreq, outgoingTransport, memo } = context
 
   if (!parsedCreq) {
     return { success: true, transportUsed: 'none' }
   }
 
-  // Nostr DM (primary)
-  if (parsedCreq.hasNostrTransport && parsedCreq.nostrTarget && nostrPrivkey) {
+  // Nostr DM (primary) — via OutgoingPaymentTransport port
+  if (parsedCreq.hasNostrTransport && parsedCreq.nostrTarget && outgoingTransport) {
     try {
-      const dmRelays = await getRecipientDMRelays(
-        parsedCreq.nostrTarget,
-        relays || [],
-      )
-      const result = await sendTokenViaDM({
+      const result = await outgoingTransport.send({
         recipientPubkey: parsedCreq.nostrTarget,
         token,
         memo,
         requestId: parsedCreq.id,
-        senderPrivkey: nostrPrivkey,
-        relays: dmRelays,
       })
       if (result.success) {
         return { success: true, transportUsed: 'nostr' }

@@ -25,6 +25,7 @@ import { DexiePendingOperationRepository } from '@/adapters/storage/dexie/dexie-
 import { DexieOperationMap } from '@/adapters/storage/dexie/dexie-operation-map'
 import { DexieOfflineTokenStore } from '@/adapters/storage/dexie/dexie-offline-token-store'
 import { NostrGatewayAdapter } from '@/adapters/nostr/nostr-gateway'
+import { NostrPaymentTransport } from '@/adapters/nostr/nostr-payment-transport'
 import { FailedIncomingStoreAdapter } from '@/adapters/storage/failed-incoming-store.adapter'
 import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
 
@@ -143,6 +144,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   // 4. Non-module adapters
   const lnurlAdapter = new DirectLnurlAdapter()
   const nip05Adapter = new Nip05ResolverAdapter()
+  const outgoingTransport = new NostrPaymentTransport(nostrGateway)
 
   // 5. Services (via composition roots)
   const payment = createPaymentService(modules, txRepo, eventBus, operationMap)
@@ -281,7 +283,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     },
 
     // Routing (Phase 6에서 제거)
-    executeRoute: legacyExecuteRoute,
+    executeRoute: (selection: RouteSelection, context: RouteContext) =>
+      legacyExecuteRoute(selection, { ...context, outgoingTransport }),
 
     // P2PK + offline token
     p2pkKeyManager,
