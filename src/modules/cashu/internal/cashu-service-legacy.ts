@@ -8,7 +8,7 @@
 
 import * as backend from '@/modules/cashu/internal/cashu-backend';
 import type { Proof } from '@cashu/cashu-ts';
-import type { PendingQuote } from '@/core/domain/quote';
+
 
 // ─── Token 수신 ───
 
@@ -138,9 +138,7 @@ export async function checkMeltQuoteStatus(
   return backend.checkMeltQuoteStatus(mintUrl, quoteId);
 }
 
-export async function getActivePendingQuotes(): Promise<PendingQuote[]> {
-  return backend.getActivePendingQuotes();
-}
+// getActivePendingQuotes removed — use cashu-backend.getActivePendingQuotes() directly
 
 // ─── Wallet 관리 ───
 
