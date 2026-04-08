@@ -4,20 +4,32 @@ export type TransactionStatus = 'pending' | 'settled' | 'failed'
 export type TransactionOutcome = 'unclaimed' | 'claimed' | 'reclaimed'
 export type TransactionIntent = 'swap' | 'nutzap'
 
+/**
+ * Domain Transaction — business logic representation.
+ *
+ * This is the canonical domain entity used by core services, ports, and adapters.
+ * UI/store/composition use the DB record type (core/types/wallet.ts Transaction)
+ * which has flat fields (amount: number, mintUrl, status: 'completed').
+ *
+ * DexieTransactionRepository handles domain <-> DB record conversion.
+ * These are NOT duplicates — they serve different purposes:
+ *   - Domain: Amount type, method/protocol separation, immutable
+ *   - DB Record: flat number amount, legacy field names, mutable
+ */
 export interface Transaction {
   readonly id: string
   readonly direction: 'send' | 'receive'
-  readonly method: string       // adapter.id: 'cashu:lightning', 'cashu:ecash'
-  readonly protocol: string     // 'bolt11', 'bolt12', 'nut18', 'cashu-token'
+  readonly method: string
+  readonly protocol: string
   readonly amount: Amount
-  readonly accountId: string    // mint URL, federation ID
+  readonly accountId: string
   readonly status: TransactionStatus
   readonly outcome?: TransactionOutcome
   readonly createdAt: number
   readonly completedAt?: number
   readonly memo?: string
-  readonly intent?: TransactionIntent   // 복합 오퍼레이션 의미. 없으면 단순 송수신
-  readonly linkedTxId?: string          // swap send ↔ receive 쌍 연결
+  readonly intent?: TransactionIntent
+  readonly linkedTxId?: string
   readonly metadata?: Record<string, unknown>
 }
 
