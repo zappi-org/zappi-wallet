@@ -1,5 +1,14 @@
-import type { Proof } from '@cashu/cashu-ts'
 import type { FiatCurrency } from './fiat'
+
+/**
+ * Cashu proof (inlined from cashu-ts to maintain R1 domain purity)
+ */
+export interface Proof {
+  id: string
+  amount: number
+  secret: string
+  C: string
+}
 
 /**
  * Network state for online/offline handling

@@ -16,7 +16,7 @@ import {
   LightningPaymentError,
   InvalidInvoiceError,
 } from '@/core/errors'
-import { classifyCashuError } from '@/modules/cashu/internal/classify-error'
+import { classifyCashuError } from '@/modules/cashu'
 import {
   NetworkError as CocoNetworkError,
   MintFetchError,

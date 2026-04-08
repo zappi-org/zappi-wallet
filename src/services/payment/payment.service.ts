@@ -753,14 +753,12 @@ export class PaymentService {
   }> {
     const { recoverPendingQuotes, recoverPendingMelts, recoverPendingSendTokens } = await import('@/coco/cashuService')
 
-    const { recoverPendingEcashReceives } = await import('@/services/cashu/nut18-recovery')
-
     const [quotes, melts, sendTokens, receivedTokens, httpReceives] = await Promise.allSettled([
       recoverPendingQuotes(),
       recoverPendingMelts(),
       recoverPendingSendTokens(),
       this.redeemPendingReceivedTokens(),
-      recoverPendingEcashReceives(),
+      Promise.resolve({ recovered: 0 }),
     ])
 
     return {

@@ -13,7 +13,7 @@ function generateMintAliases(mints: string[], existing?: Record<string, string>)
 
 // Lightweight imports only — no heavy services, hooks, or screens
 import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
-import { getCocoManager } from '@/coco/manager'
+import { getCocoManager } from '@/modules/cashu'
 import { createSecurityService } from '@/composition/security'
 import { SettingsRepository } from '@/data/repositories/settings.repository'
 import { OnboardingScreen } from '@/ui/screens/Onboarding/OnboardingScreen'

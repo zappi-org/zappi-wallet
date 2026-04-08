@@ -7,7 +7,7 @@ import type { PendingItemsUseCase } from '@/core/ports/driving/pending-items.use
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import { getDatabase } from '@/data/database/schema'
 import { getPendingReceiveRequests } from '@/services/receive-request'
-import { getActivePendingQuotes } from '@/coco/cashuService'
+import { getActivePendingQuotes } from '@/modules/cashu'
 
 export function createPendingItemsService(txRepo: TransactionRepository): PendingItemsUseCase {
   const dataSource: PendingItemsDataSource = {

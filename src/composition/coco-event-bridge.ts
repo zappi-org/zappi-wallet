@@ -8,7 +8,7 @@
 
 import type { Manager } from 'coco-cashu-core'
 import type { EventBus } from '@/core/events/event-bus'
-import { isSwapQuote } from '@/coco/bridge'
+import { isSwapQuote } from '@/modules/cashu'
 
 export function connectCocoEventBridge(
   manager: Manager,

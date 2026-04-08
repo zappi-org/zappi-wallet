@@ -68,7 +68,7 @@ export function MintDetailScreen({
     }
     // receive-request, unclaimed-token → show detail screen
     setSelectedPendingItem(item)
-  }, [onSelectTransaction])
+  }, [onSelectTransaction, onFindTransaction])
 
   const { variant, customColor } = resolveMintColor(mint.url, mintIndex, settings.mintColors)
   const { items: pendingItems } = usePendingItems(mint.url)

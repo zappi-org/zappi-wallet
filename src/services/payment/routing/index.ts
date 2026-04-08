@@ -6,5 +6,4 @@ export type {
   RouteExecutionResult,
 } from './types'
 export { selectRoute, selectSourceMint, findCommonMints } from './select-route'
-export { estimateRouteFee, type FeeEstimate } from './estimate-fee'
 export { executeRoute } from './execute-route'

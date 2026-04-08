@@ -41,7 +41,7 @@ import { exchangeRateService } from '@/services/exchange-rate'
 import { executeRoute as legacyExecuteRoute } from '@/services/payment/routing'
 
 // ─── Coco (composition root만 접근) ───
-import { deleteCocoData, clearWalletCache as clearCocoWalletCache } from '@/coco'
+import { deleteCocoData, clearWalletCache as clearCocoWalletCache } from '@/modules/cashu'
 import { clearMintData } from '@/data/database/schema'
 import { resetWalletCache } from '@/data/cache/wallet-cache'
 

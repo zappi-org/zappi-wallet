@@ -96,7 +96,7 @@ export function MintManagementScreen({
     const newMints = settings.mints.filter((m) => m !== urlToDelete)
     await onSaveSettings({ mints: newMints })
     onClearMintData?.(urlToDelete)
-  }, [mintToDelete, settings.mints, onSaveSettings, expandedMint])
+  }, [mintToDelete, settings.mints, onSaveSettings, expandedMint, onClearMintData])
 
   const getBalance = (url: string) => getMintBalanceUtil(url, balanceByMint)
 
