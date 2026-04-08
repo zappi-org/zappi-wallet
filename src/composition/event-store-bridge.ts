@@ -12,7 +12,7 @@ import { broadcastSync } from '@/hooks/use-cross-tab-sync'
 import i18n from '@/i18n'
 import { satUnit, formatSats } from '@/utils/format'
 import { toNumber } from '@/core/domain/amount'
-import { findByQuoteId, completeReceiveRequest } from '@/services/receive-request'
+import { getDatabase } from '@/adapters/storage/dexie/schema'
 
 export interface EventStoreBridgeOptions {
   handleBalance?: boolean
@@ -134,10 +134,13 @@ export function connectEventStoreBridge(
       }
 
       // ReceiveRequest 완료 처리
-      findByQuoteId(requestId).then((req) => {
+      getDatabase().receiveRequests.where('quoteId').equals(requestId).first().then((req) => {
         if (req && req.status === 'pending') {
-          completeReceiveRequest(req.id, method as 'lightning' | 'ecash')
-            .catch((err) => console.error('[EventStoreBridge] ReceiveRequest completion failed:', err))
+          getDatabase().receiveRequests.update(req.id, {
+            status: 'completed',
+            completedAt: Date.now(),
+            completedMethod: method as 'lightning' | 'ecash',
+          }).catch((err) => console.error('[EventStoreBridge] ReceiveRequest completion failed:', err))
         }
       }).catch((err) => console.warn('[EventStoreBridge] ReceiveRequest lookup failed:', err))
 

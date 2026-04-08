@@ -15,7 +15,7 @@ function generateMintAliases(mints: string[], existing?: Record<string, string>)
 import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
 import { getCocoManager } from '@/modules/cashu'
 import { createSecurityService } from '@/composition/security'
-import { SettingsRepository } from '@/data/repositories/settings.repository'
+import { DexieSettingsRepository as SettingsRepository } from '@/adapters/storage/dexie/dexie-settings.repository'
 import { OnboardingScreen } from '@/ui/screens/Onboarding/OnboardingScreen'
 
 // Lazy-load the main app (heavy: all services, hooks, screens)

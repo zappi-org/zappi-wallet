@@ -5,7 +5,7 @@ import i18n from '@/i18n';
 import { satUnit } from '@/utils/format';
 import { disconnectSendTokenObserver } from './sendTokenObserver';
 import { connectMintQuoteObserver, disconnectMintQuoteObserver } from './mintQuoteObserver';
-import { findByQuoteId, completeReceiveRequest } from '@/services/receive-request';
+import { getDatabase } from '@/adapters/storage/dexie/schema';
 
 // Coco 이벤트 구독 해제 함수들
 let unsubscribers: (() => void)[] = [];
@@ -76,10 +76,13 @@ export function connectCocoToStore(manager: Manager): void {
     }
 
     // Mark associated ReceiveRequest as completed
-    findByQuoteId(operation.quoteId).then((req) => {
+    getDatabase().receiveRequests.where('quoteId').equals(operation.quoteId).first().then((req) => {
       if (req && req.status === 'pending') {
-        completeReceiveRequest(req.id, 'lightning')
-          .catch((err) => console.error('[Coco Bridge] Failed to complete ReceiveRequest:', err));
+        getDatabase().receiveRequests.update(req.id, {
+          status: 'completed',
+          completedAt: Date.now(),
+          completedMethod: 'lightning',
+        }).catch((err) => console.error('[Coco Bridge] Failed to complete ReceiveRequest:', err));
       }
     }).catch((err) => console.warn('[Coco Bridge] ReceiveRequest lookup failed:', err));
 

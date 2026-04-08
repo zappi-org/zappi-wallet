@@ -6,7 +6,7 @@ import { PendingItemsService, type PendingItemsDataSource } from '@/core/service
 import type { PendingItemsUseCase } from '@/core/ports/driving/pending-items.usecase'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import { getDatabase } from '@/adapters/storage/dexie/schema'
-import { getPendingReceiveRequests } from '@/services/receive-request'
+import { stripTrailingSlash } from '@/utils/url'
 import { getActivePendingQuotes } from '@/modules/cashu'
 
 export function createPendingItemsService(txRepo: TransactionRepository): PendingItemsUseCase {
@@ -19,7 +19,17 @@ export function createPendingItemsService(txRepo: TransactionRepository): Pendin
     },
 
     async getPendingReceiveRequests(mintVariants) {
-      return getPendingReceiveRequests(mintVariants)
+      const db = getDatabase()
+      const now = Date.now()
+      const results = await db.receiveRequests.where('status').equals('pending').toArray()
+      const normalizedMints = mintVariants?.map(stripTrailingSlash)
+      return results.filter((r) => {
+        if (r.expiresAt <= now) return false
+        if (normalizedMints && normalizedMints.length > 0) {
+          return normalizedMints.includes(stripTrailingSlash(r.mintUrl))
+        }
+        return true
+      })
     },
 
     async getPendingSendTokens(mintVariants) {

@@ -10,7 +10,7 @@ import { DexieSettingsRepository as SettingsRepository } from '@/adapters/storag
 import { getTransactionRepo } from '@/data/repositories/transaction.repository'
 import { FailedIncomingStoreAdapter } from '@/adapters/storage/failed-incoming-store.adapter'
 import { exchangeRateService } from '@/services/exchange-rate'
-import { cleanupExpired as cleanupExpiredReceiveRequests } from '@/services/receive-request'
+import { DexieReceiveRequestRepository } from '@/adapters/storage/dexie/dexie-receive-request.repository'
 import { useAppStore } from '@/store'
 import type { Transaction } from '@/core/types'
 
@@ -48,7 +48,7 @@ export function createPreUnlockServices(): PreUnlockServices {
       fetchRates: () => { exchangeRateService.fetchRates().catch(() => {}) },
       refreshIfStale: () => exchangeRateService.refreshIfStale(),
     },
-    cleanupExpiredReceiveRequests: () => cleanupExpiredReceiveRequests(),
+    cleanupExpiredReceiveRequests: () => new DexieReceiveRequestRepository().cleanupExpired(),
   }
 }
 

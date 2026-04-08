@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ProfileService } from '@/core/services/profile.service'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
-import type { SettingsRepository, WalletSettingsData } from '@/core/ports/driven/settings.repository.port'
+import type { SettingsRepository, WalletSettings } from '@/core/ports/driven/settings.repository.port'
 import type { Nip05Resolver } from '@/core/ports/driven/nip05-resolver.port'
 import type { NostrEvent } from '@/core/domain/nostr'
 
@@ -13,7 +13,7 @@ function makeEvent(kind: number, tags: string[][]): NostrEvent {
   return { id: 'e1', pubkey: PUBKEY, created_at: 1000, kind, tags, content: '', sig: 'sig' }
 }
 
-const DEFAULT_SETTINGS: WalletSettingsData = {
+const DEFAULT_SETTINGS: WalletSettings = {
   mints: [],
   relays: [],
   autoLockEnabled: true,

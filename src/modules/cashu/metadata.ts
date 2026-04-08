@@ -14,6 +14,6 @@ export { metadataEvents } from './internal/metadata-events'
 
 // Composition
 import { MintMetadataService } from './internal/mint-metadata'
-import { MintMetadataRepository } from '@/data/repositories/mint-metadata.repository'
+import { DexieMintMetadataRepository } from '@/adapters/storage/dexie/dexie-mint-metadata.repository'
 
-export const mintMetadataService = new MintMetadataService(new MintMetadataRepository())
+export const mintMetadataService = new MintMetadataService(new DexieMintMetadataRepository())
