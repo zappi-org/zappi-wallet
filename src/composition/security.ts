@@ -13,14 +13,18 @@ import { SecurityService } from '@/core/services/security.service'
 import type { SecurityUseCase } from '@/core/ports/driving/security.usecase'
 import { injectSeedCache } from '@/modules/cashu'
 
+let _instance: SecurityUseCase | null = null
+
 export function createSecurityService(): SecurityUseCase {
+  if (_instance) return _instance
   const seedCache = new SeedCacheAdapter()
   // Inject into seed-getter so Coco Manager can access cached mnemonic
   injectSeedCache(seedCache)
-  return new SecurityService(
+  _instance = new SecurityService(
     new KeyManagerAdapter(),
     new EncryptionAdapter(),
     new SecureStorageAdapter(),
     seedCache,
   )
+  return _instance
 }
