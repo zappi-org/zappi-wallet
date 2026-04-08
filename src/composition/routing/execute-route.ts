@@ -21,20 +21,16 @@ import {
   redeemMintQuote,
   type LockingCondition,
 } from '@/modules/cashu/internal/cashu-backend'
-import { markQuoteAsSwap, unmarkQuoteAsSwap } from '@/coco/bridge'
-import { getTransactionRepo } from '@/data/repositories/transaction.repository'
-import { getDatabase } from '@/data/database/schema'
+import { markQuoteAsSwap, unmarkQuoteAsSwap } from '@/modules/cashu'
+import { getDatabase } from '@/adapters/storage/dexie/schema'
 import { broadcastSync } from '@/hooks/use-cross-tab-sync'
-import { sendTokenViaHttp } from '@/services/cashu/nut18-http'
-import {
-  isBolt11Invoice,
-  decodeInvoice,
-  isValidLightningAddress,
-} from '@/services/lightning'
-import {
-  resolveLightningAddress,
-  fetchLnurlPayInvoice,
-} from '@/services/lnurl'
+import { sendTokenViaHttp } from '@/adapters/codec/nut18-http-poller'
+import { DirectLnurlAdapter } from '@/adapters/lnurl/direct-lnurl.adapter'
+import { TokenCodecAdapter } from '@/adapters/codec/token-codec.adapter'
+
+// Composition-level singleton adapters for routing helper functions
+const _codec = new TokenCodecAdapter()
+const _lnurl = new DirectLnurlAdapter()
 
 // ============= Main Entry =============
 
@@ -219,8 +215,7 @@ async function executeMeltFlow(
 
     // TX record
     const transactionId = `tx-melt-${meltOp.quoteId}`
-    const repo = getTransactionRepo()
-    await repo.create({
+    await getDatabase().transactions.put({
       id: transactionId,
       direction: 'send',
       type: 'lightning',
@@ -277,8 +272,7 @@ async function executeTokenSendFlow(
 
     // 2. TX record
     const txId = `tx-ecash-send-${crypto.randomUUID()}`
-    const repo = getTransactionRepo()
-    await repo.create({
+    await getDatabase().transactions.put({
       id: txId,
       direction: 'send',
       type: 'ecash-token',
@@ -394,16 +388,16 @@ async function resolveInvoice(
   const addr = context.addressOrInvoice
   if (!addr) return null
 
-  if (isBolt11Invoice(addr)) {
-    const decoded = decodeInvoice(addr)
+  if (_codec.isBolt11(addr)) {
+    const decoded = _codec.decodeBolt11(addr)
     if (decoded.isExpired) return null
     return addr
   }
 
-  if (isValidLightningAddress(addr)) {
-    const params = await resolveLightningAddress(addr)
-    const result = await fetchLnurlPayInvoice(params, selection.amount)
-    return result.pr
+  if (_codec.isLightningAddress(addr)) {
+    const params = await _lnurl.resolvePay(addr)
+    const result = await _lnurl.fetchInvoice(params, selection.amount)
+    return result.bolt11 ?? null
   }
 
   return addr

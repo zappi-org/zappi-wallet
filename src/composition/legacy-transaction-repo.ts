@@ -1,4 +1,4 @@
-import { getDatabase } from '@/data/database'
+import { getDatabase } from '@/adapters/storage/dexie/schema'
 import { satsToFiat } from '@/utils/format'
 import type { Transaction, TransactionDirection, TransactionStatus } from '@/core/types'
 

@@ -191,7 +191,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
   // 6. P2PK key manager
   const p2pkKeyManager = new CocoP2PKKeyManager(async () => {
-    const { getCocoManager } = await import('@/coco/manager')
+    const { getCocoManager } = await import('@/modules/cashu/internal/coco-sdk')
     return (await getCocoManager()).keyring
   })
 
@@ -215,19 +215,19 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
   // 8. Lifecycle: activate (Coco init + observers + watchers + bridge)
   const activate = async () => {
-    const { getCocoManager, enableWatchers } = await import('@/coco/manager')
+    const { getCocoManager, enableWatchers } = await import('@/modules/cashu/internal/coco-sdk')
     const manager = await getCocoManager()
 
     // mintQuoteObserver에 OperationMap + TxRepo 주입 (TX 이중 생성 방지)
-    const { injectDependencies } = await import('@/coco/mintQuoteObserver')
+    const { injectDependencies } = await import('@/composition/mint-quote-observer')
     injectDependencies(operationMap, txRepo)
 
     // Mint quote observer (mint-op:finalized → Transaction DB 기록)
-    const { connectMintQuoteObserver } = await import('@/coco/mintQuoteObserver')
+    const { connectMintQuoteObserver } = await import('@/composition/mint-quote-observer')
     connectMintQuoteObserver(manager)
 
     // Send token observer 연결 (bootstrap과 동일 인스턴스 공유)
-    const { connectSendTokenObserver } = await import('@/coco/sendTokenObserver')
+    const { connectSendTokenObserver } = await import('@/composition/send-token-observer')
     connectSendTokenObserver(manager, {
       operationMap,
       txRepo,
@@ -243,7 +243,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
   const onResume = async () => {
     try {
-      const { getCocoManager, recheckPendingMintQuotes } = await import('@/coco/manager')
+      const { getCocoManager, recheckPendingMintQuotes } = await import('@/modules/cashu/internal/coco-sdk')
       const manager = await getCocoManager()
       manager.resumeSubscriptions()
       recheckPendingMintQuotes().catch((e) => console.error('[Resume] recheck quotes failed:', e))
@@ -253,7 +253,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
   const onPause = async () => {
     try {
-      const { getCocoManager } = await import('@/coco/manager')
+      const { getCocoManager } = await import('@/modules/cashu/internal/coco-sdk')
       const manager = await getCocoManager()
       manager.pauseSubscriptions()
     } catch { /* ignore if not initialized */ }

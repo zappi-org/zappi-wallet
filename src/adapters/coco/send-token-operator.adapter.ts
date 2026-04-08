@@ -2,7 +2,7 @@ import type { SendTokenOperator, ProofStateResult } from '@/core/ports/driven/se
 
 export class SendTokenOperatorAdapter implements SendTokenOperator {
   async rollbackSendToken(operationId: string): Promise<void> {
-    const { rollbackSendToken } = await import('@/coco/cashuService')
+    const { rollbackSendToken } = await import('@/modules/cashu/internal/cashu-service-legacy')
     await rollbackSendToken(operationId)
   }
 
@@ -13,22 +13,23 @@ export class SendTokenOperatorAdapter implements SendTokenOperator {
   }
 
   async markSendFinalized(txId: string): Promise<void> {
-    const { markSendFinalized } = await import('@/coco/sendTokenObserver')
+    const { markSendFinalized } = await import('@/composition/send-token-observer')
     await markSendFinalized(txId)
   }
 
   async markSendReclaimed(txId: string): Promise<void> {
-    const { markSendReclaimed } = await import('@/coco/sendTokenObserver')
+    const { markSendReclaimed } = await import('@/composition/send-token-observer')
     await markSendReclaimed(txId)
   }
 
   async checkProofStates(token: string): Promise<ProofStateResult> {
-    const { getDecodedToken } = await import('@cashu/cashu-ts')
-    const { CashuService } = await import('@/services/cashu/cashu.service')
+    const cashuTs = await import('@cashu/cashu-ts')
+    const decoded = cashuTs.getDecodedToken(token)
 
-    const decoded = getDecodedToken(token)
-    const cashu = new CashuService()
-    const wallet = await cashu.getWallet(decoded.mint)
+    // Use cashu-ts wallet to check proof states
+    const wallet = new (cashuTs as unknown as { CashuWallet: new (mint: unknown) => { checkProofsStates(proofs: unknown[]): Promise<unknown[]> } }).CashuWallet(
+      new (cashuTs as unknown as { CashuMint: new (url: string) => unknown }).CashuMint(decoded.mint)
+    )
     const states = await wallet.checkProofsStates(decoded.proofs)
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, startTransition, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useCarouselScroll } from "@/hooks/use-carousel-scroll";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { Plus, LoaderCircle, ArrowDown, ChevronRight } from "lucide-react";
@@ -11,7 +11,7 @@ import { useAppStore } from "@/store";
 import { useSatUnit, useFormatFiat } from "@/utils/format";
 import { getMintBalance } from "@/utils/url";
 import type { MintInfo, Transaction } from "@/core/types";
-import { getTransactionRepo } from "@/data/repositories/transaction.repository";
+// Transaction loading via props or store — no direct repo access in UI
 
 export interface HomeScreenProps {
   onSettings?: () => void;
@@ -41,16 +41,14 @@ export function HomeScreen({
   const { t } = useTranslation();
   const unit = useSatUnit();
   const toFiat = useFormatFiat();
-  const [localTransactions, setLocalTransactions] = useState<Transaction[]>([]);
   const [activeMintIndex, setActiveMintIndex] = useState(0);
 
-  const transactions = propTransactions ?? localTransactions;
+  const transactions = propTransactions ?? [];
 
   const { balance, isLoadingBalance } = useWallet();
   const { checkAllMints, getCachedStatus } = useMintHealth();
   const settings = useAppStore((state) => state.settings);
   const updateSettings = useAppStore((state) => state.updateSettings);
-  const txRefreshTrigger = useAppStore((state) => state.txRefreshTrigger);
   const { getDisplayName, getOriginalName, getIconUrl } = useMintMetadata(settings?.mints || []);
 
   // Pull-to-refresh
@@ -59,17 +57,8 @@ export function HomeScreen({
     onRefresh: onRefresh ?? noopRefresh,
   });
 
-  useEffect(() => {
-    if (propTransactions) return;
-    const loadTransactions = async () => {
-      const repo = getTransactionRepo();
-      const txs = await repo.findAll({ limit: 20 });
-      startTransition(() => {
-        setLocalTransactions(txs);
-      });
-    };
-    loadTransactions();
-  }, [balance.total, propTransactions, txRefreshTrigger]);
+  // Transactions are provided via props from MainApp
+  // No fallback to direct repo access (hex architecture compliance);
 
   useEffect(() => {
     checkAllMints();

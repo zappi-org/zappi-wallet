@@ -7,7 +7,7 @@
  */
 
 import { DexieSettingsRepository as SettingsRepository } from '@/adapters/storage/dexie/dexie-settings.repository'
-import { getTransactionRepo } from '@/data/repositories/transaction.repository'
+import { getTransactionRepo } from './legacy-transaction-repo'
 import { FailedIncomingStoreAdapter } from '@/adapters/storage/failed-incoming-store.adapter'
 import { exchangeRateService } from './exchange-rate'
 import { DexieReceiveRequestRepository } from '@/adapters/storage/dexie/dexie-receive-request.repository'

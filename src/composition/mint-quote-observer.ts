@@ -21,7 +21,7 @@ import type { TransactionRepository } from '@/core/ports/driven/transaction.repo
 import { settleAsDelivered } from '@/core/domain/transaction';
 import { useAppStore } from '@/store';
 import { broadcastSync } from '@/hooks/use-cross-tab-sync';
-import { isSwapQuote, unmarkQuoteAsSwap } from './bridge';
+import { isSwapQuote, unmarkQuoteAsSwap } from '@/modules/cashu/internal/swap-quote-tracker';
 
 let unsubscribers: (() => void)[] = [];
 
@@ -74,7 +74,7 @@ export async function recordLightningReceive(params: {
   }
 
   // Fallback 경로 (과도기): 기존대로 새 TX 생성
-  const { getTransactionRepo } = await import('@/data/repositories/transaction.repository');
+  const { getTransactionRepo } = await import('@/composition/legacy-transaction-repo');
   const repo = getTransactionRepo();
   const txId = `tx-${params.quoteId}`;
 

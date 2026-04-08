@@ -132,7 +132,7 @@ function App() {
         }
 
         // Dynamic import Coco for token restoration
-        const cocoService = await import('@/coco/cashuService')
+        const cocoService = await import('@/modules/cashu/internal/cashu-service-legacy')
 
         console.log('[Onboarding] Restoring tokens from mints:', mintsToRestore)
         for (const mintUrl of mintsToRestore) {
