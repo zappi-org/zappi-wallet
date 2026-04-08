@@ -274,7 +274,7 @@ export function SendFlow({
       addToast({ type: 'error', message: t('payment.feeEstimateFailed'), duration: 3000 })
       return null
     }
-  }, [addToast, t])
+  }, [addToast, t, routing])
 
   // ============= Step Transitions =============
 
@@ -386,7 +386,7 @@ export function SendFlow({
       isProcessingRef.current = false
       setIsLoading(false)
     }
-  }, [isOnline, addToast, t, state.selectedMintUrl, performRouteSelection])
+  }, [isOnline, addToast, t, state.selectedMintUrl, performRouteSelection, inputParser])
 
   /** Amount step → token-confirm (token mode) or route selection + confirm (send mode) */
   const handleAmountNext = useCallback(async (data: { amount: number; memo: string; isFiatMode: boolean; fiatAmount: string }) => {

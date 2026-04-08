@@ -284,7 +284,7 @@ export default function MainApp() {
     }
 
     runRecovery()
-  }, [isLocked, isInitializing, nostrPubkey, nostrPrivkey, serviceRegistry, refreshAll, addToast, t])
+  }, [isLocked, isInitializing, nostrPubkey, nostrPrivkey, serviceRegistry, refreshAll, addToast, t, settings.relays])
 
   const isSendingEcashRef = useRef(false)
 
@@ -380,7 +380,7 @@ export default function MainApp() {
     } catch {
       return false
     }
-  }, [preUnlock.security, setLocked, setNostrKeyPair, setP2pkPubkey, refreshBalance])
+  }, [preUnlock.security, setLocked, setNostrKeyPair, setP2pkPubkey])
 
   // Payment modal handlers
   const handleCreateInvoice = useCallback(async (amount: number, mintUrl: string) => {

@@ -43,7 +43,7 @@ export function HomeScreen({
   const toFiat = useFormatFiat();
   const [activeMintIndex, setActiveMintIndex] = useState(0);
 
-  const transactions = propTransactions ?? [];
+  const transactions = useMemo(() => propTransactions ?? [], [propTransactions]);
 
   const { balance, isLoadingBalance } = useWallet();
   const { checkAllMints, getCachedStatus } = useMintHealth();

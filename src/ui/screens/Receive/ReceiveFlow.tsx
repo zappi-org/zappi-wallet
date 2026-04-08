@@ -281,7 +281,7 @@ export function ReceiveFlow({
       isProcessingRef.current = false
       setIsLoading(false)
     }
-  }, [isOnline, onCreateInvoice, addToast, t])
+  }, [isOnline, onCreateInvoice, addToast, t, receiveReq])
 
   /** Payment received → complete */
   const handlePaymentDetected = useCallback((amount: number, method: 'lightning' | 'ecash') => {
@@ -298,7 +298,7 @@ export function ReceiveFlow({
         receivedAmount: amount,
       }
     })
-  }, [onPaymentReceived])
+  }, [onPaymentReceived, receiveReq])
 
   /** Token scanned from TokenReceiveBottomSheet */
   const handleTokenDetected = useCallback(async (token: ValidatedCashuToken) => {

@@ -158,7 +158,7 @@ export function ReceiveQRStep({
       poller.stop()
       httpPollerRef.current = null
     }
-  }, [httpEndpoint, ecashRequestId, amount, mintUrl, onPaymentDetected])
+  }, [httpEndpoint, ecashRequestId, amount, mintUrl, onPaymentDetected, onReceiveP2PKToken, paymentReq])
 
   // Cancel HTTP poller when payment detected via Nostr
   useEffect(() => {

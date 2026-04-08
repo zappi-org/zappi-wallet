@@ -344,7 +344,7 @@ export function SettingsScreen({
       setIsRestoring(false)
       setRestoreProgress('')
     }
-  }, [settings.mints, setBalance, t])
+  }, [settings.mints, setBalance, t, registry.balance, registry.payment])
 
   // Render category page (z-65)
   const renderCategoryPage = () => {

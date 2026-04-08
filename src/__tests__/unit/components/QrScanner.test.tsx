@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, cleanup, act } from '@testing-library/react'
-import type { ScanResult } from 'qr-scanner'
+import type QrScannerLib from 'qr-scanner'
+type ScanResult = QrScannerLib.ScanResult
 
 // Capture the scan callback passed to QrScannerLib constructor
 let capturedScanCallback: ((result: ScanResult) => void) | null = null

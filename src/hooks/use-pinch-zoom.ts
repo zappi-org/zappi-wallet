@@ -1,6 +1,6 @@
 import { useRef, useCallback, useEffect, useState, type CSSProperties, type RefObject } from 'react'
 import type QrScannerLib from 'qr-scanner'
-import type { ScanRegion } from 'qr-scanner'
+type ScanRegion = QrScannerLib.ScanRegion
 
 export interface UsePinchZoomOptions {
   containerRef: RefObject<HTMLElement | null>

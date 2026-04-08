@@ -121,7 +121,7 @@ export function POSSettingPage({
     } finally {
       setIsLoading(false)
     }
-  }, [pin, posDevices, nostrPrivkey, nostrPubkey, deviceLabel, settings.mints, settings.relays, parseLightningAddress, onBackupMnemonic, onSaveSettings, t])
+  }, [pin, posDevices, nostrPrivkey, nostrPubkey, deviceLabel, settings.mints, settings.relays, parseLightningAddress, onBackupMnemonic, onSaveSettings, t, crypto])
 
   const handleRemoveDevice = useCallback(async () => {
     if (!showRemoveModal) return
