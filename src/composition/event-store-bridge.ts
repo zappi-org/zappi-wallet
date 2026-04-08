@@ -13,6 +13,7 @@ import i18n from '@/i18n'
 import { satUnit, formatSats } from '@/utils/format'
 import { toNumber } from '@/core/domain/amount'
 import { findByQuoteId, completeReceiveRequest } from '@/services/receive-request'
+import { createThrottledAsync } from '@/utils/throttled-async'
 
 export interface EventStoreBridgeOptions {
   handleBalance?: boolean
@@ -136,23 +137,22 @@ export function connectEventStoreBridge(
     }),
   )
 
-  // balance:changed → 잔액 갱신
+  // balance:changed → 잔액 갱신 (lock + trailing debounce)
+  let throttledRefresh: ReturnType<typeof createThrottledAsync> | null = null
+
   if (options.handleBalance && options.balanceRefresh) {
-    const refresh = options.balanceRefresh
-    let pendingRefresh: Promise<void> | null = null
+    throttledRefresh = createThrottledAsync(options.balanceRefresh, 150)
 
     unsubscribers.push(
       eventBus.on('balance:changed', () => {
-        if (pendingRefresh) return
-        pendingRefresh = refresh()
-          .catch((e) => console.error('[EventStoreBridge] Balance refresh failed:', e))
-          .finally(() => { pendingRefresh = null })
+        throttledRefresh!.trigger()
         broadcastSync('balance_changed')
       }),
     )
   }
 
   return () => {
+    throttledRefresh?.dispose()
     for (const unsub of unsubscribers) {
       unsub()
     }
