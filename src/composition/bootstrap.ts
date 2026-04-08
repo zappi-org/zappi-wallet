@@ -65,7 +65,8 @@ import { PaymentRequestService } from '@/core/services/payment-request.service'
 import { UsernameService } from '@/core/services/username.service'
 
 // ─── Phase 6: Metadata + NUT-18 HTTP ───
-import { mintMetadataService, metadataEvents } from '@/modules/cashu/metadata'
+import { MintMetadataService, metadataEvents } from '@/modules/cashu/metadata'
+import { DexieMintMetadataRepository } from '@/adapters/storage/dexie/dexie-mint-metadata.repository'
 import { startNut18HttpPoller } from '@/adapters/codec/nut18-http-poller'
 import { ZappiLinkAdapter } from '@/adapters/zappi-link/zappi-link.adapter'
 import { finalizeEvent } from 'nostr-tools'
@@ -289,7 +290,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const feeEstimator = new FeeEstimatorAdapter()
   const routing = new RoutingService(feeEstimator)
 
-  const mintMetadataStore = new MintMetadataStoreAdapter(mintMetadataService, metadataEvents)
+  const mintMetadataServiceInstance = new MintMetadataService(new DexieMintMetadataRepository())
+  const mintMetadataStore = new MintMetadataStoreAdapter(mintMetadataServiceInstance, metadataEvents)
   const mintMetadata = new MintMetadataFacadeService(mintMetadataStore)
 
   const mintHealthChecker = new MintHealthCheckerAdapter()

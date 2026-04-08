@@ -12,8 +12,5 @@ export {
 export type { MetadataStore } from './internal/metadata-store'
 export { metadataEvents } from './internal/metadata-events'
 
-// Composition
-import { MintMetadataService } from './internal/mint-metadata'
-import { DexieMintMetadataRepository } from '@/adapters/storage/dexie/dexie-mint-metadata.repository'
-
-export const mintMetadataService = new MintMetadataService(new DexieMintMetadataRepository())
+// MintMetadataService class is exported for composition layer to create instances.
+// Singleton creation is in composition/bootstrap.ts (not here — modules/ cannot import adapters/).
