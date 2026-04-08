@@ -5,7 +5,7 @@ import {
   setCachedMnemonic,
   clearCachedMnemonic,
   isMnemonicCached,
-} from '@/coco/seedGetter'
+} from '@/modules/cashu/internal/seed-getter'
 
 // 테���트용 니모닉 (12 words)
 const TEST_MNEMONIC =

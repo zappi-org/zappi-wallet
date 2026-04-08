@@ -1,12 +1,12 @@
 // Coco Manager
 export { getCocoManager, resetCocoManager, isCocoInitialized, deleteCocoData, getPendingMintQuotes, getMintQuote, enableWatchers } from './manager';
 
-// Seed/PIN management
+// Seed/PIN management — implementation in modules/cashu/internal/seed-getter.ts
 export {
   getSeed,
   clearCachedMnemonic,
   isMnemonicCached,
-} from './seedGetter';
+} from '@/modules/cashu/internal/seed-getter';
 
 // Store bridge
 export { connectCocoToStore, disconnectCocoFromStore } from './bridge';
