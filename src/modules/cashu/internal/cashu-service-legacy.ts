@@ -150,10 +150,7 @@ export async function addMint(mintUrl: string): Promise<void> {
   return backend.addMint(mintUrl);
 }
 
-export function clearWalletCache(): void {
-  // cashu-ts Wallet 캐시는 더 이상 사용하지 않음
-  // 하위 호환을 위해 빈 함수 유지
-}
+// clearWalletCache removed — was no-op, use adapters/cache/wallet-cache if needed
 
 // ─── Recovery (포트 경유 — cashu-recovery.ts 위임) ───
 

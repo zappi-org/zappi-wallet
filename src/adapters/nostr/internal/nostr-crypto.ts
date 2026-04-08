@@ -41,20 +41,10 @@ export function npubEncode(pubkeyHex: string): string {
   return nip19.npubEncode(pubkeyHex)
 }
 
-export function npubDecode(npub: string): string {
-  const decoded = nip19.decode(npub)
-  if (decoded.type !== 'npub') throw new Error(`Expected npub, got ${decoded.type}`)
-  return decoded.data
-}
+// npubDecode/nprofileDecode removed — use core/domain/nostr-address versions
 
 export function nprofileEncode(pubkey: string, relays?: string[]): string {
   return nip19.nprofileEncode({ pubkey, relays })
-}
-
-export function nprofileDecode(nprofile: string): { pubkey: string; relays?: string[] } {
-  const decoded = nip19.decode(nprofile)
-  if (decoded.type !== 'nprofile') throw new Error(`Expected nprofile, got ${decoded.type}`)
-  return decoded.data
 }
 
 // ─── NIP-44 encryption/decryption ───

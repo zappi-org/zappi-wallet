@@ -6,7 +6,9 @@
  */
 
 import type { UnsignedNostrEvent, NostrEvent } from './nostr'
-import { NOSTR_KINDS, CASHU_UNIT } from '@/core/constants'
+// Domain-level constants (inlined for R1 purity — domain imports nothing)
+const NOSTR_KINDS = { NUTZAP_INFO: 10019, RELAY_LIST: 10002, DM_RELAY_LIST: 10050 } as const
+const CASHU_UNIT = 'sat' as const
 
 // ─── Build (이벤트 조립) ───
 

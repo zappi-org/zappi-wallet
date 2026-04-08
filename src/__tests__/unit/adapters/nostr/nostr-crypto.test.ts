@@ -41,17 +41,13 @@ import {
   verifyEventSignature,
   derivePublicKey,
   npubEncode,
-  npubDecode,
   nprofileEncode,
-  nprofileDecode,
   getConversationKey,
   encrypt,
   decrypt,
   wrapEvent,
   unwrapEvent,
 } from '@/adapters/nostr/internal/nostr-crypto'
-
-import { nip19 } from 'nostr-tools'
 
 describe('nostr-crypto', () => {
   beforeEach(() => {
@@ -106,38 +102,11 @@ describe('nostr-crypto', () => {
     })
   })
 
-  describe('npubDecode', () => {
-    it('decodes npub to hex', () => {
-      vi.mocked(nip19.decode).mockReturnValue({ type: 'npub', data: 'decoded-hex' } as ReturnType<typeof nip19.decode>)
-      expect(npubDecode('npub1test')).toBe('decoded-hex')
-    })
-
-    it('throws on non-npub input', () => {
-      vi.mocked(nip19.decode).mockReturnValue({ type: 'nprofile', data: { pubkey: 'x' } } as ReturnType<typeof nip19.decode>)
-      expect(() => npubDecode('nprofile1test')).toThrow('Expected npub')
-    })
-  })
+  // npubDecode/nprofileDecode tests removed — functions moved to core/domain/nostr-address
 
   describe('nprofileEncode', () => {
     it('encodes pubkey + relays to nprofile', () => {
       expect(nprofileEncode('pk', ['wss://relay.test'])).toBe('nprofile1encoded')
-    })
-  })
-
-  describe('nprofileDecode', () => {
-    it('decodes nprofile to pubkey + relays', () => {
-      vi.mocked(nip19.decode).mockReturnValue({
-        type: 'nprofile',
-        data: { pubkey: 'pk-hex', relays: ['wss://r.test'] },
-      } as ReturnType<typeof nip19.decode>)
-      const result = nprofileDecode('nprofile1test')
-      expect(result.pubkey).toBe('pk-hex')
-      expect(result.relays).toEqual(['wss://r.test'])
-    })
-
-    it('throws on non-nprofile input', () => {
-      vi.mocked(nip19.decode).mockReturnValue({ type: 'npub', data: 'x' } as ReturnType<typeof nip19.decode>)
-      expect(() => nprofileDecode('npub1test')).toThrow('Expected nprofile')
     })
   })
 

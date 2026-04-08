@@ -13,7 +13,7 @@
 import type { NostrGateway, UnwrappedMessage } from '@/core/ports/driven/nostr-gateway.port'
 import type { IncomingPaymentUseCase } from '@/core/ports/driving/incoming-payment.usecase'
 import type { EventBus } from '@/core/events/event-bus'
-import type { ZapMessage, ZapPaymentFulfillment } from '@/types'
+import type { ZapMessage, ZapPaymentFulfillment } from '@/core/types/zap-message'
 import type { POSDevice } from '@/core/types/wallet'
 
 // ─── Types ───

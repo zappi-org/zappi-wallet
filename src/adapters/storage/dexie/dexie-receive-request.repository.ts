@@ -4,7 +4,9 @@ import { expireReceiveRequest } from '@/core/domain/receive-request'
 import type { ReceiveRequestRecord } from './schema'
 import { getDatabase } from './schema'
 import { sat, toNumber } from '@/core/domain/amount'
-import { stripTrailingSlash } from '@/utils/url'
+function stripTrailingSlash(url: string): string {
+  return url.endsWith('/') ? url.slice(0, -1) : url
+}
 
 function toDomain(r: ReceiveRequestRecord): ReceiveRequest {
   const methods: PaymentMethod[] = [
