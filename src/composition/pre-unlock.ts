@@ -6,7 +6,7 @@
  * unlock 전에도 필요하므로 별도 팩토리로 제공.
  */
 
-import { SettingsRepository } from '@/data/repositories/settings.repository'
+import { DexieSettingsRepository as SettingsRepository } from '@/adapters/storage/dexie/dexie-settings.repository'
 import { getTransactionRepo } from '@/data/repositories/transaction.repository'
 import { FailedIncomingStoreAdapter } from '@/adapters/storage/failed-incoming-store.adapter'
 import { exchangeRateService } from '@/services/exchange-rate'

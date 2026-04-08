@@ -33,8 +33,8 @@ import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
 // ─── Adapters (non-module) ───
 import { DirectLnurlAdapter } from '@/adapters/lnurl/direct-lnurl.adapter'
 import { Nip05ResolverAdapter } from '@/adapters/nip05/nip05-resolver'
-import { SettingsRepository } from '@/data/repositories/settings.repository'
-import { ProcessedRepository } from '@/data/repositories/processed.repository'
+import { DexieSettingsRepository as SettingsRepository } from '@/adapters/storage/dexie/dexie-settings.repository'
+import { DexieProcessedRepository as ProcessedRepository } from '@/adapters/storage/dexie/dexie-processed.repository'
 
 // ─── Legacy services (composition root만 wrap 가능) ───
 import { exchangeRateService } from '@/services/exchange-rate'
