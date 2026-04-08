@@ -17,12 +17,10 @@ import { useNetwork } from '@/hooks/use-network'
 import { useAppStore } from '@/store'
 import { selectP2pkPubkey } from '@/store/selectors'
 import { useTranslation } from 'react-i18next'
-import { getDecodedToken } from '@cashu/cashu-ts'
 import { isP2PKLockedToUser } from '@/utils/token'
-import { verifyTokenDleq, type DleqResult } from '@/utils/token'
-import { getWalletCache } from '@/data/cache/wallet-cache'
+import type { DleqResult } from '@/utils/token'
 import { formatSats } from '@/utils/format'
-import type { ValidatedData, ValidatedCashuToken } from '@/ui/components/scanner/InputValidator'
+import type { ValidatedData, ValidatedCashuToken } from '@/core/domain/input-types'
 
 /** Check if an error indicates a token was already spent */
 function isAlreadySpentError(error?: { code?: string; message?: string } | null): boolean {
@@ -61,8 +59,7 @@ async function checkSwapFeeTooHigh(
   return false
 }
 
-import { createReceiveRequest, completeReceiveRequest } from '@/services/receive-request'
-import { buildUnifiedBitcoinUri } from '@/services/cashu/nut18'
+import { useReceiveRequest } from '@/hooks/use-receive-request'
 import { TokenReceiveStep } from './steps/TokenReceiveStep'
 import { ReceiveInputStep } from './steps/ReceiveInputStep'
 import { ReceiveQRStep } from './steps/ReceiveQRStep'
@@ -120,6 +117,7 @@ export interface ReceiveFlowProps {
   onSwapReceive: (token: string, sourceMintUrl: string, targetMintUrl: string, amount: number) => Promise<{ success: boolean; amount?: number; error?: { code?: string; message?: string } }>
   onEstimateSwapFee: (fromMintUrl: string, toMintUrl: string, amount: number) => Promise<{ fee: number; totalNeeded: number } | null>
   onStoreOfflineToken: (token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing') => Promise<{ success: boolean }>
+  onVerifyDleq?: (tokenStr: string) => Promise<DleqResult>
   // Pre-filled data
   validatedData?: ValidatedData
   initialAmount?: number
@@ -138,6 +136,7 @@ export function ReceiveFlow({
   onSwapReceive,
   onEstimateSwapFee,
   onStoreOfflineToken,
+  onVerifyDleq,
   validatedData: initialValidatedData,
   initialAmount,
   initialMintUrl,
@@ -147,6 +146,7 @@ export function ReceiveFlow({
   const addToast = useAppStore((s) => s.addToast)
   const settings = useAppStore((s) => s.settings)
   const p2pkPubkey = useAppStore(selectP2pkPubkey)
+  const receiveReq = useReceiveRequest()
 
   // Determine initial step from validatedData
   const getInitialStep = (): ReceiveStep => {
@@ -183,30 +183,11 @@ export function ReceiveFlow({
   // ============= DLEQ verification helper =============
 
   const runDleqCheck = useCallback(async (token: ValidatedCashuToken): Promise<DleqResult> => {
-    try {
-      const decoded = getDecodedToken(token.token)
-      const walletCache = getWalletCache()
-
-      // Pre-fetch wallet if cached
-      let cachedWallet: Awaited<ReturnType<typeof walletCache.getWallet>> | undefined
-      try {
-        cachedWallet = await walletCache.getWallet(decoded.mint)
-      } catch {
-        // Wallet not cached or fetch failed — DLEQ will proceed without keyset
-      }
-
-      const result = await verifyTokenDleq(decoded, (mintUrl) => {
-        // Only return if it's the wallet we already fetched
-        if (cachedWallet && mintUrl === decoded.mint) {
-          return cachedWallet
-        }
-        return undefined
-      })
-      return result
-    } catch {
-      return 'missing'
+    if (onVerifyDleq) {
+      return onVerifyDleq(token.token)
     }
-  }, [])
+    return 'missing'
+  }, [onVerifyDleq])
 
   // Run DLEQ check for initial token (deeplink / pre-filled data)
   const initialDleqChecked = useRef(false)
@@ -253,29 +234,22 @@ export function ReceiveFlow({
         return
       }
 
-      // Build BIP-321 URI if both payment methods available
       const invoice = invoiceResult?.invoice || null
       const ecashReq = data.ecashRequest || null
-      const bip321Uri = (invoice && ecashReq)
-        ? buildUnifiedBitcoinUri({ lightningInvoice: invoice, cashuRequest: ecashReq })
-        : undefined
 
       // Persist as ReceiveRequest entity (source of truth for pending display)
       let receiveRequestId: string | null = null
       if (invoiceResult) {
         const requestId = crypto.randomUUID()
         try {
-          await createReceiveRequest({
-            id: requestId,
-            amount: data.amount,
-            mintUrl: data.mintUrl,
-            expiresAt: invoiceResult.expiry * 1000,
+          await receiveReq.create({
+            requestId,
+            accountId: data.mintUrl,
+            adapterId: 'cashu:lightning',
+            amount: { value: BigInt(data.amount), unit: 'sat' },
             quoteId: invoiceResult.quoteId,
-            invoice: invoiceResult.invoice,
-            ecashRequest: ecashReq || undefined,
-            ecashRequestId: data.ecashRequestId || undefined,
+            bolt11: invoiceResult.invoice,
             httpEndpoint: data.httpEndpoint || undefined,
-            bip321Uri,
           })
           receiveRequestId = requestId
         } catch (err) {
@@ -314,8 +288,8 @@ export function ReceiveFlow({
     onPaymentReceived(amount, method)
     setState((prev) => {
       if (prev.receiveRequestId) {
-        void completeReceiveRequest(prev.receiveRequestId, method)
-          .catch((err) => console.error('[ReceiveFlow] Failed to complete ReceiveRequest:', err))
+        void receiveReq.complete(prev.receiveRequestId, method)
+          .catch((err: unknown) => console.error('[ReceiveFlow] Failed to complete ReceiveRequest:', err))
       }
       return {
         ...prev,
@@ -548,6 +522,10 @@ export function ReceiveFlow({
               ecashRequest={state.ecashRequest}
               ecashRequestId={state.ecashRequestId}
               httpEndpoint={state.httpEndpoint}
+              onReceiveP2PKToken={async (token, _privkey) => {
+                const result = await onReceiveToken(token)
+                return { amount: result?.amount ?? 0 }
+              }}
             />
           </PageTransition>
         )}

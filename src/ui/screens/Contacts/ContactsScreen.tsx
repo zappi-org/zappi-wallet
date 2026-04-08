@@ -7,8 +7,8 @@ import { ConfirmDialog } from '@/ui/components/common/ConfirmDialog'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { ContactFormModal } from './ContactFormModal'
 import { detectAddressType } from '@/core/types/contact'
-import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
-import { validateInput, type ValidatedData } from '@/ui/components/scanner/InputValidator'
+import { useInputParser } from '@/hooks/use-input-parser'
+import type { ValidatedData } from '@/core/domain/input-types'
 import { useAppStore } from '@/store'
 import { useContacts } from '@/hooks/use-contacts'
 import type { Contact, ContactAddressType } from '@/core/types'
@@ -27,6 +27,7 @@ const addressTypeIcon: Record<ContactAddressType, typeof Zap> = {
 export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
   const { t } = useTranslation()
   const addToast = useAppStore((s) => s.addToast)
+  const inputParser = useInputParser()
   const { contacts, createContact, updateContact, deleteContact: deleteContactById } = useContacts()
   const [searchQuery, setSearchQuery] = useState('')
   const [showForm, setShowForm] = useState(false)
@@ -80,22 +81,21 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
     if (!onSendToContact) return
     setSendingId(contact.id)
     try {
-      const detected = detectInputType(contact.address)
+      const detected = inputParser.detectAndClassify(contact.address)
       if (detected.type === 'unknown') {
         addToast({ type: 'error', message: t('send.destination.unrecognized'), duration: 3000 })
         return
       }
-      const result = await validateInput(detected)
-      if (!result.valid) {
-        addToast({ type: 'error', message: result.error, duration: 3000 })
-        return
+      try {
+        const validated = await inputParser.validateAsync(detected)
+        setPendingSend({ data: validated, name: contact.name })
+      } catch (err) {
+        addToast({ type: 'error', message: err instanceof Error ? err.message : t('send.destination.unrecognized'), duration: 3000 })
       }
-      // Show mint selection bottom sheet
-      setPendingSend({ data: result.data, name: contact.name })
     } finally {
       setSendingId(null)
     }
-  }, [onSendToContact, addToast, t])
+  }, [onSendToContact, addToast, t, inputParser])
 
   return (
     <div className="h-full bg-background text-foreground flex flex-col pt-safe">

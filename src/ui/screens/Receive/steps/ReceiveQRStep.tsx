@@ -12,9 +12,7 @@ import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { useAppStore } from '@/store'
 import { hapticTap, hapticSuccess } from '@/utils/haptic'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
-import { startNut18HttpPoller } from '@/services/cashu/nut18-http'
-import { buildUnifiedBitcoinUri } from '@/services/cashu/nut18'
-import { receiveP2PKToken } from '@/coco'
+import { usePaymentRequest } from '@/hooks/use-payment-request'
 
 
 interface ReceiveQRStepProps {
@@ -29,6 +27,7 @@ interface ReceiveQRStepProps {
   ecashRequest: string | null
   ecashRequestId: string | null
   httpEndpoint: string | null
+  onReceiveP2PKToken?: (token: string, privkey: string) => Promise<{ amount: number }>
 }
 
 export function ReceiveQRStep({
@@ -41,11 +40,13 @@ export function ReceiveQRStep({
   ecashRequest,
   ecashRequestId,
   httpEndpoint,
+  onReceiveP2PKToken,
 }: ReceiveQRStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
   const addToast = useAppStore((s) => s.addToast)
+  const paymentReq = usePaymentRequest()
   const [copied, setCopied] = useState(false)
 
   const setPendingEcashRequestId = useAppStore((s) => s.setPendingEcashRequestId)
@@ -66,7 +67,7 @@ export function ReceiveQRStep({
   // Build QR value: unified BIP-321 when both available, fallback otherwise
   const qrValue = (() => {
     if (invoice && ecashRequest) {
-      return buildUnifiedBitcoinUri({
+      return paymentReq.buildUnifiedBitcoinUri({
         lightningInvoice: invoice,
         cashuRequest: ecashRequest,
       })
@@ -114,12 +115,12 @@ export function ReceiveQRStep({
   }, [ecashRequestId, lastReceivedRequestId, lastReceivedAmount, setLastReceivedPayment, onPaymentDetected])
 
   // ======= Ecash NUT-18 HTTP polling (fallback) =======
-  const httpPollerRef = useRef<{ cancel: () => void } | null>(null)
+  const httpPollerRef = useRef<{ stop: () => void } | null>(null)
 
   useEffect(() => {
     if (!httpEndpoint || !ecashRequestId) return
 
-    const poller = startNut18HttpPoller({
+    const poller = paymentReq.startHttpPoller({
       endpoint: httpEndpoint,
       requestId: ecashRequestId,
     })
@@ -135,7 +136,7 @@ export function ReceiveQRStep({
       try {
         const p2pkPrivkey = useAppStore.getState().nostrPrivkey
         if (p2pkPrivkey) {
-          const result = await receiveP2PKToken(payload.token, p2pkPrivkey)
+          const result = onReceiveP2PKToken ? await onReceiveP2PKToken(payload.token, p2pkPrivkey) : { amount: 0 }
           hapticSuccess()
           onPaymentDetected(result.amount, 'ecash')
         } else {
@@ -154,7 +155,7 @@ export function ReceiveQRStep({
     })
 
     return () => {
-      poller.cancel()
+      poller.stop()
       httpPollerRef.current = null
     }
   }, [httpEndpoint, ecashRequestId, amount, mintUrl, onPaymentDetected])
@@ -162,7 +163,7 @@ export function ReceiveQRStep({
   // Cancel HTTP poller when payment detected via Nostr
   useEffect(() => {
     if (paymentDetectedRef.current && httpPollerRef.current) {
-      httpPollerRef.current.cancel()
+      httpPollerRef.current.stop()
       httpPollerRef.current = null
     }
   }, [lastReceivedRequestId])

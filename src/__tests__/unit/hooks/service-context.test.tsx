@@ -77,6 +77,15 @@ function createMockRegistry(): ServiceRegistry {
     } as unknown as ServiceRegistry['pendingItems'],
     withdraw: {} as unknown as ServiceRegistry['withdraw'],
     lnurlAuth: {} as unknown as ServiceRegistry['lnurlAuth'],
+    mintMetadata: {} as unknown as ServiceRegistry['mintMetadata'],
+    mintHealth: {} as unknown as ServiceRegistry['mintHealth'],
+    crypto: {} as unknown as ServiceRegistry['crypto'],
+    receiveRequest: {} as unknown as ServiceRegistry['receiveRequest'],
+    transactionMgmt: {} as unknown as ServiceRegistry['transactionMgmt'],
+    inputParser: {} as unknown as ServiceRegistry['inputParser'],
+    paymentRequest: {} as unknown as ServiceRegistry['paymentRequest'],
+    routing: {} as unknown as ServiceRegistry['routing'],
+    username: {} as unknown as ServiceRegistry['username'],
   }
 }
 

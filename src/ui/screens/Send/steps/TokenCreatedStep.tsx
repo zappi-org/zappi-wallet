@@ -22,6 +22,7 @@ interface TokenCreatedStepProps {
   operationId?: string
   onCancel: () => void
   onComplete: () => void
+  onSubscribeSendFinalized?: (operationId: string, callback: () => void) => (() => void)
 }
 
 export function TokenCreatedStep({
@@ -30,6 +31,7 @@ export function TokenCreatedStep({
   operationId,
   onCancel,
   onComplete,
+  onSubscribeSendFinalized,
 }: TokenCreatedStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
@@ -49,32 +51,14 @@ export function TokenCreatedStep({
 
   // Monitor token spending via SDK send:finalized event
   useEffect(() => {
-    if (!operationId) return
+    if (!operationId || !onSubscribeSendFinalized) return
 
-    let unsubscribe: (() => void) | undefined
-    let mounted = true
-
-    const subscribe = async () => {
-      try {
-        const { getCocoManager } = await import('@/coco/manager')
-        const manager = await getCocoManager()
-        unsubscribe = manager.on('send:finalized', ({ operationId: finId }) => {
-          if (mounted && finId === operationId) {
-            handleSpent()
-          }
-        })
-      } catch {
-        // Manager not initialized — ignore
-      }
-    }
-
-    subscribe()
+    const unsubscribe = onSubscribeSendFinalized(operationId, handleSpent)
 
     return () => {
-      mounted = false
       unsubscribe?.()
     }
-  }, [operationId, handleSpent])
+  }, [operationId, handleSpent, onSubscribeSendFinalized])
 
   // Auto-dismiss after token is claimed
   const onCompleteRef = useRef(onComplete)

@@ -16,9 +16,7 @@ import { useFormatSats, useFormatFiat, formatTransactionFiat } from '@/utils/for
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
 import { Button } from '@/ui/components/common/Button'
-import { getTransactionRepo } from '@/data/repositories/transaction.repository'
-import { markSendFinalized, markSendReclaimed } from '@/coco/sendTokenObserver'
-import { getDecodedToken } from '@cashu/cashu-ts'
+import { useTransactionMgmt } from '@/hooks/use-transaction-mgmt'
 import { ArrowLeft } from 'lucide-react'
 import { TokenQrModal } from './TokenQrModal'
 
@@ -37,6 +35,7 @@ export default function TransactionDetailScreen({
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
   const { getDisplayName } = useMintMetadata(mintUrls)
+  const txMgmt = useTransactionMgmt()
   const [tx, setTx] = useState(initialTx)
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [isReclaiming, setIsReclaiming] = useState(false)
@@ -102,62 +101,16 @@ export default function TransactionDetailScreen({
     if (!tx.token) return
     setIsReclaiming(true)
     try {
-      if (tx.operationId) {
-        // SDK 경로: rollback이 proof 상태 확인 + 회수를 한번에 처리
-        const { rollbackSendToken } = await import('@/coco/cashuService')
-        try {
-          await rollbackSendToken(tx.operationId)
-          await markSendReclaimed(tx.id)
-          setTx((prev) => ({ ...prev, tokenState: 'spent' as TokenState, status: 'completed' as const, completedAt: Date.now(), failureReason: 'reclaimed' }))
-          addToast({ type: 'success', message: t('txDetail.reclaimSuccess'), duration: 3000 })
-        } catch (err) {
-          const msg = String(err).toLowerCase()
-          if (msg.includes('spent') || msg.includes('finalized')) {
-            // 이미 수령됨 → finalize 시도 후 완료 처리
-            try {
-              const { getCocoManager } = await import('@/coco/manager')
-              const manager = await getCocoManager()
-              await manager.ops.send.finalize(tx.operationId).catch(() => {})
-            } catch { /* finalize 실패해도 DB는 업데이트 */ }
-            await markSendFinalized(tx.id)
-            setTx((prev) => ({ ...prev, tokenState: 'spent' as TokenState, status: 'completed', completedAt: Date.now() }))
-            addToast({ type: 'info', message: t('txDetail.alreadySpent'), duration: 3000 })
-          } else {
-            throw err
-          }
-        }
-      } else {
-        // 레거시 경로 (operationId 없는 이전 트랜잭션)
-        const { CashuService } = await import('@/services/cashu/cashu.service')
-        const cashu = new CashuService()
-        const decoded = getDecodedToken(tx.token)
-        const wallet = await cashu.getWallet(decoded.mint)
-        const states = await wallet.checkProofsStates(decoded.proofs)
+      const result = await txMgmt.reclaimSendToken(tx.id, tx.operationId, tx.token)
 
-        const spentCount = states.filter((s) => s.state === 'SPENT').length
-        const pendingCount = states.filter((s) => s.state === 'PENDING').length
-
-        if (spentCount === states.length) {
-          await markSendFinalized(tx.id)
-          setTx((prev) => ({ ...prev, tokenState: 'spent' as TokenState, status: 'completed', completedAt: Date.now() }))
-          addToast({ type: 'info', message: t('txDetail.alreadySpent'), duration: 3000 })
-          return
-        }
-
-        if (pendingCount > 0) {
-          const repo = getTransactionRepo()
-          await repo.update(tx.id, { tokenState: 'pending' as TokenState })
-          setTx((prev) => ({ ...prev, tokenState: 'pending' as TokenState }))
-          addToast({ type: 'error', message: t('txDetail.tokenPending'), duration: 3000 })
-          return
-        }
-
-        const { receiveToken } = await import('@/coco/cashuService')
-        await receiveToken(tx.token)
-
-        await markSendReclaimed(tx.id)
+      if (result.alreadySpent) {
+        setTx((prev) => ({ ...prev, tokenState: 'spent' as TokenState, status: 'completed', completedAt: Date.now() }))
+        addToast({ type: 'info', message: t('txDetail.alreadySpent'), duration: 3000 })
+      } else if (result.success) {
         setTx((prev) => ({ ...prev, tokenState: 'spent' as TokenState, status: 'completed' as const, completedAt: Date.now(), failureReason: 'reclaimed' }))
         addToast({ type: 'success', message: t('txDetail.reclaimSuccess'), duration: 3000 })
+      } else {
+        addToast({ type: 'error', message: t('txDetail.reclaimFailed'), duration: 3000 })
       }
     } catch (err) {
       console.error('[TxDetail] Check & reclaim failed:', err)
@@ -165,7 +118,7 @@ export default function TransactionDetailScreen({
     } finally {
       setIsReclaiming(false)
     }
-  }, [tx.token, tx.operationId, tx.id, addToast, t])
+  }, [tx.token, tx.operationId, tx.id, addToast, t, txMgmt])
 
   // ─── Share ───
   const handleShare = useCallback(async () => {
@@ -179,11 +132,10 @@ export default function TransactionDetailScreen({
 
   // ─── Delete ───
   const handleDelete = useCallback(async () => {
-    const repo = getTransactionRepo()
-    await repo.delete(tx.id)
+    await txMgmt.delete(tx.id)
     useAppStore.getState().triggerTxRefresh()
     onBack()
-  }, [tx.id, onBack])
+  }, [tx.id, onBack, txMgmt])
 
   // ─── Type label ───
   const isReclaimed = isEcashToken && !!metadata?.reclaimedFrom

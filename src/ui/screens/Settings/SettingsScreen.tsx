@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { AlertTriangle, Check, Copy, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence } from 'motion/react'
@@ -6,13 +6,9 @@ import { PageTransition } from '@/ui/components/common/PageTransition'
 import { Modal, PinInput } from '../../components/common'
 import { useAppStore } from '@/store'
 import { satUnit } from '@/utils/format'
-import { formatMintHost } from '@/utils/url'
-import { restoreWallet, getBalances, recoverPendingQuotes } from '@/coco'
+// formatMintHost removed — recovery now uses recoverAll() instead of per-mint loop
 import { ZAPPI_LINK_URL } from '@/core/constants'
-import { createProfileService } from '@/composition/profile'
-import { NostrGatewayAdapter } from '@/adapters/nostr/nostr-gateway'
-import { NostrService } from '@/services/nostr/nostr.service'
-import { ZappiLinkAdapter } from '@/adapters/zappi-link/zappi-link.adapter'
+import { useServiceRegistry } from '@/hooks/use-service-registry'
 import { cn } from '@/components/ui/utils'
 import { Button } from '@/ui/components/common/Button'
 
@@ -75,6 +71,7 @@ export function SettingsScreen({
   const nostrPubkey = useAppStore((state) => state.nostrPubkey)
   const nostrPrivkey = useAppStore((state) => state.nostrPrivkey)
   const p2pkPubkey = useAppStore((state) => state.p2pkPubkey)
+  const registry = useServiceRegistry()
   const setBalance = useAppStore((state) => state.setBalance)
 
   // Two-layer navigation: category (z-65) + detail (z-66)
@@ -214,20 +211,10 @@ export function SettingsScreen({
     await onSaveSettings({ ...settings, ...updates })
   }, [settings, updateSettings, onSaveSettings])
 
-  // Services for zappi-link registration
-  const [services] = useState(() => ({
-    // profile created lazily in handlers (needs NostrGateway with privateKey)
-    nostr: new NostrService(),
-  }))
-  const zappiLinkService = useMemo(
-    () => new ZappiLinkAdapter(services.nostr.createNip98AuthToken.bind(services.nostr)),
-    [services.nostr]
-  )
-
   // Auto-check existing address on mount
   useEffect(() => {
     if (!nostrPubkey || settings.lightningAddress) return
-    zappiLinkService.getAddress(nostrPubkey).then((result) => {
+    registry.username.getAddress(nostrPubkey).then((result) => {
       if (result.isOk() && result.value) {
         saveSettings({
           lightningAddress: result.value.address,
@@ -242,16 +229,13 @@ export function SettingsScreen({
     if (!nostrPrivkey || !p2pkPubkey) return
     setIsRegistering(true)
     try {
-      const nostrGw = new NostrGatewayAdapter({ privateKeyHex: nostrPrivkey })
-      await nostrGw.connect(settings.relays)
-      const profileSvc = createProfileService(nostrGw, { getSettings: async () => ({} as never), saveSettings: async () => {} })
-      await profileSvc.publishNutZapInfo(
+      await registry.profile.publishNutZapInfo(
         nostrPubkey!,
         settings.mints,
         p2pkPubkey,
         settings.relays,
       )
-      const result = await zappiLinkService.registerAddress(nostrPrivkey)
+      const result = await registry.username.registerAddress(nostrPrivkey)
       if (result.isErr()) {
         addToast({ type: 'error', message: t('settings.lightningAddressRegistrationFailed') })
         return
@@ -266,7 +250,7 @@ export function SettingsScreen({
     } finally {
       setIsRegistering(false)
     }
-  }, [nostrPrivkey, nostrPubkey, p2pkPubkey, settings.mints, settings.relays, zappiLinkService, saveSettings, addToast, t])
+  }, [nostrPrivkey, nostrPubkey, p2pkPubkey, settings.mints, settings.relays, registry, saveSettings, addToast, t])
 
   // Backup handlers
   const handleBackupMnemonic = useCallback(async () => {
@@ -324,29 +308,22 @@ export function SettingsScreen({
     setIsRestoring(true)
     setRestoreResult(null)
     try {
-      const beforeBalances = await getBalances()
-      const beforeTotal = Object.values(beforeBalances).reduce((sum, b) => sum + b, 0)
+      const beforeModules = await registry.balance.getByModule()
+      const beforeTotal = beforeModules.reduce((sum, m) => sum + m.accounts.reduce((s, a) => s + Number(a.amount.value), 0), 0)
 
       setRestoreProgress(t('settings.recoveringLightning'))
       try {
-        const recoveryResult = await recoverPendingQuotes()
-        if (recoveryResult.recovered > 0) console.log('[Settings] Recovered pending quotes:', recoveryResult)
+        const recoveryReports = await registry.payment.recoverAll()
+        const totalRecovered = recoveryReports.reduce((s, r) => s + (r.recovered ?? 0), 0)
+        if (totalRecovered > 0) console.log('[Settings] Recovered:', totalRecovered)
       } catch (err) {
-        console.warn('[Settings] Failed to recover pending quotes:', err)
+        console.warn('[Settings] Recovery failed:', err)
       }
 
-      for (let i = 0; i < mints.length; i++) {
-        const mintUrl = mints[i]
-        setRestoreProgress(`${i + 1}/${mints.length}: ${formatMintHost(mintUrl)}`)
-        try {
-          await restoreWallet(mintUrl)
-        } catch (err) {
-          console.warn('[Settings] Failed to restore from:', mintUrl, err)
-        }
-      }
+      setRestoreProgress(t('settings.verifyingBalances'))
 
-      const afterBalances = await getBalances()
-      const afterTotal = Object.values(afterBalances).reduce((sum, b) => sum + b, 0)
+      const afterModules = await registry.balance.getByModule()
+      const afterTotal = afterModules.reduce((sum, m) => sum + m.accounts.reduce((s, a) => s + Number(a.amount.value), 0), 0)
 
       const recovered = afterTotal - beforeTotal
       if (recovered > 0) {
@@ -354,7 +331,13 @@ export function SettingsScreen({
       } else {
         setRestoreResult({ success: true, message: t('settings.noMissingBalance') })
       }
-      setBalance({ total: afterTotal, byMint: afterBalances })
+      const byMint: Record<string, number> = {}
+      for (const m of afterModules) {
+        for (const a of m.accounts) {
+          byMint[a.id] = Number(a.amount.value)
+        }
+      }
+      setBalance({ total: afterTotal, byMint })
     } catch {
       setRestoreResult({ success: false, message: t('settings.verificationError') })
     } finally {

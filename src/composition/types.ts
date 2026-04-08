@@ -21,6 +21,15 @@ import type { IncomingPaymentUseCase } from '@/core/ports/driving/incoming-payme
 import type { PendingItemsUseCase } from '@/core/ports/driving/pending-items.usecase'
 import type { ProcessedStore } from '@/core/ports/driven/processed-store.port'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
+import type { MintMetadataUseCase } from '@/core/ports/driving/mint-metadata.usecase'
+import type { MintHealthUseCase } from '@/core/ports/driving/mint-health.usecase'
+import type { CryptoUseCase } from '@/core/ports/driving/crypto.usecase'
+import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request.usecase'
+import type { TransactionMgmtUseCase } from '@/core/ports/driving/transaction-mgmt.usecase'
+import type { InputParserUseCase } from '@/core/ports/driving/input-parser.usecase'
+import type { PaymentRequestUseCase } from '@/core/ports/driving/payment-request.usecase'
+import type { RoutingUseCase } from '@/core/ports/driving/routing.usecase'
+import type { UsernameUseCase } from '@/core/ports/driving/username.usecase'
 
 export interface ServiceRegistry {
   readonly eventBus: EventBus
@@ -38,4 +47,13 @@ export interface ServiceRegistry {
   readonly pendingItems: PendingItemsUseCase
   readonly withdraw: WithdrawUseCase
   readonly lnurlAuth: LnurlAuthUseCase
+  readonly mintMetadata: MintMetadataUseCase
+  readonly mintHealth: MintHealthUseCase
+  readonly crypto: CryptoUseCase
+  readonly receiveRequest: ReceiveRequestUseCase
+  readonly transactionMgmt: TransactionMgmtUseCase
+  readonly inputParser: InputParserUseCase
+  readonly paymentRequest: PaymentRequestUseCase
+  readonly routing: RoutingUseCase
+  readonly username: UsernameUseCase
 }

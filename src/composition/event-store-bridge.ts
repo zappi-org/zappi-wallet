@@ -39,6 +39,15 @@ export function connectEventStoreBridge(
     }),
   )
 
+  // payment:deferred → token created, balance changed (no "completed" toast)
+  unsubscribers.push(
+    eventBus.on('payment:deferred', () => {
+      const { triggerTxRefresh } = useAppStore.getState()
+      triggerTxRefresh()
+      broadcastSync('balance_changed')
+    }),
+  )
+
   // payment:failed → error toast
   unsubscribers.push(
     eventBus.on('payment:failed', (event) => {

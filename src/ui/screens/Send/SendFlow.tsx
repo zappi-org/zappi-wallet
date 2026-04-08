@@ -17,31 +17,22 @@ import { useState, useCallback, useRef } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
 import { useNetwork } from '@/hooks/use-network'
+import { useInputParser } from '@/hooks/use-input-parser'
 import { useAppStore } from '@/store'
 import { useTranslation } from 'react-i18next'
 import { InsufficientBalanceError } from '@/core/errors/cashu'
 import { toErrorMessage } from '@/utils/error-message'
-import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
-import {
-  validateInput,
-  type ValidatedData,
-  type ValidatedBolt11,
-  type ValidatedLightningAddress,
-  type ValidatedLnurlPay,
-  type ValidatedCashuRequest,
-  type ValidatedMyWallet,
-} from '@/ui/components/scanner/InputValidator'
-import {
-  selectRoute,
-  findCommonMints,
-  estimateRouteFee,
-  PaymentRoute,
-  ROUTE_LABELS,
-  type RouteSelection,
-  type RouteContext,
-  type RouteExecutionResult,
-} from '@/services/payment/routing'
-import { getBalances as cocoGetBalances } from '@/coco/cashuService'
+import type {
+  ValidatedData,
+  ValidatedBolt11,
+  ValidatedLightningAddress,
+  ValidatedLnurlPay,
+  ValidatedCashuRequest,
+  ValidatedMyWallet,
+} from '@/core/domain/input-types'
+import { useRouting, PaymentRoute, ROUTE_LABELS } from '@/hooks/use-routing'
+import type { RouteSelection } from '@/core/domain/routing'
+import type { RouteContext, RouteExecutionResult } from '@/services/payment/routing'
 
 // ============= Helpers =============
 
@@ -123,6 +114,8 @@ export interface SendFlowProps {
   initialDisplayName?: string
   // Legacy: initialStep mapped to new flow
   initialStep?: 'input' | 'token-create'
+  // Composition callback for monitoring token spending
+  onSubscribeSendFinalized?: (operationId: string, callback: () => void) => (() => void)
 }
 
 // ============= Component =============
@@ -142,10 +135,13 @@ export function SendFlow({
   initialDestination,
   initialDisplayName,
   initialStep = 'input',
+  onSubscribeSendFinalized,
 }: SendFlowProps) {
   const { t } = useTranslation()
   const { isOnline } = useNetwork()
   const addToast = useAppStore((s) => s.addToast)
+  const inputParser = useInputParser()
+  const routing = useRouting()
 
   // Determine initial destination from validatedData or initialDestination
   const getInitialDestination = (): string => {
@@ -220,8 +216,8 @@ export function SendFlow({
     mintUrl: string,
   ): Promise<{ fee: number; routeSelection: RouteSelection } | null> => {
     try {
-      const balances = await cocoGetBalances()
-      const route = selectRoute({
+      const balances = useAppStore.getState().balance.byMint
+      const route = routing.selectRoute({
         validatedData: validated,
         senderMints: balances,
         amount,
@@ -238,7 +234,7 @@ export function SendFlow({
       const receiverMints = validated.type === 'cashu-request' ? validated.parsed.mints
         : []
       const commonMints = receiverMints.length > 0
-        ? findCommonMints(Object.keys(balances).filter((m) => balances[m] > 0), receiverMints)
+        ? routing.findCommonMints(Object.keys(balances).filter((m) => balances[m] > 0), receiverMints)
         : []
       // User's selected mint takes priority
       const sourceMint = mintUrl
@@ -261,7 +257,7 @@ export function SendFlow({
       else if (validated.type === 'cashu-request') invoice = validated.parsed.lightningInvoice
 
       // Fee estimation
-      const feeEstimate = await estimateRouteFee(route, sourceMint, amount, targetMint, invoice)
+      const feeEstimate = await routing.estimateRouteFee(route, sourceMint, amount, targetMint, invoice)
       const fee = feeEstimate.fee
 
       const routeSelection: RouteSelection = {
@@ -319,27 +315,28 @@ export function SendFlow({
       // Validate destination if no validatedData provided
       let validated = data.validatedData
       if (!validated) {
-        const detected = detectInputType(data.destination)
+        const detected = inputParser.detectAndClassify(data.destination)
         if (detected.type === 'unknown') {
           addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
           isProcessingRef.current = false
           setIsLoading(false)
           return
         }
-        const result = await validateInput(detected)
-        if (!result.valid) {
-          addToast({ type: 'error', message: result.error, duration: 3000 })
+        try {
+          const result = await inputParser.validateAsync(detected)
+          if (!isSendableData(result)) {
+            addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
+            isProcessingRef.current = false
+            setIsLoading(false)
+            return
+          }
+          validated = result
+        } catch (err) {
+          addToast({ type: 'error', message: err instanceof Error ? err.message : t('scanner.unrecognizedFormat'), duration: 3000 })
           isProcessingRef.current = false
           setIsLoading(false)
           return
         }
-        if (!isSendableData(result.data)) {
-          addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
-          isProcessingRef.current = false
-          setIsLoading(false)
-          return
-        }
-        validated = result.data
       }
 
       // If invoice has amount → check balance, then skip amount step
@@ -659,6 +656,7 @@ export function SendFlow({
               operationId={state.createdOperationId ?? undefined}
               onCancel={handleTokenCancel}
               onComplete={onComplete}
+              onSubscribeSendFinalized={onSubscribeSendFinalized}
             />
           </PageTransition>
         )}

@@ -44,7 +44,7 @@ const RelayManagementScreen = lazy(() => import('@/ui/screens/Settings/RelayMana
 // Unified Send/Receive flows
 import type { MintInfo } from '@/core/types'
 import { ToastContainer } from '@/ui/components'
-import type { ValidatedData } from '@/ui/components/scanner'
+import type { ValidatedData } from '@/core/domain/input-types'
 import { ReceiveFlow } from '@/ui/screens/Receive/ReceiveFlow'
 import { SendFlow } from '@/ui/screens/Send/SendFlow'
 
@@ -984,6 +984,7 @@ export default function MainApp() {
             setCurrentScreen('add-mint')
           }}
           onSaveSettings={handleSaveSettings}
+          onClearMintData={serviceRegistry ? (mintUrl) => serviceRegistry.cleanup.clearMintData(mintUrl) : undefined}
         />
       )}
 
@@ -1039,6 +1040,17 @@ export default function MainApp() {
           initialMintUrl={activeMintUrl}
           initialDestination={contactInfo?.address || undefined}
           initialDisplayName={contactInfo?.displayName || undefined}
+          onSubscribeSendFinalized={serviceRegistry ? (operationId, callback) => {
+            let unsubscribe: (() => void) | undefined
+            import('@/coco/manager').then(({ getCocoManager }) => {
+              getCocoManager().then((manager) => {
+                unsubscribe = manager.on('send:finalized', ({ operationId: finId }: { operationId: string }) => {
+                  if (finId === operationId) callback()
+                })
+              })
+            }).catch(() => {})
+            return () => { unsubscribe?.() }
+          } : undefined}
         />
       )}
 
@@ -1060,6 +1072,16 @@ export default function MainApp() {
           onSwapReceive={handleSwapReceive}
           onEstimateSwapFee={handleEstimateSwapFee}
           onStoreOfflineToken={handleStoreOfflineToken}
+          onVerifyDleq={async (tokenStr: string) => {
+            try {
+              const { getDecodedToken } = await import('@cashu/cashu-ts')
+              const { verifyTokenDleq } = await import('@/utils/token')
+              const decoded = getDecodedToken(tokenStr)
+              return await verifyTokenDleq(decoded, () => undefined)
+            } catch {
+              return 'missing' as const
+            }
+          }}
           validatedData={validatedScanData || undefined}
           initialAmount={scannedAmount || undefined}
           initialMintUrl={activeMintUrl}
@@ -1123,6 +1145,25 @@ export default function MainApp() {
             setCurrentScreen('history')
           }}
           transactions={transactions}
+          onFindTransaction={serviceRegistry ? async (id: string) => serviceRegistry.transactionMgmt.getById(id) as unknown as Transaction | null : undefined}
+          pendingItemCallbacks={serviceRegistry ? {
+            onRedeemToken: async (tokenStr: string, _itemId: string) => {
+              const result = await serviceRegistry.payment.redeem({ adapterId: 'cashu:ecash', input: tokenStr })
+              return result.ok
+            },
+            onReclaimToken: async (itemId: string, operationId?: string, tokenStr?: string) => {
+              return serviceRegistry.transactionMgmt.reclaimSendToken(itemId, operationId, tokenStr)
+            },
+            onCheckQuote: async (mintUrl: string, quoteId: string) => {
+              const { getMintQuote } = await import('@/coco/manager')
+              const quote = await getMintQuote(mintUrl, quoteId)
+              return quote ? { state: quote.state, request: quote.request } : null
+            },
+            onRedeemQuote: async (mintUrl: string, quoteId: string, amount: number) => {
+              const { redeemMintQuote } = await import('@/coco/cashuService')
+              await redeemMintQuote(mintUrl, quoteId, amount)
+            },
+          } : undefined}
         />
       )}
           </Suspense>

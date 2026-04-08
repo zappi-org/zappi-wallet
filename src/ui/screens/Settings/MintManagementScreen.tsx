@@ -9,7 +9,7 @@ import { useMintHealth } from '@/hooks/use-mint-health'
 import { LIMITS, getNutName, getSupportedNuts } from '@/core/constants'
 import { formatMintHost, getMintBalance as getMintBalanceUtil } from '@/utils/url'
 import type { MintInfoData } from '@/core/types'
-import { clearMintData } from '@/data/database/schema'
+// clearMintData provided via onClearMintData callback prop
 import { cn } from '@/components/ui/utils'
 import { Modal } from '@/ui/components/common'
 import { MintIcon } from './SettingsHelpers'
@@ -19,12 +19,14 @@ export interface MintManagementScreenProps {
   onBack: () => void
   onAddMint: () => void
   onSaveSettings: (settings: Record<string, unknown>) => Promise<void>
+  onClearMintData?: (mintUrl: string) => Promise<void>
 }
 
 export function MintManagementScreen({
   onBack,
   onAddMint,
   onSaveSettings,
+  onClearMintData,
 }: MintManagementScreenProps) {
   const { t } = useTranslation()
   const settings = useAppStore((s) => s.settings)
@@ -93,7 +95,7 @@ export function MintManagementScreen({
     if (expandedMint === urlToDelete) setExpandedMint(null)
     const newMints = settings.mints.filter((m) => m !== urlToDelete)
     await onSaveSettings({ mints: newMints })
-    clearMintData(urlToDelete)
+    onClearMintData?.(urlToDelete)
   }, [mintToDelete, settings.mints, onSaveSettings, expandedMint])
 
   const getBalance = (url: string) => getMintBalanceUtil(url, balanceByMint)

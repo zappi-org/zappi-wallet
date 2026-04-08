@@ -27,6 +27,8 @@ export interface MintDetailScreenProps {
   onSelectTransaction: (tx: Transaction) => void
   onTransactions?: () => void
   transactions: Transaction[]
+  onFindTransaction?: (id: string) => Promise<Transaction | null>
+  pendingItemCallbacks?: import('./PendingItemDetailScreen').PendingItemDetailCallbacks
 }
 
 export function MintDetailScreen({
@@ -40,6 +42,8 @@ export function MintDetailScreen({
   onSelectTransaction,
   onTransactions,
   transactions,
+  onFindTransaction,
+  pendingItemCallbacks,
 }: MintDetailScreenProps) {
   const { t } = useTranslation()
   const settings = useAppStore((s) => s.settings)
@@ -53,12 +57,12 @@ export function MintDetailScreen({
     if (item.direction === 'send' && item.kind === 'token') {
       // sent-token has a matching transaction — navigate to TransactionDetailScreen
       try {
-        const { getDatabase } = await import('@/data/database/schema')
-        const db = getDatabase()
-        const tx = await db.transactions.get(item.id)
-        if (tx) {
-          onSelectTransaction(tx)
-          return
+        if (onFindTransaction) {
+          const tx = await onFindTransaction(item.id)
+          if (tx) {
+            onSelectTransaction(tx)
+            return
+          }
         }
       } catch { /* fallthrough to detail sheet */ }
     }
@@ -91,6 +95,7 @@ export function MintDetailScreen({
       <PendingItemDetailScreen
         item={selectedPendingItem}
         onBack={() => setSelectedPendingItem(null)}
+        callbacks={pendingItemCallbacks}
       />
     )
   }

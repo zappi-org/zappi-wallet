@@ -10,12 +10,9 @@ import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useMintHealth } from '@/hooks/use-mint-health'
 import type { MintInfo } from '@/core/types'
 import { normalizeMintUrl } from '@/utils/url'
-import { NostrService } from '@/services/nostr/nostr.service'
-import { ZappiLinkAdapter } from '@/adapters/zappi-link/zappi-link.adapter'
 import type { ProviderDefaults } from '@/core/ports/driven/lightning-address.port'
-import { PaymentService } from '@/services/payment/payment.service'
-import { getTransactionRepo } from '@/data/repositories/transaction.repository'
-import { sendToken } from '@/coco'
+import { useServiceRegistry } from '@/hooks/use-service-registry'
+import { sat, toNumber } from '@/core/domain/amount'
 import { BaseError } from '@/core/errors/base'
 import { toErrorMessage } from '@/utils/error-message'
 import { ZAPPI_LINK_DOMAIN } from '@/core/constants'
@@ -40,15 +37,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
 
   const { getDisplayName, getIconUrl } = useMintMetadata(settings.mints)
   const { getCachedStatus } = useMintHealth()
-
-  const [services] = useState(() => ({
-    nostr: new NostrService(),
-    payment: new PaymentService(),
-  }))
-  const zappiLinkService = useMemo(
-    () => new ZappiLinkAdapter(services.nostr.createNip98AuthToken.bind(services.nostr)),
-    [services.nostr]
-  )
+  const registry = useServiceRegistry()
 
   // Username validation
   const [newUsername, setNewUsername] = useState('')
@@ -124,7 +113,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
     debounceRef.current = setTimeout(async () => {
       setIsCheckingUsername(true)
       try {
-        const result = await zappiLinkService.checkUsername(newUsername)
+        const result = await registry.username.checkUsername(newUsername)
         if (result.isErr()) {
           setUsernameError(t('settings.usernameChangeFailed'))
           return
@@ -144,7 +133,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
 
         // Fetch server defaults for fee info (via ref to avoid dependency loop)
         if (!serverDefaultsRef.current) {
-          const defaultsResult = await zappiLinkService.getDefaults()
+          const defaultsResult = await registry.username.getDefaults()
           if (defaultsResult.isOk()) {
             serverDefaultsRef.current = defaultsResult.value
             setProviderDefaults(defaultsResult.value)
@@ -164,7 +153,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [newUsername, zappiLinkService, t, autoSelectMint])
+  }, [newUsername, registry, t, autoSelectMint])
 
   // --- Derived: affordability ---
   const addressFee = serverDefaults?.addressFee ?? 0
@@ -231,31 +220,30 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
           addToast({ type: 'error', message: t('settings.paymentFailed') })
           return
         }
-        const swapResult = await services.payment.mintSwap(
-          selectedMintUrl,
-          normalizeMintUrl(targetMint),
-          fee
-        )
-        if (swapResult.isErr()) {
-          addToast({ type: 'error', message: toErrorMessage(swapResult.error) })
+        const swapResult = await registry.swap.executeSwap({
+          sourceAccountId: selectedMintUrl,
+          targetAccountId: normalizeMintUrl(targetMint),
+          amount: sat(fee),
+        })
+        if (!swapResult.ok) {
+          addToast({ type: 'error', message: toErrorMessage(swapResult.error as unknown as BaseError) })
           return
         }
         paymentMintUrl = normalizeMintUrl(targetMint)
-        swapFee = swapResult.value.fee
-
-        // Update swap transaction memo + total cost (including swap fee)
-        const transactionRepo = getTransactionRepo()
-        await transactionRepo.update(swapResult.value.transactionId, {
-          memo: t('settings.addressChangeFee', { username: newUsername }),
-          amount: fee + swapFee,
-        })
+        swapFee = toNumber(swapResult.value.fee)
       }
 
       // Create fee payment token
       let cashuToken = ''
       if (fee > 0) {
         try {
-          cashuToken = await sendToken(paymentMintUrl, fee)
+          const sendResult = await registry.payment.send({
+            accountId: paymentMintUrl,
+            amount: sat(fee),
+            options: { createToken: true },
+          })
+          if (!sendResult.ok) throw sendResult.error
+          cashuToken = (sendResult.value as { token?: string }).token ?? ''
         } catch (sendError) {
           const message = sendError instanceof BaseError
             ? toErrorMessage(sendError)
@@ -266,27 +254,13 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
       }
 
       // Submit username change
-      const result = await zappiLinkService.changeUsername(nostrPrivkey, newUsername, cashuToken)
+      const result = await registry.username.changeUsername(nostrPrivkey, newUsername, cashuToken)
       if (result.isErr()) {
         addToast({ type: 'error', message: toErrorMessage(result.error) })
         return
       }
 
-      // Record fee transaction (only for direct payment; swap already recorded)
-      if (fee > 0 && isAccepted) {
-        const transactionRepo = getTransactionRepo()
-        await transactionRepo.create({
-          id: `tx-fee-${crypto.randomUUID()}`,
-          direction: 'send',
-          type: 'ecash',
-          amount: fee,
-          mintUrl: paymentMintUrl,
-          status: 'completed',
-          createdAt: Date.now(),
-          completedAt: Date.now(),
-          memo: t('settings.addressChangeFee', { username: newUsername }),
-        })
-      }
+      // Fee transaction is automatically recorded by PaymentService.send()
 
       // Persist settings + dismiss screen immediately
       updateSettings({ lightningAddress: result.value.address })
@@ -318,8 +292,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
     selectedMintUrl,
     nostrPrivkey,
     newUsername,
-    services.payment,
-    zappiLinkService,
+    registry,
     addToast,
     updateSettings,
     onSaveSettings,

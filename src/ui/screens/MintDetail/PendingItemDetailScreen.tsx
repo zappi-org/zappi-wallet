@@ -9,9 +9,18 @@ import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import type { PendingItem } from '@/hooks/usePendingItems'
 import { isReceiveRequest, isSendToken, isOfflineToken } from '@/ui/types/pending-item-details'
 
+export interface PendingItemDetailCallbacks {
+  onRedeemToken?: (tokenStr: string, itemId: string) => Promise<boolean>
+  onReclaimToken?: (itemId: string, operationId?: string, tokenStr?: string) => Promise<{ success: boolean; alreadySpent?: boolean }>
+  onCheckQuote?: (mintUrl: string, quoteId: string) => Promise<{ state: string; request?: string } | null>
+  onRedeemQuote?: (mintUrl: string, quoteId: string, amount: number) => Promise<void>
+  onDeleteItem?: (itemId: string, table: 'pendingReceivedTokens' | 'pendingSendTokens') => Promise<void>
+}
+
 export interface PendingItemDetailScreenProps {
   item: PendingItem
   onBack: () => void
+  callbacks?: PendingItemDetailCallbacks
 }
 
 async function copyToClipboard(text: string) {
@@ -27,7 +36,7 @@ async function copyToClipboard(text: string) {
   }
 }
 
-export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScreenProps) {
+export function PendingItemDetailScreen({ item, onBack, callbacks }: PendingItemDetailScreenProps) {
   const { t, i18n } = useTranslation()
   const formatSats = useFormatSats()
   const toFiat = useFormatFiat()
@@ -52,11 +61,12 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
   // Fetch invoice from coco for orphan quotes (no invoice in item)
   useEffect(() => {
     if (!reqDetails || reqDetails.invoice) return
+    const checkQuote = callbacks?.onCheckQuote
+    if (!checkQuote) return
     let cancelled = false
     ;(async () => {
       try {
-        const { getMintQuote } = await import('@/coco/manager')
-        const quote = await getMintQuote(item.accountId, quoteId)
+        const quote = await checkQuote(item.accountId, quoteId)
         if (!cancelled && quote?.request) {
           setInvoice(quote.request)
         }
@@ -65,7 +75,7 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
       }
     })()
     return () => { cancelled = true }
-  }, [reqDetails, item.accountId, quoteId])
+  }, [reqDetails, item.accountId, quoteId, callbacks])
 
   const handleCopy = useCallback(async (text: string, field: string) => {
     await copyToClipboard(text)
@@ -76,15 +86,11 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
   // === Action handlers ===
 
   const handleRedeem = useCallback(async () => {
-    if (!tokenStr) return
+    if (!tokenStr || !callbacks?.onRedeemToken) return
     setIsProcessing(true)
     try {
-      const { PaymentService } = await import('@/services/payment/payment.service')
-      const service = new PaymentService()
-      const result = await service.receiveEcash(tokenStr)
-      if (result.isOk()) {
-        const { getDatabase } = await import('@/data/database/schema')
-        await getDatabase().pendingReceivedTokens.delete(item.id)
+      const success = await callbacks.onRedeemToken(tokenStr, item.id)
+      if (success) {
         addToast({ type: 'success', message: t('pending.redeemSuccess'), duration: 2000 })
         onBack()
       } else {
@@ -95,48 +101,35 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
     } finally {
       setIsProcessing(false)
     }
-  }, [tokenStr, item.id, onBack, addToast, t])
+  }, [tokenStr, item.id, onBack, addToast, t, callbacks])
 
   const handleReclaim = useCallback(async () => {
-    if (!operationId && !tokenStr) return
+    if ((!operationId && !tokenStr) || !callbacks?.onReclaimToken) return
     setIsProcessing(true)
-    const { getDatabase } = await import('@/data/database/schema')
-    const db = getDatabase()
     try {
-      if (operationId) {
-        const { rollbackSendToken } = await import('@/coco/cashuService')
-        await rollbackSendToken(operationId)
-      } else if (tokenStr) {
-        const { receiveToken } = await import('@/coco/cashuService')
-        await receiveToken(tokenStr)
-      }
-      const { markSendReclaimed } = await import('@/coco/sendTokenObserver')
-      await markSendReclaimed(item.id)
-      await db.pendingSendTokens.delete(item.id)
-      addToast({ type: 'success', message: t('txDetail.reclaimSuccess'), duration: 2000 })
-      onBack()
-    } catch (err) {
-      const msg = String(err).toLowerCase()
-      if (msg.includes('spent') || msg.includes('finalized')) {
-        const { markSendFinalized } = await import('@/coco/sendTokenObserver')
-        await markSendFinalized(item.id)
-        await db.pendingSendTokens.delete(item.id)
+      const result = await callbacks.onReclaimToken(item.id, operationId, tokenStr)
+      if (result.alreadySpent) {
         addToast({ type: 'info', message: t('txDetail.alreadySpent'), duration: 2000 })
+        onBack()
+      } else if (result.success) {
+        addToast({ type: 'success', message: t('txDetail.reclaimSuccess'), duration: 2000 })
         onBack()
       } else {
         addToast({ type: 'error', message: t('txDetail.reclaimFailed'), duration: 2000 })
       }
+    } catch {
+      addToast({ type: 'error', message: t('txDetail.reclaimFailed'), duration: 2000 })
     } finally {
       setIsProcessing(false)
     }
-  }, [operationId, tokenStr, item.id, onBack, addToast, t])
+  }, [operationId, tokenStr, item.id, onBack, addToast, t, callbacks])
 
   const handleCheckQuote = useCallback(async () => {
+    if (!callbacks?.onCheckQuote) return
     setIsCheckingQuote(true)
     setQuoteStatus(null)
     try {
-      const { getMintQuote } = await import('@/coco/manager')
-      const quote = await getMintQuote(item.accountId, quoteId)
+      const quote = await callbacks.onCheckQuote(item.accountId, quoteId)
       if (quote) {
         setQuoteStatus(quote.state)
       } else {
@@ -147,22 +140,13 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
     } finally {
       setIsCheckingQuote(false)
     }
-  }, [item.accountId, quoteId])
+  }, [item.accountId, quoteId, callbacks])
 
   const handleRedeemQuote = useCallback(async () => {
+    if (!callbacks?.onRedeemQuote) return
     setIsRedeeming(true)
     try {
-      const { redeemMintQuote } = await import('@/coco/cashuService')
-      await redeemMintQuote(item.accountId, quoteId, item.amount)
-
-      if (reqDetails?.quoteId) {
-        const { findByQuoteId, completeReceiveRequest } = await import('@/services/receive-request')
-        const req = await findByQuoteId(quoteId)
-        if (req && req.status === 'pending') {
-          await completeReceiveRequest(req.id, 'lightning')
-        }
-      }
-
+      await callbacks.onRedeemQuote(item.accountId, quoteId, item.amount)
       addToast({ type: 'success', message: t('pending.redeemSuccess'), duration: 2000 })
       onBack()
     } catch (err) {
@@ -171,7 +155,7 @@ export function PendingItemDetailScreen({ item, onBack }: PendingItemDetailScree
     } finally {
       setIsRedeeming(false)
     }
-  }, [item.accountId, reqDetails?.quoteId, quoteId, item.amount, onBack, addToast, t])
+  }, [item.accountId, quoteId, item.amount, onBack, addToast, t, callbacks])
 
   const locale = getLocaleCode(i18n.language)
 

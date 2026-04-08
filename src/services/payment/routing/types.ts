@@ -5,7 +5,7 @@
  * Cashu Fee-Optimal Routing spec (ZAP-86) 기반.
  */
 
-import type { ValidatedData, ParsedCashuRequest } from '@/ui/components/scanner/InputValidator'
+import type { ValidatedData, ParsedCashuRequest } from '@/core/domain/input-types'
 import type { OutgoingPaymentTransport } from '@/core/ports/driven/outgoing-payment-transport.port'
 
 // ============= Route Enum =============

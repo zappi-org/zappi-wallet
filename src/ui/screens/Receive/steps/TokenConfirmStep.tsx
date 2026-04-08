@@ -26,7 +26,7 @@ import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
 import { selectP2pkPubkey } from '@/store/selectors'
 import { isP2PKLockedToUser } from '@/utils/token'
-import type { ValidatedCashuToken } from '@/ui/components/scanner/InputValidator'
+import type { ValidatedCashuToken } from '@/core/domain/input-types'
 import type { DleqResult } from '@/utils/token'
 
 // Offline state banner config

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { selectRoute, findCommonMints, selectSourceMint } from '@/services/payment/routing/select-route'
 import { PaymentRoute, type RouteInput } from '@/services/payment/routing/types'
-import type { ValidatedBolt11, ValidatedLightningAddress, ValidatedLnurlPay, ValidatedCashuRequest, ValidatedMyWallet } from '@/ui/components/scanner/InputValidator'
+import type { ValidatedBolt11, ValidatedLightningAddress, ValidatedLnurlPay, ValidatedCashuRequest, ValidatedMyWallet } from '@/core/domain/input-types'
 
 // ─── Helpers ───
 

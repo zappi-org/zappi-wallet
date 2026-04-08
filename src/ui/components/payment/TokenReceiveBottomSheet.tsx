@@ -9,8 +9,8 @@ import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
 import { Clipboard } from 'lucide-react'
 import { QrScanner } from '@/ui/components/common/QrScanner'
-import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
-import { validateInput, type ValidatedCashuToken } from '@/ui/components/scanner/InputValidator'
+import { useInputParser } from '@/hooks/use-input-parser'
+import type { ValidatedCashuToken } from '@/core/domain/input-types'
 import { hapticTap, hapticError } from '@/utils/haptic'
 import { useAppStore } from '@/store'
 
@@ -43,6 +43,7 @@ function TokenReceiveBottomSheetInner({
 }: Omit<TokenReceiveBottomSheetProps, 'isOpen'>) {
   const { t } = useTranslation()
   const addToast = useAppStore((s) => s.addToast)
+  const inputParser = useInputParser()
   const [state, setState] = useState<SheetState>('idle')
 
   // Process detected input through detect → validate pipeline
@@ -57,10 +58,8 @@ function TokenReceiveBottomSheetInner({
       hapticTap()
 
       try {
-        // Step 1: Detect input type (sync)
-        const detected = detectInputType(trimmed)
+        const detected = inputParser.detectAndClassify(trimmed)
 
-        // Only accept cashu-token type
         if (detected.type !== 'cashu-token') {
           hapticError()
           addToast({
@@ -72,23 +71,10 @@ function TokenReceiveBottomSheetInner({
           return
         }
 
-        // Step 2: Validate (async)
-        const result = await validateInput(detected)
+        const validated = await inputParser.validateAsync(detected)
 
-        if (!result.valid) {
-          hapticError()
-          addToast({
-            type: 'error',
-            message: result.error,
-            duration: 3000,
-          })
-          setState('idle')
-          return
-        }
-
-        // Success — must be ValidatedCashuToken since we filtered for cashu-token
         hapticTap()
-        onTokenDetected(result.data as ValidatedCashuToken)
+        onTokenDetected(validated as ValidatedCashuToken)
         onClose()
       } catch {
         hapticError()
@@ -100,7 +86,7 @@ function TokenReceiveBottomSheetInner({
         setState('idle')
       }
     },
-    [state, addToast, onTokenDetected, onClose, t],
+    [state, addToast, onTokenDetected, onClose, t, inputParser],
   )
 
   // QR scan handler

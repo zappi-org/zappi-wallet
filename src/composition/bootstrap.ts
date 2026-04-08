@@ -45,6 +45,32 @@ import { deleteCocoData, clearWalletCache as clearCocoWalletCache } from '@/coco
 import { clearMintData } from '@/data/database/schema'
 import { resetWalletCache } from '@/data/cache/wallet-cache'
 
+// ─── Phase 6: New Adapters ───
+import { CryptoGatewayAdapter } from '@/adapters/crypto/crypto-gateway.adapter'
+import { TokenCodecAdapter } from '@/adapters/codec/token-codec.adapter'
+import { FeeEstimatorAdapter } from '@/adapters/coco/fee-estimator.adapter'
+import { SendTokenOperatorAdapter } from '@/adapters/coco/send-token-operator.adapter'
+import { MintHealthCheckerAdapter } from '@/adapters/health/mint-health-checker.adapter'
+import { MintMetadataStoreAdapter } from '@/adapters/metadata/mint-metadata-store.adapter'
+
+// ─── Phase 6: New Core Services ───
+import { CryptoService } from '@/core/services/crypto.service'
+import { InputParserService } from '@/core/services/input-parser.service'
+import { RoutingService } from '@/core/services/routing.service'
+import { MintMetadataFacadeService } from '@/core/services/mint-metadata-facade.service'
+import { MintHealthFacadeService } from '@/core/services/mint-health-facade.service'
+import { TransactionMgmtService } from '@/core/services/transaction-mgmt.service'
+import { ReceiveRequestFacadeService } from '@/core/services/receive-request-facade.service'
+import { PaymentRequestService } from '@/core/services/payment-request.service'
+import { UsernameService } from '@/core/services/username.service'
+
+// ─── Phase 6: Metadata + NUT-18 HTTP ───
+import { mintMetadataService, metadataEvents } from '@/modules/cashu/metadata'
+import { startNut18HttpPoller } from '@/services/cashu/nut18-http'
+import { ZappiLinkAdapter } from '@/adapters/zappi-link/zappi-link.adapter'
+import { NostrService } from '@/services/nostr/nostr.service'
+import { DexieReceiveRequestRepository } from '@/adapters/storage/dexie/dexie-receive-request.repository'
+
 // ─── Composition Roots ───
 import { createPaymentService } from './payment'
 import { createBalanceService } from './balance'
@@ -251,6 +277,49 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const withdraw = {} as ServiceRegistry['withdraw']
   const lnurlAuth = {} as ServiceRegistry['lnurlAuth']
 
+  // 12. Phase 6: New services
+  const cryptoGateway = new CryptoGatewayAdapter()
+  const crypto = new CryptoService(cryptoGateway)
+
+  const tokenCodec = new TokenCodecAdapter()
+  const inputParser = new InputParserService(tokenCodec, lnurlAdapter)
+
+  const feeEstimator = new FeeEstimatorAdapter()
+  const routing = new RoutingService(feeEstimator)
+
+  const mintMetadataStore = new MintMetadataStoreAdapter(mintMetadataService, metadataEvents)
+  const mintMetadata = new MintMetadataFacadeService(mintMetadataStore)
+
+  const mintHealthChecker = new MintHealthCheckerAdapter()
+  const mintHealth = new MintHealthFacadeService(mintHealthChecker)
+
+  const sendTokenOperator = new SendTokenOperatorAdapter()
+  const transactionMgmt = new TransactionMgmtService(txRepo, sendTokenOperator)
+
+  const receiveRequestRepo = new DexieReceiveRequestRepository()
+  const receiveRequest = new ReceiveRequestFacadeService(receiveRequestRepo)
+
+  const paymentRequest = new PaymentRequestService(tokenCodec, (opts) => {
+    const poller = startNut18HttpPoller({
+      endpoint: opts.endpoint,
+      requestId: opts.requestId,
+      intervalMs: opts.intervalMs,
+      maxDurationMs: opts.maxDurationMs,
+    })
+    return {
+      stop: poller.cancel,
+      onPayment: poller.onPayment,
+      onError: poller.onError,
+    }
+  })
+
+  const nostrServiceInstance = new NostrService()
+  const zappiLinkProvider = new ZappiLinkAdapter(
+    (privateKeyHex, url, method) =>
+      nostrServiceInstance.createNip98AuthToken(privateKeyHex, url, method),
+  )
+  const username = new UsernameService(zappiLinkProvider)
+
   return {
     // ─── ServiceRegistry (driving ports only) ───
     eventBus,
@@ -268,6 +337,15 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     pendingItems,
     withdraw,
     lnurlAuth,
+    mintMetadata,
+    mintHealth,
+    crypto,
+    receiveRequest,
+    transactionMgmt,
+    inputParser,
+    paymentRequest,
+    routing,
+    username,
 
     // ─── BootstrapResult extensions (MainApp only) ───
     cashuModule,

@@ -14,7 +14,7 @@ import { MintSelectBottomSheet } from '@/ui/components/payment'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
 import { MintIcon } from '@/ui/components/common/MintIcon'
-import type { ValidatedCashuToken } from '@/ui/components/scanner/InputValidator'
+import type { ValidatedCashuToken } from '@/core/domain/input-types'
 
 interface UntrustedMintStepProps {
   onBack: () => void

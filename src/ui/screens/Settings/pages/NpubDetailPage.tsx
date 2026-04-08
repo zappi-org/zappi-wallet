@@ -5,7 +5,7 @@ import { SettingsDetailPage } from '../components/SettingsDetailPage'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { Button } from '@/ui/components/common/Button'
 import { useAppStore } from '@/store'
-import { encodeNpub } from '@/services/crypto'
+import { useCrypto } from '@/hooks/use-crypto'
 import { hapticTap } from '@/utils/haptic'
 
 interface NpubDetailPageProps {
@@ -16,9 +16,10 @@ export function NpubDetailPage({ onBack }: NpubDetailPageProps) {
   const { t } = useTranslation()
   const nostrPubkey = useAppStore((s) => s.nostrPubkey)
   const addToast = useAppStore((s) => s.addToast)
+  const crypto = useCrypto()
   const [copied, setCopied] = useState(false)
 
-  const npub = nostrPubkey ? encodeNpub(nostrPubkey) : ''
+  const npub = nostrPubkey ? crypto.encodeNpub(nostrPubkey) : ''
 
   const handleCopy = useCallback(async () => {
     hapticTap()
