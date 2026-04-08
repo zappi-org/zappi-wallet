@@ -1,7 +1,7 @@
 import type { PendingOperationRepository } from '@/core/ports/driven/pending-operation.repository.port'
 import type { PendingOperation } from '@/core/domain/pending-operation'
 import { sat } from '@/core/domain/amount'
-import { getDatabase } from '@/data/database/schema'
+import { getDatabase } from './schema'
 
 /**
  * kind별로 레거시 Dexie 테이블에 라우팅하는 어댑터.

@@ -1,8 +1,8 @@
 import type { ReceiveRequestRepository } from '@/core/ports/driven/receive-request.repository.port'
 import type { ReceiveRequest, PaymentMethod } from '@/core/domain/receive-request'
 import { expireReceiveRequest } from '@/core/domain/receive-request'
-import type { ReceiveRequestRecord } from '@/data/database/schema'
-import { getDatabase } from '@/data/database/schema'
+import type { ReceiveRequestRecord } from './schema'
+import { getDatabase } from './schema'
 import { sat, toNumber } from '@/core/domain/amount'
 import { stripTrailingSlash } from '@/utils/url'
 

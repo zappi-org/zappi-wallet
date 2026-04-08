@@ -1,5 +1,5 @@
 import type { OperationMap } from '@/core/ports/driven/operation-map.port'
-import { getDatabase } from '@/data/database/schema'
+import { getDatabase } from './schema'
 
 /**
  * pendingSendTokens 테이블 + 인메모리 매핑 기반 OperationMap 구현.

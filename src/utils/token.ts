@@ -1,5 +1,5 @@
 import { getDecodedToken, hasValidDleq, type Token, type Proof } from '@cashu/cashu-ts'
-import type { Wallet } from '@/data/cache/wallet-cache'
+import type { Wallet } from '@/adapters/cache/wallet-cache'
 
 /**
  * P2PK secret structure

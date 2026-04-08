@@ -4,7 +4,7 @@
  * pendingReceivedTokens 테이블 접근을 OfflineTokenStore port로 제공.
  */
 
-import { getDatabase } from '@/data/database/schema'
+import { getDatabase } from './schema'
 import type { OfflineTokenStore } from '@/core/ports/driven/offline-token-store.port'
 
 export class DexieOfflineTokenStore implements OfflineTokenStore {

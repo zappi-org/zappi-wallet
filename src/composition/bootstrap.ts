@@ -42,8 +42,8 @@ import { executeRoute as legacyExecuteRoute } from '@/services/payment/routing'
 
 // ─── Coco (composition root만 접근) ───
 import { deleteCocoData, clearWalletCache as clearCocoWalletCache } from '@/modules/cashu'
-import { clearMintData } from '@/data/database/schema'
-import { resetWalletCache } from '@/data/cache/wallet-cache'
+import { clearMintData } from '@/adapters/storage/dexie/schema'
+import { resetWalletCache } from '@/adapters/cache/wallet-cache'
 
 // ─── Phase 6: New Adapters ───
 import { CryptoGatewayAdapter } from '@/adapters/crypto/crypto-gateway.adapter'

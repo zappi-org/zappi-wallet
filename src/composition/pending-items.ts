@@ -5,7 +5,7 @@
 import { PendingItemsService, type PendingItemsDataSource } from '@/core/services/pending-items.service'
 import type { PendingItemsUseCase } from '@/core/ports/driving/pending-items.usecase'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
-import { getDatabase } from '@/data/database/schema'
+import { getDatabase } from '@/adapters/storage/dexie/schema'
 import { getPendingReceiveRequests } from '@/services/receive-request'
 import { getActivePendingQuotes } from '@/modules/cashu'
 
