@@ -41,7 +41,7 @@ import { exchangeRateService } from './exchange-rate'
 import { executeRoute as legacyExecuteRoute } from './routing'
 
 // ─── Coco (composition root만 접근) ───
-import { deleteCocoData, clearWalletCache as clearCocoWalletCache } from '@/modules/cashu'
+import { deleteCocoData } from '@/modules/cashu'
 import { clearMintData } from '@/adapters/storage/dexie/schema'
 import { resetWalletCache } from '@/adapters/cache/wallet-cache'
 
@@ -373,7 +373,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     // Cleanup
     cleanup: {
       deleteCocoData,
-      clearWalletCache: clearCocoWalletCache,
+      clearWalletCache: () => { /* no-op: cashu-ts wallet cache no longer used */ },
       clearMintData: (mintUrl: string) => clearMintData(mintUrl),
       resetWalletCache,
       deleteAllContacts: () => contactRepo.deleteAll(),

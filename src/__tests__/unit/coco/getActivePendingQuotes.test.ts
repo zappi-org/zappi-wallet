@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { MintQuote } from 'coco-cashu-core'
 
 // Mock Coco manager
-vi.mock('@/coco/manager', () => ({
+vi.mock('@/modules/cashu/internal/coco-sdk', () => ({
   getPendingMintQuotes: vi.fn(),
 }))
 
-import { getPendingMintQuotes } from '@/coco/manager'
+import { getPendingMintQuotes } from '@/modules/cashu/internal/coco-sdk'
 import { getActivePendingQuotes } from '@/coco/cashuService'
 
 const mockGetPendingMintQuotes = vi.mocked(getPendingMintQuotes)

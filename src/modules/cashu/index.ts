@@ -10,6 +10,7 @@ export {
   getMintQuote,
 } from './internal/coco-sdk'
 
-export { getActivePendingQuotes, clearWalletCache } from '@/coco/cashuService'
-export { isSwapQuote } from '@/coco/bridge'
-export { setCachedMnemonic, clearCachedMnemonic } from '@/coco/seedGetter'
+export { getActivePendingQuotes } from './internal/cashu-backend'
+// clearWalletCache removed — was a no-op function (cashu-ts wallet cache no longer used)
+export { isSwapQuote, markQuoteAsSwap, unmarkQuoteAsSwap } from './internal/swap-quote-tracker'
+export { setCachedMnemonic, clearCachedMnemonic } from './internal/seed-getter'

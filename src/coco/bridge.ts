@@ -10,20 +10,9 @@ import { getDatabase } from '@/adapters/storage/dexie/schema';
 // Coco 이벤트 구독 해제 함수들
 let unsubscribers: (() => void)[] = [];
 
-// 스왑 quote 필터링 — bridge 토스트 억제용
-const swapQuoteIds = new Set<string>();
-
-export function markQuoteAsSwap(quoteId: string): void {
-  swapQuoteIds.add(quoteId);
-}
-
-export function unmarkQuoteAsSwap(quoteId: string): void {
-  swapQuoteIds.delete(quoteId);
-}
-
-export function isSwapQuote(quoteId: string): boolean {
-  return swapQuoteIds.has(quoteId);
-}
+// Swap quote tracking — delegated to modules/cashu/internal
+import { isSwapQuote, markQuoteAsSwap, unmarkQuoteAsSwap } from '@/modules/cashu/internal/swap-quote-tracker';
+export { isSwapQuote, markQuoteAsSwap, unmarkQuoteAsSwap };
 
 /**
  * Coco Manager 이벤트를 Zustand 스토어에 연결
@@ -63,7 +52,7 @@ export function connectCocoToStore(manager: Manager): void {
 
     // 스왑 quote는 토스트 억제 (use-payment.ts에서 swap 전용 토스트 표시)
     // delete는 하지 않음 — observer가 swap 여부 확인 후 정리
-    if (swapQuoteIds.has(operation.quoteId)) {
+    if (isSwapQuote(operation.quoteId)) {
       console.log(`[Coco Bridge] Swap quote redeemed (toast suppressed): ${operation.quoteId}`);
     } else {
       addToast({

@@ -5,7 +5,7 @@ import type { MintQuote } from 'coco-cashu-core'
 const mockEnableWatchers = vi.fn()
 const mockGetCocoManager = vi.fn()
 const mockGetPendingMintQuotes = vi.fn()
-vi.mock('@/coco/manager', () => ({
+vi.mock('@/modules/cashu/internal/coco-sdk', () => ({
   getPendingMintQuotes: (...args: unknown[]) => mockGetPendingMintQuotes(...args),
   getCocoManager: (...args: unknown[]) => mockGetCocoManager(...args),
   enableWatchers: (...args: unknown[]) => mockEnableWatchers(...args),
