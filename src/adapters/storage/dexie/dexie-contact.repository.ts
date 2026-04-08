@@ -3,7 +3,7 @@ import type {
 } from '@/core/ports/driven/contact.repository.port'
 import type { Contact } from '@/core/domain/contact'
 import type { Contact as LegacyContact } from '@/core/types'
-import { getContactRepo } from '@/data/repositories/contact.repository'
+import { getDatabase } from './schema'
 
 function toDomain(legacy: LegacyContact): Contact {
   return {
@@ -34,40 +34,40 @@ function toLegacy(domain: Contact): LegacyContact {
 }
 
 export class DexieContactRepository implements ContactRepository {
-  private get repo() {
-    return getContactRepo()
+  private get table() {
+    return getDatabase().contacts
   }
 
   async save(contact: Contact): Promise<void> {
-    await this.repo.save(toLegacy(contact))
+    await this.table.put(toLegacy(contact))
   }
 
   async getById(id: string): Promise<Contact | null> {
-    const legacy = await this.repo.findById(id)
+    const legacy = await this.table.get(id)
     return legacy ? toDomain(legacy) : null
   }
 
   async list(): Promise<Contact[]> {
-    const results = await this.repo.findAll()
+    const results = await this.table.orderBy('name').toArray()
     return results.map(toDomain)
   }
 
   async update(id: string, patch: Partial<Contact>): Promise<void> {
-    const existing = await this.repo.findById(id)
+    const existing = await this.table.get(id)
     if (!existing) return
-    await this.repo.save(toLegacy({ ...toDomain(existing), ...patch }))
+    await this.table.put(toLegacy({ ...toDomain(existing), ...patch }))
   }
 
   async delete(id: string): Promise<void> {
-    await this.repo.delete(id)
+    await this.table.delete(id)
   }
 
   async deleteAll(): Promise<void> {
-    await this.repo.deleteAll()
+    await this.table.clear()
   }
 
   async findByAddress(address: string): Promise<Contact | null> {
-    const legacy = await this.repo.findByAddress(address)
+    const legacy = await this.table.where('address').equals(address).first()
     return legacy ? toDomain(legacy) : null
   }
 }

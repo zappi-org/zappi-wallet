@@ -4,40 +4,78 @@ import type {
   EncryptedWalletData,
   LockStateData,
 } from '@/core/ports/driven/settings.repository.port'
-import { SettingsRepository as LegacySettingsRepository } from '@/data/repositories/settings.repository'
+import { getDatabase, type SettingsRecord, type EncryptedWalletRecord, type LockStateRecord } from './schema'
+import { DEFAULT_MINTS, DEFAULT_RELAYS, AUTO_LOCK } from '@/core/constants'
 
+const CURRENT_ID = 'current'
+
+function getDefaultSettings(): WalletSettingsData {
+  return {
+    mints: [...DEFAULT_MINTS],
+    relays: [...DEFAULT_RELAYS],
+    autoLockEnabled: true,
+    autoLockTimeoutMinutes: AUTO_LOCK.DEFAULT_TIMEOUT_MINUTES,
+    soundEnabled: true,
+    expertModeEnabled: false,
+    manualMintSelectionEnabled: false,
+    balanceHidden: false,
+  } as WalletSettingsData
+}
+
+function getDefaultLockState(): LockStateData {
+  return { isLocked: true, failedAttempts: 0 }
+}
+
+/**
+ * Standalone Dexie settings repository — no legacy repo dependency.
+ * Directly accesses Dexie tables via getDatabase().
+ */
 export class DexieSettingsRepository implements SettingsRepository {
-  private legacy = new LegacySettingsRepository()
+  private get db() { return getDatabase() }
 
   async getSettings(): Promise<WalletSettingsData> {
-    return this.legacy.getSettings() as Promise<WalletSettingsData>
+    const record = await this.db.settings.get(CURRENT_ID)
+    if (!record) return getDefaultSettings()
+    const { id: _, ...saved } = record
+    return { ...getDefaultSettings(), ...saved } as WalletSettingsData
   }
 
   async saveSettings(settings: WalletSettingsData): Promise<void> {
-    await this.legacy.saveSettings(settings as Parameters<typeof this.legacy.saveSettings>[0])
+    await this.db.settings.put({ ...settings, id: CURRENT_ID } as SettingsRecord)
   }
 
   async getEncryptedWallet(): Promise<EncryptedWalletData | null> {
-    return this.legacy.getEncryptedWallet() as Promise<EncryptedWalletData | null>
+    const record = await this.db.encryptedWallet.get(CURRENT_ID)
+    if (!record) return null
+    const { id: _, ...data } = record
+    return data as EncryptedWalletData
   }
 
   async saveEncryptedWallet(data: EncryptedWalletData): Promise<void> {
-    await this.legacy.saveEncryptedWallet(data as Parameters<typeof this.legacy.saveEncryptedWallet>[0])
+    await this.db.encryptedWallet.put({ ...data, id: CURRENT_ID } as EncryptedWalletRecord)
   }
 
   async deleteEncryptedWallet(): Promise<void> {
-    await this.legacy.deleteEncryptedWallet()
+    await this.db.encryptedWallet.delete(CURRENT_ID)
   }
 
   async getLockState(): Promise<LockStateData> {
-    return this.legacy.getLockState()
+    const record = await this.db.lockState.get(CURRENT_ID)
+    if (!record) return getDefaultLockState()
+    const { id: _, ...state } = record
+    return state as LockStateData
   }
 
   async saveLockState(state: LockStateData): Promise<void> {
-    await this.legacy.saveLockState(state)
+    await this.db.lockState.put({ ...state, id: CURRENT_ID } as LockStateRecord)
   }
 
   async clearAll(): Promise<void> {
-    await this.legacy.clearAll()
+    await Promise.all([
+      this.db.settings.clear(),
+      this.db.encryptedWallet.clear(),
+      this.db.lockState.clear(),
+      this.db.syncAnchor.clear(),
+    ])
   }
 }

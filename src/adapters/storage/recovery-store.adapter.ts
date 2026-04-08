@@ -1,25 +1,27 @@
 import type { RecoveryStore } from '@/core/ports/driven/recovery-store.port'
 import type { SyncAnchor, ProcessedRecord } from '@/core/types'
-import { SettingsRepository } from '@/data/repositories/settings.repository'
-import { ProcessedRepository } from '@/data/repositories/processed.repository'
+import { getDatabase } from './dexie/schema'
+
+const CURRENT_ID = 'current'
 
 export class RecoveryStoreAdapter implements RecoveryStore {
-  private settings = new SettingsRepository()
-  private processed = new ProcessedRepository()
-
   async getAnchor(): Promise<SyncAnchor | null> {
-    return this.settings.getSyncAnchor()
+    const record = await getDatabase().syncAnchor.get(CURRENT_ID)
+    if (!record) return null
+    const { id: _, ...anchor } = record
+    return anchor
   }
 
   async saveAnchor(anchor: SyncAnchor): Promise<void> {
-    return this.settings.saveSyncAnchor(anchor)
+    await getDatabase().syncAnchor.put({ ...anchor, id: CURRENT_ID })
   }
 
   async isProcessed(externalId: string): Promise<boolean> {
-    return this.processed.isProcessed(externalId)
+    const count = await getDatabase().processedRecords.where('externalId').equals(externalId).count()
+    return count > 0
   }
 
   async markProcessed(record: ProcessedRecord): Promise<void> {
-    return this.processed.markProcessed(record)
+    await getDatabase().processedRecords.put(record)
   }
 }

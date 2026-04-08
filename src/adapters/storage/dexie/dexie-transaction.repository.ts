@@ -6,7 +6,7 @@ import type { Transaction, TransactionStatus, TransactionOutcome } from '@/core/
 import type { TransactionIntent } from '@/core/domain/transaction'
 import type { Transaction as LegacyTransaction } from '@/core/types'
 import { sat, toNumber } from '@/core/domain/amount'
-import { getTransactionRepo } from '@/data/repositories/transaction.repository'
+import { getDatabase } from './schema'
 
 // legacy type → domain method 매핑
 const TYPE_TO_METHOD: Record<string, string> = {
@@ -139,16 +139,16 @@ function toLegacy(domain: Transaction): LegacyTransaction {
 }
 
 export class DexieTransactionRepository implements TransactionRepository {
-  private get repo() {
-    return getTransactionRepo()
+  private get table() {
+    return getDatabase().transactions
   }
 
   async save(tx: Transaction): Promise<void> {
-    await this.repo.save(toLegacy(tx))
+    await this.table.put(toLegacy(tx))
   }
 
   async getById(id: string): Promise<Transaction | null> {
-    const legacy = await this.repo.findById(id)
+    const legacy = await this.table.get(id)
     return legacy ? toDomain(legacy) : null
   }
 
@@ -156,20 +156,19 @@ export class DexieTransactionRepository implements TransactionRepository {
     let results: LegacyTransaction[]
 
     if (filter?.direction) {
-      results = await this.repo.findByDirection(filter.direction)
+      results = (await this.table.where('direction').equals(filter.direction).sortBy('createdAt')).reverse()
     } else if (filter?.status) {
       const legacyStatus = filter.status === 'settled' ? 'completed' : filter.status
-      results = await this.repo.findByStatus(legacyStatus)
+      results = (await this.table.where('status').equals(legacyStatus).sortBy('createdAt')).reverse()
     } else if (filter?.accountId) {
-      results = await this.repo.findByMint(filter.accountId)
+      results = (await this.table.where('mintUrl').equals(filter.accountId).sortBy('createdAt')).reverse()
     } else {
-      results = await this.repo.findAll({
-        limit: filter?.limit,
-        offset: filter?.offset,
-      })
+      let query = this.table.orderBy('createdAt').reverse()
+      if (filter?.offset) query = query.offset(filter.offset)
+      if (filter?.limit) query = query.limit(filter.limit)
+      results = await query.toArray()
     }
 
-    // 추가 필터 적용 (기존 repo가 복합 필터를 지원 안 하므로)
     if (filter?.direction && filter?.status) {
       const legacyStatus = filter.status === 'settled' ? 'completed' : filter.status
       results = results.filter((tx) => tx.status === legacyStatus)
@@ -200,16 +199,19 @@ export class DexieTransactionRepository implements TransactionRepository {
   }
 
   async findAll(filter?: { limit?: number }): Promise<Transaction[]> {
-    const results = await this.repo.findAll({ limit: filter?.limit })
+    let query = this.table.orderBy('createdAt').reverse()
+    if (filter?.limit) query = query.limit(filter.limit)
+    const results = await query.toArray()
     return results.map(toDomain)
   }
 
   async deleteAll(): Promise<void> {
-    await this.repo.deleteAll()
+    await this.table.clear()
   }
 
   async deleteOlderThan(days: number): Promise<void> {
-    await this.repo.deleteOlderThan(days)
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000
+    await this.table.where('createdAt').below(cutoff).delete()
   }
 
   async update(id: string, patch: Partial<Transaction>): Promise<void> {
@@ -222,8 +224,7 @@ export class DexieTransactionRepository implements TransactionRepository {
       if (mapped.tokenState !== undefined) (legacyPatch as Record<string, unknown>).tokenState = mapped.tokenState
     }
     if (patch.protocol !== undefined) {
-      // protocol 변경 시 기존 tx를 읽어서 method+protocol→type 역매핑
-      const existing = await this.repo.findById(id)
+      const existing = await this.table.get(id)
       if (existing) {
         const method = patch.method ?? TYPE_TO_METHOD[existing.type] ?? 'cashu:lightning'
         legacyPatch.type = methodToLegacyType(method, patch.protocol, patch.intent) as LegacyTransaction['type']
@@ -233,6 +234,6 @@ export class DexieTransactionRepository implements TransactionRepository {
     if (patch.memo !== undefined) legacyPatch.memo = patch.memo
     if (patch.metadata !== undefined) legacyPatch.metadata = patch.metadata
 
-    await this.repo.update(id, legacyPatch)
+    await this.table.update(id, legacyPatch)
   }
 }
