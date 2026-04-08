@@ -21,7 +21,7 @@ import type { TransactionRepository } from '@/core/ports/driven/transaction.repo
 import { settleAsDelivered } from '@/core/domain/transaction';
 import { useAppStore } from '@/store';
 import { broadcastSync } from '@/hooks/use-cross-tab-sync';
-import { isSwapQuote, unmarkQuoteAsSwap } from '@/modules/cashu/internal/swap-quote-tracker';
+import { isSwapQuote, unmarkQuoteAsSwap } from '@/modules/cashu';
 
 let unsubscribers: (() => void)[] = [];
 

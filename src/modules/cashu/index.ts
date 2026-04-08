@@ -10,7 +10,35 @@ export {
   getMintQuote,
 } from './internal/coco-sdk'
 
-export { getActivePendingQuotes } from './internal/cashu-backend'
+export {
+  getActivePendingQuotes,
+  prepareSend,
+  executeSend,
+  rollbackSend,
+  prepareMelt,
+  executeMelt,
+  rollbackMelt,
+  createMintQuote,
+  redeemMintQuote,
+  type LockingCondition,
+} from './internal/cashu-backend'
+export type { MetadataStore } from './internal/metadata-store'
 // clearWalletCache removed — was a no-op function (cashu-ts wallet cache no longer used)
 export { isSwapQuote, markQuoteAsSwap, unmarkQuoteAsSwap } from './internal/swap-quote-tracker'
 export { setCachedMnemonic, clearCachedMnemonic } from './internal/seed-getter'
+
+// Legacy Cashu service functions (until fully migrated to cashu-backend)
+export {
+  rollbackSendToken,
+  prepareSendToken,
+  executeSendToken,
+  receiveToken,
+  receiveP2PKToken,
+  sendToken,
+  getBalances,
+  restoreWallet,
+  recoverPendingMelts,
+  recoverPendingSendTokens,
+  addMint,
+  recoverPendingQuotes,
+} from './internal/cashu-service-legacy'

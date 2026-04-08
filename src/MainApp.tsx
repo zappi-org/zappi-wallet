@@ -1160,7 +1160,7 @@ export default function MainApp() {
               return quote ? { state: quote.state, request: quote.request } : null
             },
             onRedeemQuote: async (mintUrl: string, quoteId: string, amount: number) => {
-              const { redeemMintQuote } = await import('@/modules/cashu/internal/cashu-service-legacy')
+              const { redeemMintQuote } = await import('@/modules/cashu')
               await redeemMintQuote(mintUrl, quoteId, amount)
             },
           } : undefined}

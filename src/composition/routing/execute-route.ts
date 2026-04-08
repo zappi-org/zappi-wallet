@@ -20,7 +20,7 @@ import {
   createMintQuote,
   redeemMintQuote,
   type LockingCondition,
-} from '@/modules/cashu/internal/cashu-backend'
+} from '@/modules/cashu'
 import { markQuoteAsSwap, unmarkQuoteAsSwap } from '@/modules/cashu'
 import { getDatabase } from '@/adapters/storage/dexie/schema'
 import { broadcastSync } from '@/hooks/use-cross-tab-sync'

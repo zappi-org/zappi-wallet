@@ -10,7 +10,7 @@ export class FeeEstimatorAdapter implements FeeEstimator {
     targetMint?: string,
     invoice?: string,
   ): Promise<FeeEstimate> {
-    const coco = await import('@/modules/cashu/internal/cashu-service-legacy')
+    const coco = await import('@/modules/cashu')
 
     switch (route) {
       case PR.MELT_TO_LN:
@@ -46,7 +46,7 @@ export class FeeEstimatorAdapter implements FeeEstimator {
     targetMint: string,
     amount: number,
   ): Promise<FeeEstimate> {
-    const coco = await import('@/modules/cashu/internal/cashu-service-legacy')
+    const coco = await import('@/modules/cashu')
 
     const quote = await coco.createMintQuote(targetMint, amount)
     const meltResult = await coco.prepareMelt(sourceMint, quote.request)
