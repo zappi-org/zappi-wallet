@@ -12,9 +12,7 @@ import type { MintInfo } from '@/core/types'
 import { normalizeMintUrl } from '@/utils/url'
 import type { ProviderDefaults } from '@/core/ports/driven/lightning-address.port'
 import { useServiceRegistry } from '@/hooks/use-service-registry'
-import { sat, toNumber } from '@/core/domain/amount'
-import { BaseError } from '@/core/errors/base'
-import { toErrorMessage } from '@/utils/error-message'
+import type { Amount } from '@/core/domain/amount'
 import { ZAPPI_LINK_DOMAIN } from '@/core/constants'
 
 const USERNAME_REGEX = /^[a-z0-9]{3,20}$/
@@ -223,14 +221,14 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
         const swapResult = await registry.swap.executeSwap({
           sourceAccountId: selectedMintUrl,
           targetAccountId: normalizeMintUrl(targetMint),
-          amount: sat(fee),
+          amount: { value: BigInt(fee), unit: 'sat' } as Amount,
         })
         if (!swapResult.ok) {
-          addToast({ type: 'error', message: toErrorMessage(swapResult.error as unknown as BaseError) })
+          addToast({ type: 'error', message: String((swapResult.error as { message?: string }).message ?? t('settings.paymentFailed')) })
           return
         }
         paymentMintUrl = normalizeMintUrl(targetMint)
-        swapFee = toNumber(swapResult.value.fee)
+        swapFee = Number(swapResult.value.fee.value)
       }
 
       // Create fee payment token
@@ -239,14 +237,14 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
         try {
           const sendResult = await registry.payment.send({
             accountId: paymentMintUrl,
-            amount: sat(fee),
+            amount: { value: BigInt(fee), unit: 'sat' } as Amount,
             options: { createToken: true },
           })
           if (!sendResult.ok) throw sendResult.error
           cashuToken = (sendResult.value as { token?: string }).token ?? ''
         } catch (sendError) {
-          const message = sendError instanceof BaseError
-            ? toErrorMessage(sendError)
+          const message = sendError instanceof Error
+            ? sendError.message
             : t('settings.paymentFailed')
           addToast({ type: 'error', message })
           return
@@ -256,7 +254,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
       // Submit username change
       const result = await registry.username.changeUsername(nostrPrivkey, newUsername, cashuToken)
       if (result.isErr()) {
-        addToast({ type: 'error', message: toErrorMessage(result.error) })
+        addToast({ type: 'error', message: String((result.error as { message?: string }).message ?? t('settings.paymentFailed')) })
         return
       }
 
@@ -278,8 +276,8 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
       onBack()
     } catch (error) {
       console.error('[UsernameChange] Error:', error)
-      const message = error instanceof BaseError
-        ? toErrorMessage(error)
+      const message = error instanceof Error
+        ? error.message
         : t('settings.usernameChangeFailed')
       addToast({ type: 'error', message })
     } finally {

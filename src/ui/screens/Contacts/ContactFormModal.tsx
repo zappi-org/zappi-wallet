@@ -6,7 +6,14 @@ import { Button } from '@/ui/components/common/Button'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
 import { CameraFilled } from '@/ui/components/icons/CameraFilled'
 import type { Contact } from '@/core/types'
-import { detectAddressType, type ContactAddressType } from '@/core/types/contact'
+import type { ContactAddressType } from '@/core/types/contact'
+
+function detectAddressType(address: string): ContactAddressType {
+  const trimmed = address.trim()
+  if (trimmed.includes('@')) return 'lightning'
+  if (trimmed.startsWith('npub1')) return 'npub'
+  return 'custom'
+}
 import { useServiceRegistry } from '@/hooks/use-service-registry'
 import { useCrypto } from '@/hooks/use-crypto'
 

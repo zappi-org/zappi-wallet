@@ -6,7 +6,12 @@ import { EmptyState } from '@/ui/components/common/EmptyState'
 import { ConfirmDialog } from '@/ui/components/common/ConfirmDialog'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { ContactFormModal } from './ContactFormModal'
-import { detectAddressType } from '@/core/types/contact'
+function detectAddressType(address: string): 'lightning' | 'npub' | 'custom' {
+  const trimmed = address.trim()
+  if (trimmed.includes('@')) return 'lightning'
+  if (trimmed.startsWith('npub1')) return 'npub'
+  return 'custom'
+}
 import { useInputParser } from '@/hooks/use-input-parser'
 import type { ValidatedData } from '@/core/domain/input-types'
 import { useAppStore } from '@/store'

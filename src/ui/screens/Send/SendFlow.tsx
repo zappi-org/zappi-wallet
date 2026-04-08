@@ -20,8 +20,6 @@ import { useNetwork } from '@/hooks/use-network'
 import { useInputParser } from '@/hooks/use-input-parser'
 import { useAppStore } from '@/store'
 import { useTranslation } from 'react-i18next'
-import { InsufficientBalanceError } from '@/core/errors/cashu'
-import { toErrorMessage } from '@/utils/error-message'
 import type {
   ValidatedData,
   ValidatedBolt11,
@@ -512,12 +510,12 @@ export function SendFlow({
       }
     } catch (err) {
       console.error('[SendFlow] Send error:', err)
-      const message = err instanceof InsufficientBalanceError
-        ? toErrorMessage(err)
+      const message = (err as { code?: string }).code === 'INSUFFICIENT_BALANCE'
+        ? ((err as { message?: string }).message ?? t('payment.insufficientBalance'))
         : t('payment.sendFailed')
       setState((prev) => ({ ...prev, step: 'confirm', error: message }))
       // Only show toast for errors not already handled by MainApp
-      if (err instanceof InsufficientBalanceError) {
+      if ((err as { code?: string }).code === 'INSUFFICIENT_BALANCE') {
         addToast({ type: 'error', message, duration: 4000 })
       }
     } finally {
@@ -563,10 +561,10 @@ export function SendFlow({
       }
     } catch (err) {
       console.error('[SendFlow] Token create error:', err)
-      const message = err instanceof InsufficientBalanceError
-        ? toErrorMessage(err)
+      const message = (err as { code?: string }).code === 'INSUFFICIENT_BALANCE'
+        ? ((err as { message?: string }).message ?? t('payment.insufficientBalance'))
         : t('errors.generic')
-      addToast({ type: 'error', message, duration: err instanceof InsufficientBalanceError ? 4000 : 3000 })
+      addToast({ type: 'error', message, duration: (err as { code?: string }).code === 'INSUFFICIENT_BALANCE' ? 4000 : 3000 })
     } finally {
       isProcessingRef.current = false
       setIsLoading(false)
