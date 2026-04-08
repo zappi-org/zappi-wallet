@@ -211,7 +211,7 @@ async function executeMeltFlow(
       createdAt: Date.now(),
     })
 
-    await cocoExecuteMelt(meltOp.operationId)
+    const meltResult = await cocoExecuteMelt(meltOp.operationId)
 
     // TX record
     const transactionId = `tx-melt-${meltOp.quoteId}`
@@ -225,6 +225,7 @@ async function executeMeltFlow(
       createdAt: Date.now(),
       completedAt: Date.now(),
       bolt11: invoice,
+      preimage: meltResult.preimage,
       metadata: { fee: actualFee, destination },
     })
 

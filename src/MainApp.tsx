@@ -1143,7 +1143,10 @@ export default function MainApp() {
             setCurrentScreen('history')
           }}
           transactions={transactions}
-          onFindTransaction={serviceRegistry ? async (id: string) => serviceRegistry.transactionMgmt.getById(id) as unknown as Transaction | null : undefined}
+          onFindTransaction={serviceRegistry ? async (id: string) => {
+            const { getDatabase } = await import('@/adapters/storage/dexie/schema')
+            return (await getDatabase().transactions.get(id)) ?? null
+          } : undefined}
           pendingItemCallbacks={serviceRegistry ? {
             onRedeemToken: async (tokenStr: string, _itemId: string) => {
               const result = await serviceRegistry.payment.redeem({ adapterId: 'cashu:ecash', input: tokenStr })

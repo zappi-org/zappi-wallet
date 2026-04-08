@@ -34,9 +34,35 @@ export function createPendingItemsService(txRepo: TransactionRepository): Pendin
 
     async getPendingSendTokens(mintVariants) {
       const db = getDatabase()
-      return mintVariants
-        ? db.pendingSendTokens.where('mintUrl').anyOf(mintVariants).toArray()
-        : db.pendingSendTokens.toArray()
+
+      // 1. Legacy pendingSendTokens 테이블 (이전 코드에서 생성된 레코드)
+      const legacyRecords = mintVariants
+        ? await db.pendingSendTokens.where('mintUrl').anyOf(mintVariants).toArray()
+        : await db.pendingSendTokens.toArray()
+
+      // 2. PaymentService 경로: transactions 테이블에서 unclaimed send 조회
+      const pendingTxs = await db.transactions
+        .where('status').equals('pending')
+        .filter((tx) => {
+          if (tx.direction !== 'send' || tx.tokenState !== 'unspent') return false
+          if (!mintVariants) return true
+          return mintVariants.includes(tx.mintUrl)
+        })
+        .toArray()
+
+      const txRecords = pendingTxs.map((tx) => ({
+        id: tx.id,
+        amount: tx.amount,
+        mintUrl: tx.mintUrl,
+        createdAt: tx.createdAt,
+        token: tx.token ?? (tx.metadata?.token as string | undefined),
+        operationId: tx.operationId ?? (tx.metadata?.operationId as string | undefined),
+      }))
+
+      // 중복 제거 (같은 id가 양쪽에 있을 수 있음)
+      const seen = new Set(legacyRecords.map((r) => r.id))
+      const merged = [...legacyRecords, ...txRecords.filter((r) => !seen.has(r.id))]
+      return merged
     },
 
     async getActivePendingQuotes() {

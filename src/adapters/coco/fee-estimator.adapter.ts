@@ -1,6 +1,15 @@
 import type { FeeEstimator } from '@/core/ports/driven/fee-estimator.port'
 import type { PaymentRoute, FeeEstimate } from '@/core/domain/routing'
 import { PaymentRoute as PR } from '@/core/domain/routing'
+import { InsufficientBalanceError } from '@/core/errors/cashu'
+import { ProofValidationError } from 'coco-cashu-core'
+
+function rethrowClassified(error: unknown): never {
+  if (error instanceof ProofValidationError && error.message.includes('Not enough proofs')) {
+    throw new InsufficientBalanceError(0, 0, error)
+  }
+  throw error
+}
 
 export class FeeEstimatorAdapter implements FeeEstimator {
   async estimateRouteFee(
@@ -12,32 +21,36 @@ export class FeeEstimatorAdapter implements FeeEstimator {
   ): Promise<FeeEstimate> {
     const coco = await import('@/modules/cashu')
 
-    switch (route) {
-      case PR.MELT_TO_LN:
-      case PR.LN_INTERNAL: {
-        if (!invoice) return { fee: 0, totalNeeded: amount }
-        const meltResult = await coco.prepareMelt(sourceMint, invoice)
-        const fee = (meltResult.fee_reserve ?? 0) + (meltResult.swap_fee ?? 0)
-        await coco.rollbackMelt(meltResult.operationId, 'fee_estimation')
-        return { fee, totalNeeded: amount + fee }
-      }
+    try {
+      switch (route) {
+        case PR.MELT_TO_LN:
+        case PR.LN_INTERNAL: {
+          if (!invoice) return { fee: 0, totalNeeded: amount }
+          const meltResult = await coco.prepareMelt(sourceMint, invoice)
+          const fee = (meltResult.fee_reserve ?? 0) + (meltResult.swap_fee ?? 0)
+          await coco.rollbackMelt(meltResult.operationId, 'fee_estimation')
+          return { fee, totalNeeded: amount + fee }
+        }
 
-      case PR.LN_CROSS_MINT: {
-        if (!targetMint) return { fee: 0, totalNeeded: amount }
-        return this.estimateMyWalletFee(sourceMint, targetMint, amount)
-      }
+        case PR.LN_CROSS_MINT: {
+          if (!targetMint) return { fee: 0, totalNeeded: amount }
+          return await this.estimateMyWalletFee(sourceMint, targetMint, amount)
+        }
 
-      case PR.TOKEN_TRANSFER:
-      case PR.OWN_MINT_TOKEN:
-      case PR.MINT_AND_DM: {
-        const sendResult = await coco.prepareSend({ mintUrl: sourceMint, amount })
-        const fee = sendResult.fee ?? 0
-        await coco.rollbackSend(sendResult.operationId)
-        return { fee, totalNeeded: amount + fee }
-      }
+        case PR.TOKEN_TRANSFER:
+        case PR.OWN_MINT_TOKEN:
+        case PR.MINT_AND_DM: {
+          const sendResult = await coco.prepareSend({ mintUrl: sourceMint, amount })
+          const fee = sendResult.fee ?? 0
+          await coco.rollbackSend(sendResult.operationId)
+          return { fee, totalNeeded: amount + fee }
+        }
 
-      default:
-        return { fee: 0, totalNeeded: amount }
+        default:
+          return { fee: 0, totalNeeded: amount }
+      }
+    } catch (error) {
+      rethrowClassified(error)
     }
   }
 

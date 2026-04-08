@@ -21,7 +21,7 @@ import type { TransactionRepository } from '@/core/ports/driven/transaction.repo
 import { settleAsDelivered } from '@/core/domain/transaction';
 import { useAppStore } from '@/store';
 import { broadcastSync } from '@/hooks/use-cross-tab-sync';
-import { isSwapQuote, unmarkQuoteAsSwap } from '@/modules/cashu';
+import { isSwapQuote } from '@/modules/cashu';
 
 let unsubscribers: (() => void)[] = [];
 
@@ -65,6 +65,9 @@ export async function recordLightningReceive(params: {
           status: settled.status,
           outcome: settled.outcome,
           completedAt: settled.completedAt,
+          ...(params.bolt11 && !existingTx.metadata?.bolt11 && {
+            metadata: { ...existingTx.metadata, bolt11: params.bolt11 },
+          }),
         });
         useAppStore.getState().triggerTxRefresh();
         broadcastSync('balance_changed');
@@ -111,9 +114,9 @@ export function connectMintQuoteObserver(manager: Manager): void {
     const { operation, mintUrl } = event;
     if (operation.state !== 'finalized') return;
 
-    // 스왑 quote는 별도 swap 거래가 기록되므로 skip + Set 정리
+    // 스왑 quote는 별도 swap 거래가 기록되므로 skip
+    // unmark는 SwapService 완료/실패 시 수행 (bridge와 race 방지)
     if (isSwapQuote(operation.quoteId)) {
-      unmarkQuoteAsSwap(operation.quoteId);
       return;
     }
 

@@ -67,9 +67,8 @@ export const TransactionRow = memo(function TransactionRow({
   const isPending = tx.status === 'pending'
   const isFailed = tx.status === 'failed'
 
-  const amountPrefix = isSwap ? '' : isReceive ? '' : '-'
+  const amountPrefix = isReceive ? '' : '-'
   const amountColor = isFailed ? 'line-through text-foreground-muted'
-    : isSwap ? 'text-foreground-muted'
     : isPending ? cn(isReceive ? 'text-primary' : 'text-foreground', 'opacity-60')
     : isReceive ? 'text-primary' : 'text-foreground'
   const fiatStr = formatTransactionFiat(tx, formatFiat)

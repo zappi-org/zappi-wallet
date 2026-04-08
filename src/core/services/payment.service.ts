@@ -107,11 +107,16 @@ export class PaymentService implements PaymentUseCase {
           status: settled.status,
           outcome: settled.outcome,
           completedAt: settled.completedAt,
+          method: result.method,
           protocol: result.protocol,
           metadata: result.data,
         })
       } else {
-        await this.txRepo.update(txId, { protocol: result.protocol, metadata: result.data })
+        await this.txRepo.update(txId, {
+          method: result.method,
+          protocol: result.protocol,
+          metadata: { ...result.data, operationId: result.operationId },
+        })
         // operationMap에 등록 → sendTokenObserver가 send:finalized 시 txId 조회 가능
         if (result.operationId) {
           this.operationMap?.register(result.operationId, txId)
@@ -130,7 +135,7 @@ export class PaymentService implements PaymentUseCase {
       return Ok({
         transactionId: txId,
         state: result.state,
-        data: result.data,
+        data: { ...result.data, operationId: result.operationId },
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error'
@@ -182,7 +187,7 @@ export class PaymentService implements PaymentUseCase {
         amount: params.amount,
         accountId: params.accountId,
         memo: params.description,
-        metadata: { quoteId: request.id },
+        metadata: { quoteId: request.id, bolt11: request.encoded },
       })
       await this.txRepo.save(tx)
 
@@ -238,6 +243,7 @@ export class PaymentService implements PaymentUseCase {
         protocol: result.protocol,
         amount: result.amount,
         accountId: result.accountId ?? adapter.moduleId,
+        memo: result.memo,
       })
       const settled = settleAsDelivered(tx)
       await this.txRepo.save(settled)

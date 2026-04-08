@@ -1,7 +1,6 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  ArrowRightLeft,
   Copy,
   Check,
   Share2,
@@ -167,6 +166,11 @@ export default function TransactionDetailScreen({
   const contextSentence = useMemo(() => {
     const mintName = getDisplayName(tx.mintUrl)
 
+    if (isSwap && typeof metadata?.fromMintUrl === 'string' && typeof metadata?.toMintUrl === 'string') {
+      const from = getDisplayName(metadata.fromMintUrl)
+      const to = getDisplayName(metadata.toMintUrl)
+      return t('txDetail.swappedFromTo', { from, to })
+    }
     if (isSwap) {
       return t('txDetail.swappedAt', { mint: mintName })
     }
@@ -290,7 +294,7 @@ export default function TransactionDetailScreen({
           <span className={`text-display font-bold font-display tracking-tight leading-tight ${
             isReceive ? 'text-card-brand-dark' : 'text-foreground'
           }`}>
-            {isReceive ? '+' : isSwap ? '' : '-'}{formatSats(tx.amount)}
+            {isReceive ? '+' : '-'}{formatSats(tx.amount)}
           </span>
 
           {/* Fiat */}
@@ -440,11 +444,6 @@ export default function TransactionDetailScreen({
             <div className="bg-background-card rounded px-4">
               {typeof metadata.fromMintUrl === 'string' && (
                 <InfoRow label={t('txDetail.fromMint')} value={getDisplayName(metadata.fromMintUrl)} />
-              )}
-              {typeof metadata.fromMintUrl === 'string' && typeof metadata.toMintUrl === 'string' && (
-                <div className="flex justify-center py-1.5">
-                  <ArrowRightLeft className="w-3.5 h-3.5 text-foreground-muted" />
-                </div>
               )}
               {typeof metadata.toMintUrl === 'string' && (
                 <InfoRow label={t('txDetail.toMint')} value={getDisplayName(metadata.toMintUrl)} />

@@ -23,12 +23,14 @@ import type {
 import type { WalletModule } from '@/core/ports/driven/wallet-module.port'
 import type { PaymentMethodAdapter } from '@/core/ports/driven/payment-method.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
+import type { SwapQuoteMarker } from '@/core/ports/driven/swap-quote-marker.port'
 
 export class SwapService implements SwapUseCase {
   constructor(
     private modules: WalletModule[],
     private txRepo: TransactionRepository,
     private eventBus: EventBus,
+    private swapQuoteMarker?: SwapQuoteMarker,
   ) {}
 
   getAvailableSwaps(): SwapPair[] {
@@ -105,6 +107,7 @@ export class SwapService implements SwapUseCase {
     const sendTxId = crypto.randomUUID()
     const receiveTxId = crypto.randomUUID()
     let swapAmount = params.amount
+    let swapQuoteId: string | null = null
 
     try {
       // 1. Target에서 receive request 생성
@@ -112,6 +115,10 @@ export class SwapService implements SwapUseCase {
         amount: swapAmount,
         accountId: params.targetAccountId,
       })
+
+      // 스왑 quote 마킹 — mint-quote-observer가 중복 TX 생성하지 않도록
+      swapQuoteId = request.id
+      this.swapQuoteMarker?.mark(swapQuoteId)
 
       // 2. Receive 완료 대기 등록 (send 전에 등록 — race condition 방지)
       let receiveCompleted = this.waitForReceiveCompletion(targetLightning, request.id)
@@ -149,6 +156,8 @@ export class SwapService implements SwapUseCase {
             amount: swapAmount,
             accountId: params.targetAccountId,
           })
+          swapQuoteId = request.id
+          this.swapQuoteMarker?.mark(swapQuoteId)
           receiveCompleted = this.waitForReceiveCompletion(targetLightning, request.id)
           prepared = await sourceLightning.prepareSend({
             destination: request.encoded,
@@ -159,6 +168,11 @@ export class SwapService implements SwapUseCase {
       }
 
       // 4. Transaction 기록
+      const swapMeta = {
+        fromMintUrl: params.sourceAccountId,
+        toMintUrl: params.targetAccountId,
+        fee: toNumber(prepared.fee),
+      }
       const sendTx = createTransaction({
         id: sendTxId,
         direction: 'send',
@@ -168,6 +182,7 @@ export class SwapService implements SwapUseCase {
         accountId: params.sourceAccountId,
         intent: 'swap',
         linkedTxId: receiveTxId,
+        metadata: swapMeta,
       })
       const receiveTx = createTransaction({
         id: receiveTxId,
@@ -178,6 +193,7 @@ export class SwapService implements SwapUseCase {
         accountId: params.targetAccountId,
         intent: 'swap',
         linkedTxId: sendTxId,
+        metadata: swapMeta,
       })
       await Promise.all([this.txRepo.save(sendTx), this.txRepo.save(receiveTx)])
 
@@ -214,6 +230,9 @@ export class SwapService implements SwapUseCase {
         payload: { moduleId: targetLightning.moduleId, accountId: params.targetAccountId },
       })
 
+      // 스왑 quote 마킹 해제
+      if (swapQuoteId) this.swapQuoteMarker?.unmark(swapQuoteId)
+
       return Ok({
         sendTxId,
         receiveTxId,
@@ -221,6 +240,9 @@ export class SwapService implements SwapUseCase {
         fee: prepared.fee,
       })
     } catch (error) {
+      // 스왑 quote 마킹 해제 (실패 시에도)
+      if (swapQuoteId) this.swapQuoteMarker?.unmark(swapQuoteId)
+
       const message = error instanceof Error ? error.message : 'Unknown error'
 
       await Promise.all([

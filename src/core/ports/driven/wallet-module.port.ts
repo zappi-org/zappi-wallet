@@ -11,6 +11,7 @@ export interface SendParams {
 
 export interface SendResult {
   operationId: string
+  method: string
   protocol: string
   state: string
   data?: Record<string, unknown>

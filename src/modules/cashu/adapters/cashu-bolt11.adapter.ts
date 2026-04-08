@@ -28,7 +28,7 @@ export interface LightningBackend {
     fee_reserve: number
     swap_fee: number
   }>
-  executeMelt(operationId: string): Promise<{ state: string }>
+  executeMelt(operationId: string): Promise<{ state: string; preimage?: string }>
   rollbackMelt(operationId: string, reason?: string): Promise<void>
   createMintQuote(mintUrl: string, amount: number): Promise<{
     quote: string
@@ -91,7 +91,11 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter {
 
   async executeSend(preparedId: string): Promise<ExecutingPayment> {
     const result = await this.backend.executeMelt(preparedId)
-    return { id: preparedId, state: result.state }
+    return {
+      id: preparedId,
+      state: result.state,
+      data: result.preimage ? { preimage: result.preimage } : undefined,
+    }
   }
 
   async cancelPrepared(preparedId: string): Promise<void> {

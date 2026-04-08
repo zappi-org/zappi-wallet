@@ -30,6 +30,7 @@ import type {
 } from '@/core/domain/input-types'
 import { useRouting, PaymentRoute, ROUTE_LABELS } from '@/hooks/use-routing'
 import type { RouteSelection, RouteContext, RouteExecutionResult } from '@/core/domain/routing'
+import { translateError } from '@/utils/error-i18n'
 
 // ============= Helpers =============
 
@@ -271,7 +272,7 @@ export function SendFlow({
       return { fee, routeSelection }
     } catch (err) {
       console.error('[SendFlow] Route selection / fee estimation failed:', err)
-      addToast({ type: 'error', message: t('payment.feeEstimateFailed'), duration: 3000 })
+      addToast({ type: 'error', message: translateError(err, t), duration: 3000 })
       return null
     }
   }, [addToast, t, routing])
@@ -561,10 +562,7 @@ export function SendFlow({
       }
     } catch (err) {
       console.error('[SendFlow] Token create error:', err)
-      const message = (err as { code?: string }).code === 'INSUFFICIENT_BALANCE'
-        ? ((err as { message?: string }).message ?? t('payment.insufficientBalance'))
-        : t('errors.generic')
-      addToast({ type: 'error', message, duration: (err as { code?: string }).code === 'INSUFFICIENT_BALANCE' ? 4000 : 3000 })
+      addToast({ type: 'error', message: translateError(err, t), duration: 3000 })
     } finally {
       isProcessingRef.current = false
       setIsLoading(false)

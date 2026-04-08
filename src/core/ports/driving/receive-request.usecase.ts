@@ -8,7 +8,10 @@ export interface CreateReceiveRequestParams {
   requestId?: string
   quoteId?: string
   bolt11?: string
+  ecashRequest?: string
+  ecashRequestId?: string
   httpEndpoint?: string
+  bip321Uri?: string
 }
 
 export interface ReceiveRequestData {

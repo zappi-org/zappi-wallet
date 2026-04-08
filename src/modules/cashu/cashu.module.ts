@@ -128,6 +128,7 @@ export class CashuModule implements WalletModule {
     const result = await this.ecashAdapter.executeSend(prepared.id)
     return {
       operationId: prepared.id,
+      method: 'cashu:ecash',
       protocol: 'cashu-token',
       state: 'completed',
       data: { token: result.data?.token },
@@ -168,6 +169,7 @@ export class CashuModule implements WalletModule {
 
     return {
       operationId: prepared.operationId,
+      method: 'cashu:ecash',
       protocol: 'nut18',
       state: 'completed',
       data: { type: result.type, token: result.token },
@@ -184,6 +186,7 @@ export class CashuModule implements WalletModule {
     const result = await this.bolt11Adapter.executeSend(prepared.id)
     return {
       operationId: prepared.id,
+      method: 'cashu:lightning',
       protocol: 'bolt11',
       state: result.state,
       data: result.data,

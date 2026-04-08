@@ -4,6 +4,7 @@ import type {
   ReceiveRequestData,
 } from '@/core/ports/driving/receive-request.usecase'
 import type { ReceiveRequestRepository } from '@/core/ports/driven/receive-request.repository.port'
+import type { PaymentMethod } from '@/core/domain/receive-request'
 import {
   createReceiveRequest as domainCreate,
   completeReceiveRequest as domainComplete,
@@ -15,13 +16,35 @@ export class ReceiveRequestFacadeService implements ReceiveRequestUseCase {
   constructor(private readonly repo: ReceiveRequestRepository) {}
 
   async create(params: CreateReceiveRequestParams): Promise<ReceiveRequestData> {
+    const expiresAt = Date.now() + 30 * 60 * 1000
+    const paymentMethods: PaymentMethod[] = []
+
+    if (params.quoteId && params.bolt11) {
+      paymentMethods.push({
+        type: 'lightning',
+        ref: params.quoteId,
+        encoded: params.bolt11,
+        expiresAt,
+      })
+    }
+
+    if (params.ecashRequest && params.ecashRequestId) {
+      paymentMethods.push({
+        type: 'ecash',
+        ref: params.ecashRequestId,
+        encoded: params.ecashRequest,
+        expiresAt,
+        ...(params.httpEndpoint && { metadata: { httpEndpoint: params.httpEndpoint } }),
+      })
+    }
+
     const req = domainCreate({
       id: params.requestId ?? crypto.randomUUID(),
       amount: params.amount,
       accountId: params.accountId,
-      paymentMethods: [],
-      expiresAt: Date.now() + 30 * 60 * 1000,
-      bip321Uri: params.httpEndpoint,
+      paymentMethods,
+      expiresAt,
+      bip321Uri: params.bip321Uri,
     })
     await this.repo.save(req)
     return toData(req)

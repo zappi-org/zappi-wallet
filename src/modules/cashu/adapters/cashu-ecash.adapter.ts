@@ -131,6 +131,14 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
   // ─── 받기 실행 (redeem) ───
 
   async redeem(input: string): Promise<RedeemResult> {
+    // 메모 추출 (redeem 전에 — receiveToken 후에는 원본 토큰 접근 불가)
+    let memo: string | undefined
+    try {
+      const { getDecodedToken } = await import('@cashu/cashu-ts')
+      const decoded = getDecodedToken(input)
+      if (decoded.memo) memo = decoded.memo
+    } catch { /* ignore decode failure — receiveToken will handle */ }
+
     const { amount, mintUrl } = await this.backend.receiveToken(input)
     return {
       requestId: crypto.randomUUID(),
@@ -139,6 +147,7 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
       protocol: 'cashu-token',
       completed: true,
       accountId: mintUrl,
+      memo,
     }
   }
 

@@ -223,16 +223,26 @@ export class DexieTransactionRepository implements TransactionRepository {
       if (mapped.failureReason !== undefined) legacyPatch.failureReason = mapped.failureReason
       if (mapped.tokenState !== undefined) (legacyPatch as Record<string, unknown>).tokenState = mapped.tokenState
     }
-    if (patch.protocol !== undefined) {
+    if (patch.method !== undefined || patch.protocol !== undefined) {
       const existing = await this.table.get(id)
       if (existing) {
         const method = patch.method ?? TYPE_TO_METHOD[existing.type] ?? 'cashu:lightning'
-        legacyPatch.type = methodToLegacyType(method, patch.protocol, patch.intent) as LegacyTransaction['type']
+        const protocol = patch.protocol ?? TYPE_TO_PROTOCOL[existing.type] ?? 'bolt11'
+        legacyPatch.type = methodToLegacyType(method, protocol, patch.intent) as LegacyTransaction['type']
       }
     }
     if (patch.completedAt !== undefined) legacyPatch.completedAt = patch.completedAt
     if (patch.memo !== undefined) legacyPatch.memo = patch.memo
-    if (patch.metadata !== undefined) legacyPatch.metadata = patch.metadata
+    if (patch.metadata !== undefined) {
+      legacyPatch.metadata = patch.metadata
+      // metadata → flat 필드 동기화 (toLegacy와 동일한 매핑)
+      const meta = patch.metadata as Record<string, unknown>
+      if (meta.token !== undefined) legacyPatch.token = meta.token as string | undefined
+      if (meta.operationId !== undefined) legacyPatch.operationId = meta.operationId as string | undefined
+      if (meta.bolt11 !== undefined) legacyPatch.bolt11 = meta.bolt11 as string | undefined
+      if (meta.preimage !== undefined) legacyPatch.preimage = meta.preimage as string | undefined
+      if (meta.tokenState !== undefined) (legacyPatch as Record<string, unknown>).tokenState = meta.tokenState
+    }
 
     await this.table.update(id, legacyPatch)
   }

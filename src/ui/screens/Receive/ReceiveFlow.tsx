@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next'
 import { isP2PKLockedToUser } from '@/utils/token'
 import type { DleqResult } from '@/utils/token'
 import { formatSats } from '@/utils/format'
+import { translateError } from '@/utils/error-i18n'
 import type { ValidatedData, ValidatedCashuToken } from '@/core/domain/input-types'
 
 /** Check if an error indicates a token was already spent */
@@ -241,6 +242,16 @@ export function ReceiveFlow({
       let receiveRequestId: string | null = null
       if (invoiceResult) {
         const requestId = crypto.randomUUID()
+
+        // Build BIP-321 unified URI if both Lightning + ecash available
+        let bip321Uri: string | undefined
+        if (invoice && ecashReq) {
+          const params = new URLSearchParams()
+          params.set('lightning', invoice)
+          params.set('cr', ecashReq)
+          bip321Uri = `bitcoin:?${params.toString()}`
+        }
+
         try {
           await receiveReq.create({
             requestId,
@@ -249,7 +260,10 @@ export function ReceiveFlow({
             amount: { value: BigInt(data.amount), unit: 'sat' },
             quoteId: invoiceResult.quoteId,
             bolt11: invoiceResult.invoice,
+            ecashRequest: data.ecashRequest,
+            ecashRequestId: data.ecashRequestId,
             httpEndpoint: data.httpEndpoint || undefined,
+            bip321Uri,
           })
           receiveRequestId = requestId
         } catch (err) {
@@ -276,7 +290,7 @@ export function ReceiveFlow({
       }))
     } catch (err) {
       console.error('[ReceiveFlow] Input next error:', err)
-      addToast({ type: 'error', message: t('errors.generic'), duration: 3000 })
+      addToast({ type: 'error', message: translateError(err, t), duration: 3000 })
     } finally {
       isProcessingRef.current = false
       setIsLoading(false)
@@ -433,7 +447,7 @@ export function ReceiveFlow({
       await handleTokenReceive()
     } catch (err) {
       console.error('[ReceiveFlow] Add trust error:', err)
-      addToast({ type: 'error', message: t('errors.generic'), duration: 3000 })
+      addToast({ type: 'error', message: translateError(err, t), duration: 3000 })
       isProcessingRef.current = false
     }
   }, [state.scannedToken, onAddTrustedMint, handleTokenReceive, isOnline, addToast, t])
@@ -469,7 +483,7 @@ export function ReceiveFlow({
       }
     } catch (err) {
       console.error('[ReceiveFlow] Swap to my mint error:', err)
-      addToast({ type: 'error', message: t('errors.generic'), duration: 3000 })
+      addToast({ type: 'error', message: translateError(err, t), duration: 3000 })
     } finally {
       isProcessingRef.current = false
     }
