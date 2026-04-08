@@ -2,8 +2,8 @@ import type { SendTokenOperator, ProofStateResult } from '@/core/ports/driven/se
 
 export class SendTokenOperatorAdapter implements SendTokenOperator {
   async rollbackSendToken(operationId: string): Promise<void> {
-    const { rollbackSendToken } = await import('@/modules/cashu')
-    await rollbackSendToken(operationId)
+    const { rollbackSend } = await import('@/modules/cashu')
+    await rollbackSend(operationId)
   }
 
   async finalizeSend(_operationId: string): Promise<void> {

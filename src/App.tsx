@@ -147,7 +147,8 @@ function App() {
 
         // Recover any pending Lightning quotes
         try {
-          const recovery = await cocoService.recoverPendingQuotes()
+          const { recoverPendingQuotes } = await import('@/composition/recover-pending-quotes')
+          const recovery = await recoverPendingQuotes()
           if (recovery.recovered > 0) {
             console.log(`[Onboarding] Recovered ${recovery.recovered} pending Lightning quotes`)
           }

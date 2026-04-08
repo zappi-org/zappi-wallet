@@ -30,9 +30,9 @@ export class FeeEstimatorAdapter implements FeeEstimator {
       case PR.TOKEN_TRANSFER:
       case PR.OWN_MINT_TOKEN:
       case PR.MINT_AND_DM: {
-        const sendResult = await coco.prepareSendToken(sourceMint, amount)
+        const sendResult = await coco.prepareSend({ mintUrl: sourceMint, amount })
         const fee = sendResult.fee ?? 0
-        await coco.rollbackSendToken(sendResult.operationId)
+        await coco.rollbackSend(sendResult.operationId)
         return { fee, totalNeeded: amount + fee }
       }
 

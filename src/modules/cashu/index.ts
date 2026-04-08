@@ -27,18 +27,8 @@ export type { MetadataStore } from './internal/metadata-store'
 export { isSwapQuote, markQuoteAsSwap, unmarkQuoteAsSwap } from './internal/swap-quote-tracker'
 export { setCachedMnemonic, clearCachedMnemonic, injectSeedCache } from './internal/seed-getter'
 
-// Legacy Cashu service functions (until fully migrated to cashu-backend)
+// Additional cashu-backend exports
 export {
-  rollbackSendToken,
-  prepareSendToken,
-  executeSendToken,
-  receiveToken,
-  receiveP2PKToken,
-  sendToken,
-  getBalances,
   restoreWallet,
-  recoverPendingMelts,
-  recoverPendingSendTokens,
   addMint,
-  recoverPendingQuotes,
-} from './internal/cashu-service-legacy'
+} from './internal/cashu-backend'
