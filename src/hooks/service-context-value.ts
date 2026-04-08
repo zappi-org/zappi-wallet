@@ -5,6 +5,6 @@
  */
 
 import { createContext } from 'react'
-import type { ServiceRegistry } from '@/composition/types'
+import type { ServiceRegistry } from '@/core/ports/driving/service-registry'
 
 export const ServiceContext = createContext<ServiceRegistry | null>(null)

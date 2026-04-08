@@ -52,6 +52,8 @@ function createMocks() {
 
   const seedCache: SeedCache = {
     cacheMnemonic: vi.fn(),
+    getCachedMnemonic: vi.fn().mockReturnValue(null),
+    isCached: vi.fn().mockReturnValue(false),
     clearCache: vi.fn(),
   }
 

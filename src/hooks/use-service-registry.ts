@@ -7,7 +7,7 @@
 
 import { useContext } from 'react'
 import { ServiceContext } from './service-context-value'
-import type { ServiceRegistry } from '@/composition/types'
+import type { ServiceRegistry } from '@/core/ports/driving/service-registry'
 
 export function useServiceRegistry(): ServiceRegistry {
   const registry = useContext(ServiceContext)

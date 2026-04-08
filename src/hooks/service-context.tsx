@@ -5,7 +5,7 @@
  */
 
 import type { ReactNode } from 'react'
-import type { ServiceRegistry } from '@/composition/types'
+import type { ServiceRegistry } from '@/core/ports/driving/service-registry'
 import { ServiceContext } from './service-context-value'
 
 export interface ServiceProviderProps {

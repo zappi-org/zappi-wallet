@@ -1042,7 +1042,7 @@ export default function MainApp() {
           initialDisplayName={contactInfo?.displayName || undefined}
           onSubscribeSendFinalized={serviceRegistry ? (operationId, callback) => {
             let unsubscribe: (() => void) | undefined
-            import('@/modules/cashu/internal/coco-sdk').then(({ getCocoManager }) => {
+            import('@/modules/cashu').then(({ getCocoManager }) => {
               getCocoManager().then((manager) => {
                 unsubscribe = manager.on('send:finalized', ({ operationId: finId }: { operationId: string }) => {
                   if (finId === operationId) callback()
@@ -1155,7 +1155,7 @@ export default function MainApp() {
               return serviceRegistry.transactionMgmt.reclaimSendToken(itemId, operationId, tokenStr)
             },
             onCheckQuote: async (mintUrl: string, quoteId: string) => {
-              const { getMintQuote } = await import('@/modules/cashu/internal/coco-sdk')
+              const { getMintQuote } = await import('@/modules/cashu')
               const quote = await getMintQuote(mintUrl, quoteId)
               return quote ? { state: quote.state, request: quote.request } : null
             },

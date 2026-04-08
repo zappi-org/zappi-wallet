@@ -1,27 +1,32 @@
-import * as bip39 from '@scure/bip39';
+import * as bip39 from '@scure/bip39'
+import type { SeedCache } from '@/core/ports/driven/seed-cache.port'
 
-// 복호화된 니모닉 캐시 (세션 동안 유지)
-let cachedMnemonic: string | null = null;
+// SeedCache instance — injected from composition layer
+let seedCache: SeedCache | null = null
 
 /**
- * 캐시된 니모닉 초기화 (로그아웃 시 호출)
+ * Inject the SeedCache adapter. Must be called before any seed operations.
+ * Called by composition/bootstrap.ts or composition/security.ts.
  */
+export function injectSeedCache(cache: SeedCache): void {
+  seedCache = cache
+}
+
+function requireCache(): SeedCache {
+  if (!seedCache) throw new Error('SeedCache not injected. Call injectSeedCache() first.')
+  return seedCache
+}
+
 export function clearCachedMnemonic(): void {
-  cachedMnemonic = null;
+  requireCache().clearCache()
 }
 
-/**
- * 니모닉이 캐시되어 있는지 확인
- */
 export function isMnemonicCached(): boolean {
-  return cachedMnemonic !== null;
+  return seedCache?.isCached() ?? false
 }
 
-/**
- * 니모닉 캐시 설정 (외부에서 니모닉을 직접 설정할 때 사용)
- */
 export function setCachedMnemonic(mnemonic: string): void {
-  cachedMnemonic = mnemonic;
+  requireCache().cacheMnemonic(mnemonic)
 }
 
 /**
@@ -29,9 +34,9 @@ export function setCachedMnemonic(mnemonic: string): void {
  * BIP-39 표준 시드 (64바이트) 반환
  */
 export async function getSeed(): Promise<Uint8Array> {
-  if (cachedMnemonic) {
-    return bip39.mnemonicToSeedSync(cachedMnemonic);
+  const mnemonic = requireCache().getCachedMnemonic()
+  if (mnemonic) {
+    return bip39.mnemonicToSeedSync(mnemonic)
   }
-
-  throw new Error('Seed not available: wallet must be unlocked first');
+  throw new Error('Seed not available: wallet must be unlocked first')
 }

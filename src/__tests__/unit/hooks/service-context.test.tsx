@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { ServiceProvider } from '@/hooks/service-context'
 import { useServiceRegistry } from '@/hooks/use-service-registry'
-import type { ServiceRegistry } from '@/composition/types'
+import type { ServiceRegistry } from '@/core/ports/driving/service-registry'
 import type { ReactNode } from 'react'
 
 function createMockRegistry(): ServiceRegistry {

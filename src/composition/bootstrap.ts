@@ -92,7 +92,7 @@ import { GiftWrapWatcher } from './gift-wrap.watcher'
 // ─── Types ───
 import type { WalletModule } from '@/core/ports/driven/wallet-module.port'
 import type { OperationMap } from '@/core/ports/driven/operation-map.port'
-import type { ServiceRegistry } from './types'
+import type { ServiceRegistry } from '@/core/ports/driving/service-registry'
 
 // ─── Routing types (Phase 6에서 SendFlow 전환 시 제거) ───
 export type { RouteSelection, RouteContext, RouteExecutionResult } from '@/core/domain/routing'
