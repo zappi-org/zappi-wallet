@@ -1,5 +1,5 @@
 import type { MintMetadata } from '@/core/types'
-import type { MetadataStore } from '@/modules/cashu'
+import type { MetadataStore } from '@/core/ports/driven/metadata-store.port'
 import { getDatabase } from './schema'
 
 /**
