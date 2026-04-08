@@ -8,7 +8,8 @@
 import { ok, err, type Result } from '@/core/types'
 import type { BaseError } from '@/core/errors'
 import { classifyCashuError } from '@/modules/cashu'
-import { PaymentRoute, type RouteSelection, type RouteContext, type RouteExecutionResult } from './types'
+import { PaymentRoute, type RouteSelection, type RouteContext, type RouteExecutionResult } from '@/core/domain/routing'
+import type { OutgoingPaymentTransport } from '@/core/ports/driven/outgoing-payment-transport.port'
 import {
   prepareSend,
   executeSend,
@@ -342,7 +343,8 @@ async function executeTransport(
   // Nostr DM (primary) — via OutgoingPaymentTransport port
   if (parsedCreq.hasNostrTransport && parsedCreq.nostrTarget && outgoingTransport) {
     try {
-      const result = await outgoingTransport.send({
+      const transport = outgoingTransport as OutgoingPaymentTransport
+      const result = await transport.send({
         recipientPubkey: parsedCreq.nostrTarget,
         token,
         memo,

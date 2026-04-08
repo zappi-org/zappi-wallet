@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { selectRoute, findCommonMints, selectSourceMint } from '@/services/payment/routing/select-route'
-import { PaymentRoute, type RouteInput } from '@/services/payment/routing/types'
+import { selectRoute, findCommonMints, selectSourceMint, PaymentRoute, type RouteInput } from '@/core/domain/routing'
 import type { ValidatedBolt11, ValidatedLightningAddress, ValidatedLnurlPay, ValidatedCashuRequest, ValidatedMyWallet } from '@/core/domain/input-types'
 
 // ─── Helpers ───

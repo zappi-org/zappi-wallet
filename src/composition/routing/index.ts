@@ -1,9 +1,8 @@
-export { PaymentRoute, ROUTE_LABELS } from './types'
+export { PaymentRoute, ROUTE_LABELS, selectRoute, selectSourceMint, findCommonMints } from '@/core/domain/routing'
 export type {
   RouteSelection,
   RouteInput,
   RouteContext,
   RouteExecutionResult,
-} from './types'
-export { selectRoute, selectSourceMint, findCommonMints } from './select-route'
+} from '@/core/domain/routing'
 export { executeRoute } from './execute-route'
