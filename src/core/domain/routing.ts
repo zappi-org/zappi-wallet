@@ -5,7 +5,7 @@
  * No external dependencies — pure domain logic.
  */
 
-import type { ValidatedData } from './input-types'
+import type { ValidatedData, ParsedCashuRequest } from './input-types'
 
 // ─── Route Constants (as const for single source of truth) ───
 
@@ -60,6 +60,27 @@ export interface RouteInput {
 export interface FeeEstimate {
   fee: number
   totalNeeded: number
+}
+
+export interface RouteContext {
+  parsedCreq?: ParsedCashuRequest
+  nostrPrivkey?: string
+  relays?: string[]
+  memo?: string
+  addressOrInvoice?: string
+  drain?: boolean
+  outgoingTransport?: unknown
+}
+
+export interface RouteExecutionResult {
+  success: boolean
+  amount: number
+  fee: number
+  sourceMintUrl: string
+  targetMintUrl?: string
+  transactionId: string
+  token?: string
+  transportUsed?: 'nostr' | 'post' | 'none'
 }
 
 // ─── Pure Functions ───

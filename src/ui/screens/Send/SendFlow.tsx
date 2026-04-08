@@ -31,8 +31,7 @@ import type {
   ValidatedMyWallet,
 } from '@/core/domain/input-types'
 import { useRouting, PaymentRoute, ROUTE_LABELS } from '@/hooks/use-routing'
-import type { RouteSelection } from '@/core/domain/routing'
-import type { RouteContext, RouteExecutionResult } from '@/services/payment/routing'
+import type { RouteSelection, RouteContext, RouteExecutionResult } from '@/core/domain/routing'
 
 // ============= Helpers =============
 

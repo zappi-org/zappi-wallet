@@ -37,8 +37,8 @@ import { DexieSettingsRepository as SettingsRepository } from '@/adapters/storag
 import { DexieProcessedRepository as ProcessedRepository } from '@/adapters/storage/dexie/dexie-processed.repository'
 
 // ─── Legacy services (composition root만 wrap 가능) ───
-import { exchangeRateService } from '@/services/exchange-rate'
-import { executeRoute as legacyExecuteRoute } from '@/services/payment/routing'
+import { exchangeRateService } from './exchange-rate'
+import { executeRoute as legacyExecuteRoute } from './routing'
 
 // ─── Coco (composition root만 접근) ───
 import { deleteCocoData, clearWalletCache as clearCocoWalletCache } from '@/modules/cashu'
@@ -66,9 +66,11 @@ import { UsernameService } from '@/core/services/username.service'
 
 // ─── Phase 6: Metadata + NUT-18 HTTP ───
 import { mintMetadataService, metadataEvents } from '@/modules/cashu/metadata'
-import { startNut18HttpPoller } from '@/services/cashu/nut18-http'
+import { startNut18HttpPoller } from '@/adapters/codec/nut18-http-poller'
 import { ZappiLinkAdapter } from '@/adapters/zappi-link/zappi-link.adapter'
-import { NostrService } from '@/services/nostr/nostr.service'
+import { finalizeEvent } from 'nostr-tools'
+import { hexToBytes } from '@noble/hashes/utils.js'
+import { NOSTR_KINDS } from '@/core/constants'
 import { DexieReceiveRequestRepository } from '@/adapters/storage/dexie/dexie-receive-request.repository'
 
 // ─── Composition Roots ───
@@ -92,8 +94,8 @@ import type { OperationMap } from '@/core/ports/driven/operation-map.port'
 import type { ServiceRegistry } from './types'
 
 // ─── Routing types (Phase 6에서 SendFlow 전환 시 제거) ───
-export type { RouteSelection, RouteContext, RouteExecutionResult } from '@/services/payment/routing'
-import type { RouteSelection, RouteContext, RouteExecutionResult } from '@/services/payment/routing'
+export type { RouteSelection, RouteContext, RouteExecutionResult } from '@/core/domain/routing'
+import type { RouteSelection, RouteContext, RouteExecutionResult } from '@/core/domain/routing'
 import type { Result } from '@/core/types/result'
 import type { BaseError } from '@/core/errors'
 
@@ -313,10 +315,16 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     }
   })
 
-  const nostrServiceInstance = new NostrService()
   const zappiLinkProvider = new ZappiLinkAdapter(
-    (privateKeyHex, url, method) =>
-      nostrServiceInstance.createNip98AuthToken(privateKeyHex, url, method),
+    (privateKeyHex, url, method) => {
+      const event = finalizeEvent({
+        kind: NOSTR_KINDS.NIP98_AUTH,
+        content: '',
+        tags: [['u', url], ['method', method.toUpperCase()]],
+        created_at: Math.floor(Date.now() / 1000),
+      }, hexToBytes(privateKeyHex))
+      return btoa(JSON.stringify(event))
+    },
   )
   const username = new UsernameService(zappiLinkProvider)
 
