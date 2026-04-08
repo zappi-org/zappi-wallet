@@ -2,13 +2,13 @@
  * NostrGatewayAdapter — NostrGateway port 구현
  *
  * relay 통신만 담당. 로컬 연산(서명, 암호화 등)은 internal/nostr-crypto.ts에서 가져다 씀.
- * nostr-tools SimplePool을 직접 import하는 유일한 gateway 파일.
+ * relay 풀 관리는 internal/nostr-relay.ts에서 가져다 씀.
+ * nostr-tools를 직접 import하지 않음 — internal/ 경유만 허용.
  *
  * 자동 재연결: connect() 이후 relay 끊김을 감지하고 subscription을 복원한다.
  * network online/offline, document visibility 변경에도 반응.
  */
 
-import { SimplePool } from 'nostr-tools/pool'
 import type {
   NostrGateway,
   RelayStatus,
@@ -20,6 +20,7 @@ import type {
 } from '@/core/ports/driven/nostr-gateway.port'
 import type { NostrEvent, NostrFilter, UnsignedNostrEvent } from '@/core/domain/nostr'
 import { signEvent, wrapEvent, unwrapEvent } from './internal/nostr-crypto'
+import { createRelayPool, type RelayPool } from './internal/nostr-relay'
 
 export interface NostrGatewayConfig {
   privateKeyHex: string
@@ -39,7 +40,7 @@ const DEFAULT_RECONNECT_INTERVAL_MS = 30_000
 const RELAY_CONNECTION_TIMEOUT_MS = 5_000
 
 export class NostrGatewayAdapter implements NostrGateway {
-  private pool: SimplePool
+  private pool: RelayPool
   private connectedRelays: Set<string> = new Set()
   private config: NostrGatewayConfig
   private readonly defaultTimeout: number
@@ -54,7 +55,7 @@ export class NostrGatewayAdapter implements NostrGateway {
   private targetRelays: string[] = []
 
   constructor(config: NostrGatewayConfig) {
-    this.pool = new SimplePool()
+    this.pool = createRelayPool()
     this.config = config
     this.defaultTimeout = config.defaultTimeout ?? 5000
     this.reconnectIntervalMs = config.reconnectIntervalMs ?? DEFAULT_RECONNECT_INTERVAL_MS
@@ -106,7 +107,7 @@ export class NostrGatewayAdapter implements NostrGateway {
       throw new Error('No connected relays')
     }
 
-    const results = await Promise.allSettled(this.pool.publish(relays, signed as Parameters<typeof this.pool.publish>[1]))
+    const results = await Promise.allSettled(this.pool.publish(relays, signed))
     const succeeded = results.filter(r => r.status === 'fulfilled').length
 
     if (succeeded === 0) {
@@ -124,7 +125,7 @@ export class NostrGatewayAdapter implements NostrGateway {
     for (const filter of filters) {
       const results = await this.pool.querySync(
         relays,
-        filter as Parameters<typeof this.pool.querySync>[1],
+        filter as Record<string, unknown>,
         { maxWait: this.defaultTimeout },
       )
       events.push(...(results as unknown as NostrEvent[]))
@@ -163,9 +164,8 @@ export class NostrGatewayAdapter implements NostrGateway {
 
     await this.connect(params.relays)
 
-    const relays = params.relays
     const results = await Promise.allSettled(
-      this.pool.publish(relays, wrapped as Parameters<typeof this.pool.publish>[1]),
+      this.pool.publish(params.relays, wrapped),
     )
     const succeeded = results.filter(r => r.status === 'fulfilled').length
 
@@ -184,7 +184,7 @@ export class NostrGatewayAdapter implements NostrGateway {
     await this.connect(params.relays)
 
     const results = await Promise.allSettled(
-      this.pool.publish(params.relays, wrapped as Parameters<typeof this.pool.publish>[1]),
+      this.pool.publish(params.relays, wrapped),
     )
     const succeeded = results.filter(r => r.status === 'fulfilled').length
 
@@ -200,7 +200,7 @@ export class NostrGatewayAdapter implements NostrGateway {
 
     const events = await this.pool.querySync(
       params.relays,
-      { kinds: [1059], '#p': [params.recipientPubkey] } as Parameters<typeof this.pool.querySync>[1],
+      { kinds: [1059], '#p': [params.recipientPubkey] },
       { maxWait: this.defaultTimeout },
     )
 
@@ -272,7 +272,7 @@ export class NostrGatewayAdapter implements NostrGateway {
       for (const relayUrl of relays) {
         this.pool.ensureRelay(relayUrl).then(relay => {
           const sub = relay.subscribe(
-            [filter as Parameters<typeof relay.subscribe>[0][0]],
+            [filter as unknown as Record<string, unknown>],
             {
               onevent: (event) => handler(event as unknown as NostrEvent),
             },

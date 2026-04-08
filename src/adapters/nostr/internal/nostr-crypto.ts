@@ -72,6 +72,44 @@ export function decrypt(payload: string, conversationKey: Uint8Array): string {
   return nip44.v2.decrypt(payload, conversationKey)
 }
 
+// ─── NIP-19 pubkey helpers ───
+
+export function normalizePubkey(input: string): string | null {
+  const trimmed = input.trim()
+
+  if (/^[0-9a-f]{64}$/i.test(trimmed)) {
+    return trimmed.toLowerCase()
+  }
+
+  if (trimmed.startsWith('npub1') || trimmed.startsWith('nprofile1')) {
+    try {
+      const decoded = nip19.decode(trimmed)
+      if (decoded.type === 'npub') return decoded.data
+      if (decoded.type === 'nprofile') return decoded.data.pubkey
+    } catch {
+      return null
+    }
+  }
+
+  return null
+}
+
+export function extractRelaysFromNprofile(input: string): string[] {
+  const trimmed = input.trim()
+  if (!trimmed.startsWith('nprofile1')) return []
+
+  try {
+    const decoded = nip19.decode(trimmed)
+    if (decoded.type === 'nprofile' && decoded.data.relays) {
+      return decoded.data.relays
+    }
+  } catch {
+    // ignore
+  }
+
+  return []
+}
+
 // ─── NIP-17 gift wrap ───
 
 export function wrapEvent(

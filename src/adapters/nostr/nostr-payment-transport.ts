@@ -5,8 +5,8 @@
  * nostr-dm.ts의 모든 기능을 흡수하여 대체한다.
  */
 
-import { nip19 } from 'nostr-tools'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
+import { normalizePubkey, extractRelaysFromNprofile } from './internal/nostr-crypto'
 import type {
   OutgoingPaymentTransport,
   OutgoingPaymentParams,
@@ -122,38 +122,3 @@ async function buildContent(
   }
 }
 
-function normalizePubkey(input: string): string | null {
-  const trimmed = input.trim()
-
-  if (/^[0-9a-f]{64}$/i.test(trimmed)) {
-    return trimmed.toLowerCase()
-  }
-
-  if (trimmed.startsWith('npub1') || trimmed.startsWith('nprofile1')) {
-    try {
-      const decoded = nip19.decode(trimmed)
-      if (decoded.type === 'npub') return decoded.data
-      if (decoded.type === 'nprofile') return decoded.data.pubkey
-    } catch {
-      return null
-    }
-  }
-
-  return null
-}
-
-function extractRelaysFromNprofile(input: string): string[] {
-  const trimmed = input.trim()
-  if (!trimmed.startsWith('nprofile1')) return []
-
-  try {
-    const decoded = nip19.decode(trimmed)
-    if (decoded.type === 'nprofile' && decoded.data.relays) {
-      return decoded.data.relays
-    }
-  } catch {
-    // ignore
-  }
-
-  return []
-}
