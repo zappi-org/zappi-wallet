@@ -6,7 +6,7 @@ import { sat, toNumber } from '@/core/domain/amount'
 import { InsufficientBalanceError } from '@/core/errors/cashu'
 import { ServiceProvider } from '@/hooks/service-context'
 import { broadcastSync, useCrossTabSync } from '@/hooks/use-cross-tab-sync'
-import { useMintHealth } from '@/hooks/use-mint-health'
+// useMintHealth removed — mint health checks done via serviceRegistry directly
 import { useNetwork } from '@/hooks/use-network'
 import { totalRecoveredCount, useSyncAfterRecovery } from '@/hooks/use-sync-after-recovery'
 import { useWallet } from '@/hooks/use-wallet'
@@ -97,8 +97,6 @@ export default function MainApp() {
   // Hooks
   const { refreshBalance } = useWallet()
   const { isOnline } = useNetwork()
-  const { checkAllMints } = useMintHealth()
-
   const [isRecovering, setIsRecovering] = useState(false)
 
   // Gift Wrap Watcher — lifecycle managed via serviceRegistry
@@ -201,9 +199,9 @@ export default function MainApp() {
     await syncPendingQuotes()
 
     // 4. 민트 상태 + 환율 (fire-and-forget)
-    checkAllMints()
+    serviceRegistry.mintHealth.checkAllMints(settings.mints).catch(() => {})
     serviceRegistry.exchangeRate.refreshIfStale().catch(() => {})
-  }, [serviceRegistry, refreshAll, notifyRecovery, syncPendingQuotes, checkAllMints])
+  }, [serviceRegistry, refreshAll, notifyRecovery, syncPendingQuotes, settings.mints])
 
   // Initialize app — Coco 무관 작업만 (Coco는 unlock 후 setupSubscription에서 초기화)
   useEffect(() => {
