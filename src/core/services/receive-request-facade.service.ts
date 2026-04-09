@@ -88,7 +88,6 @@ function toData(req: { id: string; accountId: string; amount: { value: bigint; u
   return {
     id: req.id,
     accountId: req.accountId,
-    adapterId: '',
     amount: toNumber(req.amount as { value: bigint; unit: 'sat' | 'msat' | 'usd' | 'eur' }),
     status: req.status as ReceiveRequestData['status'],
     createdAt: req.createdAt,

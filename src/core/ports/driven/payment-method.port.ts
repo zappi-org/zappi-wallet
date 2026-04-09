@@ -23,6 +23,7 @@ export interface PaymentMethodAdapter {
   createReceiveRequest(params: ReceiveParams): Promise<ReceiveRequest>
 
   // ─── 받기 실행 (이미 존재하는 것을 내 지갑에 넣기) ───
+  canRedeem?(input: string): boolean
   redeem?(input: string): Promise<RedeemResult>
 
   // ─── 수신 완료 감지 (비동기 수신 — invoice paid, swap 완료 등) ───

@@ -6,7 +6,6 @@ export interface IncomingPaymentResult {
 
 export interface IncomingPaymentUseCase {
   processIncoming(params: {
-    adapterId: string
     payload: string
     externalId: string
     memo?: string

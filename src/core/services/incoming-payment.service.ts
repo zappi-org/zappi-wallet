@@ -1,7 +1,7 @@
 /**
  * IncomingPaymentService — 프로토콜 무관 수신 결제 처리
  *
- * 호출자(hook, adapter)가 adapterId/payload/externalId를 결정하고,
+ * 호출자(hook, adapter)가 payload/externalId를 결정하고,
  * 이 서비스는 redeem + 멱등성 기록 + crash recovery + 실패 큐만 담당.
  */
 
@@ -22,13 +22,12 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
   ) {}
 
   async processIncoming(params: {
-    adapterId: string
     payload: string
     externalId: string
     memo?: string
     metadata?: Record<string, unknown>
   }): Promise<IncomingPaymentResult> {
-    const { adapterId, payload, externalId } = params
+    const { payload, externalId } = params
     const txId = `tx-in-${externalId}`
 
     // Idempotency check
@@ -38,7 +37,6 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
 
     try {
       const redeemResult = await this.payment.redeem({
-        adapterId,
         input: payload,
         transactionId: txId,
       })
@@ -85,7 +83,7 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
         await this.failedIncomingStore.save({
           id: `fi-${crypto.randomUUID()}`,
           payload,
-          accountId: adapterId,
+          accountId: 'unknown',
           amount: 0,
           error: errorMsg,
           errorCode: 'REDEEM_FAILED',

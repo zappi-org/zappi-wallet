@@ -35,13 +35,12 @@ export interface PaymentUseCase {
 
   receive(params: {
     accountId: string
-    adapterId: string
+    protocol?: string
     amount: Amount
     description?: string
   }): Promise<Result<ReceiveRequest, PaymentError>>
 
   redeem(params: {
-    adapterId: string
     input: string
     transactionId?: string
   }): Promise<Result<RedeemResult, PaymentError>>
@@ -57,7 +56,6 @@ export interface PaymentUseCase {
 
   estimateFee(params: {
     accountId: string
-    adapterId: string
     destination: string
     amount: Amount
   }): Promise<Result<FeeEstimate, PaymentError>>

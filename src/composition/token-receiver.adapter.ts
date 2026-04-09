@@ -13,7 +13,7 @@ export class TokenReceiverAdapter implements TokenReceiver {
     { ok: true; value: TokenReceiveResult } |
     { ok: false; error: TokenReceiveError }
   > {
-    const result = await this.payment.redeem({ adapterId: 'cashu:ecash', input: token })
+    const result = await this.payment.redeem({ input: token })
 
     if (result.ok) {
       return {

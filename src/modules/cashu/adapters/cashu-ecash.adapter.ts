@@ -130,6 +130,10 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
 
   // ─── 받기 실행 (redeem) ───
 
+  canRedeem(input: string): boolean {
+    return /^cashu[ab]/i.test(input.trim())
+  }
+
   async redeem(input: string): Promise<RedeemResult> {
     // 메모 추출 (redeem 전에 — receiveToken 후에는 원본 토큰 접근 불가)
     let memo: string | undefined

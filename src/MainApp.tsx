@@ -368,7 +368,7 @@ export default function MainApp() {
 
     const result = await serviceRegistry.payment.receive({
       accountId: mintUrl,
-      adapterId: 'cashu:bolt11',
+      protocol: 'bolt11',
       amount: sat(amount),
     })
     if (result.ok) {
@@ -395,7 +395,7 @@ export default function MainApp() {
       return { success: false, error: { code: 'NOT_READY', message: 'ServiceRegistry not ready' } }
     }
 
-    const result = await serviceRegistry.payment.redeem({ adapterId: 'cashu:ecash', input: token })
+    const result = await serviceRegistry.payment.redeem({ input: token })
     if (result.ok) {
       refreshAll().catch((e) => console.error('[MainApp] refreshAll after receive failed:', e))
       return { success: true, amount: toNumber(result.value.amount), transactionId: result.value.requestId }
@@ -471,7 +471,7 @@ export default function MainApp() {
     }
 
     // 1. Redeem token on source mint
-    const redeemResult = await serviceRegistry.payment.redeem({ adapterId: 'cashu:ecash', input: token })
+    const redeemResult = await serviceRegistry.payment.redeem({ input: token })
     if (!redeemResult.ok) {
       return { success: false, error: { code: redeemResult.error.code, message: redeemResult.error.message } }
     }
@@ -1122,7 +1122,7 @@ export default function MainApp() {
           onFindTransaction={serviceRegistry ? (id: string) => serviceRegistry.transactionMgmt.getById(id) : undefined}
           pendingItemCallbacks={serviceRegistry ? {
             onRedeemToken: async (tokenStr: string, _itemId: string) => {
-              const result = await serviceRegistry.payment.redeem({ adapterId: 'cashu:ecash', input: tokenStr })
+              const result = await serviceRegistry.payment.redeem({ input: tokenStr })
               return result.ok
             },
             onReclaimToken: async (itemId: string, operationId?: string, tokenStr?: string) => {

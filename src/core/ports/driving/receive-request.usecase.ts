@@ -2,7 +2,6 @@ import type { Amount } from '@/core/domain/amount'
 
 export interface CreateReceiveRequestParams {
   accountId: string
-  adapterId: string
   amount: Amount
   description?: string
   requestId?: string
@@ -17,7 +16,6 @@ export interface CreateReceiveRequestParams {
 export interface ReceiveRequestData {
   id: string
   accountId: string
-  adapterId: string
   amount: number
   status: 'pending' | 'completed' | 'expired' | 'cancelled'
   quoteId?: string

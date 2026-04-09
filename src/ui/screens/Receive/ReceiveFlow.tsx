@@ -256,7 +256,6 @@ export function ReceiveFlow({
           await receiveReq.create({
             requestId,
             accountId: data.mintUrl,
-            adapterId: 'cashu:lightning',
             amount: { value: BigInt(data.amount), unit: 'sat' },
             quoteId: invoiceResult.quoteId,
             bolt11: invoiceResult.invoice,

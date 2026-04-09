@@ -103,7 +103,6 @@ export class GiftWrapWatcher {
     if (!parsed) return
 
     const result = await this.deps.incomingPayment.processIncoming({
-      adapterId: 'cashu:ecash',
       payload: parsed.token,
       externalId: msg.eventId,
       memo: parsed.memo,

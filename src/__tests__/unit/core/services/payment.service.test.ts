@@ -213,7 +213,7 @@ describe('PaymentService', () => {
 
       const result = await service.receive({
         accountId: 'https://mint.test',
-        adapterId: 'cashu:bolt11',
+        protocol: 'bolt11',
         amount: sat(1000),
       })
 
@@ -221,6 +221,52 @@ describe('PaymentService', () => {
       if (!result.ok) return
       expect(result.value.encoded).toBe('lnbc1000...')
       expect(txRepo.save).toHaveBeenCalled()
+    })
+
+    it('resolves by protocol hint', async () => {
+      const bolt11Adapter = createMockAdapter({
+        id: 'cashu:bolt11', protocol: 'bolt11',
+        createReceiveRequest: vi.fn().mockResolvedValue({
+          id: 'quote-bolt11', method: 'lightning', protocol: 'bolt11',
+          encoded: 'lnbc...', amount: sat(1000),
+        }),
+      })
+      const ecashAdapter = createMockAdapter({
+        id: 'cashu:ecash', protocol: 'ecash',
+        capabilities: { canSend: true, canReceive: true, canEstimateFee: true },
+      })
+      const mod = createMockModule([bolt11Adapter, ecashAdapter])
+      service = new PaymentService([mod], txRepo, eventBus)
+
+      const result = await service.receive({
+        accountId: 'https://mint.test',
+        protocol: 'bolt11',
+        amount: sat(1000),
+      })
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(bolt11Adapter.createReceiveRequest).toHaveBeenCalled()
+    })
+
+    it('without protocol resolves to first canReceive adapter', async () => {
+      const mockAdapter = createMockAdapter({
+        createReceiveRequest: vi.fn().mockResolvedValue({
+          id: 'quote-1', method: 'lightning', protocol: 'bolt11',
+          encoded: 'lnbc...', amount: sat(1000),
+        }),
+      })
+      const mod = createMockModule([mockAdapter])
+      service = new PaymentService([mod], txRepo, eventBus)
+
+      const result = await service.receive({
+        accountId: 'https://mint.test',
+        amount: sat(1000),
+      })
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(mockAdapter.createReceiveRequest).toHaveBeenCalled()
     })
 
   })
@@ -231,7 +277,6 @@ describe('PaymentService', () => {
     it('delegates to adapter', async () => {
       const result = await service.estimateFee({
         accountId: 'https://mint.test',
-        adapterId: 'cashu:bolt11',
         destination: 'lnbc...',
         amount: sat(1000),
       })
@@ -241,10 +286,36 @@ describe('PaymentService', () => {
       expect(toNumber(result.value.fee)).toBe(3)
     })
 
-    it('returns error for unknown adapter', async () => {
+    it('infers protocol from lnbc destination', async () => {
+      const bolt11Adapter = createMockAdapter({
+        id: 'cashu:bolt11', protocol: 'bolt11',
+        estimateFee: vi.fn().mockResolvedValue({ fee: sat(5), method: 'lightning', protocol: 'bolt11' }),
+      })
+      const ecashAdapter = createMockAdapter({
+        id: 'cashu:ecash', protocol: 'ecash',
+        capabilities: { canSend: true, canReceive: true, canEstimateFee: true },
+      })
+      const mod = createMockModule([bolt11Adapter, ecashAdapter])
+      service = new PaymentService([mod], txRepo, eventBus)
+
       const result = await service.estimateFee({
         accountId: 'https://mint.test',
-        adapterId: 'nonexistent',
+        destination: 'lnbc1000n1ptest...',
+        amount: sat(1000),
+      })
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(bolt11Adapter.estimateFee).toHaveBeenCalled()
+    })
+
+    it('returns error when no adapter matches destination', async () => {
+      const disabledMod = createMockModule([adapter])
+      vi.mocked(disabledMod.isEnabled).mockReturnValue(false)
+      service = new PaymentService([disabledMod], txRepo, eventBus)
+
+      const result = await service.estimateFee({
+        accountId: 'https://mint.test',
         destination: 'lnbc...',
         amount: sat(1000),
       })
@@ -256,22 +327,21 @@ describe('PaymentService', () => {
   // ─── redeem ───
 
   describe('redeem', () => {
-    it('delegates to adapter redeem', async () => {
+    it('auto-detects ecash adapter from cashuA input', async () => {
       const ecashAdapter = createMockAdapter({
         id: 'cashu:ecash',
+        canRedeem: vi.fn().mockImplementation((input: string) => /^cashu[ab]/i.test(input.trim())),
         redeem: vi.fn().mockResolvedValue({ requestId: 'tx-ecash-1', amount: sat(500), method: 'cashu:ecash', protocol: 'cashu-token', completed: true, accountId: 'https://mint.test' }),
       })
       const mod = createMockModule([ecashAdapter])
       service = new PaymentService([mod], txRepo, eventBus)
 
       const result = await service.redeem({
-        adapterId: 'cashu:ecash',
         input: 'cashuBtest...',
       })
 
       expect(result.ok).toBe(true)
       expect(ecashAdapter.redeem).toHaveBeenCalledWith('cashuBtest...')
-      // Transaction saved with correct fields (randomUUID when no transactionId provided)
       expect(txRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({
           direction: 'receive',
@@ -286,13 +356,21 @@ describe('PaymentService', () => {
       )
     })
 
-    it('returns error when adapter not found', async () => {
+    it('no adapter matches — returns ADAPTER_NOT_FOUND', async () => {
+      const bolt11Adapter = createMockAdapter({
+        id: 'cashu:bolt11',
+        canRedeem: vi.fn().mockReturnValue(false),
+      })
+      const mod = createMockModule([bolt11Adapter])
+      service = new PaymentService([mod], txRepo, eventBus)
+
       const result = await service.redeem({
-        adapterId: 'nonexistent',
-        input: 'cashuBtest...',
+        input: 'garbage-input',
       })
 
       expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.error.code).toBe('ADAPTER_NOT_FOUND')
     })
   })
 

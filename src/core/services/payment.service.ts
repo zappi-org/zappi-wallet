@@ -160,16 +160,16 @@ export class PaymentService implements PaymentUseCase {
 
   async receive(params: {
     accountId: string
-    adapterId: string
+    protocol?: string
     amount: Amount
     description?: string
   }): Promise<Result<ReceiveRequest, PaymentError>> {
-    const adapter = this.findAdapter(params.adapterId)
+    const adapter = this.resolveAdapter(params.accountId, params.protocol)
     if (!adapter) {
-      return Err({ code: 'ADAPTER_NOT_FOUND', message: `Adapter not found: ${params.adapterId}` })
+      return Err({ code: 'ADAPTER_NOT_FOUND', message: `No adapter found for account: ${params.accountId}` })
     }
     if (!adapter.createReceiveRequest) {
-      return Err({ code: 'ADAPTER_NOT_FOUND', message: `Adapter does not support receive: ${params.adapterId}` })
+      return Err({ code: 'ADAPTER_NOT_FOUND', message: `Adapter does not support receive: ${adapter.id}` })
     }
 
     try {
@@ -204,17 +204,16 @@ export class PaymentService implements PaymentUseCase {
   // ─── Redeem ───
 
   async redeem(params: {
-    adapterId: string
     input: string
     transactionId?: string
   }): Promise<Result<RedeemResult, PaymentError>> {
-    const adapter = this.findAdapter(params.adapterId)
+    const adapter = this.resolveRedeemAdapter(params.input)
     if (!adapter) {
-      return Err({ code: 'ADAPTER_NOT_FOUND', message: `Adapter not found: ${params.adapterId}` })
+      return Err({ code: 'ADAPTER_NOT_FOUND', message: `No adapter can redeem this input` })
     }
 
     if (!adapter.redeem) {
-      return Err({ code: 'ADAPTER_NOT_FOUND', message: `Adapter ${params.adapterId} does not support redeem` })
+      return Err({ code: 'ADAPTER_NOT_FOUND', message: `Adapter ${adapter.id} does not support redeem` })
     }
 
     // Idempotency: 지정된 txId로 이미 기록된 TX가 있으면 skip
@@ -350,13 +349,13 @@ export class PaymentService implements PaymentUseCase {
 
   async estimateFee(params: {
     accountId: string
-    adapterId: string
     destination: string
     amount: Amount
   }): Promise<Result<FeeEstimate, PaymentError>> {
-    const adapter = this.findAdapter(params.adapterId)
+    const protocol = this.inferProtocolFromDestination(params.destination)
+    const adapter = this.resolveAdapter(params.accountId, protocol)
     if (!adapter) {
-      return Err({ code: 'ADAPTER_NOT_FOUND', message: `Adapter not found: ${params.adapterId}` })
+      return Err({ code: 'ADAPTER_NOT_FOUND', message: `No adapter found for destination: ${params.destination}` })
     }
 
     try {
@@ -408,6 +407,31 @@ export class PaymentService implements PaymentUseCase {
   }
 
   // ─── Private helpers ───
+
+  private resolveAdapter(accountId: string, protocol?: string): PaymentMethodAdapter | undefined {
+    const adapters = this.findAdaptersForAccount(accountId)
+    if (protocol) {
+      return adapters.find(a => a.protocol === protocol)
+    }
+    return adapters.find(a => a.capabilities.canReceive)
+  }
+
+  private resolveRedeemAdapter(input: string): PaymentMethodAdapter | undefined {
+    for (const module of this.modules) {
+      if (!module.isEnabled()) continue
+      for (const adapter of module.getPaymentAdapters()) {
+        if (adapter.canRedeem?.(input)) return adapter
+      }
+    }
+    return undefined
+  }
+
+  private inferProtocolFromDestination(dest: string): string {
+    const trimmed = dest.trim().toLowerCase()
+    if (trimmed.startsWith('lnbc') || trimmed.startsWith('lntb') || trimmed.startsWith('lnbcrt')) return 'bolt11'
+    if (trimmed.startsWith('lno')) return 'bolt12'
+    return 'ecash'
+  }
 
   private findAdapter(adapterId: string): PaymentMethodAdapter | undefined {
     for (const module of this.modules) {

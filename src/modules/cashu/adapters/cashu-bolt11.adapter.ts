@@ -106,6 +106,12 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter {
     await this.backend.rollbackMelt(operationId, 'reclaim failed operation')
   }
 
+  // ─── Redeem (bolt11은 redeem 미지원) ───
+
+  canRedeem(_input: string): boolean {
+    return false
+  }
+
   // ─── 받기 요청 ───
 
   async createReceiveRequest(params: ReceiveParams): Promise<ReceiveRequest> {
