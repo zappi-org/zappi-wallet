@@ -11,7 +11,7 @@ import { Clipboard } from 'lucide-react'
 import { QrScanner } from '@/ui/components/common/QrScanner'
 import { useInputParser } from '@/ui/hooks/use-input-parser'
 import type { ValidatedCashuToken } from '@/core/domain/input-types'
-import { hapticTap, hapticError } from '@/utils/haptic'
+import { hapticTap, hapticError } from '@/ui/utils/haptic'
 import { useAppStore } from '@/store'
 
 export interface TokenReceiveBottomSheetProps {

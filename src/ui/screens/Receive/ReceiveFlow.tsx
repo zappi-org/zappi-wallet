@@ -18,7 +18,7 @@ import { useAppStore } from '@/store'
 import { useTranslation } from 'react-i18next'
 import type { InputInspectionResult } from '@/core/ports/driving/payment.usecase'
 import { formatSats } from '@/utils/format'
-import { translateError } from '@/utils/error-i18n'
+import { translateError } from '@/ui/utils/error-i18n'
 import type { ValidatedData, ValidatedCashuToken } from '@/core/domain/input-types'
 
 /** Check if an error indicates a token was already spent */

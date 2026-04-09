@@ -6,7 +6,7 @@
 import { useTranslation, Trans } from 'react-i18next'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
-import { hapticTap } from '@/utils/haptic'
+import { hapticTap } from '@/ui/utils/haptic'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
 import { HintBox } from '@/ui/components/common/HintBox'

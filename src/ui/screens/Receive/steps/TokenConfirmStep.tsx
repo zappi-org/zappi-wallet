@@ -17,7 +17,7 @@
 import { useState, useCallback, useMemo, type ReactNode } from 'react'
 import { ArrowLeft, ChevronRight, WifiOff, AlertTriangle, ShieldCheck, Loader2 } from 'lucide-react'
 import { useTranslation, Trans } from 'react-i18next'
-import { hapticTap } from '@/utils/haptic'
+import { hapticTap } from '@/ui/utils/haptic'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
 import { MintIcon } from '@/ui/components/common/MintIcon'

@@ -8,7 +8,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
-import { hapticTap, hapticError } from '@/utils/haptic'
+import { hapticTap, hapticError } from '@/ui/utils/haptic'
 import { useSatUnit, useFormatFiat } from '@/utils/format'
 import { useFiatToggle } from '@/ui/hooks/use-fiat-toggle'
 import { Button } from '@/ui/components/common/Button'

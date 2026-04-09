@@ -8,7 +8,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { ArrowLeft, AlertTriangle, Loader2, WifiOff, Plus, ArrowRightLeft } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { hapticTap } from '@/utils/haptic'
+import { hapticTap } from '@/ui/utils/haptic'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { MintSelectBottomSheet } from '@/ui/components/payment'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'

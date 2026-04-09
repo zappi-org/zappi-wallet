@@ -6,7 +6,7 @@ import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { Button } from '@/ui/components/common/Button'
 import { useAppStore } from '@/store'
 import { useCrypto } from '@/ui/hooks/use-crypto'
-import { hapticTap } from '@/utils/haptic'
+import { hapticTap } from '@/ui/utils/haptic'
 
 interface NpubDetailPageProps {
   onBack: () => void

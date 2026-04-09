@@ -4,7 +4,7 @@ import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import type { MintInfo } from "@/core/types";
 import { cn } from "@/ui/lib/utils";
 import { useFormatSats, useFormatFiat } from "@/utils/format";
-import { hapticTap } from "@/utils/haptic";
+import { hapticTap } from "@/ui/utils/haptic";
 import cardLogo from "@/assets/card-logo.svg";
 import cardNoise from "@/assets/card-noise.png";
 import zappiLogo from "@/assets/zappi.png";

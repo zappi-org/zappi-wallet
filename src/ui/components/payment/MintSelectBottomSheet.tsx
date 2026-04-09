@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
-import { hapticTap } from '@/utils/haptic'
+import { hapticTap } from '@/ui/utils/haptic'
 import { useAppStore } from '@/store'
 import { useWallet } from '@/ui/hooks/use-wallet'
 import { useMintHealth } from '@/ui/hooks/use-mint-health'

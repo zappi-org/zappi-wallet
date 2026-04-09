@@ -5,7 +5,7 @@ import { SettingsDetailPage } from '../components/SettingsDetailPage'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { Button } from '@/ui/components/common/Button'
 import { useAppStore } from '@/store'
-import { hapticTap } from '@/utils/haptic'
+import { hapticTap } from '@/ui/utils/haptic'
 
 interface LightningDetailPageProps {
   onBack: () => void

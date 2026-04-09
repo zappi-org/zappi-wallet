@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { useAppStore } from '@/store'
-import { hapticTap, hapticSuccess } from '@/utils/haptic'
+import { hapticTap, hapticSuccess } from '@/ui/utils/haptic'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { usePaymentRequest } from '@/ui/hooks/use-payment-request'
 

@@ -30,7 +30,7 @@ import type {
 } from '@/core/domain/input-types'
 import { useRouting, PaymentRoute, ROUTE_LABELS } from '@/ui/hooks/use-routing'
 import type { RouteSelection, RouteContext, RouteExecutionResult } from '@/core/domain/routing'
-import { translateError } from '@/utils/error-i18n'
+import { translateError } from '@/ui/utils/error-i18n'
 
 // ============= Helpers =============
 

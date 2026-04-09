@@ -9,7 +9,7 @@ import { useCallback, useEffect } from 'react'
 import { ArrowLeft, ArrowUpRight, ArrowDownLeft } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useFormatSats } from '@/utils/format'
-import { hapticTap } from '@/utils/haptic'
+import { hapticTap } from '@/ui/utils/haptic'
 
 export interface AmountActionScreenProps {
   amount: number

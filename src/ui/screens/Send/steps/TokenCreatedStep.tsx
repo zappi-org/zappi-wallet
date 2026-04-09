@@ -9,7 +9,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Share2, Copy, X, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { hapticTap, hapticSuccess } from '@/utils/haptic'
+import { hapticTap, hapticSuccess } from '@/ui/utils/haptic'
 import { usePaymentCompleted } from '@/ui/hooks/use-payment-completed'
 import { useAppStore } from '@/store'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
