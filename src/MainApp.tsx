@@ -8,7 +8,7 @@ import { ServiceProvider } from '@/hooks/service-context'
 import { broadcastSync, useCrossTabSync } from '@/hooks/use-cross-tab-sync'
 // useMintHealth removed — mint health checks done via serviceRegistry directly
 import { useNetwork } from '@/hooks/use-network'
-import { totalRecoveredCount, useSyncAfterRecovery } from '@/hooks/use-sync-after-recovery'
+import { useSyncAfterRecovery, totalRecoveredCount } from '@/hooks/use-sync-after-recovery'
 import { useWallet } from '@/hooks/use-wallet'
 import { useAppStore } from '@/store'
 import { setMintNameResolver, toErrorMessage } from '@/utils/error-message'
@@ -172,36 +172,36 @@ export default function MainApp() {
     setTransactions(txHistory)
   }, [serviceRegistry, refreshBalance, preUnlock.txRepo])
 
-  const { notifyRecovery, syncPendingQuotes, syncAfterRecovery } = useSyncAfterRecovery({ refreshAll })
+  const { notifyRecovery, syncPendingQuotes } = useSyncAfterRecovery({ refreshAll })
+
+  /** 잔액/거래 갱신 + recovery 병렬 실행 → 토스트 + pending quotes 동기화 */
+  const refreshAndRecover = useCallback(async () => {
+    if (!serviceRegistry) return
+    const [, recoveryResult] = await Promise.all([
+      refreshAll(),
+      serviceRegistry.payment.recoverAll().catch((e) => {
+        console.error('[Recovery] Failed to recover pending operations:', e)
+        return null
+      }),
+    ])
+
+    // 복구된 항목이 있으면 잔액 재갱신 (refreshAll과 recoverAll 병렬 race 보정)
+    if (recoveryResult && totalRecoveredCount(recoveryResult) > 0) {
+      notifyRecovery(recoveryResult)
+      await refreshAll()
+    }
+
+    broadcastSync('balance_changed')
+    await syncPendingQuotes()
+  }, [serviceRegistry, refreshAll, notifyRecovery, syncPendingQuotes])
 
   /** Manual pull-to-refresh handler */
   const handleManualRefresh = useCallback(async () => {
     if (!serviceRegistry) return
-
-    // 1. 잔액/거래 로컬 갱신 + 네트워크 복구 병렬 실행
-    const [, recoveryResult] = await Promise.all([
-      refreshAll(),
-      serviceRegistry.payment.recoverAll().catch((e) => {
-        console.error('[Refresh] Failed to recover pending operations:', e)
-        return null
-      }),
-    ])
-    broadcastSync('balance_changed')
-
-    // 2. 복구된 항목이 있으면 토스트 + 잔액 재갱신
-    if (recoveryResult && totalRecoveredCount(recoveryResult) > 0) {
-      notifyRecovery(recoveryResult)
-      await refreshAll()
-      broadcastSync('balance_changed')
-    }
-
-    // 3. Pending quotes 동기화
-    await syncPendingQuotes()
-
-    // 4. 민트 상태 + 환율 (fire-and-forget)
+    await refreshAndRecover()
     serviceRegistry.mintHealth.checkAllMints(settings.mints).catch(() => {})
     serviceRegistry.exchangeRate.refreshIfStale().catch(() => {})
-  }, [serviceRegistry, refreshAll, notifyRecovery, syncPendingQuotes, settings.mints])
+  }, [serviceRegistry, refreshAndRecover, settings.mints])
 
   // Initialize app — Coco 무관 작업만 (Coco는 unlock 후 setupSubscription에서 초기화)
   useEffect(() => {
@@ -302,22 +302,8 @@ export default function MainApp() {
 
       if (cancelled) return
 
-      // 2. Balance 로드 + pending operations recovery
-      let recovery = null
-      try {
-        recovery = await serviceRegistry.payment.recoverAll()
-        const totalRecovered = totalRecoveredCount(recovery)
-        if (totalRecovered > 0) {
-          console.log(`[Init] Recovered: ${JSON.stringify(recovery)}`)
-        }
-      } catch (e) {
-        console.error('[Init] Failed to recover pending operations:', e)
-      }
-
-      if (cancelled) return
-
-      // 3. 잔액 + 거래내역 + pending quotes 동기화
-      await syncAfterRecovery(recovery)
+      // 2. 잔액 즉시 표시 + recovery 병렬 실행
+      await refreshAndRecover()
     }
 
     setupSubscription()
@@ -326,17 +312,7 @@ export default function MainApp() {
     const lifecycleWatcher = new AppLifecycleWatcher({
       onResume: async () => {
         await serviceRegistry.onResume()
-
-        // Recovery + 잔액/pending quotes 동기화
-        console.log('[Background] App visible, recovering pending operations')
-        let recovery = null
-        try {
-          recovery = await serviceRegistry.payment.recoverAll()
-        } catch (e) {
-          console.error('[Background] Failed to recover pending operations:', e)
-        }
-
-        await syncAfterRecovery(recovery)
+        await refreshAndRecover()
       },
       onPause: () => serviceRegistry.onPause(),
     })
@@ -346,7 +322,7 @@ export default function MainApp() {
       cancelled = true
       lifecycleWatcher.stop()
     }
-  }, [isLocked, isInitializing, serviceRegistry, syncAfterRecovery])
+  }, [isLocked, isInitializing, serviceRegistry, refreshAndRecover])
 
   // Handle unlock
   const handleUnlock = useCallback(async (password: string): Promise<boolean> => {

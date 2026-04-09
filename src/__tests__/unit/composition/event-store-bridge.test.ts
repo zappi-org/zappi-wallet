@@ -137,4 +137,36 @@ describe('EventStoreBridge', () => {
     expect(balanceHandled).toBe(false)
     d()
   })
+
+  it('should throttle balance:changed — running 중 추가 호출 무시', async () => {
+    vi.useFakeTimers()
+
+    let resolve: () => void
+    const balanceRefresh = vi.fn().mockImplementation(
+      () => new Promise<void>((r) => { resolve = r }),
+    )
+
+    const d = connectEventStoreBridge(eventBus, {
+      handleBalance: true,
+      balanceRefresh,
+    })
+
+    // 3회 연속 emit
+    eventBus.emit({ type: 'balance:changed', payload: { moduleId: 'cashu', accountId: '' } })
+    eventBus.emit({ type: 'balance:changed', payload: { moduleId: 'cashu', accountId: '' } })
+    eventBus.emit({ type: 'balance:changed', payload: { moduleId: 'cashu', accountId: '' } })
+
+    // 첫 호출만 실행
+    expect(balanceRefresh).toHaveBeenCalledTimes(1)
+
+    // 완료 후 trailing
+    resolve!()
+    await new Promise<void>((r) => queueMicrotask(r))
+    vi.advanceTimersByTime(150)
+
+    expect(balanceRefresh).toHaveBeenCalledTimes(2)
+
+    d()
+    vi.useRealTimers()
+  })
 })

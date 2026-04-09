@@ -74,6 +74,9 @@ import { hexToBytes } from '@noble/hashes/utils.js'
 import { NOSTR_KINDS } from '@/core/constants'
 import { DexieReceiveRequestRepository } from '@/adapters/storage/dexie/dexie-receive-request.repository'
 
+// ─── UI Services ───
+import { saveBalanceCache, loadBalanceCache, clearBalanceCache } from '@/ui/services/balance-cache'
+
 // ─── Composition Roots ───
 import { createPaymentService } from './payment'
 import { createBalanceService } from './balance'
@@ -130,6 +133,7 @@ export interface BootstrapResult extends ServiceRegistry {
     clearWalletCache(): void
     clearMintData(mintUrl: string): Promise<void>
     resetWalletCache(): void
+    clearBalanceCache(): void
     deleteAllContacts(): Promise<void>
   }
 
@@ -195,7 +199,21 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     return (await getCocoManager()).keyring
   })
 
-  // 7. EventBus → Store bridge
+  // 7. Cold start cache → store 즉시 반영 (동기)
+  const cached = loadBalanceCache()
+  if (cached) {
+    const byMint: Record<string, number> = {}
+    let total = 0
+    for (const mb of cached) {
+      for (const account of mb.accounts) {
+        byMint[account.id] = toNumber(account.amount)
+        total += toNumber(account.amount)
+      }
+    }
+    useAppStore.getState().setBalance({ total, byMint })
+  }
+
+  // 8. EventBus → Store bridge
   const balanceRefresh = async () => {
     const moduleBalances = await balance.getByModule()
     const byMint: Record<string, number> = {}
@@ -207,6 +225,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
       }
     }
     useAppStore.getState().setBalance({ total, byMint })
+    saveBalanceCache(moduleBalances)
   }
   const disconnectBridge = connectEventStoreBridge(eventBus, {
     handleBalance: true,
@@ -376,6 +395,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
       clearWalletCache: () => { /* no-op: cashu-ts wallet cache no longer used */ },
       clearMintData: (mintUrl: string) => clearMintData(mintUrl),
       resetWalletCache,
+      clearBalanceCache,
       deleteAllContacts: () => contactRepo.deleteAll(),
     },
 
