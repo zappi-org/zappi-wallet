@@ -26,7 +26,7 @@ const rules = [
     severity: 'critical',
     test(filePath, importPath) {
       if (!isCore(filePath)) return false
-      const resolved = resolveAlias(importPath)
+      const resolved = resolveAlias(importPath, filePath)
       if (!resolved) return false
       return !resolved.startsWith('core/')
     },
@@ -37,7 +37,7 @@ const rules = [
     severity: 'high',
     test(filePath, importPath) {
       if (!isModuleInternal(filePath)) return false
-      const resolved = resolveAlias(importPath)
+      const resolved = resolveAlias(importPath, filePath)
       if (!resolved) return false
       return resolved.startsWith('data/') || resolved.startsWith('coco/')
     },
@@ -48,7 +48,7 @@ const rules = [
     severity: 'medium',
     test(filePath, importPath) {
       if (!isAdapter(filePath)) return false
-      const resolved = resolveAlias(importPath)
+      const resolved = resolveAlias(importPath, filePath)
       if (!resolved) return false
       if (!resolved.startsWith('adapters/')) return false
       const fileGroup = getAdapterGroup(filePath)
@@ -62,7 +62,7 @@ const rules = [
     severity: 'medium',
     test(filePath, importPath) {
       if (!isService(filePath)) return false
-      const resolved = resolveAlias(importPath)
+      const resolved = resolveAlias(importPath, filePath)
       if (!resolved) return false
       return resolved.startsWith('data/') || /^modules\/[^/]+\/internal\//.test(resolved)
     },
@@ -92,9 +92,18 @@ function getAdapterGroup(fp) {
   return match ? match[1] : null
 }
 
-function resolveAlias(importPath) {
+function resolveAlias(importPath, filePath) {
   if (importPath.startsWith('@/')) return importPath.slice(2)
-  if (importPath.startsWith('./') || importPath.startsWith('../')) return null // relative — skip
+  if (importPath.startsWith('./') || importPath.startsWith('../')) {
+    // Resolve relative path to detect cross-layer bypasses
+    const dir = filePath.includes('/') ? filePath.slice(0, filePath.lastIndexOf('/')) : ''
+    const parts = dir.split('/').filter(Boolean)
+    for (const seg of importPath.split('/')) {
+      if (seg === '..') parts.pop()
+      else if (seg !== '.') parts.push(seg)
+    }
+    return parts.join('/')
+  }
   return null // node_modules — skip
 }
 
@@ -115,16 +124,21 @@ function collectFiles(dir, ext = ['.ts', '.tsx', '.js', '.jsx']) {
   return results
 }
 
-const importRegex = /(?:import|export)\s+(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]/g
-const dynamicImportRegex = /(?:await\s+)?import\s*\(\s*['"]([^'"]+)['"]\s*\)/g
-
 function extractImports(content) {
   const imports = []
-  for (const match of content.matchAll(importRegex)) {
-    imports.push(match[1])
-  }
-  for (const match of content.matchAll(dynamicImportRegex)) {
-    imports.push(match[1])
+  // Line-by-line scan for `from '...'` and `import '...'` patterns.
+  // Handles multi-line imports like: import {\n  foo,\n  bar\n} from '@/...'
+  const lines = content.split('\n')
+  for (const line of lines) {
+    // Static: from '...' or from "..."
+    const fromMatch = line.match(/\bfrom\s+['"]([^'"]+)['"]/)
+    if (fromMatch) { imports.push(fromMatch[1]); continue }
+    // Side-effect: import '...' (no from keyword, no dynamic parens)
+    const sideEffect = line.match(/^\s*import\s+['"]([^'"]+)['"]/)
+    if (sideEffect) { imports.push(sideEffect[1]); continue }
+    // Dynamic: import('...')
+    const dynMatch = line.match(/import\s*\(\s*['"]([^'"]+)['"]\s*\)/)
+    if (dynMatch) imports.push(dynMatch[1])
   }
   return imports
 }
