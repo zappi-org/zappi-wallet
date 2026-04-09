@@ -18,6 +18,7 @@ import type { Manager } from 'coco-cashu-core'
 import type { OperationMap } from '@/core/ports/driven/operation-map.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { PendingOperationRepository } from '@/core/ports/driven/pending-operation.repository.port'
+import type { PaymentUseCase } from '@/core/ports/driving/payment.usecase'
 import { createTransaction, settleAsDelivered } from '@/core/domain/transaction'
 import { useAppStore } from '@/store'
 import { broadcastSync } from '@/hooks/use-cross-tab-sync'
@@ -28,6 +29,7 @@ export interface SendTokenObserverDeps {
   operationMap: OperationMap
   txRepo: TransactionRepository
   pendingOps: PendingOperationRepository
+  payment: PaymentUseCase
 }
 
 let deps: SendTokenObserverDeps | null = null
@@ -42,18 +44,14 @@ function requireDeps(): SendTokenObserverDeps {
 
 /**
  * 토큰이 수령되어 settled 상태로 전이 (finalized)
- * observer의 send:finalized 이벤트 및 UI에서 직접 호출 가능
+ * PaymentUseCase.completeSend() 경유 — core에서 DB 업데이트 + 이벤트 emit
  */
 export async function markSendFinalized(txId: string): Promise<boolean> {
-  const { txRepo, pendingOps } = requireDeps()
-  const tx = await txRepo.getById(txId)
-  if (!tx || tx.status === 'settled') return false
+  const { payment, pendingOps } = requireDeps()
 
-  await txRepo.update(txId, {
-    status: 'settled',
-    outcome: 'claimed',
-    completedAt: Date.now(),
-  })
+  const result = await payment.completeSend({ transactionId: txId })
+  if (!result.ok) return false
+
   await pendingOps.delete(txId).catch(() => {})
 
   useAppStore.getState().triggerTxRefresh()

@@ -251,6 +251,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
       operationMap,
       txRepo,
       pendingOps: pendingOpRepo,
+      payment,
     })
 
     // Coco → EventBus bridge

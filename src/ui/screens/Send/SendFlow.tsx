@@ -112,8 +112,6 @@ export interface SendFlowProps {
   initialDisplayName?: string
   // Legacy: initialStep mapped to new flow
   initialStep?: 'input' | 'token-create'
-  // Composition callback for monitoring token spending
-  onSubscribeSendFinalized?: (operationId: string, callback: () => void) => (() => void)
 }
 
 // ============= Component =============
@@ -133,7 +131,6 @@ export function SendFlow({
   initialDestination,
   initialDisplayName,
   initialStep = 'input',
-  onSubscribeSendFinalized,
 }: SendFlowProps) {
   const { t } = useTranslation()
   const { isOnline } = useNetwork()
@@ -648,10 +645,9 @@ export function SendFlow({
             <TokenCreatedStep
               token={state.createdToken!}
               amount={state.amount}
-              operationId={state.createdOperationId ?? undefined}
+              transactionId={state.createdTxId ?? undefined}
               onCancel={handleTokenCancel}
               onComplete={onComplete}
-              onSubscribeSendFinalized={onSubscribeSendFinalized}
             />
           </PageTransition>
         )}

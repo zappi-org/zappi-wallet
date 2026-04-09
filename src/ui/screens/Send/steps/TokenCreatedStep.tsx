@@ -10,6 +10,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { Share2, Copy, X, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { hapticTap, hapticSuccess } from '@/utils/haptic'
+import { usePaymentCompleted } from '@/hooks/use-payment-completed'
 import { useAppStore } from '@/store'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
@@ -19,19 +20,17 @@ import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 interface TokenCreatedStepProps {
   token: string
   amount: number
-  operationId?: string
+  transactionId?: string
   onCancel: () => void
   onComplete: () => void
-  onSubscribeSendFinalized?: (operationId: string, callback: () => void) => (() => void)
 }
 
 export function TokenCreatedStep({
   token,
   amount,
-  operationId,
+  transactionId,
   onCancel,
   onComplete,
-  onSubscribeSendFinalized,
 }: TokenCreatedStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
@@ -49,16 +48,8 @@ export function TokenCreatedStep({
     hapticSuccess()
   }, [])
 
-  // Monitor token spending via SDK send:finalized event
-  useEffect(() => {
-    if (!operationId || !onSubscribeSendFinalized) return
-
-    const unsubscribe = onSubscribeSendFinalized(operationId, handleSpent)
-
-    return () => {
-      unsubscribe?.()
-    }
-  }, [operationId, handleSpent, onSubscribeSendFinalized])
+  // Monitor token spending via payment:completed domain event
+  usePaymentCompleted(transactionId, handleSpent)
 
   // Auto-dismiss after token is claimed
   const onCompleteRef = useRef(onComplete)

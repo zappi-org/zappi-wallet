@@ -1014,17 +1014,6 @@ export default function MainApp() {
           initialMintUrl={activeMintUrl}
           initialDestination={contactInfo?.address || undefined}
           initialDisplayName={contactInfo?.displayName || undefined}
-          onSubscribeSendFinalized={serviceRegistry ? (operationId, callback) => {
-            let unsubscribe: (() => void) | undefined
-            import('@/modules/cashu').then(({ getCocoManager }) => {
-              getCocoManager().then((manager) => {
-                unsubscribe = manager.on('send:finalized', ({ operationId: finId }: { operationId: string }) => {
-                  if (finId === operationId) callback()
-                })
-              })
-            }).catch(() => {})
-            return () => { unsubscribe?.() }
-          } : undefined}
         />
       )}
 

@@ -275,9 +275,12 @@ export class PaymentService implements PaymentUseCase {
     const operationId = tx.metadata?.operationId as string | undefined
     if (operationId) {
       // adapter에 finalize 위임 (SDK finalize 호출)
+      // SDK가 이미 finalize한 경우 (send:finalized 이벤트 경유) 무시
       const adapter = this.findAdapter(tx.method)
       if (adapter?.finalizeSend) {
-        await adapter.finalizeSend(operationId)
+        try {
+          await adapter.finalizeSend(operationId)
+        } catch { /* already finalized by SDK — safe to ignore */ }
       }
     }
 
