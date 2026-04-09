@@ -342,7 +342,7 @@ export default function MainApp() {
 
         // CashuModule 초기화 — fire-and-forget (UI 블로킹 제거, QA #4)
         // SDK init 완료 후 balance 갱신 (BootstrapResult.refreshBalance 사용)
-        registry.cashuModule.initialize(result.value.bip39Seed, "m/129372'/0'").then(() => {
+        registry.cashuModule.initialize().then(() => {
           registry.refreshBalance().catch((e) => console.error('[Unlock] Post-init balance refresh failed:', e))
         }).catch((e) => console.error('[Unlock] CashuModule init failed:', e))
 

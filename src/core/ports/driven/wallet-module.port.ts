@@ -21,7 +21,7 @@ export interface WalletModule {
   readonly id: string
   readonly displayName: string
 
-  initialize(seed: Uint8Array, derivationPath: string): Promise<void>
+  initialize(): Promise<void>
   dispose(): Promise<void>
   isEnabled(): boolean
 

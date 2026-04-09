@@ -69,13 +69,13 @@ describe('CashuModule', () => {
     })
 
     it('is enabled after initialize', async () => {
-      await module.initialize(new Uint8Array(64), "m/129372'/0'")
+      await module.initialize()
 
       expect(module.isEnabled()).toBe(true)
     })
 
     it('is not enabled after dispose', async () => {
-      await module.initialize(new Uint8Array(64), "m/129372'/0'")
+      await module.initialize()
       await module.dispose()
 
       expect(module.isEnabled()).toBe(false)
@@ -83,17 +83,17 @@ describe('CashuModule', () => {
     })
 
     it('can re-initialize after dispose', async () => {
-      await module.initialize(new Uint8Array(64), "m/129372'/0'")
+      await module.initialize()
       await module.dispose()
-      await module.initialize(new Uint8Array(64), "m/129372'/0'")
+      await module.initialize()
 
       expect(module.isEnabled()).toBe(true)
       expect(module.getPaymentAdapters()).toHaveLength(2)
     })
 
     it('initialize is idempotent — adapters replaced not duplicated', async () => {
-      await module.initialize(new Uint8Array(64), "m/129372'/0'")
-      await module.initialize(new Uint8Array(64), "m/129372'/0'")
+      await module.initialize()
+      await module.initialize()
 
       expect(module.getPaymentAdapters()).toHaveLength(2)
     })
@@ -103,7 +103,7 @@ describe('CashuModule', () => {
 
   describe('getPaymentAdapters', () => {
     it('returns lightning and ecash adapters after initialize', async () => {
-      await module.initialize(new Uint8Array(64), "m/129372'/0'")
+      await module.initialize()
 
       const adapters = module.getPaymentAdapters()
       expect(adapters).toHaveLength(2)
@@ -112,7 +112,7 @@ describe('CashuModule', () => {
     })
 
     it('adapters have correct moduleId', async () => {
-      await module.initialize(new Uint8Array(64), "m/129372'/0'")
+      await module.initialize()
 
       const adapters = module.getPaymentAdapters()
       for (const adapter of adapters) {
@@ -129,7 +129,7 @@ describe('CashuModule', () => {
         swap_fee: 0,
       })
 
-      await module.initialize(new Uint8Array(64), "m/129372'/0'")
+      await module.initialize()
       const lightning = module.getPaymentAdapters()[0]
 
       await lightning.prepareSend({
@@ -148,7 +148,7 @@ describe('CashuModule', () => {
         needsSwap: false,
       })
 
-      await module.initialize(new Uint8Array(64), "m/129372'/0'")
+      await module.initialize()
       const ecash = module.getPaymentAdapters()[1]
 
       await ecash.prepareSend({
@@ -260,7 +260,7 @@ describe('CashuModule', () => {
       })
       vi.mocked(backend.executePaymentRequest).mockResolvedValue({ type: 'http' })
 
-      await module.initialize(new Uint8Array(64), "m/0'")
+      await module.initialize()
       const result = await module.send({
         destination: 'creqBtest...',
         accountId: 'https://mint.test',
@@ -277,7 +277,7 @@ describe('CashuModule', () => {
       })
       vi.mocked(backend.executeMelt).mockResolvedValue({ state: 'finalized' })
 
-      await module.initialize(new Uint8Array(64), "m/0'")
+      await module.initialize()
       const result = await module.send({
         destination: 'lnbc1000n1...',
         accountId: 'https://mint.test',
@@ -294,7 +294,7 @@ describe('CashuModule', () => {
       })
       vi.mocked(backend.executeMelt).mockResolvedValue({ state: 'finalized' })
 
-      await module.initialize(new Uint8Array(64), "m/0'")
+      await module.initialize()
       const result = await module.send({
         destination: 'lnbc500n1...',
         accountId: 'https://mint.test',
@@ -306,7 +306,7 @@ describe('CashuModule', () => {
     })
 
     it('unsupported destination — throws error', async () => {
-      await module.initialize(new Uint8Array(64), "m/0'")
+      await module.initialize()
 
       await expect(module.send({
         destination: 'unknown-format',
@@ -342,7 +342,7 @@ describe('CashuModule', () => {
       })
       vi.mocked(backend.executePaymentRequest).mockResolvedValue({ type: 'inband', token: 'cashuBtoken...' })
 
-      await module.initialize(new Uint8Array(64), "m/0'")
+      await module.initialize()
       await module.send({
         destination: 'creqBtest...',
         accountId: 'https://mint.test',
@@ -372,7 +372,7 @@ describe('CashuModule', () => {
       })
       vi.mocked(backend.executePaymentRequest).mockResolvedValue({ type: 'inband', token: 'cashuB...' })
 
-      await module.initialize(new Uint8Array(64), "m/0'")
+      await module.initialize()
       const result = await module.send({
         destination: 'creqBtest...',
         accountId: 'https://mint-a.test',

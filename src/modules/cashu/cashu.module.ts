@@ -83,7 +83,7 @@ export class CashuModule implements WalletModule {
     private nostrGateway?: NostrGateway,
   ) {}
 
-  async initialize(_seed: Uint8Array, _derivationPath: string): Promise<void> {
+  async initialize(): Promise<void> {
     this.bolt11Adapter = new CashuBolt11Adapter(this.backend)
     this.ecashAdapter = new CashuEcashAdapter(this.backend)
     this.adapters = [this.bolt11Adapter, this.ecashAdapter]
