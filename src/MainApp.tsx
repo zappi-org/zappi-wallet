@@ -8,7 +8,6 @@ import { ServiceProvider } from '@/hooks/service-context'
 import { broadcastSync, useCrossTabSync } from '@/hooks/use-cross-tab-sync'
 // useMintHealth removed — mint health checks done via serviceRegistry directly
 import { useNetwork } from '@/hooks/use-network'
-import { useSyncAfterRecovery, totalRecoveredCount } from '@/hooks/use-sync-after-recovery'
 import { useWallet } from '@/hooks/use-wallet'
 import { useAppStore } from '@/store'
 import { setMintNameResolver, toErrorMessage } from '@/utils/error-message'
@@ -172,28 +171,16 @@ export default function MainApp() {
     setTransactions(txHistory)
   }, [serviceRegistry, refreshBalance, preUnlock.txRepo])
 
-  const { notifyRecovery, syncPendingQuotes } = useSyncAfterRecovery({ refreshAll })
-
-  /** 잔액/거래 갱신 + recovery 병렬 실행 → 토스트 + pending quotes 동기화 */
+  /** 잔액/거래 갱신 + recovery 병렬 실행 (toast/refresh는 EventBus bridge가 처리) */
   const refreshAndRecover = useCallback(async () => {
     if (!serviceRegistry) return
-    const [, recoveryResult] = await Promise.all([
+    await Promise.all([
       refreshAll(),
       serviceRegistry.payment.recoverAll().catch((e) => {
         console.error('[Recovery] Failed to recover pending operations:', e)
-        return null
       }),
     ])
-
-    // 복구된 항목이 있으면 잔액 재갱신 (refreshAll과 recoverAll 병렬 race 보정)
-    if (recoveryResult && totalRecoveredCount(recoveryResult) > 0) {
-      notifyRecovery(recoveryResult)
-      await refreshAll()
-    }
-
-    broadcastSync('balance_changed')
-    await syncPendingQuotes()
-  }, [serviceRegistry, refreshAll, notifyRecovery, syncPendingQuotes])
+  }, [serviceRegistry, refreshAll])
 
   /** Manual pull-to-refresh handler */
   const handleManualRefresh = useCallback(async () => {

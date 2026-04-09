@@ -88,11 +88,18 @@ export function connectEventStoreBridge(
     }),
   )
 
-  // recovery:completed → toast
+  // balance:changed / recovery:completed 에서 공유할 throttled refresh
+  let throttledRefresh: ReturnType<typeof createThrottledAsync> | null = null
+
+  if (options.handleBalance && options.balanceRefresh) {
+    throttledRefresh = createThrottledAsync(options.balanceRefresh, 150)
+  }
+
+  // recovery:completed → toast + balance refresh + tx refresh
   unsubscribers.push(
     eventBus.on('recovery:completed', (event) => {
       if (event.payload.recovered > 0) {
-        const { addToast } = useAppStore.getState()
+        const { addToast, triggerTxRefresh } = useAppStore.getState()
         addToast({
           type: 'success',
           message: i18n.t('toast.recoveryCompleted', {
@@ -101,8 +108,10 @@ export function connectEventStoreBridge(
           }),
           duration: 4000,
         })
-        broadcastSync('balance_changed')
+        triggerTxRefresh()
+        throttledRefresh?.trigger()
       }
+      broadcastSync('balance_changed')
     }),
   )
 
@@ -150,10 +159,7 @@ export function connectEventStoreBridge(
   )
 
   // balance:changed → 잔액 갱신 (lock + trailing debounce)
-  let throttledRefresh: ReturnType<typeof createThrottledAsync> | null = null
-
-  if (options.handleBalance && options.balanceRefresh) {
-    throttledRefresh = createThrottledAsync(options.balanceRefresh, 150)
+  if (throttledRefresh) {
 
     unsubscribers.push(
       eventBus.on('balance:changed', () => {
