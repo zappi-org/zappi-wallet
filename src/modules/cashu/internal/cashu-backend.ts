@@ -223,6 +223,20 @@ export async function rollbackMelt(operationId: string, reason?: string): Promis
   }
 }
 
+// ─── DLEQ 검증 ───
+
+export async function verifyDleq(token: string): Promise<'valid' | 'missing' | 'failed'> {
+  const { getDecodedToken } = await import('@cashu/cashu-ts');
+  const { verifyTokenDleq } = await import('@/utils/token');
+  try {
+    const decoded = getDecodedToken(token);
+    // TODO: Coco SDK의 keyset 접근이 가능해지면 getCachedWallet에 실제 wallet 전달
+    return await verifyTokenDleq(decoded, () => undefined);
+  } catch {
+    return 'missing';
+  }
+}
+
 // ─── 조회 ───
 
 export async function getBalances(): Promise<{ [mintUrl: string]: number }> {

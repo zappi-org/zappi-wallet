@@ -86,7 +86,8 @@ export interface TokenInfo {
  * - 'missing': Some proofs lack DLEQ or keyset unavailable — warn user, allow accept
  * - 'failed': At least one proof has invalid DLEQ — reject (possible forgery)
  */
-export type DleqResult = 'valid' | 'missing' | 'failed'
+import type { InputVerifyResult } from '@/core/ports/driven/payment-method.port'
+export type DleqResult = InputVerifyResult
 
 /**
  * Verify DLEQ proofs for a decoded token (Macadamia-style 3-state check)

@@ -1023,14 +1023,9 @@ export default function MainApp() {
           onEstimateSwapFee={handleEstimateSwapFee}
           onStoreOfflineToken={handleStoreOfflineToken}
           onVerifyDleq={async (tokenStr: string) => {
-            try {
-              const { getDecodedToken } = await import('@cashu/cashu-ts')
-              const { verifyTokenDleq } = await import('@/utils/token')
-              const decoded = getDecodedToken(tokenStr)
-              return await verifyTokenDleq(decoded, () => undefined)
-            } catch {
-              return 'missing' as const
-            }
+            if (!serviceRegistry?.payment) return 'missing' as const
+            const result = await serviceRegistry.payment.verifyInput({ input: tokenStr })
+            return result.ok ? result.value : 'missing'
           }}
           validatedData={validatedScanData || undefined}
           initialAmount={scannedAmount || undefined}

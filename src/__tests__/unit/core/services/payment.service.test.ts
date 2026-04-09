@@ -374,6 +374,75 @@ describe('PaymentService', () => {
     })
   })
 
+  // ─── verifyInput ───
+
+  describe('verifyInput', () => {
+    it('delegates to adapter verifyInput', async () => {
+      const ecashAdapter = createMockAdapter({
+        id: 'cashu:ecash',
+        canRedeem: vi.fn().mockImplementation((input: string) => /^cashu[ab]/i.test(input.trim())),
+        verifyInput: vi.fn().mockResolvedValue('valid'),
+      })
+      const mod = createMockModule([ecashAdapter])
+      service = new PaymentService([mod], txRepo, eventBus)
+
+      const result = await service.verifyInput({ input: 'cashuBtest...' })
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.value).toBe('valid')
+      expect(ecashAdapter.verifyInput).toHaveBeenCalledWith('cashuBtest...')
+    })
+
+    it('returns missing when adapter has no verifyInput', async () => {
+      const ecashAdapter = createMockAdapter({
+        id: 'cashu:ecash',
+        canRedeem: vi.fn().mockReturnValue(true),
+      })
+      // Ensure verifyInput is undefined
+      delete (ecashAdapter as unknown as Record<string, unknown>).verifyInput
+      const mod = createMockModule([ecashAdapter])
+      service = new PaymentService([mod], txRepo, eventBus)
+
+      const result = await service.verifyInput({ input: 'cashuBtest...' })
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.value).toBe('missing')
+    })
+
+    it('returns ADAPTER_NOT_FOUND when no adapter matches', async () => {
+      const bolt11Adapter = createMockAdapter({
+        id: 'cashu:bolt11',
+        canRedeem: vi.fn().mockReturnValue(false),
+      })
+      const mod = createMockModule([bolt11Adapter])
+      service = new PaymentService([mod], txRepo, eventBus)
+
+      const result = await service.verifyInput({ input: 'garbage' })
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.error.code).toBe('ADAPTER_NOT_FOUND')
+    })
+
+    it('returns missing on verifyInput error', async () => {
+      const ecashAdapter = createMockAdapter({
+        id: 'cashu:ecash',
+        canRedeem: vi.fn().mockReturnValue(true),
+        verifyInput: vi.fn().mockRejectedValue(new Error('verification failed')),
+      })
+      const mod = createMockModule([ecashAdapter])
+      service = new PaymentService([mod], txRepo, eventBus)
+
+      const result = await service.verifyInput({ input: 'cashuBtest...' })
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.value).toBe('missing')
+    })
+  })
+
   // ─── recoverAll ───
 
   describe('recoverAll', () => {

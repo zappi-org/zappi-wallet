@@ -3,6 +3,7 @@ import type { Result } from '@/core/domain/result'
 import type { PaymentError } from '@/core/errors/payment.errors'
 import type {
   FeeEstimate,
+  InputVerifyResult,
   ReceiveRequest,
   RedeemResult,
 } from '@/core/ports/driven/payment-method.port'
@@ -44,6 +45,10 @@ export interface PaymentUseCase {
     input: string
     transactionId?: string
   }): Promise<Result<RedeemResult, PaymentError>>
+
+  verifyInput(params: {
+    input: string
+  }): Promise<Result<InputVerifyResult, PaymentError>>
 
   /** 토큰 전송 완료 처리 (상대가 수령 확인 후 finalize) */
   completeSend(params: {

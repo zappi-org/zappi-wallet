@@ -28,6 +28,8 @@ function createMockBackend(): CashuModuleBackend {
     parsePaymentRequest: vi.fn(),
     preparePaymentRequest: vi.fn(),
     executePaymentRequest: vi.fn(),
+    // DLEQ 검증
+    verifyDleq: vi.fn().mockResolvedValue('missing'),
     // Module-level
     getBalances: vi.fn().mockResolvedValue({
       'https://mint-a.test': 5000,

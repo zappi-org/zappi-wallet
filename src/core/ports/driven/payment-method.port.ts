@@ -1,5 +1,7 @@
 import type { Amount } from '@/core/domain/amount'
 
+export type InputVerifyResult = 'valid' | 'missing' | 'failed'
+
 export interface PaymentMethodAdapter {
   readonly id: string            // 'cashu:bolt11', 'cashu:bolt12', 'cashu:ecash'
   readonly moduleId: string
@@ -24,6 +26,7 @@ export interface PaymentMethodAdapter {
 
   // ─── 받기 실행 (이미 존재하는 것을 내 지갑에 넣기) ───
   canRedeem?(input: string): boolean
+  verifyInput?(input: string): Promise<InputVerifyResult>
   redeem?(input: string): Promise<RedeemResult>
 
   // ─── 수신 완료 감지 (비동기 수신 — invoice paid, swap 완료 등) ───

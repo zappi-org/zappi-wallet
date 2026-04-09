@@ -24,6 +24,7 @@ import type { WalletModule, ModuleBalance } from '@/core/ports/driven/wallet-mod
 import type {
   PaymentMethodAdapter,
   FeeEstimate,
+  InputVerifyResult,
   ReceiveRequest,
   RedeemResult,
 } from '@/core/ports/driven/payment-method.port'
@@ -256,6 +257,28 @@ export class PaymentService implements PaymentUseCase {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error'
       return Err({ code: 'UNKNOWN', message })
+    }
+  }
+
+  // ─── Verify Input ───
+
+  async verifyInput(params: {
+    input: string
+  }): Promise<Result<InputVerifyResult, PaymentError>> {
+    const adapter = this.resolveRedeemAdapter(params.input)
+    if (!adapter) {
+      return Err({ code: 'ADAPTER_NOT_FOUND', message: 'No adapter can verify this input' })
+    }
+
+    if (!adapter.verifyInput) {
+      return Ok('missing')
+    }
+
+    try {
+      const result = await adapter.verifyInput(params.input)
+      return Ok(result)
+    } catch {
+      return Ok('missing')
     }
   }
 
