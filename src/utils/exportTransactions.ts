@@ -1,16 +1,20 @@
-import type { Transaction } from '@/core/types'
+import type { Transaction } from '@/core/domain/transaction'
+import { getTransactionType, getTxMeta } from '@/core/domain/transaction'
+import { toNumber } from '@/core/domain/amount'
 import { formatSats } from '@/utils/format'
+import i18n from '@/i18n'
+
 function getTypeLabel(tx: Transaction, t: (key: string) => string): string {
-  if (tx.type === 'swap') return t('history.swap')
-  if (tx.type === 'lightning') return tx.direction === 'receive' ? t('history.lightningReceive') : t('history.lightningSend')
-  if (tx.type === 'ecash-token') {
-    if (tx.metadata?.reclaimedFrom) return t('history.ecashReclaim')
+  const txType = getTransactionType(tx)
+  if (txType === 'swap') return t('history.swap')
+  if (txType === 'lightning') return tx.direction === 'receive' ? t('history.lightningReceive') : t('history.lightningSend')
+  if (txType === 'ecash-token') {
+    if (getTxMeta(tx).reclaimedFrom) return t('history.ecashReclaim')
     return tx.direction === 'receive' ? t('history.ecashReceive') : t('history.ecashToken')
   }
-  if (tx.type === 'nutzap') return t('history.nutzap')
+  if (txType === 'nutzap') return t('history.nutzap')
   return tx.direction === 'receive' ? t('history.ecashReceive') : t('history.ecashSend')
 }
-import i18n from '@/i18n'
 
 export interface ExportOptions {
   transactions: Transaction[]
@@ -40,8 +44,11 @@ interface RowContext {
 function formatRow(tx: Transaction, ctx: RowContext): string[] {
   const date = new Date(tx.createdAt)
   const direction = tx.direction === 'receive' ? ctx.t('history.income') : ctx.t('history.expense')
-  const signedAmount = tx.direction === 'send' ? -tx.amount : tx.amount
-  const mintName = ctx.getMintName ? ctx.getMintName(tx.mintUrl) : tx.mintUrl
+  const amount = toNumber(tx.amount)
+  const signedAmount = tx.direction === 'send' ? -amount : amount
+  const mintName = ctx.getMintName ? ctx.getMintName(tx.accountId) : tx.accountId
+  const meta = getTxMeta(tx)
+  const snap = tx.displaySnapshot
 
   return [
     ctx.dateFmt.format(date),
@@ -49,15 +56,15 @@ function formatRow(tx: Transaction, ctx: RowContext): string[] {
     direction,
     getTypeLabel(tx, ctx.t),
     String(signedAmount),
-    `${tx.direction === 'send' ? '-' : '+'}${formatSats(tx.amount)}`,
+    `${tx.direction === 'send' ? '-' : '+'}${formatSats(amount)}`,
     tx.memo || '',
     mintName,
     ctx.statusMap[tx.status] || tx.status,
-    tx.source || '',
-    tx.fiatAmount != null
-      ? (tx.direction === 'send' ? -tx.fiatAmount : tx.fiatAmount).toFixed(2)
+    meta.source || '',
+    snap
+      ? (tx.direction === 'send' ? -snap.amount : snap.amount).toFixed(2)
       : '',
-    tx.fiatCurrency || '',
+    snap?.currency || '',
   ]
 }
 
@@ -67,7 +74,7 @@ export function exportTransactionsCsv({ transactions, getMintName }: ExportOptio
     dateFmt: new Intl.DateTimeFormat('sv-SE', { year: 'numeric', month: '2-digit', day: '2-digit' }),
     timeFmt: new Intl.DateTimeFormat('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
     statusMap: {
-      completed: t('history.completed'),
+      settled: t('history.completed'),
       pending: t('history.pendingStatus'),
       failed: t('history.failedStatus'),
     },

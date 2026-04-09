@@ -90,6 +90,11 @@ function toDomain(legacy: LegacyTransaction): Transaction {
     memo: legacy.memo,
     intent: TYPE_TO_INTENT[legacy.type],
     linkedTxId: legacy.metadata?.linkedTxId as string | undefined,
+    displaySnapshot: legacy.fiatAmount != null ? {
+      amount: legacy.fiatAmount,
+      currency: legacy.fiatCurrency ?? 'USD',
+      rate: legacy.exchangeRate ?? 0,
+    } : undefined,
     metadata: {
       ...(legacy.metadata ?? {}),
       // legacy 고유 필드를 metadata에 보존
@@ -99,9 +104,6 @@ function toDomain(legacy: LegacyTransaction): Transaction {
       ...(legacy.bolt11 != null && { bolt11: legacy.bolt11 }),
       ...(legacy.preimage != null && { preimage: legacy.preimage }),
       ...(legacy.source != null && { source: legacy.source }),
-      ...(legacy.fiatAmount != null && { fiatAmount: legacy.fiatAmount }),
-      ...(legacy.fiatCurrency != null && { fiatCurrency: legacy.fiatCurrency }),
-      ...(legacy.exchangeRate != null && { exchangeRate: legacy.exchangeRate }),
     },
   }
 }
@@ -132,9 +134,9 @@ function toLegacy(domain: Transaction): LegacyTransaction {
     bolt11: meta.bolt11 as string | undefined,
     preimage: meta.preimage as string | undefined,
     source: meta.source as LegacyTransaction['source'],
-    fiatAmount: meta.fiatAmount as number | undefined,
-    fiatCurrency: meta.fiatCurrency as string | undefined,
-    exchangeRate: meta.exchangeRate as number | undefined,
+    fiatAmount: domain.displaySnapshot?.amount,
+    fiatCurrency: domain.displaySnapshot?.currency,
+    exchangeRate: domain.displaySnapshot?.rate,
   }
 }
 

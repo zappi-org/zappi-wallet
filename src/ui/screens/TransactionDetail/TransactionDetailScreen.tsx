@@ -10,7 +10,9 @@ import {
   MoreVertical,
   QrCode,
 } from 'lucide-react'
-import type { Transaction, TokenState } from '@/core/types'
+import type { Transaction } from '@/core/domain/transaction'
+import { getTransactionType, getTxMeta } from '@/core/domain/transaction'
+import { toNumber } from '@/core/domain/amount'
 import { useFormatSats, useFormatFiat, formatTransactionFiat } from '@/utils/format'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
@@ -44,12 +46,15 @@ export default function TransactionDetailScreen({
   const menuRef = useRef<HTMLDivElement>(null)
   const addToast = useAppStore((s) => s.addToast)
 
+  const txType = getTransactionType(tx)
+  const meta = getTxMeta(tx)
+  const amountSats = toNumber(tx.amount)
   const isReceive = tx.direction === 'receive'
-  const isSwap = tx.type === 'swap'
-  const isLightning = tx.type === 'lightning'
-  const isEcashToken = tx.type === 'ecash-token'
-  const isEcash = tx.type === 'ecash' || isEcashToken
-  const isNutzap = tx.type === 'nutzap'
+  const isSwap = txType === 'swap'
+  const isLightning = txType === 'lightning'
+  const isEcashToken = txType === 'ecash-token'
+  const isEcash = txType === 'ecash' || isEcashToken
+  const isNutzap = txType === 'nutzap'
   const metadata = tx.metadata as Record<string, unknown> | undefined
 
   // Close menu on outside click
@@ -97,16 +102,16 @@ export default function TransactionDetailScreen({
 
   // ─── Check state then reclaim (one-click) ───
   const handleCheckAndReclaim = useCallback(async () => {
-    if (!tx.token) return
+    if (!meta.token) return
     setIsReclaiming(true)
     try {
-      const result = await txMgmt.reclaimSendToken(tx.id, tx.operationId, tx.token)
+      const result = await txMgmt.reclaimSendToken(tx.id, meta.operationId, meta.token)
 
       if (result.alreadySpent) {
-        setTx((prev) => ({ ...prev, tokenState: 'spent' as TokenState, status: 'completed', completedAt: Date.now() }))
+        setTx((prev) => ({ ...prev, status: 'settled' as const, outcome: 'claimed' as const, completedAt: Date.now() }))
         addToast({ type: 'info', message: t('txDetail.alreadySpent'), duration: 3000 })
       } else if (result.success) {
-        setTx((prev) => ({ ...prev, tokenState: 'spent' as TokenState, status: 'completed' as const, completedAt: Date.now(), failureReason: 'reclaimed' }))
+        setTx((prev) => ({ ...prev, status: 'settled' as const, outcome: 'reclaimed' as const, completedAt: Date.now() }))
         addToast({ type: 'success', message: t('txDetail.reclaimSuccess'), duration: 3000 })
       } else {
         addToast({ type: 'error', message: t('txDetail.reclaimFailed'), duration: 3000 })
@@ -117,17 +122,17 @@ export default function TransactionDetailScreen({
     } finally {
       setIsReclaiming(false)
     }
-  }, [tx.token, tx.operationId, tx.id, addToast, t, txMgmt])
+  }, [meta.token, meta.operationId, tx.id, addToast, t, txMgmt])
 
   // ─── Share ───
   const handleShare = useCallback(async () => {
-    if (!tx.token) return
+    if (!meta.token) return
     if (navigator.share) {
-      await navigator.share({ text: tx.token }).catch(() => {})
+      await navigator.share({ text: meta.token }).catch(() => {})
     } else {
-      handleCopy(tx.token, 'token')
+      handleCopy(meta.token, 'token')
     }
-  }, [tx.token, handleCopy])
+  }, [meta.token, handleCopy])
 
   // ─── Delete ───
   const handleDelete = useCallback(async () => {
@@ -137,7 +142,7 @@ export default function TransactionDetailScreen({
   }, [tx.id, onBack, txMgmt])
 
   // ─── Type label ───
-  const isReclaimed = isEcashToken && !!metadata?.reclaimedFrom
+  const isReclaimed = isEcashToken && !!meta.reclaimedFrom
 
   const typeLabel = useMemo(() => {
     if (isSwap) return t('history.swap')
@@ -153,7 +158,7 @@ export default function TransactionDetailScreen({
   // ─── Status config ───
   const statusConfig = useMemo(() => {
     switch (tx.status) {
-      case 'completed':
+      case 'settled':
         return { label: t('history.completed'), color: 'text-card-brand-dark' }
       case 'pending':
         return { label: t('history.pendingStatus'), color: 'text-badge-lightning-text' }
@@ -164,25 +169,25 @@ export default function TransactionDetailScreen({
 
   // ─── Context sentence ───
   const contextSentence = useMemo(() => {
-    const mintName = getDisplayName(tx.mintUrl)
+    const mintName = getDisplayName(tx.accountId)
 
-    if (isSwap && typeof metadata?.fromMintUrl === 'string' && typeof metadata?.toMintUrl === 'string') {
-      const from = getDisplayName(metadata.fromMintUrl)
-      const to = getDisplayName(metadata.toMintUrl)
+    if (isSwap && meta.fromMintUrl && meta.toMintUrl) {
+      const from = getDisplayName(meta.fromMintUrl)
+      const to = getDisplayName(meta.toMintUrl)
       return t('txDetail.swappedFromTo', { from, to })
     }
     if (isSwap) {
       return t('txDetail.swappedAt', { mint: mintName })
     }
 
-    if (isLightning && !isReceive && typeof metadata?.destination === 'string') {
-      return t('txDetail.sentViaLightning', { address: metadata.destination })
+    if (isLightning && !isReceive && meta.destination) {
+      return t('txDetail.sentViaLightning', { address: meta.destination })
     }
 
     if (isReceive) {
       // POS/KIOSK source — "강남점에서 받음"
-      if (tx.source && ['zappi-pos', 'zappi-kiosk', 'zappi-api'].includes(tx.source)) {
-        const name = typeof metadata?.storeName === 'string' ? metadata.storeName : t(`txDetail.source.${tx.source}`)
+      if (meta.source && ['zappi-pos', 'zappi-kiosk', 'zappi-api'].includes(meta.source)) {
+        const name = typeof metadata?.storeName === 'string' ? metadata.storeName : t(`txDetail.source.${meta.source}`)
         return t('txDetail.receivedFromPOS', { name })
       }
       // 내 지갑으로 받음 — "Zappi Alpha Mint 지갑으로 받음"
@@ -196,13 +201,13 @@ export default function TransactionDetailScreen({
     // Lightning send without destination
     if (isLightning) return t('history.lightningSend')
     return typeLabel
-  }, [tx, isSwap, isLightning, isReceive, isEcash, isEcashToken, isReclaimed, metadata, getDisplayName, typeLabel, t])
+  }, [tx, isSwap, isLightning, isReceive, isEcash, isEcashToken, isReclaimed, meta, metadata, getDisplayName, typeLabel, t])
 
   // ─── Source label ───
   const sourceLabel = useMemo(() => {
-    if (!tx.source || tx.source === 'unknown') return null
-    return t(`txDetail.source.${tx.source}`)
-  }, [tx.source, t])
+    if (!meta.source || meta.source === 'unknown') return null
+    return t(`txDetail.source.${meta.source}`)
+  }, [meta.source, t])
 
   // ─── Helpers ───
   function formatDate(ts: number) {
@@ -243,7 +248,7 @@ export default function TransactionDetailScreen({
   }
 
   // ─── eCash unclaimed check ───
-  const showUnclaimedCard = isEcash && !isReceive && tx.token && tx.tokenState !== 'spent' && tx.status !== 'failed'
+  const showUnclaimedCard = isEcash && !isReceive && meta.token && meta.tokenState !== 'spent' && tx.status !== 'failed'
 
   // ════════════════════════════════════════
   // RENDER
@@ -294,12 +299,12 @@ export default function TransactionDetailScreen({
           <span className={`text-display font-bold font-display tracking-tight leading-tight ${
             isReceive ? 'text-card-brand-dark' : 'text-foreground'
           }`}>
-            {isReceive ? '+' : '-'}{formatSats(tx.amount)}
+            {isReceive ? '+' : '-'}{formatSats(amountSats)}
           </span>
 
           {/* Fiat */}
           {(() => {
-            const f = formatTransactionFiat(tx, formatFiat)
+            const f = formatTransactionFiat(tx.displaySnapshot, amountSats, formatFiat)
             return f ? (
               <span className="text-body text-foreground-muted mt-1">{f}</span>
             ) : null
@@ -331,10 +336,10 @@ export default function TransactionDetailScreen({
             <InfoRow label={t('txDetail.type')} value={typeLabel} />
             {tx.memo && <InfoRow label={t('txDetail.memo')} value={tx.memo} />}
             {sourceLabel && <InfoRow label={t('txDetail.source')} value={sourceLabel} />}
-            {tx.failureReason && tx.failureReason !== 'reclaimed' && (
+            {typeof metadata?.failureReason === 'string' && metadata.failureReason !== 'reclaimed' && (
               <div className="flex items-center justify-between py-3 border-b border-border/30 last:border-b-0">
                 <span className="text-body text-foreground-muted">{t('txDetail.failureReason')}</span>
-                <span className="text-body font-medium text-accent-danger">{tx.failureReason}</span>
+                <span className="text-body font-medium text-accent-danger">{metadata.failureReason as string}</span>
               </div>
             )}
             {/* TX ID */}
@@ -358,13 +363,13 @@ export default function TransactionDetailScreen({
             </div>
 
             {/* Token */}
-            {showUnclaimedCard && tx.token && (
+            {showUnclaimedCard && meta.token && (
               <div className="py-3 border-b border-border/30 last:border-b-0">
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-body text-foreground-muted">{t('txDetail.sentToken')}</span>
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => handleCopy(tx.token!, 'token')}
+                      onClick={() => handleCopy(meta.token!, 'token')}
                       className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-foreground/[0.04] transition-colors"
                     >
                       {copiedField === 'token' ? (
@@ -390,7 +395,7 @@ export default function TransactionDetailScreen({
                   </div>
                 </div>
                 <p className="text-caption font-mono text-foreground-muted break-all leading-relaxed line-clamp-3">
-                  {tx.token}
+                  {meta.token}
                 </p>
               </div>
             )}
@@ -404,29 +409,32 @@ export default function TransactionDetailScreen({
               {t('txDetail.paymentInfo')}
             </p>
             <div className="bg-background-card rounded px-4">
-              {typeof metadata?.destination === 'string' && (
-                <InfoRow label={t('txDetail.destination')} value={metadata.destination} copyable field="destination" />
+              {meta.destination && (
+                <InfoRow label={t('txDetail.destination')} value={meta.destination} copyable field="destination" />
               )}
-              <InfoRow label={t('txDetail.fee')} value={formatSats(Number(metadata?.fee ?? 0))} />
-              {tx.preimage && (
-                <InfoRow label={t('txDetail.preimage')} value={tx.preimage} copyable field="preimage" />
+              <InfoRow label={t('txDetail.fee')} value={formatSats(meta.fee ?? 0)} />
+              {meta.preimage && (
+                <InfoRow label={t('txDetail.preimage')} value={meta.preimage} copyable field="preimage" />
               )}
-              {tx.bolt11 && (
-                <InfoRow label={t('txDetail.bolt11')} value={tx.bolt11} copyable field="bolt11" />
+              {meta.bolt11 && (
+                <InfoRow label={t('txDetail.bolt11')} value={meta.bolt11} copyable field="bolt11" />
               )}
             </div>
           </div>
         )}
 
         {/* ── Lightning Receive ── */}
-        {isLightning && isReceive && (tx.bolt11 || typeof metadata?.quoteId === 'string') && (
+        {isLightning && isReceive && (meta.bolt11 || meta.preimage || typeof metadata?.quoteId === 'string') && (
           <div className="px-5 mt-6">
             <p className="text-label font-medium text-foreground-muted uppercase tracking-wider mb-1">
               {t('txDetail.details')}
             </p>
             <div className="bg-background-card rounded px-4">
-              {tx.bolt11 && (
-                <InfoRow label={t('txDetail.bolt11')} value={tx.bolt11} copyable field="bolt11" />
+              {meta.preimage && (
+                <InfoRow label={t('txDetail.preimage')} value={meta.preimage} copyable field="preimage" />
+              )}
+              {meta.bolt11 && (
+                <InfoRow label={t('txDetail.bolt11')} value={meta.bolt11} copyable field="bolt11" />
               )}
               {typeof metadata?.quoteId === 'string' && (
                 <InfoRow label={t('txDetail.quoteId')} value={metadata.quoteId} copyable field="quoteId" />
@@ -436,20 +444,20 @@ export default function TransactionDetailScreen({
         )}
 
         {/* ── Swap Info ── */}
-        {isSwap && metadata && (
+        {isSwap && (meta.fromMintUrl || meta.toMintUrl) && (
           <div className="px-5 mt-6">
             <p className="text-label font-medium text-foreground-muted uppercase tracking-wider mb-1">
               {t('txDetail.swapInfo')}
             </p>
             <div className="bg-background-card rounded px-4">
-              {typeof metadata.fromMintUrl === 'string' && (
-                <InfoRow label={t('txDetail.fromMint')} value={getDisplayName(metadata.fromMintUrl)} />
+              {meta.fromMintUrl && (
+                <InfoRow label={t('txDetail.fromMint')} value={getDisplayName(meta.fromMintUrl)} />
               )}
-              {typeof metadata.toMintUrl === 'string' && (
-                <InfoRow label={t('txDetail.toMint')} value={getDisplayName(metadata.toMintUrl)} />
+              {meta.toMintUrl && (
+                <InfoRow label={t('txDetail.toMint')} value={getDisplayName(meta.toMintUrl)} />
               )}
-              {metadata.fee != null && (
-                <InfoRow label={t('txDetail.fee')} value={formatSats(Number(metadata.fee))} />
+              {meta.fee != null && (
+                <InfoRow label={t('txDetail.fee')} value={formatSats(meta.fee)} />
               )}
             </div>
           </div>
@@ -506,10 +514,10 @@ export default function TransactionDetailScreen({
       </div>
 
       {/* Token QR Modal */}
-      {tx.token && (
+      {meta.token && (
         <TokenQrModal
           isOpen={showTokenQr}
-          token={tx.token}
+          token={meta.token}
           onClose={() => setShowTokenQr(false)}
         />
       )}

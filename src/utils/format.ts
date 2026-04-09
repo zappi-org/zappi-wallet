@@ -137,13 +137,14 @@ export function useFormatFiat(): (sats: number) => string | null {
  * (historical accuracy) over the live exchange rate.
  */
 export function formatTransactionFiat(
-  tx: { fiatAmount?: number | null; fiatCurrency?: string | null; amount: number },
+  snapshot: { amount: number; currency: string } | undefined | null,
+  amountSats: number,
   liveFiatFormatter: (sats: number) => string | null,
 ): string | null {
-  if (tx.fiatAmount != null && tx.fiatCurrency) {
-    return formatFiatAmount(tx.fiatAmount, tx.fiatCurrency)
+  if (snapshot) {
+    return formatFiatAmount(snapshot.amount, snapshot.currency)
   }
-  return liveFiatFormatter(tx.amount)
+  return liveFiatFormatter(amountSats)
 }
 
 // ── Locale + date helpers ──

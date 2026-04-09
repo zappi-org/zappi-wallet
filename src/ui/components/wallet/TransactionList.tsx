@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { Transaction } from '@/core/types'
+import type { Transaction } from '@/core/domain/transaction'
+import { getTransactionType, getTxMeta } from '@/core/domain/transaction'
 import { useMintMetadata } from '@/hooks'
 import { cn } from '@/lib/utils'
 import { TransactionRow } from './TransactionRow'
@@ -33,9 +34,12 @@ export function TransactionList({
   const mintUrls = useMemo(() => {
     const urls = new Set<string>()
     displayTransactions.forEach((tx) => {
-      urls.add(tx.mintUrl)
-      if (tx.type === 'swap' && tx.metadata?.toMintUrl) urls.add(tx.metadata.toMintUrl as string)
-      if (tx.type === 'swap' && tx.metadata?.fromMintUrl) urls.add(tx.metadata.fromMintUrl as string)
+      urls.add(tx.accountId)
+      const meta = getTxMeta(tx)
+      if (getTransactionType(tx) === 'swap') {
+        if (meta.toMintUrl) urls.add(meta.toMintUrl)
+        if (meta.fromMintUrl) urls.add(meta.fromMintUrl)
+      }
     })
     return Array.from(urls)
   }, [displayTransactions])

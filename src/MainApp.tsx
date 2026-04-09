@@ -50,7 +50,7 @@ import { SendFlow } from '@/ui/screens/Send/SendFlow'
 
 // Services (composition 경유만)
 import { createSecurityService } from '@/composition/security'
-import type { Transaction } from '@/core/types'
+import type { Transaction } from '@/core/domain/transaction'
 import { removePasskey } from '@/ui/services/passkey'
 import { formatSats } from '@/utils/format'
 
@@ -621,7 +621,7 @@ export default function MainApp() {
       console.error('[MainApp] CompleteSend failed:', result.error.message)
     }
     setTransactions((prev) => prev.map((t) =>
-      t.id === txId ? { ...t, status: 'completed' as const, tokenState: 'spent' as const, completedAt: Date.now() } : t
+      t.id === txId ? { ...t, status: 'settled' as const, outcome: 'claimed' as const, completedAt: Date.now() } : t
     ))
   }, [serviceRegistry])
 
@@ -1143,10 +1143,7 @@ export default function MainApp() {
             setCurrentScreen('history')
           }}
           transactions={transactions}
-          onFindTransaction={serviceRegistry ? async (id: string) => {
-            const { getDatabase } = await import('@/adapters/storage/dexie/schema')
-            return (await getDatabase().transactions.get(id)) ?? null
-          } : undefined}
+          onFindTransaction={serviceRegistry ? (id: string) => serviceRegistry.transactionMgmt.getById(id) : undefined}
           pendingItemCallbacks={serviceRegistry ? {
             onRedeemToken: async (tokenStr: string, _itemId: string) => {
               const result = await serviceRegistry.payment.redeem({ adapterId: 'cashu:ecash', input: tokenStr })

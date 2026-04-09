@@ -76,4 +76,14 @@ describe('TransactionMgmtService', () => {
     expect(sendOp.finalizeSend).toHaveBeenCalledWith('op1')
     expect(sendOp.markSendFinalized).toHaveBeenCalledWith('tx1')
   })
+
+  it('should list transactions via findAll', async () => {
+    const mockTxs = [
+      { id: 'tx1', direction: 'send' as const, method: 'cashu:lightning', protocol: 'bolt11', amount: sat(1000), accountId: 'https://mint', status: 'settled' as const, createdAt: Date.now() },
+    ]
+    vi.mocked(txRepo.findAll).mockResolvedValue(mockTxs)
+    const result = await svc.list({ limit: 10 })
+    expect(result).toEqual(mockTxs)
+    expect(txRepo.findAll).toHaveBeenCalledWith({ limit: 10 })
+  })
 })

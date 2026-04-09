@@ -7,16 +7,23 @@
  */
 
 import { DexieSettingsRepository as SettingsRepository } from '@/adapters/storage/dexie/dexie-settings.repository'
-import { getTransactionRepo } from './legacy-transaction-repo'
+import { DexieTransactionRepository } from '@/adapters/storage/dexie/dexie-transaction.repository'
 import { FailedIncomingStoreAdapter } from '@/adapters/storage/failed-incoming-store.adapter'
 import { exchangeRateService } from './exchange-rate'
 import { DexieReceiveRequestRepository } from '@/adapters/storage/dexie/dexie-receive-request.repository'
 import { useAppStore } from '@/store'
-import type { Transaction } from '@/core/types'
+import type { Transaction } from '@/core/domain/transaction'
+import type { DisplaySnapshot } from '@/core/domain/transaction'
+import { toNumber } from '@/core/domain/amount'
+import { satsToFiat } from '@/utils/format'
 
 export interface PreUnlockServices {
   settingsRepo: SettingsRepository
-  txRepo: ReturnType<typeof getTransactionRepo>
+  txRepo: {
+    findAll(filter?: { limit?: number }): Promise<Transaction[]>
+    deleteAll(): Promise<void>
+    deleteOlderThan(days: number): Promise<void>
+  }
   failedIncomingStore: FailedIncomingStoreAdapter
   exchangeRate: {
     loadCachedRates(): Promise<void>
@@ -26,18 +33,39 @@ export interface PreUnlockServices {
   cleanupExpiredReceiveRequests(): Promise<number>
 }
 
-export function createPreUnlockServices(): PreUnlockServices {
-  const txRepo = getTransactionRepo()
-
-  // Inject fiat snapshot provider
-  txRepo.setFiatSnapshotProvider(() => {
+function getDisplaySnapshotProvider(): () => ((amountSats: number) => DisplaySnapshot | undefined) {
+  return () => (amountSats: number) => {
     const state = useAppStore.getState()
     const currency = state.settings.fiatCurrency ?? 'USD'
     const show = state.settings.showFiatConversion ?? true
     const rate = state.allRates?.[currency] ?? null
-    if (!show || !rate) return null
-    return { fiatCurrency: currency, exchangeRate: rate }
-  })
+    if (!show || !rate) return undefined
+    return { amount: satsToFiat(amountSats, rate), currency, rate }
+  }
+}
+
+export function createPreUnlockServices(): PreUnlockServices {
+  const dexieRepo = new DexieTransactionRepository()
+  const getEnricher = getDisplaySnapshotProvider()
+
+  // Wrap domain repo to enrich with displaySnapshot on save
+  const txRepo = {
+    async findAll(filter?: { limit?: number }): Promise<Transaction[]> {
+      const txs = await dexieRepo.findAll(filter)
+      const enrich = getEnricher()
+      return txs.map((tx) => {
+        if (tx.displaySnapshot) return tx
+        const snapshot = enrich(toNumber(tx.amount))
+        return snapshot ? { ...tx, displaySnapshot: snapshot } : tx
+      })
+    },
+    async deleteAll(): Promise<void> {
+      await dexieRepo.deleteAll()
+    },
+    async deleteOlderThan(days: number): Promise<void> {
+      await dexieRepo.deleteOlderThan(days)
+    },
+  }
 
   return {
     settingsRepo: new SettingsRepository(),
@@ -50,11 +78,6 @@ export function createPreUnlockServices(): PreUnlockServices {
     },
     cleanupExpiredReceiveRequests: () => new DexieReceiveRequestRepository().cleanupExpired(),
   }
-}
-
-/** Legacy transaction repo (singleton, hooks에서 접근 필요) */
-export function getLegacyTransactionRepo() {
-  return getTransactionRepo()
 }
 
 export type { Transaction }

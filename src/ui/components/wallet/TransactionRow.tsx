@@ -9,7 +9,9 @@
 
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { Transaction } from '@/core/types'
+import type { Transaction } from '@/core/domain/transaction'
+import { getTransactionType, getTxMeta } from '@/core/domain/transaction'
+import { toNumber } from '@/core/domain/amount'
 import { useFormatSats, useFormatFiat, formatTransactionFiat, getLocaleCode } from '@/utils/format'
 import { formatMintHost } from '@/utils/url'
 import { formatMD } from '@/utils/dateFilter'
@@ -36,7 +38,9 @@ export const TransactionRow = memo(function TransactionRow({
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
 
-  const isSwap = tx.type === 'swap'
+  const txType = getTransactionType(tx)
+  const meta = getTxMeta(tx)
+  const isSwap = txType === 'swap'
   const isReceive = tx.direction === 'receive'
   const title = getTitle(tx, t)
   const locale = getLocaleCode(i18n.language)
@@ -50,15 +54,14 @@ export const TransactionRow = memo(function TransactionRow({
 
   let subtitle: string
   if (isSwap) {
-    const fromUrl = (tx.metadata?.fromMintUrl as string) || tx.mintUrl
-    const toUrl = tx.metadata?.toMintUrl as string
+    const fromUrl = meta.fromMintUrl || tx.accountId
+    const toUrl = meta.toMintUrl
     subtitle = `${timeStr} | ${resolveName(fromUrl)} → ${toUrl ? resolveName(toUrl) : ''}`
-  } else if (tx.type === 'lightning' && tx.direction === 'send' && tx.metadata?.destination) {
-    const dest = tx.metadata.destination as string
-    const destStr = dest.includes('@') ? dest : `${dest.slice(0, 20)}...`
+  } else if (txType === 'lightning' && tx.direction === 'send' && meta.destination) {
+    const destStr = meta.destination.includes('@') ? meta.destination : `${meta.destination.slice(0, 20)}...`
     subtitle = `${timeStr} | ${destStr}`
-  } else if (tx.source && tx.source !== 'unknown' && tx.source !== 'wallet') {
-    subtitle = `${timeStr} | ${t(`txDetail.source.${tx.source}`)}`
+  } else if (meta.source && meta.source !== 'unknown' && meta.source !== 'wallet') {
+    subtitle = `${timeStr} | ${t(`txDetail.source.${meta.source}`)}`
   } else {
     subtitle = `${timeStr} | ${typeLabel}`
   }
@@ -71,7 +74,8 @@ export const TransactionRow = memo(function TransactionRow({
   const amountColor = isFailed ? 'line-through text-foreground-muted'
     : isPending ? cn(isReceive ? 'text-primary' : 'text-foreground', 'opacity-60')
     : isReceive ? 'text-primary' : 'text-foreground'
-  const fiatStr = formatTransactionFiat(tx, formatFiat)
+  const amountSats = toNumber(tx.amount)
+  const fiatStr = formatTransactionFiat(tx.displaySnapshot, amountSats, formatFiat)
 
   return (
     <button
@@ -90,7 +94,7 @@ export const TransactionRow = memo(function TransactionRow({
           {isPending && <span className="w-1.5 h-1.5 rounded-full bg-status-pending animate-pulse" />}
           {isFailed && <span className="w-1.5 h-1.5 rounded-full bg-accent-danger" />}
           <span className={cn('text-amount font-semibold font-display leading-normal', amountColor)}>
-            {amountPrefix}{formatSats(tx.amount)}
+            {amountPrefix}{formatSats(amountSats)}
           </span>
         </div>
         {fiatStr && <span className="text-label font-medium text-foreground-muted/70 leading-normal">{fiatStr}</span>}

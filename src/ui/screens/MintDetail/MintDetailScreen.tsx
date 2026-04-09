@@ -10,7 +10,8 @@ import { useAppStore } from '@/store'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useWallet } from '@/hooks'
 import { getMintBalance } from '@/utils/url'
-import type { MintInfo, Transaction } from '@/core/types'
+import type { MintInfo } from '@/core/types'
+import type { Transaction } from '@/core/domain/transaction'
 import { MintInfoSheet } from './MintInfoSheet'
 import { PendingItemsScreen } from './PendingItemsScreen'
 import { PendingItemDetailScreen } from './PendingItemDetailScreen'
@@ -85,7 +86,7 @@ export function MintDetailScreen({
     const url = mint.url
     const normalized = url.endsWith('/') ? url.slice(0, -1) : url
     return transactions.filter((tx) => {
-      const txUrl = tx.mintUrl?.endsWith('/') ? tx.mintUrl.slice(0, -1) : tx.mintUrl
+      const txUrl = tx.accountId?.endsWith('/') ? tx.accountId.slice(0, -1) : tx.accountId
       return txUrl === normalized || txUrl === url
     })
   }, [transactions, mint.url])

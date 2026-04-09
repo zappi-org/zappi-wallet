@@ -2,7 +2,8 @@
 import { ArrowLeft, Bell, Zap, ShieldAlert, CheckCircle2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
-import type { Transaction } from '@/core/types'
+import type { Transaction } from '@/core/domain/transaction'
+import { toNumber } from '@/core/domain/amount'
 import { useFormatSats } from '@/utils/format'
 
 export interface Notification {
@@ -57,7 +58,7 @@ function generateNotificationsFromTransactions(
   // Get recent completed transactions (last 7 days)
   const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
   const recentTxs = transactions
-    .filter((tx) => tx.createdAt >= weekAgo && tx.status === 'completed')
+    .filter((tx) => tx.createdAt >= weekAgo && tx.status === 'settled')
     .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, 10)
 
@@ -69,8 +70,8 @@ function generateNotificationsFromTransactions(
       : t('notifications.paymentSent'),
     message:
       tx.direction === 'receive'
-        ? t('notifications.youReceived', { amount: formatSats(tx.amount) })
-        : t('notifications.youSent', { amount: formatSats(tx.amount) }),
+        ? t('notifications.youReceived', { amount: formatSats(toNumber(tx.amount)) })
+        : t('notifications.youSent', { amount: formatSats(toNumber(tx.amount)) }),
     time: tx.createdAt,
     read: true, // Mark transaction notifications as read
   }))

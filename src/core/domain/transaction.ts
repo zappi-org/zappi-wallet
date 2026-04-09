@@ -4,17 +4,17 @@ export type TransactionStatus = 'pending' | 'settled' | 'failed'
 export type TransactionOutcome = 'unclaimed' | 'claimed' | 'reclaimed'
 export type TransactionIntent = 'swap' | 'nutzap'
 
+/** Display currency snapshot — records the exchange rate at transaction time */
+export interface DisplaySnapshot {
+  readonly amount: number
+  readonly currency: string
+  readonly rate: number
+}
+
 /**
- * Domain Transaction — business logic representation.
- *
- * This is the canonical domain entity used by core services, ports, and adapters.
- * UI/store/composition use the DB record type (core/types/wallet.ts Transaction)
- * which has flat fields (amount: number, mintUrl, status: 'completed').
+ * Domain Transaction — the canonical entity used across all layers.
  *
  * DexieTransactionRepository handles domain <-> DB record conversion.
- * These are NOT duplicates — they serve different purposes:
- *   - Domain: Amount type, method/protocol separation, immutable
- *   - DB Record: flat number amount, legacy field names, mutable
  */
 export interface Transaction {
   readonly id: string
@@ -30,7 +30,40 @@ export interface Transaction {
   readonly memo?: string
   readonly intent?: TransactionIntent
   readonly linkedTxId?: string
+  readonly displaySnapshot?: DisplaySnapshot
   readonly metadata?: Record<string, unknown>
+}
+
+// ─── UI helper types ───
+
+export type TransactionType = 'lightning' | 'ecash' | 'ecash-token' | 'nutzap' | 'swap'
+
+/** Derive display type from method + protocol + intent */
+export function getTransactionType(tx: Transaction): TransactionType {
+  if (tx.intent === 'swap') return 'swap'
+  if (tx.protocol === 'bolt11') return 'lightning'
+  if (tx.protocol === 'nut18') return 'ecash'
+  if (tx.protocol === 'cashu-token' && tx.intent === 'nutzap') return 'nutzap'
+  if (tx.protocol === 'cashu-token') return 'ecash-token'
+  return 'lightning'
+}
+
+/** Extract legacy flat fields from metadata (for TransactionDetail etc.) */
+export function getTxMeta(tx: Transaction) {
+  const m = tx.metadata ?? {}
+  return {
+    token: m.token as string | undefined,
+    bolt11: m.bolt11 as string | undefined,
+    preimage: m.preimage as string | undefined,
+    operationId: m.operationId as string | undefined,
+    tokenState: m.tokenState as string | undefined,
+    source: m.source as string | undefined,
+    fromMintUrl: m.fromMintUrl as string | undefined,
+    toMintUrl: m.toMintUrl as string | undefined,
+    fee: m.fee as number | undefined,
+    reclaimedFrom: m.reclaimedFrom as string | undefined,
+    destination: m.destination as string | undefined,
+  }
 }
 
 export function createTransaction(

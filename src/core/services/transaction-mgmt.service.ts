@@ -17,6 +17,10 @@ export class TransactionMgmtService implements TransactionMgmtUseCase {
     return this.txRepo.getById(id)
   }
 
+  async list(filter?: { limit?: number; offset?: number }): Promise<Transaction[]> {
+    return this.txRepo.findAll(filter)
+  }
+
   async update(id: string, data: Partial<Transaction>): Promise<void> {
     await this.txRepo.update(id, data)
   }

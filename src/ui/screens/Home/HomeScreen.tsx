@@ -10,7 +10,8 @@ import { useWallet, useMintHealth, useMintMetadata } from "@/hooks";
 import { useAppStore } from "@/store";
 import { useSatUnit, useFormatFiat } from "@/utils/format";
 import { getMintBalance } from "@/utils/url";
-import type { MintInfo, Transaction } from "@/core/types";
+import type { MintInfo } from "@/core/types";
+import type { Transaction } from "@/core/domain/transaction";
 // Transaction loading via props or store — no direct repo access in UI
 
 export interface HomeScreenProps {
@@ -100,7 +101,7 @@ export function HomeScreen({
     const url = selectedMint.url;
     const normalized = url.endsWith("/") ? url.slice(0, -1) : url;
     return transactions.filter((tx) => {
-      const txUrl = tx.mintUrl?.endsWith("/") ? tx.mintUrl.slice(0, -1) : tx.mintUrl;
+      const txUrl = tx.accountId?.endsWith("/") ? tx.accountId.slice(0, -1) : tx.accountId;
       return txUrl === normalized || txUrl === url;
     });
   }, [transactions, mints, clampedMintIndex]);

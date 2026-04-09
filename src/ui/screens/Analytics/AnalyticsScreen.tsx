@@ -4,7 +4,9 @@ import { ArrowLeft, TrendingUp, TrendingDown } from 'lucide-react'
 import { AreaChart, Area, Tooltip, ResponsiveContainer, XAxis, Legend } from 'recharts'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
-import type { Transaction } from '@/core/types'
+import type { Transaction } from '@/core/domain/transaction'
+import { getTransactionType } from '@/core/domain/transaction'
+import { toNumber } from '@/core/domain/amount'
 import { SegmentControl } from '@/ui/components/common/SegmentControl'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 
@@ -34,7 +36,7 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
 
     // Current period transactions
     const currentPeriod = transactions.filter(
-      (tx) => tx.createdAt >= cutoff && tx.status === 'completed'
+      (tx) => tx.createdAt >= cutoff && tx.status === 'settled'
     )
 
     // Previous period transactions (for comparison)
@@ -42,25 +44,25 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
       (tx) =>
         tx.createdAt >= previousCutoff &&
         tx.createdAt < cutoff &&
-        tx.status === 'completed'
+        tx.status === 'settled'
     )
 
     // Calculate totals
     const income = currentPeriod
       .filter((tx) => tx.direction === 'receive')
-      .reduce((sum, tx) => sum + tx.amount, 0)
+      .reduce((sum, tx) => sum + toNumber(tx.amount), 0)
 
     const spending = currentPeriod
       .filter((tx) => tx.direction === 'send')
-      .reduce((sum, tx) => sum + tx.amount, 0)
+      .reduce((sum, tx) => sum + toNumber(tx.amount), 0)
 
     const previousIncome = previousPeriod
       .filter((tx) => tx.direction === 'receive')
-      .reduce((sum, tx) => sum + tx.amount, 0)
+      .reduce((sum, tx) => sum + toNumber(tx.amount), 0)
 
     const previousSpending = previousPeriod
       .filter((tx) => tx.direction === 'send')
-      .reduce((sum, tx) => sum + tx.amount, 0)
+      .reduce((sum, tx) => sum + toNumber(tx.amount), 0)
 
     // Calculate percentage changes
     const incomeChange =
@@ -102,16 +104,16 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
         (tx) =>
           tx.createdAt >= dayStart &&
           tx.createdAt <= dayEnd &&
-          tx.status === 'completed'
+          tx.status === 'settled'
       )
 
       const income = dayTxs
         .filter((tx) => tx.direction === 'receive')
-        .reduce((sum, tx) => sum + tx.amount, 0)
+        .reduce((sum, tx) => sum + toNumber(tx.amount), 0)
 
       const spending = dayTxs
         .filter((tx) => tx.direction === 'send')
-        .reduce((sum, tx) => sum + tx.amount, 0)
+        .reduce((sum, tx) => sum + toNumber(tx.amount), 0)
 
       data.push({
         name:
@@ -134,14 +136,15 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
       (tx) =>
         tx.createdAt >= cutoff &&
         tx.direction === 'send' &&
-        tx.status === 'completed'
+        tx.status === 'settled'
     )
 
     // Group by transaction type
     const byMethod: Record<string, number> = {}
     spending.forEach((tx) => {
-      const method = tx.type === 'ecash-token' ? 'ecash' : (tx.type || 'ecash')
-      byMethod[method] = (byMethod[method] || 0) + tx.amount
+      const txType = getTransactionType(tx)
+      const method = txType === 'ecash-token' ? 'ecash' : (txType || 'ecash')
+      byMethod[method] = (byMethod[method] || 0) + toNumber(tx.amount)
     })
 
     const categories = [
