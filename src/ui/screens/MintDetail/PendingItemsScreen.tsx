@@ -11,9 +11,9 @@ import { BottomSheet, BottomSheetItem } from '@/ui/components/common/BottomSheet
 import { FilterChip } from '@/ui/components/common/FilterChip'
 import { type DateFilterValue, computeDateCutoff, getDateFilterLabel, isDateFilterActive, formatDateGroupLabel } from '@/utils/dateFilter'
 import { hapticTap } from '@/utils/haptic'
-import { useAllPendingItems } from '@/hooks/usePendingItems'
-import type { PendingItem } from '@/hooks/usePendingItems'
-import { useAvailableMints, getMintFilterLabel } from '@/hooks/useAvailableMints'
+import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
+import type { PendingItem } from '@/ui/hooks/usePendingItems'
+import { useAvailableMints, getMintFilterLabel } from '@/ui/hooks/useAvailableMints'
 
 type Tab = 'all' | 'request' | 'token'
 

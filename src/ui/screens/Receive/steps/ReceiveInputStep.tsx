@@ -10,12 +10,12 @@ import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { hapticTap, hapticError } from '@/utils/haptic'
 import { useSatUnit, useFormatFiat } from '@/utils/format'
-import { useFiatToggle } from '@/hooks/use-fiat-toggle'
+import { useFiatToggle } from '@/ui/hooks/use-fiat-toggle'
 import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
-import { usePaymentRequest } from '@/hooks/use-payment-request'
-import { useCrypto } from '@/hooks/use-crypto'
-import { useMintNut18Support } from '@/hooks/use-mint-nut18-support'
+import { usePaymentRequest } from '@/ui/hooks/use-payment-request'
+import { useCrypto } from '@/ui/hooks/use-crypto'
+import { useMintNut18Support } from '@/ui/hooks/use-mint-nut18-support'
 
 interface ReceiveInputStepProps {
   onBack: () => void

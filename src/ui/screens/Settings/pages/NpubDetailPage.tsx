@@ -5,7 +5,7 @@ import { SettingsDetailPage } from '../components/SettingsDetailPage'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { Button } from '@/ui/components/common/Button'
 import { useAppStore } from '@/store'
-import { useCrypto } from '@/hooks/use-crypto'
+import { useCrypto } from '@/ui/hooks/use-crypto'
 import { hapticTap } from '@/utils/haptic'
 
 interface NpubDetailPageProps {

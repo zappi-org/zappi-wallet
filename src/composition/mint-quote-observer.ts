@@ -20,7 +20,7 @@ import type { OperationMap } from '@/core/ports/driven/operation-map.port';
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port';
 import { settleAsDelivered } from '@/core/domain/transaction';
 import { useAppStore } from '@/store';
-import { broadcastSync } from '@/hooks/use-cross-tab-sync';
+import { broadcastSync } from '@/composition/cross-tab-sync';
 import { isSwapQuote } from '@/modules/cashu';
 
 let unsubscribers: (() => void)[] = [];

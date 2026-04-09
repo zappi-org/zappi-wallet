@@ -16,8 +16,8 @@
 import { useState, useCallback, useRef } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
-import { useNetwork } from '@/hooks/use-network'
-import { useInputParser } from '@/hooks/use-input-parser'
+import { useNetwork } from '@/ui/hooks/use-network'
+import { useInputParser } from '@/ui/hooks/use-input-parser'
 import { useAppStore } from '@/store'
 import { useTranslation } from 'react-i18next'
 import type {
@@ -28,7 +28,7 @@ import type {
   ValidatedCashuRequest,
   ValidatedMyWallet,
 } from '@/core/domain/input-types'
-import { useRouting, PaymentRoute, ROUTE_LABELS } from '@/hooks/use-routing'
+import { useRouting, PaymentRoute, ROUTE_LABELS } from '@/ui/hooks/use-routing'
 import type { RouteSelection, RouteContext, RouteExecutionResult } from '@/core/domain/routing'
 import { translateError } from '@/utils/error-i18n'
 

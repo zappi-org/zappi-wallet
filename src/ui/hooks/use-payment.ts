@@ -7,7 +7,7 @@ import {
   selectCanPerformOnlineOps,
 } from '@/store/selectors'
 import { sat, toNumber } from '@/core/domain/amount'
-import { ServiceContext } from '@/hooks/service-context-value'
+import { ServiceContext } from '@/ui/hooks/service-context-value'
 
 /**
  * Hook for payment operations.

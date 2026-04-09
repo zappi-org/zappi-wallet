@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useContext } from 'react'
-import { ServiceContext } from '@/hooks/service-context-value'
+import { ServiceContext } from '@/ui/hooks/service-context-value'
 import type { PendingItem } from '@/core/ports/driving/pending-items.usecase'
 
 export type { PendingItem }

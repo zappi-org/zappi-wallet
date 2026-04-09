@@ -4,7 +4,7 @@
  */
 
 import { useTranslation, Trans } from 'react-i18next'
-import { useMintMetadata } from '@/hooks/use-mint-metadata'
+import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
 import { hapticTap } from '@/utils/haptic'
 import { useFormatSats, useFormatFiat } from '@/utils/format'

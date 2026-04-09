@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/ui/components/common/Button'
 import { useFormatSats } from '@/utils/format'
 import { useAppStore } from '@/store'
-import { useMintMetadata, usePayment } from '@/hooks'
+import { useMintMetadata, usePayment } from '@/ui/hooks'
 import type { MintInfo } from '@/core/types'
 
 type DeleteStep = 'confirm-empty' | 'has-balance' | 'swapping' | 'error'

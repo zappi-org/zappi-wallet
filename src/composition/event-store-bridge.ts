@@ -8,7 +8,7 @@
 
 import type { EventBus } from '@/core/events/event-bus'
 import { useAppStore } from '@/store'
-import { broadcastSync } from '@/hooks/use-cross-tab-sync'
+import { broadcastSync } from '@/composition/cross-tab-sync'
 import i18n from '@/i18n'
 import { satUnit, formatSats } from '@/utils/format'
 import { toNumber } from '@/core/domain/amount'

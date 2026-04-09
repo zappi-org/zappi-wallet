@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useAppStore } from '@/store'
-import { useWallet, useMintMetadata } from '@/hooks'
+import { useWallet, useMintMetadata } from '@/ui/hooks'
 import { getMintBalance } from '@/utils/url'
 import type { MintInfo } from '@/core/types'
 

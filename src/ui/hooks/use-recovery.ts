@@ -13,7 +13,7 @@ import {
 } from '@/store/selectors'
 import { useContext } from 'react'
 import type { RecoveryUseCase } from '@/core/ports/driving/recovery.usecase'
-import { ServiceContext } from '@/hooks/service-context-value'
+import { ServiceContext } from '@/ui/hooks/service-context-value'
 
 /**
  * Hook for recovery operations (anchor + token recovery + retry)

@@ -8,7 +8,7 @@ import { useAppStore } from '@/store'
 import { satUnit } from '@/utils/format'
 // formatMintHost removed — recovery now uses recoverAll() instead of per-mint loop
 import { ZAPPI_LINK_URL } from '@/core/constants'
-import { useServiceRegistry } from '@/hooks/use-service-registry'
+import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { cn } from '@/components/ui/utils'
 import { Button } from '@/ui/components/common/Button'
 

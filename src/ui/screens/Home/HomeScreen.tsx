@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useCarouselScroll } from "@/hooks/use-carousel-scroll";
-import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
+import { useCarouselScroll } from "@/ui/hooks/use-carousel-scroll";
+import { usePullToRefresh } from "@/ui/hooks/use-pull-to-refresh";
 import { Plus, LoaderCircle, ArrowDown, ChevronRight } from "lucide-react";
 
 import { useTranslation } from "react-i18next";
 import { MintCard, resolveMintColor } from "../../components/wallet/MintCard";
 import { TransactionList } from "../../components/wallet/TransactionList";
-import { useWallet, useMintHealth, useMintMetadata } from "@/hooks";
+import { useWallet, useMintHealth, useMintMetadata } from "@/ui/hooks";
 import { useAppStore } from "@/store";
 import { useSatUnit, useFormatFiat } from "@/utils/format";
 import { getMintBalance } from "@/utils/url";

@@ -12,10 +12,10 @@ function detectAddressType(address: string): 'lightning' | 'npub' | 'custom' {
   if (trimmed.startsWith('npub1')) return 'npub'
   return 'custom'
 }
-import { useInputParser } from '@/hooks/use-input-parser'
+import { useInputParser } from '@/ui/hooks/use-input-parser'
 import type { ValidatedData } from '@/core/domain/input-types'
 import { useAppStore } from '@/store'
-import { useContacts } from '@/hooks/use-contacts'
+import { useContacts } from '@/ui/hooks/use-contacts'
 import type { Contact, ContactAddressType } from '@/core/types'
 
 export interface ContactsScreenProps {

@@ -7,7 +7,7 @@ import {
   selectMints,
   selectActiveMintUrl,
 } from '@/store/selectors'
-import { ServiceContext } from '@/hooks/service-context-value'
+import { ServiceContext } from '@/ui/hooks/service-context-value'
 import { toNumber } from '@/core/domain/amount'
 
 /**

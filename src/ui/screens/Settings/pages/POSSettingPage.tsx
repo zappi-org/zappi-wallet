@@ -3,7 +3,7 @@ import { Trash2, Plus, Copy, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { Button, Modal, PinInput } from '@/ui/components/common'
-import { useCrypto } from '@/hooks/use-crypto'
+import { useCrypto } from '@/ui/hooks/use-crypto'
 import type { POSDevice, POSProvisioningPayload, WalletSettings } from '@/core/types'
 import { SettingsDetailPage } from '../components/SettingsDetailPage'
 

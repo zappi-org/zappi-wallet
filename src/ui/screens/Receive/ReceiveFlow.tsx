@@ -13,7 +13,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
-import { useNetwork } from '@/hooks/use-network'
+import { useNetwork } from '@/ui/hooks/use-network'
 import { useAppStore } from '@/store'
 import { useTranslation } from 'react-i18next'
 import type { InputInspectionResult } from '@/core/ports/driving/payment.usecase'
@@ -58,7 +58,7 @@ async function checkSwapFeeTooHigh(
   return false
 }
 
-import { useReceiveRequest } from '@/hooks/use-receive-request'
+import { useReceiveRequest } from '@/ui/hooks/use-receive-request'
 import { TokenReceiveStep } from './steps/TokenReceiveStep'
 import { ReceiveInputStep } from './steps/ReceiveInputStep'
 import { ReceiveQRStep } from './steps/ReceiveQRStep'

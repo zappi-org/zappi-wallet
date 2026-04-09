@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { useFormatSats, getLocaleCode } from '@/utils/format'
 import { cn } from '@/lib/utils'
 import { formatMD } from '@/utils/dateFilter'
-import type { PendingItem } from '@/hooks/usePendingItems'
+import type { PendingItem } from '@/ui/hooks/usePendingItems'
 
 interface PendingItemsListProps {
   items: PendingItem[]

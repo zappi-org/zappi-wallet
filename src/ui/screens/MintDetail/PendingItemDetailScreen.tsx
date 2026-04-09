@@ -2,11 +2,11 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import { ArrowLeft, Copy, Check, Clock, Loader2, RefreshCw, Download, QrCode } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useFormatSats, useFormatFiat, getLocaleCode } from '@/utils/format'
-import { useMintMetadata } from '@/hooks'
+import { useMintMetadata } from '@/ui/hooks'
 import { Button } from '@/ui/components/common/Button'
 import { useAppStore } from '@/store'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
-import type { PendingItem } from '@/hooks/usePendingItems'
+import type { PendingItem } from '@/ui/hooks/usePendingItems'
 import { isReceiveRequest, isSendToken, isOfflineToken } from '@/ui/types/pending-item-details'
 
 export interface PendingItemDetailCallbacks {

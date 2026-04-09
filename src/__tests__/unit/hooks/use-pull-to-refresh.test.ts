@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
-import { usePullToRefresh } from '@/hooks/use-pull-to-refresh'
+import { usePullToRefresh } from '@/ui/hooks/use-pull-to-refresh'
 
 describe('usePullToRefresh', () => {
   let onRefresh: () => Promise<void>

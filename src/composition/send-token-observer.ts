@@ -21,7 +21,7 @@ import type { PendingOperationRepository } from '@/core/ports/driven/pending-ope
 import type { PaymentUseCase } from '@/core/ports/driving/payment.usecase'
 import { createTransaction, settleAsDelivered } from '@/core/domain/transaction'
 import { useAppStore } from '@/store'
-import { broadcastSync } from '@/hooks/use-cross-tab-sync'
+import { broadcastSync } from '@/composition/cross-tab-sync'
 
 // ─── 의존성 주입 ───
 

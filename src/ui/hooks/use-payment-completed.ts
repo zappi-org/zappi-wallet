@@ -1,5 +1,5 @@
 import { useEffect, useContext } from 'react'
-import { ServiceContext } from '@/hooks/service-context-value'
+import { ServiceContext } from '@/ui/hooks/service-context-value'
 
 /**
  * Subscribe to payment:completed events filtered by transactionId.

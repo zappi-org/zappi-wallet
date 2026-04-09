@@ -14,8 +14,8 @@ function detectAddressType(address: string): ContactAddressType {
   if (trimmed.startsWith('npub1')) return 'npub'
   return 'custom'
 }
-import { useServiceRegistry } from '@/hooks/use-service-registry'
-import { useCrypto } from '@/hooks/use-crypto'
+import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
+import { useCrypto } from '@/ui/hooks/use-crypto'
 
 interface ContactFormModalProps {
   isOpen: boolean

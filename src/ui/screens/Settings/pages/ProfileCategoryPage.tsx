@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
-import { useCrypto } from '@/hooks/use-crypto'
+import { useCrypto } from '@/ui/hooks/use-crypto'
 import { SettingsDetailPage } from '../components/SettingsDetailPage'
 import { SettingsRow } from '../components/SettingsRow'
 import type { SettingsPage } from '../SettingsScreen'

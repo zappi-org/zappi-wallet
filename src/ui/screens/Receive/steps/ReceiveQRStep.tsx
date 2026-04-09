@@ -12,7 +12,7 @@ import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { useAppStore } from '@/store'
 import { hapticTap, hapticSuccess } from '@/utils/haptic'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
-import { usePaymentRequest } from '@/hooks/use-payment-request'
+import { usePaymentRequest } from '@/ui/hooks/use-payment-request'
 
 
 interface ReceiveQRStepProps {

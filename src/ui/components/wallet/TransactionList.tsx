@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Transaction } from '@/core/domain/transaction'
 import { getTransactionType, getTxMeta } from '@/core/domain/transaction'
-import { useMintMetadata } from '@/hooks'
+import { useMintMetadata } from '@/ui/hooks'
 import { cn } from '@/lib/utils'
 import { TransactionRow } from './TransactionRow'
 

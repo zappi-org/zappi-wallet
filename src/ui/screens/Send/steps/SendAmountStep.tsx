@@ -5,16 +5,16 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation, Trans } from 'react-i18next'
-import { useWallet } from '@/hooks/use-wallet'
+import { useWallet } from '@/ui/hooks/use-wallet'
 import { useAppStore } from '@/store'
 import { hapticTap } from '@/utils/haptic'
 import { useFormatSats, useSatUnit, useFormatFiat } from '@/utils/format'
-import { useFiatToggle } from '@/hooks/use-fiat-toggle'
+import { useFiatToggle } from '@/ui/hooks/use-fiat-toggle'
 import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { getMintBalance } from '@/utils/url'
 import { findContactName } from '../sendDisplayHelpers'
-import { useContacts } from '@/hooks/use-contacts'
+import { useContacts } from '@/ui/hooks/use-contacts'
 import type { SendableValidatedData } from '../SendFlow'
 
 interface SendAmountStepProps {
