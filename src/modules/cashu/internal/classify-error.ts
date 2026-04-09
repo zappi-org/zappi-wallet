@@ -6,9 +6,9 @@
  * 이 함수는 모듈 레이어에 위치한다.
  */
 import { BaseError } from '@/core/errors/base'
+import { InsufficientBalanceError } from '@/core/errors/payment.errors'
 import {
   TokenSpentError,
-  InsufficientBalanceError,
   MintConnectionError,
   MintError,
   InvalidTokenError,

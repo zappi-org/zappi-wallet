@@ -3,7 +3,7 @@ import { createBootstrap, type BootstrapResult, type RouteContext, type RouteExe
 import { createPreUnlockServices } from '@/composition/pre-unlock'
 import { LIMITS } from '@/core/constants'
 import { sat, toNumber } from '@/core/domain/amount'
-import { InsufficientBalanceError } from '@/core/errors/cashu'
+import { InsufficientBalanceError } from '@/core/errors/payment.errors'
 import { ServiceProvider } from '@/hooks/service-context'
 import { broadcastSync, useCrossTabSync } from '@/hooks/use-cross-tab-sync'
 // useMintHealth removed — mint health checks done via serviceRegistry directly

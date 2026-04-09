@@ -89,7 +89,7 @@ export async function prepareSend(params: {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('Not enough funds')) {
-      const { InsufficientBalanceError } = await import('@/core/errors/cashu');
+      const { InsufficientBalanceError } = await import('@/core/errors/payment.errors');
       const balances = await manager.wallet.getBalances();
       const available = balances[params.mintUrl] || 0;
 

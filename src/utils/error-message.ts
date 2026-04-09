@@ -1,6 +1,7 @@
 import i18n from '@/i18n'
 import type { BaseError } from '@/core/errors/base'
-import type { InsufficientBalanceError, MintConnectionError } from '@/core/errors/cashu'
+import type { InsufficientBalanceError } from '@/core/errors/payment.errors'
+import type { MintConnectionError } from '@/core/errors/cashu'
 import { formatSats } from '@/utils/format'
 
 /** SCREAMING_SNAKE → camelCase: TOKEN_SPENT → tokenSpent */
