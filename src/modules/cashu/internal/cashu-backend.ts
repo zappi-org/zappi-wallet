@@ -209,8 +209,7 @@ export async function prepareMelt(
 export async function executeMelt(operationId: string): Promise<{ state: string; preimage?: string }> {
   const manager = await getCocoManager();
   const result = await manager.ops.melt.execute(operationId);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const preimage = (result as any).finalizedData?.bolt11?.preimage as string | undefined;
+  const preimage = result.state === 'finalized' ? result.finalizedData?.preimage : undefined;
   return { state: result.state, ...(preimage && { preimage }) };
 }
 
