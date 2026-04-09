@@ -4,7 +4,7 @@ import './index.css'
 import './i18n' // Initialize i18n
 import './registerSW' // PWA service worker registration & auto-update
 import App from './App.tsx'
-import { PWAInstallGuard } from './components/PWAInstallGuard'
+import { PWAInstallGuard } from './ui/components/PWAInstallGuard'
 import { ErrorBoundary } from './ui/components/ErrorBoundary'
 
 // Check storage availability (localStorage + IndexedDB)

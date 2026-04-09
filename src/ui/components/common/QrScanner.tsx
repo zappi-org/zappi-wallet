@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import QrScannerLib, { type ScanResult } from 'qr-scanner'
+import QrScannerLib from 'qr-scanner'
+type ScanResult = QrScannerLib.ScanResult
 import { URDecoder } from '@gandlaf21/bc-ur'
 import { Image } from 'lucide-react'
-import { usePinchZoom } from '@/hooks/use-pinch-zoom'
+import { usePinchZoom } from '@/ui/hooks/use-pinch-zoom'
 
 export interface QrScannerProps {
   onScan: (result: string) => void

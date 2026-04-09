@@ -7,9 +7,9 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { ArrowLeft, ClipboardPaste } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { QrScanner } from '@/ui/components/common/QrScanner'
-import { detectInputType } from './InputTypeDetector'
-import { validateInput, type ValidatedData } from './InputValidator'
-import { hapticTap, hapticError } from '@/utils/haptic'
+import { useInputParser } from '@/ui/hooks/use-input-parser'
+import type { ValidatedData } from '@/core/domain/input-types'
+import { hapticTap, hapticError } from '@/ui/utils/haptic'
 import { useAppStore } from '@/store'
 
 // ============= Types =============
@@ -26,6 +26,7 @@ type ScannerState = 'idle' | 'validating'
 
 export function UnifiedScanner({ isOpen, onClose, onValidated }: UnifiedScannerProps) {
   const { t } = useTranslation()
+  const inputParser = useInputParser()
   const [state, setState] = useState<ScannerState>('idle')
   const [inputValue, setInputValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -52,8 +53,7 @@ export function UnifiedScanner({ isOpen, onClose, onValidated }: UnifiedScannerP
       hapticTap()
 
       try {
-        // Detect input type
-        const detected = detectInputType(trimmed)
+        const detected = inputParser.detectAndClassify(trimmed)
 
         if (detected.type === 'unknown') {
           hapticError()
@@ -66,23 +66,10 @@ export function UnifiedScanner({ isOpen, onClose, onValidated }: UnifiedScannerP
           return
         }
 
-        // Validate input
-        const result = await validateInput(detected)
+        const validated = await inputParser.validateAsync(detected)
 
-        if (!result.valid) {
-          hapticError()
-          addToast({
-            type: 'error',
-            message: result.error,
-            duration: 3000,
-          })
-          setState('idle')
-          return
-        }
-
-        // Success - route to appropriate screen
         hapticTap()
-        onValidated(result.data)
+        onValidated(validated)
         onClose()
       } catch {
         hapticError()
@@ -94,7 +81,7 @@ export function UnifiedScanner({ isOpen, onClose, onValidated }: UnifiedScannerP
         setState('idle')
       }
     },
-    [state, addToast, onValidated, onClose, t]
+    [state, addToast, onValidated, onClose, t, inputParser]
   )
 
   // Handle QR scan result

@@ -4,13 +4,13 @@ import { Trans, useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
-import { useMintMetadata } from '@/hooks/use-mint-metadata'
-import { useMintHealth } from '@/hooks/use-mint-health'
+import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
+import { useMintHealth } from '@/ui/hooks/use-mint-health'
 import { LIMITS, getNutName, getSupportedNuts } from '@/core/constants'
 import { formatMintHost, getMintBalance as getMintBalanceUtil } from '@/utils/url'
 import type { MintInfoData } from '@/core/types'
-import { clearMintData } from '@/data/database/schema'
-import { cn } from '@/components/ui/utils'
+// clearMintData provided via onClearMintData callback prop
+import { cn } from '@/ui/primitives/utils'
 import { Modal } from '@/ui/components/common'
 import { MintIcon } from './SettingsHelpers'
 import { MintUrlQrModal } from '@/ui/screens/MintDetail/MintUrlQrModal'
@@ -19,12 +19,14 @@ export interface MintManagementScreenProps {
   onBack: () => void
   onAddMint: () => void
   onSaveSettings: (settings: Record<string, unknown>) => Promise<void>
+  onClearMintData?: (mintUrl: string) => Promise<void>
 }
 
 export function MintManagementScreen({
   onBack,
   onAddMint,
   onSaveSettings,
+  onClearMintData,
 }: MintManagementScreenProps) {
   const { t } = useTranslation()
   const settings = useAppStore((s) => s.settings)
@@ -93,8 +95,8 @@ export function MintManagementScreen({
     if (expandedMint === urlToDelete) setExpandedMint(null)
     const newMints = settings.mints.filter((m) => m !== urlToDelete)
     await onSaveSettings({ mints: newMints })
-    clearMintData(urlToDelete)
-  }, [mintToDelete, settings.mints, onSaveSettings, expandedMint])
+    onClearMintData?.(urlToDelete)
+  }, [mintToDelete, settings.mints, onSaveSettings, expandedMint, onClearMintData])
 
   const getBalance = (url: string) => getMintBalanceUtil(url, balanceByMint)
 

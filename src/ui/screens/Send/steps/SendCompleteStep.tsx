@@ -5,7 +5,7 @@
 import { useEffect, useRef } from 'react'
 import { motion } from 'motion/react'
 import { useTranslation, Trans } from 'react-i18next'
-import { hapticSuccess, hapticTap } from '@/utils/haptic'
+import { hapticSuccess, hapticTap } from '@/ui/utils/haptic'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import sendSuccessImg from '@/assets/send-success.png'
 import { Button } from '@/ui/components/common/Button'

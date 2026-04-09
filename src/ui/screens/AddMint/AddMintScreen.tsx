@@ -2,13 +2,12 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 
 import { ArrowLeft, Plus, AlertCircle, TrendingUp, Loader2, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { cn } from '@/lib/utils'
+import { cn } from '@/ui/lib/utils'
 import { Button } from '@/ui/components/common/Button'
 import { ProgressStepper } from '@/ui/components/common/ProgressStepper'
 import { ConfirmDialog } from '@/ui/components/common/ConfirmDialog'
 import { useAppStore } from '@/store'
-import { mintMetadataService } from '@/services/mint-metadata'
-import { restoreWallet, getBalances } from '@/coco'
+import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { normalizeMintUrl, formatMintHost } from '@/utils/url'
 import { LIMITS } from '@/core/constants'
 import { formatSats } from '@/utils/format'
@@ -47,6 +46,7 @@ const PROGRESS_ORDER: Exclude<ProgressStep, null>[] = ['validating', 'adding', '
 
 export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScreenProps) {
   const { t } = useTranslation()
+  const registry = useServiceRegistry()
   const [url, setUrl] = useState('')
   const [isAdding, setIsAdding] = useState(false)
   const [progressStep, setProgressStep] = useState<ProgressStep>(null)
@@ -139,7 +139,7 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
     setProgressStep('validating')
 
     try {
-      const metadata = await mintMetadataService.fetchAndCache(normalizedUrl)
+      const metadata = await registry.mintMetadata.fetchAndCache(normalizedUrl)
       if (!metadata) {
         throw new Error(t('addMint.addFailed'))
       }
@@ -160,14 +160,21 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
       setProgressStep('restoring')
 
       try {
-        const beforeBalances = await getBalances()
-        const beforeTotal = Object.values(beforeBalances).reduce((sum, b) => sum + b, 0)
+        const beforeModules = await registry.balance.getByModule()
+        const beforeTotal = beforeModules.reduce((sum, m) => sum + m.accounts.reduce((s, a) => s + Number(a.amount.value), 0), 0)
 
-        await restoreWallet(normalizedUrl)
+        // Recover tokens for the newly added mint via recoverAll
+        await registry.payment.recoverAll()
 
-        const afterBalances = await getBalances()
-        const afterTotal = Object.values(afterBalances).reduce((sum, b) => sum + b, 0)
-        setBalance({ total: afterTotal, byMint: afterBalances })
+        const afterModules = await registry.balance.getByModule()
+        const afterTotal = afterModules.reduce((sum, m) => sum + m.accounts.reduce((s, a) => s + Number(a.amount.value), 0), 0)
+        const byMint: Record<string, number> = {}
+        for (const m of afterModules) {
+          for (const a of m.accounts) {
+            byMint[a.id] = Number(a.amount.value)
+          }
+        }
+        setBalance({ total: afterTotal, byMint })
 
         const recovered = afterTotal - beforeTotal
         if (recovered > 0) {
@@ -195,7 +202,7 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
       setIsAdding(false)
       setProgressStep(null)
     }
-  }, [url, mints, isAtLimit, onSaveSettings, onBack, onSuccess, setBalance, t, settings.mintAliases])
+  }, [url, mints, isAtLimit, onSaveSettings, onBack, onSuccess, setBalance, t, settings.mintAliases, registry])
 
   // Request confirmation before adding
   const requestAdd = useCallback((mintUrl: string, mintName: string) => {

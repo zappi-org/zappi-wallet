@@ -4,17 +4,18 @@ import { useTranslation } from 'react-i18next'
 import { MintCard, resolveMintColor } from '@/ui/components/wallet/MintCard'
 import { TransactionList } from '@/ui/components/wallet/TransactionList'
 import { PendingItemsList } from '@/ui/components/wallet/PendingItemsList'
-import { usePendingItems } from '@/hooks/usePendingItems'
-import { hapticTap } from '@/utils/haptic'
+import { usePendingItems } from '@/ui/hooks/usePendingItems'
+import { hapticTap } from '@/ui/utils/haptic'
 import { useAppStore } from '@/store'
-import { useMintMetadata } from '@/hooks/use-mint-metadata'
-import { useWallet } from '@/hooks'
+import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
+import { useWallet } from '@/ui/hooks'
 import { getMintBalance } from '@/utils/url'
-import type { MintInfo, Transaction } from '@/core/types'
+import type { MintInfo } from '@/core/types'
+import type { Transaction } from '@/core/domain/transaction'
 import { MintInfoSheet } from './MintInfoSheet'
 import { PendingItemsScreen } from './PendingItemsScreen'
 import { PendingItemDetailScreen } from './PendingItemDetailScreen'
-import type { PendingItem } from '@/hooks/usePendingItems'
+import type { PendingItem } from '@/ui/hooks/usePendingItems'
 
 export interface MintDetailScreenProps {
   mint: MintInfo
@@ -27,6 +28,8 @@ export interface MintDetailScreenProps {
   onSelectTransaction: (tx: Transaction) => void
   onTransactions?: () => void
   transactions: Transaction[]
+  onFindTransaction?: (id: string) => Promise<Transaction | null>
+  pendingItemCallbacks?: import('./PendingItemDetailScreen').PendingItemDetailCallbacks
 }
 
 export function MintDetailScreen({
@@ -40,6 +43,8 @@ export function MintDetailScreen({
   onSelectTransaction,
   onTransactions,
   transactions,
+  onFindTransaction,
+  pendingItemCallbacks,
 }: MintDetailScreenProps) {
   const { t } = useTranslation()
   const settings = useAppStore((s) => s.settings)
@@ -50,21 +55,21 @@ export function MintDetailScreen({
 
   const handlePendingItemClick = useCallback(async (item: PendingItem) => {
     hapticTap()
-    if (item.type === 'sent-token') {
+    if (item.direction === 'send' && item.kind === 'token') {
       // sent-token has a matching transaction — navigate to TransactionDetailScreen
       try {
-        const { getDatabase } = await import('@/data/database/schema')
-        const db = getDatabase()
-        const tx = await db.transactions.get(item.id)
-        if (tx) {
-          onSelectTransaction(tx)
-          return
+        if (onFindTransaction) {
+          const tx = await onFindTransaction(item.id)
+          if (tx) {
+            onSelectTransaction(tx)
+            return
+          }
         }
       } catch { /* fallthrough to detail sheet */ }
     }
     // receive-request, unclaimed-token → show detail screen
     setSelectedPendingItem(item)
-  }, [onSelectTransaction])
+  }, [onSelectTransaction, onFindTransaction])
 
   const { variant, customColor } = resolveMintColor(mint.url, mintIndex, settings.mintColors)
   const { items: pendingItems } = usePendingItems(mint.url)
@@ -81,7 +86,7 @@ export function MintDetailScreen({
     const url = mint.url
     const normalized = url.endsWith('/') ? url.slice(0, -1) : url
     return transactions.filter((tx) => {
-      const txUrl = tx.mintUrl?.endsWith('/') ? tx.mintUrl.slice(0, -1) : tx.mintUrl
+      const txUrl = tx.accountId?.endsWith('/') ? tx.accountId.slice(0, -1) : tx.accountId
       return txUrl === normalized || txUrl === url
     })
   }, [transactions, mint.url])
@@ -91,6 +96,7 @@ export function MintDetailScreen({
       <PendingItemDetailScreen
         item={selectedPendingItem}
         onBack={() => setSelectedPendingItem(null)}
+        callbacks={pendingItemCallbacks}
       />
     )
   }

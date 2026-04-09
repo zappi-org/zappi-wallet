@@ -7,14 +7,13 @@ import { useState, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useTranslation, Trans } from 'react-i18next'
 import { useAppStore } from '@/store'
-import { useMintMetadata } from '@/hooks/use-mint-metadata'
-import { hapticTap } from '@/utils/haptic'
+import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
+import { hapticTap } from '@/ui/utils/haptic'
 import { useFormatSats, useFormatFiat, FIAT_CURRENCY_MAP } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
-import { createMintQuote, prepareMelt, rollbackMelt } from '@/coco/cashuService'
+import { useRouting, PaymentRoute } from '@/ui/hooks/use-routing'
 import type { SendableValidatedData } from '../SendFlow'
-import { PaymentRoute } from '@/services/payment/routing'
 
 interface SendConfirmStepProps {
   onBack: () => void
@@ -129,6 +128,7 @@ export function SendConfirmStep({
   const formatFiat = useFormatFiat()
   const settings = useAppStore((s) => s.settings)
   const { getDisplayName } = useMintMetadata(settings.mints)
+  const routing = useRouting()
 
   // Async fee estimation for my-wallet transfers
   const [estimatedFee, setEstimatedFee] = useState<number | null>(
@@ -141,23 +141,14 @@ export function SendConfirmStep({
 
   useEffect(() => {
     if (!targetMintUrl) return
-    const target = targetMintUrl // narrow for closure
 
     let cancelled = false
-    let pendingOperationId: string | null = null
 
     async function estimateFee() {
       try {
-        const mintQuote = await createMintQuote(target, amount)
-        const meltOp = await prepareMelt(mintUrl, mintQuote.request)
-        pendingOperationId = meltOp.operationId
-        const fee = meltOp.fee_reserve + meltOp.swap_fee
-        await rollbackMelt(meltOp.operationId, 'fee estimation only').catch((e) =>
-          console.error('[SendConfirmStep] Fee estimation rollback FAILED:', e)
-        )
-        pendingOperationId = null
+        const estimate = await routing.estimateMyWalletFee(mintUrl, targetMintUrl!, amount)
         if (!cancelled) {
-          setEstimatedFee(fee)
+          setEstimatedFee(estimate.fee)
           setFeeLoading(false)
         }
       } catch (err) {
@@ -171,15 +162,8 @@ export function SendConfirmStep({
     }
 
     estimateFee()
-    return () => {
-      cancelled = true
-      if (pendingOperationId) {
-        rollbackMelt(pendingOperationId, 'cleanup on unmount').catch((e) =>
-          console.error('[SendConfirmStep] Unmount rollback FAILED:', e)
-        )
-      }
-    }
-  }, [targetMintUrl, amount, mintUrl])
+    return () => { cancelled = true }
+  }, [targetMintUrl, amount, mintUrl, routing])
 
   const fee = estimatedFee ?? 0
   const display = getConfirmDisplayInfo(validatedData, route, t, displayName)

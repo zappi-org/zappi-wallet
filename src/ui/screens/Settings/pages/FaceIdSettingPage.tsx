@@ -7,7 +7,7 @@ import {
   isPasskeyRegistered,
   registerPasskey,
   removePasskey,
-} from '@/services/passkey'
+} from '@/ui/services/passkey'
 import { SettingsDetailPage } from '../components/SettingsDetailPage'
 
 interface FaceIdSettingPageProps {

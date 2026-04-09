@@ -12,9 +12,10 @@ function generateMintAliases(mints: string[], existing?: Record<string, string>)
 }
 
 // Lightweight imports only — no heavy services, hooks, or screens
-import { getP2PKPubkey } from '@/services/crypto'
-import { SecurityService } from '@/services/security/security.service'
-import { SettingsRepository } from '@/data/repositories/settings.repository'
+import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
+import { getCocoManager } from '@/modules/cashu'
+import { createSecurityService } from '@/composition/security'
+import { DexieSettingsRepository as SettingsRepository } from '@/adapters/storage/dexie/dexie-settings.repository'
 import { OnboardingScreen } from '@/ui/screens/Onboarding/OnboardingScreen'
 
 // Lazy-load the main app (heavy: all services, hooks, screens)
@@ -30,10 +31,14 @@ function App() {
   const [isOnboarded, setIsOnboarded] = useState<boolean | null>(null)
 
   // Services (lightweight only)
-  const [services] = useState(() => ({
-    security: new SecurityService(),
-    settingsRepo: new SettingsRepository(),
-  }))
+  const [services] = useState(() => {
+    const security = createSecurityService()
+    return {
+      security,
+      settingsRepo: new SettingsRepository(),
+      p2pkKeyManager: new CocoP2PKKeyManager(async () => (await getCocoManager()).keyring),
+    }
+  })
 
   // Check if wallet exists (determines onboarding vs main app)
   useEffect(() => {
@@ -43,7 +48,7 @@ function App() {
         const savedSettings = await services.settingsRepo.getSettings()
         setSettings(savedSettings)
 
-        const hasWallet = await services.security.hasEncryptedWallet()
+        const hasWallet = await services.security.hasWallet()
         setIsOnboarded(hasWallet)
       } catch (error) {
         console.error('Init error:', error)
@@ -76,22 +81,26 @@ function App() {
       console.log('[Onboarding] Wallet created successfully')
 
       // Set nostr key pair in store (needed by dynamically imported ProfileService)
-      setNostrKeyPair(result.value.publicKey, result.value.privateKey)
-      setP2pkPubkey(getP2PKPubkey(result.value.privateKey))
+      setNostrKeyPair(result.value.keys.publicKey, result.value.keys.privateKey)
+      const { pubkey: p2pkPub } = await services.p2pkKeyManager.getCurrentKey()
+      setP2pkPubkey(p2pkPub)
 
       // Get current settings for mints/relays
       const currentSettings = await services.settingsRepo.getSettings()
 
-      // Phase 2: Dynamic import heavy services (user sees "recovering" spinner)
-      const { ProfileService } = await import('@/services/profile/profile.service')
-      const profile = new ProfileService()
+      // Phase 2: Create profile service with NostrGateway
+      const { NostrGatewayAdapter } = await import('@/adapters/nostr/nostr-gateway')
+      const { createProfileService } = await import('@/composition/profile')
+      const nostrGateway = new NostrGatewayAdapter({ privateKeyHex: result.value.keys.privateKey })
+      await nostrGateway.connect(currentSettings.relays)
+      const profile = createProfileService(nostrGateway, services.settingsRepo)
 
       if (data.isRecovery) {
         // RECOVERY MODE: Fetch settings from Nostr, then restore tokens
         console.log('[Onboarding] Recovery mode - fetching profile from Nostr')
 
-        const recoveredProfile = await profile.recoverProfileFromNostr(
-          result.value.publicKey
+        const recoveredProfile = await profile.recoverProfile(
+          result.value.keys.publicKey
         )
 
         let mintsToRestore: string[] = []
@@ -123,7 +132,7 @@ function App() {
         }
 
         // Dynamic import Coco for token restoration
-        const cocoService = await import('@/coco/cashuService')
+        const cocoService = await import('@/modules/cashu')
 
         console.log('[Onboarding] Restoring tokens from mints:', mintsToRestore)
         for (const mintUrl of mintsToRestore) {
@@ -138,7 +147,8 @@ function App() {
 
         // Recover any pending Lightning quotes
         try {
-          const recovery = await cocoService.recoverPendingQuotes()
+          const { recoverPendingQuotes } = await import('@/composition/recover-pending-quotes')
+          const recovery = await recoverPendingQuotes()
           if (recovery.recovered > 0) {
             console.log(`[Onboarding] Recovered ${recovery.recovered} pending Lightning quotes`)
           }
@@ -154,7 +164,8 @@ function App() {
         let zsRelays: string[] | undefined
 
         try {
-          const zsConfig = await profile.fetchZSConfiguration()
+          const { ZS_DOMAIN } = await import('@/core/constants')
+          const zsConfig = await profile.fetchZSConfiguration(ZS_DOMAIN)
           if (zsConfig) {
             console.log('[Onboarding] ZS config fetched - mints:', zsConfig.mints, 'relays:', zsConfig.relays)
             mints = zsConfig.mints
@@ -193,20 +204,15 @@ function App() {
         // Publish wallet's kind:10019, 10002, 10050 to ZS relays
         if (mints.length > 0) {
           try {
-            const p2pkPubkey = getP2PKPubkey(result.value.privateKey)
-            const publishResult = await profile.publishProfile(
-              result.value.privateKey,
+            const { pubkey: p2pkPubkey } = await services.p2pkKeyManager.getCurrentKey()
+            await profile.publishAll(
+              result.value.keys.publicKey,
               mints,
-              p2pkPubkey,
               relays,
-              zsRelays
+              p2pkPubkey,
+              zsRelays,
             )
-
-            if (publishResult.isOk()) {
-              console.log('[Onboarding] Profile published successfully')
-            } else {
-              console.warn('[Onboarding] Failed to publish profile:', publishResult.error)
-            }
+            console.log('[Onboarding] Profile published successfully')
           } catch (e) {
             console.warn('[Onboarding] Failed to publish profile:', e)
           }

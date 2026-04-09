@@ -27,10 +27,10 @@ export const selectSyncState = (state: AppState) => state.syncState
 export const selectLastSyncAt = (state: AppState) => state.lastSyncAt
 export const selectAnchor = (state: AppState) => state.anchor
 export const selectPendingRetries = (state: AppState) => state.pendingRetries
-export const selectFailedSwapsCount = (state: AppState) => state.failedSwapsCount
+export const selectFailedIncomingsCount = (state: AppState) => state.failedIncomingsCount
 export const selectSyncProgress = (state: AppState) => state.syncProgress
 export const selectHasPendingItems = (state: AppState) =>
-  state.pendingRetries > 0 || state.failedSwapsCount > 0
+  state.pendingRetries > 0 || state.failedIncomingsCount > 0
 
 // ===== UI Selectors =====
 
@@ -82,4 +82,4 @@ export const selectOnlineMints = (state: AppState) =>
  * Get total pending notification count (for badges)
  */
 export const selectPendingCount = (state: AppState) =>
-  state.pendingRetries + state.failedSwapsCount
+  state.pendingRetries + state.failedIncomingsCount

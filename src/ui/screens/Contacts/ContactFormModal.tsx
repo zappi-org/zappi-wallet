@@ -6,12 +6,16 @@ import { Button } from '@/ui/components/common/Button'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
 import { CameraFilled } from '@/ui/components/icons/CameraFilled'
 import type { Contact } from '@/core/types'
-import { detectAddressType, type ContactAddressType } from '@/core/types/contact'
-import { isValidLightningAddress } from '@/services/lightning'
-import { resolveLightningAddress } from '@/services/lnurl'
-import { NostrService } from '@/services/nostr/nostr.service'
-import { DEFAULT_RELAYS, NOSTR_KINDS } from '@/core/constants'
-import { nip19 } from 'nostr-tools'
+import type { ContactAddressType } from '@/core/types/contact'
+
+function detectAddressType(address: string): ContactAddressType {
+  const trimmed = address.trim()
+  if (trimmed.includes('@')) return 'lightning'
+  if (trimmed.startsWith('npub1')) return 'npub'
+  return 'custom'
+}
+import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
+import { useCrypto } from '@/ui/hooks/use-crypto'
 
 interface ContactFormModalProps {
   isOpen: boolean
@@ -24,13 +28,22 @@ type VerifyStatus = 'idle' | 'verifying' | 'valid' | 'invalid'
 
 type VerifyErrorCode = 'invalidFormat' | 'notReachable' | 'invalidNpub' | 'noNutzapInfo' | 'noMints' | 'decodeFailed'
 
-async function verifyAddress(address: string, type: ContactAddressType): Promise<{ valid: boolean; errorCode?: VerifyErrorCode }> {
+type AddressVerifier = { resolve(address: string): Promise<{ capabilities: { directToken?: { mints: string[] } } }> }
+type NpubDecoder = { decodeNpub(npub: string): { type: string; data: string } }
+
+async function verifyAddress(
+  address: string,
+  type: ContactAddressType,
+  addressResolver: AddressVerifier,
+  crypto: NpubDecoder,
+): Promise<{ valid: boolean; errorCode?: VerifyErrorCode }> {
   if (type === 'lightning') {
-    if (!isValidLightningAddress(address)) {
+    // Simple format check: must contain @ and .
+    if (!address.includes('@') || !address.includes('.')) {
       return { valid: false, errorCode: 'invalidFormat' }
     }
     try {
-      await resolveLightningAddress(address)
+      await addressResolver.resolve(address)
       return { valid: true }
     } catch {
       return { valid: false, errorCode: 'notReachable' }
@@ -39,27 +52,18 @@ async function verifyAddress(address: string, type: ContactAddressType): Promise
 
   if (type === 'npub') {
     try {
-      const decoded = nip19.decode(address)
+      const decoded = crypto.decodeNpub(address)
       if (decoded.type !== 'npub') return { valid: false, errorCode: 'invalidNpub' }
-      const pubkey = decoded.data as string
 
-      const nostr = new NostrService()
       try {
-        const events = await nostr.queryEvents(
-          [...DEFAULT_RELAYS],
-          { kinds: [NOSTR_KINDS.NUTZAP_INFO], authors: [pubkey], limit: 1 },
-          5000
-        )
-        if (events.length === 0) {
-          return { valid: false, errorCode: 'noNutzapInfo' }
-        }
-        const info = nostr.parseNutZapInfo(events[0])
-        if (!info.mints || info.mints.length === 0) {
+        const result = await addressResolver.resolve(address)
+        const mints = result.capabilities.directToken?.mints
+        if (!mints || mints.length === 0) {
           return { valid: false, errorCode: 'noMints' }
         }
         return { valid: true }
-      } finally {
-        nostr.close()
+      } catch {
+        return { valid: false, errorCode: 'noNutzapInfo' }
       }
     } catch {
       return { valid: false, errorCode: 'decodeFailed' }
@@ -87,6 +91,8 @@ export function ContactFormModal({ isOpen, onClose, onSave, contact }: ContactFo
 
 function ContactFormInner({ contact, onSave, onClose }: { contact?: Contact | null; onSave: ContactFormModalProps['onSave']; onClose: () => void }) {
   const { t } = useTranslation()
+  const { addressResolver } = useServiceRegistry()
+  const crypto = useCrypto()
   const [name, setName] = useState(contact?.name || '')
   const [address, setAddress] = useState(contact?.address || '')
   const [error, setError] = useState('')
@@ -117,7 +123,7 @@ function ContactFormInner({ contact, onSave, onClose }: { contact?: Contact | nu
 
     setVerifyStatus('verifying')
     setError('')
-    const result = await verifyAddress(trimmedAddress, addrType)
+    const result = await verifyAddress(trimmedAddress, addrType, addressResolver, crypto)
     if (!result.valid) {
       setVerifyStatus('invalid')
       const errorKey = result.errorCode ? `contacts.verify.${result.errorCode}` : 'contacts.verificationFailed'
@@ -128,7 +134,7 @@ function ContactFormInner({ contact, onSave, onClose }: { contact?: Contact | nu
 
     onSave({ name: trimmedName, address: trimmedAddress })
     onClose()
-  }, [name, address, onSave, onClose, t])
+  }, [name, address, onSave, onClose, t, addressResolver, crypto])
 
   const handleScan = useCallback((result: string) => {
     setShowScanner(false)

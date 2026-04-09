@@ -3,8 +3,10 @@ import { useMemo, useState } from 'react'
 import { ArrowLeft, TrendingUp, TrendingDown } from 'lucide-react'
 import { AreaChart, Area, Tooltip, ResponsiveContainer, XAxis, Legend } from 'recharts'
 import { useTranslation } from 'react-i18next'
-import { cn } from '@/lib/utils'
-import type { Transaction } from '@/core/types'
+import { cn } from '@/ui/lib/utils'
+import type { Transaction } from '@/core/domain/transaction'
+import { getTransactionType } from '@/core/domain/transaction'
+import { toNumber } from '@/core/domain/amount'
 import { SegmentControl } from '@/ui/components/common/SegmentControl'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 
@@ -34,7 +36,7 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
 
     // Current period transactions
     const currentPeriod = transactions.filter(
-      (tx) => tx.createdAt >= cutoff && tx.status === 'completed'
+      (tx) => tx.createdAt >= cutoff && tx.status === 'settled'
     )
 
     // Previous period transactions (for comparison)
@@ -42,25 +44,25 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
       (tx) =>
         tx.createdAt >= previousCutoff &&
         tx.createdAt < cutoff &&
-        tx.status === 'completed'
+        tx.status === 'settled'
     )
 
     // Calculate totals
     const income = currentPeriod
       .filter((tx) => tx.direction === 'receive')
-      .reduce((sum, tx) => sum + tx.amount, 0)
+      .reduce((sum, tx) => sum + toNumber(tx.amount), 0)
 
     const spending = currentPeriod
       .filter((tx) => tx.direction === 'send')
-      .reduce((sum, tx) => sum + tx.amount, 0)
+      .reduce((sum, tx) => sum + toNumber(tx.amount), 0)
 
     const previousIncome = previousPeriod
       .filter((tx) => tx.direction === 'receive')
-      .reduce((sum, tx) => sum + tx.amount, 0)
+      .reduce((sum, tx) => sum + toNumber(tx.amount), 0)
 
     const previousSpending = previousPeriod
       .filter((tx) => tx.direction === 'send')
-      .reduce((sum, tx) => sum + tx.amount, 0)
+      .reduce((sum, tx) => sum + toNumber(tx.amount), 0)
 
     // Calculate percentage changes
     const incomeChange =
@@ -85,45 +87,52 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
     }
   }, [transactions, timeRange, now])
 
-  // Generate chart data
+  // Generate chart data — single-pass O(n) bucketing
   const chartData = useMemo(() => {
-    const now = new Date()
+    const today = new Date()
     const days = timeRange === 'week' ? 7 : 30
 
-    const data: { name: string; income: number; spending: number }[] = []
+    // Build day buckets keyed by dayStart timestamp
+    const buckets = new Map<number, { income: number; spending: number }>()
+    const dayMeta: { dayStart: number; label: string }[] = []
 
     for (let i = days - 1; i >= 0; i--) {
-      const date = new Date(now)
+      const date = new Date(today)
       date.setDate(date.getDate() - i)
-      const dayStart = new Date(date.setHours(0, 0, 0, 0)).getTime()
-      const dayEnd = new Date(date.setHours(23, 59, 59, 999)).getTime()
-
-      const dayTxs = transactions.filter(
-        (tx) =>
-          tx.createdAt >= dayStart &&
-          tx.createdAt <= dayEnd &&
-          tx.status === 'completed'
-      )
-
-      const income = dayTxs
-        .filter((tx) => tx.direction === 'receive')
-        .reduce((sum, tx) => sum + tx.amount, 0)
-
-      const spending = dayTxs
-        .filter((tx) => tx.direction === 'send')
-        .reduce((sum, tx) => sum + tx.amount, 0)
-
-      data.push({
-        name:
-          timeRange === 'week'
-            ? date.toLocaleDateString('en-US', { weekday: 'short' })
-            : date.getDate().toString(),
-        income,
-        spending,
+      date.setHours(0, 0, 0, 0)
+      const dayStart = date.getTime()
+      buckets.set(dayStart, { income: 0, spending: 0 })
+      dayMeta.push({
+        dayStart,
+        label: timeRange === 'week'
+          ? date.toLocaleDateString('en-US', { weekday: 'short' })
+          : date.getDate().toString(),
       })
     }
 
-    return data
+    const cutoffStart = dayMeta[0]?.dayStart ?? 0
+    const cutoffEnd = (dayMeta[dayMeta.length - 1]?.dayStart ?? 0) + 86_400_000 - 1
+
+    // Single pass over transactions
+    for (const tx of transactions) {
+      if (tx.status !== 'settled') continue
+      if (tx.createdAt < cutoffStart || tx.createdAt > cutoffEnd) continue
+
+      // Floor to start-of-day to find bucket key
+      const d = new Date(tx.createdAt)
+      d.setHours(0, 0, 0, 0)
+      const bucket = buckets.get(d.getTime())
+      if (!bucket) continue
+
+      const amount = toNumber(tx.amount)
+      if (tx.direction === 'receive') bucket.income += amount
+      else if (tx.direction === 'send') bucket.spending += amount
+    }
+
+    return dayMeta.map(({ dayStart, label }) => ({
+      name: label,
+      ...buckets.get(dayStart)!,
+    }))
   }, [transactions, timeRange])
 
   // Spending breakdown by category
@@ -134,14 +143,15 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
       (tx) =>
         tx.createdAt >= cutoff &&
         tx.direction === 'send' &&
-        tx.status === 'completed'
+        tx.status === 'settled'
     )
 
     // Group by transaction type
     const byMethod: Record<string, number> = {}
     spending.forEach((tx) => {
-      const method = tx.type === 'ecash-token' ? 'ecash' : (tx.type || 'ecash')
-      byMethod[method] = (byMethod[method] || 0) + tx.amount
+      const txType = getTransactionType(tx)
+      const method = txType === 'ecash-token' ? 'ecash' : (txType || 'ecash')
+      byMethod[method] = (byMethod[method] || 0) + toNumber(tx.amount)
     })
 
     const categories = [

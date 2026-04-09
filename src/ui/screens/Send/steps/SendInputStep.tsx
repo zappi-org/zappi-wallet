@@ -10,23 +10,23 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { Zap, Hash, Link } from 'lucide-react'
 import { CameraFilled } from '@/ui/components/icons/CameraFilled'
 import cardLogo from '@/assets/card-logo.svg'
-import { getInputTypeLabel } from '@/utils/inputTypeLabel'
+import { getInputTypeLabel } from '@/ui/utils/inputTypeLabel'
 import { useTranslation, Trans } from 'react-i18next'
-import { useMintMetadata } from '@/hooks/use-mint-metadata'
+import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
-import { hapticTap } from '@/utils/haptic'
+import { hapticTap } from '@/ui/utils/haptic'
 import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
 import { SegmentControl } from '@/ui/components/common/SegmentControl'
-import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
-import { validateInput } from '@/ui/components/scanner/InputValidator'
-import { getContactRepo } from '@/data/repositories/contact.repository'
-import type { Contact, ContactAddressType } from '@/core/types'
+import { useInputParser } from '@/ui/hooks/use-input-parser'
+import type { InputType } from '@/core/domain/input-types'
+import { useContacts } from '@/ui/hooks/use-contacts'
+import type { ContactAddressType } from '@/core/types'
 import type { SendableValidatedData } from '../SendFlow'
 
 /** Build badge labels from detected input */
-function toBadgeTypes(detected: ReturnType<typeof detectInputType>): string[] {
+function toBadgeTypes(detected: InputType): string[] {
   if (detected.type === 'unknown' || detected.type === 'amount') return []
   const badges: string[] = [detected.type]
   if (detected.type === 'cashu-request' && detected.lightningInvoice) {
@@ -63,6 +63,7 @@ export function SendInputStep({
   const settings = useAppStore((s) => s.settings)
   const addToast = useAppStore((s) => s.addToast)
   const { getDisplayName, getIconUrl } = useMintMetadata(settings.mints)
+  const inputParser = useInputParser()
 
   // State
   const [destination, setDestination] = useState(initialDestination)
@@ -79,11 +80,8 @@ export function SendInputStep({
   // Store the raw address when displayName is used (contact selection)
   const rawAddressRef = useRef<string | null>(null)
 
-  // Address book contacts
-  const [contacts, setContacts] = useState<Contact[]>([])
-  useEffect(() => {
-    getContactRepo().findAll().then(setContacts)
-  }, [])
+  // Address book contacts (via ContactUseCase)
+  const { contacts } = useContacts()
 
   // Segment: wallets vs contacts
   const [listTab, setListTab] = useState<'wallets' | 'contacts'>('wallets')
@@ -146,21 +144,21 @@ export function SendInputStep({
     if (!destination.trim() || destination.startsWith('@')) return
 
     detectTimeoutRef.current = setTimeout(async () => {
-      const detected = detectInputType(destination)
+      const detected = inputParser.detectAndClassify(destination)
       setDetectedTypes(toBadgeTypes(detected))
 
       if (detected.type === 'cashu-request') {
         try {
-          const result = await validateInput(detected)
-          if (result.valid && result.data.type === 'cashu-request') {
-            setValidatedData(result.data as SendableValidatedData)
+          const validated = await inputParser.validateAsync(detected)
+          if (validated.type === 'cashu-request') {
+            setValidatedData(validated as SendableValidatedData)
           }
         } catch { /* decode failed, ignore */ }
       }
     }, 300)
 
     return () => clearTimeout(detectTimeoutRef.current)
-  }, [destination])
+  }, [destination, inputParser])
 
   // Cleanup auto-advance timer on unmount
   useEffect(() => () => clearTimeout(autoAdvanceTimerRef.current), [])
@@ -177,17 +175,19 @@ export function SendInputStep({
     rawAddressRef.current = displayName ? trimmed : null
     setDestination(displayName || trimmed)
 
-    const detected = detectInputType(trimmed)
+    const detected = inputParser.detectAndClassify(trimmed)
     // Don't show type badge when selecting from contacts (displayName means contact)
     setDetectedTypes(displayName ? [] : toBadgeTypes(detected))
 
     if (detected.type === 'unknown') return false
 
     // Full validation (async — network calls for lightning-address, lnurl, npub)
-    const result = await validateInput(detected)
-    if (!result.valid) return false
-
-    const validated = result.data
+    let validated
+    try {
+      validated = await inputParser.validateAsync(detected)
+    } catch {
+      return false
+    }
     if (!['bolt11', 'lightning-address', 'lnurl-pay', 'cashu-request', 'my-wallet'].includes(validated.type)) return false
 
     const sendable = validated as SendableValidatedData
@@ -215,7 +215,7 @@ export function SendInputStep({
     }
 
     return true
-  }, [onNext])
+  }, [onNext, inputParser])
 
   // Handle QR scan
   const handleScan = useCallback((result: string) => {

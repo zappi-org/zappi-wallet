@@ -11,9 +11,9 @@ import { useTranslation } from 'react-i18next'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
 import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
-import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
-import { validateInput, type ValidatedCashuToken } from '@/ui/components/scanner/InputValidator'
-import { hapticTap, hapticError } from '@/utils/haptic'
+import { useInputParser } from '@/ui/hooks/use-input-parser'
+import type { ValidatedCashuToken } from '@/core/domain/input-types'
+import { hapticTap, hapticError } from '@/ui/utils/haptic'
 import { useAppStore } from '@/store'
 
 interface TokenReceiveStepProps {
@@ -33,6 +33,7 @@ export function TokenReceiveStep({
 }: TokenReceiveStepProps) {
   const { t } = useTranslation()
   const addToast = useAppStore((s) => s.addToast)
+  const inputParser = useInputParser()
 
   const [state, setState] = useState<StepState>('idle')
   const [tokenInput, setTokenInput] = useState('')
@@ -49,7 +50,7 @@ export function TokenReceiveStep({
       hapticTap()
 
       try {
-        const detected = detectInputType(trimmed)
+        const detected = inputParser.detectAndClassify(trimmed)
 
         if (detected.type !== 'cashu-token') {
           hapticError()
@@ -62,21 +63,10 @@ export function TokenReceiveStep({
           return
         }
 
-        const result = await validateInput(detected)
-
-        if (!result.valid) {
-          hapticError()
-          addToast({
-            type: 'error',
-            message: result.error,
-            duration: 3000,
-          })
-          setState('idle')
-          return
-        }
+        const validated = await inputParser.validateAsync(detected)
 
         hapticTap()
-        onTokenDetected(result.data as ValidatedCashuToken)
+        onTokenDetected(validated as ValidatedCashuToken)
       } catch {
         hapticError()
         addToast({
@@ -87,7 +77,7 @@ export function TokenReceiveStep({
         setState('idle')
       }
     },
-    [state, addToast, onTokenDetected, t],
+    [state, addToast, onTokenDetected, t, inputParser],
   )
 
   const handleScan = useCallback(

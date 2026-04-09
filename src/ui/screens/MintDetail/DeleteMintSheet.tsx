@@ -1,11 +1,11 @@
 import { useState, useMemo, useCallback } from 'react'
 import { X, ArrowDown, ChevronDown, Loader2, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { cn } from '@/lib/utils'
+import { cn } from '@/ui/lib/utils'
 import { Button } from '@/ui/components/common/Button'
 import { useFormatSats } from '@/utils/format'
 import { useAppStore } from '@/store'
-import { useMintMetadata, usePayment } from '@/hooks'
+import { useMintMetadata, usePayment } from '@/ui/hooks'
 import type { MintInfo } from '@/core/types'
 
 type DeleteStep = 'confirm-empty' | 'has-balance' | 'swapping' | 'error'

@@ -9,7 +9,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Share2, Copy, X, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { hapticTap, hapticSuccess } from '@/utils/haptic'
+import { hapticTap, hapticSuccess } from '@/ui/utils/haptic'
+import { usePaymentCompleted } from '@/ui/hooks/use-payment-completed'
 import { useAppStore } from '@/store'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
@@ -19,7 +20,7 @@ import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 interface TokenCreatedStepProps {
   token: string
   amount: number
-  operationId?: string
+  transactionId?: string
   onCancel: () => void
   onComplete: () => void
 }
@@ -27,7 +28,7 @@ interface TokenCreatedStepProps {
 export function TokenCreatedStep({
   token,
   amount,
-  operationId,
+  transactionId,
   onCancel,
   onComplete,
 }: TokenCreatedStepProps) {
@@ -47,34 +48,8 @@ export function TokenCreatedStep({
     hapticSuccess()
   }, [])
 
-  // Monitor token spending via SDK send:finalized event
-  useEffect(() => {
-    if (!operationId) return
-
-    let unsubscribe: (() => void) | undefined
-    let mounted = true
-
-    const subscribe = async () => {
-      try {
-        const { getCocoManager } = await import('@/coco/manager')
-        const manager = await getCocoManager()
-        unsubscribe = manager.on('send:finalized', ({ operationId: finId }) => {
-          if (mounted && finId === operationId) {
-            handleSpent()
-          }
-        })
-      } catch {
-        // Manager not initialized — ignore
-      }
-    }
-
-    subscribe()
-
-    return () => {
-      mounted = false
-      unsubscribe?.()
-    }
-  }, [operationId, handleSpent])
+  // Monitor token spending via payment:completed domain event
+  usePaymentCompleted(transactionId, handleSpent)
 
   // Auto-dismiss after token is claimed
   const onCompleteRef = useRef(onComplete)

@@ -3,7 +3,7 @@ import { Trash2, Plus, Copy, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { Button, Modal, PinInput } from '@/ui/components/common'
-import { derivePOSSubKey, getP2PKPubkey } from '@/services/crypto'
+import { useCrypto } from '@/ui/hooks/use-crypto'
 import type { POSDevice, POSProvisioningPayload, WalletSettings } from '@/core/types'
 import { SettingsDetailPage } from '../components/SettingsDetailPage'
 
@@ -25,6 +25,7 @@ export function POSSettingPage({
   onSaveSettings,
 }: POSSettingPageProps) {
   const { t } = useTranslation()
+  const crypto = useCrypto()
 
   const [showAddModal, setShowAddModal] = useState(false)
   const [showQrModal, setShowQrModal] = useState(false)
@@ -65,8 +66,8 @@ export function POSSettingPage({
         ? Math.max(...posDevices.map(d => d.index)) + 1
         : 0
 
-      const subKey = derivePOSSubKey(mnemonic, nextIndex)
-      const walletP2pkPubkey = nostrPrivkey ? getP2PKPubkey(nostrPrivkey) : null
+      const subKey = crypto.derivePOSSubKey(mnemonic, nextIndex)
+      const walletP2pkPubkey = nostrPrivkey ? crypto.getP2PKPubkey(nostrPrivkey) : null
 
       if (!walletP2pkPubkey || !nostrPubkey) {
         setPinError('Wallet keys not available')
@@ -120,7 +121,7 @@ export function POSSettingPage({
     } finally {
       setIsLoading(false)
     }
-  }, [pin, posDevices, nostrPrivkey, nostrPubkey, deviceLabel, settings.mints, settings.relays, parseLightningAddress, onBackupMnemonic, onSaveSettings, t])
+  }, [pin, posDevices, nostrPrivkey, nostrPubkey, deviceLabel, settings.mints, settings.relays, parseLightningAddress, onBackupMnemonic, onSaveSettings, t, crypto])
 
   const handleRemoveDevice = useCallback(async () => {
     if (!showRemoveModal) return

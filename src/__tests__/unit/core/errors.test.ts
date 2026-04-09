@@ -8,7 +8,6 @@ import {
   InvalidProofError,
   QuoteNotFoundError,
   QuoteExpiredError,
-  classifyCashuError,
   RelayConnectionError,
   classifyNostrError,
   NetworkError,
@@ -17,6 +16,7 @@ import {
   LightningPaymentError,
   InvalidInvoiceError,
 } from '@/core/errors'
+import { classifyCashuError } from '@/modules/cashu'
 import {
   NetworkError as CocoNetworkError,
   MintFetchError,
@@ -37,7 +37,6 @@ describe('Cashu Errors', () => {
 
       expect(error.code).toBe('TOKEN_SPENT')
       expect(error.isRetryable).toBe(false)
-      expect(error.toUserMessage()).toBe('이미 사용된 토큰입니다')
     })
 
     it('should accept custom message', () => {
@@ -55,8 +54,18 @@ describe('Cashu Errors', () => {
       expect(error.isRetryable).toBe(false)
       expect(error.required).toBe(1000)
       expect(error.available).toBe(500)
-      expect(error.toUserMessage()).toContain('1,000')
-      expect(error.toUserMessage()).toContain('500')
+    })
+
+    it('should detect fee shortage', () => {
+      const error = new InsufficientBalanceError(100, 150, undefined, 60)
+
+      expect(error.isFeeShortage).toBe(true)
+    })
+
+    it('should detect pure balance shortage', () => {
+      const error = new InsufficientBalanceError(1000, 500)
+
+      expect(error.isFeeShortage).toBe(false)
     })
   })
 

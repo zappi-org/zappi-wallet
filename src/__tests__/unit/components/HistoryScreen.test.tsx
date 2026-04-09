@@ -10,7 +10,7 @@ vi.mock('react-i18next', () => ({
   initReactI18next: { type: '3rdParty', init: () => {} },
 }))
 
-vi.mock('@/hooks', () => ({
+vi.mock('@/ui/hooks', () => ({
   useMintMetadata: () => ({
     getDisplayName: (url: string) => url,
   }),

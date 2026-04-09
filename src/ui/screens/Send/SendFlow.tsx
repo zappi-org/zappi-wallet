@@ -16,32 +16,21 @@
 import { useState, useCallback, useRef } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
-import { useNetwork } from '@/hooks/use-network'
+import { useNetwork } from '@/ui/hooks/use-network'
+import { useInputParser } from '@/ui/hooks/use-input-parser'
 import { useAppStore } from '@/store'
 import { useTranslation } from 'react-i18next'
-import { InsufficientBalanceError } from '@/core/errors/cashu'
-import { translateError } from '@/core/errors/translate'
-import { detectInputType } from '@/ui/components/scanner/InputTypeDetector'
-import {
-  validateInput,
-  type ValidatedData,
-  type ValidatedBolt11,
-  type ValidatedLightningAddress,
-  type ValidatedLnurlPay,
-  type ValidatedCashuRequest,
-  type ValidatedMyWallet,
-} from '@/ui/components/scanner/InputValidator'
-import {
-  selectRoute,
-  findCommonMints,
-  estimateRouteFee,
-  PaymentRoute,
-  ROUTE_LABELS,
-  type RouteSelection,
-  type RouteContext,
-  type RouteExecutionResult,
-} from '@/services/payment/routing'
-import { getBalances as cocoGetBalances } from '@/coco/cashuService'
+import type {
+  ValidatedData,
+  ValidatedBolt11,
+  ValidatedLightningAddress,
+  ValidatedLnurlPay,
+  ValidatedCashuRequest,
+  ValidatedMyWallet,
+} from '@/core/domain/input-types'
+import { useRouting, PaymentRoute, ROUTE_LABELS } from '@/ui/hooks/use-routing'
+import type { RouteSelection, RouteContext, RouteExecutionResult } from '@/core/domain/routing'
+import { translateError } from '@/ui/utils/error-i18n'
 
 // ============= Helpers =============
 
@@ -112,6 +101,9 @@ export interface SendFlowProps {
   onCreateEcashToken: (amount: number, mintUrl?: string, options?: { p2pkPubkey?: string; memo?: string }) => Promise<{ token: string; txId: string; operationId: string } | null>
   onCompleteEcashSend?: (txId: string) => Promise<void>
   onCancelEcashToken?: (txId: string) => Promise<void>
+  // Cross-mint swap handler (my-wallet type)
+  onMintSwap?: (fromMintUrl: string, toMintUrl: string, amount: number) => Promise<{ success: boolean; amount?: number; fee?: number; transactionId?: string } | null>
+  onEstimateSwapFee?: (fromMintUrl: string, toMintUrl: string, amount: number) => Promise<{ fee: number; totalNeeded: number } | null>
   // Pre-filled data from scanner
   validatedData?: ValidatedData
   initialAmount?: number
@@ -131,6 +123,8 @@ export function SendFlow({
   onCreateEcashToken,
   onCompleteEcashSend: _onCompleteEcashSend,
   onCancelEcashToken,
+  onMintSwap,
+  onEstimateSwapFee: _onEstimateSwapFee,
   validatedData: initialValidatedData,
   initialAmount,
   initialMintUrl,
@@ -141,6 +135,8 @@ export function SendFlow({
   const { t } = useTranslation()
   const { isOnline } = useNetwork()
   const addToast = useAppStore((s) => s.addToast)
+  const inputParser = useInputParser()
+  const routing = useRouting()
 
   // Determine initial destination from validatedData or initialDestination
   const getInitialDestination = (): string => {
@@ -215,8 +211,8 @@ export function SendFlow({
     mintUrl: string,
   ): Promise<{ fee: number; routeSelection: RouteSelection } | null> => {
     try {
-      const balances = await cocoGetBalances()
-      const route = selectRoute({
+      const balances = useAppStore.getState().balance.byMint
+      const route = routing.selectRoute({
         validatedData: validated,
         senderMints: balances,
         amount,
@@ -233,7 +229,7 @@ export function SendFlow({
       const receiverMints = validated.type === 'cashu-request' ? validated.parsed.mints
         : []
       const commonMints = receiverMints.length > 0
-        ? findCommonMints(Object.keys(balances).filter((m) => balances[m] > 0), receiverMints)
+        ? routing.findCommonMints(Object.keys(balances).filter((m) => balances[m] > 0), receiverMints)
         : []
       // User's selected mint takes priority
       const sourceMint = mintUrl
@@ -256,7 +252,7 @@ export function SendFlow({
       else if (validated.type === 'cashu-request') invoice = validated.parsed.lightningInvoice
 
       // Fee estimation
-      const feeEstimate = await estimateRouteFee(route, sourceMint, amount, targetMint, invoice)
+      const feeEstimate = await routing.estimateRouteFee(route, sourceMint, amount, targetMint, invoice)
       const fee = feeEstimate.fee
 
       const routeSelection: RouteSelection = {
@@ -273,10 +269,10 @@ export function SendFlow({
       return { fee, routeSelection }
     } catch (err) {
       console.error('[SendFlow] Route selection / fee estimation failed:', err)
-      addToast({ type: 'error', message: t('payment.feeEstimateFailed'), duration: 3000 })
+      addToast({ type: 'error', message: translateError(err, t), duration: 3000 })
       return null
     }
-  }, [addToast, t])
+  }, [addToast, t, routing])
 
   // ============= Step Transitions =============
 
@@ -314,27 +310,28 @@ export function SendFlow({
       // Validate destination if no validatedData provided
       let validated = data.validatedData
       if (!validated) {
-        const detected = detectInputType(data.destination)
+        const detected = inputParser.detectAndClassify(data.destination)
         if (detected.type === 'unknown') {
           addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
           isProcessingRef.current = false
           setIsLoading(false)
           return
         }
-        const result = await validateInput(detected)
-        if (!result.valid) {
-          addToast({ type: 'error', message: result.error, duration: 3000 })
+        try {
+          const result = await inputParser.validateAsync(detected)
+          if (!isSendableData(result)) {
+            addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
+            isProcessingRef.current = false
+            setIsLoading(false)
+            return
+          }
+          validated = result
+        } catch (err) {
+          addToast({ type: 'error', message: err instanceof Error ? err.message : t('scanner.unrecognizedFormat'), duration: 3000 })
           isProcessingRef.current = false
           setIsLoading(false)
           return
         }
-        if (!isSendableData(result.data)) {
-          addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
-          isProcessingRef.current = false
-          setIsLoading(false)
-          return
-        }
-        validated = result.data
       }
 
       // If invoice has amount → check balance, then skip amount step
@@ -387,7 +384,7 @@ export function SendFlow({
       isProcessingRef.current = false
       setIsLoading(false)
     }
-  }, [isOnline, addToast, t, state.selectedMintUrl, performRouteSelection])
+  }, [isOnline, addToast, t, state.selectedMintUrl, performRouteSelection, inputParser])
 
   /** Amount step → token-confirm (token mode) or route selection + confirm (send mode) */
   const handleAmountNext = useCallback(async (data: { amount: number; memo: string; isFiatMode: boolean; fiatAmount: string }) => {
@@ -478,6 +475,21 @@ export function SendFlow({
         addressOrInvoice: getAddressOrInvoice(validatedData),
       }
 
+      // Phase 5: my-wallet 타입은 SwapUseCase 경유 (cross-mint invoice 자체 생성)
+      if (validatedData.type === 'my-wallet' && onMintSwap && routeSelection.targetMintUrl) {
+        const swapResult = await onMintSwap(
+          routeSelection.sourceMintUrl,
+          routeSelection.targetMintUrl,
+          routeSelection.amount,
+        )
+        if (swapResult?.success) {
+          setState((prev) => ({ ...prev, step: 'complete' }))
+        } else {
+          setState((prev) => ({ ...prev, step: 'confirm', error: t('payment.swapFailed') }))
+        }
+        return
+      }
+
       const result = await onExecuteRoute(routeSelection, context)
 
       if (result?.success) {
@@ -496,18 +508,18 @@ export function SendFlow({
       }
     } catch (err) {
       console.error('[SendFlow] Send error:', err)
-      const message = err instanceof InsufficientBalanceError
-        ? translateError(err)
+      const message = (err as { code?: string }).code === 'INSUFFICIENT_BALANCE'
+        ? ((err as { message?: string }).message ?? t('payment.insufficientBalance'))
         : t('payment.sendFailed')
       setState((prev) => ({ ...prev, step: 'confirm', error: message }))
       // Only show toast for errors not already handled by MainApp
-      if (err instanceof InsufficientBalanceError) {
+      if ((err as { code?: string }).code === 'INSUFFICIENT_BALANCE') {
         addToast({ type: 'error', message, duration: 4000 })
       }
     } finally {
       isProcessingRef.current = false
     }
-  }, [state, onExecuteRoute, isOnline, addToast, t])
+  }, [state, onExecuteRoute, onMintSwap, isOnline, addToast, t])
 
   /** Token confirm step → create token */
   const handleTokenCreate = useCallback(async () => {
@@ -547,10 +559,7 @@ export function SendFlow({
       }
     } catch (err) {
       console.error('[SendFlow] Token create error:', err)
-      const message = err instanceof InsufficientBalanceError
-        ? translateError(err)
-        : t('errors.generic')
-      addToast({ type: 'error', message, duration: err instanceof InsufficientBalanceError ? 4000 : 3000 })
+      addToast({ type: 'error', message: translateError(err, t), duration: 3000 })
     } finally {
       isProcessingRef.current = false
       setIsLoading(false)
@@ -636,7 +645,7 @@ export function SendFlow({
             <TokenCreatedStep
               token={state.createdToken!}
               amount={state.amount}
-              operationId={state.createdOperationId ?? undefined}
+              transactionId={state.createdTxId ?? undefined}
               onCancel={handleTokenCancel}
               onComplete={onComplete}
             />

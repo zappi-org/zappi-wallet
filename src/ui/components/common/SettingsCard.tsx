@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react'
 import { ChevronRight } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn } from '@/ui/lib/utils'
 import { IconBadge, type IconBadgeColor } from './IconBadge'
 
 /* ─── Section wrapper ─── */

@@ -118,7 +118,7 @@ export const STORAGE_KEYS = {
  */
 export const DATABASE = {
   NAME: 'zappi_wallet_db',
-  VERSION: 13,
+  VERSION: 15,
 } as const
 
 /**

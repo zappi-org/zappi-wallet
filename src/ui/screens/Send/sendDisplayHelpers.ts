@@ -1,5 +1,4 @@
 import type { SendableValidatedData } from './SendFlow'
-import { getContactRepo } from '@/data/repositories/contact.repository'
 
 export function getDestinationDisplay(data: SendableValidatedData): string {
   switch (data.type) {
@@ -26,9 +25,13 @@ export function formatNpubShort(npub: string): string {
 }
 
 /**
- * Look up contact name by address (indexed query)
+ * Look up contact name by address
+ * @param findByAddress - ContactUseCase.findByAddress 또는 동등한 함수
  */
-export async function findContactName(address: string): Promise<string | null> {
-  const contact = await getContactRepo().findByAddress(address)
+export async function findContactName(
+  address: string,
+  findByAddress: (addr: string) => Promise<{ name: string } | null>,
+): Promise<string | null> {
+  const contact = await findByAddress(address)
   return contact?.name || null
 }

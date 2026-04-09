@@ -1,17 +1,18 @@
-import { useState, useEffect, useMemo, startTransition, useCallback } from "react";
-import { useCarouselScroll } from "@/hooks/use-carousel-scroll";
-import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useCarouselScroll } from "@/ui/hooks/use-carousel-scroll";
+import { usePullToRefresh } from "@/ui/hooks/use-pull-to-refresh";
 import { Plus, LoaderCircle, ArrowDown, ChevronRight } from "lucide-react";
 
 import { useTranslation } from "react-i18next";
 import { MintCard, resolveMintColor } from "../../components/wallet/MintCard";
 import { TransactionList } from "../../components/wallet/TransactionList";
-import { useWallet, useMintHealth, useMintMetadata } from "@/hooks";
+import { useWallet, useMintHealth, useMintMetadata } from "@/ui/hooks";
 import { useAppStore } from "@/store";
 import { useSatUnit, useFormatFiat } from "@/utils/format";
 import { getMintBalance } from "@/utils/url";
-import type { MintInfo, Transaction } from "@/core/types";
-import { getTransactionRepo } from "@/data/repositories/transaction.repository";
+import type { MintInfo } from "@/core/types";
+import type { Transaction } from "@/core/domain/transaction";
+// Transaction loading via props or store — no direct repo access in UI
 
 export interface HomeScreenProps {
   onSettings?: () => void;
@@ -41,16 +42,14 @@ export function HomeScreen({
   const { t } = useTranslation();
   const unit = useSatUnit();
   const toFiat = useFormatFiat();
-  const [localTransactions, setLocalTransactions] = useState<Transaction[]>([]);
   const [activeMintIndex, setActiveMintIndex] = useState(0);
 
-  const transactions = propTransactions ?? localTransactions;
+  const transactions = useMemo(() => propTransactions ?? [], [propTransactions]);
 
   const { balance, isLoadingBalance } = useWallet();
   const { checkAllMints, getCachedStatus } = useMintHealth();
   const settings = useAppStore((state) => state.settings);
   const updateSettings = useAppStore((state) => state.updateSettings);
-  const txRefreshTrigger = useAppStore((state) => state.txRefreshTrigger);
   const { getDisplayName, getOriginalName, getIconUrl } = useMintMetadata(settings?.mints || []);
 
   // Pull-to-refresh
@@ -59,17 +58,8 @@ export function HomeScreen({
     onRefresh: onRefresh ?? noopRefresh,
   });
 
-  useEffect(() => {
-    if (propTransactions) return;
-    const loadTransactions = async () => {
-      const repo = getTransactionRepo();
-      const txs = await repo.findAll({ limit: 20 });
-      startTransition(() => {
-        setLocalTransactions(txs);
-      });
-    };
-    loadTransactions();
-  }, [balance.total, propTransactions, txRefreshTrigger]);
+  // Transactions are provided via props from MainApp
+  // No fallback to direct repo access (hex architecture compliance);
 
   useEffect(() => {
     checkAllMints();
@@ -111,7 +101,7 @@ export function HomeScreen({
     const url = selectedMint.url;
     const normalized = url.endsWith("/") ? url.slice(0, -1) : url;
     return transactions.filter((tx) => {
-      const txUrl = tx.mintUrl?.endsWith("/") ? tx.mintUrl.slice(0, -1) : tx.mintUrl;
+      const txUrl = tx.accountId?.endsWith("/") ? tx.accountId.slice(0, -1) : tx.accountId;
       return txUrl === normalized || txUrl === url;
     });
   }, [transactions, mints, clampedMintIndex]);

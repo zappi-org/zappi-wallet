@@ -3,20 +3,23 @@ import { ArrowLeft, Search, Banknote, Calendar, CreditCard, Download, FileSpread
 import { useTranslation } from 'react-i18next'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { motion, AnimatePresence } from 'motion/react'
-import type { Transaction, MintInfo } from '@/core/types'
+import type { Transaction } from '@/core/domain/transaction'
+import { getTransactionType, getTxMeta } from '@/core/domain/transaction'
+import { toNumber } from '@/core/domain/amount'
+import type { MintInfo } from '@/core/types'
 import { useAppStore } from '@/store'
-import { useWallet, useMintMetadata } from '@/hooks'
+import { useWallet, useMintMetadata } from '@/ui/hooks'
 import { getMintBalance, stripTrailingSlash } from '@/utils/url'
 import { EmptyState } from '@/ui/components/common/EmptyState'
 import { TransactionListSkeleton } from '@/ui/components/common/Skeleton'
 import { DateFilterSheet } from '@/ui/components/common/DateFilterSheet'
 import { MintFilterSheet } from '@/ui/components/common/MintFilterSheet'
 import { BottomSheet, BottomSheetItem } from '@/ui/components/common/BottomSheet'
-import { type DateFilterValue, computeDateCutoff, getDateFilterLabel, isDateFilterActive, formatDateGroupLabel } from '@/utils/dateFilter'
+import { type DateFilterValue, computeDateCutoff, getDateFilterLabel, isDateFilterActive, formatDateGroupLabel } from '@/ui/utils/dateFilter'
 import { TransactionRow } from '@/ui/components/wallet/TransactionRow'
 import { getTitle } from '@/ui/components/wallet/transactionHelpers'
-import { getMintFilterLabel } from '@/hooks/useAvailableMints'
-import { exportTransactionsCsv } from '@/utils/exportTransactions'
+import { getMintFilterLabel } from '@/ui/hooks/useAvailableMints'
+import { exportTransactionsCsv } from '@/ui/utils/exportTransactions'
 import { FilterChip } from '@/ui/components/common/FilterChip'
 import { Spinner } from '@/ui/components/common/Spinner'
 
@@ -69,10 +72,11 @@ export function HistoryScreen({
   const mintUrls = useMemo(() => {
     const urls = new Set<string>(settings.mints)
     transactions.forEach((tx) => {
-      urls.add(tx.mintUrl)
-      if (tx.type === 'swap') {
-        if (tx.metadata?.fromMintUrl) urls.add(tx.metadata.fromMintUrl as string)
-        if (tx.metadata?.toMintUrl) urls.add(tx.metadata.toMintUrl as string)
+      urls.add(tx.accountId)
+      if (getTransactionType(tx) === 'swap') {
+        const m = getTxMeta(tx)
+        if (m.fromMintUrl) urls.add(m.fromMintUrl)
+        if (m.toMintUrl) urls.add(m.toMintUrl)
       }
     })
     return Array.from(urls)
@@ -101,12 +105,12 @@ export function HistoryScreen({
 
   const filteredTransactions = useMemo(() => {
     let filtered = transactions
-      .filter((tx) => tx.status === 'completed')
+      .filter((tx) => tx.status === 'settled')
       .sort((a, b) => b.createdAt - a.createdAt)
 
     if (selectedMintUrls.size > 0) {
       const normalizedSet = new Set(Array.from(selectedMintUrls).map(stripTrailingSlash))
-      filtered = filtered.filter((tx) => normalizedSet.has(stripTrailingSlash(tx.mintUrl)))
+      filtered = filtered.filter((tx) => normalizedSet.has(stripTrailingSlash(tx.accountId)))
     }
 
     if (dateCutoff) {
@@ -115,10 +119,10 @@ export function HistoryScreen({
 
     switch (filter) {
       case 'income':
-        filtered = filtered.filter((tx) => tx.direction === 'receive' && tx.type !== 'swap')
+        filtered = filtered.filter((tx) => tx.direction === 'receive' && getTransactionType(tx) !== 'swap')
         break
       case 'expense':
-        filtered = filtered.filter((tx) => tx.direction === 'send' && tx.type !== 'swap')
+        filtered = filtered.filter((tx) => tx.direction === 'send' && getTransactionType(tx) !== 'swap')
         break
     }
 
@@ -126,12 +130,13 @@ export function HistoryScreen({
       const query = searchQuery.toLowerCase()
       filtered = filtered.filter((tx) => {
         const memo = tx.memo?.toLowerCase() || ''
-        const mint = tx.mintUrl.toLowerCase()
+        const mint = tx.accountId.toLowerCase()
         const typeLabel = getTitle(tx, t).toLowerCase()
-        const source = tx.source ? t(`txDetail.source.${tx.source}`).toLowerCase() : ''
+        const txMeta = getTxMeta(tx)
+        const source = txMeta.source ? t(`txDetail.source.${txMeta.source}`).toLowerCase() : ''
         return memo.includes(query) || mint.includes(query)
           || typeLabel.includes(query) || source.includes(query)
-          || String(tx.amount).includes(query)
+          || String(toNumber(tx.amount)).includes(query)
       })
     }
 

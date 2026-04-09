@@ -9,11 +9,11 @@ import { DateFilterSheet } from '@/ui/components/common/DateFilterSheet'
 import { MintFilterSheet } from '@/ui/components/common/MintFilterSheet'
 import { BottomSheet, BottomSheetItem } from '@/ui/components/common/BottomSheet'
 import { FilterChip } from '@/ui/components/common/FilterChip'
-import { type DateFilterValue, computeDateCutoff, getDateFilterLabel, isDateFilterActive, formatDateGroupLabel } from '@/utils/dateFilter'
-import { hapticTap } from '@/utils/haptic'
-import { useAllPendingItems } from '@/hooks/usePendingItems'
-import type { PendingItem } from '@/hooks/usePendingItems'
-import { useAvailableMints, getMintFilterLabel } from '@/hooks/useAvailableMints'
+import { type DateFilterValue, computeDateCutoff, getDateFilterLabel, isDateFilterActive, formatDateGroupLabel } from '@/ui/utils/dateFilter'
+import { hapticTap } from '@/ui/utils/haptic'
+import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
+import type { PendingItem } from '@/ui/hooks/usePendingItems'
+import { useAvailableMints, getMintFilterLabel } from '@/ui/hooks/useAvailableMints'
 
 type Tab = 'all' | 'request' | 'token'
 
@@ -74,7 +74,7 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
 
     if (selectedMintUrls.size > 0) {
       const normalizedSet = new Set(Array.from(selectedMintUrls).map(stripTrailingSlash))
-      result = result.filter((i) => normalizedSet.has(stripTrailingSlash(i.mintUrl)))
+      result = result.filter((i) => normalizedSet.has(stripTrailingSlash(i.accountId)))
     }
 
     if (dateCutoff) {
@@ -82,9 +82,9 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
     }
 
     if (activeTab === 'request') {
-      result = result.filter(i => i.type === 'receive-request')
+      result = result.filter(i => i.kind === 'request')
     } else if (activeTab === 'token') {
-      result = result.filter(i => i.type === 'unclaimed-token' || i.type === 'sent-token')
+      result = result.filter(i => i.kind === 'token')
     }
 
     if (searchQuery.trim()) {

@@ -1,5 +1,5 @@
 import { Check } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn } from '@/ui/lib/utils'
 
 export interface ProgressStepperProps<T extends string> {
   steps: T[]

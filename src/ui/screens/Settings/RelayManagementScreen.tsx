@@ -5,7 +5,7 @@ import { useAppStore } from '@/store'
 import { Button } from '@/ui/components/common/Button'
 import { normalizeRelayUrl } from '@/utils/url'
 import { LIMITS } from '@/core/constants'
-import { cn } from '@/components/ui/utils'
+import { cn } from '@/ui/primitives/utils'
 import { Modal } from '@/ui/components/common'
 
 export interface RelayManagementScreenProps {

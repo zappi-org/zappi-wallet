@@ -17,7 +17,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { UR, UREncoder } from '@gandlaf21/bc-ur'
 import { Buffer } from 'buffer'
-import { cn } from '@/lib/utils'
+import { cn } from '@/ui/lib/utils'
 
 /**
  * Threshold (in characters) above which we switch to animated UR QR.

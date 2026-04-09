@@ -1,5 +1,14 @@
-import type { Proof } from '@cashu/cashu-ts'
 import type { FiatCurrency } from './fiat'
+
+/**
+ * Cashu proof (inlined from cashu-ts to maintain R1 domain purity)
+ */
+export interface Proof {
+  id: string
+  amount: number
+  secret: string
+  C: string
+}
 
 /**
  * Network state for online/offline handling
@@ -32,8 +41,8 @@ export interface MintMetadata {
   description?: string
   pubkey?: string
   fetchedAt: number
-  /** Whether mint supports NUT-18 HTTP POST transport (from NUT-06 nuts field) */
-  nuts18HttpSupported?: boolean
+  /** Raw NUT support declarations from NUT-06 nuts field */
+  nuts?: Record<string, unknown>
 }
 
 /**
@@ -114,12 +123,12 @@ export interface StoredProof extends Proof {
 }
 
 /**
- * Failed swap info for retry queue
+ * Failed incoming payment for retry queue
  */
-export interface FailedSwap {
+export interface FailedIncoming {
   id: string
-  token: string
-  mintUrl: string
+  payload: string
+  accountId: string
   amount: number
   error: string
   errorCode: string
@@ -127,7 +136,7 @@ export interface FailedSwap {
   attemptCount: number
   lastAttemptAt: number
   createdAt: number
-  nostrEventId?: string
+  externalId?: string
   txId?: string
 }
 

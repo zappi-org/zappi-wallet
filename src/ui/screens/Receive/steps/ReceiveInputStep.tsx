@@ -8,14 +8,14 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
-import { hapticTap, hapticError } from '@/utils/haptic'
+import { hapticTap, hapticError } from '@/ui/utils/haptic'
 import { useSatUnit, useFormatFiat } from '@/utils/format'
-import { useFiatToggle } from '@/hooks/use-fiat-toggle'
+import { useFiatToggle } from '@/ui/hooks/use-fiat-toggle'
 import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
-import { createNostrPaymentRequest, createDualTransportPaymentRequest } from '@/services/cashu/nut18'
-import { encodeNprofile } from '@/services/crypto'
-import { useMintNut18Support } from '@/hooks/use-mint-nut18-support'
+import { usePaymentRequest } from '@/ui/hooks/use-payment-request'
+import { useCrypto } from '@/ui/hooks/use-crypto'
+import { useMintNut18Support } from '@/ui/hooks/use-mint-nut18-support'
 
 interface ReceiveInputStepProps {
   onBack: () => void
@@ -26,7 +26,6 @@ interface ReceiveInputStepProps {
     ecashRequestId?: string
     httpEndpoint?: string
   }) => void
-  onActivateListening?: () => void
   initialAmount?: number
   initialMintUrl?: string | null
   isLoading?: boolean
@@ -35,7 +34,6 @@ interface ReceiveInputStepProps {
 export function ReceiveInputStep({
   onBack,
   onNext,
-  onActivateListening,
   initialAmount = 0,
   initialMintUrl,
   isLoading = false,
@@ -50,6 +48,8 @@ export function ReceiveInputStep({
 
   const unit = useSatUnit()
   const toFiat = useFormatFiat()
+  const paymentReq = usePaymentRequest()
+  const crypto = useCrypto()
 
   // State
   const [amount, setAmount] = useState(initialAmount > 0 ? String(initialAmount) : '')
@@ -68,11 +68,11 @@ export function ReceiveInputStep({
   const userNprofile = useMemo(() => {
     if (!nostrPubkey || !settings.relays?.length) return null
     try {
-      return encodeNprofile(nostrPubkey, settings.relays)
+      return crypto.encodeNprofile(nostrPubkey, settings.relays)
     } catch {
       return null
     }
-  }, [nostrPubkey, settings.relays])
+  }, [nostrPubkey, settings.relays, crypto])
 
   // Handle next — always create ecash request alongside Lightning
   const handleNext = useCallback(() => {
@@ -92,13 +92,10 @@ export function ReceiveInputStep({
     let ecashRequestId: string | undefined
     let httpEndpoint: string | undefined
 
-    // NUT-18 요청 생성 → Active 모드로 전환 (5초 간격 health check)
-    onActivateListening?.()
-
     if (userNprofile) {
       if (supportsHttp) {
         // Dual transport: Nostr (primary) + HTTP POST (fallback)
-        const result = createDualTransportPaymentRequest({
+        const result = paymentReq.createDualTransportPaymentRequest({
           amount: numericAmount,
           mints: [mintUrl],
           nostrTarget: userNprofile,
@@ -112,7 +109,7 @@ export function ReceiveInputStep({
         httpEndpoint = result.httpEndpoint
       } else {
         // Nostr-only transport
-        const result = createNostrPaymentRequest({
+        const result = paymentReq.createNostrPaymentRequest({
           amount: numericAmount,
           mints: [mintUrl],
           nostrTarget: userNprofile,
@@ -136,7 +133,7 @@ export function ReceiveInputStep({
       ecashRequestId,
       httpEndpoint,
     })
-  }, [numericAmount, memo, mintUrl, userNprofile, supportsHttp, onNext, onActivateListening, addToast, t])
+  }, [numericAmount, memo, mintUrl, userNprofile, supportsHttp, onNext, addToast, t, paymentReq])
 
   return (
     <div className="flex flex-col h-full bg-background">

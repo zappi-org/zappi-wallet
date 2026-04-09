@@ -1,8 +1,10 @@
+import type { ErrorCode } from './codes'
+
 /**
  * Base error class for all application errors
  */
 export abstract class BaseError extends Error {
-  abstract readonly code: string
+  abstract readonly code: ErrorCode
   abstract readonly isRetryable: boolean
 
   constructor(message: string, public readonly cause?: unknown) {
@@ -17,45 +19,28 @@ export abstract class BaseError extends Error {
       ErrorWithStackTrace.captureStackTrace(this, this.constructor as (...args: unknown[]) => unknown)
     }
   }
-
-  /**
-   * Convert to a user-friendly message
-   */
-  abstract toUserMessage(): string
 }
 
 /**
  * Generic network error
  */
 export class NetworkError extends BaseError {
-  readonly code = 'NETWORK_ERROR'
+  readonly code = 'NETWORK_ERROR' as const
   readonly isRetryable = true
-
-  toUserMessage(): string {
-    return '네트워크 오류가 발생했습니다'
-  }
 }
 
 /**
  * Timeout error
  */
 export class TimeoutError extends BaseError {
-  readonly code = 'TIMEOUT'
+  readonly code = 'TIMEOUT' as const
   readonly isRetryable = true
-
-  toUserMessage(): string {
-    return '요청 시간이 초과되었습니다'
-  }
 }
 
 /**
  * Unknown error wrapper
  */
 export class UnknownError extends BaseError {
-  readonly code = 'UNKNOWN'
+  readonly code = 'UNKNOWN' as const
   readonly isRetryable = false
-
-  toUserMessage(): string {
-    return '알 수 없는 오류가 발생했습니다'
-  }
 }

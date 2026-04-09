@@ -21,7 +21,7 @@ export interface SyncResult {
   eventsProcessed: number
   tokensReceived: number
   amountReceived: number
-  failedSwaps: number
+  failedIncomings: number
   errors: string[]
   duration: number
 }
@@ -38,10 +38,10 @@ export interface OfflineQueueItem {
 }
 
 /**
- * Processed event record (for deduplication)
+ * Processed record (for deduplication)
  */
-export interface ProcessedEvent {
-  eventId: string
+export interface ProcessedRecord {
+  externalId: string
   txId?: string
   processedAt: number
   result: 'success' | 'failed' | 'skipped'
@@ -57,5 +57,5 @@ export interface ReconstructionOptions {
   /** Maximum number of events to process */
   limit?: number
   /** Whether to retry failed swaps */
-  retryFailedSwaps?: boolean
+  retryFailedIncomings?: boolean
 }

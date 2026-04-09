@@ -1,17 +1,17 @@
+import { AppLifecycleWatcher } from '@/composition/app-lifecycle.watcher'
+import { createBootstrap, type BootstrapResult, type RouteContext, type RouteExecutionResult, type RouteSelection } from '@/composition/bootstrap'
+import { createPreUnlockServices } from '@/composition/pre-unlock'
 import { LIMITS } from '@/core/constants'
-import { InsufficientBalanceError } from '@/core/errors/cashu'
-import { setMintNameResolver, translateError } from '@/core/errors/translate'
-import { clearMintData } from '@/data/database/schema'
-import { broadcastSync, useCrossTabSync } from '@/hooks/use-cross-tab-sync'
-import { useMintHealth } from '@/hooks/use-mint-health'
-import { useNetwork } from '@/hooks/use-network'
-import { totalRecoveredCount, useSyncAfterRecovery } from '@/hooks/use-sync-after-recovery'
-import { useWallet } from '@/hooks/use-wallet'
-import { useGiftWrapListener } from '@/hooks/useGiftWrapListener'
-import { useStateReconstruction } from '@/hooks/useStateReconstruction'
-import { checkAndRefreshAnchor } from '@/services/anchor'
-import { getP2PKPubkey } from '@/services/crypto'
+import { sat, toNumber } from '@/core/domain/amount'
+import { InsufficientBalanceError } from '@/core/errors/payment.errors'
+import { ServiceProvider } from '@/ui/hooks/service-context'
+import { broadcastSync } from '@/composition/cross-tab-sync'
+import { useCrossTabSync } from '@/ui/hooks/use-cross-tab-sync'
+// useMintHealth removed — mint health checks done via serviceRegistry directly
+import { useNetwork } from '@/ui/hooks/use-network'
+import { useWallet } from '@/ui/hooks/use-wallet'
 import { useAppStore } from '@/store'
+import { setMintNameResolver, toErrorMessage } from '@/ui/utils/error-message'
 import { AnimatePresence } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -43,27 +43,15 @@ const RelayManagementScreen = lazy(() => import('@/ui/screens/Settings/RelayMana
 
 // Unified Send/Receive flows
 import type { MintInfo } from '@/core/types'
-import type { RouteContext, RouteExecutionResult, RouteSelection } from '@/services/payment/routing'
 import { ToastContainer } from '@/ui/components'
-import type { ValidatedData } from '@/ui/components/scanner'
+import type { ValidatedData } from '@/core/domain/input-types'
 import { ReceiveFlow } from '@/ui/screens/Receive/ReceiveFlow'
 import { SendFlow } from '@/ui/screens/Send/SendFlow'
 
-// Services
-import { clearWalletCache, deleteCocoData, markSendFinalized, markSendReclaimed } from '@/coco'
-import { getBalances as cocoGetBalances } from '@/coco/cashuService'
-import type { Transaction } from '@/core/types'
-import { resetWalletCache } from '@/data/cache/wallet-cache'
-import { getContactRepo } from '@/data/repositories/contact.repository'
-import { SettingsRepository } from '@/data/repositories/settings.repository'
-import { getTransactionRepo } from '@/data/repositories/transaction.repository'
-import { exchangeRateService } from '@/services/exchange-rate'
-import { removePasskey } from '@/services/passkey'
-import { PaymentService } from '@/services/payment/payment.service'
-import { ProfileService } from '@/services/profile/profile.service'
-import { SecurityService } from '@/services/security/security.service'
-import { SyncService } from '@/services/sync/sync.service'
-import { WalletService } from '@/services/wallet/wallet.service'
+// Services (composition 경유만)
+import { createSecurityService } from '@/composition/security'
+import type { Transaction } from '@/core/domain/transaction'
+import { removePasskey } from '@/ui/services/passkey'
 import { formatSats } from '@/utils/format'
 
 
@@ -97,23 +85,27 @@ export default function MainApp() {
   const addToast = useAppStore((state) => state.addToast)
   const removeToast = useAppStore((state) => state.removeToast)
 
-  const setFailedSwapsCount = useAppStore((state) => state.setFailedSwapsCount)
+  const setFailedIncomingsCount = useAppStore((state) => state.setFailedIncomingsCount)
   const setNostrKeyPair = useAppStore((state) => state.setNostrKeyPair)
   const setP2pkPubkey = useAppStore((state) => state.setP2pkPubkey)
   const setSettings = useAppStore((state) => state.setSettings)
   const addPendingQuote = useAppStore((state) => state.addPendingQuote)
 
+  // Service Registry (Phase 5: bootstrap 후 생성, unlock 전에는 null)
+  const [serviceRegistry, setServiceRegistry] = useState<BootstrapResult | null>(null)
+
   // Hooks
   const { refreshBalance } = useWallet()
   const { isOnline } = useNetwork()
-  const { checkAllMints } = useMintHealth()
+  const [isRecovering, setIsRecovering] = useState(false)
 
-  // State Reconstruction hook (ZAP-06)
-  const { reconstruct, isRecovering } = useStateReconstruction()
+  // Gift Wrap Watcher — lifecycle managed via serviceRegistry
+  useEffect(() => {
+    if (!serviceRegistry) return
+    serviceRegistry.giftWrapWatcher.start()
+    return () => serviceRegistry.giftWrapWatcher.stop()
+  }, [serviceRegistry])
 
-  // Gift Wrap Listener - listens for NIP-17 DMs containing Cashu tokens (NUT-18 responses)
-  // This runs when unlocked with nostr keys and settings loaded
-  const { activateListening } = useGiftWrapListener()
   useCrossTabSync()
 
   // Local state
@@ -162,97 +154,67 @@ export default function MainApp() {
   // Transaction detail state
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
 
-  // Services (initialized once)
-  const [services] = useState(() => {
-    const transactionRepo = getTransactionRepo()
-
-    // Inject fiat snapshot provider (avoids store coupling inside repository)
-    transactionRepo.setFiatSnapshotProvider(() => {
-      const state = useAppStore.getState()
-      const currency = state.settings.fiatCurrency ?? 'USD'
-      const show = state.settings.showFiatConversion ?? true
-      const rate = state.allRates?.[currency] ?? null
-      if (!show || !rate) return null
-      return { fiatCurrency: currency, exchangeRate: rate }
-    })
-
-    return {
-      security: new SecurityService(),
-      wallet: new WalletService(),
-      payment: new PaymentService(),
-      sync: new SyncService(),
-      profile: new ProfileService(),
-      settingsRepo: new SettingsRepository(),
-      transactionRepo,
-    }
-  })
+  // Pre-unlock services (unlock 전 settings/tx 로드에 필요, composition 경유)
+  const [preUnlock] = useState(() => ({
+    security: createSecurityService(),
+    ...createPreUnlockServices(),
+  }))
 
   /** Refresh balance + transaction history in parallel */
   const refreshAll = useCallback(async () => {
+    const balancePromise = serviceRegistry
+      ? serviceRegistry.refreshBalance()
+      : refreshBalance()
     const [, txHistory] = await Promise.all([
-      refreshBalance(),
-      services.transactionRepo.findAll({ limit: 100 }),
+      balancePromise,
+      preUnlock.txRepo.findAll({ limit: 100 }),
     ])
     setTransactions(txHistory)
-  }, [refreshBalance, services.transactionRepo])
+  }, [serviceRegistry, refreshBalance, preUnlock.txRepo])
 
-  const { notifyRecovery, syncPendingQuotes, syncAfterRecovery } = useSyncAfterRecovery({ refreshAll })
+  /** 잔액/거래 갱신 + recovery 병렬 실행 (toast/refresh는 EventBus bridge가 처리) */
+  const refreshAndRecover = useCallback(async () => {
+    if (!serviceRegistry) return
+    await Promise.all([
+      refreshAll(),
+      serviceRegistry.payment.recoverAll().catch((e) => {
+        console.error('[Recovery] Failed to recover pending operations:', e)
+      }),
+    ])
+  }, [serviceRegistry, refreshAll])
 
   /** Manual pull-to-refresh handler */
   const handleManualRefresh = useCallback(async () => {
-    // 1. 잔액/거래 로컬 갱신 + 네트워크 복구 병렬 실행
-    const [, recoveryResult] = await Promise.all([
-      refreshAll(),
-      services.payment.recoverAll().catch((e) => {
-        console.error('[Refresh] Failed to recover pending operations:', e)
-        return null
-      }),
-    ])
-    broadcastSync('balance_changed')
-
-    // 2. 복구된 항목이 있으면 토스트 + 잔액 재갱신
-    if (recoveryResult && totalRecoveredCount(recoveryResult) > 0) {
-      notifyRecovery(recoveryResult)
-      await refreshAll()
-      broadcastSync('balance_changed')
-    }
-
-    // 3. Pending quotes 동기화
-    await syncPendingQuotes()
-
-    // 4. Pending quote 결제 상태 강제 재확인 (watcher cycle)
-    import('@/coco/manager').then(({ recheckPendingMintQuotes }) =>
-      recheckPendingMintQuotes().catch((e) => console.error('[Refresh] Failed to recheck pending quotes:', e))
-    )
-
-    // 5. 민트 상태 + 환율 (fire-and-forget)
-    checkAllMints()
-    exchangeRateService.refreshIfStale().catch(() => {})
-  }, [services.payment, refreshAll, notifyRecovery, syncPendingQuotes, checkAllMints])
+    if (!serviceRegistry) return
+    await refreshAndRecover()
+    serviceRegistry.mintHealth.checkAllMints(settings.mints).catch(() => {})
+    serviceRegistry.exchangeRate.refreshIfStale().catch(() => {})
+  }, [serviceRegistry, refreshAndRecover, settings.mints])
 
   // Initialize app — Coco 무관 작업만 (Coco는 unlock 후 setupSubscription에서 초기화)
   useEffect(() => {
     const init = async () => {
       try {
         // Load settings from IndexedDB (secure storage)
-        const savedSettings = await services.settingsRepo.getSettings()
+        const savedSettings = await preUnlock.settingsRepo.getSettings()
         setSettings(savedSettings)
 
         // Load failed swaps count
-        const swaps = await services.sync.getFailedSwaps()
-        setFailedSwapsCount(swaps.length)
+        const failedItems = await preUnlock.failedIncomingStore.findAll()
+        setFailedIncomingsCount(failedItems.length)
 
         // Load transaction history
-        const txHistory = await services.transactionRepo.findAll({ limit: 100 })
+        const txHistory = await preUnlock.txRepo.findAll({ limit: 100 })
         setTransactions(txHistory)
 
         // Load cached exchange rates first, then fetch fresh in background
-        await exchangeRateService.loadCachedRates().catch(() => {})
-        exchangeRateService.fetchRates().catch(() => {})
+        await preUnlock.exchangeRate.loadCachedRates().catch(() => {})
+        preUnlock.exchangeRate.fetchRates()
 
         // Data retention: clean up old records
-        services.transactionRepo.deleteOlderThan(90).catch(() => {})
-        services.sync.cleanupOldData().catch(() => {})
+        preUnlock.txRepo.deleteOlderThan(90).catch(() => {})
+        preUnlock.failedIncomingStore.cleanupNonRetryable(30).catch(() => {})
+        preUnlock.cleanupExpiredReceiveRequests().catch(() => {})
       } catch (error) {
         console.error('Init error:', error)
       } finally {
@@ -261,7 +223,7 @@ export default function MainApp() {
     }
 
     init()
-  }, [services, setFailedSwapsCount, setInitializing, setSettings])
+  }, [preUnlock, setFailedIncomingsCount, setInitializing, setSettings])
 
   // Reload transactions and balance when txRefreshTrigger changes (e.g., GiftWrap token receipt)
   useEffect(() => {
@@ -274,188 +236,160 @@ export default function MainApp() {
   const anchorCheckedRef = useRef(false)
   useEffect(() => {
     // Only run when unlocked, not initializing, has keys, and hasn't been checked yet
-    if (isLocked || isInitializing || !nostrPubkey || !nostrPrivkey) return
+    if (isLocked || isInitializing || !nostrPubkey || !nostrPrivkey || !serviceRegistry) return
     if (anchorCheckedRef.current) return
 
     anchorCheckedRef.current = true
 
-    const runAnchorAndReconstruction = async () => {
-      console.log('[App] Running anchor check and state reconstruction (ZAP-06)')
+    const runRecovery = async () => {
+      console.log('[App] Running recovery sync (anchor)')
+      setIsRecovering(true)
 
       try {
-        // Step 1: Check and refresh anchor
-        const { anchor, isRecoveryMode, oldestAnchor } = await checkAndRefreshAnchor()
+        const result = await serviceRegistry.recovery.syncAll({
+          privateKey: nostrPrivkey!,
+          publicKey: nostrPubkey!,
+          relays: settings.relays,
+        })
 
-        if (!anchor) {
-          console.log('[App] No anchor available - skipping reconstruction')
-          return
-        }
-
-        console.log(`[App] Anchor: ${new Date(anchor.timestamp * 1000).toISOString()}, Recovery mode: ${isRecoveryMode}`)
-
-        // Step 2: Run state reconstruction to recover missed payments
-        const result = await reconstruct(anchor, isRecoveryMode, oldestAnchor)
-
-        if (result.tokensRecovered > 0) {
-          console.log(`[App] Recovered ${result.tokensRecovered} tokens (${result.amountRecovered} sats)`)
-
-          // Refresh balance and transactions
+        if (result.tokensReceived > 0) {
+          console.log(`[App] Recovered ${result.tokensReceived} tokens (${result.amountReceived} sats)`)
           await refreshAll()
 
-          // Show toast notification
           addToast({
             type: 'success',
-            message: t('toast.ecashRecovered', { count: result.tokensRecovered, amount: formatSats(result.amountRecovered) }),
+            message: t('toast.ecashRecovered', { count: result.tokensReceived, amount: formatSats(result.amountReceived) }),
             duration: 5000,
           })
         }
       } catch (error) {
-        console.error('[App] Anchor/reconstruction error:', error)
+        console.error('[App] Recovery error:', error)
+      } finally {
+        setIsRecovering(false)
       }
     }
 
-    runAnchorAndReconstruction()
-  }, [isLocked, isInitializing, nostrPubkey, nostrPrivkey, reconstruct, refreshAll, addToast, t])
+    runRecovery()
+  }, [isLocked, isInitializing, nostrPubkey, nostrPrivkey, serviceRegistry, refreshAll, addToast, t, settings.relays])
 
   const isSendingEcashRef = useRef(false)
 
   useEffect(() => {
     // Only subscribe when app is unlocked and initialized
-    if (isLocked || isInitializing) return
+    if (isLocked || isInitializing || !serviceRegistry) return
 
     let cancelled = false
 
     const setupSubscription = async () => {
-      // Coco 초기화 (seed가 필요하므로 unlock 후에만 실행)
-      // 1. Coco manager 초기화 + bridge 연결
+      // 1. Coco 초기화 + observers + watchers + EventBus bridge (composition root 경유)
       try {
-        const { getCocoManager, enableWatchers } = await import('@/coco/manager')
-        await getCocoManager()
-
-        // 2. Watchers 활성화 (seed 준비됨)
-        await enableWatchers()
+        await serviceRegistry.activate()
       } catch (e) {
-        console.error('[Init] Failed to initialize Coco:', e)
+        console.error('[Init] Failed to activate Coco:', e)
       }
 
       if (cancelled) return
 
-      // 3. Balance 로드 + pending operations recovery
-      let recovery = null
-      try {
-        recovery = await services.payment.recoverAll()
-        const totalRecovered = totalRecoveredCount(recovery)
-        if (totalRecovered > 0) {
-          console.log(`[Init] Recovered: ${recovery.quotes.recovered} quotes, ${recovery.melts.recovered} melts, ${recovery.sendTokens.reclaimed} reclaimed, ${recovery.receivedTokens.redeemed} offline tokens`)
-        }
-      } catch (e) {
-        console.error('[Init] Failed to recover pending operations:', e)
-      }
-
-      if (cancelled) return
-
-      // 4. 잔액 + 거래내역 + pending quotes 동기화
-      await syncAfterRecovery(recovery)
+      // 2. 잔액 즉시 표시 + recovery 병렬 실행
+      await refreshAndRecover()
     }
 
     setupSubscription()
 
-    // Visibility change handler - re-check when app comes to foreground
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible') {
-        // Resume SDK subscriptions (WS reconnect + polling)
-        try {
-          const { getCocoManager, recheckPendingMintQuotes } = await import('@/coco/manager')
-          const manager = await getCocoManager()
-          manager.resumeSubscriptions()
-          recheckPendingMintQuotes().catch((e) => console.error('[Background] Failed to recheck pending quotes:', e))
-        } catch { /* ignore if not initialized */ }
-
-        // Refresh exchange rates (throttled — no-op if recently fetched)
-        exchangeRateService.refreshIfStale().catch(() => {})
-
-        // Recovery + 잔액/pending quotes 동기화
-        // (Coco watcher가 백그라운드에서 redeem했을 수 있으므로 recovery 결과와 무관하게 실행)
-        console.log('[Background] App visible, recovering pending operations')
-        let recovery = null
-        try {
-          recovery = await services.payment.recoverAll()
-        } catch (e) {
-          console.error('[Background] Failed to recover pending operations:', e)
-        }
-
-        await syncAfterRecovery(recovery)
-      } else {
-        // Pause SDK subscriptions (배터리 절약)
-        try {
-          const { getCocoManager } = await import('@/coco/manager')
-          const manager = await getCocoManager()
-          manager.pauseSubscriptions()
-        } catch { /* ignore if not initialized */ }
-      }
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
+    // Visibility change watcher — foreground/background 전환 감시
+    const lifecycleWatcher = new AppLifecycleWatcher({
+      onResume: async () => {
+        await serviceRegistry.onResume()
+        await refreshAndRecover()
+      },
+      onPause: () => serviceRegistry.onPause(),
+    })
+    lifecycleWatcher.start()
 
     return () => {
       cancelled = true
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      lifecycleWatcher.stop()
     }
-  }, [isLocked, isInitializing, services.payment, syncAfterRecovery])
+  }, [isLocked, isInitializing, serviceRegistry, refreshAndRecover])
 
   // Handle unlock
   const handleUnlock = useCallback(async (password: string): Promise<boolean> => {
     try {
-      const result = await services.security.unlock(password)
+      const result = await preUnlock.security.unlock(password)
       if (result.isOk()) {
-        // Set nostr key pair in store (for Coco seedGetter)
-        setNostrKeyPair(result.value.publicKey, result.value.privateKey)
-        setP2pkPubkey(getP2PKPubkey(result.value.privateKey))
+        // Set nostr key pair in store
+        setNostrKeyPair(result.value.keys.publicKey, result.value.keys.privateKey)
+
+        // Phase 5: Bootstrap service registry (new path, coexists with old)
+        const registry = createBootstrap({
+          nostrPrivateKeyHex: result.value.keys.privateKey,
+        })
+        setServiceRegistry(registry)
 
         setLocked(false)
-        // Refresh balance after unlock
-        await refreshBalance()
+
+        // CashuModule 초기화 — fire-and-forget (UI 블로킹 제거, QA #4)
+        // SDK init 완료 후 balance 갱신 (BootstrapResult.refreshBalance 사용)
+        registry.cashuModule.initialize().then(() => {
+          registry.refreshBalance().catch((e) => console.error('[Unlock] Post-init balance refresh failed:', e))
+        }).catch((e) => console.error('[Unlock] CashuModule init failed:', e))
+
+        // P2PK key — SDK init을 블로킹하지 않고 백그라운드 로드
+        registry.p2pkKeyManager.getCurrentKey().then(({ pubkey }) => setP2pkPubkey(pubkey))
         return true
       }
       return false
     } catch {
       return false
     }
-  }, [services.security, setLocked, setNostrKeyPair, setP2pkPubkey, refreshBalance])
+  }, [preUnlock.security, setLocked, setNostrKeyPair, setP2pkPubkey])
 
   // Payment modal handlers
   const handleCreateInvoice = useCallback(async (amount: number, mintUrl: string) => {
     if (!mintUrl) return null
 
-    const result = await services.payment.createLightningInvoice(amount, mintUrl)
-    if (result.isOk()) {
-      const { quote } = result.value
+    // Phase 5: PaymentUseCase.receive() 경유
+    if (!serviceRegistry?.payment) {
+      console.warn('[MainApp] ServiceRegistry not ready — cannot create invoice')
+      return null
+    }
+
+    const result = await serviceRegistry.payment.receive({
+      accountId: mintUrl,
+      protocol: 'bolt11',
+      amount: sat(amount),
+    })
+    if (result.ok) {
+      const req = result.value
       addPendingQuote({
-        quoteId: quote.quoteId,
+        quoteId: req.id,
         mintUrl,
         amount,
-        invoice: quote.request,
-        expiry: quote.expiry * 1000,
+        invoice: req.encoded,
+        expiry: req.expiresAt ? req.expiresAt : Date.now() + 10 * 60 * 1000,
       })
       return {
-        invoice: quote.request,
-        quoteId: quote.quoteId,
-        expiry: quote.expiry,
+        invoice: req.encoded,
+        quoteId: req.id,
+        expiry: req.expiresAt ? Math.floor(req.expiresAt / 1000) : Math.floor(Date.now() / 1000) + 600,
       }
     }
     return null
-  }, [services.payment, addPendingQuote])
+  }, [serviceRegistry, addPendingQuote])
 
   const handleReceiveToken = useCallback(async (token: string): Promise<{ success: boolean; amount?: number; transactionId?: string; error?: { code?: string; message?: string } }> => {
-    const result = await services.payment.receiveEcash(token)
-    if (result.isOk()) {
-      // Token consumed — refresh is best-effort, must not mask success
-      refreshAll().catch((e) => console.error('[MainApp] refreshAll after receive failed:', e))
-      return { success: true, amount: result.value.amount, transactionId: result.value.transactionId }
+    // Phase 5: PaymentUseCase.redeem() 경유
+    if (!serviceRegistry?.payment) {
+      return { success: false, error: { code: 'NOT_READY', message: 'ServiceRegistry not ready' } }
     }
-    const e = result.error
-    return { success: false, error: { code: e.code, message: translateError(e) } }
-  }, [services.payment, refreshAll])
+
+    const result = await serviceRegistry.payment.redeem({ input: token })
+    if (result.ok) {
+      refreshAll().catch((e) => console.error('[MainApp] refreshAll after receive failed:', e))
+      return { success: true, amount: toNumber(result.value.amount), transactionId: result.value.requestId }
+    }
+    return { success: false, error: { code: result.error.code, message: result.error.message } }
+  }, [serviceRegistry, refreshAll])
 
   /** Estimate Lightning fee for cross-mint swap (non-destructive) */
   const handleEstimateSwapFee = useCallback(async (
@@ -463,13 +397,54 @@ export default function MainApp() {
     toMintUrl: string,
     amount: number,
   ): Promise<{ fee: number; totalNeeded: number } | null> => {
-    try {
-      return await services.payment.estimateSwapFee(fromMintUrl, toMintUrl, amount)
-    } catch (error) {
-      console.error('[MainApp] estimateSwapFee failed:', error)
+    // Phase 5: SwapUseCase.estimateSwap() 경유
+    if (!serviceRegistry?.swap) {
+      console.warn('[MainApp] ServiceRegistry not ready — cannot estimate swap fee')
       return null
     }
-  }, [services.payment])
+
+    const result = await serviceRegistry.swap.estimateSwap({
+      sourceAccountId: fromMintUrl,
+      targetAccountId: toMintUrl,
+      amount: sat(amount),
+    })
+    if (result.ok) {
+      const fee = toNumber(result.value.fee)
+      return { fee, totalNeeded: amount + fee }
+    }
+    return null
+  }, [serviceRegistry])
+
+  /** Cross-mint swap: execute swap from source mint to target mint */
+  const handleMintSwap = useCallback(async (
+    fromMintUrl: string,
+    toMintUrl: string,
+    amount: number,
+  ): Promise<{ success: boolean; amount?: number; fee?: number; transactionId?: string } | null> => {
+    if (!serviceRegistry?.swap) {
+      console.warn('[MainApp] ServiceRegistry not ready — cannot perform swap')
+      return null
+    }
+
+    const result = await serviceRegistry.swap.executeSwap({
+      sourceAccountId: fromMintUrl,
+      targetAccountId: toMintUrl,
+      amount: sat(amount),
+    })
+
+    if (!result.ok) {
+      addToast({ type: 'error', message: result.error.message, duration: 4000 })
+      return null
+    }
+
+    refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap:', e))
+    return {
+      success: true,
+      amount: toNumber(result.value.amount),
+      fee: toNumber(result.value.fee),
+      transactionId: result.value.sendTxId,
+    }
+  }, [serviceRegistry, refreshAll, addToast])
 
   /** Cross-mint swap receive: receive token on source mint, then swap to target */
   const handleSwapReceive = useCallback(async (
@@ -478,27 +453,31 @@ export default function MainApp() {
     targetMintUrl: string,
     amount: number,
   ): Promise<{ success: boolean; amount?: number; error?: { code?: string; message?: string } }> => {
-    // 1. Receive token on source mint (auto-registers in Coco)
-    const receiveResult = await services.payment.receiveEcash(token)
-    if (receiveResult.isErr()) {
-      const e = receiveResult.error
-      return { success: false, error: { code: e.code, message: translateError(e) } }
+    // Phase 5: redeem + SwapUseCase 경유
+    if (!serviceRegistry?.payment || !serviceRegistry?.swap) {
+      return { success: false, error: { code: 'NOT_READY', message: 'ServiceRegistry not ready' } }
     }
 
-    // 2. Swap from source to target mint via Lightning
-    const swapResult = await services.payment.mintSwap(sourceMintUrl, targetMintUrl, amount)
-    if (swapResult.isErr()) {
-      // Token was received but swap failed — balance is on source mint
-      // Refresh is best-effort so user can see the balance
+    // 1. Redeem token on source mint
+    const redeemResult = await serviceRegistry.payment.redeem({ input: token })
+    if (!redeemResult.ok) {
+      return { success: false, error: { code: redeemResult.error.code, message: redeemResult.error.message } }
+    }
+
+    // 2. Swap from source to target
+    const swapResult = await serviceRegistry.swap.executeSwap({
+      sourceAccountId: sourceMintUrl,
+      targetAccountId: targetMintUrl,
+      amount: sat(amount),
+    })
+    if (!swapResult.ok) {
       refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap fail:', e))
-      const e = swapResult.error
-      return { success: false, error: { code: e.code, message: translateError(e) } }
+      return { success: false, error: { code: swapResult.error.code, message: swapResult.error.message } }
     }
 
-    // 3. Success — refresh is best-effort, must not mask success
     refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap:', e))
-    return { success: true, amount: swapResult.value.amount }
-  }, [services.payment, refreshAll])
+    return { success: true, amount: toNumber(swapResult.value.amount) }
+  }, [serviceRegistry, refreshAll])
 
 
   /** Unified send handler via routing layer */
@@ -506,9 +485,9 @@ export default function MainApp() {
     selection: RouteSelection,
     context: RouteContext,
   ): Promise<RouteExecutionResult | null> => {
+    if (!serviceRegistry) return null
     try {
-      const { executeRoute } = await import('@/services/payment/routing')
-      const result = await executeRoute(selection, context)
+      const result = await serviceRegistry.executeRoute(selection, context)
 
       if (result.isOk()) {
         refreshAll().catch((e) => console.error('[MainApp] refreshAll after route execution:', e))
@@ -516,13 +495,13 @@ export default function MainApp() {
       }
 
       console.error('[MainApp] Route execution failed:', result.error)
-      addToast({ type: 'error', message: translateError(result.error), duration: 4000 })
+      addToast({ type: 'error', message: toErrorMessage(result.error), duration: 4000 })
       return null
     } catch (error) {
       console.error('[MainApp] handleExecuteRoute error:', error)
       return null
     }
-  }, [refreshAll, addToast])
+  }, [serviceRegistry, refreshAll, addToast])
 
   /** Store offline P2PK token for later redemption */
   const handleStoreOfflineToken = useCallback(async (
@@ -531,14 +510,18 @@ export default function MainApp() {
     mintUrl: string,
     dleqStatus: 'valid' | 'missing',
   ): Promise<{ success: boolean }> => {
+    if (!serviceRegistry) {
+      console.warn('[MainApp] ServiceRegistry not ready — cannot store offline token')
+      return { success: false }
+    }
     try {
-      await services.payment.storeOfflineToken(token, amount, mintUrl, dleqStatus)
+      await serviceRegistry.storeOfflineToken(token, amount, mintUrl, dleqStatus)
       return { success: true }
     } catch (error) {
       console.error('[App] Failed to store offline token:', error)
       return { success: false }
     }
-  }, [services.payment])
+  }, [serviceRegistry])
 
   // Payment received callback
   // Lightning toast는 bridge.ts (mint-quote:redeemed)가 전역으로 담당
@@ -552,65 +535,34 @@ export default function MainApp() {
 
   const handleCreateEcashToken = useCallback(async (amount: number, preferredMintUrl?: string, options?: { p2pkPubkey?: string; memo?: string }): Promise<{ token: string; txId: string; operationId: string } | null> => {
     if (isSendingEcashRef.current) return null
+    if (!serviceRegistry?.payment) {
+      console.warn('[MainApp] ServiceRegistry not ready — cannot create ecash token')
+      return null
+    }
     isSendingEcashRef.current = true
     try {
-      const balances = await cocoGetBalances()
-
-      let mintUrl: string
-
-      if (preferredMintUrl && balances[preferredMintUrl] >= amount) {
-        mintUrl = preferredMintUrl
-      } else {
-        const sufficientMints = Object.entries(balances)
-          .filter(([, bal]) => bal >= amount)
-          .sort(([, a], [, b]) => a - b)
-
-        if (sufficientMints.length === 0) {
-          console.error('No mint has sufficient balance for', amount)
-          return null
-        }
-
-        mintUrl = sufficientMints[0][0]
-      }
-
-      // SDK SendApi: prepare → execute
-      const { prepareSendToken, executeSendToken } = await import('@/coco/cashuService')
-      const { operationId } = await prepareSendToken(mintUrl, amount)
-      const { token } = await executeSendToken(operationId, options)
-
-      const txId = `tx-ecash-send-${crypto.randomUUID()}`
-
-      const tx: Transaction = {
-        id: txId,
-        direction: 'send',
-        type: 'ecash-token',
-        amount,
-        mintUrl,
-        status: 'pending',
-        createdAt: Date.now(),
+      // Phase 5: PaymentUseCase.send(destination없음 = 토큰 생성)
+      // PaymentService가 내부적으로 민트 선택 + prepare/execute + TX 기록 전부 처리
+      const accountId = preferredMintUrl ?? ''
+      const result = await serviceRegistry.payment.send({
+        accountId,
+        amount: sat(amount),
         memo: options?.memo,
-        token,
-        tokenState: 'unspent',
-        operationId,
-      }
-      await services.transactionRepo.save(tx)
-      setTransactions((prev) => [tx, ...prev])
-
-      // pendingSendToken 저장 (crash recovery용)
-      await services.payment.savePendingSendToken({
-        id: txId,
-        token,
-        mintUrl,
-        amount,
-        operationId,
-        createdAt: Date.now(),
+        options: options?.p2pkPubkey ? { lockingCondition: { type: 'p2pk', data: options.p2pkPubkey } } : undefined,
       })
+
+      if (!result.ok) {
+        console.error('Failed to create ecash token:', result.error.message)
+        if (result.error.code === 'INSUFFICIENT_BALANCE') throw new InsufficientBalanceError(amount, 0)
+        return null
+      }
+
+      const token = (result.value.data?.token as string) ?? ''
+      const operationId = (result.value.data?.operationId as string) ?? ''
+      const txId = result.value.transactionId
 
       await refreshBalance()
       broadcastSync('balance_changed')
-
-      // SDK ProofStateWatcher가 자동으로 proof 상태 감시
-      // → send:finalized → sendTokenObserver가 Transaction 상태 업데이트
 
       return { token, txId, operationId }
     } catch (error) {
@@ -620,65 +572,67 @@ export default function MainApp() {
     } finally {
       isSendingEcashRef.current = false
     }
-  }, [services.transactionRepo, services.payment, refreshBalance])
+  }, [serviceRegistry, refreshBalance])
 
   // ─── NUT-18 전송 완료 콜백 ───
   const handleCompleteEcashSend = useCallback(async (txId: string) => {
-    const tx = await services.transactionRepo.findById(txId)
-    if (tx?.operationId) {
-      const { getCocoManager } = await import('@/coco/manager')
-      const manager = await getCocoManager()
-      await manager.ops.send.finalize(tx.operationId)
+    if (!serviceRegistry?.payment) {
+      console.warn('[MainApp] ServiceRegistry not ready — cannot complete send')
+      return
     }
-    // SDK/레거시 공통: 공유 함수로 DB 상태 전이
-    await markSendFinalized(txId)
+    const result = await serviceRegistry.payment.completeSend({ transactionId: txId })
+    if (!result.ok) {
+      console.error('[MainApp] CompleteSend failed:', result.error.message)
+    }
     setTransactions((prev) => prev.map((t) =>
-      t.id === txId ? { ...t, status: 'completed' as const, tokenState: 'spent' as const, completedAt: Date.now() } : t
+      t.id === txId ? { ...t, status: 'settled' as const, outcome: 'claimed' as const, completedAt: Date.now() } : t
     ))
-  }, [services.transactionRepo])
+  }, [serviceRegistry])
 
   // ─── 토큰 취소(reclaim) 콜백 ───
   const handleCancelEcashToken = useCallback(async (txId: string) => {
-    const tx = await services.transactionRepo.findById(txId)
-    if (tx?.operationId) {
-      const { rollbackSendToken } = await import('@/coco/cashuService')
-      await rollbackSendToken(tx.operationId)
+    if (!serviceRegistry?.payment) {
+      console.warn('[MainApp] ServiceRegistry not ready — cannot reclaim token')
+      return
     }
-    // SDK/레거시 공통: 공유 함수로 DB 상태 전이 (회수 receive 거래도 자동 생성됨)
-    await markSendReclaimed(txId)
-  }, [services.transactionRepo])
+    const result = await serviceRegistry.payment.reclaim({ transactionId: txId })
+    if (!result.ok) {
+      console.error('[MainApp] Reclaim failed:', result.error.message)
+    }
+  }, [serviceRegistry])
 
   // Settings handlers
   const handleChangePassword = useCallback(async (oldPassword: string, newPassword: string): Promise<boolean> => {
-    const result = await services.security.changePassword(oldPassword, newPassword)
+    const result = await preUnlock.security.changePassword(oldPassword, newPassword)
     return result.isOk()
-  }, [services.security])
+  }, [preUnlock.security])
 
   const handleVerifyPin = useCallback(async (pin: string): Promise<boolean> => {
-    const result = await services.security.verifyPassword(pin)
+    const result = await preUnlock.security.verifyPassword(pin)
     return result.isOk() && result.value
-  }, [services.security])
+  }, [preUnlock.security])
 
   const handleBackupMnemonic = useCallback(async (password: string): Promise<string | null> => {
-    const result = await services.security.getMnemonic(password)
+    const result = await preUnlock.security.getMnemonic(password)
     if (result.isOk()) {
       return result.value
     }
     return null
-  }, [services.security])
+  }, [preUnlock.security])
 
   const handleLogout = useCallback(async (password: string): Promise<boolean> => {
-    const result = await services.security.verifyPassword(password)
+    const result = await preUnlock.security.verifyPassword(password)
     if (result.isOk() && result.value) {
-      await services.security.deleteWallet()
-      await services.settingsRepo.clearAll()
-      await services.transactionRepo.deleteAll()
-      await getContactRepo().deleteAll()
-      await deleteCocoData()
+      await preUnlock.security.deleteWallet()
+      await preUnlock.settingsRepo.clearAll()
+      await preUnlock.txRepo.deleteAll()
+      if (serviceRegistry) {
+        await serviceRegistry.cleanup.deleteAllContacts()
+        await serviceRegistry.cleanup.deleteCocoData()
+        serviceRegistry.cleanup.clearWalletCache()
+        serviceRegistry.cleanup.resetWalletCache()
+      }
       removePasskey()
-
-      clearWalletCache()
-      resetWalletCache()
 
       useAppStore.getState().resetAll()
 
@@ -686,40 +640,36 @@ export default function MainApp() {
       return true
     }
     return false
-  }, [services.security, services.settingsRepo, services.transactionRepo])
+  }, [preUnlock.security, preUnlock.settingsRepo, preUnlock.txRepo, serviceRegistry])
+
+  /** Profile republish — bootstrap의 profileService 경유 */
+  const republishProfile = useCallback(async (mints: string[], relays: string[]) => {
+    if (!serviceRegistry || !nostrPubkey || !p2pkPubkey) return
+    try {
+      await serviceRegistry.profile.publishAll(nostrPubkey, mints, relays, p2pkPubkey)
+      console.log('[Profile] Republished successfully')
+    } catch (e) {
+      console.warn('[Profile] Failed to republish:', e)
+    }
+  }, [serviceRegistry, nostrPubkey, p2pkPubkey])
 
   const handleSaveSettings = useCallback(async (newSettings: Record<string, unknown>): Promise<void> => {
     const mergedSettings = { ...settings, ...newSettings }
     setSettings(mergedSettings)
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await services.settingsRepo.saveSettings(mergedSettings as any)
+    await preUnlock.settingsRepo.saveSettings(mergedSettings as any)
 
     const newMints = newSettings.mints as string[] | undefined
     const newRelays = newSettings.relays as string[] | undefined
     const mintsChanged = newMints && JSON.stringify(newMints) !== JSON.stringify(settings.mints)
     const relaysChanged = newRelays && JSON.stringify(newRelays) !== JSON.stringify(settings.relays)
 
-    if ((mintsChanged || relaysChanged) && nostrPrivkey && p2pkPubkey) {
-      try {
-        console.log('[Settings] Mints/relays changed, republishing kind:10019...')
-        const publishResult = await services.profile.publishProfile(
-          nostrPrivkey,
-          newMints || settings.mints,
-          p2pkPubkey,
-          newRelays || settings.relays
-        )
-        if (publishResult.isOk()) {
-          console.log('[Settings] Profile republished successfully')
-        } else {
-          console.warn('[Settings] Failed to republish profile:', publishResult.error)
-        }
-      } catch (e) {
-        console.warn('[Settings] Failed to republish profile:', e)
-      }
+    if ((mintsChanged || relaysChanged) && p2pkPubkey) {
+      republishProfile(newMints || settings.mints, newRelays || settings.relays)
     }
     broadcastSync('settings_changed')
-  }, [services.settingsRepo, services.profile, settings, setSettings, nostrPrivkey, p2pkPubkey])
+  }, [preUnlock.settingsRepo, settings, setSettings, p2pkPubkey, republishProfile])
 
   // Handle adding a trusted mint (from receive screen)
   const handleAddTrustedMint = useCallback(async (mintUrl: string): Promise<boolean> => {
@@ -750,26 +700,11 @@ export default function MainApp() {
       const nextNumber = Object.keys(existingAliases).length + 1
       const alias = t('mintDetail.defaultName', { number: nextNumber })
       const newAliases = { ...existingAliases, [url]: alias }
-      await services.settingsRepo.saveSettings({ ...settings, mints: newMints, mintAliases: newAliases })
+      await preUnlock.settingsRepo.saveSettings({ ...settings, mints: newMints, mintAliases: newAliases })
       setSettings({ ...settings, mints: newMints, mintAliases: newAliases })
 
-      if (nostrPrivkey && p2pkPubkey && typeof services.profile.publishProfile === 'function') {
-        try {
-          console.log('[App] Re-publishing profile with updated mints...')
-          const publishResult = await services.profile.publishProfile(
-            nostrPrivkey,
-            newMints,
-            p2pkPubkey,
-            settings.relays
-          )
-          if (publishResult.isOk()) {
-            console.log('[App] Profile republished successfully')
-          } else {
-            console.warn('[App] Failed to republish profile:', publishResult.error)
-          }
-        } catch (e) {
-          console.warn('[App] Failed to republish profile:', e)
-        }
+      if (p2pkPubkey) {
+        republishProfile(newMints, settings.relays)
       }
 
       console.log('[App] Added trusted mint:', url)
@@ -779,7 +714,7 @@ export default function MainApp() {
       console.error('[App] Failed to add trusted mint:', error)
       return false
     }
-  }, [settings, services.settingsRepo, services.profile, setSettings, nostrPrivkey, p2pkPubkey, t])
+  }, [settings, preUnlock.settingsRepo, setSettings, p2pkPubkey, republishProfile, t])
 
   const handleBack = useCallback(() => {
     const target = previousScreen || 'home'
@@ -858,8 +793,8 @@ export default function MainApp() {
     return <LockScreen onUnlock={handleUnlock} />
   }
 
-  // Main app
-  return (
+  // Main app content
+  const mainContent = (
     <>
       <div className="relative h-dvh overflow-hidden">
       <AnimatePresence mode="sync">
@@ -1011,6 +946,7 @@ export default function MainApp() {
             setCurrentScreen('add-mint')
           }}
           onSaveSettings={handleSaveSettings}
+          onClearMintData={serviceRegistry ? (mintUrl) => serviceRegistry.cleanup.clearMintData(mintUrl) : undefined}
         />
       )}
 
@@ -1059,6 +995,8 @@ export default function MainApp() {
           onCreateEcashToken={handleCreateEcashToken}
           onCompleteEcashSend={handleCompleteEcashSend}
           onCancelEcashToken={handleCancelEcashToken}
+          onMintSwap={handleMintSwap}
+          onEstimateSwapFee={handleEstimateSwapFee}
           validatedData={validatedScanData || undefined}
           initialAmount={scannedAmount || undefined}
           initialMintUrl={activeMintUrl}
@@ -1085,7 +1023,14 @@ export default function MainApp() {
           onSwapReceive={handleSwapReceive}
           onEstimateSwapFee={handleEstimateSwapFee}
           onStoreOfflineToken={handleStoreOfflineToken}
-          onActivateListening={activateListening}
+          onInspectInput={async (tokenStr: string) => {
+            if (!serviceRegistry?.payment) return { lockStatus: 'not-supported' as const, proofIntegrity: 'not-supported' as const }
+            const result = await serviceRegistry.payment.inspectInput({
+              input: tokenStr,
+              recipientPubkey: p2pkPubkey ?? undefined,
+            })
+            return result.ok ? result.value : { lockStatus: 'not-supported' as const, proofIntegrity: 'not-supported' as const }
+          }}
           validatedData={validatedScanData || undefined}
           initialAmount={scannedAmount || undefined}
           initialMintUrl={activeMintUrl}
@@ -1125,7 +1070,7 @@ export default function MainApp() {
             setCurrentScreen('home')
             addToast({ type: 'success', message: t('mintDetail.mintDeleted') })
             handleSaveSettings({ mints: newMints, mintAliases: remainingAliases })
-            clearMintData(url)
+            serviceRegistry?.cleanup.clearMintData(url)
           }}
           onRenameMint={(url, newName) => {
             const newAliases = { ...settings.mintAliases, [url]: newName }
@@ -1149,6 +1094,25 @@ export default function MainApp() {
             setCurrentScreen('history')
           }}
           transactions={transactions}
+          onFindTransaction={serviceRegistry ? (id: string) => serviceRegistry.transactionMgmt.getById(id) : undefined}
+          pendingItemCallbacks={serviceRegistry ? {
+            onRedeemToken: async (tokenStr: string, _itemId: string) => {
+              const result = await serviceRegistry.payment.redeem({ input: tokenStr })
+              return result.ok
+            },
+            onReclaimToken: async (itemId: string, operationId?: string, tokenStr?: string) => {
+              return serviceRegistry.transactionMgmt.reclaimSendToken(itemId, operationId, tokenStr)
+            },
+            onCheckQuote: async (mintUrl: string, quoteId: string) => {
+              const { getMintQuote } = await import('@/modules/cashu')
+              const quote = await getMintQuote(mintUrl, quoteId)
+              return quote ? { state: quote.state, request: quote.request } : null
+            },
+            onRedeemQuote: async (mintUrl: string, quoteId: string, amount: number) => {
+              const { redeemMintQuote } = await import('@/modules/cashu')
+              await redeemMintQuote(mintUrl, quoteId, amount)
+            },
+          } : undefined}
         />
       )}
           </Suspense>
@@ -1168,4 +1132,15 @@ export default function MainApp() {
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
     </>
   )
+
+  // Phase 5: ServiceProvider로 감싸기 (registry 존재 시)
+  if (serviceRegistry) {
+    return (
+      <ServiceProvider registry={serviceRegistry}>
+        {mainContent}
+      </ServiceProvider>
+    )
+  }
+
+  return mainContent
 }

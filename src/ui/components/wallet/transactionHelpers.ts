@@ -1,13 +1,15 @@
-import type { Transaction } from '@/core/types'
+import type { Transaction } from '@/core/domain/transaction'
+import { getTransactionType, getTxMeta } from '@/core/domain/transaction'
 
 function resolveTypeLabel(tx: Transaction, t: (key: string) => string): string {
-  if (tx.type === 'swap') return t('history.swap')
-  if (tx.type === 'lightning') return tx.direction === 'receive' ? t('history.lightningReceive') : t('history.lightningSend')
-  if (tx.type === 'ecash-token') {
-    if (tx.metadata?.reclaimedFrom) return t('history.ecashReclaim')
-    return t('history.ecashToken')
+  const txType = getTransactionType(tx)
+  if (txType === 'swap') return t('history.swap')
+  if (txType === 'lightning') return tx.direction === 'receive' ? t('history.lightningReceive') : t('history.lightningSend')
+  if (txType === 'ecash-token') {
+    if (getTxMeta(tx).reclaimedFrom) return t('history.ecashReclaim')
+    return tx.direction === 'receive' ? t('history.ecashReceive') : t('history.ecashToken')
   }
-  if (tx.type === 'nutzap') return t('history.nutzap')
+  if (txType === 'nutzap') return t('history.nutzap')
   return tx.direction === 'receive' ? t('history.ecashReceive') : t('history.ecashSend')
 }
 

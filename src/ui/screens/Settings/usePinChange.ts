@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { isPasskeyRegistered, updatePasskeyPin, removePasskey } from '@/services/passkey'
+import { isPasskeyRegistered, updatePasskeyPin, removePasskey } from '@/ui/services/passkey'
 
 export type PinChangeStep = 'current' | 'new' | 'confirm'
 

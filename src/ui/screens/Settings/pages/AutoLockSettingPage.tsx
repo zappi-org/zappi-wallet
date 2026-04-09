@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
-import { cn } from '@/components/ui/utils'
+import { cn } from '@/ui/primitives/utils'
 import { Switch } from '@/ui/components/common/Switch'
 import { SettingsDetailPage } from '../components/SettingsDetailPage'
 

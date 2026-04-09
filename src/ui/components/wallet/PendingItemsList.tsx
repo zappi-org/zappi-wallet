@@ -1,8 +1,8 @@
 import { useTranslation } from 'react-i18next'
 import { useFormatSats, getLocaleCode } from '@/utils/format'
-import { cn } from '@/lib/utils'
-import { formatMD } from '@/utils/dateFilter'
-import type { PendingItem } from '@/hooks/usePendingItems'
+import { cn } from '@/ui/lib/utils'
+import { formatMD } from '@/ui/utils/dateFilter'
+import type { PendingItem } from '@/ui/hooks/usePendingItems'
 
 interface PendingItemsListProps {
   items: PendingItem[]
@@ -12,8 +12,8 @@ interface PendingItemsListProps {
 }
 
 function getItemTypeLabel(item: PendingItem, t: (key: string) => string): string {
-  if (item.type === 'unclaimed-token') return t('mintDetail.ecashToken')
-  if (item.type === 'receive-request') return t('mintDetail.receiveRequest')
+  if (item.direction === 'receive' && item.kind === 'token') return t('mintDetail.ecashToken')
+  if (item.direction === 'receive' && item.kind === 'request') return t('mintDetail.receiveRequest')
   return t('mintDetail.sentToken')
 }
 
@@ -48,7 +48,7 @@ export function PendingItemsList({ items, maxItems = 5, showDate = false, onItem
   return (
     <div className="flex flex-col">
       {displayed.map((item, index) => {
-        const isSend = item.type === 'sent-token'
+        const isSend = item.direction === 'send'
         const title = getItemTitle(item, t)
         const typeLabel = getItemTypeLabel(item, t)
         const date = new Date(item.createdAt)

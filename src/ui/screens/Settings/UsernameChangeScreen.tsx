@@ -4,19 +4,15 @@ import { useTranslation } from 'react-i18next'
 import { useFormatSats } from '@/utils/format'
 import { Button } from '../../components/common'
 import { MintCard, getVariantByIndex } from '../../components/wallet/MintCard'
-import { cn } from '@/components/ui/utils'
+import { cn } from '@/ui/primitives/utils'
 import { useAppStore } from '@/store'
-import { useMintMetadata } from '@/hooks/use-mint-metadata'
-import { useMintHealth } from '@/hooks/use-mint-health'
+import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
+import { useMintHealth } from '@/ui/hooks/use-mint-health'
 import type { MintInfo } from '@/core/types'
 import { normalizeMintUrl } from '@/utils/url'
-import { NostrService } from '@/services/nostr/nostr.service'
-import { ZappiLinkService, type ServerDefaults } from '@/services/zappi-link'
-import { PaymentService } from '@/services/payment/payment.service'
-import { getTransactionRepo } from '@/data/repositories/transaction.repository'
-import { sendToken } from '@/coco'
-import { BaseError } from '@/core/errors/base'
-import { translateError } from '@/core/errors/translate'
+import type { ProviderDefaults } from '@/core/ports/driving/username.usecase'
+import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
+import type { Amount } from '@/core/domain/amount'
 import { ZAPPI_LINK_DOMAIN } from '@/core/constants'
 
 const USERNAME_REGEX = /^[a-z0-9]{3,20}$/
@@ -39,23 +35,15 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
 
   const { getDisplayName, getIconUrl } = useMintMetadata(settings.mints)
   const { getCachedStatus } = useMintHealth()
-
-  const [services] = useState(() => ({
-    nostr: new NostrService(),
-    payment: new PaymentService(),
-  }))
-  const zappiLinkService = useMemo(
-    () => new ZappiLinkService(services.nostr),
-    [services.nostr]
-  )
+  const registry = useServiceRegistry()
 
   // Username validation
   const [newUsername, setNewUsername] = useState('')
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
   const [usernameError, setUsernameError] = useState('')
   const [isCheckingUsername, setIsCheckingUsername] = useState(false)
-  const [serverDefaults, setServerDefaults] = useState<ServerDefaults | null>(null)
-  const serverDefaultsRef = useRef<ServerDefaults | null>(null)
+  const [serverDefaults, setProviderDefaults] = useState<ProviderDefaults | null>(null)
+  const serverDefaultsRef = useRef<ProviderDefaults | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Mint selection
@@ -66,7 +54,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
   const prevAddressRef = useRef(settings.lightningAddress || '-')
 
   // --- Auto-select best mint ---
-  const autoSelectMint = useCallback((defaults: ServerDefaults) => {
+  const autoSelectMint = useCallback((defaults: ProviderDefaults) => {
     const fee = defaults.addressFee
     const mintEntries = Object.entries(balanceByMint)
       .map(([url, balance]) => ({ url, balance }))
@@ -123,7 +111,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
     debounceRef.current = setTimeout(async () => {
       setIsCheckingUsername(true)
       try {
-        const result = await zappiLinkService.checkUsername(newUsername)
+        const result = await registry.username.checkUsername(newUsername)
         if (result.isErr()) {
           setUsernameError(t('settings.usernameChangeFailed'))
           return
@@ -143,10 +131,10 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
 
         // Fetch server defaults for fee info (via ref to avoid dependency loop)
         if (!serverDefaultsRef.current) {
-          const defaultsResult = await zappiLinkService.getDefaults()
+          const defaultsResult = await registry.username.getDefaults()
           if (defaultsResult.isOk()) {
             serverDefaultsRef.current = defaultsResult.value
-            setServerDefaults(defaultsResult.value)
+            setProviderDefaults(defaultsResult.value)
             autoSelectMint(defaultsResult.value)
           } else {
             setUsernameAvailable(false)
@@ -163,7 +151,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [newUsername, zappiLinkService, t, autoSelectMint])
+  }, [newUsername, registry, t, autoSelectMint])
 
   // --- Derived: affordability ---
   const addressFee = serverDefaults?.addressFee ?? 0
@@ -230,34 +218,33 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
           addToast({ type: 'error', message: t('settings.paymentFailed') })
           return
         }
-        const swapResult = await services.payment.mintSwap(
-          selectedMintUrl,
-          normalizeMintUrl(targetMint),
-          fee
-        )
-        if (swapResult.isErr()) {
-          addToast({ type: 'error', message: translateError(swapResult.error) })
+        const swapResult = await registry.swap.executeSwap({
+          sourceAccountId: selectedMintUrl,
+          targetAccountId: normalizeMintUrl(targetMint),
+          amount: { value: BigInt(fee), unit: 'sat' } as Amount,
+        })
+        if (!swapResult.ok) {
+          addToast({ type: 'error', message: String((swapResult.error as { message?: string }).message ?? t('settings.paymentFailed')) })
           return
         }
         paymentMintUrl = normalizeMintUrl(targetMint)
-        swapFee = swapResult.value.fee
-
-        // Update swap transaction memo + total cost (including swap fee)
-        const transactionRepo = getTransactionRepo()
-        await transactionRepo.update(swapResult.value.transactionId, {
-          memo: t('settings.addressChangeFee', { username: newUsername }),
-          amount: fee + swapFee,
-        })
+        swapFee = Number(swapResult.value.fee.value)
       }
 
       // Create fee payment token
       let cashuToken = ''
       if (fee > 0) {
         try {
-          cashuToken = await sendToken(paymentMintUrl, fee)
+          const sendResult = await registry.payment.send({
+            accountId: paymentMintUrl,
+            amount: { value: BigInt(fee), unit: 'sat' } as Amount,
+            options: { createToken: true },
+          })
+          if (!sendResult.ok) throw sendResult.error
+          cashuToken = (sendResult.value as { token?: string }).token ?? ''
         } catch (sendError) {
-          const message = sendError instanceof BaseError
-            ? translateError(sendError)
+          const message = sendError instanceof Error
+            ? sendError.message
             : t('settings.paymentFailed')
           addToast({ type: 'error', message })
           return
@@ -265,27 +252,13 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
       }
 
       // Submit username change
-      const result = await zappiLinkService.changeUsername(nostrPrivkey, newUsername, cashuToken)
+      const result = await registry.username.changeUsername(nostrPrivkey, newUsername, cashuToken)
       if (result.isErr()) {
-        addToast({ type: 'error', message: translateError(result.error) })
+        addToast({ type: 'error', message: String((result.error as { message?: string }).message ?? t('settings.paymentFailed')) })
         return
       }
 
-      // Record fee transaction (only for direct payment; swap already recorded)
-      if (fee > 0 && isAccepted) {
-        const transactionRepo = getTransactionRepo()
-        await transactionRepo.create({
-          id: `tx-fee-${crypto.randomUUID()}`,
-          direction: 'send',
-          type: 'ecash',
-          amount: fee,
-          mintUrl: paymentMintUrl,
-          status: 'completed',
-          createdAt: Date.now(),
-          completedAt: Date.now(),
-          memo: t('settings.addressChangeFee', { username: newUsername }),
-        })
-      }
+      // Fee transaction is automatically recorded by PaymentService.send()
 
       // Persist settings + dismiss screen immediately
       updateSettings({ lightningAddress: result.value.address })
@@ -303,8 +276,8 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
       onBack()
     } catch (error) {
       console.error('[UsernameChange] Error:', error)
-      const message = error instanceof BaseError
-        ? translateError(error)
+      const message = error instanceof Error
+        ? error.message
         : t('settings.usernameChangeFailed')
       addToast({ type: 'error', message })
     } finally {
@@ -317,8 +290,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
     selectedMintUrl,
     nostrPrivkey,
     newUsername,
-    services.payment,
-    zappiLinkService,
+    registry,
     addToast,
     updateSettings,
     onSaveSettings,

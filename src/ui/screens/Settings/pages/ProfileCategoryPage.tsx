@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
-import { encodeNpub } from '@/services/crypto'
+import { useCrypto } from '@/ui/hooks/use-crypto'
 import { SettingsDetailPage } from '../components/SettingsDetailPage'
 import { SettingsRow } from '../components/SettingsRow'
 import type { SettingsPage } from '../SettingsScreen'
@@ -23,8 +23,9 @@ export function ProfileCategoryPage({
   const { t } = useTranslation()
   const settings = useAppStore((s) => s.settings)
   const nostrPubkey = useAppStore((s) => s.nostrPubkey)
+  const crypto = useCrypto()
 
-  const npubDisplay = nostrPubkey ? encodeNpub(nostrPubkey) : null
+  const npubDisplay = nostrPubkey ? crypto.encodeNpub(nostrPubkey) : null
 
   return (
     <SettingsDetailPage title={t('settings.profile')} onBack={onBack}>

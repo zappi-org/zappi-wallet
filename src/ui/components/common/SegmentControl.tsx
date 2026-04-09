@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils'
+import { cn } from '@/ui/lib/utils'
 
 export interface SegmentControlProps<T extends string> {
   value: T
