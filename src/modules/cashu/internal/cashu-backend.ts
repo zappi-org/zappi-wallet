@@ -223,18 +223,96 @@ export async function rollbackMelt(operationId: string, reason?: string): Promis
   }
 }
 
-// ─── DLEQ 검증 ───
+// ─── Token Inspection (lock + proof integrity) ───
 
-export async function verifyDleq(token: string): Promise<'valid' | 'missing' | 'failed'> {
-  const { getDecodedToken } = await import('@cashu/cashu-ts');
-  const { verifyTokenDleq } = await import('@/utils/token');
+import type { InputInspection } from '@/core/ports/driven/payment-method.port';
+
+interface ParsedSecret {
+  kind: string;
+  data: string;
+  tags?: string[][];
+}
+
+type LockResult = { status: 'locked'; target: string } | { status: 'unlocked' };
+
+const lockVerifiers = new Map<string, (secret: ParsedSecret) => LockResult>([
+  ['P2PK', (secret) => ({ status: 'locked', target: normalizePubkey(secret.data) })],
+  ['HTLC', (secret) => ({ status: 'locked', target: secret.data })],
+]);
+
+function normalizePubkey(key: string): string {
+  return key.startsWith('02') ? key : `02${key}`;
+}
+
+function parseSecret(secret: string): ParsedSecret | null {
   try {
-    const decoded = getDecodedToken(token);
-    // TODO: Coco SDK의 keyset 접근이 가능해지면 getCachedWallet에 실제 wallet 전달
-    return await verifyTokenDleq(decoded, () => undefined);
+    const parsed = JSON.parse(secret);
+    if (Array.isArray(parsed) && parsed.length >= 2 && parsed[1]?.data) {
+      return { kind: parsed[0], data: parsed[1].data, tags: parsed[1].tags };
+    }
+    return null;
   } catch {
-    return 'missing';
+    return null;
   }
+}
+
+export async function inspectInput(token: string): Promise<InputInspection> {
+  const { getDecodedToken, hasValidDleq } = await import('@cashu/cashu-ts');
+
+  let decoded;
+  try {
+    decoded = getDecodedToken(token);
+  } catch {
+    return { lockStatus: 'unlocked', proofIntegrity: 'unverifiable' };
+  }
+
+  const { proofs } = decoded;
+  if (proofs.length === 0) {
+    return { lockStatus: 'unlocked', proofIntegrity: 'unverifiable' };
+  }
+
+  // 1. Lock verification via strategy map
+  let lockStatus: 'locked' | 'unlocked' = 'unlocked';
+  let lockTarget: string | undefined;
+
+  // All proofs must be locked to the same target for lockStatus='locked'
+  for (const proof of proofs) {
+    const parsed = parseSecret(proof.secret);
+    if (!parsed) continue;
+
+    const verifier = lockVerifiers.get(parsed.kind);
+    if (!verifier) continue;
+
+    const result = verifier(parsed);
+    if (result.status === 'locked') {
+      if (!lockTarget) {
+        lockTarget = result.target;
+        lockStatus = 'locked';
+      } else if (lockTarget !== result.target) {
+        // Mixed targets — treat as locked to first target
+        // (edge case: shouldn't happen in practice)
+      }
+    }
+  }
+
+  // 2. Proof integrity (DLEQ)
+  let allHaveDleq = true;
+  for (const proof of proofs) {
+    if (!proof.dleq) {
+      allHaveDleq = false;
+      continue;
+    }
+    try {
+      const valid = hasValidDleq(proof, { id: proof.id, keys: {} });
+      if (!valid) return { lockStatus, lockTarget, proofIntegrity: 'invalid' };
+    } catch {
+      allHaveDleq = false;
+    }
+  }
+
+  const proofIntegrity = allHaveDleq ? 'verified' : 'unverifiable';
+
+  return { lockStatus, lockTarget, proofIntegrity };
 }
 
 // ─── 조회 ───

@@ -15,10 +15,8 @@ import { AnimatePresence } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
 import { useNetwork } from '@/hooks/use-network'
 import { useAppStore } from '@/store'
-import { selectP2pkPubkey } from '@/store/selectors'
 import { useTranslation } from 'react-i18next'
-import { isP2PKLockedToUser } from '@/utils/token'
-import type { DleqResult } from '@/utils/token'
+import type { InputInspectionResult } from '@/core/ports/driving/payment.usecase'
 import { formatSats } from '@/utils/format'
 import { translateError } from '@/utils/error-i18n'
 import type { ValidatedData, ValidatedCashuToken } from '@/core/domain/input-types'
@@ -98,7 +96,7 @@ export interface ReceiveFlowState {
   // Token receive
   scannedToken: ValidatedCashuToken | null
   isTrustedMint: boolean
-  dleqStatus: DleqResult | null
+  inspection: InputInspectionResult | null
   // Result
   receivedAmount: number
 }
@@ -118,7 +116,7 @@ export interface ReceiveFlowProps {
   onSwapReceive: (token: string, sourceMintUrl: string, targetMintUrl: string, amount: number) => Promise<{ success: boolean; amount?: number; error?: { code?: string; message?: string } }>
   onEstimateSwapFee: (fromMintUrl: string, toMintUrl: string, amount: number) => Promise<{ fee: number; totalNeeded: number } | null>
   onStoreOfflineToken: (token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing') => Promise<{ success: boolean }>
-  onVerifyDleq?: (tokenStr: string) => Promise<DleqResult>
+  onInspectInput?: (tokenStr: string) => Promise<InputInspectionResult>
   // Pre-filled data
   validatedData?: ValidatedData
   initialAmount?: number
@@ -137,7 +135,7 @@ export function ReceiveFlow({
   onSwapReceive,
   onEstimateSwapFee,
   onStoreOfflineToken,
-  onVerifyDleq,
+  onInspectInput,
   validatedData: initialValidatedData,
   initialAmount,
   initialMintUrl,
@@ -146,7 +144,6 @@ export function ReceiveFlow({
   const { isOnline } = useNetwork()
   const addToast = useAppStore((s) => s.addToast)
   const settings = useAppStore((s) => s.settings)
-  const p2pkPubkey = useAppStore(selectP2pkPubkey)
   const receiveReq = useReceiveRequest()
 
   // Determine initial step from validatedData
@@ -174,33 +171,33 @@ export function ReceiveFlow({
     isTrustedMint: initialValidatedData?.type === 'cashu-token'
       ? settings.mints.includes(initialValidatedData.mintUrl)
       : false,
-    dleqStatus: null,
+    inspection: null,
     receivedAmount: 0,
   })
 
   const [isLoading, setIsLoading] = useState(false)
   const isProcessingRef = useRef(false)
 
-  // ============= DLEQ verification helper =============
+  // ============= Token inspection helper =============
 
-  const runDleqCheck = useCallback(async (token: ValidatedCashuToken): Promise<DleqResult> => {
-    if (onVerifyDleq) {
-      return onVerifyDleq(token.token)
+  const runInspection = useCallback(async (token: ValidatedCashuToken): Promise<InputInspectionResult> => {
+    if (onInspectInput) {
+      return onInspectInput(token.token)
     }
-    return 'missing'
-  }, [onVerifyDleq])
+    return { lockStatus: 'not-supported', proofIntegrity: 'not-supported' }
+  }, [onInspectInput])
 
-  // Run DLEQ check for initial token (deeplink / pre-filled data)
-  const initialDleqChecked = useRef(false)
+  // Run inspection for initial token (deeplink / pre-filled data)
+  const initialInspectionDone = useRef(false)
   useEffect(() => {
-    if (initialDleqChecked.current) return
-    if (state.scannedToken && state.dleqStatus === null) {
-      initialDleqChecked.current = true
-      runDleqCheck(state.scannedToken).then((result) => {
-        setState((prev) => ({ ...prev, dleqStatus: result }))
+    if (initialInspectionDone.current) return
+    if (state.scannedToken && state.inspection === null) {
+      initialInspectionDone.current = true
+      runInspection(state.scannedToken).then((result) => {
+        setState((prev) => ({ ...prev, inspection: result }))
       })
     }
-  }, [state.scannedToken, state.dleqStatus, runDleqCheck])
+  }, [state.scannedToken, state.inspection, runInspection])
 
   // ============= Step Transitions =============
 
@@ -317,19 +314,19 @@ export function ReceiveFlow({
   const handleTokenDetected = useCallback(async (token: ValidatedCashuToken) => {
     const isTrusted = settings.mints.includes(token.mintUrl)
 
-    // Only run DLEQ check when offline (needed for P2PK offline receive decision)
-    // Online flow doesn't need DLEQ — tokens are swapped with mint immediately
-    const dleqStatus = isOnline ? null : await runDleqCheck(token)
+    // Only run inspection when offline (needed for P2PK offline receive decision)
+    // Online flow doesn't need inspection — tokens are swapped with mint immediately
+    const inspection = isOnline ? null : await runInspection(token)
 
     setState((prev) => ({
       ...prev,
       scannedToken: token,
       isTrustedMint: isTrusted,
       amount: token.amountSats,
-      dleqStatus,
+      inspection,
       step: isTrusted ? 'token-confirm' : 'untrusted-mint',
     }))
-  }, [settings.mints, runDleqCheck, isOnline])
+  }, [settings.mints, runInspection, isOnline])
 
   /** Token confirm → receive (handles same-mint, cross-mint swap, and offline P2PK) */
   const handleTokenReceive = useCallback(async (targetMintUrl?: string) => {
@@ -342,14 +339,14 @@ export function ReceiveFlow({
 
     // ── Offline flow ──
     if (!isOnline) {
-      // Only P2PK tokens locked to user's key can be stored offline
-      if (!p2pkPubkey || !isP2PKLockedToUser(token.token, p2pkPubkey)) {
+      // Only tokens locked to recipient can be stored offline
+      if (!state.inspection || state.inspection.lockStatus !== 'locked-to-recipient') {
         addToast({ type: 'error', message: t('receive.offline.nonP2PKError'), duration: 4000 })
         return
       }
 
-      // DLEQ failed → reject
-      if (state.dleqStatus === 'failed') {
+      // Proof integrity failed → reject
+      if (state.inspection.proofIntegrity === 'invalid') {
         addToast({ type: 'error', message: t('receive.offline.dleqFailed'), duration: 4000 })
         return
       }
@@ -357,7 +354,7 @@ export function ReceiveFlow({
       // Store for later redemption
       isProcessingRef.current = true
       try {
-        const dleq = state.dleqStatus === 'valid' ? 'valid' : 'missing'
+        const dleq = state.inspection.proofIntegrity === 'verified' ? 'valid' : 'missing'
         const storeResult = await onStoreOfflineToken(token.token, token.amountSats, sourceMintUrl, dleq)
         if (storeResult.success) {
           onPaymentReceived(token.amountSats, 'ecash')
@@ -422,7 +419,7 @@ export function ReceiveFlow({
     } finally {
       isProcessingRef.current = false
     }
-  }, [state.scannedToken, state.dleqStatus, isOnline, p2pkPubkey, onReceiveToken, onSwapReceive, onEstimateSwapFee, onStoreOfflineToken, onPaymentReceived, addToast, t])
+  }, [state.scannedToken, state.inspection, isOnline, onReceiveToken, onSwapReceive, onEstimateSwapFee, onStoreOfflineToken, onPaymentReceived, addToast, t])
 
   /** Untrusted mint → add trust & receive */
   const handleAddTrustAndReceive = useCallback(async () => {
@@ -560,7 +557,7 @@ export function ReceiveFlow({
               onReceive={handleTokenReceive}
               token={state.scannedToken}
               isOnline={isOnline}
-              dleqStatus={state.dleqStatus}
+              inspection={state.inspection}
               initialMintUrl={initialMintUrl}
             />
           </PageTransition>

@@ -374,41 +374,65 @@ describe('PaymentService', () => {
     })
   })
 
-  // ─── verifyInput ───
+  // ─── inspectInput ───
 
-  describe('verifyInput', () => {
-    it('delegates to adapter verifyInput', async () => {
+  describe('inspectInput', () => {
+    it('delegates to adapter inspectInput and judges lockTarget', async () => {
       const ecashAdapter = createMockAdapter({
         id: 'cashu:ecash',
         canRedeem: vi.fn().mockImplementation((input: string) => /^cashu[ab]/i.test(input.trim())),
-        verifyInput: vi.fn().mockResolvedValue('valid'),
+        inspectInput: vi.fn().mockResolvedValue({
+          lockStatus: 'locked',
+          lockTarget: '02abc',
+          proofIntegrity: 'verified',
+        }),
       })
       const mod = createMockModule([ecashAdapter])
       service = new PaymentService([mod], txRepo, eventBus)
 
-      const result = await service.verifyInput({ input: 'cashuBtest...' })
+      const result = await service.inspectInput({ input: 'cashuBtest...', recipientPubkey: '02abc' })
 
       expect(result.ok).toBe(true)
       if (!result.ok) return
-      expect(result.value).toBe('valid')
-      expect(ecashAdapter.verifyInput).toHaveBeenCalledWith('cashuBtest...')
+      expect(result.value.lockStatus).toBe('locked-to-recipient')
+      expect(result.value.proofIntegrity).toBe('verified')
     })
 
-    it('returns missing when adapter has no verifyInput', async () => {
+    it('returns locked-to-other when lockTarget does not match', async () => {
+      const ecashAdapter = createMockAdapter({
+        id: 'cashu:ecash',
+        canRedeem: vi.fn().mockReturnValue(true),
+        inspectInput: vi.fn().mockResolvedValue({
+          lockStatus: 'locked',
+          lockTarget: '02other',
+          proofIntegrity: 'verified',
+        }),
+      })
+      const mod = createMockModule([ecashAdapter])
+      service = new PaymentService([mod], txRepo, eventBus)
+
+      const result = await service.inspectInput({ input: 'cashuBtest...', recipientPubkey: '02abc' })
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.value.lockStatus).toBe('locked-to-other')
+    })
+
+    it('returns not-supported when adapter has no inspectInput', async () => {
       const ecashAdapter = createMockAdapter({
         id: 'cashu:ecash',
         canRedeem: vi.fn().mockReturnValue(true),
       })
-      // Ensure verifyInput is undefined
-      delete (ecashAdapter as unknown as Record<string, unknown>).verifyInput
+      delete (ecashAdapter as unknown as Record<string, unknown>).inspectInput
       const mod = createMockModule([ecashAdapter])
       service = new PaymentService([mod], txRepo, eventBus)
 
-      const result = await service.verifyInput({ input: 'cashuBtest...' })
+      const result = await service.inspectInput({ input: 'cashuBtest...' })
 
       expect(result.ok).toBe(true)
       if (!result.ok) return
-      expect(result.value).toBe('missing')
+      expect(result.value.lockStatus).toBe('not-supported')
+      expect(result.value.proofIntegrity).toBe('not-supported')
     })
 
     it('returns ADAPTER_NOT_FOUND when no adapter matches', async () => {
@@ -419,27 +443,28 @@ describe('PaymentService', () => {
       const mod = createMockModule([bolt11Adapter])
       service = new PaymentService([mod], txRepo, eventBus)
 
-      const result = await service.verifyInput({ input: 'garbage' })
+      const result = await service.inspectInput({ input: 'garbage' })
 
       expect(result.ok).toBe(false)
       if (result.ok) return
       expect(result.error.code).toBe('ADAPTER_NOT_FOUND')
     })
 
-    it('returns missing on verifyInput error', async () => {
+    it('returns not-supported on inspectInput error', async () => {
       const ecashAdapter = createMockAdapter({
         id: 'cashu:ecash',
         canRedeem: vi.fn().mockReturnValue(true),
-        verifyInput: vi.fn().mockRejectedValue(new Error('verification failed')),
+        inspectInput: vi.fn().mockRejectedValue(new Error('inspection failed')),
       })
       const mod = createMockModule([ecashAdapter])
       service = new PaymentService([mod], txRepo, eventBus)
 
-      const result = await service.verifyInput({ input: 'cashuBtest...' })
+      const result = await service.inspectInput({ input: 'cashuBtest...' })
 
       expect(result.ok).toBe(true)
       if (!result.ok) return
-      expect(result.value).toBe('missing')
+      expect(result.value.lockStatus).toBe('not-supported')
+      expect(result.value.proofIntegrity).toBe('not-supported')
     })
   })
 

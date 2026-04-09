@@ -1022,10 +1022,13 @@ export default function MainApp() {
           onSwapReceive={handleSwapReceive}
           onEstimateSwapFee={handleEstimateSwapFee}
           onStoreOfflineToken={handleStoreOfflineToken}
-          onVerifyDleq={async (tokenStr: string) => {
-            if (!serviceRegistry?.payment) return 'missing' as const
-            const result = await serviceRegistry.payment.verifyInput({ input: tokenStr })
-            return result.ok ? result.value : 'missing'
+          onInspectInput={async (tokenStr: string) => {
+            if (!serviceRegistry?.payment) return { lockStatus: 'not-supported' as const, proofIntegrity: 'not-supported' as const }
+            const result = await serviceRegistry.payment.inspectInput({
+              input: tokenStr,
+              recipientPubkey: p2pkPubkey ?? undefined,
+            })
+            return result.ok ? result.value : { lockStatus: 'not-supported' as const, proofIntegrity: 'not-supported' as const }
           }}
           validatedData={validatedScanData || undefined}
           initialAmount={scannedAmount || undefined}

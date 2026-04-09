@@ -71,8 +71,8 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
     async storeOfflineToken(token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing') {
       return storeOfflineToken(deps.offlineTokenStore, token, amount, mintUrl, dleqStatus)
     },
-    // DLEQ 검증
-    verifyDleq: backend.verifyDleq,
+    // Token inspection (lock + DLEQ)
+    inspectInput: backend.inspectInput,
     // PaymentRequest (NUT-18)
     parsePaymentRequest: backend.parsePaymentRequest,
     preparePaymentRequest: backend.preparePaymentRequest,

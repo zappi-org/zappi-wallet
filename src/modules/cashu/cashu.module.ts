@@ -64,7 +64,7 @@ export interface CashuModuleBackend extends LightningBackend, EcashBackend, Paym
   getBalances(): Promise<{ [mintUrl: string]: number }>
   recoverPendingQuotes(): Promise<{ recovered: number; failed: number; expired: number }>
   storeOfflineToken(token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing'): Promise<string>
-  verifyDleq(token: string): Promise<'valid' | 'missing' | 'failed'>
+  inspectInput(token: string): Promise<import('@/core/ports/driven/payment-method.port').InputInspection>
 }
 
 // ─── Module ───

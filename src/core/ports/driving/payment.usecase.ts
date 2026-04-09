@@ -3,7 +3,7 @@ import type { Result } from '@/core/domain/result'
 import type { PaymentError } from '@/core/errors/payment.errors'
 import type {
   FeeEstimate,
-  InputVerifyResult,
+  ProofIntegrity,
   ReceiveRequest,
   RedeemResult,
 } from '@/core/ports/driven/payment-method.port'
@@ -46,9 +46,10 @@ export interface PaymentUseCase {
     transactionId?: string
   }): Promise<Result<RedeemResult, PaymentError>>
 
-  verifyInput(params: {
+  inspectInput(params: {
     input: string
-  }): Promise<Result<InputVerifyResult, PaymentError>>
+    recipientPubkey?: string
+  }): Promise<Result<InputInspectionResult, PaymentError>>
 
   /** 토큰 전송 완료 처리 (상대가 수령 확인 후 finalize) */
   completeSend(params: {
@@ -84,4 +85,9 @@ export interface RecoveryReport {
   moduleId: string
   recovered: number
   failed: number
+}
+
+export interface InputInspectionResult {
+  lockStatus: 'locked-to-recipient' | 'locked-to-other' | 'unlocked' | 'not-supported'
+  proofIntegrity: ProofIntegrity
 }

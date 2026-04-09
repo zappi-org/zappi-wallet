@@ -19,12 +19,12 @@ import type {
   SendResult,
   ReclaimResult,
   RecoveryReport,
+  InputInspectionResult,
 } from '@/core/ports/driving/payment.usecase'
 import type { WalletModule, ModuleBalance } from '@/core/ports/driven/wallet-module.port'
 import type {
   PaymentMethodAdapter,
   FeeEstimate,
-  InputVerifyResult,
   ReceiveRequest,
   RedeemResult,
 } from '@/core/ports/driven/payment-method.port'
@@ -260,25 +260,39 @@ export class PaymentService implements PaymentUseCase {
     }
   }
 
-  // ─── Verify Input ───
+  // ─── Inspect Input ───
 
-  async verifyInput(params: {
+  async inspectInput(params: {
     input: string
-  }): Promise<Result<InputVerifyResult, PaymentError>> {
+    recipientPubkey?: string
+  }): Promise<Result<InputInspectionResult, PaymentError>> {
     const adapter = this.resolveRedeemAdapter(params.input)
     if (!adapter) {
-      return Err({ code: 'ADAPTER_NOT_FOUND', message: 'No adapter can verify this input' })
+      return Err({ code: 'ADAPTER_NOT_FOUND', message: 'No adapter can inspect this input' })
     }
 
-    if (!adapter.verifyInput) {
-      return Ok('missing')
+    if (!adapter.inspectInput) {
+      return Ok({ lockStatus: 'not-supported', proofIntegrity: 'not-supported' })
     }
 
     try {
-      const result = await adapter.verifyInput(params.input)
-      return Ok(result)
+      const inspection = await adapter.inspectInput(params.input)
+
+      // Service-level judgment: compare lockTarget with recipientPubkey
+      let lockStatus: InputInspectionResult['lockStatus']
+      if (inspection.lockStatus === 'not-supported') {
+        lockStatus = 'not-supported'
+      } else if (inspection.lockStatus === 'unlocked') {
+        lockStatus = 'unlocked'
+      } else if (params.recipientPubkey && inspection.lockTarget === params.recipientPubkey) {
+        lockStatus = 'locked-to-recipient'
+      } else {
+        lockStatus = 'locked-to-other'
+      }
+
+      return Ok({ lockStatus, proofIntegrity: inspection.proofIntegrity })
     } catch {
-      return Ok('missing')
+      return Ok({ lockStatus: 'not-supported', proofIntegrity: 'not-supported' })
     }
   }
 

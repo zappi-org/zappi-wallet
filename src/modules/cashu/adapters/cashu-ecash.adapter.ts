@@ -7,7 +7,7 @@
 
 import type {
   PaymentMethodAdapter,
-  InputVerifyResult,
+  InputInspection,
   SendParams,
   PreparedPayment,
   ExecutingPayment,
@@ -40,7 +40,7 @@ export interface EcashBackend {
   recoverPendingSendTokens(): Promise<{ reclaimed: number; recorded: number }>
   redeemPendingReceivedTokens(): Promise<{ redeemed: number; failed: number }>
   storeOfflineToken(token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing'): Promise<string>
-  verifyDleq?(token: string): Promise<'valid' | 'missing' | 'failed'>
+  inspectInput?(token: string): Promise<InputInspection>
 }
 
 // ─── Adapter ───
@@ -136,11 +136,11 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
     return /^cashu[ab]/i.test(input.trim())
   }
 
-  async verifyInput(input: string): Promise<InputVerifyResult> {
-    if (this.backend.verifyDleq) {
-      return this.backend.verifyDleq(input)
+  async inspectInput(input: string): Promise<InputInspection> {
+    if (this.backend.inspectInput) {
+      return this.backend.inspectInput(input)
     }
-    return 'missing'
+    return { lockStatus: 'not-supported', proofIntegrity: 'not-supported' }
   }
 
   async redeem(input: string): Promise<RedeemResult> {

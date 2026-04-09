@@ -24,10 +24,8 @@ import { MintIcon } from '@/ui/components/common/MintIcon'
 import { MintSelectBottomSheet } from '@/ui/components/payment'
 import { useMintMetadata } from '@/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
-import { selectP2pkPubkey } from '@/store/selectors'
-import { isP2PKLockedToUser } from '@/utils/token'
 import type { ValidatedCashuToken } from '@/core/domain/input-types'
-import type { DleqResult } from '@/utils/token'
+import type { InputInspectionResult } from '@/core/ports/driving/payment.usecase'
 
 // Offline state banner config
 const OFFLINE_BANNERS: Record<string, { icon: ReactNode; bg: string; textColor: string; key: string }> = {
@@ -42,7 +40,7 @@ interface TokenConfirmStepProps {
   onReceive: (mintUrl?: string) => Promise<void>
   token: ValidatedCashuToken
   isOnline: boolean
-  dleqStatus: DleqResult | null
+  inspection: InputInspectionResult | null
   /** The mint the user was on when they initiated receive */
   initialMintUrl?: string | null
 }
@@ -52,14 +50,13 @@ export function TokenConfirmStep({
   onReceive,
   token,
   isOnline,
-  dleqStatus,
+  inspection,
   initialMintUrl,
 }: TokenConfirmStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
   const settings = useAppStore((s) => s.settings)
-  const p2pkPubkey = useAppStore(selectP2pkPubkey)
   const [isReceiving, setIsReceiving] = useState(false)
   const [swapLoading, setSwapLoading] = useState(false)
   const [showMintSelect, setShowMintSelect] = useState(false)
@@ -80,19 +77,14 @@ export function TokenConfirmStep({
   const activeMintIconUrl = initialMintUrl ? getIconUrl(initialMintUrl) : undefined
   const formattedAmount = formatSats(token.amountSats)
 
-  // Offline P2PK check
-  const isP2PK = useMemo(() => {
-    return p2pkPubkey ? isP2PKLockedToUser(token.token, p2pkPubkey) : false
-  }, [token.token, p2pkPubkey])
-
-  // Determine offline receive eligibility
+  // Determine offline receive eligibility from inspection result
   const offlineState = useMemo(() => {
     if (isOnline) return null
-    if (!isP2PK) return 'no-p2pk' as const
-    if (dleqStatus === 'failed') return 'dleq-failed' as const
-    if (dleqStatus === 'missing') return 'dleq-missing' as const
+    if (!inspection || inspection.lockStatus !== 'locked-to-recipient') return 'no-p2pk' as const
+    if (inspection.proofIntegrity === 'invalid') return 'dleq-failed' as const
+    if (inspection.proofIntegrity === 'unverifiable') return 'dleq-missing' as const
     return 'ok' as const
-  }, [isOnline, isP2PK, dleqStatus])
+  }, [isOnline, inspection])
 
   const isReceiveDisabled = offlineState === 'no-p2pk' || offlineState === 'dleq-failed'
   const isSwapDisabled = !isOnline
