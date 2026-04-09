@@ -261,6 +261,7 @@ export async function recoverPendingQuotes(
 
       if (quoteStatus.state === 'ISSUED') {
         await txRepo.update(op.id, { status: 'settled', outcome: 'claimed', completedAt: now })
+        recovered++
       } else if (quoteStatus.state === 'PAID') {
         await quoteOps.mintAndReceive(quoteId, mintUrl, toNumber(op.amount))
         await txRepo.update(op.id, { status: 'settled', outcome: 'claimed', completedAt: now })
