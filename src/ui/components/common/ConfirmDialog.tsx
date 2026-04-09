@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react'
-import { cn } from '@/lib/utils'
+import { cn } from '@/ui/lib/utils'
 import { Modal } from './Modal'
 import { Button } from './Button'
 

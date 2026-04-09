@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Copy, Check, QrCode, ExternalLink, Pencil, Palette } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { cn } from '@/lib/utils'
+import { cn } from '@/ui/lib/utils'
 import { Button } from '@/ui/components/common/Button'
 import { BottomSheet } from '@/ui/components/common/BottomSheet'
 import { useAppStore } from '@/store'

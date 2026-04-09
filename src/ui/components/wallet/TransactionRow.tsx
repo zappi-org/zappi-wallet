@@ -15,7 +15,7 @@ import { toNumber } from '@/core/domain/amount'
 import { useFormatSats, useFormatFiat, formatTransactionFiat, getLocaleCode } from '@/utils/format'
 import { formatMintHost } from '@/utils/url'
 import { formatMD } from '@/utils/dateFilter'
-import { cn } from '@/lib/utils'
+import { cn } from '@/ui/lib/utils'
 import { getTitle, getTypeLabel } from './transactionHelpers'
 
 // ─── Component ───

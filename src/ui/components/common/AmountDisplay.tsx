@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils'
+import { cn } from '@/ui/lib/utils'
 import { formatSats, formatFiat } from '@/utils/format'
 
 export interface AmountDisplayProps {

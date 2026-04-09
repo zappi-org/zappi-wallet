@@ -4,7 +4,7 @@ import { Check } from 'lucide-react'
 import type { MintInfo } from '@/core/types'
 import cardLogo from '@/assets/card-logo.svg'
 import { BottomSheet } from './BottomSheet'
-import { cn } from '@/lib/utils'
+import { cn } from '@/ui/lib/utils'
 
 export interface MintFilterSheetProps {
   isOpen: boolean

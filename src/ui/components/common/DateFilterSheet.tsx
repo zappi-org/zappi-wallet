@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { Locale } from 'date-fns'
 import { ko, ja, es, id as idLocale, enUS } from 'date-fns/locale'
 import { BottomSheet } from './BottomSheet'
-import { cn } from '@/lib/utils'
+import { cn } from '@/ui/lib/utils'
 import { DAY_MS, formatMD } from '@/utils/dateFilter'
 import 'react-day-picker/style.css'
 

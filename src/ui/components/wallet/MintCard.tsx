@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import type { MintInfo } from "@/core/types";
-import { cn } from "@/lib/utils";
+import { cn } from "@/ui/lib/utils";
 import { useFormatSats, useFormatFiat } from "@/utils/format";
 import { hapticTap } from "@/utils/haptic";
 import cardLogo from "@/assets/card-logo.svg";

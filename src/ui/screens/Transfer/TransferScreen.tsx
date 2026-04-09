@@ -8,7 +8,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { cn } from '@/lib/utils'
+import { cn } from '@/ui/lib/utils'
 import { ProgressStepper } from '@/ui/components/common/ProgressStepper'
 import { useAppStore } from '@/store'
 import { usePayment, useWallet, useMintMetadata } from '@/ui/hooks'

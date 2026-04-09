@@ -10,7 +10,7 @@ import { LIMITS, getNutName, getSupportedNuts } from '@/core/constants'
 import { formatMintHost, getMintBalance as getMintBalanceUtil } from '@/utils/url'
 import type { MintInfoData } from '@/core/types'
 // clearMintData provided via onClearMintData callback prop
-import { cn } from '@/components/ui/utils'
+import { cn } from '@/ui/primitives/utils'
 import { Modal } from '@/ui/components/common'
 import { MintIcon } from './SettingsHelpers'
 import { MintUrlQrModal } from '@/ui/screens/MintDetail/MintUrlQrModal'

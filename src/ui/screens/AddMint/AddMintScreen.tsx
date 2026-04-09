@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 
 import { ArrowLeft, Plus, AlertCircle, TrendingUp, Loader2, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { cn } from '@/lib/utils'
+import { cn } from '@/ui/lib/utils'
 import { Button } from '@/ui/components/common/Button'
 import { ProgressStepper } from '@/ui/components/common/ProgressStepper'
 import { ConfirmDialog } from '@/ui/components/common/ConfirmDialog'
