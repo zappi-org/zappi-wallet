@@ -29,14 +29,11 @@ Replace `<src-dir>` with the actual source directory (e.g., `/path/to/project/sr
 ## Layer Model
 
 ```
-  Driving          Core               Driven
-  ───────    ┌──────────────┐    ──────────
-  UI/CLI  →  │ domain/      │  ← adapters/
-  tests   →  │ ports/       │  ← modules/internal/
-             └──────────────┘    data/ (legacy)
+ui/ → core/ports → core/services → core/ports/driven → adapters/ | modules/
+      composition/ wires everything. Cross-cutting: store/, i18n/, utils/
 ```
 
-**Dependency rule**: arrows point inward. No outward imports from core. No cross-adapter imports. No legacy bypass.
+Full layer map in [references/layer-rules.md](references/layer-rules.md).
 
 ## Quick Start
 
@@ -48,18 +45,20 @@ Replace `<src-dir>` with the actual source directory (e.g., `/path/to/project/sr
 
 2. Review the output — each violation shows: file, line, illegal import, and which rule it breaks.
 
-3. For each violation decide: refactor to use a port, move the code to the correct layer, or mark as accepted legacy (with comment `// hex-ignore`).
+3. For each violation decide: refactor to use a port, move the code to the correct layer, or mark as accepted (`// hex-ignore`).
 
-## Rules Summary
+## Rules Summary (6 rules)
 
-| # | Rule | Forbidden Pattern |
-|---|------|-------------------|
-| 1 | Core must not import outside core | `core/**` → anything except `core/**` |
-| 2 | Module internal must not import legacy | `modules/*/internal/**` → `data/**`, `coco/**` |
-| 3 | Adapters must not cross-reference | `adapters/A/**` → `adapters/B/**` |
-| 4 | Services must use ports, not concrete | `services/**` → `data/**`, `modules/*/internal/**` |
+| # | Rule | Severity | Forbidden Pattern |
+|---|------|----------|-------------------|
+| R1 | Core must not import outside core | critical | `core/**` → anything except `core/**` |
+| R2 | Module internal must not import ui/composition/adapters | high | `modules/*/internal/**` → `ui/**`, `composition/**`, `adapters/**` |
+| R3 | Adapters must not cross-reference | medium | `adapters/A/**` → `adapters/B/**` |
+| R4 | UI must not import adapters/modules/composition | high | `ui/**` → `adapters/**`, `modules/**`, `composition/**` |
+| R5 | Composition must not import ui | medium | `composition/**` → `ui/**` |
+| R6 | Core services must use ports, not concrete | medium | `core/services/**` → `adapters/**`, `modules/*/internal/**` |
 
-For the full rule definitions with rationale and examples, see [references/layer-rules.md](references/layer-rules.md).
+For the full rule definitions with rationale, see [references/layer-rules.md](references/layer-rules.md).
 
 ## Workflow
 
@@ -67,14 +66,16 @@ For the full rule definitions with rationale and examples, see [references/layer
 Task Progress:
 - [ ] Run scanner on src/
 - [ ] Group violations by rule
-- [ ] For each group: assess severity (hard violation vs legacy compat)
+- [ ] For each group: assess severity (critical > high > medium)
 - [ ] Propose fix or hex-ignore annotation for each
 - [ ] Re-run scanner to confirm zero violations (excluding hex-ignore)
 ```
 
 ## Interpreting Results
 
-- **Rule 1 violations** are critical — core purity is non-negotiable
-- **Rule 2 violations** are the most common during migration — module internals reaching into legacy data/coco layers
-- **Rule 3 violations** often indicate missing ports
-- **Rule 4 violations** suggest the service should inject via constructor, not import directly
+- **R1 violations** are critical — core purity is non-negotiable
+- **R2 violations** indicate module internals reaching into wrong layers
+- **R3 violations** often indicate missing ports (shared logic between adapters)
+- **R4 violations** are the most impactful — UI must not know about concrete implementations
+- **R5 violations** mean composition depends on presentation (inversion of control broken)
+- **R6 violations** suggest the service should receive deps via constructor injection
