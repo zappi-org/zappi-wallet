@@ -87,45 +87,52 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
     }
   }, [transactions, timeRange, now])
 
-  // Generate chart data
+  // Generate chart data — single-pass O(n) bucketing
   const chartData = useMemo(() => {
-    const now = new Date()
+    const today = new Date()
     const days = timeRange === 'week' ? 7 : 30
 
-    const data: { name: string; income: number; spending: number }[] = []
+    // Build day buckets keyed by dayStart timestamp
+    const buckets = new Map<number, { income: number; spending: number }>()
+    const dayMeta: { dayStart: number; label: string }[] = []
 
     for (let i = days - 1; i >= 0; i--) {
-      const date = new Date(now)
+      const date = new Date(today)
       date.setDate(date.getDate() - i)
-      const dayStart = new Date(date.setHours(0, 0, 0, 0)).getTime()
-      const dayEnd = new Date(date.setHours(23, 59, 59, 999)).getTime()
-
-      const dayTxs = transactions.filter(
-        (tx) =>
-          tx.createdAt >= dayStart &&
-          tx.createdAt <= dayEnd &&
-          tx.status === 'settled'
-      )
-
-      const income = dayTxs
-        .filter((tx) => tx.direction === 'receive')
-        .reduce((sum, tx) => sum + toNumber(tx.amount), 0)
-
-      const spending = dayTxs
-        .filter((tx) => tx.direction === 'send')
-        .reduce((sum, tx) => sum + toNumber(tx.amount), 0)
-
-      data.push({
-        name:
-          timeRange === 'week'
-            ? date.toLocaleDateString('en-US', { weekday: 'short' })
-            : date.getDate().toString(),
-        income,
-        spending,
+      date.setHours(0, 0, 0, 0)
+      const dayStart = date.getTime()
+      buckets.set(dayStart, { income: 0, spending: 0 })
+      dayMeta.push({
+        dayStart,
+        label: timeRange === 'week'
+          ? date.toLocaleDateString('en-US', { weekday: 'short' })
+          : date.getDate().toString(),
       })
     }
 
-    return data
+    const cutoffStart = dayMeta[0]?.dayStart ?? 0
+    const cutoffEnd = (dayMeta[dayMeta.length - 1]?.dayStart ?? 0) + 86_400_000 - 1
+
+    // Single pass over transactions
+    for (const tx of transactions) {
+      if (tx.status !== 'settled') continue
+      if (tx.createdAt < cutoffStart || tx.createdAt > cutoffEnd) continue
+
+      // Floor to start-of-day to find bucket key
+      const d = new Date(tx.createdAt)
+      d.setHours(0, 0, 0, 0)
+      const bucket = buckets.get(d.getTime())
+      if (!bucket) continue
+
+      const amount = toNumber(tx.amount)
+      if (tx.direction === 'receive') bucket.income += amount
+      else if (tx.direction === 'send') bucket.spending += amount
+    }
+
+    return dayMeta.map(({ dayStart, label }) => ({
+      name: label,
+      ...buckets.get(dayStart)!,
+    }))
   }, [transactions, timeRange])
 
   // Spending breakdown by category

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
 import { hapticTap } from '@/utils/haptic'
@@ -57,16 +57,22 @@ function MintSelectBottomSheetInner({
   const { getCachedStatus } = useMintHealth()
   const { getDisplayName, getIconUrl } = useMintMetadata(settings.mints)
 
-  // Build mint list
-  const mints: MintInfo[] = settings.mints.map((url: string) => ({
-    url,
-    name: getDisplayName(url),
-    balance: balance.byMint[url] || 0,
-    isOnline: getCachedStatus(url)?.isOnline !== false,
-    iconUrl: getIconUrl(url),
-  }))
+  // Build mint list (memoized to avoid rebuild on carousel scroll)
+  const mints: MintInfo[] = useMemo(() =>
+    settings.mints.map((url: string) => ({
+      url,
+      name: getDisplayName(url),
+      balance: balance.byMint[url] || 0,
+      isOnline: getCachedStatus(url)?.isOnline !== false,
+      iconUrl: getIconUrl(url),
+    })),
+    [settings.mints, getDisplayName, balance.byMint, getCachedStatus, getIconUrl]
+  )
 
-  const filteredMints = filterFn ? mints.filter(filterFn) : mints
+  const filteredMints = useMemo(() =>
+    filterFn ? mints.filter(filterFn) : mints,
+    [mints, filterFn]
+  )
 
   const [localSelected, setLocalSelected] = useState<string | null>(
     selectedMintUrl || filteredMints[0]?.url || null
