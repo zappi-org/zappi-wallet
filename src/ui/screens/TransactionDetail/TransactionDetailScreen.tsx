@@ -463,6 +463,18 @@ export default function TransactionDetailScreen({
           </div>
         )}
 
+        {/* ── Ecash Receive: Fee Info ── */}
+        {isEcash && isReceive && meta.fee != null && meta.fee > 0 && (
+          <div className="px-5 mt-6">
+            <p className="text-label font-medium text-foreground-muted uppercase tracking-wider mb-1">
+              {t('txDetail.details')}
+            </p>
+            <div className="bg-background-card rounded px-4">
+              <InfoRow label={t('txDetail.fee')} value={formatSats(meta.fee)} />
+            </div>
+          </div>
+        )}
+
         {/* ── Kiosk Order Items ── */}
         {kioskOrder && (
           <div className="px-5 mt-6">

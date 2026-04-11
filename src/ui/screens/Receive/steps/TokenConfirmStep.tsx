@@ -43,6 +43,8 @@ interface TokenConfirmStepProps {
   inspection: InputInspectionResult | null
   /** The mint the user was on when they initiated receive */
   initialMintUrl?: string | null
+  /** 수수료 사전 추정 결과 — null이면 수수료 없거나 아직 로딩 중 */
+  feeEstimate?: { grossAmount: number; fee: number; netAmount: number } | null
 }
 
 export function TokenConfirmStep({
@@ -52,6 +54,7 @@ export function TokenConfirmStep({
   isOnline,
   inspection,
   initialMintUrl,
+  feeEstimate,
 }: TokenConfirmStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
@@ -219,7 +222,9 @@ export function TokenConfirmStep({
                   {t('receive.token.receiveViaSwap', { mint: activeMintName })}
                 </p>
                 <p className="text-caption text-foreground-muted mt-0.5">
-                  {t('receive.token.receiveViaSwapSub')}
+                  {feeEstimate && feeEstimate.fee > 0
+                    ? `${t('receive.token.fee')} ${formatSats(feeEstimate.fee)} · ${t('receive.token.netAmount')} ${formatSats(feeEstimate.netAmount)}`
+                    : t('receive.token.receiveViaSwapSub')}
                 </p>
               </div>
             </button>
@@ -254,6 +259,19 @@ export function TokenConfirmStep({
 
           <div className="px-6 pb-6 pb-safe shrink-0">
             <div className="mb-4">
+              {/* 수수료 rows — fee > 0일 때만 표시 */}
+              {feeEstimate && feeEstimate.fee > 0 && (
+                <>
+                  <div className="flex items-center justify-between py-2.5 border-b border-border/50">
+                    <span className="text-body text-foreground-muted">{t('receive.token.fee')}</span>
+                    <span className="text-body text-foreground-muted">-{formatSats(feeEstimate.fee)}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-2.5 border-b border-border/50">
+                    <span className="text-body text-foreground-muted">{t('receive.token.netAmount')}</span>
+                    <span className="text-body font-semibold text-foreground">{formatSats(feeEstimate.netAmount)}</span>
+                  </div>
+                </>
+              )}
               {/* Mint row — tappable */}
               <button
                 onClick={() => { hapticTap(); setShowMintSelect(true) }}
