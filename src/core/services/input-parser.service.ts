@@ -14,7 +14,7 @@ export class InputParserService implements InputParserUseCase {
   ) {}
 
   detectAndClassify(raw: string): InputType {
-    const trimmed = raw.trim()
+    const trimmed = raw.trim().replace(/^lightning:/i, '')
 
     // Bitcoin URI with possible cashu/lightning params
     const uriResult = this.codec.parseBitcoinUri(trimmed)
