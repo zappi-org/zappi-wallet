@@ -27,7 +27,9 @@ import type {
   FeeEstimate,
   ReceiveRequest,
   RedeemResult,
+  RedeemFeeEstimate,
 } from '@/core/ports/driven/payment-method.port'
+import { toNumber } from '@/core/domain/amount'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { OperationMap } from '@/core/ports/driven/operation-map.port'
 
@@ -244,6 +246,8 @@ export class PaymentService implements PaymentUseCase {
         amount: result.amount,
         accountId: result.accountId ?? adapter.moduleId,
         memo: result.memo,
+        // fee가 있는 경우 metadata에 기록 — getTxMeta()로 UI에서 접근 가능
+        ...(result.fee && { metadata: { fee: toNumber(result.fee) } }),
       })
       const settled = settleAsDelivered(tx)
       await this.txRepo.save(settled)
@@ -254,6 +258,29 @@ export class PaymentService implements PaymentUseCase {
       })
 
       return Ok(result)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      return Err({ code: 'UNKNOWN', message })
+    }
+  }
+
+  // ─── Estimate Redeem Fee ───
+
+  async estimateRedeemFee(params: {
+    input: string
+  }): Promise<Result<RedeemFeeEstimate, PaymentError>> {
+    const adapter = this.resolveRedeemAdapter(params.input)
+    if (!adapter) {
+      return Err({ code: 'ADAPTER_NOT_FOUND', message: 'No adapter can handle this input' })
+    }
+
+    if (!adapter.estimateRedeemFee) {
+      return Err({ code: 'ADAPTER_NOT_FOUND', message: `Adapter ${adapter.id} does not support fee estimation` })
+    }
+
+    try {
+      const estimate = await adapter.estimateRedeemFee(params.input)
+      return Ok(estimate)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error'
       return Err({ code: 'UNKNOWN', message })

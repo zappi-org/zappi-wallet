@@ -80,6 +80,7 @@ export interface ReceiveSettledEvent {
   payload: {
     requestId: string
     amount: number
+    fee?: number
     accountId: string
     method: string
     isSwapStep: boolean

@@ -13,7 +13,7 @@ import type { OfflineTokenStore } from '@/core/ports/driven/offline-token-store.
  */
 export async function redeemPendingReceivedTokens(
   store: OfflineTokenStore,
-  receiveToken: (token: string) => Promise<{ amount: number; mintUrl: string }>,
+  receiveToken: (token: string) => Promise<{ amount: number; fee: number; unit: string; mintUrl: string }>,
 ): Promise<{ redeemed: number; failed: number }> {
   const pendingTokens = await store.getAll()
 

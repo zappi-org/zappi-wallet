@@ -21,6 +21,7 @@ function createMockBackend(): CashuModuleBackend {
     rollbackSend: vi.fn(),
     finalizeSend: vi.fn(),
     receiveToken: vi.fn(),
+    estimateReceiveFee: vi.fn(),
     recoverPendingSendTokens: vi.fn(),
     redeemPendingReceivedTokens: vi.fn().mockResolvedValue({ redeemed: 0, failed: 0 }),
     storeOfflineToken: vi.fn().mockResolvedValue('pending-recv-123'),

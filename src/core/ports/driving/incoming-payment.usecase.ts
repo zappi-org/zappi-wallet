@@ -1,6 +1,7 @@
 export interface IncomingPaymentResult {
   status: 'success' | 'already_processed' | 'failed'
   amount?: number
+  fee?: number
   error?: string
 }
 

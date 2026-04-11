@@ -117,6 +117,7 @@ export class GiftWrapWatcher {
         payload: {
           requestId: parsed.requestId || msg.eventId,
           amount: result.amount,
+          fee: result.fee,
           accountId: 'cashu:ecash',
           method: 'nostr-gift-wrap',
           isSwapStep: false,

@@ -5,6 +5,7 @@ import type {
   FeeEstimate,
   ProofIntegrity,
   ReceiveRequest,
+  RedeemFeeEstimate,
   RedeemResult,
 } from '@/core/ports/driven/payment-method.port'
 import type { ModuleBalance } from '@/core/ports/driven/wallet-module.port'
@@ -65,6 +66,13 @@ export interface PaymentUseCase {
     destination: string
     amount: Amount
   }): Promise<Result<FeeEstimate, PaymentError>>
+
+  /**
+   * estimate fee from input_fee_ppk
+   */
+  estimateRedeemFee(params: {
+    input: string
+  }): Promise<Result<RedeemFeeEstimate, PaymentError>>
 
   recoverAll(): Promise<RecoveryReport[]>
 }

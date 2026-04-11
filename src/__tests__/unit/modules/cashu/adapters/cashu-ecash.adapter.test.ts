@@ -19,7 +19,8 @@ function createMockBackend(): EcashBackend {
     }),
     rollbackSend: vi.fn().mockResolvedValue(undefined),
     finalizeSend: vi.fn().mockResolvedValue(undefined),
-    receiveToken: vi.fn().mockResolvedValue({ amount: 500, mintUrl: 'https://mint.test' }),
+    receiveToken: vi.fn().mockResolvedValue({ amount: 498, fee: 2, unit: 'sat', mintUrl: 'https://mint.test' }),
+    estimateReceiveFee: vi.fn().mockResolvedValue({ grossAmount: 500, fee: 2, netAmount: 498, unit: 'sat', mintUrl: 'https://mint.test' }),
     recoverPendingSendTokens: vi.fn().mockResolvedValue({ reclaimed: 3, recorded: 1 }),
     redeemPendingReceivedTokens: vi.fn().mockResolvedValue({ redeemed: 0, failed: 0 }),
     storeOfflineToken: vi.fn().mockResolvedValue('pending-recv-123'),
@@ -190,16 +191,31 @@ describe('CashuEcashAdapter', () => {
   // ─── redeem ───
 
   describe('redeem', () => {
-    it('delegates to backend receiveToken and returns RedeemResult', async () => {
+    it('delegates to backend receiveToken and returns RedeemResult with net amount', async () => {
       const result = await adapter.redeem('cashuBpXh...')
 
       expect(backend.receiveToken).toHaveBeenCalledWith('cashuBpXh...')
-      expect(toNumber(result.amount)).toBe(500)
+      // net amount = gross(500) - fee(2) = 498
+      expect(toNumber(result.amount)).toBe(498)
+      expect(result.amount.unit).toBe('sat')
+      // fee는 별도 필드로 노출
+      expect(result.fee).toBeDefined()
+      expect(toNumber(result.fee!)).toBe(2)
       expect(result.method).toBe('cashu:ecash')
       expect(result.protocol).toBe('cashu-token')
       expect(result.completed).toBe(true)
       expect(result.requestId).not.toBe('')
       expect(result.accountId).toBe('https://mint.test')
+    })
+
+    it('fee is undefined when no fee is charged', async () => {
+      vi.mocked(backend.receiveToken).mockResolvedValueOnce({
+        amount: 500, fee: 0, unit: 'sat', mintUrl: 'https://mint.test',
+      })
+      const result = await adapter.redeem('cashuBpXh...')
+
+      expect(toNumber(result.amount)).toBe(500)
+      expect(result.fee).toBeUndefined()
     })
   })
 })

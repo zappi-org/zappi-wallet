@@ -38,6 +38,7 @@ export interface PaymentMethodAdapter {
   canRedeem?(input: string): boolean
   inspectInput?(input: string): Promise<InputInspection>
   redeem?(input: string): Promise<RedeemResult>
+  estimateRedeemFee?(input: string): Promise<RedeemFeeEstimate>
 
   // ─── 수신 완료 감지 (비동기 수신 — invoice paid, swap 완료 등) ───
   onReceiveCompleted?(
@@ -96,12 +97,24 @@ export interface ExecutingPayment {
 
 export interface RedeemResult {
   requestId: string
+  /** 실제 수신 금액 (수수료 차감 후) */
   amount: Amount
+  /** input_fee_ppk 기반 수수료. 수수료가 없는 민트는 undefined */
+  fee?: Amount
   method: string
   protocol: string
   completed: boolean
   accountId?: string
   memo?: string
+}
+
+export interface RedeemFeeEstimate {
+  /** 토큰 원래 금액 (proof sum) */
+  grossAmount: Amount
+  /** input_fee_ppk 기반 수수료 */
+  fee: Amount
+  /** 실제 수신 금액 (grossAmount - fee) */
+  netAmount: Amount
 }
 
 export interface ReceiveCompletedResult {
