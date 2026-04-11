@@ -5,6 +5,10 @@ export interface Amount {
   readonly unit: Unit
 }
 
+export function amount(value: number | bigint, unit: Unit): Amount {
+  return { value: BigInt(value), unit }
+}
+
 export function sat(value: number | bigint): Amount {
   return { value: BigInt(value), unit: 'sat' }
 }
