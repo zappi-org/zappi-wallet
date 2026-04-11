@@ -44,6 +44,7 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
     rollbackSend: backend.rollbackSend,
     finalizeSend: backend.finalizeSend,
     receiveToken: backend.receiveToken,
+    estimateReceiveFee: backend.estimateReceiveFee,
     async recoverPendingSendTokens() {
       const sendOps = await backend.getSendRecoveryOps()
       return recoverPendingSendTokens({

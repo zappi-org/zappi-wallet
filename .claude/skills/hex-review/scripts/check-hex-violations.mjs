@@ -10,6 +10,16 @@
  *        Default src-dir: ./src
  *
  * Exit code 0: no violations, 1: violations found
+ *
+ * Layer map (2026-04-10):
+ *   ui/           → driving adapter (screens, hooks, components, ...)
+ *   composition/  → wiring (bootstrap, observers, cross-tab-sync)
+ *   core/         → hexagon center (domain, ports, services, events, errors)
+ *   adapters/     → driven adapter implementations
+ *   modules/      → SDK integration (cashu)
+ *   store/        → Zustand (cross-cutting, allowed from ui/composition)
+ *   i18n/         → internationalization (cross-cutting)
+ *   utils/        → cross-cutting utilities
  */
 
 import { readFileSync, readdirSync, statSync } from 'fs'
@@ -33,13 +43,15 @@ const rules = [
   },
   {
     id: 'R2',
-    name: 'Module internal must not import legacy',
+    name: 'Module internal must not import ui/composition/adapters',
     severity: 'high',
     test(filePath, importPath) {
       if (!isModuleInternal(filePath)) return false
       const resolved = resolveAlias(importPath, filePath)
       if (!resolved) return false
-      return resolved.startsWith('data/') || resolved.startsWith('coco/')
+      return resolved.startsWith('ui/') ||
+             resolved.startsWith('composition/') ||
+             resolved.startsWith('adapters/')
     },
   },
   {
@@ -58,13 +70,38 @@ const rules = [
   },
   {
     id: 'R4',
-    name: 'Services must use ports, not concrete implementations',
-    severity: 'medium',
+    name: 'UI must not import adapters/modules/composition',
+    severity: 'high',
     test(filePath, importPath) {
-      if (!isService(filePath)) return false
+      if (!isUI(filePath)) return false
       const resolved = resolveAlias(importPath, filePath)
       if (!resolved) return false
-      return resolved.startsWith('data/') || /^modules\/[^/]+\/internal\//.test(resolved)
+      return resolved.startsWith('adapters/') ||
+             resolved.startsWith('modules/') ||
+             resolved.startsWith('composition/')
+    },
+  },
+  {
+    id: 'R5',
+    name: 'Composition must not import ui',
+    severity: 'medium',
+    test(filePath, importPath) {
+      if (!isComposition(filePath)) return false
+      const resolved = resolveAlias(importPath, filePath)
+      if (!resolved) return false
+      return resolved.startsWith('ui/')
+    },
+  },
+  {
+    id: 'R6',
+    name: 'Core services must use ports, not concrete implementations',
+    severity: 'medium',
+    test(filePath, importPath) {
+      if (!isCoreService(filePath)) return false
+      const resolved = resolveAlias(importPath, filePath)
+      if (!resolved) return false
+      return resolved.startsWith('adapters/') ||
+             /^modules\/[^/]+\/internal\//.test(resolved)
     },
   },
 ]
@@ -75,6 +112,10 @@ function isCore(fp) {
   return fp.startsWith('core/')
 }
 
+function isCoreService(fp) {
+  return fp.startsWith('core/services/')
+}
+
 function isModuleInternal(fp) {
   return /^modules\/[^/]+\/internal\//.test(fp)
 }
@@ -83,8 +124,12 @@ function isAdapter(fp) {
   return fp.startsWith('adapters/')
 }
 
-function isService(fp) {
-  return fp.startsWith('services/')
+function isUI(fp) {
+  return fp.startsWith('ui/')
+}
+
+function isComposition(fp) {
+  return fp.startsWith('composition/')
 }
 
 function getAdapterGroup(fp) {
@@ -95,7 +140,6 @@ function getAdapterGroup(fp) {
 function resolveAlias(importPath, filePath) {
   if (importPath.startsWith('@/')) return importPath.slice(2)
   if (importPath.startsWith('./') || importPath.startsWith('../')) {
-    // Resolve relative path to detect cross-layer bypasses
     const dir = filePath.includes('/') ? filePath.slice(0, filePath.lastIndexOf('/')) : ''
     const parts = dir.split('/').filter(Boolean)
     for (const seg of importPath.split('/')) {
@@ -115,7 +159,7 @@ function collectFiles(dir, ext = ['.ts', '.tsx', '.js', '.jsx']) {
     const full = join(dir, entry)
     const stat = statSync(full)
     if (stat.isDirectory()) {
-      if (entry === 'node_modules' || entry === '__tests__' || entry === 'dist') continue
+      if (entry === 'node_modules' || entry === '__tests__' || entry === 'dist' || entry === '.pipeline') continue
       results.push(...collectFiles(full, ext))
     } else if (ext.some(e => full.endsWith(e))) {
       results.push(full)
@@ -126,17 +170,12 @@ function collectFiles(dir, ext = ['.ts', '.tsx', '.js', '.jsx']) {
 
 function extractImports(content) {
   const imports = []
-  // Line-by-line scan for `from '...'` and `import '...'` patterns.
-  // Handles multi-line imports like: import {\n  foo,\n  bar\n} from '@/...'
   const lines = content.split('\n')
   for (const line of lines) {
-    // Static: from '...' or from "..."
     const fromMatch = line.match(/\bfrom\s+['"]([^'"]+)['"]/)
     if (fromMatch) { imports.push(fromMatch[1]); continue }
-    // Side-effect: import '...' (no from keyword, no dynamic parens)
     const sideEffect = line.match(/^\s*import\s+['"]([^'"]+)['"]/)
     if (sideEffect) { imports.push(sideEffect[1]); continue }
-    // Dynamic: import('...')
     const dynMatch = line.match(/import\s*\(\s*['"]([^'"]+)['"]\s*\)/)
     if (dynMatch) imports.push(dynMatch[1])
   }
@@ -193,7 +232,6 @@ if (violations.length === 0) {
   process.exit(0)
 }
 
-// Group by rule
 const grouped = {}
 for (const v of violations) {
   if (!grouped[v.rule]) grouped[v.rule] = []

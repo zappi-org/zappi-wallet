@@ -117,6 +117,7 @@ export interface ReceiveFlowProps {
   onEstimateSwapFee: (fromMintUrl: string, toMintUrl: string, amount: number) => Promise<{ fee: number; totalNeeded: number } | null>
   onStoreOfflineToken: (token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing') => Promise<{ success: boolean }>
   onInspectInput?: (tokenStr: string) => Promise<InputInspectionResult>
+  onEstimateRedeemFee?: (token: string) => Promise<{ grossAmount: number; fee: number; netAmount: number } | null>
   // Pre-filled data
   validatedData?: ValidatedData
   initialAmount?: number
@@ -136,6 +137,7 @@ export function ReceiveFlow({
   onEstimateSwapFee,
   onStoreOfflineToken,
   onInspectInput,
+  onEstimateRedeemFee,
   validatedData: initialValidatedData,
   initialAmount,
   initialMintUrl,
@@ -177,6 +179,22 @@ export function ReceiveFlow({
 
   const [isLoading, setIsLoading] = useState(false)
   const isProcessingRef = useRef(false)
+
+  // ============= Redeem fee estimation =============
+
+  const [redeemFeeEstimate, setRedeemFeeEstimate] = useState<{
+    grossAmount: number
+    fee: number
+    netAmount: number
+  } | null>(null)
+
+  useEffect(() => {
+    if (!state.scannedToken || !onEstimateRedeemFee) return
+    setRedeemFeeEstimate(null)
+    onEstimateRedeemFee(state.scannedToken.token)
+      .then((estimate) => setRedeemFeeEstimate(estimate))
+      .catch(() => setRedeemFeeEstimate(null))
+  }, [state.scannedToken, onEstimateRedeemFee])
 
   // ============= Token inspection helper =============
 
@@ -559,6 +577,7 @@ export function ReceiveFlow({
               isOnline={isOnline}
               inspection={state.inspection}
               initialMintUrl={initialMintUrl}
+              feeEstimate={redeemFeeEstimate}
             />
           </PageTransition>
         )}

@@ -415,6 +415,22 @@ export default function MainApp() {
     return null
   }, [serviceRegistry])
 
+  /** Estimate receive fee for a cashu token (input_fee_ppk) */
+  const handleEstimateRedeemFee = useCallback(async (
+    token: string,
+  ): Promise<{ grossAmount: number; fee: number; netAmount: number } | null> => {
+    if (!serviceRegistry?.payment) return null
+    const result = await serviceRegistry.payment.estimateRedeemFee({ input: token })
+    if (result.ok) {
+      return {
+        grossAmount: toNumber(result.value.grossAmount),
+        fee: toNumber(result.value.fee),
+        netAmount: toNumber(result.value.netAmount),
+      }
+    }
+    return null
+  }, [serviceRegistry])
+
   /** Cross-mint swap: execute swap from source mint to target mint */
   const handleMintSwap = useCallback(async (
     fromMintUrl: string,
@@ -1022,6 +1038,7 @@ export default function MainApp() {
           onAddTrustedMint={handleAddTrustedMint}
           onSwapReceive={handleSwapReceive}
           onEstimateSwapFee={handleEstimateSwapFee}
+          onEstimateRedeemFee={handleEstimateRedeemFee}
           onStoreOfflineToken={handleStoreOfflineToken}
           onInspectInput={async (tokenStr: string) => {
             if (!serviceRegistry?.payment) return { lockStatus: 'not-supported' as const, proofIntegrity: 'not-supported' as const }

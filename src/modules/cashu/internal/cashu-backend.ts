@@ -139,22 +139,71 @@ export async function finalizeSend(operationId: string): Promise<void> {
 // ─── Receive ───
 
 /**
+ * 토큰의 unit을 결정한다.
+ *
+ * Coco SDK는 현재 멀티 유닛을 지원하지 않으므로 'sat'를 고정 반환한다.
+ * SDK가 멀티 유닛을 지원하게 되면 이 함수에서 keyset.unit을 조회하도록 교체한다.
+ *
+ * @param _mintUrl - 미래 멀티 유닛 지원 시 mint별 unit 조회에 사용
+ */
+function resolveUnit(_mintUrl: string): string {
+  // TODO: SDK 멀티 유닛 지원 시 manager.wallet.getKeyset() 등으로 unit 조회
+  return 'sat';
+}
+
+/**
  * 토큰 수령 (일반 + P2PK 모두).
  * Coco RC50의 ops.receive가 P2PK unlock을 내부 처리한다.
+ *
+ * - amount: 실제 수신 금액 (gross - fee)
+ * - fee: input_fee_ppk 기반 수수료 (0인 민트도 있음)
+ * - unit: mint의 토큰 단위 (현재 항상 'sat')
  */
-export async function receiveToken(token: string): Promise<{ amount: number; mintUrl: string }> {
+export async function receiveToken(
+  token: string,
+): Promise<{ amount: number; fee: number; unit: string; mintUrl: string }> {
   const manager = await getCocoManager();
 
-  // mint 등록 확인 + amount 파싱
   const { getDecodedToken } = await import('@cashu/cashu-ts');
   const decoded = getDecodedToken(token);
   await ensureMintTrusted(manager, decoded.mint);
-  const amount = decoded.proofs.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
 
   const prepared = await manager.ops.receive.prepare({ token });
   await manager.ops.receive.execute(prepared);
 
-  return { amount, mintUrl: decoded.mint };
+  // SDK가 계산한 fee와 gross amount을 활용해 실제 수신 금액을 결정한다.
+  const fee = prepared.fee;
+  const netAmount = prepared.amount - fee;
+  const unit = resolveUnit(decoded.mint);
+
+  return { amount: netAmount, fee, unit, mintUrl: decoded.mint };
+}
+
+/**
+ * 토큰 수신 수수료 사전 추정.
+ * prepare → fee 확인 → cancel 패턴으로 실제 실행 없이 수수료를 계산한다.
+ *
+ * input_fee_ppk가 없는 민트는 fee=0을 반환한다.
+ */
+export async function estimateReceiveFee(
+  token: string,
+): Promise<{ grossAmount: number; fee: number; netAmount: number; unit: string; mintUrl: string }> {
+  const manager = await getCocoManager();
+
+  const { getDecodedToken } = await import('@cashu/cashu-ts');
+  const decoded = getDecodedToken(token);
+  await ensureMintTrusted(manager, decoded.mint);
+
+  const prepared = await manager.ops.receive.prepare({ token });
+
+  // 실행하지 않고 취소하여 잔액 변동 없이 수수료만 확인한다.
+  await manager.ops.receive.cancel(prepared.id).catch(() => {});
+
+  const grossAmount = prepared.amount;
+  const fee = prepared.fee;
+  const unit = resolveUnit(decoded.mint);
+
+  return { grossAmount, fee, netAmount: grossAmount - fee, unit, mintUrl: decoded.mint };
 }
 
 // ─── Mint (Lightning 수신) ───

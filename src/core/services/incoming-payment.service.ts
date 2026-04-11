@@ -46,6 +46,7 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
       }
 
       const amount = toNumber(redeemResult.value.amount)
+      const fee = redeemResult.value.fee ? toNumber(redeemResult.value.fee) : undefined
 
       await this.processedStore.save({
         externalId,
@@ -54,7 +55,7 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
         result: 'success',
       })
 
-      return { status: 'success', amount }
+      return { status: 'success', amount, fee }
     } catch (error) {
       const errorMsg = String(error)
       const isAlreadySpent = errorMsg.toLowerCase().includes('already spent')

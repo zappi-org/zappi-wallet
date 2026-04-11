@@ -17,7 +17,9 @@ import type {
   ReceiveRequest,
   RedeemResult,
 } from '@/core/ports/driven/payment-method.port'
-import { sat, toNumber } from '@/core/domain/amount'
+import { amount as toAmount, sat, toNumber } from '@/core/domain/amount'
+import type { Unit } from '@/core/domain/amount'
+import type { RedeemFeeEstimate } from '@/core/ports/driven/payment-method.port'
 
 // ─── Backend interface (DI용) ───
 
@@ -25,6 +27,26 @@ export interface LockingCondition {
   kind: 'P2PK'
   data: string
   tags?: string[][]
+}
+
+/** receiveToken의 반환 타입 — unit은 backend(cashu-backend.ts)가 결정한다 */
+export interface ReceivedTokenResult {
+  /** 실제 수신 금액 (gross - fee) */
+  amount: number
+  /** input_fee_ppk 기반 수수료 (0이면 수수료 없음) */
+  fee: number
+  /** mint의 토큰 단위 — backend가 결정 (현재 항상 'sat', 멀티 유닛 대응 구조) */
+  unit: string
+  mintUrl: string
+}
+
+/** estimateReceiveFee의 반환 타입 */
+export interface ReceiveFeeEstimate {
+  grossAmount: number
+  fee: number
+  netAmount: number
+  unit: string
+  mintUrl: string
 }
 
 export interface EcashBackend {
@@ -36,7 +58,8 @@ export interface EcashBackend {
   executeSend(operationId: string, options?: { memo?: string }): Promise<{ token: string }>
   rollbackSend(operationId: string): Promise<void>
   finalizeSend(operationId: string): Promise<void>
-  receiveToken(token: string): Promise<{ amount: number; mintUrl: string }>
+  receiveToken(token: string): Promise<ReceivedTokenResult>
+  estimateReceiveFee(token: string): Promise<ReceiveFeeEstimate>
   recoverPendingSendTokens(): Promise<{ reclaimed: number; recorded: number }>
   redeemPendingReceivedTokens(): Promise<{ redeemed: number; failed: number }>
   storeOfflineToken(token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing'): Promise<string>
@@ -152,15 +175,27 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
       if (decoded.memo) memo = decoded.memo
     } catch { /* ignore decode failure — receiveToken will handle */ }
 
-    const { amount, mintUrl } = await this.backend.receiveToken(input)
+    const { amount, fee, unit, mintUrl } = await this.backend.receiveToken(input)
     return {
       requestId: crypto.randomUUID(),
-      amount: sat(amount),
+      // backend가 결정한 unit으로 Amount 생성 — sat 하드코딩 없음
+      amount: toAmount(amount, unit as Unit),
+      fee: fee > 0 ? toAmount(fee, unit as Unit) : undefined,
       method: 'cashu:ecash',
       protocol: 'cashu-token',
       completed: true,
       accountId: mintUrl,
       memo,
+    }
+  }
+
+  async estimateRedeemFee(input: string): Promise<RedeemFeeEstimate> {
+    const { grossAmount, fee, netAmount, unit } = await this.backend.estimateReceiveFee(input)
+    const u = unit as Unit
+    return {
+      grossAmount: toAmount(grossAmount, u),
+      fee: toAmount(fee, u),
+      netAmount: toAmount(netAmount, u),
     }
   }
 
