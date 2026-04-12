@@ -170,12 +170,10 @@ describe('EventStoreBridge', () => {
         },
       })
 
-      await new Promise<void>((r) => queueMicrotask(r))
-
-      expect(mockRepo.findByPaymentRef).toHaveBeenCalledWith('wallet-abc123')
-      expect(mockRepo.save).toHaveBeenCalledWith(
+      await vi.waitFor(() => expect(mockRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({ status: 'completed', completedMethod: 'nostr-gift-wrap' }),
-      )
+      ))
+      expect(mockRepo.findByPaymentRef).toHaveBeenCalledWith('wallet-abc123')
 
       d()
     })
@@ -201,12 +199,10 @@ describe('EventStoreBridge', () => {
         },
       })
 
-      await new Promise<void>((r) => queueMicrotask(r))
-
-      expect(mockRepo.findByPaymentRef).toHaveBeenCalledWith('qt-deadbeef')
-      expect(mockRepo.save).toHaveBeenCalledWith(
+      await vi.waitFor(() => expect(mockRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({ status: 'completed', completedMethod: 'lightning' }),
-      )
+      ))
+      expect(mockRepo.findByPaymentRef).toHaveBeenCalledWith('qt-deadbeef')
 
       d()
     })
@@ -233,9 +229,7 @@ describe('EventStoreBridge', () => {
         },
       })
 
-      await new Promise<void>((r) => queueMicrotask(r))
-
-      expect(mockRepo.findByPaymentRef).toHaveBeenCalledWith('wallet-abc123')
+      await vi.waitFor(() => expect(mockRepo.findByPaymentRef).toHaveBeenCalledWith('wallet-abc123'))
       expect(mockRepo.save).not.toHaveBeenCalled()
 
       d()

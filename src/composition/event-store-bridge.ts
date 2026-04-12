@@ -148,7 +148,7 @@ export function connectEventStoreBridge(
       }
 
       // ReceiveRequest 완료 처리
-      if (options.receiveRequestRepo) {
+      if (!isSwapStep && options.receiveRequestRepo) {
         options.receiveRequestRepo.findByPaymentRef(requestId).then((req) => {
           if (req && req.status === 'pending') {
             const completed = completeReceiveRequest(req, method)

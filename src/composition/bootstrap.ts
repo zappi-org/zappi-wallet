@@ -167,6 +167,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const failedIncomingStore = new FailedIncomingStoreAdapter()
   const processedStore = new ProcessedRepository()
   const settingsRepo = new SettingsRepository()
+  const receiveRequestRepo = new DexieReceiveRequestRepository()
 
   // 2. Nostr Gateway
   const nostrGateway = new NostrGatewayAdapter({
@@ -321,7 +322,6 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const sendTokenOperator = new SendTokenOperatorAdapter()
   const transactionMgmt = new TransactionMgmtService(txRepo, sendTokenOperator)
 
-  const receiveRequestRepo = new DexieReceiveRequestRepository()
   const receiveRequest = new ReceiveRequestFacadeService(receiveRequestRepo)
 
   const paymentRequest = new PaymentRequestService(tokenCodec, (opts) => {
