@@ -37,26 +37,6 @@ function getTokenErrorMessage(
   return error?.message || t('payment.tokenReceiveFailed')
 }
 
-/** Returns true if swap fee is too high (fee >= amount) and shows a toast */
-async function checkSwapFeeTooHigh(
-  onEstimateSwapFee: ReceiveFlowProps['onEstimateSwapFee'],
-  sourceMint: string,
-  targetMint: string,
-  amount: number,
-  addToast: (toast: { type: 'error'; message: string; duration: number }) => void,
-  t: (key: string, opts?: Record<string, string>) => string,
-): Promise<boolean> {
-  const feeEstimate = await onEstimateSwapFee(sourceMint, targetMint, amount)
-  if (feeEstimate && feeEstimate.fee >= amount) {
-    addToast({
-      type: 'error',
-      message: t('receive.swapFeeTooHigh', { fee: formatSats(feeEstimate.fee), amount: formatSats(amount) }),
-      duration: 5000,
-    })
-    return true
-  }
-  return false
-}
 
 import { useReceiveRequest } from '@/ui/hooks/use-receive-request'
 import { TokenReceiveStep } from './steps/TokenReceiveStep'
@@ -134,7 +114,7 @@ export function ReceiveFlow({
   onReceiveToken,
   onAddTrustedMint,
   onSwapReceive,
-  onEstimateSwapFee,
+  onEstimateSwapFee: _onEstimateSwapFee,
   onStoreOfflineToken,
   onInspectInput,
   onEstimateRedeemFee,
@@ -346,6 +326,48 @@ export function ReceiveFlow({
     }))
   }, [settings.mints, runInspection, isOnline])
 
+  /**
+   * 크로스민트 스왑 실행 + 결과 처리 (성공/실패 복구) 공통 함수.
+   * handleTokenReceive(크로스민트 분기)와 handleSwapToMyMint 양쪽에서 사용한다.
+   */
+  const executeCrossMintSwap = useCallback(async (
+    token: ValidatedCashuToken,
+    sourceMintUrl: string,
+    targetMintUrl: string,
+  ): Promise<void> => {
+    const result = await onSwapReceive(token.token, sourceMintUrl, targetMintUrl, token.amountSats)
+
+    if (result.success) {
+      onPaymentReceived(result.amount || token.amountSats, 'ecash')
+      setState((prev) => ({
+        ...prev,
+        step: 'complete',
+        receivedAmount: result.amount || token.amountSats,
+        selectedMintUrl: targetMintUrl,
+      }))
+    } else if (!isAlreadySpentError(result.error)) {
+      // 스왑 실패했지만 토큰은 소스 민트에 수령됨.
+      // 소스 민트가 settings에 없으면 자동 추가해 UI에서 잔액이 보이도록 한다.
+      if (!settings.mints.includes(sourceMintUrl)) {
+        await onAddTrustedMint(sourceMintUrl)
+      }
+      onPaymentReceived(token.amountSats, 'ecash')
+      setState((prev) => ({
+        ...prev,
+        step: 'complete',
+        receivedAmount: token.amountSats,
+        selectedMintUrl: sourceMintUrl,
+      }))
+      addToast({
+        type: 'error',
+        message: t('receive.swapFailedButReceived', { amount: formatSats(token.amountSats) }),
+        duration: 5000,
+      })
+    } else {
+      addToast({ type: 'error', message: getTokenErrorMessage(result.error, t), duration: 3000 })
+    }
+  }, [onSwapReceive, onAddTrustedMint, onPaymentReceived, settings.mints, addToast, t])
+
   /** Token confirm → receive (handles same-mint, cross-mint swap, and offline P2PK) */
   const handleTokenReceive = useCallback(async (targetMintUrl?: string) => {
     if (isProcessingRef.current || !state.scannedToken) return
@@ -394,17 +416,15 @@ export function ReceiveFlow({
     isProcessingRef.current = true
 
     try {
-      let result: { success: boolean; amount?: number; error?: { code?: string; message?: string } }
-
       if (isCrossMintSwap) {
-        // Fee pre-check: estimate Lightning fee before committing
-        if (await checkSwapFeeTooHigh(onEstimateSwapFee, sourceMintUrl, effectiveTargetMint, token.amountSats, addToast, t)) return
         // Cross-mint swap: receive on source → swap to target via Lightning
-        result = await onSwapReceive(token.token, sourceMintUrl, effectiveTargetMint, token.amountSats)
-      } else {
-        // Same mint: direct receive
-        result = await onReceiveToken(token.token)
+        // fee check는 onSwapReceive 내부에서 redeem 이후에 수행된다.
+        await executeCrossMintSwap(token, sourceMintUrl, effectiveTargetMint)
+        return
       }
+
+      // Same mint: direct receive
+      const result = await onReceiveToken(token.token)
 
       if (result.success) {
         onPaymentReceived(result.amount || token.amountSats, 'ecash')
@@ -414,20 +434,6 @@ export function ReceiveFlow({
           receivedAmount: result.amount || token.amountSats,
           selectedMintUrl: effectiveTargetMint,
         }))
-      } else if (isCrossMintSwap && !isAlreadySpentError(result.error)) {
-        // Swap failed but token was already received on source mint
-        onPaymentReceived(token.amountSats, 'ecash')
-        setState((prev) => ({
-          ...prev,
-          step: 'complete',
-          receivedAmount: token.amountSats,
-          selectedMintUrl: sourceMintUrl,
-        }))
-        addToast({
-          type: 'error',
-          message: t('receive.swapFailedButReceived', { amount: formatSats(token.amountSats) }),
-          duration: 5000,
-        })
       } else {
         addToast({ type: 'error', message: getTokenErrorMessage(result.error, t), duration: 3000 })
       }
@@ -437,7 +443,7 @@ export function ReceiveFlow({
     } finally {
       isProcessingRef.current = false
     }
-  }, [state.scannedToken, state.inspection, isOnline, onReceiveToken, onSwapReceive, onEstimateSwapFee, onStoreOfflineToken, onPaymentReceived, addToast, t])
+  }, [state.scannedToken, state.inspection, isOnline, onReceiveToken, executeCrossMintSwap, onStoreOfflineToken, onPaymentReceived, addToast, t])
 
   /** Untrusted mint → add trust & receive */
   const handleAddTrustAndReceive = useCallback(async () => {
@@ -479,29 +485,14 @@ export function ReceiveFlow({
     try {
       const token = state.scannedToken
 
-      // Fee pre-check: estimate Lightning fee before committing
-      if (await checkSwapFeeTooHigh(onEstimateSwapFee, token.mintUrl, targetMintUrl, token.amountSats, addToast, t)) return
-
-      const result = await onSwapReceive(token.token, token.mintUrl, targetMintUrl, token.amountSats)
-
-      if (result.success) {
-        onPaymentReceived(result.amount || token.amountSats, 'ecash')
-        setState((prev) => ({
-          ...prev,
-          step: 'complete',
-          receivedAmount: result.amount || token.amountSats,
-          selectedMintUrl: targetMintUrl,
-        }))
-      } else {
-        addToast({ type: 'error', message: getTokenErrorMessage(result.error, t), duration: 3000 })
-      }
+      await executeCrossMintSwap(token, token.mintUrl, targetMintUrl)
     } catch (err) {
       console.error('[ReceiveFlow] Swap to my mint error:', err)
       addToast({ type: 'error', message: translateError(err, t), duration: 3000 })
     } finally {
       isProcessingRef.current = false
     }
-  }, [state.scannedToken, onSwapReceive, onEstimateSwapFee, onPaymentReceived, isOnline, addToast, t])
+  }, [state.scannedToken, executeCrossMintSwap, isOnline, addToast, t])
 
   // ============= Navigation =============
 
