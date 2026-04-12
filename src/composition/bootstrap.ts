@@ -230,6 +230,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const disconnectBridge = connectEventStoreBridge(eventBus, {
     handleBalance: true,
     balanceRefresh,
+    receiveRequestRepo,
   })
 
   // 8. Lifecycle: activate (Coco init + observers + watchers + bridge)

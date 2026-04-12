@@ -138,6 +138,128 @@ describe('EventStoreBridge', () => {
     d()
   })
 
+  describe('receive:settled → ReceiveRequest completion', () => {
+    const pendingReq = {
+      id: 'req-1',
+      status: 'pending' as const,
+      amount: { sats: 1000 },
+      accountId: 'mint-url',
+      paymentMethods: [],
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 60_000,
+    }
+
+    it('ecash(wallet-xxx) requestId로 ReceiveRequest를 찾아 completed로 저장', async () => {
+      const mockRepo = {
+        findByPaymentRef: vi.fn().mockResolvedValue(pendingReq),
+        save: vi.fn().mockResolvedValue(undefined),
+        getById: vi.fn(),
+        listPending: vi.fn(),
+        cleanupExpired: vi.fn(),
+      }
+
+      const d = connectEventStoreBridge(eventBus, { receiveRequestRepo: mockRepo })
+
+      eventBus.emit({
+        type: 'receive:settled',
+        payload: {
+          requestId: 'wallet-abc123',
+          amount: 1000,
+          method: 'nostr-gift-wrap',
+          isSwapStep: false,
+        },
+      })
+
+      await new Promise<void>((r) => queueMicrotask(r))
+
+      expect(mockRepo.findByPaymentRef).toHaveBeenCalledWith('wallet-abc123')
+      expect(mockRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'completed', completedMethod: 'nostr-gift-wrap' }),
+      )
+
+      d()
+    })
+
+    it('lightning(quoteId) requestId로 ReceiveRequest를 찾아 completed로 저장', async () => {
+      const mockRepo = {
+        findByPaymentRef: vi.fn().mockResolvedValue(pendingReq),
+        save: vi.fn().mockResolvedValue(undefined),
+        getById: vi.fn(),
+        listPending: vi.fn(),
+        cleanupExpired: vi.fn(),
+      }
+
+      const d = connectEventStoreBridge(eventBus, { receiveRequestRepo: mockRepo })
+
+      eventBus.emit({
+        type: 'receive:settled',
+        payload: {
+          requestId: 'qt-deadbeef',
+          amount: 2000,
+          method: 'lightning',
+          isSwapStep: false,
+        },
+      })
+
+      await new Promise<void>((r) => queueMicrotask(r))
+
+      expect(mockRepo.findByPaymentRef).toHaveBeenCalledWith('qt-deadbeef')
+      expect(mockRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'completed', completedMethod: 'lightning' }),
+      )
+
+      d()
+    })
+
+    it('이미 completed 상태면 save 호출 안 함', async () => {
+      const completedReq = { ...pendingReq, status: 'completed' as const }
+      const mockRepo = {
+        findByPaymentRef: vi.fn().mockResolvedValue(completedReq),
+        save: vi.fn().mockResolvedValue(undefined),
+        getById: vi.fn(),
+        listPending: vi.fn(),
+        cleanupExpired: vi.fn(),
+      }
+
+      const d = connectEventStoreBridge(eventBus, { receiveRequestRepo: mockRepo })
+
+      eventBus.emit({
+        type: 'receive:settled',
+        payload: {
+          requestId: 'wallet-abc123',
+          amount: 1000,
+          method: 'nostr-gift-wrap',
+          isSwapStep: false,
+        },
+      })
+
+      await new Promise<void>((r) => queueMicrotask(r))
+
+      expect(mockRepo.findByPaymentRef).toHaveBeenCalledWith('wallet-abc123')
+      expect(mockRepo.save).not.toHaveBeenCalled()
+
+      d()
+    })
+
+    it('receiveRequestRepo 미주입 시 에러 없이 동작', () => {
+      const d = connectEventStoreBridge(eventBus)
+
+      expect(() => {
+        eventBus.emit({
+          type: 'receive:settled',
+          payload: {
+            requestId: 'wallet-abc123',
+            amount: 1000,
+            method: 'nostr-gift-wrap',
+            isSwapStep: false,
+          },
+        })
+      }).not.toThrow()
+
+      d()
+    })
+  })
+
   it('should throttle balance:changed — running 중 추가 호출 무시', async () => {
     vi.useFakeTimers()
 

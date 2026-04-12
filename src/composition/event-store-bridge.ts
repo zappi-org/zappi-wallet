@@ -14,10 +14,13 @@ import { satUnit, formatSats } from '@/utils/format'
 import { toNumber } from '@/core/domain/amount'
 import { getDatabase } from '@/adapters/storage/dexie/schema'
 import { createThrottledAsync } from '@/utils/throttled-async'
+import type { ReceiveRequestRepository } from '@/core/ports/driven/receive-request.repository.port'
+import { completeReceiveRequest } from '@/core/domain/receive-request'
 
 export interface EventStoreBridgeOptions {
   handleBalance?: boolean
   balanceRefresh?: () => Promise<void>
+  receiveRequestRepo?: ReceiveRequestRepository
 }
 
 export function connectEventStoreBridge(
@@ -145,15 +148,26 @@ export function connectEventStoreBridge(
       }
 
       // ReceiveRequest 완료 처리
-      getDatabase().receiveRequests.where('quoteId').equals(requestId).first().then((req) => {
-        if (req && req.status === 'pending') {
-          getDatabase().receiveRequests.update(req.id, {
-            status: 'completed',
-            completedAt: Date.now(),
-            completedMethod: method as 'lightning' | 'ecash',
-          }).catch((err) => console.error('[EventStoreBridge] ReceiveRequest completion failed:', err))
-        }
-      }).catch((err) => console.warn('[EventStoreBridge] ReceiveRequest lookup failed:', err))
+      if (options.receiveRequestRepo) {
+        options.receiveRequestRepo.findByPaymentRef(requestId).then((req) => {
+          if (req && req.status === 'pending') {
+            const completed = completeReceiveRequest(req, method)
+            options.receiveRequestRepo!.save(completed)
+              .catch((err) => console.error('[EventStoreBridge] ReceiveRequest completion failed:', err))
+          }
+        }).catch((err) => console.warn('[EventStoreBridge] ReceiveRequest lookup failed:', err))
+      } else {
+        // Fallback: raw Dexie query (backward compatibility — repo 미주입 시)
+        getDatabase().receiveRequests.where('quoteId').equals(requestId).first().then((req) => {
+          if (req && req.status === 'pending') {
+            getDatabase().receiveRequests.update(req.id, {
+              status: 'completed',
+              completedAt: Date.now(),
+              completedMethod: method as 'lightning' | 'ecash',
+            }).catch((err) => console.error('[EventStoreBridge] ReceiveRequest completion failed:', err))
+          }
+        }).catch((err) => console.warn('[EventStoreBridge] ReceiveRequest lookup failed:', err))
+      }
 
       broadcastSync('balance_changed')
     }),
