@@ -198,15 +198,21 @@ export class SwapService implements SwapUseCase {
       await Promise.all([this.txRepo.save(sendTx), this.txRepo.save(receiveTx)])
 
       // 5. Execute send
-      await sourceLightning.executeSend(prepared.id)
+      const sendResult = await sourceLightning.executeSend(prepared.id)
 
       // 6. Receive 완료 대기
       await receiveCompleted
 
       // 7. Transaction 완료 처리
       const now = Date.now()
+      const sendTxUpdate = {
+        status: 'settled' as const,
+        outcome: 'claimed' as const,
+        completedAt: now,
+        ...(sendResult.effectiveFee && { fee: { quoted: prepared.fee, effective: sendResult.effectiveFee } }),
+      }
       await Promise.all([
-        this.txRepo.update(sendTxId, { status: 'settled', outcome: 'claimed', completedAt: now }),
+        this.txRepo.update(sendTxId, sendTxUpdate),
         this.txRepo.update(receiveTxId, { status: 'settled', outcome: 'claimed', completedAt: now }),
       ])
 
@@ -218,7 +224,7 @@ export class SwapService implements SwapUseCase {
           sourceAccountId: params.sourceAccountId,
           targetAccountId: params.targetAccountId,
           amount: swapAmount,
-          fee: prepared.fee,
+          fee: sendResult.effectiveFee ?? prepared.fee,
         },
       })
       this.eventBus.emit({

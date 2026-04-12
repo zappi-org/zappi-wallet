@@ -198,7 +198,7 @@ async function executeMeltFlow(
 
   try {
     meltOp = await prepareMelt(mintUrl, invoice)
-    const actualFee = meltOp.fee_reserve + meltOp.swap_fee
+    const quotedFee = meltOp.fee_reserve + meltOp.swap_fee
 
     // Save pending melt for crash recovery
     const db = getDatabase()
@@ -206,12 +206,15 @@ async function executeMeltFlow(
       meltQuoteId: meltOp.quoteId,
       mintUrl,
       amount,
-      fee: actualFee,
+      fee: quotedFee,
       destination,
       createdAt: Date.now(),
     })
 
     const meltResult = await cocoExecuteMelt(meltOp.operationId)
+
+    // Use effectiveFee from SDK if available, otherwise fall back to quoted
+    const actualFee = meltResult.effectiveFee ?? quotedFee
 
     // TX record
     const transactionId = `tx-melt-${meltOp.quoteId}`
@@ -226,7 +229,11 @@ async function executeMeltFlow(
       completedAt: Date.now(),
       bolt11: invoice,
       preimage: meltResult.preimage,
-      metadata: { fee: actualFee, destination },
+      metadata: {
+        fee: actualFee,
+        destination,
+        ...(meltResult.effectiveFee !== undefined && { quotedFee, effectiveFee: meltResult.effectiveFee }),
+      },
     })
 
     // Clean up pending melt

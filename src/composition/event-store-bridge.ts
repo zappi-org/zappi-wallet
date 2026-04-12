@@ -34,9 +34,12 @@ export function connectEventStoreBridge(
     eventBus.on('payment:completed', (event) => {
       const { addToast } = useAppStore.getState()
       const amountStr = formatSats(toNumber(event.payload.amount))
+      const feeStr = event.payload.fee ? formatSats(toNumber(event.payload.fee)) : undefined
       addToast({
         type: 'success',
-        message: i18n.t('toast.paymentCompleted', { amount: amountStr, unit: satUnit() }),
+        message: feeStr
+          ? i18n.t('toast.paymentCompletedWithFee', { amount: amountStr, fee: feeStr })
+          : i18n.t('toast.paymentCompleted', { amount: amountStr }),
         duration: 4000,
       })
       broadcastSync('balance_changed')
@@ -72,7 +75,7 @@ export function connectEventStoreBridge(
       const feeStr = formatSats(toNumber(event.payload.fee))
       addToast({
         type: 'success',
-        message: i18n.t('toast.swapCompleted', { amount: amountStr, fee: feeStr, unit: satUnit() }),
+        message: i18n.t('toast.swapCompleted', { amount: amountStr, fee: feeStr }),
         duration: 4000,
       })
       broadcastSync('balance_changed')

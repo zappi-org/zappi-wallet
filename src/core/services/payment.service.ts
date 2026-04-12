@@ -104,11 +104,18 @@ export class PaymentService implements PaymentUseCase {
         options: params.options,
       })
 
+      let eventFee: Amount | undefined
       if (!isTokenCreate) {
         const settled = settleAsDelivered(tx2)
         const feeData = result.data?.fee != null
-          ? { fee: { quoted: amt(result.data.fee as number, params.amount.unit) } }
+          ? {
+              fee: {
+                quoted: amt(result.data.fee as number, params.amount.unit),
+                effective: result.effectiveFee,
+              },
+            }
           : {}
+        eventFee = result.effectiveFee ?? (result.data?.fee != null ? amt(result.data.fee as number, params.amount.unit) : undefined)
         await this.txRepo.update(txId, {
           status: settled.status,
           outcome: settled.outcome,
@@ -120,7 +127,12 @@ export class PaymentService implements PaymentUseCase {
         })
       } else {
         const feeData = result.data?.fee != null
-          ? { fee: { quoted: amt(result.data.fee as number, params.amount.unit) } }
+          ? {
+              fee: {
+                quoted: amt(result.data.fee as number, params.amount.unit),
+                effective: result.effectiveFee,
+              },
+            }
           : {}
         await this.txRepo.update(txId, {
           method: result.method,
@@ -136,7 +148,7 @@ export class PaymentService implements PaymentUseCase {
 
       this.eventBus.emit({
         type: isTokenCreate ? 'payment:deferred' : 'payment:completed',
-        payload: { txId, method: module.id, amount: params.amount },
+        payload: { txId, method: module.id, amount: params.amount, fee: eventFee },
       })
       this.eventBus.emit({
         type: 'balance:changed',

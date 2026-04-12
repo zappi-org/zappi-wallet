@@ -93,6 +93,7 @@ export interface ExecutingPayment {
   id: string
   state: string
   data?: Record<string, unknown>
+  effectiveFee?: Amount
 }
 
 export interface RedeemResult {

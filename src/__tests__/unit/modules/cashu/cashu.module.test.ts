@@ -130,6 +130,7 @@ describe('CashuModule', () => {
         amount: 1000,
         fee_reserve: 2,
         swap_fee: 0,
+        unit: 'sat',
       })
 
       await module.initialize()
@@ -276,7 +277,7 @@ describe('CashuModule', () => {
 
     it('bolt11 destination — lightning adapter', async () => {
       vi.mocked(backend.prepareMelt).mockResolvedValue({
-        operationId: 'melt-1', quoteId: 'q-1', amount: 1000, fee_reserve: 3, swap_fee: 1,
+        operationId: 'melt-1', quoteId: 'q-1', amount: 1000, fee_reserve: 3, swap_fee: 1, unit: 'sat',
       })
       vi.mocked(backend.executeMelt).mockResolvedValue({ state: 'finalized' })
 
@@ -293,7 +294,7 @@ describe('CashuModule', () => {
 
     it('lightning destination — lightning adapter', async () => {
       vi.mocked(backend.prepareMelt).mockResolvedValue({
-        operationId: 'melt-2', quoteId: 'q-2', amount: 500, fee_reserve: 1, swap_fee: 0,
+        operationId: 'melt-2', quoteId: 'q-2', amount: 500, fee_reserve: 1, swap_fee: 0, unit: 'sat',
       })
       vi.mocked(backend.executeMelt).mockResolvedValue({ state: 'finalized' })
 

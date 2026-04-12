@@ -29,6 +29,7 @@ export interface PreparedMelt {
   amount: number;
   fee_reserve: number;
   swap_fee: number;
+  unit: string;
 }
 
 export interface MintQuoteResult {
@@ -246,20 +247,35 @@ export async function prepareMelt(
   const manager = await getCocoManager();
   await ensureMintTrusted(manager, mintUrl);
   const operation = await manager.ops.melt.prepare({ mintUrl, method: 'bolt11', methodData: { invoice } });
+  // TODO: SDK doesn't expose unit on melt operation yet, use resolveUnit as workaround
+  const unit = resolveUnit(mintUrl);
   return {
     operationId: operation.id,
     quoteId: operation.quoteId,
     amount: operation.amount,
     fee_reserve: operation.fee_reserve,
     swap_fee: operation.swap_fee,
+    unit,
   };
 }
 
-export async function executeMelt(operationId: string): Promise<{ state: string; preimage?: string }> {
+export async function executeMelt(operationId: string): Promise<{
+  state: string;
+  preimage?: string;
+  effectiveFee?: number;
+  changeAmount?: number;
+}> {
   const manager = await getCocoManager();
   const result = await manager.ops.melt.execute(operationId);
   const preimage = result.state === 'finalized' ? result.finalizedData?.preimage : undefined;
-  return { state: result.state, ...(preimage && { preimage }) };
+  const effectiveFee = result.state === 'finalized' ? result.effectiveFee : undefined;
+  const changeAmount = result.state === 'finalized' ? result.changeAmount : undefined;
+  return {
+    state: result.state,
+    ...(preimage && { preimage }),
+    effectiveFee,
+    changeAmount,
+  };
 }
 
 export async function rollbackMelt(operationId: string, reason?: string): Promise<void> {

@@ -15,6 +15,7 @@ function createMockBackend(): LightningBackend {
       amount: 1000,
       fee_reserve: 3,
       swap_fee: 1,
+      unit: 'sat',
     }),
     executeMelt: vi.fn().mockResolvedValue({ state: 'finalized' }),
     rollbackMelt: vi.fn().mockResolvedValue(undefined),
@@ -103,6 +104,7 @@ describe('CashuBolt11Adapter', () => {
         amount: 1000,
         fee_reserve: 5,
         swap_fee: 0,
+        unit: 'sat',
       })
       vi.mocked(backend.rollbackMelt).mockRejectedValueOnce(new Error('rollback fail'))
 
@@ -142,11 +144,91 @@ describe('CashuBolt11Adapter', () => {
 
   describe('executeSend', () => {
     it('executes melt and returns state', async () => {
+      // First prepare to store unit
+      await adapter.prepareSend({
+        destination: 'lnbc1000n1...',
+        amount: sat(1000),
+        accountId: 'https://mint.test',
+      })
+
       const result = await adapter.executeSend('melt-op-1')
 
       expect(backend.executeMelt).toHaveBeenCalledWith('melt-op-1')
       expect(result.id).toBe('melt-op-1')
       expect(result.state).toBe('finalized')
+    })
+
+    it('returns effectiveFee when SDK provides it', async () => {
+      // Prepare first to store unit
+      await adapter.prepareSend({
+        destination: 'lnbc1000n1...',
+        amount: sat(1000),
+        accountId: 'https://mint.test',
+      })
+
+      // Mock SDK returning effectiveFee
+      vi.mocked(backend.executeMelt).mockResolvedValueOnce({
+        state: 'finalized',
+        preimage: 'abc123',
+        effectiveFee: 2, // actual fee lower than quoted (4)
+        changeAmount: 2,
+      })
+
+      const result = await adapter.executeSend('melt-op-1')
+
+      expect(result.effectiveFee).toBeDefined()
+      expect(toNumber(result.effectiveFee!)).toBe(2)
+      expect(result.effectiveFee!.unit).toBe('sat')
+    })
+
+    it('does not return effectiveFee when SDK does not provide it', async () => {
+      // Prepare first
+      await adapter.prepareSend({
+        destination: 'lnbc1000n1...',
+        amount: sat(1000),
+        accountId: 'https://mint.test',
+      })
+
+      // Mock SDK without effectiveFee
+      vi.mocked(backend.executeMelt).mockResolvedValueOnce({
+        state: 'finalized',
+        preimage: 'abc123',
+      })
+
+      const result = await adapter.executeSend('melt-op-1')
+
+      expect(result.effectiveFee).toBeUndefined()
+    })
+
+    it('throws when no pending payment found', async () => {
+      await expect(adapter.executeSend('unknown-op')).rejects.toThrow('No pending payment')
+    })
+
+    it('preserves unit from prepare phase', async () => {
+      // Mock prepareMelt with different unit
+      vi.mocked(backend.prepareMelt).mockResolvedValueOnce({
+        operationId: 'melt-op-2',
+        quoteId: 'q2',
+        amount: 1000,
+        fee_reserve: 3,
+        swap_fee: 1,
+        unit: 'usd',
+      })
+
+      await adapter.prepareSend({
+        destination: 'lnbc1000n1...',
+        amount: sat(1000),
+        accountId: 'https://mint.test',
+      })
+
+      vi.mocked(backend.executeMelt).mockResolvedValueOnce({
+        state: 'finalized',
+        effectiveFee: 2,
+      })
+
+      const result = await adapter.executeSend('melt-op-2')
+
+      expect(result.effectiveFee?.unit).toBe('usd')
     })
   })
 

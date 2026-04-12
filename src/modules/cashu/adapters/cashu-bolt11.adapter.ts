@@ -16,7 +16,8 @@ import type {
   RecoveryReport,
   ReceiveCompletedResult,
 } from '@/core/ports/driven/payment-method.port'
-import { sat, toNumber } from '@/core/domain/amount'
+import type { Amount } from '@/core/domain/amount'
+import { sat, toNumber, amount as amt } from '@/core/domain/amount'
 
 // ─── Backend interface (DI용) ───
 
@@ -27,8 +28,14 @@ export interface LightningBackend {
     amount: number
     fee_reserve: number
     swap_fee: number
+    unit: string
   }>
-  executeMelt(operationId: string): Promise<{ state: string; preimage?: string }>
+  executeMelt(operationId: string): Promise<{
+    state: string
+    preimage?: string
+    effectiveFee?: number
+    changeAmount?: number
+  }>
   rollbackMelt(operationId: string, reason?: string): Promise<void>
   createMintQuote(mintUrl: string, amount: number): Promise<{
     quote: string
@@ -53,6 +60,12 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter {
     canReceive: true,
     canEstimateFee: true,
   }
+
+  private preparingPayments = new Map<string, {
+    operationId: string
+    unit: string
+    effectiveFee?: Amount
+  }>()
 
   constructor(private backend: LightningBackend) {}
 
@@ -79,6 +92,12 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter {
     const meltOp = await this.backend.prepareMelt(params.accountId, params.destination!)
     const fee = meltOp.fee_reserve + meltOp.swap_fee
 
+    // Store unit for execute() phase
+    this.preparingPayments.set(meltOp.operationId, {
+      operationId: meltOp.operationId,
+      unit: meltOp.unit,
+    })
+
     return {
       id: meltOp.operationId,
       method: 'lightning',
@@ -90,11 +109,28 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter {
   }
 
   async executeSend(preparedId: string): Promise<ExecutingPayment> {
+    const pending = this.preparingPayments.get(preparedId)
+    if (!pending) {
+      throw new Error(`No pending payment: ${preparedId}`)
+    }
+
     const result = await this.backend.executeMelt(preparedId)
+
+    // Propagate effectiveFee with stored unit
+    let effectiveFee: Amount | undefined
+    if (result.state === 'finalized' && result.effectiveFee !== undefined) {
+      effectiveFee = amt(result.effectiveFee, pending.unit as 'sat' | 'msat' | 'usd' | 'eur')
+      // Store in pending for potential later retrieval
+      pending.effectiveFee = effectiveFee
+    }
+
+    this.preparingPayments.delete(preparedId)
+
     return {
       id: preparedId,
       state: result.state,
       data: result.preimage ? { preimage: result.preimage } : undefined,
+      effectiveFee,
     }
   }
 

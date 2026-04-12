@@ -16,6 +16,7 @@ export interface PaymentCompletedEvent {
     txId: string
     method: string
     amount: Amount
+    fee?: Amount
   }
 }
 
@@ -25,6 +26,7 @@ export interface PaymentDeferredEvent {
     txId: string
     method: string
     amount: Amount
+    fee?: Amount
   }
 }
 
