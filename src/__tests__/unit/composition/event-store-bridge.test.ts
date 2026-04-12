@@ -165,6 +165,7 @@ describe('EventStoreBridge', () => {
         payload: {
           requestId: 'wallet-abc123',
           amount: 1000,
+          accountId: 'account-1',
           method: 'nostr-gift-wrap',
           isSwapStep: false,
         },
@@ -194,6 +195,7 @@ describe('EventStoreBridge', () => {
         payload: {
           requestId: 'qt-deadbeef',
           amount: 2000,
+          accountId: 'account-1',
           method: 'lightning',
           isSwapStep: false,
         },
@@ -224,6 +226,7 @@ describe('EventStoreBridge', () => {
         payload: {
           requestId: 'wallet-abc123',
           amount: 1000,
+          accountId: 'account-1',
           method: 'nostr-gift-wrap',
           isSwapStep: false,
         },
@@ -244,6 +247,7 @@ describe('EventStoreBridge', () => {
           payload: {
             requestId: 'wallet-abc123',
             amount: 1000,
+            accountId: 'account-1',
             method: 'nostr-gift-wrap',
             isSwapStep: false,
           },
