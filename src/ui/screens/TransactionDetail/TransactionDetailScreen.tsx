@@ -11,7 +11,7 @@ import {
   QrCode,
 } from 'lucide-react'
 import type { Transaction } from '@/core/domain/transaction'
-import { getTransactionType, getTxMeta } from '@/core/domain/transaction'
+import { getTransactionType, getTxMeta, getTotalCost, getDisplayFee } from '@/core/domain/transaction'
 import { toNumber } from '@/core/domain/amount'
 import { useFormatSats, useFormatFiat, formatTransactionFiat } from '@/utils/format'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
@@ -48,7 +48,8 @@ export default function TransactionDetailScreen({
 
   const txType = getTransactionType(tx)
   const meta = getTxMeta(tx)
-  const amountSats = toNumber(tx.amount)
+  const amountSats = toNumber(getTotalCost(tx))
+  const displayFee = getDisplayFee(tx)
   const isReceive = tx.direction === 'receive'
   const isSwap = txType === 'swap'
   const isLightning = txType === 'lightning'
@@ -412,7 +413,9 @@ export default function TransactionDetailScreen({
               {meta.destination && (
                 <InfoRow label={t('txDetail.destination')} value={meta.destination} copyable field="destination" />
               )}
-              <InfoRow label={t('txDetail.fee')} value={formatSats(meta.fee ?? 0)} />
+              {displayFee && (
+                <InfoRow label={t('txDetail.fee')} value={formatSats(toNumber(displayFee))} />
+              )}
               {meta.preimage && (
                 <InfoRow label={t('txDetail.preimage')} value={meta.preimage} copyable field="preimage" />
               )}
@@ -456,21 +459,21 @@ export default function TransactionDetailScreen({
               {meta.toMintUrl && (
                 <InfoRow label={t('txDetail.toMint')} value={getDisplayName(meta.toMintUrl)} />
               )}
-              {meta.fee != null && (
-                <InfoRow label={t('txDetail.fee')} value={formatSats(meta.fee)} />
+              {displayFee && (
+                <InfoRow label={t('txDetail.fee')} value={formatSats(toNumber(displayFee))} />
               )}
             </div>
           </div>
         )}
 
         {/* ── Ecash Receive: Fee Info ── */}
-        {isEcash && isReceive && meta.fee != null && meta.fee > 0 && (
+        {isEcash && isReceive && displayFee && toNumber(displayFee) > 0 && (
           <div className="px-5 mt-6">
             <p className="text-label font-medium text-foreground-muted uppercase tracking-wider mb-1">
               {t('txDetail.details')}
             </p>
             <div className="bg-background-card rounded px-4">
-              <InfoRow label={t('txDetail.fee')} value={formatSats(meta.fee)} />
+              <InfoRow label={t('txDetail.fee')} value={formatSats(toNumber(displayFee))} />
             </div>
           </div>
         )}

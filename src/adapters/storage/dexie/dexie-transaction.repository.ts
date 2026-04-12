@@ -5,7 +5,7 @@ import type {
 import type { Transaction, TransactionStatus, TransactionOutcome } from '@/core/domain/transaction'
 import type { TransactionIntent } from '@/core/domain/transaction'
 import type { Transaction as LegacyTransaction } from '@/core/types'
-import { sat, toNumber } from '@/core/domain/amount'
+import { sat, toNumber, amount as amt } from '@/core/domain/amount'
 import { getDatabase } from './schema'
 
 // legacy type → domain method 매핑
@@ -76,12 +76,15 @@ function domainStatusToLegacy(status: TransactionStatus, outcome?: TransactionOu
 
 function toDomain(legacy: LegacyTransaction): Transaction {
   const { status, outcome } = legacyStatusToDomain(legacy)
+  const metaFee = legacy.metadata?.fee as number | undefined
+  const amountDomain = sat(legacy.amount)
+  
   return {
     id: legacy.id,
     direction: legacy.direction,
     method: TYPE_TO_METHOD[legacy.type] ?? 'cashu:lightning',
     protocol: TYPE_TO_PROTOCOL[legacy.type] ?? 'bolt11',
-    amount: sat(legacy.amount),
+    amount: amountDomain,
     accountId: legacy.mintUrl,
     status,
     outcome,
@@ -95,6 +98,7 @@ function toDomain(legacy: LegacyTransaction): Transaction {
       currency: legacy.fiatCurrency ?? 'USD',
       rate: legacy.exchangeRate ?? 0,
     } : undefined,
+    fee: metaFee != null ? { quoted: amt(metaFee, amountDomain.unit) } : undefined,
     metadata: {
       ...(legacy.metadata ?? {}),
       // legacy 고유 필드를 metadata에 보존
@@ -111,6 +115,10 @@ function toDomain(legacy: LegacyTransaction): Transaction {
 function toLegacy(domain: Transaction): LegacyTransaction {
   const meta = domain.metadata ?? {}
   const { status, failureReason } = domainStatusToLegacy(domain.status, domain.outcome)
+  const feeNumber = domain.fee
+    ? toNumber(domain.fee.effective ?? domain.fee.quoted)
+    : undefined
+  
   return {
     id: domain.id,
     direction: domain.direction,
@@ -126,6 +134,7 @@ function toLegacy(domain: Transaction): LegacyTransaction {
       ...meta,
       ...(domain.linkedTxId != null && { linkedTxId: domain.linkedTxId }),
       ...(domain.intent != null && { intent: domain.intent }),
+      ...(feeNumber != null && { fee: feeNumber }),
     },
     // legacy flat 필드 복원
     token: meta.token as string | undefined,
@@ -235,6 +244,15 @@ export class DexieTransactionRepository implements TransactionRepository {
     }
     if (patch.completedAt !== undefined) legacyPatch.completedAt = patch.completedAt
     if (patch.memo !== undefined) legacyPatch.memo = patch.memo
+    if (patch.fee !== undefined) {
+      const feeNumber = patch.fee
+        ? toNumber(patch.fee.effective ?? patch.fee.quoted)
+        : undefined
+      if (!legacyPatch.metadata) legacyPatch.metadata = {}
+      if (feeNumber != null) {
+        (legacyPatch.metadata as Record<string, unknown>).fee = feeNumber
+      }
+    }
     if (patch.metadata !== undefined) {
       legacyPatch.metadata = patch.metadata
       // metadata → flat 필드 동기화 (toLegacy와 동일한 매핑)

@@ -1,4 +1,5 @@
 import type { Amount } from './amount'
+import { add } from './amount'
 
 export type TransactionStatus = 'pending' | 'settled' | 'failed'
 export type TransactionOutcome = 'unclaimed' | 'claimed' | 'reclaimed'
@@ -9,6 +10,12 @@ export interface DisplaySnapshot {
   readonly amount: number
   readonly currency: string
   readonly rate: number
+}
+
+/** Transaction fee — protocol-neutral fee model */
+export interface TransactionFee {
+  readonly quoted: Amount       // prepare-time estimated fee
+  readonly effective?: Amount   // actual fee after finalization (if known)
 }
 
 /**
@@ -31,6 +38,7 @@ export interface Transaction {
   readonly intent?: TransactionIntent
   readonly linkedTxId?: string
   readonly displaySnapshot?: DisplaySnapshot
+  readonly fee?: TransactionFee
   readonly metadata?: Record<string, unknown>
 }
 
@@ -87,4 +95,22 @@ export function failTransaction(tx: Transaction, error?: string): Transaction {
     completedAt: Date.now(),
     metadata: { ...tx.metadata, error },
   }
+}
+
+/** Get the display fee — effective if available, otherwise quoted */
+export function getDisplayFee(tx: Transaction): Amount | undefined {
+  if (!tx.fee) return undefined
+  return tx.fee.effective ?? tx.fee.quoted
+}
+
+/**
+ * Get the total cost for display purposes.
+ * - send: amount + fee
+ * - receive: amount (already net after fees)
+ */
+export function getTotalCost(tx: Transaction): Amount {
+  const fee = getDisplayFee(tx)
+  if (!fee) return tx.amount
+  if (tx.direction === 'send') return add(tx.amount, fee)
+  return tx.amount
 }

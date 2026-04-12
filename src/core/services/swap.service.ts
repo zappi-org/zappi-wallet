@@ -171,7 +171,6 @@ export class SwapService implements SwapUseCase {
       const swapMeta = {
         fromMintUrl: params.sourceAccountId,
         toMintUrl: params.targetAccountId,
-        fee: toNumber(prepared.fee),
       }
       const sendTx = createTransaction({
         id: sendTxId,
@@ -182,6 +181,7 @@ export class SwapService implements SwapUseCase {
         accountId: params.sourceAccountId,
         intent: 'swap',
         linkedTxId: receiveTxId,
+        fee: { quoted: prepared.fee },
         metadata: swapMeta,
       })
       const receiveTx = createTransaction({

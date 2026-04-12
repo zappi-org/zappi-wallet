@@ -10,6 +10,7 @@
 import { Ok, Err } from '@/core/domain/result'
 import type { Result } from '@/core/domain/result'
 import type { Amount } from '@/core/domain/amount'
+import { amount as amt } from '@/core/domain/amount'
 import { createTransaction, settleAsDelivered, settleAsReclaimed } from '@/core/domain/transaction'
 import type { PaymentError } from '@/core/errors/payment.errors'
 import type { EventBus } from '@/core/events/event-bus'
@@ -29,7 +30,6 @@ import type {
   RedeemResult,
   RedeemFeeEstimate,
 } from '@/core/ports/driven/payment-method.port'
-import { toNumber } from '@/core/domain/amount'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { OperationMap } from '@/core/ports/driven/operation-map.port'
 
@@ -106,6 +106,9 @@ export class PaymentService implements PaymentUseCase {
 
       if (!isTokenCreate) {
         const settled = settleAsDelivered(tx2)
+        const feeData = result.data?.fee != null
+          ? { fee: { quoted: amt(result.data.fee as number, params.amount.unit) } }
+          : {}
         await this.txRepo.update(txId, {
           status: settled.status,
           outcome: settled.outcome,
@@ -113,12 +116,17 @@ export class PaymentService implements PaymentUseCase {
           method: result.method,
           protocol: result.protocol,
           metadata: result.data,
+          ...feeData,
         })
       } else {
+        const feeData = result.data?.fee != null
+          ? { fee: { quoted: amt(result.data.fee as number, params.amount.unit) } }
+          : {}
         await this.txRepo.update(txId, {
           method: result.method,
           protocol: result.protocol,
           metadata: { ...result.data, operationId: result.operationId },
+          ...feeData,
         })
         // operationMap에 등록 → sendTokenObserver가 send:finalized 시 txId 조회 가능
         if (result.operationId) {
@@ -246,8 +254,8 @@ export class PaymentService implements PaymentUseCase {
         amount: result.amount,
         accountId: result.accountId ?? adapter.moduleId,
         memo: result.memo,
-        // fee가 있는 경우 metadata에 기록 — getTxMeta()로 UI에서 접근 가능
-        ...(result.fee && { metadata: { fee: toNumber(result.fee) } }),
+        // eCash receive는 정확한 fee이므로 quoted = effective
+        ...(result.fee && { fee: { quoted: result.fee, effective: result.fee } }),
       })
       const settled = settleAsDelivered(tx)
       await this.txRepo.save(settled)

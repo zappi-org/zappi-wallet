@@ -285,7 +285,10 @@ async function executeTokenSendFlow(
       token,
       tokenState: 'unspent',
       operationId: prepared.operationId,
-      metadata: { route: selection.route },
+      metadata: {
+        route: selection.route,
+        ...(prepared.fee > 0 && { fee: prepared.fee }),
+      },
     })
 
     // 3. Save pending send token for crash recovery

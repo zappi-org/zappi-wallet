@@ -10,7 +10,7 @@
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Transaction } from '@/core/domain/transaction'
-import { getTransactionType, getTxMeta } from '@/core/domain/transaction'
+import { getTransactionType, getTxMeta, getTotalCost } from '@/core/domain/transaction'
 import { toNumber } from '@/core/domain/amount'
 import { useFormatSats, useFormatFiat, formatTransactionFiat, getLocaleCode } from '@/utils/format'
 import { formatMintHost } from '@/utils/url'
@@ -74,7 +74,7 @@ export const TransactionRow = memo(function TransactionRow({
   const amountColor = isFailed ? 'line-through text-foreground-muted'
     : isPending ? cn(isReceive ? 'text-primary' : 'text-foreground', 'opacity-60')
     : isReceive ? 'text-primary' : 'text-foreground'
-  const amountSats = toNumber(tx.amount)
+  const amountSats = toNumber(getTotalCost(tx))
   const fiatStr = formatTransactionFiat(tx.displaySnapshot, amountSats, formatFiat)
 
   return (
