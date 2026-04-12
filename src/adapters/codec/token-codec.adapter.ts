@@ -145,6 +145,7 @@ export class TokenCodecAdapter implements TokenCodec {
       unit: string
       mints: string[]
       transports: CashuRequestTransport[]
+      id?: string
       p2pkPubkey?: string
       description?: string
       singleUse?: boolean
@@ -156,7 +157,7 @@ export class TokenCodecAdapter implements TokenCodec {
         type: t.type === 'nostr' ? PaymentRequestTransportType.NOSTR : PaymentRequestTransportType.POST,
         target: t.target,
       })),
-      undefined, // id
+      opts.id,
       opts.amount,
       opts.unit,
       opts.mints,
@@ -187,6 +188,7 @@ export class TokenCodecAdapter implements TokenCodec {
       unit: opts.unit ?? 'sat',
       mints: opts.mints,
       transports,
+      id,
       p2pkPubkey: opts.p2pkPubkey,
       description: opts.description,
       singleUse: true,
@@ -220,6 +222,7 @@ export class TokenCodecAdapter implements TokenCodec {
       unit: opts.unit ?? 'sat',
       mints: opts.mints,
       transports,
+      id,
       p2pkPubkey: opts.p2pkPubkey,
       description: opts.description,
       singleUse: true,
