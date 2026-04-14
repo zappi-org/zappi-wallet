@@ -852,6 +852,8 @@ export default {
       placeholder: 'Address or invoice',
       hint: 'Without an address, you can create a <b>token</b> to hand over like cash',
       unrecognized: 'Unrecognized address format',
+      validationFailed: 'Unable to verify address',
+      lnurlWithdrawNotSupported: 'This is a withdraw link, not a payment address',
     },
     amount: {
       sendTo: 'To {{destination}}',

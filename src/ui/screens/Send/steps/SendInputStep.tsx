@@ -16,6 +16,7 @@ import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
 import { hapticTap } from '@/ui/utils/haptic'
 import { Button } from '@/ui/components/common/Button'
+import { Spinner } from '@/ui/components/common/Spinner'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
 import { SegmentControl } from '@/ui/components/common/SegmentControl'
@@ -24,6 +25,16 @@ import type { InputType } from '@/core/domain/input-types'
 import { useContacts } from '@/ui/hooks/use-contacts'
 import type { ContactAddressType } from '@/core/types'
 import type { SendableValidatedData } from '../SendFlow'
+
+const LIGHTNING_ADDRESS_RE = /^[a-z0-9_.+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i
+
+function looksLikeLightningAddress(raw: string): boolean {
+  return LIGHTNING_ADDRESS_RE.test(raw.trim())
+}
+
+function looksLikeLnurl(raw: string): boolean {
+  return raw.trim().toLowerCase().startsWith('lnurl1')
+}
 
 /** Build badge labels from detected input */
 function toBadgeTypes(detected: InputType): string[] {
@@ -74,6 +85,9 @@ export function SendInputStep({
   const [validatedData, setValidatedData] = useState<SendableValidatedData | null>(
     initialValidatedData || null
   )
+  const [isPreValidating, setIsPreValidating] = useState(false)
+  const [preValidationError, setPreValidationError] = useState<string | null>(null)
+  const requestIdRef = useRef(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const validatedDataRef = useRef<SendableValidatedData | null>(null)
@@ -92,9 +106,10 @@ export function SendInputStep({
    */
   const updateDestination = useCallback((newDest: string) => {
     setDestination(newDest)
-    // Always clear previous validation when input changes
     setValidatedData(null)
     setDetectedTypes([])
+    setPreValidationError(null)
+    setIsPreValidating(!!newDest.trim() && !newDest.startsWith('@'))
   }, [])
 
   // Derive showMyWallets from destination + validatedData
@@ -147,6 +162,18 @@ export function SendInputStep({
       const detected = inputParser.detectAndClassify(destination)
       setDetectedTypes(toBadgeTypes(detected))
 
+      const sendableDetectedTypes = ['bolt11', 'lightning-address', 'lnurl', 'cashu-request']
+      if (!sendableDetectedTypes.includes(detected.type)) {
+        setIsPreValidating(false)
+        setPreValidationError(t('send.destination.unrecognized'))
+        return
+      }
+
+      if (detected.type === 'bolt11') {
+        setIsPreValidating(false)
+        return
+      }
+
       if (detected.type === 'cashu-request') {
         try {
           const validated = await inputParser.validateAsync(detected)
@@ -154,11 +181,46 @@ export function SendInputStep({
             setValidatedData(validated as SendableValidatedData)
           }
         } catch { /* decode failed, ignore */ }
+        setIsPreValidating(false)
+        return
       }
-    }, 300)
+
+      const needsPreValidation =
+        (detected.type === 'lightning-address' && looksLikeLightningAddress(destination)) ||
+        (detected.type === 'lnurl' && looksLikeLnurl(destination))
+
+      if (!needsPreValidation) {
+        setIsPreValidating(false)
+        setPreValidationError(t('send.destination.validationFailed'))
+        return
+      }
+
+      const myRequestId = ++requestIdRef.current
+      setPreValidationError(null)
+
+      try {
+        const validated = await inputParser.validateAsync(detected)
+        if (requestIdRef.current !== myRequestId) return
+
+        if (validated.type === 'lnurl-withdraw') {
+          setPreValidationError(t('send.destination.lnurlWithdrawNotSupported'))
+          setValidatedData(null)
+        } else {
+          setValidatedData(validated as SendableValidatedData)
+        }
+      } catch {
+        if (requestIdRef.current !== myRequestId) return
+        setPreValidationError(t('send.destination.validationFailed'))
+        setValidatedData(null)
+      } finally {
+        if (requestIdRef.current === myRequestId) {
+          setIsPreValidating(false)
+        }
+      }
+    }, 500)
 
     return () => clearTimeout(detectTimeoutRef.current)
-  }, [destination, inputParser])
+  }, [destination, inputParser, t])
 
   // Cleanup auto-advance timer on unmount
   useEffect(() => () => clearTimeout(autoAdvanceTimerRef.current), [])
@@ -302,14 +364,14 @@ export function SendInputStep({
         <h2 className="text-heading font-semibold text-foreground">
           {t('send.destination.whoToSend')}
         </h2>
-        {!destination.trim() && (
-          <p className="text-body text-foreground/70 leading-relaxed mt-2 break-keep">
+        <div className={`mt-2 overflow-hidden transition-all duration-200 ease-out ${destination.trim() ? 'max-h-0 opacity-0' : 'max-h-20 opacity-100'}`}>
+          <p className="text-body text-foreground/70 leading-relaxed break-keep">
             <Trans
               i18nKey="send.destination.hint"
               components={{ b: <span className="font-semibold text-foreground" /> }}
             />
           </p>
-        )}
+        </div>
 
         {/* Destination input — placeholder smaller than title */}
         <div className="mt-6">
@@ -339,14 +401,23 @@ export function SendInputStep({
 
           {/* Detected type badge — fixed space below underline */}
           <div className="h-7 flex items-center mt-1">
-            {detectedTypes.length > 0 && !detectedTypes.includes('my-wallet') && (
-              <div className="flex gap-1.5">
-                {detectedTypes.map((badge) => (
-                  <span key={badge} className="inline-block text-label font-medium px-2.5 py-0.5 rounded-full bg-brand/10 text-brand">
-                    {getInputTypeLabel(badge)}
-                  </span>
-                ))}
-              </div>
+            {isPreValidating ? (
+              <Spinner size="sm" color="muted" />
+            ) : (
+              detectedTypes.length > 0 && !detectedTypes.includes('my-wallet') && (
+                <div className="flex gap-1.5">
+                  {detectedTypes.map((badge) => (
+                    <span key={badge} className="inline-block text-label font-medium px-2.5 py-0.5 rounded-full bg-brand/10 text-brand">
+                      {getInputTypeLabel(badge)}
+                    </span>
+                  ))}
+                </div>
+              )
+            )}
+          </div>
+          <div className="h-5 flex items-center" data-testid="pre-validation-error-area">
+            {preValidationError && (
+              <p className="text-xs text-destructive">{preValidationError}</p>
             )}
           </div>
 
@@ -462,7 +533,8 @@ export function SendInputStep({
           variant="brand"
           size="xl"
           onClick={handleNext}
-          loading={isLoading || isValidating}
+          loading={isLoading || isValidating || isPreValidating}
+          disabled={!!preValidationError}
           className="w-full"
         >
           {t('send.next')}

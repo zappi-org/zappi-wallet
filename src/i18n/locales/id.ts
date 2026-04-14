@@ -847,6 +847,8 @@ export default {
       placeholder: 'Alamat atau invoice',
       hint: 'Tanpa alamat, Anda bisa membuat <b>token</b> dan memberikannya seperti uang tunai',
       unrecognized: 'Format alamat tidak dikenali',
+      validationFailed: 'Tidak dapat memverifikasi alamat',
+      lnurlWithdrawNotSupported: 'Ini adalah tautan penarikan, bukan alamat pembayaran',
     },
     amount: {
       sendTo: 'Ke {{destination}}',

@@ -855,6 +855,8 @@ export default {
       placeholder: '주소 또는 인보이스 입력',
       hint: '주소 입력 없이 <b>토큰</b>을 만들어서 현금처럼 건넬 수도 있어요',
       unrecognized: '인식할 수 없는 주소 형식입니다',
+      validationFailed: '주소를 확인할 수 없습니다',
+      lnurlWithdrawNotSupported: '출금 링크입니다. 결제 주소가 아닙니다',
     },
     amount: {
       sendTo: '{{destination}}에게',

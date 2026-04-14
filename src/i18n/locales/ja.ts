@@ -855,6 +855,8 @@ export default {
       placeholder: 'アドレスまたはインボイスを入力',
       hint: 'アドレスなしで<b>トークン</b>を作成し、現金のように渡すこともできます',
       unrecognized: '認識できないアドレス形式です',
+      validationFailed: 'アドレスを確認できません',
+      lnurlWithdrawNotSupported: '出金リンクです。支払いアドレスではありません',
     },
     amount: {
       sendTo: '{{destination}}へ',

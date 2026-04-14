@@ -847,6 +847,8 @@ export default {
       placeholder: 'Dirección o factura',
       hint: 'Sin dirección, puedes crear un <b>token</b> y entregarlo como efectivo',
       unrecognized: 'Formato de dirección no reconocido',
+      validationFailed: 'No se pudo verificar la dirección',
+      lnurlWithdrawNotSupported: 'Este es un enlace de retiro, no una dirección de pago',
     },
     amount: {
       sendTo: 'A {{destination}}',
