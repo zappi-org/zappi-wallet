@@ -10,7 +10,8 @@ import { motion, AnimatePresence } from 'motion/react'
 import { Clipboard } from 'lucide-react'
 import { QrScanner } from '@/ui/components/common/QrScanner'
 import { useInputParser } from '@/ui/hooks/use-input-parser'
-import type { ValidatedCashuToken } from '@/core/domain/input-types'
+import type { ValidatedCashuToken, ValidatedData } from '@/core/domain/input-types'
+import { resolveFlowTarget } from '@/core/domain/resolve-flow-target'
 import { hapticTap, hapticError } from '@/ui/utils/haptic'
 import { useAppStore } from '@/store'
 
@@ -18,6 +19,7 @@ export interface TokenReceiveBottomSheetProps {
   isOpen: boolean
   onClose: () => void
   onTokenDetected: (validated: ValidatedCashuToken) => void
+  onRedirect?: (validatedData: ValidatedData) => void
 }
 
 /**
@@ -40,6 +42,7 @@ type SheetState = 'idle' | 'validating'
 function TokenReceiveBottomSheetInner({
   onClose,
   onTokenDetected,
+  onRedirect,
 }: Omit<TokenReceiveBottomSheetProps, 'isOpen'>) {
   const { t } = useTranslation()
   const addToast = useAppStore((s) => s.addToast)
@@ -61,6 +64,16 @@ function TokenReceiveBottomSheetInner({
         const detected = inputParser.detectAndClassify(trimmed)
 
         if (detected.type !== 'cashu-token') {
+          if (onRedirect) {
+            const validated = await inputParser.validateAsync(detected)
+            const target = resolveFlowTarget(validated.type)
+            if (target !== 'receive') {
+              hapticTap()
+              onRedirect(validated)
+              onClose()
+              return
+            }
+          }
           hapticError()
           addToast({
             type: 'error',
@@ -86,7 +99,7 @@ function TokenReceiveBottomSheetInner({
         setState('idle')
       }
     },
-    [state, addToast, onTokenDetected, onClose, t, inputParser],
+    [state, addToast, onTokenDetected, onRedirect, onClose, t, inputParser],
   )
 
   // QR scan handler

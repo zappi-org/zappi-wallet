@@ -12,7 +12,8 @@ import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
 import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { useInputParser } from '@/ui/hooks/use-input-parser'
-import type { ValidatedCashuToken } from '@/core/domain/input-types'
+import type { ValidatedCashuToken, ValidatedData } from '@/core/domain/input-types'
+import { resolveFlowTarget } from '@/core/domain/resolve-flow-target'
 import { hapticTap, hapticError } from '@/ui/utils/haptic'
 import { useAppStore } from '@/store'
 
@@ -21,6 +22,7 @@ interface TokenReceiveStepProps {
   onTokenDetected: (token: ValidatedCashuToken) => void
   onNext: () => void
   mintUrl: string
+  onRedirect?: (validatedData: ValidatedData) => void
 }
 
 type StepState = 'idle' | 'validating'
@@ -30,6 +32,7 @@ export function TokenReceiveStep({
   onTokenDetected,
   onNext,
   mintUrl: _mintUrl,
+  onRedirect,
 }: TokenReceiveStepProps) {
   const { t } = useTranslation()
   const addToast = useAppStore((s) => s.addToast)
@@ -53,6 +56,17 @@ export function TokenReceiveStep({
         const detected = inputParser.detectAndClassify(trimmed)
 
         if (detected.type !== 'cashu-token') {
+          // Not a token — attempt cross-flow redirect if handler available
+          if (onRedirect) {
+            const validated = await inputParser.validateAsync(detected)
+            const target = resolveFlowTarget(validated.type)
+            if (target !== 'receive') {
+              hapticTap()
+              onRedirect(validated)
+              return
+            }
+          }
+          // No redirect or still a receive type — show error (graceful degradation)
           hapticError()
           addToast({
             type: 'error',
@@ -77,7 +91,7 @@ export function TokenReceiveStep({
         setState('idle')
       }
     },
-    [state, addToast, onTokenDetected, t, inputParser],
+    [state, addToast, onTokenDetected, onRedirect, t, inputParser],
   )
 
   const handleScan = useCallback(

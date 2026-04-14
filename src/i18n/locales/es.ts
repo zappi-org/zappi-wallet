@@ -766,6 +766,12 @@ export default {
     unknownError: 'Ocurrió un error desconocido',
   },
 
+  // Redirect
+  redirect: {
+    toReceive: 'Cambiando a Recibir',
+    toSend: 'Cambiando a Enviar',
+  },
+
   // Toast Messages
   toast: {
     copied: 'Copiado al portapapeles',

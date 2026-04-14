@@ -21,7 +21,8 @@ import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
 import { SegmentControl } from '@/ui/components/common/SegmentControl'
 import { useInputParser } from '@/ui/hooks/use-input-parser'
-import type { InputType } from '@/core/domain/input-types'
+import type { InputType, ValidatedData } from '@/core/domain/input-types'
+import { resolveFlowTarget } from '@/core/domain/resolve-flow-target'
 import { useContacts } from '@/ui/hooks/use-contacts'
 import type { ContactAddressType } from '@/core/types'
 import type { SendableValidatedData } from '../SendFlow'
@@ -53,8 +54,8 @@ interface SendDestinationStepProps {
     validatedData?: SendableValidatedData
     amountFromInvoice?: number
   }) => void
+  onRedirect?: (validatedData: ValidatedData) => void
   initialDestination?: string
-  /** Raw address for auto-validation (when different from display destination) */
   initialAddress?: string
   initialValidatedData?: SendableValidatedData | null
   mintUrl: string
@@ -64,6 +65,7 @@ interface SendDestinationStepProps {
 export function SendInputStep({
   onBack,
   onNext,
+  onRedirect,
   initialDestination = '',
   initialAddress,
   initialValidatedData,
@@ -181,6 +183,11 @@ export function SendInputStep({
       if (detected.type === 'cashu-request') {
         try {
           const validated = await inputParser.validateAsync(detected)
+          if (onRedirect && resolveFlowTarget(validated.type) !== 'send') {
+            setIsPreValidating(false)
+            onRedirect(validated)
+            return
+          }
           if (validated.type === 'cashu-request') {
             setValidatedData(validated as SendableValidatedData)
 
@@ -220,6 +227,12 @@ export function SendInputStep({
         const validated = await inputParser.validateAsync(detected)
         if (requestIdRef.current !== myRequestId) return
 
+        if (onRedirect && resolveFlowTarget(validated.type) !== 'send') {
+          setIsPreValidating(false)
+          onRedirect(validated)
+          return
+        }
+
         if (validated.type === 'lnurl-withdraw') {
           setPreValidationError(t('send.destination.lnurlWithdrawNotSupported'))
           setValidatedData(null)
@@ -238,7 +251,7 @@ export function SendInputStep({
     }, 500)
 
     return () => clearTimeout(detectTimeoutRef.current)
-  }, [destination, inputParser, t, onNext])
+  }, [destination, inputParser, t, onNext, onRedirect])
 
   // Cleanup auto-advance timer on unmount
   useEffect(() => () => clearTimeout(autoAdvanceTimerRef.current), [])
@@ -268,6 +281,12 @@ export function SendInputStep({
     } catch {
       return false
     }
+
+    if (onRedirect && resolveFlowTarget(validated.type) !== 'send') {
+      onRedirect(validated)
+      return false
+    }
+
     if (!['bolt11', 'lightning-address', 'lnurl-pay', 'cashu-request', 'my-wallet'].includes(validated.type)) return false
 
     const sendable = validated as SendableValidatedData
@@ -295,7 +314,7 @@ export function SendInputStep({
     }
 
     return true
-  }, [onNext, inputParser])
+  }, [onNext, onRedirect, inputParser])
 
   // Handle QR scan
   const handleScan = useCallback((result: string) => {

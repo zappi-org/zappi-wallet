@@ -770,6 +770,12 @@ export default {
     unknownError: 'An unknown error occurred',
   },
 
+  // Redirect
+  redirect: {
+    toReceive: 'Switching to Receive',
+    toSend: 'Switching to Send',
+  },
+
   // Toast Messages
   toast: {
     copied: 'Copied to clipboard',

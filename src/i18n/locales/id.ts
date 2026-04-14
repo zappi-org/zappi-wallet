@@ -766,6 +766,12 @@ export default {
     unknownError: 'Terjadi kesalahan yang tidak diketahui',
   },
 
+  // Redirect
+  redirect: {
+    toReceive: 'Beralih ke Terima',
+    toSend: 'Beralih ke Kirim',
+  },
+
   // Toast Messages
   toast: {
     copied: 'Disalin ke clipboard',

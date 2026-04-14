@@ -104,6 +104,8 @@ export interface SendFlowProps {
   // Cross-mint swap handler (my-wallet type)
   onMintSwap?: (fromMintUrl: string, toMintUrl: string, amount: number) => Promise<{ success: boolean; amount?: number; fee?: number; transactionId?: string } | null>
   onEstimateSwapFee?: (fromMintUrl: string, toMintUrl: string, amount: number) => Promise<{ fee: number; totalNeeded: number } | null>
+  // Cross-flow redirect (e.g. cashu-token pasted in Send → redirect to Receive)
+  onRedirect?: (validatedData: ValidatedData) => void
   // Pre-filled data from scanner
   validatedData?: ValidatedData
   initialAmount?: number
@@ -125,6 +127,7 @@ export function SendFlow({
   onCancelEcashToken,
   onMintSwap,
   onEstimateSwapFee: _onEstimateSwapFee,
+  onRedirect,
   validatedData: initialValidatedData,
   initialAmount,
   initialMintUrl,
@@ -594,6 +597,7 @@ export function SendFlow({
             <SendInputStep
               onBack={onBack}
               onNext={handleDestinationNext}
+              onRedirect={onRedirect}
               initialDestination={state.destination}
               initialAddress={initialDestination}
               initialValidatedData={state.validatedData}

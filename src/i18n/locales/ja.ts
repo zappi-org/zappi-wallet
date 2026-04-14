@@ -773,6 +773,12 @@ export default {
     unknownError: '不明なエラーが発生しました',
   },
 
+  // Redirect
+  redirect: {
+    toReceive: '受取画面に移動します',
+    toSend: '送金画面に移動します',
+  },
+
   // Toast Messages
   toast: {
     copied: 'クリップボードにコピーしました',

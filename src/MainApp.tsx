@@ -732,6 +732,20 @@ export default function MainApp() {
     }
   }, [settings, preUnlock.settingsRepo, setSettings, p2pkPubkey, republishProfile, t])
 
+  // Cross-flow redirect: Send → Receive (e.g., cashu-token pasted in Send)
+  const handleSendRedirect = useCallback((validated: ValidatedData) => {
+    setValidatedScanData(validated)
+    setCurrentScreen('receive')
+    addToast({ type: 'info', message: t('redirect.toReceive') })
+  }, [addToast, t])
+
+  // Cross-flow redirect: Receive → Send (e.g., bolt11 pasted in Receive)
+  const handleReceiveRedirect = useCallback((validated: ValidatedData) => {
+    setValidatedScanData(validated)
+    setCurrentScreen('send')
+    addToast({ type: 'info', message: t('redirect.toSend') })
+  }, [addToast, t])
+
   const handleBack = useCallback(() => {
     const target = previousScreen || 'home'
     setPreviousScreen(null)
@@ -1018,6 +1032,7 @@ export default function MainApp() {
           initialMintUrl={activeMintUrl}
           initialDestination={contactInfo?.address || undefined}
           initialDisplayName={contactInfo?.displayName || undefined}
+          onRedirect={handleSendRedirect}
         />
       )}
 
@@ -1051,6 +1066,7 @@ export default function MainApp() {
           validatedData={validatedScanData || undefined}
           initialAmount={scannedAmount || undefined}
           initialMintUrl={activeMintUrl}
+          onRedirect={handleReceiveRedirect}
         />
       )}
 

@@ -84,6 +84,7 @@ export interface ReceiveFlowState {
 export interface ReceiveFlowProps {
   onBack: () => void
   onComplete: () => void
+  onRedirect?: (validatedData: ValidatedData) => void
   // MainApp handlers
   onCreateInvoice: (amount: number, mintUrl: string) => Promise<{
     invoice: string
@@ -109,6 +110,7 @@ export interface ReceiveFlowProps {
 export function ReceiveFlow({
   onBack,
   onComplete,
+  onRedirect,
   onCreateInvoice,
   onPaymentReceived,
   onReceiveToken,
@@ -513,6 +515,7 @@ export function ReceiveFlow({
               onTokenDetected={handleTokenDetected}
               onNext={() => goToStep('amount')}
               mintUrl={state.selectedMintUrl || settings.mints[0]}
+              onRedirect={onRedirect}
             />
           </PageTransition>
         )}

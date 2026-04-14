@@ -773,6 +773,12 @@ export default {
     unknownError: '알 수 없는 오류가 발생했습니다',
   },
 
+  // Redirect
+  redirect: {
+    toReceive: '받기로 이동합니다',
+    toSend: '보내기로 이동합니다',
+  },
+
   // Toast Messages
   toast: {
     copied: '클립보드에 복사되었습니다',
