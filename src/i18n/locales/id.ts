@@ -1106,8 +1106,14 @@ export default {
 
   nav: {
     wallet: 'Dompet',
+    token: 'Token',
     contacts: 'Kontak',
     settings: 'Pengaturan',
+  },
+
+  token: {
+    create: 'Buat',
+    register: 'Daftar',
   },
 
   contacts: {

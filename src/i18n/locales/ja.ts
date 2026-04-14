@@ -1114,8 +1114,14 @@ export default {
 
   nav: {
     wallet: 'ウォレット',
+    token: 'トークン',
     contacts: '連絡先',
     settings: '設定',
+  },
+
+  token: {
+    create: '作成',
+    register: '登録',
   },
 
   contacts: {

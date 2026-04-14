@@ -1112,8 +1112,15 @@ export default {
   // Bottom Navigation
   nav: {
     wallet: 'Wallet',
+    token: 'Token',
     contacts: 'Contacts',
     settings: 'Settings',
+  },
+
+  // Token tab toolbar
+  token: {
+    create: 'Create',
+    register: 'Register',
   },
 
   // Address Book / Contacts

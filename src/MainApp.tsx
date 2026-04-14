@@ -20,9 +20,11 @@ import { useTranslation } from 'react-i18next'
 import { LoadingFallback } from '@/ui/components/common/LoadingFallback'
 import { PageTransition } from '@/ui/components/common/PageTransition'
 import { BottomNav } from '@/ui/components/layout/BottomNav'
+import { TokenTabToolbar } from '@/ui/components/layout/TokenTabToolbar'
 import { HomeScreen } from '@/ui/screens/Home/HomeScreen'
 import { LockScreen } from '@/ui/screens/Lock/LockScreen'
-import { BookUser, Settings as SettingsIcon, Wallet } from 'lucide-react'
+import { TokenScreen } from '@/ui/screens/Token/TokenScreen'
+import { BookUser, Coins, Settings as SettingsIcon, Wallet } from 'lucide-react'
 
 // Tier 2: Lazy loaded (frequently used)
 const SettingsScreen = lazy(() => import('@/ui/screens/Settings/SettingsScreen'))
@@ -55,11 +57,11 @@ import { removePasskey } from '@/ui/services/passkey'
 import { formatSats } from '@/utils/format'
 
 
-type Screen = 'home' | 'settings' | 'contacts' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'mint-management' | 'relay-management' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail' | 'mint-detail'
+type Screen = 'home' | 'token' | 'settings' | 'contacts' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'mint-management' | 'relay-management' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail' | 'mint-detail'
 
-type TabId = 'wallet' | 'contacts' | 'settings'
-const TAB_SCREENS: Record<TabId, Screen> = { wallet: 'home', contacts: 'contacts', settings: 'settings' }
-const SCREEN_TO_TAB: Partial<Record<Screen, TabId>> = { home: 'wallet', contacts: 'contacts', settings: 'settings' }
+type TabId = 'wallet' | 'token' | 'contacts' | 'settings'
+const TAB_SCREENS: Record<TabId, Screen> = { wallet: 'home', token: 'token', contacts: 'contacts', settings: 'settings' }
+const SCREEN_TO_TAB: Partial<Record<Screen, TabId>> = { home: 'wallet', token: 'token', contacts: 'contacts', settings: 'settings' }
 
 // Register mint name resolver for error messages
 setMintNameResolver((mintUrl) => {
@@ -118,9 +120,13 @@ export default function MainApp() {
   // Bottom nav items
   const navItems = useMemo(() => [
     { id: 'wallet', label: t('nav.wallet'), icon: <Wallet className="w-[22px] h-[22px]" strokeWidth={1.6} /> },
+    { id: 'token', label: t('nav.token'), icon: <Coins className="w-[22px] h-[22px]" strokeWidth={1.6} /> },
     { id: 'contacts', label: t('nav.contacts'), icon: <BookUser className="w-[22px] h-[22px]" strokeWidth={1.6} /> },
     { id: 'settings', label: t('nav.settings'), icon: <SettingsIcon className="w-[22px] h-[22px]" strokeWidth={1.6} /> },
   ], [t])
+
+  // Shared scroll container ref for Token tab (TokenScreen + TokenTabToolbar)
+  const tokenScrollRef = useRef<HTMLDivElement>(null)
 
   // Whether current screen is a tab screen (show bottom nav)
   const [hasSettingsSubPage, setHasSettingsSubPage] = useState(false)
@@ -888,6 +894,10 @@ export default function MainApp() {
         />
       )}
 
+      {currentScreen === 'token' && (
+        <TokenScreen scrollRef={tokenScrollRef} />
+      )}
+
       {currentScreen === 'contacts' && (
         <ContactsScreen
           onSendToContact={(validatedData, displayName, mintUrl) => {
@@ -1137,13 +1147,41 @@ export default function MainApp() {
       </AnimatePresence>
       </div>
 
-      {/* Bottom Navigation — slides in/out */}
-      <BottomNav
-        items={navItems}
-        activeId={activeTab}
-        visible={isTabScreen}
-        onSelect={handleTabSelect}
-      />
+      {/* Bottom Navigation — BottomNav / TokenTabToolbar swap */}
+      <AnimatePresence mode="wait" initial={false}>
+        {isTabScreen && activeTab !== 'token' && (
+          <BottomNav
+            key="bottom-nav"
+            items={navItems}
+            activeId={activeTab}
+            visible
+            onSelect={handleTabSelect}
+          />
+        )}
+        {isTabScreen && activeTab === 'token' && (
+          <TokenTabToolbar
+            key="token-tab-toolbar"
+            navItems={navItems}
+            activeTab={activeTab}
+            scrollRef={tokenScrollRef}
+            onTabSelect={handleTabSelect}
+            onCreate={() => {
+              setPreviousScreen('token')
+              setActiveMintUrl(null)
+              setValidatedScanData(null)
+              setScannedAmount(0)
+              setCurrentScreen('send')
+            }}
+            onRegister={() => {
+              setPreviousScreen('token')
+              setActiveMintUrl(null)
+              setValidatedScanData(null)
+              setScannedAmount(0)
+              setCurrentScreen('receive')
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />

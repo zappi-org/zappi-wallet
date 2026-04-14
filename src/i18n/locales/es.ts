@@ -1106,8 +1106,14 @@ export default {
 
   nav: {
     wallet: 'Billetera',
+    token: 'Token',
     contacts: 'Contactos',
     settings: 'Ajustes',
+  },
+
+  token: {
+    create: 'Crear',
+    register: 'Registrar',
   },
 
   contacts: {

@@ -1119,8 +1119,15 @@ export default {
   // Bottom Navigation
   nav: {
     wallet: '지갑',
+    token: '토큰',
     contacts: '주소록',
     settings: '설정',
+  },
+
+  // Token tab toolbar
+  token: {
+    create: '생성',
+    register: '등록',
   },
 
   // Address Book / Contacts
