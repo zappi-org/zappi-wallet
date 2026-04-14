@@ -90,6 +90,7 @@ export function SendInputStep({
   const requestIdRef = useRef(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const lastAutoAdvancedInputRef = useRef<string>(initialDestination)
   const validatedDataRef = useRef<SendableValidatedData | null>(null)
   // Store the raw address when displayName is used (contact selection)
   const rawAddressRef = useRef<string | null>(null)
@@ -110,6 +111,8 @@ export function SendInputStep({
     setDetectedTypes([])
     setPreValidationError(null)
     setIsPreValidating(!!newDest.trim() && !newDest.startsWith('@'))
+    clearTimeout(autoAdvanceTimerRef.current)
+    lastAutoAdvancedInputRef.current = ''
   }, [])
 
   // Derive showMyWallets from destination + validatedData
@@ -159,6 +162,7 @@ export function SendInputStep({
     if (!destination.trim() || destination.startsWith('@')) return
 
     detectTimeoutRef.current = setTimeout(async () => {
+      clearTimeout(autoAdvanceTimerRef.current)
       const detected = inputParser.detectAndClassify(destination)
       setDetectedTypes(toBadgeTypes(detected))
 
@@ -179,6 +183,20 @@ export function SendInputStep({
           const validated = await inputParser.validateAsync(detected)
           if (validated.type === 'cashu-request') {
             setValidatedData(validated as SendableValidatedData)
+
+            const amt = validated.parsed?.amount
+            if (amt && amt > 0 && destination !== lastAutoAdvancedInputRef.current) {
+              setIsPreValidating(false)
+              lastAutoAdvancedInputRef.current = destination
+              autoAdvanceTimerRef.current = setTimeout(() => {
+                onNext({
+                  destination,
+                  validatedData: validated as SendableValidatedData,
+                  amountFromInvoice: amt,
+                })
+              }, 300)
+              return
+            }
           }
         } catch { /* decode failed, ignore */ }
         setIsPreValidating(false)
@@ -220,7 +238,7 @@ export function SendInputStep({
     }, 500)
 
     return () => clearTimeout(detectTimeoutRef.current)
-  }, [destination, inputParser, t])
+  }, [destination, inputParser, t, onNext])
 
   // Cleanup auto-advance timer on unmount
   useEffect(() => () => clearTimeout(autoAdvanceTimerRef.current), [])
@@ -307,6 +325,7 @@ export function SendInputStep({
 
   // Handle next — empty destination means token mode, otherwise validate fully
   const handleNext = useCallback(async () => {
+    clearTimeout(autoAdvanceTimerRef.current)
     const trimmed = destination.trim()
     hapticTap()
 

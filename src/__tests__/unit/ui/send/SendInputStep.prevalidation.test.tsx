@@ -376,4 +376,142 @@ describe('SendInputStep pre-validation', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
     expect(screen.getByText('send.destination.unrecognized')).toBeInTheDocument()
   })
+
+  // ─── Test 11 ───
+  it('cashu-request with amount auto-advances after debounce + timer', async () => {
+    const creqStr = 'creqAtest...'
+    mockDetectAndClassify.mockReturnValue({ type: 'cashu-request', request: creqStr })
+    mockValidateAsync.mockResolvedValue({
+      type: 'cashu-request',
+      request: creqStr,
+      parsed: {
+        id: 'test',
+        amount: 100,
+        unit: 'sat',
+        mints: [],
+        transports: [],
+        hasNostrTransport: false,
+        hasPostTransport: false,
+      },
+    })
+
+    renderStep()
+    typeIntoInput(creqStr)
+
+    // 500ms debounce fires → validateAsync called
+    await act(async () => { vi.advanceTimersByTime(500) })
+    expect(mockValidateAsync).toHaveBeenCalledTimes(1)
+
+    // 300ms auto-advance timer fires → onNext called
+    await act(async () => { vi.advanceTimersByTime(300) })
+    expect(defaultProps.onNext).toHaveBeenCalledWith(
+      expect.objectContaining({ amountFromInvoice: 100 })
+    )
+  })
+
+  // ─── Test 12 ───
+  it('cashu-request without amount does NOT auto-advance', async () => {
+    const creqStr = 'creqBnoamount...'
+    mockDetectAndClassify.mockReturnValue({ type: 'cashu-request', request: creqStr })
+    mockValidateAsync.mockResolvedValue({
+      type: 'cashu-request',
+      request: creqStr,
+      parsed: {
+        id: 'test',
+        amount: 0,
+        unit: 'sat',
+        mints: [],
+        transports: [],
+        hasNostrTransport: false,
+        hasPostTransport: false,
+      },
+    })
+
+    renderStep()
+    typeIntoInput(creqStr)
+
+    // 500ms debounce + 300ms + extra — should never auto-advance
+    await act(async () => { vi.advanceTimersByTime(500) })
+    await act(async () => { vi.advanceTimersByTime(300) })
+    await act(async () => { vi.advanceTimersByTime(200) })
+
+    expect(defaultProps.onNext).not.toHaveBeenCalled()
+  })
+
+  // ─── Test 13 ───
+  it('back-navigation guard — same destination does NOT re-trigger auto-advance', async () => {
+    const creqStr = 'creqCbacknav...'
+    mockDetectAndClassify.mockReturnValue({ type: 'cashu-request', request: creqStr })
+    mockValidateAsync.mockResolvedValue({
+      type: 'cashu-request',
+      request: creqStr,
+      parsed: {
+        id: 'test',
+        amount: 100,
+        unit: 'sat',
+        mints: [],
+        transports: [],
+        hasNostrTransport: false,
+        hasPostTransport: false,
+      },
+    })
+
+    renderStep()
+    typeIntoInput(creqStr)
+
+    // First auto-advance: debounce (500ms) + timer (300ms)
+    await act(async () => { vi.advanceTimersByTime(500) })
+    await act(async () => { vi.advanceTimersByTime(300) })
+    expect(defaultProps.onNext).toHaveBeenCalledTimes(1)
+
+    // Reset mock
+    defaultProps.onNext.mockReset()
+
+    // Type the SAME value again (simulates re-render with preserved destination after back-nav)
+    typeIntoInput(creqStr)
+
+    // Wait for debounce + auto-advance timer
+    await act(async () => { vi.advanceTimersByTime(500) })
+    await act(async () => { vi.advanceTimersByTime(300) })
+
+    // onNext should NOT be called again
+    expect(defaultProps.onNext).not.toHaveBeenCalled()
+  })
+
+  // ─── Test 14 ───
+  it('input change cancels pending auto-advance timer', async () => {
+    const creqStr = 'creqDcancel...'
+    mockDetectAndClassify.mockReturnValue({ type: 'cashu-request', request: creqStr })
+    mockValidateAsync.mockResolvedValue({
+      type: 'cashu-request',
+      request: creqStr,
+      parsed: {
+        id: 'test',
+        amount: 100,
+        unit: 'sat',
+        mints: [],
+        transports: [],
+        hasNostrTransport: false,
+        hasPostTransport: false,
+      },
+    })
+
+    renderStep()
+    typeIntoInput(creqStr)
+
+    // 500ms debounce fires → validateAsync resolves → 300ms auto-advance timer starts
+    await act(async () => { vi.advanceTimersByTime(500) })
+    expect(mockValidateAsync).toHaveBeenCalledTimes(1)
+
+    // BEFORE 300ms elapses, change input (clears timer via updateDestination)
+    mockDetectAndClassify.mockReturnValue({ type: 'unknown', input: 'changed-input' })
+    typeIntoInput('changed-input')
+
+    // Advance past when the timer would have fired + new debounce
+    await act(async () => { vi.advanceTimersByTime(300) })
+    await act(async () => { vi.advanceTimersByTime(500) })
+
+    // onNext should NOT have been called (timer was cleared)
+    expect(defaultProps.onNext).not.toHaveBeenCalled()
+  })
 })

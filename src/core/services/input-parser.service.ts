@@ -78,6 +78,11 @@ export class InputParserService implements InputParserUseCase {
       }
     }
 
+    // Cashu request (NUT-18)
+    if (trimmed.toLowerCase().startsWith('creq')) {
+      return { type: 'cashu-request', request: trimmed }
+    }
+
     // Lightning address
     if (this.codec.isLightningAddress(trimmed)) {
       return { type: 'lightning-address', address: trimmed }
