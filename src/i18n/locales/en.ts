@@ -1121,6 +1121,54 @@ export default {
   token: {
     create: 'Create',
     register: 'Register',
+    empty: {
+      title: 'No tokens yet.\nWant to create one?',
+      footerNote: 'Tokens work like cash. Anyone who has them can register and use them.',
+    },
+    time: {
+      justNow: 'just now',
+      minutesAgo: '{{count}} min ago',
+      hoursAgo: '{{count}} hr ago',
+      yesterday: 'yesterday',
+      daysAgo: '{{count}} days ago',
+    },
+    pending: {
+      timeLabel: 'Pending · {{time}}',
+      memoLine: '{{memo}} - {{counterparty}}',
+    },
+    pendingWidget: {
+      title: 'Pending',
+      summary: '{{count}} tokens · {{total}}',
+      viewAll: 'View pending',
+    },
+    reclaimable: {
+      section: 'Reclaimable ({{count}})',
+      viewAll: 'View all >',
+      actions: {
+        reclaim: 'Reclaim',
+        share: 'Share',
+      },
+      shareText: '{{memo}}: {{amount}}',
+      copiedToClipboard: 'Copied to clipboard',
+    },
+    firstCreate: {
+      hint: 'You created these tokens but they have not been registered yet.\nThe recipient may not have received or registered them yet.',
+      dismiss: "Don't show again",
+    },
+    history: {
+      section: 'Token history',
+      group: {
+        today: 'Today',
+        yesterday: 'Yesterday',
+      },
+      metaLine: '{{time}}, {{memo}}',
+      status: {
+        created: 'Created',
+        registered: 'Claimed',
+        consumed: 'Spent',
+        reclaimed: 'Reclaimed',
+      },
+    },
   },
 
   // Address Book / Contacts

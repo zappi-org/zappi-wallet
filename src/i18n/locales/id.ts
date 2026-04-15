@@ -1114,6 +1114,54 @@ export default {
   token: {
     create: 'Buat',
     register: 'Daftar',
+    empty: {
+      title: 'Belum ada token.\nMau membuat satu?',
+      footerNote: 'Token bekerja seperti uang tunai. Siapa pun yang memilikinya dapat mendaftar dan menggunakannya.',
+    },
+    time: {
+      justNow: 'baru saja',
+      minutesAgo: '{{count}} menit lalu',
+      hoursAgo: '{{count}} jam lalu',
+      yesterday: 'kemarin',
+      daysAgo: '{{count}} hari lalu',
+    },
+    pending: {
+      timeLabel: 'Menunggu · {{time}}',
+      memoLine: '{{memo}} - {{counterparty}}',
+    },
+    pendingWidget: {
+      title: 'Menunggu',
+      summary: '{{count}} token · {{total}}',
+      viewAll: 'Lihat menunggu',
+    },
+    reclaimable: {
+      section: 'Dapat diambil kembali ({{count}})',
+      viewAll: 'Lihat semua >',
+      actions: {
+        reclaim: 'Ambil kembali',
+        share: 'Bagikan',
+      },
+      shareText: '{{memo}}: {{amount}}',
+      copiedToClipboard: 'Disalin ke clipboard',
+    },
+    firstCreate: {
+      hint: 'Kamu membuat token ini tetapi belum terdaftar.\nPenerima mungkin belum menerimanya atau belum mendaftarkannya.',
+      dismiss: 'Jangan tampilkan lagi',
+    },
+    history: {
+      section: 'Riwayat token',
+      group: {
+        today: 'Hari ini',
+        yesterday: 'Kemarin',
+      },
+      metaLine: '{{time}}, {{memo}}',
+      status: {
+        created: 'Dibuat',
+        registered: 'Didaftarkan',
+        consumed: 'Terpakai',
+        reclaimed: 'Diambil kembali',
+      },
+    },
   },
 
   contacts: {

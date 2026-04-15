@@ -1128,6 +1128,54 @@ export default {
   token: {
     create: '생성',
     register: '등록',
+    empty: {
+      title: '만든 토큰이 없어요.\n토큰을 만들어 볼까요?',
+      footerNote: '토큰은 현금처럼 작동해요. 가지고 있는 누구나 등록해서 사용할 수 있어요.',
+    },
+    time: {
+      justNow: '방금',
+      minutesAgo: '{{count}}분전',
+      hoursAgo: '{{count}}시간전',
+      yesterday: '어제',
+      daysAgo: '{{count}}일전',
+    },
+    pending: {
+      timeLabel: '대기중 · {{time}}',
+      memoLine: '{{memo}} - {{counterparty}}',
+    },
+    pendingWidget: {
+      title: '대기중',
+      summary: '{{count}}개 - 총 {{total}}',
+      viewAll: '대기중 보기',
+    },
+    reclaimable: {
+      section: '되찾을 수 있어요 ({{count}})',
+      viewAll: '모두보기 >',
+      actions: {
+        reclaim: '되찾기',
+        share: '공유',
+      },
+      shareText: '{{memo}}: {{amount}}',
+      copiedToClipboard: '클립보드에 복사되었어요',
+    },
+    firstCreate: {
+      hint: '만들었지만 아직 등록되지 않은 토큰들이에요.\n상대방이 못 받았거나, 아직 등록 하지 않았을 수 있어요.',
+      dismiss: '다시보지않기',
+    },
+    history: {
+      section: '토큰 내역',
+      group: {
+        today: '오늘',
+        yesterday: '어제',
+      },
+      metaLine: '{{time}}, {{memo}}',
+      status: {
+        created: '생성함',
+        registered: '등록함',
+        consumed: '사용됨',
+        reclaimed: '되찾음',
+      },
+    },
   },
 
   // Address Book / Contacts

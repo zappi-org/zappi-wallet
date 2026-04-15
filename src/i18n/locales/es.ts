@@ -1114,6 +1114,54 @@ export default {
   token: {
     create: 'Crear',
     register: 'Registrar',
+    empty: {
+      title: 'Aún no tienes tokens.\n¿Quieres crear uno?',
+      footerNote: 'Los tokens funcionan como efectivo. Cualquiera que los tenga puede registrarlos y usarlos.',
+    },
+    time: {
+      justNow: 'ahora mismo',
+      minutesAgo: 'hace {{count}} min',
+      hoursAgo: 'hace {{count}} h',
+      yesterday: 'ayer',
+      daysAgo: 'hace {{count}} días',
+    },
+    pending: {
+      timeLabel: 'Pendiente · {{time}}',
+      memoLine: '{{memo}} - {{counterparty}}',
+    },
+    pendingWidget: {
+      title: 'Pendiente',
+      summary: '{{count}} tokens · {{total}}',
+      viewAll: 'Ver pendientes',
+    },
+    reclaimable: {
+      section: 'Recuperables ({{count}})',
+      viewAll: 'Ver todos >',
+      actions: {
+        reclaim: 'Recuperar',
+        share: 'Compartir',
+      },
+      shareText: '{{memo}}: {{amount}}',
+      copiedToClipboard: 'Copiado al portapapeles',
+    },
+    firstCreate: {
+      hint: 'Creaste estos tokens pero aún no se han registrado.\nPuede que el destinatario no los haya recibido o registrado todavía.',
+      dismiss: 'No mostrar de nuevo',
+    },
+    history: {
+      section: 'Historial de tokens',
+      group: {
+        today: 'Hoy',
+        yesterday: 'Ayer',
+      },
+      metaLine: '{{time}}, {{memo}}',
+      status: {
+        created: 'Creado',
+        registered: 'Registrado',
+        consumed: 'Gastado',
+        reclaimed: 'Recuperado',
+      },
+    },
   },
 
   contacts: {

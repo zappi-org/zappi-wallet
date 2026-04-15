@@ -1122,6 +1122,54 @@ export default {
   token: {
     create: '作成',
     register: '登録',
+    empty: {
+      title: '作成したトークンがありません。\nトークンを作ってみましょう。',
+      footerNote: 'トークンは現金のように機能します。持っている人なら誰でも登録して使えます。',
+    },
+    time: {
+      justNow: 'たった今',
+      minutesAgo: '{{count}}分前',
+      hoursAgo: '{{count}}時間前',
+      yesterday: '昨日',
+      daysAgo: '{{count}}日前',
+    },
+    pending: {
+      timeLabel: '待機中 · {{time}}',
+      memoLine: '{{memo}} - {{counterparty}}',
+    },
+    pendingWidget: {
+      title: '待機中',
+      summary: '{{count}}個 · 合計 {{total}}',
+      viewAll: '待機中を見る',
+    },
+    reclaimable: {
+      section: '取り戻せます ({{count}})',
+      viewAll: 'すべて表示 >',
+      actions: {
+        reclaim: '取り戻す',
+        share: '共有',
+      },
+      shareText: '{{memo}}: {{amount}}',
+      copiedToClipboard: 'クリップボードにコピーしました',
+    },
+    firstCreate: {
+      hint: '作成しましたが、まだ登録されていないトークンです。\n相手が受け取っていないか、まだ登録していない可能性があります。',
+      dismiss: '今後表示しない',
+    },
+    history: {
+      section: 'トークン履歴',
+      group: {
+        today: '今日',
+        yesterday: '昨日',
+      },
+      metaLine: '{{time}}, {{memo}}',
+      status: {
+        created: '作成',
+        registered: '登録',
+        consumed: '使用済み',
+        reclaimed: '取り戻し',
+      },
+    },
   },
 
   contacts: {
