@@ -242,16 +242,16 @@ export async function recoverPendingQuotes(
   for (const op of mintQuotes) {
 
     if(isExpiredOp(op,now)) {
-      await txRepo.update(op.id, {status: 'failed'})
+      await txRepo.delete(op.id)
       expired++
       continue
     }
 
     const quoteId = op.metadata?.quoteId as string | undefined
     const mintUrl = op.accountId
-  
+    //handle metadata loss
     if (!quoteId || !mintUrl) {
-      await txRepo.update(op.id, {status: 'failed'})
+      await txRepo.delete(op.id)
       failed++
       continue
     }

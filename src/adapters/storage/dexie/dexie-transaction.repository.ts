@@ -226,6 +226,10 @@ export class DexieTransactionRepository implements TransactionRepository {
     await this.table.where('createdAt').below(cutoff).delete()
   }
 
+
+  async delete(id: string): Promise<void> {
+    await this.table.delete(id)
+  }
   async update(id: string, patch: Partial<Transaction>): Promise<void> {
     const legacyPatch: Partial<LegacyTransaction> = {}
 
