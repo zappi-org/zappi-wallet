@@ -91,6 +91,7 @@ export interface Transaction {
   memo?: string
   createdAt: number
   completedAt?: number
+  quoteExpiresAt?: number
   failedAt?: number
   failureReason?: string
   metadata?: Record<string, unknown>
