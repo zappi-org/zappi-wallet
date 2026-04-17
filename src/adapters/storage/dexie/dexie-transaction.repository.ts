@@ -1,10 +1,11 @@
-import { amount as amt, sat, toNumber } from '@/core/domain/amount'
-import type { Transaction, TransactionIntent, TransactionOutcome, TransactionStatus } from '@/core/domain/transaction'
 import type {
-  TransactionFilter,
   TransactionRepository,
+  TransactionFilter,
 } from '@/core/ports/driven/transaction.repository.port'
+import type { Transaction, TransactionStatus, TransactionOutcome } from '@/core/domain/transaction'
+import type { TransactionIntent } from '@/core/domain/transaction'
 import type { Transaction as LegacyTransaction } from '@/core/types'
+import { sat, toNumber, amount as amt } from '@/core/domain/amount'
 import { getDatabase } from './schema'
 
 // legacy type → domain method 매핑
@@ -89,7 +90,6 @@ function toDomain(legacy: LegacyTransaction): Transaction {
     outcome,
     createdAt: legacy.createdAt,
     completedAt: legacy.completedAt,
-    quoteExpiresAt: legacy.quoteExpiresAt,
     memo: legacy.memo,
     intent: TYPE_TO_INTENT[legacy.type],
     linkedTxId: legacy.metadata?.linkedTxId as string | undefined,
@@ -128,7 +128,6 @@ function toLegacy(domain: Transaction): LegacyTransaction {
     status,
     createdAt: domain.createdAt,
     completedAt: domain.completedAt,
-    quoteExpiresAt: domain.quoteExpiresAt,
     memo: domain.memo,
     failureReason,
     metadata: {

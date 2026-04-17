@@ -1,6 +1,6 @@
-import { sat } from '@/core/domain/amount'
-import type { PendingOperation } from '@/core/domain/pending-operation'
 import type { PendingOperationRepository } from '@/core/ports/driven/pending-operation.repository.port'
+import type { PendingOperation } from '@/core/domain/pending-operation'
+import { sat } from '@/core/domain/amount'
 import { getDatabase } from './schema'
 
 /**
@@ -116,7 +116,6 @@ export class DexiePendingOperationRepository implements PendingOperationReposito
       accountId: r.mintUrl,
       amount: sat(r.amount),
       createdAt: r.createdAt,
-      quoteExpiresAt: r.quoteExpiresAt,
       metadata: {
         ...(r.metadata?.quoteId != null && { quoteId: r.metadata.quoteId }),
         ...(r.bolt11 != null && { bolt11: r.bolt11 }),

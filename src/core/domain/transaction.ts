@@ -34,7 +34,6 @@ export interface Transaction {
   readonly outcome?: TransactionOutcome
   readonly createdAt: number
   readonly completedAt?: number
-  readonly quoteExpiresAt?: number
   readonly memo?: string
   readonly intent?: TransactionIntent
   readonly linkedTxId?: string

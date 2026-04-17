@@ -11,7 +11,6 @@ export interface PendingOperation {
   readonly accountId: string
   readonly amount: Amount
   readonly createdAt: number
-  readonly quoteExpiresAt?: number
   readonly metadata?: Record<string, unknown>
 }
 

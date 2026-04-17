@@ -7,31 +7,31 @@
  * 의존성: port interface만. module/adapter 구체 구현에 무관.
  */
 
+import { Ok, Err } from '@/core/domain/result'
+import type { Result } from '@/core/domain/result'
 import type { Amount } from '@/core/domain/amount'
 import { amount as amt } from '@/core/domain/amount'
-import type { Result } from '@/core/domain/result'
-import { Err, Ok } from '@/core/domain/result'
 import { createTransaction, settleAsDelivered, settleAsReclaimed } from '@/core/domain/transaction'
 import type { PaymentError } from '@/core/errors/payment.errors'
 import type { EventBus } from '@/core/events/event-bus'
-import type { OperationMap } from '@/core/ports/driven/operation-map.port'
 import type {
-  FeeEstimate,
-  PaymentMethodAdapter,
-  ReceiveRequest,
-  RedeemFeeEstimate,
-  RedeemResult,
-} from '@/core/ports/driven/payment-method.port'
-import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
-import type { ModuleBalance, WalletModule } from '@/core/ports/driven/wallet-module.port'
-import type {
-  InputInspectionResult,
-  PaymentMethodInfo,
   PaymentUseCase,
+  PaymentMethodInfo,
+  SendResult,
   ReclaimResult,
   RecoveryReport,
-  SendResult,
+  InputInspectionResult,
 } from '@/core/ports/driving/payment.usecase'
+import type { WalletModule, ModuleBalance } from '@/core/ports/driven/wallet-module.port'
+import type {
+  PaymentMethodAdapter,
+  FeeEstimate,
+  ReceiveRequest,
+  RedeemResult,
+  RedeemFeeEstimate,
+} from '@/core/ports/driven/payment-method.port'
+import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
+import type { OperationMap } from '@/core/ports/driven/operation-map.port'
 
 export class PaymentService implements PaymentUseCase {
   constructor(
@@ -209,7 +209,6 @@ export class PaymentService implements PaymentUseCase {
         protocol: request.protocol,
         amount: params.amount,
         accountId: params.accountId,
-        quoteExpiresAt: request.expiresAt,
         memo: params.description,
         metadata: { quoteId: request.id, bolt11: request.encoded },
       })
