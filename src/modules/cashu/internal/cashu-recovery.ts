@@ -5,10 +5,10 @@
  * DB/legacy 직접 접근 없음. SDK 호출은 주입된 인터페이스를 통해.
  */
 
+import { toNumber } from '@/core/domain/amount'
+import type { PendingOperation } from '@/core/domain/pending-operation'
 import type { PendingOperationRepository } from '@/core/ports/driven/pending-operation.repository.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
-import type { PendingOperation } from '@/core/domain/pending-operation'
-import { toNumber } from '@/core/domain/amount'
 
 // ─── SDK interfaces (DI용 — Coco 직접 의존 없음) ───
 
@@ -231,7 +231,7 @@ export async function recoverPendingQuotes(
 
   let recovered = 0
   let failed = 0
-  const expired = 0
+  let expired = 0
   const now = Date.now()
 
   const allPending = await pendingOpRepo.list()
@@ -242,17 +242,20 @@ export async function recoverPendingQuotes(
   for (const op of mintQuotes) {
     const quoteId = op.metadata?.quoteId as string | undefined
     const mintUrl = op.accountId
-
+  
     if (!quoteId || !mintUrl) {
+      await txRepo.update(op.id, {status: 'failed'})
       if (isExpiredOp(op)) {
-        await txRepo.update(op.id, { status: 'failed' })
+        expired++
+      } else {
+        failed++
       }
       continue
     }
 
     if (isExpiredOp(op)) {
       await txRepo.update(op.id, { status: 'failed' })
-      failed++
+      expired++
       continue
     }
 
@@ -276,6 +279,7 @@ export async function recoverPendingQuotes(
       const errorMsg = error instanceof Error ? error.message : String(error)
       if (errorMsg.includes('already issued')) {
         await txRepo.update(op.id, { status: 'settled', outcome: 'claimed', completedAt: now })
+        recovered++
       } else {
         console.error(`[Recovery] Failed to recover quote ${quoteId}:`, error)
         failed++
