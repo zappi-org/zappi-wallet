@@ -1135,7 +1135,6 @@ export default {
     },
     pending: {
       timeLabel: '待機中 · {{time}}',
-      memoLine: '{{memo}} - {{counterparty}}',
     },
     pendingWidget: {
       title: '待機中',
@@ -1164,7 +1163,6 @@ export default {
       },
       metaLine: '{{time}}, {{memo}}',
       status: {
-        created: '作成',
         registered: '登録',
         consumed: '使用済み',
         reclaimed: '取り戻し',

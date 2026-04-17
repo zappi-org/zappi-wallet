@@ -49,6 +49,8 @@ import { ToastContainer } from '@/ui/components'
 import type { ValidatedData } from '@/core/domain/input-types'
 import { ReceiveFlow } from '@/ui/screens/Receive/ReceiveFlow'
 import { SendFlow } from '@/ui/screens/Send/SendFlow'
+import { TokenCreateFlow } from '@/ui/screens/TokenCreate/TokenCreateFlow'
+import { TokenRegisterFlow } from '@/ui/screens/TokenRegister/TokenRegisterFlow'
 
 // Services (composition 경유만)
 import { createSecurityService } from '@/composition/security'
@@ -57,7 +59,7 @@ import { removePasskey } from '@/ui/services/passkey'
 import { formatSats } from '@/utils/format'
 
 
-type Screen = 'home' | 'token' | 'settings' | 'contacts' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'mint-management' | 'relay-management' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail' | 'mint-detail'
+type Screen = 'home' | 'token' | 'settings' | 'contacts' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'mint-management' | 'relay-management' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail' | 'mint-detail' | 'token-create' | 'token-register'
 
 type TabId = 'wallet' | 'token' | 'contacts' | 'settings'
 const TAB_SCREENS: Record<TabId, Screen> = { wallet: 'home', token: 'token', contacts: 'contacts', settings: 'settings' }
@@ -1031,6 +1033,34 @@ export default function MainApp() {
         />
       )}
 
+      {currentScreen === 'token-create' && (
+        <TokenCreateFlow
+          onBack={() => {
+            const backTo = previousScreen || 'token'
+            setPreviousScreen(null)
+            setCurrentScreen(backTo)
+          }}
+          onComplete={() => {
+            setPreviousScreen(null)
+            setCurrentScreen('token')
+          }}
+        />
+      )}
+
+      {currentScreen === 'token-register' && (
+        <TokenRegisterFlow
+          onBack={() => {
+            const backTo = previousScreen || 'token'
+            setPreviousScreen(null)
+            setCurrentScreen(backTo)
+          }}
+          onComplete={() => {
+            setPreviousScreen(null)
+            setCurrentScreen('token')
+          }}
+        />
+      )}
+
       {currentScreen === 'receive' && (
         <ReceiveFlow
           onBack={() => {
@@ -1167,17 +1197,11 @@ export default function MainApp() {
             onTabSelect={handleTabSelect}
             onCreate={() => {
               setPreviousScreen('token')
-              setActiveMintUrl(null)
-              setValidatedScanData(null)
-              setScannedAmount(0)
-              setCurrentScreen('send')
+              setCurrentScreen('token-create')
             }}
             onRegister={() => {
               setPreviousScreen('token')
-              setActiveMintUrl(null)
-              setValidatedScanData(null)
-              setScannedAmount(0)
-              setCurrentScreen('receive')
+              setCurrentScreen('token-register')
             }}
           />
         )}

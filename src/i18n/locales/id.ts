@@ -1127,7 +1127,6 @@ export default {
     },
     pending: {
       timeLabel: 'Menunggu · {{time}}',
-      memoLine: '{{memo}} - {{counterparty}}',
     },
     pendingWidget: {
       title: 'Menunggu',
@@ -1156,7 +1155,6 @@ export default {
       },
       metaLine: '{{time}}, {{memo}}',
       status: {
-        created: 'Dibuat',
         registered: 'Didaftarkan',
         consumed: 'Terpakai',
         reclaimed: 'Diambil kembali',

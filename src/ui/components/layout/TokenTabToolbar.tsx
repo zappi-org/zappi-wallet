@@ -24,6 +24,11 @@ const glassStyle: CSSProperties = {
   boxShadow: '0 8px 32px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.03), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
 }
 
+const brandStyle: CSSProperties = {
+  background: 'var(--brand-500)',
+  boxShadow: '0 8px 24px rgba(81, 90, 192, 0.3), 0 2px 8px rgba(0, 0, 0, 0.12)',
+}
+
 const pickerTabIds = ['wallet', 'contacts', 'settings'] as const
 
 const tweenTransition = { duration: 0.2, ease: 'easeOut' } as const
@@ -143,7 +148,7 @@ export function TokenTabToolbar({
         className={`rounded-full overflow-hidden p-1.5 ${
           state === 'TOKEN_TOP' ? 'w-[50%]' : ''
         }`}
-        style={glassStyle}
+        style={state === 'TOKEN_TOP' ? brandStyle : glassStyle}
       >
         <AnimatePresence mode="popLayout" initial={false}>
           {state === 'TOKEN_TOP' ? (
@@ -159,14 +164,14 @@ export function TokenTabToolbar({
               <button
                 type="button"
                 onClick={onCreate}
-                className="flex-1 h-[48px] rounded-full bg-brand text-white text-sm font-semibold"
+                className="flex-1 h-[48px] rounded-full bg-white text-brand text-sm font-semibold"
               >
                 {t('token.create')}
               </button>
               <button
                 type="button"
                 onClick={onRegister}
-                className="flex-1 h-[48px] rounded-full text-foreground/80 text-sm font-semibold"
+                className="flex-1 h-[48px] rounded-full text-white text-sm font-semibold"
               >
                 {t('token.register')}
               </button>

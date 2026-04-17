@@ -1134,7 +1134,6 @@ export default {
     },
     pending: {
       timeLabel: 'Pending · {{time}}',
-      memoLine: '{{memo}} - {{counterparty}}',
     },
     pendingWidget: {
       title: 'Pending',
@@ -1163,7 +1162,6 @@ export default {
       },
       metaLine: '{{time}}, {{memo}}',
       status: {
-        created: 'Created',
         registered: 'Claimed',
         consumed: 'Spent',
         reclaimed: 'Reclaimed',

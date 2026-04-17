@@ -6,9 +6,10 @@ export interface MockPendingToken {
   amount: number
   memo: string
   counterparty: string
+  fiatUsd?: number
 }
 
-export type MockTimelineStatus = 'created' | 'registered' | 'consumed' | 'reclaimed'
+export type MockTimelineStatus = 'registered' | 'consumed' | 'reclaimed'
 
 export interface MockTimelineEntry {
   id: string

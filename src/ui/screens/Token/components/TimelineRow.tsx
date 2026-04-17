@@ -8,14 +8,12 @@ export interface TimelineRowProps {
 }
 
 const STATUS_KEY: Record<MockTimelineEntry['status'], string> = {
-  created: 'token.history.status.created',
   registered: 'token.history.status.registered',
   consumed: 'token.history.status.consumed',
   reclaimed: 'token.history.status.reclaimed',
 }
 
 const OUTGOING_STATUSES: ReadonlySet<MockTimelineEntry['status']> = new Set([
-  'created',
   'consumed',
 ])
 
@@ -46,7 +44,7 @@ export function TimelineRow({ entry }: TimelineRowProps) {
           {signedAmount}
         </span>
         <span className="text-caption text-foreground-muted">
-          {fiat ? `${entry.counterparty} · ${fiat}` : entry.counterparty}
+          {fiat ? `${entry.counterparty} (${fiat})` : entry.counterparty}
         </span>
       </div>
     </div>

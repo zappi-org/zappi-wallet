@@ -27,6 +27,7 @@ const ACTIVE: TokenTabMockData = {
       amount: 1000,
       memo: '커피값',
       counterparty: '레모닝',
+      fiatUsd: 1.0,
     },
     {
       id: 'p2',
@@ -34,6 +35,7 @@ const ACTIVE: TokenTabMockData = {
       amount: 10000,
       memo: '밥값',
       counterparty: '레모닝',
+      fiatUsd: 10.0,
     },
     {
       id: 'p3',
@@ -41,6 +43,7 @@ const ACTIVE: TokenTabMockData = {
       amount: 2500,
       memo: '택시비',
       counterparty: '레모닝',
+      fiatUsd: 2.5,
     },
   ],
   timelineGroups: [
@@ -54,14 +57,6 @@ const ACTIVE: TokenTabMockData = {
           status: 'registered',
           memo: '커피값',
           counterparty: '레모닝',
-        },
-        {
-          id: 't2',
-          at: minutesAgo(15),
-          amount: 3000,
-          status: 'created',
-          memo: '밥값',
-          counterparty: '레몬피즈',
         },
         {
           id: 't3',
@@ -113,6 +108,7 @@ const FIRST_CREATE: TokenTabMockData = {
       amount: 1000,
       memo: '커피값',
       counterparty: '레모닝',
+      fiatUsd: 1.0,
     },
   ],
   timelineGroups: [],

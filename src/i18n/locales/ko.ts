@@ -1141,7 +1141,6 @@ export default {
     },
     pending: {
       timeLabel: '대기중 · {{time}}',
-      memoLine: '{{memo}} - {{counterparty}}',
     },
     pendingWidget: {
       title: '대기중',
@@ -1170,7 +1169,6 @@ export default {
       },
       metaLine: '{{time}}, {{memo}}',
       status: {
-        created: '생성함',
         registered: '등록함',
         consumed: '사용됨',
         reclaimed: '되찾음',
