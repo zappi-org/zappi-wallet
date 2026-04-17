@@ -58,6 +58,7 @@ function createMockTxRepo(): TransactionRepository {
     getById: vi.fn().mockResolvedValue(null),
     list: vi.fn().mockResolvedValue([]),
     update: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
     findAll: vi.fn().mockResolvedValue([]),
     deleteAll: vi.fn().mockResolvedValue(undefined),
     deleteOlderThan: vi.fn().mockResolvedValue(undefined),

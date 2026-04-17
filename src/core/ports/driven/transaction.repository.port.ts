@@ -6,6 +6,7 @@ export interface TransactionRepository {
   list(filter?: TransactionFilter): Promise<Transaction[]>
   update(id: string, patch: Partial<Transaction>): Promise<void>
   findAll(filter?: { limit?: number }): Promise<Transaction[]>
+  delete(id:string): Promise<void>
   deleteAll(): Promise<void>
   deleteOlderThan(days: number): Promise<void>
 }
