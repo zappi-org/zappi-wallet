@@ -209,7 +209,7 @@ export class PaymentService implements PaymentUseCase {
         protocol: request.protocol,
         amount: params.amount,
         accountId: params.accountId,
-        quoteExpiresAt: request.expiresAt,
+        expiresAt: request.expiresAt,
         memo: params.description,
         metadata: { quoteId: request.id, bolt11: request.encoded },
       })

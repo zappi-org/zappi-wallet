@@ -289,6 +289,6 @@ export async function recoverPendingQuotes(
 }
 
 function isExpiredOp(op: PendingOperation, now: number): boolean {
-  if(op.quoteExpiresAt!= null) return op.quoteExpiresAt <= now
-  return now - op.createdAt > MAX_AGE_MS //legacy fallback
+  if (op.expiresAt != null) return op.expiresAt <= now
+  return now - op.createdAt > MAX_AGE_MS // legacy fallback (pre-ZAP-245 records)
 }

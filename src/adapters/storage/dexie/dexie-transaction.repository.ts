@@ -89,7 +89,7 @@ function toDomain(legacy: LegacyTransaction): Transaction {
     outcome,
     createdAt: legacy.createdAt,
     completedAt: legacy.completedAt,
-    quoteExpiresAt: legacy.quoteExpiresAt,
+    expiresAt: legacy.expiresAt,
     memo: legacy.memo,
     intent: TYPE_TO_INTENT[legacy.type],
     linkedTxId: legacy.metadata?.linkedTxId as string | undefined,
@@ -128,7 +128,7 @@ function toLegacy(domain: Transaction): LegacyTransaction {
     status,
     createdAt: domain.createdAt,
     completedAt: domain.completedAt,
-    quoteExpiresAt: domain.quoteExpiresAt,
+    expiresAt: domain.expiresAt,
     memo: domain.memo,
     failureReason,
     metadata: {

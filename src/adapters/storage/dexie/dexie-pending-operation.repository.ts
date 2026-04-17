@@ -116,7 +116,7 @@ export class DexiePendingOperationRepository implements PendingOperationReposito
       accountId: r.mintUrl,
       amount: sat(r.amount),
       createdAt: r.createdAt,
-      quoteExpiresAt: r.quoteExpiresAt,
+      expiresAt: r.expiresAt,
       metadata: {
         ...(r.metadata?.quoteId != null && { quoteId: r.metadata.quoteId }),
         ...(r.bolt11 != null && { bolt11: r.bolt11 }),

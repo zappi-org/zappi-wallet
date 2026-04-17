@@ -11,10 +11,16 @@ export interface PendingOperation {
   readonly accountId: string
   readonly amount: Amount
   readonly createdAt: number
-  readonly quoteExpiresAt?: number
+  /**
+   * Protocol-neutral expiry (ms epoch).
+   * The adapter picks the earliest applicable expiry from its own protocol.
+   * undefined = no notion of expiry (e.g. bolt12 offer).
+   */
+  readonly expiresAt?: number
   readonly metadata?: Record<string, unknown>
 }
 
-export function isExpired(op: PendingOperation, maxAgeMs: number): boolean {
-  return Date.now() - op.createdAt > maxAgeMs
+/** Protocol-neutral expiry check. Items without `expiresAt` are treated as non-expiring. */
+export function isExpired(item: { expiresAt?: number }, now: number = Date.now()): boolean {
+  return item.expiresAt != null && item.expiresAt <= now
 }
