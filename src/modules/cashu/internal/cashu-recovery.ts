@@ -240,19 +240,22 @@ export async function recoverPendingQuotes(
   console.log(`[Recovery] Found ${mintQuotes.length} pending Lightning receive transactions`)
 
   for (const op of mintQuotes) {
-
-    if(isExpiredOp(op,now)) {
-      await txRepo.update(op.id, {status: 'failed'})
-      expired++
-      continue
-    }
-
     const quoteId = op.metadata?.quoteId as string | undefined
     const mintUrl = op.accountId
   
     if (!quoteId || !mintUrl) {
       await txRepo.update(op.id, {status: 'failed'})
-      failed++
+      if (isExpiredOp(op)) {
+        expired++
+      } else {
+        failed++
+      }
+      continue
+    }
+
+    if (isExpiredOp(op)) {
+      await txRepo.update(op.id, { status: 'failed' })
+      expired++
       continue
     }
 
@@ -288,7 +291,6 @@ export async function recoverPendingQuotes(
   return { recovered, failed, expired }
 }
 
-function isExpiredOp(op: PendingOperation, now: number): boolean {
-  if(op.quoteExpiresAt!= null) return op.quoteExpiresAt <= now
-  return now - op.createdAt > MAX_AGE_MS //legacy fallback
+function isExpiredOp(op: PendingOperation): boolean {
+  return Date.now() - op.createdAt > MAX_AGE_MS
 }
