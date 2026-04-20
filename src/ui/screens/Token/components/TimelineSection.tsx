@@ -1,12 +1,13 @@
 import { useTranslation } from 'react-i18next'
 import { TimelineRow } from './TimelineRow'
-import type { MockTimelineGroup } from '../types'
+import type { MockTimelineEntry, MockTimelineGroup } from '../types'
 
 export interface TimelineSectionProps {
   groups: MockTimelineGroup[]
+  onSelect?: (entry: MockTimelineEntry) => void
 }
 
-export function TimelineSection({ groups }: TimelineSectionProps) {
+export function TimelineSection({ groups, onSelect }: TimelineSectionProps) {
   const { t } = useTranslation()
 
   if (groups.length === 0) return null
@@ -22,7 +23,11 @@ export function TimelineSection({ groups }: TimelineSectionProps) {
             {t(`token.history.group.${group.label}`)}
           </span>
           {group.entries.map((entry) => (
-            <TimelineRow key={entry.id} entry={entry} />
+            <TimelineRow
+              key={entry.id}
+              entry={entry}
+              onSelect={onSelect ? () => onSelect(entry) : undefined}
+            />
           ))}
         </div>
       ))}

@@ -57,7 +57,7 @@ export function AmountStep({
 
         {/* Amount hero */}
         <div className="flex flex-col items-center gap-2 mt-10">
-          <p className="text-[44px] leading-none font-display font-semibold text-foreground">
+          <p className="text-[44px] leading-none font-semibold text-foreground">
             {displayAmount}
           </p>
           <button

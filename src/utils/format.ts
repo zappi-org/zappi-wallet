@@ -63,13 +63,16 @@ export { FIAT_CURRENCY_MAP }
 /** Cache Intl.NumberFormat instances by key to avoid re-creation */
 const formatterCache = new Map<string, Intl.NumberFormat>()
 
+/** Currencies that conventionally display without decimals. */
+const ZERO_DECIMAL_CURRENCIES = new Set(['JPY', 'KRW'])
+
 /**
  * Format a fiat amount with currency symbol using Intl.NumberFormat.
- * For small amounts (< 1), shows up to 4 decimal places.
+ * JPY/KRW: no decimals. Others: up to 2 decimals.
  * Caches formatter instances for performance.
  */
 export function formatFiatAmount(amount: number, currency: string): string {
-  const fractionDigits = amount !== 0 && Math.abs(amount) < 1 ? 4 : 2
+  const fractionDigits = ZERO_DECIMAL_CURRENCIES.has(currency) ? 0 : 2
   const key = `${currency}:${fractionDigits}`
 
   try {

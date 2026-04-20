@@ -103,7 +103,7 @@ export function ConfirmTrustedStep({
                 {memo}
               </p>
               {/* Amount + fiat — right-bottom area */}
-              <p className="absolute right-5 top-[136px] font-display text-[25px] leading-[32px] font-semibold text-white">
+              <p className="absolute right-5 top-[136px] text-[25px] leading-[32px] font-semibold text-white">
                 {formatSats(amount)}
               </p>
               <p className="absolute right-5 top-[168px] text-[17px] leading-[21px] text-white/70">
@@ -113,7 +113,7 @@ export function ConfirmTrustedStep({
           ) : (
             <>
               {/* No memo — amount centered-ish, zappi still at fixed left */}
-              <p className="absolute inset-x-0 top-[86px] font-display text-[28px] leading-[35px] font-semibold text-white text-center">
+              <p className="absolute inset-x-0 top-[86px] text-[28px] leading-[35px] font-semibold text-white text-center">
                 {formatSats(amount)}
               </p>
               <p className="absolute inset-x-0 top-[125px] text-[17px] leading-[21px] text-white/70 text-center">

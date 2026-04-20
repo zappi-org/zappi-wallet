@@ -5,6 +5,7 @@ import type { MockTimelineEntry } from '../types'
 
 export interface TimelineRowProps {
   entry: MockTimelineEntry
+  onSelect?: () => void
 }
 
 const STATUS_KEY: Record<MockTimelineEntry['status'], string> = {
@@ -17,7 +18,7 @@ const OUTGOING_STATUSES: ReadonlySet<MockTimelineEntry['status']> = new Set([
   'consumed',
 ])
 
-export function TimelineRow({ entry }: TimelineRowProps) {
+export function TimelineRow({ entry, onSelect }: TimelineRowProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
@@ -27,7 +28,18 @@ export function TimelineRow({ entry }: TimelineRowProps) {
   const fiat = formatFiat(entry.amount)
 
   return (
-    <div className="flex items-start justify-between rounded-card bg-background-card border border-border px-4 py-3">
+    <div
+      role={onSelect ? 'button' : undefined}
+      tabIndex={onSelect ? 0 : undefined}
+      onClick={onSelect}
+      onKeyDown={onSelect ? (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSelect()
+        }
+      } : undefined}
+      className={`flex items-start justify-between rounded-card bg-background-card border border-border px-4 py-3 ${onSelect ? 'cursor-pointer hover:bg-background-hover/40 transition-colors' : ''}`}
+    >
       <div className="flex flex-col gap-1 min-w-0">
         <span className="text-body-bold font-semibold text-foreground">
           {t(STATUS_KEY[entry.status])}

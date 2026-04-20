@@ -76,7 +76,7 @@ export function CreatedStep({
 
         {/* Amount + meta */}
         <div className="flex flex-col items-center gap-1">
-          <p className="text-heading leading-none font-display font-semibold text-foreground">
+          <p className="text-heading leading-none font-semibold text-foreground">
             {formatSats(displayedAmount)}
           </p>
           <p className="text-body text-foreground-muted mt-2">

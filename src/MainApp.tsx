@@ -24,6 +24,9 @@ import { TokenTabToolbar } from '@/ui/components/layout/TokenTabToolbar'
 import { HomeScreen } from '@/ui/screens/Home/HomeScreen'
 import { LockScreen } from '@/ui/screens/Lock/LockScreen'
 import { TokenScreen } from '@/ui/screens/Token/TokenScreen'
+import { TokenDetailScreen } from '@/ui/screens/Token/TokenDetailScreen'
+import { EasterEggScreen } from '@/ui/screens/Token/EasterEggScreen'
+import type { TokenDetailData } from '@/ui/screens/Token/types'
 import { BookUser, Coins, Settings as SettingsIcon, Wallet } from 'lucide-react'
 
 // Tier 2: Lazy loaded (frequently used)
@@ -59,7 +62,7 @@ import { removePasskey } from '@/ui/services/passkey'
 import { formatSats } from '@/utils/format'
 
 
-type Screen = 'home' | 'token' | 'settings' | 'contacts' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'mint-management' | 'relay-management' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail' | 'mint-detail' | 'token-create' | 'token-register'
+type Screen = 'home' | 'token' | 'settings' | 'contacts' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'mint-management' | 'relay-management' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail' | 'mint-detail' | 'token-create' | 'token-register' | 'token-detail' | 'token-easter-egg'
 
 type TabId = 'wallet' | 'token' | 'contacts' | 'settings'
 const TAB_SCREENS: Record<TabId, Screen> = { wallet: 'home', token: 'token', contacts: 'contacts', settings: 'settings' }
@@ -161,6 +164,9 @@ export default function MainApp() {
 
   // Transaction detail state
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
+
+  // Token detail state
+  const [selectedTokenDetail, setSelectedTokenDetail] = useState<TokenDetailData | null>(null)
 
   // Pre-unlock services (unlock 전 settings/tx 로드에 필요, composition 경유)
   const [preUnlock] = useState(() => ({
@@ -897,7 +903,58 @@ export default function MainApp() {
       )}
 
       {currentScreen === 'token' && (
-        <TokenScreen scrollRef={tokenScrollRef} />
+        <TokenScreen
+          scrollRef={tokenScrollRef}
+          onSelectToken={(detail) => {
+            setSelectedTokenDetail(detail)
+            setPreviousScreen('token')
+            setCurrentScreen('token-detail')
+          }}
+        />
+      )}
+
+      {currentScreen === 'token-detail' && selectedTokenDetail && (
+        <TokenDetailScreen
+          data={selectedTokenDetail}
+          onClose={() => {
+            setSelectedTokenDetail(null)
+            handleBack()
+          }}
+          onShare={async (token) => {
+            const text = token.tokenString
+              ? token.tokenString
+              : t('token.reclaimable.shareText', {
+                  memo: token.memo ?? '',
+                  amount: formatSats(token.amount),
+                })
+            try {
+              if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+                await navigator.share({ text })
+                return
+              }
+              if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(text)
+                addToast({ type: 'success', message: t('token.reclaimable.copiedToClipboard') })
+              }
+            } catch {
+              /* user cancelled or clipboard blocked — silent */
+            }
+          }}
+          onReclaim={async (token) => {
+            if (!serviceRegistry?.payment) return
+            await handleCancelEcashToken(token.id)
+            setSelectedTokenDetail(null)
+            handleBack()
+          }}
+          onTriggerEasterEgg={() => {
+            setPreviousScreen('token-detail')
+            setCurrentScreen('token-easter-egg')
+          }}
+        />
+      )}
+
+      {currentScreen === 'token-easter-egg' && (
+        <EasterEggScreen onClose={handleBack} />
       )}
 
       {currentScreen === 'contacts' && (

@@ -7,15 +7,31 @@ import { PendingWidget } from './components/PendingWidget'
 import { ReclaimableSection } from './components/ReclaimableSection'
 import { TimelineSection } from './components/TimelineSection'
 import { MockStateSwitcher } from './components/MockStateSwitcher'
-import { pickMockData, pendingTotalAmount } from './mockData'
-import type { MockPendingToken, TokenViewState } from './types'
+import {
+  pickMockData,
+  pendingTotalAmount,
+  pendingToDetail,
+  timelineToDetail,
+} from './mockData'
+import type {
+  MockPendingToken,
+  MockTimelineEntry,
+  TokenDetailData,
+  TokenViewState,
+} from './types'
 
 export interface TokenScreenProps {
   scrollRef: RefObject<HTMLDivElement | null>
   initialMockState?: TokenViewState
+  /** Open detail screen for a token (pending card or timeline row click). */
+  onSelectToken?: (detail: TokenDetailData) => void
 }
 
-export function TokenScreen({ scrollRef, initialMockState = 'active' }: TokenScreenProps) {
+export function TokenScreen({
+  scrollRef,
+  initialMockState = 'active',
+  onSelectToken,
+}: TokenScreenProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const addToast = useAppStore((state) => state.addToast)
@@ -52,6 +68,20 @@ export function TokenScreen({ scrollRef, initialMockState = 'active' }: TokenScr
 
   const isEmpty = !hasPending && !hasTimeline
 
+  const handleSelectPending = useCallback(
+    (token: MockPendingToken) => {
+      onSelectToken?.(pendingToDetail(token))
+    },
+    [onSelectToken],
+  )
+
+  const handleSelectTimeline = useCallback(
+    (entry: MockTimelineEntry) => {
+      onSelectToken?.(timelineToDetail(entry))
+    },
+    [onSelectToken],
+  )
+
   return (
     <div ref={scrollRef} className="flex-1 h-full overflow-y-auto pb-28">
       <div className="min-h-full flex flex-col p-4 gap-4">
@@ -77,9 +107,13 @@ export function TokenScreen({ scrollRef, initialMockState = 'active' }: TokenScr
                 showFirstCreateHint={showFirstCreateHint}
                 onDismissHint={() => setHintDismissed(true)}
                 onShare={handleShare}
+                onSelect={onSelectToken ? handleSelectPending : undefined}
               />
             )}
-            <TimelineSection groups={data.timelineGroups} />
+            <TimelineSection
+              groups={data.timelineGroups}
+              onSelect={onSelectToken ? handleSelectTimeline : undefined}
+            />
           </>
         )}
       </div>

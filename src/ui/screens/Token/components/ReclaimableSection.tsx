@@ -10,6 +10,7 @@ export interface ReclaimableSectionProps {
   onViewAll?: () => void
   onReclaim?: (token: MockPendingToken) => void
   onShare?: (token: MockPendingToken) => void
+  onSelect?: (token: MockPendingToken) => void
 }
 
 export function ReclaimableSection({
@@ -19,6 +20,7 @@ export function ReclaimableSection({
   onViewAll,
   onReclaim,
   onShare,
+  onSelect,
 }: ReclaimableSectionProps) {
   const { t } = useTranslation()
 
@@ -47,6 +49,7 @@ export function ReclaimableSection({
           token={token}
           onReclaim={onReclaim ? () => onReclaim(token) : undefined}
           onShare={onShare ? () => onShare(token) : undefined}
+          onSelect={onSelect ? () => onSelect(token) : undefined}
         />
       ))}
     </section>
