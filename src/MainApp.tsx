@@ -910,6 +910,13 @@ export default function MainApp() {
             setPreviousScreen('token')
             setCurrentScreen('token-detail')
           }}
+          onReclaimTokens={async (tokens) => {
+            if (!serviceRegistry?.payment) return
+            for (const tk of tokens) {
+              await handleCancelEcashToken(tk.id)
+            }
+            refreshAll().catch(() => {})
+          }}
         />
       )}
 

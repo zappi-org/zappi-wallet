@@ -7,6 +7,7 @@ import { PendingWidget } from './components/PendingWidget'
 import { ReclaimableSection } from './components/ReclaimableSection'
 import { TimelineSection } from './components/TimelineSection'
 import { MockStateSwitcher } from './components/MockStateSwitcher'
+import { ReclaimSheet } from './components/ReclaimSheet'
 import {
   pickMockData,
   pendingTotalAmount,
@@ -25,12 +26,15 @@ export interface TokenScreenProps {
   initialMockState?: TokenViewState
   /** Open detail screen for a token (pending card or timeline row click). */
   onSelectToken?: (detail: TokenDetailData) => void
+  /** Execute the reclaim operation for the given tokens (awaits real service). */
+  onReclaimTokens?: (tokens: MockPendingToken[]) => Promise<void> | void
 }
 
 export function TokenScreen({
   scrollRef,
   initialMockState = 'active',
   onSelectToken,
+  onReclaimTokens,
 }: TokenScreenProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
@@ -82,6 +86,23 @@ export function TokenScreen({
     [onSelectToken],
   )
 
+  const [reclaimTargets, setReclaimTargets] = useState<MockPendingToken[] | null>(null)
+  const openReclaimAll = useCallback(() => {
+    if (data.pendingTokens.length === 0) return
+    setReclaimTargets(data.pendingTokens)
+  }, [data.pendingTokens])
+  const openReclaimOne = useCallback((token: MockPendingToken) => {
+    setReclaimTargets([token])
+  }, [])
+  const closeReclaim = useCallback(() => setReclaimTargets(null), [])
+  const confirmReclaim = useCallback(
+    async (tokens: MockPendingToken[]) => {
+      if (onReclaimTokens) await onReclaimTokens(tokens)
+      setReclaimTargets(null)
+    },
+    [onReclaimTokens],
+  )
+
   return (
     <div ref={scrollRef} className="flex-1 h-full overflow-y-auto pb-28">
       <div className="min-h-full flex flex-col p-4 gap-4">
@@ -99,6 +120,7 @@ export function TokenScreen({
               <PendingWidget
                 count={data.pendingTokens.length}
                 totalAmount={pendingTotalAmount(data)}
+                onViewAll={openReclaimAll}
               />
             )}
             {hasPending && (
@@ -107,6 +129,7 @@ export function TokenScreen({
                 showFirstCreateHint={showFirstCreateHint}
                 onDismissHint={() => setHintDismissed(true)}
                 onShare={handleShare}
+                onReclaim={openReclaimOne}
                 onSelect={onSelectToken ? handleSelectPending : undefined}
               />
             )}
@@ -117,6 +140,13 @@ export function TokenScreen({
           </>
         )}
       </div>
+
+      <ReclaimSheet
+        isOpen={reclaimTargets !== null}
+        onClose={closeReclaim}
+        tokens={reclaimTargets ?? []}
+        onConfirm={confirmReclaim}
+      />
     </div>
   )
 }

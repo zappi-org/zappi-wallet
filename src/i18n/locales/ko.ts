@@ -1145,11 +1145,10 @@ export default {
     pendingWidget: {
       title: '대기중',
       summary: '{{count}}개 - 총 {{total}}',
-      viewAll: '대기중 보기',
+      viewAll: '모두 되찾기',
     },
     reclaimable: {
       section: '되찾을 수 있어요 ({{count}})',
-      viewAll: '모두보기 >',
       actions: {
         reclaim: '되찾기',
         share: '공유',
@@ -1160,6 +1159,14 @@ export default {
     firstCreate: {
       hint: '만들었지만 아직 등록되지 않은 토큰들이에요.\n상대방이 못 받았거나, 아직 등록 하지 않았을 수 있어요.',
       dismiss: '다시보지않기',
+    },
+    reclaim: {
+      title: '되찾기',
+      context: '{{count}}개 토큰을 되찾아요',
+      summaryTotal: '총 토큰 금액',
+      summaryFee: '수취 수수료',
+      summaryNet: '받는 금액',
+      confirm: '되찾기',
     },
     history: {
       section: '토큰 내역',
@@ -1233,6 +1240,9 @@ export default {
         receiveFee: '수취 수수료',
         empty: '토큰 데이터가 없습니다.',
         easterEgg: 'ZAPPI X CASHU',
+      },
+      qr: {
+        title: 'QR 공유',
       },
     },
   },

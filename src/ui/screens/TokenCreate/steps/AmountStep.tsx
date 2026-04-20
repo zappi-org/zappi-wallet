@@ -96,8 +96,8 @@ export function AmountStep({
           </div>
         </div>
 
-        {/* Fee toggle — anchored near next button */}
-        <label className="flex items-start w-[85%] mx-auto gap-2 mt-auto mb-3 cursor-pointer">
+        {/* Fee toggle — hidden for now; state (senderPaysFee) stays wired at default `false`. */}
+        <label className="hidden items-start w-[85%] mx-auto gap-2 mt-auto mb-3 cursor-pointer">
           <input
             type="checkbox"
             checked={senderPaysFee}

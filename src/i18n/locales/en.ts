@@ -1138,11 +1138,10 @@ export default {
     pendingWidget: {
       title: 'Pending',
       summary: '{{count}} tokens · {{total}}',
-      viewAll: 'View pending',
+      viewAll: 'Reclaim all',
     },
     reclaimable: {
       section: 'Reclaimable ({{count}})',
-      viewAll: 'View all >',
       actions: {
         reclaim: 'Reclaim',
         share: 'Share',
@@ -1153,6 +1152,14 @@ export default {
     firstCreate: {
       hint: 'You created these tokens but they have not been registered yet.\nThe recipient may not have received or registered them yet.',
       dismiss: "Don't show again",
+    },
+    reclaim: {
+      title: 'Reclaim',
+      context: 'Reclaiming {{count}} token(s)',
+      summaryTotal: 'Total',
+      summaryFee: 'Receive fee',
+      summaryNet: 'You receive',
+      confirm: 'Reclaim',
     },
     history: {
       section: 'Token history',
@@ -1226,6 +1233,9 @@ export default {
         receiveFee: 'Receive fee',
         empty: 'No token data.',
         easterEgg: 'ZAPPI X CASHU',
+      },
+      qr: {
+        title: 'Share QR',
       },
     },
   },

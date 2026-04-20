@@ -15,8 +15,10 @@ import { useAppStore } from '@/store'
 import { formatFiatAmount, useFormatSats } from '@/utils/format'
 import { MintIcon } from '@/ui/components/common/MintIcon'
 import { TokenRawSheet } from './components/TokenRawSheet'
+import { TokenQrSheet } from './components/TokenQrSheet'
+import { ReclaimSheet } from './components/ReclaimSheet'
 import { formatDetailDateLine } from './mockData'
-import type { TokenDetailData, TokenDetailStatus } from './types'
+import type { MockPendingToken, TokenDetailData, TokenDetailStatus } from './types'
 
 const STATUS_ICON: Record<TokenDetailStatus, LucideIcon | null> = {
   pending: null, // rendered as orange dot instead
@@ -58,6 +60,8 @@ export function TokenDetailScreen({
   const addToast = useAppStore((s) => s.addToast)
 
   const [rawOpen, setRawOpen] = useState(false)
+  const [qrOpen, setQrOpen] = useState(false)
+  const [reclaimOpen, setReclaimOpen] = useState(false)
 
   const isPending = data.status === 'pending'
   const timestamp = data.statusAt ?? data.createdAt
@@ -87,12 +91,32 @@ export function TokenDetailScreen({
   }, [onShare, data])
 
   const handleQr = useCallback(() => {
-    if (onShowQr) onShowQr(data)
+    if (onShowQr) {
+      onShowQr(data)
+      return
+    }
+    setQrOpen(true)
   }, [onShowQr, data])
 
-  const handleReclaim = useCallback(() => {
-    if (onReclaim) void onReclaim(data)
+  const openReclaim = useCallback(() => setReclaimOpen(true), [])
+  const confirmReclaim = useCallback(async () => {
+    if (onReclaim) await onReclaim(data)
+    setReclaimOpen(false)
   }, [onReclaim, data])
+
+  const reclaimTokens: MockPendingToken[] = useMemo(
+    () => [
+      {
+        id: data.id,
+        createdAt: data.createdAt,
+        amount: data.amount,
+        memo: data.memo ?? '',
+        counterparty: '',
+        fiatUsd: data.fiatUsd,
+      },
+    ],
+    [data],
+  )
 
   const mintLabelKey = `token.detail.mintLabel.${data.status}` as const
   const typeValueKey = `token.detail.typeValue.${data.status}` as const
@@ -238,7 +262,7 @@ export function TokenDetailScreen({
         >
           <button
             type="button"
-            onClick={handleReclaim}
+            onClick={openReclaim}
             className="h-[35px] px-6 rounded-[25px] bg-background-card flex items-center gap-1.5 text-caption text-foreground active:scale-[0.98] transition-all"
             style={{ boxShadow: PLASTIC_SHADOW }}
           >
@@ -265,6 +289,24 @@ export function TokenDetailScreen({
           onTriggerEasterEgg?.()
         }}
       />
+
+      <TokenQrSheet
+        isOpen={qrOpen}
+        onClose={() => setQrOpen(false)}
+        tokenString={data.tokenString}
+        amount={data.amount}
+        memo={data.memo}
+      />
+
+      {isPending && (
+        <ReclaimSheet
+          isOpen={reclaimOpen}
+          onClose={() => setReclaimOpen(false)}
+          tokens={reclaimTokens}
+          reclaimFeePerToken={data.reclaimFee ?? 2}
+          onConfirm={confirmReclaim}
+        />
+      )}
     </div>
   )
 }
