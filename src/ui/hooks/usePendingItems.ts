@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useContext } from 'react'
 import { ServiceContext } from '@/ui/hooks/service-context-value'
+import { useAppStore } from '@/store'
 import type { PendingItem } from '@/core/ports/driving/pending-items.usecase'
 
 export type { PendingItem }
@@ -10,6 +11,7 @@ export function usePendingItems(mintUrl: string) {
   const registry = useContext(ServiceContext)
   const [items, setItems] = useState<PendingItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const txRefreshTrigger = useAppStore((s) => s.txRefreshTrigger)
 
   const refresh = useCallback(async () => {
     if (!registry?.pendingItems) {
@@ -30,7 +32,7 @@ export function usePendingItems(mintUrl: string) {
 
   useEffect(() => {
     refresh()
-  }, [refresh])
+  }, [refresh, txRefreshTrigger])
 
   return { items, isLoading, refresh }
 }
@@ -42,6 +44,7 @@ export function useAllPendingItems(mintUrls: string[]) {
   const registry = useContext(ServiceContext)
   const [items, setItems] = useState<PendingItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const txRefreshTrigger = useAppStore((s) => s.txRefreshTrigger)
 
   const mintUrlsKey = mintUrls.join(',')
 
@@ -64,7 +67,7 @@ export function useAllPendingItems(mintUrls: string[]) {
 
   useEffect(() => {
     refresh()
-  }, [refresh])
+  }, [refresh, txRefreshTrigger])
 
   return { items, isLoading, refresh }
 }

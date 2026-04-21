@@ -1,36 +1,136 @@
 import { BottomActionBar } from '@/ui/components/common/BottomActionBar'
 import { Button } from '@/ui/components/common/Button'
+import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
+import { Confetti } from '@/ui/components/payment/Confetti'
 import { useFormatSats } from '@/utils/format'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
-import { Copy, Eye, Share2, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
-import { MOCK_CREATE_FEE } from '../mockData'
+import { usePaymentCompleted } from '@/ui/hooks/use-payment-completed'
+import { useAppStore } from '@/store'
+import { hapticSuccess } from '@/ui/utils/haptic'
+import { useTranslation } from 'react-i18next'
+import { motion } from 'motion/react'
+import { Check, Copy, Eye, Share2, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 export interface CreatedStepProps {
   amount: number
   memo: string
   senderPaysFee: boolean
   mintUrl: string
+  /** Cashu token string produced by send. Empty if unavailable. */
+  tokenString: string
+  /** Transaction id of the pending send — used for live fee quote. */
+  txId?: string
   onClose: () => void
+  /** Reclaim the created token — returns to token tab on success. */
+  onCancelToken?: () => Promise<void> | void
+  /** Live reclaim/receive fee quote. Returns null if unavailable. */
+  onQuoteReclaim?: (txId: string) => Promise<number | null>
 }
+
+const SPENT_AUTO_DISMISS_MS = 3000
 
 export function CreatedStep({
   amount,
   memo,
   senderPaysFee,
   mintUrl,
+  tokenString,
+  txId,
   onClose,
+  onCancelToken,
+  onQuoteReclaim,
 }: CreatedStepProps) {
+  const { t } = useTranslation()
   const formatSats = useFormatSats()
+  const addToast = useAppStore((s) => s.addToast)
   const [veiled, setVeiled] = useState(true)
+  const [cancelBusy, setCancelBusy] = useState(false)
+  const [receiveFee, setReceiveFee] = useState<number | null>(null)
+  const [isSpent, setIsSpent] = useState(false)
+  const spentGuardRef = useRef(false)
   const mintUrls = useMemo(() => [mintUrl], [mintUrl])
   const { getDisplayName } = useMintMetadata(mintUrls)
   const mintName = getDisplayName(mintUrl)
 
-  const displayedAmount = senderPaysFee ? amount + MOCK_CREATE_FEE : amount
+  // Subscribe to payment:completed event filtered by this tx —
+  // fires when the recipient claims/uses the token (send-token-observer).
+  const handleSpent = useCallback(() => {
+    if (spentGuardRef.current) return
+    spentGuardRef.current = true
+    setIsSpent(true)
+    hapticSuccess()
+  }, [])
+  usePaymentCompleted(txId, handleSpent)
+
+  // Auto-dismiss a few seconds after the token is claimed.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+  useEffect(() => {
+    if (!isSpent) return
+    const timer = window.setTimeout(() => onCloseRef.current(), SPENT_AUTO_DISMISS_MS)
+    return () => window.clearTimeout(timer)
+  }, [isSpent])
+
+  useEffect(() => {
+    if (!txId || !onQuoteReclaim) return
+    let cancelled = false
+    onQuoteReclaim(txId)
+      .then((fee) => {
+        if (!cancelled) setReceiveFee(fee)
+      })
+      .catch(() => {
+        /* ignore — fee line simply won't show */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [txId, onQuoteReclaim])
+
+  const displayedAmount = senderPaysFee ? amount + (receiveFee ?? 0) : amount
+
+  const copyToken = useCallback(async () => {
+    if (!tokenString) return
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(tokenString)
+        hapticSuccess()
+        addToast({ type: 'success', message: t('token.reclaimable.copiedToClipboard') })
+      }
+    } catch {
+      /* clipboard blocked — silent */
+    }
+  }, [tokenString, addToast, t])
+
+  const shareToken = useCallback(async () => {
+    if (!tokenString) return
+    try {
+      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+        await navigator.share({ text: tokenString })
+        return
+      }
+      // Fallback to clipboard copy
+      await copyToken()
+    } catch {
+      /* user cancelled share sheet — silent */
+    }
+  }, [tokenString, copyToken])
+
+  const handleCancel = useCallback(async () => {
+    if (cancelBusy || !onCancelToken || isSpent) return
+    setCancelBusy(true)
+    try {
+      await onCancelToken()
+    } finally {
+      setCancelBusy(false)
+    }
+  }, [cancelBusy, onCancelToken, isSpent])
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full bg-background relative">
+      {isSpent && <Confetti />}
       <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
         <button
           onClick={onClose}
@@ -40,80 +140,120 @@ export function CreatedStep({
           <X className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
         <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold text-foreground pointer-events-none">
-          토큰이 만들어졌어요
+          {isSpent ? '토큰이 사용되었어요' : '토큰이 만들어졌어요'}
         </h1>
         <div className="w-10" />
       </header>
 
-      <div className="flex-1 overflow-y-auto px-6 pt-2 flex flex-col gap-6">
-        {/* QR placeholder */}
-        <button
-          type="button"
-          onClick={() => setVeiled((v) => !v)}
-          className="relative aspect-square w-full max-w-[360px] mx-auto rounded-card bg-background-card overflow-hidden flex items-center justify-center"
-        >
-          {!veiled && (
-            <>
-              <div className="absolute top-4 left-4 w-10 h-10 border-t-4 border-l-4 border-foreground rounded-tl-sm" />
-              <div className="absolute top-4 right-4 w-10 h-10 border-t-4 border-r-4 border-foreground rounded-tr-sm" />
-              <div className="absolute bottom-4 left-4 w-10 h-10 border-b-4 border-l-4 border-foreground rounded-bl-sm" />
-              <div className="absolute bottom-4 right-4 w-10 h-10 border-b-4 border-r-4 border-foreground rounded-br-sm" />
-            </>
-          )}
-
-          <div
-            className={`flex flex-col items-center gap-2 transition-all ${
-              veiled ? 'blur-md opacity-40' : ''
-            }`}
+      {isSpent ? (
+        <div className="flex-1 flex flex-col items-center justify-center px-8 gap-4">
+          <motion.div
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            className="w-20 h-20 rounded-full bg-brand/10 flex items-center justify-center"
           >
-            <div className="text-6xl">🔳</div>
-          </div>
-
-          {veiled && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 pointer-events-none">
-              <div className="text-5xl">🙈</div>
-              <div className="flex items-center gap-1.5 text-caption text-foreground-muted">
-                <Eye className="w-4 h-4" strokeWidth={1.8} />
-                <span>탭해서 보기</span>
-              </div>
-            </div>
-          )}
-        </button>
-
-        {/* Amount + meta */}
-        <div className="flex flex-col items-center gap-1">
-          <p className="text-heading leading-none font-semibold text-foreground">
-            {formatSats(displayedAmount)}
+            <Check className="w-10 h-10 text-brand" strokeWidth={2.5} />
+          </motion.div>
+          <p className="text-heading font-semibold text-foreground text-center">
+            {formatSats(displayedAmount)} 사용되었어요
           </p>
-          <p className="text-body text-foreground-muted mt-2">
+          <p className="text-body text-foreground-muted text-center">
             {memo ? `${memo} · ` : ''}
             {mintName}
           </p>
-          {!senderPaysFee && (
-            <p className="text-caption text-foreground-muted mt-1">
-              수취 수수료 {formatSats(MOCK_CREATE_FEE)}
-            </p>
-          )}
         </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto px-6 pt-2 flex flex-col gap-6">
+          {/* QR — veiled until tapped; QR fills the outer frame */}
+          <button
+            type="button"
+            onClick={() => setVeiled((v) => !v)}
+            className="relative aspect-square w-full max-w-[360px] mx-auto rounded-card overflow-hidden flex items-center justify-center bg-white p-4"
+          >
+            {tokenString ? (
+              <div
+                className={`w-full h-full flex items-center justify-center transition-all ${
+                  veiled ? 'blur-md opacity-40' : ''
+                }`}
+              >
+                <QRCodeDisplay value={tokenString} level="M" fill />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-foreground-muted">
+                <div className="text-5xl">🔳</div>
+                <span className="text-caption">{t('token.detail.raw.empty')}</span>
+              </div>
+            )}
 
-        {/* Copy / Share */}
-        <div className="flex items-center gap-3 mt-2">
-          <Button variant="secondary" size="lg" className="flex-1" icon={<Copy className="w-4 h-4" strokeWidth={1.8} />}>
-            복사
-          </Button>
-          <Button variant="secondary" size="lg" className="flex-1" icon={<Share2 className="w-4 h-4" strokeWidth={1.8} />}>
-            공유
-          </Button>
+            {veiled && tokenString && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 pointer-events-none">
+                <div className="text-5xl">🙈</div>
+                <div className="flex items-center gap-1.5 text-caption text-foreground-muted">
+                  <Eye className="w-4 h-4" strokeWidth={1.8} />
+                  <span>탭해서 보기</span>
+                </div>
+              </div>
+            )}
+          </button>
+
+          {/* Amount + meta */}
+          <div className="flex flex-col items-center gap-1">
+            <p className="text-heading leading-none font-semibold text-foreground">
+              {formatSats(displayedAmount)}
+            </p>
+            <p className="text-body text-foreground-muted mt-2">
+              {memo ? `${memo} · ` : ''}
+              {mintName}
+            </p>
+            {!senderPaysFee && receiveFee !== null && receiveFee > 0 && (
+              <p className="text-caption text-foreground-muted mt-1">
+                수취 수수료 {formatSats(receiveFee)}
+              </p>
+            )}
+          </div>
+
+          {/* Copy / Share */}
+          <div className="flex items-center gap-3 mt-2">
+            <Button
+              variant="secondary"
+              size="lg"
+              className="flex-1"
+              icon={<Copy className="w-4 h-4" strokeWidth={1.8} />}
+              onClick={copyToken}
+              disabled={!tokenString}
+            >
+              복사
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              className="flex-1"
+              icon={<Share2 className="w-4 h-4" strokeWidth={1.8} />}
+              onClick={shareToken}
+              disabled={!tokenString}
+            >
+              공유
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       <BottomActionBar extraBottom={16} gap="sm">
-        <button
-          type="button"
-          className="w-full h-11 text-body text-foreground-muted hover:text-foreground transition-colors"
-        >
-          되찾기 (수취 수수료가 들어요)
-        </button>
+        {!isSpent && onCancelToken && (
+          <button
+            type="button"
+            onClick={handleCancel}
+            disabled={cancelBusy}
+            className="w-full h-11 text-body text-foreground-muted hover:text-foreground transition-colors disabled:opacity-60"
+          >
+            {cancelBusy
+              ? '되찾는 중…'
+              : receiveFee !== null && receiveFee > 0
+                ? `되찾기 (수취 수수료 ${formatSats(receiveFee)})`
+                : '되찾기'}
+          </button>
+        )}
         <Button variant="brand" size="xl" onClick={onClose} className="w-full">
           확인
         </Button>

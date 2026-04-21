@@ -1,7 +1,9 @@
 import { Button } from '@/ui/components/common/Button'
 import { Confetti } from '@/ui/components/payment/Confetti'
+import { hapticSuccess } from '@/ui/utils/haptic'
 import { useFormatFiat, useFormatSats } from '@/utils/format'
 import { motion } from 'motion/react'
+import { useEffect } from 'react'
 import tokenReceiveSuccessImg from '@/assets/token-receive-success.png'
 
 export interface RegisteredStepProps {
@@ -9,10 +11,18 @@ export interface RegisteredStepProps {
   onComplete: () => void
 }
 
+const AUTO_DISMISS_MS = 5000
+
 export function RegisteredStep({ amount, onComplete }: RegisteredStepProps) {
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
   const fiatLabel = formatFiat(amount)
+
+  useEffect(() => {
+    hapticSuccess()
+    const id = window.setTimeout(onComplete, AUTO_DISMISS_MS)
+    return () => window.clearTimeout(id)
+  }, [onComplete])
 
   return (
     <div className="flex flex-col h-full bg-background relative">

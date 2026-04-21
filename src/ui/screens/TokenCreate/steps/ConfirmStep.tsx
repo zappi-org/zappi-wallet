@@ -5,8 +5,11 @@ import { MintIcon } from '@/ui/components/common/MintIcon'
 import { useFormatFiat, useFormatSats } from '@/utils/format'
 import { useWallet } from '@/ui/hooks/use-wallet'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
-import { useMemo } from 'react'
-import { MOCK_CREATE_FEE } from '../mockData'
+import { useAppStore } from '@/store'
+import { translateError } from '@/ui/utils/error-i18n'
+import { hapticError } from '@/ui/utils/haptic'
+import { useTranslation } from 'react-i18next'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 export interface ConfirmStepProps {
   amount: number
@@ -14,7 +17,10 @@ export interface ConfirmStepProps {
   senderPaysFee: boolean
   mintUrl: string
   onBack: () => void
-  onConfirm: () => void
+  /** Executes token creation; resolves after the flow transitions on success. */
+  onConfirm: () => Promise<void>
+  /** Optional live fee estimate. Returns null when unavailable or 0 when the mint charges no fee. */
+  onEstimateFee?: (mintUrl: string, amount: number) => Promise<number | null>
 }
 
 export function ConfirmStep({
@@ -24,20 +30,56 @@ export function ConfirmStep({
   mintUrl,
   onBack,
   onConfirm,
+  onEstimateFee,
 }: ConfirmStepProps) {
+  const { t } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
   const { balance } = useWallet()
+  const addToast = useAppStore((s) => s.addToast)
   const mintUrls = useMemo(() => [mintUrl], [mintUrl])
   const { getDisplayName, getIconUrl } = useMintMetadata(mintUrls)
+
+  const [busy, setBusy] = useState(false)
+  const [fee, setFee] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!onEstimateFee || amount <= 0) return
+    let cancelled = false
+    onEstimateFee(mintUrl, amount)
+      .then((value) => {
+        if (!cancelled) setFee(value)
+      })
+      .catch(() => {
+        if (!cancelled) setFee(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [mintUrl, amount, onEstimateFee])
 
   const mintBalance = balance.byMint[mintUrl] ?? 0
   const mintName = getDisplayName(mintUrl)
   const mintIconUrl = getIconUrl(mintUrl)
 
-  const tokenAmount = senderPaysFee ? amount + MOCK_CREATE_FEE : amount
-  const postBalance = mintBalance - tokenAmount - MOCK_CREATE_FEE
+  const appliedFee = fee ?? 0
+  const tokenAmount = senderPaysFee ? amount + appliedFee : amount
+  const postBalance = mintBalance - tokenAmount - appliedFee
   const fiatLabel = formatFiat(tokenAmount)
+  const showFeeRow = fee !== null && fee > 0
+
+  const handleConfirm = useCallback(async () => {
+    if (busy) return
+    setBusy(true)
+    try {
+      await onConfirm()
+    } catch (error) {
+      hapticError()
+      addToast({ type: 'error', message: translateError(error, t) })
+    } finally {
+      setBusy(false)
+    }
+  }, [busy, onConfirm, addToast, t])
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -82,12 +124,14 @@ export function ConfirmStep({
               <span className="text-body font-medium text-foreground">{mintName}</span>
             </div>
           </div>
-          <div className="flex justify-between py-2.5 border-b border-border/50">
-            <span className="text-body text-foreground-muted">생성 수수료</span>
-            <span className="text-body font-medium text-foreground">
-              {formatSats(MOCK_CREATE_FEE)}
-            </span>
-          </div>
+          {showFeeRow && (
+            <div className="flex justify-between py-2.5 border-b border-border/50">
+              <span className="text-body text-foreground-muted">생성 수수료</span>
+              <span className="text-body font-medium text-foreground">
+                {formatSats(appliedFee)}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between py-2.5">
             <span className="text-body font-bold text-foreground">생성 후 잔액</span>
             <span className="text-body font-bold text-foreground">
@@ -96,8 +140,14 @@ export function ConfirmStep({
           </div>
         </div>
 
-        <Button variant="brand" size="xl" onClick={onConfirm} className="w-full">
-          다음
+        <Button
+          variant="brand"
+          size="xl"
+          onClick={handleConfirm}
+          disabled={busy}
+          className="w-full"
+        >
+          {busy ? '생성 중…' : '다음'}
         </Button>
       </BottomActionBar>
     </div>

@@ -97,6 +97,13 @@ export interface SendResult {
 export interface ReclaimResult {
   transactionId: string
   amount: Amount
+  /**
+   * Resolution of the reclaim attempt:
+   * - 'reclaimed' — cancel/rollback succeeded, proofs returned to wallet
+   * - 'already_consumed' — recipient already claimed the token; tx was
+   *   reconciled to settled+claimed instead of failing
+   */
+  state?: 'reclaimed' | 'already_consumed'
 }
 
 export interface RecoveryReport {

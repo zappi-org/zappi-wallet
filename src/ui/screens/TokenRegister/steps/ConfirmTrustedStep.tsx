@@ -1,35 +1,26 @@
 import { BottomActionBar } from '@/ui/components/common/BottomActionBar'
 import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
-import type { MintCardVariant } from '@/ui/components/wallet/MintCard'
+import { MintIcon } from '@/ui/components/common/MintIcon'
+import { useWallet } from '@/ui/hooks/use-wallet'
+import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
+import { useAppStore } from '@/store'
+import { hapticError } from '@/ui/utils/haptic'
+import { translateError } from '@/ui/utils/error-i18n'
+import { useTranslation } from 'react-i18next'
 import { useFormatFiat, useFormatSats } from '@/utils/format'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import zappiLogo from '@/assets/zappi.png'
-import {
-  MOCK_REGISTER_BALANCE,
-  MOCK_REGISTER_FEE,
-  MOCK_TRUSTED_MINT,
-} from '../mockData'
+import type { ValidatedCashuToken } from '@/core/domain/input-types'
 
 export interface ConfirmTrustedStepProps {
-  amount: number
-  memo?: string
+  token: ValidatedCashuToken
   onBack: () => void
-  onReceive: () => void
-}
-
-const VARIANT_CLASS: Record<MintCardVariant, string> = {
-  indigo: 'bg-card-indigo',
-  coral: 'bg-card-coral',
-  teal: 'bg-card-teal',
-  slate: 'bg-card-slate',
-  amber: 'bg-card-amber',
-  plum: 'bg-card-plum',
-  forest: 'bg-card-forest',
-  light: 'bg-card-gradient-light',
-  medium: 'bg-card-gradient-medium',
-  dark: 'bg-card-gradient-dark',
-  darker: 'bg-card-gradient-darker',
+  onReceive: () => Promise<void>
+  onEstimateRedeemFee?: (
+    token: string,
+  ) => Promise<{ grossAmount: number; fee: number; netAmount: number } | null>
 }
 
 /** Memo font size heuristic — 6-tier gradual shrink 20→13px (~160px box) */
@@ -44,17 +35,62 @@ function memoFontSizeFor(memo: string): number {
 }
 
 export function ConfirmTrustedStep({
-  amount,
-  memo,
+  token,
   onBack,
   onReceive,
+  onEstimateRedeemFee,
 }: ConfirmTrustedStepProps) {
+  const { t } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
-  const netAmount = amount - MOCK_REGISTER_FEE
+  const { balance } = useWallet()
+  const addToast = useAppStore((s) => s.addToast)
+
+  const mintUrl = token.mintUrl
+  const amount = token.amountSats
+  const memo = token.memo ?? ''
+
+  const mintUrls = useMemo(() => [mintUrl], [mintUrl])
+  const { getDisplayName, getIconUrl, getMetadata } = useMintMetadata(mintUrls)
+  const mintName = getDisplayName(mintUrl)
+  const mintSubName = getMetadata(mintUrl)?.name
+  const mintIconUrl = getIconUrl(mintUrl)
+  const mintBalance = balance.byMint[mintUrl] ?? 0
+
+  const [fee, setFee] = useState<number | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!onEstimateRedeemFee) return
+    let cancelled = false
+    onEstimateRedeemFee(token.token)
+      .then((estimate) => {
+        if (!cancelled && estimate) setFee(estimate.fee)
+      })
+      .catch(() => {
+        /* ignore; UI shows fee as '—' */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [token.token, onEstimateRedeemFee])
+
+  const netAmount = fee !== null ? Math.max(0, amount - fee) : amount
   const fiatLabel = formatFiat(amount)
-  const cardBg = VARIANT_CLASS[MOCK_TRUSTED_MINT.variant]
   const memoFontSize = memo ? memoFontSizeFor(memo) : 21
+
+  const handleReceive = useCallback(async () => {
+    if (busy) return
+    setBusy(true)
+    try {
+      await onReceive()
+    } catch (error) {
+      hapticError()
+      addToast({ type: 'error', message: translateError(error, t) })
+    } finally {
+      setBusy(false)
+    }
+  }, [busy, onReceive, addToast, t])
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -66,21 +102,21 @@ export function ConfirmTrustedStep({
         </h2>
 
         {/* Hero card — fixed min-height, zappi at Figma-exact absolute position */}
-        <div
-          className={`${cardBg} relative rounded-card p-5 mt-5 min-h-[201px] max-w-[380px] mx-auto overflow-hidden`}
-        >
+        <div className="bg-card-teal relative rounded-card p-5 mt-5 min-h-[201px] max-w-[380px] mx-auto overflow-hidden">
           {/* Mint header — natural top-left flow */}
           <div className="flex items-center gap-2">
-            <div className="w-[35px] h-[35px] rounded-full bg-white/20 flex items-center justify-center text-base shrink-0">
-              {MOCK_TRUSTED_MINT.logo}
-            </div>
+            <MintIcon
+              iconUrl={mintIconUrl}
+              imgSize="w-[24px] h-[24px]"
+              className="w-[35px] h-[35px] rounded-full bg-white/20"
+            />
             <div className="flex flex-col leading-tight">
               <span className="text-[17px] font-semibold text-white">
-                {MOCK_TRUSTED_MINT.name}
+                {mintName}
               </span>
-              {MOCK_TRUSTED_MINT.subName && (
+              {mintSubName && mintSubName !== mintName && (
                 <span className="text-[13px] text-white/60">
-                  {MOCK_TRUSTED_MINT.subName}
+                  {mintSubName}
                 </span>
               )}
             </div>
@@ -136,19 +172,19 @@ export function ConfirmTrustedStep({
             <div className="flex flex-col items-end">
               <div className="flex items-center gap-1">
                 <span className="text-body font-medium text-foreground">
-                  {MOCK_TRUSTED_MINT.name}
+                  {mintName}
                 </span>
                 <ChevronRight className="w-4 h-4 text-foreground-muted" />
               </div>
               <span className="text-caption text-foreground-muted mt-0.5">
-                잔액 {formatSats(MOCK_REGISTER_BALANCE)}
+                잔액 {formatSats(mintBalance)}
               </span>
             </div>
           </div>
           <div className="flex justify-between py-2.5 border-b border-border/50">
             <span className="text-body text-foreground-muted">수취 수수료</span>
             <span className="text-body font-medium text-foreground">
-              -{formatSats(MOCK_REGISTER_FEE)}
+              {fee !== null ? `-${formatSats(fee)}` : '—'}
             </span>
           </div>
           <div className="flex justify-between py-2.5">
@@ -159,8 +195,14 @@ export function ConfirmTrustedStep({
           </div>
         </div>
 
-        <Button variant="brand" size="xl" onClick={onReceive} className="w-full">
-          받기
+        <Button
+          variant="brand"
+          size="xl"
+          onClick={handleReceive}
+          disabled={busy}
+          className="w-full"
+        >
+          {busy ? '받는 중…' : '받기'}
         </Button>
       </BottomActionBar>
     </div>

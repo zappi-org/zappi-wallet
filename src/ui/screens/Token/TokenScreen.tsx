@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useMemo, useState, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useFormatSats, satsToFiat } from '@/utils/format'
+import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useReclaimFees } from '@/ui/hooks/useReclaimFees'
@@ -24,6 +25,9 @@ import type {
   TokenDetailData,
 } from './types'
 
+const RECOVER_THROTTLE_MS = 30_000
+let lastRecoverAllRun = 0
+
 export interface TokenScreenProps {
   scrollRef: RefObject<HTMLDivElement | null>
   /** Open detail screen for a token (pending card or timeline row click). */
@@ -42,6 +46,22 @@ export function TokenScreen({
   const addToast = useAppStore((state) => state.addToast)
 
   const [hintDismissed, setHintDismissed] = useState(false)
+
+  const registry = useServiceRegistry()
+
+  // Proactively reconcile SDK state when the tab is viewed: catches pending
+  // sends that were claimed while observer events were missed (app backgrounded,
+  // subscription paused, etc.). Throttled at module level to avoid spam on
+  // rapid tab switching.
+  useEffect(() => {
+    if (!registry?.payment) return
+    const now = Date.now()
+    if (now - lastRecoverAllRun < RECOVER_THROTTLE_MS) return
+    lastRecoverAllRun = now
+    registry.payment.recoverAll().catch((err) => {
+      console.warn('[TokenScreen] recoverAll failed:', err)
+    })
+  }, [registry])
 
   const mintUrls = useAppStore((s) => s.settings.mints)
   const { items: pendingItemsRaw } = useAllPendingItems(mintUrls)

@@ -73,12 +73,19 @@ export function pendingToDetail(
  * - Received ecash tokens I redeemed (direction='receive', outcome='claimed')
  * - Sent ecash tokens recipient claimed (direction='send', outcome='claimed')
  * - Sent ecash tokens I reclaimed (direction='send', outcome='reclaimed')
- * Excludes pending sends (rendered via usePendingItems) and swaps.
+ * Excludes:
+ * - Pending sends (rendered via usePendingItems)
+ * - Swaps
+ * - Auto-generated reclaim-receive sub-tx (observer creates a -reclaim tx with
+ *   metadata.reclaimedFrom for general history visibility; the reclaim is
+ *   already shown via the original send tx with outcome='reclaimed', so the
+ *   sub-tx is a duplicate here and lacks the original tokenString).
  */
 export function isTokenTimelineTx(tx: Transaction): boolean {
   if (tx.protocol !== 'cashu-token') return false
   if (tx.intent === 'swap') return false
   if (tx.status !== 'settled') return false
+  if (tx.metadata?.reclaimedFrom) return false
   return tx.outcome === 'claimed' || tx.outcome === 'reclaimed'
 }
 

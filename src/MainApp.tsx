@@ -102,7 +102,7 @@ export default function MainApp() {
   const [serviceRegistry, setServiceRegistry] = useState<BootstrapResult | null>(null)
 
   // Hooks
-  const { refreshBalance } = useWallet()
+  const { refreshBalance, balance } = useWallet()
   const { isOnline } = useNetwork()
   const [isRecovering, setIsRecovering] = useState(false)
 
@@ -631,6 +631,78 @@ export default function MainApp() {
     }
   }, [serviceRegistry])
 
+  // ─── 토큰 생성 전 수수료 견적 ───
+  const handleEstimateCreateFee = useCallback(
+    async (mintUrl: string, amount: number): Promise<number | null> => {
+      if (!serviceRegistry?.payment) return null
+      try {
+        const result = await serviceRegistry.payment.estimateFee({
+          accountId: mintUrl,
+          destination: '',
+          amount: sat(amount),
+        })
+        if (!result.ok) return null
+        return toNumber(result.value.fee)
+      } catch {
+        return null
+      }
+    },
+    [serviceRegistry],
+  )
+
+  // ─── 되찾기(수취) 수수료 견적 — 이미 생성된 tx ───
+  const handleQuoteReclaim = useCallback(
+    async (txId: string): Promise<number | null> => {
+      if (!serviceRegistry?.payment) return null
+      try {
+        const result = await serviceRegistry.payment.quoteReclaim({ transactionId: txId })
+        if (!result.ok) return null
+        return toNumber(result.value.fee)
+      } catch {
+        return null
+      }
+    },
+    [serviceRegistry],
+  )
+
+  // ─── 등록 중인 토큰이 내가 생성한 pending send 인지 확인 ───
+  const handleCheckSelfToken = useCallback(
+    async (tokenString: string): Promise<{ txId: string; amount: number } | null> => {
+      if (!serviceRegistry?.pendingItems) return null
+      try {
+        const items = await serviceRegistry.pendingItems.getAll()
+        const match = items.find(
+          (item) =>
+            item.direction === 'send' &&
+            item.kind === 'token' &&
+            (item.details as { token?: string } | undefined)?.token === tokenString,
+        )
+        if (!match) return null
+        return { txId: match.id, amount: match.amount }
+      } catch {
+        return null
+      }
+    },
+    [serviceRegistry],
+  )
+
+  // ─── Register flow 에서 self-token 감지 시 reclaim 실행 ───
+  const handleReclaimOwnToken = useCallback(
+    async (txId: string): Promise<{ amount: number } | null> => {
+      if (!serviceRegistry?.payment) return null
+      try {
+        const result = await serviceRegistry.payment.reclaim({ transactionId: txId })
+        if (!result.ok) return null
+        await refreshBalance()
+        broadcastSync('balance_changed')
+        return { amount: toNumber(result.value.amount) }
+      } catch {
+        return null
+      }
+    },
+    [serviceRegistry, refreshBalance],
+  )
+
   // Settings handlers
   const handleChangePassword = useCallback(async (oldPassword: string, newPassword: string): Promise<boolean> => {
     const result = await preUnlock.security.changePassword(oldPassword, newPassword)
@@ -725,16 +797,25 @@ export default function MainApp() {
         return false
       }
 
-      const newMints = [...settings.mints, url]
-      const existingAliases = settings.mintAliases || {}
+      // Port-level trust add (persists mints via SettingsRepository)
+      if (!serviceRegistry?.trustRegistry) {
+        console.warn('[App] ServiceRegistry not ready — cannot add trust')
+        return false
+      }
+      await serviceRegistry.trustRegistry.addTrust(url)
+
+      // Aliases are UI-layer metadata — persist separately on top of the
+      // freshly-updated settings so the trust write isn't clobbered.
+      const refreshed = await preUnlock.settingsRepo.getSettings()
+      const existingAliases = refreshed.mintAliases || {}
       const nextNumber = Object.keys(existingAliases).length + 1
       const alias = t('mintDetail.defaultName', { number: nextNumber })
       const newAliases = { ...existingAliases, [url]: alias }
-      await preUnlock.settingsRepo.saveSettings({ ...settings, mints: newMints, mintAliases: newAliases })
-      setSettings({ ...settings, mints: newMints, mintAliases: newAliases })
+      await preUnlock.settingsRepo.saveSettings({ ...refreshed, mintAliases: newAliases })
+      setSettings({ ...refreshed, mintAliases: newAliases })
 
       if (p2pkPubkey) {
-        republishProfile(newMints, settings.relays)
+        republishProfile(refreshed.mints, refreshed.relays)
       }
 
       console.log('[App] Added trusted mint:', url)
@@ -744,7 +825,7 @@ export default function MainApp() {
       console.error('[App] Failed to add trusted mint:', error)
       return false
     }
-  }, [settings, preUnlock.settingsRepo, setSettings, p2pkPubkey, republishProfile, t])
+  }, [settings.mints, preUnlock.settingsRepo, setSettings, p2pkPubkey, republishProfile, t, serviceRegistry])
 
   const handleBack = useCallback(() => {
     const target = previousScreen || 'home'
@@ -957,6 +1038,18 @@ export default function MainApp() {
             setPreviousScreen('token-detail')
             setCurrentScreen('token-easter-egg')
           }}
+          onDeleteHistory={async (token) => {
+            if (!serviceRegistry?.transactionMgmt) return
+            try {
+              await serviceRegistry.transactionMgmt.delete(token.id)
+              useAppStore.getState().triggerTxRefresh()
+              addToast({ type: 'success', message: '내역을 삭제했어요' })
+            } catch (error) {
+              console.error('[MainApp] Failed to delete tx history:', error)
+              const msg = error instanceof Error ? error.message : '내역 삭제 실패'
+              addToast({ type: 'error', message: msg })
+            }
+          }}
         />
       )}
 
@@ -1099,7 +1192,14 @@ export default function MainApp() {
 
       {currentScreen === 'token-create' && (
         <TokenCreateFlow
-          mintUrl={activeMintUrl ?? settings.mints[0] ?? ''}
+          mintUrl={(() => {
+            // Prefer active mint if it has balance, otherwise first mint with balance,
+            // otherwise fall back to active mint or first configured mint.
+            if (activeMintUrl && (balance.byMint[activeMintUrl] ?? 0) > 0) return activeMintUrl
+            const withBalance = settings.mints.find((url) => (balance.byMint[url] ?? 0) > 0)
+            if (withBalance) return withBalance
+            return activeMintUrl ?? settings.mints[0] ?? ''
+          })()}
           onBack={() => {
             const backTo = previousScreen || 'token'
             setPreviousScreen(null)
@@ -1109,6 +1209,12 @@ export default function MainApp() {
             setPreviousScreen(null)
             setCurrentScreen('token')
           }}
+          onCreateToken={(amount, mintUrl, memo) =>
+            handleCreateEcashToken(amount, mintUrl, { memo })
+          }
+          onCancelToken={handleCancelEcashToken}
+          onEstimateFee={handleEstimateCreateFee}
+          onQuoteReclaim={handleQuoteReclaim}
         />
       )}
 
@@ -1123,6 +1229,13 @@ export default function MainApp() {
             setPreviousScreen(null)
             setCurrentScreen('token')
           }}
+          onReceiveToken={handleReceiveToken}
+          onAddTrustedMint={handleAddTrustedMint}
+          onSwapReceive={handleSwapReceive}
+          onEstimateRedeemFee={handleEstimateRedeemFee}
+          onCheckSelfToken={handleCheckSelfToken}
+          onReclaimOwnToken={handleReclaimOwnToken}
+          targetMintUrl={activeMintUrl ?? settings.mints[0] ?? undefined}
         />
       )}
 

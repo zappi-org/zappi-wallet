@@ -75,6 +75,12 @@ vi.mock('@/ui/hooks/use-transaction-history', () => ({
   }),
 }))
 
+vi.mock('@/ui/hooks/use-service-registry', () => ({
+  useServiceRegistry: () => ({
+    payment: { recoverAll: () => Promise.resolve([]) },
+  }),
+}))
+
 import { TokenScreen } from '@/ui/screens/Token/TokenScreen'
 
 function setPending(items: Array<Record<string, unknown>>) {

@@ -44,6 +44,12 @@ export interface QRCodeDisplayProps {
   className?: string
   /** QR error correction level for static QR. Ignored in animated mode. */
   level?: 'L' | 'M' | 'Q' | 'H'
+  /**
+   * When true, the QR fills its parent container (100% width) without the
+   * component's own card styling or 65vw/360px max-width constraint.
+   * Use this when the caller already provides the outer frame.
+   */
+  fill?: boolean
 }
 
 export function QRCodeDisplay({
@@ -51,6 +57,7 @@ export function QRCodeDisplay({
   size,
   className,
   level = 'M',
+  fill = false,
 }: QRCodeDisplayProps) {
   const isAnimated = value.length > ANIMATED_THRESHOLD
   const renderSize = size ?? RENDER_SIZE
@@ -63,15 +70,18 @@ export function QRCodeDisplay({
         value={value}
         renderSize={renderSize}
         className={className}
+        fill={fill}
       />
     )
   }
 
+  const wrapperClass = fill
+    ? cn('w-full h-full flex items-center justify-center', className)
+    : cn('bg-background-card p-4 rounded-xl shadow-sm', className)
+  const wrapperStyle = fill ? undefined : { width: '65vw', maxWidth: MAX_DISPLAY_WIDTH }
+
   return (
-    <div
-      className={cn('bg-background-card p-4 rounded-xl shadow-sm', className)}
-      style={{ width: '65vw', maxWidth: MAX_DISPLAY_WIDTH }}
-    >
+    <div className={wrapperClass} style={wrapperStyle}>
       <QRCodeSVG
         value={value}
         size={renderSize}
@@ -97,10 +107,12 @@ function AnimatedQR({
   value,
   renderSize,
   className,
+  fill = false,
 }: {
   value: string
   renderSize: number
   className?: string
+  fill?: boolean
 }) {
   // Create encoder and consume first frame synchronously (safe — runs once per mount)
   const { encoder, totalFragments, firstFrame } = useMemo(() => {
@@ -131,11 +143,13 @@ function AnimatedQR({
 
   const displayFrame = (frame.index % totalFragments) + 1
 
+  const wrapperClass = fill
+    ? cn('w-full h-full flex items-center justify-center relative', className)
+    : cn('bg-background-card p-4 rounded-xl shadow-sm relative', className)
+  const wrapperStyle = fill ? undefined : { width: '65vw', maxWidth: MAX_DISPLAY_WIDTH }
+
   return (
-    <div
-      className={cn('bg-background-card p-4 rounded-xl shadow-sm relative', className)}
-      style={{ width: '65vw', maxWidth: MAX_DISPLAY_WIDTH }}
-    >
+    <div className={wrapperClass} style={wrapperStyle}>
       <QRCodeSVG
         value={frame.value}
         size={renderSize}

@@ -1,32 +1,77 @@
 import { BottomActionBar } from '@/ui/components/common/BottomActionBar'
 import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
+import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
+import { useInputParser } from '@/ui/hooks/use-input-parser'
+import { useAppStore } from '@/store'
+import { hapticError } from '@/ui/utils/haptic'
+import { translateError } from '@/ui/utils/error-i18n'
+import { useTranslation } from 'react-i18next'
 import { Camera, Clipboard } from 'lucide-react'
-import { useState } from 'react'
-
-export type MockPath = 'trusted-memo' | 'trusted-no-memo' | 'untrusted'
+import { useCallback, useState } from 'react'
+import type { ValidatedCashuToken } from '@/core/domain/input-types'
 
 export interface RegisterInputStepProps {
   onBack: () => void
-  onNext: (path: MockPath) => void
+  /** Passes a validated cashu token up so the flow can route by trust status. */
+  onNext: (token: ValidatedCashuToken) => void
   initialToken: string
-  initialPath: MockPath
-}
-
-const PATH_LABEL: Record<MockPath, string> = {
-  'trusted-memo': 'Trusted · 메모 있음',
-  'trusted-no-memo': 'Trusted · 메모 없음',
-  untrusted: 'Untrusted',
 }
 
 export function RegisterInputStep({
   onBack,
   onNext,
   initialToken,
-  initialPath,
 }: RegisterInputStepProps) {
+  const { t } = useTranslation()
+  const inputParser = useInputParser()
+  const addToast = useAppStore((s) => s.addToast)
+
   const [token, setToken] = useState(initialToken)
-  const [path, setPath] = useState<MockPath>(initialPath)
+  const [scannerOpen, setScannerOpen] = useState(false)
+  const [validating, setValidating] = useState(false)
+
+  const pasteFromClipboard = useCallback(async () => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.readText) {
+        const text = await navigator.clipboard.readText()
+        if (text) setToken(text.trim())
+      }
+    } catch {
+      /* permission denied — silent */
+    }
+  }, [])
+
+  const handleScan = useCallback((value: string) => {
+    setToken(value.trim())
+    setScannerOpen(false)
+  }, [])
+
+  const handleNext = useCallback(async () => {
+    const raw = token.trim()
+    if (!raw || validating) return
+    setValidating(true)
+    try {
+      const classified = inputParser.detectAndClassify(raw)
+      const validated = await inputParser.validateAsync(classified)
+      if (validated.type !== 'cashu-token') {
+        hapticError()
+        addToast({
+          type: 'error',
+          message: t('scanner.invalidToken'),
+        })
+        return
+      }
+      onNext(validated)
+    } catch (error) {
+      hapticError()
+      addToast({ type: 'error', message: translateError(error, t) })
+    } finally {
+      setValidating(false)
+    }
+  }, [token, validating, inputParser, onNext, addToast, t])
+
+  const canProceed = token.trim().length > 0 && !validating
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -59,6 +104,7 @@ export function RegisterInputStep({
         <div className="flex items-center gap-3 mt-4">
           <button
             type="button"
+            onClick={pasteFromClipboard}
             className="flex items-center gap-1.5 px-4 h-10 rounded-full bg-background-card text-foreground hover:bg-background-hover transition-colors"
           >
             <Clipboard className="w-4 h-4" strokeWidth={1.8} />
@@ -66,36 +112,12 @@ export function RegisterInputStep({
           </button>
           <button
             type="button"
+            onClick={() => setScannerOpen(true)}
             className="flex items-center gap-1.5 px-4 h-10 rounded-full bg-background-card text-foreground hover:bg-background-hover transition-colors"
           >
             <Camera className="w-4 h-4" strokeWidth={1.8} />
             <span className="text-body">스캔하기</span>
           </button>
-        </div>
-
-        {/* Mock path toggle — placeholder only */}
-        <div className="mt-10 p-3 rounded-card bg-background-card">
-          <p className="text-caption text-foreground-muted mb-2">
-            [mock] 다음 화면 선택
-          </p>
-          <div className="flex flex-col gap-1.5">
-            {(Object.keys(PATH_LABEL) as MockPath[]).map((p) => (
-              <label
-                key={p}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <input
-                  type="radio"
-                  name="mock-path"
-                  value={p}
-                  checked={path === p}
-                  onChange={() => setPath(p)}
-                  className="w-4 h-4 accent-brand"
-                />
-                <span className="text-body text-foreground">{PATH_LABEL[p]}</span>
-              </label>
-            ))}
-          </div>
         </div>
       </div>
 
@@ -103,12 +125,19 @@ export function RegisterInputStep({
         <Button
           variant="brand"
           size="xl"
-          onClick={() => onNext(path)}
+          onClick={handleNext}
+          disabled={!canProceed}
           className="w-full"
         >
-          다음
+          {validating ? '확인 중…' : '다음'}
         </Button>
       </BottomActionBar>
+
+      <QrScannerModal
+        isOpen={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onScan={handleScan}
+      />
     </div>
   )
 }

@@ -17,6 +17,8 @@ export interface TokenRawSheetProps {
   receiveFee?: number
   /** Fires the first time the user taps the token box 10 times in a row. */
   onTriggerEasterEgg?: () => void
+  /** When provided, renders a "내역 삭제" link; caller handles confirmation + deletion. */
+  onDelete?: () => Promise<void> | void
 }
 
 /**
@@ -32,11 +34,38 @@ export function TokenRawSheet({
   unit,
   receiveFee,
   onTriggerEasterEgg,
+  onDelete,
 }: TokenRawSheetProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const addToast = useAppStore((s) => s.addToast)
   const [clicks, setClicks] = useState(0)
+  const [deleting, setDeleting] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+
+  useEffect(() => {
+    if (!isOpen) setConfirming(false)
+  }, [isOpen])
+
+  const handleDeleteTap = useCallback(() => {
+    if (!onDelete || deleting) return
+    setConfirming(true)
+  }, [onDelete, deleting])
+
+  const handleConfirmYes = useCallback(async () => {
+    if (!onDelete || deleting) return
+    setDeleting(true)
+    try {
+      await onDelete()
+    } finally {
+      setDeleting(false)
+      setConfirming(false)
+    }
+  }, [onDelete, deleting])
+
+  const handleConfirmNo = useCallback(() => {
+    setConfirming(false)
+  }, [])
 
   useEffect(() => {
     if (!isOpen) setClicks(0)
@@ -171,6 +200,42 @@ export function TokenRawSheet({
                   </div>
                 )}
               </dl>
+
+              {onDelete && (
+                <div className="mt-3 flex justify-end items-center gap-3 px-[7px]">
+                  {confirming ? (
+                    <>
+                      <span className="text-caption font-medium text-foreground-muted">
+                        내역 삭제?
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleConfirmYes}
+                        disabled={deleting}
+                        className="text-caption font-bold text-accent-danger hover:underline disabled:opacity-60"
+                      >
+                        {deleting ? '삭제 중…' : '예'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleConfirmNo}
+                        disabled={deleting}
+                        className="text-caption font-medium text-foreground-muted hover:underline disabled:opacity-60"
+                      >
+                        아니오
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleDeleteTap}
+                      className="text-caption font-medium text-accent-danger hover:underline"
+                    >
+                      내역 삭제
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </motion.div>
         </>

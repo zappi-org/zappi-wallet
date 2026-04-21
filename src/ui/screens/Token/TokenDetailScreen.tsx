@@ -38,6 +38,11 @@ export interface TokenDetailScreenProps {
   onReclaim?: (token: TokenDetailData) => Promise<void> | void
   /** Called when user taps the raw-token box 10 times — navigate to easter egg page. */
   onTriggerEasterEgg?: () => void
+  /**
+   * When provided, renders "내역 삭제" inside the raw sheet. Caller should
+   * handle confirmation and perform `transactionMgmt.delete(txId)`.
+   */
+  onDeleteHistory?: (token: TokenDetailData) => Promise<void> | void
 }
 
 const DATE_SUFFIX_KEY: Record<TokenDetailStatus, string> = {
@@ -54,6 +59,7 @@ export function TokenDetailScreen({
   onShare,
   onReclaim,
   onTriggerEasterEgg,
+  onDeleteHistory,
 }: TokenDetailScreenProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
@@ -285,6 +291,15 @@ export function TokenDetailScreen({
         mintName={data.mintName ?? data.mintUrl ?? data.mintAlias}
         unit={data.unit ?? 'sat'}
         receiveFee={data.fee ?? data.reclaimFee}
+        onDelete={
+          onDeleteHistory && !isPending
+            ? async () => {
+                await onDeleteHistory(data)
+                setRawOpen(false)
+                onClose()
+              }
+            : undefined
+        }
         onTriggerEasterEgg={() => {
           setRawOpen(false)
           onTriggerEasterEgg?.()

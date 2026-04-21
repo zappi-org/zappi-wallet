@@ -33,6 +33,33 @@ import type {
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { OperationMap } from '@/core/ports/driven/operation-map.port'
 
+/** Recipient claimed the proofs or SDK already finalized — treat as consumed. */
+function isAlreadySpentMessage(message: string): boolean {
+  const m = message.toLowerCase()
+  return (
+    m.includes('already spent') ||
+    m.includes('token spent') ||
+    m.includes('token_spent') ||
+    m.includes("state 'finalized'")
+  )
+}
+
+/** SDK op already rolled back — the reclaim intent was already fulfilled. */
+function isAlreadyRolledBackMessage(message: string): boolean {
+  return message.toLowerCase().includes("state 'rolled_back'")
+}
+
+/**
+ * SDK op is mid-rollback (operation stuck in transition). Common causes:
+ * - A previous reclaim attempt crashed / network-interrupted partway through
+ * - Recipient spent the proofs concurrently with our rollback attempt
+ * In either case the pending entry is stale; reconcile it to the user's
+ * original intent (reclaim) so the UI surfaces a definitive outcome.
+ */
+function isRollingBackStateMessage(message: string): boolean {
+  return message.toLowerCase().includes("state 'rolling_back'")
+}
+
 export class PaymentService implements PaymentUseCase {
   constructor(
     private modules: WalletModule[],
@@ -457,9 +484,50 @@ export class PaymentService implements PaymentUseCase {
         payload: { moduleId: adapter.moduleId, accountId: tx.accountId },
       })
 
-      return Ok({ transactionId: tx.id, amount: tx.amount })
+      return Ok({ transactionId: tx.id, amount: tx.amount, state: 'reclaimed' })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error'
+
+      // Edge: recipient already claimed → reconcile as consumed.
+      if (isAlreadySpentMessage(message)) {
+        const settled = settleAsDelivered(tx)
+        await this.txRepo.update(tx.id, {
+          status: settled.status,
+          outcome: settled.outcome,
+          completedAt: settled.completedAt,
+        })
+        this.eventBus.emit({
+          type: 'payment:completed',
+          payload: { txId: tx.id, method: tx.method, amount: tx.amount },
+        })
+        this.eventBus.emit({
+          type: 'balance:changed',
+          payload: { moduleId: adapter.moduleId, accountId: tx.accountId },
+        })
+        return Ok({ transactionId: tx.id, amount: tx.amount, state: 'already_consumed' })
+      }
+
+      // Edge: SDK op already rolled back or stuck mid-rollback — settle as
+      // reclaimed so the stale pending entry is cleared. Balance remains
+      // authoritative via the SDK wallet state; tx.outcome is just history.
+      if (isAlreadyRolledBackMessage(message) || isRollingBackStateMessage(message)) {
+        const reclaimed = settleAsReclaimed(tx)
+        await this.txRepo.update(tx.id, {
+          status: reclaimed.status,
+          outcome: reclaimed.outcome,
+          completedAt: reclaimed.completedAt,
+        })
+        this.eventBus.emit({
+          type: 'payment:completed',
+          payload: { txId: tx.id, method: tx.method, amount: tx.amount },
+        })
+        this.eventBus.emit({
+          type: 'balance:changed',
+          payload: { moduleId: adapter.moduleId, accountId: tx.accountId },
+        })
+        return Ok({ transactionId: tx.id, amount: tx.amount, state: 'reclaimed' })
+      }
+
       return Err({ code: 'UNKNOWN', message })
     }
   }

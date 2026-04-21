@@ -1,29 +1,61 @@
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
+import { MintIcon } from '@/ui/components/common/MintIcon'
 import { useFormatFiat, useFormatSats } from '@/utils/format'
+import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
+import { useAppStore } from '@/store'
+import { hapticError } from '@/ui/utils/haptic'
+import { translateError } from '@/ui/utils/error-i18n'
+import { useTranslation } from 'react-i18next'
 import { AlertTriangle, ArrowRightLeft, Plus } from 'lucide-react'
-import {
-  MOCK_REGISTER_BALANCE,
-  MOCK_REGISTER_FEE,
-  MOCK_UNTRUSTED_MINT,
-} from '../mockData'
+import { useCallback, useMemo, useState } from 'react'
+import type { ValidatedCashuToken } from '@/core/domain/input-types'
 
 export interface ConfirmUntrustedStepProps {
-  amount: number
+  token: ValidatedCashuToken
   onBack: () => void
-  onAddAndReceive: () => void
-  onSwapToMyMint: () => void
+  onAddAndReceive: () => Promise<void>
+  /** Undefined when user has no configured target mint. */
+  onSwapToMyMint?: () => Promise<void>
 }
 
 export function ConfirmUntrustedStep({
-  amount,
+  token,
   onBack,
   onAddAndReceive,
   onSwapToMyMint,
 }: ConfirmUntrustedStepProps) {
+  const { t } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
+  const addToast = useAppStore((s) => s.addToast)
+
+  const mintUrl = token.mintUrl
+  const amount = token.amountSats
+
+  const mintUrls = useMemo(() => [mintUrl], [mintUrl])
+  const { getDisplayName, getIconUrl } = useMintMetadata(mintUrls)
+  const mintName = getDisplayName(mintUrl)
+  const mintIconUrl = getIconUrl(mintUrl)
+
   const fiatLabel = formatFiat(amount)
-  const netAmount = amount - MOCK_REGISTER_FEE
+
+  const [busy, setBusy] = useState<'add' | 'swap' | null>(null)
+
+  const runAsync = useCallback(
+    async (kind: 'add' | 'swap', action: () => Promise<void>) => {
+      if (busy) return
+      setBusy(kind)
+      try {
+        await action()
+      } catch (error) {
+        hapticError()
+        addToast({ type: 'error', message: translateError(error, t) })
+      } finally {
+        setBusy(null)
+      }
+    },
+    [busy, addToast, t],
+  )
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -40,58 +72,39 @@ export function ConfirmUntrustedStep({
 
         {/* Origin card */}
         <div className="flex items-center gap-2.5 bg-white border border-border/50 rounded-card px-4 py-3 max-w-[280px] shadow-sm">
-          <div className="w-9 h-9 rounded-[10px] bg-accent-warning/10 flex items-center justify-center text-base">
-            {MOCK_UNTRUSTED_MINT.logo}
-          </div>
+          <MintIcon
+            iconUrl={mintIconUrl}
+            imgSize="w-6 h-6"
+            className="w-9 h-9 rounded-[10px] bg-accent-warning/10"
+          />
           <p className="text-caption text-foreground-muted leading-snug">
-            <span className="font-semibold text-foreground">
-              {MOCK_UNTRUSTED_MINT.name}
-            </span>
+            <span className="font-semibold text-foreground">{mintName}</span>
             {' · '}
             <span className="text-accent-warning font-medium">미등록 민트</span>
           </p>
         </div>
 
-        <p className="text-caption text-foreground-muted text-center leading-relaxed max-w-[280px]">
-          모르는 민트라면 추가하지 않고
-          <br />내 민트로 받을 수도 있어요.
-        </p>
-      </div>
-
-      {/* Fee preview rows */}
-      <div className="px-6 mb-3 shrink-0">
-        <div className="flex justify-between py-2 border-b border-border/50">
-          <span className="text-body text-foreground-muted">잔액</span>
-          <span className="text-body text-foreground">
-            {formatSats(MOCK_REGISTER_BALANCE)}
-          </span>
-        </div>
-        <div className="flex justify-between py-2 border-b border-border/50">
-          <span className="text-body text-foreground-muted">수취 수수료</span>
-          <span className="text-body font-medium text-foreground">
-            -{formatSats(MOCK_REGISTER_FEE)}
-          </span>
-        </div>
-        <div className="flex justify-between py-2">
-          <span className="text-body font-bold text-foreground">실제 수령액</span>
-          <span className="text-body font-bold text-foreground">
-            +{formatSats(netAmount)}
-          </span>
-        </div>
+        {onSwapToMyMint && (
+          <p className="text-caption text-foreground-muted text-center leading-relaxed max-w-[280px]">
+            모르는 민트라면 추가하지 않고
+            <br />내 민트로 받을 수도 있어요.
+          </p>
+        )}
       </div>
 
       {/* Vertical choice cards */}
       <div className="px-5 pb-6 pb-safe shrink-0 space-y-2.5">
         <button
-          onClick={onAddAndReceive}
-          className="w-full bg-brand rounded-card px-5 py-[18px] flex items-center gap-3.5 active:scale-[0.98] transition-transform shadow-lg shadow-brand/25"
+          onClick={() => runAsync('add', onAddAndReceive)}
+          disabled={busy !== null}
+          className="w-full bg-brand rounded-card px-5 py-[18px] flex items-center gap-3.5 active:scale-[0.98] transition-transform shadow-lg shadow-brand/25 disabled:opacity-60"
         >
           <div className="w-10 h-10 rounded-[10px] bg-white/20 flex items-center justify-center shrink-0">
             <Plus className="w-5 h-5 text-white" strokeWidth={2} />
           </div>
           <div className="flex-1 min-w-0 text-left">
             <p className="text-body font-bold text-white truncate">
-              이 민트를 추가하고 받기
+              {busy === 'add' ? '받는 중…' : '이 민트를 추가하고 받기'}
             </p>
             <p className="text-caption text-white/70 mt-0.5">
               다음부터는 이 민트를 신뢰합니다
@@ -99,22 +112,25 @@ export function ConfirmUntrustedStep({
           </div>
         </button>
 
-        <button
-          onClick={onSwapToMyMint}
-          className="w-full bg-muted rounded-card px-5 py-[18px] flex items-center gap-3.5 active:scale-[0.98] transition-transform"
-        >
-          <div className="w-10 h-10 rounded-[10px] bg-foreground/[0.06] flex items-center justify-center shrink-0">
-            <ArrowRightLeft className="w-5 h-5 text-foreground" strokeWidth={1.8} />
-          </div>
-          <div className="flex-1 min-w-0 text-left">
-            <p className="text-body font-bold text-foreground truncate">
-              내 민트로 받기
-            </p>
-            <p className="text-caption text-foreground-muted mt-0.5">
-              스왑 수수료가 들 수 있어요
-            </p>
-          </div>
-        </button>
+        {onSwapToMyMint && (
+          <button
+            onClick={() => runAsync('swap', onSwapToMyMint)}
+            disabled={busy !== null}
+            className="w-full bg-muted rounded-card px-5 py-[18px] flex items-center gap-3.5 active:scale-[0.98] transition-transform disabled:opacity-60"
+          >
+            <div className="w-10 h-10 rounded-[10px] bg-foreground/[0.06] flex items-center justify-center shrink-0">
+              <ArrowRightLeft className="w-5 h-5 text-foreground" strokeWidth={1.8} />
+            </div>
+            <div className="flex-1 min-w-0 text-left">
+              <p className="text-body font-bold text-foreground truncate">
+                {busy === 'swap' ? '스왑 중…' : '내 민트로 받기'}
+              </p>
+              <p className="text-caption text-foreground-muted mt-0.5">
+                스왑 수수료가 들 수 있어요
+              </p>
+            </div>
+          </button>
+        )}
       </div>
     </div>
   )

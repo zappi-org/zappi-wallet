@@ -29,10 +29,10 @@ export function connectEventStoreBridge(
 ): () => void {
   const unsubscribers: (() => void)[] = []
 
-  // payment:completed → toast + cross-tab sync
+  // payment:completed → toast + tx refresh (reclaim / send finalized) + cross-tab sync
   unsubscribers.push(
     eventBus.on('payment:completed', (event) => {
-      const { addToast } = useAppStore.getState()
+      const { addToast, triggerTxRefresh } = useAppStore.getState()
       const amountStr = formatSats(toNumber(event.payload.amount))
       const feeStr = event.payload.fee ? formatSats(toNumber(event.payload.fee)) : undefined
       addToast({
@@ -42,6 +42,7 @@ export function connectEventStoreBridge(
           : i18n.t('toast.paymentCompleted', { amount: amountStr }),
         duration: 4000,
       })
+      triggerTxRefresh()
       broadcastSync('balance_changed')
     }),
   )
@@ -176,12 +177,13 @@ export function connectEventStoreBridge(
     }),
   )
 
-  // balance:changed → 잔액 갱신 (lock + trailing debounce)
+  // balance:changed → 잔액 갱신 + tx 리스트 새로고침 (redeem 같이 payment:* 이벤트 없는 경로 커버)
   if (throttledRefresh) {
 
     unsubscribers.push(
       eventBus.on('balance:changed', () => {
         throttledRefresh!.trigger()
+        useAppStore.getState().triggerTxRefresh()
         broadcastSync('balance_changed')
       }),
     )
