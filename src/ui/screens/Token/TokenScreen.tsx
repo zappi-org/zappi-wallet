@@ -1,7 +1,11 @@
-import { useCallback, useState, type RefObject } from 'react'
+import { useCallback, useMemo, useState, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
-import { useFormatSats } from '@/utils/format'
+import { useFormatSats, satsToFiat } from '@/utils/format'
+import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
+import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
+import { isSendToken, type TokenDetails } from '@/ui/types/pending-item-details'
+import type { PendingItem } from '@/core/ports/driving/pending-items.usecase'
 import { TokenEmptyState } from './components/TokenEmptyState'
 import { PendingWidget } from './components/PendingWidget'
 import { ReclaimableSection } from './components/ReclaimableSection'
@@ -10,7 +14,6 @@ import { MockStateSwitcher } from './components/MockStateSwitcher'
 import { ReclaimSheet } from './components/ReclaimSheet'
 import {
   pickMockData,
-  pendingTotalAmount,
   pendingToDetail,
   timelineToDetail,
 } from './mockData'
@@ -43,8 +46,29 @@ export function TokenScreen({
   const [mockState, setMockState] = useState<TokenViewState>(initialMockState)
   const [hintDismissed, setHintDismissed] = useState(false)
 
+  const mintUrls = useAppStore((s) => s.settings.mints)
+  const { items: pendingItemsRaw } = useAllPendingItems(mintUrls)
+  const { getDisplayName, getMetadata, getIconUrl } = useMintMetadata(mintUrls)
+  const fiatRate = useAppStore((s) => {
+    const cur = s.settings.fiatCurrency ?? 'USD'
+    return s.allRates?.[cur] ?? null
+  })
+
+  const pendingTokens: MockPendingToken[] = useMemo(() => {
+    return pendingItemsRaw
+      .filter(isSendToken)
+      .map((item: PendingItem<TokenDetails>) => ({
+        id: item.id,
+        createdAt: item.createdAt,
+        amount: item.amount,
+        memo: item.memo ?? '',
+        mintUrl: item.accountId,
+        tokenString: item.details?.token,
+      }))
+  }, [pendingItemsRaw])
+
   const data = pickMockData(mockState)
-  const hasPending = data.pendingTokens.length > 0
+  const hasPending = pendingTokens.length > 0
   const hasTimeline = data.timelineGroups.length > 0
   const showFirstCreateHint = mockState === 'first-create' && !hintDismissed
 
@@ -74,9 +98,21 @@ export function TokenScreen({
 
   const handleSelectPending = useCallback(
     (token: MockPendingToken) => {
-      onSelectToken?.(pendingToDetail(token))
+      if (!onSelectToken) return
+      const url = token.mintUrl ?? ''
+      const metadata = url ? getMetadata(url) : undefined
+      const fiatValue =
+        fiatRate !== null ? satsToFiat(token.amount, fiatRate) : undefined
+      onSelectToken(
+        pendingToDetail(token, {
+          mintAlias: url ? getDisplayName(url) : undefined,
+          mintName: metadata?.name,
+          mintIconUrl: url ? getIconUrl(url) : undefined,
+          fiatUsd: fiatValue,
+        }),
+      )
     },
-    [onSelectToken],
+    [onSelectToken, getDisplayName, getMetadata, getIconUrl, fiatRate],
   )
 
   const handleSelectTimeline = useCallback(
@@ -88,9 +124,9 @@ export function TokenScreen({
 
   const [reclaimTargets, setReclaimTargets] = useState<MockPendingToken[] | null>(null)
   const openReclaimAll = useCallback(() => {
-    if (data.pendingTokens.length === 0) return
-    setReclaimTargets(data.pendingTokens)
-  }, [data.pendingTokens])
+    if (pendingTokens.length === 0) return
+    setReclaimTargets(pendingTokens)
+  }, [pendingTokens])
   const openReclaimOne = useCallback((token: MockPendingToken) => {
     setReclaimTargets([token])
   }, [])
@@ -118,14 +154,14 @@ export function TokenScreen({
           <>
             {hasPending && (
               <PendingWidget
-                count={data.pendingTokens.length}
-                totalAmount={pendingTotalAmount(data)}
+                count={pendingTokens.length}
+                totalAmount={pendingTokens.reduce((sum, p) => sum + p.amount, 0)}
                 onViewAll={openReclaimAll}
               />
             )}
             {hasPending && (
               <ReclaimableSection
-                tokens={data.pendingTokens}
+                tokens={pendingTokens}
                 showFirstCreateHint={showFirstCreateHint}
                 onDismissHint={() => setHintDismissed(true)}
                 onShare={handleShare}

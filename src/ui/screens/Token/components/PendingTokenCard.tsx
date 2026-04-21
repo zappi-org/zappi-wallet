@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Share2 } from 'lucide-react'
-import { useFormatSats, formatFiatAmount } from '@/utils/format'
+import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { formatRelativeTime } from '../mockData'
 import type { MockPendingToken } from '../types'
 
@@ -14,8 +14,8 @@ export interface PendingTokenCardProps {
 export function PendingTokenCard({ token, onReclaim, onShare, onSelect }: PendingTokenCardProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
-  const fiatLabel =
-    token.fiatUsd !== undefined ? formatFiatAmount(token.fiatUsd, 'USD') : null
+  const formatFiat = useFormatFiat()
+  const fiatLabel = formatFiat(token.amount)
 
   return (
     <div

@@ -1099,6 +1099,7 @@ export default function MainApp() {
 
       {currentScreen === 'token-create' && (
         <TokenCreateFlow
+          mintUrl={activeMintUrl ?? settings.mints[0] ?? ''}
           onBack={() => {
             const backTo = previousScreen || 'token'
             setPreviousScreen(null)

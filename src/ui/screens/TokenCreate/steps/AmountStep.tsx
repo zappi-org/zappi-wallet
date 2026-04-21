@@ -1,13 +1,16 @@
 import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
-import { formatFiatAmount, useFormatSats, useSatUnit } from '@/utils/format'
+import { MintIcon } from '@/ui/components/common/MintIcon'
+import { useFormatFiat, useFormatSats, useSatUnit } from '@/utils/format'
+import { useWallet } from '@/ui/hooks/use-wallet'
+import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { ArrowLeft, ChevronsUpDown } from 'lucide-react'
-import { useState } from 'react'
-import { MOCK_BALANCE, MOCK_MINT, mockSatsToUsd } from '../mockData'
+import { useMemo, useState } from 'react'
 
 export interface AmountStepProps {
   onBack: () => void
   onNext: (data: { amount: number; memo: string; senderPaysFee: boolean }) => void
+  mintUrl: string
   initialAmount: number
   initialMemo: string
   initialSenderPaysFee: boolean
@@ -18,21 +21,30 @@ const KEYS: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', 
 export function AmountStep({
   onBack,
   onNext,
+  mintUrl,
   initialAmount,
   initialMemo,
   initialSenderPaysFee,
 }: AmountStepProps) {
   const formatSats = useFormatSats()
+  const formatFiat = useFormatFiat()
   const unit = useSatUnit()
+  const { balance } = useWallet()
+  const mintUrls = useMemo(() => [mintUrl], [mintUrl])
+  const { getDisplayName, getIconUrl } = useMintMetadata(mintUrls)
+
   const [amount, setAmount] = useState(initialAmount > 0 ? String(initialAmount) : '')
   const [memo, setMemo] = useState(initialMemo)
   const [senderPaysFee, setSenderPaysFee] = useState(initialSenderPaysFee)
 
+  const mintBalance = balance.byMint[mintUrl] ?? 0
+  const mintName = getDisplayName(mintUrl)
+  const mintIconUrl = getIconUrl(mintUrl)
+
   const numericAmount = parseInt(amount, 10) || 0
-  const canProceed = numericAmount > 0 && numericAmount <= MOCK_BALANCE
+  const canProceed = numericAmount > 0 && numericAmount <= mintBalance
   const displayAmount = numericAmount > 0 ? formatSats(numericAmount) : `${unit}0`
-  const fiatLabel =
-    numericAmount > 0 ? formatFiatAmount(mockSatsToUsd(numericAmount), 'USD') : '$0.00'
+  const fiatLabel = numericAmount > 0 ? formatFiat(numericAmount) : null
 
   const handleKey = (key: string) => {
     if (key === 'del') {
@@ -67,19 +79,17 @@ export function AmountStep({
           >
             <ChevronsUpDown className="w-4 h-4" strokeWidth={1.8} />
           </button>
-          <p className="text-body text-foreground-muted">~ {fiatLabel}</p>
+          {fiatLabel && <p className="text-body text-foreground-muted">~ {fiatLabel}</p>}
         </div>
 
         {/* Mint bar — underline style */}
         <div className="flex items-center gap-3 mt-8 pb-2 border-b border-border w-[85%] mx-auto">
-          <div className="w-7 h-7 rounded-full bg-background-card flex items-center justify-center text-sm">
-            {MOCK_MINT.logo}
-          </div>
+          <MintIcon iconUrl={mintIconUrl} imgSize="w-7 h-7" className="w-7 h-7" />
           <span className="text-body font-medium text-foreground flex-1">
-            {MOCK_MINT.name}
+            {mintName}
           </span>
           <span className="text-caption text-foreground-muted">잔액</span>
-          <span className="text-body text-foreground">{formatSats(MOCK_BALANCE)}</span>
+          <span className="text-body text-foreground">{formatSats(mintBalance)}</span>
         </div>
 
         {/* Memo — underline style (match receive flow) */}

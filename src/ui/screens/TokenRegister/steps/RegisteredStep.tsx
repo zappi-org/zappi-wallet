@@ -1,9 +1,8 @@
 import { Button } from '@/ui/components/common/Button'
 import { Confetti } from '@/ui/components/payment/Confetti'
-import { formatFiatAmount, useFormatSats } from '@/utils/format'
+import { useFormatFiat, useFormatSats } from '@/utils/format'
 import { motion } from 'motion/react'
 import tokenReceiveSuccessImg from '@/assets/token-receive-success.png'
-import { mockSatsToUsd } from '../mockData'
 
 export interface RegisteredStepProps {
   amount: number
@@ -12,7 +11,8 @@ export interface RegisteredStepProps {
 
 export function RegisteredStep({ amount, onComplete }: RegisteredStepProps) {
   const formatSats = useFormatSats()
-  const fiatLabel = formatFiatAmount(mockSatsToUsd(amount), 'USD')
+  const formatFiat = useFormatFiat()
+  const fiatLabel = formatFiat(amount)
 
   return (
     <div className="flex flex-col h-full bg-background relative">
@@ -34,7 +34,7 @@ export function RegisteredStep({ amount, onComplete }: RegisteredStepProps) {
           </p>
         </div>
 
-        <p className="text-body text-foreground-muted mt-3">~ {fiatLabel}</p>
+        {fiatLabel && <p className="text-body text-foreground-muted mt-3">~ {fiatLabel}</p>}
       </div>
 
       <div className="px-6 pb-6 pb-safe shrink-0">

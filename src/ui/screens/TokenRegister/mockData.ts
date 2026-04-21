@@ -24,8 +24,3 @@ export const MOCK_REGISTER_AMOUNT = 2000
 export const MOCK_REGISTER_MEMO = '커피값 보냅니다~'
 export const MOCK_REGISTER_FEE = 2
 export const MOCK_REGISTER_BALANCE = 46789
-export const MOCK_FIAT_RATE_USD = 0.001
-
-export function mockSatsToUsd(sats: number): number {
-  return sats * MOCK_FIAT_RATE_USD
-}

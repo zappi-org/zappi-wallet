@@ -1,14 +1,16 @@
 import { BottomActionBar } from '@/ui/components/common/BottomActionBar'
 import { Button } from '@/ui/components/common/Button'
 import { useFormatSats } from '@/utils/format'
+import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { Copy, Eye, Share2, X } from 'lucide-react'
-import { useState } from 'react'
-import { MOCK_CREATE_FEE, MOCK_MINT } from '../mockData'
+import { useMemo, useState } from 'react'
+import { MOCK_CREATE_FEE } from '../mockData'
 
 export interface CreatedStepProps {
   amount: number
   memo: string
   senderPaysFee: boolean
+  mintUrl: string
   onClose: () => void
 }
 
@@ -16,10 +18,14 @@ export function CreatedStep({
   amount,
   memo,
   senderPaysFee,
+  mintUrl,
   onClose,
 }: CreatedStepProps) {
   const formatSats = useFormatSats()
   const [veiled, setVeiled] = useState(true)
+  const mintUrls = useMemo(() => [mintUrl], [mintUrl])
+  const { getDisplayName } = useMintMetadata(mintUrls)
+  const mintName = getDisplayName(mintUrl)
 
   const displayedAmount = senderPaysFee ? amount + MOCK_CREATE_FEE : amount
 
@@ -81,7 +87,7 @@ export function CreatedStep({
           </p>
           <p className="text-body text-foreground-muted mt-2">
             {memo ? `${memo} · ` : ''}
-            {MOCK_MINT.name}
+            {mintName}
           </p>
           {!senderPaysFee && (
             <p className="text-caption text-foreground-muted mt-1">

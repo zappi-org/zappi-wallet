@@ -2,14 +2,13 @@ import { BottomActionBar } from '@/ui/components/common/BottomActionBar'
 import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import type { MintCardVariant } from '@/ui/components/wallet/MintCard'
-import { formatFiatAmount, useFormatSats } from '@/utils/format'
+import { useFormatFiat, useFormatSats } from '@/utils/format'
 import { ChevronRight } from 'lucide-react'
 import zappiLogo from '@/assets/zappi.png'
 import {
   MOCK_REGISTER_BALANCE,
   MOCK_REGISTER_FEE,
   MOCK_TRUSTED_MINT,
-  mockSatsToUsd,
 } from '../mockData'
 
 export interface ConfirmTrustedStepProps {
@@ -51,8 +50,9 @@ export function ConfirmTrustedStep({
   onReceive,
 }: ConfirmTrustedStepProps) {
   const formatSats = useFormatSats()
+  const formatFiat = useFormatFiat()
   const netAmount = amount - MOCK_REGISTER_FEE
-  const fiatLabel = formatFiatAmount(mockSatsToUsd(amount), 'USD')
+  const fiatLabel = formatFiat(amount)
   const cardBg = VARIANT_CLASS[MOCK_TRUSTED_MINT.variant]
   const memoFontSize = memo ? memoFontSizeFor(memo) : 21
 
@@ -106,9 +106,11 @@ export function ConfirmTrustedStep({
               <p className="absolute right-5 top-[136px] text-[25px] leading-[32px] font-semibold text-white">
                 {formatSats(amount)}
               </p>
-              <p className="absolute right-5 top-[168px] text-[17px] leading-[21px] text-white/70">
-                ({fiatLabel})
-              </p>
+              {fiatLabel && (
+                <p className="absolute right-5 top-[168px] text-[17px] leading-[21px] text-white/70">
+                  ({fiatLabel})
+                </p>
+              )}
             </>
           ) : (
             <>
@@ -116,9 +118,11 @@ export function ConfirmTrustedStep({
               <p className="absolute inset-x-0 top-[86px] text-[28px] leading-[35px] font-semibold text-white text-center">
                 {formatSats(amount)}
               </p>
-              <p className="absolute inset-x-0 top-[125px] text-[17px] leading-[21px] text-white/70 text-center">
-                ({fiatLabel})
-              </p>
+              {fiatLabel && (
+                <p className="absolute inset-x-0 top-[125px] text-[17px] leading-[21px] text-white/70 text-center">
+                  ({fiatLabel})
+                </p>
+              )}
             </>
           )}
         </div>

@@ -1,11 +1,10 @@
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
-import { formatFiatAmount, useFormatSats } from '@/utils/format'
+import { useFormatFiat, useFormatSats } from '@/utils/format'
 import { AlertTriangle, ArrowRightLeft, Plus } from 'lucide-react'
 import {
   MOCK_REGISTER_BALANCE,
   MOCK_REGISTER_FEE,
   MOCK_UNTRUSTED_MINT,
-  mockSatsToUsd,
 } from '../mockData'
 
 export interface ConfirmUntrustedStepProps {
@@ -22,7 +21,8 @@ export function ConfirmUntrustedStep({
   onSwapToMyMint,
 }: ConfirmUntrustedStepProps) {
   const formatSats = useFormatSats()
-  const fiatLabel = formatFiatAmount(mockSatsToUsd(amount), 'USD')
+  const formatFiat = useFormatFiat()
+  const fiatLabel = formatFiat(amount)
   const netAmount = amount - MOCK_REGISTER_FEE
 
   return (
@@ -36,7 +36,7 @@ export function ConfirmUntrustedStep({
         <p className="text-heading font-semibold text-foreground text-center whitespace-pre-line">
           {formatSats(amount)}를 받으려면{'\n'}확인이 필요해요.
         </p>
-        <p className="text-body text-foreground-muted">~ {fiatLabel}</p>
+        {fiatLabel && <p className="text-body text-foreground-muted">~ {fiatLabel}</p>}
 
         {/* Origin card */}
         <div className="flex items-center gap-2.5 bg-white border border-border/50 rounded-card px-4 py-3 max-w-[280px] shadow-sm">
