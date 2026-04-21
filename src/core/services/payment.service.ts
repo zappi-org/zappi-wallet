@@ -268,6 +268,8 @@ export class PaymentService implements PaymentUseCase {
         memo: result.memo,
         // eCash receive는 정확한 fee이므로 quoted = effective
         ...(result.fee && { fee: { quoted: result.fee, effective: result.fee } }),
+        // Adapter 가 결정한 audit payload 만 저장 — service 는 내용 해석 안 함
+        ...(result.metadata && { metadata: result.metadata }),
       })
       const settled = settleAsDelivered(tx)
       await this.txRepo.save(settled)

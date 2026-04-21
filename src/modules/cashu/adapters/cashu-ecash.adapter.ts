@@ -187,6 +187,8 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
       completed: true,
       accountId: mintUrl,
       memo,
+      // 원본 토큰 저장 — Token tab Detail/RawSheet 에서 audit 용도로 조회
+      metadata: { token: input },
     }
   }
 

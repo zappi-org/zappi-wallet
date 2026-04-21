@@ -117,6 +117,12 @@ export interface RedeemResult {
   completed: boolean
   accountId?: string
   memo?: string
+  /**
+   * Adapter-specific audit payload to persist on the transaction.
+   * e.g. cashu ecash 는 `{ token }` 저장, bolt11 은 다른 필드.
+   * PaymentService 는 내용을 해석하지 않고 tx.metadata 에 그대로 저장.
+   */
+  metadata?: Record<string, unknown>
 }
 
 export interface RedeemFeeEstimate {
