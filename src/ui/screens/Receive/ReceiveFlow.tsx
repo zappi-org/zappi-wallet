@@ -39,6 +39,7 @@ function getTokenErrorMessage(
 
 
 import { useReceiveRequest } from '@/ui/hooks/use-receive-request'
+import { useTrustRegistry } from '@/ui/hooks/use-trust-registry'
 import { TokenReceiveStep } from './steps/TokenReceiveStep'
 import { ReceiveInputStep } from './steps/ReceiveInputStep'
 import { ReceiveQRStep } from './steps/ReceiveQRStep'
@@ -125,14 +126,13 @@ export function ReceiveFlow({
   const { t } = useTranslation()
   const { isOnline } = useNetwork()
   const addToast = useAppStore((s) => s.addToast)
-  const settings = useAppStore((s) => s.settings)
   const receiveReq = useReceiveRequest()
+  const { isTrusted, trustedAccounts } = useTrustRegistry()
 
   // Determine initial step from validatedData
   const getInitialStep = (): ReceiveStep => {
     if (initialValidatedData?.type === 'cashu-token') {
-      const isTrusted = settings.mints.includes(initialValidatedData.mintUrl)
-      return isTrusted ? 'token-confirm' : 'untrusted-mint'
+      return isTrusted(initialValidatedData.mintUrl) ? 'token-confirm' : 'untrusted-mint'
     }
     return 'token-input'
   }
@@ -151,7 +151,7 @@ export function ReceiveFlow({
     receiveRequestId: null,
     scannedToken: initialValidatedData?.type === 'cashu-token' ? initialValidatedData : null,
     isTrustedMint: initialValidatedData?.type === 'cashu-token'
-      ? settings.mints.includes(initialValidatedData.mintUrl)
+      ? isTrusted(initialValidatedData.mintUrl)
       : false,
     inspection: null,
     receivedAmount: 0,
@@ -310,7 +310,7 @@ export function ReceiveFlow({
 
   /** Token scanned from TokenReceiveBottomSheet */
   const handleTokenDetected = useCallback(async (token: ValidatedCashuToken) => {
-    const isTrusted = settings.mints.includes(token.mintUrl)
+    const trusted = isTrusted(token.mintUrl)
 
     // Only run inspection when offline (needed for P2PK offline receive decision)
     // Online flow doesn't need inspection — tokens are swapped with mint immediately
@@ -319,12 +319,12 @@ export function ReceiveFlow({
     setState((prev) => ({
       ...prev,
       scannedToken: token,
-      isTrustedMint: isTrusted,
+      isTrustedMint: trusted,
       amount: token.amountSats,
       inspection,
-      step: isTrusted ? 'token-confirm' : 'untrusted-mint',
+      step: trusted ? 'token-confirm' : 'untrusted-mint',
     }))
-  }, [settings.mints, runInspection, isOnline])
+  }, [isTrusted, runInspection, isOnline])
 
   /**
    * 크로스민트 스왑 실행 + 결과 처리 (성공/실패 복구) 공통 함수.
@@ -348,7 +348,7 @@ export function ReceiveFlow({
     } else if (!isAlreadySpentError(result.error)) {
       // 스왑 실패했지만 토큰은 소스 민트에 수령됨.
       // 소스 민트가 settings에 없으면 자동 추가해 UI에서 잔액이 보이도록 한다.
-      if (!settings.mints.includes(sourceMintUrl)) {
+      if (!isTrusted(sourceMintUrl)) {
         await onAddTrustedMint(sourceMintUrl)
       }
       onPaymentReceived(token.amountSats, 'ecash')
@@ -366,7 +366,7 @@ export function ReceiveFlow({
     } else {
       addToast({ type: 'error', message: getTokenErrorMessage(result.error, t), duration: 3000 })
     }
-  }, [onSwapReceive, onAddTrustedMint, onPaymentReceived, settings.mints, addToast, t])
+  }, [onSwapReceive, onAddTrustedMint, onPaymentReceived, isTrusted, addToast, t])
 
   /** Token confirm → receive (handles same-mint, cross-mint swap, and offline P2PK) */
   const handleTokenReceive = useCallback(async (targetMintUrl?: string) => {
@@ -512,7 +512,7 @@ export function ReceiveFlow({
               onBack={onBack}
               onTokenDetected={handleTokenDetected}
               onNext={() => goToStep('amount')}
-              mintUrl={state.selectedMintUrl || settings.mints[0]}
+              mintUrl={state.selectedMintUrl || trustedAccounts[0]}
             />
           </PageTransition>
         )}

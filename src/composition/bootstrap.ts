@@ -63,6 +63,7 @@ import { TransactionMgmtService } from '@/core/services/transaction-mgmt.service
 import { ReceiveRequestFacadeService } from '@/core/services/receive-request-facade.service'
 import { PaymentRequestService } from '@/core/services/payment-request.service'
 import { UsernameService } from '@/core/services/username.service'
+import { TrustRegistryService } from '@/core/services/trust-registry.service'
 
 // ─── Phase 6: Metadata + NUT-18 HTTP ───
 import { MintMetadataService, metadataEvents } from '@/modules/cashu/metadata'
@@ -351,6 +352,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   )
   const username = new UsernameService(zappiLinkProvider)
 
+  const trustRegistry = new TrustRegistryService(settingsRepo)
+
   return {
     // ─── ServiceRegistry (driving ports only) ───
     eventBus,
@@ -377,6 +380,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     paymentRequest,
     routing,
     username,
+    trustRegistry,
 
     // ─── BootstrapResult extensions (MainApp only) ───
     cashuModule,

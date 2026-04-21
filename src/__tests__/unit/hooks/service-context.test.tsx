@@ -86,6 +86,12 @@ function createMockRegistry(): ServiceRegistry {
     paymentRequest: {} as unknown as ServiceRegistry['paymentRequest'],
     routing: {} as unknown as ServiceRegistry['routing'],
     username: {} as unknown as ServiceRegistry['username'],
+    trustRegistry: {
+      isTrusted: vi.fn(),
+      addTrust: vi.fn(),
+      revokeTrust: vi.fn(),
+      getTrustedAccounts: vi.fn(),
+    } as unknown as ServiceRegistry['trustRegistry'],
   }
 }
 
