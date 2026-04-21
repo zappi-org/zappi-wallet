@@ -501,4 +501,97 @@ describe('PaymentService', () => {
       expect(reports).toHaveLength(0)
     })
   })
+
+  // ─── quoteReclaim ───
+
+  describe('quoteReclaim', () => {
+    const TX_ID = 'tx-reclaim-1'
+
+    function buildUnclaimedTx(overrides?: Record<string, unknown>) {
+      return {
+        id: TX_ID,
+        direction: 'send' as const,
+        method: 'cashu:bolt11',
+        protocol: 'bolt11',
+        amount: sat(1000),
+        accountId: 'https://mint.test',
+        status: 'pending' as const,
+        outcome: 'unclaimed' as const,
+        createdAt: Date.now(),
+        metadata: {},
+        ...overrides,
+      }
+    }
+
+    it('delegates to adapter.estimateReclaimFee with the transaction', async () => {
+      const tx = buildUnclaimedTx()
+      vi.mocked(txRepo.getById).mockResolvedValue(tx as never)
+      adapter.estimateReclaimFee = vi.fn().mockResolvedValue({
+        grossAmount: sat(1000),
+        fee: sat(2),
+        netAmount: sat(998),
+      })
+
+      const result = await service.quoteReclaim({ transactionId: TX_ID })
+
+      expect(result.ok).toBe(true)
+      if (result.ok) {
+        expect(toNumber(result.value.fee)).toBe(2)
+        expect(toNumber(result.value.netAmount)).toBe(998)
+      }
+      expect(adapter.estimateReclaimFee).toHaveBeenCalledWith(tx)
+    })
+
+    it('returns UNKNOWN when transaction is missing', async () => {
+      vi.mocked(txRepo.getById).mockResolvedValue(null)
+
+      const result = await service.quoteReclaim({ transactionId: TX_ID })
+
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error.code).toBe('UNKNOWN')
+    })
+
+    it('returns UNKNOWN when transaction outcome is not unclaimed', async () => {
+      vi.mocked(txRepo.getById).mockResolvedValue(buildUnclaimedTx({ outcome: 'claimed' }) as never)
+
+      const result = await service.quoteReclaim({ transactionId: TX_ID })
+
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error.code).toBe('UNKNOWN')
+    })
+
+    it('returns ADAPTER_NOT_FOUND when the adapter id does not resolve', async () => {
+      vi.mocked(txRepo.getById).mockResolvedValue(
+        buildUnclaimedTx({ method: 'nonexistent:adapter' }) as never,
+      )
+
+      const result = await service.quoteReclaim({ transactionId: TX_ID })
+
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error.code).toBe('ADAPTER_NOT_FOUND')
+    })
+
+    it('returns ADAPTER_NOT_FOUND when adapter does not implement estimateReclaimFee', async () => {
+      adapter.estimateReclaimFee = undefined
+      vi.mocked(txRepo.getById).mockResolvedValue(buildUnclaimedTx() as never)
+
+      const result = await service.quoteReclaim({ transactionId: TX_ID })
+
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error.code).toBe('ADAPTER_NOT_FOUND')
+    })
+
+    it('wraps adapter throw as UNKNOWN (including missing token metadata)', async () => {
+      vi.mocked(txRepo.getById).mockResolvedValue(buildUnclaimedTx() as never)
+      adapter.estimateReclaimFee = vi.fn().mockRejectedValue(new Error('no token'))
+
+      const result = await service.quoteReclaim({ transactionId: TX_ID })
+
+      expect(result.ok).toBe(false)
+      if (!result.ok) {
+        expect(result.error.code).toBe('UNKNOWN')
+        expect(result.error.message).toContain('no token')
+      }
+    })
+  })
 })

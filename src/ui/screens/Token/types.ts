@@ -12,6 +12,8 @@ export interface MockPendingToken {
   memo: string
   mintUrl?: string
   tokenString?: string
+  /** Reclaim fee in sats, fetched via payment.quoteReclaim. Undefined while loading. */
+  reclaimFee?: number
 }
 
 export type MockTimelineStatus = 'registered' | 'consumed' | 'reclaimed'

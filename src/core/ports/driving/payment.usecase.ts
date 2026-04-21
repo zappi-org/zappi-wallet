@@ -74,6 +74,16 @@ export interface PaymentUseCase {
     input: string
   }): Promise<Result<RedeemFeeEstimate, PaymentError>>
 
+  /**
+   * Dry-run quote for reclaiming a pending sent token (tx in 'unclaimed' outcome).
+   * Resolves the stored token from transaction metadata and defers to the
+   * adapter's redeem-fee estimator (reclaim swap uses the same input_fee_ppk).
+   * No side effects — purely read-only.
+   */
+  quoteReclaim(params: {
+    transactionId: string
+  }): Promise<Result<RedeemFeeEstimate, PaymentError>>
+
   recoverAll(): Promise<RecoveryReport[]>
 }
 

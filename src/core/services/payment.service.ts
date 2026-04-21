@@ -307,6 +307,36 @@ export class PaymentService implements PaymentUseCase {
     }
   }
 
+  // ─── Quote Reclaim (dry-run fee estimate) ───
+
+  async quoteReclaim(params: {
+    transactionId: string
+  }): Promise<Result<RedeemFeeEstimate, PaymentError>> {
+    const tx = await this.txRepo.getById(params.transactionId)
+    if (!tx) {
+      return Err({ code: 'UNKNOWN', message: `Transaction not found: ${params.transactionId}` })
+    }
+    if (tx.outcome !== 'unclaimed') {
+      return Err({ code: 'UNKNOWN', message: `Transaction is not reclaimable (outcome: ${tx.outcome})` })
+    }
+
+    const adapter = this.findAdapter(tx.method)
+    if (!adapter?.estimateReclaimFee) {
+      return Err({
+        code: 'ADAPTER_NOT_FOUND',
+        message: `Adapter does not support reclaim fee estimation: ${tx.method}`,
+      })
+    }
+
+    try {
+      const estimate = await adapter.estimateReclaimFee(tx)
+      return Ok(estimate)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      return Err({ code: 'UNKNOWN', message })
+    }
+  }
+
   // ─── Inspect Input ───
 
   async inspectInput(params: {

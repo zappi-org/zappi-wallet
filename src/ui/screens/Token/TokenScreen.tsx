@@ -4,6 +4,7 @@ import { useAppStore } from '@/store'
 import { useFormatSats, satsToFiat } from '@/utils/format'
 import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
+import { useReclaimFees } from '@/ui/hooks/useReclaimFees'
 import { isSendToken, type TokenDetails } from '@/ui/types/pending-item-details'
 import type { PendingItem } from '@/core/ports/driving/pending-items.usecase'
 import { TokenEmptyState } from './components/TokenEmptyState'
@@ -54,6 +55,12 @@ export function TokenScreen({
     return s.allRates?.[cur] ?? null
   })
 
+  const pendingTxIds = useMemo(
+    () => pendingItemsRaw.filter(isSendToken).map((i) => i.id),
+    [pendingItemsRaw],
+  )
+  const { fees: reclaimFees } = useReclaimFees(pendingTxIds)
+
   const pendingTokens: MockPendingToken[] = useMemo(() => {
     return pendingItemsRaw
       .filter(isSendToken)
@@ -64,8 +71,9 @@ export function TokenScreen({
         memo: item.memo ?? '',
         mintUrl: item.accountId,
         tokenString: item.details?.token,
+        reclaimFee: reclaimFees.get(item.id),
       }))
-  }, [pendingItemsRaw])
+  }, [pendingItemsRaw, reclaimFees])
 
   const data = pickMockData(mockState)
   const hasPending = pendingTokens.length > 0

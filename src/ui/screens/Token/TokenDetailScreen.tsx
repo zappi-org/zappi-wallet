@@ -113,6 +113,7 @@ export function TokenDetailScreen({
         memo: data.memo ?? '',
         mintUrl: data.mintUrl,
         tokenString: data.tokenString,
+        reclaimFee: data.reclaimFee,
       },
     ],
     [data],

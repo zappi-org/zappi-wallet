@@ -29,7 +29,10 @@ export function ReclaimSheet({
   const [busy, setBusy] = useState(false)
 
   const totalAmount = tokens.reduce((sum, tk) => sum + tk.amount, 0)
-  const totalFee = tokens.length * reclaimFeePerToken
+  const totalFee = tokens.reduce(
+    (sum, tk) => sum + (tk.reclaimFee ?? reclaimFeePerToken),
+    0,
+  )
   const netAmount = Math.max(0, totalAmount - totalFee)
 
   const handleDragEnd = useCallback(

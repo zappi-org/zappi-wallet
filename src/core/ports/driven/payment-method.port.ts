@@ -1,4 +1,5 @@
 import type { Amount } from '@/core/domain/amount'
+import type { Transaction } from '@/core/domain/transaction'
 
 export type InputVerifyResult = 'valid' | 'missing' | 'failed'
 
@@ -39,6 +40,15 @@ export interface PaymentMethodAdapter {
   inspectInput?(input: string): Promise<InputInspection>
   redeem?(input: string): Promise<RedeemResult>
   estimateRedeemFee?(input: string): Promise<RedeemFeeEstimate>
+
+  // ─── 되찾기 견적 (dry-run, pending 송금을 취소했을 때 수수료) ───
+  /**
+   * Dry-run quote for reclaiming a pending send. The adapter knows how to
+   * extract its own reclaim input from the transaction (e.g., token string
+   * from metadata, operationId, etc.). Optional — adapters that don't
+   * support reclaim estimation omit this.
+   */
+  estimateReclaimFee?(tx: Transaction): Promise<RedeemFeeEstimate>
 
   // ─── 수신 완료 감지 (비동기 수신 — invoice paid, swap 완료 등) ───
   onReceiveCompleted?(

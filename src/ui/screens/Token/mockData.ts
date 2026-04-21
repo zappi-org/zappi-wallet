@@ -146,7 +146,7 @@ export function pendingToDetail(
     amount: token.amount,
     memo: token.memo,
     createdAt: token.createdAt,
-    reclaimFee: 2,
+    reclaimFee: token.reclaimFee ?? 2,
     mintAlias: extras.mintAlias ?? '—',
     mintName: extras.mintName,
     mintIconUrl: extras.mintIconUrl,

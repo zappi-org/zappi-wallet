@@ -21,58 +21,112 @@ vi.mock('react-i18next', () => ({
   initReactI18next: { type: '3rdParty', init: () => {} },
 }))
 
-vi.mock('@/utils/format', () => ({
-  useFormatSats: () => (v: number) => `${v} sats`,
-  useFormatFiat: () => () => null,
-}))
+vi.mock('@/utils/format', async () => {
+  const actual = await vi.importActual<typeof import('@/utils/format')>('@/utils/format')
+  return {
+    ...actual,
+    useFormatSats: () => (v: number) => `${v} sats`,
+    useFormatFiat: () => () => null,
+  }
+})
 
 const addToastMock = vi.fn()
+const defaultStoreState = {
+  addToast: addToastMock,
+  settings: { mints: [], fiatCurrency: 'USD' },
+  allRates: {},
+}
 vi.mock('@/store', () => ({
   useAppStore: (selector: (s: Record<string, unknown>) => unknown) =>
-    selector({ addToast: addToastMock }),
+    selector(defaultStoreState),
+}))
+
+const pendingItemsState: { items: Array<Record<string, unknown>> } = { items: [] }
+vi.mock('@/ui/hooks/usePendingItems', () => ({
+  useAllPendingItems: () => ({
+    items: pendingItemsState.items,
+    isLoading: false,
+    refresh: () => Promise.resolve(),
+  }),
+}))
+
+vi.mock('@/ui/hooks/use-mint-metadata', () => ({
+  useMintMetadata: () => ({
+    metadataMap: new Map(),
+    isLoading: false,
+    getDisplayName: (url: string) => url || '—',
+    getOriginalName: (url: string) => url || '—',
+    getIconUrl: () => undefined,
+    getMetadata: () => undefined,
+    refreshMetadata: () => Promise.resolve(),
+  }),
+}))
+
+vi.mock('@/ui/hooks/useReclaimFees', () => ({
+  useReclaimFees: () => ({ fees: new Map(), isLoading: false }),
 }))
 
 import { TokenScreen } from '@/ui/screens/Token/TokenScreen'
+
+function setPending(items: Array<Record<string, unknown>>) {
+  pendingItemsState.items = items
+}
+
+function makeSendTokenItem(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'p1',
+    direction: 'send',
+    kind: 'token',
+    amount: 1000,
+    accountId: 'https://mint.test',
+    createdAt: Date.now(),
+    memo: '커피값',
+    details: { token: 'cashuAeyJ0b2tlbiI6Ii4uLiJ9' },
+    ...overrides,
+  }
+}
 
 const renderScreen = (initialMockState: 'empty' | 'active' | 'first-create') => {
   const ref = createRef<HTMLDivElement>()
   return render(<TokenScreen scrollRef={ref} initialMockState={initialMockState} />)
 }
 
-describe('TokenScreen placeholder', () => {
+describe('TokenScreen', () => {
   beforeEach(() => {
     cleanup()
     addToastMock.mockClear()
+    setPending([])
   })
 
-  it('empty 상태에서 빈 카피와 안내 박스만 보여준다', () => {
+  it('empty + no pending → empty copy만 보여준다', () => {
     renderScreen('empty')
-
     expect(screen.getByText(/token\.empty\.title/)).toBeInTheDocument()
-    expect(screen.getByText(/token\.empty\.footerNote/)).toBeInTheDocument()
     expect(screen.queryByText(/token\.reclaimable\.section/)).not.toBeInTheDocument()
     expect(screen.queryByText(/token\.history\.section/)).not.toBeInTheDocument()
   })
 
-  it('active 상태에서 pending widget + reclaimable + timeline을 렌더한다', () => {
+  it('active (mock timeline) + no pending → timeline만 렌더', () => {
     renderScreen('active')
-
-    expect(screen.getByText(/token\.pendingWidget\.title/)).toBeInTheDocument()
-    expect(screen.getByText(/token\.reclaimable\.section/)).toBeInTheDocument()
     expect(screen.getByText(/token\.history\.section/)).toBeInTheDocument()
-    expect(screen.getAllByText(/token\.reclaimable\.actions\.reclaim/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/token\.reclaimable\.actions\.share/).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/token\.pendingWidget\.title/)).not.toBeInTheDocument()
   })
 
-  it('first-create 상태에서 hint가 보이고 다시보지않기 클릭 시 사라진다', () => {
-    renderScreen('first-create')
+  it('pending 실데이터가 있으면 PendingWidget + ReclaimableSection 렌더', () => {
+    setPending([makeSendTokenItem()])
+    renderScreen('empty')
+    expect(screen.getByText(/token\.pendingWidget\.title/)).toBeInTheDocument()
+    expect(screen.getByText(/token\.reclaimable\.section/)).toBeInTheDocument()
+  })
 
+  it('first-create 상태 + pending 1개에서 hint 표시, 다시보지않기 시 사라짐', () => {
+    setPending([makeSendTokenItem()])
+    renderScreen('first-create')
     expect(screen.getByText(/token\.firstCreate\.hint/)).toBeInTheDocument()
     fireEvent.click(screen.getByText(/token\.firstCreate\.dismiss/))
     expect(screen.queryByText(/token\.firstCreate\.hint/)).not.toBeInTheDocument()
   })
 
-  it('first-create 상태에는 토큰 내역 섹션이 없다', () => {
+  it('first-create 상태에는 timeline 섹션이 없다', () => {
     renderScreen('first-create')
     expect(screen.queryByText(/token\.history\.section/)).not.toBeInTheDocument()
   })
@@ -85,15 +139,14 @@ describe('TokenScreen placeholder', () => {
       writable: true,
     })
 
-    renderScreen('active')
-    fireEvent.click(screen.getAllByText(/token\.reclaimable\.actions\.share/)[0])
+    setPending([makeSendTokenItem()])
+    renderScreen('empty')
+    fireEvent.click(screen.getAllByLabelText(/token\.reclaimable\.actions\.share/)[0])
 
     await waitFor(() => expect(shareSpy).toHaveBeenCalledTimes(1))
     const arg = shareSpy.mock.calls[0][0]
     expect(arg).toHaveProperty('text')
-    expect(typeof arg.text).toBe('string')
 
-    // cleanup
     delete (navigator as unknown as { share?: unknown }).share
   })
 
@@ -107,8 +160,9 @@ describe('TokenScreen placeholder', () => {
       writable: true,
     })
 
-    renderScreen('active')
-    fireEvent.click(screen.getAllByText(/token\.reclaimable\.actions\.share/)[0])
+    setPending([makeSendTokenItem()])
+    renderScreen('empty')
+    fireEvent.click(screen.getAllByLabelText(/token\.reclaimable\.actions\.share/)[0])
 
     await waitFor(() => expect(writeTextSpy).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(addToastMock).toHaveBeenCalledTimes(1))

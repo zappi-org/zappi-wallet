@@ -20,6 +20,7 @@ import type {
 import { amount as toAmount, sat, toNumber } from '@/core/domain/amount'
 import type { Unit } from '@/core/domain/amount'
 import type { RedeemFeeEstimate } from '@/core/ports/driven/payment-method.port'
+import type { Transaction } from '@/core/domain/transaction'
 
 // ─── Backend interface (DI용) ───
 
@@ -197,6 +198,19 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
       fee: toAmount(fee, u),
       netAmount: toAmount(netAmount, u),
     }
+  }
+
+  // ─── Reclaim 견적 ───
+  /**
+   * Cashu 토큰은 tx.metadata.token 에 저장됨. Reclaim swap 은 receive swap 과
+   * 같은 input_fee_ppk 를 적용하므로 estimateRedeemFee 로 위임한다.
+   */
+  async estimateReclaimFee(tx: Transaction): Promise<RedeemFeeEstimate> {
+    const token = tx.metadata?.token as string | undefined
+    if (!token) {
+      throw new Error('No cashu token stored in transaction metadata')
+    }
+    return this.estimateRedeemFee(token)
   }
 
   // ─── 복구 ───
