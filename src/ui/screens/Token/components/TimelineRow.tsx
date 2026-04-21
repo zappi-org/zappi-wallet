@@ -1,31 +1,34 @@
 import { useTranslation } from 'react-i18next'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
-import { formatRelativeTime } from '../mockData'
-import type { MockTimelineEntry } from '../types'
+import { toNumber } from '@/core/domain/amount'
+import type { Transaction } from '@/core/domain/transaction'
+import { transactionToDetailStatus, formatRelativeTime } from '../mockData'
+import type { TokenDetailStatus } from '../types'
 
 export interface TimelineRowProps {
-  entry: MockTimelineEntry
+  tx: Transaction
   onSelect?: () => void
 }
 
-const STATUS_KEY: Record<MockTimelineEntry['status'], string> = {
+const STATUS_KEY: Record<TokenDetailStatus, string> = {
+  pending: 'token.history.status.registered', // not shown in timeline
   registered: 'token.history.status.registered',
   consumed: 'token.history.status.consumed',
   reclaimed: 'token.history.status.reclaimed',
 }
 
-const OUTGOING_STATUSES: ReadonlySet<MockTimelineEntry['status']> = new Set([
-  'consumed',
-])
-
-export function TimelineRow({ entry, onSelect }: TimelineRowProps) {
+export function TimelineRow({ tx, onSelect }: TimelineRowProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
 
-  const isOutgoing = OUTGOING_STATUSES.has(entry.status)
-  const signedAmount = isOutgoing ? `- ${formatSats(entry.amount)}` : formatSats(entry.amount)
-  const fiat = formatFiat(entry.amount)
+  const status = transactionToDetailStatus(tx) ?? 'registered'
+  const amountSats = toNumber(tx.amount)
+  const isOutgoing = tx.direction === 'send'
+  // Ecash send settled: token consumed by recipient → display as outgoing
+  // Reclaim restores balance → also outgoing-origin but net zero; keep sign for consistency
+  const signedAmount = isOutgoing ? `- ${formatSats(amountSats)}` : formatSats(amountSats)
+  const fiat = formatFiat(amountSats)
 
   return (
     <div
@@ -42,22 +45,26 @@ export function TimelineRow({ entry, onSelect }: TimelineRowProps) {
     >
       <div className="flex flex-col gap-1 min-w-0">
         <span className="text-body-bold font-semibold text-foreground">
-          {t(STATUS_KEY[entry.status])}
+          {t(STATUS_KEY[status])}
         </span>
         <span className="text-caption text-foreground-muted truncate">
-          {t('token.history.metaLine', {
-            time: formatRelativeTime(t, entry.at),
-            memo: entry.memo,
-          })}
+          {tx.memo && tx.memo.trim().length > 0
+            ? t('token.history.metaLine', {
+                time: formatRelativeTime(t, tx.createdAt),
+                memo: tx.memo,
+              })
+            : formatRelativeTime(t, tx.createdAt)}
         </span>
       </div>
       <div className="flex flex-col gap-1 items-end text-right shrink-0">
         <span className="text-body-bold font-semibold text-foreground">
           {signedAmount}
         </span>
-        <span className="text-caption text-foreground-muted">
-          {fiat ? `${entry.counterparty} (${fiat})` : entry.counterparty}
-        </span>
+        {fiat && (
+          <span className="text-caption text-foreground-muted">
+            {fiat}
+          </span>
+        )}
       </div>
     </div>
   )

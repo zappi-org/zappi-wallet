@@ -1160,6 +1160,8 @@ export default {
       group: {
         today: '今日',
         yesterday: '昨日',
+        thisMonth: '今月',
+        older: 'それ以前',
       },
       metaLine: '{{time}}, {{memo}}',
       status: {

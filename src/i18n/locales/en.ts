@@ -1166,6 +1166,8 @@ export default {
       group: {
         today: 'Today',
         yesterday: 'Yesterday',
+        thisMonth: 'This month',
+        older: 'Earlier',
       },
       metaLine: '{{time}}, {{memo}}',
       status: {

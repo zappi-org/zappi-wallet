@@ -1152,6 +1152,8 @@ export default {
       group: {
         today: 'Hoy',
         yesterday: 'Ayer',
+        thisMonth: 'Este mes',
+        older: 'Anterior',
       },
       metaLine: '{{time}}, {{memo}}',
       status: {

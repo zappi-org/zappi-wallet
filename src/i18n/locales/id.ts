@@ -1152,6 +1152,8 @@ export default {
       group: {
         today: 'Hari ini',
         yesterday: 'Kemarin',
+        thisMonth: 'Bulan ini',
+        older: 'Sebelumnya',
       },
       metaLine: '{{time}}, {{memo}}',
       status: {

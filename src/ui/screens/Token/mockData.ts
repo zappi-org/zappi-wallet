@@ -1,98 +1,13 @@
+import { getTxMeta } from '@/core/domain/transaction'
+import { toNumber } from '@/core/domain/amount'
+import type { Transaction } from '@/core/domain/transaction'
 import type {
   MockPendingToken,
-  MockTimelineEntry,
   TokenDetailData,
-  TokenTabMockData,
-  TokenViewState,
+  TokenDetailStatus,
 } from './types'
 
 const MINUTE_MS = 60 * 1000
-const HOUR_MS = 60 * MINUTE_MS
-const DAY_MS = 24 * HOUR_MS
-
-function minutesAgo(n: number): number {
-  return Date.now() - n * MINUTE_MS
-}
-
-function yesterdayAt(hour: number): number {
-  const d = new Date(Date.now() - DAY_MS)
-  d.setHours(hour, 0, 0, 0)
-  return d.getTime()
-}
-
-const EMPTY: TokenTabMockData = {
-  timelineGroups: [],
-}
-
-const ACTIVE: TokenTabMockData = {
-  timelineGroups: [
-    {
-      label: 'today',
-      entries: [
-        {
-          id: 't1',
-          at: minutesAgo(0),
-          amount: 1000,
-          status: 'registered',
-          memo: '커피값',
-          counterparty: '레모닝',
-        },
-        {
-          id: 't3',
-          at: minutesAgo(30),
-          amount: 10000,
-          status: 'reclaimed',
-          memo: '커피값',
-          counterparty: '레몬피즈',
-        },
-      ],
-    },
-    {
-      label: 'yesterday',
-      entries: [
-        {
-          id: 't4',
-          at: yesterdayAt(18),
-          amount: 1000,
-          status: 'registered',
-          memo: '커피값',
-          counterparty: '레몬피즈',
-        },
-        {
-          id: 't5',
-          at: yesterdayAt(15),
-          amount: 10000,
-          status: 'reclaimed',
-          memo: '커피값',
-          counterparty: '레몬피즈',
-        },
-        {
-          id: 't6',
-          at: yesterdayAt(12),
-          amount: 10000,
-          status: 'consumed',
-          memo: '커피값',
-          counterparty: '레몬피즈',
-        },
-      ],
-    },
-  ],
-}
-
-const FIRST_CREATE: TokenTabMockData = {
-  timelineGroups: [],
-}
-
-export function pickMockData(state: TokenViewState): TokenTabMockData {
-  switch (state) {
-    case 'empty':
-      return EMPTY
-    case 'active':
-      return ACTIVE
-    case 'first-create':
-      return FIRST_CREATE
-  }
-}
 
 const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
 
@@ -122,12 +37,6 @@ export function formatDetailDateLine(
   })
 }
 
-const MOCK_TOKEN_STRING =
-  'cashuBo2FteCNodHRwczovL21pbnQubGVtb25maXp6Lm1pbnQvdjEvaW50LmV4YW1wbGVhdWNzYXR' +
-  'hdIGiYWlIAIEJVRy0yMDI2YXCEpGFhAWFzeEA5YTQyNzlmNzBlMjZjNTVkZDc2MWYzZTczNWFiYTcw' +
-  'ZjYwNjYwMjc0NGU0NjM0NmEyMDE5NmZjNTA5NTM3MzM4YWN4QDAxYWIyZjFhYzk5ZTJjNzNlMTZjMz' +
-  'VhZjVjMTdjMDg4Y2YwYzQ5NWY5OGVjM2I4ZDU1NWEzN2NlNTg4OTVhYxBLRZxn8e/example/ecash'
-
 export interface PendingDetailExtras {
   mintAlias?: string
   mintName?: string
@@ -154,25 +63,64 @@ export function pendingToDetail(
     fiatUsd: extras.fiatUsd,
     unit: 'sat',
     unread: true,
-    tokenString: token.tokenString ?? MOCK_TOKEN_STRING,
+    tokenString: token.tokenString,
   }
 }
 
-/** Convert timeline mock → detail shape — status matches entry.status. */
-export function timelineToDetail(entry: MockTimelineEntry): TokenDetailData {
-  const needsFee = entry.status === 'registered' || entry.status === 'reclaimed'
+/**
+ * True if a Transaction belongs in the Token-tab Timeline (ecash token lifecycle).
+ * Includes:
+ * - Received ecash tokens I redeemed (direction='receive', outcome='claimed')
+ * - Sent ecash tokens recipient claimed (direction='send', outcome='claimed')
+ * - Sent ecash tokens I reclaimed (direction='send', outcome='reclaimed')
+ * Excludes pending sends (rendered via usePendingItems) and swaps.
+ */
+export function isTokenTimelineTx(tx: Transaction): boolean {
+  if (tx.protocol !== 'cashu-token') return false
+  if (tx.intent === 'swap') return false
+  if (tx.status !== 'settled') return false
+  return tx.outcome === 'claimed' || tx.outcome === 'reclaimed'
+}
+
+/** Derive TokenDetailStatus from a Transaction. Returns null if not a timeline item. */
+export function transactionToDetailStatus(tx: Transaction): TokenDetailStatus | null {
+  if (!isTokenTimelineTx(tx)) return null
+  if (tx.outcome === 'reclaimed') return 'reclaimed'
+  // I sent a token, recipient claimed/used it → '사용됨'
+  if (tx.direction === 'send' && tx.outcome === 'claimed') return 'consumed'
+  // I received a token and registered into my wallet → '등록함'
+  if (tx.direction === 'receive' && tx.outcome === 'claimed') return 'registered'
+  return null
+}
+
+/** Convert a settled ecash Transaction → detail shape for TokenDetailScreen. */
+export function transactionToDetail(
+  tx: Transaction,
+  extras: PendingDetailExtras = {},
+): TokenDetailData | null {
+  const status = transactionToDetailStatus(tx)
+  if (!status) return null
+
+  const meta = getTxMeta(tx)
+  const feeAmount = tx.fee
+    ? toNumber(tx.fee.effective ?? tx.fee.quoted)
+    : meta.fee
+
   return {
-    id: entry.id,
-    status: entry.status,
-    amount: entry.amount,
-    memo: entry.memo,
-    createdAt: entry.at,
-    statusAt: entry.at,
-    fee: needsFee ? 3 : undefined,
-    mintAlias: '민트 3',
-    mintName: 'Lemonfizz Mint',
+    id: tx.id,
+    status,
+    amount: toNumber(tx.amount),
+    memo: tx.memo,
+    createdAt: tx.createdAt,
+    statusAt: tx.completedAt ?? tx.createdAt,
+    fee: feeAmount,
+    mintAlias: extras.mintAlias ?? '—',
+    mintName: extras.mintName,
+    mintIconUrl: extras.mintIconUrl,
+    mintUrl: tx.accountId,
+    tokenString: meta.token,
+    fiatUsd: extras.fiatUsd,
     unit: 'sat',
-    tokenString: MOCK_TOKEN_STRING,
   }
 }
 

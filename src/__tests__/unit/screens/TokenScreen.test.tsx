@@ -66,6 +66,15 @@ vi.mock('@/ui/hooks/useReclaimFees', () => ({
   useReclaimFees: () => ({ fees: new Map(), isLoading: false }),
 }))
 
+vi.mock('@/ui/hooks/use-transaction-history', () => ({
+  useTransactionHistory: () => ({
+    groups: [],
+    isLoading: false,
+    error: undefined,
+    refresh: () => Promise.resolve(),
+  }),
+}))
+
 import { TokenScreen } from '@/ui/screens/Token/TokenScreen'
 
 function setPending(items: Array<Record<string, unknown>>) {
@@ -86,9 +95,9 @@ function makeSendTokenItem(overrides: Record<string, unknown> = {}) {
   }
 }
 
-const renderScreen = (initialMockState: 'empty' | 'active' | 'first-create') => {
+const renderScreen = () => {
   const ref = createRef<HTMLDivElement>()
-  return render(<TokenScreen scrollRef={ref} initialMockState={initialMockState} />)
+  return render(<TokenScreen scrollRef={ref} />)
 }
 
 describe('TokenScreen', () => {
@@ -98,37 +107,26 @@ describe('TokenScreen', () => {
     setPending([])
   })
 
-  it('empty + no pending → empty copy만 보여준다', () => {
-    renderScreen('empty')
+  it('no pending + no timeline → empty state 만 보여준다', () => {
+    renderScreen()
     expect(screen.getByText(/token\.empty\.title/)).toBeInTheDocument()
     expect(screen.queryByText(/token\.reclaimable\.section/)).not.toBeInTheDocument()
     expect(screen.queryByText(/token\.history\.section/)).not.toBeInTheDocument()
   })
 
-  it('active (mock timeline) + no pending → timeline만 렌더', () => {
-    renderScreen('active')
-    expect(screen.getByText(/token\.history\.section/)).toBeInTheDocument()
-    expect(screen.queryByText(/token\.pendingWidget\.title/)).not.toBeInTheDocument()
-  })
-
   it('pending 실데이터가 있으면 PendingWidget + ReclaimableSection 렌더', () => {
     setPending([makeSendTokenItem()])
-    renderScreen('empty')
+    renderScreen()
     expect(screen.getByText(/token\.pendingWidget\.title/)).toBeInTheDocument()
     expect(screen.getByText(/token\.reclaimable\.section/)).toBeInTheDocument()
   })
 
-  it('first-create 상태 + pending 1개에서 hint 표시, 다시보지않기 시 사라짐', () => {
+  it('pending 1개 + timeline 없음 → first-create hint 자동 표시', () => {
     setPending([makeSendTokenItem()])
-    renderScreen('first-create')
+    renderScreen()
     expect(screen.getByText(/token\.firstCreate\.hint/)).toBeInTheDocument()
     fireEvent.click(screen.getByText(/token\.firstCreate\.dismiss/))
     expect(screen.queryByText(/token\.firstCreate\.hint/)).not.toBeInTheDocument()
-  })
-
-  it('first-create 상태에는 timeline 섹션이 없다', () => {
-    renderScreen('first-create')
-    expect(screen.queryByText(/token\.history\.section/)).not.toBeInTheDocument()
   })
 
   it('공유 버튼 클릭 시 navigator.share를 호출한다', async () => {
@@ -140,7 +138,7 @@ describe('TokenScreen', () => {
     })
 
     setPending([makeSendTokenItem()])
-    renderScreen('empty')
+    renderScreen()
     fireEvent.click(screen.getAllByLabelText(/token\.reclaimable\.actions\.share/)[0])
 
     await waitFor(() => expect(shareSpy).toHaveBeenCalledTimes(1))
@@ -161,7 +159,7 @@ describe('TokenScreen', () => {
     })
 
     setPending([makeSendTokenItem()])
-    renderScreen('empty')
+    renderScreen()
     fireEvent.click(screen.getAllByLabelText(/token\.reclaimable\.actions\.share/)[0])
 
     await waitFor(() => expect(writeTextSpy).toHaveBeenCalledTimes(1))

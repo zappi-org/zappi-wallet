@@ -1,5 +1,3 @@
-export type TokenViewState = 'empty' | 'active' | 'first-create'
-
 /**
  * Pending ecash token view model.
  * Cashu tokens are bearer — no counterparty is recorded.
@@ -14,28 +12,6 @@ export interface MockPendingToken {
   tokenString?: string
   /** Reclaim fee in sats, fetched via payment.quoteReclaim. Undefined while loading. */
   reclaimFee?: number
-}
-
-export type MockTimelineStatus = 'registered' | 'consumed' | 'reclaimed'
-
-export interface MockTimelineEntry {
-  id: string
-  at: number
-  amount: number
-  status: MockTimelineStatus
-  memo: string
-  counterparty: string
-}
-
-export type MockTimelineGroupLabel = 'today' | 'yesterday'
-
-export interface MockTimelineGroup {
-  label: MockTimelineGroupLabel
-  entries: MockTimelineEntry[]
-}
-
-export interface TokenTabMockData {
-  timelineGroups: MockTimelineGroup[]
 }
 
 /** Token detail view status — pending includes created-but-unclaimed ecash tokens. */

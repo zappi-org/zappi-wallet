@@ -1,10 +1,11 @@
 import { useTranslation } from 'react-i18next'
+import type { Transaction } from '@/core/domain/transaction'
+import type { TimelineGroup } from '@/ui/hooks/use-transaction-history'
 import { TimelineRow } from './TimelineRow'
-import type { MockTimelineEntry, MockTimelineGroup } from '../types'
 
 export interface TimelineSectionProps {
-  groups: MockTimelineGroup[]
-  onSelect?: (entry: MockTimelineEntry) => void
+  groups: TimelineGroup[]
+  onSelect?: (tx: Transaction) => void
 }
 
 export function TimelineSection({ groups, onSelect }: TimelineSectionProps) {
@@ -22,11 +23,11 @@ export function TimelineSection({ groups, onSelect }: TimelineSectionProps) {
           <span className="text-caption text-foreground-muted">
             {t(`token.history.group.${group.label}`)}
           </span>
-          {group.entries.map((entry) => (
+          {group.entries.map((tx) => (
             <TimelineRow
-              key={entry.id}
-              entry={entry}
-              onSelect={onSelect ? () => onSelect(entry) : undefined}
+              key={tx.id}
+              tx={tx}
+              onSelect={onSelect ? () => onSelect(tx) : undefined}
             />
           ))}
         </div>

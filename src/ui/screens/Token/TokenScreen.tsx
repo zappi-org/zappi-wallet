@@ -5,29 +5,27 @@ import { useFormatSats, satsToFiat } from '@/utils/format'
 import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useReclaimFees } from '@/ui/hooks/useReclaimFees'
+import { useTransactionHistory } from '@/ui/hooks/use-transaction-history'
 import { isSendToken, type TokenDetails } from '@/ui/types/pending-item-details'
 import type { PendingItem } from '@/core/ports/driving/pending-items.usecase'
+import type { Transaction } from '@/core/domain/transaction'
 import { TokenEmptyState } from './components/TokenEmptyState'
 import { PendingWidget } from './components/PendingWidget'
 import { ReclaimableSection } from './components/ReclaimableSection'
 import { TimelineSection } from './components/TimelineSection'
-import { MockStateSwitcher } from './components/MockStateSwitcher'
 import { ReclaimSheet } from './components/ReclaimSheet'
 import {
-  pickMockData,
+  isTokenTimelineTx,
   pendingToDetail,
-  timelineToDetail,
+  transactionToDetail,
 } from './mockData'
 import type {
   MockPendingToken,
-  MockTimelineEntry,
   TokenDetailData,
-  TokenViewState,
 } from './types'
 
 export interface TokenScreenProps {
   scrollRef: RefObject<HTMLDivElement | null>
-  initialMockState?: TokenViewState
   /** Open detail screen for a token (pending card or timeline row click). */
   onSelectToken?: (detail: TokenDetailData) => void
   /** Execute the reclaim operation for the given tokens (awaits real service). */
@@ -36,7 +34,6 @@ export interface TokenScreenProps {
 
 export function TokenScreen({
   scrollRef,
-  initialMockState = 'active',
   onSelectToken,
   onReclaimTokens,
 }: TokenScreenProps) {
@@ -44,7 +41,6 @@ export function TokenScreen({
   const formatSats = useFormatSats()
   const addToast = useAppStore((state) => state.addToast)
 
-  const [mockState, setMockState] = useState<TokenViewState>(initialMockState)
   const [hintDismissed, setHintDismissed] = useState(false)
 
   const mintUrls = useAppStore((s) => s.settings.mints)
@@ -75,10 +71,13 @@ export function TokenScreen({
       }))
   }, [pendingItemsRaw, reclaimFees])
 
-  const data = pickMockData(mockState)
+  const { groups: timelineGroups } = useTransactionHistory({ filter: isTokenTimelineTx })
+
   const hasPending = pendingTokens.length > 0
-  const hasTimeline = data.timelineGroups.length > 0
-  const showFirstCreateHint = mockState === 'first-create' && !hintDismissed
+  const hasTimeline = timelineGroups.length > 0
+  // Show first-create hint when the user's first pending token appears with no history yet.
+  const showFirstCreateHint =
+    !hintDismissed && pendingTokens.length === 1 && timelineGroups.length === 0
 
   const handleShare = useCallback(
     async (token: MockPendingToken) => {
@@ -124,10 +123,22 @@ export function TokenScreen({
   )
 
   const handleSelectTimeline = useCallback(
-    (entry: MockTimelineEntry) => {
-      onSelectToken?.(timelineToDetail(entry))
+    (tx: Transaction) => {
+      if (!onSelectToken) return
+      const url = tx.accountId
+      const metadata = url ? getMetadata(url) : undefined
+      const amountSats = Number(tx.amount.value)
+      const fiatValue =
+        fiatRate !== null ? satsToFiat(amountSats, fiatRate) : undefined
+      const detail = transactionToDetail(tx, {
+        mintAlias: url ? getDisplayName(url) : undefined,
+        mintName: metadata?.name,
+        mintIconUrl: url ? getIconUrl(url) : undefined,
+        fiatUsd: fiatValue,
+      })
+      if (detail) onSelectToken(detail)
     },
-    [onSelectToken],
+    [onSelectToken, getDisplayName, getMetadata, getIconUrl, fiatRate],
   )
 
   const [reclaimTargets, setReclaimTargets] = useState<MockPendingToken[] | null>(null)
@@ -150,8 +161,6 @@ export function TokenScreen({
   return (
     <div ref={scrollRef} className="flex-1 h-full overflow-y-auto pb-28">
       <div className="min-h-full flex flex-col p-4 gap-4">
-        <MockStateSwitcher value={mockState} onChange={setMockState} />
-
         <h1 className="text-heading font-bold text-foreground pt-2">
           {t('nav.token')}
         </h1>
@@ -178,7 +187,7 @@ export function TokenScreen({
               />
             )}
             <TimelineSection
-              groups={data.timelineGroups}
+              groups={timelineGroups}
               onSelect={onSelectToken ? handleSelectTimeline : undefined}
             />
           </>

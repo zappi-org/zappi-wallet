@@ -1173,6 +1173,8 @@ export default {
       group: {
         today: '오늘',
         yesterday: '어제',
+        thisMonth: '이번 달',
+        older: '이전',
       },
       metaLine: '{{time}}, {{memo}}',
       status: {
