@@ -181,12 +181,14 @@ export function ConfirmTrustedStep({
               </span>
             </div>
           </div>
-          <div className="flex justify-between py-2.5 border-b border-border/50">
-            <span className="text-body text-foreground-muted">수취 수수료</span>
-            <span className="text-body font-medium text-foreground">
-              {fee !== null ? `-${formatSats(fee)}` : '—'}
-            </span>
-          </div>
+          {fee !== null && fee > 0 && (
+            <div className="flex justify-between py-2.5 border-b border-border/50">
+              <span className="text-body text-foreground-muted">수취 수수료</span>
+              <span className="text-body font-medium text-foreground">
+                -{formatSats(fee)}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between py-2.5">
             <span className="text-body font-bold text-foreground">실제 수령액</span>
             <span className="text-body font-bold text-foreground">

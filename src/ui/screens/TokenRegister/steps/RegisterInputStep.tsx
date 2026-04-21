@@ -8,7 +8,7 @@ import { hapticError } from '@/ui/utils/haptic'
 import { translateError } from '@/ui/utils/error-i18n'
 import { useTranslation } from 'react-i18next'
 import { Camera, Clipboard } from 'lucide-react'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ValidatedCashuToken } from '@/core/domain/input-types'
 
 export interface RegisterInputStepProps {
@@ -30,6 +30,7 @@ export function RegisterInputStep({
   const [token, setToken] = useState(initialToken)
   const [scannerOpen, setScannerOpen] = useState(false)
   const [validating, setValidating] = useState(false)
+  const advanceGuardRef = useRef(false)
 
   const pasteFromClipboard = useCallback(async () => {
     try {
@@ -62,6 +63,7 @@ export function RegisterInputStep({
         })
         return
       }
+      advanceGuardRef.current = true
       onNext(validated)
     } catch (error) {
       hapticError()
@@ -70,6 +72,36 @@ export function RegisterInputStep({
       setValidating(false)
     }
   }, [token, validating, inputParser, onNext, addToast, t])
+
+  // Auto-advance: once the input looks like a complete cashu token, validate
+  // silently in the background. Manual typing errors don't trigger a toast —
+  // the user can still tap the button to see an error message.
+  useEffect(() => {
+    const raw = token.trim()
+    if (!raw || validating || advanceGuardRef.current) return
+    if (!/^cashu[ab]/i.test(raw)) return
+    if (raw.length < 40) return
+
+    let cancelled = false
+    const handle = window.setTimeout(async () => {
+      try {
+        const classified = inputParser.detectAndClassify(raw)
+        const validated = await inputParser.validateAsync(classified)
+        if (cancelled) return
+        if (validated.type === 'cashu-token') {
+          advanceGuardRef.current = true
+          onNext(validated)
+        }
+      } catch {
+        /* silent — user may still be editing */
+      }
+    }, 400)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(handle)
+    }
+  }, [token, validating, inputParser, onNext])
 
   const canProceed = token.trim().length > 0 && !validating
 
