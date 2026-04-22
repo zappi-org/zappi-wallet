@@ -445,10 +445,6 @@ export class PaymentService implements PaymentUseCase {
     })
 
     this.eventBus.emit({
-      type: 'payment:completed',
-      payload: { txId: tx.id, method: tx.method, amount: tx.amount },
-    })
-    this.eventBus.emit({
       type: 'send:claimed',
       payload: {
         txId: tx.id,
@@ -496,10 +492,6 @@ export class PaymentService implements PaymentUseCase {
       })
 
       this.eventBus.emit({
-        type: 'payment:completed',
-        payload: { txId: tx.id, method: tx.method, amount: tx.amount },
-      })
-      this.eventBus.emit({
         type: 'send:reclaimed',
         payload: {
           txId: tx.id,
@@ -524,10 +516,6 @@ export class PaymentService implements PaymentUseCase {
           status: settled.status,
           outcome: settled.outcome,
           completedAt: settled.completedAt,
-        })
-        this.eventBus.emit({
-          type: 'payment:completed',
-          payload: { txId: tx.id, method: tx.method, amount: tx.amount },
         })
         this.eventBus.emit({
           type: 'send:claimed',
@@ -555,10 +543,6 @@ export class PaymentService implements PaymentUseCase {
           status: reclaimed.status,
           outcome: reclaimed.outcome,
           completedAt: reclaimed.completedAt,
-        })
-        this.eventBus.emit({
-          type: 'payment:completed',
-          payload: { txId: tx.id, method: tx.method, amount: tx.amount },
         })
         this.eventBus.emit({
           type: 'send:reclaimed',

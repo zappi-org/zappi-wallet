@@ -94,11 +94,11 @@ export interface ReceiveSettledEvent {
 }
 
 /**
- * Semantic user-action events (protocol-neutral).
+ * Semantic user-action events for cashu ecash flows.
  *
- * Emitted alongside the lower-level `payment:completed` so consumers that
- * only care about the action (not the state transition) can subscribe
- * without re-querying the transaction or filtering on protocol/direction/outcome.
+ * `payment:completed` is reserved for Lightning melt completion. Cashu token
+ * send/reclaim/redeem emit these semantic events instead — payload is
+ * self-contained (amount, memo, protocol) so subscribers don't re-query.
  */
 
 /** A send I initiated was claimed/consumed by the counterparty. */

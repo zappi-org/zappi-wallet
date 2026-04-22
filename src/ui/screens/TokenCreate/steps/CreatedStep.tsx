@@ -5,7 +5,7 @@ import { Confetti } from '@/ui/components/payment/Confetti'
 import { useFormatSats } from '@/utils/format'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useOwnPaymentEvent } from '@/ui/hooks/use-own-payment-event'
-import { usePaymentCompleted } from '@/ui/hooks/use-payment-completed'
+import { useSendClaimed } from '@/ui/hooks/use-send-claimed'
 import { useAppStore } from '@/store'
 import { hapticSuccess } from '@/ui/utils/haptic'
 import { useTranslation } from 'react-i18next'
@@ -58,7 +58,7 @@ export function CreatedStep({
   // "사용되었어요" toast so the user doesn't see duplicate notifications.
   useOwnPaymentEvent(txId)
 
-  // Subscribe to payment:completed event filtered by this tx —
+  // Subscribe to send:claimed event filtered by this tx —
   // fires when the recipient claims/uses the token (send-token-observer).
   const handleSpent = useCallback(() => {
     if (spentGuardRef.current) return
@@ -66,7 +66,7 @@ export function CreatedStep({
     setIsSpent(true)
     hapticSuccess()
   }, [])
-  usePaymentCompleted(txId, handleSpent)
+  useSendClaimed(txId, handleSpent)
 
   // Auto-dismiss a few seconds after the token is claimed.
   const onCloseRef = useRef(onClose)

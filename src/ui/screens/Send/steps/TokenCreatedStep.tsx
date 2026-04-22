@@ -10,7 +10,8 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { Share2, Copy, X, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { hapticTap, hapticSuccess } from '@/ui/utils/haptic'
-import { usePaymentCompleted } from '@/ui/hooks/use-payment-completed'
+import { useSendClaimed } from '@/ui/hooks/use-send-claimed'
+import { useOwnPaymentEvent } from '@/ui/hooks/use-own-payment-event'
 import { useAppStore } from '@/store'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
@@ -48,8 +49,11 @@ export function TokenCreatedStep({
     hapticSuccess()
   }, [])
 
-  // Monitor token spending via payment:completed domain event
-  usePaymentCompleted(transactionId, handleSpent)
+  // Claim UX ownership so the global "사용되었어요" toast defers to this screen.
+  useOwnPaymentEvent(transactionId)
+
+  // Monitor token spending via send:claimed domain event
+  useSendClaimed(transactionId, handleSpent)
 
   // Auto-dismiss after token is claimed
   const onCompleteRef = useRef(onComplete)
