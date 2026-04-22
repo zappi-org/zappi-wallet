@@ -845,7 +845,7 @@ export default {
       accountFrom: 'Desde <b>{{mint}}</b>',
       whoToSend: '¿A quién enviar?',
       placeholder: 'Dirección o factura',
-      hint: 'Sin dirección, puedes crear un <b>token</b> y entregarlo como efectivo',
+      hint: 'Pega o escanea una <b>dirección Lightning</b>, <b>factura</b> o <b>solicitud Cashu</b>',
       unrecognized: 'Formato de dirección no reconocido',
       validationFailed: 'No se pudo verificar la dirección',
       lnurlWithdrawNotSupported: 'Este es un enlace de retiro, no una dirección de pago',
@@ -868,6 +868,7 @@ export default {
     tokenCreate: {
       title: 'Crear Token',
       howMuch: '¿Cuánto token crear?',
+      amountCaption: 'Los tokens se pueden entregar como efectivo',
       memo: 'Memo',
       requestAmount: 'Solicitud',
       memoPlaceholder: 'Opcional',

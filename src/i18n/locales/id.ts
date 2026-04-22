@@ -845,7 +845,7 @@ export default {
       accountFrom: 'Dari <b>{{mint}}</b>',
       whoToSend: 'Kirim ke siapa?',
       placeholder: 'Alamat atau invoice',
-      hint: 'Tanpa alamat, Anda bisa membuat <b>token</b> dan memberikannya seperti uang tunai',
+      hint: 'Tempel atau pindai <b>alamat Lightning</b>, <b>invoice</b>, atau <b>permintaan Cashu</b>',
       unrecognized: 'Format alamat tidak dikenali',
       validationFailed: 'Tidak dapat memverifikasi alamat',
       lnurlWithdrawNotSupported: 'Ini adalah tautan penarikan, bukan alamat pembayaran',
@@ -868,6 +868,7 @@ export default {
     tokenCreate: {
       title: 'Buat Token',
       howMuch: 'Berapa nilai token yang dibuat?',
+      amountCaption: 'Token bisa diserahkan seperti uang tunai',
       memo: 'Memo',
       requestAmount: 'Permintaan',
       memoPlaceholder: 'Opsional',

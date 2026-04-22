@@ -853,7 +853,7 @@ export default {
       accountFrom: '<b>{{mint}}</b>から',
       whoToSend: '誰に送りますか？',
       placeholder: 'アドレスまたはインボイスを入力',
-      hint: 'アドレスなしで<b>トークン</b>を作成し、現金のように渡すこともできます',
+      hint: '<b>ライトニングアドレス</b>、<b>インボイス</b>、<b>Cashuリクエスト</b>を貼り付けるかスキャンできます',
       unrecognized: '認識できないアドレス形式です',
       validationFailed: 'アドレスを確認できません',
       lnurlWithdrawNotSupported: '出金リンクです。支払いアドレスではありません',
@@ -876,6 +876,7 @@ export default {
     tokenCreate: {
       title: 'トークン作成',
       howMuch: 'いくら分のトークンを作りますか？',
+      amountCaption: 'トークンは紙幣のように手渡して使えます',
       memo: 'メモ',
       requestAmount: 'リクエスト',
       memoPlaceholder: '任意',

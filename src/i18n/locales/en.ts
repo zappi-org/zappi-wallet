@@ -850,7 +850,7 @@ export default {
       accountFrom: 'From <b>{{mint}}</b>',
       whoToSend: 'Who are you sending to?',
       placeholder: 'Address or invoice',
-      hint: 'Without an address, you can create a <b>token</b> to hand over like cash',
+      hint: 'Paste or scan a <b>Lightning address</b>, <b>invoice</b>, or <b>Cashu request</b>',
       unrecognized: 'Unrecognized address format',
       validationFailed: 'Unable to verify address',
       lnurlWithdrawNotSupported: 'This is a withdraw link, not a payment address',
@@ -873,6 +873,7 @@ export default {
     tokenCreate: {
       title: 'Create Token',
       howMuch: 'How much token to create?',
+      amountCaption: 'Tokens can be handed over like cash',
       memo: 'Memo',
       memoPlaceholder: 'Optional',
     },
