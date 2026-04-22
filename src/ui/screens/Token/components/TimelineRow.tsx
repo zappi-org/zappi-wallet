@@ -24,9 +24,9 @@ export function TimelineRow({ tx, onSelect }: TimelineRowProps) {
 
   const status = transactionToDetailStatus(tx) ?? 'registered'
   const amountSats = toNumber(tx.amount)
-  const isOutgoing = tx.direction === 'send'
-  // Ecash send settled: token consumed by recipient → display as outgoing
-  // Reclaim restores balance → also outgoing-origin but net zero; keep sign for consistency
+  // Reclaim returns funds to wallet (net zero spend) — no minus sign.
+  // Sent-and-claimed is a true outflow, sign with minus.
+  const isOutgoing = tx.direction === 'send' && status !== 'reclaimed'
   const signedAmount = isOutgoing ? `- ${formatSats(amountSats)}` : formatSats(amountSats)
   const fiat = formatFiat(amountSats)
 

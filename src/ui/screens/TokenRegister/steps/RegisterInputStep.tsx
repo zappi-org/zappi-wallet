@@ -3,9 +3,7 @@ import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
 import { useInputParser } from '@/ui/hooks/use-input-parser'
-import { useAppStore } from '@/store'
 import { hapticError } from '@/ui/utils/haptic'
-import { translateError } from '@/ui/utils/error-i18n'
 import { useTranslation } from 'react-i18next'
 import { Camera, Clipboard } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -25,18 +23,28 @@ export function RegisterInputStep({
 }: RegisterInputStepProps) {
   const { t } = useTranslation()
   const inputParser = useInputParser()
-  const addToast = useAppStore((s) => s.addToast)
 
   const [token, setToken] = useState(initialToken)
   const [scannerOpen, setScannerOpen] = useState(false)
   const [validating, setValidating] = useState(false)
+  const [inlineError, setInlineError] = useState<string | null>(null)
   const advanceGuardRef = useRef(false)
+  /** Value at mount — used to suppress auto-advance when state is restored on back-nav. */
+  const initialTokenRef = useRef(initialToken.trim())
+
+  const handleTokenChange = useCallback((value: string) => {
+    setToken(value)
+    setInlineError(null)
+  }, [])
 
   const pasteFromClipboard = useCallback(async () => {
     try {
       if (typeof navigator !== 'undefined' && navigator.clipboard?.readText) {
         const text = await navigator.clipboard.readText()
-        if (text) setToken(text.trim())
+        if (text) {
+          setToken(text.trim())
+          setInlineError(null)
+        }
       }
     } catch {
       /* permission denied — silent */
@@ -45,6 +53,7 @@ export function RegisterInputStep({
 
   const handleScan = useCallback((value: string) => {
     setToken(value.trim())
+    setInlineError(null)
     setScannerOpen(false)
   }, [])
 
@@ -52,33 +61,32 @@ export function RegisterInputStep({
     const raw = token.trim()
     if (!raw || validating) return
     setValidating(true)
+    setInlineError(null)
     try {
       const classified = inputParser.detectAndClassify(raw)
       const validated = await inputParser.validateAsync(classified)
       if (validated.type !== 'cashu-token') {
         hapticError()
-        addToast({
-          type: 'error',
-          message: t('scanner.invalidToken'),
-        })
+        setInlineError(t('scanner.invalidToken'))
         return
       }
       advanceGuardRef.current = true
       onNext(validated)
-    } catch (error) {
+    } catch {
       hapticError()
-      addToast({ type: 'error', message: translateError(error, t) })
+      setInlineError(t('scanner.invalidToken'))
     } finally {
       setValidating(false)
     }
-  }, [token, validating, inputParser, onNext, addToast, t])
+  }, [token, validating, inputParser, onNext, t])
 
-  // Auto-advance: once the input looks like a complete cashu token, validate
-  // silently in the background. Manual typing errors don't trigger a toast —
-  // the user can still tap the button to see an error message.
+  // Auto-advance: validate in the background when the input looks like a complete
+  // cashu token and the value has changed from the restored mount state. This
+  // prevents re-triggering when the user backs out of the confirm step.
   useEffect(() => {
     const raw = token.trim()
     if (!raw || validating || advanceGuardRef.current) return
+    if (raw === initialTokenRef.current) return
     if (!/^cashu[ab]/i.test(raw)) return
     if (raw.length < 40) return
 
@@ -104,6 +112,7 @@ export function RegisterInputStep({
   }, [token, validating, inputParser, onNext])
 
   const canProceed = token.trim().length > 0 && !validating
+  const showError = inlineError !== null
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -121,15 +130,28 @@ export function RegisterInputStep({
 
         {/* Token input — underline style */}
         <div className="mt-8">
-          <div className="flex items-center border-b border-border focus-within:border-foreground/20 transition-colors">
+          <div
+            className={`flex items-center border-b transition-colors ${
+              showError
+                ? 'border-accent-danger'
+                : 'border-border focus-within:border-foreground/20'
+            }`}
+          >
             <input
               type="text"
               value={token}
-              onChange={(e) => setToken(e.target.value)}
+              onChange={(e) => handleTokenChange(e.target.value)}
               placeholder="토큰 입력"
-              className="flex-1 min-w-0 bg-transparent py-2 text-body font-medium text-foreground placeholder:text-foreground-muted focus:outline-none"
+              className={`flex-1 min-w-0 bg-transparent py-2 text-body font-medium placeholder:text-foreground-muted focus:outline-none ${
+                showError ? 'text-accent-danger' : 'text-foreground'
+              }`}
             />
           </div>
+          {showError && (
+            <p className="mt-1.5 text-caption text-accent-danger">
+              잘못된 형식이에요. cashuB 로 시작하는 토큰인지 확인해주세요.
+            </p>
+          )}
         </div>
 
         {/* Paste / Scan chips */}

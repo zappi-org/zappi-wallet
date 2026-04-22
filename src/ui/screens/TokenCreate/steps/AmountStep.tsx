@@ -223,7 +223,7 @@ export function AmountStep({
           onClose={() => setMintSheetOpen(false)}
           onSelect={onChangeMint}
           selectedMintUrl={mintUrl}
-          allowEmpty
+          filterFn={(m) => (m.balance ?? 0) > 0}
         />
       )}
     </div>
