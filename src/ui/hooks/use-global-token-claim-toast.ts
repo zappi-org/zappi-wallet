@@ -2,9 +2,12 @@
  * useGlobalTokenClaimToast — emits a toast whenever one of the user's
  * outgoing ecash tokens is claimed by the recipient.
  *
+ * Subscribes to the semantic `send:claimed` domain event. The event payload
+ * is self-contained (amount, memo, protocol) so no transaction re-query or
+ * direction/outcome filtering is needed in the UI.
+ *
  * Skipped when a dedicated UI (e.g. TokenCreate/CreatedStep) already owns
- * feedback for that txId — see `useOwnPaymentEvent` and
- * `payment-event-consumers`.
+ * feedback for that txId — see `useOwnPaymentEvent`.
  *
  * Accepts the registry as an argument because MainApp (where this hook is
  * mounted) lives outside the ServiceProvider it renders.
@@ -26,29 +29,20 @@ export function useGlobalTokenClaimToast(
 
   useEffect(() => {
     if (!registry?.eventBus) return
-    const unsub = registry.eventBus.on('payment:completed', (event) => {
-      const txId = event.payload.txId
+    const unsub = registry.eventBus.on('send:claimed', (event) => {
+      const { txId, amount, memo, protocol } = event.payload
       if (isPaymentOwnedByUI(txId)) return
+      // Alpha scope: only toast for cashu ecash token claims — Lightning sends
+      // already have their own completion toast via payment:completed handler.
+      if (protocol !== 'cashu-token') return
 
-      registry.transactionMgmt
-        .getById(txId)
-        .then((tx) => {
-          if (!tx) return
-          if (tx.protocol !== 'cashu-token') return
-          if (tx.direction !== 'send') return
-          if (tx.outcome !== 'claimed') return
+      const amountSats = toNumber(amount)
+      const message = memo
+        ? `토큰 ${formatSats(amountSats)} 이 사용되었어요 · ${memo}`
+        : `토큰 ${formatSats(amountSats)} 이 사용되었어요`
 
-          const amountSats = toNumber(tx.amount)
-          const message = tx.memo
-            ? `토큰 ${formatSats(amountSats)} 이 사용되었어요 · ${tx.memo}`
-            : `토큰 ${formatSats(amountSats)} 이 사용되었어요`
-
-          addToast({ type: 'success', message, duration: 5000 })
-          hapticSuccess()
-        })
-        .catch(() => {
-          /* resolve failed — ignore */
-        })
+      addToast({ type: 'success', message, duration: 5000 })
+      hapticSuccess()
     })
     return unsub
   }, [registry, addToast, formatSats])

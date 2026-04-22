@@ -9,6 +9,9 @@ export type DomainEvent =
   | SwapFailedEvent
   | RecoveryCompletedEvent
   | ReceiveSettledEvent
+  | SendClaimedEvent
+  | SendReclaimedEvent
+  | ReceiveClaimedEvent
 
 export interface PaymentCompletedEvent {
   type: 'payment:completed'
@@ -87,5 +90,48 @@ export interface ReceiveSettledEvent {
     method: string
     isSwapStep: boolean
     metadata?: Record<string, unknown>
+  }
+}
+
+/**
+ * Semantic user-action events (protocol-neutral).
+ *
+ * Emitted alongside the lower-level `payment:completed` so consumers that
+ * only care about the action (not the state transition) can subscribe
+ * without re-querying the transaction or filtering on protocol/direction/outcome.
+ */
+
+/** A send I initiated was claimed/consumed by the counterparty. */
+export interface SendClaimedEvent {
+  type: 'send:claimed'
+  payload: {
+    txId: string
+    method: string
+    protocol: string
+    amount: Amount
+    memo?: string
+  }
+}
+
+/** A pending send I initiated was reclaimed back to my wallet. */
+export interface SendReclaimedEvent {
+  type: 'send:reclaimed'
+  payload: {
+    txId: string
+    method: string
+    protocol: string
+    amount: Amount
+  }
+}
+
+/** I received a token (ecash redeem / incoming settlement). */
+export interface ReceiveClaimedEvent {
+  type: 'receive:claimed'
+  payload: {
+    txId: string
+    method: string
+    protocol: string
+    amount: Amount
+    memo?: string
   }
 }

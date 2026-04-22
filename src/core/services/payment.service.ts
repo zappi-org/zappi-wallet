@@ -302,6 +302,16 @@ export class PaymentService implements PaymentUseCase {
       await this.txRepo.save(settled)
 
       this.eventBus.emit({
+        type: 'receive:claimed',
+        payload: {
+          txId: settled.id,
+          method: settled.method,
+          protocol: settled.protocol,
+          amount: settled.amount,
+          memo: settled.memo,
+        },
+      })
+      this.eventBus.emit({
         type: 'balance:changed',
         payload: { moduleId: adapter.moduleId, accountId: adapter.moduleId },
       })
@@ -438,6 +448,16 @@ export class PaymentService implements PaymentUseCase {
       type: 'payment:completed',
       payload: { txId: tx.id, method: tx.method, amount: tx.amount },
     })
+    this.eventBus.emit({
+      type: 'send:claimed',
+      payload: {
+        txId: tx.id,
+        method: tx.method,
+        protocol: tx.protocol,
+        amount: tx.amount,
+        memo: tx.memo,
+      },
+    })
 
     return Ok({ transactionId: tx.id })
   }
@@ -480,6 +500,15 @@ export class PaymentService implements PaymentUseCase {
         payload: { txId: tx.id, method: tx.method, amount: tx.amount },
       })
       this.eventBus.emit({
+        type: 'send:reclaimed',
+        payload: {
+          txId: tx.id,
+          method: tx.method,
+          protocol: tx.protocol,
+          amount: tx.amount,
+        },
+      })
+      this.eventBus.emit({
         type: 'balance:changed',
         payload: { moduleId: adapter.moduleId, accountId: tx.accountId },
       })
@@ -501,6 +530,16 @@ export class PaymentService implements PaymentUseCase {
           payload: { txId: tx.id, method: tx.method, amount: tx.amount },
         })
         this.eventBus.emit({
+          type: 'send:claimed',
+          payload: {
+            txId: tx.id,
+            method: tx.method,
+            protocol: tx.protocol,
+            amount: tx.amount,
+            memo: tx.memo,
+          },
+        })
+        this.eventBus.emit({
           type: 'balance:changed',
           payload: { moduleId: adapter.moduleId, accountId: tx.accountId },
         })
@@ -520,6 +559,15 @@ export class PaymentService implements PaymentUseCase {
         this.eventBus.emit({
           type: 'payment:completed',
           payload: { txId: tx.id, method: tx.method, amount: tx.amount },
+        })
+        this.eventBus.emit({
+          type: 'send:reclaimed',
+          payload: {
+            txId: tx.id,
+            method: tx.method,
+            protocol: tx.protocol,
+            amount: tx.amount,
+          },
         })
         this.eventBus.emit({
           type: 'balance:changed',
