@@ -3,7 +3,8 @@
  * Conversational "누구에게 보낼까요?" with single destination input.
  * Auto-advance when bolt11 with amount is scanned/pasted.
  * Supports @wallet detection for internal mint transfers.
- * Empty destination → token mode (skips to amount step).
+ * Next button stays disabled until the destination is validated —
+ * token creation lives in the Token tab (not this flow).
  */
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
@@ -305,15 +306,11 @@ export function SendInputStep({
     })
   }, [onNext])
 
-  // Handle next — empty destination means token mode, otherwise validate fully
+  // Handle next — destination must be validated before proceeding
   const handleNext = useCallback(async () => {
     const trimmed = destination.trim()
+    if (!trimmed) return
     hapticTap()
-
-    if (!trimmed) {
-      onNext({ destination: '' })
-      return
-    }
 
     // Already validated → proceed immediately
     if (validatedData) {
@@ -534,7 +531,7 @@ export function SendInputStep({
           size="xl"
           onClick={handleNext}
           loading={isLoading || isValidating || isPreValidating}
-          disabled={!!preValidationError}
+          disabled={!validatedData || !!preValidationError}
           className="w-full"
         >
           {t('send.next')}

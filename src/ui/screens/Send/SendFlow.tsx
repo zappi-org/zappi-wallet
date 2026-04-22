@@ -294,19 +294,6 @@ export function SendFlow({
     }
 
     try {
-      // Empty destination → token mode
-      if (!data.destination) {
-        setState((prev) => ({
-          ...prev,
-          step: 'amount',
-          destination: '',
-          validatedData: null,
-          isTokenMode: true,
-          error: null,
-        }))
-        return
-      }
-
       // Validate destination if no validatedData provided
       let validated = data.validatedData
       if (!validated) {
