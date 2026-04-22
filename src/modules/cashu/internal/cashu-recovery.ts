@@ -232,7 +232,7 @@ export async function recoverPendingQuotes(
 
   let recovered = 0
   let failed = 0
-  let expired = 0
+  const expired = 0
   const now = Date.now()
   const normalizedActiveMintUrls = new Set(activeMintUrls.map(normalizeMintUrl))
 

@@ -22,6 +22,7 @@ function createTxRepoMock(): TransactionRepository {
     list: vi.fn(),
     update: vi.fn(),
     findAll: vi.fn(),
+    delete: vi.fn(),
     deleteAll: vi.fn(),
     deleteOlderThan: vi.fn(),
   }
