@@ -129,16 +129,10 @@ export function ReceiveFlow({
   const receiveReq = useReceiveRequest()
   const { isTrusted, trustedAccounts } = useTrustRegistry()
 
-  // Determine initial step from validatedData
-  const getInitialStep = (): ReceiveStep => {
-    if (initialValidatedData?.type === 'cashu-token') {
-      return isTrusted(initialValidatedData.mintUrl) ? 'token-confirm' : 'untrusted-mint'
-    }
-    return 'token-input'
-  }
-
+  // Home receive always starts at the amount step — token redeem lives
+  // in the Token tab (TokenRegisterFlow), not here.
   const [state, setState] = useState<ReceiveFlowState>({
-    step: getInitialStep(),
+    step: 'amount',
     method: 'lightning',
     selectedMintUrl: initialMintUrl || null,
     amount: initialAmount || (initialValidatedData?.type === 'cashu-token' ? initialValidatedData.amountSats : 0),
