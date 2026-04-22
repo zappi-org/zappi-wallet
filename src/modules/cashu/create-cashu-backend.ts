@@ -24,6 +24,7 @@ export interface CreateCashuBackendDeps {
   pendingOpRepo: PendingOperationRepository
   txRepo: TransactionRepository
   offlineTokenStore: OfflineTokenStore
+  getActiveMintUrls?: () => string[]
 }
 
 export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBackend {
@@ -63,6 +64,7 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
         pendingOpRepo: deps.pendingOpRepo,
         txRepo: deps.txRepo,
         quoteOps,
+        activeMintUrls: deps.getActiveMintUrls?.() ?? [],
       })
     },
     // Offline received token recovery

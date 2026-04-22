@@ -958,6 +958,11 @@ export default {
     },
     qr: {
       title: 'Recibir',
+      protocols: {
+        unified: 'Unificado',
+        cashu: 'Cashu',
+        lightning: 'Lightning',
+      },
       showToSender: 'Muestra esto al remitente',
       share: 'Compartir',
       willNotify: 'Te notificaremos cuando el pago llegue a {{mint}}',
@@ -1022,6 +1027,8 @@ export default {
     },
     swapFeeTooHigh: 'La comisión de swap ({{fee}}) es igual o mayor al monto del token ({{amount}})',
     swapFailedButReceived: 'El swap falló, pero {{amount}} se recibió en el mint original',
+    swapCompletedWithSourceRemainder: 'El swap se completó, pero {{amount}} permanece en el mint de origen por el ajuste de comisión Lightning',
+    swapCompletedWithHiddenSourceRemainder: 'El swap se completó, pero {{amount}} permanece en {{mint}}. Agregue este mint para acceder al remanente.',
   },
 
   // Mint Detail Screen

@@ -22,7 +22,7 @@ export interface MintDetailScreenProps {
   mintIndex: number
   onBack: () => void
   onCreateToken: (mintUrl: string) => void
-  onDeleteMint: (url: string) => void
+  onDeleteMint: (url: string) => Promise<void>
   onRenameMint?: (url: string, newName: string) => void
   onChangeMintColor?: (url: string, color: string) => void
   onSelectTransaction: (tx: Transaction) => void

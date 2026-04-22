@@ -966,6 +966,11 @@ export default {
     },
     qr: {
       title: '받기',
+      protocols: {
+        unified: '통합',
+        cashu: 'Cashu',
+        lightning: 'Lightning',
+      },
       showToSender: '보내려는 상대방에게 보여주세요',
       share: '공유',
       willNotify: '{{mint}}에 입금되면 알려드릴게요',
@@ -1030,6 +1035,8 @@ export default {
     },
     swapFeeTooHigh: '스왑 수수료({{fee}})가 토큰 금액({{amount}})보다 크거나 같아 받을 수 없습니다',
     swapFailedButReceived: '스왑에 실패했지만 {{amount}}이 원래 민트에 수령되었어요',
+    swapCompletedWithSourceRemainder: '스왑은 완료됐지만 라우팅 수수료 차이로 {{amount}}이 원래 민트에 남아있어요',
+    swapCompletedWithHiddenSourceRemainder: '스왑은 완료됐지만 {{mint}}에 {{amount}}이 남아있어요. 남은 금액을 보려면 이 민트를 추가해주세요.',
   },
 
   // Mint Detail Screen

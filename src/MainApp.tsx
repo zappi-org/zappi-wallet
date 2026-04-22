@@ -1,6 +1,7 @@
 import { AppLifecycleWatcher } from '@/composition/app-lifecycle.watcher'
 import { createBootstrap, type BootstrapResult, type RouteContext, type RouteExecutionResult, type RouteSelection } from '@/composition/bootstrap'
 import { createPreUnlockServices } from '@/composition/pre-unlock'
+import { executeSwapReceive } from '@/composition/swap-receive'
 import { LIMITS } from '@/core/constants'
 import { sat, toNumber } from '@/core/domain/amount'
 import { InsufficientBalanceError } from '@/core/errors/payment.errors'
@@ -467,32 +468,28 @@ export default function MainApp() {
     token: string,
     sourceMintUrl: string,
     targetMintUrl: string,
-    amount: number,
-  ): Promise<{ success: boolean; amount?: number; error?: { code?: string; message?: string } }> => {
-    // Phase 5: redeem + SwapUseCase 경유
+  ): Promise<{ success: boolean; amount?: number; sourceRemainder?: number; error?: { code?: string; message?: string } }> => {
     if (!serviceRegistry?.payment || !serviceRegistry?.swap) {
       return { success: false, error: { code: 'NOT_READY', message: 'ServiceRegistry not ready' } }
     }
 
-    // 1. Redeem token on source mint
-    const redeemResult = await serviceRegistry.payment.redeem({ input: token })
-    if (!redeemResult.ok) {
-      return { success: false, error: { code: redeemResult.error.code, message: redeemResult.error.message } }
-    }
-
-    // 2. Swap from source to target
-    const swapResult = await serviceRegistry.swap.executeSwap({
-      sourceAccountId: sourceMintUrl,
-      targetAccountId: targetMintUrl,
-      amount: sat(amount),
+    const result = await executeSwapReceive({
+      payment: serviceRegistry.payment,
+      swap: serviceRegistry.swap,
+      balance: serviceRegistry.balance,
+    }, {
+      token,
+      sourceMintUrl,
+      targetMintUrl,
     })
-    if (!swapResult.ok) {
+
+    if (!result.success) {
       refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap fail:', e))
-      return { success: false, error: { code: swapResult.error.code, message: swapResult.error.message } }
+      return { success: false, error: result.error }
     }
 
     refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap:', e))
-    return { success: true, amount: toNumber(swapResult.value.amount) }
+    return { success: true, amount: result.amount, sourceRemainder: result.sourceRemainder }
   }, [serviceRegistry, refreshAll])
 
 
@@ -1093,17 +1090,17 @@ export default function MainApp() {
             setScannedAmount(0)
             setCurrentScreen('send')
           }}
-          onDeleteMint={(url) => {
+          onDeleteMint={async (url) => {
             if (settings.mints.length <= LIMITS.MIN_MINTS) {
               addToast({ type: 'warning', message: t('settings.minMintsRequired', { min: LIMITS.MIN_MINTS }) })
               return
             }
             const newMints = settings.mints.filter(m => m !== url)
             const { [url]: _, ...remainingAliases } = settings.mintAliases || {}
+            await handleSaveSettings({ mints: newMints, mintAliases: remainingAliases })
+            await serviceRegistry?.cleanup.clearMintData(url)
             setCurrentScreen('home')
             addToast({ type: 'success', message: t('mintDetail.mintDeleted') })
-            handleSaveSettings({ mints: newMints, mintAliases: remainingAliases })
-            serviceRegistry?.cleanup.clearMintData(url)
           }}
           onRenameMint={(url, newName) => {
             const newAliases = { ...settings.mintAliases, [url]: newName }

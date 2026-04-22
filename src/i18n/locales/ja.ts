@@ -966,6 +966,11 @@ export default {
     },
     qr: {
       title: '受取',
+      protocols: {
+        unified: '統合',
+        cashu: 'Cashu',
+        lightning: 'Lightning',
+      },
       showToSender: '送り主にこれを見せてください',
       share: '共有',
       willNotify: '{{mint}}に入金されたらお知らせします',
@@ -1030,6 +1035,8 @@ export default {
     },
     swapFeeTooHigh: 'スワップ手数料（{{fee}}）がトークン金額（{{amount}}）以上のため受け取れません',
     swapFailedButReceived: 'スワップに失敗しましたが、{{amount}}は元のミントに受領されました',
+    swapCompletedWithSourceRemainder: 'スワップは完了しましたが、Lightning手数料の調整により{{amount}}が元のミントに残っています',
+    swapCompletedWithHiddenSourceRemainder: 'スワップは完了しましたが、{{mint}}に{{amount}}が残っています。残額にアクセスするにはこのミントを追加してください。',
   },
 
   // Mint Detail Screen

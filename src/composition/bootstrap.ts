@@ -42,6 +42,7 @@ import { executeRoute as legacyExecuteRoute } from './routing'
 
 // ─── Coco (composition root만 접근) ───
 import { deleteCocoData } from '@/modules/cashu'
+import { removeMintFromCoco } from '@/modules/cashu'
 import { clearMintData } from '@/adapters/storage/dexie/schema'
 import { resetWalletCache } from '@/adapters/cache/wallet-cache'
 
@@ -91,6 +92,7 @@ import { createPendingItemsService } from './pending-items'
 import { connectEventStoreBridge } from './event-store-bridge'
 import { connectCocoEventBridge } from './coco-event-bridge'
 import { GiftWrapWatcher } from './gift-wrap.watcher'
+import { removeMintArtifacts } from './remove-mint'
 
 // ─── Types ───
 import type { WalletModule } from '@/core/ports/driven/wallet-module.port'
@@ -176,7 +178,12 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
   // 3. Cashu Module (initialize()는 caller가 seed로 호출)
   const offlineTokenStore = new DexieOfflineTokenStore()
-  const cashuBackend = createCashuBackend({ pendingOpRepo, txRepo, offlineTokenStore })
+  const cashuBackend = createCashuBackend({
+    pendingOpRepo,
+    txRepo,
+    offlineTokenStore,
+    getActiveMintUrls: () => useAppStore.getState().settings.mints,
+  })
   const cashuModule = new CashuModule(cashuBackend, nostrGateway)
   const modules: WalletModule[] = [cashuModule]
 
@@ -395,7 +402,11 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     cleanup: {
       deleteCocoData,
       clearWalletCache: () => { /* no-op: cashu-ts wallet cache no longer used */ },
-      clearMintData: (mintUrl: string) => clearMintData(mintUrl),
+      clearMintData: (mintUrl: string) => removeMintArtifacts({
+        txRepo,
+        removeMintFromSdk: removeMintFromCoco,
+        clearLocalMintData: clearMintData,
+      }, mintUrl),
       resetWalletCache,
       clearBalanceCache,
       deleteAllContacts: () => contactRepo.deleteAll(),

@@ -4,6 +4,7 @@ import type { WalletModule } from '@/core/ports/driven/wallet-module.port'
 import type { PaymentMethodAdapter } from '@/core/ports/driven/payment-method.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { EventBus } from '@/core/events/event-bus'
+import type { SwapQuoteMarker } from '@/core/ports/driven/swap-quote-marker.port'
 import { sat, toNumber } from '@/core/domain/amount'
 
 // ─── Mocks ───
@@ -75,18 +76,27 @@ function createMockEventBus(): EventBus {
   }
 }
 
+function createMockSwapQuoteMarker(): SwapQuoteMarker {
+  return {
+    mark: vi.fn(),
+    unmark: vi.fn(),
+  }
+}
+
 describe('SwapService', () => {
   let service: SwapService
   let adapter: PaymentMethodAdapter
   let txRepo: TransactionRepository
   let eventBus: EventBus
+  let quoteMarker: SwapQuoteMarker
 
   beforeEach(() => {
     adapter = createMockLightningAdapter()
     const module = createMockModule([adapter])
     txRepo = createMockTxRepo()
     eventBus = createMockEventBus()
-    service = new SwapService([module], txRepo, eventBus)
+    quoteMarker = createMockSwapQuoteMarker()
+    service = new SwapService([module], txRepo, eventBus, quoteMarker)
   })
 
   // ─── getAvailableSwaps ───
@@ -210,7 +220,7 @@ describe('SwapService', () => {
         onReceiveCompleted: undefined,
       })
       const mod = createMockModule([adapterWithoutCallback])
-      service = new SwapService([mod], txRepo, eventBus)
+      service = new SwapService([mod], txRepo, eventBus, quoteMarker)
 
       const result = await service.executeSwap({
         sourceAccountId: 'https://mint-a.test',
@@ -219,6 +229,62 @@ describe('SwapService', () => {
       })
 
       expect(result.ok).toBe(true)
+    })
+
+    it('treats drain amount as the fee-inclusive budget', async () => {
+      const drainAdapter = createMockLightningAdapter({
+        createReceiveRequest: vi.fn()
+          .mockResolvedValueOnce({
+            id: 'quote-1', method: 'lightning', protocol: 'bolt11',
+            encoded: 'lnbc100n1...', amount: sat(100),
+          })
+          .mockResolvedValueOnce({
+            id: 'quote-2', method: 'lightning', protocol: 'bolt11',
+            encoded: 'lnbc95n1...', amount: sat(95),
+          }),
+        prepareSend: vi.fn()
+          .mockResolvedValueOnce({
+            id: 'melt-1', method: 'lightning', protocol: 'bolt11',
+            amount: sat(100), fee: sat(5),
+          })
+          .mockResolvedValueOnce({
+            id: 'melt-2', method: 'lightning', protocol: 'bolt11',
+            amount: sat(95), fee: sat(1),
+          }),
+        onReceiveCompleted: vi.fn().mockImplementation((_requestId, handler) => {
+          setTimeout(() => handler({ requestId: 'quote-2', amount: sat(95), completedAt: Date.now() }), 0)
+          return () => {}
+        }),
+      })
+      const mod = createMockModule([drainAdapter])
+      vi.mocked(mod.getBalance).mockResolvedValue({
+        moduleId: 'cashu',
+        accounts: [{ id: 'https://mint-a.test', label: 'mint-a', amount: sat(9999) }],
+        total: sat(9999),
+      })
+      service = new SwapService([mod], txRepo, eventBus, quoteMarker)
+
+      const result = await service.executeSwap({
+        sourceAccountId: 'https://mint-a.test',
+        targetAccountId: 'https://mint-b.test',
+        amount: sat(100),
+        drain: true,
+      })
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+
+      expect(result.value.amount).toEqual(sat(95))
+      expect(drainAdapter.cancelPrepared).toHaveBeenCalledWith('melt-1')
+      expect(drainAdapter.createReceiveRequest).toHaveBeenNthCalledWith(2, {
+        amount: sat(95),
+        accountId: 'https://mint-b.test',
+      })
+      expect(mod.getBalance).not.toHaveBeenCalled()
+      expect(quoteMarker.mark).toHaveBeenNthCalledWith(1, 'quote-1')
+      expect(quoteMarker.unmark).toHaveBeenCalledWith('quote-1')
+      expect(quoteMarker.mark).toHaveBeenNthCalledWith(2, 'quote-2')
+      expect(quoteMarker.unmark).toHaveBeenCalledWith('quote-2')
     })
   })
 })

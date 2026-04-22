@@ -958,6 +958,11 @@ export default {
     },
     qr: {
       title: 'Terima',
+      protocols: {
+        unified: 'Unified',
+        cashu: 'Cashu',
+        lightning: 'Lightning',
+      },
       showToSender: 'Tunjukkan ini kepada pengirim',
       share: 'Bagikan',
       willNotify: 'Kami akan memberi tahu saat pembayaran masuk ke {{mint}}',
@@ -1022,6 +1027,8 @@ export default {
     },
     swapFeeTooHigh: 'Biaya swap ({{fee}}) sama atau lebih besar dari jumlah token ({{amount}})',
     swapFailedButReceived: 'Swap gagal, tetapi {{amount}} telah diterima di mint asal',
+    swapCompletedWithSourceRemainder: 'Swap selesai, tetapi {{amount}} masih tersisa di mint asal karena penyesuaian biaya Lightning',
+    swapCompletedWithHiddenSourceRemainder: 'Swap selesai, tetapi {{amount}} masih tersisa di {{mint}}. Tambahkan mint ini untuk mengakses sisanya.',
   },
 
   // Mint Detail Screen

@@ -17,7 +17,7 @@ export interface MintInfoSheetProps {
   isOpen: boolean
   mint: MintInfo | null
   onClose: () => void
-  onDelete?: (url: string) => void
+  onDelete?: (url: string) => Promise<void>
   onRename?: (url: string, newName: string) => void
   onChangeColor?: (url: string, color: string) => void
   getDisplayName: (url: string) => string
@@ -286,8 +286,8 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, onCha
 
       <MintUrlQrModal isOpen={showQr} url={mint.url} onClose={() => setShowQr(false)} />
       <SupportedNutsModal isOpen={showNuts} nuts={nuts} nutNames={NUT_NAMES} onClose={() => setShowNuts(false)} />
-      {showDelete && (
-        <DeleteMintSheet isOpen={showDelete} mint={mint} onClose={() => setShowDelete(false)} onDelete={(url) => onDelete?.(url)} />
+      {showDelete && onDelete && (
+        <DeleteMintSheet isOpen={showDelete} mint={mint} onClose={() => setShowDelete(false)} onDelete={onDelete} />
       )}
     </>
   )

@@ -94,7 +94,7 @@ export interface ReceiveFlowProps {
   onPaymentReceived: (amount: number, type: 'lightning' | 'ecash') => void
   onReceiveToken: (token: string) => Promise<{ success: boolean; amount?: number; error?: { code?: string; message?: string } }>
   onAddTrustedMint: (mintUrl: string) => Promise<boolean>
-  onSwapReceive: (token: string, sourceMintUrl: string, targetMintUrl: string, amount: number) => Promise<{ success: boolean; amount?: number; error?: { code?: string; message?: string } }>
+  onSwapReceive: (token: string, sourceMintUrl: string, targetMintUrl: string) => Promise<{ success: boolean; amount?: number; sourceRemainder?: number; error?: { code?: string; message?: string } }>
   onEstimateSwapFee: (fromMintUrl: string, toMintUrl: string, amount: number) => Promise<{ fee: number; totalNeeded: number } | null>
   onStoreOfflineToken: (token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing') => Promise<{ success: boolean }>
   onInspectInput?: (tokenStr: string) => Promise<InputInspectionResult>
@@ -337,9 +337,24 @@ export function ReceiveFlow({
     sourceMintUrl: string,
     targetMintUrl: string,
   ): Promise<void> => {
-    const result = await onSwapReceive(token.token, sourceMintUrl, targetMintUrl, token.amountSats)
+    const result = await onSwapReceive(token.token, sourceMintUrl, targetMintUrl)
 
     if (result.success) {
+      const sourceRemainder = result.sourceRemainder ?? 0
+      if (sourceRemainder > 0) {
+        const sourceVisible = settings.mints.includes(sourceMintUrl) || await onAddTrustedMint(sourceMintUrl)
+        addToast({
+          type: sourceVisible ? 'info' : 'error',
+          message: sourceVisible
+            ? t('receive.swapCompletedWithSourceRemainder', { amount: formatSats(sourceRemainder) })
+            : t('receive.swapCompletedWithHiddenSourceRemainder', {
+                amount: formatSats(sourceRemainder),
+                mint: sourceMintUrl,
+              }),
+          duration: 5000,
+        })
+      }
+
       onPaymentReceived(result.amount || token.amountSats, 'ecash')
       setState((prev) => ({
         ...prev,

@@ -963,6 +963,11 @@ export default {
     },
     qr: {
       title: 'Receive',
+      protocols: {
+        unified: 'Unified',
+        cashu: 'Cashu',
+        lightning: 'Lightning',
+      },
       showToSender: 'Show this to the sender',
       share: 'Share',
       willNotify: 'We will notify you when payment arrives at {{mint}}',
@@ -1027,6 +1032,8 @@ export default {
     },
     swapFeeTooHigh: 'Swap fee ({{fee}}) equals or exceeds the token amount ({{amount}})',
     swapFailedButReceived: 'Swap failed, but {{amount}} was received at the original mint',
+    swapCompletedWithSourceRemainder: 'Swap completed, but {{amount}} remains on the source mint due to Lightning fee adjustment',
+    swapCompletedWithHiddenSourceRemainder: 'Swap completed, but {{amount}} remains on {{mint}}. Add this mint to access the remainder.',
   },
 
   // Mint Detail Screen

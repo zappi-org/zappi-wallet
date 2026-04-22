@@ -41,6 +41,7 @@ export interface CashuRecoveryDeps {
   sendOps: SendRecoveryOps
   quoteOps: QuoteRecoveryOps
   receiveToken: RecoverTokenFn
+  activeMintUrls?: string[]
 }
 
 const MAX_AGE_MS = 24 * 60 * 60 * 1000
@@ -225,14 +226,15 @@ export async function recoverPendingSendTokens(
 // ─── Mint Quote Recovery ───
 
 export async function recoverPendingQuotes(
-  deps: Pick<CashuRecoveryDeps, 'pendingOpRepo' | 'txRepo' | 'quoteOps'>,
+  deps: Pick<CashuRecoveryDeps, 'pendingOpRepo' | 'txRepo' | 'quoteOps' | 'activeMintUrls'>,
 ): Promise<{ recovered: number; failed: number; expired: number }> {
-  const { pendingOpRepo, txRepo, quoteOps } = deps
+  const { pendingOpRepo, txRepo, quoteOps, activeMintUrls = [] } = deps
 
   let recovered = 0
   let failed = 0
   let expired = 0
   const now = Date.now()
+  const normalizedActiveMintUrls = new Set(activeMintUrls.map(normalizeMintUrl))
 
   const allPending = await pendingOpRepo.list()
   const mintQuotes = allPending.filter((op) => op.kind === 'mint-quote')
@@ -240,18 +242,27 @@ export async function recoverPendingQuotes(
   console.log(`[Recovery] Found ${mintQuotes.length} pending Lightning receive transactions`)
 
   for (const op of mintQuotes) {
+    const quoteId = op.metadata?.quoteId as string | undefined
+    const mintUrl = op.accountId
 
-    if(isExpiredOp(op,now)) {
-      await txRepo.delete(op.id)
-      expired++
+    if (!quoteId || !mintUrl) {
+      if (isExpiredOp(op)) {
+        await txRepo.update(op.id, { status: 'failed' })
+      }
       continue
     }
 
-    const quoteId = op.metadata?.quoteId as string | undefined
-    const mintUrl = op.accountId
-    //handle metadata loss
-    if (!quoteId || !mintUrl) {
-      await txRepo.delete(op.id)
+    if (
+      normalizedActiveMintUrls.size > 0 &&
+      !normalizedActiveMintUrls.has(normalizeMintUrl(mintUrl))
+    ) {
+      await txRepo.update(op.id, { status: 'failed', completedAt: now })
+      failed++
+      continue
+    }
+
+    if (isExpiredOp(op)) {
+      await txRepo.update(op.id, { status: 'failed' })
       failed++
       continue
     }
@@ -288,7 +299,10 @@ export async function recoverPendingQuotes(
   return { recovered, failed, expired }
 }
 
-function isExpiredOp(op: PendingOperation, now: number): boolean {
-  if (op.expiresAt != null) return op.expiresAt <= now
-  return now - op.createdAt > MAX_AGE_MS // legacy fallback (pre-ZAP-245 records)
+function isExpiredOp(op: PendingOperation): boolean {
+  return Date.now() - op.createdAt > MAX_AGE_MS
+}
+
+function normalizeMintUrl(mintUrl: string): string {
+  return mintUrl.endsWith('/') ? mintUrl.slice(0, -1) : mintUrl
 }

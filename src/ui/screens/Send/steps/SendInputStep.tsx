@@ -92,6 +92,7 @@ export function SendInputStep({
   const requestIdRef = useRef(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const detectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const lastAutoAdvancedInputRef = useRef<string>(initialDestination)
   const validatedDataRef = useRef<SendableValidatedData | null>(null)
   // Store the raw address when displayName is used (contact selection)
@@ -103,19 +104,44 @@ export function SendInputStep({
   // Segment: wallets vs contacts
   const [listTab, setListTab] = useState<'wallets' | 'contacts'>('wallets')
 
+  const cancelPendingValidation = useCallback(() => {
+    requestIdRef.current += 1
+    clearTimeout(detectTimeoutRef.current)
+    clearTimeout(autoAdvanceTimerRef.current)
+    setIsPreValidating(false)
+    setPreValidationError(null)
+    lastAutoAdvancedInputRef.current = ''
+  }, [])
+
+  const applyDestinationState = useCallback((options: {
+    destination: string
+    rawAddress?: string | null
+    validatedData?: SendableValidatedData | null
+    detectedTypes?: string[]
+    isPreValidating?: boolean
+  }) => {
+    cancelPendingValidation()
+    rawAddressRef.current = options.rawAddress ?? null
+    setDestination(options.destination)
+    setValidatedData(options.validatedData ?? null)
+    validatedDataRef.current = options.validatedData ?? null
+    setDetectedTypes(options.detectedTypes ?? [])
+    setIsPreValidating(options.isPreValidating ?? false)
+  }, [cancelPendingValidation])
+
   /**
    * Wrapper around setDestination — clears detection state immediately
    * when destination becomes empty or changes to @ prefix.
    */
   const updateDestination = useCallback((newDest: string) => {
-    setDestination(newDest)
-    setValidatedData(null)
-    setDetectedTypes([])
-    setPreValidationError(null)
-    setIsPreValidating(!!newDest.trim() && !newDest.startsWith('@'))
-    clearTimeout(autoAdvanceTimerRef.current)
-    lastAutoAdvancedInputRef.current = ''
-  }, [])
+    applyDestinationState({
+      destination: newDest,
+      rawAddress: null,
+      validatedData: null,
+      detectedTypes: [],
+      isPreValidating: !!newDest.trim() && !newDest.startsWith('@'),
+    })
+  }, [applyDestinationState])
 
   // Derive showMyWallets from destination + validatedData
   const showMyWallets = useMemo(() => {
@@ -147,21 +173,23 @@ export function SendInputStep({
   // Handle my wallet selection
   const handleSelectMyWallet = useCallback((walletUrl: string, walletName: string) => {
     hapticTap()
-    setDestination(`@${walletName}`)
-    setValidatedData({
-      type: 'my-wallet',
-      targetMintUrl: walletUrl,
-      targetMintName: walletName,
+    applyDestinationState({
+      destination: `@${walletName}`,
+      rawAddress: null,
+      validatedData: {
+        type: 'my-wallet',
+        targetMintUrl: walletUrl,
+        targetMintName: walletName,
+      },
+      detectedTypes: ['my-wallet'],
     })
-    setDetectedTypes(['my-wallet'])
-  }, [])
+  }, [applyDestinationState])
 
   // Debounced input type detection (only for non-empty, non-@ destinations)
-  const detectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   useEffect(() => {
     clearTimeout(detectTimeoutRef.current)
 
-    if (!destination.trim() || destination.startsWith('@')) return
+    if (rawAddressRef.current || !destination.trim() || destination.startsWith('@')) return
 
     detectTimeoutRef.current = setTimeout(async () => {
       clearTimeout(autoAdvanceTimerRef.current)
@@ -190,6 +218,7 @@ export function SendInputStep({
           }
           if (validated.type === 'cashu-request') {
             setValidatedData(validated as SendableValidatedData)
+            validatedDataRef.current = validated as SendableValidatedData
 
             const amt = validated.parsed?.amount
             if (amt && amt > 0 && destination !== lastAutoAdvancedInputRef.current) {
@@ -236,13 +265,16 @@ export function SendInputStep({
         if (validated.type === 'lnurl-withdraw') {
           setPreValidationError(t('send.destination.lnurlWithdrawNotSupported'))
           setValidatedData(null)
+          validatedDataRef.current = null
         } else {
           setValidatedData(validated as SendableValidatedData)
+          validatedDataRef.current = validated as SendableValidatedData
         }
       } catch {
         if (requestIdRef.current !== myRequestId) return
         setPreValidationError(t('send.destination.validationFailed'))
         setValidatedData(null)
+        validatedDataRef.current = null
       } finally {
         if (requestIdRef.current === myRequestId) {
           setIsPreValidating(false)
@@ -262,15 +294,14 @@ export function SendInputStep({
     const trimmed = input.trim()
     if (!trimmed) return false
 
-    // Clear previous state
-    setValidatedData(null)
-    validatedDataRef.current = null
-    rawAddressRef.current = displayName ? trimmed : null
-    setDestination(displayName || trimmed)
-
     const detected = inputParser.detectAndClassify(trimmed)
-    // Don't show type badge when selecting from contacts (displayName means contact)
-    setDetectedTypes(displayName ? [] : toBadgeTypes(detected))
+    applyDestinationState({
+      destination: displayName || trimmed,
+      rawAddress: displayName ? trimmed : null,
+      validatedData: null,
+      // Don't show type badge when selecting from contacts (displayName means contact)
+      detectedTypes: displayName ? [] : toBadgeTypes(detected),
+    })
 
     if (detected.type === 'unknown') return false
 
@@ -314,7 +345,7 @@ export function SendInputStep({
     }
 
     return true
-  }, [onNext, onRedirect, inputParser])
+  }, [onNext, onRedirect, inputParser, applyDestinationState])
 
   // Handle QR scan
   const handleScan = useCallback((result: string) => {
@@ -538,11 +569,12 @@ export function SendInputStep({
                         onClick={() => {
                           if (isNpub) return
                           hapticTap()
-                          setDestination(contact.name)
-                          rawAddressRef.current = contact.address
-                          setValidatedData(null)
-                          validatedDataRef.current = null
-                          setDetectedTypes([])
+                          applyDestinationState({
+                            destination: contact.name,
+                            rawAddress: contact.address,
+                            validatedData: null,
+                            detectedTypes: [],
+                          })
                         }}
                         className={`w-full flex items-center gap-3 py-3 border-b border-border/40 transition-colors ${isNpub ? 'opacity-40' : 'active:bg-foreground/[0.03]'}`}
                       >

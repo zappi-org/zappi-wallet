@@ -31,6 +31,7 @@ export function MintManagementScreen({
   const { t } = useTranslation()
   const settings = useAppStore((s) => s.settings)
   const balanceByMint = useAppStore((s) => s.balance.byMint)
+  const addToast = useAppStore((s) => s.addToast)
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
   const { getDisplayName, getIconUrl } = useMintMetadata(settings.mints)
@@ -94,9 +95,13 @@ export function MintManagementScreen({
     setMintToDelete(null)
     if (expandedMint === urlToDelete) setExpandedMint(null)
     const newMints = settings.mints.filter((m) => m !== urlToDelete)
-    await onSaveSettings({ mints: newMints })
-    onClearMintData?.(urlToDelete)
-  }, [mintToDelete, settings.mints, onSaveSettings, expandedMint, onClearMintData])
+    try {
+      await onSaveSettings({ mints: newMints })
+      await onClearMintData?.(urlToDelete)
+    } catch {
+      addToast({ type: 'error', message: t('errors.unknownError') })
+    }
+  }, [mintToDelete, settings.mints, onSaveSettings, expandedMint, onClearMintData, addToast, t])
 
   const getBalance = (url: string) => getMintBalanceUtil(url, balanceByMint)
 

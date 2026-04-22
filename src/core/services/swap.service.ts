@@ -130,28 +130,25 @@ export class SwapService implements SwapUseCase {
         accountId: params.sourceAccountId,
       })
 
-      // 4. Drain mode: fee로 인해 잔액 부족 시 금액 조정 후 재시도
+      // 4. Drain mode: 전달받은 amount를 총 예산으로 보고 fee를 내부에서 차감한다.
       if (params.drain) {
-        const totalNeeded = toNumber(prepared.amount) + toNumber(prepared.fee)
-        const sourceModule = this.modules.find(m => m.isEnabled())
-        const sourceBalance = sourceModule
-          ? (await sourceModule.getBalance()).accounts
-              .find(a => a.id === params.sourceAccountId)?.amount
-          : undefined
-        const sourceBalanceNum = sourceBalance ? toNumber(sourceBalance) : 0
+        const drainBudget = toNumber(params.amount)
+        let drainAttempts = 0
 
-        if (sourceBalanceNum < totalNeeded) {
-          // 첫 시도 취소
+        while (toNumber(prepared.amount) + toNumber(prepared.fee) > drainBudget) {
           await sourceLightning.cancelPrepared(prepared.id)
 
-          // fee를 뺀 금액으로 재시도
-          const adjustedNum = toNumber(swapAmount) - toNumber(prepared.fee)
+          const adjustedNum = drainBudget - toNumber(prepared.fee)
           if (adjustedNum <= 0) {
             return Err({ code: 'INSUFFICIENT_BALANCE', message: 'Balance too low to cover swap fees' })
           }
+          if (adjustedNum >= toNumber(swapAmount)) {
+            return Err({ code: 'SWAP_FAILED', message: 'Unable to reduce swap amount for drain mode' })
+          }
+
           swapAmount = sat(adjustedNum)
 
-          // 새 receive request + prepare
+          if (swapQuoteId) this.swapQuoteMarker?.unmark(swapQuoteId)
           request = await targetLightning.createReceiveRequest({
             amount: swapAmount,
             accountId: params.targetAccountId,
@@ -164,6 +161,11 @@ export class SwapService implements SwapUseCase {
             amount: swapAmount,
             accountId: params.sourceAccountId,
           })
+
+          drainAttempts += 1
+          if (drainAttempts >= 3) {
+            return Err({ code: 'SWAP_FAILED', message: 'Unable to finalize drain swap amount' })
+          }
         }
       }
 

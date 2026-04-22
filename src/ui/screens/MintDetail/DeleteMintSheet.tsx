@@ -14,7 +14,7 @@ interface DeleteMintSheetProps {
   isOpen: boolean
   mint: MintInfo
   onClose: () => void
-  onDelete: (url: string) => void
+  onDelete: (url: string) => Promise<void>
 }
 
 export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintSheetProps) {
@@ -45,7 +45,12 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
     if (hasBalance) {
       if (!effectiveTargetUrl) {
         // No target mint available — cannot swap, just delete
-        onDelete(mint.url)
+        try {
+          await onDelete(mint.url)
+        } catch {
+          setStep('error')
+          setSwapError(t('errors.unknownError'))
+        }
         return
       }
 
@@ -56,7 +61,7 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
       try {
         const result = await mintSwap(mint.url, effectiveTargetUrl, mint.balance, { drain: true })
         if (result) {
-          onDelete(mint.url)
+          await onDelete(mint.url)
         } else {
           // mintSwap returns null on failure (toast already shown by hook)
           setStep('error')
@@ -67,7 +72,12 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
         setSwapError(t('mintDetail.swapFailed'))
       }
     } else {
-      onDelete(mint.url)
+      try {
+        await onDelete(mint.url)
+      } catch {
+        setStep('error')
+        setSwapError(t('errors.unknownError'))
+      }
     }
   }, [hasBalance, mint.url, mint.balance, effectiveTargetUrl, mintSwap, onDelete, t])
 
@@ -212,7 +222,7 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
                   {t('common.close')}
                 </button>
                 <button
-                  onClick={() => setStep('has-balance')}
+                  onClick={() => setStep(hasBalance ? 'has-balance' : 'confirm-empty')}
                   className="flex-1 py-4 rounded-xl bg-brand font-semibold text-caption text-white"
                 >
                   {t('mintDetail.retry')}

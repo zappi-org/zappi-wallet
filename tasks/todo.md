@@ -1,3 +1,18 @@
+# Current Task — ZAP-220
+
+- [x] Add protocol selector tabs to `ReceiveQRStep` for `Unified`, `Cashu`, and `Lightning`
+- [x] Keep `Unified` as the default when both invoice and cashu request are available
+- [x] Make QR, copy, and share actions follow the currently selected protocol payload
+- [x] Add receive QR regression tests for protocol switching and default selection
+- [x] Run validation: `bun run lint`, `bun run build`, `bun run test`, `npx tsc --noEmit`, hex scan
+- [x] Re-run `verify-*` audit and record missing `verify-ecash` target
+- [ ] Remaining separate follow-up: `ZAP-52` receiver untrusted mint / gift-wrap flow
+
+Review
+- `ReceiveQRStep` now exposes the already-generated receive payloads individually instead of collapsing everything into one unified QR/copy target.
+- Payment detection stayed untouched: Lightning quote watching and ecash NUT-18 detection still run regardless of which tab is selected.
+- Validation: `bun run lint`, `bun run build`, `bun run test`, and `npx tsc --noEmit` all pass. Hex scan still reports the same 3 pre-existing violations. `verify-implementation` is present, but its configured child skill `verify-ecash` is still missing from the repo, so that pipeline remains partial.
+
 # Zappi Wallet — Design Overhaul
 
 Design Principles: 신뢰 · 세련 · 편안
