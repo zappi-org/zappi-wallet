@@ -9,6 +9,7 @@ const { mockBackend } = vi.hoisted(() => ({
     executeMelt: vi.fn(),
     rollbackMelt: vi.fn(),
     createMintQuote: vi.fn(),
+    getMintQuote: vi.fn(),
     redeemMintQuote: vi.fn(),
     prepareSend: vi.fn(),
     executeSend: vi.fn(),

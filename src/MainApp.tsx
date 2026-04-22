@@ -54,6 +54,7 @@ import { createSecurityService } from '@/composition/security'
 import type { Transaction } from '@/core/domain/transaction'
 import { removePasskey } from '@/ui/services/passkey'
 import { formatSats } from '@/utils/format'
+import type { PendingIncomingReview } from '@/core/types'
 
 
 type Screen = 'home' | 'settings' | 'contacts' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'mint-management' | 'relay-management' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail' | 'mint-detail'
@@ -79,6 +80,7 @@ export default function MainApp() {
   const nostrPrivkey = useAppStore((state) => state.nostrPrivkey)
   const p2pkPubkey = useAppStore((state) => state.p2pkPubkey)
   const txRefreshTrigger = useAppStore((state) => state.txRefreshTrigger)
+  const pendingIncomingReviews = useAppStore((state) => state.pendingIncomingReviews)
 
   // Store actions
   const setLocked = useAppStore((state) => state.setLocked)
@@ -91,6 +93,7 @@ export default function MainApp() {
   const setP2pkPubkey = useAppStore((state) => state.setP2pkPubkey)
   const setSettings = useAppStore((state) => state.setSettings)
   const addPendingQuote = useAppStore((state) => state.addPendingQuote)
+  const removeIncomingReview = useAppStore((state) => state.removeIncomingReview)
 
   // Service Registry (Phase 5: bootstrap 후 생성, unlock 전에는 null)
   const [serviceRegistry, setServiceRegistry] = useState<BootstrapResult | null>(null)
@@ -142,6 +145,7 @@ export default function MainApp() {
 
   // Validated scan data state (for unified payment screens)
   const [validatedScanData, setValidatedScanData] = useState<ValidatedData | null>(null)
+  const [activeIncomingReview, setActiveIncomingReview] = useState<PendingIncomingReview | null>(null)
 
   // Active mint from HomeScreen carousel
   const [activeMintUrl, setActiveMintUrl] = useState<string | null>(null)
@@ -231,6 +235,16 @@ export default function MainApp() {
     if (txRefreshTrigger === 0) return
     refreshAll()
   }, [txRefreshTrigger, refreshAll])
+
+  useEffect(() => {
+    if (activeIncomingReview || pendingIncomingReviews.length === 0) return
+
+    const nextReview = pendingIncomingReviews[0]
+    setActiveIncomingReview(nextReview)
+    setValidatedScanData(nextReview.token)
+    setPreviousScreen(currentScreen === 'receive' ? previousScreen : currentScreen)
+    setCurrentScreen('receive')
+  }, [activeIncomingReview, pendingIncomingReviews, currentScreen, previousScreen])
 
   // Anchor check and State Reconstruction (ZAP-06)
   // Runs once when app is unlocked and has nostr keys
@@ -535,6 +549,74 @@ export default function MainApp() {
       return { success: false }
     }
   }, [serviceRegistry])
+
+  const clearIncomingReviewState = useCallback(() => {
+    setActiveIncomingReview(null)
+    setValidatedScanData(null)
+  }, [])
+
+  const maybeAckIncomingReview = useCallback(async (review: PendingIncomingReview) => {
+    if (!serviceRegistry?.nostrGateway || !review.senderPubkey || !review.txId) return
+    if (!settings.posDevices?.some((device) => device.nostrPublicKey === review.senderPubkey)) return
+
+    const relays = serviceRegistry.nostrGateway.getRelayStatus()
+      .filter((relay) => relay.connected)
+      .map((relay) => relay.url)
+
+    if (relays.length === 0) return
+
+    try {
+      await serviceRegistry.nostrGateway.sendPrivateDirectMessage({
+        recipientPubkey: review.senderPubkey,
+        content: JSON.stringify({ type: 'delivery_ack', txId: review.txId }),
+        relays,
+      })
+    } catch (error) {
+      console.warn('[MainApp] Failed to send delivery ACK for reviewed incoming token:', error)
+    }
+  }, [serviceRegistry, settings.posDevices])
+
+  const completeIncomingReviewRequest = useCallback(async (review: PendingIncomingReview) => {
+    if (!serviceRegistry?.receiveRequest || !review.requestId) return
+
+    const request = await serviceRegistry.receiveRequest.findByRequestId(review.requestId)
+    if (request && request.status === 'pending') {
+      await serviceRegistry.receiveRequest.complete(request.id, 'ecash')
+    }
+  }, [serviceRegistry])
+
+  const handleResolveIncomingReview = useCallback(async (params: {
+    review: PendingIncomingReview
+    transactionId?: string
+  }) => {
+    if (!serviceRegistry) return
+
+    await serviceRegistry.processedStore.save({
+      externalId: params.review.externalId,
+      txId: params.transactionId,
+      processedAt: Date.now(),
+      result: 'success',
+    })
+    removeIncomingReview(params.review.externalId)
+    await completeIncomingReviewRequest(params.review)
+    await maybeAckIncomingReview(params.review)
+  }, [serviceRegistry, removeIncomingReview, completeIncomingReviewRequest, maybeAckIncomingReview])
+
+  const handleRejectIncomingReview = useCallback(async (review: PendingIncomingReview) => {
+    if (serviceRegistry) {
+      await serviceRegistry.processedStore.save({
+        externalId: review.externalId,
+        processedAt: Date.now(),
+        result: 'skipped',
+        error: 'Rejected by user',
+      })
+    }
+
+    removeIncomingReview(review.externalId)
+    clearIncomingReviewState()
+    setCurrentScreen(previousScreen || 'home')
+    setPreviousScreen(null)
+  }, [serviceRegistry, removeIncomingReview, clearIncomingReviewState, previousScreen])
 
   // Payment received callback
   // Lightning toast는 bridge.ts (mint-quote:redeemed)가 전역으로 담당
@@ -1037,10 +1119,12 @@ export default function MainApp() {
         <ReceiveFlow
           onBack={() => {
             const backTo = previousScreen || 'home'
+            clearIncomingReviewState()
             setPreviousScreen(null)
             setCurrentScreen(backTo)
           }}
           onComplete={() => {
+            clearIncomingReviewState()
             setPreviousScreen(null)
             setCurrentScreen('home')
           }}
@@ -1064,6 +1148,9 @@ export default function MainApp() {
           initialAmount={scannedAmount || undefined}
           initialMintUrl={activeMintUrl}
           onRedirect={handleReceiveRedirect}
+          incomingReview={activeIncomingReview}
+          onResolveIncomingReview={handleResolveIncomingReview}
+          onRejectIncomingReview={handleRejectIncomingReview}
         />
       )}
 
@@ -1141,6 +1228,9 @@ export default function MainApp() {
             onRedeemQuote: async (mintUrl: string, quoteId: string, amount: number) => {
               const { redeemMintQuote } = await import('@/modules/cashu')
               await redeemMintQuote(mintUrl, quoteId, amount)
+            },
+            onPendingItemChanged: async () => {
+              await refreshAll()
             },
           } : undefined}
         />

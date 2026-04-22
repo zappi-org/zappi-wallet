@@ -10,6 +10,8 @@ import type { AnchorStore, AnchorData } from '@/core/ports/driven/anchor.port'
 import type { RecoveryStore } from '@/core/ports/driven/recovery-store.port'
 import type { FailedIncomingStore } from '@/core/ports/driven/failed-incoming-store.port'
 import type { TokenReceiver } from '@/core/ports/driven/token-receiver.port'
+import type { TrustedMintProvider } from '@/core/ports/driven/trusted-mint-provider.port'
+import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-queue.port'
 import type {
   RecoveryUseCase,
   AnchorCheckResult,
@@ -19,6 +21,7 @@ import type {
 import type { SyncResult, ProcessedRecord } from '@/core/types'
 import { RETRY } from '@/core/constants'
 import { parseDirectToken } from '@/core/domain/direct-token'
+import { previewCashuToken } from '@/core/domain/cashu-token-preview'
 
 // ─── Anchor constants ───
 
@@ -49,6 +52,8 @@ export class RecoveryService implements RecoveryUseCase {
     private readonly recoveryStore: RecoveryStore,
     private readonly failedIncomingStore: FailedIncomingStore,
     private readonly tokenReceiver: TokenReceiver,
+    private readonly trustedMintProvider: TrustedMintProvider,
+    private readonly incomingReviewQueue: IncomingReviewQueue,
   ) {}
 
   // ─── syncAll (orchestration) ───
@@ -177,6 +182,28 @@ export class RecoveryService implements RecoveryUseCase {
 
           if (!directToken) {
             await this.markProcessed(msg.eventId, 'skipped')
+            result.eventsProcessed++
+            continue
+          }
+
+          const preview = directToken.mintUrl && directToken.amount != null
+            ? { mintUrl: directToken.mintUrl, amountSats: directToken.amount }
+            : previewCashuToken(directToken.token)
+
+          if (!(await this.trustedMintProvider.hasTrustedMint(preview.mintUrl))) {
+            await this.incomingReviewQueue.enqueue({
+              externalId: msg.eventId,
+              token: {
+                type: 'cashu-token',
+                token: directToken.token,
+                amountSats: preview.amountSats,
+                mintUrl: preview.mintUrl,
+                memo: directToken.memo,
+              },
+              queuedAt: Date.now(),
+              senderPubkey: directToken.senderPubkey,
+              source: 'recovery',
+            })
             result.eventsProcessed++
             continue
           }

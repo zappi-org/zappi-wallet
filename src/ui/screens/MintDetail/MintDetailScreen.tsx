@@ -72,7 +72,7 @@ export function MintDetailScreen({
   }, [onSelectTransaction, onFindTransaction])
 
   const { variant, customColor } = resolveMintColor(mint.url, mintIndex, settings.mintColors)
-  const { items: pendingItems } = usePendingItems(mint.url)
+  const { items: pendingItems, refresh: refreshPendingItems } = usePendingItems(mint.url)
 
   // Live balance from wallet (prop snapshot may be stale after reclaim/receive)
   const { balance } = useWallet()
@@ -97,6 +97,7 @@ export function MintDetailScreen({
         item={selectedPendingItem}
         onBack={() => setSelectedPendingItem(null)}
         callbacks={pendingItemCallbacks}
+        onItemRemoved={() => refreshPendingItems()}
       />
     )
   }

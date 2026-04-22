@@ -14,6 +14,7 @@ import {
   recoverPendingSendTokens,
   recoverPendingQuotes,
 } from './internal/cashu-recovery'
+import { getMintQuote } from './internal/coco-sdk'
 import type { OfflineTokenStore } from '@/core/ports/driven/offline-token-store.port'
 import {
   redeemPendingReceivedTokens,
@@ -35,6 +36,7 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
     rollbackMelt: backend.rollbackMelt,
     createMintQuote: backend.createMintQuote,
     redeemMintQuote: backend.redeemMintQuote,
+    getMintQuote,
     async recoverPendingMelts() {
       const meltOps = await backend.getMeltRecoveryOps()
       return recoverPendingMelts({ pendingOpRepo: deps.pendingOpRepo, meltOps })

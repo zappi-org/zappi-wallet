@@ -4,12 +4,18 @@
 
 import { PendingItemsService, type PendingItemsDataSource } from '@/core/services/pending-items.service'
 import type { PendingItemsUseCase } from '@/core/ports/driving/pending-items.usecase'
+import type { ReceiveRequestRepository } from '@/core/ports/driven/receive-request.repository.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
+import type { WalletModule } from '@/core/ports/driven/wallet-module.port'
 import { getDatabase } from '@/adapters/storage/dexie/schema'
 import { stripTrailingSlash } from '@/utils/url'
 import { getActivePendingQuotes } from '@/modules/cashu'
 
-export function createPendingItemsService(txRepo: TransactionRepository): PendingItemsUseCase {
+export function createPendingItemsService(
+  txRepo: TransactionRepository,
+  receiveRequestRepo: ReceiveRequestRepository,
+  modules: WalletModule[],
+): PendingItemsUseCase {
   const dataSource: PendingItemsDataSource = {
     async getPendingReceivedTokens(mintVariants) {
       const db = getDatabase()
@@ -70,5 +76,10 @@ export function createPendingItemsService(txRepo: TransactionRepository): Pendin
     },
   }
 
-  return new PendingItemsService(dataSource, txRepo)
+  return new PendingItemsService(
+    dataSource,
+    txRepo,
+    receiveRequestRepo,
+    () => modules.flatMap((module) => module.getPaymentAdapters()),
+  )
 }

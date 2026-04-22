@@ -53,6 +53,8 @@ import { FeeEstimatorAdapter } from '@/adapters/coco/fee-estimator.adapter'
 import { SendTokenOperatorAdapter } from '@/adapters/coco/send-token-operator.adapter'
 import { MintHealthCheckerAdapter } from '@/adapters/health/mint-health-checker.adapter'
 import { MintMetadataStoreAdapter } from '@/adapters/metadata/mint-metadata-store.adapter'
+import { TrustedMintProviderAdapter } from '@/adapters/runtime/trusted-mint-provider.adapter'
+import { IncomingReviewQueueAdapter } from '@/adapters/runtime/incoming-review-queue.adapter'
 
 // ─── Phase 6: New Core Services ───
 import { CryptoService } from '@/core/services/crypto.service'
@@ -170,6 +172,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const processedStore = new ProcessedRepository()
   const settingsRepo = new SettingsRepository()
   const receiveRequestRepo = new DexieReceiveRequestRepository()
+  const trustedMintProvider = new TrustedMintProviderAdapter()
+  const incomingReviewQueue = new IncomingReviewQueueAdapter()
 
   // 2. Nostr Gateway
   const nostrGateway = new NostrGatewayAdapter({
@@ -289,9 +293,9 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   }
 
   // 9. Additional services
-  const recovery = createRecoveryService(nostrGateway, payment)
+  const recovery = createRecoveryService(nostrGateway, payment, trustedMintProvider, incomingReviewQueue)
   const incomingPayment = new IncomingPaymentService(payment, processedStore, failedIncomingStore)
-  const pendingItems = createPendingItemsService(txRepo)
+  const pendingItems = createPendingItemsService(txRepo, receiveRequestRepo, modules)
 
   // 10. Gift wrap watcher
   const giftWrapWatcher = new GiftWrapWatcher({
@@ -302,6 +306,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     getRelays: () => useAppStore.getState().settings.relays || [],
     getPosDevices: () => useAppStore.getState().settings.posDevices,
     getPendingRequestId: () => useAppStore.getState().pendingEcashRequestId,
+    trustedMintProvider,
+    incomingReviewQueue,
   })
 
   // 11. WithdrawUseCase / LnurlAuthUseCase — TODO: NoOp impl or real impl

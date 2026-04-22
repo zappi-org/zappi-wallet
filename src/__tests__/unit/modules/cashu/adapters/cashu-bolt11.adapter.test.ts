@@ -24,6 +24,10 @@ function createMockBackend(): LightningBackend {
       request: 'lnbc1000n1...',
       expiry: Math.floor(Date.now() / 1000) + 600,
     }),
+    getMintQuote: vi.fn().mockResolvedValue({
+      state: 'UNPAID',
+      request: 'lnbc1000n1...',
+    }),
     redeemMintQuote: vi.fn().mockResolvedValue(undefined),
     recoverPendingMelts: vi.fn().mockResolvedValue({ recovered: 2, failed: 0 }),
     recoverPendingQuotes: vi.fn().mockResolvedValue({ recovered: 0, failed: 0, expired: 0 }),
@@ -66,6 +70,26 @@ describe('CashuBolt11Adapter', () => {
       expect(result.encoded).toBe('lnbc1000n1...')
       expect(toNumber(result.amount)).toBe(1000)
       expect(result.expiresAt).toBeGreaterThan(Date.now())
+    })
+  })
+
+  describe('checkAlive', () => {
+    it('returns true when the mint still knows the quote', async () => {
+      await expect(adapter.checkAlive({
+        requestId: 'mint-quote-1',
+        accountId: 'https://mint.test',
+      })).resolves.toBe(true)
+
+      expect(backend.getMintQuote).toHaveBeenCalledWith('https://mint.test', 'mint-quote-1')
+    })
+
+    it('returns false when the quote is unknown', async () => {
+      vi.mocked(backend.getMintQuote).mockResolvedValueOnce(null)
+
+      await expect(adapter.checkAlive({
+        requestId: 'missing-quote',
+        accountId: 'https://mint.test',
+      })).resolves.toBe(false)
     })
   })
 

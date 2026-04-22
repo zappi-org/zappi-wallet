@@ -6,7 +6,7 @@
  */
 
 import { useState, useCallback, useMemo } from 'react'
-import { ArrowLeft, AlertTriangle, Loader2, WifiOff, Plus, ArrowRightLeft } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, Loader2, WifiOff, Plus, ArrowRightLeft, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { hapticTap } from '@/ui/utils/haptic'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
@@ -17,7 +17,8 @@ import { MintIcon } from '@/ui/components/common/MintIcon'
 import type { ValidatedCashuToken } from '@/core/domain/input-types'
 
 interface UntrustedMintStepProps {
-  onBack: () => void
+  onBack: () => void | Promise<void>
+  onReject: () => void | Promise<void>
   onAddAndReceive: () => Promise<void>
   onSwapToMyMint: (targetMintUrl: string) => Promise<void>
   token: ValidatedCashuToken
@@ -26,6 +27,7 @@ interface UntrustedMintStepProps {
 
 export function UntrustedMintStep({
   onBack,
+  onReject,
   onAddAndReceive,
   onSwapToMyMint,
   token,
@@ -37,8 +39,9 @@ export function UntrustedMintStep({
   const settings = useAppStore((s) => s.settings)
   const [swapLoading, setSwapLoading] = useState(false)
   const [addLoading, setAddLoading] = useState(false)
+  const [rejectLoading, setRejectLoading] = useState(false)
   const [showMintSelect, setShowMintSelect] = useState(false)
-  const isProcessing = swapLoading || addLoading
+  const isProcessing = swapLoading || addLoading || rejectLoading
 
   const allMintUrls = useMemo(
     () => [...new Set([token.mintUrl, ...settings.mints])],
@@ -49,7 +52,7 @@ export function UntrustedMintStep({
   const mintIconUrl = getIconUrl(token.mintUrl)
   const formattedAmount = formatSats(token.amountSats)
 
-  const buttonsDisabled = isProcessing || !isOnline
+  const receiveButtonsDisabled = isProcessing || !isOnline
 
   const handleAddAndReceive = useCallback(async () => {
     setAddLoading(true)
@@ -71,6 +74,16 @@ export function UntrustedMintStep({
       setSwapLoading(false)
     }
   }, [onSwapToMyMint])
+
+  const handleReject = useCallback(async () => {
+    setRejectLoading(true)
+    hapticTap()
+    try {
+      await onReject()
+    } finally {
+      setRejectLoading(false)
+    }
+  }, [onReject])
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -129,7 +142,7 @@ export function UntrustedMintStep({
         {/* Add mint and receive (primary) */}
         <button
           onClick={handleAddAndReceive}
-          disabled={buttonsDisabled}
+          disabled={receiveButtonsDisabled}
           className="w-full bg-brand rounded-[14px] px-5 py-[18px] flex items-center gap-3.5 active:scale-[0.98] transition-transform disabled:opacity-50 shadow-lg shadow-brand/25"
         >
           <div className="w-10 h-10 rounded-[10px] bg-white/20 flex items-center justify-center shrink-0">
@@ -152,7 +165,7 @@ export function UntrustedMintStep({
         {/* Swap to my mint (secondary) */}
         <button
           onClick={() => { hapticTap(); setShowMintSelect(true) }}
-          disabled={buttonsDisabled}
+          disabled={receiveButtonsDisabled}
           className="w-full bg-muted rounded-[14px] px-5 py-[18px] flex items-center gap-3.5 active:scale-[0.98] transition-transform disabled:opacity-50"
         >
           <div className="w-10 h-10 rounded-[10px] bg-foreground/[0.06] flex items-center justify-center shrink-0">
@@ -168,6 +181,28 @@ export function UntrustedMintStep({
             </p>
             <p className="text-caption text-foreground-muted mt-0.5">
               {t('receive.untrusted.myMintSub')}
+            </p>
+          </div>
+        </button>
+
+        <button
+          onClick={handleReject}
+          disabled={isProcessing}
+          className="w-full bg-background border border-border rounded-[14px] px-5 py-[18px] flex items-center gap-3.5 active:scale-[0.98] transition-transform disabled:opacity-50"
+        >
+          <div className="w-10 h-10 rounded-[10px] bg-foreground/[0.04] flex items-center justify-center shrink-0">
+            {rejectLoading ? (
+              <Loader2 className="w-5 h-5 animate-spin text-foreground" />
+            ) : (
+              <X className="w-5 h-5 text-foreground" strokeWidth={1.8} />
+            )}
+          </div>
+          <div className="flex-1 min-w-0 text-left">
+            <p className="text-body font-bold text-foreground truncate">
+              {t('receive.untrusted.reject')}
+            </p>
+            <p className="text-caption text-foreground-muted mt-0.5">
+              {t('receive.untrusted.rejectSub')}
             </p>
           </div>
         </button>

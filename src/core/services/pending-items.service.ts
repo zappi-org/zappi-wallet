@@ -1,12 +1,16 @@
 /**
- * PendingItemsService — pending items query
+ * PendingItemsService — pending item query + lifecycle
  *
- * 여러 도메인(수신 토큰, 수신 요청, 발신 토큰)의 pending 상태를 합쳐서 조회.
- * query-only 서비스.
+ * 여러 도메인(수신 토큰, 수신 요청, 발신 토큰)의 pending 상태를 합쳐서 조회하고,
+ * receive request의 effective expiry 판정과 정리를 담당한다.
  */
 
+import { checkEffectiveExpiry, type CounterpartyStateProbe, type EffectiveExpiryStatus } from '@/core/domain/effective-expiry'
+import { expireReceiveRequest, type PaymentMethod, type ReceiveRequest } from '@/core/domain/receive-request'
 import type { PendingItemsUseCase, PendingItem } from '@/core/ports/driving/pending-items.usecase'
 import type { PendingQuote } from '@/core/domain/quote'
+import type { PaymentMethodAdapter } from '@/core/ports/driven/payment-method.port'
+import type { ReceiveRequestRepository } from '@/core/ports/driven/receive-request.repository.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 
 export interface PendingItemsDataSource {
@@ -24,6 +28,8 @@ export class PendingItemsService implements PendingItemsUseCase {
   constructor(
     private dataSource: PendingItemsDataSource,
     private txRepo: TransactionRepository,
+    private receiveRequestRepo: ReceiveRequestRepository,
+    private getReceiveAdapters: () => PaymentMethodAdapter[],
   ) {}
 
   async getByMint(mintUrl: string): Promise<PendingItem[]> {
@@ -38,6 +44,33 @@ export class PendingItemsService implements PendingItemsUseCase {
 
   async getActivePendingQuotes(): Promise<PendingQuote[]> {
     return this.dataSource.getActivePendingQuotes()
+  }
+
+  async checkEffectiveExpiry(id: string): Promise<EffectiveExpiryStatus> {
+    const request = await this.receiveRequestRepo.getById(id)
+    if (!request || request.status !== 'pending') {
+      return 'expired'
+    }
+
+    const probes = request.paymentMethods
+      .map((method) => this.createProbe(request, method))
+      .filter((probe): probe is CounterpartyStateProbe => probe !== null)
+
+    return checkEffectiveExpiry(request, probes)
+  }
+
+  async expireById(id: string): Promise<void> {
+    const request = await this.receiveRequestRepo.getById(id)
+    if (request && request.status === 'pending') {
+      await this.receiveRequestRepo.save(expireReceiveRequest(request))
+      const txIds = new Set([id, ...request.paymentMethods.map((method) => method.ref)])
+      await Promise.all(Array.from(txIds).map(async (txId) => {
+        await this.txRepo.delete(txId).catch(() => {})
+      }))
+      return
+    }
+
+    await this.txRepo.delete(id).catch(() => {})
   }
 
   private async queryAndMerge(mintVariants?: string[]): Promise<PendingItem[]> {
@@ -97,5 +130,39 @@ export class PendingItemsService implements PendingItemsUseCase {
     return items
       .filter((item) => !item.expiresAt || item.expiresAt >= now)
       .sort((a, b) => b.createdAt - a.createdAt)
+  }
+
+  private createProbe(request: ReceiveRequest, method: PaymentMethod): CounterpartyStateProbe | null {
+    const adapter = this.resolveAdapter(method)
+    if (!adapter?.checkAlive) {
+      return null
+    }
+
+    return {
+      checkAlive: async () => {
+        try {
+          return await adapter.checkAlive!({
+            requestId: method.ref,
+            accountId: request.accountId,
+          })
+        } catch {
+          return undefined
+        }
+      },
+    }
+  }
+
+  private resolveAdapter(method: PaymentMethod): PaymentMethodAdapter | undefined {
+    const protocol = method.type === 'lightning'
+      ? 'bolt11'
+      : method.type === 'ecash'
+        ? 'ecash'
+        : null
+
+    if (!protocol) {
+      return undefined
+    }
+
+    return this.getReceiveAdapters().find((adapter) => adapter.protocol === protocol)
   }
 }

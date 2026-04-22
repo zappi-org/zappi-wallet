@@ -1,17 +1,25 @@
-# Current Task — ZAP-220
+# Current Task — ZAP-253
 
-- [x] Add protocol selector tabs to `ReceiveQRStep` for `Unified`, `Cashu`, and `Lightning`
-- [x] Keep `Unified` as the default when both invoice and cashu request are available
-- [x] Make QR, copy, and share actions follow the currently selected protocol payload
-- [x] Add receive QR regression tests for protocol switching and default selection
-- [x] Run validation: `bun run lint`, `bun run build`, `bun run test`, `npx tsc --noEmit`, hex scan
-- [x] Re-run `verify-*` audit and record missing `verify-ecash` target
-- [ ] Remaining separate follow-up: `ZAP-52` receiver untrusted mint / gift-wrap flow
+- [x] Confirm wallet repo rules (`CLAUDE.md`, root `AGENTS.md`, `zappi-wallet/AGENTS.md`) and review `tasks/lessons.md`
+- [x] Verify `staging` is synced with `origin/staging`
+- [x] Create working branch from `staging` (`fix/zap-52-receiver-scope`)
+- [x] Re-check remaining `월렛 알파 준비` Todo / Backlog issues in Linear
+- [x] Prevent background receiver paths from auto-registering untrusted mints before user consent
+- [x] Route untrusted gift-wrap / recovery tokens into explicit receiver review flow
+- [x] Add explicit reject path alongside `add mint and receive` / `swap to my mint`
+- [x] Preserve NUT-18 request completion and POS delivery ACK when reviewed token is accepted
+- [x] Add regression tests for untrusted incoming queue + trust gating
+- [x] Re-prioritize remaining wallet alpha issues after ZAP-52 and pick the next concrete item (`ZAP-253`)
+- [x] Add protocol-neutral effective expiry check for pending receive requests
+- [x] Add `expireById` cleanup path for receive request + linked transaction records
+- [x] Auto-expire UNKNOWN/forgotten pending receive requests on detail open
+- [ ] Run full validation: `bun run lint`, `bun run build`, `bun run test`, `npx tsc --noEmit`, `verify-*` audit
 
 Review
-- `ReceiveQRStep` now exposes the already-generated receive payloads individually instead of collapsing everything into one unified QR/copy target.
-- Payment detection stayed untouched: Lightning quote watching and ecash NUT-18 detection still run regardless of which tab is selected.
-- Validation: `bun run lint`, `bun run build`, `bun run test`, and `npx tsc --noEmit` all pass. Hex scan still reports the same 3 pre-existing violations. `verify-implementation` is present, but its configured child skill `verify-ecash` is still missing from the repo, so that pipeline remains partial.
+- `staging` is at `0/0` against `origin/staging` after `git fetch origin`, and the session branch is `fix/zap-52-receiver-scope`.
+- Remaining `월렛 알파 준비` issues are currently `ZAP-52`, `ZAP-44`, `ZAP-238` in `Todo`, plus `ZAP-235`, `ZAP-253`, `ZAP-233`, `ZAP-81` in `Backlog`.
+- ZAP-52 receiver root cause was background NIP-17 gift-wrap and recovery paths redeeming unknown mints immediately; this session routes those into explicit review instead.
+- ZAP-253 root cause was the receive request UI trusting only local `expiresAt`, while actual counterparty liveness (`UNKNOWN` mint quote) never fed back into request expiry or transaction cleanup.
 
 # Zappi Wallet — Design Overhaul
 

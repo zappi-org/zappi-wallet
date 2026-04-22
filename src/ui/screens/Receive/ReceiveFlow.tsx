@@ -20,6 +20,7 @@ import type { InputInspectionResult } from '@/core/ports/driving/payment.usecase
 import { formatSats } from '@/utils/format'
 import { translateError } from '@/ui/utils/error-i18n'
 import type { ValidatedData, ValidatedCashuToken } from '@/core/domain/input-types'
+import type { PendingIncomingReview } from '@/core/types'
 
 /** Check if an error indicates a token was already spent */
 function isAlreadySpentError(error?: { code?: string; message?: string } | null): boolean {
@@ -92,13 +93,19 @@ export interface ReceiveFlowProps {
     expiry: number
   } | null>
   onPaymentReceived: (amount: number, type: 'lightning' | 'ecash') => void
-  onReceiveToken: (token: string) => Promise<{ success: boolean; amount?: number; error?: { code?: string; message?: string } }>
+  onReceiveToken: (token: string) => Promise<{ success: boolean; amount?: number; transactionId?: string; error?: { code?: string; message?: string } }>
   onAddTrustedMint: (mintUrl: string) => Promise<boolean>
   onSwapReceive: (token: string, sourceMintUrl: string, targetMintUrl: string) => Promise<{ success: boolean; amount?: number; sourceRemainder?: number; error?: { code?: string; message?: string } }>
   onEstimateSwapFee: (fromMintUrl: string, toMintUrl: string, amount: number) => Promise<{ fee: number; totalNeeded: number } | null>
   onStoreOfflineToken: (token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing') => Promise<{ success: boolean }>
   onInspectInput?: (tokenStr: string) => Promise<InputInspectionResult>
   onEstimateRedeemFee?: (token: string) => Promise<{ grossAmount: number; fee: number; netAmount: number } | null>
+  incomingReview?: PendingIncomingReview | null
+  onResolveIncomingReview?: (params: {
+    review: PendingIncomingReview
+    transactionId?: string
+  }) => Promise<void>
+  onRejectIncomingReview?: (review: PendingIncomingReview) => Promise<void>
   // Pre-filled data
   validatedData?: ValidatedData
   initialAmount?: number
@@ -120,6 +127,9 @@ export function ReceiveFlow({
   onStoreOfflineToken,
   onInspectInput,
   onEstimateRedeemFee,
+  incomingReview = null,
+  onResolveIncomingReview,
+  onRejectIncomingReview,
   validatedData: initialValidatedData,
   initialAmount,
   initialMintUrl,
@@ -328,6 +338,31 @@ export function ReceiveFlow({
     }))
   }, [settings.mints, runInspection, isOnline])
 
+  const resolveIncomingReview = useCallback(async (transactionId?: string) => {
+    if (!incomingReview || !onResolveIncomingReview) return
+
+    try {
+      await onResolveIncomingReview({ review: incomingReview, transactionId })
+    } catch (error) {
+      console.error('[ReceiveFlow] Failed to resolve incoming review:', error)
+    }
+  }, [incomingReview, onResolveIncomingReview])
+
+  const handleRejectUntrustedToken = useCallback(async () => {
+    if (incomingReview && onRejectIncomingReview) {
+      await onRejectIncomingReview(incomingReview)
+      return
+    }
+
+    setState((prev) => ({
+      ...prev,
+      step: 'token-input',
+      scannedToken: null,
+      inspection: null,
+      isTrustedMint: false,
+    }))
+  }, [incomingReview, onRejectIncomingReview])
+
   /**
    * 크로스민트 스왑 실행 + 결과 처리 (성공/실패 복구) 공통 함수.
    * handleTokenReceive(크로스민트 분기)와 handleSwapToMyMint 양쪽에서 사용한다.
@@ -356,6 +391,7 @@ export function ReceiveFlow({
       }
 
       onPaymentReceived(result.amount || token.amountSats, 'ecash')
+      await resolveIncomingReview()
       setState((prev) => ({
         ...prev,
         step: 'complete',
@@ -369,6 +405,7 @@ export function ReceiveFlow({
         await onAddTrustedMint(sourceMintUrl)
       }
       onPaymentReceived(token.amountSats, 'ecash')
+      await resolveIncomingReview()
       setState((prev) => ({
         ...prev,
         step: 'complete',
@@ -383,7 +420,7 @@ export function ReceiveFlow({
     } else {
       addToast({ type: 'error', message: getTokenErrorMessage(result.error, t), duration: 3000 })
     }
-  }, [onSwapReceive, onAddTrustedMint, onPaymentReceived, settings.mints, addToast, t])
+  }, [onSwapReceive, onAddTrustedMint, onPaymentReceived, settings.mints, addToast, t, resolveIncomingReview])
 
   /** Token confirm → receive (handles same-mint, cross-mint swap, and offline P2PK) */
   const handleTokenReceive = useCallback(async (targetMintUrl?: string) => {
@@ -445,6 +482,7 @@ export function ReceiveFlow({
 
       if (result.success) {
         onPaymentReceived(result.amount || token.amountSats, 'ecash')
+        await resolveIncomingReview(result.transactionId)
         setState((prev) => ({
           ...prev,
           step: 'complete',
@@ -460,7 +498,7 @@ export function ReceiveFlow({
     } finally {
       isProcessingRef.current = false
     }
-  }, [state.scannedToken, state.inspection, isOnline, onReceiveToken, executeCrossMintSwap, onStoreOfflineToken, onPaymentReceived, addToast, t])
+  }, [state.scannedToken, state.inspection, isOnline, onReceiveToken, executeCrossMintSwap, onStoreOfflineToken, onPaymentReceived, addToast, t, resolveIncomingReview])
 
   /** Untrusted mint → add trust & receive */
   const handleAddTrustAndReceive = useCallback(async () => {
@@ -594,7 +632,8 @@ export function ReceiveFlow({
         {state.step === 'untrusted-mint' && state.scannedToken && (
           <PageTransition key="untrusted-mint" variant="page" className="flex-1">
             <UntrustedMintStep
-              onBack={() => goToStep('token-input')}
+              onBack={handleRejectUntrustedToken}
+              onReject={handleRejectUntrustedToken}
               onAddAndReceive={handleAddTrustAndReceive}
               onSwapToMyMint={handleSwapToMyMint}
               token={state.scannedToken}

@@ -3,6 +3,7 @@ import { ArrowLeft, Copy, Check, Clock, Loader2, RefreshCw, Download, QrCode } f
 import { useTranslation } from 'react-i18next'
 import { useFormatSats, useFormatFiat, getLocaleCode } from '@/utils/format'
 import { useMintMetadata } from '@/ui/hooks'
+import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { Button } from '@/ui/components/common/Button'
 import { useAppStore } from '@/store'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
@@ -15,12 +16,14 @@ export interface PendingItemDetailCallbacks {
   onCheckQuote?: (mintUrl: string, quoteId: string) => Promise<{ state: string; request?: string } | null>
   onRedeemQuote?: (mintUrl: string, quoteId: string, amount: number) => Promise<void>
   onDeleteItem?: (itemId: string, table: 'pendingReceivedTokens' | 'pendingSendTokens') => Promise<void>
+  onPendingItemChanged?: () => Promise<void> | void
 }
 
 export interface PendingItemDetailScreenProps {
   item: PendingItem
   onBack: () => void
   callbacks?: PendingItemDetailCallbacks
+  onItemRemoved?: () => Promise<void> | void
 }
 
 async function copyToClipboard(text: string) {
@@ -36,8 +39,9 @@ async function copyToClipboard(text: string) {
   }
 }
 
-export function PendingItemDetailScreen({ item, onBack, callbacks }: PendingItemDetailScreenProps) {
+export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved }: PendingItemDetailScreenProps) {
   const { t, i18n } = useTranslation()
+  const serviceRegistry = useServiceRegistry()
   const formatSats = useFormatSats()
   const toFiat = useFormatFiat()
   const [copiedField, setCopiedField] = useState<string | null>(null)
@@ -51,6 +55,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks }: PendingItem
   const [quoteStatus, setQuoteStatus] = useState<string | null>(null)
   const [isCheckingQuote, setIsCheckingQuote] = useState(false)
   const [isRedeeming, setIsRedeeming] = useState(false)
+  const [isResolvingExpiry, setIsResolvingExpiry] = useState(false)
   const [qrValue, setQrValue] = useState<string | null>(null)
   const addToast = useAppStore((s) => s.addToast)
 
@@ -77,6 +82,37 @@ export function PendingItemDetailScreen({ item, onBack, callbacks }: PendingItem
     return () => { cancelled = true }
   }, [reqDetails, item.accountId, quoteId, callbacks])
 
+  useEffect(() => {
+    if (!reqDetails) return
+    let cancelled = false
+
+    setIsResolvingExpiry(true)
+    void (async () => {
+      try {
+        const status = await serviceRegistry.pendingItems.checkEffectiveExpiry(item.id)
+        if (cancelled || status !== 'expired') return
+
+        await serviceRegistry.pendingItems.expireById(item.id)
+        if (cancelled) return
+
+        void callbacks?.onPendingItemChanged?.()
+        void onItemRemoved?.()
+        addToast({ type: 'info', message: t('pending.expiredRemoved'), duration: 2500 })
+        onBack()
+      } catch (error) {
+        console.error('[PendingDetail] Failed to resolve effective expiry:', error)
+      } finally {
+        if (!cancelled) {
+          setIsResolvingExpiry(false)
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [reqDetails, serviceRegistry, item.id, callbacks, onItemRemoved, addToast, t, onBack])
+
   const handleCopy = useCallback(async (text: string, field: string) => {
     await copyToClipboard(text)
     setCopiedField(field)
@@ -91,6 +127,8 @@ export function PendingItemDetailScreen({ item, onBack, callbacks }: PendingItem
     try {
       const success = await callbacks.onRedeemToken(tokenStr, item.id)
       if (success) {
+        void callbacks.onPendingItemChanged?.()
+        void onItemRemoved?.()
         addToast({ type: 'success', message: t('pending.redeemSuccess'), duration: 2000 })
         onBack()
       } else {
@@ -101,7 +139,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks }: PendingItem
     } finally {
       setIsProcessing(false)
     }
-  }, [tokenStr, item.id, onBack, addToast, t, callbacks])
+  }, [tokenStr, item.id, onBack, addToast, t, callbacks, onItemRemoved])
 
   const handleReclaim = useCallback(async () => {
     if ((!operationId && !tokenStr) || !callbacks?.onReclaimToken) return
@@ -109,9 +147,13 @@ export function PendingItemDetailScreen({ item, onBack, callbacks }: PendingItem
     try {
       const result = await callbacks.onReclaimToken(item.id, operationId, tokenStr)
       if (result.alreadySpent) {
+        void callbacks.onPendingItemChanged?.()
+        void onItemRemoved?.()
         addToast({ type: 'info', message: t('txDetail.alreadySpent'), duration: 2000 })
         onBack()
       } else if (result.success) {
+        void callbacks.onPendingItemChanged?.()
+        void onItemRemoved?.()
         addToast({ type: 'success', message: t('txDetail.reclaimSuccess'), duration: 2000 })
         onBack()
       } else {
@@ -122,7 +164,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks }: PendingItem
     } finally {
       setIsProcessing(false)
     }
-  }, [operationId, tokenStr, item.id, onBack, addToast, t, callbacks])
+  }, [operationId, tokenStr, item.id, onBack, addToast, t, callbacks, onItemRemoved])
 
   const handleCheckQuote = useCallback(async () => {
     if (!callbacks?.onCheckQuote) return
@@ -147,6 +189,8 @@ export function PendingItemDetailScreen({ item, onBack, callbacks }: PendingItem
     setIsRedeeming(true)
     try {
       await callbacks.onRedeemQuote(item.accountId, quoteId, item.amount)
+      void callbacks.onPendingItemChanged?.()
+      void onItemRemoved?.()
       addToast({ type: 'success', message: t('pending.redeemSuccess'), duration: 2000 })
       onBack()
     } catch (err) {
@@ -155,7 +199,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks }: PendingItem
     } finally {
       setIsRedeeming(false)
     }
-  }, [item.accountId, quoteId, item.amount, onBack, addToast, t, callbacks])
+  }, [item.accountId, quoteId, item.amount, onBack, addToast, t, callbacks, onItemRemoved])
 
   const locale = getLocaleCode(i18n.language)
 
@@ -333,10 +377,10 @@ export function PendingItemDetailScreen({ item, onBack, callbacks }: PendingItem
                   )}
                   <button
                     onClick={handleCheckQuote}
-                    disabled={isCheckingQuote}
+                    disabled={isCheckingQuote || isResolvingExpiry}
                     className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-foreground/[0.04] transition-colors disabled:opacity-50"
                   >
-                    {isCheckingQuote ? (
+                    {isCheckingQuote || isResolvingExpiry ? (
                       <Loader2 className="w-4 h-4 animate-spin text-foreground-muted" />
                     ) : (
                       <RefreshCw className="w-4 h-4 text-foreground-muted" />

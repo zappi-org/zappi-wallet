@@ -1,5 +1,6 @@
 import type { StateCreator } from 'zustand'
 import type { SyncState, SyncAnchor } from '@/core/types'
+import type { PendingIncomingReview } from '@/core/types'
 
 /**
  * Sync slice state
@@ -13,6 +14,7 @@ export interface SyncSliceState {
   // Pending items
   pendingRetries: number
   failedIncomingsCount: number
+  pendingIncomingReviews: PendingIncomingReview[]
 
   // Progress
   syncProgress: number // 0-100
@@ -44,6 +46,8 @@ export interface SyncSliceState {
   setAnchor: (anchor: SyncAnchor | null) => void
   setPendingRetries: (count: number) => void
   setFailedIncomingsCount: (count: number) => void
+  enqueueIncomingReview: (review: PendingIncomingReview) => void
+  removeIncomingReview: (externalId: string) => void
   setSyncProgress: (progress: number) => void
   incrementEventsProcessed: () => void
   resetSyncProgress: () => void
@@ -66,6 +70,7 @@ const initialState = {
   anchor: null as SyncAnchor | null,
   pendingRetries: 0,
   failedIncomingsCount: 0,
+  pendingIncomingReviews: [] as PendingIncomingReview[],
   syncProgress: 0,
   eventsProcessed: 0,
   lastEventTimestamp: 0,
@@ -95,6 +100,22 @@ export const createSyncSlice: StateCreator<SyncSliceState> = (set) => ({
   setPendingRetries: (pendingRetries) => set({ pendingRetries }),
 
   setFailedIncomingsCount: (failedIncomingsCount) => set({ failedIncomingsCount }),
+
+  enqueueIncomingReview: (review) =>
+    set((state) => {
+      if (state.pendingIncomingReviews.some((item) => item.externalId === review.externalId)) {
+        return { pendingIncomingReviews: state.pendingIncomingReviews }
+      }
+
+      return {
+        pendingIncomingReviews: [...state.pendingIncomingReviews, review],
+      }
+    }),
+
+  removeIncomingReview: (externalId) =>
+    set((state) => ({
+      pendingIncomingReviews: state.pendingIncomingReviews.filter((item) => item.externalId !== externalId),
+    })),
 
   setSyncProgress: (syncProgress) => set({ syncProgress }),
 

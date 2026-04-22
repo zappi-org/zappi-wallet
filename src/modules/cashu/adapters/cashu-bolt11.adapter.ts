@@ -6,6 +6,7 @@
  */
 
 import type {
+  CheckAliveParams,
   PaymentMethodAdapter,
   SendParams,
   PreparedPayment,
@@ -43,6 +44,7 @@ export interface LightningBackend {
     expiry: number
   }>
   redeemMintQuote(mintUrl: string, quoteId: string, expectedAmount: number): Promise<void>
+  getMintQuote(mintUrl: string, quoteId: string): Promise<{ state: string; request: string } | null>
   recoverPendingMelts(): Promise<{ recovered: number; failed: number }>
   recoverPendingQuotes(): Promise<{ recovered: number; failed: number; expired: number }>
   onMintQuotePaid?(quoteId: string, handler: () => void): () => void
@@ -180,6 +182,15 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter {
         completedAt: Date.now(),
       })
     })
+  }
+
+  async checkAlive(params: CheckAliveParams): Promise<boolean> {
+    if (!params.accountId) {
+      return true
+    }
+
+    const quote = await this.backend.getMintQuote(params.accountId, params.requestId)
+    return quote !== null
   }
 
   // ─── 복구 ───
