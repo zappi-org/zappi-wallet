@@ -2,6 +2,7 @@ import { BottomActionBar } from '@/ui/components/common/BottomActionBar'
 import { Button } from '@/ui/components/common/Button'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { Confetti } from '@/ui/components/payment/Confetti'
+import sendSuccessImg from '@/assets/send-success.png'
 import { useFormatSats } from '@/utils/format'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useOwnPaymentEvent } from '@/ui/hooks/use-own-payment-event'
@@ -10,7 +11,7 @@ import { useAppStore } from '@/store'
 import { hapticSuccess } from '@/ui/utils/haptic'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
-import { Check, Copy, Eye, Share2, X } from 'lucide-react'
+import { Copy, Eye, Share2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 export interface CreatedStepProps {
@@ -152,14 +153,14 @@ export function CreatedStep({
 
       {isSpent ? (
         <div className="flex-1 flex flex-col items-center justify-center px-8 gap-4">
-          <motion.div
+          <motion.img
+            src={sendSuccessImg}
+            alt="Success"
+            className="w-[120px] h-[120px] object-contain mb-2"
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-            className="w-20 h-20 rounded-full bg-brand/10 flex items-center justify-center"
-          >
-            <Check className="w-10 h-10 text-brand" strokeWidth={2.5} />
-          </motion.div>
+            transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.1 }}
+          />
           <p className="text-heading font-semibold text-foreground text-center">
             {formatSats(displayedAmount)} 사용되었어요
           </p>
