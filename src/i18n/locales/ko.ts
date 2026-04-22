@@ -861,17 +861,9 @@ export default {
     amount: {
       sendTo: '{{destination}}에게',
       howMuchSend: '얼마를 보낼까요?',
-      howMuchToken: '얼마의 토큰을 만들까요?',
       balancePill: '잔액 · {{balance}}',
       addMemo: '메모 (선택사항)',
       memoPlaceholder: '선택 사항',
-    },
-    tokenConfirm: {
-      title: '토큰 만들기',
-      question: '토큰을 만들까요?',
-      fullQuestion: '<b>{{mint}}</b>에서\n{{amount}}\n토큰을 만들까요?',
-      hint: '현금처럼 직접 건넬 수 있는 토큰이에요.\nQR코드를 보여주거나 복사해서 전달할 수 있어요',
-      create: '만들기',
     },
     tokenCreate: {
       title: '토큰 만들기',
@@ -879,16 +871,6 @@ export default {
       amountCaption: '토큰은 지폐처럼 건네 사용할 수 있어요',
       memo: '메모',
       memoPlaceholder: '선택 사항',
-    },
-    tokenCreated: {
-      title: '토큰 생성 완료',
-      share: '공유',
-      copy: '복사',
-      cancel: '토큰 회수',
-      confirm: '확인',
-      claimedTitle: '토큰 수령 완료',
-      claimed: '토큰이 수령되었습니다',
-      alreadySpent: '이미 수령된 토큰입니다',
     },
     confirm: {
       title: '보내기 확인',

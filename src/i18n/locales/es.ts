@@ -853,17 +853,9 @@ export default {
     amount: {
       sendTo: 'A {{destination}}',
       howMuchSend: '¿Cuánto enviar?',
-      howMuchToken: '¿Cuánto token crear?',
       balancePill: 'Saldo · {{balance}}',
       addMemo: 'Memo (opcional)',
       memoPlaceholder: 'Opcional',
-    },
-    tokenConfirm: {
-      title: 'Crear Token',
-      question: '¿Crear token?',
-      fullQuestion: '¿Crear token de {{amount}}\ndesde <b>{{mint}}</b>?',
-      hint: 'Los tokens funcionan como efectivo.\nMuestra el código QR o cópialo para compartir',
-      create: 'Crear',
     },
     tokenCreate: {
       title: 'Crear Token',
@@ -872,16 +864,6 @@ export default {
       memo: 'Memo',
       requestAmount: 'Solicitud',
       memoPlaceholder: 'Opcional',
-    },
-    tokenCreated: {
-      title: 'Token Creado',
-      share: 'Compartir',
-      copy: 'Copiar',
-      cancel: 'Recuperar Token',
-      confirm: 'Listo',
-      claimedTitle: 'Token Reclamado',
-      claimed: 'Token reclamado',
-      alreadySpent: 'Token ya fue reclamado',
     },
     confirm: {
       title: 'Confirmar Envío',

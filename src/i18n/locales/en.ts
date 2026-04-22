@@ -858,17 +858,9 @@ export default {
     amount: {
       sendTo: 'To {{destination}}',
       howMuchSend: 'How much to send?',
-      howMuchToken: 'How much token to create?',
       balancePill: 'Balance · {{balance}}',
       addMemo: 'Memo (optional)',
       memoPlaceholder: 'Optional',
-    },
-    tokenConfirm: {
-      title: 'Create Token',
-      question: 'Create token?',
-      fullQuestion: 'Create {{amount}} token\nfrom <b>{{mint}}</b>?',
-      hint: 'Tokens work like cash.\nShow the QR code or copy it to share',
-      create: 'Create',
     },
     tokenCreate: {
       title: 'Create Token',
@@ -876,16 +868,6 @@ export default {
       amountCaption: 'Tokens can be handed over like cash',
       memo: 'Memo',
       memoPlaceholder: 'Optional',
-    },
-    tokenCreated: {
-      title: 'Token Created',
-      share: 'Share',
-      copy: 'Copy',
-      cancel: 'Reclaim Token',
-      confirm: 'Done',
-      claimedTitle: 'Token Claimed',
-      claimed: 'Token has been claimed',
-      alreadySpent: 'Token was already claimed',
     },
     confirm: {
       title: 'Confirm Send',

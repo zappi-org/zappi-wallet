@@ -3,14 +3,10 @@
  * Manages internal step state machine for all send operations:
  * - Lightning send (bolt11, lightning-address, lnurl-pay)
  * - Ecash send (NUT-18 cashu-request via Nostr DM)
- * - Token create (create + QR share)
  *
- * New conversational multi-step flow:
  * destination → amount → confirm → sending → complete
- * destination → amount → token-confirm → token-created
  *
- * Business logic stays in MainApp handlers (passed as props).
- * This component is purely UI + step management.
+ * Token creation lives in the Token tab (TokenCreateFlow), not here.
  */
 
 import { useState, useCallback, useRef } from 'react'
@@ -45,8 +41,6 @@ function getAddressOrInvoice(data: SendableValidatedData): string | undefined {
 
 import { SendInputStep } from './steps/SendInputStep'
 import { SendAmountStep } from './steps/SendAmountStep'
-import { SendTokenConfirmStep } from './steps/SendTokenConfirmStep'
-import { TokenCreatedStep } from './steps/TokenCreatedStep'
 import { SendConfirmStep } from './steps/SendConfirmStep'
 import { SendingStep } from './steps/SendingStep'
 import { SendCompleteStep } from './steps/SendCompleteStep'
@@ -59,8 +53,6 @@ export type SendStep =
   | 'confirm'
   | 'sending'
   | 'complete'
-  | 'token-confirm'
-  | 'token-created'
 
 /** Validated data types that are "sendable" (not token, not amount) */
 export type SendableValidatedData =
@@ -80,10 +72,6 @@ export interface SendFlowState {
   isFiatMode: boolean
   fiatAmount: string
   skippedAmount: boolean
-  isTokenMode: boolean
-  createdToken: string | null
-  createdTxId: string | null
-  createdOperationId: string | null
   fee: number
   error: string | null
   // NUT-18 specific
@@ -97,10 +85,6 @@ export interface SendFlowProps {
   onComplete: () => void
   // Routing-based send handler (primary)
   onExecuteRoute: (selection: RouteSelection, context: RouteContext) => Promise<RouteExecutionResult | null>
-  // Token create handler (for token-create step only, not routing)
-  onCreateEcashToken: (amount: number, mintUrl?: string, options?: { p2pkPubkey?: string; memo?: string }) => Promise<{ token: string; txId: string; operationId: string } | null>
-  onCompleteEcashSend?: (txId: string) => Promise<void>
-  onCancelEcashToken?: (txId: string) => Promise<void>
   // Cross-mint swap handler (my-wallet type)
   onMintSwap?: (fromMintUrl: string, toMintUrl: string, amount: number) => Promise<{ success: boolean; amount?: number; fee?: number; transactionId?: string } | null>
   onEstimateSwapFee?: (fromMintUrl: string, toMintUrl: string, amount: number) => Promise<{ fee: number; totalNeeded: number } | null>
@@ -110,8 +94,6 @@ export interface SendFlowProps {
   initialMintUrl?: string | null
   initialDestination?: string
   initialDisplayName?: string
-  // Legacy: initialStep mapped to new flow
-  initialStep?: 'input' | 'token-create'
   // Universal router — delegates non-sendable input (cashu-token, amount-only) elsewhere
   onRouteValidated?: (data: ValidatedData) => void
 }
@@ -122,9 +104,6 @@ export function SendFlow({
   onBack,
   onComplete,
   onExecuteRoute,
-  onCreateEcashToken,
-  onCompleteEcashSend: _onCompleteEcashSend,
-  onCancelEcashToken,
   onMintSwap,
   onEstimateSwapFee: _onEstimateSwapFee,
   validatedData: initialValidatedData,
@@ -132,7 +111,6 @@ export function SendFlow({
   initialMintUrl,
   initialDestination,
   initialDisplayName,
-  initialStep = 'input',
   onRouteValidated,
 }: SendFlowProps) {
   const { t } = useTranslation()
@@ -170,13 +148,9 @@ export function SendFlow({
     return ['bolt11', 'lightning-address', 'lnurl-pay', 'cashu-request', 'my-wallet'].includes(data.type)
   }
 
-  // Map legacy initialStep to new step
-  const getInitialStep = (): SendStep => {
-    if (initialStep === 'token-create') return 'amount'
-    // Skip destination when validated data is already provided (from address book)
-    if (initialValidatedData && isSendableData(initialValidatedData)) return 'amount'
-    return 'destination'
-  }
+  // Skip destination when validated data is already provided (from address book / scanner)
+  const getInitialStep = (): SendStep =>
+    initialValidatedData && isSendableData(initialValidatedData) ? 'amount' : 'destination'
 
   // Flow state
   const [state, setState] = useState<SendFlowState>({
@@ -189,10 +163,6 @@ export function SendFlow({
     isFiatMode: false,
     fiatAmount: '',
     skippedAmount: false,
-    isTokenMode: initialStep === 'token-create',
-    createdToken: null,
-    createdTxId: null,
-    createdOperationId: null,
     fee: 0,
     error: null,
     dmSent: false,
@@ -279,7 +249,7 @@ export function SendFlow({
 
   // ============= Step Transitions =============
 
-  /** Destination step → determine token mode or send mode, advance to amount or confirm */
+  /** Destination step → advance to amount (or confirm if invoice has amount) */
   const handleDestinationNext = useCallback(async (data: {
     destination: string
     validatedData?: SendableValidatedData
@@ -350,7 +320,6 @@ export function SendFlow({
           validatedData: validated!,
           amount: data.amountFromInvoice!,
           skippedAmount: true,
-          isTokenMode: false,
           fee: routeResult.fee,
           routeSelection: routeResult.routeSelection,
           error: null,
@@ -364,7 +333,6 @@ export function SendFlow({
         step: 'amount',
         destination: data.destination,
         validatedData: validated!,
-        isTokenMode: false,
         error: null,
       }))
     } catch (err) {
@@ -376,7 +344,7 @@ export function SendFlow({
     }
   }, [isOnline, addToast, t, state.selectedMintUrl, performRouteSelection, inputParser])
 
-  /** Amount step → token-confirm (token mode) or route selection + confirm (send mode) */
+  /** Amount step → route selection + confirm */
   const handleAmountNext = useCallback(async (data: { amount: number; memo: string; isFiatMode: boolean; fiatAmount: string }) => {
     if (isProcessingRef.current) return
     isProcessingRef.current = true
@@ -390,21 +358,6 @@ export function SendFlow({
     }
 
     try {
-      // Token mode → go to token-confirm
-      if (state.isTokenMode) {
-        setState((prev) => ({
-          ...prev,
-          step: 'token-confirm',
-          amount: data.amount,
-          memo: data.memo,
-          isFiatMode: data.isFiatMode,
-          fiatAmount: data.fiatAmount,
-          error: null,
-        }))
-        return
-      }
-
-      // Send mode → route selection + fee estimation
       if (!state.validatedData || !state.selectedMintUrl) {
         addToast({ type: 'error', message: t('errors.generic'), duration: 3000 })
         isProcessingRef.current = false
@@ -437,7 +390,7 @@ export function SendFlow({
       isProcessingRef.current = false
       setIsLoading(false)
     }
-  }, [isOnline, state.isTokenMode, state.validatedData, state.selectedMintUrl, performRouteSelection, addToast, t])
+  }, [isOnline, state.validatedData, state.selectedMintUrl, performRouteSelection, addToast, t])
 
   /** Confirm step → execute send via routing layer */
   const handleConfirmSend = useCallback(async () => {
@@ -511,69 +464,6 @@ export function SendFlow({
     }
   }, [state, onExecuteRoute, onMintSwap, isOnline, addToast, t])
 
-  /** Token confirm step → create token */
-  const handleTokenCreate = useCallback(async () => {
-    if (isProcessingRef.current) return
-    isProcessingRef.current = true
-    setIsLoading(true)
-
-    if (!isOnline) {
-      addToast({ type: 'error', message: t('common.offlineRequired'), duration: 3000 })
-      isProcessingRef.current = false
-      setIsLoading(false)
-      return
-    }
-
-    if (!state.selectedMintUrl) {
-      addToast({ type: 'error', message: t('payment.selectMint'), duration: 3000 })
-      isProcessingRef.current = false
-      setIsLoading(false)
-      return
-    }
-
-    try {
-      const result = await onCreateEcashToken(state.amount, state.selectedMintUrl, {
-        memo: state.memo || undefined,
-      })
-
-      if (result) {
-        setState((prev) => ({
-          ...prev,
-          step: 'token-created',
-          createdToken: result.token,
-          createdTxId: result.txId,
-          createdOperationId: result.operationId,
-        }))
-      } else {
-        addToast({ type: 'error', message: t('payment.tokenCreateFailed'), duration: 3000 })
-      }
-    } catch (err) {
-      console.error('[SendFlow] Token create error:', err)
-      addToast({ type: 'error', message: translateError(err, t), duration: 3000 })
-    } finally {
-      isProcessingRef.current = false
-      setIsLoading(false)
-    }
-  }, [isOnline, state.amount, state.selectedMintUrl, state.memo, onCreateEcashToken, addToast, t])
-
-  /** Token created → cancel (reclaim token via SDK rollback) */
-  const handleTokenCancel = useCallback(async () => {
-    if (!state.createdTxId) return
-
-    try {
-      await onCancelEcashToken?.(state.createdTxId)
-      setState((prev) => ({
-        ...prev,
-        step: 'amount',
-        createdToken: null,
-        createdTxId: null,
-        createdOperationId: null,
-      }))
-    } catch {
-      addToast({ type: 'error', message: t('payment.tokenReclaimFailed'), duration: 3000 })
-    }
-  }, [state.createdTxId, onCancelEcashToken, addToast, t])
-
   // ============= Render =============
 
   return (
@@ -608,37 +498,11 @@ export function SendFlow({
               mintUrl={state.selectedMintUrl || ''}
               destination={state.destination}
               validatedData={state.validatedData || undefined}
-              isTokenMode={state.isTokenMode}
               initialAmount={state.amount}
               initialMemo={state.memo}
               initialFiatMode={state.isFiatMode}
               initialFiatAmount={state.fiatAmount}
               isLoading={isLoading}
-            />
-          </PageTransition>
-        )}
-
-        {state.step === 'token-confirm' && (
-          <PageTransition key="token-confirm" variant="page" className="flex-1">
-            <SendTokenConfirmStep
-              onBack={() => setState((prev) => ({ ...prev, step: 'amount', error: null }))}
-              onConfirm={handleTokenCreate}
-              amount={state.amount}
-              mintUrl={state.selectedMintUrl || ''}
-              memo={state.memo}
-              isLoading={isLoading}
-            />
-          </PageTransition>
-        )}
-
-        {state.step === 'token-created' && (
-          <PageTransition key="token-created" variant="page" className="flex-1">
-            <TokenCreatedStep
-              token={state.createdToken!}
-              amount={state.amount}
-              transactionId={state.createdTxId ?? undefined}
-              onCancel={handleTokenCancel}
-              onComplete={onComplete}
             />
           </PageTransition>
         )}

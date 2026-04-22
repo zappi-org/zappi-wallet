@@ -569,25 +569,6 @@ export default function MainApp() {
   }, [serviceRegistry, refreshAll, addToast])
 
   /** Store offline P2PK token for later redemption */
-  const handleStoreOfflineToken = useCallback(async (
-    token: string,
-    amount: number,
-    mintUrl: string,
-    dleqStatus: 'valid' | 'missing',
-  ): Promise<{ success: boolean }> => {
-    if (!serviceRegistry) {
-      console.warn('[MainApp] ServiceRegistry not ready — cannot store offline token')
-      return { success: false }
-    }
-    try {
-      await serviceRegistry.storeOfflineToken(token, amount, mintUrl, dleqStatus)
-      return { success: true }
-    } catch (error) {
-      console.error('[App] Failed to store offline token:', error)
-      return { success: false }
-    }
-  }, [serviceRegistry])
-
   // Payment received callback
   // Lightning toast는 bridge.ts (mint-quote:redeemed)가 전역으로 담당
   const handlePaymentReceived = useCallback(async (
@@ -640,20 +621,6 @@ export default function MainApp() {
   }, [serviceRegistry, refreshBalance])
 
   // ─── NUT-18 전송 완료 콜백 ───
-  const handleCompleteEcashSend = useCallback(async (txId: string) => {
-    if (!serviceRegistry?.payment) {
-      console.warn('[MainApp] ServiceRegistry not ready — cannot complete send')
-      return
-    }
-    const result = await serviceRegistry.payment.completeSend({ transactionId: txId })
-    if (!result.ok) {
-      console.error('[MainApp] CompleteSend failed:', result.error.message)
-    }
-    setTransactions((prev) => prev.map((t) =>
-      t.id === txId ? { ...t, status: 'settled' as const, outcome: 'claimed' as const, completedAt: Date.now() } : t
-    ))
-  }, [serviceRegistry])
-
   // ─── 토큰 취소(reclaim) 콜백 ───
   const handleCancelEcashToken = useCallback(async (txId: string) => {
     if (!serviceRegistry?.payment) {
@@ -1212,9 +1179,6 @@ export default function MainApp() {
             setCurrentScreen('home')
           }}
           onExecuteRoute={handleExecuteRoute}
-          onCreateEcashToken={handleCreateEcashToken}
-          onCompleteEcashSend={handleCompleteEcashSend}
-          onCancelEcashToken={handleCancelEcashToken}
           onMintSwap={handleMintSwap}
           onEstimateSwapFee={handleEstimateSwapFee}
           onRouteValidated={handleRouteValidated}
@@ -1293,20 +1257,6 @@ export default function MainApp() {
           onCreateInvoice={handleCreateInvoice}
           onPaymentReceived={handlePaymentReceived}
           onReceiveToken={handleReceiveToken}
-          onAddTrustedMint={handleAddTrustedMint}
-          onSwapReceive={handleSwapReceive}
-          onEstimateSwapFee={handleEstimateSwapFee}
-          onEstimateRedeemFee={handleEstimateRedeemFee}
-          onStoreOfflineToken={handleStoreOfflineToken}
-          onInspectInput={async (tokenStr: string) => {
-            if (!serviceRegistry?.payment) return { lockStatus: 'not-supported' as const, proofIntegrity: 'not-supported' as const }
-            const result = await serviceRegistry.payment.inspectInput({
-              input: tokenStr,
-              recipientPubkey: p2pkPubkey ?? undefined,
-            })
-            return result.ok ? result.value : { lockStatus: 'not-supported' as const, proofIntegrity: 'not-supported' as const }
-          }}
-          validatedData={validatedScanData || undefined}
           initialAmount={scannedAmount || undefined}
           initialMintUrl={activeMintUrl}
         />

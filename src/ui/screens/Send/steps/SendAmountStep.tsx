@@ -23,7 +23,6 @@ interface SendAmountStepProps {
   mintUrl: string
   destination?: string
   validatedData?: SendableValidatedData
-  isTokenMode: boolean
   initialAmount?: number
   initialMemo?: string
   initialFiatMode?: boolean
@@ -37,7 +36,6 @@ export function SendAmountStep({
   mintUrl,
   destination,
   validatedData,
-  isTokenMode,
   initialAmount = 0,
   initialMemo = '',
   initialFiatMode = false,
@@ -163,7 +161,7 @@ export function SendAmountStep({
 
         {/* Question */}
         <h2 className="text-heading font-semibold text-foreground">
-          {isTokenMode ? t('send.amount.howMuchToken') : t('send.amount.howMuchSend')}
+          {t('send.amount.howMuchSend')}
         </h2>
 
         {/* Amount — underline style, consistent with address input */}

@@ -861,17 +861,9 @@ export default {
     amount: {
       sendTo: '{{destination}}へ',
       howMuchSend: 'いくら送りますか？',
-      howMuchToken: 'いくらのトークンを作りますか？',
       balancePill: '残高 · {{balance}}',
       addMemo: 'メモ（任意）',
       memoPlaceholder: '任意',
-    },
-    tokenConfirm: {
-      title: 'トークン作成',
-      question: 'トークンを作りますか？',
-      fullQuestion: '<b>{{mint}}</b>から\n{{amount}}\nトークンを作りますか？',
-      hint: '現金のように手渡しできるトークンです\nQRコードを見せるかコピーして渡せます',
-      create: '作成',
     },
     tokenCreate: {
       title: 'トークン作成',
@@ -880,16 +872,6 @@ export default {
       memo: 'メモ',
       requestAmount: 'リクエスト',
       memoPlaceholder: '任意',
-    },
-    tokenCreated: {
-      title: 'トークン作成完了',
-      share: '共有',
-      copy: 'コピー',
-      cancel: 'トークンを回収',
-      confirm: '完了',
-      claimedTitle: 'トークン受取完了',
-      claimed: 'トークンが受け取られました',
-      alreadySpent: 'すでに受け取られたトークンです',
     },
     confirm: {
       title: '送金確認',

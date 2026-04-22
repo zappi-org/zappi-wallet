@@ -1,6 +1,5 @@
 export { Keypad, KeypadWithActions, type KeypadProps, type KeypadWithActionsProps } from './Keypad'
 export { MintSelectBottomSheet, type MintSelectBottomSheetProps } from './MintSelectBottomSheet'
-export { TokenReceiveBottomSheet, type TokenReceiveBottomSheetProps } from './TokenReceiveBottomSheet'
 export { SendingAnimation } from './SendingAnimation'
 export { CoinBounceAnimation } from './CoinBounceAnimation'
 export { CheckAnimation } from './CheckAnimation'

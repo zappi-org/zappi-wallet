@@ -853,17 +853,9 @@ export default {
     amount: {
       sendTo: 'Ke {{destination}}',
       howMuchSend: 'Berapa yang dikirim?',
-      howMuchToken: 'Berapa token yang dibuat?',
       balancePill: 'Saldo · {{balance}}',
       addMemo: 'Memo (opsional)',
       memoPlaceholder: 'Opsional',
-    },
-    tokenConfirm: {
-      title: 'Buat Token',
-      question: 'Buat token?',
-      fullQuestion: 'Buat token {{amount}}\ndari <b>{{mint}}</b>?',
-      hint: 'Token berfungsi seperti uang tunai.\nTunjukkan kode QR atau salin untuk dibagikan',
-      create: 'Buat',
     },
     tokenCreate: {
       title: 'Buat Token',
@@ -872,16 +864,6 @@ export default {
       memo: 'Memo',
       requestAmount: 'Permintaan',
       memoPlaceholder: 'Opsional',
-    },
-    tokenCreated: {
-      title: 'Token Dibuat',
-      share: 'Bagikan',
-      copy: 'Salin',
-      cancel: 'Klaim Kembali',
-      confirm: 'Selesai',
-      claimedTitle: 'Token Diklaim',
-      claimed: 'Token telah diklaim',
-      alreadySpent: 'Token sudah diklaim',
     },
     confirm: {
       title: 'Konfirmasi Kirim',
