@@ -8,6 +8,7 @@ import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useFiatToggle } from '@/ui/hooks/use-fiat-toggle'
 import { ArrowLeft, ChevronRight, ChevronsUpDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export interface AmountStepProps {
   onBack: () => void
@@ -31,6 +32,7 @@ export function AmountStep({
   initialMemo,
   initialSenderPaysFee,
 }: AmountStepProps) {
+  const { t } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
   const unit = useSatUnit()
@@ -98,8 +100,11 @@ export function AmountStep({
 
       <div className="flex-1 overflow-y-auto px-6 pt-18 flex flex-col">
         <h2 className="text-heading font-semibold text-foreground text-center">
-          얼마의 토큰을 만들까요?
+          {t('send.tokenCreate.howMuch')}
         </h2>
+        <p className="text-body text-foreground-muted text-center mt-2">
+          {t('send.tokenCreate.amountCaption')}
+        </p>
 
         {/* Amount hero */}
         <div className="flex flex-col items-center gap-2 mt-10">

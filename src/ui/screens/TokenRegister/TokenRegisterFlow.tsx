@@ -89,15 +89,23 @@ export function TokenRegisterFlow({
     [isTrusted, onCheckSelfToken, onReclaimOwnToken],
   )
 
-  const handleReceive = useCallback(async () => {
+  const handleReceive = useCallback(async (receiveMintUrl?: string) => {
     if (!validated) return
-    const result = await onReceiveToken(validated.token)
+    const target = receiveMintUrl ?? validated.mintUrl
+    const result = target === validated.mintUrl
+      ? await onReceiveToken(validated.token)
+      : await onSwapReceive(
+          validated.token,
+          validated.mintUrl,
+          target,
+          validated.amountSats,
+        )
     if (!result.success) {
       throw new Error(result.error?.message ?? 'redeem_failed')
     }
     setReceivedAmount(result.amount ?? validated.amountSats)
     setStep('registered')
-  }, [validated, onReceiveToken])
+  }, [validated, onReceiveToken, onSwapReceive])
 
   const handleAddAndReceive = useCallback(async () => {
     if (!validated) return

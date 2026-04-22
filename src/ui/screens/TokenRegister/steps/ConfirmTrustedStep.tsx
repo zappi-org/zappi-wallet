@@ -1,23 +1,24 @@
-import { BottomActionBar } from '@/ui/components/common/BottomActionBar'
-import { Button } from '@/ui/components/common/Button'
-import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
-import { MintIcon } from '@/ui/components/common/MintIcon'
-import { useWallet } from '@/ui/hooks/use-wallet'
-import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
-import { useAppStore } from '@/store'
-import { hapticError } from '@/ui/utils/haptic'
-import { translateError } from '@/ui/utils/error-i18n'
-import { useTranslation } from 'react-i18next'
-import { useFormatFiat, useFormatSats } from '@/utils/format'
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronRight } from 'lucide-react'
 import zappiLogo from '@/assets/zappi.png'
 import type { ValidatedCashuToken } from '@/core/domain/input-types'
+import { useAppStore } from '@/store'
+import { BottomActionBar } from '@/ui/components/common/BottomActionBar'
+import { Button } from '@/ui/components/common/Button'
+import { MintIcon } from '@/ui/components/common/MintIcon'
+import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
+import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
+import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
+import { useWallet } from '@/ui/hooks/use-wallet'
+import { translateError } from '@/ui/utils/error-i18n'
+import { hapticError } from '@/ui/utils/haptic'
+import { useFormatFiat, useFormatSats } from '@/utils/format'
+import { ChevronRight } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export interface ConfirmTrustedStepProps {
   token: ValidatedCashuToken
   onBack: () => void
-  onReceive: () => Promise<void>
+  onReceive: (receiveMintUrl: string) => Promise<void>
   onEstimateRedeemFee?: (
     token: string,
   ) => Promise<{ grossAmount: number; fee: number; netAmount: number } | null>
@@ -46,22 +47,31 @@ export function ConfirmTrustedStep({
   const { balance } = useWallet()
   const addToast = useAppStore((s) => s.addToast)
 
-  const mintUrl = token.mintUrl
+  const sourceMintUrl = token.mintUrl
   const amount = token.amountSats
   const memo = token.memo ?? ''
 
-  const mintUrls = useMemo(() => [mintUrl], [mintUrl])
+  const [receiveMintUrl, setReceiveMintUrl] = useState(sourceMintUrl)
+  const [mintSheetOpen, setMintSheetOpen] = useState(false)
+
+  const mintUrls = useMemo(() => [sourceMintUrl, receiveMintUrl], [sourceMintUrl, receiveMintUrl])
   const { getDisplayName, getIconUrl, getMetadata } = useMintMetadata(mintUrls)
-  const mintName = getDisplayName(mintUrl)
-  const mintSubName = getMetadata(mintUrl)?.name
-  const mintIconUrl = getIconUrl(mintUrl)
-  const mintBalance = balance.byMint[mintUrl] ?? 0
+  const sourceMintName = getDisplayName(sourceMintUrl)
+  const sourceMintSubName = getMetadata(sourceMintUrl)?.name
+  const sourceMintIconUrl = getIconUrl(sourceMintUrl)
+  const receiveMintName = getDisplayName(receiveMintUrl)
+  const receiveMintBalance = balance.byMint[receiveMintUrl] ?? 0
+  const isSwap = receiveMintUrl !== sourceMintUrl
 
   const [fee, setFee] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    if (!onEstimateRedeemFee) return
+    if (isSwap || !onEstimateRedeemFee) {
+      // Swap fee is mint-pair dependent and not quoted here; hide line instead.
+      setFee(null)
+      return
+    }
     let cancelled = false
     onEstimateRedeemFee(token.token)
       .then((estimate) => {
@@ -73,7 +83,7 @@ export function ConfirmTrustedStep({
     return () => {
       cancelled = true
     }
-  }, [token.token, onEstimateRedeemFee])
+  }, [token.token, onEstimateRedeemFee, isSwap])
 
   const netAmount = fee !== null ? Math.max(0, amount - fee) : amount
   const fiatLabel = formatFiat(amount)
@@ -83,40 +93,40 @@ export function ConfirmTrustedStep({
     if (busy) return
     setBusy(true)
     try {
-      await onReceive()
+      await onReceive(receiveMintUrl)
     } catch (error) {
       hapticError()
       addToast({ type: 'error', message: translateError(error, t) })
     } finally {
       setBusy(false)
     }
-  }, [busy, onReceive, addToast, t])
+  }, [busy, onReceive, receiveMintUrl, addToast, t])
 
   return (
     <div className="flex flex-col h-full bg-background">
       <ScreenHeader title="토큰 확인" onBack={onBack} />
 
       <div className="flex-1 overflow-y-auto px-4 pt-2">
-        <h2 className="text-heading font-semibold text-foreground text-center">
+        <h2 className="pt-[4dvh] text-heading font-semibold text-foreground text-center">
           토큰이 도착했어요!
         </h2>
 
         {/* Hero card — fixed min-height, zappi at Figma-exact absolute position */}
-        <div className="bg-card-teal relative rounded-card p-5 mt-5 min-h-[201px] max-w-[380px] mx-auto overflow-hidden">
-          {/* Mint header — natural top-left flow */}
+        <div className="bg-card-teal relative rounded-card p-5 mt-[6dvh] min-h-[201px] max-w-[380px] mx-auto overflow-hidden">
+          {/* Mint header — token's origin mint (not the receive target) */}
           <div className="flex items-center gap-2">
             <MintIcon
-              iconUrl={mintIconUrl}
+              iconUrl={sourceMintIconUrl}
               imgSize="w-[24px] h-[24px]"
               className="w-[35px] h-[35px] rounded-full bg-white/20"
             />
             <div className="flex flex-col leading-tight">
               <span className="text-[17px] font-semibold text-white">
-                {mintName}
+                {sourceMintName}
               </span>
-              {mintSubName && mintSubName !== mintName && (
+              {sourceMintSubName && sourceMintSubName !== sourceMintName && (
                 <span className="text-[13px] text-white/60">
-                  {mintSubName}
+                  {sourceMintSubName}
                 </span>
               )}
             </div>
@@ -167,20 +177,24 @@ export function ConfirmTrustedStep({
       <BottomActionBar extraBottom={16} gap="none" className="px-6">
         {/* Detail rows */}
         <div className="mb-4">
-          <div className="flex justify-between items-start py-2.5 border-b border-border/50">
+          <button
+            type="button"
+            onClick={() => setMintSheetOpen(true)}
+            className="w-full flex justify-between items-start py-2.5 border-b border-border/50 active:bg-foreground/[0.03] transition-colors"
+          >
             <span className="text-body text-foreground-muted">받을 민트</span>
             <div className="flex flex-col items-end">
               <div className="flex items-center gap-1">
                 <span className="text-body font-medium text-foreground">
-                  {mintName}
+                  {receiveMintName}
                 </span>
                 <ChevronRight className="w-4 h-4 text-foreground-muted" />
               </div>
               <span className="text-caption text-foreground-muted mt-0.5">
-                잔액 {formatSats(mintBalance)}
+                잔액 {formatSats(receiveMintBalance)}
               </span>
             </div>
-          </div>
+          </button>
           {fee !== null && fee > 0 && (
             <div className="flex justify-between py-2.5 border-b border-border/50">
               <span className="text-body text-foreground-muted">수취 수수료</span>
@@ -192,7 +206,7 @@ export function ConfirmTrustedStep({
           <div className="flex justify-between py-2.5">
             <span className="text-body font-bold text-foreground">실제 수령액</span>
             <span className="text-body font-bold text-foreground">
-              +{formatSats(netAmount)}
+              {isSwap ? '~' : '+'}{formatSats(netAmount)}
             </span>
           </div>
         </div>
@@ -204,9 +218,17 @@ export function ConfirmTrustedStep({
           disabled={busy}
           className="w-full"
         >
-          {busy ? '받는 중…' : '받기'}
+          {busy ? '받는 중…' : isSwap ? '내 민트로 받기' : '받기'}
         </Button>
       </BottomActionBar>
+
+      <MintSelectBottomSheet
+        isOpen={mintSheetOpen}
+        onClose={() => setMintSheetOpen(false)}
+        onSelect={(url) => setReceiveMintUrl(url)}
+        selectedMintUrl={receiveMintUrl}
+        allowEmpty
+      />
     </div>
   )
 }
