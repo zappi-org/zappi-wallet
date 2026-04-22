@@ -237,6 +237,7 @@ export function ReceiveInputStep({
           size="xl"
           onClick={handleNext}
           loading={isLoading}
+          disabled={numericAmount <= 0 || !mintUrl}
           className="w-full"
         >
           {t('receive.next')}

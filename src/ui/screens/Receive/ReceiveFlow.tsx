@@ -514,7 +514,7 @@ export function ReceiveFlow({
         {state.step === 'amount' && (
           <PageTransition key="receive-amount" variant="page" className="flex-1">
             <ReceiveInputStep
-              onBack={() => setState(prev => ({ ...prev, step: 'token-input' }))}
+              onBack={onBack}
               onNext={handleInputNext}
               initialAmount={state.amount}
               initialMintUrl={state.selectedMintUrl}
