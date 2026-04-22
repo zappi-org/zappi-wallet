@@ -7,6 +7,7 @@ import { InsufficientBalanceError } from '@/core/errors/payment.errors'
 import { ServiceProvider } from '@/ui/hooks/service-context'
 import { broadcastSync } from '@/composition/cross-tab-sync'
 import { useCrossTabSync } from '@/ui/hooks/use-cross-tab-sync'
+import { useGlobalTokenClaimToast } from '@/ui/hooks/use-global-token-claim-toast'
 // useMintHealth removed — mint health checks done via serviceRegistry directly
 import { useNetwork } from '@/ui/hooks/use-network'
 import { useWallet } from '@/ui/hooks/use-wallet'
@@ -114,6 +115,7 @@ export default function MainApp() {
   }, [serviceRegistry])
 
   useCrossTabSync()
+  useGlobalTokenClaimToast(serviceRegistry)
 
   // Local state
   const [currentScreen, setCurrentScreen] = useState<Screen>('home')

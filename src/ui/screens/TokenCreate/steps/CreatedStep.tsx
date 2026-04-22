@@ -4,6 +4,7 @@ import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { Confetti } from '@/ui/components/payment/Confetti'
 import { useFormatSats } from '@/utils/format'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
+import { useOwnPaymentEvent } from '@/ui/hooks/use-own-payment-event'
 import { usePaymentCompleted } from '@/ui/hooks/use-payment-completed'
 import { useAppStore } from '@/store'
 import { hapticSuccess } from '@/ui/utils/haptic'
@@ -52,6 +53,10 @@ export function CreatedStep({
   const mintUrls = useMemo(() => [mintUrl], [mintUrl])
   const { getDisplayName } = useMintMetadata(mintUrls)
   const mintName = getDisplayName(mintUrl)
+
+  // Claim this tx for full-screen UX ownership — suppresses the global
+  // "사용되었어요" toast so the user doesn't see duplicate notifications.
+  useOwnPaymentEvent(txId)
 
   // Subscribe to payment:completed event filtered by this tx —
   // fires when the recipient claims/uses the token (send-token-observer).
