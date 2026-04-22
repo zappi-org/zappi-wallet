@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
 import { useTrustRegistry } from '@/ui/hooks/use-trust-registry'
-import type { ValidatedCashuToken } from '@/core/domain/input-types'
+import type { ValidatedCashuToken, ValidatedData } from '@/core/domain/input-types'
 import { RegisterInputStep } from './steps/RegisterInputStep'
 import { ConfirmTrustedStep } from './steps/ConfirmTrustedStep'
 import { ConfirmUntrustedStep } from './steps/ConfirmUntrustedStep'
@@ -45,6 +45,10 @@ export interface TokenRegisterFlowProps {
   ) => Promise<{ txId: string; amount: number } | null>
   /** Reclaim a self-owned pending send (used when register flow detects own token). */
   onReclaimOwnToken?: (txId: string) => Promise<{ amount: number } | null>
+  /** Pre-filled token string when entering via universal router. */
+  initialToken?: string
+  /** Delegate non-cashu-token input back to the universal router. */
+  onRouteValidated?: (data: ValidatedData) => void
 }
 
 export function TokenRegisterFlow({
@@ -57,6 +61,8 @@ export function TokenRegisterFlow({
   targetMintUrl,
   onCheckSelfToken,
   onReclaimOwnToken,
+  initialToken = '',
+  onRouteValidated,
 }: TokenRegisterFlowProps) {
   const [step, setStep] = useState<Step>('input')
   const [validated, setValidated] = useState<ValidatedCashuToken | null>(null)
@@ -128,8 +134,9 @@ export function TokenRegisterFlow({
           <PageTransition key="input" variant="page" className="flex-1">
             <RegisterInputStep
               onBack={onBack}
-              initialToken={validated?.token ?? ''}
+              initialToken={validated?.token ?? initialToken}
               onNext={handleValidated}
+              onRouteValidated={onRouteValidated}
             />
           </PageTransition>
         )}

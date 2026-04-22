@@ -7,19 +7,22 @@ import { hapticError } from '@/ui/utils/haptic'
 import { useTranslation } from 'react-i18next'
 import { Camera, Clipboard } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { ValidatedCashuToken } from '@/core/domain/input-types'
+import type { ValidatedCashuToken, ValidatedData } from '@/core/domain/input-types'
 
 export interface RegisterInputStepProps {
   onBack: () => void
   /** Passes a validated cashu token up so the flow can route by trust status. */
   onNext: (token: ValidatedCashuToken) => void
   initialToken: string
+  /** Delegate non-cashu-token input (bolt11, cashu-request, …) to universal router. */
+  onRouteValidated?: (data: ValidatedData) => void
 }
 
 export function RegisterInputStep({
   onBack,
   onNext,
   initialToken,
+  onRouteValidated,
 }: RegisterInputStepProps) {
   const { t } = useTranslation()
   const inputParser = useInputParser()
@@ -66,6 +69,11 @@ export function RegisterInputStep({
       const classified = inputParser.detectAndClassify(raw)
       const validated = await inputParser.validateAsync(classified)
       if (validated.type !== 'cashu-token') {
+        if (onRouteValidated) {
+          advanceGuardRef.current = true
+          onRouteValidated(validated)
+          return
+        }
         hapticError()
         setInlineError(t('scanner.invalidToken'))
         return
@@ -78,7 +86,7 @@ export function RegisterInputStep({
     } finally {
       setValidating(false)
     }
-  }, [token, validating, inputParser, onNext, t])
+  }, [token, validating, inputParser, onNext, onRouteValidated, t])
 
   // Auto-advance: validate in the background when the input looks like a complete
   // cashu token and the value has changed from the restored mount state. This

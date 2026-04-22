@@ -51,6 +51,7 @@ const RelayManagementScreen = lazy(() => import('@/ui/screens/Settings/RelayMana
 import type { MintInfo } from '@/core/types'
 import { ToastContainer } from '@/ui/components'
 import type { ValidatedData } from '@/core/domain/input-types'
+import { routeValidatedInput } from '@/ui/utils/input-router'
 import { ReceiveFlow } from '@/ui/screens/Receive/ReceiveFlow'
 import { SendFlow } from '@/ui/screens/Send/SendFlow'
 import { TokenCreateFlow } from '@/ui/screens/TokenCreate/TokenCreateFlow'
@@ -155,6 +156,9 @@ export default function MainApp() {
   // Validated scan data state (for unified payment screens)
   const [validatedScanData, setValidatedScanData] = useState<ValidatedData | null>(null)
 
+  // Initial token string for TokenRegisterFlow (set by universal router)
+  const [initialRegisterToken, setInitialRegisterToken] = useState<string>('')
+
   // Active mint from HomeScreen carousel
   const [activeMintUrl, setActiveMintUrl] = useState<string | null>(null)
 
@@ -206,6 +210,35 @@ export default function MainApp() {
     serviceRegistry.mintHealth.checkAllMints(settings.mints).catch(() => {})
     serviceRegistry.exchangeRate.refreshIfStale().catch(() => {})
   }, [serviceRegistry, refreshAndRecover, settings.mints])
+
+  /** Universal input router — navigate based on validated input type. */
+  const handleRouteValidated = useCallback((data: ValidatedData) => {
+    const target = routeValidatedInput(data)
+    setContactInfo(null)
+    switch (target.screen) {
+      case 'send':
+        setValidatedScanData(target.validatedData)
+        setScannedAmount(0)
+        setPreviousScreen(currentScreen)
+        setCurrentScreen('send')
+        return
+      case 'token-register':
+        setInitialRegisterToken(target.token)
+        setValidatedScanData(null)
+        setPreviousScreen(currentScreen)
+        setCurrentScreen('token-register')
+        return
+      case 'amount-action':
+        setScannedAmount(target.amount)
+        setValidatedScanData(null)
+        setPreviousScreen(currentScreen)
+        setCurrentScreen('amount-action')
+        return
+      case 'unsupported':
+        addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
+        return
+    }
+  }, [currentScreen, addToast, t])
 
   // Initialize app — Coco 무관 작업만 (Coco는 unlock 후 setupSubscription에서 초기화)
   useEffect(() => {
@@ -1184,6 +1217,7 @@ export default function MainApp() {
           onCancelEcashToken={handleCancelEcashToken}
           onMintSwap={handleMintSwap}
           onEstimateSwapFee={handleEstimateSwapFee}
+          onRouteValidated={handleRouteValidated}
           validatedData={validatedScanData || undefined}
           initialAmount={scannedAmount || undefined}
           initialMintUrl={activeMintUrl}
@@ -1225,10 +1259,12 @@ export default function MainApp() {
           onBack={() => {
             const backTo = previousScreen || 'token'
             setPreviousScreen(null)
+            setInitialRegisterToken('')
             setCurrentScreen(backTo)
           }}
           onComplete={() => {
             setPreviousScreen(null)
+            setInitialRegisterToken('')
             setCurrentScreen('token')
           }}
           onReceiveToken={handleReceiveToken}
@@ -1237,6 +1273,8 @@ export default function MainApp() {
           onEstimateRedeemFee={handleEstimateRedeemFee}
           onCheckSelfToken={handleCheckSelfToken}
           onReclaimOwnToken={handleReclaimOwnToken}
+          onRouteValidated={handleRouteValidated}
+          initialToken={initialRegisterToken}
           targetMintUrl={activeMintUrl ?? settings.mints[0] ?? undefined}
         />
       )}

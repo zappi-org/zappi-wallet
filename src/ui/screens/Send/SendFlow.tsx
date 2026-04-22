@@ -112,6 +112,8 @@ export interface SendFlowProps {
   initialDisplayName?: string
   // Legacy: initialStep mapped to new flow
   initialStep?: 'input' | 'token-create'
+  // Universal router — delegates non-sendable input (cashu-token, amount-only) elsewhere
+  onRouteValidated?: (data: ValidatedData) => void
 }
 
 // ============= Component =============
@@ -131,6 +133,7 @@ export function SendFlow({
   initialDestination,
   initialDisplayName,
   initialStep = 'input',
+  onRouteValidated,
 }: SendFlowProps) {
   const { t } = useTranslation()
   const { isOnline } = useNetwork()
@@ -586,6 +589,7 @@ export function SendFlow({
               initialValidatedData={state.validatedData}
               mintUrl={state.selectedMintUrl || ''}
               isLoading={isLoading}
+              onRouteValidated={onRouteValidated}
             />
           </PageTransition>
         )}

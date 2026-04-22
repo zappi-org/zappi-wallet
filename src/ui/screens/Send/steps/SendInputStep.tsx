@@ -22,7 +22,7 @@ import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
 import { SegmentControl } from '@/ui/components/common/SegmentControl'
 import { useInputParser } from '@/ui/hooks/use-input-parser'
-import type { InputType } from '@/core/domain/input-types'
+import type { InputType, ValidatedData } from '@/core/domain/input-types'
 import { useContacts } from '@/ui/hooks/use-contacts'
 import type { ContactAddressType } from '@/core/types'
 import type { SendableValidatedData } from '../SendFlow'
@@ -60,6 +60,8 @@ interface SendDestinationStepProps {
   initialValidatedData?: SendableValidatedData | null
   mintUrl: string
   isLoading?: boolean
+  /** Delegate non-sendable input (cashu-token, amount-only) to universal router. */
+  onRouteValidated?: (data: ValidatedData) => void
 }
 
 export function SendInputStep({
@@ -70,6 +72,7 @@ export function SendInputStep({
   initialValidatedData,
   mintUrl,
   isLoading = false,
+  onRouteValidated,
 }: SendDestinationStepProps) {
   const { t } = useTranslation()
   const settings = useAppStore((s) => s.settings)
@@ -251,7 +254,15 @@ export function SendInputStep({
     } catch {
       return false
     }
-    if (!['bolt11', 'lightning-address', 'lnurl-pay', 'cashu-request', 'my-wallet'].includes(validated.type)) return false
+    if (!['bolt11', 'lightning-address', 'lnurl-pay', 'cashu-request', 'my-wallet'].includes(validated.type)) {
+      // Non-sendable types (cashu-token, amount, lnurl-withdraw) — hand off to the
+      // universal router so the user lands on the right flow instead of seeing an error.
+      if (onRouteValidated) {
+        onRouteValidated(validated)
+        return 'routed'
+      }
+      return false
+    }
 
     const sendable = validated as SendableValidatedData
     setValidatedData(sendable)
@@ -278,7 +289,7 @@ export function SendInputStep({
     }
 
     return true
-  }, [onNext, inputParser])
+  }, [onNext, inputParser, onRouteValidated])
 
   // Handle QR scan
   const handleScan = useCallback((result: string) => {
