@@ -1089,6 +1089,8 @@ export default {
     fillMint: '送金先ミント',
     sendElsewhere: '別の場所に送金',
     emptyAndDeleteBtn: '空にして削除',
+    forceDeleteBtn: '強制削除',
+    forceDeleteDescription: '{{mint}}に残っている{{amount}}は今後復元できません。\n\n本当に強制削除しますか？',
     deleteComplete: '{{mint}}を空にして削除しました。',
     swapping: '残高を移動中...',
     swapFailed: '残高の移動に失敗しました。もう一度お試しください。',

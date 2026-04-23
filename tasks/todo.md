@@ -1,4 +1,4 @@
-# Current Task — ZAP-44
+# Current Task — ZAP-233
 
 - [x] Confirm wallet repo rules (`CLAUDE.md`, root `AGENTS.md`, `zappi-wallet/AGENTS.md`) and review `tasks/lessons.md`
 - [x] Re-check current branch / worktree status and session diff
@@ -6,20 +6,22 @@
 - [x] Re-prioritize remaining `월렛 알파 준비` issues in Linear and pick the next concrete item (`ZAP-235`)
 - [x] Commit ZAP-235 follow-up work (`8d22262`, `fix: prevent duplicate mint names`)
 - [x] Re-prioritize remaining `월렛 알파 준비` issues again and pick the next concrete item (`ZAP-44`)
-- [x] Inspect mint/relay settings screens and confirm which order-sensitive flows already follow stored array order
-- [x] Add mint reorder controls in settings and persist reordered `settings.mints`
-- [x] Add relay reorder controls in settings and persist reordered `settings.relays`
-- [x] Expose primary-item UI cue for the first mint / relay
-- [x] Add focused regression tests for reorder helpers and settings reorder actions
-- [x] Run targeted validation for ZAP-44 changes
+- [x] Commit ZAP-44 follow-up work (`a97cb52`, `feat: support mint and relay ordering`)
+- [x] Re-prioritize remaining `월렛 알파 준비` issues again and pick the next concrete item (`ZAP-233`)
+- [x] Inspect current mint delete flow and confirm where drain-only behavior blocks deletion
+- [x] Add an explicit force-delete path when balance drain is impossible or fails
+- [x] Reset delete-sheet transient state cleanly across close/reopen cycles
+- [x] Add focused regression tests for the new force-delete escape hatch
+- [x] Run targeted validation for ZAP-233 changes
 
 Review
-- Current implementation branch is `fix/zap-44-mint-relay-order`, stacked on top of committed ZAP-235 work from `fix/zap-235-mint-name-uniqueness`.
-- `ZAP-238` remains open as an umbrella, but its remaining content is now investigative queue-contention follow-up rather than a clean implementation ticket; `ZAP-44` was the next concrete item that could be shipped immediately.
-- Existing order-sensitive flows were already mostly aligned with `settings.mints` / `settings.relays`: receive defaults use `settings.mints[0]`, mint selectors iterate `settings.mints` in-order, and `MainApp.handleSaveSettings` republishes profile data whenever reordered mint/relay arrays change.
-- `MintManagementScreen` now lets the user move mints up or down from the expanded card, persists the new array order, and marks the first item as the primary mint.
-- `RelayManagementScreen` now lets the user move relays up or down inline, persists the new relay order, and marks the first item as the primary relay.
-- Focused validation passed: `bun run test src/__tests__/unit/utils/reorder.test.ts src/__tests__/unit/ui/settings/MintManagementScreen.test.tsx src/__tests__/unit/ui/settings/RelayManagementScreen.test.tsx`, `npx tsc --noEmit`, `bun run lint -- src/utils/reorder.ts src/ui/screens/Settings/MintManagementScreen.tsx src/ui/screens/Settings/RelayManagementScreen.tsx src/i18n/locales/en.ts src/i18n/locales/ko.ts src/i18n/locales/ja.ts src/i18n/locales/es.ts src/i18n/locales/id.ts src/__tests__/unit/utils/reorder.test.ts src/__tests__/unit/ui/settings/MintManagementScreen.test.tsx src/__tests__/unit/ui/settings/RelayManagementScreen.test.tsx`, and `git diff --check`.
+- Current implementation branch is `fix/zap-233-force-delete-mint`, stacked on top of committed ZAP-44 work from `fix/zap-44-mint-relay-order`.
+- `ZAP-238` still remains as the next likely investigation track, but `ZAP-233` was the next concrete shippable wallet-alpha item because the failure mode and UI entry point were both already local to `DeleteMintSheet`.
+- The concrete blocker was that mint deletion depended entirely on successful drain swap; if there was no destination mint or the drain swap returned failure, the user had no supported way to remove the mint.
+- `DeleteMintSheet` now keeps the preferred drain-and-delete path, but also exposes an explicit `force delete` path for the two blocked cases: no target mint to drain into, and drain swap failure after retry.
+- The new force-delete path uses a separate confirmation state with irreversible-loss copy instead of silently deleting a mint with remaining balance.
+- `DeleteMintSheet` state reset is now handled by remounting from `MintInfoSheet` on open/close, which avoids stale error/substep state leaking across repeated openings.
+- Focused validation passed: `bun run test src/__tests__/unit/ui/mint-detail/DeleteMintSheet.test.tsx`, `npx tsc --noEmit`, `bun run lint -- src/ui/screens/MintDetail/DeleteMintSheet.tsx src/ui/screens/MintDetail/MintInfoSheet.tsx src/i18n/locales/en.ts src/i18n/locales/ko.ts src/i18n/locales/ja.ts src/i18n/locales/es.ts src/i18n/locales/id.ts src/__tests__/unit/ui/mint-detail/DeleteMintSheet.test.tsx`, and `git diff --check`.
 
 # Zappi Wallet — Design Overhaul
 

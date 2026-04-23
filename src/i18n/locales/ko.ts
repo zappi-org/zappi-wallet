@@ -1094,6 +1094,8 @@ export default {
     fillMint: '채울 민트',
     sendElsewhere: '다른 곳으로 보내기',
     emptyAndDeleteBtn: '비우고 삭제하기',
+    forceDeleteBtn: '강제로 삭제하기',
+    forceDeleteDescription: '{{mint}}에 남아 있는 {{amount}}은 더 이상 복구할 수 없어요.\n\n정말 강제로 삭제할까요?',
     deleteComplete: '{{mint}}를 모두 비우고 삭제했어요.',
     swapping: '잔액을 이동하는 중...',
     swapFailed: '잔액 이동에 실패했습니다. 다시 시도해주세요.',

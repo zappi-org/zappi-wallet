@@ -1081,6 +1081,8 @@ export default {
     fillMint: 'Mint tujuan',
     sendElsewhere: 'Kirim ke tempat lain',
     emptyAndDeleteBtn: 'Kosongkan dan Hapus',
+    forceDeleteBtn: 'Tetap hapus',
+    forceDeleteDescription: 'Jika Anda menghapus {{mint}} sekarang, sisa saldo {{amount}} pada mint itu akan ditinggalkan.\n\nTindakan ini tidak dapat dibatalkan.',
     deleteComplete: '{{mint}} telah dikosongkan dan dihapus.',
     swapping: 'Memindahkan saldo...',
     swapFailed: 'Gagal memindahkan saldo. Silakan coba lagi.',

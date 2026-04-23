@@ -8,7 +8,7 @@ import { useAppStore } from '@/store'
 import { useMintMetadata, usePayment } from '@/ui/hooks'
 import type { MintInfo } from '@/core/types'
 
-type DeleteStep = 'confirm-empty' | 'has-balance' | 'swapping' | 'error'
+type DeleteStep = 'confirm-empty' | 'has-balance' | 'force-confirm' | 'swapping' | 'error'
 
 interface DeleteMintSheetProps {
   isOpen: boolean
@@ -41,16 +41,19 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
 
   const effectiveTargetUrl = targetMintUrl || otherMints[0] || null
 
+  const performDelete = useCallback(async () => {
+    try {
+      await onDelete(mint.url)
+    } catch {
+      setStep('error')
+      setSwapError(t('errors.unknownError'))
+    }
+  }, [mint.url, onDelete, t])
+
   const handleDelete = useCallback(async () => {
     if (hasBalance) {
       if (!effectiveTargetUrl) {
-        // No target mint available — cannot swap, just delete
-        try {
-          await onDelete(mint.url)
-        } catch {
-          setStep('error')
-          setSwapError(t('errors.unknownError'))
-        }
+        setStep('force-confirm')
         return
       }
 
@@ -61,7 +64,7 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
       try {
         const result = await mintSwap(mint.url, effectiveTargetUrl, mint.balance, { drain: true })
         if (result) {
-          await onDelete(mint.url)
+          await performDelete()
         } else {
           // mintSwap returns null on failure (toast already shown by hook)
           setStep('error')
@@ -72,14 +75,13 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
         setSwapError(t('mintDetail.swapFailed'))
       }
     } else {
-      try {
-        await onDelete(mint.url)
-      } catch {
-        setStep('error')
-        setSwapError(t('errors.unknownError'))
-      }
+      await performDelete()
     }
-  }, [hasBalance, mint.url, mint.balance, effectiveTargetUrl, mintSwap, onDelete, t])
+  }, [hasBalance, mint.url, mint.balance, effectiveTargetUrl, mintSwap, performDelete, t])
+
+  const handleForceDelete = useCallback(async () => {
+    await performDelete()
+  }, [performDelete])
 
   const mintName = getDisplayName(mint.url)
 
@@ -187,13 +189,52 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
 
               {/* Actions */}
               <div className="space-y-3 pt-2">
+                {effectiveTargetUrl ? (
+                  <Button
+                    variant="destructive"
+                    size="xl"
+                    onClick={handleDelete}
+                    className="w-full"
+                  >
+                    {t('mintDetail.emptyAndDeleteBtn')}
+                  </Button>
+                ) : null}
+                <Button
+                  variant="outline"
+                  size="xl"
+                  onClick={() => setStep('force-confirm')}
+                  className="w-full border-accent-danger/30 text-accent-danger"
+                >
+                  {t('mintDetail.forceDeleteBtn')}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {step === 'force-confirm' && (
+            <div className="space-y-6">
+              <p className="text-center text-subtitle font-medium text-foreground whitespace-pre-line">
+                {t('mintDetail.forceDeleteDescription', {
+                  mint: mintName,
+                  amount: formatSats(mint.balance),
+                })}
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  onClick={() => setStep(hasBalance ? 'has-balance' : 'confirm-empty')}
+                  className="flex-1"
+                >
+                  {t('common.cancel')}
+                </Button>
                 <Button
                   variant="destructive"
-                  size="xl"
-                  onClick={handleDelete}
-                  className="w-full"
+                  size="lg"
+                  onClick={handleForceDelete}
+                  className="flex-1"
                 >
-                  {t('mintDetail.emptyAndDeleteBtn')}
+                  {t('mintDetail.forceDeleteBtn')}
                 </Button>
               </div>
             </div>
@@ -214,19 +255,31 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
               <p className="text-body font-medium text-foreground text-center">
                 {swapError}
               </p>
-              <div className="flex gap-3 w-full">
-                <button
-                  onClick={onClose}
-                  className="flex-1 py-4 rounded-xl bg-muted font-semibold text-caption text-foreground"
-                >
-                  {t('common.close')}
-                </button>
-                <button
-                  onClick={() => setStep(hasBalance ? 'has-balance' : 'confirm-empty')}
-                  className="flex-1 py-4 rounded-xl bg-brand font-semibold text-caption text-white"
-                >
-                  {t('mintDetail.retry')}
-                </button>
+              <div className="space-y-3 w-full">
+                <div className="flex gap-3 w-full">
+                  <button
+                    onClick={onClose}
+                    className="flex-1 py-4 rounded-xl bg-muted font-semibold text-caption text-foreground"
+                  >
+                    {t('common.close')}
+                  </button>
+                  <button
+                    onClick={() => setStep(hasBalance ? 'has-balance' : 'confirm-empty')}
+                    className="flex-1 py-4 rounded-xl bg-brand font-semibold text-caption text-white"
+                  >
+                    {t('mintDetail.retry')}
+                  </button>
+                </div>
+                {hasBalance && (
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={() => setStep('force-confirm')}
+                    className="w-full border-accent-danger/30 text-accent-danger"
+                  >
+                    {t('mintDetail.forceDeleteBtn')}
+                  </Button>
+                )}
               </div>
             </div>
           )}

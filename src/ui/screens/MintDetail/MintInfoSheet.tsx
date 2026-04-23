@@ -311,7 +311,13 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, onCha
       <MintUrlQrModal isOpen={showQr} url={mint.url} onClose={() => setShowQr(false)} />
       <SupportedNutsModal isOpen={showNuts} nuts={nuts} nutNames={NUT_NAMES} onClose={() => setShowNuts(false)} />
       {showDelete && onDelete && (
-        <DeleteMintSheet isOpen={showDelete} mint={mint} onClose={() => setShowDelete(false)} onDelete={onDelete} />
+        <DeleteMintSheet
+          key={`${mint.url}-${showDelete ? 'open' : 'closed'}`}
+          isOpen={showDelete}
+          mint={mint}
+          onClose={() => setShowDelete(false)}
+          onDelete={onDelete}
+        />
       )}
     </>
   )

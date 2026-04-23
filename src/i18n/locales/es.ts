@@ -1081,6 +1081,8 @@ export default {
     fillMint: 'Mint destino',
     sendElsewhere: 'Enviar a otro lugar',
     emptyAndDeleteBtn: 'Vaciar y eliminar',
+    forceDeleteBtn: 'Eliminar de todos modos',
+    forceDeleteDescription: 'Si eliminas {{mint}} ahora, abandonarás el saldo restante de {{amount}} en ese mint.\n\nEsto no se puede deshacer.',
     deleteComplete: '{{mint}} ha sido vaciado y eliminado.',
     swapping: 'Moviendo saldo...',
     swapFailed: 'Error al mover el saldo. Inténtelo de nuevo.',

@@ -1088,6 +1088,8 @@ export default {
     fillMint: 'Fill Mint',
     sendElsewhere: 'Send elsewhere',
     emptyAndDeleteBtn: 'Empty and Delete',
+    forceDeleteBtn: 'Delete Anyway',
+    forceDeleteDescription: 'Deleting {{mint}} now will abandon the remaining {{amount}} on that mint.\n\nThis cannot be undone.',
     deleteComplete: '{{mint}} has been emptied and deleted.',
     swapping: 'Moving balance...',
     swapFailed: 'Failed to move balance. Please try again.',
