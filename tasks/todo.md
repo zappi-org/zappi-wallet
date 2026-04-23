@@ -12,6 +12,9 @@
 - [x] Update drain retry flow to abandon replaced quotes and cancel their receive-completion waits before re-quoting
 - [x] Cover both successful drain retry cleanup and early drain budget failure cleanup with focused regression tests
 - [x] Run targeted validation for ZAP-81 changes
+- [x] Re-plan the ZAP-81 corrective rework after the rule review flagged the old `'ISSUED'` workaround as non-root-cause
+- [x] Re-audit the corrected implementation against `CLAUDE.md`, root `AGENTS.md`, wallet `AGENTS.md`, and `tasks/lessons.md`
+- [x] Re-run full wallet verification before moving on: `bun run lint`, `bun run build`, `bun run test`, `npx tsc --noEmit`, `git diff --check`, and `verify-*` status check
 
 Review
 - Current implementation branch is `fix/zap-81-drain-quote-cleanup`, stacked on top of committed ZAP-233 work from `fix/zap-233-force-delete-mint`.
