@@ -6,7 +6,7 @@
  */
 
 import { toNumber } from '@/core/domain/amount'
-import type { PendingOperation } from '@/core/domain/pending-operation'
+import { isExpired as isPendingOperationExpired, type PendingOperation } from '@/core/domain/pending-operation'
 import type { PendingOperationRepository } from '@/core/ports/driven/pending-operation.repository.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 
@@ -228,13 +228,15 @@ export async function recoverPendingSendTokens(
 export async function recoverPendingQuotes(
   deps: Pick<CashuRecoveryDeps, 'pendingOpRepo' | 'txRepo' | 'quoteOps' | 'activeMintUrls'>,
 ): Promise<{ recovered: number; failed: number; expired: number }> {
-  const { pendingOpRepo, txRepo, quoteOps, activeMintUrls = [] } = deps
+  const { pendingOpRepo, txRepo, quoteOps, activeMintUrls } = deps
 
   let recovered = 0
   let failed = 0
-  const expired = 0
+  let expired = 0
   const now = Date.now()
-  const normalizedActiveMintUrls = new Set(activeMintUrls.map(normalizeMintUrl))
+  const normalizedActiveMintUrls = activeMintUrls
+    ? new Set(activeMintUrls.map(normalizeMintUrl))
+    : null
 
   const allPending = await pendingOpRepo.list()
   const mintQuotes = allPending.filter((op) => op.kind === 'mint-quote')
@@ -246,24 +248,22 @@ export async function recoverPendingQuotes(
     const mintUrl = op.accountId
 
     if (!quoteId || !mintUrl) {
-      if (isExpiredOp(op)) {
-        await txRepo.update(op.id, { status: 'failed' })
+      if (isExpiredQuoteOp(op, now)) {
+        await txRepo.update(op.id, { status: 'failed', completedAt: now })
+        expired++
       }
       continue
     }
 
-    if (
-      normalizedActiveMintUrls.size > 0 &&
-      !normalizedActiveMintUrls.has(normalizeMintUrl(mintUrl))
-    ) {
+    if (normalizedActiveMintUrls && !normalizedActiveMintUrls.has(normalizeMintUrl(mintUrl))) {
       await txRepo.update(op.id, { status: 'failed', completedAt: now })
       failed++
       continue
     }
 
-    if (isExpiredOp(op)) {
-      await txRepo.update(op.id, { status: 'failed' })
-      failed++
+    if (isExpiredQuoteOp(op, now)) {
+      await txRepo.update(op.id, { status: 'failed', completedAt: now })
+      expired++
       continue
     }
 
@@ -299,8 +299,8 @@ export async function recoverPendingQuotes(
   return { recovered, failed, expired }
 }
 
-function isExpiredOp(op: PendingOperation): boolean {
-  return Date.now() - op.createdAt > MAX_AGE_MS
+function isExpiredQuoteOp(op: PendingOperation, now: number): boolean {
+  return isPendingOperationExpired(op, now) || (op.expiresAt == null && (now - op.createdAt) > MAX_AGE_MS)
 }
 
 function normalizeMintUrl(mintUrl: string): string {

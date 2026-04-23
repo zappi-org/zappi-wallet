@@ -67,7 +67,7 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
         pendingOpRepo: deps.pendingOpRepo,
         txRepo: deps.txRepo,
         quoteOps,
-        activeMintUrls: deps.getActiveMintUrls?.() ?? [],
+        activeMintUrls: deps.getActiveMintUrls?.(),
       })
     },
     // Offline received token recovery

@@ -2,7 +2,7 @@
  * Composition-level function for recovering pending mint quotes.
  * Assembles adapters and delegates to cashu-recovery.
  */
-export async function recoverPendingQuotes(): Promise<{
+export async function recoverPendingQuotes(activeMintUrls?: string[]): Promise<{
   recovered: number
   failed: number
   expired: number
@@ -15,5 +15,6 @@ export async function recoverPendingQuotes(): Promise<{
     pendingOpRepo: new DexiePendingOperationRepository(),
     txRepo: new DexieTransactionRepository(),
     quoteOps: await getQuoteRecoveryOps(),
+    activeMintUrls,
   })
 }

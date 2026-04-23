@@ -144,7 +144,7 @@ function App() {
         // Recover any pending Lightning quotes
         try {
           const { recoverPendingQuotes } = await import('@/composition/recover-pending-quotes')
-          const recovery = await recoverPendingQuotes()
+          const recovery = await recoverPendingQuotes(mintsToRestore)
           if (recovery.recovered > 0) {
             console.log(`[Onboarding] Recovered ${recovery.recovered} pending Lightning quotes`)
           }
