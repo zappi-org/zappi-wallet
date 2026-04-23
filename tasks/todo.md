@@ -1,23 +1,25 @@
-# Current Task — ZAP-235
+# Current Task — ZAP-44
 
 - [x] Confirm wallet repo rules (`CLAUDE.md`, root `AGENTS.md`, `zappi-wallet/AGENTS.md`) and review `tasks/lessons.md`
 - [x] Re-check current branch / worktree status and session diff
 - [x] Commit ZAP-52/ZAP-253 follow-up work (`f6273ab`, `fix: harden incoming review resolution`)
 - [x] Re-prioritize remaining `월렛 알파 준비` issues in Linear and pick the next concrete item (`ZAP-235`)
-- [x] Identify every mint-name write path (auto alias generation, trusted add, manual rename)
-- [x] Introduce a shared duplicate-safe mint naming utility
-- [x] Apply duplicate prevention to add / trusted-add / onboarding alias generation
-- [x] Block duplicate manual rename attempts with user-visible feedback
-- [x] Add focused regression tests for mint-name uniqueness flows
-- [x] Run targeted validation for ZAP-235 changes
+- [x] Commit ZAP-235 follow-up work (`8d22262`, `fix: prevent duplicate mint names`)
+- [x] Re-prioritize remaining `월렛 알파 준비` issues again and pick the next concrete item (`ZAP-44`)
+- [x] Inspect mint/relay settings screens and confirm which order-sensitive flows already follow stored array order
+- [x] Add mint reorder controls in settings and persist reordered `settings.mints`
+- [x] Add relay reorder controls in settings and persist reordered `settings.relays`
+- [x] Expose primary-item UI cue for the first mint / relay
+- [x] Add focused regression tests for reorder helpers and settings reorder actions
+- [x] Run targeted validation for ZAP-44 changes
 
 Review
-- Current implementation branch is `fix/zap-235-mint-name-uniqueness`, stacked on top of committed ZAP-52/ZAP-253 follow-up work from `fix/zap-52-receiver-scope`.
-- Linear re-check shows the previously listed wallet-alpha items still open, but the best immediate implementation target is `ZAP-235`: it is self-contained, directly adjacent to the mint add/review flows just hardened, and avoids the broad cross-cutting scope of `ZAP-44` or the still-investigative remainder of `ZAP-238`.
-- `src/utils/mint-name.ts` now centralizes duplicate detection and default alias generation so `App`, `MainApp`, and `AddMintScreen` no longer hand-roll mint names independently.
-- Automatic mint naming now shares one rule across onboarding alias generation, explicit add-mint, and receive-side trusted mint add, so new default aliases skip already-used names instead of reusing `Mint N` blindly.
-- `MintInfoSheet` now blocks duplicate rename attempts before saving and shows the existing `mintDetail.duplicateName` copy inline, preventing `MainApp` from persisting conflicting aliases.
-- Focused validation passed: `bun run test src/__tests__/unit/utils/mint-name.test.ts src/__tests__/unit/ui/mint-detail/MintInfoSheet.test.tsx`, `npx tsc --noEmit`, and `bun run lint -- src/utils/mint-name.ts src/ui/screens/AddMint/AddMintScreen.tsx src/ui/screens/MintDetail/MintInfoSheet.tsx src/App.tsx src/MainApp.tsx src/__tests__/unit/utils/mint-name.test.ts src/__tests__/unit/ui/mint-detail/MintInfoSheet.test.tsx`.
+- Current implementation branch is `fix/zap-44-mint-relay-order`, stacked on top of committed ZAP-235 work from `fix/zap-235-mint-name-uniqueness`.
+- `ZAP-238` remains open as an umbrella, but its remaining content is now investigative queue-contention follow-up rather than a clean implementation ticket; `ZAP-44` was the next concrete item that could be shipped immediately.
+- Existing order-sensitive flows were already mostly aligned with `settings.mints` / `settings.relays`: receive defaults use `settings.mints[0]`, mint selectors iterate `settings.mints` in-order, and `MainApp.handleSaveSettings` republishes profile data whenever reordered mint/relay arrays change.
+- `MintManagementScreen` now lets the user move mints up or down from the expanded card, persists the new array order, and marks the first item as the primary mint.
+- `RelayManagementScreen` now lets the user move relays up or down inline, persists the new relay order, and marks the first item as the primary relay.
+- Focused validation passed: `bun run test src/__tests__/unit/utils/reorder.test.ts src/__tests__/unit/ui/settings/MintManagementScreen.test.tsx src/__tests__/unit/ui/settings/RelayManagementScreen.test.tsx`, `npx tsc --noEmit`, `bun run lint -- src/utils/reorder.ts src/ui/screens/Settings/MintManagementScreen.tsx src/ui/screens/Settings/RelayManagementScreen.tsx src/i18n/locales/en.ts src/i18n/locales/ko.ts src/i18n/locales/ja.ts src/i18n/locales/es.ts src/i18n/locales/id.ts src/__tests__/unit/utils/reorder.test.ts src/__tests__/unit/ui/settings/MintManagementScreen.test.tsx src/__tests__/unit/ui/settings/RelayManagementScreen.test.tsx`, and `git diff --check`.
 
 # Zappi Wallet — Design Overhaul
 

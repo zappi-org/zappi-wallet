@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { ArrowLeft, Plus, ChevronDown, Trash2, Copy, Check, QrCode, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Plus, ChevronDown, Trash2, Copy, Check, QrCode, ExternalLink, ArrowUp, ArrowDown } from 'lucide-react'
 import { Trans, useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
@@ -14,6 +14,7 @@ import { cn } from '@/ui/primitives/utils'
 import { Modal } from '@/ui/components/common'
 import { MintIcon } from './SettingsHelpers'
 import { MintUrlQrModal } from '@/ui/screens/MintDetail/MintUrlQrModal'
+import { moveItem } from '@/utils/reorder'
 
 export interface MintManagementScreenProps {
   onBack: () => void
@@ -85,6 +86,21 @@ export function MintManagementScreen({
     setMintToDelete(url)
   }, [])
 
+  const handleMoveMint = useCallback(async (url: string, direction: 'up' | 'down') => {
+    const currentIndex = settings.mints.indexOf(url)
+    if (currentIndex < 0) {
+      return
+    }
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+    const newMints = moveItem(settings.mints, currentIndex, targetIndex)
+    if (newMints === settings.mints) {
+      return
+    }
+
+    await onSaveSettings({ mints: newMints })
+  }, [settings.mints, onSaveSettings])
+
   const confirmRemoveMint = useCallback(async () => {
     if (!mintToDelete) return
     if (settings.mints.length <= LIMITS.MIN_MINTS) {
@@ -129,7 +145,7 @@ export function MintManagementScreen({
       <div className="flex-1 overflow-y-auto pb-safe">
         <div className="bg-background-card divide-y divide-border">
           {/* Filled slots */}
-          {mints.map((url) => {
+          {mints.map((url, index) => {
             const isExpanded = expandedMint === url
             const balance = getBalance(url)
             const status = getCachedStatus(url)
@@ -150,6 +166,11 @@ export function MintManagementScreen({
                       <span className="text-caption font-medium text-foreground truncate">
                         {getDisplayName(url)}
                       </span>
+                      {index === 0 && (
+                        <span className="rounded-full bg-brand/10 px-2 py-0.5 text-overline font-semibold text-brand">
+                          {t('settings.primary')}
+                        </span>
+                      )}
                       {status && (
                         <span className={cn(
                           'w-1.5 h-1.5 rounded-full shrink-0',
@@ -179,6 +200,42 @@ export function MintManagementScreen({
                     <div className="px-4 pb-4 space-y-2">
                       {/* All mint details in one card */}
                       <div className="bg-foreground/[0.03] rounded-xl px-4">
+                        <div className="flex items-center justify-between py-3">
+                          <span className="text-caption font-medium text-foreground">
+                            {t('settings.position')}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              aria-label={`${t('settings.moveUp')} ${getDisplayName(url)}`}
+                              onClick={() => handleMoveMint(url, 'up')}
+                              disabled={index === 0}
+                              className={cn(
+                                'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
+                                index === 0
+                                  ? 'text-foreground-muted/30 cursor-not-allowed'
+                                  : 'bg-background text-foreground-muted active:bg-foreground/[0.06]'
+                              )}
+                            >
+                              <ArrowUp className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`${t('settings.moveDown')} ${getDisplayName(url)}`}
+                              onClick={() => handleMoveMint(url, 'down')}
+                              disabled={index === mints.length - 1}
+                              className={cn(
+                                'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
+                                index === mints.length - 1
+                                  ? 'text-foreground-muted/30 cursor-not-allowed'
+                                  : 'bg-background text-foreground-muted active:bg-foreground/[0.06]'
+                              )}
+                            >
+                              <ArrowDown className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="border-t border-border/50" />
                         {/* Balance */}
                         <div className="flex justify-between items-center py-3">
                           <span className="text-caption font-medium text-foreground">{t('common.balance')}</span>

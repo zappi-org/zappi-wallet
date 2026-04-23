@@ -233,6 +233,10 @@ export default {
     mintHasBalance: 'Este mint tiene un saldo de <bold>{{formattedBalance}}</bold>.',
     deleteWarning: 'Eliminar hará el saldo inaccesible.',
     confirmDeleteMint: '¿Eliminar este mint?',
+    primary: 'Principal',
+    position: 'Posición',
+    moveUp: 'Mover arriba',
+    moveDown: 'Mover abajo',
 
     // Preferences
     preferences: 'Preferencias',

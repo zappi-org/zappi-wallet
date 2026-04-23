@@ -233,6 +233,10 @@ export default {
     mintHasBalance: 'Mint ini memiliki saldo <bold>{{formattedBalance}}</bold>.',
     deleteWarning: 'Menghapus akan membuat saldo tidak dapat diakses.',
     confirmDeleteMint: 'Hapus mint ini?',
+    primary: 'Utama',
+    position: 'Posisi',
+    moveUp: 'Pindah ke atas',
+    moveDown: 'Pindah ke bawah',
 
     // Preferences
     preferences: 'Preferensi',

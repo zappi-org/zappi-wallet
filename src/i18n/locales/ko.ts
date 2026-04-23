@@ -233,6 +233,10 @@ export default {
     mintHasBalance: '이 민트에 <bold>{{formattedBalance}}</bold>의 잔액이 있습니다.',
     deleteWarning: '삭제하면 해당 잔액에 접근할 수 없게 됩니다.',
     confirmDeleteMint: '삭제하시겠습니까?',
+    primary: '주 항목',
+    position: '순서',
+    moveUp: '위로 이동',
+    moveDown: '아래로 이동',
 
     // Preferences
     preferences: '환경설정',

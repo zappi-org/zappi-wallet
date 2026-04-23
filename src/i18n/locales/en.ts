@@ -233,6 +233,10 @@ export default {
     mintHasBalance: 'This mint has a balance of <bold>{{formattedBalance}}</bold>.',
     deleteWarning: 'Deleting will make the balance inaccessible.',
     confirmDeleteMint: 'Delete this mint?',
+    primary: 'Primary',
+    position: 'Position',
+    moveUp: 'Move up',
+    moveDown: 'Move down',
 
     // Preferences
     preferences: 'Preferences',

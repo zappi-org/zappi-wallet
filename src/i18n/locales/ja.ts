@@ -233,6 +233,10 @@ export default {
     mintHasBalance: 'このミントには<bold>{{formattedBalance}}</bold>の残高があります。',
     deleteWarning: '削除すると残高にアクセスできなくなります。',
     confirmDeleteMint: '削除しますか？',
+    primary: '主要',
+    position: '順序',
+    moveUp: '上へ移動',
+    moveDown: '下へ移動',
 
     // Preferences
     preferences: '環境設定',

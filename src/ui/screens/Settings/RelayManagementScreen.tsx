@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { ArrowLeft, Plus, Trash2, Server, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Server, AlertCircle, ArrowUp, ArrowDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { Button } from '@/ui/components/common/Button'
@@ -7,6 +7,7 @@ import { normalizeRelayUrl } from '@/utils/url'
 import { LIMITS } from '@/core/constants'
 import { cn } from '@/ui/primitives/utils'
 import { Modal } from '@/ui/components/common'
+import { moveItem } from '@/utils/reorder'
 
 export interface RelayManagementScreenProps {
   onBack: () => void
@@ -117,6 +118,21 @@ export function RelayManagementScreen({
     await onSaveSettings({ relays: newRelays })
   }, [relayToDelete, relays, onSaveSettings])
 
+  const handleMoveRelay = useCallback(async (url: string, direction: 'up' | 'down') => {
+    const currentIndex = relays.indexOf(url)
+    if (currentIndex < 0) {
+      return
+    }
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+    const newRelays = moveItem(relays, currentIndex, targetIndex)
+    if (newRelays === relays) {
+      return
+    }
+
+    await onSaveSettings({ relays: newRelays })
+  }, [relays, onSaveSettings])
+
   const formatRelayUrl = (url: string) => url.replace('wss://', '').replace('ws://', '')
 
   return (
@@ -190,7 +206,7 @@ export function RelayManagementScreen({
       <div className="flex-1 overflow-y-auto pb-safe">
         <div className="bg-background-card divide-y divide-border">
           {/* Filled slots */}
-          {relays.map((url) => {
+          {relays.map((url, index) => {
             const status = relayStatus[url]
             return (
               <div key={url} className="w-full px-4 py-3 flex items-center gap-3">
@@ -202,6 +218,11 @@ export function RelayManagementScreen({
                     <span className="text-caption font-medium text-foreground truncate">
                       {formatRelayUrl(url)}
                     </span>
+                    {index === 0 && (
+                      <span className="rounded-full bg-brand/10 px-2 py-0.5 text-overline font-semibold text-brand">
+                        {t('settings.primary')}
+                      </span>
+                    )}
                     {status !== undefined && (
                       <span className={cn(
                         'w-1.5 h-1.5 rounded-full shrink-0',
@@ -210,6 +231,36 @@ export function RelayManagementScreen({
                     )}
                   </div>
                   <span className="text-label font-medium text-foreground-muted">{t('settings.nostrRelay')}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    aria-label={`${t('settings.moveUp')} ${formatRelayUrl(url)}`}
+                    onClick={() => handleMoveRelay(url, 'up')}
+                    disabled={index === 0}
+                    className={cn(
+                      'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
+                      index === 0
+                        ? 'text-foreground-muted/30 cursor-not-allowed'
+                        : 'text-foreground-muted active:bg-foreground/[0.06]'
+                    )}
+                  >
+                    <ArrowUp className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`${t('settings.moveDown')} ${formatRelayUrl(url)}`}
+                    onClick={() => handleMoveRelay(url, 'down')}
+                    disabled={index === relays.length - 1}
+                    className={cn(
+                      'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
+                      index === relays.length - 1
+                        ? 'text-foreground-muted/30 cursor-not-allowed'
+                        : 'text-foreground-muted active:bg-foreground/[0.06]'
+                    )}
+                  >
+                    <ArrowDown className="w-4 h-4" />
+                  </button>
                 </div>
                 <button
                   onClick={() => !isAtMinimum && setRelayToDelete(url)}
