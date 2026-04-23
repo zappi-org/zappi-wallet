@@ -118,6 +118,37 @@ export class SwapService implements SwapUseCase {
       cancel: () => {},
     }
     let sendAttempted = false
+    let cleanupAttemptedQuoteId: string | null = null
+
+    const abandonCurrentSwapQuote = async (): Promise<void> => {
+      if (!swapQuoteId) return
+
+      const currentQuoteId = swapQuoteId
+      cleanupAttemptedQuoteId = currentQuoteId
+      try {
+        await this.abandonSwapQuote(params.targetAccountId, currentQuoteId)
+        swapQuoteId = null
+      } catch (error) {
+        // cleanup 실패 시에도 더 이상 swap quote로 취급하지 않도록 메모리 마킹은 해제한다.
+        this.swapQuoteMarker?.unmark(currentQuoteId)
+        throw error
+      }
+    }
+
+    const failBeforeSend = async (primaryError: PaymentError): Promise<Result<SwapResult, PaymentError>> => {
+      receiveCompletion.cancel()
+
+      try {
+        await abandonCurrentSwapQuote()
+        return Err(primaryError)
+      } catch (cleanupError) {
+        const cleanupMessage = cleanupError instanceof Error ? cleanupError.message : 'Unknown error'
+        return Err({
+          code: 'SWAP_FAILED',
+          message: `${primaryError.message} (cleanup failed: ${cleanupMessage})`,
+        })
+      }
+    }
 
     try {
       // 1. Target에서 receive request 생성
@@ -150,29 +181,22 @@ export class SwapService implements SwapUseCase {
 
           const adjustedNum = drainBudget - toNumber(prepared.fee)
           if (adjustedNum <= 0) {
-            receiveCompletion.cancel()
-            if (swapQuoteId) {
-              await this.abandonSwapQuote(params.targetAccountId, swapQuoteId)
-              swapQuoteId = null
-            }
-            return Err({ code: 'INSUFFICIENT_BALANCE', message: 'Balance too low to cover swap fees' })
+            return failBeforeSend({
+              code: 'INSUFFICIENT_BALANCE',
+              message: 'Balance too low to cover swap fees',
+            })
           }
           if (adjustedNum >= toNumber(swapAmount)) {
-            receiveCompletion.cancel()
-            if (swapQuoteId) {
-              await this.abandonSwapQuote(params.targetAccountId, swapQuoteId)
-              swapQuoteId = null
-            }
-            return Err({ code: 'SWAP_FAILED', message: 'Unable to reduce swap amount for drain mode' })
+            return failBeforeSend({
+              code: 'SWAP_FAILED',
+              message: 'Unable to reduce swap amount for drain mode',
+            })
           }
 
           swapAmount = sat(adjustedNum)
 
           receiveCompletion.cancel()
-          if (swapQuoteId) {
-            await this.abandonSwapQuote(params.targetAccountId, swapQuoteId)
-            swapQuoteId = null
-          }
+          await abandonCurrentSwapQuote()
           request = await targetLightning.createReceiveRequest({
             amount: swapAmount,
             accountId: params.targetAccountId,
@@ -189,12 +213,10 @@ export class SwapService implements SwapUseCase {
           drainAttempts += 1
           if (drainAttempts >= 3) {
             await sourceLightning.cancelPrepared(prepared.id)
-            receiveCompletion.cancel()
-            if (swapQuoteId) {
-              await this.abandonSwapQuote(params.targetAccountId, swapQuoteId)
-              swapQuoteId = null
-            }
-            return Err({ code: 'SWAP_FAILED', message: 'Unable to finalize drain swap amount' })
+            return failBeforeSend({
+              code: 'SWAP_FAILED',
+              message: 'Unable to finalize drain swap amount',
+            })
           }
         }
       }
@@ -280,16 +302,23 @@ export class SwapService implements SwapUseCase {
       })
     } catch (error) {
       receiveCompletion.cancel()
+      let cleanupFailure: unknown = null
 
-      if (!sendAttempted && swapQuoteId) {
-        await this.abandonSwapQuote(params.targetAccountId, swapQuoteId)
-        swapQuoteId = null
+      if (!sendAttempted && swapQuoteId && cleanupAttemptedQuoteId !== swapQuoteId) {
+        try {
+          await abandonCurrentSwapQuote()
+        } catch (cleanupError) {
+          cleanupFailure = cleanupError
+        }
       }
 
-      // 스왑 quote 마킹 해제 (실패 시에도)
-      if (swapQuoteId) this.swapQuoteMarker?.unmark(swapQuoteId)
+      // send가 이미 시도된 quote만 실패 시 마킹 해제한다.
+      if (swapQuoteId && sendAttempted) this.swapQuoteMarker?.unmark(swapQuoteId)
 
-      const message = error instanceof Error ? error.message : 'Unknown error'
+      const primaryMessage = error instanceof Error ? error.message : 'Unknown error'
+      const message = cleanupFailure instanceof Error
+        ? `${primaryMessage} (cleanup failed: ${cleanupFailure.message})`
+        : primaryMessage
 
       await Promise.all([
         this.txRepo.update(sendTxId, { status: 'failed' }).catch(() => {}),
@@ -324,15 +353,11 @@ export class SwapService implements SwapUseCase {
   }
 
   private async abandonSwapQuote(accountId: string, quoteId: string): Promise<void> {
-    this.swapQuoteMarker?.unmark(quoteId)
-    if (!this.swapQuoteMarker?.abandon) return
-
-    try {
+    if (this.swapQuoteMarker?.abandon) {
       await this.swapQuoteMarker.abandon(accountId, quoteId)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      console.warn(`[SwapService] Failed to abandon orphaned swap quote ${quoteId}: ${message}`)
     }
+
+    this.swapQuoteMarker?.unmark(quoteId)
   }
 
   private createReceiveCompletionHandle(

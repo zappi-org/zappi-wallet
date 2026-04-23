@@ -17,10 +17,12 @@ Review
 - Current implementation branch is `fix/zap-81-drain-quote-cleanup`, stacked on top of committed ZAP-233 work from `fix/zap-233-force-delete-mint`.
 - `ZAP-81` is the next low-risk wallet-alpha cleanup item because the issue is tightly scoped to drain retry behavior inside `SwapService`, and the existing `SwapQuoteMarker` port already provided the correct composition seam.
 - The root problem was that drain mode only called `unmark()` when replacing the first receive quote, so Coco still kept the old mint quote and mint operation pending until invoice expiry.
-- `SwapQuoteMarker` can now optionally `abandon(accountId, quoteId)`, and the Cashu composition maps that to a Coco cleanup helper that marks the quote `ISSUED` and deletes any mint operations tied to it.
-- `SwapService` now explicitly abandons the superseded drain quote before creating the replacement quote, and it cancels the stale `onReceiveCompleted` subscription/timeout at the same time.
-- Early drain-budget exits now also abandon the current quote instead of returning with a still-pending receive request, which prevents the drain loop from leaking a marked quote when the swap never reaches `executeSend`.
-- Focused validation passed: `bun run test src/__tests__/unit/core/services/swap.service.test.ts`, `npx tsc --noEmit`, `bun run lint -- src/core/services/swap.service.ts src/core/ports/driven/swap-quote-marker.port.ts src/composition/swap.ts src/modules/cashu/internal/coco-sdk.ts src/modules/cashu/index.ts src/__tests__/unit/core/services/swap.service.test.ts`, and `git diff --check`.
+- `SwapQuoteMarker` still provides `abandon(accountId, quoteId)`, but the Cashu composition now maps that to an atomic Coco cleanup helper that directly deletes the abandoned mint quote row and its linked mint operations instead of overloading the quote state with `ISSUED`.
+- `SwapService` now treats cleanup as part of the drain retry contract: it abandons the superseded quote before creating a replacement quote, cancels the stale `onReceiveCompleted` subscription/timeout, and fails fast if cleanup cannot complete.
+- Early drain-budget exits preserve their original failure reason and append cleanup detail only when abandonment itself fails, so the retry path no longer hides the underlying balance/drain cause.
+- Quote cleanup tracking is now quote-scoped, so if a later replacement quote fails before `executeSend`, the newest quote is still cleaned up rather than being left marked/pending.
+- Focused validation passed after the root-cause rework: `bun run test src/__tests__/unit/core/services/swap.service.test.ts`, `npx tsc --noEmit`, `bun run lint -- src/core/services/swap.service.ts src/modules/cashu/internal/coco-sdk.ts src/__tests__/unit/core/services/swap.service.test.ts`, and `git diff --check`.
+- Design and review were both re-run with specialist agents after the rework; the final review found no remaining issues in the touched files, with only the residual risk that full-suite/runtime coverage around Dexie schema behavior was not re-run yet.
 - Next likely investigation track remains `ZAP-238`, unless fresh local repro points to a more urgent wallet-alpha blocker.
 
 # Zappi Wallet — Design Overhaul

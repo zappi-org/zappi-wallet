@@ -114,17 +114,22 @@ export async function abandonMintQuote(mintUrl: string, quoteId: string): Promis
 
   if (!reposInstance) return
 
-  const [quote, operations] = await Promise.all([
-    reposInstance.mintQuoteRepository.getMintQuote(normalizedMintUrl, quoteId),
-    reposInstance.mintOperationRepository.getByQuoteId(normalizedMintUrl, quoteId),
-  ])
+  await reposInstance.db.runTransaction(
+    'rw',
+    ['coco_cashu_mint_quotes', 'coco_cashu_mint_operations'],
+    async (tx) => {
+      const operations = await tx.table('coco_cashu_mint_operations')
+        .where('[mintUrl+quoteId]')
+        .equals([normalizedMintUrl, quoteId])
+        .toArray()
 
-  await Promise.all([
-    ...operations.map(operation => reposInstance!.mintOperationRepository.delete(operation.id)),
-    quote && quote.state !== 'ISSUED'
-      ? reposInstance.mintQuoteRepository.setMintQuoteState(normalizedMintUrl, quoteId, 'ISSUED')
-      : Promise.resolve(),
-  ])
+      for (const operation of operations) {
+        await tx.table('coco_cashu_mint_operations').delete(operation.id)
+      }
+
+      await tx.table('coco_cashu_mint_quotes').delete([normalizedMintUrl, quoteId])
+    },
+  )
 }
 
 export async function removeMintFromCoco(mintUrl: string): Promise<void> {

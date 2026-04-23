@@ -220,6 +220,39 @@ describe('SwapService', () => {
       expect(txRepo.update).toHaveBeenCalled()
     })
 
+    it('preserves the original error when cleanup also fails before send execution', async () => {
+      const unsubscribe = vi.fn()
+      const failingAdapter = createMockLightningAdapter({
+        prepareSend: vi.fn().mockRejectedValue(new Error('prepare failed')),
+        onReceiveCompleted: vi.fn().mockImplementation(() => unsubscribe),
+      })
+      quoteMarker.abandon.mockRejectedValue(new Error('cleanup failed'))
+      const mod = createMockModule([failingAdapter])
+      service = new SwapService([mod], txRepo, eventBus, quoteMarker)
+
+      const result = await service.executeSwap({
+        sourceAccountId: 'https://mint-a.test',
+        targetAccountId: 'https://mint-b.test',
+        amount: sat(1000),
+      })
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+
+      expect(result.error.code).toBe('SWAP_FAILED')
+      expect(result.error.message).toBe('prepare failed (cleanup failed: cleanup failed)')
+      expect(quoteMarker.mark).toHaveBeenCalledWith('quote-1')
+      expect(quoteMarker.abandon).toHaveBeenCalledWith('https://mint-b.test', 'quote-1')
+      expect(quoteMarker.unmark).toHaveBeenCalledWith('quote-1')
+      expect(eventBus.emit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'swap:failed',
+          payload: expect.objectContaining({ error: 'prepare failed (cleanup failed: cleanup failed)' }),
+        }),
+      )
+      expect(unsubscribe).toHaveBeenCalledTimes(1)
+    })
+
     it('works without onReceiveCompleted (instant resolve)', async () => {
       const adapterWithoutCallback = createMockLightningAdapter({
         onReceiveCompleted: undefined,
@@ -291,10 +324,16 @@ describe('SwapService', () => {
       })
       expect(mod.getBalance).not.toHaveBeenCalled()
       expect(quoteMarker.mark).toHaveBeenNthCalledWith(1, 'quote-1')
-      expect(quoteMarker.unmark).toHaveBeenCalledWith('quote-1')
       expect(quoteMarker.abandon).toHaveBeenCalledWith('https://mint-b.test', 'quote-1')
+      expect(quoteMarker.unmark).toHaveBeenNthCalledWith(1, 'quote-1')
       expect(quoteMarker.mark).toHaveBeenNthCalledWith(2, 'quote-2')
-      expect(quoteMarker.unmark).toHaveBeenCalledWith('quote-2')
+      expect(quoteMarker.unmark).toHaveBeenNthCalledWith(2, 'quote-2')
+      expect(quoteMarker.abandon.mock.invocationCallOrder[0]).toBeLessThan(
+        quoteMarker.unmark.mock.invocationCallOrder[0],
+      )
+      expect(quoteMarker.unmark.mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(drainAdapter.createReceiveRequest).mock.invocationCallOrder[1],
+      )
       expect(unsubscribeFirst).toHaveBeenCalledTimes(1)
       expect(unsubscribeSecond).toHaveBeenCalledTimes(1)
     })
@@ -330,6 +369,133 @@ describe('SwapService', () => {
       expect(quoteMarker.unmark).toHaveBeenCalledWith('quote-1')
       expect(quoteMarker.abandon).toHaveBeenCalledWith('https://mint-b.test', 'quote-1')
       expect(unsubscribe).toHaveBeenCalledTimes(1)
+      expect(drainAdapter.executeSend).not.toHaveBeenCalled()
+      expect(txRepo.save).not.toHaveBeenCalled()
+    })
+
+    it('preserves the early drain failure reason when cleanup also fails', async () => {
+      const unsubscribe = vi.fn()
+      const drainAdapter = createMockLightningAdapter({
+        createReceiveRequest: vi.fn().mockResolvedValue({
+          id: 'quote-1', method: 'lightning', protocol: 'bolt11',
+          encoded: 'lnbc100n1...', amount: sat(100),
+        }),
+        prepareSend: vi.fn().mockResolvedValue({
+          id: 'melt-1', method: 'lightning', protocol: 'bolt11',
+          amount: sat(100), fee: sat(100),
+        }),
+        onReceiveCompleted: vi.fn().mockImplementation(() => unsubscribe),
+      })
+      quoteMarker.abandon.mockRejectedValue(new Error('cleanup failed'))
+      const mod = createMockModule([drainAdapter])
+      service = new SwapService([mod], txRepo, eventBus, quoteMarker)
+
+      const result = await service.executeSwap({
+        sourceAccountId: 'https://mint-a.test',
+        targetAccountId: 'https://mint-b.test',
+        amount: sat(100),
+        drain: true,
+      })
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+
+      expect(result.error.code).toBe('SWAP_FAILED')
+      expect(result.error.message).toBe('Balance too low to cover swap fees (cleanup failed: cleanup failed)')
+      expect(quoteMarker.abandon).toHaveBeenCalledWith('https://mint-b.test', 'quote-1')
+      expect(quoteMarker.unmark).toHaveBeenCalledWith('quote-1')
+      expect(drainAdapter.executeSend).not.toHaveBeenCalled()
+      expect(txRepo.save).not.toHaveBeenCalled()
+      expect(unsubscribe).toHaveBeenCalledTimes(1)
+    })
+
+    it('fails the drain retry when abandoning the old quote cleanup fails', async () => {
+      const unsubscribe = vi.fn()
+      const drainAdapter = createMockLightningAdapter({
+        createReceiveRequest: vi.fn().mockResolvedValue({
+          id: 'quote-1', method: 'lightning', protocol: 'bolt11',
+          encoded: 'lnbc100n1...', amount: sat(100),
+        }),
+        prepareSend: vi.fn().mockResolvedValue({
+          id: 'melt-1', method: 'lightning', protocol: 'bolt11',
+          amount: sat(100), fee: sat(5),
+        }),
+        onReceiveCompleted: vi.fn().mockImplementation(() => unsubscribe),
+      })
+      quoteMarker.abandon.mockRejectedValue(new Error('cleanup failed'))
+      const mod = createMockModule([drainAdapter])
+      service = new SwapService([mod], txRepo, eventBus, quoteMarker)
+
+      const result = await service.executeSwap({
+        sourceAccountId: 'https://mint-a.test',
+        targetAccountId: 'https://mint-b.test',
+        amount: sat(100),
+        drain: true,
+      })
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+
+      expect(result.error.code).toBe('SWAP_FAILED')
+      expect(result.error.message).toBe('cleanup failed')
+      expect(drainAdapter.cancelPrepared).toHaveBeenCalledWith('melt-1')
+      expect(quoteMarker.mark).toHaveBeenCalledTimes(1)
+      expect(quoteMarker.abandon).toHaveBeenCalledTimes(1)
+      expect(quoteMarker.abandon).toHaveBeenCalledWith('https://mint-b.test', 'quote-1')
+      expect(quoteMarker.unmark).toHaveBeenCalledWith('quote-1')
+      expect(vi.mocked(drainAdapter.createReceiveRequest)).toHaveBeenCalledTimes(1)
+      expect(drainAdapter.executeSend).not.toHaveBeenCalled()
+      expect(txRepo.save).not.toHaveBeenCalled()
+      expect(eventBus.emit).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'swap:failed' }),
+      )
+      expect(unsubscribe).toHaveBeenCalledTimes(1)
+    })
+
+    it('cleans up the replacement quote when a later drain retry step fails before send execution', async () => {
+      const unsubscribeFirst = vi.fn()
+      const unsubscribeSecond = vi.fn()
+      const drainAdapter = createMockLightningAdapter({
+        createReceiveRequest: vi.fn()
+          .mockResolvedValueOnce({
+            id: 'quote-1', method: 'lightning', protocol: 'bolt11',
+            encoded: 'lnbc100n1...', amount: sat(100),
+          })
+          .mockResolvedValueOnce({
+            id: 'quote-2', method: 'lightning', protocol: 'bolt11',
+            encoded: 'lnbc95n1...', amount: sat(95),
+          }),
+        prepareSend: vi.fn()
+          .mockResolvedValueOnce({
+            id: 'melt-1', method: 'lightning', protocol: 'bolt11',
+            amount: sat(100), fee: sat(5),
+          })
+          .mockRejectedValueOnce(new Error('prepare second failed')),
+        onReceiveCompleted: vi.fn()
+          .mockImplementationOnce(() => unsubscribeFirst)
+          .mockImplementationOnce(() => unsubscribeSecond),
+      })
+      const mod = createMockModule([drainAdapter])
+      service = new SwapService([mod], txRepo, eventBus, quoteMarker)
+
+      const result = await service.executeSwap({
+        sourceAccountId: 'https://mint-a.test',
+        targetAccountId: 'https://mint-b.test',
+        amount: sat(100),
+        drain: true,
+      })
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+
+      expect(result.error.code).toBe('SWAP_FAILED')
+      expect(result.error.message).toBe('prepare second failed')
+      expect(quoteMarker.abandon).toHaveBeenNthCalledWith(1, 'https://mint-b.test', 'quote-1')
+      expect(quoteMarker.abandon).toHaveBeenNthCalledWith(2, 'https://mint-b.test', 'quote-2')
+      expect(quoteMarker.unmark).toHaveBeenNthCalledWith(1, 'quote-1')
+      expect(quoteMarker.unmark).toHaveBeenNthCalledWith(2, 'quote-2')
+      expect(unsubscribeFirst).toHaveBeenCalledTimes(1)
+      expect(unsubscribeSecond).toHaveBeenCalledTimes(1)
       expect(drainAdapter.executeSend).not.toHaveBeenCalled()
       expect(txRepo.save).not.toHaveBeenCalled()
     })
