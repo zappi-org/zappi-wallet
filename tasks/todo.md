@@ -21,8 +21,9 @@ Review
 - `SwapService` now treats cleanup as part of the drain retry contract: it abandons the superseded quote before creating a replacement quote, cancels the stale `onReceiveCompleted` subscription/timeout, and fails fast if cleanup cannot complete.
 - Early drain-budget exits preserve their original failure reason and append cleanup detail only when abandonment itself fails, so the retry path no longer hides the underlying balance/drain cause.
 - Quote cleanup tracking is now quote-scoped, so if a later replacement quote fails before `executeSend`, the newest quote is still cleaned up rather than being left marked/pending.
-- Focused validation passed after the root-cause rework: `bun run test src/__tests__/unit/core/services/swap.service.test.ts`, `npx tsc --noEmit`, `bun run lint -- src/core/services/swap.service.ts src/modules/cashu/internal/coco-sdk.ts src/__tests__/unit/core/services/swap.service.test.ts`, and `git diff --check`.
-- Design and review were both re-run with specialist agents after the rework; the final review found no remaining issues in the touched files, with only the residual risk that full-suite/runtime coverage around Dexie schema behavior was not re-run yet.
+- Full verification is now documented per `tasks/lessons.md`: `bun run lint`, `bun run build`, `bun run test`, `npx tsc --noEmit`, rule audit against `CLAUDE.md` + both `AGENTS.md` files + `tasks/lessons.md`, `git diff --check`, and `verify-*` status check (`rg --files | rg '(^|/)verify-'` returned no matches in this workspace).
+- Design and review were both re-run with specialist agents after the rework; the final rule-audit review found no remaining rule violations in the touched files.
+- Full build passed after fixing a `swap.service.test.ts` mock typing regression caught by `tsc -b`; build still emits the existing Vite chunk-size warnings, but no new build failures were introduced by the ZAP-81 changes.
 - Next likely investigation track remains `ZAP-238`, unless fresh local repro points to a more urgent wallet-alpha blocker.
 
 # Zappi Wallet — Design Overhaul

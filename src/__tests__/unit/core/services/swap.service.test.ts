@@ -328,10 +328,12 @@ describe('SwapService', () => {
       expect(quoteMarker.unmark).toHaveBeenNthCalledWith(1, 'quote-1')
       expect(quoteMarker.mark).toHaveBeenNthCalledWith(2, 'quote-2')
       expect(quoteMarker.unmark).toHaveBeenNthCalledWith(2, 'quote-2')
-      expect(quoteMarker.abandon.mock.invocationCallOrder[0]).toBeLessThan(
-        quoteMarker.unmark.mock.invocationCallOrder[0],
+      const abandonMock = vi.mocked(quoteMarker.abandon)
+      const unmarkMock = vi.mocked(quoteMarker.unmark)
+      expect(abandonMock.mock.invocationCallOrder[0]).toBeLessThan(
+        unmarkMock.mock.invocationCallOrder[0],
       )
-      expect(quoteMarker.unmark.mock.invocationCallOrder[0]).toBeLessThan(
+      expect(unmarkMock.mock.invocationCallOrder[0]).toBeLessThan(
         vi.mocked(drainAdapter.createReceiveRequest).mock.invocationCallOrder[1],
       )
       expect(unsubscribeFirst).toHaveBeenCalledTimes(1)
@@ -400,7 +402,7 @@ describe('SwapService', () => {
       expect(result.ok).toBe(false)
       if (result.ok) return
 
-      expect(result.error.code).toBe('SWAP_FAILED')
+      expect(result.error.code).toBe('INSUFFICIENT_BALANCE')
       expect(result.error.message).toBe('Balance too low to cover swap fees (cleanup failed: cleanup failed)')
       expect(quoteMarker.abandon).toHaveBeenCalledWith('https://mint-b.test', 'quote-1')
       expect(quoteMarker.unmark).toHaveBeenCalledWith('quote-1')

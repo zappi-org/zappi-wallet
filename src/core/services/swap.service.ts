@@ -144,7 +144,7 @@ export class SwapService implements SwapUseCase {
       } catch (cleanupError) {
         const cleanupMessage = cleanupError instanceof Error ? cleanupError.message : 'Unknown error'
         return Err({
-          code: 'SWAP_FAILED',
+          code: primaryError.code,
           message: `${primaryError.message} (cleanup failed: ${cleanupMessage})`,
         })
       }
