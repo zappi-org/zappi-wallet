@@ -1,33 +1,23 @@
-# Current Task — Post-Review Fixes
+# Current Task — ZAP-235
 
 - [x] Confirm wallet repo rules (`CLAUDE.md`, root `AGENTS.md`, `zappi-wallet/AGENTS.md`) and review `tasks/lessons.md`
-- [x] Verify `staging` is synced with `origin/staging`
-- [x] Create working branch from `staging` (`fix/zap-52-receiver-scope`)
-- [x] Re-check remaining `월렛 알파 준비` Todo / Backlog issues in Linear
-- [x] Prevent background receiver paths from auto-registering untrusted mints before user consent
-- [x] Route untrusted gift-wrap / recovery tokens into explicit receiver review flow
-- [x] Add explicit reject path alongside `add mint and receive` / `swap to my mint`
-- [x] Preserve NUT-18 request completion and POS delivery ACK when reviewed token is accepted
-- [x] Add regression tests for untrusted incoming queue + trust gating
-- [x] Re-prioritize remaining wallet alpha issues after ZAP-52 and pick the next concrete item (`ZAP-253`)
-- [x] Add protocol-neutral effective expiry check for pending receive requests
-- [x] Add `expireById` cleanup path for receive request + linked transaction records
-- [x] Auto-expire UNKNOWN/forgotten pending receive requests on detail open
-- [x] Rework `checkAlive` to probe the actual mint quote state instead of Coco local cache
-- [x] Refactor incoming review accept flow so request completion and processed marking cannot partially succeed
-- [x] Add focused regression tests for both post-review fixes
-- [x] Run full validation: `bun run lint`, `bun run build`, `bun run test`, `npx tsc --noEmit`, `verify-*` audit
+- [x] Re-check current branch / worktree status and session diff
+- [x] Commit ZAP-52/ZAP-253 follow-up work (`f6273ab`, `fix: harden incoming review resolution`)
+- [x] Re-prioritize remaining `월렛 알파 준비` issues in Linear and pick the next concrete item (`ZAP-235`)
+- [x] Identify every mint-name write path (auto alias generation, trusted add, manual rename)
+- [x] Introduce a shared duplicate-safe mint naming utility
+- [x] Apply duplicate prevention to add / trusted-add / onboarding alias generation
+- [x] Block duplicate manual rename attempts with user-visible feedback
+- [x] Add focused regression tests for mint-name uniqueness flows
+- [x] Run targeted validation for ZAP-235 changes
 
 Review
-- `staging` is at `0/0` against `origin/staging` after `git fetch origin`, and the session branch is `fix/zap-52-receiver-scope`.
-- Remaining `월렛 알파 준비` issues are currently `ZAP-52`, `ZAP-44`, `ZAP-238` in `Todo`, plus `ZAP-235`, `ZAP-253`, `ZAP-233`, `ZAP-81` in `Backlog`.
-- ZAP-52 receiver root cause was background NIP-17 gift-wrap and recovery paths redeeming unknown mints immediately; this session routes those into explicit review instead.
-- ZAP-253 root cause was the receive request UI trusting only local `expiresAt`, while actual counterparty liveness (`UNKNOWN` mint quote) never fed back into request expiry or transaction cleanup.
-- Post-review follow-up identified two gaps: `checkAlive` was reading Coco local quote storage instead of probing the remote mint, and incoming review acceptance could remove the queue entry before linked request completion finished.
-- `CashuBolt11Adapter.checkAlive` now uses a dedicated remote quote probe backed by `wallet.checkMintQuote(...)`; local Coco quote lookup remains only for UI/orphan quote display paths.
-- Incoming review acceptance now runs in a composition helper with strict ordering: linked request completion → processed marker save → queue removal → ACK best-effort.
-- Focused regression tests passed for the new helper and remote quote liveness path, and full validation passed: `bun run lint`, `bun run build`, `bun run test` (`59` files / `481` tests), `npx tsc --noEmit`, `git diff --check`.
-- No `verify-*` skill/file was present in this workspace. As an additional architecture audit, `node .claude/skills/hex-review/scripts/check-hex-violations.mjs` was run and reported three pre-existing violations unrelated to this patch: `ui/hooks/use-cross-tab-sync.ts` importing composition and `composition/bootstrap.ts` importing `@/ui/services/balance-cache`.
+- Current implementation branch is `fix/zap-235-mint-name-uniqueness`, stacked on top of committed ZAP-52/ZAP-253 follow-up work from `fix/zap-52-receiver-scope`.
+- Linear re-check shows the previously listed wallet-alpha items still open, but the best immediate implementation target is `ZAP-235`: it is self-contained, directly adjacent to the mint add/review flows just hardened, and avoids the broad cross-cutting scope of `ZAP-44` or the still-investigative remainder of `ZAP-238`.
+- `src/utils/mint-name.ts` now centralizes duplicate detection and default alias generation so `App`, `MainApp`, and `AddMintScreen` no longer hand-roll mint names independently.
+- Automatic mint naming now shares one rule across onboarding alias generation, explicit add-mint, and receive-side trusted mint add, so new default aliases skip already-used names instead of reusing `Mint N` blindly.
+- `MintInfoSheet` now blocks duplicate rename attempts before saving and shows the existing `mintDetail.duplicateName` copy inline, preventing `MainApp` from persisting conflicting aliases.
+- Focused validation passed: `bun run test src/__tests__/unit/utils/mint-name.test.ts src/__tests__/unit/ui/mint-detail/MintInfoSheet.test.tsx`, `npx tsc --noEmit`, and `bun run lint -- src/utils/mint-name.ts src/ui/screens/AddMint/AddMintScreen.tsx src/ui/screens/MintDetail/MintInfoSheet.tsx src/App.tsx src/MainApp.tsx src/__tests__/unit/utils/mint-name.test.ts src/__tests__/unit/ui/mint-detail/MintInfoSheet.test.tsx`.
 
 # Zappi Wallet — Design Overhaul
 

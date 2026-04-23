@@ -55,6 +55,7 @@ import { createSecurityService } from '@/composition/security'
 import type { Transaction } from '@/core/domain/transaction'
 import { removePasskey } from '@/ui/services/passkey'
 import { formatSats } from '@/utils/format'
+import { generateMintAliases } from '@/utils/mint-name'
 import type { PendingIncomingReview } from '@/core/types'
 
 
@@ -760,10 +761,11 @@ export default function MainApp() {
       }
 
       const newMints = [...settings.mints, url]
-      const existingAliases = settings.mintAliases || {}
-      const nextNumber = Object.keys(existingAliases).length + 1
-      const alias = t('mintDetail.defaultName', { number: nextNumber })
-      const newAliases = { ...existingAliases, [url]: alias }
+      const newAliases = generateMintAliases(
+        newMints,
+        settings.mintAliases,
+        (number) => t('mintDetail.defaultName', { number }),
+      )
       await preUnlock.settingsRepo.saveSettings({ ...settings, mints: newMints, mintAliases: newAliases })
       setSettings({ ...settings, mints: newMints, mintAliases: newAliases })
 

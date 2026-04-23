@@ -8,6 +8,7 @@ import { ProgressStepper } from '@/ui/components/common/ProgressStepper'
 import { ConfirmDialog } from '@/ui/components/common/ConfirmDialog'
 import { useAppStore } from '@/store'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
+import { generateMintAliases } from '@/utils/mint-name'
 import { normalizeMintUrl, formatMintHost } from '@/utils/url'
 import { LIMITS } from '@/core/constants'
 import { formatSats } from '@/utils/format'
@@ -148,10 +149,12 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
       setProgressStep('adding')
 
       const newMints = [...mints, normalizedUrl]
-      const existingAliases = settings.mintAliases || {}
-      const nextNumber = Object.keys(existingAliases).length + 1
-      const alias = t('mintDetail.defaultName', { number: nextNumber })
-      const newAliases = { ...existingAliases, [normalizedUrl]: alias }
+      const newAliases = generateMintAliases(
+        newMints,
+        settings.mintAliases,
+        (number) => t('mintDetail.defaultName', { number }),
+      )
+      const alias = newAliases[normalizedUrl]
       setAddingMintAlias(alias)
       if (onSaveSettings) {
         await onSaveSettings({ mints: newMints, mintAliases: newAliases })
