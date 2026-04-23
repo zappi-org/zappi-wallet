@@ -1,4 +1,4 @@
-# Current Task — ZAP-253
+# Current Task — Post-Review Fixes
 
 - [x] Confirm wallet repo rules (`CLAUDE.md`, root `AGENTS.md`, `zappi-wallet/AGENTS.md`) and review `tasks/lessons.md`
 - [x] Verify `staging` is synced with `origin/staging`
@@ -13,13 +13,21 @@
 - [x] Add protocol-neutral effective expiry check for pending receive requests
 - [x] Add `expireById` cleanup path for receive request + linked transaction records
 - [x] Auto-expire UNKNOWN/forgotten pending receive requests on detail open
-- [ ] Run full validation: `bun run lint`, `bun run build`, `bun run test`, `npx tsc --noEmit`, `verify-*` audit
+- [x] Rework `checkAlive` to probe the actual mint quote state instead of Coco local cache
+- [x] Refactor incoming review accept flow so request completion and processed marking cannot partially succeed
+- [x] Add focused regression tests for both post-review fixes
+- [x] Run full validation: `bun run lint`, `bun run build`, `bun run test`, `npx tsc --noEmit`, `verify-*` audit
 
 Review
 - `staging` is at `0/0` against `origin/staging` after `git fetch origin`, and the session branch is `fix/zap-52-receiver-scope`.
 - Remaining `월렛 알파 준비` issues are currently `ZAP-52`, `ZAP-44`, `ZAP-238` in `Todo`, plus `ZAP-235`, `ZAP-253`, `ZAP-233`, `ZAP-81` in `Backlog`.
 - ZAP-52 receiver root cause was background NIP-17 gift-wrap and recovery paths redeeming unknown mints immediately; this session routes those into explicit review instead.
 - ZAP-253 root cause was the receive request UI trusting only local `expiresAt`, while actual counterparty liveness (`UNKNOWN` mint quote) never fed back into request expiry or transaction cleanup.
+- Post-review follow-up identified two gaps: `checkAlive` was reading Coco local quote storage instead of probing the remote mint, and incoming review acceptance could remove the queue entry before linked request completion finished.
+- `CashuBolt11Adapter.checkAlive` now uses a dedicated remote quote probe backed by `wallet.checkMintQuote(...)`; local Coco quote lookup remains only for UI/orphan quote display paths.
+- Incoming review acceptance now runs in a composition helper with strict ordering: linked request completion → processed marker save → queue removal → ACK best-effort.
+- Focused regression tests passed for the new helper and remote quote liveness path, and full validation passed: `bun run lint`, `bun run build`, `bun run test` (`59` files / `481` tests), `npx tsc --noEmit`, `git diff --check`.
+- No `verify-*` skill/file was present in this workspace. As an additional architecture audit, `node .claude/skills/hex-review/scripts/check-hex-violations.mjs` was run and reported three pre-existing violations unrelated to this patch: `ui/hooks/use-cross-tab-sync.ts` importing composition and `composition/bootstrap.ts` importing `@/ui/services/balance-cache`.
 
 # Zappi Wallet — Design Overhaul
 

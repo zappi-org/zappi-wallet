@@ -45,6 +45,7 @@ export interface LightningBackend {
   }>
   redeemMintQuote(mintUrl: string, quoteId: string, expectedAmount: number): Promise<void>
   getMintQuote(mintUrl: string, quoteId: string): Promise<{ state: string; request: string } | null>
+  checkMintQuote(mintUrl: string, quoteId: string): Promise<{ state: string } | null>
   recoverPendingMelts(): Promise<{ recovered: number; failed: number }>
   recoverPendingQuotes(): Promise<{ recovered: number; failed: number; expired: number }>
   onMintQuotePaid?(quoteId: string, handler: () => void): () => void
@@ -189,8 +190,8 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter {
       return true
     }
 
-    const quote = await this.backend.getMintQuote(params.accountId, params.requestId)
-    return quote !== null
+    const quote = await this.backend.checkMintQuote(params.accountId, params.requestId)
+    return quote?.state === 'UNPAID' || quote?.state === 'PAID' || quote?.state === 'ISSUED'
   }
 
   // ─── 복구 ───

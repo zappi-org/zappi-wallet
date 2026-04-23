@@ -19,6 +19,14 @@ Phase 6/7에서 변경된 모든 화면의 동작 검증.
 - [ ] ecash 토큰 붙여넣기 수신
 - [ ] BIP-321 unified QR 표시
 
+## Wallet Alpha Follow-up
+- [ ] ZAP-52: 미등록 mint gift-wrap 토큰 수신 시 자동 수령되지 않고 review 화면으로 진입
+- [ ] ZAP-52: review에서 `이 mint 추가하고 수령` 선택 시 linked receive request 완료 + review queue 제거 + POS ACK 유지
+- [ ] ZAP-52: review에서 `내 mint로 스왑하여 수령` 선택 시 linked receive request 완료 + review queue 제거 + 결과 잔액 표시
+- [ ] ZAP-52: review에서 `거부` 선택 시 자동 민트 추가/자동 수령 없이 종료되고 재진입하지 않음
+- [ ] ZAP-253: pending receive request 상세 진입 시 remote mint가 quote를 모르면 즉시 expired 처리되고 목록에서 제거
+- [ ] ZAP-253: pending receive request 상세 진입 시 remote mint가 quote를 아직 알면 기존 카운트다운이 유지됨
+
 ## Settings
 - [ ] Lightning 주소 등록
 - [ ] Username 변경 (무료/유료)

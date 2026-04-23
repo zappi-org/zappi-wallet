@@ -37,6 +37,7 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
     createMintQuote: backend.createMintQuote,
     redeemMintQuote: backend.redeemMintQuote,
     getMintQuote,
+    checkMintQuote: backend.checkMintQuote,
     async recoverPendingMelts() {
       const meltOps = await backend.getMeltRecoveryOps()
       return recoverPendingMelts({ pendingOpRepo: deps.pendingOpRepo, meltOps })

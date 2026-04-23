@@ -238,6 +238,31 @@ export async function redeemMintQuote(
   console.log(`[CashuBackend] Redeemed quote ${quoteId} (expected: ${expectedAmount} sats)`);
 }
 
+export async function checkMintQuote(
+  mintUrl: string,
+  quoteId: string,
+): Promise<{ state: string } | null> {
+  const { Wallet, Mint } = await import('@cashu/cashu-ts');
+  const mint = new Mint(mintUrl);
+  const wallet = new Wallet(mint);
+  await wallet.loadMint();
+
+  try {
+    return await wallet.checkMintQuote(quoteId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+    const quoteMissing =
+      message.includes('quote') &&
+      (message.includes('not found') || message.includes('unknown') || message.includes('404'));
+
+    if (quoteMissing) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
 // ─── Melt (Lightning 전송) ───
 
 export async function prepareMelt(
@@ -562,11 +587,11 @@ export function onMintQuotePaid(quoteId: string, handler: () => void): () => voi
 export async function getQuoteRecoveryOps() {
   return {
     async checkMintQuote(quoteId: string, mintUrl: string) {
-      const { Wallet, Mint } = await import('@cashu/cashu-ts');
-      const mint = new Mint(mintUrl);
-      const wallet = new Wallet(mint);
-      await wallet.loadMint();
-      return wallet.checkMintQuote(quoteId);
+      const quote = await checkMintQuote(mintUrl, quoteId);
+      if (!quote) {
+        throw new Error(`Mint quote ${quoteId} not found on ${mintUrl}`);
+      }
+      return quote;
     },
     async mintAndReceive(quoteId: string, mintUrl: string, amount: number) {
       const { Wallet, Mint, getEncodedToken } = await import('@cashu/cashu-ts');

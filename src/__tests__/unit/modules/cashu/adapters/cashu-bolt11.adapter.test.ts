@@ -24,6 +24,9 @@ function createMockBackend(): LightningBackend {
       request: 'lnbc1000n1...',
       expiry: Math.floor(Date.now() / 1000) + 600,
     }),
+    checkMintQuote: vi.fn().mockResolvedValue({
+      state: 'UNPAID',
+    }),
     getMintQuote: vi.fn().mockResolvedValue({
       state: 'UNPAID',
       request: 'lnbc1000n1...',
@@ -74,22 +77,31 @@ describe('CashuBolt11Adapter', () => {
   })
 
   describe('checkAlive', () => {
-    it('returns true when the mint still knows the quote', async () => {
+    it('returns true when the remote mint reports a known quote state', async () => {
       await expect(adapter.checkAlive({
         requestId: 'mint-quote-1',
         accountId: 'https://mint.test',
       })).resolves.toBe(true)
 
-      expect(backend.getMintQuote).toHaveBeenCalledWith('https://mint.test', 'mint-quote-1')
+      expect(backend.checkMintQuote).toHaveBeenCalledWith('https://mint.test', 'mint-quote-1')
     })
 
-    it('returns false when the quote is unknown', async () => {
-      vi.mocked(backend.getMintQuote).mockResolvedValueOnce(null)
+    it('returns false when the remote mint no longer knows the quote', async () => {
+      vi.mocked(backend.checkMintQuote).mockResolvedValueOnce(null)
 
       await expect(adapter.checkAlive({
         requestId: 'missing-quote',
         accountId: 'https://mint.test',
       })).resolves.toBe(false)
+    })
+
+    it('treats terminal paid states as alive for effective-expiry checks', async () => {
+      vi.mocked(backend.checkMintQuote).mockResolvedValueOnce({ state: 'PAID' })
+
+      await expect(adapter.checkAlive({
+        requestId: 'paid-quote',
+        accountId: 'https://mint.test',
+      })).resolves.toBe(true)
     })
   })
 

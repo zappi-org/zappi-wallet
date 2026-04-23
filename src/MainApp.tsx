@@ -1,6 +1,7 @@
 import { AppLifecycleWatcher } from '@/composition/app-lifecycle.watcher'
 import { createBootstrap, type BootstrapResult, type RouteContext, type RouteExecutionResult, type RouteSelection } from '@/composition/bootstrap'
 import { createPreUnlockServices } from '@/composition/pre-unlock'
+import { resolveIncomingReview } from '@/composition/incoming-review'
 import { executeSwapReceive } from '@/composition/swap-receive'
 import { LIMITS } from '@/core/constants'
 import { sat, toNumber } from '@/core/domain/amount'
@@ -555,52 +556,20 @@ export default function MainApp() {
     setValidatedScanData(null)
   }, [])
 
-  const maybeAckIncomingReview = useCallback(async (review: PendingIncomingReview) => {
-    if (!serviceRegistry?.nostrGateway || !review.senderPubkey || !review.txId) return
-    if (!settings.posDevices?.some((device) => device.nostrPublicKey === review.senderPubkey)) return
-
-    const relays = serviceRegistry.nostrGateway.getRelayStatus()
-      .filter((relay) => relay.connected)
-      .map((relay) => relay.url)
-
-    if (relays.length === 0) return
-
-    try {
-      await serviceRegistry.nostrGateway.sendPrivateDirectMessage({
-        recipientPubkey: review.senderPubkey,
-        content: JSON.stringify({ type: 'delivery_ack', txId: review.txId }),
-        relays,
-      })
-    } catch (error) {
-      console.warn('[MainApp] Failed to send delivery ACK for reviewed incoming token:', error)
-    }
-  }, [serviceRegistry, settings.posDevices])
-
-  const completeIncomingReviewRequest = useCallback(async (review: PendingIncomingReview) => {
-    if (!serviceRegistry?.receiveRequest || !review.requestId) return
-
-    const request = await serviceRegistry.receiveRequest.findByRequestId(review.requestId)
-    if (request && request.status === 'pending') {
-      await serviceRegistry.receiveRequest.complete(request.id, 'ecash')
-    }
-  }, [serviceRegistry])
-
   const handleResolveIncomingReview = useCallback(async (params: {
     review: PendingIncomingReview
     transactionId?: string
   }) => {
     if (!serviceRegistry) return
 
-    await serviceRegistry.processedStore.save({
-      externalId: params.review.externalId,
-      txId: params.transactionId,
-      processedAt: Date.now(),
-      result: 'success',
-    })
-    removeIncomingReview(params.review.externalId)
-    await completeIncomingReviewRequest(params.review)
-    await maybeAckIncomingReview(params.review)
-  }, [serviceRegistry, removeIncomingReview, completeIncomingReviewRequest, maybeAckIncomingReview])
+    await resolveIncomingReview({
+      processedStore: serviceRegistry.processedStore,
+      receiveRequest: serviceRegistry.receiveRequest,
+      removeIncomingReview,
+      nostrGateway: serviceRegistry.nostrGateway,
+      posDevices: settings.posDevices,
+    }, params)
+  }, [serviceRegistry, removeIncomingReview, settings.posDevices])
 
   const handleRejectIncomingReview = useCallback(async (review: PendingIncomingReview) => {
     if (serviceRegistry) {
