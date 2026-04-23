@@ -25,6 +25,11 @@ import type { PaymentMethodAdapter } from '@/core/ports/driven/payment-method.po
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { SwapQuoteMarker } from '@/core/ports/driven/swap-quote-marker.port'
 
+interface ReceiveCompletionHandle {
+  promise: Promise<void>
+  cancel(): void
+}
+
 export class SwapService implements SwapUseCase {
   constructor(
     private modules: WalletModule[],
@@ -108,6 +113,11 @@ export class SwapService implements SwapUseCase {
     const receiveTxId = crypto.randomUUID()
     let swapAmount = params.amount
     let swapQuoteId: string | null = null
+    let receiveCompletion: ReceiveCompletionHandle = {
+      promise: Promise.resolve(),
+      cancel: () => {},
+    }
+    let sendAttempted = false
 
     try {
       // 1. Target에서 receive request 생성
@@ -121,7 +131,7 @@ export class SwapService implements SwapUseCase {
       this.swapQuoteMarker?.mark(swapQuoteId)
 
       // 2. Receive 완료 대기 등록 (send 전에 등록 — race condition 방지)
-      let receiveCompleted = this.waitForReceiveCompletion(targetLightning, request.id)
+      receiveCompletion = this.createReceiveCompletionHandle(targetLightning, request.id)
 
       // 3. Source에서 send (melt) 준비
       let prepared = await sourceLightning.prepareSend({
@@ -140,22 +150,36 @@ export class SwapService implements SwapUseCase {
 
           const adjustedNum = drainBudget - toNumber(prepared.fee)
           if (adjustedNum <= 0) {
+            receiveCompletion.cancel()
+            if (swapQuoteId) {
+              await this.abandonSwapQuote(params.targetAccountId, swapQuoteId)
+              swapQuoteId = null
+            }
             return Err({ code: 'INSUFFICIENT_BALANCE', message: 'Balance too low to cover swap fees' })
           }
           if (adjustedNum >= toNumber(swapAmount)) {
+            receiveCompletion.cancel()
+            if (swapQuoteId) {
+              await this.abandonSwapQuote(params.targetAccountId, swapQuoteId)
+              swapQuoteId = null
+            }
             return Err({ code: 'SWAP_FAILED', message: 'Unable to reduce swap amount for drain mode' })
           }
 
           swapAmount = sat(adjustedNum)
 
-          if (swapQuoteId) this.swapQuoteMarker?.unmark(swapQuoteId)
+          receiveCompletion.cancel()
+          if (swapQuoteId) {
+            await this.abandonSwapQuote(params.targetAccountId, swapQuoteId)
+            swapQuoteId = null
+          }
           request = await targetLightning.createReceiveRequest({
             amount: swapAmount,
             accountId: params.targetAccountId,
           })
           swapQuoteId = request.id
           this.swapQuoteMarker?.mark(swapQuoteId)
-          receiveCompleted = this.waitForReceiveCompletion(targetLightning, request.id)
+          receiveCompletion = this.createReceiveCompletionHandle(targetLightning, request.id)
           prepared = await sourceLightning.prepareSend({
             destination: request.encoded,
             amount: swapAmount,
@@ -164,6 +188,12 @@ export class SwapService implements SwapUseCase {
 
           drainAttempts += 1
           if (drainAttempts >= 3) {
+            await sourceLightning.cancelPrepared(prepared.id)
+            receiveCompletion.cancel()
+            if (swapQuoteId) {
+              await this.abandonSwapQuote(params.targetAccountId, swapQuoteId)
+              swapQuoteId = null
+            }
             return Err({ code: 'SWAP_FAILED', message: 'Unable to finalize drain swap amount' })
           }
         }
@@ -200,10 +230,11 @@ export class SwapService implements SwapUseCase {
       await Promise.all([this.txRepo.save(sendTx), this.txRepo.save(receiveTx)])
 
       // 5. Execute send
+      sendAttempted = true
       const sendResult = await sourceLightning.executeSend(prepared.id)
 
       // 6. Receive 완료 대기
-      await receiveCompleted
+      await receiveCompletion.promise
 
       // 7. Transaction 완료 처리
       const now = Date.now()
@@ -248,6 +279,13 @@ export class SwapService implements SwapUseCase {
         fee: prepared.fee,
       })
     } catch (error) {
+      receiveCompletion.cancel()
+
+      if (!sendAttempted && swapQuoteId) {
+        await this.abandonSwapQuote(params.targetAccountId, swapQuoteId)
+        swapQuoteId = null
+      }
+
       // 스왑 quote 마킹 해제 (실패 시에도)
       if (swapQuoteId) this.swapQuoteMarker?.unmark(swapQuoteId)
 
@@ -285,26 +323,56 @@ export class SwapService implements SwapUseCase {
     return undefined
   }
 
-  private waitForReceiveCompletion(
+  private async abandonSwapQuote(accountId: string, quoteId: string): Promise<void> {
+    this.swapQuoteMarker?.unmark(quoteId)
+    if (!this.swapQuoteMarker?.abandon) return
+
+    try {
+      await this.swapQuoteMarker.abandon(accountId, quoteId)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.warn(`[SwapService] Failed to abandon orphaned swap quote ${quoteId}: ${message}`)
+    }
+  }
+
+  private createReceiveCompletionHandle(
     adapter: PaymentMethodAdapter,
     requestId: string,
-  ): Promise<void> {
+  ): ReceiveCompletionHandle {
     if (!adapter.onReceiveCompleted) {
       // adapter가 수신 완료 감지를 지원하지 않으면 즉시 resolve
       // (Coco watcher가 대신 처리하는 경우)
-      return Promise.resolve()
+      return {
+        promise: Promise.resolve(),
+        cancel: () => {},
+      }
     }
 
-    return new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        unsubscribe()
-        reject(new Error('Swap receive timed out'))
+    let settled = false
+    let timeout: ReturnType<typeof setTimeout> | null = null
+    let unsubscribe = () => {}
+
+    const finish = (settle?: () => void) => {
+      if (settled) return
+      settled = true
+      if (timeout) clearTimeout(timeout)
+      unsubscribe()
+      settle?.()
+    }
+
+    const promise = new Promise<void>((resolve, reject) => {
+      timeout = setTimeout(() => {
+        finish(() => reject(new Error('Swap receive timed out')))
       }, 5 * 60 * 1000) // 5분 타임아웃
 
-      const unsubscribe = adapter.onReceiveCompleted!(requestId, () => {
-        clearTimeout(timeout)
-        resolve()
+      unsubscribe = adapter.onReceiveCompleted!(requestId, () => {
+        finish(resolve)
       })
     })
+
+    return {
+      promise,
+      cancel: () => finish(),
+    }
   }
 }

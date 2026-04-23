@@ -8,6 +8,7 @@ export {
   enableWatchers,
   recheckPendingMintQuotes,
   getMintQuote,
+  abandonMintQuote,
   removeMintFromCoco,
 } from './internal/coco-sdk'
 

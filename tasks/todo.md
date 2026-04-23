@@ -1,27 +1,27 @@
-# Current Task — ZAP-233
+# Current Task — ZAP-81
 
 - [x] Confirm wallet repo rules (`CLAUDE.md`, root `AGENTS.md`, `zappi-wallet/AGENTS.md`) and review `tasks/lessons.md`
 - [x] Re-check current branch / worktree status and session diff
 - [x] Commit ZAP-52/ZAP-253 follow-up work (`f6273ab`, `fix: harden incoming review resolution`)
-- [x] Re-prioritize remaining `월렛 알파 준비` issues in Linear and pick the next concrete item (`ZAP-235`)
 - [x] Commit ZAP-235 follow-up work (`8d22262`, `fix: prevent duplicate mint names`)
-- [x] Re-prioritize remaining `월렛 알파 준비` issues again and pick the next concrete item (`ZAP-44`)
 - [x] Commit ZAP-44 follow-up work (`a97cb52`, `feat: support mint and relay ordering`)
-- [x] Re-prioritize remaining `월렛 알파 준비` issues again and pick the next concrete item (`ZAP-233`)
-- [x] Inspect current mint delete flow and confirm where drain-only behavior blocks deletion
-- [x] Add an explicit force-delete path when balance drain is impossible or fails
-- [x] Reset delete-sheet transient state cleanly across close/reopen cycles
-- [x] Add focused regression tests for the new force-delete escape hatch
-- [x] Run targeted validation for ZAP-233 changes
+- [x] Commit ZAP-233 follow-up work (`069acb1`, `feat: allow force deleting mints`)
+- [x] Re-prioritize remaining `월렛 알파 준비` issues again and pick the next concrete item (`ZAP-81`)
+- [x] Inspect `SwapService` drain retry flow and confirm where abandoned mint quotes remain pending in Coco
+- [x] Add a swap-quote cleanup hook so composition can abandon orphan target quotes through the Cashu layer
+- [x] Update drain retry flow to abandon replaced quotes and cancel their receive-completion waits before re-quoting
+- [x] Cover both successful drain retry cleanup and early drain budget failure cleanup with focused regression tests
+- [x] Run targeted validation for ZAP-81 changes
 
 Review
-- Current implementation branch is `fix/zap-233-force-delete-mint`, stacked on top of committed ZAP-44 work from `fix/zap-44-mint-relay-order`.
-- `ZAP-238` still remains as the next likely investigation track, but `ZAP-233` was the next concrete shippable wallet-alpha item because the failure mode and UI entry point were both already local to `DeleteMintSheet`.
-- The concrete blocker was that mint deletion depended entirely on successful drain swap; if there was no destination mint or the drain swap returned failure, the user had no supported way to remove the mint.
-- `DeleteMintSheet` now keeps the preferred drain-and-delete path, but also exposes an explicit `force delete` path for the two blocked cases: no target mint to drain into, and drain swap failure after retry.
-- The new force-delete path uses a separate confirmation state with irreversible-loss copy instead of silently deleting a mint with remaining balance.
-- `DeleteMintSheet` state reset is now handled by remounting from `MintInfoSheet` on open/close, which avoids stale error/substep state leaking across repeated openings.
-- Focused validation passed: `bun run test src/__tests__/unit/ui/mint-detail/DeleteMintSheet.test.tsx`, `npx tsc --noEmit`, `bun run lint -- src/ui/screens/MintDetail/DeleteMintSheet.tsx src/ui/screens/MintDetail/MintInfoSheet.tsx src/i18n/locales/en.ts src/i18n/locales/ko.ts src/i18n/locales/ja.ts src/i18n/locales/es.ts src/i18n/locales/id.ts src/__tests__/unit/ui/mint-detail/DeleteMintSheet.test.tsx`, and `git diff --check`.
+- Current implementation branch is `fix/zap-81-drain-quote-cleanup`, stacked on top of committed ZAP-233 work from `fix/zap-233-force-delete-mint`.
+- `ZAP-81` is the next low-risk wallet-alpha cleanup item because the issue is tightly scoped to drain retry behavior inside `SwapService`, and the existing `SwapQuoteMarker` port already provided the correct composition seam.
+- The root problem was that drain mode only called `unmark()` when replacing the first receive quote, so Coco still kept the old mint quote and mint operation pending until invoice expiry.
+- `SwapQuoteMarker` can now optionally `abandon(accountId, quoteId)`, and the Cashu composition maps that to a Coco cleanup helper that marks the quote `ISSUED` and deletes any mint operations tied to it.
+- `SwapService` now explicitly abandons the superseded drain quote before creating the replacement quote, and it cancels the stale `onReceiveCompleted` subscription/timeout at the same time.
+- Early drain-budget exits now also abandon the current quote instead of returning with a still-pending receive request, which prevents the drain loop from leaking a marked quote when the swap never reaches `executeSend`.
+- Focused validation passed: `bun run test src/__tests__/unit/core/services/swap.service.test.ts`, `npx tsc --noEmit`, `bun run lint -- src/core/services/swap.service.ts src/core/ports/driven/swap-quote-marker.port.ts src/composition/swap.ts src/modules/cashu/internal/coco-sdk.ts src/modules/cashu/index.ts src/__tests__/unit/core/services/swap.service.test.ts`, and `git diff --check`.
+- Next likely investigation track remains `ZAP-238`, unless fresh local repro points to a more urgent wallet-alpha blocker.
 
 # Zappi Wallet — Design Overhaul
 

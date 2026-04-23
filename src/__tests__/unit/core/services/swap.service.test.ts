@@ -9,6 +9,10 @@ import { sat, toNumber } from '@/core/domain/amount'
 
 // ─── Mocks ───
 
+type MockSwapQuoteMarker = SwapQuoteMarker & {
+  abandon: ReturnType<typeof vi.fn>
+}
+
 function createMockLightningAdapter(overrides?: Partial<PaymentMethodAdapter>): PaymentMethodAdapter {
   return {
     id: 'cashu:bolt11',
@@ -76,10 +80,11 @@ function createMockEventBus(): EventBus {
   }
 }
 
-function createMockSwapQuoteMarker(): SwapQuoteMarker {
+function createMockSwapQuoteMarker(): MockSwapQuoteMarker {
   return {
     mark: vi.fn(),
     unmark: vi.fn(),
+    abandon: vi.fn().mockResolvedValue(undefined),
   }
 }
 
@@ -88,7 +93,7 @@ describe('SwapService', () => {
   let adapter: PaymentMethodAdapter
   let txRepo: TransactionRepository
   let eventBus: EventBus
-  let quoteMarker: SwapQuoteMarker
+  let quoteMarker: MockSwapQuoteMarker
 
   beforeEach(() => {
     adapter = createMockLightningAdapter()
@@ -232,6 +237,8 @@ describe('SwapService', () => {
     })
 
     it('treats drain amount as the fee-inclusive budget', async () => {
+      const unsubscribeFirst = vi.fn()
+      const unsubscribeSecond = vi.fn()
       const drainAdapter = createMockLightningAdapter({
         createReceiveRequest: vi.fn()
           .mockResolvedValueOnce({
@@ -251,10 +258,12 @@ describe('SwapService', () => {
             id: 'melt-2', method: 'lightning', protocol: 'bolt11',
             amount: sat(95), fee: sat(1),
           }),
-        onReceiveCompleted: vi.fn().mockImplementation((_requestId, handler) => {
-          setTimeout(() => handler({ requestId: 'quote-2', amount: sat(95), completedAt: Date.now() }), 0)
-          return () => {}
-        }),
+        onReceiveCompleted: vi.fn()
+          .mockImplementationOnce(() => unsubscribeFirst)
+          .mockImplementationOnce((_requestId, handler) => {
+            setTimeout(() => handler({ requestId: 'quote-2', amount: sat(95), completedAt: Date.now() }), 0)
+            return unsubscribeSecond
+          }),
       })
       const mod = createMockModule([drainAdapter])
       vi.mocked(mod.getBalance).mockResolvedValue({
@@ -283,8 +292,46 @@ describe('SwapService', () => {
       expect(mod.getBalance).not.toHaveBeenCalled()
       expect(quoteMarker.mark).toHaveBeenNthCalledWith(1, 'quote-1')
       expect(quoteMarker.unmark).toHaveBeenCalledWith('quote-1')
+      expect(quoteMarker.abandon).toHaveBeenCalledWith('https://mint-b.test', 'quote-1')
       expect(quoteMarker.mark).toHaveBeenNthCalledWith(2, 'quote-2')
       expect(quoteMarker.unmark).toHaveBeenCalledWith('quote-2')
+      expect(unsubscribeFirst).toHaveBeenCalledTimes(1)
+      expect(unsubscribeSecond).toHaveBeenCalledTimes(1)
+    })
+
+    it('abandons the current drain quote before returning an early budget failure', async () => {
+      const unsubscribe = vi.fn()
+      const drainAdapter = createMockLightningAdapter({
+        createReceiveRequest: vi.fn().mockResolvedValue({
+          id: 'quote-1', method: 'lightning', protocol: 'bolt11',
+          encoded: 'lnbc100n1...', amount: sat(100),
+        }),
+        prepareSend: vi.fn().mockResolvedValue({
+          id: 'melt-1', method: 'lightning', protocol: 'bolt11',
+          amount: sat(100), fee: sat(100),
+        }),
+        onReceiveCompleted: vi.fn().mockImplementation(() => unsubscribe),
+      })
+      const mod = createMockModule([drainAdapter])
+      service = new SwapService([mod], txRepo, eventBus, quoteMarker)
+
+      const result = await service.executeSwap({
+        sourceAccountId: 'https://mint-a.test',
+        targetAccountId: 'https://mint-b.test',
+        amount: sat(100),
+        drain: true,
+      })
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+
+      expect(result.error.code).toBe('INSUFFICIENT_BALANCE')
+      expect(drainAdapter.cancelPrepared).toHaveBeenCalledWith('melt-1')
+      expect(quoteMarker.unmark).toHaveBeenCalledWith('quote-1')
+      expect(quoteMarker.abandon).toHaveBeenCalledWith('https://mint-b.test', 'quote-1')
+      expect(unsubscribe).toHaveBeenCalledTimes(1)
+      expect(drainAdapter.executeSend).not.toHaveBeenCalled()
+      expect(txRepo.save).not.toHaveBeenCalled()
     })
   })
 })

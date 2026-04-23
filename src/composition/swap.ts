@@ -7,7 +7,7 @@ import type { SwapUseCase } from '@/core/ports/driving/swap.usecase'
 import type { WalletModule } from '@/core/ports/driven/wallet-module.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { EventBus } from '@/core/events/event-bus'
-import { markQuoteAsSwap, unmarkQuoteAsSwap } from '@/modules/cashu'
+import { abandonMintQuote, markQuoteAsSwap, unmarkQuoteAsSwap } from '@/modules/cashu'
 
 export function createSwapService(
   modules: WalletModule[],
@@ -17,5 +17,6 @@ export function createSwapService(
   return new SwapService(modules, txRepo, eventBus, {
     mark: markQuoteAsSwap,
     unmark: unmarkQuoteAsSwap,
+    abandon: abandonMintQuote,
   })
 }

@@ -108,6 +108,25 @@ export async function getMintQuote(mintUrl: string, quoteId: string): Promise<Mi
   return reposInstance!.mintQuoteRepository.getMintQuote(mintUrl, quoteId)
 }
 
+export async function abandonMintQuote(mintUrl: string, quoteId: string): Promise<void> {
+  const normalizedMintUrl = normalizeMintUrl(mintUrl)
+  await getCocoManager()
+
+  if (!reposInstance) return
+
+  const [quote, operations] = await Promise.all([
+    reposInstance.mintQuoteRepository.getMintQuote(normalizedMintUrl, quoteId),
+    reposInstance.mintOperationRepository.getByQuoteId(normalizedMintUrl, quoteId),
+  ])
+
+  await Promise.all([
+    ...operations.map(operation => reposInstance!.mintOperationRepository.delete(operation.id)),
+    quote && quote.state !== 'ISSUED'
+      ? reposInstance.mintQuoteRepository.setMintQuoteState(normalizedMintUrl, quoteId, 'ISSUED')
+      : Promise.resolve(),
+  ])
+}
+
 export async function removeMintFromCoco(mintUrl: string): Promise<void> {
   const normalizedMintUrl = normalizeMintUrl(mintUrl)
   await getCocoManager()

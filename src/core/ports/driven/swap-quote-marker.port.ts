@@ -5,4 +5,5 @@
 export interface SwapQuoteMarker {
   mark(quoteId: string): void
   unmark(quoteId: string): void
+  abandon?(accountId: string, quoteId: string): Promise<void>
 }
