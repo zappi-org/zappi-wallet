@@ -102,10 +102,12 @@ export function TokenScreen({
 
   const handleShare = useCallback(
     async (token: MockPendingToken) => {
-      const shareText = t('token.reclaimable.shareText', {
-        memo: token.memo,
-        amount: formatSats(token.amount),
-      })
+      const shareText = token.tokenString
+        ? token.tokenString
+        : t('token.reclaimable.shareText', {
+            memo: token.memo,
+            amount: formatSats(token.amount),
+          })
       try {
         if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
           await navigator.share({ text: shareText })
