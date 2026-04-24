@@ -2,7 +2,6 @@ import { AppLifecycleWatcher } from '@/composition/app-lifecycle.watcher'
 import { createBootstrap, type BootstrapResult, type RouteContext, type RouteExecutionResult, type RouteSelection } from '@/composition/bootstrap'
 import { createPreUnlockServices } from '@/composition/pre-unlock'
 import { resolveIncomingReview } from '@/composition/incoming-review'
-import { executeSwapReceive } from '@/composition/swap-receive'
 import { LIMITS } from '@/core/constants'
 import { sat, toNumber } from '@/core/domain/amount'
 import { InsufficientBalanceError } from '@/core/errors/payment.errors'
@@ -14,6 +13,7 @@ import { useNetwork } from '@/ui/hooks/use-network'
 import { useWallet } from '@/ui/hooks/use-wallet'
 import { useAppStore } from '@/store'
 import { setMintNameResolver, toErrorMessage } from '@/ui/utils/error-message'
+import { normalizeMintUrl } from '@/utils/url'
 import { AnimatePresence } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -432,22 +432,6 @@ export default function MainApp() {
     return null
   }, [serviceRegistry])
 
-  /** Estimate receive fee for a cashu token (input_fee_ppk) */
-  const handleEstimateRedeemFee = useCallback(async (
-    token: string,
-  ): Promise<{ grossAmount: number; fee: number; netAmount: number } | null> => {
-    if (!serviceRegistry?.payment) return null
-    const result = await serviceRegistry.payment.estimateRedeemFee({ input: token })
-    if (result.ok) {
-      return {
-        grossAmount: toNumber(result.value.grossAmount),
-        fee: toNumber(result.value.fee),
-        netAmount: toNumber(result.value.netAmount),
-      }
-    }
-    return null
-  }, [serviceRegistry])
-
   /** Cross-mint swap: execute swap from source mint to target mint */
   const handleMintSwap = useCallback(async (
     fromMintUrl: string,
@@ -478,36 +462,6 @@ export default function MainApp() {
       transactionId: result.value.sendTxId,
     }
   }, [serviceRegistry, refreshAll, addToast])
-
-  /** Cross-mint swap receive: receive token on source mint, then swap to target */
-  const handleSwapReceive = useCallback(async (
-    token: string,
-    sourceMintUrl: string,
-    targetMintUrl: string,
-  ): Promise<{ success: boolean; amount?: number; sourceRemainder?: number; error?: { code?: string; message?: string } }> => {
-    if (!serviceRegistry?.payment || !serviceRegistry?.swap) {
-      return { success: false, error: { code: 'NOT_READY', message: 'ServiceRegistry not ready' } }
-    }
-
-    const result = await executeSwapReceive({
-      payment: serviceRegistry.payment,
-      swap: serviceRegistry.swap,
-      balance: serviceRegistry.balance,
-    }, {
-      token,
-      sourceMintUrl,
-      targetMintUrl,
-    })
-
-    if (!result.success) {
-      refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap fail:', e))
-      return { success: false, error: result.error }
-    }
-
-    refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap:', e))
-    return { success: true, amount: result.amount, sourceRemainder: result.sourceRemainder }
-  }, [serviceRegistry, refreshAll])
-
 
   /** Unified send handler via routing layer */
   const handleExecuteRoute = useCallback(async (
@@ -739,13 +693,15 @@ export default function MainApp() {
   // Handle adding a trusted mint (from receive screen)
   const handleAddTrustedMint = useCallback(async (mintUrl: string): Promise<boolean> => {
     try {
-      let url = mintUrl.trim()
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        url = 'https://' + url
+      if (!serviceRegistry) {
+        console.warn('[App] ServiceRegistry not ready — cannot add trusted mint')
+        return false
       }
-      url = url.replace(/\/+$/, '')
 
-      if (settings.mints.includes(url)) {
+      const url = normalizeMintUrl(mintUrl)
+
+      if (settings.mints.some((mint) => normalizeMintUrl(mint) === url)) {
+        await serviceRegistry.trustMint(url)
         return true
       }
 
@@ -766,8 +722,20 @@ export default function MainApp() {
         settings.mintAliases,
         (number) => t('mintDetail.defaultName', { number }),
       )
-      await preUnlock.settingsRepo.saveSettings({ ...settings, mints: newMints, mintAliases: newAliases })
-      setSettings({ ...settings, mints: newMints, mintAliases: newAliases })
+      const nextSettings = { ...settings, mints: newMints, mintAliases: newAliases }
+
+      await preUnlock.settingsRepo.saveSettings(nextSettings)
+      setSettings(nextSettings)
+
+      try {
+        await serviceRegistry.trustMint(url)
+      } catch (trustError) {
+        await preUnlock.settingsRepo.saveSettings(settings).catch((rollbackError) => {
+          console.error('[App] Failed to rollback settings after mint trust failure:', rollbackError)
+        })
+        setSettings(settings)
+        throw trustError
+      }
 
       if (p2pkPubkey) {
         republishProfile(newMints, settings.relays)
@@ -780,7 +748,7 @@ export default function MainApp() {
       console.error('[App] Failed to add trusted mint:', error)
       return false
     }
-  }, [settings, preUnlock.settingsRepo, setSettings, p2pkPubkey, republishProfile, t])
+  }, [settings, preUnlock.settingsRepo, setSettings, p2pkPubkey, republishProfile, t, serviceRegistry])
 
   // Cross-flow redirect: Send → Receive (e.g., cashu-token pasted in Send)
   const handleSendRedirect = useCallback((validated: ValidatedData) => {
@@ -1103,9 +1071,6 @@ export default function MainApp() {
           onPaymentReceived={handlePaymentReceived}
           onReceiveToken={handleReceiveToken}
           onAddTrustedMint={handleAddTrustedMint}
-          onSwapReceive={handleSwapReceive}
-          onEstimateSwapFee={handleEstimateSwapFee}
-          onEstimateRedeemFee={handleEstimateRedeemFee}
           onStoreOfflineToken={handleStoreOfflineToken}
           onInspectInput={async (tokenStr: string) => {
             if (!serviceRegistry?.payment) return { lockStatus: 'not-supported' as const, proofIntegrity: 'not-supported' as const }

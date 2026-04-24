@@ -3,6 +3,8 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RelayManagementScreen } from '@/ui/screens/Settings/RelayManagementScreen'
 
+const addToast = vi.fn()
+
 class MockWebSocket {
   onopen: (() => void) | null = null
   onerror: (() => void) | null = null
@@ -26,11 +28,23 @@ vi.mock('react-i18next', () => ({
   }),
 }))
 
+vi.mock('motion/react', () => ({
+  Reorder: {
+    Group: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+    Item: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  },
+  useDragControls: () => ({ start: vi.fn() }),
+}))
+
 vi.mock('@/store', () => ({
-  useAppStore: (selector: (state: { settings: { relays: string[] } }) => unknown) => selector({
+  useAppStore: (selector: (state: {
+    settings: { relays: string[] }
+    addToast: typeof addToast
+  }) => unknown) => selector({
     settings: {
       relays: ['wss://relay-a.test', 'wss://relay-b.test'],
     },
+    addToast,
   }),
 }))
 
@@ -46,10 +60,11 @@ describe('RelayManagementScreen', () => {
   })
 
   afterEach(() => {
+    vi.clearAllMocks()
     vi.unstubAllGlobals()
   })
 
-  it('reorders relays when the move button is pressed', async () => {
+  it('reorders relays when the drag handle receives an arrow key', async () => {
     const onSaveSettings = vi.fn().mockResolvedValue(undefined)
 
     render(
@@ -59,10 +74,56 @@ describe('RelayManagementScreen', () => {
       />,
     )
 
-    fireEvent.click(screen.getByLabelText('settings.moveDown relay-a.test'))
+    fireEvent.keyDown(screen.getByLabelText('settings.dragToReorder relay-a.test'), { key: 'ArrowDown' })
 
     expect(onSaveSettings).toHaveBeenCalledWith({
       relays: ['wss://relay-b.test', 'wss://relay-a.test'],
     })
+  })
+
+  it('renders drag handles for relay reordering', () => {
+    render(
+      <RelayManagementScreen
+        onBack={vi.fn()}
+        onSaveSettings={vi.fn()}
+      />,
+    )
+
+    expect(screen.getAllByTestId('relay-drag-handle')).toHaveLength(2)
+  })
+
+  it('ignores arrow keys at list boundaries', () => {
+    const onSaveSettings = vi.fn().mockResolvedValue(undefined)
+
+    render(
+      <RelayManagementScreen
+        onBack={vi.fn()}
+        onSaveSettings={onSaveSettings}
+      />,
+    )
+
+    const firstHandle = screen.getByLabelText('settings.dragToReorder relay-a.test')
+    const lastHandle = screen.getByLabelText('settings.dragToReorder relay-b.test')
+
+    fireEvent.keyDown(firstHandle, { key: 'ArrowUp' })
+    fireEvent.keyDown(lastHandle, { key: 'ArrowDown' })
+
+    expect(onSaveSettings).not.toHaveBeenCalled()
+  })
+
+  it('rolls back local order when saving a relay move fails', async () => {
+    const onSaveSettings = vi.fn().mockRejectedValue(new Error('save failed'))
+
+    render(
+      <RelayManagementScreen
+        onBack={vi.fn()}
+        onSaveSettings={onSaveSettings}
+      />,
+    )
+
+    fireEvent.keyDown(screen.getByLabelText('settings.dragToReorder relay-a.test'), { key: 'ArrowDown' })
+
+    await screen.findByLabelText('settings.dragToReorder relay-a.test')
+    expect(addToast).toHaveBeenCalledWith({ type: 'error', message: 'errors.unknownError' })
   })
 })

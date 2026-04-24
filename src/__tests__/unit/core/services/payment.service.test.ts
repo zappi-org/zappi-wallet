@@ -5,6 +5,7 @@ import type { PaymentMethodAdapter } from '@/core/ports/driven/payment-method.po
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { EventBus } from '@/core/events/event-bus'
 import { sat, toNumber } from '@/core/domain/amount'
+import { RedeemFeeTooHighError } from '@/core/errors/payment.errors'
 
 // ─── Mocks ───
 
@@ -372,6 +373,25 @@ describe('PaymentService', () => {
       expect(result.ok).toBe(false)
       if (result.ok) return
       expect(result.error.code).toBe('ADAPTER_NOT_FOUND')
+    })
+
+    it('preserves classified redeem fee errors from the adapter', async () => {
+      const ecashAdapter = createMockAdapter({
+        id: 'cashu:ecash',
+        canRedeem: vi.fn().mockImplementation((input: string) => /^cashu[ab]/i.test(input.trim())),
+        redeem: vi.fn().mockRejectedValue(new RedeemFeeTooHighError('Receive amount is not sufficient after fees')),
+      })
+      const mod = createMockModule([ecashAdapter])
+      service = new PaymentService([mod], txRepo, eventBus)
+
+      const result = await service.redeem({
+        input: 'cashuBtest...',
+      })
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.error.code).toBe('REDEEM_FEE_TOO_HIGH')
+      expect(result.error.message).toBe('Receive amount is not sufficient after fees')
     })
   })
 

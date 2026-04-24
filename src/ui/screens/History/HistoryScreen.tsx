@@ -142,6 +142,7 @@ export function HistoryScreen({
 
     return filtered
   }, [transactions, filter, dateCutoff, searchQuery, selectedMintUrls, t])
+  const transactionById = useMemo(() => new Map(transactions.map((tx) => [tx.id, tx])), [transactions])
 
   // ─── Flat items for virtualizer (grouped by date) ───
   const flatItems = useMemo(() => {
@@ -329,6 +330,7 @@ export function HistoryScreen({
                       <>
                         <TransactionRow
                           transaction={item.tx}
+                          linkedTransaction={item.tx.linkedTxId ? transactionById.get(item.tx.linkedTxId) : null}
                           onClick={() => setSelectedTransaction(item.tx)}
                           getMintName={getDisplayName}
                         />

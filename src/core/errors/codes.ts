@@ -16,6 +16,7 @@ export type ErrorCode =
   | 'QUOTE_NOT_FOUND'
   | 'QUOTE_EXPIRED'
   | 'P2PK_UNLOCK_FAILED'
+  | 'REDEEM_FEE_TOO_HIGH'
   // Lightning
   | 'INVALID_INVOICE'
   | 'INVOICE_EXPIRED'

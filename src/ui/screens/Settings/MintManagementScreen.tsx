@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { ArrowLeft, Plus, ChevronDown, Trash2, Copy, Check, QrCode, ExternalLink, ArrowUp, ArrowDown } from 'lucide-react'
+import { ArrowLeft, Plus, ChevronDown, Trash2, Copy, Check, QrCode, ExternalLink } from 'lucide-react'
+import { Reorder } from 'motion/react'
 import { Trans, useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
@@ -14,7 +15,8 @@ import { cn } from '@/ui/primitives/utils'
 import { Modal } from '@/ui/components/common'
 import { MintIcon } from './SettingsHelpers'
 import { MintUrlQrModal } from '@/ui/screens/MintDetail/MintUrlQrModal'
-import { moveItem } from '@/utils/reorder'
+import { isSameOrder, moveItem, reconcileOrder } from '@/utils/reorder'
+import { ReorderableSettingItem } from './ReorderableSettingItem'
 
 export interface MintManagementScreenProps {
   onBack: () => void
@@ -40,6 +42,7 @@ export function MintManagementScreen({
 
   const [expandedMint, setExpandedMint] = useState<string | null>(null)
   const [mintToDelete, setMintToDelete] = useState<string | null>(null)
+  const [orderedMints, setOrderedMints] = useState(settings.mints)
 
   // Per-mint info cache: undefined = not fetched, 'loading' = in progress, object = data, null = error
   const [mintInfoCache, setMintInfoCache] = useState<Record<string, MintInfoData | null | 'loading'>>({})
@@ -49,6 +52,7 @@ export function MintManagementScreen({
 
   // Copy states
   const [copiedField, setCopiedField] = useState<string | null>(null)
+  const mints = reconcileOrder(orderedMints, settings.mints)
 
   useEffect(() => { checkAllMints() }, [checkAllMints])
 
@@ -86,20 +90,38 @@ export function MintManagementScreen({
     setMintToDelete(url)
   }, [])
 
+  const persistMintOrder = useCallback(async (nextMints: string[]) => {
+    if (isSameOrder(nextMints, settings.mints)) {
+      return
+    }
+
+    try {
+      await onSaveSettings({ mints: nextMints })
+    } catch {
+      setOrderedMints(settings.mints)
+      addToast({ type: 'error', message: t('errors.unknownError') })
+    }
+  }, [settings.mints, onSaveSettings, addToast, t])
+
+  const commitDraggedMintOrder = useCallback(async () => {
+    await persistMintOrder(mints)
+  }, [mints, persistMintOrder])
+
   const handleMoveMint = useCallback(async (url: string, direction: 'up' | 'down') => {
-    const currentIndex = settings.mints.indexOf(url)
+    const currentIndex = mints.indexOf(url)
     if (currentIndex < 0) {
       return
     }
 
     const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
-    const newMints = moveItem(settings.mints, currentIndex, targetIndex)
-    if (newMints === settings.mints) {
+    const newMints = moveItem(mints, currentIndex, targetIndex)
+    if (newMints === mints) {
       return
     }
 
-    await onSaveSettings({ mints: newMints })
-  }, [settings.mints, onSaveSettings])
+    setOrderedMints(newMints)
+    await persistMintOrder(newMints)
+  }, [mints, persistMintOrder])
 
   const confirmRemoveMint = useCallback(async () => {
     if (!mintToDelete) return
@@ -121,7 +143,6 @@ export function MintManagementScreen({
 
   const getBalance = (url: string) => getMintBalanceUtil(url, balanceByMint)
 
-  const mints = settings.mints
   const emptySlots = LIMITS.MAX_MINTS - mints.length
   const isAtMinimumMints = mints.length <= LIMITS.MIN_MINTS
 
@@ -143,7 +164,16 @@ export function MintManagementScreen({
       </header>
 
       <div className="flex-1 overflow-y-auto pb-safe">
-        <div className="bg-background-card divide-y divide-border">
+        <p className="px-5 pb-2 text-overline font-medium text-foreground-muted">
+          {t('settings.reorderHint')}
+        </p>
+        <Reorder.Group
+          as="div"
+          axis="y"
+          values={mints}
+          onReorder={setOrderedMints}
+          className="bg-background-card divide-y divide-border"
+        >
           {/* Filled slots */}
           {mints.map((url, index) => {
             const isExpanded = expandedMint === url
@@ -154,42 +184,57 @@ export function MintManagementScreen({
             const infoData = rawInfo === 'loading' ? undefined : rawInfo
 
             return (
-              <div key={url}>
+              <ReorderableSettingItem
+                key={url}
+                value={url}
+                dragTitle={`${t('settings.dragToReorder')} ${getDisplayName(url)}`}
+                handleTestId="mint-drag-handle"
+                onDragEnd={commitDraggedMintOrder}
+                onMoveUp={() => handleMoveMint(url, 'up')}
+                onMoveDown={() => handleMoveMint(url, 'down')}
+                canMoveUp={index > 0}
+                canMoveDown={index < mints.length - 1}
+              >
+                {(dragHandle) => (
+              <div>
                 {/* Mint row */}
-                <button
-                  onClick={() => handleToggle(url)}
-                  className="w-full px-4 py-3 flex items-center gap-3 active:bg-background-hover text-left"
-                >
-                  <MintIcon url={url} getIconUrl={getIconUrl} size="md" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-caption font-medium text-foreground truncate">
-                        {getDisplayName(url)}
-                      </span>
-                      {index === 0 && (
-                        <span className="rounded-full bg-brand/10 px-2 py-0.5 text-overline font-semibold text-brand">
-                          {t('settings.primary')}
+                <div className="flex items-stretch">
+                  {dragHandle}
+                  <button
+                    onClick={() => handleToggle(url)}
+                    className="min-w-0 flex-1 pr-4 py-3 flex items-center gap-3 active:bg-background-hover text-left"
+                  >
+                    <MintIcon url={url} getIconUrl={getIconUrl} size="md" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-caption font-medium text-foreground truncate">
+                          {getDisplayName(url)}
                         </span>
-                      )}
-                      {status && (
-                        <span className={cn(
-                          'w-1.5 h-1.5 rounded-full shrink-0',
-                          status.isOnline ? 'bg-accent-primary' : 'bg-accent-danger'
-                        )} />
-                      )}
+                        {index === 0 && (
+                          <span className="rounded-full bg-brand/10 px-2 py-0.5 text-overline font-semibold text-brand">
+                            {t('settings.primary')}
+                          </span>
+                        )}
+                        {status && (
+                          <span className={cn(
+                            'w-1.5 h-1.5 rounded-full shrink-0',
+                            status.isOnline ? 'bg-accent-primary' : 'bg-accent-danger'
+                          )} />
+                        )}
+                      </div>
+                      <span className="text-label font-medium text-foreground-muted truncate block">
+                        {formatMintHost(url)}
+                      </span>
                     </div>
-                    <span className="text-label font-medium text-foreground-muted truncate block">
-                      {formatMintHost(url)}
+                    <span className="text-caption font-semibold text-foreground shrink-0">
+                      {formatSats(balance)}
                     </span>
-                  </div>
-                  <span className="text-caption font-semibold text-foreground shrink-0">
-                    {formatSats(balance)}
-                  </span>
-                  <ChevronDown className={cn(
-                    'w-4 h-4 text-foreground-muted transition-transform shrink-0',
-                    isExpanded && 'rotate-180'
-                  )} />
-                </button>
+                    <ChevronDown className={cn(
+                      'w-4 h-4 text-foreground-muted transition-transform shrink-0',
+                      isExpanded && 'rotate-180'
+                    )} />
+                  </button>
+                </div>
 
                 {/* Accordion detail */}
                 <div
@@ -200,42 +245,6 @@ export function MintManagementScreen({
                     <div className="px-4 pb-4 space-y-2">
                       {/* All mint details in one card */}
                       <div className="bg-foreground/[0.03] rounded-xl px-4">
-                        <div className="flex items-center justify-between py-3">
-                          <span className="text-caption font-medium text-foreground">
-                            {t('settings.position')}
-                          </span>
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              aria-label={`${t('settings.moveUp')} ${getDisplayName(url)}`}
-                              onClick={() => handleMoveMint(url, 'up')}
-                              disabled={index === 0}
-                              className={cn(
-                                'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
-                                index === 0
-                                  ? 'text-foreground-muted/30 cursor-not-allowed'
-                                  : 'bg-background text-foreground-muted active:bg-foreground/[0.06]'
-                              )}
-                            >
-                              <ArrowUp className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              aria-label={`${t('settings.moveDown')} ${getDisplayName(url)}`}
-                              onClick={() => handleMoveMint(url, 'down')}
-                              disabled={index === mints.length - 1}
-                              className={cn(
-                                'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
-                                index === mints.length - 1
-                                  ? 'text-foreground-muted/30 cursor-not-allowed'
-                                  : 'bg-background text-foreground-muted active:bg-foreground/[0.06]'
-                              )}
-                            >
-                              <ArrowDown className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                        <div className="border-t border-border/50" />
                         {/* Balance */}
                         <div className="flex justify-between items-center py-3">
                           <span className="text-caption font-medium text-foreground">{t('common.balance')}</span>
@@ -401,9 +410,14 @@ export function MintManagementScreen({
                   </div>
                 </div>
               </div>
+                )}
+              </ReorderableSettingItem>
             )
           })}
+        </Reorder.Group>
 
+        {emptySlots > 0 && (
+        <div className="bg-background-card divide-y divide-border border-t border-border">
           {/* Empty slots */}
           {Array.from({ length: emptySlots }, (_, i) => (
             <button
@@ -418,6 +432,7 @@ export function MintManagementScreen({
             </button>
           ))}
         </div>
+        )}
       </div>
 
       {/* QR Code Modal */}

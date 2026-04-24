@@ -82,18 +82,6 @@ export function connectEventStoreBridge(
     }),
   )
 
-  // swap:failed → error toast
-  unsubscribers.push(
-    eventBus.on('swap:failed', (event) => {
-      const { addToast } = useAppStore.getState()
-      addToast({
-        type: 'error',
-        message: event.payload.error,
-        duration: 5000,
-      })
-    }),
-  )
-
   // balance:changed / recovery:completed 에서 공유할 throttled refresh
   let throttledRefresh: ReturnType<typeof createThrottledAsync> | null = null
 

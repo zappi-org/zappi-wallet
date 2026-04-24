@@ -22,6 +22,7 @@ import { getTitle, getTypeLabel } from './transactionHelpers'
 
 export interface TransactionRowProps {
   transaction: Transaction
+  linkedTransaction?: Transaction | null
   onClick?: () => void
   getMintName?: (url: string) => string
   /** Show M.DD date prefix in subtitle (for mini lists without date group headers) */
@@ -30,6 +31,7 @@ export interface TransactionRowProps {
 
 export const TransactionRow = memo(function TransactionRow({
   transaction: tx,
+  linkedTransaction,
   onClick,
   getMintName,
   showDate = false,
@@ -40,23 +42,26 @@ export const TransactionRow = memo(function TransactionRow({
 
   const txType = getTransactionType(tx)
   const meta = getTxMeta(tx)
+  const linkedMeta = linkedTransaction ? getTxMeta(linkedTransaction) : null
   const isSwap = txType === 'swap'
   const isReceive = tx.direction === 'receive'
-  const title = getTitle(tx, t)
   const locale = getLocaleCode(i18n.language)
   const date = new Date(tx.createdAt)
   const timeOnly = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
   const timeStr = showDate ? `${formatMD(date)} ${timeOnly}` : timeOnly
   const typeLabel = getTypeLabel(tx, t)
+  const resolveName = (url: string) => getMintName ? getMintName(url) : formatMintHost(url)
+  const swapFromUrl = meta.fromMintUrl ?? linkedMeta?.fromMintUrl ?? (tx.direction === 'send' ? tx.accountId : undefined)
+  const swapToUrl = meta.toMintUrl ?? linkedMeta?.toMintUrl ?? (tx.direction === 'receive' ? tx.accountId : undefined)
+  const swapRoute = isSwap && swapFromUrl && swapToUrl
+    ? `${resolveName(swapFromUrl)} → ${resolveName(swapToUrl)}`
+    : null
+  const title = swapRoute ?? getTitle(tx, t)
 
   // Subtitle: "10:35 | Lightning 수신" or swap flow
-  const resolveName = (url: string) => getMintName ? getMintName(url) : formatMintHost(url)
-
   let subtitle: string
-  if (isSwap) {
-    const fromUrl = meta.fromMintUrl || tx.accountId
-    const toUrl = meta.toMintUrl
-    subtitle = `${timeStr} | ${resolveName(fromUrl)} → ${toUrl ? resolveName(toUrl) : ''}`
+  if (isSwap && swapRoute) {
+    subtitle = `${timeStr} | ${typeLabel}`
   } else if (txType === 'lightning' && tx.direction === 'send' && meta.destination) {
     const destStr = meta.destination.includes('@') ? meta.destination : `${meta.destination.slice(0, 20)}...`
     subtitle = `${timeStr} | ${destStr}`

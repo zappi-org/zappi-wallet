@@ -29,6 +29,11 @@ export interface CreateCashuBackendDeps {
 }
 
 export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBackend {
+  const activeMintOptions = () => ({
+    trustedMintUrls: deps.getActiveMintUrls?.(),
+    getCurrentTrustedMintUrls: deps.getActiveMintUrls,
+  })
+
   return {
     // LightningBackend
     prepareMelt: backend.prepareMelt,
@@ -47,15 +52,15 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
     executeSend: backend.executeSend,
     rollbackSend: backend.rollbackSend,
     finalizeSend: backend.finalizeSend,
-    receiveToken: backend.receiveToken,
-    estimateReceiveFee: backend.estimateReceiveFee,
+    receiveToken: (token: string) => backend.receiveToken(token, activeMintOptions()),
+    estimateReceiveFee: (token: string) => backend.estimateReceiveFee(token, activeMintOptions()),
     async recoverPendingSendTokens() {
       const sendOps = await backend.getSendRecoveryOps()
       return recoverPendingSendTokens({
         pendingOpRepo: deps.pendingOpRepo,
         txRepo: deps.txRepo,
         sendOps,
-        receiveToken: async (token: string) => backend.receiveToken(token),
+        receiveToken: async (token: string) => backend.receiveToken(token, activeMintOptions()),
       })
     },
     // Mint quote 결제 완료 감지 (스왑 완료 대기에 필요)
@@ -72,7 +77,10 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
     },
     // Offline received token recovery
     async redeemPendingReceivedTokens() {
-      return redeemPendingReceivedTokens(deps.offlineTokenStore, backend.receiveToken)
+      return redeemPendingReceivedTokens(
+        deps.offlineTokenStore,
+        (token: string) => backend.receiveToken(token, activeMintOptions()),
+      )
     },
     async storeOfflineToken(token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing') {
       return storeOfflineToken(deps.offlineTokenStore, token, amount, mintUrl, dleqStatus)

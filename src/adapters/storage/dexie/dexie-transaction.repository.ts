@@ -232,6 +232,12 @@ export class DexieTransactionRepository implements TransactionRepository {
   }
   async update(id: string, patch: Partial<Transaction>): Promise<void> {
     const legacyPatch: Partial<LegacyTransaction> = {}
+    let existing: LegacyTransaction | undefined
+
+    const getExisting = async () => {
+      existing ??= await this.table.get(id)
+      return existing
+    }
 
     if (patch.status !== undefined || patch.outcome !== undefined) {
       const mapped = domainStatusToLegacy(patch.status ?? 'pending', patch.outcome)
@@ -240,10 +246,10 @@ export class DexieTransactionRepository implements TransactionRepository {
       if (mapped.tokenState !== undefined) (legacyPatch as Record<string, unknown>).tokenState = mapped.tokenState
     }
     if (patch.method !== undefined || patch.protocol !== undefined) {
-      const existing = await this.table.get(id)
-      if (existing) {
-        const method = patch.method ?? TYPE_TO_METHOD[existing.type] ?? 'cashu:lightning'
-        const protocol = patch.protocol ?? TYPE_TO_PROTOCOL[existing.type] ?? 'bolt11'
+      const existingTx = await getExisting()
+      if (existingTx) {
+        const method = patch.method ?? TYPE_TO_METHOD[existingTx.type] ?? 'cashu:lightning'
+        const protocol = patch.protocol ?? TYPE_TO_PROTOCOL[existingTx.type] ?? 'bolt11'
         legacyPatch.type = methodToLegacyType(method, protocol, patch.intent) as LegacyTransaction['type']
       }
     }
@@ -253,15 +259,17 @@ export class DexieTransactionRepository implements TransactionRepository {
       const feeNumber = patch.fee
         ? toNumber(patch.fee.effective ?? patch.fee.quoted)
         : undefined
-      if (!legacyPatch.metadata) legacyPatch.metadata = {}
+      const existingTx = await getExisting()
+      if (!legacyPatch.metadata) legacyPatch.metadata = { ...(existingTx?.metadata ?? {}) }
       if (feeNumber != null) {
         (legacyPatch.metadata as Record<string, unknown>).fee = feeNumber
       }
     }
     if (patch.metadata !== undefined) {
-      legacyPatch.metadata = patch.metadata
+      const existingTx = await getExisting()
+      legacyPatch.metadata = { ...(existingTx?.metadata ?? {}), ...patch.metadata }
       // metadata → flat 필드 동기화 (toLegacy와 동일한 매핑)
-      const meta = patch.metadata as Record<string, unknown>
+      const meta = legacyPatch.metadata as Record<string, unknown>
       if (meta.token !== undefined) legacyPatch.token = meta.token as string | undefined
       if (meta.operationId !== undefined) legacyPatch.operationId = meta.operationId as string | undefined
       if (meta.bolt11 !== undefined) legacyPatch.bolt11 = meta.bolt11 as string | undefined

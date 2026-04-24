@@ -68,6 +68,14 @@ export class SwapService implements SwapUseCase {
     if (!lightning) {
       return Err({ code: 'ADAPTER_NOT_FOUND', message: 'No lightning adapter for source account' })
     }
+    let quoteId: string | null = null
+
+    const cleanupEstimateQuote = async (): Promise<void> => {
+      if (!quoteId) return
+      const currentQuoteId = quoteId
+      await this.abandonSwapQuote(params.targetAccountId, currentQuoteId)
+      quoteId = null
+    }
 
     try {
       // target에서 임시 invoice 생성하여 fee 추정
@@ -80,6 +88,7 @@ export class SwapService implements SwapUseCase {
         amount: params.amount,
         accountId: params.targetAccountId,
       })
+      quoteId = request.id
 
       const feeEstimate = await lightning.estimateFee({
         destination: request.encoded,
@@ -87,12 +96,23 @@ export class SwapService implements SwapUseCase {
         accountId: params.sourceAccountId,
       })
 
+      await cleanupEstimateQuote()
+
       return Ok({
         fee: feeEstimate.fee,
         sourceAmount: params.amount,
         targetAmount: params.amount,
       })
     } catch (error) {
+      if (quoteId) {
+        try {
+          await cleanupEstimateQuote()
+        } catch (cleanupError) {
+          const primaryMessage = error instanceof Error ? error.message : 'Unknown error'
+          const cleanupMessage = cleanupError instanceof Error ? cleanupError.message : 'Unknown error'
+          return Err({ code: 'SWAP_FAILED', message: `${primaryMessage} (cleanup failed for quote ${quoteId}: ${cleanupMessage})` })
+        }
+      }
       const message = error instanceof Error ? error.message : 'Unknown error'
       return Err({ code: 'SWAP_FAILED', message })
     }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { moveItem } from '@/utils/reorder'
+import { isSameOrder, moveItem, reconcileOrder } from '@/utils/reorder'
 
 describe('moveItem', () => {
   it('moves an item within the list', () => {
@@ -11,5 +11,19 @@ describe('moveItem', () => {
     expect(moveItem(items, 0, 0)).toBe(items)
     expect(moveItem(items, -1, 1)).toBe(items)
     expect(moveItem(items, 1, 3)).toBe(items)
+  })
+})
+
+describe('isSameOrder', () => {
+  it('checks strict ordered equality', () => {
+    expect(isSameOrder(['a', 'b'], ['a', 'b'])).toBe(true)
+    expect(isSameOrder(['a', 'b'], ['b', 'a'])).toBe(false)
+    expect(isSameOrder(['a'], ['a', 'b'])).toBe(false)
+  })
+})
+
+describe('reconcileOrder', () => {
+  it('keeps local order while adding new source items and dropping removed ones', () => {
+    expect(reconcileOrder(['b', 'a', 'removed'], ['a', 'b', 'c'])).toEqual(['b', 'a', 'c'])
   })
 })

@@ -41,8 +41,7 @@ import { exchangeRateService } from './exchange-rate'
 import { executeRoute as legacyExecuteRoute } from './routing'
 
 // ─── Coco (composition root만 접근) ───
-import { deleteCocoData } from '@/modules/cashu'
-import { removeMintFromCoco } from '@/modules/cashu'
+import { addMint as trustMintInCoco, deleteCocoData, removeMintFromCoco } from '@/modules/cashu'
 import { clearMintData } from '@/adapters/storage/dexie/schema'
 import { resetWalletCache } from '@/adapters/cache/wallet-cache'
 
@@ -157,6 +156,7 @@ export interface BootstrapResult extends ServiceRegistry {
   // ─── P2PK, offline token ───
   readonly p2pkKeyManager: { getCurrentKey(): Promise<{ pubkey: string }> }
   storeOfflineToken(token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing'): Promise<string>
+  trustMint(mintUrl: string): Promise<void>
 }
 
 // ─── Bootstrap ───
@@ -436,5 +436,6 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     p2pkKeyManager,
     storeOfflineToken: (token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing') =>
       cashuBackend.storeOfflineToken(token, amount, mintUrl, dleqStatus),
+    trustMint: trustMintInCoco,
   }
 }

@@ -12,6 +12,7 @@ import { amount as amt } from '@/core/domain/amount'
 import type { Result } from '@/core/domain/result'
 import { Err, Ok } from '@/core/domain/result'
 import { createTransaction, settleAsDelivered, settleAsReclaimed } from '@/core/domain/transaction'
+import { BaseError } from '@/core/errors/base'
 import type { PaymentError } from '@/core/errors/payment.errors'
 import type { EventBus } from '@/core/events/event-bus'
 import type { OperationMap } from '@/core/ports/driven/operation-map.port'
@@ -32,6 +33,15 @@ import type {
   RecoveryReport,
   SendResult,
 } from '@/core/ports/driving/payment.usecase'
+
+function toPaymentError(error: unknown): PaymentError {
+  if (error instanceof BaseError) {
+    return { code: error.code, message: error.message }
+  }
+
+  const message = error instanceof Error ? error.message : 'Unknown error'
+  return { code: 'UNKNOWN', message }
+}
 
 export class PaymentService implements PaymentUseCase {
   constructor(
@@ -161,16 +171,16 @@ export class PaymentService implements PaymentUseCase {
         data: { ...result.data, operationId: result.operationId },
       })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
+      const paymentError = toPaymentError(error)
 
       await this.txRepo.update(txId, { status: 'failed', completedAt: Date.now() }).catch(() => {})
 
       this.eventBus.emit({
         type: 'payment:failed',
-        payload: { txId, method: module.id, error: message },
+        payload: { txId, method: module.id, error: paymentError.message },
       })
 
-      return Err({ code: 'UNKNOWN', message })
+      return Err(paymentError)
     }
   }
 
@@ -220,8 +230,7 @@ export class PaymentService implements PaymentUseCase {
 
       return Ok(request)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
-      return Err({ code: 'UNKNOWN', message })
+      return Err(toPaymentError(error))
     }
   }
 
@@ -280,8 +289,7 @@ export class PaymentService implements PaymentUseCase {
 
       return Ok(result)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
-      return Err({ code: 'UNKNOWN', message })
+      return Err(toPaymentError(error))
     }
   }
 
@@ -303,8 +311,7 @@ export class PaymentService implements PaymentUseCase {
       const estimate = await adapter.estimateRedeemFee(params.input)
       return Ok(estimate)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
-      return Err({ code: 'UNKNOWN', message })
+      return Err(toPaymentError(error))
     }
   }
 
@@ -428,8 +435,7 @@ export class PaymentService implements PaymentUseCase {
 
       return Ok({ transactionId: tx.id, amount: tx.amount })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
-      return Err({ code: 'UNKNOWN', message })
+      return Err(toPaymentError(error))
     }
   }
 
@@ -454,8 +460,7 @@ export class PaymentService implements PaymentUseCase {
       })
       return Ok(estimate)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
-      return Err({ code: 'UNKNOWN', message })
+      return Err(toPaymentError(error))
     }
   }
 

@@ -138,6 +138,36 @@ describe('SwapService', () => {
       expect(toNumber(result.value.fee)).toBe(3)
       expect(adapter.createReceiveRequest).toHaveBeenCalled()
       expect(adapter.estimateFee).toHaveBeenCalled()
+      expect(quoteMarker.abandon).toHaveBeenCalledWith('https://mint-b.test', 'quote-1')
+    })
+
+    it('abandons the temporary quote if fee estimation fails', async () => {
+      vi.mocked(adapter.estimateFee).mockRejectedValueOnce(new Error('fee estimate failed'))
+
+      const result = await service.estimateSwap({
+        sourceAccountId: 'https://mint-a.test',
+        targetAccountId: 'https://mint-b.test',
+        amount: sat(1000),
+      })
+
+      expect(result.ok).toBe(false)
+      expect(quoteMarker.abandon).toHaveBeenCalledWith('https://mint-b.test', 'quote-1')
+    })
+
+    it('keeps the temporary quote id visible when estimate cleanup fails', async () => {
+      vi.mocked(adapter.estimateFee).mockRejectedValueOnce(new Error('fee estimate failed'))
+      quoteMarker.abandon.mockRejectedValueOnce(new Error('cleanup failed'))
+
+      const result = await service.estimateSwap({
+        sourceAccountId: 'https://mint-a.test',
+        targetAccountId: 'https://mint-b.test',
+        amount: sat(1000),
+      })
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.error.message).toBe('fee estimate failed (cleanup failed for quote quote-1: cleanup failed)')
+      expect(quoteMarker.abandon).toHaveBeenCalledWith('https://mint-b.test', 'quote-1')
     })
   })
 

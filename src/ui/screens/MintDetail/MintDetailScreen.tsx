@@ -187,6 +187,7 @@ export function MintDetailScreen({
             {filteredTransactions.length > 0 ? (
               <TransactionList
                 transactions={filteredTransactions}
+                allTransactions={transactions}
                 onTransactionClick={onSelectTransaction}
                 showHeader={false}
                 showDate

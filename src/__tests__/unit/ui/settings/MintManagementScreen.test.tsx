@@ -19,6 +19,14 @@ vi.mock('react-i18next', () => ({
   Trans: ({ i18nKey }: { i18nKey: string }) => i18nKey,
 }))
 
+vi.mock('motion/react', () => ({
+  Reorder: {
+    Group: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+    Item: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  },
+  useDragControls: () => ({ start: vi.fn() }),
+}))
+
 vi.mock('@/store', () => ({
   useAppStore: (selector: (state: {
     settings: { mints: string[] }
@@ -87,7 +95,7 @@ describe('MintManagementScreen', () => {
     vi.unstubAllGlobals()
   })
 
-  it('reorders mints when the move button is pressed', async () => {
+  it('reorders mints when the drag handle receives an arrow key', async () => {
     const onSaveSettings = vi.fn().mockResolvedValue(undefined)
 
     render(
@@ -98,11 +106,59 @@ describe('MintManagementScreen', () => {
       />,
     )
 
-    fireEvent.click(screen.getByText('Mint A'))
-    fireEvent.click(screen.getByLabelText('settings.moveDown Mint A'))
+    fireEvent.keyDown(screen.getByLabelText('settings.dragToReorder Mint A'), { key: 'ArrowDown' })
 
     expect(onSaveSettings).toHaveBeenCalledWith({
       mints: ['https://mint-b.test', 'https://mint-a.test', 'https://mint-c.test'],
     })
+  })
+
+  it('renders drag handles for mint reordering', () => {
+    render(
+      <MintManagementScreen
+        onBack={vi.fn()}
+        onAddMint={vi.fn()}
+        onSaveSettings={vi.fn()}
+      />,
+    )
+
+    expect(screen.getAllByTestId('mint-drag-handle')).toHaveLength(3)
+  })
+
+  it('ignores arrow keys at list boundaries', () => {
+    const onSaveSettings = vi.fn().mockResolvedValue(undefined)
+
+    render(
+      <MintManagementScreen
+        onBack={vi.fn()}
+        onAddMint={vi.fn()}
+        onSaveSettings={onSaveSettings}
+      />,
+    )
+
+    const firstHandle = screen.getByLabelText('settings.dragToReorder Mint A')
+    const lastHandle = screen.getByLabelText('settings.dragToReorder Mint C')
+
+    fireEvent.keyDown(firstHandle, { key: 'ArrowUp' })
+    fireEvent.keyDown(lastHandle, { key: 'ArrowDown' })
+
+    expect(onSaveSettings).not.toHaveBeenCalled()
+  })
+
+  it('rolls back local order when saving a mint move fails', async () => {
+    const onSaveSettings = vi.fn().mockRejectedValue(new Error('save failed'))
+
+    render(
+      <MintManagementScreen
+        onBack={vi.fn()}
+        onAddMint={vi.fn()}
+        onSaveSettings={onSaveSettings}
+      />,
+    )
+
+    fireEvent.keyDown(screen.getByLabelText('settings.dragToReorder Mint A'), { key: 'ArrowDown' })
+
+    await screen.findByLabelText('settings.dragToReorder Mint A')
+    expect(addToast).toHaveBeenCalledWith({ type: 'error', message: 'errors.unknownError' })
   })
 })

@@ -75,6 +75,25 @@ describe('EventStoreBridge', () => {
     )
   })
 
+  it('should not show a global toast on swap:failed', () => {
+    const addToast = vi.fn()
+    vi.spyOn(useAppStore, 'getState').mockReturnValue({
+      ...useAppStore.getState(),
+      addToast,
+    })
+
+    eventBus.emit({
+      type: 'swap:failed',
+      payload: {
+        sourceAccountId: 'mint-a',
+        targetAccountId: 'mint-b',
+        error: 'not enough proofs to send',
+      },
+    })
+
+    expect(addToast).not.toHaveBeenCalled()
+  })
+
   it('should show toast on recovery:completed with recovered > 0', () => {
     const addToast = vi.fn()
     vi.spyOn(useAppStore, 'getState').mockReturnValue({

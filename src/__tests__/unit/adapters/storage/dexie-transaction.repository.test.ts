@@ -1,12 +1,18 @@
-import { describe, it, expect } from 'vitest'
+import { beforeEach, describe, it, expect } from 'vitest'
 import { sat, toNumber } from '@/core/domain/amount'
 import type { Transaction } from '@/core/domain/transaction'
 import type { Transaction as LegacyTransaction } from '@/core/types'
+import { DexieTransactionRepository } from '@/adapters/storage/dexie/dexie-transaction.repository'
+import { resetDatabase } from '@/adapters/storage/dexie/schema'
 
 // Import the private conversion functions via indirect testing through the repository
 // For this test, we'll test the public API behavior that exercises toDomain/toLegacy
 
 describe('DexieTransactionRepository fee migration', () => {
+  beforeEach(async () => {
+    await resetDatabase()
+  })
+
   // Since toDomain/toLegacy are private, we test through save/getById
   // But for unit testing the conversion logic, we can recreate the logic here
 
@@ -111,6 +117,42 @@ describe('DexieTransactionRepository fee migration', () => {
       const legacy = domainToSimpleLegacy(domain)
       
       expect(legacy.metadata.fee).toBeUndefined()
+    })
+  })
+
+  describe('update metadata merging', () => {
+    it('preserves swap route metadata when adding an effective fee', async () => {
+      const repo = new DexieTransactionRepository()
+
+      await repo.save({
+        id: 'swap-source-tx',
+        direction: 'send',
+        method: 'cashu:lightning',
+        protocol: 'bolt11',
+        amount: sat(100),
+        accountId: 'https://source.mint',
+        status: 'pending',
+        createdAt: Date.now(),
+        intent: 'swap',
+        metadata: {
+          fromMintUrl: 'https://source.mint',
+          toMintUrl: 'https://target.mint',
+        },
+        fee: { quoted: sat(3) },
+      })
+
+      await repo.update('swap-source-tx', {
+        status: 'settled',
+        outcome: 'claimed',
+        fee: { quoted: sat(3), effective: sat(2) },
+      })
+
+      const updated = await repo.getById('swap-source-tx')
+      expect(updated?.metadata).toMatchObject({
+        fromMintUrl: 'https://source.mint',
+        toMintUrl: 'https://target.mint',
+        fee: 2,
+      })
     })
   })
 })

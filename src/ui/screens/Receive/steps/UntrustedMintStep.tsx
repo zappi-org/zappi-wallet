@@ -1,16 +1,15 @@
 /**
  * UntrustedMintStep — Warning for tokens from unknown mints
- * Vertical card layout with icons, matching TokenConfirmStep cross-mint style.
  *
- * Offline: both buttons disabled (swap and addTrustedMint both require online)
+ * Unknown mint tokens can only be accepted by explicitly adding the mint.
+ * Reject remains available offline because it does not touch the token.
  */
 
 import { useState, useCallback, useMemo } from 'react'
-import { ArrowLeft, AlertTriangle, Loader2, WifiOff, Plus, ArrowRightLeft, X } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, Loader2, WifiOff, Plus, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { hapticTap } from '@/ui/utils/haptic'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
-import { MintSelectBottomSheet } from '@/ui/components/payment'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
 import { MintIcon } from '@/ui/components/common/MintIcon'
@@ -20,7 +19,6 @@ interface UntrustedMintStepProps {
   onBack: () => void | Promise<void>
   onReject: () => void | Promise<void>
   onAddAndReceive: () => Promise<void>
-  onSwapToMyMint: (targetMintUrl: string) => Promise<void>
   token: ValidatedCashuToken
   isOnline: boolean
 }
@@ -29,7 +27,6 @@ export function UntrustedMintStep({
   onBack,
   onReject,
   onAddAndReceive,
-  onSwapToMyMint,
   token,
   isOnline,
 }: UntrustedMintStepProps) {
@@ -37,11 +34,9 @@ export function UntrustedMintStep({
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
   const settings = useAppStore((s) => s.settings)
-  const [swapLoading, setSwapLoading] = useState(false)
   const [addLoading, setAddLoading] = useState(false)
   const [rejectLoading, setRejectLoading] = useState(false)
-  const [showMintSelect, setShowMintSelect] = useState(false)
-  const isProcessing = swapLoading || addLoading || rejectLoading
+  const isProcessing = addLoading || rejectLoading
 
   const allMintUrls = useMemo(
     () => [...new Set([token.mintUrl, ...settings.mints])],
@@ -52,7 +47,7 @@ export function UntrustedMintStep({
   const mintIconUrl = getIconUrl(token.mintUrl)
   const formattedAmount = formatSats(token.amountSats)
 
-  const receiveButtonsDisabled = isProcessing || !isOnline
+  const addButtonDisabled = isProcessing || !isOnline
 
   const handleAddAndReceive = useCallback(async () => {
     setAddLoading(true)
@@ -63,17 +58,6 @@ export function UntrustedMintStep({
       setAddLoading(false)
     }
   }, [onAddAndReceive])
-
-  const handleSwapSelect = useCallback(async (targetMintUrl: string) => {
-    setShowMintSelect(false)
-    setSwapLoading(true)
-    hapticTap()
-    try {
-      await onSwapToMyMint(targetMintUrl)
-    } finally {
-      setSwapLoading(false)
-    }
-  }, [onSwapToMyMint])
 
   const handleReject = useCallback(async () => {
     setRejectLoading(true)
@@ -142,7 +126,7 @@ export function UntrustedMintStep({
         {/* Add mint and receive (primary) */}
         <button
           onClick={handleAddAndReceive}
-          disabled={receiveButtonsDisabled}
+          disabled={addButtonDisabled}
           className="w-full bg-brand rounded-[14px] px-5 py-[18px] flex items-center gap-3.5 active:scale-[0.98] transition-transform disabled:opacity-50 shadow-lg shadow-brand/25"
         >
           <div className="w-10 h-10 rounded-[10px] bg-white/20 flex items-center justify-center shrink-0">
@@ -158,29 +142,6 @@ export function UntrustedMintStep({
             </p>
             <p className="text-caption text-white/70 mt-0.5">
               {t('receive.untrusted.addAndReceiveSub')}
-            </p>
-          </div>
-        </button>
-
-        {/* Swap to my mint (secondary) */}
-        <button
-          onClick={() => { hapticTap(); setShowMintSelect(true) }}
-          disabled={receiveButtonsDisabled}
-          className="w-full bg-muted rounded-[14px] px-5 py-[18px] flex items-center gap-3.5 active:scale-[0.98] transition-transform disabled:opacity-50"
-        >
-          <div className="w-10 h-10 rounded-[10px] bg-foreground/[0.06] flex items-center justify-center shrink-0">
-            {swapLoading ? (
-              <Loader2 className="w-5 h-5 animate-spin text-foreground" />
-            ) : (
-              <ArrowRightLeft className="w-5 h-5 text-foreground" strokeWidth={1.8} />
-            )}
-          </div>
-          <div className="flex-1 min-w-0 text-left">
-            <p className="text-body font-bold text-foreground truncate">
-              {t('receive.untrusted.myMint')}
-            </p>
-            <p className="text-caption text-foreground-muted mt-0.5">
-              {t('receive.untrusted.myMintSub')}
             </p>
           </div>
         </button>
@@ -207,17 +168,6 @@ export function UntrustedMintStep({
           </div>
         </button>
       </div>
-
-      {/* Mint Select for swap */}
-      <MintSelectBottomSheet
-        isOpen={showMintSelect}
-        onClose={() => setShowMintSelect(false)}
-        onSelect={handleSwapSelect}
-        selectedMintUrl={null}
-        buttonLabel={t('receive.untrusted.receiveWithMint')}
-        infoText={t('receive.untrusted.feeNote')}
-        allowEmpty
-      />
     </div>
   )
 }
