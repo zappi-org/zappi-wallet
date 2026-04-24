@@ -1124,6 +1124,10 @@ export default {
       summary: '{{count}}個 · 合計 {{total}}',
       viewAll: '待機中を見る',
     },
+    pendingEmpty: {
+      title: 'すべて片付きました',
+      subtitle: '待機中のトークンはありません',
+    },
     reclaimable: {
       section: '取り戻せます ({{count}})',
       viewAll: 'すべて表示 >',

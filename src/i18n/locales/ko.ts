@@ -1130,6 +1130,10 @@ export default {
       summary: '{{count}}개 - 총 {{total}}',
       viewAll: '모두 되찾기',
     },
+    pendingEmpty: {
+      title: '모두 정리됐어요',
+      subtitle: '대기중인 토큰이 없어요',
+    },
     reclaimable: {
       section: '되찾을 수 있어요 ({{count}})',
       actions: {

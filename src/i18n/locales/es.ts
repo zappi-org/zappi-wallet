@@ -1116,6 +1116,10 @@ export default {
       summary: '{{count}} tokens · {{total}}',
       viewAll: 'Ver pendientes',
     },
+    pendingEmpty: {
+      title: 'Todo al día',
+      subtitle: 'Sin tokens pendientes',
+    },
     reclaimable: {
       section: 'Recuperables ({{count}})',
       viewAll: 'Ver todos >',

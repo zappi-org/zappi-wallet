@@ -1123,6 +1123,10 @@ export default {
       summary: '{{count}} tokens · {{total}}',
       viewAll: 'Reclaim all',
     },
+    pendingEmpty: {
+      title: 'All caught up',
+      subtitle: 'No pending tokens',
+    },
     reclaimable: {
       section: 'Reclaimable ({{count}})',
       actions: {

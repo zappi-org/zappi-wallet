@@ -12,6 +12,7 @@ import type { PendingItem } from '@/core/ports/driving/pending-items.usecase'
 import type { Transaction } from '@/core/domain/transaction'
 import { TokenEmptyState } from './components/TokenEmptyState'
 import { PendingWidget } from './components/PendingWidget'
+import { PendingEmptyWidget } from './components/PendingEmptyWidget'
 import { ReclaimableSection } from './components/ReclaimableSection'
 import { TimelineSection } from './components/TimelineSection'
 import { ReclaimSheet } from './components/ReclaimSheet'
@@ -189,22 +190,24 @@ export function TokenScreen({
           <TokenEmptyState />
         ) : (
           <>
-            {hasPending && (
-              <PendingWidget
-                count={pendingTokens.length}
-                totalAmount={pendingTokens.reduce((sum, p) => sum + p.amount, 0)}
-                onViewAll={openReclaimAll}
-              />
-            )}
-            {hasPending && (
-              <ReclaimableSection
-                tokens={pendingTokens}
-                showFirstCreateHint={showFirstCreateHint}
-                onDismissHint={() => setHintDismissed(true)}
-                onShare={handleShare}
-                onReclaim={openReclaimOne}
-                onSelect={onSelectToken ? handleSelectPending : undefined}
-              />
+            {hasPending ? (
+              <>
+                <PendingWidget
+                  count={pendingTokens.length}
+                  totalAmount={pendingTokens.reduce((sum, p) => sum + p.amount, 0)}
+                  onViewAll={openReclaimAll}
+                />
+                <ReclaimableSection
+                  tokens={pendingTokens}
+                  showFirstCreateHint={showFirstCreateHint}
+                  onDismissHint={() => setHintDismissed(true)}
+                  onShare={handleShare}
+                  onReclaim={openReclaimOne}
+                  onSelect={onSelectToken ? handleSelectPending : undefined}
+                />
+              </>
+            ) : (
+              <PendingEmptyWidget />
             )}
             <TimelineSection
               groups={timelineGroups}

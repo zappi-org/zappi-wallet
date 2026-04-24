@@ -1116,6 +1116,10 @@ export default {
       summary: '{{count}} token · {{total}}',
       viewAll: 'Lihat menunggu',
     },
+    pendingEmpty: {
+      title: 'Semua beres',
+      subtitle: 'Tidak ada token menunggu',
+    },
     reclaimable: {
       section: 'Dapat diambil kembali ({{count}})',
       viewAll: 'Lihat semua >',
