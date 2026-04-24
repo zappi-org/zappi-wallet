@@ -68,7 +68,7 @@ describe('CashuBolt11Adapter', () => {
 
       expect(backend.createMintQuote).toHaveBeenCalledWith('https://mint.test', 1000)
       expect(result.id).toBe('mint-quote-1')
-      expect(result.method).toBe('lightning')
+      expect(result.method).toBe('bolt11')
       expect(result.protocol).toBe('bolt11')
       expect(result.encoded).toBe('lnbc1000n1...')
       expect(toNumber(result.amount)).toBe(1000)

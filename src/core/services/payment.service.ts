@@ -212,22 +212,6 @@ export class PaymentService implements PaymentUseCase {
         description: params.description,
       })
 
-      const tx = createTransaction({
-        id: request.id,
-        direction: 'receive',
-        method: request.method,
-        protocol: request.protocol,
-        amount: params.amount,
-        accountId: params.accountId,
-        expiresAt: request.expiresAt,
-        memo: params.description,
-        metadata: { quoteId: request.id, bolt11: request.encoded },
-      })
-      await this.txRepo.save(tx)
-
-      // quoteId → txId 매핑 등록 (mintQuoteObserver가 settle 시 사용)
-      this.operationMap?.register(request.id, request.id)
-
       return Ok(request)
     } catch (error) {
       return Err(toPaymentError(error))

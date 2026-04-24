@@ -25,7 +25,7 @@ function createMockAdapter(overrides?: Partial<PaymentMethodAdapter>): PaymentMe
     cancelPrepared: vi.fn().mockResolvedValue(undefined),
     reclaimFailed: vi.fn().mockResolvedValue(undefined),
     createReceiveRequest: vi.fn().mockResolvedValue({
-      id: 'req-1', method: 'lightning', protocol: 'bolt11',
+      id: 'req-1', method: 'bolt11', protocol: 'bolt11',
       encoded: 'lnbc...', amount: sat(1000),
     }),
     redeem: vi.fn().mockResolvedValue({ amount: sat(500), method: 'lightning', protocol: 'bolt11' }),
@@ -203,10 +203,10 @@ describe('PaymentService', () => {
   // ─── receive ───
 
   describe('receive', () => {
-    it('creates receive request and records transaction', async () => {
+    it('creates receive request without recording a premature transaction', async () => {
       const mockAdapter = createMockAdapter({
         createReceiveRequest: vi.fn().mockResolvedValue({
-          id: 'quote-1', method: 'lightning', protocol: 'bolt11',
+          id: 'quote-1', method: 'bolt11', protocol: 'bolt11',
           encoded: 'lnbc1000...', amount: sat(1000),
         }),
       })
@@ -222,14 +222,14 @@ describe('PaymentService', () => {
       expect(result.ok).toBe(true)
       if (!result.ok) return
       expect(result.value.encoded).toBe('lnbc1000...')
-      expect(txRepo.save).toHaveBeenCalled()
+      expect(txRepo.save).not.toHaveBeenCalled()
     })
 
     it('resolves by protocol hint', async () => {
       const bolt11Adapter = createMockAdapter({
         id: 'cashu:bolt11', protocol: 'bolt11',
         createReceiveRequest: vi.fn().mockResolvedValue({
-          id: 'quote-bolt11', method: 'lightning', protocol: 'bolt11',
+          id: 'quote-bolt11', method: 'bolt11', protocol: 'bolt11',
           encoded: 'lnbc...', amount: sat(1000),
         }),
       })
@@ -254,7 +254,7 @@ describe('PaymentService', () => {
     it('without protocol resolves to first canReceive adapter', async () => {
       const mockAdapter = createMockAdapter({
         createReceiveRequest: vi.fn().mockResolvedValue({
-          id: 'quote-1', method: 'lightning', protocol: 'bolt11',
+          id: 'quote-1', method: 'bolt11', protocol: 'bolt11',
           encoded: 'lnbc...', amount: sat(1000),
         }),
       })

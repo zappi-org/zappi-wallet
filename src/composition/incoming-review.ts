@@ -41,7 +41,7 @@ async function completeLinkedReceiveRequest(
   }
 
   const request = await receiveRequest.findByRequestId(review.requestId)
-  if (request && request.status === 'pending') {
+  if (request) {
     await receiveRequest.complete(request.id, 'ecash')
   }
 }

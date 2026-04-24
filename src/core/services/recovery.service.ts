@@ -12,13 +12,14 @@ import type { FailedIncomingStore } from '@/core/ports/driven/failed-incoming-st
 import type { TokenReceiver } from '@/core/ports/driven/token-receiver.port'
 import type { TrustedMintProvider } from '@/core/ports/driven/trusted-mint-provider.port'
 import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-queue.port'
+import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request.usecase'
 import type {
   RecoveryUseCase,
   AnchorCheckResult,
   RetryResult,
   RecoveryStatus,
 } from '@/core/ports/driving/recovery.usecase'
-import type { SyncResult, ProcessedRecord } from '@/core/types'
+import type { FailedIncoming, SyncResult, ProcessedRecord } from '@/core/types'
 import { RETRY } from '@/core/constants'
 import { parseDirectToken } from '@/core/domain/direct-token'
 import { previewCashuToken } from '@/core/domain/cashu-token-preview'
@@ -28,6 +29,7 @@ import { previewCashuToken } from '@/core/domain/cashu-token-preview'
 const ANCHOR_VALIDITY_SECONDS = 2 * 24 * 60 * 60
 const ANCHOR_MESSAGE_TYPE = 'zappi-anchor'
 const ANCHOR_VERSION = 1
+type ReceiveRequestSettlement = Pick<ReceiveRequestUseCase, 'settleByPaymentRef'>
 
 interface AnchorMessage {
   type: typeof ANCHOR_MESSAGE_TYPE
@@ -54,6 +56,7 @@ export class RecoveryService implements RecoveryUseCase {
     private readonly tokenReceiver: TokenReceiver,
     private readonly trustedMintProvider: TrustedMintProvider,
     private readonly incomingReviewQueue: IncomingReviewQueue,
+    private readonly receiveRequest?: ReceiveRequestSettlement,
   ) {}
 
   // ─── syncAll (orchestration) ───
@@ -277,6 +280,11 @@ export class RecoveryService implements RecoveryUseCase {
       }
 
       try {
+        if (item.redeemSucceeded) {
+          await this.retryReceiveRequestSettlement(item, result)
+          continue
+        }
+
         const receiveResult = await this.tokenReceiver.receiveToken(item.payload)
 
         if (receiveResult.ok) {
@@ -303,6 +311,44 @@ export class RecoveryService implements RecoveryUseCase {
     }
 
     return result
+  }
+
+  private async retryReceiveRequestSettlement(
+    item: FailedIncoming,
+    result: RetryResult,
+  ): Promise<void> {
+    if (!this.receiveRequest || !item.receiveRequestPaymentRef || !item.receiveRequestMethod) {
+      const error = 'Missing ReceiveRequest settlement retry context'
+      await this.failedIncomingStore.update(item.id, {
+        isRetryable: false,
+        error,
+        errorCode: 'RECEIVE_REQUEST_SETTLEMENT_CONTEXT_MISSING',
+        attemptCount: item.attemptCount + 1,
+        lastAttemptAt: Date.now(),
+      })
+      result.failed++
+      result.errors.push(`Item ${item.id}: RECEIVE_REQUEST_SETTLEMENT_CONTEXT_MISSING`)
+      return
+    }
+
+    try {
+      await this.receiveRequest.settleByPaymentRef(
+        item.receiveRequestPaymentRef,
+        item.receiveRequestMethod,
+      )
+      await this.failedIncomingStore.delete(item.id)
+      result.succeeded++
+    } catch (error) {
+      await this.failedIncomingStore.update(item.id, {
+        isRetryable: true,
+        error: String(error),
+        errorCode: 'RECEIVE_REQUEST_SETTLEMENT_FAILED',
+        attemptCount: item.attemptCount + 1,
+        lastAttemptAt: Date.now(),
+      })
+      result.failed++
+      result.errors.push(`Item ${item.id}: RECEIVE_REQUEST_SETTLEMENT_FAILED`)
+    }
   }
 
   // ─── Queries ───

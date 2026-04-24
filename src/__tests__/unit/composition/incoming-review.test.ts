@@ -23,7 +23,7 @@ function createReview(overrides: Partial<PendingIncomingReview> = {}): PendingIn
 describe('resolveIncomingReview', () => {
   it('completes the linked request before marking processed and removing the queue entry', async () => {
     const receiveRequest = {
-      findByRequestId: vi.fn().mockResolvedValue({ id: 'receive-1', status: 'pending' }),
+      findByRequestId: vi.fn().mockResolvedValue({ id: 'receive-1', fulfillmentStatus: 'pending' }),
       complete: vi.fn().mockResolvedValue(undefined),
     }
     const processedStore = {
@@ -75,7 +75,7 @@ describe('resolveIncomingReview', () => {
 
   it('does not mark processed or remove the queue entry when linked request completion fails', async () => {
     const receiveRequest = {
-      findByRequestId: vi.fn().mockResolvedValue({ id: 'receive-1', status: 'pending' }),
+      findByRequestId: vi.fn().mockResolvedValue({ id: 'receive-1', fulfillmentStatus: 'pending' }),
       complete: vi.fn().mockRejectedValue(new Error('write failed')),
     }
     const processedStore = {
@@ -93,6 +93,29 @@ describe('resolveIncomingReview', () => {
 
     expect(processedStore.save).not.toHaveBeenCalled()
     expect(removeIncomingReview).not.toHaveBeenCalled()
+  })
+
+  it('records additional ecash settlement even when the linked request was already fulfilled', async () => {
+    const receiveRequest = {
+      findByRequestId: vi.fn().mockResolvedValue({ id: 'receive-1', fulfillmentStatus: 'fulfilled' }),
+      complete: vi.fn().mockResolvedValue(undefined),
+    }
+    const processedStore = {
+      save: vi.fn().mockResolvedValue(undefined),
+    }
+    const removeIncomingReview = vi.fn()
+
+    await resolveIncomingReview({
+      receiveRequest,
+      processedStore,
+      removeIncomingReview,
+    }, {
+      review: createReview(),
+    })
+
+    expect(receiveRequest.complete).toHaveBeenCalledWith('receive-1', 'ecash')
+    expect(processedStore.save).toHaveBeenCalled()
+    expect(removeIncomingReview).toHaveBeenCalledWith('event-1')
   })
 
   it('treats ACK delivery as best-effort after the review is already resolved', async () => {

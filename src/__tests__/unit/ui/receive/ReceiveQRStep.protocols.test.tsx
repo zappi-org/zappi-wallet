@@ -67,6 +67,10 @@ describe('ReceiveQRStep protocol tabs', () => {
     mockSetPendingEcashRequestId.mockReset()
     stableStore.setLastRedeemedQuote.mockReset()
     stableStore.setLastReceivedPayment.mockReset()
+    stableStore.lastRedeemedQuoteId = null
+    stableStore.lastRedeemedQuoteAmount = 0
+    stableStore.lastReceivedRequestId = null
+    stableStore.lastReceivedAmount = 0
     mockBuildUnifiedBitcoinUri.mockReturnValue('bitcoin:?lightning=LNB...&cr=creqA-test')
 
     Object.defineProperty(navigator, 'clipboard', {
@@ -134,5 +138,28 @@ describe('ReceiveQRStep protocol tabs', () => {
 
     await user.click(screen.getByRole('button', { name: 'common.copied' }))
     expect(screen.getByRole('button', { name: 'common.copied' })).toBeInTheDocument()
+  })
+
+  it('reports lightning quote settlement as canonical bolt11 receive method', async () => {
+    stableStore.lastRedeemedQuoteId = 'quote-1'
+    stableStore.lastRedeemedQuoteAmount = 1234
+    const onPaymentDetected = vi.fn()
+
+    render(
+      <ReceiveQRStep
+        onBack={vi.fn()}
+        onPaymentDetected={onPaymentDetected}
+        amount={1234}
+        mintUrl="https://alpha.mint"
+        invoice="lnbc123n1test"
+        quoteId="quote-1"
+        ecashRequest="creqA-test"
+        ecashRequestId="request-1"
+        httpEndpoint={null}
+      />,
+    )
+
+    expect(onPaymentDetected).toHaveBeenCalledWith(1234, 'bolt11')
+    expect(stableStore.setLastRedeemedQuote).toHaveBeenCalledWith(null, 0)
   })
 })

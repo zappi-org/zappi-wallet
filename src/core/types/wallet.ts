@@ -139,6 +139,9 @@ export interface FailedIncoming {
   createdAt: number
   externalId?: string
   txId?: string
+  redeemSucceeded?: boolean
+  receiveRequestPaymentRef?: string
+  receiveRequestMethod?: string
 }
 
 /**

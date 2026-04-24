@@ -135,3 +135,32 @@ References: Toss + Apple Wallet
 - [ ] border-radius 정리 (후순위)
 - [ ] 그림자 패턴 정리 (후순위)
 - [ ] Phase 5 최종 Polish
+
+# Current Task — ZAP-173
+
+- [x] Re-read root `CLAUDE.md`, root `AGENTS.md`, wallet `AGENTS.md`, and `tasks/lessons.md`
+- [x] Re-read Linear `ZAP-173` and confirm the current code only has a single ReceiveRequest status model
+- [x] Create dedicated branch `fix/zap-173-receive-request-lifecycle` from clean `staging`
+- [x] Ask specialist agents for implementation design and security/hexagonal-rule risk review before coding
+- [x] Replace single ReceiveRequest status with domain-level `fulfillmentStatus` and per-method `status`
+- [x] Add pure domain transitions: fulfill by method, expire method/request, cancel request, receive additional method
+- [x] Update receive request ports/services/repository so state transitions go through the domain, not UI/store/Dexie shortcuts
+- [x] Preserve legacy Dexie compatibility while making `paymentMethods` the canonical persisted method state
+- [x] Stop `PaymentService.receive()` from creating premature pending receive transactions
+- [x] Normalize ReceiveRequest lifecycle method identifiers to `bolt11` / `ecash` while preserving BIP-321 `lightning` URI naming
+- [x] Hide fulfilled ReceiveRequests from pending UI without deleting method state or cancelling transactions
+- [x] Cover duplicate settlement, additional-method settlement, expiry, legacy mapping, and no-premature-TX behavior with tests
+- [x] Run full verification: focused tests, `bun run lint`, `npx tsc --noEmit`, `bun run test -- --run`, `bun run build`, and `git diff --check`
+- [x] Run final specialist audit and only complete Linear if no security, rule, hardcoding, workaround, or hexagonal-boundary issue remains
+
+Review
+- ZAP-173 must not be solved by setting `status = completed` and hiding symptoms. The root fix is a domain lifecycle split: request fulfillment is UI-level completion, method status tracks each payment method independently.
+- Core must stay pure/inward-only; Dexie, Coco, Zustand, i18n, and UI logic remain outside the hexagon.
+- Transaction deletion/cancellation is not the primary fix. Fulfilled requests are hidden by ReceiveRequest fulfillment state while method state is retained for duplicate/additional settlement handling.
+- Implementation now stores canonical `paymentMethods` with method-level status in Dexie while still reading legacy flat records (`status`, `quoteId`, `ecashRequestId`, `completedMethod`).
+- `EventStoreBridge` no longer performs raw Dexie ReceiveRequest lifecycle writes; it forwards settlement signals to `ReceiveRequestUseCase.settleByPaymentRef`.
+- `PaymentService.receive()` no longer writes pending receive transactions before settlement. Actual receive transactions continue to be recorded by settlement paths.
+- Trusted gift-wrap receive now records ReceiveRequest lifecycle before marking the event processed. If redeem succeeds but lifecycle persistence fails, the failed-incoming queue keeps the ReceiveRequest ref/method so recovery can retry the lifecycle write without re-redeeming an already-spent token.
+- Receive QR creation now persists the canonical ReceiveRequest before adding the legacy pending quote or showing a payable QR. If persistence fails, the flow shows an error and does not expose the request.
+- Verification passed: focused ZAP-173 tests, `bun run test -- --run` (78 files / 577 tests), `bun run lint`, `npx tsc --noEmit`, `bun run build`, and `git diff --check`.
+- Final specialist audit found no blockers and no security, rule, hexagonal-boundary, hardcoding, or workaround violations. The audit included untracked new files, `verify-*` discovery, core import-boundary search, raw ReceiveRequest Dexie write search outside the adapter, `modules/cashu/internal` diff additions, TODO/HACK/workaround/hardcoding/sensitive diff search, and `tasks/lessons.md` review.

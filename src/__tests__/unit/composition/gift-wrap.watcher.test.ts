@@ -105,6 +105,8 @@ describe('GiftWrapWatcher', () => {
       externalId: 'ev-2',
       memo: undefined,
       metadata: { sender: 'sender-pubkey' },
+      receiveRequestPaymentRef: 'request-1',
+      receiveRequestMethod: 'ecash',
     })
     expect(deps.eventBus.emit).toHaveBeenCalledWith({
       type: 'receive:settled',

@@ -204,6 +204,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const profile = createProfileService(nostrGateway, settingsRepo)
   const inputRouter = createInputRouter(lnurlAdapter)
   const addressResolver = createAddressResolver(nip05Adapter, nostrGateway, lnurlAdapter)
+  const receiveRequest = new ReceiveRequestFacadeService(receiveRequestRepo)
 
   // 6. P2PK key manager
   const p2pkKeyManager = new CocoP2PKKeyManager(async () => {
@@ -242,7 +243,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const disconnectBridge = connectEventStoreBridge(eventBus, {
     handleBalance: true,
     balanceRefresh,
-    receiveRequestRepo,
+    receiveRequest,
   })
 
   // 8. Lifecycle: activate (Coco init + observers + watchers + bridge)
@@ -293,8 +294,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   }
 
   // 9. Additional services
-  const recovery = createRecoveryService(nostrGateway, payment, trustedMintProvider, incomingReviewQueue)
-  const incomingPayment = new IncomingPaymentService(payment, processedStore, failedIncomingStore)
+  const recovery = createRecoveryService(nostrGateway, payment, trustedMintProvider, incomingReviewQueue, receiveRequest)
+  const incomingPayment = new IncomingPaymentService(payment, processedStore, failedIncomingStore, receiveRequest)
   const pendingItems = createPendingItemsService(txRepo, receiveRequestRepo, modules)
 
   // 10. Gift wrap watcher
@@ -334,8 +335,6 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
   const sendTokenOperator = new SendTokenOperatorAdapter()
   const transactionMgmt = new TransactionMgmtService(txRepo, sendTokenOperator)
-
-  const receiveRequest = new ReceiveRequestFacadeService(receiveRequestRepo)
 
   const paymentRequest = new PaymentRequestService(tokenCodec, (opts) => {
     const poller = startNut18HttpPoller({

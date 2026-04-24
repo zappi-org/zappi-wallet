@@ -6,6 +6,8 @@ import type { ValidatedCashuToken } from '@/core/domain/input-types'
 
 const mocks = vi.hoisted(() => ({
   addToast: vi.fn(),
+  addPendingQuote: vi.fn(),
+  receiveRequestCreate: vi.fn().mockResolvedValue(undefined),
   settingsMints: ['https://target.mint'] as string[],
 }))
 
@@ -23,9 +25,11 @@ vi.mock('@/store', () => ({
   useAppStore: (selector: (state: {
     settings: { mints: string[] }
     addToast: typeof mocks.addToast
+    addPendingQuote: typeof mocks.addPendingQuote
   }) => unknown) => selector({
     settings: { mints: mocks.settingsMints },
     addToast: mocks.addToast,
+    addPendingQuote: mocks.addPendingQuote,
   }),
 }))
 
@@ -34,7 +38,9 @@ vi.mock('@/ui/hooks/use-network', () => ({
 }))
 
 vi.mock('@/ui/hooks/use-receive-request', () => ({
-  useReceiveRequest: () => ({}),
+  useReceiveRequest: () => ({
+    create: mocks.receiveRequestCreate,
+  }),
 }))
 
 vi.mock('@/utils/format', () => ({
@@ -46,15 +52,39 @@ vi.mock('@/ui/components/common/PageTransition', () => ({
 }))
 
 vi.mock('@/ui/screens/Receive/steps/TokenReceiveStep', () => ({
-  TokenReceiveStep: () => null,
+  TokenReceiveStep: ({ onNext }: { onNext: () => void }) => (
+    <button type="button" onClick={onNext}>go-amount</button>
+  ),
 }))
 
 vi.mock('@/ui/screens/Receive/steps/ReceiveInputStep', () => ({
-  ReceiveInputStep: () => null,
+  ReceiveInputStep: ({
+    onNext,
+  }: {
+    onNext: (data: {
+      amount: number
+      mintUrl: string
+      ecashRequest?: string
+      ecashRequestId?: string
+      httpEndpoint?: string
+    }) => void
+  }) => (
+    <button
+      type="button"
+      onClick={() => onNext({
+        amount: 100,
+        mintUrl: 'https://target.mint',
+        ecashRequest: 'creq...',
+        ecashRequestId: 'ecash-1',
+      })}
+    >
+      create-request
+    </button>
+  ),
 }))
 
 vi.mock('@/ui/screens/Receive/steps/ReceiveQRStep', () => ({
-  ReceiveQRStep: () => null,
+  ReceiveQRStep: () => <div data-testid="receive-qr" />,
 }))
 
 vi.mock('@/ui/screens/Receive/steps/TokenConfirmStep', () => ({
@@ -129,6 +159,7 @@ function renderFlow(overrides: Partial<Parameters<typeof ReceiveFlow>[0]> = {}) 
 describe('ReceiveFlow token receive', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.receiveRequestCreate.mockResolvedValue(undefined)
     mocks.settingsMints = ['https://target.mint']
   })
 
@@ -214,5 +245,62 @@ describe('ReceiveFlow token receive', () => {
       expect(screen.getByTestId('receive-complete')).toHaveTextContent('1:https://source.mint')
     })
     expect(onReceiveToken).toHaveBeenCalledWith('cashuA...')
+  })
+
+  it('does not expose a payable QR or add a pending quote when ReceiveRequest persistence fails', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mocks.receiveRequestCreate.mockRejectedValueOnce(new Error('db write failed'))
+    const onCreateInvoice = vi.fn().mockResolvedValue({
+      invoice: 'lnbc...',
+      quoteId: 'quote-1',
+      expiry: 1_700_000_000,
+    })
+
+    renderFlow({
+      validatedData: undefined,
+      onCreateInvoice,
+    })
+
+    fireEvent.click(screen.getByText('go-amount'))
+    fireEvent.click(screen.getByText('create-request'))
+
+    await waitFor(() => {
+      expect(mocks.receiveRequestCreate).toHaveBeenCalled()
+    })
+
+    expect(mocks.addPendingQuote).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('receive-qr')).not.toBeInTheDocument()
+    expect(mocks.addToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }))
+    errorSpy.mockRestore()
+  })
+
+  it('adds the pending quote only after ReceiveRequest persistence succeeds', async () => {
+    const onCreateInvoice = vi.fn().mockResolvedValue({
+      invoice: 'lnbc...',
+      quoteId: 'quote-1',
+      expiry: 1_700_000_000,
+    })
+
+    renderFlow({
+      validatedData: undefined,
+      onCreateInvoice,
+    })
+
+    fireEvent.click(screen.getByText('go-amount'))
+    fireEvent.click(screen.getByText('create-request'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('receive-qr')).toBeInTheDocument()
+    })
+
+    expect(mocks.receiveRequestCreate).toHaveBeenCalled()
+    expect(mocks.addPendingQuote).toHaveBeenCalledWith(expect.objectContaining({
+      quoteId: 'quote-1',
+      mintUrl: 'https://target.mint',
+      invoice: 'lnbc...',
+    }))
+    expect(mocks.receiveRequestCreate.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.addPendingQuote.mock.invocationCallOrder[0],
+    )
   })
 })

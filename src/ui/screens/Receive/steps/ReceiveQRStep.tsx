@@ -26,7 +26,7 @@ interface ProtocolOption {
 
 interface ReceiveQRStepProps {
   onBack: () => void
-  onPaymentDetected: (amount: number, method: 'lightning' | 'ecash') => void
+  onPaymentDetected: (amount: number, method: 'bolt11' | 'ecash') => void
   amount: number
   mintUrl: string
   // Lightning
@@ -127,7 +127,7 @@ export function ReceiveQRStep({
       paymentDetectedRef.current = true
       setLastRedeemedQuote(null, 0)
       hapticSuccess()
-      onPaymentDetected(lastRedeemedQuoteAmount ?? amount, 'lightning')
+      onPaymentDetected(lastRedeemedQuoteAmount ?? amount, 'bolt11')
     }
   }, [quoteId, lastRedeemedQuoteId, lastRedeemedQuoteAmount, setLastRedeemedQuote, amount, onPaymentDetected, ecashRequestId])
 

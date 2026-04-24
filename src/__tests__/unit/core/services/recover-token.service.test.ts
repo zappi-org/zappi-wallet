@@ -96,7 +96,11 @@ function createMocks() {
     enqueue: vi.fn().mockResolvedValue(undefined),
   }
 
-  return { nostr, anchorStore, recoveryStore, failedIncomingStore, tokenReceiver, trustedMintProvider, incomingReviewQueue }
+  const receiveRequest = {
+    settleByPaymentRef: vi.fn().mockResolvedValue(null),
+  }
+
+  return { nostr, anchorStore, recoveryStore, failedIncomingStore, tokenReceiver, trustedMintProvider, incomingReviewQueue, receiveRequest }
 }
 
 // ─── Tests ───
@@ -116,6 +120,7 @@ describe('RecoveryService', () => {
       mocks.tokenReceiver,
       mocks.trustedMintProvider,
       mocks.incomingReviewQueue,
+      mocks.receiveRequest,
     )
   })
 
@@ -307,6 +312,34 @@ describe('RecoveryService', () => {
       expect(mocks.failedIncomingStore.update).toHaveBeenCalledWith('item-1', expect.objectContaining({
         attemptCount: 2,
       }))
+    })
+
+    it('retries lifecycle-only failed incoming settlements without re-redeeming the token', async () => {
+      vi.mocked(mocks.failedIncomingStore.getRetryable).mockResolvedValue([
+        {
+          id: 'item-1',
+          payload: 'cashuBtoken',
+          accountId: 'https://mint.test',
+          amount: 100,
+          error: 'write failed',
+          errorCode: 'RECEIVE_REQUEST_SETTLEMENT_FAILED',
+          isRetryable: true,
+          attemptCount: 1,
+          lastAttemptAt: 0,
+          createdAt: Date.now(),
+          redeemSucceeded: true,
+          receiveRequestPaymentRef: 'request-1',
+          receiveRequestMethod: 'ecash',
+        },
+      ])
+
+      const result = await service.retryFailedIncomings()
+
+      expect(result.succeeded).toBe(1)
+      expect(result.failed).toBe(0)
+      expect(mocks.receiveRequest.settleByPaymentRef).toHaveBeenCalledWith('request-1', 'ecash')
+      expect(mocks.tokenReceiver.receiveToken).not.toHaveBeenCalled()
+      expect(mocks.failedIncomingStore.delete).toHaveBeenCalledWith('item-1')
     })
   })
 

@@ -10,6 +10,7 @@ import { RecoveryService } from '@/core/services/recovery.service'
 import type { RecoveryUseCase } from '@/core/ports/driving/recovery.usecase'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
 import type { PaymentUseCase } from '@/core/ports/driving/payment.usecase'
+import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request.usecase'
 import type { TrustedMintProvider } from '@/core/ports/driven/trusted-mint-provider.port'
 import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-queue.port'
 
@@ -18,6 +19,7 @@ export function createRecoveryService(
   payment: PaymentUseCase,
   trustedMintProvider: TrustedMintProvider,
   incomingReviewQueue: IncomingReviewQueue,
+  receiveRequest?: Pick<ReceiveRequestUseCase, 'settleByPaymentRef'>,
 ): RecoveryUseCase {
   return new RecoveryService(
     nostrGateway,
@@ -27,5 +29,6 @@ export function createRecoveryService(
     new TokenReceiverAdapter(payment),
     trustedMintProvider,
     incomingReviewQueue,
+    receiveRequest,
   )
 }

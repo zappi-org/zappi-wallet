@@ -30,7 +30,7 @@ function createMockLightningAdapter(overrides?: Partial<PaymentMethodAdapter>): 
     reclaimFailed: vi.fn(),
     recoverPending: vi.fn().mockResolvedValue({ recovered: 0, failed: 0 }),
     createReceiveRequest: vi.fn().mockResolvedValue({
-      id: 'quote-1', method: 'lightning', protocol: 'bolt11',
+      id: 'quote-1', method: 'bolt11', protocol: 'bolt11',
       encoded: 'lnbc1000n1...', amount: sat(1000),
     }),
     onReceiveCompleted: vi.fn().mockImplementation((_requestId, handler) => {
@@ -305,11 +305,11 @@ describe('SwapService', () => {
       const drainAdapter = createMockLightningAdapter({
         createReceiveRequest: vi.fn()
           .mockResolvedValueOnce({
-            id: 'quote-1', method: 'lightning', protocol: 'bolt11',
+            id: 'quote-1', method: 'bolt11', protocol: 'bolt11',
             encoded: 'lnbc100n1...', amount: sat(100),
           })
           .mockResolvedValueOnce({
-            id: 'quote-2', method: 'lightning', protocol: 'bolt11',
+            id: 'quote-2', method: 'bolt11', protocol: 'bolt11',
             encoded: 'lnbc95n1...', amount: sat(95),
           }),
         prepareSend: vi.fn()
@@ -374,7 +374,7 @@ describe('SwapService', () => {
       const unsubscribe = vi.fn()
       const drainAdapter = createMockLightningAdapter({
         createReceiveRequest: vi.fn().mockResolvedValue({
-          id: 'quote-1', method: 'lightning', protocol: 'bolt11',
+          id: 'quote-1', method: 'bolt11', protocol: 'bolt11',
           encoded: 'lnbc100n1...', amount: sat(100),
         }),
         prepareSend: vi.fn().mockResolvedValue({
@@ -409,7 +409,7 @@ describe('SwapService', () => {
       const unsubscribe = vi.fn()
       const drainAdapter = createMockLightningAdapter({
         createReceiveRequest: vi.fn().mockResolvedValue({
-          id: 'quote-1', method: 'lightning', protocol: 'bolt11',
+          id: 'quote-1', method: 'bolt11', protocol: 'bolt11',
           encoded: 'lnbc100n1...', amount: sat(100),
         }),
         prepareSend: vi.fn().mockResolvedValue({
@@ -445,7 +445,7 @@ describe('SwapService', () => {
       const unsubscribe = vi.fn()
       const drainAdapter = createMockLightningAdapter({
         createReceiveRequest: vi.fn().mockResolvedValue({
-          id: 'quote-1', method: 'lightning', protocol: 'bolt11',
+          id: 'quote-1', method: 'bolt11', protocol: 'bolt11',
           encoded: 'lnbc100n1...', amount: sat(100),
         }),
         prepareSend: vi.fn().mockResolvedValue({
@@ -490,11 +490,11 @@ describe('SwapService', () => {
       const drainAdapter = createMockLightningAdapter({
         createReceiveRequest: vi.fn()
           .mockResolvedValueOnce({
-            id: 'quote-1', method: 'lightning', protocol: 'bolt11',
+            id: 'quote-1', method: 'bolt11', protocol: 'bolt11',
             encoded: 'lnbc100n1...', amount: sat(100),
           })
           .mockResolvedValueOnce({
-            id: 'quote-2', method: 'lightning', protocol: 'bolt11',
+            id: 'quote-2', method: 'bolt11', protocol: 'bolt11',
             encoded: 'lnbc95n1...', amount: sat(95),
           }),
         prepareSend: vi.fn()

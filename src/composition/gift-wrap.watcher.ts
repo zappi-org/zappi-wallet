@@ -138,6 +138,8 @@ export class GiftWrapWatcher {
       externalId: msg.eventId,
       memo: parsed.memo,
       metadata: parsed.metadata ? { sender: msg.sender, ...parsed.metadata } : { sender: msg.sender },
+      receiveRequestPaymentRef: parsed.requestId,
+      receiveRequestMethod: parsed.requestId ? 'ecash' : undefined,
     })
 
     if (result.status === 'already_processed') return

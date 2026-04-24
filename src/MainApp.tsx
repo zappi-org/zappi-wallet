@@ -94,7 +94,6 @@ export default function MainApp() {
   const setNostrKeyPair = useAppStore((state) => state.setNostrKeyPair)
   const setP2pkPubkey = useAppStore((state) => state.setP2pkPubkey)
   const setSettings = useAppStore((state) => state.setSettings)
-  const addPendingQuote = useAppStore((state) => state.addPendingQuote)
   const removeIncomingReview = useAppStore((state) => state.removeIncomingReview)
 
   // Service Registry (Phase 5: bootstrap 후 생성, unlock 전에는 null)
@@ -378,13 +377,6 @@ export default function MainApp() {
     })
     if (result.ok) {
       const req = result.value
-      addPendingQuote({
-        quoteId: req.id,
-        mintUrl,
-        amount,
-        invoice: req.encoded,
-        expiry: req.expiresAt ? req.expiresAt : Date.now() + 10 * 60 * 1000,
-      })
       return {
         invoice: req.encoded,
         quoteId: req.id,
@@ -392,7 +384,7 @@ export default function MainApp() {
       }
     }
     return null
-  }, [serviceRegistry, addPendingQuote])
+  }, [serviceRegistry])
 
   const handleReceiveToken = useCallback(async (token: string): Promise<{ success: boolean; amount?: number; transactionId?: string; error?: { code?: string; message?: string } }> => {
     // Phase 5: PaymentUseCase.redeem() 경유

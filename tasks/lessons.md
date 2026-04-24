@@ -22,3 +22,5 @@
 - Coco token receive can surface fee shortfalls as raw SDK text such as `Receive amount is not sufficient after fees`; classify this at the Cashu boundary and preserve the domain error code through `PaymentService` so UI never displays raw SDK English.
 - Token receive copy must not promise “no fee” for direct/original-mint receive; Cashu mint input fees can still consume tiny tokens. The receive-token UX should keep a simple pre-redeem decision: configured mint tokens offer original-mint receive or reject, and unconfigured mint tokens offer add-and-receive or reject.
 - Transaction repository updates must merge metadata rather than replace it when adding derived fields like effective fees; swap route metadata (`fromMintUrl`/`toMintUrl`) is needed by both linked transaction rows.
+- Do not expose a payable receive QR before its canonical ReceiveRequest lifecycle record is persisted. Legacy pending quote/UI state must be added only after the domain record exists.
+- If a post-redeem lifecycle write can fail, the retry queue must persist enough context to repair that lifecycle write without re-redeeming an already-spent token.

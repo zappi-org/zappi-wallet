@@ -41,7 +41,7 @@ export function connectCocoEventBridge(
         requestId: operation.quoteId,
         amount: operation.amount,
         accountId: mintUrl,
-        method: 'lightning',
+        method: 'bolt11',
         isSwapStep: isSwapQuote(operation.quoteId),
       },
     })

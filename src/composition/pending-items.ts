@@ -8,7 +8,6 @@ import type { ReceiveRequestRepository } from '@/core/ports/driven/receive-reque
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { WalletModule } from '@/core/ports/driven/wallet-module.port'
 import { getDatabase } from '@/adapters/storage/dexie/schema'
-import { stripTrailingSlash } from '@/utils/url'
 import { getActivePendingQuotes } from '@/modules/cashu'
 
 export function createPendingItemsService(
@@ -22,20 +21,6 @@ export function createPendingItemsService(
       return mintVariants
         ? db.pendingReceivedTokens.where('mintUrl').anyOf(mintVariants).toArray()
         : db.pendingReceivedTokens.toArray()
-    },
-
-    async getPendingReceiveRequests(mintVariants) {
-      const db = getDatabase()
-      const now = Date.now()
-      const results = await db.receiveRequests.where('status').equals('pending').toArray()
-      const normalizedMints = mintVariants?.map(stripTrailingSlash)
-      return results.filter((r) => {
-        if (r.expiresAt <= now) return false
-        if (normalizedMints && normalizedMints.length > 0) {
-          return normalizedMints.includes(stripTrailingSlash(r.mintUrl))
-        }
-        return true
-      })
     },
 
     async getPendingSendTokens(mintVariants) {

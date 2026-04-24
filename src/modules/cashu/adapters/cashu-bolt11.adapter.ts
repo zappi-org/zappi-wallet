@@ -159,7 +159,7 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter {
 
     return {
       id: quote.quote,
-      method: 'lightning',
+      method: 'bolt11',
       protocol: 'bolt11',
       encoded: quote.request,
       amount: params.amount,

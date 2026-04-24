@@ -158,26 +158,12 @@ describe('EventStoreBridge', () => {
   })
 
   describe('receive:settled → ReceiveRequest completion', () => {
-    const pendingReq = {
-      id: 'req-1',
-      status: 'pending' as const,
-      amount: { sats: 1000 },
-      accountId: 'mint-url',
-      paymentMethods: [],
-      createdAt: Date.now(),
-      expiresAt: Date.now() + 60_000,
-    }
-
-    it('ecash(wallet-xxx) requestId로 ReceiveRequest를 찾아 completed로 저장', async () => {
-      const mockRepo = {
-        findByPaymentRef: vi.fn().mockResolvedValue(pendingReq),
-        save: vi.fn().mockResolvedValue(undefined),
-        getById: vi.fn(),
-        listPending: vi.fn(),
-        cleanupExpired: vi.fn(),
+    it('ecash(wallet-xxx) requestId settlement을 ReceiveRequest use case로 전달', async () => {
+      const receiveRequest = {
+        settleByPaymentRef: vi.fn().mockResolvedValue(null),
       }
 
-      const d = connectEventStoreBridge(eventBus, { receiveRequestRepo: mockRepo })
+      const d = connectEventStoreBridge(eventBus, { receiveRequest })
 
       eventBus.emit({
         type: 'receive:settled',
@@ -190,24 +176,20 @@ describe('EventStoreBridge', () => {
         },
       })
 
-      await vi.waitFor(() => expect(mockRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 'completed', completedMethod: 'nostr-gift-wrap' }),
+      await vi.waitFor(() => expect(receiveRequest.settleByPaymentRef).toHaveBeenCalledWith(
+        'wallet-abc123',
+        'nostr-gift-wrap',
       ))
-      expect(mockRepo.findByPaymentRef).toHaveBeenCalledWith('wallet-abc123')
 
       d()
     })
 
-    it('lightning(quoteId) requestId로 ReceiveRequest를 찾아 completed로 저장', async () => {
-      const mockRepo = {
-        findByPaymentRef: vi.fn().mockResolvedValue(pendingReq),
-        save: vi.fn().mockResolvedValue(undefined),
-        getById: vi.fn(),
-        listPending: vi.fn(),
-        cleanupExpired: vi.fn(),
+    it('bolt11 quote settlement을 ReceiveRequest use case로 전달', async () => {
+      const receiveRequest = {
+        settleByPaymentRef: vi.fn().mockResolvedValue(null),
       }
 
-      const d = connectEventStoreBridge(eventBus, { receiveRequestRepo: mockRepo })
+      const d = connectEventStoreBridge(eventBus, { receiveRequest })
 
       eventBus.emit({
         type: 'receive:settled',
@@ -215,30 +197,25 @@ describe('EventStoreBridge', () => {
           requestId: 'qt-deadbeef',
           amount: 2000,
           accountId: 'account-1',
-          method: 'lightning',
+          method: 'bolt11',
           isSwapStep: false,
         },
       })
 
-      await vi.waitFor(() => expect(mockRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 'completed', completedMethod: 'lightning' }),
+      await vi.waitFor(() => expect(receiveRequest.settleByPaymentRef).toHaveBeenCalledWith(
+        'qt-deadbeef',
+        'bolt11',
       ))
-      expect(mockRepo.findByPaymentRef).toHaveBeenCalledWith('qt-deadbeef')
 
       d()
     })
 
-    it('이미 completed 상태면 save 호출 안 함', async () => {
-      const completedReq = { ...pendingReq, status: 'completed' as const }
-      const mockRepo = {
-        findByPaymentRef: vi.fn().mockResolvedValue(completedReq),
-        save: vi.fn().mockResolvedValue(undefined),
-        getById: vi.fn(),
-        listPending: vi.fn(),
-        cleanupExpired: vi.fn(),
+    it('swap step settlement은 ReceiveRequest lifecycle을 건드리지 않음', async () => {
+      const receiveRequest = {
+        settleByPaymentRef: vi.fn().mockResolvedValue(null),
       }
 
-      const d = connectEventStoreBridge(eventBus, { receiveRequestRepo: mockRepo })
+      const d = connectEventStoreBridge(eventBus, { receiveRequest })
 
       eventBus.emit({
         type: 'receive:settled',
@@ -247,17 +224,16 @@ describe('EventStoreBridge', () => {
           amount: 1000,
           accountId: 'account-1',
           method: 'nostr-gift-wrap',
-          isSwapStep: false,
+          isSwapStep: true,
         },
       })
 
-      await vi.waitFor(() => expect(mockRepo.findByPaymentRef).toHaveBeenCalledWith('wallet-abc123'))
-      expect(mockRepo.save).not.toHaveBeenCalled()
+      expect(receiveRequest.settleByPaymentRef).not.toHaveBeenCalled()
 
       d()
     })
 
-    it('receiveRequestRepo 미주입 시 에러 없이 동작', () => {
+    it('receiveRequest 미주입 시 에러 없이 동작', () => {
       const d = connectEventStoreBridge(eventBus)
 
       expect(() => {
