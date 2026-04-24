@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { ArrowDown, ArrowUp, Undo2 } from 'lucide-react'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { toNumber } from '@/core/domain/amount'
 import type { Transaction } from '@/core/domain/transaction'
@@ -10,11 +11,17 @@ export interface TimelineRowProps {
   onSelect?: () => void
 }
 
-const STATUS_KEY: Record<TokenDetailStatus, string> = {
-  pending: 'token.history.status.registered', // not shown in timeline
-  registered: 'token.history.status.registered',
-  consumed: 'token.history.status.consumed',
-  reclaimed: 'token.history.status.reclaimed',
+type RowKind = 'received' | 'sent' | 'reclaimed'
+
+const STATUS_KEY: Record<RowKind, string> = {
+  received: 'token.history.status.registered', // 등록함
+  sent: 'token.history.status.consumed', // 사용됨
+  reclaimed: 'token.history.status.reclaimed', // 되찾음
+}
+
+function rowKind(tx: Transaction, status: TokenDetailStatus): RowKind {
+  if (status === 'reclaimed') return 'reclaimed'
+  return tx.direction === 'send' ? 'sent' : 'received'
 }
 
 export function TimelineRow({ tx, onSelect }: TimelineRowProps) {
@@ -23,12 +30,33 @@ export function TimelineRow({ tx, onSelect }: TimelineRowProps) {
   const formatFiat = useFormatFiat()
 
   const status = transactionToDetailStatus(tx) ?? 'registered'
+  const kind = rowKind(tx, status)
   const amountSats = toNumber(tx.amount)
-  // Reclaim returns funds to wallet (net zero spend) — no minus sign.
-  // Sent-and-claimed is a true outflow, sign with minus.
-  const isOutgoing = tx.direction === 'send' && status !== 'reclaimed'
-  const signedAmount = isOutgoing ? `- ${formatSats(amountSats)}` : formatSats(amountSats)
+  const isOutflow = kind === 'sent'
+  const sign = isOutflow ? '- ' : '+ '
+  const signedAmount = `${sign}${formatSats(amountSats)}`
   const fiat = formatFiat(amountSats)
+
+  const statusLabel = t(STATUS_KEY[kind])
+  const time = formatRelativeTime(t, tx.createdAt)
+  const subLine = t('token.history.subLine', { status: statusLabel, time })
+
+  const title =
+    tx.memo && tx.memo.trim().length > 0 ? tx.memo : statusLabel
+
+  const iconClasses =
+    kind === 'sent'
+      ? 'bg-badge-lightning-bg text-foreground'
+      : 'bg-muted text-foreground-muted'
+
+  const icon =
+    kind === 'reclaimed' ? (
+      <Undo2 className="size-4" strokeWidth={2.5} />
+    ) : kind === 'sent' ? (
+      <ArrowUp className="size-4" strokeWidth={2.5} />
+    ) : (
+      <ArrowDown className="size-4" strokeWidth={2.5} />
+    )
 
   return (
     <div
@@ -41,30 +69,30 @@ export function TimelineRow({ tx, onSelect }: TimelineRowProps) {
           onSelect()
         }
       } : undefined}
-      className={`flex items-start justify-between rounded-card bg-background-card border border-border px-4 py-3 ${onSelect ? 'cursor-pointer hover:bg-background-hover/40 transition-colors' : ''}`}
+      className={`flex items-center gap-3 rounded-card bg-background-card border border-border/60 px-3 py-2.5 ${onSelect ? 'cursor-pointer hover:bg-background-hover/40 transition-colors' : ''}`}
     >
-      <div className="flex flex-col gap-1 min-w-0">
-        <span className="text-body-bold font-semibold text-foreground">
-          {t(STATUS_KEY[status])}
-        </span>
-        <span className="text-caption text-foreground-muted truncate">
-          {tx.memo && tx.memo.trim().length > 0
-            ? t('token.history.metaLine', {
-                time: formatRelativeTime(t, tx.createdAt),
-                memo: tx.memo,
-              })
-            : formatRelativeTime(t, tx.createdAt)}
-        </span>
+      <div className={`flex size-9 shrink-0 items-center justify-center rounded-full ${iconClasses}`}>
+        {icon}
       </div>
-      <div className="flex flex-col gap-1 items-end text-right shrink-0">
-        <span className="text-body-bold font-semibold text-foreground">
-          {signedAmount}
-        </span>
-        {fiat && (
-          <span className="text-caption text-foreground-muted">
-            {fiat}
+      <div className="flex flex-1 items-start justify-between gap-2 min-w-0">
+        <div className="flex flex-col gap-0.5 min-w-0">
+          <span className="text-caption font-bold text-foreground truncate">
+            {title}
           </span>
-        )}
+          <span className="text-overline text-foreground-muted truncate">
+            {subLine}
+          </span>
+        </div>
+        <div className="flex flex-col gap-0.5 items-end text-right shrink-0">
+          <span className="text-body font-bold text-foreground">
+            {signedAmount}
+          </span>
+          {fiat && (
+            <span className="text-overline text-foreground-muted">
+              {fiat}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   )

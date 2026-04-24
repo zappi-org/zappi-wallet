@@ -1156,6 +1156,18 @@ export default {
         thisMonth: 'This month',
         older: 'Earlier',
       },
+      anchor: {
+        today: '{{weekday}} · Today',
+        yesterday: '{{weekday}} · Yesterday',
+        daysAgo: '{{weekday}} · {{count}}d ago',
+        early: 'Early',
+        mid: 'Mid',
+        late: 'Late',
+        monthSameYear: '{{month}}',
+        monthOtherYear: '{{month}}/{{year}}',
+      },
+      subLine: '{{status}} · {{time}}',
+      endOfList: "You're all caught up.",
       metaLine: '{{time}}, {{memo}}',
       status: {
         registered: 'Claimed',

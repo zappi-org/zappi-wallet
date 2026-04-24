@@ -1142,6 +1142,18 @@ export default {
         thisMonth: 'Bulan ini',
         older: 'Sebelumnya',
       },
+      anchor: {
+        today: '{{weekday}} · Hari ini',
+        yesterday: '{{weekday}} · Kemarin',
+        daysAgo: '{{weekday}} · {{count}}h lalu',
+        early: 'Awal',
+        mid: 'Tengah',
+        late: 'Akhir',
+        monthSameYear: '{{month}}',
+        monthOtherYear: '{{month}}/{{year}}',
+      },
+      subLine: '{{status}} · {{time}}',
+      endOfList: 'Semua riwayat sudah dilihat.',
       metaLine: '{{time}}, {{memo}}',
       status: {
         registered: 'Didaftarkan',

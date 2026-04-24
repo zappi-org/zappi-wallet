@@ -1163,6 +1163,18 @@ export default {
         thisMonth: '이번 달',
         older: '이전',
       },
+      anchor: {
+        today: '{{weekday}} · 오늘',
+        yesterday: '{{weekday}} · 어제',
+        daysAgo: '{{weekday}} · {{count}}일전',
+        early: '월 초',
+        mid: '월 중',
+        late: '월 말',
+        monthSameYear: '{{month}}월',
+        monthOtherYear: '{{year}}년 {{month}}월',
+      },
+      subLine: '{{status}} · {{time}}',
+      endOfList: '모든 내역을 확인했어요.',
       metaLine: '{{time}}, {{memo}}',
       status: {
         registered: '등록함',

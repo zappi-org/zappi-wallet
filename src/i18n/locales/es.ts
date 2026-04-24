@@ -1142,6 +1142,18 @@ export default {
         thisMonth: 'Este mes',
         older: 'Anterior',
       },
+      anchor: {
+        today: '{{weekday}} · Hoy',
+        yesterday: '{{weekday}} · Ayer',
+        daysAgo: '{{weekday}} · hace {{count}}d',
+        early: 'Inicio',
+        mid: 'Medio',
+        late: 'Fin',
+        monthSameYear: '{{month}}',
+        monthOtherYear: '{{month}}/{{year}}',
+      },
+      subLine: '{{status}} · {{time}}',
+      endOfList: 'Has visto todo el historial.',
       metaLine: '{{time}}, {{memo}}',
       status: {
         registered: 'Registrado',

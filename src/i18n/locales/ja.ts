@@ -1150,6 +1150,18 @@ export default {
         thisMonth: '今月',
         older: 'それ以前',
       },
+      anchor: {
+        today: '{{weekday}} · 今日',
+        yesterday: '{{weekday}} · 昨日',
+        daysAgo: '{{weekday}} · {{count}}日前',
+        early: '月初',
+        mid: '月中',
+        late: '月末',
+        monthSameYear: '{{month}}月',
+        monthOtherYear: '{{year}}年{{month}}月',
+      },
+      subLine: '{{status}} · {{time}}',
+      endOfList: 'すべての履歴を確認しました。',
       metaLine: '{{time}}, {{memo}}',
       status: {
         registered: '登録',

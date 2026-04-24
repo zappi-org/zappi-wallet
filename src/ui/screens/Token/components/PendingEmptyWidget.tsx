@@ -6,7 +6,7 @@ export function PendingEmptyWidget() {
 
   return (
     <div className="flex items-center gap-3 rounded-card bg-card border border-border px-4 py-4">
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-900">
         <Check className="size-5 text-white" strokeWidth={3} />
       </div>
       <div className="flex flex-col gap-0.5">

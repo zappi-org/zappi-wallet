@@ -1,21 +1,21 @@
+import type { Transaction } from '@/core/domain/transaction'
+import type { PendingItem } from '@/core/ports/driving/pending-items.usecase'
+import { useAppStore } from '@/store'
+import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
+import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
+import { useTransactionHistory } from '@/ui/hooks/use-transaction-history'
+import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
+import { useReclaimFees } from '@/ui/hooks/useReclaimFees'
+import { isSendToken, type TokenDetails } from '@/ui/types/pending-item-details'
+import { satsToFiat, useFormatSats } from '@/utils/format'
 import { useCallback, useEffect, useMemo, useState, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useAppStore } from '@/store'
-import { useFormatSats, satsToFiat } from '@/utils/format'
-import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
-import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
-import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
-import { useReclaimFees } from '@/ui/hooks/useReclaimFees'
-import { useTransactionHistory } from '@/ui/hooks/use-transaction-history'
-import { isSendToken, type TokenDetails } from '@/ui/types/pending-item-details'
-import type { PendingItem } from '@/core/ports/driving/pending-items.usecase'
-import type { Transaction } from '@/core/domain/transaction'
-import { TokenEmptyState } from './components/TokenEmptyState'
-import { PendingWidget } from './components/PendingWidget'
 import { PendingEmptyWidget } from './components/PendingEmptyWidget'
+import { PendingWidget } from './components/PendingWidget'
 import { ReclaimableSection } from './components/ReclaimableSection'
-import { TimelineSection } from './components/TimelineSection'
 import { ReclaimSheet } from './components/ReclaimSheet'
+import { TimelineSection } from './components/TimelineSection'
+import { TokenEmptyState } from './components/TokenEmptyState'
 import {
   isTokenTimelineTx,
   pendingToDetail,
@@ -209,10 +209,12 @@ export function TokenScreen({
             ) : (
               <PendingEmptyWidget />
             )}
+            <div className="mt-6">
             <TimelineSection
               groups={timelineGroups}
               onSelect={onSelectToken ? handleSelectTimeline : undefined}
             />
+            </div>
           </>
         )}
       </div>
