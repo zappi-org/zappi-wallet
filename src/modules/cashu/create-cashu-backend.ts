@@ -14,7 +14,7 @@ import {
   recoverPendingSendTokens,
   recoverPendingQuotes,
 } from './internal/cashu-recovery'
-import { getMintQuote } from './internal/coco-sdk'
+import { abandonMintQuote, getMintQuote } from './internal/coco-sdk'
 import type { OfflineTokenStore } from '@/core/ports/driven/offline-token-store.port'
 import {
   redeemPendingReceivedTokens,
@@ -52,6 +52,7 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
     executeSend: backend.executeSend,
     rollbackSend: backend.rollbackSend,
     finalizeSend: backend.finalizeSend,
+    checkProofStates: backend.checkProofStates,
     receiveToken: (token: string) => backend.receiveToken(token, activeMintOptions()),
     estimateReceiveFee: (token: string) => backend.estimateReceiveFee(token, activeMintOptions()),
     async recoverPendingSendTokens() {
@@ -87,6 +88,7 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
     },
     // Token inspection (lock + DLEQ)
     inspectInput: backend.inspectInput,
+    abandonMintQuote,
     // PaymentRequest (NUT-18)
     parsePaymentRequest: backend.parsePaymentRequest,
     preparePaymentRequest: backend.preparePaymentRequest,

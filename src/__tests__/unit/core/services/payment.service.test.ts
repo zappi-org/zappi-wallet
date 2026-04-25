@@ -200,6 +200,35 @@ describe('PaymentService', () => {
     })
   })
 
+  describe('reclaim', () => {
+    it('emits transaction refresh instead of payment completed toast event', async () => {
+      vi.mocked(txRepo.getById).mockResolvedValue({
+        id: 'tx-reclaim',
+        direction: 'send',
+        method: 'cashu:bolt11',
+        protocol: 'cashu-token',
+        amount: sat(1000),
+        accountId: 'https://mint.test',
+        status: 'pending',
+        outcome: 'unclaimed',
+        createdAt: Date.now(),
+        metadata: { operationId: 'op-reclaim' },
+      })
+
+      const result = await service.reclaim({ transactionId: 'tx-reclaim' })
+
+      expect(result.ok).toBe(true)
+      expect(adapter.cancelPrepared).toHaveBeenCalledWith('op-reclaim')
+      expect(eventBus.emit).toHaveBeenCalledWith({
+        type: 'transactions:changed',
+        payload: { reason: 'send-reclaimed', txId: 'tx-reclaim' },
+      })
+      expect(eventBus.emit).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'payment:completed' }),
+      )
+    })
+  })
+
   // ─── receive ───
 
   describe('receive', () => {

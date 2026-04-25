@@ -796,6 +796,7 @@ export default {
     invoiceCreateFailed: 'Error al crear factura',
     invoiceCreateOffline: 'No se puede crear factura sin conexión',
     tokenReceivedAmount: '{{amount}} recibidos',
+    tokenReclaimedAmount: '{{amount}} recuperados',
     paymentRequestFailed: 'Error al crear solicitud de pago',
     sendComplete: '{{amount}} enviados',
     swapComplete: '{{amount}} intercambiados (comisión: {{fee}})',

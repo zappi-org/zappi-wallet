@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { saveBalanceCache, loadBalanceCache, clearBalanceCache } from '@/ui/services/balance-cache'
+import { LocalStorageBalanceCache } from '@/adapters/cache/local-storage-balance-cache.adapter'
 import type { ModuleBalance } from '@/core/ports/driven/wallet-module.port'
 import { sat } from '@/core/domain/amount'
 
@@ -16,15 +16,17 @@ function createTestBalances(): ModuleBalance[] {
   ]
 }
 
-describe('balance-cache', () => {
+describe('LocalStorageBalanceCache', () => {
+  let cache: LocalStorageBalanceCache
+
   beforeEach(() => {
     localStorage.clear()
+    cache = new LocalStorageBalanceCache()
   })
 
   it('round-trips ModuleBalance[] with bigint Amount', () => {
-    const balances = createTestBalances()
-    saveBalanceCache(balances)
-    const restored = loadBalanceCache()
+    cache.save(createTestBalances())
+    const restored = cache.load()
 
     expect(restored).not.toBeNull()
     expect(restored).toHaveLength(1)
@@ -38,28 +40,28 @@ describe('balance-cache', () => {
   })
 
   it('returns null when no cache exists', () => {
-    expect(loadBalanceCache()).toBeNull()
+    expect(cache.load()).toBeNull()
   })
 
   it('returns null on corrupt data', () => {
     localStorage.setItem('zappi-balance-cache', '{invalid json')
-    expect(loadBalanceCache()).toBeNull()
+    expect(cache.load()).toBeNull()
   })
 
   it('clears cache', () => {
-    saveBalanceCache(createTestBalances())
-    expect(loadBalanceCache()).not.toBeNull()
+    cache.save(createTestBalances())
+    expect(cache.load()).not.toBeNull()
 
-    clearBalanceCache()
-    expect(loadBalanceCache()).toBeNull()
+    cache.clear()
+    expect(cache.load()).toBeNull()
   })
 
   it('handles zero balance', () => {
     const balances: ModuleBalance[] = [
       { moduleId: 'cashu', accounts: [], total: sat(0) },
     ]
-    saveBalanceCache(balances)
-    const restored = loadBalanceCache()
+    cache.save(balances)
+    const restored = cache.load()
 
     expect(restored).not.toBeNull()
     expect(restored![0].total.value).toBe(0n)
@@ -79,8 +81,8 @@ describe('balance-cache', () => {
         total: sat(2000),
       },
     ]
-    saveBalanceCache(balances)
-    const restored = loadBalanceCache()
+    cache.save(balances)
+    const restored = cache.load()
 
     expect(restored).toHaveLength(2)
     expect(restored![0].moduleId).toBe('cashu')

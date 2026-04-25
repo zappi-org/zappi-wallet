@@ -13,6 +13,7 @@
 ## 2026-04-24
 
 - Final reports must explicitly say whether the rule audit included untracked new files, architecture import boundaries, `verify-*` discovery, and `tasks/lessons.md`; a focused review-agent pass is not enough to imply a full audit.
+- Skill discovery must inspect the actual `.claude/skills/` directories before saying a project skill is absent; `rg --files | rg '(^|/)verify-'` is not a substitute for checking registered skill folders and wrapper references.
 - Token receive recovery must never persist trusted-mint state as a side effect of “receive to my wallet”; Coco may require operation-scoped trust for receive/redeem APIs, but mints outside user settings must be restored to untrusted state and require an explicit user action before becoming trusted.
 - Global domain-event toasts are risky for composed flows: low-level `swap:failed` events can duplicate or contradict contextual UI, so user-facing swap errors should be owned by the initiating flow unless the event carries enough context to route safely.
 - Security/state restoration cleanup must not be best-effort `catch`/log when failure can persist privileged or trusted state. Surface the failure and cover it with a regression test.

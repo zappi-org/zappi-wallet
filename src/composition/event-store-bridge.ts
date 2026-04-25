@@ -8,7 +8,7 @@
 
 import type { EventBus } from '@/core/events/event-bus'
 import { useAppStore } from '@/store'
-import { broadcastSync } from '@/composition/cross-tab-sync'
+import { broadcastSync } from '@/utils/cross-tab-sync'
 import i18n from '@/i18n'
 import { satUnit, formatSats } from '@/utils/format'
 import { toNumber } from '@/core/domain/amount'
@@ -62,6 +62,15 @@ export function connectEventStoreBridge(
         message: event.payload.error,
         duration: 5000,
       })
+    }),
+  )
+
+  // transactions:changed → refresh transaction lists without implying a user-facing payment toast.
+  unsubscribers.push(
+    eventBus.on('transactions:changed', () => {
+      const { triggerTxRefresh } = useAppStore.getState()
+      triggerTxRefresh()
+      broadcastSync('tx_changed')
     }),
   )
 

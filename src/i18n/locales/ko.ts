@@ -803,6 +803,7 @@ export default {
     invoiceCreateFailed: '인보이스 생성에 실패했습니다',
     invoiceCreateOffline: '오프라인 상태에서는 인보이스를 생성할 수 없습니다',
     tokenReceivedAmount: '{{amount}} 수령 완료',
+    tokenReclaimedAmount: '{{amount}} 회수 완료',
     paymentRequestFailed: 'Payment request 생성에 실패했습니다',
     sendComplete: '{{amount}} 전송 완료',
     swapComplete: '{{amount}} 스왑 완료 (수수료: {{fee}})',

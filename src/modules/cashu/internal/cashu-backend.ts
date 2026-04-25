@@ -3,7 +3,7 @@
  *
  * cashuService.ts에 흩어진 26개 함수를 Coco RC50 API 기반으로 통합.
  * P2PK는 prepare 시점에 target으로 지정 (Coco 네이티브).
- * cashu-ts 직접 의존 없음.
+ * Cashu/Coco SDK access is isolated here behind module-level backend functions.
  */
 
 import { getCocoManager, getPendingMintQuotes } from './coco-sdk';
@@ -11,6 +11,7 @@ import { classifyCashuError } from './classify-error';
 import { normalizeMintUrl } from 'coco-cashu-core';
 import type { PendingQuote } from '@/core/domain/quote';
 import { InsufficientBalanceError, RedeemFeeTooHighError } from '@/core/errors/payment.errors';
+import type { ProofStateResult } from '@/core/ports/driven/send-token-operator.port';
 
 // ─── Types ───
 
@@ -226,6 +227,27 @@ export async function rollbackSend(operationId: string): Promise<void> {
 export async function finalizeSend(operationId: string): Promise<void> {
   const manager = await getCocoManager();
   await manager.ops.send.finalize(operationId);
+}
+
+export async function checkProofStates(token: string): Promise<ProofStateResult> {
+  const cashuTs = await import('@cashu/cashu-ts');
+  const decoded = cashuTs.getDecodedToken(token);
+
+  const wallet = new (cashuTs as unknown as { CashuWallet: new (mint: unknown) => { checkProofsStates(proofs: unknown[]): Promise<unknown[]> } }).CashuWallet(
+    new (cashuTs as unknown as { CashuMint: new (url: string) => unknown }).CashuMint(decoded.mint)
+  );
+  const states = await wallet.checkProofsStates(decoded.proofs);
+
+  const mapped = (states as Array<{ secret?: unknown; Y?: unknown; state?: unknown }>).map((s) => ({
+    secret: String(s.secret ?? s.Y ?? ''),
+    state: String(s.state ?? 'unknown') as 'unspent' | 'pending' | 'spent',
+  }));
+
+  return {
+    allSpent: mapped.every((s) => s.state === 'spent'),
+    allPending: mapped.every((s) => s.state === 'pending'),
+    states: mapped,
+  };
 }
 
 // ─── Receive ───

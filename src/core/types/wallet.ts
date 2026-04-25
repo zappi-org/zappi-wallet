@@ -99,7 +99,7 @@ export interface Transaction {
   // Token lifecycle
   token?: string
   tokenState?: TokenState
-  /** SDK SendOperation.id — links to coco-cashu-core's SendApi operation */
+  /** External send operation identifier for lifecycle recovery/finalization */
   operationId?: string
 
   // Lightning details

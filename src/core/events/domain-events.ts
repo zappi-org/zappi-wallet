@@ -5,6 +5,7 @@ export type DomainEvent =
   | PaymentDeferredEvent
   | PaymentFailedEvent
   | BalanceChangedEvent
+  | TransactionsChangedEvent
   | SwapCompletedEvent
   | SwapFailedEvent
   | RecoveryCompletedEvent
@@ -44,6 +45,14 @@ export interface BalanceChangedEvent {
   payload: {
     moduleId: string
     accountId: string
+  }
+}
+
+export interface TransactionsChangedEvent {
+  type: 'transactions:changed'
+  payload: {
+    reason: string
+    txId?: string
   }
 }
 

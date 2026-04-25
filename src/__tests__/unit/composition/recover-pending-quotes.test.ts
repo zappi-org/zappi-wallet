@@ -1,19 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
-  recoverPendingQuotesMock,
-  getQuoteRecoveryOpsMock,
+  createCashuBackendMock,
+  backendRecoverPendingQuotesMock,
   pendingOpRepoInstance,
   txRepoInstance,
-  quoteOpsInstance,
+  offlineTokenStoreInstance,
   PendingOperationRepositoryMock,
   TransactionRepositoryMock,
+  OfflineTokenStoreMock,
 } = vi.hoisted(() => ({
-  recoverPendingQuotesMock: vi.fn(),
-  getQuoteRecoveryOpsMock: vi.fn(),
+  createCashuBackendMock: vi.fn(),
+  backendRecoverPendingQuotesMock: vi.fn(),
   pendingOpRepoInstance: { kind: 'pending-op-repo' },
   txRepoInstance: { kind: 'tx-repo' },
-  quoteOpsInstance: { checkMintQuote: vi.fn(), mintAndReceive: vi.fn() },
+  offlineTokenStoreInstance: { kind: 'offline-token-store' },
   PendingOperationRepositoryMock: class {
     constructor() {
       return pendingOpRepoInstance
@@ -24,14 +25,15 @@ const {
       return txRepoInstance
     }
   },
+  OfflineTokenStoreMock: class {
+    constructor() {
+      return offlineTokenStoreInstance
+    }
+  },
 }))
 
-vi.mock('@/modules/cashu/internal/cashu-recovery', () => ({
-  recoverPendingQuotes: recoverPendingQuotesMock,
-}))
-
-vi.mock('@/modules/cashu/internal/cashu-backend', () => ({
-  getQuoteRecoveryOps: getQuoteRecoveryOpsMock,
+vi.mock('@/modules/cashu/create-cashu-backend', () => ({
+  createCashuBackend: createCashuBackendMock,
 }))
 
 vi.mock('@/adapters/storage/dexie/dexie-pending-operation.repository', () => ({
@@ -42,24 +44,33 @@ vi.mock('@/adapters/storage/dexie/dexie-transaction.repository', () => ({
   DexieTransactionRepository: TransactionRepositoryMock,
 }))
 
+vi.mock('@/adapters/storage/dexie/dexie-offline-token-store', () => ({
+  DexieOfflineTokenStore: OfflineTokenStoreMock,
+}))
+
 import { recoverPendingQuotes } from '@/composition/recover-pending-quotes'
 
 describe('recoverPendingQuotes composition helper', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    recoverPendingQuotesMock.mockResolvedValue({ recovered: 1, failed: 0, expired: 2 })
-    getQuoteRecoveryOpsMock.mockResolvedValue(quoteOpsInstance)
+    backendRecoverPendingQuotesMock.mockResolvedValue({ recovered: 1, failed: 0, expired: 2 })
+    createCashuBackendMock.mockReturnValue({
+      recoverPendingQuotes: backendRecoverPendingQuotesMock,
+    })
   })
 
-  it('forwards activeMintUrls into cashu quote recovery', async () => {
+  it('forwards activeMintUrls through the public Cashu backend factory', async () => {
     const result = await recoverPendingQuotes(['https://mint.a', 'https://mint.b'])
 
     expect(result).toEqual({ recovered: 1, failed: 0, expired: 2 })
-    expect(recoverPendingQuotesMock).toHaveBeenCalledWith({
+    expect(createCashuBackendMock).toHaveBeenCalledWith({
       pendingOpRepo: pendingOpRepoInstance,
       txRepo: txRepoInstance,
-      quoteOps: quoteOpsInstance,
-      activeMintUrls: ['https://mint.a', 'https://mint.b'],
+      offlineTokenStore: offlineTokenStoreInstance,
+      getActiveMintUrls: expect.any(Function),
     })
+    const deps = createCashuBackendMock.mock.calls[0][0]
+    expect(deps.getActiveMintUrls()).toEqual(['https://mint.a', 'https://mint.b'])
+    expect(backendRecoverPendingQuotesMock).toHaveBeenCalled()
   })
 })

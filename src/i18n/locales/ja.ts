@@ -803,6 +803,7 @@ export default {
     invoiceCreateFailed: 'インボイスの作成に失敗しました',
     invoiceCreateOffline: 'オフライン時はインボイスを作成できません',
     tokenReceivedAmount: '{{amount}} 受取完了',
+    tokenReclaimedAmount: '{{amount}} 回収完了',
     paymentRequestFailed: 'Payment requestの作成に失敗しました',
     sendComplete: '{{amount}} 送信完了',
     swapComplete: '{{amount}} スワップ完了（手数料: {{fee}}）',

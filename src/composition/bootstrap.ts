@@ -44,12 +44,13 @@ import { executeRoute as legacyExecuteRoute } from './routing'
 import { addMint as trustMintInCoco, deleteCocoData, removeMintFromCoco } from '@/modules/cashu'
 import { clearMintData } from '@/adapters/storage/dexie/schema'
 import { resetWalletCache } from '@/adapters/cache/wallet-cache'
+import { LocalStorageBalanceCache } from '@/adapters/cache/local-storage-balance-cache.adapter'
 
 // ─── Phase 6: New Adapters ───
 import { CryptoGatewayAdapter } from '@/adapters/crypto/crypto-gateway.adapter'
 import { TokenCodecAdapter } from '@/adapters/codec/token-codec.adapter'
-import { FeeEstimatorAdapter } from '@/adapters/coco/fee-estimator.adapter'
-import { SendTokenOperatorAdapter } from '@/adapters/coco/send-token-operator.adapter'
+import { CashuFeeEstimatorAdapter } from '@/modules/cashu/adapters/cashu-fee-estimator.adapter'
+import { CashuSendTokenOperatorAdapter } from '@/modules/cashu/adapters/cashu-send-token-operator.adapter'
 import { MintHealthCheckerAdapter } from '@/adapters/health/mint-health-checker.adapter'
 import { MintMetadataStoreAdapter } from '@/adapters/metadata/mint-metadata-store.adapter'
 import { TrustedMintProviderAdapter } from '@/adapters/runtime/trusted-mint-provider.adapter'
@@ -68,6 +69,14 @@ import { UsernameService } from '@/core/services/username.service'
 
 // ─── Phase 6: Metadata + NUT-18 HTTP ───
 import { MintMetadataService, metadataEvents } from '@/modules/cashu/metadata'
+import {
+  enableCashuWatchers,
+  getCashuKeyring,
+  getCashuRuntimeManager,
+  pauseCashuSubscriptions,
+  recheckCashuPendingMintQuotes,
+  resumeCashuSubscriptions,
+} from '@/modules/cashu/cashu-runtime'
 import { DexieMintMetadataRepository } from '@/adapters/storage/dexie/dexie-mint-metadata.repository'
 import { startNut18HttpPoller } from '@/adapters/codec/nut18-http-poller'
 import { ZappiLinkAdapter } from '@/adapters/zappi-link/zappi-link.adapter'
@@ -75,9 +84,6 @@ import { finalizeEvent } from 'nostr-tools'
 import { hexToBytes } from '@noble/hashes/utils.js'
 import { NOSTR_KINDS } from '@/core/constants'
 import { DexieReceiveRequestRepository } from '@/adapters/storage/dexie/dexie-receive-request.repository'
-
-// ─── UI Services ───
-import { saveBalanceCache, loadBalanceCache, clearBalanceCache } from '@/ui/services/balance-cache'
 
 // ─── Composition Roots ───
 import { createPaymentService } from './payment'
@@ -172,8 +178,13 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const processedStore = new ProcessedRepository()
   const settingsRepo = new SettingsRepository()
   const receiveRequestRepo = new DexieReceiveRequestRepository()
-  const trustedMintProvider = new TrustedMintProviderAdapter()
-  const incomingReviewQueue = new IncomingReviewQueueAdapter()
+  const balanceCache = new LocalStorageBalanceCache()
+  const trustedMintProvider = new TrustedMintProviderAdapter(
+    () => useAppStore.getState().settings.mints,
+  )
+  const incomingReviewQueue = new IncomingReviewQueueAdapter(
+    (review) => useAppStore.getState().enqueueIncomingReview(review),
+  )
 
   // 2. Nostr Gateway
   const nostrGateway = new NostrGatewayAdapter({
@@ -207,13 +218,10 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const receiveRequest = new ReceiveRequestFacadeService(receiveRequestRepo)
 
   // 6. P2PK key manager
-  const p2pkKeyManager = new CocoP2PKKeyManager(async () => {
-    const { getCocoManager } = await import('@/modules/cashu/internal/coco-sdk')
-    return (await getCocoManager()).keyring
-  })
+  const p2pkKeyManager = new CocoP2PKKeyManager(getCashuKeyring)
 
   // 7. Cold start cache → store 즉시 반영 (동기)
-  const cached = loadBalanceCache()
+  const cached = balanceCache.load()
   if (cached) {
     const byMint: Record<string, number> = {}
     let total = 0
@@ -238,7 +246,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
       }
     }
     useAppStore.getState().setBalance({ total, byMint })
-    saveBalanceCache(moduleBalances)
+    balanceCache.save(moduleBalances)
   }
   const disconnectBridge = connectEventStoreBridge(eventBus, {
     handleBalance: true,
@@ -248,8 +256,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
   // 8. Lifecycle: activate (Coco init + observers + watchers + bridge)
   const activate = async () => {
-    const { getCocoManager, enableWatchers } = await import('@/modules/cashu/internal/coco-sdk')
-    const manager = await getCocoManager()
+    const manager = await getCashuRuntimeManager()
 
     // mintQuoteObserver에 OperationMap + TxRepo 주입 (TX 이중 생성 방지)
     const { injectDependencies } = await import('@/composition/mint-quote-observer')
@@ -263,33 +270,27 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     const { connectSendTokenObserver } = await import('@/composition/send-token-observer')
     connectSendTokenObserver(manager, {
       operationMap,
-      txRepo,
-      pendingOps: pendingOpRepo,
-      payment,
+      lifecycle: transactionMgmt,
     })
 
     // Coco → EventBus bridge
     connectCocoEventBridge(manager, eventBus)
 
     // Watchers
-    await enableWatchers()
+    await enableCashuWatchers()
   }
 
   const onResume = async () => {
     try {
-      const { getCocoManager, recheckPendingMintQuotes } = await import('@/modules/cashu/internal/coco-sdk')
-      const manager = await getCocoManager()
-      manager.resumeSubscriptions()
-      recheckPendingMintQuotes().catch((e) => console.error('[Resume] recheck quotes failed:', e))
+      await resumeCashuSubscriptions()
+      recheckCashuPendingMintQuotes().catch((e) => console.error('[Resume] recheck quotes failed:', e))
     } catch { /* ignore if not initialized */ }
     exchangeRateService.refreshIfStale().catch(() => {})
   }
 
   const onPause = async () => {
     try {
-      const { getCocoManager } = await import('@/modules/cashu/internal/coco-sdk')
-      const manager = await getCocoManager()
-      manager.pauseSubscriptions()
+      await pauseCashuSubscriptions()
     } catch { /* ignore if not initialized */ }
   }
 
@@ -323,7 +324,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const tokenCodec = new TokenCodecAdapter()
   const inputParser = new InputParserService(tokenCodec, lnurlAdapter)
 
-  const feeEstimator = new FeeEstimatorAdapter()
+  const feeEstimator = new CashuFeeEstimatorAdapter(cashuBackend)
   const routing = new RoutingService(feeEstimator)
 
   const mintMetadataServiceInstance = new MintMetadataService(new DexieMintMetadataRepository())
@@ -333,8 +334,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const mintHealthChecker = new MintHealthCheckerAdapter()
   const mintHealth = new MintHealthFacadeService(mintHealthChecker)
 
-  const sendTokenOperator = new SendTokenOperatorAdapter()
-  const transactionMgmt = new TransactionMgmtService(txRepo, sendTokenOperator)
+  const sendTokenOperator = new CashuSendTokenOperatorAdapter(cashuBackend)
+  const transactionMgmt = new TransactionMgmtService(txRepo, sendTokenOperator, pendingOpRepo, eventBus)
 
   const paymentRequest = new PaymentRequestService(tokenCodec, (opts) => {
     const poller = startNut18HttpPoller({
@@ -413,7 +414,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
         clearLocalMintData: clearMintData,
       }, mintUrl),
       resetWalletCache,
-      clearBalanceCache,
+      clearBalanceCache: () => balanceCache.clear(),
       deleteAllContacts: () => contactRepo.deleteAll(),
     },
 

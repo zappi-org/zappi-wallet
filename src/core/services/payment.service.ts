@@ -409,8 +409,8 @@ export class PaymentService implements PaymentUseCase {
       })
 
       this.eventBus.emit({
-        type: 'payment:completed',
-        payload: { txId: tx.id, method: tx.method, amount: tx.amount },
+        type: 'transactions:changed',
+        payload: { reason: 'send-reclaimed', txId: tx.id },
       })
       this.eventBus.emit({
         type: 'balance:changed',

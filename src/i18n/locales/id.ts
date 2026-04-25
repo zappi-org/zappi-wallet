@@ -796,6 +796,7 @@ export default {
     invoiceCreateFailed: 'Gagal membuat invoice',
     invoiceCreateOffline: 'Tidak dapat membuat invoice saat offline',
     tokenReceivedAmount: '{{amount}} diterima',
+    tokenReclaimedAmount: '{{amount}} diklaim kembali',
     paymentRequestFailed: 'Gagal membuat payment request',
     sendComplete: '{{amount}} terkirim',
     swapComplete: '{{amount}} swap selesai (biaya: {{fee}})',

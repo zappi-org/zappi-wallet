@@ -31,6 +31,7 @@ import type {
 import { useRouting, PaymentRoute, ROUTE_LABELS } from '@/ui/hooks/use-routing'
 import type { RouteSelection, RouteContext, RouteExecutionResult } from '@/core/domain/routing'
 import { translateError } from '@/ui/utils/error-i18n'
+import { useFormatSats } from '@/utils/format'
 
 // ============= Helpers =============
 
@@ -138,6 +139,7 @@ export function SendFlow({
 }: SendFlowProps) {
   const { t } = useTranslation()
   const { isOnline } = useNetwork()
+  const formatSats = useFormatSats()
   const addToast = useAppStore((s) => s.addToast)
   const inputParser = useInputParser()
   const routing = useRouting()
@@ -553,6 +555,11 @@ export function SendFlow({
 
     try {
       await onCancelEcashToken?.(state.createdTxId)
+      addToast({
+        type: 'success',
+        message: t('toast.tokenReclaimedAmount', { amount: formatSats(state.amount) }),
+        duration: 3000,
+      })
       setState((prev) => ({
         ...prev,
         step: 'amount',
@@ -563,7 +570,7 @@ export function SendFlow({
     } catch {
       addToast({ type: 'error', message: t('payment.tokenReclaimFailed'), duration: 3000 })
     }
-  }, [state.createdTxId, onCancelEcashToken, addToast, t])
+  }, [state.createdTxId, state.amount, onCancelEcashToken, addToast, t, formatSats])
 
   // ============= Render =============
 

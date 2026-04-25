@@ -800,6 +800,7 @@ export default {
     invoiceCreateFailed: 'Failed to create invoice',
     invoiceCreateOffline: 'Cannot create invoice while offline',
     tokenReceivedAmount: '{{amount}} received',
+    tokenReclaimedAmount: '{{amount}} reclaimed',
     paymentRequestFailed: 'Failed to create payment request',
     sendComplete: '{{amount}} sent',
     swapComplete: '{{amount}} swapped (fee: {{fee}})',

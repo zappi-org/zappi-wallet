@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { sat } from '@/core/domain/amount'
-import { recoverPendingQuotes } from '@/modules/cashu/internal/cashu-recovery'
+import { recoverPendingQuotes } from './cashu-recovery'
 import type { PendingOperationRepository } from '@/core/ports/driven/pending-operation.repository.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 

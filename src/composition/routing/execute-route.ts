@@ -23,7 +23,7 @@ import {
 } from '@/modules/cashu'
 import { markQuoteAsSwap, unmarkQuoteAsSwap } from '@/modules/cashu'
 import { getDatabase } from '@/adapters/storage/dexie/schema'
-import { broadcastSync } from '@/composition/cross-tab-sync'
+import { broadcastSync } from '@/utils/cross-tab-sync'
 import { sendTokenViaHttp } from '@/adapters/codec/nut18-http-poller'
 import { DirectLnurlAdapter } from '@/adapters/lnurl/direct-lnurl.adapter'
 import { TokenCodecAdapter } from '@/adapters/codec/token-codec.adapter'

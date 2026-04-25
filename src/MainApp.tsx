@@ -6,7 +6,7 @@ import { LIMITS } from '@/core/constants'
 import { sat, toNumber } from '@/core/domain/amount'
 import { InsufficientBalanceError } from '@/core/errors/payment.errors'
 import { ServiceProvider } from '@/ui/hooks/service-context'
-import { broadcastSync } from '@/composition/cross-tab-sync'
+import { broadcastSync } from '@/utils/cross-tab-sync'
 import { useCrossTabSync } from '@/ui/hooks/use-cross-tab-sync'
 // useMintHealth removed — mint health checks done via serviceRegistry directly
 import { useNetwork } from '@/ui/hooks/use-network'
@@ -602,13 +602,19 @@ export default function MainApp() {
 
   // ─── 토큰 취소(reclaim) 콜백 ───
   const handleCancelEcashToken = useCallback(async (txId: string) => {
-    if (!serviceRegistry?.payment) {
+    if (!serviceRegistry?.transactionMgmt) {
       console.warn('[MainApp] ServiceRegistry not ready — cannot reclaim token')
       return
     }
-    const result = await serviceRegistry.payment.reclaim({ transactionId: txId })
-    if (!result.ok) {
-      console.error('[MainApp] Reclaim failed:', result.error.message)
+    const tx = await serviceRegistry.transactionMgmt.getById(txId)
+    if (!tx) {
+      throw new Error(`Transaction not found: ${txId}`)
+    }
+    const operationId = typeof tx.metadata?.operationId === 'string' ? tx.metadata.operationId : undefined
+    const token = typeof tx.metadata?.token === 'string' ? tx.metadata.token : undefined
+    const result = await serviceRegistry.transactionMgmt.reclaimSendToken(txId, operationId, token)
+    if (!result.success) {
+      throw new Error('Token reclaim failed')
     }
   }, [serviceRegistry])
 

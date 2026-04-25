@@ -1,8 +1,9 @@
 /**
- * Cross-tab synchronization — BroadcastChannel infrastructure
+ * Cross-tab synchronization via BroadcastChannel.
  *
- * composition 계층에서 상태 변경 후 다른 탭에 알림.
- * React hook (useCrossTabSync)은 ui/hooks/에서 이 모듈을 소비.
+ * This is a cross-cutting browser primitive used by UI and composition.
+ * It intentionally lives outside composition so UI hooks do not depend on
+ * the wiring layer.
  */
 
 const CHANNEL_NAME = 'zappi-sync'
@@ -12,7 +13,6 @@ export type SyncMessage =
   | { type: 'tx_changed' }
   | { type: 'settings_changed' }
 
-// Module-level channel for broadcasting (reused across calls)
 let broadcastChannel: BroadcastChannel | null = null
 
 export function getBroadcastChannel(): BroadcastChannel | null {
@@ -27,19 +27,13 @@ export function getBroadcastChannel(): BroadcastChannel | null {
   return broadcastChannel
 }
 
-/**
- * Broadcast a sync signal to other tabs.
- * Call this after state-changing operations.
- */
-export function broadcastSync(type: SyncMessage['type']) {
+export function broadcastSync(type: SyncMessage['type']): void {
   try {
     const channel = getBroadcastChannel()
     if (channel) {
       channel.postMessage({ type } satisfies SyncMessage)
     }
   } catch {
-    // BroadcastChannel may fail in some contexts (e.g., iframes)
-    // Reset channel so next call retries
     broadcastChannel = null
   }
 }

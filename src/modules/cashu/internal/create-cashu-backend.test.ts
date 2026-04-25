@@ -4,12 +4,14 @@ const {
   getQuoteRecoveryOpsMock,
   receiveTokenMock,
   estimateReceiveFeeMock,
+  checkProofStatesMock,
   recoverPendingQuotesMock,
   quoteOpsInstance,
 } = vi.hoisted(() => ({
   getQuoteRecoveryOpsMock: vi.fn(),
   receiveTokenMock: vi.fn(),
   estimateReceiveFeeMock: vi.fn(),
+  checkProofStatesMock: vi.fn(),
   recoverPendingQuotesMock: vi.fn(),
   quoteOpsInstance: { checkMintQuote: vi.fn(), mintAndReceive: vi.fn() },
 }))
@@ -26,6 +28,7 @@ vi.mock('./cashu-backend', () => ({
   executeSend: vi.fn(),
   rollbackSend: vi.fn(),
   finalizeSend: vi.fn(),
+  checkProofStates: checkProofStatesMock,
   receiveToken: receiveTokenMock,
   estimateReceiveFee: estimateReceiveFeeMock,
   getSendRecoveryOps: vi.fn(),
@@ -46,6 +49,7 @@ vi.mock('./cashu-recovery', () => ({
 
 vi.mock('./coco-sdk', () => ({
   getMintQuote: vi.fn(),
+  abandonMintQuote: vi.fn(),
 }))
 
 vi.mock('./offline-token-recovery', () => ({

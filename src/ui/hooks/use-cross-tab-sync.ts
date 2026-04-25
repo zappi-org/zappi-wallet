@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useAppStore } from '@/store'
-import { getBroadcastChannel } from '@/composition/cross-tab-sync'
-import type { SyncMessage } from '@/composition/cross-tab-sync'
+import { getBroadcastChannel } from '@/utils/cross-tab-sync'
+import type { SyncMessage } from '@/utils/cross-tab-sync'
 
 /**
  * Cross-tab synchronization hook using BroadcastChannel API.
