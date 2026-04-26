@@ -3,7 +3,7 @@ import { add } from './amount'
 
 export type TransactionStatus = 'pending' | 'settled' | 'failed'
 export type TransactionOutcome = 'unclaimed' | 'claimed' | 'reclaimed'
-export type TransactionIntent = 'swap' | 'nutzap'
+export type TransactionIntent = 'swap' | 'nutzap' | 'request-fulfill'
 
 /** Display currency snapshot — records the exchange rate at transaction time */
 export interface DisplaySnapshot {
