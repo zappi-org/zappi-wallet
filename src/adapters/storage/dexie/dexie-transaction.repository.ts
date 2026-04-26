@@ -91,7 +91,7 @@ function toDomain(legacy: LegacyTransaction): Transaction {
     completedAt: legacy.completedAt,
     expiresAt: legacy.expiresAt,
     memo: legacy.memo,
-    intent: TYPE_TO_INTENT[legacy.type],
+    intent: legacy.intent ?? TYPE_TO_INTENT[legacy.type],
     linkedTxId: legacy.metadata?.linkedTxId as string | undefined,
     displaySnapshot: legacy.fiatAmount != null ? {
       amount: legacy.fiatAmount,

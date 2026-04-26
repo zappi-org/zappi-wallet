@@ -1,4 +1,5 @@
 import type { FiatCurrency } from './fiat'
+import type { TransactionIntent } from '@/core/domain/transaction'
 
 /**
  * Cashu proof (inlined from cashu-ts to maintain R1 domain purity)
@@ -94,6 +95,8 @@ export interface Transaction {
   expiresAt?: number
   failedAt?: number
   failureReason?: string
+  /** Domain intent — persisted as a free-form Dexie field; toDomain reads this first. */
+  intent?: TransactionIntent
   metadata?: Record<string, unknown>
 
   // Token lifecycle
