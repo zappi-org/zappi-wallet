@@ -136,9 +136,9 @@ export function TokenDetailScreen({
         type="button"
         onClick={onClose}
         aria-label={t('common.close')}
-        className="absolute top-[38px] right-[35px] z-10 w-9 h-9 -m-2 p-2 flex items-center justify-center rounded-lg text-foreground hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
+        className="absolute top-[54px] right-[35px] z-10 w-11 h-11 -m-2 p-2 flex items-center justify-center rounded-lg text-foreground hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
       >
-        <X className="w-6 h-6" strokeWidth={1.6} />
+        <X className="w-8 h-8" strokeWidth={1.6} />
       </button>
 
       <div className="flex-1 overflow-y-auto pt-[110px] pb-4">
