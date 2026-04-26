@@ -448,6 +448,38 @@ export default function MainApp() {
     return { success: false, error: { code: result.error.code, message: result.error.message } }
   }, [serviceRegistry, refreshAll])
 
+  /**
+   * Handle an incoming token that fulfills one of MY ReceiveRequests.
+   * Routes through the domain use case so settlement → my-id verification →
+   * intent='request-fulfill' tagging happens in one place. Transport-agnostic
+   * (HTTP polling, future transports). Uses paymentRef as both externalId
+   * (idempotency / deterministic txId) and the receive-request match key.
+   */
+  const handleReceiveRequestFulfillment = useCallback(async (
+    token: string,
+    paymentRef: string,
+  ): Promise<{ success: boolean; amount?: number; error?: { code?: string; message?: string } }> => {
+    if (!serviceRegistry?.incomingPayment) {
+      return { success: false, error: { code: 'NOT_READY', message: 'ServiceRegistry not ready' } }
+    }
+
+    const result = await serviceRegistry.incomingPayment.processIncoming({
+      payload: token,
+      externalId: paymentRef,
+      receiveRequestPaymentRef: paymentRef,
+      receiveRequestMethod: 'ecash',
+    })
+
+    if (result.status === 'success') {
+      refreshAll().catch((e) => console.error('[MainApp] refreshAll after fulfillment failed:', e))
+      return { success: true, amount: result.amount }
+    }
+    if (result.status === 'already_processed') {
+      return { success: true, amount: 0 }
+    }
+    return { success: false, error: { code: 'FULFILLMENT_FAILED', message: result.error ?? 'Failed to process incoming payment' } }
+  }, [serviceRegistry, refreshAll])
+
   /** Estimate Lightning fee for cross-mint swap (non-destructive) */
   const handleEstimateSwapFee = useCallback(async (
     fromMintUrl: string,
@@ -1323,7 +1355,7 @@ export default function MainApp() {
           }}
           onCreateInvoice={handleCreateInvoice}
           onPaymentReceived={handlePaymentReceived}
-          onReceiveToken={handleReceiveToken}
+          onReceiveRequestFulfilled={handleReceiveRequestFulfillment}
           initialAmount={scannedAmount || undefined}
           initialMintUrl={activeMintUrl}
         />

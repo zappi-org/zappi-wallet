@@ -57,10 +57,12 @@ export interface ReceiveFlowProps {
   } | null>
   onPaymentReceived: (amount: number, type: 'lightning' | 'ecash') => void
   /**
-   * P2PK token redemption inside the QR step (when a sender pays the ecash
-   * request with a locked token). Full token-receive UX is in TokenRegisterFlow.
+   * Process an incoming token that fulfills the active ReceiveRequest.
+   * Caller wires this to the domain use case (incomingPayment.processIncoming)
+   * with paymentRef so the domain can verify my-id matching and tag the tx
+   * with intent='request-fulfill'. Transport-agnostic.
    */
-  onReceiveToken: (token: string) => Promise<{ success: boolean; amount?: number; error?: { code?: string; message?: string } }>
+  onReceiveRequestFulfilled: (token: string, paymentRef: string) => Promise<{ success: boolean; amount?: number; error?: { code?: string; message?: string } }>
   // Pre-filled data
   initialAmount?: number
   initialMintUrl?: string | null
@@ -73,7 +75,7 @@ export function ReceiveFlow({
   onComplete,
   onCreateInvoice,
   onPaymentReceived,
-  onReceiveToken,
+  onReceiveRequestFulfilled,
   initialAmount,
   initialMintUrl,
 }: ReceiveFlowProps) {
@@ -263,8 +265,8 @@ export function ReceiveFlow({
               ecashRequest={state.ecashRequest}
               ecashRequestId={state.ecashRequestId}
               httpEndpoint={state.httpEndpoint}
-              onReceiveP2PKToken={async (token, _privkey) => {
-                const result = await onReceiveToken(token)
+              onReceiveRequestFulfilled={async (token, paymentRef) => {
+                const result = await onReceiveRequestFulfilled(token, paymentRef)
                 return { amount: result?.amount ?? 0 }
               }}
             />
