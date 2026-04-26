@@ -59,7 +59,8 @@ export function EasterEggScreen({ onClose, count = 28 }: EasterEggScreenProps) {
         type="button"
         onClick={onClose}
         aria-label={t('common.close')}
-        className="absolute top-[38px] right-[35px] z-10 w-9 h-9 -m-2 p-2 flex items-center justify-center rounded-lg text-foreground hover:bg-black/[0.06] active:bg-black/[0.1] transition-colors"
+        className="absolute right-[35px] z-10 w-9 h-9 -m-2 p-2 flex items-center justify-center rounded-lg text-foreground hover:bg-black/[0.06] active:bg-black/[0.1] transition-colors"
+        style={{ top: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
       >
         <X className="w-6 h-6" strokeWidth={1.6} />
       </button>

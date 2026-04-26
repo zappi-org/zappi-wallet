@@ -182,7 +182,7 @@ export function TokenScreen({
   )
 
   return (
-    <div ref={scrollRef} className="flex-1 h-full overflow-y-auto pb-28">
+    <div ref={scrollRef} className="flex-1 h-full overflow-y-auto pt-safe pb-28">
       <div className="min-h-full flex flex-col p-4 gap-4">
         <h1 className="text-heading font-bold text-foreground pt-2">
           {t('nav.token')}

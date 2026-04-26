@@ -131,7 +131,7 @@ export function TokenDetailScreen({
   const StatusIcon = STATUS_ICON[data.status]
 
   return (
-    <div className="relative h-full bg-background text-foreground font-primary flex flex-col">
+    <div className="relative h-full bg-background text-foreground font-primary flex flex-col pt-safe">
       <button
         type="button"
         onClick={onClose}
