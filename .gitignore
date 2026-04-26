@@ -25,3 +25,4 @@ dist-ssr
 
 # Pipeline artifacts (local only)
 .pipeline/
+.opencode/

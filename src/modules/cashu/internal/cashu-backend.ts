@@ -3,11 +3,15 @@
  *
  * cashuService.ts에 흩어진 26개 함수를 Coco RC50 API 기반으로 통합.
  * P2PK는 prepare 시점에 target으로 지정 (Coco 네이티브).
- * cashu-ts 직접 의존 없음.
+ * Cashu/Coco SDK access is isolated here behind module-level backend functions.
  */
 
 import { getCocoManager, getPendingMintQuotes } from './coco-sdk';
+import { classifyCashuError } from './classify-error';
+import { normalizeMintUrl } from 'coco-cashu-core';
 import type { PendingQuote } from '@/core/domain/quote';
+import { InsufficientBalanceError, RedeemFeeTooHighError } from '@/core/errors/payment.errors';
+import type { ProofStateResult } from '@/core/ports/driven/send-token-operator.port';
 
 // ─── Types ───
 
@@ -53,10 +57,99 @@ async function ensureMintTrusted(
   manager: Awaited<ReturnType<typeof getCocoManager>>,
   mintUrl: string,
 ): Promise<void> {
+  const normalizedMintUrl = normalizeMintUrl(mintUrl);
   const mints = await manager.mint.getAllMints();
-  const exists = mints.some((m) => m.mintUrl === mintUrl);
-  if (!exists) {
-    await manager.mint.addMint(mintUrl, { trusted: true });
+  const existing = mints.find((m) => normalizeMintUrl(m.mintUrl) === normalizedMintUrl);
+  if (!existing) {
+    await manager.mint.addMint(normalizedMintUrl, { trusted: true });
+    return;
+  }
+
+  if (!existing.trusted) {
+    await manager.mint.trustMint(normalizedMintUrl);
+  }
+}
+
+async function ensureMintKnown(
+  manager: Awaited<ReturnType<typeof getCocoManager>>,
+  mintUrl: string,
+): Promise<{ wasTrusted: boolean }> {
+  const normalizedMintUrl = normalizeMintUrl(mintUrl);
+  const mints = await manager.mint.getAllMints();
+  const existing = mints.find((m) => normalizeMintUrl(m.mintUrl) === normalizedMintUrl);
+  if (existing) {
+    return { wasTrusted: existing.trusted };
+  }
+
+  await manager.mint.addMint(normalizedMintUrl, { trusted: false });
+  return { wasTrusted: false };
+}
+
+async function withMintTrustedForOperation<T>(
+  manager: Awaited<ReturnType<typeof getCocoManager>>,
+  mintUrl: string,
+  options: MintTrustOptions | undefined,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const normalizedMintUrl = normalizeMintUrl(mintUrl);
+  const persistTrusted = shouldPersistMintTrust(normalizedMintUrl, options);
+
+  if (persistTrusted) {
+    await ensureMintTrusted(manager, normalizedMintUrl);
+    return operation();
+  }
+
+  const { wasTrusted } = await ensureMintKnown(manager, normalizedMintUrl);
+  if (!wasTrusted) {
+    await manager.mint.trustMint(normalizedMintUrl);
+  }
+
+  try {
+    return await operation();
+  } finally {
+    const currentTrustedMintUrls = options?.getCurrentTrustedMintUrls?.() ?? options?.trustedMintUrls;
+    if (!wasTrusted && !shouldPersistMintTrust(normalizedMintUrl, { trustedMintUrls: currentTrustedMintUrls })) {
+      await restoreUntrustedMintState(manager, normalizedMintUrl);
+    }
+  }
+}
+
+interface MintTrustOptions {
+  trustedMintUrls?: readonly string[];
+  getCurrentTrustedMintUrls?: () => readonly string[] | undefined;
+}
+
+function shouldPersistMintTrust(mintUrl: string, options?: MintTrustOptions): boolean {
+  const normalizedMintUrl = normalizeMintUrl(mintUrl);
+  return options?.trustedMintUrls?.some((trustedUrl) => normalizeMintUrl(trustedUrl) === normalizedMintUrl) ?? true;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function restoreUntrustedMintState(
+  manager: Awaited<ReturnType<typeof getCocoManager>>,
+  mintUrl: string,
+): Promise<void> {
+  try {
+    await manager.mint.untrustMint(mintUrl);
+  } catch (error) {
+    throw new Error(`Failed to restore untrusted mint state for ${mintUrl}: ${errorMessage(error)}`);
+  }
+
+  const restored = (await manager.mint.getAllMints())
+    .find((mint) => normalizeMintUrl(mint.mintUrl) === mintUrl);
+  if (restored?.trusted) {
+    throw new Error(`Failed to restore untrusted mint state for ${mintUrl}: mint is still trusted`);
+  }
+}
+
+async function cancelReceiveFeeEstimate(operationId: string, cancel: () => Promise<void>): Promise<void> {
+  try {
+    await cancel();
+  } catch (error) {
+    throw new Error(`Failed to cancel receive fee estimate operation ${operationId}: ${errorMessage(error)}`);
   }
 }
 
@@ -90,7 +183,6 @@ export async function prepareSend(params: {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('Not enough funds')) {
-      const { InsufficientBalanceError } = await import('@/core/errors/payment.errors');
       const balances = await manager.wallet.getBalances();
       const available = balances[params.mintUrl] || 0;
 
@@ -137,6 +229,27 @@ export async function finalizeSend(operationId: string): Promise<void> {
   await manager.ops.send.finalize(operationId);
 }
 
+export async function checkProofStates(token: string): Promise<ProofStateResult> {
+  const cashuTs = await import('@cashu/cashu-ts');
+  const decoded = cashuTs.getDecodedToken(token);
+
+  const wallet = new (cashuTs as unknown as { CashuWallet: new (mint: unknown) => { checkProofsStates(proofs: unknown[]): Promise<unknown[]> } }).CashuWallet(
+    new (cashuTs as unknown as { CashuMint: new (url: string) => unknown }).CashuMint(decoded.mint)
+  );
+  const states = await wallet.checkProofsStates(decoded.proofs);
+
+  const mapped = (states as Array<{ secret?: unknown; Y?: unknown; state?: unknown }>).map((s) => ({
+    secret: String(s.secret ?? s.Y ?? ''),
+    state: String(s.state ?? 'unknown') as 'unspent' | 'pending' | 'spent',
+  }));
+
+  return {
+    allSpent: mapped.every((s) => s.state === 'spent'),
+    allPending: mapped.every((s) => s.state === 'pending'),
+    states: mapped,
+  };
+}
+
 // ─── Receive ───
 
 /**
@@ -162,22 +275,32 @@ function resolveUnit(_mintUrl: string): string {
  */
 export async function receiveToken(
   token: string,
+  options?: MintTrustOptions,
 ): Promise<{ amount: number; fee: number; unit: string; mintUrl: string }> {
   const manager = await getCocoManager();
 
   const { getDecodedToken } = await import('@cashu/cashu-ts');
   const decoded = getDecodedToken(token);
-  await ensureMintTrusted(manager, decoded.mint);
 
-  const prepared = await manager.ops.receive.prepare({ token });
-  await manager.ops.receive.execute(prepared);
+  try {
+    return await withMintTrustedForOperation(manager, decoded.mint, options, async () => {
+      const prepared = await manager.ops.receive.prepare({ token });
 
-  // SDK가 계산한 fee와 gross amount을 활용해 실제 수신 금액을 결정한다.
-  const fee = prepared.fee;
-  const netAmount = prepared.amount - fee;
-  const unit = resolveUnit(decoded.mint);
+      // SDK가 계산한 fee와 gross amount을 활용해 실제 수신 금액을 결정한다.
+      const fee = prepared.fee;
+      const netAmount = prepared.amount - fee;
+      if (netAmount <= 0) {
+        throw new RedeemFeeTooHighError();
+      }
 
-  return { amount: netAmount, fee, unit, mintUrl: decoded.mint };
+      await manager.ops.receive.execute(prepared);
+      const unit = resolveUnit(decoded.mint);
+
+      return { amount: netAmount, fee, unit, mintUrl: decoded.mint };
+    });
+  } catch (error) {
+    throw classifyCashuError(error);
+  }
 }
 
 /**
@@ -188,23 +311,33 @@ export async function receiveToken(
  */
 export async function estimateReceiveFee(
   token: string,
+  options?: MintTrustOptions,
 ): Promise<{ grossAmount: number; fee: number; netAmount: number; unit: string; mintUrl: string }> {
   const manager = await getCocoManager();
 
   const { getDecodedToken } = await import('@cashu/cashu-ts');
   const decoded = getDecodedToken(token);
-  await ensureMintTrusted(manager, decoded.mint);
 
-  const prepared = await manager.ops.receive.prepare({ token });
+  try {
+    return await withMintTrustedForOperation(manager, decoded.mint, options, async () => {
+      const prepared = await manager.ops.receive.prepare({ token });
 
-  // 실행하지 않고 취소하여 잔액 변동 없이 수수료만 확인한다.
-  await manager.ops.receive.cancel(prepared.id).catch(() => {});
+      // 실행하지 않고 취소하여 잔액 변동 없이 수수료만 확인한다.
+      await cancelReceiveFeeEstimate(prepared.id, () => manager.ops.receive.cancel(prepared.id));
 
-  const grossAmount = prepared.amount;
-  const fee = prepared.fee;
-  const unit = resolveUnit(decoded.mint);
+      const grossAmount = prepared.amount;
+      const fee = prepared.fee;
+      const unit = resolveUnit(decoded.mint);
+      const netAmount = grossAmount - fee;
+      if (netAmount <= 0) {
+        throw new RedeemFeeTooHighError();
+      }
 
-  return { grossAmount, fee, netAmount: grossAmount - fee, unit, mintUrl: decoded.mint };
+      return { grossAmount, fee, netAmount, unit, mintUrl: decoded.mint };
+    });
+  } catch (error) {
+    throw classifyCashuError(error);
+  }
 }
 
 // ─── Mint (Lightning 수신) ───
@@ -236,6 +369,31 @@ export async function redeemMintQuote(
   await manager.ops.mint.execute(mintOp);
 
   console.log(`[CashuBackend] Redeemed quote ${quoteId} (expected: ${expectedAmount} sats)`);
+}
+
+export async function checkMintQuote(
+  mintUrl: string,
+  quoteId: string,
+): Promise<{ state: string } | null> {
+  const { Wallet, Mint } = await import('@cashu/cashu-ts');
+  const mint = new Mint(mintUrl);
+  const wallet = new Wallet(mint);
+  await wallet.loadMint();
+
+  try {
+    return await wallet.checkMintQuote(quoteId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+    const quoteMissing =
+      message.includes('quote') &&
+      (message.includes('not found') || message.includes('unknown') || message.includes('404'));
+
+    if (quoteMissing) {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 // ─── Melt (Lightning 전송) ───
@@ -512,7 +670,7 @@ export async function restoreWallet(mintUrl: string): Promise<void> {
 
 export async function addMint(mintUrl: string): Promise<void> {
   const manager = await getCocoManager();
-  await manager.mint.addMint(mintUrl, { trusted: true });
+  await ensureMintTrusted(manager, mintUrl);
 }
 
 // ─── Recovery ───
@@ -562,11 +720,11 @@ export function onMintQuotePaid(quoteId: string, handler: () => void): () => voi
 export async function getQuoteRecoveryOps() {
   return {
     async checkMintQuote(quoteId: string, mintUrl: string) {
-      const { Wallet, Mint } = await import('@cashu/cashu-ts');
-      const mint = new Mint(mintUrl);
-      const wallet = new Wallet(mint);
-      await wallet.loadMint();
-      return wallet.checkMintQuote(quoteId);
+      const quote = await checkMintQuote(mintUrl, quoteId);
+      if (!quote) {
+        throw new Error(`Mint quote ${quoteId} not found on ${mintUrl}`);
+      }
+      return quote;
     },
     async mintAndReceive(quoteId: string, mintUrl: string, amount: number) {
       const { Wallet, Mint, getEncodedToken } = await import('@cashu/cashu-ts');

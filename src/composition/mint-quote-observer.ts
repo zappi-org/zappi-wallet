@@ -15,12 +15,12 @@
  * 없으면(과도기) 기존대로 새 TX를 생성한다.
  */
 
-import type { Manager } from 'coco-cashu-core';
+import type { CashuRuntimeManager } from '@/modules/cashu/cashu-runtime';
 import type { OperationMap } from '@/core/ports/driven/operation-map.port';
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port';
 import { settleAsDelivered } from '@/core/domain/transaction';
 import { useAppStore } from '@/store';
-import { broadcastSync } from '@/composition/cross-tab-sync';
+import { broadcastSync } from '@/utils/cross-tab-sync';
 import { isSwapQuote } from '@/modules/cashu';
 
 let unsubscribers: (() => void)[] = [];
@@ -107,7 +107,7 @@ export async function recordLightningReceive(params: {
 /**
  * SDK mint-op:finalized 이벤트를 Transaction DB에 연결
  */
-export function connectMintQuoteObserver(manager: Manager): void {
+export function connectMintQuoteObserver(manager: CashuRuntimeManager): void {
   disconnectMintQuoteObserver();
 
   const unsubRedeemed = manager.on('mint-op:finalized', async (event) => {

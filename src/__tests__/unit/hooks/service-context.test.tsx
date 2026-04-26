@@ -74,6 +74,8 @@ function createMockRegistry(): ServiceRegistry {
       getByMint: vi.fn(),
       getAll: vi.fn(),
       getActivePendingQuotes: vi.fn(),
+      checkEffectiveExpiry: vi.fn(),
+      expireById: vi.fn(),
     } as unknown as ServiceRegistry['pendingItems'],
     withdraw: {} as unknown as ServiceRegistry['withdraw'],
     lnurlAuth: {} as unknown as ServiceRegistry['lnurlAuth'],

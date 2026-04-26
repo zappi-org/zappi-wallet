@@ -233,6 +233,12 @@ export default {
     mintHasBalance: '이 민트에 <bold>{{formattedBalance}}</bold>의 잔액이 있습니다.',
     deleteWarning: '삭제하면 해당 잔액에 접근할 수 없게 됩니다.',
     confirmDeleteMint: '삭제하시겠습니까?',
+    primary: '주 항목',
+    position: '순서',
+    moveUp: '위로 이동',
+    moveDown: '아래로 이동',
+    dragToReorder: '드래그해서 순서 변경',
+    reorderHint: '핸들을 드래그해서 순서를 바꿀 수 있어요. 키보드는 핸들에 포커스한 뒤 위/아래 화살표를 누르세요.',
 
     // Preferences
     preferences: '환경설정',
@@ -773,6 +779,12 @@ export default {
     unknownError: '알 수 없는 오류가 발생했습니다',
   },
 
+  // Redirect
+  redirect: {
+    toReceive: '받기로 이동합니다',
+    toSend: '보내기로 이동합니다',
+  },
+
   // Toast Messages
   toast: {
     copied: '클립보드에 복사되었습니다',
@@ -791,6 +803,7 @@ export default {
     invoiceCreateFailed: '인보이스 생성에 실패했습니다',
     invoiceCreateOffline: '오프라인 상태에서는 인보이스를 생성할 수 없습니다',
     tokenReceivedAmount: '{{amount}} 수령 완료',
+    tokenReclaimedAmount: '{{amount}} 회수 완료',
     paymentRequestFailed: 'Payment request 생성에 실패했습니다',
     sendComplete: '{{amount}} 전송 완료',
     swapComplete: '{{amount}} 스왑 완료 (수수료: {{fee}})',
@@ -943,6 +956,11 @@ export default {
     },
     qr: {
       title: '받기',
+      protocols: {
+        unified: '통합',
+        cashu: 'Cashu',
+        lightning: 'Lightning',
+      },
       showToSender: '보내려는 상대방에게 보여주세요',
       share: '공유',
       willNotify: '{{mint}}에 입금되면 알려드릴게요',
@@ -974,10 +992,12 @@ export default {
       crossMintQuestion: '{{amount}}을\n어디서 받을까요?',
       tokenFrom: '토큰이 {{mint}}에서 만들어졌어요',
       tokenFromSuffix: ' 민트에서 만들어진 토큰이에요',
-      receiveDirectly: '{{mint}}에서 바로 받기',
-      receiveDirectlySub: '수수료 없이 바로 받을 수 있어요',
-      receiveViaSwap: '{{mint}}으로 바꿔서 받기',
+      receiveDirectly: '{{mint}} 민트로 받기',
+      receiveDirectlySub: '스왑 없이 원래 민트에 받아요',
+      receiveViaSwap: '{{mint}}로 바꿔서 받기',
       receiveViaSwapSub: 'Lightning 수수료가 발생해요',
+      reject: '받지 않기',
+      rejectSub: '토큰을 수령하지 않아요',
       fee: '수수료',
       netAmount: '실제 수령액',
       noFee: '수수료 없음',
@@ -988,13 +1008,11 @@ export default {
       unregistered: '미등록 민트',
       warningFrom: '등록되지 않은\n{{mint}}로부터',
       warningNeedConfirm: '{{amount}}을 받으려면\n확인이 필요해요.',
-      explanation: '모르는 민트라면 추가하지 않고\n내 민트로 받을 수도 있어요.',
-      myMint: '내 민트로 바꿔서 받기',
-      myMintSub: 'Lightning 수수료가 발생해요',
+      explanation: '신뢰할 수 있는 민트일 때만 추가하고\n아니면 거부하세요.',
       addAndReceive: '민트 추가하고 받기',
       addAndReceiveSub: '이 민트를 신뢰해요',
-      feeNote: '수수료가 발생할 수 있습니다',
-      receiveWithMint: '해당 민트로 받기',
+      reject: '받지 않기',
+      rejectSub: '이 토큰은 받지 않을게요',
     },
     offline: {
       p2pkAccepted: 'P2PK로 보호된 토큰입니다. 오프라인에서 안전하게 받을 수 있으며, 온라인 복귀 시 자동으로 검증됩니다.',
@@ -1006,7 +1024,19 @@ export default {
       acceptAnyway: '위험 감수하고 받기',
     },
     swapFeeTooHigh: '스왑 수수료({{fee}})가 토큰 금액({{amount}})보다 크거나 같아 받을 수 없습니다',
-    swapFailedButReceived: '스왑에 실패했지만 {{amount}}이 원래 민트에 수령되었어요',
+    swapTokenTooSmall: '이 토큰은 내 민트로 스왑하기에 금액이 너무 작습니다. 원래 민트에서 바로 받거나 더 큰 토큰을 사용해주세요.',
+    tokenReceiveFeeTooHigh: '수령 수수료를 제외하면 받을 금액이 없어 받을 수 없습니다.',
+    swapEstimateFailed: '스왑 경로를 확인하지 못해 토큰을 수령하지 않았습니다. 잠시 후 다시 시도하거나 원래 민트에서 직접 받아주세요.',
+    swapReceiveKeptOnSource: '내 민트로 옮기지 못해 {{amount}}이 원래 민트에 남아있어요.',
+    swapCompletedWithSourceRemainder: '스왑은 완료됐지만 라우팅 수수료 차이로 {{amount}}이 원래 민트에 남아있어요',
+    swapCompletedWithHiddenSourceRemainder: '스왑은 완료됐지만 {{mint}}에 {{amount}}이 남아있어요. 남은 금액을 보려면 이 민트를 추가해주세요.',
+    sourceRecovery: {
+      title: '내 민트로 옮기지 못했어요',
+      description: '{{amount}}은 {{mint}}에 보관되어 있어요. Zappi에서 이 잔액을 보고 쓰고 싶을 때만 민트를 추가하세요.',
+      mint: '원래 민트',
+      addMint: '민트 추가하고 잔액 보기',
+      later: '나중에 할게요',
+    },
   },
 
   // Mint Detail Screen
@@ -1058,6 +1088,8 @@ export default {
     fillMint: '채울 민트',
     sendElsewhere: '다른 곳으로 보내기',
     emptyAndDeleteBtn: '비우고 삭제하기',
+    forceDeleteBtn: '강제로 삭제하기',
+    forceDeleteDescription: '{{mint}}에 남아 있는 {{amount}}은 더 이상 복구할 수 없어요.\n\n정말 강제로 삭제할까요?',
     deleteComplete: '{{mint}}를 모두 비우고 삭제했어요.',
     swapping: '잔액을 이동하는 중...',
     swapFailed: '잔액 이동에 실패했습니다. 다시 시도해주세요.',
@@ -1083,6 +1115,7 @@ export default {
     redeemAction: '지금 수령',
     redeemSuccess: '토큰을 수령했습니다',
     redeemFailed: '수령에 실패했습니다',
+    expiredRemoved: '만료된 요청을 정리했어요',
     reclaimAction: '토큰 회수',
     payment: '결제',
     unified: '통합',

@@ -5,12 +5,38 @@ import type { RecoveryStore } from '@/core/ports/driven/recovery-store.port'
 import type { FailedIncomingStore } from '@/core/ports/driven/failed-incoming-store.port'
 import type { TokenReceiver } from '@/core/ports/driven/token-receiver.port'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
+import type { TrustedMintProvider } from '@/core/ports/driven/trusted-mint-provider.port'
+import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-queue.port'
+
+function encodeBase64Url(value: string): string {
+  return btoa(value)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '')
+}
+
+function makeCashuToken(mintUrl = 'https://mint.test', amount = 100): string {
+  const payload = {
+    token: [
+      {
+        mint: mintUrl,
+        proofs: [
+          { amount, secret: 'secret-1', C: 'C-1', id: 'keyset-1' },
+        ],
+      },
+    ],
+  }
+
+  return `cashuA${encodeBase64Url(JSON.stringify(payload))}`
+}
 
 // ─── Fixtures ───
 
+const DIRECT_TOKEN = makeCashuToken()
+
 const DIRECT_TOKEN_RUMOR = JSON.stringify({
   kind: 14,
-  tags: [['cashu', 'cashuBtoken123']],
+  tags: [['cashu', DIRECT_TOKEN]],
   content: '',
   pubkey: 'sender-pubkey',
   created_at: 1700000000,
@@ -62,7 +88,19 @@ function createMocks() {
     }),
   }
 
-  return { nostr, anchorStore, recoveryStore, failedIncomingStore, tokenReceiver }
+  const trustedMintProvider: TrustedMintProvider = {
+    hasTrustedMint: vi.fn().mockResolvedValue(true),
+  }
+
+  const incomingReviewQueue: IncomingReviewQueue = {
+    enqueue: vi.fn().mockResolvedValue(undefined),
+  }
+
+  const receiveRequest = {
+    settleByPaymentRef: vi.fn().mockResolvedValue(null),
+  }
+
+  return { nostr, anchorStore, recoveryStore, failedIncomingStore, tokenReceiver, trustedMintProvider, incomingReviewQueue, receiveRequest }
 }
 
 // ─── Tests ───
@@ -80,6 +118,9 @@ describe('RecoveryService', () => {
       mocks.recoveryStore,
       mocks.failedIncomingStore,
       mocks.tokenReceiver,
+      mocks.trustedMintProvider,
+      mocks.incomingReviewQueue,
+      mocks.receiveRequest,
     )
   })
 
@@ -103,7 +144,7 @@ describe('RecoveryService', () => {
       expect(result.tokensReceived).toBe(1)
       expect(result.amountReceived).toBe(100)
       expect(result.errors).toEqual([])
-      expect(mocks.tokenReceiver.receiveToken).toHaveBeenCalledWith('cashuBtoken123')
+      expect(mocks.tokenReceiver.receiveToken).toHaveBeenCalledWith(DIRECT_TOKEN)
     })
 
     it('skips already processed events', async () => {
@@ -146,9 +187,36 @@ describe('RecoveryService', () => {
       expect(result.failedIncomings).toBe(1)
       expect(mocks.failedIncomingStore.save).toHaveBeenCalledWith(
         expect.objectContaining({
-          payload: 'cashuBtoken123',
+          payload: DIRECT_TOKEN,
           isRetryable: true,
         }),
+      )
+    })
+
+    it('queues untrusted mint tokens for manual review instead of auto-receiving', async () => {
+      vi.mocked(mocks.nostr.fetchGiftWraps).mockResolvedValue([
+        { eventId: 'ev-1', content: DIRECT_TOKEN_RUMOR, sender: 'sender-pubkey' },
+      ])
+      vi.mocked(mocks.trustedMintProvider.hasTrustedMint).mockResolvedValue(false)
+
+      const result = await service.reconstructState(params)
+
+      expect(result.eventsProcessed).toBe(1)
+      expect(result.tokensReceived).toBe(0)
+      expect(mocks.tokenReceiver.receiveToken).not.toHaveBeenCalled()
+      expect(mocks.incomingReviewQueue.enqueue).toHaveBeenCalledWith(
+        expect.objectContaining({
+          externalId: 'ev-1',
+          source: 'recovery',
+          token: expect.objectContaining({
+            token: DIRECT_TOKEN,
+            mintUrl: 'https://mint.test',
+            amountSats: 100,
+          }),
+        }),
+      )
+      expect(mocks.recoveryStore.markProcessed).not.toHaveBeenCalledWith(
+        expect.objectContaining({ externalId: 'ev-1', result: 'success' }),
       )
     })
 
@@ -244,6 +312,34 @@ describe('RecoveryService', () => {
       expect(mocks.failedIncomingStore.update).toHaveBeenCalledWith('item-1', expect.objectContaining({
         attemptCount: 2,
       }))
+    })
+
+    it('retries lifecycle-only failed incoming settlements without re-redeeming the token', async () => {
+      vi.mocked(mocks.failedIncomingStore.getRetryable).mockResolvedValue([
+        {
+          id: 'item-1',
+          payload: 'cashuBtoken',
+          accountId: 'https://mint.test',
+          amount: 100,
+          error: 'write failed',
+          errorCode: 'RECEIVE_REQUEST_SETTLEMENT_FAILED',
+          isRetryable: true,
+          attemptCount: 1,
+          lastAttemptAt: 0,
+          createdAt: Date.now(),
+          redeemSucceeded: true,
+          receiveRequestPaymentRef: 'request-1',
+          receiveRequestMethod: 'ecash',
+        },
+      ])
+
+      const result = await service.retryFailedIncomings()
+
+      expect(result.succeeded).toBe(1)
+      expect(result.failed).toBe(0)
+      expect(mocks.receiveRequest.settleByPaymentRef).toHaveBeenCalledWith('request-1', 'ecash')
+      expect(mocks.tokenReceiver.receiveToken).not.toHaveBeenCalled()
+      expect(mocks.failedIncomingStore.delete).toHaveBeenCalledWith('item-1')
     })
   })
 

@@ -5,7 +5,7 @@ import {
   isMnemonicCached,
   getSeed,
   injectSeedCache,
-} from '@/modules/cashu/internal/seed-getter'
+} from './seed-getter'
 import type { SeedCache } from '@/core/ports/driven/seed-cache.port'
 
 function createMockSeedCache(): SeedCache {
@@ -52,7 +52,6 @@ describe('seed-getter', () => {
   })
 
   it('should throw when SeedCache not injected', () => {
-    // Reset by injecting null-like behavior
     injectSeedCache(null as unknown as SeedCache)
     expect(() => setCachedMnemonic('test')).toThrow()
   })

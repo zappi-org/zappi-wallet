@@ -2,7 +2,7 @@
  * IncomingPaymentService — 프로토콜 무관 수신 결제 처리
  *
  * 호출자(hook, adapter)가 payload/externalId를 결정하고,
- * 이 서비스는 redeem + 멱등성 기록 + crash recovery + 실패 큐만 담당.
+ * 이 서비스는 redeem + 연결된 receive request 정산 + 멱등성 기록 + crash recovery + 실패 큐를 담당.
  */
 
 import type {
@@ -10,15 +10,19 @@ import type {
   IncomingPaymentResult,
 } from '@/core/ports/driving/incoming-payment.usecase'
 import type { PaymentUseCase } from '@/core/ports/driving/payment.usecase'
+import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request.usecase'
 import type { ProcessedStore } from '@/core/ports/driven/processed-store.port'
 import type { FailedIncomingStore } from '@/core/ports/driven/failed-incoming-store.port'
 import { toNumber } from '@/core/domain/amount'
+
+type ReceiveRequestSettlement = Pick<ReceiveRequestUseCase, 'settleByPaymentRef'>
 
 export class IncomingPaymentService implements IncomingPaymentUseCase {
   constructor(
     private readonly payment: PaymentUseCase,
     private readonly processedStore: ProcessedStore,
     private readonly failedIncomingStore: FailedIncomingStore,
+    private readonly receiveRequest?: ReceiveRequestSettlement,
   ) {}
 
   async processIncoming(params: {
@@ -26,6 +30,8 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
     externalId: string
     memo?: string
     metadata?: Record<string, unknown>
+    receiveRequestPaymentRef?: string
+    receiveRequestMethod?: string
   }): Promise<IncomingPaymentResult> {
     const { payload, externalId } = params
     const txId = `tx-in-${externalId}`
@@ -48,6 +54,21 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
       const amount = toNumber(redeemResult.value.amount)
       const fee = redeemResult.value.fee ? toNumber(redeemResult.value.fee) : undefined
 
+      const settlement = await this.settleReceiveRequest(params)
+      if (!settlement.ok) {
+        await this.queueFailure({
+          payload,
+          externalId,
+          txId,
+          errorMsg: settlement.error,
+          errorCode: 'RECEIVE_REQUEST_SETTLEMENT_FAILED',
+          redeemSucceeded: true,
+          receiveRequestPaymentRef: params.receiveRequestPaymentRef,
+          receiveRequestMethod: params.receiveRequestMethod,
+        })
+        return { status: 'failed', error: settlement.error }
+      }
+
       await this.processedStore.save({
         externalId,
         txId,
@@ -61,6 +82,21 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
       const isAlreadySpent = errorMsg.toLowerCase().includes('already spent')
 
       if (isAlreadySpent) {
+        const settlement = await this.settleReceiveRequest(params)
+        if (!settlement.ok) {
+          await this.queueFailure({
+            payload,
+            externalId,
+          txId,
+          errorMsg: settlement.error,
+          errorCode: 'RECEIVE_REQUEST_SETTLEMENT_FAILED',
+          redeemSucceeded: true,
+          receiveRequestPaymentRef: params.receiveRequestPaymentRef,
+          receiveRequestMethod: params.receiveRequestMethod,
+        })
+        return { status: 'failed', error: settlement.error }
+        }
+
         // Crash recovery: payment succeeded before but record was not saved
         await this.processedStore.save({
           externalId,
@@ -81,25 +117,70 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
           error: errorMsg,
         })
 
-        await this.failedIncomingStore.save({
-          id: `fi-${crypto.randomUUID()}`,
+        await this.queueFailure({
           payload,
-          accountId: 'unknown',
-          amount: 0,
-          error: errorMsg,
-          errorCode: 'REDEEM_FAILED',
-          isRetryable: true,
-          attemptCount: 1,
-          lastAttemptAt: Date.now(),
-          createdAt: Date.now(),
           externalId,
           txId,
+          errorMsg,
+          errorCode: 'REDEEM_FAILED',
         })
       } catch (queueError) {
         console.error('[IncomingPayment] Failed to queue retry:', queueError)
       }
 
       return { status: 'failed', error: errorMsg }
+    }
+  }
+
+  private async settleReceiveRequest(params: {
+    receiveRequestPaymentRef?: string
+    receiveRequestMethod?: string
+  }): Promise<{ ok: true } | { ok: false; error: string }> {
+    if (!this.receiveRequest || !params.receiveRequestPaymentRef || !params.receiveRequestMethod) {
+      return { ok: true }
+    }
+
+    try {
+      await this.receiveRequest.settleByPaymentRef(
+        params.receiveRequestPaymentRef,
+        params.receiveRequestMethod,
+      )
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, error: String(error) }
+    }
+  }
+
+  private async queueFailure(params: {
+    payload: string
+    externalId: string
+    txId: string
+    errorMsg: string
+    errorCode: string
+    redeemSucceeded?: boolean
+    receiveRequestPaymentRef?: string
+    receiveRequestMethod?: string
+  }): Promise<void> {
+    try {
+      await this.failedIncomingStore.save({
+        id: `fi-${crypto.randomUUID()}`,
+        payload: params.payload,
+        accountId: 'unknown',
+        amount: 0,
+        error: params.errorMsg,
+        errorCode: params.errorCode,
+        isRetryable: true,
+        attemptCount: 1,
+        lastAttemptAt: Date.now(),
+        createdAt: Date.now(),
+        externalId: params.externalId,
+        txId: params.txId,
+        redeemSucceeded: params.redeemSucceeded,
+        receiveRequestPaymentRef: params.receiveRequestPaymentRef,
+        receiveRequestMethod: params.receiveRequestMethod,
+      })
+    } catch (error) {
+      console.error('[IncomingPayment] Failed to queue retry:', error)
     }
   }
 }

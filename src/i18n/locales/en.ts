@@ -233,6 +233,12 @@ export default {
     mintHasBalance: 'This mint has a balance of <bold>{{formattedBalance}}</bold>.',
     deleteWarning: 'Deleting will make the balance inaccessible.',
     confirmDeleteMint: 'Delete this mint?',
+    primary: 'Primary',
+    position: 'Position',
+    moveUp: 'Move up',
+    moveDown: 'Move down',
+    dragToReorder: 'Drag to reorder',
+    reorderHint: 'Drag the handle to reorder. Keyboard: focus the handle and press Up / Down.',
 
     // Preferences
     preferences: 'Preferences',
@@ -770,6 +776,12 @@ export default {
     unknownError: 'An unknown error occurred',
   },
 
+  // Redirect
+  redirect: {
+    toReceive: 'Switching to Receive',
+    toSend: 'Switching to Send',
+  },
+
   // Toast Messages
   toast: {
     copied: 'Copied to clipboard',
@@ -788,6 +800,7 @@ export default {
     invoiceCreateFailed: 'Failed to create invoice',
     invoiceCreateOffline: 'Cannot create invoice while offline',
     tokenReceivedAmount: '{{amount}} received',
+    tokenReclaimedAmount: '{{amount}} reclaimed',
     paymentRequestFailed: 'Failed to create payment request',
     sendComplete: '{{amount}} sent',
     swapComplete: '{{amount}} swapped (fee: {{fee}})',
@@ -940,6 +953,11 @@ export default {
     },
     qr: {
       title: 'Receive',
+      protocols: {
+        unified: 'Unified',
+        cashu: 'Cashu',
+        lightning: 'Lightning',
+      },
       showToSender: 'Show this to the sender',
       share: 'Share',
       willNotify: 'We will notify you when payment arrives at {{mint}}',
@@ -971,10 +989,12 @@ export default {
       crossMintQuestion: 'Where would you like to\nreceive {{amount}}?',
       tokenFrom: 'This token was created at {{mint}}',
       tokenFromSuffix: ' mint created this token',
-      receiveDirectly: 'Receive directly at {{mint}}',
-      receiveDirectlySub: 'No fee required',
+      receiveDirectly: 'Receive at {{mint}} mint',
+      receiveDirectlySub: 'Receive at the original mint without a swap',
       receiveViaSwap: 'Swap to {{mint}}',
       receiveViaSwapSub: 'Lightning fee applies',
+      reject: 'Do not receive',
+      rejectSub: 'Leave this token unredeemed',
       fee: 'Fee',
       netAmount: 'You receive',
       noFee: 'No fee',
@@ -985,13 +1005,11 @@ export default {
       unregistered: 'Unregistered mint',
       warningFrom: 'From unregistered\n{{mint}}',
       warningNeedConfirm: 'To receive {{amount}},\nconfirmation is needed.',
-      explanation: 'If you don\'t know this mint,\nyou can receive to your own mint instead.',
-      myMint: 'Swap to my mint',
-      myMintSub: 'Lightning fee applies',
+      explanation: 'Only add this mint if you trust it.\nOtherwise, reject the token.',
       addAndReceive: 'Add mint and receive',
       addAndReceiveSub: 'I trust this mint',
-      feeNote: 'A fee may apply',
-      receiveWithMint: 'Receive with this mint',
+      reject: 'Do not receive',
+      rejectSub: 'Do not accept this token',
     },
     offline: {
       p2pkAccepted: 'This token is P2PK-protected. It can be safely received offline and will be verified when you reconnect.',
@@ -1003,7 +1021,19 @@ export default {
       acceptAnyway: 'Accept at my own risk',
     },
     swapFeeTooHigh: 'Swap fee ({{fee}}) equals or exceeds the token amount ({{amount}})',
-    swapFailedButReceived: 'Swap failed, but {{amount}} was received at the original mint',
+    swapTokenTooSmall: 'This token is too small to swap to your mint. Receive it directly at the original mint or use a larger token.',
+    tokenReceiveFeeTooHigh: 'After receive fees, there is no amount left to receive.',
+    swapEstimateFailed: 'Could not check the swap route, so the token was not received. Try again later or receive it at the original mint.',
+    swapReceiveKeptOnSource: '{{amount}} could not be moved to your mint, so it remains on the original mint.',
+    swapCompletedWithSourceRemainder: 'Swap completed, but {{amount}} remains on the source mint due to Lightning fee adjustment',
+    swapCompletedWithHiddenSourceRemainder: 'Swap completed, but {{amount}} remains on {{mint}}. Add this mint to access the remainder.',
+    sourceRecovery: {
+      title: 'Could not move it to your mint',
+      description: '{{amount}} is stored on {{mint}}. Add this mint only if you want to see and use that balance in Zappi.',
+      mint: 'Original mint',
+      addMint: 'Add mint and view balance',
+      later: 'Not now',
+    },
   },
 
   // Mint Detail Screen
@@ -1052,6 +1082,8 @@ export default {
     fillMint: 'Fill Mint',
     sendElsewhere: 'Send elsewhere',
     emptyAndDeleteBtn: 'Empty and Delete',
+    forceDeleteBtn: 'Delete Anyway',
+    forceDeleteDescription: 'Deleting {{mint}} now will abandon the remaining {{amount}} on that mint.\n\nThis cannot be undone.',
     deleteComplete: '{{mint}} has been emptied and deleted.',
     swapping: 'Moving balance...',
     swapFailed: 'Failed to move balance. Please try again.',
@@ -1076,6 +1108,7 @@ export default {
     redeemAction: 'Redeem Now',
     redeemSuccess: 'Token redeemed',
     redeemFailed: 'Failed to redeem',
+    expiredRemoved: 'Expired request removed',
     reclaimAction: 'Reclaim Token',
     payment: 'Payment',
     unified: 'Unified',

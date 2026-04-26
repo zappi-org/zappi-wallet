@@ -8,6 +8,7 @@ import { TransactionRow } from './TransactionRow'
 
 interface TransactionListProps {
   transactions: Transaction[]
+  allTransactions?: Transaction[]
   onSeeAll?: () => void
   onTransactionClick?: (tx: Transaction) => void
   maxItems?: number
@@ -19,6 +20,7 @@ interface TransactionListProps {
 
 export function TransactionList({
   transactions,
+  allTransactions,
   onSeeAll,
   onTransactionClick,
   maxItems = 5,
@@ -29,6 +31,8 @@ export function TransactionList({
 }: TransactionListProps) {
   const { t } = useTranslation()
   const displayTransactions = transactions.slice(0, maxItems)
+  const routeTransactions = allTransactions ?? transactions
+  const transactionById = useMemo(() => new Map(routeTransactions.map((tx) => [tx.id, tx])), [routeTransactions])
 
   // Collect all mint URLs for metadata lookup
   const mintUrls = useMemo(() => {
@@ -36,13 +40,16 @@ export function TransactionList({
     displayTransactions.forEach((tx) => {
       urls.add(tx.accountId)
       const meta = getTxMeta(tx)
+      const linkedMeta = tx.linkedTxId ? getTxMeta(transactionById.get(tx.linkedTxId) ?? tx) : null
       if (getTransactionType(tx) === 'swap') {
-        if (meta.toMintUrl) urls.add(meta.toMintUrl)
-        if (meta.fromMintUrl) urls.add(meta.fromMintUrl)
+        const fromMintUrl = meta.fromMintUrl ?? linkedMeta?.fromMintUrl
+        const toMintUrl = meta.toMintUrl ?? linkedMeta?.toMintUrl
+        if (toMintUrl) urls.add(toMintUrl)
+        if (fromMintUrl) urls.add(fromMintUrl)
       }
     })
     return Array.from(urls)
-  }, [displayTransactions])
+  }, [displayTransactions, transactionById])
 
   const { getDisplayName } = useMintMetadata(mintUrls)
 
@@ -79,6 +86,7 @@ export function TransactionList({
             <div key={tx.id}>
               <TransactionRow
                 transaction={tx}
+                linkedTransaction={tx.linkedTxId ? transactionById.get(tx.linkedTxId) : null}
                 onClick={() => onTransactionClick?.(tx)}
                 getMintName={getDisplayName}
                 showDate={showDate}

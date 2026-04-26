@@ -14,6 +14,7 @@ import { DexieReceiveRequestRepository } from '@/adapters/storage/dexie/dexie-re
 import { useAppStore } from '@/store'
 import type { Transaction } from '@/core/domain/transaction'
 import type { DisplaySnapshot } from '@/core/domain/transaction'
+import { hiddenPendingReceiveTransactionRefs, isVisibleTransaction } from '@/core/domain/transaction-visibility'
 import { toNumber } from '@/core/domain/amount'
 import { satsToFiat } from '@/utils/format'
 
@@ -46,18 +47,25 @@ function getDisplaySnapshotProvider(): () => ((amountSats: number) => DisplaySna
 
 export function createPreUnlockServices(): PreUnlockServices {
   const dexieRepo = new DexieTransactionRepository()
+  const receiveRequestRepo = new DexieReceiveRequestRepository()
   const getEnricher = getDisplaySnapshotProvider()
 
   // Wrap domain repo to enrich with displaySnapshot on save
   const txRepo = {
     async findAll(filter?: { limit?: number }): Promise<Transaction[]> {
-      const txs = await dexieRepo.findAll(filter)
+      const [txs, receiveRequests] = await Promise.all([
+        dexieRepo.findAll(filter),
+        receiveRequestRepo.listAll(),
+      ])
+      const hiddenReceiveRefs = hiddenPendingReceiveTransactionRefs(receiveRequests)
       const enrich = getEnricher()
-      return txs.map((tx) => {
-        if (tx.displaySnapshot) return tx
-        const snapshot = enrich(toNumber(tx.amount))
-        return snapshot ? { ...tx, displaySnapshot: snapshot } : tx
-      })
+      return txs
+        .filter((tx) => isVisibleTransaction(tx, hiddenReceiveRefs))
+        .map((tx) => {
+          if (tx.displaySnapshot) return tx
+          const snapshot = enrich(toNumber(tx.amount))
+          return snapshot ? { ...tx, displaySnapshot: snapshot } : tx
+        })
     },
     async deleteAll(): Promise<void> {
       await dexieRepo.deleteAll()
@@ -76,7 +84,7 @@ export function createPreUnlockServices(): PreUnlockServices {
       fetchRates: () => { exchangeRateService.fetchRates().catch(() => {}) },
       refreshIfStale: () => exchangeRateService.refreshIfStale(),
     },
-    cleanupExpiredReceiveRequests: () => new DexieReceiveRequestRepository().cleanupExpired(),
+    cleanupExpiredReceiveRequests: () => receiveRequestRepo.cleanupExpired(),
   }
 }
 

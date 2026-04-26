@@ -1,10 +1,10 @@
 /**
- * ReceiveQRStep — Display unified BIP-321 QR code
+ * ReceiveQRStep — Display protocol-selectable receive QR codes
  * Subscribes to BOTH Lightning + eCash payment detection simultaneously.
  * First detection wins; both subscriptions are cancelled.
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Copy, Check, Share2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
@@ -13,11 +13,20 @@ import { useAppStore } from '@/store'
 import { hapticTap, hapticSuccess } from '@/ui/utils/haptic'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { usePaymentRequest } from '@/ui/hooks/use-payment-request'
+import { Tabs, TabsList, TabsTrigger } from '@/ui/primitives/tabs'
+
+type ReceiveQrProtocol = 'unified' | 'cashu' | 'lightning'
+
+interface ProtocolOption {
+  id: ReceiveQrProtocol
+  label: string
+  value: string
+}
 
 
 interface ReceiveQRStepProps {
   onBack: () => void
-  onPaymentDetected: (amount: number, method: 'lightning' | 'ecash') => void
+  onPaymentDetected: (amount: number, method: 'bolt11' | 'ecash') => void
   amount: number
   mintUrl: string
   // Lightning
@@ -64,21 +73,46 @@ export function ReceiveQRStep({
   // Shared payment detection guard — first detection wins
   const paymentDetectedRef = useRef(false)
 
-  // Build QR value: unified BIP-321 when both available, fallback otherwise
-  const qrValue = (() => {
+  const protocolOptions = useMemo<ProtocolOption[]>(() => {
+    const options: ProtocolOption[] = []
+
     if (invoice && ecashRequest) {
-      return paymentReq.buildUnifiedBitcoinUri({
-        lightningInvoice: invoice,
-        cashuRequest: ecashRequest,
+      options.push({
+        id: 'unified',
+        label: t('receive.qr.protocols.unified'),
+        value: paymentReq.buildUnifiedBitcoinUri({
+          lightningInvoice: invoice,
+          cashuRequest: ecashRequest,
+        }),
       })
     }
-    if (invoice) return invoice.toUpperCase()
-    if (ecashRequest) return ecashRequest
-    return null
-  })()
 
-  // Text for copy/share (same as QR value)
-  const shareText = qrValue
+    if (ecashRequest) {
+      options.push({
+        id: 'cashu',
+        label: t('receive.qr.protocols.cashu'),
+        value: ecashRequest,
+      })
+    }
+
+    if (invoice) {
+      options.push({
+        id: 'lightning',
+        label: t('receive.qr.protocols.lightning'),
+        value: invoice.toUpperCase(),
+      })
+    }
+
+    return options
+  }, [ecashRequest, invoice, paymentReq, t])
+
+  const [selectedProtocol, setSelectedProtocol] = useState<ReceiveQrProtocol>('unified')
+  const activeProtocol = protocolOptions.some((option) => option.id === selectedProtocol)
+    ? selectedProtocol
+    : protocolOptions[0]?.id ?? 'unified'
+  const selectedOption = protocolOptions.find((option) => option.id === activeProtocol) ?? protocolOptions[0] ?? null
+  const qrValue = selectedOption?.value ?? null
+  const shareText = selectedOption?.value ?? null
 
   // ======= Lightning payment detection (via Coco MintQuoteWatcher → store) =======
   const lastRedeemedQuoteId = useAppStore((s) => s.lastRedeemedQuoteId)
@@ -93,7 +127,7 @@ export function ReceiveQRStep({
       paymentDetectedRef.current = true
       setLastRedeemedQuote(null, 0)
       hapticSuccess()
-      onPaymentDetected(lastRedeemedQuoteAmount ?? amount, 'lightning')
+      onPaymentDetected(lastRedeemedQuoteAmount ?? amount, 'bolt11')
     }
   }, [quoteId, lastRedeemedQuoteId, lastRedeemedQuoteAmount, setLastRedeemedQuote, amount, onPaymentDetected, ecashRequestId])
 
@@ -210,6 +244,26 @@ export function ReceiveQRStep({
         {(() => { const f = formatFiat(amount); return f ? (
           <p className="text-body text-foreground-muted mt-2">{f}</p>
         ) : null })()}
+
+        {protocolOptions.length > 1 && (
+          <Tabs
+            value={activeProtocol}
+            onValueChange={(value) => setSelectedProtocol(value as ReceiveQrProtocol)}
+            className="mt-5 w-full max-w-[360px]"
+          >
+            <TabsList className="h-11 w-full rounded-2xl bg-foreground/[0.04] p-1">
+              {protocolOptions.map((option) => (
+                <TabsTrigger
+                  key={option.id}
+                  value={option.id}
+                  className="rounded-xl text-subtitle font-medium data-[state=active]:bg-background-card"
+                >
+                  {option.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        )}
 
         {/* QR Code */}
         {qrValue && (

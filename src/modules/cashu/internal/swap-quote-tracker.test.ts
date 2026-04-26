@@ -3,11 +3,10 @@ import {
   markQuoteAsSwap,
   unmarkQuoteAsSwap,
   isSwapQuote,
-} from '@/modules/cashu/internal/swap-quote-tracker'
+} from './swap-quote-tracker'
 
 describe('swap-quote-tracker', () => {
   beforeEach(() => {
-    // Clean up by unmarking any test quotes
     unmarkQuoteAsSwap('q1')
     unmarkQuoteAsSwap('q2')
   })

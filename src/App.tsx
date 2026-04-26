@@ -1,15 +1,7 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { useAppStore } from '@/store'
 import i18n from '@/i18n'
-
-/** Generate mint aliases from a list, preserving existing ones */
-function generateMintAliases(mints: string[], existing?: Record<string, string>): Record<string, string> {
-  const aliases: Record<string, string> = {}
-  mints.forEach((url, idx) => {
-    aliases[url] = existing?.[url] || i18n.t('mintDetail.defaultName', { number: idx + 1 })
-  })
-  return aliases
-}
+import { generateMintAliases } from '@/utils/mint-name'
 
 // Lightweight imports only — no heavy services, hooks, or screens
 import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
@@ -108,7 +100,11 @@ function App() {
         if (recoveredProfile && recoveredProfile.mints.length > 0) {
           console.log('[Onboarding] Found profile on Nostr:', recoveredProfile)
 
-          const recoveredAliases = generateMintAliases(recoveredProfile.mints)
+          const recoveredAliases = generateMintAliases(
+            recoveredProfile.mints,
+            undefined,
+            (number) => i18n.t('mintDetail.defaultName', { number }),
+          )
           const recoveredRelays = recoveredProfile.relays.length > 0 ? recoveredProfile.relays : currentSettings.relays
 
           await services.settingsRepo.saveSettings({
@@ -148,7 +144,7 @@ function App() {
         // Recover any pending Lightning quotes
         try {
           const { recoverPendingQuotes } = await import('@/composition/recover-pending-quotes')
-          const recovery = await recoverPendingQuotes()
+          const recovery = await recoverPendingQuotes(mintsToRestore)
           if (recovery.recovered > 0) {
             console.log(`[Onboarding] Recovered ${recovery.recovered} pending Lightning quotes`)
           }
@@ -172,7 +168,11 @@ function App() {
             relays = zsConfig.relays
             zsRelays = zsConfig.relays
 
-            const mintAliases = generateMintAliases(mints)
+            const mintAliases = generateMintAliases(
+              mints,
+              undefined,
+              (number) => i18n.t('mintDetail.defaultName', { number }),
+            )
 
             await services.settingsRepo.saveSettings({
               ...currentSettings,
@@ -193,7 +193,11 @@ function App() {
           const existingAliases = (await services.settingsRepo.getSettings()).mintAliases || {}
           const hasAllAliases = mints.every((url) => !!existingAliases[url])
           if (!hasAllAliases) {
-            const mintAliases = generateMintAliases(mints, existingAliases)
+            const mintAliases = generateMintAliases(
+              mints,
+              existingAliases,
+              (number) => i18n.t('mintDetail.defaultName', { number }),
+            )
             await services.settingsRepo.saveSettings({ ...currentSettings, mints, relays, mintAliases })
             setSettings({ ...currentSettings, mints, relays, mintAliases })
           }

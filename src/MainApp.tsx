@@ -1,11 +1,12 @@
 import { AppLifecycleWatcher } from '@/composition/app-lifecycle.watcher'
 import { createBootstrap, type BootstrapResult, type RouteContext, type RouteExecutionResult, type RouteSelection } from '@/composition/bootstrap'
 import { createPreUnlockServices } from '@/composition/pre-unlock'
+import { resolveIncomingReview } from '@/composition/incoming-review'
 import { LIMITS } from '@/core/constants'
 import { sat, toNumber } from '@/core/domain/amount'
 import { InsufficientBalanceError } from '@/core/errors/payment.errors'
 import { ServiceProvider } from '@/ui/hooks/service-context'
-import { broadcastSync } from '@/composition/cross-tab-sync'
+import { broadcastSync } from '@/utils/cross-tab-sync'
 import { useCrossTabSync } from '@/ui/hooks/use-cross-tab-sync'
 import { useGlobalTokenClaimToast } from '@/ui/hooks/use-global-token-claim-toast'
 // useMintHealth removed — mint health checks done via serviceRegistry directly
@@ -13,6 +14,7 @@ import { useNetwork } from '@/ui/hooks/use-network'
 import { useWallet } from '@/ui/hooks/use-wallet'
 import { useAppStore } from '@/store'
 import { setMintNameResolver, toErrorMessage } from '@/ui/utils/error-message'
+import { normalizeMintUrl } from '@/utils/url'
 import { AnimatePresence } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -62,6 +64,8 @@ import { createSecurityService } from '@/composition/security'
 import type { Transaction } from '@/core/domain/transaction'
 import { removePasskey } from '@/ui/services/passkey'
 import { formatSats } from '@/utils/format'
+import { generateMintAliases } from '@/utils/mint-name'
+import type { PendingIncomingReview } from '@/core/types'
 
 
 type Screen = 'home' | 'token' | 'settings' | 'contacts' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'mint-management' | 'relay-management' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail' | 'mint-detail' | 'token-create' | 'token-register' | 'token-detail' | 'token-easter-egg'
@@ -87,6 +91,7 @@ export default function MainApp() {
   const nostrPrivkey = useAppStore((state) => state.nostrPrivkey)
   const p2pkPubkey = useAppStore((state) => state.p2pkPubkey)
   const txRefreshTrigger = useAppStore((state) => state.txRefreshTrigger)
+  const pendingIncomingReviews = useAppStore((state) => state.pendingIncomingReviews)
 
   // Store actions
   const setLocked = useAppStore((state) => state.setLocked)
@@ -98,7 +103,7 @@ export default function MainApp() {
   const setNostrKeyPair = useAppStore((state) => state.setNostrKeyPair)
   const setP2pkPubkey = useAppStore((state) => state.setP2pkPubkey)
   const setSettings = useAppStore((state) => state.setSettings)
-  const addPendingQuote = useAppStore((state) => state.addPendingQuote)
+  const removeIncomingReview = useAppStore((state) => state.removeIncomingReview)
 
   // Service Registry (Phase 5: bootstrap 후 생성, unlock 전에는 null)
   const [serviceRegistry, setServiceRegistry] = useState<BootstrapResult | null>(null)
@@ -155,6 +160,7 @@ export default function MainApp() {
 
   // Validated scan data state (for unified payment screens)
   const [validatedScanData, setValidatedScanData] = useState<ValidatedData | null>(null)
+  const [activeIncomingReview, setActiveIncomingReview] = useState<PendingIncomingReview | null>(null)
 
   // Initial token string for TokenRegisterFlow (set by universal router)
   const [initialRegisterToken, setInitialRegisterToken] = useState<string>('')
@@ -279,6 +285,15 @@ export default function MainApp() {
     if (txRefreshTrigger === 0) return
     refreshAll()
   }, [txRefreshTrigger, refreshAll])
+
+  useEffect(() => {
+    if (activeIncomingReview || pendingIncomingReviews.length === 0) return
+
+    const nextReview = pendingIncomingReviews[0]
+    setActiveIncomingReview(nextReview)
+    setPreviousScreen(currentScreen === 'token-register' ? previousScreen : currentScreen)
+    setCurrentScreen('token-register')
+  }, [activeIncomingReview, pendingIncomingReviews, currentScreen, previousScreen])
 
   // Anchor check and State Reconstruction (ZAP-06)
   // Runs once when app is unlocked and has nostr keys
@@ -410,13 +425,6 @@ export default function MainApp() {
     })
     if (result.ok) {
       const req = result.value
-      addPendingQuote({
-        quoteId: req.id,
-        mintUrl,
-        amount,
-        invoice: req.encoded,
-        expiry: req.expiresAt ? req.expiresAt : Date.now() + 10 * 60 * 1000,
-      })
       return {
         invoice: req.encoded,
         quoteId: req.id,
@@ -424,7 +432,7 @@ export default function MainApp() {
       }
     }
     return null
-  }, [serviceRegistry, addPendingQuote])
+  }, [serviceRegistry])
 
   const handleReceiveToken = useCallback(async (token: string): Promise<{ success: boolean; amount?: number; transactionId?: string; error?: { code?: string; message?: string } }> => {
     // Phase 5: PaymentUseCase.redeem() 경유
@@ -464,7 +472,6 @@ export default function MainApp() {
     return null
   }, [serviceRegistry])
 
-  /** Estimate receive fee for a cashu token (input_fee_ppk) */
   const handleEstimateRedeemFee = useCallback(async (
     token: string,
   ): Promise<{ grossAmount: number; fee: number; netAmount: number } | null> => {
@@ -479,6 +486,35 @@ export default function MainApp() {
     }
     return null
   }, [serviceRegistry])
+
+  const handleSwapReceive = useCallback(async (
+    token: string,
+    sourceMintUrl: string,
+    targetMintUrl: string,
+    amount: number,
+  ): Promise<{ success: boolean; amount?: number; error?: { code?: string; message?: string } }> => {
+    if (!serviceRegistry?.payment || !serviceRegistry?.swap) {
+      return { success: false, error: { code: 'NOT_READY', message: 'ServiceRegistry not ready' } }
+    }
+
+    const redeemResult = await serviceRegistry.payment.redeem({ input: token })
+    if (!redeemResult.ok) {
+      return { success: false, error: { code: redeemResult.error.code, message: redeemResult.error.message } }
+    }
+
+    const swapResult = await serviceRegistry.swap.executeSwap({
+      sourceAccountId: sourceMintUrl,
+      targetAccountId: targetMintUrl,
+      amount: sat(amount),
+    })
+    if (!swapResult.ok) {
+      refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap fail:', e))
+      return { success: false, error: { code: swapResult.error.code, message: swapResult.error.message } }
+    }
+
+    refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap:', e))
+    return { success: true, amount: toNumber(swapResult.value.amount) }
+  }, [serviceRegistry, refreshAll])
 
   /** Cross-mint swap: execute swap from source mint to target mint */
   const handleMintSwap = useCallback(async (
@@ -511,40 +547,6 @@ export default function MainApp() {
     }
   }, [serviceRegistry, refreshAll, addToast])
 
-  /** Cross-mint swap receive: receive token on source mint, then swap to target */
-  const handleSwapReceive = useCallback(async (
-    token: string,
-    sourceMintUrl: string,
-    targetMintUrl: string,
-    amount: number,
-  ): Promise<{ success: boolean; amount?: number; error?: { code?: string; message?: string } }> => {
-    // Phase 5: redeem + SwapUseCase 경유
-    if (!serviceRegistry?.payment || !serviceRegistry?.swap) {
-      return { success: false, error: { code: 'NOT_READY', message: 'ServiceRegistry not ready' } }
-    }
-
-    // 1. Redeem token on source mint
-    const redeemResult = await serviceRegistry.payment.redeem({ input: token })
-    if (!redeemResult.ok) {
-      return { success: false, error: { code: redeemResult.error.code, message: redeemResult.error.message } }
-    }
-
-    // 2. Swap from source to target
-    const swapResult = await serviceRegistry.swap.executeSwap({
-      sourceAccountId: sourceMintUrl,
-      targetAccountId: targetMintUrl,
-      amount: sat(amount),
-    })
-    if (!swapResult.ok) {
-      refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap fail:', e))
-      return { success: false, error: { code: swapResult.error.code, message: swapResult.error.message } }
-    }
-
-    refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap:', e))
-    return { success: true, amount: toNumber(swapResult.value.amount) }
-  }, [serviceRegistry, refreshAll])
-
-
   /** Unified send handler via routing layer */
   const handleExecuteRoute = useCallback(async (
     selection: RouteSelection,
@@ -568,7 +570,42 @@ export default function MainApp() {
     }
   }, [serviceRegistry, refreshAll, addToast])
 
-  /** Store offline P2PK token for later redemption */
+  const clearIncomingReviewState = useCallback(() => {
+    setActiveIncomingReview(null)
+    setValidatedScanData(null)
+  }, [])
+
+  const handleResolveIncomingReview = useCallback(async (params: {
+    review: PendingIncomingReview
+    transactionId?: string
+  }) => {
+    if (!serviceRegistry) return
+
+    await resolveIncomingReview({
+      processedStore: serviceRegistry.processedStore,
+      receiveRequest: serviceRegistry.receiveRequest,
+      removeIncomingReview,
+      nostrGateway: serviceRegistry.nostrGateway,
+      posDevices: settings.posDevices,
+    }, params)
+  }, [serviceRegistry, removeIncomingReview, settings.posDevices])
+
+  const handleRejectIncomingReview = useCallback(async (review: PendingIncomingReview) => {
+    if (serviceRegistry) {
+      await serviceRegistry.processedStore.save({
+        externalId: review.externalId,
+        processedAt: Date.now(),
+        result: 'skipped',
+        error: 'Rejected by user',
+      })
+    }
+
+    removeIncomingReview(review.externalId)
+    clearIncomingReviewState()
+    setCurrentScreen(previousScreen || 'home')
+    setPreviousScreen(null)
+  }, [serviceRegistry, removeIncomingReview, clearIncomingReviewState, previousScreen])
+
   // Payment received callback
   // Lightning toast는 bridge.ts (mint-quote:redeemed)가 전역으로 담당
   const handlePaymentReceived = useCallback(async (
@@ -623,13 +660,19 @@ export default function MainApp() {
   // ─── NUT-18 전송 완료 콜백 ───
   // ─── 토큰 취소(reclaim) 콜백 ───
   const handleCancelEcashToken = useCallback(async (txId: string) => {
-    if (!serviceRegistry?.payment) {
+    if (!serviceRegistry?.transactionMgmt) {
       console.warn('[MainApp] ServiceRegistry not ready — cannot reclaim token')
       return
     }
-    const result = await serviceRegistry.payment.reclaim({ transactionId: txId })
-    if (!result.ok) {
-      console.error('[MainApp] Reclaim failed:', result.error.message)
+    const tx = await serviceRegistry.transactionMgmt.getById(txId)
+    if (!tx) {
+      throw new Error(`Transaction not found: ${txId}`)
+    }
+    const operationId = typeof tx.metadata?.operationId === 'string' ? tx.metadata.operationId : undefined
+    const token = typeof tx.metadata?.token === 'string' ? tx.metadata.token : undefined
+    const result = await serviceRegistry.transactionMgmt.reclaimSendToken(txId, operationId, token)
+    if (!result.success) {
+      throw new Error('Token reclaim failed')
     }
   }, [serviceRegistry])
 
@@ -778,13 +821,15 @@ export default function MainApp() {
   // Handle adding a trusted mint (from receive screen)
   const handleAddTrustedMint = useCallback(async (mintUrl: string): Promise<boolean> => {
     try {
-      let url = mintUrl.trim()
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        url = 'https://' + url
+      if (!serviceRegistry) {
+        console.warn('[App] ServiceRegistry not ready — cannot add trusted mint')
+        return false
       }
-      url = url.replace(/\/+$/, '')
 
-      if (settings.mints.includes(url)) {
+      const url = normalizeMintUrl(mintUrl)
+
+      if (settings.mints.some((mint) => normalizeMintUrl(mint) === url)) {
+        await serviceRegistry.trustMint(url)
         return true
       }
 
@@ -799,25 +844,29 @@ export default function MainApp() {
         return false
       }
 
-      // Port-level trust add (persists mints via SettingsRepository)
-      if (!serviceRegistry?.trustRegistry) {
-        console.warn('[App] ServiceRegistry not ready — cannot add trust')
-        return false
-      }
-      await serviceRegistry.trustRegistry.addTrust(url)
+      const newMints = [...settings.mints, url]
+      const newAliases = generateMintAliases(
+        newMints,
+        settings.mintAliases,
+        (number) => t('mintDetail.defaultName', { number }),
+      )
+      const nextSettings = { ...settings, mints: newMints, mintAliases: newAliases }
 
-      // Aliases are UI-layer metadata — persist separately on top of the
-      // freshly-updated settings so the trust write isn't clobbered.
-      const refreshed = await preUnlock.settingsRepo.getSettings()
-      const existingAliases = refreshed.mintAliases || {}
-      const nextNumber = Object.keys(existingAliases).length + 1
-      const alias = t('mintDetail.defaultName', { number: nextNumber })
-      const newAliases = { ...existingAliases, [url]: alias }
-      await preUnlock.settingsRepo.saveSettings({ ...refreshed, mintAliases: newAliases })
-      setSettings({ ...refreshed, mintAliases: newAliases })
+      await preUnlock.settingsRepo.saveSettings(nextSettings)
+      setSettings(nextSettings)
+
+      try {
+        await serviceRegistry.trustMint(url)
+      } catch (trustError) {
+        await preUnlock.settingsRepo.saveSettings(settings).catch((rollbackError) => {
+          console.error('[App] Failed to rollback settings after mint trust failure:', rollbackError)
+        })
+        setSettings(settings)
+        throw trustError
+      }
 
       if (p2pkPubkey) {
-        republishProfile(refreshed.mints, refreshed.relays)
+        republishProfile(nextSettings.mints, nextSettings.relays)
       }
 
       console.log('[App] Added trusted mint:', url)
@@ -827,7 +876,13 @@ export default function MainApp() {
       console.error('[App] Failed to add trusted mint:', error)
       return false
     }
-  }, [settings.mints, preUnlock.settingsRepo, setSettings, p2pkPubkey, republishProfile, t, serviceRegistry])
+  }, [settings, preUnlock.settingsRepo, setSettings, p2pkPubkey, republishProfile, t, serviceRegistry])
+
+  const handleSendRedirect = useCallback((validated: ValidatedData) => {
+    setValidatedScanData(validated)
+    setCurrentScreen('receive')
+    addToast({ type: 'info', message: t('redirect.toReceive') })
+  }, [addToast, t])
 
   const handleBack = useCallback(() => {
     const target = previousScreen || 'home'
@@ -1187,6 +1242,7 @@ export default function MainApp() {
           initialMintUrl={activeMintUrl}
           initialDestination={contactInfo?.address || undefined}
           initialDisplayName={contactInfo?.displayName || undefined}
+          onRedirect={handleSendRedirect}
         />
       )}
 
@@ -1222,11 +1278,13 @@ export default function MainApp() {
         <TokenRegisterFlow
           onBack={() => {
             const backTo = previousScreen || 'token'
+            clearIncomingReviewState()
             setPreviousScreen(null)
             setInitialRegisterToken('')
             setCurrentScreen(backTo)
           }}
           onComplete={() => {
+            clearIncomingReviewState()
             setPreviousScreen(null)
             setInitialRegisterToken('')
             setCurrentScreen('token')
@@ -1240,6 +1298,15 @@ export default function MainApp() {
           onRouteValidated={handleRouteValidated}
           initialToken={initialRegisterToken}
           targetMintUrl={activeMintUrl ?? settings.mints[0] ?? undefined}
+          incomingReview={activeIncomingReview}
+          onResolveIncomingReview={(params) =>
+            activeIncomingReview
+              ? handleResolveIncomingReview({ review: activeIncomingReview, transactionId: params.transactionId })
+              : Promise.resolve()
+          }
+          onRejectIncomingReview={() =>
+            activeIncomingReview ? handleRejectIncomingReview(activeIncomingReview) : Promise.resolve()
+          }
         />
       )}
 
@@ -1285,17 +1352,17 @@ export default function MainApp() {
             setScannedAmount(0)
             setCurrentScreen('send')
           }}
-          onDeleteMint={(url) => {
+          onDeleteMint={async (url) => {
             if (settings.mints.length <= LIMITS.MIN_MINTS) {
               addToast({ type: 'warning', message: t('settings.minMintsRequired', { min: LIMITS.MIN_MINTS }) })
               return
             }
             const newMints = settings.mints.filter(m => m !== url)
             const { [url]: _, ...remainingAliases } = settings.mintAliases || {}
+            await handleSaveSettings({ mints: newMints, mintAliases: remainingAliases })
+            await serviceRegistry?.cleanup.clearMintData(url)
             setCurrentScreen('home')
             addToast({ type: 'success', message: t('mintDetail.mintDeleted') })
-            handleSaveSettings({ mints: newMints, mintAliases: remainingAliases })
-            serviceRegistry?.cleanup.clearMintData(url)
           }}
           onRenameMint={(url, newName) => {
             const newAliases = { ...settings.mintAliases, [url]: newName }
@@ -1336,6 +1403,9 @@ export default function MainApp() {
             onRedeemQuote: async (mintUrl: string, quoteId: string, amount: number) => {
               const { redeemMintQuote } = await import('@/modules/cashu')
               await redeemMintQuote(mintUrl, quoteId, amount)
+            },
+            onPendingItemChanged: async () => {
+              await refreshAll()
             },
           } : undefined}
         />

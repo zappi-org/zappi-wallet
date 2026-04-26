@@ -1,4 +1,5 @@
 import type { PendingQuote } from '@/core/domain/quote'
+import type { EffectiveExpiryStatus } from '@/core/domain/effective-expiry'
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface PendingItem<D = {}> {
@@ -17,4 +18,6 @@ export interface PendingItemsUseCase {
   getByMint(mintUrl: string): Promise<PendingItem[]>
   getAll(): Promise<PendingItem[]>
   getActivePendingQuotes(): Promise<PendingQuote[]>
+  checkEffectiveExpiry(id: string): Promise<EffectiveExpiryStatus>
+  expireById(id: string): Promise<void>
 }

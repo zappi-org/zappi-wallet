@@ -7,31 +7,41 @@
  * 의존성: port interface만. module/adapter 구체 구현에 무관.
  */
 
-import { Ok, Err } from '@/core/domain/result'
-import type { Result } from '@/core/domain/result'
 import type { Amount } from '@/core/domain/amount'
 import { amount as amt } from '@/core/domain/amount'
+import type { Result } from '@/core/domain/result'
+import { Err, Ok } from '@/core/domain/result'
 import { createTransaction, settleAsDelivered, settleAsReclaimed } from '@/core/domain/transaction'
+import { BaseError } from '@/core/errors/base'
 import type { PaymentError } from '@/core/errors/payment.errors'
 import type { EventBus } from '@/core/events/event-bus'
+import type { OperationMap } from '@/core/ports/driven/operation-map.port'
 import type {
-  PaymentUseCase,
-  PaymentMethodInfo,
-  SendResult,
-  ReclaimResult,
-  RecoveryReport,
-  InputInspectionResult,
-} from '@/core/ports/driving/payment.usecase'
-import type { WalletModule, ModuleBalance } from '@/core/ports/driven/wallet-module.port'
-import type {
-  PaymentMethodAdapter,
   FeeEstimate,
+  PaymentMethodAdapter,
   ReceiveRequest,
-  RedeemResult,
   RedeemFeeEstimate,
+  RedeemResult,
 } from '@/core/ports/driven/payment-method.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
-import type { OperationMap } from '@/core/ports/driven/operation-map.port'
+import type { ModuleBalance, WalletModule } from '@/core/ports/driven/wallet-module.port'
+import type {
+  InputInspectionResult,
+  PaymentMethodInfo,
+  PaymentUseCase,
+  ReclaimResult,
+  RecoveryReport,
+  SendResult,
+} from '@/core/ports/driving/payment.usecase'
+
+function toPaymentError(error: unknown): PaymentError {
+  if (error instanceof BaseError) {
+    return { code: error.code, message: error.message }
+  }
+
+  const message = error instanceof Error ? error.message : 'Unknown error'
+  return { code: 'UNKNOWN', message }
+}
 
 /** Recipient claimed the proofs or SDK already finalized — treat as consumed. */
 function isAlreadySpentMessage(message: string): boolean {
@@ -188,16 +198,16 @@ export class PaymentService implements PaymentUseCase {
         data: { ...result.data, operationId: result.operationId },
       })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
+      const paymentError = toPaymentError(error)
 
       await this.txRepo.update(txId, { status: 'failed', completedAt: Date.now() }).catch(() => {})
 
       this.eventBus.emit({
         type: 'payment:failed',
-        payload: { txId, method: module.id, error: message },
+        payload: { txId, method: module.id, error: paymentError.message },
       })
 
-      return Err({ code: 'UNKNOWN', message })
+      return Err(paymentError)
     }
   }
 
@@ -229,25 +239,9 @@ export class PaymentService implements PaymentUseCase {
         description: params.description,
       })
 
-      const tx = createTransaction({
-        id: request.id,
-        direction: 'receive',
-        method: request.method,
-        protocol: request.protocol,
-        amount: params.amount,
-        accountId: params.accountId,
-        memo: params.description,
-        metadata: { quoteId: request.id, bolt11: request.encoded },
-      })
-      await this.txRepo.save(tx)
-
-      // quoteId → txId 매핑 등록 (mintQuoteObserver가 settle 시 사용)
-      this.operationMap?.register(request.id, request.id)
-
       return Ok(request)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
-      return Err({ code: 'UNKNOWN', message })
+      return Err(toPaymentError(error))
     }
   }
 
@@ -318,8 +312,7 @@ export class PaymentService implements PaymentUseCase {
 
       return Ok(result)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
-      return Err({ code: 'UNKNOWN', message })
+      return Err(toPaymentError(error))
     }
   }
 
@@ -341,8 +334,7 @@ export class PaymentService implements PaymentUseCase {
       const estimate = await adapter.estimateRedeemFee(params.input)
       return Ok(estimate)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
-      return Err({ code: 'UNKNOWN', message })
+      return Err(toPaymentError(error))
     }
   }
 
@@ -585,8 +577,7 @@ export class PaymentService implements PaymentUseCase {
       })
       return Ok(estimate)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
-      return Err({ code: 'UNKNOWN', message })
+      return Err(toPaymentError(error))
     }
   }
 

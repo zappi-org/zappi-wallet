@@ -233,6 +233,12 @@ export default {
     mintHasBalance: 'Mint ini memiliki saldo <bold>{{formattedBalance}}</bold>.',
     deleteWarning: 'Menghapus akan membuat saldo tidak dapat diakses.',
     confirmDeleteMint: 'Hapus mint ini?',
+    primary: 'Utama',
+    position: 'Posisi',
+    moveUp: 'Pindah ke atas',
+    moveDown: 'Pindah ke bawah',
+    dragToReorder: 'Seret untuk mengurutkan',
+    reorderHint: 'Seret pegangan untuk mengurutkan. Keyboard: fokuskan pegangan lalu tekan atas / bawah.',
 
     // Preferences
     preferences: 'Preferensi',
@@ -766,6 +772,12 @@ export default {
     unknownError: 'Terjadi kesalahan yang tidak diketahui',
   },
 
+  // Redirect
+  redirect: {
+    toReceive: 'Beralih ke Terima',
+    toSend: 'Beralih ke Kirim',
+  },
+
   // Toast Messages
   toast: {
     copied: 'Disalin ke clipboard',
@@ -784,6 +796,7 @@ export default {
     invoiceCreateFailed: 'Gagal membuat invoice',
     invoiceCreateOffline: 'Tidak dapat membuat invoice saat offline',
     tokenReceivedAmount: '{{amount}} diterima',
+    tokenReclaimedAmount: '{{amount}} diklaim kembali',
     paymentRequestFailed: 'Gagal membuat payment request',
     sendComplete: '{{amount}} terkirim',
     swapComplete: '{{amount}} swap selesai (biaya: {{fee}})',
@@ -935,6 +948,11 @@ export default {
     },
     qr: {
       title: 'Terima',
+      protocols: {
+        unified: 'Unified',
+        cashu: 'Cashu',
+        lightning: 'Lightning',
+      },
       showToSender: 'Tunjukkan ini kepada pengirim',
       share: 'Bagikan',
       willNotify: 'Kami akan memberi tahu saat pembayaran masuk ke {{mint}}',
@@ -966,10 +984,12 @@ export default {
       crossMintQuestion: 'Di mana ingin\nmenerima {{amount}}?',
       tokenFrom: 'Token ini dibuat di {{mint}}',
       tokenFromSuffix: ' mint membuat token ini',
-      receiveDirectly: 'Terima langsung di {{mint}}',
-      receiveDirectlySub: 'Tanpa biaya, langsung diterima',
+      receiveDirectly: 'Terima di mint {{mint}}',
+      receiveDirectlySub: 'Terima di mint asal tanpa swap',
       receiveViaSwap: 'Tukar ke {{mint}}',
       receiveViaSwapSub: 'Biaya Lightning berlaku',
+      reject: 'Jangan terima',
+      rejectSub: 'Biarkan token ini belum ditebus',
       fee: 'Biaya',
       netAmount: 'Anda terima',
       noFee: 'Tanpa biaya',
@@ -980,13 +1000,11 @@ export default {
       unregistered: 'Mint belum terdaftar',
       warningFrom: 'Dari mint\nbelum terdaftar {{mint}}',
       warningNeedConfirm: 'Untuk menerima {{amount}},\ndiperlukan konfirmasi.',
-      explanation: 'Jika tidak mengenal mint ini,\nAnda bisa menerima ke mint sendiri.',
-      myMint: 'Tukar ke mint saya',
-      myMintSub: 'Biaya Lightning berlaku',
+      explanation: 'Tambahkan mint ini hanya jika Anda memercayainya.\nJika tidak, tolak token ini.',
       addAndReceive: 'Tambah mint dan terima',
       addAndReceiveSub: 'Saya percaya mint ini',
-      feeNote: 'Mungkin dikenakan biaya',
-      receiveWithMint: 'Terima dengan mint ini',
+      reject: 'Jangan terima',
+      rejectSub: 'Jangan terima token ini',
     },
     offline: {
       p2pkAccepted: 'Token ini dilindungi P2PK. Dapat diterima secara offline dengan aman dan akan diverifikasi saat terhubung kembali.',
@@ -998,7 +1016,19 @@ export default {
       acceptAnyway: 'Terima dengan risiko saya',
     },
     swapFeeTooHigh: 'Biaya swap ({{fee}}) sama atau lebih besar dari jumlah token ({{amount}})',
-    swapFailedButReceived: 'Swap gagal, tetapi {{amount}} telah diterima di mint asal',
+    swapTokenTooSmall: 'Token ini terlalu kecil untuk ditukar ke mint Anda. Terima langsung di mint asal atau gunakan token yang lebih besar.',
+    tokenReceiveFeeTooHigh: 'Setelah biaya penerimaan, tidak ada jumlah tersisa untuk diterima.',
+    swapEstimateFailed: 'Rute swap tidak dapat diperiksa, sehingga token tidak diterima. Coba lagi nanti atau terima langsung di mint asal.',
+    swapReceiveKeptOnSource: '{{amount}} tidak dapat dipindahkan ke mint Anda, sehingga tetap berada di mint asal.',
+    swapCompletedWithSourceRemainder: 'Swap selesai, tetapi {{amount}} masih tersisa di mint asal karena penyesuaian biaya Lightning',
+    swapCompletedWithHiddenSourceRemainder: 'Swap selesai, tetapi {{amount}} masih tersisa di {{mint}}. Tambahkan mint ini untuk mengakses sisanya.',
+    sourceRecovery: {
+      title: 'Tidak dapat dipindahkan ke mint Anda',
+      description: '{{amount}} tersimpan di {{mint}}. Tambahkan mint ini hanya jika Anda ingin melihat dan menggunakan saldo itu di Zappi.',
+      mint: 'Mint asal',
+      addMint: 'Tambahkan mint dan lihat saldo',
+      later: 'Nanti saja',
+    },
   },
 
   // Mint Detail Screen
@@ -1047,6 +1077,8 @@ export default {
     fillMint: 'Mint tujuan',
     sendElsewhere: 'Kirim ke tempat lain',
     emptyAndDeleteBtn: 'Kosongkan dan Hapus',
+    forceDeleteBtn: 'Tetap hapus',
+    forceDeleteDescription: 'Jika Anda menghapus {{mint}} sekarang, sisa saldo {{amount}} pada mint itu akan ditinggalkan.\n\nTindakan ini tidak dapat dibatalkan.',
     deleteComplete: '{{mint}} telah dikosongkan dan dihapus.',
     swapping: 'Memindahkan saldo...',
     swapFailed: 'Gagal memindahkan saldo. Silakan coba lagi.',

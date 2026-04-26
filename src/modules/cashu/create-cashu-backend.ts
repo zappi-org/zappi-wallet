@@ -14,6 +14,7 @@ import {
   recoverPendingSendTokens,
   recoverPendingQuotes,
 } from './internal/cashu-recovery'
+import { abandonMintQuote, getMintQuote } from './internal/coco-sdk'
 import type { OfflineTokenStore } from '@/core/ports/driven/offline-token-store.port'
 import {
   redeemPendingReceivedTokens,
@@ -24,9 +25,15 @@ export interface CreateCashuBackendDeps {
   pendingOpRepo: PendingOperationRepository
   txRepo: TransactionRepository
   offlineTokenStore: OfflineTokenStore
+  getActiveMintUrls?: () => string[]
 }
 
 export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBackend {
+  const activeMintOptions = () => ({
+    trustedMintUrls: deps.getActiveMintUrls?.(),
+    getCurrentTrustedMintUrls: deps.getActiveMintUrls,
+  })
+
   return {
     // LightningBackend
     prepareMelt: backend.prepareMelt,
@@ -34,6 +41,8 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
     rollbackMelt: backend.rollbackMelt,
     createMintQuote: backend.createMintQuote,
     redeemMintQuote: backend.redeemMintQuote,
+    getMintQuote,
+    checkMintQuote: backend.checkMintQuote,
     async recoverPendingMelts() {
       const meltOps = await backend.getMeltRecoveryOps()
       return recoverPendingMelts({ pendingOpRepo: deps.pendingOpRepo, meltOps })
@@ -43,15 +52,16 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
     executeSend: backend.executeSend,
     rollbackSend: backend.rollbackSend,
     finalizeSend: backend.finalizeSend,
-    receiveToken: backend.receiveToken,
-    estimateReceiveFee: backend.estimateReceiveFee,
+    checkProofStates: backend.checkProofStates,
+    receiveToken: (token: string) => backend.receiveToken(token, activeMintOptions()),
+    estimateReceiveFee: (token: string) => backend.estimateReceiveFee(token, activeMintOptions()),
     async recoverPendingSendTokens() {
       const sendOps = await backend.getSendRecoveryOps()
       return recoverPendingSendTokens({
         pendingOpRepo: deps.pendingOpRepo,
         txRepo: deps.txRepo,
         sendOps,
-        receiveToken: async (token: string) => backend.receiveToken(token),
+        receiveToken: async (token: string) => backend.receiveToken(token, activeMintOptions()),
       })
     },
     // Mint quote 결제 완료 감지 (스왑 완료 대기에 필요)
@@ -63,17 +73,22 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
         pendingOpRepo: deps.pendingOpRepo,
         txRepo: deps.txRepo,
         quoteOps,
+        activeMintUrls: deps.getActiveMintUrls?.(),
       })
     },
     // Offline received token recovery
     async redeemPendingReceivedTokens() {
-      return redeemPendingReceivedTokens(deps.offlineTokenStore, backend.receiveToken)
+      return redeemPendingReceivedTokens(
+        deps.offlineTokenStore,
+        (token: string) => backend.receiveToken(token, activeMintOptions()),
+      )
     },
     async storeOfflineToken(token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing') {
       return storeOfflineToken(deps.offlineTokenStore, token, amount, mintUrl, dleqStatus)
     },
     // Token inspection (lock + DLEQ)
     inspectInput: backend.inspectInput,
+    abandonMintQuote,
     // PaymentRequest (NUT-18)
     parsePaymentRequest: backend.parsePaymentRequest,
     preparePaymentRequest: backend.preparePaymentRequest,

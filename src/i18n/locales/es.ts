@@ -233,6 +233,12 @@ export default {
     mintHasBalance: 'Este mint tiene un saldo de <bold>{{formattedBalance}}</bold>.',
     deleteWarning: 'Eliminar hará el saldo inaccesible.',
     confirmDeleteMint: '¿Eliminar este mint?',
+    primary: 'Principal',
+    position: 'Posición',
+    moveUp: 'Mover arriba',
+    moveDown: 'Mover abajo',
+    dragToReorder: 'Arrastrar para reordenar',
+    reorderHint: 'Arrastra el controlador para reordenar. Con teclado: enfoca el controlador y presiona arriba / abajo.',
 
     // Preferences
     preferences: 'Preferencias',
@@ -766,6 +772,12 @@ export default {
     unknownError: 'Ocurrió un error desconocido',
   },
 
+  // Redirect
+  redirect: {
+    toReceive: 'Cambiando a Recibir',
+    toSend: 'Cambiando a Enviar',
+  },
+
   // Toast Messages
   toast: {
     copied: 'Copiado al portapapeles',
@@ -784,6 +796,7 @@ export default {
     invoiceCreateFailed: 'Error al crear factura',
     invoiceCreateOffline: 'No se puede crear factura sin conexión',
     tokenReceivedAmount: '{{amount}} recibidos',
+    tokenReclaimedAmount: '{{amount}} recuperados',
     paymentRequestFailed: 'Error al crear solicitud de pago',
     sendComplete: '{{amount}} enviados',
     swapComplete: '{{amount}} intercambiados (comisión: {{fee}})',
@@ -935,6 +948,11 @@ export default {
     },
     qr: {
       title: 'Recibir',
+      protocols: {
+        unified: 'Unificado',
+        cashu: 'Cashu',
+        lightning: 'Lightning',
+      },
       showToSender: 'Muestra esto al remitente',
       share: 'Compartir',
       willNotify: 'Te notificaremos cuando el pago llegue a {{mint}}',
@@ -966,10 +984,12 @@ export default {
       crossMintQuestion: '¿Dónde quieres\nrecibir {{amount}}?',
       tokenFrom: 'Este token fue creado en {{mint}}',
       tokenFromSuffix: ' mint creó este token',
-      receiveDirectly: 'Recibir directo en {{mint}}',
-      receiveDirectlySub: 'Sin comisión, recibe al instante',
+      receiveDirectly: 'Recibir en el mint {{mint}}',
+      receiveDirectlySub: 'Recibir en el mint original sin swap',
       receiveViaSwap: 'Cambiar a {{mint}}',
       receiveViaSwapSub: 'Se aplica comisión Lightning',
+      reject: 'No recibir',
+      rejectSub: 'Dejar este token sin canjear',
       fee: 'Comisión',
       netAmount: 'Recibes',
       noFee: 'Sin comisión',
@@ -980,13 +1000,11 @@ export default {
       unregistered: 'Mint no registrado',
       warningFrom: 'Desde el mint\nno registrado {{mint}}',
       warningNeedConfirm: 'Para recibir {{amount}},\nse necesita confirmación.',
-      explanation: 'Si no conoces este mint,\npuedes recibir en tu propio mint.',
-      myMint: 'Cambiar a mi mint',
-      myMintSub: 'Se aplica comisión Lightning',
+      explanation: 'Agrega este mint solo si confías en él.\nSi no, rechaza el token.',
       addAndReceive: 'Agregar mint y recibir',
       addAndReceiveSub: 'Confío en este mint',
-      feeNote: 'Puede aplicar una tarifa',
-      receiveWithMint: 'Recibir con este mint',
+      reject: 'No recibir',
+      rejectSub: 'No aceptar este token',
     },
     offline: {
       p2pkAccepted: 'Este token está protegido por P2PK. Se puede recibir sin conexión y se verificará al reconectarse.',
@@ -998,7 +1016,19 @@ export default {
       acceptAnyway: 'Aceptar bajo mi riesgo',
     },
     swapFeeTooHigh: 'La comisión de swap ({{fee}}) es igual o mayor al monto del token ({{amount}})',
-    swapFailedButReceived: 'El swap falló, pero {{amount}} se recibió en el mint original',
+    swapTokenTooSmall: 'Este token es demasiado pequeño para cambiarlo a tu mint. Recíbelo directamente en el mint original o usa un token mayor.',
+    tokenReceiveFeeTooHigh: 'Después de las comisiones de recepción, no queda monto para recibir.',
+    swapEstimateFailed: 'No se pudo comprobar la ruta del swap, así que el token no se recibió. Inténtalo más tarde o recíbelo en el mint original.',
+    swapReceiveKeptOnSource: '{{amount}} no pudo moverse a tu mint, así que permanece en el mint original.',
+    swapCompletedWithSourceRemainder: 'El swap se completó, pero {{amount}} permanece en el mint de origen por el ajuste de comisión Lightning',
+    swapCompletedWithHiddenSourceRemainder: 'El swap se completó, pero {{amount}} permanece en {{mint}}. Agregue este mint para acceder al remanente.',
+    sourceRecovery: {
+      title: 'No se pudo mover a tu mint',
+      description: '{{amount}} está guardado en {{mint}}. Agrega este mint solo si quieres ver y usar ese saldo en Zappi.',
+      mint: 'Mint original',
+      addMint: 'Agregar mint y ver saldo',
+      later: 'Ahora no',
+    },
   },
 
   // Mint Detail Screen
@@ -1047,6 +1077,8 @@ export default {
     fillMint: 'Mint destino',
     sendElsewhere: 'Enviar a otro lugar',
     emptyAndDeleteBtn: 'Vaciar y eliminar',
+    forceDeleteBtn: 'Eliminar de todos modos',
+    forceDeleteDescription: 'Si eliminas {{mint}} ahora, abandonarás el saldo restante de {{amount}} en ese mint.\n\nEsto no se puede deshacer.',
     deleteComplete: '{{mint}} ha sido vaciado y eliminado.',
     swapping: 'Moviendo saldo...',
     swapFailed: 'Error al mover el saldo. Inténtelo de nuevo.',

@@ -118,7 +118,7 @@ export const STORAGE_KEYS = {
  */
 export const DATABASE = {
   NAME: 'zappi_wallet_db',
-  VERSION: 15,
+  VERSION: 16,
 } as const
 
 /**
@@ -148,7 +148,7 @@ export const CASHU_UNIT = 'sat' as const
  */
 export const LIMITS = {
   /** Maximum number of mints */
-  MAX_MINTS: 5,
+  MAX_MINTS: 10,
   /** Maximum number of relays */
   MAX_RELAYS: 5,
   /** Minimum number of relays */

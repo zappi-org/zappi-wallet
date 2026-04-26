@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { ArrowLeft, Plus, Trash2, Server, AlertCircle } from 'lucide-react'
+import { Reorder } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { Button } from '@/ui/components/common/Button'
@@ -7,6 +8,8 @@ import { normalizeRelayUrl } from '@/utils/url'
 import { LIMITS } from '@/core/constants'
 import { cn } from '@/ui/primitives/utils'
 import { Modal } from '@/ui/components/common'
+import { isSameOrder, moveItem, reconcileOrder } from '@/utils/reorder'
+import { ReorderableSettingItem } from './ReorderableSettingItem'
 
 export interface RelayManagementScreenProps {
   onBack: () => void
@@ -19,16 +22,19 @@ export function RelayManagementScreen({
 }: RelayManagementScreenProps) {
   const { t } = useTranslation()
   const settings = useAppStore((s) => s.settings)
+  const addToast = useAppStore((s) => s.addToast)
   const relays = settings.relays
 
   const [newRelayUrl, setNewRelayUrl] = useState('')
   const [isValidating, setIsValidating] = useState(false)
   const [error, setError] = useState('')
   const [relayToDelete, setRelayToDelete] = useState<string | null>(null)
+  const [orderedRelays, setOrderedRelays] = useState(relays)
 
   // Relay health status
   const [relayStatus, setRelayStatus] = useState<Record<string, boolean>>({})
   const inputRef = useRef<HTMLInputElement>(null)
+  const orderedRelayList = reconcileOrder(orderedRelays, relays)
 
   const emptySlots = LIMITS.MAX_RELAYS - relays.length
   const isAtLimit = relays.length >= LIMITS.MAX_RELAYS
@@ -117,6 +123,39 @@ export function RelayManagementScreen({
     await onSaveSettings({ relays: newRelays })
   }, [relayToDelete, relays, onSaveSettings])
 
+  const persistRelayOrder = useCallback(async (nextRelays: string[]) => {
+    if (isSameOrder(nextRelays, relays)) {
+      return
+    }
+
+    try {
+      await onSaveSettings({ relays: nextRelays })
+    } catch {
+      setOrderedRelays(relays)
+      addToast({ type: 'error', message: t('errors.unknownError') })
+    }
+  }, [relays, onSaveSettings, addToast, t])
+
+  const commitDraggedRelayOrder = useCallback(async () => {
+    await persistRelayOrder(orderedRelayList)
+  }, [orderedRelayList, persistRelayOrder])
+
+  const handleMoveRelay = useCallback(async (url: string, direction: 'up' | 'down') => {
+    const currentIndex = orderedRelayList.indexOf(url)
+    if (currentIndex < 0) {
+      return
+    }
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+    const newRelays = moveItem(orderedRelayList, currentIndex, targetIndex)
+    if (newRelays === orderedRelayList) {
+      return
+    }
+
+    setOrderedRelays(newRelays)
+    await persistRelayOrder(newRelays)
+  }, [orderedRelayList, persistRelayOrder])
+
   const formatRelayUrl = (url: string) => url.replace('wss://', '').replace('ws://', '')
 
   return (
@@ -188,45 +227,79 @@ export function RelayManagementScreen({
 
       {/* Relay List */}
       <div className="flex-1 overflow-y-auto pb-safe">
-        <div className="bg-background-card divide-y divide-border">
+        <p className="px-5 pb-2 text-overline font-medium text-foreground-muted">
+          {t('settings.reorderHint')}
+        </p>
+        <Reorder.Group
+          as="div"
+          axis="y"
+          values={orderedRelayList}
+          onReorder={setOrderedRelays}
+          className="bg-background-card divide-y divide-border"
+        >
           {/* Filled slots */}
-          {relays.map((url) => {
+          {orderedRelayList.map((url, index) => {
             const status = relayStatus[url]
             return (
-              <div key={url} className="w-full px-4 py-3 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-foreground/[0.06] flex items-center justify-center shrink-0">
-                  <Server className="w-4 h-4 text-foreground-muted" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-caption font-medium text-foreground truncate">
-                      {formatRelayUrl(url)}
-                    </span>
-                    {status !== undefined && (
-                      <span className={cn(
-                        'w-1.5 h-1.5 rounded-full shrink-0',
-                        status ? 'bg-accent-primary' : 'bg-accent-danger'
-                      )} />
-                    )}
+              <ReorderableSettingItem
+                key={url}
+                value={url}
+                dragTitle={`${t('settings.dragToReorder')} ${formatRelayUrl(url)}`}
+                handleTestId="relay-drag-handle"
+                onDragEnd={commitDraggedRelayOrder}
+                onMoveUp={() => handleMoveRelay(url, 'up')}
+                onMoveDown={() => handleMoveRelay(url, 'down')}
+                canMoveUp={index > 0}
+                canMoveDown={index < orderedRelayList.length - 1}
+              >
+                {(dragHandle) => (
+              <div className="w-full py-3 flex items-stretch">
+                {dragHandle}
+                <div className="min-w-0 flex flex-1 items-center gap-3 pr-4">
+                  <div className="w-8 h-8 rounded-lg bg-foreground/[0.06] flex items-center justify-center shrink-0">
+                    <Server className="w-4 h-4 text-foreground-muted" />
                   </div>
-                  <span className="text-label font-medium text-foreground-muted">{t('settings.nostrRelay')}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-caption font-medium text-foreground truncate">
+                        {formatRelayUrl(url)}
+                      </span>
+                      {index === 0 && (
+                        <span className="rounded-full bg-brand/10 px-2 py-0.5 text-overline font-semibold text-brand">
+                          {t('settings.primary')}
+                        </span>
+                      )}
+                      {status !== undefined && (
+                        <span className={cn(
+                          'w-1.5 h-1.5 rounded-full shrink-0',
+                          status ? 'bg-accent-primary' : 'bg-accent-danger'
+                        )} />
+                      )}
+                    </div>
+                    <span className="text-label font-medium text-foreground-muted">{t('settings.nostrRelay')}</span>
+                  </div>
+                  <button
+                    onClick={() => !isAtMinimum && setRelayToDelete(url)}
+                    disabled={isAtMinimum}
+                    className={cn(
+                      "p-2 shrink-0",
+                      isAtMinimum
+                        ? "text-foreground-muted/30 cursor-not-allowed"
+                        : "text-foreground-muted active:text-accent-danger"
+                    )}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
-                <button
-                  onClick={() => !isAtMinimum && setRelayToDelete(url)}
-                  disabled={isAtMinimum}
-                  className={cn(
-                    "p-2 shrink-0",
-                    isAtMinimum
-                      ? "text-foreground-muted/30 cursor-not-allowed"
-                      : "text-foreground-muted active:text-accent-danger"
-                  )}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
               </div>
+                )}
+              </ReorderableSettingItem>
             )
           })}
+        </Reorder.Group>
 
+        {emptySlots > 0 && (
+        <div className="bg-background-card divide-y divide-border border-t border-border">
           {/* Empty slots */}
           {Array.from({ length: emptySlots }, (_, i) => (
             <button
@@ -241,6 +314,7 @@ export function RelayManagementScreen({
             </button>
           ))}
         </div>
+        )}
       </div>
 
       {/* Delete Confirmation Modal */}

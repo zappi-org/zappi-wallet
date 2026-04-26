@@ -6,12 +6,12 @@
  * store 변경은 event-store-bridge가 담당.
  */
 
-import type { Manager } from 'coco-cashu-core'
+import type { CashuRuntimeManager } from '@/modules/cashu/cashu-runtime'
 import type { EventBus } from '@/core/events/event-bus'
 import { isSwapQuote } from '@/modules/cashu'
 
 export function connectCocoEventBridge(
-  manager: Manager,
+  manager: CashuRuntimeManager,
   eventBus: EventBus,
 ): () => void {
   const unsubscribers: (() => void)[] = []
@@ -41,7 +41,7 @@ export function connectCocoEventBridge(
         requestId: operation.quoteId,
         amount: operation.amount,
         accountId: mintUrl,
-        method: 'lightning',
+        method: 'bolt11',
         isSwapStep: isSwapQuote(operation.quoteId),
       },
     })

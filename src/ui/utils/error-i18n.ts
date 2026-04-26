@@ -38,6 +38,12 @@ export function getErrorI18n(error: unknown): ErrorI18n {
   // String pattern matching fallback (raw SDK errors)
   const msg = (error instanceof Error ? error.message : String(error)).toLowerCase()
 
+  if (
+    msg.includes('receive amount is not sufficient after fees') ||
+    (msg.includes('after fees') && (msg.includes('not sufficient') || msg.includes('insufficient') || msg.includes('not enough')))
+  ) {
+    return { key: 'receive.tokenReceiveFeeTooHigh' }
+  }
   if (msg.includes('not enough proofs') || msg.includes('insufficient')) return { key: 'errors.insufficientBalance', params: { required: '?', available: '?' } }
   if (msg.includes('already spent') || msg.includes('token spent')) return { key: 'errors.tokenSpent' }
   if (msg.includes('timeout') || msg.includes('timed out')) return { key: 'errors.timeoutError' }
@@ -77,6 +83,10 @@ function resolveOverride(err: Record<string, unknown>): ErrorI18n | undefined {
 
   if (code === 'MINT_CONNECTION' || code === 'MINT_UNREACHABLE') {
     return { key: 'errors.mintConnection', params: { mint: (err.mintUrl as string) ?? '' } }
+  }
+
+  if (code === 'REDEEM_FEE_TOO_HIGH') {
+    return { key: 'receive.tokenReceiveFeeTooHigh' }
   }
 
   return undefined

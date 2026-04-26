@@ -44,6 +44,7 @@ import { SendAmountStep } from './steps/SendAmountStep'
 import { SendConfirmStep } from './steps/SendConfirmStep'
 import { SendingStep } from './steps/SendingStep'
 import { SendCompleteStep } from './steps/SendCompleteStep'
+import { planRouteSelection } from './sendRouteHelpers'
 
 // ============= Types =============
 
@@ -88,6 +89,8 @@ export interface SendFlowProps {
   // Cross-mint swap handler (my-wallet type)
   onMintSwap?: (fromMintUrl: string, toMintUrl: string, amount: number) => Promise<{ success: boolean; amount?: number; fee?: number; transactionId?: string } | null>
   onEstimateSwapFee?: (fromMintUrl: string, toMintUrl: string, amount: number) => Promise<{ fee: number; totalNeeded: number } | null>
+  // Cross-flow redirect (e.g. cashu-token pasted in Send → redirect to Receive)
+  onRedirect?: (validatedData: ValidatedData) => void
   // Pre-filled data from scanner
   validatedData?: ValidatedData
   initialAmount?: number
@@ -106,6 +109,7 @@ export function SendFlow({
   onExecuteRoute,
   onMintSwap,
   onEstimateSwapFee: _onEstimateSwapFee,
+  onRedirect,
   validatedData: initialValidatedData,
   initialAmount,
   initialMintUrl,
@@ -185,61 +189,38 @@ export function SendFlow({
   ): Promise<{ fee: number; routeSelection: RouteSelection } | null> => {
     try {
       const balances = useAppStore.getState().balance.byMint
-      const route = routing.selectRoute({
-        validatedData: validated,
-        senderMints: balances,
+      const privacyMode = useAppStore.getState().settings.senderPrivacyMode ?? false
+      const routeSelection = planRouteSelection({
+        validated,
         amount,
-        privacyMode: useAppStore.getState().settings.senderPrivacyMode ?? false,
-        lightningInvoice: validated.type === 'cashu-request' ? validated.parsed.lightningInvoice : undefined,
+        sourceMintUrl: mintUrl,
+        balances,
+        privacyMode,
       })
+      const { route } = routeSelection
 
       if (route === PaymentRoute.CANNOT_SEND) {
         addToast({ type: 'error', message: t('payment.cannotSend'), duration: 3000 })
         return null
       }
 
-      // Determine source + target mints
-      const receiverMints = validated.type === 'cashu-request' ? validated.parsed.mints
-        : []
-      const commonMints = receiverMints.length > 0
-        ? routing.findCommonMints(Object.keys(balances).filter((m) => balances[m] > 0), receiverMints)
-        : []
-      // User's selected mint takes priority
-      const sourceMint = mintUrl
-
-      let targetMint: string | undefined
-      if (route === PaymentRoute.TOKEN_TRANSFER || route === PaymentRoute.LN_INTERNAL) {
-        // Prefer source mint as target (same mint = no cross-mint fee)
-        const sourceNorm = sourceMint.replace(/\/+$/, '').toLowerCase()
-        const sourceAsTarget = commonMints.find((m) => m.replace(/\/+$/, '').toLowerCase() === sourceNorm)
-        targetMint = sourceAsTarget || commonMints[0]
-      } else if (route === PaymentRoute.LN_CROSS_MINT || route === PaymentRoute.MINT_AND_DM) {
-        targetMint = validated.type === 'cashu-request' ? validated.parsed.mints[0]
-          : validated.type === 'my-wallet' ? validated.targetMintUrl
-          : undefined
-      }
-
-      // Resolve invoice for LN routes
-      let invoice: string | undefined
-      if (validated.type === 'bolt11') invoice = validated.invoice
-      else if (validated.type === 'cashu-request') invoice = validated.parsed.lightningInvoice
-
       // Fee estimation
-      const feeEstimate = await routing.estimateRouteFee(route, sourceMint, amount, targetMint, invoice)
+      const feeEstimate = await routing.estimateRouteFee(
+        route,
+        routeSelection.sourceMintUrl,
+        amount,
+        routeSelection.targetMintUrl,
+        routeSelection.invoice,
+      )
       const fee = feeEstimate.fee
 
-      const routeSelection: RouteSelection = {
-        route,
-        amount,
-        sourceMintUrl: sourceMint,
-        targetMintUrl: targetMint,
-        invoice,
+      const finalizedRouteSelection: RouteSelection = {
+        ...routeSelection,
         estimatedFee: fee,
-        reason: ROUTE_LABELS[route],
       }
 
       console.log(`[SendFlow] Route selected: #${route} ${ROUTE_LABELS[route]} (fee: ${fee} sat)`)
-      return { fee, routeSelection }
+      return { fee, routeSelection: finalizedRouteSelection }
     } catch (err) {
       console.error('[SendFlow] Route selection / fee estimation failed:', err)
       addToast({ type: 'error', message: translateError(err, t), duration: 3000 })
@@ -474,6 +455,7 @@ export function SendFlow({
             <SendInputStep
               onBack={onBack}
               onNext={handleDestinationNext}
+              onRedirect={onRedirect}
               initialDestination={state.destination}
               initialAddress={initialDestination}
               initialValidatedData={state.validatedData}

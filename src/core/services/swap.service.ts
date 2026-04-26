@@ -25,6 +25,11 @@ import type { PaymentMethodAdapter } from '@/core/ports/driven/payment-method.po
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { SwapQuoteMarker } from '@/core/ports/driven/swap-quote-marker.port'
 
+interface ReceiveCompletionHandle {
+  promise: Promise<void>
+  cancel(): void
+}
+
 export class SwapService implements SwapUseCase {
   constructor(
     private modules: WalletModule[],
@@ -63,6 +68,14 @@ export class SwapService implements SwapUseCase {
     if (!lightning) {
       return Err({ code: 'ADAPTER_NOT_FOUND', message: 'No lightning adapter for source account' })
     }
+    let quoteId: string | null = null
+
+    const cleanupEstimateQuote = async (): Promise<void> => {
+      if (!quoteId) return
+      const currentQuoteId = quoteId
+      await this.abandonSwapQuote(params.targetAccountId, currentQuoteId)
+      quoteId = null
+    }
 
     try {
       // target에서 임시 invoice 생성하여 fee 추정
@@ -75,6 +88,7 @@ export class SwapService implements SwapUseCase {
         amount: params.amount,
         accountId: params.targetAccountId,
       })
+      quoteId = request.id
 
       const feeEstimate = await lightning.estimateFee({
         destination: request.encoded,
@@ -82,12 +96,23 @@ export class SwapService implements SwapUseCase {
         accountId: params.sourceAccountId,
       })
 
+      await cleanupEstimateQuote()
+
       return Ok({
         fee: feeEstimate.fee,
         sourceAmount: params.amount,
         targetAmount: params.amount,
       })
     } catch (error) {
+      if (quoteId) {
+        try {
+          await cleanupEstimateQuote()
+        } catch (cleanupError) {
+          const primaryMessage = error instanceof Error ? error.message : 'Unknown error'
+          const cleanupMessage = cleanupError instanceof Error ? cleanupError.message : 'Unknown error'
+          return Err({ code: 'SWAP_FAILED', message: `${primaryMessage} (cleanup failed for quote ${quoteId}: ${cleanupMessage})` })
+        }
+      }
       const message = error instanceof Error ? error.message : 'Unknown error'
       return Err({ code: 'SWAP_FAILED', message })
     }
@@ -108,6 +133,42 @@ export class SwapService implements SwapUseCase {
     const receiveTxId = crypto.randomUUID()
     let swapAmount = params.amount
     let swapQuoteId: string | null = null
+    let receiveCompletion: ReceiveCompletionHandle = {
+      promise: Promise.resolve(),
+      cancel: () => {},
+    }
+    let sendAttempted = false
+    let cleanupAttemptedQuoteId: string | null = null
+
+    const abandonCurrentSwapQuote = async (): Promise<void> => {
+      if (!swapQuoteId) return
+
+      const currentQuoteId = swapQuoteId
+      cleanupAttemptedQuoteId = currentQuoteId
+      try {
+        await this.abandonSwapQuote(params.targetAccountId, currentQuoteId)
+        swapQuoteId = null
+      } catch (error) {
+        // cleanup 실패 시에도 더 이상 swap quote로 취급하지 않도록 메모리 마킹은 해제한다.
+        this.swapQuoteMarker?.unmark(currentQuoteId)
+        throw error
+      }
+    }
+
+    const failBeforeSend = async (primaryError: PaymentError): Promise<Result<SwapResult, PaymentError>> => {
+      receiveCompletion.cancel()
+
+      try {
+        await abandonCurrentSwapQuote()
+        return Err(primaryError)
+      } catch (cleanupError) {
+        const cleanupMessage = cleanupError instanceof Error ? cleanupError.message : 'Unknown error'
+        return Err({
+          code: primaryError.code,
+          message: `${primaryError.message} (cleanup failed: ${cleanupMessage})`,
+        })
+      }
+    }
 
     try {
       // 1. Target에서 receive request 생성
@@ -121,7 +182,7 @@ export class SwapService implements SwapUseCase {
       this.swapQuoteMarker?.mark(swapQuoteId)
 
       // 2. Receive 완료 대기 등록 (send 전에 등록 — race condition 방지)
-      let receiveCompleted = this.waitForReceiveCompletion(targetLightning, request.id)
+      receiveCompletion = this.createReceiveCompletionHandle(targetLightning, request.id)
 
       // 3. Source에서 send (melt) 준비
       let prepared = await sourceLightning.prepareSend({
@@ -130,40 +191,53 @@ export class SwapService implements SwapUseCase {
         accountId: params.sourceAccountId,
       })
 
-      // 4. Drain mode: fee로 인해 잔액 부족 시 금액 조정 후 재시도
+      // 4. Drain mode: 전달받은 amount를 총 예산으로 보고 fee를 내부에서 차감한다.
       if (params.drain) {
-        const totalNeeded = toNumber(prepared.amount) + toNumber(prepared.fee)
-        const sourceModule = this.modules.find(m => m.isEnabled())
-        const sourceBalance = sourceModule
-          ? (await sourceModule.getBalance()).accounts
-              .find(a => a.id === params.sourceAccountId)?.amount
-          : undefined
-        const sourceBalanceNum = sourceBalance ? toNumber(sourceBalance) : 0
+        const drainBudget = toNumber(params.amount)
+        let drainAttempts = 0
 
-        if (sourceBalanceNum < totalNeeded) {
-          // 첫 시도 취소
+        while (toNumber(prepared.amount) + toNumber(prepared.fee) > drainBudget) {
           await sourceLightning.cancelPrepared(prepared.id)
 
-          // fee를 뺀 금액으로 재시도
-          const adjustedNum = toNumber(swapAmount) - toNumber(prepared.fee)
+          const adjustedNum = drainBudget - toNumber(prepared.fee)
           if (adjustedNum <= 0) {
-            return Err({ code: 'INSUFFICIENT_BALANCE', message: 'Balance too low to cover swap fees' })
+            return failBeforeSend({
+              code: 'INSUFFICIENT_BALANCE',
+              message: 'Balance too low to cover swap fees',
+            })
           }
+          if (adjustedNum >= toNumber(swapAmount)) {
+            return failBeforeSend({
+              code: 'SWAP_FAILED',
+              message: 'Unable to reduce swap amount for drain mode',
+            })
+          }
+
           swapAmount = sat(adjustedNum)
 
-          // 새 receive request + prepare
+          receiveCompletion.cancel()
+          await abandonCurrentSwapQuote()
           request = await targetLightning.createReceiveRequest({
             amount: swapAmount,
             accountId: params.targetAccountId,
           })
           swapQuoteId = request.id
           this.swapQuoteMarker?.mark(swapQuoteId)
-          receiveCompleted = this.waitForReceiveCompletion(targetLightning, request.id)
+          receiveCompletion = this.createReceiveCompletionHandle(targetLightning, request.id)
           prepared = await sourceLightning.prepareSend({
             destination: request.encoded,
             amount: swapAmount,
             accountId: params.sourceAccountId,
           })
+
+          drainAttempts += 1
+          if (drainAttempts >= 3) {
+            await sourceLightning.cancelPrepared(prepared.id)
+            return failBeforeSend({
+              code: 'SWAP_FAILED',
+              message: 'Unable to finalize drain swap amount',
+            })
+          }
         }
       }
 
@@ -198,10 +272,11 @@ export class SwapService implements SwapUseCase {
       await Promise.all([this.txRepo.save(sendTx), this.txRepo.save(receiveTx)])
 
       // 5. Execute send
+      sendAttempted = true
       const sendResult = await sourceLightning.executeSend(prepared.id)
 
       // 6. Receive 완료 대기
-      await receiveCompleted
+      await receiveCompletion.promise
 
       // 7. Transaction 완료 처리
       const now = Date.now()
@@ -246,10 +321,24 @@ export class SwapService implements SwapUseCase {
         fee: prepared.fee,
       })
     } catch (error) {
-      // 스왑 quote 마킹 해제 (실패 시에도)
-      if (swapQuoteId) this.swapQuoteMarker?.unmark(swapQuoteId)
+      receiveCompletion.cancel()
+      let cleanupFailure: unknown = null
 
-      const message = error instanceof Error ? error.message : 'Unknown error'
+      if (!sendAttempted && swapQuoteId && cleanupAttemptedQuoteId !== swapQuoteId) {
+        try {
+          await abandonCurrentSwapQuote()
+        } catch (cleanupError) {
+          cleanupFailure = cleanupError
+        }
+      }
+
+      // send가 이미 시도된 quote만 실패 시 마킹 해제한다.
+      if (swapQuoteId && sendAttempted) this.swapQuoteMarker?.unmark(swapQuoteId)
+
+      const primaryMessage = error instanceof Error ? error.message : 'Unknown error'
+      const message = cleanupFailure instanceof Error
+        ? `${primaryMessage} (cleanup failed: ${cleanupFailure.message})`
+        : primaryMessage
 
       await Promise.all([
         this.txRepo.update(sendTxId, { status: 'failed' }).catch(() => {}),
@@ -283,26 +372,52 @@ export class SwapService implements SwapUseCase {
     return undefined
   }
 
-  private waitForReceiveCompletion(
+  private async abandonSwapQuote(accountId: string, quoteId: string): Promise<void> {
+    if (this.swapQuoteMarker?.abandon) {
+      await this.swapQuoteMarker.abandon(accountId, quoteId)
+    }
+
+    this.swapQuoteMarker?.unmark(quoteId)
+  }
+
+  private createReceiveCompletionHandle(
     adapter: PaymentMethodAdapter,
     requestId: string,
-  ): Promise<void> {
+  ): ReceiveCompletionHandle {
     if (!adapter.onReceiveCompleted) {
       // adapter가 수신 완료 감지를 지원하지 않으면 즉시 resolve
       // (Coco watcher가 대신 처리하는 경우)
-      return Promise.resolve()
+      return {
+        promise: Promise.resolve(),
+        cancel: () => {},
+      }
     }
 
-    return new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        unsubscribe()
-        reject(new Error('Swap receive timed out'))
+    let settled = false
+    let timeout: ReturnType<typeof setTimeout> | null = null
+    let unsubscribe = () => {}
+
+    const finish = (settle?: () => void) => {
+      if (settled) return
+      settled = true
+      if (timeout) clearTimeout(timeout)
+      unsubscribe()
+      settle?.()
+    }
+
+    const promise = new Promise<void>((resolve, reject) => {
+      timeout = setTimeout(() => {
+        finish(() => reject(new Error('Swap receive timed out')))
       }, 5 * 60 * 1000) // 5분 타임아웃
 
-      const unsubscribe = adapter.onReceiveCompleted!(requestId, () => {
-        clearTimeout(timeout)
-        resolve()
+      unsubscribe = adapter.onReceiveCompleted!(requestId, () => {
+        finish(resolve)
       })
     })
+
+    return {
+      promise,
+      cancel: () => finish(),
+    }
   }
 }

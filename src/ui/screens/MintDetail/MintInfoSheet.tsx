@@ -8,6 +8,7 @@ import { useAppStore } from '@/store'
 import { CARD_PRESET_VARIANTS, VARIANT_HEX } from '@/ui/components/wallet/MintCard'
 import type { MintInfo, MintInfoData } from '@/core/types'
 import { NUT_NAMES, getSupportedNuts } from '@/core/constants'
+import { isDuplicateMintName } from '@/utils/mint-name'
 import { formatMintHost } from '@/utils/url'
 import { MintUrlQrModal } from './MintUrlQrModal'
 import { SupportedNutsModal } from './SupportedNutsModal'
@@ -17,7 +18,7 @@ export interface MintInfoSheetProps {
   isOpen: boolean
   mint: MintInfo | null
   onClose: () => void
-  onDelete?: (url: string) => void
+  onDelete?: (url: string) => Promise<void>
   onRename?: (url: string, newName: string) => void
   onChangeColor?: (url: string, color: string) => void
   getDisplayName: (url: string) => string
@@ -36,7 +37,7 @@ async function copyToClipboard(text: string) {
   }
 }
 
-export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, onChangeColor, getDisplayName: _getDisplayName }: MintInfoSheetProps) {
+export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, onChangeColor, getDisplayName }: MintInfoSheetProps) {
   const { t } = useTranslation()
   const settings = useAppStore((s) => s.settings)
   const addToast = useAppStore((s) => s.addToast)
@@ -50,6 +51,7 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, onCha
   // Inline name editing
   const [isEditingName, setIsEditingName] = useState(false)
   const [editNameValue, setEditNameValue] = useState('')
+  const [nameError, setNameError] = useState<string | null>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
   const lastFetchedUrl = useRef<string | null>(null)
@@ -83,6 +85,7 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, onCha
 
   const handleStartEdit = useCallback(() => {
     setEditNameValue(mint?.alias || mint?.name || '')
+    setNameError(null)
     setIsEditingName(true)
     setTimeout(() => nameInputRef.current?.focus(), 50)
   }, [mint?.alias, mint?.name])
@@ -90,11 +93,24 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, onCha
   const handleSaveName = useCallback(() => {
     if (!mint?.url) return
     const trimmed = editNameValue.trim()
-    if (trimmed && trimmed !== (mint.alias || mint.name) && onRename) {
+    if (!trimmed || trimmed === (mint.alias || mint.name)) {
+      setNameError(null)
+      setIsEditingName(false)
+      return
+    }
+
+    if (isDuplicateMintName(trimmed, mint.url, settings.mints, getDisplayName)) {
+      setNameError(t('mintDetail.duplicateName'))
+      setTimeout(() => nameInputRef.current?.focus(), 0)
+      return
+    }
+
+    if (onRename) {
       onRename(mint.url, trimmed)
     }
+    setNameError(null)
     setIsEditingName(false)
-  }, [mint?.url, mint?.alias, mint?.name, editNameValue, onRename])
+  }, [mint?.url, mint?.alias, mint?.name, editNameValue, onRename, settings.mints, getDisplayName, t])
 
   if (!mint) return null
 
@@ -134,7 +150,12 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, onCha
                   ref={nameInputRef}
                   type="text"
                   value={editNameValue}
-                  onChange={(e) => setEditNameValue(e.target.value.slice(0, 10))}
+                  onChange={(e) => {
+                    setEditNameValue(e.target.value.slice(0, 10))
+                    if (nameError) {
+                      setNameError(null)
+                    }
+                  }}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSaveName() }}
                   onBlur={handleSaveName}
                   maxLength={10}
@@ -146,6 +167,9 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, onCha
                 <span className="text-body font-medium text-foreground flex-1 text-left truncate">{aliasName}</span>
                 <Pencil className="w-3.5 h-3.5 text-foreground-muted shrink-0" />
               </button>
+            )}
+            {nameError && (
+              <p className="mt-1 text-caption text-accent-danger">{nameError}</p>
             )}
           </div>
 
@@ -286,8 +310,14 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, onCha
 
       <MintUrlQrModal isOpen={showQr} url={mint.url} onClose={() => setShowQr(false)} />
       <SupportedNutsModal isOpen={showNuts} nuts={nuts} nutNames={NUT_NAMES} onClose={() => setShowNuts(false)} />
-      {showDelete && (
-        <DeleteMintSheet isOpen={showDelete} mint={mint} onClose={() => setShowDelete(false)} onDelete={(url) => onDelete?.(url)} />
+      {showDelete && onDelete && (
+        <DeleteMintSheet
+          key={`${mint.url}-${showDelete ? 'open' : 'closed'}`}
+          isOpen={showDelete}
+          mint={mint}
+          onClose={() => setShowDelete(false)}
+          onDelete={onDelete}
+        />
       )}
     </>
   )

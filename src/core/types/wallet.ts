@@ -91,6 +91,7 @@ export interface Transaction {
   memo?: string
   createdAt: number
   completedAt?: number
+  expiresAt?: number
   failedAt?: number
   failureReason?: string
   metadata?: Record<string, unknown>
@@ -98,7 +99,7 @@ export interface Transaction {
   // Token lifecycle
   token?: string
   tokenState?: TokenState
-  /** SDK SendOperation.id — links to coco-cashu-core's SendApi operation */
+  /** External send operation identifier for lifecycle recovery/finalization */
   operationId?: string
 
   // Lightning details
@@ -138,6 +139,9 @@ export interface FailedIncoming {
   createdAt: number
   externalId?: string
   txId?: string
+  redeemSucceeded?: boolean
+  receiveRequestPaymentRef?: string
+  receiveRequestMethod?: string
 }
 
 /**

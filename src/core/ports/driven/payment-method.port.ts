@@ -13,6 +13,11 @@ export interface InputInspection {
   proofIntegrity: ProofIntegrity
 }
 
+export interface CheckAliveParams {
+  requestId: string
+  accountId?: string
+}
+
 export interface PaymentMethodAdapter {
   readonly id: string            // 'cashu:bolt11', 'cashu:bolt12', 'cashu:ecash'
   readonly moduleId: string
@@ -55,6 +60,8 @@ export interface PaymentMethodAdapter {
     requestId: string,
     handler: (result: ReceiveCompletedResult) => void,
   ): () => void
+
+  checkAlive?(params: CheckAliveParams): Promise<boolean>
 
   // ─── 복구 ───
   recoverPending(): Promise<RecoveryReport>

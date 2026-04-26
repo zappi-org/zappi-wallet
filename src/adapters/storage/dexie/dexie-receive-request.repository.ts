@@ -1,64 +1,161 @@
 import type { ReceiveRequestRepository } from '@/core/ports/driven/receive-request.repository.port'
-import type { ReceiveRequest, PaymentMethod } from '@/core/domain/receive-request'
-import { expireReceiveRequest } from '@/core/domain/receive-request'
-import type { ReceiveRequestRecord } from './schema'
+import type {
+  FulfillmentStatus,
+  MethodStatus,
+  PaymentMethod,
+  ReceivePaymentMethodType,
+  ReceiveRequest,
+} from '@/core/domain/receive-request'
+import {
+  expireMethodsByTime,
+  fulfillmentFromLegacyStatus,
+  legacyStatusFromFulfillment,
+  normalizeReceivePaymentMethodType,
+} from '@/core/domain/receive-request'
+import type {
+  ReceiveRequestPaymentMethodRecord,
+  ReceiveRequestRecord,
+} from './schema'
 import { getDatabase } from './schema'
 import { sat, toNumber } from '@/core/domain/amount'
+
 function stripTrailingSlash(url: string): string {
   return url.endsWith('/') ? url.slice(0, -1) : url
 }
 
-function toDomain(r: ReceiveRequestRecord): ReceiveRequest {
-  const methods: PaymentMethod[] = [
-    { type: 'lightning', ref: r.quoteId, encoded: r.invoice, expiresAt: r.expiresAt },
-  ]
+function legacyMethodStatus(
+  record: ReceiveRequestRecord,
+  method: ReceivePaymentMethodType,
+): MethodStatus {
+  const fulfillmentStatus = getFulfillmentStatus(record)
+  if (fulfillmentStatus === 'expired' || fulfillmentStatus === 'cancelled') return 'expired'
 
-  if (r.ecashRequest && r.ecashRequestId) {
-    methods.push({
-      type: 'ecash',
-      ref: r.ecashRequestId,
-      encoded: r.ecashRequest,
-      expiresAt: r.expiresAt,
-      metadata: r.httpEndpoint ? { httpEndpoint: r.httpEndpoint } : undefined,
-    })
-  }
+  const completedMethod = record.fulfilledBy
+    ?? normalizeReceivePaymentMethodType(record.completedMethod ?? '')
+  if (completedMethod === method) return 'received'
 
+  return 'active'
+}
+
+function getFulfillmentStatus(record: ReceiveRequestRecord): FulfillmentStatus {
+  if (record.fulfillmentStatus) return record.fulfillmentStatus
+  return fulfillmentFromLegacyStatus(record.status)
+}
+
+function normalizeMethodRecord(method: ReceiveRequestPaymentMethodRecord): PaymentMethod {
   return {
-    id: r.id,
-    amount: sat(r.amount),
-    accountId: r.mintUrl,
-    status: r.status,
-    paymentMethods: methods,
-    createdAt: r.createdAt,
-    expiresAt: r.expiresAt,
-    bip321Uri: r.bip321Uri,
-    completedMethod: r.completedMethod,
-    completedAt: r.completedAt,
+    type: method.type,
+    status: method.status,
+    encoded: method.encoded,
+    expiresAt: method.expiresAt,
+    ref: method.ref,
+    receivedAt: method.receivedAt,
+    metadata: method.metadata,
   }
 }
 
-function toLegacy(d: ReceiveRequest): ReceiveRequestRecord {
-  const ln = d.paymentMethods.find((m) => m.type === 'lightning')
-  const ec = d.paymentMethods.find((m) => m.type === 'ecash')
+function legacyMethods(record: ReceiveRequestRecord): PaymentMethod[] {
+  const methods: PaymentMethod[] = []
+
+  if (record.quoteId && record.invoice) {
+    methods.push({
+      type: 'bolt11',
+      status: legacyMethodStatus(record, 'bolt11'),
+      ref: record.quoteId,
+      encoded: record.invoice,
+      expiresAt: record.expiresAt,
+      receivedAt: legacyMethodStatus(record, 'bolt11') === 'received'
+        ? record.fulfilledAt ?? record.completedAt
+        : undefined,
+    })
+  }
+
+  if (record.ecashRequest && record.ecashRequestId) {
+    methods.push({
+      type: 'ecash',
+      status: legacyMethodStatus(record, 'ecash'),
+      ref: record.ecashRequestId,
+      encoded: record.ecashRequest,
+      expiresAt: record.expiresAt,
+      receivedAt: legacyMethodStatus(record, 'ecash') === 'received'
+        ? record.fulfilledAt ?? record.completedAt
+        : undefined,
+      metadata: record.httpEndpoint ? { httpEndpoint: record.httpEndpoint } : undefined,
+    })
+  }
+
+  return methods
+}
+
+function toDomain(record: ReceiveRequestRecord): ReceiveRequest {
+  const fulfilledBy = record.fulfilledBy
+    ?? normalizeReceivePaymentMethodType(record.completedMethod ?? '')
+    ?? undefined
+  const paymentMethods = record.paymentMethods?.map(normalizeMethodRecord) ?? legacyMethods(record)
 
   return {
-    id: d.id,
-    status: d.status,
-    amount: toNumber(d.amount),
-    mintUrl: d.accountId,
-    createdAt: d.createdAt,
-    expiresAt: d.expiresAt,
-    quoteId: ln?.ref ?? '',
-    invoice: ln?.encoded ?? '',
-    ecashRequest: ec?.encoded,
-    ecashRequestId: ec?.ref,
-    httpEndpoint: (ec?.metadata as Record<string, unknown> | undefined)?.httpEndpoint as
+    id: record.id,
+    amount: sat(record.amount),
+    accountId: record.mintUrl,
+    fulfillmentStatus: getFulfillmentStatus(record),
+    paymentMethods,
+    createdAt: record.createdAt,
+    expiresAt: record.expiresAt,
+    bip321Uri: record.bip321Uri,
+    fulfilledBy,
+    fulfilledAt: record.fulfilledAt ?? record.completedAt,
+  }
+}
+
+function toMethodRecord(method: PaymentMethod): ReceiveRequestPaymentMethodRecord {
+  return {
+    type: method.type,
+    status: method.status,
+    encoded: method.encoded,
+    expiresAt: method.expiresAt,
+    ref: method.ref,
+    receivedAt: method.receivedAt,
+    metadata: method.metadata,
+  }
+}
+
+function toLegacy(domain: ReceiveRequest): ReceiveRequestRecord {
+  const bolt11 = domain.paymentMethods.find((method) => method.type === 'bolt11')
+  const ecash = domain.paymentMethods.find((method) => method.type === 'ecash')
+
+  return {
+    id: domain.id,
+    status: legacyStatusFromFulfillment(domain.fulfillmentStatus),
+    fulfillmentStatus: domain.fulfillmentStatus,
+    amount: toNumber(domain.amount),
+    mintUrl: domain.accountId,
+    createdAt: domain.createdAt,
+    expiresAt: domain.expiresAt,
+    paymentMethods: domain.paymentMethods.map(toMethodRecord),
+    quoteId: bolt11?.ref ?? '',
+    invoice: bolt11?.encoded ?? '',
+    ecashRequest: ecash?.encoded,
+    ecashRequestId: ecash?.ref,
+    httpEndpoint: (ecash?.metadata as Record<string, unknown> | undefined)?.httpEndpoint as
       | string
       | undefined,
-    bip321Uri: d.bip321Uri,
-    completedAt: d.completedAt,
-    completedMethod: d.completedMethod as ReceiveRequestRecord['completedMethod'],
+    bip321Uri: domain.bip321Uri,
+    completedAt: domain.fulfilledAt,
+    completedMethod: domain.fulfilledBy,
+    fulfilledAt: domain.fulfilledAt,
+    fulfilledBy: domain.fulfilledBy,
   }
+}
+
+function matchesAccount(record: ReceiveRequestRecord, accountIds?: string[]): boolean {
+  if (!accountIds || accountIds.length === 0) return true
+  const normalizedIds = accountIds.map(stripTrailingSlash)
+  return normalizedIds.includes(stripTrailingSlash(record.mintUrl))
+}
+
+function findMethodByRef(record: ReceiveRequestRecord, ref: string): boolean {
+  if (record.quoteId === ref || record.ecashRequestId === ref) return true
+  return record.paymentMethods?.some((method) => method.ref === ref) ?? false
 }
 
 export class DexieReceiveRequestRepository implements ReceiveRequestRepository {
@@ -70,50 +167,91 @@ export class DexieReceiveRequestRepository implements ReceiveRequestRepository {
     await this.db.receiveRequests.put(toLegacy(req))
   }
 
+  async update(
+    id: string,
+    updater: (request: ReceiveRequest) => ReceiveRequest,
+  ): Promise<ReceiveRequest | null> {
+    return this.db.transaction('rw', this.db.receiveRequests, async () => {
+      const record = await this.db.receiveRequests.get(id)
+      if (!record) return null
+
+      const existing = toDomain(record)
+      const next = updater(existing)
+      if (next !== existing) {
+        await this.db.receiveRequests.put(toLegacy(next))
+      }
+      return next
+    })
+  }
+
+  async updateByPaymentRef(
+    ref: string,
+    updater: (request: ReceiveRequest) => ReceiveRequest,
+  ): Promise<ReceiveRequest | null> {
+    return this.db.transaction('rw', this.db.receiveRequests, async () => {
+      const record = await this.findRecordByPaymentRef(ref)
+      if (!record) return null
+
+      const existing = toDomain(record)
+      const next = updater(existing)
+      if (next !== existing) {
+        await this.db.receiveRequests.put(toLegacy(next))
+      }
+      return next
+    })
+  }
+
   async getById(id: string): Promise<ReceiveRequest | null> {
     const record = await this.db.receiveRequests.get(id)
     return record ? toDomain(record) : null
   }
 
   async findByPaymentRef(ref: string): Promise<ReceiveRequest | null> {
-    const byQuote = await this.db.receiveRequests.where('quoteId').equals(ref).first()
-    if (byQuote) return toDomain(byQuote)
+    const record = await this.findRecordByPaymentRef(ref)
+    return record ? toDomain(record) : null
+  }
 
-    const byEcash = await this.db.receiveRequests.where('ecashRequestId').equals(ref).first()
-    if (byEcash) return toDomain(byEcash)
-
-    return null
+  async listAll(accountIds?: string[]): Promise<ReceiveRequest[]> {
+    const results = await this.db.receiveRequests.toArray()
+    return results.filter((record) => matchesAccount(record, accountIds)).map(toDomain)
   }
 
   async listPending(accountIds?: string[]): Promise<ReceiveRequest[]> {
     const now = Date.now()
-    const results = await this.db.receiveRequests.where('status').equals('pending').toArray()
-    const normalizedIds = accountIds?.map(stripTrailingSlash)
-
-    return results
-      .filter((r) => {
-        if (r.expiresAt <= now) return false
-        if (normalizedIds && normalizedIds.length > 0) {
-          return normalizedIds.includes(stripTrailingSlash(r.mintUrl))
-        }
-        return true
-      })
-      .map(toDomain)
+    const results = await this.listAll(accountIds)
+    return results.filter((request) =>
+      request.fulfillmentStatus === 'pending' &&
+      request.expiresAt > now &&
+      request.paymentMethods.some((method) => method.status === 'active' && method.expiresAt > now),
+    )
   }
 
   async cleanupExpired(): Promise<number> {
     const now = Date.now()
-    const expired = await this.db.receiveRequests
-      .where('status')
-      .equals('pending')
-      .filter((r) => r.expiresAt <= now)
-      .toArray()
+    const records = await this.db.receiveRequests.toArray()
+    let changed = 0
 
-    if (expired.length === 0) return 0
+    for (const record of records) {
+      let didChange = false
+      await this.update(record.id, (existing) => {
+        const next = expireMethodsByTime(existing, now)
+        didChange = next !== existing
+        return next
+      })
+      if (didChange) changed += 1
+    }
 
-    const expiredDomains = expired.map(toDomain).map(expireReceiveRequest)
-    await this.db.receiveRequests.bulkPut(expiredDomains.map(toLegacy))
+    return changed
+  }
 
-    return expired.length
+  private async findRecordByPaymentRef(ref: string): Promise<ReceiveRequestRecord | undefined> {
+    const byQuote = await this.db.receiveRequests.where('quoteId').equals(ref).first()
+    if (byQuote) return byQuote
+
+    const byEcash = await this.db.receiveRequests.where('ecashRequestId').equals(ref).first()
+    if (byEcash) return byEcash
+
+    const all = await this.db.receiveRequests.toArray()
+    return all.find((record) => findMethodByRef(record, ref))
   }
 }

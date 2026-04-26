@@ -34,3 +34,15 @@ export class InsufficientBalanceError extends BaseError {
     return this.fee > 0 && this.available >= this.required
   }
 }
+
+/**
+ * Token receive amount is fully consumed by mint receive fees.
+ */
+export class RedeemFeeTooHighError extends BaseError {
+  readonly code = 'REDEEM_FEE_TOO_HIGH' as const
+  readonly isRetryable = false
+
+  constructor(message = 'Receive amount is not sufficient after fees', cause?: unknown) {
+    super(message, cause)
+  }
+}

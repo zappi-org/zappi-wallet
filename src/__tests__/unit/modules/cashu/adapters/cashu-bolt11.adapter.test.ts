@@ -24,6 +24,13 @@ function createMockBackend(): LightningBackend {
       request: 'lnbc1000n1...',
       expiry: Math.floor(Date.now() / 1000) + 600,
     }),
+    checkMintQuote: vi.fn().mockResolvedValue({
+      state: 'UNPAID',
+    }),
+    getMintQuote: vi.fn().mockResolvedValue({
+      state: 'UNPAID',
+      request: 'lnbc1000n1...',
+    }),
     redeemMintQuote: vi.fn().mockResolvedValue(undefined),
     recoverPendingMelts: vi.fn().mockResolvedValue({ recovered: 2, failed: 0 }),
     recoverPendingQuotes: vi.fn().mockResolvedValue({ recovered: 0, failed: 0, expired: 0 }),
@@ -61,11 +68,40 @@ describe('CashuBolt11Adapter', () => {
 
       expect(backend.createMintQuote).toHaveBeenCalledWith('https://mint.test', 1000)
       expect(result.id).toBe('mint-quote-1')
-      expect(result.method).toBe('lightning')
+      expect(result.method).toBe('bolt11')
       expect(result.protocol).toBe('bolt11')
       expect(result.encoded).toBe('lnbc1000n1...')
       expect(toNumber(result.amount)).toBe(1000)
       expect(result.expiresAt).toBeGreaterThan(Date.now())
+    })
+  })
+
+  describe('checkAlive', () => {
+    it('returns true when the remote mint reports a known quote state', async () => {
+      await expect(adapter.checkAlive({
+        requestId: 'mint-quote-1',
+        accountId: 'https://mint.test',
+      })).resolves.toBe(true)
+
+      expect(backend.checkMintQuote).toHaveBeenCalledWith('https://mint.test', 'mint-quote-1')
+    })
+
+    it('returns false when the remote mint no longer knows the quote', async () => {
+      vi.mocked(backend.checkMintQuote).mockResolvedValueOnce(null)
+
+      await expect(adapter.checkAlive({
+        requestId: 'missing-quote',
+        accountId: 'https://mint.test',
+      })).resolves.toBe(false)
+    })
+
+    it('treats terminal paid states as alive for effective-expiry checks', async () => {
+      vi.mocked(backend.checkMintQuote).mockResolvedValueOnce({ state: 'PAID' })
+
+      await expect(adapter.checkAlive({
+        requestId: 'paid-quote',
+        accountId: 'https://mint.test',
+      })).resolves.toBe(true)
     })
   })
 

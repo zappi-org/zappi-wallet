@@ -15,6 +15,9 @@ import type { IncomingPaymentUseCase } from '@/core/ports/driving/incoming-payme
 import type { EventBus } from '@/core/events/event-bus'
 import type { ZapMessage, ZapPaymentFulfillment } from '@/core/types/zap-message'
 import type { POSDevice } from '@/core/types/wallet'
+import type { TrustedMintProvider } from '@/core/ports/driven/trusted-mint-provider.port'
+import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-queue.port'
+import { previewCashuToken } from '@/core/domain/cashu-token-preview'
 
 // ─── Types ───
 
@@ -26,6 +29,8 @@ export interface GiftWrapWatcherDeps {
   getRelays: () => string[]
   getPosDevices: () => POSDevice[] | undefined
   getPendingRequestId: () => string | null
+  trustedMintProvider: TrustedMintProvider
+  incomingReviewQueue: IncomingReviewQueue
 }
 
 interface ParsedMessage {
@@ -102,11 +107,39 @@ export class GiftWrapWatcher {
     const parsed = await this.parseMessageContent(msg.content, msg.eventId)
     if (!parsed) return
 
+    try {
+      const preview = previewCashuToken(parsed.token)
+      const trusted = await this.deps.trustedMintProvider.hasTrustedMint(preview.mintUrl)
+
+      if (!trusted) {
+        await this.deps.incomingReviewQueue.enqueue({
+          externalId: msg.eventId,
+          token: {
+            type: 'cashu-token',
+            token: parsed.token,
+            amountSats: preview.amountSats,
+            mintUrl: preview.mintUrl,
+            memo: parsed.memo,
+          },
+          queuedAt: Date.now(),
+          requestId: parsed.requestId,
+          senderPubkey: msg.sender,
+          txId: parsed.txId,
+          source: 'gift-wrap',
+        })
+        return
+      }
+    } catch (error) {
+      console.warn('[GiftWrapWatcher] Failed to preview token before trust check:', error)
+    }
+
     const result = await this.deps.incomingPayment.processIncoming({
       payload: parsed.token,
       externalId: msg.eventId,
       memo: parsed.memo,
       metadata: parsed.metadata ? { sender: msg.sender, ...parsed.metadata } : { sender: msg.sender },
+      receiveRequestPaymentRef: parsed.requestId,
+      receiveRequestMethod: parsed.requestId ? 'ecash' : undefined,
     })
 
     if (result.status === 'already_processed') return

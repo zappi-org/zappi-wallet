@@ -25,7 +25,7 @@ import { ReceiveCompleteStep } from './steps/ReceiveCompleteStep'
 
 export type ReceiveStep = 'amount' | 'qr' | 'complete'
 
-export type ReceiveMethod = 'ecash' | 'lightning'
+export type ReceiveMethod = 'ecash' | 'bolt11'
 
 export interface ReceiveFlowState {
   step: ReceiveStep
@@ -80,11 +80,12 @@ export function ReceiveFlow({
   const { t } = useTranslation()
   const { isOnline } = useNetwork()
   const addToast = useAppStore((s) => s.addToast)
+  const addPendingQuote = useAppStore((s) => s.addPendingQuote)
   const receiveReq = useReceiveRequest()
 
   const [state, setState] = useState<ReceiveFlowState>({
     step: 'amount',
-    method: 'lightning',
+    method: 'bolt11',
     selectedMintUrl: initialMintUrl || null,
     amount: initialAmount || 0,
     invoice: null,
@@ -138,8 +139,11 @@ export function ReceiveFlow({
 
       // Persist as ReceiveRequest entity (source of truth for pending display)
       let receiveRequestId: string | null = null
-      if (invoiceResult) {
+      if (invoiceResult || ecashReq) {
         const requestId = crypto.randomUUID()
+        const expiresAt = invoiceResult?.expiry
+          ? invoiceResult.expiry * 1000
+          : Date.now() + 30 * 60 * 1000
 
         // Build BIP-321 unified URI if both Lightning + ecash available
         let bip321Uri: string | undefined
@@ -155,23 +159,38 @@ export function ReceiveFlow({
             requestId,
             accountId: data.mintUrl,
             amount: { value: BigInt(data.amount), unit: 'sat' },
-            quoteId: invoiceResult.quoteId,
-            bolt11: invoiceResult.invoice,
+            quoteId: invoiceResult?.quoteId,
+            bolt11: invoiceResult?.invoice,
             ecashRequest: data.ecashRequest,
             ecashRequestId: data.ecashRequestId,
             httpEndpoint: data.httpEndpoint || undefined,
             bip321Uri,
+            expiresAt,
           })
           receiveRequestId = requestId
         } catch (err) {
           console.error('[ReceiveFlow] Failed to persist ReceiveRequest:', err)
+          addToast({ type: 'error', message: translateError(err, t), duration: 3000 })
+          isProcessingRef.current = false
+          setIsLoading(false)
+          return
+        }
+
+        if (invoiceResult) {
+          addPendingQuote({
+            quoteId: invoiceResult.quoteId,
+            mintUrl: data.mintUrl,
+            amount: data.amount,
+            invoice: invoiceResult.invoice,
+            expiry: expiresAt,
+          })
         }
       }
 
       setState((prev) => ({
         ...prev,
         step: 'qr',
-        method: 'lightning', // default; actual method determined at payment detection
+        method: 'bolt11', // default; actual method determined at payment detection
         amount: data.amount,
         selectedMintUrl: data.mintUrl,
         // Lightning data
@@ -192,11 +211,11 @@ export function ReceiveFlow({
       isProcessingRef.current = false
       setIsLoading(false)
     }
-  }, [isOnline, onCreateInvoice, addToast, t, receiveReq])
+  }, [isOnline, onCreateInvoice, addToast, addPendingQuote, t, receiveReq])
 
   /** Payment received → complete */
-  const handlePaymentDetected = useCallback((amount: number, method: 'lightning' | 'ecash') => {
-    onPaymentReceived(amount, method)
+  const handlePaymentDetected = useCallback((amount: number, method: 'bolt11' | 'ecash') => {
+    onPaymentReceived(amount, method === 'bolt11' ? 'lightning' : 'ecash')
     setState((prev) => {
       if (prev.receiveRequestId) {
         void receiveReq.complete(prev.receiveRequestId, method)

@@ -249,7 +249,7 @@ export default function TransactionDetailScreen({
   }
 
   // ─── eCash unclaimed check ───
-  const showUnclaimedCard = isEcash && !isReceive && meta.token && meta.tokenState !== 'spent' && tx.status !== 'failed'
+  const showUnclaimedCard = isEcash && !isReceive && meta.token && tx.outcome === 'unclaimed' && meta.tokenState !== 'spent' && tx.status !== 'failed'
 
   // ════════════════════════════════════════
   // RENDER

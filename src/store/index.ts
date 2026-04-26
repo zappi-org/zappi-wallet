@@ -67,6 +67,7 @@ export const useAppStore = create<AppState>()(
           anchor: null,
           pendingRetries: 0,
           failedIncomingsCount: 0,
+          pendingIncomingReviews: [],
           syncProgress: 0,
           eventsProcessed: 0,
           lastEventTimestamp: 0,

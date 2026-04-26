@@ -22,7 +22,7 @@ export interface MintDetailScreenProps {
   mintIndex: number
   onBack: () => void
   onCreateToken: (mintUrl: string) => void
-  onDeleteMint: (url: string) => void
+  onDeleteMint: (url: string) => Promise<void>
   onRenameMint?: (url: string, newName: string) => void
   onChangeMintColor?: (url: string, color: string) => void
   onSelectTransaction: (tx: Transaction) => void
@@ -72,7 +72,7 @@ export function MintDetailScreen({
   }, [onSelectTransaction, onFindTransaction])
 
   const { variant, customColor } = resolveMintColor(mint.url, mintIndex, settings.mintColors)
-  const { items: pendingItems } = usePendingItems(mint.url)
+  const { items: pendingItems, refresh: refreshPendingItems } = usePendingItems(mint.url)
 
   // Live balance from wallet (prop snapshot may be stale after reclaim/receive)
   const { balance } = useWallet()
@@ -97,6 +97,7 @@ export function MintDetailScreen({
         item={selectedPendingItem}
         onBack={() => setSelectedPendingItem(null)}
         callbacks={pendingItemCallbacks}
+        onItemRemoved={() => refreshPendingItems()}
       />
     )
   }
@@ -186,6 +187,7 @@ export function MintDetailScreen({
             {filteredTransactions.length > 0 ? (
               <TransactionList
                 transactions={filteredTransactions}
+                allTransactions={transactions}
                 onTransactionClick={onSelectTransaction}
                 showHeader={false}
                 showDate

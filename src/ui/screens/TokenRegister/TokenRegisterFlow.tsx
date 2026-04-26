@@ -3,6 +3,7 @@ import { AnimatePresence } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
 import { useTrustRegistry } from '@/ui/hooks/use-trust-registry'
 import type { ValidatedCashuToken, ValidatedData } from '@/core/domain/input-types'
+import type { PendingIncomingReview } from '@/core/types'
 import { RegisterInputStep } from './steps/RegisterInputStep'
 import { ConfirmTrustedStep } from './steps/ConfirmTrustedStep'
 import { ConfirmUntrustedStep } from './steps/ConfirmUntrustedStep'
@@ -13,6 +14,7 @@ type Step = 'input' | 'confirm-trusted' | 'confirm-untrusted' | 'registered'
 export interface TokenReceiveOutcome {
   success: boolean
   amount?: number
+  transactionId?: string
   error?: { code?: string; message?: string }
 }
 
@@ -49,6 +51,14 @@ export interface TokenRegisterFlowProps {
   initialToken?: string
   /** Delegate non-cashu-token input back to the universal router. */
   onRouteValidated?: (data: ValidatedData) => void
+  /**
+   * Incoming review (ZAP-52): when a token arrives via gift-wrap from an
+   * untrusted mint, the queue surfaces it here for the user's explicit
+   * accept/reject decision instead of auto-trusting the mint.
+   */
+  incomingReview?: PendingIncomingReview | null
+  onResolveIncomingReview?: (params: { transactionId?: string }) => Promise<void>
+  onRejectIncomingReview?: () => Promise<void>
 }
 
 export function TokenRegisterFlow({
@@ -63,11 +73,20 @@ export function TokenRegisterFlow({
   onReclaimOwnToken,
   initialToken = '',
   onRouteValidated,
+  incomingReview = null,
+  onResolveIncomingReview,
+  onRejectIncomingReview,
 }: TokenRegisterFlowProps) {
-  const [step, setStep] = useState<Step>('input')
-  const [validated, setValidated] = useState<ValidatedCashuToken | null>(null)
-  const [receivedAmount, setReceivedAmount] = useState(0)
   const { isTrusted } = useTrustRegistry()
+  // When entering via incoming review, skip input and land directly on the
+  // appropriate confirm step with the queued token pre-loaded.
+  const initialValidated = incomingReview?.token ?? null
+  const initialStep: Step = initialValidated
+    ? (isTrusted(initialValidated.mintUrl) ? 'confirm-trusted' : 'confirm-untrusted')
+    : 'input'
+  const [step, setStep] = useState<Step>(initialStep)
+  const [validated, setValidated] = useState<ValidatedCashuToken | null>(initialValidated)
+  const [receivedAmount, setReceivedAmount] = useState(0)
 
   const handleValidated = useCallback(
     async (token: ValidatedCashuToken) => {
@@ -89,6 +108,14 @@ export function TokenRegisterFlow({
     [isTrusted, onCheckSelfToken, onReclaimOwnToken],
   )
 
+  const finalizeReceive = useCallback(async (result: TokenReceiveOutcome, fallbackAmount: number) => {
+    if (onResolveIncomingReview) {
+      await onResolveIncomingReview({ transactionId: result.transactionId })
+    }
+    setReceivedAmount(result.amount ?? fallbackAmount)
+    setStep('registered')
+  }, [onResolveIncomingReview])
+
   const handleReceive = useCallback(async (receiveMintUrl?: string) => {
     if (!validated) return
     const target = receiveMintUrl ?? validated.mintUrl
@@ -103,9 +130,8 @@ export function TokenRegisterFlow({
     if (!result.success) {
       throw new Error(result.error?.message ?? 'redeem_failed')
     }
-    setReceivedAmount(result.amount ?? validated.amountSats)
-    setStep('registered')
-  }, [validated, onReceiveToken, onSwapReceive])
+    await finalizeReceive(result, validated.amountSats)
+  }, [validated, onReceiveToken, onSwapReceive, finalizeReceive])
 
   const handleAddAndReceive = useCallback(async () => {
     if (!validated) return
@@ -115,9 +141,8 @@ export function TokenRegisterFlow({
     if (!result.success) {
       throw new Error(result.error?.message ?? 'redeem_failed')
     }
-    setReceivedAmount(result.amount ?? validated.amountSats)
-    setStep('registered')
-  }, [validated, onAddTrustedMint, onReceiveToken])
+    await finalizeReceive(result, validated.amountSats)
+  }, [validated, onAddTrustedMint, onReceiveToken, finalizeReceive])
 
   const handleSwapToMyMint = useCallback(async () => {
     if (!validated) return
@@ -131,9 +156,18 @@ export function TokenRegisterFlow({
     if (!result.success) {
       throw new Error(result.error?.message ?? 'swap_failed')
     }
-    setReceivedAmount(result.amount ?? validated.amountSats)
-    setStep('registered')
-  }, [validated, targetMintUrl, onSwapReceive])
+    await finalizeReceive(result, validated.amountSats)
+  }, [validated, targetMintUrl, onSwapReceive, finalizeReceive])
+
+  // In incoming-review mode the user cannot return to the input step (the
+  // queue chose this token); back out becomes "reject".
+  const handleConfirmBack = useCallback(() => {
+    if (incomingReview && onRejectIncomingReview) {
+      void onRejectIncomingReview()
+      return
+    }
+    setStep('input')
+  }, [incomingReview, onRejectIncomingReview])
 
   return (
     <div className="h-dvh bg-background text-foreground font-primary flex flex-col pt-safe">
@@ -153,7 +187,7 @@ export function TokenRegisterFlow({
           <PageTransition key="confirm-trusted" variant="page" className="flex-1">
             <ConfirmTrustedStep
               token={validated}
-              onBack={() => setStep('input')}
+              onBack={handleConfirmBack}
               onReceive={handleReceive}
               onEstimateRedeemFee={onEstimateRedeemFee}
             />
@@ -164,7 +198,7 @@ export function TokenRegisterFlow({
           <PageTransition key="confirm-untrusted" variant="page" className="flex-1">
             <ConfirmUntrustedStep
               token={validated}
-              onBack={() => setStep('input')}
+              onBack={handleConfirmBack}
               onAddAndReceive={handleAddAndReceive}
               onSwapToMyMint={targetMintUrl ? handleSwapToMyMint : undefined}
             />

@@ -12,13 +12,13 @@ export class DexieProcessedRepository implements ProcessedStore {
   }
 
   async exists(externalId: string): Promise<boolean> {
-    const count = await this.table.where('externalId').equals(externalId).count()
-    return count > 0
+    const record = await this.table.get(externalId)
+    return record?.result === 'success' || record?.result === 'skipped'
   }
 
   async existsByTxId(txId: string): Promise<boolean> {
-    const count = await this.table.where('txId').equals(txId).count()
-    return count > 0
+    const record = await this.table.where('txId').equals(txId).first()
+    return record?.result === 'success' || record?.result === 'skipped'
   }
 
   async findById(externalId: string): Promise<ProcessedRecord | null> {

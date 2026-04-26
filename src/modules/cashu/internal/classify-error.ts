@@ -6,7 +6,7 @@
  * 이 함수는 모듈 레이어에 위치한다.
  */
 import { BaseError } from '@/core/errors/base'
-import { InsufficientBalanceError } from '@/core/errors/payment.errors'
+import { InsufficientBalanceError, RedeemFeeTooHighError } from '@/core/errors/payment.errors'
 import {
   TokenSpentError,
   MintConnectionError,
@@ -81,6 +81,10 @@ function classifyMintOperationError(error: MintOperationError): BaseError {
     return new TokenSpentError(message, error)
   }
 
+  if (isRedeemFeeTooHighMessage(detail)) {
+    return new RedeemFeeTooHighError(message, error)
+  }
+
   // Insufficient balance
   if (detail.includes('insufficient') || detail.includes('not enough')) {
     return new InsufficientBalanceError(0, 0, error)
@@ -107,6 +111,10 @@ function classifyMintOperationError(error: MintOperationError): BaseError {
  * Phase 2: 문자열 폴백 (cashu-ts 등 non-Coco 에러용)
  */
 export function classifyCashuError(error: unknown): BaseError {
+  if (error instanceof BaseError) {
+    return error
+  }
+
   // Phase 1: Coco SDK typed errors
   if (error instanceof CocoNetworkError) {
     return new MintConnectionError('unknown', error)
@@ -122,6 +130,9 @@ export function classifyCashuError(error: unknown): BaseError {
 
   if (error instanceof ProofOperationError) {
     const proofMsg = error.message.toLowerCase()
+    if (isRedeemFeeTooHighMessage(proofMsg)) {
+      return new RedeemFeeTooHighError(error.message, error)
+    }
     if (proofMsg.includes('not enough') || proofMsg.includes('insufficient')) {
       return new InsufficientBalanceError(0, 0, error)
     }
@@ -158,6 +169,10 @@ export function classifyCashuError(error: unknown): BaseError {
   // Phase 2: String fallback (cashu-ts, plain Error, etc.)
   const msg = String(error).toLowerCase()
 
+  if (isRedeemFeeTooHighMessage(msg)) {
+    return new RedeemFeeTooHighError(String(error), error)
+  }
+
   if (msg.includes('already spent') || msg.includes('token spent')) {
     return new TokenSpentError(String(error), error)
   }
@@ -187,4 +202,14 @@ export function classifyCashuError(error: unknown): BaseError {
   }
 
   return new MintError('unknown', undefined, String(error), error)
+}
+
+function isRedeemFeeTooHighMessage(message: string): boolean {
+  return (
+    message.includes('receive amount is not sufficient after fees') ||
+    (
+      message.includes('after fees') &&
+      (message.includes('not sufficient') || message.includes('insufficient') || message.includes('not enough'))
+    )
+  )
 }

@@ -2,7 +2,7 @@ import type { SeedCache } from '@/core/ports/driven/seed-cache.port'
 
 /**
  * SeedCacheAdapter — owns the mnemonic cache state.
- * seed-getter (modules/cashu/internal) accesses this via SeedCache port.
+ * Cashu seed loading accesses this via the SeedCache port.
  */
 export class SeedCacheAdapter implements SeedCache {
   private mnemonic: string | null = null

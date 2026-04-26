@@ -24,6 +24,9 @@ export interface FailedIncomingRecord {
   createdAt: number
   externalId?: string
   txId?: string
+  redeemSucceeded?: boolean
+  receiveRequestPaymentRef?: string
+  receiveRequestMethod?: string
 }
 
 /**
@@ -127,14 +130,30 @@ export interface PendingReceivedTokenRecord {
  * Source of truth for pending receive item display.
  */
 export type ReceiveRequestStatus = 'pending' | 'completed' | 'expired' | 'cancelled'
+export type ReceiveRequestFulfillmentStatus = 'pending' | 'fulfilled' | 'expired' | 'cancelled'
+export type ReceiveRequestMethodStatus = 'active' | 'received' | 'expired'
+export type ReceiveRequestMethodType = 'bolt11' | 'ecash'
+
+export interface ReceiveRequestPaymentMethodRecord {
+  type: ReceiveRequestMethodType
+  status: ReceiveRequestMethodStatus
+  encoded: string
+  expiresAt: number
+  ref: string
+  receivedAt?: number
+  metadata?: Record<string, unknown>
+}
 
 export interface ReceiveRequestRecord {
   id: string                    // primary key (UUID)
+  /** @deprecated Use fulfillmentStatus. Kept for legacy queries and migration compatibility. */
   status: ReceiveRequestStatus
+  fulfillmentStatus?: ReceiveRequestFulfillmentStatus
   amount: number
   mintUrl: string
   createdAt: number
   expiresAt: number             // unix ms
+  paymentMethods?: ReceiveRequestPaymentMethodRecord[]
 
   // Lightning payment method
   quoteId: string               // coco mint quote ID (needed for minting)
@@ -150,7 +169,9 @@ export interface ReceiveRequestRecord {
 
   // Completion info
   completedAt?: number
-  completedMethod?: 'lightning' | 'ecash'
+  completedMethod?: 'lightning' | 'bolt11' | 'ecash' | 'nostr-gift-wrap'
+  fulfilledAt?: number
+  fulfilledBy?: ReceiveRequestMethodType
 }
 
 /**
@@ -227,7 +248,7 @@ export class ZappiDatabase extends Dexie {
       pendingReceivedTokens: 'id, mintUrl, createdAt',
 
       // Receive requests: unified receive request entity (Lightning + NUT-18)
-      receiveRequests: 'id, status, mintUrl, quoteId, ecashRequestId, createdAt',
+      receiveRequests: 'id, status, fulfillmentStatus, mintUrl, quoteId, ecashRequestId, createdAt',
 
       // Mint metadata: indexed by url (NUT-06 cached info for offline support)
       mintMetadata: 'url, fetchedAt',

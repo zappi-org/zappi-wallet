@@ -40,7 +40,7 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
   const { t } = useTranslation()
 
   const settings = useAppStore((state) => state.settings)
-  const { items } = useAllPendingItems(settings.mints)
+  const { items, refresh } = useAllPendingItems(settings.mints)
   const [activeTab, setActiveTab] = useState<Tab>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedItem, setSelectedItem] = useState<PendingItem | null>(null)
@@ -123,6 +123,7 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
       <PendingItemDetailScreen
         item={selectedItem}
         onBack={() => setSelectedItem(null)}
+        onItemRemoved={() => refresh()}
       />
     )
   }

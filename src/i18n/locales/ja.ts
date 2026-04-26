@@ -233,6 +233,12 @@ export default {
     mintHasBalance: 'このミントには<bold>{{formattedBalance}}</bold>の残高があります。',
     deleteWarning: '削除すると残高にアクセスできなくなります。',
     confirmDeleteMint: '削除しますか？',
+    primary: '主要',
+    position: '順序',
+    moveUp: '上へ移動',
+    moveDown: '下へ移動',
+    dragToReorder: 'ドラッグして並べ替え',
+    reorderHint: 'ハンドルをドラッグして並べ替えられます。キーボードではハンドルにフォーカスして上下キーを押してください。',
 
     // Preferences
     preferences: '環境設定',
@@ -773,6 +779,12 @@ export default {
     unknownError: '不明なエラーが発生しました',
   },
 
+  // Redirect
+  redirect: {
+    toReceive: '受取画面に移動します',
+    toSend: '送金画面に移動します',
+  },
+
   // Toast Messages
   toast: {
     copied: 'クリップボードにコピーしました',
@@ -791,6 +803,7 @@ export default {
     invoiceCreateFailed: 'インボイスの作成に失敗しました',
     invoiceCreateOffline: 'オフライン時はインボイスを作成できません',
     tokenReceivedAmount: '{{amount}} 受取完了',
+    tokenReclaimedAmount: '{{amount}} 回収完了',
     paymentRequestFailed: 'Payment requestの作成に失敗しました',
     sendComplete: '{{amount}} 送信完了',
     swapComplete: '{{amount}} スワップ完了（手数料: {{fee}}）',
@@ -943,6 +956,11 @@ export default {
     },
     qr: {
       title: '受取',
+      protocols: {
+        unified: '統合',
+        cashu: 'Cashu',
+        lightning: 'Lightning',
+      },
       showToSender: '送り主にこれを見せてください',
       share: '共有',
       willNotify: '{{mint}}に入金されたらお知らせします',
@@ -974,10 +992,12 @@ export default {
       crossMintQuestion: '{{amount}}を\nどこで受け取りますか？',
       tokenFrom: 'このトークンは{{mint}}で作られました',
       tokenFromSuffix: ' ミントで作られたトークンです',
-      receiveDirectly: '{{mint}}でそのまま受取',
-      receiveDirectlySub: '手数料なしですぐ受け取れます',
+      receiveDirectly: '{{mint}}ミントで受取',
+      receiveDirectlySub: 'スワップせず元のミントで受取ります',
       receiveViaSwap: '{{mint}}に変換して受取',
       receiveViaSwapSub: 'Lightning手数料がかかります',
+      reject: '受け取らない',
+      rejectSub: 'このトークンは引き換えません',
       fee: '手数料',
       netAmount: '受取金額',
       noFee: '手数料なし',
@@ -988,13 +1008,11 @@ export default {
       unregistered: '未登録ミント',
       warningFrom: '未登録の\n{{mint}}から',
       warningNeedConfirm: '{{amount}}を受け取るには\n確認が必要です。',
-      explanation: '知らないミントなら追加せずに\n自分のミントで受け取ることもできます。',
-      myMint: '自分のミントに変換して受取',
-      myMintSub: 'Lightning手数料がかかります',
+      explanation: '信頼できるミントの場合だけ追加してください。\nそうでなければトークンを拒否してください。',
       addAndReceive: 'ミントを追加して受取',
       addAndReceiveSub: 'このミントを信頼します',
-      feeNote: '手数料が発生する場合があります',
-      receiveWithMint: 'このミントで受取',
+      reject: '受け取らない',
+      rejectSub: 'このトークンを受け取りません',
     },
     offline: {
       p2pkAccepted: 'P2PKで保護されたトークンです。オフラインで安全に受取でき、再接続時に自動検証されます。',
@@ -1006,7 +1024,19 @@ export default {
       acceptAnyway: 'リスクを承知で受取',
     },
     swapFeeTooHigh: 'スワップ手数料（{{fee}}）がトークン金額（{{amount}}）以上のため受け取れません',
-    swapFailedButReceived: 'スワップに失敗しましたが、{{amount}}は元のミントに受領されました',
+    swapTokenTooSmall: 'このトークンは自分のミントへスワップするには少額すぎます。元のミントで直接受け取るか、より大きいトークンを使用してください。',
+    tokenReceiveFeeTooHigh: '受取手数料を差し引くと受け取れる金額が残りません。',
+    swapEstimateFailed: 'スワップ経路を確認できなかったため、トークンを受け取りませんでした。後でもう一度試すか、元のミントで直接受け取ってください。',
+    swapReceiveKeptOnSource: '{{amount}}を自分のミントへ移動できなかったため、元のミントに残っています。',
+    swapCompletedWithSourceRemainder: 'スワップは完了しましたが、Lightning手数料の調整により{{amount}}が元のミントに残っています',
+    swapCompletedWithHiddenSourceRemainder: 'スワップは完了しましたが、{{mint}}に{{amount}}が残っています。残額にアクセスするにはこのミントを追加してください。',
+    sourceRecovery: {
+      title: '自分のミントへ移動できませんでした',
+      description: '{{amount}}は{{mint}}に保管されています。Zappiでこの残高を表示して使いたい場合だけ、このミントを追加してください。',
+      mint: '元のミント',
+      addMint: 'ミントを追加して残高を見る',
+      later: '後で',
+    },
   },
 
   // Mint Detail Screen
@@ -1055,6 +1085,8 @@ export default {
     fillMint: '送金先ミント',
     sendElsewhere: '別の場所に送金',
     emptyAndDeleteBtn: '空にして削除',
+    forceDeleteBtn: '強制削除',
+    forceDeleteDescription: '{{mint}}に残っている{{amount}}は今後復元できません。\n\n本当に強制削除しますか？',
     deleteComplete: '{{mint}}を空にして削除しました。',
     swapping: '残高を移動中...',
     swapFailed: '残高の移動に失敗しました。もう一度お試しください。',

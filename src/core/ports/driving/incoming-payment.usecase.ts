@@ -11,5 +11,7 @@ export interface IncomingPaymentUseCase {
     externalId: string
     memo?: string
     metadata?: Record<string, unknown>
+    receiveRequestPaymentRef?: string
+    receiveRequestMethod?: string
   }): Promise<IncomingPaymentResult>
 }

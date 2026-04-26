@@ -5,6 +5,7 @@ import type { PaymentMethodAdapter } from '@/core/ports/driven/payment-method.po
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { EventBus } from '@/core/events/event-bus'
 import { sat, toNumber } from '@/core/domain/amount'
+import { RedeemFeeTooHighError } from '@/core/errors/payment.errors'
 
 // ─── Mocks ───
 
@@ -24,7 +25,7 @@ function createMockAdapter(overrides?: Partial<PaymentMethodAdapter>): PaymentMe
     cancelPrepared: vi.fn().mockResolvedValue(undefined),
     reclaimFailed: vi.fn().mockResolvedValue(undefined),
     createReceiveRequest: vi.fn().mockResolvedValue({
-      id: 'req-1', method: 'lightning', protocol: 'bolt11',
+      id: 'req-1', method: 'bolt11', protocol: 'bolt11',
       encoded: 'lnbc...', amount: sat(1000),
     }),
     redeem: vi.fn().mockResolvedValue({ amount: sat(500), method: 'lightning', protocol: 'bolt11' }),
@@ -58,6 +59,7 @@ function createMockTxRepo(): TransactionRepository {
     getById: vi.fn().mockResolvedValue(null),
     list: vi.fn().mockResolvedValue([]),
     update: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
     findAll: vi.fn().mockResolvedValue([]),
     deleteAll: vi.fn().mockResolvedValue(undefined),
     deleteOlderThan: vi.fn().mockResolvedValue(undefined),
@@ -198,13 +200,47 @@ describe('PaymentService', () => {
     })
   })
 
+  describe('reclaim', () => {
+    it('emits send:reclaimed semantic event on reclaim', async () => {
+      vi.mocked(txRepo.getById).mockResolvedValue({
+        id: 'tx-reclaim',
+        direction: 'send',
+        method: 'cashu:bolt11',
+        protocol: 'cashu-token',
+        amount: sat(1000),
+        accountId: 'https://mint.test',
+        status: 'pending',
+        outcome: 'unclaimed',
+        createdAt: Date.now(),
+        metadata: { operationId: 'op-reclaim' },
+      })
+
+      const result = await service.reclaim({ transactionId: 'tx-reclaim' })
+
+      expect(result.ok).toBe(true)
+      expect(adapter.cancelPrepared).toHaveBeenCalledWith('op-reclaim')
+      expect(eventBus.emit).toHaveBeenCalledWith({
+        type: 'send:reclaimed',
+        payload: {
+          txId: 'tx-reclaim',
+          method: 'cashu:bolt11',
+          protocol: 'cashu-token',
+          amount: sat(1000),
+        },
+      })
+      expect(eventBus.emit).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'payment:completed' }),
+      )
+    })
+  })
+
   // ─── receive ───
 
   describe('receive', () => {
-    it('creates receive request and records transaction', async () => {
+    it('creates receive request without recording a premature transaction', async () => {
       const mockAdapter = createMockAdapter({
         createReceiveRequest: vi.fn().mockResolvedValue({
-          id: 'quote-1', method: 'lightning', protocol: 'bolt11',
+          id: 'quote-1', method: 'bolt11', protocol: 'bolt11',
           encoded: 'lnbc1000...', amount: sat(1000),
         }),
       })
@@ -220,14 +256,14 @@ describe('PaymentService', () => {
       expect(result.ok).toBe(true)
       if (!result.ok) return
       expect(result.value.encoded).toBe('lnbc1000...')
-      expect(txRepo.save).toHaveBeenCalled()
+      expect(txRepo.save).not.toHaveBeenCalled()
     })
 
     it('resolves by protocol hint', async () => {
       const bolt11Adapter = createMockAdapter({
         id: 'cashu:bolt11', protocol: 'bolt11',
         createReceiveRequest: vi.fn().mockResolvedValue({
-          id: 'quote-bolt11', method: 'lightning', protocol: 'bolt11',
+          id: 'quote-bolt11', method: 'bolt11', protocol: 'bolt11',
           encoded: 'lnbc...', amount: sat(1000),
         }),
       })
@@ -252,7 +288,7 @@ describe('PaymentService', () => {
     it('without protocol resolves to first canReceive adapter', async () => {
       const mockAdapter = createMockAdapter({
         createReceiveRequest: vi.fn().mockResolvedValue({
-          id: 'quote-1', method: 'lightning', protocol: 'bolt11',
+          id: 'quote-1', method: 'bolt11', protocol: 'bolt11',
           encoded: 'lnbc...', amount: sat(1000),
         }),
       })
@@ -371,6 +407,25 @@ describe('PaymentService', () => {
       expect(result.ok).toBe(false)
       if (result.ok) return
       expect(result.error.code).toBe('ADAPTER_NOT_FOUND')
+    })
+
+    it('preserves classified redeem fee errors from the adapter', async () => {
+      const ecashAdapter = createMockAdapter({
+        id: 'cashu:ecash',
+        canRedeem: vi.fn().mockImplementation((input: string) => /^cashu[ab]/i.test(input.trim())),
+        redeem: vi.fn().mockRejectedValue(new RedeemFeeTooHighError('Receive amount is not sufficient after fees')),
+      })
+      const mod = createMockModule([ecashAdapter])
+      service = new PaymentService([mod], txRepo, eventBus)
+
+      const result = await service.redeem({
+        input: 'cashuBtest...',
+      })
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.error.code).toBe('REDEEM_FEE_TOO_HIGH')
+      expect(result.error.message).toBe('Receive amount is not sufficient after fees')
     })
   })
 

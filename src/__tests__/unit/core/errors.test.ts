@@ -15,6 +15,7 @@ import {
   LightningRoutingError,
   LightningPaymentError,
   InvalidInvoiceError,
+  RedeemFeeTooHighError,
 } from '@/core/errors'
 import { classifyCashuError } from '@/modules/cashu'
 import {
@@ -80,6 +81,12 @@ describe('Cashu Errors', () => {
   })
 
   describe('classifyCashuError - Coco SDK typed errors', () => {
+    it('preserves existing domain errors', () => {
+      const original = new RedeemFeeTooHighError()
+
+      expect(classifyCashuError(original)).toBe(original)
+    })
+
     it('should classify CocoNetworkError as MintConnectionError', () => {
       const error = classifyCashuError(new CocoNetworkError('Connection refused'))
 
@@ -104,6 +111,13 @@ describe('Cashu Errors', () => {
       const error = classifyCashuError(new ProofOperationError('https://mint.example.com', 'Not enough funds'))
 
       expect(error).toBeInstanceOf(InsufficientBalanceError)
+    })
+
+    it('should classify receive fee shortfall as RedeemFeeTooHighError', () => {
+      const error = classifyCashuError(new ProofOperationError('https://mint.example.com', 'Receive amount is not sufficient after fees'))
+
+      expect(error).toBeInstanceOf(RedeemFeeTooHighError)
+      expect(error.code).toBe('REDEEM_FEE_TOO_HIGH')
     })
 
     it('should classify ProofOperationError without balance keywords as InvalidProofError', () => {
@@ -244,6 +258,13 @@ describe('Cashu Errors', () => {
       const error = classifyCashuError('Insufficient balance')
 
       expect(error).toBeInstanceOf(InsufficientBalanceError)
+    })
+
+    it('should classify receive fee shortfall before generic insufficient balance', () => {
+      const error = classifyCashuError('Receive amount is not sufficient after fees')
+
+      expect(error).toBeInstanceOf(RedeemFeeTooHighError)
+      expect(error.code).toBe('REDEEM_FEE_TOO_HIGH')
     })
 
     it('should classify connection error', () => {

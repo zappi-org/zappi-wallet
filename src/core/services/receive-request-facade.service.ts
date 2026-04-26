@@ -4,11 +4,13 @@ import type {
   ReceiveRequestData,
 } from '@/core/ports/driving/receive-request.usecase'
 import type { ReceiveRequestRepository } from '@/core/ports/driven/receive-request.repository.port'
-import type { PaymentMethod } from '@/core/domain/receive-request'
+import type { PaymentMethod, ReceivePaymentMethodType, ReceiveRequest } from '@/core/domain/receive-request'
 import {
-  createReceiveRequest as domainCreate,
-  completeReceiveRequest as domainComplete,
   cancelReceiveRequest as domainCancel,
+  completeReceiveRequest as domainComplete,
+  createReceiveMethod,
+  createReceiveRequest as domainCreate,
+  normalizeReceivePaymentMethodType,
 } from '@/core/domain/receive-request'
 import { toNumber } from '@/core/domain/amount'
 
@@ -16,26 +18,30 @@ export class ReceiveRequestFacadeService implements ReceiveRequestUseCase {
   constructor(private readonly repo: ReceiveRequestRepository) {}
 
   async create(params: CreateReceiveRequestParams): Promise<ReceiveRequestData> {
-    const expiresAt = Date.now() + 30 * 60 * 1000
+    const expiresAt = params.expiresAt ?? Date.now() + 30 * 60 * 1000
     const paymentMethods: PaymentMethod[] = []
 
     if (params.quoteId && params.bolt11) {
-      paymentMethods.push({
-        type: 'lightning',
+      paymentMethods.push(createReceiveMethod({
+        type: 'bolt11',
         ref: params.quoteId,
         encoded: params.bolt11,
         expiresAt,
-      })
+      }))
     }
 
     if (params.ecashRequest && params.ecashRequestId) {
-      paymentMethods.push({
+      paymentMethods.push(createReceiveMethod({
         type: 'ecash',
         ref: params.ecashRequestId,
         encoded: params.ecashRequest,
         expiresAt,
         ...(params.httpEndpoint && { metadata: { httpEndpoint: params.httpEndpoint } }),
-      })
+      }))
+    }
+
+    if (paymentMethods.length === 0) {
+      throw new Error('ReceiveRequest requires at least one payment method')
     }
 
     const req = domainCreate({
@@ -43,6 +49,7 @@ export class ReceiveRequestFacadeService implements ReceiveRequestUseCase {
       amount: params.amount,
       accountId: params.accountId,
       paymentMethods,
+      createdAt: Date.now(),
       expiresAt,
       bip321Uri: params.bip321Uri,
     })
@@ -51,17 +58,23 @@ export class ReceiveRequestFacadeService implements ReceiveRequestUseCase {
   }
 
   async complete(id: string, method: string): Promise<void> {
-    const existing = await this.repo.getById(id)
-    if (!existing) return
-    const completed = domainComplete(existing, method)
-    await this.repo.save(completed)
+    const normalized = requireReceiveMethod(method)
+    const now = Date.now()
+    await this.repo.update(id, (existing) => domainComplete(existing, normalized, now))
+  }
+
+  async settleByPaymentRef(paymentRef: string, method: string): Promise<ReceiveRequestData | null> {
+    const normalized = requireReceiveMethod(method)
+    const now = Date.now()
+    const updated = await this.repo.updateByPaymentRef(
+      paymentRef,
+      (existing) => domainComplete(existing, normalized, now),
+    )
+    return updated ? toData(updated) : null
   }
 
   async cancel(id: string): Promise<void> {
-    const existing = await this.repo.getById(id)
-    if (!existing) return
-    const cancelled = domainCancel(existing)
-    await this.repo.save(cancelled)
+    await this.repo.update(id, domainCancel)
   }
 
   async findByQuoteId(quoteId: string): Promise<ReceiveRequestData | null> {
@@ -71,7 +84,9 @@ export class ReceiveRequestFacadeService implements ReceiveRequestUseCase {
   }
 
   async findByRequestId(requestId: string): Promise<ReceiveRequestData | null> {
-    return this.findByQuoteId(requestId)
+    const record = await this.repo.findByPaymentRef(requestId)
+    if (!record) return null
+    return toData(record)
   }
 
   async getPending(accountIds?: string[]): Promise<ReceiveRequestData[]> {
@@ -84,13 +99,30 @@ export class ReceiveRequestFacadeService implements ReceiveRequestUseCase {
   }
 }
 
-function toData(req: { id: string; accountId: string; amount: { value: bigint; unit: string }; status: string; createdAt: number; completedAt?: number }): ReceiveRequestData {
+function requireReceiveMethod(method: string): ReceivePaymentMethodType {
+  const normalized = normalizeReceivePaymentMethodType(method)
+  if (!normalized) {
+    throw new Error(`Unsupported receive method: ${method}`)
+  }
+  return normalized
+}
+
+function toData(req: ReceiveRequest): ReceiveRequestData {
+  const bolt11 = req.paymentMethods.find((method) => method.type === 'bolt11')
+  const ecash = req.paymentMethods.find((method) => method.type === 'ecash')
+
   return {
     id: req.id,
     accountId: req.accountId,
-    amount: toNumber(req.amount as { value: bigint; unit: 'sat' | 'msat' | 'usd' | 'eur' }),
-    status: req.status as ReceiveRequestData['status'],
+    amount: toNumber(req.amount),
+    fulfillmentStatus: req.fulfillmentStatus,
+    quoteId: bolt11?.ref,
+    bolt11: bolt11?.encoded,
+    httpEndpoint: (ecash?.metadata as Record<string, unknown> | undefined)?.httpEndpoint as
+      | string
+      | undefined,
     createdAt: req.createdAt,
-    completedAt: req.completedAt,
+    fulfilledAt: req.fulfilledAt,
+    fulfilledBy: req.fulfilledBy,
   }
 }
