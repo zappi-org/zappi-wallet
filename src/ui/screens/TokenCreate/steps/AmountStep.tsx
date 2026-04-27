@@ -1,12 +1,12 @@
 import { Button } from '@/ui/components/common/Button'
-import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { MintIcon } from '@/ui/components/common/MintIcon'
+import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
-import { useFormatFiat, useFormatSats } from '@/utils/format'
-import { useWallet } from '@/ui/hooks/use-wallet'
-import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useFiatToggle } from '@/ui/hooks/use-fiat-toggle'
-import { ArrowLeft, ChevronRight, ChevronsUpDown } from 'lucide-react'
+import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
+import { useWallet } from '@/ui/hooks/use-wallet'
+import { useFormatFiat, useFormatSats, useSatUnit } from '@/utils/format'
+import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -35,6 +35,7 @@ export function AmountStep({
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
+  const unit = useSatUnit()
   const { balance } = useWallet()
   const mintUrls = useMemo(() => [mintUrl], [mintUrl])
   const { getDisplayName, getIconUrl } = useMintMetadata(mintUrls)
@@ -106,15 +107,20 @@ export function AmountStep({
           <p className={`text-[44px] leading-none font-semibold ${insufficientColor}`}>
             {displayAmount}
           </p>
-          <button
-            type="button"
-            aria-label="단위 변경"
-            onClick={canToggleFiat ? handleToggleFiat : undefined}
-            disabled={!canToggleFiat}
-            className="flex items-center justify-center w-8 h-8 rounded-full bg-background-card text-foreground-muted hover:text-foreground hover:bg-background-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <ChevronsUpDown className="w-4 h-4" strokeWidth={1.8} />
-          </button>
+          {canToggleFiat && (
+            <button
+              type="button"
+              aria-label={`단위 전환 (현재: ${isFiatMode ? currencySymbol : unit})`}
+              onClick={handleToggleFiat}
+              className="flex mt-2 items-center gap-1 text-body font-semibold text-foreground-muted shrink-0 px-2.5 py-1 rounded-full bg-background-card active:bg-background-hover transition-colors"
+            >
+              <span>{isFiatMode ? currencySymbol : unit}</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 16l-4-4 4-4" /><path d="M17 8l4 4-4 4" /><line x1="3" y1="12" x2="21" y2="12" />
+              </svg>
+              <span>{isFiatMode ? unit : currencySymbol}</span>
+            </button>
+          )}
           {insufficient ? (
             <p className="text-caption text-accent-danger">
               출금 민트 잔고 부족 :{' '}
