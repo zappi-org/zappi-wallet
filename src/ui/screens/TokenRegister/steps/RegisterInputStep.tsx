@@ -133,7 +133,7 @@ export function RegisterInputStep({
           등록할 수 있어요.
         </h2>
         <p className="text-body text-foreground-muted mt-3">
-          토큰은 <span className="font-semibold text-foreground">cashuB</span> 로 시작하는 문자열이에요.
+          이캐시는 상품권처럼 등록해서 사용할 수 있어요 (<span className="font-semibold text-foreground">cashuB</span>로 시작하는 문자열이에요).
         </p>
 
         {/* Token input — underline style */}

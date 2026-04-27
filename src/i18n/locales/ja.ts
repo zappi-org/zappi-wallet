@@ -881,7 +881,7 @@ export default {
     tokenCreate: {
       title: 'トークン作成',
       howMuch: 'いくら分のトークンを作りますか？',
-      amountCaption: 'トークンは紙幣のように手渡して使えます',
+      amountCaption: 'イーキャッシュはビットコインを商品券のように手渡せる仕組みです',
       memo: 'メモ',
       requestAmount: 'リクエスト',
       memoPlaceholder: '任意',

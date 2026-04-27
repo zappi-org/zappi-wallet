@@ -873,7 +873,7 @@ export default {
     tokenCreate: {
       title: 'Crear Token',
       howMuch: '¿Cuánto token crear?',
-      amountCaption: 'Los tokens se pueden entregar como efectivo',
+      amountCaption: 'Ecash convierte bitcoin en un vale que puedes entregar',
       memo: 'Memo',
       requestAmount: 'Solicitud',
       memoPlaceholder: 'Opcional',

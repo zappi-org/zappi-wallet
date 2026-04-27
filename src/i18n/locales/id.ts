@@ -873,7 +873,7 @@ export default {
     tokenCreate: {
       title: 'Buat Token',
       howMuch: 'Berapa nilai token yang dibuat?',
-      amountCaption: 'Token bisa diserahkan seperti uang tunai',
+      amountCaption: 'Ecash mengubah bitcoin menjadi voucher yang bisa diserahkan',
       memo: 'Memo',
       requestAmount: 'Permintaan',
       memoPlaceholder: 'Opsional',

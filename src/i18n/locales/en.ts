@@ -878,7 +878,7 @@ export default {
     tokenCreate: {
       title: 'Create Token',
       howMuch: 'How much token to create?',
-      amountCaption: 'Tokens can be handed over like cash',
+      amountCaption: 'Ecash turns bitcoin into a gift card you can hand over',
       memo: 'Memo',
       memoPlaceholder: 'Optional',
     },
