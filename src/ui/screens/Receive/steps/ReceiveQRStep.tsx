@@ -26,7 +26,7 @@ interface ProtocolOption {
 
 interface ReceiveQRStepProps {
   onBack: () => void
-  onPaymentDetected: (amount: number, method: 'bolt11' | 'ecash') => void
+  onPaymentDetected: (amount: number, method: 'bolt11' | 'ecash', wasRequestFulfilled?: boolean) => void
   amount: number
   mintUrl: string
   // Lightning
@@ -42,7 +42,7 @@ interface ReceiveQRStepProps {
    * `paymentRef` is the requestId returned by the transport — used downstream
    * for ReceiveRequest matching and idempotency.
    */
-  onReceiveRequestFulfilled?: (token: string, paymentRef: string) => Promise<{ amount: number }>
+  onReceiveRequestFulfilled?: (token: string, paymentRef: string) => Promise<{ amount: number; requestFulfilled?: boolean }>
 }
 
 export function ReceiveQRStep({
@@ -176,9 +176,9 @@ export function ReceiveQRStep({
       try {
         const result = onReceiveRequestFulfilled
           ? await onReceiveRequestFulfilled(payload.token, payload.requestId)
-          : { amount: 0 }
+          : { amount: 0, requestFulfilled: false }
         hapticSuccess()
-        onPaymentDetected(result.amount, 'ecash')
+        onPaymentDetected(result.amount, 'ecash', result.requestFulfilled)
       } catch (error) {
         console.error('[ReceiveQR] HTTP token processing error:', error)
         hapticSuccess()

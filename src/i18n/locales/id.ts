@@ -546,7 +546,7 @@ export default {
     ecashSend: 'Kirim Ecash',
     ecashToken: 'Token dibuat',
     ecashReclaim: 'Token diklaim kembali',
-    requestFulfill: 'Permintaan terpenuhi',
+    requestFulfill: 'Pembayaran Ecash diterima',
     nutzap: 'NutZap',
     swap: 'Swap',
 
@@ -816,7 +816,7 @@ export default {
     recoveryCompleted: '{{recovered}} dipulihkan ({{failed}} gagal)',
     ecashTokenReceived: '{{amount}} token Ecash diterima',
     ecashTokenReceivedWithFee: '{{amount}} token Ecash diterima (biaya: {{fee}})',
-    requestFulfilled: 'Permintaan terpenuhi: {{amount}} diterima',
+    requestFulfilled: 'Pembayaran Ecash {{amount}} diterima',
     noMintsRegistered: 'Tidak ada mint terdaftar',
     noReachableMints: 'Tidak ada mint yang dapat dijangkau',
     mintSwitched: 'Beralih ke mint lain: {{name}}',
@@ -973,6 +973,7 @@ export default {
       message: '{{mint}}\n{{amount}} diterima',
       received: ' diterima!',
       fullMessage: '{{amount}} diterima!',
+      requestFulfilledMessage: 'Permintaan {{amount}}\nsudah datang!',
       done: 'Selesai',
     },
     token: {

@@ -458,7 +458,7 @@ export default function MainApp() {
   const handleReceiveRequestFulfillment = useCallback(async (
     token: string,
     paymentRef: string,
-  ): Promise<{ success: boolean; amount?: number; error?: { code?: string; message?: string } }> => {
+  ): Promise<{ success: boolean; amount?: number; requestFulfilled?: boolean; error?: { code?: string; message?: string } }> => {
     if (!serviceRegistry?.incomingPayment) {
       return { success: false, error: { code: 'NOT_READY', message: 'ServiceRegistry not ready' } }
     }
@@ -472,7 +472,7 @@ export default function MainApp() {
 
     if (result.status === 'success') {
       refreshAll().catch((e) => console.error('[MainApp] refreshAll after fulfillment failed:', e))
-      return { success: true, amount: result.amount }
+      return { success: true, amount: result.amount, requestFulfilled: result.requestFulfilled }
     }
     if (result.status === 'already_processed') {
       return { success: true, amount: 0 }

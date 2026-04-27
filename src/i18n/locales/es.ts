@@ -546,7 +546,7 @@ export default {
     ecashSend: 'Envío Ecash',
     ecashToken: 'Token creado',
     ecashReclaim: 'Token recuperado',
-    requestFulfill: 'Solicitud completada',
+    requestFulfill: 'Pago Ecash recibido',
     nutzap: 'NutZap',
     swap: 'Intercambio',
 
@@ -816,7 +816,7 @@ export default {
     recoveryCompleted: '{{recovered}} recuperado(s) ({{failed}} fallido(s))',
     ecashTokenReceived: '{{amount}} token Ecash recibido',
     ecashTokenReceivedWithFee: '{{amount}} token Ecash recibido (comisión: {{fee}})',
-    requestFulfilled: 'Solicitud completada: {{amount}} recibidos',
+    requestFulfilled: 'Pago Ecash {{amount}} recibido',
     noMintsRegistered: 'No hay mints registrados',
     noReachableMints: 'No hay mints accesibles',
     mintSwitched: 'Cambiado al mint: {{name}}',
@@ -973,6 +973,7 @@ export default {
       message: '{{mint}}\n{{amount}} recibidos',
       received: ' recibido!',
       fullMessage: '¡{{amount}} recibido!',
+      requestFulfilledMessage: '¡Tu solicitud de\n{{amount}} llegó!',
       done: 'Listo',
     },
     token: {

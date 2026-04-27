@@ -553,7 +553,7 @@ export default {
     ecashSend: 'Ecash 전송',
     ecashToken: '토큰 만들기',
     ecashReclaim: '토큰 회수',
-    requestFulfill: '요청한 결제 도착',
+    requestFulfill: '이캐시 결제 받음',
     nutzap: 'NutZap',
     swap: '스왑',
 
@@ -824,7 +824,7 @@ export default {
     recoveryCompleted: '{{recovered}}건 복구 완료 ({{failed}}건 실패)',
     ecashTokenReceived: '{{amount}} Ecash 토큰 수신 완료',
     ecashTokenReceivedWithFee: '{{amount}} Ecash 토큰 수신 완료 (수수료: {{fee}})',
-    requestFulfilled: '요청한 결제 {{amount}} 도착',
+    requestFulfilled: '이캐시 결제 {{amount}} 받음',
     noMintsRegistered: '등록된 민트가 없습니다',
     noReachableMints: '연결 가능한 민트가 없습니다',
     mintSwitched: '다른 민트로 전환됨: {{name}}',
@@ -981,6 +981,7 @@ export default {
       message: '{{mint}}에\n{{amount}} 입금되었어요',
       received: ' 입금되었어요!',
       fullMessage: '{{amount}} 입금되었어요!',
+      requestFulfilledMessage: '요청한 {{amount}}\n도착했어요!',
       done: '확인',
     },
     token: {

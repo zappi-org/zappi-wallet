@@ -44,6 +44,8 @@ export interface ReceiveFlowState {
   receiveRequestId: string | null
   // Result
   receivedAmount: number
+  /** True when the settled payment was verified to fulfill our ReceiveRequest. */
+  wasRequestFulfilled: boolean
 }
 
 export interface ReceiveFlowProps {
@@ -62,7 +64,7 @@ export interface ReceiveFlowProps {
    * with paymentRef so the domain can verify my-id matching and tag the tx
    * with intent='request-fulfill'. Transport-agnostic.
    */
-  onReceiveRequestFulfilled: (token: string, paymentRef: string) => Promise<{ success: boolean; amount?: number; error?: { code?: string; message?: string } }>
+  onReceiveRequestFulfilled: (token: string, paymentRef: string) => Promise<{ success: boolean; amount?: number; requestFulfilled?: boolean; error?: { code?: string; message?: string } }>
   // Pre-filled data
   initialAmount?: number
   initialMintUrl?: string | null
@@ -98,6 +100,7 @@ export function ReceiveFlow({
     httpEndpoint: null,
     receiveRequestId: null,
     receivedAmount: 0,
+    wasRequestFulfilled: false,
   })
 
   const [isLoading, setIsLoading] = useState(false)
@@ -216,7 +219,7 @@ export function ReceiveFlow({
   }, [isOnline, onCreateInvoice, addToast, addPendingQuote, t, receiveReq])
 
   /** Payment received → complete */
-  const handlePaymentDetected = useCallback((amount: number, method: 'bolt11' | 'ecash') => {
+  const handlePaymentDetected = useCallback((amount: number, method: 'bolt11' | 'ecash', wasRequestFulfilled = false) => {
     onPaymentReceived(amount, method === 'bolt11' ? 'lightning' : 'ecash')
     setState((prev) => {
       if (prev.receiveRequestId) {
@@ -228,6 +231,7 @@ export function ReceiveFlow({
         step: 'complete',
         method,
         receivedAmount: amount,
+        wasRequestFulfilled,
       }
     })
   }, [onPaymentReceived, receiveReq])
@@ -267,7 +271,7 @@ export function ReceiveFlow({
               httpEndpoint={state.httpEndpoint}
               onReceiveRequestFulfilled={async (token, paymentRef) => {
                 const result = await onReceiveRequestFulfilled(token, paymentRef)
-                return { amount: result?.amount ?? 0 }
+                return { amount: result?.amount ?? 0, requestFulfilled: result?.requestFulfilled }
               }}
             />
           </PageTransition>
@@ -278,6 +282,7 @@ export function ReceiveFlow({
             <ReceiveCompleteStep
               amount={state.receivedAmount}
               mintUrl={state.selectedMintUrl}
+              wasRequestFulfilled={state.wasRequestFulfilled}
               onComplete={onComplete}
             />
           </PageTransition>

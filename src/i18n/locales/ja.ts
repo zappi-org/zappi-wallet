@@ -553,7 +553,7 @@ export default {
     ecashSend: 'Ecash送金',
     ecashToken: 'トークン作成',
     ecashReclaim: 'トークン回収',
-    requestFulfill: 'リクエスト受取',
+    requestFulfill: 'Ecash決済受取',
     nutzap: 'NutZap',
     swap: 'スワップ',
 
@@ -824,7 +824,7 @@ export default {
     recoveryCompleted: '{{recovered}}件回復完了（{{failed}}件失敗）',
     ecashTokenReceived: '{{amount}} Ecashトークン受信完了',
     ecashTokenReceivedWithFee: '{{amount}} Ecashトークン受信完了（手数料: {{fee}}）',
-    requestFulfilled: 'リクエスト決済 {{amount}} 受取',
+    requestFulfilled: 'Ecash決済 {{amount}} 受取',
     noMintsRegistered: '登録されたミントがありません',
     noReachableMints: '接続可能なミントがありません',
     mintSwitched: '別のミントに切り替えました: {{name}}',
@@ -981,6 +981,7 @@ export default {
       message: '{{mint}}に\n{{amount}}入金されました',
       received: ' 入金されました!',
       fullMessage: '{{amount}} 入金されました!',
+      requestFulfilledMessage: 'リクエストした{{amount}}\n到着しました!',
       done: '完了',
     },
     token: {
