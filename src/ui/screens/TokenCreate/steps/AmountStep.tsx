@@ -2,7 +2,7 @@ import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { MintIcon } from '@/ui/components/common/MintIcon'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
-import { useFormatFiat, useFormatSats, useSatUnit } from '@/utils/format'
+import { useFormatFiat, useFormatSats } from '@/utils/format'
 import { useWallet } from '@/ui/hooks/use-wallet'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useFiatToggle } from '@/ui/hooks/use-fiat-toggle'
@@ -35,7 +35,6 @@ export function AmountStep({
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
-  const unit = useSatUnit()
   const { balance } = useWallet()
   const mintUrls = useMemo(() => [mintUrl], [mintUrl])
   const { getDisplayName, getIconUrl } = useMintMetadata(mintUrls)
@@ -64,12 +63,8 @@ export function AmountStep({
   const canProceed = numericAmount > 0 && !insufficient
 
   const displayAmount = isFiatMode
-    ? fiatInput
-      ? `${currencySymbol}${Number(fiatInput).toLocaleString()}`
-      : `${currencySymbol}0`
-    : numericAmount > 0
-      ? formatSats(numericAmount)
-      : `${unit}0`
+    ? `${currencySymbol}${fiatInput ? Number(fiatInput).toLocaleString() : '0'}`
+    : formatSats(numericAmount)
 
   const insufficientColor = insufficient ? 'text-accent-danger' : 'text-foreground'
   const fiatLabel = !isFiatMode && numericAmount > 0 ? formatFiat(numericAmount) : null
