@@ -14,6 +14,7 @@ import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request
 import type { ProcessedStore } from '@/core/ports/driven/processed-store.port'
 import type { FailedIncomingStore } from '@/core/ports/driven/failed-incoming-store.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
+import type { EventBus } from '@/core/events/event-bus'
 import { toNumber } from '@/core/domain/amount'
 
 type ReceiveRequestSettlement = Pick<ReceiveRequestUseCase, 'settleByPaymentRef'>
@@ -25,6 +26,7 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
     private readonly failedIncomingStore: FailedIncomingStore,
     private readonly receiveRequest?: ReceiveRequestSettlement,
     private readonly txRepo?: TransactionRepository,
+    private readonly eventBus?: EventBus,
   ) {}
 
   async processIncoming(params: {
@@ -71,13 +73,25 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
         return { status: 'failed', error: settlement.error }
       }
 
-      // Verified: paymentRef matched a ReceiveRequest I created → mark intent.
+      // Verified: paymentRef matched a ReceiveRequest I created → mark intent + emit.
       // Transport-agnostic — only fires when settle returns a real record.
       if (settlement.matched && this.txRepo) {
         try {
           await this.txRepo.update(txId, { intent: 'request-fulfill' })
         } catch (err) {
           console.warn('[IncomingPayment] Failed to mark intent=request-fulfill:', err)
+        }
+        if (this.eventBus && params.receiveRequestPaymentRef && params.receiveRequestMethod) {
+          this.eventBus.emit({
+            type: 'receive:request-fulfilled',
+            payload: {
+              txId,
+              amount: redeemResult.value.amount,
+              fee: redeemResult.value.fee,
+              method: params.receiveRequestMethod,
+              paymentRef: params.receiveRequestPaymentRef,
+            },
+          })
         }
       }
 
@@ -88,7 +102,7 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
         result: 'success',
       })
 
-      return { status: 'success', amount, fee }
+      return { status: 'success', amount, fee, requestFulfilled: settlement.matched }
     } catch (error) {
       const errorMsg = String(error)
       const isAlreadySpent = errorMsg.toLowerCase().includes('already spent')

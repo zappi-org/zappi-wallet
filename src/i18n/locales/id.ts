@@ -816,6 +816,7 @@ export default {
     recoveryCompleted: '{{recovered}} dipulihkan ({{failed}} gagal)',
     ecashTokenReceived: '{{amount}} token Ecash diterima',
     ecashTokenReceivedWithFee: '{{amount}} token Ecash diterima (biaya: {{fee}})',
+    requestFulfilled: 'Permintaan terpenuhi: {{amount}} diterima',
     noMintsRegistered: 'Tidak ada mint terdaftar',
     noReachableMints: 'Tidak ada mint yang dapat dijangkau',
     mintSwitched: 'Beralih ke mint lain: {{name}}',

@@ -816,6 +816,7 @@ export default {
     recoveryCompleted: '{{recovered}} recuperado(s) ({{failed}} fallido(s))',
     ecashTokenReceived: '{{amount}} token Ecash recibido',
     ecashTokenReceivedWithFee: '{{amount}} token Ecash recibido (comisión: {{fee}})',
+    requestFulfilled: 'Solicitud completada: {{amount}} recibidos',
     noMintsRegistered: 'No hay mints registrados',
     noReachableMints: 'No hay mints accesibles',
     mintSwitched: 'Cambiado al mint: {{name}}',

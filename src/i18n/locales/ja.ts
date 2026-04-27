@@ -824,6 +824,7 @@ export default {
     recoveryCompleted: '{{recovered}}件回復完了（{{failed}}件失敗）',
     ecashTokenReceived: '{{amount}} Ecashトークン受信完了',
     ecashTokenReceivedWithFee: '{{amount}} Ecashトークン受信完了（手数料: {{fee}}）',
+    requestFulfilled: 'リクエスト決済 {{amount}} 受取',
     noMintsRegistered: '登録されたミントがありません',
     noReachableMints: '接続可能なミントがありません',
     mintSwitched: '別のミントに切り替えました: {{name}}',

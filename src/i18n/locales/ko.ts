@@ -824,6 +824,7 @@ export default {
     recoveryCompleted: '{{recovered}}건 복구 완료 ({{failed}}건 실패)',
     ecashTokenReceived: '{{amount}} Ecash 토큰 수신 완료',
     ecashTokenReceivedWithFee: '{{amount}} Ecash 토큰 수신 완료 (수수료: {{fee}})',
+    requestFulfilled: '요청한 결제 {{amount}} 도착',
     noMintsRegistered: '등록된 민트가 없습니다',
     noReachableMints: '연결 가능한 민트가 없습니다',
     mintSwitched: '다른 민트로 전환됨: {{name}}',
