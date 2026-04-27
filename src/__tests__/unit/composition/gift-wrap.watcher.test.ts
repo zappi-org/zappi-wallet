@@ -117,6 +117,7 @@ describe('GiftWrapWatcher', () => {
         accountId: 'cashu:ecash',
         method: 'nostr-gift-wrap',
         isSwapStep: false,
+        wasRequestFulfilled: false,
         metadata: undefined,
       },
     })
