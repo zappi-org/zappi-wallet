@@ -553,6 +553,7 @@ export default {
     ecashSend: 'Ecash送金',
     ecashToken: 'トークン作成',
     ecashReclaim: 'トークン回収',
+    requestFulfill: 'リクエスト受取',
     nutzap: 'NutZap',
     swap: 'スワップ',
 

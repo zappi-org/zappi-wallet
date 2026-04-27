@@ -546,6 +546,7 @@ export default {
     ecashSend: 'Kirim Ecash',
     ecashToken: 'Token dibuat',
     ecashReclaim: 'Token diklaim kembali',
+    requestFulfill: 'Permintaan terpenuhi',
     nutzap: 'NutZap',
     swap: 'Swap',
 

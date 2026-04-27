@@ -84,6 +84,7 @@ export function pendingToDetail(
 export function isTokenTimelineTx(tx: Transaction): boolean {
   if (tx.protocol !== 'cashu-token') return false
   if (tx.intent === 'swap') return false
+  if (tx.intent === 'request-fulfill') return false
   if (tx.status !== 'settled') return false
   if (tx.metadata?.reclaimedFrom) return false
   return tx.outcome === 'claimed' || tx.outcome === 'reclaimed'

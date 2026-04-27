@@ -7,6 +7,7 @@ function resolveTypeLabel(tx: Transaction, t: (key: string) => string): string {
   if (txType === 'lightning') return tx.direction === 'receive' ? t('history.lightningReceive') : t('history.lightningSend')
   if (txType === 'ecash-token') {
     if (getTxMeta(tx).reclaimedFrom) return t('history.ecashReclaim')
+    if (tx.intent === 'request-fulfill') return t('history.requestFulfill')
     return tx.direction === 'receive' ? t('history.ecashReceive') : t('history.ecashToken')
   }
   if (txType === 'nutzap') return t('history.nutzap')

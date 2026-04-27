@@ -553,6 +553,7 @@ export default {
     ecashSend: 'Ecash 전송',
     ecashToken: '토큰 만들기',
     ecashReclaim: '토큰 회수',
+    requestFulfill: '요청한 결제 도착',
     nutzap: 'NutZap',
     swap: '스왑',
 
