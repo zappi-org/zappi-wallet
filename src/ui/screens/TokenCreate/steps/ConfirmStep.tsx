@@ -92,7 +92,7 @@ export function ConfirmStep({
             <span className="text-brand">{mintName}</span>에서{' '}
             <span className="text-brand">{formatSats(tokenAmount)}</span>
             <br />
-            토큰을 만들까요?
+            이캐시를 만들까요?
           </p>
           {fiatLabel && <p className="text-body text-foreground-muted mt-3">~ {fiatLabel}</p>}
         </div>
@@ -103,7 +103,7 @@ export function ConfirmStep({
         {/* Warning */}
         <div className="px-4 py-3 rounded-card bg-background-card mb-4">
           <p className="text-caption text-foreground leading-relaxed">
-            ! 토큰은 받는 사람이 등록하기 전 까지 되찾을 수 있어요
+            ! 이캐시는 받는 사람이 등록하기 전 까지 되찾을 수 있어요
           </p>
         </div>
 

@@ -321,7 +321,7 @@ export default {
     unrecognizedFormat: '認識できない形式です',
     invoiceExpired: 'インボイスの有効期限が切れています',
     invalidAddress: '無効なLightningアドレスです',
-    invalidToken: '無効なCashuトークンです',
+    invalidToken: '無効なイーキャッシュです',
     invalidRequest: '無効なリクエストです',
     offlineError: 'オフラインです。ネットワーク接続を確認してください。',
     lnurlError: 'LNURLを確認できませんでした',
@@ -879,8 +879,8 @@ export default {
       memoPlaceholder: '任意',
     },
     tokenCreate: {
-      title: 'トークン作成',
-      howMuch: 'いくら分のトークンを作りますか？',
+      title: 'イーキャッシュ作成',
+      howMuch: 'いくら分のイーキャッシュを作りますか？',
       amountCaption: 'イーキャッシュはビットコインを商品券のように手渡せる仕組みです',
       memo: 'メモ',
       requestAmount: 'リクエスト',
@@ -1129,7 +1129,7 @@ export default {
 
   nav: {
     wallet: 'ウォレット',
-    token: 'トークン',
+    token: 'イーキャッシュ',
     contacts: '連絡先',
     settings: '設定',
   },
@@ -1138,8 +1138,8 @@ export default {
     create: '作成',
     register: '登録',
     empty: {
-      title: '作成したトークンがありません。\nトークンを作ってみましょう。',
-      footerNote: 'トークンは現金のように機能します。持っている人なら誰でも登録して使えます。',
+      title: '作成したイーキャッシュがありません。\nイーキャッシュを作ってみましょう。',
+      footerNote: 'イーキャッシュは現金のように機能します。持っている人なら誰でも登録して使えます。',
     },
     time: {
       justNow: 'たった今',
@@ -1158,7 +1158,7 @@ export default {
     },
     pendingEmpty: {
       title: 'すべて片付きました',
-      subtitle: '待機中のトークンはありません',
+      subtitle: '待機中のイーキャッシュはありません',
     },
     reclaimable: {
       section: '取り戻せます ({{count}})',
@@ -1171,11 +1171,11 @@ export default {
       copiedToClipboard: 'クリップボードにコピーしました',
     },
     firstCreate: {
-      hint: '作成しましたが、まだ登録されていないトークンです。\n相手が受け取っていないか、まだ登録していない可能性があります。',
+      hint: '作成しましたが、まだ登録されていないイーキャッシュです。\n相手が受け取っていないか、まだ登録していない可能性があります。',
       dismiss: '今後表示しない',
     },
     history: {
-      section: 'トークン履歴',
+      section: 'イーキャッシュ履歴',
       group: {
         today: '今日',
         yesterday: '昨日',

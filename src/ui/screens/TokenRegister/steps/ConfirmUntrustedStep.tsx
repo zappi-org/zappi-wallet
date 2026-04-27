@@ -59,7 +59,7 @@ export function ConfirmUntrustedStep({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <ScreenHeader title="토큰 확인" onBack={onBack} />
+      <ScreenHeader title="이캐시 확인" onBack={onBack} />
 
       {/* Content — centered warning */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 space-y-4">

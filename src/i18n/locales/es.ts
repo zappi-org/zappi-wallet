@@ -321,7 +321,7 @@ export default {
     unrecognizedFormat: 'Formato no reconocido',
     invoiceExpired: 'La factura ha expirado',
     invalidAddress: 'Dirección Lightning inválida',
-    invalidToken: 'Token Cashu inválido',
+    invalidToken: 'Ecash inválido',
     invalidRequest: 'Solicitud inválida',
     offlineError: 'Estás sin conexión. Verifica tu conexión de red.',
     lnurlError: 'No se pudo verificar LNURL',
@@ -871,8 +871,8 @@ export default {
       memoPlaceholder: 'Opcional',
     },
     tokenCreate: {
-      title: 'Crear Token',
-      howMuch: '¿Cuánto token crear?',
+      title: 'Crear Ecash',
+      howMuch: '¿Cuánto ecash crear?',
       amountCaption: 'Ecash convierte bitcoin en un vale que puedes entregar',
       memo: 'Memo',
       requestAmount: 'Solicitud',
@@ -1121,7 +1121,7 @@ export default {
 
   nav: {
     wallet: 'Billetera',
-    token: 'Token',
+    token: 'Ecash',
     contacts: 'Contactos',
     settings: 'Ajustes',
   },
@@ -1130,8 +1130,8 @@ export default {
     create: 'Crear',
     register: 'Registrar',
     empty: {
-      title: 'Aún no tienes tokens.\n¿Quieres crear uno?',
-      footerNote: 'Los tokens funcionan como efectivo. Cualquiera que los tenga puede registrarlos y usarlos.',
+      title: 'Aún no tienes ecash.\n¿Quieres crear uno?',
+      footerNote: 'Ecash funciona como efectivo. Cualquiera que lo tenga puede registrarlo y usarlo.',
     },
     time: {
       justNow: 'ahora mismo',
@@ -1145,12 +1145,12 @@ export default {
     },
     pendingWidget: {
       title: 'Pendiente',
-      summary: '{{count}} tokens · {{total}}',
+      summary: '{{count}} ecash · {{total}}',
       viewAll: 'Ver pendientes',
     },
     pendingEmpty: {
       title: 'Todo al día',
-      subtitle: 'Sin tokens pendientes',
+      subtitle: 'Sin ecash pendiente',
     },
     reclaimable: {
       section: 'Recuperables ({{count}})',
@@ -1163,11 +1163,11 @@ export default {
       copiedToClipboard: 'Copiado al portapapeles',
     },
     firstCreate: {
-      hint: 'Creaste estos tokens pero aún no se han registrado.\nPuede que el destinatario no los haya recibido o registrado todavía.',
+      hint: 'Creaste este ecash pero aún no se ha registrado.\nPuede que el destinatario no lo haya recibido o registrado todavía.',
       dismiss: 'No mostrar de nuevo',
     },
     history: {
-      section: 'Historial de tokens',
+      section: 'Historial de ecash',
       group: {
         today: 'Hoy',
         yesterday: 'Ayer',

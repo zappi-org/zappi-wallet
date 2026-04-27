@@ -104,11 +104,11 @@ export function ConfirmTrustedStep({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <ScreenHeader title="토큰 확인" onBack={onBack} />
+      <ScreenHeader title="이캐시 확인" onBack={onBack} />
 
       <div className="flex-1 overflow-y-auto px-4 pt-2">
         <h2 className="pt-[4dvh] text-heading font-semibold text-foreground text-center">
-          토큰이 도착했어요!
+          이캐시가 도착했어요!
         </h2>
 
         {/* Hero card — fixed min-height, zappi at Figma-exact absolute position */}

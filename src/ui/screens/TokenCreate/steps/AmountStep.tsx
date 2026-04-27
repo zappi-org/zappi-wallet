@@ -91,7 +91,7 @@ export function AmountStep({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <ScreenHeader title="토큰 생성하기" onBack={onBack} />
+      <ScreenHeader title="이캐시 만들기" onBack={onBack} />
 
       <div className="flex-1 overflow-y-auto px-6 pt-18 flex flex-col">
         <h2 className="text-heading font-semibold text-foreground text-center">
@@ -183,7 +183,7 @@ export function AmountStep({
             className="mt-0.5 w-4 h-4 accent-brand shrink-0"
           />
           <span className="text-caption text-foreground-muted leading-snug">
-            받는사람이 금액을 그대로 받을 수 있게 수취 수수료를 토큰에 추가해요 (선택사항)
+            받는사람이 금액을 그대로 받을 수 있게 수취 수수료를 이캐시에 추가해요 (선택사항)
           </span>
         </label>
       </div>

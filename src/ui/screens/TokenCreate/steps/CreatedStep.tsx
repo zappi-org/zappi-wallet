@@ -146,7 +146,7 @@ export function CreatedStep({
           <X className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
         <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold text-foreground pointer-events-none">
-          {isSpent ? '토큰이 사용되었어요' : '토큰이 만들어졌어요'}
+          {isSpent ? '이캐시가 사용되었어요' : '이캐시가 만들어졌어요'}
         </h1>
         <div className="w-10" />
       </header>

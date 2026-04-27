@@ -321,7 +321,7 @@ export default {
     unrecognizedFormat: 'Format tidak dikenali',
     invoiceExpired: 'Invoice telah kedaluwarsa',
     invalidAddress: 'Alamat Lightning tidak valid',
-    invalidToken: 'Token Cashu tidak valid',
+    invalidToken: 'Ecash tidak valid',
     invalidRequest: 'Permintaan tidak valid',
     offlineError: 'Anda offline. Periksa koneksi jaringan.',
     lnurlError: 'Tidak dapat memverifikasi LNURL',
@@ -871,8 +871,8 @@ export default {
       memoPlaceholder: 'Opsional',
     },
     tokenCreate: {
-      title: 'Buat Token',
-      howMuch: 'Berapa nilai token yang dibuat?',
+      title: 'Buat Ecash',
+      howMuch: 'Berapa nilai ecash yang dibuat?',
       amountCaption: 'Ecash mengubah bitcoin menjadi voucher yang bisa diserahkan',
       memo: 'Memo',
       requestAmount: 'Permintaan',
@@ -1121,7 +1121,7 @@ export default {
 
   nav: {
     wallet: 'Dompet',
-    token: 'Token',
+    token: 'Ecash',
     contacts: 'Kontak',
     settings: 'Pengaturan',
   },
@@ -1130,8 +1130,8 @@ export default {
     create: 'Buat',
     register: 'Daftar',
     empty: {
-      title: 'Belum ada token.\nMau membuat satu?',
-      footerNote: 'Token bekerja seperti uang tunai. Siapa pun yang memilikinya dapat mendaftar dan menggunakannya.',
+      title: 'Belum ada ecash.\nMau membuat satu?',
+      footerNote: 'Ecash bekerja seperti uang tunai. Siapa pun yang memilikinya dapat mendaftarkan dan menggunakannya.',
     },
     time: {
       justNow: 'baru saja',
@@ -1145,12 +1145,12 @@ export default {
     },
     pendingWidget: {
       title: 'Menunggu',
-      summary: '{{count}} token · {{total}}',
+      summary: '{{count}} ecash · {{total}}',
       viewAll: 'Lihat menunggu',
     },
     pendingEmpty: {
       title: 'Semua beres',
-      subtitle: 'Tidak ada token menunggu',
+      subtitle: 'Tidak ada ecash menunggu',
     },
     reclaimable: {
       section: 'Dapat diambil kembali ({{count}})',
@@ -1163,11 +1163,11 @@ export default {
       copiedToClipboard: 'Disalin ke clipboard',
     },
     firstCreate: {
-      hint: 'Kamu membuat token ini tetapi belum terdaftar.\nPenerima mungkin belum menerimanya atau belum mendaftarkannya.',
+      hint: 'Kamu membuat ecash ini tetapi belum terdaftar.\nPenerima mungkin belum menerimanya atau belum mendaftarkannya.',
       dismiss: 'Jangan tampilkan lagi',
     },
     history: {
-      section: 'Riwayat token',
+      section: 'Riwayat ecash',
       group: {
         today: 'Hari ini',
         yesterday: 'Kemarin',

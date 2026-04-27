@@ -321,7 +321,7 @@ export default {
     unrecognizedFormat: 'Unrecognized format',
     invoiceExpired: 'Invoice has expired',
     invalidAddress: 'Invalid Lightning address',
-    invalidToken: 'Invalid Cashu token',
+    invalidToken: 'Invalid ecash',
     invalidRequest: 'Invalid request',
     offlineError: 'You are offline. Check your network connection.',
     lnurlError: 'Could not verify LNURL',
@@ -876,8 +876,8 @@ export default {
       memoPlaceholder: 'Optional',
     },
     tokenCreate: {
-      title: 'Create Token',
-      howMuch: 'How much token to create?',
+      title: 'Create Ecash',
+      howMuch: 'How much ecash to create?',
       amountCaption: 'Ecash turns bitcoin into a gift card you can hand over',
       memo: 'Memo',
       memoPlaceholder: 'Optional',
@@ -1128,7 +1128,7 @@ export default {
   // Bottom Navigation
   nav: {
     wallet: 'Wallet',
-    token: 'Token',
+    token: 'Ecash',
     contacts: 'Contacts',
     settings: 'Settings',
   },
@@ -1138,8 +1138,8 @@ export default {
     create: 'Create',
     register: 'Register',
     empty: {
-      title: 'No tokens yet.\nWant to create one?',
-      footerNote: 'Tokens work like cash. Anyone who has them can register and use them.',
+      title: 'No ecash yet.\nWant to create one?',
+      footerNote: 'Ecash works like cash. Anyone who has it can register and use it.',
     },
     time: {
       justNow: 'just now',
@@ -1153,12 +1153,12 @@ export default {
     },
     pendingWidget: {
       title: 'Pending',
-      summary: '{{count}} tokens · {{total}}',
+      summary: '{{count}} ecash · {{total}}',
       viewAll: 'Reclaim all',
     },
     pendingEmpty: {
       title: 'All caught up',
-      subtitle: 'No pending tokens',
+      subtitle: 'No pending ecash',
     },
     reclaimable: {
       section: 'Reclaimable ({{count}})',
@@ -1170,19 +1170,19 @@ export default {
       copiedToClipboard: 'Copied to clipboard',
     },
     firstCreate: {
-      hint: 'You created these tokens but they have not been registered yet.\nThe recipient may not have received or registered them yet.',
+      hint: 'You created this ecash but it has not been registered yet.\nThe recipient may not have received or registered it yet.',
       dismiss: "Don't show again",
     },
     reclaim: {
       title: 'Reclaim',
-      context: 'Reclaiming {{count}} token(s)',
+      context: 'Reclaiming {{count}} ecash',
       summaryTotal: 'Total',
       summaryFee: 'Receive fee',
       summaryNet: 'You receive',
       confirm: 'Reclaim',
     },
     history: {
-      section: 'Token history',
+      section: 'Ecash history',
       group: {
         today: 'Today',
         yesterday: 'Yesterday',
@@ -1209,12 +1209,12 @@ export default {
       },
     },
     detail: {
-      unread: 'Unread token',
+      unread: 'Unread ecash',
       title: {
-        pending: 'Pending token',
-        registered: 'Token registered',
-        consumed: 'Token spent',
-        reclaimed: 'Token reclaimed',
+        pending: 'Pending ecash',
+        registered: 'Ecash registered',
+        consumed: 'Ecash spent',
+        reclaimed: 'Ecash reclaimed',
       },
       weekday: {
         sun: 'Sunday',
@@ -1237,10 +1237,10 @@ export default {
       memoEmpty: '—',
       typeLabel: 'Type',
       typeValue: {
-        pending: 'Create ecash token',
-        registered: 'Register ecash token',
-        consumed: 'Ecash token spent',
-        reclaimed: 'Reclaim ecash token',
+        pending: 'Create ecash',
+        registered: 'Register ecash',
+        consumed: 'Ecash spent',
+        reclaimed: 'Reclaim ecash',
       },
       mintLabel: {
         pending: 'Source mint',
@@ -1249,23 +1249,23 @@ export default {
         reclaimed: 'Target mint',
       },
       action: {
-        forward: 'Forward token',
-        confirm: 'View token',
+        forward: 'Forward ecash',
+        confirm: 'View ecash',
       },
-      confirmLink: 'View token',
+      confirmLink: 'View ecash',
       actions: {
         qr: 'QR',
         copy: 'Copy',
         share: 'Share',
-        viewRaw: 'View raw token',
+        viewRaw: 'View raw ecash',
       },
       reclaimCta: 'Reclaim (fee: {{fee}})',
       raw: {
-        title: 'Raw token',
+        title: 'Raw ecash',
         issuingMint: 'Issuing mint',
         unit: 'Unit',
         receiveFee: 'Receive fee',
-        empty: 'No token data.',
+        empty: 'No ecash data.',
         easterEgg: 'ZAPPI X CASHU',
       },
       qr: {

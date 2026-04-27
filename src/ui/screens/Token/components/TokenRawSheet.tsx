@@ -23,7 +23,7 @@ export interface TokenRawSheetProps {
 
 /**
  * Bottom sheet showing the raw cashu token string plus origin metadata.
- * Opened from TokenDetailScreen's ">토큰 원문 보기".
+ * Opened from TokenDetailScreen's ">이캐시 원문 보기".
  */
 export function TokenRawSheet({
   isOpen,

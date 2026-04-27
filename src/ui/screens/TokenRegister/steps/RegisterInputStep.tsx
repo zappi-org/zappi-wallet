@@ -124,11 +124,11 @@ export function RegisterInputStep({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <ScreenHeader title="토큰 등록하기" onBack={onBack} />
+      <ScreenHeader title="이캐시 등록하기" onBack={onBack} />
 
       <div className="flex-1 overflow-y-auto px-6 pt-6">
         <h2 className="text-heading font-semibold text-foreground leading-snug">
-          토큰을 붙여넣거나 스캔해서
+          이캐시를 붙여넣거나 스캔해서
           <br />
           등록할 수 있어요.
         </h2>
@@ -149,7 +149,7 @@ export function RegisterInputStep({
               type="text"
               value={token}
               onChange={(e) => handleTokenChange(e.target.value)}
-              placeholder="토큰 입력"
+              placeholder="이캐시 입력"
               className={`flex-1 min-w-0 bg-transparent py-2 text-body font-medium placeholder:text-foreground-muted focus:outline-none ${
                 showError ? 'text-accent-danger' : 'text-foreground'
               }`}
@@ -157,7 +157,7 @@ export function RegisterInputStep({
           </div>
           {showError && (
             <p className="mt-1.5 text-caption text-accent-danger">
-              잘못된 형식이에요. cashuB 로 시작하는 토큰인지 확인해주세요.
+              잘못된 형식이에요. cashuB 로 시작하는 이캐시인지 확인해주세요.
             </p>
           )}
         </div>

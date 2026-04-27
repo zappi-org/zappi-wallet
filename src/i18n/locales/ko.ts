@@ -321,7 +321,7 @@ export default {
     unrecognizedFormat: '인식할 수 없는 형식입니다',
     invoiceExpired: '인보이스가 만료되었습니다',
     invalidAddress: '유효하지 않은 Lightning 주소입니다',
-    invalidToken: '유효하지 않은 Cashu 토큰입니다',
+    invalidToken: '유효하지 않은 이캐시예요',
     invalidRequest: '유효하지 않은 요청입니다',
     offlineError: '오프라인 상태입니다. 네트워크 연결을 확인하세요.',
     lnurlError: 'LNURL을 확인할 수 없습니다',
@@ -879,8 +879,8 @@ export default {
       memoPlaceholder: '선택 사항',
     },
     tokenCreate: {
-      title: '토큰 만들기',
-      howMuch: '얼마의 토큰을 만들까요?',
+      title: '이캐시 만들기',
+      howMuch: '얼마의 이캐시를 만들까요?',
       amountCaption: '이캐시는 비트코인을 상품권으로 만들어 건넬 수 있는 방식이에요',
       memo: '메모',
       memoPlaceholder: '선택 사항',
@@ -1135,7 +1135,7 @@ export default {
   // Bottom Navigation
   nav: {
     wallet: '지갑',
-    token: '토큰',
+    token: '이캐시',
     contacts: '주소록',
     settings: '설정',
   },
@@ -1145,8 +1145,8 @@ export default {
     create: '생성',
     register: '등록',
     empty: {
-      title: '만든 토큰이 없어요.\n토큰을 만들어 볼까요?',
-      footerNote: '토큰은 현금처럼 작동해요. 가지고 있는 누구나 등록해서 사용할 수 있어요.',
+      title: '만든 이캐시가 없어요.\n이캐시를 만들어 볼까요?',
+      footerNote: '이캐시는 현금처럼 작동해요. 가지고 있는 누구나 등록해서 사용할 수 있어요.',
     },
     time: {
       justNow: '방금',
@@ -1165,7 +1165,7 @@ export default {
     },
     pendingEmpty: {
       title: '모두 정리됐어요',
-      subtitle: '대기중인 토큰이 없어요',
+      subtitle: '대기중인 이캐시가 없어요',
     },
     reclaimable: {
       section: '되찾을 수 있어요 ({{count}})',
@@ -1177,19 +1177,19 @@ export default {
       copiedToClipboard: '클립보드에 복사되었어요',
     },
     firstCreate: {
-      hint: '만들었지만 아직 등록되지 않은 토큰들이에요.\n상대방이 못 받았거나, 아직 등록 하지 않았을 수 있어요.',
+      hint: '만들었지만 아직 등록되지 않은 이캐시들이에요.\n상대방이 못 받았거나, 아직 등록 하지 않았을 수 있어요.',
       dismiss: '다시보지않기',
     },
     reclaim: {
       title: '되찾기',
-      context: '{{count}}개 토큰을 되찾아요',
-      summaryTotal: '총 토큰 금액',
+      context: '{{count}}개 이캐시를 되찾아요',
+      summaryTotal: '총 이캐시 금액',
       summaryFee: '수취 수수료',
       summaryNet: '받는 금액',
       confirm: '되찾기',
     },
     history: {
-      section: '토큰 내역',
+      section: '이캐시 내역',
       group: {
         today: '오늘',
         yesterday: '어제',
@@ -1216,12 +1216,12 @@ export default {
       },
     },
     detail: {
-      unread: '안읽은 토큰',
+      unread: '안읽은 이캐시',
       title: {
-        pending: '대기중인 토큰',
-        registered: '토큰 등록 완료',
-        consumed: '토큰 사용됨',
-        reclaimed: '토큰 되찾기 완료',
+        pending: '대기중인 이캐시',
+        registered: '이캐시 등록 완료',
+        consumed: '이캐시 사용됨',
+        reclaimed: '이캐시 되찾기 완료',
       },
       weekday: {
         sun: '일요일',
@@ -1244,10 +1244,10 @@ export default {
       memoEmpty: '—',
       typeLabel: '유형',
       typeValue: {
-        pending: '이캐시 토큰 생성하기',
-        registered: '이캐시 토큰 등록',
-        consumed: '이캐시 토큰 사용됨',
-        reclaimed: '이캐시 토큰 되찾기',
+        pending: '이캐시 만들기',
+        registered: '이캐시 등록',
+        consumed: '이캐시 사용됨',
+        reclaimed: '이캐시 되찾기',
       },
       mintLabel: {
         pending: '출금 민트',
@@ -1256,23 +1256,23 @@ export default {
         reclaimed: '입금 민트',
       },
       action: {
-        forward: '토큰 전달하기',
-        confirm: '토큰 확인하기',
+        forward: '이캐시 전달하기',
+        confirm: '이캐시 확인하기',
       },
-      confirmLink: '토큰 확인하기',
+      confirmLink: '이캐시 확인하기',
       actions: {
         qr: 'QR보기',
         copy: '복사하기',
         share: '공유하기',
-        viewRaw: '토큰 원문 보기',
+        viewRaw: '이캐시 원문 보기',
       },
       reclaimCta: '되찾기 (수취 수수료: {{fee}})',
       raw: {
-        title: '토큰 상세보기',
+        title: '이캐시 상세보기',
         issuingMint: '발행 민트',
         unit: '단위',
         receiveFee: '수취 수수료',
-        empty: '토큰 데이터가 없습니다.',
+        empty: '이캐시 데이터가 없습니다.',
         easterEgg: 'ZAPPI X CASHU',
       },
       qr: {
