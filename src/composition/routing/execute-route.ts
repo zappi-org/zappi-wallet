@@ -280,6 +280,7 @@ async function executeTokenSendFlow(
 
     // 2. TX record
     const txId = `tx-ecash-send-${crypto.randomUUID()}`
+    const isCreqPayment = context.parsedCreq != null
     await getDatabase().transactions.put({
       id: txId,
       direction: 'send',
@@ -292,8 +293,10 @@ async function executeTokenSendFlow(
       token,
       tokenState: 'unspent',
       operationId: prepared.operationId,
+      ...(isCreqPayment && { intent: 'request-pay' }),
       metadata: {
         route: selection.route,
+        ...(isCreqPayment && { intent: 'request-pay' }),
         ...(prepared.fee > 0 && { fee: prepared.fee }),
       },
     })

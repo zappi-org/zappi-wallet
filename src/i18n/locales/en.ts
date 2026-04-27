@@ -554,6 +554,7 @@ export default {
     ecashToken: 'Token Created',
     ecashReclaim: 'Token Reclaimed',
     requestFulfill: 'Ecash payment received',
+    requestPay: 'Ecash payment sent',
     nutzap: 'NutZap',
     swap: 'Swap',
 

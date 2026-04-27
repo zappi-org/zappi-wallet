@@ -554,6 +554,7 @@ export default {
     ecashToken: '토큰 만들기',
     ecashReclaim: '토큰 회수',
     requestFulfill: '이캐시 결제 받음',
+    requestPay: '이캐시 결제 보냄',
     nutzap: 'NutZap',
     swap: '스왑',
 

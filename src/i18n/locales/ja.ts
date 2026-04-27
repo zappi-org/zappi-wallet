@@ -554,6 +554,7 @@ export default {
     ecashToken: 'トークン作成',
     ecashReclaim: 'トークン回収',
     requestFulfill: 'Ecash決済受取',
+    requestPay: 'Ecash決済送金',
     nutzap: 'NutZap',
     swap: 'スワップ',
 
