@@ -7,9 +7,16 @@ interface SettingsDetailPageProps {
   onBack: () => void
   children: ReactNode
   noScroll?: boolean
+  headerAction?: ReactNode
 }
 
-export function SettingsDetailPage({ title, onBack, children, noScroll }: SettingsDetailPageProps) {
+export function SettingsDetailPage({
+  title,
+  onBack,
+  children,
+  noScroll,
+  headerAction,
+}: SettingsDetailPageProps) {
   const { t } = useTranslation()
 
   return (
@@ -23,7 +30,7 @@ export function SettingsDetailPage({ title, onBack, children, noScroll }: Settin
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
         <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{title}</h2>
-        <div className="w-10" />
+        <div className="min-w-10 flex justify-end z-10">{headerAction}</div>
       </header>
       <div className={noScroll ? "flex-1 flex flex-col overflow-hidden" : "flex-1 overflow-y-auto"}>
         {children}

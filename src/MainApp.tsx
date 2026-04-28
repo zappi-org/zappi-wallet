@@ -387,6 +387,7 @@ export default function MainApp() {
         // Phase 5: Bootstrap service registry (new path, coexists with old)
         const registry = createBootstrap({
           nostrPrivateKeyHex: result.value.keys.privateKey,
+          bip39Seed: result.value.bip39Seed,
         })
         setServiceRegistry(registry)
 
@@ -774,6 +775,7 @@ export default function MainApp() {
       await preUnlock.settingsRepo.clearAll()
       await preUnlock.txRepo.deleteAll()
       if (serviceRegistry) {
+        await serviceRegistry.support.destroy().catch(() => undefined)
         await serviceRegistry.cleanup.deleteAllContacts()
         await serviceRegistry.cleanup.deleteCocoData()
         serviceRegistry.cleanup.clearWalletCache()

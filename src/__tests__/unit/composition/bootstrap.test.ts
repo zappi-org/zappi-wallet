@@ -99,6 +99,7 @@ describe('bootstrap', () => {
   beforeEach(() => {
     result = createBootstrap({
       nostrPrivateKeyHex: 'a'.repeat(64),
+      bip39Seed: new Uint8Array(64).fill(1),
     })
   })
 
@@ -111,6 +112,7 @@ describe('bootstrap', () => {
     expect(result.balance).toBeDefined()
     expect(result.swap).toBeDefined()
     expect(result.contact).toBeDefined()
+    expect(result.support).toBeDefined()
   })
 
   it('should expose CashuModule for manual initialization', () => {

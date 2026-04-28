@@ -1,3 +1,53 @@
+# Current Task — Customer Support UX, Sync, and Attachments
+
+- [x] Remove customer-facing technical relay wording from support loading/sending states
+- [x] Treat resolved/closed support tickets as terminal in the core support flow, not only in the UI
+- [x] Show a terminal conversation notice after a ticket is resolved or closed and disable follow-up sends
+- [x] Add real support file attachment send/download support with encryption, hash verification, and configured Blossom storage
+- [x] Make support synchronization explicit on connect, focus/online resume, and manual refresh-capable use case seams
+- [x] Update focused tests for terminal-ticket behavior, attachment metadata/download, config validation, and sync refresh
+- [x] Re-run hex-review, lint, typecheck, focused tests, full tests/build, and `git diff --check`
+
+Review
+- Support loading state no longer renders the "relay" connection notice in the customer UI. Submit copy now says `문의 등록 중입니다.` and reply copy says `메시지를 보내는 중입니다.`.
+- Resolved/closed tickets are now terminal at both layers: `SupportService` blocks customer follow-up before calling the channel, and `NostrCsCustomerSupportAdapter` also refuses to send if the current ticket status is resolved or closed. The conversation UI replaces the input with `문의가 해결되었습니다.` or `문의가 종료되었습니다.`.
+- Attachment support is now actual file transfer, not metadata-only UI. The wallet converts selected files to protocol-neutral attachment inputs, encrypts them with AES-GCM, uploads ciphertext to configured Blossom storage, sends the validated `nostr-cs` envelope attachment, downloads ciphertext by Blossom hint, decrypts it, and verifies both ciphertext/plaintext hashes before saving.
+- Blossom storage is configured via `VITE_ZAPPI_SUPPORT_BLOSSOM_SERVERS`; no code fallback server was added. Local QA `.env.local` was updated with `https://blossom.primal.net`.
+- Support sync is explicit on initial connect and on online/visible resume. The refresh seam reconnects the SDK so relay subscriptions can backfill history/status while Dexie remains only a local display cache.
+- Verification passed: focused support tests (3 files / 14 tests), `npx tsc --noEmit`, `bun run lint`, `node .claude/skills/hex-review/scripts/check-hex-violations.mjs src`, `bun run test -- --run` (88 files / 644 tests), `bun run build`, and `git diff --check`. Build still emits the existing Vite dynamic-import/chunk-size warnings.
+
+# Previous Task — Customer Support via nostr-cs
+
+- [x] Re-read root `CLAUDE.md`, root `AGENTS.md`, wallet `AGENTS.md`, and `tasks/lessons.md`
+- [x] Create a fresh dedicated branch from latest `origin/staging`
+- [x] Confirm stale pre-release CS implementation is only in stash and will not be applied
+- [x] Design the CS integration around `nostr-cs@0.0.4`, a dedicated derived customer-support key, and env-provided support agent config
+- [x] Validate the design with specialist agents before implementation
+- [x] Add protocol-neutral core support use case and isolate `nostr-cs` in an adapter/composition layer
+- [x] Add a settings/support UI entry and customer ticket/message flow
+- [x] Add focused tests for key isolation, config validation, and support use-case behavior
+- [x] Run `hex-review`, verify skill discovery, manual architecture/security scans, lint, typecheck, tests, build, and `git diff --check`
+- [x] Document final review results here before treating the work as complete
+
+Review
+- Active branch is `feat/customer-support-nostr-cs-sdk-0.0.4`, created from latest `origin/staging`.
+- The old pre-release CS attempt remains only in `stash@{0}` and must not be applied; implementation started from current code and the released `nostr-cs@0.0.4`.
+- Support agent/relay config is deploy-time public config, not source-code constants. The support agent is configured as `VITE_ZAPPI_SUPPORT_AGENT_NPUB` and must be `npub`; raw 64-hex input is rejected to avoid accidentally publishing private-key-shaped values in a public `VITE_` variable.
+- The SDK-side hardcoded discovery concern was fixed upstream in `nostr-cs@0.0.4`; wallet integration injects an explicit configured NIP-66 relay index so SDK default monitor relays are not used. The SDK pool is not shared because the current dependency tree has separate `nostr-tools` instances, and importing nested package internals would be a brittle workaround.
+- Core support types/ports/services are protocol-neutral. `nostr-cs` imports are isolated under `src/adapters/customer-support`, with composition as the only boundary-crossing wiring layer.
+- Settings now exposes Profile → Customer Support. The first scope supports connect, pull own history, create ticket, list tickets/messages, and send follow-up messages. Ticket metadata is kept in memory for this first scope; no support private key/seed is stored in Zustand, Dexie, localStorage, settings, or env.
+- The CS identity is derived from the unlocked wallet seed using a dedicated support-only path and kept in adapter memory only. Logout now calls the support use case `destroy()` path, which disconnects and zeroizes the long-lived support private key; derivation `HDKey` private material and per-call NIP-44 conversation keys are also wiped after use.
+- Inbound support events are not trusted just because the SDK emitted them. Tickets must match the local CS pubkey and configured support agent pubkey; replies, DMs, and status updates must come from the configured support agent or local customer identity and must match a known ticket thread before UI state is mutated.
+- Final specialist audit reported no blockers and no non-blocking findings after the security fixes. `hex-review` passed with 0 violations; manual scans found no nested `node_modules` imports, no support-specific storage of secrets, no unsafe HTML rendering, no hardcoded support agent/relay values, and no hex-boundary violations.
+- Verification passed: focused support tests, focused Send input regression tests, `bun run lint`, `npx tsc --noEmit`, `bun run test -- --run` (87 files / 636 tests), `bun run build`, `node .claude/skills/hex-review/scripts/check-hex-violations.mjs src`, and `git diff --check`.
+- Manual QA found a dev-time support connection race: if `disconnect()` runs while `connect()` is still awaiting the SDK, `this.client` can become `null` before listener attachment. `NostrCsCustomerSupportAdapter` now uses a connection generation guard and local client/pool references, and a regression test covers the disconnect-wins-connect race.
+- Manual QA also found the initial support UI too form-like and exposed low-value category/priority choices. The page was simplified to a customer-support inbox pattern: title/body only, privacy reminder, card-based request list, selected conversation thread, clearer status pills, and relay-send progress copy.
+- Replies from the `nostr-cs` example agent arrived as raw envelope JSON (`{"v":1,"text":...}`). The adapter now sends with `encodeEnvelope()` and displays incoming ticket/reply/DM bodies through `decodeEnvelope()`, while retaining plain-text fallback compatibility.
+- Follow-up UX review restored SDK-required category/priority selection in the compose step, but moved it out of the entry screen. The support page is now "Support history" first: token-paste-style top-right "contact us" action → card-style request list with Zappi logo/date/title/status/unread reply badge → dedicated compose/conversation screens, so the first screen no longer mixes a form with existing requests.
+- Support history is now cached in Dexie under a customer-support-specific history store scoped by the derived CS pubkey and configured support agent. Relays remain the protocol source of truth, but restart/offline UX can show the local inbox cache first and then refresh from `pullOwnHistory()`. The cache also stores read state for unread support-reply badges.
+- `nostr-cs` envelope attachments are not treated as fully implemented file transfer yet. The wallet now preserves and displays validated attachment metadata from `decodeEnvelope()`, but actual upload/download/decrypt/sha256 verification remains a separate Blossom-backed implementation step.
+- Verify-skill discovery: `zappi-wallet/.claude/skills` has no `verify-*` skill. The root `../.claude/skills/verify-implementation/SKILL.md` exists but still references missing `verify-ecash`, matching the existing `.pipeline/verify-implementation-report.md`; therefore the authored verify pipeline cannot be executed until that missing skill is restored or removed.
+
 # Current Task — ZAP-81
 
 - [x] Confirm wallet repo rules (`CLAUDE.md`, root `AGENTS.md`, `zappi-wallet/AGENTS.md`) and review `tasks/lessons.md`

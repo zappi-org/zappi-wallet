@@ -31,10 +31,11 @@ import { ProfileCategoryPage } from './pages/ProfileCategoryPage'
 import { PreferencesCategoryPage } from './pages/PreferencesCategoryPage'
 import { SecurityCategoryPage } from './pages/SecurityCategoryPage'
 import { WalletCategoryPage } from './pages/WalletCategoryPage'
+import { SupportPage } from './pages/SupportPage'
 
 export type SettingsPage =
   | 'category-profile' | 'category-preferences' | 'category-security' | 'category-wallet'
-  | 'language' | 'unitDisplay' | 'fiat' | 'autoLock' | 'pos' | 'privacy' | 'npubDetail' | 'lightningDetail'
+  | 'language' | 'unitDisplay' | 'fiat' | 'autoLock' | 'pos' | 'privacy' | 'npubDetail' | 'lightningDetail' | 'support'
 
 export interface SettingsScreenProps {
   onBack: () => void
@@ -424,6 +425,8 @@ export function SettingsScreen({
             onChangeUsername={onChangeUsername}
           />
         )
+      case 'support':
+        return <SupportPage onBack={closeDetail} />
       default:
         return null
     }

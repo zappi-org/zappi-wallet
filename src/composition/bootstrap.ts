@@ -95,6 +95,7 @@ import { createInputRouter } from './input-router'
 import { createAddressResolver } from './address-resolver'
 import { createProfileService } from './profile'
 import { createRecoveryService } from './recovery'
+import { createSupportService } from './support'
 import { IncomingPaymentService } from '@/core/services/incoming-payment.service'
 import { createPendingItemsService } from './pending-items'
 import { connectEventStoreBridge } from './event-store-bridge'
@@ -121,6 +122,8 @@ export type RouteResult = Result<RouteExecutionResult, BaseError>
 export interface BootstrapDeps {
   /** Nostr 개인키 (hex) — unlock 후 사용 가능 */
   nostrPrivateKeyHex: string
+  /** BIP-39 seed — support 전용 파생키 생성에만 사용하고 저장하지 않음 */
+  bip39Seed: Uint8Array
 }
 
 export interface BootstrapResult extends ServiceRegistry {
@@ -366,6 +369,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const username = new UsernameService(zappiLinkProvider)
 
   const trustRegistry = new TrustRegistryService(settingsRepo)
+  const support = createSupportService({ bip39Seed: deps.bip39Seed })
 
   return {
     // ─── ServiceRegistry (driving ports only) ───
@@ -394,6 +398,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     routing,
     username,
     trustRegistry,
+    support,
 
     // ─── BootstrapResult extensions (MainApp only) ───
     cashuModule,

@@ -64,6 +64,7 @@
     "input-otp": "^1.4.2",
     "lucide-react": "^0.562.0",
     "motion": "^12.31.0",
+    "nostr-cs": "0.0.4",
     "nostr-tools": "^2.19.4",
     "qr-scanner": "^1.4.2",
     "qrcode.react": "^4.2.0",

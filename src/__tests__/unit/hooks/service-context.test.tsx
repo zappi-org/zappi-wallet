@@ -94,6 +94,7 @@ function createMockRegistry(): ServiceRegistry {
       revokeTrust: vi.fn(),
       getTrustedAccounts: vi.fn(),
     } as unknown as ServiceRegistry['trustRegistry'],
+    support: {} as unknown as ServiceRegistry['support'],
   }
 }
 

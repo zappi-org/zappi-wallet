@@ -25,3 +25,10 @@
 - Transaction repository updates must merge metadata rather than replace it when adding derived fields like effective fees; swap route metadata (`fromMintUrl`/`toMintUrl`) is needed by both linked transaction rows.
 - Do not expose a payable receive QR before its canonical ReceiveRequest lifecycle record is persisted. Legacy pending quote/UI state must be added only after the domain record exists.
 - If a post-redeem lifecycle write can fail, the retry queue must persist enough context to repair that lifecycle write without re-redeeming an already-spent token.
+
+## 2026-04-27
+
+- Customer-support UI copy must hide relay/protocol implementation details from normal users. Technical relay/storage wording belongs in config/docs/tests, not primary customer-facing status text.
+- If an SDK supports file attachments through an envelope format, displaying metadata alone is not enough to call the feature implemented. The app must wire real storage, encryption, download, and integrity verification, or keep the feature explicitly unavailable.
+- Support ticket terminal states such as resolved/closed must be enforced at the use-case/channel boundary, not only by hiding a UI input.
+- Support history synchronization should be explicit on connect and resume/online refresh, with local cache treated as a fast display cache rather than the source of truth.

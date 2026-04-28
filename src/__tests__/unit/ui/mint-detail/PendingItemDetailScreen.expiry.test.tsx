@@ -69,6 +69,7 @@ function createMockRegistry(): ServiceRegistry {
     routing: {} as ServiceRegistry['routing'],
     username: {} as ServiceRegistry['username'],
     trustRegistry: {} as ServiceRegistry['trustRegistry'],
+    support: {} as ServiceRegistry['support'],
   }
 }
 

@@ -1,6 +1,12 @@
 import Dexie, { type Table } from 'dexie'
 import type { Transaction, WalletSettings, MintMetadata, ExchangeRateCache, Contact } from '@/core/types'
 import type { ProcessedRecord, SyncAnchor } from '@/core/types'
+import type {
+  SupportAttachment,
+  SupportCategory,
+  SupportPriority,
+  SupportTicketStatus,
+} from '@/core/domain/support'
 import { DATABASE } from '@/core/constants'
 
 /**
@@ -185,6 +191,41 @@ export type MintMetadataRecord = MintMetadata
 export type ExchangeRateCacheRecord = ExchangeRateCache
 
 /**
+ * Customer support ticket cache.
+ * Relay events remain the source of truth; this cache keeps the support inbox available after restart.
+ */
+export interface SupportTicketRecord {
+  id: string
+  customerId: string
+  agentPubkey: string
+  threadId: string
+  title: string
+  body: string
+  status: SupportTicketStatus
+  priority: SupportPriority
+  category: SupportCategory
+  createdAt: number
+  updatedAt: number
+  readAt?: number
+}
+
+/**
+ * Customer support message cache.
+ */
+export interface SupportMessageRecord {
+  id: string
+  customerId: string
+  agentPubkey: string
+  ticketId: string
+  threadId: string
+  body: string
+  sender: 'customer' | 'support'
+  channel: 'thread' | 'private'
+  createdAt: number
+  attachments?: SupportAttachment[]
+}
+
+/**
  * Zappi Database
  */
 export class ZappiDatabase extends Dexie {
@@ -203,6 +244,8 @@ export class ZappiDatabase extends Dexie {
   mintMetadata!: Table<MintMetadataRecord, string>
   exchangeRates!: Table<ExchangeRateCacheRecord, string>
   contacts!: Table<Contact, string>
+  supportTickets!: Table<SupportTicketRecord, string>
+  supportMessages!: Table<SupportMessageRecord, string>
 
   constructor() {
     super(DATABASE.NAME)
@@ -258,6 +301,10 @@ export class ZappiDatabase extends Dexie {
 
       // Contacts: address book entries
       contacts: 'id, name, address, addressType, createdAt',
+
+      // Customer support cache: scoped by derived customer support identity + support agent
+      supportTickets: 'id, customerId, agentPubkey, updatedAt',
+      supportMessages: 'id, ticketId, customerId, agentPubkey, createdAt',
     })
   }
 }
@@ -325,5 +372,7 @@ export async function clearAllData(): Promise<void> {
     db.pendingSendTokens.clear(),
     db.pendingReceivedTokens.clear(),
     db.receiveRequests.clear(),
+    db.supportTickets.clear(),
+    db.supportMessages.clear(),
   ])
 }

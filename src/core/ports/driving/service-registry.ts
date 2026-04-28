@@ -31,6 +31,7 @@ import type { PaymentRequestUseCase } from '@/core/ports/driving/payment-request
 import type { RoutingUseCase } from '@/core/ports/driving/routing.usecase'
 import type { UsernameUseCase } from '@/core/ports/driving/username.usecase'
 import type { TrustRegistry } from '@/core/ports/driving/trust-registry.usecase'
+import type { SupportUseCase } from '@/core/ports/driving/support.usecase'
 
 export interface ServiceRegistry {
   readonly eventBus: EventBus
@@ -58,4 +59,5 @@ export interface ServiceRegistry {
   readonly routing: RoutingUseCase
   readonly username: UsernameUseCase
   readonly trustRegistry: TrustRegistry
+  readonly support: SupportUseCase
 }

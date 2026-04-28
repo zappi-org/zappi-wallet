@@ -57,6 +57,10 @@ export function ProfileCategoryPage({
             label={t('actions.analytics')}
             onPress={() => onAnalytics?.()}
           />
+          <SettingsRow
+            label={t('support.title')}
+            onPress={() => onNavigate('support')}
+          />
         </div>
       </div>
     </SettingsDetailPage>
