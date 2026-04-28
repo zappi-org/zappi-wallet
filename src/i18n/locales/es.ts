@@ -1173,7 +1173,7 @@ export default {
       dismiss: 'No mostrar de nuevo',
     },
     history: {
-      section: 'Historial de ecash',
+      section: 'Historial',
       group: {
         today: 'Hoy',
         yesterday: 'Ayer',

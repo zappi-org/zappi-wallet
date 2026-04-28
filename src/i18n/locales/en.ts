@@ -1188,7 +1188,7 @@ export default {
       confirm: 'Reclaim',
     },
     history: {
-      section: 'Ecash history',
+      section: 'History',
       group: {
         today: 'Today',
         yesterday: 'Yesterday',

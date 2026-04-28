@@ -1181,7 +1181,7 @@ export default {
       dismiss: '今後表示しない',
     },
     history: {
-      section: 'イーキャッシュ履歴',
+      section: '履歴',
       group: {
         today: '今日',
         yesterday: '昨日',

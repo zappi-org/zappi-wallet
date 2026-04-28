@@ -1173,7 +1173,7 @@ export default {
       dismiss: 'Jangan tampilkan lagi',
     },
     history: {
-      section: 'Riwayat ecash',
+      section: 'Riwayat',
       group: {
         today: 'Hari ini',
         yesterday: 'Kemarin',

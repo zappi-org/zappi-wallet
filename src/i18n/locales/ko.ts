@@ -1195,7 +1195,7 @@ export default {
       confirm: '되찾기',
     },
     history: {
-      section: '이캐시 내역',
+      section: '내역',
       group: {
         today: '오늘',
         yesterday: '어제',
