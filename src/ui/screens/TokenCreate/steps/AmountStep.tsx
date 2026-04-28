@@ -45,6 +45,7 @@ export function AmountStep({
   const [memo, setMemo] = useState(initialMemo)
   const [senderPaysFee, setSenderPaysFee] = useState(initialSenderPaysFee)
   const [mintSheetOpen, setMintSheetOpen] = useState(false)
+  const [memoFocused, setMemoFocused] = useState(false)
 
   const {
     isFiatMode,
@@ -199,6 +200,8 @@ export function AmountStep({
               type="text"
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
+              onFocus={() => setMemoFocused(true)}
+              onBlur={() => setMemoFocused(false)}
               placeholder="메모(선택사항)"
               maxLength={100}
               className="flex-1 min-w-0 bg-transparent py-2 text-body font-medium text-foreground placeholder:text-foreground-muted focus:outline-none"
@@ -235,19 +238,21 @@ export function AmountStep({
         </Button>
       </div>
 
-      {/* Numpad */}
-      <div className="grid grid-cols-3 gap-0 pb-safe shrink-0">
-        {(isFiatMode && !fiatIsZeroDecimal ? KEYS_FIAT : KEYS_SATS).map((key) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => handleKey(key)}
-            className="h-14 text-title font-normal text-foreground hover:bg-background-hover active:bg-background-card transition-colors flex items-center justify-center"
-          >
-            {key === 'del' ? <ArrowLeft className="w-5 h-5" strokeWidth={1.8} /> : key}
-          </button>
-        ))}
-      </div>
+      {/* Numpad — hidden while memo is focused so the OS keyboard takes over */}
+      {!memoFocused && (
+        <div className="grid grid-cols-3 gap-0 pb-safe shrink-0">
+          {(isFiatMode && !fiatIsZeroDecimal ? KEYS_FIAT : KEYS_SATS).map((key) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => handleKey(key)}
+              className="h-14 text-title font-normal text-foreground hover:bg-background-hover active:bg-background-card transition-colors flex items-center justify-center"
+            >
+              {key === 'del' ? <ArrowLeft className="w-5 h-5" strokeWidth={1.8} /> : key}
+            </button>
+          ))}
+        </div>
+      )}
 
       {onChangeMint && (
         <MintSelectBottomSheet
