@@ -8,6 +8,7 @@ import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
 import { useReclaimFees } from '@/ui/hooks/useReclaimFees'
 import { isSendToken, type TokenDetails } from '@/ui/types/pending-item-details'
 import { satsToFiat, useFormatSats } from '@/utils/format'
+import { Coins } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { useCallback, useEffect, useMemo, useState, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -211,7 +212,8 @@ export function TokenScreen({
   return (
     <div ref={scrollRef} className="flex-1 h-full overflow-y-auto pt-safe pb-28">
       <div className="min-h-full flex flex-col p-4 gap-4">
-        <h1 className="text-heading font-bold text-foreground pt-2">
+        <h1 className="flex items-center gap-2 text-heading font-bold text-foreground pt-2">
+          <Coins className="w-[22px] h-[22px] text-foreground" strokeWidth={1.6} />
           {t('nav.token')}
         </h1>
 
