@@ -1158,6 +1158,8 @@ export default {
       hoursAgo: '{{count}}시간전',
       yesterday: '어제',
       daysAgo: '{{count}}일전',
+      atTimeOfDay: '{{time}}',
+      dayWithTime: '{{day}}일 {{time}}',
     },
     pending: {
       timeLabel: '대기중 · {{time}}',
@@ -1203,12 +1205,8 @@ export default {
       anchor: {
         today: '{{weekday}} · 오늘',
         yesterday: '{{weekday}} · 어제',
-        daysAgo: '{{weekday}} · {{count}}일전',
-        early: '월 초',
-        mid: '월 중',
-        late: '월 말',
-        monthSameYear: '{{month}}월',
-        monthOtherYear: '{{year}}년 {{month}}월',
+        monthSameYear: '월',
+        monthOtherYear: '{{year}}.{{month02}}',
       },
       subLine: '{{status}} · {{time}}',
       endOfList: '모든 내역을 확인했어요.',

@@ -1143,6 +1143,8 @@ export default {
       hoursAgo: 'hace {{count}} h',
       yesterday: 'ayer',
       daysAgo: 'hace {{count}} días',
+      atTimeOfDay: '{{time}}',
+      dayWithTime: 'Día {{day}}, {{time}}',
     },
     pending: {
       timeLabel: 'Pendiente · {{time}}',
@@ -1181,12 +1183,8 @@ export default {
       anchor: {
         today: '{{weekday}} · Hoy',
         yesterday: '{{weekday}} · Ayer',
-        daysAgo: '{{weekday}} · hace {{count}}d',
-        early: 'Inicio',
-        mid: 'Medio',
-        late: 'Fin',
-        monthSameYear: '{{month}}',
-        monthOtherYear: '{{month}}/{{year}}',
+        monthSameYear: '{{monthName}}',
+        monthOtherYear: '{{year}}.{{month02}}',
       },
       subLine: '{{status}} · {{time}}',
       endOfList: 'Has visto todo el historial.',
