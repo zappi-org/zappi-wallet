@@ -1139,6 +1139,8 @@ export default {
       hoursAgo: '{{count}} jam lalu',
       yesterday: 'kemarin',
       daysAgo: '{{count}} hari lalu',
+      atTimeOfDay: '{{time}}',
+      dayWithTime: 'Tgl {{day}}, {{time}}',
     },
     pending: {
       timeLabel: 'Menunggu · {{time}}',
@@ -1177,12 +1179,8 @@ export default {
       anchor: {
         today: '{{weekday}} · Hari ini',
         yesterday: '{{weekday}} · Kemarin',
-        daysAgo: '{{weekday}} · {{count}}h lalu',
-        early: 'Awal',
-        mid: 'Tengah',
-        late: 'Akhir',
-        monthSameYear: '{{month}}',
-        monthOtherYear: '{{month}}/{{year}}',
+        monthSameYear: '{{monthName}}',
+        monthOtherYear: '{{year}}.{{month02}}',
       },
       subLine: '{{status}} · {{time}}',
       endOfList: 'Semua riwayat sudah dilihat.',

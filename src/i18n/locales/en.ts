@@ -1147,6 +1147,8 @@ export default {
       hoursAgo: '{{count}} hr ago',
       yesterday: 'yesterday',
       daysAgo: '{{count}} days ago',
+      atTimeOfDay: '{{time}}',
+      dayWithTime: 'Day {{day}}, {{time}}',
     },
     pending: {
       timeLabel: 'Pending · {{time}}',
@@ -1192,12 +1194,8 @@ export default {
       anchor: {
         today: '{{weekday}} · Today',
         yesterday: '{{weekday}} · Yesterday',
-        daysAgo: '{{weekday}} · {{count}}d ago',
-        early: 'Early',
-        mid: 'Mid',
-        late: 'Late',
-        monthSameYear: '{{month}}',
-        monthOtherYear: '{{month}}/{{year}}',
+        monthSameYear: '{{monthName}}',
+        monthOtherYear: '{{year}}.{{month02}}',
       },
       subLine: '{{status}} · {{time}}',
       endOfList: "You're all caught up.",
