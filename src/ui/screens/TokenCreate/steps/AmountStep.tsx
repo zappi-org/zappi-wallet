@@ -92,13 +92,13 @@ export function AmountStep({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <ScreenHeader title="이캐시 만들기" onBack={onBack} />
+      <ScreenHeader onBack={onBack} />
 
-      <div className="flex-1 overflow-y-auto px-6 pt-18 flex flex-col">
-        <h2 className="text-heading font-semibold text-foreground text-center">
+      <div className="flex-1 overflow-y-auto px-6 pt-4 flex flex-col">
+        <h2 className="text-title font-semibold text-foreground text-center">
           {t('send.tokenCreate.howMuch')}
         </h2>
-        <p className="text-body text-foreground-muted text-center mt-2">
+        <p className="text-body text-foreground-muted text-center mt-2 whitespace-pre-line">
           {t('send.tokenCreate.amountCaption')}
         </p>
 
@@ -136,10 +136,14 @@ export function AmountStep({
                 <span className="font-medium">민트 변경</span>
               )}
             </p>
-          ) : isFiatMode && satsSecondary ? (
-            <p className="text-body text-foreground-muted">~ {satsSecondary}</p>
           ) : (
-            fiatLabel && <p className="text-body text-foreground-muted">~ {fiatLabel}</p>
+            <p
+              className={`text-body text-foreground-muted ${
+                (isFiatMode ? satsSecondary : fiatLabel) ? '' : 'invisible'
+              }`}
+            >
+              ~ {isFiatMode ? satsSecondary ?? '0' : fiatLabel ?? '0'}
+            </p>
           )}
         </div>
 

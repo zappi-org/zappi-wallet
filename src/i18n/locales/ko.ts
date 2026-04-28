@@ -884,7 +884,7 @@ export default {
     tokenCreate: {
       title: '이캐시 만들기',
       howMuch: '얼마의 이캐시를 만들까요?',
-      amountCaption: '이캐시는 비트코인을 상품권으로 만들어 건넬 수 있는 방식이에요',
+      amountCaption: '이캐시는 비트코인을 상품권으로\n만들어 건넬 수 있는 방식이에요',
       memo: '메모',
       memoPlaceholder: '선택 사항',
     },
