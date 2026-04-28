@@ -88,7 +88,7 @@ export function TimelineRow({ tx, groupKind, onSelect }: TimelineRowProps) {
           onSelect()
         }
       } : undefined}
-      className={`flex items-center gap-3 rounded-card bg-background-card border border-border/60 px-3 py-2.5 ${onSelect ? 'cursor-pointer hover:bg-background-hover/40 transition-colors' : ''}`}
+      className={`flex items-center gap-3 rounded-[20px] bg-background-card border border-border/60 px-3 py-2.5 ${onSelect ? 'cursor-pointer hover:bg-background-hover/40 transition-colors' : ''}`}
     >
       <div className={`flex size-9 shrink-0 items-center justify-center rounded-full ${iconClasses}`}>
         {icon}

@@ -28,7 +28,7 @@ export function PendingTokenCard({ token, onReclaim, onShare, onSelect }: Pendin
           onSelect()
         }
       } : undefined}
-      className={`relative rounded-card bg-background-card border border-border px-4 py-4 ${onSelect ? 'cursor-pointer hover:bg-background-hover/40 transition-colors' : ''}`}
+      className={`relative rounded-[20px] bg-background-card border border-border px-4 py-4 ${onSelect ? 'cursor-pointer hover:bg-background-hover/40 transition-colors' : ''}`}
     >
       <p className="text-caption text-foreground-muted">
         {t('token.pending.timeLabel', {

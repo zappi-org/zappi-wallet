@@ -12,7 +12,7 @@ export function PendingWidget({ count, totalAmount, onViewAll }: PendingWidgetPr
   const formatSats = useFormatSats()
 
   return (
-    <div className="flex items-center justify-between rounded-card bg-brand px-5 py-4 shadow-lg shadow-brand/25">
+    <div className="flex items-center justify-between rounded-[20px] bg-brand px-5 py-4 shadow-lg shadow-brand/25">
       <div className="flex flex-col gap-1">
         <span className="text-caption text-white/70">
           {t('token.pendingWidget.title')}
