@@ -5,7 +5,7 @@ import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomS
 import { useFiatToggle } from '@/ui/hooks/use-fiat-toggle'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useWallet } from '@/ui/hooks/use-wallet'
-import { useFormatFiat, useFormatSats, useSatUnit } from '@/utils/format'
+import { isZeroDecimalCurrency, useFormatFiat, useFormatSats, useSatUnit } from '@/utils/format'
 import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -21,7 +21,8 @@ export interface AmountStepProps {
   initialSenderPaysFee: boolean
 }
 
-const KEYS: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0', 'del']
+const KEYS_SATS: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0', 'del']
+const KEYS_FIAT: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'del']
 
 export function AmountStep({
   onBack,
@@ -48,12 +49,14 @@ export function AmountStep({
   const {
     isFiatMode,
     fiatInput,
+    fiatCurrency,
     currencySymbol,
     exchangeRate,
     handleToggleFiat,
     handleFiatChange,
   } = useFiatToggle(amount, setAmount)
   const canToggleFiat = exchangeRate !== null
+  const fiatIsZeroDecimal = isZeroDecimalCurrency(fiatCurrency)
 
   const mintBalance = balance.byMint[mintUrl] ?? 0
   const mintName = getDisplayName(mintUrl)
@@ -63,8 +66,17 @@ export function AmountStep({
   const insufficient = numericAmount > 0 && numericAmount > mintBalance
   const canProceed = numericAmount > 0 && !insufficient
 
+  // Format fiat input preserving trailing dot/zeros so the keypad reflects
+  // the user's literal input (e.g. "0.", "1.50") instead of Number() collapsing them.
+  const formatFiatInput = (raw: string): string => {
+    if (!raw) return '0'
+    const [intPart, decPart] = raw.split('.')
+    const intFormatted = Number(intPart || '0').toLocaleString()
+    return decPart !== undefined ? `${intFormatted}.${decPart}` : intFormatted
+  }
+
   const displayAmount = isFiatMode
-    ? `${currencySymbol}${fiatInput ? Number(fiatInput).toLocaleString() : '0'}`
+    ? `${currencySymbol}${formatFiatInput(fiatInput)}`
     : formatSats(numericAmount)
 
   const insufficientColor = insufficient ? 'text-accent-danger' : 'text-foreground'
@@ -78,6 +90,16 @@ export function AmountStep({
       return
     }
     if (isFiatMode) {
+      if (key === '.') {
+        // Block decimal input for zero-decimal currencies (JPY/KRW)
+        if (fiatIsZeroDecimal) return
+        if (fiatInput.includes('.')) return
+        handleFiatChange(fiatInput === '' ? '0.' : fiatInput + '.')
+        return
+      }
+      // Limit to 2 decimal digits after the dot
+      const dotIdx = fiatInput.indexOf('.')
+      if (dotIdx !== -1 && fiatInput.length - dotIdx - 1 >= 2) return
       const next = (fiatInput + key).replace(/^0+(?=\d)/, '')
       if (next.length > 12) return
       handleFiatChange(next)
@@ -215,7 +237,7 @@ export function AmountStep({
 
       {/* Numpad */}
       <div className="grid grid-cols-3 gap-0 pb-safe shrink-0">
-        {KEYS.map((key) => (
+        {(isFiatMode && !fiatIsZeroDecimal ? KEYS_FIAT : KEYS_SATS).map((key) => (
           <button
             key={key}
             type="button"
