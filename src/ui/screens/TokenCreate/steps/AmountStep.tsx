@@ -145,7 +145,7 @@ export function AmountStep({
             </button>
           )}
           {insufficient ? (
-            <p className="text-caption text-accent-danger">
+            <p className="text-body text-accent-danger">
               출금 민트 잔고 부족 :{' '}
               {onChangeMint ? (
                 <button

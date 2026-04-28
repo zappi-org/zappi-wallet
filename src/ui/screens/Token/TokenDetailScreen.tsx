@@ -247,7 +247,7 @@ export function TokenDetailScreen({
                 {t('token.detail.actions.share')}
               </DetailActionButton>
             </div>
-            <div className="mt-4 flex justify-end">
+            <div className="mt-8 flex justify-end">
               <button
                 type="button"
                 onClick={() => setRawOpen(true)}
