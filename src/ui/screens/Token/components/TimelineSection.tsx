@@ -91,7 +91,7 @@ export function TimelineSection({ groups, onSelect }: TimelineSectionProps) {
         const anchor = buildAnchor(t, group, locale)
         return (
           <div key={group.key} className="flex items-start gap-3">
-            <div className="w-14 shrink-0 pt-1">
+            <div className="w-14 shrink-0 pt-1 sticky top-0 self-start">
               <div className={headerSizeClass(group.kind)}>
                 {anchor.major}
               </div>
