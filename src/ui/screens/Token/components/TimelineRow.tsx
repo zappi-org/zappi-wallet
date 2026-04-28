@@ -50,7 +50,7 @@ export function TimelineRow({ tx, groupKind, onSelect }: TimelineRowProps) {
   const kind = rowKind(tx, status)
   const amountSats = toNumber(tx.amount)
   const isOutflow = kind === 'sent'
-  const sign = isOutflow ? '- ' : '+ '
+  const sign = kind === 'reclaimed' ? '' : isOutflow ? '- ' : '+ '
   const signedAmount = `${sign}${formatSats(amountSats)}`
   const fiat = formatFiat(amountSats)
 
