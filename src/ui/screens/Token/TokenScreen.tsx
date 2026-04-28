@@ -8,6 +8,7 @@ import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
 import { useReclaimFees } from '@/ui/hooks/useReclaimFees'
 import { isSendToken, type TokenDetails } from '@/ui/types/pending-item-details'
 import { satsToFiat, useFormatSats } from '@/utils/format'
+import { AnimatePresence } from 'motion/react'
 import { useCallback, useEffect, useMemo, useState, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PendingEmptyWidget } from './components/PendingEmptyWidget'
@@ -35,12 +36,15 @@ export interface TokenScreenProps {
   onSelectToken?: (detail: TokenDetailData) => void
   /** Execute the reclaim operation for the given tokens (awaits real service). */
   onReclaimTokens?: (tokens: MockPendingToken[]) => Promise<void> | void
+  /** Persist a partial settings update (zustand + Dexie). Provided by MainApp. */
+  onSaveSettings?: (updates: Record<string, unknown>) => Promise<void>
 }
 
 export function TokenScreen({
   scrollRef,
   onSelectToken,
   onReclaimTokens,
+  onSaveSettings,
 }: TokenScreenProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
@@ -99,6 +103,29 @@ export function TokenScreen({
   // Show first-create hint when the user's first pending token appears with no history yet.
   const showFirstCreateHint =
     !hintDismissed && pendingTokens.length === 1 && timelineGroups.length === 0
+
+  // PendingEmptyWidget visibility: hidden after dismiss until a new send-token gets claimed.
+  const pendingEmptyDismissedAt = useAppStore(
+    (s) => s.settings.pendingEmptyDismissedAt ?? null,
+  )
+  const lastSendClaimedAt = useMemo(() => {
+    let max = 0
+    for (const group of timelineGroups) {
+      for (const tx of group.entries) {
+        if (tx.direction !== 'send') continue
+        if (tx.outcome !== 'claimed') continue
+        const ts = tx.completedAt
+        if (ts !== undefined && ts > max) max = ts
+      }
+    }
+    return max
+  }, [timelineGroups])
+  const shouldShowPendingEmpty =
+    pendingEmptyDismissedAt == null || lastSendClaimedAt > pendingEmptyDismissedAt
+  const handleDismissPendingEmpty = useCallback(() => {
+    if (!onSaveSettings) return
+    void onSaveSettings({ pendingEmptyDismissedAt: Date.now() })
+  }, [onSaveSettings])
 
   const handleShare = useCallback(
     async (token: MockPendingToken) => {
@@ -209,7 +236,11 @@ export function TokenScreen({
                 />
               </>
             ) : (
-              <PendingEmptyWidget />
+              <AnimatePresence>
+                {shouldShowPendingEmpty && (
+                  <PendingEmptyWidget onDismiss={handleDismissPendingEmpty} />
+                )}
+              </AnimatePresence>
             )}
             <div className="mt-6">
             <TimelineSection

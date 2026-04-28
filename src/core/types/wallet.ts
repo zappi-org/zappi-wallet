@@ -212,6 +212,8 @@ export interface WalletSettings {
   showFiatConversion?: boolean
   /** Sender Privacy mode: prefer routes where the mint cannot link sender to receiver, even at higher fees */
   senderPrivacyMode?: boolean
+  /** Token 탭 PendingEmptyWidget을 마지막으로 닫은 시각 (ms epoch). 이후 새 send-claim 발생 시 다시 표시. */
+  pendingEmptyDismissedAt?: number | null
 }
 
 /**

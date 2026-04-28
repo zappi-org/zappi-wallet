@@ -1087,6 +1087,7 @@ export default function MainApp() {
             }
             refreshAll().catch(() => {})
           }}
+          onSaveSettings={handleSaveSettings}
         />
       )}
 

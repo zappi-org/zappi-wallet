@@ -31,14 +31,18 @@ vi.mock('@/utils/format', async () => {
 })
 
 const addToastMock = vi.fn()
-const defaultStoreState = {
+const storeState: {
+  addToast: typeof addToastMock
+  settings: Record<string, unknown>
+  allRates: Record<string, number>
+} = {
   addToast: addToastMock,
-  settings: { mints: [], fiatCurrency: 'USD' },
+  settings: { mints: [], fiatCurrency: 'USD', pendingEmptyDismissedAt: null },
   allRates: {},
 }
 vi.mock('@/store', () => ({
   useAppStore: (selector: (s: Record<string, unknown>) => unknown) =>
-    selector(defaultStoreState),
+    selector(storeState),
 }))
 
 const pendingItemsState: { items: Array<Record<string, unknown>> } = { items: [] }
@@ -66,9 +70,10 @@ vi.mock('@/ui/hooks/useReclaimFees', () => ({
   useReclaimFees: () => ({ fees: new Map(), isLoading: false }),
 }))
 
+const txHistoryState: { groups: Array<Record<string, unknown>> } = { groups: [] }
 vi.mock('@/ui/hooks/use-transaction-history', () => ({
   useTransactionHistory: () => ({
-    groups: [],
+    groups: txHistoryState.groups,
     isLoading: false,
     error: undefined,
     refresh: () => Promise.resolve(),
@@ -101,9 +106,38 @@ function makeSendTokenItem(overrides: Record<string, unknown> = {}) {
   }
 }
 
-const renderScreen = () => {
+function setTimelineWithSendClaimed(completedAt: number | undefined) {
+  txHistoryState.groups = [
+    {
+      key: 'today-2026-4-28',
+      kind: 'today',
+      year: 2026,
+      month: 4,
+      day: 28,
+      refDate: completedAt ?? Date.now(),
+      entries: [
+        {
+          id: 'tx-claimed',
+          direction: 'send',
+          method: 'cashu',
+          protocol: 'cashu-token',
+          amount: { unit: 'sat', value: 1000n },
+          accountId: 'https://mint.test',
+          status: 'settled',
+          outcome: 'claimed',
+          createdAt: completedAt ?? Date.now(),
+          completedAt,
+        },
+      ],
+    },
+  ]
+}
+
+const renderScreen = (
+  props: Partial<React.ComponentProps<typeof TokenScreen>> = {},
+) => {
   const ref = createRef<HTMLDivElement>()
-  return render(<TokenScreen scrollRef={ref} />)
+  return render(<TokenScreen scrollRef={ref} {...props} />)
 }
 
 describe('TokenScreen', () => {
@@ -111,6 +145,8 @@ describe('TokenScreen', () => {
     cleanup()
     addToastMock.mockClear()
     setPending([])
+    txHistoryState.groups = []
+    storeState.settings = { mints: [], fiatCurrency: 'USD', pendingEmptyDismissedAt: null }
   })
 
   it('no pending + no timeline → empty state 만 보여준다', () => {
@@ -171,5 +207,63 @@ describe('TokenScreen', () => {
     await waitFor(() => expect(writeTextSpy).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(addToastMock).toHaveBeenCalledTimes(1))
     expect(addToastMock.mock.calls[0][0]).toMatchObject({ type: 'success' })
+  })
+
+  describe('PendingEmptyWidget', () => {
+    it('pending 0 + timeline 있음 + dismissedAt null → 위젯 노출', () => {
+      setTimelineWithSendClaimed(Date.now() - 1000)
+      renderScreen()
+      expect(screen.getByText(/token\.pendingEmpty\.title/)).toBeInTheDocument()
+      expect(screen.getByText(/common\.close/)).toBeInTheDocument()
+    })
+
+    it('닫기 클릭 → onSaveSettings({pendingEmptyDismissedAt}) 호출', () => {
+      const before = Date.now()
+      setTimelineWithSendClaimed(before - 1000)
+      const onSaveSettings = vi.fn().mockResolvedValue(undefined)
+      renderScreen({ onSaveSettings })
+
+      fireEvent.click(screen.getByText(/common\.close/))
+
+      expect(onSaveSettings).toHaveBeenCalledTimes(1)
+      const updates = onSaveSettings.mock.calls[0][0] as Record<string, number>
+      expect(updates).toHaveProperty('pendingEmptyDismissedAt')
+      expect(updates.pendingEmptyDismissedAt).toBeGreaterThanOrEqual(before)
+    })
+
+    it('dismissedAt 이후 send-claimed 없음 → 위젯 숨김', () => {
+      const dismissed = Date.now()
+      storeState.settings = {
+        mints: [],
+        fiatCurrency: 'USD',
+        pendingEmptyDismissedAt: dismissed,
+      }
+      setTimelineWithSendClaimed(dismissed - 5000) // 이전 claim
+      renderScreen()
+      expect(screen.queryByText(/token\.pendingEmpty\.title/)).not.toBeInTheDocument()
+    })
+
+    it('dismissedAt 이후 send-claimed 발생 → 위젯 다시 노출', () => {
+      const dismissed = Date.now() - 10000
+      storeState.settings = {
+        mints: [],
+        fiatCurrency: 'USD',
+        pendingEmptyDismissedAt: dismissed,
+      }
+      setTimelineWithSendClaimed(dismissed + 5000) // 이후 claim
+      renderScreen()
+      expect(screen.getByText(/token\.pendingEmpty\.title/)).toBeInTheDocument()
+    })
+
+    it('completedAt 없는 send-claimed는 트리거에서 제외', () => {
+      storeState.settings = {
+        mints: [],
+        fiatCurrency: 'USD',
+        pendingEmptyDismissedAt: Date.now() - 10000,
+      }
+      setTimelineWithSendClaimed(undefined)
+      renderScreen()
+      expect(screen.queryByText(/token\.pendingEmpty\.title/)).not.toBeInTheDocument()
+    })
   })
 })
