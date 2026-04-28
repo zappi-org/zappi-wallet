@@ -15,7 +15,7 @@ import { useWallet } from '@/ui/hooks/use-wallet'
 import { useAppStore } from '@/store'
 import { setMintNameResolver, toErrorMessage } from '@/ui/utils/error-message'
 import { normalizeMintUrl } from '@/utils/url'
-import { AnimatePresence } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -998,7 +998,11 @@ export default function MainApp() {
     <>
       <div className="relative h-dvh overflow-hidden">
       <AnimatePresence mode="sync">
-        <PageTransition key={currentScreen} variant="fade" className="absolute inset-0">
+        <PageTransition
+          key={currentScreen === 'token-detail' ? 'token' : currentScreen}
+          variant="fade"
+          className="absolute inset-0"
+        >
           <Suspense fallback={<LoadingFallback />}>
       {currentScreen === 'home' && (
         <HomeScreen
@@ -1072,7 +1076,7 @@ export default function MainApp() {
         />
       )}
 
-      {currentScreen === 'token' && (
+      {(currentScreen === 'token' || currentScreen === 'token-detail') && (
         <TokenScreen
           scrollRef={tokenScrollRef}
           onSelectToken={(detail) => {
@@ -1088,58 +1092,6 @@ export default function MainApp() {
             refreshAll().catch(() => {})
           }}
           onSaveSettings={handleSaveSettings}
-        />
-      )}
-
-      {currentScreen === 'token-detail' && selectedTokenDetail && (
-        <TokenDetailScreen
-          data={selectedTokenDetail}
-          onClose={() => {
-            setSelectedTokenDetail(null)
-            handleBack()
-          }}
-          onShare={async (token) => {
-            const text = token.tokenString
-              ? token.tokenString
-              : t('token.reclaimable.shareText', {
-                  memo: token.memo ?? '',
-                  amount: formatSats(token.amount),
-                })
-            try {
-              if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-                await navigator.share({ text })
-                return
-              }
-              if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-                await navigator.clipboard.writeText(text)
-                addToast({ type: 'success', message: t('token.reclaimable.copiedToClipboard') })
-              }
-            } catch {
-              /* user cancelled or clipboard blocked — silent */
-            }
-          }}
-          onReclaim={async (token) => {
-            if (!serviceRegistry?.payment) return
-            await handleCancelEcashToken(token.id)
-            setSelectedTokenDetail(null)
-            handleBack()
-          }}
-          onTriggerEasterEgg={() => {
-            setPreviousScreen('token-detail')
-            setCurrentScreen('token-easter-egg')
-          }}
-          onDeleteHistory={async (token) => {
-            if (!serviceRegistry?.transactionMgmt) return
-            try {
-              await serviceRegistry.transactionMgmt.delete(token.id)
-              useAppStore.getState().triggerTxRefresh()
-              addToast({ type: 'success', message: '내역을 삭제했어요' })
-            } catch (error) {
-              console.error('[MainApp] Failed to delete tx history:', error)
-              const msg = error instanceof Error ? error.message : '내역 삭제 실패'
-              addToast({ type: 'error', message: msg })
-            }
-          }}
         />
       )}
 
@@ -1445,6 +1397,72 @@ export default function MainApp() {
       )}
           </Suspense>
         </PageTransition>
+      </AnimatePresence>
+
+      {/* iOS-style push overlay: token list → detail */}
+      <AnimatePresence>
+        {currentScreen === 'token-detail' && selectedTokenDetail && (
+          <motion.div
+            key="token-detail-push"
+            className="absolute inset-0 z-10 bg-background"
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'tween', ease: [0.32, 0.72, 0, 1], duration: 0.35 }}
+          >
+            <Suspense fallback={<LoadingFallback />}>
+              <TokenDetailScreen
+                data={selectedTokenDetail}
+                onClose={() => {
+                  setSelectedTokenDetail(null)
+                  handleBack()
+                }}
+                onShare={async (token) => {
+                  const text = token.tokenString
+                    ? token.tokenString
+                    : t('token.reclaimable.shareText', {
+                        memo: token.memo ?? '',
+                        amount: formatSats(token.amount),
+                      })
+                  try {
+                    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+                      await navigator.share({ text })
+                      return
+                    }
+                    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+                      await navigator.clipboard.writeText(text)
+                      addToast({ type: 'success', message: t('token.reclaimable.copiedToClipboard') })
+                    }
+                  } catch {
+                    /* user cancelled or clipboard blocked — silent */
+                  }
+                }}
+                onReclaim={async (token) => {
+                  if (!serviceRegistry?.payment) return
+                  await handleCancelEcashToken(token.id)
+                  setSelectedTokenDetail(null)
+                  handleBack()
+                }}
+                onTriggerEasterEgg={() => {
+                  setPreviousScreen('token-detail')
+                  setCurrentScreen('token-easter-egg')
+                }}
+                onDeleteHistory={async (token) => {
+                  if (!serviceRegistry?.transactionMgmt) return
+                  try {
+                    await serviceRegistry.transactionMgmt.delete(token.id)
+                    useAppStore.getState().triggerTxRefresh()
+                    addToast({ type: 'success', message: '내역을 삭제했어요' })
+                  } catch (error) {
+                    console.error('[MainApp] Failed to delete tx history:', error)
+                    const msg = error instanceof Error ? error.message : '내역 삭제 실패'
+                    addToast({ type: 'error', message: msg })
+                  }
+                }}
+              />
+            </Suspense>
+          </motion.div>
+        )}
       </AnimatePresence>
       </div>
 
