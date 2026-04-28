@@ -56,10 +56,12 @@ export function TimelineRow({ tx, groupKind, onSelect }: TimelineRowProps) {
 
   const statusLabel = t(STATUS_KEY[kind])
   const time = formatTimelineTime(t, tx.createdAt, groupKind)
-  const subLine = t('token.history.subLine', { status: statusLabel, time })
-
-  const title =
-    tx.memo && tx.memo.trim().length > 0 ? tx.memo : statusLabel
+  const memo = tx.memo?.trim()
+  const hasMemo = !!memo && memo.length > 0
+  const title = hasMemo ? memo : statusLabel
+  const subLine = hasMemo
+    ? t('token.history.subLine', { status: statusLabel, time })
+    : time
 
   const iconClasses =
     kind === 'sent'
