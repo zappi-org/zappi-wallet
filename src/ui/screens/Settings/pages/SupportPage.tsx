@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { ChevronRight, Download, Paperclip, Plus, Send, X } from 'lucide-react'
+import { ChevronRight, Download, Loader2, Paperclip, Plus, Send, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   DEFAULT_SUPPORT_CATEGORY,
@@ -481,7 +481,12 @@ function ComposerView({
             disabled={!title.trim() || !body.trim() || isCreating}
             className="flex-[1.4]"
           >
-            {isCreating ? t('support.submittingTicket') : t('support.createTicket')}
+            {isCreating ? (
+              <span className="inline-flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.8} />
+                {t('support.submittingTicket')}
+              </span>
+            ) : t('support.createTicket')}
           </Button>
         </div>
       </div>

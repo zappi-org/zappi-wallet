@@ -402,6 +402,47 @@ describe('NostrCsCustomerSupportAdapter', () => {
     )
   })
 
+  it('restores cached support history before network connection completes', async () => {
+    let resolveConnect: (() => void) | undefined
+    nostrCsMock.MockCSClient.connectImpl = () => new Promise<void>((resolve) => {
+      resolveConnect = resolve
+    })
+    const historyStore: CustomerSupportHistoryStore = {
+      load: vi.fn().mockResolvedValue({
+        tickets: [{
+          id: 'cached-ticket',
+          threadId: 'cached-thread',
+          title: 'Cached request',
+          body: 'Cached body',
+          status: 'open',
+          priority: 'normal',
+          category: 'general',
+          createdAt: 10,
+          updatedAt: 10,
+        }],
+        messages: {},
+      }),
+      saveTicket: vi.fn().mockResolvedValue(undefined),
+      saveMessage: vi.fn().mockResolvedValue(undefined),
+      markTicketRead: vi.fn().mockResolvedValue(undefined),
+    }
+    const keyProvider = {
+      getPubkey: vi.fn().mockResolvedValue(customerPubkey),
+      destroy: vi.fn(),
+    } as unknown as DerivedCustomerSupportKeyProvider
+    const adapter = new NostrCsCustomerSupportAdapter(config, keyProvider, historyStore)
+
+    const connectPromise = adapter.connect()
+    await vi.waitFor(() => {
+      expect(historyStore.load).toHaveBeenCalledWith({ customerId: customerPubkey, agentPubkey })
+      expect(adapter.getSnapshot().tickets).toMatchObject([{ id: 'cached-ticket' }])
+      expect(resolveConnect).toBeTypeOf('function')
+    })
+
+    resolveConnect!()
+    await connectPromise
+  })
+
   it('does not attach listeners to a stale client when disconnect wins the connect race', async () => {
     let resolveConnect: (() => void) | undefined
     nostrCsMock.MockCSClient.connectImpl = () => new Promise<void>((resolve) => {

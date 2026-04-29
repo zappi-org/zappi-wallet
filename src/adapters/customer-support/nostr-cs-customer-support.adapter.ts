@@ -97,38 +97,39 @@ export class NostrCsCustomerSupportAdapter implements CustomerSupportChannel {
     this.emit()
 
     const generation = ++this.connectionGeneration
-    const discoveryPool = new SimplePool()
-    const relayIndex = new ConfiguredNip66RelayIndexAdapter(
-      discoveryPool,
-      this.config.relays.discovery,
-    )
-    const client = new CSClient({
-      key: { type: 'signer', value: this.keyProvider },
-      relays: {
-        bootstrap: this.config.relays.bootstrap,
-        write: this.config.relays.write,
-        read: this.config.relays.read,
-        dm: this.config.relays.dm,
-      },
-      infrastructure: { relayIndex },
-    })
-    this.discoveryPool = discoveryPool
-    this.client = client
+    let discoveryPool: SimplePool | null = null
+    let client: CSClient | null = null
 
     try {
-      await client.connect()
-      if (!this.isActiveConnection(generation, client)) {
-        await this.cleanupSupersededConnection(client, discoveryPool)
-        return this.getSnapshot()
-      }
-
       this.customerId = await this.keyProvider.getPubkey()
-      if (!this.isActiveConnection(generation, client)) {
-        await this.cleanupSupersededConnection(client, discoveryPool)
+      if (!this.isActiveGeneration(generation)) {
         return this.getSnapshot()
       }
 
       await this.restoreCachedHistory()
+      if (!this.isActiveGeneration(generation)) {
+        return this.getSnapshot()
+      }
+
+      discoveryPool = new SimplePool()
+      const relayIndex = new ConfiguredNip66RelayIndexAdapter(
+        discoveryPool,
+        this.config.relays.discovery,
+      )
+      client = new CSClient({
+        key: { type: 'signer', value: this.keyProvider },
+        relays: {
+          bootstrap: this.config.relays.bootstrap,
+          write: this.config.relays.write,
+          read: this.config.relays.read,
+          dm: this.config.relays.dm,
+        },
+        infrastructure: { relayIndex },
+      })
+      this.discoveryPool = discoveryPool
+      this.client = client
+
+      await client.connect()
       if (!this.isActiveConnection(generation, client)) {
         await this.cleanupSupersededConnection(client, discoveryPool)
         return this.getSnapshot()
@@ -145,7 +146,7 @@ export class NostrCsCustomerSupportAdapter implements CustomerSupportChannel {
       this.emit()
       return this.getSnapshot()
     } catch (error) {
-      if (!this.isActiveConnection(generation, client)) {
+      if (client && discoveryPool && !this.isActiveConnection(generation, client)) {
         await this.cleanupSupersededConnection(client, discoveryPool)
         return this.getSnapshot()
       }
@@ -358,6 +359,10 @@ export class NostrCsCustomerSupportAdapter implements CustomerSupportChannel {
 
   private isActiveConnection(generation: number, client: CSClient): boolean {
     return this.connectionGeneration === generation && this.client === client
+  }
+
+  private isActiveGeneration(generation: number): boolean {
+    return this.connectionGeneration === generation
   }
 
   private async cleanupSupersededConnection(client: CSClient, discoveryPool: SimplePool): Promise<void> {

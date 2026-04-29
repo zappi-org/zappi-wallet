@@ -10,11 +10,13 @@
 
 Review
 - Support loading state no longer renders the "relay" connection notice in the customer UI. Submit copy now says `문의 등록 중입니다.` and reply copy says `메시지를 보내는 중입니다.`.
+- Follow-up QA fixed the submit loading state to render a spinner next to `문의 등록 중입니다.`.
+- Follow-up QA fixed restart inbox hydration: the support adapter now derives the customer support pubkey and restores Dexie-cached tickets/messages before waiting for the SDK network connection, so the local 문의 내역 appears immediately and relay sync updates it afterward.
 - Resolved/closed tickets are now terminal at both layers: `SupportService` blocks customer follow-up before calling the channel, and `NostrCsCustomerSupportAdapter` also refuses to send if the current ticket status is resolved or closed. The conversation UI replaces the input with `문의가 해결되었습니다.` or `문의가 종료되었습니다.`.
 - Attachment support is now actual file transfer, not metadata-only UI. The wallet converts selected files to protocol-neutral attachment inputs, encrypts them with AES-GCM, uploads ciphertext to configured Blossom storage, sends the validated `nostr-cs` envelope attachment, downloads ciphertext by Blossom hint, decrypts it, and verifies both ciphertext/plaintext hashes before saving.
 - Blossom storage is configured via `VITE_ZAPPI_SUPPORT_BLOSSOM_SERVERS`; no code fallback server was added. Local QA `.env.local` was updated with `https://blossom.primal.net`.
 - Support sync is explicit on initial connect and on online/visible resume. The refresh seam reconnects the SDK so relay subscriptions can backfill history/status while Dexie remains only a local display cache.
-- Verification passed: focused support tests (3 files / 14 tests), `npx tsc --noEmit`, `bun run lint`, `node .claude/skills/hex-review/scripts/check-hex-violations.mjs src`, `bun run test -- --run` (88 files / 644 tests), `bun run build`, and `git diff --check`. Build still emits the existing Vite dynamic-import/chunk-size warnings.
+- Verification passed: focused support tests, `npx tsc --noEmit`, `bun run lint`, `node .claude/skills/hex-review/scripts/check-hex-violations.mjs src`, `bun run test -- --run` (88 files / 645 tests after follow-up), `bun run build`, and `git diff --check`. Build still emits the existing Vite dynamic-import/chunk-size warnings.
 
 # Previous Task — Customer Support via nostr-cs
 
