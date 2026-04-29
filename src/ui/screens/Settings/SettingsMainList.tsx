@@ -20,6 +20,8 @@ const categories: { Icon: LucideIcon; titleKey: string; descKey: string; page: S
   { Icon: Wallet, titleKey: 'settings.walletManagement', descKey: 'settings.walletManagementDesc', page: 'category-wallet' },
 ]
 
+type UpdateCheckPhase = 'idle' | 'checking' | 'installing'
+
 export function SettingsMainList({
   onNavigate,
   onOpenLogout,
@@ -27,28 +29,35 @@ export function SettingsMainList({
   const { t } = useTranslation()
   const updateAvailable = useAppStore((s) => s.updateAvailable)
   const addToast = useAppStore((s) => s.addToast)
-  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false)
+  const [updateCheckPhase, setUpdateCheckPhase] = useState<UpdateCheckPhase>('idle')
+  const isCheckingUpdate = updateCheckPhase !== 'idle'
 
   const handleCheckUpdate = useCallback(async () => {
     if (isCheckingUpdate) return
 
-    setIsCheckingUpdate(true)
+    setUpdateCheckPhase('checking')
     try {
-      const result = await checkForAppUpdate()
-      if (result === 'available') {
-        addToast({ type: 'info', message: t('settings.updateAvailable') })
-      } else if (result === 'current') {
+      const result = await checkForAppUpdate({
+        onInstalling: () => setUpdateCheckPhase('installing'),
+      })
+      if (result === 'current') {
         addToast({ type: 'success', message: t('settings.updateCurrent') })
-      } else {
+      } else if (result === 'unavailable') {
         addToast({ type: 'warning', message: t('settings.updateCheckUnavailable') })
       }
     } catch (error) {
       console.error('Failed to check for app update:', error)
       addToast({ type: 'error', message: t('settings.updateCheckFailed') })
     } finally {
-      setIsCheckingUpdate(false)
+      setUpdateCheckPhase('idle')
     }
   }, [addToast, isCheckingUpdate, t])
+
+  const updateCheckLabel = updateCheckPhase === 'installing'
+    ? t('settings.updateInstalling')
+    : updateCheckPhase === 'checking'
+      ? t('settings.updateChecking')
+      : t('settings.checkForUpdates')
 
   return (
     <div className="flex-1 overflow-y-auto pb-6">
@@ -91,7 +100,7 @@ export function SettingsMainList({
             icon={<RefreshCw className="size-4" />}
             className="w-full"
           >
-            {isCheckingUpdate ? t('settings.updateChecking') : t('settings.checkForUpdates')}
+            {updateCheckLabel}
           </Button>
         )}
         <p className="text-center mt-4 text-overline font-medium text-foreground-muted/50 uppercase tracking-widest">

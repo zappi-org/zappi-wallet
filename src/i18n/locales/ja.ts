@@ -173,6 +173,7 @@ export default {
     updateInstallHint: 'タップしてアップデート',
     checkForUpdates: 'アップデートを確認',
     updateChecking: 'アップデートを確認中',
+    updateInstalling: '新しいバージョンをインストール中です',
     updateCurrent: '最新バージョンです',
     updateCheckUnavailable: 'この環境ではアップデートを確認できません',
     updateCheckFailed: 'アップデートを確認できませんでした',

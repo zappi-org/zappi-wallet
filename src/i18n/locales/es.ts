@@ -173,6 +173,7 @@ export default {
     updateInstallHint: 'Toca para actualizar',
     checkForUpdates: 'Buscar actualizaciones',
     updateChecking: 'Buscando actualizaciones',
+    updateInstalling: 'Instalando la nueva versión',
     updateCurrent: 'Tienes la última versión',
     updateCheckUnavailable: 'La búsqueda de actualizaciones no está disponible aquí',
     updateCheckFailed: 'No se pudieron buscar actualizaciones',

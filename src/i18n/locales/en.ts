@@ -173,6 +173,7 @@ export default {
     updateInstallHint: 'Tap to update',
     checkForUpdates: 'Check for updates',
     updateChecking: 'Checking for updates',
+    updateInstalling: 'Installing the new version',
     updateCurrent: 'You are up to date',
     updateCheckUnavailable: 'Update checks are not available here',
     updateCheckFailed: 'Could not check for updates',

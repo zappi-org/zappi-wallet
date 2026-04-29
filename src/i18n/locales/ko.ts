@@ -173,6 +173,7 @@ export default {
     updateInstallHint: '눌러서 업데이트하기',
     checkForUpdates: '업데이트 확인',
     updateChecking: '업데이트 확인 중',
+    updateInstalling: '신규 버전을 설치 중입니다',
     updateCurrent: '최신 버전입니다',
     updateCheckUnavailable: '이 환경에서는 업데이트를 확인할 수 없습니다',
     updateCheckFailed: '업데이트를 확인하지 못했습니다',

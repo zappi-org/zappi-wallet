@@ -173,6 +173,7 @@ export default {
     updateInstallHint: 'Ketuk untuk memperbarui',
     checkForUpdates: 'Periksa pembaruan',
     updateChecking: 'Memeriksa pembaruan',
+    updateInstalling: 'Menginstal versi baru',
     updateCurrent: 'Versi sudah terbaru',
     updateCheckUnavailable: 'Pemeriksaan pembaruan tidak tersedia di sini',
     updateCheckFailed: 'Tidak dapat memeriksa pembaruan',
