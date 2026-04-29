@@ -167,7 +167,7 @@ export default {
 
     // Logout
     logout: '로그아웃',
-    version: 'Zappi v1.0.0',
+    version: 'Zappi v{{version}}',
 
     updateAvailable: '새 업데이트가 있습니다',
     updateInstallHint: '눌러서 업데이트하기',

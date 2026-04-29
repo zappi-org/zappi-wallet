@@ -62,7 +62,7 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
             )}
 
             {/* Scrollable content area */}
-            <div className="overflow-y-auto max-h-[calc(85vh-60px)] pb-safe">
+            <div className="overflow-y-auto max-h-[calc(85vh-60px)]">
               {children}
             </div>
           </motion.div>

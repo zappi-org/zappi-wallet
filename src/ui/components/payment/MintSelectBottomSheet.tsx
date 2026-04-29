@@ -130,7 +130,7 @@ function MintSelectBottomSheetInner({
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
-        className="fixed bottom-0 left-0 right-0 bg-background-card border-t border-border rounded-t-[20px] z-[70] pb-safe"
+        className="fixed bottom-0 left-0 right-0 bg-background-card border-t border-border rounded-t-[20px] z-[70]"
       >
         {/* Handle */}
         <div className="flex justify-center py-2">

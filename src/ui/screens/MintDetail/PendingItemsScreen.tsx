@@ -185,7 +185,7 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
       </div>
 
       {/* Content */}
-      <main className="flex-1 overflow-y-auto px-4 pb-safe">
+      <main className="flex-1 overflow-y-auto px-4">
         {groups.length === 0 ? (
           <p className="text-caption text-foreground-muted text-center py-8">
             {t('mintDetail.noPendingItems')}

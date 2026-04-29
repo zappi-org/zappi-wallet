@@ -204,7 +204,7 @@ export function SendConfirmStep({
       </div>
 
       {/* Detail rows + button at bottom */}
-      <div className="px-6 pb-6 pb-safe shrink-0">
+      <div className="px-6 pb-6 shrink-0">
         {/* Detail rows */}
         <div className="mb-4">
           {/* 메모 */}

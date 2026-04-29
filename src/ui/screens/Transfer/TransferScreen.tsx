@@ -139,7 +139,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
   // Processing / Success — full screen
   if (status === 'processing' || status === 'success') {
     return (
-      <div className="h-dvh bg-background text-foreground flex flex-col pt-safe pb-safe z-[60]">
+      <div className="h-dvh bg-background text-foreground flex flex-col pt-safe z-[60]">
         <header className="flex items-center justify-center px-5 h-14 shrink-0">
           <h2 className="text-heading font-bold text-foreground">{t('transfer.title')}</h2>
         </header>
@@ -305,7 +305,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
       </div>
 
       {/* Footer Action */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 pb-safe bg-background border-t border-border z-50">
+      <div className="absolute bottom-0 left-0 right-0 p-4 bg-background border-t border-border z-50">
         <button
           onClick={handleAction}
           disabled={isInsufficientFunds || numericAmount <= 0 || isProcessingPayment || fromMintUrl === toMintUrl}
@@ -337,7 +337,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
           onClick={() => setIsMintSelectorOpen(null)}
         >
           <div
-            className="animate-slideInUp bg-background w-full rounded-t-2xl overflow-hidden shadow-2xl pb-safe"
+            className="animate-slideInUp bg-background w-full rounded-t-2xl overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-4 pt-4 pb-3 border-b border-border">

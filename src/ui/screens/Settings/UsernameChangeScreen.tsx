@@ -427,7 +427,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
           </div>
 
           {/* Bottom action */}
-          <div className="absolute bottom-0 left-0 right-0 px-6 pb-6 pb-safe bg-gradient-to-t from-background via-background to-transparent pt-4">
+          <div className="absolute bottom-0 left-0 right-0 px-6 pb-6 bg-gradient-to-t from-background via-background to-transparent pt-4">
             <Button
               variant="brand"
               size="xl"

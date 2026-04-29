@@ -325,7 +325,7 @@ export function OnboardingScreen({
   // Render Welcome step
   if (step === 'welcome') {
     return (
-      <div className="fixed inset-0 bg-background text-foreground flex flex-col items-center justify-center p-4 pt-safe pb-safe overflow-hidden overscroll-none">
+      <div className="fixed inset-0 bg-background text-foreground flex flex-col items-center justify-center p-4 pt-safe overflow-hidden overscroll-none">
         <div className="w-full max-w-sm flex flex-col items-center text-center">
           <img src={zappiImg} alt="Zappi" className="w-40 h-40 object-contain mb-4" />
           <h1 className="text-title font-bold text-brand mb-1">{t('onboarding.appName')}</h1>
@@ -394,7 +394,7 @@ export function OnboardingScreen({
     const words = mode === 'create' ? mnemonic.split(' ') : mnemonicWords
 
     return (
-      <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe pb-safe overflow-hidden overscroll-none">
+      <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe overflow-hidden overscroll-none">
         <div className="flex-1 flex flex-col max-w-md mx-auto w-full">
           {/* Header */}
           <header className="flex items-center px-5 h-14 shrink-0">
@@ -604,7 +604,7 @@ export function OnboardingScreen({
     const currentPin = isConfirming ? confirmPin : pin
 
     return (
-      <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe pb-safe overflow-hidden overscroll-none">
+      <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe overflow-hidden overscroll-none">
         <div className="flex-1 flex flex-col max-w-md mx-auto w-full">
           {/* Header */}
           <header className="flex items-center px-5 h-14 shrink-0">
@@ -671,7 +671,7 @@ export function OnboardingScreen({
   // Render Recovering step
   if (step === 'recovering') {
     return (
-      <div className="fixed inset-0 bg-background text-foreground flex flex-col items-center justify-center p-4 pt-safe pb-safe overflow-hidden overscroll-none">
+      <div className="fixed inset-0 bg-background text-foreground flex flex-col items-center justify-center p-4 pt-safe overflow-hidden overscroll-none">
         <div className="w-full max-w-sm flex flex-col items-center text-center">
           <div
             className="mb-6"

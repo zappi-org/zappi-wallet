@@ -167,7 +167,7 @@ export default {
 
     // Logout
     logout: 'Keluar',
-    version: 'Zappi v1.0.0',
+    version: 'Zappi v{{version}}',
 
     updateAvailable: 'Pembaruan tersedia',
     updateInstallHint: 'Ketuk untuk memperbarui',

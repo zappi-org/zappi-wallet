@@ -167,7 +167,7 @@ export default {
 
     // Logout
     logout: 'ログアウト',
-    version: 'Zappi v1.0.0',
+    version: 'Zappi v{{version}}',
 
     updateAvailable: 'アップデートがあります',
     updateInstallHint: 'タップしてアップデート',

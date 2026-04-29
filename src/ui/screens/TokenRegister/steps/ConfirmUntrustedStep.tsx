@@ -93,7 +93,7 @@ export function ConfirmUntrustedStep({
       </div>
 
       {/* Vertical choice cards */}
-      <div className="px-5 pb-6 pb-safe shrink-0 space-y-2.5">
+      <div className="px-5 pb-6 shrink-0 space-y-2.5">
         <button
           onClick={() => runAsync('add', onAddAndReceive)}
           disabled={busy !== null}

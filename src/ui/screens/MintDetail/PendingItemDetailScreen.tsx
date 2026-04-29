@@ -299,7 +299,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
   }
 
   return (
-    <div className="w-full h-full flex flex-col bg-background pt-safe pb-safe">
+    <div className="w-full h-full flex flex-col bg-background pt-safe">
       {/* Header */}
       <header className="flex items-center px-4 h-14 shrink-0">
         <button

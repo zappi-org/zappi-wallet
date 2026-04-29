@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { Button } from '@/ui/components/common/Button'
 import { checkForAppUpdate, updateSW } from '@/registerSW'
+import { appBuildInfo } from '@/ui/utils/app-build-info'
 import type { SettingsPage } from './SettingsScreen'
 
 interface SettingsMainListProps {
@@ -72,25 +73,15 @@ export function SettingsMainList({
       {/* App maintenance */}
       <div className="px-4 pt-8">
         {updateAvailable ? (
-          <button
-            type="button"
+          <Button
+            variant="brand"
+            size="lg"
             onClick={() => updateSW()}
-            className="w-full rounded-card bg-brand px-5 py-4 text-left text-white shadow-lg shadow-brand/20 active:scale-[0.98] active:opacity-80 transition-all"
+            icon={<Download className="size-4" />}
+            className="w-full"
           >
-            <span className="flex items-center gap-3">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/15">
-                <Download className="size-5" strokeWidth={1.8} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-body font-semibold">
-                  {t('settings.updateAvailable')}
-                </span>
-                <span className="block mt-0.5 text-caption text-white/75">
-                  {t('settings.updateInstallHint')}
-                </span>
-              </span>
-            </span>
-          </button>
+            {t('settings.updateAvailable')}
+          </Button>
         ) : (
           <Button
             variant="outline"
@@ -104,7 +95,7 @@ export function SettingsMainList({
           </Button>
         )}
         <p className="text-center mt-4 text-overline font-medium text-foreground-muted/50 uppercase tracking-widest">
-          {t('settings.version')}
+          {t('settings.version', { version: appBuildInfo.displayVersion })}
         </p>
         <Button variant="destructive" size="lg" onClick={onOpenLogout} className="w-full mt-8">
           {t('settings.logout')}

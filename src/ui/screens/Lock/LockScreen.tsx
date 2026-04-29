@@ -197,7 +197,7 @@ export function LockScreen({
   const keypadDisabled = isLockedOut || isLoading;
 
   return (
-    <div className="fixed inset-0 z-[100] bg-background text-foreground flex flex-col p-4 pt-safe pb-safe overflow-hidden overscroll-none">
+    <div className="fixed inset-0 z-[100] bg-background text-foreground flex flex-col p-4 pt-safe overflow-hidden overscroll-none">
       <div className="flex-1 flex flex-col max-w-md mx-auto w-full">
         {/* Top Section */}
         <div className="flex-1 flex flex-col items-center justify-center">

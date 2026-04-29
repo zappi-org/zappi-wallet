@@ -1,10 +1,48 @@
 import path from 'path'
+import fs from 'node:fs'
+import { execSync } from 'node:child_process'
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+function readPackageVersion(): string {
+  const packageJsonPath = path.resolve(__dirname, 'package.json')
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as { version?: string }
+  return packageJson.version?.trim() || '0.0.0'
+}
+
+function readGitCommit(): string {
+  try {
+    return execSync('git rev-parse --short HEAD', {
+      cwd: __dirname,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).toString().trim() || 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
+
+function isGitDirty(): boolean {
+  try {
+    return execSync('git status --short', {
+      cwd: __dirname,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).toString().trim().length > 0
+  } catch {
+    return false
+  }
+}
+
+const appVersion = readPackageVersion()
+const gitCommit = readGitCommit()
+const appCommit = gitCommit !== 'unknown' && isGitDirty() ? `${gitCommit}-dirty` : gitCommit
+
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+    __APP_COMMIT__: JSON.stringify(appCommit),
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

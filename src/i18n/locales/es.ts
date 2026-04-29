@@ -167,7 +167,7 @@ export default {
 
     // Logout
     logout: 'Cerrar sesión',
-    version: 'Zappi v1.0.0',
+    version: 'Zappi v{{version}}',
 
     updateAvailable: 'Actualización disponible',
     updateInstallHint: 'Toca para actualizar',
