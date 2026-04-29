@@ -1,10 +1,9 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { User, Settings, Lock, Wallet, ChevronRight, Download, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { Button } from '@/ui/components/common/Button'
-import { ViewportDebugPanel } from '@/ui/components/debug/ViewportDebugPanel'
 import { checkForAppUpdate, updateSW } from '@/registerSW'
 import { appBuildInfo } from '@/ui/utils/app-build-info'
 import type { SettingsPage } from './SettingsScreen'
@@ -31,8 +30,6 @@ export function SettingsMainList({
   const updateAvailable = useAppStore((s) => s.updateAvailable)
   const addToast = useAppStore((s) => s.addToast)
   const [updateCheckPhase, setUpdateCheckPhase] = useState<UpdateCheckPhase>('idle')
-  const viewportDebugTapCountRef = useRef(0)
-  const [showViewportDebug, setShowViewportDebug] = useState(false)
   const isCheckingUpdate = updateCheckPhase !== 'idle'
 
   const handleCheckUpdate = useCallback(async () => {
@@ -61,14 +58,6 @@ export function SettingsMainList({
     : updateCheckPhase === 'checking'
       ? t('settings.updateChecking')
       : t('settings.checkForUpdates')
-
-  const handleVersionTap = useCallback(() => {
-    viewportDebugTapCountRef.current += 1
-    if (viewportDebugTapCountRef.current >= 5) {
-      viewportDebugTapCountRef.current = 0
-      setShowViewportDebug(true)
-    }
-  }, [])
 
   return (
     <div className="flex-1 overflow-y-auto pb-app-nav">
@@ -114,20 +103,13 @@ export function SettingsMainList({
             {updateCheckLabel}
           </Button>
         )}
-        <button
-          type="button"
-          onClick={handleVersionTap}
-          className="mx-auto mt-4 block text-center text-overline font-medium text-foreground-muted/50 uppercase tracking-widest"
-        >
+        <p className="text-center mt-4 text-overline font-medium text-foreground-muted/50 uppercase tracking-widest">
           {t('settings.version', { version: appBuildInfo.displayVersion })}
-        </button>
+        </p>
         <Button variant="destructive" size="lg" onClick={onOpenLogout} className="w-full mt-8">
           {t('settings.logout')}
         </Button>
       </div>
-      {showViewportDebug && (
-        <ViewportDebugPanel onClose={() => setShowViewportDebug(false)} />
-      )}
     </div>
   )
 }

@@ -69,7 +69,6 @@ export function TokenTabToolbar({
 
   return (
     <motion.nav
-      data-viewport-debug="token-toolbar"
       key="token-tab-toolbar"
       initial={{ y: 100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
