@@ -133,7 +133,15 @@ async function checkForAppUpdate(options: AppUpdateCheckOptions = {}): Promise<A
       return 'available'
     }
 
-    const waitingWorker = waitForWaitingWorker(registration, options)
+    if (registration.installing) {
+      const existingWorkerResult = await waitForWaitingWorker(registration, options)
+      if (existingWorkerResult === 'available' || useAppStore.getState().updateAvailable) {
+        markUpdateAvailable()
+        return 'available'
+      }
+      return existingWorkerResult
+    }
+
     const updatedRegistration = await registration.update()
     serviceWorkerRegistration = updatedRegistration
 
@@ -145,7 +153,11 @@ async function checkForAppUpdate(options: AppUpdateCheckOptions = {}): Promise<A
       return 'available'
     }
 
-    const workerResult = await waitingWorker
+    if (!updatedRegistration.installing) {
+      return 'current'
+    }
+
+    const workerResult = await waitForWaitingWorker(updatedRegistration, options)
     if (workerResult === 'available' || useAppStore.getState().updateAvailable) {
       markUpdateAvailable()
       return 'available'
