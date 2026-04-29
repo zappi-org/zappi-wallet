@@ -21,6 +21,7 @@ export function BottomNav({ items, activeId, visible, onSelect }: BottomNavProps
     <AnimatePresence>
       {visible && (
         <motion.nav
+          data-viewport-debug="bottom-nav"
           key="bottom-nav"
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
