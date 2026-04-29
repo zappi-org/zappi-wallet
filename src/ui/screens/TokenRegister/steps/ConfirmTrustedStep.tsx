@@ -104,11 +104,11 @@ export function ConfirmTrustedStep({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <ScreenHeader title="이캐시 확인" onBack={onBack} />
+      <ScreenHeader title={t('send.token.title')} onBack={onBack} />
 
       <div className="flex-1 overflow-y-auto px-4 pt-2">
         <h2 className="pt-[4dvh] text-heading font-semibold text-foreground text-center">
-          이캐시가 도착했어요!
+          {t('tokenRegister.arrived')}
         </h2>
 
         {/* Hero card — fixed min-height, zappi at Figma-exact absolute position */}
@@ -182,7 +182,7 @@ export function ConfirmTrustedStep({
             onClick={() => setMintSheetOpen(true)}
             className="w-full flex justify-between items-start py-2.5 border-b border-border/50 active:bg-foreground/[0.03] transition-colors"
           >
-            <span className="text-body text-foreground-muted">받을 민트</span>
+            <span className="text-body text-foreground-muted">{t('send.token.receiveMint')}</span>
             <div className="flex flex-col items-end">
               <div className="flex items-center gap-1">
                 <span className="text-body font-medium text-foreground">
@@ -191,20 +191,20 @@ export function ConfirmTrustedStep({
                 <ChevronRight className="w-4 h-4 text-foreground-muted" />
               </div>
               <span className="text-caption text-foreground-muted mt-0.5">
-                잔액 {formatSats(receiveMintBalance)}
+                {t('common.balance')} {formatSats(receiveMintBalance)}
               </span>
             </div>
           </button>
           {fee !== null && fee > 0 && (
             <div className="flex justify-between py-2.5 border-b border-border/50">
-              <span className="text-body text-foreground-muted">수취 수수료</span>
+              <span className="text-body text-foreground-muted">{t('token.reclaim.summaryFee')}</span>
               <span className="text-body font-medium text-foreground">
                 -{formatSats(fee)}
               </span>
             </div>
           )}
           <div className="flex justify-between py-2.5">
-            <span className="text-body font-bold text-foreground">실제 수령액</span>
+            <span className="text-body font-bold text-foreground">{t('send.token.netAmount')}</span>
             <span className="text-body font-bold text-foreground">
               {isSwap ? '~' : '+'}{formatSats(netAmount)}
             </span>
@@ -218,7 +218,11 @@ export function ConfirmTrustedStep({
           disabled={busy}
           className="w-full"
         >
-          {busy ? '받는 중…' : isSwap ? '내 민트로 받기' : '받기'}
+          {busy
+            ? t('tokenRegister.receiving')
+            : isSwap
+              ? t('tokenRegister.receiveToMyMint')
+              : t('send.token.receive')}
         </Button>
       </BottomActionBar>
 

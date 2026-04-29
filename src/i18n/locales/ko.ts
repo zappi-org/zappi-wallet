@@ -1283,6 +1283,22 @@ export default {
     },
   },
 
+  // Token Register Flow
+  tokenRegister: {
+    title: '이캐시 등록하기',
+    inputHeading: '이캐시를 붙여넣거나 스캔해서\n등록할 수 있어요.',
+    description: '이캐시는 상품권처럼 등록해서 사용할 수 있어요 ({{format}}로 시작하는 문자열이에요).',
+    inputPlaceholder: '이캐시 입력',
+    invalidFormat: '잘못된 형식이에요. cashuB 로 시작하는 이캐시인지 확인해주세요.',
+    scan: '스캔하기',
+    arrived: '이캐시가 도착했어요!',
+    receiving: '받는 중…',
+    swapping: '스왑 중…',
+    receiveToMyMint: '내 민트로 받기',
+    unknownMintHint: '모르는 민트라면 추가하지 않고\n내 민트로 받을 수도 있어요.',
+    swapFeeHint: '스왑 수수료가 들 수 있어요',
+  },
+
   // Address Book / Contacts
   contacts: {
     title: '주소록',

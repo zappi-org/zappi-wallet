@@ -1276,6 +1276,22 @@ export default {
     },
   },
 
+  // Token Register Flow
+  tokenRegister: {
+    title: 'Register ecash',
+    inputHeading: 'Paste or scan ecash\nto register it.',
+    description: 'Ecash works like a gift card you can register and use (a string starting with {{format}}).',
+    inputPlaceholder: 'Enter ecash',
+    invalidFormat: 'Invalid format. Make sure the ecash starts with cashuB.',
+    scan: 'Scan',
+    arrived: 'Your ecash arrived!',
+    receiving: 'Receiving…',
+    swapping: 'Swapping…',
+    receiveToMyMint: 'Receive to my mint',
+    unknownMintHint: "If you don't know the mint, you can\nreceive to your own mint instead.",
+    swapFeeHint: 'A swap fee may apply',
+  },
+
   // Address Book / Contacts
   contacts: {
     title: 'Contacts',

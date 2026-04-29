@@ -59,14 +59,14 @@ export function ConfirmUntrustedStep({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <ScreenHeader title="이캐시 확인" onBack={onBack} />
+      <ScreenHeader title={t('send.untrusted.title')} onBack={onBack} />
 
       {/* Content — centered warning */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 space-y-4">
         <AlertTriangle className="w-12 h-12 text-accent-warning" strokeWidth={1.8} />
 
         <p className="text-heading font-semibold text-foreground text-center whitespace-pre-line">
-          {formatSats(amount)}를 받으려면{'\n'}확인이 필요해요.
+          {t('send.untrusted.warningNeedConfirm', { amount: formatSats(amount) })}
         </p>
         {fiatLabel && <p className="text-body text-foreground-muted">~ {fiatLabel}</p>}
 
@@ -80,14 +80,13 @@ export function ConfirmUntrustedStep({
           <p className="text-caption text-foreground-muted leading-snug">
             <span className="font-semibold text-foreground">{mintName}</span>
             {' · '}
-            <span className="text-accent-warning font-medium">미등록 민트</span>
+            <span className="text-accent-warning font-medium">{t('send.untrusted.unregistered')}</span>
           </p>
         </div>
 
         {onSwapToMyMint && (
-          <p className="text-caption text-foreground-muted text-center leading-relaxed max-w-[280px]">
-            모르는 민트라면 추가하지 않고
-            <br />내 민트로 받을 수도 있어요.
+          <p className="text-caption text-foreground-muted text-center leading-relaxed max-w-[280px] whitespace-pre-line">
+            {t('tokenRegister.unknownMintHint')}
           </p>
         )}
       </div>
@@ -104,10 +103,10 @@ export function ConfirmUntrustedStep({
           </div>
           <div className="flex-1 min-w-0 text-left">
             <p className="text-body font-bold text-white truncate">
-              {busy === 'add' ? '받는 중…' : '이 민트를 추가하고 받기'}
+              {busy === 'add' ? t('tokenRegister.receiving') : t('send.untrusted.addAndReceive')}
             </p>
             <p className="text-caption text-white/70 mt-0.5">
-              다음부터는 이 민트를 신뢰합니다
+              {t('send.untrusted.addAndReceiveSub')}
             </p>
           </div>
         </button>
@@ -123,10 +122,10 @@ export function ConfirmUntrustedStep({
             </div>
             <div className="flex-1 min-w-0 text-left">
               <p className="text-body font-bold text-foreground truncate">
-                {busy === 'swap' ? '스왑 중…' : '내 민트로 받기'}
+                {busy === 'swap' ? t('tokenRegister.swapping') : t('tokenRegister.receiveToMyMint')}
               </p>
               <p className="text-caption text-foreground-muted mt-0.5">
-                스왑 수수료가 들 수 있어요
+                {t('tokenRegister.swapFeeHint')}
               </p>
             </div>
           </button>
