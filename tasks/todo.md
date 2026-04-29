@@ -17,6 +17,9 @@ Review
 - Modal/body section titles were intentionally left alone; this pass only targets screen-level headers and full-screen scanner/processing headers.
 - Home itself did not have bottom `pb-safe`; the visible bottom gap came from floating nav/toolbars adding `env(safe-area-inset-bottom)` to their `bottom` position. Both now use the same fixed 4px bottom offset.
 - ZAP-266 grouping now splits current-month items after yesterday into `dayThisMonth` day groups, while prior months in the current year remain monthly groups. Token and History rows both show `HH:MM` for those day groups.
+- Date boundaries are computed from local calendar day starts (`new Date(Y, M, D)` and `new Date(Y, M, D - 1)`), not fixed 24h subtraction, so yesterday still starts correctly across DST transitions.
+- History keeps virtualization for long lists, but now positions virtualized date groups with `top` instead of `transform` and matches the Token tab group wrapper, so sticky date anchors start at the same row boundary.
+- History date groups include measured bottom spacing between groups so a newly changing date is visually separated from the previous day's last row while keeping virtualization accurate.
 - Verification passed: `bun run lint`, `npx tsc --noEmit`, `bun run test`, `bun run build`, `node .claude/skills/hex-review/scripts/check-hex-violations.mjs src`, and `git diff --check`.
 
 # Current Task — History Timeline Polish + PWA Update Check

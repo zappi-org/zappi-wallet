@@ -230,6 +230,7 @@ export function HistoryScreen({
   const virtualizer = useVirtualizer({
     count: timelineGroups.length,
     getScrollElement: () => scrollContainerRef.current,
+    getItemKey: (index) => timelineGroups[index]?.key ?? index,
     estimateSize: (index) => {
       const group = timelineGroups[index]
       return group ? estimateTimelineGroupSize(group) : 80
@@ -381,13 +382,12 @@ export function HistoryScreen({
                     ref={virtualizer.measureElement}
                     style={{
                       position: 'absolute',
-                      top: 0,
+                      top: virtualRow.start,
                       left: 0,
                       width: '100%',
-                      transform: `translateY(${virtualRow.start}px)`,
                     }}
                   >
-                    <div className="flex items-start gap-3 py-1">
+                    <div className={`flex items-start gap-3 ${virtualRow.index === timelineGroups.length - 1 ? '' : 'pb-6'}`}>
                       <div className="w-14 shrink-0 pt-1 sticky top-0 self-start">
                         <div className={anchorSizeClass(group.kind)}>
                           {anchor.major}
