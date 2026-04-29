@@ -123,12 +123,17 @@ export function TokenTabToolbar({
                     key={id}
                     type="button"
                     onClick={() => handleTabTapInPicker(id)}
-                    className={`flex-1 flex flex-col items-center justify-center h-[48px] rounded-full transition-colors ${
+                    className={`relative flex-1 flex flex-col items-center justify-center h-[48px] rounded-full transition-colors ${
                       isActive ? 'text-white bg-brand' : 'text-foreground/60'
                     }`}
                   >
                     <div className="w-[20px] h-[20px] flex items-center justify-center">
                       {isActive && item.activeIcon ? item.activeIcon : item.icon}
+                      {item.badge !== undefined && item.badge > 0 && (
+                        <span className="absolute top-1 right-3 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center text-[9px] font-bold bg-accent-danger text-white rounded-full leading-none">
+                          {item.badge > 99 ? '99+' : item.badge}
+                        </span>
+                      )}
                     </div>
                     <span className="text-[10px] font-semibold leading-none mt-[1px]">
                       {item.label}

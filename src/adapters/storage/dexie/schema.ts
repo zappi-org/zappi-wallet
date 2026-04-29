@@ -207,6 +207,8 @@ export interface SupportTicketRecord {
   createdAt: number
   updatedAt: number
   readAt?: number
+  archivedAt?: number
+  pinnedAt?: number
 }
 
 /**

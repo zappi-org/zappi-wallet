@@ -15,4 +15,6 @@ export interface CustomerSupportHistoryStore {
   saveTicket(scope: CustomerSupportHistoryScope, ticket: SupportTicket): Promise<void>
   saveMessage(scope: CustomerSupportHistoryScope, message: SupportMessage): Promise<void>
   markTicketRead(scope: CustomerSupportHistoryScope, ticketId: string, readAt: number): Promise<void>
+  setTicketPinned(scope: CustomerSupportHistoryScope, ticketId: string, pinnedAt: number | null): Promise<void>
+  archiveTicket(scope: CustomerSupportHistoryScope, ticketId: string, archivedAt: number): Promise<void>
 }

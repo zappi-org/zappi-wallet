@@ -23,6 +23,7 @@ export function ProfileCategoryPage({
   const { t } = useTranslation()
   const settings = useAppStore((s) => s.settings)
   const nostrPubkey = useAppStore((s) => s.nostrPubkey)
+  const supportUnreadCount = useAppStore((s) => s.supportUnreadCount)
   const crypto = useCrypto()
 
   const npubDisplay = nostrPubkey ? crypto.encodeNpub(nostrPubkey) : null
@@ -60,6 +61,7 @@ export function ProfileCategoryPage({
           <SettingsRow
             label={t('support.title')}
             onPress={() => onNavigate('support')}
+            badge={supportUnreadCount}
           />
         </div>
       </div>

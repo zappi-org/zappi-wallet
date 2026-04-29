@@ -64,6 +64,10 @@ export class DisabledCustomerSupportChannel implements CustomerSupportChannel {
 
   async markTicketRead(_ticketId: string, _readAt?: number): Promise<void> {}
 
+  async setTicketPinned(_ticketId: string, _pinnedAt: number | null): Promise<void> {}
+
+  async archiveTicket(_ticketId: string, _archivedAt?: number): Promise<void> {}
+
   subscribe(listener: SupportListener): () => void {
     listener(this.snapshot)
     return () => {}

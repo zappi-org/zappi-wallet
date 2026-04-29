@@ -43,6 +43,8 @@ export const selectIsModalOpen = (state: AppState) => state.modal.isOpen
 export const selectIsInitializing = (state: AppState) => state.isInitializing
 export const selectIsProcessingPayment = (state: AppState) => state.isProcessingPayment
 export const selectCurrentAmount = (state: AppState) => state.currentAmount
+export const selectSupportUnreadCount = (state: AppState) => state.supportUnreadCount
+export const selectSupportUnreadTicketIds = (state: AppState) => state.supportUnreadTicketIds
 
 // ===== Settings Selectors =====
 

@@ -374,6 +374,8 @@ describe('NostrCsCustomerSupportAdapter', () => {
       saveTicket: vi.fn().mockResolvedValue(undefined),
       saveMessage: vi.fn().mockResolvedValue(undefined),
       markTicketRead: vi.fn().mockResolvedValue(undefined),
+      setTicketPinned: vi.fn().mockResolvedValue(undefined),
+      archiveTicket: vi.fn().mockResolvedValue(undefined),
     }
 
     const { adapter, client } = await connectAdapter(historyStore)
@@ -400,6 +402,58 @@ describe('NostrCsCustomerSupportAdapter', () => {
       'ticket-1',
       5000,
     )
+
+    await adapter.setTicketPinned('ticket-1', 5500)
+    expect(adapter.getSnapshot().tickets.find((ticket) => ticket.id === 'ticket-1')?.pinnedAt).toBe(5500)
+    expect(historyStore.setTicketPinned).toHaveBeenCalledWith(
+      { customerId: customerPubkey, agentPubkey },
+      'ticket-1',
+      5500,
+    )
+
+    await adapter.setTicketPinned('ticket-1', null)
+    expect(adapter.getSnapshot().tickets.find((ticket) => ticket.id === 'ticket-1')?.pinnedAt).toBeUndefined()
+
+    await adapter.archiveTicket('ticket-1', 6000)
+    expect(adapter.getSnapshot().tickets.find((ticket) => ticket.id === 'ticket-1')).toBeUndefined()
+    expect(historyStore.archiveTicket).toHaveBeenCalledWith(
+      { customerId: customerPubkey, agentPubkey },
+      'ticket-1',
+      6000,
+    )
+
+    client.emitTicket(makeTicket({ title: 'Replayed request' }))
+    expect(adapter.getSnapshot().tickets.find((ticket) => ticket.id === 'ticket-1')).toBeUndefined()
+  })
+
+  it('does not downgrade a cached resolved status when the original ticket event replays', async () => {
+    const historyStore: CustomerSupportHistoryStore = {
+      load: vi.fn().mockResolvedValue({
+        tickets: [{
+          id: 'ticket-1',
+          threadId: 'thread-1',
+          title: 'Need help',
+          body: 'Help body',
+          status: 'resolved',
+          priority: 'normal',
+          category: 'general',
+          createdAt: 1_000,
+          updatedAt: 4_000,
+        }],
+        messages: {},
+      }),
+      saveTicket: vi.fn().mockResolvedValue(undefined),
+      saveMessage: vi.fn().mockResolvedValue(undefined),
+      markTicketRead: vi.fn().mockResolvedValue(undefined),
+      setTicketPinned: vi.fn().mockResolvedValue(undefined),
+      archiveTicket: vi.fn().mockResolvedValue(undefined),
+    }
+    const { adapter, client } = await connectAdapter(historyStore)
+
+    expect(adapter.getSnapshot().tickets[0]?.status).toBe('resolved')
+    client.emitTicket(makeTicket({ status: 'open' }))
+
+    expect(adapter.getSnapshot().tickets[0]?.status).toBe('resolved')
   })
 
   it('restores cached support history before network connection completes', async () => {
@@ -425,6 +479,8 @@ describe('NostrCsCustomerSupportAdapter', () => {
       saveTicket: vi.fn().mockResolvedValue(undefined),
       saveMessage: vi.fn().mockResolvedValue(undefined),
       markTicketRead: vi.fn().mockResolvedValue(undefined),
+      setTicketPinned: vi.fn().mockResolvedValue(undefined),
+      archiveTicket: vi.fn().mockResolvedValue(undefined),
     }
     const keyProvider = {
       getPubkey: vi.fn().mockResolvedValue(customerPubkey),

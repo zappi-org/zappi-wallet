@@ -44,6 +44,8 @@ function makeChannel(): CustomerSupportChannel {
       data: new Uint8Array([1]),
     }),
     markTicketRead: vi.fn().mockResolvedValue(undefined),
+    setTicketPinned: vi.fn().mockResolvedValue(undefined),
+    archiveTicket: vi.fn().mockResolvedValue(undefined),
     subscribe: vi.fn().mockReturnValue(() => {}),
   }
 }
@@ -60,6 +62,8 @@ describe('SupportService', () => {
     await service.sendMessage({ ticketId: 'ticket', body: 'Follow up' })
     await service.downloadAttachment({ attachmentId: 'attachment' })
     await service.markTicketRead('ticket', 1000)
+    await service.setTicketPinned('ticket', 1500)
+    await service.archiveTicket('ticket', 2000)
     service.subscribe(() => {})
     await service.refresh()
     await service.disconnect()
@@ -75,6 +79,8 @@ describe('SupportService', () => {
     expect(channel.sendMessage).toHaveBeenCalledWith({ ticketId: 'ticket', body: 'Follow up' })
     expect(channel.downloadAttachment).toHaveBeenCalledWith({ attachmentId: 'attachment' })
     expect(channel.markTicketRead).toHaveBeenCalledWith('ticket', 1000)
+    expect(channel.setTicketPinned).toHaveBeenCalledWith('ticket', 1500)
+    expect(channel.archiveTicket).toHaveBeenCalledWith('ticket', 2000)
     expect(channel.subscribe).toHaveBeenCalledOnce()
     expect(channel.refresh).toHaveBeenCalledOnce()
     expect(channel.disconnect).toHaveBeenCalledOnce()

@@ -9,6 +9,7 @@ import { ServiceProvider } from '@/ui/hooks/service-context'
 import { broadcastSync } from '@/utils/cross-tab-sync'
 import { useCrossTabSync } from '@/ui/hooks/use-cross-tab-sync'
 import { useGlobalTokenClaimToast } from '@/ui/hooks/use-global-token-claim-toast'
+import { useSupportNotifications } from '@/ui/hooks/use-support-notifications'
 // useMintHealth removed — mint health checks done via serviceRegistry directly
 import { useNetwork } from '@/ui/hooks/use-network'
 import { useWallet } from '@/ui/hooks/use-wallet'
@@ -92,6 +93,7 @@ export default function MainApp() {
   const p2pkPubkey = useAppStore((state) => state.p2pkPubkey)
   const txRefreshTrigger = useAppStore((state) => state.txRefreshTrigger)
   const pendingIncomingReviews = useAppStore((state) => state.pendingIncomingReviews)
+  const supportUnreadCount = useAppStore((state) => state.supportUnreadCount)
 
   // Store actions
   const setLocked = useAppStore((state) => state.setLocked)
@@ -122,6 +124,7 @@ export default function MainApp() {
 
   useCrossTabSync()
   useGlobalTokenClaimToast(serviceRegistry)
+  useSupportNotifications(serviceRegistry)
 
   // Local state
   const [currentScreen, setCurrentScreen] = useState<Screen>('home')
@@ -135,8 +138,13 @@ export default function MainApp() {
     { id: 'wallet', label: t('nav.wallet'), icon: <Wallet className="w-[22px] h-[22px]" strokeWidth={1.6} /> },
     { id: 'token', label: t('nav.token'), icon: <Coins className="w-[22px] h-[22px]" strokeWidth={1.6} /> },
     { id: 'contacts', label: t('nav.contacts'), icon: <BookUser className="w-[22px] h-[22px]" strokeWidth={1.6} /> },
-    { id: 'settings', label: t('nav.settings'), icon: <SettingsIcon className="w-[22px] h-[22px]" strokeWidth={1.6} /> },
-  ], [t])
+    {
+      id: 'settings',
+      label: t('nav.settings'),
+      icon: <SettingsIcon className="w-[22px] h-[22px]" strokeWidth={1.6} />,
+      badge: supportUnreadCount,
+    },
+  ], [t, supportUnreadCount])
 
   // Shared scroll container ref for Token tab (TokenScreen + TokenTabToolbar)
   const tokenScrollRef = useRef<HTMLDivElement>(null)

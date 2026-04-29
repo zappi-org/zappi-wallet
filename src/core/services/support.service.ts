@@ -65,6 +65,14 @@ export class SupportService implements SupportUseCase {
     return this.channel.markTicketRead(ticketId, readAt)
   }
 
+  setTicketPinned(ticketId: string, pinnedAt: number | null): Promise<void> {
+    return this.channel.setTicketPinned(ticketId, pinnedAt)
+  }
+
+  archiveTicket(ticketId: string, archivedAt?: number): Promise<void> {
+    return this.channel.archiveTicket(ticketId, archivedAt)
+  }
+
   subscribe(listener: SupportListener): () => void {
     return this.channel.subscribe(listener)
   }

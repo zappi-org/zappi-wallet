@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { ChevronRight, Download, Loader2, Paperclip, Plus, Send, X } from 'lucide-react'
+import { Download, Loader2, MoreVertical, Paperclip, Pin, Plus, Send, Trash2, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   DEFAULT_SUPPORT_CATEGORY,
   DEFAULT_SUPPORT_PRIORITY,
+  countUnreadSupportReplies,
+  getLatestSupportMessage,
+  getLatestSupportMessageAt,
   isSupportTicketTerminal,
   type SupportAttachment,
   type SupportAttachmentUpload,
@@ -17,9 +20,11 @@ import {
 } from '@/core/domain/support'
 import zappiLogo from '@/assets/zappi.png'
 import { Button } from '@/ui/components/common/Button'
+import { ConfirmDialog } from '@/ui/components/common/ConfirmDialog'
 import { SettingsDetailPage } from '../components/SettingsDetailPage'
 import { useSupport } from '@/ui/hooks/use-support'
 import { cn } from '@/ui/primitives/utils'
+import { useAppStore } from '@/store'
 
 interface SupportPageProps {
   onBack: () => void
@@ -62,9 +67,13 @@ const PRIORITY_OPTIONS: Array<{
 export function SupportPage({ onBack }: SupportPageProps) {
   const { t } = useTranslation()
   const support = useSupport()
+  const addToast = useAppStore((state) => state.addToast)
+  const setActiveSupportTicketId = useAppStore((state) => state.setActiveSupportTicketId)
   const [snapshot, setSnapshot] = useState<SupportSnapshot>(() => support.getSnapshot())
   const [view, setView] = useState<SupportView>('list')
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
+  const [archiveTarget, setArchiveTarget] = useState<SupportTicket | null>(null)
+  const [actionMenuTicketId, setActionMenuTicketId] = useState<string | null>(null)
   const [category, setCategory] = useState<SupportCategory>(DEFAULT_SUPPORT_CATEGORY)
   const [priority, setPriority] = useState<SupportPriority>(DEFAULT_SUPPORT_PRIORITY)
   const [title, setTitle] = useState('')
@@ -75,8 +84,8 @@ export function SupportPage({ onBack }: SupportPageProps) {
   const [downloadingAttachmentIds, setDownloadingAttachmentIds] = useState<Set<string>>(() => new Set())
   const [isCreating, setIsCreating] = useState(false)
   const [isSendingReply, setIsSendingReply] = useState(false)
+  const [isArchiving, setIsArchiving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-  const lastRefreshAtRef = useRef(0)
 
   useEffect(() => {
     const unsubscribe = support.subscribe(setSnapshot)
@@ -86,28 +95,14 @@ export function SupportPage({ onBack }: SupportPageProps) {
 
     return () => {
       unsubscribe()
-      support.disconnect().catch(() => undefined)
     }
   }, [support, t])
 
   useEffect(() => {
-    const refresh = () => {
-      const now = Date.now()
-      if (now - lastRefreshAtRef.current < 15_000) return
-      lastRefreshAtRef.current = now
-      support.refresh().then(setSnapshot).catch(() => undefined)
-    }
-    const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') refresh()
-    }
-
-    window.addEventListener('online', refresh)
-    document.addEventListener('visibilitychange', refreshWhenVisible)
     return () => {
-      window.removeEventListener('online', refresh)
-      document.removeEventListener('visibilitychange', refreshWhenVisible)
+      setActiveSupportTicketId(null)
     }
-  }, [support])
+  }, [setActiveSupportTicketId])
 
   useEffect(() => {
     if (!selectedTicketId) return
@@ -116,6 +111,27 @@ export function SupportPage({ onBack }: SupportPageProps) {
     setSelectedTicketId(null)
     setView('list')
   }, [selectedTicketId, snapshot.tickets])
+
+  useEffect(() => {
+    if (actionMenuTicketId === null) return
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (target instanceof Element && target.closest('[data-support-ticket-menu]')) return
+
+      setActionMenuTicketId(null)
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setActionMenuTicketId(null)
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [actionMenuTicketId])
 
   const selectedTicket = useMemo(
     () => snapshot.tickets.find((ticket) => ticket.id === selectedTicketId) ?? null,
@@ -139,6 +155,10 @@ export function SupportPage({ onBack }: SupportPageProps) {
 
     support.markTicketRead(selectedTicket.id).catch(() => undefined)
   }, [activeView, selectedLatestSupportMessageAt, selectedTicket, support])
+
+  useEffect(() => {
+    setActiveSupportTicketId(activeView === 'detail' && selectedTicket ? selectedTicket.id : null)
+  }, [activeView, selectedTicket, setActiveSupportTicketId])
 
   const openTicket = (ticketId: string) => {
     setFormError(null)
@@ -221,6 +241,44 @@ export function SupportPage({ onBack }: SupportPageProps) {
     }
   }
 
+  const handleArchiveTicket = async () => {
+    if (!archiveTarget || isArchiving) return
+
+    setIsArchiving(true)
+    setFormError(null)
+    try {
+      await support.archiveTicket(archiveTarget.id)
+      addToast({ type: 'success', message: t('support.deleted'), duration: 2500 })
+      setArchiveTarget(null)
+      setSelectedTicketId(null)
+      setView('list')
+    } catch {
+      setFormError(t('support.deleteFailed'))
+    } finally {
+      setIsArchiving(false)
+    }
+  }
+
+  const handleTogglePinned = async (ticket: SupportTicket) => {
+    setActionMenuTicketId(null)
+    setFormError(null)
+    try {
+      await support.setTicketPinned(ticket.id, ticket.pinnedAt === undefined ? Date.now() : null)
+    } catch {
+      setFormError(t('support.updateFailed'))
+    }
+  }
+
+  const handleMarkTicketRead = async (ticket: SupportTicket) => {
+    setActionMenuTicketId(null)
+    setFormError(null)
+    try {
+      await support.markTicketRead(ticket.id)
+    } catch {
+      setFormError(t('support.updateFailed'))
+    }
+  }
+
   const closeSubView = () => {
     resetComposer()
     setReplyBody('')
@@ -236,14 +294,14 @@ export function SupportPage({ onBack }: SupportPageProps) {
         <button
           type="button"
           onClick={openComposer}
-          className="flex h-10 items-center gap-1.5 rounded-full bg-background-card px-4 text-body font-medium text-foreground active:scale-[0.98] transition-transform"
+          className="flex h-10 items-center gap-1.5 rounded-card bg-background-card px-4 text-body font-medium text-foreground active:scale-[0.98] transition-transform"
         >
           <Plus className="w-4 h-4" strokeWidth={1.8} />
           {t('support.startNewTicket')}
         </button>
       ) : null}
     >
-      <div className="px-4 pt-3 pb-28 space-y-4">
+      <div className="px-4 pt-3 pb-6 space-y-4">
         {!snapshot.availability.available ? (
           <SupportNotice
             title={t('support.unavailableTitle')}
@@ -267,6 +325,14 @@ export function SupportPage({ onBack }: SupportPageProps) {
                 tickets={snapshot.tickets}
                 messages={snapshot.messages}
                 onSelect={openTicket}
+                actionMenuTicketId={actionMenuTicketId}
+                onActionMenuChange={setActionMenuTicketId}
+                onTogglePinned={handleTogglePinned}
+                onMarkRead={handleMarkTicketRead}
+                onLeave={(ticket) => {
+                  setActionMenuTicketId(null)
+                  setArchiveTarget(ticket)
+                }}
               />
             )}
 
@@ -303,12 +369,25 @@ export function SupportPage({ onBack }: SupportPageProps) {
                 onAttachmentsChange={setReplyFiles}
                 onAttachmentError={setFormError}
                 onDownloadAttachment={handleDownloadAttachment}
+                onArchiveTicket={() => setArchiveTarget(selectedTicket)}
                 onSendMessage={handleSendMessage}
               />
             )}
           </>
         )}
       </div>
+      <ConfirmDialog
+        isOpen={archiveTarget !== null}
+        onClose={() => {
+          if (!isArchiving) setArchiveTarget(null)
+        }}
+        onConfirm={handleArchiveTicket}
+        title={t('support.deleteTitle')}
+        icon={<Trash2 className="w-6 h-6" strokeWidth={1.8} />}
+        confirmLabel={t('support.leaveTicket')}
+        cancelLabel={t('common.cancel')}
+        loading={isArchiving}
+      />
     </SettingsDetailPage>
   )
 }
@@ -317,11 +396,24 @@ interface TicketListViewProps {
   tickets: SupportTicket[]
   messages: SupportSnapshot['messages']
   onSelect: (ticketId: string) => void
+  actionMenuTicketId: string | null
+  onActionMenuChange: (ticketId: string | null) => void
+  onTogglePinned: (ticket: SupportTicket) => void
+  onMarkRead: (ticket: SupportTicket) => void
+  onLeave: (ticket: SupportTicket) => void
 }
 
-function TicketListView({ tickets, messages, onSelect }: TicketListViewProps) {
+function TicketListView({
+  tickets,
+  messages,
+  onSelect,
+  actionMenuTicketId,
+  onActionMenuChange,
+  onTogglePinned,
+  onMarkRead,
+  onLeave,
+}: TicketListViewProps) {
   const { t } = useTranslation()
-  const unreadCount = tickets.filter((ticket) => isTicketUnread(ticket, messages[ticket.id] ?? [])).length
 
   return (
     <section className="space-y-3">
@@ -336,17 +428,10 @@ function TicketListView({ tickets, messages, onSelect }: TicketListViewProps) {
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {unreadCount > 0 && (
-            <span className="rounded-full bg-brand/10 px-2.5 py-1 text-label font-semibold text-brand">
-              {t('support.unreadCount', { count: unreadCount })}
-            </span>
-          )}
-        </div>
       </div>
 
       {tickets.length === 0 ? (
-        <div className="rounded-[28px] bg-background-card border border-border/70 p-7 text-center">
+        <div className="rounded-card bg-background-card border border-border/70 p-7 text-center">
           <p className="text-body font-semibold text-foreground">{t('support.noTickets')}</p>
         </div>
       ) : (
@@ -357,6 +442,11 @@ function TicketListView({ tickets, messages, onSelect }: TicketListViewProps) {
               ticket={ticket}
               messages={messages[ticket.id] ?? []}
               onSelect={() => onSelect(ticket.id)}
+              menuOpen={actionMenuTicketId === ticket.id}
+              onMenuToggle={() => onActionMenuChange(actionMenuTicketId === ticket.id ? null : ticket.id)}
+              onTogglePinned={() => onTogglePinned(ticket)}
+              onMarkRead={() => onMarkRead(ticket)}
+              onLeave={() => onLeave(ticket)}
             />
           ))}
         </div>
@@ -403,7 +493,7 @@ function ComposerView({
   const { t } = useTranslation()
 
   return (
-    <section className="rounded-[28px] bg-background-card border border-border/70 overflow-hidden shadow-sm">
+    <section className="rounded-card bg-background-card border border-border/70 overflow-hidden shadow-sm">
       <div className="p-4 space-y-5">
         <OptionGroup label={t('support.categoryLabel')}>
           {CATEGORY_OPTIONS.map((option) => (
@@ -436,7 +526,7 @@ function ComposerView({
             onChange={(event) => onTitleChange(event.target.value)}
             maxLength={120}
             placeholder={t('support.titlePlaceholder')}
-            className="mt-1.5 w-full rounded-2xl bg-background px-4 py-3 text-body text-foreground placeholder:text-foreground-subtle outline-none focus:ring-2 focus:ring-brand/30"
+            className="mt-1.5 w-full rounded-card bg-background px-4 py-3 text-body text-foreground placeholder:text-foreground-subtle outline-none focus:ring-2 focus:ring-brand/30"
           />
         </label>
 
@@ -450,7 +540,7 @@ function ComposerView({
             maxLength={2000}
             rows={6}
             placeholder={t('support.bodyPlaceholder')}
-            className="mt-1.5 w-full rounded-2xl bg-background px-4 py-3 text-body text-foreground placeholder:text-foreground-subtle outline-none focus:ring-2 focus:ring-brand/30 resize-none"
+            className="mt-1.5 w-full rounded-card bg-background px-4 py-3 text-body text-foreground placeholder:text-foreground-subtle outline-none focus:ring-2 focus:ring-brand/30 resize-none"
           />
         </label>
 
@@ -515,7 +605,7 @@ function OptionCard({ selected, title, onClick }: OptionCardProps) {
       type="button"
       onClick={onClick}
       className={cn(
-        'h-10 rounded-full border px-4 text-body font-medium transition-colors active:scale-[0.99]',
+        'h-10 rounded-card border px-4 text-body font-medium transition-colors active:scale-[0.99]',
         selected
           ? 'border-brand/70 bg-brand/5'
           : 'border-border/70 bg-background active:bg-background-hover',
@@ -575,7 +665,7 @@ function AttachmentPicker({
           {files.map((file, index) => (
             <span
               key={`${file.name}:${file.size}:${index}`}
-              className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-background px-2.5 py-1 text-label text-foreground"
+              className="inline-flex max-w-full items-center gap-1.5 rounded-card bg-background px-2.5 py-1 text-label text-foreground"
             >
               <Paperclip className="w-3.5 h-3.5 shrink-0" strokeWidth={1.8} />
               <span className="truncate max-w-[190px]">{file.name}</span>
@@ -585,7 +675,7 @@ function AttachmentPicker({
                 aria-label={t('support.removeAttachment')}
                 disabled={disabled}
                 onClick={() => onChange(files.filter((_, fileIndex) => fileIndex !== index))}
-                className="rounded-full p-0.5 text-foreground-muted disabled:opacity-40"
+                className="rounded-card p-0.5 text-foreground-muted disabled:opacity-40"
               >
                 <X className="w-3.5 h-3.5" strokeWidth={1.8} />
               </button>
@@ -598,7 +688,7 @@ function AttachmentPicker({
         disabled={disabled || files.length >= capabilities.maxCount}
         onClick={() => inputRef.current?.click()}
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background px-3 py-2 text-label font-semibold text-foreground transition-colors active:scale-[0.99] disabled:opacity-40',
+          'inline-flex items-center gap-1.5 rounded-card border border-border/70 bg-background px-3 py-2 text-label font-semibold text-foreground transition-colors active:scale-[0.99] disabled:opacity-40',
           compact && 'py-1.5',
         )}
       >
@@ -632,6 +722,7 @@ interface ConversationViewProps {
   onAttachmentsChange: (files: File[]) => void
   onAttachmentError: (message: string) => void
   onDownloadAttachment: (attachment: SupportAttachment) => void
+  onArchiveTicket: () => void
   onSendMessage: () => void
 }
 
@@ -647,13 +738,14 @@ function ConversationView({
   onAttachmentsChange,
   onAttachmentError,
   onDownloadAttachment,
+  onArchiveTicket,
   onSendMessage,
 }: ConversationViewProps) {
   const { t } = useTranslation()
   const isTerminal = isSupportTicketTerminal(ticket.status)
 
   return (
-    <section className="rounded-[28px] bg-background-card border border-border/70 overflow-hidden shadow-sm">
+    <section className="rounded-card bg-background-card border border-border/70 overflow-hidden shadow-sm">
       <div className="px-4 py-4 border-b border-border/70">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -662,7 +754,17 @@ function ConversationView({
               {t(`support.categories.${ticket.category}`)} · {formatSupportTime(ticket.updatedAt)}
             </p>
           </div>
-          <StatusPill status={ticket.status} />
+          <div className="flex items-center gap-2 shrink-0">
+            <StatusPill status={ticket.status} />
+            <button
+              type="button"
+              onClick={onArchiveTicket}
+              aria-label={t('support.deleteTicket')}
+              className="h-9 w-9 rounded-card bg-background text-foreground-muted flex items-center justify-center active:scale-[0.98] transition-transform"
+            >
+              <Trash2 className="w-4 h-4" strokeWidth={1.8} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -677,7 +779,7 @@ function ConversationView({
         ))}
         {isTerminal && (
           <div className="flex justify-center">
-            <p className="rounded-full bg-background px-3 py-1.5 text-label font-medium text-foreground-muted">
+            <p className="rounded-card bg-background px-3 py-1.5 text-label font-medium text-foreground-muted">
               {ticket.status === 'resolved' ? t('support.resolvedNotice') : t('support.closedNotice')}
             </p>
           </div>
@@ -694,7 +796,7 @@ function ConversationView({
             onChange={onAttachmentsChange}
             onError={onAttachmentError}
           />
-          <div className="flex items-end gap-2 rounded-2xl bg-background p-2 mt-2">
+          <div className="flex items-end gap-2 rounded-card bg-background p-2 mt-2">
             <textarea
               value={replyBody}
               onChange={(event) => onReplyBodyChange(event.target.value)}
@@ -708,7 +810,7 @@ function ConversationView({
               onClick={onSendMessage}
               disabled={(!replyBody.trim() && attachments.length === 0) || isSendingReply}
               aria-label={t('support.sendMessage')}
-              className="w-10 h-10 rounded-xl bg-brand text-white flex items-center justify-center disabled:opacity-40 active:scale-[0.98] transition-transform shrink-0"
+              className="w-10 h-10 rounded-card bg-brand text-white flex items-center justify-center disabled:opacity-40 active:scale-[0.98] transition-transform shrink-0"
             >
               <Send className="w-4 h-4" strokeWidth={1.8} />
             </button>
@@ -726,49 +828,120 @@ interface TicketCardProps {
   ticket: SupportTicket
   messages: SupportMessage[]
   onSelect: () => void
+  menuOpen: boolean
+  onMenuToggle: () => void
+  onTogglePinned: () => void
+  onMarkRead: () => void
+  onLeave: () => void
 }
 
-function TicketCard({ ticket, messages, onSelect }: TicketCardProps) {
+function TicketCard({
+  ticket,
+  messages,
+  onSelect,
+  menuOpen,
+  onMenuToggle,
+  onTogglePinned,
+  onMarkRead,
+  onLeave,
+}: TicketCardProps) {
   const { t } = useTranslation()
-  const unread = isTicketUnread(ticket, messages)
+  const unreadCount = countUnreadSupportReplies(ticket, messages)
+  const latestMessage = getLatestSupportMessage(messages)
+  const preview = formatTicketPreview(latestMessage, ticket, t)
 
   return (
-    <button
-      type="button"
-      onClick={onSelect}
+    <div
       className={cn(
-        'w-full rounded-3xl border p-4 text-left transition-colors active:scale-[0.99] active:bg-background-hover',
-        unread ? 'border-brand/45 bg-brand/5' : 'border-border/70 bg-background-card',
+        'relative w-full rounded-card border p-4 transition-colors',
+        unreadCount > 0 ? 'border-brand/45 bg-brand/5' : 'border-border/70 bg-background-card',
       )}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3 text-left">
         <div className={cn(
-          'h-12 w-12 rounded-[20px] flex items-center justify-center shrink-0 overflow-hidden',
-          unread ? 'bg-brand/15 ring-1 ring-brand/25' : 'bg-background',
+          'h-12 w-12 rounded-card flex items-center justify-center shrink-0 overflow-hidden',
+          unreadCount > 0 ? 'bg-brand/15 ring-1 ring-brand/25' : 'bg-background',
         )}>
           <img src={zappiLogo} alt="" className="h-8 w-8 object-contain" />
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-label text-foreground-subtle">
-            {formatSupportTime(ticket.updatedAt)}
-          </p>
-          <p className="text-body font-semibold text-foreground truncate mt-0.5">
-            {ticket.title}
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2 shrink-0">
-          <StatusPill status={ticket.status} />
-          <div className="h-5 flex items-center">
-            {unread ? (
-              <span className="rounded-full bg-brand px-2 py-0.5 text-label font-semibold text-white">
-                {t('support.unreadBadge')}
-              </span>
-            ) : (
-              <ChevronRight className="w-4 h-4 text-foreground-subtle" strokeWidth={1.8} />
+        <button type="button" onClick={onSelect} className="min-w-0 flex-1 text-left active:opacity-80">
+          <div className="flex items-center gap-2 min-w-0">
+            <p className={cn(
+              'text-body truncate',
+              unreadCount > 0 ? 'font-semibold text-foreground' : 'font-medium text-foreground',
+            )}>
+              {ticket.title}
+            </p>
+            <span className="text-label text-foreground-subtle shrink-0">
+              {formatSupportListDate(ticket.updatedAt)}
+            </span>
+            {ticket.pinnedAt !== undefined && (
+              <Pin className="w-3.5 h-3.5 text-brand shrink-0" strokeWidth={1.8} aria-hidden />
             )}
           </div>
+          <p className={cn(
+            'text-caption mt-1 truncate',
+            unreadCount > 0 ? 'font-medium text-foreground' : 'text-foreground-muted',
+          )}>
+            {preview}
+          </p>
+        </button>
+        <div className="flex items-center self-stretch shrink-0" data-support-ticket-menu>
+          <button
+            type="button"
+            onClick={onMenuToggle}
+            aria-label={
+              unreadCount > 0
+                ? `${t('support.ticketActions')}, ${t('support.unreadCount', { count: unreadCount })}`
+                : t('support.ticketActions')
+            }
+            className="relative h-10 w-10 rounded-card text-foreground-muted flex items-center justify-center active:bg-background-hover"
+          >
+            <MoreVertical className="w-5 h-5" strokeWidth={2} />
+            {unreadCount > 0 && (
+              <span className="pointer-events-none absolute -right-1 -top-1 min-w-5 h-5 px-1.5 rounded-full bg-accent-danger text-label font-semibold text-white flex items-center justify-center leading-none shadow-sm">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </button>
         </div>
       </div>
+      {menuOpen && (
+        <div className="absolute right-4 top-12 z-10 w-32 overflow-hidden rounded-card border border-border/70 bg-background-card shadow-lg" data-support-ticket-menu>
+          <ActionMenuItem onClick={onTogglePinned}>
+            {ticket.pinnedAt === undefined ? t('support.pinTicket') : t('support.unpinTicket')}
+          </ActionMenuItem>
+          <ActionMenuItem onClick={onMarkRead}>
+            {t('support.markRead')}
+          </ActionMenuItem>
+          <ActionMenuItem onClick={onLeave} danger>
+            {t('support.leaveTicket')}
+          </ActionMenuItem>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ActionMenuItem({
+  children,
+  danger = false,
+  onClick,
+}: {
+  children: ReactNode
+  danger?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'w-full px-4 py-3 text-left text-body font-medium active:bg-background-hover',
+        danger ? 'text-accent-danger' : 'text-foreground',
+      )}
+    >
+      {children}
     </button>
   )
 }
@@ -785,60 +958,83 @@ function MessageBubble({
   const { t } = useTranslation()
   const isCustomer = message.sender === 'customer'
 
-  return (
-    <div className={cn('flex', isCustomer ? 'justify-end' : 'justify-start')}>
-      <div
-        className={cn(
-          'rounded-[22px] px-3.5 py-2.5 max-w-[86%]',
-          isCustomer
-            ? 'bg-brand text-white rounded-br-md'
-            : 'bg-background text-foreground rounded-bl-md',
-        )}
-      >
-        {message.body && (
-          <p className="text-body whitespace-pre-wrap break-words leading-relaxed">{message.body}</p>
-        )}
-        {message.attachments && message.attachments.length > 0 && (
-          <div className={cn('space-y-1.5', message.body ? 'mt-2' : '')}>
-            {message.attachments.map((attachment) => (
-              <button
-                type="button"
-                key={attachment.id}
-                disabled={attachment.state !== 'available' || downloadingAttachmentIds.has(attachment.id)}
-                onClick={() => onDownloadAttachment(attachment)}
-                className={cn(
-                  'flex w-full items-center gap-2 rounded-2xl px-2.5 py-2 text-left transition-opacity disabled:opacity-70',
-                  isCustomer ? 'bg-white/12' : 'bg-background-card',
-                )}
-              >
-                <Paperclip className="w-3.5 h-3.5 shrink-0" strokeWidth={1.8} />
-                <span className="min-w-0">
-                  <span className="block truncate text-label font-semibold">
-                    {attachment.name || attachment.mime}
-                  </span>
-                  <span className={cn('block text-label', isCustomer ? 'text-white/70' : 'text-foreground-muted')}>
-                    {formatAttachmentSize(attachment.size)} · {
-                      attachment.state === 'available'
-                        ? downloadingAttachmentIds.has(attachment.id)
-                          ? t('support.downloadingAttachment')
-                          : t('support.downloadAttachment')
-                        : t('support.attachmentMetadataOnly')
-                    }
-                  </span>
+  const bubble = (
+    <div
+      className={cn(
+        'rounded-card px-3.5 py-2.5',
+        isCustomer && 'max-w-[86%]',
+        isCustomer
+          ? 'bg-brand text-white'
+          : 'bg-background text-foreground',
+      )}
+    >
+      {message.body && (
+        <p className="text-body whitespace-pre-wrap break-words leading-relaxed">{message.body}</p>
+      )}
+      {message.attachments && message.attachments.length > 0 && (
+        <div className={cn('space-y-1.5', message.body ? 'mt-2' : '')}>
+          {message.attachments.map((attachment) => (
+            <button
+              type="button"
+              key={attachment.id}
+              disabled={attachment.state !== 'available' || downloadingAttachmentIds.has(attachment.id)}
+              onClick={() => onDownloadAttachment(attachment)}
+              className={cn(
+                'flex w-full items-center gap-2 rounded-card px-2.5 py-2 text-left transition-opacity disabled:opacity-70',
+                isCustomer ? 'bg-white/12' : 'bg-background-card',
+              )}
+            >
+              <Paperclip className="w-3.5 h-3.5 shrink-0" strokeWidth={1.8} />
+              <span className="min-w-0">
+                <span className="block truncate text-label font-semibold">
+                  {attachment.name || attachment.mime}
                 </span>
-                {attachment.state === 'available' && (
-                  <Download className="ml-auto w-3.5 h-3.5 shrink-0" strokeWidth={1.8} />
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-        <p className={cn(
-          'text-label mt-1.5',
-          isCustomer ? 'text-white/70' : 'text-foreground-muted',
-        )}>
-          {formatSupportTime(message.createdAt)}
-        </p>
+                <span className={cn('block text-label', isCustomer ? 'text-white/70' : 'text-foreground-muted')}>
+                  {formatAttachmentSize(attachment.size)} · {
+                    attachment.state === 'available'
+                      ? downloadingAttachmentIds.has(attachment.id)
+                        ? t('support.downloadingAttachment')
+                        : t('support.downloadAttachment')
+                      : t('support.attachmentMetadataOnly')
+                  }
+                </span>
+              </span>
+              {attachment.state === 'available' && (
+                <Download className="ml-auto w-3.5 h-3.5 shrink-0" strokeWidth={1.8} />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+      <p className={cn(
+        'text-label mt-1.5',
+        isCustomer ? 'text-white/70' : 'text-foreground-muted',
+      )}>
+        {formatSupportTime(message.createdAt)}
+      </p>
+    </div>
+  )
+
+  if (isCustomer) {
+    return (
+      <div className="flex justify-end">
+        {bubble}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex justify-start">
+      <div className="flex max-w-[86%] items-start gap-2">
+        <div className="mt-0.5 h-9 w-9 rounded-card border border-border/70 bg-background-card flex shrink-0 items-center justify-center overflow-hidden">
+          <img src={zappiLogo} alt="" className="h-6 w-6 object-contain" />
+        </div>
+        <div className="min-w-0">
+          <p className="mb-1 text-label font-semibold text-foreground-muted">
+            {t('support.teamName')}
+          </p>
+          {bubble}
+        </div>
       </div>
     </div>
   )
@@ -872,7 +1068,7 @@ function StatusPill({ status }: { status: SupportTicketStatus }) {
 
   return (
     <span className={cn(
-      'shrink-0 rounded-full px-2.5 py-1 text-label font-semibold',
+      'shrink-0 rounded-card px-2.5 py-1 text-label font-semibold',
       status === 'open' && 'bg-brand/10 text-brand',
       status === 'in_progress' && 'bg-amber-500/10 text-amber-600',
       status === 'resolved' && 'bg-emerald-500/10 text-emerald-600',
@@ -907,18 +1103,6 @@ function getConversationMessages(
   ]
 }
 
-function isTicketUnread(ticket: SupportTicket, messages: SupportMessage[]): boolean {
-  const latestSupportAt = getLatestSupportMessageAt(messages)
-  return latestSupportAt > (ticket.readAt ?? 0)
-}
-
-function getLatestSupportMessageAt(messages: SupportMessage[]): number {
-  return messages.reduce((latest, message) => {
-    if (message.sender !== 'support') return latest
-    return Math.max(latest, message.createdAt)
-  }, 0)
-}
-
 async function filesToSupportAttachments(files: File[]): Promise<SupportAttachmentUpload[]> {
   return Promise.all(files.map(async (file) => ({
     name: file.name,
@@ -926,6 +1110,31 @@ async function filesToSupportAttachments(files: File[]): Promise<SupportAttachme
     size: file.size,
     data: new Uint8Array(await file.arrayBuffer()),
   })))
+}
+
+function formatTicketPreview(
+  latestMessage: SupportMessage | null,
+  ticket: SupportTicket,
+  t: (key: string) => string,
+): string {
+  if (ticket.status === 'resolved') return t('support.resolvedNotice')
+  if (ticket.status === 'closed') return t('support.closedNotice')
+
+  const source = latestMessage ?? {
+    body: ticket.body,
+    attachments: [],
+  }
+  const body = source.body.trim()
+  if (body) return truncatePreview(body)
+  const attachments = source.attachments ?? []
+  if (attachments.length > 0) return t('support.filePreview')
+  return truncatePreview(ticket.body)
+}
+
+function truncatePreview(text: string): string {
+  const normalized = text.replace(/\s+/g, ' ').trim()
+  if (normalized.length <= 42) return normalized
+  return `${normalized.slice(0, 42)}...`
 }
 
 function saveDownloadedAttachment(data: Uint8Array, mime: string, name?: string): void {
@@ -955,4 +1164,9 @@ function formatSupportTime(timestamp: number): string {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+function formatSupportListDate(timestamp: number): string {
+  const date = new Date(timestamp)
+  return `${date.getMonth() + 1}.${date.getDate()}`
 }

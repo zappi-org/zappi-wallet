@@ -75,6 +75,40 @@ export class DexieCustomerSupportHistoryStore implements CustomerSupportHistoryS
 
     await this.db.supportTickets.update(ticketId, { readAt })
   }
+
+  async archiveTicket(
+    scope: CustomerSupportHistoryScope,
+    ticketId: string,
+    archivedAt: number,
+  ): Promise<void> {
+    const existing = await this.db.supportTickets.get(ticketId)
+    if (
+      !existing ||
+      existing.customerId !== scope.customerId ||
+      existing.agentPubkey !== scope.agentPubkey
+    ) {
+      return
+    }
+
+    await this.db.supportTickets.update(ticketId, { archivedAt })
+  }
+
+  async setTicketPinned(
+    scope: CustomerSupportHistoryScope,
+    ticketId: string,
+    pinnedAt: number | null,
+  ): Promise<void> {
+    const existing = await this.db.supportTickets.get(ticketId)
+    if (
+      !existing ||
+      existing.customerId !== scope.customerId ||
+      existing.agentPubkey !== scope.agentPubkey
+    ) {
+      return
+    }
+
+    await this.db.supportTickets.update(ticketId, { pinnedAt: pinnedAt ?? undefined })
+  }
 }
 
 function toTicket(record: SupportTicketRecord): SupportTicket {
@@ -89,6 +123,8 @@ function toTicket(record: SupportTicketRecord): SupportTicket {
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
     ...(record.readAt ? { readAt: record.readAt } : {}),
+    ...(record.archivedAt ? { archivedAt: record.archivedAt } : {}),
+    ...(record.pinnedAt ? { pinnedAt: record.pinnedAt } : {}),
   }
 }
 

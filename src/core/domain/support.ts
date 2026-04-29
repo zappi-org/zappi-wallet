@@ -22,6 +22,8 @@ export interface SupportTicket {
   createdAt: number
   updatedAt: number
   readAt?: number
+  archivedAt?: number
+  pinnedAt?: number
 }
 
 export interface SupportAttachment {
@@ -102,6 +104,28 @@ export interface DownloadSupportAttachmentInput {
 
 export function isSupportTicketTerminal(status: SupportTicketStatus): boolean {
   return status === 'resolved' || status === 'closed'
+}
+
+export function countUnreadSupportReplies(ticket: SupportTicket, messages: SupportMessage[]): number {
+  const readAt = ticket.readAt ?? 0
+  return messages.reduce((count, message) => {
+    if (message.sender !== 'support') return count
+    return message.createdAt > readAt ? count + 1 : count
+  }, 0)
+}
+
+export function getLatestSupportMessage(messages: SupportMessage[]): SupportMessage | null {
+  return messages.reduce<SupportMessage | null>((latest, message) => {
+    if (!latest || message.createdAt > latest.createdAt) return message
+    return latest
+  }, null)
+}
+
+export function getLatestSupportMessageAt(messages: SupportMessage[]): number {
+  return messages.reduce((latest, message) => {
+    if (message.sender !== 'support') return latest
+    return Math.max(latest, message.createdAt)
+  }, 0)
 }
 
 export type SupportListener = (snapshot: SupportSnapshot) => void

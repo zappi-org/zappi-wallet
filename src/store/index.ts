@@ -82,6 +82,9 @@ export const useAppStore = create<AppState>()(
           isInitializing: true,
           isProcessingPayment: false,
           currentAmount: 0,
+          supportUnreadCount: 0,
+          supportUnreadTicketIds: [],
+          activeSupportTicketId: null,
           // Settings
           settings: {
             mints: [...DEFAULT_MINTS],

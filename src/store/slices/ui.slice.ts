@@ -43,6 +43,9 @@ export interface UISliceState {
 
   // Notification
   lastNotificationCheckedAt: number | null
+  supportUnreadCount: number
+  supportUnreadTicketIds: string[]
+  activeSupportTicketId: string | null
 
   // PWA update
   updateAvailable: boolean
@@ -59,6 +62,8 @@ export interface UISliceState {
   setProcessingPayment: (processing: boolean) => void
   setCurrentAmount: (amount: number) => void
   markNotificationsRead: () => void
+  setSupportUnreadSummary: (count: number, ticketIds: string[]) => void
+  setActiveSupportTicketId: (ticketId: string | null) => void
   setUpdateAvailable: (available: boolean) => void
   reset: () => void
 }
@@ -75,6 +80,9 @@ const initialState = {
   isProcessingPayment: false,
   currentAmount: 0,
   lastNotificationCheckedAt: null as number | null,
+  supportUnreadCount: 0,
+  supportUnreadTicketIds: [] as string[],
+  activeSupportTicketId: null as string | null,
   updateAvailable: false,
 }
 
@@ -125,6 +133,11 @@ export const createUISlice: StateCreator<UISliceState> = (set) => ({
   setCurrentAmount: (currentAmount) => set({ currentAmount }),
 
   markNotificationsRead: () => set({ lastNotificationCheckedAt: Date.now() }),
+
+  setSupportUnreadSummary: (supportUnreadCount, supportUnreadTicketIds) =>
+    set({ supportUnreadCount, supportUnreadTicketIds }),
+
+  setActiveSupportTicketId: (activeSupportTicketId) => set({ activeSupportTicketId }),
 
   setUpdateAvailable: (updateAvailable) => set({ updateAvailable }),
 

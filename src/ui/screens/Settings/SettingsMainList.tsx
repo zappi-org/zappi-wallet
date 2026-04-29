@@ -24,6 +24,7 @@ export function SettingsMainList({
 }: SettingsMainListProps) {
   const { t } = useTranslation()
   const updateAvailable = useAppStore((s) => s.updateAvailable)
+  const supportUnreadCount = useAppStore((s) => s.supportUnreadCount)
 
   return (
     <div className="flex-1 overflow-y-auto pb-28">
@@ -40,20 +41,28 @@ export function SettingsMainList({
 
       {/* Category cards */}
       <div className="px-4 pt-4 flex flex-col gap-2.5">
-        {categories.map(({ Icon, titleKey, descKey, page }) => (
-          <button
-            key={page}
-            onClick={() => onNavigate(page)}
-            className="w-full bg-background-card rounded-card px-4 py-4 flex items-center gap-3.5 active:scale-[0.98] active:opacity-80 transition-all text-left"
-          >
-            <Icon className="w-[22px] h-[22px] text-foreground-muted shrink-0" strokeWidth={1.8} />
-            <div className="flex-1 min-w-0">
-              <p className="text-body font-semibold text-foreground">{t(titleKey)}</p>
-              <p className="text-caption text-foreground-muted mt-0.5 truncate">{t(descKey)}</p>
-            </div>
-            <ChevronRight className="w-[18px] h-[18px] text-foreground-subtle shrink-0" strokeWidth={1.8} />
-          </button>
-        ))}
+        {categories.map(({ Icon, titleKey, descKey, page }) => {
+          const badge = page === 'category-profile' ? supportUnreadCount : 0
+          return (
+            <button
+              key={page}
+              onClick={() => onNavigate(page)}
+              className="w-full bg-background-card rounded-card px-4 py-4 flex items-center gap-3.5 active:scale-[0.98] active:opacity-80 transition-all text-left"
+            >
+              <Icon className="w-[22px] h-[22px] text-foreground-muted shrink-0" strokeWidth={1.8} />
+              <div className="flex-1 min-w-0">
+                <p className="text-body font-semibold text-foreground">{t(titleKey)}</p>
+                <p className="text-caption text-foreground-muted mt-0.5 truncate">{t(descKey)}</p>
+              </div>
+              {badge > 0 && (
+                <span className="min-w-5 h-5 px-1.5 rounded-full bg-accent-danger text-white text-label font-semibold flex items-center justify-center leading-none">
+                  {badge > 99 ? '99+' : badge}
+                </span>
+              )}
+              <ChevronRight className="w-[18px] h-[18px] text-foreground-subtle shrink-0" strokeWidth={1.8} />
+            </button>
+          )
+        })}
       </div>
 
       {/* Logout */}

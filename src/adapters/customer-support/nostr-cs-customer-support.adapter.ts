@@ -76,7 +76,9 @@ export class NostrCsCustomerSupportAdapter implements CustomerSupportChannel {
         },
       },
       customerId: this.customerId,
-      tickets: [...this.tickets.values()].sort((a, b) => b.updatedAt - a.updatedAt),
+      tickets: [...this.tickets.values()]
+        .filter((ticket) => ticket.archivedAt === undefined)
+        .sort(compareSupportTickets),
       messages: Object.fromEntries(
         [...this.messages.entries()].map(([ticketId, list]) => [
           ticketId,
@@ -231,6 +233,9 @@ export class NostrCsCustomerSupportAdapter implements CustomerSupportChannel {
     if (!ticket) {
       throw new Error('Support ticket not found')
     }
+    if (ticket.archivedAt !== undefined) {
+      throw new Error('Support ticket is archived')
+    }
     if (isSupportTicketTerminal(ticket.status)) {
       throw new Error('Support ticket is already resolved')
     }
@@ -262,6 +267,52 @@ export class NostrCsCustomerSupportAdapter implements CustomerSupportChannel {
     })
     this.touchTicket(ticket.id)
     this.emit()
+  }
+
+  async archiveTicket(ticketId: string, archivedAt = Date.now()): Promise<void> {
+    const ticket = this.tickets.get(ticketId)
+    if (!ticket) return
+
+    const updated = { ...ticket, archivedAt }
+    this.tickets.set(ticketId, updated)
+    this.emit()
+
+    const scope = this.getHistoryScope()
+    if (!scope || !this.historyStore) return
+
+    try {
+      await this.historyStore.archiveTicket(scope, ticketId, archivedAt)
+    } catch (error) {
+      this.tickets.set(ticketId, ticket)
+      this.emit()
+      throw error
+    }
+  }
+
+  async setTicketPinned(ticketId: string, pinnedAt: number | null): Promise<void> {
+    const ticket = this.tickets.get(ticketId)
+    if (!ticket) return
+
+    const updated = {
+      ...ticket,
+      ...(pinnedAt === null ? {} : { pinnedAt }),
+    }
+    if (pinnedAt === null) {
+      delete updated.pinnedAt
+    }
+    this.tickets.set(ticketId, updated)
+    this.emit()
+
+    const scope = this.getHistoryScope()
+    if (!scope || !this.historyStore) return
+
+    try {
+      await this.historyStore.setTicketPinned(scope, ticketId, pinnedAt)
+    } catch (error) {
+      this.tickets.set(ticketId, ticket)
+      this.emit()
+      throw error
+    }
   }
 
   async downloadAttachment(input: DownloadSupportAttachmentInput): Promise<SupportAttachmentDownload> {
@@ -420,17 +471,23 @@ export class NostrCsCustomerSupportAdapter implements CustomerSupportChannel {
     const previous = this.tickets.get(id)
     const decoded = decodeSupportEnvelope(ticket.body)
     this.registerAttachmentSources(decoded.encryptedAttachments)
+    const incomingStatus = ticket.status as SupportTicketStatus
+    const status = previous && previous.updatedAt > createdAt
+      ? previous.status
+      : incomingStatus
     const mapped: SupportTicket = {
       id,
       threadId: ticket.eventId,
       title: ticket.title,
       body: decoded.text,
-      status: ticket.status as SupportTicketStatus,
+      status,
       priority: ticket.priority as SupportPriority,
       category: ticket.category,
       createdAt,
       updatedAt: previous?.updatedAt ?? createdAt,
       ...(previous?.readAt ? { readAt: previous.readAt } : {}),
+      ...(previous?.archivedAt ? { archivedAt: previous.archivedAt } : {}),
+      ...(previous?.pinnedAt ? { pinnedAt: previous.pinnedAt } : {}),
     }
     this.tickets.set(id, mapped)
     this.persistTicket(mapped)
@@ -616,6 +673,13 @@ interface UploadedAttachment extends UploadedSupportAttachmentBlob {
 
 function toSdkPriority(priority: SupportPriority): 'normal' | 'high' {
   return priority
+}
+
+function compareSupportTickets(a: SupportTicket, b: SupportTicket): number {
+  if (a.pinnedAt !== undefined || b.pinnedAt !== undefined) {
+    return (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0)
+  }
+  return b.updatedAt - a.updatedAt
 }
 
 function decodeSupportEnvelope(body: string): {

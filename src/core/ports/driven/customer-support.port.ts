@@ -20,5 +20,7 @@ export interface CustomerSupportChannel {
   sendMessage(input: SendSupportMessageInput): Promise<void>
   downloadAttachment(input: DownloadSupportAttachmentInput): Promise<SupportAttachmentDownload>
   markTicketRead(ticketId: string, readAt?: number): Promise<void>
+  setTicketPinned(ticketId: string, pinnedAt: number | null): Promise<void>
+  archiveTicket(ticketId: string, archivedAt?: number): Promise<void>
   subscribe(listener: SupportListener): () => void
 }

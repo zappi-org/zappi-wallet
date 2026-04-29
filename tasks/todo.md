@@ -1,4 +1,34 @@
-# Current Task — Customer Support UX, Sync, and Attachments
+# Current Task — Customer Support Inbox Unread UX
+
+- [x] Re-check root and wallet rules before changing support UX
+- [x] Add protocol-neutral local archive support for customer-side inquiry deletion
+- [x] Add global support unread summary state and reply toast watcher
+- [x] Propagate unread badges from root settings navigation to profile, support history, and ticket cards
+- [x] Preserve agent-side resolved/closed status after restart when the original ticket event replays
+- [x] Rework support history cards to remove card status/chevron, show compact date next to title, show terminal copy in preview, and keep unread reply count
+- [x] Add a vertical action menu for pin/unpin, mark read, and local leave/archive actions
+- [x] Polish support card details: pinned icon next to the date, centered larger action button, outside-click menu dismissal, unread badge overlay, and support UI radius aligned to `rounded-card`
+- [x] Polish support conversation details: support-agent messages show the Zappi logo and `Zappi team`, and the support page no longer reserves excessive bottom padding
+- [x] Persist pin/read/archive state in the support history store without sending unsupported customer-side resolve/close events
+- [x] Run focused support tests, typecheck, lint, hex-review, full tests/build, security/hardcoding scans, and `git diff --check`
+
+Review
+- Customer-side deletion is implemented as local archive/hide only. It does not send a forged customer-side resolve/close event to the support agent.
+- Agent-side resolved/closed status is persisted in Dexie and no longer downgrades to `open` if the original ticket event is replayed after restart.
+- Unread counts are calculated from support-agent messages newer than each ticket's `readAt`; customer messages do not count as unread.
+- The global support watcher suppresses toasts during initial cache/relay hydration, then shows a toast only for newly observed support-agent replies.
+- Opening a ticket still marks it read through the support use case, clearing the global badge path.
+- Support history cards no longer display a status badge or right chevron. The title row shows the compact date (`M.D`), resolved/closed tickets show terminal copy in the preview line, and the card action menu exposes pin/unpin, read, and leave.
+- Pinned tickets show a pin icon next to the compact date. The three-dot action button is vertically centered and larger, the menu closes on outside click or Escape, and unread counts are rendered as an overlay badge instead of reserving separate card space.
+- Support-agent conversation bubbles now render like a messenger thread with the Zappi logo avatar and `Zappi team` label; customer messages remain right-aligned.
+- The support page bottom padding was reduced from `pb-28` to `pb-6` because this full-screen settings overlay does not need to reserve bottom-tab space.
+- Support page cards, forms, inputs, menus, attachment controls, and message bubbles now use the same `rounded-card` radius as the app's registration buttons; numeric unread badges keep the existing rounded badge shape.
+- Pinning, marking read, and leaving are implemented through protocol-neutral support use case methods backed by the support adapter/history store. No UI code mutates Dexie directly.
+- Verification passed: focused support tests (4 files / 16 tests), support notification hook tests (3 tests), `npx tsc --noEmit`, `bun run lint`, `node .claude/skills/hex-review/scripts/check-hex-violations.mjs src`, `bun run test -- --run` (89 files / 649 tests), `bun run build`, and `git diff --check`. Build still emits the existing Vite dynamic-import/chunk-size warnings.
+- Manual audit found no new hardcoded support agent/relay/secret values, no unsafe HTML rendering, no hack/workaround markers in touched support paths, and no core/adapter hex-boundary violation in touched paths. The remaining sensitive-word matches are existing support privacy copy warning users not to enter private keys/recovery words.
+- Skill discovery confirmed wallet-local `hex-review` exists and root `verify-implementation` exists under `../.claude/skills`; wallet-local `verify-*` skills still do not exist.
+
+# Previous Task — Customer Support UX, Sync, and Attachments
 
 - [x] Remove customer-facing technical relay wording from support loading/sending states
 - [x] Treat resolved/closed support tickets as terminal in the core support flow, not only in the UI

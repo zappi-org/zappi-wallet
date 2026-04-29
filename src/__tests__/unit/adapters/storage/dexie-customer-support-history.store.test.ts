@@ -22,6 +22,8 @@ describe('DexieCustomerSupportHistoryStore', () => {
       createdAt: 1,
       updatedAt: 3,
       readAt: 2,
+      archivedAt: 4,
+      pinnedAt: 7,
     })
     await store.saveMessage(scope, {
       id: 'message-1',
@@ -53,7 +55,13 @@ describe('DexieCustomerSupportHistoryStore', () => {
 
     const history = await store.load(scope)
 
-    expect(history.tickets).toMatchObject([{ id: 'ticket-1', category: 'technical', readAt: 2 }])
+    expect(history.tickets).toMatchObject([{
+      id: 'ticket-1',
+      category: 'technical',
+      readAt: 2,
+      archivedAt: 4,
+      pinnedAt: 7,
+    }])
     expect(history.messages['ticket-1']).toMatchObject([{
       id: 'message-1',
       body: 'Reply body',
@@ -65,5 +73,18 @@ describe('DexieCustomerSupportHistoryStore', () => {
     await expect(store.load(scope)).resolves.toMatchObject({
       tickets: [{ id: 'ticket-1', readAt: 5 }],
     })
+
+    await store.archiveTicket(scope, 'ticket-1', 6)
+    await expect(store.load(scope)).resolves.toMatchObject({
+      tickets: [{ id: 'ticket-1', archivedAt: 6 }],
+    })
+
+    await store.setTicketPinned(scope, 'ticket-1', 8)
+    await expect(store.load(scope)).resolves.toMatchObject({
+      tickets: [{ id: 'ticket-1', pinnedAt: 8 }],
+    })
+
+    await store.setTicketPinned(scope, 'ticket-1', null)
+    expect((await store.load(scope)).tickets[0]?.pinnedAt).toBeUndefined()
   })
 })

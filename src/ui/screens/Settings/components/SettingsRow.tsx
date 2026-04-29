@@ -9,6 +9,7 @@ interface SettingsRowProps {
   variant?: 'nav' | 'copy' | 'danger'
   mono?: boolean
   truncateValue?: boolean
+  badge?: number
 }
 
 export function SettingsRow({
@@ -18,6 +19,7 @@ export function SettingsRow({
   variant = 'nav',
   mono = false,
   truncateValue = false,
+  badge,
 }: SettingsRowProps) {
   const [copied, setCopied] = useState(false)
 
@@ -41,6 +43,11 @@ export function SettingsRow({
         {label}
       </span>
       <div className="flex items-center gap-1.5 min-w-0 ml-3">
+        {badge !== undefined && badge > 0 && (
+          <span className="min-w-5 h-5 px-1.5 rounded-full bg-accent-danger text-white text-label font-semibold flex items-center justify-center leading-none">
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
         {value && (
           <span className={cn(
             'text-body text-foreground-muted',
