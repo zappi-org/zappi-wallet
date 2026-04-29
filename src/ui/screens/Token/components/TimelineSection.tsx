@@ -59,7 +59,7 @@ function buildAnchor(
       }
       let monthName = String(group.month)
       try {
-        monthName = new Intl.DateTimeFormat(locale, { month: 'long' }).format(
+        monthName = new Intl.DateTimeFormat(locale, { month: 'short' }).format(
           new Date(group.year, group.month - 1, 1),
         )
       } catch { /* ignore */ }
