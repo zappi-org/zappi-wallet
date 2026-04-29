@@ -1,7 +1,7 @@
 import { type CSSProperties, type RefObject } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useTranslation } from 'react-i18next'
-import { Coins } from 'lucide-react'
+import { Coins, Plus, QrCode } from 'lucide-react'
 
 import type { NavItem } from './BottomNav'
 import { useScrollHysteresis } from '@/ui/hooks/use-scroll-hysteresis'
@@ -142,48 +142,48 @@ export function TokenTabToolbar({
       </motion.div>
 
       {/* ---- RIGHT CLUSTER ---- */}
-      <motion.div
-        layout
-        transition={tweenTransition}
-        className={`rounded-full overflow-hidden p-1.5 ${
-          state === 'TOKEN_TOP' ? 'w-[50%]' : ''
-        }`}
-        style={state === 'TOKEN_TOP' ? brandStyle : glassStyle}
-      >
-        <AnimatePresence mode="popLayout" initial={false}>
-          {state === 'TOKEN_TOP' ? (
-            <motion.div
-              key="create-register"
-              variants={fadeVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              transition={tweenTransition}
-              className="flex items-center gap-1 w-full h-[48px]"
+      <AnimatePresence mode="popLayout" initial={false}>
+        {state === 'TOKEN_TOP' ? (
+          <motion.div
+            key="create-register-pair"
+            variants={fadeVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={tweenTransition}
+            className="flex items-center gap-3"
+          >
+            <button
+              type="button"
+              onClick={onCreate}
+              className="flex items-center justify-center gap-1 h-[60px] w-[120px] rounded-full text-white text-sm font-semibold"
+              style={brandStyle}
             >
-              <button
-                type="button"
-                onClick={onCreate}
-                className="flex-1 h-[48px] rounded-full bg-white text-brand text-sm font-semibold"
-              >
-                {t('token.create')}
-              </button>
-              <button
-                type="button"
-                onClick={onRegister}
-                className="flex-1 h-[48px] rounded-full text-white text-sm font-semibold"
-              >
-                {t('token.register')}
-              </button>
-            </motion.div>
-          ) : (
-            <motion.button
-              key="token-pill"
-              variants={fadeVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              transition={tweenTransition}
+              <Plus className="w-[18px] h-[18px]" strokeWidth={2.4} />
+              {t('token.create')}
+            </button>
+            <button
+              type="button"
+              onClick={onRegister}
+              className="flex items-center justify-center gap-1 h-[60px] w-[120px] rounded-full text-white text-sm font-semibold"
+              style={brandStyle}
+            >
+              <QrCode className="w-[18px] h-[18px]" strokeWidth={2.4} />
+              {t('token.register')}
+            </button>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="token-pill"
+            variants={fadeVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={tweenTransition}
+            className="rounded-full overflow-hidden p-1.5"
+            style={glassStyle}
+          >
+            <button
               type="button"
               onClick={handleRightTokenTap}
               className="flex flex-col items-center justify-center px-4 h-[48px] rounded-full text-foreground/80"
@@ -194,10 +194,10 @@ export function TokenTabToolbar({
               <span className="text-[10px] font-semibold leading-none mt-[1px]">
                 {tokenItem?.label ?? t('nav.token')}
               </span>
-            </motion.button>
-          )}
-        </AnimatePresence>
-      </motion.div>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.nav>
   )
 }
