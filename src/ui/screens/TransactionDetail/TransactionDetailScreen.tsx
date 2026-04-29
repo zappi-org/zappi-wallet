@@ -151,7 +151,7 @@ export default function TransactionDetailScreen({
     if (isLightning && !isReceive) return t('history.lightningSend')
     if (isNutzap) return 'NutZap'
     if (isReclaimed) return t('history.ecashReclaim')
-    if (isEcashToken) return t('history.ecashToken')
+    if (isEcashToken) return isReceive ? t('history.ecashRegister') : t('history.ecashToken')
     if (isEcash && isReceive) return t('history.ecashReceive')
     return t('history.ecashSend')
   }, [isSwap, isLightning, isEcash, isEcashToken, isNutzap, isReceive, isReclaimed, t])
