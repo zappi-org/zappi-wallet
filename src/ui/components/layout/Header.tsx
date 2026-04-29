@@ -30,7 +30,7 @@ export function Header({
 
       {/* Center Section - always absolutely centered */}
       {title ? (
-        <h1 className="absolute inset-0 flex items-center justify-center px-16 text-center text-heading font-bold text-foreground pointer-events-none truncate">
+        <h1 className="absolute left-1/2 -translate-x-1/2 text-subtitle font-semibold truncate max-w-[50%]">
           {title}
         </h1>
       ) : children ? (

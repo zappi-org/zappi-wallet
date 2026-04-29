@@ -71,7 +71,7 @@ export function SettingsMainList({
   }, [])
 
   return (
-    <div className="flex-1 overflow-y-auto pb-6">
+    <div className="flex-1 overflow-y-auto pb-app-nav">
       {/* Category cards */}
       <div className="px-4 pt-4 flex flex-col gap-2.5">
         {categories.map(({ Icon, titleKey, descKey, page }) => (

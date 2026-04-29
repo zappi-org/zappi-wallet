@@ -231,7 +231,7 @@ export function ReceiveInputStep({
       </div>
 
       {/* Bottom button */}
-      <div className="px-6 pb-6 shrink-0">
+      <div className="px-6 pb-app shrink-0">
         <Button
           variant="brand"
           size="xl"

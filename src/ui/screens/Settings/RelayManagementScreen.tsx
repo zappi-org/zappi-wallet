@@ -169,7 +169,7 @@ export function RelayManagementScreen({
         >
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="absolute inset-0 flex items-center justify-center px-16 text-center text-heading font-bold text-foreground pointer-events-none truncate">{t('settings.manageRelays')}</h2>
+        <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('settings.manageRelays')}</h2>
         <span className={cn(
           "text-caption font-semibold font-mono z-10 tabular-nums",
           isAtLimit ? "text-accent-danger" : "text-foreground-muted"

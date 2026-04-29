@@ -139,7 +139,7 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
         >
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="absolute inset-0 flex items-center justify-center px-16 text-center text-heading font-bold text-foreground pointer-events-none truncate">
+        <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">
           {t('mintDetail.pendingAll')}
         </h2>
         <div className="w-10" />
@@ -185,7 +185,7 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
       </div>
 
       {/* Content */}
-      <main className="flex-1 overflow-y-auto px-4">
+      <main className="flex-1 overflow-y-auto px-4 pb-app">
         {groups.length === 0 ? (
           <p className="text-caption text-foreground-muted text-center py-8">
             {t('mintDetail.noPendingItems')}

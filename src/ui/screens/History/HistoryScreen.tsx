@@ -297,7 +297,7 @@ export function HistoryScreen({
         >
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="absolute inset-0 flex items-center justify-center px-16 text-center text-heading font-bold text-foreground pointer-events-none truncate">{t('history.title')}</h2>
+        <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('history.title')}</h2>
         <button
           onClick={handleExportPress}
           aria-label={t('history.export')}
@@ -347,7 +347,7 @@ export function HistoryScreen({
       </div>
 
       {/* List */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-5">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-5 pb-app">
         {isLoading ? (
           <TransactionListSkeleton count={6} />
         ) : timelineGroups.length === 0 ? (

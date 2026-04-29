@@ -107,7 +107,7 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
       {/* Header */}
       <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
         <div className="w-10" />
-        <h1 className="absolute inset-0 flex items-center justify-center px-16 text-center text-heading font-bold text-foreground pointer-events-none truncate">
+        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold text-foreground pointer-events-none">
           {t('contacts.title')}
         </h1>
         <button
@@ -136,7 +136,7 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
       )}
 
       {/* Contact List */}
-      <div className="flex-1 overflow-y-auto pb-6">
+      <div className="flex-1 overflow-y-auto pb-app-nav">
         {contacts.length === 0 ? (
           <EmptyState
             icon={<BookUser className="w-7 h-7" />}

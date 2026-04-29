@@ -27,7 +27,7 @@ export function BottomActionBar({
     <div
       className={cn('px-2 shrink-0 flex flex-col', GAP_CLASS[gap], className)}
       style={{
-        paddingBottom: extraBottom,
+        paddingBottom: `calc(${extraBottom}px + var(--safe-area-inset-bottom))`,
       }}
     >
       {children}

@@ -98,7 +98,7 @@ export function ReclaimSheet({
 
             <div
               className="px-5 pt-4"
-              style={{ paddingBottom: 24 }}
+              style={{ paddingBottom: 'var(--app-bottom-padding)' }}
             >
               <div className="flex flex-col gap-3 rounded-xl bg-background px-4 py-4">
                 {tokens.map((tk) => (

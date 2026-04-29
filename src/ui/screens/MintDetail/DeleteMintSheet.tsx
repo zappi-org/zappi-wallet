@@ -109,7 +109,7 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
           </button>
         </div>
 
-        <div className="px-6 pb-6">
+        <div className="px-6 pb-app">
           {step === 'confirm-empty' && (
             <div className="space-y-6">
               <p className="text-center text-subtitle font-medium text-foreground">

@@ -82,7 +82,7 @@ export function TokenQrSheet({
 
             <div
               className="flex flex-col gap-4 px-5"
-              style={{ paddingBottom: 24 }}
+              style={{ paddingBottom: 'var(--app-bottom-padding)' }}
             >
               <div className="flex items-center justify-between pb-1">
                 <div className="w-6 h-6 shrink-0" />

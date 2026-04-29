@@ -36,7 +36,7 @@ export function SupportedNutsModal({ isOpen, nuts, nutNames, onClose }: Supporte
         </div>
 
         {/* NUT List */}
-        <div className="px-6 pb-6 overflow-y-auto">
+        <div className="px-6 pb-app overflow-y-auto">
           <div className="bg-background-card rounded-xl overflow-hidden border border-border">
             {nuts.map((nut, i) => (
               <div
@@ -55,7 +55,7 @@ export function SupportedNutsModal({ isOpen, nuts, nutNames, onClose }: Supporte
         </div>
 
         {/* Close button */}
-        <div className="px-6 pb-6 shrink-0">
+        <div className="px-6 pb-app shrink-0">
           <Button variant="brand" size="lg" onClick={onClose} className="w-full">
             {t('common.close')}
           </Button>

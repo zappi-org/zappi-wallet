@@ -90,7 +90,7 @@ export function PinChangePage({ pinChange }: PinChangePageProps) {
           >
             <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
           </button>
-          <h1 className="absolute inset-0 flex items-center justify-center px-16 text-center text-heading font-bold text-foreground pointer-events-none truncate">{t('settings.changePin')}</h1>
+          <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold text-foreground pointer-events-none">{t('settings.changePin')}</h1>
           <div className="w-10" />
         </header>
 

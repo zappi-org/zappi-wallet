@@ -157,7 +157,7 @@ export function MintManagementScreen({
         >
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="absolute inset-0 flex items-center justify-center px-16 text-center text-heading font-bold text-foreground pointer-events-none truncate">{t('settings.manageMints')}</h2>
+        <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('settings.manageMints')}</h2>
         <span className="text-caption font-semibold font-mono z-10 tabular-nums text-foreground-muted">
           {mints.length}<span className="text-foreground-muted/50">/{LIMITS.MAX_MINTS}</span>
         </span>

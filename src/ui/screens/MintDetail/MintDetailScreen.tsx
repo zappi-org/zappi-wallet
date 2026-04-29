@@ -123,7 +123,7 @@ export function MintDetailScreen({
         >
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h1 className="absolute inset-0 flex items-center justify-center px-16 text-center text-heading font-bold text-foreground pointer-events-none truncate">
+        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold text-foreground pointer-events-none">
           {t('mintDetail.title')}
         </h1>
         <button
@@ -136,7 +136,7 @@ export function MintDetailScreen({
       </header>
 
       {/* Scrollable Content */}
-      <main className="flex-1 overflow-y-auto pb-8">
+      <main className="flex-1 overflow-y-auto pb-app">
         {/* Mint Card — with inline rename */}
         <div className="flex justify-center pt-2">
           <MintCard

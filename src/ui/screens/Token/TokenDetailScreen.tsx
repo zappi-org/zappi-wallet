@@ -265,7 +265,7 @@ export function TokenDetailScreen({
       {isPending && (
         <div
           className="shrink-0 px-[18px] pt-3 flex justify-center"
-          style={{ paddingBottom: 24 }}
+          style={{ paddingBottom: 'var(--app-bottom-padding)' }}
         >
           <button
             type="button"

@@ -43,7 +43,7 @@ export function ScreenHeader({
 
       {/* Center: title */}
       {title && (
-        <h1 className="absolute inset-0 flex items-center justify-center px-16 text-center text-heading font-bold text-foreground pointer-events-none truncate">
+        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold text-foreground pointer-events-none">
           {title}
         </h1>
       )}

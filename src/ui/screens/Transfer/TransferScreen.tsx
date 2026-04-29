@@ -141,7 +141,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
     return (
       <div className="h-dvh bg-background text-foreground flex flex-col pt-safe z-[60]">
         <header className="flex items-center justify-center px-5 h-14 shrink-0">
-          <h2 className="text-heading font-bold text-foreground">{t('transfer.title')}</h2>
+          <h2 className="text-subtitle font-semibold">{t('transfer.title')}</h2>
         </header>
 
         <div className="flex-1 flex flex-col items-center justify-center px-6">
@@ -191,11 +191,11 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
         >
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="absolute inset-0 flex items-center justify-center px-16 text-center text-heading font-bold text-foreground pointer-events-none truncate">{t('transfer.title')}</h2>
+        <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('transfer.title')}</h2>
         <div className="w-10" />
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-28">
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-app-action">
         {/* From Mint Row */}
         <button
           onClick={() => setIsMintSelectorOpen('from')}
@@ -305,7 +305,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
       </div>
 
       {/* Footer Action */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 bg-background border-t border-border z-50">
+      <div className="absolute bottom-0 left-0 right-0 p-4 pb-app bg-background border-t border-border z-50">
         <button
           onClick={handleAction}
           disabled={isInsufficientFunds || numericAmount <= 0 || isProcessingPayment || fromMintUrl === toMintUrl}

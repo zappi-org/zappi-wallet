@@ -312,7 +312,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
         >
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="absolute inset-0 flex items-center justify-center px-16 text-center text-heading font-bold text-foreground pointer-events-none truncate">
+        <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">
           {t('settings.changeUsername')}
         </h2>
         <div className="w-10" />
@@ -334,7 +334,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
         </div>
       ) : (
         <>
-          <div className="flex-1 overflow-y-auto px-6 pt-6 pb-32">
+          <div className="flex-1 overflow-y-auto px-6 pt-6 pb-app-action">
             {/* Current address */}
             <p className="text-body font-medium text-foreground-muted">{t('settings.currentAddress')}</p>
             <div className="flex items-center gap-2 mt-1.5 mb-8">
@@ -427,7 +427,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
           </div>
 
           {/* Bottom action */}
-          <div className="absolute bottom-0 left-0 right-0 px-6 pb-6 bg-gradient-to-t from-background via-background to-transparent pt-4">
+          <div className="absolute bottom-0 left-0 right-0 px-6 pb-app bg-gradient-to-t from-background via-background to-transparent pt-4">
             <Button
               variant="brand"
               size="xl"

@@ -192,11 +192,11 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
         >
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="absolute inset-0 flex items-center justify-center px-16 text-center text-heading font-bold text-foreground pointer-events-none truncate">{t('analytics.title')}</h2>
+        <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('analytics.title')}</h2>
         <div className="w-10" />
       </header>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-32">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-app">
         {/* Time Range Selector */}
         <SegmentControl
           value={timeRange}
