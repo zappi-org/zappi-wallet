@@ -262,6 +262,7 @@ export function HomeScreen({
         <div className="pb-app-nav w-[var(--card-w)] mx-auto">
           <TransactionList
             transactions={filteredTransactions}
+            allTransactions={transactions}
             onTransactionClick={onSelectTransaction}
             maxItems={5}
             showDate
