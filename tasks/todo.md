@@ -1,3 +1,24 @@
+# Current Task — Header Typography Unification
+
+- [x] Use the Token tab `이캐시` title typography (`text-heading font-bold`) for other screen headers
+- [x] Preserve existing header layout/positioning; only the title text style changes
+- [x] Remove duplicate safe-area offset from floating bottom navigation and Token toolbar
+- [x] Apply ZAP-266 current-month per-day timeline grouping to Token and History timelines
+- [x] Verify lint/typecheck/test/build before completion
+
+Plan
+- Do not convert centered navigation headers into Token tab's left-aligned tab header. Back buttons and right actions should stay where they are.
+- Update common header components first, then screen-local full-screen headers that do not go through the shared component.
+- Add truncation/padding only to centered absolute titles so the larger typography cannot overlap header actions.
+
+Review
+- Screen headers now use the Token tab title typography (`text-heading font-bold text-foreground`) while preserving their existing left/center/right layout.
+- Centered absolute headers keep action-safe horizontal padding and truncation so longer localized titles do not overlap back/action buttons.
+- Modal/body section titles were intentionally left alone; this pass only targets screen-level headers and full-screen scanner/processing headers.
+- Home itself did not have bottom `pb-safe`; the visible bottom gap came from floating nav/toolbars adding `env(safe-area-inset-bottom)` to their `bottom` position. Both now use the same fixed 4px bottom offset.
+- ZAP-266 grouping now splits current-month items after yesterday into `dayThisMonth` day groups, while prior months in the current year remain monthly groups. Token and History rows both show `HH:MM` for those day groups.
+- Verification passed: `bun run lint`, `npx tsc --noEmit`, `bun run test`, `bun run build`, `node .claude/skills/hex-review/scripts/check-hex-violations.mjs src`, and `git diff --check`.
+
 # Current Task — History Timeline Polish + PWA Update Check
 
 - [x] Change non-CJK timeline month anchors from long month names to localized short month names

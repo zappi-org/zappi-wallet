@@ -147,7 +147,7 @@ export function UnifiedScanner({ isOpen, onClose, onValidated }: UnifiedScannerP
           >
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
-          <h1 className="text-subtitle font-semibold text-foreground">
+          <h1 className="text-heading font-bold text-foreground">
             {t('scanner.title')}
           </h1>
           <div className="w-9" /> {/* Spacer for centering */}

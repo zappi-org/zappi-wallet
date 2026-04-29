@@ -75,7 +75,7 @@ export function AmountActionScreen({
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{headerTitle}</h1>
+        <h1 className="absolute inset-0 flex items-center justify-center px-16 text-center text-heading font-bold text-foreground pointer-events-none truncate">{headerTitle}</h1>
         <div className="w-11" />
       </header>
 

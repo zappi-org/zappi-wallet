@@ -7,11 +7,12 @@ import { useFormatSats, useFormatFiat, formatTransactionFiat } from '@/utils/for
 import { formatMintHost } from '@/utils/url'
 import { cn } from '@/ui/lib/utils'
 import { getTitle, getTypeLabel } from '@/ui/components/wallet/transactionHelpers'
+import type { TimelineKind } from '@/ui/hooks/use-transaction-history'
 
 export interface HistoryTimelineRowProps {
   transaction: Transaction
   linkedTransaction?: Transaction | null
-  groupKind: 'today' | 'yesterday' | 'monthThisYear' | 'monthPastYear'
+  groupKind: TimelineKind
   onClick?: () => void
   getMintName?: (url: string) => string
 }
@@ -25,7 +26,7 @@ function formatRowTime(
   const hours = date.getHours() < 10 ? `0${date.getHours()}` : String(date.getHours())
   const minutes = date.getMinutes() < 10 ? `0${date.getMinutes()}` : String(date.getMinutes())
   const time = `${hours}:${minutes}`
-  if (groupKind === 'today' || groupKind === 'yesterday') {
+  if (groupKind === 'today' || groupKind === 'yesterday' || groupKind === 'dayThisMonth') {
     return t('history.timeAt', { time })
   }
   return t('history.dayWithTime', { day: date.getDate(), time })

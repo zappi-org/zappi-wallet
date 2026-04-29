@@ -130,7 +130,7 @@ export function NotificationsScreen({
         >
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('notifications.title')}</h2>
+        <h2 className="absolute inset-0 flex items-center justify-center px-16 text-center text-heading font-bold text-foreground pointer-events-none truncate">{t('notifications.title')}</h2>
         <div className="bg-primary/10 p-2 rounded-full relative z-10">
           <Bell className="w-4 h-4 text-foreground" />
           {unreadCount > 0 && (

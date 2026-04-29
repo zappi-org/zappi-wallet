@@ -43,6 +43,12 @@ function buildAnchor(
           : 'token.history.anchor.yesterday'
       return { major, minor: t(minorKey, { weekday }) }
     }
+    case 'dayThisMonth': {
+      const d = new Date(group.refDate)
+      const weekday = shortWeekday(d, locale)
+      const major = `${group.month}.${group.day}`
+      return { major, minor: weekday }
+    }
     case 'monthThisYear': {
       const lang = locale.toLowerCase().slice(0, 2)
       if (lang === 'ko' || lang === 'ja' || lang === 'zh') {
