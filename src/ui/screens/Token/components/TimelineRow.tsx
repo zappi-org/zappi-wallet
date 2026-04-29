@@ -22,7 +22,7 @@ function formatTimelineTime(
   const hh = d.getHours() < 10 ? `0${d.getHours()}` : String(d.getHours())
   const mm = d.getMinutes() < 10 ? `0${d.getMinutes()}` : String(d.getMinutes())
   const time = `${hh}:${mm}`
-  if (kind === 'today' || kind === 'yesterday') {
+  if (kind === 'today' || kind === 'yesterday' || kind === 'dayThisMonth') {
     return t('token.time.atTimeOfDay', { time })
   }
   return t('token.time.dayWithTime', { day: d.getDate(), time })

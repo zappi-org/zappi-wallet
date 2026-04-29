@@ -41,26 +41,36 @@ describe('groupTransactionsForTimeline', () => {
     expect(groups[0].day).toBe(20)
   })
 
-  it('day-before-yesterday and older same-month / same-year → monthThisYear, merged', () => {
+  it('day-before-yesterday and older same-month → separate dayThisMonth groups', () => {
     const dby = todayStart - 2 * DAY_MS // 2026-04-19
     const apr10 = new Date(2026, 3, 10, 10, 0, 0).getTime()
     const txs = [makeTx('a', dby), makeTx('b', apr10)]
     const groups = groupTransactionsForTimeline(txs, NOW)
-    expect(groups).toHaveLength(1)
-    expect(groups[0].kind).toBe('monthThisYear')
-    expect(groups[0].year).toBe(2026)
-    expect(groups[0].month).toBe(4)
-    expect(groups[0].entries.map((e) => e.id)).toEqual(['a', 'b'])
+    expect(groups).toHaveLength(2)
+    expect(groups.every((g) => g.kind === 'dayThisMonth')).toBe(true)
+    expect(groups.map((g) => `${g.year}-${g.month}-${g.day}`)).toEqual([
+      '2026-4-19',
+      '2026-4-10',
+    ])
+    expect(groups.map((g) => g.entries[0].id)).toEqual(['a', 'b'])
   })
 
-  it('different month same year → separate monthThisYear groups', () => {
+  it('current-month entries split per day; prior-month entries merge into monthThisYear', () => {
+    const apr19 = todayStart - 2 * DAY_MS
     const apr10 = new Date(2026, 3, 10, 10, 0, 0).getTime()
     const mar5 = new Date(2026, 2, 5, 10, 0, 0).getTime()
-    const groups = groupTransactionsForTimeline([makeTx('a', apr10), makeTx('m', mar5)], NOW)
-    expect(groups.map((g) => `${g.year}-${g.month}-${g.kind}`)).toEqual([
-      '2026-4-monthThisYear',
-      '2026-3-monthThisYear',
+    const mar20 = new Date(2026, 2, 20, 10, 0, 0).getTime()
+    const groups = groupTransactionsForTimeline(
+      [makeTx('a', apr19), makeTx('b', apr10), makeTx('m1', mar5), makeTx('m2', mar20)],
+      NOW,
+    )
+    expect(groups.map((g) => `${g.kind}:${g.year}-${g.month}${g.day ? `-${g.day}` : ''}`)).toEqual([
+      'dayThisMonth:2026-4-19',
+      'dayThisMonth:2026-4-10',
+      'monthThisYear:2026-3',
     ])
+    const march = groups.find((g) => g.kind === 'monthThisYear')!
+    expect(march.entries.map((e) => e.id)).toEqual(['m2', 'm1'])
   })
 
   it('prior calendar year → monthPastYear', () => {
@@ -94,6 +104,17 @@ describe('groupTransactionsForTimeline', () => {
     expect(groups[0].kind).toBe('monthThisYear')
     expect(groups[0].year).toBe(2026)
     expect(groups[0].month).toBe(4)
+  })
+
+  it('day-before-yesterday in same month → dayThisMonth, not monthThisYear', () => {
+    const may3 = new Date(2026, 4, 3, 10, 0, 0)
+    const may1 = new Date(2026, 4, 1, 12, 0, 0).getTime()
+    const groups = groupTransactionsForTimeline([makeTx('a', may1)], may3)
+    expect(groups[0].kind).toBe('dayThisMonth')
+    expect(groups[0].year).toBe(2026)
+    expect(groups[0].month).toBe(5)
+    expect(groups[0].day).toBe(1)
+    expect(groups[0].key).toBe('day-2026-5-1')
   })
 
   it('year boundary: now=Jan 2 2026, tx=Dec 31 2025 → monthPastYear, not yesterday', () => {
@@ -148,10 +169,11 @@ describe('groupTransactionsForTimeline', () => {
     expect(groupTransactionsForTimeline([], NOW)).toEqual([])
   })
 
-  it('group keys: today/yesterday include Y-M-D, monthThisYear includes Y-M, monthPastYear includes Y-M', () => {
+  it('group keys: today/yesterday/dayThisMonth include Y-M-D, monthThisYear/monthPastYear include Y-M', () => {
     const txs = [
       makeTx('t', todayStart + 60_000),
       makeTx('y', yesterdayStart + 60_000),
+      makeTx('d', todayStart - 2 * DAY_MS), // 2026-04-19, current month
       makeTx('m', new Date(2026, 2, 10, 10, 0, 0).getTime()),
       makeTx('p', new Date(2025, 11, 18, 10, 0, 0).getTime()),
     ]
@@ -159,6 +181,7 @@ describe('groupTransactionsForTimeline', () => {
     const byKind = Object.fromEntries(groups.map((g) => [g.kind, g.key]))
     expect(byKind.today).toBe('today-2026-4-21')
     expect(byKind.yesterday).toBe('yesterday-2026-4-20')
+    expect(byKind.dayThisMonth).toBe('day-2026-4-19')
     expect(byKind.monthThisYear).toBe('month-2026-3')
     expect(byKind.monthPastYear).toBe('pastMonth-2025-12')
   })

@@ -12,7 +12,12 @@ import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { useAppStore } from '@/store'
 import type { Transaction } from '@/core/domain/transaction'
 
-export type TimelineKind = 'today' | 'yesterday' | 'monthThisYear' | 'monthPastYear'
+export type TimelineKind =
+  | 'today'
+  | 'yesterday'
+  | 'dayThisMonth'
+  | 'monthThisYear'
+  | 'monthPastYear'
 
 export interface TimelineGroup {
   key: string
@@ -20,7 +25,7 @@ export interface TimelineGroup {
   year: number
   /** 1-12 */
   month: number
-  /** 1-31. set only when kind === 'today' | 'yesterday' */
+  /** 1-31. set only when kind === 'today' | 'yesterday' | 'dayThisMonth' */
   day?: number
   /** most recent entry timestamp — used for group sort */
   refDate: number
@@ -38,6 +43,7 @@ const ONE_DAY = 24 * 60 * 60 * 1000
  * Pure timeline grouping helper, computed relative to `now`:
  * - same day (incl. future-dated, folded in) → `today`, key `today-Y-M-D`
  * - previous day → `yesterday`, key `yesterday-Y-M-D`
+ * - older within same calendar month/year → `dayThisMonth`, key `day-Y-M-D` (per-day groups)
  * - older within same calendar year → `monthThisYear`, key `month-Y-M`
  * - prior calendar year(s) → `monthPastYear`, key `pastMonth-Y-M`
  *
@@ -52,6 +58,7 @@ export function groupTransactionsForTimeline(
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
   const yesterdayStart = todayStart - ONE_DAY
   const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth() + 1
   const map = new Map<string, TimelineGroup>()
 
   for (const tx of transactions) {
@@ -78,6 +85,10 @@ export function groupTransactionsForTimeline(
       kind = 'yesterday'
       groupDay = day
       key = `yesterday-${year}-${month}-${day}`
+    } else if (year === currentYear && month === currentMonth) {
+      kind = 'dayThisMonth'
+      groupDay = day
+      key = `day-${year}-${month}-${day}`
     } else if (year === currentYear) {
       kind = 'monthThisYear'
       key = `month-${year}-${month}`
