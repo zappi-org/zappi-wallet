@@ -178,7 +178,7 @@ export function AmountStep({
             disabled={!onChangeMint}
             className="flex items-center gap-2 flex-1 min-w-0 text-left"
           >
-            <MintIcon iconUrl={mintIconUrl} imgSize="w-7 h-7" className="w-7 h-7" />
+            <MintIcon iconUrl={mintIconUrl} imgSize="w-7 h-7" className="w-7 h-7" circle />
             <span className="text-body font-medium text-foreground truncate">
               {mintName}
             </span>

@@ -120,7 +120,7 @@ export function ConfirmStep({
           <div className="flex justify-between items-center py-2.5 border-b border-border/50">
             <span className="text-body text-foreground-muted">민트</span>
             <div className="flex items-center gap-2">
-              <MintIcon iconUrl={mintIconUrl} imgSize="w-5 h-5" className="w-5 h-5" />
+              <MintIcon iconUrl={mintIconUrl} imgSize="w-5 h-5" className="w-5 h-5" circle />
               <span className="text-body font-medium text-foreground">{mintName}</span>
             </div>
           </div>
