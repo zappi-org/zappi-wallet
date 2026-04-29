@@ -274,7 +274,9 @@
     font: inherit;
   }
   html, body, #root {
-    @apply h-dvh overflow-hidden;
+    height: var(--app-viewport-height);
+    min-height: var(--app-viewport-height);
+    overflow: hidden;
   }
   body {
     @apply bg-background text-foreground font-primary;
@@ -298,10 +300,32 @@
   --safe-area-inset-right: env(safe-area-inset-right, 0px);
   --safe-area-inset-bottom: 0px;
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
+  --app-bottom-bleed: 0px;
+  --app-viewport-height: 100dvh;
 }
 
 .pt-safe {
   padding-top: env(safe-area-inset-top, 0px);
+}
+
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  :root {
+    --app-bottom-bleed: max(env(safe-area-inset-bottom, 0px), env(safe-area-max-inset-bottom, 0px));
+    --app-viewport-height: calc(100dvh + var(--app-bottom-bleed));
+  }
+}
+
+.h-dvh {
+  height: var(--app-viewport-height);
+}
+
+.min-h-dvh {
+  min-height: var(--app-viewport-height);
+}
+
+.fixed.inset-0,
+.fixed.bottom-0 {
+  bottom: calc(-1 * var(--app-bottom-bleed));
 }
 
 /* ============================================================
