@@ -26,7 +26,7 @@ export function SettingsMainList({
   const updateAvailable = useAppStore((s) => s.updateAvailable)
 
   return (
-    <div className="flex-1 overflow-y-auto pb-28">
+    <div className="flex-1 overflow-y-auto pb-6">
       {/* Update banner */}
       {updateAvailable && (
         <button

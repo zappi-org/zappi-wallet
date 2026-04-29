@@ -351,7 +351,7 @@ export function SendInputStep({
     }
 
     return true
-  }, [onNext, inputParser, onRouteValidated])
+  }, [onNext, inputParser, onRouteValidated, applyDestinationState])
 
   // Handle QR scan
   const handleScan = useCallback((result: string) => {
@@ -404,7 +404,7 @@ export function SendInputStep({
     } else if (!ok) {
       addToast({ type: 'error', message: t('send.destination.unrecognized'), duration: 3000 })
     }
-  }, [destination, validatedData, onNext, processExternalInput, advanceWithData, addToast, t])
+  }, [destination, validatedData, processExternalInput, advanceWithData, addToast, t])
 
   // Auto-validate when initialAddress is provided (from address book)
   // On success, auto-advance to amount step

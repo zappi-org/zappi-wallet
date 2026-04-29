@@ -4,7 +4,7 @@
  *
  * Layout:
  *   Title (body, semibold)                 1,000 sats (amount, display, green)
- *   10:35 | Lightning 수신 (label, muted)    ≈ $0.50 (label, muted)
+ *   10:35 · 수신 (라이트닝) (label, muted)    ≈ $0.50 (label, muted)
  */
 
 import { memo } from 'react'
@@ -57,18 +57,19 @@ export const TransactionRow = memo(function TransactionRow({
     ? `${resolveName(swapFromUrl)} → ${resolveName(swapToUrl)}`
     : null
   const title = swapRoute ?? getTitle(tx, t)
+  const defaultSubtitle = title === typeLabel ? timeStr : `${timeStr} · ${typeLabel}`
 
-  // Subtitle: "10:35 | Lightning 수신" or swap flow
+  // Subtitle: "10:35 · 수신 (라이트닝)" or swap flow
   let subtitle: string
   if (isSwap && swapRoute) {
-    subtitle = `${timeStr} | ${typeLabel}`
+    subtitle = `${timeStr} · ${typeLabel}`
   } else if (txType === 'lightning' && tx.direction === 'send' && meta.destination) {
     const destStr = meta.destination.includes('@') ? meta.destination : `${meta.destination.slice(0, 20)}...`
-    subtitle = `${timeStr} | ${destStr}`
+    subtitle = `${timeStr} · ${destStr}`
   } else if (meta.source && meta.source !== 'unknown' && meta.source !== 'wallet') {
-    subtitle = `${timeStr} | ${t(`txDetail.source.${meta.source}`)}`
+    subtitle = `${timeStr} · ${t(`txDetail.source.${meta.source}`)}`
   } else {
-    subtitle = `${timeStr} | ${typeLabel}`
+    subtitle = defaultSubtitle
   }
 
   // Amount styling — Toss pattern: receive = green (no sign), send = black with "-"

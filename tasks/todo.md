@@ -1,3 +1,29 @@
+# Current Task — History Timeline Design
+
+- [x] Reproduce and fix current `bun run lint` hook dependency warnings before UI work
+- [x] Compare Token tab timeline design with current History transaction list structure
+- [x] Add a History-specific timeline card row that reuses existing transaction title/subtitle/amount semantics
+- [x] Rework History screen grouping to use the Token tab date-anchor visual language while preserving filters, mint names, export, and transaction detail navigation
+- [x] Align transaction wording with the eCash terminology pass and make history icons represent money direction rather than protocol
+- [x] Verify lint/build/typecheck and document remaining build-only bundle warnings separately
+
+Plan
+- Do not copy Token row semantics directly. Token history has token-specific states (`registered`, `consumed`, `reclaimed`), while wallet history must preserve Lightning/eCash/swap titles, sources, mint routes, pending/failed styling, and fiat snapshots.
+- Use the existing `groupTransactionsForTimeline` date grouping helper so History and Token share the same date grouping model.
+- Keep virtualization at the group level to avoid replacing the current scalable list with a fully unvirtualized list.
+- Keep all changes in UI/hooks only; no domain, service, adapter, or storage behavior should change for this design update.
+
+Review
+- The original two ESLint warnings in `SendInputStep.tsx` were fixed by correcting hook dependency arrays; `bun run lint` now reports no warnings.
+- `HistoryTimelineRow` was added as a history-specific card row instead of reusing the token row directly, so wallet-history semantics still preserve Lightning/eCash/swap titles, source/destination details, amount signs, fiat snapshots, pending/failed indicators, and linked swap route metadata.
+- `HistoryScreen` now renders filtered transactions through `groupTransactionsForTimeline`, using a Token-tab-style left date anchor with right-side rounded transaction cards. Filters, search, mint filtering, export, and transaction detail navigation remain wired to the existing History screen state.
+- Transaction wording now prioritizes the money action: `수신 (라이트닝)`, `전송 (라이트닝)`, `수신 (이캐시)`, `전송 (이캐시)`, with Cashu-token lifecycle entries shown as `생성 (이캐시)`, `등록 (이캐시)`, and `되찾기 (이캐시)`. These labels flow through Home and Mint Detail transaction lists because they share `transactionHelpers`.
+- Transaction rows now put date/time first in subtitles, omit the repeated type label when the title is already the same label, and keep route/source/destination context after the date/time for metadata-rich rows.
+- History timeline icons now represent direction/action: receive arrow, send arrow, swap, and reclaim. Normal icon color follows the displayed amount sign (`+` uses primary, `-` uses foreground), while pending/failed states keep their status colors. Lightning/eCash protocol is kept in text only to avoid confusing the primary money movement.
+- Tab screens no longer reserve large blank bottom padding; the fixed bottom navigation/Token toolbar owns the safe-area offset, while Home/Token/Contacts/Settings content keeps only minimal end padding.
+- Verification passed: `npx tsc --noEmit`, `bun run lint`, focused timeline tests (`29` tests), `bun run build`, `node .claude/skills/hex-review/scripts/check-hex-violations.mjs src`, `git diff --check`, and manual hack/hardcoding/unsafe-HTML search in touched UI paths.
+- Build still emits pre-existing Vite bundle warnings about mixed dynamic/static imports and large chunks. Those are bundling optimization issues and were not mixed into this UI design patch.
+
 # Current Task — ZAP-81
 
 - [x] Confirm wallet repo rules (`CLAUDE.md`, root `AGENTS.md`, `zappi-wallet/AGENTS.md`) and review `tasks/lessons.md`

@@ -75,7 +75,7 @@ export function TokenTabToolbar({
       exit={{ y: 100, opacity: 0 }}
       transition={tweenTransition}
       className="fixed z-50 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm flex items-center justify-between gap-2 pointer-events-auto"
-      style={{ bottom: '4px' }}
+      style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 4px)' }}
     >
       {/* ---- LEFT CLUSTER ---- */}
       <motion.div

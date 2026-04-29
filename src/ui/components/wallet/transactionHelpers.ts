@@ -9,7 +9,7 @@ function resolveTypeLabel(tx: Transaction, t: (key: string) => string): string {
     if (getTxMeta(tx).reclaimedFrom) return t('history.ecashReclaim')
     if (tx.intent === 'request-fulfill') return t('history.requestFulfill')
     if (tx.intent === 'request-pay') return t('history.requestPay')
-    return tx.direction === 'receive' ? t('history.ecashReceive') : t('history.ecashToken')
+    return tx.direction === 'receive' ? t('history.ecashRegister') : t('history.ecashToken')
   }
   if (txType === 'nutzap') return t('history.nutzap')
   return tx.direction === 'receive' ? t('history.ecashReceive') : t('history.ecashSend')
