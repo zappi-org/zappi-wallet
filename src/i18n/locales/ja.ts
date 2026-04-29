@@ -170,6 +170,12 @@ export default {
     version: 'Zappi v1.0.0',
 
     updateAvailable: 'アップデートがあります',
+    updateInstallHint: 'タップしてアップデート',
+    checkForUpdates: 'アップデートを確認',
+    updateChecking: 'アップデートを確認中',
+    updateCurrent: '最新バージョンです',
+    updateCheckUnavailable: 'この環境ではアップデートを確認できません',
+    updateCheckFailed: 'アップデートを確認できませんでした',
 
     // Mints
     addMint: 'ミントを追加',

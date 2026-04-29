@@ -1,3 +1,21 @@
+# Current Task — History Timeline Polish + PWA Update Check
+
+- [x] Change non-CJK timeline month anchors from long month names to localized short month names
+- [x] Add a manual PWA update check entry point in Settings without auto-installing updates
+- [x] Verify lint/typecheck/test/build before completion
+
+Plan
+- Keep Korean/Japanese/Chinese month anchors as numeric month labels, and use `Intl.DateTimeFormat(..., { month: 'short' })` only for languages that previously rendered long month names.
+- Place manual update check near the app version/logout area in Settings, matching OS-style app maintenance placement rather than mixing it into wallet settings categories.
+- Manual check must not call `updateSW()` directly. It should only detect a waiting service worker, mark `updateAvailable`, and let the existing explicit update action install the new version.
+
+Review
+- History and Token timeline month anchors now use localized short month names for non-CJK languages (`Mar`, `dic`, `Des`, etc.), while Korean/Japanese/Chinese keep the numeric month format.
+- Settings now has a manual `업데이트 확인` action in the app maintenance/version area. The button checks the registered service worker and shows a spinner while checking.
+- Manual update check does not immediately install or reload. If an update is found, it only marks `updateAvailable`; Settings then replaces the check button with one explicit `새 업데이트가 있습니다` install action in the same app maintenance area.
+- The old top-of-settings update banner was removed so manual check, update-available state, and update install action all live in one consistent location.
+- Verification passed: `bun run lint`, `npx tsc --noEmit`, `bun run test`, `bun run build`, `node .claude/skills/hex-review/scripts/check-hex-violations.mjs src`, and `git diff --check`.
+
 # Current Task — History Timeline Design
 
 - [x] Reproduce and fix current `bun run lint` hook dependency warnings before UI work

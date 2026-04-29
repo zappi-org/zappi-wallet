@@ -170,6 +170,12 @@ export default {
     version: 'Zappi v1.0.0',
 
     updateAvailable: 'Pembaruan tersedia',
+    updateInstallHint: 'Ketuk untuk memperbarui',
+    checkForUpdates: 'Periksa pembaruan',
+    updateChecking: 'Memeriksa pembaruan',
+    updateCurrent: 'Versi sudah terbaru',
+    updateCheckUnavailable: 'Pemeriksaan pembaruan tidak tersedia di sini',
+    updateCheckFailed: 'Tidak dapat memeriksa pembaruan',
 
     // Mints
     addMint: 'Tambah Mint',

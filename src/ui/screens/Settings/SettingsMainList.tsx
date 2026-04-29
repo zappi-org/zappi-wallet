@@ -1,9 +1,10 @@
+import { useCallback, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { User, Settings, Lock, Wallet, ChevronRight, Download } from 'lucide-react'
+import { User, Settings, Lock, Wallet, ChevronRight, Download, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { Button } from '@/ui/components/common/Button'
-import { updateSW } from '@/registerSW'
+import { checkForAppUpdate, updateSW } from '@/registerSW'
 import type { SettingsPage } from './SettingsScreen'
 
 interface SettingsMainListProps {
@@ -24,20 +25,32 @@ export function SettingsMainList({
 }: SettingsMainListProps) {
   const { t } = useTranslation()
   const updateAvailable = useAppStore((s) => s.updateAvailable)
+  const addToast = useAppStore((s) => s.addToast)
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false)
+
+  const handleCheckUpdate = useCallback(async () => {
+    if (isCheckingUpdate) return
+
+    setIsCheckingUpdate(true)
+    try {
+      const result = await checkForAppUpdate()
+      if (result === 'available') {
+        addToast({ type: 'info', message: t('settings.updateAvailable') })
+      } else if (result === 'current') {
+        addToast({ type: 'success', message: t('settings.updateCurrent') })
+      } else {
+        addToast({ type: 'warning', message: t('settings.updateCheckUnavailable') })
+      }
+    } catch (error) {
+      console.error('Failed to check for app update:', error)
+      addToast({ type: 'error', message: t('settings.updateCheckFailed') })
+    } finally {
+      setIsCheckingUpdate(false)
+    }
+  }, [addToast, isCheckingUpdate, t])
 
   return (
     <div className="flex-1 overflow-y-auto pb-6">
-      {/* Update banner */}
-      {updateAvailable && (
-        <button
-          onClick={() => updateSW()}
-          className="w-full bg-brand text-white px-4 py-3 font-semibold text-caption flex items-center justify-center gap-2 active:opacity-80"
-        >
-          <Download className="w-4 h-4" />
-          {t('settings.updateAvailable')}
-        </button>
-      )}
-
       {/* Category cards */}
       <div className="px-4 pt-4 flex flex-col gap-2.5">
         {categories.map(({ Icon, titleKey, descKey, page }) => (
@@ -56,14 +69,46 @@ export function SettingsMainList({
         ))}
       </div>
 
-      {/* Logout */}
+      {/* App maintenance */}
       <div className="px-4 pt-8">
-        <Button variant="destructive" size="lg" onClick={onOpenLogout} className="w-full">
-          {t('settings.logout')}
-        </Button>
+        {updateAvailable ? (
+          <button
+            type="button"
+            onClick={() => updateSW()}
+            className="w-full rounded-card bg-brand px-5 py-4 text-left text-white shadow-lg shadow-brand/20 active:scale-[0.98] active:opacity-80 transition-all"
+          >
+            <span className="flex items-center gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/15">
+                <Download className="size-5" strokeWidth={1.8} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-body font-semibold">
+                  {t('settings.updateAvailable')}
+                </span>
+                <span className="block mt-0.5 text-caption text-white/75">
+                  {t('settings.updateInstallHint')}
+                </span>
+              </span>
+            </span>
+          </button>
+        ) : (
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={handleCheckUpdate}
+            loading={isCheckingUpdate}
+            icon={<RefreshCw className="size-4" />}
+            className="w-full"
+          >
+            {isCheckingUpdate ? t('settings.updateChecking') : t('settings.checkForUpdates')}
+          </Button>
+        )}
         <p className="text-center mt-4 text-overline font-medium text-foreground-muted/50 uppercase tracking-widest">
           {t('settings.version')}
         </p>
+        <Button variant="destructive" size="lg" onClick={onOpenLogout} className="w-full mt-8">
+          {t('settings.logout')}
+        </Button>
       </div>
     </div>
   )

@@ -170,6 +170,12 @@ export default {
     version: 'Zappi v1.0.0',
 
     updateAvailable: 'Actualización disponible',
+    updateInstallHint: 'Toca para actualizar',
+    checkForUpdates: 'Buscar actualizaciones',
+    updateChecking: 'Buscando actualizaciones',
+    updateCurrent: 'Tienes la última versión',
+    updateCheckUnavailable: 'La búsqueda de actualizaciones no está disponible aquí',
+    updateCheckFailed: 'No se pudieron buscar actualizaciones',
 
     // Mints
     addMint: 'Agregar Mint',
