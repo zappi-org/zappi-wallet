@@ -10,7 +10,7 @@ import { isSendToken, type TokenDetails } from '@/ui/types/pending-item-details'
 import { satsToFiat, useFormatSats } from '@/utils/format'
 import { cn } from '@/ui/primitives/utils'
 import { Coins } from 'lucide-react'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PendingEmptyWidget } from './components/PendingEmptyWidget'
@@ -247,9 +247,15 @@ export function TokenScreen({
       <div className="min-h-full flex flex-col p-4 gap-4">
         <h1
           className={cn(
-            'sticky top-0 z-[5] -mx-4 -mt-4 px-4 bg-background flex items-center text-foreground transition-[height,gap] duration-200',
+            'sticky top-0 z-[5] -mx-4 -mt-4 px-4 flex items-center text-foreground transition-[height,gap] duration-200',
             isHeaderMerged ? 'h-12 gap-1.5' : 'h-14 gap-2',
           )}
+          style={{
+            // Opaque only over the date-anchor track (16px parent p-4 + 56px w-14 + 12px gap-3 = 84px);
+            // right side stays transparent so timeline rows scroll past visibly behind the header.
+            background:
+              'linear-gradient(to right, var(--color-background) 84px, transparent 84px)',
+          }}
         >
           <Coins
             className={cn(
@@ -258,28 +264,15 @@ export function TokenScreen({
             )}
             strokeWidth={1.6}
           />
-          <span
-            className={cn(
-              'font-bold transition-[font-size] duration-200',
-              isHeaderMerged ? 'text-title-sm' : 'text-heading',
-            )}
-          >
-            {t('nav.token')}
-          </span>
-          <AnimatePresence>
-            {isHeaderMerged && (
-              <motion.span
-                key="history-merged"
-                initial={{ opacity: 0, x: -6 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -6 }}
-                transition={{ duration: 0.18 }}
-                className="text-title-sm font-bold"
-              >
-                {t('token.history.section')}
-              </motion.span>
-            )}
-          </AnimatePresence>
+          {isHeaderMerged ? (
+            <span className="text-title-sm font-bold">
+              {t('token.history.section')}
+            </span>
+          ) : (
+            <span className="text-heading font-bold">
+              {t('nav.token')}
+            </span>
+          )}
         </h1>
 
         {isEmpty ? (
