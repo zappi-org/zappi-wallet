@@ -133,7 +133,7 @@ export function AmountStep({
           {canToggleFiat && (
             <button
               type="button"
-              aria-label={`단위 전환 (현재: ${isFiatMode ? currencySymbol : unit})`}
+              aria-label={t('send.tokenCreate.toggleUnit', { current: isFiatMode ? currencySymbol : unit })}
               onClick={handleToggleFiat}
               className="flex mt-2 items-center gap-1 text-body font-semibold text-foreground-muted shrink-0 px-2.5 py-1 rounded-full bg-background-card active:bg-background-hover transition-colors"
             >
@@ -146,17 +146,17 @@ export function AmountStep({
           )}
           {insufficient ? (
             <p className="text-body text-accent-danger">
-              출금 민트 잔고 부족 :{' '}
+              {t('send.tokenCreate.insufficientBalance')}{' '}
               {onChangeMint ? (
                 <button
                   type="button"
                   onClick={() => setMintSheetOpen(true)}
                   className="underline font-medium"
                 >
-                  민트 변경
+                  {t('send.tokenCreate.changeMint')}
                 </button>
               ) : (
-                <span className="font-medium">민트 변경</span>
+                <span className="font-medium">{t('send.tokenCreate.changeMint')}</span>
               )}
             </p>
           ) : (
@@ -189,7 +189,7 @@ export function AmountStep({
               />
             )}
           </button>
-          <span className="text-caption text-foreground-muted">잔액</span>
+          <span className="text-caption text-foreground-muted">{t('common.balance')}</span>
           <span className="text-body text-foreground">{formatSats(mintBalance)}</span>
         </div>
 
@@ -202,7 +202,7 @@ export function AmountStep({
               onChange={(e) => setMemo(e.target.value)}
               onFocus={() => setMemoFocused(true)}
               onBlur={() => setMemoFocused(false)}
-              placeholder="메모(선택사항)"
+              placeholder={t('send.tokenCreate.memoPlaceholder')}
               maxLength={100}
               className="flex-1 min-w-0 bg-transparent py-2 text-body font-medium text-foreground placeholder:text-foreground-muted focus:outline-none"
             />
@@ -218,7 +218,7 @@ export function AmountStep({
             className="mt-0.5 w-4 h-4 accent-brand shrink-0"
           />
           <span className="text-caption text-foreground-muted leading-snug">
-            받는사람이 금액을 그대로 받을 수 있게 수취 수수료를 이캐시에 추가해요 (선택사항)
+            {t('send.tokenCreate.senderPaysFeeCaption')}
           </span>
         </label>
       </div>
@@ -234,7 +234,7 @@ export function AmountStep({
           }
           className="w-full"
         >
-          다음
+          {t('common.next')}
         </Button>
       </div>
 
