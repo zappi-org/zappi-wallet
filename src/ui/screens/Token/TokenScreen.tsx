@@ -8,9 +8,10 @@ import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
 import { useReclaimFees } from '@/ui/hooks/useReclaimFees'
 import { isSendToken, type TokenDetails } from '@/ui/types/pending-item-details'
 import { satsToFiat, useFormatSats } from '@/utils/format'
+import { cn } from '@/ui/primitives/utils'
 import { Coins } from 'lucide-react'
-import { AnimatePresence } from 'motion/react'
-import { useCallback, useEffect, useMemo, useState, type RefObject } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PendingEmptyWidget } from './components/PendingEmptyWidget'
 import { PendingWidget } from './components/PendingWidget'
@@ -52,6 +53,38 @@ export function TokenScreen({
   const addToast = useAppStore((state) => state.addToast)
 
   const [hintDismissed, setHintDismissed] = useState(false)
+
+  // Sticky header morphs to compact form once timeline section scrolls past h1.
+  // Uses a ref callback so the observer attaches whenever the sentinel mounts —
+  // necessary because TimelineSection is not rendered while isEmpty is true.
+  const [isHeaderMerged, setIsHeaderMerged] = useState(false)
+  const observerRef = useRef<IntersectionObserver | null>(null)
+  const setHeaderSentinel = useCallback(
+    (node: HTMLDivElement | null) => {
+      observerRef.current?.disconnect()
+      observerRef.current = null
+      const root = scrollRef.current
+      if (!node || !root) return
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            setIsHeaderMerged(false)
+            return
+          }
+          // Non-intersecting can mean either scrolled past (above viewport) or
+          // not yet reached (below viewport on short screens). Only merge when above.
+          const sentinelTop = entry.boundingClientRect.top
+          const rootTop = entry.rootBounds?.top ?? 0
+          setIsHeaderMerged(sentinelTop < rootTop)
+        },
+        { root, rootMargin: '-56px 0px 0px 0px', threshold: 0 },
+      )
+      observer.observe(node)
+      observerRef.current = observer
+    },
+    [scrollRef],
+  )
+  useEffect(() => () => observerRef.current?.disconnect(), [])
 
   const registry = useServiceRegistry()
 
@@ -212,9 +245,41 @@ export function TokenScreen({
   return (
     <div ref={scrollRef} className="flex-1 h-full overflow-y-auto pt-safe pb-28">
       <div className="min-h-full flex flex-col p-4 gap-4">
-        <h1 className="flex items-center gap-2 text-heading font-bold text-foreground pt-2">
-          <Coins className="w-[22px] h-[22px] text-foreground" strokeWidth={1.6} />
-          {t('nav.token')}
+        <h1
+          className={cn(
+            'sticky top-0 z-[5] -mx-4 -mt-4 px-4 bg-background flex items-center text-foreground transition-[height,gap] duration-200',
+            isHeaderMerged ? 'h-12 gap-1.5' : 'h-14 gap-2',
+          )}
+        >
+          <Coins
+            className={cn(
+              'text-foreground transition-[width,height] duration-200',
+              isHeaderMerged ? 'w-[18px] h-[18px]' : 'w-[22px] h-[22px]',
+            )}
+            strokeWidth={1.6}
+          />
+          <span
+            className={cn(
+              'font-bold transition-[font-size] duration-200',
+              isHeaderMerged ? 'text-title-sm' : 'text-heading',
+            )}
+          >
+            {t('nav.token')}
+          </span>
+          <AnimatePresence>
+            {isHeaderMerged && (
+              <motion.span
+                key="history-merged"
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -6 }}
+                transition={{ duration: 0.18 }}
+                className="text-title-sm font-bold"
+              >
+                {t('token.history.section')}
+              </motion.span>
+            )}
+          </AnimatePresence>
         </h1>
 
         {isEmpty ? (
@@ -245,10 +310,13 @@ export function TokenScreen({
               </AnimatePresence>
             )}
             <div className="mt-6">
-            <TimelineSection
-              groups={timelineGroups}
-              onSelect={onSelectToken ? handleSelectTimeline : undefined}
-            />
+              <div ref={setHeaderSentinel} aria-hidden className="h-px" />
+              <TimelineSection
+                groups={timelineGroups}
+                onSelect={onSelectToken ? handleSelectTimeline : undefined}
+                hideTitle={isHeaderMerged}
+                anchorTopClass={isHeaderMerged ? 'top-12' : 'top-14'}
+              />
             </div>
           </>
         )}

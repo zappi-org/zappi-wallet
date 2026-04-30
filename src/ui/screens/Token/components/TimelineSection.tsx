@@ -2,11 +2,16 @@ import { useTranslation } from 'react-i18next'
 import { getLocaleCode } from '@/utils/format'
 import type { Transaction } from '@/core/domain/transaction'
 import type { TimelineGroup, TimelineKind } from '@/ui/hooks/use-transaction-history'
+import { cn } from '@/ui/primitives/utils'
 import { TimelineRow } from './TimelineRow'
 
 export interface TimelineSectionProps {
   groups: TimelineGroup[]
   onSelect?: (tx: Transaction) => void
+  /** Collapse the in-flow "내역" h3 when the parent's sticky header has merged it inline. */
+  hideTitle?: boolean
+  /** Tailwind top-* class for the date anchor sticky offset (matches parent's sticky header height). */
+  anchorTopClass?: string
 }
 
 interface AnchorText {
@@ -82,7 +87,12 @@ function headerSizeClass(kind: TimelineKind): string {
     : 'text-heading font-display font-bold text-foreground leading-none'
 }
 
-export function TimelineSection({ groups, onSelect }: TimelineSectionProps) {
+export function TimelineSection({
+  groups,
+  onSelect,
+  hideTitle = false,
+  anchorTopClass = 'top-14',
+}: TimelineSectionProps) {
   const { t, i18n } = useTranslation()
   const locale = getLocaleCode(i18n.language)
 
@@ -90,14 +100,21 @@ export function TimelineSection({ groups, onSelect }: TimelineSectionProps) {
 
   return (
     <section className="flex flex-col gap-6">
-      <h3 className="text-title-sm font-bold text-foreground">
-        {t('token.history.section')}
-      </h3>
+      <div
+        className={cn(
+          'overflow-hidden transition-[height,opacity] duration-200',
+          hideTitle ? 'h-0 opacity-0' : 'h-12 opacity-100',
+        )}
+      >
+        <h3 className="h-12 flex items-center text-title-sm font-bold text-foreground">
+          {t('token.history.section')}
+        </h3>
+      </div>
       {groups.map((group) => {
         const anchor = buildAnchor(t, group, locale)
         return (
           <div key={group.key} className="flex items-start gap-3">
-            <div className="w-14 shrink-0 pt-1 sticky top-0 self-start">
+            <div className={cn('w-14 shrink-0 pt-1 sticky self-start', anchorTopClass)}>
               <div className={headerSizeClass(group.kind)}>
                 {anchor.major}
               </div>
