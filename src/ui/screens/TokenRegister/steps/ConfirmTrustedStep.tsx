@@ -104,7 +104,7 @@ export function ConfirmTrustedStep({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <ScreenHeader title={t('send.token.title')} onBack={onBack} />
+      <ScreenHeader title={t('receive.token.title')} onBack={onBack} />
 
       <div className="flex-1 overflow-y-auto px-4 pt-2">
         <h2 className="pt-[4dvh] text-heading font-semibold text-foreground text-center">
@@ -182,7 +182,7 @@ export function ConfirmTrustedStep({
             onClick={() => setMintSheetOpen(true)}
             className="w-full flex justify-between items-start py-2.5 border-b border-border/50 active:bg-foreground/[0.03] transition-colors"
           >
-            <span className="text-body text-foreground-muted">{t('send.token.receiveMint')}</span>
+            <span className="text-body text-foreground-muted">{t('receive.token.receiveMint')}</span>
             <div className="flex flex-col items-end">
               <div className="flex items-center gap-1">
                 <span className="text-body font-medium text-foreground">
@@ -204,7 +204,7 @@ export function ConfirmTrustedStep({
             </div>
           )}
           <div className="flex justify-between py-2.5">
-            <span className="text-body font-bold text-foreground">{t('send.token.netAmount')}</span>
+            <span className="text-body font-bold text-foreground">{t('receive.token.netAmount')}</span>
             <span className="text-body font-bold text-foreground">
               {isSwap ? '~' : '+'}{formatSats(netAmount)}
             </span>
@@ -222,7 +222,7 @@ export function ConfirmTrustedStep({
             ? t('tokenRegister.receiving')
             : isSwap
               ? t('tokenRegister.receiveToMyMint')
-              : t('send.token.receive')}
+              : t('receive.token.receive')}
         </Button>
       </BottomActionBar>
 
