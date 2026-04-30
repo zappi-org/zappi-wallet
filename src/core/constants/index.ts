@@ -2,9 +2,7 @@
  * Default mints
  */
 export const DEFAULT_MINTS = [
-  'https://mint.lnserver.com',
-  'https://21mint.me',
-  'https://m7.mountainlake.io',
+  'https://mint.lemonfizz.st',
 ] as const
 
 /**
@@ -147,14 +145,12 @@ export const CASHU_UNIT = 'sat' as const
  * Limits for mints and relays
  */
 export const LIMITS = {
-  /** Maximum number of mints */
-  MAX_MINTS: 10,
   /** Maximum number of relays */
   MAX_RELAYS: 5,
   /** Minimum number of relays */
   MIN_RELAYS: 2,
   /** Minimum number of mints */
-  MIN_MINTS: 2,
+  MIN_MINTS: 1,
 } as const
 
 export { FIAT_CURRENCIES } from './fiat'

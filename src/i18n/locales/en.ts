@@ -181,7 +181,6 @@ export default {
     // Mints
     addMint: 'Add Mint',
     noMints: 'No mints registered',
-    mintDeleteMaxReached: 'Delete existing mints to add more.',
     mintCount: '{{count}} mints',
 
     // Relays
@@ -303,7 +302,6 @@ export default {
     auditDescription: 'Active mint list provided by 8333.space audit service.',
     transactions: '{{count}} transactions',
     added: 'Added',
-    maxMintsReached: 'Maximum of {{max}} mints allowed.',
     alreadyAdded: 'Mint already added.',
     addFailed: 'Failed to add mint.',
     validating: 'Validating mint...',

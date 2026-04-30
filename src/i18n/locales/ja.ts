@@ -181,7 +181,6 @@ export default {
     // Mints
     addMint: 'ミントを追加',
     noMints: '登録されたミントがありません',
-    mintDeleteMaxReached: 'さらに追加するには既存のミントを削除してください。',
     mintCount: '{{count}}個',
 
     // Relays
@@ -303,7 +302,6 @@ export default {
     auditDescription: '8333.space監査サービスが提供するアクティブなミントのリストです。',
     transactions: '{{count}}件の取引',
     added: '追加済み',
-    maxMintsReached: '最大{{max}}個のミントが許可されています。',
     alreadyAdded: 'ミントは既に追加されています。',
     addFailed: 'ミントの追加に失敗しました。',
     validating: 'ミントを検証中...',

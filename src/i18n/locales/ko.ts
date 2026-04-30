@@ -181,7 +181,6 @@ export default {
     // Mints
     addMint: '민트 추가',
     noMints: '등록된 민트가 없습니다',
-    mintDeleteMaxReached: '민트를 더 추가하려면 기존 민트를 삭제하세요.',
     mintCount: '{{count}}개',
 
     // Relays
@@ -303,7 +302,6 @@ export default {
     auditDescription: '8333.space 감사 서비스에서 제공하는 활성 민트 목록입니다.',
     transactions: '거래 {{count}}회',
     added: '추가됨',
-    maxMintsReached: '최대 {{max}}개의 민트만 추가할 수 있습니다.',
     alreadyAdded: '이미 추가된 민트입니다.',
     addFailed: '민트 추가에 실패했습니다.',
     validating: '민트 정보 확인 중...',

@@ -181,7 +181,6 @@ export default {
     // Mints
     addMint: 'Tambah Mint',
     noMints: 'Tidak ada mint terdaftar',
-    mintDeleteMaxReached: 'Hapus mint yang ada untuk menambah lebih banyak.',
     mintCount: '{{count}} mint',
 
     // Relays
@@ -303,7 +302,6 @@ export default {
     auditDescription: 'Daftar mint aktif disediakan oleh layanan audit 8333.space.',
     transactions: '{{count}} transaksi',
     added: 'Ditambahkan',
-    maxMintsReached: 'Maksimal {{max}} mint diperbolehkan.',
     alreadyAdded: 'Mint sudah ditambahkan.',
     addFailed: 'Gagal menambahkan mint.',
     validating: 'Memvalidasi mint...',
