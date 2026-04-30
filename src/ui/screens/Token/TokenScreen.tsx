@@ -105,10 +105,8 @@ export function TokenScreen({
   const mintUrls = useAppStore((s) => s.settings.mints)
   const { items: pendingItemsRaw } = useAllPendingItems(mintUrls)
   const { getDisplayName, getMetadata, getIconUrl } = useMintMetadata(mintUrls)
-  const fiatRate = useAppStore((s) => {
-    const cur = s.settings.fiatCurrency ?? 'USD'
-    return s.allRates?.[cur] ?? null
-  })
+  const fiatCurrency = useAppStore((s) => s.settings.fiatCurrency ?? 'USD')
+  const fiatRate = useAppStore((s) => s.allRates?.[fiatCurrency] ?? null)
 
   const pendingTxIds = useMemo(
     () => pendingItemsRaw.filter(isSendToken).map((i) => i.id),
@@ -192,18 +190,20 @@ export function TokenScreen({
       if (!onSelectToken) return
       const url = token.mintUrl ?? ''
       const metadata = url ? getMetadata(url) : undefined
-      const fiatValue =
-        fiatRate !== null ? satsToFiat(token.amount, fiatRate) : undefined
+      const fiat =
+        fiatRate !== null
+          ? { amount: satsToFiat(token.amount, fiatRate), currency: fiatCurrency }
+          : undefined
       onSelectToken(
         pendingToDetail(token, {
           mintAlias: url ? getDisplayName(url) : undefined,
           mintName: metadata?.name,
           mintIconUrl: url ? getIconUrl(url) : undefined,
-          fiatUsd: fiatValue,
+          fiat,
         }),
       )
     },
-    [onSelectToken, getDisplayName, getMetadata, getIconUrl, fiatRate],
+    [onSelectToken, getDisplayName, getMetadata, getIconUrl, fiatRate, fiatCurrency],
   )
 
   const handleSelectTimeline = useCallback(
@@ -212,17 +212,19 @@ export function TokenScreen({
       const url = tx.accountId
       const metadata = url ? getMetadata(url) : undefined
       const amountSats = Number(tx.amount.value)
-      const fiatValue =
-        fiatRate !== null ? satsToFiat(amountSats, fiatRate) : undefined
+      const fiat =
+        fiatRate !== null
+          ? { amount: satsToFiat(amountSats, fiatRate), currency: fiatCurrency }
+          : undefined
       const detail = transactionToDetail(tx, {
         mintAlias: url ? getDisplayName(url) : undefined,
         mintName: metadata?.name,
         mintIconUrl: url ? getIconUrl(url) : undefined,
-        fiatUsd: fiatValue,
+        fiat,
       })
       if (detail) onSelectToken(detail)
     },
-    [onSelectToken, getDisplayName, getMetadata, getIconUrl, fiatRate],
+    [onSelectToken, getDisplayName, getMetadata, getIconUrl, fiatRate, fiatCurrency],
   )
 
   const [reclaimTargets, setReclaimTargets] = useState<MockPendingToken[] | null>(null)

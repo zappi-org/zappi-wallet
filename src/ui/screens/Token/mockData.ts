@@ -4,6 +4,7 @@ import type { Transaction } from '@/core/domain/transaction'
 import type {
   MockPendingToken,
   TokenDetailData,
+  TokenFiatDisplay,
   TokenDetailStatus,
 } from './types'
 
@@ -41,7 +42,7 @@ export interface PendingDetailExtras {
   mintAlias?: string
   mintName?: string
   mintIconUrl?: string
-  fiatUsd?: number
+  fiat?: TokenFiatDisplay
 }
 
 /** Convert pending view → detail shape (always 'pending', orange dot). */
@@ -60,7 +61,7 @@ export function pendingToDetail(
     mintName: extras.mintName,
     mintIconUrl: extras.mintIconUrl,
     mintUrl: token.mintUrl,
-    fiatUsd: extras.fiatUsd,
+    fiat: extras.fiat,
     unit: 'sat',
     unread: true,
     tokenString: token.tokenString,
@@ -128,7 +129,7 @@ export function transactionToDetail(
     mintIconUrl: extras.mintIconUrl,
     mintUrl: tx.accountId,
     tokenString: meta.token,
-    fiatUsd: extras.fiatUsd,
+    fiat: extras.fiat,
     unit: 'sat',
   }
 }

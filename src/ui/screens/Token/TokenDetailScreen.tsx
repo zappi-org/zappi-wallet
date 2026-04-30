@@ -72,7 +72,7 @@ export function TokenDetailScreen({
   const isPending = data.status === 'pending'
   const timestamp = data.statusAt ?? data.createdAt
   const dateLine = formatDetailDateLine(t, timestamp, DATE_SUFFIX_KEY[data.status])
-  const fiatLabel = data.fiatUsd !== undefined ? formatFiatAmount(data.fiatUsd, 'USD') : null
+  const fiatLabel = data.fiat ? formatFiatAmount(data.fiat.amount, data.fiat.currency) : null
 
   const actionLabel = useMemo(
     () => (isPending ? t('token.detail.action.forward') : t('token.detail.action.confirm')),

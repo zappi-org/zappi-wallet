@@ -17,6 +17,11 @@ export interface MockPendingToken {
 /** Token detail view status — pending includes created-but-unclaimed ecash tokens. */
 export type TokenDetailStatus = 'pending' | 'registered' | 'consumed' | 'reclaimed'
 
+export interface TokenFiatDisplay {
+  amount: number
+  currency: string
+}
+
 /** Data shape consumed by TokenDetailScreen. Independent of mock/production source. */
 export interface TokenDetailData {
   id: string
@@ -39,8 +44,8 @@ export interface TokenDetailData {
   mintUrl?: string
   /** Cashu token string — used for QR/copy/share/raw sheet. */
   tokenString?: string
-  /** Fiat (USD) snapshot — optional, shown inline after amount. */
-  fiatUsd?: number
+  /** Fiat display value — optional, shown inline after amount. */
+  fiat?: TokenFiatDisplay
   /** Base unit (e.g. 'sat') — shown in raw sheet. */
   unit?: string
   /** Show orange "unread" dot on the pending title. */
