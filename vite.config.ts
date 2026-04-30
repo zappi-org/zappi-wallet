@@ -38,10 +38,28 @@ const appVersion = readPackageVersion()
 const gitCommit = readGitCommit()
 const appCommit = gitCommit !== 'unknown' && isGitDirty() ? `${gitCommit}-dirty` : gitCommit
 
+// Local HTTPS for PWA testing on LAN (iOS Safari requires HTTPS for service worker).
+// Generate certs via: cd certs && mkcert -cert-file dev.pem -key-file dev-key.pem <hostnames>
+// Falls back to HTTP if cert files are absent — CI/non-mkcert environments still work.
+const certPath = path.resolve(__dirname, './certs/dev.pem')
+const keyPath = path.resolve(__dirname, './certs/dev-key.pem')
+const httpsConfig =
+  fs.existsSync(certPath) && fs.existsSync(keyPath)
+    ? {
+        cert: fs.readFileSync(certPath),
+        key: fs.readFileSync(keyPath),
+      }
+    : undefined
+
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),
     __APP_COMMIT__: JSON.stringify(appCommit),
+  },
+  server: {
+    host: true,
+    port: 5174,
+    https: httpsConfig,
   },
   resolve: {
     alias: {
