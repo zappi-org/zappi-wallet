@@ -1,5 +1,6 @@
 import { CSClient, TicketId, decodeEnvelope, encodeEnvelope } from 'nostr-cs'
 import type {
+  Category as NostrCsCategory,
   EncryptedAttachment,
   Message as NostrCsMessage,
   StatusUpdate,
@@ -12,6 +13,7 @@ import type {
   CustomerSupportHistoryScope,
   CustomerSupportHistoryStore,
 } from '@/core/ports/driven/customer-support-history-store.port'
+import type { SupportRelaysProvider } from '@/core/ports/driven/support-relays.port'
 import {
   isSupportTicketTerminal,
   type CreateSupportTicketCommand,
@@ -25,6 +27,7 @@ import {
   type SupportMessage,
   type SupportPriority,
   type SupportSnapshot,
+  type SupportStatusEvent,
   type SupportTicket,
   type SupportTicketStatus,
 } from '@/core/domain/support'
@@ -44,18 +47,23 @@ export class NostrCsCustomerSupportAdapter implements CustomerSupportChannel {
   private client: CSClient | null = null
   private discoveryPool: SimplePool | null = null
   private unsubscribeSdk: Array<() => void> = []
+  private unsubscribeRelays: (() => void) | null = null
   private readonly listeners = new Set<SupportListener>()
   private readonly tickets = new Map<string, SupportTicket>()
   private readonly messages = new Map<string, SupportMessage[]>()
   private readonly attachmentSources = new Map<string, EncryptedAttachment>()
+  private readonly statusEvents = new Map<string, SupportStatusEvent[]>()
+  private readonly pendingStatusUpdates = new Map<string, StatusUpdate[]>()
   private status: SupportSnapshot['status'] = 'idle'
   private error: string | undefined
   private customerId: string | null = null
   private connectionGeneration = 0
+  private lastUserRelays: string[] = []
 
   constructor(
     private readonly config: CustomerSupportConfig,
     private readonly keyProvider: DerivedCustomerSupportKeyProvider,
+    private readonly relaysProvider: SupportRelaysProvider,
     private readonly historyStore?: CustomerSupportHistoryStore,
     private readonly attachmentStore?: SupportAttachmentBlobStore,
   ) {}
@@ -82,7 +90,15 @@ export class NostrCsCustomerSupportAdapter implements CustomerSupportChannel {
       messages: Object.fromEntries(
         [...this.messages.entries()].map(([ticketId, list]) => [
           ticketId,
-          [...list].sort((a, b) => a.createdAt - b.createdAt),
+          [...list]
+            .sort((a, b) => a.createdAt - b.createdAt)
+            .map((message) => this.withResolvedAttachmentState(message)),
+        ]),
+      ),
+      statusEvents: Object.fromEntries(
+        [...this.statusEvents.entries()].map(([ticketId, list]) => [
+          ticketId,
+          [...list].sort((a, b) => a.at - b.at),
         ]),
       ),
       ...(this.error ? { error: this.error } : {}),
@@ -113,6 +129,12 @@ export class NostrCsCustomerSupportAdapter implements CustomerSupportChannel {
         return this.getSnapshot()
       }
 
+      const userRelays = this.relaysProvider.getRelays()
+      const effectiveUserRelays = userRelays.length > 0
+        ? userRelays
+        : [...this.config.relays.bootstrap]
+      this.lastUserRelays = effectiveUserRelays
+
       discoveryPool = new SimplePool()
       const relayIndex = new ConfiguredNip66RelayIndexAdapter(
         discoveryPool,
@@ -122,9 +144,9 @@ export class NostrCsCustomerSupportAdapter implements CustomerSupportChannel {
         key: { type: 'signer', value: this.keyProvider },
         relays: {
           bootstrap: this.config.relays.bootstrap,
-          write: this.config.relays.write,
-          read: this.config.relays.read,
-          dm: this.config.relays.dm,
+          write: effectiveUserRelays,
+          read: effectiveUserRelays,
+          dm: effectiveUserRelays,
         },
         infrastructure: { relayIndex },
       })
@@ -138,6 +160,7 @@ export class NostrCsCustomerSupportAdapter implements CustomerSupportChannel {
       }
 
       this.attachSdkListeners(client)
+      this.attachRelaysListener()
       await client.pullOwnHistory().catch(() => undefined)
       if (!this.isActiveConnection(generation, client)) {
         await this.cleanupSupersededConnection(client, discoveryPool)
@@ -167,6 +190,11 @@ export class NostrCsCustomerSupportAdapter implements CustomerSupportChannel {
       unsubscribe()
     }
     this.unsubscribeSdk = []
+
+    if (this.unsubscribeRelays) {
+      this.unsubscribeRelays()
+      this.unsubscribeRelays = null
+    }
 
     if (this.client) {
       await this.client.disconnect().catch(() => undefined)
@@ -201,7 +229,10 @@ export class NostrCsCustomerSupportAdapter implements CustomerSupportChannel {
       body: encoded.body,
       agentPubkey: this.config.agentPubkey,
       priority: toSdkPriority(input.priority),
-      category: input.category,
+      // nostr-cs ships a narrow Category type, but the SDK runtime publishes
+      // category as a free-form string tag. We extend the vocabulary with
+      // 'idea_*' so the agent can filter by tag (#category) on the relay side.
+      category: input.category as NostrCsCategory,
     }).catch(async (error: unknown) => {
       await this.cleanupUploadedAttachments(encoded.uploaded)
       throw error
@@ -373,6 +404,28 @@ export class NostrCsCustomerSupportAdapter implements CustomerSupportChannel {
     this.keyProvider.destroy()
   }
 
+  private withResolvedAttachmentState(message: SupportMessage): SupportMessage {
+    if (!message.attachments || message.attachments.length === 0) return message
+    return {
+      ...message,
+      attachments: message.attachments.map((attachment) => ({
+        ...attachment,
+        state: this.attachmentSources.has(attachment.id) ? 'available' : 'metadata_only',
+      })),
+    }
+  }
+
+  private attachRelaysListener(): void {
+    if (this.unsubscribeRelays) {
+      this.unsubscribeRelays()
+    }
+    this.unsubscribeRelays = this.relaysProvider.subscribe((next) => {
+      const incoming = next.length > 0 ? next : [...this.config.relays.bootstrap]
+      if (relayListsEqual(this.lastUserRelays, incoming)) return
+      this.refresh().catch(() => undefined)
+    })
+  }
+
   private attachSdkListeners(client: CSClient): void {
     this.unsubscribeSdk = [
       client.onTicket((ticket) => {
@@ -429,10 +482,16 @@ export class NostrCsCustomerSupportAdapter implements CustomerSupportChannel {
     if (!history) return
 
     for (const ticket of history.tickets) {
+      // Preserve in-memory state: live updates (status, archive, pinned) may
+      // not have been persisted yet (fire-and-forget). Only fill gaps.
+      if (this.tickets.has(ticket.id)) continue
       this.tickets.set(ticket.id, ticket)
     }
     for (const [ticketId, messages] of Object.entries(history.messages)) {
-      this.messages.set(ticketId, messages.map(withCachedAttachmentState))
+      // Cached messages keep whatever state was persisted; getSnapshot() derives
+      // the live state from this.attachmentSources after live events repopulate.
+      if (this.messages.has(ticketId)) continue
+      this.messages.set(ticketId, messages)
     }
     this.emit()
   }
@@ -472,7 +531,11 @@ export class NostrCsCustomerSupportAdapter implements CustomerSupportChannel {
     const decoded = decodeSupportEnvelope(ticket.body)
     this.registerAttachmentSources(decoded.encryptedAttachments)
     const incomingStatus = ticket.status as SupportTicketStatus
-    const status = previous && previous.updatedAt > createdAt
+    // Terminal status sticks. Also prefer previous state if it's been
+    // touched (updatedAt advanced past createdAt by a status event).
+    const status = previous && (
+      isSupportTicketTerminal(previous.status) || previous.updatedAt > createdAt
+    )
       ? previous.status
       : incomingStatus
     const mapped: SupportTicket = {
@@ -491,21 +554,66 @@ export class NostrCsCustomerSupportAdapter implements CustomerSupportChannel {
     }
     this.tickets.set(id, mapped)
     this.persistTicket(mapped)
+    // Apply any status events that arrived before this ticket.
+    this.flushPendingStatusUpdates(id)
     return mapped
   }
 
   private updateStatus(update: StatusUpdate): void {
     const id = update.ticketId.toString()
     const ticket = this.tickets.get(id)
-    if (!ticket) return
+    if (!ticket) {
+      // Status event arrived before the ticket itself (relays don't guarantee
+      // delivery order). Queue and replay once the ticket is upserted —
+      // otherwise terminal events like 'closed' would be silently dropped.
+      const pending = this.pendingStatusUpdates.get(id) ?? []
+      pending.push(update)
+      this.pendingStatusUpdates.set(id, pending)
+      return
+    }
+
+    // Terminal lock: once resolved/closed, the ticket is final. Ignore any
+    // further status events (out-of-order replay, agent re-open, stale relay
+    // delivery) so the customer never sees the status revert.
+    if (isSupportTicketTerminal(ticket.status)) return
+
+    // Timestamp guard: only newer events win. Protects against out-of-order
+    // delivery from multiple relays.
+    const updateAtMs = update.at * 1000
+    if (updateAtMs < ticket.updatedAt) return
 
     const updated = {
       ...ticket,
       status: update.newStatus as SupportTicketStatus,
-      updatedAt: update.at * 1000,
+      updatedAt: updateAtMs,
     }
     this.tickets.set(id, updated)
     this.persistTicket(updated)
+
+    const event: SupportStatusEvent = {
+      id: `status:${id}:${update.at}:${update.newStatus}`,
+      ticketId: id,
+      threadId: ticket.threadId,
+      from: ticket.status,
+      to: update.newStatus as SupportTicketStatus,
+      at: updateAtMs,
+    }
+    const list = this.statusEvents.get(id) ?? []
+    if (!list.some((existing) => existing.id === event.id)) {
+      this.statusEvents.set(id, [...list, event])
+    }
+  }
+
+  private flushPendingStatusUpdates(ticketId: string): void {
+    const pending = this.pendingStatusUpdates.get(ticketId)
+    if (!pending) return
+    this.pendingStatusUpdates.delete(ticketId)
+    // Apply chronologically so the terminal lock engages on the latest
+    // terminal event regardless of original arrival order.
+    pending.sort((a, b) => a.at - b.at)
+    for (const update of pending) {
+      this.updateStatus(update)
+    }
   }
 
   private touchTicket(ticketId: string, createdAtSeconds?: number): void {
@@ -675,6 +783,16 @@ function toSdkPriority(priority: SupportPriority): 'normal' | 'high' {
   return priority
 }
 
+function relayListsEqual(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false
+  const sortedA = [...a].sort()
+  const sortedB = [...b].sort()
+  for (let i = 0; i < sortedA.length; i += 1) {
+    if (sortedA[i] !== sortedB[i]) return false
+  }
+  return true
+}
+
 function compareSupportTickets(a: SupportTicket, b: SupportTicket): number {
   if (a.pinnedAt !== undefined || b.pinnedAt !== undefined) {
     return (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0)
@@ -705,17 +823,6 @@ function toSupportAttachment(
     mime: attachment.mime,
     size: attachment.size,
     state,
-  }
-}
-
-function withCachedAttachmentState(message: SupportMessage): SupportMessage {
-  if (!message.attachments || message.attachments.length === 0) return message
-  return {
-    ...message,
-    attachments: message.attachments.map((attachment) => ({
-      ...attachment,
-      state: 'metadata_only',
-    })),
   }
 }
 

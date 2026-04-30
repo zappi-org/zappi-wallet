@@ -99,6 +99,7 @@ function makeSnapshot(messageIds: string[]): SupportSnapshot {
         createdAt: index + 1,
       })),
     },
+    statusEvents: {},
   }
 }
 

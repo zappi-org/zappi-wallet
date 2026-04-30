@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { User, Settings, Lock, Wallet, ChevronRight, Download } from 'lucide-react'
+import { User, Settings, Lock, Wallet, LifeBuoy, ChevronRight, Download } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { Button } from '@/ui/components/common/Button'
@@ -16,6 +16,7 @@ const categories: { Icon: LucideIcon; titleKey: string; descKey: string; page: S
   { Icon: Settings, titleKey: 'settings.preferences', descKey: 'settings.preferencesDesc', page: 'category-preferences' },
   { Icon: Lock, titleKey: 'settings.security', descKey: 'settings.securityDesc', page: 'category-security' },
   { Icon: Wallet, titleKey: 'settings.walletManagement', descKey: 'settings.walletManagementDesc', page: 'category-wallet' },
+  { Icon: LifeBuoy, titleKey: 'settings.customerSupport', descKey: 'settings.customerSupportDesc', page: 'support' },
 ]
 
 export function SettingsMainList({
@@ -42,7 +43,7 @@ export function SettingsMainList({
       {/* Category cards */}
       <div className="px-4 pt-4 flex flex-col gap-2.5">
         {categories.map(({ Icon, titleKey, descKey, page }) => {
-          const badge = page === 'category-profile' ? supportUnreadCount : 0
+          const badge = page === 'support' ? supportUnreadCount : 0
           return (
             <button
               key={page}

@@ -1,10 +1,35 @@
 export type SupportTicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed'
 export type SupportPriority = 'normal' | 'high'
-export type SupportCategory = 'general' | 'technical' | 'billing'
+// Active inquiry categories (handoff frame 02). Agent dashboards filter on
+// these via the nostr "category" tag.
+export type SupportInquiryCategoryActive =
+  | 'transfer'   // 송수신 관련
+  | 'ecash'      // 이캐시 관련
+  | 'fee'        // 수수료 관련
+  | 'security'   // 보안 / 백업
+  | 'other'      // 기타
+// Legacy values kept so previously-published tickets still type-check on read.
+// Not exposed in the compose picker.
+export type SupportInquiryCategoryLegacy = 'general' | 'technical' | 'billing'
+export type SupportInquiryCategory = SupportInquiryCategoryActive | SupportInquiryCategoryLegacy
+export type SupportIdeaCategory = 'idea_ux' | 'idea_feature' | 'idea_perf' | 'idea_other'
+export type SupportCategory = SupportInquiryCategory | SupportIdeaCategory
+export type SupportKind = 'inquiry' | 'idea'
 export type SupportConnectionStatus = 'disabled' | 'idle' | 'connecting' | 'connected' | 'error'
 
 export const DEFAULT_SUPPORT_PRIORITY: SupportPriority = 'normal'
-export const DEFAULT_SUPPORT_CATEGORY: SupportCategory = 'general'
+export const DEFAULT_SUPPORT_CATEGORY: SupportInquiryCategoryActive = 'transfer'
+export const DEFAULT_IDEA_CATEGORY: SupportIdeaCategory = 'idea_ux'
+
+export const IDEA_CATEGORY_PREFIX = 'idea_'
+
+export function isIdeaCategory(category: SupportCategory): category is SupportIdeaCategory {
+  return category.startsWith(IDEA_CATEGORY_PREFIX)
+}
+
+export function getSupportKind(category: SupportCategory): SupportKind {
+  return isIdeaCategory(category) ? 'idea' : 'inquiry'
+}
 
 export interface SupportAvailability {
   available: boolean
@@ -58,6 +83,15 @@ export interface SupportMessage {
   attachments?: SupportAttachment[]
 }
 
+export interface SupportStatusEvent {
+  id: string
+  ticketId: string
+  threadId: string
+  from: SupportTicketStatus
+  to: SupportTicketStatus
+  at: number
+}
+
 export interface SupportSnapshot {
   status: SupportConnectionStatus
   availability: SupportAvailability
@@ -65,6 +99,7 @@ export interface SupportSnapshot {
   customerId: string | null
   tickets: SupportTicket[]
   messages: Record<string, SupportMessage[]>
+  statusEvents: Record<string, SupportStatusEvent[]>
   error?: string
 }
 

@@ -3,9 +3,12 @@ import { DerivedCustomerSupportKeyProvider } from '@/adapters/customer-support/d
 import { NostrCsCustomerSupportAdapter } from '@/adapters/customer-support/nostr-cs-customer-support.adapter'
 import { BlossomAttachmentStoreAdapter } from '@/adapters/customer-support/blossom-attachment-store.adapter'
 import { readCustomerSupportConfig } from '@/adapters/customer-support/customer-support-config'
+import { SUPPORT_FLOOR_RELAYS } from '@/adapters/customer-support/customer-support-defaults'
 import { DexieCustomerSupportHistoryStore } from '@/adapters/storage/dexie/dexie-customer-support-history.store'
 import { SupportService } from '@/core/services/support.service'
 import type { SupportUseCase } from '@/core/ports/driving/support.usecase'
+import type { SupportRelaysProvider } from '@/core/ports/driven/support-relays.port'
+import { useAppStore } from '@/store'
 
 export interface CreateSupportServiceDeps {
   bip39Seed: Uint8Array
@@ -20,7 +23,33 @@ export function createSupportService(deps: CreateSupportServiceDeps): SupportUse
   const keyProvider = new DerivedCustomerSupportKeyProvider(deps.bip39Seed)
   const historyStore = new DexieCustomerSupportHistoryStore()
   const attachmentStore = new BlossomAttachmentStoreAdapter(config.value.attachments.servers)
+  const relaysProvider = createSettingsStoreSupportRelaysProvider()
   return new SupportService(
-    new NostrCsCustomerSupportAdapter(config.value, keyProvider, historyStore, attachmentStore),
+    new NostrCsCustomerSupportAdapter(
+      config.value,
+      keyProvider,
+      relaysProvider,
+      historyStore,
+      attachmentStore,
+    ),
   )
+}
+
+function createSettingsStoreSupportRelaysProvider(): SupportRelaysProvider {
+  const mergeWithFloor = (userRelays: readonly string[]): string[] =>
+    [...new Set([...SUPPORT_FLOOR_RELAYS, ...userRelays])]
+
+  return {
+    getRelays(): string[] {
+      return mergeWithFloor(useAppStore.getState().settings.relays)
+    },
+    subscribe(listener) {
+      return useAppStore.subscribe(
+        (state) => state.settings.relays,
+        (relays) => {
+          listener(mergeWithFloor(relays))
+        },
+      )
+    },
+  }
 }

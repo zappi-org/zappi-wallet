@@ -16,6 +16,7 @@ const snapshot: SupportSnapshot = {
   customerId: 'customer',
   tickets: [],
   messages: {},
+  statusEvents: {},
 }
 
 function makeChannel(): CustomerSupportChannel {
@@ -74,7 +75,7 @@ describe('SupportService', () => {
       title: 'Title',
       body: 'Body',
       priority: 'normal',
-      category: 'general',
+      category: 'transfer',
     })
     expect(channel.sendMessage).toHaveBeenCalledWith({ ticketId: 'ticket', body: 'Follow up' })
     expect(channel.downloadAttachment).toHaveBeenCalledWith({ attachmentId: 'attachment' })

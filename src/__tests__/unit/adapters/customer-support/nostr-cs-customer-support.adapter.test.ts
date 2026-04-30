@@ -151,9 +151,6 @@ const config: CustomerSupportConfig = {
   agentPubkey,
   relays: {
     bootstrap: ['wss://relay.example/'],
-    write: ['wss://relay.example/'],
-    read: ['wss://relay.example/'],
-    dm: ['wss://relay.example/'],
     discovery: ['wss://relay.example/'],
   },
   attachments: {
@@ -161,6 +158,21 @@ const config: CustomerSupportConfig = {
     maxCount: 3,
     maxSizeBytes: 10_000,
   },
+}
+
+function makeRelaysProvider(relays: string[] = ['wss://relay.example/']) {
+  const listeners = new Set<(relays: string[]) => void>()
+  return {
+    getRelays: () => relays,
+    subscribe: (listener: (relays: string[]) => void) => {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+    emit: (next: string[]) => {
+      relays = next
+      for (const listener of listeners) listener(next)
+    },
+  }
 }
 
 describe('NostrCsCustomerSupportAdapter', () => {
@@ -486,7 +498,7 @@ describe('NostrCsCustomerSupportAdapter', () => {
       getPubkey: vi.fn().mockResolvedValue(customerPubkey),
       destroy: vi.fn(),
     } as unknown as DerivedCustomerSupportKeyProvider
-    const adapter = new NostrCsCustomerSupportAdapter(config, keyProvider, historyStore)
+    const adapter = new NostrCsCustomerSupportAdapter(config, keyProvider, makeRelaysProvider(), historyStore)
 
     const connectPromise = adapter.connect()
     await vi.waitFor(() => {
@@ -509,7 +521,7 @@ describe('NostrCsCustomerSupportAdapter', () => {
       getPubkey: vi.fn().mockResolvedValue(customerPubkey),
       destroy: vi.fn(),
     } as unknown as DerivedCustomerSupportKeyProvider
-    const adapter = new NostrCsCustomerSupportAdapter(config, keyProvider)
+    const adapter = new NostrCsCustomerSupportAdapter(config, keyProvider, makeRelaysProvider())
 
     const connectPromise = adapter.connect()
     await vi.waitFor(() => {
@@ -550,7 +562,13 @@ async function connectAdapter(
     destroy: vi.fn(),
   } as unknown as DerivedCustomerSupportKeyProvider
 
-  const adapter = new NostrCsCustomerSupportAdapter(supportConfig, keyProvider, historyStore, attachmentStore)
+  const adapter = new NostrCsCustomerSupportAdapter(
+    supportConfig,
+    keyProvider,
+    makeRelaysProvider(),
+    historyStore,
+    attachmentStore,
+  )
   await adapter.connect()
 
   return {

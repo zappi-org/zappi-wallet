@@ -1,10 +1,15 @@
 import { nip19 } from 'nostr-tools'
+import {
+  SUPPORT_AGENT_NPUB,
+  SUPPORT_BLOSSOM_SERVERS,
+  SUPPORT_BOOTSTRAP_RELAYS,
+  SUPPORT_DEFAULT_MAX_ATTACHMENT_BYTES,
+  SUPPORT_DEFAULT_MAX_ATTACHMENT_COUNT,
+  SUPPORT_DISCOVERY_RELAYS,
+} from './customer-support-defaults'
 
 export interface CustomerSupportRelayConfig {
   bootstrap: [string, ...string[]]
-  write: string[]
-  read: string[]
-  dm: string[]
   discovery: string[]
 }
 
@@ -27,9 +32,6 @@ export type CustomerSupportConfigResult =
 interface PublicSupportEnv {
   VITE_ZAPPI_SUPPORT_AGENT_NPUB?: string
   VITE_ZAPPI_SUPPORT_BOOTSTRAP_RELAYS?: string
-  VITE_ZAPPI_SUPPORT_WRITE_RELAYS?: string
-  VITE_ZAPPI_SUPPORT_READ_RELAYS?: string
-  VITE_ZAPPI_SUPPORT_DM_RELAYS?: string
   VITE_ZAPPI_SUPPORT_DISCOVERY_RELAYS?: string
   VITE_ZAPPI_SUPPORT_BLOSSOM_SERVERS?: string
   VITE_ZAPPI_SUPPORT_MAX_ATTACHMENT_BYTES?: string
@@ -37,18 +39,13 @@ interface PublicSupportEnv {
 
 const MAX_SUPPORT_RELAYS = 12
 const MAX_SUPPORT_BLOSSOM_SERVERS = 6
-const DEFAULT_ATTACHMENT_MAX_COUNT = 3
-const DEFAULT_ATTACHMENT_MAX_SIZE_BYTES = 10 * 1024 * 1024
 
 export function readCustomerSupportConfig(
   env: PublicSupportEnv = import.meta.env as unknown as PublicSupportEnv,
 ): CustomerSupportConfigResult {
-  const rawAgent = env.VITE_ZAPPI_SUPPORT_AGENT_NPUB?.trim()
-  const rawBootstrap = env.VITE_ZAPPI_SUPPORT_BOOTSTRAP_RELAYS?.trim()
-
-  if (!rawAgent || !rawBootstrap) {
-    return { ok: false, reason: 'not_configured' }
-  }
+  const rawAgent = env.VITE_ZAPPI_SUPPORT_AGENT_NPUB?.trim() || SUPPORT_AGENT_NPUB
+  const rawBootstrap =
+    env.VITE_ZAPPI_SUPPORT_BOOTSTRAP_RELAYS?.trim() || SUPPORT_BOOTSTRAP_RELAYS.join(',')
 
   const agentPubkey = parsePubkey(rawAgent)
   const bootstrap = parseRelayList(rawBootstrap)
@@ -56,19 +53,22 @@ export function readCustomerSupportConfig(
     return { ok: false, reason: 'invalid_config' }
   }
 
-  const write = parseRelayList(env.VITE_ZAPPI_SUPPORT_WRITE_RELAYS) ?? bootstrap
-  const read = parseRelayList(env.VITE_ZAPPI_SUPPORT_READ_RELAYS) ?? bootstrap
-  const dm = parseRelayList(env.VITE_ZAPPI_SUPPORT_DM_RELAYS) ?? read
-  const discovery = parseRelayList(env.VITE_ZAPPI_SUPPORT_DISCOVERY_RELAYS) ?? bootstrap
-  const blossomServers = parseServerList(env.VITE_ZAPPI_SUPPORT_BLOSSOM_SERVERS)
-  const maxSizeBytes = parsePositiveInteger(
-    env.VITE_ZAPPI_SUPPORT_MAX_ATTACHMENT_BYTES,
-    DEFAULT_ATTACHMENT_MAX_SIZE_BYTES,
-  )
-
-  if (write.length === 0 || read.length === 0 || dm.length === 0 || discovery.length === 0) {
+  const discovery =
+    parseRelayList(env.VITE_ZAPPI_SUPPORT_DISCOVERY_RELAYS) ??
+    parseRelayList(SUPPORT_DISCOVERY_RELAYS.join(',')) ??
+    bootstrap
+  if (discovery.length === 0) {
     return { ok: false, reason: 'invalid_config' }
   }
+
+  const blossomServers =
+    parseServerList(env.VITE_ZAPPI_SUPPORT_BLOSSOM_SERVERS) ??
+    parseServerList(SUPPORT_BLOSSOM_SERVERS.join(',')) ??
+    []
+  const maxSizeBytes = parsePositiveInteger(
+    env.VITE_ZAPPI_SUPPORT_MAX_ATTACHMENT_BYTES,
+    SUPPORT_DEFAULT_MAX_ATTACHMENT_BYTES,
+  )
 
   return {
     ok: true,
@@ -76,14 +76,11 @@ export function readCustomerSupportConfig(
       agentPubkey,
       relays: {
         bootstrap: toNonEmpty(bootstrap),
-        write,
-        read,
-        dm,
         discovery,
       },
       attachments: {
-        servers: blossomServers ?? [],
-        maxCount: DEFAULT_ATTACHMENT_MAX_COUNT,
+        servers: blossomServers,
+        maxCount: SUPPORT_DEFAULT_MAX_ATTACHMENT_COUNT,
         maxSizeBytes,
       },
     },

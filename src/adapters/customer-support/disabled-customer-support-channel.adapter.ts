@@ -27,6 +27,7 @@ export class DisabledCustomerSupportChannel implements CustomerSupportChannel {
       customerId: null,
       tickets: [],
       messages: {},
+      statusEvents: {},
     }
   }
 

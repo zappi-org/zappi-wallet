@@ -1,67 +1,83 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
-import { Download, Loader2, MoreVertical, Paperclip, Pin, Plus, Send, Trash2, X } from 'lucide-react'
+import {
+  ChevronRight,
+  Inbox,
+  Lightbulb,
+  MessageSquare,
+  Sparkles,
+  Trash2,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
+  DEFAULT_IDEA_CATEGORY,
   DEFAULT_SUPPORT_CATEGORY,
   DEFAULT_SUPPORT_PRIORITY,
   countUnreadSupportReplies,
-  getLatestSupportMessage,
   getLatestSupportMessageAt,
+  getSupportKind,
+  isIdeaCategory,
   isSupportTicketTerminal,
   type SupportAttachment,
   type SupportAttachmentUpload,
   type SupportCategory,
+  type SupportIdeaCategory,
+  type SupportInquiryCategory,
+  type SupportKind,
   type SupportMessage,
   type SupportPriority,
   type SupportSnapshot,
+  type SupportStatusEvent,
   type SupportTicket,
   type SupportTicketStatus,
 } from '@/core/domain/support'
-import zappiLogo from '@/assets/zappi.png'
-import { Button } from '@/ui/components/common/Button'
-import { ConfirmDialog } from '@/ui/components/common/ConfirmDialog'
-import { SettingsDetailPage } from '../components/SettingsDetailPage'
 import { useSupport } from '@/ui/hooks/use-support'
-import { cn } from '@/ui/primitives/utils'
 import { useAppStore } from '@/store'
+import { ConfirmDialog } from '@/ui/components/common/ConfirmDialog'
+import { cn } from '@/ui/primitives/utils'
+import {
+  CSActionRow,
+  CSAttachmentDropzone,
+  CSAttachmentPreview,
+  type CSAttachmentPreviewData,
+  CSCard,
+  CSCategoryChip,
+  CSCategoryPills,
+  type CSCategoryOption,
+  CSChatBubble,
+  CSChatInput,
+  CSFAB,
+  CSPage,
+  CSSearchBar,
+  CSSecurityNotice,
+  CSStatusChip,
+  ticketStatusToCSKind,
+} from './components/cs'
 
 interface SupportPageProps {
   onBack: () => void
 }
 
-type SupportView = 'list' | 'compose' | 'detail'
+type SupportView =
+  | 'home'
+  | 'inquiry-list'
+  | 'idea-list'
+  | 'compose-inquiry'
+  | 'compose-idea'
+  | 'ticket-detail'
 
-const CATEGORY_OPTIONS: Array<{
-  value: SupportCategory
-  labelKey: string
-}> = [
-  {
-    value: 'general',
-    labelKey: 'support.categories.general',
-  },
-  {
-    value: 'technical',
-    labelKey: 'support.categories.technical',
-  },
-  {
-    value: 'billing',
-    labelKey: 'support.categories.billing',
-  },
+const INQUIRY_CATEGORY_OPTIONS: Array<{ value: SupportInquiryCategory; labelKey: string }> = [
+  { value: 'transfer', labelKey: 'support.categories.transfer' },
+  { value: 'ecash', labelKey: 'support.categories.ecash' },
+  { value: 'fee', labelKey: 'support.categories.fee' },
+  { value: 'security', labelKey: 'support.categories.security' },
+  { value: 'other', labelKey: 'support.categories.other' },
 ]
 
-const PRIORITY_OPTIONS: Array<{
-  value: SupportPriority
-  labelKey: string
-}> = [
-  {
-    value: 'normal',
-    labelKey: 'support.priorities.normal',
-  },
-  {
-    value: 'high',
-    labelKey: 'support.priorities.high',
-  },
+const IDEA_CATEGORY_OPTIONS: Array<{ value: SupportIdeaCategory; labelKey: string }> = [
+  { value: 'idea_ux', labelKey: 'support.categories.idea_ux' },
+  { value: 'idea_feature', labelKey: 'support.categories.idea_feature' },
+  { value: 'idea_perf', labelKey: 'support.categories.idea_perf' },
+  { value: 'idea_other', labelKey: 'support.categories.idea_other' },
 ]
 
 export function SupportPage({ onBack }: SupportPageProps) {
@@ -69,19 +85,35 @@ export function SupportPage({ onBack }: SupportPageProps) {
   const support = useSupport()
   const addToast = useAppStore((state) => state.addToast)
   const setActiveSupportTicketId = useAppStore((state) => state.setActiveSupportTicketId)
+
   const [snapshot, setSnapshot] = useState<SupportSnapshot>(() => support.getSnapshot())
-  const [view, setView] = useState<SupportView>('list')
+  const [view, setView] = useState<SupportView>('home')
+  const [composeOrigin, setComposeOrigin] = useState<SupportView>('home')
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
   const [archiveTarget, setArchiveTarget] = useState<SupportTicket | null>(null)
-  const [actionMenuTicketId, setActionMenuTicketId] = useState<string | null>(null)
+
   const [category, setCategory] = useState<SupportCategory>(DEFAULT_SUPPORT_CATEGORY)
-  const [priority, setPriority] = useState<SupportPriority>(DEFAULT_SUPPORT_PRIORITY)
+  const [priority] = useState<SupportPriority>(DEFAULT_SUPPORT_PRIORITY)
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
-  const [replyBody, setReplyBody] = useState('')
   const [composeFiles, setComposeFiles] = useState<File[]>([])
+
+  const [replyBody, setReplyBody] = useState('')
   const [replyFiles, setReplyFiles] = useState<File[]>([])
-  const [downloadingAttachmentIds, setDownloadingAttachmentIds] = useState<Set<string>>(() => new Set())
+  const [openingAttachmentIds, setOpeningAttachmentIds] = useState<Set<string>>(
+    () => new Set(),
+  )
+  const [previewAttachment, setPreviewAttachment] = useState<CSAttachmentPreviewData | null>(null)
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false)
+
+  type ImageCacheEntry =
+    | { state: 'pending' }
+    | { state: 'ready'; url: string; data: Uint8Array; mime: string; name?: string }
+    | { state: 'failed' }
+  const [imageCache, setImageCache] = useState<Map<string, ImageCacheEntry>>(() => new Map())
+  const imageCacheRef = useRef(imageCache)
+  imageCacheRef.current = imageCache
+
   const [isCreating, setIsCreating] = useState(false)
   const [isSendingReply, setIsSendingReply] = useState(false)
   const [isArchiving, setIsArchiving] = useState(false)
@@ -92,11 +124,33 @@ export function SupportPage({ onBack }: SupportPageProps) {
     support.connect().then(setSnapshot).catch(() => {
       setFormError(t('support.connectionFailed'))
     })
-
     return () => {
       unsubscribe()
     }
   }, [support, t])
+
+  // Resync when the PWA returns to the foreground. Mobile OSes drop the
+  // websocket while suspended, so live status updates published in that
+  // window can be missed. refresh() = disconnect + connect + pullOwnHistory.
+  useEffect(() => {
+    let lastRefreshAt = 0
+    const REFRESH_THROTTLE_MS = 10_000
+
+    const trigger = () => {
+      if (document.visibilityState !== 'visible') return
+      const now = Date.now()
+      if (now - lastRefreshAt < REFRESH_THROTTLE_MS) return
+      lastRefreshAt = now
+      support.refresh().catch(() => undefined)
+    }
+
+    document.addEventListener('visibilitychange', trigger)
+    window.addEventListener('focus', trigger)
+    return () => {
+      document.removeEventListener('visibilitychange', trigger)
+      window.removeEventListener('focus', trigger)
+    }
+  }, [support])
 
   useEffect(() => {
     return () => {
@@ -107,31 +161,9 @@ export function SupportPage({ onBack }: SupportPageProps) {
   useEffect(() => {
     if (!selectedTicketId) return
     if (snapshot.tickets.some((ticket) => ticket.id === selectedTicketId)) return
-
     setSelectedTicketId(null)
-    setView('list')
-  }, [selectedTicketId, snapshot.tickets])
-
-  useEffect(() => {
-    if (actionMenuTicketId === null) return
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target
-      if (target instanceof Element && target.closest('[data-support-ticket-menu]')) return
-
-      setActionMenuTicketId(null)
-    }
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setActionMenuTicketId(null)
-    }
-
-    document.addEventListener('pointerdown', handlePointerDown)
-    document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.removeEventListener('pointerdown', handlePointerDown)
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [actionMenuTicketId])
+    if (view === 'ticket-detail') setView('inquiry-list')
+  }, [selectedTicketId, snapshot.tickets, view])
 
   const selectedTicket = useMemo(
     () => snapshot.tickets.find((ticket) => ticket.id === selectedTicketId) ?? null,
@@ -142,41 +174,109 @@ export function SupportPage({ onBack }: SupportPageProps) {
     () => getConversationMessages(selectedTicket, snapshot.messages),
     [selectedTicket, snapshot.messages],
   )
+
+  const selectedStatusEvents = useMemo(
+    () => (selectedTicket ? snapshot.statusEvents[selectedTicket.id] ?? [] : []),
+    [selectedTicket, snapshot.statusEvents],
+  )
+
+  const selectedTimeline = useMemo(
+    () => buildConversationTimeline(selectedMessages, selectedStatusEvents),
+    [selectedMessages, selectedStatusEvents],
+  )
+
   const selectedLatestSupportMessageAt = useMemo(
     () => getLatestSupportMessageAt(selectedMessages),
     [selectedMessages],
   )
 
-  const activeView: SupportView = view === 'detail' && !selectedTicket ? 'list' : view
+  const selectedKind: SupportKind = selectedTicket
+    ? getSupportKind(selectedTicket.category)
+    : 'inquiry'
+
+  const activeView: SupportView =
+    view === 'ticket-detail' && !selectedTicket ? 'inquiry-list' : view
 
   useEffect(() => {
-    if (activeView !== 'detail' || !selectedTicket) return
+    if (activeView !== 'ticket-detail' || !selectedTicket) return
     if (selectedLatestSupportMessageAt <= (selectedTicket.readAt ?? 0)) return
-
     support.markTicketRead(selectedTicket.id).catch(() => undefined)
   }, [activeView, selectedLatestSupportMessageAt, selectedTicket, support])
 
   useEffect(() => {
-    setActiveSupportTicketId(activeView === 'detail' && selectedTicket ? selectedTicket.id : null)
+    setActiveSupportTicketId(
+      activeView === 'ticket-detail' && selectedTicket ? selectedTicket.id : null,
+    )
   }, [activeView, selectedTicket, setActiveSupportTicketId])
 
-  const openTicket = (ticketId: string) => {
-    setFormError(null)
-    setSelectedTicketId(ticketId)
-    setView('detail')
-  }
+  const inquiryTickets = useMemo(
+    () => snapshot.tickets.filter((ticket) => !isIdeaCategory(ticket.category)),
+    [snapshot.tickets],
+  )
+  const ideaTickets = useMemo(
+    () => snapshot.tickets.filter((ticket) => isIdeaCategory(ticket.category)),
+    [snapshot.tickets],
+  )
+  const inquiryActiveCount = useMemo(
+    () => inquiryTickets.filter((ticket) => !isSupportTicketTerminal(ticket.status)).length,
+    [inquiryTickets],
+  )
 
-  const resetComposer = () => {
-    setCategory(DEFAULT_SUPPORT_CATEGORY)
-    setPriority(DEFAULT_SUPPORT_PRIORITY)
+  const inquiryUnread = useMemo(() => {
+    return inquiryTickets.reduce(
+      (sum, ticket) => sum + countUnreadSupportReplies(ticket, snapshot.messages[ticket.id] ?? []),
+      0,
+    )
+  }, [inquiryTickets, snapshot.messages])
+
+  const resetComposer = (kind: SupportKind) => {
+    setCategory(kind === 'idea' ? DEFAULT_IDEA_CATEGORY : DEFAULT_SUPPORT_CATEGORY)
     setTitle('')
     setBody('')
     setComposeFiles([])
   }
 
+  const handleBack = () => {
+    if (activeView === 'home') {
+      onBack()
+      return
+    }
+    setFormError(null)
+    if (activeView === 'compose-inquiry' || activeView === 'compose-idea') {
+      const kind: SupportKind = activeView === 'compose-idea' ? 'idea' : 'inquiry'
+      resetComposer(kind)
+      setView(composeOrigin)
+      return
+    }
+    if (activeView === 'ticket-detail') {
+      setReplyBody('')
+      setReplyFiles([])
+      const returnTo = selectedKind === 'idea' ? 'idea-list' : 'inquiry-list'
+      setSelectedTicketId(null)
+      setView(returnTo)
+      return
+    }
+    setView('home')
+  }
+
+  const openTicket = (ticketId: string) => {
+    setFormError(null)
+    setSelectedTicketId(ticketId)
+    setView('ticket-detail')
+  }
+
+  const openCompose = (kind: SupportKind, origin: SupportView) => {
+    if (!snapshot.availability.available) return
+    setFormError(null)
+    resetComposer(kind)
+    setComposeOrigin(origin)
+    setView(kind === 'idea' ? 'compose-idea' : 'compose-inquiry')
+  }
+
+  const composerKind: SupportKind = activeView === 'compose-idea' ? 'idea' : 'inquiry'
+
   const handleCreateTicket = async () => {
     if (!title.trim() || !body.trim() || isCreating) return
-
     setIsCreating(true)
     setFormError(null)
     try {
@@ -187,9 +287,9 @@ export function SupportPage({ onBack }: SupportPageProps) {
         priority,
         attachments: await filesToSupportAttachments(composeFiles),
       })
-      resetComposer()
+      resetComposer(composerKind)
       setSelectedTicketId(ticket.id)
-      setView('detail')
+      setView('ticket-detail')
     } catch {
       setFormError(t('support.createFailed'))
     } finally {
@@ -197,9 +297,9 @@ export function SupportPage({ onBack }: SupportPageProps) {
     }
   }
 
-  const handleSendMessage = async () => {
-    if (!selectedTicket || (!replyBody.trim() && replyFiles.length === 0) || isSendingReply) return
-
+  const handleSendReply = async () => {
+    if (!selectedTicket) return
+    if ((!replyBody.trim() && replyFiles.length === 0) || isSendingReply) return
     setIsSendingReply(true)
     setFormError(null)
     try {
@@ -217,23 +317,31 @@ export function SupportPage({ onBack }: SupportPageProps) {
     }
   }
 
-  const openComposer = () => {
-    setFormError(null)
-    setView('compose')
-  }
+  const handleOpenAttachment = async (attachment: SupportAttachment) => {
+    if (attachment.state !== 'available') return
 
-  const handleDownloadAttachment = async (attachment: SupportAttachment) => {
-    if (attachment.state !== 'available' || downloadingAttachmentIds.has(attachment.id)) return
+    const cached = imageCacheRef.current.get(attachment.id)
+    if (cached?.state === 'ready') {
+      setPreviewAttachment({ data: cached.data, mime: cached.mime, name: cached.name })
+      return
+    }
 
-    setDownloadingAttachmentIds((current) => new Set(current).add(attachment.id))
+    if (openingAttachmentIds.has(attachment.id)) return
+    setOpeningAttachmentIds((current) => new Set(current).add(attachment.id))
+    setIsPreviewLoading(true)
     setFormError(null)
     try {
       const downloaded = await support.downloadAttachment({ attachmentId: attachment.id })
-      saveDownloadedAttachment(downloaded.data, downloaded.mime, downloaded.name ?? attachment.name)
+      setPreviewAttachment({
+        data: downloaded.data,
+        mime: downloaded.mime,
+        name: downloaded.name ?? attachment.name,
+      })
     } catch {
-      setFormError(t('support.downloadFailed'))
+      setFormError(t('support.previewFailed'))
     } finally {
-      setDownloadingAttachmentIds((current) => {
+      setIsPreviewLoading(false)
+      setOpeningAttachmentIds((current) => {
         const next = new Set(current)
         next.delete(attachment.id)
         return next
@@ -241,17 +349,121 @@ export function SupportPage({ onBack }: SupportPageProps) {
     }
   }
 
+  // Auto-decrypt image attachments when viewing a thread.
+  useEffect(() => {
+    if (activeView !== 'ticket-detail') return
+    const targets: SupportAttachment[] = []
+    for (const message of selectedMessages) {
+      if (!message.attachments) continue
+      for (const attachment of message.attachments) {
+        if (
+          attachment.mime.startsWith('image/') &&
+          attachment.state === 'available' &&
+          !imageCacheRef.current.has(attachment.id)
+        ) {
+          targets.push(attachment)
+        }
+      }
+    }
+    if (targets.length === 0) return
+
+    setImageCache((prev) => {
+      const next = new Map(prev)
+      for (const a of targets) next.set(a.id, { state: 'pending' })
+      return next
+    })
+
+    let cancelled = false
+    for (const attachment of targets) {
+      void (async () => {
+        try {
+          const downloaded = await support.downloadAttachment({ attachmentId: attachment.id })
+          if (cancelled) return
+          const arrayBuffer = downloaded.data.buffer.slice(
+            downloaded.data.byteOffset,
+            downloaded.data.byteOffset + downloaded.data.byteLength,
+          ) as ArrayBuffer
+          const blob = new Blob([arrayBuffer], { type: downloaded.mime })
+          const url = URL.createObjectURL(blob)
+          setImageCache((prev) => {
+            if (cancelled) {
+              URL.revokeObjectURL(url)
+              return prev
+            }
+            const existing = prev.get(attachment.id)
+            if (existing && existing.state === 'ready') {
+              URL.revokeObjectURL(url)
+              return prev
+            }
+            const next = new Map(prev)
+            next.set(attachment.id, {
+              state: 'ready',
+              url,
+              data: downloaded.data,
+              mime: downloaded.mime,
+              name: downloaded.name ?? attachment.name,
+            })
+            return next
+          })
+        } catch {
+          if (cancelled) return
+          setImageCache((prev) => {
+            const next = new Map(prev)
+            next.set(attachment.id, { state: 'failed' })
+            return next
+          })
+        }
+      })()
+    }
+    return () => {
+      cancelled = true
+    }
+  }, [activeView, selectedMessages, support])
+
+  // Revoke all object URLs on unmount.
+  useEffect(() => {
+    return () => {
+      for (const entry of imageCacheRef.current.values()) {
+        if (entry.state === 'ready') URL.revokeObjectURL(entry.url)
+      }
+    }
+  }, [])
+
+  const imageUrls = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const [id, entry] of imageCache) {
+      if (entry.state === 'ready') map.set(id, entry.url)
+    }
+    return map
+  }, [imageCache])
+
+  const failedImageIds = useMemo(() => {
+    const set = new Set<string>()
+    for (const [id, entry] of imageCache) {
+      if (entry.state === 'failed') set.add(id)
+    }
+    return set
+  }, [imageCache])
+
+  const handleDownloadFromPreview = (attachment: CSAttachmentPreviewData) => {
+    saveDownloadedAttachment(attachment.data, attachment.mime, attachment.name)
+  }
+
+  const handleClosePreview = () => {
+    setPreviewAttachment(null)
+  }
+
   const handleArchiveTicket = async () => {
     if (!archiveTarget || isArchiving) return
-
     setIsArchiving(true)
     setFormError(null)
     try {
+      const wasIdea = isIdeaCategory(archiveTarget.category)
       await support.archiveTicket(archiveTarget.id)
       addToast({ type: 'success', message: t('support.deleted'), duration: 2500 })
       setArchiveTarget(null)
       setSelectedTicketId(null)
-      setView('list')
+      setView(wasIdea ? 'idea-list' : 'inquiry-list')
     } catch {
       setFormError(t('support.deleteFailed'))
     } finally {
@@ -259,123 +471,130 @@ export function SupportPage({ onBack }: SupportPageProps) {
     }
   }
 
-  const handleTogglePinned = async (ticket: SupportTicket) => {
-    setActionMenuTicketId(null)
-    setFormError(null)
-    try {
-      await support.setTicketPinned(ticket.id, ticket.pinnedAt === undefined ? Date.now() : null)
-    } catch {
-      setFormError(t('support.updateFailed'))
-    }
-  }
+  const unavailable = !snapshot.availability.available
+  const connectionError = snapshot.status === 'error'
+  const noticeBanner =
+    unavailable
+      ? { title: t('support.unavailableTitle'), description: t('support.unavailableDescription'), tone: 'default' as const }
+      : connectionError
+        ? { title: t('support.connectionFailed'), description: snapshot.error ?? t('support.tryAgainLater'), tone: 'danger' as const }
+        : formError
+          ? { title: formError, description: t('support.tryAgainLater'), tone: 'danger' as const }
+          : null
 
-  const handleMarkTicketRead = async (ticket: SupportTicket) => {
-    setActionMenuTicketId(null)
-    setFormError(null)
-    try {
-      await support.markTicketRead(ticket.id)
-    } catch {
-      setFormError(t('support.updateFailed'))
-    }
-  }
+  const headerInfo = getHeaderInfo(activeView, t, selectedTicket, () => {
+    if (selectedTicket) setArchiveTarget(selectedTicket)
+  })
 
-  const closeSubView = () => {
-    resetComposer()
-    setReplyBody('')
-    setReplyFiles([])
-    setView('list')
-  }
+  const footerNode = renderFooter({
+    view: activeView,
+    title,
+    body,
+    isCreating,
+    onSubmit: handleCreateTicket,
+    submitLabel: t(composerKind === 'idea' ? 'support.submitIdea' : 'support.submitInquiry'),
+    selectedTicket,
+    selectedKind,
+    replyBody,
+    replyFiles,
+    onReplyBodyChange: setReplyBody,
+    onReplyFilesChange: setReplyFiles,
+    onSendReply: handleSendReply,
+    isSendingReply,
+    capabilities: snapshot.capabilities.attachments,
+    onAttachmentError: setFormError,
+    placeholder: t(selectedKind === 'idea' ? 'support.ideaReplyPlaceholder' : 'support.replyPlaceholder'),
+    t,
+  })
 
   return (
-    <SettingsDetailPage
-      title={activeView === 'compose' ? t('support.composePageTitle') : t('support.title')}
-      onBack={activeView === 'list' ? onBack : closeSubView}
-      headerAction={activeView === 'list' ? (
-        <button
-          type="button"
-          onClick={openComposer}
-          className="flex h-10 items-center gap-1.5 rounded-card bg-background-card px-4 text-body font-medium text-foreground active:scale-[0.98] transition-transform"
-        >
-          <Plus className="w-4 h-4" strokeWidth={1.8} />
-          {t('support.startNewTicket')}
-        </button>
-      ) : null}
-    >
-      <div className="px-4 pt-3 pb-6 space-y-4">
-        {!snapshot.availability.available ? (
-          <SupportNotice
-            title={t('support.unavailableTitle')}
-            description={t('support.unavailableDescription')}
-          />
-        ) : (
-          <>
-            {snapshot.status === 'error' && (
-              <SupportNotice
-                title={t('support.connectionFailed')}
-                description={snapshot.error ?? t('support.tryAgainLater')}
-                tone="danger"
-              />
-            )}
-            {formError && (
-              <SupportNotice title={formError} description={t('support.tryAgainLater')} tone="danger" />
-            )}
-
-            {activeView === 'list' && (
-              <TicketListView
-                tickets={snapshot.tickets}
-                messages={snapshot.messages}
-                onSelect={openTicket}
-                actionMenuTicketId={actionMenuTicketId}
-                onActionMenuChange={setActionMenuTicketId}
-                onTogglePinned={handleTogglePinned}
-                onMarkRead={handleMarkTicketRead}
-                onLeave={(ticket) => {
-                  setActionMenuTicketId(null)
-                  setArchiveTarget(ticket)
-                }}
-              />
-            )}
-
-            {activeView === 'compose' && (
-              <ComposerView
-                category={category}
-                priority={priority}
-                title={title}
-                body={body}
-                attachments={composeFiles}
-                attachmentCapabilities={snapshot.capabilities.attachments}
-                isCreating={isCreating}
-                onCategoryChange={setCategory}
-                onPriorityChange={setPriority}
-                onTitleChange={setTitle}
-                onBodyChange={setBody}
-                onAttachmentsChange={setComposeFiles}
-                onAttachmentError={setFormError}
-                onCancel={closeSubView}
-                onSubmit={handleCreateTicket}
-              />
-            )}
-
-            {activeView === 'detail' && selectedTicket && (
-              <ConversationView
-                ticket={selectedTicket}
-                messages={selectedMessages}
-                replyBody={replyBody}
-                attachments={replyFiles}
-                attachmentCapabilities={snapshot.capabilities.attachments}
-                downloadingAttachmentIds={downloadingAttachmentIds}
-                isSendingReply={isSendingReply}
-                onReplyBodyChange={setReplyBody}
-                onAttachmentsChange={setReplyFiles}
-                onAttachmentError={setFormError}
-                onDownloadAttachment={handleDownloadAttachment}
-                onArchiveTicket={() => setArchiveTarget(selectedTicket)}
-                onSendMessage={handleSendMessage}
-              />
-            )}
-          </>
+    <>
+      <CSPage
+        title={headerInfo.title}
+        subtitle={headerInfo.subtitle}
+        onBack={handleBack}
+        right={headerInfo.right}
+        meta={headerInfo.meta}
+        footer={footerNode}
+      >
+        {noticeBanner && (
+          <div className="px-5 mb-3">
+            <NoticeBanner {...noticeBanner} />
+          </div>
         )}
-      </div>
+
+        {activeView === 'home' && (
+          <HelpHomeView
+            inquiryCount={inquiryActiveCount}
+            inquiryUnread={inquiryUnread}
+            ideaCount={ideaTickets.length}
+            onComposeInquiry={() => openCompose('inquiry', 'home')}
+            onOpenInquiryList={() => setView('inquiry-list')}
+            onComposeIdea={() => openCompose('idea', 'home')}
+            onOpenIdeaList={() => setView('idea-list')}
+            disabled={unavailable}
+          />
+        )}
+
+        {activeView === 'inquiry-list' && (
+          <TicketListView
+            kind="inquiry"
+            tickets={inquiryTickets}
+            messagesByTicket={snapshot.messages}
+            onSelect={openTicket}
+            onCompose={() => openCompose('inquiry', 'inquiry-list')}
+            disabled={unavailable}
+          />
+        )}
+
+        {activeView === 'idea-list' && (
+          <TicketListView
+            kind="idea"
+            tickets={ideaTickets}
+            messagesByTicket={snapshot.messages}
+            onSelect={openTicket}
+            onCompose={() => openCompose('idea', 'idea-list')}
+            disabled={unavailable}
+          />
+        )}
+
+        {(activeView === 'compose-inquiry' || activeView === 'compose-idea') && (
+          <ComposeView
+            kind={composerKind}
+            title={title}
+            body={body}
+            category={category}
+            files={composeFiles}
+            capabilities={snapshot.capabilities.attachments}
+            isSubmitting={isCreating}
+            onTitleChange={setTitle}
+            onBodyChange={setBody}
+            onCategoryChange={setCategory}
+            onFilesChange={setComposeFiles}
+            onAttachmentError={setFormError}
+          />
+        )}
+
+        {activeView === 'ticket-detail' && selectedTicket && (
+          <ConversationView
+            kind={selectedKind}
+            timeline={selectedTimeline}
+            ticketTerminal={isSupportTicketTerminal(selectedTicket.status)}
+            openingIds={openingAttachmentIds}
+            imageUrls={imageUrls}
+            failedImageIds={failedImageIds}
+            onOpenAttachment={handleOpenAttachment}
+          />
+        )}
+      </CSPage>
+
+      <CSAttachmentPreview
+        attachment={previewAttachment}
+        loading={isPreviewLoading && !previewAttachment}
+        onClose={handleClosePreview}
+        onDownload={handleDownloadFromPreview}
+      />
+
       <ConfirmDialog
         isOpen={archiveTarget !== null}
         onClose={() => {
@@ -388,695 +607,643 @@ export function SupportPage({ onBack }: SupportPageProps) {
         cancelLabel={t('common.cancel')}
         loading={isArchiving}
       />
-    </SettingsDetailPage>
+    </>
   )
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Help Home
+
+interface HelpHomeViewProps {
+  inquiryCount: number
+  inquiryUnread: number
+  ideaCount: number
+  onComposeInquiry: () => void
+  onOpenInquiryList: () => void
+  onComposeIdea: () => void
+  onOpenIdeaList: () => void
+  disabled?: boolean
+}
+
+function HelpHomeView({
+  inquiryCount,
+  inquiryUnread,
+  ideaCount,
+  onComposeInquiry,
+  onOpenInquiryList,
+  onComposeIdea,
+  onOpenIdeaList,
+  disabled,
+}: HelpHomeViewProps) {
+  const { t } = useTranslation()
+  const faqQuestions = [
+    t('support.faqPlaceholder.q1'),
+    t('support.faqPlaceholder.q2'),
+    t('support.faqPlaceholder.q3'),
+    t('support.faqPlaceholder.q4'),
+  ]
+  const inquiryListSubtitle =
+    inquiryUnread > 0
+      ? t('support.actions.inquiryList.subtitleWithUnread', {
+          count: inquiryCount,
+          unread: inquiryUnread,
+        })
+      : t('support.actions.inquiryList.subtitle', { count: inquiryCount })
+
+  const ideaListSubtitle = ideaCount > 0
+    ? t('support.actions.ideaList.subtitle', { count: ideaCount })
+    : t('support.actions.ideaList.empty')
+
+  return (
+    <div className="pb-8">
+      <div className="px-5 mb-4">
+        <CSSearchBar />
+      </div>
+
+      <div className="px-5 mb-4">
+        <div className="flex items-center justify-between mb-2.5">
+          <span className="text-[13px] font-semibold text-foreground-muted tracking-[-0.005em]">
+            {t('support.faqTitle')}
+          </span>
+          <span className="text-[12px] font-medium text-foreground-subtle">
+            {t('support.faqSeeAll')} →
+          </span>
+        </div>
+        <CSCard padding="none">
+          {faqQuestions.map((question, index) => (
+            <div
+              key={index}
+              className={cn(
+                'flex items-center justify-between px-4 py-3.5',
+                index !== 0 && 'border-t border-border/60',
+              )}
+            >
+              <span className="text-[14px] text-foreground tracking-[-0.005em]">{question}</span>
+              <ChevronRight className="w-4 h-4 text-foreground-subtle shrink-0" strokeWidth={2} />
+            </div>
+          ))}
+        </CSCard>
+      </div>
+
+      <div className="px-5 flex flex-col gap-2.5">
+        <CSActionRow
+          icon={<MessageSquare className="w-[22px] h-[22px] text-brand-900" strokeWidth={1.7} />}
+          accent="brand"
+          title={t('support.actions.composeInquiry.title')}
+          subtitle={t('support.actions.composeInquiry.subtitle')}
+          onClick={onComposeInquiry}
+          disabled={disabled}
+        />
+        <CSActionRow
+          icon={<Inbox className="w-[22px] h-[22px] text-brand-900" strokeWidth={1.7} />}
+          accent="brand"
+          title={t('support.actions.inquiryList.title')}
+          subtitle={inquiryListSubtitle}
+          badge={inquiryUnread > 0 ? (inquiryUnread > 99 ? '99+' : inquiryUnread) : undefined}
+          onClick={onOpenInquiryList}
+        />
+        <div className="h-1.5" />
+        <CSActionRow
+          icon={<Lightbulb className="w-[22px] h-[22px] text-[#9A6B00]" strokeWidth={1.7} />}
+          accent="pending"
+          title={t('support.actions.composeIdea.title')}
+          subtitle={t('support.actions.composeIdea.subtitle')}
+          onClick={onComposeIdea}
+          disabled={disabled}
+        />
+        <CSActionRow
+          icon={<Sparkles className="w-[22px] h-[22px] text-brand-900" strokeWidth={1.7} />}
+          accent="neutral"
+          title={t('support.actions.ideaList.title')}
+          subtitle={ideaListSubtitle}
+          onClick={onOpenIdeaList}
+        />
+      </div>
+
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Ticket list (inquiry or idea)
+
 interface TicketListViewProps {
+  kind: SupportKind
   tickets: SupportTicket[]
-  messages: SupportSnapshot['messages']
+  messagesByTicket: SupportSnapshot['messages']
   onSelect: (ticketId: string) => void
-  actionMenuTicketId: string | null
-  onActionMenuChange: (ticketId: string | null) => void
-  onTogglePinned: (ticket: SupportTicket) => void
-  onMarkRead: (ticket: SupportTicket) => void
-  onLeave: (ticket: SupportTicket) => void
+  onCompose: () => void
+  disabled?: boolean
 }
 
 function TicketListView({
+  kind,
   tickets,
-  messages,
+  messagesByTicket,
   onSelect,
-  actionMenuTicketId,
-  onActionMenuChange,
-  onTogglePinned,
-  onMarkRead,
-  onLeave,
+  onCompose,
+  disabled,
 }: TicketListViewProps) {
   const { t } = useTranslation()
+  const isIdea = kind === 'idea'
+
+  const subtitleKey = isIdea ? 'support.ideaListSubtitle' : 'support.inquiryListSubtitle'
+  const emptyKey = isIdea ? 'support.ideaListEmpty' : 'support.inquiryListEmpty'
+  const fabLabelKey = isIdea ? 'support.fabNewIdea' : 'support.fabNewInquiry'
+  const noTicketsKey = isIdea ? 'support.ideaListEmpty' : 'support.noTickets'
+  const subtitleCount = isIdea
+    ? tickets.length
+    : tickets.filter((t) => !isSupportTicketTerminal(t.status)).length
 
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between px-1">
-        <div>
-          <p className="text-subtitle font-semibold text-foreground">
-            {t('support.myTickets')}
-          </p>
-          {tickets.length > 0 && (
-            <p className="text-label text-foreground-subtle mt-0.5">
-              {t('support.ticketCount', { count: tickets.length })}
-            </p>
-          )}
-        </div>
+    <div className="pb-24">
+      <div className="px-5 mb-3 text-[13px] text-foreground-muted tracking-[-0.005em]">
+        {subtitleCount === 0
+          ? t(emptyKey)
+          : t(subtitleKey, { count: subtitleCount })}
       </div>
 
       {tickets.length === 0 ? (
-        <div className="rounded-card bg-background-card border border-border/70 p-7 text-center">
-          <p className="text-body font-semibold text-foreground">{t('support.noTickets')}</p>
+        <div className="px-5">
+          <CSCard className="py-8 text-center">
+            <p className="text-[14px] font-semibold text-foreground">{t(noTicketsKey)}</p>
+          </CSCard>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="px-5 flex flex-col gap-2.5">
           {tickets.map((ticket) => (
             <TicketCard
               key={ticket.id}
               ticket={ticket}
-              messages={messages[ticket.id] ?? []}
-              onSelect={() => onSelect(ticket.id)}
-              menuOpen={actionMenuTicketId === ticket.id}
-              onMenuToggle={() => onActionMenuChange(actionMenuTicketId === ticket.id ? null : ticket.id)}
-              onTogglePinned={() => onTogglePinned(ticket)}
-              onMarkRead={() => onMarkRead(ticket)}
-              onLeave={() => onLeave(ticket)}
+              kind={kind}
+              messages={messagesByTicket[ticket.id] ?? []}
+              onClick={() => onSelect(ticket.id)}
             />
           ))}
         </div>
       )}
-    </section>
-  )
-}
 
-interface ComposerViewProps {
-  category: SupportCategory
-  priority: SupportPriority
-  title: string
-  body: string
-  attachments: File[]
-  attachmentCapabilities: SupportSnapshot['capabilities']['attachments']
-  isCreating: boolean
-  onCategoryChange: (category: SupportCategory) => void
-  onPriorityChange: (priority: SupportPriority) => void
-  onTitleChange: (title: string) => void
-  onBodyChange: (body: string) => void
-  onAttachmentsChange: (files: File[]) => void
-  onAttachmentError: (message: string) => void
-  onCancel: () => void
-  onSubmit: () => void
-}
-
-function ComposerView({
-  category,
-  priority,
-  title,
-  body,
-  attachments,
-  attachmentCapabilities,
-  isCreating,
-  onCategoryChange,
-  onPriorityChange,
-  onTitleChange,
-  onBodyChange,
-  onAttachmentsChange,
-  onAttachmentError,
-  onCancel,
-  onSubmit,
-}: ComposerViewProps) {
-  const { t } = useTranslation()
-
-  return (
-    <section className="rounded-card bg-background-card border border-border/70 overflow-hidden shadow-sm">
-      <div className="p-4 space-y-5">
-        <OptionGroup label={t('support.categoryLabel')}>
-          {CATEGORY_OPTIONS.map((option) => (
-            <OptionCard
-              key={option.value}
-              selected={category === option.value}
-              title={t(option.labelKey)}
-              onClick={() => onCategoryChange(option.value)}
-            />
-          ))}
-        </OptionGroup>
-
-        <OptionGroup label={t('support.priorityLabel')}>
-          {PRIORITY_OPTIONS.map((option) => (
-            <OptionCard
-              key={option.value}
-              selected={priority === option.value}
-              title={t(option.labelKey)}
-              onClick={() => onPriorityChange(option.value)}
-            />
-          ))}
-        </OptionGroup>
-
-        <label className="block">
-          <span className="text-label font-medium text-foreground-muted">
-            {t('support.requestTitleLabel')}
-          </span>
-          <input
-            value={title}
-            onChange={(event) => onTitleChange(event.target.value)}
-            maxLength={120}
-            placeholder={t('support.titlePlaceholder')}
-            className="mt-1.5 w-full rounded-card bg-background px-4 py-3 text-body text-foreground placeholder:text-foreground-subtle outline-none focus:ring-2 focus:ring-brand/30"
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-label font-medium text-foreground-muted">
-            {t('support.requestBodyLabel')}
-          </span>
-          <textarea
-            value={body}
-            onChange={(event) => onBodyChange(event.target.value)}
-            maxLength={2000}
-            rows={6}
-            placeholder={t('support.bodyPlaceholder')}
-            className="mt-1.5 w-full rounded-card bg-background px-4 py-3 text-body text-foreground placeholder:text-foreground-subtle outline-none focus:ring-2 focus:ring-brand/30 resize-none"
-          />
-        </label>
-
-        <p className="text-caption text-foreground-muted">{t('support.privacyNote')}</p>
-
-        <AttachmentPicker
-          files={attachments}
-          capabilities={attachmentCapabilities}
-          disabled={isCreating}
-          onChange={onAttachmentsChange}
-          onError={onAttachmentError}
-        />
-
-        <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            size="lg"
-            onClick={onCancel}
-            disabled={isCreating}
-            className="flex-1"
-          >
-            {t('common.cancel')}
-          </Button>
-          <Button
-            variant="brand"
-            size="lg"
-            onClick={onSubmit}
-            disabled={!title.trim() || !body.trim() || isCreating}
-            className="flex-[1.4]"
-          >
-            {isCreating ? (
-              <span className="inline-flex items-center justify-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.8} />
-                {t('support.submittingTicket')}
-              </span>
-            ) : t('support.createTicket')}
-          </Button>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function OptionGroup({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div>
-      <p className="text-label font-semibold text-foreground-muted mb-2">{label}</p>
-      <div className="flex flex-wrap gap-2">{children}</div>
+      {!disabled && <CSFAB label={t(fabLabelKey)} onClick={onCompose} />}
     </div>
-  )
-}
-
-interface OptionCardProps {
-  selected: boolean
-  title: string
-  onClick: () => void
-}
-
-function OptionCard({ selected, title, onClick }: OptionCardProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'h-10 rounded-card border px-4 text-body font-medium transition-colors active:scale-[0.99]',
-        selected
-          ? 'border-brand/70 bg-brand/5'
-          : 'border-border/70 bg-background active:bg-background-hover',
-      )}
-    >
-      {title}
-    </button>
-  )
-}
-
-interface AttachmentPickerProps {
-  files: File[]
-  capabilities: SupportSnapshot['capabilities']['attachments']
-  disabled?: boolean
-  compact?: boolean
-  onChange: (files: File[]) => void
-  onError: (message: string) => void
-}
-
-function AttachmentPicker({
-  files,
-  capabilities,
-  disabled = false,
-  compact = false,
-  onChange,
-  onError,
-}: AttachmentPickerProps) {
-  const { t } = useTranslation()
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  if (!capabilities.available) {
-    return null
-  }
-
-  const addFiles = (selected: FileList | null) => {
-    if (!selected || selected.length === 0) return
-
-    const next = [...files]
-    for (const file of Array.from(selected)) {
-      if (next.length >= capabilities.maxCount) {
-        onError(t('support.attachmentLimit', { count: capabilities.maxCount }))
-        break
-      }
-      if (file.size > capabilities.maxSizeBytes) {
-        onError(t('support.attachmentTooLarge', { size: formatAttachmentSize(capabilities.maxSizeBytes) }))
-        continue
-      }
-      next.push(file)
-    }
-    onChange(next)
-  }
-
-  return (
-    <div className={cn('space-y-2', compact ? 'mb-1' : '')}>
-      {files.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {files.map((file, index) => (
-            <span
-              key={`${file.name}:${file.size}:${index}`}
-              className="inline-flex max-w-full items-center gap-1.5 rounded-card bg-background px-2.5 py-1 text-label text-foreground"
-            >
-              <Paperclip className="w-3.5 h-3.5 shrink-0" strokeWidth={1.8} />
-              <span className="truncate max-w-[190px]">{file.name}</span>
-              <span className="text-foreground-muted">{formatAttachmentSize(file.size)}</span>
-              <button
-                type="button"
-                aria-label={t('support.removeAttachment')}
-                disabled={disabled}
-                onClick={() => onChange(files.filter((_, fileIndex) => fileIndex !== index))}
-                className="rounded-card p-0.5 text-foreground-muted disabled:opacity-40"
-              >
-                <X className="w-3.5 h-3.5" strokeWidth={1.8} />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-      <button
-        type="button"
-        disabled={disabled || files.length >= capabilities.maxCount}
-        onClick={() => inputRef.current?.click()}
-        className={cn(
-          'inline-flex items-center gap-1.5 rounded-card border border-border/70 bg-background px-3 py-2 text-label font-semibold text-foreground transition-colors active:scale-[0.99] disabled:opacity-40',
-          compact && 'py-1.5',
-        )}
-      >
-        <Paperclip className="w-3.5 h-3.5" strokeWidth={1.8} />
-        {t('support.attachFile')}
-      </button>
-      <input
-        ref={inputRef}
-        type="file"
-        multiple
-        className="hidden"
-        disabled={disabled}
-        onChange={(event) => {
-          addFiles(event.currentTarget.files)
-          event.currentTarget.value = ''
-        }}
-      />
-    </div>
-  )
-}
-
-interface ConversationViewProps {
-  ticket: SupportTicket
-  messages: SupportMessage[]
-  replyBody: string
-  attachments: File[]
-  attachmentCapabilities: SupportSnapshot['capabilities']['attachments']
-  downloadingAttachmentIds: Set<string>
-  isSendingReply: boolean
-  onReplyBodyChange: (body: string) => void
-  onAttachmentsChange: (files: File[]) => void
-  onAttachmentError: (message: string) => void
-  onDownloadAttachment: (attachment: SupportAttachment) => void
-  onArchiveTicket: () => void
-  onSendMessage: () => void
-}
-
-function ConversationView({
-  ticket,
-  messages,
-  replyBody,
-  attachments,
-  attachmentCapabilities,
-  downloadingAttachmentIds,
-  isSendingReply,
-  onReplyBodyChange,
-  onAttachmentsChange,
-  onAttachmentError,
-  onDownloadAttachment,
-  onArchiveTicket,
-  onSendMessage,
-}: ConversationViewProps) {
-  const { t } = useTranslation()
-  const isTerminal = isSupportTicketTerminal(ticket.status)
-
-  return (
-    <section className="rounded-card bg-background-card border border-border/70 overflow-hidden shadow-sm">
-      <div className="px-4 py-4 border-b border-border/70">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-title font-semibold text-foreground truncate">{ticket.title}</p>
-            <p className="text-caption text-foreground-muted mt-1">
-              {t(`support.categories.${ticket.category}`)} · {formatSupportTime(ticket.updatedAt)}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <StatusPill status={ticket.status} />
-            <button
-              type="button"
-              onClick={onArchiveTicket}
-              aria-label={t('support.deleteTicket')}
-              className="h-9 w-9 rounded-card bg-background text-foreground-muted flex items-center justify-center active:scale-[0.98] transition-transform"
-            >
-              <Trash2 className="w-4 h-4" strokeWidth={1.8} />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-4 space-y-3">
-        {messages.map((message) => (
-          <MessageBubble
-            key={message.id}
-            message={message}
-            downloadingAttachmentIds={downloadingAttachmentIds}
-            onDownloadAttachment={onDownloadAttachment}
-          />
-        ))}
-        {isTerminal && (
-          <div className="flex justify-center">
-            <p className="rounded-card bg-background px-3 py-1.5 text-label font-medium text-foreground-muted">
-              {ticket.status === 'resolved' ? t('support.resolvedNotice') : t('support.closedNotice')}
-            </p>
-          </div>
-        )}
-      </div>
-
-      {!isTerminal && (
-        <div className="p-3 border-t border-border/70 bg-background-card">
-          <AttachmentPicker
-            files={attachments}
-            capabilities={attachmentCapabilities}
-            disabled={isSendingReply}
-            compact
-            onChange={onAttachmentsChange}
-            onError={onAttachmentError}
-          />
-          <div className="flex items-end gap-2 rounded-card bg-background p-2 mt-2">
-            <textarea
-              value={replyBody}
-              onChange={(event) => onReplyBodyChange(event.target.value)}
-              maxLength={1200}
-              rows={1}
-              placeholder={t('support.replyPlaceholder')}
-              className="min-h-10 flex-1 bg-transparent px-2 py-2 text-body text-foreground placeholder:text-foreground-subtle outline-none resize-none"
-            />
-            <button
-              type="button"
-              onClick={onSendMessage}
-              disabled={(!replyBody.trim() && attachments.length === 0) || isSendingReply}
-              aria-label={t('support.sendMessage')}
-              className="w-10 h-10 rounded-card bg-brand text-white flex items-center justify-center disabled:opacity-40 active:scale-[0.98] transition-transform shrink-0"
-            >
-              <Send className="w-4 h-4" strokeWidth={1.8} />
-            </button>
-          </div>
-          {isSendingReply && (
-            <p className="text-label text-foreground-muted mt-2 px-1">{t('support.sendingMessage')}</p>
-          )}
-        </div>
-      )}
-    </section>
   )
 }
 
 interface TicketCardProps {
   ticket: SupportTicket
+  kind: SupportKind
   messages: SupportMessage[]
-  onSelect: () => void
-  menuOpen: boolean
-  onMenuToggle: () => void
-  onTogglePinned: () => void
-  onMarkRead: () => void
-  onLeave: () => void
+  onClick: () => void
 }
 
-function TicketCard({
-  ticket,
-  messages,
-  onSelect,
-  menuOpen,
-  onMenuToggle,
-  onTogglePinned,
-  onMarkRead,
-  onLeave,
-}: TicketCardProps) {
+function TicketCard({ ticket, kind, messages, onClick }: TicketCardProps) {
   const { t } = useTranslation()
-  const unreadCount = countUnreadSupportReplies(ticket, messages)
-  const latestMessage = getLatestSupportMessage(messages)
-  const preview = formatTicketPreview(latestMessage, ticket, t)
+  const unread = countUnreadSupportReplies(ticket, messages) > 0
+  const isIdea = kind === 'idea'
 
   return (
-    <div
-      className={cn(
-        'relative w-full rounded-card border p-4 transition-colors',
-        unreadCount > 0 ? 'border-brand/45 bg-brand/5' : 'border-border/70 bg-background-card',
-      )}
-    >
-      <div className="flex items-start gap-3 text-left">
-        <div className={cn(
-          'h-12 w-12 rounded-card flex items-center justify-center shrink-0 overflow-hidden',
-          unreadCount > 0 ? 'bg-brand/15 ring-1 ring-brand/25' : 'bg-background',
-        )}>
-          <img src={zappiLogo} alt="" className="h-8 w-8 object-contain" />
-        </div>
-        <button type="button" onClick={onSelect} className="min-w-0 flex-1 text-left active:opacity-80">
-          <div className="flex items-center gap-2 min-w-0">
-            <p className={cn(
-              'text-body truncate',
-              unreadCount > 0 ? 'font-semibold text-foreground' : 'font-medium text-foreground',
-            )}>
-              {ticket.title}
-            </p>
-            <span className="text-label text-foreground-subtle shrink-0">
-              {formatSupportListDate(ticket.updatedAt)}
+    <CSCard onClick={onClick}>
+      <div className="flex items-center justify-between">
+        {isIdea ? (
+          <span className="inline-flex items-center gap-1.5 text-brand">
+            <Sparkles className="w-3.5 h-3.5" strokeWidth={1.7} />
+            <span className="text-[11px] font-semibold tracking-[0.02em]">
+              {t('support.proposalLabel')}
             </span>
-            {ticket.pinnedAt !== undefined && (
-              <Pin className="w-3.5 h-3.5 text-brand shrink-0" strokeWidth={1.8} aria-hidden />
-            )}
-          </div>
-          <p className={cn(
-            'text-caption mt-1 truncate',
-            unreadCount > 0 ? 'font-medium text-foreground' : 'text-foreground-muted',
-          )}>
-            {preview}
-          </p>
-        </button>
-        <div className="flex items-center self-stretch shrink-0" data-support-ticket-menu>
-          <button
-            type="button"
-            onClick={onMenuToggle}
-            aria-label={
-              unreadCount > 0
-                ? `${t('support.ticketActions')}, ${t('support.unreadCount', { count: unreadCount })}`
-                : t('support.ticketActions')
-            }
-            className="relative h-10 w-10 rounded-card text-foreground-muted flex items-center justify-center active:bg-background-hover"
-          >
-            <MoreVertical className="w-5 h-5" strokeWidth={2} />
-            {unreadCount > 0 && (
-              <span className="pointer-events-none absolute -right-1 -top-1 min-w-5 h-5 px-1.5 rounded-full bg-accent-danger text-label font-semibold text-white flex items-center justify-center leading-none shadow-sm">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
-          </button>
+          </span>
+        ) : (
+          <CSStatusChip kind={ticketStatusToCSKind(ticket.status)} />
+        )}
+        {unread && (
+          <span className="text-[10px] font-bold text-brand bg-brand-50 rounded-full px-2 py-[3px] leading-none tracking-[-0.005em]">
+            {t('support.unreadBadge')}
+          </span>
+        )}
+      </div>
+      <div className="text-[16px] font-semibold text-foreground mt-3 tracking-[-0.01em] truncate">
+        {ticket.title}
+      </div>
+      <div className="flex items-center gap-2 mt-2">
+        <span className="text-[12px] text-foreground-muted">
+          {t(`support.categories.${ticket.category}`)}
+        </span>
+        <span className="w-0.5 h-0.5 rounded-full bg-foreground-subtle" />
+        <span className="text-[12px] text-foreground-subtle">
+          {formatTicketTime(ticket.updatedAt)}
+        </span>
+      </div>
+    </CSCard>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Compose (inquiry or idea)
+
+interface ComposeViewProps {
+  kind: SupportKind
+  title: string
+  body: string
+  category: SupportCategory
+  files: File[]
+  capabilities: SupportSnapshot['capabilities']['attachments']
+  isSubmitting: boolean
+  onTitleChange: (value: string) => void
+  onBodyChange: (value: string) => void
+  onCategoryChange: (value: SupportCategory) => void
+  onFilesChange: (value: File[]) => void
+  onAttachmentError: (message: string) => void
+}
+
+function ComposeView({
+  kind,
+  title,
+  body,
+  category,
+  files,
+  capabilities,
+  isSubmitting,
+  onTitleChange,
+  onBodyChange,
+  onCategoryChange,
+  onFilesChange,
+  onAttachmentError,
+}: ComposeViewProps) {
+  const { t } = useTranslation()
+  const isIdea = kind === 'idea'
+  const optionDefs = isIdea ? IDEA_CATEGORY_OPTIONS : INQUIRY_CATEGORY_OPTIONS
+  const options: CSCategoryOption<SupportCategory>[] = optionDefs.map((opt) => ({
+    value: opt.value as SupportCategory,
+    label: t(opt.labelKey),
+  }))
+
+  const titleLabel = isIdea ? t('support.requestTitleLabel') : t('support.requestTitleLabel')
+  const bodyLabelKey = isIdea ? 'support.requestBodyLabel' : 'support.requestBodyLabel'
+  const titlePlaceholder = isIdea
+    ? t('support.titlePlaceholderIdea')
+    : t('support.titlePlaceholderInquiry')
+  const bodyPlaceholder = isIdea
+    ? t('support.bodyPlaceholderIdea')
+    : t('support.bodyPlaceholderInquiry')
+
+  return (
+    <div className="px-5 pb-8 flex flex-col gap-5">
+      <div>
+        <FieldLabel required>{titleLabel}</FieldLabel>
+        <input
+          value={title}
+          onChange={(event) => onTitleChange(event.target.value)}
+          placeholder={titlePlaceholder}
+          maxLength={120}
+          disabled={isSubmitting}
+          className="mt-2 w-full bg-background-card border border-border rounded-[12px] px-3.5 py-3 text-[14px] text-foreground tracking-[-0.005em] placeholder:text-foreground-subtle outline-none focus:border-brand"
+        />
+      </div>
+
+      <div>
+        <FieldLabel required>{t('support.categoryLabel')}</FieldLabel>
+        <div className="mt-2">
+          <CSCategoryPills<SupportCategory>
+            options={options}
+            value={category}
+            onChange={onCategoryChange}
+            ariaLabel={t('support.categoryLabel')}
+            disabled={isSubmitting}
+          />
         </div>
       </div>
-      {menuOpen && (
-        <div className="absolute right-4 top-12 z-10 w-32 overflow-hidden rounded-card border border-border/70 bg-background-card shadow-lg" data-support-ticket-menu>
-          <ActionMenuItem onClick={onTogglePinned}>
-            {ticket.pinnedAt === undefined ? t('support.pinTicket') : t('support.unpinTicket')}
-          </ActionMenuItem>
-          <ActionMenuItem onClick={onMarkRead}>
-            {t('support.markRead')}
-          </ActionMenuItem>
-          <ActionMenuItem onClick={onLeave} danger>
-            {t('support.leaveTicket')}
-          </ActionMenuItem>
+
+      <div>
+        <FieldLabel required>{t(bodyLabelKey)}</FieldLabel>
+        <textarea
+          value={body}
+          onChange={(event) => onBodyChange(event.target.value)}
+          placeholder={bodyPlaceholder}
+          maxLength={2000}
+          disabled={isSubmitting}
+          className="mt-2 w-full bg-background-card border border-border rounded-[12px] px-3.5 py-3 text-[14px] text-foreground tracking-[-0.005em] placeholder:text-foreground-subtle outline-none focus:border-brand resize-none"
+          style={{ minHeight: 130, lineHeight: 1.55 }}
+        />
+        <p className="text-right text-[11px] text-foreground-subtle mt-1">
+          {t('support.bodyCounter', { count: body.length })}
+        </p>
+      </div>
+
+      {!isIdea && (
+        <CSSecurityNotice
+          title={t('support.securityNoticeTitle')}
+          description={t('support.securityNoticeBody')}
+        />
+      )}
+
+      <div>
+        <FieldLabel>{t('support.attachmentLabel')}</FieldLabel>
+        <div className="mt-2">
+          <CSAttachmentDropzone
+            files={files}
+            capabilities={capabilities}
+            disabled={isSubmitting}
+            onChange={onFilesChange}
+            onError={onAttachmentError}
+          />
         </div>
-      )}
-    </div>
-  )
-}
+      </div>
 
-function ActionMenuItem({
-  children,
-  danger = false,
-  onClick,
-}: {
-  children: ReactNode
-  danger?: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'w-full px-4 py-3 text-left text-body font-medium active:bg-background-hover',
-        danger ? 'text-accent-danger' : 'text-foreground',
-      )}
-    >
-      {children}
-    </button>
-  )
-}
-
-function MessageBubble({
-  message,
-  downloadingAttachmentIds,
-  onDownloadAttachment,
-}: {
-  message: SupportMessage
-  downloadingAttachmentIds: Set<string>
-  onDownloadAttachment: (attachment: SupportAttachment) => void
-}) {
-  const { t } = useTranslation()
-  const isCustomer = message.sender === 'customer'
-
-  const bubble = (
-    <div
-      className={cn(
-        'rounded-card px-3.5 py-2.5',
-        isCustomer && 'max-w-[86%]',
-        isCustomer
-          ? 'bg-brand text-white'
-          : 'bg-background text-foreground',
-      )}
-    >
-      {message.body && (
-        <p className="text-body whitespace-pre-wrap break-words leading-relaxed">{message.body}</p>
-      )}
-      {message.attachments && message.attachments.length > 0 && (
-        <div className={cn('space-y-1.5', message.body ? 'mt-2' : '')}>
-          {message.attachments.map((attachment) => (
-            <button
-              type="button"
-              key={attachment.id}
-              disabled={attachment.state !== 'available' || downloadingAttachmentIds.has(attachment.id)}
-              onClick={() => onDownloadAttachment(attachment)}
-              className={cn(
-                'flex w-full items-center gap-2 rounded-card px-2.5 py-2 text-left transition-opacity disabled:opacity-70',
-                isCustomer ? 'bg-white/12' : 'bg-background-card',
-              )}
-            >
-              <Paperclip className="w-3.5 h-3.5 shrink-0" strokeWidth={1.8} />
-              <span className="min-w-0">
-                <span className="block truncate text-label font-semibold">
-                  {attachment.name || attachment.mime}
-                </span>
-                <span className={cn('block text-label', isCustomer ? 'text-white/70' : 'text-foreground-muted')}>
-                  {formatAttachmentSize(attachment.size)} · {
-                    attachment.state === 'available'
-                      ? downloadingAttachmentIds.has(attachment.id)
-                        ? t('support.downloadingAttachment')
-                        : t('support.downloadAttachment')
-                      : t('support.attachmentMetadataOnly')
-                  }
-                </span>
-              </span>
-              {attachment.state === 'available' && (
-                <Download className="ml-auto w-3.5 h-3.5 shrink-0" strokeWidth={1.8} />
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-      <p className={cn(
-        'text-label mt-1.5',
-        isCustomer ? 'text-white/70' : 'text-foreground-muted',
-      )}>
-        {formatSupportTime(message.createdAt)}
+      <p className="text-center text-[11px] text-foreground-subtle tracking-[-0.005em]">
+        {t('support.attachmentEncryptedNote')}
       </p>
     </div>
   )
+}
 
-  if (isCustomer) {
+function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
+  return (
+    <label className="block text-[13px] font-semibold text-brand-900 tracking-[-0.005em]">
+      {children}
+      {required && <span className="ml-0.5 text-brand">*</span>}
+    </label>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Conversation
+
+interface ConversationViewProps {
+  kind: SupportKind
+  timeline: ConversationTimelineItem[]
+  ticketTerminal: boolean
+  openingIds: Set<string>
+  imageUrls: Map<string, string>
+  failedImageIds: Set<string>
+  onOpenAttachment: (attachment: SupportAttachment) => void
+}
+
+function ConversationView({
+  kind,
+  timeline,
+  ticketTerminal,
+  openingIds,
+  imageUrls,
+  failedImageIds,
+  onOpenAttachment,
+}: ConversationViewProps) {
+  const { t } = useTranslation()
+  const footerKey = kind === 'idea' ? 'support.threadFooterIdea' : 'support.threadFooterInquiry'
+
+  return (
+    <div className="px-5 pb-4 flex flex-col gap-4">
+      {timeline.map((item) => {
+        if (item.kind === 'message') {
+          return (
+            <CSChatBubble
+              key={item.id}
+              message={item.message}
+              openingIds={openingIds}
+              imageUrls={imageUrls}
+              failedImageIds={failedImageIds}
+              onOpenAttachment={onOpenAttachment}
+            />
+          )
+        }
+        return <StatusEventRow key={item.id} event={item.event} />
+      })}
+      {!ticketTerminal && (
+        <p className="text-center text-[11px] text-foreground-subtle py-2 tracking-[-0.005em]">
+          {t(footerKey)}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function StatusEventRow({ event }: { event: SupportStatusEvent }) {
+  const { t } = useTranslation()
+  return (
+    <div className="flex items-center gap-2 my-1">
+      <span className="flex-1 h-px bg-border" />
+      <span className="text-[11px] text-foreground-muted tracking-[-0.005em] text-center">
+        {t(`support.threadStatusEvent.${event.to}`)}
+        <span className="text-foreground-subtle"> · {formatStatusEventTime(event.at)}</span>
+      </span>
+      <span className="flex-1 h-px bg-border" />
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Notices
+
+function NoticeBanner({
+  title,
+  description,
+  tone,
+}: {
+  title: string
+  description: string
+  tone: 'default' | 'danger'
+}) {
+  return (
+    <div
+      className={cn(
+        'rounded-[16px] p-4',
+        tone === 'danger' ? 'bg-accent-danger/10' : 'bg-background-card border border-border',
+      )}
+    >
+      <p
+        className={cn(
+          'text-[14px] font-semibold',
+          tone === 'danger' ? 'text-accent-danger' : 'text-foreground',
+        )}
+      >
+        {title}
+      </p>
+      <p className="text-[12px] text-foreground-muted mt-1 leading-relaxed">{description}</p>
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Header / footer helpers
+
+interface HeaderInfo {
+  title: string
+  subtitle?: string
+  right?: React.ReactNode
+  meta?: React.ReactNode
+}
+
+function getHeaderInfo(
+  view: SupportView,
+  t: (key: string, options?: Record<string, unknown>) => string,
+  ticket: SupportTicket | null,
+  onArchiveTicket: () => void,
+): HeaderInfo {
+  switch (view) {
+    case 'home':
+      return {
+        title: t('support.heroTitle'),
+        subtitle: t('support.helpHomeSubtitle'),
+      }
+    case 'inquiry-list':
+      return {
+        title: t('support.inquiryListTitle'),
+      }
+    case 'idea-list':
+      return {
+        title: t('support.ideaListTitle'),
+      }
+    case 'compose-inquiry':
+      return {
+        title: t('support.composePageTitle'),
+        subtitle: t('support.composeInquirySubtitle'),
+      }
+    case 'compose-idea':
+      return {
+        title: t('support.composeIdeaPageTitle'),
+        subtitle: t('support.composeIdeaSubtitle'),
+      }
+    case 'ticket-detail': {
+      if (!ticket) return { title: t('support.title') }
+      const isIdea = isIdeaCategory(ticket.category)
+      return {
+        title: ticket.title,
+        subtitle: t(isIdea ? 'support.ideaDetailMetadata' : 'support.detailMetadata', {
+          date: formatTicketDate(ticket.createdAt),
+        }),
+        meta: (
+          <>
+            {isIdea ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 text-brand px-2.5 py-1 text-[11px] font-semibold leading-none tracking-[-0.005em]">
+                <Sparkles className="w-3 h-3" strokeWidth={1.7} />
+                {t('support.ideaBadge')}
+              </span>
+            ) : (
+              <CSStatusChip kind={ticketStatusToCSKind(ticket.status)} />
+            )}
+            <CSCategoryChip label={t(`support.categories.${ticket.category}`)} />
+          </>
+        ),
+        right: (
+          <button
+            type="button"
+            onClick={onArchiveTicket}
+            aria-label={t('support.deleteTicket')}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-foreground-muted hover:bg-foreground/[0.04] active:bg-foreground/[0.06]"
+          >
+            <Trash2 className="w-4 h-4" strokeWidth={1.7} />
+          </button>
+        ),
+      }
+    }
+  }
+}
+
+interface RenderFooterArgs {
+  view: SupportView
+  title: string
+  body: string
+  isCreating: boolean
+  onSubmit: () => void
+  submitLabel: string
+  selectedTicket: SupportTicket | null
+  selectedKind: SupportKind
+  replyBody: string
+  replyFiles: File[]
+  onReplyBodyChange: (value: string) => void
+  onReplyFilesChange: (files: File[]) => void
+  onSendReply: () => void
+  isSendingReply: boolean
+  capabilities: SupportSnapshot['capabilities']['attachments']
+  onAttachmentError: (message: string) => void
+  placeholder: string
+  t: (key: string) => string
+}
+
+function renderFooter(args: RenderFooterArgs): React.ReactNode {
+  const { view, title, body, isCreating, onSubmit, submitLabel } = args
+
+  if (view === 'compose-inquiry' || view === 'compose-idea') {
+    const enabled = title.trim().length > 0 && body.trim().length > 0 && !isCreating
     return (
-      <div className="flex justify-end">
-        {bubble}
+      <div className="px-5 pt-3 pb-4">
+        <button
+          type="button"
+          onClick={onSubmit}
+          disabled={!enabled}
+          className={cn(
+            'w-full h-[50px] rounded-[14px] text-[15px] font-semibold tracking-[-0.005em] flex items-center justify-center gap-2 transition-transform active:scale-[0.99]',
+            enabled ? 'bg-brand text-white' : 'bg-[#D7D9E5] text-white cursor-not-allowed',
+          )}
+          style={enabled ? { boxShadow: '0 4px 12px -4px rgba(81,90,192,0.5)' } : undefined}
+        >
+          {isCreating ? (
+            <span className="inline-flex items-center gap-2">
+              <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              {args.t('support.submittingTicket')}
+            </span>
+          ) : (
+            submitLabel
+          )}
+        </button>
       </div>
     )
   }
 
-  return (
-    <div className="flex justify-start">
-      <div className="flex max-w-[86%] items-start gap-2">
-        <div className="mt-0.5 h-9 w-9 rounded-card border border-border/70 bg-background-card flex shrink-0 items-center justify-center overflow-hidden">
-          <img src={zappiLogo} alt="" className="h-6 w-6 object-contain" />
-        </div>
-        <div className="min-w-0">
-          <p className="mb-1 text-label font-semibold text-foreground-muted">
-            {t('support.teamName')}
-          </p>
-          {bubble}
-        </div>
-      </div>
-    </div>
-  )
+  if (
+    view === 'ticket-detail' &&
+    args.selectedTicket &&
+    (args.selectedKind === 'idea' || !isSupportTicketTerminal(args.selectedTicket.status))
+  ) {
+    return (
+      <CSChatInput
+        value={args.replyBody}
+        onChange={args.onReplyBodyChange}
+        onSend={args.onSendReply}
+        files={args.replyFiles}
+        onFilesChange={args.onReplyFilesChange}
+        capabilities={args.capabilities}
+        disabled={args.isSendingReply}
+        placeholder={args.placeholder}
+        onAttachmentError={args.onAttachmentError}
+      />
+    )
+  }
+
+  return null
 }
 
-interface SupportNoticeProps {
-  title: string
-  description: string
-  tone?: 'default' | 'danger'
+// ──────────────────────────────────────────────────────────────────────────────
+// Helpers
+
+type ConversationTimelineItem =
+  | { kind: 'message'; id: string; at: number; message: SupportMessage }
+  | { kind: 'status'; id: string; at: number; event: SupportStatusEvent }
+
+function buildConversationTimeline(
+  messages: SupportMessage[],
+  statusEvents: SupportStatusEvent[],
+): ConversationTimelineItem[] {
+  const items: ConversationTimelineItem[] = [
+    ...messages.map((message): ConversationTimelineItem => ({
+      kind: 'message', id: message.id, at: message.createdAt, message,
+    })),
+    ...statusEvents
+      // 'open' is the initial state of every ticket — skip noisy "reopened"
+      // unless agent actually moves back to it (terminal lock will block).
+      .filter((event) => event.to !== ('open' as SupportTicketStatus))
+      .map((event): ConversationTimelineItem => ({
+        kind: 'status', id: event.id, at: event.at, event,
+      })),
+  ]
+  items.sort((a, b) => a.at - b.at)
+  return items
 }
 
-function SupportNotice({ title, description, tone = 'default' }: SupportNoticeProps) {
-  return (
-    <div className={cn(
-      'rounded-card p-4',
-      tone === 'danger' ? 'bg-accent-danger/10' : 'bg-background-card',
-    )}>
-      <p className={cn(
-        'text-body font-semibold',
-        tone === 'danger' ? 'text-accent-danger' : 'text-foreground',
-      )}>
-        {title}
-      </p>
-      <p className="text-caption text-foreground-muted mt-1 leading-relaxed">{description}</p>
-    </div>
-  )
-}
-
-function StatusPill({ status }: { status: SupportTicketStatus }) {
-  const { t } = useTranslation()
-
-  return (
-    <span className={cn(
-      'shrink-0 rounded-card px-2.5 py-1 text-label font-semibold',
-      status === 'open' && 'bg-brand/10 text-brand',
-      status === 'in_progress' && 'bg-amber-500/10 text-amber-600',
-      status === 'resolved' && 'bg-emerald-500/10 text-emerald-600',
-      status === 'closed' && 'bg-foreground/[0.06] text-foreground-muted',
-    )}>
-      {t(`support.status.${status}`)}
-    </span>
-  )
+function formatStatusEventTime(timestamp: number): string {
+  const date = new Date(timestamp)
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mm = String(date.getMinutes()).padStart(2, '0')
+  return `${m}-${d} ${hh}:${mm}`
 }
 
 function getConversationMessages(
@@ -1084,11 +1251,9 @@ function getConversationMessages(
   messagesByTicket: SupportSnapshot['messages'],
 ): SupportMessage[] {
   if (!ticket) return []
-
   const messages = messagesByTicket[ticket.id] ?? []
   const hasInitialTicket = messages.some((message) => message.id === `ticket:${ticket.id}`)
   if (hasInitialTicket || !ticket.body) return messages
-
   return [
     {
       id: `ticket:${ticket.id}`,
@@ -1104,37 +1269,14 @@ function getConversationMessages(
 }
 
 async function filesToSupportAttachments(files: File[]): Promise<SupportAttachmentUpload[]> {
-  return Promise.all(files.map(async (file) => ({
-    name: file.name,
-    mime: file.type || 'application/octet-stream',
-    size: file.size,
-    data: new Uint8Array(await file.arrayBuffer()),
-  })))
-}
-
-function formatTicketPreview(
-  latestMessage: SupportMessage | null,
-  ticket: SupportTicket,
-  t: (key: string) => string,
-): string {
-  if (ticket.status === 'resolved') return t('support.resolvedNotice')
-  if (ticket.status === 'closed') return t('support.closedNotice')
-
-  const source = latestMessage ?? {
-    body: ticket.body,
-    attachments: [],
-  }
-  const body = source.body.trim()
-  if (body) return truncatePreview(body)
-  const attachments = source.attachments ?? []
-  if (attachments.length > 0) return t('support.filePreview')
-  return truncatePreview(ticket.body)
-}
-
-function truncatePreview(text: string): string {
-  const normalized = text.replace(/\s+/g, ' ').trim()
-  if (normalized.length <= 42) return normalized
-  return `${normalized.slice(0, 42)}...`
+  return Promise.all(
+    files.map(async (file) => ({
+      name: file.name,
+      mime: file.type || 'application/octet-stream',
+      size: file.size,
+      data: new Uint8Array(await file.arrayBuffer()),
+    })),
+  )
 }
 
 function saveDownloadedAttachment(data: Uint8Array, mime: string, name?: string): void {
@@ -1151,22 +1293,20 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
 }
 
-function formatAttachmentSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-}
-
-function formatSupportTime(timestamp: number): string {
-  return new Date(timestamp).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function formatSupportListDate(timestamp: number): string {
+function formatTicketTime(timestamp: number): string {
   const date = new Date(timestamp)
-  return `${date.getMonth() + 1}.${date.getDate()}`
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mm = String(date.getMinutes()).padStart(2, '0')
+  return `${y}-${m}-${d} ${hh}:${mm}`
+}
+
+function formatTicketDate(timestamp: number): string {
+  const date = new Date(timestamp)
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
