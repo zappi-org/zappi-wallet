@@ -100,7 +100,7 @@ export function ConfirmStep({
       </div>
 
       {/* Bottom panel: warning + detail rows + button */}
-      <BottomActionBar extraBottom={16} gap="none" className="px-6">
+      <BottomActionBar gap="none" className="px-6">
         {/* Warning */}
         <div className="px-4 py-3 rounded-card bg-background-card mb-4">
           <p className="text-caption text-foreground leading-relaxed">

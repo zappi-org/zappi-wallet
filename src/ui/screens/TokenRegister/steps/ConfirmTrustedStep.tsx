@@ -174,7 +174,7 @@ export function ConfirmTrustedStep({
         </div>
       </div>
 
-      <BottomActionBar extraBottom={16} gap="none" className="px-6">
+      <BottomActionBar gap="none" className="px-6">
         {/* Detail rows */}
         <div className="mb-4">
           <button

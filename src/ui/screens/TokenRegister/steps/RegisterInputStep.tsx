@@ -181,7 +181,7 @@ export function RegisterInputStep({
         </div>
       </div>
 
-      <BottomActionBar extraBottom={16} gap="none" className="px-6">
+      <BottomActionBar gap="none" className="px-6">
         <Button
           variant="brand"
           size="xl"

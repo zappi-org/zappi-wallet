@@ -245,7 +245,7 @@ export function CreatedStep({
         </div>
       )}
 
-      <BottomActionBar extraBottom={16} gap="sm">
+      <BottomActionBar gap="sm">
         {!isSpent && onCancelToken && (
           <button
             type="button"
