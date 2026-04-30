@@ -196,7 +196,7 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
         <div className="w-10" />
       </header>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-32">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-app">
         {/* Time Range Selector */}
         <SegmentControl
           value={timeRange}

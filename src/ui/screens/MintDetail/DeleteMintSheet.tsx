@@ -93,7 +93,7 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
         onClick={step === 'swapping' ? undefined : onClose}
         className="absolute inset-0 bg-black/30 backdrop-blur-sm pointer-events-auto animate-fadeIn"
       />
-      <div className="bg-background w-full rounded-t-2xl pointer-events-auto relative z-10 shadow-2xl pb-safe animate-slideInUp border border-border/30">
+      <div className="bg-background w-full rounded-t-2xl pointer-events-auto relative z-10 shadow-2xl animate-slideInUp border border-border/30">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-4">
           <div className="w-9" />
@@ -109,7 +109,7 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
           </button>
         </div>
 
-        <div className="px-6 pb-6">
+        <div className="px-6 pb-app">
           {step === 'confirm-empty' && (
             <div className="space-y-6">
               <p className="text-center text-subtitle font-medium text-foreground">

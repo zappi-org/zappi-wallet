@@ -140,10 +140,7 @@ export function TokenRawSheet({
               </button>
             </div>
 
-            <div
-              className="px-5 pb-6"
-              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}
-            >
+            <div className="px-5 pb-app">
               <div className="relative">
                 <button
                   type="button"

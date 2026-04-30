@@ -258,10 +258,11 @@ export function HomeScreen({
       </div>
 
       {/* Scrollable transaction list */}
-      <main className="flex-1 overflow-y-auto min-h-0 pb-safe">
-        <div className="pb-28 w-[var(--card-w)] mx-auto">
+      <main className="flex-1 overflow-y-auto min-h-0">
+        <div className="pb-app-nav w-[var(--card-w)] mx-auto">
           <TransactionList
             transactions={filteredTransactions}
+            allTransactions={transactions}
             onTransactionClick={onSelectTransaction}
             maxItems={5}
             showDate

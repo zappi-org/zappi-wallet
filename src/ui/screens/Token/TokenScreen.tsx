@@ -243,7 +243,7 @@ export function TokenScreen({
   )
 
   return (
-    <div ref={scrollRef} className="flex-1 h-full overflow-y-auto pt-safe pb-28">
+    <div ref={scrollRef} className="flex-1 h-full overflow-y-auto pt-safe pb-app-nav">
       <div className="min-h-full flex flex-col p-4 gap-4">
         <h1
           className={cn(

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 
 export interface BottomActionBarProps {
   children: ReactNode
-  /** Safe-area 아래 여백 추가 px (default 16) */
+  /** Bottom spacing in px. */
   extraBottom?: number
   /** 자식 간 세로 간격 */
   gap?: 'none' | 'sm' | 'md' | 'lg'
@@ -27,7 +27,7 @@ export function BottomActionBar({
     <div
       className={cn('px-2 shrink-0 flex flex-col', GAP_CLASS[gap], className)}
       style={{
-        paddingBottom: `calc(env(safe-area-inset-bottom) + ${extraBottom}px)`,
+        paddingBottom: `calc(${extraBottom}px + var(--safe-area-inset-bottom))`,
       }}
     >
       {children}

@@ -151,7 +151,7 @@ export default function TransactionDetailScreen({
     if (isLightning && !isReceive) return t('history.lightningSend')
     if (isNutzap) return 'NutZap'
     if (isReclaimed) return t('history.ecashReclaim')
-    if (isEcashToken) return t('history.ecashToken')
+    if (isEcashToken) return isReceive ? t('history.ecashRegister') : t('history.ecashToken')
     if (isEcash && isReceive) return t('history.ecashReceive')
     return t('history.ecashSend')
   }, [isSwap, isLightning, isEcash, isEcashToken, isNutzap, isReceive, isReclaimed, t])
@@ -256,7 +256,7 @@ export default function TransactionDetailScreen({
   // ════════════════════════════════════════
 
   return (
-    <div className="w-full h-full flex flex-col bg-background pt-safe pb-safe">
+    <div className="w-full h-full flex flex-col bg-background pt-safe">
       {/* Header */}
       <header className="flex items-center px-4 h-14 shrink-0">
         <button
@@ -292,7 +292,7 @@ export default function TransactionDetailScreen({
       </header>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pb-app">
 
         {/* ── Hero: Amount + Context ── */}
         <div className="flex flex-col items-center px-6 pt-6 pb-8">
@@ -541,7 +541,7 @@ export default function TransactionDetailScreen({
       {showDeleteConfirm && (
         <div className="absolute inset-0 z-50 flex items-end bg-black/40" onClick={() => setShowDeleteConfirm(false)}>
           <div
-            className="w-full bg-background-card rounded-t-3xl p-6 pb-safe space-y-4"
+            className="w-full bg-background-card rounded-t-3xl p-6 space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <p className="text-body font-semibold text-foreground">{t('txDetail.deleteConfirm')}</p>

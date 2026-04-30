@@ -136,7 +136,7 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
       )}
 
       {/* Contact List */}
-      <div className="flex-1 overflow-y-auto pb-24">
+      <div className="flex-1 overflow-y-auto pb-app-nav">
         {contacts.length === 0 ? (
           <EmptyState
             icon={<BookUser className="w-7 h-7" />}

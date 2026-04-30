@@ -299,7 +299,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
   }
 
   return (
-    <div className="w-full h-full flex flex-col bg-background pt-safe pb-safe">
+    <div className="w-full h-full flex flex-col bg-background pt-safe">
       {/* Header */}
       <header className="flex items-center px-4 h-14 shrink-0">
         <button
@@ -312,7 +312,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
       </header>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pb-app">
         {/* Hero: Amount + Context */}
         <div className="flex flex-col items-center px-6 pt-6 pb-8">
           <span className={`text-display font-bold font-display tracking-tight leading-tight ${
@@ -460,7 +460,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
 
       {/* Action Button (type-specific) */}
       {item.direction === 'receive' && item.kind === 'token' && (
-        <div className="px-5 pb-4 pt-2 shrink-0">
+        <div className="px-5 pb-app pt-2 shrink-0">
           <Button
             variant="brand"
             size="lg"
@@ -475,7 +475,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
       )}
 
       {item.direction === 'send' && item.kind === 'token' && (
-        <div className="px-5 pb-4 pt-2 shrink-0">
+        <div className="px-5 pb-app pt-2 shrink-0">
           <button
             onClick={handleReclaim}
             disabled={isProcessing || (!tokenStr && !operationId)}
@@ -511,7 +511,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
                 className="rounded-2xl"
               />
             </div>
-            <div className="px-6 pb-6">
+            <div className="px-6 pb-app">
               <button
                 onClick={() => handleCopy(qrValue, 'qrModal')}
                 className="w-full flex items-center justify-center gap-2 bg-background-card text-foreground border border-border py-3.5 rounded-xl font-semibold text-caption active:scale-[0.98] transition-transform shadow-sm"

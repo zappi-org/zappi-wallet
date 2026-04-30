@@ -240,7 +240,7 @@ export function AmountStep({
 
       {/* Numpad — hidden while memo is focused so the OS keyboard takes over */}
       {!memoFocused && (
-        <div className="grid grid-cols-3 gap-0 pb-safe shrink-0">
+        <div className="grid grid-cols-3 gap-0 shrink-0">
           {(isFiatMode && !fiatIsZeroDecimal ? KEYS_FIAT : KEYS_SATS).map((key) => (
             <button
               key={key}

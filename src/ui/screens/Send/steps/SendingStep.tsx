@@ -19,7 +19,7 @@ export function SendingStep({ validatedData, amount }: SendingStepProps) {
   const destination = getDestinationDisplay(validatedData)
 
   return (
-    <div className="flex flex-col h-full bg-background pb-safe">
+    <div className="flex flex-col h-full bg-background">
       {/* Centered content */}
       <div className="flex-1 flex flex-col items-center justify-center px-8">
         {/* Sending animation */}

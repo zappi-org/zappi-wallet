@@ -18,7 +18,7 @@ export const NumericKeypad = memo(function NumericKeypad({
   deleteAriaLabel = 'Delete',
 }: NumericKeypadProps) {
   return (
-    <div className="grid grid-cols-3 gap-1 pb-6 shrink-0">
+    <div className="grid grid-cols-3 gap-1 pb-app shrink-0">
       {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
         <button
           key={num}

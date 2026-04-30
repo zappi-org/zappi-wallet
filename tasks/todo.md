@@ -1,3 +1,71 @@
+# Current Task — Header Typography Unification
+
+- [x] Use the Token tab `이캐시` title typography (`text-heading font-bold`) for other screen headers
+- [x] Preserve existing header layout/positioning; only the title text style changes
+- [x] Remove duplicate safe-area offset from floating bottom navigation and Token toolbar
+- [x] Apply ZAP-266 current-month per-day timeline grouping to Token and History timelines
+- [x] Verify lint/typecheck/test/build before completion
+
+Plan
+- Do not convert centered navigation headers into Token tab's left-aligned tab header. Back buttons and right actions should stay where they are.
+- Update common header components first, then screen-local full-screen headers that do not go through the shared component.
+- Add truncation/padding only to centered absolute titles so the larger typography cannot overlap header actions.
+
+Review
+- Screen headers now use the Token tab title typography (`text-heading font-bold text-foreground`) while preserving their existing left/center/right layout.
+- Centered absolute headers keep action-safe horizontal padding and truncation so longer localized titles do not overlap back/action buttons.
+- Modal/body section titles were intentionally left alone; this pass only targets screen-level headers and full-screen scanner/processing headers.
+- Home itself did not have bottom `pb-safe`; the visible bottom gap came from floating nav/toolbars adding `env(safe-area-inset-bottom)` to their `bottom` position. Both now use the same fixed 4px bottom offset.
+- ZAP-266 grouping now splits current-month items after yesterday into `dayThisMonth` day groups, while prior months in the current year remain monthly groups. Token and History rows both show `HH:MM` for those day groups.
+- Date boundaries are computed from local calendar day starts (`new Date(Y, M, D)` and `new Date(Y, M, D - 1)`), not fixed 24h subtraction, so yesterday still starts correctly across DST transitions.
+- History keeps virtualization for long lists, but now positions virtualized date groups with `top` instead of `transform` and matches the Token tab group wrapper, so sticky date anchors start at the same row boundary.
+- History date groups include measured bottom spacing between groups so a newly changing date is visually separated from the previous day's last row while keeping virtualization accurate.
+- Verification passed: `bun run lint`, `npx tsc --noEmit`, `bun run test`, `bun run build`, `node .claude/skills/hex-review/scripts/check-hex-violations.mjs src`, and `git diff --check`.
+
+# Current Task — History Timeline Polish + PWA Update Check
+
+- [x] Change non-CJK timeline month anchors from long month names to localized short month names
+- [x] Add a manual PWA update check entry point in Settings without auto-installing updates
+- [x] Verify lint/typecheck/test/build before completion
+
+Plan
+- Keep Korean/Japanese/Chinese month anchors as numeric month labels, and use `Intl.DateTimeFormat(..., { month: 'short' })` only for languages that previously rendered long month names.
+- Place manual update check near the app version/logout area in Settings, matching OS-style app maintenance placement rather than mixing it into wallet settings categories.
+- Manual check must not call `updateSW()` directly. It should only detect a waiting service worker, mark `updateAvailable`, and let the existing explicit update action install the new version.
+
+Review
+- History and Token timeline month anchors now use localized short month names for non-CJK languages (`Mar`, `dic`, `Des`, etc.), while Korean/Japanese/Chinese keep the numeric month format.
+- Settings now has a manual `업데이트 확인` action in the app maintenance/version area. The button checks the registered service worker and shows a spinner while checking.
+- Manual update check does not immediately install or reload. If an update is found, it only marks `updateAvailable`; Settings then replaces the check button with one explicit `새 업데이트가 있습니다` install action in the same app maintenance area.
+- The old top-of-settings update banner was removed so manual check, update-available state, and update install action all live in one consistent location.
+- Verification passed: `bun run lint`, `npx tsc --noEmit`, `bun run test`, `bun run build`, `node .claude/skills/hex-review/scripts/check-hex-violations.mjs src`, and `git diff --check`.
+
+# Current Task — History Timeline Design
+
+- [x] Reproduce and fix current `bun run lint` hook dependency warnings before UI work
+- [x] Compare Token tab timeline design with current History transaction list structure
+- [x] Add a History-specific timeline card row that reuses existing transaction title/subtitle/amount semantics
+- [x] Rework History screen grouping to use the Token tab date-anchor visual language while preserving filters, mint names, export, and transaction detail navigation
+- [x] Align transaction wording with the eCash terminology pass and make history icons represent money direction rather than protocol
+- [x] Verify lint/build/typecheck and document remaining build-only bundle warnings separately
+
+Plan
+- Do not copy Token row semantics directly. Token history has token-specific states (`registered`, `consumed`, `reclaimed`), while wallet history must preserve Lightning/eCash/swap titles, sources, mint routes, pending/failed styling, and fiat snapshots.
+- Use the existing `groupTransactionsForTimeline` date grouping helper so History and Token share the same date grouping model.
+- Keep virtualization at the group level to avoid replacing the current scalable list with a fully unvirtualized list.
+- Keep all changes in UI/hooks only; no domain, service, adapter, or storage behavior should change for this design update.
+
+Review
+- The original two ESLint warnings in `SendInputStep.tsx` were fixed by correcting hook dependency arrays; `bun run lint` now reports no warnings.
+- `HistoryTimelineRow` was added as a history-specific card row instead of reusing the token row directly, so wallet-history semantics still preserve Lightning/eCash/swap titles, source/destination details, amount signs, fiat snapshots, pending/failed indicators, and linked swap route metadata.
+- `HistoryScreen` now renders filtered transactions through `groupTransactionsForTimeline`, using a Token-tab-style left date anchor with right-side rounded transaction cards. Filters, search, mint filtering, export, and transaction detail navigation remain wired to the existing History screen state.
+- Transaction wording now prioritizes the money action: `수신 (라이트닝)`, `전송 (라이트닝)`, `수신 (이캐시)`, `전송 (이캐시)`, with Cashu-token lifecycle entries shown as `생성 (이캐시)`, `등록 (이캐시)`, and `되찾기 (이캐시)`. These labels flow through Home and Mint Detail transaction lists because they share `transactionHelpers`.
+- Transaction rows now put date/time first in subtitles, omit the repeated type label when the title is already the same label, and keep route/source/destination context after the date/time for metadata-rich rows.
+- History timeline icons now represent direction/action: receive arrow, send arrow, swap, and reclaim. Normal icon color follows the displayed amount sign (`+` uses primary, `-` uses foreground), while pending/failed states keep their status colors. Lightning/eCash protocol is kept in text only to avoid confusing the primary money movement.
+- Tab screens no longer reserve large blank bottom padding; the fixed bottom navigation/Token toolbar owns the safe-area offset, while Home/Token/Contacts/Settings content keeps only minimal end padding.
+- Verification passed: `npx tsc --noEmit`, `bun run lint`, focused timeline tests (`29` tests), `bun run build`, `node .claude/skills/hex-review/scripts/check-hex-violations.mjs src`, `git diff --check`, and manual hack/hardcoding/unsafe-HTML search in touched UI paths.
+- Build still emits pre-existing Vite bundle warnings about mixed dynamic/static imports and large chunks. Those are bundling optimization issues and were not mixed into this UI design patch.
+
 # Current Task — ZAP-81
 
 - [x] Confirm wallet repo rules (`CLAUDE.md`, root `AGENTS.md`, `zappi-wallet/AGENTS.md`) and review `tasks/lessons.md`

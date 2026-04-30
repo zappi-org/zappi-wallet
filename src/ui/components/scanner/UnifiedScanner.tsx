@@ -136,7 +136,7 @@ export function UnifiedScanner({ isOpen, onClose, onValidated }: UnifiedScannerP
 
   return (
       <div
-        className="fixed inset-0 z-50 bg-background animate-fadeIn pt-safe pb-safe"
+        className="fixed inset-0 z-50 bg-background animate-fadeIn pt-safe"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border-visible">

@@ -152,7 +152,7 @@ export function NotificationsScreen({
       )}
 
       {/* Notifications List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2 pb-32">
+      <div className="flex-1 overflow-y-auto p-4 space-y-2 pb-app">
         {notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="w-16 h-16 bg-background-card rounded-full flex items-center justify-center mb-4">

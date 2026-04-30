@@ -1,5 +1,5 @@
 /**
- * useTransactionHistory — 거래내역을 시간 의미 그룹(오늘/어제/이번해월/작년이전월)으로 분할해 반환.
+ * useTransactionHistory — 거래내역을 시간 의미 그룹(오늘/어제/이번달 일자/이번해월/작년이전월)으로 분할해 반환.
  *
  * `TransactionMgmtUseCase.list` 위에 얹어 UI 소비 형태(`TimelineGroup[]`)로 변환.
  * `txRefreshTrigger` 변경 시 자동 재조회.
@@ -37,7 +37,13 @@ export interface UseTransactionHistoryOptions {
   filter?: (tx: Transaction) => boolean
 }
 
-const ONE_DAY = 24 * 60 * 60 * 1000
+function startOfLocalDay(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+}
+
+function startOfPreviousLocalDay(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() - 1).getTime()
+}
 
 /**
  * Pure timeline grouping helper, computed relative to `now`:
@@ -55,15 +61,15 @@ export function groupTransactionsForTimeline(
   transactions: readonly Transaction[],
   now: Date = new Date(),
 ): TimelineGroup[] {
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const yesterdayStart = todayStart - ONE_DAY
+  const todayStart = startOfLocalDay(now)
+  const yesterdayStart = startOfPreviousLocalDay(now)
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth() + 1
   const map = new Map<string, TimelineGroup>()
 
   for (const tx of transactions) {
     const d = new Date(tx.createdAt)
-    const txDayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+    const txDayStart = startOfLocalDay(d)
     const year = d.getFullYear()
     const month = d.getMonth() + 1
     const day = d.getDate()

@@ -20,10 +20,9 @@ function makeTx(id: string, createdAt: number, overrides: Partial<Transaction> =
 describe('groupTransactionsForTimeline', () => {
   // 2026-04-21 (Tuesday) 14:00 — fixed "now"
   const NOW = new Date(2026, 3, 21, 14, 0, 0)
-  const DAY_MS = 24 * 60 * 60 * 1000
 
   const todayStart = new Date(2026, 3, 21, 0, 0, 0).getTime()
-  const yesterdayStart = todayStart - DAY_MS
+  const yesterdayStart = new Date(2026, 3, 20, 0, 0, 0).getTime()
 
   it('same-day → today group', () => {
     const txs = [makeTx('t', todayStart + 60_000)]
@@ -42,7 +41,7 @@ describe('groupTransactionsForTimeline', () => {
   })
 
   it('day-before-yesterday and older same-month → separate dayThisMonth groups', () => {
-    const dby = todayStart - 2 * DAY_MS // 2026-04-19
+    const dby = new Date(2026, 3, 19, 0, 0, 0).getTime()
     const apr10 = new Date(2026, 3, 10, 10, 0, 0).getTime()
     const txs = [makeTx('a', dby), makeTx('b', apr10)]
     const groups = groupTransactionsForTimeline(txs, NOW)
@@ -56,7 +55,7 @@ describe('groupTransactionsForTimeline', () => {
   })
 
   it('current-month entries split per day; prior-month entries merge into monthThisYear', () => {
-    const apr19 = todayStart - 2 * DAY_MS
+    const apr19 = new Date(2026, 3, 19, 0, 0, 0).getTime()
     const apr10 = new Date(2026, 3, 10, 10, 0, 0).getTime()
     const mar5 = new Date(2026, 2, 5, 10, 0, 0).getTime()
     const mar20 = new Date(2026, 2, 20, 10, 0, 0).getTime()
@@ -86,6 +85,18 @@ describe('groupTransactionsForTimeline', () => {
     const yEnd = todayStart - 1 // 2026-04-20 23:59:59.999
     const groups = groupTransactionsForTimeline([makeTx('y', yEnd)], NOW)
     expect(groups[0].kind).toBe('yesterday')
+  })
+
+  it('previous-day boundary uses local calendar day, not a fixed 24h offset', () => {
+    // In DST zones such as America/New_York, 2026-03-08 is a 23-hour day.
+    // The grouping must still classify local Mar 8 as "yesterday" on Mar 9.
+    const mar9 = new Date(2026, 2, 9, 10, 0, 0)
+    const mar8Noon = new Date(2026, 2, 8, 12, 0, 0).getTime()
+    const groups = groupTransactionsForTimeline([makeTx('dst-yesterday', mar8Noon)], mar9)
+    expect(groups[0].kind).toBe('yesterday')
+    expect(groups[0].year).toBe(2026)
+    expect(groups[0].month).toBe(3)
+    expect(groups[0].day).toBe(8)
   })
 
   it('month boundary: now=May 1 00:00, tx=Apr 30 12:00 → monthThisYear (4월), not today', () => {
@@ -134,7 +145,7 @@ describe('groupTransactionsForTimeline', () => {
   })
 
   it('future-dated tx folds into today', () => {
-    const future = todayStart + 48 * DAY_MS
+    const future = new Date(2026, 3, 23, 0, 0, 0).getTime()
     const groups = groupTransactionsForTimeline([makeTx('f', future)], NOW)
     expect(groups[0].kind).toBe('today')
   })
@@ -173,7 +184,7 @@ describe('groupTransactionsForTimeline', () => {
     const txs = [
       makeTx('t', todayStart + 60_000),
       makeTx('y', yesterdayStart + 60_000),
-      makeTx('d', todayStart - 2 * DAY_MS), // 2026-04-19, current month
+      makeTx('d', new Date(2026, 3, 19, 0, 0, 0).getTime()), // 2026-04-19, current month
       makeTx('m', new Date(2026, 2, 10, 10, 0, 0).getTime()),
       makeTx('p', new Date(2025, 11, 18, 10, 0, 0).getTime()),
     ]

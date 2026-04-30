@@ -1,9 +1,11 @@
+import { useCallback, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { User, Settings, Lock, Wallet, ChevronRight, Download } from 'lucide-react'
+import { User, Settings, Lock, Wallet, ChevronRight, Download, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { Button } from '@/ui/components/common/Button'
-import { updateSW } from '@/registerSW'
+import { checkForAppUpdate, updateSW } from '@/registerSW'
+import { appBuildInfo } from '@/ui/utils/app-build-info'
 import type { SettingsPage } from './SettingsScreen'
 
 interface SettingsMainListProps {
@@ -18,26 +20,47 @@ const categories: { Icon: LucideIcon; titleKey: string; descKey: string; page: S
   { Icon: Wallet, titleKey: 'settings.walletManagement', descKey: 'settings.walletManagementDesc', page: 'category-wallet' },
 ]
 
+type UpdateCheckPhase = 'idle' | 'checking' | 'installing'
+
 export function SettingsMainList({
   onNavigate,
   onOpenLogout,
 }: SettingsMainListProps) {
   const { t } = useTranslation()
   const updateAvailable = useAppStore((s) => s.updateAvailable)
+  const addToast = useAppStore((s) => s.addToast)
+  const [updateCheckPhase, setUpdateCheckPhase] = useState<UpdateCheckPhase>('idle')
+  const isCheckingUpdate = updateCheckPhase !== 'idle'
+
+  const handleCheckUpdate = useCallback(async () => {
+    if (isCheckingUpdate) return
+
+    setUpdateCheckPhase('checking')
+    try {
+      const result = await checkForAppUpdate({
+        onInstalling: () => setUpdateCheckPhase('installing'),
+      })
+      if (result === 'current') {
+        addToast({ type: 'success', message: t('settings.updateCurrent') })
+      } else if (result === 'unavailable') {
+        addToast({ type: 'warning', message: t('settings.updateCheckUnavailable') })
+      }
+    } catch (error) {
+      console.error('Failed to check for app update:', error)
+      addToast({ type: 'error', message: t('settings.updateCheckFailed') })
+    } finally {
+      setUpdateCheckPhase('idle')
+    }
+  }, [addToast, isCheckingUpdate, t])
+
+  const updateCheckLabel = updateCheckPhase === 'installing'
+    ? t('settings.updateInstalling')
+    : updateCheckPhase === 'checking'
+      ? t('settings.updateChecking')
+      : t('settings.checkForUpdates')
 
   return (
-    <div className="flex-1 overflow-y-auto pb-28">
-      {/* Update banner */}
-      {updateAvailable && (
-        <button
-          onClick={() => updateSW()}
-          className="w-full bg-brand text-white px-4 py-3 font-semibold text-caption flex items-center justify-center gap-2 active:opacity-80"
-        >
-          <Download className="w-4 h-4" />
-          {t('settings.updateAvailable')}
-        </button>
-      )}
-
+    <div className="flex-1 overflow-y-auto pb-app-nav">
       {/* Category cards */}
       <div className="px-4 pt-4 flex flex-col gap-2.5">
         {categories.map(({ Icon, titleKey, descKey, page }) => (
@@ -56,14 +79,36 @@ export function SettingsMainList({
         ))}
       </div>
 
-      {/* Logout */}
+      {/* App maintenance */}
       <div className="px-4 pt-8">
-        <Button variant="destructive" size="lg" onClick={onOpenLogout} className="w-full">
+        {updateAvailable ? (
+          <Button
+            variant="brand"
+            size="lg"
+            onClick={() => updateSW()}
+            icon={<Download className="size-4" />}
+            className="w-full"
+          >
+            {t('settings.updateAvailable')}
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={handleCheckUpdate}
+            loading={isCheckingUpdate}
+            icon={<RefreshCw className="size-4" />}
+            className="w-full"
+          >
+            {updateCheckLabel}
+          </Button>
+        )}
+        <p className="text-center mt-4 text-overline font-medium text-foreground-muted/50 uppercase tracking-widest">
+          {t('settings.version', { version: appBuildInfo.displayVersion })}
+        </p>
+        <Button variant="destructive" size="lg" onClick={onOpenLogout} className="w-full mt-8">
           {t('settings.logout')}
         </Button>
-        <p className="text-center mt-4 text-overline font-medium text-foreground-muted/50 uppercase tracking-widest">
-          {t('settings.version')}
-        </p>
       </div>
     </div>
   )
