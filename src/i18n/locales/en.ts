@@ -568,7 +568,7 @@ export default {
     ecashReceive: 'Receive (eCash)',
     ecashSend: 'Send (eCash)',
     ecashToken: 'Create (eCash)',
-    ecashRegister: 'Register (eCash)',
+    ecashRegister: 'Redeem (eCash)',
     ecashReclaim: 'Reclaim (eCash)',
     requestFulfill: 'Ecash payment received',
     requestPay: 'Ecash payment sent',
@@ -903,7 +903,7 @@ export default {
       memoPlaceholder: 'Memo (optional)',
       confirmTitle: 'Confirm Creation',
       confirmQuestion: 'Create <b>{{amount}}</b> ecash\nfrom <b>{{mint}}</b>?',
-      reclaimNote: 'You can reclaim ecash until the recipient registers it',
+      reclaimNote: 'You can reclaim ecash until the recipient redeems it',
       mintLabel: 'Mint',
       createFee: 'Creation fee',
       postBalance: 'Balance after creation',
@@ -1177,10 +1177,10 @@ export default {
   // Token tab toolbar
   token: {
     create: 'Create',
-    register: 'Register',
+    register: 'Redeem',
     empty: {
       title: 'No ecash yet.\nWant to create one?',
-      footerNote: 'Ecash works like cash. Anyone who has it can register and use it.',
+      footerNote: 'Ecash works like cash. Anyone who has it can redeem and use it.',
     },
     time: {
       justNow: 'just now',
@@ -1213,7 +1213,7 @@ export default {
       copiedToClipboard: 'Copied to clipboard',
     },
     firstCreate: {
-      hint: 'You created this ecash but it has not been registered yet.\nThe recipient may not have received or registered it yet.',
+      hint: 'You created this ecash but it has not been redeemed yet.\nThe recipient may not have received or redeemed it yet.',
       dismiss: "Don't show again",
     },
     reclaim: {
@@ -1242,7 +1242,7 @@ export default {
       endOfList: "You're all caught up.",
       metaLine: '{{time}}, {{memo}}',
       status: {
-        registered: 'Claimed',
+        registered: 'Redeemed',
         consumed: 'Spent',
         reclaimed: 'Reclaimed',
       },
@@ -1251,7 +1251,7 @@ export default {
       unread: 'Unread ecash',
       title: {
         pending: 'Pending ecash',
-        registered: 'Ecash registered',
+        registered: 'Ecash redeemed',
         consumed: 'Ecash spent',
         reclaimed: 'Ecash reclaimed',
       },
@@ -1266,7 +1266,7 @@ export default {
       },
       dateLine: {
         pending: 'Created {{weekday}}, {{month}}/{{day}}/{{year}} at {{time}}',
-        registered: 'Registered {{weekday}}, {{month}}/{{day}}/{{year}} at {{time}}',
+        registered: 'Redeemed {{weekday}}, {{month}}/{{day}}/{{year}} at {{time}}',
         consumed: 'Created {{weekday}}, {{month}}/{{day}}/{{year}} at {{time}}',
         reclaimed: 'Reclaimed {{weekday}}, {{month}}/{{day}}/{{year}} at {{time}}',
       },
@@ -1277,7 +1277,7 @@ export default {
       typeLabel: 'Type',
       typeValue: {
         pending: 'Create ecash',
-        registered: 'Register ecash',
+        registered: 'Redeem ecash',
         consumed: 'Ecash spent',
         reclaimed: 'Reclaim ecash',
       },
@@ -1315,9 +1315,9 @@ export default {
 
   // Token Register Flow
   tokenRegister: {
-    title: 'Register ecash',
-    inputHeading: 'Paste or scan ecash\nto register it.',
-    description: 'Ecash works like a gift card you can register and use (a string starting with {{format}}).',
+    title: 'Redeem ecash',
+    inputHeading: 'Paste or scan ecash\nto redeem it.',
+    description: 'Ecash works like a gift card you can redeem and use (a string starting with {{format}}).',
     inputPlaceholder: 'Enter ecash',
     invalidFormat: 'Invalid format. Make sure the ecash starts with cashuB.',
     scan: 'Scan',
