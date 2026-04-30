@@ -22,8 +22,7 @@ import { useTranslation } from 'react-i18next'
 // Tier 1: Always loaded (critical path for authenticated users)
 import { LoadingFallback } from '@/ui/components/common/LoadingFallback'
 import { PageTransition } from '@/ui/components/common/PageTransition'
-import { BottomNav } from '@/ui/components/layout/BottomNav'
-import { TokenTabToolbar } from '@/ui/components/layout/TokenTabToolbar'
+import { MainTabToolbar, TokenTabToolbar } from '@/ui/components/layout/TabToolbar'
 import { HomeScreen } from '@/ui/screens/Home/HomeScreen'
 import { LockScreen } from '@/ui/screens/Lock/LockScreen'
 import { TokenScreen } from '@/ui/screens/Token/TokenScreen'
@@ -1466,15 +1465,14 @@ export default function MainApp() {
       </AnimatePresence>
       </div>
 
-      {/* Bottom Navigation — BottomNav / TokenTabToolbar swap */}
+      {/* Bottom Navigation — MainTabToolbar / TokenTabToolbar swap */}
       <AnimatePresence mode="wait" initial={false}>
         {isTabScreen && activeTab !== 'token' && (
-          <BottomNav
-            key="bottom-nav"
-            items={navItems}
-            activeId={activeTab}
-            visible
-            onSelect={handleTabSelect}
+          <MainTabToolbar
+            key="main-tab-toolbar"
+            navItems={navItems}
+            activeTab={activeTab}
+            onTabSelect={handleTabSelect}
           />
         )}
         {isTabScreen && activeTab === 'token' && (
