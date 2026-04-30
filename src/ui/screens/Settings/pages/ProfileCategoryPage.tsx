@@ -4,6 +4,7 @@ import { useCrypto } from '@/ui/hooks/use-crypto'
 import { SettingsDetailPage } from '../components/SettingsDetailPage'
 import { SettingsRow } from '../components/SettingsRow'
 import type { SettingsPage } from '../SettingsScreen'
+import { ENABLE_LIGHTNING_ADDRESS_SETTINGS } from '@/ui/config/feature-flags'
 
 interface ProfileCategoryPageProps {
   onBack: () => void
@@ -39,19 +40,21 @@ export function ProfileCategoryPage({
               truncateValue
             />
           )}
-          {settings.lightningAddress ? (
-            <SettingsRow
-              label={t('settings.lightningAddress')}
-              value={settings.lightningAddress}
-              onPress={() => onNavigate('lightningDetail')}
-              truncateValue
-            />
-          ) : (
-            <SettingsRow
-              label={t('settings.lightningAddress')}
-              value={isRegistering ? t('settings.registeringLightningAddress') : t('settings.registerLightningAddress')}
-              onPress={onRegisterLightningAddress}
-            />
+          {ENABLE_LIGHTNING_ADDRESS_SETTINGS && (
+            settings.lightningAddress ? (
+              <SettingsRow
+                label={t('settings.lightningAddress')}
+                value={settings.lightningAddress}
+                onPress={() => onNavigate('lightningDetail')}
+                truncateValue
+              />
+            ) : (
+              <SettingsRow
+                label={t('settings.lightningAddress')}
+                value={isRegistering ? t('settings.registeringLightningAddress') : t('settings.registerLightningAddress')}
+                onPress={onRegisterLightningAddress}
+              />
+            )
           )}
           <SettingsRow
             label={t('actions.analytics')}

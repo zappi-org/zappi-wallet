@@ -211,7 +211,10 @@ export default {
 
     // Profile
     profile: 'Perfil',
-    profileDesc: 'Nostr, Dirección Lightning, Soporte',
+    profileDesc: 'Nostr, Dirección Lightning, Análisis',
+    profileDescHiddenLightning: 'Nostr, Análisis',
+    customerSupport: 'Atención al cliente',
+    customerSupportDesc: 'Consultas · FAQ · ideas',
     zappiUser: 'Usuario Zappi',
     lightningAddress: 'Dirección Lightning',
     registerLightningAddress: 'Registrar',

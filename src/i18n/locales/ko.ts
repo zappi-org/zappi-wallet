@@ -302,7 +302,8 @@ export default {
 
     // Profile
     profile: '프로필',
-    profileDesc: 'Nostr, 라이트닝 주소',
+    profileDesc: 'Nostr, 라이트닝 주소, 분석',
+    profileDescHiddenLightning: 'Nostr, 분석',
     customerSupport: '고객지원',
     customerSupportDesc: '문의 · FAQ · 아이디어 제안',
     zappiUser: 'Zappi 사용자',

@@ -11,6 +11,7 @@ import { ZAPPI_LINK_URL } from '@/core/constants'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { cn } from '@/ui/primitives/utils'
 import { Button } from '@/ui/components/common/Button'
+import { ENABLE_LIGHTNING_ADDRESS_SETTINGS } from '@/ui/config/feature-flags'
 
 import { PinChangePage } from './pages/PinChangePage'
 import { usePinChange } from './usePinChange'
@@ -214,6 +215,7 @@ export function SettingsScreen({
 
   // Auto-check existing address on mount
   useEffect(() => {
+    if (!ENABLE_LIGHTNING_ADDRESS_SETTINGS) return
     if (!nostrPubkey || settings.lightningAddress) return
     registry.username.getAddress(nostrPubkey).then((result) => {
       if (result.isOk() && result.value) {
@@ -227,6 +229,7 @@ export function SettingsScreen({
   }, [nostrPubkey])
 
   const handleRegisterLightningAddress = useCallback(async () => {
+    if (!ENABLE_LIGHTNING_ADDRESS_SETTINGS) return
     if (!nostrPrivkey || !p2pkPubkey) return
     setIsRegistering(true)
     try {
@@ -419,6 +422,7 @@ export function SettingsScreen({
       case 'npubDetail':
         return <NpubDetailPage onBack={closeDetail} />
       case 'lightningDetail':
+        if (!ENABLE_LIGHTNING_ADDRESS_SETTINGS) return null
         return (
           <LightningDetailPage
             onBack={closeDetail}

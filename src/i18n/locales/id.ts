@@ -211,7 +211,10 @@ export default {
 
     // Profile
     profile: 'Profil',
-    profileDesc: 'Nostr, Alamat Lightning, Support',
+    profileDesc: 'Nostr, Alamat Lightning, Analitik',
+    profileDescHiddenLightning: 'Nostr, Analitik',
+    customerSupport: 'Dukungan pelanggan',
+    customerSupportDesc: 'Pertanyaan · FAQ · ide',
     zappiUser: 'Pengguna Zappi',
     lightningAddress: 'Alamat Lightning',
     registerLightningAddress: 'Daftar',

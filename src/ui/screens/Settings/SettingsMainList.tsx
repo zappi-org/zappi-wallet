@@ -6,6 +6,7 @@ import { useAppStore } from '@/store'
 import { Button } from '@/ui/components/common/Button'
 import { checkForAppUpdate, updateSW } from '@/registerSW'
 import { appBuildInfo } from '@/ui/utils/app-build-info'
+import { ENABLE_LIGHTNING_ADDRESS_SETTINGS } from '@/ui/config/feature-flags'
 import type { SettingsPage } from './SettingsScreen'
 
 interface SettingsMainListProps {
@@ -14,7 +15,12 @@ interface SettingsMainListProps {
 }
 
 const categories: { Icon: LucideIcon; titleKey: string; descKey: string; page: SettingsPage }[] = [
-  { Icon: User, titleKey: 'settings.profile', descKey: 'settings.profileDesc', page: 'category-profile' },
+  {
+    Icon: User,
+    titleKey: 'settings.profile',
+    descKey: ENABLE_LIGHTNING_ADDRESS_SETTINGS ? 'settings.profileDesc' : 'settings.profileDescHiddenLightning',
+    page: 'category-profile',
+  },
   { Icon: Settings, titleKey: 'settings.preferences', descKey: 'settings.preferencesDesc', page: 'category-preferences' },
   { Icon: Lock, titleKey: 'settings.security', descKey: 'settings.securityDesc', page: 'category-security' },
   { Icon: Wallet, titleKey: 'settings.walletManagement', descKey: 'settings.walletManagementDesc', page: 'category-wallet' },

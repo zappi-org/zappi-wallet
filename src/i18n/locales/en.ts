@@ -302,7 +302,8 @@ export default {
 
     // Profile
     profile: 'Profile',
-    profileDesc: 'Nostr, Lightning Address',
+    profileDesc: 'Nostr, Lightning Address, Analytics',
+    profileDescHiddenLightning: 'Nostr, Analytics',
     customerSupport: 'Customer support',
     customerSupportDesc: 'Requests · FAQ · ideas',
     zappiUser: 'Zappi User',

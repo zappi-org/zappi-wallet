@@ -211,7 +211,10 @@ export default {
 
     // Profile
     profile: 'プロフィール',
-    profileDesc: 'Nostr、ライトニングアドレス、サポート',
+    profileDesc: 'Nostr、ライトニングアドレス、分析',
+    profileDescHiddenLightning: 'Nostr、分析',
+    customerSupport: 'カスタマーサポート',
+    customerSupportDesc: '問い合わせ · FAQ · アイデア',
     zappiUser: 'Zappiユーザー',
     lightningAddress: 'Lightningアドレス',
     registerLightningAddress: '登録',
