@@ -251,10 +251,12 @@ export function TokenScreen({
             isHeaderMerged ? 'h-12 gap-1.5' : 'h-14 gap-2',
           )}
           style={{
-            // Opaque only over the date-anchor track (16px parent p-4 + 56px w-14 + 12px gap-3 = 84px);
+            // Pre-merge: fully opaque so nothing scrolls under the page title.
+            // Post-merge: opaque only over the date-anchor track (16px parent p-4 + 56px w-14 + 12px gap-3 = 84px);
             // right side stays transparent so timeline rows scroll past visibly behind the header.
-            background:
-              'linear-gradient(to right, var(--color-background) 84px, transparent 84px)',
+            background: isHeaderMerged
+              ? 'linear-gradient(to right, var(--color-background) 84px, transparent 84px)'
+              : 'var(--color-background)',
           }}
         >
           <Coins
