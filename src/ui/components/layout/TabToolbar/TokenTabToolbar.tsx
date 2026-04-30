@@ -9,7 +9,7 @@ import { CreateRegisterPair } from './CreateRegisterPair'
 import { EcashPill } from './EcashPill'
 import { WalletPillIcon } from './WalletPillIcon'
 import { WalletTabPicker } from './WalletTabPicker'
-import { glassStyle, tweenTransition } from './styles'
+import { fadeVariants, glassStyle, tweenTransition } from './styles'
 
 export interface TokenTabToolbarProps {
   navItems: NavItem[]
@@ -73,17 +73,36 @@ export function TokenTabToolbar({
       >
         <AnimatePresence mode="popLayout" initial={false}>
           {state !== 'TOKEN_NAV_OPEN' ? (
-            <WalletPillIcon
-              icon={walletItem?.icon}
-              label={t('nav.wallet')}
-              onClick={handleLeftWalletTap}
-            />
+            <motion.div
+              key="wallet-pill-icon"
+              variants={fadeVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={tweenTransition}
+            >
+              <WalletPillIcon
+                icon={walletItem?.icon}
+                label={t('nav.wallet')}
+                onClick={handleLeftWalletTap}
+              />
+            </motion.div>
           ) : (
-            <WalletTabPicker
-              navItems={navItems}
-              activeTab={activeTab}
-              onTabSelect={handleTabTapInPicker}
-            />
+            <motion.div
+              key="tab-picker"
+              variants={fadeVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={tweenTransition}
+              className="w-full"
+            >
+              <WalletTabPicker
+                navItems={navItems}
+                activeTab={activeTab}
+                onTabSelect={handleTabTapInPicker}
+              />
+            </motion.div>
           )}
         </AnimatePresence>
       </motion.div>
@@ -91,13 +110,31 @@ export function TokenTabToolbar({
       {/* ---- RIGHT CLUSTER ---- */}
       <AnimatePresence mode="popLayout" initial={false}>
         {state === 'TOKEN_TOP' ? (
-          <CreateRegisterPair onCreate={onCreate} onRegister={onRegister} />
+          <motion.div
+            key="create-register-pair"
+            variants={fadeVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={tweenTransition}
+          >
+            <CreateRegisterPair onCreate={onCreate} onRegister={onRegister} />
+          </motion.div>
         ) : (
-          <EcashPill
-            icon={tokenItem?.icon}
-            label={tokenItem?.label ?? t('nav.token')}
-            onClick={handleRightTokenTap}
-          />
+          <motion.div
+            key="token-pill"
+            variants={fadeVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={tweenTransition}
+          >
+            <EcashPill
+              icon={tokenItem?.icon}
+              label={tokenItem?.label ?? t('nav.token')}
+              onClick={handleRightTokenTap}
+            />
+          </motion.div>
         )}
       </AnimatePresence>
     </motion.nav>

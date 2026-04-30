@@ -1,7 +1,5 @@
-import { motion } from 'motion/react'
-
 import type { NavItem } from '../BottomNav'
-import { fadeVariants, pickerTabIds, tweenTransition } from './styles'
+import { pickerTabIds } from './styles'
 
 export interface WalletTabPickerProps {
   navItems: NavItem[]
@@ -11,15 +9,7 @@ export interface WalletTabPickerProps {
 
 export function WalletTabPicker({ navItems, activeTab, onTabSelect }: WalletTabPickerProps) {
   return (
-    <motion.div
-      key="tab-picker"
-      variants={fadeVariants}
-      initial="initial"
-      animate="animate"
-      exit="exit"
-      transition={tweenTransition}
-      className="flex items-center gap-1 w-full h-[48px]"
-    >
+    <div className="flex items-center gap-1 w-full h-[48px]">
       {pickerTabIds.map((id) => {
         const item = navItems.find((n) => n.id === id)
         if (!item) return null
@@ -40,6 +30,6 @@ export function WalletTabPicker({ navItems, activeTab, onTabSelect }: WalletTabP
           </button>
         )
       })}
-    </motion.div>
+    </div>
   )
 }

@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react'
-import { motion } from 'motion/react'
 import { Coins } from 'lucide-react'
 
-import { fadeVariants, glassStyle, tweenTransition } from './styles'
+import { glassStyle } from './styles'
 
 export interface EcashPillProps {
   icon?: ReactNode
@@ -12,16 +11,7 @@ export interface EcashPillProps {
 
 export function EcashPill({ icon, label, onClick }: EcashPillProps) {
   return (
-    <motion.div
-      key="token-pill"
-      variants={fadeVariants}
-      initial="initial"
-      animate="animate"
-      exit="exit"
-      transition={tweenTransition}
-      className="rounded-full overflow-hidden p-1.5"
-      style={glassStyle}
-    >
+    <div className="rounded-full overflow-hidden p-1.5" style={glassStyle}>
       <button
         type="button"
         onClick={onClick}
@@ -32,6 +22,6 @@ export function EcashPill({ icon, label, onClick }: EcashPillProps) {
         </div>
         <span className="text-[10px] font-semibold leading-none mt-[1px]">{label}</span>
       </button>
-    </motion.div>
+    </div>
   )
 }

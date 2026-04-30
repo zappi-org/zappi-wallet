@@ -1,8 +1,7 @@
-import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { Plus, QrCode } from 'lucide-react'
 
-import { brandStyle, fadeVariants, tweenTransition } from './styles'
+import { brandStyle } from './styles'
 
 export interface CreateRegisterPairProps {
   onCreate: () => void
@@ -12,15 +11,7 @@ export interface CreateRegisterPairProps {
 export function CreateRegisterPair({ onCreate, onRegister }: CreateRegisterPairProps) {
   const { t } = useTranslation()
   return (
-    <motion.div
-      key="create-register-pair"
-      variants={fadeVariants}
-      initial="initial"
-      animate="animate"
-      exit="exit"
-      transition={tweenTransition}
-      className="flex items-center gap-3"
-    >
+    <div className="flex items-center gap-3">
       <button
         type="button"
         onClick={onCreate}
@@ -39,6 +30,6 @@ export function CreateRegisterPair({ onCreate, onRegister }: CreateRegisterPairP
         <QrCode className="w-[18px] h-[18px]" strokeWidth={2.4} />
         {t('token.register')}
       </button>
-    </motion.div>
+    </div>
   )
 }
