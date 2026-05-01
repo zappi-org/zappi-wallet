@@ -19,6 +19,7 @@ function getDefaultSettings(): WalletSettings {
     expertModeEnabled: false,
     manualMintSelectionEnabled: false,
     balanceHidden: false,
+    pendingEmptyDismissedAt: null,
   } as WalletSettings
 }
 

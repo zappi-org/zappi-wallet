@@ -3,6 +3,8 @@ export interface IncomingPaymentResult {
   amount?: number
   fee?: number
   error?: string
+  /** True when the incoming payment matched (and settled) a ReceiveRequest the user created. */
+  requestFulfilled?: boolean
 }
 
 export interface IncomingPaymentUseCase {

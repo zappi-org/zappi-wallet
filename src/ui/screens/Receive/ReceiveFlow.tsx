@@ -44,6 +44,8 @@ export interface ReceiveFlowState {
   receiveRequestId: string | null
   // Result
   receivedAmount: number
+  /** True when the settled payment was verified to fulfill our ReceiveRequest. */
+  wasRequestFulfilled: boolean
 }
 
 export interface ReceiveFlowProps {
@@ -57,10 +59,12 @@ export interface ReceiveFlowProps {
   } | null>
   onPaymentReceived: (amount: number, type: 'lightning' | 'ecash') => void
   /**
-   * P2PK token redemption inside the QR step (when a sender pays the ecash
-   * request with a locked token). Full token-receive UX is in TokenRegisterFlow.
+   * Process an incoming token that fulfills the active ReceiveRequest.
+   * Caller wires this to the domain use case (incomingPayment.processIncoming)
+   * with paymentRef so the domain can verify my-id matching and tag the tx
+   * with intent='request-fulfill'. Transport-agnostic.
    */
-  onReceiveToken: (token: string) => Promise<{ success: boolean; amount?: number; error?: { code?: string; message?: string } }>
+  onReceiveRequestFulfilled: (token: string, paymentRef: string) => Promise<{ success: boolean; amount?: number; requestFulfilled?: boolean; error?: { code?: string; message?: string } }>
   // Pre-filled data
   initialAmount?: number
   initialMintUrl?: string | null
@@ -73,7 +77,7 @@ export function ReceiveFlow({
   onComplete,
   onCreateInvoice,
   onPaymentReceived,
-  onReceiveToken,
+  onReceiveRequestFulfilled,
   initialAmount,
   initialMintUrl,
 }: ReceiveFlowProps) {
@@ -96,6 +100,7 @@ export function ReceiveFlow({
     httpEndpoint: null,
     receiveRequestId: null,
     receivedAmount: 0,
+    wasRequestFulfilled: false,
   })
 
   const [isLoading, setIsLoading] = useState(false)
@@ -214,7 +219,7 @@ export function ReceiveFlow({
   }, [isOnline, onCreateInvoice, addToast, addPendingQuote, t, receiveReq])
 
   /** Payment received → complete */
-  const handlePaymentDetected = useCallback((amount: number, method: 'bolt11' | 'ecash') => {
+  const handlePaymentDetected = useCallback((amount: number, method: 'bolt11' | 'ecash', wasRequestFulfilled = false) => {
     onPaymentReceived(amount, method === 'bolt11' ? 'lightning' : 'ecash')
     setState((prev) => {
       if (prev.receiveRequestId) {
@@ -226,6 +231,7 @@ export function ReceiveFlow({
         step: 'complete',
         method,
         receivedAmount: amount,
+        wasRequestFulfilled,
       }
     })
   }, [onPaymentReceived, receiveReq])
@@ -263,9 +269,9 @@ export function ReceiveFlow({
               ecashRequest={state.ecashRequest}
               ecashRequestId={state.ecashRequestId}
               httpEndpoint={state.httpEndpoint}
-              onReceiveP2PKToken={async (token, _privkey) => {
-                const result = await onReceiveToken(token)
-                return { amount: result?.amount ?? 0 }
+              onReceiveRequestFulfilled={async (token, paymentRef) => {
+                const result = await onReceiveRequestFulfilled(token, paymentRef)
+                return { amount: result?.amount ?? 0, requestFulfilled: result?.requestFulfilled }
               }}
             />
           </PageTransition>
@@ -276,6 +282,7 @@ export function ReceiveFlow({
             <ReceiveCompleteStep
               amount={state.receivedAmount}
               mintUrl={state.selectedMintUrl}
+              wasRequestFulfilled={state.wasRequestFulfilled}
               onComplete={onComplete}
             />
           </PageTransition>

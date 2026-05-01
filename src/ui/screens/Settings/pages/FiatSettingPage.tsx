@@ -64,7 +64,7 @@ export function FiatSettingPage({ onBack, saveSettings }: FiatSettingPageProps) 
               className="w-full px-3 py-2.5 rounded-xl bg-background border border-border text-caption focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
-          <div className="flex-1 overflow-y-auto pb-safe">
+          <div className="flex-1 overflow-y-auto">
             {sorted.map((currency) => (
               <button
                 key={currency.code}

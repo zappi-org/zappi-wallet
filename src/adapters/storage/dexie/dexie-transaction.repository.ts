@@ -91,7 +91,7 @@ function toDomain(legacy: LegacyTransaction): Transaction {
     completedAt: legacy.completedAt,
     expiresAt: legacy.expiresAt,
     memo: legacy.memo,
-    intent: TYPE_TO_INTENT[legacy.type],
+    intent: legacy.intent ?? TYPE_TO_INTENT[legacy.type],
     linkedTxId: legacy.metadata?.linkedTxId as string | undefined,
     displaySnapshot: legacy.fiatAmount != null ? {
       amount: legacy.fiatAmount,
@@ -131,6 +131,7 @@ function toLegacy(domain: Transaction): LegacyTransaction {
     expiresAt: domain.expiresAt,
     memo: domain.memo,
     failureReason,
+    ...(domain.intent != null && { intent: domain.intent }),
     metadata: {
       ...meta,
       ...(domain.linkedTxId != null && { linkedTxId: domain.linkedTxId }),
@@ -275,6 +276,12 @@ export class DexieTransactionRepository implements TransactionRepository {
       if (meta.bolt11 !== undefined) legacyPatch.bolt11 = meta.bolt11 as string | undefined
       if (meta.preimage !== undefined) legacyPatch.preimage = meta.preimage as string | undefined
       if (meta.tokenState !== undefined) (legacyPatch as Record<string, unknown>).tokenState = meta.tokenState
+    }
+    if (patch.intent !== undefined) {
+      legacyPatch.intent = patch.intent
+      const existingTx = await getExisting()
+      if (!legacyPatch.metadata) legacyPatch.metadata = { ...(existingTx?.metadata ?? {}) }
+      ;(legacyPatch.metadata as Record<string, unknown>).intent = patch.intent
     }
 
     await this.table.update(id, legacyPatch)

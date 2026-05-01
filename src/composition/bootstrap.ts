@@ -300,7 +300,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
   // 9. Additional services
   const recovery = createRecoveryService(nostrGateway, payment, trustedMintProvider, incomingReviewQueue, receiveRequest)
-  const incomingPayment = new IncomingPaymentService(payment, processedStore, failedIncomingStore, receiveRequest)
+  const incomingPayment = new IncomingPaymentService(payment, processedStore, failedIncomingStore, receiveRequest, txRepo, eventBus)
   const pendingItems = createPendingItemsService(txRepo, receiveRequestRepo, modules)
 
   // 10. Gift wrap watcher

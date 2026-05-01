@@ -26,7 +26,7 @@ interface ProtocolOption {
 
 interface ReceiveQRStepProps {
   onBack: () => void
-  onPaymentDetected: (amount: number, method: 'bolt11' | 'ecash') => void
+  onPaymentDetected: (amount: number, method: 'bolt11' | 'ecash', wasRequestFulfilled?: boolean) => void
   amount: number
   mintUrl: string
   // Lightning
@@ -36,7 +36,13 @@ interface ReceiveQRStepProps {
   ecashRequest: string | null
   ecashRequestId: string | null
   httpEndpoint: string | null
-  onReceiveP2PKToken?: (token: string, privkey: string) => Promise<{ amount: number }>
+  /**
+   * Process an incoming token that fulfills our ReceiveRequest.
+   * Caller wires this to the domain use case (incomingPayment.processIncoming).
+   * `paymentRef` is the requestId returned by the transport — used downstream
+   * for ReceiveRequest matching and idempotency.
+   */
+  onReceiveRequestFulfilled?: (token: string, paymentRef: string) => Promise<{ amount: number; requestFulfilled?: boolean }>
 }
 
 export function ReceiveQRStep({
@@ -49,7 +55,7 @@ export function ReceiveQRStep({
   ecashRequest,
   ecashRequestId,
   httpEndpoint,
-  onReceiveP2PKToken,
+  onReceiveRequestFulfilled,
 }: ReceiveQRStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
@@ -168,15 +174,11 @@ export function ReceiveQRStep({
       console.log(`[ReceiveQR] HTTP payment received for ${payload.requestId}`)
 
       try {
-        const p2pkPrivkey = useAppStore.getState().nostrPrivkey
-        if (p2pkPrivkey) {
-          const result = onReceiveP2PKToken ? await onReceiveP2PKToken(payload.token, p2pkPrivkey) : { amount: 0 }
-          hapticSuccess()
-          onPaymentDetected(result.amount, 'ecash')
-        } else {
-          hapticSuccess()
-          onPaymentDetected(amount, 'ecash')
-        }
+        const result = onReceiveRequestFulfilled
+          ? await onReceiveRequestFulfilled(payload.token, payload.requestId)
+          : { amount: 0, requestFulfilled: false }
+        hapticSuccess()
+        onPaymentDetected(result.amount, 'ecash', result.requestFulfilled)
       } catch (error) {
         console.error('[ReceiveQR] HTTP token processing error:', error)
         hapticSuccess()
@@ -192,7 +194,7 @@ export function ReceiveQRStep({
       poller.stop()
       httpPollerRef.current = null
     }
-  }, [httpEndpoint, ecashRequestId, amount, mintUrl, onPaymentDetected, onReceiveP2PKToken, paymentReq])
+  }, [httpEndpoint, ecashRequestId, amount, mintUrl, onPaymentDetected, onReceiveRequestFulfilled, paymentReq])
 
   // Cancel HTTP poller when payment detected via Nostr
   useEffect(() => {

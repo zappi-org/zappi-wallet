@@ -66,6 +66,10 @@ const formatterCache = new Map<string, Intl.NumberFormat>()
 /** Currencies that conventionally display without decimals. */
 const ZERO_DECIMAL_CURRENCIES = new Set(['JPY', 'KRW'])
 
+export function isZeroDecimalCurrency(code: string): boolean {
+  return ZERO_DECIMAL_CURRENCIES.has(code)
+}
+
 /**
  * Format a fiat amount with currency symbol using Intl.NumberFormat.
  * JPY/KRW: no decimals. Others: up to 2 decimals.

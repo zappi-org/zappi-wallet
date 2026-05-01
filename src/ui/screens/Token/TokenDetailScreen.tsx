@@ -247,7 +247,7 @@ export function TokenDetailScreen({
                 {t('token.detail.actions.share')}
               </DetailActionButton>
             </div>
-            <div className="mt-4 flex justify-end">
+            <div className="mt-8 flex justify-end">
               <button
                 type="button"
                 onClick={() => setRawOpen(true)}
@@ -265,7 +265,7 @@ export function TokenDetailScreen({
       {isPending && (
         <div
           className="shrink-0 px-[18px] pt-3 flex justify-center"
-          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}
+          style={{ paddingBottom: 'var(--app-bottom-padding)' }}
         >
           <button
             type="button"

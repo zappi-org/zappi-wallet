@@ -21,6 +21,7 @@ vi.mock('@/utils/format', () => ({
   useFormatSats: () => (v: number) => `${v} sats`,
   useFormatFiat: () => () => '',
   formatTransactionFiat: () => '',
+  getLocaleCode: () => 'en-US',
 }))
 
 vi.mock('@/store', () => ({

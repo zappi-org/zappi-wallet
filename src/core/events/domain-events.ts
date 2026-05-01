@@ -10,6 +10,7 @@ export type DomainEvent =
   | SwapFailedEvent
   | RecoveryCompletedEvent
   | ReceiveSettledEvent
+  | ReceiveRequestFulfilledEvent
   | SendClaimedEvent
   | SendReclaimedEvent
   | ReceiveClaimedEvent
@@ -98,7 +99,21 @@ export interface ReceiveSettledEvent {
     accountId: string
     method: string
     isSwapStep: boolean
+    /** True when this settlement matched a ReceiveRequest the user created — bridge skips the generic toast in that case (the dedicated receive:request-fulfilled event fires its own). */
+    wasRequestFulfilled?: boolean
     metadata?: Record<string, unknown>
+  }
+}
+
+/** A ReceiveRequest the user created has been fulfilled (verified by paymentRef match). */
+export interface ReceiveRequestFulfilledEvent {
+  type: 'receive:request-fulfilled'
+  payload: {
+    txId: string
+    amount: Amount
+    fee?: Amount
+    method: string
+    paymentRef: string
   }
 }
 

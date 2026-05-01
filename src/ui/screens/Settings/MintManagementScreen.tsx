@@ -143,7 +143,6 @@ export function MintManagementScreen({
 
   const getBalance = (url: string) => getMintBalanceUtil(url, balanceByMint)
 
-  const emptySlots = LIMITS.MAX_MINTS - mints.length
   const isAtMinimumMints = mints.length <= LIMITS.MIN_MINTS
 
   return (
@@ -159,11 +158,11 @@ export function MintManagementScreen({
         </button>
         <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('settings.manageMints')}</h2>
         <span className="text-caption font-semibold font-mono z-10 tabular-nums text-foreground-muted">
-          {mints.length}<span className="text-foreground-muted/50">/{LIMITS.MAX_MINTS}</span>
+          {mints.length}
         </span>
       </header>
 
-      <div className="flex-1 overflow-y-auto pb-safe">
+      <div className="flex-1 overflow-y-auto">
         <p className="px-5 pb-2 text-overline font-medium text-foreground-muted">
           {t('settings.reorderHint')}
         </p>
@@ -416,23 +415,17 @@ export function MintManagementScreen({
           })}
         </Reorder.Group>
 
-        {emptySlots > 0 && (
         <div className="bg-background-card divide-y divide-border border-t border-border">
-          {/* Empty slots */}
-          {Array.from({ length: emptySlots }, (_, i) => (
-            <button
-              key={`add-${i}`}
-              onClick={onAddMint}
-              className="w-full px-4 py-3 flex items-center gap-3 active:bg-background-hover text-left"
-            >
-              <div className="w-8 h-8 rounded-lg border border-dashed border-foreground/20 flex items-center justify-center shrink-0">
-                <Plus className="w-4 h-4 text-foreground-muted" />
-              </div>
-              <span className="text-caption text-foreground-muted">{t('settings.addMint')}</span>
-            </button>
-          ))}
+          <button
+            onClick={onAddMint}
+            className="w-full px-4 py-3 flex items-center gap-3 active:bg-background-hover text-left"
+          >
+            <div className="w-8 h-8 rounded-lg border border-dashed border-foreground/20 flex items-center justify-center shrink-0">
+              <Plus className="w-4 h-4 text-foreground-muted" />
+            </div>
+            <span className="text-caption text-foreground-muted">{t('settings.addMint')}</span>
+          </button>
         </div>
-        )}
       </div>
 
       {/* QR Code Modal */}

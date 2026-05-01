@@ -3,12 +3,29 @@ import { ArrowDown, ArrowUp, Undo2 } from 'lucide-react'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { toNumber } from '@/core/domain/amount'
 import type { Transaction } from '@/core/domain/transaction'
-import { transactionToDetailStatus, formatRelativeTime } from '../mockData'
+import { transactionToDetailStatus } from '../mockData'
 import type { TokenDetailStatus } from '../types'
+import type { TimelineKind } from '@/ui/hooks/use-transaction-history'
 
 export interface TimelineRowProps {
   tx: Transaction
+  groupKind: TimelineKind
   onSelect?: () => void
+}
+
+function formatTimelineTime(
+  t: (key: string, opts?: Record<string, unknown>) => string,
+  timestamp: number,
+  kind: TimelineKind,
+): string {
+  const d = new Date(timestamp)
+  const hh = d.getHours() < 10 ? `0${d.getHours()}` : String(d.getHours())
+  const mm = d.getMinutes() < 10 ? `0${d.getMinutes()}` : String(d.getMinutes())
+  const time = `${hh}:${mm}`
+  if (kind === 'today' || kind === 'yesterday' || kind === 'dayThisMonth') {
+    return t('token.time.atTimeOfDay', { time })
+  }
+  return t('token.time.dayWithTime', { day: d.getDate(), time })
 }
 
 type RowKind = 'received' | 'sent' | 'reclaimed'
@@ -24,7 +41,7 @@ function rowKind(tx: Transaction, status: TokenDetailStatus): RowKind {
   return tx.direction === 'send' ? 'sent' : 'received'
 }
 
-export function TimelineRow({ tx, onSelect }: TimelineRowProps) {
+export function TimelineRow({ tx, groupKind, onSelect }: TimelineRowProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
@@ -33,16 +50,18 @@ export function TimelineRow({ tx, onSelect }: TimelineRowProps) {
   const kind = rowKind(tx, status)
   const amountSats = toNumber(tx.amount)
   const isOutflow = kind === 'sent'
-  const sign = isOutflow ? '- ' : '+ '
+  const sign = kind === 'reclaimed' ? '' : isOutflow ? '- ' : '+ '
   const signedAmount = `${sign}${formatSats(amountSats)}`
   const fiat = formatFiat(amountSats)
 
   const statusLabel = t(STATUS_KEY[kind])
-  const time = formatRelativeTime(t, tx.createdAt)
-  const subLine = t('token.history.subLine', { status: statusLabel, time })
-
-  const title =
-    tx.memo && tx.memo.trim().length > 0 ? tx.memo : statusLabel
+  const time = formatTimelineTime(t, tx.createdAt, groupKind)
+  const memo = tx.memo?.trim()
+  const hasMemo = !!memo && memo.length > 0
+  const title = hasMemo ? memo : statusLabel
+  const subLine = hasMemo
+    ? t('token.history.subLine', { status: statusLabel, time })
+    : time
 
   const iconClasses =
     kind === 'sent'
@@ -69,7 +88,7 @@ export function TimelineRow({ tx, onSelect }: TimelineRowProps) {
           onSelect()
         }
       } : undefined}
-      className={`flex items-center gap-3 rounded-card bg-background-card border border-border/60 px-3 py-2.5 ${onSelect ? 'cursor-pointer hover:bg-background-hover/40 transition-colors' : ''}`}
+      className={`flex items-center gap-3 rounded-[20px] bg-background-card border border-border/60 px-3 py-2.5 ${onSelect ? 'cursor-pointer hover:bg-background-hover/40 transition-colors' : ''}`}
     >
       <div className={`flex size-9 shrink-0 items-center justify-center rounded-full ${iconClasses}`}>
         {icon}

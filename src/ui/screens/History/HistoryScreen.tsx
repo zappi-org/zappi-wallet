@@ -10,18 +10,20 @@ import type { MintInfo } from '@/core/types'
 import { useAppStore } from '@/store'
 import { useWallet, useMintMetadata } from '@/ui/hooks'
 import { getMintBalance, stripTrailingSlash } from '@/utils/url'
+import { getLocaleCode } from '@/utils/format'
 import { EmptyState } from '@/ui/components/common/EmptyState'
 import { TransactionListSkeleton } from '@/ui/components/common/Skeleton'
 import { DateFilterSheet } from '@/ui/components/common/DateFilterSheet'
 import { MintFilterSheet } from '@/ui/components/common/MintFilterSheet'
 import { BottomSheet, BottomSheetItem } from '@/ui/components/common/BottomSheet'
-import { type DateFilterValue, computeDateCutoff, getDateFilterLabel, isDateFilterActive, formatDateGroupLabel } from '@/ui/utils/dateFilter'
-import { TransactionRow } from '@/ui/components/wallet/TransactionRow'
+import { type DateFilterValue, computeDateCutoff, getDateFilterLabel, isDateFilterActive } from '@/ui/utils/dateFilter'
 import { getTitle } from '@/ui/components/wallet/transactionHelpers'
 import { getMintFilterLabel } from '@/ui/hooks/useAvailableMints'
 import { exportTransactionsCsv } from '@/ui/utils/exportTransactions'
 import { FilterChip } from '@/ui/components/common/FilterChip'
 import { Spinner } from '@/ui/components/common/Spinner'
+import { groupTransactionsForTimeline, type TimelineGroup, type TimelineKind } from '@/ui/hooks/use-transaction-history'
+import { HistoryTimelineRow } from './components/HistoryTimelineRow'
 
 const TransactionDetailScreen = lazy(() => import('@/ui/screens/TransactionDetail/TransactionDetailScreen'))
 
@@ -39,9 +41,81 @@ export interface HistoryScreenProps {
   initialMintUrls?: string[]
 }
 
-type FlatItem =
-  | { type: 'header'; label: string }
-  | { type: 'transaction'; tx: Transaction }
+interface AnchorText {
+  major: string
+  minor?: string
+}
+
+function zeroPad2(n: number): string {
+  return n < 10 ? `0${n}` : String(n)
+}
+
+function shortWeekday(date: Date, locale: string): string {
+  try {
+    return new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(date)
+  } catch {
+    return ''
+  }
+}
+
+function buildAnchor(
+  t: (key: string, opts?: Record<string, unknown>) => string,
+  group: TimelineGroup,
+  locale: string,
+): AnchorText {
+  switch (group.kind) {
+    case 'today':
+    case 'yesterday': {
+      const date = new Date(group.refDate)
+      const weekday = shortWeekday(date, locale)
+      const major = `${group.month}.${group.day}`
+      const minorKey =
+        group.kind === 'today'
+          ? 'history.anchor.today'
+          : 'history.anchor.yesterday'
+      return { major, minor: t(minorKey, { weekday }) }
+    }
+    case 'dayThisMonth': {
+      const date = new Date(group.refDate)
+      const weekday = shortWeekday(date, locale)
+      const major = `${group.month}.${group.day}`
+      return { major, minor: weekday }
+    }
+    case 'monthThisYear': {
+      const lang = locale.toLowerCase().slice(0, 2)
+      if (lang === 'ko' || lang === 'ja' || lang === 'zh') {
+        return {
+          major: String(group.month),
+          minor: t('history.anchor.monthSameYear'),
+        }
+      }
+      let monthName = String(group.month)
+      try {
+        monthName = new Intl.DateTimeFormat(locale, { month: 'short' }).format(
+          new Date(group.year, group.month - 1, 1),
+        )
+      } catch { /* ignore */ }
+      return { major: monthName }
+    }
+    case 'monthPastYear':
+      return {
+        major: t('history.anchor.monthOtherYear', {
+          year: group.year,
+          month02: zeroPad2(group.month),
+        }),
+      }
+  }
+}
+
+function anchorSizeClass(kind: TimelineKind): string {
+  return kind === 'monthPastYear'
+    ? 'text-body font-display font-bold text-foreground leading-none'
+    : 'text-heading font-display font-bold text-foreground leading-none'
+}
+
+function estimateTimelineGroupSize(group: TimelineGroup): number {
+  return Math.max(80, group.entries.length * 66 + 8)
+}
 
 // ─── Main Screen ───
 
@@ -53,7 +127,7 @@ export function HistoryScreen({
   initialMintUrls,
 }: HistoryScreenProps) {
   'use no memo' // useVirtualizer returns mutable functions incompatible with React Compiler
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [filter, setFilter] = useState<FilterType>(initialFilter ?? 'all')
   const [dateFilter, setDateFilter] = useState<DateFilterValue>({ preset: 'all', range: undefined })
   const [searchQuery, setSearchQuery] = useState('')
@@ -144,31 +218,22 @@ export function HistoryScreen({
   }, [transactions, filter, dateCutoff, searchQuery, selectedMintUrls, t])
   const transactionById = useMemo(() => new Map(transactions.map((tx) => [tx.id, tx])), [transactions])
 
-  // ─── Flat items for virtualizer (grouped by date) ───
-  const flatItems = useMemo(() => {
-    const items: FlatItem[] = []
-    let currentLabel = ''
-    for (const tx of filteredTransactions) {
-      const label = formatDateGroupLabel(tx.createdAt, t)
-      if (label !== currentLabel) {
-        currentLabel = label
-        items.push({ type: 'header', label })
-      }
-      items.push({ type: 'transaction', tx })
-    }
-    return items
-  }, [filteredTransactions, t])
+  const timelineGroups = useMemo(
+    () => groupTransactionsForTimeline(filteredTransactions),
+    [filteredTransactions],
+  )
+  const locale = getLocaleCode(i18n.language)
 
   // ─── Virtualizer ───
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer is known-incompatible with React Compiler; 'use no memo' above opts out
   const virtualizer = useVirtualizer({
-    count: flatItems.length,
+    count: timelineGroups.length,
     getScrollElement: () => scrollContainerRef.current,
+    getItemKey: (index) => timelineGroups[index]?.key ?? index,
     estimateSize: (index) => {
-      const item = flatItems[index]
-      if (item.type === 'header') return 44
-      return 56
+      const group = timelineGroups[index]
+      return group ? estimateTimelineGroupSize(group) : 80
     },
     overscan: 10,
   })
@@ -282,10 +347,10 @@ export function HistoryScreen({
       </div>
 
       {/* List */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-5 pb-safe">
+      <div ref={scrollContainerRef} className="mt-2 flex-1 min-h-0 overflow-y-auto px-5 pb-app">
         {isLoading ? (
           <TransactionListSkeleton count={6} />
-        ) : flatItems.length === 0 ? (
+        ) : timelineGroups.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -308,7 +373,8 @@ export function HistoryScreen({
               style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}
             >
               {virtualizer.getVirtualItems().map((virtualRow) => {
-                const item = flatItems[virtualRow.index]
+                const group = timelineGroups[virtualRow.index]
+                const anchor = buildAnchor(t, group, locale)
                 return (
                   <div
                     key={virtualRow.key}
@@ -316,31 +382,42 @@ export function HistoryScreen({
                     ref={virtualizer.measureElement}
                     style={{
                       position: 'absolute',
-                      top: 0,
+                      top: virtualRow.start,
                       left: 0,
                       width: '100%',
-                      transform: `translateY(${virtualRow.start}px)`,
                     }}
                   >
-                    {item.type === 'header' ? (
-                      <h3 className="text-caption font-semibold text-foreground-muted pt-5 pb-2">
-                        {item.label}
-                      </h3>
-                    ) : (
-                      <>
-                        <TransactionRow
-                          transaction={item.tx}
-                          linkedTransaction={item.tx.linkedTxId ? transactionById.get(item.tx.linkedTxId) : null}
-                          onClick={() => setSelectedTransaction(item.tx)}
-                          getMintName={getDisplayName}
-                        />
-                        <div className="h-px bg-border/30" />
-                      </>
-                    )}
+                    <div className={`flex items-start gap-3 ${virtualRow.index === timelineGroups.length - 1 ? '' : 'pb-6'}`}>
+                      <div className="w-14 shrink-0 pt-1 sticky top-0 self-start">
+                        <div className={anchorSizeClass(group.kind)}>
+                          {anchor.major}
+                        </div>
+                        {anchor.minor && (
+                          <div className="mt-1.5 text-overline text-foreground-muted">
+                            {anchor.minor}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 flex flex-col gap-2 min-w-0">
+                        {group.entries.map((tx) => (
+                          <HistoryTimelineRow
+                            key={tx.id}
+                            transaction={tx}
+                            linkedTransaction={tx.linkedTxId ? transactionById.get(tx.linkedTxId) : null}
+                            groupKind={group.kind}
+                            onClick={() => setSelectedTransaction(tx)}
+                            getMintName={getDisplayName}
+                          />
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )
               })}
             </motion.div>
+            <p className="text-caption text-foreground-muted text-center pt-5 pb-8">
+              {t('history.endOfList')}
+            </p>
           </AnimatePresence>
         )}
       </div>

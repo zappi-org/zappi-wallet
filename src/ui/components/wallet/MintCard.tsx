@@ -6,6 +6,7 @@ import { cn } from "@/ui/lib/utils";
 import { useFormatSats, useFormatFiat } from "@/utils/format";
 import { hapticTap } from "@/ui/utils/haptic";
 import cardLogo from "@/assets/card-logo.svg";
+import cardBg from "@/assets/card-bg.png";
 import cardNoise from "@/assets/card-noise.png";
 import zappiLogo from "@/assets/zappi.png";
 
@@ -28,7 +29,7 @@ interface MintCardProps {
 
 function MintLogo({ iconUrl }: { iconUrl?: string }) {
   const [hasError, setHasError] = useState(false);
-  const sizeClasses = "w-6 h-6";
+  const sizeClasses = "block w-[22px] h-[22px] shrink-0 rounded-full";
 
   if (!iconUrl || hasError) {
     return (
@@ -44,7 +45,7 @@ function MintLogo({ iconUrl }: { iconUrl?: string }) {
     <img
       src={iconUrl}
       alt="Mint Logo"
-      className={cn(sizeClasses, "object-contain rounded")}
+      className={cn(sizeClasses, "object-contain")}
       onError={() => setHasError(true)}
     />
   );
@@ -105,6 +106,20 @@ const variantColorClass: Record<MintCardVariant, string> = {
   darker: "bg-card-gradient-darker",
 };
 
+const variantImageFilter: Record<MintCardVariant, string> = {
+  indigo: "hue-rotate(-30deg) saturate(0.95) brightness(0.8)",
+  coral: "hue-rotate(4deg) saturate(1.08) brightness(0.95)",
+  teal: "hue-rotate(120deg) saturate(0.85) brightness(0.78)",
+  slate: "hue-rotate(-110deg) saturate(0.4) brightness(0.78)",
+  amber: "hue-rotate(18deg) saturate(1.08) brightness(1.02)",
+  plum: "hue-rotate(-70deg) saturate(0.78) brightness(0.82)",
+  forest: "hue-rotate(95deg) saturate(0.65) brightness(0.78)",
+  light: "hue-rotate(15deg) brightness(1.05)",
+  medium: "hue-rotate(-15deg) brightness(0.92)",
+  dark: "hue-rotate(-30deg) brightness(0.82)",
+  darker: "none",
+};
+
 export function MintCard({
   mint,
   variant = "medium",
@@ -122,6 +137,7 @@ export function MintCard({
   const formatSats = useFormatSats();
   const toFiat = useFormatFiat();
   const displayName = mint.alias || getMintShortName(mint.url, mint.name);
+  const surfaceStyle = customColor ? { backgroundColor: customColor } : undefined;
 
   // Inline rename state
   const [isEditing, setIsEditing] = useState(false);
@@ -148,39 +164,51 @@ export function MintCard({
       className={cn(
         "relative w-[var(--card-w)] rounded-card overflow-hidden touch-manipulation",
         "shadow-[0px_4px_8px_0px_rgba(0,0,0,0.15)]",
+        !customColor && variantColorClass[variant],
         isSelected === true && "ring-2 ring-primary ring-offset-3 ring-offset-background",
         isSelected === false && "opacity-70"
       )}
+      style={surfaceStyle}
     >
+      {/* Legacy card background — kept below the body and footer so the card shape/actions stay current. */}
+      <img
+        alt=""
+        aria-hidden="true"
+        className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+        src={cardBg}
+        style={{
+          filter: customColor ? "saturate(0.35) contrast(1.05)" : variantImageFilter[variant],
+          opacity: customColor ? 0.46 : 1,
+          mixBlendMode: customColor ? "overlay" : "normal",
+        }}
+      />
+
+      {/* Noise texture */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 opacity-5 pointer-events-none"
+        style={{ backgroundImage: `url('${cardNoise}')`, backgroundSize: '200% 200%', backgroundPosition: 'top left' }}
+      />
+
       {/* Card Body */}
       <div
         onClick={onDetail ?? onClick}
         className={cn(
           "relative aspect-[280/160] flex flex-col justify-between p-5",
-          !customColor && variantColorClass[variant],
           (onDetail || onClick) && "cursor-pointer active:brightness-95 transition-all"
         )}
-        style={customColor ? { backgroundColor: customColor } : undefined}
       >
-        {/* Noise texture */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 opacity-[0.04] pointer-events-none"
-          style={{ backgroundImage: `url('${cardNoise}')`, backgroundSize: '200% 200%', backgroundPosition: 'top left' }}
-        />
-
-        {/* Zappi logo watermark — bottom right */}
         <img
           src={zappiLogo}
           alt=""
           aria-hidden="true"
-          className="absolute bottom-2 right-3 w-20 h-20 opacity-80 pointer-events-none"
+          className="absolute bottom-4 right-4 w-12 h-12 object-contain opacity-80 pointer-events-none z-10"
         />
 
         {/* Top: Logo + Name */}
         <div className="relative z-10">
           <div className="flex items-center gap-2">
-            <div className="rounded-full flex items-center justify-center overflow-hidden shrink-0 w-[22px] h-[22px]">
+            <div className="rounded-full flex items-center justify-center shrink-0 w-[22px] h-[22px]">
               <MintLogo iconUrl={mint.iconUrl} />
             </div>
             {isEditing && onRename ? (
@@ -232,7 +260,7 @@ export function MintCard({
 
       {/* Card Footer — Action Buttons */}
       {(onReceive || onSend) && (
-        <div className={cn("relative", !customColor && variantColorClass[variant])} style={customColor ? { backgroundColor: customColor } : undefined}>
+        <div className="relative">
           <div className="h-px bg-white/12" />
           <div className="bg-black/8 flex">
             {onReceive && (

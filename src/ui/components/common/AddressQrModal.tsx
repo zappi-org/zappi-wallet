@@ -64,7 +64,7 @@ export function AddressQrModal({ isOpen, title, value, onClose }: AddressQrModal
         </p>
 
         {/* Copy button */}
-        <div className="px-6 pb-6 pt-4">
+        <div className="px-6 pb-app pt-4">
           <Button variant="brand" size="lg" onClick={handleCopy} className="w-full">
             {copied ? (
               <><Check className="w-4 h-4 mr-2" /> {t('common.copied')}</>

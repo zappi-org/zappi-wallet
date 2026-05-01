@@ -8,7 +8,7 @@ import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
 import { translateError } from '@/ui/utils/error-i18n'
 import { hapticError } from '@/ui/utils/haptic'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 export interface ConfirmStepProps {
@@ -83,27 +83,28 @@ export function ConfirmStep({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <ScreenHeader title="생성 확인" onBack={onBack} />
+      <ScreenHeader title={t('send.tokenCreate.confirmTitle')} onBack={onBack} />
 
       {/* Centered flowing question */}
       <div className="flex-1 flex flex-col items-center justify-center px-8">
         <div className="text-center">
-          <p className="text-heading font-semibold text-foreground">
-            <span className="text-brand">{mintName}</span>에서{' '}
-            <span className="text-brand">{formatSats(tokenAmount)}</span>
-            <br />
-            토큰을 만들까요?
+          <p className="text-heading font-semibold text-foreground whitespace-pre-line">
+            <Trans
+              i18nKey="send.tokenCreate.confirmQuestion"
+              values={{ mint: mintName, amount: formatSats(tokenAmount) }}
+              components={{ b: <span className="text-brand" /> }}
+            />
           </p>
           {fiatLabel && <p className="text-body text-foreground-muted mt-3">~ {fiatLabel}</p>}
         </div>
       </div>
 
       {/* Bottom panel: warning + detail rows + button */}
-      <BottomActionBar extraBottom={16} gap="none" className="px-6">
+      <BottomActionBar gap="none" className="px-6">
         {/* Warning */}
         <div className="px-4 py-3 rounded-card bg-background-card mb-4">
           <p className="text-caption text-foreground leading-relaxed">
-            ! 토큰은 받는 사람이 등록하기 전 까지 되찾을 수 있어요
+            {t('send.tokenCreate.reclaimNote')}
           </p>
         </div>
 
@@ -111,29 +112,29 @@ export function ConfirmStep({
         <div className="mb-4">
           {memo && (
             <div className="flex justify-between py-2.5 border-b border-border/50">
-              <span className="text-body text-foreground-muted">메모</span>
+              <span className="text-body text-foreground-muted">{t('common.memo')}</span>
               <span className="text-body font-medium text-foreground truncate max-w-[200px]">
                 {memo}
               </span>
             </div>
           )}
           <div className="flex justify-between items-center py-2.5 border-b border-border/50">
-            <span className="text-body text-foreground-muted">민트</span>
+            <span className="text-body text-foreground-muted">{t('send.tokenCreate.mintLabel')}</span>
             <div className="flex items-center gap-2">
-              <MintIcon iconUrl={mintIconUrl} imgSize="w-5 h-5" className="w-5 h-5" />
+              <MintIcon iconUrl={mintIconUrl} imgSize="w-5 h-5" className="w-5 h-5" circle />
               <span className="text-body font-medium text-foreground">{mintName}</span>
             </div>
           </div>
           {showFeeRow && (
             <div className="flex justify-between py-2.5 border-b border-border/50">
-              <span className="text-body text-foreground-muted">생성 수수료</span>
+              <span className="text-body text-foreground-muted">{t('send.tokenCreate.createFee')}</span>
               <span className="text-body font-medium text-foreground">
                 {formatSats(appliedFee)}
               </span>
             </div>
           )}
           <div className="flex justify-between py-2.5">
-            <span className="text-body font-bold text-foreground">생성 후 잔액</span>
+            <span className="text-body font-bold text-foreground">{t('send.tokenCreate.postBalance')}</span>
             <span className="text-body font-bold text-foreground">
               {formatSats(postBalance)}
             </span>
@@ -147,7 +148,7 @@ export function ConfirmStep({
           disabled={busy}
           className="w-full"
         >
-          {busy ? '생성 중…' : '다음'}
+          {busy ? t('send.tokenCreate.creating') : t('common.next')}
         </Button>
       </BottomActionBar>
     </div>

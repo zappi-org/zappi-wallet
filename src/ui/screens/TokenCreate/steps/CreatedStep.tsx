@@ -140,13 +140,13 @@ export function CreatedStep({
       <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
         <button
           onClick={onClose}
-          aria-label="닫기"
+          aria-label={t('common.close')}
           className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
         >
           <X className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
         <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold text-foreground pointer-events-none">
-          {isSpent ? '토큰이 사용되었어요' : '토큰이 만들어졌어요'}
+          {isSpent ? t('send.tokenCreate.spentTitle') : t('send.tokenCreate.createdTitle')}
         </h1>
         <div className="w-10" />
       </header>
@@ -162,7 +162,7 @@ export function CreatedStep({
             transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.1 }}
           />
           <p className="text-heading font-semibold text-foreground text-center">
-            {formatSats(displayedAmount)} 사용되었어요
+            {t('send.tokenCreate.spentMessage', { amount: formatSats(displayedAmount) })}
           </p>
           <p className="text-body text-foreground-muted text-center">
             {memo ? `${memo} · ` : ''}
@@ -197,7 +197,7 @@ export function CreatedStep({
                 <div className="text-5xl">🙈</div>
                 <div className="flex items-center gap-1.5 text-caption text-foreground-muted">
                   <Eye className="w-4 h-4" strokeWidth={1.8} />
-                  <span>탭해서 보기</span>
+                  <span>{t('send.tokenCreate.tapToReveal')}</span>
                 </div>
               </div>
             )}
@@ -214,7 +214,7 @@ export function CreatedStep({
             </p>
             {!senderPaysFee && receiveFee !== null && receiveFee > 0 && (
               <p className="text-caption text-foreground-muted mt-1">
-                수취 수수료 {formatSats(receiveFee)}
+                {t('send.tokenCreate.receiveFeeAmount', { amount: formatSats(receiveFee) })}
               </p>
             )}
           </div>
@@ -229,7 +229,7 @@ export function CreatedStep({
               onClick={copyToken}
               disabled={!tokenString}
             >
-              복사
+              {t('common.copy')}
             </Button>
             <Button
               variant="secondary"
@@ -239,13 +239,13 @@ export function CreatedStep({
               onClick={shareToken}
               disabled={!tokenString}
             >
-              공유
+              {t('send.tokenCreate.share')}
             </Button>
           </div>
         </div>
       )}
 
-      <BottomActionBar extraBottom={16} gap="sm">
+      <BottomActionBar gap="sm">
         {!isSpent && onCancelToken && (
           <button
             type="button"
@@ -254,14 +254,14 @@ export function CreatedStep({
             className="w-full h-11 text-body text-foreground-muted hover:text-foreground transition-colors disabled:opacity-60"
           >
             {cancelBusy
-              ? '되찾는 중…'
+              ? t('send.tokenCreate.reclaiming')
               : receiveFee !== null && receiveFee > 0
-                ? `되찾기 (수취 수수료 ${formatSats(receiveFee)})`
-                : '되찾기'}
+                ? t('send.tokenCreate.reclaimWithFee', { fee: formatSats(receiveFee) })
+                : t('send.tokenCreate.reclaim')}
           </button>
         )}
         <Button variant="brand" size="xl" onClick={onClose} className="w-full">
-          확인
+          {t('common.confirm')}
         </Button>
       </BottomActionBar>
     </div>

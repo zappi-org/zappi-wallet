@@ -1,5 +1,5 @@
 /**
- * useTransactionHistory — 거래내역을 날짜/기간 그룹으로 분할해 반환.
+ * useTransactionHistory — 거래내역을 시간 의미 그룹(오늘/어제/이번달 일자/이번해월/작년이전월)으로 분할해 반환.
  *
  * `TransactionMgmtUseCase.list` 위에 얹어 UI 소비 형태(`TimelineGroup[]`)로 변환.
  * `txRefreshTrigger` 변경 시 자동 재조회.
@@ -12,8 +12,12 @@ import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { useAppStore } from '@/store'
 import type { Transaction } from '@/core/domain/transaction'
 
-export type TimelineKind = 'day' | 'partOfMonth' | 'month'
-export type TimelinePart = 'early' | 'mid' | 'late'
+export type TimelineKind =
+  | 'today'
+  | 'yesterday'
+  | 'dayThisMonth'
+  | 'monthThisYear'
+  | 'monthPastYear'
 
 export interface TimelineGroup {
   key: string
@@ -21,13 +25,9 @@ export interface TimelineGroup {
   year: number
   /** 1-12 */
   month: number
-  /** 1-31, set only when kind === 'day' */
+  /** 1-31. set only when kind === 'today' | 'yesterday' | 'dayThisMonth' */
   day?: number
-  /** set only when kind === 'partOfMonth' */
-  part?: TimelinePart
-  /** 0=today, 1=yesterday, ≥2 N일전. set only when kind === 'day' */
-  daysSince?: number
-  /** most recent entry timestamp — used for weekday rendering + group sort */
+  /** most recent entry timestamp — used for group sort */
   refDate: number
   entries: Transaction[]
 }
@@ -37,22 +37,21 @@ export interface UseTransactionHistoryOptions {
   filter?: (tx: Transaction) => boolean
 }
 
-const ONE_DAY = 24 * 60 * 60 * 1000
-const DAY_BUCKET_CUTOFF = 15 // daysSince < 15 → per-day
-const MONTH_BUCKET_CUTOFF = 30 // daysSince < 30 → partOfMonth; ≥30 → month
+function startOfLocalDay(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+}
 
-function partOfMonth(day: number): TimelinePart {
-  if (day <= 10) return 'early'
-  if (day <= 20) return 'mid'
-  return 'late'
+function startOfPreviousLocalDay(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() - 1).getTime()
 }
 
 /**
  * Pure timeline grouping helper, computed relative to `now`:
- * - daysSince < 15 → per-day bucket keyed on (Y, M, D)
- * - 15 ≤ daysSince < 30 → partOfMonth bucket keyed on (Y, M, part) where
- *   part = 'early' (day 1–10) | 'mid' (11–20) | 'late' (21–31)
- * - daysSince ≥ 30 → per-month bucket keyed on (Y, M)
+ * - same day (incl. future-dated, folded in) → `today`, key `today-Y-M-D`
+ * - previous day → `yesterday`, key `yesterday-Y-M-D`
+ * - older within same calendar month/year → `dayThisMonth`, key `day-Y-M-D` (per-day groups)
+ * - older within same calendar year → `monthThisYear`, key `month-Y-M`
+ * - prior calendar year(s) → `monthPastYear`, key `pastMonth-Y-M`
  *
  * Entries inside each group are sorted by `createdAt` descending.
  * Groups are sorted by most-recent entry descending.
@@ -62,37 +61,46 @@ export function groupTransactionsForTimeline(
   transactions: readonly Transaction[],
   now: Date = new Date(),
 ): TimelineGroup[] {
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const todayStart = startOfLocalDay(now)
+  const yesterdayStart = startOfPreviousLocalDay(now)
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth() + 1
   const map = new Map<string, TimelineGroup>()
 
   for (const tx of transactions) {
     const d = new Date(tx.createdAt)
-    const txDayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
-    const rawDaysSince = Math.round((todayStart - txDayStart) / ONE_DAY)
-    // Future-dated transactions fold into today.
-    const daysSince = Math.max(0, rawDaysSince)
+    const txDayStart = startOfLocalDay(d)
     const year = d.getFullYear()
     const month = d.getMonth() + 1
     const day = d.getDate()
 
     let key: string
     let kind: TimelineKind
-    let part: TimelinePart | undefined
+    let groupYear = year
+    let groupMonth = month
     let groupDay: number | undefined
-    let groupDaysSince: number | undefined
 
-    if (daysSince < DAY_BUCKET_CUTOFF) {
-      kind = 'day'
-      key = `day-${year}-${month}-${day}`
+    if (txDayStart >= todayStart) {
+      // same day or future-dated → fold into today
+      kind = 'today'
+      groupYear = now.getFullYear()
+      groupMonth = now.getMonth() + 1
+      groupDay = now.getDate()
+      key = `today-${groupYear}-${groupMonth}-${groupDay}`
+    } else if (txDayStart === yesterdayStart) {
+      kind = 'yesterday'
       groupDay = day
-      groupDaysSince = daysSince
-    } else if (daysSince < MONTH_BUCKET_CUTOFF) {
-      kind = 'partOfMonth'
-      part = partOfMonth(day)
-      key = `part-${year}-${month}-${part}`
-    } else {
-      kind = 'month'
+      key = `yesterday-${year}-${month}-${day}`
+    } else if (year === currentYear && month === currentMonth) {
+      kind = 'dayThisMonth'
+      groupDay = day
+      key = `day-${year}-${month}-${day}`
+    } else if (year === currentYear) {
+      kind = 'monthThisYear'
       key = `month-${year}-${month}`
+    } else {
+      kind = 'monthPastYear'
+      key = `pastMonth-${year}-${month}`
     }
 
     const existing = map.get(key)
@@ -100,11 +108,9 @@ export function groupTransactionsForTimeline(
       map.set(key, {
         key,
         kind,
-        year,
-        month,
+        year: groupYear,
+        month: groupMonth,
         day: groupDay,
-        part,
-        daysSince: groupDaysSince,
         refDate: tx.createdAt,
         entries: [tx],
       })

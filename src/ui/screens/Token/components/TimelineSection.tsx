@@ -1,17 +1,26 @@
 import { useTranslation } from 'react-i18next'
 import { getLocaleCode } from '@/utils/format'
 import type { Transaction } from '@/core/domain/transaction'
-import type { TimelineGroup } from '@/ui/hooks/use-transaction-history'
+import type { TimelineGroup, TimelineKind } from '@/ui/hooks/use-transaction-history'
+import { cn } from '@/ui/primitives/utils'
 import { TimelineRow } from './TimelineRow'
 
 export interface TimelineSectionProps {
   groups: TimelineGroup[]
   onSelect?: (tx: Transaction) => void
+  /** Collapse the in-flow "내역" h3 when the parent's sticky header has merged it inline. */
+  hideTitle?: boolean
+  /** Tailwind top-* class for the date anchor sticky offset (matches parent's sticky header height). */
+  anchorTopClass?: string
 }
 
 interface AnchorText {
   major: string
-  minor: string
+  minor?: string
+}
+
+function zeroPad2(n: number): string {
+  return n < 10 ? `0${n}` : String(n)
 }
 
 function shortWeekday(date: Date, locale: string): string {
@@ -26,73 +35,101 @@ function buildAnchor(
   t: (key: string, opts?: Record<string, unknown>) => string,
   group: TimelineGroup,
   locale: string,
-  currentYear: number,
 ): AnchorText {
-  if (group.kind === 'day') {
-    const d = new Date(group.refDate)
-    const weekday = shortWeekday(d, locale)
-    const daysSince = group.daysSince ?? 0
-    const major = `${group.month}.${group.day}`
-    if (daysSince === 0) {
-      return { major, minor: t('token.history.anchor.today', { weekday }) }
+  switch (group.kind) {
+    case 'today':
+    case 'yesterday': {
+      const d = new Date(group.refDate)
+      const weekday = shortWeekday(d, locale)
+      const major = `${group.month}.${group.day}`
+      const minorKey =
+        group.kind === 'today'
+          ? 'token.history.anchor.today'
+          : 'token.history.anchor.yesterday'
+      return { major, minor: t(minorKey, { weekday }) }
     }
-    if (daysSince === 1) {
-      return { major, minor: t('token.history.anchor.yesterday', { weekday }) }
+    case 'dayThisMonth': {
+      const d = new Date(group.refDate)
+      const weekday = shortWeekday(d, locale)
+      const major = `${group.month}.${group.day}`
+      return { major, minor: weekday }
     }
-    return {
-      major,
-      minor: t('token.history.anchor.daysAgo', { weekday, count: daysSince }),
+    case 'monthThisYear': {
+      const lang = locale.toLowerCase().slice(0, 2)
+      if (lang === 'ko' || lang === 'ja' || lang === 'zh') {
+        return {
+          major: String(group.month),
+          minor: t('token.history.anchor.monthSameYear'),
+        }
+      }
+      let monthName = String(group.month)
+      try {
+        monthName = new Intl.DateTimeFormat(locale, { month: 'short' }).format(
+          new Date(group.year, group.month - 1, 1),
+        )
+      } catch { /* ignore */ }
+      return { major: monthName }
     }
-  }
-  if (group.kind === 'partOfMonth') {
-    const partKey = group.part ?? 'early'
-    return {
-      major: `${group.month}`,
-      minor: t(`token.history.anchor.${partKey}`),
-    }
-  }
-  // month
-  const sameYear = group.year === currentYear
-  return {
-    major: `${group.month}`,
-    minor: sameYear
-      ? t('token.history.anchor.monthSameYear', { month: group.month })
-      : t('token.history.anchor.monthOtherYear', {
+    case 'monthPastYear':
+      return {
+        major: t('token.history.anchor.monthOtherYear', {
           year: group.year,
-          month: group.month,
+          month02: zeroPad2(group.month),
         }),
+      }
   }
 }
 
-export function TimelineSection({ groups, onSelect }: TimelineSectionProps) {
+function headerSizeClass(kind: TimelineKind): string {
+  // `2024.12` (7자) 는 좌측 컬럼 폭 제약으로 작년이전만 작은 폰트.
+  return kind === 'monthPastYear'
+    ? 'text-body font-display font-bold text-foreground leading-none'
+    : 'text-heading font-display font-bold text-foreground leading-none'
+}
+
+export function TimelineSection({
+  groups,
+  onSelect,
+  hideTitle = false,
+  anchorTopClass = 'top-14',
+}: TimelineSectionProps) {
   const { t, i18n } = useTranslation()
   const locale = getLocaleCode(i18n.language)
-  const currentYear = new Date().getFullYear()
 
   if (groups.length === 0) return null
 
   return (
     <section className="flex flex-col gap-6">
-      <h3 className="text-title-sm font-bold text-foreground">
-        {t('token.history.section')}
-      </h3>
+      <div
+        className={cn(
+          'overflow-hidden transition-[height,opacity] duration-200',
+          hideTitle ? 'h-0 opacity-0' : 'h-12 opacity-100',
+        )}
+      >
+        <h3 className="h-12 flex items-center text-title-sm font-bold text-foreground">
+          {t('token.history.section')}
+        </h3>
+      </div>
       {groups.map((group) => {
-        const anchor = buildAnchor(t, group, locale, currentYear)
+        const anchor = buildAnchor(t, group, locale)
         return (
           <div key={group.key} className="flex items-start gap-3">
-            <div className="w-14 shrink-0 pt-1">
-              <div className="text-heading font-display font-bold text-foreground leading-none">
+            <div className={cn('w-14 shrink-0 pt-1 sticky self-start', anchorTopClass)}>
+              <div className={headerSizeClass(group.kind)}>
                 {anchor.major}
               </div>
-              <div className="mt-1.5 text-overline text-foreground-muted">
-                {anchor.minor}
-              </div>
+              {anchor.minor && (
+                <div className="mt-1.5 text-overline text-foreground-muted">
+                  {anchor.minor}
+                </div>
+              )}
             </div>
             <div className="flex-1 flex flex-col gap-2 min-w-0">
               {group.entries.map((tx) => (
                 <TimelineRow
                   key={tx.id}
                   tx={tx}
+                  groupKind={group.kind}
                   onSelect={onSelect ? () => onSelect(tx) : undefined}
                 />
               ))}

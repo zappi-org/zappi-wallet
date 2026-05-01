@@ -136,7 +136,7 @@ export function MintDetailScreen({
       </header>
 
       {/* Scrollable Content */}
-      <main className="flex-1 overflow-y-auto pb-8">
+      <main className="flex-1 overflow-y-auto pb-app">
         {/* Mint Card — with inline rename */}
         <div className="flex justify-center pt-2">
           <MintCard

@@ -10,7 +10,6 @@ import { useAppStore } from '@/store'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { generateMintAliases } from '@/utils/mint-name'
 import { normalizeMintUrl, formatMintHost } from '@/utils/url'
-import { LIMITS } from '@/core/constants'
 import { formatSats } from '@/utils/format'
 import { MintCard, getVariantByIndex } from '@/ui/components/wallet/MintCard'
 import type { MintInfo } from '@/core/types'
@@ -74,7 +73,6 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
 
   const mintCountBeforeAdd = useRef(mints.length)
   const displayMintCount = isAdding ? mintCountBeforeAdd.current : mints.length
-  const isAtLimit = displayMintCount >= LIMITS.MAX_MINTS
 
   const progressMessages = useMemo<Record<Exclude<ProgressStep, null>, string>>(() => ({
     validating: t('addMint.validating'),
@@ -118,11 +116,6 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
   const handleAdd = useCallback(async (mintUrl?: string, mintName?: string) => {
     const targetUrl = mintUrl || url
     if (!targetUrl) return
-
-    if (isAtLimit) {
-      setError(t('addMint.maxMintsReached', { max: LIMITS.MAX_MINTS }))
-      return
-    }
 
     const normalizedUrl = normalizeMintUrl(targetUrl)
 
@@ -205,7 +198,7 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
       setIsAdding(false)
       setProgressStep(null)
     }
-  }, [url, mints, isAtLimit, onSaveSettings, onBack, onSuccess, setBalance, t, settings.mintAliases, registry])
+  }, [url, mints, onSaveSettings, onBack, onSuccess, setBalance, t, settings.mintAliases, registry])
 
   // Request confirmation before adding
   const requestAdd = useCallback((mintUrl: string, mintName: string) => {
@@ -214,17 +207,13 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
       setError(t('addMint.alreadyAdded'))
       return
     }
-    if (isAtLimit) {
-      setError(t('addMint.maxMintsReached', { max: LIMITS.MAX_MINTS }))
-      return
-    }
     setConfirmMint({ url: mintUrl, name: mintName })
-  }, [mints, isAtLimit, t])
+  }, [mints, t])
 
   // Full-screen progress view (adding or success)
   if (isAdding || success) {
     return (
-      <div className="h-dvh bg-background text-foreground flex flex-col pt-safe pb-safe z-[60]">
+      <div className="h-dvh bg-background text-foreground flex flex-col pt-safe z-[60]">
         {/* Header */}
         <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
           <div className="w-10" />
@@ -291,11 +280,8 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
         <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('addMint.title')}</h2>
-        <span className={cn(
-          "text-overline font-medium z-10",
-          isAtLimit ? "text-accent-danger" : "text-foreground-muted"
-        )}>
-          {displayMintCount}/{LIMITS.MAX_MINTS}
+        <span className="text-overline font-medium z-10 text-foreground-muted">
+          {displayMintCount}
         </span>
       </header>
 
@@ -315,10 +301,10 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
               const name = formatMintHost(url)
               requestAdd(url, name)
             }}
-            disabled={!url || isAtLimit}
+            disabled={!url}
             className={cn(
               'px-4 py-2.5 rounded-xl font-semibold text-caption shrink-0 transition-colors',
-              url && !isAtLimit
+              url
                 ? 'bg-brand text-white active:opacity-80'
                 : 'bg-foreground/10 text-foreground-muted cursor-not-allowed'
             )}
@@ -331,11 +317,6 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
             <AlertCircle className="w-3 h-3 shrink-0" />
             <p className="text-overline font-medium">{error}</p>
           </div>
-        )}
-        {isAtLimit && (
-          <p className="text-overline font-medium text-accent-danger ml-1">
-            {t('settings.mintDeleteMaxReached')}
-          </p>
         )}
       </div>
 
@@ -359,7 +340,7 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
             </Button>
           </div>
         ) : (
-          <div className="bg-background-card divide-y divide-border pb-safe">
+          <div className="bg-background-card divide-y divide-border">
             {discoveredMints.map((mint, i) => {
               const normalizedMintUrl = normalizeMintUrl(mint.url)
               const isAlreadyAdded = mints.some(
@@ -372,14 +353,14 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
                 <button
                   key={i}
                   onClick={() => {
-                    if (!isAlreadyAdded && !isAtLimit) {
+                    if (!isAlreadyAdded) {
                       requestAdd(mint.url, displayName)
                     }
                   }}
-                  disabled={isAlreadyAdded || isAtLimit}
+                  disabled={isAlreadyAdded}
                   className={cn(
                     'w-full px-4 py-3 flex items-center gap-3 text-left transition-colors',
-                    isAlreadyAdded || isAtLimit
+                    isAlreadyAdded
                       ? 'opacity-50'
                       : 'active:bg-foreground/[0.03]'
                   )}
@@ -403,7 +384,7 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
                       </span>
                     </div>
                   </div>
-                  {!isAlreadyAdded && !isAtLimit && (
+                  {!isAlreadyAdded && (
                     <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-foreground/[0.06] shrink-0">
                       <Plus className="w-4 h-4 text-foreground-muted" />
                     </div>

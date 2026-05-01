@@ -124,16 +124,14 @@ export function RegisterInputStep({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <ScreenHeader title="토큰 등록하기" onBack={onBack} />
+      <ScreenHeader title={t('tokenRegister.title')} onBack={onBack} />
 
       <div className="flex-1 overflow-y-auto px-6 pt-6">
-        <h2 className="text-heading font-semibold text-foreground leading-snug">
-          토큰을 붙여넣거나 스캔해서
-          <br />
-          등록할 수 있어요.
+        <h2 className="text-heading font-semibold text-foreground leading-snug whitespace-pre-line">
+          {t('tokenRegister.inputHeading')}
         </h2>
         <p className="text-body text-foreground-muted mt-3">
-          토큰은 <span className="font-semibold text-foreground">cashuB</span> 로 시작하는 문자열이에요.
+          {t('tokenRegister.description', { format: 'cashuB' })}
         </p>
 
         {/* Token input — underline style */}
@@ -149,7 +147,7 @@ export function RegisterInputStep({
               type="text"
               value={token}
               onChange={(e) => handleTokenChange(e.target.value)}
-              placeholder="토큰 입력"
+              placeholder={t('tokenRegister.inputPlaceholder')}
               className={`flex-1 min-w-0 bg-transparent py-2 text-body font-medium placeholder:text-foreground-muted focus:outline-none ${
                 showError ? 'text-accent-danger' : 'text-foreground'
               }`}
@@ -157,7 +155,7 @@ export function RegisterInputStep({
           </div>
           {showError && (
             <p className="mt-1.5 text-caption text-accent-danger">
-              잘못된 형식이에요. cashuB 로 시작하는 토큰인지 확인해주세요.
+              {t('tokenRegister.invalidFormat')}
             </p>
           )}
         </div>
@@ -170,7 +168,7 @@ export function RegisterInputStep({
             className="flex items-center gap-1.5 px-4 h-10 rounded-full bg-background-card text-foreground hover:bg-background-hover transition-colors"
           >
             <Clipboard className="w-4 h-4" strokeWidth={1.8} />
-            <span className="text-body">붙여넣기</span>
+            <span className="text-body">{t('common.paste')}</span>
           </button>
           <button
             type="button"
@@ -178,12 +176,12 @@ export function RegisterInputStep({
             className="flex items-center gap-1.5 px-4 h-10 rounded-full bg-background-card text-foreground hover:bg-background-hover transition-colors"
           >
             <Camera className="w-4 h-4" strokeWidth={1.8} />
-            <span className="text-body">스캔하기</span>
+            <span className="text-body">{t('tokenRegister.scan')}</span>
           </button>
         </div>
       </div>
 
-      <BottomActionBar extraBottom={16} gap="none" className="px-6">
+      <BottomActionBar gap="none" className="px-6">
         <Button
           variant="brand"
           size="xl"
@@ -191,7 +189,7 @@ export function RegisterInputStep({
           disabled={!canProceed}
           className="w-full"
         >
-          {validating ? '확인 중…' : '다음'}
+          {validating ? t('scanner.validating') : t('common.next')}
         </Button>
       </BottomActionBar>
 

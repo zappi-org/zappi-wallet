@@ -13,6 +13,8 @@ import type { PaymentUseCase } from '@/core/ports/driving/payment.usecase'
 import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request.usecase'
 import type { ProcessedStore } from '@/core/ports/driven/processed-store.port'
 import type { FailedIncomingStore } from '@/core/ports/driven/failed-incoming-store.port'
+import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
+import type { EventBus } from '@/core/events/event-bus'
 import { toNumber } from '@/core/domain/amount'
 
 type ReceiveRequestSettlement = Pick<ReceiveRequestUseCase, 'settleByPaymentRef'>
@@ -23,6 +25,8 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
     private readonly processedStore: ProcessedStore,
     private readonly failedIncomingStore: FailedIncomingStore,
     private readonly receiveRequest?: ReceiveRequestSettlement,
+    private readonly txRepo?: TransactionRepository,
+    private readonly eventBus?: EventBus,
   ) {}
 
   async processIncoming(params: {
@@ -69,6 +73,28 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
         return { status: 'failed', error: settlement.error }
       }
 
+      // Verified: paymentRef matched a ReceiveRequest I created → mark intent + emit.
+      // Transport-agnostic — only fires when settle returns a real record.
+      if (settlement.matched && this.txRepo) {
+        try {
+          await this.txRepo.update(txId, { intent: 'request-fulfill' })
+        } catch (err) {
+          console.warn('[IncomingPayment] Failed to mark intent=request-fulfill:', err)
+        }
+        if (this.eventBus && params.receiveRequestPaymentRef && params.receiveRequestMethod) {
+          this.eventBus.emit({
+            type: 'receive:request-fulfilled',
+            payload: {
+              txId,
+              amount: redeemResult.value.amount,
+              fee: redeemResult.value.fee,
+              method: params.receiveRequestMethod,
+              paymentRef: params.receiveRequestPaymentRef,
+            },
+          })
+        }
+      }
+
       await this.processedStore.save({
         externalId,
         txId,
@@ -76,7 +102,7 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
         result: 'success',
       })
 
-      return { status: 'success', amount, fee }
+      return { status: 'success', amount, fee, requestFulfilled: settlement.matched }
     } catch (error) {
       const errorMsg = String(error)
       const isAlreadySpent = errorMsg.toLowerCase().includes('already spent')
@@ -135,17 +161,18 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
   private async settleReceiveRequest(params: {
     receiveRequestPaymentRef?: string
     receiveRequestMethod?: string
-  }): Promise<{ ok: true } | { ok: false; error: string }> {
+  }): Promise<{ ok: true; matched: boolean } | { ok: false; error: string }> {
     if (!this.receiveRequest || !params.receiveRequestPaymentRef || !params.receiveRequestMethod) {
-      return { ok: true }
+      return { ok: true, matched: false }
     }
 
     try {
-      await this.receiveRequest.settleByPaymentRef(
+      const record = await this.receiveRequest.settleByPaymentRef(
         params.receiveRequestPaymentRef,
         params.receiveRequestMethod,
       )
-      return { ok: true }
+      // record === null → no matching ReceiveRequest existed (paymentRef from a stranger)
+      return { ok: true, matched: record !== null }
     } catch (error) {
       return { ok: false, error: String(error) }
     }

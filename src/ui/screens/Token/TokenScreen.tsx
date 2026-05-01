@@ -8,7 +8,10 @@ import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
 import { useReclaimFees } from '@/ui/hooks/useReclaimFees'
 import { isSendToken, type TokenDetails } from '@/ui/types/pending-item-details'
 import { satsToFiat, useFormatSats } from '@/utils/format'
-import { useCallback, useEffect, useMemo, useState, type RefObject } from 'react'
+import { cn } from '@/ui/primitives/utils'
+import { Coins } from 'lucide-react'
+import { AnimatePresence } from 'motion/react'
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PendingEmptyWidget } from './components/PendingEmptyWidget'
 import { PendingWidget } from './components/PendingWidget'
@@ -35,18 +38,53 @@ export interface TokenScreenProps {
   onSelectToken?: (detail: TokenDetailData) => void
   /** Execute the reclaim operation for the given tokens (awaits real service). */
   onReclaimTokens?: (tokens: MockPendingToken[]) => Promise<void> | void
+  /** Persist a partial settings update (zustand + Dexie). Provided by MainApp. */
+  onSaveSettings?: (updates: Record<string, unknown>) => Promise<void>
 }
 
 export function TokenScreen({
   scrollRef,
   onSelectToken,
   onReclaimTokens,
+  onSaveSettings,
 }: TokenScreenProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const addToast = useAppStore((state) => state.addToast)
 
   const [hintDismissed, setHintDismissed] = useState(false)
+
+  // Sticky header morphs to compact form once timeline section scrolls past h1.
+  // Uses a ref callback so the observer attaches whenever the sentinel mounts —
+  // necessary because TimelineSection is not rendered while isEmpty is true.
+  const [isHeaderMerged, setIsHeaderMerged] = useState(false)
+  const observerRef = useRef<IntersectionObserver | null>(null)
+  const setHeaderSentinel = useCallback(
+    (node: HTMLDivElement | null) => {
+      observerRef.current?.disconnect()
+      observerRef.current = null
+      const root = scrollRef.current
+      if (!node || !root) return
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            setIsHeaderMerged(false)
+            return
+          }
+          // Non-intersecting can mean either scrolled past (above viewport) or
+          // not yet reached (below viewport on short screens). Only merge when above.
+          const sentinelTop = entry.boundingClientRect.top
+          const rootTop = entry.rootBounds?.top ?? 0
+          setIsHeaderMerged(sentinelTop < rootTop)
+        },
+        { root, rootMargin: '-56px 0px 0px 0px', threshold: 0 },
+      )
+      observer.observe(node)
+      observerRef.current = observer
+    },
+    [scrollRef],
+  )
+  useEffect(() => () => observerRef.current?.disconnect(), [])
 
   const registry = useServiceRegistry()
 
@@ -99,6 +137,29 @@ export function TokenScreen({
   // Show first-create hint when the user's first pending token appears with no history yet.
   const showFirstCreateHint =
     !hintDismissed && pendingTokens.length === 1 && timelineGroups.length === 0
+
+  // PendingEmptyWidget visibility: hidden after dismiss until a new send-token gets claimed.
+  const pendingEmptyDismissedAt = useAppStore(
+    (s) => s.settings.pendingEmptyDismissedAt ?? null,
+  )
+  const lastSendClaimedAt = useMemo(() => {
+    let max = 0
+    for (const group of timelineGroups) {
+      for (const tx of group.entries) {
+        if (tx.direction !== 'send') continue
+        if (tx.outcome !== 'claimed') continue
+        const ts = tx.completedAt
+        if (ts !== undefined && ts > max) max = ts
+      }
+    }
+    return max
+  }, [timelineGroups])
+  const shouldShowPendingEmpty =
+    pendingEmptyDismissedAt == null || lastSendClaimedAt > pendingEmptyDismissedAt
+  const handleDismissPendingEmpty = useCallback(() => {
+    if (!onSaveSettings) return
+    void onSaveSettings({ pendingEmptyDismissedAt: Date.now() })
+  }, [onSaveSettings])
 
   const handleShare = useCallback(
     async (token: MockPendingToken) => {
@@ -182,10 +243,38 @@ export function TokenScreen({
   )
 
   return (
-    <div ref={scrollRef} className="flex-1 h-full overflow-y-auto pt-safe pb-28">
+    <div ref={scrollRef} className="flex-1 h-full overflow-y-auto pt-safe pb-app-nav">
       <div className="min-h-full flex flex-col p-4 gap-4">
-        <h1 className="text-heading font-bold text-foreground pt-2">
-          {t('nav.token')}
+        <h1
+          className={cn(
+            'sticky top-0 z-[5] -mx-4 -mt-4 px-4 flex items-center text-foreground transition-[height,gap] duration-200',
+            isHeaderMerged ? 'h-12 gap-1.5' : 'h-14 gap-2',
+          )}
+          style={{
+            // Pre-merge: fully opaque so nothing scrolls under the page title.
+            // Post-merge: opaque only over the date-anchor track (16px parent p-4 + 56px w-14 + 12px gap-3 = 84px);
+            // right side stays transparent so timeline rows scroll past visibly behind the header.
+            background: isHeaderMerged
+              ? 'linear-gradient(to right, var(--color-background) 84px, transparent 84px)'
+              : 'var(--color-background)',
+          }}
+        >
+          <Coins
+            className={cn(
+              'text-foreground transition-[width,height] duration-200',
+              isHeaderMerged ? 'w-[18px] h-[18px]' : 'w-[22px] h-[22px]',
+            )}
+            strokeWidth={1.6}
+          />
+          {isHeaderMerged ? (
+            <span className="text-title-sm font-bold">
+              {t('token.history.section')}
+            </span>
+          ) : (
+            <span className="text-heading font-bold">
+              {t('nav.token')}
+            </span>
+          )}
         </h1>
 
         {isEmpty ? (
@@ -209,13 +298,20 @@ export function TokenScreen({
                 />
               </>
             ) : (
-              <PendingEmptyWidget />
+              <AnimatePresence>
+                {shouldShowPendingEmpty && (
+                  <PendingEmptyWidget onDismiss={handleDismissPendingEmpty} />
+                )}
+              </AnimatePresence>
             )}
             <div className="mt-6">
-            <TimelineSection
-              groups={timelineGroups}
-              onSelect={onSelectToken ? handleSelectTimeline : undefined}
-            />
+              <div ref={setHeaderSentinel} aria-hidden className="h-px" />
+              <TimelineSection
+                groups={timelineGroups}
+                onSelect={onSelectToken ? handleSelectTimeline : undefined}
+                hideTitle={isHeaderMerged}
+                anchorTopClass={isHeaderMerged ? 'top-12' : 'top-14'}
+              />
             </div>
           </>
         )}

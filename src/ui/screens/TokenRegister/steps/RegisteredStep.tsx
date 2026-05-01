@@ -4,6 +4,7 @@ import { hapticSuccess } from '@/ui/utils/haptic'
 import { useFormatFiat, useFormatSats } from '@/utils/format'
 import { motion } from 'motion/react'
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import tokenReceiveSuccessImg from '@/assets/token-receive-success.png'
 
 export interface RegisteredStepProps {
@@ -14,6 +15,7 @@ export interface RegisteredStepProps {
 const AUTO_DISMISS_MS = 5000
 
 export function RegisteredStep({ amount, onComplete }: RegisteredStepProps) {
+  const { t } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
   const fiatLabel = formatFiat(amount)
@@ -40,21 +42,21 @@ export function RegisteredStep({ amount, onComplete }: RegisteredStepProps) {
 
         <div className="text-center">
           <p className="text-heading font-semibold text-foreground">
-            {formatSats(amount)} 입금되었어요!
+            {t('receive.complete.fullMessage', { amount: formatSats(amount) })}
           </p>
         </div>
 
         {fiatLabel && <p className="text-body text-foreground-muted mt-3">~ {fiatLabel}</p>}
       </div>
 
-      <div className="px-6 pb-6 pb-safe shrink-0">
+      <div className="px-6 pb-app shrink-0">
         <Button
           variant="brand"
           size="xl"
           onClick={onComplete}
           className="w-full"
         >
-          확인
+          {t('common.confirm')}
         </Button>
       </div>
     </div>

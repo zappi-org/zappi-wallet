@@ -15,12 +15,15 @@ import { Confetti } from '@/ui/components/payment/Confetti'
 interface ReceiveCompleteStepProps {
   amount: number
   mintUrl: string | null
+  /** True when the settled payment was verified to fulfill a ReceiveRequest the user created. */
+  wasRequestFulfilled?: boolean
   onComplete: () => void
 }
 
 export function ReceiveCompleteStep({
   amount,
   mintUrl: _mintUrl,
+  wasRequestFulfilled = false,
   onComplete,
 }: ReceiveCompleteStepProps) {
   const { t } = useTranslation()
@@ -65,7 +68,12 @@ export function ReceiveCompleteStep({
         {/* Sentence */}
         <div className="text-center">
           <p className="text-heading font-semibold whitespace-pre-line">
-            {t('receive.complete.fullMessage', { amount: formatSats(amount) })}
+            {t(
+              wasRequestFulfilled
+                ? 'receive.complete.requestFulfilledMessage'
+                : 'receive.complete.fullMessage',
+              { amount: formatSats(amount) },
+            )}
           </p>
         </div>
 
@@ -75,7 +83,7 @@ export function ReceiveCompleteStep({
       </div>
 
       {/* Bottom button */}
-      <div className="px-6 pb-6 pb-safe shrink-0">
+      <div className="px-6 pb-app shrink-0">
         <Button
           variant="brand"
           size="xl"

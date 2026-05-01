@@ -62,7 +62,7 @@ export function TokenQrModal({ isOpen, token, onClose }: TokenQrModalProps) {
         </div>
 
         {/* Copy button */}
-        <div className="px-6 pb-6 pt-2">
+        <div className="px-6 pb-app pt-2">
           <button
             onClick={handleCopy}
             className="w-full flex items-center justify-center gap-2 bg-background-card text-foreground border border-border py-3.5 rounded-xl font-semibold text-caption active:scale-[0.98] transition-transform shadow-sm"

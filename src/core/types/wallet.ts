@@ -1,4 +1,5 @@
 import type { FiatCurrency } from './fiat'
+import type { TransactionIntent } from '@/core/domain/transaction'
 
 /**
  * Cashu proof (inlined from cashu-ts to maintain R1 domain purity)
@@ -94,6 +95,8 @@ export interface Transaction {
   expiresAt?: number
   failedAt?: number
   failureReason?: string
+  /** Domain intent — persisted as a free-form Dexie field; toDomain reads this first. */
+  intent?: TransactionIntent
   metadata?: Record<string, unknown>
 
   // Token lifecycle
@@ -209,6 +212,8 @@ export interface WalletSettings {
   showFiatConversion?: boolean
   /** Sender Privacy mode: prefer routes where the mint cannot link sender to receiver, even at higher fees */
   senderPrivacyMode?: boolean
+  /** Token 탭 PendingEmptyWidget을 마지막으로 닫은 시각 (ms epoch). 이후 새 send-claim 발생 시 다시 표시. */
+  pendingEmptyDismissedAt?: number | null
 }
 
 /**

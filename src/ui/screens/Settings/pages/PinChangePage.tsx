@@ -79,7 +79,7 @@ export function PinChangePage({ pinChange }: PinChangePageProps) {
   const isLoading = isVerifying || isChanging
 
   return (
-    <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe pb-safe overflow-hidden z-[65]">
+    <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe overflow-hidden z-[65]">
       <div className="flex-1 flex flex-col max-w-md mx-auto w-full">
         {/* Header */}
         <header className="relative flex items-center justify-between px-5 h-14 shrink-0">

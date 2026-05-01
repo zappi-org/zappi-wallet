@@ -154,6 +154,7 @@ export class GiftWrapWatcher {
           accountId: 'cashu:ecash',
           method: 'nostr-gift-wrap',
           isSwapStep: false,
+          wasRequestFulfilled: result.requestFulfilled === true,
           metadata: parsed.metadata,
         },
       })

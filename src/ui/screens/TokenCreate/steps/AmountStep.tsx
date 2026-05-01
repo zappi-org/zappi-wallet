@@ -1,12 +1,12 @@
 import { Button } from '@/ui/components/common/Button'
-import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { MintIcon } from '@/ui/components/common/MintIcon'
+import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
-import { useFormatFiat, useFormatSats, useSatUnit } from '@/utils/format'
-import { useWallet } from '@/ui/hooks/use-wallet'
-import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useFiatToggle } from '@/ui/hooks/use-fiat-toggle'
-import { ArrowLeft, ChevronRight, ChevronsUpDown } from 'lucide-react'
+import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
+import { useWallet } from '@/ui/hooks/use-wallet'
+import { isZeroDecimalCurrency, useFormatFiat, useFormatSats, useSatUnit } from '@/utils/format'
+import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -21,7 +21,8 @@ export interface AmountStepProps {
   initialSenderPaysFee: boolean
 }
 
-const KEYS: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0', 'del']
+const KEYS_SATS: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0', 'del']
+const KEYS_FIAT: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'del']
 
 export function AmountStep({
   onBack,
@@ -44,16 +45,19 @@ export function AmountStep({
   const [memo, setMemo] = useState(initialMemo)
   const [senderPaysFee, setSenderPaysFee] = useState(initialSenderPaysFee)
   const [mintSheetOpen, setMintSheetOpen] = useState(false)
+  const [memoFocused, setMemoFocused] = useState(false)
 
   const {
     isFiatMode,
     fiatInput,
+    fiatCurrency,
     currencySymbol,
     exchangeRate,
     handleToggleFiat,
     handleFiatChange,
   } = useFiatToggle(amount, setAmount)
   const canToggleFiat = exchangeRate !== null
+  const fiatIsZeroDecimal = isZeroDecimalCurrency(fiatCurrency)
 
   const mintBalance = balance.byMint[mintUrl] ?? 0
   const mintName = getDisplayName(mintUrl)
@@ -63,13 +67,18 @@ export function AmountStep({
   const insufficient = numericAmount > 0 && numericAmount > mintBalance
   const canProceed = numericAmount > 0 && !insufficient
 
+  // Format fiat input preserving trailing dot/zeros so the keypad reflects
+  // the user's literal input (e.g. "0.", "1.50") instead of Number() collapsing them.
+  const formatFiatInput = (raw: string): string => {
+    if (!raw) return '0'
+    const [intPart, decPart] = raw.split('.')
+    const intFormatted = Number(intPart || '0').toLocaleString()
+    return decPart !== undefined ? `${intFormatted}.${decPart}` : intFormatted
+  }
+
   const displayAmount = isFiatMode
-    ? fiatInput
-      ? `${currencySymbol}${Number(fiatInput).toLocaleString()}`
-      : `${currencySymbol}0`
-    : numericAmount > 0
-      ? formatSats(numericAmount)
-      : `${unit}0`
+    ? `${currencySymbol}${formatFiatInput(fiatInput)}`
+    : formatSats(numericAmount)
 
   const insufficientColor = insufficient ? 'text-accent-danger' : 'text-foreground'
   const fiatLabel = !isFiatMode && numericAmount > 0 ? formatFiat(numericAmount) : null
@@ -82,6 +91,16 @@ export function AmountStep({
       return
     }
     if (isFiatMode) {
+      if (key === '.') {
+        // Block decimal input for zero-decimal currencies (JPY/KRW)
+        if (fiatIsZeroDecimal) return
+        if (fiatInput.includes('.')) return
+        handleFiatChange(fiatInput === '' ? '0.' : fiatInput + '.')
+        return
+      }
+      // Limit to 2 decimal digits after the dot
+      const dotIdx = fiatInput.indexOf('.')
+      if (dotIdx !== -1 && fiatInput.length - dotIdx - 1 >= 2) return
       const next = (fiatInput + key).replace(/^0+(?=\d)/, '')
       if (next.length > 12) return
       handleFiatChange(next)
@@ -96,13 +115,13 @@ export function AmountStep({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <ScreenHeader title="토큰 생성하기" onBack={onBack} />
+      <ScreenHeader onBack={onBack} />
 
-      <div className="flex-1 overflow-y-auto px-6 pt-18 flex flex-col">
-        <h2 className="text-heading font-semibold text-foreground text-center">
+      <div className="flex-1 overflow-y-auto px-6 pt-4 flex flex-col">
+        <h2 className="text-title font-semibold text-foreground text-center">
           {t('send.tokenCreate.howMuch')}
         </h2>
-        <p className="text-body text-foreground-muted text-center mt-2">
+        <p className="text-body text-foreground-muted text-center mt-2 whitespace-pre-line">
           {t('send.tokenCreate.amountCaption')}
         </p>
 
@@ -111,34 +130,43 @@ export function AmountStep({
           <p className={`text-[44px] leading-none font-semibold ${insufficientColor}`}>
             {displayAmount}
           </p>
-          <button
-            type="button"
-            aria-label="단위 변경"
-            onClick={canToggleFiat ? handleToggleFiat : undefined}
-            disabled={!canToggleFiat}
-            className="flex items-center justify-center w-8 h-8 rounded-full bg-background-card text-foreground-muted hover:text-foreground hover:bg-background-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <ChevronsUpDown className="w-4 h-4" strokeWidth={1.8} />
-          </button>
+          {canToggleFiat && (
+            <button
+              type="button"
+              aria-label={t('send.tokenCreate.toggleUnit', { current: isFiatMode ? currencySymbol : unit })}
+              onClick={handleToggleFiat}
+              className="flex mt-2 items-center gap-1 text-body font-semibold text-foreground-muted shrink-0 px-2.5 py-1 rounded-full bg-background-card active:bg-background-hover transition-colors"
+            >
+              <span>{isFiatMode ? currencySymbol : unit}</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 16l-4-4 4-4" /><path d="M17 8l4 4-4 4" /><line x1="3" y1="12" x2="21" y2="12" />
+              </svg>
+              <span>{isFiatMode ? unit : currencySymbol}</span>
+            </button>
+          )}
           {insufficient ? (
-            <p className="text-caption text-accent-danger">
-              출금 민트 잔고 부족 :{' '}
+            <p className="text-body text-accent-danger">
+              {t('send.tokenCreate.insufficientBalance')}{' '}
               {onChangeMint ? (
                 <button
                   type="button"
                   onClick={() => setMintSheetOpen(true)}
                   className="underline font-medium"
                 >
-                  민트 변경
+                  {t('send.tokenCreate.changeMint')}
                 </button>
               ) : (
-                <span className="font-medium">민트 변경</span>
+                <span className="font-medium">{t('send.tokenCreate.changeMint')}</span>
               )}
             </p>
-          ) : isFiatMode && satsSecondary ? (
-            <p className="text-body text-foreground-muted">~ {satsSecondary}</p>
           ) : (
-            fiatLabel && <p className="text-body text-foreground-muted">~ {fiatLabel}</p>
+            <p
+              className={`text-body text-foreground-muted ${
+                (isFiatMode ? satsSecondary : fiatLabel) ? '' : 'invisible'
+              }`}
+            >
+              ~ {isFiatMode ? satsSecondary ?? '0' : fiatLabel ?? '0'}
+            </p>
           )}
         </div>
 
@@ -150,7 +178,7 @@ export function AmountStep({
             disabled={!onChangeMint}
             className="flex items-center gap-2 flex-1 min-w-0 text-left"
           >
-            <MintIcon iconUrl={mintIconUrl} imgSize="w-7 h-7" className="w-7 h-7" />
+            <MintIcon iconUrl={mintIconUrl} imgSize="w-7 h-7" className="w-7 h-7" circle />
             <span className="text-body font-medium text-foreground truncate">
               {mintName}
             </span>
@@ -161,7 +189,7 @@ export function AmountStep({
               />
             )}
           </button>
-          <span className="text-caption text-foreground-muted">잔액</span>
+          <span className="text-caption text-foreground-muted">{t('common.balance')}</span>
           <span className="text-body text-foreground">{formatSats(mintBalance)}</span>
         </div>
 
@@ -172,7 +200,9 @@ export function AmountStep({
               type="text"
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
-              placeholder="메모(선택사항)"
+              onFocus={() => setMemoFocused(true)}
+              onBlur={() => setMemoFocused(false)}
+              placeholder={t('send.tokenCreate.memoPlaceholder')}
               maxLength={100}
               className="flex-1 min-w-0 bg-transparent py-2 text-body font-medium text-foreground placeholder:text-foreground-muted focus:outline-none"
             />
@@ -188,7 +218,7 @@ export function AmountStep({
             className="mt-0.5 w-4 h-4 accent-brand shrink-0"
           />
           <span className="text-caption text-foreground-muted leading-snug">
-            받는사람이 금액을 그대로 받을 수 있게 수취 수수료를 토큰에 추가해요 (선택사항)
+            {t('send.tokenCreate.senderPaysFeeCaption')}
           </span>
         </label>
       </div>
@@ -204,23 +234,25 @@ export function AmountStep({
           }
           className="w-full"
         >
-          다음
+          {t('common.next')}
         </Button>
       </div>
 
-      {/* Numpad */}
-      <div className="grid grid-cols-3 gap-0 pb-safe shrink-0">
-        {KEYS.map((key) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => handleKey(key)}
-            className="h-14 text-title font-normal text-foreground hover:bg-background-hover active:bg-background-card transition-colors flex items-center justify-center"
-          >
-            {key === 'del' ? <ArrowLeft className="w-5 h-5" strokeWidth={1.8} /> : key}
-          </button>
-        ))}
-      </div>
+      {/* Numpad — hidden while memo is focused so the OS keyboard takes over */}
+      {!memoFocused && (
+        <div className="grid grid-cols-3 gap-0 shrink-0 pb-safe">
+          {(isFiatMode && !fiatIsZeroDecimal ? KEYS_FIAT : KEYS_SATS).map((key) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => handleKey(key)}
+              className="h-14 text-title font-normal text-foreground hover:bg-background-hover active:bg-background-card transition-colors flex items-center justify-center"
+            >
+              {key === 'del' ? <ArrowLeft className="w-5 h-5" strokeWidth={1.8} /> : key}
+            </button>
+          ))}
+        </div>
+      )}
 
       {onChangeMint && (
         <MintSelectBottomSheet
