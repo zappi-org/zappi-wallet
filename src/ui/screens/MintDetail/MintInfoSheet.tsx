@@ -6,7 +6,7 @@ import { Button } from '@/ui/components/common/Button'
 import { BottomSheet } from '@/ui/components/common/BottomSheet'
 import { useAppStore } from '@/store'
 import { CARD_PRESET_VARIANTS, VARIANT_HEX } from '@/ui/components/wallet/MintCard'
-import type { MintInfo, MintInfoData } from '@/core/types'
+import type { MintCardDesignPreset, MintInfo, MintInfoData } from '@/core/types'
 import { NUT_NAMES, getSupportedNuts } from '@/core/constants'
 import { isDuplicateMintName } from '@/utils/mint-name'
 import { formatMintHost } from '@/utils/url'
@@ -21,6 +21,7 @@ export interface MintInfoSheetProps {
   onDelete?: (url: string) => Promise<void>
   onRename?: (url: string, newName: string) => void
   onChangeColor?: (url: string, color: string) => void
+  onChangeCardDesign?: (url: string, preset: MintCardDesignPreset) => void
   getDisplayName: (url: string) => string
 }
 
@@ -37,7 +38,16 @@ async function copyToClipboard(text: string) {
   }
 }
 
-export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, onChangeColor, getDisplayName }: MintInfoSheetProps) {
+export function MintInfoSheet({
+  isOpen,
+  mint,
+  onClose,
+  onDelete,
+  onRename,
+  onChangeColor,
+  onChangeCardDesign,
+  getDisplayName,
+}: MintInfoSheetProps) {
   const { t } = useTranslation()
   const settings = useAppStore((s) => s.settings)
   const addToast = useAppStore((s) => s.addToast)
@@ -117,6 +127,7 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, onCha
   const aliasName = mint.alias || mint.name || formatMintHost(mint.url)
   const originalMintName = mintInfo?.name || mint.mintName
   const nuts = getSupportedNuts(mintInfo?.nuts)
+  const currentCardDesign = settings.mintCardDesignPresets?.[mint.url] ?? 'classic'
 
   return (
     <>
@@ -203,6 +214,37 @@ export function MintInfoSheet({ isOpen, mint, onClose, onDelete, onRename, onCha
                     className="absolute inset-0 opacity-0 cursor-pointer"
                   />
                 </label>
+              </div>
+            </div>
+          )}
+
+          {/* Card Design */}
+          {onChangeCardDesign && (
+            <div>
+              <p className="text-caption font-medium text-foreground-muted mb-2">{t('mintDetail.cardDesign')}</p>
+              <div className="grid grid-cols-2 gap-2">
+                {(['classic', 'modern'] as const).map((preset) => {
+                  const isActive = currentCardDesign === preset
+                  return (
+                    <button
+                      key={preset}
+                      onClick={() => onChangeCardDesign(mint.url, preset)}
+                      className={cn(
+                        'px-3 py-2.5 rounded-card border text-left transition-all active:scale-[0.98]',
+                        isActive
+                          ? 'border-foreground/30 bg-foreground/[0.04]'
+                          : 'border-border bg-background-card',
+                      )}
+                    >
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="text-caption font-semibold text-foreground">
+                          {t(preset === 'classic' ? 'mintDetail.cardDesignClassic' : 'mintDetail.cardDesignModern')}
+                        </span>
+                        {isActive && <Check className="w-3.5 h-3.5 text-accent-primary shrink-0" />}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
           )}

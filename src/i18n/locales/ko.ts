@@ -1302,6 +1302,9 @@ export default {
     showQr: 'QR 표시',
     cardName: '카드 이름',
     cardColor: '카드 색상',
+    cardDesign: '카드 디자인',
+    cardDesignClassic: '클래식',
+    cardDesignModern: '모던',
     dangerZone: 'Danger zone',
     emptyAndDelete: '잔액을 비우고 민트를 지우기',
     // 삭제 플로우

@@ -96,6 +96,9 @@
   --color-card-brand-medium: var(--card-brand-medium);
   --color-card-brand-dark: var(--card-brand-dark);
   --color-card-brand-darker: var(--card-brand-darker);
+  --color-card-color-lime: var(--card-color-lime);
+  --color-card-color-sky: var(--card-color-sky);
+  --color-card-color-peach: var(--card-color-peach);
   --color-card-color-coral: var(--card-color-coral);
   --color-card-color-teal: var(--card-color-teal);
   --color-card-color-slate: var(--card-color-slate);
@@ -218,6 +221,9 @@
   --card-brand-medium:  #6B73CE;  /* Indigo */
   --card-brand-dark:    #515AC0;  /* Indigo */
   --card-brand-darker:  #3A4190;  /* Indigo */
+  --card-color-lime:    #F1F6B6;  /* Soft lime */
+  --card-color-sky:     #D2E1FF;  /* Soft sky */
+  --card-color-peach:   #FFC5AB;  /* Soft peach */
   --card-color-coral:   #C75D4A;  /* Warm coral */
   --card-color-teal:    #3A9E8F;  /* Teal */
   --card-color-slate:   #5A6578;  /* Cool slate */
@@ -380,6 +386,9 @@
 /* Card Solid Color Utilities */
 @layer utilities {
   .bg-card-indigo     { background: var(--card-brand-dark); }
+  .bg-card-lime       { background: var(--card-color-lime); }
+  .bg-card-sky        { background: var(--card-color-sky); }
+  .bg-card-peach      { background: var(--card-color-peach); }
   .bg-card-coral      { background: var(--card-color-coral); }
   .bg-card-teal       { background: var(--card-color-teal); }
   .bg-card-slate      { background: var(--card-color-slate); }

@@ -1353,7 +1353,14 @@ export default function MainApp() {
             }
             const newMints = settings.mints.filter(m => m !== url)
             const { [url]: _, ...remainingAliases } = settings.mintAliases || {}
-            await handleSaveSettings({ mints: newMints, mintAliases: remainingAliases })
+            const { [url]: _color, ...remainingColors } = settings.mintColors || {}
+            const { [url]: _preset, ...remainingCardDesignPresets } = settings.mintCardDesignPresets || {}
+            await handleSaveSettings({
+              mints: newMints,
+              mintAliases: remainingAliases,
+              mintColors: remainingColors,
+              mintCardDesignPresets: remainingCardDesignPresets,
+            })
             await serviceRegistry?.cleanup.clearMintData(url)
             setCurrentScreen('home')
             addToast({ type: 'success', message: t('mintDetail.mintDeleted') })
@@ -1368,6 +1375,10 @@ export default function MainApp() {
           onChangeMintColor={(url, color) => {
             const newColors = { ...settings.mintColors, [url]: color }
             handleSaveSettings({ mintColors: newColors })
+          }}
+          onChangeMintCardDesign={(url, preset) => {
+            const newPresets = { ...settings.mintCardDesignPresets, [url]: preset }
+            handleSaveSettings({ mintCardDesignPresets: newPresets })
           }}
           onSelectTransaction={(tx) => {
             setSelectedTransaction(tx)

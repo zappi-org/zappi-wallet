@@ -5,12 +5,16 @@ import type { MintInfo } from "@/core/types";
 import { cn } from "@/ui/lib/utils";
 import { useFormatSats, useFormatFiat } from "@/utils/format";
 import { hapticTap } from "@/ui/utils/haptic";
+import { useAppStore } from "@/store";
 import cardLogo from "@/assets/card-logo.svg";
 import cardBg from "@/assets/card-bg.png";
 import cardNoise from "@/assets/card-noise.png";
 import zappiLogo from "@/assets/zappi.png";
 
-export type MintCardVariant = "light" | "medium" | "dark" | "darker" | "indigo" | "coral" | "teal" | "slate" | "amber" | "plum" | "forest";
+export type MintCardVariant =
+  | "light" | "medium" | "dark" | "darker"
+  | "indigo" | "lime" | "sky" | "peach"
+  | "coral" | "teal" | "slate" | "amber" | "plum" | "forest";
 
 interface MintCardProps {
   mint: MintInfo;
@@ -51,20 +55,31 @@ function MintLogo({ iconUrl }: { iconUrl?: string }) {
   );
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
-export function getVariantByIndex(index: number): MintCardVariant {
-  const variants: MintCardVariant[] = ["indigo", "coral", "amber", "teal", "slate", "plum", "forest"];
-  return variants[index % variants.length];
-}
-
 /** Preset variant names for color picker */
 // eslint-disable-next-line react-refresh/only-export-components
-export const CARD_PRESET_VARIANTS: MintCardVariant[] = ["indigo", "coral", "amber", "teal", "slate", "plum", "forest"];
+export const CARD_PRESET_VARIANTS: MintCardVariant[] = [
+  "indigo",
+  "lime",
+  "sky",
+  "peach",
+  "coral",
+  "amber",
+  "teal",
+  "slate",
+  "plum",
+  "forest",
+];
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function getVariantByIndex(index: number): MintCardVariant {
+  return CARD_PRESET_VARIANTS[index % CARD_PRESET_VARIANTS.length];
+}
 
 /** Hex colors for preset variants (single source of truth) */
 // eslint-disable-next-line react-refresh/only-export-components
 export const VARIANT_HEX: Record<string, string> = {
-  indigo: '#515AC0', coral: '#C75D4A', amber: '#B8863A',
+  indigo: '#515AC0', lime: '#F1F6B6', sky: '#D2E1FF', peach: '#FFC5AB',
+  coral: '#C75D4A', amber: '#B8863A',
   teal: '#3A9E8F', slate: '#5A6578', plum: '#8B5A8A', forest: '#4A7C5E',
 };
 
@@ -94,6 +109,9 @@ function getMintShortName(url: string, name?: string): string {
 
 const variantColorClass: Record<MintCardVariant, string> = {
   indigo: "bg-card-indigo",
+  lime: "bg-card-lime",
+  sky: "bg-card-sky",
+  peach: "bg-card-peach",
   coral: "bg-card-coral",
   teal: "bg-card-teal",
   slate: "bg-card-slate",
@@ -104,20 +122,6 @@ const variantColorClass: Record<MintCardVariant, string> = {
   medium: "bg-card-gradient-medium",
   dark: "bg-card-gradient-dark",
   darker: "bg-card-gradient-darker",
-};
-
-const variantImageFilter: Record<MintCardVariant, string> = {
-  indigo: "hue-rotate(-30deg) saturate(0.95) brightness(0.8)",
-  coral: "hue-rotate(4deg) saturate(1.08) brightness(0.95)",
-  teal: "hue-rotate(120deg) saturate(0.85) brightness(0.78)",
-  slate: "hue-rotate(-110deg) saturate(0.4) brightness(0.78)",
-  amber: "hue-rotate(18deg) saturate(1.08) brightness(1.02)",
-  plum: "hue-rotate(-70deg) saturate(0.78) brightness(0.82)",
-  forest: "hue-rotate(95deg) saturate(0.65) brightness(0.78)",
-  light: "hue-rotate(15deg) brightness(1.05)",
-  medium: "hue-rotate(-15deg) brightness(0.92)",
-  dark: "hue-rotate(-30deg) brightness(0.82)",
-  darker: "none",
 };
 
 export function MintCard({
@@ -136,8 +140,19 @@ export function MintCard({
   const { t } = useTranslation();
   const formatSats = useFormatSats();
   const toFiat = useFormatFiat();
+  const cardDesignPreset = useAppStore((s) => s.settings.mintCardDesignPresets?.[mint.url] ?? "classic");
+  const isClassicDesign = cardDesignPreset !== "modern";
   const displayName = mint.alias || getMintShortName(mint.url, mint.name);
   const surfaceStyle = customColor ? { backgroundColor: customColor } : undefined;
+  const classicTextureStyle = customColor
+    ? {
+        opacity: 0.42,
+        mixBlendMode: "multiply" as const,
+      }
+    : {
+        opacity: 0.36,
+        mixBlendMode: "multiply" as const,
+      };
 
   // Inline rename state
   const [isEditing, setIsEditing] = useState(false);
@@ -164,51 +179,66 @@ export function MintCard({
       className={cn(
         "relative w-[var(--card-w)] rounded-card overflow-hidden touch-manipulation",
         "shadow-[0px_4px_8px_0px_rgba(0,0,0,0.15)]",
-        !customColor && variantColorClass[variant],
+        isClassicDesign && !customColor && variantColorClass[variant],
         isSelected === true && "ring-2 ring-primary ring-offset-3 ring-offset-background",
         isSelected === false && "opacity-70"
       )}
-      style={surfaceStyle}
+      style={isClassicDesign ? surfaceStyle : undefined}
     >
-      {/* Legacy card background — kept below the body and footer so the card shape/actions stay current. */}
-      <img
-        alt=""
-        aria-hidden="true"
-        className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-        src={cardBg}
-        style={{
-          filter: customColor ? "saturate(0.35) contrast(1.05)" : variantImageFilter[variant],
-          opacity: customColor ? 0.46 : 1,
-          mixBlendMode: customColor ? "overlay" : "normal",
-        }}
-      />
+      {isClassicDesign && (
+        <>
+          {/* Legacy card background — kept below the body and footer so the card shape/actions stay current. */}
+          <img
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+            src={cardBg}
+            style={classicTextureStyle}
+          />
 
-      {/* Noise texture */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 opacity-5 pointer-events-none"
-        style={{ backgroundImage: `url('${cardNoise}')`, backgroundSize: '200% 200%', backgroundPosition: 'top left' }}
-      />
+          {/* Noise texture */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 opacity-5 pointer-events-none"
+            style={{ backgroundImage: `url('${cardNoise}')`, backgroundSize: '200% 200%', backgroundPosition: 'top left' }}
+          />
+        </>
+      )}
 
       {/* Card Body */}
       <div
         onClick={onDetail ?? onClick}
         className={cn(
           "relative aspect-[280/160] flex flex-col justify-between p-5",
+          !isClassicDesign && !customColor && variantColorClass[variant],
           (onDetail || onClick) && "cursor-pointer active:brightness-95 transition-all"
         )}
+        style={!isClassicDesign ? surfaceStyle : undefined}
       >
+        {!isClassicDesign && (
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 opacity-[0.04] pointer-events-none"
+            style={{ backgroundImage: `url('${cardNoise}')`, backgroundSize: '200% 200%', backgroundPosition: 'top left' }}
+          />
+        )}
+
         <img
           src={zappiLogo}
           alt=""
           aria-hidden="true"
-          className="absolute bottom-4 right-4 w-12 h-12 object-contain opacity-80 pointer-events-none z-10"
+          className={cn(
+            "absolute opacity-80 pointer-events-none z-10",
+            isClassicDesign
+              ? "bottom-4 right-4 w-12 h-12 object-contain"
+              : "bottom-2 right-3 w-20 h-20",
+          )}
         />
 
         {/* Top: Logo + Name */}
         <div className="relative z-10">
           <div className="flex items-center gap-2">
-            <div className="rounded-full flex items-center justify-center shrink-0 w-[22px] h-[22px]">
+            <div className="rounded-full flex items-center justify-center overflow-hidden shrink-0 w-[22px] h-[22px]">
               <MintLogo iconUrl={mint.iconUrl} />
             </div>
             {isEditing && onRename ? (
@@ -260,7 +290,13 @@ export function MintCard({
 
       {/* Card Footer — Action Buttons */}
       {(onReceive || onSend) && (
-        <div className="relative">
+        <div
+          className={cn(
+            "relative",
+            !isClassicDesign && !customColor && variantColorClass[variant],
+          )}
+          style={!isClassicDesign ? surfaceStyle : undefined}
+        >
           <div className="h-px bg-white/12" />
           <div className="bg-black/8 flex">
             {onReceive && (

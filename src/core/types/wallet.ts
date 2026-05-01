@@ -152,6 +152,8 @@ export interface FailedIncoming {
  */
 export type SupportedLanguage = 'ko' | 'en' | 'es' | 'ja' | 'id'
 
+export type MintCardDesignPreset = 'classic' | 'modern'
+
 /**
  * Provisioned POS device record
  */
@@ -205,6 +207,8 @@ export interface WalletSettings {
   mintAliases?: Record<string, string>
   /** User-defined mint card colors: { mintUrl: "indigo" | "#FF5500" } */
   mintColors?: Record<string, string>
+  /** User-defined mint card design presets: { mintUrl: "classic" | "modern" } */
+  mintCardDesignPresets?: Record<string, MintCardDesignPreset>
   posDevices?: POSDevice[]
   /** Preferred fiat currency for display (default: 'USD') */
   fiatCurrency?: FiatCurrency

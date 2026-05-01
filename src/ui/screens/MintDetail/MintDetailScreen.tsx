@@ -10,7 +10,7 @@ import { useAppStore } from '@/store'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useWallet } from '@/ui/hooks'
 import { getMintBalance } from '@/utils/url'
-import type { MintInfo } from '@/core/types'
+import type { MintCardDesignPreset, MintInfo } from '@/core/types'
 import type { Transaction } from '@/core/domain/transaction'
 import { MintInfoSheet } from './MintInfoSheet'
 import { PendingItemsScreen } from './PendingItemsScreen'
@@ -25,6 +25,7 @@ export interface MintDetailScreenProps {
   onDeleteMint: (url: string) => Promise<void>
   onRenameMint?: (url: string, newName: string) => void
   onChangeMintColor?: (url: string, color: string) => void
+  onChangeMintCardDesign?: (url: string, preset: MintCardDesignPreset) => void
   onSelectTransaction: (tx: Transaction) => void
   onTransactions?: () => void
   transactions: Transaction[]
@@ -40,6 +41,7 @@ export function MintDetailScreen({
   onDeleteMint,
   onRenameMint,
   onChangeMintColor,
+  onChangeMintCardDesign,
   onSelectTransaction,
   onTransactions,
   transactions,
@@ -210,6 +212,7 @@ export function MintDetailScreen({
         onDelete={onDeleteMint}
         onRename={onRenameMint}
         onChangeColor={onChangeMintColor}
+        onChangeCardDesign={onChangeMintCardDesign}
         getDisplayName={getDisplayName}
       />
 
