@@ -67,7 +67,7 @@ export function ReceiveCompleteStep({
 
         {/* Sentence */}
         <div className="text-center">
-          <p className="text-heading font-semibold whitespace-pre-line">
+          <p className="text-heading font-semibold whitespace-pre-line break-keep break-words">
             {t(
               wasRequestFulfilled
                 ? 'receive.complete.requestFulfilledMessage'

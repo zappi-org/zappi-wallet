@@ -19,6 +19,8 @@ function getDefaultSettings(): WalletSettings {
     expertModeEnabled: false,
     manualMintSelectionEnabled: false,
     balanceHidden: false,
+    fiatCurrency: 'USD',
+    showFiatConversion: true,
     pendingEmptyDismissedAt: null,
   } as WalletSettings
 }

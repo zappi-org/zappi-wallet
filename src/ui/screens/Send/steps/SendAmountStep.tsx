@@ -160,7 +160,7 @@ export function SendAmountStep({
         })()}
 
         {/* Question */}
-        <h2 className="text-heading font-semibold text-foreground">
+        <h2 className="text-heading font-semibold text-foreground break-keep">
           {t('send.amount.howMuchSend')}
         </h2>
 

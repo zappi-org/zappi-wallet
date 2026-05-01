@@ -142,7 +142,7 @@ export function ReceiveInputStep({
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 pt-6">
         {/* Question */}
-        <h2 className="text-heading font-semibold text-foreground">
+        <h2 className="text-heading font-semibold text-foreground break-keep">
           {t('receive.amountStep.howMuchRequest')}
         </h2>
 

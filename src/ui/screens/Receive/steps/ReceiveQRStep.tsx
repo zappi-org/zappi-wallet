@@ -240,7 +240,7 @@ export function ReceiveQRStep({
       {/* Content — centered */}
       <div className="flex-1 flex flex-col items-center px-6 pt-6">
         {/* Message */}
-        <p className="text-heading font-semibold text-center whitespace-pre-line">
+        <p className="text-heading font-semibold text-center whitespace-pre-line break-keep break-words">
           {t('receive.qr.fullMessage', { amount: formatSats(amount) })}
         </p>
         {(() => { const f = formatFiat(amount); return f ? (

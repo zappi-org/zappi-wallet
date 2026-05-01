@@ -432,7 +432,7 @@ export function SendInputStep({
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 pt-6">
         {/* Question */}
-        <h2 className="text-heading font-semibold text-foreground">
+        <h2 className="text-heading font-semibold text-foreground break-keep">
           {t('send.destination.whoToSend')}
         </h2>
         <div className={`mt-2 overflow-hidden transition-all duration-200 ease-out ${destination.trim() ? 'max-h-0 opacity-0' : 'max-h-20 opacity-100'}`}>
