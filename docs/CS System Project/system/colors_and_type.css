@@ -1,0 +1,207 @@
+/* =============================================================
+   Zappi Token Tap — colors_and_type.css
+   Tokens extracted from the v2 Figma board. Paired with bright,
+   cozy, Toss-ish Korean fintech sensibility (warm grays, indigo
+   anchor, mint-yellow accent, generous whitespace).
+   ============================================================= */
+
+@import url("./fonts/fonts.css");
+
+:root {
+  /* -------- Brand + status palette -------- */
+  --zt-indigo-900: rgb(30, 34, 80);       /* primary text + pending widget */
+  --zt-indigo-700: rgb(81, 90, 192);      /* reclaim CTA, emphasis */
+  --zt-indigo-300: rgba(79, 70, 229, 0.25); /* pending shadow */
+  --zt-indigo-050: rgba(15, 23, 42, 0.03); /* faint info card */
+
+  --zt-yellow-500: rgb(249, 196, 22);     /* pending status dot */
+  --zt-yellow-300: rgb(245, 217, 77);     /* mint color chip */
+
+  --zt-terra-500: rgb(196, 93, 62);       /* cancel / warn link */
+
+  /* -------- Neutrals (surface → text) -------- */
+  --zt-bg:        rgb(248, 249, 252);     /* app background */
+  --zt-surface:   rgb(255, 255, 255);     /* cards, sheets */
+  --zt-surface-2: rgba(15, 23, 42, 0.03); /* muted info block */
+  --zt-hairline:  rgb(226, 232, 240);     /* 1px borders */
+  --zt-rule:      rgba(0, 0, 0, 0.08);    /* faint dividers */
+
+  --zt-ink-1: rgb(15, 23, 42);            /* slate-near-black — section headers */
+  --zt-ink-2: rgb(30, 34, 80);            /* brand indigo — body */
+  --zt-ink-3: rgb(96, 96, 96);            /* secondary labels ($ values) */
+  --zt-ink-4: rgb(108, 108, 108);         /* tertiary / timestamps */
+  --zt-ink-0: rgb(0, 0, 0);               /* currency numerals */
+
+  --zt-on-dark: rgb(255, 255, 255);
+
+  /* -------- Semantic aliases -------- */
+  --zt-fg-primary:   var(--zt-ink-2);
+  --zt-fg-secondary: var(--zt-ink-4);
+  --zt-fg-tertiary:  var(--zt-ink-3);
+  --zt-fg-strong:    var(--zt-ink-1);
+  --zt-fg-numeric:   var(--zt-ink-0);
+  --zt-accent:       var(--zt-indigo-700);
+  --zt-accent-ink:   var(--zt-indigo-900);
+  --zt-warn:         var(--zt-yellow-500);
+  --zt-danger:       var(--zt-terra-500);
+
+  /* -------- Radii -------- */
+  --zt-radius-sm: 8px;
+  --zt-radius-md: 12px;
+  --zt-radius-lg: 16px;
+  --zt-radius-xl: 24px;   /* bottom-sheet top corners */
+  --zt-radius-pill: 999px;
+
+  /* -------- Spacing (4-step scale) -------- */
+  --zt-sp-1: 4px;
+  --zt-sp-2: 8px;
+  --zt-sp-3: 12px;
+  --zt-sp-4: 16px;
+  --zt-sp-5: 20px;
+  --zt-sp-6: 24px;
+  --zt-sp-8: 32px;
+  --zt-sp-10: 40px;
+
+  /* -------- Elevation -------- */
+  --zt-shadow-pill: 0 4px 4px rgba(0, 0, 0, 0.10);          /* floating pill buttons */
+  --zt-shadow-pill-light: 0 2px 1px rgba(0, 0, 0, 0.08);
+  --zt-shadow-widget: 0 8px 24px -4px var(--zt-indigo-300); /* pending widget lift */
+  --zt-shadow-sheet: 0 -12px 32px rgba(15, 23, 42, 0.10);   /* bottom sheet */
+  --zt-inset-input:
+     inset -1px -1px 1px rgba(0, 0, 0, 0.10),
+     inset  1px  1px 1px rgba(0, 0, 0, 0.10);               /* raw-token box */
+
+  /* -------- Motion -------- */
+  --zt-ease:     cubic-bezier(0.22, 0.61, 0.36, 1); /* soft ease-out, Toss-ish */
+  --zt-ease-in:  cubic-bezier(0.4, 0, 1, 1);
+  --zt-dur-fast: 140ms;
+  --zt-dur-med:  220ms;
+  --zt-dur-slow: 320ms;
+
+  /* -------- Typography families -------- */
+  --zt-font-ui:      "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Pretendard", system-ui, sans-serif;
+  --zt-font-numeric: "Outfit", "Inter", system-ui, sans-serif;
+  --zt-font-mono:    "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* =============================================================
+   Base element defaults — scope onto .zt-scope to avoid leaking
+   ============================================================= */
+.zt-scope,
+.zt-scope * {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  box-sizing: border-box;
+}
+
+.zt-scope {
+  font-family: var(--zt-font-ui);
+  color: var(--zt-fg-primary);
+  background: var(--zt-bg);
+  font-feature-settings: "cv11", "ss01";
+}
+
+/* -------- Semantic type ramp (values from Figma v2) -------- */
+.zt-display {             /* section hero ("만든 토큰이 없어요…") */
+  font-family: var(--zt-font-ui);
+  font-weight: 500;
+  font-size: 24px;
+  line-height: 1.5;
+  color: var(--zt-fg-strong);
+  text-wrap: pretty;
+}
+.zt-title-lg {            /* screen/sheet title — 토큰, 대기중인 토큰 */
+  font-family: var(--zt-font-ui);
+  font-weight: 700;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--zt-fg-strong);
+}
+.zt-title-md {            /* sheet header 토큰 상세보기 */
+  font-family: var(--zt-font-ui);
+  font-weight: 700;
+  font-size: 19px;
+  line-height: 1;
+  color: var(--zt-ink-0);
+}
+.zt-label {               /* field label 금액 메모 유형 */
+  font-family: var(--zt-font-ui);
+  font-weight: 700;
+  font-size: 19px;
+  line-height: 1;
+  color: var(--zt-fg-primary);
+}
+.zt-body {                /* field value */
+  font-family: var(--zt-font-ui);
+  font-weight: 400;
+  font-size: 19px;
+  line-height: 1.4;
+  color: var(--zt-fg-primary);
+}
+.zt-section {             /* list section heading — 되찾을 수 있어요 (1), 토큰 내역 */
+  font-family: var(--zt-font-ui);
+  font-weight: 700;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--zt-fg-strong);
+}
+.zt-caption {             /* small hint / timestamps */
+  font-family: var(--zt-font-ui);
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--zt-fg-secondary);
+}
+.zt-micro {               /* tiny link — 다시보지않기 */
+  font-family: var(--zt-font-ui);
+  font-weight: 400;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--zt-fg-secondary);
+}
+.zt-numeric-lg {          /* ₿2,000 on detail */
+  font-family: var(--zt-font-numeric);
+  font-weight: 400;
+  font-size: 19px;
+  line-height: 1;
+  color: var(--zt-fg-numeric);
+  font-variant-numeric: tabular-nums;
+}
+.zt-numeric-sub {         /* ($2.00) */
+  font-family: var(--zt-font-numeric);
+  font-weight: 500;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--zt-fg-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.zt-numeric-sm {          /* row amount ₿2,500 */
+  font-family: var(--zt-font-numeric);
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--zt-fg-numeric);
+  font-variant-numeric: tabular-nums;
+}
+.zt-mono {                /* raw token string */
+  font-family: var(--zt-font-mono);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--zt-ink-0);
+  word-break: break-all;
+}
+.zt-btn-label {           /* pill button text */
+  font-family: var(--zt-font-ui);
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--zt-fg-primary);
+}
+.zt-btn-label-bold {      /* emphasized pill button */
+  font-family: var(--zt-font-ui);
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1;
+}

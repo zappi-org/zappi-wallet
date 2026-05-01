@@ -1,0 +1,6 @@
+/* Zappi Token Tap — webfonts (Google Fonts)
+   Flagged: we did NOT have access to binary font files. These are the
+   closest official Google Fonts equivalents. If Zappi uses licensed
+   variants (e.g. Pretendard for Korean), please supply them. */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap');

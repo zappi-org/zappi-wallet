@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>Zappi CS — 문의 시스템</title>
+<link rel="stylesheet" href="system/colors_and_type.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: #ECEFF5; font-family: var(--zt-font-ui); }
+  * { box-sizing: border-box; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body class="zt-scope">
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="cs-components.jsx"></script>
+<script type="text/babel" src="cs-screens-1.jsx"></script>
+<script type="text/babel" src="cs-screens-2.jsx"></script>
+
+<script type="text/babel">
+function PhoneFrame({ children, label }) {
+  return (
+    <div data-screen-label={label} style={{
+      width: 390, height: 780, position: "relative",
+      background: csStyles.bg, borderRadius: 40, overflow: "hidden",
+      boxShadow: "0 24px 60px -20px rgba(15,23,42,0.18), 0 1px 3px rgba(15,23,42,0.06), inset 0 0 0 1px rgba(15,23,42,0.06)",
+      fontFamily: "var(--zt-font-ui)", color: csStyles.ink2,
+    }}>
+      <div style={{
+        position: "absolute", top: 0, left: 0, right: 0, height: 44, zIndex: 5,
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        padding: "16px 28px 0",
+        fontFamily: "var(--zt-font-ui)", fontWeight: 600, fontSize: 14, color: csStyles.ink1,
+        pointerEvents: "none",
+      }}>
+        <span>9:41</span>
+        <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+          <svg width="16" height="10" viewBox="0 0 16 10"><rect x="0" y="6" width="3" height="4" rx="0.6" fill={csStyles.ink1}/><rect x="4.5" y="4" width="3" height="6" rx="0.6" fill={csStyles.ink1}/><rect x="9" y="2" width="3" height="8" rx="0.6" fill={csStyles.ink1}/><rect x="13.5" y="0" width="3" height="10" rx="0.6" fill={csStyles.ink1}/></svg>
+          <svg width="22" height="11" viewBox="0 0 22 11"><rect x="0.5" y="0.5" width="19" height="10" rx="3" stroke={csStyles.ink1} strokeOpacity="0.5" fill="none"/><rect x="2" y="2" width="16" height="7" rx="1.5" fill={csStyles.ink1}/></svg>
+        </div>
+      </div>
+      <div style={{ position: "absolute", inset: 0 }}>{children}</div>
+      <div style={{
+        position: "absolute", bottom: 8, left: "50%", transform: "translateX(-50%)",
+        width: 134, height: 5, borderRadius: 100, background: "rgba(15,23,42,0.28)",
+      }} />
+    </div>
+  );
+}
+
+function FlowPhone({ start, label }) {
+  const [screen, setScreen] = React.useState(start);
+  const go = (next) => setScreen(next);
+  return (
+    <PhoneFrame label={label}>
+      {screen === "home"            && <HelpHomeScreen go={go} />}
+      {screen === "compose-inquiry" && <ComposeScreen go={go} kind="inquiry" />}
+      {screen === "inquiry-list"    && <InquiryListScreen go={go} />}
+      {screen === "inquiry-detail"  && <InquiryDetailScreen go={go} />}
+      {screen === "compose-idea"    && <ComposeScreen go={go} kind="idea" />}
+      {screen === "idea-list"       && <IdeaListScreen go={go} />}
+      {screen === "idea-detail"     && <IdeaDetailScreen go={go} />}
+    </PhoneFrame>
+  );
+}
+
+function App() {
+  return (
+    <DesignCanvas title="Zappi CS · 문의 시스템" subtitle="산뜻하지만 샤프한 — 정중함이 묻어나는 고객지원 화면">
+      <DCSection id="entry" title="진입 · 메뉴">
+        <DCArtboard id="home" label="01 · 문의 메뉴 (FAQ + 문의 + 아이디어)" width={390} height={780}>
+          <FlowPhone start="home" label="01 Home" />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="inquiry" title="문의 — 작성 · 내역 · 상세">
+        <DCArtboard id="new-inquiry" label="02 · 새로운 문의 작성" width={390} height={780}>
+          <FlowPhone start="compose-inquiry" label="02 New Inquiry" />
+        </DCArtboard>
+        <DCArtboard id="inquiry-list" label="03 · 문의 내역" width={390} height={780}>
+          <FlowPhone start="inquiry-list" label="03 Inquiry List" />
+        </DCArtboard>
+        <DCArtboard id="inquiry-detail" label="04 · 문의 상세 (이어서 답변)" width={390} height={780}>
+          <FlowPhone start="inquiry-detail" label="04 Inquiry Detail" />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="idea" title="아이디어 제안 — 작성 · 내역 · 상세">
+        <DCArtboard id="new-idea" label="05 · 새로운 제안 작성" width={390} height={780}>
+          <FlowPhone start="compose-idea" label="05 New Idea" />
+        </DCArtboard>
+        <DCArtboard id="idea-list" label="06 · 제안 내역" width={390} height={780}>
+          <FlowPhone start="idea-list" label="06 Idea List" />
+        </DCArtboard>
+        <DCArtboard id="idea-detail" label="07 · 제안 상세 (이어서 채팅, 상태 없음)" width={390} height={780}>
+          <FlowPhone start="idea-detail" label="07 Idea Detail" />
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
