@@ -101,14 +101,13 @@ function useObjectUrl(attachment: CSAttachmentPreviewData | null): string | null
   const [url, setUrl] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!blob) {
-      setUrl(null)
-      return
-    }
+    if (!blob) return
     const next = URL.createObjectURL(blob)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- object URL lifecycle must be synced with blob
     setUrl(next)
     return () => {
       URL.revokeObjectURL(next)
+      setUrl(null)
     }
   }, [blob])
 
