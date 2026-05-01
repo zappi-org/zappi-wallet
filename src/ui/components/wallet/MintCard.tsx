@@ -58,13 +58,13 @@ function MintLogo({ iconUrl }: { iconUrl?: string }) {
 /** Preset variant names for color picker */
 // eslint-disable-next-line react-refresh/only-export-components
 export const CARD_PRESET_VARIANTS: MintCardVariant[] = [
+  "teal",
   "indigo",
   "lime",
   "sky",
   "peach",
   "coral",
   "amber",
-  "teal",
   "slate",
   "plum",
   "forest",
@@ -140,7 +140,7 @@ export function MintCard({
   const { t } = useTranslation();
   const formatSats = useFormatSats();
   const toFiat = useFormatFiat();
-  const cardDesignPreset = useAppStore((s) => s.settings.mintCardDesignPresets?.[mint.url] ?? "classic");
+  const cardDesignPreset = useAppStore((s) => s.settings.mintCardDesignPresets?.[mint.url] ?? "modern");
   const isClassicDesign = cardDesignPreset !== "modern";
   const displayName = mint.alias || getMintShortName(mint.url, mint.name);
   const surfaceStyle = customColor ? { backgroundColor: customColor } : undefined;

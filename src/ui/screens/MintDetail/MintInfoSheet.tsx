@@ -127,7 +127,7 @@ export function MintInfoSheet({
   const aliasName = mint.alias || mint.name || formatMintHost(mint.url)
   const originalMintName = mintInfo?.name || mint.mintName
   const nuts = getSupportedNuts(mintInfo?.nuts)
-  const currentCardDesign = settings.mintCardDesignPresets?.[mint.url] ?? 'classic'
+  const currentCardDesign = settings.mintCardDesignPresets?.[mint.url] ?? 'modern'
 
   return (
     <>
