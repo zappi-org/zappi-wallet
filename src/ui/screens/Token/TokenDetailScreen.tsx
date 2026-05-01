@@ -64,6 +64,7 @@ export function TokenDetailScreen({
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const addToast = useAppStore((s) => s.addToast)
+  const showFiat = useAppStore((s) => s.settings.showFiatConversion ?? true)
 
   const [rawOpen, setRawOpen] = useState(false)
   const [qrOpen, setQrOpen] = useState(false)
@@ -72,7 +73,9 @@ export function TokenDetailScreen({
   const isPending = data.status === 'pending'
   const timestamp = data.statusAt ?? data.createdAt
   const dateLine = formatDetailDateLine(t, timestamp, DATE_SUFFIX_KEY[data.status])
-  const fiatLabel = data.fiat ? formatFiatAmount(data.fiat.amount, data.fiat.currency) : null
+  const fiatLabel = showFiat && data.fiat
+    ? formatFiatAmount(data.fiat.amount, data.fiat.currency)
+    : null
 
   const actionLabel = useMemo(
     () => (isPending ? t('token.detail.action.forward') : t('token.detail.action.confirm')),

@@ -148,6 +148,8 @@ export function formatTransactionFiat(
   amountSats: number,
   liveFiatFormatter: (sats: number) => string | null,
 ): string | null {
+  const { show } = getExchangeRateFromStore()
+  if (!show) return null
   if (snapshot) {
     return formatFiatAmount(snapshot.amount, snapshot.currency)
   }

@@ -147,6 +147,7 @@ describe('TokenScreen', () => {
     setPending([])
     txHistoryState.groups = []
     storeState.settings = { mints: [], fiatCurrency: 'USD', pendingEmptyDismissedAt: null }
+    storeState.allRates = {}
   })
 
   it('no pending + no timeline → empty state 만 보여준다', () => {
@@ -207,6 +208,26 @@ describe('TokenScreen', () => {
     await waitFor(() => expect(writeTextSpy).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(addToastMock).toHaveBeenCalledTimes(1))
     expect(addToastMock.mock.calls[0][0]).toMatchObject({ type: 'success' })
+  })
+
+  it('fiat 표시가 꺼져도 상세 데이터 생성 자체는 유지한다', () => {
+    storeState.settings = {
+      mints: [],
+      fiatCurrency: 'USD',
+      showFiatConversion: false,
+      pendingEmptyDismissedAt: null,
+    }
+    storeState.allRates = { USD: 100_000 }
+    setPending([makeSendTokenItem()])
+    const onSelectToken = vi.fn()
+
+    renderScreen({ onSelectToken })
+    fireEvent.click(screen.getByText('커피값'))
+
+    expect(onSelectToken).toHaveBeenCalledTimes(1)
+    expect(onSelectToken.mock.calls[0][0]).toMatchObject({
+      fiat: { amount: 1, currency: 'USD' },
+    })
   })
 
   describe('PendingEmptyWidget', () => {
