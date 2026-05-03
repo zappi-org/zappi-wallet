@@ -229,11 +229,19 @@ export default {
     helpFooter: '',
     faqTitle: 'Frequently asked',
     faqSeeAll: 'See all',
-    faqPlaceholder: {
-      q1: 'Lightning payment failed',
-      q2: 'Ecash token did not register',
-      q3: 'How are fees calculated?',
-      q4: 'How do I back up my wallet?',
+    faq: {
+      q1: 'What is a mint?',
+      a1: 'A mint is like a bank on the internet. Mints operate Bitcoin payment infrastructure such as Lightning, handling payments, ecash issuance, and redemption. Unlike traditional custody models, Cashu mints make it extremely difficult to trace user transactions.',
+      q2: 'Lightning payment failed',
+      a2: 'Lightning payments can fail for various reasons. The routing path to the recipient may not be found, or the payment may fail if there are too many intermediate hops between the sender and receiver. If Lightning payments keep failing, it\'s a good idea to ask the mint to check their setup.',
+      q3: 'Ecash token did not register',
+      a3: 'A token may fail to register if it has already been spent or if an error occurred during token creation. In this case, the person who created the ecash can manually recover it using the balance verification feature and create a new token. Registration may also fail if the ecash amount is smaller than the receive fee. We plan to add a "receive later" feature to batch and register tokens that couldn\'t be received.',
+      q4: 'How are fees calculated?',
+      a4: 'Routing fees are a toll paid as your Lightning payment travels through multiple nodes. They vary depending on the path to the destination and cannot be set by the mint. Think of them as a natural cost of using fast, convenient Bitcoin payment infrastructure.\n\nSwap fees are a service charge set by the mint for stable infrastructure operation. They increase slightly as the number of proofs grows, but since payments typically split into 4–5 proofs, the effective fee usually stays well below 0.03%. Running privacy-preserving payment infrastructure involves real costs like server expenses and Lightning node liquidity management.\n\nNote that fees are based on the number of proofs rather than the amount sent, so small payments may feel relatively more expensive. For more details on the fee structure, check NUT-04.',
+      q5: 'Will I lose my balance if I delete the app or lose my phone?',
+      a5: 'Yes, which is why backing up your seed phrase is critical. Unlike a bank where a central server holds your balance, in a Cashu wallet the tokens on your device are your balance. If you delete the app or lose your device, the tokens inside are gone too. Most Cashu wallets provide a seed phrase that allows you to deterministically recover your tokens. Always keep your seed phrase in a safe place.',
+      q6: 'How is this different from traditional custody?',
+      a6: 'Traditional Lightning custody services typically manage funds using a "balance" model — your balance is recorded on a server, making it easy for the operator to track transaction history and leaving your privacy vulnerable. It\'s also relatively easy to freeze funds or censor transactions.\n\nCashu works differently, using a "token" model. The mint only issues tokens and verifies whether they\'ve been spent — it has no way to know who holds which tokens or where they were sent. This protects privacy and makes individual censorship practically impossible. While it is still a custody model, it represents a significant step forward in terms of privacy.',
     },
     actions: {
       composeInquiry: {

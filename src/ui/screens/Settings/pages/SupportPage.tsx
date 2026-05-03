@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
 import {
+  ChevronDown,
   ChevronRight,
   Inbox,
   Lightbulb,
@@ -59,11 +61,15 @@ interface SupportPageProps {
 
 type SupportView =
   | 'home'
+  | 'faq'
   | 'inquiry-list'
   | 'idea-list'
   | 'compose-inquiry'
   | 'compose-idea'
   | 'ticket-detail'
+
+const FAQ_COUNT = 6
+const FAQ_HOME_PREVIEW = 4
 
 const INQUIRY_CATEGORY_OPTIONS: Array<{ value: SupportInquiryCategory; labelKey: string }> = [
   { value: 'transfer', labelKey: 'support.categories.transfer' },
@@ -87,8 +93,16 @@ export function SupportPage({ onBack }: SupportPageProps) {
   const setActiveSupportTicketId = useAppStore((state) => state.setActiveSupportTicketId)
 
   const [snapshot, setSnapshot] = useState<SupportSnapshot>(() => support.getSnapshot())
-  const [view, setView] = useState<SupportView>('home')
-  const [composeOrigin, setComposeOrigin] = useState<SupportView>('home')
+
+  // Navigation stack: home (base) → level1 overlay → level2 overlay
+  const [level1, setLevel1] = useState<
+    'faq' | 'inquiry-list' | 'idea-list' | 'compose-inquiry' | 'compose-idea' | null
+  >(null)
+  const [level2, setLevel2] = useState<
+    'ticket-detail' | 'compose-inquiry' | 'compose-idea' | null
+  >(null)
+
+  const [faqInitialIndex, setFaqInitialIndex] = useState<number | null>(null)
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
   const [archiveTarget, setArchiveTarget] = useState<SupportTicket | null>(null)
 
@@ -162,8 +176,8 @@ export function SupportPage({ onBack }: SupportPageProps) {
     if (!selectedTicketId) return
     if (snapshot.tickets.some((ticket) => ticket.id === selectedTicketId)) return
     setSelectedTicketId(null)
-    if (view === 'ticket-detail') setView('inquiry-list')
-  }, [selectedTicketId, snapshot.tickets, view])
+    setLevel2(null)
+  }, [selectedTicketId, snapshot.tickets])
 
   const selectedTicket = useMemo(
     () => snapshot.tickets.find((ticket) => ticket.id === selectedTicketId) ?? null,
@@ -194,8 +208,8 @@ export function SupportPage({ onBack }: SupportPageProps) {
     ? getSupportKind(selectedTicket.category)
     : 'inquiry'
 
-  const activeView: SupportView =
-    view === 'ticket-detail' && !selectedTicket ? 'inquiry-list' : view
+  // Derived active view — level2 wins, then level1, then home
+  const activeView: SupportView = level2 ?? level1 ?? 'home'
 
   useEffect(() => {
     if (activeView !== 'ticket-detail' || !selectedTicket) return
@@ -236,41 +250,49 @@ export function SupportPage({ onBack }: SupportPageProps) {
     setComposeFiles([])
   }
 
-  const handleBack = () => {
-    if (activeView === 'home') {
-      onBack()
-      return
-    }
+  // Back from level2 → level1 still visible
+  const handleBackFromLevel2 = () => {
     setFormError(null)
-    if (activeView === 'compose-inquiry' || activeView === 'compose-idea') {
-      const kind: SupportKind = activeView === 'compose-idea' ? 'idea' : 'inquiry'
-      resetComposer(kind)
-      setView(composeOrigin)
-      return
-    }
-    if (activeView === 'ticket-detail') {
+    if (level2 === 'ticket-detail') {
       setReplyBody('')
       setReplyFiles([])
-      const returnTo = selectedKind === 'idea' ? 'idea-list' : 'inquiry-list'
       setSelectedTicketId(null)
-      setView(returnTo)
-      return
+    } else if (level2 === 'compose-inquiry' || level2 === 'compose-idea') {
+      resetComposer(level2 === 'compose-idea' ? 'idea' : 'inquiry')
     }
-    setView('home')
+    setLevel2(null)
+  }
+
+  // Back from level1 → home
+  const handleBackFromLevel1 = () => {
+    setFormError(null)
+    if (level1 === 'compose-inquiry' || level1 === 'compose-idea') {
+      resetComposer(level1 === 'compose-idea' ? 'idea' : 'inquiry')
+    } else if (level1 === 'faq') {
+      setFaqInitialIndex(null)
+    }
+    setLevel1(null)
   }
 
   const openTicket = (ticketId: string) => {
     setFormError(null)
     setSelectedTicketId(ticketId)
-    setView('ticket-detail')
+    setLevel2('ticket-detail')
   }
 
-  const openCompose = (kind: SupportKind, origin: SupportView) => {
+  // Compose opened from home → level1. From list → level2.
+  const openComposeAtLevel1 = (kind: SupportKind) => {
     if (!snapshot.availability.available) return
     setFormError(null)
     resetComposer(kind)
-    setComposeOrigin(origin)
-    setView(kind === 'idea' ? 'compose-idea' : 'compose-inquiry')
+    setLevel1(kind === 'idea' ? 'compose-idea' : 'compose-inquiry')
+  }
+
+  const openComposeAtLevel2 = (kind: SupportKind) => {
+    if (!snapshot.availability.available) return
+    setFormError(null)
+    resetComposer(kind)
+    setLevel2(kind === 'idea' ? 'compose-idea' : 'compose-inquiry')
   }
 
   const composerKind: SupportKind = activeView === 'compose-idea' ? 'idea' : 'inquiry'
@@ -289,7 +311,14 @@ export function SupportPage({ onBack }: SupportPageProps) {
       })
       resetComposer(composerKind)
       setSelectedTicketId(ticket.id)
-      setView('ticket-detail')
+      if (level2 !== null) {
+        // Compose was at level2 (from list) → replace level2 with ticket-detail
+        setLevel2('ticket-detail')
+      } else {
+        // Compose was at level1 (from home) → set list at level1, ticket at level2
+        setLevel1(composerKind === 'idea' ? 'idea-list' : 'inquiry-list')
+        setLevel2('ticket-detail')
+      }
     } catch {
       setFormError(t('support.createFailed'))
     } finally {
@@ -458,12 +487,11 @@ export function SupportPage({ onBack }: SupportPageProps) {
     setIsArchiving(true)
     setFormError(null)
     try {
-      const wasIdea = isIdeaCategory(archiveTarget.category)
       await support.archiveTicket(archiveTarget.id)
       addToast({ type: 'success', message: t('support.deleted'), duration: 2500 })
       setArchiveTarget(null)
       setSelectedTicketId(null)
-      setView(wasIdea ? 'idea-list' : 'inquiry-list')
+      setLevel2(null) // level1 (list) remains visible
     } catch {
       setFormError(t('support.deleteFailed'))
     } finally {
@@ -482,111 +510,192 @@ export function SupportPage({ onBack }: SupportPageProps) {
           ? { title: formError, description: t('support.tryAgainLater'), tone: 'danger' as const }
           : null
 
-  const headerInfo = getHeaderInfo(activeView, t, selectedTicket, () => {
-    if (selectedTicket) setArchiveTarget(selectedTicket)
-  })
+  // Per-layer header info
+  const level1HeaderInfo = level1 !== null
+    ? getHeaderInfo(level1, t, null, () => {})
+    : null
 
-  const footerNode = renderFooter({
-    view: activeView,
-    title,
-    body,
-    isCreating,
-    onSubmit: handleCreateTicket,
-    submitLabel: t(composerKind === 'idea' ? 'support.submitIdea' : 'support.submitInquiry'),
-    selectedTicket,
-    selectedKind,
-    replyBody,
-    replyFiles,
-    onReplyBodyChange: setReplyBody,
-    onReplyFilesChange: setReplyFiles,
-    onSendReply: handleSendReply,
-    isSendingReply,
-    capabilities: snapshot.capabilities.attachments,
-    onAttachmentError: setFormError,
-    placeholder: t(selectedKind === 'idea' ? 'support.ideaReplyPlaceholder' : 'support.replyPlaceholder'),
-    t,
-  })
+  const level2HeaderInfo = level2 !== null
+    ? getHeaderInfo(
+        level2,
+        t,
+        level2 === 'ticket-detail' ? selectedTicket : null,
+        () => { if (selectedTicket) setArchiveTarget(selectedTicket) },
+      )
+    : null
+
+  // Per-layer footers
+  const level1FooterNode = level1 !== null
+    ? renderFooter({
+        view: level1,
+        title, body, isCreating,
+        onSubmit: handleCreateTicket,
+        submitLabel: t(level1 === 'compose-idea' ? 'support.submitIdea' : 'support.submitInquiry'),
+        selectedTicket: null, selectedKind: 'inquiry',
+        replyBody: '', replyFiles: [],
+        onReplyBodyChange: () => {}, onReplyFilesChange: () => {}, onSendReply: () => {},
+        isSendingReply: false,
+        capabilities: snapshot.capabilities.attachments,
+        onAttachmentError: setFormError,
+        placeholder: '', t,
+      })
+    : null
+
+  const level2FooterNode = level2 !== null
+    ? renderFooter({
+        view: level2,
+        title, body, isCreating,
+        onSubmit: handleCreateTicket,
+        submitLabel: t(level2 === 'compose-idea' ? 'support.submitIdea' : 'support.submitInquiry'),
+        selectedTicket, selectedKind,
+        replyBody, replyFiles,
+        onReplyBodyChange: setReplyBody, onReplyFilesChange: setReplyFiles,
+        onSendReply: handleSendReply, isSendingReply,
+        capabilities: snapshot.capabilities.attachments,
+        onAttachmentError: setFormError,
+        placeholder: t(selectedKind === 'idea' ? 'support.ideaReplyPlaceholder' : 'support.replyPlaceholder'),
+        t,
+      })
+    : null
+
+  const iosTransition = { type: 'tween', ease: [0.32, 0.72, 0, 1], duration: 0.35 } as const
 
   return (
     <>
+      {/* ── Layer 0: Home (base, always rendered) ────────────────────── */}
       <CSPage
-        title={headerInfo.title}
-        subtitle={headerInfo.subtitle}
-        onBack={handleBack}
-        right={headerInfo.right}
-        meta={headerInfo.meta}
-        footer={footerNode}
+        title={t('support.heroTitle')}
+        subtitle={t('support.helpHomeSubtitle')}
+        onBack={onBack}
       >
-        {noticeBanner && (
-          <div className="px-5 mb-3">
-            <NoticeBanner {...noticeBanner} />
-          </div>
+        {level1 === null && noticeBanner && (
+          <div className="px-5 mb-3"><NoticeBanner {...noticeBanner} /></div>
         )}
-
-        {activeView === 'home' && (
-          <HelpHomeView
-            inquiryCount={inquiryActiveCount}
-            inquiryUnread={inquiryUnread}
-            ideaCount={ideaTickets.length}
-            onComposeInquiry={() => openCompose('inquiry', 'home')}
-            onOpenInquiryList={() => setView('inquiry-list')}
-            onComposeIdea={() => openCompose('idea', 'home')}
-            onOpenIdeaList={() => setView('idea-list')}
-            disabled={unavailable}
-          />
-        )}
-
-        {activeView === 'inquiry-list' && (
-          <TicketListView
-            kind="inquiry"
-            tickets={inquiryTickets}
-            messagesByTicket={snapshot.messages}
-            onSelect={openTicket}
-            onCompose={() => openCompose('inquiry', 'inquiry-list')}
-            disabled={unavailable}
-          />
-        )}
-
-        {activeView === 'idea-list' && (
-          <TicketListView
-            kind="idea"
-            tickets={ideaTickets}
-            messagesByTicket={snapshot.messages}
-            onSelect={openTicket}
-            onCompose={() => openCompose('idea', 'idea-list')}
-            disabled={unavailable}
-          />
-        )}
-
-        {(activeView === 'compose-inquiry' || activeView === 'compose-idea') && (
-          <ComposeView
-            kind={composerKind}
-            title={title}
-            body={body}
-            category={category}
-            files={composeFiles}
-            capabilities={snapshot.capabilities.attachments}
-            isSubmitting={isCreating}
-            onTitleChange={setTitle}
-            onBodyChange={setBody}
-            onCategoryChange={setCategory}
-            onFilesChange={setComposeFiles}
-            onAttachmentError={setFormError}
-          />
-        )}
-
-        {activeView === 'ticket-detail' && selectedTicket && (
-          <ConversationView
-            kind={selectedKind}
-            timeline={selectedTimeline}
-            ticketTerminal={isSupportTicketTerminal(selectedTicket.status)}
-            openingIds={openingAttachmentIds}
-            imageUrls={imageUrls}
-            failedImageIds={failedImageIds}
-            onOpenAttachment={handleOpenAttachment}
-          />
-        )}
+        <HelpHomeView
+          inquiryCount={inquiryActiveCount}
+          inquiryUnread={inquiryUnread}
+          ideaCount={ideaTickets.length}
+          onComposeInquiry={() => openComposeAtLevel1('inquiry')}
+          onOpenInquiryList={() => setLevel1('inquiry-list')}
+          onComposeIdea={() => openComposeAtLevel1('idea')}
+          onOpenIdeaList={() => setLevel1('idea-list')}
+          onFaqItemClick={(index) => { setFaqInitialIndex(index); setLevel1('faq') }}
+          onSeeAllFaq={() => { setFaqInitialIndex(null); setLevel1('faq') }}
+          disabled={unavailable}
+        />
       </CSPage>
+
+      {/* ── Layer 1: First push (FAQ / lists / compose from home) ─────── */}
+      <AnimatePresence>
+        {level1 !== null && (
+          <motion.div
+            key={level1}
+            className="fixed inset-0 z-[66] bg-background"
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={iosTransition}
+          >
+            <CSPage
+              title={level1HeaderInfo!.title}
+              subtitle={level1HeaderInfo!.subtitle}
+              onBack={handleBackFromLevel1}
+              right={level1HeaderInfo!.right}
+              meta={level1HeaderInfo!.meta}
+              footer={level1FooterNode}
+            >
+              {level2 === null && noticeBanner && (
+                <div className="px-5 mb-3"><NoticeBanner {...noticeBanner} /></div>
+              )}
+
+              {level1 === 'faq' && (
+                <FaqView initialExpandedIndex={faqInitialIndex} />
+              )}
+              {level1 === 'inquiry-list' && (
+                <TicketListView
+                  kind="inquiry"
+                  tickets={inquiryTickets}
+                  messagesByTicket={snapshot.messages}
+                  onSelect={openTicket}
+                  onCompose={() => openComposeAtLevel2('inquiry')}
+                  disabled={unavailable}
+                />
+              )}
+              {level1 === 'idea-list' && (
+                <TicketListView
+                  kind="idea"
+                  tickets={ideaTickets}
+                  messagesByTicket={snapshot.messages}
+                  onSelect={openTicket}
+                  onCompose={() => openComposeAtLevel2('idea')}
+                  disabled={unavailable}
+                />
+              )}
+              {(level1 === 'compose-inquiry' || level1 === 'compose-idea') && (
+                <ComposeView
+                  kind={level1 === 'compose-idea' ? 'idea' : 'inquiry'}
+                  title={title} body={body} category={category} files={composeFiles}
+                  capabilities={snapshot.capabilities.attachments}
+                  isSubmitting={isCreating}
+                  onTitleChange={setTitle} onBodyChange={setBody}
+                  onCategoryChange={setCategory} onFilesChange={setComposeFiles}
+                  onAttachmentError={setFormError}
+                />
+              )}
+            </CSPage>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Layer 2: Second push (ticket-detail / compose from list) ──── */}
+      <AnimatePresence>
+        {level2 !== null && (
+          <motion.div
+            key={level2 === 'ticket-detail' ? `ticket-${selectedTicketId}` : level2}
+            className="fixed inset-0 z-[67] bg-background"
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={iosTransition}
+          >
+            <CSPage
+              title={level2HeaderInfo!.title}
+              subtitle={level2HeaderInfo!.subtitle}
+              onBack={handleBackFromLevel2}
+              right={level2HeaderInfo!.right}
+              meta={level2HeaderInfo!.meta}
+              footer={level2FooterNode}
+            >
+              {noticeBanner && (
+                <div className="px-5 mb-3"><NoticeBanner {...noticeBanner} /></div>
+              )}
+
+              {level2 === 'ticket-detail' && selectedTicket && (
+                <ConversationView
+                  kind={selectedKind}
+                  timeline={selectedTimeline}
+                  ticketTerminal={isSupportTicketTerminal(selectedTicket.status)}
+                  openingIds={openingAttachmentIds}
+                  imageUrls={imageUrls}
+                  failedImageIds={failedImageIds}
+                  onOpenAttachment={handleOpenAttachment}
+                />
+              )}
+              {(level2 === 'compose-inquiry' || level2 === 'compose-idea') && (
+                <ComposeView
+                  kind={level2 === 'compose-idea' ? 'idea' : 'inquiry'}
+                  title={title} body={body} category={category} files={composeFiles}
+                  capabilities={snapshot.capabilities.attachments}
+                  isSubmitting={isCreating}
+                  onTitleChange={setTitle} onBodyChange={setBody}
+                  onCategoryChange={setCategory} onFilesChange={setComposeFiles}
+                  onAttachmentError={setFormError}
+                />
+              )}
+            </CSPage>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <CSAttachmentPreview
         attachment={previewAttachment}
@@ -622,6 +731,8 @@ interface HelpHomeViewProps {
   onOpenInquiryList: () => void
   onComposeIdea: () => void
   onOpenIdeaList: () => void
+  onFaqItemClick: (index: number) => void
+  onSeeAllFaq: () => void
   disabled?: boolean
 }
 
@@ -633,15 +744,14 @@ function HelpHomeView({
   onOpenInquiryList,
   onComposeIdea,
   onOpenIdeaList,
+  onFaqItemClick,
+  onSeeAllFaq,
   disabled,
 }: HelpHomeViewProps) {
   const { t } = useTranslation()
-  const faqQuestions = [
-    t('support.faqPlaceholder.q1'),
-    t('support.faqPlaceholder.q2'),
-    t('support.faqPlaceholder.q3'),
-    t('support.faqPlaceholder.q4'),
-  ]
+  const faqQuestions = Array.from({ length: FAQ_HOME_PREVIEW }, (_, i) =>
+    t(`support.faq.q${i + 1}`),
+  )
   const inquiryListSubtitle =
     inquiryUnread > 0
       ? t('support.actions.inquiryList.subtitleWithUnread', {
@@ -665,22 +775,28 @@ function HelpHomeView({
           <span className="text-[13px] font-semibold text-foreground-muted tracking-[-0.005em]">
             {t('support.faqTitle')}
           </span>
-          <span className="text-[12px] font-medium text-foreground-subtle">
+          <button
+            type="button"
+            onClick={onSeeAllFaq}
+            className="text-[12px] font-medium text-foreground-subtle"
+          >
             {t('support.faqSeeAll')} →
-          </span>
+          </button>
         </div>
         <CSCard padding="none">
           {faqQuestions.map((question, index) => (
-            <div
+            <button
+              type="button"
               key={index}
+              onClick={() => onFaqItemClick(index)}
               className={cn(
-                'flex items-center justify-between px-4 py-3.5',
+                'w-full flex items-center justify-between px-4 py-3.5 text-left',
                 index !== 0 && 'border-t border-border/60',
               )}
             >
               <span className="text-[14px] text-foreground tracking-[-0.005em]">{question}</span>
               <ChevronRight className="w-4 h-4 text-foreground-subtle shrink-0" strokeWidth={2} />
-            </div>
+            </button>
           ))}
         </CSCard>
       </div>
@@ -720,6 +836,75 @@ function HelpHomeView({
         />
       </div>
 
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// FAQ
+
+function FaqView({ initialExpandedIndex }: { initialExpandedIndex: number | null }) {
+  const { t } = useTranslation()
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(initialExpandedIndex)
+  const itemRefs = useRef<(HTMLDivElement | null)[]>([])
+
+  useEffect(() => {
+    if (initialExpandedIndex == null) return
+    const timer = setTimeout(() => {
+      itemRefs.current[initialExpandedIndex]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [initialExpandedIndex])
+
+  const toggle = (index: number) => {
+    setExpandedIndex((prev) => {
+      const next = prev === index ? null : index
+      if (next !== null) {
+        setTimeout(() => {
+          itemRefs.current[next]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        }, 50)
+      }
+      return next
+    })
+  }
+
+  return (
+    <div className="px-5 pb-8">
+      <CSCard padding="none">
+        {Array.from({ length: FAQ_COUNT }, (_, i) => i).map((index) => {
+          const expanded = expandedIndex === index
+          const n = index + 1
+          return (
+            <div
+              key={index}
+              ref={(el) => { itemRefs.current[index] = el }}
+              className={cn(index !== 0 && 'border-t border-border/60')}
+            >
+              <button
+                type="button"
+                onClick={() => toggle(index)}
+                className="w-full flex items-center justify-between px-4 py-3.5 text-left gap-3"
+              >
+                <span className="text-[14px] text-foreground tracking-[-0.005em] flex-1">
+                  {t(`support.faq.q${n}`)}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    'w-4 h-4 text-foreground-subtle shrink-0 transition-transform duration-200',
+                    expanded && 'rotate-180',
+                  )}
+                  strokeWidth={2}
+                />
+              </button>
+              {expanded && (
+                <div className="px-4 pb-4 text-[13px] text-foreground-muted leading-relaxed tracking-[-0.005em] whitespace-pre-line">
+                  {t(`support.faq.a${n}`)}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </CSCard>
     </div>
   )
 }
@@ -1081,6 +1266,10 @@ function getHeaderInfo(
       return {
         title: t('support.heroTitle'),
         subtitle: t('support.helpHomeSubtitle'),
+      }
+    case 'faq':
+      return {
+        title: t('support.faqTitle'),
       }
     case 'inquiry-list':
       return {

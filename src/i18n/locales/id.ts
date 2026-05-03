@@ -203,6 +203,22 @@ export default {
       resolved: 'Resolved',
       closed: 'Closed',
     },
+    faqTitle: 'Pertanyaan Umum',
+    faqSeeAll: 'Lihat semua',
+    faq: {
+      q1: 'Apa itu mint?',
+      a1: 'Mint adalah seperti bank di internet. Mint mengoperasikan infrastruktur pembayaran Bitcoin seperti Lightning, menangani pembayaran, penerbitan, dan penukaran ecash. Berbeda dengan model kustodi tradisional, mint Cashu membuat pelacakan transaksi pengguna menjadi sangat sulit.',
+      q2: 'Pembayaran Lightning gagal',
+      a2: 'Pembayaran Lightning dapat gagal karena berbagai alasan. Jalur routing ke penerima mungkin tidak ditemukan, atau gagal jika ada terlalu banyak hop perantara. Jika pembayaran Lightning terus gagal, sebaiknya minta mint untuk memeriksa pengaturannya.',
+      q3: 'Token ecash tidak terdaftar',
+      a3: 'Token mungkin gagal didaftarkan jika sudah digunakan atau jika terjadi kesalahan saat pembuatan. Dalam hal ini, pembuat ecash dapat memulihkannya secara manual menggunakan fitur verifikasi saldo dan membuat token baru. Pendaftaran juga dapat gagal jika jumlah ecash lebih kecil dari biaya penerimaan.',
+      q4: 'Bagaimana biaya dihitung?',
+      a4: 'Biaya routing adalah tol yang dibayar saat pembayaran Lightning melintasi beberapa node. Besarnya bervariasi tergantung jalur ke tujuan dan tidak dapat ditetapkan oleh mint.\n\nBiaya swap adalah biaya layanan yang ditetapkan mint untuk operasi infrastruktur yang stabil. Sedikit meningkat seiring bertambahnya jumlah proof, namun karena biasanya terbagi menjadi 4–5 proof, biaya efektif umumnya di bawah 0,03%.\n\nPerhatikan bahwa biaya didasarkan pada jumlah proof, bukan jumlah yang dikirim, sehingga pembayaran kecil mungkin terasa relatif lebih mahal. Untuk detail lebih lanjut, lihat NUT-04.',
+      q5: 'Apakah saldo hilang jika saya menghapus aplikasi atau kehilangan ponsel?',
+      a5: 'Ya, itulah mengapa mencadangkan seed phrase sangat penting. Berbeda dengan bank yang menyimpan saldo di server pusat, di dompet Cashu token di perangkat Anda adalah saldo Anda. Jika Anda menghapus aplikasi atau kehilangan perangkat, token di dalamnya juga hilang. Sebagian besar dompet Cashu menyediakan seed phrase untuk memulihkan token secara deterministik. Selalu simpan seed phrase di tempat yang aman.',
+      q6: 'Apa bedanya dengan kustodi tradisional?',
+      a6: 'Layanan kustodi Lightning tradisional biasanya mengelola dana dengan model "saldo" — saldo Anda dicatat di server, sehingga operator dapat dengan mudah melacak riwayat transaksi dan privasi Anda rentan. Pembekuan dana pengguna atau penyensoran transaksi juga relatif mudah dilakukan.\n\nCashu bekerja dengan model "token". Mint hanya menerbitkan token dan memverifikasi apakah sudah digunakan — tidak ada cara untuk mengetahui siapa yang memiliki token mana atau ke mana dikirim. Ini melindungi privasi dan membuat sensor individu praktis tidak mungkin. Meski tetap model kustodi, ini merupakan kemajuan signifikan dari sisi privasi.',
+    },
   },
 
   // Settings

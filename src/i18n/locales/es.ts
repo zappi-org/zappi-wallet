@@ -203,6 +203,22 @@ export default {
       resolved: 'Resolved',
       closed: 'Closed',
     },
+    faqTitle: 'Preguntas frecuentes',
+    faqSeeAll: 'Ver todo',
+    faq: {
+      q1: '¿Qué es un mint?',
+      a1: 'Un mint es como un banco en internet. Los mints operan infraestructura de pago Bitcoin como Lightning, gestionando pagos, emisión y canje de ecash. A diferencia de los modelos de custodia tradicionales, los mints de Cashu hacen que sea extremadamente difícil rastrear las transacciones de los usuarios.',
+      q2: 'El pago Lightning falló',
+      a2: 'Los pagos Lightning pueden fallar por varias razones. Es posible que no se encuentre la ruta hacia el destinatario, o que falle si hay demasiados saltos intermedios. Si los pagos Lightning siguen fallando, es recomendable pedir al mint que revise su configuración.',
+      q3: 'El token ecash no se registró',
+      a3: 'Un token puede no registrarse si ya fue gastado o si ocurrió un error durante su creación. En ese caso, quien lo creó puede recuperarlo manualmente con la función de verificación de saldo y crear un nuevo token. El registro también puede fallar si el monto del ecash es menor que la tarifa de recepción.',
+      q4: '¿Cómo se calculan las tarifas?',
+      a4: 'Las tarifas de enrutamiento son un peaje que se paga mientras tu pago Lightning atraviesa múltiples nodos. Varían según la ruta al destino y no pueden ser establecidas por el mint.\n\nLas tarifas de swap son un cargo de servicio establecido por el mint para una operación estable. Aumentan ligeramente con el número de pruebas, pero como los pagos suelen dividirse en 4–5 pruebas, la tarifa efectiva generalmente se mantiene por debajo del 0,03%.\n\nNota: las tarifas se basan en el número de pruebas, no en el monto enviado, por lo que los pagos pequeños pueden sentirse relativamente más caros. Para más detalles, consulta NUT-04.',
+      q5: '¿Pierdo mi saldo si borro la app o pierdo el teléfono?',
+      a5: 'Sí, por eso hacer una copia de seguridad de tu frase semilla es fundamental. A diferencia de un banco donde un servidor central guarda tu saldo, en una billetera Cashu los tokens en tu dispositivo son tu saldo. Si borras la app o pierdes el dispositivo, los tokens desaparecen también. La mayoría de las billeteras Cashu proporcionan una frase semilla para recuperar los tokens de forma determinista. Guarda siempre tu frase semilla en un lugar seguro.',
+      q6: '¿En qué se diferencia de la custodia tradicional?',
+      a6: 'Los servicios de custodia Lightning tradicionales gestionan fondos con un modelo de "saldo" — tu saldo se registra en un servidor, lo que facilita que el operador rastree el historial de transacciones y compromete tu privacidad. También es relativamente fácil congelar fondos o censurar transacciones.\n\nCashu funciona con un modelo de "token". El mint solo emite tokens y verifica si fueron gastados — no puede saber quién los tiene ni a dónde fueron enviados. Esto protege la privacidad y hace que la censura individual sea prácticamente imposible. Aunque sigue siendo un modelo de custodia, representa un avance significativo en términos de privacidad.',
+    },
   },
 
   // Settings
