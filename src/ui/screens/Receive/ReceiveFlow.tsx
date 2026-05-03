@@ -155,7 +155,7 @@ export function ReceiveFlow({
         if (invoice && ecashReq) {
           const params = new URLSearchParams()
           params.set('lightning', invoice)
-          params.set('cr', ecashReq)
+          params.set('creq', ecashReq)
           bip321Uri = `bitcoin:?${params.toString()}`
         }
 

@@ -71,7 +71,7 @@ describe('ReceiveQRStep protocol tabs', () => {
     stableStore.lastRedeemedQuoteAmount = 0
     stableStore.lastReceivedRequestId = null
     stableStore.lastReceivedAmount = 0
-    mockBuildUnifiedBitcoinUri.mockReturnValue('bitcoin:?lightning=LNB...&cr=creqA-test')
+    mockBuildUnifiedBitcoinUri.mockReturnValue('bitcoin:?lightning=LNB...&creq=CREQB1TEST')
 
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -96,7 +96,7 @@ describe('ReceiveQRStep protocol tabs', () => {
         mintUrl="https://alpha.mint"
         invoice="lnbc123n1test"
         quoteId="quote-1"
-        ecashRequest="creqA-test"
+        ecashRequest="CREQB1TEST"
         ecashRequestId="request-1"
         httpEndpoint={null}
       />,
@@ -104,9 +104,9 @@ describe('ReceiveQRStep protocol tabs', () => {
 
     expect(mockBuildUnifiedBitcoinUri).toHaveBeenCalledWith({
       lightningInvoice: 'lnbc123n1test',
-      cashuRequest: 'creqA-test',
+      cashuRequest: 'CREQB1TEST',
     })
-    expect(screen.getByTestId('qr-value')).toHaveTextContent('bitcoin:?lightning=LNB...&cr=creqA-test')
+    expect(screen.getByTestId('qr-value')).toHaveTextContent('bitcoin:?lightning=LNB...&creq=CREQB1TEST')
   })
 
   it('switches protocol payloads and copies the selected value', async () => {
@@ -121,14 +121,14 @@ describe('ReceiveQRStep protocol tabs', () => {
         mintUrl="https://alpha.mint"
         invoice="lnbc123n1test"
         quoteId="quote-1"
-        ecashRequest="creqA-test"
+        ecashRequest="CREQB1TEST"
         ecashRequestId="request-1"
         httpEndpoint={null}
       />,
     )
 
     await user.click(screen.getByRole('tab', { name: 'receive.qr.protocols.cashu' }))
-    expect(screen.getByTestId('qr-value')).toHaveTextContent('creqA-test')
+    expect(screen.getByTestId('qr-value')).toHaveTextContent('CREQB1TEST')
 
     await user.click(screen.getByRole('button', { name: 'common.copy' }))
     expect(screen.getByRole('button', { name: 'common.copied' })).toBeInTheDocument()
@@ -153,7 +153,7 @@ describe('ReceiveQRStep protocol tabs', () => {
         mintUrl="https://alpha.mint"
         invoice="lnbc123n1test"
         quoteId="quote-1"
-        ecashRequest="creqA-test"
+        ecashRequest="CREQB1TEST"
         ecashRequestId="request-1"
         httpEndpoint={null}
       />,

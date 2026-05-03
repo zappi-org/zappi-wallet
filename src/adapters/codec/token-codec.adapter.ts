@@ -91,7 +91,9 @@ export class TokenCodecAdapter implements TokenCodec {
       const url = new URL(trimmed)
       const address = url.pathname
       const lightning = url.searchParams.get('lightning') || undefined
-      const cashuRequest = url.searchParams.get('cr') || undefined
+      // NUT-26 standard key is `creq`; legacy `cr` accepted for backward compatibility.
+      const cashuRequest =
+        url.searchParams.get('creq') || url.searchParams.get('cr') || undefined
       const amountStr = url.searchParams.get('amount')
       const amount = amountStr ? Math.round(parseFloat(amountStr) * 1e8) : undefined
 
@@ -164,7 +166,7 @@ export class TokenCodecAdapter implements TokenCodec {
       opts.description,
       opts.singleUse,
     )
-    return req.toEncodedRequest()
+    return req.toEncodedCreqB()
   }
 
   createNostrPaymentRequest(opts: {
@@ -234,7 +236,7 @@ export class TokenCodecAdapter implements TokenCodec {
   buildUnifiedBitcoinUri(opts: { lightningInvoice: string; cashuRequest: string }): string {
     const params = new URLSearchParams()
     if (opts.lightningInvoice) params.set('lightning', opts.lightningInvoice)
-    if (opts.cashuRequest) params.set('cr', opts.cashuRequest)
+    if (opts.cashuRequest) params.set('creq', opts.cashuRequest)
     return `bitcoin:?${params.toString()}`
   }
 }
