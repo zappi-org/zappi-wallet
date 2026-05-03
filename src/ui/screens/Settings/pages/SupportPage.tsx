@@ -1457,14 +1457,68 @@ function getConversationMessages(
   ]
 }
 
+const CANVAS_STRIPPABLE_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+
+function mimeToExt(mime: string): string {
+  const MAP: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'image/gif': 'gif',
+    'image/heic': 'heic',
+    'image/avif': 'avif',
+    'application/pdf': 'pdf',
+    'video/mp4': 'mp4',
+    'video/quicktime': 'mov',
+    'audio/mpeg': 'mp3',
+    'audio/wav': 'wav',
+    'text/plain': 'txt',
+  }
+  return MAP[mime] ?? 'bin'
+}
+
+function stripExifViaCanvas(file: File): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const canvas = document.createElement('canvas')
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
+      canvas.getContext('2d')!.drawImage(img, 0, 0)
+      canvas.toBlob(
+        async (blob) => {
+          if (!blob) { reject(new Error('canvas export failed')); return }
+          resolve(new Uint8Array(await blob.arrayBuffer()))
+        },
+        file.type,
+        file.type === 'image/jpeg' ? 0.92 : undefined,
+      )
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('image load failed')) }
+    img.src = url
+  })
+}
+
 async function filesToSupportAttachments(files: File[]): Promise<SupportAttachmentUpload[]> {
   return Promise.all(
-    files.map(async (file) => ({
-      name: file.name,
-      mime: file.type || 'application/octet-stream',
-      size: file.size,
-      data: new Uint8Array(await file.arrayBuffer()),
-    })),
+    files.map(async (file) => {
+      const mime = file.type || 'application/octet-stream'
+      const name = `${crypto.randomUUID()}.${mimeToExt(mime)}`
+
+      if (CANVAS_STRIPPABLE_MIMES.has(mime)) {
+        try {
+          const data = await stripExifViaCanvas(file)
+          return { name, mime, size: data.byteLength, data }
+        } catch {
+          // canvas 실패 시 원본 바이트 폴백
+        }
+      }
+
+      const data = new Uint8Array(await file.arrayBuffer())
+      return { name, mime, size: data.byteLength, data }
+    }),
   )
 }
 
