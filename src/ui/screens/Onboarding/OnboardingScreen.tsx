@@ -57,10 +57,10 @@ export function OnboardingScreen({
 
     const trimmed = inviteCode.trim()
     const MASTER = 'weareallzappi!'
-    const ALPHA = 'Hizappi!'
-    // KST = UTC+9, 2025-03-29 18:00 KST = 2025-03-29 09:00 UTC
-    // KST 2026-03-29 18:00 = UTC 2026-03-29 09:00
-    const ALPHA_EXPIRY = new Date('2026-03-29T09:00:00Z').getTime()
+    const ALPHA = 'izappiyou!'
+    // 2026-05-04 00:00 KST through 2026-05-10 23:59:59 KST.
+    const ALPHA_START = new Date('2026-05-03T15:00:00Z').getTime()
+    const ALPHA_EXPIRY = new Date('2026-05-10T15:00:00Z').getTime()
 
     if (trimmed === MASTER) {
       setInviteUnlocked(true)
@@ -68,7 +68,8 @@ export function OnboardingScreen({
       return
     }
 
-    if (trimmed === ALPHA && Date.now() < ALPHA_EXPIRY) {
+    const nowMs = Date.now()
+    if (trimmed === ALPHA && nowMs >= ALPHA_START && nowMs < ALPHA_EXPIRY) {
       setInviteUnlocked(true)
       localStorage.setItem('zappi_invite_attempts', '0')
       return
