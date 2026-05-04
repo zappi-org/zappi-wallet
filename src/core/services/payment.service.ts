@@ -32,6 +32,7 @@ import type {
   ReclaimResult,
   RecoveryReport,
   SendResult,
+  AccountRecoveryReport,
 } from '@/core/ports/driving/payment.usecase'
 
 function toPaymentError(error: unknown): PaymentError {
@@ -610,6 +611,41 @@ export class PaymentService implements PaymentUseCase {
         } catch {
           reports.push({ moduleId: adapter.moduleId, recovered: 0, failed: 1 })
         }
+      }
+    }
+
+    return reports
+  }
+
+  async recoverAccounts(params: { accountIds: string[] }): Promise<AccountRecoveryReport[]> {
+    const reports: AccountRecoveryReport[] = []
+
+    for (const accountId of params.accountIds) {
+      const module = this.findModuleForAccount(accountId)
+      if (!module) {
+        reports.push({
+          moduleId: 'unknown',
+          accountId,
+          success: false,
+          error: `No module found for account: ${accountId}`,
+        })
+        continue
+      }
+
+      try {
+        await module.recoverAccount(accountId)
+        reports.push({ moduleId: module.id, accountId, success: true })
+        this.eventBus.emit({
+          type: 'balance:changed',
+          payload: { moduleId: module.id, accountId },
+        })
+      } catch (error) {
+        reports.push({
+          moduleId: module.id,
+          accountId,
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        })
       }
     }
 

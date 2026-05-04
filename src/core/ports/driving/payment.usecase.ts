@@ -85,6 +85,9 @@ export interface PaymentUseCase {
   }): Promise<Result<RedeemFeeEstimate, PaymentError>>
 
   recoverAll(): Promise<RecoveryReport[]>
+  recoverAccounts(params: {
+    accountIds: string[]
+  }): Promise<AccountRecoveryReport[]>
 }
 
 export interface SendResult {
@@ -110,6 +113,13 @@ export interface RecoveryReport {
   moduleId: string
   recovered: number
   failed: number
+}
+
+export interface AccountRecoveryReport {
+  moduleId: string
+  accountId: string
+  success: boolean
+  error?: string
 }
 
 export interface InputInspectionResult {

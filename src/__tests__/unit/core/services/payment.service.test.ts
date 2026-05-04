@@ -42,6 +42,7 @@ function createMockModule(adapters: PaymentMethodAdapter[]): WalletModule {
     dispose: vi.fn(),
     isEnabled: vi.fn().mockReturnValue(true),
     send: vi.fn().mockResolvedValue({ operationId: 'op-1', state: 'completed' }),
+    recoverAccount: vi.fn().mockResolvedValue(undefined),
     getPaymentAdapters: vi.fn().mockReturnValue(adapters),
     getCapabilities: vi.fn().mockReturnValue([]),
     getBalance: vi.fn().mockResolvedValue({
@@ -554,6 +555,53 @@ describe('PaymentService', () => {
 
       const reports = await service.recoverAll()
       expect(reports).toHaveLength(0)
+    })
+  })
+
+  // ─── recoverAccounts ───
+
+  describe('recoverAccounts', () => {
+    it('delegates account recovery to enabled wallet module', async () => {
+      const reports = await service.recoverAccounts({ accountIds: ['https://mint.test'] })
+
+      expect(module.recoverAccount).toHaveBeenCalledWith('https://mint.test')
+      expect(reports).toEqual([
+        { moduleId: 'cashu', accountId: 'https://mint.test', success: true },
+      ])
+      expect(eventBus.emit).toHaveBeenCalledWith({
+        type: 'balance:changed',
+        payload: { moduleId: 'cashu', accountId: 'https://mint.test' },
+      })
+    })
+
+    it('reports account recovery failures without throwing', async () => {
+      vi.mocked(module.recoverAccount).mockRejectedValue(new Error('restore failed'))
+
+      const reports = await service.recoverAccounts({ accountIds: ['https://mint.test'] })
+
+      expect(reports).toEqual([
+        {
+          moduleId: 'cashu',
+          accountId: 'https://mint.test',
+          success: false,
+          error: 'restore failed',
+        },
+      ])
+    })
+
+    it('reports failure when no enabled module exists', async () => {
+      vi.mocked(module.isEnabled).mockReturnValue(false)
+
+      const reports = await service.recoverAccounts({ accountIds: ['https://mint.test'] })
+
+      expect(reports).toEqual([
+        {
+          moduleId: 'unknown',
+          accountId: 'https://mint.test',
+          success: false,
+          error: 'No module found for account: https://mint.test',
+        },
+      ])
     })
   })
 

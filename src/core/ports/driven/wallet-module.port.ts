@@ -27,6 +27,7 @@ export interface WalletModule {
   isEnabled(): boolean
 
   send(params: SendParams): Promise<SendResult>
+  recoverAccount(accountId: string): Promise<void>
 
   getPaymentAdapters(): PaymentMethodAdapter[]
   getCapabilities(): ModuleCapability[]

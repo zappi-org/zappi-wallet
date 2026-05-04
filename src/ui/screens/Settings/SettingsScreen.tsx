@@ -6,7 +6,7 @@ import { PageTransition } from '@/ui/components/common/PageTransition'
 import { Modal, PinInput } from '../../components/common'
 import { useAppStore } from '@/store'
 import { satUnit } from '@/utils/format'
-// formatMintHost removed — recovery now uses recoverAll() instead of per-mint loop
+import { formatMintHost } from '@/utils/url'
 import { ZAPPI_LINK_URL } from '@/core/constants'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { cn } from '@/ui/primitives/utils'
@@ -324,7 +324,15 @@ export function SettingsScreen({
         console.warn('[Settings] Recovery failed:', err)
       }
 
-      setRestoreProgress(t('settings.verifyingBalances'))
+      for (let i = 0; i < mints.length; i++) {
+        const mintUrl = mints[i]
+        setRestoreProgress(`${i + 1}/${mints.length}: ${formatMintHost(mintUrl)}`)
+        const reports = await registry.payment.recoverAccounts({ accountIds: [mintUrl] })
+        const failed = reports.find((report) => !report.success)
+        if (failed) {
+          console.warn('[Settings] Failed to restore from:', mintUrl, failed.error)
+        }
+      }
 
       const afterModules = await registry.balance.getByModule()
       const afterTotal = afterModules.reduce((sum, m) => sum + m.accounts.reduce((s, a) => s + Number(a.amount.value), 0), 0)

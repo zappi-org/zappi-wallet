@@ -67,6 +67,7 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
     // Mint quote 결제 완료 감지 (스왑 완료 대기에 필요)
     onMintQuotePaid: backend.onMintQuotePaid,
     // Recovery (quotes) — exposed for CashuBolt11Adapter
+    restoreWallet: backend.restoreWallet,
     async recoverPendingQuotes() {
       const quoteOps = await backend.getQuoteRecoveryOps()
       return recoverPendingQuotes({

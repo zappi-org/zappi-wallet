@@ -38,6 +38,7 @@ vi.mock('./cashu-backend', () => ({
   preparePaymentRequest: vi.fn(),
   executePaymentRequest: vi.fn(),
   getBalances: vi.fn(),
+  restoreWallet: vi.fn(),
   inspectInput: vi.fn(),
 }))
 

@@ -50,6 +50,7 @@ function createMockModule(adapters: PaymentMethodAdapter[]): WalletModule {
     dispose: vi.fn(),
     isEnabled: vi.fn().mockReturnValue(true),
     send: vi.fn().mockResolvedValue({ operationId: '', state: 'completed' }),
+    recoverAccount: vi.fn().mockResolvedValue(undefined),
     getPaymentAdapters: vi.fn().mockReturnValue(adapters),
     getCapabilities: vi.fn().mockReturnValue([]),
     getBalance: vi.fn().mockResolvedValue({

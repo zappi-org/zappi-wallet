@@ -36,6 +36,7 @@ function createMockBackend(): CashuModuleBackend {
     // Token inspection
     inspectInput: vi.fn().mockResolvedValue({ lockStatus: 'unlocked', proofIntegrity: 'unverifiable' }),
     // Module-level
+    restoreWallet: vi.fn().mockResolvedValue(undefined),
     getBalances: vi.fn().mockResolvedValue({
       'https://mint-a.test': 5000,
       'https://mint-b.test': 3000,
@@ -249,6 +250,22 @@ describe('CashuModule', () => {
         expect(account.amount.unit).toBe('sat')
       }
       expect(balance.total.unit).toBe('sat')
+    })
+  })
+
+  // ─── Recovery ───
+
+  describe('recoverAccount', () => {
+    it('delegates account recovery to backend wallet restore', async () => {
+      await module.recoverAccount('https://mint-a.test')
+
+      expect(backend.restoreWallet).toHaveBeenCalledWith('https://mint-a.test')
+    })
+
+    it('propagates backend restore errors', async () => {
+      vi.mocked(backend.restoreWallet).mockRejectedValue(new Error('restore failed'))
+
+      await expect(module.recoverAccount('https://mint-a.test')).rejects.toThrow('restore failed')
     })
   })
 

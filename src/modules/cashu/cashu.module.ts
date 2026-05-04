@@ -63,6 +63,7 @@ export interface PaymentRequestBackend {
 
 export interface CashuModuleBackend extends LightningBackend, EcashBackend, PaymentRequestBackend {
   getBalances(): Promise<{ [mintUrl: string]: number }>
+  restoreWallet(mintUrl: string): Promise<void>
   recoverPendingQuotes(): Promise<{ recovered: number; failed: number; expired: number }>
   storeOfflineToken(token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing'): Promise<string>
   inspectInput(token: string): Promise<import('@/core/ports/driven/payment-method.port').InputInspection>
@@ -222,6 +223,10 @@ export class CashuModule implements WalletModule {
       accounts,
       total: accounts.reduce((sum, a) => add(sum, a.amount), sat(0)),
     }
+  }
+
+  async recoverAccount(accountId: string): Promise<void> {
+    await this.backend.restoreWallet(accountId)
   }
 
   // ─── Events ───
