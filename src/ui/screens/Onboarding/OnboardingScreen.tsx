@@ -537,28 +537,6 @@ export function OnboardingScreen({
                   </button>
                 </div>
 
-                {/* Confirm checkbox */}
-                <button
-                  type="button"
-                  role="checkbox"
-                  aria-checked={backupConfirmed}
-                  onClick={() => setBackupConfirmed(!backupConfirmed)}
-                  className="w-full flex items-center gap-3 active:opacity-70 transition-opacity"
-                >
-                  <div className={`
-                    w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors
-                    ${backupConfirmed
-                      ? 'border-brand bg-brand'
-                      : 'border-foreground-subtle'}
-                  `}>
-                    {backupConfirmed && (
-                      <Check className="w-3.5 h-3.5 text-white" />
-                    )}
-                  </div>
-                  <span className={`text-caption text-left leading-snug ${backupConfirmed ? 'text-foreground font-medium' : 'text-foreground-muted'}`}>
-                    {t('onboarding.mnemonicSavedConfirm')}
-                  </span>
-                </button>
               </>
             )}
 
@@ -570,7 +548,7 @@ export function OnboardingScreen({
           </div>
 
           {/* Bottom CTA */}
-          <div className="px-5 pb-5 pt-3 space-y-2">
+          <div className="px-5 pb-5 pt-3 space-y-4">
             {mode === 'import' && (
               <button
                 onClick={handlePasteFromClipboard}
@@ -578,6 +556,29 @@ export function OnboardingScreen({
               >
                 <ClipboardPaste className="w-4 h-4" />
                 {t('common.paste')}
+              </button>
+            )}
+            {mode === 'create' && (
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={backupConfirmed}
+                onClick={() => setBackupConfirmed(!backupConfirmed)}
+                className="w-full flex items-center justify-center gap-3 rounded-xl px-1 py-2 active:opacity-70 transition-opacity"
+              >
+                <div className={`
+                  w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors
+                  ${backupConfirmed
+                    ? 'border-brand bg-brand'
+                    : 'border-foreground-subtle'}
+                `}>
+                  {backupConfirmed && (
+                    <Check className="w-3.5 h-3.5 text-white" />
+                  )}
+                </div>
+                <span className={`text-caption text-center leading-snug ${backupConfirmed ? 'text-foreground font-medium' : 'text-foreground-muted'}`}>
+                  {t('onboarding.mnemonicSavedConfirm')}
+                </span>
               </button>
             )}
             <Button
