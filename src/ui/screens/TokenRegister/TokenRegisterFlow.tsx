@@ -25,7 +25,10 @@ export interface TokenRegisterFlowProps {
   onReceiveToken: (token: string) => Promise<TokenReceiveOutcome>
   /** Add a mint to the trust registry (with any UI-side validation). */
   onAddTrustedMint: (mintUrl: string) => Promise<boolean>
-  /** Cross-mint swap: redeem on source mint, swap to target. */
+  /**
+   * DEAD: cross-mint swap — UI entry points removed. Kept for potential
+   * future re-enablement (see ZAP swap-receive plumbing).
+   */
   onSwapReceive: (
     token: string,
     sourceMintUrl: string,
@@ -36,7 +39,7 @@ export interface TokenRegisterFlowProps {
   onEstimateRedeemFee?: (
     token: string,
   ) => Promise<{ grossAmount: number; fee: number; netAmount: number } | null>
-  /** Target mint for "swap to my mint" flow — usually user's active mint. */
+  /** DEAD: target mint for "swap to my mint" flow — UI removed. */
   targetMintUrl?: string
   /**
    * Check whether a pasted token matches one of the user's own pending sends.
@@ -119,6 +122,8 @@ export function TokenRegisterFlow({
   const handleReceive = useCallback(async (receiveMintUrl?: string) => {
     if (!validated) return
     const target = receiveMintUrl ?? validated.mintUrl
+    // DEAD: swap branch — confirm steps now always pass sourceMintUrl since
+    // swap UI was removed. Kept for potential future re-enablement.
     const result = target === validated.mintUrl
       ? await onReceiveToken(validated.token)
       : await onSwapReceive(
@@ -144,7 +149,9 @@ export function TokenRegisterFlow({
     await finalizeReceive(result, validated.amountSats)
   }, [validated, onAddTrustedMint, onReceiveToken, finalizeReceive])
 
-  const handleSwapToMyMint = useCallback(async () => {
+  // DEAD: swap-to-my-mint handler — no UI invokes it after swap option was
+  // removed from ConfirmUntrustedStep. Kept for potential future re-enablement.
+  const _handleSwapToMyMint = useCallback(async () => {
     if (!validated) return
     if (!targetMintUrl) throw new Error('no_target_mint')
     const result = await onSwapReceive(
@@ -158,6 +165,7 @@ export function TokenRegisterFlow({
     }
     await finalizeReceive(result, validated.amountSats)
   }, [validated, targetMintUrl, onSwapReceive, finalizeReceive])
+  void _handleSwapToMyMint
 
   // In incoming-review mode the user cannot return to the input step (the
   // queue chose this token); back out becomes "reject".
@@ -168,6 +176,16 @@ export function TokenRegisterFlow({
     }
     setStep('input')
   }, [incomingReview, onRejectIncomingReview])
+
+  // Reject = exit the register flow entirely. In incoming-review mode the
+  // queued token is marked rejected; otherwise we leave the register screen.
+  const handleReject = useCallback(() => {
+    if (incomingReview && onRejectIncomingReview) {
+      void onRejectIncomingReview()
+      return
+    }
+    onBack()
+  }, [incomingReview, onRejectIncomingReview, onBack])
 
   return (
     <div className="h-dvh bg-background text-foreground font-primary flex flex-col pt-safe">
@@ -189,6 +207,7 @@ export function TokenRegisterFlow({
               token={validated}
               onBack={handleConfirmBack}
               onReceive={handleReceive}
+              onReject={handleReject}
               onEstimateRedeemFee={onEstimateRedeemFee}
             />
           </PageTransition>
@@ -200,7 +219,7 @@ export function TokenRegisterFlow({
               token={validated}
               onBack={handleConfirmBack}
               onAddAndReceive={handleAddAndReceive}
-              onSwapToMyMint={targetMintUrl ? handleSwapToMyMint : undefined}
+              onReject={handleReject}
             />
           </PageTransition>
         )}
