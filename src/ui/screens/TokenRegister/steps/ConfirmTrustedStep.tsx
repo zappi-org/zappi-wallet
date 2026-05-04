@@ -5,13 +5,10 @@ import { BottomActionBar } from '@/ui/components/common/BottomActionBar'
 import { Button } from '@/ui/components/common/Button'
 import { MintIcon } from '@/ui/components/common/MintIcon'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
-import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
-import { useWallet } from '@/ui/hooks/use-wallet'
 import { translateError } from '@/ui/utils/error-i18n'
 import { hapticError } from '@/ui/utils/haptic'
 import { useFormatFiat, useFormatSats } from '@/utils/format'
-import { ChevronRight } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -19,6 +16,7 @@ export interface ConfirmTrustedStepProps {
   token: ValidatedCashuToken
   onBack: () => void
   onReceive: (receiveMintUrl: string) => Promise<void>
+  onReject: () => void
   onEstimateRedeemFee?: (
     token: string,
   ) => Promise<{ grossAmount: number; fee: number; netAmount: number } | null>
@@ -39,36 +37,29 @@ export function ConfirmTrustedStep({
   token,
   onBack,
   onReceive,
+  onReject,
   onEstimateRedeemFee,
 }: ConfirmTrustedStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
-  const { balance } = useWallet()
   const addToast = useAppStore((s) => s.addToast)
 
   const sourceMintUrl = token.mintUrl
   const amount = token.amountSats
   const memo = token.memo ?? ''
 
-  const [receiveMintUrl, setReceiveMintUrl] = useState(sourceMintUrl)
-  const [mintSheetOpen, setMintSheetOpen] = useState(false)
-
-  const mintUrls = useMemo(() => [sourceMintUrl, receiveMintUrl], [sourceMintUrl, receiveMintUrl])
+  const mintUrls = useMemo(() => [sourceMintUrl], [sourceMintUrl])
   const { getDisplayName, getIconUrl, getMetadata } = useMintMetadata(mintUrls)
   const sourceMintName = getDisplayName(sourceMintUrl)
   const sourceMintSubName = getMetadata(sourceMintUrl)?.name
   const sourceMintIconUrl = getIconUrl(sourceMintUrl)
-  const receiveMintName = getDisplayName(receiveMintUrl)
-  const receiveMintBalance = balance.byMint[receiveMintUrl] ?? 0
-  const isSwap = receiveMintUrl !== sourceMintUrl
 
   const [fee, setFee] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    if (isSwap || !onEstimateRedeemFee) {
-      // Swap fee is mint-pair dependent and not quoted here; hide line instead.
+    if (!onEstimateRedeemFee) {
       setFee(null)
       return
     }
@@ -83,7 +74,7 @@ export function ConfirmTrustedStep({
     return () => {
       cancelled = true
     }
-  }, [token.token, onEstimateRedeemFee, isSwap])
+  }, [token.token, onEstimateRedeemFee])
 
   const netAmount = fee !== null ? Math.max(0, amount - fee) : amount
   const fiatLabel = formatFiat(amount)
@@ -93,14 +84,14 @@ export function ConfirmTrustedStep({
     if (busy) return
     setBusy(true)
     try {
-      await onReceive(receiveMintUrl)
+      await onReceive(sourceMintUrl)
     } catch (error) {
       hapticError()
       addToast({ type: 'error', message: translateError(error, t) })
     } finally {
       setBusy(false)
     }
-  }, [busy, onReceive, receiveMintUrl, addToast, t])
+  }, [busy, onReceive, sourceMintUrl, addToast, t])
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -177,24 +168,10 @@ export function ConfirmTrustedStep({
       <BottomActionBar gap="none" className="px-6">
         {/* Detail rows */}
         <div className="mb-4">
-          <button
-            type="button"
-            onClick={() => setMintSheetOpen(true)}
-            className="w-full flex justify-between items-start py-2.5 border-b border-border/50 active:bg-foreground/[0.03] transition-colors"
-          >
+          <div className="flex justify-between items-center py-2.5 border-b border-border/50">
             <span className="text-body text-foreground-muted">{t('receive.token.receiveMint')}</span>
-            <div className="flex flex-col items-end">
-              <div className="flex items-center gap-1">
-                <span className="text-body font-medium text-foreground">
-                  {receiveMintName}
-                </span>
-                <ChevronRight className="w-4 h-4 text-foreground-muted" />
-              </div>
-              <span className="text-caption text-foreground-muted mt-0.5">
-                {t('common.balance')} {formatSats(receiveMintBalance)}
-              </span>
-            </div>
-          </button>
+            <span className="text-body font-medium text-foreground">{sourceMintName}</span>
+          </div>
           {fee !== null && fee > 0 && (
             <div className="flex justify-between py-2.5 border-b border-border/50">
               <span className="text-body text-foreground-muted">{t('token.reclaim.summaryFee')}</span>
@@ -206,7 +183,7 @@ export function ConfirmTrustedStep({
           <div className="flex justify-between py-2.5">
             <span className="text-body font-bold text-foreground">{t('receive.token.netAmount')}</span>
             <span className="text-body font-bold text-foreground">
-              {isSwap ? '~' : '+'}{formatSats(netAmount)}
+              +{formatSats(netAmount)}
             </span>
           </div>
         </div>
@@ -218,21 +195,19 @@ export function ConfirmTrustedStep({
           disabled={busy}
           className="w-full"
         >
-          {busy
-            ? t('tokenRegister.receiving')
-            : isSwap
-              ? t('tokenRegister.receiveToMyMint')
-              : t('receive.token.receive')}
+          {busy ? t('tokenRegister.receiving') : t('receive.token.receive')}
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="lg"
+          onClick={onReject}
+          disabled={busy}
+          className="w-full mt-2"
+        >
+          {t('receive.token.reject')}
         </Button>
       </BottomActionBar>
-
-      <MintSelectBottomSheet
-        isOpen={mintSheetOpen}
-        onClose={() => setMintSheetOpen(false)}
-        onSelect={(url) => setReceiveMintUrl(url)}
-        selectedMintUrl={receiveMintUrl}
-        allowEmpty
-      />
     </div>
   )
 }
