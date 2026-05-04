@@ -22,7 +22,7 @@ pipeline {
         stage('Tag') {
             steps {
                 script {
-                    if (env.BRANCH_NAME == 'alpha') {
+                    if (env.BRANCH_NAME == 'main') {
                         sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest"
                     } else if (env.BRANCH_NAME == 'staging') {
                         sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:staging"
@@ -36,7 +36,7 @@ pipeline {
         stage('Deploy') {
             steps {
                 script {
-                    if (env.BRANCH_NAME == 'alpha') {
+                    if (env.BRANCH_NAME == 'main') {
                         sh """
                             docker compose -p zappi-wallet down || true
                             docker compose -p zappi-wallet up -d
