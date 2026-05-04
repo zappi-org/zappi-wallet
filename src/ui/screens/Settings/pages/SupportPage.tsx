@@ -49,7 +49,6 @@ import {
   CSChatInput,
   CSFAB,
   CSPage,
-  CSSearchBar,
   CSSecurityNotice,
   CSStatusChip,
   ticketStatusToCSKind,
@@ -766,10 +765,6 @@ function HelpHomeView({
 
   return (
     <div className="pb-8">
-      <div className="px-5 mb-4">
-        <CSSearchBar />
-      </div>
-
       <div className="px-5 mb-4">
         <div className="flex items-center justify-between mb-2.5">
           <span className="text-[13px] font-semibold text-foreground-muted tracking-[-0.005em]">
