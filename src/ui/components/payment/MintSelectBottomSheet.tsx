@@ -150,14 +150,14 @@ function MintSelectBottomSheetInner({
           onScroll={handleScroll}
           className="flex gap-2 px-[calc(50%-var(--card-w)/2)] overflow-x-auto snap-x snap-mandatory scrollbar-hide py-2"
         >
-          {filteredMints.map((mint, idx) => (
+          {filteredMints.map((mint) => (
             <div
               key={mint.url}
               className="snap-center snap-always shrink-0"
             >
               <MintCard
                 mint={mint}
-                {...resolveMintColor(mint.url, idx, settings.mintColors)}
+                {...resolveMintColor(mint.url, settings.mints.indexOf(mint.url), settings.mintColors)}
                 isSelected={localSelected === mint.url}
                 onClick={() => {
                   hapticTap()

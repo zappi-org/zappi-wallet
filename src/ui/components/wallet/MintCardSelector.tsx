@@ -82,7 +82,7 @@ export function MintCardSelector({
           >
             <MintCard
               mint={mint}
-              {...resolveMintColor(mint.url, idx, settings.mintColors)}
+              {...resolveMintColor(mint.url, settings.mints.indexOf(mint.url), settings.mintColors)}
             />
           </div>
         ))}

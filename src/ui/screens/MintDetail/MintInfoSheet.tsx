@@ -5,7 +5,7 @@ import { cn } from '@/ui/lib/utils'
 import { Button } from '@/ui/components/common/Button'
 import { BottomSheet } from '@/ui/components/common/BottomSheet'
 import { useAppStore } from '@/store'
-import { CARD_PRESET_VARIANTS, VARIANT_HEX } from '@/ui/components/wallet/MintCard'
+import { CARD_PRESET_VARIANTS, VARIANT_HEX, resolveMintColor } from '@/ui/components/wallet/MintCard'
 import type { MintCardDesignPreset, MintInfo, MintInfoData } from '@/core/types'
 import { NUT_NAMES, getSupportedNuts } from '@/core/constants'
 import { isDuplicateMintName } from '@/utils/mint-name'
@@ -128,6 +128,10 @@ export function MintInfoSheet({
   const originalMintName = mintInfo?.name || mint.mintName
   const nuts = getSupportedNuts(mintInfo?.nuts)
   const currentCardDesign = settings.mintCardDesignPresets?.[mint.url] ?? 'modern'
+  const currentColor = settings.mintColors?.[mint.url]
+  const customColor = currentColor?.startsWith('#') ? currentColor : null
+  const effectiveColor = resolveMintColor(mint.url, settings.mints.indexOf(mint.url), settings.mintColors)
+  const effectivePreset = customColor ? null : effectiveColor.variant
 
   return (
     <>
@@ -191,8 +195,7 @@ export function MintInfoSheet({
               <div className="flex items-center gap-2.5">
                 {CARD_PRESET_VARIANTS.map((v) => {
                   const hex = VARIANT_HEX[v]
-                  const currentColor = settings.mintColors?.[mint.url]
-                  const isActive = currentColor === v || currentColor === hex
+                  const isActive = effectivePreset === v || currentColor === v || currentColor === hex
                   return (
                     <button
                       key={v}
@@ -205,11 +208,17 @@ export function MintInfoSheet({
                     />
                   )
                 })}
-                <label className="relative w-7 h-7 rounded-full bg-gradient-to-br from-red-400 via-green-400 to-blue-400 cursor-pointer active:scale-90 transition-all flex items-center justify-center overflow-hidden">
+                <label
+                  className={cn(
+                    'relative w-7 h-7 rounded-full bg-gradient-to-br from-red-400 via-green-400 to-blue-400 cursor-pointer active:scale-90 transition-all flex items-center justify-center overflow-hidden',
+                    customColor && !Object.values(VARIANT_HEX).includes(customColor) && 'ring-2 ring-offset-2 ring-foreground/30 ring-offset-background'
+                  )}
+                  style={customColor ? { background: customColor } : undefined}
+                >
                   <Palette className="w-3.5 h-3.5 text-white drop-shadow-sm relative z-10" />
                   <input
                     type="color"
-                    value={settings.mintColors?.[mint.url]?.startsWith('#') ? settings.mintColors[mint.url] : '#515AC0'}
+                    value={customColor || VARIANT_HEX[effectiveColor.variant] || '#515AC0'}
                     onChange={(e) => onChangeColor(mint.url, e.target.value)}
                     className="absolute inset-0 opacity-0 cursor-pointer"
                   />

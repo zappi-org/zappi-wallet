@@ -72,7 +72,8 @@ export const CARD_PRESET_VARIANTS: MintCardVariant[] = [
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function getVariantByIndex(index: number): MintCardVariant {
-  return CARD_PRESET_VARIANTS[index % CARD_PRESET_VARIANTS.length];
+  const safeIndex = index >= 0 ? index : 0;
+  return CARD_PRESET_VARIANTS[safeIndex % CARD_PRESET_VARIANTS.length];
 }
 
 /** Hex colors for preset variants (single source of truth) */
