@@ -106,16 +106,6 @@ export function HomeScreen({
     });
   }, [transactions, mints, clampedMintIndex]);
 
-  const handleSendClick = useCallback(() => {
-    const activeMint = mints[clampedMintIndex];
-    onSend?.(activeMint?.url);
-  }, [onSend, mints, clampedMintIndex]);
-
-  const handleReceiveClick = useCallback(() => {
-    const activeMint = mints[clampedMintIndex];
-    onReceive?.(activeMint?.url);
-  }, [onReceive, mints, clampedMintIndex]);
-
   return (
     <div ref={scrollContainerRef as React.RefObject<HTMLDivElement>} className="h-dvh bg-background text-foreground font-primary overflow-hidden flex flex-col pt-safe" style={{ overscrollBehaviorY: 'contain' }}>
       {/* Pull-to-refresh indicator */}
@@ -210,8 +200,8 @@ export function HomeScreen({
                       {...resolveMintColor(mint.url, idx, settings.mintColors)}
                       hideBalance={settings.balanceHidden}
                       onDetail={() => onMintDetails?.(mints[idx], idx)}
-                      onSend={handleSendClick}
-                      onReceive={handleReceiveClick}
+                      onSend={() => onSend?.(mint.url)}
+                      onReceive={() => onReceive?.(mint.url)}
                     />
                   </div>
                 ))}
