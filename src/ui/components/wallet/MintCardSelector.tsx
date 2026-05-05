@@ -4,7 +4,7 @@
  */
 
 import { useMemo, useEffect } from 'react'
-import { MintCard, getVariantByIndex } from './MintCard'
+import { MintCard, resolveMintColor } from './MintCard'
 import { useWallet } from '@/ui/hooks/use-wallet'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useMintHealth } from '@/ui/hooks/use-mint-health'
@@ -82,7 +82,7 @@ export function MintCardSelector({
           >
             <MintCard
               mint={mint}
-              variant={getVariantByIndex(idx)}
+              {...resolveMintColor(mint.url, idx, settings.mintColors)}
             />
           </div>
         ))}

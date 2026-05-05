@@ -7,7 +7,7 @@ import { useWallet } from '@/ui/hooks/use-wallet'
 import { useMintHealth } from '@/ui/hooks/use-mint-health'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useCarouselScroll } from '@/ui/hooks/use-carousel-scroll'
-import { MintCard, getVariantByIndex } from '@/ui/components/wallet/MintCard'
+import { MintCard, resolveMintColor } from '@/ui/components/wallet/MintCard'
 import { Button } from '@/ui/components/common/Button'
 import type { MintInfo } from '@/core/types'
 
@@ -157,7 +157,7 @@ function MintSelectBottomSheetInner({
             >
               <MintCard
                 mint={mint}
-                variant={getVariantByIndex(idx)}
+                {...resolveMintColor(mint.url, idx, settings.mintColors)}
                 isSelected={localSelected === mint.url}
                 onClick={() => {
                   hapticTap()

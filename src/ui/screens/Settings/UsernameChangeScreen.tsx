@@ -3,7 +3,7 @@ import { ArrowLeft, Zap, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useFormatSats } from '@/utils/format'
 import { Button } from '../../components/common'
-import { MintCard, getVariantByIndex } from '../../components/wallet/MintCard'
+import { MintCard, resolveMintColor } from '../../components/wallet/MintCard'
 import { cn } from '@/ui/primitives/utils'
 import { useAppStore } from '@/store'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
@@ -410,7 +410,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
                         <div key={mint.url} className="snap-center snap-always shrink-0">
                           <MintCard
                             mint={mint}
-                            variant={getVariantByIndex(idx)}
+                            {...resolveMintColor(mint.url, idx, settings.mintColors)}
                             isSelected={selectedMintUrl === mint.url}
                             onClick={() => setSelectedMintUrl(mint.url)}
                           />

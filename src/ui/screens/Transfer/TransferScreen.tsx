@@ -13,7 +13,7 @@ import { ProgressStepper } from '@/ui/components/common/ProgressStepper'
 import { useAppStore } from '@/store'
 import { usePayment, useWallet, useMintMetadata } from '@/ui/hooks'
 import { useSatUnit, useFormatSats, useFormatFiat } from '@/utils/format'
-import { MintCard, getVariantByIndex } from '@/ui/components/wallet/MintCard'
+import { MintCard, resolveMintColor } from '@/ui/components/wallet/MintCard'
 import type { MintInfo } from '@/core/types'
 import { getMintBalance as getMintBalanceUtil } from '@/utils/url'
 import { MintIcon } from '@/ui/screens/Settings/SettingsHelpers'
@@ -35,6 +35,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
   const mintUrls = useAppStore((s) => s.settings.mints)
+  const mintColors = useAppStore((s) => s.settings.mintColors)
   const balance = useAppStore((s) => s.balance)
   const { getDisplayName, getIconUrl } = useMintMetadata(mintUrls)
   const { mintSwap, isProcessingPayment } = usePayment()
@@ -77,8 +78,8 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
     isOnline: true,
   } satisfies MintInfo) : null, [toMintUrl, getDisplayName, getIconUrl, getMintBalance])
 
-  const fromVariant = getVariantByIndex(mintUrls.indexOf(fromMintUrl))
-  const toVariant = getVariantByIndex(mintUrls.indexOf(toMintUrl))
+  const fromMintColor = resolveMintColor(fromMintUrl, mintUrls.indexOf(fromMintUrl), mintColors)
+  const toMintColor = resolveMintColor(toMintUrl, mintUrls.indexOf(toMintUrl), mintColors)
 
   const handleSwapMints = useCallback(() => {
     setFromMintUrl(toMintUrl)
@@ -151,13 +152,13 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
               <div className="flex items-center gap-3 mb-6" style={{ ['--card-w' as string]: 'clamp(120px, 35vw, 150px)' }}>
                 {fromMintInfo && (
                   <div className="animate-cardFlipIn">
-                    <MintCard mint={fromMintInfo} variant={fromVariant} hideBalance />
+                    <MintCard mint={fromMintInfo} {...fromMintColor} hideBalance />
                   </div>
                 )}
                 <ArrowRightLeft className="w-5 h-5 text-brand shrink-0" />
                 {toMintInfo && (
                   <div className="animate-cardFlipIn" style={{ animationDelay: '0.2s' }}>
-                    <MintCard mint={toMintInfo} variant={toVariant} hideBalance />
+                    <MintCard mint={toMintInfo} {...toMintColor} hideBalance />
                   </div>
                 )}
               </div>
