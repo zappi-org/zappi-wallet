@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
-import { ArrowLeft, EllipsisVertical, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Settings, ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { MintCard, resolveMintColor } from '@/ui/components/wallet/MintCard'
 import { TransactionList } from '@/ui/components/wallet/TransactionList'
@@ -133,7 +133,7 @@ export function MintDetailScreen({
           className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
           aria-label={t('mintDetail.mintInfo')}
         >
-          <EllipsisVertical className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
+          <Settings className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
       </header>
 
