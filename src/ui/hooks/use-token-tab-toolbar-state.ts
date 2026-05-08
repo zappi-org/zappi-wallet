@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 
-export type TokenToolbarState = 'WALLET' | 'TOKEN_TOP' | 'TOKEN_SCROLLED' | 'TOKEN_NAV_OPEN'
+export type TokenToolbarState = 'WALLET' | 'TOKEN_TOP' | 'TOKEN_SCROLLED'
 
 interface UseTokenTabToolbarStateInput {
   isTokenTab: boolean
@@ -12,8 +12,6 @@ interface UseTokenTabToolbarStateInput {
 
 interface UseTokenTabToolbarStateOutput {
   state: TokenToolbarState
-  walletMenuOpen: boolean
-  setWalletMenuOpen: (v: boolean) => void
   /** Snapshot current scrollTop as the reexpand anchor and force TOKEN_TOP. */
   triggerReexpand: () => void
 }
@@ -24,7 +22,6 @@ export function useTokenTabToolbarState({
   scrollRef,
   reexpandThreshold = 40,
 }: UseTokenTabToolbarStateInput): UseTokenTabToolbarStateOutput {
-  const [walletMenuOpen, setWalletMenuOpen] = useState(false)
   const [reexpand, setReexpand] = useState(false)
   const reexpandAnchorRef = useRef<number | null>(null)
 
@@ -32,21 +29,17 @@ export function useTokenTabToolbarState({
   useEffect(() => {
     if (!isTokenTab) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- sync reset on prop change
-      setWalletMenuOpen(false)
       setReexpand(false)
       reexpandAnchorRef.current = null
     }
   }, [isTokenTab])
 
-  // Auto-clear reexpand when user returns to the top,
-  // and auto-close the wallet picker when the user scrolls down.
+  // Auto-clear reexpand when user returns to the top
   useEffect(() => {
     if (!collapsed) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- sync reset on prop change
       setReexpand(false)
       reexpandAnchorRef.current = null
-    } else {
-      setWalletMenuOpen(false)
     }
   }, [collapsed])
 
@@ -77,11 +70,9 @@ export function useTokenTabToolbarState({
 
   const state: TokenToolbarState = !isTokenTab
     ? 'WALLET'
-    : walletMenuOpen
-      ? 'TOKEN_NAV_OPEN'
-      : !collapsed || reexpand
-        ? 'TOKEN_TOP'
-        : 'TOKEN_SCROLLED'
+    : !collapsed || reexpand
+      ? 'TOKEN_TOP'
+      : 'TOKEN_SCROLLED'
 
-  return { state, walletMenuOpen, setWalletMenuOpen, triggerReexpand }
+  return { state, triggerReexpand }
 }

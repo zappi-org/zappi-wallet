@@ -8,7 +8,6 @@ import { useTokenTabToolbarState } from '@/ui/hooks/use-token-tab-toolbar-state'
 import { CreateRegisterPair } from './CreateRegisterPair'
 import { EcashPill } from './EcashPill'
 import { WalletPillIcon } from './WalletPillIcon'
-import { WalletTabPicker } from './WalletTabPicker'
 import { fadeVariants, glassStyle, tweenTransition } from './styles'
 
 export interface TokenTabToolbarProps {
@@ -30,7 +29,7 @@ export function TokenTabToolbar({
 }: TokenTabToolbarProps) {
   const { t } = useTranslation()
   const collapsed = useScrollHysteresis(scrollRef, 24, 16)
-  const { state, setWalletMenuOpen, triggerReexpand } = useTokenTabToolbarState({
+  const { state, triggerReexpand } = useTokenTabToolbarState({
     isTokenTab: activeTab === 'token',
     collapsed,
     scrollRef,
@@ -39,17 +38,10 @@ export function TokenTabToolbar({
   const tokenItem = navItems.find((n) => n.id === 'token')
   const walletItem = navItems.find((n) => n.id === 'wallet')
 
-  const handleLeftWalletTap = () => setWalletMenuOpen(true)
+  const handleLeftWalletTap = () => onTabSelect('wallet')
 
   const handleRightTokenTap = () => {
-    setWalletMenuOpen(false)
     triggerReexpand()
-  }
-
-  const handleTabTapInPicker = (id: string) => {
-    setWalletMenuOpen(false)
-    if (id === 'token') return
-    onTabSelect(id)
   }
 
   return (
@@ -66,45 +58,14 @@ export function TokenTabToolbar({
       <motion.div
         layout
         transition={tweenTransition}
-        className={`rounded-full overflow-hidden p-1.5 ${
-          state === 'TOKEN_NAV_OPEN' ? 'w-[65%]' : ''
-        }`}
+        className="rounded-full overflow-hidden p-1.5"
         style={glassStyle}
       >
-        <AnimatePresence mode="popLayout" initial={false}>
-          {state !== 'TOKEN_NAV_OPEN' ? (
-            <motion.div
-              key="wallet-pill-icon"
-              variants={fadeVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              transition={tweenTransition}
-            >
-              <WalletPillIcon
-                icon={walletItem?.icon}
-                label={t('nav.wallet')}
-                onClick={handleLeftWalletTap}
-              />
-            </motion.div>
-          ) : (
-            <motion.div
-              key="tab-picker"
-              variants={fadeVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              transition={tweenTransition}
-              className="w-full"
-            >
-              <WalletTabPicker
-                navItems={navItems}
-                activeTab={activeTab}
-                onTabSelect={handleTabTapInPicker}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <WalletPillIcon
+          icon={walletItem?.icon}
+          label={t('nav.wallet')}
+          onClick={handleLeftWalletTap}
+        />
       </motion.div>
 
       {/* ---- RIGHT CLUSTER ---- */}

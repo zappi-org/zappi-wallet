@@ -45,30 +45,10 @@ describe('useTokenTabToolbarState', () => {
       )
       expect(result.current.state).toBe('TOKEN_SCROLLED')
     })
-
-    it('returns TOKEN_NAV_OPEN when walletMenuOpen=true (overrides collapsed)', () => {
-      const el = createScrollEl()
-      const ref = { current: el }
-      const { result } = renderHook(() =>
-        useTokenTabToolbarState({ isTokenTab: true, collapsed: true, scrollRef: ref }),
-      )
-      act(() => result.current.setWalletMenuOpen(true))
-      expect(result.current.state).toBe('TOKEN_NAV_OPEN')
-    })
-
-    it('returns TOKEN_NAV_OPEN when walletMenuOpen=true even if collapsed=false', () => {
-      const el = createScrollEl()
-      const ref = { current: el }
-      const { result } = renderHook(() =>
-        useTokenTabToolbarState({ isTokenTab: true, collapsed: false, scrollRef: ref }),
-      )
-      act(() => result.current.setWalletMenuOpen(true))
-      expect(result.current.state).toBe('TOKEN_NAV_OPEN')
-    })
   })
 
   describe('automatic resets', () => {
-    it('resets walletMenuOpen and reexpand when isTokenTab flips to false', () => {
+    it('resets reexpand when isTokenTab flips to false', () => {
       const el = createScrollEl()
       const ref = { current: el }
       const { result, rerender } = renderHook(
@@ -77,14 +57,12 @@ describe('useTokenTabToolbarState', () => {
         { initialProps: { isTokenTab: true } },
       )
       act(() => {
-        result.current.setWalletMenuOpen(true)
         result.current.triggerReexpand()
       })
-      expect(result.current.state).toBe('TOKEN_NAV_OPEN')
+      expect(result.current.state).toBe('TOKEN_TOP')
 
       rerender({ isTokenTab: false })
       expect(result.current.state).toBe('WALLET')
-      expect(result.current.walletMenuOpen).toBe(false)
     })
 
     it('clears reexpand when collapsed returns to false', () => {
@@ -104,34 +82,6 @@ describe('useTokenTabToolbarState', () => {
       // Retriggering should resnapshot anchor — indirect check via next round
       Object.defineProperty(el, 'scrollTop', { value: 400, configurable: true, writable: true })
       rerender({ collapsed: true })
-      expect(result.current.state).toBe('TOKEN_SCROLLED')
-    })
-
-    it('closes walletMenuOpen when collapsed flips from false to true', () => {
-      const el = createScrollEl()
-      const ref = { current: el }
-      const { result, rerender } = renderHook(
-        ({ collapsed }: { collapsed: boolean }) =>
-          useTokenTabToolbarState({ isTokenTab: true, collapsed, scrollRef: ref }),
-        { initialProps: { collapsed: false } },
-      )
-      act(() => result.current.setWalletMenuOpen(true))
-      expect(result.current.state).toBe('TOKEN_NAV_OPEN')
-
-      rerender({ collapsed: true })
-      expect(result.current.walletMenuOpen).toBe(false)
-      expect(result.current.state).toBe('TOKEN_SCROLLED')
-    })
-
-    it('reverts to prior state when walletMenuOpen is closed', () => {
-      const el = createScrollEl()
-      const ref = { current: el }
-      const { result } = renderHook(() =>
-        useTokenTabToolbarState({ isTokenTab: true, collapsed: true, scrollRef: ref }),
-      )
-      act(() => result.current.setWalletMenuOpen(true))
-      expect(result.current.state).toBe('TOKEN_NAV_OPEN')
-      act(() => result.current.setWalletMenuOpen(false))
       expect(result.current.state).toBe('TOKEN_SCROLLED')
     })
   })
