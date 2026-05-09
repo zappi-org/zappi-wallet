@@ -698,24 +698,7 @@ export default function MainApp() {
     }
   }, [serviceRegistry, refreshBalance])
 
-  // ─── NUT-18 전송 완료 콜백 ───
-  // ─── 토큰 취소(reclaim) 콜백 ───
-  const handleCancelEcashToken = useCallback(async (txId: string) => {
-    if (!serviceRegistry?.transactionMgmt) {
-      console.warn('[MainApp] ServiceRegistry not ready — cannot reclaim token')
-      return
-    }
-    const tx = await serviceRegistry.transactionMgmt.getById(txId)
-    if (!tx) {
-      throw new Error(`Transaction not found: ${txId}`)
-    }
-    const operationId = typeof tx.metadata?.operationId === 'string' ? tx.metadata.operationId : undefined
-    const token = typeof tx.metadata?.token === 'string' ? tx.metadata.token : undefined
-    const result = await serviceRegistry.transactionMgmt.reclaimSendToken(txId, operationId, token)
-    if (!result.success) {
-      throw new Error('Token reclaim failed')
-    }
-  }, [serviceRegistry])
+  const { reclaim: handleReclaimOwnToken, reclaimToken: handleCancelEcashToken } = useReclaim()
 
   // ─── 토큰 생성 전 수수료 견적 ───
   const handleEstimateCreateFee = useCallback(
@@ -771,8 +754,6 @@ export default function MainApp() {
     },
     [serviceRegistry],
   )
-
-  const { reclaim: handleReclaimOwnToken } = useReclaim()
 
   // Settings handlers
   const handleChangePassword = useCallback(async (oldPassword: string, newPassword: string): Promise<boolean> => {
@@ -1080,7 +1061,6 @@ export default function MainApp() {
             setCurrentScreen('token-detail')
           }}
           onReclaimTokens={async (tokens) => {
-            if (!serviceRegistry?.payment) return
             for (const tk of tokens) {
               await handleCancelEcashToken(tk.id)
             }
@@ -1444,7 +1424,6 @@ export default function MainApp() {
                   }
                 }}
                 onReclaim={async (token) => {
-                  if (!serviceRegistry?.payment) return
                   await handleCancelEcashToken(token.id)
                   setSelectedTokenDetail(null)
                   handleBack()

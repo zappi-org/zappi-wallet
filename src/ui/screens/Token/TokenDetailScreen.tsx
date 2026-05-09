@@ -13,6 +13,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { formatFiatAmount, useFormatSats } from '@/utils/format'
+import { translateError } from '@/ui/utils/error-i18n'
 import { MintIcon } from '@/ui/components/common/MintIcon'
 import { TokenRawSheet } from './components/TokenRawSheet'
 import { TokenQrSheet } from './components/TokenQrSheet'
@@ -109,9 +110,14 @@ export function TokenDetailScreen({
 
   const openReclaim = useCallback(() => setReclaimOpen(true), [])
   const confirmReclaim = useCallback(async () => {
-    if (onReclaim) await onReclaim(data)
-    setReclaimOpen(false)
-  }, [onReclaim, data])
+    if (!onReclaim) return
+    try {
+      await onReclaim(data)
+      setReclaimOpen(false)
+    } catch (error) {
+      addToast({ type: 'error', message: translateError(error, t) })
+    }
+  }, [onReclaim, data, addToast, t])
 
   const reclaimTokens: MockPendingToken[] = useMemo(
     () => [

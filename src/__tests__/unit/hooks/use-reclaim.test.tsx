@@ -1,10 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
-import { useReclaim } from '@/ui/hooks/use-reclaim'
-import { ServiceProvider } from '@/ui/hooks/service-context'
-import type { ServiceRegistry } from '@/core/ports/driving/service-registry'
-import type { ReactNode } from 'react'
 import { sat } from '@/core/domain/amount'
+import type { ServiceRegistry } from '@/core/ports/driving/service-registry'
+import { ServiceProvider } from '@/ui/hooks/service-context'
+import { useReclaim } from '@/ui/hooks/use-reclaim'
+import { act, renderHook } from '@testing-library/react'
+import type { ReactNode } from 'react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockRefreshBalance = vi.fn().mockResolvedValue(undefined)
 const mockBroadcastSync = vi.fn()
@@ -17,7 +17,7 @@ vi.mock('@/ui/hooks/use-wallet', () => ({
   useWallet: () => ({ refreshBalance: mockRefreshBalance }),
 }))
 
-function createMockRegistry(withReclaim: ReturnType<typeof vi.fn>): ServiceRegistry {
+function createMockRegistry(withReclaim: ReturnType<typeof vi.fn>, txMgmt?: {getById: ReturnType<typeof vi.fn>; reclaimSendToken: ReturnType<typeof vi.fn>}): ServiceRegistry {
   return {
     payment: {
       reclaim: withReclaim,
@@ -40,7 +40,12 @@ function createMockRegistry(withReclaim: ReturnType<typeof vi.fn>): ServiceRegis
     mintHealth: {} as unknown as ServiceRegistry['mintHealth'],
     crypto: {} as unknown as ServiceRegistry['crypto'],
     receiveRequest: {} as unknown as ServiceRegistry['receiveRequest'],
-    transactionMgmt: {} as unknown as ServiceRegistry['transactionMgmt'],
+    
+    transactionMgmt: { 
+      getById: txMgmt?.getById ?? vi.fn(),
+      reclaimSendToken: txMgmt?.reclaimSendToken ?? vi.fn(),
+    } as unknown as ServiceRegistry['transactionMgmt'],
+
     inputParser: {} as unknown as ServiceRegistry['inputParser'],
     paymentRequest: {} as unknown as ServiceRegistry['paymentRequest'],
     routing: {} as unknown as ServiceRegistry['routing'],
@@ -100,5 +105,67 @@ describe('useReclaim', () => {
 
     expect(mockRefreshBalance).toHaveBeenCalled()
     expect(mockBroadcastSync).toHaveBeenCalledWith('balance_changed')
+  })
+  
+  describe('relcaimToken', () => {
+    let getByIdMock: ReturnType<typeof vi.fn>
+    let reclaimSendTokenMock: ReturnType<typeof vi.fn>
+
+    beforeEach(()=> {
+      getByIdMock = vi.fn()
+      reclaimSendTokenMock = vi.fn()
+      mockRefreshBalance.mockClear()
+      mockBroadcastSync.mockClear()
+    })
+    function txWrapper({children }: {children:ReactNode}){
+      const registry= createMockRegistry(reclaimMock, {
+        getById: getByIdMock,
+        reclaimSendToken: reclaimSendTokenMock,
+    })
+    return <ServiceProvider registry={registry}>{children}</ServiceProvider>
+    } 
+    
+    it('reclaims token and refreshes balance', async () => {
+      getByIdMock.mockResolvedValue({
+        id:'tx-1',
+        metadata: {operationId: 'op-1', token: 'cashuBtoken123' },
+      })
+      reclaimSendTokenMock.mockResolvedValue({success:true})
+      
+      const {result} = renderHook(()=> useReclaim(), {wrapper: txWrapper})
+      await act(() => result.current.reclaimToken('tx-1'))
+
+      expect(reclaimSendTokenMock).toHaveBeenCalledWith('tx-1','op-1', 'cashuBtoken123')
+      expect(mockRefreshBalance).toHaveBeenCalled()
+      expect(mockBroadcastSync).toHaveBeenCalledWith('balance_changed')
+    })
+
+    it('throws when service not available', async () => {
+      const { result } = renderHook(() => useReclaim(), {
+        wrapper: ({ children }) => <ServiceProvider registry={null as unknown as ServiceRegistry}>{children}</ServiceProvider>,
+      })
+      await expect(result.current.reclaimToken('tx-1')).rejects.toThrow('Service not available')
+    })
+    it('throws when transaction not found', async () => {
+      getByIdMock.mockResolvedValue(null)
+      const { result } = renderHook(() => useReclaim(), { wrapper: txWrapper })
+      await expect(result.current.reclaimToken('tx-1')).rejects.toThrow('Token reclaim failed')
+    })
+    it('throws TOKEN_SPENT error when token already spent', async () => {
+      getByIdMock.mockResolvedValue({
+        id: 'tx-1',
+        metadata: { operationId: 'op-1' },
+      })
+      reclaimSendTokenMock.mockResolvedValue({ success: false, alreadySpent: true })
+      const { result } = renderHook(() => useReclaim(), { wrapper: txWrapper })
+      try {
+        await result.current.reclaimToken('tx-1')
+        expect.unreachable('Should have thrown')
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error)
+        expect((error as Error).message).toBe('Token already spent')
+        expect((error as { code?: string }).code).toBe('TOKEN_SPENT')
+      }
+    })
   })
 })

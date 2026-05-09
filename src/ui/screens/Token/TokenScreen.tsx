@@ -9,6 +9,7 @@ import { useReclaimFees } from '@/ui/hooks/useReclaimFees'
 import { isSendToken, type TokenDetails } from '@/ui/types/pending-item-details'
 import { satsToFiat, useFormatSats } from '@/utils/format'
 import { cn } from '@/ui/primitives/utils'
+import { translateError } from '@/ui/utils/error-i18n'
 import { Coins } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
@@ -238,10 +239,15 @@ export function TokenScreen({
   const closeReclaim = useCallback(() => setReclaimTargets(null), [])
   const confirmReclaim = useCallback(
     async (tokens: MockPendingToken[]) => {
-      if (onReclaimTokens) await onReclaimTokens(tokens)
-      setReclaimTargets(null)
+      if (!onReclaimTokens) return
+      try {
+        await onReclaimTokens(tokens)
+        setReclaimTargets(null)
+      } catch (error) {
+        addToast({ type: 'error', message: translateError(error, t) })
+      }
     },
-    [onReclaimTokens],
+    [onReclaimTokens, addToast, t],
   )
 
   return (
