@@ -1,13 +1,16 @@
-import { useCallback, useState } from 'react'
-import { AnimatePresence } from 'motion/react'
-import { PageTransition } from '@/ui/components/common/PageTransition'
-import { useTrustRegistry } from '@/ui/hooks/use-trust-registry'
 import type { ValidatedCashuToken, ValidatedData } from '@/core/domain/input-types'
 import type { PendingIncomingReview } from '@/core/types'
-import { RegisterInputStep } from './steps/RegisterInputStep'
+import { useAppStore } from '@/store'
+import { PageTransition } from '@/ui/components/common/PageTransition'
+import { useTrustRegistry } from '@/ui/hooks/use-trust-registry'
+import { translateError } from '@/ui/utils/error-i18n'
+import { AnimatePresence } from 'motion/react'
+import { useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ConfirmTrustedStep } from './steps/ConfirmTrustedStep'
 import { ConfirmUntrustedStep } from './steps/ConfirmUntrustedStep'
 import { RegisteredStep } from './steps/RegisteredStep'
+import { RegisterInputStep } from './steps/RegisterInputStep'
 
 type Step = 'input' | 'confirm-trusted' | 'confirm-untrusted' | 'registered'
 
@@ -49,7 +52,7 @@ export interface TokenRegisterFlowProps {
     token: string,
   ) => Promise<{ txId: string; amount: number } | null>
   /** Reclaim a self-owned pending send (used when register flow detects own token). */
-  onReclaimOwnToken?: (txId: string) => Promise<{ amount: number } | null>
+  onReclaimOwnToken?: (txId: string) => Promise<{ amount: number }>
   /** Pre-filled token string when entering via universal router. */
   initialToken?: string
   /** Delegate non-cashu-token input back to the universal router. */
@@ -81,6 +84,8 @@ export function TokenRegisterFlow({
   onRejectIncomingReview,
 }: TokenRegisterFlowProps) {
   const { isTrusted } = useTrustRegistry()
+  const addToast = useAppStore((s) => s.addToast)
+  const {t} = useTranslation()
   // When entering via incoming review, skip input and land directly on the
   // appropriate confirm step with the queued token pre-loaded.
   const initialValidated = incomingReview?.token ?? null
@@ -98,17 +103,22 @@ export function TokenRegisterFlow({
       if (onCheckSelfToken && onReclaimOwnToken) {
         const match = await onCheckSelfToken(token.token)
         if (match) {
-          const result = await onReclaimOwnToken(match.txId)
-          setReceivedAmount(result?.amount ?? match.amount)
-          setStep('registered')
-          return
+          try {
+            const result = await onReclaimOwnToken(match.txId)
+            setReceivedAmount(result.amount)
+            setStep('registered')
+            return
+          } catch (error) {
+            console.error('[TokenRegister] Reclaim failed:', error)
+            addToast({type: 'error', message: translateError(error,t)})
+          }
         }
       }
 
       setValidated(token)
       setStep(isTrusted(token.mintUrl) ? 'confirm-trusted' : 'confirm-untrusted')
     },
-    [isTrusted, onCheckSelfToken, onReclaimOwnToken],
+    [isTrusted, onCheckSelfToken, onReclaimOwnToken,addToast, t],
   )
 
   const finalizeReceive = useCallback(async (result: TokenReceiveOutcome, fallbackAmount: number) => {

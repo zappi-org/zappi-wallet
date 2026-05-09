@@ -1,19 +1,20 @@
 import { AppLifecycleWatcher } from '@/composition/app-lifecycle.watcher'
 import { createBootstrap, type BootstrapResult, type RouteContext, type RouteExecutionResult, type RouteSelection } from '@/composition/bootstrap'
-import { createPreUnlockServices } from '@/composition/pre-unlock'
 import { resolveIncomingReview } from '@/composition/incoming-review'
+import { createPreUnlockServices } from '@/composition/pre-unlock'
 import { LIMITS } from '@/core/constants'
 import { sat, toNumber } from '@/core/domain/amount'
 import { InsufficientBalanceError } from '@/core/errors/payment.errors'
 import { ServiceProvider } from '@/ui/hooks/service-context'
-import { broadcastSync } from '@/utils/cross-tab-sync'
 import { useCrossTabSync } from '@/ui/hooks/use-cross-tab-sync'
+import { useReclaim } from '@/ui/hooks/use-reclaim'
 import { useGlobalTokenClaimToast } from '@/ui/hooks/use-global-token-claim-toast'
 import { useSupportNotifications } from '@/ui/hooks/use-support-notifications'
+import { broadcastSync } from '@/utils/cross-tab-sync'
 // useMintHealth removed — mint health checks done via serviceRegistry directly
+import { useAppStore } from '@/store'
 import { useNetwork } from '@/ui/hooks/use-network'
 import { useWallet } from '@/ui/hooks/use-wallet'
-import { useAppStore } from '@/store'
 import { setMintNameResolver, toErrorMessage } from '@/ui/utils/error-message'
 import { normalizeMintUrl } from '@/utils/url'
 import { AnimatePresence, motion } from 'motion/react'
@@ -26,9 +27,9 @@ import { PageTransition } from '@/ui/components/common/PageTransition'
 import { MainTabToolbar, TokenTabToolbar } from '@/ui/components/layout/TabToolbar'
 import { HomeScreen } from '@/ui/screens/Home/HomeScreen'
 import { LockScreen } from '@/ui/screens/Lock/LockScreen'
-import { TokenScreen } from '@/ui/screens/Token/TokenScreen'
-import { TokenDetailScreen } from '@/ui/screens/Token/TokenDetailScreen'
 import { EasterEggScreen } from '@/ui/screens/Token/EasterEggScreen'
+import { TokenDetailScreen } from '@/ui/screens/Token/TokenDetailScreen'
+import { TokenScreen } from '@/ui/screens/Token/TokenScreen'
 import type { TokenDetailData } from '@/ui/screens/Token/types'
 import { BookUser, Coins, Settings as SettingsIcon, Wallet } from 'lucide-react'
 
@@ -50,22 +51,22 @@ const MintManagementScreen = lazy(() => import('@/ui/screens/Settings/MintManage
 const RelayManagementScreen = lazy(() => import('@/ui/screens/Settings/RelayManagementScreen'))
 
 // Unified Send/Receive flows
+import type { ValidatedData } from '@/core/domain/input-types'
 import type { MintInfo } from '@/core/types'
 import { ToastContainer } from '@/ui/components'
-import type { ValidatedData } from '@/core/domain/input-types'
-import { routeValidatedInput } from '@/ui/utils/input-router'
 import { ReceiveFlow } from '@/ui/screens/Receive/ReceiveFlow'
 import { SendFlow } from '@/ui/screens/Send/SendFlow'
 import { TokenCreateFlow } from '@/ui/screens/TokenCreate/TokenCreateFlow'
 import { TokenRegisterFlow } from '@/ui/screens/TokenRegister/TokenRegisterFlow'
+import { routeValidatedInput } from '@/ui/utils/input-router'
 
 // Services (composition 경유만)
 import { createSecurityService } from '@/composition/security'
 import type { Transaction } from '@/core/domain/transaction'
+import type { PendingIncomingReview } from '@/core/types'
 import { removePasskey } from '@/ui/services/passkey'
 import { formatSats } from '@/utils/format'
 import { generateMintAliases } from '@/utils/mint-name'
-import type { PendingIncomingReview } from '@/core/types'
 
 
 type Screen = 'home' | 'token' | 'settings' | 'contacts' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'mint-management' | 'relay-management' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail' | 'mint-detail' | 'token-create' | 'token-register' | 'token-detail' | 'token-easter-egg'
@@ -771,22 +772,7 @@ export default function MainApp() {
     [serviceRegistry],
   )
 
-  // ─── Register flow 에서 self-token 감지 시 reclaim 실행 ───
-  const handleReclaimOwnToken = useCallback(
-    async (txId: string): Promise<{ amount: number } | null> => {
-      if (!serviceRegistry?.payment) return null
-      try {
-        const result = await serviceRegistry.payment.reclaim({ transactionId: txId })
-        if (!result.ok) return null
-        await refreshBalance()
-        broadcastSync('balance_changed')
-        return { amount: toNumber(result.value.amount) }
-      } catch {
-        return null
-      }
-    },
-    [serviceRegistry, refreshBalance],
-  )
+  const { reclaim: handleReclaimOwnToken } = useReclaim()
 
   // Settings handlers
   const handleChangePassword = useCallback(async (oldPassword: string, newPassword: string): Promise<boolean> => {
