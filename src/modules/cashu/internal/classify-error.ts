@@ -33,6 +33,7 @@ import {
   UnknownMintError,
   ProofValidationError,
   TokenValidationError,
+  KeysetSyncError,
 } from 'coco-cashu-core'
 
 /**
@@ -153,6 +154,10 @@ export function classifyCashuError(error: unknown): BaseError {
 
   if (error instanceof ProofValidationError) {
     return new InvalidProofError(error.message, error)
+  }
+
+  if (error instanceof KeysetSyncError) {
+    return new MintConnectionError(error.mintUrl, error)
   }
 
   if (error instanceof MintOperationError) {
