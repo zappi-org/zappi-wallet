@@ -1079,6 +1079,7 @@ export default {
       placeholder: '주소 또는 인보이스 입력',
       hint: '<b>라이트닝 주소</b>, <b>인보이스</b>, <b>캐슈 요청</b> 모두 붙여넣거나 스캔할 수 있어요',
       unrecognized: '인식할 수 없는 주소 형식입니다',
+      invalidCashuToken: '유효하지 않은 이캐시 토큰 형식입니다',
       validationFailed: '주소를 확인할 수 없습니다',
       lnurlWithdrawNotSupported: '출금 링크입니다. 결제 주소가 아닙니다',
     },

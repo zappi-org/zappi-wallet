@@ -988,6 +988,7 @@ export default {
       placeholder: 'Dirección o factura',
       hint: 'Pega o escanea una <b>dirección Lightning</b>, <b>factura</b> o <b>solicitud Cashu</b>',
       unrecognized: 'Formato de dirección no reconocido',
+      invalidCashuToken: 'Formato de token Cashu inválido',
       validationFailed: 'No se pudo verificar la dirección',
       lnurlWithdrawNotSupported: 'Este es un enlace de retiro, no una dirección de pago',
     },

@@ -203,7 +203,13 @@ export function SendInputStep({
       const sendableDetectedTypes = ['bolt11', 'lightning-address', 'lnurl', 'cashu-request']
       if (!sendableDetectedTypes.includes(detected.type)) {
         setIsPreValidating(false)
-        setPreValidationError(t('send.destination.unrecognized'))
+        // Check if input looks like Cashu token but failed to parse
+        if (destination.trim().startsWith('cashuA') || destination.trim().startsWith('cashuB')) {
+          console.error('[SendInputStep] Invalid Cashu token format:', destination.slice(0, 50))
+          addToast({ type: 'error', message: t('send.destination.invalidCashuToken'), duration: 3000 })
+        } else {
+          setPreValidationError(t('send.destination.unrecognized'))
+        }
         return
       }
 
@@ -307,7 +313,14 @@ export function SendInputStep({
       detectedTypes: displayName ? [] : toBadgeTypes(detected),
     })
 
-    if (detected.type === 'unknown') return false
+    if (detected.type === 'unknown') {
+      // Check if input looks like a Cashu token but failed to parse
+      if (trimmed.startsWith('cashuA') || trimmed.startsWith('cashuB')) {
+        console.error('[SendInputStep] Invalid Cashu token format:', trimmed.slice(0, 50))
+        addToast({ type: 'error', message: t('send.destination.invalidCashuToken'), duration: 3000 })
+      }
+      return false
+    }
 
     // Full validation (async — network calls for lightning-address, lnurl, npub)
     let validated

@@ -1076,6 +1076,7 @@ export default {
       placeholder: 'Address or invoice',
       hint: 'Paste or scan a <b>Lightning address</b>, <b>invoice</b>, or <b>Cashu request</b>',
       unrecognized: 'Unrecognized address format',
+      invalidCashuToken: 'Invalid Cashu token format',
       validationFailed: 'Unable to verify address',
       lnurlWithdrawNotSupported: 'This is a withdraw link, not a payment address',
     },

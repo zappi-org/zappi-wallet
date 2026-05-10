@@ -988,6 +988,7 @@ export default {
       placeholder: 'Alamat atau invoice',
       hint: 'Tempel atau pindai <b>alamat Lightning</b>, <b>invoice</b>, atau <b>permintaan Cashu</b>',
       unrecognized: 'Format alamat tidak dikenali',
+      invalidCashuToken: 'Format token Cashu tidak valid',
       validationFailed: 'Tidak dapat memverifikasi alamat',
       lnurlWithdrawNotSupported: 'Ini adalah tautan penarikan, bukan alamat pembayaran',
     },
