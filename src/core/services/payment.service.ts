@@ -12,8 +12,8 @@ import { amount as amt } from '@/core/domain/amount'
 import type { Result } from '@/core/domain/result'
 import { Err, Ok } from '@/core/domain/result'
 import { createTransaction, settleAsDelivered, settleAsReclaimed } from '@/core/domain/transaction'
-import { BaseError } from '@/core/errors/base'
-import type { PaymentError } from '@/core/errors/payment.errors'
+import { BaseError, UnknownError } from '@/core/errors/base'
+import { AdapterNotFoundError, ModuleNotFoundError } from '@/core/errors/payment.errors'
 import type { EventBus } from '@/core/events/event-bus'
 import type { OperationMap } from '@/core/ports/driven/operation-map.port'
 import type {
@@ -35,13 +35,13 @@ import type {
   AccountRecoveryReport,
 } from '@/core/ports/driving/payment.usecase'
 
-function toPaymentError(error: unknown): PaymentError {
+function toBaseError(error: unknown): BaseError {
   if (error instanceof BaseError) {
-    return { code: error.code, message: error.message }
+    return error
   }
 
   const message = error instanceof Error ? error.message : 'Unknown error'
-  return { code: 'UNKNOWN', message }
+  return new UnknownError(message, error)
 }
 
 /** Recipient claimed the proofs or SDK already finalized — treat as consumed. */
@@ -105,10 +105,10 @@ export class PaymentService implements PaymentUseCase {
     amount: Amount
     memo?: string
     options?: Record<string, unknown>
-  }): Promise<Result<SendResult, PaymentError>> {
+  }): Promise<Result<SendResult, BaseError>> {
     const module = this.findModuleForAccount(params.accountId)
     if (!module) {
-      return Err({ code: 'MODULE_NOT_FOUND', message: `No module found for account: ${params.accountId}` })
+      return Err(new ModuleNotFoundError(`No module found for account: ${params.accountId}`))
     }
 
     const txId = crypto.randomUUID()
@@ -199,16 +199,16 @@ export class PaymentService implements PaymentUseCase {
         data: { ...result.data, operationId: result.operationId },
       })
     } catch (error) {
-      const paymentError = toPaymentError(error)
+      const baseError = toBaseError(error)
 
       await this.txRepo.update(txId, { status: 'failed', completedAt: Date.now() }).catch(() => {})
 
       this.eventBus.emit({
         type: 'payment:failed',
-        payload: { txId, method: module.id, error: paymentError.message },
+        payload: { txId, method: module.id, error: baseError.message },
       })
 
-      return Err(paymentError)
+      return Err(baseError)
     }
   }
 
@@ -224,13 +224,13 @@ export class PaymentService implements PaymentUseCase {
     protocol?: string
     amount: Amount
     description?: string
-  }): Promise<Result<ReceiveRequest, PaymentError>> {
+  }): Promise<Result<ReceiveRequest, BaseError>> {
     const adapter = this.resolveAdapter(params.accountId, params.protocol)
     if (!adapter) {
-      return Err({ code: 'ADAPTER_NOT_FOUND', message: `No adapter found for account: ${params.accountId}` })
+      return Err(new AdapterNotFoundError(`No adapter found for account: ${params.accountId}`))
     }
     if (!adapter.createReceiveRequest) {
-      return Err({ code: 'ADAPTER_NOT_FOUND', message: `Adapter does not support receive: ${adapter.id}` })
+      return Err(new AdapterNotFoundError(`Adapter does not support receive: ${adapter.id}`))
     }
 
     try {
@@ -242,7 +242,7 @@ export class PaymentService implements PaymentUseCase {
 
       return Ok(request)
     } catch (error) {
-      return Err(toPaymentError(error))
+      return Err(toBaseError(error))
     }
   }
 
@@ -251,14 +251,14 @@ export class PaymentService implements PaymentUseCase {
   async redeem(params: {
     input: string
     transactionId?: string
-  }): Promise<Result<RedeemResult, PaymentError>> {
+  }): Promise<Result<RedeemResult, BaseError>> {
     const adapter = this.resolveRedeemAdapter(params.input)
     if (!adapter) {
-      return Err({ code: 'ADAPTER_NOT_FOUND', message: `No adapter can redeem this input` })
+      return Err(new AdapterNotFoundError(`No adapter can redeem this input`))
     }
 
     if (!adapter.redeem) {
-      return Err({ code: 'ADAPTER_NOT_FOUND', message: `Adapter ${adapter.id} does not support redeem` })
+      return Err(new AdapterNotFoundError(`Adapter ${adapter.id} does not support redeem`))
     }
 
     // Idempotency: 지정된 txId로 이미 기록된 TX가 있으면 skip
@@ -313,7 +313,7 @@ export class PaymentService implements PaymentUseCase {
 
       return Ok(result)
     } catch (error) {
-      return Err(toPaymentError(error))
+      return Err(toBaseError(error))
     }
   }
 
@@ -321,21 +321,21 @@ export class PaymentService implements PaymentUseCase {
 
   async estimateRedeemFee(params: {
     input: string
-  }): Promise<Result<RedeemFeeEstimate, PaymentError>> {
+  }): Promise<Result<RedeemFeeEstimate, BaseError>> {
     const adapter = this.resolveRedeemAdapter(params.input)
     if (!adapter) {
-      return Err({ code: 'ADAPTER_NOT_FOUND', message: 'No adapter can handle this input' })
+      return Err(new AdapterNotFoundError('No adapter can handle this input'))
     }
 
     if (!adapter.estimateRedeemFee) {
-      return Err({ code: 'ADAPTER_NOT_FOUND', message: `Adapter ${adapter.id} does not support fee estimation` })
+      return Err(new AdapterNotFoundError(`Adapter ${adapter.id} does not support fee estimation`))
     }
 
     try {
       const estimate = await adapter.estimateRedeemFee(params.input)
       return Ok(estimate)
     } catch (error) {
-      return Err(toPaymentError(error))
+      return Err(toBaseError(error))
     }
   }
 
@@ -343,29 +343,25 @@ export class PaymentService implements PaymentUseCase {
 
   async quoteReclaim(params: {
     transactionId: string
-  }): Promise<Result<RedeemFeeEstimate, PaymentError>> {
+  }): Promise<Result<RedeemFeeEstimate, BaseError>> {
     const tx = await this.txRepo.getById(params.transactionId)
     if (!tx) {
-      return Err({ code: 'UNKNOWN', message: `Transaction not found: ${params.transactionId}` })
+      return Err(new UnknownError(`Transaction not found: ${params.transactionId}`))
     }
     if (tx.outcome !== 'unclaimed') {
-      return Err({ code: 'UNKNOWN', message: `Transaction is not reclaimable (outcome: ${tx.outcome})` })
+      return Err(new UnknownError(`Transaction is not reclaimable (outcome: ${tx.outcome})`))
     }
 
     const adapter = this.findAdapter(tx.method)
     if (!adapter?.estimateReclaimFee) {
-      return Err({
-        code: 'ADAPTER_NOT_FOUND',
-        message: `Adapter does not support reclaim fee estimation: ${tx.method}`,
-      })
+      return Err(new AdapterNotFoundError(`Adapter does not support reclaim fee estimation: ${tx.method}`))
     }
 
     try {
       const estimate = await adapter.estimateReclaimFee(tx)
       return Ok(estimate)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
-      return Err({ code: 'UNKNOWN', message })
+      return Err(toBaseError(error))
     }
   }
 
@@ -374,10 +370,10 @@ export class PaymentService implements PaymentUseCase {
   async inspectInput(params: {
     input: string
     recipientPubkey?: string
-  }): Promise<Result<InputInspectionResult, PaymentError>> {
+  }): Promise<Result<InputInspectionResult, BaseError>> {
     const adapter = this.resolveRedeemAdapter(params.input)
     if (!adapter) {
-      return Err({ code: 'ADAPTER_NOT_FOUND', message: 'No adapter can inspect this input' })
+      return Err(new AdapterNotFoundError('No adapter can inspect this input'))
     }
 
     if (!adapter.inspectInput) {
@@ -409,13 +405,13 @@ export class PaymentService implements PaymentUseCase {
 
   async completeSend(params: {
     transactionId: string
-  }): Promise<Result<{ transactionId: string }, PaymentError>> {
+  }): Promise<Result<{ transactionId: string }, BaseError>> {
     const tx = await this.txRepo.getById(params.transactionId)
     if (!tx) {
-      return Err({ code: 'UNKNOWN', message: `Transaction not found: ${params.transactionId}` })
+      return Err(new UnknownError(`Transaction not found: ${params.transactionId}`))
     }
     if (tx.outcome !== 'unclaimed') {
-      return Err({ code: 'UNKNOWN', message: `Transaction is not completable (outcome: ${tx.outcome})` })
+      return Err(new UnknownError(`Transaction is not completable (outcome: ${tx.outcome})`))
     }
 
     const operationId = tx.metadata?.operationId as string | undefined
@@ -455,23 +451,23 @@ export class PaymentService implements PaymentUseCase {
 
   async reclaim(params: {
     transactionId: string
-  }): Promise<Result<ReclaimResult, PaymentError>> {
+  }): Promise<Result<ReclaimResult, BaseError>> {
     const tx = await this.txRepo.getById(params.transactionId)
     if (!tx) {
-      return Err({ code: 'UNKNOWN', message: `Transaction not found: ${params.transactionId}` })
+      return Err(new UnknownError(`Transaction not found: ${params.transactionId}`))
     }
     if (tx.outcome !== 'unclaimed') {
-      return Err({ code: 'UNKNOWN', message: `Transaction is not reclaimable (outcome: ${tx.outcome})` })
+      return Err(new UnknownError(`Transaction is not reclaimable (outcome: ${tx.outcome})`))
     }
 
     const operationId = tx.metadata?.operationId as string | undefined
     if (!operationId) {
-      return Err({ code: 'UNKNOWN', message: 'No operationId found for reclaim' })
+      return Err(new UnknownError('No operationId found for reclaim'))
     }
 
     const adapter = this.findAdapter(tx.method)
     if (!adapter) {
-      return Err({ code: 'ADAPTER_NOT_FOUND', message: `Adapter not found: ${tx.method}` })
+      return Err(new AdapterNotFoundError(`Adapter not found: ${tx.method}`))
     }
 
     try {
@@ -553,7 +549,7 @@ export class PaymentService implements PaymentUseCase {
         return Ok({ transactionId: tx.id, amount: tx.amount, state: 'reclaimed' })
       }
 
-      return Err({ code: 'UNKNOWN', message })
+      return Err(toBaseError(new Error(message)))
     }
   }
 
@@ -563,11 +559,11 @@ export class PaymentService implements PaymentUseCase {
     accountId: string
     destination: string
     amount: Amount
-  }): Promise<Result<FeeEstimate, PaymentError>> {
+  }): Promise<Result<FeeEstimate, BaseError>> {
     const protocol = this.inferProtocolFromDestination(params.destination)
     const adapter = this.resolveAdapter(params.accountId, protocol)
     if (!adapter) {
-      return Err({ code: 'ADAPTER_NOT_FOUND', message: `No adapter found for destination: ${params.destination}` })
+      return Err(new AdapterNotFoundError(`No adapter found for destination: ${params.destination}`))
     }
 
     try {
@@ -578,7 +574,7 @@ export class PaymentService implements PaymentUseCase {
       })
       return Ok(estimate)
     } catch (error) {
-      return Err(toPaymentError(error))
+      return Err(toBaseError(error))
     }
   }
 

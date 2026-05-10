@@ -8,6 +8,7 @@ import { translateError } from '@/ui/utils/error-i18n'
 import { AnimatePresence } from 'motion/react'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { TokenSpentError } from '@/core/errors/cashu'
 import { ConfirmTrustedStep } from './steps/ConfirmTrustedStep'
 import { ConfirmUntrustedStep } from './steps/ConfirmUntrustedStep'
 import { RegisteredStep } from './steps/RegisteredStep'
@@ -19,7 +20,7 @@ export interface TokenReceiveOutcome {
   success: boolean
   amount?: number
   transactionId?: string
-  error?: { code?: string; message?: string }
+  error?: unknown
 }
 
 export interface TokenRegisterFlowProps {
@@ -144,7 +145,15 @@ export function TokenRegisterFlow({
           toNumber(validated.amount),
         )
     if (!result.success) {
-      throw new Error(result.error?.message ?? 'redeem_failed')
+      console.log('[TokenRegisterFlow] handleReceive error:', {
+        code: (result.error as any)?.code,
+        message: (result.error as any)?.message,
+      })
+      const errorCode = (result.error as any)?.code
+      if (errorCode === 'TOKEN_SPENT') {
+        throw new TokenSpentError((result.error as any)?.message)
+      }
+      throw result.error ?? new Error('redeem_failed')
     }
     await finalizeReceive(result, toNumber(validated.amount))
   }, [validated, onReceiveToken, onSwapReceive, finalizeReceive])
@@ -155,7 +164,15 @@ export function TokenRegisterFlow({
     if (!added) throw new Error('add_trust_failed')
     const result = await onReceiveToken(validated.token)
     if (!result.success) {
-      throw new Error(result.error?.message ?? 'redeem_failed')
+      console.log('[TokenRegisterFlow] handleAddAndReceive error:', {
+        code: result.error?.code,
+        message: result.error?.message,
+      })
+      const errorCode = result.error?.code
+      if (errorCode === 'TOKEN_SPENT') {
+        throw new TokenSpentError(result.error?.message)
+      }
+      throw result.error ?? new Error('redeem_failed')
     }
     await finalizeReceive(result, toNumber(validated.amount))
   }, [validated, onAddTrustedMint, onReceiveToken, finalizeReceive])
@@ -172,7 +189,7 @@ export function TokenRegisterFlow({
       toNumber(validated.amount),
     )
     if (!result.success) {
-      throw new Error(result.error?.message ?? 'swap_failed')
+      throw result.error ?? new Error('swap_failed')
     }
     await finalizeReceive(result, toNumber(validated.amount))
   }, [validated, targetMintUrl, onSwapReceive, finalizeReceive])

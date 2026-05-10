@@ -443,7 +443,7 @@ export default function MainApp() {
     return null
   }, [serviceRegistry])
 
-  const handleReceiveToken = useCallback(async (token: string): Promise<{ success: boolean; amount?: number; transactionId?: string; error?: { code?: string; message?: string } }> => {
+  const handleReceiveToken = useCallback(async (token: string): Promise<{ success: boolean; amount?: number; transactionId?: string; error?: unknown }> => {
     // Phase 5: PaymentUseCase.redeem() 경유
     if (!serviceRegistry?.payment) {
       return { success: false, error: { code: 'NOT_READY', message: 'ServiceRegistry not ready' } }
@@ -454,7 +454,12 @@ export default function MainApp() {
       refreshAll().catch((e) => console.error('[MainApp] refreshAll after receive failed:', e))
       return { success: true, amount: toNumber(result.value.amount), transactionId: result.value.requestId }
     }
-    return { success: false, error: { code: result.error.code, message: result.error.message } }
+    console.log('[MainApp] handleReceiveToken error:', {
+      code: result.error.code,
+      message: result.error.message,
+      isRetryable: result.error.isRetryable,
+    })
+    return { success: false, error: result.error }
   }, [serviceRegistry, refreshAll])
 
   /**
@@ -533,14 +538,14 @@ export default function MainApp() {
     sourceMintUrl: string,
     targetMintUrl: string,
     amount: number,
-  ): Promise<{ success: boolean; amount?: number; error?: { code?: string; message?: string } }> => {
+  ): Promise<{ success: boolean; amount?: number; error?: unknown }> => {
     if (!serviceRegistry?.payment || !serviceRegistry?.swap) {
       return { success: false, error: { code: 'NOT_READY', message: 'ServiceRegistry not ready' } }
     }
 
     const redeemResult = await serviceRegistry.payment.redeem({ input: token })
     if (!redeemResult.ok) {
-      return { success: false, error: { code: redeemResult.error.code, message: redeemResult.error.message } }
+      return { success: false, error: redeemResult.error }
     }
 
     const swapResult = await serviceRegistry.swap.executeSwap({
@@ -550,7 +555,7 @@ export default function MainApp() {
     })
     if (!swapResult.ok) {
       refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap fail:', e))
-      return { success: false, error: { code: swapResult.error.code, message: swapResult.error.message } }
+      return { success: false, error: swapResult.error }
     }
 
     refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap:', e))

@@ -1,10 +1,38 @@
 import type { ErrorCode } from './codes'
 import { BaseError } from './base'
 
-/** Plain error shape for Result<T, PaymentError> usage */
+/**
+ * Module not found for operation
+ */
+export class ModuleNotFoundError extends BaseError {
+  readonly code = 'MODULE_NOT_FOUND' as const
+  readonly isRetryable = false
+
+  constructor(message: string, cause?: unknown) {
+    super(message, cause)
+  }
+}
+
+/**
+ * Adapter not found for operation
+ */
+export class AdapterNotFoundError extends BaseError {
+  readonly code = 'ADAPTER_NOT_FOUND' as const
+  readonly isRetryable = false
+
+  constructor(message: string, cause?: unknown) {
+    super(message, cause)
+  }
+}
+
+/**
+ * Plain error shape for Result<T, PaymentError> usage
+ * @deprecated Use BaseError subclasses instead
+ */
 export interface PaymentError {
   code: ErrorCode
   message: string
+  isRetryable?: boolean
 }
 
 /**

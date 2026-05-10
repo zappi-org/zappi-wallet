@@ -1,6 +1,6 @@
 import type { Amount } from '@/core/domain/amount'
 import type { Result } from '@/core/domain/result'
-import type { PaymentError } from '@/core/errors/payment.errors'
+import type { BaseError } from '@/core/errors/base'
 import type {
   FeeEstimate,
   ProofIntegrity,
@@ -33,46 +33,46 @@ export interface PaymentUseCase {
     amount: Amount
     memo?: string
     options?: Record<string, unknown>
-  }): Promise<Result<SendResult, PaymentError>>
+  }): Promise<Result<SendResult, BaseError>>
 
   receive(params: {
     accountId: string
     protocol?: string
     amount: Amount
     description?: string
-  }): Promise<Result<ReceiveRequest, PaymentError>>
+  }): Promise<Result<ReceiveRequest, BaseError>>
 
   redeem(params: {
     input: string
     transactionId?: string
-  }): Promise<Result<RedeemResult, PaymentError>>
+  }): Promise<Result<RedeemResult, BaseError>>
 
   inspectInput(params: {
     input: string
     recipientPubkey?: string
-  }): Promise<Result<InputInspectionResult, PaymentError>>
+  }): Promise<Result<InputInspectionResult, BaseError>>
 
   /** 토큰 전송 완료 처리 (상대가 수령 확인 후 finalize) */
   completeSend(params: {
     transactionId: string
-  }): Promise<Result<{ transactionId: string }, PaymentError>>
+  }): Promise<Result<{ transactionId: string }, BaseError>>
 
   reclaim(params: {
     transactionId: string
-  }): Promise<Result<ReclaimResult, PaymentError>>
+  }): Promise<Result<ReclaimResult, BaseError>>
 
   estimateFee(params: {
     accountId: string
     destination: string
     amount: Amount
-  }): Promise<Result<FeeEstimate, PaymentError>>
+  }): Promise<Result<FeeEstimate, BaseError>>
 
   /**
    * estimate fee from input_fee_ppk
    */
   estimateRedeemFee(params: {
     input: string
-  }): Promise<Result<RedeemFeeEstimate, PaymentError>>
+  }): Promise<Result<RedeemFeeEstimate, BaseError>>
 
   /**
    * Dry-run quote for reclaiming a pending sent token (tx in 'unclaimed' outcome).
@@ -82,7 +82,7 @@ export interface PaymentUseCase {
    */
   quoteReclaim(params: {
     transactionId: string
-  }): Promise<Result<RedeemFeeEstimate, PaymentError>>
+  }): Promise<Result<RedeemFeeEstimate, BaseError>>
 
   recoverAll(): Promise<RecoveryReport[]>
   recoverAccounts(params: {

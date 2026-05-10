@@ -87,6 +87,11 @@ export function ConfirmTrustedStep({
     try {
       await onReceive(sourceMintUrl)
     } catch (error) {
+      console.log('[ConfirmTrustedStep] caught error:', {
+        message: error instanceof Error ? error.message : String(error),
+        code: (error as any)?.code,
+        constructor: error?.constructor?.name,
+      })
       hapticError()
       addToast({ type: 'error', message: translateError(error, t) })
     } finally {

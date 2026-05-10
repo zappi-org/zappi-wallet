@@ -157,7 +157,10 @@ export function classifyCashuError(error: unknown): BaseError {
   }
 
   if (error instanceof KeysetSyncError) {
-    return new MintConnectionError(error.mintUrl, error)
+    return new MintConnectionError(
+      `${error.mintUrl} (keyset: ${error.keysetId})`,
+      error
+    )
   }
 
   if (error instanceof MintOperationError) {

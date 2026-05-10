@@ -30,7 +30,7 @@ export class TokenReceiverAdapter implements TokenReceiver {
       error: {
         code: result.error.code ?? 'UNKNOWN',
         message: result.error.message ?? 'Unknown error',
-        isRetryable: false,
+        isRetryable: result.error.isRetryable ?? false,
       },
     }
   }
