@@ -172,7 +172,9 @@ describe('cashu-backend receive mint trust scope', () => {
 
     await receiveToken('cashuA...', { trustedMintUrls: ['https://target.mint'] })
 
-    expect(mocks.manager.mint.addMint).not.toHaveBeenCalled()
+    // addMint is called to ensure keyset keys are downloaded (for receive)
+    expect(mocks.manager.mint.addMint).toHaveBeenCalledWith('https://source.mint')
+    // But trust state should not change
     expect(mocks.manager.mint.trustMint).not.toHaveBeenCalled()
     expect(mocks.manager.mint.untrustMint).not.toHaveBeenCalled()
   })
