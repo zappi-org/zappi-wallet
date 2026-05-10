@@ -1,5 +1,8 @@
-import type { ValidatedCashuToken, ValidatedData } from '@/core/domain/input-types'
 import { toNumber } from '@/core/domain/amount'
+import type { ValidatedCashuToken, ValidatedData } from '@/core/domain/input-types'
+import type { BaseError } from '@/core/errors/base'
+import { UnknownError } from '@/core/errors/base'
+import { TokenSpentError } from '@/core/errors/cashu'
 import type { PendingIncomingReview } from '@/core/types'
 import { useAppStore } from '@/store'
 import { PageTransition } from '@/ui/components/common/PageTransition'
@@ -8,19 +11,17 @@ import { translateError } from '@/ui/utils/error-i18n'
 import { AnimatePresence } from 'motion/react'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { TokenSpentError } from '@/core/errors/cashu'
 import { ConfirmTrustedStep } from './steps/ConfirmTrustedStep'
 import { ConfirmUntrustedStep } from './steps/ConfirmUntrustedStep'
 import { RegisteredStep } from './steps/RegisteredStep'
 import { RegisterInputStep } from './steps/RegisterInputStep'
-
 type Step = 'input' | 'confirm-trusted' | 'confirm-untrusted' | 'registered'
 
 export interface TokenReceiveOutcome {
   success: boolean
   amount?: number
   transactionId?: string
-  error?: unknown
+  error?: BaseError
 }
 
 export interface TokenRegisterFlowProps {
@@ -145,15 +146,10 @@ export function TokenRegisterFlow({
           toNumber(validated.amount),
         )
     if (!result.success) {
-      console.log('[TokenRegisterFlow] handleReceive error:', {
-        code: (result.error as any)?.code,
-        message: (result.error as any)?.message,
-      })
-      const errorCode = (result.error as any)?.code
-      if (errorCode === 'TOKEN_SPENT') {
-        throw new TokenSpentError((result.error as any)?.message)
+      if (result.error instanceof TokenSpentError) {
+        throw result.error
       }
-      throw result.error ?? new Error('redeem_failed')
+      throw result.error ?? new UnknownError('redeem_failed') 
     }
     await finalizeReceive(result, toNumber(validated.amount))
   }, [validated, onReceiveToken, onSwapReceive, finalizeReceive])
@@ -162,17 +158,13 @@ export function TokenRegisterFlow({
     if (!validated) return
     const added = await onAddTrustedMint(validated.mintUrl)
     if (!added) throw new Error('add_trust_failed')
+
     const result = await onReceiveToken(validated.token)
     if (!result.success) {
-      console.log('[TokenRegisterFlow] handleAddAndReceive error:', {
-        code: result.error?.code,
-        message: result.error?.message,
-      })
-      const errorCode = result.error?.code
-      if (errorCode === 'TOKEN_SPENT') {
-        throw new TokenSpentError(result.error?.message)
+      if (result.error instanceof TokenSpentError) {
+        throw result.error
       }
-      throw result.error ?? new Error('redeem_failed')
+      throw result.error ?? new UnknownError('redeem_failed')
     }
     await finalizeReceive(result, toNumber(validated.amount))
   }, [validated, onAddTrustedMint, onReceiveToken, finalizeReceive])

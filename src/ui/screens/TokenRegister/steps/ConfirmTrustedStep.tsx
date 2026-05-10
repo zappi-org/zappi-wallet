@@ -1,6 +1,6 @@
 import zappiLogo from '@/assets/zappi.png'
-import type { ValidatedCashuToken } from '@/core/domain/input-types'
 import { toNumber } from '@/core/domain/amount'
+import type { ValidatedCashuToken } from '@/core/domain/input-types'
 import { useAppStore } from '@/store'
 import { BottomActionBar } from '@/ui/components/common/BottomActionBar'
 import { Button } from '@/ui/components/common/Button'
@@ -87,11 +87,6 @@ export function ConfirmTrustedStep({
     try {
       await onReceive(sourceMintUrl)
     } catch (error) {
-      console.log('[ConfirmTrustedStep] caught error:', {
-        message: error instanceof Error ? error.message : String(error),
-        code: (error as any)?.code,
-        constructor: error?.constructor?.name,
-      })
       hapticError()
       addToast({ type: 'error', message: translateError(error, t) })
     } finally {

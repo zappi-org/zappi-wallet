@@ -4,12 +4,15 @@ import { resolveIncomingReview } from '@/composition/incoming-review'
 import { createPreUnlockServices } from '@/composition/pre-unlock'
 import { LIMITS } from '@/core/constants'
 import { sat, toNumber } from '@/core/domain/amount'
+import type { BaseError } from '@/core/errors/base'
+import { ServiceNotReadyError } from '@/core/errors/base'
 import { InsufficientBalanceError } from '@/core/errors/payment.errors'
 import { ServiceProvider } from '@/ui/hooks/service-context'
 import { useCrossTabSync } from '@/ui/hooks/use-cross-tab-sync'
 import { useReclaim } from '@/ui/hooks/use-reclaim'
 import { useGlobalTokenClaimToast } from '@/ui/hooks/use-global-token-claim-toast'
 import { useSupportNotifications } from '@/ui/hooks/use-support-notifications'
+import { useRedeemToken } from '@/ui/hooks/use-redeem-token'
 import { broadcastSync } from '@/utils/cross-tab-sync'
 // useMintHealth removed — mint health checks done via serviceRegistry directly
 import { useAppStore } from '@/store'
@@ -443,24 +446,9 @@ export default function MainApp() {
     return null
   }, [serviceRegistry])
 
-  const handleReceiveToken = useCallback(async (token: string): Promise<{ success: boolean; amount?: number; transactionId?: string; error?: unknown }> => {
-    // Phase 5: PaymentUseCase.redeem() 경유
-    if (!serviceRegistry?.payment) {
-      return { success: false, error: { code: 'NOT_READY', message: 'ServiceRegistry not ready' } }
-    }
-
-    const result = await serviceRegistry.payment.redeem({ input: token })
-    if (result.ok) {
-      refreshAll().catch((e) => console.error('[MainApp] refreshAll after receive failed:', e))
-      return { success: true, amount: toNumber(result.value.amount), transactionId: result.value.requestId }
-    }
-    console.log('[MainApp] handleReceiveToken error:', {
-      code: result.error.code,
-      message: result.error.message,
-      isRetryable: result.error.isRetryable,
-    })
-    return { success: false, error: result.error }
-  }, [serviceRegistry, refreshAll])
+  const handleReceiveToken = useRedeemToken(serviceRegistry, () => {
+    refreshAll().catch((e) => console.error('[MainApp] refreshAll after receive failed:', e))
+  })
 
   /**
    * Handle an incoming token that fulfills one of MY ReceiveRequests.
@@ -538,9 +526,9 @@ export default function MainApp() {
     sourceMintUrl: string,
     targetMintUrl: string,
     amount: number,
-  ): Promise<{ success: boolean; amount?: number; error?: unknown }> => {
+  ): Promise<{ success: boolean; amount?: number; error?: BaseError }> => {
     if (!serviceRegistry?.payment || !serviceRegistry?.swap) {
-      return { success: false, error: { code: 'NOT_READY', message: 'ServiceRegistry not ready' } }
+      return { success: false, error: new ServiceNotReadyError('payment/swap') }
     }
 
     const redeemResult = await serviceRegistry.payment.redeem({ input: token })
