@@ -10,6 +10,7 @@ export type ErrorCode =
   | 'TOKEN_SPENT'
   | 'INSUFFICIENT_BALANCE'
   | 'MINT_CONNECTION'
+  | 'KEYSET_SYNC_FAILED'
   | 'MINT_ERROR'
   | 'INVALID_TOKEN'
   | 'INVALID_PROOF'
@@ -17,6 +18,7 @@ export type ErrorCode =
   | 'QUOTE_EXPIRED'
   | 'P2PK_UNLOCK_FAILED'
   | 'REDEEM_FEE_TOO_HIGH'
+  | 'SERVICE_NOT_READY'
   // Lightning
   | 'INVALID_INVOICE'
   | 'INVOICE_EXPIRED'

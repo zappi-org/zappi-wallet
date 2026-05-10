@@ -37,6 +37,19 @@ export class TimeoutError extends BaseError {
   readonly isRetryable = true
 }
 
+/*
+* ServiceNotReadyError
+*/
+
+export class ServiceNotReadyError extends BaseError {
+    readonly code = 'SERVICE_NOT_READY' as const
+    readonly isRetryable = true
+
+    constructor(service: string) {
+      super(`Service not ready: ${service}`)
+    }
+}
+
 /**
  * Unknown error wrapper
  */

@@ -28,6 +28,22 @@ export class MintConnectionError extends BaseError {
 }
 
 /**
+ * Failed to sync keyset keys from mint
+ */
+export class KeysetSyncError extends BaseError {
+  readonly code = 'KEYSET_SYNC_FAILED' as const
+  readonly isRetryable = true
+
+  constructor(
+    public readonly mintUrl: string,
+    public readonly keysetId: string,
+    cause?: unknown
+  ) {
+    super(`Failed to download keyset keys: ${keysetId}`, cause)
+  }
+}
+
+/**
  * Mint returned an error
  */
 export class MintError extends BaseError {
