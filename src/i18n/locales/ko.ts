@@ -965,6 +965,7 @@ export default {
     insufficientBalance: '잔액이 부족해요 (필요: {{required}}  보유: {{available}})',
     insufficientBalanceForFee: '수수료 포함 시 잔액이 부족해요 (필요: {{required}} + 수수료  보유: {{available}})',
     mintConnection: '{{mint}} 민트에 연결할 수 없습니다',
+    keysetSyncFailed: '민트 키셋 키를 다운로드할 수 없습니다',
     mintError: '민트에서 오류가 발생했습니다',
     invalidToken: '유효하지 않은 토큰입니다',
     invalidProof: '전송을 처리할 수 없어요. 잠시 후 다시 시도해주세요.',

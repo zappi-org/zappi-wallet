@@ -9,7 +9,7 @@
 import type { PendingQuote } from '@/core/domain/quote';
 import { InsufficientBalanceError, RedeemFeeTooHighError } from '@/core/errors/payment.errors';
 import type { ProofStateResult } from '@/core/ports/driven/send-token-operator.port';
-import { normalizeMintUrl } from 'coco-cashu-core';
+import { normalizeMintUrl, getDecodedToken } from 'coco-cashu-core';
 import { classifyCashuError } from './classify-error';
 import { getCocoManager, getPendingMintQuotes } from './coco-sdk';
 
@@ -278,16 +278,11 @@ export async function receiveToken(
   options?: MintTrustOptions,
 ): Promise<{ amount: number; fee: number; unit: string; mintUrl: string }> {
   const manager = await getCocoManager();
-
-  const { getDecodedToken } = await import('@cashu/cashu-ts');
   const decoded = getDecodedToken(token);
 
   try {
     return await withMintTrustedForOperation(manager, decoded.mint, options, async () => {
-      // addMint 이 내부에서 ensureUpdatedMint 호출 — keyset 갱신
-      console.log('[receiveToken] addMint:', decoded.mint)
       await manager.mint.addMint(decoded.mint);
-      console.log('[receiveToken] keysets updated')
 
       const prepared = await manager.ops.receive.prepare({ token });
 
@@ -304,11 +299,6 @@ export async function receiveToken(
       return { amount: netAmount, fee, unit, mintUrl: decoded.mint };
     });
   } catch (error) {
-    console.error('[receiveToken] error:', {
-      name: error instanceof Error ? error.name : 'Unknown',
-      message: error instanceof Error ? error.message : String(error),
-      code: (error as any)?.code,
-    })
     throw classifyCashuError(error);
   }
 }
@@ -324,16 +314,11 @@ export async function estimateReceiveFee(
   options?: MintTrustOptions,
 ): Promise<{ grossAmount: number; fee: number; netAmount: number; unit: string; mintUrl: string }> {
   const manager = await getCocoManager();
-
-  const { getDecodedToken } = await import('@cashu/cashu-ts');
   const decoded = getDecodedToken(token);
 
   try {
     return await withMintTrustedForOperation(manager, decoded.mint, options, async () => {
-      // addMint 이 내부에서 ensureUpdatedMint 호출 — keyset 갱신
-      console.log('[estimateReceiveFee] addMint:', decoded.mint)
       await manager.mint.addMint(decoded.mint);
-      console.log('[estimateReceiveFee] keysets updated')
 
       const prepared = await manager.ops.receive.prepare({ token });
 
@@ -351,11 +336,6 @@ export async function estimateReceiveFee(
       return { grossAmount, fee, netAmount, unit, mintUrl: decoded.mint };
     });
   } catch (error) {
-    console.error('[estimateReceiveFee] error:', {
-      name: error instanceof Error ? error.name : 'Unknown',
-      message: error instanceof Error ? error.message : String(error),
-      code: (error as any)?.code,
-    })
     throw classifyCashuError(error);
   }
 }

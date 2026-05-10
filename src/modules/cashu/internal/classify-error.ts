@@ -15,6 +15,7 @@ import {
   InvalidProofError,
   QuoteNotFoundError,
   QuoteExpiredError,
+  KeysetSyncError,
 } from '@/core/errors/cashu'
 import {
   LightningRoutingError,
@@ -33,7 +34,7 @@ import {
   UnknownMintError,
   ProofValidationError,
   TokenValidationError,
-  KeysetSyncError,
+  KeysetSyncError as CocoKeysetSyncError,
 } from 'coco-cashu-core'
 
 /**
@@ -156,11 +157,8 @@ export function classifyCashuError(error: unknown): BaseError {
     return new InvalidProofError(error.message, error)
   }
 
-  if (error instanceof KeysetSyncError) {
-    return new MintConnectionError(
-      `${error.mintUrl} (keyset: ${error.keysetId})`,
-      error
-    )
+  if (error instanceof CocoKeysetSyncError) {
+    return new KeysetSyncError(error.mintUrl, error.keysetId, error)
   }
 
   if (error instanceof MintOperationError) {
@@ -179,6 +177,13 @@ export function classifyCashuError(error: unknown): BaseError {
 
   if (isRedeemFeeTooHighMessage(msg)) {
     return new RedeemFeeTooHighError(String(error), error)
+  }
+
+  // Keyset short-ID mapping failure (SDK throws plain Error)
+  const keysetMatch = msg.match(/(?:couldn't map short keyset id|short keyset id)\s+([a-f0-9]+)/i)
+  if (keysetMatch) {
+    console.log('[classifyCashuError] keyset id missing:', keysetMatch[1])
+    return new KeysetSyncError('unknown', keysetMatch[1], error)
   }
 
   if (msg.includes('already spent') || msg.includes('token spent')) {

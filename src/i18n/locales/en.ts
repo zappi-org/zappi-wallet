@@ -962,6 +962,7 @@ export default {
     insufficientBalance: 'Insufficient balance (need: {{required}}  have: {{available}})',
     insufficientBalanceForFee: 'Insufficient balance (need: {{required}} + fee  have: {{available}})',
     mintConnection: 'Cannot connect to {{mint}}',
+    keysetSyncFailed: 'Failed to download mint keyset keys',
     mintError: 'An error occurred at the mint',
     invalidToken: 'Invalid token',
     invalidProof: 'Could not process the transfer. Please try again later.',
