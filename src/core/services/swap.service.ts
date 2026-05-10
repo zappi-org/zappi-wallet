@@ -11,7 +11,9 @@ import { Ok, Err } from '@/core/domain/result'
 import type { Result } from '@/core/domain/result'
 import { sat, toNumber } from '@/core/domain/amount'
 import { createTransaction } from '@/core/domain/transaction'
-import type { PaymentError } from '@/core/errors/payment.errors'
+import type { BaseError } from '@/core/errors/base'
+import { UnknownError } from '@/core/errors/base'
+import { AdapterNotFoundError, InsufficientBalanceError } from '@/core/errors/payment.errors'
 import type { EventBus } from '@/core/events/event-bus'
 import type {
   SwapUseCase,
@@ -63,10 +65,10 @@ export class SwapService implements SwapUseCase {
     return pairs
   }
 
-  async estimateSwap(params: SwapParams): Promise<Result<SwapEstimate, PaymentError>> {
+  async estimateSwap(params: SwapParams): Promise<Result<SwapEstimate, BaseError>> {
     const lightning = this.findLightningAdapter(params.sourceAccountId)
     if (!lightning) {
-      return Err({ code: 'ADAPTER_NOT_FOUND', message: 'No lightning adapter for source account' })
+      return Err(new AdapterNotFoundError('No lightning adapter for source account'))
     }
     let quoteId: string | null = null
 
@@ -81,7 +83,7 @@ export class SwapService implements SwapUseCase {
       // target에서 임시 invoice 생성하여 fee 추정
       const targetLightning = this.findLightningAdapter(params.targetAccountId)
       if (!targetLightning?.createReceiveRequest) {
-        return Err({ code: 'ADAPTER_NOT_FOUND', message: 'No lightning adapter for target account' })
+        return Err(new AdapterNotFoundError('No lightning adapter for target account'))
       }
 
       const request = await targetLightning.createReceiveRequest({
@@ -110,23 +112,23 @@ export class SwapService implements SwapUseCase {
         } catch (cleanupError) {
           const primaryMessage = error instanceof Error ? error.message : 'Unknown error'
           const cleanupMessage = cleanupError instanceof Error ? cleanupError.message : 'Unknown error'
-          return Err({ code: 'SWAP_FAILED', message: `${primaryMessage} (cleanup failed for quote ${quoteId}: ${cleanupMessage})` })
+          return Err(new UnknownError(`${primaryMessage} (cleanup failed for quote ${quoteId}: ${cleanupMessage})`))
         }
       }
       const message = error instanceof Error ? error.message : 'Unknown error'
-      return Err({ code: 'SWAP_FAILED', message })
+      return Err(new UnknownError(message))
     }
   }
 
-  async executeSwap(params: SwapParams): Promise<Result<SwapResult, PaymentError>> {
+  async executeSwap(params: SwapParams): Promise<Result<SwapResult, BaseError>> {
     const sourceLightning = this.findLightningAdapter(params.sourceAccountId)
     const targetLightning = this.findLightningAdapter(params.targetAccountId)
 
     if (!sourceLightning) {
-      return Err({ code: 'ADAPTER_NOT_FOUND', message: 'No lightning adapter for source' })
+      return Err(new AdapterNotFoundError('No lightning adapter for source'))
     }
     if (!targetLightning?.createReceiveRequest) {
-      return Err({ code: 'ADAPTER_NOT_FOUND', message: 'No lightning adapter for target' })
+      return Err(new AdapterNotFoundError('No lightning adapter for target'))
     }
 
     const sendTxId = crypto.randomUUID()
@@ -155,18 +157,15 @@ export class SwapService implements SwapUseCase {
       }
     }
 
-    const failBeforeSend = async (primaryError: PaymentError): Promise<Result<SwapResult, PaymentError>> => {
+    const failBeforeSend = async (primaryError: BaseError): Promise<Result<SwapResult, BaseError>> => {
       receiveCompletion.cancel()
 
       try {
         await abandonCurrentSwapQuote()
         return Err(primaryError)
       } catch (cleanupError) {
-        const cleanupMessage = cleanupError instanceof Error ? cleanupError.message : 'Unknown error'
-        return Err({
-          code: primaryError.code,
-          message: `${primaryError.message} (cleanup failed: ${cleanupMessage})`,
-        })
+        console.error('[SwapService] cleanup failed:', cleanupError)
+        return Err(primaryError)
       }
     }
 
@@ -201,16 +200,10 @@ export class SwapService implements SwapUseCase {
 
           const adjustedNum = drainBudget - toNumber(prepared.fee)
           if (adjustedNum <= 0) {
-            return failBeforeSend({
-              code: 'INSUFFICIENT_BALANCE',
-              message: 'Balance too low to cover swap fees',
-            })
+            return failBeforeSend(new InsufficientBalanceError(0, 0, undefined, drainBudget))
           }
           if (adjustedNum >= toNumber(swapAmount)) {
-            return failBeforeSend({
-              code: 'SWAP_FAILED',
-              message: 'Unable to reduce swap amount for drain mode',
-            })
+            return failBeforeSend(new UnknownError('Unable to reduce swap amount for drain mode'))
           }
 
           swapAmount = sat(adjustedNum)
@@ -233,10 +226,7 @@ export class SwapService implements SwapUseCase {
           drainAttempts += 1
           if (drainAttempts >= 3) {
             await sourceLightning.cancelPrepared(prepared.id)
-            return failBeforeSend({
-              code: 'SWAP_FAILED',
-              message: 'Unable to finalize drain swap amount',
-            })
+            return failBeforeSend(new UnknownError('Unable to finalize drain swap amount'))
           }
         }
       }
@@ -354,7 +344,7 @@ export class SwapService implements SwapUseCase {
         },
       })
 
-      return Err({ code: 'SWAP_FAILED', message })
+      return Err(new UnknownError(message))
     }
   }
 

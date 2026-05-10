@@ -1,11 +1,11 @@
 import type { Amount } from '@/core/domain/amount'
 import type { Result } from '@/core/domain/result'
-import type { PaymentError } from '@/core/errors/payment.errors'
+import type { BaseError } from '@/core/errors/base'
 
 export interface SwapUseCase {
   getAvailableSwaps(): SwapPair[]
-  estimateSwap(params: SwapParams): Promise<Result<SwapEstimate, PaymentError>>
-  executeSwap(params: SwapParams): Promise<Result<SwapResult, PaymentError>>
+  estimateSwap(params: SwapParams): Promise<Result<SwapEstimate, BaseError>>
+  executeSwap(params: SwapParams): Promise<Result<SwapResult, BaseError>>
 }
 
 export interface SwapPair {
