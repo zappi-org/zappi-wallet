@@ -1,4 +1,5 @@
 import type { ValidatedCashuToken, ValidatedData } from '@/core/domain/input-types'
+import { toNumber } from '@/core/domain/amount'
 import type { PendingIncomingReview } from '@/core/types'
 import { useAppStore } from '@/store'
 import { PageTransition } from '@/ui/components/common/PageTransition'
@@ -140,12 +141,12 @@ export function TokenRegisterFlow({
           validated.token,
           validated.mintUrl,
           target,
-          validated.amountSats,
+          toNumber(validated.amount),
         )
     if (!result.success) {
       throw new Error(result.error?.message ?? 'redeem_failed')
     }
-    await finalizeReceive(result, validated.amountSats)
+    await finalizeReceive(result, toNumber(validated.amount))
   }, [validated, onReceiveToken, onSwapReceive, finalizeReceive])
 
   const handleAddAndReceive = useCallback(async () => {
@@ -156,7 +157,7 @@ export function TokenRegisterFlow({
     if (!result.success) {
       throw new Error(result.error?.message ?? 'redeem_failed')
     }
-    await finalizeReceive(result, validated.amountSats)
+    await finalizeReceive(result, toNumber(validated.amount))
   }, [validated, onAddTrustedMint, onReceiveToken, finalizeReceive])
 
   // DEAD: swap-to-my-mint handler — no UI invokes it after swap option was
@@ -168,12 +169,12 @@ export function TokenRegisterFlow({
       validated.token,
       validated.mintUrl,
       targetMintUrl,
-      validated.amountSats,
+      toNumber(validated.amount),
     )
     if (!result.success) {
       throw new Error(result.error?.message ?? 'swap_failed')
     }
-    await finalizeReceive(result, validated.amountSats)
+    await finalizeReceive(result, toNumber(validated.amount))
   }, [validated, targetMintUrl, onSwapReceive, finalizeReceive])
   void _handleSwapToMyMint
 

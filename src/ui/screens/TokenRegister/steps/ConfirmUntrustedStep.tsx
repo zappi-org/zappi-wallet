@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Plus, X } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import type { ValidatedCashuToken } from '@/core/domain/input-types'
+import { toNumber } from '@/core/domain/amount'
 
 export interface ConfirmUntrustedStepProps {
   token: ValidatedCashuToken
@@ -29,7 +30,7 @@ export function ConfirmUntrustedStep({
   const addToast = useAppStore((s) => s.addToast)
 
   const mintUrl = token.mintUrl
-  const amount = token.amountSats
+  const amount = toNumber(token.amount)
 
   const mintUrls = useMemo(() => [mintUrl], [mintUrl])
   const { getDisplayName, getIconUrl } = useMintMetadata(mintUrls)

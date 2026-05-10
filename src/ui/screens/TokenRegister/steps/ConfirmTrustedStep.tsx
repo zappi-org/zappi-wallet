@@ -1,5 +1,6 @@
 import zappiLogo from '@/assets/zappi.png'
 import type { ValidatedCashuToken } from '@/core/domain/input-types'
+import { toNumber } from '@/core/domain/amount'
 import { useAppStore } from '@/store'
 import { BottomActionBar } from '@/ui/components/common/BottomActionBar'
 import { Button } from '@/ui/components/common/Button'
@@ -46,7 +47,7 @@ export function ConfirmTrustedStep({
   const addToast = useAppStore((s) => s.addToast)
 
   const sourceMintUrl = token.mintUrl
-  const amount = token.amountSats
+  const amount = toNumber(token.amount)
   const memo = token.memo ?? ''
 
   const mintUrls = useMemo(() => [sourceMintUrl], [sourceMintUrl])
