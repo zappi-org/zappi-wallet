@@ -5,6 +5,8 @@
  * Moved from ui/components/scanner/ to enable proper hex layer access.
  */
 
+import type { Amount } from './amount'
+
 // ─── LNURL Types (originally in services/lnurl and ports/driven/lnurl-gateway) ───
 
 export interface LnurlPayParams {
@@ -63,7 +65,7 @@ export interface LnurlInput {
 export interface CashuTokenInput {
   type: 'cashu-token'
   token: string
-  amountSats: number
+  amount: Amount
   mintUrl: string
   memo?: string
 }
@@ -126,7 +128,7 @@ export interface ValidatedLnurlWithdraw {
 export interface ValidatedCashuToken {
   type: 'cashu-token'
   token: string
-  amountSats: number
+  amount: Amount
   mintUrl: string
   memo?: string
 }

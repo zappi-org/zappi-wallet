@@ -17,7 +17,7 @@ import type { ZapMessage, ZapPaymentFulfillment } from '@/core/types/zap-message
 import type { POSDevice } from '@/core/types/wallet'
 import type { TrustedMintProvider } from '@/core/ports/driven/trusted-mint-provider.port'
 import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-queue.port'
-import { previewCashuToken } from '@/core/domain/cashu-token-preview'
+import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
 
 // ─── Types ───
 
@@ -31,6 +31,7 @@ export interface GiftWrapWatcherDeps {
   getPendingRequestId: () => string | null
   trustedMintProvider: TrustedMintProvider
   incomingReviewQueue: IncomingReviewQueue
+  tokenCodec: TokenCodec
 }
 
 interface ParsedMessage {
@@ -108,8 +109,8 @@ export class GiftWrapWatcher {
     if (!parsed) return
 
     try {
-      const preview = previewCashuToken(parsed.token)
-      const trusted = await this.deps.trustedMintProvider.hasTrustedMint(preview.mintUrl)
+      const info = this.deps.tokenCodec.inspectCashuToken(parsed.token)
+      const trusted = await this.deps.trustedMintProvider.hasTrustedMint(info.mint)
 
       if (!trusted) {
         await this.deps.incomingReviewQueue.enqueue({
@@ -117,8 +118,8 @@ export class GiftWrapWatcher {
           token: {
             type: 'cashu-token',
             token: parsed.token,
-            amountSats: preview.amountSats,
-            mintUrl: preview.mintUrl,
+            amount: info.amount,
+            mintUrl: info.mint,
             memo: parsed.memo,
           },
           queuedAt: Date.now(),

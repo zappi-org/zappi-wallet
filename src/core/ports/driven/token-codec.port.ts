@@ -1,7 +1,8 @@
 import type {
-  ParsedCashuRequest,
   CashuRequestTransport,
+  ParsedCashuRequest,
 } from '@/core/domain/input-types'
+import type { Amount } from '@/core/domain/amount'
 
 export interface DecodedInvoice {
   amountSats: number
@@ -11,9 +12,13 @@ export interface DecodedInvoice {
   isExpired: boolean
 }
 
-export interface DecodedCashuToken {
-  amount: number
+/**
+ * 토큰 수신 전 정보 검사 결과 (파싱만, 검증 없음).
+ * receive() 호출 전 mint 신뢰도, 금액, 단위 확인용.
+ */
+export interface CashuTokenInspection {
   mint: string
+  amount: Amount
   memo?: string
 }
 
@@ -26,9 +31,14 @@ export interface TokenCodec {
   isLightningAddress(input: string): boolean
 
   // Cashu token
-  decodeCashuToken(token: string): DecodedCashuToken
+  /**
+   * 토큰 인코딩을 파싱하여 수신 전 정보를 추출.
+   * mint keysets 검증 안 함 — receive 전 사전 확인용.
+   */
+  inspectCashuToken(token: string): CashuTokenInspection
   isCashuToken(input: string): boolean
 
+  
   // Bitcoin URI (BIP-21)
   parseBitcoinUri(uri: string): {
     address?: string
@@ -75,3 +85,4 @@ export interface TokenCodec {
     cashuRequest: string
   }): string
 }
+

@@ -304,6 +304,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const pendingItems = createPendingItemsService(txRepo, receiveRequestRepo, modules)
 
   // 10. Gift wrap watcher
+  const tokenCodec = new TokenCodecAdapter()
   const giftWrapWatcher = new GiftWrapWatcher({
     nostrGateway,
     incomingPayment,
@@ -314,6 +315,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     getPendingRequestId: () => useAppStore.getState().pendingEcashRequestId,
     trustedMintProvider,
     incomingReviewQueue,
+    tokenCodec,
   })
 
   // 11. WithdrawUseCase / LnurlAuthUseCase — TODO: NoOp impl or real impl
@@ -325,7 +327,6 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const cryptoGateway = new CryptoGatewayAdapter()
   const crypto = new CryptoService(cryptoGateway)
 
-  const tokenCodec = new TokenCodecAdapter()
   const inputParser = new InputParserService(tokenCodec, lnurlAdapter)
 
   const feeEstimator = new CashuFeeEstimatorAdapter(cashuBackend)

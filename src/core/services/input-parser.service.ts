@@ -1,5 +1,5 @@
-import type { InputParserUseCase, DecodedCashuToken } from '@/core/ports/driving/input-parser.usecase'
-import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
+import type { InputParserUseCase } from '@/core/ports/driving/input-parser.usecase'
+import type { TokenCodec, CashuTokenInspection } from '@/core/ports/driven/token-codec.port'
 import type { LnurlGateway } from '@/core/ports/driven/lnurl-gateway.port'
 import type {
   InputType,
@@ -65,15 +65,16 @@ export class InputParserService implements InputParserUseCase {
     // Cashu token
     if (this.codec.isCashuToken(trimmed)) {
       try {
-        const decoded = this.codec.decodeCashuToken(trimmed)
+        const info = this.codec.inspectCashuToken(trimmed)
         return {
           type: 'cashu-token',
           token: trimmed,
-          amountSats: decoded.amount,
-          mintUrl: decoded.mint,
-          memo: decoded.memo,
+          amount: info.amount,
+          mintUrl: info.mint,
+          memo: info.memo,
         }
-      } catch {
+      } catch (error) {
+        console.error('[InputParser] Failed to parse Cashu token:', error)
         return { type: 'unknown', input: trimmed }
       }
     }
@@ -146,7 +147,7 @@ export class InputParserService implements InputParserUseCase {
         return {
           type: 'cashu-token',
           token: input.token,
-          amountSats: input.amountSats,
+          amount: input.amount,
           mintUrl: input.mintUrl,
           memo: input.memo,
         }
@@ -168,8 +169,8 @@ export class InputParserService implements InputParserUseCase {
     }
   }
 
-  decodeCashuToken(token: string): DecodedCashuToken {
-    return this.codec.decodeCashuToken(token)
+  inspectCashuToken(token: string): CashuTokenInspection {
+    return this.codec.inspectCashuToken(token)
   }
 
   isBolt11(input: string): boolean {

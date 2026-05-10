@@ -52,6 +52,29 @@ describe('GiftWrapWatcher', () => {
       incomingReviewQueue: {
         enqueue: vi.fn().mockResolvedValue(undefined),
       },
+      tokenCodec: {
+        inspectCashuToken: vi.fn((token: string) => {
+          // Decode base64 to extract mint and amount
+          try {
+            const base64 = token.slice(6) // remove 'cashuA' prefix
+            const json = atob(base64.replace(/-/g, '+').replace(/_/g, '/'))
+            const parsed = JSON.parse(json)
+            const mint = parsed.token?.[0]?.mint || 'https://mint.test'
+            const amount = parsed.token?.[0]?.proofs?.[0]?.amount || 100
+            return {
+              mint,
+              amount: { value: BigInt(amount), unit: 'sat' as const },
+              memo: undefined,
+            }
+          } catch {
+            return {
+              mint: 'https://mint.test',
+              amount: { value: 100n, unit: 'sat' as const },
+              memo: undefined,
+            }
+          }
+        }),
+      } as unknown as GiftWrapWatcherDeps['tokenCodec'],
     }
   })
 
@@ -76,7 +99,7 @@ describe('GiftWrapWatcher', () => {
         token: expect.objectContaining({
           token,
           mintUrl: 'https://unknown.mint',
-          amountSats: 123,
+          amount: { value: 123n, unit: 'sat' },
         }),
       }),
     )

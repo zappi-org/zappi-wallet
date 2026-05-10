@@ -120,6 +120,7 @@ describe('RecoveryService', () => {
       mocks.tokenReceiver,
       mocks.trustedMintProvider,
       mocks.incomingReviewQueue,
+      {} as any, // tokenCodec mock
       mocks.receiveRequest,
     )
   })
@@ -211,7 +212,7 @@ describe('RecoveryService', () => {
           token: expect.objectContaining({
             token: DIRECT_TOKEN,
             mintUrl: 'https://mint.test',
-            amountSats: 100,
+            amount: { value: 100n, unit: 'sat' },
           }),
         }),
       )

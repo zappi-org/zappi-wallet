@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
+import { amount } from '@/core/domain/amount'
 
 import { SendInputStep } from '@/ui/screens/Send/steps/SendInputStep'
 import type { InputType, ValidatedData } from '@/core/domain/input-types'
@@ -121,13 +122,13 @@ describe('SendInputStep redirect', () => {
     mockDetectAndClassify.mockReturnValue({
       type: 'cashu-token',
       token: tokenStr,
-      amountSats: 100,
+      amount: amount(100, 'sat'),
       mintUrl: 'https://mint.example.com',
     })
     mockValidateAsync.mockResolvedValue({
       type: 'cashu-token',
       token: tokenStr,
-      amountSats: 100,
+      amount: amount(100, 'sat'),
       mintUrl: 'https://mint.example.com',
     })
 
@@ -135,7 +136,7 @@ describe('SendInputStep redirect', () => {
     await act(async () => { pasteIntoInput(tokenStr) })
 
     expect(defaultProps.onRouteValidated).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'cashu-token', amountSats: 100 })
+      expect.objectContaining({ type: 'cashu-token', amount: amount(100, 'sat') })
     )
     expect(defaultProps.onNext).not.toHaveBeenCalled()
   })
@@ -207,13 +208,13 @@ describe('SendInputStep redirect', () => {
     mockDetectAndClassify.mockReturnValue({
       type: 'cashu-token',
       token: tokenStr,
-      amountSats: 50,
+      amount: amount(50, 'sat'),
       mintUrl: 'https://mint.example.com',
     })
     mockValidateAsync.mockResolvedValue({
       type: 'cashu-token',
       token: tokenStr,
-      amountSats: 50,
+      amount: amount(50, 'sat'),
       mintUrl: 'https://mint.example.com',
     })
 

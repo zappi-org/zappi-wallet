@@ -22,7 +22,8 @@ import type {
 import type { FailedIncoming, SyncResult, ProcessedRecord } from '@/core/types'
 import { RETRY } from '@/core/constants'
 import { parseDirectToken } from '@/core/domain/direct-token'
-import { previewCashuToken } from '@/core/domain/cashu-token-preview'
+import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
+import { amount as createAmount } from '@/core/domain/amount'
 
 // ─── Anchor constants ───
 
@@ -56,6 +57,7 @@ export class RecoveryService implements RecoveryUseCase {
     private readonly tokenReceiver: TokenReceiver,
     private readonly trustedMintProvider: TrustedMintProvider,
     private readonly incomingReviewQueue: IncomingReviewQueue,
+    private readonly tokenCodec: TokenCodec,
     private readonly receiveRequest?: ReceiveRequestSettlement,
   ) {}
 
@@ -189,18 +191,18 @@ export class RecoveryService implements RecoveryUseCase {
             continue
           }
 
-          const preview = directToken.mintUrl && directToken.amount != null
-            ? { mintUrl: directToken.mintUrl, amountSats: directToken.amount }
-            : previewCashuToken(directToken.token)
+          const info = directToken.mintUrl && directToken.amount != null
+            ? { mint: directToken.mintUrl, amount: createAmount(directToken.amount, 'sat'), memo: directToken.memo }
+            : this.tokenCodec.inspectCashuToken(directToken.token)
 
-          if (!(await this.trustedMintProvider.hasTrustedMint(preview.mintUrl))) {
+          if (!(await this.trustedMintProvider.hasTrustedMint(info.mint))) {
             await this.incomingReviewQueue.enqueue({
               externalId: msg.eventId,
               token: {
                 type: 'cashu-token',
                 token: directToken.token,
-                amountSats: preview.amountSats,
-                mintUrl: preview.mintUrl,
+                amount: info.amount,
+                mintUrl: info.mint,
                 memo: directToken.memo,
               },
               queuedAt: Date.now(),

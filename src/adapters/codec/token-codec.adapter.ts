@@ -1,11 +1,13 @@
+import type { CashuRequestTransport, ParsedCashuRequest } from '@/core/domain/input-types'
+import type { CashuTokenInspection, DecodedInvoice, TokenCodec } from '@/core/ports/driven/token-codec.port'
+import type { Unit } from '@/core/domain/amount'
+import { amount as createAmount } from '@/core/domain/amount'
 import {
-  getDecodedToken,
   PaymentRequest as CashuPaymentRequest,
   PaymentRequestTransportType,
 } from '@cashu/cashu-ts'
+import { decode as cborDecode } from 'cbor-x'
 import { decode as decodeBolt11Raw } from 'light-bolt11-decoder'
-import type { TokenCodec, DecodedInvoice, DecodedCashuToken } from '@/core/ports/driven/token-codec.port'
-import type { ParsedCashuRequest, CashuRequestTransport } from '@/core/domain/input-types'
 
 export class TokenCodecAdapter implements TokenCodec {
   // ─── Bolt11 ───
@@ -66,16 +68,35 @@ export class TokenCodecAdapter implements TokenCodec {
     return trimmed.startsWith('cashuA') || trimmed.startsWith('cashuB')
   }
 
-  decodeCashuToken(token: string): DecodedCashuToken {
-    const decoded = getDecodedToken(token)
-    const totalAmount = decoded.proofs.reduce((sum, p) => sum + p.amount, 0)
-    return {
-      amount: totalAmount,
-      mint: decoded.mint,
-      memo: decoded.memo,
+  /**
+   * 토큰 인코딩을 파싱하여 수신 전 정보를 추출.
+   * mint keysets 검증 안 함 — receive 전 사전 확인용.
+   */
+  inspectCashuToken(token: string): CashuTokenInspection {
+    try {
+      const base64 = token.slice(6).replace(/-/g, '+').replace(/_/g, '/')
+      const binary = atob(base64)
+      const raw = Uint8Array.from(binary, c => c.charCodeAt(0))
+      const data = cborDecode(raw)
+      
+      const amountValue = data.t?.reduce(
+        (s: number, entry: any) =>
+          s + entry.p.reduce((a: number, p: any) => a + p.a, 0),
+        0
+      ) ?? 0
+      
+      const unit: Unit = (data.u === 'msat' || data.u === 'usd' || data.u === 'eur') ? data.u : 'sat'
+      
+      return {
+        mint: data.m,
+        amount: createAmount(amountValue, unit),
+        memo: data.d,
+      }
+    } catch (error) {
+      console.error('[TokenCodec] Failed to parse Cashu token:', error)
+      throw new Error('Invalid Cashu token format')
     }
   }
-
   // ─── Bitcoin URI (BIP-21) ───
 
   parseBitcoinUri(uri: string): {

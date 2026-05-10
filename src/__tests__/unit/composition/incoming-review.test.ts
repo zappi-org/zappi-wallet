@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { resolveIncomingReview } from '@/composition/incoming-review'
 import type { PendingIncomingReview } from '@/core/types'
+import { amount } from '@/core/domain/amount'
 
 function createReview(overrides: Partial<PendingIncomingReview> = {}): PendingIncomingReview {
   return {
@@ -13,7 +14,7 @@ function createReview(overrides: Partial<PendingIncomingReview> = {}): PendingIn
     token: {
       type: 'cashu-token',
       token: 'cashuA...',
-      amountSats: 100,
+      amount: amount(100, 'sat'),
       mintUrl: 'https://mint.test',
     },
     ...overrides,

@@ -3,12 +3,7 @@ import type {
   ValidatedData,
   ParsedCashuRequest,
 } from '@/core/domain/input-types'
-
-export interface DecodedCashuToken {
-  amount: number
-  mint: string
-  memo?: string
-}
+import type { CashuTokenInspection } from '@/core/ports/driven/token-codec.port'
 
 export interface InputParserUseCase {
   /** Synchronous local detection: bolt11, cashu token, bitcoin URI, lightning address, lnurl, amount */
@@ -18,7 +13,7 @@ export interface InputParserUseCase {
   validateAsync(input: InputType): Promise<ValidatedData>
 
   /** Decode a Cashu token (wraps SDK) */
-  decodeCashuToken(token: string): DecodedCashuToken
+  inspectCashuToken(token: string): CashuTokenInspection
 
   /** Format-level checks (no network) */
   isBolt11(input: string): boolean
