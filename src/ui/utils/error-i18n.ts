@@ -1,3 +1,5 @@
+import { BaseError } from '@/core/errors/base'
+
 /**
  * Error → i18n key + params resolver
  *
@@ -22,9 +24,22 @@ function codeToCamelCase(code: string): string {
  * t(result.key, result.params) 으로 사용.
  */
 export function getErrorI18n(error: unknown): ErrorI18n {
-  if (error && typeof error === 'object' && 'code' in error) {
+  // 1. BaseError 인스턴스 체크 (도메인 에러)
+  if (error instanceof BaseError) {
+    const override = resolveOverride(error)
+    if (override) return override
+    return { key: `errors.${codeToCamelCase(error.code)}` }
+  }
+
+  // 2. code 속성이 있는 객체 체크 (SDK 에러, Result 에러 등)
+  if (error && typeof error === 'object') {
     const err = error as Record<string, unknown>
     const code = err.code
+
+    // Direct TokenSpentError check (instance 가 아닌 plain object)
+    if (code === 'TOKEN_SPENT') {
+      return { key: 'errors.tokenSpent' }
+    }
 
     if (typeof code === 'string' && code !== 'UNKNOWN') {
       // 에러별 키/파라미터 오버라이드 우선
@@ -35,7 +50,7 @@ export function getErrorI18n(error: unknown): ErrorI18n {
     }
   }
 
-  // String pattern matching fallback (raw SDK errors)
+  // 3. String pattern matching fallback (raw SDK errors)
   const msg = (error instanceof Error ? error.message : String(error)).toLowerCase()
 
   if (
@@ -45,7 +60,7 @@ export function getErrorI18n(error: unknown): ErrorI18n {
     return { key: 'receive.tokenReceiveFeeTooHigh' }
   }
   if (msg.includes('not enough proofs') || msg.includes('insufficient')) return { key: 'errors.insufficientBalance', params: { required: '?', available: '?' } }
-  if (msg.includes('already spent') || msg.includes('token spent')) return { key: 'errors.tokenSpent' }
+  if (msg.includes('already spent') || msg.includes('token spent') || msg.includes('proof spent')) return { key: 'errors.tokenSpent' }
   if (msg.includes('timeout') || msg.includes('timed out')) return { key: 'errors.timeoutError' }
   if (msg.includes('expired')) return { key: 'errors.quoteExpired' }
   if (msg.includes('not trusted') || msg.includes('unknown mint')) return { key: 'errors.mintConnection', params: { mint: '' } }
@@ -60,13 +75,14 @@ export function getErrorI18n(error: unknown): ErrorI18n {
  * BaseError 서브클래스에서 i18n 키 오버라이드 + 보간용 파라미터 추출.
  * 에러 코드별로 더 적절한 키나 파라미터를 반환.
  */
-function resolveOverride(err: Record<string, unknown>): ErrorI18n | undefined {
+function resolveOverride(err: Record<string, unknown> | BaseError): ErrorI18n | undefined {
   const code = err.code as string
 
   if (code === 'INSUFFICIENT_BALANCE') {
-    const required = err.required as number | undefined
-    const available = err.available as number | undefined
-    const fee = err.fee as number | undefined
+    const obj = err as Record<string, unknown>
+    const required = obj.required as number | undefined
+    const available = obj.available as number | undefined
+    const fee = obj.fee as number | undefined
 
     // 금액 정보 없으면 단순 메시지
     if (!required && !available) {
@@ -82,7 +98,8 @@ function resolveOverride(err: Record<string, unknown>): ErrorI18n | undefined {
   }
 
   if (code === 'MINT_CONNECTION' || code === 'MINT_UNREACHABLE') {
-    return { key: 'errors.mintConnection', params: { mint: (err.mintUrl as string) ?? '' } }
+    const obj = err as Record<string, unknown>
+    return { key: 'errors.mintConnection', params: { mint: (obj.mintUrl as string) ?? '' } }
   }
 
   if (code === 'REDEEM_FEE_TOO_HIGH') {

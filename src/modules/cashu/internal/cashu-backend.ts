@@ -6,12 +6,12 @@
  * Cashu/Coco SDK access is isolated here behind module-level backend functions.
  */
 
-import { getCocoManager, getPendingMintQuotes } from './coco-sdk';
-import { classifyCashuError } from './classify-error';
-import { normalizeMintUrl } from 'coco-cashu-core';
 import type { PendingQuote } from '@/core/domain/quote';
 import { InsufficientBalanceError, RedeemFeeTooHighError } from '@/core/errors/payment.errors';
 import type { ProofStateResult } from '@/core/ports/driven/send-token-operator.port';
+import { normalizeMintUrl } from 'coco-cashu-core';
+import { classifyCashuError } from './classify-error';
+import { getCocoManager, getPendingMintQuotes } from './coco-sdk';
 
 // ─── Types ───
 
@@ -284,9 +284,14 @@ export async function receiveToken(
 
   try {
     return await withMintTrustedForOperation(manager, decoded.mint, options, async () => {
+      // addMint 이 내부에서 ensureUpdatedMint 호출 — keyset 갱신
+      console.log('[receiveToken] addMint:', decoded.mint)
+      await manager.mint.addMint(decoded.mint);
+      console.log('[receiveToken] keysets updated')
+
       const prepared = await manager.ops.receive.prepare({ token });
 
-      // SDK가 계산한 fee와 gross amount을 활용해 실제 수신 금액을 결정한다.
+      // SDK 가 계산한 fee 와 gross amount 을 활용해 실제 수신 금액을 결정한다.
       const fee = prepared.fee;
       const netAmount = prepared.amount - fee;
       if (netAmount <= 0) {
@@ -299,6 +304,11 @@ export async function receiveToken(
       return { amount: netAmount, fee, unit, mintUrl: decoded.mint };
     });
   } catch (error) {
+    console.error('[receiveToken] error:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error),
+      code: (error as any)?.code,
+    })
     throw classifyCashuError(error);
   }
 }
@@ -320,6 +330,11 @@ export async function estimateReceiveFee(
 
   try {
     return await withMintTrustedForOperation(manager, decoded.mint, options, async () => {
+      // addMint 이 내부에서 ensureUpdatedMint 호출 — keyset 갱신
+      console.log('[estimateReceiveFee] addMint:', decoded.mint)
+      await manager.mint.addMint(decoded.mint);
+      console.log('[estimateReceiveFee] keysets updated')
+
       const prepared = await manager.ops.receive.prepare({ token });
 
       // 실행하지 않고 취소하여 잔액 변동 없이 수수료만 확인한다.
@@ -336,6 +351,11 @@ export async function estimateReceiveFee(
       return { grossAmount, fee, netAmount, unit, mintUrl: decoded.mint };
     });
   } catch (error) {
+    console.error('[estimateReceiveFee] error:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error),
+      code: (error as any)?.code,
+    })
     throw classifyCashuError(error);
   }
 }
