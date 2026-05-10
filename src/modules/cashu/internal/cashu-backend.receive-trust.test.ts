@@ -29,10 +29,11 @@ vi.mock('./coco-sdk', () => ({
   getPendingMintQuotes: vi.fn(),
 }))
 
-vi.mock('@cashu/cashu-ts', () => ({
-  getDecodedToken: mocks.getDecodedToken,
-  getEncodedToken: vi.fn(),
-}))
+vi.mock('@cashu/cashu-ts', () => ({}))
+vi.mock('coco-cashu-core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('coco-cashu-core')>()
+  return { ...actual, getDecodedToken: mocks.getDecodedToken }
+})
 
 import { addMint, estimateReceiveFee, receiveToken } from './cashu-backend'
 

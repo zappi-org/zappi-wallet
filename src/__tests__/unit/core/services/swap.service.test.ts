@@ -242,7 +242,7 @@ describe('SwapService', () => {
 
       expect(result.ok).toBe(false)
       if (result.ok) return
-      expect(result.error.code).toBe('SWAP_FAILED')
+      expect(result.error.code).toBe('UNKNOWN')
 
       expect(eventBus.emit).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'swap:failed' }),
@@ -270,7 +270,7 @@ describe('SwapService', () => {
       expect(result.ok).toBe(false)
       if (result.ok) return
 
-      expect(result.error.code).toBe('SWAP_FAILED')
+      expect(result.error.code).toBe('UNKNOWN')
       expect(result.error.message).toBe('prepare failed (cleanup failed: cleanup failed)')
       expect(quoteMarker.mark).toHaveBeenCalledWith('quote-1')
       expect(quoteMarker.abandon).toHaveBeenCalledWith('https://mint-b.test', 'quote-1')
@@ -434,7 +434,7 @@ describe('SwapService', () => {
       if (result.ok) return
 
       expect(result.error.code).toBe('INSUFFICIENT_BALANCE')
-      expect(result.error.message).toBe('Balance too low to cover swap fees (cleanup failed: cleanup failed)')
+      expect(result.error.message).toBe('Insufficient balance for fee: required 0 + fee 100, available 0')
       expect(quoteMarker.abandon).toHaveBeenCalledWith('https://mint-b.test', 'quote-1')
       expect(quoteMarker.unmark).toHaveBeenCalledWith('quote-1')
       expect(drainAdapter.executeSend).not.toHaveBeenCalled()
@@ -469,7 +469,7 @@ describe('SwapService', () => {
       expect(result.ok).toBe(false)
       if (result.ok) return
 
-      expect(result.error.code).toBe('SWAP_FAILED')
+      expect(result.error.code).toBe('UNKNOWN')
       expect(result.error.message).toBe('cleanup failed')
       expect(drainAdapter.cancelPrepared).toHaveBeenCalledWith('melt-1')
       expect(quoteMarker.mark).toHaveBeenCalledTimes(1)
@@ -521,7 +521,7 @@ describe('SwapService', () => {
       expect(result.ok).toBe(false)
       if (result.ok) return
 
-      expect(result.error.code).toBe('SWAP_FAILED')
+      expect(result.error.code).toBe('UNKNOWN')
       expect(result.error.message).toBe('prepare second failed')
       expect(quoteMarker.abandon).toHaveBeenNthCalledWith(1, 'https://mint-b.test', 'quote-1')
       expect(quoteMarker.abandon).toHaveBeenNthCalledWith(2, 'https://mint-b.test', 'quote-2')

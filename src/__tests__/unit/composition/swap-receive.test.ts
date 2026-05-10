@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Ok, Err } from '@/core/domain/result'
 import { sat } from '@/core/domain/amount'
+import { NetworkError, UnknownError } from '@/core/errors/base'
 import { executeSwapReceive, type SwapReceiveDependencies } from '@/composition/swap-receive'
 
 function createDependencies(): SwapReceiveDependencies {
@@ -76,10 +77,7 @@ describe('executeSwapReceive', () => {
   })
 
   it('does not redeem when preflight swap estimation fails', async () => {
-    vi.mocked(deps.swap.estimateSwap).mockResolvedValue(Err({
-      code: 'NETWORK_ERROR',
-      message: 'mint unavailable',
-    }))
+    vi.mocked(deps.swap.estimateSwap).mockResolvedValue(Err(new NetworkError('mint unavailable')))
 
     const result = await executeSwapReceive(deps, {
       token: 'cashuA...',
@@ -329,10 +327,7 @@ describe('executeSwapReceive', () => {
       sourceAmount: sat(100),
       targetAmount: sat(100),
     }))
-    vi.mocked(deps.swap.executeSwap).mockResolvedValue(Err({
-      code: 'SWAP_FAILED',
-      message: 'melt failed',
-    }))
+    vi.mocked(deps.swap.executeSwap).mockResolvedValue(Err(new UnknownError('melt failed')))
 
     const result = await executeSwapReceive(deps, {
       token: 'cashuA...',
@@ -346,10 +341,7 @@ describe('executeSwapReceive', () => {
       amount: 100,
       sourceMintUrl: 'https://source.mint',
       targetMintUrl: 'https://target.mint',
-      error: {
-        code: 'SWAP_FAILED',
-        message: 'melt failed',
-      },
+      error: expect.objectContaining({ code: 'UNKNOWN', message: 'melt failed' }),
     })
   })
 
@@ -371,10 +363,7 @@ describe('executeSwapReceive', () => {
         sourceAmount: sat(100),
         targetAmount: sat(100),
       }))
-      .mockResolvedValueOnce(Err({
-        code: 'NETWORK_ERROR',
-        message: 'quote failed',
-      }))
+      .mockResolvedValueOnce(Err(new NetworkError('quote failed')))
 
     const result = await executeSwapReceive(deps, {
       token: 'cashuA...',
@@ -388,10 +377,7 @@ describe('executeSwapReceive', () => {
       amount: 100,
       sourceMintUrl: 'https://source.mint',
       targetMintUrl: 'https://target.mint',
-      error: {
-        code: 'SWAP_ESTIMATE_FAILED',
-        message: 'quote failed',
-      },
+      error: expect.objectContaining({ code: 'SWAP_ESTIMATE_FAILED', message: 'quote failed' }),
     })
     expect(deps.swap.executeSwap).not.toHaveBeenCalled()
   })
