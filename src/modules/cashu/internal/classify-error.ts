@@ -6,35 +6,35 @@
  * 이 함수는 모듈 레이어에 위치한다.
  */
 import { BaseError } from '@/core/errors/base'
-import { InsufficientBalanceError, RedeemFeeTooHighError } from '@/core/errors/payment.errors'
 import {
-  TokenSpentError,
+  InvalidProofError,
+  InvalidTokenError,
+  KeysetSyncError,
   MintConnectionError,
   MintError,
-  InvalidTokenError,
-  InvalidProofError,
-  QuoteNotFoundError,
   QuoteExpiredError,
-  KeysetSyncError,
+  QuoteNotFoundError,
+  TokenSpentError,
 } from '@/core/errors/cashu'
 import {
-  LightningRoutingError,
-  LightningPaymentError,
   InvalidInvoiceError,
   InvoiceExpiredError,
+  LightningPaymentError,
+  LightningRoutingError,
 } from '@/core/errors/lightning'
+import { InsufficientBalanceError, RedeemFeeTooHighError } from '@/core/errors/payment.errors'
 import {
+  KeysetSyncError as CocoKeysetSyncError,
   NetworkError as CocoNetworkError,
+  HttpResponseError,
   MintFetchError,
   MintOperationError,
-  ProofOperationError,
-  PaymentRequestError,
-  HttpResponseError,
   OperationInProgressError,
-  UnknownMintError,
+  PaymentRequestError,
+  ProofOperationError,
   ProofValidationError,
   TokenValidationError,
-  KeysetSyncError as CocoKeysetSyncError,
+  UnknownMintError,
 } from 'coco-cashu-core'
 
 /**
@@ -154,6 +154,10 @@ export function classifyCashuError(error: unknown): BaseError {
   }
 
   if (error instanceof ProofValidationError) {
+    const proofMsg = error.message.toLowerCase()
+    if(isRedeemFeeTooHighMessage(proofMsg)) {
+      return new RedeemFeeTooHighError(error.message, error)
+    }
     return new InvalidProofError(error.message, error)
   }
 

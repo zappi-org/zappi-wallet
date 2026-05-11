@@ -9,7 +9,7 @@
 import type { PendingQuote } from '@/core/domain/quote';
 import { InsufficientBalanceError, RedeemFeeTooHighError } from '@/core/errors/payment.errors';
 import type { ProofStateResult } from '@/core/ports/driven/send-token-operator.port';
-import { normalizeMintUrl, getDecodedToken } from 'coco-cashu-core';
+import { getDecodedToken, normalizeMintUrl, ProofValidationError } from 'coco-cashu-core';
 import { classifyCashuError } from './classify-error';
 import { getCocoManager, getPendingMintQuotes } from './coco-sdk';
 
@@ -142,14 +142,6 @@ async function restoreUntrustedMintState(
     .find((mint) => normalizeMintUrl(mint.mintUrl) === mintUrl);
   if (restored?.trusted) {
     throw new Error(`Failed to restore untrusted mint state for ${mintUrl}: mint is still trusted`);
-  }
-}
-
-async function cancelReceiveFeeEstimate(operationId: string, cancel: () => Promise<void>): Promise<void> {
-  try {
-    await cancel();
-  } catch (error) {
-    throw new Error(`Failed to cancel receive fee estimate operation ${operationId}: ${errorMessage(error)}`);
   }
 }
 
@@ -317,24 +309,21 @@ export async function estimateReceiveFee(
   const decoded = getDecodedToken(token);
 
   try {
-    return await withMintTrustedForOperation(manager, decoded.mint, options, async () => {
+    return await withMintTrustedForOperation(manager,decoded.mint, options, async() => {
       await manager.mint.addMint(decoded.mint);
 
-      const prepared = await manager.ops.receive.prepare({ token });
+      //1.prepare: token decode -> calc fee -> preparedOp
+      const preparedOp = await manager.ops.receive.prepare({token});
+      
+      //2. check fee
+      const {amount: grossAmount, fee, mintUrl } = preparedOp;
 
-      // 실행하지 않고 취소하여 잔액 변동 없이 수수료만 확인한다.
-      await cancelReceiveFeeEstimate(prepared.id, () => manager.ops.receive.cancel(prepared.id));
-
-      const grossAmount = prepared.amount;
-      const fee = prepared.fee;
-      const unit = resolveUnit(decoded.mint);
-      const netAmount = grossAmount - fee;
-      if (netAmount <= 0) {
-        throw new RedeemFeeTooHighError();
-      }
-
-      return { grossAmount, fee, netAmount, unit, mintUrl: decoded.mint };
-    });
+      //3. cancle Opeartion
+      await manager.ops.receive.cancel(preparedOp.id);
+      const netAmount=grossAmount - fee;
+      const unit = resolveUnit(mintUrl);
+      return {grossAmount, fee, netAmount, unit, mintUrl}
+    })
   } catch (error) {
     throw classifyCashuError(error);
   }

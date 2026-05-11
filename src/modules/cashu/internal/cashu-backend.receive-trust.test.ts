@@ -74,7 +74,7 @@ describe('cashu-backend receive mint trust scope', () => {
 
     await expect(estimateReceiveFee('cashuA...', { trustedMintUrls: ['https://target.mint'] }))
       .rejects
-      .toThrow('Failed to cancel receive fee estimate operation receive-op-1: cancel failed')
+      .toMatchObject({ code: 'MINT_ERROR' })
 
     expect(mocks.manager.mint.addMint).toHaveBeenCalledWith('https://source.mint', { trusted: false })
     expect(mocks.manager.mint.trustMint).toHaveBeenCalledWith('https://source.mint')
@@ -128,14 +128,17 @@ describe('cashu-backend receive mint trust scope', () => {
     expect(mocks.manager.mint.untrustMint).toHaveBeenCalledWith('https://source.mint')
   })
 
-  it('rejects zero-net fee estimates after cancelling the prepared receive operation', async () => {
-    mocks.manager.ops.receive.prepare.mockResolvedValue({ id: 'receive-op-1', amount: 1, fee: 1 })
+  it('rejects zero-net fee estimates via SDK ProofValidationError classification', async () => {
+    const { ProofValidationError } = await import('coco-cashu-core')
+    mocks.manager.ops.receive.prepare.mockRejectedValue(
+      new ProofValidationError('Receive amount is not sufficient after fees'),
+    )
 
     await expect(estimateReceiveFee('cashuA...', { trustedMintUrls: ['https://target.mint'] }))
       .rejects
       .toMatchObject({ code: 'REDEEM_FEE_TOO_HIGH' })
 
-    expect(mocks.manager.ops.receive.cancel).toHaveBeenCalledWith('receive-op-1')
+    expect(mocks.manager.ops.receive.cancel).not.toHaveBeenCalled()
     expect(mocks.manager.mint.untrustMint).toHaveBeenCalledWith('https://source.mint')
   })
 
