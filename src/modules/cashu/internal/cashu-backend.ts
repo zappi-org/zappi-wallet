@@ -9,7 +9,7 @@
 import type { PendingQuote } from '@/core/domain/quote';
 import { InsufficientBalanceError, RedeemFeeTooHighError } from '@/core/errors/payment.errors';
 import type { ProofStateResult } from '@/core/ports/driven/send-token-operator.port';
-import { getDecodedToken, normalizeMintUrl, ProofValidationError } from 'coco-cashu-core';
+import { getDecodedToken, normalizeMintUrl } from 'coco-cashu-core';
 import { classifyCashuError } from './classify-error';
 import { getCocoManager, getPendingMintQuotes } from './coco-sdk';
 
@@ -312,17 +312,17 @@ export async function estimateReceiveFee(
     return await withMintTrustedForOperation(manager,decoded.mint, options, async() => {
       await manager.mint.addMint(decoded.mint);
 
-      //1.prepare: token decode -> calc fee -> preparedOp
+      // //1.prepare: token decode -> calc fee -> preparedOp
       const preparedOp = await manager.ops.receive.prepare({token});
       
-      //2. check fee
-      const {amount: grossAmount, fee, mintUrl } = preparedOp;
+      // //2. check fee
+      const {amount, fee, mintUrl } = preparedOp;
 
-      //3. cancle Opeartion
+      // //3. cancle Opeartion
       await manager.ops.receive.cancel(preparedOp.id);
-      const netAmount=grossAmount - fee;
-      const unit = resolveUnit(mintUrl);
-      return {grossAmount, fee, netAmount, unit, mintUrl}
+
+      return {grossAmount: amount, fee, netAmount: amount - fee, unit: resolveUnit(mintUrl),mintUrl };
+
     })
   } catch (error) {
     throw classifyCashuError(error);
@@ -364,25 +364,11 @@ export async function checkMintQuote(
   mintUrl: string,
   quoteId: string,
 ): Promise<{ state: string } | null> {
-  const { Wallet, Mint } = await import('@cashu/cashu-ts');
-  const mint = new Mint(mintUrl);
-  const wallet = new Wallet(mint);
-  await wallet.loadMint();
-
-  try {
-    return await wallet.checkMintQuote(quoteId);
-  } catch (error) {
-    const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
-    const quoteMissing =
-      message.includes('quote') &&
-      (message.includes('not found') || message.includes('unknown') || message.includes('404'));
-
-    if (quoteMissing) {
-      return null;
-    }
-
-    throw error;
-  }
+  const manager = await getCocoManager();
+  const op = await manager.ops.mint.getByQuote(mintUrl, quoteId);
+  if (!op) return null;
+  const result = await manager.ops.mint.checkPayment(op.id);
+  return { state: result.observedRemoteState };
 }
 
 // ─── Melt (Lightning 전송) ───
@@ -707,22 +693,29 @@ export function onMintQuotePaid(quoteId: string, handler: () => void): () => voi
 }
 
 export async function getQuoteRecoveryOps() {
+  const manager = await getCocoManager();
   return {
     async checkMintQuote(quoteId: string, mintUrl: string) {
-      const quote = await checkMintQuote(mintUrl, quoteId);
-      if (!quote) {
-        throw new Error(`Mint quote ${quoteId} not found on ${mintUrl}`);
-      }
-      return quote;
+      const op = await manager.ops.mint.getByQuote(mintUrl, quoteId);
+      if (!op) throw new Error(`Mint quote ${quoteId} not found on ${mintUrl}`);
+      const result = await manager.ops.mint.checkPayment(op.id);
+      return { state: result.observedRemoteState };
     },
     async mintAndReceive(quoteId: string, mintUrl: string, amount: number) {
-      const { Wallet, Mint, getEncodedToken } = await import('@cashu/cashu-ts');
-      const mint = new Mint(mintUrl);
-      const wallet = new Wallet(mint);
-      await wallet.loadMint();
-      const proofs = await wallet.mintProofs(amount, quoteId);
-      const token = getEncodedToken({ mint: mintUrl, proofs });
-      await receiveToken(token);
+      const op = await manager.ops.mint.importQuote({
+        mintUrl,
+        quote: {
+          quote: quoteId,
+          request: '',
+          unit: resolveUnit(mintUrl),
+          amount,
+          state: 'PAID',
+          expiry: 0,
+        },
+        method: 'bolt11',
+        methodData: {},
+      });
+      await manager.ops.mint.execute(op);
     },
   };
 }
