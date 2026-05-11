@@ -7,6 +7,7 @@ import type { TokenReceiver } from '@/core/ports/driven/token-receiver.port'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
 import type { TrustedMintProvider } from '@/core/ports/driven/trusted-mint-provider.port'
 import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-queue.port'
+import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
 
 function encodeBase64Url(value: string): string {
   return btoa(value)
@@ -120,7 +121,7 @@ describe('RecoveryService', () => {
       mocks.tokenReceiver,
       mocks.trustedMintProvider,
       mocks.incomingReviewQueue,
-      {} as any, // tokenCodec mock
+      {} as TokenCodec,
       mocks.receiveRequest,
     )
   })

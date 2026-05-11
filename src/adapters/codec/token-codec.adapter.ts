@@ -9,6 +9,9 @@ import {
 import { decode as cborDecode } from 'cbor-x'
 import { decode as decodeBolt11Raw } from 'light-bolt11-decoder'
 
+interface CborProof { a: number }
+interface CborEntry { p: CborProof[] }
+
 export class TokenCodecAdapter implements TokenCodec {
   // ─── Bolt11 ───
 
@@ -80,8 +83,8 @@ export class TokenCodecAdapter implements TokenCodec {
       const data = cborDecode(raw)
       
       const amountValue = data.t?.reduce(
-        (s: number, entry: any) =>
-          s + entry.p.reduce((a: number, p: any) => a + p.a, 0),
+        (s: number, entry: CborEntry) =>
+          s + entry.p.reduce((a: number, p: CborProof) => a + p.a, 0),
         0
       ) ?? 0
       

@@ -20,7 +20,7 @@ export function useReclaim() {
       broadcastSync('balance_changed')
       return { amount: toNumber(result.value.amount) }
     },
-    [registry?.payment, refreshBalance],
+    [registry, refreshBalance],
   )
   const reclaimToken = useCallback(
     async(txId: string): Promise<void> => {
@@ -46,7 +46,7 @@ export function useReclaim() {
       await refreshBalance()
       broadcastSync('balance_changed')
     },
-    [registry?.transactionMgmt, refreshBalance],
+    [registry, refreshBalance],
   )
   return { reclaim, reclaimToken}
 }

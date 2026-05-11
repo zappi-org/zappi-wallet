@@ -293,7 +293,7 @@ export function SendInputStep({
     }, 500)
 
     return () => clearTimeout(detectTimeoutRef.current)
-  }, [destination, inputParser, t, onNext, onRedirect])
+  }, [destination, inputParser, t, onNext, onRedirect, addToast])
 
   // Cleanup auto-advance timer on unmount
   useEffect(() => () => clearTimeout(autoAdvanceTimerRef.current), [])
@@ -364,7 +364,7 @@ export function SendInputStep({
     }
 
     return true
-  }, [onNext, inputParser, onRouteValidated, applyDestinationState])
+  }, [onNext, inputParser, onRouteValidated, applyDestinationState, addToast, t])
 
   // Handle QR scan
   const handleScan = useCallback((result: string) => {
