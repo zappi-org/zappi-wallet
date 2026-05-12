@@ -57,6 +57,27 @@ export class ReclaimService implements ReclaimUseCase {
             try {
                 await this.sendOp.rollbackSendToken(opId)
             } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error)
+                
+                // Check if already finalized (recipient already claimed)
+                if (errorMessage.includes("state 'finalized'")) {
+                    // Mark as claimed and clean up
+                    await this.txRepo.update(txId, {
+                        status: 'settled',
+                        outcome: 'claimed',
+                        completedAt: Date.now()
+                    })
+                    await this.pendingOps.delete(txId)
+                    
+                    // Emit events for UI update
+                    this.eventBus.emit({
+                        type: 'transactions:changed',
+                        payload: { reason: 'send-claimed', txId },
+                    })
+                    
+                    return Err(new TokenSpentError('Token has already been claimed by recipient'))
+                }
+                
                 const txAgain = await this.txRepo.getById(txId)
                 if (txAgain && isReclaimed(txAgain)) {
                     return Ok({
