@@ -1336,6 +1336,8 @@ export default {
       summaryFee: '受取手数料',
       summaryNet: '受取金額',
       confirm: '取り戻す',
+      success: '正常に取り戻しました',
+      failed: '取り戻しに失敗しました',
     },
     history: {
       section: '履歴',

@@ -1426,6 +1426,8 @@ export default {
       summaryFee: '수취 수수료',
       summaryNet: '받는 금액',
       confirm: '되찾기',
+      success: '성공적으로 되찾았습니다',
+      failed: '되찾기에 실패했습니다',
     },
     history: {
       section: '내역',
