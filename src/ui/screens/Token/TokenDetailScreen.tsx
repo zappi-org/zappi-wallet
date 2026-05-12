@@ -62,6 +62,7 @@ export function TokenDetailScreen({
   onTriggerEasterEgg,
   onDeleteHistory,
 }: TokenDetailScreenProps) {
+  console.log('[TokenDetailScreen] RENDERING', data.id, data.status)
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const addToast = useAppStore((s) => s.addToast)

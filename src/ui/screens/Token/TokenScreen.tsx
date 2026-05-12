@@ -187,28 +187,36 @@ export function TokenScreen({
 
   const handleSelectPending = useCallback(
     (token: MockPendingToken) => {
-      if (!onSelectToken) return
+      console.log('[TokenScreen] handleSelectPending called', token)
+      if (!onSelectToken) {
+        console.log('[TokenScreen] onSelectToken is undefined')
+        return
+      }
       const url = token.mintUrl ?? ''
       const metadata = url ? getMetadata(url) : undefined
       const fiat =
         fiatRate !== null
           ? { amount: satsToFiat(token.amount, fiatRate), currency: fiatCurrency }
           : undefined
-      onSelectToken(
-        pendingToDetail(token, {
-          mintAlias: url ? getDisplayName(url) : undefined,
-          mintName: metadata?.name,
-          mintIconUrl: url ? getIconUrl(url) : undefined,
-          fiat,
-        }),
-      )
+      const detail = pendingToDetail(token, {
+        mintAlias: url ? getDisplayName(url) : undefined,
+        mintName: metadata?.name,
+        mintIconUrl: url ? getIconUrl(url) : undefined,
+        fiat,
+      })
+      console.log('[TokenScreen] Created detail:', detail)
+      onSelectToken(detail)
     },
     [onSelectToken, getDisplayName, getMetadata, getIconUrl, fiatRate, fiatCurrency],
   )
 
   const handleSelectTimeline = useCallback(
     (tx: Transaction) => {
-      if (!onSelectToken) return
+      console.log('[TokenScreen] handleSelectTimeline called', tx)
+      if (!onSelectToken) {
+        console.log('[TokenScreen] onSelectToken is undefined')
+        return
+      }
       const url = tx.accountId
       const metadata = url ? getMetadata(url) : undefined
       const amountSats = Number(tx.amount.value)
@@ -222,6 +230,7 @@ export function TokenScreen({
         mintIconUrl: url ? getIconUrl(url) : undefined,
         fiat,
       })
+      console.log('[TokenScreen] Created detail from tx:', detail)
       if (detail) onSelectToken(detail)
     },
     [onSelectToken, getDisplayName, getMetadata, getIconUrl, fiatRate, fiatCurrency],
