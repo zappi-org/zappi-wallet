@@ -1,12 +1,17 @@
-export interface ReclaimResult {
-    success: boolean
-    alreadySpent?: boolean
-    errorCode?: string
+import type { Result } from '@/core/domain/result'
+import type { BaseError } from '@/core/errors/base'
+
+export interface ReclaimSuccess {
+    amount: { value: number; unit: string }
+    accountId: string
 }
 
-export interface ReclaimUseCase{
-    reclaim(txId: string): Promise<ReclaimResult>
+export interface ReclaimUseCase {
+    /**
+     * Reclaim a pending send transaction.
+     * @returns Ok(ReclaimSuccess) on success, Err(BaseError) on failure
+     */
+    reclaim(txId: string): Promise<Result<ReclaimSuccess, BaseError>>
     finalizeSend(txId: string): Promise<void>
     markSendReclaimed(txId: string): Promise<boolean>
-
 }

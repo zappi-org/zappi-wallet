@@ -1,4 +1,6 @@
 import { sat } from '@/core/domain/amount'
+import { Ok, Err } from '@/core/domain/result'
+import { UnknownError } from '@/core/errors/base'
 import type { ServiceRegistry } from '@/core/ports/driving/service-registry'
 import { ServiceProvider } from '@/ui/hooks/service-context'
 import { useReclaim } from '@/ui/hooks/use-reclaim'
@@ -57,7 +59,10 @@ describe('useReclaim', () => {
   })
 
   it('returns success with amount on successful reclaim', async () => {
-    reclaimMock.mockResolvedValue({ success: true })
+    reclaimMock.mockResolvedValue(Ok({
+      amount: { value: 500, unit: 'sat' },
+      accountId: 'mint-1',
+    }))
     const getByIdMock = vi.fn().mockResolvedValue({
       id: 'tx-1',
       amount: sat(500),
@@ -83,12 +88,41 @@ describe('useReclaim', () => {
     expect(mockBroadcastSync).toHaveBeenCalledWith('balance_changed')
   })
 
-  it('returns alreadySpent result when token already spent', async () => {
-    reclaimMock.mockResolvedValue({ success: false, alreadySpent: true })
+  it('returns error result when service not available', async () => {
+    const { result } = renderHook(() => useReclaim(), {
+      wrapper: ({ children }: { children: ReactNode }) => <ServiceProvider registry={null as unknown as ServiceRegistry}>{children}</ServiceProvider>,
+    })
+
+    const res = await act(() => result.current.reclaim('tx-1'))
+
+    expect(res.success).toBe(false)
+    expect(res.error).toBeDefined()
+    expect(res.error?.code).toBe('SERVICE_NOT_READY')
+  })
+
+  it('returns error result when transaction not found', async () => {
+    const getByIdMock = vi.fn().mockResolvedValue(null)
+    const registry = createMockRegistry(reclaimMock, { getById: getByIdMock })
+
+    const { result } = renderHook(() => useReclaim(), {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <ServiceProvider registry={registry}>{children}</ServiceProvider>
+      ),
+    })
+
+    const res = await act(() => result.current.reclaim('tx-1'))
+
+    expect(res.success).toBe(false)
+    expect(res.error).toBeDefined()
+    expect(res.error?.code).toBe('TRANSACTION_NOT_FOUND')
+  })
+
+  it('returns error result when reclaim fails', async () => {
+    reclaimMock.mockResolvedValue(Err(new UnknownError('Rollback failed')))
     const getByIdMock = vi.fn().mockResolvedValue({
       id: 'tx-1',
-      amount: sat(1000),
       accountId: 'mint-1',
+      amount: sat(1000),
       unit: 'sat',
     })
     const registry = createMockRegistry(reclaimMock, { getById: getByIdMock })
@@ -101,56 +135,9 @@ describe('useReclaim', () => {
 
     const res = await act(() => result.current.reclaim('tx-1'))
 
-    expect(res).toEqual({
-      success: false,
-      alreadySpent: true,
-      errorCode: 'ALREADY_SPENT',
-      amount: { value: 1000, unit: 'sat' },
-      accountId: 'mint-1',
-    })
-  })
-
-  it('throws when service not available', async () => {
-    const { result } = renderHook(() => useReclaim(), {
-      wrapper: ({ children }: { children: ReactNode }) => <ServiceProvider registry={null as unknown as ServiceRegistry}>{children}</ServiceProvider>,
-    })
-
-    await expect(result.current.reclaim('tx-1')).rejects.toThrow('Service not available')
-  })
-
-  it('throws when transaction not found', async () => {
-    const getByIdMock = vi.fn().mockResolvedValue(null)
-    const registry = createMockRegistry(reclaimMock, { getById: getByIdMock })
-
-    const { result } = renderHook(() => useReclaim(), {
-      wrapper: ({ children }: { children: ReactNode }) => (
-        <ServiceProvider registry={registry}>{children}</ServiceProvider>
-      ),
-    })
-
-    await expect(result.current.reclaim('tx-1')).rejects.toThrow('Token reclaim failed')
-  })
-
-  it('returns error result when reclaim fails', async () => {
-    reclaimMock.mockResolvedValue({ success: false, errorCode: 'ROLLBACK_FAILED' })
-    const getByIdMock = vi.fn().mockResolvedValue({
-      id: 'tx-1',
-      accountId: 'mint-1',
-    })
-    const registry = createMockRegistry(reclaimMock, { getById: getByIdMock })
-
-    const { result } = renderHook(() => useReclaim(), {
-      wrapper: ({ children }: { children: ReactNode }) => (
-        <ServiceProvider registry={registry}>{children}</ServiceProvider>
-      ),
-    })
-
-    const res = await act(() => result.current.reclaim('tx-1'))
-
-    expect(res).toEqual({
-      success: false,
-      errorCode: 'ROLLBACK_FAILED',
-      accountId: 'mint-1',
-    })
+    expect(res.success).toBe(false)
+    expect(res.error).toBeDefined()
+    expect(res.error?.code).toBe('UNKNOWN')
+    expect(res.accountId).toBe('mint-1')
   })
 })

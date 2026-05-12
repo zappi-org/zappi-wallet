@@ -1,4 +1,10 @@
 //core/service/reclaim.serivce.ts
+import { Err, Ok } from '@/core/domain/result'
+import type { Result } from '@/core/domain/result'
+import { toNumber } from '@/core/domain/amount'
+import type { BaseError } from '@/core/errors/base'
+import { UnknownError } from '@/core/errors/base'
+import { TokenSpentError } from '@/core/errors/cashu'
 import {
     isClaimedSend
 } from '@/core/domain/transaction';
@@ -8,7 +14,7 @@ import { isReclaimableSend, isReclaimed, settleAsReclaimed } from "../domain/tra
 import type { EventBus } from '../events/event-bus';
 import type { PendingOperationRepository } from "../ports/driven/pending-operation.repository.port";
 import type { TokenReceiver } from "../ports/driven/token-receiver.port";
-import type { ReclaimResult, ReclaimUseCase } from "../ports/driving/reclaim.usecase";
+import type { ReclaimSuccess, ReclaimUseCase } from "../ports/driving/reclaim.usecase";
 
 export class ReclaimService implements ReclaimUseCase {
     constructor (
@@ -19,56 +25,76 @@ export class ReclaimService implements ReclaimUseCase {
         private readonly eventBus: EventBus,
     ) {}
 
-    
-
-    async reclaim(txId: string): Promise<ReclaimResult>{
+    async reclaim(txId: string): Promise<Result<ReclaimSuccess, BaseError>> {
         const tx = await this.txRepo.getById(txId)
 
-        //check domain state
-       if (tx && isReclaimed(tx)) {
-        await this.pendingOps.delete(txId)
-        return {success:true}
-       }
-       // already spent
-       if(tx && isClaimedSend(tx)) {
-        return {success:false, alreadySpent:true}
-       }
+        // Check domain state - already reclaimed
+        if (tx && isReclaimed(tx)) {
+            await this.pendingOps.delete(txId)
+            return Ok({
+                amount: { value: toNumber(tx.amount), unit: tx.amount.unit || 'sat' },
+                accountId: tx.accountId
+            })
+        }
 
-       if(!isReclaimableSend(tx)){
-            return {success:false, errorCode: 'NOT_RECLAIMABLE' }
-       }
+        // Already spent
+        if (tx && isClaimedSend(tx)) {
+            return Err(new TokenSpentError('Token has already been claimed by recipient'))
+        }
 
+        if (!isReclaimableSend(tx)) {
+            return Err(new UnknownError(
+                'Transaction cannot be reclaimed',
+                { txId, status: tx?.status, outcome: tx?.outcome }
+            ))
+        }
 
-       const opId = tx.metadata?.operationId as string | undefined
-       const token = tx.metadata?.token as string | undefined
-       
-       //by opId
-       if(opId) {
-        //coco ops.send.cancel / reclaim
-        try {
-            await this.sendOp.rollbackSendToken(opId)
-        } catch {
-            const txAgain= await this.txRepo.getById(txId)
-            if(txAgain && isReclaimed(txAgain)) {
-                return {success:true }
+        const opId = tx.metadata?.operationId as string | undefined
+        const token = tx.metadata?.token as string | undefined
+
+        // By operationId
+        if (opId) {
+            try {
+                await this.sendOp.rollbackSendToken(opId)
+            } catch (error) {
+                const txAgain = await this.txRepo.getById(txId)
+                if (txAgain && isReclaimed(txAgain)) {
+                    return Ok({
+                        amount: { value: toNumber(tx.amount), unit: tx.amount.unit || 'sat' },
+                        accountId: tx.accountId
+                    })
+                }
+                return Err(new UnknownError(
+                    'Failed to rollback send operation',
+                    error
+                ))
             }
-            return {success: false, errorCode: 'ROLLBACK_FAILED' }
+            // TokenReceiver already made receive TX
+            // Not making companion TX, just update send TX
+            await this.markSendReclaimed(txId)
+            return Ok({
+                amount: { value: toNumber(tx.amount), unit: tx.amount.unit || 'sat' },
+                accountId: tx.accountId
+            })
         }
-        //tokenReceiver is already made receive TX
-        //not making companion TX, just update send TX
-        await this.markSendReclaimed(txId)
-        return {success: true}
-       }
-       //by token 
-       if(token){
-        const result = await this.tokenReceiver.receiveToken(token)
-        if(!result.ok){
-            return { success: false, errorCode: result.error.code }
+
+        // By token
+        if (token) {
+            const result = await this.tokenReceiver.receiveToken(token)
+            if (!result.ok) {
+                return Err(result.error)
+            }
+            await this.markSendReclaimed(txId)
+            return Ok({
+                amount: { value: toNumber(tx.amount), unit: tx.amount.unit || 'sat' },
+                accountId: tx.accountId
+            })
         }
-        await this.markSendReclaimed(txId)
-        return {success : true}
-       }
-       return {success: false, errorCode: 'NO_TOKEN_OR_OPERATION' }
+
+        return Err(new UnknownError(
+            'No operation ID or token found for reclaim',
+            { txId }
+        ))
     }
     async finalizeSend(txId: string): Promise<void> {
         const tx = await this.txRepo.getById(txId)

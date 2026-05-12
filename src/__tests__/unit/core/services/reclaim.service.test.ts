@@ -7,6 +7,7 @@ import type { TokenReceiver } from '@/core/ports/driven/token-receiver.port'
 import type { EventBus } from '@/core/events/event-bus'
 import type { Transaction } from '@/core/domain/transaction'
 import { sat } from '@/core/domain/amount'
+import { TokenSpentError } from '@/core/errors/cashu'
 
 function createMockTxRepo(): TransactionRepository {
   return {
@@ -120,13 +121,15 @@ describe('ReclaimService', () => {
   })
 
   describe('reclaim', () => {
-    it('should return failure when transaction not found', async () => {
+    it('should return error when transaction not found', async () => {
       vi.mocked(txRepo.getById).mockResolvedValue(null)
 
       const result = await service.reclaim('tx1')
 
-      expect(result.success).toBe(false)
-      expect(result.errorCode).toBe('NOT_RECLAIMABLE')
+      expect(!result.ok).toBe(true)
+      if (!result.ok) {
+        expect(result.error.code).toBe('UNKNOWN')
+      }
     })
 
     it('should return success when transaction already reclaimed', async () => {
@@ -134,20 +137,22 @@ describe('ReclaimService', () => {
 
       const result = await service.reclaim('tx1')
 
-      expect(result.success).toBe(true)
+      expect(result.ok).toBe(true)
       expect(pendingOps.delete).toHaveBeenCalledWith('tx1')
     })
 
-    it('should return alreadySpent when transaction already claimed', async () => {
+    it('should return TokenSpentError when transaction already claimed', async () => {
       vi.mocked(txRepo.getById).mockResolvedValue(createClaimedTx())
 
       const result = await service.reclaim('tx1')
 
-      expect(result.success).toBe(false)
-      expect(result.alreadySpent).toBe(true)
+      expect(!result.ok).toBe(true)
+      if (!result.ok) {
+        expect(result.error).toBeInstanceOf(TokenSpentError)
+      }
     })
 
-    it('should return failure for non-send transaction', async () => {
+    it('should return error for non-send transaction', async () => {
       vi.mocked(txRepo.getById).mockResolvedValue({
         ...createUnclaimedSendTx(),
         direction: 'receive',
@@ -155,8 +160,10 @@ describe('ReclaimService', () => {
 
       const result = await service.reclaim('tx1')
 
-      expect(result.success).toBe(false)
-      expect(result.errorCode).toBe('NOT_RECLAIMABLE')
+      expect(!result.ok).toBe(true)
+      if (!result.ok) {
+        expect(result.error.code).toBe('UNKNOWN')
+      }
     })
 
     it('should reclaim by operationId successfully', async () => {
@@ -168,7 +175,7 @@ describe('ReclaimService', () => {
 
       const result = await service.reclaim('tx1')
 
-      expect(result.success).toBe(true)
+      expect(result.ok).toBe(true)
       expect(sendOp.rollbackSendToken).toHaveBeenCalledWith('op1')
       expect(txRepo.update).toHaveBeenCalledWith('tx1', {
         status: 'settled',
@@ -200,11 +207,11 @@ describe('ReclaimService', () => {
 
       const result = await service.reclaim('tx1')
 
-      expect(result.success).toBe(true)
+      expect(result.ok).toBe(true)
       expect(sendOp.rollbackSendToken).toHaveBeenCalledWith('op1')
     })
 
-    it('should return ROLLBACK_FAILED when rollback fails and tx not reclaimed', async () => {
+    it('should return error when rollback fails and tx not reclaimed', async () => {
       const tx = createUnclaimedSendTx('tx1', {
         metadata: { operationId: 'op1' },
       })
@@ -215,8 +222,10 @@ describe('ReclaimService', () => {
 
       const result = await service.reclaim('tx1')
 
-      expect(result.success).toBe(false)
-      expect(result.errorCode).toBe('ROLLBACK_FAILED')
+      expect(!result.ok).toBe(true)
+      if (!result.ok) {
+        expect(result.error.code).toBe('UNKNOWN')
+      }
     })
 
     it('should reclaim by token successfully', async () => {
@@ -231,7 +240,7 @@ describe('ReclaimService', () => {
 
       const result = await service.reclaim('tx1')
 
-      expect(result.success).toBe(true)
+      expect(result.ok).toBe(true)
       expect(tokenReceiver.receiveToken).toHaveBeenCalledWith('cashuAabc123')
       expect(txRepo.update).toHaveBeenCalledWith('tx1', expect.objectContaining({
         status: 'settled',
@@ -251,17 +260,21 @@ describe('ReclaimService', () => {
 
       const result = await service.reclaim('tx1')
 
-      expect(result.success).toBe(false)
-      expect(result.errorCode).toBe('INVALID_TOKEN')
+      expect(!result.ok).toBe(true)
+      if (!result.ok) {
+        expect(result.error.code).toBe('INVALID_TOKEN')
+      }
     })
 
-    it('should return NO_TOKEN_OR_OPERATION when no operationId or token', async () => {
+    it('should return error when no operationId or token', async () => {
       vi.mocked(txRepo.getById).mockResolvedValue(createUnclaimedSendTx())
 
       const result = await service.reclaim('tx1')
 
-      expect(result.success).toBe(false)
-      expect(result.errorCode).toBe('NO_TOKEN_OR_OPERATION')
+      expect(!result.ok).toBe(true)
+      if (!result.ok) {
+        expect(result.error.code).toBe('UNKNOWN')
+      }
     })
   })
 

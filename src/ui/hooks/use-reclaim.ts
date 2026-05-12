@@ -1,71 +1,83 @@
 import { toNumber } from '@/core/domain/amount'
-// import type { ReclaimedTokenResult } from '@/core/ports/driven/send-token-operator.port'
-import type { ReclaimResult } from '@/core/ports/driving/reclaim.usecase'
+import type { ReclaimSuccess } from '@/core/ports/driving/reclaim.usecase'
+import type { BaseError } from '@/core/errors/base'
 import { ServiceContext } from '@/ui/hooks/service-context-value'
 import { useWallet } from '@/ui/hooks/use-wallet'
 import { broadcastSync } from '@/utils/cross-tab-sync'
 import { useCallback, useContext } from 'react'
 
-interface ReclaimHookResult extends ReclaimResult {
-  amount?:{
-    value:number,
+export interface ReclaimHookResult {
+  success: boolean
+  amount?: {
+    value: number
     unit: string
   }
   accountId?: string
+  error?: BaseError
 }
+
 export function useReclaim() {
   const registry = useContext(ServiceContext)
   const { refreshBalance } = useWallet()
 
   const reclaim = useCallback(
-    async (txId: string): Promise< ReclaimHookResult > => {
-      if(!registry?.reclaim?.reclaim) {
-         console.error('[useReclaim] registry:', registry)
-          console.error('[useReclaim] registry?.reclaim:', registry?.reclaim)
-          // use-reclaim.ts에서 registry 전체 구조 확인
-        console.error('[useReclaim] registry keys:', Object.keys(registry || {}))
-        console.error('[useReclaim] has reclaim:', 'reclaim' in (registry || {}))
-        throw new Error('Service not available')
+    async (txId: string): Promise<ReclaimHookResult> => {
+      if (!registry?.reclaim?.reclaim) {
+        console.error('[useReclaim] Service not available')
+        return {
+          success: false,
+          error: {
+            code: 'SERVICE_NOT_READY',
+            message: 'Service is not available',
+          } as BaseError,
+        }
       }
 
+      // Get transaction info first for error reporting
       const tx = await registry.transactionMgmt.getById(txId)
-      console.log('[useReclaim] txId:', txId, 'tx:', tx) 
-      if(!tx) throw new Error('Token reclaim failed')
+      console.log('[useReclaim] txId:', txId, 'tx:', tx)
 
-      //서비스 호출
+      if (!tx) {
+        return {
+          success: false,
+          error: {
+            code: 'TRANSACTION_NOT_FOUND',
+            message: `Transaction not found: ${txId}`,
+          } as BaseError,
+        }
+      }
+
+      // Call service
       const result = await registry.reclaim.reclaim(txId)
 
-      if(result.alreadySpent){
+      if (!result.ok) {
+        const error = result.error
+        console.error('[useReclaim] Reclaim failed:', error)
+
+        // Return error with context
         return {
-          success : false,
-          alreadySpent : true,
-          errorCode: 'ALREADY_SPENT',
+          success: false,
+          error,
           amount: {
             value: toNumber(tx.amount),
             unit: tx.amount.unit || 'sat',
           },
-          accountId:tx.accountId
-        }
-      }
-      if(!result.success){
-        return {
-          success:false,
-          errorCode: result.errorCode,
           accountId: tx.accountId,
         }
       }
-      //success
+
+      // Success
+      const successData: ReclaimSuccess = result.value
       broadcastSync('balance_changed')
+
       return {
         success: true,
-        amount: {
-           value: toNumber(tx.amount),
-           unit: tx.amount.unit || 'sat',
-        },
-        accountId : tx.accountId,
+        amount: successData.amount,
+        accountId: successData.accountId,
       }
     },
-    [registry, refreshBalance],
+    [registry, refreshBalance]
   )
-  return {reclaim}
+
+  return { reclaim }
 }
