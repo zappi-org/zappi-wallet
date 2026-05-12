@@ -247,19 +247,19 @@ export function TokenScreen({
   const closeReclaim = useCallback(() => setReclaimTargets(null), [])
   const confirmReclaim = useCallback(
     async (tokens: MockPendingToken[]) => {
-      try {
-        for (const tk of tokens) {
-          const result = await reclaim(tk.id)
-          if (!result.success) {
-            addToast({ type: 'error', message: t('token.reclaim.failed') })
-            return
-          }
+      for (const tk of tokens) {
+        const result = await reclaim(tk.id)
+        if (!result.success) {
+          // Use error from result for better message
+          const errorMessage = result.error 
+            ? translateError(result.error, t)
+            : t('token.reclaim.failed')
+          addToast({ type: 'error', message: errorMessage })
+          return
         }
-        setReclaimTargets(null)
-        addToast({ type: 'success', message: t('token.reclaim.success') })
-      } catch (error) {
-        addToast({ type: 'error', message: translateError(error, t) })
       }
+      setReclaimTargets(null)
+      addToast({ type: 'success', message: t('token.reclaim.success') })
     },
     [reclaim, addToast, t],
   )

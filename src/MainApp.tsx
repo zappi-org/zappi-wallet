@@ -1108,6 +1108,12 @@ export default function MainApp() {
                     if (result.success) {
                       setSelectedTokenDetail(null)
                       handleBack()
+                      addToast({ type: 'success', message: t('token.reclaim.success') })
+                    } else {
+                      const errorMessage = result.error
+                        ? translateError(result.error, t)
+                        : t('token.reclaim.failed')
+                      addToast({ type: 'error', message: errorMessage })
                     }
                   }}
                   onTriggerEasterEgg={() => {
