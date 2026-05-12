@@ -35,10 +35,18 @@ const storeState: {
   addToast: typeof addToastMock
   settings: Record<string, unknown>
   allRates: Record<string, number>
+  balance: { total: number; byMint: Record<string, number> }
+  mints: Array<Record<string, unknown>>
+  isLoadingBalance: boolean
+  activeMintUrl: string | null
 } = {
   addToast: addToastMock,
   settings: { mints: [], fiatCurrency: 'USD', pendingEmptyDismissedAt: null },
   allRates: {},
+  balance: { total: 0, byMint: {} },
+  mints: [],
+  isLoadingBalance: false,
+  activeMintUrl: null,
 }
 vi.mock('@/store', () => ({
   useAppStore: (selector: (s: Record<string, unknown>) => unknown) =>
@@ -150,21 +158,21 @@ describe('TokenScreen', () => {
     storeState.allRates = {}
   })
 
-  it('no pending + no timeline → empty state 만 보여준다', () => {
+  it('no pending + no timeline → shows only empty state', () => {
     renderScreen()
     expect(screen.getByText(/token\.empty\.title/)).toBeInTheDocument()
     expect(screen.queryByText(/token\.reclaimable\.section/)).not.toBeInTheDocument()
     expect(screen.queryByText(/token\.history\.section/)).not.toBeInTheDocument()
   })
 
-  it('pending 실데이터가 있으면 PendingWidget + ReclaimableSection 렌더', () => {
+  it('renders PendingWidget + ReclaimableSection when pending data exists', () => {
     setPending([makeSendTokenItem()])
     renderScreen()
     expect(screen.getByText(/token\.pendingWidget\.title/)).toBeInTheDocument()
     expect(screen.getByText(/token\.reclaimable\.section/)).toBeInTheDocument()
   })
 
-  it('pending 1개 + timeline 없음 → first-create hint 자동 표시', () => {
+  it('auto-shows first-create hint when 1 pending and no timeline', () => {
     setPending([makeSendTokenItem()])
     renderScreen()
     expect(screen.getByText(/token\.firstCreate\.hint/)).toBeInTheDocument()
@@ -172,7 +180,7 @@ describe('TokenScreen', () => {
     expect(screen.queryByText(/token\.firstCreate\.hint/)).not.toBeInTheDocument()
   })
 
-  it('공유 버튼 클릭 시 navigator.share를 호출한다', async () => {
+  it('calls navigator.share when share button clicked', async () => {
     const shareSpy = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'share', {
       value: shareSpy,
@@ -191,7 +199,7 @@ describe('TokenScreen', () => {
     delete (navigator as unknown as { share?: unknown }).share
   })
 
-  it('navigator.share 없으면 clipboard로 폴백하고 토스트를 띄운다', async () => {
+  it('falls back to clipboard and shows toast when navigator.share unavailable', async () => {
     delete (navigator as unknown as { share?: unknown }).share
 
     const writeTextSpy = vi.fn().mockResolvedValue(undefined)
@@ -210,7 +218,7 @@ describe('TokenScreen', () => {
     expect(addToastMock.mock.calls[0][0]).toMatchObject({ type: 'success' })
   })
 
-  it('fiat 표시가 꺼져도 상세 데이터 생성 자체는 유지한다', () => {
+  it('maintains detail data generation even when fiat display is off', () => {
     storeState.settings = {
       mints: [],
       fiatCurrency: 'USD',
@@ -231,14 +239,14 @@ describe('TokenScreen', () => {
   })
 
   describe('PendingEmptyWidget', () => {
-    it('pending 0 + timeline 있음 + dismissedAt null → 위젯 노출', () => {
+    it('shows widget when 0 pending + has timeline + dismissedAt null', () => {
       setTimelineWithSendClaimed(Date.now() - 1000)
       renderScreen()
       expect(screen.getByText(/token\.pendingEmpty\.title/)).toBeInTheDocument()
       expect(screen.getByText(/common\.close/)).toBeInTheDocument()
     })
 
-    it('닫기 클릭 → onSaveSettings({pendingEmptyDismissedAt}) 호출', () => {
+    it('calls onSaveSettings({pendingEmptyDismissedAt}) on close click', () => {
       const before = Date.now()
       setTimelineWithSendClaimed(before - 1000)
       const onSaveSettings = vi.fn().mockResolvedValue(undefined)
@@ -252,7 +260,7 @@ describe('TokenScreen', () => {
       expect(updates.pendingEmptyDismissedAt).toBeGreaterThanOrEqual(before)
     })
 
-    it('dismissedAt 이후 send-claimed 없음 → 위젯 숨김', () => {
+    it('hides widget when no send-claimed after dismissedAt', () => {
       const dismissed = Date.now()
       storeState.settings = {
         mints: [],
@@ -264,7 +272,7 @@ describe('TokenScreen', () => {
       expect(screen.queryByText(/token\.pendingEmpty\.title/)).not.toBeInTheDocument()
     })
 
-    it('dismissedAt 이후 send-claimed 발생 → 위젯 다시 노출', () => {
+    it('shows widget again when send-claimed occurs after dismissedAt', () => {
       const dismissed = Date.now() - 10000
       storeState.settings = {
         mints: [],
@@ -276,7 +284,7 @@ describe('TokenScreen', () => {
       expect(screen.getByText(/token\.pendingEmpty\.title/)).toBeInTheDocument()
     })
 
-    it('completedAt 없는 send-claimed는 트리거에서 제외', () => {
+    it('excludes send-claimed without completedAt from trigger', () => {
       storeState.settings = {
         mints: [],
         fiatCurrency: 'USD',
