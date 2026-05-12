@@ -2,6 +2,7 @@ import type { Transaction } from '@/core/domain/transaction'
 import type { PendingItem } from '@/core/ports/driving/pending-items.usecase'
 import { useAppStore } from '@/store'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
+import { useReclaim } from '@/ui/hooks/use-reclaim'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { useTransactionHistory } from '@/ui/hooks/use-transaction-history'
 import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
@@ -37,8 +38,6 @@ export interface TokenScreenProps {
   scrollRef: RefObject<HTMLDivElement | null>
   /** Open detail screen for a token (pending card or timeline row click). */
   onSelectToken?: (detail: TokenDetailData) => void
-  /** Execute the reclaim operation for the given tokens (awaits real service). */
-  onReclaimTokens?: (tokens: MockPendingToken[]) => Promise<void> | void
   /** Persist a partial settings update (zustand + Dexie). Provided by MainApp. */
   onSaveSettings?: (updates: Record<string, unknown>) => Promise<void>
 }
@@ -46,12 +45,12 @@ export interface TokenScreenProps {
 export function TokenScreen({
   scrollRef,
   onSelectToken,
-  onReclaimTokens,
   onSaveSettings,
 }: TokenScreenProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const addToast = useAppStore((state) => state.addToast)
+  const { reclaim } = useReclaim()
 
   const [hintDismissed, setHintDismissed] = useState(false)
 
@@ -239,15 +238,21 @@ export function TokenScreen({
   const closeReclaim = useCallback(() => setReclaimTargets(null), [])
   const confirmReclaim = useCallback(
     async (tokens: MockPendingToken[]) => {
-      if (!onReclaimTokens) return
       try {
-        await onReclaimTokens(tokens)
+        for (const tk of tokens) {
+          const result = await reclaim(tk.id)
+          if (!result.success) {
+            addToast({ type: 'error', message: t('token.reclaim.failed') })
+            return
+          }
+        }
         setReclaimTargets(null)
+        addToast({ type: 'success', message: t('token.reclaim.success') })
       } catch (error) {
         addToast({ type: 'error', message: translateError(error, t) })
       }
     },
-    [onReclaimTokens, addToast, t],
+    [reclaim, addToast, t],
   )
 
   return (

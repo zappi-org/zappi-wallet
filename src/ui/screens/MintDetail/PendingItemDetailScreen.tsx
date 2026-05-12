@@ -1,18 +1,18 @@
-import { useState, useCallback, useEffect, useMemo } from 'react'
-import { ArrowLeft, Copy, Check, Clock, Loader2, RefreshCw, Download, QrCode } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
-import { useFormatSats, useFormatFiat, getLocaleCode } from '@/utils/format'
+import { useAppStore } from '@/store'
+import { Button } from '@/ui/components/common/Button'
+import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { useMintMetadata } from '@/ui/hooks'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
-import { Button } from '@/ui/components/common/Button'
-import { useAppStore } from '@/store'
-import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import type { PendingItem } from '@/ui/hooks/usePendingItems'
-import { isReceiveRequest, isSendToken, isOfflineToken } from '@/ui/types/pending-item-details'
+import { isOfflineToken, isReceiveRequest, isSendToken } from '@/ui/types/pending-item-details'
+import { getLocaleCode, useFormatFiat, useFormatSats } from '@/utils/format'
+import { ArrowLeft, Check, Clock, Copy, Download, Loader2, QrCode, RefreshCw } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export interface PendingItemDetailCallbacks {
   onRedeemToken?: (tokenStr: string, itemId: string) => Promise<boolean>
-  onReclaimToken?: (itemId: string, operationId?: string, tokenStr?: string) => Promise<{ success: boolean; alreadySpent?: boolean }>
+  onReclaimToken?: (itemId: string) => Promise<{ success: boolean; alreadySpent?: boolean }>
   onCheckQuote?: (mintUrl: string, quoteId: string) => Promise<{ state: string; request?: string } | null>
   onRedeemQuote?: (mintUrl: string, quoteId: string, amount: number) => Promise<void>
   onDeleteItem?: (itemId: string, table: 'pendingReceivedTokens' | 'pendingSendTokens') => Promise<void>
@@ -145,7 +145,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
     if ((!operationId && !tokenStr) || !callbacks?.onReclaimToken) return
     setIsProcessing(true)
     try {
-      const result = await callbacks.onReclaimToken(item.id, operationId, tokenStr)
+      const result = await callbacks.onReclaimToken(item.id)
       if (result.alreadySpent) {
         void callbacks.onPendingItemChanged?.()
         void onItemRemoved?.()

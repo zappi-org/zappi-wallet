@@ -47,6 +47,7 @@ function createMockRegistry(): ServiceRegistry {
     addressResolver: {} as ServiceRegistry['addressResolver'],
     profile: {} as ServiceRegistry['profile'],
     recovery: {} as ServiceRegistry['recovery'],
+    reclaim: {} as ServiceRegistry['reclaim'],
     incomingPayment: {} as ServiceRegistry['incomingPayment'],
     processedStore: {} as ServiceRegistry['processedStore'],
     nostrGateway: {} as ServiceRegistry['nostrGateway'],

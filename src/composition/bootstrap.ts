@@ -8,8 +8,8 @@
  */
 
 // ─── Core ───
-import { createEventBus } from '@/core/events/event-bus'
 import { toNumber } from '@/core/domain/amount'
+import { createEventBus } from '@/core/events/event-bus'
 
 // ─── Store (composition root만 접근) ───
 import { useAppStore } from '@/store'
@@ -19,57 +19,63 @@ import { CashuModule } from '@/modules/cashu/cashu.module'
 import { createCashuBackend } from '@/modules/cashu/create-cashu-backend'
 
 // ─── Adapters ───
-import { DexieTransactionRepository } from '@/adapters/storage/dexie/dexie-transaction.repository'
-import { DexieContactRepository } from '@/adapters/storage/dexie/dexie-contact.repository'
-import { DexiePendingOperationRepository } from '@/adapters/storage/dexie/dexie-pending-operation.repository'
-import { DexieOperationMap } from '@/adapters/storage/dexie/dexie-operation-map'
-import { DexieOfflineTokenStore } from '@/adapters/storage/dexie/dexie-offline-token-store'
+import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
+import { derivePublicKey } from '@/adapters/nostr/internal/nostr-crypto'
 import { NostrGatewayAdapter } from '@/adapters/nostr/nostr-gateway'
 import { NostrPaymentTransport } from '@/adapters/nostr/nostr-payment-transport'
-import { derivePublicKey } from '@/adapters/nostr/internal/nostr-crypto'
+import { DexieContactRepository } from '@/adapters/storage/dexie/dexie-contact.repository'
+import { DexieOfflineTokenStore } from '@/adapters/storage/dexie/dexie-offline-token-store'
+import { DexieOperationMap } from '@/adapters/storage/dexie/dexie-operation-map'
+import { DexiePendingOperationRepository } from '@/adapters/storage/dexie/dexie-pending-operation.repository'
+import { DexieTransactionRepository } from '@/adapters/storage/dexie/dexie-transaction.repository'
 import { FailedIncomingStoreAdapter } from '@/adapters/storage/failed-incoming-store.adapter'
-import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
 
 // ─── Adapters (non-module) ───
 import { DirectLnurlAdapter } from '@/adapters/lnurl/direct-lnurl.adapter'
 import { Nip05ResolverAdapter } from '@/adapters/nip05/nip05-resolver'
-import { DexieSettingsRepository as SettingsRepository } from '@/adapters/storage/dexie/dexie-settings.repository'
 import { DexieProcessedRepository as ProcessedRepository } from '@/adapters/storage/dexie/dexie-processed.repository'
+import { DexieSettingsRepository as SettingsRepository } from '@/adapters/storage/dexie/dexie-settings.repository'
 
 // ─── Legacy services (composition root만 wrap 가능) ───
 import { exchangeRateService } from './exchange-rate'
 import { executeRoute as legacyExecuteRoute } from './routing'
 
 // ─── Coco (composition root만 접근) ───
-import { addMint as trustMintInCoco, deleteCocoData, removeMintFromCoco } from '@/modules/cashu'
-import { clearMintData } from '@/adapters/storage/dexie/schema'
-import { resetWalletCache } from '@/adapters/cache/wallet-cache'
 import { LocalStorageBalanceCache } from '@/adapters/cache/local-storage-balance-cache.adapter'
+import { resetWalletCache } from '@/adapters/cache/wallet-cache'
+import { clearMintData } from '@/adapters/storage/dexie/schema'
+import { deleteCocoData, removeMintFromCoco, addMint as trustMintInCoco } from '@/modules/cashu'
 
 // ─── Phase 6: New Adapters ───
-import { CryptoGatewayAdapter } from '@/adapters/crypto/crypto-gateway.adapter'
 import { TokenCodecAdapter } from '@/adapters/codec/token-codec.adapter'
-import { CashuFeeEstimatorAdapter } from '@/modules/cashu/adapters/cashu-fee-estimator.adapter'
-import { CashuSendTokenOperatorAdapter } from '@/modules/cashu/adapters/cashu-send-token-operator.adapter'
+import { CryptoGatewayAdapter } from '@/adapters/crypto/crypto-gateway.adapter'
 import { MintHealthCheckerAdapter } from '@/adapters/health/mint-health-checker.adapter'
 import { MintMetadataStoreAdapter } from '@/adapters/metadata/mint-metadata-store.adapter'
-import { TrustedMintProviderAdapter } from '@/adapters/runtime/trusted-mint-provider.adapter'
 import { IncomingReviewQueueAdapter } from '@/adapters/runtime/incoming-review-queue.adapter'
+import { TrustedMintProviderAdapter } from '@/adapters/runtime/trusted-mint-provider.adapter'
+import { CashuFeeEstimatorAdapter } from '@/modules/cashu/adapters/cashu-fee-estimator.adapter'
+import { CashuSendTokenOperatorAdapter } from '@/modules/cashu/adapters/cashu-send-token-operator.adapter'
+import { TokenReceiverAdapter } from './token-receiver.adapter'
+
 
 // ─── Phase 6: New Core Services ───
 import { CryptoService } from '@/core/services/crypto.service'
 import { InputParserService } from '@/core/services/input-parser.service'
-import { RoutingService } from '@/core/services/routing.service'
-import { MintMetadataFacadeService } from '@/core/services/mint-metadata-facade.service'
 import { MintHealthFacadeService } from '@/core/services/mint-health-facade.service'
-import { TransactionMgmtService } from '@/core/services/transaction-mgmt.service'
-import { ReceiveRequestFacadeService } from '@/core/services/receive-request-facade.service'
+import { MintMetadataFacadeService } from '@/core/services/mint-metadata-facade.service'
 import { PaymentRequestService } from '@/core/services/payment-request.service'
-import { UsernameService } from '@/core/services/username.service'
+import { ReceiveRequestFacadeService } from '@/core/services/receive-request-facade.service'
+import { ReclaimService } from '@/core/services/reclaim.service'
+import { RoutingService } from '@/core/services/routing.service'
+import { TransactionMgmtService } from '@/core/services/transaction-mgmt.service'
 import { TrustRegistryService } from '@/core/services/trust-registry.service'
-
+import { UsernameService } from '@/core/services/username.service'
 // ─── Phase 6: Metadata + NUT-18 HTTP ───
-import { MintMetadataService, metadataEvents } from '@/modules/cashu/metadata'
+import { startNut18HttpPoller } from '@/adapters/codec/nut18-http-poller'
+import { DexieMintMetadataRepository } from '@/adapters/storage/dexie/dexie-mint-metadata.repository'
+import { DexieReceiveRequestRepository } from '@/adapters/storage/dexie/dexie-receive-request.repository'
+import { ZappiLinkAdapter } from '@/adapters/zappi-link/zappi-link.adapter'
+import { NOSTR_KINDS } from '@/core/constants'
 import {
   enableCashuWatchers,
   getCashuKeyring,
@@ -78,41 +84,38 @@ import {
   recheckCashuPendingMintQuotes,
   resumeCashuSubscriptions,
 } from '@/modules/cashu/cashu-runtime'
-import { DexieMintMetadataRepository } from '@/adapters/storage/dexie/dexie-mint-metadata.repository'
-import { startNut18HttpPoller } from '@/adapters/codec/nut18-http-poller'
-import { ZappiLinkAdapter } from '@/adapters/zappi-link/zappi-link.adapter'
-import { finalizeEvent } from 'nostr-tools'
+import { MintMetadataService, metadataEvents } from '@/modules/cashu/metadata'
 import { hexToBytes } from '@noble/hashes/utils.js'
-import { NOSTR_KINDS } from '@/core/constants'
-import { DexieReceiveRequestRepository } from '@/adapters/storage/dexie/dexie-receive-request.repository'
+import { finalizeEvent } from 'nostr-tools'
 
 // ─── Composition Roots ───
-import { createPaymentService } from './payment'
-import { createBalanceService } from './balance'
-import { createSwapService } from './swap'
-import { createContactService } from './contact'
-import { createInputRouter } from './input-router'
+import { IncomingPaymentService } from '@/core/services/incoming-payment.service'
 import { createAddressResolver } from './address-resolver'
+import { createBalanceService } from './balance'
+import { connectCocoEventBridge } from './coco-event-bridge'
+import { createContactService } from './contact'
+import { connectEventStoreBridge } from './event-store-bridge'
+import { GiftWrapWatcher } from './gift-wrap.watcher'
+import { createInputRouter } from './input-router'
+import { createPaymentService } from './payment'
+import { createPendingItemsService } from './pending-items'
 import { createProfileService } from './profile'
 import { createRecoveryService } from './recovery'
-import { createSupportService } from './support'
-import { IncomingPaymentService } from '@/core/services/incoming-payment.service'
-import { createPendingItemsService } from './pending-items'
-import { connectEventStoreBridge } from './event-store-bridge'
-import { connectCocoEventBridge } from './coco-event-bridge'
-import { GiftWrapWatcher } from './gift-wrap.watcher'
 import { removeMintArtifacts } from './remove-mint'
+import { createSupportService } from './support'
+import { createSwapService } from './swap'
 
 // ─── Types ───
-import type { WalletModule } from '@/core/ports/driven/wallet-module.port'
+import type { RouteContext, RouteExecutionResult, RouteSelection } from '@/core/domain/routing'
+import type { BaseError } from '@/core/errors'
 import type { OperationMap } from '@/core/ports/driven/operation-map.port'
+import type { WalletModule } from '@/core/ports/driven/wallet-module.port'
 import type { ServiceRegistry } from '@/core/ports/driving/service-registry'
+import type { Result } from '@/core/types/result'
+
 
 // ─── Routing types (Phase 6에서 SendFlow 전환 시 제거) ───
-export type { RouteSelection, RouteContext, RouteExecutionResult } from '@/core/domain/routing'
-import type { RouteSelection, RouteContext, RouteExecutionResult } from '@/core/domain/routing'
-import type { Result } from '@/core/types/result'
-import type { BaseError } from '@/core/errors'
+export type { RouteContext, RouteExecutionResult, RouteSelection } from '@/core/domain/routing'
 
 export type RouteResult = Result<RouteExecutionResult, BaseError>
 
@@ -213,6 +216,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
   // 5. Services (via composition roots)
   const payment = createPaymentService(modules, txRepo, eventBus, operationMap)
+  const tokenReceiver = new TokenReceiverAdapter(payment)
   const balance = createBalanceService(modules)
   const swap = createSwapService(modules, txRepo, eventBus)
   const contact = createContactService(contactRepo)
@@ -274,7 +278,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     const { connectSendTokenObserver } = await import('@/composition/send-token-observer')
     connectSendTokenObserver(manager, {
       operationMap,
-      lifecycle: transactionMgmt,
+      lifecycle: reclaim,
     })
 
     // Coco → EventBus bridge
@@ -339,9 +343,9 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const mintHealthChecker = new MintHealthCheckerAdapter()
   const mintHealth = new MintHealthFacadeService(mintHealthChecker)
 
-  const sendTokenOperator = new CashuSendTokenOperatorAdapter(cashuBackend)
-  const transactionMgmt = new TransactionMgmtService(txRepo, sendTokenOperator, pendingOpRepo, eventBus)
-
+  const sendTokenOperator = new CashuSendTokenOperatorAdapter()
+  const reclaim = new ReclaimService(txRepo, sendTokenOperator, tokenReceiver, pendingOpRepo, eventBus)
+  const transactionMgmt = new TransactionMgmtService(txRepo)
   const paymentRequest = new PaymentRequestService(tokenCodec, (opts) => {
     const poller = startNut18HttpPoller({
       endpoint: opts.endpoint,
@@ -393,6 +397,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     mintHealth,
     crypto,
     receiveRequest,
+    reclaim,
     transactionMgmt,
     inputParser,
     paymentRequest,
