@@ -10,7 +10,7 @@ import { InsufficientBalanceError } from '@/core/errors/payment.errors'
 import { ServiceProvider } from '@/ui/hooks/service-context'
 import { useCrossTabSync } from '@/ui/hooks/use-cross-tab-sync'
 import { useGlobalTokenClaimToast } from '@/ui/hooks/use-global-token-claim-toast'
-import { useReclaim } from '@/ui/hooks/use-reclaim'
+
 import { useRedeemToken } from '@/ui/hooks/use-redeem-token'
 import { useSupportNotifications } from '@/ui/hooks/use-support-notifications'
 import { broadcastSync } from '@/utils/cross-tab-sync'
@@ -691,8 +691,6 @@ export default function MainApp() {
     }
   }, [serviceRegistry, refreshBalance])
 
-  const { reclaim } = useReclaim()
-
   // ─── 토큰 생성 전 수수료 견적 ───
   const handleEstimateCreateFee = useCallback(
     async (mintUrl: string, amount: number): Promise<number | null> => {
@@ -1297,7 +1295,21 @@ export default function MainApp() {
           onCreateToken={(amount, mintUrl, memo) =>
             handleCreateEcashToken(amount, mintUrl, { memo })
           }
-          onCancelToken={async (txId) => {await reclaim(txId); }}
+          onCancelToken={async (txId) => {
+            if (!serviceRegistry?.reclaim?.reclaim) {
+              addToast({ type: 'error', message: 'Service initializing, please try again.' })
+              return
+            }
+            const result = await serviceRegistry.reclaim.reclaim(txId)
+            if (result.ok) {
+              addToast({ type: 'success', message: t('token.reclaim.success') })
+            } else {
+              const errorMessage = result.error
+                ? translateError(result.error, t)
+                : t('token.reclaim.failed')
+              addToast({ type: 'error', message: errorMessage })
+            }
+          }}
           onEstimateFee={handleEstimateCreateFee}
           onQuoteReclaim={handleQuoteReclaim}
         />
