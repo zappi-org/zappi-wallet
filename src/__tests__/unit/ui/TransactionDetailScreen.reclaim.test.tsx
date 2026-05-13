@@ -5,7 +5,7 @@ import { sat } from '@/core/domain/amount'
 import TransactionDetailScreen from '@/ui/screens/TransactionDetail/TransactionDetailScreen'
 
 const addToast = vi.fn()
-const reclaimSendToken = vi.fn()
+const reclaimMock = vi.fn()
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -15,15 +15,20 @@ vi.mock('react-i18next', () => ({
 }))
 
 vi.mock('@/store', () => ({
-  useAppStore: (selector: (state: { addToast: typeof addToast }) => unknown) => selector({ addToast }),
+  useAppStore: (selector: (state: { addToast: typeof addToast; balance: { total: number } }) => unknown) => 
+    selector({ addToast, balance: { total: 0 } }),
 }))
 
 vi.mock('@/ui/hooks/use-mint-metadata', () => ({
   useMintMetadata: () => ({ getDisplayName: (url: string) => url }),
 }))
 
+vi.mock('@/ui/hooks/use-reclaim', () => ({
+  useReclaim: () => ({ reclaim: reclaimMock }),
+}))
+
 vi.mock('@/ui/hooks/use-transaction-mgmt', () => ({
-  useTransactionMgmt: () => ({ reclaimSendToken }),
+  useTransactionMgmt: () => ({ getById: vi.fn() }),
 }))
 
 vi.mock('@/utils/format', () => ({
@@ -60,7 +65,7 @@ function makeTokenTx(overrides: Partial<Transaction> = {}): Transaction {
 describe('TransactionDetailScreen token reclaim action', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    reclaimSendToken.mockResolvedValue({ success: true })
+    reclaimMock.mockResolvedValue({ success: true })
   })
 
   it('hides the reclaim action after a successful reclaim', async () => {
@@ -73,7 +78,7 @@ describe('TransactionDetailScreen token reclaim action', () => {
     await waitFor(() => {
       expect(screen.queryByText('txDetail.reclaimAction')).not.toBeInTheDocument()
     })
-    expect(reclaimSendToken).toHaveBeenCalledWith('tx-token', 'op-token', 'cashuAtoken')
+    expect(reclaimMock).toHaveBeenCalledWith('tx-token')
   })
 
   it('does not show the reclaim action for an already reclaimed token send', () => {

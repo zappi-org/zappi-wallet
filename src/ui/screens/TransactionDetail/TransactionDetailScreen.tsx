@@ -1,24 +1,25 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
-import { useTranslation } from 'react-i18next'
+import { toNumber } from '@/core/domain/amount'
+import type { Transaction } from '@/core/domain/transaction'
+import { getDisplayFee, getTotalCost, getTransactionType, getTxMeta } from '@/core/domain/transaction'
+import { useAppStore } from '@/store'
+import { Button } from '@/ui/components/common/Button'
+import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
+import { useReclaim } from '@/ui/hooks/use-reclaim'
+import { useTransactionMgmt } from '@/ui/hooks/use-transaction-mgmt'
+import { formatTransactionFiat, useFormatFiat, useFormatSats } from '@/utils/format'
 import {
-  Copy,
+  ArrowLeft,
   Check,
-  Share2,
-  Undo2,
-  Trash2,
+  Copy,
   Loader2,
   MoreVertical,
   QrCode,
+  Share2,
+  Trash2,
+  Undo2,
 } from 'lucide-react'
-import type { Transaction } from '@/core/domain/transaction'
-import { getTransactionType, getTxMeta, getTotalCost, getDisplayFee } from '@/core/domain/transaction'
-import { toNumber } from '@/core/domain/amount'
-import { useFormatSats, useFormatFiat, formatTransactionFiat } from '@/utils/format'
-import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
-import { useAppStore } from '@/store'
-import { Button } from '@/ui/components/common/Button'
-import { useTransactionMgmt } from '@/ui/hooks/use-transaction-mgmt'
-import { ArrowLeft } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { TokenQrModal } from './TokenQrModal'
 
 export interface TransactionDetailScreenProps {
@@ -32,6 +33,7 @@ export default function TransactionDetailScreen({
   onBack,
   mintUrls = [],
 }: TransactionDetailScreenProps) {
+  const { reclaim } = useReclaim()
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
@@ -106,7 +108,8 @@ export default function TransactionDetailScreen({
     if (!meta.token) return
     setIsReclaiming(true)
     try {
-      const result = await txMgmt.reclaimSendToken(tx.id, meta.operationId, meta.token)
+  
+      const result = await reclaim(tx.id)
 
       if (result.alreadySpent) {
         setTx((prev) => ({ ...prev, status: 'settled' as const, outcome: 'claimed' as const, completedAt: Date.now() }))
@@ -123,7 +126,7 @@ export default function TransactionDetailScreen({
     } finally {
       setIsReclaiming(false)
     }
-  }, [meta.token, meta.operationId, tx.id, addToast, t, txMgmt])
+  }, [meta.token, tx.id, reclaim, addToast, t])
 
   // ─── Share ───
   const handleShare = useCallback(async () => {

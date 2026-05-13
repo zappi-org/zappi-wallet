@@ -32,22 +32,25 @@ export function createPendingItemsService(
         : await db.pendingSendTokens.toArray()
 
       // 2. PaymentService 경로: transactions 테이블에서 unclaimed send 조회
-      const pendingTxs = await db.transactions
-        .where('status').equals('pending')
-        .filter((tx) => {
-          if (tx.direction !== 'send' || tx.tokenState !== 'unspent') return false
-          if (!mintVariants) return true
-          return mintVariants.includes(tx.mintUrl)
-        })
-        .toArray()
+      // 도메인 모델 기준으로 조회 (outcome: 'unclaimed')
+      const allPendingSends = await txRepo.list({
+        status: 'pending',
+        outcome: 'unclaimed',
+        direction: 'send',
+      })
+      
+      // mintVariants 필터링
+      const pendingTxs = mintVariants
+        ? allPendingSends.filter((tx) => mintVariants.some((v) => tx.accountId === v || tx.accountId === v + '/'))
+        : allPendingSends
 
       const txRecords = pendingTxs.map((tx) => ({
         id: tx.id,
-        amount: tx.amount,
-        mintUrl: tx.mintUrl,
+        amount: Number(tx.amount.value),
+        mintUrl: tx.accountId,
         createdAt: tx.createdAt,
-        token: tx.token ?? (tx.metadata?.token as string | undefined),
-        operationId: tx.operationId ?? (tx.metadata?.operationId as string | undefined),
+        token: tx.metadata?.token as string | undefined,
+        operationId: tx.metadata?.operationId as string | undefined,
       }))
 
       // 중복 제거 (같은 id가 양쪽에 있을 수 있음)

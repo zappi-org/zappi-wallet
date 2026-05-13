@@ -115,3 +115,17 @@ export function getTotalCost(tx: Transaction): Amount {
   if (tx.direction === 'send') return add(tx.amount, fee)
   return tx.amount
 }
+
+
+export function isReclaimed(tx: Transaction): boolean{
+  return tx.direction === 'send' && tx.status === 'settled' && tx.outcome === 'reclaimed'
+}
+
+export function isClaimedSend(tx: Transaction): boolean{
+  return tx.direction ==='send' && tx.status ==='settled' && tx.outcome === 'claimed'
+}
+
+export function isReclaimableSend(tx: Transaction | null): tx is Transaction {
+  return tx?.direction === 'send' && tx.status === 'pending' && tx.outcome === 'unclaimed'
+}
+

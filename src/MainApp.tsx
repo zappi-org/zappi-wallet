@@ -9,10 +9,12 @@ import { ServiceNotReadyError } from '@/core/errors/base'
 import { InsufficientBalanceError } from '@/core/errors/payment.errors'
 import { ServiceProvider } from '@/ui/hooks/service-context'
 import { useCrossTabSync } from '@/ui/hooks/use-cross-tab-sync'
-import { useReclaim } from '@/ui/hooks/use-reclaim'
 import { useGlobalTokenClaimToast } from '@/ui/hooks/use-global-token-claim-toast'
-import { useSupportNotifications } from '@/ui/hooks/use-support-notifications'
+
+import { useReclaim } from '@/ui/hooks/use-reclaim'
 import { useRedeemToken } from '@/ui/hooks/use-redeem-token'
+import { useSupportNotifications } from '@/ui/hooks/use-support-notifications'
+import { translateError } from '@/ui/utils/error-i18n'
 import { broadcastSync } from '@/utils/cross-tab-sync'
 // useMintHealth removed — mint health checks done via serviceRegistry directly
 import { useAppStore } from '@/store'
@@ -116,6 +118,7 @@ export default function MainApp() {
   // Hooks
   const { refreshBalance, balance } = useWallet()
   const { isOnline } = useNetwork()
+  const { reclaim } = useReclaim()
   const [isRecovering, setIsRecovering] = useState(false)
 
   // Gift Wrap Watcher — lifecycle managed via serviceRegistry
@@ -691,8 +694,6 @@ export default function MainApp() {
     }
   }, [serviceRegistry, refreshBalance])
 
-  const { reclaim: handleReclaimOwnToken, reclaimToken: handleCancelEcashToken } = useReclaim()
-
   // ─── 토큰 생성 전 수수료 견적 ───
   const handleEstimateCreateFee = useCallback(
     async (mintUrl: string, amount: number): Promise<number | null> => {
@@ -1045,22 +1046,98 @@ export default function MainApp() {
         />
       )}
 
+      {/* Token flow: TokenScreen always rendered as base, TokenDetailScreen overlays with slide animation */}
       {(currentScreen === 'token' || currentScreen === 'token-detail') && (
-        <TokenScreen
-          scrollRef={tokenScrollRef}
-          onSelectToken={(detail) => {
-            setSelectedTokenDetail(detail)
-            setPreviousScreen('token')
-            setCurrentScreen('token-detail')
-          }}
-          onReclaimTokens={async (tokens) => {
-            for (const tk of tokens) {
-              await handleCancelEcashToken(tk.id)
-            }
-            refreshAll().catch(() => {})
-          }}
-          onSaveSettings={handleSaveSettings}
-        />
+        <div className="relative w-full h-full">
+          {/* Base TokenScreen - always visible in token flow */}
+          <TokenScreen
+            scrollRef={tokenScrollRef}
+            onSelectToken={(detail) => {
+              console.log('[MainApp] onSelectToken called', detail)
+              setSelectedTokenDetail(detail)
+              setPreviousScreen('token')
+              setCurrentScreen('token-detail')
+              console.log('[MainApp] setCurrentScreen to token-detail')
+            }}
+            onSaveSettings={handleSaveSettings}
+          />
+
+          {/* TokenDetailScreen - slides in from right as overlay */}
+          <AnimatePresence>
+            {currentScreen === 'token-detail' && selectedTokenDetail && (
+              <motion.div
+                key="token-detail"
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                className="absolute inset-0 z-50"
+              >
+                <TokenDetailScreen
+                  data={selectedTokenDetail}
+                  onClose={() => {
+                    console.log('[MainApp] TokenDetailScreen onClose - resetting')
+                    setSelectedTokenDetail(null)
+                    setCurrentScreen('token')
+                  }}
+                  onShare={async (token) => {
+                    const text = token.tokenString
+                      ? token.tokenString
+                      : t('token.reclaimable.shareText', {
+                          memo: token.memo ?? '',
+                          amount: formatSats(token.amount),
+                        })
+                    try {
+                      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+                        await navigator.share({ text })
+                        return
+                      }
+                      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+                        await navigator.clipboard.writeText(text)
+                        addToast({ type: 'success', message: t('token.reclaimable.copiedToClipboard') })
+                      }
+                    } catch {
+                      /* user cancelled or clipboard blocked — silent */
+                    }
+                  }}
+                  onReclaim={async (token) => {
+                    if (!serviceRegistry?.reclaim) {
+                      addToast({ type: 'error', message: 'Service initializing, please try again.' })
+                      return
+                    }
+                    const result = await reclaim(token.id)
+                    if (result.success) {
+                      setSelectedTokenDetail(null)
+                      handleBack()
+                      addToast({ type: 'success', message: t('token.reclaim.success') })
+                    } else {
+                      const errorMessage = result.error
+                        ? translateError(result.error, t)
+                        : t('token.reclaim.failed')
+                      addToast({ type: 'error', message: errorMessage })
+                    }
+                  }}
+                  onTriggerEasterEgg={() => {
+                    setPreviousScreen('token-detail')
+                    setCurrentScreen('token-easter-egg')
+                  }}
+                  onDeleteHistory={async (token) => {
+                    if (!serviceRegistry?.transactionMgmt) return
+                    try {
+                      await serviceRegistry.transactionMgmt.delete(token.id)
+                      useAppStore.getState().triggerTxRefresh()
+                      addToast({ type: 'success', message: '내역을 삭제했어요' })
+                    } catch (error) {
+                      console.error('[MainApp] Failed to delete tx history:', error)
+                      const msg = error instanceof Error ? error.message : '내역 삭제 실패'
+                      addToast({ type: 'error', message: msg })
+                    }
+                  }}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       )}
 
       {currentScreen === 'token-easter-egg' && (
@@ -1221,7 +1298,21 @@ export default function MainApp() {
           onCreateToken={(amount, mintUrl, memo) =>
             handleCreateEcashToken(amount, mintUrl, { memo })
           }
-          onCancelToken={handleCancelEcashToken}
+          onCancelToken={async (txId) => {
+            if (!serviceRegistry?.reclaim?.reclaim) {
+              addToast({ type: 'error', message: 'Service initializing, please try again.' })
+              return
+            }
+            const result = await serviceRegistry.reclaim.reclaim(txId)
+            if (result.ok) {
+              addToast({ type: 'success', message: t('token.reclaim.success') })
+            } else {
+              const errorMessage = result.error
+                ? translateError(result.error, t)
+                : t('token.reclaim.failed')
+              addToast({ type: 'error', message: errorMessage })
+            }
+          }}
           onEstimateFee={handleEstimateCreateFee}
           onQuoteReclaim={handleQuoteReclaim}
         />
@@ -1247,7 +1338,7 @@ export default function MainApp() {
           onSwapReceive={handleSwapReceive}
           onEstimateRedeemFee={handleEstimateRedeemFee}
           onCheckSelfToken={handleCheckSelfToken}
-          onReclaimOwnToken={handleReclaimOwnToken}
+          onReclaimOwnToken={ async (txId) => {const result= await reclaim(txId);  return {amount: result.amount?.value ?? 0 } }} 
           onRouteValidated={handleRouteValidated}
           initialToken={initialRegisterToken}
           targetMintUrl={activeMintUrl ?? settings.mints[0] ?? undefined}
@@ -1356,8 +1447,9 @@ export default function MainApp() {
               const result = await serviceRegistry.payment.redeem({ input: tokenStr })
               return result.ok
             },
-            onReclaimToken: async (itemId: string, operationId?: string, tokenStr?: string) => {
-              return serviceRegistry.transactionMgmt.reclaimSendToken(itemId, operationId, tokenStr)
+            onReclaimToken: async (itemId: string) => {
+               console.log('[MainApp onReclaimToken] itemId:', itemId)  // 이거
+              return reclaim(itemId)
             },
             onCheckQuote: async (mintUrl: string, quoteId: string) => {
               const { getMintQuote } = await import('@/modules/cashu')
@@ -1378,70 +1470,6 @@ export default function MainApp() {
         </PageTransition>
       </AnimatePresence>
 
-      {/* iOS-style push overlay: token list → detail */}
-      <AnimatePresence>
-        {currentScreen === 'token-detail' && selectedTokenDetail && (
-          <motion.div
-            key="token-detail-push"
-            className="absolute inset-0 z-10 bg-background"
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: 'tween', ease: [0.32, 0.72, 0, 1], duration: 0.35 }}
-          >
-            <Suspense fallback={<LoadingFallback />}>
-              <TokenDetailScreen
-                data={selectedTokenDetail}
-                onClose={() => {
-                  setSelectedTokenDetail(null)
-                  handleBack()
-                }}
-                onShare={async (token) => {
-                  const text = token.tokenString
-                    ? token.tokenString
-                    : t('token.reclaimable.shareText', {
-                        memo: token.memo ?? '',
-                        amount: formatSats(token.amount),
-                      })
-                  try {
-                    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-                      await navigator.share({ text })
-                      return
-                    }
-                    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-                      await navigator.clipboard.writeText(text)
-                      addToast({ type: 'success', message: t('token.reclaimable.copiedToClipboard') })
-                    }
-                  } catch {
-                    /* user cancelled or clipboard blocked — silent */
-                  }
-                }}
-                onReclaim={async (token) => {
-                  await handleCancelEcashToken(token.id)
-                  setSelectedTokenDetail(null)
-                  handleBack()
-                }}
-                onTriggerEasterEgg={() => {
-                  setPreviousScreen('token-detail')
-                  setCurrentScreen('token-easter-egg')
-                }}
-                onDeleteHistory={async (token) => {
-                  if (!serviceRegistry?.transactionMgmt) return
-                  try {
-                    await serviceRegistry.transactionMgmt.delete(token.id)
-                    useAppStore.getState().triggerTxRefresh()
-                    addToast({ type: 'success', message: '내역을 삭제했어요' })
-                  } catch (error) {
-                    console.error('[MainApp] Failed to delete tx history:', error)
-                    const msg = error instanceof Error ? error.message : '내역 삭제 실패'
-                    addToast({ type: 'error', message: msg })
-                  }
-                }}
-              />
-            </Suspense>
-          </motion.div>
-        )}
-      </AnimatePresence>
       </div>
 
       {/* Bottom Navigation — MainTabToolbar / TokenTabToolbar swap */}

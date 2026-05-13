@@ -11,19 +11,18 @@
  * 모든 DB 접근은 주입된 포트를 통해 수행 — 직접 Dexie/legacy repo 접근 없음.
  */
 
-import type { CashuRuntimeManager } from '@/modules/cashu/cashu-runtime'
 import type { OperationMap } from '@/core/ports/driven/operation-map.port'
-
+import type { ReclaimUseCase } from '@/core/ports/driving/reclaim.usecase'
+import type { CashuRuntimeManager } from '@/modules/cashu/cashu-runtime'
 // ─── 의존성 주입 ───
 
 export interface SendTokenLifecycle {
   finalizeSend(txId: string, operationId?: string): Promise<void>
   recordSendReclaimed(txId: string): Promise<boolean>
 }
-
 export interface SendTokenObserverDeps {
   operationMap: OperationMap
-  lifecycle: SendTokenLifecycle
+  lifecycle: ReclaimUseCase
 }
 
 let unsubscribers: (() => void)[] = []
@@ -55,7 +54,7 @@ export function connectSendTokenObserver(manager: CashuRuntimeManager, injected:
     try {
       const txId = await injected.operationMap.resolve(operationId)
       if (!txId) return
-      const updated = await injected.lifecycle.recordSendReclaimed(txId)
+      const updated = await injected.lifecycle.markSendReclaimed(txId)
       if (updated) {
         console.log(`[SendTokenObserver] Rolled back: ${operationId} → tx ${txId}`)
       }

@@ -1433,6 +1433,8 @@ export default {
       summaryFee: 'Receive fee',
       summaryNet: 'You receive',
       confirm: 'Reclaim',
+      success: 'Successfully reclaimed',
+      failed: 'Failed to reclaim',
     },
     history: {
       section: 'History',

@@ -1342,6 +1342,8 @@ export default {
       summaryFee: 'Comisión de recepción',
       summaryNet: 'Recibirás',
       confirm: 'Recuperar',
+      success: 'Recuperado exitosamente',
+      failed: 'Error al recuperar',
     },
     history: {
       section: 'Historial',

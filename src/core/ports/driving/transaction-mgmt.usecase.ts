@@ -1,4 +1,4 @@
-import type { Transaction } from '@/core/domain/transaction'
+import type { Transaction } from '@/core/domain/transaction';
 
 export interface ProofStateResult {
   allSpent: boolean
@@ -10,6 +10,7 @@ export interface ReclaimResult {
   success: boolean
   amount?: number
   alreadySpent?: boolean
+  errorCode?: string
 }
 
 export interface TransactionMgmtUseCase {
@@ -18,17 +19,4 @@ export interface TransactionMgmtUseCase {
   update(id: string, data: Partial<Transaction>): Promise<void>
   delete(id: string): Promise<void>
   create(tx: Transaction): Promise<void>
-
-  /** Reclaim an unclaimed send token (handles both operationId and legacy token paths) */
-  reclaimSendToken(
-    txId: string,
-    operationId?: string,
-    token?: string,
-  ): Promise<ReclaimResult>
-
-  /** Mark a send as finalized (recipient claimed the token) */
-  finalizeSend(txId: string, operationId?: string): Promise<void>
-
-  /** Check proof states for a token (spent/pending/unspent) */
-  checkProofStates(token: string): Promise<ProofStateResult>
 }

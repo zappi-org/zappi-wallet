@@ -1,4 +1,6 @@
 import { sat } from '@/core/domain/amount'
+import { Ok, Err } from '@/core/domain/result'
+import { UnknownError } from '@/core/errors/base'
 import type { ServiceRegistry } from '@/core/ports/driving/service-registry'
 import { ServiceProvider } from '@/ui/hooks/service-context'
 import { useReclaim } from '@/ui/hooks/use-reclaim'
@@ -6,23 +8,19 @@ import { act, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mockRefreshBalance = vi.fn().mockResolvedValue(undefined)
 const mockBroadcastSync = vi.fn()
 
 vi.mock('@/utils/cross-tab-sync', () => ({
   broadcastSync: (...args: unknown[]) => mockBroadcastSync(...args),
 }))
 
-vi.mock('@/ui/hooks/use-wallet', () => ({
-  useWallet: () => ({ refreshBalance: mockRefreshBalance }),
-}))
-
-function createMockRegistry(withReclaim: ReturnType<typeof vi.fn>, txMgmt?: {getById: ReturnType<typeof vi.fn>; reclaimSendToken: ReturnType<typeof vi.fn>}): ServiceRegistry {
+function createMockRegistry(reclaimService: ReturnType<typeof vi.fn>, txMgmt?: { getById: ReturnType<typeof vi.fn> }): ServiceRegistry {
   return {
-    payment: {
-      reclaim: withReclaim,
-    } as unknown as ServiceRegistry['payment'],
-    eventBus: { emit: vi.fn(), on: vi.fn().mockReturnValue(() => {}), off: vi.fn() },
+    payment: {} as unknown as ServiceRegistry['payment'],
+    reclaim: {
+      reclaim: reclaimService,
+    } as unknown as ServiceRegistry['reclaim'],
+    eventBus: { emit: vi.fn(), on: vi.fn().mockReturnValue(() => { }), off: vi.fn() },
     balance: { getTotal: vi.fn(), getByModule: vi.fn() } as unknown as ServiceRegistry['balance'],
     swap: { getAvailableSwaps: vi.fn(), estimateSwap: vi.fn(), executeSwap: vi.fn() } as unknown as ServiceRegistry['swap'],
     contact: { list: vi.fn(), getById: vi.fn(), findByAddress: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() } as unknown as ServiceRegistry['contact'],
@@ -40,12 +38,9 @@ function createMockRegistry(withReclaim: ReturnType<typeof vi.fn>, txMgmt?: {get
     mintHealth: {} as unknown as ServiceRegistry['mintHealth'],
     crypto: {} as unknown as ServiceRegistry['crypto'],
     receiveRequest: {} as unknown as ServiceRegistry['receiveRequest'],
-    
-    transactionMgmt: { 
+    transactionMgmt: {
       getById: txMgmt?.getById ?? vi.fn(),
-      reclaimSendToken: txMgmt?.reclaimSendToken ?? vi.fn(),
     } as unknown as ServiceRegistry['transactionMgmt'],
-
     inputParser: {} as unknown as ServiceRegistry['inputParser'],
     paymentRequest: {} as unknown as ServiceRegistry['paymentRequest'],
     routing: {} as unknown as ServiceRegistry['routing'],
@@ -62,112 +57,89 @@ describe('useReclaim', () => {
 
   beforeEach(() => {
     reclaimMock = vi.fn()
-    mockRefreshBalance.mockClear()
     mockBroadcastSync.mockClear()
   })
 
-  function wrapper({ children }: { children: ReactNode }) {
-    const registry = createMockRegistry(reclaimMock)
-    return <ServiceProvider registry={registry}>{children}</ServiceProvider>
-  }
+  it('returns success with amount on successful reclaim', async () => {
+    reclaimMock.mockResolvedValue(Ok({
+      amount: { value: 500, unit: 'sat' },
+      accountId: 'mint-1',
+    }))
+    const getByIdMock = vi.fn().mockResolvedValue({
+      id: 'tx-1',
+      amount: sat(500),
+      accountId: 'mint-1',
+      unit: 'sat',
+    })
+    const registry = createMockRegistry(reclaimMock, { getById: getByIdMock })
 
-  it('returns reclaimed amount on success', async () => {
-    reclaimMock.mockResolvedValue({ ok: true, value: { amount: sat(500), transactionId: 'tx-1' } })
-
-    const { result } = renderHook(() => useReclaim(), { wrapper })
+    const { result } = renderHook(() => useReclaim(), {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <ServiceProvider registry={registry}>{children}</ServiceProvider>
+      ),
+    })
 
     const res = await act(() => result.current.reclaim('tx-1'))
 
-    expect(res).toEqual({ amount: 500 })
-    expect(reclaimMock).toHaveBeenCalledWith({ transactionId: 'tx-1' })
+    expect(res).toEqual({
+      success: true,
+      amount: { value: 500, unit: 'sat' },
+      accountId: 'mint-1',
+    })
+    expect(reclaimMock).toHaveBeenCalledWith('tx-1')
+    expect(mockBroadcastSync).toHaveBeenCalledWith('balance_changed')
   })
 
-  it('throws when service not available', async () => {
+  it('returns error result when service not available', async () => {
     const { result } = renderHook(() => useReclaim(), {
       wrapper: ({ children }: { children: ReactNode }) => <ServiceProvider registry={null as unknown as ServiceRegistry}>{children}</ServiceProvider>,
     })
 
-    await expect(result.current.reclaim('tx-1')).rejects.toThrow('Service not available')
+    const res = await act(() => result.current.reclaim('tx-1'))
+
+    expect(res.success).toBe(false)
+    expect(res.error).toBeDefined()
+    expect(res.error?.code).toBe('SERVICE_NOT_READY')
   })
 
-  it('throws PaymentError when reclaim fails', async () => {
-    const error = { code: 'TOKEN_SPENT', message: 'Already spent' }
-    reclaimMock.mockResolvedValue({ ok: false, error })
+  it('returns error result when transaction not found', async () => {
+    const getByIdMock = vi.fn().mockResolvedValue(null)
+    const registry = createMockRegistry(reclaimMock, { getById: getByIdMock })
 
-    const { result } = renderHook(() => useReclaim(), { wrapper })
+    const { result } = renderHook(() => useReclaim(), {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <ServiceProvider registry={registry}>{children}</ServiceProvider>
+      ),
+    })
 
-    await expect(result.current.reclaim('tx-1')).rejects.toBe(error)
+    const res = await act(() => result.current.reclaim('tx-1'))
+
+    expect(res.success).toBe(false)
+    expect(res.error).toBeDefined()
+    expect(res.error?.code).toBe('TRANSACTION_NOT_FOUND')
   })
 
-  it('calls refreshBalance and broadcastSync after successful reclaim', async () => {
-    reclaimMock.mockResolvedValue({ ok: true, value: { amount: sat(100), transactionId: 'tx-1' } })
-
-    const { result } = renderHook(() => useReclaim(), { wrapper })
-    await act(() => result.current.reclaim('tx-1'))
-
-    expect(mockRefreshBalance).toHaveBeenCalled()
-    expect(mockBroadcastSync).toHaveBeenCalledWith('balance_changed')
-  })
-  
-  describe('relcaimToken', () => {
-    let getByIdMock: ReturnType<typeof vi.fn>
-    let reclaimSendTokenMock: ReturnType<typeof vi.fn>
-
-    beforeEach(()=> {
-      getByIdMock = vi.fn()
-      reclaimSendTokenMock = vi.fn()
-      mockRefreshBalance.mockClear()
-      mockBroadcastSync.mockClear()
+  it('returns error result when reclaim fails', async () => {
+    reclaimMock.mockResolvedValue(Err(new UnknownError('Rollback failed')))
+    const getByIdMock = vi.fn().mockResolvedValue({
+      id: 'tx-1',
+      accountId: 'mint-1',
+      amount: sat(1000),
+      unit: 'sat',
     })
-    function txWrapper({children }: {children:ReactNode}){
-      const registry= createMockRegistry(reclaimMock, {
-        getById: getByIdMock,
-        reclaimSendToken: reclaimSendTokenMock,
-    })
-    return <ServiceProvider registry={registry}>{children}</ServiceProvider>
-    } 
-    
-    it('reclaims token and refreshes balance', async () => {
-      getByIdMock.mockResolvedValue({
-        id:'tx-1',
-        metadata: {operationId: 'op-1', token: 'cashuBtoken123' },
-      })
-      reclaimSendTokenMock.mockResolvedValue({success:true})
-      
-      const {result} = renderHook(()=> useReclaim(), {wrapper: txWrapper})
-      await act(() => result.current.reclaimToken('tx-1'))
+    const registry = createMockRegistry(reclaimMock, { getById: getByIdMock })
 
-      expect(reclaimSendTokenMock).toHaveBeenCalledWith('tx-1','op-1', 'cashuBtoken123')
-      expect(mockRefreshBalance).toHaveBeenCalled()
-      expect(mockBroadcastSync).toHaveBeenCalledWith('balance_changed')
+    const { result } = renderHook(() => useReclaim(), {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <ServiceProvider registry={registry}>{children}</ServiceProvider>
+      ),
     })
 
-    it('throws when service not available', async () => {
-      const { result } = renderHook(() => useReclaim(), {
-        wrapper: ({ children }) => <ServiceProvider registry={null as unknown as ServiceRegistry}>{children}</ServiceProvider>,
-      })
-      await expect(result.current.reclaimToken('tx-1')).rejects.toThrow('Service not available')
-    })
-    it('throws when transaction not found', async () => {
-      getByIdMock.mockResolvedValue(null)
-      const { result } = renderHook(() => useReclaim(), { wrapper: txWrapper })
-      await expect(result.current.reclaimToken('tx-1')).rejects.toThrow('Token reclaim failed')
-    })
-    it('throws TOKEN_SPENT error when token already spent', async () => {
-      getByIdMock.mockResolvedValue({
-        id: 'tx-1',
-        metadata: { operationId: 'op-1' },
-      })
-      reclaimSendTokenMock.mockResolvedValue({ success: false, alreadySpent: true })
-      const { result } = renderHook(() => useReclaim(), { wrapper: txWrapper })
-      try {
-        await result.current.reclaimToken('tx-1')
-        expect.unreachable('Should have thrown')
-      } catch (error) {
-        expect(error).toBeInstanceOf(Error)
-        expect((error as Error).message).toBe('Token already spent')
-        expect((error as { code?: string }).code).toBe('TOKEN_SPENT')
-      }
-    })
+    const res = await act(() => result.current.reclaim('tx-1'))
+
+    expect(res.success).toBe(false)
+    expect(res.error).toBeDefined()
+    expect(res.error?.code).toBe('UNKNOWN')
+    expect(res.accountId).toBe('mint-1')
   })
 })

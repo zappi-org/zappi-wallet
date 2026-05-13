@@ -52,8 +52,9 @@ export function ReclaimSheet({
       await onConfirm(tokens)
     } finally {
       setBusy(false)
+      onClose()
     }
-  }, [busy, onConfirm, tokens])
+  }, [busy, onConfirm, onClose, tokens])
 
   return (
     <AnimatePresence>

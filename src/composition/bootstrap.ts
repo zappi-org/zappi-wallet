@@ -76,6 +76,7 @@ import { MintMetadataFacadeService } from '@/core/services/mint-metadata-facade.
 import { MintHealthFacadeService } from '@/core/services/mint-health-facade.service'
 import { TransactionMgmtService } from '@/core/services/transaction-mgmt.service'
 import { ReceiveRequestFacadeService } from '@/core/services/receive-request-facade.service'
+import { ReclaimService } from '@/core/services/reclaim.service'
 import { PaymentRequestService } from '@/core/services/payment-request.service'
 import { UsernameService } from '@/core/services/username.service'
 import { TrustRegistryService } from '@/core/services/trust-registry.service'
@@ -119,6 +120,7 @@ import { GiftWrapWatcher } from './gift-wrap.watcher'
 import { removeMintArtifacts } from './remove-mint'
 import { PaymentDelivery } from './payment-delivery'
 import { PaymentRecoveredTokenReceiver } from './recovered-token-receiver'
+import { TokenReceiverAdapter } from './token-receiver.adapter'
 
 // ─── Types ───
 import type { WalletModule } from '@/core/ports/driven/wallet-module.port'
@@ -246,6 +248,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     eventBus,
     operationMap,
   )
+  const tokenReceiver = new TokenReceiverAdapter(payment)
   const balance = createBalanceService(modules)
   const swap = createSwapService(modules, txRepo, eventBus)
   const contact = createContactService(contactRepo)
@@ -307,7 +310,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     const { connectSendTokenObserver } = await import('@/composition/send-token-observer')
     connectSendTokenObserver(manager, {
       operationMap,
-      lifecycle: transactionMgmt,
+      lifecycle: reclaim,
     })
 
     // Coco → EventBus bridge
@@ -372,8 +375,9 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const mintHealthChecker = new MintHealthCheckerAdapter()
   const mintHealth = new MintHealthFacadeService(mintHealthChecker)
 
-  const sendTokenOperator = new CashuSendTokenOperatorAdapter(cashuBackend)
-  const transactionMgmt = new TransactionMgmtService(txRepo, sendTokenOperator, pendingOpRepo, eventBus)
+  const sendTokenOperator = new CashuSendTokenOperatorAdapter()
+  const reclaim = new ReclaimService(txRepo, sendTokenOperator, tokenReceiver, pendingOpRepo, eventBus)
+  const transactionMgmt = new TransactionMgmtService(txRepo)
   const routePaymentOperator = new CashuRoutePaymentOperatorAdapter(cashuBackend, {
     markQuoteAsSwap,
     unmarkQuoteAsSwap,
@@ -451,6 +455,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     mintHealth,
     crypto,
     receiveRequest,
+    reclaim,
     transactionMgmt,
     inputParser,
     paymentRequest,

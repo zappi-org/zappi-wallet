@@ -2,6 +2,7 @@ import type { Transaction } from '@/core/domain/transaction'
 import type { PendingItem } from '@/core/ports/driving/pending-items.usecase'
 import { useAppStore } from '@/store'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
+import { useReclaim } from '@/ui/hooks/use-reclaim'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { useTransactionHistory } from '@/ui/hooks/use-transaction-history'
 import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
@@ -37,8 +38,6 @@ export interface TokenScreenProps {
   scrollRef: RefObject<HTMLDivElement | null>
   /** Open detail screen for a token (pending card or timeline row click). */
   onSelectToken?: (detail: TokenDetailData) => void
-  /** Execute the reclaim operation for the given tokens (awaits real service). */
-  onReclaimTokens?: (tokens: MockPendingToken[]) => Promise<void> | void
   /** Persist a partial settings update (zustand + Dexie). Provided by MainApp. */
   onSaveSettings?: (updates: Record<string, unknown>) => Promise<void>
 }
@@ -46,12 +45,12 @@ export interface TokenScreenProps {
 export function TokenScreen({
   scrollRef,
   onSelectToken,
-  onReclaimTokens,
   onSaveSettings,
 }: TokenScreenProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const addToast = useAppStore((state) => state.addToast)
+  const { reclaim } = useReclaim()
 
   const [hintDismissed, setHintDismissed] = useState(false)
 
@@ -188,28 +187,36 @@ export function TokenScreen({
 
   const handleSelectPending = useCallback(
     (token: MockPendingToken) => {
-      if (!onSelectToken) return
+      console.log('[TokenScreen] handleSelectPending called', token)
+      if (!onSelectToken) {
+        console.log('[TokenScreen] onSelectToken is undefined')
+        return
+      }
       const url = token.mintUrl ?? ''
       const metadata = url ? getMetadata(url) : undefined
       const fiat =
         fiatRate !== null
           ? { amount: satsToFiat(token.amount, fiatRate), currency: fiatCurrency }
           : undefined
-      onSelectToken(
-        pendingToDetail(token, {
-          mintAlias: url ? getDisplayName(url) : undefined,
-          mintName: metadata?.name,
-          mintIconUrl: url ? getIconUrl(url) : undefined,
-          fiat,
-        }),
-      )
+      const detail = pendingToDetail(token, {
+        mintAlias: url ? getDisplayName(url) : undefined,
+        mintName: metadata?.name,
+        mintIconUrl: url ? getIconUrl(url) : undefined,
+        fiat,
+      })
+      console.log('[TokenScreen] Created detail:', detail)
+      onSelectToken(detail)
     },
     [onSelectToken, getDisplayName, getMetadata, getIconUrl, fiatRate, fiatCurrency],
   )
 
   const handleSelectTimeline = useCallback(
     (tx: Transaction) => {
-      if (!onSelectToken) return
+      console.log('[TokenScreen] handleSelectTimeline called', tx)
+      if (!onSelectToken) {
+        console.log('[TokenScreen] onSelectToken is undefined')
+        return
+      }
       const url = tx.accountId
       const metadata = url ? getMetadata(url) : undefined
       const amountSats = Number(tx.amount.value)
@@ -223,6 +230,7 @@ export function TokenScreen({
         mintIconUrl: url ? getIconUrl(url) : undefined,
         fiat,
       })
+      console.log('[TokenScreen] Created detail from tx:', detail)
       if (detail) onSelectToken(detail)
     },
     [onSelectToken, getDisplayName, getMetadata, getIconUrl, fiatRate, fiatCurrency],
@@ -239,15 +247,21 @@ export function TokenScreen({
   const closeReclaim = useCallback(() => setReclaimTargets(null), [])
   const confirmReclaim = useCallback(
     async (tokens: MockPendingToken[]) => {
-      if (!onReclaimTokens) return
-      try {
-        await onReclaimTokens(tokens)
-        setReclaimTargets(null)
-      } catch (error) {
-        addToast({ type: 'error', message: translateError(error, t) })
+      for (const tk of tokens) {
+        const result = await reclaim(tk.id)
+        if (!result.success) {
+          // Use error from result for better message
+          const errorMessage = result.error 
+            ? translateError(result.error, t)
+            : t('token.reclaim.failed')
+          addToast({ type: 'error', message: errorMessage })
+          return
+        }
       }
+      setReclaimTargets(null)
+      addToast({ type: 'success', message: t('token.reclaim.success') })
     },
-    [onReclaimTokens, addToast, t],
+    [reclaim, addToast, t],
   )
 
   return (

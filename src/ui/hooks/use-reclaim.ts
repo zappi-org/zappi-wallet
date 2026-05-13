@@ -1,52 +1,84 @@
 import { toNumber } from '@/core/domain/amount'
+import type { ReclaimSuccess } from '@/core/ports/driving/reclaim.usecase'
+import type { BaseError } from '@/core/errors/base'
+import { TranscationNotFoundError } from '@/core/errors/transaction'
 import { ServiceContext } from '@/ui/hooks/service-context-value'
-import { useWallet } from '@/ui/hooks/use-wallet'
 import { broadcastSync } from '@/utils/cross-tab-sync'
 import { useCallback, useContext } from 'react'
 
+export interface ReclaimHookResult {
+  success: boolean
+  amount?: {
+    value: number
+    unit: string
+  }
+  accountId?: string
+  error?: BaseError
+  alreadySpent?: boolean
+}
+
 export function useReclaim() {
   const registry = useContext(ServiceContext)
-  const { refreshBalance } = useWallet()
 
   const reclaim = useCallback(
-    async (txId: string): Promise<{ amount: number }> => {
-      if (!registry?.payment) throw new Error('Service not available')
-      const result = await registry.payment.reclaim({ transactionId: txId })
-      if (!result.ok) {
-        console.error('[Reclaim] Failed:', result.error)
-        throw result.error
+    async (txId: string): Promise<ReclaimHookResult> => {
+      if (!registry?.reclaim?.reclaim) {
+        console.error('[useReclaim] Service not available')
+        return {
+          success: false,
+          error: {
+            code: 'SERVICE_NOT_READY',
+            message: 'Service is not available',
+          } as BaseError,
+        }
       }
-      await refreshBalance()
-      broadcastSync('balance_changed')
-      return { amount: toNumber(result.value.amount) }
-    },
-    [registry, refreshBalance],
-  )
-  const reclaimToken = useCallback(
-    async(txId: string): Promise<void> => {
-      if(!registry?.transactionMgmt) throw new Error('Service not available')
-      
+
+      // Get transaction info first for error reporting
       const tx = await registry.transactionMgmt.getById(txId)
-      if(!tx) throw new Error('Token reclaim failed')
+      console.log('[useReclaim] txId:', txId, 'tx:', tx)
 
-      const operationId = typeof tx.metadata?.operationId === 'string'
-        ? tx.metadata.operationId : undefined
-      const token = typeof tx.metadata?.token === 'string'
-        ? tx.metadata.token : undefined
-
-      const result = await registry.transactionMgmt.reclaimSendToken(txId, operationId, token)
-
-      if (result.alreadySpent) {
-        throw Object.assign(new Error('Token already spent'), { code: 'TOKEN_SPENT'})
-      }
-      if (!result.success){
-        throw new Error('Token reclaim failed')
+      if (!tx) {
+        return {
+          success: false,
+          error: new TranscationNotFoundError(txId),
+        }
       }
 
-      await refreshBalance()
+      // Call service
+      const result = await registry.reclaim.reclaim(txId)
+
+      if (!result.ok) {
+        const error = result.error
+        console.error('[useReclaim] Reclaim failed:', error)
+
+        // Check if token was already spent
+        const alreadySpent = error.code === 'TOKEN_SPENT'
+
+        // Return error with context
+        return {
+          success: false,
+          error,
+          alreadySpent,
+          amount: {
+            value: toNumber(tx.amount),
+            unit: tx.amount.unit || 'sat',
+          },
+          accountId: tx.accountId,
+        }
+      }
+
+      // Success
+      const successData: ReclaimSuccess = result.value
       broadcastSync('balance_changed')
+
+      return {
+        success: true,
+        amount: successData.amount,
+        accountId: successData.accountId,
+      }
     },
-    [registry, refreshBalance],
+    [registry]
   )
-  return { reclaim, reclaimToken}
+
+  return { reclaim }
 }

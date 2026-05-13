@@ -1342,6 +1342,8 @@ export default {
       summaryFee: 'Biaya penerimaan',
       summaryNet: 'Kamu terima',
       confirm: 'Ambil kembali',
+      success: 'Berhasil mengambil kembali',
+      failed: 'Gagal mengambil kembali',
     },
     history: {
       section: 'Riwayat',

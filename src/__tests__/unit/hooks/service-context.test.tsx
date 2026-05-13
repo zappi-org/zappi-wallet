@@ -57,6 +57,11 @@ function createMockRegistry(): ServiceRegistry {
       getSyncStatus: vi.fn(),
       cleanupOldData: vi.fn(),
     } as unknown as ServiceRegistry['recovery'],
+    reclaim: {
+      reclaim: vi.fn(),
+      finalizeSend: vi.fn(),
+      markSendReclaimed: vi.fn(),
+    } as unknown as ServiceRegistry['reclaim'],
     incomingPayment: {
       processIncoming: vi.fn(),
     } as unknown as ServiceRegistry['incomingPayment'],

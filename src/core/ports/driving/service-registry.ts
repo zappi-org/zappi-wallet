@@ -25,6 +25,7 @@ import type { MintMetadataUseCase } from '@/core/ports/driving/mint-metadata.use
 import type { MintHealthUseCase } from '@/core/ports/driving/mint-health.usecase'
 import type { CryptoUseCase } from '@/core/ports/driving/crypto.usecase'
 import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request.usecase'
+import type { ReclaimUseCase } from '@/core/ports/driving/reclaim.usecase'
 import type { TransactionMgmtUseCase } from '@/core/ports/driving/transaction-mgmt.usecase'
 import type { InputParserUseCase } from '@/core/ports/driving/input-parser.usecase'
 import type { PaymentRequestUseCase } from '@/core/ports/driving/payment-request.usecase'
@@ -55,6 +56,7 @@ export interface ServiceRegistry {
   readonly mintHealth: MintHealthUseCase
   readonly crypto: CryptoUseCase
   readonly receiveRequest: ReceiveRequestUseCase
+  readonly reclaim: ReclaimUseCase
   readonly transactionMgmt: TransactionMgmtUseCase
   readonly inputParser: InputParserUseCase
   readonly paymentRequest: PaymentRequestUseCase
