@@ -19,6 +19,8 @@ export type ErrorCode =
   | 'P2PK_UNLOCK_FAILED'
   | 'REDEEM_FEE_TOO_HIGH'
   | 'SERVICE_NOT_READY'
+  // Transaction
+  | 'TRANSACTION_NOT_FOUND'
   // Lightning
   | 'INVALID_INVOICE'
   | 'INVOICE_EXPIRED'

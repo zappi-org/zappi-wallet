@@ -1,6 +1,7 @@
 import { toNumber } from '@/core/domain/amount'
 import type { ReclaimSuccess } from '@/core/ports/driving/reclaim.usecase'
 import type { BaseError } from '@/core/errors/base'
+import { TranscationNotFoundError } from '@/core/errors/transaction'
 import { ServiceContext } from '@/ui/hooks/service-context-value'
 import { useWallet } from '@/ui/hooks/use-wallet'
 import { broadcastSync } from '@/utils/cross-tab-sync'
@@ -14,6 +15,7 @@ export interface ReclaimHookResult {
   }
   accountId?: string
   error?: BaseError
+  alreadySpent?: boolean
 }
 
 export function useReclaim() {
@@ -40,10 +42,7 @@ export function useReclaim() {
       if (!tx) {
         return {
           success: false,
-          error: {
-            code: 'TRANSACTION_NOT_FOUND',
-            message: `Transaction not found: ${txId}`,
-          } as BaseError,
+          error: new TranscationNotFoundError(txId),
         }
       }
 
@@ -54,10 +53,14 @@ export function useReclaim() {
         const error = result.error
         console.error('[useReclaim] Reclaim failed:', error)
 
+        // Check if token was already spent
+        const alreadySpent = error.code === 'TOKEN_SPENT'
+
         // Return error with context
         return {
           success: false,
           error,
+          alreadySpent,
           amount: {
             value: toNumber(tx.amount),
             unit: tx.amount.unit || 'sat',

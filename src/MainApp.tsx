@@ -11,8 +11,10 @@ import { ServiceProvider } from '@/ui/hooks/service-context'
 import { useCrossTabSync } from '@/ui/hooks/use-cross-tab-sync'
 import { useGlobalTokenClaimToast } from '@/ui/hooks/use-global-token-claim-toast'
 
+import { useReclaim } from '@/ui/hooks/use-reclaim'
 import { useRedeemToken } from '@/ui/hooks/use-redeem-token'
 import { useSupportNotifications } from '@/ui/hooks/use-support-notifications'
+import { translateError } from '@/ui/utils/error-i18n'
 import { broadcastSync } from '@/utils/cross-tab-sync'
 // useMintHealth removed — mint health checks done via serviceRegistry directly
 import { useAppStore } from '@/store'
@@ -116,6 +118,7 @@ export default function MainApp() {
   // Hooks
   const { refreshBalance, balance } = useWallet()
   const { isOnline } = useNetwork()
+  const { reclaim } = useReclaim()
   const [isRecovering, setIsRecovering] = useState(false)
 
   // Gift Wrap Watcher — lifecycle managed via serviceRegistry
