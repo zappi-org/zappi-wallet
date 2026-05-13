@@ -88,6 +88,11 @@ function bytesToHex(bytes: number[]): string {
 
 // ─── NIP-19 ───
 
+export function isNostrDirectAddress(value: string): boolean {
+  const trimmed = value.trim().toLowerCase()
+  return trimmed.startsWith('npub1') || trimmed.startsWith('nprofile1')
+}
+
 export function npubDecode(npub: string): string {
   const { hrp, data } = bech32Decode(npub)
   if (hrp !== 'npub') throw new Error(`Expected npub, got ${hrp}`)

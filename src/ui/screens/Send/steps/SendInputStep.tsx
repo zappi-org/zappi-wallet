@@ -20,6 +20,7 @@ import { Button } from '@/ui/components/common/Button'
 import { Spinner } from '@/ui/components/common/Spinner'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
+import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { SegmentControl } from '@/ui/components/common/SegmentControl'
 import { useInputParser } from '@/ui/hooks/use-input-parser'
 import type { InputType, ValidatedData } from '@/core/domain/input-types'
@@ -27,6 +28,9 @@ import { resolveFlowTarget } from '@/core/domain/resolve-flow-target'
 import { useContacts } from '@/ui/hooks/use-contacts'
 import type { ContactAddressType } from '@/core/types'
 import type { SendableValidatedData } from '../SendFlow'
+import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
+import { isNostrDirectAddress } from '@/core/domain/nostr-address'
+import type { NostrDirectPaymentResolution } from '@/core/ports/driving/nostr-direct-payment.usecase'
 
 const LIGHTNING_ADDRESS_RE = /^[a-z0-9_.+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i
 
@@ -54,12 +58,14 @@ interface SendDestinationStepProps {
     destination: string
     validatedData?: SendableValidatedData
     amountFromInvoice?: number
+    mintUrl?: string
   }) => void
   onRedirect?: (validatedData: ValidatedData) => void
   initialDestination?: string
   initialAddress?: string
   initialValidatedData?: SendableValidatedData | null
   mintUrl: string
+  onMintChange?: (mintUrl: string) => void
   isLoading?: boolean
   /** Delegate non-sendable input (cashu-token, amount-only) to universal router. */
   onRouteValidated?: (data: ValidatedData) => void
@@ -73,6 +79,7 @@ export function SendInputStep({
   initialAddress,
   initialValidatedData,
   mintUrl,
+  onMintChange,
   isLoading = false,
   onRouteValidated,
 }: SendDestinationStepProps) {
@@ -81,6 +88,7 @@ export function SendInputStep({
   const addToast = useAppStore((s) => s.addToast)
   const { getDisplayName, getIconUrl } = useMintMetadata(settings.mints)
   const inputParser = useInputParser()
+  const { nostrDirectPayment } = useServiceRegistry()
 
   // State
   const [destination, setDestination] = useState(initialDestination)
@@ -93,6 +101,12 @@ export function SendInputStep({
   )
   const [isPreValidating, setIsPreValidating] = useState(false)
   const [preValidationError, setPreValidationError] = useState<string | null>(null)
+  const [mintSelection, setMintSelection] = useState<{
+    destination: string
+    validatedData: SendableValidatedData
+    commonMintUrls: string[]
+    infoText?: string
+  } | null>(null)
   const requestIdRef = useRef(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -131,6 +145,7 @@ export function SendInputStep({
     validatedDataRef.current = options.validatedData ?? null
     setDetectedTypes(options.detectedTypes ?? [])
     setIsPreValidating(options.isPreValidating ?? false)
+    setMintSelection(null)
   }, [cancelPendingValidation])
 
   /**
@@ -198,6 +213,13 @@ export function SendInputStep({
     detectTimeoutRef.current = setTimeout(async () => {
       clearTimeout(autoAdvanceTimerRef.current)
       const detected = inputParser.detectAndClassify(destination)
+      if (isNostrDirectAddress(destination)) {
+        setDetectedTypes([destination.trim().toLowerCase().startsWith('nprofile1') ? 'nprofile' : 'npub'])
+        setIsPreValidating(false)
+        setPreValidationError(null)
+        return
+      }
+
       setDetectedTypes(toBadgeTypes(detected))
 
       const sendableDetectedTypes = ['bolt11', 'lightning-address', 'lnurl', 'cashu-request']
@@ -304,6 +326,58 @@ export function SendInputStep({
     const trimmed = input.trim()
     if (!trimmed) return false
 
+    if (isNostrDirectAddress(trimmed)) {
+      applyDestinationState({
+        destination: displayName || trimmed,
+        rawAddress: displayName ? trimmed : null,
+        validatedData: null,
+        detectedTypes: displayName ? [] : [trimmed.toLowerCase().startsWith('nprofile1') ? 'nprofile' : 'npub'],
+        isPreValidating: true,
+      })
+
+      let resolution: NostrDirectPaymentResolution
+      try {
+        resolution = await nostrDirectPayment.resolve({
+          address: trimmed,
+          ownMintUrls: settings.mints,
+          selectedMintUrl: mintUrl || null,
+        })
+      } catch {
+        setPreValidationError(t('send.destination.ecashInfoNotFound'))
+        setIsPreValidating(false)
+        return 'handled-error'
+      }
+
+      setIsPreValidating(false)
+
+      if (resolution.status === 'ready') {
+        setValidatedData(resolution.validatedData)
+        validatedDataRef.current = resolution.validatedData
+        return true
+      }
+
+      if (resolution.status === 'needs-mint-selection') {
+        const selectedMintName = mintUrl ? getDisplayName(mintUrl) : ''
+        setMintSelection({
+          destination: displayName || trimmed,
+          validatedData: resolution.validatedData,
+          commonMintUrls: resolution.commonMintUrls,
+          infoText: selectedMintName
+            ? t('send.destination.selectedMintUnavailable', { mint: selectedMintName })
+            : undefined,
+        })
+        return 'needs-mint-selection'
+      }
+
+      const message = resolution.status === 'no-common-mint'
+        ? t('send.destination.noCommonMint')
+        : resolution.status === 'no-relay'
+          ? t('send.destination.relayNotFound')
+          : t('send.destination.ecashInfoNotFound')
+      setPreValidationError(message)
+      return 'handled-error'
+    }
+
     const detected = inputParser.detectAndClassify(trimmed)
     applyDestinationState({
       destination: displayName || trimmed,
@@ -364,7 +438,7 @@ export function SendInputStep({
     }
 
     return true
-  }, [onNext, inputParser, onRouteValidated, applyDestinationState, addToast, t])
+  }, [onNext, inputParser, onRouteValidated, applyDestinationState, addToast, settings.mints, mintUrl, nostrDirectPayment, getDisplayName, t])
 
   // Handle QR scan
   const handleScan = useCallback((result: string) => {
@@ -383,12 +457,13 @@ export function SendInputStep({
   }
 
   /** Proceed to next step with validated data */
-  const advanceWithData = useCallback((displayDest: string, data: SendableValidatedData) => {
+  const advanceWithData = useCallback((displayDest: string, data: SendableValidatedData, mintUrlOverride?: string) => {
     const amt = getAmountFromData(data)
     onNext({
       destination: displayDest,
       validatedData: data,
       amountFromInvoice: amt > 0 ? amt : undefined,
+      mintUrl: mintUrlOverride,
     })
   }, [onNext])
 
@@ -437,6 +512,12 @@ export function SendInputStep({
       return () => cancelAnimationFrame(id)
     }
   }, [initialAddress, initialDestination, initialValidatedData, processExternalInput, advanceWithData])
+
+  const mintSelectionFilter = useCallback((mint: { url: string }) => {
+    if (!mintSelection) return true
+    const normalized = mint.url.replace(/\/+$/, '').toLowerCase()
+    return mintSelection.commonMintUrls.some((url) => url.replace(/\/+$/, '').toLowerCase() === normalized)
+  }, [mintSelection])
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -576,13 +657,10 @@ export function SendInputStep({
                   contacts.map((contact) => {
                     const iconMap: Record<ContactAddressType, typeof Zap> = { lightning: Zap, npub: Hash, custom: Link }
                     const Icon = iconMap[contact.addressType]
-                    const isNpub = contact.addressType === 'npub'
                     return (
                       <button
                         key={contact.id}
-                        disabled={isNpub}
                         onClick={() => {
-                          if (isNpub) return
                           hapticTap()
                           applyDestinationState({
                             destination: contact.name,
@@ -591,7 +669,7 @@ export function SendInputStep({
                             detectedTypes: [],
                           })
                         }}
-                        className={`w-full flex items-center gap-3 py-3 border-b border-border/40 transition-colors ${isNpub ? 'opacity-40' : 'active:bg-foreground/[0.03]'}`}
+                        className="w-full flex items-center gap-3 py-3 border-b border-border/40 transition-colors active:bg-foreground/[0.03]"
                       >
                         <div className="w-9 h-9 rounded-full bg-brand/8 flex items-center justify-center shrink-0">
                           <Icon className="w-4 h-4 text-brand" />
@@ -625,6 +703,24 @@ export function SendInputStep({
           {t('send.next')}
         </Button>
       </div>
+
+      <MintSelectBottomSheet
+        isOpen={!!mintSelection}
+        onClose={() => setMintSelection(null)}
+        onSelect={(selectedMintUrl) => {
+          if (!mintSelection) return
+          onMintChange?.(selectedMintUrl)
+          const data = mintSelection.validatedData
+          setValidatedData(data)
+          validatedDataRef.current = data
+          setMintSelection(null)
+          advanceWithData(mintSelection.destination, data, selectedMintUrl)
+        }}
+        selectedMintUrl={mintSelection?.commonMintUrls[0] ?? null}
+        filterFn={mintSelectionFilter}
+        buttonLabel={t('common.send')}
+        infoText={mintSelection?.infoText}
+      />
 
       <QrScannerModal isOpen={showScanner} onClose={() => setShowScanner(false)} onScan={handleScan} />
     </div>

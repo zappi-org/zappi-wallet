@@ -6,17 +6,20 @@ import { EmptyState } from '@/ui/components/common/EmptyState'
 import { ConfirmDialog } from '@/ui/components/common/ConfirmDialog'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { ContactFormModal } from './ContactFormModal'
-function detectAddressType(address: string): 'lightning' | 'npub' | 'custom' {
-  const trimmed = address.trim()
-  if (trimmed.includes('@')) return 'lightning'
-  if (trimmed.startsWith('npub1')) return 'npub'
-  return 'custom'
-}
 import { useInputParser } from '@/ui/hooks/use-input-parser'
 import type { ValidatedData } from '@/core/domain/input-types'
 import { useAppStore } from '@/store'
 import { useContacts } from '@/ui/hooks/use-contacts'
 import type { Contact, ContactAddressType } from '@/core/types'
+import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
+import { isNostrDirectAddress } from '@/core/domain/nostr-address'
+
+function detectAddressType(address: string): 'lightning' | 'npub' | 'custom' {
+  const trimmed = address.trim()
+  if (trimmed.includes('@')) return 'lightning'
+  if (trimmed.startsWith('npub1') || trimmed.startsWith('nprofile1')) return 'npub'
+  return 'custom'
+}
 
 export interface ContactsScreenProps {
   /** Called with validated data + contact name + selected mint when send is confirmed */
@@ -32,7 +35,9 @@ const addressTypeIcon: Record<ContactAddressType, typeof Zap> = {
 export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
   const { t } = useTranslation()
   const addToast = useAppStore((s) => s.addToast)
+  const settings = useAppStore((s) => s.settings)
   const inputParser = useInputParser()
+  const { nostrDirectPayment } = useServiceRegistry()
   const { contacts, createContact, updateContact, deleteContact: deleteContactById } = useContacts()
   const [searchQuery, setSearchQuery] = useState('')
   const [showForm, setShowForm] = useState(false)
@@ -40,7 +45,7 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [sendingId, setSendingId] = useState<string | null>(null)
-  const [pendingSend, setPendingSend] = useState<{ data: ValidatedData; name: string } | null>(null)
+  const [pendingSend, setPendingSend] = useState<{ data: ValidatedData; name: string; commonMintUrls?: string[] } | null>(null)
 
   const filtered = useMemo(() => {
     if (!searchQuery.trim()) return contacts
@@ -86,6 +91,31 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
     if (!onSendToContact) return
     setSendingId(contact.id)
     try {
+      if (contact.addressType === 'npub' && isNostrDirectAddress(contact.address)) {
+        const resolution = await nostrDirectPayment.resolve({
+          address: contact.address,
+          ownMintUrls: settings.mints,
+          selectedMintUrl: null,
+        })
+
+        if (resolution.status === 'ready' || resolution.status === 'needs-mint-selection') {
+          setPendingSend({
+            data: resolution.validatedData,
+            name: contact.name,
+            commonMintUrls: resolution.commonMintUrls,
+          })
+          return
+        }
+
+        const message = resolution.status === 'no-common-mint'
+          ? t('send.destination.noCommonMint')
+          : resolution.status === 'no-relay'
+            ? t('send.destination.relayNotFound')
+            : t('send.destination.ecashInfoNotFound')
+        addToast({ type: 'error', message, duration: 3000 })
+        return
+      }
+
       const detected = inputParser.detectAndClassify(contact.address)
       if (detected.type === 'unknown') {
         addToast({ type: 'error', message: t('send.destination.unrecognized'), duration: 3000 })
@@ -100,7 +130,7 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
     } finally {
       setSendingId(null)
     }
-  }, [onSendToContact, addToast, t, inputParser])
+  }, [onSendToContact, addToast, t, inputParser, settings.mints, nostrDirectPayment])
 
   return (
     <div className="h-full bg-background text-foreground flex flex-col pt-safe">
@@ -183,7 +213,7 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
                         <div className="flex items-center gap-2 px-4 pb-3">
                           <button
                             onClick={() => handleSend(contact)}
-                            disabled={isSending || contact.addressType === 'npub'}
+                            disabled={isSending}
                             className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-card bg-brand text-white text-caption font-semibold active:opacity-80 transition-opacity disabled:opacity-40"
                           >
                             {isSending ? (
@@ -248,6 +278,9 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
           }
         }}
         selectedMintUrl={null}
+        filterFn={pendingSend?.commonMintUrls
+          ? (mint) => pendingSend.commonMintUrls!.some((url) => url.replace(/\/+$/, '').toLowerCase() === mint.url.replace(/\/+$/, '').toLowerCase())
+          : undefined}
       />
     </div>
   )

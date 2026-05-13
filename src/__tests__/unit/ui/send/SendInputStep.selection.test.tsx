@@ -4,6 +4,8 @@ import { render, screen, act } from '@testing-library/react'
 import { SendInputStep } from '@/ui/screens/Send/steps/SendInputStep'
 import type { Contact } from '@/core/types/contact'
 import type { InputType, ValidatedData } from '@/core/domain/input-types'
+import { ServiceProvider } from '@/ui/hooks/service-context'
+import type { ServiceRegistry } from '@/core/ports/driving/service-registry'
 
 const mockDetectAndClassify = vi.fn<(input: string) => InputType>()
 const mockValidateAsync = vi.fn<(input: InputType) => Promise<ValidatedData>>()
@@ -12,6 +14,8 @@ const stableT = (key: string) => key
 const stableAddToast = vi.fn()
 const mockContacts: Contact[] = []
 const displayNameByUrl = new Map<string, string>()
+const mockNostrDirectPayment = { resolve: vi.fn() }
+const mockRegistry = { nostrDirectPayment: mockNostrDirectPayment } as unknown as ServiceRegistry
 const stableStore = {
   settings: { mints: [] as string[] },
   addToast: stableAddToast,
@@ -71,7 +75,11 @@ const defaultProps = {
 }
 
 function renderStep(overrides: Partial<typeof defaultProps> = {}) {
-  return render(<SendInputStep {...defaultProps} {...overrides} />)
+  return render(
+    <ServiceProvider registry={mockRegistry}>
+      <SendInputStep {...defaultProps} {...overrides} />
+    </ServiceProvider>
+  )
 }
 
 function typeIntoInput(value: string) {
@@ -89,6 +97,7 @@ describe('SendInputStep selection flows', () => {
     vi.useFakeTimers()
     mockDetectAndClassify.mockReset()
     mockValidateAsync.mockReset()
+    mockNostrDirectPayment.resolve.mockReset()
     defaultProps.onBack.mockReset()
     defaultProps.onNext.mockReset()
     defaultProps.onRedirect.mockReset()

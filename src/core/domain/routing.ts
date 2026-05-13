@@ -123,6 +123,7 @@ export function selectRoute(input: RouteInput): PaymentRoute {
       if (hasLn) return PaymentRoute.LN_INTERNAL
       return PaymentRoute.TOKEN_TRANSFER
     } else {
+      if (parsed.sameMintOnly) return PaymentRoute.CANNOT_SEND
       if (privacyMode) return PaymentRoute.MINT_AND_DM
       if (hasLn) return PaymentRoute.LN_CROSS_MINT
       return PaymentRoute.MINT_AND_DM

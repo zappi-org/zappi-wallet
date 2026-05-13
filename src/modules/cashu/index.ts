@@ -28,6 +28,7 @@ export type { MetadataStore } from './internal/metadata-store'
 // clearWalletCache removed — was a no-op function (cashu-ts wallet cache no longer used)
 export { isSwapQuote, markQuoteAsSwap, unmarkQuoteAsSwap } from './internal/swap-quote-tracker'
 export { setCachedMnemonic, clearCachedMnemonic, injectSeedCache } from './internal/seed-getter'
+export { createExternalMnemonicRecovery } from './internal/external-mnemonic-recovery'
 
 // Additional cashu-backend exports
 export {

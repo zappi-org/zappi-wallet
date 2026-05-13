@@ -5,4 +5,3 @@ export type {
   RouteContext,
   RouteExecutionResult,
 } from '@/core/domain/routing'
-export { executeRoute } from './execute-route'

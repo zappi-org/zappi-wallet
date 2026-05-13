@@ -7,15 +7,15 @@ import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
 import { CameraFilled } from '@/ui/components/icons/CameraFilled'
 import type { Contact } from '@/core/types'
 import type { ContactAddressType } from '@/core/types/contact'
+import { LIMITS } from '@/core/constants'
+import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 
 function detectAddressType(address: string): ContactAddressType {
   const trimmed = address.trim()
   if (trimmed.includes('@')) return 'lightning'
-  if (trimmed.startsWith('npub1')) return 'npub'
+  if (trimmed.startsWith('npub1') || trimmed.startsWith('nprofile1')) return 'npub'
   return 'custom'
 }
-import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
-import { useCrypto } from '@/ui/hooks/use-crypto'
 
 interface ContactFormModalProps {
   isOpen: boolean
@@ -26,16 +26,14 @@ interface ContactFormModalProps {
 
 type VerifyStatus = 'idle' | 'verifying' | 'valid' | 'invalid'
 
-type VerifyErrorCode = 'invalidFormat' | 'notReachable' | 'invalidNpub' | 'noNutzapInfo' | 'noMints' | 'decodeFailed'
+type VerifyErrorCode = 'invalidFormat' | 'notReachable' | 'invalidNpub' | 'noNutzapInfo' | 'noMints' | 'noRelay' | 'decodeFailed'
 
-type AddressVerifier = { resolve(address: string): Promise<{ capabilities: { directToken?: { mints: string[] } } }> }
-type NpubDecoder = { decodeNpub(npub: string): { type: string; data: string } }
+type AddressVerifier = { resolve(address: string): Promise<{ capabilities: { directToken?: { mints: string[]; dmRelays?: string[] } } }> }
 
 async function verifyAddress(
   address: string,
   type: ContactAddressType,
   addressResolver: AddressVerifier,
-  crypto: NpubDecoder,
 ): Promise<{ valid: boolean; errorCode?: VerifyErrorCode }> {
   if (type === 'lightning') {
     // Simple format check: must contain @ and .
@@ -52,21 +50,18 @@ async function verifyAddress(
 
   if (type === 'npub') {
     try {
-      const decoded = crypto.decodeNpub(address)
-      if (decoded.type !== 'npub') return { valid: false, errorCode: 'invalidNpub' }
-
-      try {
-        const result = await addressResolver.resolve(address)
-        const mints = result.capabilities.directToken?.mints
-        if (!mints || mints.length === 0) {
-          return { valid: false, errorCode: 'noMints' }
-        }
-        return { valid: true }
-      } catch {
-        return { valid: false, errorCode: 'noNutzapInfo' }
+      const result = await addressResolver.resolve(address)
+      const mints = result.capabilities.directToken?.mints
+      if (!mints || mints.length === 0) {
+        return { valid: false, errorCode: 'noMints' }
       }
+      const relays = result.capabilities.directToken?.dmRelays
+      if (!relays || relays.length === 0) {
+        return { valid: false, errorCode: 'noRelay' }
+      }
+      return { valid: true }
     } catch {
-      return { valid: false, errorCode: 'decodeFailed' }
+      return { valid: false, errorCode: address.startsWith('npub1') || address.startsWith('nprofile1') ? 'noNutzapInfo' : 'decodeFailed' }
     }
   }
 
@@ -92,7 +87,6 @@ export function ContactFormModal({ isOpen, onClose, onSave, contact }: ContactFo
 function ContactFormInner({ contact, onSave, onClose }: { contact?: Contact | null; onSave: ContactFormModalProps['onSave']; onClose: () => void }) {
   const { t } = useTranslation()
   const { addressResolver } = useServiceRegistry()
-  const crypto = useCrypto()
   const [name, setName] = useState(contact?.name || '')
   const [address, setAddress] = useState(contact?.address || '')
   const [error, setError] = useState('')
@@ -123,7 +117,7 @@ function ContactFormInner({ contact, onSave, onClose }: { contact?: Contact | nu
 
     setVerifyStatus('verifying')
     setError('')
-    const result = await verifyAddress(trimmedAddress, addrType, addressResolver, crypto)
+    const result = await verifyAddress(trimmedAddress, addrType, addressResolver)
     if (!result.valid) {
       setVerifyStatus('invalid')
       const errorKey = result.errorCode ? `contacts.verify.${result.errorCode}` : 'contacts.verificationFailed'
@@ -134,7 +128,7 @@ function ContactFormInner({ contact, onSave, onClose }: { contact?: Contact | nu
 
     onSave({ name: trimmedName, address: trimmedAddress })
     onClose()
-  }, [name, address, onSave, onClose, t, addressResolver, crypto])
+  }, [name, address, onSave, onClose, t, addressResolver])
 
   const handleScan = useCallback((result: string) => {
     setShowScanner(false)
@@ -147,78 +141,78 @@ function ContactFormInner({ contact, onSave, onClose }: { contact?: Contact | nu
   }, [])
 
   return (
-      <div className="space-y-5 py-2">
-        {/* Name */}
-        <div>
-          <p className="text-caption font-medium text-foreground-muted mb-1">
-            {t('contacts.name')} <span className="text-overline text-foreground-muted/50 ml-1">{name.length}/10</span>
-          </p>
-          <div className="flex items-center border-b border-border focus-within:border-foreground/20 transition-colors">
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => { setName(e.target.value.slice(0, 10)); setError('') }}
-              placeholder={t('contacts.namePlaceholder')}
-              maxLength={10}
-              className="flex-1 min-w-0 bg-transparent py-2 text-body font-medium text-foreground placeholder:text-foreground-muted placeholder:font-medium focus:outline-none"
-            />
-          </div>
+    <div className="space-y-5 py-2">
+      {/* Name */}
+      <div>
+        <p className="text-caption font-medium text-foreground-muted mb-1">
+          {t('contacts.name')} <span className="text-overline text-foreground-muted/50 ml-1">{name.length}/{LIMITS.MAX_CONTACT_NAME_LENGTH}</span>
+        </p>
+        <div className="flex items-center border-b border-border focus-within:border-foreground/20 transition-colors">
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => { setName(e.target.value.slice(0, LIMITS.MAX_CONTACT_NAME_LENGTH)); setError('') }}
+            placeholder={t('contacts.namePlaceholder')}
+            maxLength={LIMITS.MAX_CONTACT_NAME_LENGTH}
+            className="flex-1 min-w-0 bg-transparent py-2 text-body font-medium text-foreground placeholder:text-foreground-muted placeholder:font-medium focus:outline-none"
+          />
         </div>
-
-        {/* Address */}
-        <div>
-          <p className="text-caption font-medium text-foreground-muted mb-1">{t('contacts.address')}</p>
-          <div className="flex items-center border-b border-border focus-within:border-foreground/20 transition-colors">
-            <input
-              type="text"
-              value={address}
-              onChange={(e) => { setAddress(e.target.value); setError(''); setVerifyStatus('idle') }}
-              placeholder={t('contacts.addressPlaceholder')}
-              className="flex-1 min-w-0 bg-transparent py-2 text-body font-medium text-foreground placeholder:text-foreground-muted placeholder:font-medium focus:outline-none"
-            />
-            <button
-              onClick={() => setShowScanner(true)}
-              aria-label={t('scanner.title')}
-              className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors shrink-0"
-            >
-              <CameraFilled className="text-foreground-muted" />
-            </button>
-          </div>
-          <div className="flex items-center gap-2 mt-1.5 min-h-[20px]">
-            {verifyStatus === 'verifying' && (
-              <Loader2 className="w-3.5 h-3.5 text-foreground-muted animate-spin" />
-            )}
-            {verifyStatus === 'valid' && (
-              <CheckCircle2 className="w-3.5 h-3.5 text-accent-primary" />
-            )}
-            {verifyStatus === 'invalid' && (
-              <AlertCircle className="w-3.5 h-3.5 text-accent-danger" />
-            )}
-          </div>
-        </div>
-
-        {/* Error */}
-        {error && (
-          <p className="text-caption text-accent-danger">{error}</p>
-        )}
-
-        {/* Actions */}
-        <div className="flex gap-2 pt-1">
-          <Button variant="outline" size="lg" onClick={onClose} className="flex-1">
-            {t('common.cancel')}
-          </Button>
-          <Button
-            variant="brand"
-            size="lg"
-            onClick={handleSave}
-            loading={verifyStatus === 'verifying'}
-            className="flex-1"
-          >
-            {isEdit ? t('common.save') : t('common.add')}
-          </Button>
-        </div>
-
-        <QrScannerModal isOpen={showScanner} onClose={() => setShowScanner(false)} onScan={handleScan} />
       </div>
+
+      {/* Address */}
+      <div>
+        <p className="text-caption font-medium text-foreground-muted mb-1">{t('contacts.address')}</p>
+        <div className="flex items-center border-b border-border focus-within:border-foreground/20 transition-colors">
+          <input
+            type="text"
+            value={address}
+            onChange={(e) => { setAddress(e.target.value); setError(''); setVerifyStatus('idle') }}
+            placeholder={t('contacts.addressPlaceholder')}
+            className="flex-1 min-w-0 bg-transparent py-2 text-body font-medium text-foreground placeholder:text-foreground-muted placeholder:font-medium focus:outline-none"
+          />
+          <button
+            onClick={() => setShowScanner(true)}
+            aria-label={t('scanner.title')}
+            className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors shrink-0"
+          >
+            <CameraFilled className="text-foreground-muted" />
+          </button>
+        </div>
+        <div className="flex items-center gap-2 mt-1.5 min-h-[20px]">
+          {verifyStatus === 'verifying' && (
+            <Loader2 className="w-3.5 h-3.5 text-foreground-muted animate-spin" />
+          )}
+          {verifyStatus === 'valid' && (
+            <CheckCircle2 className="w-3.5 h-3.5 text-accent-primary" />
+          )}
+          {verifyStatus === 'invalid' && (
+            <AlertCircle className="w-3.5 h-3.5 text-accent-danger" />
+          )}
+        </div>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <p className="text-caption text-accent-danger">{error}</p>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-2 pt-1">
+        <Button variant="outline" size="lg" onClick={onClose} className="flex-1">
+          {t('common.cancel')}
+        </Button>
+        <Button
+          variant="brand"
+          size="lg"
+          onClick={handleSave}
+          loading={verifyStatus === 'verifying'}
+          className="flex-1"
+        >
+          {isEdit ? t('common.save') : t('common.add')}
+        </Button>
+      </div>
+
+      <QrScannerModal isOpen={showScanner} onClose={() => setShowScanner(false)} onScan={handleScan} />
+    </div>
   )
 }

@@ -145,6 +145,7 @@ describe('bootstrap', () => {
     expect(result.payment.receive).toBeTypeOf('function')
     expect(result.payment.estimateFee).toBeTypeOf('function')
     expect(result.payment.recoverAll).toBeTypeOf('function')
+    expect(result.externalWalletRecovery.recoverFromMnemonic).toBeTypeOf('function')
   })
 
   it('should provide BalanceUseCase with correct interface', () => {

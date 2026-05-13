@@ -3,6 +3,7 @@ import type { CashuTokenInspection, DecodedInvoice, TokenCodec } from '@/core/po
 import type { Unit } from '@/core/domain/amount'
 import { amount as createAmount } from '@/core/domain/amount'
 import {
+  getEncodedToken,
   PaymentRequest as CashuPaymentRequest,
   PaymentRequestTransportType,
 } from '@cashu/cashu-ts'
@@ -77,9 +78,23 @@ export class TokenCodecAdapter implements TokenCodec {
    */
   inspectCashuToken(token: string): CashuTokenInspection {
     try {
-      const base64 = token.slice(6).replace(/-/g, '+').replace(/_/g, '/')
-      const binary = atob(base64)
-      const raw = Uint8Array.from(binary, c => c.charCodeAt(0))
+      const raw = decodeBase64UrlPayload(token.slice(6))
+      if (token.startsWith('cashuA')) {
+        const data = JSON.parse(new TextDecoder().decode(raw))
+        const tokenData = data.token?.[0]
+        const amountValue = tokenData?.proofs?.reduce(
+          (sum: number, proof: { amount?: number }) => sum + Number(proof.amount ?? 0),
+          0,
+        ) ?? 0
+        const unit: Unit = data.unit === 'msat' || data.unit === 'usd' || data.unit === 'eur' ? data.unit : 'sat'
+
+        return {
+          mint: tokenData?.mint ?? '',
+          amount: createAmount(amountValue, unit),
+          memo: data.memo,
+        }
+      }
+
       const data = cborDecode(raw)
       
       const amountValue = data.t?.reduce(
@@ -100,6 +115,16 @@ export class TokenCodecAdapter implements TokenCodec {
       throw new Error('Invalid Cashu token format')
     }
   }
+
+  encodeCashuToken(opts: Parameters<TokenCodec['encodeCashuToken']>[0]): string {
+    return getEncodedToken({
+      mint: opts.mint,
+      proofs: opts.proofs,
+      unit: opts.unit,
+      memo: opts.memo,
+    })
+  }
+
   // ─── Bitcoin URI (BIP-21) ───
 
   parseBitcoinUri(uri: string): {
@@ -270,4 +295,11 @@ function generateRequestId(prefix: string): string {
   crypto.getRandomValues(bytes)
   const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
   return `${prefix}-${hex}`
+}
+
+function decodeBase64UrlPayload(payload: string): Uint8Array {
+  const base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')
+  const binary = atob(padded)
+  return Uint8Array.from(binary, c => c.charCodeAt(0))
 }

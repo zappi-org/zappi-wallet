@@ -6,6 +6,7 @@ import { cn } from "@/ui/lib/utils";
 import { useFormatSats, useFormatFiat } from "@/utils/format";
 import { hapticTap } from "@/ui/utils/haptic";
 import { useAppStore } from "@/store";
+import { LIMITS } from "@/core/constants";
 import cardLogo from "@/assets/card-logo.svg";
 import cardBg from "@/assets/card-bg.png";
 import cardNoise from "@/assets/card-noise.png";
@@ -247,10 +248,10 @@ export function MintCard({
                 ref={inputRef}
                 type="text"
                 value={editValue}
-                onChange={(e) => setEditValue(e.target.value.slice(0, 10))}
+                onChange={(e) => setEditValue(e.target.value.slice(0, LIMITS.MAX_MINT_NAME_LENGTH))}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSave() }}
                 onBlur={handleSave}
-                maxLength={10}
+                maxLength={LIMITS.MAX_MINT_NAME_LENGTH}
                 className="font-display text-body font-semibold text-white leading-tight bg-white/15 rounded-md px-2 py-0.5 outline-none min-w-0 w-32"
               />
             ) : (

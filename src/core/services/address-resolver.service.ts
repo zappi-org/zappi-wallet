@@ -95,12 +95,27 @@ export class AddressResolverService implements AddressResolverUseCase {
 
   private async fetchDirectTokenInfo(pubkey: string): Promise<DirectTokenInfo | undefined> {
     const filter: NostrFilter = { kinds: [10019], authors: [pubkey], limit: 1 }
-    const events = await this.nostr.queryEvents([filter])
+    const [events, dmRelays] = await Promise.all([
+      this.nostr.queryEvents([filter]),
+      this.fetchDmRelays(pubkey),
+    ])
     if (events.length === 0) return undefined
 
     const info = parseNutZapInfo(events[0])
     if (info.mints.length === 0) return undefined
-    return { mints: info.mints, p2pkPubkey: info.p2pkPubkey }
+    return { mints: info.mints, p2pkPubkey: info.p2pkPubkey, dmRelays }
+  }
+
+  private async fetchDmRelays(pubkey: string): Promise<string[] | undefined> {
+    const events = await this.nostr.queryEvents([
+      { kinds: [10050], authors: [pubkey], limit: 1 },
+    ])
+    const event = events[0]
+    if (!event) return undefined
+    const relays = event.tags
+      .filter((tag) => tag[0] === 'relay' && tag[1])
+      .map((tag) => tag[1])
+    return relays.length > 0 ? relays : undefined
   }
 
   private async resolveLnurl(address: string): Promise<LnurlPayParams | undefined> {

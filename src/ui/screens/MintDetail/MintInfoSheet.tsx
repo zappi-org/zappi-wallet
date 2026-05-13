@@ -7,7 +7,7 @@ import { BottomSheet } from '@/ui/components/common/BottomSheet'
 import { useAppStore } from '@/store'
 import { CARD_PRESET_VARIANTS, VARIANT_HEX, resolveMintColor } from '@/ui/components/wallet/MintCard'
 import type { MintCardDesignPreset, MintInfo, MintInfoData } from '@/core/types'
-import { NUT_NAMES, getSupportedNuts } from '@/core/constants'
+import { LIMITS, NUT_NAMES, getSupportedNuts } from '@/core/constants'
 import { isDuplicateMintName } from '@/utils/mint-name'
 import { formatMintHost } from '@/utils/url'
 import { MintUrlQrModal } from './MintUrlQrModal'
@@ -157,7 +157,7 @@ export function MintInfoSheet({
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <p className="text-caption font-medium text-foreground-muted">{t('mintDetail.cardName')}</p>
-              <p className="text-overline text-foreground-muted/50">{(isEditingName ? editNameValue : aliasName).length}/10</p>
+              <p className="text-overline text-foreground-muted/50">{(isEditingName ? editNameValue : aliasName).length}/{LIMITS.MAX_MINT_NAME_LENGTH}</p>
             </div>
             {isEditingName ? (
               <div className="flex items-center border-b border-brand transition-colors">
@@ -166,14 +166,14 @@ export function MintInfoSheet({
                   type="text"
                   value={editNameValue}
                   onChange={(e) => {
-                    setEditNameValue(e.target.value.slice(0, 10))
+                    setEditNameValue(e.target.value.slice(0, LIMITS.MAX_MINT_NAME_LENGTH))
                     if (nameError) {
                       setNameError(null)
                     }
                   }}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSaveName() }}
                   onBlur={handleSaveName}
-                  maxLength={10}
+                  maxLength={LIMITS.MAX_MINT_NAME_LENGTH}
                   className="flex-1 bg-transparent py-1.5 text-body font-medium text-foreground focus:outline-none"
                 />
               </div>

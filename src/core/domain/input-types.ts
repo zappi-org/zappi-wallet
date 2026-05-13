@@ -172,4 +172,6 @@ export interface ParsedCashuRequest {
   postTarget?: string
   p2pkPubkey?: string
   lightningInvoice?: string
+  /** Direct recipient sends must not fall back to cross-mint mint+DM routing. */
+  sameMintOnly?: boolean
 }

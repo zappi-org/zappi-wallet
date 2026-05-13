@@ -33,6 +33,27 @@ function makeK10019(pubkey: string): NostrEvent {
   }
 }
 
+function makeK10050(pubkey: string): NostrEvent {
+  return {
+    id: 'e2', pubkey, created_at: 1001, kind: 10050, sig: 'sig',
+    content: '',
+    tags: [
+      ['relay', 'wss://dm1.test'],
+      ['relay', 'wss://dm2.test'],
+    ],
+  }
+}
+
+function mockEventsByKind(
+  nostr: Pick<NostrGateway, 'queryEvents'>,
+  eventsByKind: Record<number, NostrEvent[]>,
+) {
+  vi.mocked(nostr.queryEvents).mockImplementation(async (filters) => {
+    const kind = filters[0]?.kinds?.[0]
+    return kind ? eventsByKind[kind] ?? [] : []
+  })
+}
+
 // ─── Mocks ───
 
 function createMocks() {
@@ -72,7 +93,10 @@ describe('AddressResolverService', () => {
         pubkey: PUBKEY,
         relays: ['wss://relay.test'],
       })
-      vi.mocked(nostr.queryEvents).mockResolvedValue([makeK10019(PUBKEY)])
+      mockEventsByKind(nostr, {
+        10019: [makeK10019(PUBKEY)],
+        10050: [makeK10050(PUBKEY)],
+      })
       vi.mocked(lnurl.resolvePay).mockResolvedValue(LNURL_PAY)
 
       const result = await service.resolve('alice@domain.test')
@@ -82,6 +106,7 @@ describe('AddressResolverService', () => {
       expect(result.relays).toEqual(['wss://relay.test'])
       expect(result.capabilities.directToken?.mints).toEqual(['https://mint-a.test', 'https://mint-b.test'])
       expect(result.capabilities.directToken?.p2pkPubkey).toBe('02abc123')
+      expect(result.capabilities.directToken?.dmRelays).toEqual(['wss://dm1.test', 'wss://dm2.test'])
       expect(result.capabilities.lnurl).toEqual(LNURL_PAY)
     })
 
@@ -118,14 +143,29 @@ describe('AddressResolverService', () => {
 
   describe('npub', () => {
     it('resolves with k10019', async () => {
-      vi.mocked(nostr.queryEvents).mockResolvedValue([makeK10019(PUBKEY)])
+      mockEventsByKind(nostr, {
+        10019: [makeK10019(PUBKEY)],
+        10050: [makeK10050(PUBKEY)],
+      })
 
       const result = await service.resolve(NPUB)
 
       expect(result.type).toBe('npub')
       expect(result.pubkey).toBe(PUBKEY)
       expect(result.capabilities.directToken?.mints).toHaveLength(2)
+      expect(result.capabilities.directToken?.dmRelays).toEqual(['wss://dm1.test', 'wss://dm2.test'])
       expect(result.capabilities.lnurl).toBeUndefined()
+    })
+
+    it('does not use k10019 relay tags as DM relays', async () => {
+      mockEventsByKind(nostr, {
+        10019: [makeK10019(PUBKEY)],
+      })
+
+      const result = await service.resolve(NPUB)
+
+      expect(result.capabilities.directToken?.mints).toHaveLength(2)
+      expect(result.capabilities.directToken?.dmRelays).toBeUndefined()
     })
 
     it('returns empty capabilities when no k10019', async () => {
@@ -141,7 +181,10 @@ describe('AddressResolverService', () => {
 
   describe('nprofile', () => {
     it('resolves with relays and k10019', async () => {
-      vi.mocked(nostr.queryEvents).mockResolvedValue([makeK10019(PUBKEY)])
+      mockEventsByKind(nostr, {
+        10019: [makeK10019(PUBKEY)],
+        10050: [makeK10050(PUBKEY)],
+      })
 
       const result = await service.resolve(NPROFILE)
 
@@ -149,6 +192,7 @@ describe('AddressResolverService', () => {
       expect(result.pubkey).toBe(PUBKEY)
       expect(result.relays).toEqual(['wss://relay.test', 'wss://relay2.test'])
       expect(result.capabilities.directToken).toBeDefined()
+      expect(result.capabilities.directToken?.dmRelays).toEqual(['wss://dm1.test', 'wss://dm2.test'])
     })
   })
 

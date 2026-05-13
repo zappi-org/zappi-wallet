@@ -13,6 +13,7 @@ import type { TokenReceiver } from '@/core/ports/driven/token-receiver.port'
 import type { TrustedMintProvider } from '@/core/ports/driven/trusted-mint-provider.port'
 import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-queue.port'
 import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request.usecase'
+import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
 import type {
   RecoveryUseCase,
   AnchorCheckResult,
@@ -21,9 +22,13 @@ import type {
 } from '@/core/ports/driving/recovery.usecase'
 import type { FailedIncoming, SyncResult, ProcessedRecord } from '@/core/types'
 import { RETRY } from '@/core/constants'
-import { parseDirectToken } from '@/core/domain/direct-token'
-import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
 import { amount as createAmount } from '@/core/domain/amount'
+import {
+  candidateAmount,
+  candidateMintUrl,
+  parseGiftWrapTokenContent,
+  type GiftWrapTokenCandidate,
+} from '@/core/domain/gift-wrap-token'
 
 // ─── Anchor constants ───
 
@@ -183,7 +188,8 @@ export class RecoveryService implements RecoveryUseCase {
         }
 
         try {
-          const directToken = parseDirectToken(JSON.parse(msg.content))
+          const candidate = parseGiftWrapTokenContent(msg.content, msg.eventId)
+          const directToken = candidate ? this.materializeCandidate(candidate) : null
 
           if (!directToken) {
             await this.markProcessed(msg.eventId, 'skipped')
@@ -206,7 +212,7 @@ export class RecoveryService implements RecoveryUseCase {
                 memo: directToken.memo,
               },
               queuedAt: Date.now(),
-              senderPubkey: directToken.senderPubkey,
+              senderPubkey: msg.sender,
               source: 'recovery',
             })
             result.eventsProcessed++
@@ -257,6 +263,39 @@ export class RecoveryService implements RecoveryUseCase {
     }
 
     return result
+  }
+
+  private materializeCandidate(candidate: GiftWrapTokenCandidate): {
+    token: string
+    memo?: string
+    mintUrl?: string
+    amount?: number
+  } | null {
+    if (candidate.kind === 'encoded-token') {
+      return {
+        token: candidate.token,
+        memo: candidate.memo,
+        mintUrl: candidate.mintUrl,
+        amount: candidate.amount,
+      }
+    }
+
+    try {
+      const token = this.tokenCodec.encodeCashuToken({
+        mint: candidate.mint,
+        unit: candidate.unit,
+        proofs: candidate.proofs,
+        memo: candidate.memo,
+      })
+      return {
+        token,
+        memo: candidate.memo,
+        mintUrl: candidateMintUrl(candidate),
+        amount: candidateAmount(candidate),
+      }
+    } catch {
+      return null
+    }
   }
 
   // ─── Failed swap retry ───

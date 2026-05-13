@@ -6,7 +6,7 @@
  */
 
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
-import { normalizePubkey, extractRelaysFromNprofile } from './internal/nostr-crypto'
+import { normalizePubkey } from './internal/nostr-crypto'
 import type {
   OutgoingPaymentTransport,
   OutgoingPaymentParams,
@@ -53,18 +53,10 @@ export class NostrPaymentTransport implements OutgoingPaymentTransport {
 
   /**
    * 수신자 DM 릴레이 탐색
-   * 1. nprofile relay hint
-   * 2. kind:10050 (DM Relay List)
-   * 3. gateway에 연결된 기본 릴레이
+   * kind:10050 (DM Relay List)만 실제 전송 릴레이로 사용한다.
+   * nprofile relay hint나 로컬 기본 릴레이는 최신 수신 릴레이 보장이 없으므로 fallback하지 않는다.
    */
   private async resolveRelays(recipientPubkey: string): Promise<string[]> {
-    // 1. nprofile relay hints
-    const nprofileRelays = extractRelaysFromNprofile(recipientPubkey)
-    if (nprofileRelays.length > 0) {
-      return nprofileRelays
-    }
-
-    // 2. kind:10050 lookup
     const recipientHex = normalizePubkey(recipientPubkey)
     if (recipientHex) {
       try {
@@ -86,11 +78,7 @@ export class NostrPaymentTransport implements OutgoingPaymentTransport {
       }
     }
 
-    // 3. gateway에 연결된 릴레이 fallback
-    return this.nostrGateway
-      .getRelayStatus()
-      .filter((r) => r.connected)
-      .map((r) => r.url)
+    return []
   }
 }
 
@@ -121,4 +109,3 @@ async function buildContent(
     return token
   }
 }
-

@@ -1,10 +1,9 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 
-import { ArrowLeft, Copy, Check, RefreshCw, ClipboardPaste } from 'lucide-react'
+import { ArrowLeft, Copy, Check, RefreshCw } from 'lucide-react'
 import { NumericKeypad } from '@/ui/components/common/NumericKeypad'
 import { Button } from '@/ui/components/common/Button'
 import { useTranslation } from 'react-i18next'
-import { wordlist } from '@scure/bip39/wordlists/english.js'
 import creatingWalletSvg from '@/assets/creating-wallet.svg'
 import zappiImg from '@/assets/zappi.png'
 
@@ -13,23 +12,19 @@ export type OnboardingStep = 'welcome' | 'mnemonic' | 'pin' | 'pin-confirm' | 'r
 export interface OnboardingScreenProps {
   onComplete: (data: OnboardingData) => Promise<boolean>
   onGenerateMnemonic: () => string
-  onValidateMnemonic: (mnemonic: string) => boolean
 }
 
 export interface OnboardingData {
   mnemonic: string
   password: string
-  isRecovery: boolean
 }
 
 export function OnboardingScreen({
   onComplete,
   onGenerateMnemonic,
-  onValidateMnemonic,
 }: OnboardingScreenProps) {
   const { t } = useTranslation()
   const [step, setStep] = useState<OnboardingStep>('welcome')
-  const [mode, setMode] = useState<'create' | 'import'>('create')
 
   // Invite code gate
   const [inviteUnlocked, setInviteUnlocked] = useState(false)
@@ -92,8 +87,6 @@ export function OnboardingScreen({
     setInviteCode('')
   }, [inviteCode, inviteAttempts, isInviteLocked, t])
   const [mnemonic, setMnemonic] = useState('')
-  const [mnemonicWords, setMnemonicWords] = useState<string[]>(Array(12).fill(''))
-  const [wordCount, setWordCount] = useState<12 | 24>(12)
   const [mnemonicError, setMnemonicError] = useState('')
   const [backupConfirmed, setBackupConfirmed] = useState(false)
   const [pin, setPin] = useState('')
@@ -103,32 +96,11 @@ export function OnboardingScreen({
   const [loadingMessage, _setLoadingMessage] = useState('')
   const [error, setError] = useState('')
   const [mnemonicCopied, setMnemonicCopied] = useState(false)
-  const [focusedWordIndex, setFocusedWordIndex] = useState<number | null>(null)
 
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([])
-  const focusedWordIndexRef = useRef<number | null>(null)
-
-  // Manual word count change (tab click) — reset words
-  const handleWordCountChange = useCallback((count: 12 | 24) => {
-    setWordCount(count)
-    setMnemonicWords(Array(count).fill(''))
-    setMnemonicError('')
-  }, [])
-
-  // BIP-39 autocomplete suggestions
-  const suggestions = useMemo(() => {
-    if (focusedWordIndex === null || mode !== 'import') return []
-    const current = mnemonicWords[focusedWordIndex]
-    if (!current || current.length < 2) return []
-    if (wordlist.includes(current)) return []
-    return wordlist.filter(w => w.startsWith(current)).slice(0, 6)
-  }, [focusedWordIndex, mnemonicWords, mode])
-
-  // Welcome step - choose create or import
+  // Welcome step - create a new local wallet only.
   const handleCreate = useCallback(() => {
     const newMnemonic = onGenerateMnemonic()
     setMnemonic(newMnemonic)
-    setMode('create')
     setStep('mnemonic')
   }, [onGenerateMnemonic])
 
@@ -139,102 +111,14 @@ export function OnboardingScreen({
     setBackupConfirmed(false)
   }, [onGenerateMnemonic])
 
-  const handleImport = useCallback(() => {
-    setMode('import')
-    setMnemonicWords(Array(12).fill(''))
-    setWordCount(12)
-    setStep('mnemonic')
-  }, [])
-
-  // Fill words from a space-separated string (paste or clipboard button)
-  const fillFromText = useCallback((text: string) => {
-    const words = text.trim().toLowerCase().split(/\s+/)
-    if (words.length === 12 || words.length === 24) {
-      setWordCount(words.length as 12 | 24)
-      setMnemonicWords([...words])
-      setMnemonicError('')
-      setFocusedWordIndex(null)
-    }
-  }, [])
-
-  // Clipboard paste button handler
-  const handlePasteFromClipboard = useCallback(async () => {
-    try {
-      const text = await navigator.clipboard.readText()
-      fillFromText(text)
-    } catch {
-      // Clipboard API not available or denied
-    }
-  }, [fillFromText])
-
-  // Handle word input change
-  const handleWordChange = (index: number, value: string) => {
-    // Handle paste of full mnemonic
-    if (value.includes(' ')) {
-      fillFromText(value)
-      return
-    }
-
-    const cleaned = value.toLowerCase().trim()
-    const newWords = mnemonicWords.map((w, i) => i === index ? cleaned : w)
-    setMnemonicError('')
-
-    // Auto-complete if exactly one BIP-39 match (skip if already a complete word)
-    if (cleaned.length >= 2 && !wordlist.includes(cleaned)) {
-      const matches = wordlist.filter(w => w.startsWith(cleaned))
-      if (matches.length === 1 && matches[0] !== mnemonicWords[index]) {
-        const completed = newWords.map((w, i) => i === index ? matches[0] : w)
-        setMnemonicWords(completed)
-        // Move to next empty input
-        const nextEmpty = completed.findIndex((w, i) => i > index && !w)
-        if (nextEmpty !== -1) {
-          setTimeout(() => inputRefs.current[nextEmpty]?.focus(), 0)
-        }
-        return
-      }
-    }
-    setMnemonicWords(newWords)
-  }
-
-  const handleWordKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace' && !mnemonicWords[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus()
-    }
-  }
-
-  // Select an autocomplete suggestion
-  const handleSelectSuggestion = (word: string) => {
-    if (focusedWordIndex === null) return
-    const newWords = [...mnemonicWords]
-    newWords[focusedWordIndex] = word
-    setMnemonicWords(newWords)
-    setMnemonicError('')
-    // Move to next empty input
-    const nextEmpty = newWords.findIndex((w, i) => i > focusedWordIndex && !w)
-    if (nextEmpty !== -1) {
-      inputRefs.current[nextEmpty]?.focus()
-    } else {
-      setFocusedWordIndex(null)
-    }
-  }
-
   // Mnemonic step
   const handleMnemonicNext = useCallback(() => {
-    if (mode === 'import') {
-      const trimmed = mnemonicWords.join(' ').trim().toLowerCase()
-      if (!onValidateMnemonic(trimmed)) {
-        setMnemonicError(t('onboarding.invalidMnemonic'))
-        return
-      }
-      setMnemonic(trimmed)
-    } else {
-      if (!backupConfirmed) {
-        setMnemonicError(t('onboarding.backupConfirmRequired'))
-        return
-      }
+    if (!backupConfirmed) {
+      setMnemonicError(t('onboarding.backupConfirmRequired'))
+      return
     }
     setStep('pin')
-  }, [mode, mnemonicWords, backupConfirmed, onValidateMnemonic, t])
+  }, [backupConfirmed, t])
 
   // Refs for stable keypress handler
   const stepRef = useRef(step)
@@ -257,7 +141,6 @@ export function OnboardingScreen({
       const success = await onComplete({
         mnemonic,
         password: pinRef.current,
-        isRecovery: mode === 'import',
       })
 
       if (success) {
@@ -271,7 +154,7 @@ export function OnboardingScreen({
       setStep('pin-confirm')
       setError(t('onboarding.walletSetupFailed'))
     }
-  }, [mnemonic, mode, onComplete, t])
+  }, [mnemonic, onComplete, t])
 
   const handlePinKeyPress = useCallback((key: string) => {
     const currentStep = stepRef.current
@@ -321,8 +204,6 @@ export function OnboardingScreen({
     setStep(targetStep)
   }, [])
 
-  const isImportComplete = mnemonicWords.every(word => word.length > 0)
-
   // Render Welcome step
   if (step === 'welcome') {
     return (
@@ -339,9 +220,6 @@ export function OnboardingScreen({
               <div className="w-full space-y-3 mb-10">
                 <Button variant="brand" size="xl" onClick={handleCreate} className="w-full">
                   {t('onboarding.createWallet')}
-                </Button>
-                <Button variant="outline" size="xl" onClick={handleImport} className="w-full">
-                  {t('onboarding.importWallet')}
                 </Button>
               </div>
               <p className="text-overline font-medium text-foreground-muted uppercase tracking-widest">
@@ -392,7 +270,7 @@ export function OnboardingScreen({
 
   // Render Mnemonic step
   if (step === 'mnemonic') {
-    const words = mode === 'create' ? mnemonic.split(' ') : mnemonicWords
+    const words = mnemonic.split(' ')
 
     return (
       <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe overflow-hidden overscroll-none">
@@ -412,45 +290,18 @@ export function OnboardingScreen({
             {/* Title area */}
             <div className="mb-5">
               <h2 className="text-title font-bold text-foreground mb-1">
-                {mode === 'create' ? t('onboarding.secretRecoveryKey') : t('onboarding.walletRecovery')}
+                {t('onboarding.secretRecoveryKey')}
               </h2>
               <p className="text-caption text-foreground-muted leading-relaxed whitespace-pre-line">
-                {mode === 'create'
-                  ? t('onboarding.mnemonicWarning')
-                  : t('onboarding.enterRecoveryPhrase')}
+                {t('onboarding.mnemonicWarning')}
               </p>
             </div>
 
-            {mode === 'import' && (
-              <div className="relative flex p-1 bg-muted rounded-lg mb-4">
-                <div
-                  className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-brand rounded-md shadow-sm transition-transform duration-200 ease-out"
-                  style={{ left: '4px', transform: wordCount === 24 ? 'translateX(100%)' : 'translateX(0)' }}
-                />
-                <button
-                  onClick={() => handleWordCountChange(12)}
-                  className={`relative z-10 flex-1 py-2 rounded-md text-caption font-semibold transition-colors duration-200 ${
-                    wordCount === 12 ? 'text-white' : 'text-foreground-muted'
-                  }`}
-                >
-                  {t('onboarding.words12')}
-                </button>
-                <button
-                  onClick={() => handleWordCountChange(24)}
-                  className={`relative z-10 flex-1 py-2 rounded-md text-caption font-semibold transition-colors duration-200 ${
-                    wordCount === 24 ? 'text-white' : 'text-foreground-muted'
-                  }`}
-                >
-                  {t('onboarding.words24')}
-                </button>
-              </div>
-            )}
-
             {/* Word grid */}
             <div className="bg-background-card rounded-2xl p-4 mb-4">
-              <div className={`grid grid-flow-col ${wordCount === 24 ? 'grid-cols-3 grid-rows-8' : 'grid-cols-2 grid-rows-6'} gap-x-3 gap-y-1`}>
-                {(mode === 'create' ? words : mnemonicWords).map((word, i) => {
-                  const rows = wordCount === 24 ? 8 : 6
+              <div className="grid grid-flow-col grid-cols-2 grid-rows-6 gap-x-3 gap-y-1">
+                {words.map((word, i) => {
+                  const rows = 6
                   const isLastRow = (i + 1) % rows === 0
                   return (
                   <div
@@ -460,85 +311,35 @@ export function OnboardingScreen({
                     }`}
                   >
                     <span className="text-label font-medium tabular-nums text-foreground-subtle w-5 text-right shrink-0">{i + 1}</span>
-                    {mode === 'create' ? (
-                      <span className="text-body font-medium text-foreground">{word}</span>
-                    ) : (
-                      <input
-                        ref={(el) => { inputRefs.current[i] = el }}
-                        type="text"
-                        value={word}
-                        onChange={(e) => handleWordChange(i, e.target.value)}
-                        onKeyDown={(e) => handleWordKeyDown(i, e)}
-                        onFocus={(e) => {
-                          focusedWordIndexRef.current = i
-                          setFocusedWordIndex(i)
-                          if (word) e.target.select()
-                        }}
-                        onBlur={() => {
-                          const blurredIndex = i
-                          setTimeout(() => {
-                            // Only clear if focus hasn't moved to another word input
-                            if (focusedWordIndexRef.current === blurredIndex) {
-                              focusedWordIndexRef.current = null
-                              setFocusedWordIndex(null)
-                            }
-                          }, 150)
-                        }}
-                        className="flex-1 bg-transparent outline-none text-body font-medium text-foreground min-w-0"
-                        autoCapitalize="none"
-                        autoCorrect="off"
-                        spellCheck={false}
-                      />
-                    )}
+                    <span className="text-body font-medium text-foreground">{word}</span>
                   </div>
                   )
                 })}
               </div>
             </div>
 
-            {/* Autocomplete suggestions */}
-            {mode === 'import' && suggestions.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-4">
-                {suggestions.map(s => (
-                  <button
-                    key={s}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => handleSelectSuggestion(s)}
-                    className="px-3 py-1.5 bg-background-card rounded-lg text-caption font-medium text-foreground active:bg-muted transition-colors"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {mode === 'create' && (
-              <>
-                {/* Copy & Regenerate */}
-                <div className="flex items-center justify-center gap-4 mb-5">
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(mnemonic)
-                      setMnemonicCopied(true)
-                      setTimeout(() => setMnemonicCopied(false), 2000)
-                    }}
-                    className="flex items-center gap-1.5 text-caption font-medium text-foreground-muted active:opacity-60 transition-opacity px-3 py-2"
-                  >
-                    {mnemonicCopied ? <Check className="w-4 h-4 text-brand" /> : <Copy className="w-4 h-4" />}
-                    {mnemonicCopied ? t('common.copied') : t('onboarding.copyToClipboard')}
-                  </button>
-                  <span className="text-border">|</span>
-                  <button
-                    onClick={handleRegenerate}
-                    className="flex items-center gap-1.5 text-caption font-medium text-foreground-muted active:opacity-60 transition-opacity px-3 py-2"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                    {t('onboarding.regenerateMnemonic')}
-                  </button>
-                </div>
-
-              </>
-            )}
+            {/* Copy & Regenerate */}
+            <div className="flex items-center justify-center gap-4 mb-5">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(mnemonic)
+                  setMnemonicCopied(true)
+                  setTimeout(() => setMnemonicCopied(false), 2000)
+                }}
+                className="flex items-center gap-1.5 text-caption font-medium text-foreground-muted active:opacity-60 transition-opacity px-3 py-2"
+              >
+                {mnemonicCopied ? <Check className="w-4 h-4 text-brand" /> : <Copy className="w-4 h-4" />}
+                {mnemonicCopied ? t('common.copied') : t('onboarding.copyToClipboard')}
+              </button>
+              <span className="text-border">|</span>
+              <button
+                onClick={handleRegenerate}
+                className="flex items-center gap-1.5 text-caption font-medium text-foreground-muted active:opacity-60 transition-opacity px-3 py-2"
+              >
+                <RefreshCw className="w-4 h-4" />
+                {t('onboarding.regenerateMnemonic')}
+              </button>
+            </div>
 
             {mnemonicError && (
               <div className="animate-fadeIn mt-4 bg-accent-danger/[0.08] px-3 py-2.5 rounded-xl">
@@ -549,50 +350,35 @@ export function OnboardingScreen({
 
           {/* Bottom CTA */}
           <div className="px-5 pb-5 pt-3 space-y-4">
-            {mode === 'import' && (
-              <button
-                onClick={handlePasteFromClipboard}
-                className="w-full flex items-center justify-center gap-1.5 py-3 text-caption font-medium text-foreground-muted active:opacity-60 transition-opacity"
-              >
-                <ClipboardPaste className="w-4 h-4" />
-                {t('common.paste')}
-              </button>
-            )}
-            {mode === 'create' && (
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={backupConfirmed}
-                onClick={() => setBackupConfirmed(!backupConfirmed)}
-                className="w-full flex items-center justify-center gap-3 rounded-xl px-1 py-2 active:opacity-70 transition-opacity"
-              >
-                <div className={`
-                  w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors
-                  ${backupConfirmed
-                    ? 'border-brand bg-brand'
-                    : 'border-foreground-subtle'}
-                `}>
-                  {backupConfirmed && (
-                    <Check className="w-3.5 h-3.5 text-white" />
-                  )}
-                </div>
-                <span className={`text-caption text-center leading-snug ${backupConfirmed ? 'text-foreground font-medium' : 'text-foreground-muted'}`}>
-                  {t('onboarding.mnemonicSavedConfirm')}
-                </span>
-              </button>
-            )}
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={backupConfirmed}
+              onClick={() => setBackupConfirmed(!backupConfirmed)}
+              className="w-full flex items-center justify-center gap-3 rounded-xl px-1 py-2 active:opacity-70 transition-opacity"
+            >
+              <div className={`
+                w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors
+                ${backupConfirmed
+                  ? 'border-brand bg-brand'
+                  : 'border-foreground-subtle'}
+              `}>
+                {backupConfirmed && (
+                  <Check className="w-3.5 h-3.5 text-white" />
+                )}
+              </div>
+              <span className={`text-caption text-center leading-snug ${backupConfirmed ? 'text-foreground font-medium' : 'text-foreground-muted'}`}>
+                {t('onboarding.mnemonicSavedConfirm')}
+              </span>
+            </button>
             <Button
               variant="brand"
               size="xl"
               onClick={handleMnemonicNext}
-              disabled={
-                (mode === 'create' && !backupConfirmed) ||
-                (mode === 'import' && !isImportComplete) ||
-                isLoading
-              }
+              disabled={!backupConfirmed || isLoading}
               className="w-full"
             >
-              {mode === 'create' ? t('onboarding.recordComplete') : t('onboarding.recoverWallet')}
+              {t('onboarding.recordComplete')}
             </Button>
           </div>
         </div>
@@ -679,7 +465,7 @@ export function OnboardingScreen({
             className="mb-6"
             role="status"
             aria-live="polite"
-            aria-label={mode === 'import' ? t('onboarding.recoveringWallet') : t('onboarding.creatingWallet')}
+            aria-label={t('onboarding.creatingWallet')}
           >
             <img
               src={creatingWalletSvg}
@@ -690,10 +476,7 @@ export function OnboardingScreen({
           </div>
 
           <h2 className="text-title font-bold mb-2">
-            {mode === 'import'
-              ? t('onboarding.recoveringWalletDesc')
-              : t('onboarding.creatingWalletDesc')
-            }
+            {t('onboarding.creatingWalletDesc')}
           </h2>
           <p className="text-caption text-foreground-muted">
             {t('onboarding.pleaseWait')}

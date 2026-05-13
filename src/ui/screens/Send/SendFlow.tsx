@@ -235,6 +235,7 @@ export function SendFlow({
     destination: string
     validatedData?: SendableValidatedData
     amountFromInvoice?: number
+    mintUrl?: string
   }) => {
     if (isProcessingRef.current) return
     isProcessingRef.current = true
@@ -276,9 +277,11 @@ export function SendFlow({
       }
 
       // If invoice has amount → check balance, then skip amount step
-      if (data.amountFromInvoice && data.amountFromInvoice > 0 && state.selectedMintUrl) {
+      const sourceMintUrl = data.mintUrl ?? state.selectedMintUrl
+
+      if (data.amountFromInvoice && data.amountFromInvoice > 0 && sourceMintUrl) {
         // Balance check before auto-advance
-        const mintBalance = useAppStore.getState().balance?.byMint?.[state.selectedMintUrl] || 0
+        const mintBalance = useAppStore.getState().balance?.byMint?.[sourceMintUrl] || 0
         if (data.amountFromInvoice > mintBalance) {
           const { formatSats: fmtSats } = await import('@/utils/format')
           addToast({ type: 'error', message: `${t('payment.insufficientBalance')} (${t('send.confirm.requestAmount', '요청')} ${fmtSats(data.amountFromInvoice)} / ${t('common.balance')} ${fmtSats(mintBalance)})`, duration: 4000 })
@@ -287,7 +290,7 @@ export function SendFlow({
           return
         }
 
-        const routeResult = await performRouteSelection(validated, data.amountFromInvoice, state.selectedMintUrl)
+        const routeResult = await performRouteSelection(validated, data.amountFromInvoice, sourceMintUrl)
         if (!routeResult) {
           isProcessingRef.current = false
           setIsLoading(false)
@@ -297,6 +300,7 @@ export function SendFlow({
         setState((prev) => ({
           ...prev,
           step: 'confirm',
+          selectedMintUrl: sourceMintUrl,
           destination: data.destination,
           validatedData: validated!,
           amount: data.amountFromInvoice!,
@@ -312,6 +316,7 @@ export function SendFlow({
       setState((prev) => ({
         ...prev,
         step: 'amount',
+        selectedMintUrl: sourceMintUrl,
         destination: data.destination,
         validatedData: validated!,
         error: null,
@@ -460,6 +465,7 @@ export function SendFlow({
               initialAddress={initialDestination}
               initialValidatedData={state.validatedData}
               mintUrl={state.selectedMintUrl || ''}
+              onMintChange={(mintUrl) => setState((prev) => ({ ...prev, selectedMintUrl: mintUrl }))}
               isLoading={isLoading}
               onRouteValidated={onRouteValidated}
             />

@@ -53,6 +53,7 @@ describe('GiftWrapWatcher', () => {
         enqueue: vi.fn().mockResolvedValue(undefined),
       },
       tokenCodec: {
+        encodeCashuToken: vi.fn().mockReturnValue('cashuBencoded'),
         inspectCashuToken: vi.fn((token: string) => {
           // Decode base64 to extract mint and amount
           try {
@@ -144,5 +145,39 @@ describe('GiftWrapWatcher', () => {
         metadata: undefined,
       },
     })
+  })
+
+  it('settles JSON proof payloads sent through gift-wrap', async () => {
+    const watcher = new GiftWrapWatcher(deps)
+    await (watcher as unknown as {
+      handleMessage: (msg: { eventId: string; content: string; sender: string }) => Promise<void>
+    }).handleMessage({
+      eventId: 'ev-json',
+      sender: 'sender-pubkey',
+      content: JSON.stringify({
+        id: 'request-json',
+        mint: 'https://mint.test',
+        unit: 'sat',
+        proofs: [
+          { id: 'keyset-1', amount: 77, secret: 'secret-1', C: 'C-1' },
+        ],
+      }),
+    })
+
+    expect(deps.tokenCodec.encodeCashuToken).toHaveBeenCalledWith({
+      mint: 'https://mint.test',
+      unit: 'sat',
+      proofs: [
+        { id: 'keyset-1', amount: 77, secret: 'secret-1', C: 'C-1' },
+      ],
+      memo: undefined,
+    })
+    expect(deps.incomingPayment.processIncoming).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: 'cashuBencoded',
+        externalId: 'ev-json',
+        receiveRequestPaymentRef: 'request-json',
+      }),
+    )
   })
 })

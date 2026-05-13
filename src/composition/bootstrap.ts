@@ -26,9 +26,11 @@ import { DexieOperationMap } from '@/adapters/storage/dexie/dexie-operation-map'
 import { DexieOfflineTokenStore } from '@/adapters/storage/dexie/dexie-offline-token-store'
 import { NostrGatewayAdapter } from '@/adapters/nostr/nostr-gateway'
 import { NostrPaymentTransport } from '@/adapters/nostr/nostr-payment-transport'
+import { NostrExternalMnemonicMintDiscoveryAdapter } from '@/adapters/nostr/external-mnemonic-mint-discovery.adapter'
 import { derivePublicKey } from '@/adapters/nostr/internal/nostr-crypto'
 import { FailedIncomingStoreAdapter } from '@/adapters/storage/failed-incoming-store.adapter'
 import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
+import { KeyManagerAdapter } from '@/adapters/crypto/key-manager.adapter'
 
 // ─── Adapters (non-module) ───
 import { DirectLnurlAdapter } from '@/adapters/lnurl/direct-lnurl.adapter'
@@ -38,10 +40,16 @@ import { DexieProcessedRepository as ProcessedRepository } from '@/adapters/stor
 
 // ─── Legacy services (composition root만 wrap 가능) ───
 import { exchangeRateService } from './exchange-rate'
-import { executeRoute as legacyExecuteRoute } from './routing'
 
 // ─── Coco (composition root만 접근) ───
-import { addMint as trustMintInCoco, deleteCocoData, removeMintFromCoco } from '@/modules/cashu'
+import {
+  addMint as trustMintInCoco,
+  createExternalMnemonicRecovery,
+  deleteCocoData,
+  markQuoteAsSwap,
+  removeMintFromCoco,
+  unmarkQuoteAsSwap,
+} from '@/modules/cashu'
 import { clearMintData } from '@/adapters/storage/dexie/schema'
 import { resetWalletCache } from '@/adapters/cache/wallet-cache'
 import { LocalStorageBalanceCache } from '@/adapters/cache/local-storage-balance-cache.adapter'
@@ -50,11 +58,15 @@ import { LocalStorageBalanceCache } from '@/adapters/cache/local-storage-balance
 import { CryptoGatewayAdapter } from '@/adapters/crypto/crypto-gateway.adapter'
 import { TokenCodecAdapter } from '@/adapters/codec/token-codec.adapter'
 import { CashuFeeEstimatorAdapter } from '@/modules/cashu/adapters/cashu-fee-estimator.adapter'
+import { CashuRoutePaymentOperatorAdapter } from '@/modules/cashu/adapters/cashu-route-payment-operator.adapter'
 import { CashuSendTokenOperatorAdapter } from '@/modules/cashu/adapters/cashu-send-token-operator.adapter'
 import { MintHealthCheckerAdapter } from '@/adapters/health/mint-health-checker.adapter'
 import { MintMetadataStoreAdapter } from '@/adapters/metadata/mint-metadata-store.adapter'
 import { TrustedMintProviderAdapter } from '@/adapters/runtime/trusted-mint-provider.adapter'
 import { IncomingReviewQueueAdapter } from '@/adapters/runtime/incoming-review-queue.adapter'
+import { CrossTabSyncNotifierAdapter } from '@/adapters/runtime/cross-tab-sync-notifier.adapter'
+import { DexieRouteExecutionStore } from '@/adapters/storage/dexie/dexie-route-execution-store'
+import { SettingsTrustedAccountStoreAdapter } from '@/adapters/runtime/settings-trusted-account-store.adapter'
 
 // ─── Phase 6: New Core Services ───
 import { CryptoService } from '@/core/services/crypto.service'
@@ -67,6 +79,9 @@ import { ReceiveRequestFacadeService } from '@/core/services/receive-request-fac
 import { PaymentRequestService } from '@/core/services/payment-request.service'
 import { UsernameService } from '@/core/services/username.service'
 import { TrustRegistryService } from '@/core/services/trust-registry.service'
+import { NostrDirectPaymentService } from '@/core/services/nostr-direct-payment.service'
+import { RouteExecutionService } from '@/core/services/route-execution.service'
+import { ExternalWalletRecoveryService } from '@/core/services/external-wallet-recovery.service'
 
 // ─── Phase 6: Metadata + NUT-18 HTTP ───
 import { MintMetadataService, metadataEvents } from '@/modules/cashu/metadata'
@@ -83,7 +98,7 @@ import { startNut18HttpPoller } from '@/adapters/codec/nut18-http-poller'
 import { ZappiLinkAdapter } from '@/adapters/zappi-link/zappi-link.adapter'
 import { finalizeEvent } from 'nostr-tools'
 import { hexToBytes } from '@noble/hashes/utils.js'
-import { NOSTR_KINDS } from '@/core/constants'
+import { DEFAULT_RELAYS, NOSTR_KINDS } from '@/core/constants'
 import { DexieReceiveRequestRepository } from '@/adapters/storage/dexie/dexie-receive-request.repository'
 
 // ─── Composition Roots ───
@@ -102,6 +117,8 @@ import { connectEventStoreBridge } from './event-store-bridge'
 import { connectCocoEventBridge } from './coco-event-bridge'
 import { GiftWrapWatcher } from './gift-wrap.watcher'
 import { removeMintArtifacts } from './remove-mint'
+import { PaymentDelivery } from './payment-delivery'
+import { PaymentRecoveredTokenReceiver } from './recovered-token-receiver'
 
 // ─── Types ───
 import type { WalletModule } from '@/core/ports/driven/wallet-module.port'
@@ -210,9 +227,25 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const lnurlAdapter = new DirectLnurlAdapter()
   const nip05Adapter = new Nip05ResolverAdapter()
   const outgoingTransport = new NostrPaymentTransport(nostrGateway)
+  const externalMnemonicRecovery = createExternalMnemonicRecovery()
+  const externalMnemonicMintDiscovery = new NostrExternalMnemonicMintDiscoveryAdapter(
+    nostrGateway,
+    new KeyManagerAdapter(),
+    {
+      getDiscoveryRelays: () => [
+        ...DEFAULT_RELAYS,
+        ...(useAppStore.getState().settings.relays || []),
+      ],
+    },
+  )
 
   // 5. Services (via composition roots)
-  const payment = createPaymentService(modules, txRepo, eventBus, operationMap)
+  const payment = createPaymentService(
+    modules,
+    txRepo,
+    eventBus,
+    operationMap,
+  )
   const balance = createBalanceService(modules)
   const swap = createSwapService(modules, txRepo, eventBus)
   const contact = createContactService(contactRepo)
@@ -299,12 +332,12 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   }
 
   // 9. Additional services
+  const tokenCodec = new TokenCodecAdapter()
   const recovery = createRecoveryService(nostrGateway, payment, trustedMintProvider, incomingReviewQueue, receiveRequest)
   const incomingPayment = new IncomingPaymentService(payment, processedStore, failedIncomingStore, receiveRequest, txRepo, eventBus)
   const pendingItems = createPendingItemsService(txRepo, receiveRequestRepo, modules)
 
   // 10. Gift wrap watcher
-  const tokenCodec = new TokenCodecAdapter()
   const giftWrapWatcher = new GiftWrapWatcher({
     nostrGateway,
     incomingPayment,
@@ -341,6 +374,20 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
   const sendTokenOperator = new CashuSendTokenOperatorAdapter(cashuBackend)
   const transactionMgmt = new TransactionMgmtService(txRepo, sendTokenOperator, pendingOpRepo, eventBus)
+  const routePaymentOperator = new CashuRoutePaymentOperatorAdapter(cashuBackend, {
+    markQuoteAsSwap,
+    unmarkQuoteAsSwap,
+  })
+  const routeExecution = new RouteExecutionService(
+    routePaymentOperator,
+    txRepo,
+    new DexieRouteExecutionStore(),
+    new PaymentDelivery(outgoingTransport),
+    tokenCodec,
+    lnurlAdapter,
+    eventBus,
+    new CrossTabSyncNotifierAdapter(),
+  )
 
   const paymentRequest = new PaymentRequestService(tokenCodec, (opts) => {
     const poller = startNut18HttpPoller({
@@ -370,6 +417,17 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const username = new UsernameService(zappiLinkProvider)
 
   const trustRegistry = new TrustRegistryService(settingsRepo)
+  const nostrDirectPayment = new NostrDirectPaymentService(addressResolver)
+  const externalWalletRecovery = new ExternalWalletRecoveryService(
+    externalMnemonicMintDiscovery,
+    externalMnemonicRecovery,
+    new PaymentRecoveredTokenReceiver(payment),
+    new SettingsTrustedAccountStoreAdapter(
+      settingsRepo,
+      (mints) => useAppStore.getState().updateSettings({ mints }),
+    ),
+    eventBus,
+  )
   const support = createSupportService({ bip39Seed: deps.bip39Seed })
 
   return {
@@ -400,6 +458,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     username,
     trustRegistry,
     support,
+    nostrDirectPayment,
+    externalWalletRecovery,
 
     // ─── BootstrapResult extensions (MainApp only) ───
     cashuModule,
@@ -435,9 +495,9 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
       refreshIfStale: () => exchangeRateService.refreshIfStale(),
     },
 
-    // Routing (Phase 6에서 제거)
+    // Routing
     executeRoute: (selection: RouteSelection, context: RouteContext) =>
-      legacyExecuteRoute(selection, { ...context, outgoingTransport }),
+      routeExecution.executeRoute(selection, context),
 
     // Gift wrap watcher
     giftWrapWatcher,

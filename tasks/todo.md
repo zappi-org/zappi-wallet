@@ -1,4 +1,33 @@
-# Current Task — Customer Support Inbox Unread UX
+# Current Task — Wallet Recovery + npub Send + Name Limits
+
+- [x] Re-read root/wallet rules and current lessons before implementation
+- [x] Change address-book name limit to 30 and mint custom name limit to 20 via shared constants
+- [x] Remove onboarding wallet import/recovery so a fresh install only creates a new wallet
+- [x] Split settings wallet recovery into current-wallet recovery and external-mnemonic ecash import
+- [x] Implement external-mnemonic recovery without mutating the current Coco seed/cache
+- [x] Enable address-book npub send and manual npub/nprofile send input
+- [x] Enforce npub send policy: common mint required, recipient DM relay required, P2PK applied when advertised
+- [x] Run lint, typecheck, tests, build, hex-review, hardcoding/security scans, and `git diff --check`
+
+Plan
+- Keep UI outside the hexagon by using `ServiceRegistry` driving ports. Do not import Coco internals from UI.
+- Recovering another mnemonic must restore proofs with an isolated cashu-ts wallet, encode recovered unspent proofs as Cashu tokens, and redeem those tokens through the current wallet. Never swap the global Coco seed getter or current encrypted wallet mnemonic.
+- Direct npub/nprofile sending is modeled as a same-mint-only NUT-18/NIP-17 payment target. It reuses the existing route executor and P2PK locking path, but disables cross-mint fallback for this entry point.
+- Address-book entry starts with no source mint, so it shows only common mints. Mint-card entry preserves the selected source mint and asks the user before switching if the recipient cannot receive from that mint.
+
+Review
+- Address-book names now use `LIMITS.MAX_CONTACT_NAME_LENGTH = 30`; mint custom names use `LIMITS.MAX_MINT_NAME_LENGTH = 20` in mint info editing and the reusable mint card edit path.
+- Fresh onboarding no longer offers mnemonic import/recovery. It only creates a new wallet, fetches ZS config/default settings, and publishes the new wallet profile.
+- Settings wallet recovery now starts with a choice: recover missing ecash for the current wallet, or scan another mnemonic and import recovered ecash into the current wallet.
+- External mnemonic recovery uses an isolated `cashu-ts` wallet with `batchRestore` per registered mint/keyset, filters unspent proofs, encodes them as Cashu tokens, and redeems through the current `PaymentUseCase`. It does not swap or mutate the current Coco seed/cache.
+- Address-book npub/nprofile send and manual send input are enabled. Sending requires recipient `10019` mint info, a common mint, and recipient `10050` DM relay info. `nprofile` relay hints and local default relays are not used for actual sending.
+- P2PK is applied only when the recipient advertises it in `10019`; otherwise the same-mint NUT-18 delivery path remains unlocked because current wallet P2PK locking is optional for this scope.
+- Same-mint-only direct npub sends cannot fall back to Lightning/cross-mint routes. If the selected mint is unsupported but another common mint exists, the user must explicitly select one of the common mints.
+- Verification passed: `npx tsc --noEmit`, `bun run lint`, `bun run test` (93 files / 687 tests), `bun run build`, `node .claude/skills/hex-review/scripts/check-hex-violations.mjs src` (551 files, 0 violations), and `git diff --check`.
+- Manual security/hardcoding scan found no new private keys, nsec values, production relay constants, `hex-ignore`, TODO/FIXME workaround markers, or UI-to-adapter/module/composition boundary violations in the new implementation. Sensitive-looking matches were test fixtures only.
+- Root `verify-implementation` still references a missing `verify-ecash` skill, and wallet-local `verify-*` skills are absent, so that authored verify pipeline remains non-executable in the current workspace.
+
+# Previous Task — Customer Support Inbox Unread UX
 
 - [x] Re-check root and wallet rules before changing support UX
 - [x] Add protocol-neutral local archive support for customer-side inquiry deletion
@@ -226,6 +255,52 @@ Review
 - Full verification passed after the final QA rework: `bun run lint`, `npx tsc --noEmit`, `bun run test -- --run` (72 files / 548 tests), `bun run build`, and `git diff --check`. Build still emits the existing Vite chunk/dynamic import warnings.
 - Final specialist review found three completion blockers and they were fixed before this task was treated as complete: source-mint trust restoration failures now fail loudly instead of being logged as best-effort cleanup, swap estimate quote cleanup keeps/report its quote id until abandonment succeeds, and the new Cashu internal tests were moved inside `src/modules/cashu/internal` so the new tests no longer import `internal/` from outside.
 - Final rule audit included untracked new files, architecture import-boundary searches, sensitive-term searches, hack/workaround searches, `.js` import-extension checks, and `verify-*` discovery. `verify-*` files remain absent in this workspace.
+
+# Current Task — External Mnemonic Recovery Discovery
+
+- [x] Add a hex-safe design for restoring another mnemonic's eCash without changing the current wallet seed
+- [x] Discover candidate mints from the external mnemonic's public `kind:10019` profile and encrypted `kind:30078 d=mint-list` backup
+- [x] Keep Cashu scanning isolated in the existing Cashu recovery adapter and keep Nostr discovery isolated in a Nostr adapter
+- [x] Scan the union of current wallet mints and discovered mints, then redeem only into the current wallet
+- [x] Return recovered mint URLs from the use case so the UI can persist only successful new mints
+- [x] Verify no UI imports adapters/modules and no core service imports external SDKs
+
+Design notes
+- The current wallet seed must never be replaced during this flow. The external mnemonic is only used as a recovery source to derive old deterministic Cashu proofs and old mint-list discovery keys.
+- `kind:10019` is a public receiving profile. It can suggest active public mints, but it is not a complete wallet backup.
+- `kind:30078` with `d=mint-list` is the encrypted mint-list backup used by Cashu.me/Macadamia style wallets. It is queried through a driven Nostr port and decrypted in an adapter.
+- Discovered mints are candidates only. A mint is added to the visible wallet settings only after the recovery scan finds spendable proofs and the current wallet successfully redeems them.
+- The UI may orchestrate settings persistence, but it must only call driving ports and app settings callbacks. It must not parse Nostr events, decrypt backups, or call Cashu SDKs.
+
+Review
+- Added `ExternalMnemonicMintDiscoveryPort` and a Nostr adapter that derives Cashu.me/Macadamia-compatible mint-backup keys from the external mnemonic, queries public receiving mints and encrypted mint-list backups, and returns normalized candidate mint URLs.
+- `ExternalWalletRecoveryService.recoverFromMnemonic()` now scans the union of current configured mints and discovered candidate mints, then returns only successfully redeemed mint URLs. It does not change the active wallet seed.
+- `SettingsScreen` calls the external-wallet recovery use case; recovered new mint URLs are persisted through the settings/trust port only after successful redemption, so a discovered-but-empty mint is not added to the visible wallet.
+- Cashu restore scanning remains isolated in `modules/cashu/internal/external-mnemonic-recovery.ts`; Nostr discovery/decryption remains isolated in `adapters/nostr/external-mnemonic-mint-discovery.adapter.ts`; UI does not import adapters/modules/composition.
+- Build was initially blocked by a pre-existing strict build type issue in `gift-wrap-token`; it was fixed with an explicit direct-token rumor type guard.
+- Verification passed: `bun run lint`, `npx tsc --noEmit`, `bun run test` (95 files / 695 tests), `bun run build`, `git diff --check`, and manual touched-file hex-boundary import scans.
+
+# Current Task — Send/Recovery Architecture Hardening
+
+- [x] Move npub/nprofile direct-payment validation out of UI helpers and into a core driving use case
+- [x] Replace legacy composition route execution with a core service that depends on driven ports
+- [x] Move external mnemonic recovery orchestration out of `PaymentService`
+- [x] Let the recovery use case persist only successfully recovered mints through a trust/settings port
+- [x] Verify each step with focused tests before moving to the next step
+- [x] Run final lint, typecheck, test, build, diff, and hex-boundary checks
+
+Design notes
+- `npub` send validation should be reusable by manual send, contacts, and future chat payments. UI should only call `ServiceRegistry.nostrDirectPayment`.
+- Route execution should no longer be a composition helper that directly reaches into Cashu primitives, Dexie, HTTP transport, and cross-tab sync. Core should own orchestration; adapters/modules should own SDK/network/storage details behind ports.
+- External mnemonic recovery should be a wallet-recovery use case, not a payment-service responsibility. The current wallet seed must remain unchanged.
+
+Review
+- `NostrDirectPaymentService` now owns npub/nprofile direct-payment resolution behind `ServiceRegistry.nostrDirectPayment`. Manual send and address-book send both call the same driving use case; the old UI helper was removed.
+- `RouteExecutionService` now owns route execution orchestration in core. Cashu operations, pending-route storage, token delivery, and cross-tab sync are injected through driven ports/adapters instead of being reached from a composition helper.
+- External mnemonic recovery orchestration was removed from `PaymentService` and moved to `ExternalWalletRecoveryService`. Recovered tokens are redeemed through the current wallet via a `RecoveredTokenReceiver` port, not by mutating the active wallet seed.
+- Successfully recovered mint URLs are persisted through `TrustedAccountStore` backed by settings; discovered-only or failed mints are not added.
+- Build initially caught a strict backend/port mismatch for melt execution. The port was corrected to use the prepared melt amount and not require a nonexistent backend `amount` field.
+- Verification passed: focused tests for direct npub send/route execution/external recovery/bootstrap, `bun run lint`, `npx tsc --noEmit`, `bun run test` (97 files / 694 tests), `bun run build`, `node .claude/skills/hex-review/scripts/check-hex-violations.mjs src` (571 files, 0 violations), `git diff --check`, and manual boundary/security/hardcoding scans.
 
 # Zappi Wallet — Design Overhaul
 

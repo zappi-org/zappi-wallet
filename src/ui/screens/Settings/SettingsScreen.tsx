@@ -106,9 +106,11 @@ export function SettingsScreen({
 
   // Restore modal
   const [showRestoreModal, setShowRestoreModal] = useState(false)
+  const [restoreMode, setRestoreMode] = useState<'choice' | 'current' | 'external'>('choice')
   const [isRestoring, setIsRestoring] = useState(false)
   const [restoreProgress, setRestoreProgress] = useState('')
   const [restoreResult, setRestoreResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [externalMnemonic, setExternalMnemonic] = useState('')
 
   // Logout modal
   const [showLogoutModal, setShowLogoutModal] = useState(false)
@@ -284,6 +286,15 @@ export function SettingsScreen({
     setBackupCopied(false)
   }, [])
 
+  const resetRestoreModal = useCallback(() => {
+    if (isRestoring) return
+    setShowRestoreModal(false)
+    setRestoreMode('choice')
+    setRestoreResult(null)
+    setRestoreProgress('')
+    setExternalMnemonic('')
+  }, [isRestoring])
+
   // Logout handlers
   const handleLogout = useCallback(async () => {
     if (logoutPin.length !== 6) return
@@ -357,6 +368,53 @@ export function SettingsScreen({
       setRestoreProgress('')
     }
   }, [settings.mints, setBalance, t, registry.balance, registry.payment])
+
+  const handleRestoreExternalMnemonic = useCallback(async () => {
+    const mints = settings.mints
+    const mnemonicToRestore = externalMnemonic.trim().toLowerCase().split(/\s+/).join(' ')
+    if (!mnemonicToRestore) {
+      setRestoreResult({ success: false, message: t('settings.externalMnemonicRequired') })
+      return
+    }
+
+    setIsRestoring(true)
+    setRestoreResult(null)
+    try {
+      const report = await registry.externalWalletRecovery.recoverFromMnemonic({
+        mnemonic: mnemonicToRestore,
+        currentMintUrls: mints,
+        onProgress: ({ mintUrl, index, total }) => {
+          setRestoreProgress(`${index}/${total}: ${formatMintHost(mintUrl)}`)
+        },
+      })
+
+      const afterModules = await registry.balance.getByModule()
+      const afterTotal = afterModules.reduce((sum, m) => sum + m.accounts.reduce((s, a) => s + Number(a.amount.value), 0), 0)
+      const byMint: Record<string, number> = {}
+      for (const m of afterModules) {
+        for (const a of m.accounts) {
+          byMint[a.id] = Number(a.amount.value)
+        }
+      }
+      setBalance({ total: afterTotal, byMint })
+
+      if (report.recovered > 0) {
+        setRestoreResult({ success: true, message: t('settings.recoveredAmount', { amount: report.recovered.toLocaleString(), unit: satUnit() }) })
+      } else if (report.failed > 0 && report.scannedMints === 0) {
+        setRestoreResult({ success: false, message: t('settings.verificationError') })
+      } else {
+        setRestoreResult({ success: true, message: t('settings.noRecoverableEcash') })
+      }
+    } catch (error) {
+      const message = error instanceof Error && error.message === 'Invalid mnemonic'
+        ? t('onboarding.invalidMnemonic')
+        : t('settings.verificationError')
+      setRestoreResult({ success: false, message })
+    } finally {
+      setIsRestoring(false)
+      setRestoreProgress('')
+    }
+  }, [externalMnemonic, settings.mints, registry.balance, registry.externalWalletRecovery, setBalance, t])
 
   // Render category page (z-65)
   const renderCategoryPage = () => {
@@ -598,24 +656,88 @@ export function SettingsScreen({
       {/* Token Restore Modal */}
       <Modal
         isOpen={showRestoreModal}
-        onClose={() => { if (!isRestoring) { setShowRestoreModal(false); setRestoreResult(null) } }}
+        onClose={resetRestoreModal}
         title={t('settings.verifyBalance')}
       >
         <div className="space-y-3">
           {!isRestoring && !restoreResult && (
             <>
-              <p className="text-body text-foreground-muted">
-                {t('settings.restoreDescription')}
-              </p>
-              <p className="text-caption text-foreground-muted">{t('settings.registeredMints', { count: settings.mints.length })}</p>
-              <div className="flex gap-2">
-                <Button variant="outline" size="lg" onClick={() => setShowRestoreModal(false)} className="flex-1">
-                  {t('common.cancel')}
-                </Button>
-                <Button variant="brand" size="lg" onClick={handleRestoreTokens} className="flex-1">
-                  {t('settings.startVerification')}
-                </Button>
-              </div>
+              {restoreMode === 'choice' && (
+                <>
+                  <p className="text-body text-foreground-muted">
+                    {t('settings.restoreChoiceDescription')}
+                  </p>
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setRestoreMode('current')}
+                      className="w-full text-left rounded-card border border-border bg-background-card px-4 py-3 active:opacity-80 transition-opacity"
+                    >
+                      <p className="text-body font-semibold text-foreground">{t('settings.currentWalletRecovery')}</p>
+                      <p className="text-caption text-foreground-muted mt-0.5">{t('settings.currentWalletRecoveryDesc')}</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRestoreMode('external')}
+                      className="w-full text-left rounded-card border border-border bg-background-card px-4 py-3 active:opacity-80 transition-opacity"
+                    >
+                      <p className="text-body font-semibold text-foreground">{t('settings.externalMnemonicRecovery')}</p>
+                      <p className="text-caption text-foreground-muted mt-0.5">{t('settings.externalMnemonicRecoveryDesc')}</p>
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {restoreMode === 'current' && (
+                <>
+                  <p className="text-body text-foreground-muted">
+                    {t('settings.restoreDescription')}
+                  </p>
+                  <p className="text-caption text-foreground-muted">{t('settings.registeredMints', { count: settings.mints.length })}</p>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="lg" onClick={() => setRestoreMode('choice')} className="flex-1">
+                      {t('common.back')}
+                    </Button>
+                    <Button variant="brand" size="lg" onClick={handleRestoreTokens} className="flex-1">
+                      {t('settings.startVerification')}
+                    </Button>
+                  </div>
+                </>
+              )}
+
+              {restoreMode === 'external' && (
+                <>
+                  <p className="text-body text-foreground-muted">
+                    {t('settings.externalMnemonicRecoveryWarning')}
+                  </p>
+                  <div className="rounded-card border border-border bg-background-card px-3 py-2">
+                    <textarea
+                      value={externalMnemonic}
+                      onChange={(e) => setExternalMnemonic(e.target.value)}
+                      placeholder={t('settings.externalMnemonicPlaceholder')}
+                      className="w-full min-h-[108px] resize-none bg-transparent text-body text-foreground placeholder:text-foreground-muted focus:outline-none"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                    />
+                  </div>
+                  <p className="text-caption text-foreground-muted">{t('settings.registeredMints', { count: settings.mints.length })}</p>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="lg" onClick={() => setRestoreMode('choice')} className="flex-1">
+                      {t('common.back')}
+                    </Button>
+                    <Button
+                      variant="brand"
+                      size="lg"
+                      onClick={handleRestoreExternalMnemonic}
+                      disabled={!externalMnemonic.trim()}
+                      className="flex-1"
+                    >
+                      {t('settings.startRecovery')}
+                    </Button>
+                  </div>
+                </>
+              )}
             </>
           )}
           {isRestoring && (
@@ -642,7 +764,7 @@ export function SettingsScreen({
                 {restoreResult.success ? <Check className="w-6 h-6" /> : <AlertTriangle className="w-6 h-6" />}
               </div>
               <p className="font-semibold text-foreground">{restoreResult.message}</p>
-              <Button variant="brand" size="lg" onClick={() => { setShowRestoreModal(false); setRestoreResult(null) }} className="w-full mt-3">
+              <Button variant="brand" size="lg" onClick={resetRestoreModal} className="w-full mt-3">
                 {t('common.confirm')}
               </Button>
             </div>

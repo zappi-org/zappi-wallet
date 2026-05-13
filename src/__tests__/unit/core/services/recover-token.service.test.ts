@@ -101,7 +101,16 @@ function createMocks() {
     settleByPaymentRef: vi.fn().mockResolvedValue(null),
   }
 
-  return { nostr, anchorStore, recoveryStore, failedIncomingStore, tokenReceiver, trustedMintProvider, incomingReviewQueue, receiveRequest }
+  const tokenCodec = {
+    encodeCashuToken: vi.fn().mockReturnValue('cashuBencoded'),
+    inspectCashuToken: vi.fn().mockReturnValue({
+      mint: 'https://mint.test',
+      amount: { value: 100n, unit: 'sat' },
+      memo: undefined,
+    }),
+  } as unknown as TokenCodec
+
+  return { nostr, anchorStore, recoveryStore, failedIncomingStore, tokenReceiver, trustedMintProvider, incomingReviewQueue, tokenCodec, receiveRequest }
 }
 
 // ─── Tests ───
@@ -121,7 +130,7 @@ describe('RecoveryService', () => {
       mocks.tokenReceiver,
       mocks.trustedMintProvider,
       mocks.incomingReviewQueue,
-      {} as TokenCodec,
+      mocks.tokenCodec,
       mocks.receiveRequest,
     )
   })
@@ -193,6 +202,37 @@ describe('RecoveryService', () => {
           isRetryable: true,
         }),
       )
+    })
+
+    it('processes NUT-18 JSON proof payloads recovered from relays', async () => {
+      vi.mocked(mocks.nostr.fetchGiftWraps).mockResolvedValue([
+        {
+          eventId: 'ev-json',
+          sender: 'sender-pubkey',
+          content: JSON.stringify({
+            id: 'request-1',
+            mint: 'https://mint.test',
+            unit: 'sat',
+            proofs: [
+              { id: 'keyset-1', amount: 77, secret: 'secret-1', C: 'C-1' },
+            ],
+          }),
+        },
+      ])
+
+      const result = await service.reconstructState(params)
+
+      expect(result.eventsProcessed).toBe(1)
+      expect(result.tokensReceived).toBe(1)
+      expect(mocks.tokenCodec.encodeCashuToken).toHaveBeenCalledWith({
+        mint: 'https://mint.test',
+        unit: 'sat',
+        proofs: [
+          { id: 'keyset-1', amount: 77, secret: 'secret-1', C: 'C-1' },
+        ],
+        memo: undefined,
+      })
+      expect(mocks.tokenReceiver.receiveToken).toHaveBeenCalledWith('cashuBencoded')
     })
 
     it('queues untrusted mint tokens for manual review instead of auto-receiving', async () => {

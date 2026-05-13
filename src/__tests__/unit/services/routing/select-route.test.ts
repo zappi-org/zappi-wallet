@@ -145,6 +145,18 @@ describe('selectRoute', () => {
       const result = selectRoute(makeInput(creqNoLn, { privacyMode: false }))
       expect(result).toBe(PaymentRoute.MINT_AND_DM)
     })
+
+    it('sameMintOnly blocks LN fallback and cross-mint token delivery', () => {
+      const strictCreq = makeCashuRequest({
+        mints: ['https://mint-b.example.com'],
+        lightningInvoice: 'lnbc1000n1test',
+      })
+      strictCreq.parsed.sameMintOnly = true
+
+      const result = selectRoute(makeInput(strictCreq, { privacyMode: false }))
+
+      expect(result).toBe(PaymentRoute.CANNOT_SEND)
+    })
   })
 
   describe('creq + NO m field', () => {

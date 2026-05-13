@@ -8,6 +8,7 @@ import type { LnurlPayParams } from '@/core/ports/driven/lnurl-gateway.port'
 export interface DirectTokenInfo {
   mints: string[]
   p2pkPubkey?: string
+  dmRelays?: string[]
 }
 
 export interface PaymentCapabilities {

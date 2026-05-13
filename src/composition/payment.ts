@@ -17,5 +17,10 @@ export function createPaymentService(
   eventBus: EventBus,
   operationMap?: OperationMap,
 ): PaymentUseCase {
-  return new PaymentService(modules, txRepo, eventBus, operationMap)
+  return new PaymentService(
+    modules,
+    txRepo,
+    eventBus,
+    operationMap,
+  )
 }

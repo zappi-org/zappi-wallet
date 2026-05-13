@@ -28,6 +28,7 @@ export const NOSTR_KINDS = {
   PROFILE: 0,
   TEXT_NOTE: 1,
   NIP98_AUTH: 27235,
+  PARAMETERIZED_REPLACEABLE: 30078,
   RELAY_LIST: 10002,
   DM_RELAY_LIST: 10050, // NIP-17 DM Relay List
   NUTZAP_INFO: 10019,
@@ -151,6 +152,10 @@ export const LIMITS = {
   MIN_RELAYS: 2,
   /** Minimum number of mints */
   MIN_MINTS: 1,
+  /** Maximum address book display name length */
+  MAX_CONTACT_NAME_LENGTH: 30,
+  /** Maximum custom mint card name length */
+  MAX_MINT_NAME_LENGTH: 20,
 } as const
 
 export { FIAT_CURRENCIES } from './fiat'

@@ -54,7 +54,6 @@ function App() {
   const handleOnboardingComplete = useCallback(async (data: {
     mnemonic: string
     password: string
-    isRecovery: boolean
   }): Promise<boolean> => {
     try {
       console.log('[Onboarding] Starting wallet creation...')
@@ -87,139 +86,75 @@ function App() {
       await nostrGateway.connect(currentSettings.relays)
       const profile = createProfileService(nostrGateway, services.settingsRepo)
 
-      if (data.isRecovery) {
-        // RECOVERY MODE: Fetch settings from Nostr, then restore tokens
-        console.log('[Onboarding] Recovery mode - fetching profile from Nostr')
+      // NEW WALLET MODE: Fetch ZS config, save settings, publish profile.
+      // Fresh installs intentionally cannot import an existing wallet here;
+      // seed-based ecash import lives under Settings to avoid multi-device wallet state.
+      console.log('[Onboarding] New wallet mode - fetching ZS configuration...')
 
-        const recoveredProfile = await profile.recoverProfile(
-          result.value.keys.publicKey
-        )
+      let mints = currentSettings.mints || []
+      let relays = currentSettings.relays || []
+      let zsRelays: string[] | undefined
 
-        let mintsToRestore: string[] = []
+      try {
+        const { ZS_DOMAIN } = await import('@/core/constants')
+        const zsConfig = await profile.fetchZSConfiguration(ZS_DOMAIN)
+        if (zsConfig) {
+          console.log('[Onboarding] ZS config fetched - mints:', zsConfig.mints, 'relays:', zsConfig.relays)
+          mints = zsConfig.mints
+          relays = zsConfig.relays
+          zsRelays = zsConfig.relays
 
-        if (recoveredProfile && recoveredProfile.mints.length > 0) {
-          console.log('[Onboarding] Found profile on Nostr:', recoveredProfile)
-
-          const recoveredAliases = generateMintAliases(
-            recoveredProfile.mints,
+          const mintAliases = generateMintAliases(
+            mints,
             undefined,
             (number) => i18n.t('mintDetail.defaultName', { number }),
           )
-          const recoveredRelays = recoveredProfile.relays.length > 0 ? recoveredProfile.relays : currentSettings.relays
 
           await services.settingsRepo.saveSettings({
             ...currentSettings,
-            mints: recoveredProfile.mints,
-            relays: recoveredRelays,
-            mintAliases: recoveredAliases,
+            mints,
+            relays,
+            mintAliases,
           })
-
-          setSettings({
-            ...currentSettings,
-            mints: recoveredProfile.mints,
-            relays: recoveredRelays,
-            mintAliases: recoveredAliases,
-          })
-
-          mintsToRestore = recoveredProfile.mints
+          setSettings({ ...currentSettings, mints, relays, mintAliases })
         } else {
-          console.log('[Onboarding] No profile found on Nostr, using default mints')
-          mintsToRestore = currentSettings.mints || []
+          console.log('[Onboarding] ZS config not available, using defaults')
         }
+      } catch (e) {
+        console.warn('[Onboarding] Failed to fetch ZS configuration, using defaults:', e)
+      }
 
-        // Dynamic import Coco for token restoration
-        const cocoService = await import('@/modules/cashu')
-
-        console.log('[Onboarding] Restoring tokens from mints:', mintsToRestore)
-        for (const mintUrl of mintsToRestore) {
-          try {
-            await cocoService.addMint(mintUrl)
-            console.log(`[Onboarding] Restoring tokens from ${mintUrl}`)
-            await cocoService.restoreWallet(mintUrl)
-          } catch (e) {
-            console.error(`[Onboarding] Failed to restore from ${mintUrl}:`, e)
-          }
+      // Ensure mint aliases exist (covers ZS config miss / default mints path)
+      if (mints.length > 0) {
+        const existingAliases = (await services.settingsRepo.getSettings()).mintAliases || {}
+        const hasAllAliases = mints.every((url) => !!existingAliases[url])
+        if (!hasAllAliases) {
+          const mintAliases = generateMintAliases(
+            mints,
+            existingAliases,
+            (number) => i18n.t('mintDetail.defaultName', { number }),
+          )
+          await services.settingsRepo.saveSettings({ ...currentSettings, mints, relays, mintAliases })
+          setSettings({ ...currentSettings, mints, relays, mintAliases })
         }
+      }
 
-        // Recover any pending Lightning quotes
+      console.log('[Onboarding] Mints:', mints, 'Relays:', relays)
+
+      // Publish wallet's kind:10019, 10002, 10050 to ZS relays
+      if (mints.length > 0) {
         try {
-          const { recoverPendingQuotes } = await import('@/composition/recover-pending-quotes')
-          const recovery = await recoverPendingQuotes(mintsToRestore)
-          if (recovery.recovered > 0) {
-            console.log(`[Onboarding] Recovered ${recovery.recovered} pending Lightning quotes`)
-          }
+          const { pubkey: p2pkPubkey } = await services.p2pkKeyManager.getCurrentKey()
+          await profile.publishAll(
+            result.value.keys.publicKey,
+            mints,
+            relays,
+            p2pkPubkey,
+            zsRelays,
+          )
+          console.log('[Onboarding] Profile published successfully')
         } catch (e) {
-          console.error('[Onboarding] Failed to recover pending quotes:', e)
-        }
-      } else {
-        // NEW WALLET MODE: Fetch ZS config, save settings, publish profile
-        console.log('[Onboarding] New wallet mode - fetching ZS configuration...')
-
-        let mints = currentSettings.mints || []
-        let relays = currentSettings.relays || []
-        let zsRelays: string[] | undefined
-
-        try {
-          const { ZS_DOMAIN } = await import('@/core/constants')
-          const zsConfig = await profile.fetchZSConfiguration(ZS_DOMAIN)
-          if (zsConfig) {
-            console.log('[Onboarding] ZS config fetched - mints:', zsConfig.mints, 'relays:', zsConfig.relays)
-            mints = zsConfig.mints
-            relays = zsConfig.relays
-            zsRelays = zsConfig.relays
-
-            const mintAliases = generateMintAliases(
-              mints,
-              undefined,
-              (number) => i18n.t('mintDetail.defaultName', { number }),
-            )
-
-            await services.settingsRepo.saveSettings({
-              ...currentSettings,
-              mints,
-              relays,
-              mintAliases,
-            })
-            setSettings({ ...currentSettings, mints, relays, mintAliases })
-          } else {
-            console.log('[Onboarding] ZS config not available, using defaults')
-          }
-        } catch (e) {
-          console.warn('[Onboarding] Failed to fetch ZS configuration, using defaults:', e)
-        }
-
-        // Ensure mint aliases exist (covers ZS config miss / default mints path)
-        if (mints.length > 0) {
-          const existingAliases = (await services.settingsRepo.getSettings()).mintAliases || {}
-          const hasAllAliases = mints.every((url) => !!existingAliases[url])
-          if (!hasAllAliases) {
-            const mintAliases = generateMintAliases(
-              mints,
-              existingAliases,
-              (number) => i18n.t('mintDetail.defaultName', { number }),
-            )
-            await services.settingsRepo.saveSettings({ ...currentSettings, mints, relays, mintAliases })
-            setSettings({ ...currentSettings, mints, relays, mintAliases })
-          }
-        }
-
-        console.log('[Onboarding] Mints:', mints, 'Relays:', relays)
-
-        // Publish wallet's kind:10019, 10002, 10050 to ZS relays
-        if (mints.length > 0) {
-          try {
-            const { pubkey: p2pkPubkey } = await services.p2pkKeyManager.getCurrentKey()
-            await profile.publishAll(
-              result.value.keys.publicKey,
-              mints,
-              relays,
-              p2pkPubkey,
-              zsRelays,
-            )
-            console.log('[Onboarding] Profile published successfully')
-          } catch (e) {
-            console.warn('[Onboarding] Failed to publish profile:', e)
-          }
+          console.warn('[Onboarding] Failed to publish profile:', e)
         }
       }
 
@@ -252,7 +187,6 @@ function App() {
       <OnboardingScreen
         onComplete={handleOnboardingComplete}
         onGenerateMnemonic={() => services.security.generateMnemonic()}
-        onValidateMnemonic={(m) => services.security.validateMnemonic(m)}
       />
     )
   }

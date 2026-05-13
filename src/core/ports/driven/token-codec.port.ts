@@ -3,6 +3,7 @@ import type {
   ParsedCashuRequest,
 } from '@/core/domain/input-types'
 import type { Amount } from '@/core/domain/amount'
+import type { CashuProof } from '@/core/domain/cashu-payment-payload'
 
 export interface DecodedInvoice {
   amountSats: number
@@ -36,6 +37,12 @@ export interface TokenCodec {
    * mint keysets 검증 안 함 — receive 전 사전 확인용.
    */
   inspectCashuToken(token: string): CashuTokenInspection
+  encodeCashuToken(opts: {
+    mint: string
+    proofs: CashuProof[]
+    unit?: string
+    memo?: string
+  }): string
   isCashuToken(input: string): boolean
 
   
@@ -85,4 +92,3 @@ export interface TokenCodec {
     cashuRequest: string
   }): string
 }
-
