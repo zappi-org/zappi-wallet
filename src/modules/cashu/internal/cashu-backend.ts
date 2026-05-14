@@ -9,7 +9,7 @@
 import type { PendingQuote } from '@/core/domain/quote';
 import { InsufficientBalanceError, RedeemFeeTooHighError } from '@/core/errors/payment.errors';
 import type { ProofStateResult } from '@/core/ports/driven/send-token-operator.port';
-import { getDecodedToken, normalizeMintUrl } from 'coco-cashu-core';
+import { getDecodedToken, getEncodedToken, normalizeMintUrl } from 'coco-cashu-core';
 import { classifyCashuError } from './classify-error';
 import { getCocoManager, getPendingMintQuotes } from './coco-sdk';
 
@@ -198,7 +198,6 @@ export async function executeSend(
 ): Promise<{ token: string }> {
   const manager = await getCocoManager();
   const { token } = await manager.ops.send.execute(operationId);
-  const { getEncodedToken } = await import('@cashu/cashu-ts');
   return { token: getEncodedToken({ ...token, memo: options?.memo }) };
 }
 
@@ -455,7 +454,7 @@ function parseSecret(secret: string): ParsedSecret | null {
 }
 
 export async function inspectInput(token: string): Promise<InputInspection> {
-  const { getDecodedToken, hasValidDleq } = await import('@cashu/cashu-ts');
+  const { hasValidDleq } = await import('@cashu/cashu-ts');
 
   let decoded;
   try {
@@ -620,7 +619,6 @@ export async function executePaymentRequest(
   }
 
   const { token } = await manager.ops.send.execute(sendOp);
-  const { getEncodedToken } = await import('@cashu/cashu-ts');
   const encodedToken = getEncodedToken(token);
 
   if (prepared.resolved.transport.type === 'http') {
