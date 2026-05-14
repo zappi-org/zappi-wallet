@@ -42,14 +42,7 @@ export interface MintQuoteResult {
   expiry: number;
 }
 
-export interface PendingMeltOperation {
-  id: string;
-  mintUrl: string;
-  quoteId: string;
-  amount: number;
-  fee_reserve: number;
-  createdAt: number;
-}
+
 
 // ─── Helpers ───
 
@@ -517,30 +510,6 @@ export async function inspectInput(token: string): Promise<InputInspection> {
 export async function getBalances(): Promise<{ [mintUrl: string]: number }> {
   const manager = await getCocoManager();
   return manager.wallet.getBalances();
-}
-
-export async function getPendingMeltOperations(): Promise<PendingMeltOperation[]> {
-  const manager = await getCocoManager();
-  const ops = await manager.ops.melt.listInFlight();
-  return ops.map(op => ({
-    id: op.id,
-    mintUrl: op.mintUrl,
-    quoteId: 'quoteId' in op ? (op as { quoteId: string }).quoteId : '',
-    amount: 'amount' in op ? (op as { amount: number }).amount : 0,
-    fee_reserve: 'fee_reserve' in op ? (op as { fee_reserve: number }).fee_reserve : 0,
-    createdAt: op.createdAt,
-  }));
-}
-
-export async function checkMeltQuoteStatus(
-  mintUrl: string,
-  quoteId: string,
-): Promise<{ state: string; paid: boolean }> {
-  const manager = await getCocoManager();
-  const op = await manager.ops.melt.getByQuote(mintUrl, quoteId);
-  if (!op) return { state: 'UNKNOWN', paid: false };
-  const refreshed = await manager.ops.melt.refresh(op.id);
-  return { state: refreshed.state, paid: refreshed.state === 'finalized' };
 }
 
 export async function getActivePendingQuotes(): Promise<PendingQuote[]> {
