@@ -760,6 +760,7 @@ export default {
     reclaimSuccess: 'eCash recuperado exitosamente',
     reclaimFailed: 'Error al recuperar eCash',
     alreadySpent: 'eCash ya fue reclamado',
+    consumedByRecipient: 'El destinatario ya reclamó este eCash',
     tokenPending: 'eCash en proceso',
     cancelSend: 'Cancelar envío',
     sentToken: 'eCash enviado',

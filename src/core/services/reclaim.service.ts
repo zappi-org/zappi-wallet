@@ -4,7 +4,8 @@ import type { Result } from '@/core/domain/result'
 import { toNumber } from '@/core/domain/amount'
 import type { BaseError } from '@/core/errors/base'
 import { UnknownError } from '@/core/errors/base'
-import { TokenSpentError, InvalidTokenError } from '@/core/errors/cashu'
+import { InvalidTokenError } from '@/core/errors/cashu'
+import { TokenSpentByRecipientError } from '@/core/errors/reclaim'
 import {
   isClaimedSend
 } from '@/core/domain/transaction';
@@ -43,7 +44,7 @@ export class ReclaimService implements ReclaimUseCase {
 
     // Already spent
     if (tx && isClaimedSend(tx)) {
-      return Err(new TokenSpentError('Token has already been claimed by recipient'))
+      return Err(new TokenSpentByRecipientError('Token has already been claimed by recipient'))
     }
 
     if (!isReclaimableSend(tx)) {
@@ -79,7 +80,7 @@ export class ReclaimService implements ReclaimUseCase {
             payload: { reason: 'send-claimed', txId },
           })
 
-          return Err(new TokenSpentError('Token has already been claimed by recipient'))
+          return Err(new TokenSpentByRecipientError('Token has already been claimed by recipient'))
         }
 
         const txAgain = await this.txRepo.getById(txId)
@@ -110,7 +111,7 @@ export class ReclaimService implements ReclaimUseCase {
         const { code, message } = result.error
 
         if (code === 'TOKEN_SPENT') {
-          return Err(new TokenSpentError(message))
+          return Err(new TokenSpentByRecipientError(message))
         }
         if (code === 'INVALID_TOKEN') {
           return Err(new InvalidTokenError(message))

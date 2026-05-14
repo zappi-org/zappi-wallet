@@ -2,7 +2,7 @@ import type { Transaction } from '@/core/domain/transaction'
 import type { PendingItem } from '@/core/ports/driving/pending-items.usecase'
 import { useAppStore } from '@/store'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
-import { useReclaim } from '@/ui/hooks/use-reclaim'
+import { useTokenReclaim } from '@/ui/hooks/use-token-reclaim'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { useTransactionHistory } from '@/ui/hooks/use-transaction-history'
 import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
@@ -10,7 +10,6 @@ import { useReclaimFees } from '@/ui/hooks/useReclaimFees'
 import { isSendToken, type TokenDetails } from '@/ui/types/pending-item-details'
 import { satsToFiat, useFormatSats } from '@/utils/format'
 import { cn } from '@/ui/primitives/utils'
-import { translateError } from '@/ui/utils/error-i18n'
 import { Coins } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
@@ -50,7 +49,7 @@ export function TokenScreen({
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const addToast = useAppStore((state) => state.addToast)
-  const { reclaim } = useReclaim()
+  const { reclaimMultiple } = useTokenReclaim()
 
   const [hintDismissed, setHintDismissed] = useState(false)
 
@@ -247,21 +246,20 @@ export function TokenScreen({
   const closeReclaim = useCallback(() => setReclaimTargets(null), [])
   const confirmReclaim = useCallback(
     async (tokens: MockPendingToken[]) => {
-      for (const tk of tokens) {
-        const result = await reclaim(tk.id)
-        if (!result.success) {
-          // Use error from result for better message
-          const errorMessage = result.error 
-            ? translateError(result.error, t)
-            : t('token.reclaim.failed')
-          addToast({ type: 'error', message: errorMessage })
-          return
+      await reclaimMultiple(
+        tokens.map((t) => t.id),
+        {
+          onSuccess: () => {
+            setReclaimTargets(null)
+          },
+          onError: () => {
+            // 토스트는 훅에서 처리. 여기서는 UI 상태 정리만
+            setReclaimTargets(null)
+          },
         }
-      }
-      setReclaimTargets(null)
-      addToast({ type: 'success', message: t('token.reclaim.success') })
+      )
     },
-    [reclaim, addToast, t],
+    [reclaimMultiple]
   )
 
   return (

@@ -767,6 +767,7 @@ export default {
     reclaimSuccess: 'eCashを回収しました',
     reclaimFailed: 'eCashの回収に失敗しました',
     alreadySpent: 'すでに受領済みのeCashです',
+    consumedByRecipient: '相手がすでに受領しました',
     tokenPending: 'eCashは処理中です',
     cancelSend: '送金をキャンセル',
     sentToken: '送信eCash',

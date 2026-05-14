@@ -11,7 +11,6 @@ import { ServiceProvider } from '@/ui/hooks/service-context'
 import { useCrossTabSync } from '@/ui/hooks/use-cross-tab-sync'
 import { useGlobalTokenClaimToast } from '@/ui/hooks/use-global-token-claim-toast'
 
-import { useReclaim } from '@/ui/hooks/use-reclaim'
 import { useRedeemToken } from '@/ui/hooks/use-redeem-token'
 import { useSupportNotifications } from '@/ui/hooks/use-support-notifications'
 import { translateError } from '@/ui/utils/error-i18n'
@@ -118,7 +117,6 @@ export default function MainApp() {
   // Hooks
   const { refreshBalance, balance } = useWallet()
   const { isOnline } = useNetwork()
-  const { reclaim } = useReclaim()
   const [isRecovering, setIsRecovering] = useState(false)
 
   // Gift Wrap Watcher — lifecycle managed via serviceRegistry
@@ -1101,12 +1099,12 @@ export default function MainApp() {
                     }
                   }}
                   onReclaim={async (token) => {
-                    if (!serviceRegistry?.reclaim) {
+                    if (!serviceRegistry?.reclaim?.reclaim) {
                       addToast({ type: 'error', message: 'Service initializing, please try again.' })
                       return
                     }
-                    const result = await reclaim(token.id)
-                    if (result.success) {
+                    const result = await serviceRegistry.reclaim.reclaim(token.id)
+                    if (result.ok) {
                       setSelectedTokenDetail(null)
                       handleBack()
                       addToast({ type: 'success', message: t('token.reclaim.success') })
@@ -1338,7 +1336,13 @@ export default function MainApp() {
           onSwapReceive={handleSwapReceive}
           onEstimateRedeemFee={handleEstimateRedeemFee}
           onCheckSelfToken={handleCheckSelfToken}
-          onReclaimOwnToken={ async (txId) => {const result= await reclaim(txId);  return {amount: result.amount?.value ?? 0 } }} 
+          onReclaimOwnToken={async (txId) => {
+            if (!serviceRegistry?.reclaim?.reclaim) {
+              return { amount: 0 }
+            }
+            const result = await serviceRegistry.reclaim.reclaim(txId)
+            return { amount: result.ok ? result.value.amount.value : 0 }
+          }} 
           onRouteValidated={handleRouteValidated}
           initialToken={initialRegisterToken}
           targetMintUrl={activeMintUrl ?? settings.mints[0] ?? undefined}
@@ -1446,10 +1450,6 @@ export default function MainApp() {
             onRedeemToken: async (tokenStr: string, _itemId: string) => {
               const result = await serviceRegistry.payment.redeem({ input: tokenStr })
               return result.ok
-            },
-            onReclaimToken: async (itemId: string) => {
-               console.log('[MainApp onReclaimToken] itemId:', itemId)  // 이거
-              return reclaim(itemId)
             },
             onCheckQuote: async (mintUrl: string, quoteId: string) => {
               const { getMintQuote } = await import('@/modules/cashu')

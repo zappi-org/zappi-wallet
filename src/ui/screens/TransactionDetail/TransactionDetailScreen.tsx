@@ -21,6 +21,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { TokenQrModal } from './TokenQrModal'
+import { TokenSpentByRecipientError } from '@/core/errors/reclaim'
 
 export interface TransactionDetailScreenProps {
   transaction: Transaction
@@ -108,20 +109,32 @@ export default function TransactionDetailScreen({
     if (!meta.token) return
     setIsReclaiming(true)
     try {
-  
       const result = await reclaim(tx.id)
 
-      if (result.alreadySpent) {
-        setTx((prev) => ({ ...prev, status: 'settled' as const, outcome: 'claimed' as const, completedAt: Date.now() }))
-        addToast({ type: 'info', message: t('txDetail.alreadySpent'), duration: 3000 })
-      } else if (result.success) {
-        setTx((prev) => ({ ...prev, status: 'settled' as const, outcome: 'reclaimed' as const, completedAt: Date.now() }))
-        addToast({ type: 'success', message: t('txDetail.reclaimSuccess'), duration: 3000 })
+      if (!result.success) {
+        //Check spent by TokenSpentByRecipientError
+        if (result.error instanceof TokenSpentByRecipientError) {
+          setTx((prev) => ({
+            ...prev,
+            status: 'settled',
+            outcome: 'claimed',
+            completedAt: Date.now()
+          }))
+          // 토스트는 useReclaim 훅에서 처리
+        }
+        // 기타 에러도 훅에서 처리
       } else {
-        addToast({ type: 'error', message: t('txDetail.reclaimFailed'), duration: 3000 })
+        // 성공: reclaimed 상태로 업데이트
+        setTx((prev) => ({
+          ...prev,
+          status: 'settled',
+          outcome: 'reclaimed',
+          completedAt: Date.now()
+        }))
       }
     } catch (err) {
       console.error('[TxDetail] Check & reclaim failed:', err)
+      // 예외는 훅에서 처리하지 않으므로 여기서 토스트 필요
       addToast({ type: 'error', message: t('txDetail.reclaimFailed'), duration: 3000 })
     } finally {
       setIsReclaiming(false)
@@ -132,7 +145,7 @@ export default function TransactionDetailScreen({
   const handleShare = useCallback(async () => {
     if (!meta.token) return
     if (navigator.share) {
-      await navigator.share({ text: meta.token }).catch(() => {})
+      await navigator.share({ text: meta.token }).catch(() => { })
     } else {
       handleCopy(meta.token, 'token')
     }
@@ -235,9 +248,8 @@ export default function TransactionDetailScreen({
     return (
       <button
         onClick={copyable && field ? () => handleCopy(value, field) : undefined}
-        className={`flex items-center justify-between w-full py-3 border-b border-border/30 last:border-b-0 ${
-          copyable ? 'active:bg-foreground/[0.02] transition-colors' : ''
-        }`}
+        className={`flex items-center justify-between w-full py-3 border-b border-border/30 last:border-b-0 ${copyable ? 'active:bg-foreground/[0.02] transition-colors' : ''
+          }`}
         disabled={!copyable}
       >
         <span className="text-body text-foreground-muted">{label}</span>
@@ -300,9 +312,8 @@ export default function TransactionDetailScreen({
         {/* ── Hero: Amount + Context ── */}
         <div className="flex flex-col items-center px-6 pt-6 pb-8">
           {/* Amount */}
-          <span className={`text-display font-bold font-display tracking-tight leading-tight ${
-            isReceive ? 'text-card-brand-dark' : 'text-foreground'
-          }`}>
+          <span className={`text-display font-bold font-display tracking-tight leading-tight ${isReceive ? 'text-card-brand-dark' : 'text-foreground'
+            }`}>
             {isReceive ? '+' : '-'}{formatSats(amountSats)}
           </span>
 

@@ -2,6 +2,7 @@ import { useAppStore } from '@/store'
 import { Button } from '@/ui/components/common/Button'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { useMintMetadata } from '@/ui/hooks'
+import { useTokenReclaim } from '@/ui/hooks/use-token-reclaim'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import type { PendingItem } from '@/ui/hooks/usePendingItems'
 import { isOfflineToken, isReceiveRequest, isSendToken } from '@/ui/types/pending-item-details'
@@ -12,7 +13,6 @@ import { useTranslation } from 'react-i18next'
 
 export interface PendingItemDetailCallbacks {
   onRedeemToken?: (tokenStr: string, itemId: string) => Promise<boolean>
-  onReclaimToken?: (itemId: string) => Promise<{ success: boolean; alreadySpent?: boolean }>
   onCheckQuote?: (mintUrl: string, quoteId: string) => Promise<{ state: string; request?: string } | null>
   onRedeemQuote?: (mintUrl: string, quoteId: string, amount: number) => Promise<void>
   onDeleteItem?: (itemId: string, table: 'pendingReceivedTokens' | 'pendingSendTokens') => Promise<void>
@@ -42,6 +42,7 @@ async function copyToClipboard(text: string) {
 export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved }: PendingItemDetailScreenProps) {
   const { t, i18n } = useTranslation()
   const serviceRegistry = useServiceRegistry()
+  const { reclaimToken } = useTokenReclaim()
   const formatSats = useFormatSats()
   const toFiat = useFormatFiat()
   const [copiedField, setCopiedField] = useState<string | null>(null)
@@ -142,29 +143,26 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
   }, [tokenStr, item.id, onBack, addToast, t, callbacks, onItemRemoved])
 
   const handleReclaim = useCallback(async () => {
-    if ((!operationId && !tokenStr) || !callbacks?.onReclaimToken) return
+    if (!operationId && !tokenStr) return
     setIsProcessing(true)
     try {
-      const result = await callbacks.onReclaimToken(item.id)
-      if (result.alreadySpent) {
-        void callbacks.onPendingItemChanged?.()
+      const result = await reclaimToken(item.id)
+      if (result.spentByRecipient || result.alreadySpent) {
+        // 상대방이 이미 수령하거나 이미 사용됨
+        void callbacks?.onPendingItemChanged?.()
         void onItemRemoved?.()
-        addToast({ type: 'info', message: t('txDetail.alreadySpent'), duration: 2000 })
         onBack()
       } else if (result.success) {
-        void callbacks.onPendingItemChanged?.()
+        void callbacks?.onPendingItemChanged?.()
         void onItemRemoved?.()
-        addToast({ type: 'success', message: t('txDetail.reclaimSuccess'), duration: 2000 })
         onBack()
-      } else {
-        addToast({ type: 'error', message: t('txDetail.reclaimFailed'), duration: 2000 })
       }
     } catch {
       addToast({ type: 'error', message: t('txDetail.reclaimFailed'), duration: 2000 })
     } finally {
       setIsProcessing(false)
     }
-  }, [operationId, tokenStr, item.id, onBack, addToast, t, callbacks, onItemRemoved])
+  }, [operationId, tokenStr, item.id, onBack, addToast, t, callbacks, onItemRemoved, reclaimToken])
 
   const handleCheckQuote = useCallback(async () => {
     if (!callbacks?.onCheckQuote) return

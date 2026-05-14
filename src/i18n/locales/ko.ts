@@ -850,6 +850,7 @@ export default {
     reclaimSuccess: '이캐시를 되찾았습니다',
     reclaimFailed: '이캐시 되찾기 실패',
     alreadySpent: '이미 수령된 이캐시입니다',
+    consumedByRecipient: '상대방이 이미 수령했습니다',
     tokenPending: '이캐시가 처리 중입니다',
     cancelSend: '전송 취소',
     sentToken: '이캐시',

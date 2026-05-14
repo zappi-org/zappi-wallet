@@ -760,6 +760,7 @@ export default {
     reclaimSuccess: 'eCash berhasil diklaim kembali',
     reclaimFailed: 'Gagal mengklaim kembali eCash',
     alreadySpent: 'eCash sudah diklaim',
+    consumedByRecipient: 'Penerima sudah mengklaim eCash ini',
     tokenPending: 'eCash sedang diproses',
     cancelSend: 'Batalkan Pengiriman',
     sentToken: 'eCash Terkirim',

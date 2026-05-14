@@ -7,7 +7,7 @@ import type { TokenReceiver } from '@/core/ports/driven/token-receiver.port'
 import type { EventBus } from '@/core/events/event-bus'
 import type { Transaction } from '@/core/domain/transaction'
 import { sat } from '@/core/domain/amount'
-import { TokenSpentError } from '@/core/errors/cashu'
+import { TokenSpentByRecipientError } from '@/core/errors/reclaim'
 
 function createMockTxRepo(): TransactionRepository {
   return {
@@ -141,14 +141,14 @@ describe('ReclaimService', () => {
       expect(pendingOps.delete).toHaveBeenCalledWith('tx1')
     })
 
-    it('should return TokenSpentError when transaction already claimed', async () => {
+    it('should return TokenSpentByRecipientError when transaction already claimed', async () => {
       vi.mocked(txRepo.getById).mockResolvedValue(createClaimedTx())
 
       const result = await service.reclaim('tx1')
 
       expect(!result.ok).toBe(true)
       if (!result.ok) {
-        expect(result.error).toBeInstanceOf(TokenSpentError)
+        expect(result.error).toBeInstanceOf(TokenSpentByRecipientError)
       }
     })
 

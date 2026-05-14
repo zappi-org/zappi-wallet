@@ -848,6 +848,7 @@ export default {
     reclaimSuccess: 'eCash reclaimed successfully',
     reclaimFailed: 'Failed to reclaim eCash',
     alreadySpent: 'eCash already claimed',
+    consumedByRecipient: 'Recipient has already claimed this eCash',
     tokenPending: 'eCash is being processed',
     cancelSend: 'Cancel Send',
     sentToken: 'Sent eCash',
