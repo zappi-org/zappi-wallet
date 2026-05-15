@@ -23,8 +23,14 @@ export interface MessageTransport {
 export interface TransferOperator {
   readonly protocol: string
 
+  // ─── Outgoing ───
   prepare(intent: TransferIntent): Promise<PendingTransfer>
   execute(transfer: PendingTransfer): Promise<PendingTransfer>
+
+  // ─── Incoming ───
+  prepareReceive?(intent: TransferIntent): Promise<PendingTransfer>
+  claimReceive?(transfer: PendingTransfer): Promise<PendingTransfer>
+
   poll(transfer: PendingTransfer): Promise<TransferPhase>
 
   reclaim?(transfer: PendingTransfer): Promise<void>

@@ -365,8 +365,9 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     // Nostr incoming watcher 시작 (앱 unlock 후 한 번)
     nostrIncomingWatcher.start(derivePublicKey(deps.nostrPrivateKeyHex))
 
-    // TLS: 앱 시작 시 active transfer 복구
+    // TLS: 앱 시작 시 active transfer 복구 + 주기적 폴링 시작
     transferLifecycle.recoverTransfers().catch(console.error)
+    transferLifecycle.startPolling(5000)
   }
 
   const onResume = async () => {

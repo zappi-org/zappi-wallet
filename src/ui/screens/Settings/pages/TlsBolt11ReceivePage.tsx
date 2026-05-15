@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, ClipboardCopy, CheckCircle, ChevronRight, Zap } from 'lucide-react'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { useAppStore } from '@/store'
 import { sat } from '@/core/domain/amount'
+import { canComplete } from '@/core/domain/pending-transfer'
 import { Button } from '@/ui/components/common/Button'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 
@@ -11,14 +12,13 @@ interface TlsBolt11ReceivePageProps {
   onBack: () => void
 }
 
-type QuoteState = 'idle' | 'creating' | 'UNPAID' | 'PAID' | 'ISSUED' | 'EXPIRED' | 'UNKNOWN' | 'error' | 'claiming'
+type PageStatus = 'idle' | 'creating' | 'submitted' | 'awaiting_confirmation' | 'settled' | 'failed' | 'error' | 'claiming'
 
 const stateColor: Record<string, string> = {
-  UNPAID: 'text-accent',
-  PAID: 'text-accent-success',
-  ISSUED: 'text-accent-success',
-  EXPIRED: 'text-accent-danger',
-  UNKNOWN: 'text-foreground-muted',
+  submitted: 'text-accent',
+  awaiting_confirmation: 'text-accent-success',
+  settled: 'text-accent-success',
+  failed: 'text-accent-danger',
   error: 'text-accent-danger',
 }
 
@@ -28,6 +28,7 @@ export function TlsBolt11ReceivePage({ onBack }: TlsBolt11ReceivePageProps) {
   const registry = useServiceRegistry()
   const activeMintUrl = useAppStore((s) => s.activeMintUrl)
   const addToast = useAppStore((s) => s.addToast)
+  const pendingTransfers = useAppStore((s) => s.pendingTransfers)
 
   const [selectedMintUrl, setSelectedMintUrl] = useState<string | null>(activeMintUrl)
   const [mintSheetOpen, setMintSheetOpen] = useState(false)
@@ -35,9 +36,28 @@ export function TlsBolt11ReceivePage({ onBack }: TlsBolt11ReceivePageProps) {
   const [memo, setMemo] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [lastResult, setLastResult] = useState<string | null>(null)
-  const [invoice, setInvoice] = useState<string | null>(null)
-  const [quoteId, setQuoteId] = useState<string | null>(null)
-  const [status, setStatus] = useState<QuoteState>('idle')
+  const [transferId, setTransferId] = useState<string | null>(null)
+  const [pageStatus, setPageStatus] = useState<PageStatus>('idle')
+
+  const currentTransfer = useMemo(() => {
+    if (!transferId) return undefined
+    return pendingTransfers.find((t) => t.id === transferId)
+  }, [pendingTransfers, transferId])
+
+  const invoice = useMemo(() => {
+    const ref = currentTransfer?.transportRef as { request?: string } | undefined
+    return ref?.request ?? null
+  }, [currentTransfer])
+
+  const displayStatus = useMemo<PageStatus>(() => {
+    if (pageStatus === 'error') return 'error'
+    if (pageStatus === 'creating') return 'creating'
+    if (pageStatus === 'claiming') return 'claiming'
+    if (!currentTransfer) return pageStatus
+    if (currentTransfer.phase === 'settled') return 'settled'
+    if (currentTransfer.phase === 'failed') return 'failed'
+    return currentTransfer.phase as PageStatus
+  }, [pageStatus, currentTransfer])
 
   const handleCreate = async () => {
     if (!selectedMintUrl) {
@@ -51,57 +71,46 @@ export function TlsBolt11ReceivePage({ onBack }: TlsBolt11ReceivePageProps) {
 
     setIsLoading(true)
     setLastResult(null)
-    setInvoice(null)
-    setQuoteId(null)
-    setStatus('creating')
+    setTransferId(null)
+    setPageStatus('creating')
 
     try {
-      const result = await registry.payment.receive({
-        accountId: selectedMintUrl,
-        protocol: 'bolt11',
-        amount: sat(Number(amount)),
-        description: memo.trim() || undefined,
-      })
+      const transfer = await registry.transferLifecycle.initiateIncomingTransfer(
+        {
+          txId: crypto.randomUUID(),
+          accountId: selectedMintUrl,
+          amount: sat(Number(amount)),
+          memo: memo.trim() || undefined,
+        },
+        'bolt11',
+      )
 
-      if (!result.ok) {
-        setLastResult(`Error: ${result.error.message}`)
-        addToast({ type: 'error', message: result.error.message })
-        setStatus('error')
-        return
-      }
-
-      const req = result.value
-      setInvoice(req.encoded)
-      setQuoteId(req.id)
-      setStatus('UNPAID')
-      setLastResult(`Quote: ${req.id}\nExpires: ${req.expiresAt ? new Date(req.expiresAt).toLocaleString() : 'N/A'}`)
-      addToast({ type: 'success', message: 'Invoice created' })
+      setTransferId(transfer.id)
+      setPageStatus('submitted')
+      setLastResult(
+        `Transfer: ${transfer.id}\nPhase: ${transfer.phase}\nInvoice ready`,
+      )
+      addToast({ type: 'success', message: 'Invoice created (TLS)' })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       setLastResult(`Error: ${msg}`)
       addToast({ type: 'error', message: msg })
-      setStatus('error')
+      setPageStatus('error')
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleCheck = async () => {
-    if (!quoteId || !selectedMintUrl) return
+    if (!transferId) return
     setIsLoading(true)
     try {
-      const result = await registry.payment.queryReceiveStatus({ requestId: quoteId, accountId: selectedMintUrl })
-      if (!result.ok) {
-        setLastResult(`Check error: ${result.error.message}`)
-        addToast({ type: 'error', message: result.error.message })
-        setIsLoading(false)
-        return
+      await registry.transferLifecycle.pollPendingTransfers()
+      const updated = pendingTransfers.find((t) => t.id === transferId)
+      if (updated) {
+        setLastResult(`Phase: ${updated.phase}\nID: ${updated.id}`)
+        addToast({ type: 'success', message: `Phase: ${updated.phase}` })
       }
-
-      const { state, isAlive } = result.value
-      setStatus(state as QuoteState)
-      setLastResult(`State: ${state}\nAlive: ${isAlive}`)
-      addToast({ type: isAlive ? 'success' : 'warning', message: `Quote ${state}` })
     } catch (err) {
       setLastResult(`Check error: ${String(err)}`)
       addToast({ type: 'error', message: String(err) })
@@ -111,25 +120,18 @@ export function TlsBolt11ReceivePage({ onBack }: TlsBolt11ReceivePageProps) {
   }
 
   const handleClaim = async () => {
-    if (!quoteId || !selectedMintUrl) return
+    if (!transferId) return
     setIsLoading(true)
-    setStatus('claiming')
+    setPageStatus('claiming')
     try {
-      const result = await registry.payment.claimReceiveRequest({ requestId: quoteId, accountId: selectedMintUrl })
-      if (!result.ok) {
-        setLastResult(`Claim error: ${result.error.message}`)
-        addToast({ type: 'error', message: result.error.message })
-        setStatus('PAID')
-        setIsLoading(false)
-        return
-      }
-      setStatus('ISSUED')
-      setLastResult(`Claimed! Amount: ${result.value.amount.value} ${result.value.amount.unit}`)
-      addToast({ type: 'success', message: 'Proofs claimed' })
+      await registry.transferLifecycle.claimIncomingTransfer(transferId)
+      setLastResult('Claimed successfully!')
+      addToast({ type: 'success', message: 'Proofs claimed (TLS)' })
     } catch (err) {
-      setLastResult(`Claim error: ${String(err)}`)
-      addToast({ type: 'error', message: String(err) })
-      setStatus('PAID')
+      const msg = err instanceof Error ? err.message : String(err)
+      setLastResult(`Claim error: ${msg}`)
+      addToast({ type: 'error', message: msg })
+      setPageStatus('awaiting_confirmation')
     } finally {
       setIsLoading(false)
     }
@@ -141,8 +143,8 @@ export function TlsBolt11ReceivePage({ onBack }: TlsBolt11ReceivePageProps) {
     addToast({ type: 'success', message: 'Invoice copied' })
   }
 
-  const canClaim = status === 'PAID'
-  const isClaiming = status === 'claiming'
+  const showClaimButton = currentTransfer ? canComplete(currentTransfer) : false
+  const isClaiming = pageStatus === 'claiming'
 
   return (
     <div className="h-full bg-background text-foreground flex flex-col overflow-hidden">
@@ -199,19 +201,19 @@ export function TlsBolt11ReceivePage({ onBack }: TlsBolt11ReceivePageProps) {
             variant="brand"
             size="lg"
             onClick={handleCreate}
-            loading={isLoading && status === 'creating'}
+            loading={isLoading && pageStatus === 'creating'}
             icon={<CheckCircle className="size-4" />}
             className="w-full mt-2"
           >
             Create Invoice
           </Button>
 
-          {invoice && (
+          {transferId && (
             <Button
               variant="outline"
               size="lg"
               onClick={handleCheck}
-              loading={isLoading && status !== 'claiming'}
+              loading={isLoading && !isClaiming}
               icon={<ClipboardCopy className="size-4" />}
               className="w-full"
             >
@@ -219,7 +221,7 @@ export function TlsBolt11ReceivePage({ onBack }: TlsBolt11ReceivePageProps) {
             </Button>
           )}
 
-          {canClaim && (
+          {showClaimButton && (
             <Button
               variant="brand"
               size="lg"
@@ -247,7 +249,7 @@ export function TlsBolt11ReceivePage({ onBack }: TlsBolt11ReceivePageProps) {
             </div>
             <p className="text-body break-all font-mono text-sm">{invoice}</p>
             <p className="text-label text-foreground-muted uppercase tracking-wider">
-              Status: <span className={`font-semibold ${stateColor[status] ?? 'text-foreground'}`}>{status}</span>
+              Status: <span className={`font-semibold ${stateColor[displayStatus] ?? 'text-foreground'}`}>{displayStatus}</span>
             </p>
           </div>
         )}

@@ -81,7 +81,7 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
 
   constructor(private backend: LightningBackend) { }
 
-  // ─── TransferOperator ───
+  // ─── TransferOperator (Outgoing) ───
 
   async prepare(intent: TransferIntent): Promise<PendingTransfer> {
     const op = await this.backend.prepareMelt(intent.accountId, intent.recipient!)
@@ -119,7 +119,53 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
     return transitionPhase(transfer, 'in_transit', Date.now())
   }
 
+  // ─── TransferOperator (Incoming) ───
+
+  async prepareReceive(intent: TransferIntent): Promise<PendingTransfer> {
+    const quote = await this.backend.createMintQuote(intent.accountId, toNumber(intent.amount))
+
+    return createPendingTransfer({
+      id: crypto.randomUUID(),
+      txId: intent.txId,
+      direction: 'incoming',
+      finality: 'deferred',
+      onExpiry: 'expire',
+      expiresAt: quote.expiry * 1000,
+      transportRef: {
+        type: 'bolt11-mint',
+        quoteId: quote.quote,
+        request: quote.request,
+        mintUrl: intent.accountId,
+      },
+      now: Date.now(),
+    })
+  }
+
+  async claimReceive(transfer: PendingTransfer): Promise<PendingTransfer> {
+    const ref = transfer.transportRef as { mintUrl: string; quoteId: string }
+    // SDK watcher가 이미 자동 민팅했을 수 있음 — idempotency check
+    const status = await this.backend.checkMintQuote(ref.mintUrl, ref.quoteId)
+    if (status?.state === 'ISSUED' || status?.state === 'finalized') {
+      return transitionPhase(transfer, 'settled', Date.now())
+    }
+    await this.backend.redeemMintQuote(ref.mintUrl, ref.quoteId, 0)
+    return transitionPhase(transfer, 'settled', Date.now())
+  }
+
   async poll(transfer: PendingTransfer): Promise<TransferPhase> {
+    if (transfer.direction === 'incoming') {
+      const ref = transfer.transportRef as { mintUrl: string; quoteId: string }
+      const status = await this.backend.checkMintQuote(ref.mintUrl, ref.quoteId)
+
+      if (!status) return 'failed'
+      if (status.state === 'ISSUED') return 'settled'
+      if (status.state === 'PAID') return 'awaiting_confirmation'
+      if (status.state === 'EXPIRED') return 'failed'
+      if (isExpired(transfer)) return 'failed'
+      return 'submitted'
+    }
+
+    // outgoing melt
     const ref = transfer.transportRef as { operationId: string }
     const status = await this.backend.checkMelt(ref.operationId)
 

@@ -365,6 +365,10 @@ export async function checkMintQuote(
   const manager = await getCocoManager();
   const op = await manager.ops.mint.getByQuote(mintUrl, quoteId);
   if (!op) return null;
+  // SDK가 이미 자동으로 mint execute까지 완료했으면 checkPayment는 안 됨
+  if (op.state === 'finalized') {
+    return { state: 'ISSUED' };
+  }
   const result = await manager.ops.mint.checkPayment(op.id);
   return { state: result.observedRemoteState };
 }

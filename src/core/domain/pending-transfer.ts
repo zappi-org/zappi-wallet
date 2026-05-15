@@ -74,3 +74,10 @@ export function isExpired(transfer: PendingTransfer, now: number = Date.now()): 
   return transfer.expiresAt != null && transfer.expiresAt <= now
 }
 
+/** Incoming transfer가 claim 가능한 상태인지 확인 */
+export function canComplete(
+  transfer: Pick<PendingTransfer, 'phase' | 'direction'>,
+): boolean {
+  return transfer.direction === 'incoming' && transfer.phase === 'awaiting_confirmation'
+}
+

@@ -58,6 +58,20 @@ describe('TransferLifecycleService', () => {
       processIncoming: vi.fn().mockImplementation((transfer: PendingTransfer) =>
         Promise.resolve(transitionPhase(transfer, 'awaiting_confirmation', Date.now())),
       ),
+      prepareReceive: vi.fn().mockResolvedValue(
+        createPendingTransfer({
+          id: 'incoming-1',
+          txId: 'tx-in-1',
+          direction: 'incoming',
+          finality: 'deferred',
+          onExpiry: 'expire',
+          transportRef: { protocol: 'mock', request: 'lnbc1...' },
+          now: Date.now(),
+        }),
+      ),
+      claimReceive: vi.fn().mockImplementation((transfer: PendingTransfer) =>
+        Promise.resolve(transitionPhase(transfer, 'settled', Date.now())),
+      ),
       ...overrides,
     }
   }
@@ -302,6 +316,112 @@ describe('TransferLifecycleService', () => {
     })
   })
 
+  // ─── initiateIncomingTransfer ───
+
+  describe('initiateIncomingTransfer', () => {
+    it('prepareReceive → store.create → transfer:submitted', async () => {
+      const mockOp = makeMockOperator()
+      createService(new Map([['mock', mockOp]]))
+
+      const intent: TransferIntent = {
+        txId: 'tx-in-1',
+        accountId: 'mint-1',
+        amount: amount(1000, 'sat'),
+      }
+
+      const result = await service.initiateIncomingTransfer(intent, 'mock')
+
+      expect(mockOp.prepareReceive).toHaveBeenCalledWith(intent)
+      expect(store.size()).toBe(1)
+      expect(result.direction).toBe('incoming')
+      expect(result.phase).toBe('submitted')
+
+      const submittedEvent = emittedEvents.find((e) => e.type === 'transfer:submitted')
+      expect(submittedEvent).toBeDefined()
+    })
+
+    it('prepareReceive 미지원 프로토콜이면 에러', async () => {
+      const mockOp = makeMockOperator({ prepareReceive: undefined })
+      createService(new Map([['mock', mockOp]]))
+
+      await expect(
+        service.initiateIncomingTransfer(
+          { txId: 'tx-in-1', accountId: 'mint-1', amount: amount(1000, 'sat') },
+          'mock',
+        ),
+      ).rejects.toThrow('does not support incoming')
+    })
+  })
+
+  // ─── claimIncomingTransfer ───
+
+  describe('claimIncomingTransfer', () => {
+    it('awaiting_confirmation → claimReceive → settled', async () => {
+      const mockOp = makeMockOperator()
+      createService(new Map([['mock', mockOp]]))
+
+      const transfer = createPendingTransfer({
+        id: 't-in-1',
+        txId: 'tx-in-1',
+        direction: 'incoming',
+        finality: 'deferred',
+        onExpiry: 'expire',
+        transportRef: { protocol: 'mock' },
+        now: Date.now(),
+      })
+      await store.create(transitionPhase(transfer, 'awaiting_confirmation', Date.now()))
+
+      await service.claimIncomingTransfer('t-in-1')
+
+      expect(mockOp.claimReceive).toHaveBeenCalled()
+      const updated = await store.get('t-in-1')
+      expect(updated?.phase).toBe('settled')
+
+      const settledEvent = emittedEvents.find((e) => e.type === 'transfer:settled')
+      expect(settledEvent).toBeDefined()
+    })
+
+    it('awaiting_confirmation이 아니면 에러', async () => {
+      const mockOp = makeMockOperator()
+      createService(new Map([['mock', mockOp]]))
+
+      const transfer = createPendingTransfer({
+        id: 't-in-1',
+        txId: 'tx-in-1',
+        direction: 'incoming',
+        finality: 'deferred',
+        onExpiry: 'expire',
+        transportRef: { protocol: 'mock' },
+        now: Date.now(),
+      })
+      await store.create(transitionPhase(transfer, 'submitted', Date.now()))
+
+      await expect(service.claimIncomingTransfer('t-in-1')).rejects.toThrow(
+        'not ready to be completed',
+      )
+    })
+
+    it('claimReceive 미지원이면 에러', async () => {
+      const mockOp = makeMockOperator({ claimReceive: undefined })
+      createService(new Map([['mock', mockOp]]))
+
+      const transfer = createPendingTransfer({
+        id: 't-in-1',
+        txId: 'tx-in-1',
+        direction: 'incoming',
+        finality: 'deferred',
+        onExpiry: 'expire',
+        transportRef: { protocol: 'mock' },
+        now: Date.now(),
+      })
+      await store.create(transitionPhase(transfer, 'awaiting_confirmation', Date.now()))
+
+      await expect(service.claimIncomingTransfer('t-in-1')).rejects.toThrow(
+        'Cannot claim this transfer',
+      )
+    })
+  })
+
   // ─── recoverTransfers ───
 
   describe('recoverTransfers', () => {
@@ -334,6 +454,60 @@ describe('TransferLifecycleService', () => {
 
       const needsPolling = emittedEvents.filter((e) => e.type === 'transfer:needs-polling')
       expect(needsPolling).toHaveLength(2)
+    })
+
+    it('preparing incoming은 submitted로 전이 후 needs-polling', async () => {
+      createService(new Map())
+
+      const t1 = createPendingTransfer({
+        id: 't1',
+        txId: 'tx-1',
+        direction: 'incoming',
+        finality: 'deferred',
+        onExpiry: 'expire',
+        transportRef: { protocol: 'mock' },
+        now: Date.now(),
+      })
+      await store.create(t1) // phase: preparing
+
+      await service.recoverTransfers()
+
+      const updated = await store.get('t1')
+      expect(updated?.phase).toBe('submitted')
+
+      const phaseChanged = emittedEvents.find((e) => e.type === 'transfer:phase-changed')
+      expect(phaseChanged).toBeDefined()
+
+      // submitted가 되었으므로 needs-polling도 발행
+      const needsPolling = emittedEvents.filter((e) => e.type === 'transfer:needs-polling')
+      expect(needsPolling).toHaveLength(1)
+    })
+
+    it('preparing outgoing은 failed로 전이', async () => {
+      createService(new Map())
+
+      const t1 = createPendingTransfer({
+        id: 't1',
+        txId: 'tx-1',
+        direction: 'outgoing',
+        finality: 'immediate',
+        onExpiry: 'fail',
+        transportRef: { protocol: 'mock' },
+        now: Date.now(),
+      })
+      await store.create(t1) // phase: preparing
+
+      await service.recoverTransfers()
+
+      const updated = await store.get('t1')
+      expect(updated?.phase).toBe('failed')
+
+      const failedEvent = emittedEvents.find((e) => e.type === 'transfer:failed')
+      expect(failedEvent).toBeDefined()
+
+      // preparing은 active가 아니므로 needs-polling은 없음
+      const needsPolling = emittedEvents.filter((e) => e.type === 'transfer:needs-polling')
+      expect(needsPolling).toHaveLength(0)
     })
   })
 })
