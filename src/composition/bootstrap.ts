@@ -83,6 +83,12 @@ import { TrustRegistryService } from '@/core/services/trust-registry.service'
 import { NostrDirectPaymentService } from '@/core/services/nostr-direct-payment.service'
 import { RouteExecutionService } from '@/core/services/route-execution.service'
 import { ExternalWalletRecoveryService } from '@/core/services/external-wallet-recovery.service'
+import { TransferLifecycleService } from '@/core/services/transfer-lifecycle.service'
+import { DexiePendingTransferStore } from '@/adapters/storage/dexie/dexie-pending-transfer-store'
+
+// ─── Cashu Adapters (TransferOperator 구현체) ───
+import { CashuBolt11Adapter } from '@/modules/cashu/adapters/cashu-bolt11.adapter'
+import { CashuEcashAdapter } from '@/modules/cashu/adapters/cashu-ecash.adapter'
 
 // ─── Phase 6: Metadata + NUT-18 HTTP ───
 import { MintMetadataService, metadataEvents } from '@/modules/cashu/metadata'
@@ -101,6 +107,9 @@ import { finalizeEvent } from 'nostr-tools'
 import { hexToBytes } from '@noble/hashes/utils.js'
 import { DEFAULT_RELAYS, NOSTR_KINDS } from '@/core/constants'
 import { DexieReceiveRequestRepository } from '@/adapters/storage/dexie/dexie-receive-request.repository'
+
+// ─── Nostr Watcher (Adapter Layer) ───
+import { NostrIncomingWatcher } from '@/adapters/nostr/nostr-incoming-watcher'
 
 // ─── Composition Roots ───
 import { createPaymentService } from './payment'
@@ -126,6 +135,7 @@ import { TokenReceiverAdapter } from './token-receiver.adapter'
 import type { WalletModule } from '@/core/ports/driven/wallet-module.port'
 import type { OperationMap } from '@/core/ports/driven/operation-map.port'
 import type { ServiceRegistry } from '@/core/ports/driving/service-registry'
+import type { TransferOperator, MessageTransport } from '@/core/ports/driven/transfer-operator.port'
 
 // ─── Routing types (Phase 6에서 SendFlow 전환 시 제거) ───
 export type { RouteSelection, RouteContext, RouteExecutionResult } from '@/core/domain/routing'
@@ -179,8 +189,11 @@ export interface BootstrapResult extends ServiceRegistry {
   // ─── Routing (Phase 6에서 제거) ───
   executeRoute(selection: RouteSelection, context: RouteContext): Promise<RouteResult>
 
-  // ─── Gift wrap watcher ───
-  readonly giftWrapWatcher: GiftWrapWatcher
+    // ─── Gift wrap watcher ───
+    readonly giftWrapWatcher: GiftWrapWatcher
+
+    // ─── Nostr incoming watcher ───
+    readonly nostrIncomingWatcher: NostrIncomingWatcher
 
   // ─── P2PK, offline token ───
   readonly p2pkKeyManager: { getCurrentKey(): Promise<{ pubkey: string }> }
@@ -241,12 +254,42 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     },
   )
 
+  // 5. TransferLifecycleService (Sprint 3 — dual-run with existing services)
+  const pendingTransferStore = new DexiePendingTransferStore()
+
+  // MessageTransport adapter wrapping NostrPaymentTransport
+  const messageTransport: MessageTransport = {
+    async publish(params: { recipient: string; content: string; memo?: string }) {
+      const result = await outgoingTransport.send({
+        recipientPubkey: params.recipient,
+        token: params.content,
+        memo: params.memo,
+      })
+      return { deliveryId: result.success ? 'nostr-sent' : '' }
+    },
+  }
+
+  const cashuBolt11Adapter = new CashuBolt11Adapter(cashuBackend)
+  const cashuEcashAdapter = new CashuEcashAdapter(cashuBackend, messageTransport)
+
+  const operators = new Map<string, TransferOperator>([
+    ['bolt11', cashuBolt11Adapter],
+    ['ecash', cashuEcashAdapter],
+  ])
+
+  const transferLifecycle = new TransferLifecycleService(
+    pendingTransferStore,
+    operators,
+    eventBus,
+  )
+
   // 5. Services (via composition roots)
   const payment = createPaymentService(
     modules,
     txRepo,
     eventBus,
     operationMap,
+    transferLifecycle,
   )
   const tokenReceiver = new TokenReceiverAdapter(payment)
   const balance = createBalanceService(modules)
@@ -318,6 +361,12 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
     // Watchers
     await enableCashuWatchers()
+
+    // Nostr incoming watcher 시작 (앱 unlock 후 한 번)
+    nostrIncomingWatcher.start(derivePublicKey(deps.nostrPrivateKeyHex))
+
+    // TLS: 앱 시작 시 active transfer 복구
+    transferLifecycle.recoverTransfers().catch(console.error)
   }
 
   const onResume = async () => {
@@ -326,6 +375,10 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
       recheckCashuPendingMintQuotes().catch((e) => console.error('[Resume] recheck quotes failed:', e))
     } catch { /* ignore if not initialized */ }
     exchangeRateService.refreshIfStale().catch(() => {})
+
+    // Nostr incoming watcher 재시작 (키가 바뀔 수 있으므로)
+    nostrIncomingWatcher.stop()
+    nostrIncomingWatcher.start(derivePublicKey(deps.nostrPrivateKeyHex))
   }
 
   const onPause = async () => {
@@ -334,7 +387,14 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     } catch { /* ignore if not initialized */ }
   }
 
-  // 9. Additional services
+  // 9. Nostr Incoming Watcher (Adapter Layer — 발견만 담당, 관리는 TLS)
+  const nostrIncomingWatcher = new NostrIncomingWatcher(
+    nostrGateway,
+    pendingTransferStore,
+    eventBus,
+  )
+
+  // 10. Additional services
   const tokenCodec = new TokenCodecAdapter()
   const recovery = createRecoveryService(nostrGateway, payment, trustedMintProvider, incomingReviewQueue, receiveRequest)
   const incomingPayment = new IncomingPaymentService(payment, processedStore, failedIncomingStore, receiveRequest, txRepo, eventBus)
@@ -465,6 +525,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     support,
     nostrDirectPayment,
     externalWalletRecovery,
+    transferLifecycle,
 
     // ─── BootstrapResult extensions (MainApp only) ───
     cashuModule,
@@ -506,6 +567,9 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
     // Gift wrap watcher
     giftWrapWatcher,
+
+    // Nostr incoming watcher
+    nostrIncomingWatcher,
 
     // P2PK + offline token
     p2pkKeyManager,

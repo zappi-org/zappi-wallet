@@ -24,6 +24,8 @@ function createMockBackend(): EcashBackend {
     recoverPendingSendTokens: vi.fn().mockResolvedValue({ reclaimed: 3, recorded: 1 }),
     redeemPendingReceivedTokens: vi.fn().mockResolvedValue({ redeemed: 0, failed: 0 }),
     storeOfflineToken: vi.fn().mockResolvedValue('pending-recv-123'),
+    checkProofStates: vi.fn().mockResolvedValue({ allSpent: false, allPending: false, states: [] }),
+    getSendOperationState: vi.fn().mockResolvedValue('prepared'),
   }
 }
 

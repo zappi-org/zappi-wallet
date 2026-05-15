@@ -959,6 +959,9 @@ export default {
     mintSwitched: 'Beralih ke mint lain: {{name}}',
     onlineRestored: 'Kembali online',
     offlineStatus: 'Anda sedang offline',
+    transferSettled: 'Transfer selesai',
+    transferReclaimed: 'Transfer diklaim kembali',
+    incomingTransferProcessed: 'Transfer masuk diproses',
   },
 
   // Mint Details

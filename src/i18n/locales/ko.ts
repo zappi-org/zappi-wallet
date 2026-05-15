@@ -1051,6 +1051,9 @@ export default {
     mintSwitched: '다른 민트로 전환됨: {{name}}',
     onlineRestored: '온라인 상태로 전환되었습니다',
     offlineStatus: '오프라인 상태입니다',
+    transferSettled: '전송 완료',
+    transferReclaimed: '전송 회수 완료',
+    incomingTransferProcessed: '수신 전송 처리 완료',
   },
 
   // Mint Details

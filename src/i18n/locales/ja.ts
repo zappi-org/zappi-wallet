@@ -967,6 +967,9 @@ export default {
     mintSwitched: '別のミントに切り替えました: {{name}}',
     onlineRestored: 'オンライン状態に復帰しました',
     offlineStatus: 'オフライン状態です',
+    transferSettled: '転送完了',
+    transferReclaimed: '転送回収完了',
+    incomingTransferProcessed: '受信転送処理完了',
   },
 
   // Mint Details

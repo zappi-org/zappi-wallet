@@ -32,6 +32,7 @@ function createMockBackend(): LightningBackend {
       request: 'lnbc1000n1...',
     }),
     redeemMintQuote: vi.fn().mockResolvedValue(undefined),
+    checkMelt: vi.fn().mockResolvedValue({ state: 'PAID', preimage: 'abc123' }),
     recoverPendingMelts: vi.fn().mockResolvedValue({ recovered: 2, failed: 0 }),
     recoverPendingQuotes: vi.fn().mockResolvedValue({ recovered: 0, failed: 0, expired: 0 }),
   }

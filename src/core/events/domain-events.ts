@@ -1,4 +1,5 @@
 import type { Amount } from '@/core/domain/amount'
+import type { PendingTransfer } from '@/core/domain/pending-transfer'
 
 export type DomainEvent =
   | PaymentCompletedEvent
@@ -14,6 +15,15 @@ export type DomainEvent =
   | SendClaimedEvent
   | SendReclaimedEvent
   | ReceiveClaimedEvent
+  // TransferLifecycle events
+  | TransferSubmittedEvent
+  | TransferPhaseChangedEvent
+  | TransferSettledEvent
+  | TransferReclaimedEvent
+  | TransferFailedEvent
+  | IncomingTransferProcessedEvent
+  | IncomingTransferReceivedEvent
+  | TransferNeedsPollingEvent
 
 export interface PaymentCompletedEvent {
   type: 'payment:completed'
@@ -158,4 +168,46 @@ export interface ReceiveClaimedEvent {
     amount: Amount
     memo?: string
   }
+}
+
+// ─── TransferLifecycle Events ───
+
+export interface TransferSubmittedEvent {
+  type: 'transfer:submitted'
+  payload: { transfer: PendingTransfer }
+}
+
+export interface TransferPhaseChangedEvent {
+  type: 'transfer:phase-changed'
+  payload: { transfer: PendingTransfer; previousPhase: string }
+}
+
+export interface TransferSettledEvent {
+  type: 'transfer:settled'
+  payload: { transfer: PendingTransfer }
+}
+
+export interface TransferReclaimedEvent {
+  type: 'transfer:reclaimed'
+  payload: { transfer: PendingTransfer }
+}
+
+export interface TransferFailedEvent {
+  type: 'transfer:failed'
+  payload: { transfer: PendingTransfer; reason: string }
+}
+
+export interface IncomingTransferProcessedEvent {
+  type: 'incoming:processed'
+  payload: { transfer: PendingTransfer }
+}
+
+export interface IncomingTransferReceivedEvent {
+  type: 'incoming:received'
+  payload: { transfer: PendingTransfer }
+}
+
+export interface TransferNeedsPollingEvent {
+  type: 'transfer:needs-polling'
+  payload: { transfer: PendingTransfer }
 }

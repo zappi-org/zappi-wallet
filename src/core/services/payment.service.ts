@@ -25,6 +25,8 @@ import type {
 } from '@/core/ports/driven/payment-method.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { ModuleBalance, WalletModule } from '@/core/ports/driven/wallet-module.port'
+import type { TransferIntent } from '@/core/ports/driven/transfer-operator.port'
+import type { TransferLifecycleService } from '@/core/services/transfer-lifecycle.service'
 import type {
   InputInspectionResult,
   PaymentMethodInfo,
@@ -77,6 +79,7 @@ export class PaymentService implements PaymentUseCase {
     private txRepo: TransactionRepository,
     private eventBus: EventBus,
     private operationMap?: OperationMap,
+    private transferLifecycle?: TransferLifecycleService,
   ) {}
 
   // ─── Query ───
@@ -693,5 +696,17 @@ export class PaymentService implements PaymentUseCase {
       result.push(...module.getPaymentAdapters())
     }
     return result
+  }
+
+  // ─── TransferLifecycle delegation (dual-run) ───
+
+  async initiateTransfer(
+    intent: TransferIntent,
+    protocol: string,
+  ): Promise<ReturnType<TransferLifecycleService['initiateTransfer']>> {
+    if (!this.transferLifecycle) {
+      throw new Error('TransferLifecycleService not configured')
+    }
+    return this.transferLifecycle.initiateTransfer(intent, protocol)
   }
 }

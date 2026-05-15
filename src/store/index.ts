@@ -7,6 +7,7 @@ import { createUISlice, type UISliceState } from './slices/ui.slice'
 import { createSettingsSlice, type SettingsSliceState } from './slices/settings.slice'
 import { createDebugSlice, type DebugSliceState } from './slices/debug.slice'
 import { createFiatSlice, type FiatSliceState } from './slices/fiat.slice'
+import { createPendingTransferSlice, type PendingTransferSliceState } from './slices/pending-transfer.slice'
 import { DEFAULT_MINTS, DEFAULT_RELAYS } from '@/core/constants'
 
 /**
@@ -19,7 +20,8 @@ export interface AppState
     UISliceState,
     SettingsSliceState,
     DebugSliceState,
-    FiatSliceState {
+    FiatSliceState,
+    PendingTransferSliceState {
   // Global reset
   resetAll: () => void
 }
@@ -37,6 +39,7 @@ export const useAppStore = create<AppState>()(
       ...createSettingsSlice(...args),
       ...createDebugSlice(...args),
       ...createFiatSlice(...args),
+      ...createPendingTransferSlice(...args),
 
       // Global reset (for logout)
       resetAll: () => {
@@ -106,6 +109,8 @@ export const useAppStore = create<AppState>()(
           // Fiat
           exchangeRateFetchedAt: null,
           allRates: null,
+          // Pending transfers
+          pendingTransfers: [],
         })
       },
     })),
@@ -121,3 +126,4 @@ export type { UISliceState, Toast, ModalState } from './slices/ui.slice'
 export type { SettingsSliceState } from './slices/settings.slice'
 export type { DebugSliceState, GiftWrapLog } from './slices/debug.slice'
 export type { FiatSliceState } from './slices/fiat.slice'
+export type { PendingTransferSliceState } from './slices/pending-transfer.slice'

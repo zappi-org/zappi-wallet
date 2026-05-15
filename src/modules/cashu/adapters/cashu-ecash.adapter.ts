@@ -4,7 +4,6 @@
  * execute-route.ts의 executeTokenSendFlow 로직을 adapter로 추출.
  * EcashBackend를 주입받아 Coco SDK에 직접 의존하지 않음.
  */
-
 import type {
   PaymentMethodAdapter,
   InputInspection,
@@ -21,6 +20,9 @@ import { amount as toAmount, sat, toNumber } from '@/core/domain/amount'
 import type { Unit } from '@/core/domain/amount'
 import type { RedeemFeeEstimate } from '@/core/ports/driven/payment-method.port'
 import type { Transaction } from '@/core/domain/transaction'
+import type { TransferOperator, TransferIntent, MessageTransport } from '@/core/ports/driven/transfer-operator.port'
+import type { PendingTransfer, TransferPhase } from '@/core/domain/pending-transfer'
+import { createPendingTransfer, transitionPhase, isExpired } from '@/core/domain/pending-transfer'
 
 // ─── Backend interface (DI용) ───
 
@@ -50,6 +52,8 @@ export interface ReceiveFeeEstimate {
   mintUrl: string
 }
 
+import type { ProofStateResult } from '@/core/ports/driven/send-token-operator.port'
+
 export interface EcashBackend {
   prepareSend(params: {
     mintUrl: string
@@ -65,14 +69,20 @@ export interface EcashBackend {
   redeemPendingReceivedTokens(): Promise<{ redeemed: number; failed: number }>
   storeOfflineToken(token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing'): Promise<string>
   inspectInput?(token: string): Promise<InputInspection>
+  checkProofStates(token: string): Promise<ProofStateResult>
+  getSendOperationState(operationId: string): Promise<string | null>
 }
+
+// ─── Constants ───
+
+const TOKEN_TTL = 7 * 24 * 60 * 60 * 1000 // 7 days
 
 // ─── Adapter ───
 
-export class CashuEcashAdapter implements PaymentMethodAdapter {
+export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator {
   readonly id = 'cashu:ecash'
   readonly moduleId = 'cashu'
-  readonly protocol = 'ecash' as const
+  readonly protocol = 'ecash'
   readonly supportedUnits = ['sat']
   readonly capabilities = {
     canSend: true,
@@ -82,7 +92,134 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
 
   private pendingMemos = new Map<string, string>()
 
-  constructor(private backend: EcashBackend) {}
+  constructor(
+    private backend: EcashBackend,
+    private transport?: MessageTransport,
+  ) { }
+
+  // ─── TransferOperator ───
+
+  async prepare(intent: TransferIntent): Promise<PendingTransfer> {
+    const prepared = await this.backend.prepareSend({
+      mintUrl: intent.accountId,
+      amount: toNumber(intent.amount),
+    })
+
+    return createPendingTransfer({
+      id: crypto.randomUUID(),
+      txId: intent.txId,
+      direction: 'outgoing',
+      finality: 'deferred',
+      onExpiry: 'reclaim',
+      expiresAt: Date.now() + TOKEN_TTL,
+      transportRef: {
+        type: 'ecash-token',
+        operationId: prepared.operationId,
+        recipient: intent.recipient,
+      },
+      now: Date.now(),
+    })
+  }
+
+  async execute(transfer: PendingTransfer): Promise<PendingTransfer> {
+    // incoming: redeem (사용자가 "받기" 클릭)
+    if (transfer.direction === 'incoming') {
+      return this.executeIncoming(transfer)
+    }
+
+    // outgoing: 토큰 생성 + 전송
+    return this.executeOutgoing(transfer)
+  }
+
+  private async executeOutgoing(transfer: PendingTransfer): Promise<PendingTransfer> {
+    const ref = transfer.transportRef as {
+      operationId: string
+      recipient?: string
+    }
+
+    // 1. 토큰 생성
+    const memo = this.pendingMemos.get(ref.operationId)
+    this.pendingMemos.delete(ref.operationId)
+    const result = await this.backend.executeSend(ref.operationId, { memo })
+
+    // 2. 전송 (recipient 있을 때만 — QR/클립보드는 전송 없음)
+    let deliveryId: string | undefined
+    if (ref.recipient && this.transport) {
+      const publishResult = await this.transport.publish({
+        recipient: ref.recipient,
+        content: result.token,
+      })
+      deliveryId = publishResult.deliveryId
+    }
+
+    return {
+      ...transitionPhase(transfer, 'submitted', Date.now()),
+      transportRef: {
+        ...(transfer.transportRef as Record<string, unknown>),
+        token: result.token,
+        deliveryId,
+      },
+    } as PendingTransfer
+  }
+
+  private async executeIncoming(transfer: PendingTransfer): Promise<PendingTransfer> {
+    const ref = transfer.transportRef as {
+      content?: string
+      token?: string
+    }
+
+    // content에서 token 추출 또는 저장된 token 사용
+    const token = ref.token ?? this.extractTokenFromContent(ref.content ?? '')
+    if (!token) {
+      throw new Error('No token found in incoming transfer')
+    }
+
+    // redeem
+    await this.backend.receiveToken(token)
+
+    return transitionPhase(transfer, 'settled', Date.now())
+  }
+
+  private extractTokenFromContent(content: string): string | undefined {
+    const trimmed = content.trim()
+    if (/^cashu[ab]/i.test(trimmed)) return trimmed
+    if (trimmed.startsWith('{"mint"') || trimmed.includes('"proofs"')) {
+      // JSON token — 그대로 사용
+      return trimmed
+    }
+    return undefined
+  }
+
+  async poll(transfer: PendingTransfer): Promise<TransferPhase> {
+    const ref = transfer.transportRef as {
+      operationId?: string
+      token?: string
+    }
+
+    // 1. SDK 내부 상태 먼저 확인
+    if (ref.operationId) {
+      const opState = await this.backend.getSendOperationState(ref.operationId)
+      if (opState === 'finalized') return 'settled'
+      if (opState === 'rolled_back') return 'recoverable'
+    }
+
+    // 2. 토큰 체인 상태 확인
+    if (ref.token) {
+      const proofState = await this.backend.checkProofStates(ref.token)
+      if (proofState.allSpent) return 'settled'
+      if (proofState.allPending) return 'awaiting_confirmation'
+    }
+
+    // 3. 만료 체크
+    if (isExpired(transfer)) return 'recoverable'
+
+    return 'awaiting_confirmation'
+  }
+
+  async reclaim(transfer: PendingTransfer): Promise<void> {
+    const ref = transfer.transportRef as { operationId: string }
+    await this.backend.rollbackSend(ref.operationId)
+  }
 
   // ─── 보내기 ───
 
@@ -93,7 +230,7 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
         amount: toNumber(params.amount),
       })
       const fee = prepared.fee
-      await this.backend.rollbackSend(prepared.operationId).catch(() => {})
+      await this.backend.rollbackSend(prepared.operationId).catch(() => { })
       return { fee: sat(fee), method: 'ecash', protocol: 'cashu-token' }
     } catch {
       return { fee: sat(0), method: 'ecash', protocol: 'cashu-token' }

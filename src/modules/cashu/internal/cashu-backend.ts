@@ -213,6 +213,12 @@ export async function finalizeSend(operationId: string): Promise<void> {
   await manager.ops.send.finalize(operationId);
 }
 
+export async function getSendOperationState(operationId: string): Promise<string | null> {
+  const manager = await getCocoManager();
+  const op = await manager.ops.send.get(operationId);
+  return typeof op?.state === 'string' ? op.state : null;
+}
+
 export async function checkProofStates(token: string): Promise<ProofStateResult> {
   const cashuTs = await import('@cashu/cashu-ts');
   const decoded = cashuTs.getDecodedToken(token);
@@ -400,6 +406,25 @@ export async function executeMelt(operationId: string): Promise<{
     ...(preimage && { preimage }),
     effectiveFee,
     changeAmount,
+  };
+}
+
+export async function checkMelt(operationId: string): Promise<{
+  state: string;
+  preimage?: string;
+  error?: string;
+}> {
+  const manager = await getCocoManager();
+  const result = await manager.ops.melt.get(operationId);
+  if (!result) {
+    return { state: 'unknown', error: 'operation not found' };
+  }
+  const preimage = result.state === 'finalized'
+    ? (result as { finalizedData?: { preimage?: string } }).finalizedData?.preimage
+    : undefined;
+  return {
+    state: result.state,
+    ...(preimage && { preimage }),
   };
 }
 

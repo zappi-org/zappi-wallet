@@ -106,6 +106,14 @@ function createMockRegistry(): ServiceRegistry {
     externalWalletRecovery: {
       recoverFromMnemonic: vi.fn(),
     } as unknown as ServiceRegistry['externalWalletRecovery'],
+    transferLifecycle: {
+      initiateTransfer: vi.fn(),
+      pollPendingTransfers: vi.fn(),
+      reclaimTransfer: vi.fn(),
+      processIncomingTransfer: vi.fn(),
+      claimIncomingTransfer: vi.fn(),
+      recoverTransfers: vi.fn(),
+    } as unknown as ServiceRegistry['transferLifecycle'],
   }
 }
 

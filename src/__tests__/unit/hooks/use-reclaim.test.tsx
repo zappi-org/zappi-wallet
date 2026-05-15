@@ -49,6 +49,14 @@ function createMockRegistry(reclaimService: ReturnType<typeof vi.fn>, txMgmt?: {
     support: {} as unknown as ServiceRegistry['support'],
     nostrDirectPayment: { resolve: vi.fn() } as unknown as ServiceRegistry['nostrDirectPayment'],
     externalWalletRecovery: { recoverFromMnemonic: vi.fn() } as unknown as ServiceRegistry['externalWalletRecovery'],
+    transferLifecycle: {
+      initiateTransfer: vi.fn(),
+      pollPendingTransfers: vi.fn(),
+      reclaimTransfer: vi.fn(),
+      processIncomingTransfer: vi.fn(),
+      claimIncomingTransfer: vi.fn(),
+      recoverTransfers: vi.fn(),
+    } as unknown as ServiceRegistry['transferLifecycle'],
   }
 }
 

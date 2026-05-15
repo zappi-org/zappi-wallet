@@ -73,6 +73,7 @@ function createMockRegistry(): ServiceRegistry {
     support: {} as ServiceRegistry['support'],
     nostrDirectPayment: {} as ServiceRegistry['nostrDirectPayment'],
     externalWalletRecovery: {} as ServiceRegistry['externalWalletRecovery'],
+    transferLifecycle: {} as ServiceRegistry['transferLifecycle'],
   }
 }
 

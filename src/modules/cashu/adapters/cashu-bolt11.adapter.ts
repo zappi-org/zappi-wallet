@@ -19,6 +19,10 @@ import type {
 } from '@/core/ports/driven/payment-method.port'
 import type { Amount } from '@/core/domain/amount'
 import { sat, toNumber, amount as amt } from '@/core/domain/amount'
+import type { TransferOperator, TransferIntent } from '@/core/ports/driven/transfer-operator.port'
+import type { PendingTransfer, TransferPhase } from '@/core/domain/pending-transfer'
+import { createPendingTransfer, transitionPhase, isExpired } from '@/core/domain/pending-transfer'
+
 
 // ─── Backend interface (DI용) ───
 
@@ -37,6 +41,11 @@ export interface LightningBackend {
     effectiveFee?: number
     changeAmount?: number
   }>
+  checkMelt(operationId: string): Promise<{
+    state: string
+    preimage?: string
+    error?: string
+  }>
   rollbackMelt(operationId: string, reason?: string): Promise<void>
   createMintQuote(mintUrl: string, amount: number): Promise<{
     quote: string
@@ -53,10 +62,10 @@ export interface LightningBackend {
 
 // ─── Adapter ───
 
-export class CashuBolt11Adapter implements PaymentMethodAdapter {
+export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperator {
   readonly id = 'cashu:bolt11'
   readonly moduleId = 'cashu'
-  readonly protocol = 'bolt11' as const
+  readonly protocol = 'bolt11'
   readonly supportedUnits = ['sat']
   readonly capabilities = {
     canSend: true,
@@ -70,7 +79,63 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter {
     effectiveFee?: Amount
   }>()
 
-  constructor(private backend: LightningBackend) {}
+  constructor(private backend: LightningBackend) { }
+
+  // ─── TransferOperator ───
+
+  async prepare(intent: TransferIntent): Promise<PendingTransfer> {
+    const op = await this.backend.prepareMelt(intent.accountId, intent.recipient!)
+
+    return createPendingTransfer({
+      id: crypto.randomUUID(),
+      txId: intent.txId,
+      direction: 'outgoing',
+      finality: 'immediate',
+      onExpiry: 'fail',
+      transportRef: {
+        type: 'bolt11-melt',
+        quoteId: op.quoteId,
+        operationId: op.operationId,
+      },
+      now: Date.now(),
+    })
+  }
+
+  async execute(transfer: PendingTransfer): Promise<PendingTransfer> {
+    const ref = transfer.transportRef as { operationId: string }
+    const result = await this.backend.executeMelt(ref.operationId)
+
+    // preimage 즉시 확인 → 완료
+    if (result.preimage || result.state === 'PAID' || result.state === 'finalized') {
+      return transitionPhase(transfer, 'settled', Date.now())
+    }
+
+    // 에러 즉시 실패
+    if (result.state === 'FAILED') {
+      return transitionPhase(transfer, 'failed', Date.now())
+    }
+
+    // 아직 처리 중 → 폴링 대상
+    return transitionPhase(transfer, 'in_transit', Date.now())
+  }
+
+  async poll(transfer: PendingTransfer): Promise<TransferPhase> {
+    const ref = transfer.transportRef as { operationId: string }
+    const status = await this.backend.checkMelt(ref.operationId)
+
+    if (status.preimage || status.state === 'PAID' || status.state === 'finalized') {
+      return 'settled'
+    }
+    if (status.state === 'FAILED' || status.error) {
+      return 'failed'
+    }
+    if (isExpired(transfer)) {
+      return 'failed'
+    }
+    return 'in_transit'
+  }
+
+
 
   // ─── 보내기 ───
 
@@ -81,11 +146,11 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter {
     try {
       meltOp = await this.backend.prepareMelt(params.accountId, invoice)
       const fee = meltOp.fee_reserve + meltOp.swap_fee
-      await this.backend.rollbackMelt(meltOp.operationId, 'fee estimation only').catch(() => {})
+      await this.backend.rollbackMelt(meltOp.operationId, 'fee estimation only').catch(() => { })
       return { fee: sat(fee), method: 'lightning', protocol: 'bolt11' }
     } catch {
       if (meltOp) {
-        await this.backend.rollbackMelt(meltOp.operationId, 'fee estimation failed').catch(() => {})
+        await this.backend.rollbackMelt(meltOp.operationId, 'fee estimation failed').catch(() => { })
       }
       return { fee: sat(0), method: 'lightning', protocol: 'bolt11' }
     }
@@ -174,7 +239,7 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter {
     handler: (result: ReceiveCompletedResult) => void,
   ): () => void {
     if (!this.backend.onMintQuotePaid) {
-      return () => {}
+      return () => { }
     }
     return this.backend.onMintQuotePaid(requestId, () => {
       handler({

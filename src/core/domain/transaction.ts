@@ -72,6 +72,7 @@ export function getTxMeta(tx: Transaction) {
     fee: m.fee as number | undefined,
     reclaimedFrom: m.reclaimedFrom as string | undefined,
     destination: m.destination as string | undefined,
+    transferId: m.transferId as string | undefined,
   }
 }
 
@@ -117,12 +118,12 @@ export function getTotalCost(tx: Transaction): Amount {
 }
 
 
-export function isReclaimed(tx: Transaction): boolean{
+export function isReclaimed(tx: Transaction): boolean {
   return tx.direction === 'send' && tx.status === 'settled' && tx.outcome === 'reclaimed'
 }
 
-export function isClaimedSend(tx: Transaction): boolean{
-  return tx.direction ==='send' && tx.status ==='settled' && tx.outcome === 'claimed'
+export function isClaimedSend(tx: Transaction): boolean {
+  return tx.direction === 'send' && tx.status === 'settled' && tx.outcome === 'claimed'
 }
 
 export function isReclaimableSend(tx: Transaction | null): tx is Transaction {

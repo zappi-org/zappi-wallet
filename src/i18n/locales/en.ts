@@ -1048,6 +1048,9 @@ export default {
     mintSwitched: 'Switched to mint: {{name}}',
     onlineRestored: 'Back online',
     offlineStatus: 'You are offline',
+    transferSettled: 'Transfer completed',
+    transferReclaimed: 'Transfer reclaimed',
+    incomingTransferProcessed: 'Incoming transfer processed',
   },
 
   // Mint Details

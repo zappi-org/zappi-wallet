@@ -175,6 +175,98 @@ export function connectEventStoreBridge(
     }),
   )
 
+  // ─── TransferLifecycle events ───
+
+  // transfer:submitted → pendingTransfers에 추가
+  unsubscribers.push(
+    eventBus.on('transfer:submitted', (event) => {
+      const { addOrUpdateTransfer } = useAppStore.getState()
+      addOrUpdateTransfer(event.payload.transfer)
+    }),
+  )
+
+  // transfer:phase-changed → pendingTransfers 갱신
+  unsubscribers.push(
+    eventBus.on('transfer:phase-changed', (event) => {
+      const { addOrUpdateTransfer } = useAppStore.getState()
+      addOrUpdateTransfer(event.payload.transfer)
+    }),
+  )
+
+  // transfer:settled → 제거 + 토스트 + tx 새로고침
+  unsubscribers.push(
+    eventBus.on('transfer:settled', (event) => {
+      const { removeTransfer, addToast, triggerTxRefresh } = useAppStore.getState()
+      removeTransfer(event.payload.transfer.id)
+      addToast({
+        type: 'success',
+        message: i18n.t('toast.transferSettled'),
+        duration: 4000,
+      })
+      triggerTxRefresh()
+      broadcastSync('balance_changed')
+    }),
+  )
+
+  // transfer:reclaimed → 제거 + 토스트 + tx 새로고침
+  unsubscribers.push(
+    eventBus.on('transfer:reclaimed', (event) => {
+      const { removeTransfer, addToast, triggerTxRefresh } = useAppStore.getState()
+      removeTransfer(event.payload.transfer.id)
+      addToast({
+        type: 'success',
+        message: i18n.t('toast.transferReclaimed'),
+        duration: 4000,
+      })
+      triggerTxRefresh()
+      broadcastSync('balance_changed')
+    }),
+  )
+
+  // transfer:failed → 실패 상태 유지 + 에러 토스트
+  unsubscribers.push(
+    eventBus.on('transfer:failed', (event) => {
+      const { addOrUpdateTransfer, addToast } = useAppStore.getState()
+      addOrUpdateTransfer(event.payload.transfer)
+      addToast({
+        type: 'error',
+        message: event.payload.reason,
+        duration: 5000,
+      })
+    }),
+  )
+
+  // incoming:received → pendingTransfers에 추가
+  unsubscribers.push(
+    eventBus.on('incoming:received', (event) => {
+      const { addOrUpdateTransfer } = useAppStore.getState()
+      addOrUpdateTransfer(event.payload.transfer)
+    }),
+  )
+
+  // incoming:processed → 갱신 + 토스트 + tx 새로고침
+  unsubscribers.push(
+    eventBus.on('incoming:processed', (event) => {
+      const { addOrUpdateTransfer, addToast, triggerTxRefresh } = useAppStore.getState()
+      addOrUpdateTransfer(event.payload.transfer)
+      addToast({
+        type: 'success',
+        message: i18n.t('toast.incomingTransferProcessed'),
+        duration: 4000,
+      })
+      triggerTxRefresh()
+      broadcastSync('balance_changed')
+    }),
+  )
+
+  // transfer:needs-polling → poller가 곧 처리하도록 store에 유지
+  unsubscribers.push(
+    eventBus.on('transfer:needs-polling', (event) => {
+      const { addOrUpdateTransfer } = useAppStore.getState()
+      addOrUpdateTransfer(event.payload.transfer)
+    }),
+  )
+
   // balance:changed → 잔액 갱신 + tx 리스트 새로고침 (redeem 같이 payment:* 이벤트 없는 경로 커버)
   if (throttledRefresh) {
 

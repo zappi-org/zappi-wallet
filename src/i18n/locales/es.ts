@@ -959,6 +959,9 @@ export default {
     mintSwitched: 'Cambiado al mint: {{name}}',
     onlineRestored: 'Conexión restablecida',
     offlineStatus: 'Estás sin conexión',
+    transferSettled: 'Transferencia completada',
+    transferReclaimed: 'Transferencia reclamada',
+    incomingTransferProcessed: 'Transferencia entrante procesada',
   },
 
   // Mint Details

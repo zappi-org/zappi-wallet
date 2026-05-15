@@ -228,6 +228,23 @@ export interface SupportMessageRecord {
 }
 
 /**
+ * Pending transfer record for DB storage (unified transfer lifecycle)
+ */
+export interface PendingTransferRecord {
+  id: string
+  txId: string
+  direction: 'outgoing' | 'incoming'
+  protocol: string
+  phase: string
+  finality: string
+  onExpiry: string
+  expiresAt?: number
+  transportRef: string // JSON-serialized unknown
+  createdAt: number
+  updatedAt: number
+}
+
+/**
  * Zappi Database
  */
 export class ZappiDatabase extends Dexie {
@@ -248,6 +265,7 @@ export class ZappiDatabase extends Dexie {
   contacts!: Table<Contact, string>
   supportTickets!: Table<SupportTicketRecord, string>
   supportMessages!: Table<SupportMessageRecord, string>
+  pendingTransfers!: Table<PendingTransferRecord, string>
 
   constructor() {
     super(DATABASE.NAME)
@@ -307,6 +325,9 @@ export class ZappiDatabase extends Dexie {
       // Customer support cache: scoped by derived customer support identity + support agent
       supportTickets: 'id, customerId, agentPubkey, updatedAt',
       supportMessages: 'id, ticketId, customerId, agentPubkey, createdAt',
+
+      // Pending transfers: unified transfer lifecycle (outgoing/incoming, all protocols)
+      pendingTransfers: 'id, txId, direction, protocol, phase, createdAt, updatedAt, expiresAt',
     })
   }
 }

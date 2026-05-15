@@ -35,6 +35,7 @@ import type { TrustRegistry } from '@/core/ports/driving/trust-registry.usecase'
 import type { SupportUseCase } from '@/core/ports/driving/support.usecase'
 import type { NostrDirectPaymentUseCase } from '@/core/ports/driving/nostr-direct-payment.usecase'
 import type { ExternalWalletRecoveryUseCase } from '@/core/ports/driving/external-wallet-recovery.usecase'
+import type { TransferLifecycleService } from '@/core/services/transfer-lifecycle.service'
 
 export interface ServiceRegistry {
   readonly eventBus: EventBus
@@ -66,4 +67,5 @@ export interface ServiceRegistry {
   readonly support: SupportUseCase
   readonly nostrDirectPayment: NostrDirectPaymentUseCase
   readonly externalWalletRecovery: ExternalWalletRecoveryUseCase
+  readonly transferLifecycle: TransferLifecycleService
 }
