@@ -9,7 +9,7 @@ import { PageTransition } from '@/ui/components/common/PageTransition'
 import { useTrustRegistry } from '@/ui/hooks/use-trust-registry'
 import { translateError } from '@/ui/utils/error-i18n'
 import { AnimatePresence } from 'motion/react'
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ConfirmTrustedStep } from './steps/ConfirmTrustedStep'
 import { ConfirmUntrustedStep } from './steps/ConfirmUntrustedStep'
@@ -28,7 +28,7 @@ export interface TokenRegisterFlowProps {
   onBack: () => void
   onComplete: () => void
   /** Redeem a cashu token — returns amount on success. */
-  onReceiveToken: (token: string) => Promise<TokenReceiveOutcome>
+  onReceiveToken: (token: string, metadata?: Record<string, unknown>) => Promise<TokenReceiveOutcome>
   /** Add a mint to the trust registry (with any UI-side validation). */
   onAddTrustedMint: (mintUrl: string) => Promise<boolean>
   /**
@@ -98,6 +98,17 @@ export function TokenRegisterFlow({
   const [step, setStep] = useState<Step>(initialStep)
   const [validated, setValidated] = useState<ValidatedCashuToken | null>(initialValidated)
   const [receivedAmount, setReceivedAmount] = useState(0)
+  const incomingReviewMetadata = useMemo(() => {
+    if (!incomingReview) return undefined
+    return {
+      source: incomingReview.source,
+      ...(incomingReview.source === 'gift-wrap' && {
+        counterpartyAddressType: 'npub',
+        counterpartyPubkey: incomingReview.senderPubkey,
+        sender: incomingReview.senderPubkey,
+      }),
+    }
+  }, [incomingReview])
 
   const handleValidated = useCallback(
     async (token: ValidatedCashuToken) => {
@@ -138,7 +149,7 @@ export function TokenRegisterFlow({
     // DEAD: swap branch — confirm steps now always pass sourceMintUrl since
     // swap UI was removed. Kept for potential future re-enablement.
     const result = target === validated.mintUrl
-      ? await onReceiveToken(validated.token)
+      ? await onReceiveToken(validated.token, incomingReviewMetadata)
       : await onSwapReceive(
           validated.token,
           validated.mintUrl,
@@ -152,14 +163,14 @@ export function TokenRegisterFlow({
       throw result.error ?? new UnknownError('redeem_failed') 
     }
     await finalizeReceive(result, toNumber(validated.amount))
-  }, [validated, onReceiveToken, onSwapReceive, finalizeReceive])
+  }, [validated, onReceiveToken, onSwapReceive, finalizeReceive, incomingReviewMetadata])
 
   const handleAddAndReceive = useCallback(async () => {
     if (!validated) return
     const added = await onAddTrustedMint(validated.mintUrl)
     if (!added) throw new Error('add_trust_failed')
 
-    const result = await onReceiveToken(validated.token)
+    const result = await onReceiveToken(validated.token, incomingReviewMetadata)
     if (!result.success) {
       if (result.error instanceof TokenSpentError) {
         throw result.error
@@ -167,7 +178,7 @@ export function TokenRegisterFlow({
       throw result.error ?? new UnknownError('redeem_failed')
     }
     await finalizeReceive(result, toNumber(validated.amount))
-  }, [validated, onAddTrustedMint, onReceiveToken, finalizeReceive])
+  }, [validated, onAddTrustedMint, onReceiveToken, finalizeReceive, incomingReviewMetadata])
 
   // DEAD: swap-to-my-mint handler — no UI invokes it after swap option was
   // removed from ConfirmUntrustedStep. Kept for potential future re-enablement.

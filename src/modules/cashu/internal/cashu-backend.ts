@@ -8,7 +8,6 @@
 
 import type { PendingQuote } from '@/core/domain/quote';
 import { InsufficientBalanceError, RedeemFeeTooHighError } from '@/core/errors/payment.errors';
-import type { ProofStateResult } from '@/core/ports/driven/send-token-operator.port';
 import { getDecodedToken, normalizeMintUrl } from 'coco-cashu-core';
 import { classifyCashuError } from './classify-error';
 import { getCocoManager, getPendingMintQuotes } from './coco-sdk';
@@ -49,6 +48,12 @@ export interface PendingMeltOperation {
   amount: number;
   fee_reserve: number;
   createdAt: number;
+}
+
+interface ProofStateResult {
+  allSpent: boolean
+  allPending: boolean
+  states: Array<{ secret: string; state: 'unspent' | 'pending' | 'spent' | 'unknown' }>
 }
 
 // ─── Helpers ───
@@ -221,6 +226,12 @@ export async function finalizeSend(operationId: string): Promise<void> {
   await manager.ops.send.finalize(operationId);
 }
 
+export async function getSendOperationState(operationId: string): Promise<string | null> {
+  const manager = await getCocoManager();
+  const op = await manager.ops.send.get(operationId);
+  return typeof op?.state === 'string' ? op.state : null;
+}
+
 export async function checkProofStates(token: string): Promise<ProofStateResult> {
   const cashuTs = await import('@cashu/cashu-ts');
   const decoded = cashuTs.getDecodedToken(token);
@@ -232,7 +243,7 @@ export async function checkProofStates(token: string): Promise<ProofStateResult>
 
   const mapped = (states as Array<{ secret?: unknown; Y?: unknown; state?: unknown }>).map((s) => ({
     secret: String(s.secret ?? s.Y ?? ''),
-    state: String(s.state ?? 'unknown') as 'unspent' | 'pending' | 'spent',
+    state: normalizeProofState(s.state),
   }));
 
   return {
@@ -240,6 +251,14 @@ export async function checkProofStates(token: string): Promise<ProofStateResult>
     allPending: mapped.every((s) => s.state === 'pending'),
     states: mapped,
   };
+}
+
+function normalizeProofState(state: unknown): 'unspent' | 'pending' | 'spent' | 'unknown' {
+  const normalized = String(state ?? '').trim().toLowerCase()
+  if (normalized === 'unspent') return 'unspent'
+  if (normalized === 'pending') return 'pending'
+  if (normalized === 'spent') return 'spent'
+  return 'unknown'
 }
 
 // ─── Receive ───
@@ -667,6 +686,11 @@ export async function getSendRecoveryOps() {
     runRecovery: () => manager.ops.send.recovery.run(),
     get: (operationId: string) => manager.ops.send.get(operationId),
   };
+}
+
+export async function recoverPendingReceiveOperations(): Promise<void> {
+  const manager = await getCocoManager();
+  await manager.ops.receive.recovery.run();
 }
 
 /**

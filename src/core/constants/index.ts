@@ -117,7 +117,33 @@ export const STORAGE_KEYS = {
  */
 export const DATABASE = {
   NAME: 'zappi_wallet_db',
-  VERSION: 17,
+  VERSION: 19,
+} as const
+
+/**
+ * Nostr gift-wrap receive synchronization
+ */
+export const GIFT_WRAP_SYNC = {
+  /** NIP-17/NIP-59 wrappers can be timestamped up to two days in the past; add five minutes for clock skew. */
+  TIMESTAMP_OVERLAP_SECONDS: TIMEOUTS.RECOVERY_BUFFER_SECONDS + 5 * 60,
+  /** Stale processing rows are safe to retry after this interval. */
+  STALE_PROCESSING_MS: 2 * 60 * 1000,
+  /** Avoid expensive relay catch-up on every visibility flicker. */
+  RESUME_THROTTLE_MS: 60 * 1000,
+  /** Keep each processor pass bounded for foreground UX. */
+  PROCESS_BATCH_LIMIT: 25,
+  /** Backoff failed inbox rows before retrying. */
+  FAILED_RETRY_DELAY_MS: 30 * 1000,
+} as const
+
+/**
+ * Outgoing eCash lifecycle synchronization
+ */
+export const OUTGOING_ECASH_SYNC = {
+  /** Foreground-only polling interval for recipient-claimed outgoing tokens. */
+  ACTIVE_POLL_MS: 15 * 1000,
+  /** If publish has not completed by then, treat it as recoverable unknown instead of leaving it stuck. */
+  PENDING_PUBLISH_STALE_MS: 60 * 1000,
 } as const
 
 /**

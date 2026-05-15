@@ -54,6 +54,7 @@ export function CreatedStep({
   const mintUrls = useMemo(() => [mintUrl], [mintUrl])
   const { getDisplayName } = useMintMetadata(mintUrls)
   const mintName = getDisplayName(mintUrl)
+  const metaLabel = memo ? `${memo} · ${mintName}` : mintName
 
   // Claim this tx for full-screen UX ownership — suppresses the global
   // "사용되었어요" toast so the user doesn't see duplicate notifications.
@@ -164,9 +165,8 @@ export function CreatedStep({
           <p className="text-heading font-semibold text-foreground text-center">
             {t('send.tokenCreate.spentMessage', { amount: formatSats(displayedAmount) })}
           </p>
-          <p className="text-body text-foreground-muted text-center">
-            {memo ? `${memo} · ` : ''}
-            {mintName}
+          <p className="text-body text-foreground-muted text-center max-w-full truncate">
+            {metaLabel}
           </p>
         </div>
       ) : (
@@ -208,9 +208,8 @@ export function CreatedStep({
             <p className="text-heading leading-none font-semibold text-foreground">
               {formatSats(displayedAmount)}
             </p>
-            <p className="text-body text-foreground-muted mt-2">
-              {memo ? `${memo} · ` : ''}
-              {mintName}
+            <p className="text-body text-foreground-muted mt-2 max-w-full truncate">
+              {metaLabel}
             </p>
             {!senderPaysFee && receiveFee !== null && receiveFee > 0 && (
               <p className="text-caption text-foreground-muted mt-1">

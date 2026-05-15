@@ -48,10 +48,12 @@ import {
   wrapEvent,
   unwrapEvent,
 } from '@/adapters/nostr/internal/nostr-crypto'
+import { v2 as nip44v2 } from 'nostr-tools/nip44'
 
 describe('nostr-crypto', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(nip44v2.decrypt).mockReturnValue('plaintext')
   })
 
   // ─── Event signing / verification ───
@@ -136,6 +138,26 @@ describe('nostr-crypto', () => {
 
   describe('unwrapEvent', () => {
     it('unwraps gift wrapped event', () => {
+      const seal = {
+        id: 'seal-id',
+        pubkey: 'sender-hex',
+        created_at: 999,
+        kind: 13,
+        tags: [],
+        content: 'sealed-content',
+        sig: 'seal-sig',
+      }
+      const rumor = {
+        id: 'rumor-id',
+        pubkey: 'sender-hex',
+        created_at: 998,
+        kind: 14,
+        tags: [],
+        content: 'inner-message',
+      }
+      vi.mocked(nip44v2.decrypt)
+        .mockReturnValueOnce(JSON.stringify(seal))
+        .mockReturnValueOnce(JSON.stringify(rumor))
       const event = {
         id: 'wrap-id', pubkey: 'ephemeral', created_at: 1000,
         kind: 1059, tags: [], content: 'encrypted', sig: 'sig',
@@ -143,6 +165,34 @@ describe('nostr-crypto', () => {
       const result = unwrapEvent(event, 'a'.repeat(64))
       expect(result.content).toBe('inner-message')
       expect(result.sender).toBe('sender-hex')
+    })
+
+    it('rejects rumors whose pubkey does not match the seal author', () => {
+      const seal = {
+        id: 'seal-id',
+        pubkey: 'sender-hex',
+        created_at: 999,
+        kind: 13,
+        tags: [],
+        content: 'sealed-content',
+        sig: 'seal-sig',
+      }
+      const rumor = {
+        id: 'rumor-id',
+        pubkey: 'different-sender',
+        created_at: 998,
+        kind: 14,
+        tags: [],
+        content: 'inner-message',
+      }
+      vi.mocked(nip44v2.decrypt)
+        .mockReturnValueOnce(JSON.stringify(seal))
+        .mockReturnValueOnce(JSON.stringify(rumor))
+
+      expect(() => unwrapEvent({
+        id: 'wrap-id', pubkey: 'ephemeral', created_at: 1000,
+        kind: 1059, tags: [], content: 'encrypted', sig: 'sig',
+      }, 'a'.repeat(64))).toThrow('NIP-17 seal author mismatch')
     })
   })
 })

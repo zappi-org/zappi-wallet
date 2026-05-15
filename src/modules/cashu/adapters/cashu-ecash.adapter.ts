@@ -63,6 +63,7 @@ export interface EcashBackend {
   estimateReceiveFee(token: string): Promise<ReceiveFeeEstimate>
   recoverPendingSendTokens(): Promise<{ reclaimed: number; recorded: number }>
   redeemPendingReceivedTokens(): Promise<{ redeemed: number; failed: number }>
+  recoverPendingReceiveOperations(): Promise<void>
   storeOfflineToken(token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing'): Promise<string>
   inspectInput?(token: string): Promise<InputInspection>
 }
@@ -218,15 +219,17 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
   // ─── 복구 ───
 
   async recoverPending(): Promise<RecoveryReport> {
-    const [sendResult, recvResult] = await Promise.allSettled([
+    const [sendResult, recvResult, receiveOpsResult] = await Promise.allSettled([
       this.backend.recoverPendingSendTokens(),
       this.backend.redeemPendingReceivedTokens(),
+      this.backend.recoverPendingReceiveOperations(),
     ])
     const send = sendResult.status === 'fulfilled' ? sendResult.value : { reclaimed: 0 }
     const recv = recvResult.status === 'fulfilled' ? recvResult.value : { redeemed: 0, failed: 0 }
+    const receiveOpsFailed = receiveOpsResult.status === 'rejected' ? 1 : 0
     return {
       recovered: send.reclaimed + recv.redeemed,
-      failed: recv.failed,
+      failed: recv.failed + receiveOpsFailed,
     }
   }
 }

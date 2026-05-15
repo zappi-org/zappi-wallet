@@ -60,6 +60,7 @@ import { TokenCodecAdapter } from '@/adapters/codec/token-codec.adapter'
 import { CashuFeeEstimatorAdapter } from '@/modules/cashu/adapters/cashu-fee-estimator.adapter'
 import { CashuRoutePaymentOperatorAdapter } from '@/modules/cashu/adapters/cashu-route-payment-operator.adapter'
 import { CashuSendTokenOperatorAdapter } from '@/modules/cashu/adapters/cashu-send-token-operator.adapter'
+import { CashuOutgoingClaimStateProbeAdapter } from '@/modules/cashu/adapters/cashu-outgoing-claim-state-probe.adapter'
 import { MintHealthCheckerAdapter } from '@/adapters/health/mint-health-checker.adapter'
 import { MintMetadataStoreAdapter } from '@/adapters/metadata/mint-metadata-store.adapter'
 import { TrustedMintProviderAdapter } from '@/adapters/runtime/trusted-mint-provider.adapter'
@@ -67,6 +68,8 @@ import { IncomingReviewQueueAdapter } from '@/adapters/runtime/incoming-review-q
 import { CrossTabSyncNotifierAdapter } from '@/adapters/runtime/cross-tab-sync-notifier.adapter'
 import { DexieRouteExecutionStore } from '@/adapters/storage/dexie/dexie-route-execution-store'
 import { SettingsTrustedAccountStoreAdapter } from '@/adapters/runtime/settings-trusted-account-store.adapter'
+import { DexieGiftWrapInboxStore } from '@/adapters/storage/dexie/dexie-gift-wrap-inbox.store'
+import { DexieOutgoingEcashOperationStore } from '@/adapters/storage/dexie/dexie-outgoing-ecash-operation.store'
 
 // ─── Phase 6: New Core Services ───
 import { CryptoService } from '@/core/services/crypto.service'
@@ -83,6 +86,8 @@ import { TrustRegistryService } from '@/core/services/trust-registry.service'
 import { NostrDirectPaymentService } from '@/core/services/nostr-direct-payment.service'
 import { RouteExecutionService } from '@/core/services/route-execution.service'
 import { ExternalWalletRecoveryService } from '@/core/services/external-wallet-recovery.service'
+import { GiftWrapInboxService } from '@/core/services/gift-wrap-inbox.service'
+import { OutgoingEcashLifecycleService } from '@/core/services/outgoing-ecash-lifecycle.service'
 
 // ─── Phase 6: Metadata + NUT-18 HTTP ───
 import { MintMetadataService, metadataEvents } from '@/modules/cashu/metadata'
@@ -201,6 +206,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const processedStore = new ProcessedRepository()
   const settingsRepo = new SettingsRepository()
   const receiveRequestRepo = new DexieReceiveRequestRepository()
+  const giftWrapInboxStore = new DexieGiftWrapInboxStore()
+  const outgoingEcashOperationStore = new DexieOutgoingEcashOperationStore()
   const balanceCache = new LocalStorageBalanceCache()
   const trustedMintProvider = new TrustedMintProviderAdapter(
     () => useAppStore.getState().settings.mints,
@@ -224,6 +231,15 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   })
   const cashuModule = new CashuModule(cashuBackend, nostrGateway)
   const modules: WalletModule[] = [cashuModule]
+  const sendTokenOperator = new CashuSendTokenOperatorAdapter()
+  const outgoingEcashLifecycle = new OutgoingEcashLifecycleService(
+    outgoingEcashOperationStore,
+    txRepo,
+    new CashuOutgoingClaimStateProbeAdapter(),
+    eventBus,
+    sendTokenOperator,
+    pendingOpRepo,
+  )
 
   // 4. Non-module adapters
   const lnurlAdapter = new DirectLnurlAdapter()
@@ -247,6 +263,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     txRepo,
     eventBus,
     operationMap,
+    outgoingEcashLifecycle,
   )
   const tokenReceiver = new TokenReceiverAdapter(payment)
   const balance = createBalanceService(modules)
@@ -336,22 +353,35 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
   // 9. Additional services
   const tokenCodec = new TokenCodecAdapter()
-  const recovery = createRecoveryService(nostrGateway, payment, trustedMintProvider, incomingReviewQueue, receiveRequest)
   const incomingPayment = new IncomingPaymentService(payment, processedStore, failedIncomingStore, receiveRequest, txRepo, eventBus)
+  const giftWrapSync = new GiftWrapInboxService({
+    nostrGateway,
+    inboxStore: giftWrapInboxStore,
+    processedStore,
+    incomingPayment,
+    trustedMintProvider,
+    incomingReviewQueue,
+    tokenCodec,
+    eventBus,
+    getPosDevices: () => useAppStore.getState().settings.posDevices,
+    getPendingRequestId: () => useAppStore.getState().pendingEcashRequestId,
+  })
+  const recovery = createRecoveryService(
+    nostrGateway,
+    payment,
+    trustedMintProvider,
+    incomingReviewQueue,
+    receiveRequest,
+    giftWrapSync,
+  )
   const pendingItems = createPendingItemsService(txRepo, receiveRequestRepo, modules)
 
   // 10. Gift wrap watcher
   const giftWrapWatcher = new GiftWrapWatcher({
     nostrGateway,
-    incomingPayment,
-    eventBus,
+    giftWrapSync,
     recipientPubkey: derivePublicKey(deps.nostrPrivateKeyHex),
     getRelays: () => useAppStore.getState().settings.relays || [],
-    getPosDevices: () => useAppStore.getState().settings.posDevices,
-    getPendingRequestId: () => useAppStore.getState().pendingEcashRequestId,
-    trustedMintProvider,
-    incomingReviewQueue,
-    tokenCodec,
   })
 
   // 11. WithdrawUseCase / LnurlAuthUseCase — TODO: NoOp impl or real impl
@@ -375,8 +405,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const mintHealthChecker = new MintHealthCheckerAdapter()
   const mintHealth = new MintHealthFacadeService(mintHealthChecker)
 
-  const sendTokenOperator = new CashuSendTokenOperatorAdapter()
-  const reclaim = new ReclaimService(txRepo, sendTokenOperator, tokenReceiver, pendingOpRepo, eventBus)
+  const reclaim = new ReclaimService(txRepo, sendTokenOperator, tokenReceiver, pendingOpRepo, eventBus, outgoingEcashLifecycle)
   const transactionMgmt = new TransactionMgmtService(txRepo)
   const routePaymentOperator = new CashuRoutePaymentOperatorAdapter(cashuBackend, {
     markQuoteAsSwap,
@@ -391,6 +420,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     lnurlAdapter,
     eventBus,
     new CrossTabSyncNotifierAdapter(),
+    outgoingEcashLifecycle,
   )
 
   const paymentRequest = new PaymentRequestService(tokenCodec, (opts) => {
@@ -446,6 +476,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     addressResolver,
     recovery,
     incomingPayment,
+    giftWrapSync,
     processedStore,
     nostrGateway,
     pendingItems,
@@ -465,6 +496,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     support,
     nostrDirectPayment,
     externalWalletRecovery,
+    outgoingEcashLifecycle,
 
     // ─── BootstrapResult extensions (MainApp only) ───
     cashuModule,

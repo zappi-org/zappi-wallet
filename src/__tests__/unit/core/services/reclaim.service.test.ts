@@ -26,11 +26,6 @@ function createMockSendOp(): SendTokenOperator {
   return {
     rollbackSendToken: vi.fn(),
     finalizeSend: vi.fn(),
-    checkProofStates: vi.fn().mockResolvedValue({
-      allSpent: false,
-      allPending: false,
-      states: [],
-    }),
   }
 }
 

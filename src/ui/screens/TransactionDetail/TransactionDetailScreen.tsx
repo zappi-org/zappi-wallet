@@ -1,10 +1,14 @@
 import { toNumber } from '@/core/domain/amount'
 import type { Transaction } from '@/core/domain/transaction'
 import { getDisplayFee, getTotalCost, getTransactionType, getTxMeta } from '@/core/domain/transaction'
+import type { OutgoingEcashDisplayState } from '@/core/domain/outgoing-ecash-lifecycle'
+import type { OutgoingEcashStatus } from '@/core/ports/driving/outgoing-ecash-lifecycle.usecase'
 import { useAppStore } from '@/store'
 import { Button } from '@/ui/components/common/Button'
+import { getTypeLabel as getHistoryTypeLabel, isNpubTransaction } from '@/ui/components/wallet/transactionHelpers'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useReclaim } from '@/ui/hooks/use-reclaim'
+import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { useTransactionMgmt } from '@/ui/hooks/use-transaction-mgmt'
 import { formatTransactionFiat, useFormatFiat, useFormatSats } from '@/utils/format'
 import {
@@ -34,6 +38,7 @@ export default function TransactionDetailScreen({
   mintUrls = [],
 }: TransactionDetailScreenProps) {
   const { reclaim } = useReclaim()
+  const serviceRegistry = useServiceRegistry()
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
@@ -45,8 +50,11 @@ export default function TransactionDetailScreen({
   const [showMenu, setShowMenu] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showTokenQr, setShowTokenQr] = useState(false)
+  const [outgoingStatus, setOutgoingStatus] = useState<OutgoingEcashStatus | null>(null)
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const addToast = useAppStore((s) => s.addToast)
+  const txRefreshTrigger = useAppStore((s) => s.txRefreshTrigger)
 
   const txType = getTransactionType(tx)
   const meta = getTxMeta(tx)
@@ -59,6 +67,61 @@ export default function TransactionDetailScreen({
   const isEcash = txType === 'ecash' || isEcashToken
   const isNutzap = txType === 'nutzap'
   const metadata = tx.metadata as Record<string, unknown> | undefined
+  const usesNpubLabel = isNpubTransaction(tx)
+  const isOutgoingEcash = isEcash && !isReceive && tx.status !== 'failed'
+
+  useEffect(() => {
+    setTx(initialTx)
+  }, [initialTx])
+
+  useEffect(() => {
+    if (!isOutgoingEcash) {
+      setOutgoingStatus(null)
+      return
+    }
+
+    let cancelled = false
+    serviceRegistry.outgoingEcashLifecycle.getStatus(tx.id)
+      .then((status) => {
+        if (!cancelled) setOutgoingStatus(status)
+      })
+      .catch(() => {
+        if (!cancelled) setOutgoingStatus(null)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [isOutgoingEcash, serviceRegistry.outgoingEcashLifecycle, tx.id])
+
+  useEffect(() => {
+    if (txRefreshTrigger === 0) return
+
+    let cancelled = false
+    const refreshCurrentTransaction = async () => {
+      const latest = await serviceRegistry.transactionMgmt.getById(tx.id)
+      if (cancelled || !latest) return
+      setTx(latest)
+      if (isOutgoingEcash) {
+        const status = await serviceRegistry.outgoingEcashLifecycle.getStatus(tx.id)
+        if (!cancelled) setOutgoingStatus(status)
+      }
+    }
+
+    refreshCurrentTransaction().catch((error) => {
+      console.error('[TxDetail] refresh current transaction failed:', error)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    isOutgoingEcash,
+    serviceRegistry.outgoingEcashLifecycle,
+    serviceRegistry.transactionMgmt,
+    tx.id,
+    txRefreshTrigger,
+  ])
 
   // Close menu on outside click
   useEffect(() => {
@@ -105,7 +168,6 @@ export default function TransactionDetailScreen({
 
   // ─── Check state then reclaim (one-click) ───
   const handleCheckAndReclaim = useCallback(async () => {
-    if (!meta.token) return
     setIsReclaiming(true)
     try {
   
@@ -116,6 +178,8 @@ export default function TransactionDetailScreen({
         addToast({ type: 'info', message: t('txDetail.alreadySpent'), duration: 3000 })
       } else if (result.success) {
         setTx((prev) => ({ ...prev, status: 'settled' as const, outcome: 'reclaimed' as const, completedAt: Date.now() }))
+        const status = await serviceRegistry.outgoingEcashLifecycle.getStatus(tx.id)
+        setOutgoingStatus(status)
         addToast({ type: 'success', message: t('txDetail.reclaimSuccess'), duration: 3000 })
       } else {
         addToast({ type: 'error', message: t('txDetail.reclaimFailed'), duration: 3000 })
@@ -126,7 +190,23 @@ export default function TransactionDetailScreen({
     } finally {
       setIsReclaiming(false)
     }
-  }, [meta.token, tx.id, reclaim, addToast, t])
+  }, [tx.id, reclaim, serviceRegistry.outgoingEcashLifecycle, addToast, t])
+
+  const handleCheckStatus = useCallback(async () => {
+    setIsCheckingStatus(true)
+    try {
+      const status = await serviceRegistry.outgoingEcashLifecycle.checkStatus(tx.id)
+      setOutgoingStatus(status)
+      if (status?.operation.claim === 'claimed') {
+        setTx((prev) => ({ ...prev, status: 'settled' as const, outcome: 'claimed' as const, completedAt: Date.now() }))
+      }
+    } catch (error) {
+      console.error('[TxDetail] outgoing status check failed:', error)
+      addToast({ type: 'error', message: t('txDetail.outgoingStatus.checkFailed'), duration: 3000 })
+    } finally {
+      setIsCheckingStatus(false)
+    }
+  }, [tx.id, serviceRegistry.outgoingEcashLifecycle, addToast, t])
 
   // ─── Share ───
   const handleShare = useCallback(async () => {
@@ -149,6 +229,7 @@ export default function TransactionDetailScreen({
   const isReclaimed = isEcashToken && !!meta.reclaimedFrom
 
   const typeLabel = useMemo(() => {
+    if (usesNpubLabel) return getHistoryTypeLabel(tx, t)
     if (isSwap) return t('history.swap')
     if (isLightning && isReceive) return t('history.lightningReceive')
     if (isLightning && !isReceive) return t('history.lightningSend')
@@ -157,10 +238,20 @@ export default function TransactionDetailScreen({
     if (isEcashToken) return isReceive ? t('history.ecashRegister') : t('history.ecashToken')
     if (isEcash && isReceive) return t('history.ecashReceive')
     return t('history.ecashSend')
-  }, [isSwap, isLightning, isEcash, isEcashToken, isNutzap, isReceive, isReclaimed, t])
+  }, [tx, usesNpubLabel, isSwap, isLightning, isEcash, isEcashToken, isNutzap, isReceive, isReclaimed, t])
 
   // ─── Status config ───
   const statusConfig = useMemo(() => {
+    if (isOutgoingEcash) {
+      const displayState = outgoingStatus?.displayState ?? fallbackOutgoingDisplayState(tx)
+      if (displayState) {
+        return {
+          label: outgoingDisplayLabel(displayState, t),
+          color: outgoingDisplayColor(displayState),
+        }
+      }
+    }
+
     switch (tx.status) {
       case 'settled':
         return { label: t('history.completed'), color: 'text-card-brand-dark' }
@@ -169,7 +260,7 @@ export default function TransactionDetailScreen({
       case 'failed':
         return { label: t('history.failedStatus'), color: 'text-accent-danger' }
     }
-  }, [tx.status, t])
+  }, [tx, isOutgoingEcash, outgoingStatus, t])
 
   // ─── Context sentence ───
   const contextSentence = useMemo(() => {
@@ -252,7 +343,14 @@ export default function TransactionDetailScreen({
   }
 
   // ─── eCash unclaimed check ───
-  const showUnclaimedCard = isEcash && !isReceive && meta.token && tx.outcome === 'unclaimed' && meta.tokenState !== 'spent' && tx.status !== 'failed'
+  const showUnclaimedCard = isOutgoingEcash
+    && (meta.token || meta.operationId)
+    && tx.outcome === 'unclaimed'
+    && meta.tokenState !== 'spent'
+    && (outgoingStatus?.canReclaim ?? true)
+  const showStatusCheckAction = isOutgoingEcash
+    && tx.outcome === 'unclaimed'
+    && (outgoingStatus?.displayState === 'check_failed' || outgoingStatus?.operation.delivery === 'unknown')
 
   // ════════════════════════════════════════
   // RENDER
@@ -527,6 +625,23 @@ export default function TransactionDetailScreen({
           </div>
         )}
 
+        {showStatusCheckAction && !showUnclaimedCard && (
+          <div className="px-5 mt-6">
+            <button
+              onClick={handleCheckStatus}
+              disabled={isCheckingStatus}
+              className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl text-caption font-medium text-foreground-muted hover:text-foreground hover:bg-foreground/[0.03] transition-colors disabled:opacity-50"
+            >
+              {isCheckingStatus ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Undo2 className="w-4 h-4" />
+              )}
+              {isCheckingStatus ? t('txDetail.checking') : t('txDetail.checkState')}
+            </button>
+          </div>
+        )}
+
         {/* bottom spacing */}
         <div className="h-8" />
       </div>
@@ -562,4 +677,45 @@ export default function TransactionDetailScreen({
       )}
     </div>
   )
+}
+
+function fallbackOutgoingDisplayState(tx: Transaction): OutgoingEcashDisplayState | null {
+  if (tx.outcome === 'claimed') return 'claimed'
+  if (tx.outcome === 'reclaimed') return 'reclaimed'
+  if (tx.outcome === 'unclaimed') return 'waiting_claim'
+  return null
+}
+
+function outgoingDisplayLabel(
+  state: OutgoingEcashDisplayState,
+  t: ReturnType<typeof useTranslation>['t'],
+): string {
+  switch (state) {
+    case 'waiting_claim':
+      return t('txDetail.outgoingStatus.waitingClaim')
+    case 'published_waiting_claim':
+      return t('txDetail.outgoingStatus.publishedWaitingClaim')
+    case 'claimed':
+      return t('txDetail.outgoingStatus.claimed')
+    case 'reclaimed':
+      return t('txDetail.outgoingStatus.reclaimed')
+    case 'publish_failed':
+      return t('txDetail.outgoingStatus.publishFailed')
+    case 'check_failed':
+      return t('txDetail.outgoingStatus.checkFailed')
+  }
+}
+
+function outgoingDisplayColor(state: OutgoingEcashDisplayState): string {
+  switch (state) {
+    case 'claimed':
+    case 'reclaimed':
+      return 'text-card-brand-dark'
+    case 'publish_failed':
+    case 'check_failed':
+      return 'text-accent-danger'
+    case 'waiting_claim':
+    case 'published_waiting_claim':
+      return 'text-badge-lightning-text'
+  }
 }

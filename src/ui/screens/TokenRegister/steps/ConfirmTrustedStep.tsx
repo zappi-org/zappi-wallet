@@ -106,18 +106,18 @@ export function ConfirmTrustedStep({
         {/* Hero card — fixed min-height, zappi at Figma-exact absolute position */}
         <div className="bg-card-teal relative rounded-card p-5 mt-[6dvh] min-h-[201px] max-w-[380px] mx-auto overflow-hidden">
           {/* Mint header — token's origin mint (not the receive target) */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <MintIcon
               iconUrl={sourceMintIconUrl}
               imgSize="w-[24px] h-[24px]"
               className="w-[35px] h-[35px] rounded-full bg-white/20"
             />
-            <div className="flex flex-col leading-tight">
-              <span className="text-[17px] font-semibold text-white">
+            <div className="flex flex-col leading-tight min-w-0">
+              <span className="text-[17px] font-semibold text-white truncate">
                 {sourceMintName}
               </span>
               {sourceMintSubName && sourceMintSubName !== sourceMintName && (
-                <span className="text-[13px] text-white/60">
+                <span className="text-[13px] text-white/60 truncate">
                   {sourceMintSubName}
                 </span>
               )}
@@ -169,9 +169,9 @@ export function ConfirmTrustedStep({
       <BottomActionBar gap="none" className="px-6">
         {/* Detail rows */}
         <div className="mb-4">
-          <div className="flex justify-between items-center py-2.5 border-b border-border/50">
-            <span className="text-body text-foreground-muted">{t('receive.token.receiveMint')}</span>
-            <span className="text-body font-medium text-foreground">{sourceMintName}</span>
+          <div className="flex justify-between items-center gap-4 py-2.5 border-b border-border/50">
+            <span className="text-body text-foreground-muted shrink-0">{t('receive.token.receiveMint')}</span>
+            <span className="text-body font-medium text-foreground truncate max-w-[200px] min-w-0 text-right">{sourceMintName}</span>
           </div>
           {fee !== null && fee > 0 && (
             <div className="flex justify-between py-2.5 border-b border-border/50">

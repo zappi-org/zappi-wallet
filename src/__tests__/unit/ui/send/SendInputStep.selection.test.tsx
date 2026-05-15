@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
+import type { ComponentProps } from 'react'
 
 import { SendInputStep } from '@/ui/screens/Send/steps/SendInputStep'
 import type { Contact } from '@/core/types/contact'
@@ -74,7 +75,7 @@ const defaultProps = {
   mintUrl: 'https://source.mint',
 }
 
-function renderStep(overrides: Partial<typeof defaultProps> = {}) {
+function renderStep(overrides: Partial<ComponentProps<typeof SendInputStep>> = {}) {
   return render(
     <ServiceProvider registry={mockRegistry}>
       <SendInputStep {...defaultProps} {...overrides} />
@@ -169,12 +170,83 @@ describe('SendInputStep selection flows', () => {
     expect(mockDetectAndClassify).toHaveBeenLastCalledWith('alice@example.com')
     expect(defaultProps.onNext).toHaveBeenCalledWith({
       destination: 'Alice',
+      displayName: 'Alice',
       validatedData: expect.objectContaining({
         type: 'lightning-address',
         address: 'alice@example.com',
       }),
       amountFromInvoice: undefined,
     })
+  })
+
+  it('restores a selected contact without revalidating its display name after returning from amount', async () => {
+    const validated: ValidatedData = {
+      type: 'lightning-address',
+      address: 'alice@example.com',
+      lnurlParams: {
+        callback: '',
+        minSendable: 0,
+        maxSendable: 100000,
+        metadata: '',
+        tag: 'payRequest',
+        domain: 'example.com',
+      },
+    }
+
+    renderStep({
+      initialDestination: 'Alice',
+      initialAddress: 'alice@example.com',
+      initialValidatedData: validated,
+    })
+
+    expect(screen.getByDisplayValue('Alice')).toBeInTheDocument()
+
+    await act(async () => { vi.advanceTimersByTime(500) })
+
+    expect(mockDetectAndClassify).not.toHaveBeenCalled()
+    expect(screen.queryByText('send.destination.unrecognized')).not.toBeInTheDocument()
+
+    await act(async () => {
+      screen.getByRole('button', { name: 'send.next' }).click()
+    })
+
+    expect(defaultProps.onNext).toHaveBeenCalledWith({
+      destination: 'Alice',
+      displayName: 'Alice',
+      validatedData: validated,
+      amountFromInvoice: undefined,
+    })
+  })
+
+  it('restores an npub contact without showing the cashu request badge after returning from amount', async () => {
+    const validated: ValidatedData = {
+      type: 'cashu-request',
+      request: 'npub1contactaddress',
+      parsed: {
+        id: 'direct-test',
+        unit: 'sat',
+        mints: ['https://source.mint'],
+        transports: [{ type: 'nostr', target: 'npub1contactaddress' }],
+        hasNostrTransport: true,
+        nostrTarget: 'npub1contactaddress',
+        hasPostTransport: false,
+        sameMintOnly: true,
+      },
+    }
+
+    renderStep({
+      initialDestination: 'Alice',
+      initialAddress: 'npub1contactaddress',
+      initialValidatedData: validated,
+    })
+
+    expect(screen.getByDisplayValue('Alice')).toBeInTheDocument()
+    expect(screen.queryByText('Cashu Request')).not.toBeInTheDocument()
+
+    await act(async () => { vi.advanceTimersByTime(500) })
+
+    expect(mockDetectAndClassify).not.toHaveBeenCalled()
+    expect(screen.queryByText('send.destination.unrecognized')).not.toBeInTheDocument()
   })
 
   it('my-wallet selection clears stale error and proceeds without revalidation', async () => {

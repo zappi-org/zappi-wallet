@@ -18,6 +18,7 @@ import type { LnurlAuthUseCase } from '@/core/ports/driving/lnurl-auth.usecase'
 import type { ProfileUseCase } from '@/core/ports/driving/profile.usecase'
 import type { RecoveryUseCase } from '@/core/ports/driving/recovery.usecase'
 import type { IncomingPaymentUseCase } from '@/core/ports/driving/incoming-payment.usecase'
+import type { GiftWrapSyncUseCase } from '@/core/ports/driving/gift-wrap-sync.usecase'
 import type { PendingItemsUseCase } from '@/core/ports/driving/pending-items.usecase'
 import type { ProcessedStore } from '@/core/ports/driven/processed-store.port'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
@@ -35,6 +36,7 @@ import type { TrustRegistry } from '@/core/ports/driving/trust-registry.usecase'
 import type { SupportUseCase } from '@/core/ports/driving/support.usecase'
 import type { NostrDirectPaymentUseCase } from '@/core/ports/driving/nostr-direct-payment.usecase'
 import type { ExternalWalletRecoveryUseCase } from '@/core/ports/driving/external-wallet-recovery.usecase'
+import type { OutgoingEcashLifecycleUseCase } from '@/core/ports/driving/outgoing-ecash-lifecycle.usecase'
 
 export interface ServiceRegistry {
   readonly eventBus: EventBus
@@ -47,6 +49,7 @@ export interface ServiceRegistry {
   readonly profile: ProfileUseCase
   readonly recovery: RecoveryUseCase
   readonly incomingPayment: IncomingPaymentUseCase
+  readonly giftWrapSync: GiftWrapSyncUseCase
   readonly processedStore: ProcessedStore
   readonly nostrGateway: NostrGateway
   readonly pendingItems: PendingItemsUseCase
@@ -66,4 +69,5 @@ export interface ServiceRegistry {
   readonly support: SupportUseCase
   readonly nostrDirectPayment: NostrDirectPaymentUseCase
   readonly externalWalletRecovery: ExternalWalletRecoveryUseCase
+  readonly outgoingEcashLifecycle: OutgoingEcashLifecycleUseCase
 }

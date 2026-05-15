@@ -14,6 +14,7 @@ import type { PaymentUseCase } from '@/core/ports/driving/payment.usecase'
 import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request.usecase'
 import type { TrustedMintProvider } from '@/core/ports/driven/trusted-mint-provider.port'
 import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-queue.port'
+import type { GiftWrapSyncUseCase } from '@/core/ports/driving/gift-wrap-sync.usecase'
 
 export function createRecoveryService(
   nostrGateway: NostrGateway,
@@ -21,6 +22,7 @@ export function createRecoveryService(
   trustedMintProvider: TrustedMintProvider,
   incomingReviewQueue: IncomingReviewQueue,
   receiveRequest?: Pick<ReceiveRequestUseCase, 'settleByPaymentRef'>,
+  giftWrapSync?: GiftWrapSyncUseCase,
 ): RecoveryUseCase {
   return new RecoveryService(
     nostrGateway,
@@ -32,5 +34,6 @@ export function createRecoveryService(
     incomingReviewQueue,
     new TokenCodecAdapter(),
     receiveRequest,
+    giftWrapSync,
   )
 }

@@ -5,6 +5,7 @@ const {
   receiveTokenMock,
   estimateReceiveFeeMock,
   checkProofStatesMock,
+  recoverPendingReceiveOperationsMock,
   recoverPendingQuotesMock,
   quoteOpsInstance,
 } = vi.hoisted(() => ({
@@ -12,6 +13,7 @@ const {
   receiveTokenMock: vi.fn(),
   estimateReceiveFeeMock: vi.fn(),
   checkProofStatesMock: vi.fn(),
+  recoverPendingReceiveOperationsMock: vi.fn(),
   recoverPendingQuotesMock: vi.fn(),
   quoteOpsInstance: { checkMintQuote: vi.fn(), mintAndReceive: vi.fn() },
 }))
@@ -31,6 +33,7 @@ vi.mock('./cashu-backend', () => ({
   checkProofStates: checkProofStatesMock,
   receiveToken: receiveTokenMock,
   estimateReceiveFee: estimateReceiveFeeMock,
+  recoverPendingReceiveOperations: recoverPendingReceiveOperationsMock,
   getSendRecoveryOps: vi.fn(),
   onMintQuotePaid: vi.fn(),
   getQuoteRecoveryOps: getQuoteRecoveryOpsMock,
@@ -66,6 +69,7 @@ describe('createCashuBackend', () => {
     getQuoteRecoveryOpsMock.mockResolvedValue(quoteOpsInstance)
     receiveTokenMock.mockResolvedValue({ amount: 1, fee: 0, unit: 'sat', mintUrl: 'https://mint-a.test' })
     estimateReceiveFeeMock.mockResolvedValue({ grossAmount: 1, fee: 0, netAmount: 1, unit: 'sat', mintUrl: 'https://mint-a.test' })
+    recoverPendingReceiveOperationsMock.mockResolvedValue(undefined)
     recoverPendingQuotesMock.mockResolvedValue({ recovered: 0, failed: 0, expired: 0 })
   })
 

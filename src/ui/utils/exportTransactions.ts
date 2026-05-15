@@ -2,9 +2,14 @@ import type { Transaction } from '@/core/domain/transaction'
 import { getTransactionType, getTxMeta } from '@/core/domain/transaction'
 import { toNumber } from '@/core/domain/amount'
 import { formatSats } from '@/utils/format'
+import { isNpubTransaction } from '@/ui/utils/transaction-display'
 import i18n from '@/i18n'
 
 function getTypeLabel(tx: Transaction, t: (key: string) => string): string {
+  if (isNpubTransaction(tx)) {
+    return tx.direction === 'receive' ? t('history.npubReceive') : t('history.npubSend')
+  }
+
   const txType = getTransactionType(tx)
   if (txType === 'swap') return t('history.swap')
   if (txType === 'lightning') return tx.direction === 'receive' ? t('history.lightningReceive') : t('history.lightningSend')

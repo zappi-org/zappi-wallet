@@ -19,7 +19,6 @@ import type {
 } from '@/core/ports/driven/wallet-module.port'
 import type { PaymentMethodAdapter } from '@/core/ports/driven/payment-method.port'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
-import type { ProofStateResult } from '@/core/ports/driven/send-token-operator.port'
 import { sat, add, toNumber } from '@/core/domain/amount'
 import {
   CashuBolt11Adapter,
@@ -65,10 +64,10 @@ export interface CashuModuleBackend extends LightningBackend, EcashBackend, Paym
   getBalances(): Promise<{ [mintUrl: string]: number }>
   restoreWallet(mintUrl: string): Promise<void>
   recoverPendingQuotes(): Promise<{ recovered: number; failed: number; expired: number }>
+  recoverPendingReceiveOperations(): Promise<void>
   storeOfflineToken(token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing'): Promise<string>
   inspectInput(token: string): Promise<import('@/core/ports/driven/payment-method.port').InputInspection>
   abandonMintQuote(mintUrl: string, quoteId: string): Promise<void>
-  checkProofStates(token: string): Promise<ProofStateResult>
 }
 
 // ─── Module ───

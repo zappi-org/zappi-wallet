@@ -114,11 +114,61 @@ export function wrapEvent(
 export function unwrapEvent(
   event: NostrEvent,
   recipientPrivkeyHex: string,
-): { content: string; sender: string } {
+): { content: string; sender: string; createdAt: number } {
   const sk = hexToBytes(recipientPrivkeyHex)
-  const unwrapped = nip17.unwrapEvent(event as Parameters<typeof nip17.unwrapEvent>[0], sk)
-  return {
-    content: unwrapped.content,
-    sender: unwrapped.pubkey,
+  const seal = decryptNip44Json(event, sk)
+  if (!isNostrEvent(seal) || seal.kind !== 13) {
+    throw new Error('Invalid NIP-17 seal')
   }
+  if (!verifyEvent(seal as Parameters<typeof verifyEvent>[0])) {
+    throw new Error('Invalid NIP-17 seal signature')
+  }
+
+  const rumor = decryptNip44Json(seal, sk)
+  if (!isRumor(rumor)) {
+    throw new Error('Invalid NIP-17 rumor')
+  }
+  if (rumor.pubkey !== seal.pubkey) {
+    throw new Error('NIP-17 seal author mismatch')
+  }
+
+  return {
+    content: rumor.content,
+    sender: rumor.pubkey,
+    createdAt: rumor.created_at,
+  }
+}
+
+function decryptNip44Json(event: Pick<NostrEvent, 'content' | 'pubkey'>, privateKey: Uint8Array): unknown {
+  const conversationKey = nip44.v2.utils.getConversationKey(privateKey, event.pubkey)
+  return JSON.parse(nip44.v2.decrypt(event.content, conversationKey))
+}
+
+function isNostrEvent(value: unknown): value is NostrEvent {
+  if (!isObject(value)) return false
+  return (
+    typeof value.id === 'string' &&
+    typeof value.pubkey === 'string' &&
+    typeof value.created_at === 'number' &&
+    typeof value.kind === 'number' &&
+    Array.isArray(value.tags) &&
+    typeof value.content === 'string' &&
+    typeof value.sig === 'string'
+  )
+}
+
+function isRumor(value: unknown): value is Pick<NostrEvent, 'id' | 'pubkey' | 'created_at' | 'kind' | 'tags' | 'content'> {
+  if (!isObject(value)) return false
+  return (
+    typeof value.id === 'string' &&
+    typeof value.pubkey === 'string' &&
+    typeof value.created_at === 'number' &&
+    typeof value.kind === 'number' &&
+    Array.isArray(value.tags) &&
+    typeof value.content === 'string'
+  )
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }

@@ -34,7 +34,10 @@ describe('RouteExecutionService', () => {
       rollbackMelt: vi.fn(),
       redeemMintQuote: vi.fn(),
     } as unknown as RoutePaymentOperator
-    const txRepo = { save: vi.fn() } as unknown as TransactionRepository
+    const txRepo = {
+      save: vi.fn(),
+      update: vi.fn(),
+    } as unknown as TransactionRepository
     const routeStore = {
       savePendingSendToken: vi.fn(),
       savePendingMelt: vi.fn(),
@@ -45,6 +48,10 @@ describe('RouteExecutionService', () => {
     }
     const eventBus = { emit: vi.fn() } as unknown as EventBus
     const syncNotifier = { notifyBalanceChanged: vi.fn() }
+    const outgoingLifecycle = {
+      recordCreated: vi.fn(),
+      recordDeliveryResult: vi.fn(),
+    }
     const service = new RouteExecutionService(
       operator,
       txRepo,
@@ -54,6 +61,7 @@ describe('RouteExecutionService', () => {
       {} as never,
       eventBus,
       syncNotifier,
+      outgoingLifecycle,
     )
 
     const result = await service.executeRoute(createSelection(), {
@@ -69,6 +77,7 @@ describe('RouteExecutionService', () => {
         sameMintOnly: true,
       },
       memo: 'hello',
+      addressOrInvoice: 'npub1recipient',
     })
 
     expect(result.isOk()).toBe(true)
@@ -86,7 +95,30 @@ describe('RouteExecutionService', () => {
       accountId: 'https://mint-a.test',
       outcome: 'unclaimed',
       intent: 'request-pay',
+      metadata: expect.objectContaining({
+        counterpartyAddress: 'npub1recipient',
+        counterpartyAddressType: 'npub',
+      }),
     }))
+    const savedTx = vi.mocked(txRepo.save).mock.calls[0]?.[0]
+    expect(savedTx?.id).toBeTruthy()
+    expect(outgoingLifecycle.recordCreated).toHaveBeenCalledWith({
+      txId: savedTx?.id,
+      kind: 'direct-nostr-send',
+      accountId: 'https://mint-a.test',
+      amount: 100,
+      token: 'cashuAtoken',
+      operationId: 'op-send',
+      delivery: 'pending_publish',
+    })
+    expect(txRepo.update).toHaveBeenCalledWith(savedTx?.id, expect.objectContaining({
+      metadata: expect.objectContaining({
+        token: 'cashuAtoken',
+        tokenState: 'unspent',
+        operationId: 'op-send',
+      }),
+    }))
+    expect(outgoingLifecycle.recordDeliveryResult).toHaveBeenCalledWith(savedTx?.id, 'published')
     expect(routeStore.savePendingSendToken).toHaveBeenCalledWith(expect.objectContaining({
       token: 'cashuAtoken',
       operationId: 'op-send',

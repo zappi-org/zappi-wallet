@@ -74,8 +74,10 @@ export function ConfirmUntrustedStep({
             imgSize="w-6 h-6"
             className="w-9 h-9 rounded-[10px] bg-accent-warning/10"
           />
-          <p className="text-caption text-foreground-muted leading-snug">
-            <span className="font-semibold text-foreground">{mintName}</span>
+          <p className="text-caption text-foreground-muted leading-snug min-w-0">
+            <span className="inline-block max-w-[160px] truncate align-bottom font-semibold text-foreground">
+              {mintName}
+            </span>
             {' · '}
             <span className="text-accent-warning font-medium">{t('receive.untrusted.unregistered')}</span>
           </p>

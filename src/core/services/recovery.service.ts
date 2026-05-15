@@ -13,6 +13,7 @@ import type { TokenReceiver } from '@/core/ports/driven/token-receiver.port'
 import type { TrustedMintProvider } from '@/core/ports/driven/trusted-mint-provider.port'
 import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-queue.port'
 import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request.usecase'
+import type { GiftWrapSyncUseCase } from '@/core/ports/driving/gift-wrap-sync.usecase'
 import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
 import type {
   RecoveryUseCase,
@@ -64,6 +65,7 @@ export class RecoveryService implements RecoveryUseCase {
     private readonly incomingReviewQueue: IncomingReviewQueue,
     private readonly tokenCodec: TokenCodec,
     private readonly receiveRequest?: ReceiveRequestSettlement,
+    private readonly giftWrapSync?: GiftWrapSyncUseCase,
   ) {}
 
   // ─── syncAll (orchestration) ───
@@ -160,6 +162,21 @@ export class RecoveryService implements RecoveryUseCase {
     relays: string[]
   }): Promise<SyncResult> {
     const startTime = Date.now()
+    if (this.giftWrapSync) {
+      const giftWrapResult = await this.giftWrapSync.syncMissed({
+        publicKey: params.publicKey,
+        relays: params.relays,
+      })
+      return {
+        eventsProcessed: giftWrapResult.eventsProcessed,
+        tokensReceived: giftWrapResult.tokensReceived,
+        amountReceived: giftWrapResult.amountReceived,
+        failedIncomings: giftWrapResult.failed,
+        errors: giftWrapResult.errors,
+        duration: Date.now() - startTime,
+      }
+    }
+
     const result: SyncResult = {
       eventsProcessed: 0,
       tokensReceived: 0,

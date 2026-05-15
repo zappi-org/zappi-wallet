@@ -21,6 +21,8 @@ function App() {
 
   // Local state
   const [isOnboarded, setIsOnboarded] = useState<boolean | null>(null)
+  const [initError, setInitError] = useState<string | null>(null)
+  const [initRetryKey, setInitRetryKey] = useState(0)
 
   // Services (lightweight only)
   const [services] = useState(() => {
@@ -36,6 +38,7 @@ function App() {
   useEffect(() => {
     const check = async () => {
       try {
+        setInitError(null)
         // Load settings early so they're available in Zustand for all paths
         const savedSettings = await services.settingsRepo.getSettings()
         setSettings(savedSettings)
@@ -44,11 +47,12 @@ function App() {
         setIsOnboarded(hasWallet)
       } catch (error) {
         console.error('Init error:', error)
-        setIsOnboarded(false)
+        setInitError(error instanceof Error ? error.message : String(error))
+        setIsOnboarded(null)
       }
     }
     check()
-  }, [services, setSettings])
+  }, [services, setSettings, initRetryKey])
 
   // Handle onboarding complete — heavy services loaded dynamically
   const handleOnboardingComplete = useCallback(async (data: {
@@ -168,6 +172,31 @@ function App() {
       return false
     }
   }, [services, setNostrKeyPair, setP2pkPubkey, setSettings])
+
+  // Init error must not fall through to onboarding. Existing users can look like
+  // "no wallet" if IndexedDB/settings migration temporarily fails during update.
+  if (initError) {
+    return (
+      <div className="flex items-center justify-center h-dvh bg-background px-6">
+        <div className="w-full max-w-sm text-center">
+          <h1 className="text-title font-bold text-brand mb-3">ZAPPI</h1>
+          <p className="text-body font-semibold text-foreground mb-2">
+            {i18n.t('common.walletLoadErrorTitle')}
+          </p>
+          <p className="text-body text-foreground-muted mb-6">
+            {i18n.t('common.walletLoadErrorDescription')}
+          </p>
+          <button
+            type="button"
+            onClick={() => setInitRetryKey((key) => key + 1)}
+            className="h-12 px-5 rounded-lg bg-primary text-primary-foreground font-semibold"
+          >
+            {i18n.t('common.retry')}
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   // Loading state (checking wallet existence)
   if (isOnboarded === null) {

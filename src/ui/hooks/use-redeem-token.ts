@@ -15,12 +15,15 @@ export function useRedeemToken(
   serviceRegistry: ServiceRegistry | null,
   onSuccess?: () => void,
 ) {
-  return useCallback(async (token: string): Promise<RedeemTokenResult> => {
+  return useCallback(async (
+    token: string,
+    metadata?: Record<string, unknown>,
+  ): Promise<RedeemTokenResult> => {
     if (!serviceRegistry?.payment) {
       return { success: false, error: new ServiceNotReadyError('payment') }
     }
 
-    const result = await serviceRegistry.payment.redeem({ input: token })
+    const result = await serviceRegistry.payment.redeem({ input: token, metadata })
     if (result.ok) {
       onSuccess?.()
       return { success: true, amount: toNumber(result.value.amount), transactionId: result.value.requestId }

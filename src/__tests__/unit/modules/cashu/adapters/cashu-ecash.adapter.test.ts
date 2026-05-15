@@ -23,6 +23,7 @@ function createMockBackend(): EcashBackend {
     estimateReceiveFee: vi.fn().mockResolvedValue({ grossAmount: 500, fee: 2, netAmount: 498, unit: 'sat', mintUrl: 'https://mint.test' }),
     recoverPendingSendTokens: vi.fn().mockResolvedValue({ reclaimed: 3, recorded: 1 }),
     redeemPendingReceivedTokens: vi.fn().mockResolvedValue({ redeemed: 0, failed: 0 }),
+    recoverPendingReceiveOperations: vi.fn().mockResolvedValue(undefined),
     storeOfflineToken: vi.fn().mockResolvedValue('pending-recv-123'),
   }
 }
@@ -183,8 +184,18 @@ describe('CashuEcashAdapter', () => {
       const result = await adapter.recoverPending()
 
       expect(backend.recoverPendingSendTokens).toHaveBeenCalled()
+      expect(backend.recoverPendingReceiveOperations).toHaveBeenCalled()
       expect(result.recovered).toBe(3)
       expect(result.failed).toBe(0)
+    })
+
+    it('reports receive operation recovery failure without skipping other recovery results', async () => {
+      vi.mocked(backend.recoverPendingReceiveOperations).mockRejectedValueOnce(new Error('receive recovery failed'))
+
+      const result = await adapter.recoverPending()
+
+      expect(result.recovered).toBe(3)
+      expect(result.failed).toBe(1)
     })
   })
 

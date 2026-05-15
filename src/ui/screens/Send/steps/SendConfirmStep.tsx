@@ -14,6 +14,11 @@ import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { useRouting, PaymentRoute } from '@/ui/hooks/use-routing'
 import type { SendableValidatedData } from '../SendFlow'
+import {
+  formatDirectNostrRecipient,
+  getDirectNostrDisplayTarget,
+  isDirectNostrCashuRequest,
+} from '../sendDisplayHelpers'
 
 interface SendConfirmStepProps {
   onBack: () => void
@@ -60,10 +65,12 @@ function getConfirmDisplayInfo(
 
   if (isTokenRoute && data.type === 'cashu-request') {
     const req = data.request
+    const directNostr = isDirectNostrCashuRequest(data)
+    const directTarget = getDirectNostrDisplayTarget(data) || req
     return {
       method: 'eCash',
-      recipient: t('send.confirm.ecashRequest'),
-      recipientDetail: `${req.slice(0, 8)}...${req.slice(-4)}`,
+      recipient: directNostr ? (displayName || formatDirectNostrRecipient(directTarget)) : t('send.confirm.ecashRequest'),
+      recipientDetail: directNostr ? (displayName || formatDirectNostrRecipient(directTarget)) : `${req.slice(0, 8)}...${req.slice(-4)}`,
       memo: data.parsed.description,
     }
   }
@@ -93,10 +100,12 @@ function getConfirmDisplayInfo(
     case 'cashu-request': {
       // fallback (route 없을 때)
       const req = data.request
+      const directNostr = isDirectNostrCashuRequest(data)
+      const directTarget = getDirectNostrDisplayTarget(data) || req
       return {
         method: 'eCash',
-        recipient: t('send.confirm.ecashRequest'),
-        recipientDetail: `${req.slice(0, 8)}...${req.slice(-4)}`,
+        recipient: directNostr ? (displayName || formatDirectNostrRecipient(directTarget)) : t('send.confirm.ecashRequest'),
+        recipientDetail: directNostr ? (displayName || formatDirectNostrRecipient(directTarget)) : `${req.slice(0, 8)}...${req.slice(-4)}`,
         memo: data.parsed.description,
       }
     }
@@ -170,9 +179,11 @@ export function SendConfirmStep({
   const { method, recipient: recipientName, recipientDetail, memo: displayMemo } = display
   const memo = userMemo || displayMemo
   const mintName = getDisplayName(mintUrl)
+  const questionRecipientName = recipientName.includes('@') ? recipientName.split('@')[0] : recipientName
   const totalAmount = amount + fee
 
   const isMyWallet = validatedData.type === 'my-wallet'
+  const questionTargetName = isMyWallet ? (validatedData as { targetMintName: string }).targetMintName : ''
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -180,19 +191,23 @@ export function SendConfirmStep({
 
       {/* Centered content — flowing sentence like Toss */}
       <div className="flex-1 flex flex-col items-center justify-center px-8">
-        <div className="text-center">
-          <p className="text-heading font-semibold whitespace-pre-line">
+        <div className="text-center w-full min-w-0">
+          <p className="text-heading font-semibold whitespace-pre-line break-keep">
             <Trans
               i18nKey={isMyWallet ? "send.confirm.fullTransferQuestion" : "send.confirm.fullQuestion"}
               values={{
                 mint: mintName,
-                recipient: recipientName.includes('@') ? recipientName.split('@')[0] : recipientName,
+                recipient: questionRecipientName,
                 amount: isFiatMode && fiatAmount
                   ? `${FIAT_CURRENCY_MAP.get(settings.fiatCurrency ?? 'USD')?.symbol ?? ''}${Number(fiatAmount).toLocaleString()}`
                   : formatSats(amount),
-                target: isMyWallet ? (validatedData as { targetMintName: string }).targetMintName : '',
+                target: questionTargetName,
               }}
-              components={{ b: <span className="text-brand" /> }}
+              components={{
+                b: <span className="min-w-0 max-w-full truncate align-bottom text-brand" />,
+                to: <span className="inline-flex max-w-full min-w-0 items-baseline whitespace-nowrap align-bottom" />,
+                from: <span className="inline-flex max-w-full min-w-0 items-baseline whitespace-nowrap align-bottom" />,
+              }}
             />
           </p>
           {(isFiatMode || formatFiat(amount)) && (
@@ -209,9 +224,9 @@ export function SendConfirmStep({
         <div className="mb-4">
           {/* 메모 */}
           {memo && (
-            <div className="flex justify-between py-2.5 border-b border-border/50">
-              <span className="text-body text-foreground-muted">{t('send.confirm.memo')}</span>
-              <span className="text-body font-medium text-foreground truncate max-w-[200px]">{memo}</span>
+            <div className="flex justify-between gap-4 py-2.5 border-b border-border/50">
+              <span className="text-body text-foreground-muted shrink-0">{t('send.confirm.memo')}</span>
+              <span className="text-body font-medium text-foreground truncate max-w-[200px] min-w-0 text-right">{memo}</span>
             </div>
           )}
           {/* 전송 방식 */}
@@ -220,20 +235,20 @@ export function SendConfirmStep({
             <span className="text-body font-medium text-foreground">{method}</span>
           </div>
           {/* 출금 지갑 */}
-          <div className="flex justify-between py-2.5 border-b border-border/50">
-            <span className="text-body text-foreground-muted">{t('send.confirm.sourceMint')}</span>
-            <span className="text-body font-medium text-foreground truncate max-w-[200px]">{mintName}</span>
+          <div className="flex justify-between gap-4 py-2.5 border-b border-border/50">
+            <span className="text-body text-foreground-muted shrink-0">{t('send.confirm.sourceMint')}</span>
+            <span className="text-body font-medium text-foreground truncate max-w-[200px] min-w-0 text-right">{mintName}</span>
           </div>
           {/* 받는이 */}
           {isMyWallet ? (
-            <div className="flex justify-between py-2.5 border-b border-border/50">
-              <span className="text-body text-foreground-muted">{t('send.confirm.targetWallet')}</span>
-              <span className="text-body font-medium text-foreground truncate max-w-[200px]">{validatedData.targetMintName}</span>
+            <div className="flex justify-between gap-4 py-2.5 border-b border-border/50">
+              <span className="text-body text-foreground-muted shrink-0">{t('send.confirm.targetWallet')}</span>
+              <span className="text-body font-medium text-foreground truncate max-w-[200px] min-w-0 text-right">{validatedData.targetMintName}</span>
             </div>
           ) : recipientDetail ? (
-            <div className="flex justify-between py-2.5 border-b border-border/50">
-              <span className="text-body text-foreground-muted">{t('send.confirm.recipient')}</span>
-              <span className="text-body font-medium text-foreground truncate max-w-[200px]">{recipientDetail}</span>
+            <div className="flex justify-between gap-4 py-2.5 border-b border-border/50">
+              <span className="text-body text-foreground-muted shrink-0">{t('send.confirm.recipient')}</span>
+              <span className="text-body font-medium text-foreground truncate max-w-[200px] min-w-0 text-right">{recipientDetail}</span>
             </div>
           ) : null}
           {/* Fee section */}

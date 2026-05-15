@@ -87,12 +87,15 @@ export function ConfirmStep({
 
       {/* Centered flowing question */}
       <div className="flex-1 flex flex-col items-center justify-center px-8">
-        <div className="text-center">
-          <p className="text-heading font-semibold text-foreground whitespace-pre-line">
+        <div className="text-center w-full min-w-0">
+          <p className="text-heading font-semibold text-foreground whitespace-pre-line break-keep">
             <Trans
               i18nKey="send.tokenCreate.confirmQuestion"
               values={{ mint: mintName, amount: formatSats(tokenAmount) }}
-              components={{ b: <span className="text-brand" /> }}
+              components={{
+                b: <span className="min-w-0 max-w-full truncate align-bottom text-brand" />,
+                from: <span className="inline-flex max-w-full min-w-0 items-baseline whitespace-nowrap align-bottom" />,
+              }}
             />
           </p>
           {fiatLabel && <p className="text-body text-foreground-muted mt-3">~ {fiatLabel}</p>}
@@ -118,11 +121,13 @@ export function ConfirmStep({
               </span>
             </div>
           )}
-          <div className="flex justify-between items-center py-2.5 border-b border-border/50">
-            <span className="text-body text-foreground-muted">{t('send.tokenCreate.mintLabel')}</span>
-            <div className="flex items-center gap-2">
+          <div className="flex justify-between items-center gap-4 py-2.5 border-b border-border/50">
+            <span className="text-body text-foreground-muted shrink-0">{t('send.tokenCreate.mintLabel')}</span>
+            <div className="flex items-center justify-end gap-2 min-w-0">
               <MintIcon iconUrl={mintIconUrl} imgSize="w-5 h-5" className="w-5 h-5" circle />
-              <span className="text-body font-medium text-foreground">{mintName}</span>
+              <span className="text-body font-medium text-foreground truncate min-w-0">
+                {mintName}
+              </span>
             </div>
           </div>
           {showFeeRow && (

@@ -22,6 +22,7 @@ interface SendAmountStepProps {
   onNext: (data: { amount: number; memo: string; isFiatMode: boolean; fiatAmount: string }) => void
   mintUrl: string
   destination?: string
+  displayName?: string
   validatedData?: SendableValidatedData
   initialAmount?: number
   initialMemo?: string
@@ -35,6 +36,7 @@ export function SendAmountStep({
   onNext,
   mintUrl,
   destination,
+  displayName,
   validatedData,
   initialAmount = 0,
   initialMemo = '',
@@ -71,13 +73,18 @@ export function SendAmountStep({
   const [contactName, setContactName] = useState<string | null>(null)
   useEffect(() => {
     if (!destination) return
-    const addr = validatedData?.type === 'lightning-address' ? validatedData.address : destination
+    const addr = validatedData?.type === 'lightning-address'
+      ? validatedData.address
+      : validatedData?.type === 'cashu-request' && validatedData.parsed.nostrTarget
+        ? validatedData.parsed.nostrTarget
+        : destination
     findContactName(addr, findByAddress).then(setContactName)
   }, [destination, validatedData, findByAddress])
 
   // Destination display
   const destinationDisplay = useMemo(() => {
     if (!destination) return null
+    if (displayName) return displayName
     if (contactName) return contactName
     if (validatedData?.type === 'my-wallet') return validatedData.targetMintName
     if (validatedData?.type === 'lightning-address') return validatedData.address
@@ -92,13 +99,13 @@ export function SendAmountStep({
     }
     if (destination.length > 20) return `${destination.slice(0, 16)}...${destination.slice(-4)}`
     return destination
-  }, [destination, validatedData, contactName])
+  }, [destination, displayName, validatedData, contactName])
 
   // Sub-info for destination (address detail below name)
   const destinationDetail = useMemo(() => {
-    if (contactName && validatedData?.type === 'lightning-address') return validatedData.address
+    if ((displayName || contactName) && validatedData?.type === 'lightning-address') return validatedData.address
     return null
-  }, [validatedData, contactName])
+  }, [validatedData, displayName, contactName])
 
   const handleNext = useCallback(() => {
     if (!numericAmount || numericAmount <= 0) {
@@ -125,11 +132,14 @@ export function SendAmountStep({
           if (destinationDetail) {
             return (
               <div className="mb-4">
-                <p className="text-heading font-semibold">
+                <p className="text-heading font-semibold break-keep">
                   <Trans i18nKey="send.confirm.recipientTo" values={{ recipient: destinationDisplay }}
-                    components={{ b: <span className="text-brand" /> }} />
+                    components={{
+                      b: <span className="min-w-0 max-w-full truncate align-bottom text-brand" />,
+                      to: <span className="inline-flex max-w-full min-w-0 items-baseline whitespace-nowrap align-bottom" />,
+                    }} />
                 </p>
-                <p className="text-caption text-foreground-muted mt-0.5">
+                <p className="text-caption text-foreground-muted mt-0.5 truncate">
                   {destinationDetail}
                 </p>
               </div>
@@ -141,20 +151,26 @@ export function SendAmountStep({
             const [user, domain] = destinationDisplay.split('@')
             return (
               <div className="mb-4">
-                <p className="text-heading font-semibold">
+                <p className="text-heading font-semibold break-keep">
                   <Trans i18nKey="send.confirm.recipientTo" values={{ recipient: user }}
-                    components={{ b: <span className="text-brand" /> }} />
+                    components={{
+                      b: <span className="min-w-0 max-w-full truncate align-bottom text-brand" />,
+                      to: <span className="inline-flex max-w-full min-w-0 items-baseline whitespace-nowrap align-bottom" />,
+                    }} />
                 </p>
-                <p className="text-subtitle text-foreground-muted">
+                <p className="text-subtitle text-foreground-muted truncate">
                   {domain}
                 </p>
               </div>
             )
           }
           return (
-            <p className="text-heading font-semibold truncate mb-4">
+            <p className="text-heading font-semibold truncate break-keep mb-4">
               <Trans i18nKey="send.confirm.recipientTo" values={{ recipient: destinationDisplay }}
-                components={{ b: <span className="text-brand" /> }} />
+                components={{
+                  b: <span className="min-w-0 max-w-full truncate align-bottom text-brand" />,
+                  to: <span className="inline-flex max-w-full min-w-0 items-baseline whitespace-nowrap align-bottom" />,
+                }} />
             </p>
           )
         })()}

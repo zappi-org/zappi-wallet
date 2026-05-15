@@ -45,6 +45,7 @@ export interface PaymentUseCase {
   redeem(params: {
     input: string
     transactionId?: string
+    metadata?: Record<string, unknown>
   }): Promise<Result<RedeemResult, BaseError>>
 
   inspectInput(params: {

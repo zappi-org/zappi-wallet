@@ -65,6 +65,12 @@ function createMockRegistry(): ServiceRegistry {
     incomingPayment: {
       processIncoming: vi.fn(),
     } as unknown as ServiceRegistry['incomingPayment'],
+    giftWrapSync: {
+      ingest: vi.fn(),
+      syncMissed: vi.fn(),
+      processPending: vi.fn(),
+      markReviewed: vi.fn(),
+    } as unknown as ServiceRegistry['giftWrapSync'],
     processedStore: {
       save: vi.fn(),
       exists: vi.fn(),
@@ -106,6 +112,7 @@ function createMockRegistry(): ServiceRegistry {
     externalWalletRecovery: {
       recoverFromMnemonic: vi.fn(),
     } as unknown as ServiceRegistry['externalWalletRecovery'],
+    outgoingEcashLifecycle: {} as unknown as ServiceRegistry['outgoingEcashLifecycle'],
   }
 }
 

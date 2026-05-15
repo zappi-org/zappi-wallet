@@ -29,6 +29,7 @@ function createMockRegistry(reclaimService: ReturnType<typeof vi.fn>, txMgmt?: {
     profile: { getProfile: vi.fn(), updateProfile: vi.fn(), publish: vi.fn() } as unknown as ServiceRegistry['profile'],
     recovery: { syncAll: vi.fn(), reconstructState: vi.fn(), retryFailedIncomings: vi.fn(), getFailedIncomings: vi.fn(), getSyncStatus: vi.fn(), cleanupOldData: vi.fn() } as unknown as ServiceRegistry['recovery'],
     incomingPayment: { processIncoming: vi.fn() } as unknown as ServiceRegistry['incomingPayment'],
+    giftWrapSync: { ingest: vi.fn(), syncMissed: vi.fn(), processPending: vi.fn(), markReviewed: vi.fn() } as unknown as ServiceRegistry['giftWrapSync'],
     processedStore: { save: vi.fn(), exists: vi.fn(), existsByTxId: vi.fn(), findById: vi.fn(), findByTxId: vi.fn() } as unknown as ServiceRegistry['processedStore'],
     nostrGateway: { sendPrivateDirectMessage: vi.fn() } as unknown as ServiceRegistry['nostrGateway'],
     pendingItems: { getByMint: vi.fn(), getAll: vi.fn(), getActivePendingQuotes: vi.fn(), checkEffectiveExpiry: vi.fn(), expireById: vi.fn() } as unknown as ServiceRegistry['pendingItems'],
@@ -49,6 +50,7 @@ function createMockRegistry(reclaimService: ReturnType<typeof vi.fn>, txMgmt?: {
     support: {} as unknown as ServiceRegistry['support'],
     nostrDirectPayment: { resolve: vi.fn() } as unknown as ServiceRegistry['nostrDirectPayment'],
     externalWalletRecovery: { recoverFromMnemonic: vi.fn() } as unknown as ServiceRegistry['externalWalletRecovery'],
+    outgoingEcashLifecycle: {} as unknown as ServiceRegistry['outgoingEcashLifecycle'],
   }
 }
 

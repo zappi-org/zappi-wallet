@@ -10,10 +10,11 @@ import {
 } from '@/core/domain/transaction';
 import type { SendTokenOperator } from '@/core/ports/driven/send-token-operator.port';
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port';
-import { isReclaimableSend, isReclaimed, settleAsReclaimed } from "../domain/transaction";
+import { isReclaimableSend, isReclaimed, settleAsDelivered, settleAsReclaimed } from "../domain/transaction";
 import type { EventBus } from '../events/event-bus';
 import type { PendingOperationRepository } from "../ports/driven/pending-operation.repository.port";
 import type { TokenReceiver } from "../ports/driven/token-receiver.port";
+import type { OutgoingEcashLifecycleUseCase } from '../ports/driving/outgoing-ecash-lifecycle.usecase';
 import type { ReclaimSuccess, ReclaimUseCase } from "../ports/driving/reclaim.usecase";
 
 export class ReclaimService implements ReclaimUseCase {
@@ -23,6 +24,7 @@ export class ReclaimService implements ReclaimUseCase {
     private readonly tokenReceiver: TokenReceiver,
     private readonly pendingOps: PendingOperationRepository,
     private readonly eventBus: EventBus,
+    private readonly outgoingLifecycle?: Pick<OutgoingEcashLifecycleUseCase, 'markClaimed' | 'markReclaimed'>,
   ) { }
 
   async reclaim(txId: string): Promise<Result<ReclaimSuccess, BaseError>> {
@@ -65,19 +67,20 @@ export class ReclaimService implements ReclaimUseCase {
 
         // Check if already finalized (recipient already claimed)
         if (errorMessage.includes("state 'finalized'")) {
-          // Mark as claimed and clean up
-          await this.txRepo.update(txId, {
-            status: 'settled',
-            outcome: 'claimed',
-            completedAt: Date.now()
-          })
           await this.pendingOps.delete(txId)
-
-          // Emit events for UI update
-          this.eventBus.emit({
-            type: 'transactions:changed',
-            payload: { reason: 'send-claimed', txId },
-          })
+          if (this.outgoingLifecycle) {
+            await this.outgoingLifecycle.markClaimed(txId)
+          } else {
+            await this.txRepo.update(txId, {
+              status: 'settled',
+              outcome: 'claimed',
+              completedAt: Date.now()
+            })
+            this.eventBus.emit({
+              type: 'transactions:changed',
+              payload: { reason: 'send-claimed', txId },
+            })
+          }
 
           return Err(new TokenSpentError('Token has already been claimed by recipient'))
         }
@@ -137,6 +140,31 @@ export class ReclaimService implements ReclaimUseCase {
     const opId = tx.metadata?.operationId as string | undefined
     if (opId) {
       await this.sendOp.finalizeSend(opId)
+      await this.pendingOps.delete(txId)
+      if (this.outgoingLifecycle) {
+        await this.outgoingLifecycle.markClaimed(txId)
+      } else {
+        const claimed = settleAsDelivered(tx)
+        await this.txRepo.update(txId, {
+          status: claimed.status,
+          outcome: claimed.outcome,
+          completedAt: claimed.completedAt,
+        })
+        this.eventBus.emit({
+          type: 'send:claimed',
+          payload: {
+            txId,
+            method: tx.method,
+            protocol: tx.protocol,
+            amount: tx.amount,
+            memo: tx.memo,
+          },
+        })
+        this.eventBus.emit({
+          type: 'transactions:changed',
+          payload: { reason: 'send-claimed', txId },
+        })
+      }
     }
   }
   async markSendReclaimed(txId: string): Promise<boolean> {
@@ -145,18 +173,21 @@ export class ReclaimService implements ReclaimUseCase {
 
     if (!tx || !isReclaimableSend(tx)) return false
 
-    const reclaimed = settleAsReclaimed(tx)
-    await this.txRepo.update(txId, {
-      status: reclaimed.status,
-      outcome: reclaimed.outcome,
-      completedAt: reclaimed.completedAt
-    })
-
     await this.pendingOps.delete(txId)
-    this.eventBus.emit({
-      type: 'transactions:changed',
-      payload: { reason: 'send-reclaimed', txId },
-    })
+    if (this.outgoingLifecycle) {
+      await this.outgoingLifecycle.markReclaimed(txId)
+    } else {
+      const reclaimed = settleAsReclaimed(tx)
+      await this.txRepo.update(txId, {
+        status: reclaimed.status,
+        outcome: reclaimed.outcome,
+        completedAt: reclaimed.completedAt
+      })
+      this.eventBus.emit({
+        type: 'transactions:changed',
+        payload: { reason: 'send-reclaimed', txId },
+      })
+    }
 
     this.eventBus.emit({
       type: 'balance:changed',

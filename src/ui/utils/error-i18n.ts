@@ -78,6 +78,10 @@ export function getErrorI18n(error: unknown): ErrorI18n {
 function resolveOverride(err: Record<string, unknown> | BaseError): ErrorI18n | undefined {
   const code = err.code as string
 
+  if (code === 'UNKNOWN') {
+    return { key: 'errors.unknownError' }
+  }
+
   if (code === 'INSUFFICIENT_BALANCE') {
     const obj = err as Record<string, unknown>
     const required = obj.required as number | undefined

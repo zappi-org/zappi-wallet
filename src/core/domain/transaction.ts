@@ -54,6 +54,7 @@ export function getTransactionType(tx: Transaction): TransactionType {
   if (tx.protocol === 'nut18') return 'ecash'
   if (tx.protocol === 'cashu-token' && tx.intent === 'nutzap') return 'nutzap'
   if (tx.protocol === 'cashu-token') return 'ecash-token'
+  if (tx.direction === 'send' && tx.outcome === 'unclaimed') return 'ecash-token'
   return 'lightning'
 }
 
@@ -72,6 +73,10 @@ export function getTxMeta(tx: Transaction) {
     fee: m.fee as number | undefined,
     reclaimedFrom: m.reclaimedFrom as string | undefined,
     destination: m.destination as string | undefined,
+    counterpartyAddress: m.counterpartyAddress as string | undefined,
+    counterpartyAddressType: m.counterpartyAddressType as string | undefined,
+    counterpartyPubkey: m.counterpartyPubkey as string | undefined,
+    sender: m.sender as string | undefined,
   }
 }
 
@@ -128,4 +133,3 @@ export function isClaimedSend(tx: Transaction): boolean{
 export function isReclaimableSend(tx: Transaction | null): tx is Transaction {
   return tx?.direction === 'send' && tx.status === 'pending' && tx.outcome === 'unclaimed'
 }
-

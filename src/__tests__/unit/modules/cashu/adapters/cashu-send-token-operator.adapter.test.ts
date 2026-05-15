@@ -5,7 +5,6 @@ import * as cashuBackend from '@/modules/cashu/internal/cashu-backend'
 vi.mock('@/modules/cashu/internal/cashu-backend', () => ({
   rollbackSend: vi.fn(),
   finalizeSend: vi.fn(),
-  checkProofStates: vi.fn(),
 }))
 
 describe('CashuSendTokenOperatorAdapter', () => {
@@ -32,17 +31,4 @@ describe('CashuSendTokenOperatorAdapter', () => {
     expect(cashuBackend.finalizeSend).toHaveBeenCalledWith('op1')
   })
 
-  it('should check proof states for token', async () => {
-    const mockResult = {
-      allSpent: false,
-      allPending: false,
-      states: [{ secret: 'secret1', state: 'unspent' as const }],
-    }
-    vi.mocked(cashuBackend.checkProofStates).mockResolvedValue(mockResult)
-
-    const result = await adapter.checkProofStates('cashuAtoken')
-
-    expect(cashuBackend.checkProofStates).toHaveBeenCalledWith('cashuAtoken')
-    expect(result).toEqual(mockResult)
-  })
 })

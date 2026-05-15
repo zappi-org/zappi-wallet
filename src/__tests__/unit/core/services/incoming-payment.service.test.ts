@@ -77,6 +77,31 @@ describe('IncomingPaymentService', () => {
     )
   })
 
+  it('passes incoming metadata into redeem so transaction history can preserve source context', async () => {
+    const { payment, processedStore, failedIncomingStore, receiveRequest } = createDeps()
+    const service = new IncomingPaymentService(payment, processedStore, failedIncomingStore, receiveRequest)
+
+    await service.processIncoming({
+      payload: 'cashuA...',
+      externalId: 'event-1',
+      metadata: {
+        source: 'gift-wrap',
+        counterpartyAddressType: 'npub',
+        counterpartyPubkey: 'sender-pubkey',
+      },
+    })
+
+    expect(payment.redeem).toHaveBeenCalledWith({
+      input: 'cashuA...',
+      transactionId: 'tx-in-event-1',
+      metadata: {
+        source: 'gift-wrap',
+        counterpartyAddressType: 'npub',
+        counterpartyPubkey: 'sender-pubkey',
+      },
+    })
+  })
+
   it('does not mark processed when post-redeem receive request settlement fails', async () => {
     const { payment, processedStore, failedIncomingStore, receiveRequest } = createDeps()
     vi.mocked(receiveRequest.settleByPaymentRef).mockRejectedValue(new Error('write failed'))

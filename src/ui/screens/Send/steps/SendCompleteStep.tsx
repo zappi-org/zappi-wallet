@@ -19,6 +19,7 @@ interface SendCompleteStepProps {
   onComplete: () => void
   isFiatMode?: boolean
   fiatAmount?: string
+  displayName?: string
 }
 
 export function SendCompleteStep({
@@ -27,11 +28,12 @@ export function SendCompleteStep({
   onComplete,
   isFiatMode = false,
   fiatAmount,
+  displayName,
 }: SendCompleteStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
-  const destination = getDestinationDisplay(validatedData)
+  const destination = getDestinationDisplay(validatedData, displayName)
   const hasTriggeredHaptic = useRef(false)
 
   // Haptic on mount
@@ -77,12 +79,15 @@ export function SendCompleteStep({
         />
 
         {/* Sentence — single Trans for natural word order per language */}
-        <div className="text-center">
+        <div className="text-center min-w-0 max-w-full">
           <p className="text-heading font-semibold text-foreground whitespace-pre-line">
             <Trans
               i18nKey="send.complete.fullMessage"
               values={{ recipient: destination, amount: mainAmount }}
-              components={{ b: <span className="text-brand" /> }}
+              components={{
+                b: <span className="inline-block min-w-0 max-w-full truncate align-bottom text-brand" />,
+                to: <span className="inline-flex max-w-full min-w-0 items-baseline whitespace-nowrap align-bottom" />,
+              }}
             />
           </p>
         </div>

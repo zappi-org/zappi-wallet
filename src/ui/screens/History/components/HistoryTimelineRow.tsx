@@ -6,7 +6,7 @@ import { toNumber } from '@/core/domain/amount'
 import { useFormatSats, useFormatFiat, formatTransactionFiat } from '@/utils/format'
 import { formatMintHost } from '@/utils/url'
 import { cn } from '@/ui/lib/utils'
-import { getTitle, getTypeLabel } from '@/ui/components/wallet/transactionHelpers'
+import { getTitle, getTypeLabel, isNpubTransaction } from '@/ui/components/wallet/transactionHelpers'
 import type { TimelineKind } from '@/ui/hooks/use-transaction-history'
 
 export interface HistoryTimelineRowProps {
@@ -60,6 +60,7 @@ export function HistoryTimelineRow({
 
   const title = swapRoute ?? getTitle(tx, t)
   const typeLabel = getTypeLabel(tx, t)
+  const usesNpubLabel = isNpubTransaction(tx)
   const time = formatRowTime(t, tx.createdAt, groupKind)
   const defaultSubtitle = title === typeLabel ? time : `${time} · ${typeLabel}`
 
@@ -69,7 +70,7 @@ export function HistoryTimelineRow({
   } else if (txType === 'lightning' && tx.direction === 'send' && meta.destination) {
     const destination = meta.destination.includes('@') ? meta.destination : `${meta.destination.slice(0, 20)}...`
     subtitle = `${time} · ${destination}`
-  } else if (meta.source && meta.source !== 'unknown' && meta.source !== 'wallet') {
+  } else if (!usesNpubLabel && meta.source && meta.source !== 'unknown' && meta.source !== 'wallet') {
     subtitle = `${time} · ${t(`txDetail.source.${meta.source}`)}`
   } else {
     subtitle = defaultSubtitle

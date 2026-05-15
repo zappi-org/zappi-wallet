@@ -146,7 +146,7 @@ describe('RecoveryService', () => {
 
     it('processes direct token and receives ecash', async () => {
       vi.mocked(mocks.nostr.fetchGiftWraps).mockResolvedValue([
-        { eventId: 'ev-1', content: DIRECT_TOKEN_RUMOR, sender: 'sender-pubkey' },
+        { eventId: 'ev-1', content: DIRECT_TOKEN_RUMOR, sender: 'sender-pubkey', createdAt: 100 },
       ])
 
       const result = await service.reconstructState(params)
@@ -160,7 +160,7 @@ describe('RecoveryService', () => {
 
     it('skips already processed events', async () => {
       vi.mocked(mocks.nostr.fetchGiftWraps).mockResolvedValue([
-        { eventId: 'ev-1', content: DIRECT_TOKEN_RUMOR, sender: 'sender-pubkey' },
+        { eventId: 'ev-1', content: DIRECT_TOKEN_RUMOR, sender: 'sender-pubkey', createdAt: 100 },
       ])
       vi.mocked(mocks.recoveryStore.isProcessed).mockResolvedValue(true)
 
@@ -172,7 +172,7 @@ describe('RecoveryService', () => {
 
     it('skips non-token messages', async () => {
       vi.mocked(mocks.nostr.fetchGiftWraps).mockResolvedValue([
-        { eventId: 'ev-1', content: NON_TOKEN_RUMOR, sender: 'sender-pubkey' },
+        { eventId: 'ev-1', content: NON_TOKEN_RUMOR, sender: 'sender-pubkey', createdAt: 100 },
       ])
 
       const result = await service.reconstructState(params)
@@ -186,7 +186,7 @@ describe('RecoveryService', () => {
 
     it('queues failed retryable incoming', async () => {
       vi.mocked(mocks.nostr.fetchGiftWraps).mockResolvedValue([
-        { eventId: 'ev-1', content: DIRECT_TOKEN_RUMOR, sender: 'sender-pubkey' },
+        { eventId: 'ev-1', content: DIRECT_TOKEN_RUMOR, sender: 'sender-pubkey', createdAt: 100 },
       ])
       vi.mocked(mocks.tokenReceiver.receiveToken).mockResolvedValue({
         ok: false,
@@ -209,6 +209,7 @@ describe('RecoveryService', () => {
         {
           eventId: 'ev-json',
           sender: 'sender-pubkey',
+          createdAt: 100,
           content: JSON.stringify({
             id: 'request-1',
             mint: 'https://mint.test',
@@ -237,7 +238,7 @@ describe('RecoveryService', () => {
 
     it('queues untrusted mint tokens for manual review instead of auto-receiving', async () => {
       vi.mocked(mocks.nostr.fetchGiftWraps).mockResolvedValue([
-        { eventId: 'ev-1', content: DIRECT_TOKEN_RUMOR, sender: 'sender-pubkey' },
+        { eventId: 'ev-1', content: DIRECT_TOKEN_RUMOR, sender: 'sender-pubkey', createdAt: 100 },
       ])
       vi.mocked(mocks.trustedMintProvider.hasTrustedMint).mockResolvedValue(false)
 
@@ -264,7 +265,7 @@ describe('RecoveryService', () => {
 
     it('does not queue non-retryable failure', async () => {
       vi.mocked(mocks.nostr.fetchGiftWraps).mockResolvedValue([
-        { eventId: 'ev-1', content: DIRECT_TOKEN_RUMOR, sender: 'sender-pubkey' },
+        { eventId: 'ev-1', content: DIRECT_TOKEN_RUMOR, sender: 'sender-pubkey', createdAt: 100 },
       ])
       vi.mocked(mocks.tokenReceiver.receiveToken).mockResolvedValue({
         ok: false,

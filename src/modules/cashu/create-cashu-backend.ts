@@ -52,7 +52,6 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
     executeSend: backend.executeSend,
     rollbackSend: backend.rollbackSend,
     finalizeSend: backend.finalizeSend,
-    checkProofStates: backend.checkProofStates,
     receiveToken: (token: string) => backend.receiveToken(token, activeMintOptions()),
     estimateReceiveFee: (token: string) => backend.estimateReceiveFee(token, activeMintOptions()),
     async recoverPendingSendTokens() {
@@ -84,6 +83,7 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
         (token: string) => backend.receiveToken(token, activeMintOptions()),
       )
     },
+    recoverPendingReceiveOperations: backend.recoverPendingReceiveOperations,
     async storeOfflineToken(token: string, amount: number, mintUrl: string, dleqStatus: 'valid' | 'missing') {
       return storeOfflineToken(deps.offlineTokenStore, token, amount, mintUrl, dleqStatus)
     },

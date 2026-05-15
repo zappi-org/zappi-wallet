@@ -3,6 +3,7 @@ import { sat, toNumber } from '@/core/domain/amount'
 import {
   createTransaction,
   getDisplayFee,
+  getTransactionType,
   getTotalCost,
 } from '@/core/domain/transaction'
 
@@ -109,6 +110,22 @@ describe('TransactionFee', () => {
         accountId: 'mint-1',
       })
       expect(toNumber(getTotalCost(tx))).toBe(1000)
+    })
+  })
+
+  describe('getTransactionType', () => {
+    it('treats legacy unclaimed sends with missing protocol as ecash token transactions', () => {
+      const tx = createTransaction({
+        id: 'tx-legacy-token-fail',
+        direction: 'send',
+        method: 'cashu',
+        protocol: '',
+        amount: sat(16),
+        accountId: 'mint-1',
+        outcome: 'unclaimed',
+      })
+
+      expect(getTransactionType(tx)).toBe('ecash-token')
     })
   })
 })

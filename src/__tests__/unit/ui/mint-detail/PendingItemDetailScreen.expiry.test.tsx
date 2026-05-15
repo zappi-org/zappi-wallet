@@ -49,6 +49,7 @@ function createMockRegistry(): ServiceRegistry {
     recovery: {} as ServiceRegistry['recovery'],
     reclaim: {} as ServiceRegistry['reclaim'],
     incomingPayment: {} as ServiceRegistry['incomingPayment'],
+    giftWrapSync: {} as ServiceRegistry['giftWrapSync'],
     processedStore: {} as ServiceRegistry['processedStore'],
     nostrGateway: {} as ServiceRegistry['nostrGateway'],
     pendingItems: {
@@ -73,6 +74,7 @@ function createMockRegistry(): ServiceRegistry {
     support: {} as ServiceRegistry['support'],
     nostrDirectPayment: {} as ServiceRegistry['nostrDirectPayment'],
     externalWalletRecovery: {} as ServiceRegistry['externalWalletRecovery'],
+    outgoingEcashLifecycle: {} as ServiceRegistry['outgoingEcashLifecycle'],
   }
 }
 

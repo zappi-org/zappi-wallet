@@ -16,7 +16,7 @@ import { useFormatSats, useFormatFiat, formatTransactionFiat, getLocaleCode } fr
 import { formatMintHost } from '@/utils/url'
 import { formatMD } from '@/ui/utils/dateFilter'
 import { cn } from '@/ui/lib/utils'
-import { getTitle, getTypeLabel } from './transactionHelpers'
+import { getTitle, getTypeLabel, isNpubTransaction } from './transactionHelpers'
 
 // ─── Component ───
 
@@ -50,6 +50,7 @@ export const TransactionRow = memo(function TransactionRow({
   const timeOnly = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
   const timeStr = showDate ? `${formatMD(date)} ${timeOnly}` : timeOnly
   const typeLabel = getTypeLabel(tx, t)
+  const usesNpubLabel = isNpubTransaction(tx)
   const resolveName = (url: string) => getMintName ? getMintName(url) : formatMintHost(url)
   const swapFromUrl = meta.fromMintUrl ?? linkedMeta?.fromMintUrl ?? (tx.direction === 'send' ? tx.accountId : undefined)
   const swapToUrl = meta.toMintUrl ?? linkedMeta?.toMintUrl ?? (tx.direction === 'receive' ? tx.accountId : undefined)
@@ -66,7 +67,7 @@ export const TransactionRow = memo(function TransactionRow({
   } else if (txType === 'lightning' && tx.direction === 'send' && meta.destination) {
     const destStr = meta.destination.includes('@') ? meta.destination : `${meta.destination.slice(0, 20)}...`
     subtitle = `${timeStr} · ${destStr}`
-  } else if (meta.source && meta.source !== 'unknown' && meta.source !== 'wallet') {
+  } else if (!usesNpubLabel && meta.source && meta.source !== 'unknown' && meta.source !== 'wallet') {
     subtitle = `${timeStr} · ${t(`txDetail.source.${meta.source}`)}`
   } else {
     subtitle = defaultSubtitle

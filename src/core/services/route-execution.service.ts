@@ -11,6 +11,7 @@ import type { SyncNotifier } from '@/core/ports/driven/sync-notifier.port'
 import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { RouteExecutionUseCase } from '@/core/ports/driving/route-execution.usecase'
+import type { OutgoingEcashLifecycleUseCase } from '@/core/ports/driving/outgoing-ecash-lifecycle.usecase'
 import { err, ok, type Result } from '@/core/types'
 
 export class RouteExecutionService implements RouteExecutionUseCase {
@@ -23,6 +24,7 @@ export class RouteExecutionService implements RouteExecutionUseCase {
     private readonly lnurl: Pick<LnurlGateway, 'resolvePay' | 'fetchInvoice'>,
     private readonly eventBus: EventBus,
     private readonly syncNotifier?: SyncNotifier,
+    private readonly outgoingLifecycle?: Pick<OutgoingEcashLifecycleUseCase, 'recordCreated' | 'recordDeliveryResult'>,
   ) {}
 
   async executeRoute(
@@ -199,6 +201,7 @@ export class RouteExecutionService implements RouteExecutionUseCase {
     context: RouteContext,
   ): Promise<RouteExecutionResult> {
     let operationId: string | undefined
+    let txId: string | undefined
 
     try {
       const p2pkPubkey = context.parsedCreq?.p2pkPubkey
@@ -209,12 +212,22 @@ export class RouteExecutionService implements RouteExecutionUseCase {
       })
       operationId = prepared.operationId
 
-      const { token } = await this.paymentOperator.executeTokenSend(prepared.operationId, {
-        memo: context.memo,
-      })
-
-      const txId = `tx-ecash-send-${crypto.randomUUID()}`
+      txId = `tx-ecash-send-${crypto.randomUUID()}`
       const isRequestPayment = context.parsedCreq != null
+      const directNostrAddress = getDirectNostrAddress(context)
+      const initialDelivery = context.parsedCreq?.hasNostrTransport || context.parsedCreq?.hasPostTransport
+        ? 'pending_publish' as const
+        : 'not_required' as const
+      const baseMetadata = {
+        route: selection.route,
+        operationId: prepared.operationId,
+        ...(isRequestPayment && { intent: 'request-pay' }),
+        ...(directNostrAddress && {
+          counterpartyAddress: directNostrAddress.address,
+          counterpartyAddressType: directNostrAddress.type,
+        }),
+        ...(prepared.fee > 0 && { fee: prepared.fee }),
+      }
       await this.txRepo.save(createTransaction({
         id: txId,
         direction: 'send',
@@ -226,15 +239,36 @@ export class RouteExecutionService implements RouteExecutionUseCase {
         outcome: 'unclaimed',
         ...(isRequestPayment && { intent: 'request-pay' as const }),
         ...(prepared.fee > 0 && { fee: { quoted: sat(prepared.fee) } }),
+        metadata: baseMetadata,
+      }))
+      await this.outgoingLifecycle?.recordCreated({
+        txId,
+        kind: directNostrAddress ? 'direct-nostr-send' : 'token-create',
+        accountId: mintUrl,
+        amount: selection.amount,
+        operationId: prepared.operationId,
+        delivery: initialDelivery,
+      })
+
+      const { token } = await this.paymentOperator.executeTokenSend(prepared.operationId, {
+        memo: context.memo,
+      })
+      await this.txRepo.update(txId, {
         metadata: {
-          route: selection.route,
+          ...baseMetadata,
           token,
           tokenState: 'unspent',
-          operationId: prepared.operationId,
-          ...(isRequestPayment && { intent: 'request-pay' }),
-          ...(prepared.fee > 0 && { fee: prepared.fee }),
         },
-      }))
+      })
+      await this.outgoingLifecycle?.recordCreated({
+        txId,
+        kind: directNostrAddress ? 'direct-nostr-send' : 'token-create',
+        accountId: mintUrl,
+        amount: selection.amount,
+        token,
+        operationId: prepared.operationId,
+        delivery: initialDelivery,
+      })
 
       await this.routeStore.savePendingSendToken({
         id: txId,
@@ -249,6 +283,12 @@ export class RouteExecutionService implements RouteExecutionUseCase {
         parsedRequest: context.parsedCreq,
         memo: context.memo,
       })
+      if (initialDelivery !== 'not_required') {
+        await this.outgoingLifecycle?.recordDeliveryResult(
+          txId,
+          deliveryResult.success ? 'published' : 'failed',
+        )
+      }
 
       this.notifyChanged(mintUrl)
 
@@ -264,6 +304,16 @@ export class RouteExecutionService implements RouteExecutionUseCase {
     } catch (error) {
       if (operationId) {
         try { await this.paymentOperator.rollbackTokenSend(operationId) } catch { /* ignore */ }
+      }
+      if (txId) {
+        await this.txRepo.update(txId, {
+          status: 'failed',
+          completedAt: Date.now(),
+          metadata: {
+            error: error instanceof Error ? error.message : String(error),
+            operationId,
+          },
+        }).catch(() => {})
       }
       throw error
     }
@@ -314,4 +364,16 @@ function isAlreadyRedeemedQuote(error: unknown): boolean {
 function toBaseError(error: unknown): BaseError {
   if (error instanceof BaseError) return error
   return new UnknownError(error instanceof Error ? error.message : String(error), error)
+}
+
+function getDirectNostrAddress(
+  context: RouteContext,
+): { address: string; type: 'npub' | 'nprofile' } | null {
+  const address = context.addressOrInvoice?.trim()
+  const lower = address?.toLowerCase()
+  if (!address || !lower) return null
+  if (!context.parsedCreq?.sameMintOnly || !context.parsedCreq.hasNostrTransport) return null
+  if (lower.startsWith('npub1')) return { address, type: 'npub' }
+  if (lower.startsWith('nprofile1')) return { address, type: 'nprofile' }
+  return null
 }

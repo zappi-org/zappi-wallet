@@ -8,14 +8,15 @@
  */
 
 import type { Amount } from '@/core/domain/amount'
-import { amount as amt } from '@/core/domain/amount'
+import { amount as amt, toNumber } from '@/core/domain/amount'
 import type { Result } from '@/core/domain/result'
 import { Err, Ok } from '@/core/domain/result'
-import { createTransaction, settleAsDelivered, settleAsReclaimed } from '@/core/domain/transaction'
+import { createTransaction, settleAsDelivered, settleAsReclaimed, type Transaction } from '@/core/domain/transaction'
 import { BaseError, UnknownError } from '@/core/errors/base'
 import { AdapterNotFoundError, ModuleNotFoundError } from '@/core/errors/payment.errors'
 import type { EventBus } from '@/core/events/event-bus'
 import type { OperationMap } from '@/core/ports/driven/operation-map.port'
+import type { OutgoingEcashLifecycleUseCase } from '@/core/ports/driving/outgoing-ecash-lifecycle.usecase'
 import type {
   FeeEstimate,
   PaymentMethodAdapter,
@@ -24,7 +25,7 @@ import type {
   RedeemResult,
 } from '@/core/ports/driven/payment-method.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
-import type { ModuleBalance, WalletModule } from '@/core/ports/driven/wallet-module.port'
+import type { ModuleBalance, SendResult as ModuleSendResult, WalletModule } from '@/core/ports/driven/wallet-module.port'
 import type {
   InputInspectionResult,
   PaymentMethodInfo,
@@ -71,12 +72,21 @@ function isRollingBackStateMessage(message: string): boolean {
   return message.toLowerCase().includes("state 'rolling_back'")
 }
 
+function mergeMetadata(
+  callerMetadata?: Record<string, unknown>,
+  adapterMetadata?: Record<string, unknown>,
+): Record<string, unknown> | undefined {
+  const merged = { ...callerMetadata, ...adapterMetadata }
+  return Object.keys(merged).length > 0 ? merged : undefined
+}
+
 export class PaymentService implements PaymentUseCase {
   constructor(
     private modules: WalletModule[],
     private txRepo: TransactionRepository,
     private eventBus: EventBus,
     private operationMap?: OperationMap,
+    private outgoingLifecycle?: Partial<Pick<OutgoingEcashLifecycleUseCase, 'recordCreated' | 'markClaimed' | 'markReclaimed'>>,
   ) {}
 
   // ─── Query ───
@@ -112,35 +122,85 @@ export class PaymentService implements PaymentUseCase {
     }
 
     const txId = crypto.randomUUID()
+    let preparedTokenAdapter: PaymentMethodAdapter | undefined
+    let preparedTokenOperationId: string | undefined
 
     try {
+      const isTokenCreate = !params.destination
       const tx = createTransaction({
         id: txId,
         direction: 'send',
-        method: module.id,
-        protocol: '',
+        method: isTokenCreate ? 'cashu:ecash' : module.id,
+        protocol: isTokenCreate ? 'cashu-token' : '',
         amount: params.amount,
         accountId: params.accountId,
         memo: params.memo,
+        ...(isTokenCreate && { outcome: 'unclaimed' as const }),
       })
       await this.txRepo.save(tx)
 
-      const isTokenCreate = !params.destination
-
-      const tx2 = isTokenCreate
-        ? { ...tx, outcome: 'unclaimed' as const }
-        : tx
+      const tx2 = tx
+      let result: ModuleSendResult
       if (isTokenCreate) {
-        await this.txRepo.update(txId, { outcome: 'unclaimed' })
-      }
+        const tokenAdapter = this.findTokenCreateAdapter(params.accountId)
+        if (tokenAdapter) {
+          const prepared = await tokenAdapter.prepareSend({
+            accountId: params.accountId,
+            amount: params.amount,
+            memo: params.memo,
+            options: params.options,
+          })
+          preparedTokenAdapter = tokenAdapter
+          preparedTokenOperationId = prepared.id
+          const feeData = toNumber(prepared.fee) > 0
+            ? { fee: { quoted: prepared.fee } }
+            : {}
+          await this.txRepo.update(txId, {
+            outcome: 'unclaimed',
+            method: tokenAdapter.id,
+            protocol: prepared.protocol,
+            metadata: { operationId: prepared.id },
+            ...feeData,
+          })
+          this.operationMap?.register(prepared.id, txId)
+          if (this.outgoingLifecycle?.recordCreated) {
+            await this.outgoingLifecycle.recordCreated({
+              txId,
+              kind: 'token-create',
+              accountId: params.accountId,
+              amount: toNumber(params.amount),
+              operationId: prepared.id,
+              delivery: 'not_required',
+            })
+          }
 
-      const result = await module.send({
-        destination: params.destination,
-        accountId: params.accountId,
-        amount: params.amount,
-        memo: params.memo,
-        options: params.options,
-      })
+          const executed = await tokenAdapter.executeSend(prepared.id)
+          result = {
+            operationId: prepared.id,
+            method: tokenAdapter.id,
+            protocol: prepared.protocol,
+            state: executed.state,
+            data: executed.data,
+            effectiveFee: executed.effectiveFee,
+          }
+        } else {
+          await this.txRepo.update(txId, { outcome: 'unclaimed' })
+          result = await module.send({
+            accountId: params.accountId,
+            amount: params.amount,
+            memo: params.memo,
+            options: params.options,
+          })
+        }
+      } else {
+        result = await module.send({
+          destination: params.destination,
+          accountId: params.accountId,
+          amount: params.amount,
+          memo: params.memo,
+          options: params.options,
+        })
+      }
 
       let eventFee: Amount | undefined
       if (!isTokenCreate) {
@@ -178,6 +238,17 @@ export class PaymentService implements PaymentUseCase {
           metadata: { ...result.data, operationId: result.operationId },
           ...feeData,
         })
+        if (this.outgoingLifecycle?.recordCreated) {
+          await this.outgoingLifecycle.recordCreated({
+            txId,
+            kind: 'token-create',
+            accountId: params.accountId,
+            amount: toNumber(params.amount),
+            token: result.data?.token as string | undefined,
+            operationId: result.operationId,
+            delivery: 'not_required',
+          })
+        }
         // operationMap에 등록 → sendTokenObserver가 send:finalized 시 txId 조회 가능
         if (result.operationId) {
           this.operationMap?.register(result.operationId, txId)
@@ -201,6 +272,9 @@ export class PaymentService implements PaymentUseCase {
     } catch (error) {
       const baseError = toBaseError(error)
 
+      if (preparedTokenAdapter && preparedTokenOperationId) {
+        await preparedTokenAdapter.cancelPrepared(preparedTokenOperationId).catch(() => {})
+      }
       await this.txRepo.update(txId, { status: 'failed', completedAt: Date.now() }).catch(() => {})
 
       this.eventBus.emit({
@@ -251,6 +325,7 @@ export class PaymentService implements PaymentUseCase {
   async redeem(params: {
     input: string
     transactionId?: string
+    metadata?: Record<string, unknown>
   }): Promise<Result<RedeemResult, BaseError>> {
     const adapter = this.resolveRedeemAdapter(params.input)
     if (!adapter) {
@@ -278,6 +353,7 @@ export class PaymentService implements PaymentUseCase {
 
     try {
       const result = await adapter.redeem(params.input)
+      const metadata = mergeMetadata(params.metadata, result.metadata)
 
       // TX 기록 (redeem은 수신이므로 direction: receive)
       const tx = createTransaction({
@@ -290,8 +366,8 @@ export class PaymentService implements PaymentUseCase {
         memo: result.memo,
         // eCash receive는 정확한 fee이므로 quoted = effective
         ...(result.fee && { fee: { quoted: result.fee, effective: result.fee } }),
-        // Adapter 가 결정한 audit payload 만 저장 — service 는 내용 해석 안 함
-        ...(result.metadata && { metadata: result.metadata }),
+        // Persist caller/adapter audit payload; service does not interpret it.
+        ...(metadata && { metadata }),
       })
       const settled = settleAsDelivered(tx)
       await this.txRepo.save(settled)
@@ -426,23 +502,7 @@ export class PaymentService implements PaymentUseCase {
       }
     }
 
-    const settled = settleAsDelivered(tx)
-    await this.txRepo.update(tx.id, {
-      status: settled.status,
-      outcome: settled.outcome,
-      completedAt: settled.completedAt,
-    })
-
-    this.eventBus.emit({
-      type: 'send:claimed',
-      payload: {
-        txId: tx.id,
-        method: tx.method,
-        protocol: tx.protocol,
-        amount: tx.amount,
-        memo: tx.memo,
-      },
-    })
+    await this.markOutgoingClaimed(tx)
 
     return Ok({ transactionId: tx.id })
   }
@@ -473,22 +533,7 @@ export class PaymentService implements PaymentUseCase {
     try {
       await adapter.cancelPrepared(operationId)
 
-      const reclaimed = settleAsReclaimed(tx)
-      await this.txRepo.update(tx.id, {
-        status: reclaimed.status,
-        outcome: reclaimed.outcome,
-        completedAt: reclaimed.completedAt,
-      })
-
-      this.eventBus.emit({
-        type: 'send:reclaimed',
-        payload: {
-          txId: tx.id,
-          method: tx.method,
-          protocol: tx.protocol,
-          amount: tx.amount,
-        },
-      })
+      await this.markOutgoingReclaimed(tx)
       this.eventBus.emit({
         type: 'balance:changed',
         payload: { moduleId: adapter.moduleId, accountId: tx.accountId },
@@ -500,22 +545,7 @@ export class PaymentService implements PaymentUseCase {
 
       // Edge: recipient already claimed → reconcile as consumed.
       if (isAlreadySpentMessage(message)) {
-        const settled = settleAsDelivered(tx)
-        await this.txRepo.update(tx.id, {
-          status: settled.status,
-          outcome: settled.outcome,
-          completedAt: settled.completedAt,
-        })
-        this.eventBus.emit({
-          type: 'send:claimed',
-          payload: {
-            txId: tx.id,
-            method: tx.method,
-            protocol: tx.protocol,
-            amount: tx.amount,
-            memo: tx.memo,
-          },
-        })
+        await this.markOutgoingClaimed(tx)
         this.eventBus.emit({
           type: 'balance:changed',
           payload: { moduleId: adapter.moduleId, accountId: tx.accountId },
@@ -527,21 +557,7 @@ export class PaymentService implements PaymentUseCase {
       // reclaimed so the stale pending entry is cleared. Balance remains
       // authoritative via the SDK wallet state; tx.outcome is just history.
       if (isAlreadyRolledBackMessage(message) || isRollingBackStateMessage(message)) {
-        const reclaimed = settleAsReclaimed(tx)
-        await this.txRepo.update(tx.id, {
-          status: reclaimed.status,
-          outcome: reclaimed.outcome,
-          completedAt: reclaimed.completedAt,
-        })
-        this.eventBus.emit({
-          type: 'send:reclaimed',
-          payload: {
-            txId: tx.id,
-            method: tx.method,
-            protocol: tx.protocol,
-            amount: tx.amount,
-          },
-        })
+        await this.markOutgoingReclaimed(tx)
         this.eventBus.emit({
           type: 'balance:changed',
           payload: { moduleId: adapter.moduleId, accountId: tx.accountId },
@@ -682,6 +698,58 @@ export class PaymentService implements PaymentUseCase {
       if (adapter) return adapter
     }
     return undefined
+  }
+
+  private findTokenCreateAdapter(accountId: string): PaymentMethodAdapter | undefined {
+    return this.findAdaptersForAccount(accountId)
+      .find((adapter) => adapter.protocol === 'ecash' && adapter.capabilities.canSend)
+  }
+
+  private async markOutgoingClaimed(tx: Transaction): Promise<void> {
+    if (this.outgoingLifecycle?.markClaimed) {
+      await this.outgoingLifecycle.markClaimed(tx.id)
+      return
+    }
+
+    const settled = settleAsDelivered(tx)
+    await this.txRepo.update(tx.id, {
+      status: settled.status,
+      outcome: settled.outcome,
+      completedAt: settled.completedAt,
+    })
+    this.eventBus.emit({
+      type: 'send:claimed',
+      payload: {
+        txId: tx.id,
+        method: tx.method,
+        protocol: tx.protocol,
+        amount: tx.amount,
+        memo: tx.memo,
+      },
+    })
+  }
+
+  private async markOutgoingReclaimed(tx: Transaction): Promise<void> {
+    if (this.outgoingLifecycle?.markReclaimed) {
+      await this.outgoingLifecycle.markReclaimed(tx.id)
+      return
+    }
+
+    const reclaimed = settleAsReclaimed(tx)
+    await this.txRepo.update(tx.id, {
+      status: reclaimed.status,
+      outcome: reclaimed.outcome,
+      completedAt: reclaimed.completedAt,
+    })
+    this.eventBus.emit({
+      type: 'send:reclaimed',
+      payload: {
+        txId: tx.id,
+        method: tx.method,
+        protocol: tx.protocol,
+        amount: tx.amount,
+      },
+    })
   }
 
   private findAdaptersForAccount(_accountId: string): PaymentMethodAdapter[] {

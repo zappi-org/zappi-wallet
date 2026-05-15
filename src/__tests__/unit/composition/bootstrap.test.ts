@@ -19,6 +19,7 @@ const { mockBackend } = vi.hoisted(() => ({
     receiveP2PKToken: vi.fn(),
     recoverPendingMelts: vi.fn(),
     recoverPendingSendTokens: vi.fn(),
+    recoverPendingReceiveOperations: vi.fn(),
     recoverPendingQuotes: vi.fn().mockResolvedValue({ recovered: 0, failed: 0, expired: 0 }),
     parsePaymentRequest: vi.fn(),
     preparePaymentRequest: vi.fn(),
@@ -56,6 +57,11 @@ vi.mock('@/adapters/nostr/nostr-gateway', () => ({
     publish = vi.fn()
     queryEvents = vi.fn().mockResolvedValue([])
     subscribe = vi.fn().mockReturnValue(() => {})
+    subscribeGiftWraps = vi.fn().mockReturnValue(() => {})
+    fetchGiftWraps = vi.fn().mockResolvedValue([])
+    sendPrivateDirectMessage = vi.fn()
+    sendGiftWrap = vi.fn()
+    getRelayStatus = vi.fn().mockReturnValue([])
   },
 }))
 
@@ -123,6 +129,7 @@ describe('bootstrap', () => {
   it('should expose recovery, incomingPayment, and pendingItems use cases', () => {
     expect(result.recovery).toBeDefined()
     expect(result.incomingPayment).toBeDefined()
+    expect(result.giftWrapSync).toBeDefined()
     expect(result.pendingItems).toBeDefined()
   })
 

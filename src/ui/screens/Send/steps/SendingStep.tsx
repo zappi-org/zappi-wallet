@@ -11,12 +11,13 @@ import { getDestinationDisplay } from '../sendDisplayHelpers'
 interface SendingStepProps {
   validatedData: SendableValidatedData
   amount: number
+  displayName?: string
 }
 
-export function SendingStep({ validatedData, amount }: SendingStepProps) {
+export function SendingStep({ validatedData, amount, displayName }: SendingStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
-  const destination = getDestinationDisplay(validatedData)
+  const destination = getDestinationDisplay(validatedData, displayName)
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -28,12 +29,15 @@ export function SendingStep({ validatedData, amount }: SendingStepProps) {
         </div>
 
         {/* Sentence — single Trans for natural word order per language */}
-        <div className="text-center">
+        <div className="text-center min-w-0 max-w-full">
           <p className="text-heading font-semibold text-foreground whitespace-pre-line">
             <Trans
               i18nKey="send.sending.fullMessage"
               values={{ recipient: destination, amount: formatSats(amount) }}
-              components={{ b: <span className="text-brand" /> }}
+              components={{
+                b: <span className="inline-block min-w-0 max-w-full truncate align-bottom text-brand" />,
+                to: <span className="inline-flex max-w-full min-w-0 items-baseline whitespace-nowrap align-bottom" />,
+              }}
             />
           </p>
         </div>

@@ -1,11 +1,5 @@
 import type { Transaction } from '@/core/domain/transaction';
 
-export interface ProofStateResult {
-  allSpent: boolean
-  allPending: boolean
-  states: Array<{ secret: string; state: 'unspent' | 'pending' | 'spent' }>
-}
-
 export interface ReclaimResult {
   success: boolean
   amount?: number

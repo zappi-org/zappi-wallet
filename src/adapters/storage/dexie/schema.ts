@@ -1,6 +1,8 @@
 import Dexie, { type Table } from 'dexie'
 import type { Transaction, WalletSettings, MintMetadata, ExchangeRateCache, Contact } from '@/core/types'
 import type { ProcessedRecord, SyncAnchor } from '@/core/types'
+import type { GiftWrapInboxItem, GiftWrapRelayCursor } from '@/core/types'
+import type { OutgoingEcashOperation } from '@/core/domain/outgoing-ecash-lifecycle'
 import type {
   SupportAttachment,
   SupportCategory,
@@ -227,6 +229,14 @@ export interface SupportMessageRecord {
   attachments?: SupportAttachment[]
 }
 
+export type GiftWrapInboxRecord = GiftWrapInboxItem
+
+export interface GiftWrapRelayCursorRecord extends GiftWrapRelayCursor {
+  id: string
+}
+
+export type OutgoingEcashOperationRecord = OutgoingEcashOperation
+
 /**
  * Zappi Database
  */
@@ -248,6 +258,9 @@ export class ZappiDatabase extends Dexie {
   contacts!: Table<Contact, string>
   supportTickets!: Table<SupportTicketRecord, string>
   supportMessages!: Table<SupportMessageRecord, string>
+  giftWrapInbox!: Table<GiftWrapInboxRecord, string>
+  giftWrapRelayCursors!: Table<GiftWrapRelayCursorRecord, string>
+  outgoingEcashOperations!: Table<OutgoingEcashOperationRecord, string>
 
   constructor() {
     super(DATABASE.NAME)
@@ -307,6 +320,13 @@ export class ZappiDatabase extends Dexie {
       // Customer support cache: scoped by derived customer support identity + support agent
       supportTickets: 'id, customerId, agentPubkey, updatedAt',
       supportMessages: 'id, ticketId, customerId, agentPubkey, createdAt',
+
+      // Gift-wrap inbox: persistent, idempotent receive pipeline for NIP-17 ecash.
+      giftWrapInbox: 'eventId, status, outerCreatedAt, updatedAt, lastAttemptAt',
+      giftWrapRelayCursors: 'id, relayUrl, updatedAt',
+
+      // Outgoing ecash lifecycle: token create / direct npub send claim tracking.
+      outgoingEcashOperations: 'txId, kind, delivery, claim, accountId, createdAt, updatedAt',
     })
   }
 }
@@ -376,5 +396,8 @@ export async function clearAllData(): Promise<void> {
     db.receiveRequests.clear(),
     db.supportTickets.clear(),
     db.supportMessages.clear(),
+    db.giftWrapInbox.clear(),
+    db.giftWrapRelayCursors.clear(),
+    db.outgoingEcashOperations.clear(),
   ])
 }

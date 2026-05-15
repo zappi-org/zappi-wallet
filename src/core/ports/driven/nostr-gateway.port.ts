@@ -48,6 +48,9 @@ export interface GiftWrapParams {
 export interface FetchGiftWrapsParams {
   recipientPubkey: string
   relays: string[]
+  since?: number
+  until?: number
+  limit?: number
 }
 
 export interface SubscribeGiftWrapsParams {
@@ -59,4 +62,7 @@ export interface UnwrappedMessage {
   eventId: string
   content: string
   sender: string
+  createdAt: number
+  innerCreatedAt?: number
+  relayUrl?: string
 }

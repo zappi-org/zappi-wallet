@@ -23,11 +23,11 @@ function createMockBackend(): CashuModuleBackend {
     executeSend: vi.fn(),
     rollbackSend: vi.fn(),
     finalizeSend: vi.fn(),
-    checkProofStates: vi.fn(),
     receiveToken: vi.fn(),
     estimateReceiveFee: vi.fn(),
     recoverPendingSendTokens: vi.fn(),
     redeemPendingReceivedTokens: vi.fn().mockResolvedValue({ redeemed: 0, failed: 0 }),
+    recoverPendingReceiveOperations: vi.fn().mockResolvedValue(undefined),
     storeOfflineToken: vi.fn().mockResolvedValue('pending-recv-123'),
     // PaymentRequest (NUT-18)
     parsePaymentRequest: vi.fn(),
@@ -169,7 +169,7 @@ describe('CashuModule', () => {
       expect(backend.prepareSend).toHaveBeenCalledWith({
         mintUrl: 'https://mint.test',
         amount: 500,
-        target: undefined,
+        lockingCondition: undefined,
       })
     })
   })

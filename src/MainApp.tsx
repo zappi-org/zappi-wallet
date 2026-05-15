@@ -2,7 +2,7 @@ import { AppLifecycleWatcher } from '@/composition/app-lifecycle.watcher'
 import { createBootstrap, type BootstrapResult, type RouteContext, type RouteExecutionResult, type RouteSelection } from '@/composition/bootstrap'
 import { resolveIncomingReview } from '@/composition/incoming-review'
 import { createPreUnlockServices } from '@/composition/pre-unlock'
-import { LIMITS } from '@/core/constants'
+import { GIFT_WRAP_SYNC, LIMITS } from '@/core/constants'
 import { sat, toNumber } from '@/core/domain/amount'
 import type { BaseError } from '@/core/errors/base'
 import { ServiceNotReadyError } from '@/core/errors/base'
@@ -11,9 +11,10 @@ import { ServiceProvider } from '@/ui/hooks/service-context'
 import { useCrossTabSync } from '@/ui/hooks/use-cross-tab-sync'
 import { useGlobalTokenClaimToast } from '@/ui/hooks/use-global-token-claim-toast'
 
-import { useReclaim } from '@/ui/hooks/use-reclaim'
 import { useRedeemToken } from '@/ui/hooks/use-redeem-token'
+import { useOutgoingEcashReconcilePoller } from '@/ui/hooks/use-outgoing-ecash-reconcile-poller'
 import { useSupportNotifications } from '@/ui/hooks/use-support-notifications'
+import { reclaimTransaction } from '@/ui/actions/reclaim-transaction'
 import { translateError } from '@/ui/utils/error-i18n'
 import { broadcastSync } from '@/utils/cross-tab-sync'
 // useMintHealth removed — mint health checks done via serviceRegistry directly
@@ -94,7 +95,6 @@ export default function MainApp() {
   const toasts = useAppStore((state) => state.toasts)
   const settings = useAppStore((state) => state.settings)
   const nostrPubkey = useAppStore((state) => state.nostrPubkey)
-  const nostrPrivkey = useAppStore((state) => state.nostrPrivkey)
   const p2pkPubkey = useAppStore((state) => state.p2pkPubkey)
   const txRefreshTrigger = useAppStore((state) => state.txRefreshTrigger)
   const pendingIncomingReviews = useAppStore((state) => state.pendingIncomingReviews)
@@ -118,18 +118,38 @@ export default function MainApp() {
   // Hooks
   const { refreshBalance, balance } = useWallet()
   const { isOnline } = useNetwork()
-  const { reclaim } = useReclaim()
   const [isRecovering, setIsRecovering] = useState(false)
+  const giftWrapCatchUpInFlightRef = useRef(false)
+  const lastGiftWrapCatchUpAtRef = useRef(0)
+  const cashuInitPromiseRef = useRef<Promise<void> | null>(null)
+  const relayKey = useMemo(() => settings.relays.join('\n'), [settings.relays])
 
   // Gift Wrap Watcher — lifecycle managed via serviceRegistry
   useEffect(() => {
-    if (!serviceRegistry) return
-    serviceRegistry.giftWrapWatcher.start()
-    return () => serviceRegistry.giftWrapWatcher.stop()
-  }, [serviceRegistry])
+    if (isLocked || isInitializing || !serviceRegistry) return
+    let cancelled = false
+    const startWatcher = async () => {
+      await cashuInitPromiseRef.current
+      if (cancelled) return
+      await serviceRegistry.giftWrapWatcher.start()
+    }
+    startWatcher().catch((error) => {
+      console.error('[GiftWrapWatcher] start failed:', error)
+    })
+    return () => {
+      cancelled = true
+      serviceRegistry.giftWrapWatcher.stop()
+    }
+  }, [isLocked, isInitializing, serviceRegistry, relayKey])
 
   useCrossTabSync()
   useGlobalTokenClaimToast(serviceRegistry)
+  useOutgoingEcashReconcilePoller({
+    registry: serviceRegistry,
+    enabled: !isLocked && !isInitializing,
+    isOnline,
+    cashuInitPromiseRef,
+  })
   useSupportNotifications(serviceRegistry)
 
   // Local state
@@ -215,13 +235,58 @@ export default function MainApp() {
   /** 잔액/거래 갱신 + recovery 병렬 실행 (toast/refresh는 EventBus bridge가 처리) */
   const refreshAndRecover = useCallback(async () => {
     if (!serviceRegistry) return
+    await cashuInitPromiseRef.current?.catch((e) => {
+      console.error('[Recovery] Cashu init did not complete before recovery:', e)
+    })
     await Promise.all([
       refreshAll(),
       serviceRegistry.payment.recoverAll().catch((e) => {
         console.error('[Recovery] Failed to recover pending operations:', e)
       }),
+      serviceRegistry.outgoingEcashLifecycle.reconcileOpen().catch((e) => {
+        console.error('[Recovery] Failed to reconcile outgoing ecash:', e)
+      }),
     ])
   }, [serviceRegistry, refreshAll])
+
+  const runGiftWrapCatchUp = useCallback(async (reason: 'initial' | 'resume') => {
+    if (!serviceRegistry || !nostrPubkey) return
+
+    const relays = useAppStore.getState().settings.relays || []
+    if (relays.length === 0) return
+
+    const now = Date.now()
+    if (
+      reason === 'resume' &&
+      now - lastGiftWrapCatchUpAtRef.current < GIFT_WRAP_SYNC.RESUME_THROTTLE_MS
+    ) {
+      return
+    }
+    if (giftWrapCatchUpInFlightRef.current) return
+
+    giftWrapCatchUpInFlightRef.current = true
+    lastGiftWrapCatchUpAtRef.current = now
+    setIsRecovering(true)
+    try {
+      await cashuInitPromiseRef.current
+      const result = await serviceRegistry.giftWrapSync.syncMissed({
+        publicKey: nostrPubkey,
+        relays,
+      })
+      if (result.errors.length > 0) {
+        console.warn('[GiftWrap] catch-up completed with errors:', result.errors)
+      }
+      const retryResult = await serviceRegistry.recovery.retryFailedIncomings()
+      if (retryResult.errors.length > 0) {
+        console.warn('[GiftWrap] failed incoming retry completed with errors:', retryResult.errors)
+      }
+    } catch (error) {
+      console.error('[GiftWrap] catch-up failed:', error)
+    } finally {
+      giftWrapCatchUpInFlightRef.current = false
+      setIsRecovering(false)
+    }
+  }, [serviceRegistry, nostrPubkey])
 
   /** Manual pull-to-refresh handler */
   const handleManualRefresh = useCallback(async () => {
@@ -309,46 +374,16 @@ export default function MainApp() {
     setCurrentScreen('token-register')
   }, [activeIncomingReview, pendingIncomingReviews, currentScreen, previousScreen])
 
-  // Anchor check and State Reconstruction (ZAP-06)
-  // Runs once when app is unlocked and has nostr keys
-  const anchorCheckedRef = useRef(false)
+  // Gift-wrap catch-up runs once after unlock; resume uses the throttled lifecycle path.
+  const initialGiftWrapCatchUpRef = useRef(false)
   useEffect(() => {
-    // Only run when unlocked, not initializing, has keys, and hasn't been checked yet
-    if (isLocked || isInitializing || !nostrPubkey || !nostrPrivkey || !serviceRegistry) return
-    if (anchorCheckedRef.current) return
+    // Only run when unlocked, not initializing, has a public key, and hasn't been checked yet
+    if (isLocked || isInitializing || !nostrPubkey || !serviceRegistry) return
+    if (initialGiftWrapCatchUpRef.current) return
 
-    anchorCheckedRef.current = true
-
-    const runRecovery = async () => {
-      console.log('[App] Running recovery sync (anchor)')
-      setIsRecovering(true)
-
-      try {
-        const result = await serviceRegistry.recovery.syncAll({
-          privateKey: nostrPrivkey!,
-          publicKey: nostrPubkey!,
-          relays: settings.relays,
-        })
-
-        if (result.tokensReceived > 0) {
-          console.log(`[App] Recovered ${result.tokensReceived} tokens (${result.amountReceived} sats)`)
-          await refreshAll()
-
-          addToast({
-            type: 'success',
-            message: t('toast.ecashRecovered', { count: result.tokensReceived, amount: formatSats(result.amountReceived) }),
-            duration: 5000,
-          })
-        }
-      } catch (error) {
-        console.error('[App] Recovery error:', error)
-      } finally {
-        setIsRecovering(false)
-      }
-    }
-
-    runRecovery()
-  }, [isLocked, isInitializing, nostrPubkey, nostrPrivkey, serviceRegistry, refreshAll, addToast, t, settings.relays])
+    initialGiftWrapCatchUpRef.current = true
+    runGiftWrapCatchUp('initial')
+  }, [isLocked, isInitializing, nostrPubkey, serviceRegistry, runGiftWrapCatchUp])
 
   const isSendingEcashRef = useRef(false)
 
@@ -379,6 +414,7 @@ export default function MainApp() {
       onResume: async () => {
         await serviceRegistry.onResume()
         await refreshAndRecover()
+        await runGiftWrapCatchUp('resume')
       },
       onPause: () => serviceRegistry.onPause(),
     })
@@ -388,7 +424,7 @@ export default function MainApp() {
       cancelled = true
       lifecycleWatcher.stop()
     }
-  }, [isLocked, isInitializing, serviceRegistry, refreshAndRecover])
+  }, [isLocked, isInitializing, serviceRegistry, refreshAndRecover, runGiftWrapCatchUp])
 
   // Handle unlock
   const handleUnlock = useCallback(async (password: string): Promise<boolean> => {
@@ -409,9 +445,11 @@ export default function MainApp() {
 
         // CashuModule 초기화 — fire-and-forget (UI 블로킹 제거, QA #4)
         // SDK init 완료 후 balance 갱신 (BootstrapResult.refreshBalance 사용)
-        registry.cashuModule.initialize().then(() => {
+        const cashuInitPromise = registry.cashuModule.initialize().then(() => {
           registry.refreshBalance().catch((e) => console.error('[Unlock] Post-init balance refresh failed:', e))
-        }).catch((e) => console.error('[Unlock] CashuModule init failed:', e))
+        })
+        cashuInitPromiseRef.current = cashuInitPromise
+        cashuInitPromise.catch((e) => console.error('[Unlock] CashuModule init failed:', e))
 
         // P2PK key — SDK init을 블로킹하지 않고 백그라운드 로드
         registry.p2pkKeyManager.getCurrentKey().then(({ pubkey }) => setP2pkPubkey(pubkey))
@@ -625,6 +663,11 @@ export default function MainApp() {
       nostrGateway: serviceRegistry.nostrGateway,
       posDevices: settings.posDevices,
     }, params)
+    await serviceRegistry.giftWrapSync.markReviewed({
+      externalId: params.review.externalId,
+      result: 'success',
+      txId: params.transactionId,
+    })
   }, [serviceRegistry, removeIncomingReview, settings.posDevices])
 
   const handleRejectIncomingReview = useCallback(async (review: PendingIncomingReview) => {
@@ -632,6 +675,11 @@ export default function MainApp() {
       await serviceRegistry.processedStore.save({
         externalId: review.externalId,
         processedAt: Date.now(),
+        result: 'skipped',
+        error: 'Rejected by user',
+      })
+      await serviceRegistry.giftWrapSync.markReviewed({
+        externalId: review.externalId,
         result: 'skipped',
         error: 'Rejected by user',
       })
@@ -728,6 +776,11 @@ export default function MainApp() {
     [serviceRegistry],
   )
 
+  const handleReclaimTransaction = useCallback(
+    (txId: string) => reclaimTransaction(serviceRegistry, txId),
+    [serviceRegistry],
+  )
+
   // ─── 등록 중인 토큰이 내가 생성한 pending send 인지 확인 ───
   const handleCheckSelfToken = useCallback(
     async (tokenString: string): Promise<{ txId: string; amount: number } | null> => {
@@ -795,6 +848,7 @@ export default function MainApp() {
   const republishProfile = useCallback(async (mints: string[], relays: string[]) => {
     if (!serviceRegistry || !nostrPubkey || !p2pkPubkey) return
     try {
+      await serviceRegistry.nostrGateway.connect(relays)
       await serviceRegistry.profile.publishAll(nostrPubkey, mints, relays, p2pkPubkey)
       console.log('[Profile] Republished successfully')
     } catch (e) {
@@ -1053,11 +1107,9 @@ export default function MainApp() {
           <TokenScreen
             scrollRef={tokenScrollRef}
             onSelectToken={(detail) => {
-              console.log('[MainApp] onSelectToken called', detail)
               setSelectedTokenDetail(detail)
               setPreviousScreen('token')
               setCurrentScreen('token-detail')
-              console.log('[MainApp] setCurrentScreen to token-detail')
             }}
             onSaveSettings={handleSaveSettings}
           />
@@ -1076,7 +1128,6 @@ export default function MainApp() {
                 <TokenDetailScreen
                   data={selectedTokenDetail}
                   onClose={() => {
-                    console.log('[MainApp] TokenDetailScreen onClose - resetting')
                     setSelectedTokenDetail(null)
                     setCurrentScreen('token')
                   }}
@@ -1105,7 +1156,7 @@ export default function MainApp() {
                       addToast({ type: 'error', message: 'Service initializing, please try again.' })
                       return
                     }
-                    const result = await reclaim(token.id)
+                    const result = await handleReclaimTransaction(token.id)
                     if (result.success) {
                       setSelectedTokenDetail(null)
                       handleBack()
@@ -1303,8 +1354,8 @@ export default function MainApp() {
               addToast({ type: 'error', message: 'Service initializing, please try again.' })
               return
             }
-            const result = await serviceRegistry.reclaim.reclaim(txId)
-            if (result.ok) {
+            const result = await handleReclaimTransaction(txId)
+            if (result.success) {
               addToast({ type: 'success', message: t('token.reclaim.success') })
             } else {
               const errorMessage = result.error
@@ -1338,7 +1389,10 @@ export default function MainApp() {
           onSwapReceive={handleSwapReceive}
           onEstimateRedeemFee={handleEstimateRedeemFee}
           onCheckSelfToken={handleCheckSelfToken}
-          onReclaimOwnToken={ async (txId) => {const result= await reclaim(txId);  return {amount: result.amount?.value ?? 0 } }} 
+          onReclaimOwnToken={async (txId) => {
+            const result = await handleReclaimTransaction(txId)
+            return { amount: result.amount?.value ?? 0 }
+          }}
           onRouteValidated={handleRouteValidated}
           initialToken={initialRegisterToken}
           targetMintUrl={activeMintUrl ?? settings.mints[0] ?? undefined}
@@ -1448,8 +1502,7 @@ export default function MainApp() {
               return result.ok
             },
             onReclaimToken: async (itemId: string) => {
-               console.log('[MainApp onReclaimToken] itemId:', itemId)  // 이거
-              return reclaim(itemId)
+              return handleReclaimTransaction(itemId)
             },
             onCheckQuote: async (mintUrl: string, quoteId: string) => {
               const { getMintQuote } = await import('@/modules/cashu')

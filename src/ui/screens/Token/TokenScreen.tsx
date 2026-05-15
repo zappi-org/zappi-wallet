@@ -187,9 +187,7 @@ export function TokenScreen({
 
   const handleSelectPending = useCallback(
     (token: MockPendingToken) => {
-      console.log('[TokenScreen] handleSelectPending called', token)
       if (!onSelectToken) {
-        console.log('[TokenScreen] onSelectToken is undefined')
         return
       }
       const url = token.mintUrl ?? ''
@@ -204,7 +202,6 @@ export function TokenScreen({
         mintIconUrl: url ? getIconUrl(url) : undefined,
         fiat,
       })
-      console.log('[TokenScreen] Created detail:', detail)
       onSelectToken(detail)
     },
     [onSelectToken, getDisplayName, getMetadata, getIconUrl, fiatRate, fiatCurrency],
@@ -212,9 +209,7 @@ export function TokenScreen({
 
   const handleSelectTimeline = useCallback(
     (tx: Transaction) => {
-      console.log('[TokenScreen] handleSelectTimeline called', tx)
       if (!onSelectToken) {
-        console.log('[TokenScreen] onSelectToken is undefined')
         return
       }
       const url = tx.accountId
@@ -230,7 +225,6 @@ export function TokenScreen({
         mintIconUrl: url ? getIconUrl(url) : undefined,
         fiat,
       })
-      console.log('[TokenScreen] Created detail from tx:', detail)
       if (detail) onSelectToken(detail)
     },
     [onSelectToken, getDisplayName, getMetadata, getIconUrl, fiatRate, fiatCurrency],
@@ -251,7 +245,7 @@ export function TokenScreen({
         const result = await reclaim(tk.id)
         if (!result.success) {
           // Use error from result for better message
-          const errorMessage = result.error 
+          const errorMessage = result.error
             ? translateError(result.error, t)
             : t('token.reclaim.failed')
           addToast({ type: 'error', message: errorMessage })

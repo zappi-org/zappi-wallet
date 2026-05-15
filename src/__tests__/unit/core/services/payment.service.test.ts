@@ -199,6 +199,116 @@ describe('PaymentService', () => {
         }),
       )
     })
+
+    it('records outgoing lifecycle for created ecash tokens', async () => {
+      vi.mocked(module.send).mockResolvedValueOnce({
+        operationId: 'op-token',
+        method: 'cashu:ecash',
+        protocol: 'cashu-token',
+        state: 'completed',
+        data: { token: 'cashuAtoken' },
+      })
+      const outgoingLifecycle = {
+        recordCreated: vi.fn(),
+      }
+      service = new PaymentService([module], txRepo, eventBus, undefined, outgoingLifecycle)
+
+      const result = await service.send({
+        accountId: 'https://mint.test',
+        amount: sat(500),
+      })
+
+      expect(result.ok).toBe(true)
+      const savedTx = vi.mocked(txRepo.save).mock.calls[0]?.[0]
+      expect(savedTx?.id).toBeTruthy()
+      expect(outgoingLifecycle.recordCreated).toHaveBeenCalledWith({
+        txId: savedTx?.id,
+        kind: 'token-create',
+        accountId: 'https://mint.test',
+        amount: 500,
+        token: 'cashuAtoken',
+        operationId: 'op-token',
+        delivery: 'not_required',
+      })
+    })
+
+    it('records token operation before executing adapter-based token creation', async () => {
+      const ecashAdapter = createMockAdapter({
+        id: 'cashu:ecash',
+        protocol: 'ecash',
+        prepareSend: vi.fn().mockResolvedValue({
+          id: 'op-prepared',
+          method: 'ecash',
+          protocol: 'cashu-token',
+          amount: sat(500),
+          fee: sat(1),
+        }),
+        executeSend: vi.fn().mockResolvedValue({
+          id: 'op-prepared',
+          state: 'pending',
+          data: { token: 'cashuAtoken' },
+        }),
+      })
+      module = createMockModule([ecashAdapter])
+      const outgoingLifecycle = {
+        recordCreated: vi.fn(),
+      }
+      service = new PaymentService([module], txRepo, eventBus, undefined, outgoingLifecycle)
+
+      const result = await service.send({
+        accountId: 'https://mint.test',
+        amount: sat(500),
+      })
+
+      expect(result.ok).toBe(true)
+      expect(module.send).not.toHaveBeenCalled()
+      const savedTx = vi.mocked(txRepo.save).mock.calls[0]?.[0]
+      expect(txRepo.update).toHaveBeenCalledWith(savedTx?.id, expect.objectContaining({
+        outcome: 'unclaimed',
+        method: 'cashu:ecash',
+        protocol: 'cashu-token',
+        metadata: { operationId: 'op-prepared' },
+      }))
+      expect(txRepo.update).toHaveBeenCalledWith(savedTx?.id, expect.objectContaining({
+        metadata: { token: 'cashuAtoken', operationId: 'op-prepared' },
+      }))
+      expect(outgoingLifecycle.recordCreated).toHaveBeenNthCalledWith(1, expect.objectContaining({
+        txId: savedTx?.id,
+        operationId: 'op-prepared',
+      }))
+      expect(outgoingLifecycle.recordCreated).toHaveBeenLastCalledWith(expect.objectContaining({
+        txId: savedTx?.id,
+        operationId: 'op-prepared',
+        token: 'cashuAtoken',
+      }))
+    })
+
+    it('keeps failed token creation classified as ecash from the initial transaction', async () => {
+      const ecashAdapter = createMockAdapter({
+        id: 'cashu:ecash',
+        protocol: 'ecash',
+        prepareSend: vi.fn().mockRejectedValue(new Error('mint unavailable')),
+      })
+      module = createMockModule([ecashAdapter])
+      service = new PaymentService([module], txRepo, eventBus)
+
+      const result = await service.send({
+        accountId: 'https://mint.test',
+        amount: sat(500),
+      })
+
+      expect(result.ok).toBe(false)
+      const savedTx = vi.mocked(txRepo.save).mock.calls[0]?.[0]
+      expect(savedTx).toEqual(expect.objectContaining({
+        direction: 'send',
+        method: 'cashu:ecash',
+        protocol: 'cashu-token',
+        outcome: 'unclaimed',
+      }))
+      expect(txRepo.update).toHaveBeenCalledWith(savedTx?.id, expect.objectContaining({
+        status: 'failed',
+      }))
+    })
   })
 
   describe('reclaim', () => {
@@ -231,6 +341,72 @@ describe('PaymentService', () => {
       })
       expect(eventBus.emit).not.toHaveBeenCalledWith(
         expect.objectContaining({ type: 'payment:completed' }),
+      )
+    })
+
+    it('marks outgoing lifecycle as reclaimed when available', async () => {
+      vi.mocked(txRepo.getById).mockResolvedValue({
+        id: 'tx-reclaim',
+        direction: 'send',
+        method: 'cashu:bolt11',
+        protocol: 'cashu-token',
+        amount: sat(1000),
+        accountId: 'https://mint.test',
+        status: 'pending',
+        outcome: 'unclaimed',
+        createdAt: Date.now(),
+        metadata: { operationId: 'op-reclaim' },
+      })
+      const outgoingLifecycle = {
+        markReclaimed: vi.fn().mockResolvedValue(undefined),
+      }
+      service = new PaymentService([module], txRepo, eventBus, undefined, outgoingLifecycle)
+
+      const result = await service.reclaim({ transactionId: 'tx-reclaim' })
+
+      expect(result.ok).toBe(true)
+      expect(adapter.cancelPrepared).toHaveBeenCalledWith('op-reclaim')
+      expect(outgoingLifecycle.markReclaimed).toHaveBeenCalledWith('tx-reclaim')
+      expect(txRepo.update).not.toHaveBeenCalledWith(
+        'tx-reclaim',
+        expect.objectContaining({ outcome: 'reclaimed' }),
+      )
+    })
+  })
+
+  describe('completeSend', () => {
+    it('marks outgoing lifecycle as claimed when completing a deferred token', async () => {
+      adapter = createMockAdapter({
+        id: 'cashu:ecash',
+        protocol: 'ecash',
+        finalizeSend: vi.fn().mockResolvedValue(undefined),
+      })
+      module = createMockModule([adapter])
+      vi.mocked(txRepo.getById).mockResolvedValue({
+        id: 'tx-send',
+        direction: 'send',
+        method: 'cashu:ecash',
+        protocol: 'cashu-token',
+        amount: sat(1000),
+        accountId: 'https://mint.test',
+        status: 'pending',
+        outcome: 'unclaimed',
+        createdAt: Date.now(),
+        metadata: { operationId: 'op-send' },
+      })
+      const outgoingLifecycle = {
+        markClaimed: vi.fn().mockResolvedValue(undefined),
+      }
+      service = new PaymentService([module], txRepo, eventBus, undefined, outgoingLifecycle)
+
+      const result = await service.completeSend({ transactionId: 'tx-send' })
+
+      expect(result.ok).toBe(true)
+      expect(adapter.finalizeSend).toHaveBeenCalledWith('op-send')
+      expect(outgoingLifecycle.markClaimed).toHaveBeenCalledWith('tx-send')
+      expect(txRepo.update).not.toHaveBeenCalledWith(
+        'tx-send',
+        expect.objectContaining({ outcome: 'claimed' }),
       )
     })
   })
@@ -391,6 +567,43 @@ describe('PaymentService', () => {
       expect(eventBus.emit).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'balance:changed' }),
       )
+    })
+
+    it('persists caller redeem metadata together with adapter audit metadata', async () => {
+      const ecashAdapter = createMockAdapter({
+        id: 'cashu:ecash',
+        canRedeem: vi.fn().mockImplementation((input: string) => /^cashu[ab]/i.test(input.trim())),
+        redeem: vi.fn().mockResolvedValue({
+          requestId: 'tx-ecash-1',
+          amount: sat(500),
+          method: 'cashu:ecash',
+          protocol: 'cashu-token',
+          completed: true,
+          accountId: 'https://mint.test',
+          metadata: { token: 'cashuBtest...' },
+        }),
+      })
+      const mod = createMockModule([ecashAdapter])
+      service = new PaymentService([mod], txRepo, eventBus)
+
+      const result = await service.redeem({
+        input: 'cashuBtest...',
+        metadata: {
+          source: 'gift-wrap',
+          counterpartyAddressType: 'npub',
+          counterpartyPubkey: 'sender-pubkey',
+        },
+      })
+
+      expect(result.ok).toBe(true)
+      expect(txRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+        metadata: {
+          source: 'gift-wrap',
+          counterpartyAddressType: 'npub',
+          counterpartyPubkey: 'sender-pubkey',
+          token: 'cashuBtest...',
+        },
+      }))
     })
 
     it('no adapter matches — returns ADAPTER_NOT_FOUND', async () => {

@@ -63,16 +63,10 @@ export class NostrGatewayAdapter implements NostrGateway {
 
   async connect(relays: string[]): Promise<void> {
     this.targetRelays = [...relays]
-
-    for (const url of relays) {
-      try {
-        await this.connectRelay(url)
-      } catch (error) {
-        console.warn(`[NostrGateway] Failed to connect to ${url}:`, error)
-      }
-    }
+    await this.ensureRelays(relays)
 
     this.startAutoReconnect()
+    this.resubscribeActive()
   }
 
   async disconnect(): Promise<void> {
@@ -93,7 +87,10 @@ export class NostrGatewayAdapter implements NostrGateway {
   }
 
   getRelayStatus(): RelayStatus[] {
-    return Array.from(this.connectedRelays).map(url => ({
+    const relays = this.targetRelays.length > 0
+      ? this.targetRelays.filter(url => this.connectedRelays.has(url))
+      : Array.from(this.connectedRelays)
+    return relays.map(url => ({
       url,
       connected: true,
     }))
@@ -101,7 +98,7 @@ export class NostrGatewayAdapter implements NostrGateway {
 
   async publish(event: UnsignedNostrEvent): Promise<NostrEvent> {
     const signed = signEvent(event, this.config.privateKeyHex)
-    const relays = Array.from(this.connectedRelays)
+    const relays = this.getPublishRelays()
 
     if (relays.length === 0) {
       throw new Error('No connected relays')
@@ -162,7 +159,7 @@ export class NostrGatewayAdapter implements NostrGateway {
       params.content,
     )
 
-    await this.connect(params.relays)
+    await this.ensureRelays(params.relays)
 
     const results = await Promise.allSettled(
       this.pool.publish(params.relays, wrapped),
@@ -181,7 +178,7 @@ export class NostrGatewayAdapter implements NostrGateway {
       params.content,
     )
 
-    await this.connect(params.relays)
+    await this.ensureRelays(params.relays)
 
     const results = await Promise.allSettled(
       this.pool.publish(params.relays, wrapped),
@@ -196,28 +193,39 @@ export class NostrGatewayAdapter implements NostrGateway {
   }
 
   async fetchGiftWraps(params: FetchGiftWrapsParams): Promise<UnwrappedMessage[]> {
-    await this.connect(params.relays)
+    const filter: NostrFilter = {
+      kinds: [1059],
+      '#p': [params.recipientPubkey],
+      ...(params.since != null ? { since: params.since } : {}),
+      ...(params.until != null ? { until: params.until } : {}),
+      ...(params.limit != null ? { limit: params.limit } : {}),
+    }
 
-    const events = await this.pool.querySync(
-      params.relays,
-      { kinds: [1059], '#p': [params.recipientPubkey] },
-      { maxWait: this.defaultTimeout },
-    )
+    await this.ensureRelays(params.relays)
 
     const messages: UnwrappedMessage[] = []
-    for (const event of events) {
-      try {
-        const unwrapped = unwrapEvent(
-          event as unknown as NostrEvent,
-          this.config.privateKeyHex,
-        )
-        messages.push({
-          eventId: (event as unknown as NostrEvent).id,
-          content: unwrapped.content,
-          sender: unwrapped.sender,
-        })
-      } catch {
-        // Not our message or decryption failed
+    for (const relayUrl of params.relays) {
+      const events = await this.pool.querySync(
+        [relayUrl],
+        filter as Record<string, unknown>,
+        { maxWait: this.defaultTimeout },
+      )
+
+      for (const event of events) {
+        try {
+          const nostrEvent = event as unknown as NostrEvent
+          const unwrapped = unwrapEvent(nostrEvent, this.config.privateKeyHex)
+          messages.push({
+            eventId: nostrEvent.id,
+            content: unwrapped.content,
+            sender: unwrapped.sender,
+            createdAt: nostrEvent.created_at,
+            innerCreatedAt: unwrapped.createdAt,
+            relayUrl,
+          })
+        } catch {
+          // Not our message or decryption failed
+        }
       }
     }
 
@@ -231,7 +239,7 @@ export class NostrGatewayAdapter implements NostrGateway {
     const filter: NostrFilter = {
       kinds: [1059],
       '#p': [params.recipientPubkey],
-      ...(params.since ? { since: params.since } : {}),
+      ...(params.since != null ? { since: params.since } : {}),
     }
 
     return this.subscribe([filter], (event: NostrEvent) => {
@@ -241,6 +249,8 @@ export class NostrGatewayAdapter implements NostrGateway {
           eventId: event.id,
           content: unwrapped.content,
           sender: unwrapped.sender,
+          createdAt: event.created_at,
+          innerCreatedAt: unwrapped.createdAt,
         })
       } catch {
         // Not our message or decryption failed — skip
@@ -261,12 +271,28 @@ export class NostrGatewayAdapter implements NostrGateway {
     this.connectedRelays.add(url)
   }
 
+  private async ensureRelays(relays: string[]): Promise<void> {
+    for (const url of relays) {
+      try {
+        await this.connectRelay(url)
+      } catch (error) {
+        console.warn(`[NostrGateway] Failed to connect to ${url}:`, error)
+      }
+    }
+  }
+
+  private getPublishRelays(): string[] {
+    const targetRelays = this.targetRelays.filter(url => this.connectedRelays.has(url))
+    return targetRelays.length > 0 ? targetRelays : Array.from(this.connectedRelays)
+  }
+
   private subscribeToRelays(
     filters: NostrFilter[],
     handler: (event: NostrEvent) => void,
     cleanups: Set<() => void>,
   ): void {
-    const relays = Array.from(this.connectedRelays)
+    const targetRelays = this.targetRelays.filter(url => this.connectedRelays.has(url))
+    const relays = targetRelays.length > 0 ? targetRelays : Array.from(this.connectedRelays)
 
     for (const filter of filters) {
       for (const relayUrl of relays) {
@@ -370,16 +396,19 @@ export class NostrGatewayAdapter implements NostrGateway {
 
     // Re-subscribe on reconnected relays
     if (reconnected && this.activeSubscriptions.size > 0) {
-      for (const sub of this.activeSubscriptions.values()) {
-        // Close old cleanups
-        for (const cleanup of sub.cleanups) {
-          try { cleanup() } catch { /* ignore */ }
-        }
-        sub.cleanups.clear()
-        // Re-subscribe on all connected relays
-        this.subscribeToRelays(sub.filters, sub.handler, sub.cleanups)
-      }
+      this.resubscribeActive()
       console.log(`[NostrGateway] Re-subscribed ${this.activeSubscriptions.size} subscriptions`)
+    }
+  }
+
+  private resubscribeActive(): void {
+    if (this.activeSubscriptions.size === 0) return
+    for (const sub of this.activeSubscriptions.values()) {
+      for (const cleanup of sub.cleanups) {
+        try { cleanup() } catch { /* ignore */ }
+      }
+      sub.cleanups.clear()
+      this.subscribeToRelays(sub.filters, sub.handler, sub.cleanups)
     }
   }
 }

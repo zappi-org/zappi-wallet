@@ -6,6 +6,15 @@ import TransactionDetailScreen from '@/ui/screens/TransactionDetail/TransactionD
 
 const addToast = vi.fn()
 const reclaimMock = vi.fn()
+const getOutgoingStatusMock = vi.fn()
+const checkOutgoingStatusMock = vi.fn()
+const getTransactionByIdMock = vi.fn()
+let storeState: {
+  addToast: typeof addToast
+  balance: { total: number }
+  txRefreshTrigger: number
+  triggerTxRefresh: ReturnType<typeof vi.fn>
+}
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -15,8 +24,8 @@ vi.mock('react-i18next', () => ({
 }))
 
 vi.mock('@/store', () => ({
-  useAppStore: (selector: (state: { addToast: typeof addToast; balance: { total: number } }) => unknown) => 
-    selector({ addToast, balance: { total: 0 } }),
+  useAppStore: (selector: (state: typeof storeState) => unknown) =>
+    selector(storeState),
 }))
 
 vi.mock('@/ui/hooks/use-mint-metadata', () => ({
@@ -25,6 +34,18 @@ vi.mock('@/ui/hooks/use-mint-metadata', () => ({
 
 vi.mock('@/ui/hooks/use-reclaim', () => ({
   useReclaim: () => ({ reclaim: reclaimMock }),
+}))
+
+vi.mock('@/ui/hooks/use-service-registry', () => ({
+  useServiceRegistry: () => ({
+    outgoingEcashLifecycle: {
+      getStatus: getOutgoingStatusMock,
+      checkStatus: checkOutgoingStatusMock,
+    },
+    transactionMgmt: {
+      getById: getTransactionByIdMock,
+    },
+  }),
 }))
 
 vi.mock('@/ui/hooks/use-transaction-mgmt', () => ({
@@ -65,7 +86,16 @@ function makeTokenTx(overrides: Partial<Transaction> = {}): Transaction {
 describe('TransactionDetailScreen token reclaim action', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    storeState = {
+      addToast,
+      balance: { total: 0 },
+      txRefreshTrigger: 0,
+      triggerTxRefresh: vi.fn(),
+    }
     reclaimMock.mockResolvedValue({ success: true })
+    getOutgoingStatusMock.mockResolvedValue(null)
+    checkOutgoingStatusMock.mockResolvedValue(null)
+    getTransactionByIdMock.mockResolvedValue(null)
   })
 
   it('hides the reclaim action after a successful reclaim', async () => {
@@ -93,5 +123,26 @@ describe('TransactionDetailScreen token reclaim action', () => {
     )
 
     expect(screen.queryByText('txDetail.reclaimAction')).not.toBeInTheDocument()
+  })
+
+  it('refreshes the displayed transaction when the global tx refresh signal changes', async () => {
+    getTransactionByIdMock.mockResolvedValue(makeTokenTx({
+      status: 'settled',
+      outcome: 'claimed',
+    }))
+
+    const { rerender } = render(
+      <TransactionDetailScreen transaction={makeTokenTx()} onBack={vi.fn()} />,
+    )
+
+    expect(screen.getByText('txDetail.reclaimAction')).toBeInTheDocument()
+
+    storeState.txRefreshTrigger = 1
+    rerender(<TransactionDetailScreen transaction={makeTokenTx()} onBack={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(getTransactionByIdMock).toHaveBeenCalledWith('tx-token')
+      expect(screen.queryByText('txDetail.reclaimAction')).not.toBeInTheDocument()
+    })
   })
 })

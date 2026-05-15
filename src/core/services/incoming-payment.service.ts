@@ -49,6 +49,7 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
       const redeemResult = await this.payment.redeem({
         input: payload,
         transactionId: txId,
+        ...(params.metadata && { metadata: params.metadata }),
       })
 
       if (!redeemResult.ok) {

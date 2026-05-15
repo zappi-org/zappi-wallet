@@ -56,6 +56,7 @@ interface SendDestinationStepProps {
   onBack: () => void
   onNext: (data: {
     destination: string
+    displayName?: string
     validatedData?: SendableValidatedData
     amountFromInvoice?: number
     mintUrl?: string
@@ -89,12 +90,13 @@ export function SendInputStep({
   const { getDisplayName, getIconUrl } = useMintMetadata(settings.mints)
   const inputParser = useInputParser()
   const { nostrDirectPayment } = useServiceRegistry()
+  const isRestoredContactDisplay = !!initialAddress && !!initialDestination && initialAddress !== initialDestination
 
   // State
   const [destination, setDestination] = useState(initialDestination)
   const [showScanner, setShowScanner] = useState(false)
   const [detectedTypes, setDetectedTypes] = useState<string[]>(
-    initialValidatedData?.type ? [initialValidatedData.type] : []
+    initialValidatedData?.type && !isRestoredContactDisplay ? [initialValidatedData.type] : []
   )
   const [validatedData, setValidatedData] = useState<SendableValidatedData | null>(
     initialValidatedData || null
@@ -114,7 +116,9 @@ export function SendInputStep({
   const lastAutoAdvancedInputRef = useRef<string>(initialDestination)
   const validatedDataRef = useRef<SendableValidatedData | null>(null)
   // Store the raw address when displayName is used (contact selection)
-  const rawAddressRef = useRef<string | null>(null)
+  const rawAddressRef = useRef<string | null>(
+    isRestoredContactDisplay ? initialAddress : null
+  )
 
   // Address book contacts (via ContactUseCase)
   const { contacts } = useContacts()
@@ -430,6 +434,7 @@ export function SendInputStep({
       autoAdvanceTimerRef.current = setTimeout(() => {
         onNext({
           destination: displayName || trimmed,
+          ...(displayName ? { displayName } : {}),
           validatedData: sendable,
           amountFromInvoice: detectedAmount,
         })
@@ -461,9 +466,10 @@ export function SendInputStep({
     const amt = getAmountFromData(data)
     onNext({
       destination: displayDest,
+      ...(rawAddressRef.current ? { displayName: displayDest } : {}),
       validatedData: data,
       amountFromInvoice: amt > 0 ? amt : undefined,
-      mintUrl: mintUrlOverride,
+      ...(mintUrlOverride ? { mintUrl: mintUrlOverride } : {}),
     })
   }, [onNext])
 

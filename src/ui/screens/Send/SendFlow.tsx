@@ -35,8 +35,20 @@ function getAddressOrInvoice(data: SendableValidatedData): string | undefined {
     case 'bolt11': return data.invoice
     case 'lightning-address': return data.address
     case 'lnurl-pay': return data.lnurl
+    case 'cashu-request': return data.parsed.nostrTarget || data.request
     default: return undefined
   }
+}
+
+function inferDisplayName(
+  data: SendableValidatedData | null,
+  destination: string,
+  explicitDisplayName?: string | null,
+): string | undefined {
+  if (explicitDisplayName) return explicitDisplayName
+  if (!data) return undefined
+  const rawDestination = getAddressOrInvoice(data)
+  return rawDestination && destination !== rawDestination ? destination : undefined
 }
 
 import { SendInputStep } from './steps/SendInputStep'
@@ -67,6 +79,7 @@ export interface SendFlowState {
   step: SendStep
   selectedMintUrl: string | null
   destination: string
+  displayName: string | null
   validatedData: SendableValidatedData | null
   amount: number
   memo: string
@@ -161,6 +174,7 @@ export function SendFlow({
     step: getInitialStep(),
     selectedMintUrl: initialMintUrl || null,
     destination: getInitialDestination(),
+    displayName: initialDisplayName || null,
     validatedData: isSendableData(initialValidatedData) ? initialValidatedData : null,
     amount: getInitialAmount(),
     memo: '',
@@ -233,6 +247,7 @@ export function SendFlow({
   /** Destination step → advance to amount (or confirm if invoice has amount) */
   const handleDestinationNext = useCallback(async (data: {
     destination: string
+    displayName?: string
     validatedData?: SendableValidatedData
     amountFromInvoice?: number
     mintUrl?: string
@@ -302,6 +317,7 @@ export function SendFlow({
           step: 'confirm',
           selectedMintUrl: sourceMintUrl,
           destination: data.destination,
+          displayName: data.displayName ?? null,
           validatedData: validated!,
           amount: data.amountFromInvoice!,
           skippedAmount: true,
@@ -318,6 +334,7 @@ export function SendFlow({
         step: 'amount',
         selectedMintUrl: sourceMintUrl,
         destination: data.destination,
+        displayName: data.displayName ?? null,
         validatedData: validated!,
         error: null,
       }))
@@ -462,7 +479,7 @@ export function SendFlow({
               onNext={handleDestinationNext}
               onRedirect={onRedirect}
               initialDestination={state.destination}
-              initialAddress={initialDestination}
+              initialAddress={state.validatedData ? getAddressOrInvoice(state.validatedData) : initialDestination}
               initialValidatedData={state.validatedData}
               mintUrl={state.selectedMintUrl || ''}
               onMintChange={(mintUrl) => setState((prev) => ({ ...prev, selectedMintUrl: mintUrl }))}
@@ -485,6 +502,7 @@ export function SendFlow({
               onNext={handleAmountNext}
               mintUrl={state.selectedMintUrl || ''}
               destination={state.destination}
+              displayName={inferDisplayName(state.validatedData, state.destination, state.displayName)}
               validatedData={state.validatedData || undefined}
               initialAmount={state.amount}
               initialMemo={state.memo}
@@ -512,7 +530,7 @@ export function SendFlow({
               validatedData={state.validatedData!}
               amount={state.amount}
               fee={state.fee}
-              displayName={initialDisplayName || (state.destination !== getAddressOrInvoice(state.validatedData!) ? state.destination : undefined)}
+              displayName={inferDisplayName(state.validatedData, state.destination, state.displayName)}
               mintUrl={state.selectedMintUrl!}
               error={state.error}
               route={state.routeSelection?.route}
@@ -528,6 +546,7 @@ export function SendFlow({
             <SendingStep
               validatedData={state.validatedData!}
               amount={state.amount}
+              displayName={inferDisplayName(state.validatedData, state.destination, state.displayName)}
             />
           </PageTransition>
         )}
@@ -540,6 +559,7 @@ export function SendFlow({
               onComplete={onComplete}
               isFiatMode={state.isFiatMode}
               fiatAmount={state.fiatAmount}
+              displayName={inferDisplayName(state.validatedData, state.destination, state.displayName)}
             />
           </PageTransition>
         )}

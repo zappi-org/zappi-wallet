@@ -1,3 +1,244 @@
+# Current Task — npub Outgoing Pending/Reclaim State Fix
+
+- [x] Reproduce from code path why npub sent-before-claim shows `상태 확인 실패`
+- [x] Fix Cashu proof-state normalization so unclaimed outgoing tokens remain claimable
+- [x] Treat pending/ambiguous proof transitions as non-failure waiting state
+- [x] Recover stale `pending_publish` records so interrupted npub sends do not stay stuck
+- [x] Fix `UNKNOWN` error i18n mapping so raw `errors.unknown` is not shown
+- [x] Add regression tests for uppercase Cashu proof states and unknown-error mapping
+- [x] Run focused tests, full tests, typecheck, lint, build, hex-review, and diff checks
+
+Review
+- Root cause: `cashu-ts` returns proof states as enum values such as `UNSPENT`, `SPENT`, and `PENDING`, but our Cashu backend adapter was passing those values through as-is while the outgoing claim-state adapter expected lowercase `unspent`, `spent`, and `pending`.
+- Impact: an unclaimed npub/eCash send could be misread as `unknown`, which made Home Transaction Detail show `상태 확인 실패` even though the recipient had not received it yet. `PENDING` and mixed transition states are now treated as non-failure waiting states, and transient `unknown` checks no longer overwrite the visible status with failure.
+- Fix: normalize Cashu proof states at the Cashu backend boundary before reporting them to the lifecycle adapter. This keeps proof/SDK details inside the Cashu module boundary.
+- Recovery fix: if the app stops after token creation but before relay publish status is saved, a stale `pending_publish` lifecycle row is moved to recoverable `unknown` delivery after the configured grace window instead of remaining permanently unreclaimable.
+- Also fixed `UnknownError` i18n mapping from missing `errors.unknown` to existing `errors.unknownError`, so reclaim failures no longer show a raw translation key.
+- Verification passed: focused proof/lifecycle/reclaim/detail/token/error tests, `npx tsc --noEmit`, `bun run lint`, full `bun run test` (107 files / 744 tests), `bun run build`, wallet `hex-review` (589 files / 0 violations), targeted security/hardcoding scan, and `git diff --check`.
+
+# Current Task — Live Outgoing eCash Claim Detection
+
+- [x] Confirm why npub sends remain `전송됨 · 수령 대기` until resume/restart
+- [x] Add foreground-only outgoing eCash claim polling through the driving port
+- [x] Add hook tests for interval, visibility, offline/hidden guards, and in-flight dedupe
+- [x] Run focused tests, typecheck, lint, build, and diff checks
+
+Design
+- There is no mint/relay push that tells the sender when the recipient spends the token. The app must periodically ask the outgoing lifecycle use case to reconcile open outgoing eCash.
+- Polling must run only when the wallet is unlocked, app is visible, online, and Cashu initialization has completed.
+- Polling must call only `OutgoingEcashLifecycleUseCase.reconcileOpen()` from UI; proof/mint details stay inside the Cashu adapter and core lifecycle service.
+- Prevent overlapping checks with an in-flight guard, and do not run while hidden/backgrounded.
+
+Review
+- Added a foreground-only outgoing eCash reconcile poller. While the wallet is unlocked, online, visible, and Cashu init has completed, it calls `outgoingEcashLifecycle.reconcileOpen()` every 15 seconds.
+- The poller does not inspect tokens, proofs, mints, or SDK state directly. It calls only the existing driving port, so Cashu proof/claim logic remains inside the lifecycle service and Cashu adapter.
+- Added guards for offline, hidden/background, disabled app state, and overlapping checks.
+- Transaction Detail now listens to the global transaction refresh signal and reloads the current transaction plus outgoing lifecycle status, so a user who stays on the detail screen can see `전송됨 · 수령 대기` change after polling detects claim.
+- Tests added/updated for active polling, hidden/offline no-op, visibility resume check, in-flight dedupe, and detail refresh after transaction changes.
+- Verification passed: focused tests, `npx tsc --noEmit`, `bun run lint`, full `bun run test` (105 files / 740 tests), `bun run build`, `hex-review` (589 files / 0 violations), targeted security/hardcoding scan, and `git diff --check`.
+
+# Current Task — eCash Pending Reclaim Service Context Fix
+
+- [x] Identify why pending eCash detail reclaim shows `errors.serviceNotReady`
+- [x] Move shared reclaim execution out of React Context-only hook
+- [x] Use explicit `serviceRegistry` for `MainApp`-owned reclaim callbacks
+- [x] Add/adjust focused tests for the shared reclaim execution path
+- [x] Run focused tests, typecheck, lint, and diff checks
+
+Design
+- Root cause: `MainApp` calls `useReclaim()` before it renders its own `ServiceProvider`, so that hook cannot read the `ServiceContext` even after `serviceRegistry` exists.
+- Fix direction: keep `useReclaim()` for child components that are actually under `ServiceProvider`, but extract the execution logic into a registry-driven UI action. `MainApp` callbacks should pass the existing `serviceRegistry` explicitly.
+- Do not move Cashu/Reclaim implementation into UI, do not import adapters/modules from UI, and do not add fallback/hardcoded behavior.
+
+Review
+- Fixed the pending eCash detail reclaim path. `MainApp` no longer calls `useReclaim()` outside the `ServiceProvider` it renders; `MainApp`-owned reclaim callbacks now call a shared registry-driven `reclaimTransaction()` action with the existing `serviceRegistry`.
+- `useReclaim()` still works for child components that are actually inside `ServiceProvider`; it now delegates to the same shared action, so reclaim behavior stays consistent across Token tab, Token detail, Mint detail pending items, and Transaction detail.
+- Added localized `errors.serviceNotReady` fallback so a raw i18n key is not shown if a real startup race happens in the future.
+- Removed token/transaction object debug logs from the Token tab/detail path because pending token metadata may include raw Cashu token strings.
+- Verification passed: focused reclaim/token tests, `npx tsc --noEmit`, `bun run lint`, full `bun run test` (104 files / 735 tests), and `git diff --check`.
+
+# Current Task — Outgoing eCash Lifecycle Saga Design
+
+- [x] Re-check root and wallet architecture rules before designing
+- [x] Inspect existing transaction, reclaim, pending-token, route-execution, and Coco send-observer flows
+- [x] Redesign outgoing lifecycle so proof-level details stay inside the Cashu SDK/adapter boundary
+- [x] Re-review IncomingInbox against live/catch-up/review/recovery requirements and fix catch-up review source metadata
+- [x] Implement outgoing eCash lifecycle domain, store, service, Cashu claim-state adapter, and composition wiring
+- [x] Wire token creation and direct npub/nprofile send delivery into the outgoing lifecycle
+- [x] Replace generic outgoing eCash `처리중` detail status with lifecycle-derived user states
+- [x] Re-run focused tests, full validation, hex-review, security/hardcoding scans, and `git diff --check`
+
+Design
+- Existing facts:
+  - Sent eCash tokens are already represented as domain transactions with `direction='send'`, `status='pending'`, and `outcome='unclaimed'`.
+  - Coco send operations already expose `operationId`, `send:finalized`, and `send:rolled-back`; these can settle transactions as `claimed` or `reclaimed`.
+  - `ReclaimService` already rolls back/reclaims by operation id or token and treats "already finalized" as recipient-claimed.
+  - Pending-token UI already queries both legacy `pendingSendTokens` and pending `transactions`, but transaction detail still renders generic `처리중` for unclaimed outgoing tokens.
+- Principle:
+  - Incoming NIP-17/gift-wrap events are handled by `IncomingInbox`.
+  - Outgoing token creation and npub/nprofile token delivery must be handled by a separate `OutgoingOutbox` / `OutgoingEcashLifecycle` saga.
+  - `Transaction` remains the user-visible ledger. The outgoing lifecycle journal records operational state needed for recovery, proof-state checks, delivery attempts, and idempotency.
+  - Core/domain must not model Cashu proof internals. Proof inspection, partial proof interpretation, and Coco operation details stay in the Cashu adapter/SDK boundary.
+- Adapter-to-core result contract:
+  - The Cashu adapter may inspect proofs, Coco operation state, or mint state, but it reports only protocol-neutral claim-state results to core.
+  - Adapter result values: `claimable`, `pending`, `claimed`, `reclaimed`, `unknown`.
+  - `claimable` means the outgoing value still appears safely recoverable by the sender.
+  - `pending` means the mint reports a non-final proof transition; keep the user-facing waiting state and do not expose proof details.
+  - `claimed` means the outgoing value has been consumed/finalized and should be treated as recipient-claimed.
+  - `reclaimed` means the sender-side SDK operation has already rolled back/reclaimed and should be treated as sender-recovered.
+  - `unknown` means the adapter cannot safely decide due to unavailable data or a transient check failure; it must not overwrite a waiting state as failure by itself.
+- Domain states:
+  - Delivery state: `not_required`, `pending_publish`, `published`, `publish_failed`, `unknown`.
+  - Claim state for the current product scope: `unclaimed`, `checking`, `claim_pending`, `claimed`, `reclaiming`, `reclaimed`, `check_failed`.
+  - No `partial`, `mixed`, `proof`, `all_spent`, or `all_unspent` state belongs in core domain for this scope.
+  - Final user-visible states are derived from domain state, not from raw `Transaction.status` alone.
+- User-visible mapping:
+  - Token created and unspent: `수령 대기`.
+  - npub/nprofile send published but unspent: `전송됨 · 수령 대기`.
+  - Proofs all spent: `수령 완료`.
+  - Proofs reclaimed/rolled back: `회수 완료`.
+  - Relay publish failed before delivery: `전송 실패`.
+  - Proof-state check temporarily unavailable: keep the previous waiting state and retry; do not show `상태 확인 실패` for normal pending/mint transition states.
+  - Any adapter-level ambiguous state, including future partial-proof/P2PK ambiguity, maps to a non-failure waiting state for now. Do not expose partial-proof UX in this scope.
+- Required ports and services:
+  - Add a driven `OutgoingEcashOperationStore` port for operation journal persistence.
+  - Add a protocol-neutral driven `OutgoingClaimStateProbe` port that returns only `claimable`, `claimed`, or `unknown`; no cashu-ts, Coco, proof, mint SDK, or Nostr types in core.
+  - Add an `OutgoingEcashLifecycleUseCase` driving port with operations such as `recordTokenCreated`, `recordDeliveryAttempt`, `reconcileOpen`, `checkStatus`, `reclaim`, and `markClaimed`.
+  - Compose startup/resume recovery through a single `RecoveryCoordinator`, which calls incoming inbox processing and outgoing lifecycle reconciliation without UI importing adapters.
+- Lifecycle flow: token creation
+  - Prepare and execute Coco send operation.
+  - Save transaction as `pending + unclaimed` with token and operation id.
+  - Save outgoing lifecycle record with delivery `not_required` and claim `unclaimed`.
+  - On detail/open/resume/manual check, ask the adapter for claim state.
+  - If adapter returns `claimed`, finalize/mark claimed.
+  - If adapter returns `claimable`, keep reclaim available.
+  - If adapter returns `unknown`, keep prior terminal state if any, otherwise keep the waiting state and retry without exposing proof details.
+  - On reclaim, ask Coco to rollback/reclaim by operation id when available. If mint says already spent/finalized, settle as claimed instead of failing ambiguously.
+- Lifecycle flow: direct npub/nprofile send
+  - Prepare and execute same-mint token send.
+  - Save transaction and outgoing lifecycle record before publishing to relays.
+  - Publish NIP-17/NUT-18 delivery and record delivery result separately from claim result.
+  - If publish fails, mark delivery `publish_failed` and decide whether immediate reclaim is available.
+  - If publish succeeds, show `전송됨 · 수령 대기` until Coco finalization or adapter claim-state check returns `claimed`.
+  - Do not treat relay publish success as recipient claim.
+- Recovery flow:
+  - App unlock/start/resume should run guarded, throttled reconciliation of open outgoing lifecycle records.
+  - Reconciliation must be idempotent by `txId` and `operationId`.
+  - Reconciliation must never redeem/rollback the same token twice without checking the stored phase and adapter-reported claim state.
+  - If the app dies after Cashu operation success but before local DB update, the next run must derive the correct state from Coco operation state and adapter-reported claim state.
+  - If the app dies after relay publish or token creation but before local publish status save, stale `pending_publish` reconciliation marks delivery as `unknown` and continues claim-state probing; it must not republish blindly unless the operation is explicitly idempotent.
+- Transaction detail requirements:
+  - Replace generic `pending` copy for outgoing eCash tokens with derived lifecycle status.
+  - Show token copy/QR/share only when the token should still be shareable and not fully reclaimed.
+  - Show reclaim CTA only when the claim state is `unclaimed` and the latest adapter result is either `claimable` or not yet contradicted by a failed/unknown check.
+  - Provide a manual `상태 확인` action for mint/network check failures.
+  - Show npub/nprofile send detail as `전송 (npub)` / `전송 (nprofile)` while status explains delivery/claim state.
+- Security and architecture constraints:
+  - Never log or toast raw token values, proofs, private keys, nsec, or derived secrets.
+  - No hardcoded relay, mint, private key, or recipient values.
+  - No direct adapter, module, Dexie, Coco, or cashu-ts import from UI or core services.
+  - Ports must remain protocol-neutral; Cashu/Nostr-specific names stay in adapters/composition or explicit metadata only when user-facing labeling requires it.
+  - Reclaim/claim resolution must use adapter-reported claim state and Coco operation state as the source of truth, not local UI state.
+  - Core code must not contain proof-level terminology or assumptions.
+- Migration/backward compatibility:
+  - Existing `pendingSendTokens` and `transactions` with `pending + unclaimed` must be projected into lifecycle records lazily or via startup reconciliation.
+  - Existing transactions without lifecycle records must still render correctly using current transaction metadata.
+  - No destructive migration should remove legacy pending records until the new lifecycle record is confirmed.
+- Verification plan:
+  - Unit test state derivation for all delivery/claim combinations.
+  - Unit test token create lifecycle: unclaimed, claimed, reclaimed, adapter unknown/check failure.
+  - Unit test npub send lifecycle: publish failed, published/unclaimed, published/claimed, published/reclaimed.
+  - Unit test recovery idempotency for app stop after token creation, after relay publish, during reclaim, and after Coco finalize before DB update.
+  - UI tests for Transaction Detail status copy and reclaim/status-check CTA visibility.
+  - Run `npx tsc --noEmit`, focused tests, `bun run lint`, `bun run test`, `bun run build`, wallet `hex-review`, hardcoding/security scans, and `git diff --check`.
+
+Review
+- IncomingInbox was re-reviewed against the agreed requirements. Live and catch-up paths both persist first, process through `GiftWrapInboxService`, dedupe by event id, preserve `review_pending`, retry stale/failed rows, and route startup/resume catch-up through the same use case.
+- One Incoming issue was found and fixed: catch-up untrusted gift-wrap reviews were being enqueued as `source='recovery'`, which could drop npub/gift-wrap metadata after user approval. All GiftWrapInbox review entries now stay `source='gift-wrap'`; fallback legacy recovery remains separate.
+- Outgoing eCash lifecycle is now modeled separately from IncomingInbox. `OutgoingEcashLifecycleService` tracks token creation and direct npub/nprofile sends using delivery state plus claim state.
+- Core/domain does not model Cashu proof internals. The Cashu adapter inspects token/mint state and reports only `claimable`, `pending`, `claimed`, `reclaimed`, or `unknown` to core. Pending/ambiguous SDK proof transitions keep the user-facing waiting state instead of showing `상태 확인 실패`.
+- New outgoing lifecycle records are stored in Dexie (`outgoingEcashOperations`, DB version 19). Existing pending outgoing token transactions can be lazily projected into lifecycle records when status is queried.
+- Token creation records `delivery='not_required'`; direct npub/nprofile delivery records `pending_publish` then `published` or `publish_failed`.
+- Stale `pending_publish` records with a created token are converted to `delivery='unknown'` during reconciliation so an interrupted npub send can be checked/claimed/reclaimed instead of being stuck in a non-reclaimable publishing phase.
+- App start/resume recovery now also reconciles open outgoing eCash lifecycle records after Cashu initialization.
+- When outgoing claim checks detect a claimed token, the service finalizes the Coco send operation best-effort, removes pending-send records, settles the transaction as `claimed`, and emits the existing send/transaction events.
+- Reclaim/finalize observer paths now update outgoing lifecycle too, so Coco `send:finalized` and `send:rolled-back` events keep transaction detail and pending lists aligned.
+- Related outgoing flows were rechecked end-to-end: plain eCash token creation, direct npub/nprofile route execution and relay publish result, legacy pending outgoing transactions without lifecycle rows, Coco finalized/rolled-back observer events, manual transaction-detail status check, public `PaymentUseCase.completeSend/reclaim`, and reclaim fallback paths now all converge on the same outgoing lifecycle state.
+- Token creation and direct npub/nprofile send now persist the Coco send `operationId` before token execution completes. If the app stops after prepare/execute but before token metadata is fully written, startup/status reconciliation can still inspect the Coco operation state and either keep it recoverable, mark it claimed, or mark it reclaimed.
+- The Cashu claim-state adapter now uses SDK operation state when only `operationId` is available: `finalized` maps to claimed, `rolled_back` maps to reclaimed, and prepared/pending operations without token metadata remain recoverable instead of becoming an unrecoverable local-only pending row.
+- Existing-user update safety was rechecked. The current DB version bump adds new Dexie tables only and does not clear or rewrite `encryptedWallet`, settings, proofs, or transactions. A pre-existing risky fallback was fixed: if initial wallet/settings DB loading fails during update, the app now shows a retryable wallet-load error instead of falling through to onboarding/new-wallet creation.
+- Transaction detail now shows lifecycle-derived states such as `수령 대기`, `전송됨 · 수령 대기`, `수령 완료`, `회수 완료`, and `전송 실패` instead of raw generic `처리중` for outgoing eCash. Normal `PENDING` proof transitions no longer show `상태 확인 실패`.
+- Verification passed: `npx tsc --noEmit`, focused outgoing/incoming/reclaim/payment/route/transaction-detail tests, `bun run lint`, full `bun run test:run` (103 files / 730 tests), `bun run build`, wallet `hex-review` (587 files / 0 violations), targeted security/hardcoding scan, and `git diff --check`.
+- Build still emits the existing Vite dynamic/static import and large chunk warnings; no new failure was introduced.
+
+# Current Task — Robust npub Gift-Wrap Receive Sync
+
+- [x] Document design and risk review before implementation
+- [x] Prevent one-off Nostr send/fetch relays from replacing the wallet's receive relay target set
+- [x] Make gift-wrap fetch cursor-safe with NIP-17/59 timestamp overlap and `since` support
+- [x] Persist incoming gift-wrap events before redeeming so live subscription and catch-up fetch share one inbox
+- [x] Route live, resume, and startup gift-wrap receive through one idempotent processor
+- [x] Persist untrusted-mint review state so restart/resume cannot drop review-required tokens
+- [x] Add stale processing recovery and Coco receive-operation recovery coverage for interrupted token receives
+- [x] Rewire startup/resume sync with throttling and duplicate execution guards
+- [x] Run focused tests, full tests/build, hex-review, security/hardcoding scans, and `git diff --check`
+
+Design
+- Nostr gift-wrap receipt has two discovery paths: live subscription and catch-up fetch. Both must only ingest events into a persistent inbox keyed by `eventId`; neither path should redeem directly.
+- The inbox is the processing source of truth with statuses: `pending`, `processing`, `review_pending`, `processed`, `failed`, and `skipped`.
+- Processing must use one path for all sources: parse gift-wrap content, verify token/mint, queue untrusted tokens for user review, redeem trusted tokens via `IncomingPaymentService`, settle linked receive requests, emit one receive event, and mark processed.
+- Catch-up fetch must use `since = cursor - overlap`, where overlap covers NIP-17/NIP-59 backdated wrapper/seal timestamps. Event duplication from overlap is handled by `eventId` upsert and processed-record checks.
+- Relay fetch progress must not be advanced in a way that can skip failed relays. One-off send/fetch relay connections must not replace the gateway's long-lived receive relay target list.
+- If the PWA stops while a token is being redeemed, the next startup/resume must reset stale `processing` items and run Coco receive-operation recovery before deciding whether to retry or mark the event processed.
+- Untrusted-mint reviews are not complete until the user accepts or rejects them; this state must survive restart and must not be represented only by Zustand runtime state.
+
+Review Checklist
+- No UI-to-adapter/module import boundary widening.
+- No raw private key, nsec, or relay hardcoding.
+- No `hex-ignore`, workaround-only paths, or direct Dexie access from UI.
+- No duplicate redeem, duplicate toast, duplicate transaction, or skipped review when live and fetch see the same event.
+- No reliance on NIP-17 wrapper `created_at` without at least a two-day overlap.
+- No receive relay subscription loss after direct npub send to another user's DM relays.
+
+Review
+- Live gift-wrap subscription and startup/resume catch-up now both first persist unwrapped messages into a Dexie-backed inbox keyed by `eventId`. Token parsing/redeem/review/ACK happens only through `GiftWrapInboxService`, so live and fetch paths no longer have separate redeem logic.
+- Relay fetch uses per-relay cursors with a two-day-plus overlap for NIP-17/NIP-59 randomized timestamps. `since=0` is handled explicitly instead of being dropped as falsy.
+- Nostr one-off send/fetch relays are connected with `ensureRelays()` and no longer replace the gateway's long-lived target relay set. `connect(settings.relays)` remains the only target-set update path, and active subscriptions resubscribe when settings relays change.
+- `nostr-crypto.unwrapEvent` now explicitly decrypts gift-wrap → seal → rumor, verifies the seal signature, and rejects a rumor whose `pubkey` does not match the seal author. Tests cover the happy path and mismatch rejection.
+- Untrusted mint receipts persist as `review_pending` inbox items with token metadata, then requeue into the existing review flow after restart/resume until the user accepts or rejects. Accept/reject now marks the persisted inbox item processed/skipped as well as the existing processed store.
+- Startup/resume catch-up is throttled and guarded against concurrent execution. It waits for Cashu module initialization before starting the watcher or processing catch-up, preventing unlock-time receive races.
+- `payment.recoverAll()` now includes Coco receive-operation recovery, so an interrupted `ops.receive` can be reconciled on startup/resume before gift-wrap processing retries.
+- Existing recovery `syncAll()` is wired to the same gift-wrap inbox processor in the app composition, avoiding a second direct redeem path.
+- Validation passed: `npx tsc --noEmit`, focused gift-wrap/nostr/cashu/recovery/bootstrap tests, `bun run lint`, `bun run test` (100 files / 712 tests), `bun run build`, wallet `hex-review` (580 files / 0 violations), and `git diff --check`.
+- Manual scan found no new hardcoded relay/private-key/nsec values, no `hex-ignore`, no unsafe HTML, and no new UI-to-adapter/module/composition imports in the changed runtime paths. The remaining TODO/workaround matches are pre-existing Cashu/bootstrap comments outside this change.
+
+# Current Task — Name Truncation + npub History Labels
+
+- [x] Truncate long wallet/contact names on final confirmation screens without changing protocol data
+- [x] Label direct npub transaction history as send/receive via npub
+- [x] Rename wallet recovery settings entry to include verification in the product tone
+- [x] Review whether contact names can be displayed for incoming address-book transactions without implementing it
+- [x] Verify lint/typecheck/tests/build, hex-review, and diff checks before completion
+
+Plan
+- Keep truncation as a display concern in UI only; never mutate mint names, contact names, addresses, or transaction metadata for layout.
+- Persist npub transport context as neutral transaction metadata at the route/payment boundary, then derive history labels from that metadata in shared history helpers.
+- Preserve contact display names separately from raw payment addresses across Send destination, amount, and confirm steps.
+- Keep address-book-name history display as a review-only architecture note unless it can be done without widening this patch.
+
+Review
+- Long names are now CSS-truncated only at display time, based on the rendered name area rather than a fixed character count. Send amount/confirm, eCash create confirm/result, and eCash register confirm screens do not mutate saved mint/contact names, addresses, memo, or transaction data.
+- Send amount/confirm steps now receive the contact display name separately from the raw address, so npub/nprofile address-book sends show the saved contact name instead of a shortened npub.
+- Returning from Send amount back to destination now restores both the validated input and raw address for contact selections, preventing the contact display name from being revalidated as an unrecognized address or showing technical badges like `Cashu Request`.
+- Send sending/complete steps now receive the same contact display name, so direct npub address-book sends do not fall back to the generic `eCash` recipient label at the end of the flow. Manual direct npub/nprofile sends now fall back to a shortened npub/nprofile target instead of `eCash`. Sending/complete copy also keeps localized particles/prepositions (`에게`, `へ`, `to`, `ke`, `a`) attached to the recipient name while truncating only the name.
+- Send/create confirmation copy now groups localized particles/prepositions with the adjacent name token across supported languages, so very narrow screens truncate the name token instead of leaving `to`, `from`, `?`, `에게`, `에서`, `へ`, or similar fragments stranded on separate lines. The name token no longer uses a fixed viewport width; it now flexes to the remaining phrase width.
+- Direct npub/nprofile sends now persist counterparty address metadata from the route-execution boundary. Gift-wrap receives now pass source/counterparty metadata through `IncomingPaymentUseCase` into the redeemed transaction.
+- Shared history helpers label those transactions as `전송 (npub)` / `수신 (npub)` in Korean and equivalent localized labels elsewhere. Home/Mint Detail rows, History rows, CSV export, and Transaction Detail use the same label source.
+- Settings wallet-management entry/modal title now uses `지갑 점검 및 복구`, which covers both current-wallet verification and recovery/import flows without exposing implementation details.
+- Address-book-name display for incoming npub transactions is feasible but not implemented here. The current receive metadata stores sender hex pubkey, while contacts are stored as npub/nprofile strings and the contact repository matches exact address strings. A proper follow-up should normalize/store `pubkeyHex` for npub/nprofile contacts or add a `findByNostrPubkey` use-case, then build a contact-name map once in the UI/history hook instead of querying per row.
+- Verification passed: `npx tsc --noEmit`, focused Vitest files including send display-name regressions, `bun run lint`, `bun run test` (99 files / 707 tests), `bun run build`, `node .claude/skills/hex-review/scripts/check-hex-violations.mjs src` (575 files / 0 violations), and `git diff --check`.
+- Manual rule scan found no new secrets, hardcoded private keys, `hex-ignore`, unsafe HTML, or UI-to-adapter/module/composition imports in touched runtime files. The only touched-file TODO match is an existing `PaymentService.findModuleForAccount` TODO unrelated to this patch.
+
 # Current Task — Wallet Recovery + npub Send + Name Limits
 
 - [x] Re-read root/wallet rules and current lessons before implementation
