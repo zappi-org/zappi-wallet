@@ -368,6 +368,88 @@ export class PaymentService implements PaymentUseCase {
     }
   }
 
+  // ─── Check Alive (pending quote status) ───
+
+  async checkAlive(params: {
+    requestId: string
+    accountId?: string
+  }): Promise<boolean> {
+    for (const module of this.modules) {
+      if (!module.isEnabled()) continue
+      for (const adapter of module.getPaymentAdapters()) {
+        if (adapter.checkAlive) {
+          try {
+            const alive = await adapter.checkAlive({ requestId: params.requestId, accountId: params.accountId })
+            if (alive) return true
+          } catch {
+            // continue to next adapter
+          }
+        }
+      }
+    }
+    return false
+  }
+
+  // ─── Query Receive Status (detailed mint quote state) ───
+
+  async queryReceiveStatus(params: {
+    requestId: string
+    accountId?: string
+  }): Promise<Result<{ state: string; isAlive: boolean }, BaseError>> {
+    const adapters = this.findAdaptersForAccount(params.accountId ?? '')
+
+    for (const adapter of adapters) {
+      if (adapter.queryReceiveStatus) {
+        try {
+          const result = await adapter.queryReceiveStatus({
+            requestId: params.requestId,
+            accountId: params.accountId,
+          })
+          const isAlive = ['UNPAID', 'PAID', 'ISSUED'].includes(result.state)
+          return Ok({ state: result.state, isAlive })
+        } catch {
+          // continue to next adapter
+        }
+      } else if (adapter.checkAlive) {
+        try {
+          const alive = await adapter.checkAlive({
+            requestId: params.requestId,
+            accountId: params.accountId,
+          })
+          if (alive) {
+            return Ok({ state: 'unknown', isAlive: true })
+          }
+        } catch {
+          // continue
+        }
+      }
+    }
+    return Ok({ state: 'EXPIRED', isAlive: false })
+  }
+
+  // ─── Claim Receive Request (redeem paid mint quote) ───
+
+  async claimReceiveRequest(params: {
+    requestId: string
+    accountId: string
+  }): Promise<Result<{ amount: Amount }, BaseError>> {
+    const adapters = this.findAdaptersForAccount(params.accountId)
+    for (const adapter of adapters) {
+      if (adapter.claimReceiveRequest) {
+        try {
+          const result = await adapter.claimReceiveRequest({
+            requestId: params.requestId,
+            accountId: params.accountId,
+          })
+          return Ok(result)
+        } catch (error) {
+          return Err(toBaseError(error))
+        }
+      }
+    }
+    return Err(new AdapterNotFoundError('No adapter supports claiming receive requests'))
+  }
+
   // ─── Inspect Input ───
 
   async inspectInput(params: {

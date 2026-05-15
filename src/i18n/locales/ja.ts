@@ -275,6 +275,10 @@ export default {
     findUnusedTokens: '未使用トークンを探す',
     mnemonicBackup: 'ニーモニックバックアップ',
 
+    // TLS Test
+    tlsTest: 'TLS テスト',
+    tlsTestDesc: 'TransferLifecycleService のテスト',
+
     // Logout
     logout: 'ログアウト',
     version: 'Zappi v{{version}}',

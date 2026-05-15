@@ -259,6 +259,24 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
     return quote?.state === 'UNPAID' || quote?.state === 'PAID' || quote?.state === 'ISSUED'
   }
 
+  async queryReceiveStatus(params: CheckAliveParams): Promise<{ state: string }> {
+    if (!params.accountId) {
+      return { state: 'UNKNOWN' }
+    }
+    const quote = await this.backend.checkMintQuote(params.accountId, params.requestId)
+    return { state: quote?.state ?? 'UNKNOWN' }
+  }
+
+  async claimReceiveRequest(params: { requestId: string; accountId: string }): Promise<{ amount: Amount }> {
+    const quote = await this.backend.checkMintQuote(params.accountId, params.requestId)
+    if (!quote) {
+      throw new Error('Quote not found')
+    }
+    // Redeem the paid quote — backend resolves the actual amount internally
+    await this.backend.redeemMintQuote(params.accountId, params.requestId, 0)
+    return { amount: sat(0) }
+  }
+
   // ─── 복구 ───
 
   async recoverPending(): Promise<RecoveryReport> {

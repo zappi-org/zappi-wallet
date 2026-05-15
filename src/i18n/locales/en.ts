@@ -358,6 +358,16 @@ export default {
     findUnusedTokens: 'Find Unused Tokens',
     mnemonicBackup: 'Mnemonic Backup',
 
+    // TLS Test
+    tlsTest: 'TLS Test',
+    tlsTestDesc: 'Test TransferLifecycleService flows',
+    tlsBolt11Send: 'Bolt11 Send (melt)',
+    tlsBolt11Receive: 'Bolt11 Receive (minting)',
+    tlsEcashCreate: 'Create Ecash',
+    tlsEcashRedeem: 'Redeem Ecash',
+    tlsGiftWrap: 'Receive via GiftWrap',
+    tlsCreq: 'Receive via Creq',
+
     // Logout
     logout: 'Logout',
     version: 'Zappi v{{version}}',

@@ -63,6 +63,10 @@ export interface PaymentMethodAdapter {
 
   checkAlive?(params: CheckAliveParams): Promise<boolean>
 
+  // ─── 받기 상태 조회 및 클레임 ───
+  queryReceiveStatus?(params: CheckAliveParams): Promise<{ state: string }>
+  claimReceiveRequest?(params: { requestId: string; accountId: string }): Promise<{ amount: Amount }>
+
   // ─── 복구 ───
   recoverPending(): Promise<RecoveryReport>
 }

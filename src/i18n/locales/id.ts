@@ -275,6 +275,10 @@ export default {
     findUnusedTokens: 'Cari Token Tidak Terpakai',
     mnemonicBackup: 'Cadangan Mnemonic',
 
+    // TLS Test
+    tlsTest: 'TLS Test',
+    tlsTestDesc: 'Uji alur TransferLifecycleService',
+
     // Logout
     logout: 'Keluar',
     version: 'Zappi v{{version}}',

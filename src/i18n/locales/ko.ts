@@ -358,6 +358,10 @@ export default {
     findUnusedTokens: '미사용 토큰 찾기',
     mnemonicBackup: '니모닉 백업',
 
+    // TLS Test
+    tlsTest: 'TLS 테스트',
+    tlsTestDesc: 'TransferLifecycleService 흐름 테스트',
+
     // Logout
     logout: '로그아웃',
     version: 'Zappi v{{version}}',

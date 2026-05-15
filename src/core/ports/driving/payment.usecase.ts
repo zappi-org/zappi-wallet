@@ -84,6 +84,21 @@ export interface PaymentUseCase {
     transactionId: string
   }): Promise<Result<RedeemFeeEstimate, BaseError>>
 
+  checkAlive(params: {
+    requestId: string
+    accountId?: string
+  }): Promise<boolean>
+
+  queryReceiveStatus(params: {
+    requestId: string
+    accountId?: string
+  }): Promise<Result<{ state: string; isAlive: boolean }, BaseError>>
+
+  claimReceiveRequest(params: {
+    requestId: string
+    accountId: string
+  }): Promise<Result<{ amount: Amount }, BaseError>>
+
   recoverAll(): Promise<RecoveryReport[]>
   recoverAccounts(params: {
     accountIds: string[]
