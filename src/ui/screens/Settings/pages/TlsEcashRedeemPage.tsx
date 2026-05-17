@@ -3,7 +3,9 @@ import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Wallet, RotateCcw } from 'lucide-react'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { useAppStore } from '@/store'
+import { createPendingTransfer } from '@/core/domain/pending-transfer'
 import { Button } from '@/ui/components/common/Button'
+import { getDecodedToken } from 'coco-cashu-core'
 
 interface TlsEcashRedeemPageProps {
   onBack: () => void
@@ -30,18 +32,42 @@ export function TlsEcashRedeemPage({ onBack }: TlsEcashRedeemPageProps) {
     setLastResult(null)
 
     try {
-      const result = await registry.incomingPayment.processIncoming({
-        payload: token.trim(),
-        externalId: crypto.randomUUID(),
-      })
-      setLastResult(
-        `Status: ${result.status}\nAmount: ${result.amount ?? 'N/A'}\nFee: ${result.fee ?? 'N/A'}`,
-      )
-      if (result.status === 'success') {
-        addToast({ type: 'success', message: `Redeemed ${result.amount} sat` })
-      } else {
-        addToast({ type: 'error', message: result.error ?? 'Redeem failed' })
+      const trimmed = token.trim()
+      const txId = crypto.randomUUID()
+
+      // Parse token to extract amount and mintUrl for transaction history
+      let amount = 0
+      let mintUrl = ''
+      try {
+        const decoded = getDecodedToken(trimmed)
+        mintUrl = decoded.mint ?? ''
+        amount = decoded.proofs?.reduce((sum: number, p: { amount: number }) => sum + (p.amount ?? 0), 0) ?? 0
+      } catch {
+        // Token parsing failed, but we can still try to redeem it
+        // The redeem process will handle the actual validation
       }
+
+      const transfer = createPendingTransfer({
+        id: crypto.randomUUID(),
+        txId,
+        direction: 'incoming',
+        finality: 'deferred',
+        onExpiry: 'expire',
+        transportRef: {
+          protocol: 'ecash',
+          type: 'direct-token',
+          token: trimmed,
+          amount,
+          mintUrl,
+        },
+        now: Date.now(),
+      })
+
+      await registry.transferLifecycle.registerTransfer(transfer)
+      await registry.transferLifecycle.processIncomingTransfer(transfer.id)
+
+      setLastResult(`Transfer: ${transfer.id}\nPhase: settled`)
+      addToast({ type: 'success', message: 'Token redeemed (TLS)' })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       setLastResult(`Error: ${msg}`)
@@ -63,10 +89,9 @@ export function TlsEcashRedeemPage({ onBack }: TlsEcashRedeemPageProps) {
     }
   }
 
-  const giftWrapTransfers = pendingTransfers.filter(
-    (t) => (t.transportRef as { type?: string })?.type === 'nostr-giftwrap',
-  )
-  const sorted = [...giftWrapTransfers].sort((a, b) => b.createdAt - a.createdAt)
+  const incomingTransfers = pendingTransfers
+    .filter((t) => t.direction === 'incoming')
+    .sort((a, b) => b.createdAt - a.createdAt)
 
   return (
     <div className="h-full bg-background text-foreground flex flex-col overflow-hidden">
@@ -104,7 +129,7 @@ export function TlsEcashRedeemPage({ onBack }: TlsEcashRedeemPageProps) {
             icon={<Wallet className="size-4" />}
             className="w-full mt-2"
           >
-            Redeem Token
+            Redeem Token (TLS)
           </Button>
           <Button
             variant="outline"
@@ -126,26 +151,28 @@ export function TlsEcashRedeemPage({ onBack }: TlsEcashRedeemPageProps) {
           </div>
         )}
 
-        {/* Gift-wrap pending list */}
+        {/* Incoming pending list */}
         <div>
           <h2 className="text-headline font-semibold mb-3">
-            GiftWrap Transfers ({sorted.length})
+            Incoming Transfers ({incomingTransfers.length})
           </h2>
-          {sorted.length === 0 ? (
-            <p className="text-body text-foreground-muted">No giftwrap transfers</p>
+          {incomingTransfers.length === 0 ? (
+            <p className="text-body text-foreground-muted">No incoming transfers</p>
           ) : (
             <div className="flex flex-col gap-2">
-              {sorted.map((t) => {
+              {incomingTransfers.map((t) => {
                 const ref = t.transportRef as {
+                  type?: string
                   sender?: string
                   content?: string
                   eventId?: string
+                  token?: string
                 }
                 return (
                   <div key={t.id} className="bg-background-card rounded-card p-3 flex flex-col gap-1">
                     <div className="flex items-center justify-between">
                       <span className="text-caption font-semibold uppercase text-foreground-muted">
-                        {t.direction}
+                        {ref.type ?? t.direction}
                       </span>
                       <span
                         className={`text-label font-semibold px-2 py-0.5 rounded-full ${
@@ -159,16 +186,32 @@ export function TlsEcashRedeemPage({ onBack }: TlsEcashRedeemPageProps) {
                         {t.phase}
                       </span>
                     </div>
-                    <p className="text-caption text-foreground-muted truncate">
-                      Sender: {ref.sender ?? 'unknown'}
+                    <p className="text-caption text-foreground-muted truncate">ID: {t.id}</p>
+                    <p className="text-caption text-foreground-muted truncate">Tx: {t.txId}</p>
+                    {ref.sender && (
+                      <p className="text-caption text-foreground-muted truncate">
+                        Sender: {ref.sender}
+                      </p>
+                    )}
+                    {ref.eventId && (
+                      <p className="text-caption text-foreground-muted truncate">
+                        Event: {ref.eventId.substring(0, 16)}...
+                      </p>
+                    )}
+                    <p className="text-caption text-foreground-muted">
+                      {new Date(t.createdAt).toLocaleTimeString()}
                     </p>
-                    <p className="text-caption text-foreground-muted truncate">
-                      Event: {ref.eventId?.substring(0, 16)}...
-                    </p>
-                    <p className="text-body break-all font-mono text-xs text-foreground/80 mt-1">
-                      {ref.content?.substring(0, 100)}
-                      {ref.content && ref.content.length > 100 ? '...' : ''}
-                    </p>
+                    {ref.content && (
+                      <p className="text-body break-all font-mono text-xs text-foreground/80 mt-1">
+                        {ref.content.substring(0, 100)}
+                        {ref.content.length > 100 ? '...' : ''}
+                      </p>
+                    )}
+                    {ref.token && (
+                      <p className="text-body break-all font-mono text-xs text-foreground/80 mt-1">
+                        {ref.token.substring(0, 80)}...
+                      </p>
+                    )}
                   </div>
                 )
               })}

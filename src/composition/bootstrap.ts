@@ -124,6 +124,7 @@ import { createSupportService } from './support'
 import { IncomingPaymentService } from '@/core/services/incoming-payment.service'
 import { createPendingItemsService } from './pending-items'
 import { connectEventStoreBridge } from './event-store-bridge'
+import { connectTransferTxBridge } from './transfer-tx-bridge'
 import { connectCocoEventBridge } from './coco-event-bridge'
 import { connectGiftWrapSettlementBridge } from './gift-wrap-settlement.bridge'
 import { GiftWrapWatcher } from './gift-wrap.watcher'
@@ -345,6 +346,9 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     balanceRefresh,
     receiveRequest,
   })
+
+  // Transfer → Transaction Bridge (TLS 경로의 거래내역 저장)
+  connectTransferTxBridge({ eventBus, txRepo, triggerTxRefresh: () => useAppStore.getState().triggerTxRefresh() })
 
   // 8. Lifecycle: activate (Coco init + observers + watchers + bridge)
   const activate = async () => {
