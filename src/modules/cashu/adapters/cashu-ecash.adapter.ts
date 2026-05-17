@@ -118,6 +118,8 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
         type: 'ecash-token',
         operationId: prepared.operationId,
         recipient: intent.recipient,
+        amount: toNumber(intent.amount), // Transaction 생성용
+        mintUrl: intent.accountId, // Transaction 생성용
       },
       now: Date.now(),
     })
@@ -158,10 +160,19 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
       deliveryId = publishResult.deliveryId
     }
 
+    // 기존 transportRef 유지하면서 token 추가
+    const prevRef = transfer.transportRef as {
+      type: string
+      operationId: string
+      recipient?: string
+      amount: number
+      mintUrl: string
+    }
+
     return {
       ...transitionPhase(transfer, 'submitted', Date.now()),
       transportRef: {
-        ...(transfer.transportRef as Record<string, unknown>),
+        ...prevRef,
         token: result.token,
         deliveryId,
       },

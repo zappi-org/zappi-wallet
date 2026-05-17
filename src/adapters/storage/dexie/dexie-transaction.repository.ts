@@ -31,12 +31,13 @@ const TYPE_TO_INTENT: Record<string, TransactionIntent | undefined> = {
 }
 
 // domain method+protocol → legacy type 역매핑
-function methodToLegacyType(method: string, protocol?: string, intent?: TransactionIntent): string {
+// protocol을 primary key로 사용하여 method 값의 불일치 문제 방지
+function methodToLegacyType(protocol: string, intent?: TransactionIntent): string {
   if (intent === 'swap') return 'swap'
   if (intent === 'nutzap') return 'nutzap'
-  if (method === 'cashu:ecash' && protocol === 'cashu-token') return 'ecash-token'
-  if (method === 'cashu:lightning') return 'lightning'
-  if (method === 'cashu:ecash') return 'ecash'
+  if (protocol === 'cashu-token') return 'ecash-token'
+  if (protocol === 'nut18') return 'ecash'
+  if (protocol === 'bolt11') return 'lightning'
   return 'lightning'
 }
 
@@ -114,7 +115,7 @@ function toDomain(legacy: LegacyTransaction): Transaction {
 
 function toLegacy(domain: Transaction): LegacyTransaction {
   const meta = domain.metadata ?? {}
-  const { status, failureReason } = domainStatusToLegacy(domain.status, domain.outcome)
+  const { status, failureReason, tokenState: legacyTokenState } = domainStatusToLegacy(domain.status, domain.outcome)
   const feeNumber = domain.fee
     ? toNumber(domain.fee.effective ?? domain.fee.quoted)
     : undefined
@@ -122,7 +123,7 @@ function toLegacy(domain: Transaction): LegacyTransaction {
   return {
     id: domain.id,
     direction: domain.direction,
-    type: methodToLegacyType(domain.method, domain.protocol, domain.intent) as LegacyTransaction['type'],
+    type: methodToLegacyType(domain.protocol, domain.intent) as LegacyTransaction['type'],
     amount: toNumber(domain.amount),
     mintUrl: domain.accountId,
     status,
@@ -140,7 +141,7 @@ function toLegacy(domain: Transaction): LegacyTransaction {
     },
     // legacy flat 필드 복원
     token: meta.token as string | undefined,
-    tokenState: meta.tokenState as LegacyTransaction['tokenState'],
+    tokenState: (meta.tokenState ?? legacyTokenState) as LegacyTransaction['tokenState'],
     operationId: meta.operationId as string | undefined,
     bolt11: meta.bolt11 as string | undefined,
     preimage: meta.preimage as string | undefined,
@@ -249,9 +250,8 @@ export class DexieTransactionRepository implements TransactionRepository {
     if (patch.method !== undefined || patch.protocol !== undefined) {
       const existingTx = await getExisting()
       if (existingTx) {
-        const method = patch.method ?? TYPE_TO_METHOD[existingTx.type] ?? 'cashu:lightning'
         const protocol = patch.protocol ?? TYPE_TO_PROTOCOL[existingTx.type] ?? 'bolt11'
-        legacyPatch.type = methodToLegacyType(method, protocol, patch.intent) as LegacyTransaction['type']
+        legacyPatch.type = methodToLegacyType(protocol, patch.intent) as LegacyTransaction['type']
       }
     }
     if (patch.completedAt !== undefined) legacyPatch.completedAt = patch.completedAt

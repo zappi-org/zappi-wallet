@@ -20,6 +20,11 @@ export class TransferLifecycleService {
     private readonly eventBus: EventBus,
   ) {}
 
+  /** Transfer 조회 */
+  async getTransfer(id: string): Promise<PendingTransfer | null> {
+    return this.transferStore.get(id)
+  }
+
   /** 주기적 폴링 시작 */
   startPolling(intervalMs = 5000): void {
     if (this.pollTimer) return
@@ -104,19 +109,53 @@ export class TransferLifecycleService {
   }
 
   async processIncomingTransfer(transferId: string): Promise<void> {
+    console.log('[TLS] processIncomingTransfer called:', transferId)
     const transfer = await this.transferStore.get(transferId)
-    if (!transfer || transfer.direction !== 'incoming') return
+    console.log('[TLS] Got transfer:', transfer?.id, 'direction:', transfer?.direction)
+    if (!transfer || transfer.direction !== 'incoming') {
+      console.log('[TLS] Early return: no transfer or wrong direction')
+      return
+    }
 
     const operator = this.findOperator(transfer)
-    if (!operator?.processIncoming) return
+    console.log('[TLS] Found operator:', operator?.protocol)
+    if (!operator?.processIncoming) {
+      console.log('[TLS] Early return: no operator or processIncoming')
+      return
+    }
 
-    const processed = await operator.processIncoming(transfer)
-    await this.transferStore.update(processed.id, processed)
+    try {
+      console.log('[TLS] Calling operator.processIncoming...')
+      const processed = await operator.processIncoming(transfer)
+      console.log('[TLS] processIncoming result phase:', processed.phase)
+      await this.transferStore.update(processed.id, processed)
 
-    this.eventBus.emit({
-      type: 'incoming:processed',
-      payload: { transfer: processed },
-    })
+      this.eventBus.emit({
+        type: 'incoming:processed',
+        payload: { transfer: processed },
+      })
+
+      if (isTerminal(processed.phase)) {
+        await this.finalizeTransfer(processed)
+      }
+    } catch (error) {
+      console.error('[TLS] processIncomingTransfer error:', error)
+      // 에러 발생 시 failed 상태로 전환
+      const failed = transitionPhase(transfer, 'failed', Date.now())
+      await this.transferStore.update(failed.id, failed)
+
+      this.eventBus.emit({
+        type: 'transfer:failed',
+        payload: { transfer: failed, reason: String(error) },
+      })
+
+      throw error // 호출자에게 에러 전파
+    }
+  }
+
+  /** 외부에서 생성한 PendingTransfer를 store에 등록 */
+  async registerTransfer(transfer: PendingTransfer): Promise<void> {
+    await this.transferStore.create(transfer)
   }
 
   /** 사용자가 "받기" 클릭 */
@@ -236,6 +275,8 @@ export class TransferLifecycleService {
   private findOperator(transfer: PendingTransfer): TransferOperator | undefined {
     const ref = transfer.transportRef as { type?: string; protocol?: string }
     const key = ref.protocol || ref.type?.split('-')[0]
+    console.log('[TLS] findOperator: type=', ref.type, 'protocol=', ref.protocol, 'key=', key)
+    console.log('[TLS] Available operators:', Array.from(this.operators.keys()))
     return key ? this.operators.get(key) : undefined
   }
 

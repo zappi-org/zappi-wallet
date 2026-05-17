@@ -653,31 +653,35 @@ export default function MainApp() {
 
   const handleCreateEcashToken = useCallback(async (amount: number, preferredMintUrl?: string, options?: { p2pkPubkey?: string; memo?: string }): Promise<{ token: string; txId: string; operationId: string } | null> => {
     if (isSendingEcashRef.current) return null
-    if (!serviceRegistry?.payment) {
+    if (!serviceRegistry?.transferLifecycle) {
       console.warn('[MainApp] ServiceRegistry not ready — cannot create ecash token')
       return null
     }
     isSendingEcashRef.current = true
     try {
-      // Phase 5: PaymentUseCase.send(destination없음 = 토큰 생성)
-      // PaymentService가 내부적으로 민트 선택 + prepare/execute + TX 기록 전부 처리
-      const accountId = preferredMintUrl ?? ''
-      const result = await serviceRegistry.payment.send({
-        accountId,
-        amount: sat(amount),
-        memo: options?.memo,
-        options: options?.p2pkPubkey ? { lockingCondition: { type: 'p2pk', data: options.p2pkPubkey } } : undefined,
-      })
+      // TLS 경로: TransferLifecycleService 사용
+      // TODO: P2PK locking condition은 TransferIntent에 추가 필요
+      const txId = crypto.randomUUID()
+      const transfer = await serviceRegistry.transferLifecycle.initiateTransfer(
+        {
+          txId,
+          accountId: preferredMintUrl ?? '',
+          amount: sat(amount),
+          memo: options?.memo,
+          // recipient 없음 = token creation mode
+        },
+        'ecash'
+      )
 
-      if (!result.ok) {
-        console.error('Failed to create ecash token:', result.error.message)
-        if (result.error.code === 'INSUFFICIENT_BALANCE') throw new InsufficientBalanceError(amount, 0)
+      // Ecash는 prepare+execute가 동기적으로 완료됨
+      // transportRef.token에 생성된 토큰이 저장됨
+      const token = (transfer.transportRef as { token?: string })?.token ?? ''
+      const operationId = (transfer.transportRef as { operationId?: string })?.operationId ?? ''
+
+      if (!token) {
+        console.error('[MainApp] Token creation failed: no token in transportRef')
         return null
       }
-
-      const token = (result.value.data?.token as string) ?? ''
-      const operationId = (result.value.data?.operationId as string) ?? ''
-      const txId = result.value.transactionId
 
       await refreshBalance()
       broadcastSync('balance_changed')
