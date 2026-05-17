@@ -60,7 +60,7 @@ export function createMockMeltQuote(overrides: Partial<{
 }
 
 /**
- * Mock CashuWallet
+ * Mock Wallet
  */
 export function createMockWallet() {
   return {
@@ -93,8 +93,8 @@ export function createMockWallet() {
  * Mock cashu-ts module
  */
 export const mockCashuTs = {
-  CashuWallet: vi.fn().mockImplementation(() => createMockWallet()),
-  CashuMint: vi.fn().mockImplementation((mintUrl: string) => ({
+  Wallet: vi.fn().mockImplementation(() => createMockWallet()),
+  Mint: vi.fn().mockImplementation((mintUrl: string) => ({
     mintUrl,
     getInfo: vi.fn().mockResolvedValue({
       name: 'Mock Mint',

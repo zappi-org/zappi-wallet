@@ -219,12 +219,14 @@ export async function getSendOperationState(operationId: string): Promise<string
   return typeof op?.state === 'string' ? op.state : null;
 }
 
+// coco-cashu-core does not expose low-level Wallet/Mint instances,
+// so we reach down to @cashu/cashu-ts directly for checkProofsStates().
 export async function checkProofStates(token: string): Promise<ProofStateResult> {
   const cashuTs = await import('@cashu/cashu-ts');
   const decoded = cashuTs.getDecodedToken(token);
 
-  const wallet = new (cashuTs as unknown as { CashuWallet: new (mint: unknown) => { checkProofsStates(proofs: unknown[]): Promise<unknown[]> } }).CashuWallet(
-    new (cashuTs as unknown as { CashuMint: new (url: string) => unknown }).CashuMint(decoded.mint)
+  const wallet = new (cashuTs as unknown as { Wallet: new (mint: unknown) => { checkProofsStates(proofs: unknown[]): Promise<unknown[]> } }).Wallet(
+    new (cashuTs as unknown as { Mint: new (url: string) => unknown }).Mint(decoded.mint)
   );
   const states = await wallet.checkProofsStates(decoded.proofs);
 

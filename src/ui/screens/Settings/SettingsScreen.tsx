@@ -36,6 +36,7 @@ import { SupportPage } from './pages/SupportPage'
 import { TlsTestPage } from './pages/TlsTestPage'
 import { TlsBolt11SendPage } from './pages/TlsBolt11SendPage'
 import { TlsBolt11ReceivePage } from './pages/TlsBolt11ReceivePage'
+import { TlsEcashCreatePage } from './pages/TlsEcashCreatePage'
 
 export type SettingsPage =
   | 'category-profile' | 'category-preferences' | 'category-security' | 'category-wallet'
@@ -507,6 +508,8 @@ export function SettingsScreen({
         return <TlsBolt11SendPage onBack={closeDetail} />
       case 'tlsBolt11Receive':
         return <TlsBolt11ReceivePage onBack={closeDetail} />
+      case 'tlsEcashCreate':
+        return <TlsEcashCreatePage onBack={closeDetail} />
       default:
         return null
     }
