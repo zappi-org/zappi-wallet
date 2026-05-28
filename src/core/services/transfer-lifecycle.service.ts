@@ -10,6 +10,7 @@ import { isTerminal, canReclaim, canComplete, transitionPhase } from '@/core/dom
 import type { EventBus } from '@/core/events/event-bus'
 import type { PendingTransferStore } from '@/core/ports/driven/pending-transfer-store.port'
 import type { TransferIntent, TransferOperator } from '@/core/ports/driven/transfer-operator.port'
+import type { OperationMap } from '@/core/ports/driven/operation-map.port'
 
 export class TransferLifecycleService {
   private pollTimer: ReturnType<typeof setInterval> | null = null
@@ -18,6 +19,7 @@ export class TransferLifecycleService {
     private readonly transferStore: PendingTransferStore,
     private readonly operators: Map<string, TransferOperator>,
     private readonly eventBus: EventBus,
+    private readonly operationMap?: OperationMap,
   ) { }
 
   /** Transfer 조회 */
@@ -96,6 +98,13 @@ export class TransferLifecycleService {
     }
 
     const prepared = await operator.prepareReceive(intent)
+
+    // OperationMap에 quoteId → txId 등록 (mint-quote-observer가 동일 TX를 settle하도록)
+    const quoteId = (prepared.transportRef as { quoteId?: string })?.quoteId
+    if (quoteId && this.operationMap) {
+      this.operationMap.register(quoteId, intent.txId)
+    }
+
     // Incoming: quote/invoice 생성이 곧 제출(submission)이다
     const transfer = transitionPhase(prepared, 'submitted', Date.now())
     await this.transferStore.create(transfer)

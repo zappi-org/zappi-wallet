@@ -117,26 +117,30 @@ function extractMintFromTransfer(transfer: PendingTransfer): string {
 export function connectTransferTxBridge(deps: TransferTxBridgeDeps): () => void {
   const unsubscribers: (() => void)[] = []
 
-  // 1. Submitted → Pending Transaction 생성 (outgoing ecash)
+  // 1. Submitted → Pending Transaction 생성
   unsubscribers.push(
     deps.eventBus.on('transfer:submitted', async (event) => {
       const { transfer } = event.payload
 
+      // 이미 생성된 Transaction이 있는지 확인 (중복 방지)
+      try {
+        const existing = await deps.txRepo.getById(transfer.txId)
+        if (existing) {
+          return
+        }
+      } catch {
+        // continue
+      }
+
+      const amount = extractAmountFromTransfer(transfer)
+      const mint = extractMintFromTransfer(transfer)
+
+      const ref = transfer.transportRef as { type?: string; protocol?: string }
+      const protocol = ref?.protocol || ref?.type?.split('-')[0]
+
       // Outgoing: submitted/settled 모두 처리
       if (transfer.direction === 'outgoing') {
         try {
-          // 이미 생성된 Transaction이 있는지 확인 (중복 방지)
-          const existing = await deps.txRepo.getById(transfer.txId)
-          if (existing) {
-            return
-          }
-
-          const amount = extractAmountFromTransfer(transfer)
-          const mint = extractMintFromTransfer(transfer)
-
-          const ref = transfer.transportRef as { type?: string; protocol?: string }
-          const protocol = ref?.protocol || ref?.type?.split('-')[0]
-
           if (protocol === 'bolt11') {
             //bolt11 outgoing send
             const bolt11Ref = transfer.transportRef as { operationId?: string; request?: string; preimage?: string; feeReserve?: number } | undefined
@@ -180,6 +184,33 @@ export function connectTransferTxBridge(deps: TransferTxBridgeDeps): () => void 
           }
         } catch (error) {
           console.error('[TransferTxBridge] Failed to create pending transaction:', error)
+        }
+      }
+
+      // Incoming: pending TX 생성 (mint-quote-observer가 나중에 settle)
+      if (transfer.direction === 'incoming') {
+        try {
+          if (protocol === 'bolt11') {
+            const bolt11Ref = transfer.transportRef as { quoteId?: string; request?: string } | undefined
+            const baseTx = createTransaction({
+              id: transfer.txId,
+              direction: 'receive',
+              method: 'cashu:lightning',
+              protocol: 'bolt11',
+              amount: sat(amount),
+              accountId: mint,
+              metadata: {
+                quoteId: bolt11Ref?.quoteId,
+                bolt11: bolt11Ref?.request,
+                direction: transfer.direction,
+              },
+            })
+            await deps.txRepo.save(baseTx)
+            deps.triggerTxRefresh?.()
+          }
+          // ecash incoming은 필요 시 추가
+        } catch (error) {
+          console.error('[TransferTxBridge] Failed to create incoming transaction:', error)
         }
       }
     }),
