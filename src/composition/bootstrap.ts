@@ -286,6 +286,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     pendingTransferStore,
     operators,
     eventBus,
+    operationMap,
   )
 
   const disconnectGiftWrapSettlement = connectGiftWrapSettlementBridge(

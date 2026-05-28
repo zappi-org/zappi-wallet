@@ -144,11 +144,13 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
       finality: 'deferred',
       onExpiry: 'expire',
       expiresAt: quote.expiry * 1000,
+      amount: toNumber(intent.amount),
       transportRef: {
         type: 'bolt11-mint',
         quoteId: quote.quote,
         request: quote.request,
         mintUrl: intent.accountId,
+        amount: toNumber(intent.amount),
       },
       now: Date.now(),
     })

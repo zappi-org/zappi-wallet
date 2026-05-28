@@ -225,8 +225,8 @@ export default function MainApp() {
   const handleManualRefresh = useCallback(async () => {
     if (!serviceRegistry) return
     await refreshAndRecover()
-    serviceRegistry.mintHealth.checkAllMints(settings.mints).catch(() => {})
-    serviceRegistry.exchangeRate.refreshIfStale().catch(() => {})
+    serviceRegistry.mintHealth.checkAllMints(settings.mints).catch(() => { })
+    serviceRegistry.exchangeRate.refreshIfStale().catch(() => { })
   }, [serviceRegistry, refreshAndRecover, settings.mints])
 
   /** Universal input router — navigate based on validated input type. */
@@ -275,13 +275,13 @@ export default function MainApp() {
         setTransactions(txHistory)
 
         // Load cached exchange rates first, then fetch fresh in background
-        await preUnlock.exchangeRate.loadCachedRates().catch(() => {})
+        await preUnlock.exchangeRate.loadCachedRates().catch(() => { })
         preUnlock.exchangeRate.fetchRates()
 
         // Data retention: clean up old records
-        preUnlock.txRepo.deleteOlderThan(90).catch(() => {})
-        preUnlock.failedIncomingStore.cleanupNonRetryable(30).catch(() => {})
-        preUnlock.cleanupExpiredReceiveRequests().catch(() => {})
+        preUnlock.txRepo.deleteOlderThan(90).catch(() => { })
+        preUnlock.failedIncomingStore.cleanupNonRetryable(30).catch(() => { })
+        preUnlock.cleanupExpiredReceiveRequests().catch(() => { })
       } catch (error) {
         console.error('Init error:', error)
       } finally {
@@ -425,26 +425,28 @@ export default function MainApp() {
   const handleCreateInvoice = useCallback(async (amount: number, mintUrl: string) => {
     if (!mintUrl) return null
 
-    // Phase 5: PaymentUseCase.receive() 경유
     if (!serviceRegistry?.payment) {
       console.warn('[MainApp] ServiceRegistry not ready — cannot create invoice')
       return null
     }
+    //old receive
+    //const result = await serviceRegistry.payment.receive({
+    // accountId: mintUrl,
+    // protocol: 'bolt11',
+    // amount: sat(amount),
+    //})
 
-    const result = await serviceRegistry.payment.receive({
-      accountId: mintUrl,
-      protocol: 'bolt11',
-      amount: sat(amount),
-    })
-    if (result.ok) {
-      const req = result.value
-      return {
-        invoice: req.encoded,
-        quoteId: req.id,
-        expiry: req.expiresAt ? Math.floor(req.expiresAt / 1000) : Math.floor(Date.now() / 1000) + 600,
-      }
+    const transfer = await serviceRegistry.transferLifecycle.initiateIncomingTransfer(
+      { txId: crypto.randomUUID(), accountId: mintUrl, amount: sat(amount) }, 'bolt11'
+    )
+
+    const ref = transfer.transportRef as { request?: string, quoteId?: string }
+
+    return {
+      invoice: ref?.request ?? '',
+      quoteId: ref?.quoteId ?? '',
+      expiry: transfer.expiresAt ? Math.floor(transfer.expiresAt / 1000) : Math.floor(Date.now() / 1000) + 600,
     }
-    return null
   }, [serviceRegistry])
 
   const handleReceiveToken = useRedeemToken(serviceRegistry, () => {
@@ -969,148 +971,344 @@ export default function MainApp() {
   const mainContent = (
     <>
       <div className="relative h-dvh overflow-hidden">
-      <AnimatePresence mode="sync">
-        <PageTransition
-          key={currentScreen === 'token-detail' ? 'token' : currentScreen}
-          variant="fade"
-          className="absolute inset-0"
-        >
-          <Suspense fallback={<LoadingFallback />}>
-      {currentScreen === 'home' && (
-        <HomeScreen
-          onTransactions={(mintUrl?: string) => {
-            setHistoryInitialMintUrls(mintUrl ? [mintUrl] : undefined)
-            setCurrentScreen('history')
-          }}
-          onNotifications={() => setCurrentScreen('notifications')}
-          onAddMint={() => setCurrentScreen('add-mint')}
-          onMintDetails={(mint, index) => {
-            setSelectedMint(mint)
-            setSelectedMintIndex(index)
-            setPreviousScreen('home')
-            setCurrentScreen('mint-detail')
-          }}
-          onSend={(mintUrl) => {
-            setPreviousScreen('home')
+        <AnimatePresence mode="sync">
+          <PageTransition
+            key={currentScreen === 'token-detail' ? 'token' : currentScreen}
+            variant="fade"
+            className="absolute inset-0"
+          >
+            <Suspense fallback={<LoadingFallback />}>
+              {currentScreen === 'home' && (
+                <HomeScreen
+                  onTransactions={(mintUrl?: string) => {
+                    setHistoryInitialMintUrls(mintUrl ? [mintUrl] : undefined)
+                    setCurrentScreen('history')
+                  }}
+                  onNotifications={() => setCurrentScreen('notifications')}
+                  onAddMint={() => setCurrentScreen('add-mint')}
+                  onMintDetails={(mint, index) => {
+                    setSelectedMint(mint)
+                    setSelectedMintIndex(index)
+                    setPreviousScreen('home')
+                    setCurrentScreen('mint-detail')
+                  }}
+                  onSend={(mintUrl) => {
+                    setPreviousScreen('home')
 
-            setActiveMintUrl(mintUrl || null)
-            setValidatedScanData(null)
-            setScannedAmount(0)
-            setCurrentScreen('send')
-          }}
-          onReceive={(mintUrl) => {
-            setPreviousScreen('home')
-            setActiveMintUrl(mintUrl || null)
-            setValidatedScanData(null)
-            setScannedAmount(0)
-            setCurrentScreen('receive')
-          }}
-          onSelectTransaction={(tx) => {
-            setSelectedTransaction(tx)
-            setPreviousScreen('home')
-            setCurrentScreen('transaction-detail')
-          }}
-          onSaveSettings={handleSaveSettings}
-          onRefresh={handleManualRefresh}
-          transactions={transactions}
-        />
-      )}
+                    setActiveMintUrl(mintUrl || null)
+                    setValidatedScanData(null)
+                    setScannedAmount(0)
+                    setCurrentScreen('send')
+                  }}
+                  onReceive={(mintUrl) => {
+                    setPreviousScreen('home')
+                    setActiveMintUrl(mintUrl || null)
+                    setValidatedScanData(null)
+                    setScannedAmount(0)
+                    setCurrentScreen('receive')
+                  }}
+                  onSelectTransaction={(tx) => {
+                    setSelectedTransaction(tx)
+                    setPreviousScreen('home')
+                    setCurrentScreen('transaction-detail')
+                  }}
+                  onSaveSettings={handleSaveSettings}
+                  onRefresh={handleManualRefresh}
+                  transactions={transactions}
+                />
+              )}
 
-      {currentScreen === 'settings' && (
-        <SettingsScreen
-          onBack={() => handleTabSelect('wallet')}
-          onChangePassword={handleChangePassword}
-          onBackupMnemonic={handleBackupMnemonic}
-          onLogout={handleLogout}
-          onVerifyPin={handleVerifyPin}
-          onSaveSettings={handleSaveSettings}
-          onMintManagement={() => {
-            setPreviousScreen('settings')
-            setCurrentScreen('mint-management')
-          }}
-          onRelayManagement={() => {
-            setPreviousScreen('settings')
-            setCurrentScreen('relay-management')
-          }}
-          onChangeUsername={() => {
-            setPreviousScreen('settings')
-            setCurrentScreen('username-change')
-          }}
-          onTransfer={() => {
-            setPreviousScreen('settings')
-            setCurrentScreen('transfer')
-          }}
-          onAnalytics={() => {
-            setPreviousScreen('settings')
-            setCurrentScreen('analytics')
-          }}
-          onSubPageChange={setHasSettingsSubPage}
-        />
-      )}
+              {currentScreen === 'settings' && (
+                <SettingsScreen
+                  onBack={() => handleTabSelect('wallet')}
+                  onChangePassword={handleChangePassword}
+                  onBackupMnemonic={handleBackupMnemonic}
+                  onLogout={handleLogout}
+                  onVerifyPin={handleVerifyPin}
+                  onSaveSettings={handleSaveSettings}
+                  onMintManagement={() => {
+                    setPreviousScreen('settings')
+                    setCurrentScreen('mint-management')
+                  }}
+                  onRelayManagement={() => {
+                    setPreviousScreen('settings')
+                    setCurrentScreen('relay-management')
+                  }}
+                  onChangeUsername={() => {
+                    setPreviousScreen('settings')
+                    setCurrentScreen('username-change')
+                  }}
+                  onTransfer={() => {
+                    setPreviousScreen('settings')
+                    setCurrentScreen('transfer')
+                  }}
+                  onAnalytics={() => {
+                    setPreviousScreen('settings')
+                    setCurrentScreen('analytics')
+                  }}
+                  onSubPageChange={setHasSettingsSubPage}
+                />
+              )}
 
-      {/* Token flow: TokenScreen always rendered as base, TokenDetailScreen overlays with slide animation */}
-      {(currentScreen === 'token' || currentScreen === 'token-detail') && (
-        <div className="relative w-full h-full">
-          {/* Base TokenScreen - always visible in token flow */}
-          <TokenScreen
-            scrollRef={tokenScrollRef}
-            onSelectToken={(detail) => {
-              console.log('[MainApp] onSelectToken called', detail)
-              setSelectedTokenDetail(detail)
-              setPreviousScreen('token')
-              setCurrentScreen('token-detail')
-              console.log('[MainApp] setCurrentScreen to token-detail')
-            }}
-            onSaveSettings={handleSaveSettings}
-          />
+              {/* Token flow: TokenScreen always rendered as base, TokenDetailScreen overlays with slide animation */}
+              {(currentScreen === 'token' || currentScreen === 'token-detail') && (
+                <div className="relative w-full h-full">
+                  {/* Base TokenScreen - always visible in token flow */}
+                  <TokenScreen
+                    scrollRef={tokenScrollRef}
+                    onSelectToken={(detail) => {
+                      console.log('[MainApp] onSelectToken called', detail)
+                      setSelectedTokenDetail(detail)
+                      setPreviousScreen('token')
+                      setCurrentScreen('token-detail')
+                      console.log('[MainApp] setCurrentScreen to token-detail')
+                    }}
+                    onSaveSettings={handleSaveSettings}
+                  />
 
-          {/* TokenDetailScreen - slides in from right as overlay */}
-          <AnimatePresence>
-            {currentScreen === 'token-detail' && selectedTokenDetail && (
-              <motion.div
-                key="token-detail"
-                initial={{ x: '100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '100%' }}
-                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="absolute inset-0 z-50"
-              >
-                <TokenDetailScreen
-                  data={selectedTokenDetail}
-                  onClose={() => {
-                    console.log('[MainApp] TokenDetailScreen onClose - resetting')
-                    setSelectedTokenDetail(null)
+                  {/* TokenDetailScreen - slides in from right as overlay */}
+                  <AnimatePresence>
+                    {currentScreen === 'token-detail' && selectedTokenDetail && (
+                      <motion.div
+                        key="token-detail"
+                        initial={{ x: '100%' }}
+                        animate={{ x: 0 }}
+                        exit={{ x: '100%' }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                        className="absolute inset-0 z-50"
+                      >
+                        <TokenDetailScreen
+                          data={selectedTokenDetail}
+                          onClose={() => {
+                            console.log('[MainApp] TokenDetailScreen onClose - resetting')
+                            setSelectedTokenDetail(null)
+                            setCurrentScreen('token')
+                          }}
+                          onShare={async (token) => {
+                            const text = token.tokenString
+                              ? token.tokenString
+                              : t('token.reclaimable.shareText', {
+                                memo: token.memo ?? '',
+                                amount: formatSats(token.amount),
+                              })
+                            try {
+                              if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+                                await navigator.share({ text })
+                                return
+                              }
+                              if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+                                await navigator.clipboard.writeText(text)
+                                addToast({ type: 'success', message: t('token.reclaimable.copiedToClipboard') })
+                              }
+                            } catch {
+                              /* user cancelled or clipboard blocked — silent */
+                            }
+                          }}
+                          onReclaim={async (token) => {
+                            if (!serviceRegistry?.reclaim?.reclaim) {
+                              addToast({ type: 'error', message: 'Service initializing, please try again.' })
+                              return
+                            }
+                            const result = await serviceRegistry.reclaim.reclaim(token.id)
+                            if (result.ok) {
+                              setSelectedTokenDetail(null)
+                              handleBack()
+                              addToast({ type: 'success', message: t('token.reclaim.success') })
+                            } else {
+                              const errorMessage = result.error
+                                ? translateError(result.error, t)
+                                : t('token.reclaim.failed')
+                              addToast({ type: 'error', message: errorMessage })
+                            }
+                          }}
+                          onTriggerEasterEgg={() => {
+                            setPreviousScreen('token-detail')
+                            setCurrentScreen('token-easter-egg')
+                          }}
+                          onDeleteHistory={async (token) => {
+                            if (!serviceRegistry?.transactionMgmt) return
+                            try {
+                              await serviceRegistry.transactionMgmt.delete(token.id)
+                              useAppStore.getState().triggerTxRefresh()
+                              addToast({ type: 'success', message: '내역을 삭제했어요' })
+                            } catch (error) {
+                              console.error('[MainApp] Failed to delete tx history:', error)
+                              const msg = error instanceof Error ? error.message : '내역 삭제 실패'
+                              addToast({ type: 'error', message: msg })
+                            }
+                          }}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
+
+              {currentScreen === 'token-easter-egg' && (
+                <EasterEggScreen onClose={handleBack} />
+              )}
+
+              {currentScreen === 'contacts' && (
+                <ContactsScreen
+                  onSendToContact={(validatedData, displayName, mintUrl) => {
+                    setPreviousScreen('contacts')
+                    setActiveMintUrl(mintUrl)
+                    setValidatedScanData(validatedData)
+                    setScannedAmount(0)
+                    setContactInfo({ address: '', displayName })
+                    setCurrentScreen('send')
+                  }}
+                />
+              )}
+
+              {currentScreen === 'username-change' && (
+                <UsernameChangeScreen
+                  onBack={handleBack}
+                  onSaveSettings={handleSaveSettings}
+                />
+              )}
+
+              {currentScreen === 'history' && (
+                <HistoryScreen
+                  onBack={handleBack}
+                  transactions={transactions}
+                  initialMintUrls={historyInitialMintUrls}
+                />
+              )}
+
+              {currentScreen === 'notifications' && (
+                <NotificationsScreen
+                  onBack={handleBack}
+                  transactions={transactions}
+                />
+              )}
+
+              {currentScreen === 'transfer' && (
+                <TransferScreen
+                  onBack={handleBack}
+                  onTransactionComplete={refreshAll}
+                  initialFromMintUrl={activeMintUrl ?? undefined}
+                />
+              )}
+
+              {currentScreen === 'analytics' && (
+                <AnalyticsScreen
+                  onBack={handleBack}
+                  transactions={transactions}
+                />
+              )}
+
+              {currentScreen === 'add-mint' && (
+                <AddMintScreen
+                  onBack={() => {
+                    const backTo = previousScreen || 'home'
+                    setPreviousScreen(null)
+                    setCurrentScreen(backTo)
+                  }}
+                  onSuccess={() => {
+                    const backTo = previousScreen || 'home'
+                    setPreviousScreen(null)
+                    setCurrentScreen(backTo)
+                  }}
+                  onSaveSettings={handleSaveSettings}
+                />
+              )}
+
+              {currentScreen === 'mint-management' && (
+                <MintManagementScreen
+                  onBack={handleBack}
+                  onAddMint={() => {
+                    setPreviousScreen('mint-management')
+                    setCurrentScreen('add-mint')
+                  }}
+                  onSaveSettings={handleSaveSettings}
+                  onClearMintData={serviceRegistry ? (mintUrl) => serviceRegistry.cleanup.clearMintData(mintUrl) : undefined}
+                />
+              )}
+
+              {currentScreen === 'relay-management' && (
+                <RelayManagementScreen
+                  onBack={handleBack}
+                  onSaveSettings={handleSaveSettings}
+                />
+              )}
+
+              {currentScreen === 'amount-action' && (
+                <AmountActionScreen
+                  amount={scannedAmount}
+                  mode={undefined}
+                  onBack={handleBack}
+                  onSend={(amount) => {
+                    setScannedAmount(amount)
+                    setValidatedScanData(null)
+
+                    setPreviousScreen('amount-action')
+                    setCurrentScreen('send')
+                  }}
+                  onReceive={(amount) => {
+                    setScannedAmount(amount)
+                    setValidatedScanData(null)
+                    setPreviousScreen('amount-action')
+                    setCurrentScreen('receive')
+                  }}
+                />
+              )}
+
+              {currentScreen === 'send' && (
+                <SendFlow
+                  onBack={() => {
+                    const backTo = previousScreen || 'home'
+                    setPreviousScreen(null)
+                    setContactInfo(null)
+                    setCurrentScreen(backTo)
+                  }}
+                  onComplete={() => {
+                    setPreviousScreen(null)
+                    setContactInfo(null)
+                    setCurrentScreen('home')
+                  }}
+                  onExecuteRoute={handleExecuteRoute}
+                  onMintSwap={handleMintSwap}
+                  onEstimateSwapFee={handleEstimateSwapFee}
+                  onRouteValidated={handleRouteValidated}
+                  validatedData={validatedScanData || undefined}
+                  initialAmount={scannedAmount || undefined}
+                  initialMintUrl={activeMintUrl}
+                  initialDestination={contactInfo?.address || undefined}
+                  initialDisplayName={contactInfo?.displayName || undefined}
+                  onRedirect={handleSendRedirect}
+                />
+              )}
+
+              {currentScreen === 'token-create' && (
+                <TokenCreateFlow
+                  mintUrl={(() => {
+                    // Prefer active mint if it has balance, otherwise first mint with balance,
+                    // otherwise fall back to active mint or first configured mint.
+                    if (activeMintUrl && (balance.byMint[activeMintUrl] ?? 0) > 0) return activeMintUrl
+                    const withBalance = settings.mints.find((url) => (balance.byMint[url] ?? 0) > 0)
+                    if (withBalance) return withBalance
+                    return activeMintUrl ?? settings.mints[0] ?? ''
+                  })()}
+                  onBack={() => {
+                    const backTo = previousScreen || 'token'
+                    setPreviousScreen(null)
+                    setCurrentScreen(backTo)
+                  }}
+                  onComplete={() => {
+                    setPreviousScreen(null)
                     setCurrentScreen('token')
                   }}
-                  onShare={async (token) => {
-                    const text = token.tokenString
-                      ? token.tokenString
-                      : t('token.reclaimable.shareText', {
-                          memo: token.memo ?? '',
-                          amount: formatSats(token.amount),
-                        })
-                    try {
-                      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-                        await navigator.share({ text })
-                        return
-                      }
-                      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-                        await navigator.clipboard.writeText(text)
-                        addToast({ type: 'success', message: t('token.reclaimable.copiedToClipboard') })
-                      }
-                    } catch {
-                      /* user cancelled or clipboard blocked — silent */
-                    }
-                  }}
-                  onReclaim={async (token) => {
+                  onCreateToken={(amount, mintUrl, memo) =>
+                    handleCreateEcashToken(amount, mintUrl, { memo })
+                  }
+                  onCancelToken={async (txId) => {
                     if (!serviceRegistry?.reclaim?.reclaim) {
                       addToast({ type: 'error', message: 'Service initializing, please try again.' })
                       return
                     }
-                    const result = await serviceRegistry.reclaim.reclaim(token.id)
+                    const result = await serviceRegistry.reclaim.reclaim(txId)
                     if (result.ok) {
-                      setSelectedTokenDetail(null)
-                      handleBack()
                       addToast({ type: 'success', message: t('token.reclaim.success') })
                     } else {
                       const errorMessage = result.error
@@ -1119,360 +1317,164 @@ export default function MainApp() {
                       addToast({ type: 'error', message: errorMessage })
                     }
                   }}
-                  onTriggerEasterEgg={() => {
-                    setPreviousScreen('token-detail')
-                    setCurrentScreen('token-easter-egg')
+                  onEstimateFee={handleEstimateCreateFee}
+                  onQuoteReclaim={handleQuoteReclaim}
+                />
+              )}
+
+              {currentScreen === 'token-register' && (
+                <TokenRegisterFlow
+                  onBack={() => {
+                    const backTo = previousScreen || 'token'
+                    clearIncomingReviewState()
+                    setPreviousScreen(null)
+                    setInitialRegisterToken('')
+                    setCurrentScreen(backTo)
                   }}
-                  onDeleteHistory={async (token) => {
-                    if (!serviceRegistry?.transactionMgmt) return
-                    try {
-                      await serviceRegistry.transactionMgmt.delete(token.id)
-                      useAppStore.getState().triggerTxRefresh()
-                      addToast({ type: 'success', message: '내역을 삭제했어요' })
-                    } catch (error) {
-                      console.error('[MainApp] Failed to delete tx history:', error)
-                      const msg = error instanceof Error ? error.message : '내역 삭제 실패'
-                      addToast({ type: 'error', message: msg })
+                  onComplete={() => {
+                    clearIncomingReviewState()
+                    setPreviousScreen(null)
+                    setInitialRegisterToken('')
+                    setCurrentScreen('token')
+                  }}
+                  onReceiveToken={handleReceiveToken}
+                  onAddTrustedMint={handleAddTrustedMint}
+                  onSwapReceive={handleSwapReceive}
+                  onEstimateRedeemFee={handleEstimateRedeemFee}
+                  onCheckSelfToken={handleCheckSelfToken}
+                  onReclaimOwnToken={async (txId) => {
+                    if (!serviceRegistry?.reclaim?.reclaim) {
+                      return { amount: 0 }
+                    }
+                    const result = await serviceRegistry.reclaim.reclaim(txId)
+                    return { amount: result.ok ? result.value.amount.value : 0 }
+                  }}
+                  onRouteValidated={handleRouteValidated}
+                  initialToken={initialRegisterToken}
+                  targetMintUrl={activeMintUrl ?? settings.mints[0] ?? undefined}
+                  incomingReview={activeIncomingReview}
+                  onResolveIncomingReview={(params) =>
+                    activeIncomingReview
+                      ? handleResolveIncomingReview({ review: activeIncomingReview, transactionId: params.transactionId })
+                      : Promise.resolve()
+                  }
+                  onRejectIncomingReview={() =>
+                    activeIncomingReview ? handleRejectIncomingReview(activeIncomingReview) : Promise.resolve()
+                  }
+                />
+              )}
+
+              {currentScreen === 'receive' && (
+                <ReceiveFlow
+                  onBack={() => {
+                    const backTo = previousScreen || 'home'
+                    setPreviousScreen(null)
+                    setCurrentScreen(backTo)
+                  }}
+                  onComplete={() => {
+                    setPreviousScreen(null)
+                    setCurrentScreen('home')
+                  }}
+                  onCreateInvoice={handleCreateInvoice}
+                  onPaymentReceived={handlePaymentReceived}
+                  onReceiveRequestFulfilled={handleReceiveRequestFulfillment}
+                  initialAmount={scannedAmount || undefined}
+                  initialMintUrl={activeMintUrl}
+                />
+              )}
+
+              {currentScreen === 'transaction-detail' && selectedTransaction && (
+                <TransactionDetailScreen
+                  transaction={selectedTransaction}
+                  onBack={() => {
+                    setSelectedTransaction(null)
+                    handleBack()
+                  }}
+                  mintUrls={settings.mints}
+                />
+              )}
+
+              {currentScreen === 'mint-detail' && selectedMint && (
+                <MintDetailScreen
+                  mint={selectedMint}
+                  mintIndex={selectedMintIndex}
+                  onBack={handleBack}
+                  onCreateToken={(mintUrl) => {
+                    setPreviousScreen('mint-detail')
+                    setActiveMintUrl(mintUrl)
+                    setValidatedScanData(null)
+                    setScannedAmount(0)
+                    setCurrentScreen('send')
+                  }}
+                  onDeleteMint={async (url) => {
+                    if (settings.mints.length <= LIMITS.MIN_MINTS) {
+                      addToast({ type: 'warning', message: t('settings.minMintsRequired', { min: LIMITS.MIN_MINTS }) })
+                      return
+                    }
+                    const newMints = settings.mints.filter(m => m !== url)
+                    const { [url]: _, ...remainingAliases } = settings.mintAliases || {}
+                    const { [url]: _color, ...remainingColors } = settings.mintColors || {}
+                    const { [url]: _preset, ...remainingCardDesignPresets } = settings.mintCardDesignPresets || {}
+                    await handleSaveSettings({
+                      mints: newMints,
+                      mintAliases: remainingAliases,
+                      mintColors: remainingColors,
+                      mintCardDesignPresets: remainingCardDesignPresets,
+                    })
+                    await serviceRegistry?.cleanup.clearMintData(url)
+                    setCurrentScreen('home')
+                    addToast({ type: 'success', message: t('mintDetail.mintDeleted') })
+                  }}
+                  onRenameMint={(url, newName) => {
+                    const newAliases = { ...settings.mintAliases, [url]: newName }
+                    handleSaveSettings({ mintAliases: newAliases })
+                    if (selectedMint && selectedMint.url === url) {
+                      setSelectedMint({ ...selectedMint, alias: newName, name: newName })
                     }
                   }}
+                  onChangeMintColor={(url, color) => {
+                    const newColors = { ...settings.mintColors, [url]: color }
+                    handleSaveSettings({ mintColors: newColors })
+                  }}
+                  onChangeMintCardDesign={(url, preset) => {
+                    const newPresets = { ...settings.mintCardDesignPresets, [url]: preset }
+                    handleSaveSettings({ mintCardDesignPresets: newPresets })
+                  }}
+                  onSelectTransaction={(tx) => {
+                    setSelectedTransaction(tx)
+                    setPreviousScreen('mint-detail')
+                    setCurrentScreen('transaction-detail')
+                  }}
+                  onTransactions={() => {
+                    setHistoryInitialMintUrls(selectedMint ? [selectedMint.url] : undefined)
+                    setPreviousScreen('mint-detail')
+                    setCurrentScreen('history')
+                  }}
+                  transactions={transactions}
+                  onFindTransaction={serviceRegistry ? (id: string) => serviceRegistry.transactionMgmt.getById(id) : undefined}
+                  pendingItemCallbacks={serviceRegistry ? {
+                    onRedeemToken: async (tokenStr: string, _itemId: string) => {
+                      const result = await serviceRegistry.payment.redeem({ input: tokenStr })
+                      return result.ok
+                    },
+                    onCheckQuote: async (mintUrl: string, quoteId: string) => {
+                      const { getMintQuote } = await import('@/modules/cashu')
+                      const quote = await getMintQuote(mintUrl, quoteId)
+                      return quote ? { state: quote.state, request: quote.request } : null
+                    },
+                    onRedeemQuote: async (mintUrl: string, quoteId: string, amount: number) => {
+                      const { redeemMintQuote } = await import('@/modules/cashu')
+                      await redeemMintQuote(mintUrl, quoteId, amount)
+                    },
+                    onPendingItemChanged: async () => {
+                      await refreshAll()
+                    },
+                  } : undefined}
                 />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
-
-      {currentScreen === 'token-easter-egg' && (
-        <EasterEggScreen onClose={handleBack} />
-      )}
-
-      {currentScreen === 'contacts' && (
-        <ContactsScreen
-          onSendToContact={(validatedData, displayName, mintUrl) => {
-            setPreviousScreen('contacts')
-            setActiveMintUrl(mintUrl)
-            setValidatedScanData(validatedData)
-            setScannedAmount(0)
-            setContactInfo({ address: '', displayName })
-            setCurrentScreen('send')
-          }}
-        />
-      )}
-
-      {currentScreen === 'username-change' && (
-        <UsernameChangeScreen
-          onBack={handleBack}
-          onSaveSettings={handleSaveSettings}
-        />
-      )}
-
-      {currentScreen === 'history' && (
-        <HistoryScreen
-          onBack={handleBack}
-          transactions={transactions}
-          initialMintUrls={historyInitialMintUrls}
-        />
-      )}
-
-      {currentScreen === 'notifications' && (
-        <NotificationsScreen
-          onBack={handleBack}
-          transactions={transactions}
-        />
-      )}
-
-      {currentScreen === 'transfer' && (
-        <TransferScreen
-          onBack={handleBack}
-          onTransactionComplete={refreshAll}
-          initialFromMintUrl={activeMintUrl ?? undefined}
-        />
-      )}
-
-      {currentScreen === 'analytics' && (
-        <AnalyticsScreen
-          onBack={handleBack}
-          transactions={transactions}
-        />
-      )}
-
-      {currentScreen === 'add-mint' && (
-        <AddMintScreen
-          onBack={() => {
-            const backTo = previousScreen || 'home'
-            setPreviousScreen(null)
-            setCurrentScreen(backTo)
-          }}
-          onSuccess={() => {
-            const backTo = previousScreen || 'home'
-            setPreviousScreen(null)
-            setCurrentScreen(backTo)
-          }}
-          onSaveSettings={handleSaveSettings}
-        />
-      )}
-
-      {currentScreen === 'mint-management' && (
-        <MintManagementScreen
-          onBack={handleBack}
-          onAddMint={() => {
-            setPreviousScreen('mint-management')
-            setCurrentScreen('add-mint')
-          }}
-          onSaveSettings={handleSaveSettings}
-          onClearMintData={serviceRegistry ? (mintUrl) => serviceRegistry.cleanup.clearMintData(mintUrl) : undefined}
-        />
-      )}
-
-      {currentScreen === 'relay-management' && (
-        <RelayManagementScreen
-          onBack={handleBack}
-          onSaveSettings={handleSaveSettings}
-        />
-      )}
-
-      {currentScreen === 'amount-action' && (
-        <AmountActionScreen
-          amount={scannedAmount}
-          mode={undefined}
-          onBack={handleBack}
-          onSend={(amount) => {
-            setScannedAmount(amount)
-            setValidatedScanData(null)
-
-            setPreviousScreen('amount-action')
-            setCurrentScreen('send')
-          }}
-          onReceive={(amount) => {
-            setScannedAmount(amount)
-            setValidatedScanData(null)
-            setPreviousScreen('amount-action')
-            setCurrentScreen('receive')
-          }}
-        />
-      )}
-
-      {currentScreen === 'send' && (
-        <SendFlow
-          onBack={() => {
-            const backTo = previousScreen || 'home'
-            setPreviousScreen(null)
-            setContactInfo(null)
-            setCurrentScreen(backTo)
-          }}
-          onComplete={() => {
-            setPreviousScreen(null)
-            setContactInfo(null)
-            setCurrentScreen('home')
-          }}
-          onExecuteRoute={handleExecuteRoute}
-          onMintSwap={handleMintSwap}
-          onEstimateSwapFee={handleEstimateSwapFee}
-          onRouteValidated={handleRouteValidated}
-          validatedData={validatedScanData || undefined}
-          initialAmount={scannedAmount || undefined}
-          initialMintUrl={activeMintUrl}
-          initialDestination={contactInfo?.address || undefined}
-          initialDisplayName={contactInfo?.displayName || undefined}
-          onRedirect={handleSendRedirect}
-        />
-      )}
-
-      {currentScreen === 'token-create' && (
-        <TokenCreateFlow
-          mintUrl={(() => {
-            // Prefer active mint if it has balance, otherwise first mint with balance,
-            // otherwise fall back to active mint or first configured mint.
-            if (activeMintUrl && (balance.byMint[activeMintUrl] ?? 0) > 0) return activeMintUrl
-            const withBalance = settings.mints.find((url) => (balance.byMint[url] ?? 0) > 0)
-            if (withBalance) return withBalance
-            return activeMintUrl ?? settings.mints[0] ?? ''
-          })()}
-          onBack={() => {
-            const backTo = previousScreen || 'token'
-            setPreviousScreen(null)
-            setCurrentScreen(backTo)
-          }}
-          onComplete={() => {
-            setPreviousScreen(null)
-            setCurrentScreen('token')
-          }}
-          onCreateToken={(amount, mintUrl, memo) =>
-            handleCreateEcashToken(amount, mintUrl, { memo })
-          }
-          onCancelToken={async (txId) => {
-            if (!serviceRegistry?.reclaim?.reclaim) {
-              addToast({ type: 'error', message: 'Service initializing, please try again.' })
-              return
-            }
-            const result = await serviceRegistry.reclaim.reclaim(txId)
-            if (result.ok) {
-              addToast({ type: 'success', message: t('token.reclaim.success') })
-            } else {
-              const errorMessage = result.error
-                ? translateError(result.error, t)
-                : t('token.reclaim.failed')
-              addToast({ type: 'error', message: errorMessage })
-            }
-          }}
-          onEstimateFee={handleEstimateCreateFee}
-          onQuoteReclaim={handleQuoteReclaim}
-        />
-      )}
-
-      {currentScreen === 'token-register' && (
-        <TokenRegisterFlow
-          onBack={() => {
-            const backTo = previousScreen || 'token'
-            clearIncomingReviewState()
-            setPreviousScreen(null)
-            setInitialRegisterToken('')
-            setCurrentScreen(backTo)
-          }}
-          onComplete={() => {
-            clearIncomingReviewState()
-            setPreviousScreen(null)
-            setInitialRegisterToken('')
-            setCurrentScreen('token')
-          }}
-          onReceiveToken={handleReceiveToken}
-          onAddTrustedMint={handleAddTrustedMint}
-          onSwapReceive={handleSwapReceive}
-          onEstimateRedeemFee={handleEstimateRedeemFee}
-          onCheckSelfToken={handleCheckSelfToken}
-          onReclaimOwnToken={async (txId) => {
-            if (!serviceRegistry?.reclaim?.reclaim) {
-              return { amount: 0 }
-            }
-            const result = await serviceRegistry.reclaim.reclaim(txId)
-            return { amount: result.ok ? result.value.amount.value : 0 }
-          }} 
-          onRouteValidated={handleRouteValidated}
-          initialToken={initialRegisterToken}
-          targetMintUrl={activeMintUrl ?? settings.mints[0] ?? undefined}
-          incomingReview={activeIncomingReview}
-          onResolveIncomingReview={(params) =>
-            activeIncomingReview
-              ? handleResolveIncomingReview({ review: activeIncomingReview, transactionId: params.transactionId })
-              : Promise.resolve()
-          }
-          onRejectIncomingReview={() =>
-            activeIncomingReview ? handleRejectIncomingReview(activeIncomingReview) : Promise.resolve()
-          }
-        />
-      )}
-
-      {currentScreen === 'receive' && (
-        <ReceiveFlow
-          onBack={() => {
-            const backTo = previousScreen || 'home'
-            setPreviousScreen(null)
-            setCurrentScreen(backTo)
-          }}
-          onComplete={() => {
-            setPreviousScreen(null)
-            setCurrentScreen('home')
-          }}
-          onCreateInvoice={handleCreateInvoice}
-          onPaymentReceived={handlePaymentReceived}
-          onReceiveRequestFulfilled={handleReceiveRequestFulfillment}
-          initialAmount={scannedAmount || undefined}
-          initialMintUrl={activeMintUrl}
-        />
-      )}
-
-      {currentScreen === 'transaction-detail' && selectedTransaction && (
-        <TransactionDetailScreen
-          transaction={selectedTransaction}
-          onBack={() => {
-            setSelectedTransaction(null)
-            handleBack()
-          }}
-          mintUrls={settings.mints}
-        />
-      )}
-
-      {currentScreen === 'mint-detail' && selectedMint && (
-        <MintDetailScreen
-          mint={selectedMint}
-          mintIndex={selectedMintIndex}
-          onBack={handleBack}
-          onCreateToken={(mintUrl) => {
-            setPreviousScreen('mint-detail')
-            setActiveMintUrl(mintUrl)
-            setValidatedScanData(null)
-            setScannedAmount(0)
-            setCurrentScreen('send')
-          }}
-          onDeleteMint={async (url) => {
-            if (settings.mints.length <= LIMITS.MIN_MINTS) {
-              addToast({ type: 'warning', message: t('settings.minMintsRequired', { min: LIMITS.MIN_MINTS }) })
-              return
-            }
-            const newMints = settings.mints.filter(m => m !== url)
-            const { [url]: _, ...remainingAliases } = settings.mintAliases || {}
-            const { [url]: _color, ...remainingColors } = settings.mintColors || {}
-            const { [url]: _preset, ...remainingCardDesignPresets } = settings.mintCardDesignPresets || {}
-            await handleSaveSettings({
-              mints: newMints,
-              mintAliases: remainingAliases,
-              mintColors: remainingColors,
-              mintCardDesignPresets: remainingCardDesignPresets,
-            })
-            await serviceRegistry?.cleanup.clearMintData(url)
-            setCurrentScreen('home')
-            addToast({ type: 'success', message: t('mintDetail.mintDeleted') })
-          }}
-          onRenameMint={(url, newName) => {
-            const newAliases = { ...settings.mintAliases, [url]: newName }
-            handleSaveSettings({ mintAliases: newAliases })
-            if (selectedMint && selectedMint.url === url) {
-              setSelectedMint({ ...selectedMint, alias: newName, name: newName })
-            }
-          }}
-          onChangeMintColor={(url, color) => {
-            const newColors = { ...settings.mintColors, [url]: color }
-            handleSaveSettings({ mintColors: newColors })
-          }}
-          onChangeMintCardDesign={(url, preset) => {
-            const newPresets = { ...settings.mintCardDesignPresets, [url]: preset }
-            handleSaveSettings({ mintCardDesignPresets: newPresets })
-          }}
-          onSelectTransaction={(tx) => {
-            setSelectedTransaction(tx)
-            setPreviousScreen('mint-detail')
-            setCurrentScreen('transaction-detail')
-          }}
-          onTransactions={() => {
-            setHistoryInitialMintUrls(selectedMint ? [selectedMint.url] : undefined)
-            setPreviousScreen('mint-detail')
-            setCurrentScreen('history')
-          }}
-          transactions={transactions}
-          onFindTransaction={serviceRegistry ? (id: string) => serviceRegistry.transactionMgmt.getById(id) : undefined}
-          pendingItemCallbacks={serviceRegistry ? {
-            onRedeemToken: async (tokenStr: string, _itemId: string) => {
-              const result = await serviceRegistry.payment.redeem({ input: tokenStr })
-              return result.ok
-            },
-            onCheckQuote: async (mintUrl: string, quoteId: string) => {
-              const { getMintQuote } = await import('@/modules/cashu')
-              const quote = await getMintQuote(mintUrl, quoteId)
-              return quote ? { state: quote.state, request: quote.request } : null
-            },
-            onRedeemQuote: async (mintUrl: string, quoteId: string, amount: number) => {
-              const { redeemMintQuote } = await import('@/modules/cashu')
-              await redeemMintQuote(mintUrl, quoteId, amount)
-            },
-            onPendingItemChanged: async () => {
-              await refreshAll()
-            },
-          } : undefined}
-        />
-      )}
-          </Suspense>
-        </PageTransition>
-      </AnimatePresence>
+              )}
+            </Suspense>
+          </PageTransition>
+        </AnimatePresence>
 
       </div>
 
