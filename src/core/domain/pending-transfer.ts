@@ -32,6 +32,8 @@ export interface PendingTransfer {
 
   readonly createdAt: number
   readonly updatedAt: number
+
+  readonly amount?: number
 }
 
 export function createPendingTransfer(params: {
@@ -43,6 +45,7 @@ export function createPendingTransfer(params: {
   expiresAt?: number
   transportRef: unknown
   now: number
+  amount?: number
 }): PendingTransfer {
   return {
     ...params,

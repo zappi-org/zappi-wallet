@@ -18,7 +18,7 @@ export class TransferLifecycleService {
     private readonly transferStore: PendingTransferStore,
     private readonly operators: Map<string, TransferOperator>,
     private readonly eventBus: EventBus,
-  ) {}
+  ) { }
 
   /** Transfer 조회 */
   async getTransfer(id: string): Promise<PendingTransfer | null> {
@@ -275,8 +275,8 @@ export class TransferLifecycleService {
   private findOperator(transfer: PendingTransfer): TransferOperator | undefined {
     const ref = transfer.transportRef as { type?: string; protocol?: string }
     const key = ref.protocol || ref.type?.split('-')[0]
-    console.log('[TLS] findOperator: type=', ref.type, 'protocol=', ref.protocol, 'key=', key)
-    console.log('[TLS] Available operators:', Array.from(this.operators.keys()))
+    //console.log('[TLS] findOperator: type=', ref.type, 'protocol=', ref.protocol, 'key=', key)
+    //console.log('[TLS] Available operators:', Array.from(this.operators.keys()))
     return key ? this.operators.get(key) : undefined
   }
 

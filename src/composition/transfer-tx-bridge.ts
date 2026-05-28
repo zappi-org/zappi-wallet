@@ -34,6 +34,10 @@ function normalizeTokenForComparison(token: string): string {
  * Transfer의 transportRef에서 amount를 추출
  */
 function extractAmountFromTransfer(transfer: PendingTransfer): number {
+  if (transfer.amount != null) {
+    return transfer.amount
+  }
+
   const ref = transfer.transportRef as {
     amount?: number
     token?: string
@@ -43,7 +47,6 @@ function extractAmountFromTransfer(transfer: PendingTransfer): number {
   if (ref?.amount) {
     return ref.amount
   }
-
   console.warn('[TransferTxBridge] Could not extract amount from transfer:', transfer.id)
   return 0
 }
@@ -119,8 +122,8 @@ export function connectTransferTxBridge(deps: TransferTxBridgeDeps): () => void 
     deps.eventBus.on('transfer:submitted', async (event) => {
       const { transfer } = event.payload
 
-      // Outgoing ecash가 'submitted' 상태일 때 (토큰 방금 생성됨)
-      if (transfer.direction === 'outgoing' && transfer.phase === 'submitted') {
+      // Outgoing: submitted/settled 모두 처리
+      if (transfer.direction === 'outgoing') {
         try {
           // 이미 생성된 Transaction이 있는지 확인 (중복 방지)
           const existing = await deps.txRepo.getById(transfer.txId)
@@ -131,31 +134,56 @@ export function connectTransferTxBridge(deps: TransferTxBridgeDeps): () => void 
           const amount = extractAmountFromTransfer(transfer)
           const mint = extractMintFromTransfer(transfer)
 
-          // Pending 상태의 Transaction 생성 (outcome: 'unclaimed'로 설정)
-          const tx = createTransaction({
-            id: transfer.txId,
-            direction: 'send',
-            method: 'cashu:ecash',
-            protocol: 'cashu-token',
-            amount: sat(amount),
-            accountId: mint,
-            outcome: 'unclaimed', // ← 이캐시 탭에서 "대기중"으로 표시되려면 필요!
-            metadata: {
-              token: (transfer.transportRef as { token?: string })?.token,
-              tokenState: 'unspent', // ← list() 필터에서 필요!
-              direction: transfer.direction,
-            },
-          })
+          const ref = transfer.transportRef as { type?: string; protocol?: string }
+          const protocol = ref?.protocol || ref?.type?.split('-')[0]
 
-          await deps.txRepo.save(tx)
-          deps.triggerTxRefresh?.()
+          if (protocol === 'bolt11') {
+            //bolt11 outgoing send
+            const bolt11Ref = transfer.transportRef as { operationId?: string; request?: string; preimage?: string; feeReserve?: number } | undefined
+            const baseTx = createTransaction({
+              id: transfer.txId,
+              direction: 'send',
+              method: 'cashu:lightning',
+              protocol: 'bolt11',
+              amount: sat(amount),
+              accountId: mint,
+              fee: bolt11Ref?.feeReserve ? { quoted: sat(bolt11Ref.feeReserve) } : undefined,
+              metadata: {
+                operationId: bolt11Ref?.operationId,
+                bolt11: bolt11Ref?.request,
+                preimage: bolt11Ref?.preimage,
+                direction: transfer.direction,
+              },
+            })
+            const tx = transfer.phase === 'settled' ? settleAsDelivered(baseTx) : baseTx
+            await deps.txRepo.save(tx)
+            deps.triggerTxRefresh?.()
+          } else {
+            // Pending 상태의 Transaction 생성 (outcome: 'unclaimed'로 설정)
+            const baseTx = createTransaction({
+              id: transfer.txId,
+              direction: 'send',
+              method: 'ecash',
+              protocol: 'cashu-token',
+              amount: sat(amount),
+              accountId: mint,
+              outcome: 'unclaimed', // ← 이캐시 탭에서 "대기중"으로 표시되려면 필요!
+              metadata: {
+                token: (transfer.transportRef as { token?: string })?.token,
+                tokenState: 'unspent', // ← list() 필터에서 필요!
+                direction: transfer.direction,
+              },
+            })
+            const tx = transfer.phase === 'settled' ? settleAsDelivered(baseTx) : baseTx
+            await deps.txRepo.save(tx)
+            deps.triggerTxRefresh?.()
+          }
         } catch (error) {
           console.error('[TransferTxBridge] Failed to create pending transaction:', error)
         }
       }
-    })
+    }),
   )
-
   // 2. Settled → 기존 Transaction 업데이트 (또는 incoming이면 새로 생성)
   unsubscribers.push(
     deps.eventBus.on('transfer:settled', async (event) => {
@@ -170,56 +198,92 @@ export function connectTransferTxBridge(deps: TransferTxBridgeDeps): () => void 
           if (transfer.direction === 'incoming') {
             tx = settleAsDelivered(tx)
           } else {
-            // outgoing이 settled면 = 상대방이 받음 (claimed)
-            tx = {
-              ...tx,
-              status: 'settled',
-              outcome: 'claimed',
-              completedAt: Date.now(),
-              metadata: {
-                ...tx.metadata,
-                tokenState: 'spent', // ← 업데이트!
-              },
+            // outgoing이 settled면 = 상대방이 받음 (claimed)]
+            if (tx.protocol === 'bolt11') {
+              const ref = transfer.transportRef as { preimage?: string; effectiveFee?: number } | undefined
+              const feeUpdate = ref?.effectiveFee != null && tx.fee
+                ? { fee: { quoted: tx.fee.quoted, effective: sat(ref.effectiveFee) } }
+                : {}
+              tx = {
+                ...settleAsDelivered(tx),
+                ...feeUpdate,
+                metadata: {
+                  ...tx.metadata,
+                  ...(ref?.preimage && { preimage: ref.preimage }),
+                },
+              }
+            } else {
+              tx = {
+                ...tx,
+                status: 'settled',
+                outcome: 'claimed',
+                completedAt: Date.now(),
+                metadata: {
+                  ...tx.metadata,
+                  tokenState: 'spent', // ← 업데이트!
+                },
+              }
             }
           }
           await deps.txRepo.update(transfer.txId, tx)
           console.log('[TransferTxBridge] Transaction settled:', transfer.txId)
           deps.triggerTxRefresh?.()
         } else {
-          // Transaction이 없으면 새로 생성 (incoming ecash 등록 시)
-          console.log(
-            '[TransferTxBridge] Creating new transaction for settled transfer:',
-            transfer.txId,
-            'direction:',
-            transfer.direction
-          )
+          // Transaction이 없으면 새로 생성 (incoming ecash 등록 시
+
           const amount = extractAmountFromTransfer(transfer)
           const mint = extractMintFromTransfer(transfer)
-          
+
+          //check true protocol
+          const ref = transfer.transportRef as { type?: string; protocol?: string } | undefined
+          const protocol = ref?.protocol || ref?.type?.split('-')[0] || 'ecash'
+
+          let method: string
+          let proto: string
+          let metadata: Record<string, unknown>
+
+          if (protocol === 'bolt11') {
+            //bolt11 fallback 
+            method = 'cashu:lightning'
+            proto = 'bolt11'
+            const ref = transfer.transportRef as { operationId?: string; request?: string; preimage?: string } | undefined
+            metadata = {
+              operationId: ref?.operationId,
+              bolt11: ref?.request,
+              direction: transfer.direction,
+              ...(ref?.preimage && { preimage: ref.preimage }),
+            }
+          } else {
+            //ecash fallback
+            method = 'ecash'
+            proto = 'cashu-token'
+            const transportRef = transfer.transportRef as { content?: string; token?: string } | undefined
+            const tokenContent = transportRef?.token ?? transportRef?.content
+            metadata = {
+              token: tokenContent,
+              tokenState: 'spent',
+              direction: transfer.direction,
+            }
+          }
+
           // incoming ecash 등록: receive 방향, settled 상태로 바로 생성
-          const transportRef = transfer.transportRef as { content?: string; token?: string } | undefined
-          const tokenContent = transportRef?.token ?? transportRef?.content
-          
+
           const newTx = createTransaction({
             id: transfer.txId,
             direction: transfer.direction === 'outgoing' ? 'send' : 'receive',
-            method: 'cashu:ecash',
-            protocol: 'cashu-token',
+            method,
+            protocol: proto,
             amount: sat(amount),
             accountId: mint,
             outcome: transfer.direction === 'incoming' ? 'claimed' : undefined,
-            metadata: {
-              token: tokenContent,
-              tokenState: 'spent', // 이미 received/spent 됨
-              direction: transfer.direction,
-            },
+            metadata,
           })
-          
+
           // incoming이면 이미 settled 상태이므로 completedAt 설정
-          const settledTx = transfer.direction === 'incoming' 
+          const settledTx = transfer.direction === 'incoming'
             ? { ...newTx, status: 'settled' as const, completedAt: Date.now() }
             : settleAsDelivered(newTx)
-            
+
           await deps.txRepo.save(settledTx)
           deps.triggerTxRefresh?.()
         }
@@ -276,23 +340,70 @@ export function connectTransferTxBridge(deps: TransferTxBridgeDeps): () => void 
       const transfer = event.payload.transfer
 
       try {
-        const tx = await deps.txRepo.getById(transfer.txId)
+        let tx = await deps.txRepo.getById(transfer.txId)
         if (!tx) {
-          console.warn('[TransferTxBridge] Transaction not found for failed transfer:', transfer.txId)
-          return
-        }
+          // TX 없으면 새로 생성 (fallback)
+          const amount = extractAmountFromTransfer(transfer)
+          const mint = extractMintFromTransfer(transfer)
+          const ref = transfer.transportRef as { type?: string; protocol?: string } | undefined
+          const protocol = ref?.protocol || ref?.type?.split('-')[0] || 'ecash'
 
-        const failedTx = {
-          ...tx,
-          status: 'failed' as const,
-          completedAt: Date.now(),
-          metadata: {
-            ...tx.metadata,
-            error: event.payload.reason,
-          },
+          let method: string
+          let proto: string
+          let metadata: Record<string, unknown>
+
+          if (protocol === 'bolt11') {
+            method = 'cashu:lightning'
+            proto = 'bolt11'
+            metadata = {
+              operationId: (transfer.transportRef as { operationId?: string })?.operationId,
+              bolt11: (transfer.transportRef as { request?: string })?.request,
+              direction: transfer.direction,
+            }
+          } else {
+            method = 'ecash'
+            proto = 'cashu-token'
+            const transportRef = transfer.transportRef as { content?: string; token?: string } | undefined
+            const tokenContent = transportRef?.token ?? transportRef?.content
+            metadata = {
+              token: tokenContent,
+              direction: transfer.direction,
+            }
+          }
+
+          const baseTx = createTransaction({
+            id: transfer.txId,
+            direction: 'send',
+            method,
+            protocol: proto,
+            amount: sat(amount),
+            accountId: mint,
+            metadata,
+          })
+          tx = {
+            ...baseTx,
+            status: 'failed' as const,
+            completedAt: Date.now(),
+            metadata: {
+              ...metadata,
+              error: event.payload.reason,
+            },
+          }
+          await deps.txRepo.save(tx)
+          console.log('[TransferTxBridge] Transaction created for failed:', transfer.txId)
+        } else {
+          const failedTx = {
+            ...tx,
+            status: 'failed' as const,
+            completedAt: Date.now(),
+            metadata: {
+              ...tx.metadata,
+              error: event.payload.reason,
+            },
+          }
+          await deps.txRepo.update(transfer.txId, failedTx)
+          console.log('[TransferTxBridge] Transaction failed:', transfer.txId)
         }
-        await deps.txRepo.update(transfer.txId, failedTx)
-        console.log('[TransferTxBridge] Transaction failed:', transfer.txId)
         deps.triggerTxRefresh?.()
       } catch (error) {
         console.error('[TransferTxBridge] Failed to mark transaction as failed:', error)
