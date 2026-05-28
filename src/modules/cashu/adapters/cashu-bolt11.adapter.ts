@@ -96,8 +96,12 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
         type: 'bolt11-melt',
         quoteId: op.quoteId,
         operationId: op.operationId,
+        request: intent.recipient,
+        mintUrl: intent.accountId,
+        feeReserve: op.fee_reserve,
       },
       now: Date.now(),
+      amount: op.amount
     })
   }
 
@@ -107,7 +111,16 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
 
     // preimage 즉시 확인 → 완료
     if (result.preimage || result.state === 'PAID' || result.state === 'finalized') {
-      return transitionPhase(transfer, 'settled', Date.now())
+      const updatedRef = {
+        ...ref,
+        ...(result.preimage && { preimage: result.preimage }),
+        ...(result.effectiveFee != null && { effectiveFee: result.effectiveFee }),
+      }
+      const updatedTransfer = {
+        ...transfer,
+        transportRef: updatedRef,
+      }
+      return transitionPhase(updatedTransfer, 'settled', Date.now())
     }
 
     // 에러 즉시 실패
