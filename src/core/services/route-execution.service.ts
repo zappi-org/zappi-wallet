@@ -1,17 +1,25 @@
-import { sat } from '@/core/domain/amount'
-import { createTransaction, settleAsDelivered } from '@/core/domain/transaction'
-import { PaymentRoute, type RouteContext, type RouteExecutionResult, type RouteSelection } from '@/core/domain/routing'
-import type { EventBus } from '@/core/events/event-bus'
-import { BaseError, UnknownError } from '@/core/errors'
-import type { LnurlGateway } from '@/core/ports/driven/lnurl-gateway.port'
-import type { PaymentDeliveryPort } from '@/core/ports/driven/payment-delivery.port'
-import type { RouteExecutionStore } from '@/core/ports/driven/route-execution-store.port'
-import type { PreparedRouteMelt, RoutePaymentOperator } from '@/core/ports/driven/route-payment-operator.port'
-import type { SyncNotifier } from '@/core/ports/driven/sync-notifier.port'
-import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
-import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
-import type { RouteExecutionUseCase } from '@/core/ports/driving/route-execution.usecase'
-import { err, ok, type Result } from '@/core/types'
+import { sat } from "@/core/domain/amount";
+import { createTransaction } from "@/core/domain/transaction";
+import {
+  PaymentRoute,
+  type RouteContext,
+  type RouteExecutionResult,
+  type RouteSelection,
+} from "@/core/domain/routing";
+import type { EventBus } from "@/core/events/event-bus";
+import { BaseError, UnknownError } from "@/core/errors";
+import type { LnurlGateway } from "@/core/ports/driven/lnurl-gateway.port";
+import type { PaymentDeliveryPort } from "@/core/ports/driven/payment-delivery.port";
+import type { RouteExecutionStore } from "@/core/ports/driven/route-execution-store.port";
+import type { RoutePaymentOperator } from "@/core/ports/driven/route-payment-operator.port";
+import type { SyncNotifier } from "@/core/ports/driven/sync-notifier.port";
+import type { TokenCodec } from "@/core/ports/driven/token-codec.port";
+import type { TransactionRepository } from "@/core/ports/driven/transaction.repository.port";
+import type { RouteExecutionUseCase } from "@/core/ports/driving/route-execution.usecase";
+
+import { TransferLifecycleService } from "@/core/services/transfer-lifecycle.service";
+
+import { err, ok, type Result } from "@/core/types";
 
 export class RouteExecutionService implements RouteExecutionUseCase {
   constructor(
@@ -20,221 +28,208 @@ export class RouteExecutionService implements RouteExecutionUseCase {
     private readonly routeStore: RouteExecutionStore,
     private readonly delivery: PaymentDeliveryPort,
     private readonly tokenCodec: TokenCodec,
-    private readonly lnurl: Pick<LnurlGateway, 'resolvePay' | 'fetchInvoice'>,
+    private readonly lnurl: Pick<LnurlGateway, "resolvePay" | "fetchInvoice">,
     private readonly eventBus: EventBus,
-    private readonly syncNotifier?: SyncNotifier,
+    private readonly transferLifecycle: TransferLifecycleService,
+    private readonly syncNotifier?: SyncNotifier
   ) {}
 
   async executeRoute(
     selection: RouteSelection,
-    context: RouteContext,
+    context: RouteContext
   ): Promise<Result<RouteExecutionResult, BaseError>> {
     try {
       switch (selection.route) {
         case PaymentRoute.TOKEN_TRANSFER:
         case PaymentRoute.OWN_MINT_TOKEN:
-          return ok(await this.executeTokenSendFlow(selection.sourceMintUrl, selection, context))
+          return ok(
+            await this.executeTokenSendFlow(
+              selection.sourceMintUrl,
+              selection,
+              context
+            )
+          );
 
         case PaymentRoute.LN_INTERNAL:
         case PaymentRoute.LN_CROSS_MINT:
         case PaymentRoute.MELT_TO_LN:
-          return ok(await this.executeMeltToLn(selection, context))
+          return ok(await this.executeMeltToLn(selection, context));
 
         case PaymentRoute.MINT_AND_DM:
-          return ok(await this.executeMintAndDm(selection, context))
+          return ok(await this.executeMintAndDm(selection, context));
 
         case PaymentRoute.CANNOT_SEND:
         default:
-          return err(new UnknownError('Cannot determine payment route'))
+          return err(new UnknownError("Cannot determine payment route"));
       }
     } catch (error) {
-      return err(toBaseError(error))
+      return err(toBaseError(error));
     }
   }
 
   private async executeMeltToLn(
     selection: RouteSelection,
-    context: RouteContext,
+    context: RouteContext
   ): Promise<RouteExecutionResult> {
-    const invoice = await this.resolveInvoice(selection, context)
+    const invoice = await this.resolveInvoice(selection, context);
     if (!invoice) {
-      throw new UnknownError('Failed to resolve invoice')
+      throw new UnknownError("Failed to resolve invoice");
     }
+    if (!this.transferLifecycle) {
+      throw new Error("TransferLifecycleService not available");
+    }
+    const transfer = await this.transferLifecycle.initiateTransfer(
+      {
+        accountId: selection.sourceMintUrl,
+        amount: sat(selection.amount),
+        recipient: invoice,
+        txId: `tx-${crypto.randomUUID()}`,
+      },
+      "bolt11"
+    );
 
-    const { meltResult, actualFee } = await this.executeMeltFlow(
-      selection.sourceMintUrl,
-      invoice,
-      selection.amount,
-      context.addressOrInvoice || invoice,
-    )
-    this.notifyChanged(selection.sourceMintUrl)
+    const ref = transfer.transportRef as {
+      feeReserve?: number;
+      effectiveFee?: number;
+    };
 
     return {
-      success: true,
-      amount: meltResult.amount,
-      fee: actualFee,
+      success: transfer.phase === "settled",
+      amount: selection.amount,
+      fee: ref.effectiveFee ?? ref.feeReserve ?? 0,
       sourceMintUrl: selection.sourceMintUrl,
-      transactionId: meltResult.transactionId,
-    }
+      transactionId: transfer.txId,
+    };
   }
-
   private async executeMintAndDm(
     selection: RouteSelection,
-    context: RouteContext,
+    context: RouteContext
   ): Promise<RouteExecutionResult> {
-    const { sourceMintUrl, targetMintUrl } = selection
+    const { sourceMintUrl, targetMintUrl } = selection;
     if (!targetMintUrl) {
-      throw new UnknownError('Route #4 requires targetMintUrl')
+      throw new UnknownError("Route #4 requires targetMintUrl");
     }
 
-    let mintQuote: { quote: string; request: string } | undefined
+    let mintQuote: { quote: string; request: string } | undefined;
 
     try {
-      mintQuote = await this.paymentOperator.createMintQuote(targetMintUrl, selection.amount)
-      this.paymentOperator.markMintQuoteAsSwap(mintQuote.quote)
+      mintQuote = await this.paymentOperator.createMintQuote(
+        targetMintUrl,
+        selection.amount
+      );
+      this.paymentOperator.markMintQuoteAsSwap(mintQuote.quote);
 
-      const meltOp = await this.paymentOperator.prepareMelt(sourceMintUrl, mintQuote.request)
-      const meltFee = meltOp.feeReserve + meltOp.swapFee
+      const meltOp = await this.paymentOperator.prepareMelt(
+        sourceMintUrl,
+        mintQuote.request
+      );
+      const meltFee = meltOp.feeReserve + meltOp.swapFee;
       await this.routeStore.savePendingMelt({
         quoteId: meltOp.quoteId,
         mintUrl: sourceMintUrl,
         amount: selection.amount,
         fee: meltFee,
         destination: targetMintUrl,
-      })
+      });
 
       try {
-        await this.paymentOperator.executeMelt(meltOp.operationId)
+        await this.paymentOperator.executeMelt(meltOp.operationId);
       } catch (error) {
-        try { await this.paymentOperator.rollbackMelt(meltOp.operationId, 'melt failed') } catch { /* ignore */ }
-        await this.routeStore.deletePendingMelt(meltOp.quoteId).catch(() => {})
-        throw error
+        try {
+          await this.paymentOperator.rollbackMelt(
+            meltOp.operationId,
+            "melt failed"
+          );
+        } catch {
+          /* ignore */
+        }
+        await this.routeStore.deletePendingMelt(meltOp.quoteId).catch(() => {});
+        throw error;
       }
 
-      await this.routeStore.deletePendingMelt(meltOp.quoteId).catch(() => {})
+      await this.routeStore.deletePendingMelt(meltOp.quoteId).catch(() => {});
 
       try {
-        await this.paymentOperator.redeemMintQuote(targetMintUrl, mintQuote.quote, selection.amount)
+        await this.paymentOperator.redeemMintQuote(
+          targetMintUrl,
+          mintQuote.quote,
+          selection.amount
+        );
       } catch (error) {
         if (!isAlreadyRedeemedQuote(error)) {
-          throw error
+          throw error;
         }
       }
 
-      this.paymentOperator.unmarkMintQuoteAsSwap(mintQuote.quote)
+      this.paymentOperator.unmarkMintQuoteAsSwap(mintQuote.quote);
 
-      const tokenResult = await this.executeTokenSendFlow(targetMintUrl, selection, context)
+      const tokenResult = await this.executeTokenSendFlow(
+        targetMintUrl,
+        selection,
+        context
+      );
       return {
         ...tokenResult,
         sourceMintUrl,
         targetMintUrl,
         fee: meltFee + tokenResult.fee,
-      }
+      };
     } catch (error) {
-      if (mintQuote) this.paymentOperator.unmarkMintQuoteAsSwap(mintQuote.quote)
-      throw error
-    }
-  }
-
-  private async executeMeltFlow(
-    mintUrl: string,
-    invoice: string,
-    amount: number,
-    destination: string,
-  ): Promise<{ meltResult: { quoteId: string; amount: number; transactionId: string }; actualFee: number }> {
-    let meltOp: PreparedRouteMelt | null = null
-
-    try {
-      meltOp = await this.paymentOperator.prepareMelt(mintUrl, invoice)
-      const quotedFee = meltOp.feeReserve + meltOp.swapFee
-      await this.routeStore.savePendingMelt({
-        quoteId: meltOp.quoteId,
-        mintUrl,
-        amount,
-        fee: quotedFee,
-        destination,
-      })
-
-      const meltResult = await this.paymentOperator.executeMelt(meltOp.operationId)
-      const actualFee = meltResult.effectiveFee ?? quotedFee
-      const transactionId = `tx-melt-${meltOp.quoteId}`
-      await this.txRepo.save(settleAsDelivered(createTransaction({
-        id: transactionId,
-        direction: 'send',
-        method: 'cashu:lightning',
-        protocol: 'bolt11',
-        amount: sat(meltOp.amount),
-        accountId: mintUrl,
-        fee: {
-          quoted: sat(quotedFee),
-          effective: sat(actualFee),
-        },
-        metadata: {
-          bolt11: invoice,
-          preimage: meltResult.preimage,
-          destination,
-          quotedFee,
-          effectiveFee: actualFee,
-        },
-      })))
-
-      await this.routeStore.deletePendingMelt(meltOp.quoteId).catch(() => {})
-
-      return {
-        meltResult: { quoteId: meltOp.quoteId, amount: meltOp.amount, transactionId },
-        actualFee,
-      }
-    } catch (error) {
-      if (meltOp) {
-        try { await this.paymentOperator.rollbackMelt(meltOp.operationId, 'melt failed') } catch { /* ignore */ }
-        await this.routeStore.deletePendingMelt(meltOp.quoteId).catch(() => {})
-      }
-      throw error
+      if (mintQuote)
+        this.paymentOperator.unmarkMintQuoteAsSwap(mintQuote.quote);
+      throw error;
     }
   }
 
   private async executeTokenSendFlow(
     mintUrl: string,
     selection: RouteSelection,
-    context: RouteContext,
+    context: RouteContext
   ): Promise<RouteExecutionResult> {
-    let operationId: string | undefined
+    let operationId: string | undefined;
 
     try {
-      const p2pkPubkey = context.parsedCreq?.p2pkPubkey
+      const p2pkPubkey = context.parsedCreq?.p2pkPubkey;
       const prepared = await this.paymentOperator.prepareTokenSend({
         mintUrl,
         amount: selection.amount,
-        ...(p2pkPubkey && { lockingCondition: { kind: 'P2PK', data: p2pkPubkey } }),
-      })
-      operationId = prepared.operationId
+        ...(p2pkPubkey && {
+          lockingCondition: { kind: "P2PK", data: p2pkPubkey },
+        }),
+      });
+      operationId = prepared.operationId;
 
-      const { token } = await this.paymentOperator.executeTokenSend(prepared.operationId, {
-        memo: context.memo,
-      })
+      const { token } = await this.paymentOperator.executeTokenSend(
+        prepared.operationId,
+        {
+          memo: context.memo,
+        }
+      );
 
-      const txId = `tx-ecash-send-${crypto.randomUUID()}`
-      const isRequestPayment = context.parsedCreq != null
-      await this.txRepo.save(createTransaction({
-        id: txId,
-        direction: 'send',
-        method: 'cashu:ecash',
-        protocol: 'cashu-token',
-        amount: sat(selection.amount),
-        accountId: mintUrl,
-        memo: context.memo,
-        outcome: 'unclaimed',
-        ...(isRequestPayment && { intent: 'request-pay' as const }),
-        ...(prepared.fee > 0 && { fee: { quoted: sat(prepared.fee) } }),
-        metadata: {
-          route: selection.route,
-          token,
-          tokenState: 'unspent',
-          operationId: prepared.operationId,
-          ...(isRequestPayment && { intent: 'request-pay' }),
-          ...(prepared.fee > 0 && { fee: prepared.fee }),
-        },
-      }))
+      const txId = `tx-ecash-send-${crypto.randomUUID()}`;
+      const isRequestPayment = context.parsedCreq != null;
+      await this.txRepo.save(
+        createTransaction({
+          id: txId,
+          direction: "send",
+          method: "cashu:ecash",
+          protocol: "cashu-token",
+          amount: sat(selection.amount),
+          accountId: mintUrl,
+          memo: context.memo,
+          outcome: "unclaimed",
+          ...(isRequestPayment && { intent: "request-pay" as const }),
+          ...(prepared.fee > 0 && { fee: { quoted: sat(prepared.fee) } }),
+          metadata: {
+            route: selection.route,
+            token,
+            tokenState: "unspent",
+            operationId: prepared.operationId,
+            ...(isRequestPayment && { intent: "request-pay" }),
+            ...(prepared.fee > 0 && { fee: prepared.fee }),
+          },
+        })
+      );
 
       await this.routeStore.savePendingSendToken({
         id: txId,
@@ -242,15 +237,15 @@ export class RouteExecutionService implements RouteExecutionUseCase {
         mintUrl,
         amount: selection.amount,
         operationId: prepared.operationId,
-      })
+      });
 
       const deliveryResult = await this.delivery.deliverToken({
         token,
         parsedRequest: context.parsedCreq,
         memo: context.memo,
-      })
+      });
 
-      this.notifyChanged(mintUrl)
+      this.notifyChanged(mintUrl);
 
       return {
         success: deliveryResult.success,
@@ -260,58 +255,68 @@ export class RouteExecutionService implements RouteExecutionUseCase {
         transactionId: txId,
         token,
         transportUsed: deliveryResult.transportUsed,
-      }
+      };
     } catch (error) {
       if (operationId) {
-        try { await this.paymentOperator.rollbackTokenSend(operationId) } catch { /* ignore */ }
+        try {
+          await this.paymentOperator.rollbackTokenSend(operationId);
+        } catch {
+          /* ignore */
+        }
       }
-      throw error
+      throw error;
     }
   }
 
-  private async resolveInvoice(selection: RouteSelection, context: RouteContext): Promise<string | null> {
-    if (selection.invoice) return selection.invoice
+  private async resolveInvoice(
+    selection: RouteSelection,
+    context: RouteContext
+  ): Promise<string | null> {
+    if (selection.invoice) return selection.invoice;
 
-    const addressOrInvoice = context.addressOrInvoice
-    if (!addressOrInvoice) return null
+    const addressOrInvoice = context.addressOrInvoice;
+    if (!addressOrInvoice) return null;
 
     if (this.tokenCodec.isBolt11(addressOrInvoice)) {
-      const decoded = this.tokenCodec.decodeBolt11(addressOrInvoice)
-      return decoded.isExpired ? null : addressOrInvoice
+      const decoded = this.tokenCodec.decodeBolt11(addressOrInvoice);
+      return decoded.isExpired ? null : addressOrInvoice;
     }
 
     if (this.tokenCodec.isLightningAddress(addressOrInvoice)) {
-      const params = await this.lnurl.resolvePay(addressOrInvoice)
-      const result = await this.lnurl.fetchInvoice(params, selection.amount)
-      return result.bolt11 ?? null
+      const params = await this.lnurl.resolvePay(addressOrInvoice);
+      const result = await this.lnurl.fetchInvoice(params, selection.amount);
+      return result.bolt11 ?? null;
     }
 
-    return addressOrInvoice
+    return addressOrInvoice;
   }
 
   private notifyChanged(accountId: string): void {
     this.eventBus.emit({
-      type: 'balance:changed',
-      payload: { moduleId: 'cashu', accountId },
-    })
+      type: "balance:changed",
+      payload: { moduleId: "cashu", accountId },
+    });
     this.eventBus.emit({
-      type: 'transactions:changed',
-      payload: { reason: 'route-executed' },
-    })
-    this.syncNotifier?.notifyBalanceChanged()
+      type: "transactions:changed",
+      payload: { reason: "route-executed" },
+    });
+    this.syncNotifier?.notifyBalanceChanged();
   }
 }
 
 function isAlreadyRedeemedQuote(error: unknown): boolean {
-  const message = String(error).toLowerCase()
+  const message = String(error).toLowerCase();
   return (
-    message.includes('already pending') ||
-    message.includes('already issued') ||
-    message.includes('already redeemed')
-  )
+    message.includes("already pending") ||
+    message.includes("already issued") ||
+    message.includes("already redeemed")
+  );
 }
 
 function toBaseError(error: unknown): BaseError {
-  if (error instanceof BaseError) return error
-  return new UnknownError(error instanceof Error ? error.message : String(error), error)
+  if (error instanceof BaseError) return error;
+  return new UnknownError(
+    error instanceof Error ? error.message : String(error),
+    error
+  );
 }
