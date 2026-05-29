@@ -53,6 +53,7 @@ describe('RouteExecutionService', () => {
       {} as TokenCodec,
       {} as never,
       eventBus,
+      undefined,
       syncNotifier,
     )
 
@@ -97,5 +98,86 @@ describe('RouteExecutionService', () => {
     }))
     expect(syncNotifier.notifyBalanceChanged).toHaveBeenCalledOnce()
     expect(result.value.transportUsed).toBe('nostr')
+  })
+
+  it('executes bolt11 send via TransferLifecycleService', async () => {
+    const mockTransferLifecycle = {
+      initiateTransfer: vi.fn().mockResolvedValue({
+        id: 'transfer-1',
+        txId: 'tx-bolt11-1',
+        phase: 'settled',
+        direction: 'outgoing',
+        transportRef: {
+          feeReserve: 150,
+          effectiveFee: 120,
+        },
+      }),
+    }
+
+    const operator = {
+      prepareTokenSend: vi.fn(),
+      executeTokenSend: vi.fn(),
+      rollbackTokenSend: vi.fn(),
+      createMintQuote: vi.fn(),
+      markMintQuoteAsSwap: vi.fn(),
+      unmarkMintQuoteAsSwap: vi.fn(),
+      prepareMelt: vi.fn(),
+      executeMelt: vi.fn(),
+      rollbackMelt: vi.fn(),
+      redeemMintQuote: vi.fn(),
+    } as unknown as RoutePaymentOperator
+
+    const txRepo = { save: vi.fn() } as unknown as TransactionRepository
+    const routeStore = {
+      savePendingSendToken: vi.fn(),
+      savePendingMelt: vi.fn(),
+      deletePendingMelt: vi.fn(),
+    } as unknown as RouteExecutionStore
+    const delivery: PaymentDeliveryPort = {
+      deliverToken: vi.fn(),
+    }
+    const eventBus = { emit: vi.fn() } as unknown as EventBus
+    const syncNotifier = { notifyBalanceChanged: vi.fn() }
+
+    const service = new RouteExecutionService(
+      operator,
+      txRepo,
+      routeStore,
+      delivery,
+      {
+        isBolt11: vi.fn().mockReturnValue(true),
+        decodeBolt11: vi.fn().mockReturnValue({ isExpired: false }),
+      } as unknown as TokenCodec,
+      {} as never,
+      eventBus,
+      mockTransferLifecycle as unknown as import('@/core/services/transfer-lifecycle.service').TransferLifecycleService,
+      syncNotifier,
+    )
+
+    const result = await service.executeRoute(
+      createSelection({
+        route: PaymentRoute.MELT_TO_LN,
+        invoice: 'lnbc100n1p3...',
+      }),
+      {},
+    )
+
+    expect(result.isOk()).toBe(true)
+    if (result.isErr()) return
+
+    expect(mockTransferLifecycle.initiateTransfer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        txId: expect.stringMatching(/^tx-/),
+        accountId: 'https://mint-a.test',
+        amount: expect.objectContaining({ unit: 'sat' }),
+        recipient: 'lnbc100n1p3...',
+      }),
+      'bolt11',
+    )
+    expect(result.value.success).toBe(true)
+    expect(result.value.transactionId).toBe('tx-bolt11-1')
+    expect(result.value.fee).toBe(120)
+    expect(result.value.amount).toBe(100)
+    expect(result.value.sourceMintUrl).toBe('https://mint-a.test')
   })
 })
