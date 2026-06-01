@@ -33,14 +33,9 @@ import { PreferencesCategoryPage } from './pages/PreferencesCategoryPage'
 import { SecurityCategoryPage } from './pages/SecurityCategoryPage'
 import { WalletCategoryPage } from './pages/WalletCategoryPage'
 import { SupportPage } from './pages/SupportPage'
-import { TlsTestPage } from './pages/TlsTestPage'
-import { TlsBolt11SendPage } from './pages/TlsBolt11SendPage'
-import { TlsBolt11ReceivePage } from './pages/TlsBolt11ReceivePage'
-
 export type SettingsPage =
   | 'category-profile' | 'category-preferences' | 'category-security' | 'category-wallet'
   | 'language' | 'unitDisplay' | 'fiat' | 'autoLock' | 'pos' | 'privacy' | 'npubDetail' | 'lightningDetail' | 'support'
-  | 'tlsTest' | 'tlsBolt11Send' | 'tlsBolt11Receive' | 'tlsEcashCreate' | 'tlsEcashRedeem' | 'tlsGiftWrap' | 'tlsCreq'
 
 export interface SettingsScreenProps {
   onBack: () => void
@@ -501,12 +496,6 @@ export function SettingsScreen({
         )
       case 'support':
         return <SupportPage onBack={closeDetail} />
-      case 'tlsTest':
-        return <TlsTestPage onBack={closeDetail} onNavigate={setDetailPage} />
-      case 'tlsBolt11Send':
-        return <TlsBolt11SendPage onBack={closeDetail} />
-      case 'tlsBolt11Receive':
-        return <TlsBolt11ReceivePage onBack={closeDetail} />
       default:
         return null
     }

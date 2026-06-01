@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { User, Settings, Lock, Wallet, LifeBuoy, ChevronRight, Download, RefreshCw, TestTube } from 'lucide-react'
+import { User, Settings, Lock, Wallet, LifeBuoy, ChevronRight, Download, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { Button } from '@/ui/components/common/Button'
@@ -25,7 +25,6 @@ const categories: { Icon: LucideIcon; titleKey: string; descKey: string; page: S
   { Icon: Lock, titleKey: 'settings.security', descKey: 'settings.securityDesc', page: 'category-security' },
   { Icon: Wallet, titleKey: 'settings.walletManagement', descKey: 'settings.walletManagementDesc', page: 'category-wallet' },
   { Icon: LifeBuoy, titleKey: 'settings.customerSupport', descKey: 'settings.customerSupportDesc', page: 'support' },
-  { Icon: TestTube, titleKey: 'settings.tlsTest', descKey: 'settings.tlsTestDesc', page: 'tlsTest' },
 ]
 
 type UpdateCheckPhase = 'idle' | 'checking' | 'installing'
