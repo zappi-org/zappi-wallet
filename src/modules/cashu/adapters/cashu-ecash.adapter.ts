@@ -21,6 +21,7 @@ import type { Unit } from '@/core/domain/amount'
 import type { RedeemFeeEstimate } from '@/core/ports/driven/payment-method.port'
 import type { Transaction } from '@/core/domain/transaction'
 import type { TransferOperator, TransferIntent, MessageTransport } from '@/core/ports/driven/transfer-operator.port'
+import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
 import type { PendingTransfer, TransferPhase } from '@/core/domain/pending-transfer'
 import { createPendingTransfer, transitionPhase, isExpired } from '@/core/domain/pending-transfer'
 
@@ -95,6 +96,7 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
   constructor(
     private backend: EcashBackend,
     private transport?: MessageTransport,
+    private tokenCodec?: TokenCodec,
   ) { }
 
   // ─── TransferOperator ───
@@ -129,6 +131,10 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
 
     // outgoing: 토큰 생성 + 전송
     return this.executeOutgoing(transfer)
+  }
+
+  async processIncoming(transfer: PendingTransfer): Promise<PendingTransfer> {
+    return this.executeIncoming(transfer)
   }
 
   private async executeOutgoing(transfer: PendingTransfer): Promise<PendingTransfer> {
@@ -183,9 +189,21 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
   private extractTokenFromContent(content: string): string | undefined {
     const trimmed = content.trim()
     if (/^cashu[ab]/i.test(trimmed)) return trimmed
+    // JSON proofs → encoded token (backend.receiveToken expects encoded form)
     if (trimmed.startsWith('{"mint"') || trimmed.includes('"proofs"')) {
-      // JSON token — 그대로 사용
-      return trimmed
+      if (!this.tokenCodec) return undefined
+      try {
+        const parsed = JSON.parse(trimmed) as { mint?: string; unit?: string; proofs?: unknown[]; memo?: string }
+        if (!parsed.mint || !Array.isArray(parsed.proofs)) return undefined
+        return this.tokenCodec.encodeCashuToken({
+          mint: parsed.mint,
+          unit: parsed.unit ?? 'sat',
+          proofs: parsed.proofs as import('@/core/domain/cashu-payment-payload').CashuProof[],
+          memo: parsed.memo,
+        })
+      } catch {
+        return undefined
+      }
     }
     return undefined
   }

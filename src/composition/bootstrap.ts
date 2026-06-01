@@ -125,6 +125,7 @@ import { IncomingPaymentService } from '@/core/services/incoming-payment.service
 import { createPendingItemsService } from './pending-items'
 import { connectEventStoreBridge } from './event-store-bridge'
 import { connectCocoEventBridge } from './coco-event-bridge'
+import { connectGiftWrapSettlementBridge } from './gift-wrap-settlement.bridge'
 import { GiftWrapWatcher } from './gift-wrap.watcher'
 import { removeMintArtifacts } from './remove-mint'
 import { PaymentDelivery } from './payment-delivery'
@@ -165,6 +166,7 @@ export interface BootstrapResult extends ServiceRegistry {
   onResume(): Promise<void>
   onPause(): Promise<void>
   disconnectBridge(): void
+  disconnectGiftWrapSettlement(): void
 
   // ─── Balance refresh (store 갱신 포함, composition root 와이어링) ───
   refreshBalance(): Promise<void>
@@ -269,8 +271,10 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     },
   }
 
+  const tokenCodec = new TokenCodecAdapter()
+
   const cashuBolt11Adapter = new CashuBolt11Adapter(cashuBackend)
-  const cashuEcashAdapter = new CashuEcashAdapter(cashuBackend, messageTransport)
+  const cashuEcashAdapter = new CashuEcashAdapter(cashuBackend, messageTransport, tokenCodec)
 
   const operators = new Map<string, TransferOperator>([
     ['bolt11', cashuBolt11Adapter],
@@ -281,6 +285,11 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     pendingTransferStore,
     operators,
     eventBus,
+  )
+
+  const disconnectGiftWrapSettlement = connectGiftWrapSettlementBridge(
+    eventBus,
+    transferLifecycle,
   )
 
   // 5. Services (via composition roots)
@@ -396,7 +405,6 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   )
 
   // 10. Additional services
-  const tokenCodec = new TokenCodecAdapter()
   const recovery = createRecoveryService(nostrGateway, payment, trustedMintProvider, incomingReviewQueue, receiveRequest)
   const incomingPayment = new IncomingPaymentService(payment, processedStore, failedIncomingStore, receiveRequest, txRepo, eventBus)
   const pendingItems = createPendingItemsService(txRepo, receiveRequestRepo, modules)
@@ -537,6 +545,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     onResume,
     onPause,
     disconnectBridge,
+    disconnectGiftWrapSettlement,
 
     // Balance refresh (store 갱신 포함)
     refreshBalance: balanceRefresh,
