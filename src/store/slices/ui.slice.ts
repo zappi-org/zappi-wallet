@@ -50,6 +50,9 @@ export interface UISliceState {
   // PWA update
   updateAvailable: boolean
 
+  // GiftWrap watcher pause (TLS test pages)
+  pauseGiftWrap: boolean
+
   // Actions
   setLocked: (locked: boolean) => void
   setUnlocking: (unlocking: boolean) => void
@@ -65,6 +68,7 @@ export interface UISliceState {
   setSupportUnreadSummary: (count: number, ticketIds: string[]) => void
   setActiveSupportTicketId: (ticketId: string | null) => void
   setUpdateAvailable: (available: boolean) => void
+  setPauseGiftWrap: (paused: boolean) => void
   reset: () => void
 }
 
@@ -84,6 +88,7 @@ const initialState = {
   supportUnreadTicketIds: [] as string[],
   activeSupportTicketId: null as string | null,
   updateAvailable: false,
+  pauseGiftWrap: false,
 }
 
 /**
@@ -140,6 +145,8 @@ export const createUISlice: StateCreator<UISliceState> = (set) => ({
   setActiveSupportTicketId: (activeSupportTicketId) => set({ activeSupportTicketId }),
 
   setUpdateAvailable: (updateAvailable) => set({ updateAvailable }),
+
+  setPauseGiftWrap: (pauseGiftWrap) => set({ pauseGiftWrap }),
 
   reset: () => set(initialState),
 })

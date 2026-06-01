@@ -37,6 +37,9 @@ import { TlsTestPage } from './pages/TlsTestPage'
 import { TlsBolt11SendPage } from './pages/TlsBolt11SendPage'
 import { TlsBolt11ReceivePage } from './pages/TlsBolt11ReceivePage'
 import { TlsEcashCreatePage } from './pages/TlsEcashCreatePage'
+import { TlsEcashRedeemPage } from './pages/TlsEcashRedeemPage'
+import { TlsGiftWrapPage } from './pages/TlsGiftWrapPage'
+import { TlsCreqPage } from './pages/TlsCreqPage'
 
 export type SettingsPage =
   | 'category-profile' | 'category-preferences' | 'category-security' | 'category-wallet'
@@ -97,6 +100,13 @@ export function SettingsScreen({
 
   // Derived: any sub-page is open
   const hasSubPage = categoryPage !== null || detailPage !== null
+
+  // Pause legacy GiftWrapWatcher while on TLS test pages
+  const setPauseGiftWrap = useAppStore((state) => state.setPauseGiftWrap)
+  useEffect(() => {
+    const isTlsPage = detailPage?.startsWith('tls') ?? false
+    setPauseGiftWrap(isTlsPage)
+  }, [detailPage, setPauseGiftWrap])
 
   // Lightning address registration
   const [isRegistering, setIsRegistering] = useState(false)
@@ -510,6 +520,12 @@ export function SettingsScreen({
         return <TlsBolt11ReceivePage onBack={closeDetail} />
       case 'tlsEcashCreate':
         return <TlsEcashCreatePage onBack={closeDetail} />
+      case 'tlsEcashRedeem':
+        return <TlsEcashRedeemPage onBack={closeDetail} />
+      case 'tlsGiftWrap':
+        return <TlsGiftWrapPage onBack={closeDetail} />
+      case 'tlsCreq':
+        return <TlsCreqPage onBack={closeDetail} />
       default:
         return null
     }

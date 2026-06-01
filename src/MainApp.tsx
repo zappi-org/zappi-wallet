@@ -119,12 +119,15 @@ export default function MainApp() {
   const { isOnline } = useNetwork()
   const [isRecovering, setIsRecovering] = useState(false)
 
+  const pauseGiftWrap = useAppStore((state) => state.pauseGiftWrap)
+
   // Gift Wrap Watcher — lifecycle managed via serviceRegistry
   useEffect(() => {
     if (!serviceRegistry) return
+    if (pauseGiftWrap) return
     serviceRegistry.giftWrapWatcher.start()
     return () => serviceRegistry.giftWrapWatcher.stop()
-  }, [serviceRegistry])
+  }, [serviceRegistry, pauseGiftWrap])
 
   useCrossTabSync()
   useGlobalTokenClaimToast(serviceRegistry)
