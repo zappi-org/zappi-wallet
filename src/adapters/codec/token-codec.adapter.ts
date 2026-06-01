@@ -291,10 +291,12 @@ export class TokenCodecAdapter implements TokenCodec {
 }
 
 function generateRequestId(prefix: string): string {
-  const bytes = new Uint8Array(8)
+  // bech32m alphabet: qpzry9x8gf2tvdw0s3jn54khce6mua7l (no b, i, o, 1)
+  const chars = 'acdefghjklmnpqrstuvwxyz023456789'
+  const bytes = new Uint8Array(16)
   crypto.getRandomValues(bytes)
-  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
-  return `${prefix}-${hex}`
+  const id = Array.from(bytes, (b) => chars[b % chars.length]).join('')
+  return `${prefix}-${id}`
 }
 
 function decodeBase64UrlPayload(payload: string): Uint8Array {

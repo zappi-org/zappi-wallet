@@ -72,6 +72,7 @@ export class NostrIncomingWatcher {
       onExpiry: 'expire',
       transportRef: {
         type: 'nostr-giftwrap',
+        protocol: 'ecash',
         eventId: msg.eventId,
         sender: msg.sender,
         content: msg.content,
