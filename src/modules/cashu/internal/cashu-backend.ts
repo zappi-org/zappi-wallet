@@ -10,6 +10,7 @@ import type { PendingQuote } from '@/core/domain/quote';
 import { InsufficientBalanceError, RedeemFeeTooHighError } from '@/core/errors/payment.errors';
 import type { ProofStateResult } from '@/core/ports/driven/send-token-operator.port';
 import { getDecodedToken, getEncodedToken, normalizeMintUrl } from 'coco-cashu-core';
+import { getTokenMetadata } from '@cashu/cashu-ts';
 import { classifyCashuError } from './classify-error';
 import { getCocoManager, getPendingMintQuotes } from './coco-sdk';
 
@@ -262,7 +263,7 @@ export async function receiveToken(
   options?: MintTrustOptions,
 ): Promise<{ amount: number; fee: number; unit: string; mintUrl: string }> {
   const manager = await getCocoManager();
-  const decoded = getDecodedToken(token);
+  const decoded = getTokenMetadata(token);
 
   try {
     return await withMintTrustedForOperation(manager, decoded.mint, options, async () => {
@@ -283,6 +284,8 @@ export async function receiveToken(
       return { amount: netAmount, fee, unit, mintUrl: decoded.mint };
     });
   } catch (error) {
+    console.error('[receiveToken] Raw error:', error);
+    console.error('[receiveToken] Message:', error instanceof Error ? error.message : String(error));
     throw classifyCashuError(error);
   }
 }
@@ -298,7 +301,7 @@ export async function estimateReceiveFee(
   options?: MintTrustOptions,
 ): Promise<{ grossAmount: number; fee: number; netAmount: number; unit: string; mintUrl: string }> {
   const manager = await getCocoManager();
-  const decoded = getDecodedToken(token);
+  const decoded = getTokenMetadata(token);
 
   try {
     return await withMintTrustedForOperation(manager,decoded.mint, options, async() => {
@@ -317,6 +320,8 @@ export async function estimateReceiveFee(
 
     })
   } catch (error) {
+    console.error('[estimateReceiveFee] Raw error:', error);
+    console.error('[estimateReceiveFee] Message:', error instanceof Error ? error.message : String(error));
     throw classifyCashuError(error);
   }
 }
