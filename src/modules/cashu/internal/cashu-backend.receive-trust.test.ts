@@ -20,7 +20,7 @@ const mocks = vi.hoisted(() => {
   return {
     manager,
     getCocoManager: vi.fn(),
-    getDecodedToken: vi.fn(),
+    getTokenMetadata: vi.fn(),
   }
 })
 
@@ -29,10 +29,13 @@ vi.mock('./coco-sdk', () => ({
   getPendingMintQuotes: vi.fn(),
 }))
 
-vi.mock('@cashu/cashu-ts', () => ({}))
+vi.mock('@cashu/cashu-ts', () => ({
+  getTokenMetadata: mocks.getTokenMetadata,
+}))
+
 vi.mock('coco-cashu-core', async (importOriginal) => {
   const actual = await importOriginal<typeof import('coco-cashu-core')>()
-  return { ...actual, getDecodedToken: mocks.getDecodedToken }
+  return { ...actual }
 })
 
 import { addMint, estimateReceiveFee, receiveToken } from './cashu-backend'
@@ -41,7 +44,7 @@ describe('cashu-backend receive mint trust scope', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.getCocoManager.mockResolvedValue(mocks.manager)
-    mocks.getDecodedToken.mockReturnValue({ mint: 'https://source.mint' })
+    mocks.getTokenMetadata.mockReturnValue({ mint: 'https://source.mint' })
     mocks.manager.mint.getAllMints.mockResolvedValue([])
     mocks.manager.mint.addMint.mockResolvedValue(undefined)
     mocks.manager.mint.trustMint.mockResolvedValue(undefined)
@@ -82,7 +85,7 @@ describe('cashu-backend receive mint trust scope', () => {
   })
 
   it('treats normalized configured mint URLs as trusted during fee estimation', async () => {
-    mocks.getDecodedToken.mockReturnValue({ mint: 'https://source.mint/' })
+    mocks.getTokenMetadata.mockReturnValue({ mint: 'https://source.mint/' })
 
     await estimateReceiveFee('cashuA...', { trustedMintUrls: ['https://source.mint'] })
 
