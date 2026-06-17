@@ -164,9 +164,7 @@ function shouldUseDarkInk(hex: string): boolean {
   const luminance = getRelativeLuminance(hex);
   if (luminance === null) return false;
 
-  const blackContrast = (luminance + 0.05) / 0.05;
-  const whiteContrast = 1.05 / (luminance + 0.05);
-  return blackContrast > whiteContrast;
+  return luminance >= 0.5;
 }
 
 export function MintCard({

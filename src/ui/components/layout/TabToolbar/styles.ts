@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 
 export const tabGlassClass =
-  'pointer-events-auto isolate relative transform-gpu will-change-transform overflow-hidden rounded-full ring-2 ring-white/10 bg-zinc-950/30 backdrop-blur-xl p-1 shadow-lg'
+  'pointer-events-auto isolate relative transform-gpu will-change-transform overflow-hidden rounded-full bg-white/[0.06] backdrop-blur-[28px] backdrop-saturate-200 p-1 ring-1 ring-white/[0.15] shadow-[0_-6px_24px_rgba(0,0,0,0.045),0_2px_8px_rgba(0,0,0,0.025),inset_0_1px_0_rgba(255,255,255,0.1)]'
 
 export const brandStyle: CSSProperties = {
   background: 'var(--brand-500)',

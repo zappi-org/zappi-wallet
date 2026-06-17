@@ -19,12 +19,12 @@ export function EcashPill({ icon, activeIcon, active = false, label, onClick }: 
         type="button"
         onClick={onClick}
         whileTap={{ scale: 0.9 }}
-        className="relative z-20 flex flex-col items-center justify-center px-4 h-[44px] rounded-full border border-transparent text-zinc-50 hover:text-white transform-gpu will-change-transform transition-colors"
+        className="relative z-20 flex flex-col items-center justify-center px-4 h-[44px] rounded-full border border-transparent text-foreground/80 transform-gpu will-change-transform transition-colors"
       >
         <div className="w-[20px] h-[20px] flex items-center justify-center">
           {active && activeIcon ? activeIcon : icon ?? <BanknotesIcon className="w-[20px] h-[20px]" />}
         </div>
-        <span className="text-[9.5px] font-semibold leading-none mt-0.5">{label}</span>
+        <span className="text-[10px] font-semibold leading-none mt-[1px]">{label}</span>
       </motion.button>
     </div>
   )

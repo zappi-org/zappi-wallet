@@ -17,7 +17,7 @@ export function WalletTabPicker({ navItems, activeTab, onTabSelect }: WalletTabP
       {activeIndex >= 0 && (
         <motion.span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 left-0 z-0 w-1/3 rounded-full bg-white/90 ring ring-white shadow/10 transform-gpu will-change-transform"
+          className="pointer-events-none absolute inset-y-0 left-0 z-0 w-1/3 rounded-full bg-brand transform-gpu will-change-transform"
           style={{ backfaceVisibility: 'hidden' }}
           initial={false}
           animate={{ x: `${activeIndex * 100}%` }}
@@ -36,13 +36,13 @@ export function WalletTabPicker({ navItems, activeTab, onTabSelect }: WalletTabP
             onClick={() => onTabSelect(id)}
             whileTap={{ scale: 0.9 }}
             className={`relative z-20 flex-1 flex flex-col items-center justify-center h-[44px] rounded-full border border-transparent transform-gpu will-change-transform transition-colors ${
-              isActive ? 'text-blue-500' : 'text-zinc-50 hover:text-white'
+              isActive ? 'text-white' : 'text-foreground/60'
             }`}
           >
             <div className="w-[20px] h-[20px] flex items-center justify-center">
               {isActive && item.activeIcon ? item.activeIcon : item.icon}
             </div>
-            <span className="text-[9.5px] font-semibold leading-none mt-0.5">{item.label}</span>
+            <span className="text-[10px] font-semibold leading-none mt-[1px]">{item.label}</span>
           </motion.button>
         )
       })}
