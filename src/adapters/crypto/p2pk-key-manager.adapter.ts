@@ -1,7 +1,7 @@
 import type { P2PKKeyManager } from '@/core/ports/driven/p2pk-key-manager.port'
 
 /**
- * Keypair shape returned by coco-cashu-core KeyRingApi.
+ * Keypair shape returned by @cashu/coco-core KeyRingApi.
  * Defined here to avoid importing SDK types directly.
  */
 interface KeyRingPair {

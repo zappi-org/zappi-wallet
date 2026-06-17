@@ -1,6 +1,6 @@
 /**
  * Lightweight entry point for mint metadata.
- * Does NOT load coco-cashu-core SDK.
+ * Does NOT load @cashu/coco-core SDK.
  */
 export {
   MintMetadataService,

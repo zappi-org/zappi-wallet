@@ -110,7 +110,7 @@ export interface PendingSendTokenRecord {
   token?: string   // the cashu token string (undefined if crash before token creation)
   mintUrl: string
   amount: number
-  /** SDK SendOperation.id — for linking with coco-cashu-core's SendApi */
+  /** SDK SendOperation.id — for linking with @cashu/coco-core's SendApi */
   operationId?: string
   createdAt: number
 }

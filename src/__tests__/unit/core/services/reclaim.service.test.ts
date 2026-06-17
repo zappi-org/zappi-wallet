@@ -211,6 +211,37 @@ describe('ReclaimService', () => {
       expect(sendOp.rollbackSendToken).toHaveBeenCalledWith('op1')
     })
 
+    it('should mark send as claimed when reclaim races with recipient claim', async () => {
+      const tx = createUnclaimedSendTx('tx1', {
+        metadata: { operationId: 'op1' },
+      })
+      vi.mocked(txRepo.getById).mockResolvedValue(tx)
+      vi.mocked(sendOp.rollbackSendToken).mockRejectedValue(new Error("Cannot rollback operation in state 'finalized'"))
+
+      const result = await service.reclaim('tx1')
+
+      expect(!result.ok).toBe(true)
+      if (!result.ok) {
+        expect(result.error).toBeInstanceOf(TokenSpentByRecipientError)
+      }
+      expect(txRepo.update).toHaveBeenCalledWith('tx1', {
+        status: 'settled',
+        outcome: 'claimed',
+        completedAt: expect.any(Number),
+      })
+      expect(pendingOps.delete).toHaveBeenCalledWith('tx1')
+      expect(eventBus.emit).toHaveBeenCalledWith({
+        type: 'send:claimed',
+        payload: {
+          txId: 'tx1',
+          method: 'cashu:ecash',
+          protocol: 'cashu-token',
+          amount: tx.amount,
+          memo: tx.memo,
+        },
+      })
+    })
+
     it('should return error when rollback fails and tx not reclaimed', async () => {
       const tx = createUnclaimedSendTx('tx1', {
         metadata: { operationId: 'op1' },
@@ -279,7 +310,7 @@ describe('ReclaimService', () => {
   })
 
   describe('finalizeSend', () => {
-    it('should finalize send by operationId', async () => {
+    it('should finalize send by operationId and mark transaction as claimed', async () => {
       const tx = createUnclaimedSendTx('tx1', {
         metadata: { operationId: 'op1' },
       })
@@ -288,6 +319,52 @@ describe('ReclaimService', () => {
       await service.finalizeSend('tx1')
 
       expect(sendOp.finalizeSend).toHaveBeenCalledWith('op1')
+      expect(txRepo.update).toHaveBeenCalledWith('tx1', {
+        status: 'settled',
+        outcome: 'claimed',
+        completedAt: expect.any(Number),
+      })
+      expect(pendingOps.delete).toHaveBeenCalledWith('tx1')
+      expect(eventBus.emit).toHaveBeenCalledWith({
+        type: 'send:claimed',
+        payload: {
+          txId: 'tx1',
+          method: 'cashu:ecash',
+          protocol: 'cashu-token',
+          amount: tx.amount,
+          memo: tx.memo,
+        },
+      })
+      expect(eventBus.emit).toHaveBeenCalledWith({
+        type: 'transactions:changed',
+        payload: { reason: 'send-claimed', txId: 'tx1' },
+      })
+      expect(eventBus.emit).toHaveBeenCalledWith({
+        type: 'balance:changed',
+        payload: {
+          moduleId: 'cashu',
+          accountId: 'https://mint',
+        },
+      })
+    })
+
+    it('should still mark transaction as claimed when SDK operation is already finalized', async () => {
+      const tx = createUnclaimedSendTx('tx1', {
+        metadata: { operationId: 'op1' },
+      })
+      vi.mocked(txRepo.getById).mockResolvedValue(tx)
+      vi.mocked(sendOp.finalizeSend).mockRejectedValue(new Error("Cannot finalize operation in state 'finalized'"))
+
+      await service.finalizeSend('tx1')
+
+      expect(txRepo.update).toHaveBeenCalledWith('tx1', {
+        status: 'settled',
+        outcome: 'claimed',
+        completedAt: expect.any(Number),
+      })
+      expect(eventBus.emit).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'send:claimed',
+      }))
     })
 
     it('should do nothing when transaction not found', async () => {
@@ -304,6 +381,17 @@ describe('ReclaimService', () => {
       await service.finalizeSend('tx1')
 
       expect(sendOp.finalizeSend).not.toHaveBeenCalled()
+      expect(txRepo.update).not.toHaveBeenCalled()
+    })
+
+    it('should do nothing when transaction is already claimed', async () => {
+      vi.mocked(txRepo.getById).mockResolvedValue(createClaimedTx())
+
+      await service.finalizeSend('tx1')
+
+      expect(sendOp.finalizeSend).not.toHaveBeenCalled()
+      expect(txRepo.update).not.toHaveBeenCalled()
+      expect(eventBus.emit).not.toHaveBeenCalled()
     })
   })
 

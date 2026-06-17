@@ -8,7 +8,7 @@ import { useTokenTabToolbarState } from '@/ui/hooks/use-token-tab-toolbar-state'
 import { CreateRegisterPair } from './CreateRegisterPair'
 import { EcashPill } from './EcashPill'
 import { WalletPillIcon } from './WalletPillIcon'
-import { fadeVariants, glassStyle, tweenTransition } from './styles'
+import { fadeVariants, tabGlassClass, tweenTransition } from './styles'
 
 export interface TokenTabToolbarProps {
   navItems: NavItem[]
@@ -58,8 +58,7 @@ export function TokenTabToolbar({
       <motion.div
         layout
         transition={tweenTransition}
-        className="rounded-full overflow-hidden p-1.5"
-        style={glassStyle}
+        className={tabGlassClass}
       >
         <WalletPillIcon
           icon={walletItem?.icon}
@@ -92,6 +91,8 @@ export function TokenTabToolbar({
           >
             <EcashPill
               icon={tokenItem?.icon}
+              activeIcon={tokenItem?.activeIcon}
+              active
               label={tokenItem?.label ?? t('nav.token')}
               onClick={handleRightTokenTap}
             />

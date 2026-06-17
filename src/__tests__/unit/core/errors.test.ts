@@ -29,7 +29,7 @@ import {
   UnknownMintError,
   ProofValidationError,
   TokenValidationError,
-} from 'coco-cashu-core'
+} from '@cashu/coco-core'
 
 describe('Cashu Errors', () => {
   describe('TokenSpentError', () => {

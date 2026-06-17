@@ -2,15 +2,12 @@ import { describe, expect, it, vi } from 'vitest'
 import { NostrPaymentTransport } from '@/adapters/nostr/nostr-payment-transport'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
 
-vi.mock('@cashu/cashu-ts', () => ({
-  getDecodedToken: () => ({
-    mint: 'https://mint.test',
-    unit: 'sat',
-    proofs: [],
-  }),
-}))
-
 const RECIPIENT_HEX = 'a'.repeat(64)
+const decodeToken = vi.fn().mockResolvedValue({
+  mint: 'https://mint.test',
+  unit: 'sat',
+  proofs: [],
+})
 
 function makeGateway(events: Array<{ kind: number; tags: string[][] }> = []): NostrGateway {
   return {
@@ -37,10 +34,11 @@ function makeGateway(events: Array<{ kind: number; tags: string[][] }> = []): No
 
 describe('NostrPaymentTransport', () => {
   it('sends only to recipient kind:10050 DM relays', async () => {
+    decodeToken.mockClear()
     const gateway = makeGateway([
       { kind: 10050, tags: [['relay', 'wss://dm1.test'], ['relay', 'wss://dm2.test']] },
     ])
-    const transport = new NostrPaymentTransport(gateway)
+    const transport = new NostrPaymentTransport(gateway, decodeToken)
 
     const result = await transport.send({
       recipientPubkey: RECIPIENT_HEX,
@@ -55,11 +53,13 @@ describe('NostrPaymentTransport', () => {
       recipientPubkey: RECIPIENT_HEX,
       relays: ['wss://dm1.test', 'wss://dm2.test'],
     }))
+    expect(decodeToken).toHaveBeenCalledWith('cashuAinvalid-test-token')
   })
 
   it('does not fallback to default relays when kind:10050 is missing', async () => {
+    decodeToken.mockClear()
     const gateway = makeGateway([])
-    const transport = new NostrPaymentTransport(gateway)
+    const transport = new NostrPaymentTransport(gateway, decodeToken)
 
     const result = await transport.send({
       recipientPubkey: RECIPIENT_HEX,
@@ -68,5 +68,6 @@ describe('NostrPaymentTransport', () => {
 
     expect(result).toEqual({ success: false, error: 'No relays available' })
     expect(gateway.sendGiftWrap).not.toHaveBeenCalled()
+    expect(decodeToken).not.toHaveBeenCalled()
   })
 })

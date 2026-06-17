@@ -89,7 +89,7 @@ export default defineConfig({
           'vendor-charts': ['recharts'],
           'vendor-nostr': ['@nostr-dev-kit/ndk', 'nostr-tools'],
           'vendor-cashu': ['@cashu/cashu-ts'],
-          'vendor-coco': ['coco-cashu-core', 'coco-cashu-indexeddb'],
+          'vendor-coco': ['@cashu/coco-core', '@cashu/coco-indexeddb'],
         },
       },
     },

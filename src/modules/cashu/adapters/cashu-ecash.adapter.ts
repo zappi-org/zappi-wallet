@@ -21,7 +21,6 @@ import { amount as toAmount, sat, toNumber } from '@/core/domain/amount'
 import type { Unit } from '@/core/domain/amount'
 import type { RedeemFeeEstimate } from '@/core/ports/driven/payment-method.port'
 import type { Transaction } from '@/core/domain/transaction'
-import { getTokenMetadata } from '@cashu/cashu-ts'
 
 // ─── Backend interface (DI용) ───
 
@@ -40,6 +39,7 @@ export interface ReceivedTokenResult {
   /** mint의 토큰 단위 — backend가 결정 (현재 항상 'sat', 멀티 유닛 대응 구조) */
   unit: string
   mintUrl: string
+  memo?: string
 }
 
 /** estimateReceiveFee의 반환 타입 */
@@ -169,28 +169,21 @@ export class CashuEcashAdapter implements PaymentMethodAdapter {
   }
 
   async redeem(input: string): Promise<RedeemResult> {
-    // 메모 추출 (redeem 전에 — receiveToken 후에는 원본 토큰 접근 불가)
-    let memo: string | undefined
     try {
-      const decoded = getTokenMetadata(input)
-      if (decoded.memo) memo = decoded.memo
-    } catch { /* ignore decode failure — receiveToken will handle */ }
-
-    try {
-      const { amount, fee, unit, mintUrl } = await this.backend.receiveToken(input)
-    return {
-      requestId: crypto.randomUUID(),
-      // backend가 결정한 unit으로 Amount 생성 — sat 하드코딩 없음
-      amount: toAmount(amount, unit as Unit),
-      fee: fee > 0 ? toAmount(fee, unit as Unit) : undefined,
-      method: 'cashu:ecash',
-      protocol: 'cashu-token',
-      completed: true,
-      accountId: mintUrl,
-      memo,
-      // 원본 토큰 저장 — Token tab Detail/RawSheet 에서 audit 용도로 조회
-      metadata: { token: input },
-    }
+      const { amount, fee, unit, mintUrl, memo } = await this.backend.receiveToken(input)
+      return {
+        requestId: crypto.randomUUID(),
+        // backend가 결정한 unit으로 Amount 생성 — sat 하드코딩 없음
+        amount: toAmount(amount, unit as Unit),
+        fee: fee > 0 ? toAmount(fee, unit as Unit) : undefined,
+        method: 'cashu:ecash',
+        protocol: 'cashu-token',
+        completed: true,
+        accountId: mintUrl,
+        memo,
+        // 원본 토큰 저장 — Token tab Detail/RawSheet 에서 audit 용도로 조회
+        metadata: { token: input },
+      }
     } catch (error) {
       console.error('[redeem] receiveToken failed:', error)
       console.error('[redeem] Error message:', error instanceof Error ? error.message : String(error))

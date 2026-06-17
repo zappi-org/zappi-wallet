@@ -10,7 +10,7 @@ import { useReclaimFees } from '@/ui/hooks/useReclaimFees'
 import { isSendToken, type TokenDetails } from '@/ui/types/pending-item-details'
 import { satsToFiat, useFormatSats } from '@/utils/format'
 import { cn } from '@/ui/primitives/utils'
-import { Coins } from 'lucide-react'
+import { BanknotesIcon } from '@heroicons/react/24/outline'
 import { AnimatePresence } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -279,12 +279,11 @@ export function TokenScreen({
               : 'var(--color-background)',
           }}
         >
-          <Coins
+          <BanknotesIcon
             className={cn(
               'text-foreground transition-[width,height] duration-200',
               isHeaderMerged ? 'w-[18px] h-[18px]' : 'w-[22px] h-[22px]',
             )}
-            strokeWidth={1.6}
           />
           {isHeaderMerged ? (
             <span className="text-title-sm font-bold">

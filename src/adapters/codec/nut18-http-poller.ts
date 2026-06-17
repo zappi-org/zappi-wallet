@@ -9,7 +9,8 @@
  *   Receiver → GET {mintUrl}/v1/payment-request/{id} (this poller)
  */
 
-import { getEncodedToken, getDecodedToken, type Proof } from '@cashu/cashu-ts'
+import { getEncodedToken, type Proof } from '@cashu/cashu-ts'
+import type { CashuProof } from '@/core/domain/cashu-payment-payload'
 
 // Configuration
 const DEFAULT_INTERVAL_MS = 3000
@@ -27,6 +28,13 @@ export interface PaymentRequestPayload {
   unit: string
   proofs: Proof[]
 }
+
+export type PaymentTokenDecoder = (token: string) => Promise<{
+  mint: string
+  unit?: string
+  proofs: CashuProof[]
+  memo?: string
+}>
 
 export interface Nut18HttpPollerOptions {
   /** HTTP endpoint URL to poll (GET) */
@@ -177,20 +185,21 @@ export async function sendTokenViaHttp(options: {
   token: string
   requestId?: string
   memo?: string
+  decodeToken: PaymentTokenDecoder
 }): Promise<{ success: boolean; error?: string }> {
-  const { endpoint, token, requestId, memo } = options
+  const { endpoint, token, requestId, memo, decodeToken } = options
 
   try {
     // Decode token → domain PaymentRequestPayload
     const { buildPaymentPayload } = await import('@/core/domain/cashu-payment-payload')
-    const decoded = getDecodedToken(token)
+    const decoded = await decodeToken(token)
 
     const payload = buildPaymentPayload({
       mint: decoded.mint,
-      unit: 'sat',
-      proofs: decoded.proofs as import('@/core/domain/cashu-payment-payload').CashuProof[],
+      unit: decoded.unit || 'sat',
+      proofs: decoded.proofs as CashuProof[],
       id: requestId,
-      memo,
+      memo: memo || decoded.memo,
     })
 
     const controller = new AbortController()

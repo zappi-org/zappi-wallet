@@ -2,7 +2,7 @@ import type { FeeEstimator } from '@/core/ports/driven/fee-estimator.port'
 import type { PaymentRoute, FeeEstimate } from '@/core/domain/routing'
 import { PaymentRoute as PR } from '@/core/domain/routing'
 import { InsufficientBalanceError } from '@/core/errors/payment.errors'
-import { ProofValidationError } from 'coco-cashu-core'
+import { ProofValidationError } from '@cashu/coco-core'
 
 export interface CashuFeeEstimatorBackend {
   prepareMelt(
