@@ -7,6 +7,7 @@ import type { RoutePaymentOperator } from '@/core/ports/driven/route-payment-ope
 import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import { RouteExecutionService } from '@/core/services/route-execution.service'
+import { TransferLifecycleService } from '@/core/services/transfer-lifecycle.service'
 
 function createSelection(overrides?: Partial<RouteSelection>): RouteSelection {
   return {
@@ -45,6 +46,9 @@ describe('RouteExecutionService', () => {
     }
     const eventBus = { emit: vi.fn() } as unknown as EventBus
     const syncNotifier = { notifyBalanceChanged: vi.fn() }
+    const transferLifecycle = {
+      initiateTransfer: vi.fn(),
+    } as unknown as TransferLifecycleService
     const service = new RouteExecutionService(
       operator,
       txRepo,
@@ -53,7 +57,7 @@ describe('RouteExecutionService', () => {
       {} as TokenCodec,
       {} as never,
       eventBus,
-      undefined,
+      transferLifecycle,
       syncNotifier,
     )
 
