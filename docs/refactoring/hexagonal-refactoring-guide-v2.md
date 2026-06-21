@@ -19,7 +19,7 @@
 ### 현재 구조의 문제
 
 ```
-SendFlow.tsx → coco/cashuService.ts → coco-cashu-core
+SendFlow.tsx → coco/cashuService.ts → @cashu/coco-core
 SendConfirmStep.tsx → coco/cashuService.ts
 routing/execute-route.ts → coco/cashuService.ts
 routing/estimate-fee.ts → coco/cashuService.ts

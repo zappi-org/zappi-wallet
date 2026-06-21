@@ -1,15 +1,16 @@
 /**
  * CashuBackend — Coco Manager 래핑 클래스
  *
- * cashuService.ts에 흩어진 26개 함수를 Coco RC50 API 기반으로 통합.
+ * cashuService.ts에 흩어진 26개 함수를 Coco API 기반으로 통합.
  * P2PK는 prepare 시점에 target으로 지정 (Coco 네이티브).
  * Cashu/Coco SDK access is isolated here behind module-level backend functions.
  */
 
 import type { PendingQuote } from '@/core/domain/quote';
+import type { CashuProof } from '@/core/domain/cashu-payment-payload';
 import { InsufficientBalanceError, RedeemFeeTooHighError } from '@/core/errors/payment.errors';
 import type { ProofStateResult } from '@/core/ports/driven/send-token-operator.port';
-import { getDecodedToken, getEncodedToken, normalizeMintUrl } from 'coco-cashu-core';
+import { getEncodedToken, normalizeMintUrl } from '@cashu/coco-core';
 import { getTokenMetadata } from '@cashu/cashu-ts';
 import { classifyCashuError } from './classify-error';
 import { getCocoManager, getPendingMintQuotes } from './coco-sdk';
@@ -41,6 +42,13 @@ export interface MintQuoteResult {
   quote: string;
   request: string;
   expiry: number;
+}
+
+export interface DecodedPaymentToken {
+  mint: string;
+  unit: string;
+  proofs: CashuProof[];
+  memo?: string;
 }
 
 
@@ -169,8 +177,9 @@ export async function prepareSend(params: {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('Not enough funds')) {
-      const balances = await manager.wallet.getBalances();
-      const available = balances[params.mintUrl] || 0;
+      const normalizedMintUrl = normalizeMintUrl(params.mintUrl);
+      const balances = await manager.wallet.balances.byMint({ mintUrls: [normalizedMintUrl] });
+      const available = balances[normalizedMintUrl]?.spendable ?? 0;
 
       if (available >= params.amount) {
         throw new InsufficientBalanceError(params.amount, available, err, 1);
@@ -222,11 +231,11 @@ export async function getSendOperationState(operationId: string): Promise<string
 
 export async function checkProofStates(token: string): Promise<ProofStateResult> {
   const cashuTs = await import('@cashu/cashu-ts');
-  const decoded = cashuTs.getDecodedToken(token);
+  const manager = await getCocoManager();
+  const mintUrl = normalizeMintUrl(getTokenMetadata(token).mint);
+  const decoded = await manager.wallet.decodeToken(token, mintUrl);
 
-  const wallet = new (cashuTs as unknown as { CashuWallet: new (mint: unknown) => { checkProofsStates(proofs: unknown[]): Promise<unknown[]> } }).CashuWallet(
-    new (cashuTs as unknown as { CashuMint: new (url: string) => unknown }).CashuMint(decoded.mint)
-  );
+  const wallet = new cashuTs.Wallet(new cashuTs.Mint(decoded.mint));
   const states = await wallet.checkProofsStates(decoded.proofs);
 
   const mapped = (states as Array<{ secret?: unknown; Y?: unknown; state?: unknown }>).map((s) => ({
@@ -238,6 +247,19 @@ export async function checkProofStates(token: string): Promise<ProofStateResult>
     allSpent: mapped.every((s) => s.state === 'spent'),
     allPending: mapped.every((s) => s.state === 'pending'),
     states: mapped,
+  };
+}
+
+export async function decodeTokenForPaymentPayload(token: string): Promise<DecodedPaymentToken> {
+  const manager = await getCocoManager();
+  const mintUrl = normalizeMintUrl(getTokenMetadata(token).mint);
+  const decoded = await manager.wallet.decodeToken(token, mintUrl);
+
+  return {
+    mint: decoded.mint,
+    unit: decoded.unit || 'sat',
+    proofs: decoded.proofs as CashuProof[],
+    memo: decoded.memo,
   };
 }
 
@@ -258,7 +280,7 @@ function resolveUnit(_mintUrl: string): string {
 
 /**
  * 토큰 수령 (일반 + P2PK 모두).
- * Coco RC50의 ops.receive가 P2PK unlock을 내부 처리한다.
+ * Coco ops.receive가 P2PK unlock을 내부 처리한다.
  *
  * - amount: 실제 수신 금액 (gross - fee)
  * - fee: input_fee_ppk 기반 수수료 (0인 민트도 있음)
@@ -267,13 +289,14 @@ function resolveUnit(_mintUrl: string): string {
 export async function receiveToken(
   token: string,
   options?: MintTrustOptions,
-): Promise<{ amount: number; fee: number; unit: string; mintUrl: string }> {
+): Promise<{ amount: number; fee: number; unit: string; mintUrl: string; memo?: string }> {
   const manager = await getCocoManager();
-  const decoded = getTokenMetadata(token);
+  const metadata = getTokenMetadata(token);
+  const mintUrl = normalizeMintUrl(metadata.mint);
 
   try {
-    return await withMintTrustedForOperation(manager, decoded.mint, options, async () => {
-      await manager.mint.addMint(decoded.mint);
+    return await withMintTrustedForOperation(manager, mintUrl, options, async () => {
+      await manager.mint.addMint(mintUrl);
 
       const prepared = await manager.ops.receive.prepare({ token });
 
@@ -285,9 +308,10 @@ export async function receiveToken(
       }
 
       await manager.ops.receive.execute(prepared);
-      const unit = resolveUnit(decoded.mint);
+      const unit = resolveUnit(mintUrl);
+      const result = { amount: netAmount, fee, unit, mintUrl };
 
-      return { amount: netAmount, fee, unit, mintUrl: decoded.mint };
+      return metadata.memo ? { ...result, memo: metadata.memo } : result;
     });
   } catch (error) {
     console.error('[receiveToken] Raw error:', error);
@@ -307,24 +331,30 @@ export async function estimateReceiveFee(
   options?: MintTrustOptions,
 ): Promise<{ grossAmount: number; fee: number; netAmount: number; unit: string; mintUrl: string }> {
   const manager = await getCocoManager();
-  const decoded = getTokenMetadata(token);
+  const mintUrl = normalizeMintUrl(getTokenMetadata(token).mint);
 
   try {
-    return await withMintTrustedForOperation(manager,decoded.mint, options, async() => {
-      await manager.mint.addMint(decoded.mint);
+    return await withMintTrustedForOperation(manager, mintUrl, options, async () => {
+      await manager.mint.addMint(mintUrl);
 
       // //1.prepare: token decode -> calc fee -> preparedOp
-      const preparedOp = await manager.ops.receive.prepare({token});
+      const preparedOp = await manager.ops.receive.prepare({ token });
       
       // //2. check fee
-      const {amount, fee, mintUrl } = preparedOp;
+      const { amount, fee, mintUrl: preparedMintUrl } = preparedOp;
 
       // //3. cancle Opeartion
       await manager.ops.receive.cancel(preparedOp.id);
 
-      return {grossAmount: amount, fee, netAmount: amount - fee, unit: resolveUnit(mintUrl),mintUrl };
+      return {
+        grossAmount: amount,
+        fee,
+        netAmount: amount - fee,
+        unit: resolveUnit(preparedMintUrl),
+        mintUrl: preparedMintUrl,
+      };
 
-    })
+    });
   } catch (error) {
     console.error('[estimateReceiveFee] Raw error:', error);
     console.error('[estimateReceiveFee] Message:', error instanceof Error ? error.message : String(error));
@@ -485,7 +515,9 @@ export async function inspectInput(token: string): Promise<InputInspection> {
 
   let decoded;
   try {
-    decoded = getDecodedToken(token);
+    const manager = await getCocoManager();
+    const mintUrl = normalizeMintUrl(getTokenMetadata(token).mint);
+    decoded = await manager.wallet.decodeToken(token, mintUrl);
   } catch {
     return { lockStatus: 'unlocked', proofIntegrity: 'unverifiable' };
   }
@@ -543,7 +575,10 @@ export async function inspectInput(token: string): Promise<InputInspection> {
 
 export async function getBalances(): Promise<{ [mintUrl: string]: number }> {
   const manager = await getCocoManager();
-  return manager.wallet.getBalances();
+  const balances = await manager.wallet.balances.byMint();
+  return Object.fromEntries(
+    Object.entries(balances).map(([mintUrl, snapshot]) => [mintUrl, snapshot.spendable]),
+  );
 }
 
 export async function getActivePendingQuotes(): Promise<PendingQuote[]> {

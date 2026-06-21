@@ -1,27 +1,31 @@
+import { motion } from 'motion/react'
 import type { ReactNode } from 'react'
-import { Coins } from 'lucide-react'
+import { BanknotesIcon } from '@heroicons/react/24/outline'
 
-import { glassStyle } from './styles'
+import { tabGlassClass } from './styles'
 
 export interface EcashPillProps {
   icon?: ReactNode
+  activeIcon?: ReactNode
+  active?: boolean
   label: string
   onClick: () => void
 }
 
-export function EcashPill({ icon, label, onClick }: EcashPillProps) {
+export function EcashPill({ icon, activeIcon, active = false, label, onClick }: EcashPillProps) {
   return (
-    <div className="rounded-full overflow-hidden p-1.5" style={glassStyle}>
-      <button
+    <div className={tabGlassClass}>
+      <motion.button
         type="button"
         onClick={onClick}
-        className="flex flex-col items-center justify-center px-4 h-[48px] rounded-full text-foreground/80"
+        whileTap={{ scale: 0.9 }}
+        className="relative z-20 flex flex-col items-center justify-center px-4 h-[44px] rounded-full border border-transparent text-foreground/80 transform-gpu will-change-transform transition-colors"
       >
-        <div className="w-[22px] h-[22px] flex items-center justify-center">
-          {icon ?? <Coins className="w-[22px] h-[22px]" strokeWidth={1.6} />}
+        <div className="w-[20px] h-[20px] flex items-center justify-center">
+          {active && activeIcon ? activeIcon : icon ?? <BanknotesIcon className="w-[20px] h-[20px]" />}
         </div>
         <span className="text-[10px] font-semibold leading-none mt-[1px]">{label}</span>
-      </button>
+      </motion.button>
     </div>
   )
 }

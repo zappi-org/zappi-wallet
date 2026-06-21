@@ -1,4 +1,50 @@
-# Current Task — Wallet Recovery + npub Send + Name Limits
+# Current Task — eCash External Claim Finalization + Token Toolbar Polish
+
+- [x] Trace why an externally claimed generated eCash token is not reflected immediately in the app
+- [x] Fix the app-side finalized send path without bypassing Coco proof-state detection
+- [x] Make reclaim-vs-recipient-claim races settle through the same claimed-send path
+- [x] Align Token tab create/register button height with the current bottom tab toolbar
+- [x] Add focused regression coverage and run full verification
+
+Plan
+- Keep external claim detection source in Coco proof-state watchers. Do not add polling hacks or UI-side status guessing.
+- Treat Coco `send:finalized` as an application-domain state transition: update transaction outcome, clear pending operation, emit semantic events, and refresh balance/transaction subscribers.
+- Keep UI polish scoped to `CreateRegisterPair`, matching the existing toolbar height without changing create/register semantics.
+
+Review
+- Root cause: `connectSendTokenObserver` already received Coco `send:finalized` events, but `ReclaimService.finalizeSend()` only finalized the SDK operation by `operationId`. It did not mark the transaction as claimed, delete the pending op, or emit `send:claimed` / `transactions:changed` / `balance:changed`, so the UI could miss an external wallet claim until another recovery path ran.
+- `ReclaimService.finalizeSend()` now ignores already-finalized SDK state idempotently, then settles the send transaction as `claimed`, clears the pending operation, emits `send:claimed`, refreshes transaction lists, and requests balance refresh.
+- The manual reclaim path now uses the same claimed-send settlement when rollback races with a recipient claim, so it no longer leaves a partially updated state with missing semantic events.
+- Token tab create/register buttons now use a 52px visual height, matching the current bottom toolbar group height, and share the same tap feedback as the other toolbar buttons.
+- This fix does not force instant detection if a mint delays or does not emit proof-state subscription updates. It fixes the app-side dropped state propagation once Coco detects the external claim.
+- Verification passed: focused `ReclaimService` tests (21 tests), `bun run lint`, `npx tsc --noEmit`, `bun run test:run` (97 files / 700 tests), `bun run build`, `node .claude/skills/hex-review/scripts/check-hex-violations.mjs src` (576 files, 0 violations), and `git diff --check`. Build still emits existing Vite dynamic/static import and chunk-size warnings.
+
+# Previous Task — Coco rc50 to v1.0.1 Migration
+
+- [x] Re-read root and wallet rules before implementation
+- [x] Create an isolated `staging` worktree so existing dirty work is not overwritten
+- [x] Replace legacy `coco-cashu-core` / `coco-cashu-indexeddb` dependencies with `@cashu/coco-core` / `@cashu/coco-indexeddb` `1.0.1`
+- [x] Move SDK imports to the new scoped packages without exposing Coco types outside the Cashu module boundary
+- [x] Update v1.0.1 token decode and balance API usage through Cashu module internals
+- [x] Keep NUT-18/NIP-17 transports protocol-neutral by injecting a token decoder from the composition root
+- [x] Run lint, typecheck, tests, build, hex-review, and `git diff --check`
+
+Plan
+- Keep all Coco SDK imports inside `modules/cashu/**`, adapter tests, or the composition root. Core/domain/services must not import SDK types.
+- Decode outgoing token payloads via Cashu module internals using the Coco manager so token-version handling does not leak into Nostr/HTTP transports.
+- Regenerate both tracked lockfiles so `rc50` package names are fully removed from install metadata.
+- Treat new Coco IndexedDB tables as SDK-owned module internals and include them in mint-scoped cleanup when needed.
+
+Review
+- Dependency names were migrated from `coco-cashu-core@1.1.2-rc.50` and `coco-cashu-indexeddb@1.1.2-rc.50` to `@cashu/coco-core@1.0.1` and `@cashu/coco-indexeddb@1.0.1`.
+- `getDecodedToken` usage from the old Coco package was removed. Token metadata comes from `@cashu/cashu-ts`, while full token decoding for payment payloads goes through `manager.wallet.decodeToken()` inside the Cashu module.
+- Balance reads now use `manager.wallet.balances.byMint()` and map the SDK balance snapshots back to the existing app-facing `{ [mintUrl]: number }` shape.
+- Nostr and HTTP NUT-18 delivery now receive a protocol-neutral token decoder via composition, so transport adapters do not know Coco internals or directly decode Cashu tokens.
+- `coco_cashu_auth_sessions` was added to mint-scoped Coco cleanup so deleting a mint does not leave v1.0.1 auth session state behind.
+- Verification passed: `npx tsc --noEmit`, `bun run lint`, `bun run test:run` (97 files / 697 tests), `bun run build`, `node .claude/skills/hex-review/scripts/check-hex-violations.mjs src` (576 files, 0 violations), `git diff --check`, and `rg` confirmed no `rc50` / `coco-cashu-*` references remain in package files, lockfiles, source, or Vite config.
+- Build still emits existing Vite dynamic/static import and chunk-size warnings; the migration-specific build blocker was the old `vendor-coco` manual chunk entry and is now fixed.
+
+# Previous Task — Wallet Recovery + npub Send + Name Limits
 
 - [x] Re-read root/wallet rules and current lessons before implementation
 - [x] Change address-book name limit to 30 and mint custom name limit to 20 via shared constants

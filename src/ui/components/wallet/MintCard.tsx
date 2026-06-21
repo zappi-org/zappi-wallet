@@ -80,6 +80,7 @@ export function getVariantByIndex(index: number): MintCardVariant {
 /** Hex colors for preset variants (single source of truth) */
 // eslint-disable-next-line react-refresh/only-export-components
 export const VARIANT_HEX: Record<string, string> = {
+  light: '#8B91D9', medium: '#6B73CE', dark: '#515AC0', darker: '#3A4190',
   indigo: '#515AC0', lime: '#F1F6B6', sky: '#D2E1FF', peach: '#FFC5AB',
   coral: '#C75D4A', amber: '#B8863A',
   teal: '#3A9E8F', slate: '#5A6578', plum: '#8B5A8A', forest: '#4A7C5E',
@@ -126,6 +127,46 @@ const variantColorClass: Record<MintCardVariant, string> = {
   darker: "bg-card-gradient-darker",
 };
 
+function parseHexColor(hex: string): { r: number; g: number; b: number } | null {
+  const normalized = hex.trim().replace(/^#/, "");
+  const value = normalized.length === 3
+    ? normalized.split("").map((char) => char + char).join("")
+    : normalized;
+
+  if (!/^[0-9a-fA-F]{6}$/.test(value)) return null;
+
+  return {
+    r: Number.parseInt(value.slice(0, 2), 16),
+    g: Number.parseInt(value.slice(2, 4), 16),
+    b: Number.parseInt(value.slice(4, 6), 16),
+  };
+}
+
+function channelToLinear(value: number): number {
+  const normalized = value / 255;
+  return normalized <= 0.03928
+    ? normalized / 12.92
+    : Math.pow((normalized + 0.055) / 1.055, 2.4);
+}
+
+function getRelativeLuminance(hex: string): number | null {
+  const rgb = parseHexColor(hex);
+  if (!rgb) return null;
+
+  return (
+    0.2126 * channelToLinear(rgb.r) +
+    0.7152 * channelToLinear(rgb.g) +
+    0.0722 * channelToLinear(rgb.b)
+  );
+}
+
+function shouldUseDarkInk(hex: string): boolean {
+  const luminance = getRelativeLuminance(hex);
+  if (luminance === null) return false;
+
+  return luminance >= 0.5;
+}
+
 export function MintCard({
   mint,
   variant = "medium",
@@ -146,6 +187,18 @@ export function MintCard({
   const isClassicDesign = cardDesignPreset !== "modern";
   const displayName = mint.alias || getMintShortName(mint.url, mint.name);
   const surfaceStyle = customColor ? { backgroundColor: customColor } : undefined;
+  const cardBaseColor = customColor ?? VARIANT_HEX[variant] ?? VARIANT_HEX.medium;
+  const useDarkInk = shouldUseDarkInk(cardBaseColor);
+  const primaryInk = useDarkInk ? "text-foreground" : "text-white";
+  const strongInk = useDarkInk ? "text-foreground/90" : "text-white/80";
+  const mutedInk = useDarkInk ? "text-foreground/55" : "text-white/50";
+  const subtleInk = useDarkInk ? "text-foreground/45" : "text-white/45";
+  const hairlineClass = useDarkInk ? "bg-foreground/10" : "bg-white/10";
+  const footerSurfaceClass = useDarkInk ? "bg-foreground/5" : "bg-black/10";
+  const actionActiveClass = useDarkInk ? "active:bg-foreground/10" : "active:bg-white/10";
+  const inputToneClass = useDarkInk
+    ? "text-foreground bg-white/35 ring-1 ring-foreground/10"
+    : "text-white bg-white/15";
   const classicTextureStyle = customColor
     ? {
         opacity: 0.42,
@@ -252,35 +305,38 @@ export function MintCard({
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSave() }}
                 onBlur={handleSave}
                 maxLength={LIMITS.MAX_MINT_NAME_LENGTH}
-                className="font-display text-body font-semibold text-white leading-tight bg-white/15 rounded-md px-2 py-0.5 outline-none min-w-0 w-32"
+                className={cn(
+                  "font-display text-body font-semibold leading-tight rounded-md px-2 py-0.5 outline-none min-w-0 w-32",
+                  inputToneClass,
+                )}
               />
             ) : (
-              <span className="font-display text-amount font-bold text-white leading-tight whitespace-nowrap truncate">
+              <span className={cn("font-display text-amount font-bold leading-tight whitespace-nowrap truncate", primaryInk)}>
                 {displayName}
               </span>
             )}
           </div>
           {mint.mintName && mint.mintName !== displayName && (
-            <p className="text-overline text-white/40 truncate leading-tight mt-0.5 ml-[30px]">{mint.mintName}</p>
+            <p className={cn("text-overline truncate leading-tight mt-0.5 ml-[30px]", subtleInk)}>{mint.mintName}</p>
           )}
         </div>
 
         {/* Bottom: Balance */}
         <div className="relative z-10">
-          <p className="font-display text-overline font-medium text-white/50 uppercase tracking-wider">
+          <p className={cn("font-display text-overline font-medium uppercase tracking-wider", mutedInk)}>
             Balance
           </p>
           {hideBalance ? (
-            <p className="font-display text-amount-lg font-bold text-white/80 tracking-[2px] mt-0.5">••••</p>
+            <p className={cn("font-display text-amount-lg font-bold tracking-[2px] mt-0.5", strongInk)}>••••</p>
           ) : (
             <>
-              <p className="font-display text-amount-lg font-bold text-white leading-tight mt-0.5">
+              <p className={cn("font-display text-amount-lg font-bold leading-tight mt-0.5", primaryInk)}>
                 {formatSats(mint.balance)}
               </p>
               {(() => {
                 const fiatStr = toFiat(mint.balance);
                 return fiatStr ? (
-                  <p className="font-display text-overline font-medium text-white/45 leading-normal mt-0.5">
+                  <p className={cn("font-display text-overline font-medium leading-normal mt-0.5", subtleInk)}>
                     {fiatStr}
                   </p>
                 ) : null;
@@ -299,25 +355,25 @@ export function MintCard({
           )}
           style={!isClassicDesign ? surfaceStyle : undefined}
         >
-          <div className="h-px bg-white/12" />
-          <div className="bg-black/8 flex">
+          <div className={cn("h-px", hairlineClass)} />
+          <div className={cn("flex", footerSurfaceClass)}>
             {onReceive && (
               <button
                 onClick={(e) => { e.stopPropagation(); hapticTap(); onReceive(); }}
-                className="flex-1 flex items-center justify-center gap-2 py-3 text-white active:bg-white/10 transition-colors"
+                className={cn("flex-1 flex items-center justify-center gap-2 py-3 transition-colors", primaryInk, actionActiveClass)}
               >
                 <ArrowDownLeft className="w-[18px] h-[18px]" strokeWidth={2} />
                 <span className="text-subtitle font-semibold">{t('common.receive')}</span>
               </button>
             )}
             {onReceive && onSend && (
-              <div className="w-px bg-white/12 my-2" />
+              <div className={cn("w-px my-2", hairlineClass)} />
             )}
             {onSend && (
               <button
                 onClick={(e) => { e.stopPropagation(); hapticTap(); onSend(); }}
                 disabled={sendDisabled}
-                className="flex-1 flex items-center justify-center gap-2 py-3 text-white active:bg-white/10 transition-colors disabled:opacity-40"
+                className={cn("flex-1 flex items-center justify-center gap-2 py-3 transition-colors disabled:opacity-40", primaryInk, actionActiveClass)}
               >
                 <ArrowUpRight className="w-[18px] h-[18px]" strokeWidth={2} />
                 <span className="text-subtitle font-semibold">{t('common.send')}</span>

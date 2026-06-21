@@ -45,6 +45,7 @@ import { exchangeRateService } from "./exchange-rate";
 import {
   addMint as trustMintInCoco,
   createExternalMnemonicRecovery,
+  decodeTokenForPaymentPayload,
   deleteCocoData,
   markQuoteAsSwap,
   removeMintFromCoco,
@@ -262,7 +263,10 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   // 4. Non-module adapters
   const lnurlAdapter = new DirectLnurlAdapter();
   const nip05Adapter = new Nip05ResolverAdapter();
-  const outgoingTransport = new NostrPaymentTransport(nostrGateway);
+  const outgoingTransport = new NostrPaymentTransport(
+    nostrGateway,
+    decodeTokenForPaymentPayload,
+  );
   const externalMnemonicRecovery = createExternalMnemonicRecovery();
   const externalMnemonicMintDiscovery =
     new NostrExternalMnemonicMintDiscoveryAdapter(
@@ -538,7 +542,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     routePaymentOperator,
     txRepo,
     new DexieRouteExecutionStore(),
-    new PaymentDelivery(outgoingTransport),
+    new PaymentDelivery(outgoingTransport, decodeTokenForPaymentPayload),
     tokenCodec,
     lnurlAdapter,
     eventBus,

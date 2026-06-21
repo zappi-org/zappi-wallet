@@ -1,4 +1,4 @@
-import type { Manager } from 'coco-cashu-core'
+import type { Manager } from '@cashu/coco-core'
 import {
   enableWatchers,
   getCocoManager,

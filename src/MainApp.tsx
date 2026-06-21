@@ -35,7 +35,18 @@ import { EasterEggScreen } from '@/ui/screens/Token/EasterEggScreen'
 import { TokenDetailScreen } from '@/ui/screens/Token/TokenDetailScreen'
 import { TokenScreen } from '@/ui/screens/Token/TokenScreen'
 import type { TokenDetailData } from '@/ui/screens/Token/types'
-import { BookUser, Coins, Settings as SettingsIcon, Wallet } from 'lucide-react'
+import {
+  BanknotesIcon as BanknotesIconOutline,
+  Cog6ToothIcon as Cog6ToothIconOutline,
+  IdentificationIcon as IdentificationIconOutline,
+  WalletIcon as WalletIconOutline,
+} from '@heroicons/react/24/outline'
+import {
+  BanknotesIcon as BanknotesIconSolid,
+  Cog6ToothIcon as Cog6ToothIconSolid,
+  IdentificationIcon as IdentificationIconSolid,
+  WalletIcon as WalletIconSolid,
+} from '@heroicons/react/24/solid'
 
 // Tier 2: Lazy loaded (frequently used)
 const SettingsScreen = lazy(() => import('@/ui/screens/Settings/SettingsScreen'))
@@ -139,13 +150,29 @@ export default function MainApp() {
 
   // Bottom nav items
   const navItems = useMemo(() => [
-    { id: 'wallet', label: t('nav.wallet'), icon: <Wallet className="w-[22px] h-[22px]" strokeWidth={1.6} /> },
-    { id: 'token', label: t('nav.token'), icon: <Coins className="w-[22px] h-[22px]" strokeWidth={1.6} /> },
-    { id: 'contacts', label: t('nav.contacts'), icon: <BookUser className="w-[22px] h-[22px]" strokeWidth={1.6} /> },
+    {
+      id: 'wallet',
+      label: t('nav.wallet'),
+      icon: <WalletIconOutline className="w-[20px] h-[20px]" />,
+      activeIcon: <WalletIconSolid className="w-[20px] h-[20px]" />,
+    },
+    {
+      id: 'token',
+      label: t('nav.token'),
+      icon: <BanknotesIconOutline className="w-[20px] h-[20px]" />,
+      activeIcon: <BanknotesIconSolid className="w-[20px] h-[20px]" />,
+    },
+    {
+      id: 'contacts',
+      label: t('nav.contacts'),
+      icon: <IdentificationIconOutline className="w-[20px] h-[20px]" />,
+      activeIcon: <IdentificationIconSolid className="w-[20px] h-[20px]" />,
+    },
     {
       id: 'settings',
       label: t('nav.settings'),
-      icon: <SettingsIcon className="w-[22px] h-[22px]" strokeWidth={1.6} />,
+      icon: <Cog6ToothIconOutline className="w-[20px] h-[20px]" />,
+      activeIcon: <Cog6ToothIconSolid className="w-[20px] h-[20px]" />,
       badge: supportUnreadCount,
     },
   ], [t, supportUnreadCount])

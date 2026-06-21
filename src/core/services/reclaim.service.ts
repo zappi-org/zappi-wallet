@@ -7,15 +7,23 @@ import { UnknownError } from '@/core/errors/base'
 import { InvalidTokenError } from '@/core/errors/cashu'
 import { TokenSpentByRecipientError } from '@/core/errors/reclaim'
 import {
-  isClaimedSend
-} from '@/core/domain/transaction';
+  isClaimedSend,
+  isReclaimableSend,
+  isReclaimed,
+  settleAsDelivered,
+  settleAsReclaimed,
+  type Transaction,
+} from '@/core/domain/transaction'
 import type { SendTokenOperator } from '@/core/ports/driven/send-token-operator.port';
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port';
-import { isReclaimableSend, isReclaimed, settleAsReclaimed } from "../domain/transaction";
 import type { EventBus } from '../events/event-bus';
 import type { PendingOperationRepository } from "../ports/driven/pending-operation.repository.port";
 import type { TokenReceiver } from "../ports/driven/token-receiver.port";
 import type { ReclaimSuccess, ReclaimUseCase } from "../ports/driving/reclaim.usecase";
+
+function isAlreadyFinalizedMessage(message: string): boolean {
+  return message.toLowerCase().includes("state 'finalized'")
+}
 
 export class ReclaimService implements ReclaimUseCase {
   constructor(
@@ -65,21 +73,8 @@ export class ReclaimService implements ReclaimUseCase {
         const errorMessage = error instanceof Error ? error.message : String(error)
 
         // Check if already finalized (recipient already claimed)
-        if (errorMessage.includes("state 'finalized'")) {
-          // Mark as claimed and clean up
-          await this.txRepo.update(txId, {
-            status: 'settled',
-            outcome: 'claimed',
-            completedAt: Date.now()
-          })
-          await this.pendingOps.delete(txId)
-
-          // Emit events for UI update
-          this.eventBus.emit({
-            type: 'transactions:changed',
-            payload: { reason: 'send-claimed', txId },
-          })
-
+        if (isAlreadyFinalizedMessage(errorMessage)) {
+          await this.markSendClaimed(tx)
           return Err(new TokenSpentByRecipientError('Token has already been claimed by recipient'))
         }
 
@@ -134,12 +129,58 @@ export class ReclaimService implements ReclaimUseCase {
   async finalizeSend(txId: string): Promise<void> {
     const tx = await this.txRepo.getById(txId)
     if (!tx) return
+    if (isClaimedSend(tx) || isReclaimed(tx)) return
+    if (!isReclaimableSend(tx)) return
 
     const opId = tx.metadata?.operationId as string | undefined
-    if (opId) {
+    if (!opId) return
+
+    try {
       await this.sendOp.finalizeSend(opId)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      if (!isAlreadyFinalizedMessage(errorMessage)) {
+        throw error
+      }
     }
+
+    await this.markSendClaimed(tx)
   }
+
+  private async markSendClaimed(tx: Transaction): Promise<void> {
+    const settled = settleAsDelivered(tx)
+    await this.txRepo.update(tx.id, {
+      status: settled.status,
+      outcome: settled.outcome,
+      completedAt: settled.completedAt
+    })
+    await this.pendingOps.delete(tx.id)
+
+    this.eventBus.emit({
+      type: 'send:claimed',
+      payload: {
+        txId: tx.id,
+        method: tx.method,
+        protocol: tx.protocol,
+        amount: tx.amount,
+        memo: tx.memo,
+      },
+    })
+
+    this.eventBus.emit({
+      type: 'transactions:changed',
+      payload: { reason: 'send-claimed', txId: tx.id },
+    })
+
+    this.eventBus.emit({
+      type: 'balance:changed',
+      payload: {
+        moduleId: tx.method.split(':')[0] || tx.method,
+        accountId: tx.accountId,
+      },
+    })
+  }
+
   async markSendReclaimed(txId: string): Promise<boolean> {
 
     const tx = await this.txRepo.getById(txId)

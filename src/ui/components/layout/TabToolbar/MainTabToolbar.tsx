@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { NavItem } from '../BottomNav'
 import { EcashPill } from './EcashPill'
 import { WalletTabPicker } from './WalletTabPicker'
-import { glassStyle, tweenTransition } from './styles'
+import { tabGlassClass, tweenTransition } from './styles'
 
 export interface MainTabToolbarProps {
   navItems: NavItem[]
@@ -29,13 +29,14 @@ export function MainTabToolbar({ navItems, activeTab, onTabSelect }: MainTabTool
       style={{ bottom: 'var(--app-bottom-nav-offset)' }}
     >
       {/* ---- LEFT CLUSTER (always expanded picker) ---- */}
-      <div className="rounded-full overflow-hidden p-1.5 w-[65%]" style={glassStyle}>
+      <div className={`${tabGlassClass} w-[65%]`}>
         <WalletTabPicker navItems={navItems} activeTab={activeTab} onTabSelect={onTabSelect} />
       </div>
 
       {/* ---- RIGHT CLUSTER (always ecash pill) ---- */}
       <EcashPill
         icon={tokenItem?.icon}
+        activeIcon={tokenItem?.activeIcon}
         label={tokenItem?.label ?? t('nav.token')}
         onClick={handleEcashTap}
       />

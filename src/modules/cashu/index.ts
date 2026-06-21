@@ -34,4 +34,5 @@ export { createExternalMnemonicRecovery } from './internal/external-mnemonic-rec
 export {
   restoreWallet,
   addMint,
+  decodeTokenForPaymentPayload,
 } from './internal/cashu-backend'

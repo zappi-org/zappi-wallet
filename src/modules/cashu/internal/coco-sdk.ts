@@ -4,8 +4,8 @@
  * Coco Manager singleton과 관련 유틸.
  * Phase 7: coco/manager.ts에서 이 파일로 완전 이전 완료.
  */
-import { initializeCoco, type Manager, type MintQuote, ConsoleLogger, normalizeMintUrl } from 'coco-cashu-core'
-import { IndexedDbRepositories } from 'coco-cashu-indexeddb'
+import { initializeCoco, type Manager, type MintQuote, ConsoleLogger, normalizeMintUrl } from '@cashu/coco-core'
+import { IndexedDbRepositories } from '@cashu/coco-indexeddb'
 import { getSeed } from './seed-getter'
 
 let managerInstance: Manager | null = null
@@ -23,6 +23,7 @@ const COCO_MINT_SCOPED_STORES = [
   'coco_cashu_melt_operations',
   'coco_cashu_mint_operations',
   'coco_cashu_receive_operations',
+  'coco_cashu_auth_sessions',
 ] as const
 
 export async function getCocoManager(): Promise<Manager> {
@@ -150,6 +151,7 @@ export async function removeMintFromCoco(mintUrl: string): Promise<void> {
       tx.table('coco_cashu_melt_operations').where('mintUrl').equals(normalizedMintUrl).delete(),
       tx.table('coco_cashu_mint_operations').where('mintUrl').equals(normalizedMintUrl).delete(),
       tx.table('coco_cashu_receive_operations').where('mintUrl').equals(normalizedMintUrl).delete(),
+      tx.table('coco_cashu_auth_sessions').delete(normalizedMintUrl),
     ])
   })
 }

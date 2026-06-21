@@ -33,8 +33,8 @@ vi.mock('@cashu/cashu-ts', () => ({
   getTokenMetadata: mocks.getTokenMetadata,
 }))
 
-vi.mock('coco-cashu-core', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('coco-cashu-core')>()
+vi.mock('@cashu/coco-core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@cashu/coco-core')>()
   return { ...actual }
 })
 
@@ -132,7 +132,7 @@ describe('cashu-backend receive mint trust scope', () => {
   })
 
   it('rejects zero-net fee estimates via SDK ProofValidationError classification', async () => {
-    const { ProofValidationError } = await import('coco-cashu-core')
+    const { ProofValidationError } = await import('@cashu/coco-core')
     mocks.manager.ops.receive.prepare.mockRejectedValue(
       new ProofValidationError('Receive amount is not sufficient after fees'),
     )

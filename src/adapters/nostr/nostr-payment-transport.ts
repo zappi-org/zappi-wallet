@@ -18,8 +18,18 @@ import {
   type CashuProof,
 } from '@/core/domain/cashu-payment-payload'
 
+export type PaymentTokenDecoder = (token: string) => Promise<{
+  mint: string
+  unit?: string
+  proofs: CashuProof[]
+  memo?: string
+}>
+
 export class NostrPaymentTransport implements OutgoingPaymentTransport {
-  constructor(private readonly nostrGateway: NostrGateway) {}
+  constructor(
+    private readonly nostrGateway: NostrGateway,
+    private readonly decodeToken: PaymentTokenDecoder,
+  ) {}
 
   async send(params: OutgoingPaymentParams): Promise<OutgoingPaymentResult> {
     const { recipientPubkey, token, memo, requestId } = params
@@ -35,7 +45,7 @@ export class NostrPaymentTransport implements OutgoingPaymentTransport {
         return { success: false, error: 'No relays available' }
       }
 
-      const content = await buildContent(token, memo, requestId)
+      const content = await buildContent(token, this.decodeToken, memo, requestId)
 
       await this.nostrGateway.sendGiftWrap({
         recipientPubkey: recipientHex,
@@ -86,12 +96,12 @@ export class NostrPaymentTransport implements OutgoingPaymentTransport {
 
 async function buildContent(
   token: string,
+  decodeToken: PaymentTokenDecoder,
   memo?: string,
   requestId?: string,
 ): Promise<string> {
   try {
-    const { getDecodedToken } = await import('@cashu/cashu-ts')
-    const decoded = getDecodedToken(token)
+    const decoded = await decodeToken(token)
 
     const payload = buildPaymentPayload({
       mint: decoded.mint,

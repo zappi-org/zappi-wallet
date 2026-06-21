@@ -1,7 +1,7 @@
 /**
  * SDK 에러 → 도메인 에러 변환기
  *
- * coco-cashu-core SDK 에러 타입을 instanceof로 분류하여
+ * @cashu/coco-core SDK 에러 타입을 instanceof로 분류하여
  * core 도메인 에러로 변환한다. core가 SDK를 몰라야 하므로
  * 이 함수는 모듈 레이어에 위치한다.
  */
@@ -35,7 +35,7 @@ import {
   ProofValidationError,
   TokenValidationError,
   UnknownMintError,
-} from 'coco-cashu-core'
+} from '@cashu/coco-core'
 
 /**
  * Classify MintOperationError by NUT-00 code and detail message

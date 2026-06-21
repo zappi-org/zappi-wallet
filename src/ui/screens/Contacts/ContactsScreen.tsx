@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
-import { Plus, Search, Trash2, Pencil, Zap, Hash, Link, BookUser, ArrowUpRight, Loader2 } from 'lucide-react'
+import { Plus, Search, Trash2, Pencil, Zap, Hash, Link, ArrowUpRight, Loader2 } from 'lucide-react'
+import { IdentificationIcon } from '@heroicons/react/24/outline'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'motion/react'
 import { EmptyState } from '@/ui/components/common/EmptyState'
@@ -169,7 +170,7 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
       <div className="flex-1 overflow-y-auto pb-app-nav">
         {contacts.length === 0 ? (
           <EmptyState
-            icon={<BookUser className="w-7 h-7" />}
+            icon={<IdentificationIcon className="w-7 h-7" />}
             title={t('contacts.emptyTitle')}
             description={t('contacts.emptyDescription')}
             action={{ label: t('contacts.addContact'), onClick: handleAdd }}

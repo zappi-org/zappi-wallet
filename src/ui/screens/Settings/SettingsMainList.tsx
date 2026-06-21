@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react'
-import type { LucideIcon } from 'lucide-react'
-import { User, Settings, Lock, Wallet, LifeBuoy, ChevronRight, Download, RefreshCw } from 'lucide-react'
+import { useCallback, useState, type ElementType } from 'react'
+import { User, Lock, LifeBuoy, ChevronRight, Download, RefreshCw } from 'lucide-react'
+import { Cog6ToothIcon, WalletIcon } from '@heroicons/react/24/outline'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { Button } from '@/ui/components/common/Button'
@@ -14,16 +14,16 @@ interface SettingsMainListProps {
   onOpenLogout: () => void
 }
 
-const categories: { Icon: LucideIcon; titleKey: string; descKey: string; page: SettingsPage }[] = [
+const categories: { Icon: ElementType; titleKey: string; descKey: string; page: SettingsPage }[] = [
   {
     Icon: User,
     titleKey: 'settings.profile',
     descKey: ENABLE_LIGHTNING_ADDRESS_SETTINGS ? 'settings.profileDesc' : 'settings.profileDescHiddenLightning',
     page: 'category-profile',
   },
-  { Icon: Settings, titleKey: 'settings.preferences', descKey: 'settings.preferencesDesc', page: 'category-preferences' },
+  { Icon: Cog6ToothIcon, titleKey: 'settings.preferences', descKey: 'settings.preferencesDesc', page: 'category-preferences' },
   { Icon: Lock, titleKey: 'settings.security', descKey: 'settings.securityDesc', page: 'category-security' },
-  { Icon: Wallet, titleKey: 'settings.walletManagement', descKey: 'settings.walletManagementDesc', page: 'category-wallet' },
+  { Icon: WalletIcon, titleKey: 'settings.walletManagement', descKey: 'settings.walletManagementDesc', page: 'category-wallet' },
   { Icon: LifeBuoy, titleKey: 'settings.customerSupport', descKey: 'settings.customerSupportDesc', page: 'support' },
 ]
 

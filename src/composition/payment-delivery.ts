@@ -1,9 +1,12 @@
 import type { PaymentDeliveryPort } from '@/core/ports/driven/payment-delivery.port'
 import type { OutgoingPaymentTransport } from '@/core/ports/driven/outgoing-payment-transport.port'
-import { sendTokenViaHttp } from '@/adapters/codec/nut18-http-poller'
+import { sendTokenViaHttp, type PaymentTokenDecoder } from '@/adapters/codec/nut18-http-poller'
 
 export class PaymentDelivery implements PaymentDeliveryPort {
-  constructor(private readonly outgoingTransport: OutgoingPaymentTransport) {}
+  constructor(
+    private readonly outgoingTransport: OutgoingPaymentTransport,
+    private readonly decodeToken: PaymentTokenDecoder,
+  ) {}
 
   async deliverToken(params: Parameters<PaymentDeliveryPort['deliverToken']>[0]) {
     const { token, parsedRequest, memo } = params
@@ -35,6 +38,7 @@ export class PaymentDelivery implements PaymentDeliveryPort {
           token,
           requestId: parsedRequest.id,
           memo,
+          decodeToken: this.decodeToken,
         })
         if (result.success) {
           return { success: true, transportUsed: 'post' as const }

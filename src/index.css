@@ -306,7 +306,7 @@
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
   --app-bottom-padding: max(1.5rem, var(--safe-area-inset-bottom));
-  --app-bottom-nav-height: 3.75rem;
+  --app-bottom-nav-height: 3.25rem;
   --app-bottom-nav-offset: 0.5rem;
   --app-bottom-nav-clearance: calc(var(--app-bottom-nav-height) + var(--app-bottom-nav-offset) + var(--app-bottom-padding));
   --app-bottom-action-clearance: calc(4.75rem + var(--app-bottom-padding));
