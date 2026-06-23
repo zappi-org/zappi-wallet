@@ -380,15 +380,13 @@ export function connectTransferTxBridge(
             | { fee?: number; receivedAmount?: number }
             | undefined;
           const effectiveFee = ecashRef?.fee;
-          // receive swap 수수료가 있으면 net 수령액을 거래내역 금액으로 사용
-          const txAmount = ecashRef?.receivedAmount ?? amount;
 
           const newTx = createTransaction({
             id: transfer.txId,
             direction: transfer.direction === "outgoing" ? "send" : "receive",
             method,
             protocol: proto,
-            amount: sat(txAmount),
+            amount: sat(amount),
             accountId: mint,
             outcome: transfer.direction === "incoming" ? "claimed" : undefined,
             ...(effectiveFee && effectiveFee > 0

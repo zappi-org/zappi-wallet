@@ -154,7 +154,8 @@ describe("TransferTxBridge - incoming ecash fee", () => {
 
     expect(savedTx.direction).toBe("receive");
     expect(savedTx.status).toBe("settled");
-    expect(savedTx.amount).toEqual({ value: 5000n, unit: "sat" });
+    // 거래내역 금액은 gross(토큰 액면가)로 저장, 수수료는 별도로 표시
+    expect(savedTx.amount).toEqual({ value: 5002n, unit: "sat" });
     expect(savedTx.fee).toEqual({
       quoted: { value: 0n, unit: "sat" },
       effective: { value: 2n, unit: "sat" },
