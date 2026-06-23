@@ -24,6 +24,7 @@ import type { TransferOperator, TransferIntent, MessageTransport } from '@/core/
 import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
 import type { PendingTransfer, TransferPhase } from '@/core/domain/pending-transfer'
 import { createPendingTransfer, transitionPhase, isExpired } from '@/core/domain/pending-transfer'
+import type { EventBus } from '@/core/events/event-bus'
 import { getTokenMetadata } from '@cashu/cashu-ts'
 
 // ─── Backend interface (DI용) ───
@@ -99,6 +100,7 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
     private backend: EcashBackend,
     private transport?: MessageTransport,
     private tokenCodec?: TokenCodec,
+    private eventBus?: EventBus,
   ) { }
 
   // ─── TransferOperator ───
@@ -186,6 +188,9 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
     const ref = transfer.transportRef as {
       content?: string
       token?: string
+      requestId?: string
+      eventId?: string
+      memo?: string
     }
 
     // content에서 token 추출 또는 저장된 token 사용
@@ -197,6 +202,25 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
     // redeem — 수수료/순수령액을 bridge/tx 기록용으로 transportRef에 저장
     const { amount, fee, unit, mintUrl, memo } = await this.backend.receiveToken(token)
 
+    // GiftWrapWatcher → TLS 마이그레이션으로 유실되었던 receive:settled 이벤트 복원.
+    // ReceiveQRStep이 lastReceivedRequestId를 통해 수신완료 페이지로 전환하고,
+    // EventStoreBridge가 pending quote를 제거하는 데 필요.
+    if (this.eventBus && ref.requestId) {
+      this.eventBus.emit({
+        type: 'receive:settled',
+        payload: {
+          requestId: ref.requestId,
+          amount,
+          ...(fee > 0 ? { fee } : undefined),
+          accountId: mintUrl,
+          method: 'nostr-gift-wrap',
+          isSwapStep: false,
+          wasRequestFulfilled: true,
+          metadata: { eventId: ref.eventId },
+        },
+      })
+    }
+
     return {
       ...transitionPhase(transfer, 'settled', Date.now()),
       transportRef: {
@@ -206,7 +230,7 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
         fee,
         unit,
         mintUrl,
-        memo: memo ?? (ref as { memo?: string }).memo,
+        memo: memo ?? ref.memo,
       },
     } as PendingTransfer
   }

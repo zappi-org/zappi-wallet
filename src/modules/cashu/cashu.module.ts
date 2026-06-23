@@ -20,6 +20,7 @@ import type {
 import type { PaymentMethodAdapter } from '@/core/ports/driven/payment-method.port'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
 import type { ProofStateResult } from '@/core/ports/driven/send-token-operator.port'
+import type { EventBus } from '@/core/events/event-bus'
 import { sat, add, toNumber } from '@/core/domain/amount'
 import {
   CashuBolt11Adapter,
@@ -86,11 +87,12 @@ export class CashuModule implements WalletModule {
   constructor(
     private backend: CashuModuleBackend,
     private nostrGateway?: NostrGateway,
+    private eventBus?: EventBus,
   ) {}
 
   async initialize(): Promise<void> {
     this.bolt11Adapter = new CashuBolt11Adapter(this.backend)
-    this.ecashAdapter = new CashuEcashAdapter(this.backend)
+    this.ecashAdapter = new CashuEcashAdapter(this.backend, undefined, undefined, this.eventBus)
     this.adapters = [this.bolt11Adapter, this.ecashAdapter]
     this.initialized = true
   }

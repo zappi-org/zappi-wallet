@@ -253,7 +253,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     offlineTokenStore,
     getActiveMintUrls: () => useAppStore.getState().settings.mints,
   });
-  const cashuModule = new CashuModule(cashuBackend, nostrGateway);
+  const cashuModule = new CashuModule(cashuBackend, nostrGateway, eventBus);
   const modules: WalletModule[] = [cashuModule];
 
   // 4. Non-module adapters
@@ -301,7 +301,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const cashuEcashAdapter = new CashuEcashAdapter(
     cashuBackend,
     messageTransport,
-    tokenCodec
+    tokenCodec,
+    eventBus
   );
 
   const operators = new Map<string, TransferOperator>([
