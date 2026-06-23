@@ -239,6 +239,7 @@ export interface PendingTransferRecord {
   finality: string
   onExpiry: string
   expiresAt?: number
+  amount?: number
   transportRef: string // JSON-serialized unknown
   createdAt: number
   updatedAt: number
