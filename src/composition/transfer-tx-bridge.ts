@@ -204,6 +204,12 @@ export function connectTransferTxBridge(
             deps.triggerTxRefresh?.();
           } else {
             // Pending 상태의 Transaction 생성 (outcome: 'unclaimed'로 설정)
+            const ecashRef = transfer.transportRef as
+              | {
+                  token?: string
+                  fee?: number
+                }
+              | undefined;
             const baseTx = createTransaction({
               id: transfer.txId,
               direction: "send",
@@ -212,8 +218,11 @@ export function connectTransferTxBridge(
               amount: sat(amount),
               accountId: mint,
               outcome: "unclaimed", // ← 이캐시 탭에서 "대기중"으로 표시되려면 필요!
+              ...(ecashRef?.fee != null && ecashRef.fee > 0
+                ? { fee: { quoted: sat(ecashRef.fee) } }
+                : {}),
               metadata: {
-                token: (transfer.transportRef as { token?: string })?.token,
+                token: ecashRef?.token,
                 tokenState: "unspent", // ← list() 필터에서 필요!
                 direction: transfer.direction,
               },

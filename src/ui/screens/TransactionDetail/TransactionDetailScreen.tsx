@@ -480,6 +480,18 @@ export default function TransactionDetailScreen({
           </div>
         )}
 
+        {/* ── Ecash Send: Fee Info ── */}
+        {isEcash && !isReceive && displayFee && toNumber(displayFee) > 0 && (
+          <div className="px-5 mt-6">
+            <p className="text-label font-medium text-foreground-muted uppercase tracking-wider mb-1">
+              {t('txDetail.details')}
+            </p>
+            <div className="bg-background-card rounded px-4">
+              <InfoRow label={t('txDetail.fee')} value={formatSats(toNumber(displayFee))} />
+            </div>
+          </div>
+        )}
+
         {/* ── Ecash Receive: Fee Info ── */}
         {isEcash && isReceive && displayFee && toNumber(displayFee) > 0 && (
           <div className="px-5 mt-6">

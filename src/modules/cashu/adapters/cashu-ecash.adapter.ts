@@ -122,6 +122,7 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
         recipient: intent.recipient,
         amount: toNumber(intent.amount), // Transaction 생성용
         mintUrl: intent.accountId, // Transaction 생성용
+        fee: prepared.fee, // 거래내역 수수료 표시용
       },
       now: Date.now(),
     })
