@@ -193,10 +193,21 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
       throw new Error('No token found in incoming transfer')
     }
 
-    // redeem
-    await this.backend.receiveToken(token)
+    // redeem — 수수료/순수령액을 bridge/tx 기록용으로 transportRef에 저장
+    const { amount, fee, unit, mintUrl, memo } = await this.backend.receiveToken(token)
 
-    return transitionPhase(transfer, 'settled', Date.now())
+    return {
+      ...transitionPhase(transfer, 'settled', Date.now()),
+      transportRef: {
+        ...ref,
+        token,
+        receivedAmount: amount,
+        fee,
+        unit,
+        mintUrl,
+        memo: memo ?? (ref as { memo?: string }).memo,
+      },
+    } as PendingTransfer
   }
 
   private extractTokenFromContent(content: string): string | undefined {

@@ -350,7 +350,12 @@ export function connectTransferTxBridge(
             method = "ecash";
             proto = "cashu-token";
             const transportRef = transfer.transportRef as
-              | { content?: string; token?: string }
+              | {
+                  content?: string;
+                  token?: string;
+                  fee?: number;
+                  receivedAmount?: number;
+                }
               | undefined;
             const tokenContent = transportRef?.token ?? transportRef?.content;
             metadata = {
@@ -362,14 +367,24 @@ export function connectTransferTxBridge(
 
           // incoming ecash 등록: receive 방향, settled 상태로 바로 생성
 
+          const ecashRef = transfer.transportRef as
+            | { fee?: number; receivedAmount?: number }
+            | undefined;
+          const effectiveFee = ecashRef?.fee;
+          // receive swap 수수료가 있으면 net 수령액을 거래내역 금액으로 사용
+          const txAmount = ecashRef?.receivedAmount ?? amount;
+
           const newTx = createTransaction({
             id: transfer.txId,
             direction: transfer.direction === "outgoing" ? "send" : "receive",
             method,
             protocol: proto,
-            amount: sat(amount),
+            amount: sat(txAmount),
             accountId: mint,
             outcome: transfer.direction === "incoming" ? "claimed" : undefined,
+            ...(effectiveFee && effectiveFee > 0
+              ? { fee: { quoted: sat(0), effective: sat(effectiveFee) } }
+              : {}),
             metadata,
           });
 
