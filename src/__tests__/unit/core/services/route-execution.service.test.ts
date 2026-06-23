@@ -81,7 +81,6 @@ describe('RouteExecutionService', () => {
     expect(operator.prepareTokenSend).toHaveBeenCalledWith({
       mintUrl: 'https://mint-a.test',
       amount: 100,
-      lockingCondition: { kind: 'P2PK', data: '02abc' },
     })
     expect(operator.executeTokenSend).toHaveBeenCalledWith('op-send', { memo: 'hello' })
     expect(txRepo.save).toHaveBeenCalledWith(expect.objectContaining({

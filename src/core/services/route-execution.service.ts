@@ -189,13 +189,9 @@ export class RouteExecutionService implements RouteExecutionUseCase {
     let operationId: string | undefined;
 
     try {
-      const p2pkPubkey = context.parsedCreq?.p2pkPubkey;
       const prepared = await this.paymentOperator.prepareTokenSend({
         mintUrl,
         amount: selection.amount,
-        ...(p2pkPubkey && {
-          lockingCondition: { kind: "P2PK", data: p2pkPubkey },
-        }),
       });
       operationId = prepared.operationId;
 
