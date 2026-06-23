@@ -13,7 +13,16 @@
 import type { NostrGateway, UnwrappedMessage } from '@/core/ports/driven/nostr-gateway.port'
 import type { EventBus } from '@/core/events/event-bus'
 import type { PendingTransferStore } from '@/core/ports/driven/pending-transfer-store.port'
+import type { ProcessedStore } from '@/core/ports/driven/processed-store.port'
+import type { TrustedMintProvider } from '@/core/ports/driven/trusted-mint-provider.port'
+import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-queue.port'
+import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
 import { createPendingTransfer } from '@/core/domain/pending-transfer'
+import { toNumber } from '@/core/domain/amount'
+import {
+  parseGiftWrapTokenContent,
+  type GiftWrapTokenCandidate,
+} from '@/core/domain/gift-wrap-token'
 
 export class NostrIncomingWatcher {
   private unsubscribe: (() => void) | null = null
@@ -22,6 +31,11 @@ export class NostrIncomingWatcher {
     private readonly nostrGateway: NostrGateway,
     private readonly transferStore: PendingTransferStore,
     private readonly eventBus: EventBus,
+    private readonly processedStore: ProcessedStore,
+    private readonly trustedMintProvider: TrustedMintProvider,
+    private readonly incomingReviewQueue: IncomingReviewQueue,
+    private readonly tokenCodec: TokenCodec,
+    private readonly getPendingRequestId: () => string | null,
   ) {}
 
   start(recipientPubkey: string): void {
@@ -50,56 +64,124 @@ export class NostrIncomingWatcher {
   // ─── Private ───
 
   private async handleMessage(msg: UnwrappedMessage): Promise<void> {
-    // 1. 중복 방지: 이미 처리한 eventId인지 확인
-    const existing = await this.transferStore.listByTxId(msg.eventId)
-    if (existing.length > 0) {
+    // 1. 이미 GiftWrapWatcher/IncomingPaymentService가 처리한 eventId인지 확인
+    if (await this.processedStore.exists(msg.eventId)) {
       console.log('[NostrIncomingWatcher] Already processed:', msg.eventId.substring(0, 8))
       return
     }
 
-    // 2. 간단한 payload 검증 (token-ish인지)
-    if (!this.isValidPayload(msg.content)) {
-      console.log('[NostrIncomingWatcher] Invalid payload, skipping:', msg.eventId.substring(0, 8))
+    // 2. TLS PendingTransfer 중복 방지
+    const existing = await this.transferStore.listByTxId(msg.eventId)
+    if (existing.length > 0) {
+      console.log('[NostrIncomingWatcher] Already in transfers:', msg.eventId.substring(0, 8))
       return
     }
 
-    // 3. PendingTransfer 생성 (direction: incoming)
+    // 3. 5종 메시지 포맷 파싱
+    const candidate = parseGiftWrapTokenContent(msg.content, msg.eventId, {
+      pendingRequestId: this.getPendingRequestId(),
+    })
+    if (!candidate) {
+      console.log('[NostrIncomingWatcher] Not a token payload, skipping:', msg.eventId.substring(0, 8))
+      return
+    }
+
+    const parsed = this.materializeCandidate(candidate)
+    if (!parsed) return
+
+    // 4. mint 신뢰도 확인
+    let info: { mint: string; amount: import('@/core/domain/amount').Amount; memo?: string }
+    try {
+      info = this.tokenCodec.inspectCashuToken(parsed.token)
+    } catch (error) {
+      console.warn('[NostrIncomingWatcher] Failed to inspect token:', error)
+      return
+    }
+
+    const trusted = await this.trustedMintProvider.hasTrustedMint(info.mint)
+    if (!trusted) {
+      // untrusted: review queue에 넣고 사용자 확인 대기 (transfer 미생성)
+      await this.incomingReviewQueue.enqueue({
+        externalId: msg.eventId,
+        token: {
+          type: 'cashu-token',
+          token: parsed.token,
+          amount: info.amount,
+          mintUrl: info.mint,
+          memo: parsed.memo,
+        },
+        queuedAt: Date.now(),
+        requestId: parsed.requestId,
+        senderPubkey: msg.sender,
+        txId: parsed.txId,
+        source: 'gift-wrap',
+      })
+      return
+    }
+
+    // 5. trusted: PendingTransfer 생성 (direction: incoming)
     const transfer = createPendingTransfer({
       id: crypto.randomUUID(),
       txId: msg.eventId, // eventId를 임시 txId로 사용 (나중에 Transaction과 연결)
       direction: 'incoming',
       finality: 'deferred',
       onExpiry: 'expire',
+      amount: toNumber(info.amount),
       transportRef: {
         type: 'nostr-giftwrap',
         protocol: 'ecash',
         eventId: msg.eventId,
         sender: msg.sender,
         content: msg.content,
+        token: parsed.token,
+        mintUrl: info.mint,
+        memo: parsed.memo,
+        requestId: parsed.requestId,
+        txId: parsed.txId,
       },
       now: Date.now(),
     })
 
-    // 4. 저장
+    // 6. 저장
     await this.transferStore.create(transfer)
 
-    // 5. UI 알림
+    // 7. UI 알림 → TLS가 자동 redeem
     this.eventBus.emit({
       type: 'incoming:received',
       payload: { transfer },
     })
   }
 
-  private isValidPayload(content: string): boolean {
-    // cashuA, cashuB, creq 등으로 시작하는 token 또는 payment request
-    const trimmed = content.trim()
-    if (trimmed.length < 10) return false
-    // cashu token 또는 payment request 형식
-    return (
-      /^cashu[ab]/i.test(trimmed) ||
-      /^creq[ab]/i.test(trimmed) ||
-      trimmed.startsWith('{"mint"') ||
-      trimmed.includes('"proofs"')
-    )
+  private materializeCandidate(candidate: GiftWrapTokenCandidate): {
+    token: string
+    txId: string
+    requestId?: string
+    memo?: string
+  } | null {
+    if (candidate.kind === 'encoded-token') {
+      return {
+        token: candidate.token,
+        txId: candidate.txId,
+        requestId: candidate.requestId,
+        memo: candidate.memo,
+      }
+    }
+
+    try {
+      return {
+        token: this.tokenCodec.encodeCashuToken({
+          mint: candidate.mint,
+          unit: candidate.unit,
+          proofs: candidate.proofs,
+          memo: candidate.memo,
+        }),
+        txId: candidate.txId,
+        requestId: candidate.requestId,
+        memo: candidate.memo,
+      }
+    } catch (err) {
+      console.warn('[NostrIncomingWatcher] Failed to encode Cashu JSON token:', err)
+      return null
+    }
   }
 }

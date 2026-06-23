@@ -10,6 +10,11 @@ import { NostrIncomingWatcher } from '@/adapters/nostr/nostr-incoming-watcher'
 import { createEventBus, type EventBus } from '@/core/events/event-bus'
 import { InMemoryPendingTransferStore } from '@/core/services/transfer-lifecycle.service.mock-store'
 import type { NostrGateway, UnwrappedMessage } from '@/core/ports/driven/nostr-gateway.port'
+import type { ProcessedStore } from '@/core/ports/driven/processed-store.port'
+import type { TrustedMintProvider } from '@/core/ports/driven/trusted-mint-provider.port'
+import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-queue.port'
+import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
+import { sat } from '@/core/domain/amount'
 
 describe('NostrIncomingWatcher', () => {
   let store: InMemoryPendingTransferStore
@@ -17,11 +22,50 @@ describe('NostrIncomingWatcher', () => {
   let watcher: NostrIncomingWatcher
   let mockGateway: NostrGateway
   let giftWrapHandler: ((msg: UnwrappedMessage) => void) | null
+  let mockProcessedStore: ProcessedStore
+  let mockTrustedMintProvider: TrustedMintProvider
+  let mockReviewQueue: IncomingReviewQueue
+  let mockTokenCodec: TokenCodec
 
   beforeEach(() => {
     store = new InMemoryPendingTransferStore()
     eventBus = createEventBus()
     giftWrapHandler = null
+
+    mockProcessedStore = {
+      exists: vi.fn().mockResolvedValue(false),
+      save: vi.fn(),
+      existsByTxId: vi.fn().mockResolvedValue(false),
+      findById: vi.fn().mockResolvedValue(null),
+      findByTxId: vi.fn().mockResolvedValue(null),
+    }
+
+    mockTrustedMintProvider = {
+      hasTrustedMint: vi.fn().mockResolvedValue(true),
+    }
+
+    mockReviewQueue = {
+      enqueue: vi.fn().mockResolvedValue(undefined),
+    }
+
+    mockTokenCodec = {
+      inspectCashuToken: vi.fn().mockReturnValue({
+        mint: 'https://mint.test',
+        amount: sat(10),
+        memo: 'test memo',
+      }),
+      encodeCashuToken: vi.fn().mockReturnValue('cashuAencodedtoken'),
+      isCashuToken: vi.fn(),
+      isBolt11: vi.fn(),
+      decodeBolt11: vi.fn(),
+      isLightningAddress: vi.fn(),
+      parseBitcoinUri: vi.fn(),
+      decodePaymentRequest: vi.fn(),
+      encodePaymentRequest: vi.fn(),
+      createNostrPaymentRequest: vi.fn(),
+      createDualTransportPaymentRequest: vi.fn(),
+      buildUnifiedBitcoinUri: vi.fn(),
+    } as unknown as TokenCodec
 
     mockGateway = {
       connect: vi.fn().mockResolvedValue(undefined),
@@ -39,7 +83,16 @@ describe('NostrIncomingWatcher', () => {
       }),
     } as unknown as NostrGateway
 
-    watcher = new NostrIncomingWatcher(mockGateway, store, eventBus)
+    watcher = new NostrIncomingWatcher(
+      mockGateway,
+      store,
+      eventBus,
+      mockProcessedStore,
+      mockTrustedMintProvider,
+      mockReviewQueue,
+      mockTokenCodec,
+      () => null,
+    )
   })
 
   // ─── Start / Stop ───
@@ -69,10 +122,13 @@ describe('NostrIncomingWatcher', () => {
       sender: 'sender-pubkey',
     }
 
-    // GiftWrap 메시지 시뮬레이션
+    const received: Array<{ type: string; payload: unknown }> = []
+    eventBus.on('incoming:received', (e) => {
+      received.push({ type: e.type, payload: e.payload })
+    })
+
     await giftWrapHandler?.(msg)
 
-    // Store 검증
     const transfers = await store.listByTxId('event-123')
     expect(transfers).toHaveLength(1)
     expect(transfers[0].direction).toBe('incoming')
@@ -80,28 +136,22 @@ describe('NostrIncomingWatcher', () => {
     expect(transfers[0].finality).toBe('deferred')
     expect(transfers[0].onExpiry).toBe('expire')
 
-    // transportRef 검증
-    const ref = transfers[0].transportRef as { eventId: string; sender: string; content: string }
+    const ref = transfers[0].transportRef as {
+      eventId: string
+      sender: string
+      content: string
+      token: string
+    }
     expect(ref.eventId).toBe('event-123')
     expect(ref.sender).toBe('sender-pubkey')
     expect(ref.content).toBe('cashuAeyJt...')
+    expect(ref.token).toBe('cashuAeyJt...')
 
-    // 이벤트 검증
-    const emitted: Array<{ type: string; payload: unknown }> = []
-    eventBus.on('incoming:received', (e) => {
-      emitted.push({ type: e.type, payload: e.payload })
-    })
-    // 다시 메시지 보내서 이벤트 캡처
-    const msg2: UnwrappedMessage = {
-      eventId: 'event-456',
-      content: 'cashuAeyJt...',
-      sender: 'sender-pubkey',
-    }
-    await giftWrapHandler?.(msg2)
-    expect(emitted).toHaveLength(1)
+    expect(received).toHaveLength(1)
   })
 
   it('이미 처리한 eventId면 중복 생성하지 않는다', async () => {
+    vi.mocked(mockProcessedStore.exists).mockResolvedValue(true)
     watcher.start('test-pubkey')
 
     const msg: UnwrappedMessage = {
@@ -111,10 +161,47 @@ describe('NostrIncomingWatcher', () => {
     }
 
     await giftWrapHandler?.(msg)
-    await giftWrapHandler?.(msg) // 같은 eventId로 다시
+
+    const transfers = await store.listByTxId('event-123')
+    expect(transfers).toHaveLength(0)
+  })
+
+  it('TLS store에 이미 있으면 중복 생성하지 않는다', async () => {
+    watcher.start('test-pubkey')
+
+    const msg: UnwrappedMessage = {
+      eventId: 'event-123',
+      content: 'cashuAeyJt...',
+      sender: 'sender-pubkey',
+    }
+
+    await giftWrapHandler?.(msg)
+    await giftWrapHandler?.(msg)
 
     const transfers = await store.listByTxId('event-123')
     expect(transfers).toHaveLength(1)
+  })
+
+  it('untrusted mint면 review queue에 넣고 transfer를 생성하지 않는다', async () => {
+    vi.mocked(mockTrustedMintProvider.hasTrustedMint).mockResolvedValue(false)
+    watcher.start('test-pubkey')
+
+    const msg: UnwrappedMessage = {
+      eventId: 'event-untrusted',
+      content: 'cashuAeyJt...',
+      sender: 'sender-pubkey',
+    }
+
+    await giftWrapHandler?.(msg)
+
+    const transfers = await store.listByTxId('event-untrusted')
+    expect(transfers).toHaveLength(0)
+    expect(mockReviewQueue.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        externalId: 'event-untrusted',
+        source: 'gift-wrap',
+      }),
+    )
   })
 
   it('유효하지 않은 payload면 저장하지 않는다', async () => {
@@ -137,7 +224,10 @@ describe('NostrIncomingWatcher', () => {
 
     const msg: UnwrappedMessage = {
       eventId: 'event-json',
-      content: '{"mint":"https://mint.test","proofs":[]}',
+      content: JSON.stringify({
+        mint: 'https://mint.test',
+        proofs: [{ C: 'c', amount: 10 }],
+      }),
       sender: 'sender-pubkey',
     }
 

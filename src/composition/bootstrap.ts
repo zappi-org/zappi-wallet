@@ -128,7 +128,6 @@ import { connectEventStoreBridge } from "./event-store-bridge";
 import { connectTransferTxBridge } from "./transfer-tx-bridge";
 import { connectCocoEventBridge } from "./coco-event-bridge";
 import { connectGiftWrapSettlementBridge } from "./gift-wrap-settlement.bridge";
-import { GiftWrapWatcher } from "./gift-wrap.watcher";
 import { removeMintArtifacts } from "./remove-mint";
 import { PaymentDelivery } from "./payment-delivery";
 import { PaymentRecoveredTokenReceiver } from "./recovered-token-receiver";
@@ -205,9 +204,6 @@ export interface BootstrapResult extends ServiceRegistry {
     selection: RouteSelection,
     context: RouteContext
   ): Promise<RouteResult>;
-
-  // ─── Gift wrap watcher ───
-  readonly giftWrapWatcher: GiftWrapWatcher;
 
   // ─── Nostr incoming watcher ───
   readonly nostrIncomingWatcher: NostrIncomingWatcher;
@@ -322,7 +318,11 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
   const disconnectGiftWrapSettlement = connectGiftWrapSettlementBridge(
     eventBus,
-    transferLifecycle
+    transferLifecycle,
+    {
+      nostrGateway,
+      getPosDevices: () => useAppStore.getState().settings.posDevices,
+    }
   );
 
   // 5. Services (via composition roots)
@@ -457,7 +457,12 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const nostrIncomingWatcher = new NostrIncomingWatcher(
     nostrGateway,
     pendingTransferStore,
-    eventBus
+    eventBus,
+    processedStore,
+    trustedMintProvider,
+    incomingReviewQueue,
+    tokenCodec,
+    () => useAppStore.getState().pendingEcashRequestId
   );
 
   // 10. Additional services
@@ -481,20 +486,6 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     receiveRequestRepo,
     modules
   );
-
-  // 10. Gift wrap watcher
-  const giftWrapWatcher = new GiftWrapWatcher({
-    nostrGateway,
-    incomingPayment,
-    eventBus,
-    recipientPubkey: derivePublicKey(deps.nostrPrivateKeyHex),
-    getRelays: () => useAppStore.getState().settings.relays || [],
-    getPosDevices: () => useAppStore.getState().settings.posDevices,
-    getPendingRequestId: () => useAppStore.getState().pendingEcashRequestId,
-    trustedMintProvider,
-    incomingReviewQueue,
-    tokenCodec,
-  });
 
   // 11. WithdrawUseCase / LnurlAuthUseCase — TODO: NoOp impl or real impl
   // Phase 5에서는 undefined 허용하지 않으므로 placeholder
@@ -675,9 +666,6 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     // Routing
     executeRoute: (selection: RouteSelection, context: RouteContext) =>
       routeExecution.executeRoute(selection, context),
-
-    // Gift wrap watcher
-    giftWrapWatcher,
 
     // Nostr incoming watcher
     nostrIncomingWatcher,
