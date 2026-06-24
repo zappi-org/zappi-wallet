@@ -14,6 +14,7 @@ import type { ProcessedStore } from '@/core/ports/driven/processed-store.port'
 import type { TrustedMintProvider } from '@/core/ports/driven/trusted-mint-provider.port'
 import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-queue.port'
 import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
+import type { RecoveryStore } from '@/core/ports/driven/recovery-store.port'
 import { sat } from '@/core/domain/amount'
 
 describe('NostrIncomingWatcher', () => {
@@ -23,6 +24,7 @@ describe('NostrIncomingWatcher', () => {
   let mockGateway: NostrGateway
   let giftWrapHandler: ((msg: UnwrappedMessage) => void) | null
   let mockProcessedStore: ProcessedStore
+  let mockRecoveryStore: RecoveryStore
   let mockTrustedMintProvider: TrustedMintProvider
   let mockReviewQueue: IncomingReviewQueue
   let mockTokenCodec: TokenCodec
@@ -39,6 +41,10 @@ describe('NostrIncomingWatcher', () => {
       findById: vi.fn().mockResolvedValue(null),
       findByTxId: vi.fn().mockResolvedValue(null),
     }
+
+    mockRecoveryStore = {
+      isProcessed: vi.fn().mockResolvedValue(false),
+    } as unknown as RecoveryStore
 
     mockTrustedMintProvider = {
       hasTrustedMint: vi.fn().mockResolvedValue(true),
@@ -88,6 +94,7 @@ describe('NostrIncomingWatcher', () => {
       store,
       eventBus,
       mockProcessedStore,
+      mockRecoveryStore,
       mockTrustedMintProvider,
       mockReviewQueue,
       mockTokenCodec,
