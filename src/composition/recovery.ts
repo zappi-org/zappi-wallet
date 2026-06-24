@@ -9,6 +9,7 @@ import { TokenReceiverAdapter } from './token-receiver.adapter'
 import { RecoveryService } from '@/core/services/recovery.service'
 import { TokenCodecAdapter } from '@/adapters/codec/token-codec.adapter'
 import type { RecoveryUseCase } from '@/core/ports/driving/recovery.usecase'
+import type { RecoveryStore } from '@/core/ports/driven/recovery-store.port'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
 import type { PaymentUseCase } from '@/core/ports/driving/payment.usecase'
 import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request.usecase'
@@ -21,11 +22,12 @@ export function createRecoveryService(
   trustedMintProvider: TrustedMintProvider,
   incomingReviewQueue: IncomingReviewQueue,
   receiveRequest?: Pick<ReceiveRequestUseCase, 'settleByPaymentRef'>,
+  recoveryStore?: RecoveryStore,
 ): RecoveryUseCase {
   return new RecoveryService(
     nostrGateway,
     new AnchorStoreAdapter(),
-    new RecoveryStoreAdapter(),
+    recoveryStore ?? new RecoveryStoreAdapter(),
     new FailedIncomingStoreAdapter(),
     new TokenReceiverAdapter(payment),
     trustedMintProvider,

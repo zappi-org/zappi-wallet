@@ -14,6 +14,7 @@ import type { NostrGateway, UnwrappedMessage } from '@/core/ports/driven/nostr-g
 import type { EventBus } from '@/core/events/event-bus'
 import type { PendingTransferStore } from '@/core/ports/driven/pending-transfer-store.port'
 import type { ProcessedStore } from '@/core/ports/driven/processed-store.port'
+import type { RecoveryStore } from '@/core/ports/driven/recovery-store.port'
 import type { TrustedMintProvider } from '@/core/ports/driven/trusted-mint-provider.port'
 import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-queue.port'
 import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
@@ -32,6 +33,7 @@ export class NostrIncomingWatcher {
     private readonly transferStore: PendingTransferStore,
     private readonly eventBus: EventBus,
     private readonly processedStore: ProcessedStore,
+    private readonly recoveryStore: RecoveryStore,
     private readonly trustedMintProvider: TrustedMintProvider,
     private readonly incomingReviewQueue: IncomingReviewQueue,
     private readonly tokenCodec: TokenCodec,
@@ -64,20 +66,26 @@ export class NostrIncomingWatcher {
   // ─── Private ───
 
   private async handleMessage(msg: UnwrappedMessage): Promise<void> {
-    // 1. 이미 GiftWrapWatcher/IncomingPaymentService가 처리한 eventId인지 확인
+    // 1. RecoveryService가 이미 처리한 eventId인지 확인 (복구 동기화 중복 방지)
+    if (await this.recoveryStore.isProcessed(msg.eventId)) {
+      console.log('[NostrIncomingWatcher] Already recovered:', msg.eventId.substring(0, 8))
+      return
+    }
+
+    // 2. 이미 GiftWrapWatcher/IncomingPaymentService가 처리한 eventId인지 확인
     if (await this.processedStore.exists(msg.eventId)) {
       console.log('[NostrIncomingWatcher] Already processed:', msg.eventId.substring(0, 8))
       return
     }
 
-    // 2. TLS PendingTransfer 중복 방지
+    // 3. TLS PendingTransfer 중복 방지
     const existing = await this.transferStore.listByTxId(msg.eventId)
     if (existing.length > 0) {
       console.log('[NostrIncomingWatcher] Already in transfers:', msg.eventId.substring(0, 8))
       return
     }
 
-    // 3. 5종 메시지 포맷 파싱
+    // 4. 5종 메시지 포맷 파싱
     const candidate = parseGiftWrapTokenContent(msg.content, msg.eventId, {
       pendingRequestId: this.getPendingRequestId(),
     })
@@ -89,7 +97,7 @@ export class NostrIncomingWatcher {
     const parsed = this.materializeCandidate(candidate)
     if (!parsed) return
 
-    // 4. mint 신뢰도 확인
+    // 5. mint 신뢰도 확인
     let info: { mint: string; amount: import('@/core/domain/amount').Amount; memo?: string }
     try {
       info = this.tokenCodec.inspectCashuToken(parsed.token)
@@ -119,7 +127,7 @@ export class NostrIncomingWatcher {
       return
     }
 
-    // 5. trusted: PendingTransfer 생성 (direction: incoming)
+    // 6. trusted: PendingTransfer 생성 (direction: incoming)
     const transfer = createPendingTransfer({
       id: crypto.randomUUID(),
       txId: msg.eventId, // eventId를 임시 txId로 사용 (나중에 Transaction과 연결)
@@ -142,10 +150,10 @@ export class NostrIncomingWatcher {
       now: Date.now(),
     })
 
-    // 6. 저장
+    // 7. 저장
     await this.transferStore.create(transfer)
 
-    // 7. UI 알림 → TLS가 자동 redeem
+    // 8. UI 알림 → TLS가 자동 redeem
     this.eventBus.emit({
       type: 'incoming:received',
       payload: { transfer },

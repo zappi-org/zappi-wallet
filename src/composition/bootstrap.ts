@@ -37,6 +37,7 @@ import { DirectLnurlAdapter } from "@/adapters/lnurl/direct-lnurl.adapter";
 import { Nip05ResolverAdapter } from "@/adapters/nip05/nip05-resolver";
 import { DexieSettingsRepository as SettingsRepository } from "@/adapters/storage/dexie/dexie-settings.repository";
 import { DexieProcessedRepository as ProcessedRepository } from "@/adapters/storage/dexie/dexie-processed.repository";
+import { RecoveryStoreAdapter } from "@/adapters/storage/recovery-store.adapter";
 
 // ─── Legacy services (composition root만 wrap 가능) ───
 import { exchangeRateService } from "./exchange-rate";
@@ -454,25 +455,30 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     }
   };
 
-  // 9. Nostr Incoming Watcher (Adapter Layer — 발견만 담당, 관리는 TLS)
+  // 9. Shared dedup store (recovery + watcher가 같은 store를 보고 중복 처리 방지)
+  const recoveryStoreAdapter = new RecoveryStoreAdapter();
+
+  // 10. Nostr Incoming Watcher (Adapter Layer — 발견만 담당, 관리는 TLS)
   const nostrIncomingWatcher = new NostrIncomingWatcher(
     nostrGateway,
     pendingTransferStore,
     eventBus,
     processedStore,
+    recoveryStoreAdapter,
     trustedMintProvider,
     incomingReviewQueue,
     tokenCodec,
     () => useAppStore.getState().pendingEcashRequestId
   );
 
-  // 10. Additional services
+  // 11. Additional services
   const recovery = createRecoveryService(
     nostrGateway,
     payment,
     trustedMintProvider,
     incomingReviewQueue,
-    receiveRequest
+    receiveRequest,
+    recoveryStoreAdapter
   );
   const incomingPayment = new IncomingPaymentService(
     payment,
@@ -488,12 +494,12 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     modules
   );
 
-  // 11. WithdrawUseCase / LnurlAuthUseCase — TODO: NoOp impl or real impl
+  // 12. WithdrawUseCase / LnurlAuthUseCase — TODO: NoOp impl or real impl
   // Phase 5에서는 undefined 허용하지 않으므로 placeholder
   const withdraw = {} as ServiceRegistry["withdraw"];
   const lnurlAuth = {} as ServiceRegistry["lnurlAuth"];
 
-  // 12. Phase 6: New services
+  // 13. Phase 6: New services
   const cryptoGateway = new CryptoGatewayAdapter();
   const crypto = new CryptoService(cryptoGateway);
 

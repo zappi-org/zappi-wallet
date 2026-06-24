@@ -132,8 +132,12 @@ export function connectEventStoreBridge(
         // last received payment + refreshes tx so UI surfaces stay in sync.
         setLastReceivedPayment(requestId, amount, event.payload.metadata?.eventId as string ?? null)
         triggerTxRefresh()
+      } else if (method === 'bolt11') {
+        // TLS-managed: toast delegated to transfer:settled
+        setLastRedeemedQuote(requestId, amount)
+        triggerTxRefresh()
       } else if (method === 'nostr-gift-wrap') {
-        // Ecash token received via gift wrap
+        // Ecash token received via gift wrap (non-TLS path fallback)
         const toastKey = fee && fee > 0 ? 'toast.ecashTokenReceivedWithFee' : 'toast.ecashTokenReceived'
         addToast({
           type: 'success',
@@ -197,12 +201,37 @@ export function connectEventStoreBridge(
   unsubscribers.push(
     eventBus.on('transfer:settled', (event) => {
       const { removeTransfer, addToast, triggerTxRefresh } = useAppStore.getState()
-      removeTransfer(event.payload.transfer.id)
-      addToast({
-        type: 'success',
-        message: i18n.t('toast.transferSettled'),
-        duration: 4000,
-      })
+      const transfer = event.payload.transfer
+      removeTransfer(transfer.id)
+
+      if (transfer.direction === 'incoming') {
+        const ref = transfer.transportRef as Record<string, unknown>
+        const refType = ref.type as string | undefined
+
+        if (refType === 'nostr-giftwrap' || refType === 'ecash-token') {
+          const receivedAmount = (ref.receivedAmount as number) ?? 0
+          const fee = (ref.fee as number) ?? 0
+          const toastKey = fee > 0 ? 'toast.ecashTokenReceivedWithFee' : 'toast.ecashTokenReceived'
+          addToast({
+            type: 'success',
+            message: i18n.t(toastKey, { amount: formatSats(receivedAmount), fee: formatSats(fee) }),
+            duration: 5000,
+          })
+        } else {
+          addToast({
+            type: 'success',
+            message: i18n.t('toast.lightningReceived', { unit: satUnit(), amount: (transfer.amount ?? 0).toLocaleString() }),
+            duration: 4000,
+          })
+        }
+      } else {
+        addToast({
+          type: 'success',
+          message: i18n.t('toast.transferSettled'),
+          duration: 4000,
+        })
+      }
+
       triggerTxRefresh()
       broadcastSync('balance_changed')
     }),
@@ -244,16 +273,11 @@ export function connectEventStoreBridge(
     }),
   )
 
-  // incoming:processed → 갱신 + 토스트 + tx 새로고침
+  // incoming:processed → 갱신 + tx 새로고침 (toast은 transfer:settled에서 통합 처리)
   unsubscribers.push(
     eventBus.on('incoming:processed', (event) => {
-      const { addOrUpdateTransfer, addToast, triggerTxRefresh } = useAppStore.getState()
+      const { addOrUpdateTransfer, triggerTxRefresh } = useAppStore.getState()
       addOrUpdateTransfer(event.payload.transfer)
-      addToast({
-        type: 'success',
-        message: i18n.t('toast.incomingTransferProcessed'),
-        duration: 4000,
-      })
       triggerTxRefresh()
       broadcastSync('balance_changed')
     }),
