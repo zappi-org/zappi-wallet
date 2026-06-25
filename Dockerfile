@@ -1,6 +1,13 @@
 # Build stage
 FROM oven/bun:1 AS builder
 
+# Release channel (main | staging | nightly) — controls invite gate config.
+ARG VITE_ZAPPI_CHANNEL=main
+# Comma-separated invite codes; empty = open beta.
+ARG VITE_ZAPPI_INVITE_CODES=
+ENV VITE_ZAPPI_CHANNEL=$VITE_ZAPPI_CHANNEL
+ENV VITE_ZAPPI_INVITE_CODES=$VITE_ZAPPI_INVITE_CODES
+
 WORKDIR /app
 
 # Copy package files

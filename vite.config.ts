@@ -12,6 +12,21 @@ function readPackageVersion(): string {
   return packageJson.version?.trim() || '0.0.0'
 }
 
+type ReleaseChannel = 'main' | 'staging' | 'nightly'
+
+function readChannel(): ReleaseChannel {
+  const raw = (process.env.VITE_ZAPPI_CHANNEL ?? 'main').trim().toLowerCase()
+  if (raw === 'staging' || raw === 'nightly') return raw
+  return 'main'
+}
+
+function readInviteCodes(): string[] {
+  return (process.env.VITE_ZAPPI_INVITE_CODES ?? '')
+    .split(',')
+    .map((code) => code.trim())
+    .filter((code) => code.length > 0)
+}
+
 function readGitCommit(): string {
   try {
     return execSync('git rev-parse --short HEAD', {
@@ -37,6 +52,8 @@ function isGitDirty(): boolean {
 const appVersion = readPackageVersion()
 const gitCommit = readGitCommit()
 const appCommit = gitCommit !== 'unknown' && isGitDirty() ? `${gitCommit}-dirty` : gitCommit
+const releaseChannel = readChannel()
+const inviteCodes = readInviteCodes()
 
 // Local HTTPS for PWA testing on LAN (iOS Safari requires HTTPS for service worker).
 // Generate certs via: cd certs && mkcert -cert-file dev.pem -key-file dev-key.pem <hostnames>
@@ -55,6 +72,8 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),
     __APP_COMMIT__: JSON.stringify(appCommit),
+    __ZAPPI_CHANNEL__: JSON.stringify(releaseChannel),
+    __ZAPPI_INVITE_CODES__: JSON.stringify(inviteCodes),
   },
   server: {
     host: true,

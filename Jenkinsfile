@@ -15,7 +15,21 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+                script {
+                    // Per-channel invite gate config.
+                    // main is open beta (no codes); staging/nightly require the dev code.
+                    def channel = env.BRANCH_NAME == 'staging' ? 'staging'
+                        : env.BRANCH_NAME == 'nightly' ? 'nightly'
+                        : 'main'
+                    def inviteCodes = (channel == 'main') ? '' : 'weareallzappi!'
+
+                    sh """
+                        docker build \
+                            --build-arg VITE_ZAPPI_CHANNEL=${channel} \
+                            --build-arg VITE_ZAPPI_INVITE_CODES=${inviteCodes} \
+                            -t ${IMAGE_NAME}:${IMAGE_TAG} .
+                    """
+                }
             }
         }
 

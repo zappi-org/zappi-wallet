@@ -7,6 +7,9 @@ import { useTranslation } from 'react-i18next'
 import creatingWalletSvg from '@/assets/creating-wallet.svg'
 import zappiImg from '@/assets/zappi.png'
 
+// Empty codes list = gate is open (e.g. main channel during open beta).
+const INVITE_ENABLED = __ZAPPI_INVITE_CODES__.length > 0
+
 export type OnboardingStep = 'welcome' | 'mnemonic' | 'pin' | 'pin-confirm' | 'recovering'
 
 export interface OnboardingScreenProps {
@@ -26,15 +29,17 @@ export function OnboardingScreen({
   const { t } = useTranslation()
   const [step, setStep] = useState<OnboardingStep>('welcome')
 
-  // Invite code gate
-  const [inviteUnlocked, setInviteUnlocked] = useState(false)
+  // Invite code gate — when no codes are configured for the channel the gate is open.
+  const [inviteUnlocked, setInviteUnlocked] = useState(!INVITE_ENABLED)
   const [inviteCode, setInviteCode] = useState('')
   const [inviteError, setInviteError] = useState('')
   const [inviteAttempts, setInviteAttempts] = useState(() => {
+    if (!INVITE_ENABLED) return 0
     const saved = localStorage.getItem('zappi_invite_attempts')
     return saved ? parseInt(saved, 10) : 0
   })
   const [inviteLockUntil, setInviteLockUntil] = useState(() => {
+    if (!INVITE_ENABLED) return 0
     const saved = localStorage.getItem('zappi_invite_lock_until')
     return saved ? parseInt(saved, 10) : 0
   })
@@ -51,20 +56,7 @@ export function OnboardingScreen({
     if (isInviteLocked) return
 
     const trimmed = inviteCode.trim()
-    const MASTER = 'weareallzappi!'
-    const ALPHA = 'izappiyou!'
-    // 2026-05-04 00:00 KST through 2026-05-10 23:59:59 KST.
-    const ALPHA_START = new Date('2026-05-03T15:00:00Z').getTime()
-    const ALPHA_EXPIRY = new Date('2026-05-10T15:00:00Z').getTime()
-
-    if (trimmed === MASTER) {
-      setInviteUnlocked(true)
-      localStorage.setItem('zappi_invite_attempts', '0')
-      return
-    }
-
-    const nowMs = Date.now()
-    if (trimmed === ALPHA && nowMs >= ALPHA_START && nowMs < ALPHA_EXPIRY) {
+    if (!INVITE_ENABLED || __ZAPPI_INVITE_CODES__.includes(trimmed)) {
       setInviteUnlocked(true)
       localStorage.setItem('zappi_invite_attempts', '0')
       return
