@@ -62,7 +62,7 @@ function getConfirmDisplayInfo(
     const req = data.request
     return {
       method: 'eCash',
-      recipient: t('send.confirm.ecashRequest'),
+      recipient: displayName || t('send.confirm.ecashRequest'),
       recipientDetail: `${req.slice(0, 8)}...${req.slice(-4)}`,
       memo: data.parsed.description,
     }
@@ -95,7 +95,7 @@ function getConfirmDisplayInfo(
       const req = data.request
       return {
         method: 'eCash',
-        recipient: t('send.confirm.ecashRequest'),
+        recipient: displayName || t('send.confirm.ecashRequest'),
         recipientDetail: `${req.slice(0, 8)}...${req.slice(-4)}`,
         memo: data.parsed.description,
       }

@@ -19,6 +19,8 @@ interface SendCompleteStepProps {
   onComplete: () => void
   isFiatMode?: boolean
   fiatAmount?: string
+  /** Display name from address book (overrides default recipient display) */
+  displayName?: string
 }
 
 export function SendCompleteStep({
@@ -27,11 +29,12 @@ export function SendCompleteStep({
   onComplete,
   isFiatMode = false,
   fiatAmount,
+  displayName,
 }: SendCompleteStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
-  const destination = getDestinationDisplay(validatedData)
+  const destination = getDestinationDisplay(validatedData, displayName)
   const hasTriggeredHaptic = useRef(false)
 
   // Haptic on mount

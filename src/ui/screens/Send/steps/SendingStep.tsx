@@ -11,12 +11,14 @@ import { getDestinationDisplay } from '../sendDisplayHelpers'
 interface SendingStepProps {
   validatedData: SendableValidatedData
   amount: number
+  /** Display name from address book (overrides default recipient display) */
+  displayName?: string
 }
 
-export function SendingStep({ validatedData, amount }: SendingStepProps) {
+export function SendingStep({ validatedData, amount, displayName }: SendingStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
-  const destination = getDestinationDisplay(validatedData)
+  const destination = getDestinationDisplay(validatedData, displayName)
 
   return (
     <div className="flex flex-col h-full bg-background">

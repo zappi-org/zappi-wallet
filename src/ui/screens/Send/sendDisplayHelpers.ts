@@ -1,6 +1,7 @@
 import type { SendableValidatedData } from './SendFlow'
 
-export function getDestinationDisplay(data: SendableValidatedData): string {
+export function getDestinationDisplay(data: SendableValidatedData, displayName?: string): string {
+  if (displayName) return displayName
   switch (data.type) {
     case 'bolt11':
       return data.description || 'Lightning'

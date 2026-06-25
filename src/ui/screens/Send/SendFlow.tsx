@@ -491,6 +491,7 @@ export function SendFlow({
               initialFiatMode={state.isFiatMode}
               initialFiatAmount={state.fiatAmount}
               isLoading={isLoading}
+              displayName={initialDisplayName}
             />
           </PageTransition>
         )}
@@ -528,6 +529,7 @@ export function SendFlow({
             <SendingStep
               validatedData={state.validatedData!}
               amount={state.amount}
+              displayName={initialDisplayName}
             />
           </PageTransition>
         )}
@@ -540,6 +542,7 @@ export function SendFlow({
               onComplete={onComplete}
               isFiatMode={state.isFiatMode}
               fiatAmount={state.fiatAmount}
+              displayName={initialDisplayName}
             />
           </PageTransition>
         )}

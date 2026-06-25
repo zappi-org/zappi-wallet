@@ -28,6 +28,8 @@ interface SendAmountStepProps {
   initialFiatMode?: boolean
   initialFiatAmount?: string
   isLoading?: boolean
+  /** Display name from address book (overrides default recipient display) */
+  displayName?: string
 }
 
 export function SendAmountStep({
@@ -41,6 +43,7 @@ export function SendAmountStep({
   initialFiatMode = false,
   initialFiatAmount = '',
   isLoading = false,
+  displayName,
 }: SendAmountStepProps) {
   const { t } = useTranslation()
   const { balance } = useWallet()
@@ -77,7 +80,8 @@ export function SendAmountStep({
 
   // Destination display
   const destinationDisplay = useMemo(() => {
-    if (!destination) return null
+    if (!destination && !displayName) return null
+    if (displayName) return displayName
     if (contactName) return contactName
     if (validatedData?.type === 'my-wallet') return validatedData.targetMintName
     if (validatedData?.type === 'lightning-address') return validatedData.address
@@ -90,15 +94,19 @@ export function SendAmountStep({
       const req = validatedData.request
       return `${req.slice(0, 8)}...${req.slice(-4)}`
     }
-    if (destination.length > 20) return `${destination.slice(0, 16)}...${destination.slice(-4)}`
-    return destination
-  }, [destination, validatedData, contactName])
+    if (destination && destination.length > 20) return `${destination.slice(0, 16)}...${destination.slice(-4)}`
+    return destination ?? null
+  }, [destination, validatedData, contactName, displayName])
 
   // Sub-info for destination (address detail below name)
   const destinationDetail = useMemo(() => {
     if (contactName && validatedData?.type === 'lightning-address') return validatedData.address
+    if (displayName && validatedData?.type === 'cashu-request') {
+      const req = validatedData.request
+      return `${req.slice(0, 8)}...${req.slice(-4)}`
+    }
     return null
-  }, [validatedData, contactName])
+  }, [validatedData, contactName, displayName])
 
   const handleNext = useCallback(() => {
     if (!numericAmount || numericAmount <= 0) {
