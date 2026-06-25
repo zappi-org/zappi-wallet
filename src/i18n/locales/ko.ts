@@ -1401,8 +1401,8 @@ export default {
 
   // Token tab toolbar
   token: {
-    create: '생성',
-    register: '등록',
+    create: '만들기',
+    register: '받기',
     empty: {
       title: '만든 이캐시가 없어요.\n이캐시를 만들어 볼까요?',
       footerNote: '이캐시는 현금처럼 작동해요. 가지고 있는 누구나 등록해서 사용할 수 있어요.',

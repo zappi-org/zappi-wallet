@@ -1310,8 +1310,8 @@ export default {
   },
 
   token: {
-    create: '作成',
-    register: '登録',
+    create: '作る',
+    register: '受け取る',
     empty: {
       title: '作成したイーキャッシュがありません。\nイーキャッシュを作ってみましょう。',
       footerNote: 'イーキャッシュは現金のように機能します。持っている人なら誰でも登録して使えます。',

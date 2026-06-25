@@ -1303,7 +1303,7 @@ export default {
 
   token: {
     create: 'Buat',
-    register: 'Daftar',
+    register: 'Terima',
     empty: {
       title: 'Belum ada ecash.\nMau membuat satu?',
       footerNote: 'Ecash bekerja seperti uang tunai. Siapa pun yang memilikinya dapat mendaftarkan dan menggunakannya.',

@@ -1401,7 +1401,7 @@ export default {
   // Token tab toolbar
   token: {
     create: 'Create',
-    register: 'Redeem',
+    register: 'Receive',
     empty: {
       title: 'No ecash yet.\nWant to create one?',
       footerNote: 'Ecash works like cash. Anyone who has it can redeem and use it.',

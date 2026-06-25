@@ -1303,7 +1303,7 @@ export default {
 
   token: {
     create: 'Crear',
-    register: 'Registrar',
+    register: 'Recibir',
     empty: {
       title: 'Aún no tienes ecash.\n¿Quieres crear uno?',
       footerNote: 'Ecash funciona como efectivo. Cualquiera que lo tenga puede registrarlo y usarlo.',
