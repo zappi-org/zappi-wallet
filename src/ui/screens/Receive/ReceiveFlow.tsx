@@ -42,6 +42,10 @@ export interface ReceiveFlowState {
   httpEndpoint: string | null
   // Receive request entity
   receiveRequestId: string | null
+  /** Absolute deadline (epoch ms) for the underlying payment request — sourced
+   *  from the lightning quote expiry or a 30-min default. Forwarded to the
+   *  HTTP poller so it self-stops at expiry. */
+  expiresAt: number | null
   // Result
   receivedAmount: number
   /** True when the settled payment was verified to fulfill our ReceiveRequest. */
@@ -99,6 +103,7 @@ export function ReceiveFlow({
     ecashRequestId: null,
     httpEndpoint: null,
     receiveRequestId: null,
+    expiresAt: null,
     receivedAmount: 0,
     wasRequestFulfilled: false,
   })
@@ -208,6 +213,7 @@ export function ReceiveFlow({
         httpEndpoint: data.httpEndpoint || null,
         // ReceiveRequest entity (null if DB write failed)
         receiveRequestId,
+        expiresAt,
       }))
     } catch (err) {
       console.error('[ReceiveFlow] Input next error:', err)
@@ -269,6 +275,7 @@ export function ReceiveFlow({
               ecashRequest={state.ecashRequest}
               ecashRequestId={state.ecashRequestId}
               httpEndpoint={state.httpEndpoint}
+              expiresAt={state.expiresAt}
               onReceiveRequestFulfilled={async (token, paymentRef) => {
                 const result = await onReceiveRequestFulfilled(token, paymentRef)
                 return { amount: result?.amount ?? 0, requestFulfilled: result?.requestFulfilled }

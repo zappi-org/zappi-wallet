@@ -4,6 +4,7 @@ import {
   type LightningBackend,
 } from '@/modules/cashu/adapters/cashu-bolt11.adapter'
 import { sat, toNumber } from '@/core/domain/amount'
+import { createPendingTransfer } from '@/core/domain/pending-transfer'
 
 // ─── Mock Backend ───
 
@@ -103,6 +104,71 @@ describe('CashuBolt11Adapter', () => {
         requestId: 'paid-quote',
         accountId: 'https://mint.test',
       })).resolves.toBe(true)
+    })
+  })
+
+  // ─── poll (incoming) ───
+
+  describe('poll (incoming)', () => {
+    function makeIncomingTransfer(expiresAt?: number) {
+      return createPendingTransfer({
+        id: 'transfer-1',
+        txId: 'tx-1',
+        direction: 'incoming',
+        finality: 'deferred',
+        onExpiry: 'fail',
+        expiresAt,
+        transportRef: { mintUrl: 'https://mint.test', quoteId: 'xF5AAb_W' },
+        now: 1_700_000_000_000,
+      })
+    }
+
+    it('short-circuits to failed when local expiresAt is past, without calling the mint', async () => {
+      const transfer = makeIncomingTransfer(1_700_000_000_000 - 1)
+
+      const result = await adapter.poll(transfer)
+
+      expect(result).toBe('failed')
+      expect(backend.checkMintQuote).not.toHaveBeenCalled()
+    })
+
+    it('catches SDK EXPIRED throw and returns failed (does not rethrow)', async () => {
+      vi.mocked(backend.checkMintQuote).mockRejectedValueOnce(
+        new Error('Unexpected mint quote state: EXPIRED for xF5AAb_W'),
+      )
+      const transfer = makeIncomingTransfer(Date.now() + 60_000)
+
+      const result = await adapter.poll(transfer)
+
+      expect(result).toBe('failed')
+    })
+
+    it('rethrows non-EXPIRED errors so the poll loop can surface them', async () => {
+      vi.mocked(backend.checkMintQuote).mockRejectedValueOnce(new Error('network down'))
+      const transfer = makeIncomingTransfer(Date.now() + 60_000)
+
+      await expect(adapter.poll(transfer)).rejects.toThrow('network down')
+    })
+
+    it('returns awaiting_confirmation on PAID', async () => {
+      vi.mocked(backend.checkMintQuote).mockResolvedValueOnce({ state: 'PAID' })
+      const transfer = makeIncomingTransfer(Date.now() + 60_000)
+
+      await expect(adapter.poll(transfer)).resolves.toBe('awaiting_confirmation')
+    })
+
+    it('returns settled on ISSUED', async () => {
+      vi.mocked(backend.checkMintQuote).mockResolvedValueOnce({ state: 'ISSUED' })
+      const transfer = makeIncomingTransfer(Date.now() + 60_000)
+
+      await expect(adapter.poll(transfer)).resolves.toBe('settled')
+    })
+
+    it('returns submitted on UNPAID while still within expiry window', async () => {
+      vi.mocked(backend.checkMintQuote).mockResolvedValueOnce({ state: 'UNPAID' })
+      const transfer = makeIncomingTransfer(Date.now() + 60_000)
+
+      await expect(adapter.poll(transfer)).resolves.toBe('submitted')
     })
   })
 

@@ -170,7 +170,21 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
   async poll(transfer: PendingTransfer): Promise<TransferPhase> {
     if (transfer.direction === 'incoming') {
       const ref = transfer.transportRef as { mintUrl: string; quoteId: string }
-      const status = await this.backend.checkMintQuote(ref.mintUrl, ref.quoteId)
+
+      // Local expiry pre-check: SDK throws on EXPIRED (not in its state machine),
+      // so a thrown error would be caught at the poll loop and the transfer
+      // would stay in 'submitted' forever, hitting the mint every 5s.
+      if (isExpired(transfer)) return 'failed'
+
+      let status: Awaited<ReturnType<LightningBackend['checkMintQuote']>> | null = null
+      try {
+        status = await this.backend.checkMintQuote(ref.mintUrl, ref.quoteId)
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error)
+        // SDK throws "Unexpected mint quote state: EXPIRED" — treat as terminal.
+        if (msg.includes('EXPIRED')) return 'failed'
+        throw error
+      }
 
       if (!status) return 'failed'
       if (status.state === 'ISSUED') return 'settled'
