@@ -147,13 +147,17 @@ export function ReceiveFlow({
       const invoice = invoiceResult?.invoice || null
       const ecashReq = data.ecashRequest || null
 
+      // Deadline for the underlying payment request (ms epoch). Computed eagerly
+      // so it stays in scope for the setState() below even when the persistence
+      // block is skipped.
+      const expiresAt = invoiceResult?.expiry
+        ? invoiceResult.expiry * 1000
+        : Date.now() + 30 * 60 * 1000
+
       // Persist as ReceiveRequest entity (source of truth for pending display)
       let receiveRequestId: string | null = null
       if (invoiceResult || ecashReq) {
         const requestId = crypto.randomUUID()
-        const expiresAt = invoiceResult?.expiry
-          ? invoiceResult.expiry * 1000
-          : Date.now() + 30 * 60 * 1000
 
         // Build BIP-321 unified URI if both Lightning + ecash available
         let bip321Uri: string | undefined
