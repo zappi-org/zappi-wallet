@@ -208,7 +208,7 @@ export function connectEventStoreBridge(
         const ref = transfer.transportRef as Record<string, unknown>
         const refType = ref.type as string | undefined
 
-        if (refType === 'nostr-giftwrap' || refType === 'ecash-token') {
+        if (refType === 'nostr-giftwrap' || refType === 'ecash-token' || refType === 'ecash-incoming') {
           const receivedAmount = (ref.receivedAmount as number) ?? 0
           const fee = (ref.fee as number) ?? 0
           const toastKey = fee > 0 ? 'toast.ecashTokenReceivedWithFee' : 'toast.ecashTokenReceived'
