@@ -111,6 +111,10 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
       amount: toNumber(intent.amount),
     })
 
+    if (intent.memo) {
+      this.pendingMemos.set(prepared.operationId, intent.memo)
+    }
+
     return createPendingTransfer({
       id: crypto.randomUUID(),
       txId: intent.txId,
@@ -125,6 +129,7 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
         amount: toNumber(intent.amount), // Transaction 생성용
         mintUrl: intent.accountId, // Transaction 생성용
         fee: prepared.fee, // 거래내역 수수료 표시용
+        memo: intent.memo,
       },
       now: Date.now(),
     })
@@ -148,12 +153,13 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
     const ref = transfer.transportRef as {
       operationId: string
       recipient?: string
+      memo?: string
     }
 
-    // 1. 토큰 생성
-    const memo = this.pendingMemos.get(ref.operationId)
-    this.pendingMemos.delete(ref.operationId)
+    // 1. 토큰 생성 (transportRef.memo 우선, legacy prepareSend path 는 pendingMemos 폴백)
+    const memo = ref.memo ?? this.pendingMemos.get(ref.operationId)
     const result = await this.backend.executeSend(ref.operationId, { memo })
+    this.pendingMemos.delete(ref.operationId)
 
     // 2. 전송 (recipient 있을 때만 — QR/클립보드는 전송 없음)
     let deliveryId: string | undefined
