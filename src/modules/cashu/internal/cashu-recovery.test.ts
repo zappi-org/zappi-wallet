@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { sat } from '@/core/domain/amount'
-import { recoverPendingQuotes } from './cashu-recovery'
+import type { Transaction } from '@/core/domain/transaction'
+import { recoverPendingQuotes, recoverPendingSendTokens } from './cashu-recovery'
 import type { PendingOperationRepository } from '@/core/ports/driven/pending-operation.repository.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 
@@ -27,6 +28,71 @@ function createTxRepoMock(): TransactionRepository {
     deleteOlderThan: vi.fn(),
   }
 }
+
+describe('recoverPendingSendTokens', () => {
+  it('marks finalized SDK send tokens as claimed when the observer missed the event', async () => {
+    const pendingOpRepo = createPendingOpRepoMock()
+    const txRepo = createTxRepoMock()
+    const sendOps = {
+      runRecovery: vi.fn().mockResolvedValue(undefined),
+      get: vi.fn().mockResolvedValue({ state: 'finalized' }),
+    }
+    const receiveToken = vi.fn()
+    const existingTx = {
+      id: 'tx-token',
+      direction: 'send',
+      method: 'cashu:ecash',
+      protocol: 'cashu-token',
+      amount: sat(100),
+      accountId: 'https://mint',
+      status: 'pending',
+      outcome: 'unclaimed',
+      createdAt: 1,
+      metadata: {
+        operationId: 'op-1',
+        token: 'cashuA...',
+      },
+    } satisfies Transaction
+
+    vi.mocked(pendingOpRepo.list).mockResolvedValue([
+      {
+        id: 'tx-token',
+        kind: 'send-token',
+        accountId: 'https://mint',
+        amount: sat(100),
+        createdAt: 1,
+        metadata: {
+          operationId: 'op-1',
+          token: 'cashuA...',
+        },
+      },
+    ])
+    vi.mocked(txRepo.getById).mockResolvedValue(existingTx)
+
+    const result = await recoverPendingSendTokens({
+      pendingOpRepo,
+      txRepo,
+      sendOps,
+      receiveToken,
+    })
+
+    expect(result).toEqual({ reclaimed: 0, recorded: 1 })
+    expect(sendOps.runRecovery).toHaveBeenCalled()
+    expect(sendOps.get).toHaveBeenCalledWith('op-1')
+    expect(txRepo.update).toHaveBeenCalledWith('tx-token', {
+      status: 'settled',
+      outcome: 'claimed',
+      completedAt: expect.any(Number),
+      metadata: {
+        operationId: 'op-1',
+        token: 'cashuA...',
+        tokenState: 'spent',
+      },
+    })
+    expect(pendingOpRepo.delete).toHaveBeenCalledWith('tx-token')
+    expect(receiveToken).not.toHaveBeenCalled()
+  })
+})
 
 describe('recoverPendingQuotes', () => {
   it('fails inactive mint quotes without checking the mint', async () => {

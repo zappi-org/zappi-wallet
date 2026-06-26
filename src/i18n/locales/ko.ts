@@ -1020,6 +1020,7 @@ export default {
     paymentFailed: '결제에 실패했습니다',
     tokenReceived: '토큰이 수령되었습니다',
     ecashRecovered: '{{count}}건의 Ecash 결제가 복구되었습니다 ({{amount}})',
+    ecashReceivedFromSync: '{{count}}건의 Ecash 결제를 받았습니다 ({{amount}})',
     lightningArrived: '{{count}}건의 Lightning 결제가 도착했습니다',
     offlineTokensRedeemed: '{{count}}건의 오프라인 토큰이 수령되었습니다',
     lightningReceived: '{{unit}} {{amount}} Lightning 결제가 도착했습니다',

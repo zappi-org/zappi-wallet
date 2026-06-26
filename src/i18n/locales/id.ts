@@ -929,6 +929,7 @@ export default {
     paymentFailed: 'Pembayaran gagal',
     tokenReceived: 'Token diterima',
     ecashRecovered: '{{count}} pembayaran Ecash dipulihkan ({{amount}})',
+    ecashReceivedFromSync: '{{count}} pembayaran Ecash diterima ({{amount}})',
     lightningArrived: '{{count}} pembayaran Lightning telah tiba',
     offlineTokensRedeemed: '{{count}} token offline telah ditebus',
     lightningReceived: '{{unit}} {{amount}} pembayaran Lightning diterima',

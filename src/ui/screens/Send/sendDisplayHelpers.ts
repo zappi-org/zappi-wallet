@@ -4,7 +4,7 @@ export function getDestinationDisplay(data: SendableValidatedData, displayName?:
   if (displayName) return displayName
   switch (data.type) {
     case 'bolt11':
-      return data.description || 'Lightning'
+      return 'Lightning'
     case 'lightning-address':
       return data.address.includes('@') ? data.address.split('@')[0] : data.address
     case 'lnurl-pay':

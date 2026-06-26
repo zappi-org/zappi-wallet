@@ -1023,6 +1023,7 @@ export default {
     paymentFailed: 'Payment failed',
     tokenReceived: 'Token received',
     ecashRecovered: '{{count}} Ecash payment(s) recovered ({{amount}})',
+    ecashReceivedFromSync: '{{count}} Ecash payment(s) received ({{amount}})',
     lightningArrived: '{{count}} Lightning payment(s) arrived',
     offlineTokensRedeemed: '{{count}} offline token(s) redeemed',
     lightningReceived: '{{unit}} {{amount}} Lightning payment arrived',

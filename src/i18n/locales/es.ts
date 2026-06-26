@@ -929,6 +929,7 @@ export default {
     paymentFailed: 'Pago fallido',
     tokenReceived: 'Token recibido',
     ecashRecovered: '{{count}} pago(s) Ecash recuperado(s) ({{amount}})',
+    ecashReceivedFromSync: '{{count}} pago(s) Ecash recibido(s) ({{amount}})',
     lightningArrived: '{{count}} pago(s) Lightning recibido(s)',
     offlineTokensRedeemed: '{{count}} token(s) offline canjeado(s)',
     lightningReceived: '{{unit}} {{amount}} pago Lightning recibido',

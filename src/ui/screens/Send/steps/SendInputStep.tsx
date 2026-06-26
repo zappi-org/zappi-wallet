@@ -119,8 +119,13 @@ export function SendInputStep({
   // Address book contacts (via ContactUseCase)
   const { contacts } = useContacts()
 
-  // Segment: wallets vs contacts
-  const [listTab, setListTab] = useState<'wallets' | 'contacts'>('wallets')
+  // Segment: contacts vs wallets
+  const [listTab, setActiveListTab] = useState<'wallets' | 'contacts'>('contacts')
+  const listTabChangedByUserRef = useRef(false)
+  const setListTab = useCallback((tab: 'wallets' | 'contacts') => {
+    listTabChangedByUserRef.current = true
+    setActiveListTab(tab)
+  }, [])
 
   const cancelPendingValidation = useCallback(() => {
     requestIdRef.current += 1
@@ -180,6 +185,15 @@ export function SendInputStep({
         iconUrl: getIconUrl(url),
       }))
   }, [settings.mints, mintUrl, getDisplayName, getIconUrl])
+
+  useEffect(() => {
+    if (listTabChangedByUserRef.current) return
+    if (contacts.length > 0) {
+      setActiveListTab('contacts')
+    } else if (myWallets.length > 0) {
+      setActiveListTab('wallets')
+    }
+  }, [contacts.length, myWallets.length])
 
   // Filter my wallets by @ search query
   const filteredWallets = useMemo(() => {
@@ -457,7 +471,11 @@ export function SendInputStep({
   }
 
   /** Proceed to next step with validated data */
-  const advanceWithData = useCallback((displayDest: string, data: SendableValidatedData, mintUrlOverride?: string) => {
+  const advanceWithData = useCallback((
+    displayDest: string,
+    data: SendableValidatedData,
+    mintUrlOverride?: string,
+  ) => {
     const amt = getAmountFromData(data)
     onNext({
       destination: displayDest,
@@ -617,15 +635,15 @@ export function SendInputStep({
           </div>
         )}
 
-        {/* Segment: My Wallets / Contacts */}
+        {/* Segment: Contacts / My Wallets */}
         {!showMyWallets && (myWallets.length > 0 || contacts.length > 0) && (
           <div className="mt-4">
             <SegmentControl
               value={listTab}
               onChange={setListTab}
               options={[
-                { value: 'wallets' as const, label: t('send.myWalletList') },
                 { value: 'contacts' as const, label: t('contacts.title') },
+                { value: 'wallets' as const, label: t('send.myWalletList') },
               ]}
             />
 

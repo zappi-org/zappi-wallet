@@ -125,7 +125,35 @@ export async function recoverPendingSendTokens(
   for (const pending of sdkTokens) {
     try {
       const op = await sendOps.get(pending.metadata!.operationId as string)
-      if (op && (op.state === 'finalized' || op.state === 'rolled_back')) {
+      if (op?.state === 'finalized') {
+        const existingTx = await txRepo.getById(pending.id)
+        if (existingTx?.status === 'pending' && existingTx.outcome === 'unclaimed') {
+          await txRepo.update(pending.id, {
+            status: 'settled',
+            outcome: 'claimed',
+            completedAt: Date.now(),
+            metadata: {
+              ...existingTx.metadata,
+              tokenState: 'spent',
+            },
+          })
+          recorded++
+        }
+        await pendingOpRepo.delete(pending.id)
+      } else if (op?.state === 'rolled_back') {
+        const existingTx = await txRepo.getById(pending.id)
+        if (existingTx?.status === 'pending' && existingTx.outcome === 'unclaimed') {
+          await txRepo.update(pending.id, {
+            status: 'settled',
+            outcome: 'reclaimed',
+            completedAt: Date.now(),
+            metadata: {
+              ...existingTx.metadata,
+              reclaimed: true,
+            },
+          })
+          reclaimed++
+        }
         await pendingOpRepo.delete(pending.id)
       }
     } catch (error) {

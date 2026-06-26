@@ -349,12 +349,12 @@ export default function MainApp() {
         })
 
         if (result.tokensReceived > 0) {
-          console.log(`[App] Recovered ${result.tokensReceived} tokens (${result.amountReceived} sats)`)
+          console.log(`[App] Received ${result.tokensReceived} tokens from sync (${result.amountReceived} sats)`)
           await refreshAll()
 
           addToast({
             type: 'success',
-            message: t('toast.ecashRecovered', { count: result.tokensReceived, amount: formatSats(result.amountReceived) }),
+            message: t('toast.ecashReceivedFromSync', { count: result.tokensReceived, amount: formatSats(result.amountReceived) }),
             duration: 5000,
           })
         }

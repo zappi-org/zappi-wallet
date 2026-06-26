@@ -936,6 +936,7 @@ export default {
     paymentFailed: '支払いに失敗しました',
     tokenReceived: 'トークンを受け取りました',
     ecashRecovered: '{{count}}件のEcash決済が復元されました（{{amount}}）',
+    ecashReceivedFromSync: '{{count}}件のEcash決済を受け取りました（{{amount}}）',
     lightningArrived: '{{count}}件のLightning決済が到着しました',
     offlineTokensRedeemed: '{{count}}件のオフライントークンが受取されました',
     lightningReceived: '{{unit}} {{amount}} Lightning決済が到着しました',

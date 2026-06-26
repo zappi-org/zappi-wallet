@@ -116,6 +116,24 @@ describe('SendInputStep selection flows', () => {
     vi.useRealTimers()
   })
 
+  it('shows the address book tab before my wallets', () => {
+    mockContacts.push({
+      id: 'contact-1',
+      name: 'Alice',
+      address: 'alice@example.com',
+      addressType: 'lightning',
+      createdAt: 1,
+      updatedAt: 1,
+    })
+
+    renderStep()
+
+    const contactsTab = screen.getByRole('button', { name: 'contacts.title' })
+    const walletsTab = screen.getByRole('button', { name: 'send.myWalletList' })
+
+    expect(contactsTab.compareDocumentPosition(walletsTab) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('contact selection clears stale error, skips label revalidation, and advances with the raw address', async () => {
     mockContacts.push({
       id: 'contact-1',

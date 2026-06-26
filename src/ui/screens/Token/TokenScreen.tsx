@@ -86,6 +86,7 @@ export function TokenScreen({
   useEffect(() => () => observerRef.current?.disconnect(), [])
 
   const registry = useServiceRegistry()
+  const triggerTxRefresh = useAppStore((s) => s.triggerTxRefresh)
 
   // Proactively reconcile SDK state when the tab is viewed: catches pending
   // sends that were claimed while observer events were missed (app backgrounded,
@@ -96,10 +97,14 @@ export function TokenScreen({
     const now = Date.now()
     if (now - lastRecoverAllRun < RECOVER_THROTTLE_MS) return
     lastRecoverAllRun = now
-    registry.payment.recoverAll().catch((err) => {
-      console.warn('[TokenScreen] recoverAll failed:', err)
-    })
-  }, [registry])
+    registry.payment.recoverAll()
+      .then(() => {
+        triggerTxRefresh()
+      })
+      .catch((err) => {
+        console.warn('[TokenScreen] recoverAll failed:', err)
+      })
+  }, [registry, triggerTxRefresh])
 
   const mintUrls = useAppStore((s) => s.settings.mints)
   const { items: pendingItemsRaw } = useAllPendingItems(mintUrls)
