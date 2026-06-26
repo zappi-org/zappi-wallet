@@ -7,8 +7,8 @@ const INPUT_TYPE_LABELS: Record<string, string> = {
   'cashu-token': 'Cashu Token',
   'lightning': 'Lightning',
   'my-wallet': 'My Wallet',
-  'npub': 'npub',
-  'nprofile': 'nprofile',
+  'npub': 'Nostr DM',
+  'nprofile': 'Nostr DM',
 }
 
 export function getInputTypeLabel(type: string): string {
