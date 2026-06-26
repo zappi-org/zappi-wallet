@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { PaymentRoute } from '@/core/domain/routing'
-import { getConfirmDisplayInfo } from '@/ui/screens/Send/steps/SendConfirmStep'
+import { getConfirmDisplayInfo } from '@/ui/screens/Send/sendDisplayHelpers'
 import { getDestinationDisplay } from '@/ui/screens/Send/sendDisplayHelpers'
 import type { ValidatedBolt11 } from '@/core/domain/input-types'
 
