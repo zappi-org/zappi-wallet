@@ -93,9 +93,13 @@ export function SendInputStep({
   // State
   const [destination, setDestination] = useState(initialDestination)
   const [showScanner, setShowScanner] = useState(false)
-  const [detectedTypes, setDetectedTypes] = useState<string[]>(
-    initialValidatedData?.type ? [initialValidatedData.type] : []
-  )
+  const [detectedTypes, setDetectedTypes] = useState<string[]>(() => {
+    if (!initialValidatedData) return []
+    if (initialValidatedData.type === 'cashu-request' && isNostrDirectAddress(initialValidatedData.request)) {
+      return [initialValidatedData.request.toLowerCase().startsWith('nprofile1') ? 'nprofile' : 'npub']
+    }
+    return [initialValidatedData.type]
+  })
   const [validatedData, setValidatedData] = useState<SendableValidatedData | null>(
     initialValidatedData || null
   )
@@ -115,6 +119,26 @@ export function SendInputStep({
   const validatedDataRef = useRef<SendableValidatedData | null>(null)
   // Store the raw address when displayName is used (contact selection)
   const rawAddressRef = useRef<string | null>(null)
+
+  // Restore rawAddressRef from initialValidatedData when navigating back
+  useEffect(() => {
+    if (initialValidatedData && !rawAddressRef.current) {
+      switch (initialValidatedData.type) {
+        case 'bolt11':
+          rawAddressRef.current = initialValidatedData.invoice
+          break
+        case 'lightning-address':
+          rawAddressRef.current = initialValidatedData.address
+          break
+        case 'lnurl-pay':
+          rawAddressRef.current = initialValidatedData.lnurl
+          break
+        case 'cashu-request':
+          rawAddressRef.current = initialValidatedData.request
+          break
+      }
+    }
+  }, [initialValidatedData])
 
   // Address book contacts (via ContactUseCase)
   const { contacts } = useContacts()

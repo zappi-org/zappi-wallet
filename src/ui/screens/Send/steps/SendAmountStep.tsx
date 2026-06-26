@@ -74,7 +74,14 @@ export function SendAmountStep({
   const [contactName, setContactName] = useState<string | null>(null)
   useEffect(() => {
     if (!destination) return
-    const addr = validatedData?.type === 'lightning-address' ? validatedData.address : destination
+    let addr: string
+    if (validatedData?.type === 'lightning-address') {
+      addr = validatedData.address
+    } else if (validatedData?.type === 'cashu-request') {
+      addr = validatedData.request
+    } else {
+      addr = destination
+    }
     findContactName(addr, findByAddress).then(setContactName)
   }, [destination, validatedData, findByAddress])
 

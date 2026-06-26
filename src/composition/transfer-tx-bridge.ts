@@ -331,6 +331,8 @@ export function connectTransferTxBridge(
           const amount = extractAmountFromTransfer(transfer);
           const mint = extractMintFromTransfer(transfer);
 
+          const recvMemo = (transfer.transportRef as { memo?: string } | undefined)?.memo;
+
           //check true protocol
           const ref = transfer.transportRef as
             | { type?: string; protocol?: string }
@@ -364,6 +366,7 @@ export function connectTransferTxBridge(
                   token?: string;
                   fee?: number;
                   receivedAmount?: number;
+                  memo?: string;
                 }
               | undefined;
             const tokenContent = transportRef?.token ?? transportRef?.content;
@@ -389,6 +392,7 @@ export function connectTransferTxBridge(
             amount: sat(amount),
             accountId: mint,
             outcome: transfer.direction === "incoming" ? "claimed" : undefined,
+            ...(recvMemo ? { memo: recvMemo } : {}),
             ...(effectiveFee && effectiveFee > 0
               ? { fee: { quoted: sat(0), effective: sat(effectiveFee) } }
               : {}),

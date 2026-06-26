@@ -45,6 +45,12 @@ export interface Nut18HttpPollerOptions {
   intervalMs?: number
   /** Max polling duration in ms (default: 30 minutes) */
   maxDurationMs?: number
+  /**
+   * Absolute deadline (epoch ms). Polling self-stops as soon as
+   * `Date.now() > expiresAt` — checked at the start of every tick.
+   * Prevents wasted requests once the mint has marked the quote as EXPIRED.
+   */
+  expiresAt?: number
 }
 
 export interface Nut18HttpPollerResult {
@@ -66,6 +72,7 @@ export function startNut18HttpPoller(options: Nut18HttpPollerOptions): Nut18Http
     requestId,
     intervalMs = DEFAULT_INTERVAL_MS,
     maxDurationMs = MAX_DURATION_MS,
+    expiresAt,
   } = options
 
   let cancelled = false
@@ -85,6 +92,12 @@ export function startNut18HttpPoller(options: Nut18HttpPollerOptions): Nut18Http
 
   const poll = async () => {
     if (cancelled) return
+
+    if (expiresAt !== undefined && Date.now() > expiresAt) {
+      console.log(`[NUT18-HTTP] Request ${requestId} expired locally, stopping`)
+      cancel()
+      return
+    }
 
     try {
       const controller = new AbortController()

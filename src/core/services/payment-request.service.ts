@@ -15,6 +15,7 @@ export class PaymentRequestService implements PaymentRequestUseCase {
       requestId: string
       intervalMs?: number
       maxDurationMs?: number
+      expiresAt?: number
     }) => Poller,
   ) {}
 
@@ -52,6 +53,7 @@ export class PaymentRequestService implements PaymentRequestUseCase {
     requestId: string
     intervalMs?: number
     maxDurationMs?: number
+    expiresAt?: number
   }): Poller {
     return this.httpPollerFactory(opts)
   }

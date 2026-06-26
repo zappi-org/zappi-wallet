@@ -31,5 +31,11 @@ export interface PaymentRequestUseCase {
   createNostrPaymentRequest(opts: NostrPaymentRequestOptions): PaymentRequestResult
   createDualTransportPaymentRequest(opts: DualTransportPaymentRequestOptions): PaymentRequestResult
   buildUnifiedBitcoinUri(opts: { lightningInvoice: string; cashuRequest: string }): string
-  startHttpPoller(opts: { endpoint: string; requestId: string; intervalMs?: number; maxDurationMs?: number }): Poller
+  startHttpPoller(opts: {
+    endpoint: string
+    requestId: string
+    intervalMs?: number
+    maxDurationMs?: number
+    expiresAt?: number
+  }): Poller
 }

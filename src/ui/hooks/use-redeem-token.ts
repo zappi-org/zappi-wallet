@@ -21,16 +21,17 @@ interface RedeemTokenResult {
  * Token을 파싱하여 금액과 민트 URL을 추출
  * TokenCodecAdapter 사용 (cashuA/cashuB/CBOR 모두 지원)
  */
-function parseTokenInfo(token: string): { amount: number; mintUrl: string } | null {
+function parseTokenInfo(token: string): { amount: number; mintUrl: string; memo?: string } | null {
   try {
     console.log('[parseTokenInfo] Input token length:', token.length, 'starts with:', token.slice(0, 20))
     
     const inspection = tokenCodec.inspectCashuToken(token)
     const amount = toNumber(inspection.amount)
     const mintUrl = inspection.mint
+    const memo = inspection.memo
     
-    console.log('[parseTokenInfo] TokenCodec result:', { amount, mintUrl })
-    return { amount, mintUrl }
+    console.log('[parseTokenInfo] TokenCodec result:', { amount, mintUrl, memo })
+    return { amount, mintUrl, memo }
   } catch (e) {
     console.log('[parseTokenInfo] Parse error:', e)
     return null
@@ -130,6 +131,7 @@ export function useRedeemToken(
           content: token,
           amount: tokenInfo.amount,
           mintUrl: tokenInfo.mintUrl,
+          memo: tokenInfo.memo,
         },
         now,
       })

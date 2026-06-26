@@ -37,6 +37,12 @@ interface ReceiveQRStepProps {
   ecashRequestId: string | null
   httpEndpoint: string | null
   /**
+   * Absolute deadline (epoch ms) for the underlying payment request.
+   * Forwarded to the HTTP poller so it self-stops at expiry instead of
+   * continuing to hit the mint until the 30-min max-duration timeout fires.
+   */
+  expiresAt?: number | null
+  /**
    * Process an incoming token that fulfills our ReceiveRequest.
    * Caller wires this to the domain use case (incomingPayment.processIncoming).
    * `paymentRef` is the requestId returned by the transport — used downstream
@@ -55,6 +61,7 @@ export function ReceiveQRStep({
   ecashRequest,
   ecashRequestId,
   httpEndpoint,
+  expiresAt,
   onReceiveRequestFulfilled,
 }: ReceiveQRStepProps) {
   const { t } = useTranslation()
@@ -163,6 +170,7 @@ export function ReceiveQRStep({
     const poller = paymentReq.startHttpPoller({
       endpoint: httpEndpoint,
       requestId: ecashRequestId,
+      expiresAt: expiresAt ?? undefined,
     })
 
     httpPollerRef.current = poller
@@ -194,7 +202,7 @@ export function ReceiveQRStep({
       poller.stop()
       httpPollerRef.current = null
     }
-  }, [httpEndpoint, ecashRequestId, amount, mintUrl, onPaymentDetected, onReceiveRequestFulfilled, paymentReq])
+  }, [httpEndpoint, ecashRequestId, amount, mintUrl, expiresAt, onPaymentDetected, onReceiveRequestFulfilled, paymentReq])
 
   // Cancel HTTP poller when payment detected via Nostr
   useEffect(() => {
