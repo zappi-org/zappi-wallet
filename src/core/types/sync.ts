@@ -44,7 +44,7 @@ export interface ProcessedRecord {
   externalId: string
   txId?: string
   processedAt: number
-  result: 'success' | 'failed' | 'skipped'
+  result: 'success' | 'failed' | 'skipped' | 'pending'
   error?: string
 }
 

@@ -478,7 +478,9 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     trustedMintProvider,
     incomingReviewQueue,
     receiveRequest,
-    recoveryStoreAdapter
+    recoveryStoreAdapter,
+    processedStore,
+    txRepo
   );
   const incomingPayment = new IncomingPaymentService(
     payment,

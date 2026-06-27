@@ -10,6 +10,8 @@ import { RecoveryService } from '@/core/services/recovery.service'
 import { TokenCodecAdapter } from '@/adapters/codec/token-codec.adapter'
 import type { RecoveryUseCase } from '@/core/ports/driving/recovery.usecase'
 import type { RecoveryStore } from '@/core/ports/driven/recovery-store.port'
+import type { ProcessedStore } from '@/core/ports/driven/processed-store.port'
+import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
 import type { PaymentUseCase } from '@/core/ports/driving/payment.usecase'
 import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request.usecase'
@@ -23,6 +25,8 @@ export function createRecoveryService(
   incomingReviewQueue: IncomingReviewQueue,
   receiveRequest?: Pick<ReceiveRequestUseCase, 'settleByPaymentRef'>,
   recoveryStore?: RecoveryStore,
+  processedStore?: ProcessedStore,
+  txRepo?: TransactionRepository,
 ): RecoveryUseCase {
   return new RecoveryService(
     nostrGateway,
@@ -34,5 +38,7 @@ export function createRecoveryService(
     incomingReviewQueue,
     new TokenCodecAdapter(),
     receiveRequest,
+    processedStore,
+    txRepo,
   )
 }
