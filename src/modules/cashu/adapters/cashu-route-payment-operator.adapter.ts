@@ -22,6 +22,7 @@ export interface CashuRoutePaymentOperatorBackend {
   }>
   rollbackMelt(operationId: string, reason?: string): Promise<void>
   redeemMintQuote(mintUrl: string, quoteId: string, amount: number): Promise<void>
+  mintAndReceive(quoteId: string, mintUrl: string, amount: number): Promise<void>
   prepareSend(params: {
     mintUrl: string
     amount: number
@@ -75,6 +76,10 @@ export class CashuRoutePaymentOperatorAdapter implements RoutePaymentOperator {
 
   async redeemMintQuote(mintUrl: string, quoteId: string, amount: number): Promise<void> {
     await this.run(() => this.backend.redeemMintQuote(mintUrl, quoteId, amount))
+  }
+
+  async mintAndReceive(quoteId: string, mintUrl: string, amount: number): Promise<void> {
+    await this.run(() => this.backend.mintAndReceive(quoteId, mintUrl, amount))
   }
 
   async prepareTokenSend(params: {

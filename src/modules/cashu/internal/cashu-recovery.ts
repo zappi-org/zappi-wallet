@@ -9,6 +9,9 @@ import { toNumber } from '@/core/domain/amount'
 import { isExpired as isPendingOperationExpired, type PendingOperation } from '@/core/domain/pending-operation'
 import type { PendingOperationRepository } from '@/core/ports/driven/pending-operation.repository.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
+import { mintAndReceive } from './cashu-backend'
+import { abandonMintQuote, getCocoManager } from './coco-sdk'
+import { cocoLogger as logger } from './logger'
 
 // ─── SDK interfaces (DI용 — Coco 직접 의존 없음) ───
 
@@ -333,4 +336,67 @@ function isExpiredQuoteOp(op: PendingOperation, now: number): boolean {
 
 function normalizeMintUrl(mintUrl: string): string {
   return mintUrl.endsWith('/') ? mintUrl.slice(0, -1) : mintUrl
+}
+
+// ─── Coco SDK Internal Stuck Mint Ops Cleanup ───
+
+const STALE_MINT_OP_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Coco SDK 내부에 stuck된 pending mint operation을 정리.
+ * 5일 이상 경과 → abandon, 그 외 → mintAndReceive로 복구 시도.
+ */
+export async function cleanAndRecoverStaleMintOps(): Promise<{ recovered: number; abandoned: number; failed: number }> {
+  let recovered = 0
+  let abandoned = 0
+  let failed = 0
+  const now = Date.now()
+
+  try {
+    const manager = await getCocoManager()
+    const pending = await manager.ops.mint.listPending()
+
+    if (pending.length === 0) return { recovered, abandoned, failed }
+
+    logger.info(`[Recovery] Found ${pending.length} stuck pending mint ops in Coco SDK`)
+
+    for (const op of pending) {
+      if (op.createdAt && (now - op.createdAt) > STALE_MINT_OP_MS) {
+        try {
+          await abandonMintQuote(op.mintUrl, op.quoteId)
+          abandoned++
+          logger.info(`[Recovery] Abandoned stale mint op: ${op.quoteId} (${op.mintUrl})`)
+        } catch (e) {
+          failed++
+          logger.error(`[Recovery] Failed to abandon stale mint op ${op.quoteId}:`, e as Error)
+        }
+      } else {
+        try {
+          await mintAndReceive(op.quoteId, op.mintUrl, op.amount ?? 0)
+          recovered++
+          logger.info(`[Recovery] Recovered stuck mint op: ${op.quoteId} (${op.mintUrl})`)
+        } catch (e) {
+          const msg = String(e).toLowerCase()
+          if (msg.includes('not paid') || msg.includes('400') || msg.includes('expired') || msg.includes('not found')) {
+            try {
+              await abandonMintQuote(op.mintUrl, op.quoteId)
+              abandoned++
+              logger.info(`[Recovery] Abandoned unrecoverable mint op: ${op.quoteId}`)
+            } catch {
+              failed++
+            }
+          } else {
+            failed++
+            logger.error(`[Recovery] Failed to recover mint op ${op.quoteId}:`, e as Error)
+          }
+        }
+      }
+    }
+
+    logger.info(`[Recovery] Stale mint ops: ${recovered} recovered, ${abandoned} abandoned, ${failed} failed`)
+  } catch (e) {
+    logger.error('[Recovery] cleanAndRecoverStaleMintOps failed:', e as Error)
+  }
+
+  return { recovered, abandoned, failed }
 }

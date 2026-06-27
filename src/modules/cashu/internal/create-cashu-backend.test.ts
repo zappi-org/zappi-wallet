@@ -23,6 +23,7 @@ vi.mock('./cashu-backend', () => ({
   checkMelt: vi.fn(),
   createMintQuote: vi.fn(),
   redeemMintQuote: vi.fn(),
+  mintAndReceive: vi.fn(),
   checkMintQuote: vi.fn(),
   getMeltRecoveryOps: vi.fn(),
   prepareSend: vi.fn(),

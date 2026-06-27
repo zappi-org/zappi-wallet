@@ -70,6 +70,7 @@ export interface CashuModuleBackend extends LightningBackend, EcashBackend, Paym
   inspectInput(token: string): Promise<import('@/core/ports/driven/payment-method.port').InputInspection>
   abandonMintQuote(mintUrl: string, quoteId: string): Promise<void>
   checkProofStates(token: string): Promise<ProofStateResult>
+  mintAndReceive(quoteId: string, mintUrl: string, amount: number): Promise<void>
 }
 
 // ─── Module ───

@@ -428,7 +428,12 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
     // TLS: 앱 시작 시 active transfer 복구 + 주기적 폴링 시작
     transferLifecycle.recoverTransfers().catch(console.error);
-    transferLifecycle.startPolling(5000);
+    transferLifecycle.startPolling(30000);
+
+    // Coco SDK 내부 stuck mint ops 정리 (1일 이상 → abandon, 그 외 → 복구 시도)
+    import('@/modules/cashu/internal/cashu-recovery')
+      .then(({ cleanAndRecoverStaleMintOps }) => cleanAndRecoverStaleMintOps().catch(console.error))
+      .catch(() => {});
   };
 
   const onResume = async () => {
