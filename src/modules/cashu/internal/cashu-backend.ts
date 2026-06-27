@@ -14,6 +14,7 @@ import { getEncodedToken, normalizeMintUrl } from '@cashu/coco-core';
 import { getTokenMetadata } from '@cashu/cashu-ts';
 import { classifyCashuError } from './classify-error';
 import { getCocoManager, getPendingMintQuotes } from './coco-sdk';
+import { cocoLogger as logger } from './logger';
 
 // ─── Types ───
 
@@ -390,7 +391,7 @@ export async function redeemMintQuote(
   if (!mintOp) throw new Error(`Mint operation not found for quote ${quoteId}`);
   await manager.ops.mint.execute(mintOp);
 
-  console.log(`[CashuBackend] Redeemed quote ${quoteId} (expected: ${expectedAmount} sats)`);
+  logger.info(`[CashuBackend] Redeemed quote ${quoteId} (expected: ${expectedAmount} sats)`);
 }
 
 export async function checkMintQuote(

@@ -2,15 +2,17 @@
  * Transfer SDK Bridge
  *
  * Coco SDK push 이벤트를 TransferLifecycleService 전송 상태 전환으로 연결.
- * TLS의 5초 주기 polling을 push 기반으로 대체하여 네트워크 호출을 제거.
+ * TLS의 주기적 polling을 push 기반으로 대체하여 네트워크 호출을 제거.
  *
- * - melt-quote:paid     → bolt11 send transfer → settled
- * - send:finalized      → ecash send transfer  → settled
- * - send:rolled-back    → ecash send transfer  → failed
+ * - melt-quote:paid     → bolt11 send transfer  → settled
+ * - send:finalized      → ecash send transfer   → settled
+ * - send:rolled-back    → ecash send transfer   → failed
+ * - mint-op:finalized   → bolt11/ecash receive  → settled
  *
  * polling은 여전히 장주기(30s)로 fallback 동작.
  */
 
+import { isSwapQuote } from '@/modules/cashu'
 import type { CashuRuntimeManager } from '@/modules/cashu/cashu-runtime'
 import type { TransferLifecycleService } from '@/core/services/transfer-lifecycle.service'
 
@@ -60,8 +62,19 @@ export function connectTransferSdkBridge(
     }
   })
 
-  unsubscribers = [unsubMeltPaid, unsubSendFinalized, unsubSendRolledBack]
-  log('Connected (melt-quote:paid, send:finalized, send:rolled-back)')
+  // Mint quote 완료 → bolt11/ecash receive transfer settled
+  const unsubMintOpFinalized = manager.on('mint-op:finalized', async ({ operation }) => {
+    if (!operation.quoteId || isSwapQuote(operation.quoteId)) return
+    try {
+      const resolved = await transferLifecycle.resolveByOperationRef(operation.quoteId, 'settled')
+      logResolution('mint-op:finalized', operation.quoteId, resolved)
+    } catch (err) {
+      console.error('[TransferSdkBridge] mint-op:finalized error:', err)
+    }
+  })
+
+  unsubscribers = [unsubMeltPaid, unsubSendFinalized, unsubSendRolledBack, unsubMintOpFinalized]
+  log('Connected (melt-quote:paid, send:finalized, send:rolled-back, mint-op:finalized)')
 
   return disconnectTransferSdkBridge
 }

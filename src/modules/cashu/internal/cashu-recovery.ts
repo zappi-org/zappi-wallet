@@ -9,6 +9,7 @@ import { toNumber } from '@/core/domain/amount'
 import { isExpired as isPendingOperationExpired, type PendingOperation } from '@/core/domain/pending-operation'
 import type { PendingOperationRepository } from '@/core/ports/driven/pending-operation.repository.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
+import { cocoLogger as logger } from './logger'
 
 // ─── SDK interfaces (DI용 — Coco 직접 의존 없음) ───
 
@@ -59,7 +60,7 @@ export async function recoverPendingMelts(
   // 1. SDK recovery
   try {
     const pendingOps = await meltOps.listInFlight()
-    console.log(`[Recovery] Found ${pendingOps.length} pending melt operations`)
+    logger.info(`[Recovery] Found ${pendingOps.length} pending melt operations`)
 
     for (const op of pendingOps) {
       try {
@@ -74,22 +75,22 @@ export async function recoverPendingMelts(
           failed++
         }
       } catch (error) {
-        console.error(`[Recovery] Failed to recover melt operation ${op.id}:`, error)
+        logger.error(`[Recovery] Failed to recover melt operation ${op.id}:`, error as Error)
         failed++
       }
     }
   } catch (error) {
-    console.error('[Recovery] Failed to get pending melt operations:', error)
+    logger.error('[Recovery] Failed to get pending melt operations:', error as Error)
   }
 
   // 2. Legacy pendingMelts cleanup (via port)
   try {
     await pendingOpRepo.deleteExpired(MAX_AGE_MS)
   } catch (error) {
-    console.error('[Recovery] Failed to clean up legacy pending melts:', error)
+    logger.error('[Recovery] Failed to clean up legacy pending melts:', error as Error)
   }
 
-  console.log(`[Recovery] Melts: ${recovered} recovered, ${failed} failed`)
+  logger.info(`[Recovery] Melts: ${recovered} recovered, ${failed} failed`)
   return { recovered, failed }
 }
 
@@ -103,9 +104,9 @@ export async function recoverPendingSendTokens(
   // 1. SDK recovery
   try {
     await sendOps.runRecovery()
-    console.log('[Recovery] SDK recoverPendingOperations completed')
+    logger.info('[Recovery] SDK recoverPendingOperations completed')
   } catch (error) {
-    console.error('[Recovery] SDK recoverPendingOperations failed:', error)
+    logger.error('[Recovery] SDK recoverPendingOperations failed:', error as Error)
   }
 
   // 2. List pending send-token operations via port
@@ -113,7 +114,7 @@ export async function recoverPendingSendTokens(
   const pendingTokens = allPending.filter((op) => op.kind === 'send-token')
   if (pendingTokens.length === 0) return { reclaimed: 0, recorded: 0 }
 
-  console.log(`[Recovery] Found ${pendingTokens.length} pending send tokens`)
+  logger.info(`[Recovery] Found ${pendingTokens.length} pending send tokens`)
 
   const sdkTokens = pendingTokens.filter((p) => p.metadata?.operationId)
   const legacyTokens = pendingTokens.filter((p) => !p.metadata?.operationId)
@@ -157,7 +158,7 @@ export async function recoverPendingSendTokens(
         await pendingOpRepo.delete(pending.id)
       }
     } catch (error) {
-      console.error(`[Recovery] Failed to check SDK send operation ${pending.metadata?.operationId}:`, error)
+      logger.error(`[Recovery] Failed to check SDK send operation ${pending.metadata?.operationId}:`, error as Error)
     }
   }
 
@@ -242,12 +243,12 @@ export async function recoverPendingSendTokens(
         await pendingOpRepo.delete(pending.id)
         recorded++
       } else {
-        console.error(`[Recovery] Failed to recover send token ${pending.id}:`, error)
+        logger.error(`[Recovery] Failed to recover send token ${pending.id}:`, error as Error)
       }
     }
   }
 
-  console.log(`[Recovery] Send tokens: ${reclaimed} reclaimed, ${recorded} recorded`)
+  logger.info(`[Recovery] Send tokens: ${reclaimed} reclaimed, ${recorded} recorded`)
   return { reclaimed, recorded }
 }
 
@@ -269,7 +270,7 @@ export async function recoverPendingQuotes(
   const allPending = await pendingOpRepo.list()
   const mintQuotes = allPending.filter((op) => op.kind === 'mint-quote')
 
-  console.log(`[Recovery] Found ${mintQuotes.length} pending Lightning receive transactions`)
+  logger.info(`[Recovery] Found ${mintQuotes.length} pending Lightning receive transactions`)
 
   for (const op of mintQuotes) {
     const quoteId = op.metadata?.quoteId as string | undefined
@@ -317,13 +318,13 @@ export async function recoverPendingQuotes(
         await txRepo.update(op.id, { status: 'settled', outcome: 'claimed', completedAt: now })
         recovered++
       } else {
-        console.error(`[Recovery] Failed to recover quote ${quoteId}:`, error)
+        logger.error(`[Recovery] Failed to recover quote ${quoteId}:`, error as Error)
         failed++
       }
     }
   }
 
-  console.log(`[Recovery] Complete: ${recovered} recovered, ${failed} failed, ${expired} expired`)
+  logger.info(`[Recovery] Complete: ${recovered} recovered, ${failed} failed, ${expired} expired`)
   return { recovered, failed, expired }
 }
 
