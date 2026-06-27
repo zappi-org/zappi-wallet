@@ -9,7 +9,7 @@
  * Token creation lives in the Token tab (TokenCreateFlow), not here.
  */
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useMemo } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
 import { useNetwork } from '@/ui/hooks/use-network'
@@ -178,6 +178,15 @@ export function SendFlow({
 
   // Prevent double-tap
   const isProcessingRef = useRef(false)
+
+  // Effective display name — resolved once, used by all steps
+  const effectiveDisplayName = useMemo(() => {
+    if (initialDisplayName) return initialDisplayName
+    if (state.validatedData && state.destination !== getAddressOrInvoice(state.validatedData)) {
+      return state.destination
+    }
+    return undefined
+  }, [initialDisplayName, state.destination, state.validatedData])
 
   // ============= Route Selection Logic =============
 
@@ -491,7 +500,7 @@ export function SendFlow({
               initialFiatMode={state.isFiatMode}
               initialFiatAmount={state.fiatAmount}
               isLoading={isLoading}
-              displayName={initialDisplayName}
+              displayName={effectiveDisplayName}
             />
           </PageTransition>
         )}
@@ -513,7 +522,7 @@ export function SendFlow({
               validatedData={state.validatedData!}
               amount={state.amount}
               fee={state.fee}
-              displayName={initialDisplayName || (state.destination !== getAddressOrInvoice(state.validatedData!) ? state.destination : undefined)}
+              displayName={effectiveDisplayName}
               mintUrl={state.selectedMintUrl!}
               error={state.error}
               route={state.routeSelection?.route}
@@ -529,7 +538,7 @@ export function SendFlow({
             <SendingStep
               validatedData={state.validatedData!}
               amount={state.amount}
-              displayName={initialDisplayName}
+              displayName={effectiveDisplayName}
             />
           </PageTransition>
         )}
@@ -542,7 +551,7 @@ export function SendFlow({
               onComplete={onComplete}
               isFiatMode={state.isFiatMode}
               fiatAmount={state.fiatAmount}
-              displayName={initialDisplayName}
+              displayName={effectiveDisplayName}
             />
           </PageTransition>
         )}
