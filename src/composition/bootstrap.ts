@@ -420,13 +420,11 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     // Coco → EventBus bridge
     connectCocoEventBridge(manager, eventBus);
 
-    // Watchers
-    await enableCashuWatchers();
+    // Watchers — SDK subscribe + Nostr subscribe + TLS recovery run in parallel
+    enableCashuWatchers().catch(console.error);
 
-    // Nostr incoming watcher 시작 (앱 unlock 후 한 번)
     nostrIncomingWatcher.start(derivePublicKey(deps.nostrPrivateKeyHex));
 
-    // TLS: 앱 시작 시 active transfer 복구 + 주기적 폴링 시작
     transferLifecycle.recoverTransfers().catch(console.error);
     transferLifecycle.startPolling(5000);
   };
