@@ -10,6 +10,7 @@ import { useFormatSats, useFormatFiat } from '@/utils/format'
 import sendSuccessImg from '@/assets/send-success.png'
 import { Button } from '@/ui/components/common/Button'
 import { Confetti } from '@/ui/components/payment/Confetti'
+import type { PaymentRoute } from '@/ui/hooks/use-routing'
 import type { SendableValidatedData } from '../SendFlow'
 import { getDestinationDisplay } from '../sendDisplayHelpers'
 
@@ -17,6 +18,7 @@ interface SendCompleteStepProps {
   validatedData: SendableValidatedData
   amount: number
   onComplete: () => void
+  route?: PaymentRoute
   isFiatMode?: boolean
   fiatAmount?: string
   /** Display name from address book (overrides default recipient display) */
@@ -27,6 +29,7 @@ export function SendCompleteStep({
   validatedData,
   amount,
   onComplete,
+  route,
   isFiatMode = false,
   fiatAmount,
   displayName,
@@ -34,7 +37,7 @@ export function SendCompleteStep({
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
-  const destination = getDestinationDisplay(validatedData, displayName)
+  const destination = getDestinationDisplay(validatedData, displayName, { route, t })
   const hasTriggeredHaptic = useRef(false)
 
   // Haptic on mount

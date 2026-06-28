@@ -1,6 +1,8 @@
 import type { SendableValidatedData } from "./SendFlow";
 import { PaymentRoute } from "@/ui/hooks/use-routing";
 
+type Translate = (key: string) => string;
+
 export interface ConfirmDisplayInfo {
   method: string;
   recipient: string;
@@ -8,17 +10,22 @@ export interface ConfirmDisplayInfo {
   memo?: string;
 }
 
+function isLightningRoute(route: PaymentRoute | undefined): boolean {
+  return (
+    route === PaymentRoute.LN_INTERNAL ||
+    route === PaymentRoute.LN_CROSS_MINT ||
+    route === PaymentRoute.MELT_TO_LN
+  );
+}
+
 export function getConfirmDisplayInfo(
   data: SendableValidatedData,
   route: PaymentRoute | undefined,
-  t: (key: string) => string,
+  t: Translate,
   displayName?: string
 ): ConfirmDisplayInfo {
   // Route-aware: unified QR에서 LN 라우트가 선택되면 lightning invoice 기반 표시
-  const isLnRoute =
-    route === PaymentRoute.LN_INTERNAL ||
-    route === PaymentRoute.LN_CROSS_MINT ||
-    route === PaymentRoute.MELT_TO_LN;
+  const isLnRoute = isLightningRoute(route);
   const isTokenRoute =
     route === PaymentRoute.TOKEN_TRANSFER ||
     route === PaymentRoute.OWN_MINT_TOKEN ||
@@ -93,8 +100,20 @@ export function getConfirmDisplayInfo(
 
 export function getDestinationDisplay(
   data: SendableValidatedData,
-  displayName?: string
+  displayName?: string,
+  options?: {
+    route?: PaymentRoute;
+    t?: Translate;
+  }
 ): string {
+  if (
+    isLightningRoute(options?.route) &&
+    data.type === "cashu-request" &&
+    data.parsed.lightningInvoice
+  ) {
+    return options?.t?.("send.confirm.lightningInvoice") || "Lightning";
+  }
+
   if (displayName) return displayName;
   switch (data.type) {
     case "bolt11":
