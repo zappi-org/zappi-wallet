@@ -2,9 +2,10 @@ import { useEffect, useContext } from 'react'
 import { ServiceContext } from '@/ui/hooks/service-context-value'
 
 /**
- * Subscribe to send:claimed events filtered by transactionId.
+ * Subscribe to outgoing-token claim signals filtered by transactionId.
  * Used by CreatedStep / TokenCreatedStep to detect when the recipient
- * claims the outgoing token.
+ * claims the outgoing token. `send:claimed` covers legacy/domain paths;
+ * `transfer:settled` covers the newer TransferLifecycle path.
  */
 export function useSendClaimed(
   transactionId: string | undefined,

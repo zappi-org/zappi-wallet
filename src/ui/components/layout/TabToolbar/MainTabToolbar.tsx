@@ -26,7 +26,7 @@ export function MainTabToolbar({ navItems, activeTab, onTabSelect }: MainTabTool
       exit={{ y: 100, opacity: 0 }}
       transition={tweenTransition}
       className="fixed z-50 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm flex items-center justify-between gap-2 pointer-events-auto"
-      style={{ bottom: 'var(--app-bottom-nav-offset)' }}
+      style={{ bottom: 'var(--app-bottom-nav-bottom)' }}
     >
       {/* ---- LEFT CLUSTER (always expanded picker) ---- */}
       <div className={`${tabGlassClass} w-[65%]`}>
