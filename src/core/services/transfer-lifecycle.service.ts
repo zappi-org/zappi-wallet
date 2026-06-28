@@ -191,6 +191,41 @@ export class TransferLifecycleService {
     })
   }
 
+  /** SDK 이벤트로 transfer를 완료 상태로 전환 (settled/failed) */
+  async resolveTransfer(
+    transferId: string,
+    phase: 'settled' | 'failed',
+  ): Promise<boolean> {
+    const transfer = await this.transferStore.get(transferId)
+    if (!transfer || isTerminal(transfer.phase)) return false
+
+    const previousPhase = transfer.phase
+    const updated = transitionPhase(transfer, phase, Date.now())
+    await this.transferStore.update(updated.id, updated)
+
+    this.eventBus.emit({
+      type: 'transfer:phase-changed',
+      payload: { transfer: updated, previousPhase },
+    })
+
+    await this.finalizeTransfer(updated)
+    return true
+  }
+
+  /** operationRef(quoteId/operationId)로 active transfer 찾아서 resolve */
+  async resolveByOperationRef(
+    operationRef: string,
+    phase: 'settled' | 'failed',
+  ): Promise<boolean> {
+    const active = await this.transferStore.listActive()
+    const transfer = active.find((t) => {
+      const ref = t.transportRef as Record<string, unknown>
+      return ref?.quoteId === operationRef || ref?.operationId === operationRef
+    })
+    if (!transfer) return false
+    return this.resolveTransfer(transfer.id, phase)
+  }
+
   // ─── 폴링 (주기적 실행) ───
 
   async pollPendingTransfers(): Promise<void> {

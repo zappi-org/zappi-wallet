@@ -85,6 +85,13 @@ export class NostrIncomingWatcher {
       return
     }
 
+    // 3a. recovery와의 양방향 race 방지: 모든 중복 체크 통과 즉시 마킹
+    await this.processedStore.save({
+      externalId: msg.eventId,
+      processedAt: Date.now(),
+      result: 'pending',
+    })
+
     // 4. 5종 메시지 포맷 파싱
     const candidate = parseGiftWrapTokenContent(msg.content, msg.eventId, {
       pendingRequestId: this.getPendingRequestId(),

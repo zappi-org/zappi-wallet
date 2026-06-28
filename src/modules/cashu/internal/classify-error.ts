@@ -36,6 +36,7 @@ import {
   TokenValidationError,
   UnknownMintError,
 } from '@cashu/coco-core'
+import { cocoLogger as logger } from './logger'
 
 /**
  * Classify MintOperationError by NUT-00 code and detail message
@@ -186,7 +187,7 @@ export function classifyCashuError(error: unknown): BaseError {
   // Keyset short-ID mapping failure (SDK throws plain Error)
   const keysetMatch = msg.match(/(?:couldn't map short keyset id|short keyset id)\s+([a-f0-9]+)/i)
   if (keysetMatch) {
-    console.log('[classifyCashuError] keyset id missing:', keysetMatch[1])
+    logger.info('[classifyCashuError] keyset id missing:', keysetMatch[1])
     return new KeysetSyncError('unknown', keysetMatch[1], error)
   }
 

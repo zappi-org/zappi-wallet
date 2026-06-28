@@ -9,11 +9,13 @@ import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
 import type { AnchorStore, AnchorData } from '@/core/ports/driven/anchor.port'
 import type { RecoveryStore } from '@/core/ports/driven/recovery-store.port'
 import type { FailedIncomingStore } from '@/core/ports/driven/failed-incoming-store.port'
+import type { ProcessedStore } from '@/core/ports/driven/processed-store.port'
 import type { TokenReceiver } from '@/core/ports/driven/token-receiver.port'
 import type { TrustedMintProvider } from '@/core/ports/driven/trusted-mint-provider.port'
 import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-queue.port'
 import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request.usecase'
 import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
+import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type {
   RecoveryUseCase,
   AnchorCheckResult,
@@ -64,6 +66,8 @@ export class RecoveryService implements RecoveryUseCase {
     private readonly incomingReviewQueue: IncomingReviewQueue,
     private readonly tokenCodec: TokenCodec,
     private readonly receiveRequest?: ReceiveRequestSettlement,
+    private readonly processedStore?: ProcessedStore,
+    private readonly txRepo?: TransactionRepository,
   ) {}
 
   // ─── syncAll (orchestration) ───
@@ -186,9 +190,23 @@ export class RecoveryService implements RecoveryUseCase {
         if (await this.recoveryStore.isProcessed(msg.eventId)) {
           continue
         }
+        if (this.processedStore && await this.processedStore.exists(msg.eventId)) {
+          await this.markProcessed(msg.eventId, 'skipped')
+          result.eventsProcessed++
+          continue
+        }
+
+        if (this.processedStore) {
+          await this.processedStore.save({
+            externalId: msg.eventId,
+            processedAt: Date.now(),
+            result: 'pending',
+          })
+        }
 
         try {
           const candidate = parseGiftWrapTokenContent(msg.content, msg.eventId)
+          const restoreRequestId = candidate?.requestId
           const directToken = candidate ? this.materializeCandidate(candidate) : null
 
           if (!directToken) {
@@ -225,6 +243,17 @@ export class RecoveryService implements RecoveryUseCase {
             result.tokensReceived++
             result.amountReceived += receiveResult.value.amount
             await this.markProcessed(msg.eventId, 'success', receiveResult.value.transactionId)
+
+            if (restoreRequestId) {
+              if (this.receiveRequest) {
+                this.receiveRequest.settleByPaymentRef(restoreRequestId, 'ecash')
+                  .catch((err) => console.error('[Recovery] settleByPaymentRef failed:', err))
+              }
+              if (this.txRepo) {
+                this.txRepo.update(receiveResult.value.transactionId, { intent: 'request-fulfill' })
+                  .catch((err) => console.error('[Recovery] intent update failed:', err))
+              }
+            }
           } else {
             const { error } = receiveResult
 
@@ -497,5 +526,14 @@ export class RecoveryService implements RecoveryUseCase {
       result,
       error,
     })
+    if (this.processedStore) {
+      await this.processedStore.save({
+        externalId,
+        txId,
+        processedAt: Date.now(),
+        result,
+        error,
+      })
+    }
   }
 }

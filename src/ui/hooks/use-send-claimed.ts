@@ -2,9 +2,10 @@ import { useEffect, useContext } from 'react'
 import { ServiceContext } from '@/ui/hooks/service-context-value'
 
 /**
- * Subscribe to send:claimed events filtered by transactionId.
+ * Subscribe to outgoing-token claim signals filtered by transactionId.
  * Used by CreatedStep / TokenCreatedStep to detect when the recipient
- * claims the outgoing token (SDK send:finalized → PaymentService.completeSend).
+ * claims the outgoing token. `send:claimed` covers legacy/domain paths;
+ * `transfer:settled` covers the newer TransferLifecycle path.
  */
 export function useSendClaimed(
   transactionId: string | undefined,
@@ -15,10 +16,20 @@ export function useSendClaimed(
   useEffect(() => {
     if (!transactionId || !registry?.eventBus) return
 
-    const unsub = registry.eventBus.on('send:claimed', (event) => {
+    const unsubSendClaimed = registry.eventBus.on('send:claimed', (event) => {
       if (event.payload.txId === transactionId) callback()
     })
 
-    return unsub
+    const unsubTransferSettled = registry.eventBus.on('transfer:settled', (event) => {
+      const transfer = event.payload.transfer
+      if (transfer.txId === transactionId && transfer.direction === 'outgoing') {
+        callback()
+      }
+    })
+
+    return () => {
+      unsubSendClaimed()
+      unsubTransferSettled()
+    }
   }, [transactionId, registry, callback])
 }

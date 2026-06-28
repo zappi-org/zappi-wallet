@@ -4,9 +4,10 @@
  * Coco Manager singleton과 관련 유틸.
  * Phase 7: coco/manager.ts에서 이 파일로 완전 이전 완료.
  */
-import { initializeCoco, type Manager, type MintQuote, ConsoleLogger, normalizeMintUrl } from '@cashu/coco-core'
+import { initializeCoco, type Manager, type MintQuote, normalizeMintUrl } from '@cashu/coco-core'
 import { IndexedDbRepositories } from '@cashu/coco-indexeddb'
 import { getSeed } from './seed-getter'
+import { cocoLogger as logger } from './logger'
 
 let managerInstance: Manager | null = null
 let initPromise: Promise<Manager> | null = null
@@ -37,8 +38,6 @@ async function initializeManager(): Promise<Manager> {
   const repos = new IndexedDbRepositories({ name: 'zappi-coco-wallet' })
   reposInstance = repos
 
-  const logger = new ConsoleLogger('coco', { level: 'info' })
-
   const manager = await initializeCoco({
     repo: repos,
     seedGetter: getSeed,
@@ -50,7 +49,7 @@ async function initializeManager(): Promise<Manager> {
   })
 
   managerInstance = manager
-  console.log('[Coco] Manager initialized (watchers pending — call enableWatchers() after unlock)')
+  logger.info('Manager initialized (watchers pending — call enableWatchers() after unlock)')
   return manager
 }
 
@@ -68,9 +67,9 @@ export async function deleteCocoData(): Promise<void> {
   await resetCocoManager()
   return new Promise<void>((resolve) => {
     const request = indexedDB.deleteDatabase('zappi-coco-wallet')
-    request.onsuccess = () => { console.log('[Coco] Database deleted'); resolve() }
-    request.onerror = () => { console.error('[Coco] Delete failed:', request.error); resolve() }
-    request.onblocked = () => { console.warn('[Coco] Delete blocked'); resolve() }
+    request.onsuccess = () => { logger.info('Database deleted'); resolve() }
+    request.onerror = () => { logger.error('Delete failed:', request.error as Error); resolve() }
+    request.onblocked = () => { logger.warn('Delete blocked'); resolve() }
   })
 }
 
@@ -88,7 +87,7 @@ export async function enableWatchers(): Promise<void> {
     await manager.enableMintOperationWatcher({ watchExistingPendingOnStart: true })
     await manager.enableProofStateWatcher()
     watchersEnabled = true
-    console.log('[Coco] Watchers enabled')
+    logger.info('Watchers enabled')
   }
 }
 

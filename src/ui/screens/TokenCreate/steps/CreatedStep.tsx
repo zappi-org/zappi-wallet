@@ -59,8 +59,8 @@ export function CreatedStep({
   // "사용되었어요" toast so the user doesn't see duplicate notifications.
   useOwnPaymentEvent(txId)
 
-  // Subscribe to send:claimed event filtered by this tx —
-  // fires when the recipient claims/uses the token (send-token-observer).
+  // Subscribe to outgoing claim signals filtered by this tx.
+  // Fires when the recipient claims/uses the token.
   const handleSpent = useCallback(() => {
     if (spentGuardRef.current) return
     spentGuardRef.current = true

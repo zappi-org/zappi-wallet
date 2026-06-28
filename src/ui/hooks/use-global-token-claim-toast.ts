@@ -6,6 +6,10 @@
  * is self-contained (amount, memo, protocol) so no transaction re-query or
  * direction/outcome filtering is needed in the UI.
  *
+ * TODO(TLS): This global toast still listens only to `send:claimed`. Once
+ * outgoing ecash token claims are normalized into a semantic event from the
+ * TransferLifecycle path, move this hook to that unified event.
+ *
  * Skipped when a dedicated UI (e.g. TokenCreate/CreatedStep) already owns
  * feedback for that txId — see `useOwnPaymentEvent`.
  *
