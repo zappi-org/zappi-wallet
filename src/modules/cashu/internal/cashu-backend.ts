@@ -729,6 +729,24 @@ export function onMintQuotePaid(quoteId: string, handler: () => void): () => voi
   }
 }
 
+export async function mintAndReceive(quoteId: string, mintUrl: string, amount: number): Promise<void> {
+  const manager = await getCocoManager();
+  const op = await manager.ops.mint.importQuote({
+    mintUrl,
+    quote: {
+      quote: quoteId,
+      request: '',
+      unit: resolveUnit(mintUrl),
+      amount,
+      state: 'PAID',
+      expiry: 0,
+    },
+    method: 'bolt11',
+    methodData: {},
+  });
+  await manager.ops.mint.execute(op);
+}
+
 export async function getQuoteRecoveryOps() {
   const manager = await getCocoManager();
   return {
@@ -739,20 +757,7 @@ export async function getQuoteRecoveryOps() {
       return { state: result.observedRemoteState };
     },
     async mintAndReceive(quoteId: string, mintUrl: string, amount: number) {
-      const op = await manager.ops.mint.importQuote({
-        mintUrl,
-        quote: {
-          quote: quoteId,
-          request: '',
-          unit: resolveUnit(mintUrl),
-          amount,
-          state: 'PAID',
-          expiry: 0,
-        },
-        method: 'bolt11',
-        methodData: {},
-      });
-      await manager.ops.mint.execute(op);
+      await mintAndReceive(quoteId, mintUrl, amount);
     },
   };
 }

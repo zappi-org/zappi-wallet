@@ -42,6 +42,7 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
     checkMelt: backend.checkMelt,
     createMintQuote: backend.createMintQuote,
     redeemMintQuote: backend.redeemMintQuote,
+    mintAndReceive: backend.mintAndReceive,
     getMintQuote,
     checkMintQuote: backend.checkMintQuote,
     async recoverPendingMelts() {

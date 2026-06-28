@@ -163,8 +163,9 @@ export class RouteExecutionService implements RouteExecutionUseCase {
 
       this.paymentOperator.unmarkMintQuoteAsSwap(mintQuote.quote);
 
-      const tokenResult = await this.executeTokenSendFlow(
+      const tokenResult = await this.executeTokenSendWithProofRecovery(
         targetMintUrl,
+        mintQuote.quote,
         selection,
         context
       );
@@ -178,6 +179,23 @@ export class RouteExecutionService implements RouteExecutionUseCase {
       if (mintQuote)
         this.paymentOperator.unmarkMintQuoteAsSwap(mintQuote.quote);
       throw error;
+    }
+  }
+
+  private async executeTokenSendWithProofRecovery(
+    mintUrl: string,
+    quoteId: string,
+    selection: RouteSelection,
+    context: RouteContext,
+  ): Promise<RouteExecutionResult> {
+    try {
+      return await this.executeTokenSendFlow(mintUrl, selection, context)
+    } catch (error) {
+      const msg = String(error).toLowerCase()
+      if (!msg.includes('insufficient') && !msg.includes('proof')) throw error
+
+      await this.paymentOperator.mintAndReceive(quoteId, mintUrl, selection.amount)
+      return await this.executeTokenSendFlow(mintUrl, selection, context)
     }
   }
 
