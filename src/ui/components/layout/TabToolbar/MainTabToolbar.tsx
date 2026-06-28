@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { NavItem } from '../BottomNav'
 import { EcashPill } from './EcashPill'
 import { WalletTabPicker } from './WalletTabPicker'
-import { tabGlassClass, tweenTransition } from './styles'
+import { bottomDockClass, bottomDockInnerClass, bottomDockStyle, tabGlassClass, tweenTransition } from './styles'
 
 export interface MainTabToolbarProps {
   navItems: NavItem[]
@@ -25,21 +25,23 @@ export function MainTabToolbar({ navItems, activeTab, onTabSelect }: MainTabTool
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: 100, opacity: 0 }}
       transition={tweenTransition}
-      className="fixed z-50 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm flex items-center justify-between gap-2 pointer-events-auto"
-      style={{ bottom: 'var(--app-bottom-nav-bottom)' }}
+      className={bottomDockClass}
+      style={bottomDockStyle}
     >
-      {/* ---- LEFT CLUSTER (always expanded picker) ---- */}
-      <div className={`${tabGlassClass} w-[65%]`}>
-        <WalletTabPicker navItems={navItems} activeTab={activeTab} onTabSelect={onTabSelect} />
-      </div>
+      <div className={bottomDockInnerClass}>
+        {/* ---- LEFT CLUSTER (always expanded picker) ---- */}
+        <div className={`${tabGlassClass} w-[65%]`}>
+          <WalletTabPicker navItems={navItems} activeTab={activeTab} onTabSelect={onTabSelect} />
+        </div>
 
-      {/* ---- RIGHT CLUSTER (always ecash pill) ---- */}
-      <EcashPill
-        icon={tokenItem?.icon}
-        activeIcon={tokenItem?.activeIcon}
-        label={tokenItem?.label ?? t('nav.token')}
-        onClick={handleEcashTap}
-      />
+        {/* ---- RIGHT CLUSTER (always ecash pill) ---- */}
+        <EcashPill
+          icon={tokenItem?.icon}
+          activeIcon={tokenItem?.activeIcon}
+          label={tokenItem?.label ?? t('nav.token')}
+          onClick={handleEcashTap}
+        />
+      </div>
     </motion.nav>
   )
 }

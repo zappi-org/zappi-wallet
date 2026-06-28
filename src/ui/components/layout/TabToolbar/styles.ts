@@ -1,7 +1,17 @@
 import type { CSSProperties } from 'react'
 
+export const bottomDockClass =
+  'fixed inset-x-0 bottom-0 z-50 pointer-events-none px-4 pt-2'
+
+export const bottomDockInnerClass =
+  'mx-auto flex w-full max-w-sm items-center justify-between gap-2 pointer-events-auto'
+
+export const bottomDockStyle: CSSProperties = {
+  paddingBottom: 'calc(var(--safe-area-inset-bottom) + var(--app-bottom-nav-dock-padding))',
+}
+
 export const tabGlassClass =
-  'pointer-events-auto isolate relative transform-gpu will-change-transform overflow-hidden rounded-full bg-white/[0.06] backdrop-blur-[28px] backdrop-saturate-200 p-1 ring-1 ring-white/[0.15] shadow-[0_-6px_24px_rgba(0,0,0,0.045),0_2px_8px_rgba(0,0,0,0.025),inset_0_1px_0_rgba(255,255,255,0.1)]'
+  'pointer-events-auto isolate relative transform-gpu will-change-transform overflow-hidden rounded-full bg-white/[0.06] backdrop-blur-[28px] backdrop-saturate-200 p-1 ring-1 ring-white/[0.15] shadow-[0_2px_10px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.1)]'
 
 export const brandStyle: CSSProperties = {
   background: 'var(--brand-500)',
