@@ -529,6 +529,7 @@ export function SendFlow({
             <SendingStep
               validatedData={state.validatedData!}
               amount={state.amount}
+              route={state.routeSelection?.route}
               displayName={initialDisplayName}
             />
           </PageTransition>
@@ -540,6 +541,7 @@ export function SendFlow({
               validatedData={state.validatedData!}
               amount={state.amount}
               onComplete={onComplete}
+              route={state.routeSelection?.route}
               isFiatMode={state.isFiatMode}
               fiatAmount={state.fiatAmount}
               displayName={initialDisplayName}

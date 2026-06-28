@@ -5,20 +5,22 @@
 import { useTranslation, Trans } from 'react-i18next'
 import { useFormatSats } from '@/utils/format'
 import { SendingAnimation } from '@/ui/components/payment'
+import type { PaymentRoute } from '@/ui/hooks/use-routing'
 import type { SendableValidatedData } from '../SendFlow'
 import { getDestinationDisplay } from '../sendDisplayHelpers'
 
 interface SendingStepProps {
   validatedData: SendableValidatedData
   amount: number
+  route?: PaymentRoute
   /** Display name from address book (overrides default recipient display) */
   displayName?: string
 }
 
-export function SendingStep({ validatedData, amount, displayName }: SendingStepProps) {
+export function SendingStep({ validatedData, amount, route, displayName }: SendingStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
-  const destination = getDestinationDisplay(validatedData, displayName)
+  const destination = getDestinationDisplay(validatedData, displayName, { route, t })
 
   return (
     <div className="flex flex-col h-full bg-background">
