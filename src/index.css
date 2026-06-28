@@ -303,12 +303,11 @@
 :root {
   --safe-area-inset-top: env(safe-area-inset-top, 0px);
   --safe-area-inset-right: env(safe-area-inset-right, 0px);
-  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
-  --app-bottom-padding: max(1.5rem, var(--safe-area-inset-bottom));
+  --app-bottom-padding: 1.5rem;
   --app-bottom-nav-height: 3.25rem;
   --app-bottom-nav-dock-padding: 0.5rem;
-  --app-bottom-nav-clearance: calc(var(--app-bottom-nav-height) + var(--app-bottom-nav-dock-padding) + var(--app-bottom-nav-dock-padding) + var(--safe-area-inset-bottom));
+  --app-bottom-nav-clearance: calc(var(--app-bottom-nav-height) + var(--app-bottom-nav-dock-padding) + var(--app-bottom-nav-dock-padding));
   --app-bottom-action-clearance: calc(4.75rem + var(--app-bottom-padding));
 }
 

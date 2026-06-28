@@ -7,7 +7,7 @@ export const bottomDockInnerClass =
   'mx-auto flex w-full max-w-sm items-center justify-between gap-2 pointer-events-auto'
 
 export const bottomDockStyle: CSSProperties = {
-  paddingBottom: 'calc(var(--safe-area-inset-bottom) + var(--app-bottom-nav-dock-padding))',
+  paddingBottom: 'var(--app-bottom-nav-dock-padding)',
 }
 
 export const tabGlassClass =

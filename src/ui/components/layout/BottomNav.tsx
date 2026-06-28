@@ -28,7 +28,7 @@ export function BottomNav({ items, activeId, visible, onSelect }: BottomNavProps
           transition={{ type: 'spring', stiffness: 400, damping: 30 }}
           className="fixed inset-x-0 bottom-0 z-50 pointer-events-none px-4 pt-2"
           style={{
-            paddingBottom: 'calc(var(--safe-area-inset-bottom) + var(--app-bottom-nav-dock-padding))',
+            paddingBottom: 'var(--app-bottom-nav-dock-padding)',
           }}
         >
           <div
