@@ -6,6 +6,7 @@
  */
 
 import type { OfflineTokenStore } from '@/core/ports/driven/offline-token-store.port'
+import { cocoLogger as logger } from './logger'
 
 /**
  * 저장된 오프라인 토큰 전부 수신 시도.
@@ -28,15 +29,15 @@ export async function redeemPendingReceivedTokens(
       try {
         await receiveToken(pending.token)
         idsToDelete.push(pending.id)
-        console.log(`[OfflineRecovery] Redeemed token ${pending.id}: ${pending.amount} sats`)
+        logger.info(`[OfflineRecovery] Redeemed token ${pending.id}: ${pending.amount} sats`)
         return true
       } catch (error: unknown) {
         const code = (error as { code?: string })?.code
         if (code === 'TOKEN_SPENT' || code === 'INVALID_TOKEN' || code === 'INVALID_PROOF') {
           idsToDelete.push(pending.id)
-          console.warn(`[OfflineRecovery] Token ${pending.id} ${code}, removing`)
+          logger.warn(`[OfflineRecovery] Token ${pending.id} ${code}, removing`)
         } else {
-          console.warn(`[OfflineRecovery] Token ${pending.id} transient error, will retry`)
+          logger.warn(`[OfflineRecovery] Token ${pending.id} transient error, will retry`)
         }
         return false
       }
