@@ -14,7 +14,11 @@ import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { useRouting, PaymentRoute } from '@/ui/hooks/use-routing'
 import type { SendableValidatedData } from '../SendFlow'
-import { getConfirmDisplayInfo } from '../sendDisplayHelpers'
+import {
+  formatRecipientDisplayText,
+  getConfirmDisplayInfo,
+  shouldShowRecipientInMainMessage,
+} from '../sendDisplayHelpers'
 
 interface SendConfirmStepProps {
   onBack: () => void;
@@ -111,6 +115,12 @@ export function SendConfirmStep({
   const totalAmount = amount + fee;
 
   const isMyWallet = validatedData.type === "my-wallet";
+  const showRecipientInMain = shouldShowRecipientInMainMessage(validatedData);
+  const mainRecipient = formatRecipientDisplayText(
+    recipientName.includes("@")
+      ? recipientName.split("@")[0]
+      : recipientName
+  );
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -124,13 +134,13 @@ export function SendConfirmStep({
               i18nKey={
                 isMyWallet
                   ? "send.confirm.fullTransferQuestion"
-                  : "send.confirm.fullQuestion"
+                  : showRecipientInMain
+                    ? "send.confirm.fullQuestion"
+                    : "send.confirm.fullRequestQuestion"
               }
               values={{
                 mint: mintName,
-                recipient: recipientName.includes("@")
-                  ? recipientName.split("@")[0]
-                  : recipientName,
+                recipient: mainRecipient,
                 amount:
                   isFiatMode && fiatAmount
                     ? `${

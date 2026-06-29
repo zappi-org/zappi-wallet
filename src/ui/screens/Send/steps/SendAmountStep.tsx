@@ -13,7 +13,12 @@ import { useFiatToggle } from '@/ui/hooks/use-fiat-toggle'
 import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { getMintBalance } from '@/utils/url'
-import { findContactName } from '../sendDisplayHelpers'
+import {
+  findContactName,
+  formatNpubShort,
+  formatRecipientDisplayText,
+  shouldShowRecipientInMainMessage,
+} from '../sendDisplayHelpers'
 import { useContacts } from '@/ui/hooks/use-contacts'
 import type { SendableValidatedData } from '../SendFlow'
 
@@ -87,10 +92,11 @@ export function SendAmountStep({
 
   // Destination display
   const destinationDisplay = useMemo(() => {
+    if (validatedData && !shouldShowRecipientInMainMessage(validatedData)) return null
     if (!destination && !displayName) return null
-    if (displayName) return displayName
-    if (contactName) return contactName
-    if (validatedData?.type === 'my-wallet') return validatedData.targetMintName
+    if (displayName) return formatRecipientDisplayText(displayName)
+    if (contactName) return formatRecipientDisplayText(contactName)
+    if (validatedData?.type === 'my-wallet') return formatRecipientDisplayText(validatedData.targetMintName)
     if (validatedData?.type === 'lightning-address') return validatedData.address
     if (validatedData?.type === 'lnurl-pay') return validatedData.params?.domain || 'LNURL'
     if (validatedData?.type === 'bolt11') {
@@ -98,19 +104,17 @@ export function SendAmountStep({
       return `${inv.slice(0, 8)}...${inv.slice(-4)}`
     }
     if (validatedData?.type === 'cashu-request') {
-      const req = validatedData.request
-      return `${req.slice(0, 8)}...${req.slice(-4)}`
+      return formatRecipientDisplayText(validatedData.request)
     }
-    if (destination && destination.length > 20) return `${destination.slice(0, 16)}...${destination.slice(-4)}`
-    return destination ?? null
+    return destination ? formatRecipientDisplayText(destination) : null
   }, [destination, validatedData, contactName, displayName])
 
   // Sub-info for destination (address detail below name)
   const destinationDetail = useMemo(() => {
+    if (validatedData && !shouldShowRecipientInMainMessage(validatedData)) return null
     if (contactName && validatedData?.type === 'lightning-address') return validatedData.address
     if (displayName && validatedData?.type === 'cashu-request') {
-      const req = validatedData.request
-      return `${req.slice(0, 8)}...${req.slice(-4)}`
+      return formatNpubShort(validatedData.request)
     }
     return null
   }, [validatedData, contactName, displayName])
@@ -144,7 +148,7 @@ export function SendAmountStep({
                   <Trans i18nKey="send.confirm.recipientTo" values={{ recipient: destinationDisplay }}
                     components={{ b: <span className="text-brand" /> }} />
                 </p>
-                <p className="text-caption text-foreground-muted mt-0.5">
+                <p className="text-caption text-foreground-muted mt-0.5 truncate">
                   {destinationDetail}
                 </p>
               </div>
@@ -157,7 +161,7 @@ export function SendAmountStep({
             return (
               <div className="mb-4">
                 <p className="text-heading font-semibold">
-                  <Trans i18nKey="send.confirm.recipientTo" values={{ recipient: user }}
+                  <Trans i18nKey="send.confirm.recipientTo" values={{ recipient: formatRecipientDisplayText(user) }}
                     components={{ b: <span className="text-brand" /> }} />
                 </p>
                 <p className="text-subtitle text-foreground-muted">

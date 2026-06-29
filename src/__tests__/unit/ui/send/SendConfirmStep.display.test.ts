@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import { PaymentRoute } from '@/core/domain/routing'
-import { getConfirmDisplayInfo } from '@/ui/screens/Send/sendDisplayHelpers'
-import { getDestinationDisplay } from '@/ui/screens/Send/sendDisplayHelpers'
+import {
+  formatNpubShort,
+  formatRecipientDisplayText,
+  getConfirmDisplayInfo,
+  getDestinationDisplay,
+  shouldShowRecipientInMainMessage,
+} from '@/ui/screens/Send/sendDisplayHelpers'
 import type { ValidatedBolt11, ValidatedCashuRequest } from '@/core/domain/input-types'
 
 const t = (key: string) => {
@@ -24,10 +29,11 @@ describe('send display text', () => {
 
     expect(display.recipient).toBe('Lightning 인보이스')
     expect(display.memo).toBe('eCash')
+    expect(shouldShowRecipientInMainMessage(invoice)).toBe(false)
     expect(getDestinationDisplay(invoice)).toBe('Lightning')
   })
 
-  it('shows Lightning invoice during progress for routed unified payment requests', () => {
+  it('hides request recipients from main copy for routed unified payment requests', () => {
     const request: ValidatedCashuRequest = {
       type: 'cashu-request',
       request: 'creqAunifiedtest',
@@ -43,6 +49,7 @@ describe('send display text', () => {
       },
     }
 
+    expect(shouldShowRecipientInMainMessage(request)).toBe(false)
     expect(
       getDestinationDisplay(request, undefined, { route: PaymentRoute.MELT_TO_LN, t })
     ).toBe('Lightning 인보이스')
@@ -51,7 +58,7 @@ describe('send display text', () => {
     ).toBe('Lightning 인보이스')
   })
 
-  it('keeps eCash display for token-routed payment requests', () => {
+  it('hides eCash payment request recipients from main copy for token-routed payment requests', () => {
     const request: ValidatedCashuRequest = {
       type: 'cashu-request',
       request: 'creqAtokentest',
@@ -67,8 +74,33 @@ describe('send display text', () => {
       },
     }
 
+    expect(shouldShowRecipientInMainMessage(request)).toBe(false)
     expect(
       getDestinationDisplay(request, undefined, { route: PaymentRoute.TOKEN_TRANSFER, t })
     ).toBe('eCash')
+  })
+
+  it('keeps direct npub recipients in main copy and shortens long labels', () => {
+    const npub = 'npub1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq'
+    const request: ValidatedCashuRequest = {
+      type: 'cashu-request',
+      request: npub,
+      parsed: {
+        id: 'direct-1',
+        amount: 1000,
+        unit: 'sat',
+        mints: ['https://mint.example.com'],
+        transports: [{ type: 'nostr', target: npub }],
+        hasNostrTransport: true,
+        nostrTarget: npub,
+        hasPostTransport: false,
+        sameMintOnly: true,
+      },
+    }
+
+    expect(shouldShowRecipientInMainMessage(request)).toBe(true)
+    expect(getDestinationDisplay(request)).toBe(formatNpubShort(npub))
+    expect(getDestinationDisplay(request, '가나다라마바사아자차카타파하')).toBe('가나다라마바사아자차카타...')
+    expect(formatRecipientDisplayText('npub1abcdef0123456789')).toBe('npub1abc...6789')
   })
 })

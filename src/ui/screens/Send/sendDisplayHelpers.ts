@@ -1,7 +1,9 @@
 import type { SendableValidatedData } from "./SendFlow";
+import { isNostrDirectAddress } from "@/core/domain/nostr-address";
 import { PaymentRoute } from "@/ui/hooks/use-routing";
 
 type Translate = (key: string) => string;
+type CashuRequestSendData = Extract<SendableValidatedData, { type: "cashu-request" }>;
 
 export interface ConfirmDisplayInfo {
   method: string;
@@ -18,6 +20,39 @@ function isLightningRoute(route: PaymentRoute | undefined): boolean {
   );
 }
 
+export function formatNpubShort(npub: string): string {
+  const trimmed = npub.trim();
+  if (trimmed.length <= 16) return trimmed;
+  return `${trimmed.slice(0, 8)}...${trimmed.slice(-4)}`;
+}
+
+export function formatRecipientDisplayText(value: string, maxLength = 12): string {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  if (isNostrDirectAddress(trimmed)) return formatNpubShort(trimmed);
+  if (trimmed.length <= maxLength) return trimmed;
+  return `${trimmed.slice(0, maxLength)}...`;
+}
+
+function isCashuRequestData(data: SendableValidatedData): data is CashuRequestSendData {
+  return data.type === "cashu-request";
+}
+
+export function isDirectCashuRecipient(data: SendableValidatedData): boolean {
+  return (
+    isCashuRequestData(data) &&
+    data.parsed.sameMintOnly === true &&
+    !!data.parsed.nostrTarget &&
+    isNostrDirectAddress(data.request)
+  );
+}
+
+export function shouldShowRecipientInMainMessage(data: SendableValidatedData): boolean {
+  if (data.type === "bolt11" || data.type === "lnurl-pay") return false;
+  if (data.type === "cashu-request") return isDirectCashuRecipient(data);
+  return true;
+}
+
 export function getConfirmDisplayInfo(
   data: SendableValidatedData,
   route: PaymentRoute | undefined,
@@ -30,6 +65,15 @@ export function getConfirmDisplayInfo(
     route === PaymentRoute.TOKEN_TRANSFER ||
     route === PaymentRoute.OWN_MINT_TOKEN ||
     route === PaymentRoute.MINT_AND_DM;
+
+  if (isCashuRequestData(data) && isDirectCashuRecipient(data)) {
+    return {
+      method: "eCash",
+      recipient: formatRecipientDisplayText(displayName || data.request),
+      recipientDetail: displayName ? formatNpubShort(data.request) : "",
+      memo: data.parsed.description,
+    };
+  }
 
   if (
     isLnRoute &&
@@ -51,7 +95,7 @@ export function getConfirmDisplayInfo(
     const req = data.request;
     return {
       method: "eCash",
-      recipient: displayName || t("send.confirm.ecashRequest"),
+      recipient: t("send.confirm.ecashRequest"),
       recipientDetail: `${req.slice(0, 8)}...${req.slice(-4)}`,
       memo: data.parsed.description,
     };
@@ -70,7 +114,7 @@ export function getConfirmDisplayInfo(
     case "lightning-address":
       return {
         method: "Lightning",
-        recipient: displayName || data.address,
+        recipient: formatRecipientDisplayText(displayName || data.address),
         recipientDetail: data.address,
       };
     case "lnurl-pay":
@@ -84,7 +128,7 @@ export function getConfirmDisplayInfo(
       const req = data.request;
       return {
         method: "eCash",
-        recipient: displayName || t("send.confirm.ecashRequest"),
+        recipient: t("send.confirm.ecashRequest"),
         recipientDetail: `${req.slice(0, 8)}...${req.slice(-4)}`,
         memo: data.parsed.description,
       };
@@ -106,6 +150,10 @@ export function getDestinationDisplay(
     t?: Translate;
   }
 ): string {
+  if (isCashuRequestData(data) && isDirectCashuRecipient(data)) {
+    return formatRecipientDisplayText(displayName || data.request);
+  }
+
   if (
     isLightningRoute(options?.route) &&
     data.type === "cashu-request" &&
@@ -114,32 +162,21 @@ export function getDestinationDisplay(
     return options?.t?.("send.confirm.lightningInvoice") || "Lightning";
   }
 
-  if (displayName) return displayName;
+  if (displayName) return formatRecipientDisplayText(displayName);
   switch (data.type) {
     case "bolt11":
       return "Lightning";
     case "lightning-address":
-      return data.address.includes("@")
+      return formatRecipientDisplayText(data.address.includes("@")
         ? data.address.split("@")[0]
-        : data.address;
+        : data.address);
     case "lnurl-pay":
       return data.params?.domain || "LNURL";
     case "cashu-request":
       return "eCash";
     case "my-wallet":
-      return data.targetMintName;
+      return formatRecipientDisplayText(data.targetMintName);
   }
-}
-
-/**
- * Format npub for display: first8...mid4...last4
- */
-export function formatNpubShort(npub: string): string {
-  if (npub.length < 20) return npub;
-  const mid = Math.floor(npub.length / 2);
-  return `${npub.slice(0, 8)}...${npub.slice(mid - 2, mid + 2)}...${npub.slice(
-    -4
-  )}`;
 }
 
 /**
