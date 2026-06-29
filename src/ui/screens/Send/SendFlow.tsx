@@ -539,7 +539,7 @@ export function SendFlow({
               validatedData={state.validatedData!}
               amount={state.amount}
               route={state.routeSelection?.route}
-              displayName={initialDisplayName}
+              displayName={effectiveDisplayName}
             />
           </PageTransition>
         )}
