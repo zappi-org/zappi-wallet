@@ -12,7 +12,7 @@ import { Button } from '@/ui/components/common/Button'
 import { Confetti } from '@/ui/components/payment/Confetti'
 import type { PaymentRoute } from '@/ui/hooks/use-routing'
 import type { SendableValidatedData } from '../SendFlow'
-import { getDestinationDisplay } from '../sendDisplayHelpers'
+import { getDestinationDisplay, shouldShowRecipientInMainMessage } from '../sendDisplayHelpers'
 
 interface SendCompleteStepProps {
   validatedData: SendableValidatedData
@@ -38,6 +38,7 @@ export function SendCompleteStep({
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
   const destination = getDestinationDisplay(validatedData, displayName, { route, t })
+  const showRecipientInMain = shouldShowRecipientInMainMessage(validatedData)
   const hasTriggeredHaptic = useRef(false)
 
   // Haptic on mount
@@ -86,7 +87,7 @@ export function SendCompleteStep({
         <div className="text-center">
           <p className="text-heading font-semibold text-foreground whitespace-pre-line">
             <Trans
-              i18nKey="send.complete.fullMessage"
+              i18nKey={showRecipientInMain ? 'send.complete.fullMessage' : 'send.complete.fullRequestMessage'}
               values={{ recipient: destination, amount: mainAmount }}
               components={{ b: <span className="text-brand" /> }}
             />

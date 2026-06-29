@@ -7,7 +7,7 @@ import { useFormatSats } from '@/utils/format'
 import { SendingAnimation } from '@/ui/components/payment'
 import type { PaymentRoute } from '@/ui/hooks/use-routing'
 import type { SendableValidatedData } from '../SendFlow'
-import { getDestinationDisplay } from '../sendDisplayHelpers'
+import { getDestinationDisplay, shouldShowRecipientInMainMessage } from '../sendDisplayHelpers'
 
 interface SendingStepProps {
   validatedData: SendableValidatedData
@@ -21,6 +21,7 @@ export function SendingStep({ validatedData, amount, route, displayName }: Sendi
   const { t } = useTranslation()
   const formatSats = useFormatSats()
   const destination = getDestinationDisplay(validatedData, displayName, { route, t })
+  const showRecipientInMain = shouldShowRecipientInMainMessage(validatedData)
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -35,7 +36,7 @@ export function SendingStep({ validatedData, amount, route, displayName }: Sendi
         <div className="text-center">
           <p className="text-heading font-semibold text-foreground whitespace-pre-line">
             <Trans
-              i18nKey="send.sending.fullMessage"
+              i18nKey={showRecipientInMain ? 'send.sending.fullMessage' : 'send.sending.fullRequestMessage'}
               values={{ recipient: destination, amount: formatSats(amount) }}
               components={{ b: <span className="text-brand" /> }}
             />

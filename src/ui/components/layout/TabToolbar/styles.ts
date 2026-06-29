@@ -1,13 +1,14 @@
 import type { CSSProperties } from 'react'
 
 export const bottomDockClass =
-  'fixed inset-x-0 bottom-0 z-50 pointer-events-none px-4 pt-2'
+  'fixed inset-x-0 bottom-0 z-50 pointer-events-none px-4'
 
 export const bottomDockInnerClass =
   'mx-auto flex w-full max-w-sm items-center justify-between gap-2 pointer-events-auto'
 
 export const bottomDockStyle: CSSProperties = {
-  paddingBottom: 'var(--app-bottom-nav-dock-padding)',
+  paddingTop: 'var(--app-bottom-nav-top-padding)',
+  paddingBottom: 'var(--app-bottom-nav-bottom-padding)',
 }
 
 export const tabGlassClass =
