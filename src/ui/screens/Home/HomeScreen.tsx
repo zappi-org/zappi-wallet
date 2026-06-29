@@ -4,6 +4,8 @@ import { usePullToRefresh } from "@/ui/hooks/use-pull-to-refresh";
 import { Plus, LoaderCircle, ArrowDown, ChevronRight } from "lucide-react";
 
 import { useTranslation } from "react-i18next";
+import { CameraFilled } from "@/ui/components/icons/CameraFilled";
+import { hapticTap } from "@/ui/utils/haptic";
 import { MintCard, resolveMintColor } from "../../components/wallet/MintCard";
 import { TransactionList } from "../../components/wallet/TransactionList";
 import { useWallet, useMintHealth, useMintMetadata } from "@/ui/hooks";
@@ -22,6 +24,7 @@ export interface HomeScreenProps {
   onMintDetails?: (mint: MintInfo, index: number) => void;
   onSend?: (activeMintUrl?: string) => void;
   onReceive?: (activeMintUrl?: string) => void;
+  onScan?: () => void;
   onSelectTransaction?: (tx: Transaction) => void;
   onSaveSettings?: (settings: Record<string, unknown>) => Promise<void>;
   onRefresh?: () => Promise<void>;
@@ -34,6 +37,7 @@ export function HomeScreen({
   onMintDetails,
   onSend,
   onReceive,
+  onScan,
   onSelectTransaction,
   onSaveSettings,
   onRefresh,
@@ -124,8 +128,22 @@ export function HomeScreen({
         )}
       </div>
 
-      {/* Header spacer */}
-      <div className="shrink-0 h-12" />
+      {/* Header — right action: scan */}
+      <div className="shrink-0 h-12 px-4 flex items-center justify-end">
+        {onScan && (
+          <button
+            type="button"
+            onClick={() => {
+              hapticTap()
+              onScan()
+            }}
+            aria-label={t('scanner.title')}
+            className="w-10 h-10 rounded-full flex items-center justify-center text-foreground-muted hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
+          >
+            <CameraFilled />
+          </button>
+        )}
+      </div>
 
       {/* Fixed top: Balance + Cards */}
       <div className="shrink-0">

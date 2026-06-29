@@ -3,8 +3,9 @@ import { useTranslation } from 'react-i18next'
 import QrScannerLib from 'qr-scanner'
 type ScanResult = QrScannerLib.ScanResult
 import { URDecoder } from '@gandlaf21/bc-ur'
-import { Image } from 'lucide-react'
+import { ClipboardPaste, Image } from 'lucide-react'
 import { usePinchZoom } from '@/ui/hooks/use-pinch-zoom'
+import { useAppStore } from '@/store'
 
 export interface QrScannerProps {
   onScan: (result: string) => void
@@ -14,6 +15,7 @@ export interface QrScannerProps {
 
 export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
   const { t } = useTranslation()
+  const addToast = useAppStore((s) => s.addToast)
   const containerRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const scannerRef = useRef<QrScannerLib | null>(null)
@@ -99,6 +101,20 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
       imageErrorTimer.current = setTimeout(() => setImageError(''), 3000)
     }
   }, [t])
+
+  // Paste from clipboard
+  const handlePaste = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText()
+      if (!text.trim()) {
+        addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
+        return
+      }
+      onScanRef.current(text.trim())
+    } catch {
+      addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
+    }
+  }, [addToast, t])
 
   // Initialize and cleanup scanner
   useEffect(() => {
@@ -237,6 +253,16 @@ export function QrScanner({ onScan, onError, active = true }: QrScannerProps) {
           <span className="text-white text-label font-medium">{zoomLevel.toFixed(1)}x</span>
         </div>
       )}
+
+      {/* Paste — bottom right (left of image upload) */}
+      <button
+        type="button"
+        onClick={handlePaste}
+        aria-label={t('scanner.paste')}
+        className="absolute bottom-3 right-14 p-1.5 rounded-[10px] bg-black/50 backdrop-blur-sm active:bg-black/70 transition-colors z-10"
+      >
+        <ClipboardPaste className="w-6 h-6 text-white" strokeWidth={1.8} />
+      </button>
 
       {/* Image upload — bottom right */}
       <input

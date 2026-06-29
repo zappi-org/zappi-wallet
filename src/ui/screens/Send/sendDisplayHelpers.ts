@@ -57,6 +57,31 @@ export function getConfirmDisplayInfo(
     };
   }
 
+  // For cashu-request, infer the most likely method from the data alone when
+  // the route hasn't been computed yet. Without this, the confirm screen would
+  // flash "eCash" before the async route selection completes, even though the
+  // route may end up being a Lightning route.
+  if (!route && data.type === "cashu-request") {
+    if (data.parsed.lightningInvoice) {
+      const inv = data.parsed.lightningInvoice;
+      return {
+        method: "Lightning",
+        recipient: t("send.confirm.lightningInvoice"),
+        recipientDetail: `${inv.slice(0, 12).toLowerCase()}...${inv
+          .slice(-4)
+          .toLowerCase()}`,
+        memo: data.parsed.description,
+      };
+    }
+    const req = data.request;
+    return {
+      method: "eCash",
+      recipient: displayName || t("send.confirm.ecashRequest"),
+      recipientDetail: `${req.slice(0, 8)}...${req.slice(-4)}`,
+      memo: data.parsed.description,
+    };
+  }
+
   switch (data.type) {
     case "bolt11": {
       const inv = data.invoice;

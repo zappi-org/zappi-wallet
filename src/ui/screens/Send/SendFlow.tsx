@@ -9,7 +9,7 @@
  * Token creation lives in the Token tab (TokenCreateFlow), not here.
  */
 
-import { useState, useCallback, useRef, useMemo } from 'react'
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
 import { useNetwork } from '@/ui/hooks/use-network'
@@ -39,11 +39,21 @@ function getAddressOrInvoice(data: SendableValidatedData): string | undefined {
   }
 }
 
+/** Extract embedded amount from validated data. */
+function getAmountFromData(data: SendableValidatedData): number {
+  if (data.type === 'bolt11' && data.amountSats > 0) return data.amountSats
+  if (data.type === 'cashu-request' && data.parsed?.amount && data.parsed.amount > 0) {
+    return data.parsed.amount
+  }
+  return 0
+}
+
 import { SendInputStep } from './steps/SendInputStep'
 import { SendAmountStep } from './steps/SendAmountStep'
 import { SendConfirmStep } from './steps/SendConfirmStep'
 import { SendingStep } from './steps/SendingStep'
 import { SendCompleteStep } from './steps/SendCompleteStep'
+import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { planRouteSelection } from './sendRouteHelpers'
 
 // ============= Types =============
@@ -80,6 +90,23 @@ export interface SendFlowState {
   // Routing
   routeSelection: RouteSelection | null
 }
+
+/**
+ * Mint selection request — sent by child steps.
+ * - 'destination' context: opened from SendInputStep (e.g. NIP-19 common-mint pick).
+ *   On select, auto-advance to the next step.
+ * - 'confirm' context: opened from SendConfirmStep to change the source mint.
+ *   On select, just update selectedMintUrl — user stays on confirm.
+ */
+export type MintSelectionRequest =
+  | {
+      context: 'destination'
+      destination: string
+      validatedData: SendableValidatedData
+      commonMintUrls: string[]
+      infoText?: string
+    }
+  | { context: 'confirm' }
 
 export interface SendFlowProps {
   onBack: () => void
@@ -152,9 +179,13 @@ export function SendFlow({
     return ['bolt11', 'lightning-address', 'lnurl-pay', 'cashu-request', 'my-wallet'].includes(data.type)
   }
 
-  // Skip destination when validated data is already provided (from address book / scanner)
-  const getInitialStep = (): SendStep =>
-    initialValidatedData && isSendableData(initialValidatedData) ? 'amount' : 'destination'
+  // Skip destination when validated data is already provided (from address book / scanner).
+  // If the data carries an embedded amount, skip straight to confirm (camera shortcut).
+  const getInitialStep = (): SendStep => {
+    if (!initialValidatedData || !isSendableData(initialValidatedData)) return 'destination'
+    if (getInitialAmount() > 0) return 'confirm'
+    return 'amount'
+  }
 
   // Flow state
   const [state, setState] = useState<SendFlowState>({
@@ -175,6 +206,9 @@ export function SendFlow({
 
   // Loading state for async operations
   const [isLoading, setIsLoading] = useState(false)
+
+  // Mint selection sheet (lifted from SendInputStep so it's reachable from any step)
+  const [mintSelection, setMintSelection] = useState<MintSelectionRequest | null>(null)
 
   // Prevent double-tap
   const isProcessingRef = useRef(false)
@@ -459,6 +493,90 @@ export function SendFlow({
     }
   }, [state, onExecuteRoute, onMintSwap, isOnline, addToast, t])
 
+  // ============= Mint Selection (lifted) =============
+
+  /** Open mint selection sheet — called from SendInputStep (destination context). */
+  const handleRequestMintSelection = useCallback((req: {
+    destination: string
+    validatedData: SendableValidatedData
+    commonMintUrls: string[]
+    infoText?: string
+  }) => {
+    setMintSelection({ context: 'destination', ...req })
+  }, [])
+
+  /** Open mint selection sheet — called from SendConfirmStep (change source mint). */
+  const handleConfirmRequestMintSelection = useCallback(() => {
+    setMintSelection({ context: 'confirm' })
+  }, [])
+
+  /** Apply mint selection — advance for destination context, in-place for confirm.
+   *  For 'confirm' context, also re-run route selection since the new mint may
+   *  require a different route/fee. */
+  const handleMintSelected = useCallback((selectedMintUrl: string) => {
+    if (!mintSelection) return
+    setState((prev) => ({ ...prev, selectedMintUrl }))
+    if (mintSelection.context === 'destination') {
+      const amt = getAmountFromData(mintSelection.validatedData)
+      handleDestinationNext({
+        destination: mintSelection.destination,
+        validatedData: mintSelection.validatedData,
+        amountFromInvoice: amt > 0 ? amt : undefined,
+        mintUrl: selectedMintUrl,
+      })
+    } else if (
+      mintSelection.context === 'confirm' &&
+      state.validatedData &&
+      state.amount > 0
+    ) {
+      // Clear stale route, re-run for new mint. Reuses the initial-route effect
+      // by resetting its ref so it picks up the new selectedMintUrl.
+      didInitialRouteRef.current = false
+      setState((prev) => ({ ...prev, routeSelection: null, fee: 0, error: null }))
+    }
+    setMintSelection(null)
+  }, [mintSelection, handleDestinationNext, state.validatedData, state.amount])
+
+  /**
+   * Initial route selection — runs once when SendFlow lands on 'confirm' from a
+   * camera shortcut (scanned bolt11 with amount, etc.). Required because
+   * handleAmountNext would normally do this work, but we skipped the amount step.
+   *
+   * Note: no cleanup function — a previous version used a `cancelled` flag
+   * that the cleanup set to true, but the effect's deps include
+   * `state.routeSelection` which flips to non-null right after setState, causing
+   * a re-run. The cleanup of the FIRST run would fire and set `cancelled=true`
+   * for the in-flight promise, suppressing the state update that already
+   * succeeded. The `done` flag inside the async closure prevents double-set
+   * if the effect ever does re-run with a fresh closure.
+   */
+  const didInitialRouteRef = useRef(false)
+  useEffect(() => {
+    if (didInitialRouteRef.current) return
+    if (state.step !== 'confirm') return
+    if (state.routeSelection) return
+    if (!state.validatedData || !state.selectedMintUrl || state.amount <= 0) return
+
+    didInitialRouteRef.current = true
+    let done = false
+
+    performRouteSelection(
+      state.validatedData,
+      state.amount,
+      state.selectedMintUrl,
+    ).then((routeResult) => {
+      if (done || !routeResult) return
+      done = true
+      setState((prev) => ({
+        ...prev,
+        fee: routeResult.fee,
+        routeSelection: routeResult.routeSelection,
+        skippedAmount: true,
+        error: null,
+      }))
+    })
+  }, [state.step, state.routeSelection, state.validatedData, state.selectedMintUrl, state.amount, performRouteSelection])
+
   // ============= Render =============
 
   return (
@@ -474,9 +592,9 @@ export function SendFlow({
               initialAddress={initialDestination}
               initialValidatedData={state.validatedData}
               mintUrl={state.selectedMintUrl || ''}
-              onMintChange={(mintUrl) => setState((prev) => ({ ...prev, selectedMintUrl: mintUrl }))}
               isLoading={isLoading}
               onRouteValidated={onRouteValidated}
+              onRequestMintSelection={handleRequestMintSelection}
             />
           </PageTransition>
         )}
@@ -529,6 +647,7 @@ export function SendFlow({
               isFiatMode={state.isFiatMode}
               fiatAmount={state.fiatAmount}
               userMemo={state.memo}
+              onRequestMintSelection={handleConfirmRequestMintSelection}
             />
           </PageTransition>
         )}
@@ -558,6 +677,26 @@ export function SendFlow({
           </PageTransition>
         )}
       </AnimatePresence>
+
+      <MintSelectBottomSheet
+        isOpen={mintSelection !== null}
+        onClose={() => setMintSelection(null)}
+        onSelect={handleMintSelected}
+        selectedMintUrl={state.selectedMintUrl}
+        filterFn={
+          mintSelection?.context === 'destination'
+            ? (mint) => mintSelection.commonMintUrls.some(
+                (url) => url.replace(/\/+$/, '').toLowerCase() === mint.url.replace(/\/+$/, '').toLowerCase()
+              )
+            : undefined
+        }
+        buttonLabel={
+          mintSelection?.context === 'destination'
+            ? t('common.send')
+            : t('common.confirm')
+        }
+        infoText={mintSelection?.context === 'destination' ? mintSelection.infoText : undefined}
+      />
     </div>
   )
 }

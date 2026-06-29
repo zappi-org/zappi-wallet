@@ -13,6 +13,7 @@ import { useGlobalTokenClaimToast } from '@/ui/hooks/use-global-token-claim-toas
 
 import { useRedeemToken } from '@/ui/hooks/use-redeem-token'
 import { useSupportNotifications } from '@/ui/hooks/use-support-notifications'
+import { isNostrDirectAddress } from '@/core/domain/nostr-address'
 import { translateError } from '@/ui/utils/error-i18n'
 import { broadcastSync } from '@/utils/cross-tab-sync'
 // useMintHealth removed — mint health checks done via serviceRegistry directly
@@ -74,6 +75,7 @@ import { SendFlow } from '@/ui/screens/Send/SendFlow'
 import { TokenCreateFlow } from '@/ui/screens/TokenCreate/TokenCreateFlow'
 import { TokenRegisterFlow } from '@/ui/screens/TokenRegister/TokenRegisterFlow'
 import { routeValidatedInput } from '@/ui/utils/input-router'
+import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
 
 // Services (composition 경유만)
 import { createSecurityService } from '@/composition/security'
@@ -206,6 +208,9 @@ export default function MainApp() {
   // Contact info for send flow (from address book)
   const [contactInfo, setContactInfo] = useState<{ address: string; displayName: string } | null>(null)
 
+  // Home screen scanner (camera shortcut → QrScannerModal)
+  const [showHomeScanner, setShowHomeScanner] = useState(false)
+
   // Transaction detail state
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
 
@@ -248,6 +253,96 @@ export default function MainApp() {
     serviceRegistry.mintHealth.checkAllMints(settings.mints).catch(() => { })
     serviceRegistry.exchangeRate.refreshIfStale().catch(() => { })
   }, [serviceRegistry, refreshAndRecover, settings.mints])
+
+  /** Home camera shortcut — pre-validate and skip the destination step.
+   *  Validated sendable input (bolt11, lightning-address, lnurl) goes straight
+   *  to SendFlow's confirm/amount step. NIP-19 (npub/nprofile) needs nostr
+   *  resolution + common-mint selection, so we still defer to the destination
+   *  step for that case (SendInputStep.processExternalInput handles it).
+   *  Falls back to the destination step if the service registry isn't ready. */
+  const handleHomeScanResult = useCallback(async (raw: string) => {
+    setShowHomeScanner(false)
+    setValidatedScanData(null)
+    setScannedAmount(0)
+
+    // Inject default (primary) mint as the source context — prefer the active
+    // mint (if it has balance), else first mint with balance, else first
+    // configured mint. Matches TokenCreateFlow's default selection rule.
+    let defaultMint: string | null = null
+    if (activeMintUrl && (balance.byMint[activeMintUrl] ?? 0) > 0) {
+      defaultMint = activeMintUrl
+    } else {
+      const withBalance = settings.mints.find((url) => (balance.byMint[url] ?? 0) > 0)
+      if (withBalance) defaultMint = withBalance
+      else if (settings.mints.length > 0) defaultMint = settings.mints[0]
+      else if (activeMintUrl) defaultMint = activeMintUrl
+    }
+    setActiveMintUrl(defaultMint)
+
+    // Registry not ready yet — fall back to the destination step. SendInputStep
+    // will validate + auto-advance once ServiceProvider is mounted.
+    if (!serviceRegistry) {
+      setContactInfo({ address: raw, displayName: '' })
+      setPreviousScreen(currentScreen)
+      setCurrentScreen('send')
+      return
+    }
+
+    const { inputParser } = serviceRegistry
+
+    // Quick classification — short-circuit on unknown.
+    const detected = inputParser.detectAndClassify(raw)
+    if (detected.type === 'unknown') {
+      addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
+      return
+    }
+
+    // NIP-19 (npub / nprofile) — defer to destination step so the existing
+    // nostr resolution + common-mint selection flow runs unchanged.
+    if (isNostrDirectAddress(raw)) {
+      setContactInfo({ address: raw, displayName: '' })
+      setPreviousScreen(currentScreen)
+      setCurrentScreen('send')
+      return
+    }
+
+    // Pre-validate so SendFlow can skip its destination step.
+    let validated: ValidatedData
+    try {
+      validated = await inputParser.validateAsync(detected)
+    } catch {
+      addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
+      return
+    }
+
+    // Route via the existing input router — handles sendable + non-sendable
+    // (token-register, amount-action, unsupported) destinations identically.
+    const target = routeValidatedInput(validated)
+    setContactInfo(null)
+    switch (target.screen) {
+      case 'send':
+        setValidatedScanData(target.validatedData)
+        setScannedAmount(0)
+        setPreviousScreen(currentScreen)
+        setCurrentScreen('send')
+        return
+      case 'token-register':
+        setInitialRegisterToken(target.token)
+        setValidatedScanData(null)
+        setPreviousScreen(currentScreen)
+        setCurrentScreen('token-register')
+        return
+      case 'amount-action':
+        setScannedAmount(target.amount)
+        setValidatedScanData(null)
+        setPreviousScreen(currentScreen)
+        setCurrentScreen('amount-action')
+        return
+      case 'unsupported':
+        addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
+        return
+    }
+  }, [currentScreen, activeMintUrl, settings.mints, balance.byMint, serviceRegistry, addToast, t])
 
   /** Universal input router — navigate based on validated input type. */
   const handleRouteValidated = useCallback((data: ValidatedData) => {
@@ -1027,6 +1122,7 @@ export default function MainApp() {
                     setScannedAmount(0)
                     setCurrentScreen('receive')
                   }}
+                  onScan={() => setShowHomeScanner(true)}
                   onSelectTransaction={(tx) => {
                     setSelectedTransaction(tx)
                     setPreviousScreen('home')
@@ -1526,6 +1622,13 @@ export default function MainApp() {
           />
         )}
       </AnimatePresence>
+
+      {/* Home camera shortcut — top-right scan */}
+      <QrScannerModal
+        isOpen={showHomeScanner}
+        onClose={() => setShowHomeScanner(false)}
+        onScan={handleHomeScanResult}
+      />
 
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />

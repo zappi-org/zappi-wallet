@@ -20,7 +20,6 @@ import { Button } from '@/ui/components/common/Button'
 import { Spinner } from '@/ui/components/common/Spinner'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
-import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { SegmentControl } from '@/ui/components/common/SegmentControl'
 import { useInputParser } from '@/ui/hooks/use-input-parser'
 import type { InputType, ValidatedData } from '@/core/domain/input-types'
@@ -65,10 +64,16 @@ interface SendDestinationStepProps {
   initialAddress?: string
   initialValidatedData?: SendableValidatedData | null
   mintUrl: string
-  onMintChange?: (mintUrl: string) => void
   isLoading?: boolean
   /** Delegate non-sendable input (cashu-token, amount-only) to universal router. */
   onRouteValidated?: (data: ValidatedData) => void
+  /** Open the lifted MintSelectBottomSheet (owned by SendFlow). */
+  onRequestMintSelection?: (req: {
+    destination: string
+    validatedData: SendableValidatedData
+    commonMintUrls: string[]
+    infoText?: string
+  }) => void
 }
 
 export function SendInputStep({
@@ -79,9 +84,9 @@ export function SendInputStep({
   initialAddress,
   initialValidatedData,
   mintUrl,
-  onMintChange,
   isLoading = false,
   onRouteValidated,
+  onRequestMintSelection,
 }: SendDestinationStepProps) {
   const { t } = useTranslation()
   const settings = useAppStore((s) => s.settings)
@@ -105,12 +110,6 @@ export function SendInputStep({
   )
   const [isPreValidating, setIsPreValidating] = useState(false)
   const [preValidationError, setPreValidationError] = useState<string | null>(null)
-  const [mintSelection, setMintSelection] = useState<{
-    destination: string
-    validatedData: SendableValidatedData
-    commonMintUrls: string[]
-    infoText?: string
-  } | null>(null)
   const requestIdRef = useRef(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -174,7 +173,6 @@ export function SendInputStep({
     validatedDataRef.current = options.validatedData ?? null
     setDetectedTypes(options.detectedTypes ?? [])
     setIsPreValidating(options.isPreValidating ?? false)
-    setMintSelection(null)
   }, [cancelPendingValidation])
 
   /**
@@ -396,7 +394,7 @@ export function SendInputStep({
 
       if (resolution.status === 'needs-mint-selection') {
         const selectedMintName = mintUrl ? getDisplayName(mintUrl) : ''
-        setMintSelection({
+        onRequestMintSelection?.({
           destination: displayName || trimmed,
           validatedData: resolution.validatedData,
           commonMintUrls: resolution.commonMintUrls,
@@ -476,7 +474,7 @@ export function SendInputStep({
     }
 
     return true
-  }, [onNext, inputParser, onRouteValidated, applyDestinationState, addToast, settings.mints, mintUrl, nostrDirectPayment, getDisplayName, t])
+  }, [onNext, inputParser, onRouteValidated, applyDestinationState, onRequestMintSelection, addToast, settings.mints, mintUrl, nostrDirectPayment, getDisplayName, t])
 
   // Handle QR scan
   const handleScan = useCallback((result: string) => {
@@ -554,12 +552,6 @@ export function SendInputStep({
       return () => cancelAnimationFrame(id)
     }
   }, [initialAddress, initialDestination, initialValidatedData, processExternalInput, advanceWithData])
-
-  const mintSelectionFilter = useCallback((mint: { url: string }) => {
-    if (!mintSelection) return true
-    const normalized = mint.url.replace(/\/+$/, '').toLowerCase()
-    return mintSelection.commonMintUrls.some((url) => url.replace(/\/+$/, '').toLowerCase() === normalized)
-  }, [mintSelection])
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -745,24 +737,6 @@ export function SendInputStep({
           {t('send.next')}
         </Button>
       </div>
-
-      <MintSelectBottomSheet
-        isOpen={!!mintSelection}
-        onClose={() => setMintSelection(null)}
-        onSelect={(selectedMintUrl) => {
-          if (!mintSelection) return
-          onMintChange?.(selectedMintUrl)
-          const data = mintSelection.validatedData
-          setValidatedData(data)
-          validatedDataRef.current = data
-          setMintSelection(null)
-          advanceWithData(mintSelection.destination, data, selectedMintUrl)
-        }}
-        selectedMintUrl={mintSelection?.commonMintUrls[0] ?? null}
-        filterFn={mintSelectionFilter}
-        buttonLabel={t('common.send')}
-        infoText={mintSelection?.infoText}
-      />
 
       <QrScannerModal isOpen={showScanner} onClose={() => setShowScanner(false)} onScan={handleScan} />
     </div>

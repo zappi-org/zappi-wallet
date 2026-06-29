@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { Loader2 } from 'lucide-react'
+import { ChevronRight, Loader2 } from 'lucide-react'
 import { useTranslation, Trans } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
@@ -30,6 +30,8 @@ interface SendConfirmStepProps {
   userMemo?: string;
   /** Display name from address book (overrides default recipient display) */
   displayName?: string;
+  /** Open the lifted MintSelectBottomSheet to change the source mint. */
+  onRequestMintSelection?: () => void;
 }
 
 
@@ -46,6 +48,7 @@ export function SendConfirmStep({
   fiatAmount,
   userMemo,
   displayName,
+  onRequestMintSelection,
 }: SendConfirmStepProps) {
   const { t } = useTranslation();
   const formatSats = useFormatSats();
@@ -177,15 +180,35 @@ export function SendConfirmStep({
               {method}
             </span>
           </div>
-          {/* 출금 지갑 */}
-          <div className="flex justify-between py-2.5 border-b border-border/50">
-            <span className="text-body text-foreground-muted">
-              {t("send.confirm.sourceMint")}
-            </span>
-            <span className="text-body font-medium text-foreground truncate max-w-[200px]">
-              {mintName}
-            </span>
-          </div>
+          {/* 출금 지갑 — tappable to change mint */}
+          {onRequestMintSelection ? (
+            <button
+              type="button"
+              onClick={() => {
+                hapticTap()
+                onRequestMintSelection()
+              }}
+              aria-label={t("send.confirm.sourceMint")}
+              className="w-full flex items-center justify-between py-2.5 border-b border-border/50 active:bg-foreground/[0.03] transition-colors"
+            >
+              <span className="text-body text-foreground-muted">
+                {t("send.confirm.sourceMint")}
+              </span>
+              <span className="flex items-center gap-1 text-body font-medium text-foreground truncate max-w-[200px]">
+                {mintName}
+                <ChevronRight className="w-4 h-4 text-foreground-muted shrink-0" />
+              </span>
+            </button>
+          ) : (
+            <div className="flex justify-between py-2.5 border-b border-border/50">
+              <span className="text-body text-foreground-muted">
+                {t("send.confirm.sourceMint")}
+              </span>
+              <span className="text-body font-medium text-foreground truncate max-w-[200px]">
+                {mintName}
+              </span>
+            </div>
+          )}
           {/* 받는이 */}
           {isMyWallet ? (
             <div className="flex justify-between py-2.5 border-b border-border/50">
