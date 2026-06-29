@@ -76,6 +76,8 @@ import { TokenCreateFlow } from '@/ui/screens/TokenCreate/TokenCreateFlow'
 import { TokenRegisterFlow } from '@/ui/screens/TokenRegister/TokenRegisterFlow'
 import { routeValidatedInput } from '@/ui/utils/input-router'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
+import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
+import { formatNpubShort } from '@/ui/screens/Send/sendDisplayHelpers'
 
 // Services (composition 경유만)
 import { createSecurityService } from '@/composition/security'
@@ -210,6 +212,12 @@ export default function MainApp() {
 
   // Home screen scanner (camera shortcut → QrScannerModal)
   const [showHomeScanner, setShowHomeScanner] = useState(false)
+  // NIP-19 mint selection (set when camera scan resolves to needs-mint-selection)
+  const [npubMintSelection, setNpubMintSelection] = useState<{
+    validatedData: ValidatedData
+    rawAddress: string
+    commonMintUrls: string[]
+  } | null>(null)
 
   // Transaction detail state
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
@@ -256,10 +264,10 @@ export default function MainApp() {
 
   /** Home camera shortcut — pre-validate and skip the destination step.
    *  Validated sendable input (bolt11, lightning-address, lnurl) goes straight
-   *  to SendFlow's confirm/amount step. NIP-19 (npub/nprofile) needs nostr
-   *  resolution + common-mint selection, so we still defer to the destination
-   *  step for that case (SendInputStep.processExternalInput handles it).
-   *  Falls back to the destination step if the service registry isn't ready. */
+   *  to SendFlow's confirm/amount step. NIP-19 (npub/nprofile) reuses the
+   *  same resolve → mint-select flow as ContactsScreen so the destination
+   *  step is skipped. Falls back to the destination step if the service
+   *  registry isn't ready. */
   const handleHomeScanResult = useCallback(async (raw: string) => {
     setShowHomeScanner(false)
     setValidatedScanData(null)
@@ -288,21 +296,52 @@ export default function MainApp() {
       return
     }
 
-    const { inputParser } = serviceRegistry
+    const { inputParser, nostrDirectPayment } = serviceRegistry
+
+    // NIP-19 (npub / nprofile) — handle BEFORE the unknown check, because
+    // detectAndClassify doesn't classify raw npubs (returns 'unknown').
+    // Resolve via nostrDirectPayment (same flow as ContactsScreen).
+    // 'ready' → navigate to send with the resolved mint;
+    // 'needs-mint-selection' → show a mint sheet, then navigate.
+    if (isNostrDirectAddress(raw)) {
+      const resolution = await nostrDirectPayment.resolve({
+        address: raw,
+        ownMintUrls: settings.mints,
+        selectedMintUrl: defaultMint,
+      })
+
+      if (resolution.status === 'ready') {
+        setActiveMintUrl(resolution.selectedMintUrl)
+        setValidatedScanData(resolution.validatedData)
+        setScannedAmount(0)
+        setContactInfo({ address: '', displayName: formatNpubShort(raw) })
+        setPreviousScreen(currentScreen)
+        setCurrentScreen('send')
+        return
+      }
+
+      if (resolution.status === 'needs-mint-selection') {
+        setNpubMintSelection({
+          validatedData: resolution.validatedData,
+          rawAddress: raw,
+          commonMintUrls: resolution.commonMintUrls,
+        })
+        return
+      }
+
+      const message = resolution.status === 'no-common-mint'
+        ? t('send.destination.noCommonMint')
+        : resolution.status === 'no-relay'
+          ? t('send.destination.relayNotFound')
+          : t('send.destination.ecashInfoNotFound')
+      addToast({ type: 'error', message, duration: 3000 })
+      return
+    }
 
     // Quick classification — short-circuit on unknown.
     const detected = inputParser.detectAndClassify(raw)
     if (detected.type === 'unknown') {
       addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
-      return
-    }
-
-    // NIP-19 (npub / nprofile) — defer to destination step so the existing
-    // nostr resolution + common-mint selection flow runs unchanged.
-    if (isNostrDirectAddress(raw)) {
-      setContactInfo({ address: raw, displayName: '' })
-      setPreviousScreen(currentScreen)
-      setCurrentScreen('send')
       return
     }
 
@@ -1628,6 +1667,28 @@ export default function MainApp() {
         isOpen={showHomeScanner}
         onClose={() => setShowHomeScanner(false)}
         onScan={handleHomeScanResult}
+      />
+
+      {/* NIP-19 camera scan — mint selection sheet (matches ContactsScreen) */}
+      <MintSelectBottomSheet
+        isOpen={npubMintSelection !== null}
+        onClose={() => setNpubMintSelection(null)}
+        onSelect={(mintUrl) => {
+          if (!npubMintSelection) return
+          setActiveMintUrl(mintUrl)
+          setValidatedScanData(npubMintSelection.validatedData)
+          setScannedAmount(0)
+          setContactInfo({ address: '', displayName: formatNpubShort(npubMintSelection.rawAddress) })
+          setPreviousScreen(currentScreen)
+          setCurrentScreen('send')
+          setNpubMintSelection(null)
+        }}
+        selectedMintUrl={null}
+        filterFn={npubMintSelection
+          ? (mint) => npubMintSelection.commonMintUrls.some(
+              (url) => url.replace(/\/+$/, '').toLowerCase() === mint.url.replace(/\/+$/, '').toLowerCase()
+            )
+          : undefined}
       />
 
       {/* Toast notifications */}
