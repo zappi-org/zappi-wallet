@@ -129,7 +129,7 @@ export function HomeScreen({
       </div>
 
       {/* Header — right action: scan */}
-      <div className="shrink-0 h-12 px-4 flex items-center justify-end">
+      <div className="shrink-0 h-14 px-5 flex items-center justify-end">
         {onScan && (
           <button
             type="button"
@@ -138,7 +138,7 @@ export function HomeScreen({
               onScan()
             }}
             aria-label={t('scanner.title')}
-            className="w-10 h-10 rounded-full flex items-center justify-center text-foreground-muted hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
+            className="w-10 h-10 rounded-lg flex items-center justify-center text-foreground-muted hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
           >
             <CameraFilled />
           </button>
@@ -267,7 +267,7 @@ export function HomeScreen({
 
       {/* Scrollable transaction list */}
       <main className="flex-1 overflow-y-auto min-h-0">
-        <div className="pb-app-nav w-[var(--card-w)] mx-auto">
+        <div className="pb-home-transactions w-[var(--card-w)] mx-auto">
           <TransactionList
             transactions={filteredTransactions}
             allTransactions={transactions}

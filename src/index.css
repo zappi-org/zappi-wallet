@@ -307,8 +307,9 @@
   --app-bottom-padding: 1.5rem;
   --app-bottom-nav-height: 3.5rem;
   --app-bottom-nav-top-padding: 0.5rem;
-  --app-bottom-nav-bottom-padding: 0.75rem;
+  --app-bottom-nav-bottom-padding: 1rem;
   --app-bottom-nav-clearance: calc(var(--app-bottom-nav-height) + var(--app-bottom-nav-top-padding) + var(--app-bottom-nav-bottom-padding));
+  --app-home-transaction-clearance: calc(var(--app-bottom-nav-clearance) + 1.25rem);
   --app-bottom-action-clearance: calc(4.75rem + var(--app-bottom-padding));
 }
 
@@ -323,6 +324,10 @@
 
 .pb-app-nav {
   padding-bottom: var(--app-bottom-nav-clearance);
+}
+
+.pb-home-transactions {
+  padding-bottom: var(--app-home-transaction-clearance);
 }
 
 .pb-app-action {
