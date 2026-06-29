@@ -49,7 +49,7 @@ export function BottomNav({ items, activeId, visible, onSelect }: BottomNavProps
                   <button
                     key={item.id}
                     onClick={() => onSelect(item.id)}
-                    className="relative flex-1 flex flex-col items-center justify-center h-[48px] z-10 transition-colors"
+                    className="relative flex-1 flex flex-col items-center justify-center h-[52px] z-10 transition-colors"
                   >
                     {isActive && (
                       <motion.div
@@ -62,7 +62,7 @@ export function BottomNav({ items, activeId, visible, onSelect }: BottomNavProps
                       />
                     )}
 
-                    <div className={`relative z-10 ${isActive ? 'text-white' : 'text-foreground/35'}`}>
+                    <div className={`relative z-10 [&_svg]:w-[22px] [&_svg]:h-[22px] ${isActive ? 'text-white' : 'text-foreground/35'}`}>
                       {isActive && item.activeIcon ? item.activeIcon : item.icon}
                       {item.badge !== undefined && item.badge > 0 && (
                         <span className="absolute -top-1 -right-2.5 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center text-[9px] font-bold bg-accent-danger text-white rounded-full leading-none">
@@ -71,7 +71,7 @@ export function BottomNav({ items, activeId, visible, onSelect }: BottomNavProps
                       )}
                     </div>
 
-                    <span className={`relative z-10 text-[10px] font-semibold leading-none mt-[1px] ${isActive ? 'text-white' : 'text-foreground/35'}`}>
+                    <span className={`relative z-10 text-[11px] font-semibold leading-none mt-[2px] ${isActive ? 'text-white' : 'text-foreground/35'}`}>
                       {item.label}
                     </span>
                   </button>

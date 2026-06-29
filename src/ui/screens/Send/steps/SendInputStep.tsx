@@ -41,6 +41,37 @@ function looksLikeLnurl(raw: string): boolean {
   return raw.trim().toLowerCase().startsWith('lnurl1')
 }
 
+function uniqueNonEmpty(values: Array<string | undefined | null>): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const value of values) {
+    const trimmed = value?.trim()
+    if (!trimmed) continue
+    const key = trimmed.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(trimmed)
+  }
+  return result
+}
+
+function getContactLookupCandidates(input: string, data?: SendableValidatedData): string[] {
+  if (!data) return uniqueNonEmpty([input])
+
+  switch (data.type) {
+    case 'lightning-address':
+      return uniqueNonEmpty([input, data.address])
+    case 'lnurl-pay':
+      return uniqueNonEmpty([input, data.lnurl, data.params?.domain])
+    case 'cashu-request':
+      return uniqueNonEmpty([input, data.request, data.parsed.nostrTarget])
+    case 'bolt11':
+      return uniqueNonEmpty([input, data.invoice])
+    case 'my-wallet':
+      return uniqueNonEmpty([input, data.targetMintName])
+  }
+}
+
 /** Build badge labels from detected input */
 function toBadgeTypes(detected: InputType): string[] {
   if (detected.type === 'unknown' || detected.type === 'amount') return []
@@ -140,7 +171,25 @@ export function SendInputStep({
   }, [initialValidatedData])
 
   // Address book contacts (via ContactUseCase)
-  const { contacts } = useContacts()
+  const { contacts, findByAddress } = useContacts()
+  const findContactDisplayName = useCallback(async (candidates: string[]): Promise<string | undefined> => {
+    const uniqueCandidates = uniqueNonEmpty(candidates)
+
+    for (const candidate of uniqueCandidates) {
+      try {
+        const contact = await findByAddress(candidate)
+        if (contact?.name) return contact.name
+      } catch {
+        // Non-blocking: address book display is best effort and must not stop sending.
+      }
+    }
+
+    const normalizedCandidates = new Set(uniqueCandidates.map((candidate) => candidate.toLowerCase()))
+    const localMatch = contacts.find((contact) =>
+      normalizedCandidates.has(contact.address.trim().toLowerCase())
+    )
+    return localMatch?.name
+  }, [contacts, findByAddress])
 
   // Segment: contacts vs wallets
   const [listTab, setActiveListTab] = useState<'wallets' | 'contacts'>('contacts')
@@ -285,17 +334,19 @@ export function SendInputStep({
             return
           }
           if (validated.type === 'cashu-request') {
-            setValidatedData(validated as SendableValidatedData)
-            validatedDataRef.current = validated as SendableValidatedData
+            const sendable = validated as SendableValidatedData
+            setValidatedData(sendable)
+            validatedDataRef.current = sendable
 
             const amt = validated.parsed?.amount
             if (amt && amt > 0 && destination !== lastAutoAdvancedInputRef.current) {
+              const contactName = await findContactDisplayName(getContactLookupCandidates(destination, sendable))
               setIsPreValidating(false)
               lastAutoAdvancedInputRef.current = destination
               autoAdvanceTimerRef.current = setTimeout(() => {
                 onNext({
-                  destination,
-                  validatedData: validated as SendableValidatedData,
+                  destination: contactName || destination,
+                  validatedData: sendable,
                   amountFromInvoice: amt,
                 })
               }, 300)
@@ -351,7 +402,7 @@ export function SendInputStep({
     }, 500)
 
     return () => clearTimeout(detectTimeoutRef.current)
-  }, [destination, inputParser, t, onNext, onRedirect, addToast])
+  }, [destination, inputParser, t, onNext, onRedirect, addToast, findContactDisplayName])
 
   // Cleanup auto-advance timer on unmount
   useEffect(() => () => clearTimeout(autoAdvanceTimerRef.current), [])
@@ -361,13 +412,16 @@ export function SendInputStep({
   const processExternalInput = useCallback(async (input: string, displayName?: string) => {
     const trimmed = input.trim()
     if (!trimmed) return false
+    const initialContactName = displayName || await findContactDisplayName(getContactLookupCandidates(trimmed))
+    const initialDestination = initialContactName || trimmed
+    const hasInitialDisplayName = !!initialContactName
 
     if (isNostrDirectAddress(trimmed)) {
       applyDestinationState({
-        destination: displayName || trimmed,
-        rawAddress: displayName ? trimmed : null,
+        destination: initialDestination,
+        rawAddress: hasInitialDisplayName ? trimmed : null,
         validatedData: null,
-        detectedTypes: displayName ? [] : [trimmed.toLowerCase().startsWith('nprofile1') ? 'nprofile' : 'npub'],
+        detectedTypes: hasInitialDisplayName ? [] : [trimmed.toLowerCase().startsWith('nprofile1') ? 'nprofile' : 'npub'],
         isPreValidating: true,
       })
 
@@ -395,7 +449,7 @@ export function SendInputStep({
       if (resolution.status === 'needs-mint-selection') {
         const selectedMintName = mintUrl ? getDisplayName(mintUrl) : ''
         onRequestMintSelection?.({
-          destination: displayName || trimmed,
+          destination: initialDestination,
           validatedData: resolution.validatedData,
           commonMintUrls: resolution.commonMintUrls,
           infoText: selectedMintName
@@ -416,11 +470,11 @@ export function SendInputStep({
 
     const detected = inputParser.detectAndClassify(trimmed)
     applyDestinationState({
-      destination: displayName || trimmed,
-      rawAddress: displayName ? trimmed : null,
+      destination: initialDestination,
+      rawAddress: hasInitialDisplayName ? trimmed : null,
       validatedData: null,
       // Don't show type badge when selecting from contacts (displayName means contact)
-      detectedTypes: displayName ? [] : toBadgeTypes(detected),
+      detectedTypes: hasInitialDisplayName ? [] : toBadgeTypes(detected),
     })
 
     if (detected.type === 'unknown') {
@@ -450,8 +504,19 @@ export function SendInputStep({
     }
 
     const sendable = validated as SendableValidatedData
-    setValidatedData(sendable)
-    validatedDataRef.current = sendable
+    const resolvedContactName = initialContactName || await findContactDisplayName(getContactLookupCandidates(trimmed, sendable))
+    const resolvedDestination = resolvedContactName || trimmed
+    if (resolvedContactName && resolvedContactName !== initialContactName) {
+      applyDestinationState({
+        destination: resolvedDestination,
+        rawAddress: trimmed,
+        validatedData: sendable,
+        detectedTypes: [],
+      })
+    } else {
+      setValidatedData(sendable)
+      validatedDataRef.current = sendable
+    }
 
     // Extract amount if available
     let detectedAmount = 0
@@ -465,7 +530,7 @@ export function SendInputStep({
     if (detectedAmount > 0) {
       autoAdvanceTimerRef.current = setTimeout(() => {
         onNext({
-          destination: displayName || trimmed,
+          destination: resolvedDestination,
           validatedData: sendable,
           amountFromInvoice: detectedAmount,
         })
@@ -474,7 +539,7 @@ export function SendInputStep({
     }
 
     return true
-  }, [onNext, inputParser, onRouteValidated, applyDestinationState, onRequestMintSelection, addToast, settings.mints, mintUrl, nostrDirectPayment, getDisplayName, t])
+  }, [onNext, inputParser, onRouteValidated, applyDestinationState, onRequestMintSelection, addToast, settings.mints, mintUrl, nostrDirectPayment, getDisplayName, t, findContactDisplayName])
 
   // Handle QR scan
   const handleScan = useCallback((result: string) => {
@@ -516,7 +581,14 @@ export function SendInputStep({
 
     // Already validated → proceed immediately
     if (validatedData) {
-      advanceWithData(trimmed, validatedData)
+      setIsValidating(true)
+      try {
+        const addressToLookup = rawAddressRef.current || trimmed
+        const contactName = await findContactDisplayName(getContactLookupCandidates(addressToLookup, validatedData))
+        advanceWithData(contactName || trimmed, validatedData)
+      } finally {
+        setIsValidating(false)
+      }
       return
     }
 
@@ -528,11 +600,12 @@ export function SendInputStep({
     setIsValidating(false)
 
     if (ok === true && validatedDataRef.current) {
-      advanceWithData(displayName || addressToValidate, validatedDataRef.current)
+      const contactName = await findContactDisplayName(getContactLookupCandidates(addressToValidate, validatedDataRef.current))
+      advanceWithData(contactName || displayName || addressToValidate, validatedDataRef.current)
     } else if (!ok) {
       addToast({ type: 'error', message: t('send.destination.unrecognized'), duration: 3000 })
     }
-  }, [destination, validatedData, processExternalInput, advanceWithData, addToast, t])
+  }, [destination, validatedData, processExternalInput, advanceWithData, addToast, t, findContactDisplayName])
 
   // Auto-validate when initialAddress is provided (from address book)
   // On success, auto-advance to amount step

@@ -13,7 +13,7 @@ export function WalletTabPicker({ navItems, activeTab, onTabSelect }: WalletTabP
   const activeIndex = pickerTabIds.findIndex((id) => id === activeTab)
 
   return (
-    <div className="relative isolate flex items-center w-full h-[44px]">
+    <div className="relative isolate flex items-center w-full h-[48px]">
       {activeIndex >= 0 && (
         <motion.span
           aria-hidden="true"
@@ -35,14 +35,14 @@ export function WalletTabPicker({ navItems, activeTab, onTabSelect }: WalletTabP
             aria-current={isActive ? 'page' : undefined}
             onClick={() => onTabSelect(id)}
             whileTap={{ scale: 0.9 }}
-            className={`relative z-20 flex-1 flex flex-col items-center justify-center h-[44px] rounded-full border border-transparent transform-gpu will-change-transform transition-colors ${
+            className={`relative z-20 flex-1 flex flex-col items-center justify-center h-[48px] rounded-full border border-transparent transform-gpu will-change-transform transition-colors ${
               isActive ? 'text-white' : 'text-foreground/60'
             }`}
           >
-            <div className="w-[20px] h-[20px] flex items-center justify-center">
+            <div className="w-[22px] h-[22px] flex items-center justify-center [&_svg]:w-[22px] [&_svg]:h-[22px]">
               {isActive && item.activeIcon ? item.activeIcon : item.icon}
             </div>
-            <span className="text-[10px] font-semibold leading-none mt-[1px]">{item.label}</span>
+            <span className="text-[11px] font-semibold leading-none mt-[2px]">{item.label}</span>
           </motion.button>
         )
       })}
