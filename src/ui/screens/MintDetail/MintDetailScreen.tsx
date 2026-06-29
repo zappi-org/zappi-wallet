@@ -88,6 +88,7 @@ export function MintDetailScreen({
     const url = mint.url
     const normalized = url.endsWith('/') ? url.slice(0, -1) : url
     return transactions.filter((tx) => {
+      if (tx.status === 'failed') return false
       const txUrl = tx.accountId?.endsWith('/') ? tx.accountId.slice(0, -1) : tx.accountId
       return txUrl === normalized || txUrl === url
     })

@@ -48,19 +48,25 @@ export function HomeScreen({
   const toFiat = useFormatFiat();
   const [activeMintIndex, setActiveMintIndex] = useState(0);
 
-  const transactions = useMemo(() => propTransactions ?? [], [propTransactions]);
+  const transactions = useMemo(
+    () => propTransactions ?? [],
+    [propTransactions]
+  );
 
   const { balance, isLoadingBalance } = useWallet();
   const { checkAllMints, getCachedStatus } = useMintHealth();
   const settings = useAppStore((state) => state.settings);
   const updateSettings = useAppStore((state) => state.updateSettings);
-  const { getDisplayName, getOriginalName, getIconUrl } = useMintMetadata(settings?.mints || []);
+  const { getDisplayName, getOriginalName, getIconUrl } = useMintMetadata(
+    settings?.mints || []
+  );
 
   // Pull-to-refresh
   const noopRefresh = useCallback(async () => {}, []);
-  const { scrollContainerRef, indicatorRef, iconRef, isRefreshing } = usePullToRefresh({
-    onRefresh: onRefresh ?? noopRefresh,
-  });
+  const { scrollContainerRef, indicatorRef, iconRef, isRefreshing } =
+    usePullToRefresh({
+      onRefresh: onRefresh ?? noopRefresh,
+    });
 
   // Transactions are provided via props from MainApp
   // No fallback to direct repo access (hex architecture compliance);
@@ -86,7 +92,15 @@ export function HomeScreen({
         lastChecked: cachedStatus?.lastChecked,
       };
     });
-  }, [mintUrls, balance.byMint, getCachedStatus, getDisplayName, getOriginalName, getIconUrl, mintAliases]);
+  }, [
+    mintUrls,
+    balance.byMint,
+    getCachedStatus,
+    getDisplayName,
+    getOriginalName,
+    getIconUrl,
+    mintAliases,
+  ]);
 
   const totalBalance = balance.total;
 
@@ -97,7 +111,8 @@ export function HomeScreen({
     fallbackGap: 24,
   });
 
-  const clampedMintIndex = mints.length === 0 ? 0 : Math.min(activeMintIndex, mints.length - 1);
+  const clampedMintIndex =
+    mints.length === 0 ? 0 : Math.min(activeMintIndex, mints.length - 1);
 
   const filteredTransactions = useMemo(() => {
     const selectedMint = mints[clampedMintIndex];
@@ -105,13 +120,20 @@ export function HomeScreen({
     const url = selectedMint.url;
     const normalized = url.endsWith("/") ? url.slice(0, -1) : url;
     return transactions.filter((tx) => {
-      const txUrl = tx.accountId?.endsWith("/") ? tx.accountId.slice(0, -1) : tx.accountId;
+      if (tx.status === "failed") return false;
+      const txUrl = tx.accountId?.endsWith("/")
+        ? tx.accountId.slice(0, -1)
+        : tx.accountId;
       return txUrl === normalized || txUrl === url;
     });
   }, [transactions, mints, clampedMintIndex]);
 
   return (
-    <div ref={scrollContainerRef as React.RefObject<HTMLDivElement>} className="h-dvh bg-background text-foreground font-primary overflow-hidden flex flex-col pt-safe" style={{ overscrollBehaviorY: 'contain' }}>
+    <div
+      ref={scrollContainerRef as React.RefObject<HTMLDivElement>}
+      className="h-dvh bg-background text-foreground font-primary overflow-hidden flex flex-col pt-safe"
+      style={{ overscrollBehaviorY: "contain" }}
+    >
       {/* Pull-to-refresh indicator */}
       <div
         ref={indicatorRef}
@@ -134,10 +156,10 @@ export function HomeScreen({
           <button
             type="button"
             onClick={() => {
-              hapticTap()
-              onScan()
+              hapticTap();
+              onScan();
             }}
-            aria-label={t('scanner.title')}
+            aria-label={t("scanner.title")}
             className="w-10 h-10 rounded-full flex items-center justify-center text-foreground-muted hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
           >
             <CameraFilled />
@@ -151,40 +173,60 @@ export function HomeScreen({
         <div
           className="flex flex-col items-center pt-4 pb-1 cursor-pointer"
           onClick={() => {
-            const updated = { balanceHidden: !settings.balanceHidden }
-            updateSettings(updated)
-            onSaveSettings?.({ ...settings, ...updated })
+            const updated = { balanceHidden: !settings.balanceHidden };
+            updateSettings(updated);
+            onSaveSettings?.({ ...settings, ...updated });
           }}
           role="button"
-          aria-label={settings.balanceHidden ? t('home.showBalance') : t('home.hideBalance')}
+          aria-label={
+            settings.balanceHidden
+              ? t("home.showBalance")
+              : t("home.hideBalance")
+          }
         >
-          <p className="text-body font-medium text-foreground-muted tracking-wide uppercase">Total</p>
+          <p className="text-body font-medium text-foreground-muted tracking-wide uppercase">
+            Total
+          </p>
           <div className="flex items-baseline gap-1.5 mt-1">
             {settings.balanceHidden ? (
-              <span className="text-display font-bold font-display text-foreground tracking-[2px]">••••</span>
+              <span className="text-display font-bold font-display text-foreground tracking-[2px]">
+                ••••
+              </span>
             ) : isLoadingBalance ? (
-              <span className="text-display font-bold font-display text-foreground tracking-[2px] animate-shimmer">...</span>
+              <span className="text-display font-bold font-display text-foreground tracking-[2px] animate-shimmer">
+                ...
+              </span>
             ) : (
               <>
-                {unit === '₿' && (
-                  <span className="text-display font-bold font-display text-foreground">{unit}</span>
+                {unit === "₿" && (
+                  <span className="text-display font-bold font-display text-foreground">
+                    {unit}
+                  </span>
                 )}
                 <span className="text-display font-bold font-display text-foreground tracking-[-0.5px]">
                   {totalBalance.toLocaleString()}
                 </span>
-                {unit !== '₿' && (
-                  <span className="text-display font-bold font-display text-foreground">{unit}</span>
+                {unit !== "₿" && (
+                  <span className="text-display font-bold font-display text-foreground">
+                    {unit}
+                  </span>
                 )}
               </>
             )}
           </div>
           {(() => {
-            const fiatStr = !isLoadingBalance ? toFiat(totalBalance) : null
+            const fiatStr = !isLoadingBalance ? toFiat(totalBalance) : null;
             return fiatStr ? (
-              <p className={`text-body text-foreground-muted mt-0.5 ${settings.balanceHidden ? 'invisible' : ''}`}>
+              <p
+                className={`text-body text-foreground-muted mt-0.5 ${
+                  settings.balanceHidden ? "invisible" : ""
+                }`}
+              >
                 {fiatStr}
               </p>
-            ) : <p className="text-body mt-0.5 invisible">-</p>
+            ) : (
+              <p className="text-body mt-0.5 invisible">-</p>
+            );
           })()}
         </div>
 
@@ -197,7 +239,9 @@ export function HomeScreen({
                 className="w-[var(--card-w)] aspect-[280/176] rounded-card border-2 border-dashed border-border flex flex-col items-center justify-center text-foreground-subtle gap-2"
               >
                 <Plus className="w-6 h-6" />
-                <span className="text-caption font-medium">{t('home.addFirstMint')}</span>
+                <span className="text-caption font-medium">
+                  {t("home.addFirstMint")}
+                </span>
               </button>
             </div>
           ) : (
@@ -210,7 +254,9 @@ export function HomeScreen({
                 {mints.map((mint, idx) => (
                   <div
                     key={mint.url}
-                    ref={(el) => { cardRefs.current[idx] = el; }}
+                    ref={(el) => {
+                      cardRefs.current[idx] = el;
+                    }}
                     className="snap-center snap-always shrink-0 will-change-transform"
                   >
                     <MintCard
@@ -227,7 +273,7 @@ export function HomeScreen({
                 <div className="snap-center shrink-0 flex items-center justify-center px-4">
                   <button
                     onClick={onAddMint}
-                    aria-label={t('settings.addMint')}
+                    aria-label={t("settings.addMint")}
                     className="w-10 h-10 rounded-full border-2 border-dashed border-border flex items-center justify-center text-foreground-subtle hover:bg-background-hover transition-all"
                   >
                     <Plus className="w-5 h-5" />
@@ -241,7 +287,9 @@ export function HomeScreen({
                   {mints.map((_, idx) => (
                     <div
                       key={idx}
-                      className={`w-1.5 h-1.5 rounded-full ${idx === clampedMintIndex ? "bg-foreground" : "bg-border"}`}
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        idx === clampedMintIndex ? "bg-foreground" : "bg-border"
+                      }`}
                     />
                   ))}
                 </div>
@@ -253,13 +301,15 @@ export function HomeScreen({
 
       {/* Transaction section header — fixed */}
       <div className="shrink-0 w-[var(--card-w)] mx-auto flex items-center justify-between pt-4 pb-2">
-        <h2 className="text-caption font-semibold text-foreground-muted">{t('home.recentTransactions')}</h2>
+        <h2 className="text-caption font-semibold text-foreground-muted">
+          {t("home.recentTransactions")}
+        </h2>
         {filteredTransactions.length > 0 && (
           <button
             onClick={() => onTransactions?.(mints[clampedMintIndex]?.url)}
             className="flex items-center gap-0.5 text-caption font-medium text-brand hover:text-brand-700 active:scale-95 transition-all"
           >
-            {t('home.seeAll')}
+            {t("home.seeAll")}
             <ChevronRight className="w-4 h-4" strokeWidth={2} />
           </button>
         )}
