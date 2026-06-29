@@ -13,6 +13,9 @@ const mockInputParser = { detectAndClassify: mockDetectAndClassify, validateAsyn
 const stableT = (key: string) => key
 const stableAddToast = vi.fn()
 const mockContacts: Contact[] = []
+const mockFindByAddress = vi.fn(async (address: string) =>
+  mockContacts.find((contact) => contact.address.toLowerCase() === address.toLowerCase()) ?? null
+)
 const displayNameByUrl = new Map<string, string>()
 const mockNostrDirectPayment = { resolve: vi.fn() }
 const mockRegistry = { nostrDirectPayment: mockNostrDirectPayment } as unknown as ServiceRegistry
@@ -43,7 +46,7 @@ vi.mock('@/ui/hooks/use-mint-metadata', () => ({
 }))
 
 vi.mock('@/ui/hooks/use-contacts', () => ({
-  useContacts: () => ({ contacts: mockContacts }),
+  useContacts: () => ({ contacts: mockContacts, findByAddress: mockFindByAddress }),
 }))
 
 vi.mock('@/ui/utils/haptic', () => ({
@@ -102,6 +105,7 @@ describe('SendInputStep selection flows', () => {
     defaultProps.onNext.mockReset()
     defaultProps.onRedirect.mockReset()
     stableAddToast.mockReset()
+    mockFindByAddress.mockClear()
     mockContacts.length = 0
     displayNameByUrl.clear()
     stableStore.settings.mints = ['https://source.mint', 'https://target.mint']
@@ -221,6 +225,138 @@ describe('SendInputStep selection flows', () => {
         targetMintUrl: 'https://target.mint',
         targetMintName: 'Target Wallet',
       },
+      amountFromInvoice: undefined,
+    })
+  })
+
+  it('uses a saved contact name when a lightning address is typed directly', async () => {
+    mockContacts.push({
+      id: 'contact-1',
+      name: 'Alice',
+      address: 'alice@example.com',
+      addressType: 'lightning',
+      createdAt: 1,
+      updatedAt: 1,
+    })
+
+    mockDetectAndClassify.mockReturnValue({ type: 'lightning-address', address: 'alice@example.com' })
+    mockValidateAsync.mockResolvedValue({
+      type: 'lightning-address',
+      address: 'alice@example.com',
+      lnurlParams: {
+        callback: '',
+        minSendable: 0,
+        maxSendable: 100000,
+        metadata: '',
+        tag: 'payRequest',
+        domain: 'example.com',
+      },
+    })
+
+    renderStep()
+    typeIntoInput('alice@example.com')
+
+    await act(async () => { vi.advanceTimersByTime(500) })
+    await act(async () => {
+      screen.getByRole('button', { name: 'send.next' }).click()
+    })
+
+    expect(defaultProps.onNext).toHaveBeenCalledWith({
+      destination: 'Alice',
+      validatedData: expect.objectContaining({
+        type: 'lightning-address',
+        address: 'alice@example.com',
+      }),
+      amountFromInvoice: undefined,
+    })
+  })
+
+  it('uses a saved contact name when an LNURL is typed directly', async () => {
+    const lnurl = 'lnurl1directpayment'
+    mockContacts.push({
+      id: 'contact-1',
+      name: 'LNURL Shop',
+      address: lnurl,
+      addressType: 'custom',
+      createdAt: 1,
+      updatedAt: 1,
+    })
+
+    mockDetectAndClassify.mockReturnValue({ type: 'lnurl', lnurl })
+    mockValidateAsync.mockResolvedValue({
+      type: 'lnurl-pay',
+      lnurl,
+      params: {
+        callback: '',
+        minSendable: 0,
+        maxSendable: 100000,
+        metadata: '',
+        tag: 'payRequest',
+        domain: 'example.com',
+      },
+    })
+
+    renderStep()
+    typeIntoInput(lnurl)
+
+    await act(async () => { vi.advanceTimersByTime(500) })
+    await act(async () => {
+      screen.getByRole('button', { name: 'send.next' }).click()
+    })
+
+    expect(defaultProps.onNext).toHaveBeenCalledWith({
+      destination: 'LNURL Shop',
+      validatedData: expect.objectContaining({
+        type: 'lnurl-pay',
+        lnurl,
+      }),
+      amountFromInvoice: undefined,
+    })
+  })
+
+  it('uses a saved contact name when an npub is typed directly', async () => {
+    const npub = 'npub1zappitestrecipient'
+    mockContacts.push({
+      id: 'contact-1',
+      name: 'Bob',
+      address: npub,
+      addressType: 'npub',
+      createdAt: 1,
+      updatedAt: 1,
+    })
+    mockNostrDirectPayment.resolve.mockResolvedValue({
+      status: 'ready',
+      validatedData: {
+        type: 'cashu-request',
+        request: npub,
+        parsed: {
+          id: 'request-id',
+          unit: 'sat',
+          mints: ['https://source.mint'],
+          transports: [],
+          hasNostrTransport: true,
+          nostrTarget: npub,
+          hasPostTransport: false,
+          sameMintOnly: true,
+        },
+      },
+      commonMintUrls: ['https://source.mint'],
+    })
+
+    renderStep()
+    typeIntoInput(npub)
+
+    await act(async () => { vi.advanceTimersByTime(500) })
+    await act(async () => {
+      screen.getByRole('button', { name: 'send.next' }).click()
+    })
+
+    expect(defaultProps.onNext).toHaveBeenCalledWith({
+      destination: 'Bob',
+      validatedData: expect.objectContaining({
+        type: 'cashu-request',
+        request: npub,
+      }),
       amountFromInvoice: undefined,
     })
   })

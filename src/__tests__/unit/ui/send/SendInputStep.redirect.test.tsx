@@ -15,6 +15,8 @@ const mockInputParser = { detectAndClassify: mockDetectAndClassify, validateAsyn
 const stableT = (key: string) => key
 const stableAddToast = vi.fn()
 const stableStore = { settings: { mints: [] }, addToast: stableAddToast }
+const mockFindByAddress = vi.fn(async () => null)
+const mockContacts: never[] = []
 const mockNostrDirectPayment = { resolve: vi.fn() }
 const mockRegistry = { nostrDirectPayment: mockNostrDirectPayment } as unknown as ServiceRegistry
 
@@ -40,7 +42,7 @@ vi.mock('@/ui/hooks/use-mint-metadata', () => ({
 }))
 
 vi.mock('@/ui/hooks/use-contacts', () => ({
-  useContacts: () => ({ contacts: [] }),
+  useContacts: () => ({ contacts: mockContacts, findByAddress: mockFindByAddress }),
 }))
 
 vi.mock('@/ui/utils/haptic', () => ({
@@ -111,6 +113,7 @@ describe('SendInputStep redirect', () => {
     vi.useFakeTimers()
     mockDetectAndClassify.mockReset()
     mockValidateAsync.mockReset()
+    mockFindByAddress.mockClear()
     mockNostrDirectPayment.resolve.mockReset()
     defaultProps.onBack.mockReset()
     defaultProps.onNext.mockReset()
