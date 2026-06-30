@@ -12,7 +12,7 @@ import { Zap, Hash, Link } from 'lucide-react'
 import { CameraFilled } from '@/ui/components/icons/CameraFilled'
 import cardLogo from '@/assets/card-logo.svg'
 import { getInputTypeLabel } from '@/ui/utils/inputTypeLabel'
-import { useTranslation, Trans } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
 import { hapticTap } from '@/ui/utils/haptic'
@@ -636,15 +636,6 @@ export function SendInputStep({
         <h2 className="text-heading font-semibold text-foreground break-keep">
           {t('send.destination.whoToSend')}
         </h2>
-        <div className={`mt-2 overflow-hidden transition-all duration-200 ease-out ${destination.trim() ? 'max-h-0 opacity-0' : 'max-h-20 opacity-100'}`}>
-          <p className="text-body text-foreground/70 leading-relaxed break-keep">
-            <Trans
-              i18nKey="send.destination.hint"
-              components={{ b: <span className="font-semibold text-foreground" /> }}
-            />
-          </p>
-        </div>
-
         {/* Destination input — placeholder smaller than title */}
         <div className="mt-6">
           <div className="flex items-center border-b border-border focus-within:border-foreground/20 transition-colors">
@@ -725,7 +716,7 @@ export function SendInputStep({
         )}
 
         {/* Segment: Contacts / My Wallets */}
-        {!showMyWallets && (myWallets.length > 0 || contacts.length > 0) && (
+        {!showMyWallets && (
           <div className="mt-4">
             <SegmentControl
               value={listTab}
