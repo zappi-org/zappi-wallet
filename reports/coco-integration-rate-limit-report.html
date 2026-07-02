@@ -1,0 +1,948 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Coco 통합 및 Rate Limit 분석 보고서</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #18212f;
+      --muted: #647084;
+      --line: #dce1e8;
+      --soft: #eef2f7;
+      --accent: #0f766e;
+      --accent-soft: #dff7f2;
+      --warn: #b45309;
+      --warn-soft: #fff3d8;
+      --danger: #b42318;
+      --danger-soft: #fde8e5;
+      --ok: #166534;
+      --ok-soft: #e7f6ea;
+      --code: #273244;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.62 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 40px 28px 72px;
+    }
+
+    header {
+      margin-bottom: 28px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 22px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 34px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 36px 0 14px;
+      font-size: 23px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 17px;
+      line-height: 1.35;
+      letter-spacing: 0;
+    }
+
+    p { margin: 8px 0; }
+
+    a {
+      color: #0f5d8c;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(15, 93, 140, 0.25);
+    }
+
+    a:hover { border-bottom-color: currentColor; }
+
+    code {
+      color: var(--code);
+      background: #edf1f5;
+      border: 1px solid #dce3ea;
+      border-radius: 5px;
+      padding: 1px 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.93em;
+      white-space: nowrap;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 16px;
+      max-width: 820px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 999px;
+      padding: 4px 10px;
+      white-space: nowrap;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+    }
+
+    .span-4 { grid-column: span 4; }
+    .span-6 { grid-column: span 6; }
+    .span-12 { grid-column: span 12; }
+
+    .callout {
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      padding: 16px 18px;
+      background: var(--panel);
+      margin: 14px 0;
+    }
+
+    .callout strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .callout.ok {
+      background: var(--ok-soft);
+      border-color: #b7dfbf;
+    }
+
+    .callout.warn {
+      background: var(--warn-soft);
+      border-color: #f2d38d;
+    }
+
+    .callout.danger {
+      background: var(--danger-soft);
+      border-color: #f5b8b1;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .tag.ok { color: var(--ok); background: var(--ok-soft); }
+    .tag.warn { color: var(--warn); background: var(--warn-soft); }
+    .tag.danger { color: var(--danger); background: var(--danger-soft); }
+    .tag.info { color: var(--accent); background: var(--accent-soft); }
+    .tag.neutral { color: #455065; background: var(--soft); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 12px 0 20px;
+    }
+
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    th {
+      background: #eef2f6;
+      font-size: 13px;
+      color: #394459;
+      font-weight: 700;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    ul, ol {
+      padding-left: 22px;
+      margin: 8px 0 12px;
+    }
+
+    li { margin: 5px 0; }
+
+    .flow {
+      display: grid;
+      gap: 8px;
+      margin: 12px 0;
+    }
+
+    .flow-row {
+      display: grid;
+      grid-template-columns: 190px 1fr;
+      gap: 12px;
+      align-items: start;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .flow-row b {
+      color: #2b3547;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .decision {
+      display: grid;
+      gap: 10px;
+    }
+
+    .decision-item {
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      gap: 12px;
+      align-items: start;
+      padding: 12px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .score {
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+    }
+
+    .toc {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 20px 0 26px;
+    }
+
+    .toc a {
+      display: block;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--ink);
+    }
+
+    .toc a:hover {
+      border-color: #a8b5c6;
+    }
+
+    @media (max-width: 860px) {
+      main { padding: 28px 16px 56px; }
+      h1 { font-size: 28px; }
+      .span-4, .span-6 { grid-column: span 12; }
+      .toc { grid-template-columns: 1fr; }
+      .flow-row, .decision-item { grid-template-columns: 1fr; }
+      table { display: block; overflow-x: auto; }
+      code { white-space: normal; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Coco 통합 및 Rate Limit 분석 보고서</h1>
+    <p class="subtitle">
+      Zappi Wallet에서 민트/릴레이 rate limit이 자주 발생하는 원인을 Coco가 이미 제공하는 기능,
+      Zappi가 별도로 구현한 기능, 통합 가능한 기능으로 나누어 정리한 의사결정용 보고서입니다.
+    </p>
+    <div class="meta">
+      <span class="pill">작성일: 2026-07-02 KST</span>
+      <span class="pill">범위: <code>zappi-wallet/src</code>, <code>@cashu/coco-core@1.0.1</code></span>
+      <span class="pill">방식: 로컬 코드 정적 분석</span>
+    </div>
+  </header>
+
+  <nav class="toc" aria-label="목차">
+    <a href="#summary">1. 결론 요약</a>
+    <a href="#coco-support">2. Coco가 지원하는 것</a>
+    <a href="#current">3. 현재 Zappi 구조</a>
+    <a href="#duplicates">4. 중복/불필요 가능성</a>
+    <a href="#strategy">5. 통합 전략</a>
+    <a href="#actions">6. 실행 우선순위</a>
+    <a href="#sources">7. 근거 파일</a>
+    <a href="#glossary">8. 용어</a>
+  </nav>
+
+  <section id="summary">
+    <h2>1. 결론 요약</h2>
+    <div class="grid">
+      <div class="card span-4">
+        <h3>핵심 판단</h3>
+        <p>
+          <strong>민트 네트워크 요청의 주 소유자는 Coco로 맞추는 것이 맞습니다.</strong>
+          Coco는 이미 mint별 rate limiter, mint WSS + fallback polling, operation recovery,
+          proof state watcher를 갖고 있습니다.
+        </p>
+      </div>
+      <div class="card span-4">
+        <h3>가장 큰 중복</h3>
+        <p>
+          Zappi는 Coco 초기화 직후에도 자체 <code>recoverAll()</code>, 30초 transfer polling,
+          직접 <code>/v1/info</code> 조회, 직접 <code>cashu-ts</code> 복구를 추가로 수행합니다.
+        </p>
+      </div>
+      <div class="card span-4">
+        <h3>분리해야 할 영역</h3>
+        <p>
+          Nostr 릴레이, NIP-17 gift wrap, 프로필, 고객지원 릴레이는 Coco의 범위가 아닙니다.
+          이 부분은 Zappi가 계속 소유하되 relay scope와 query limit을 고쳐야 합니다.
+        </p>
+      </div>
+    </div>
+
+    <div class="callout danger">
+      <strong>가장 먼저 줄일 수 있는 rate limit 원인</strong>
+      <p>
+        직접 <code>fetch(.../v1/info)</code>와 직접 <code>cashu-ts Mint/Wallet</code> 사용은 Coco의
+        <code>MintRequestProvider</code> rate limiter를 우회합니다. 이 요청들을 Coco 경유 또는 단일 Zappi mint-info facade로 모아야 합니다.
+      </p>
+    </div>
+
+    <div class="callout warn">
+      <strong>중요한 구조적 중복</strong>
+      <p>
+        <code>initializeCoco()</code>는 초기화 과정에서 이미 send/melt/receive/mint recovery를 실행합니다.
+        그런데 Zappi는 unlock 직후 <code>activate()</code> 후 다시 <code>refreshAndRecover()</code>를 실행하고,
+        resume, pull-to-refresh, Token 탭, Add Mint에서도 <code>recoverAll()</code>을 다시 호출합니다.
+      </p>
+    </div>
+
+    <div class="callout ok">
+      <strong>권장 방향</strong>
+      <p>
+        민트 요청은 Coco 중심으로 통합하고, Zappi는 앱 도메인 상태 관리와 Nostr transport에 집중하는 구조가 가장 단순합니다.
+        즉, <strong>Coco = mint wallet engine</strong>, <strong>Zappi = product workflow + Nostr + transaction UI</strong>로 책임을 분리합니다.
+      </p>
+    </div>
+  </section>
+
+  <section id="coco-support">
+    <h2>2. Coco가 지원하는 것</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>영역</th>
+          <th>Coco 지원 내용</th>
+          <th>Zappi에 주는 의미</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="tag info">Mint 요청 제한</span></td>
+          <td>
+            <code>MintRequestProvider</code>가 mint별 token bucket rate limiter를 제공합니다.
+            기본값은 <code>capacity: 20</code>, <code>refillPerMinute: 20</code>입니다.
+          </td>
+          <td>
+            Coco 경유 mint 요청은 중앙 limiter를 탑니다. 반대로 Zappi의 직접 <code>fetch</code>와 직접
+            <code>cashu-ts</code> 호출은 이 보호 밖에 있습니다.
+          </td>
+        </tr>
+        <tr>
+          <td><span class="tag info">Mint 정보/키셋</span></td>
+          <td>
+            <code>manager.mint.addMint()</code>, <code>getMintInfo()</code>, trust/untrust,
+            keyset fetch/update를 제공합니다.
+          </td>
+          <td>
+            mint 추가, mint metadata, health/info 조회를 가능하면 한 경로로 합쳐야 합니다.
+          </td>
+        </tr>
+        <tr>
+          <td><span class="tag info">Wallet 기능</span></td>
+          <td>
+            <code>manager.wallet.receive()</code>, <code>restore()</code>, <code>sweep(mintUrl, bip39seed)</code>,
+            balances, token decode/encode를 제공합니다.
+          </td>
+          <td>
+            현재 지갑 복구는 이미 <code>wallet.restore()</code>를 사용합니다.
+            다른 복구문구에서 이캐시 가져오기는 <code>wallet.sweep()</code>로 대체 가능성이 큽니다.
+          </td>
+        </tr>
+        <tr>
+          <td><span class="tag info">Operation API</span></td>
+          <td>
+            <code>ops.send</code>, <code>ops.receive</code>, <code>ops.mint</code>, <code>ops.melt</code>가
+            prepare/execute/refresh/cancel/reclaim/finalize/recovery/diagnostics를 제공합니다.
+          </td>
+          <td>
+            Zappi의 Cashu adapter는 대부분 이미 이 API를 감싸고 있습니다. 중복은 adapter 주변의 재복구/polling 레이어에서 발생합니다.
+          </td>
+        </tr>
+        <tr>
+          <td><span class="tag info">Recovery</span></td>
+          <td>
+            <code>initializeCoco()</code>가 초기화 시 send, melt, receive recovery와 pending mint operation recovery를 실행합니다.
+          </td>
+          <td>
+            앱 unlock 직후 별도 <code>recoverAll()</code>은 네트워크 복구 관점에서는 중복일 가능성이 큽니다.
+            다만 Zappi transaction DB 정합성 보정은 따로 남길 수 있습니다.
+          </td>
+        </tr>
+        <tr>
+          <td><span class="tag info">Watcher</span></td>
+          <td>
+            <code>enableMintOperationWatcher()</code>, <code>enableProofStateWatcher()</code>,
+            <code>enableMintOperationProcessor()</code>를 제공합니다.
+          </td>
+          <td>
+            Lightning receive, ecash send claim 상태는 이벤트 기반으로 받을 수 있습니다.
+            별도 30초 polling은 fallback으로만 제한하는 편이 좋습니다.
+          </td>
+        </tr>
+        <tr>
+          <td><span class="tag info">Mint WSS + polling</span></td>
+          <td>
+            <code>SubscriptionManager</code>는 브라우저 WebSocket이 있으면 <code>/v1/ws</code> WSS와 polling을 병행합니다.
+            기본은 WSS 연결 중 20초 slow polling, WSS 실패 시 5초 fast polling입니다.
+          </td>
+          <td>
+            Coco watcher 자체도 polling을 포함합니다. Zappi의 transfer polling과 합쳐지면 같은 quote/proof를 여러 경로로 확인할 수 있습니다.
+          </td>
+        </tr>
+        <tr>
+          <td><span class="tag neutral">Nostr relay</span></td>
+          <td>
+            Coco의 WSS는 Cashu mint <code>/v1/ws</code>용입니다. Nostr relay WSS, NIP-17, profile, support는 담당하지 않습니다.
+          </td>
+          <td>
+            릴레이 rate limit은 Coco 통합으로 해결되지 않습니다. Zappi Nostr 계층에서 별도로 고쳐야 합니다.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="current">
+    <h2>3. 현재 Zappi 구조</h2>
+
+    <h3>3.1 정상적으로 Coco를 사용 중인 부분</h3>
+    <div class="flow">
+      <div class="flow-row">
+        <b>토큰 보내기</b>
+        <span>
+          <code>prepareSend()</code>와 <code>executeSend()</code>가 <code>manager.ops.send.prepare/execute</code>를 사용합니다.
+          P2PK target도 Coco send target으로 넘깁니다.
+        </span>
+      </div>
+      <div class="flow-row">
+        <b>토큰 받기</b>
+        <span>
+          <code>receiveToken()</code>이 <code>manager.ops.receive.prepare/execute</code>를 사용합니다.
+          수수료 계산 후 execute하는 구조입니다.
+        </span>
+      </div>
+      <div class="flow-row">
+        <b>Lightning 받기</b>
+        <span>
+          <code>createMintQuote()</code>, <code>redeemMintQuote()</code>, <code>checkMintQuote()</code>가
+          <code>manager.ops.mint</code>를 사용합니다.
+        </span>
+      </div>
+      <div class="flow-row">
+        <b>Lightning 보내기</b>
+        <span>
+          <code>prepareMelt()</code>, <code>executeMelt()</code>, <code>checkMelt()</code>, <code>rollbackMelt()</code>가
+          <code>manager.ops.melt</code>를 사용합니다.
+        </span>
+      </div>
+      <div class="flow-row">
+        <b>현재 지갑 복구</b>
+        <span>
+          설정의 현재 지갑 잔액 확인은 mint별 <code>manager.wallet.restore(mintUrl)</code>를 호출합니다.
+          이 자체는 Coco 경유이므로 방향은 맞습니다.
+        </span>
+      </div>
+    </div>
+
+    <h3>3.2 Coco 위에 Zappi가 추가로 얹은 레이어</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>레이어</th>
+          <th>역할</th>
+          <th>판단</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Coco event bridge</td>
+          <td>Coco event를 Zappi EventBus, Zustand store, transaction DB에 연결</td>
+          <td><span class="tag ok">필요</span> 앱 도메인 상태 반영용입니다.</td>
+        </tr>
+        <tr>
+          <td>TransferLifecycleService</td>
+          <td>프로토콜 중립 transfer 상태 머신과 30초 fallback polling</td>
+          <td><span class="tag warn">축소 후보</span> Coco event로 대부분 해결되면 polling은 더 긴 fallback으로 낮출 수 있습니다.</td>
+        </tr>
+        <tr>
+          <td>PaymentService.recoverAll()</td>
+          <td>adapter별 pending melt/quote/send/offline receive 복구</td>
+          <td><span class="tag danger">중복 후보</span> Coco init recovery와 겹칩니다. local DB reconciliation과 network recovery를 분리해야 합니다.</td>
+        </tr>
+        <tr>
+          <td>Mint health/metadata</td>
+          <td>화면 진입마다 <code>/v1/info</code> 조회</td>
+          <td><span class="tag danger">통합 필요</span> Coco limiter 밖의 직접 fetch가 많습니다.</td>
+        </tr>
+        <tr>
+          <td>NostrGateway</td>
+          <td>NIP-17 gift wrap, profile, Nostr direct payment, recovery anchor</td>
+          <td><span class="tag ok">계속 Zappi 소유</span> Coco 범위가 아닙니다.</td>
+        </tr>
+        <tr>
+          <td>Customer support relay</td>
+          <td><code>nostr-cs</code> 기반 별도 support WSS/client</td>
+          <td><span class="tag ok">계속 Zappi 소유</span> 다만 connect/refresh single-flight는 필요합니다.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="duplicates">
+    <h2>4. 불필요하거나 중복 가능성이 큰 것</h2>
+
+    <h3>4.1 확신도 높음</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>항목</th>
+          <th>현재 동작</th>
+          <th>왜 문제인가</th>
+          <th>권장 변경</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="tag danger">직접 /v1/info fetch</span></td>
+          <td>Home, MintManagement, MintInfoSheet, Add Trusted Mint, metadata service가 각각 mint info를 조회합니다.</td>
+          <td>Coco <code>MintRequestProvider</code>의 per-mint limiter를 우회하고, health와 metadata가 같은 endpoint를 따로 칩니다.</td>
+          <td>하나의 mint-info facade로 통합하고, 가능하면 <code>manager.mint.getMintInfo()</code> 또는 Coco 경유 API를 사용합니다.</td>
+        </tr>
+        <tr>
+          <td><span class="tag danger">unlock 직후 recoverAll</span></td>
+          <td><code>initializeCoco()</code>가 recovery를 실행한 뒤, Zappi가 <code>activate()</code> 후 다시 <code>refreshAndRecover()</code>를 실행합니다.</td>
+          <td>같은 pending operation을 짧은 시간에 중복 조회할 수 있습니다.</td>
+          <td>unlock 직후 <code>recoverAll()</code>은 제거하거나, Coco init recovery 이후 최소 cooldown/single-flight를 둡니다.</td>
+        </tr>
+        <tr>
+          <td><span class="tag danger">반복 recoverAll trigger</span></td>
+          <td>resume, pull-to-refresh, Token 탭, Add Mint, Settings 복구에서 반복 호출됩니다.</td>
+          <td>사용자 행동과 visibility 이벤트가 겹치면 mint 복구 요청이 몰립니다.</td>
+          <td>전역 recovery scheduler를 만들고, <code>network recovery</code>와 <code>local reconciliation</code>을 분리합니다.</td>
+        </tr>
+        <tr>
+          <td><span class="tag danger">외부 복구문구 직접 cashu-ts 복구</span></td>
+          <td><code>Mint</code>, <code>Wallet</code>, <code>getKeySets()</code>, <code>loadMint()</code>, <code>batchRestore()</code>, <code>checkProofsStates()</code>를 직접 호출합니다.</td>
+          <td>Coco limiter, wallet cache, repository 흐름을 우회합니다. keyset 수가 많은 mint에서 요청 수가 커집니다.</td>
+          <td>Coco의 <code>manager.wallet.sweep(mintUrl, bip39seed)</code>로 대체 가능한지 검증합니다. 어렵다면 최소한 요청 제한/취소/순차화를 추가합니다.</td>
+        </tr>
+        <tr>
+          <td><span class="tag danger">NUT-18 HTTP poller expiry 전달 누락</span></td>
+          <td>Receive 화면은 <code>expiresAt</code>을 넘기지만 bootstrap wrapper가 poller에 전달하지 않습니다.</td>
+          <td>요청 만료 후에도 max duration까지 endpoint polling이 이어질 수 있습니다.</td>
+          <td><code>bootstrap.ts</code>에서 <code>expiresAt: opts.expiresAt</code>을 전달합니다.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>4.2 중간 확신도, 검증 후 축소</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>항목</th>
+          <th>현재 동작</th>
+          <th>검증할 것</th>
+          <th>권장 방향</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="tag warn">30초 transfer polling</span></td>
+          <td>Coco event bridge가 있음에도 active transfer를 30초마다 operator별로 poll합니다.</td>
+          <td>Coco watcher/event가 모든 정상 케이스를 커버하는지, 앱 background/resume에서 누락이 실제로 있는지 확인해야 합니다.</td>
+          <td>기본은 event 기반으로 두고, polling은 2분 이상 장주기 fallback 또는 stuck transfer만 대상으로 제한합니다.</td>
+        </tr>
+        <tr>
+          <td><span class="tag warn">cleanAndRecoverStaleMintOps</span></td>
+          <td>Coco 내부 pending mint ops를 직접 <code>listPending()</code> 후 <code>mintAndReceive()</code> 또는 abandon합니다.</td>
+          <td>Coco의 <code>recoverPendingMintOperations()</code>, <code>requeuePaidMintQuotes()</code>와 중복되는지 확인이 필요합니다.</td>
+          <td>SDK recovery가 충분하면 제거하고, 필요한 경우 transaction DB 보정만 남깁니다.</td>
+        </tr>
+        <tr>
+          <td><span class="tag warn">checkProofStates 직접 cashu-ts</span></td>
+          <td>ecash send polling에서 token proof 상태를 직접 mint에 조회합니다.</td>
+          <td>Coco proof state watcher가 해당 operation finalization을 충분히 이벤트로 주는지 확인해야 합니다.</td>
+          <td>event 기반으로 줄이고, 직접 proof check는 manual reclaim/detail 화면에만 제한합니다.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>4.3 계속 유지해야 하는 것</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>항목</th>
+          <th>유지 이유</th>
+          <th>개선 포인트</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="tag ok">NostrIncomingWatcher</span></td>
+          <td>Coco는 NIP-17 gift wrap 수신을 담당하지 않습니다.</td>
+          <td><code>since</code>, <code>limit</code>, processed cursor를 넣어 과거 이벤트 전체 조회를 피합니다.</td>
+        </tr>
+        <tr>
+          <td><span class="tag ok">Recovery anchor</span></td>
+          <td>Zappi의 Nostr 기반 상태 복구 개념입니다. Coco Cashu wallet recovery와 범위가 다릅니다.</td>
+          <td><code>fetchGiftWraps()</code>에 limit/since를 추가하고 anchor 조회와 reconstruction의 중복 fetch를 줄입니다.</td>
+        </tr>
+        <tr>
+          <td><span class="tag ok">Nostr direct payment/profile</span></td>
+          <td>kind 10019/10050, profile publish는 Coco 범위 밖입니다.</td>
+          <td><code>connectedRelays</code> 누적 문제를 줄이기 위해 query/publish 대상 relay를 명시적으로 스코프화합니다.</td>
+        </tr>
+        <tr>
+          <td><span class="tag ok">Customer support</span></td>
+          <td><code>nostr-cs</code> 기반 별도 기능입니다.</td>
+          <td><code>connect()</code> 중복 호출을 single-flight 처리하고, page/global refresh를 합칩니다.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="strategy">
+    <h2>5. 통합 전략</h2>
+
+    <div class="decision">
+      <div class="decision-item">
+        <div><span class="tag info">원칙 1</span></div>
+        <div>
+          <strong>Mint network owner는 Coco로 둡니다.</strong>
+          <p>
+            Cashu mint HTTP, mint WSS, quote/proof 상태 추적, operation recovery는 Coco가 이미 가진 책임입니다.
+            Zappi가 같은 mint endpoint를 직접 호출해야 한다면 반드시 이유를 남기고 단일 제한기를 거쳐야 합니다.
+          </p>
+        </div>
+      </div>
+      <div class="decision-item">
+        <div><span class="tag info">원칙 2</span></div>
+        <div>
+          <strong>Zappi는 app workflow owner로 남깁니다.</strong>
+          <p>
+            거래내역 생성, toast, 화면 상태, pending review, Nostr gift wrap, support는 Coco가 모르는 제품 레이어입니다.
+            이 레이어는 Coco event를 받아 app domain event로 변환하는 방식이 맞습니다.
+          </p>
+        </div>
+      </div>
+      <div class="decision-item">
+        <div><span class="tag info">원칙 3</span></div>
+        <div>
+          <strong>복구는 하나의 scheduler만 네트워크를 소유하게 합니다.</strong>
+          <p>
+            recovery API가 여러 화면과 lifecycle에서 직접 호출되면 사용자가 한 번 앱을 열었을 뿐인데 같은 mint에 여러 묶음 요청이 갑니다.
+            전역 single-flight, cooldown, task type 분리가 필요합니다.
+          </p>
+        </div>
+      </div>
+      <div class="decision-item">
+        <div><span class="tag info">원칙 4</span></div>
+        <div>
+          <strong>Nostr relay는 Coco와 별개로 최적화합니다.</strong>
+          <p>
+            NostrGateway는 persistent relay와 temporary relay를 구분하고, query/publish 함수가 대상 relay를 명시적으로 받도록 고쳐야 합니다.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <h3>권장 목표 구조</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>책임</th>
+          <th>소유자</th>
+          <th>구현 방향</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Cashu mint HTTP/WSS</td>
+          <td>Coco</td>
+          <td>Coco API 또는 Coco 기반 adapter만 사용합니다.</td>
+        </tr>
+        <tr>
+          <td>Mint info/cache/health</td>
+          <td>Coco + Zappi facade</td>
+          <td>UI용 상태는 Zappi facade가 관리하되 network fetch는 Coco 경유로 통합합니다.</td>
+        </tr>
+        <tr>
+          <td>Operation recovery</td>
+          <td>Coco</td>
+          <td>Zappi는 recovery 결과를 transaction DB에 반영하는 reconciliation만 담당합니다.</td>
+        </tr>
+        <tr>
+          <td>Transaction DB/UI 상태</td>
+          <td>Zappi</td>
+          <td>Coco event를 받아 idempotent하게 settle/update합니다.</td>
+        </tr>
+        <tr>
+          <td>Nostr relay/gift wrap/profile/support</td>
+          <td>Zappi</td>
+          <td>since/limit, scoped relay pool, single-flight connect를 적용합니다.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="actions">
+    <h2>6. 실행 우선순위</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>순위</th>
+          <th>작업</th>
+          <th>효과</th>
+          <th>위험도</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="score">P0</td>
+          <td>NUT-18 HTTP poller에 <code>expiresAt</code> 전달</td>
+          <td>만료 후 불필요한 HTTP polling 제거</td>
+          <td><span class="tag ok">낮음</span></td>
+        </tr>
+        <tr>
+          <td class="score">P0</td>
+          <td><code>recoverAll()</code>, <code>checkAllMints()</code>, support <code>connect()</code> single-flight/cooldown</td>
+          <td>중복 클릭/visibility/화면 진입으로 인한 요청 폭주 완화</td>
+          <td><span class="tag ok">낮음</span></td>
+        </tr>
+        <tr>
+          <td class="score">P1</td>
+          <td>직접 <code>/v1/info</code> 호출을 단일 mint-info facade로 통합</td>
+          <td>health/metadata/add/detail 중복 요청 제거</td>
+          <td><span class="tag warn">중간</span></td>
+        </tr>
+        <tr>
+          <td class="score">P1</td>
+          <td>unlock 직후 <code>recoverAll()</code> 제거 또는 local reconciliation으로 축소</td>
+          <td>Coco init recovery와의 즉시 중복 제거</td>
+          <td><span class="tag warn">중간</span></td>
+        </tr>
+        <tr>
+          <td class="score">P1</td>
+          <td>Nostr <code>fetchGiftWraps()</code>, <code>subscribeGiftWraps()</code>에 <code>since/limit</code> 적용</td>
+          <td>relay 과거 이벤트 대량 조회 방지</td>
+          <td><span class="tag warn">중간</span></td>
+        </tr>
+        <tr>
+          <td class="score">P2</td>
+          <td>외부 복구문구 가져오기를 Coco <code>wallet.sweep()</code> 기반으로 재설계 검증</td>
+          <td>직접 cashu-ts 복구와 limiter 우회 제거</td>
+          <td><span class="tag warn">중간</span></td>
+        </tr>
+        <tr>
+          <td class="score">P2</td>
+          <td>TransferLifecycle 30초 polling을 event 기반 + 장주기 fallback으로 축소</td>
+          <td>Coco watcher와 중복되는 quote/proof polling 감소</td>
+          <td><span class="tag warn">중간</span></td>
+        </tr>
+        <tr>
+          <td class="score">P2</td>
+          <td>NostrGateway relay scope 분리</td>
+          <td>temporary relay 누적 후 전체 query/publish되는 문제 완화</td>
+          <td><span class="tag warn">중간</span></td>
+        </tr>
+        <tr>
+          <td class="score">P3</td>
+          <td><code>cleanAndRecoverStaleMintOps</code> 필요성 재검증 후 제거/축소</td>
+          <td>Coco mint recovery와 custom recovery 중복 제거</td>
+          <td><span class="tag danger">검증 필요</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>권장 단계별 진행</h3>
+    <ol>
+      <li>
+        <strong>계측 먼저:</strong> mint URL, endpoint, caller, recovery task id, relay URL, query kind, subscription id를 개발 로그로 묶어 실제 중복을 확인합니다.
+      </li>
+      <li>
+        <strong>저위험 차단:</strong> single-flight/cooldown과 NUT-18 expiry 전달을 먼저 적용합니다.
+      </li>
+      <li>
+        <strong>민트 요청 통합:</strong> direct <code>/v1/info</code>와 external mnemonic restore를 Coco 경유로 옮깁니다.
+      </li>
+      <li>
+        <strong>polling 축소:</strong> Coco event가 정상 동작하는 것을 확인한 뒤 Zappi transfer polling 주기를 늘리거나 stuck 대상만 남깁니다.
+      </li>
+      <li>
+        <strong>Nostr 최적화:</strong> gift wrap since/limit, relay pool scope, support connect single-flight를 적용합니다.
+      </li>
+    </ol>
+  </section>
+
+  <section id="sources">
+    <h2>7. 근거 파일</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>구분</th>
+          <th>파일/라인</th>
+          <th>확인 내용</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Coco API</td>
+          <td><code>node_modules/@cashu/coco-core/README.md</code></td>
+          <td>Manager, OpsApi, WalletApi, SubscriptionApi, watcher, recovery, protocol support 공개 설명</td>
+        </tr>
+        <tr>
+          <td>Coco limiter</td>
+          <td><code>node_modules/@cashu/coco-core/dist/index.js:6286</code>, <code>:9804</code></td>
+          <td><code>MintRequestProvider</code>, 기본 <code>capacity 20</code>, <code>refillPerMinute 20</code></td>
+        </tr>
+        <tr>
+          <td>Coco init recovery</td>
+          <td><code>node_modules/@cashu/coco-core/dist/index.js:9739</code></td>
+          <td><code>initializeCoco()</code>가 send/melt/receive/mint recovery 실행</td>
+        </tr>
+        <tr>
+          <td>Coco hybrid subscription</td>
+          <td><code>node_modules/@cashu/coco-core/dist/index.js:6923</code>, <code>:10042</code></td>
+          <td>mint WSS + slow/fast polling fallback</td>
+        </tr>
+        <tr>
+          <td>Zappi Coco init</td>
+          <td><code>src/modules/cashu/internal/coco-sdk.ts:41</code>, <code>:82</code></td>
+          <td>watcher를 초기 disabled로 만들고 unlock 후 enable</td>
+        </tr>
+        <tr>
+          <td>Zappi activate</td>
+          <td><code>src/composition/bootstrap.ts:395</code></td>
+          <td>Coco observers, watcher, Nostr watcher, transfer polling, custom stale recovery 시작</td>
+        </tr>
+        <tr>
+          <td>Zappi recoverAll</td>
+          <td><code>src/core/services/payment.service.ts:668</code></td>
+          <td>모듈/adapter별 <code>recoverPending()</code> 순회</td>
+        </tr>
+        <tr>
+          <td>Adapter recovery</td>
+          <td><code>src/modules/cashu/adapters/cashu-bolt11.adapter.ts:357</code>, <code>cashu-ecash.adapter.ts:435</code></td>
+          <td>melt/quote/send/offline receive recovery 병렬 실행</td>
+        </tr>
+        <tr>
+          <td>Mint health</td>
+          <td><code>src/adapters/health/mint-health-checker.adapter.ts:13</code></td>
+          <td><code>/v1/info</code> 직접 fetch, 30초 cache, 전체 mint Promise.all</td>
+        </tr>
+        <tr>
+          <td>External recovery</td>
+          <td><code>src/modules/cashu/internal/external-mnemonic-recovery.ts:32</code></td>
+          <td>직접 <code>cashu-ts Mint/Wallet</code> 사용</td>
+        </tr>
+        <tr>
+          <td>NostrGateway</td>
+          <td><code>src/adapters/nostr/nostr-gateway.ts:64</code>, <code>:198</code>, <code>:227</code></td>
+          <td>relay connect/query/gift wrap subscribe 구조</td>
+        </tr>
+        <tr>
+          <td>Support WSS</td>
+          <td><code>src/adapters/customer-support/nostr-cs-customer-support.adapter.ts:108</code></td>
+          <td>별도 SimplePool/CSClient connect</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="glossary">
+    <h2>8. 용어</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>용어</th>
+          <th>의미</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>민트 WSS</td>
+          <td>Cashu mint의 <code>/v1/ws</code> WebSocket입니다. Coco subscription이 사용합니다.</td>
+        </tr>
+        <tr>
+          <td>Nostr relay WSS</td>
+          <td><code>wss://relay...</code> 형태의 Nostr relay 연결입니다. Zappi NostrGateway와 support가 사용합니다.</td>
+        </tr>
+        <tr>
+          <td>Polling</td>
+          <td>상태 변화를 알기 위해 주기적으로 HTTP 요청을 보내는 방식입니다.</td>
+        </tr>
+        <tr>
+          <td>Recovery</td>
+          <td>앱 종료, 네트워크 실패, background 전환 중 멈춘 operation을 재확인하거나 정리하는 작업입니다.</td>
+        </tr>
+        <tr>
+          <td>Reconciliation</td>
+          <td>네트워크 operation은 이미 끝났지만 Zappi 거래내역/상태가 반영되지 않은 경우 로컬 DB를 맞추는 작업입니다.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+</body>
+</html>
