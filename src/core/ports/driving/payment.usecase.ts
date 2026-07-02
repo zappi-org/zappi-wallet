@@ -99,7 +99,13 @@ export interface PaymentUseCase {
     accountId: string
   }): Promise<Result<{ amount: Amount }, BaseError>>
 
-  recoverAll(): Promise<RecoveryReport[]>
+  /**
+   * 미완료 결제 전수 복구. 기본적으로 single-flight + 30초 cooldown gate를 지난다
+   * (unlock/resume/당김새로고침/화면 진입 6개 트리거의 중첩 방지 — 설계 §6.4).
+   * cooldown 내 재호출은 직전 보고서를 반환한다. 사용자 명시 복구 버튼처럼
+   * "지금 반드시 실행"이 의도인 곳만 bypassGate를 쓴다.
+   */
+  recoverAll(opts?: { bypassGate?: boolean }): Promise<RecoveryReport[]>
   recoverAccounts(params: {
     accountIds: string[]
   }): Promise<AccountRecoveryReport[]>

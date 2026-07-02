@@ -511,6 +511,35 @@ describe('NostrCsCustomerSupportAdapter', () => {
     await connectPromise
   })
 
+  /**
+   * 코드리뷰 #1 회귀 감시: connecting 중 중복 connect(전역 훅 + SupportPage mount
+   * 경합)가 각각 CSClient/SimplePool을 만들던 문제 — gate가 같은 generation의
+   * 동시 호출을 하나의 in-flight로 공유해야 한다. (doConnect가 generation을
+   * 직접 올리면 이 공유가 수학적으로 불가능해진다 — 증가는 disconnect 전용.)
+   */
+  it('shares a single in-flight connection across concurrent connect() calls', async () => {
+    let resolveConnect: (() => void) | undefined
+    nostrCsMock.MockCSClient.connectImpl = () => new Promise<void>((resolve) => {
+      resolveConnect = resolve
+    })
+    const keyProvider = {
+      getPubkey: vi.fn().mockResolvedValue(customerPubkey),
+      destroy: vi.fn(),
+    } as unknown as DerivedCustomerSupportKeyProvider
+    const adapter = new NostrCsCustomerSupportAdapter(config, keyProvider, makeRelaysProvider())
+
+    const first = adapter.connect()
+    const second = adapter.connect()
+
+    await vi.waitFor(() => expect(resolveConnect).toBeTypeOf('function'))
+    resolveConnect!()
+    const [a, b] = await Promise.all([first, second])
+
+    expect(nostrCsMock.MockCSClient.instances).toHaveLength(1)
+    expect(a.status).toBe('connected')
+    expect(b.status).toBe('connected')
+  })
+
   it('does not attach listeners to a stale client when disconnect wins the connect race', async () => {
     let resolveConnect: (() => void) | undefined
     nostrCsMock.MockCSClient.connectImpl = () => new Promise<void>((resolve) => {

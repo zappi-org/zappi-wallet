@@ -103,7 +103,11 @@ import {
   resumeCashuSubscriptions,
 } from "@/modules/cashu/cashu-runtime";
 import { DexieMintMetadataRepository } from "@/adapters/storage/dexie/dexie-mint-metadata.repository";
-import { startNut18HttpPoller } from "@/adapters/codec/nut18-http-poller";
+import { createNut18HttpPollerFactory } from "./nut18-poller-factory";
+import {
+  flushNetCounters,
+  startNetCounterFlusher,
+} from "@/adapters/telemetry/net-counters";
 import { ZappiLinkAdapter } from "@/adapters/zappi-link/zappi-link.adapter";
 import { finalizeEvent } from "nostr-tools";
 import { hexToBytes } from "@noble/hashes/utils.js";
@@ -177,6 +181,8 @@ export interface BootstrapResult extends ServiceRegistry {
   activate(): Promise<void>;
   onResume(): Promise<void>;
   onPause(): Promise<void>;
+  /** 레지스트리 교체·폐기 시 타이머/구독 정리 (flusher·TLS폴링·watcher·gateway) */
+  dispose(): void;
   disconnectBridge(): void;
   disconnectGiftWrapSettlement(): void;
 
@@ -393,8 +399,17 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   });
 
   // 8. Lifecycle: activate (Coco init + observers + watchers + bridge)
+  let netCounterFlusherStop: (() => void) | null = null;
+  // pause-during-activate 레이스 가드 (코드리뷰 #6): activate의 startPolling이
+  // 이미 백그라운드로 간 앱에서 타이머를 켜는 것을 방지.
+  let paused = false;
   const activate = async () => {
     const manager = await getCashuRuntimeManager();
+
+    // 프로덕션 집계 카운터 flush 주기 시작 (설계 §12) — 재호출에도 1회만
+    if (!netCounterFlusherStop) {
+      netCounterFlusherStop = startNetCounterFlusher();
+    }
 
     // mintQuoteObserver에 OperationMap + TxRepo 주입 (TX 이중 생성 방지)
     const { injectDependencies } = await import(
@@ -434,7 +449,9 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
     // TLS: 앱 시작 시 active transfer 복구 + 주기적 폴링 시작 (long-interval fallback)
     transferLifecycle.recoverTransfers().catch(console.error);
-    transferLifecycle.startPolling(30000);
+    if (!paused) {
+      transferLifecycle.startPolling(30000);
+    }
 
     // Coco SDK 내부 stuck mint ops 정리 (1일 이상 → abandon, 그 외 → 복구 시도)
     import('@/modules/cashu/internal/cashu-recovery')
@@ -443,8 +460,15 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   };
 
   const onResume = async () => {
+    paused = false;
     try {
       await resumeCashuSubscriptions();
+      // 모바일 freeze 중의 online 전환은 'online' 이벤트를 남기지 않는다 —
+      // resume에서 watcher 활성화를 재시도해야 §7.1-3 결함이 실제로 닫힌다
+      // (watchersEnabled 가드로 idempotent, 오프라인이면 재시도 재예약. 코드리뷰 #4).
+      enableCashuWatchers().catch((e) =>
+        console.error("[Resume] watcher enable failed:", e)
+      );
       recheckCashuPendingMintQuotes().catch((e) =>
         console.error("[Resume] recheck quotes failed:", e)
       );
@@ -453,17 +477,38 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     }
     exchangeRateService.refreshIfStale().catch(() => {});
 
+    // TLS 폴링 재개 — onPause에서 정지한 타이머 (설계 §7.2). startPolling은 idempotent.
+    // 주기 30초는 현행 유지 — 120s stuck-sweep 전환은 5단계(커버리지 게이트 통과 후).
+    transferLifecycle.startPolling(30000);
+
     // Nostr incoming watcher 재시작 (키가 바뀔 수 있으므로)
     nostrIncomingWatcher.stop();
     nostrIncomingWatcher.start(derivePublicKey(deps.nostrPrivateKeyHex));
   };
 
   const onPause = async () => {
+    paused = true;
     try {
       await pauseCashuSubscriptions();
     } catch {
       /* ignore if not initialized */
     }
+    // TLS 폴링 정지 — 기존에는 백그라운드에서도 30초 폴링이 계속 돌았다 (설계 §7.2).
+    transferLifecycle.stopPolling();
+    // 카운터 flush — pagehide 외에 pause 시점에도 확정 저장 (설계 §12)
+    void flushNetCounters();
+  };
+
+  // 등록 교체(재unlock)·잠금 시 리소스 정리 — 이전 bootstrap의 flusher/폴링/구독/
+  // 헬스체크 타이머가 세대를 넘어 살아남는 누수 방지 (코드리뷰 #5).
+  const dispose = () => {
+    if (netCounterFlusherStop) {
+      netCounterFlusherStop();
+      netCounterFlusherStop = null;
+    }
+    transferLifecycle.stopPolling();
+    nostrIncomingWatcher.stop();
+    void nostrGateway.disconnect();
   };
 
   // 9. Shared dedup store (recovery + watcher가 같은 store를 보고 중복 처리 방지)
@@ -561,19 +606,13 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     new CrossTabSyncNotifierAdapter()
   );
 
-  const paymentRequest = new PaymentRequestService(tokenCodec, (opts) => {
-    const poller = startNut18HttpPoller({
-      endpoint: opts.endpoint,
-      requestId: opts.requestId,
-      intervalMs: opts.intervalMs,
-      maxDurationMs: opts.maxDurationMs,
-    });
-    return {
-      stop: poller.cancel,
-      onPayment: poller.onPayment,
-      onError: poller.onError,
-    };
-  });
+  // NUT-18 poller factory — expiresAt 전달이 계약의 일부다 (설계 §8.1).
+  // 인라인 람다 시절 expiresAt 유실로 만료 후 30분 폴링 결함이 있었고,
+  // nut18-poller-factory.test.ts가 필드 전수 전달을 회귀 감시한다.
+  const paymentRequest = new PaymentRequestService(
+    tokenCodec,
+    createNut18HttpPollerFactory(),
+  );
 
   const zappiLinkProvider = new ZappiLinkAdapter(
     (privateKeyHex, url, method) => {
@@ -648,6 +687,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     activate,
     onResume,
     onPause,
+    dispose,
     disconnectBridge,
     disconnectGiftWrapSettlement,
 

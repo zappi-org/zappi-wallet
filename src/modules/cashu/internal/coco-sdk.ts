@@ -54,6 +54,9 @@ async function initializeManager(): Promise<Manager> {
 }
 
 export async function resetCocoManager(): Promise<void> {
+  // 예약된 watcher online 재시도 정리 — 로그아웃 후 잔존 리스너가
+  // Coco를 재초기화하는 것을 방지 (설계 §7.1-3).
+  clearWatcherRetry()
   if (managerInstance) {
     await managerInstance.dispose()
     managerInstance = null
@@ -78,16 +81,50 @@ export function isCocoInitialized(): boolean {
 }
 
 let watchersEnabled = false
+let watcherRetryCleanup: (() => void) | null = null
 
+/**
+ * Watcher 활성화. 오프라인 unlock 시 영구 비활성으로 남던 결함 수정 (설계 §7.1-3):
+ * 오프라인이면 'online' 1회 리스너로 재시도를 예약한다. 기존에는 재시도가 없어
+ * 비행기 모드 unlock 후 세션 내내 mint push가 0이었고, 30초 TLS 폴링이 그 결함을
+ * 가려주고 있었다 — 폴링 강등(5단계) 전에 반드시 고쳐야 하는 선행조건.
+ */
 export async function enableWatchers(): Promise<void> {
   if (watchersEnabled) return
+
+  const isOnline = typeof navigator === 'undefined' || navigator.onLine
+  if (!isOnline) {
+    scheduleWatcherRetryOnOnline()
+    logger.info('Offline — watcher enable deferred until online')
+    return
+  }
+
   const manager = await getCocoManager()
-  const isOnline = typeof navigator !== 'undefined' && navigator.onLine
-  if (isOnline) {
-    await manager.enableMintOperationWatcher({ watchExistingPendingOnStart: true })
-    await manager.enableProofStateWatcher()
-    watchersEnabled = true
-    logger.info('Watchers enabled')
+  await manager.enableMintOperationWatcher({ watchExistingPendingOnStart: true })
+  await manager.enableProofStateWatcher()
+  watchersEnabled = true
+  clearWatcherRetry()
+  logger.info('Watchers enabled')
+}
+
+function scheduleWatcherRetryOnOnline(): void {
+  if (watcherRetryCleanup || typeof window === 'undefined') return
+  const handleOnline = () => {
+    clearWatcherRetry()
+    enableWatchers().catch((e) => {
+      logger.error('Watcher enable retry failed:', e as Error)
+      // 재시도 실패 시 재무장 — 아니면 이 세션의 재시도 기회가 영구 소실된다(코드리뷰 #4)
+      scheduleWatcherRetryOnOnline()
+    })
+  }
+  window.addEventListener('online', handleOnline)
+  watcherRetryCleanup = () => window.removeEventListener('online', handleOnline)
+}
+
+function clearWatcherRetry(): void {
+  if (watcherRetryCleanup) {
+    watcherRetryCleanup()
+    watcherRetryCleanup = null
   }
 }
 

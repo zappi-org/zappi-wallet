@@ -36,6 +36,7 @@ import type {
   UploadedSupportAttachmentBlob,
 } from './blossom-attachment-store.adapter'
 import type { CustomerSupportConfig } from './customer-support-config'
+import { RequestGate } from '@/core/utils/request-gate'
 import { ConfiguredNip66RelayIndexAdapter } from './configured-nip66-relay-index.adapter'
 import { DerivedCustomerSupportKeyProvider } from './derived-customer-support-key-provider'
 import {
@@ -59,6 +60,15 @@ export class NostrCsCustomerSupportAdapter implements CustomerSupportChannel {
   private customerId: string | null = null
   private connectionGeneration = 0
   private lastUserRelays: string[] = []
+  /**
+   * connect single-flight (설계 §6.4 'support:connect'). 기존 가드(:connected 시 조기
+   * 반환)는 이미 "완료된" 연결만 걸러서, connecting 중 중복 호출(전역 훅 + SupportPage
+   * mount 경합)이 각각 SimplePool 핸드셰이크 + NIP-66 조회를 수행했다.
+   * 설계 §6.4의 failureCooldown 10s는 여기서 의도적으로 미적용(0): doConnect는
+   * reject하지 않고 에러도 snapshot(status:'error')으로 반환하므로 적용 대상이 없다.
+   * 상태 기반 재시도 감쇠는 6단계(onWake 단일화)에서 재평가한다.
+   */
+  private readonly connectGate = new RequestGate({ cooldownMs: 0, failureCooldownMs: 0 })
 
   constructor(
     private readonly config: CustomerSupportConfig,
@@ -109,12 +119,25 @@ export class NostrCsCustomerSupportAdapter implements CustomerSupportChannel {
     if (this.client && this.status === 'connected') {
       return this.getSnapshot()
     }
+    // gate 키에 generation 포함: refresh()의 disconnect가 generation을 올리면
+    // 직후 connect()는 (superseded로 자멸할) 기존 in-flight에 합류하지 않고
+    // 새 키로 신규 연결을 시작한다. 같은 generation의 동시 호출만 공유된다.
+    const { value } = await this.connectGate.run(
+      `connect:${this.connectionGeneration}`,
+      () => this.doConnect(),
+    )
+    return value
+  }
 
+  private async doConnect(): Promise<SupportSnapshot> {
     this.status = 'connecting'
     this.error = undefined
     this.emit()
 
-    const generation = ++this.connectionGeneration
+    // generation은 여기서 올리지 않는다 — 올리면 gate 키(connect:<gen>)가 시작 즉시
+    // 무효화되어 동시 호출이 절대 in-flight를 공유하지 못한다(코드리뷰 #1).
+    // 증가는 disconnect()만 수행: 진행 중 연결의 supersede 신호이자 새 gate 키의 원천.
+    const generation = this.connectionGeneration
     let discoveryPool: SimplePool | null = null
     let client: CSClient | null = null
 

@@ -246,6 +246,16 @@ export interface PendingTransferRecord {
 }
 
 /**
+ * Net counter record — 프로덕션 집계 카운터 (설계 §12).
+ * PII 없는 누적 카운터만. 원격 전송 없음(진단 화면 열람용).
+ */
+export interface NetCounterRecord {
+  name: string
+  value: number
+  updatedAt: number
+}
+
+/**
  * Zappi Database
  */
 export class ZappiDatabase extends Dexie {
@@ -267,6 +277,7 @@ export class ZappiDatabase extends Dexie {
   supportTickets!: Table<SupportTicketRecord, string>
   supportMessages!: Table<SupportMessageRecord, string>
   pendingTransfers!: Table<PendingTransferRecord, string>
+  netCounters!: Table<NetCounterRecord, string>
 
   constructor() {
     super(DATABASE.NAME)
@@ -329,6 +340,9 @@ export class ZappiDatabase extends Dexie {
 
       // Pending transfers: unified transfer lifecycle (outgoing/incoming, all protocols)
       pendingTransfers: 'id, txId, direction, protocol, phase, createdAt, updatedAt, expiresAt',
+
+      // v20: Net counters — 프로덕션 집계 카운터 (설계 §12, PII 없음, 원격 전송 없음)
+      netCounters: 'name',
     })
   }
 }

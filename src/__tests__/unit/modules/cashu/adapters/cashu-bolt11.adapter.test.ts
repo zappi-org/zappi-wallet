@@ -172,6 +172,58 @@ describe('CashuBolt11Adapter', () => {
     })
   })
 
+  // ─── poll (outgoing melt) ───
+
+  describe('poll (outgoing melt)', () => {
+    function makeOutgoingTransfer() {
+      return createPendingTransfer({
+        id: 'transfer-out-1',
+        txId: 'tx-out-1',
+        direction: 'outgoing',
+        finality: 'immediate',
+        onExpiry: 'fail',
+        transportRef: { operationId: 'melt-op-1' },
+        now: Date.now(),
+      })
+    }
+
+    it('returns settled on finalized/preimage', async () => {
+      vi.mocked(backend.checkMelt).mockResolvedValueOnce({ state: 'finalized', preimage: 'abc' })
+
+      await expect(adapter.poll(makeOutgoingTransfer())).resolves.toBe('settled')
+    })
+
+    /**
+     * 회귀 감시 (설계 §7.1-2): Coco melt op 상태에 'FAILED'는 존재하지 않는다
+     * (init|prepared|executing|pending|finalized|rolling_back|rolled_back).
+     * 과거 코드는 'FAILED'만 검사해 실패(rolled_back)가 in_transit으로 새었고,
+     * unlock 시 recoverPendingMelts가 우연히 가려주던 활성 버그였다.
+     */
+    it('returns failed on rolled_back (Coco terminal failure state)', async () => {
+      vi.mocked(backend.checkMelt).mockResolvedValueOnce({ state: 'rolled_back' })
+
+      await expect(adapter.poll(makeOutgoingTransfer())).resolves.toBe('failed')
+    })
+
+    it('returns failed on rolling_back (mid-rollback — payment did not go through)', async () => {
+      vi.mocked(backend.checkMelt).mockResolvedValueOnce({ state: 'rolling_back' })
+
+      await expect(adapter.poll(makeOutgoingTransfer())).resolves.toBe('failed')
+    })
+
+    it('returns failed when the backend reports an error (operation not found)', async () => {
+      vi.mocked(backend.checkMelt).mockResolvedValueOnce({ state: 'unknown', error: 'operation not found' })
+
+      await expect(adapter.poll(makeOutgoingTransfer())).resolves.toBe('failed')
+    })
+
+    it('returns in_transit while the melt is still pending', async () => {
+      vi.mocked(backend.checkMelt).mockResolvedValueOnce({ state: 'pending' })
+
+      await expect(adapter.poll(makeOutgoingTransfer())).resolves.toBe('in_transit')
+    })
+  })
+
   // ─── estimateFee ───
 
   describe('estimateFee', () => {

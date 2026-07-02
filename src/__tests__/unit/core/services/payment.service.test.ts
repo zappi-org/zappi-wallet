@@ -556,6 +556,55 @@ describe('PaymentService', () => {
       const reports = await service.recoverAll()
       expect(reports).toHaveLength(0)
     })
+
+    // ─── RequestGate (설계 §6.4) — 트리거 6곳 중첩 방지 ───
+
+    it('shares one execution across concurrent calls (single-flight)', async () => {
+      let resolveRecovery!: (v: { recovered: number; failed: number }) => void
+      vi.mocked(adapter.recoverPending).mockImplementation(
+        () => new Promise((resolve) => { resolveRecovery = resolve }),
+      )
+
+      const first = service.recoverAll()
+      const second = service.recoverAll()
+      resolveRecovery({ recovered: 1, failed: 0 })
+
+      const [a, b] = await Promise.all([first, second])
+      expect(adapter.recoverPending).toHaveBeenCalledTimes(1)
+      expect(a).toEqual(b)
+    })
+
+    it('returns the previous reports within the 30s cooldown without re-running', async () => {
+      vi.useFakeTimers()
+      try {
+        vi.mocked(adapter.recoverPending).mockResolvedValue({ recovered: 3, failed: 0 })
+
+        const first = await service.recoverAll()
+        vi.advanceTimersByTime(29_000)
+        const second = await service.recoverAll()
+
+        expect(adapter.recoverPending).toHaveBeenCalledTimes(1)
+        expect(second).toEqual(first)
+
+        vi.advanceTimersByTime(1_000)
+        await service.recoverAll()
+        expect(adapter.recoverPending).toHaveBeenCalledTimes(2)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('bypassGate forces a fresh run within the cooldown (manual recovery button)', async () => {
+      vi.useFakeTimers()
+      try {
+        await service.recoverAll()
+        await service.recoverAll({ bypassGate: true })
+
+        expect(adapter.recoverPending).toHaveBeenCalledTimes(2)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
   })
 
   // ─── recoverAccounts ───

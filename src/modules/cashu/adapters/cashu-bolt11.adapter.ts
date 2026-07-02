@@ -123,8 +123,9 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
       return transitionPhase(updatedTransfer, 'settled', Date.now())
     }
 
-    // 에러 즉시 실패
-    if (result.state === 'FAILED') {
+    // 실패 시 Coco는 rolled_back/rolling_back을 반환한다 — 'FAILED'는 존재하지 않는
+    // 상태값이었다 (poll()과 동일 결함 계열, 설계 §7.1-2 / 코드리뷰 #9)
+    if (result.state === 'rolled_back' || result.state === 'rolling_back') {
       return transitionPhase(transfer, 'failed', Date.now())
     }
 
@@ -201,7 +202,10 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
     if (status.preimage || status.state === 'PAID' || status.state === 'finalized') {
       return 'settled'
     }
-    if (status.state === 'FAILED' || status.error) {
+    // Coco melt op 상태는 init|prepared|executing|pending|finalized|rolling_back|rolled_back.
+    // 기존 'FAILED' 분기는 Coco가 반환하지 않는 값이라 도달 불가였고, 실패(rolled_back)가
+    // in_transit으로 새어 unlock 복구 전까지 UI에 도달하지 못했다 (설계 §7.1-2).
+    if (status.state === 'rolled_back' || status.state === 'rolling_back' || status.error) {
       return 'failed'
     }
     if (isExpired(transfer)) {

@@ -388,7 +388,8 @@ export function SettingsScreen({
 
       setRestoreProgress(t('settings.recoveringLightning'))
       try {
-        const recoveryReports = await registry.payment.recoverAll()
+        // 사용자 명시 복구 버튼 — gate 우회 (설계 §6.4 / R7)
+        const recoveryReports = await registry.payment.recoverAll({ bypassGate: true })
         const totalRecovered = recoveryReports.reduce((s, r) => s + (r.recovered ?? 0), 0)
         if (totalRecovered > 0) console.log('[Settings] Recovered:', totalRecovered)
       } catch (err) {

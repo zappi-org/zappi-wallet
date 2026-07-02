@@ -21,6 +21,8 @@ import type {
 import type { NostrEvent, NostrFilter, UnsignedNostrEvent } from '@/core/domain/nostr'
 import { signEvent, wrapEvent, unwrapEvent } from './internal/nostr-crypto'
 import { createRelayPool, type RelayPool } from './internal/nostr-relay'
+import { onWake } from '@/core/utils/wake-signal'
+import { netLog } from '@/core/utils/net-log'
 
 export interface NostrGatewayConfig {
   privateKeyHex: string
@@ -50,8 +52,7 @@ export class NostrGatewayAdapter implements NostrGateway {
   private activeSubscriptions = new Map<number, ActiveSubscription>()
   private nextSubId = 1
   private reconnectTimer: ReturnType<typeof setInterval> | null = null
-  private networkCleanup: (() => void) | null = null
-  private visibilityHandler: (() => void) | null = null
+  private wakeCleanup: (() => void) | null = null
   private targetRelays: string[] = []
 
   constructor(config: NostrGatewayConfig) {
@@ -107,6 +108,9 @@ export class NostrGatewayAdapter implements NostrGateway {
       throw new Error('No connected relays')
     }
 
+    for (const relay of relays) {
+      netLog({ layer: 'relay', op: 'publish', key: relay, detail: `kind:${signed.kind}`, caller: 'gateway' })
+    }
     const results = await Promise.allSettled(this.pool.publish(relays, signed))
     const succeeded = results.filter(r => r.status === 'fulfilled').length
 
@@ -123,6 +127,16 @@ export class NostrGatewayAdapter implements NostrGateway {
 
     const events: NostrEvent[] = []
     for (const filter of filters) {
+      // key = 단일 relayUrl 계약 유지 (net-log 시그니처 파편화 방지 — 코드리뷰 #11)
+      for (const relay of relays) {
+        netLog({
+          layer: 'relay',
+          op: 'query',
+          key: relay,
+          detail: `kinds:${(filter.kinds ?? []).join('/')}${filter.since ? ` since:${filter.since}` : ''}`,
+          caller: 'gateway',
+        })
+      }
       const results = await this.pool.querySync(
         relays,
         filter as Record<string, unknown>,
@@ -259,6 +273,7 @@ export class NostrGatewayAdapter implements NostrGateway {
 
     await Promise.race([relayPromise, timeoutPromise])
     this.connectedRelays.add(url)
+    netLog({ layer: 'relay', op: 'ws-open', key: url, detail: '', caller: 'gateway' })
   }
 
   private subscribeToRelays(
@@ -271,6 +286,14 @@ export class NostrGatewayAdapter implements NostrGateway {
     for (const filter of filters) {
       for (const relayUrl of relays) {
         this.pool.ensureRelay(relayUrl).then(relay => {
+          // 연결이 실제로 확보된 뒤에만 기록 — 실패 relay의 유령 sub 방지 (코드리뷰 #11)
+          netLog({
+            layer: 'relay',
+            op: 'sub',
+            key: relayUrl,
+            detail: `kinds:${(filter.kinds ?? []).join('/')}${filter.since ? ` since:${filter.since}` : ''}`,
+            caller: 'gateway',
+          })
           const sub = relay.subscribe(
             [filter as unknown as Record<string, unknown>],
             {
@@ -295,32 +318,23 @@ export class NostrGatewayAdapter implements NostrGateway {
       )
     }, this.reconnectIntervalMs)
 
-    // Network online → immediate health check
-    if (typeof window !== 'undefined') {
-      const onOnline = () => {
-        console.log('[NostrGateway] Online — reconnecting')
+    // online + visibility(visible) → 디바운스된 단일 헬스체크 (설계 §10 B7 1단계 선반영).
+    // 기존에는 두 이벤트가 각자 즉시 runHealthCheck를 호출해, 포그라운드 전환·네트워크
+    // 플래핑 시 백투백 헬스체크(+전 구독 재오픈 가능성)가 발생했다.
+    const cleanups: Array<() => void> = []
+    cleanups.push(
+      onWake(() => {
+        console.log('[NostrGateway] Wake — health check')
         this.runHealthCheck().catch(() => {})
-      }
-      const onOffline = () => {
-        console.log('[NostrGateway] Offline')
-      }
-      window.addEventListener('online', onOnline)
-      window.addEventListener('offline', onOffline)
-      this.networkCleanup = () => {
-        window.removeEventListener('online', onOnline)
-        window.removeEventListener('offline', onOffline)
-      }
+      }),
+    )
+    if (typeof window !== 'undefined') {
+      const handleOffline = () => console.log('[NostrGateway] Offline')
+      window.addEventListener('offline', handleOffline)
+      cleanups.push(() => window.removeEventListener('offline', handleOffline))
     }
-
-    // Visibility → foreground 복귀 시 health check
-    if (typeof document !== 'undefined') {
-      this.visibilityHandler = () => {
-        if (document.visibilityState === 'visible') {
-          console.log('[NostrGateway] Visible — reconnecting')
-          this.runHealthCheck().catch(() => {})
-        }
-      }
-      document.addEventListener('visibilitychange', this.visibilityHandler)
+    this.wakeCleanup = () => {
+      for (const cleanup of cleanups) cleanup()
     }
   }
 
@@ -329,13 +343,9 @@ export class NostrGatewayAdapter implements NostrGateway {
       clearInterval(this.reconnectTimer)
       this.reconnectTimer = null
     }
-    if (this.networkCleanup) {
-      this.networkCleanup()
-      this.networkCleanup = null
-    }
-    if (this.visibilityHandler) {
-      document.removeEventListener('visibilitychange', this.visibilityHandler)
-      this.visibilityHandler = null
+    if (this.wakeCleanup) {
+      this.wakeCleanup()
+      this.wakeCleanup = null
     }
   }
 

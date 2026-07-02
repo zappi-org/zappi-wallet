@@ -20,6 +20,7 @@ import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-qu
 import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
 import { createPendingTransfer } from '@/core/domain/pending-transfer'
 import { toNumber } from '@/core/domain/amount'
+import { incrementNetCounter } from '@/adapters/telemetry/net-counters'
 import {
   parseGiftWrapTokenContent,
   type GiftWrapTokenCandidate,
@@ -66,15 +67,21 @@ export class NostrIncomingWatcher {
   // ─── Private ───
 
   private async handleMessage(msg: UnwrappedMessage): Promise<void> {
+    // 계측 (설계 §12): received 대비 deduped 비율이 곧 replay 낭비의 실측치 —
+    // 2단계(cursor) 배포 전후 비교의 근거가 된다.
+    incrementNetCounter('giftwrap_events_received')
+
     // 1. RecoveryService가 이미 처리한 eventId인지 확인 (복구 동기화 중복 방지)
     if (await this.recoveryStore.isProcessed(msg.eventId)) {
       console.log('[NostrIncomingWatcher] Already recovered:', msg.eventId.substring(0, 8))
+      incrementNetCounter('giftwrap_events_deduped')
       return
     }
 
     // 2. 이미 GiftWrapWatcher/IncomingPaymentService가 처리한 eventId인지 확인
     if (await this.processedStore.exists(msg.eventId)) {
       console.log('[NostrIncomingWatcher] Already processed:', msg.eventId.substring(0, 8))
+      incrementNetCounter('giftwrap_events_deduped')
       return
     }
 
@@ -82,6 +89,7 @@ export class NostrIncomingWatcher {
     const existing = await this.transferStore.listByTxId(msg.eventId)
     if (existing.length > 0) {
       console.log('[NostrIncomingWatcher] Already in transfers:', msg.eventId.substring(0, 8))
+      incrementNetCounter('giftwrap_events_deduped')
       return
     }
 

@@ -15,6 +15,7 @@
 import { isSwapQuote } from '@/modules/cashu'
 import type { CashuRuntimeManager } from '@/modules/cashu/cashu-runtime'
 import type { TransferLifecycleService } from '@/core/services/transfer-lifecycle.service'
+import { incrementNetCounter } from '@/adapters/telemetry/net-counters'
 
 let unsubscribers: (() => void)[] = []
 
@@ -33,7 +34,11 @@ export function connectTransferSdkBridge(
   }
 
   // Melt 완료 → bolt11 send transfer settled
+  // 주의(§12 게이트 해석): manager.on 이벤트는 전송 수단을 구분하지 않는다 —
+  // WSS push든 Coco 내부 폴링(20s/5s)이든 발화한다. 'coco_push_received'는
+  // "Coco 이벤트 파이프라인 생존"의 지표이지 WSS 단독 증명이 아니다.
   const unsubMeltPaid = manager.on('melt-quote:paid', async ({ quoteId }) => {
+    incrementNetCounter('coco_push_received')
     try {
       const resolved = await transferLifecycle.resolveByOperationRef(quoteId, 'settled')
       logResolution('melt-quote:paid', quoteId, resolved)
@@ -44,6 +49,7 @@ export function connectTransferSdkBridge(
 
   // Ecash send 완료 (수령자가 토큰 수령)
   const unsubSendFinalized = manager.on('send:finalized', async ({ operationId }) => {
+    incrementNetCounter('coco_push_received')
     try {
       const resolved = await transferLifecycle.resolveByOperationRef(operationId, 'settled')
       logResolution('send:finalized', operationId, resolved)
@@ -54,6 +60,7 @@ export function connectTransferSdkBridge(
 
   // Ecash send 회수 (proof reclaim)
   const unsubSendRolledBack = manager.on('send:rolled-back', async ({ operationId }) => {
+    incrementNetCounter('coco_push_received')
     try {
       const resolved = await transferLifecycle.resolveByOperationRef(operationId, 'failed')
       logResolution('send:rolled-back', operationId, resolved)
@@ -64,7 +71,9 @@ export function connectTransferSdkBridge(
 
   // Mint quote 완료 → bolt11/ecash receive transfer settled
   const unsubMintOpFinalized = manager.on('mint-op:finalized', async ({ operation }) => {
+    // swap 내부 finalization은 사용자 전송이 아니다 — 필터 통과분만 계수 (코드리뷰 #7)
     if (!operation.quoteId || isSwapQuote(operation.quoteId)) return
+    incrementNetCounter('coco_push_received')
     try {
       const resolved = await transferLifecycle.resolveByOperationRef(operation.quoteId, 'settled')
       logResolution('mint-op:finalized', operation.quoteId, resolved)

@@ -1,5 +1,6 @@
 import type { MintMetadata } from '@/core/types'
 import { TIMEOUTS } from '@/core/constants'
+import { netLog } from '@/core/utils/net-log'
 import { metadataEvents } from './metadata-events'
 import type { MetadataStore } from './metadata-store'
 
@@ -240,6 +241,7 @@ export class MintMetadataService {
   private async doFetch(mintUrl: string): Promise<MintMetadata | null> {
     try {
       const infoUrl = `${mintUrl.replace(/\/$/, '')}/v1/info`
+      netLog({ layer: 'mint', op: 'fetch', key: mintUrl, detail: '/v1/info', caller: 'metadata' })
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), TIMEOUTS.MINT_REQUEST)
 

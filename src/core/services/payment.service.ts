@@ -24,6 +24,7 @@ import type {
   RedeemResult,
 } from '@/core/ports/driven/payment-method.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
+import { RequestGate } from '@/core/utils/request-gate'
 import type { ModuleBalance, WalletModule } from '@/core/ports/driven/wallet-module.port'
 import type { TransferIntent } from '@/core/ports/driven/transfer-operator.port'
 import type { TransferLifecycleService } from '@/core/services/transfer-lifecycle.service'
@@ -74,6 +75,14 @@ function isRollingBackStateMessage(message: string): boolean {
 }
 
 export class PaymentService implements PaymentUseCase {
+  /**
+   * recoverAll 트리거 6곳(unlock/resume/당김새로고침/Token탭/AddMint/설정)의 중첩 방지
+   * (설계 §6.4). 인스턴스 필드 = bootstrap 스코프 — 계정 전환 시 gate도 초기화된다.
+   * runRecoverAll은 adapter별 try/catch로 reject하지 않으므로 failureCooldown은
+   * 방어적 기본값이다.
+   */
+  private readonly recoverAllGate = new RequestGate({ cooldownMs: 30_000, failureCooldownMs: 30_000 })
+
   constructor(
     private modules: WalletModule[],
     private txRepo: TransactionRepository,
@@ -665,7 +674,15 @@ export class PaymentService implements PaymentUseCase {
 
   // ─── Recovery ───
 
-  async recoverAll(): Promise<RecoveryReport[]> {
+  async recoverAll(opts?: { bypassGate?: boolean }): Promise<RecoveryReport[]> {
+    if (opts?.bypassGate) {
+      return this.runRecoverAll()
+    }
+    const { value } = await this.recoverAllGate.run('recoverAll', () => this.runRecoverAll())
+    return value
+  }
+
+  private async runRecoverAll(): Promise<RecoveryReport[]> {
     const reports: RecoveryReport[] = []
 
     for (const module of this.modules) {

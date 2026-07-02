@@ -159,8 +159,11 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
         const beforeModules = await registry.balance.getByModule()
         const beforeTotal = beforeModules.reduce((sum, m) => sum + m.accounts.reduce((s, a) => s + Number(a.amount.value), 0), 0)
 
-        // Recover tokens for the newly added mint via recoverAll
-        await registry.payment.recoverAll()
+        // Recover tokens for the newly added mint via recoverAll.
+        // gate 우회 (설계 §6.3): unlock/resume의 recoverAll과 30초 내에 겹치면
+        // stale 반환으로 "restoring" 단계가 무동작이 되는 것을 방지 — 민트를 방금
+        // 신뢰한 이 시점의 실행은 사용자 의도가 명시적이다.
+        await registry.payment.recoverAll({ bypassGate: true })
 
         const afterModules = await registry.balance.getByModule()
         const afterTotal = afterModules.reduce((sum, m) => sum + m.accounts.reduce((s, a) => s + Number(a.amount.value), 0), 0)

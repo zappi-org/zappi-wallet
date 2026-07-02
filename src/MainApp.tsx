@@ -555,7 +555,11 @@ export default function MainApp() {
           nostrPrivateKeyHex: result.value.keys.privateKey,
           bip39Seed: result.value.bip39Seed,
         })
-        setServiceRegistry(registry)
+        // 재unlock 시 이전 세대 registry의 타이머/구독 정리 (flusher·TLS폴링 누수 방지)
+        setServiceRegistry((prev) => {
+          prev?.dispose()
+          return registry
+        })
 
         setLocked(false)
 
