@@ -63,10 +63,10 @@ export default {
     inviteLocked: '시도 횟수를 초과했습니다. 5분 후 다시 시도해주세요.',
 
     // Mnemonic
-    secretRecoveryKey: '니모닉',
+    secretRecoveryKey: '복구문구',
     walletRecovery: '지갑 복구',
     mnemonicWarning: '지갑을 복구할 수 있는 유일한 수단입니다.\n반드시 안전한 곳에 순서대로 기록해주세요.',
-    enterRecoveryPhrase: '기존 지갑의 니모닉을 입력해주세요.',
+    enterRecoveryPhrase: '기존 지갑의 복구문구를 입력해주세요.',
     words12: '12 단어',
     words24: '24 단어',
     copyToClipboard: '복사',
@@ -74,8 +74,8 @@ export default {
     mnemonicSavedConfirm: '순서대로 안전한 곳에 기록했습니다',
     recordComplete: '다음',
     recoverWallet: '복구하기',
-    invalidMnemonic: '올바르지 않은 니모닉입니다. 단어를 다시 확인해주세요.',
-    backupConfirmRequired: '니모닉을 기록했는지 확인해주세요.',
+    invalidMnemonic: '올바르지 않은 복구문구입니다. 단어를 다시 확인해주세요.',
+    backupConfirmRequired: '복구문구를 기록했는지 확인해주세요.',
 
     // PIN
     setPin: 'PIN 설정',
@@ -138,7 +138,7 @@ export default {
     requestBodyLabel: '내용',
     titlePlaceholder: '제목을 입력하세요',
     bodyPlaceholder: '문의 내용을 입력하세요',
-    privacyNote: '복구 문구와 개인키는 입력하지 마세요.',
+    privacyNote: '복구문구와 개인키는 입력하지 마세요.',
     categoryLabel: '유형',
     priorityLabel: '중요도',
     categories: {
@@ -162,7 +162,7 @@ export default {
       transfer: '라이트닝/이캐시 보내기·받기 관련',
       ecash: '이캐시 토큰 등록·복구 관련',
       fee: '수수료 / 라우팅 비용 관련',
-      security: '잠금, 백업, 복구 문구 관련',
+      security: '잠금, 백업, 복구문구 관련',
       other: '그 외 문의',
     },
     priorities: {
@@ -270,7 +270,7 @@ export default {
     bodyPlaceholderInquiry: '상세한 내용을 적어주세요. 관련 데이터나 스크린샷을 포함하면 문제 해결 가능성이 높아져요.',
     bodyPlaceholderIdea: '어떤 상황에서 어떤 점이 아쉬웠는지, 어떻게 바뀌면 좋을지 자유롭게 적어 주세요.',
     bodyCounter: '{{count}} / 2000',
-    securityNoticeTitle: '니모닉 문구와 PIN 번호는 절대 입력하지 마세요.',
+    securityNoticeTitle: '복구문구와 PIN 번호는 절대 입력하지 마세요.',
     securityNoticeBody: '째피는 어떤 경우에도 사용자의 개인키 정보를 요구하지 않습니다.',
     attachmentLabel: '파일 첨부',
     attachmentEncryptedNote: '모든 내용은 암호화되어 안전하게 전송됩니다.',
@@ -351,12 +351,12 @@ export default {
 
     // Wallet Management
     walletManagement: '지갑 관리',
-    walletManagementDesc: '민트, 릴레이, 잔액 확인, 백업',
+    walletManagementDesc: '민트, 릴레이, 잔액 확인, 복구문구',
     manageMints: '민트 관리',
     manageRelays: '릴레이 관리',
     verifyBalance: '잔액 검증',
     findUnusedTokens: '미사용 토큰 찾기',
-    mnemonicBackup: '니모닉 백업',
+    mnemonicBackup: '복구문구 확인',
 
     // TLS Test
     tlsTest: 'TLS 테스트',
@@ -405,10 +405,10 @@ export default {
     // Mnemonic Backup
     enterPinLabel: 'PIN 입력',
     wrongPin: 'PIN이 틀렸습니다.',
-    mnemonicWarning: '이 니모닉을 안전하게 보관하세요. 절대 공유하지 마세요.',
+    mnemonicWarning: '이 복구문구를 안전하게 보관하세요. 절대 공유하지 마세요.',
 
     // Logout
-    logoutWarning: '모든 데이터가 삭제됩니다. 니모닉을 백업하셨나요?',
+    logoutWarning: '모든 데이터가 삭제됩니다. 복구문구를 백업하셨나요?',
 
     // Token Restore
     restoreChoiceDescription: '복구할 방식을 선택하세요.',
@@ -417,8 +417,9 @@ export default {
     externalMnemonicRecovery: '다른 복구문구의 이캐시 가져오기',
     externalMnemonicRecoveryDesc: '다른 복구문구에서 찾은 이캐시를 현재 지갑으로 가져옵니다.',
     externalMnemonicRecoveryWarning: '입력한 복구문구는 저장되지 않습니다. 등록된 민트에서 찾은 이캐시만 현재 지갑으로 가져옵니다.',
-    externalMnemonicPlaceholder: '복구문구 12개 또는 24개 단어',
+    externalMnemonicPlaceholder: '복구문구 12개 단어',
     externalMnemonicRequired: '복구문구를 입력해주세요.',
+    externalMnemonicWordCountRequired: '복구문구 12개 단어를 입력해주세요.',
     startRecovery: '복구 시작',
     restoreDescription: '각 민트에서 미사용 토큰을 검색하여 복원합니다.',
     registeredMints: '등록된 민트: {{count}}개',
@@ -965,13 +966,13 @@ export default {
     notFound: '찾을 수 없습니다.',
     serverError: '서버 오류가 발생했습니다.',
     clipboardError: '클립보드를 읽을 수 없습니다.',
-    invalidMnemonic: '유효하지 않은 복구 문구입니다',
+    invalidMnemonic: '유효하지 않은 복구문구입니다',
     invalidPassword: '비밀번호가 올바르지 않습니다',
     noWallet: '지갑을 찾을 수 없습니다',
     createWalletFailed: '지갑 생성에 실패했습니다',
     unlockFailed: '잠금 해제에 실패했습니다',
     changePasswordFailed: '비밀번호 변경에 실패했습니다',
-    getMnemonicFailed: '복구 문구를 가져올 수 없습니다',
+    getMnemonicFailed: '복구문구를 가져올 수 없습니다',
     verifyFailed: '인증에 실패했습니다',
     encryptionFailed: '암호화에 실패했습니다',
     decryptionFailed: '복호화에 실패했습니다',

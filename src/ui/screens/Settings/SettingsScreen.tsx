@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { AlertTriangle, Check, Copy, ShieldCheck } from 'lucide-react'
+import { useState, useCallback, useEffect, useRef, type ClipboardEvent } from 'react'
+import { AlertTriangle, Check, ClipboardPaste, Copy, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
@@ -33,6 +33,13 @@ import { PreferencesCategoryPage } from './pages/PreferencesCategoryPage'
 import { SecurityCategoryPage } from './pages/SecurityCategoryPage'
 import { WalletCategoryPage } from './pages/WalletCategoryPage'
 import { SupportPage } from './pages/SupportPage'
+
+const RECOVERY_PHRASE_WORD_COUNT = 12
+
+function normalizeRecoveryPhraseWords(value: string): string[] {
+  return value.trim().toLowerCase().split(/\s+/).filter(Boolean)
+}
+
 export type SettingsPage =
   | 'category-profile' | 'category-preferences' | 'category-security' | 'category-wallet'
   | 'language' | 'unitDisplay' | 'fiat' | 'autoLock' | 'pos' | 'privacy' | 'npubDetail' | 'lightningDetail' | 'support'
@@ -105,11 +112,14 @@ export function SettingsScreen({
 
   // Restore modal
   const [showRestoreModal, setShowRestoreModal] = useState(false)
-  const [restoreMode, setRestoreMode] = useState<'choice' | 'current' | 'external'>('choice')
+  const [restoreMode, setRestoreMode] = useState<'current' | 'external'>('current')
   const [isRestoring, setIsRestoring] = useState(false)
   const [restoreProgress, setRestoreProgress] = useState('')
   const [restoreResult, setRestoreResult] = useState<{ success: boolean; message: string } | null>(null)
-  const [externalMnemonic, setExternalMnemonic] = useState('')
+  const [externalMnemonicWords, setExternalMnemonicWords] = useState<string[]>(
+    () => Array(RECOVERY_PHRASE_WORD_COUNT).fill('')
+  )
+  const externalMnemonicComplete = externalMnemonicWords.every((word) => word.trim())
 
   // Logout modal
   const [showLogoutModal, setShowLogoutModal] = useState(false)
@@ -288,10 +298,10 @@ export function SettingsScreen({
   const resetRestoreModal = useCallback(() => {
     if (isRestoring) return
     setShowRestoreModal(false)
-    setRestoreMode('choice')
+    setRestoreMode('current')
     setRestoreResult(null)
     setRestoreProgress('')
-    setExternalMnemonic('')
+    setExternalMnemonicWords(Array(RECOVERY_PHRASE_WORD_COUNT).fill(''))
   }, [isRestoring])
 
   // Logout handlers
@@ -311,6 +321,57 @@ export function SettingsScreen({
       setIsLoggingOut(false)
     }
   }, [logoutPin, onLogout, t])
+
+  const applyExternalMnemonicText = useCallback((value: string) => {
+    const words = normalizeRecoveryPhraseWords(value)
+    if (words.length === 0) return false
+    if (words.length !== RECOVERY_PHRASE_WORD_COUNT) {
+      addToast({ type: 'error', message: t('settings.externalMnemonicWordCountRequired') })
+      return false
+    }
+
+    setExternalMnemonicWords(
+      Array.from({ length: RECOVERY_PHRASE_WORD_COUNT }, (_, index) => words[index] ?? '')
+    )
+    return true
+  }, [addToast, t])
+
+  const handleExternalMnemonicWordChange = useCallback(
+    (index: number, value: string) => {
+      const pastedWords = normalizeRecoveryPhraseWords(value)
+      if (pastedWords.length > 1) {
+        applyExternalMnemonicText(value)
+        return
+      }
+
+      const word = value.trim().toLowerCase()
+      setExternalMnemonicWords((current) => {
+        const next = [...current]
+        next[index] = word
+        return next
+      })
+    },
+    [applyExternalMnemonicText]
+  )
+
+  const handleExternalMnemonicPaste = useCallback(
+    (event: ClipboardEvent<HTMLInputElement>) => {
+      const text = event.clipboardData.getData('text')
+      if (normalizeRecoveryPhraseWords(text).length <= 1) return
+      event.preventDefault()
+      applyExternalMnemonicText(text)
+    },
+    [applyExternalMnemonicText]
+  )
+
+  const handlePasteExternalMnemonic = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText()
+      applyExternalMnemonicText(text)
+    } catch {
+      addToast({ type: 'error', message: t('errors.clipboardError') })
+    }
+  }, [addToast, applyExternalMnemonicText, t])
 
   // Restore handlers
   const handleRestoreTokens = useCallback(async () => {
@@ -370,11 +431,13 @@ export function SettingsScreen({
 
   const handleRestoreExternalMnemonic = useCallback(async () => {
     const mints = settings.mints
-    const mnemonicToRestore = externalMnemonic.trim().toLowerCase().split(/\s+/).join(' ')
-    if (!mnemonicToRestore) {
+    if (!externalMnemonicComplete) {
       setRestoreResult({ success: false, message: t('settings.externalMnemonicRequired') })
       return
     }
+    const mnemonicToRestore = externalMnemonicWords
+      .map((word) => word.trim().toLowerCase())
+      .join(' ')
 
     setIsRestoring(true)
     setRestoreResult(null)
@@ -413,7 +476,15 @@ export function SettingsScreen({
       setIsRestoring(false)
       setRestoreProgress('')
     }
-  }, [externalMnemonic, settings.mints, registry.balance, registry.externalWalletRecovery, setBalance, t])
+  }, [
+    externalMnemonicComplete,
+    externalMnemonicWords,
+    settings.mints,
+    registry.balance,
+    registry.externalWalletRecovery,
+    setBalance,
+    t,
+  ])
 
   // Render category page (z-65)
   const renderCategoryPage = () => {
@@ -450,7 +521,17 @@ export function SettingsScreen({
             onBack={() => setCategoryPage(null)}
             onMintManagement={onMintManagement}
             onRelayManagement={onRelayManagement}
-            onOpenRestore={() => setShowRestoreModal(true)}
+            onOpenCurrentWalletRecovery={() => {
+              setRestoreMode('current')
+              setShowRestoreModal(true)
+            }}
+            onOpenExternalMnemonicRecovery={() => {
+              setRestoreMode('external')
+              setRestoreResult(null)
+              setRestoreProgress('')
+              setExternalMnemonicWords(Array(RECOVERY_PHRASE_WORD_COUNT).fill(''))
+              setShowRestoreModal(true)
+            }}
             onOpenBackup={() => setShowBackupModal(true)}
           />
         )
@@ -656,51 +737,20 @@ export function SettingsScreen({
       <Modal
         isOpen={showRestoreModal}
         onClose={resetRestoreModal}
-        title={t('settings.verifyBalance')}
+        title={restoreMode === 'current' ? t('settings.currentWalletRecovery') : t('settings.externalMnemonicRecovery')}
       >
         <div className="space-y-3">
           {!isRestoring && !restoreResult && (
             <>
-              {restoreMode === 'choice' && (
-                <>
-                  <p className="text-body text-foreground-muted">
-                    {t('settings.restoreChoiceDescription')}
-                  </p>
-                  <div className="space-y-2">
-                    <button
-                      type="button"
-                      onClick={() => setRestoreMode('current')}
-                      className="w-full text-left rounded-card border border-border bg-background-card px-4 py-3 active:opacity-80 transition-opacity"
-                    >
-                      <p className="text-body font-semibold text-foreground">{t('settings.currentWalletRecovery')}</p>
-                      <p className="text-caption text-foreground-muted mt-0.5">{t('settings.currentWalletRecoveryDesc')}</p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRestoreMode('external')}
-                      className="w-full text-left rounded-card border border-border bg-background-card px-4 py-3 active:opacity-80 transition-opacity"
-                    >
-                      <p className="text-body font-semibold text-foreground">{t('settings.externalMnemonicRecovery')}</p>
-                      <p className="text-caption text-foreground-muted mt-0.5">{t('settings.externalMnemonicRecoveryDesc')}</p>
-                    </button>
-                  </div>
-                </>
-              )}
-
               {restoreMode === 'current' && (
                 <>
                   <p className="text-body text-foreground-muted">
                     {t('settings.restoreDescription')}
                   </p>
                   <p className="text-caption text-foreground-muted">{t('settings.registeredMints', { count: settings.mints.length })}</p>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="lg" onClick={() => setRestoreMode('choice')} className="flex-1">
-                      {t('common.back')}
-                    </Button>
-                    <Button variant="brand" size="lg" onClick={handleRestoreTokens} className="flex-1">
-                      {t('settings.startVerification')}
-                    </Button>
-                  </div>
+                  <Button variant="brand" size="lg" onClick={handleRestoreTokens} className="w-full">
+                    {t('settings.startVerification')}
+                  </Button>
                 </>
               )}
 
@@ -709,32 +759,54 @@ export function SettingsScreen({
                   <p className="text-body text-foreground-muted">
                     {t('settings.externalMnemonicRecoveryWarning')}
                   </p>
-                  <div className="rounded-card border border-border bg-background-card px-3 py-2">
-                    <textarea
-                      value={externalMnemonic}
-                      onChange={(e) => setExternalMnemonic(e.target.value)}
-                      placeholder={t('settings.externalMnemonicPlaceholder')}
-                      className="w-full min-h-[108px] resize-none bg-transparent text-body text-foreground placeholder:text-foreground-muted focus:outline-none"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      spellCheck={false}
-                    />
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handlePasteExternalMnemonic}
+                      className="flex h-8 items-center gap-1.5 rounded-full px-3 text-caption font-semibold text-foreground-muted transition-colors active:bg-background-card active:text-foreground"
+                    >
+                      <ClipboardPaste className="h-4 w-4" />
+                      {t('common.paste')}
+                    </button>
+                  </div>
+                  <div className="bg-background-card rounded-xl p-4">
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-0">
+                      {externalMnemonicWords.map((word, index) => (
+                        <div
+                          key={index}
+                          className={`flex min-w-0 items-center gap-2 py-2.5 ${
+                            index < RECOVERY_PHRASE_WORD_COUNT - 2
+                              ? 'border-b border-border'
+                              : ''
+                          }`}
+                        >
+                          <span className="text-label font-medium tabular-nums text-foreground-subtle w-5 text-right shrink-0">
+                            {index + 1}
+                          </span>
+                          <input
+                            value={word}
+                            onChange={(event) => handleExternalMnemonicWordChange(index, event.target.value)}
+                            onPaste={handleExternalMnemonicPaste}
+                            aria-label={`${index + 1}. ${t('settings.externalMnemonicPlaceholder')}`}
+                            className="min-w-0 flex-1 bg-transparent text-body font-medium text-foreground focus:outline-none"
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            spellCheck={false}
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
                   <p className="text-caption text-foreground-muted">{t('settings.registeredMints', { count: settings.mints.length })}</p>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="lg" onClick={() => setRestoreMode('choice')} className="flex-1">
-                      {t('common.back')}
-                    </Button>
-                    <Button
-                      variant="brand"
-                      size="lg"
-                      onClick={handleRestoreExternalMnemonic}
-                      disabled={!externalMnemonic.trim()}
-                      className="flex-1"
-                    >
-                      {t('settings.startRecovery')}
-                    </Button>
-                  </div>
+                  <Button
+                    variant="brand"
+                    size="lg"
+                    onClick={handleRestoreExternalMnemonic}
+                    disabled={!externalMnemonicComplete}
+                    className="w-full"
+                  >
+                    {t('settings.startRecovery')}
+                  </Button>
                 </>
               )}
             </>

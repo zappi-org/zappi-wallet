@@ -7,7 +7,8 @@ interface WalletCategoryPageProps {
   onBack: () => void
   onMintManagement?: () => void
   onRelayManagement?: () => void
-  onOpenRestore: () => void
+  onOpenCurrentWalletRecovery: () => void
+  onOpenExternalMnemonicRecovery: () => void
   onOpenBackup: () => void
 }
 
@@ -15,7 +16,8 @@ export function WalletCategoryPage({
   onBack,
   onMintManagement,
   onRelayManagement,
-  onOpenRestore,
+  onOpenCurrentWalletRecovery,
+  onOpenExternalMnemonicRecovery,
   onOpenBackup,
 }: WalletCategoryPageProps) {
   const { t } = useTranslation()
@@ -36,8 +38,12 @@ export function WalletCategoryPage({
             onPress={() => onRelayManagement?.()}
           />
           <SettingsRow
-            label={t('settings.verifyBalance')}
-            onPress={onOpenRestore}
+            label={t('settings.currentWalletRecovery')}
+            onPress={onOpenCurrentWalletRecovery}
+          />
+          <SettingsRow
+            label={t('settings.externalMnemonicRecovery')}
+            onPress={onOpenExternalMnemonicRecovery}
           />
           <SettingsRow
             label={t('settings.mnemonicBackup')}

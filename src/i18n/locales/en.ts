@@ -270,7 +270,7 @@ export default {
     bodyPlaceholderInquiry: 'Add details. Including related data or screenshots increases the chance of a quick resolution.',
     bodyPlaceholderIdea: 'Tell us when you felt the gap and how it could be improved.',
     bodyCounter: '{{count}} / 2000',
-    securityNoticeTitle: 'Never share your mnemonic or PIN.',
+    securityNoticeTitle: 'Never share your recovery phrase or PIN.',
     securityNoticeBody: 'Zappi will never ask for your private key information under any circumstance.',
     attachmentLabel: 'Attachments',
     attachmentEncryptedNote: 'Everything is encrypted and sent securely.',
@@ -351,12 +351,12 @@ export default {
 
     // Wallet Management
     walletManagement: 'Wallet Management',
-    walletManagementDesc: 'Mints, Relays, Balance, Backup',
+    walletManagementDesc: 'Mints, Relays, Balance, Recovery Phrase',
     manageMints: 'Manage Mints',
     manageRelays: 'Manage Relays',
     verifyBalance: 'Verify Balance',
     findUnusedTokens: 'Find Unused Tokens',
-    mnemonicBackup: 'Mnemonic Backup',
+    mnemonicBackup: 'View Recovery Phrase',
 
     // TLS Test
     tlsTest: 'TLS Test',
@@ -411,21 +411,22 @@ export default {
     // Mnemonic Backup
     enterPinLabel: 'Enter PIN',
     wrongPin: 'Wrong PIN.',
-    mnemonicWarning: 'Keep this mnemonic safe. Never share it with anyone.',
+    mnemonicWarning: 'Keep this recovery phrase safe. Never share it with anyone.',
 
     // Logout
-    logoutWarning: 'All data will be deleted. Have you backed up your mnemonic?',
+    logoutWarning: 'All data will be deleted. Have you backed up your recovery phrase?',
 
     // Token Restore
     restoreChoiceDescription: 'Choose how to restore missing ecash.',
     restoreDescription: 'Search for and restore unused tokens from each mint.',
-    currentWalletRecovery: 'Recover this wallet',
-    currentWalletRecoveryDesc: 'Find ecash created from this wallet mnemonic.',
-    externalMnemonicRecovery: 'Import ecash from another mnemonic',
-    externalMnemonicRecoveryDesc: 'Find ecash from another mnemonic and move it into this wallet.',
-    externalMnemonicRecoveryWarning: 'The mnemonic you enter is not saved. Only ecash found in registered mints will be moved into this wallet.',
-    externalMnemonicPlaceholder: 'Enter the mnemonic to scan',
-    externalMnemonicRequired: 'Enter a mnemonic.',
+    currentWalletRecovery: 'Check Current Wallet Balance',
+    currentWalletRecoveryDesc: 'Find missing balance from mints registered with this wallet recovery phrase.',
+    externalMnemonicRecovery: 'Import Ecash from Another Recovery Phrase',
+    externalMnemonicRecoveryDesc: 'Find ecash from another recovery phrase and move it into this wallet.',
+    externalMnemonicRecoveryWarning: 'The recovery phrase you enter is not saved. Only ecash found in registered mints will be moved into this wallet.',
+    externalMnemonicPlaceholder: 'Enter the recovery phrase to scan',
+    externalMnemonicRequired: 'Enter a recovery phrase.',
+    externalMnemonicWordCountRequired: 'Enter exactly 12 recovery phrase words.',
     registeredMints: 'Registered mints: {{count}}',
     startVerification: 'Start Verification',
     startRecovery: 'Start Recovery',
