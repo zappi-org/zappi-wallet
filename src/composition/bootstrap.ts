@@ -49,10 +49,18 @@ import {
   decodeTokenForPaymentPayload,
   deleteCocoData,
   getMintInfoFromCoco,
+  getMintOpStateLocal,
+  getSendRecoveryOps,
   markQuoteAsSwap,
+  reconcileCashu,
+  recoverLegacySendTokens,
   removeMintFromCoco,
+  requeuePaidMintQuotesInCoco,
+  runCocoRecoverySweeps,
   unmarkQuoteAsSwap,
 } from "@/modules/cashu";
+import { RecoverySchedulerService } from "@/core/services/recovery-scheduler.service";
+import { resolveIncomingReview } from "./incoming-review";
 import { clearMintData, getDatabase } from "@/adapters/storage/dexie/schema";
 import { AnchorStoreAdapter } from "@/adapters/storage/anchor-store.adapter";
 import { resetWalletCache } from "@/adapters/cache/wallet-cache";
@@ -67,7 +75,7 @@ import { CashuSendTokenOperatorAdapter } from "@/modules/cashu/adapters/cashu-se
 import { MintHealthCheckerAdapter } from "@/adapters/health/mint-health-checker.adapter";
 import { MintMetadataStoreAdapter } from "@/adapters/metadata/mint-metadata-store.adapter";
 import { TrustedMintProviderAdapter } from "@/adapters/runtime/trusted-mint-provider.adapter";
-import { IncomingReviewQueueAdapter } from "@/adapters/runtime/incoming-review-queue.adapter";
+import { DexieIncomingReviewQueue } from "@/adapters/storage/dexie/dexie-incoming-review-queue.store";
 import { CrossTabSyncNotifierAdapter } from "@/adapters/runtime/cross-tab-sync-notifier.adapter";
 import { DexieRouteExecutionStore } from "@/adapters/storage/dexie/dexie-route-execution-store";
 import { SettingsTrustedAccountStoreAdapter } from "@/adapters/runtime/settings-trusted-account-store.adapter";
@@ -205,9 +213,11 @@ export interface BootstrapResult extends ServiceRegistry {
     clearBalanceCache(): void;
     deleteAllContacts(): Promise<void>;
     /**
-     * 로그아웃 시 recovery 동기화 상태 초기화 (리뷰 #6): giftwrapCursors + anchor
-     * 캐시. 남기면 같은 니모닉 복원이 "재설치 full replay" 대신 바운디드 창으로
-     * 시작해 Ω보다 오래된 미상환 토큰을 놓친다.
+     * 로그아웃 시 recovery 동기화 상태 초기화 (리뷰 #6): giftwrapCursors +
+     * incomingReviews + anchor 캐시. cursor를 남기면 같은 니모닉 복원이
+     * "재설치 full replay" 대신 바운디드 창으로 시작해 Ω보다 오래된 미상환
+     * 토큰을 놓치고, review를 남기면 다음 계정의 부팅 hydrate가 이전 계정
+     * review를 부활시킨다 (4단계 리뷰 #1).
      */
     clearRecoverySyncState(): Promise<void>;
   };
@@ -256,9 +266,13 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const trustedMintProvider = new TrustedMintProviderAdapter(
     () => useAppStore.getState().settings.mints
   );
-  const incomingReviewQueue = new IncomingReviewQueueAdapter((review) =>
-    useAppStore.getState().enqueueIncomingReview(review)
-  );
+  // 미신뢰 민트 review 대기열 — IndexedDB 원천, Zustand는 UI 미러 (설계 §6.2).
+  // 메모리 큐의 새로고침 유실(리뷰 #3 blocker)을 닫는 교체라 kill-switch 없음.
+  const incomingReviewQueue = new DexieIncomingReviewQueue({
+    onEnqueued: (review) => useAppStore.getState().enqueueIncomingReview(review),
+    onRemoved: (externalId) =>
+      useAppStore.getState().removeIncomingReview(externalId),
+  });
 
   // 2. Nostr Gateway
   // kill-switch 스냅샷 — bootstrap 1회 읽기로 조립 분기 (설계 §11.1)
@@ -374,6 +388,96 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   );
   const receiveRequest = new ReceiveRequestFacadeService(receiveRequestRepo);
 
+  // 5b. RecoveryScheduler — recoverAll의 행동 단위 분해 (설계 §6.2).
+  // 모든 행동은 함수 주입: 서비스는 게이팅·조합만, Coco/모듈 접합은 여기서.
+  const recoveryScheduler = new RecoverySchedulerService({
+    reconcileCashu: async () =>
+      reconcileCashu({
+        pendingOpRepo,
+        txRepo,
+        activeMintUrls: useAppStore.getState().settings.mints,
+        sendOps: await getSendRecoveryOps(),
+        mintOpLookup: getMintOpStateLocal,
+      }),
+    requeuePaidQuotes: requeuePaidMintQuotesInCoco,
+    redeemOfflineTokens: () => cashuBackend.redeemPendingReceivedTokens(),
+    recoverLegacySends: async () => {
+      const all = await pendingOpRepo.list();
+      const legacy = all.filter(
+        (op) => op.kind === "send-token" && !op.metadata?.operationId
+      );
+      if (legacy.length === 0) return { reclaimed: 0, recorded: 0 };
+      return recoverLegacySendTokens(
+        {
+          pendingOpRepo,
+          txRepo,
+          receiveToken: (token) => cashuBackend.receiveToken(token),
+        },
+        legacy
+      );
+    },
+    runCocoSweeps: runCocoRecoverySweeps,
+    reviewQueue: incomingReviewQueue,
+    redeemToken: (input) => payment.redeem({ input }),
+    resolveReview: (review) =>
+      resolveIncomingReview(
+        {
+          processedStore,
+          receiveRequest,
+          removeIncomingReview: (id) => incomingReviewQueue.remove(id),
+          nostrGateway,
+          posDevices: useAppStore.getState().settings.posDevices,
+        },
+        { review }
+      ),
+    discardReview: async (review, reason) => {
+      await processedStore.save({
+        externalId: review.externalId,
+        processedAt: Date.now(),
+        result: "skipped",
+        error: reason,
+      });
+      await incomingReviewQueue.remove(review.externalId);
+    },
+  });
+
+  // recoverAll 위임 (ks.recovery-split OFF) — 기존 6개 트리거(unlock/resume/
+  // 당김새로고침 등)의 recoverAll이 reconcile+targeted 경로로 바뀐다.
+  // 스위치 ON이면 미주입 → 구경로(B1~B9 일괄)로 롤백 (설계 §11.2 4단계).
+  //
+  // 계수 계약 (4단계 리뷰 #7): recovered에는 구경로와 동일하게 **네트워크 구제
+  // 실건수(targeted)만** 계수한다 — 구경로에서 B3 settle 마킹은 recorded,
+  // quote 만료는 expired로 recovered/failed 밖이었다. reconcile 정합 수치를
+  // 합산하면 "수신자가 내 토큰을 수령"한 것까지 복구 토스트로 표출된다.
+  // 예외 격리 (리뷰 #10): 구경로는 어댑터별 try/catch로 절대 reject하지
+  // 않았다 — reconcile gate의 실패 쿨다운 재-throw가 targeted까지 삼키지
+  // 않도록 단계별로 격리한다.
+  if (!killSwitches["recovery-split"]) {
+    payment.setRecoveryDelegate(async (opts) => {
+      try {
+        const rec = await recoveryScheduler.reconcile();
+        console.log(
+          `[Recovery] reconcile: settled=${rec.settled} reclaimed=${rec.reclaimed} failed=${rec.failed} cleaned=${rec.cleaned}`
+        );
+      } catch (e) {
+        console.warn("[Recovery] reconcile failed:", e);
+      }
+      try {
+        const report = await recoveryScheduler.recoverTargeted({
+          bypassGate: opts?.bypassGate,
+        });
+        // 구경로와 동일한 UI 갱신 신호 유지
+        if (report.recovered > 0) {
+          eventBus.emit({ type: "recovery:completed", payload: report });
+        }
+        return [report];
+      } catch (e) {
+        console.warn("[Recovery] targeted failed:", e);
+        return [{ moduleId: "cashu", recovered: 0, failed: 1 }];
+      }
+    });
+  }
+
   // 6. P2PK key manager
   const p2pkKeyManager = new CocoP2PKKeyManager(getCashuKeyring);
 
@@ -421,6 +525,46 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   // 8. Lifecycle: activate (Coco init + observers + watchers + bridge)
   let netCounterFlusherStop: (() => void) | null = null;
   let mintReconnectStop: (() => void) | null = null;
+
+  // 생존 heartbeat (설계 §6.3 resume / [F12]): 모바일 freeze/kill은
+  // visibilitychange:hidden을 못 남기므로, 포그라운드 동안 60초마다 기록한
+  // lastAliveAt으로 "얼마나 오래 떠나 있었나"를 판정한다. 기록 부재·손상 시
+  // 5분 초과로 간주(보수적 = 전수 재확인).
+  const LAST_ALIVE_KEY = "zappi_last_alive_at";
+  const RESUME_RECHECK_THRESHOLD_MS = 5 * 60 * 1000;
+  const markAlive = () => {
+    try {
+      localStorage.setItem(LAST_ALIVE_KEY, String(Date.now()));
+    } catch {
+      /* storage 불가 — awayLongEnough가 true로 폴백 */
+    }
+  };
+  const awayLongEnough = (): boolean => {
+    try {
+      const raw = localStorage.getItem(LAST_ALIVE_KEY);
+      const at = raw ? Number(raw) : NaN;
+      if (!Number.isFinite(at) || at <= 0) return true;
+      return Date.now() - at > RESUME_RECHECK_THRESHOLD_MS;
+    } catch {
+      return true;
+    }
+  };
+  // "포그라운드 생존"만 측정한다 — pause 중에도 interval이 돌면 hidden 탭의
+  // 스로틀된 tick이 lastAliveAt을 계속 갱신해, 장시간 백그라운드 복귀가
+  // "짧은 부재"로 오판된다 (4단계 리뷰 #5). pause에서 정지, resume에서 재개.
+  let aliveHeartbeatStop: (() => void) | null = null;
+  const startAliveHeartbeat = () => {
+    if (aliveHeartbeatStop) return;
+    markAlive();
+    const timer = setInterval(markAlive, 60_000);
+    aliveHeartbeatStop = () => clearInterval(timer);
+  };
+  const stopAliveHeartbeat = () => {
+    if (aliveHeartbeatStop) {
+      aliveHeartbeatStop();
+      aliveHeartbeatStop = null;
+    }
+  };
   // pause-during-activate 레이스 가드 (코드리뷰 #6): activate의 startPolling이
   // 이미 백그라운드로 간 앱에서 타이머를 켜는 것을 방지.
   let paused = false;
@@ -431,6 +575,20 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     if (!netCounterFlusherStop) {
       netCounterFlusherStop = startNetCounterFlusher();
     }
+
+    // 생존 heartbeat 시작 — resume recheck 판정의 원천 (설계 [F12])
+    startAliveHeartbeat();
+
+    // review 대기열 부팅 hydrate (설계 §6.2) — 이전 세션의 미해소 review를
+    // Zustand 미러로 복원해 확인 모달이 다시 뜨게 한다. store enqueue는
+    // externalId 멱등이라 watcher 재수신과 겹쳐도 무해.
+    incomingReviewQueue
+      .listAll()
+      .then((reviews) => {
+        const { enqueueIncomingReview } = useAppStore.getState();
+        reviews.forEach(enqueueIncomingReview);
+      })
+      .catch((e) => console.error("[Bootstrap] review hydrate failed:", e));
 
     // 재연결 시 health 갱신의 단일 소유 (설계 §5 — 기존에는 use-mint-health 훅
     // 인스턴스(3곳 마운트)마다 각자 reconnect effect를 등록했다). 스위치와 무관하게
@@ -501,6 +659,9 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
   const onResume = async () => {
     paused = false;
+    // 판정은 heartbeat 재개로 갱신되기 전에 — 이번 부재가 5분을 넘겼는지가 기준
+    const shouldRecheck = awayLongEnough();
+    startAliveHeartbeat();
     try {
       await resumeCashuSubscriptions();
       // 모바일 freeze 중의 online 전환은 'online' 이벤트를 남기지 않는다 —
@@ -509,9 +670,18 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
       enableCashuWatchers().catch((e) =>
         console.error("[Resume] watcher enable failed:", e)
       );
-      recheckCashuPendingMintQuotes().catch((e) =>
-        console.error("[Resume] recheck quotes failed:", e)
-      );
+      // recheck(watcher 재기동 → pending quote 전수 재확인)는 5분 초과 부재에만
+      // (설계 §6.3 resume / [F12]) — 짧은 전환마다 전수 재확인하던 버스트 제거.
+      // 짧은 부재의 공백은 구독 재개 + 브리지 push가 커버한다.
+      // 참고: pause를 거친 resume에서는 위 enable이 아직 flag를 못 세워
+      // recheck가 no-op일 수 있다 — enable 자체가 pending 전수를 재구독하므로
+      // 결과는 동등하다. recheck의 실효 경로는 pause 이벤트 없이 얼었다 깨어난
+      // freeze 복귀(flag가 true로 남은 경우)다 (4단계 재검증 잔여 #1).
+      if (shouldRecheck) {
+        recheckCashuPendingMintQuotes().catch((e) =>
+          console.error("[Resume] recheck quotes failed:", e)
+        );
+      }
     } catch {
       /* ignore if not initialized */
     }
@@ -528,6 +698,10 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
   const onPause = async () => {
     paused = true;
+    // 백그라운드 진입 시각을 마지막으로 기록하고 heartbeat 정지 —
+    // 이후 부재 시간이 그대로 lastAliveAt과의 간격이 된다
+    markAlive();
+    stopAliveHeartbeat();
     try {
       await pauseCashuSubscriptions();
     } catch {
@@ -550,6 +724,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
       mintReconnectStop();
       mintReconnectStop = null;
     }
+    stopAliveHeartbeat();
     transferLifecycle.stopPolling();
     nostrIncomingWatcher.stop();
     void nostrGateway.disconnect();
@@ -745,7 +920,9 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     addressResolver,
     recovery,
     incomingPayment,
+    recoveryScheduler,
     processedStore,
+    incomingReviewQueue,
     nostrGateway,
     pendingItems,
     withdraw,
@@ -802,6 +979,11 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
       deleteAllContacts: () => contactRepo.deleteAll(),
       clearRecoverySyncState: async () => {
         await getDatabase().giftwrapCursors.clear();
+        // review 대기열도 sync 유래 상태다 — 남기면 다음 계정의 부팅 hydrate가
+        // 이전 계정의 review를 부활시켜 타 계정 토큰이 오상환될 수 있다
+        // (4단계 리뷰 #1 blocker: 구 메모리 큐는 reload에 소멸했으므로
+        // 영속화가 만든 신규 회귀 — 로그아웃에서 반드시 삭제).
+        await getDatabase().incomingReviews.clear();
         new AnchorStoreAdapter().clearCachedAnchor();
       },
     },

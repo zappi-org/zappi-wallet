@@ -52,6 +52,9 @@ describe('NostrIncomingWatcher', () => {
 
     mockReviewQueue = {
       enqueue: vi.fn().mockResolvedValue(undefined),
+      listAll: vi.fn().mockResolvedValue([]),
+      listByMint: vi.fn().mockResolvedValue([]),
+      remove: vi.fn().mockResolvedValue(undefined),
     }
 
     mockTokenCodec = {
@@ -213,6 +216,16 @@ describe('NostrIncomingWatcher', () => {
         externalId: 'event-untrusted',
         source: 'gift-wrap',
       }),
+    )
+
+    // 순서 계약 (설계 §6.2 / 3차 리뷰 blocker): durable enqueue가 processed
+    // 마킹보다 먼저다 — 역순이면 마킹↔enqueue 사이 크래시 시 replay가 dedup에
+    // 걸려 토큰이 영구 유실된다. 이 assertion은 선마킹으로의 회귀를 CI에서 막는다.
+    const enqueueOrder = vi.mocked(mockReviewQueue.enqueue).mock.invocationCallOrder[0]
+    const markOrder = vi.mocked(mockProcessedStore.save).mock.invocationCallOrder[0]
+    expect(enqueueOrder).toBeLessThan(markOrder)
+    expect(mockProcessedStore.save).toHaveBeenCalledWith(
+      expect.objectContaining({ externalId: 'event-untrusted', result: 'pending' }),
     )
   })
 

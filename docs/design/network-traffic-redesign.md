@@ -202,7 +202,16 @@ interface RecoveryScheduler {
 | AddMint 완료 / 신뢰 추가 | recoverAll ("복원" UI와 불일치 — 실제 복구액 항상 0) [F13] | **`drainReviewQueue(mintUrl)` 신설** [N3]: 비신뢰 민트에서 온 토큰은 offline store가 아니라 **`incomingReviewQueue`** 에 쌓인다 — 민트를 명시적으로 신뢰하는 순간이 곧 사용자 승인이므로 해당 민트의 큐 항목을 자동 redeem하고, **"복구액" UI는 이 drain의 실제 상환 합계로 교체**(잔액 diff 방식 폐기). **선행조건(blocker — 3차 리뷰)**: 현 큐는 **메모리 전용 Zustand**(sync.slice, persist 없음)이고 두 enqueue 경로 모두 **processed 마킹이 durable-enqueue보다 먼저**라(nostr-incoming-watcher.ts:89-93 · recovery.service.ts:199-204) 리로드 시 큐 증발 + 재수신 영구 차단 = **기존 잠재 토큰 유실 버그**. 따라서 ① 큐를 Dexie로 영속화 ② **durable enqueue → mark-processed 순서로 교정** ③ (대안) drain 시 processedStore의 pending 레코드에서 재유도 — 이 중 ①+②가 §11.2 4단계 배포물이다. 추가로 `recoverTargeted()`(gate 우회 1회 — offline-DLEQ 토큰용, B9). 과거 잔액 시드 복구는 별도 "이 민트 복원" 액션으로 `recoverAccounts([url])` — 자동 실행 금지 |
 | Settings 현재지갑 복구 | recoverAll + recoverAccounts | `runFullNetworkRecovery()` + 기존 recoverAccounts 순차 유지 |
 
-### 6.4 RequestGate v2 [F8]
+**구현 확정 편차 (4단계, 기록 — 구현 리뷰 #1~#10 반영)**:
+- **B7b/B6이중망/로컬 failed의 종결 = tx status 갱신 그 자체** — mint-quote는 `pendingOpRepo`의 실제 행이 아니라 transactions(status=pending)의 가상 뷰(dexie-pending-operation.repository.ts)라, failed/settled 마킹이 곧 다음 스캔에서의 제거다. `pendingOpRepo.delete`는 mint-quote에 no-op이므로 호출하지 않는다(리뷰 #9). mint op state `'failed'`(d.ts:794 — melt와 달리 mint op에는 존재)도 동일 종결.
+- **drain의 큐 종결 판정은 토큰 소비 코드 화이트리스트**(`TOKEN_SPENT`/`INVALID_TOKEN`/`INVALID_PROOF` — B9 offline-token-recovery와 동일 정책), `isRetryable=false` 전체가 아님 — UNTRUSTED_MINT처럼 토큰은 유효한데 환경이 원인인 비재시도 오류가 사용자 결정 전의 review를 폐기하는 자금 손실 방지.
+- **신뢰 추가 경로의 drain 시점 = review 해소 직후**(MainApp `handleResolveIncomingReview` 말미, trusted 민트 가드 — mints는 **store에서 최신 조회**: "신뢰하고 받기"는 신뢰 추가와 해소가 같은 렌더 클로저에서 이어져 prop 캡처본이 stale이다, 리뷰 #3) — `handleAddTrustedMint` 내부에서 걸면 모달의 자체 redeem과 race하여 활성 review가 TOKEN_SPENT 오류로 표면화된다. AddMint 화면은 §6.3대로 `drainReviewQueue`+`recoverTargeted(bypass)` 직접 호출, "복구액"=drain 합계(잔액 diff 폐기). `listByMint`는 인덱스 일치가 아니라 **정규화 비교 스캔**(기본 포트·대소문자·slash 흡수 — 발신자 지갑의 raw URL 표기 편차, 리뷰 #6).
+- **recoverAll 위임의 계수 계약 = 구경로 보존**(리뷰 #7): `recovered`에는 **targeted(네트워크 구제 실건수)만** — 구경로에서 B3 settle 마킹은 recorded, quote 만료는 expired로 recovered/failed 밖이었다. reconcile 수치는 콘솔 로그만. 위임은 **단계별 try/catch로 절대 reject하지 않는다**(리뷰 #10 — 구경로의 어댑터별 격리와 동등). PaymentService의 30s 외곽 gate는 위임 경로에 미적용 — 게이팅은 위임 내부(reconcile 10s/targeted 5m)가 소유(이중 gate면 unlock 직후 Token 탭 reconcile까지 stale로 삼켜진다). 구경로(ks ON)는 기존 30s gate 유지.
+- **runFullNetworkRecovery는 RequestGate(cooldown 0)로 in-flight 공유만** — 연타는 같은 실행에 합류, 종료 후 재호출은 즉시 재실행(사용자 명시 의도). targeted gate와 분리라 full 직후 unlock의 targeted가 막히지 않는다.
+- **review-queue 영속화는 kill-switch 미대상** — 메모리 큐로의 복귀는 3차 리뷰 blocker(토큰 유실)를 재개방하므로 스위치로 되돌릴 수 있게 하지 않는다. `ks.recovery-split`은 recoverAll 위임(트리거 6곳의 행동 변화)만 구경로로 되돌린다. **로그아웃(`clearRecoverySyncState`)이 `incomingReviews`를 삭제한다**(리뷰 #1 blocker) — 남기면 다음 계정의 부팅 hydrate가 이전 계정 review를 부활시켜 타 계정 토큰이 오상환된다(구 메모리 큐는 reload에 소멸했으므로 영속화가 만든 신규 회귀였다).
+- **pause가 watcher 플래그를 리셋한다**(`suspendWatchers`, 리뷰 #2): Coco `pauseSubscriptions()`는 mintOperationWatcher를 disable하지만 Zappi가 init 시 `disabled:true`라 `resumeSubscriptions()`가 되살리지 않는다 — 플래그 리셋으로 resume의 `enableCashuWatchers()`가 재활성(비용 = 로컬 repo 읽기 + WSS 재구독뿐, 원격 버스트 없음). recheck(>5분)의 잔여 가치 = Coco측 구독 부패에 대한 강제 재구독.
+- heartbeat 키 = localStorage `zappi_last_alive_at` — **포그라운드 전용 측정**(리뷰 #5): 60s 간격, onPause에서 마지막 기록 후 interval 정지, onResume에서 판정 후 재개. pause 중에도 돌리면 hidden 탭의 스로틀된 tick이 장시간 부재를 "짧은 부재"로 오판시킨다. 부재·손상·storage 불가 ⇒ >5분 간주.
+- **멜트 브리지의 카운터 계수는 `melt-quote:paid`·`melt-op:rolled-back`만**(리뷰 #8) — `melt-op:finalized`는 같은 정산의 이중망이라 계수하면 §12 카운터(5단계 게이트 근거)가 인플레이션된다.
 
 ```ts
 export class RequestGate {
@@ -420,7 +429,7 @@ bootstrap에서 1회 읽어 조립 분기. 원격 제어 없음. **정직한 범
 | 1 | **지혈 묶음**: NUT-18 expiresAt + 배선 테스트 · RequestGate(recoverAll/checkAllMints/support.connect) · onWake 디바운스 유틸 · **melt poll 상태매핑 수정(§7.1-2)** · **watcher 온라인 재시도(§7.1-3)** · **TLS pause 정지/재개** · kill-switch 레지스트리 | 0 배포 | 항목별 revert(스위치 불요 — 전부 결함 수정) |
 | 2 | **Cursor(라이브 구독 한정)**: 스키마 v2+마이그레이션, subscribeGiftWraps since 배선, oneose, syncAll에 단일 since, deepResync 수동 버튼 + **unlock 나이검사(30d) 트리거** | 1 배포 + replay 총량 baseline | `ks.cursor` |
 | 3 | **MintInfoService**: 파사드+메모리 미러, 5 소비자 이관, health 파생(분기 B), 재연결 refresh 단일화 | SP-1 완료(분기 A 확정용 — 분기 B는 무관하게 진행 가능) | `ks.mint-info-facade` |
-| 4 | **Recovery 재편**: 행동 단위 분해(§6.1 표), 트리거 재배선, resume recheck 조건부화, **브리지 보강(§7.1-1 — B2 삭제와 동일 단계 필수 [N5])**, **review-queue 영속화+enqueue 순서 교정+drainReviewQueue(§6.3 선행조건 포함)** | 2·3 안정 1주 | `ks.recovery-split` (recoverAll 구현이 구경로로) |
+| 4 | **Recovery 재편**: 행동 단위 분해(§6.1 표), 트리거 재배선, resume recheck 조건부화, **브리지 보강(§7.1-1 — B2 삭제와 동일 단계 필수 [N5])**, **review-queue 영속화+enqueue 순서 교정+drainReviewQueue(§6.3 선행조건 포함)** | 2·3 안정 1주 — **미준수 기록: 사용자 명시 지시로 2·3 배포 직후 착수**(안정화 관찰은 배포 후 ks.recovery-split OFF 상태에서 병행) | `ks.recovery-split` (recoverAll 구현이 구경로로) |
 | 5 | **TLS 강등**: 120s stuck-sweep + 매트릭스(§7.3) | **카운터 7일 검증 프로토콜(§12) 통과** | `ks.tls-sweep` |
 | 6 | **Controller 통합**: 연결/구독 레지스트리, attach 보장, catch-up EOSE 엔진, partial 보정, 쿼리 병합, publish 스코프, RelayMgmt 프로브 대체 | 2 안정 | `ks.nostr-controller` |
 | 7 | **정리**: FeeEstimationService(8.4) · 타이핑 정책(8.5) · 외부복구 sweep(SP-2) · cleanAndRecover 처분(8.3) · 백스톱(필요시) | 각 게이트 | 항목별 |

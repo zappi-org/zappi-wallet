@@ -296,14 +296,10 @@ export class RecoveryService implements RecoveryUseCase {
           continue
         }
 
-        if (this.processedStore) {
-          await this.processedStore.save({
-            externalId: msg.eventId,
-            processedAt: Date.now(),
-            result: 'pending',
-          })
-        }
-
+        // 순서 계약 (설계 §6.2 / 리뷰 #3): processedStore 마킹은 분기의 durable
+        // 조치 이후(untrusted: enqueue 후) 또는 직전(trusted: receiveToken 전)에만.
+        // 과거의 파싱 전 일괄 'pending' 마킹은 크래시 시 replay dedup에 걸려
+        // 토큰을 영구 유실시켰다.
         try {
           const candidate = parseGiftWrapTokenContent(msg.content, msg.eventId)
           const restoreRequestId = candidate?.requestId
@@ -320,6 +316,9 @@ export class RecoveryService implements RecoveryUseCase {
             : this.tokenCodec.inspectCashuToken(directToken.token)
 
           if (!(await this.trustedMintProvider.hasTrustedMint(info.mint))) {
+            // durable enqueue(PK 멱등) 성공 후에만 마킹 — 사이에 죽으면 미마킹이라
+            // 다음 sync가 재-enqueue한다. recoveryStore는 의도적으로 미마킹:
+            // review가 해소될 때까지 이 이벤트는 종결이 아니다 (기존 시맨틱 유지).
             await this.incomingReviewQueue.enqueue({
               externalId: msg.eventId,
               token: {
@@ -333,8 +332,24 @@ export class RecoveryService implements RecoveryUseCase {
               senderPubkey: msg.sender,
               source: 'recovery',
             })
+            if (this.processedStore) {
+              await this.processedStore.save({
+                externalId: msg.eventId,
+                processedAt: Date.now(),
+                result: 'pending',
+              })
+            }
             result.eventsProcessed++
             continue
+          }
+
+          // watcher와의 동시 처리 창 축소: 수령 시도 직전 마킹 (기존 선마킹과 동일 효과)
+          if (this.processedStore) {
+            await this.processedStore.save({
+              externalId: msg.eventId,
+              processedAt: Date.now(),
+              result: 'pending',
+            })
           }
 
           const receiveResult = await this.tokenReceiver.receiveToken(directToken.token)

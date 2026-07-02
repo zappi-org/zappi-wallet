@@ -5,6 +5,11 @@
  * TLS의 주기적 polling을 push 기반으로 대체하여 네트워크 호출을 제거.
  *
  * - melt-quote:paid     → bolt11 send transfer  → settled
+ * - melt-op:finalized   → bolt11 send transfer  → settled (paid와 이중망 — 멱등)
+ * - melt-op:rolled-back → bolt11 send transfer  → failed  (설계 §7.1-1 — 4단계에서
+ *                         B2(unlock 시 melt refresh 루프) 삭제의 선행조건 [N5]:
+ *                         이 브리지가 없으면 라이브 세션의 melt 실패가 UI에 도달하지
+ *                         못하고 다음 unlock까지 잠복한다)
  * - send:finalized      → ecash send transfer   → settled
  * - send:rolled-back    → ecash send transfer   → failed
  * - mint-op:finalized   → bolt11/ecash receive  → settled
@@ -47,6 +52,29 @@ export function connectTransferSdkBridge(
     }
   })
 
+  // Melt op 종결 — melt-quote:paid를 못 받은 경우의 이중망 (resolve는 멱등).
+  // 계수 없음: 같은 melt 정산이 paid에서 이미 계수됐다 — 이중 계수는 §12
+  // 카운터(5단계 게이트 근거)를 인플레이션시킨다 (4단계 리뷰 #8)
+  const unsubMeltOpFinalized = manager.on('melt-op:finalized', async ({ operationId }) => {
+    try {
+      const resolved = await transferLifecycle.resolveByOperationRef(operationId, 'settled')
+      logResolution('melt-op:finalized', operationId, resolved)
+    } catch (err) {
+      console.error('[TransferSdkBridge] melt-op:finalized error:', err)
+    }
+  })
+
+  // Melt 실패(롤백) — 라이브 세션에서 실패를 UI에 도달시키는 유일한 push 경로
+  const unsubMeltOpRolledBack = manager.on('melt-op:rolled-back', async ({ operationId }) => {
+    incrementNetCounter('coco_push_received')
+    try {
+      const resolved = await transferLifecycle.resolveByOperationRef(operationId, 'failed')
+      logResolution('melt-op:rolled-back', operationId, resolved)
+    } catch (err) {
+      console.error('[TransferSdkBridge] melt-op:rolled-back error:', err)
+    }
+  })
+
   // Ecash send 완료 (수령자가 토큰 수령)
   const unsubSendFinalized = manager.on('send:finalized', async ({ operationId }) => {
     incrementNetCounter('coco_push_received')
@@ -82,8 +110,15 @@ export function connectTransferSdkBridge(
     }
   })
 
-  unsubscribers = [unsubMeltPaid, unsubSendFinalized, unsubSendRolledBack, unsubMintOpFinalized]
-  log('Connected (melt-quote:paid, send:finalized, send:rolled-back, mint-op:finalized)')
+  unsubscribers = [
+    unsubMeltPaid,
+    unsubMeltOpFinalized,
+    unsubMeltOpRolledBack,
+    unsubSendFinalized,
+    unsubSendRolledBack,
+    unsubMintOpFinalized,
+  ]
+  log('Connected (melt-quote:paid, melt-op:finalized, melt-op:rolled-back, send:finalized, send:rolled-back, mint-op:finalized)')
 
   return disconnectTransferSdkBridge
 }

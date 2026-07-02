@@ -135,6 +135,20 @@ export async function recheckPendingMintQuotes(): Promise<void> {
   await manager.enableMintOperationWatcher({ watchExistingPendingOnStart: true })
 }
 
+/**
+ * pause가 Coco 쪽에서 watcher를 실제로 껐다는 사실을 모듈 플래그에 반영한다
+ * (4단계 리뷰 #2): Coco `pauseSubscriptions()`는 mintOperationWatcher를
+ * disable하지만, Zappi가 init 시 `disabled: true`로 시작하기 때문에
+ * `resumeSubscriptions()`는 그것을 되살리지 않는다. 플래그를 리셋하지 않으면
+ * resume의 enableWatchers()가 no-op이 되어(93행 가드) — recheck가 조건부가 된
+ * 지금 — 5분 미만 부재 후 세션 내내 mint push가 죽는다.
+ * 재활성 비용은 로컬 repo 읽기 + WSS 재구독뿐이다(원격 체크 버스트 없음 —
+ * coco dist watchExistingPendingOnStart 확인).
+ */
+export function suspendWatchers(): void {
+  watchersEnabled = false
+}
+
 export async function getPendingMintQuotes(): Promise<MintQuote[]> {
   await getCocoManager()
   return reposInstance!.mintQuoteRepository.getPendingMintQuotes()

@@ -156,14 +156,17 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
       setProgressStep('restoring')
 
       try {
-        const beforeModules = await registry.balance.getByModule()
-        const beforeTotal = beforeModules.reduce((sum, m) => sum + m.accounts.reduce((s, a) => s + Number(a.amount.value), 0), 0)
+        // 설계 §6.3 [N3]: 민트를 명시적으로 신뢰하는 순간이 곧 사용자 승인 —
+        // 이 민트에서 온 대기 review 토큰을 자동 상환하고, "복구액"은 drain의
+        // 실제 상환 합계로 표시한다 (이전의 전후 잔액 diff는 동시 수신·수수료에
+        // 오염되는 간접 측정이었다).
+        const drained = await registry.recoveryScheduler.drainReviewQueue(normalizedUrl)
 
-        // Recover tokens for the newly added mint via recoverAll.
-        // gate 우회 (설계 §6.3): unlock/resume의 recoverAll과 30초 내에 겹치면
-        // stale 반환으로 "restoring" 단계가 무동작이 되는 것을 방지 — 민트를 방금
-        // 신뢰한 이 시점의 실행은 사용자 의도가 명시적이다.
-        await registry.payment.recoverAll({ bypassGate: true })
+        // offline-DLEQ 토큰(B9) 등 나머지 표적 구제 — gate 우회 1회 (설계 §6.3):
+        // unlock/resume의 targeted와 5분 내에 겹치면 stale 반환으로 "restoring"
+        // 단계가 무동작이 되는 것을 방지 — 방금 신뢰한 이 시점의 실행은 사용자
+        // 의도가 명시적이다.
+        await registry.recoveryScheduler.recoverTargeted({ bypassGate: true })
 
         const afterModules = await registry.balance.getByModule()
         const afterTotal = afterModules.reduce((sum, m) => sum + m.accounts.reduce((s, a) => s + Number(a.amount.value), 0), 0)
@@ -175,9 +178,8 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
         }
         setBalance({ total: afterTotal, byMint })
 
-        const recovered = afterTotal - beforeTotal
-        if (recovered > 0) {
-          setRecoveredAmount(recovered)
+        if (drained.amount > 0) {
+          setRecoveredAmount(drained.amount)
         }
       } catch (restoreErr) {
         console.warn('[AddMint] Failed to restore tokens from new mint:', restoreErr)

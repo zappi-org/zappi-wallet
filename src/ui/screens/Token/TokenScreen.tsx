@@ -92,17 +92,20 @@ export function TokenScreen({
   // sends that were claimed while observer events were missed (app backgrounded,
   // subscription paused, etc.). Throttled at module level to avoid spam on
   // rapid tab switching.
+  // 설계 §6.3 Token 탭: reconcile()만 — 로컬 정합(네트워크 0)으로 충분하다.
+  // 원격 정산 감지는 watcher/브리지 push의 소관이라 recoverAll(네트워크 구제
+  // 포함)은 과했다.
   useEffect(() => {
-    if (!registry?.payment) return
+    if (!registry?.recoveryScheduler) return
     const now = Date.now()
     if (now - lastRecoverAllRun < RECOVER_THROTTLE_MS) return
     lastRecoverAllRun = now
-    registry.payment.recoverAll()
+    registry.recoveryScheduler.reconcile()
       .then(() => {
         triggerTxRefresh()
       })
       .catch((err) => {
-        console.warn('[TokenScreen] recoverAll failed:', err)
+        console.warn('[TokenScreen] reconcile failed:', err)
       })
   }, [registry, triggerTxRefresh])
 

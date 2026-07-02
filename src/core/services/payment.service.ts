@@ -83,6 +83,17 @@ export class PaymentService implements PaymentUseCase {
    */
   private readonly recoverAllGate = new RequestGate({ cooldownMs: 30_000, failureCooldownMs: 30_000 })
 
+  /**
+   * recoverAll 위임 경로 (설계 §6.2/§11.2 4단계). bootstrap이 ks.recovery-split
+   * OFF일 때 RecoveryScheduler 조합(reconcile+recoverTargeted)을 주입한다 —
+   * 시그니처·반환 계약은 유지하고 구현만 행동 분해 경로로 바뀐다.
+   * 미주입(스위치 ON) 시 구경로(runRecoverAll: 어댑터별 B1~B9 일괄)로 동작.
+   * 게이팅은 delegate 내부(reconcile 10s / targeted 5m)가 소유하므로
+   * 이 클래스의 30s gate는 delegate 경로에 적용하지 않는다 — 이중 gate가
+   * "unlock 직후 Token 탭 reconcile"까지 삼키는 것을 막는다.
+   */
+  private recoveryDelegate: ((opts?: { bypassGate?: boolean }) => Promise<RecoveryReport[]>) | null = null
+
   constructor(
     private modules: WalletModule[],
     private txRepo: TransactionRepository,
@@ -90,6 +101,10 @@ export class PaymentService implements PaymentUseCase {
     private operationMap?: OperationMap,
     private transferLifecycle?: TransferLifecycleService,
   ) {}
+
+  setRecoveryDelegate(delegate: (opts?: { bypassGate?: boolean }) => Promise<RecoveryReport[]>): void {
+    this.recoveryDelegate = delegate
+  }
 
   // ─── Query ───
 
@@ -675,6 +690,9 @@ export class PaymentService implements PaymentUseCase {
   // ─── Recovery ───
 
   async recoverAll(opts?: { bypassGate?: boolean }): Promise<RecoveryReport[]> {
+    if (this.recoveryDelegate) {
+      return this.recoveryDelegate(opts)
+    }
     if (opts?.bypassGate) {
       return this.runRecoverAll()
     }

@@ -17,9 +17,11 @@ import type { WithdrawUseCase } from '@/core/ports/driving/withdraw.usecase'
 import type { LnurlAuthUseCase } from '@/core/ports/driving/lnurl-auth.usecase'
 import type { ProfileUseCase } from '@/core/ports/driving/profile.usecase'
 import type { RecoveryUseCase } from '@/core/ports/driving/recovery.usecase'
+import type { RecoverySchedulerUseCase } from '@/core/ports/driving/recovery-scheduler.usecase'
 import type { IncomingPaymentUseCase } from '@/core/ports/driving/incoming-payment.usecase'
 import type { PendingItemsUseCase } from '@/core/ports/driving/pending-items.usecase'
 import type { ProcessedStore } from '@/core/ports/driven/processed-store.port'
+import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-queue.port'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
 import type { MintMetadataUseCase } from '@/core/ports/driving/mint-metadata.usecase'
 import type { MintHealthUseCase } from '@/core/ports/driving/mint-health.usecase'
@@ -48,8 +50,12 @@ export interface ServiceRegistry {
   readonly addressResolver: AddressResolverUseCase
   readonly profile: ProfileUseCase
   readonly recovery: RecoveryUseCase
+  /** recoverAll 행동 분해 — reconcile/targeted/drain/full (설계 §6.2) */
+  readonly recoveryScheduler: RecoverySchedulerUseCase
   readonly incomingPayment: IncomingPaymentUseCase
   readonly processedStore: ProcessedStore
+  /** review 승인/거절/drain의 durable 제거 경로 — Zustand 미러는 어댑터가 동기화 (설계 §6.2) */
+  readonly incomingReviewQueue: IncomingReviewQueue
   readonly nostrGateway: NostrGateway
   readonly pendingItems: PendingItemsUseCase
   readonly withdraw: WithdrawUseCase

@@ -3,6 +3,7 @@ import {
   enableWatchers,
   getCocoManager,
   recheckPendingMintQuotes,
+  suspendWatchers,
 } from './internal/coco-sdk'
 
 interface KeyRingPair {
@@ -43,4 +44,8 @@ export async function resumeCashuSubscriptions(): Promise<void> {
 export async function pauseCashuSubscriptions(): Promise<void> {
   const manager = await getCocoManager()
   manager.pauseSubscriptions()
+  // Coco pause는 mintOperationWatcher를 끄지만 resume은 되살리지 않는다
+  // (init 시 disabled:true 구성) — 플래그를 동기화해야 resume의
+  // enableCashuWatchers()가 재활성한다 (4단계 리뷰 #2)
+  suspendWatchers()
 }

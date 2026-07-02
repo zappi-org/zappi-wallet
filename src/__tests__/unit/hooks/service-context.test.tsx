@@ -52,6 +52,18 @@ function createMockRegistry(): ServiceRegistry {
     mintInfo: {
       getInfo: vi.fn(),
     } as unknown as ServiceRegistry['mintInfo'],
+    recoveryScheduler: {
+      reconcile: vi.fn().mockResolvedValue({ settled: 0, reclaimed: 0, failed: 0, cleaned: 0 }),
+      recoverTargeted: vi.fn().mockResolvedValue({ moduleId: 'cashu', recovered: 0, failed: 0 }),
+      drainReviewQueue: vi.fn().mockResolvedValue({ redeemed: 0, amount: 0 }),
+      runFullNetworkRecovery: vi.fn().mockResolvedValue({ moduleId: 'cashu', recovered: 0, failed: 0 }),
+    } as unknown as ServiceRegistry['recoveryScheduler'],
+    incomingReviewQueue: {
+      enqueue: vi.fn(),
+      listAll: vi.fn().mockResolvedValue([]),
+      listByMint: vi.fn().mockResolvedValue([]),
+      remove: vi.fn(),
+    } as unknown as ServiceRegistry['incomingReviewQueue'],
     recovery: {
       syncAll: vi.fn(),
       reconstructState: vi.fn(),

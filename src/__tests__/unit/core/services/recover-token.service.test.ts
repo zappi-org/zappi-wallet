@@ -95,6 +95,9 @@ function createMocks() {
 
   const incomingReviewQueue: IncomingReviewQueue = {
     enqueue: vi.fn().mockResolvedValue(undefined),
+    listAll: vi.fn().mockResolvedValue([]),
+    listByMint: vi.fn().mockResolvedValue([]),
+    remove: vi.fn().mockResolvedValue(undefined),
   }
 
   const receiveRequest = {
@@ -260,6 +263,45 @@ describe('RecoveryService', () => {
       expect(mocks.recoveryStore.markProcessed).not.toHaveBeenCalledWith(
         expect.objectContaining({ externalId: 'ev-1', result: 'success' }),
       )
+    })
+
+    it('marks processed only AFTER the durable enqueue for untrusted tokens (순서 계약)', async () => {
+      // 순서 계약 (설계 §6.2 / 3차 리뷰 blocker): durable enqueue → processed
+      // 마킹. 역순 회귀는 마킹↔enqueue 사이 크래시에서 replay가 dedup에 걸려
+      // 토큰을 영구 유실시킨다.
+      const processedStore = {
+        save: vi.fn().mockResolvedValue(undefined),
+        exists: vi.fn().mockResolvedValue(false),
+        existsByTxId: vi.fn().mockResolvedValue(false),
+        findById: vi.fn().mockResolvedValue(null),
+        findByTxId: vi.fn().mockResolvedValue(null),
+      }
+      const serviceWithStore = new RecoveryService(
+        mocks.nostr,
+        mocks.anchorStore,
+        mocks.recoveryStore,
+        mocks.failedIncomingStore,
+        mocks.tokenReceiver,
+        mocks.trustedMintProvider,
+        mocks.incomingReviewQueue,
+        mocks.tokenCodec,
+        mocks.receiveRequest,
+        processedStore,
+      )
+      vi.mocked(mocks.nostr.fetchGiftWraps).mockResolvedValue([
+        { eventId: 'ev-order', content: DIRECT_TOKEN_RUMOR, sender: 'sender-pubkey' },
+      ])
+      vi.mocked(mocks.trustedMintProvider.hasTrustedMint).mockResolvedValue(false)
+
+      await serviceWithStore.reconstructState(params)
+
+      expect(mocks.incomingReviewQueue.enqueue).toHaveBeenCalledTimes(1)
+      expect(processedStore.save).toHaveBeenCalledWith(
+        expect.objectContaining({ externalId: 'ev-order', result: 'pending' }),
+      )
+      const enqueueOrder = vi.mocked(mocks.incomingReviewQueue.enqueue).mock.invocationCallOrder[0]
+      const markOrder = processedStore.save.mock.invocationCallOrder[0]
+      expect(enqueueOrder).toBeLessThan(markOrder)
     })
 
     it('does not queue non-retryable failure', async () => {

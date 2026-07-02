@@ -257,6 +257,26 @@ export interface NetCounterRecord {
 }
 
 /**
+ * Incoming review record — 미신뢰 민트 수신 토큰의 사용자 확인 대기열 (설계 §6.2).
+ * PendingIncomingReview의 평탄화 사본. amount의 bigint는 IDB 구현별 structured
+ * clone 편차를 피하기 위해 문자열로 저장한다. externalId(=Nostr eventId)가 PK라
+ * enqueue는 put 멱등 — durable enqueue → processed 마킹 순서의 전제.
+ */
+export interface IncomingReviewRecord {
+  externalId: string
+  mintUrl: string
+  token: string
+  amountValue: string
+  amountUnit: string
+  memo?: string
+  queuedAt: number
+  requestId?: string
+  senderPubkey?: string
+  txId?: string
+  source: 'gift-wrap' | 'recovery'
+}
+
+/**
  * Zappi Database
  */
 export class ZappiDatabase extends Dexie {
@@ -280,6 +300,7 @@ export class ZappiDatabase extends Dexie {
   pendingTransfers!: Table<PendingTransferRecord, string>
   netCounters!: Table<NetCounterRecord, string>
   giftwrapCursors!: Table<GiftwrapCursorRecord, string>
+  incomingReviews!: Table<IncomingReviewRecord, string>
 
   constructor() {
     super(DATABASE.NAME)
@@ -349,6 +370,9 @@ export class ZappiDatabase extends Dexie {
       // v21: Gift wrap since cursor — pubkey 스코프 키. 레거시 seed 없음:
       // 업그레이드는 1회 full replay 후 진짜 全EOSE로만 확립 (설계 §10 B5 / 리뷰 #5)
       giftwrapCursors: 'key',
+
+      // v22: 미신뢰 민트 수신 review 영속 대기열 (설계 §6.2 drainReviewQueue의 원천)
+      incomingReviews: 'externalId, mintUrl, queuedAt',
     })
   }
 }
@@ -420,5 +444,6 @@ export async function clearAllData(): Promise<void> {
     db.supportMessages.clear(),
     db.netCounters.clear(),
     db.giftwrapCursors.clear(),
+    db.incomingReviews.clear(),
   ])
 }

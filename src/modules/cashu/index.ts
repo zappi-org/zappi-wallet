@@ -36,4 +36,15 @@ export {
   addMint,
   decodeTokenForPaymentPayload,
   getMintInfoFromCoco,
+  getMintOpStateLocal,
+  requeuePaidMintQuotesInCoco,
+  runCocoRecoverySweeps,
+  getSendRecoveryOps,
 } from './internal/cashu-backend'
+
+// Recovery 행동 단위 (설계 §6.1) — RecoveryScheduler 배선용
+export {
+  reconcileCashu,
+  recoverLegacySendTokens,
+} from './internal/cashu-recovery'
+export { redeemPendingReceivedTokens } from './internal/offline-token-recovery'

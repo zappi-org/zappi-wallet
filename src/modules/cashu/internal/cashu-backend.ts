@@ -781,3 +781,69 @@ export async function getQuoteRecoveryOps() {
     },
   };
 }
+
+/**
+ * Coco 로컬 repo의 mint op 상태 조회 — reconcile용 (설계 §6.1 B6 이중망/B7b).
+ * 네트워크 0: getByQuote는 repository 읽기다. null이면 Coco 비추적 quote.
+ */
+export async function getMintOpStateLocal(
+  mintUrl: string,
+  quoteId: string,
+): Promise<{ state: string } | null> {
+  const manager = await getCocoManager();
+  const op = await manager.ops.mint.getByQuote(mintUrl, quoteId);
+  return op ? { state: op.state } : null;
+}
+
+/**
+ * Coco가 추적 중이나 stuck된 PAID quote 재실행 — 설계 §6.1 B7a.
+ * checkMintQuote 폴링 루프(B6) 대신 공개 API 1회 호출로 대체한다.
+ */
+export async function requeuePaidMintQuotesInCoco(): Promise<{ requeued: string[] }> {
+  const manager = await getCocoManager();
+  return manager.requeuePaidMintQuotes();
+}
+
+/**
+ * Coco recovery sweep 전종 실행 — 설계 §6.2 runFullNetworkRecovery용 (B1/B2 포함).
+ * 각 sweep은 inProgress() 확인 후 skip-and-report [N7] — Coco는 진행 중 재호출 시
+ * throw하므로(unlock 직후 버튼 연타 충돌) 가드가 필수다.
+ */
+export async function runCocoRecoverySweeps(): Promise<{ ran: string[]; skipped: string[] }> {
+  const manager = await getCocoManager();
+  const ran: string[] = [];
+  const skipped: string[] = [];
+
+  const sweeps: [string, { run(): Promise<void>; inProgress(): boolean }][] = [
+    ['send', manager.ops.send.recovery],
+    ['melt', manager.ops.melt.recovery],
+    ['receive', manager.ops.receive.recovery],
+  ];
+  for (const [name, recovery] of sweeps) {
+    if (recovery.inProgress()) {
+      skipped.push(name);
+      continue;
+    }
+    try {
+      await recovery.run();
+      ran.push(name);
+    } catch (e) {
+      logger.error(`[CashuBackend] ${name} recovery sweep failed:`, e as Error);
+      skipped.push(name);
+    }
+  }
+
+  if (manager.ops.mint.recovery.inProgress()) {
+    skipped.push('mint');
+  } else {
+    try {
+      await manager.recoverPendingMintOperations();
+      ran.push('mint');
+    } catch (e) {
+      logger.error('[CashuBackend] mint recovery sweep failed:', e as Error);
+      skipped.push('mint');
+    }
+  }
+
+  return { ran, skipped };
+}

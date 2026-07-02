@@ -779,11 +779,27 @@ export default function MainApp() {
     await resolveIncomingReview({
       processedStore: serviceRegistry.processedStore,
       receiveRequest: serviceRegistry.receiveRequest,
-      removeIncomingReview,
+      // durable 큐에서 제거 (설계 §6.2) — Zustand 미러는 큐 어댑터가 동기화
+      removeIncomingReview: (externalId) =>
+        serviceRegistry.incomingReviewQueue.remove(externalId),
       nostrGateway: serviceRegistry.nostrGateway,
       posDevices: settings.posDevices,
     }, params)
-  }, [serviceRegistry, removeIncomingReview, settings.posDevices])
+
+    // 신뢰 추가 경유 승인(설계 §6.3 [N3]): 같은 민트의 나머지 대기 review를
+    // 자동 상환한다 — 민트 신뢰가 곧 승인. 모달의 자체 redeem이 끝난 뒤라
+    // 활성 review와 race하지 않는다. 미신뢰 민트면 건너뜀(자동 폐기 방지).
+    // mints는 store에서 최신을 읽는다 — "신뢰하고 받기" 흐름은 신뢰 추가와 이
+    // 콜백이 같은 렌더 클로저 안에서 이어지므로 prop 캡처본은 신뢰 추가 이전
+    // 값이다 (4단계 리뷰 #3).
+    const reviewMint = normalizeMintUrl(params.review.token.mintUrl)
+    const currentMints = useAppStore.getState().settings.mints
+    if (currentMints.some((m) => normalizeMintUrl(m) === reviewMint)) {
+      serviceRegistry.recoveryScheduler
+        .drainReviewQueue(reviewMint)
+        .catch((e) => console.warn('[App] review drain failed:', e))
+    }
+  }, [serviceRegistry, settings.posDevices])
 
   const handleRejectIncomingReview = useCallback(async (review: PendingIncomingReview) => {
     if (serviceRegistry) {
@@ -793,9 +809,12 @@ export default function MainApp() {
         result: 'skipped',
         error: 'Rejected by user',
       })
+      // durable 큐에서 제거 — 미제거 시 다음 부팅 hydrate에 부활한다 (설계 §6.2)
+      await serviceRegistry.incomingReviewQueue.remove(review.externalId)
+    } else {
+      removeIncomingReview(review.externalId)
     }
 
-    removeIncomingReview(review.externalId)
     clearIncomingReviewState()
     setCurrentScreen(previousScreen || 'home')
     setPreviousScreen(null)

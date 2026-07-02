@@ -389,10 +389,11 @@ export function SettingsScreen({
 
       setRestoreProgress(t('settings.recoveringLightning'))
       try {
-        // 사용자 명시 복구 버튼 — gate 우회 (설계 §6.4 / R7)
-        const recoveryReports = await registry.payment.recoverAll({ bypassGate: true })
-        const totalRecovered = recoveryReports.reduce((s, r) => s + (r.recovered ?? 0), 0)
-        if (totalRecovered > 0) console.log('[Settings] Recovered:', totalRecovered)
+        // 사용자 명시 복구 버튼 — gate 미적용 (설계 §6.2/§6.3): Coco sweep
+        // 전종(B1/B2 포함) + 표적 구제 + 로컬 정합. 연타는 in-flight 공유,
+        // 진행 중 Coco sweep은 개별 skip [N7].
+        const report = await registry.recoveryScheduler.runFullNetworkRecovery()
+        if (report.recovered > 0) console.log('[Settings] Recovered:', report.recovered)
       } catch (err) {
         console.warn('[Settings] Recovery failed:', err)
       }
@@ -429,7 +430,7 @@ export function SettingsScreen({
       setIsRestoring(false)
       setRestoreProgress('')
     }
-  }, [settings.mints, setBalance, t, registry.balance, registry.payment])
+  }, [settings.mints, setBalance, t, registry.balance, registry.payment, registry.recoveryScheduler])
 
   const handleRestoreExternalMnemonic = useCallback(async () => {
     const mints = settings.mints

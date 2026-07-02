@@ -21,6 +21,15 @@ function createMockRegistry(reclaimService: ReturnType<typeof vi.fn>, txMgmt?: {
       reclaim: reclaimService,
     } as unknown as ServiceRegistry['reclaim'],
     mintInfo: { getInfo: vi.fn() } as unknown as ServiceRegistry['mintInfo'],
+    recoveryScheduler: {
+      reconcile: vi.fn().mockResolvedValue({ settled: 0, reclaimed: 0, failed: 0, cleaned: 0 }),
+      recoverTargeted: vi.fn().mockResolvedValue({ moduleId: 'cashu', recovered: 0, failed: 0 }),
+      drainReviewQueue: vi.fn().mockResolvedValue({ redeemed: 0, amount: 0 }),
+      runFullNetworkRecovery: vi.fn().mockResolvedValue({ moduleId: 'cashu', recovered: 0, failed: 0 }),
+    } as unknown as ServiceRegistry['recoveryScheduler'],
+    incomingReviewQueue: {
+      enqueue: vi.fn(), listAll: vi.fn().mockResolvedValue([]), listByMint: vi.fn().mockResolvedValue([]), remove: vi.fn(),
+    } as unknown as ServiceRegistry['incomingReviewQueue'],
     eventBus: { emit: vi.fn(), on: vi.fn().mockReturnValue(() => { }), off: vi.fn() },
     balance: { getTotal: vi.fn(), getByModule: vi.fn() } as unknown as ServiceRegistry['balance'],
     swap: { getAvailableSwaps: vi.fn(), estimateSwap: vi.fn(), executeSwap: vi.fn() } as unknown as ServiceRegistry['swap'],

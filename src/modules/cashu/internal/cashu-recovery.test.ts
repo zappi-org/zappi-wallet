@@ -2,7 +2,13 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { sat } from '@/core/domain/amount'
 import type { Transaction } from '@/core/domain/transaction'
-import { recoverPendingQuotes, recoverPendingSendTokens } from './cashu-recovery'
+import {
+  recoverPendingQuotes,
+  recoverPendingSendTokens,
+  reconcileCashu,
+  reconcileMintQuotes,
+} from './cashu-recovery'
+import type { PendingOperation } from '@/core/domain/pending-operation'
 import type { PendingOperationRepository } from '@/core/ports/driven/pending-operation.repository.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 
@@ -301,5 +307,170 @@ describe('recoverPendingQuotes', () => {
       outcome: 'claimed',
       completedAt: expect.any(Number),
     })
+  })
+})
+
+// ─── reconcile (설계 §6.1 B5/B6이중망/B7b — 로컬 정합, 네트워크 0) ───
+
+function quoteOp(id: string, overrides: Partial<PendingOperation> = {}): PendingOperation {
+  return {
+    id,
+    kind: 'mint-quote',
+    accountId: 'https://active.mint',
+    amount: sat(100),
+    createdAt: Date.now(),
+    expiresAt: Date.now() + 60 * 60 * 1000,
+    metadata: { quoteId: `q-${id}` },
+    ...overrides,
+  }
+}
+
+describe('reconcileMintQuotes (분기 표: B5 만료/제거민트/식별불가 · B7b null · B6 finalized · failed · 진행중 무간섭)', () => {
+  async function run(ops: PendingOperation[], lookup: Record<string, { state: string } | null>) {
+    const pendingOpRepo = createPendingOpRepoMock()
+    const txRepo = createTxRepoMock()
+    vi.mocked(pendingOpRepo.list).mockResolvedValue(ops)
+    const mintOpLookup = vi.fn(async (_mintUrl: string, quoteId: string) => {
+      if (!(quoteId in lookup)) throw new Error(`unexpected lookup ${quoteId}`)
+      return lookup[quoteId]
+    })
+    const result = await reconcileMintQuotes({
+      pendingOpRepo,
+      txRepo,
+      activeMintUrls: ['https://active.mint'],
+      mintOpLookup,
+    })
+    return { result, txRepo, pendingOpRepo, mintOpLookup }
+  }
+
+  it('B5: expired quote → failed, without any Coco lookup', async () => {
+    const { result, txRepo, mintOpLookup } = await run(
+      [quoteOp('exp', { expiresAt: Date.now() - 1000 })],
+      {},
+    )
+
+    expect(result).toEqual({ settled: 0, failed: 1 })
+    expect(txRepo.update).toHaveBeenCalledWith('exp', { status: 'failed', completedAt: expect.any(Number) })
+    expect(mintOpLookup).not.toHaveBeenCalled()
+  })
+
+  it('B5: removed-mint quote → failed, without any Coco lookup', async () => {
+    const { result, txRepo, mintOpLookup } = await run(
+      [quoteOp('gone', { accountId: 'https://removed.mint' })],
+      {},
+    )
+
+    expect(result).toEqual({ settled: 0, failed: 1 })
+    expect(txRepo.update).toHaveBeenCalledWith('gone', { status: 'failed', completedAt: expect.any(Number) })
+    expect(mintOpLookup).not.toHaveBeenCalled()
+  })
+
+  it('B5: unidentifiable quote (no quoteId) is failed only once expired', async () => {
+    const fresh = quoteOp('fresh-anon', { metadata: {} })
+    const expired = quoteOp('exp-anon', { metadata: {}, expiresAt: Date.now() - 1000 })
+    const { result, txRepo } = await run([fresh, expired], {})
+
+    expect(result).toEqual({ settled: 0, failed: 1 })
+    expect(txRepo.update).toHaveBeenCalledTimes(1)
+    expect(txRepo.update).toHaveBeenCalledWith('exp-anon', { status: 'failed', completedAt: expect.any(Number) })
+  })
+
+  it('B7b: Coco-untracked quote (lookup null) → failed 종결 — 의도적 행동 변경', async () => {
+    const { result, txRepo } = await run([quoteOp('orphan')], { 'q-orphan': null })
+
+    expect(result).toEqual({ settled: 0, failed: 1 })
+    expect(txRepo.update).toHaveBeenCalledWith('orphan', { status: 'failed', completedAt: expect.any(Number) })
+  })
+
+  it('B6 이중망: local finalized op settles the pending tx (observer 유실 회수)', async () => {
+    const { result, txRepo } = await run([quoteOp('done')], { 'q-done': { state: 'finalized' } })
+
+    expect(result).toEqual({ settled: 1, failed: 0 })
+    expect(txRepo.update).toHaveBeenCalledWith('done', {
+      status: 'settled',
+      outcome: 'claimed',
+      completedAt: expect.any(Number),
+    })
+  })
+
+  it('local failed op → failed', async () => {
+    const { result, txRepo } = await run([quoteOp('bad')], { 'q-bad': { state: 'failed' } })
+
+    expect(result).toEqual({ settled: 0, failed: 1 })
+    expect(txRepo.update).toHaveBeenCalledWith('bad', { status: 'failed', completedAt: expect.any(Number) })
+  })
+
+  it('in-flight Coco states (init/pending/executing) are left untouched', async () => {
+    const { result, txRepo } = await run(
+      [quoteOp('a'), quoteOp('b'), quoteOp('c')],
+      { 'q-a': { state: 'init' }, 'q-b': { state: 'pending' }, 'q-c': { state: 'executing' } },
+    )
+
+    expect(result).toEqual({ settled: 0, failed: 0 })
+    expect(txRepo.update).not.toHaveBeenCalled()
+  })
+
+  it('a lookup throw skips that quote without marking or aborting the scan', async () => {
+    const pendingOpRepo = createPendingOpRepoMock()
+    const txRepo = createTxRepoMock()
+    vi.mocked(pendingOpRepo.list).mockResolvedValue([quoteOp('boom'), quoteOp('ok')])
+    const mintOpLookup = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('coco not ready'))
+      .mockResolvedValueOnce({ state: 'finalized' })
+
+    const result = await reconcileMintQuotes({
+      pendingOpRepo,
+      txRepo,
+      activeMintUrls: ['https://active.mint'],
+      mintOpLookup,
+    })
+
+    expect(result).toEqual({ settled: 1, failed: 0 })
+    expect(txRepo.update).toHaveBeenCalledTimes(1)
+    expect(txRepo.update).toHaveBeenCalledWith('ok', expect.objectContaining({ status: 'settled' }))
+  })
+})
+
+describe('reconcileCashu (네트워크 0 계약)', () => {
+  it('composes B3+quotes+B8 and never calls network behaviors', async () => {
+    const pendingOpRepo = createPendingOpRepoMock()
+    const txRepo = createTxRepoMock()
+    vi.mocked(pendingOpRepo.list).mockResolvedValue([
+      {
+        id: 'send-1',
+        kind: 'send-token',
+        accountId: 'https://active.mint',
+        amount: sat(50),
+        createdAt: 1,
+        metadata: { operationId: 'op-1' },
+      },
+      quoteOp('done'),
+    ])
+    vi.mocked(pendingOpRepo.deleteExpired).mockResolvedValue(3)
+    vi.mocked(txRepo.getById).mockResolvedValue({
+      id: 'send-1',
+      direction: 'send',
+      method: 'cashu:ecash',
+      protocol: 'cashu-token',
+      amount: sat(50),
+      accountId: 'https://active.mint',
+      status: 'pending',
+      outcome: 'unclaimed',
+      createdAt: 1,
+    } as Transaction)
+    // B3는 로컬 op 조회(get)만 — runRecovery(B1 네트워크 sweep)는 타입상 요구되지 않는다
+    const sendOps = { get: vi.fn().mockResolvedValue({ state: 'rolled_back' }) }
+
+    const report = await reconcileCashu({
+      pendingOpRepo,
+      txRepo,
+      activeMintUrls: ['https://active.mint'],
+      sendOps,
+      mintOpLookup: vi.fn().mockResolvedValue({ state: 'finalized' }),
+    })
+
+    expect(report).toEqual({ settled: 1, reclaimed: 1, failed: 0, cleaned: 3 })
+    expect(pendingOpRepo.deleteExpired).toHaveBeenCalled()
   })
 })

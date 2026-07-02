@@ -7,7 +7,8 @@ import type { POSDevice } from '@/core/types/wallet'
 export interface ResolveIncomingReviewDeps {
   processedStore: Pick<ProcessedStore, 'save'>
   receiveRequest: Pick<ReceiveRequestUseCase, 'findByRequestId' | 'complete'>
-  removeIncomingReview: (externalId: string) => void
+  /** durable 큐 제거 경로 (설계 §6.2) — Zustand 미러는 큐 어댑터가 동기화 */
+  removeIncomingReview: (externalId: string) => void | Promise<void>
   nostrGateway?: Pick<NostrGateway, 'getRelayStatus' | 'sendPrivateDirectMessage'>
   posDevices?: POSDevice[] | undefined
 }
@@ -28,7 +29,7 @@ export async function resolveIncomingReview(
     result: 'success',
   })
 
-  deps.removeIncomingReview(params.review.externalId)
+  await deps.removeIncomingReview(params.review.externalId)
   await maybeAckIncomingReview(deps, params.review)
 }
 

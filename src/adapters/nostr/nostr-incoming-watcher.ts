@@ -107,12 +107,18 @@ export class NostrIncomingWatcher {
       return
     }
 
-    // 3a. recovery와의 양방향 race 방지: 모든 중복 체크 통과 즉시 마킹
-    await this.processedStore.save({
-      externalId: msg.eventId,
-      processedAt: Date.now(),
-      result: 'pending',
-    })
+    // 순서 계약 (설계 §6.2 / 리뷰 #3): processed 마킹은 각 분기의 durable 조치
+    // (review enqueue / transfer 생성) **직전·직후**에만 한다. 과거처럼 파싱 전에
+    // 일괄 마킹하면, 마킹과 enqueue 사이 크래시 시 replay가 dedup에 걸려 토큰이
+    // 영구 유실된다. 마킹 지연으로 넓어지는 watcher↔recovery 동시 처리 창은
+    // 수용한다 — enqueue는 PK 멱등, transfer 경로는 분기 직전 마킹으로 기존과
+    // 동일하게 좁힌다.
+    const markProcessed = (result: 'pending' | 'skipped') =>
+      this.processedStore.save({
+        externalId: msg.eventId,
+        processedAt: Date.now(),
+        result,
+      })
 
     // 4. 5종 메시지 포맷 파싱
     const candidate = parseGiftWrapTokenContent(msg.content, msg.eventId, {
@@ -120,24 +126,32 @@ export class NostrIncomingWatcher {
     })
     if (!candidate) {
       console.log('[NostrIncomingWatcher] Not a token payload, skipping:', msg.eventId.substring(0, 8))
+      await markProcessed('skipped')
       return
     }
 
     const parsed = this.materializeCandidate(candidate)
-    if (!parsed) return
+    if (!parsed) {
+      await markProcessed('skipped')
+      return
+    }
 
     // 5. mint 신뢰도 확인
     let info: { mint: string; amount: import('@/core/domain/amount').Amount; memo?: string }
     try {
       info = this.tokenCodec.inspectCashuToken(parsed.token)
     } catch (error) {
+      // 디코딩 불가 토큰 — 영구 결함이므로 종결 마킹 (재시도 무의미)
       console.warn('[NostrIncomingWatcher] Failed to inspect token:', error)
+      await markProcessed('skipped')
       return
     }
 
     const trusted = await this.trustedMintProvider.hasTrustedMint(info.mint)
     if (!trusted) {
-      // untrusted: review queue에 넣고 사용자 확인 대기 (transfer 미생성)
+      // untrusted: review queue에 넣고 사용자 확인 대기 (transfer 미생성).
+      // durable enqueue가 완료된 뒤에만 마킹 — 사이에 죽으면 미마킹이라 replay가
+      // 재-enqueue한다(멱등).
       await this.incomingReviewQueue.enqueue({
         externalId: msg.eventId,
         token: {
@@ -153,8 +167,12 @@ export class NostrIncomingWatcher {
         txId: parsed.txId,
         source: 'gift-wrap',
       })
+      await markProcessed('pending')
       return
     }
+
+    // recovery와의 동시 처리 창 축소: transfer 생성 직전 마킹 (기존 3a와 동일 효과)
+    await markProcessed('pending')
 
     // 6. trusted: PendingTransfer 생성 (direction: incoming)
     const transfer = createPendingTransfer({
