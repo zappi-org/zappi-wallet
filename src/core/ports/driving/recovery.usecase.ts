@@ -29,7 +29,17 @@ export interface RecoveryUseCase {
   }): Promise<SyncResult>
 
   /** Reconstruct state only (recover missed tokens) */
-  reconstructState(params: {
+  reconstructState(
+    params: {
+      privateKey: string
+      publicKey: string
+      relays: string[]
+    },
+    opts?: { fullReplay?: boolean; sinceSecOverride?: number },
+  ): Promise<SyncResult>
+
+  /** 수동 전체 재동기화 — 재설치급 full replay (설계 §10 B5). deep-resync 창도 리셋 */
+  resyncFull(params: {
     privateKey: string
     publicKey: string
     relays: string[]

@@ -16,6 +16,12 @@ import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-qu
 import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request.usecase'
 import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
+import type { GiftwrapCursorStore } from '@/core/ports/driven/giftwrap-cursor-store.port'
+import {
+  giftwrapCursorKey,
+  shouldDeepResync,
+  sinceForDeepResync,
+} from '@/core/domain/giftwrap-cursor'
 import type {
   RecoveryUseCase,
   AnchorCheckResult,
@@ -35,6 +41,8 @@ import {
 // ─── Anchor constants ───
 
 const ANCHOR_VALIDITY_SECONDS = 2 * 24 * 60 * 60
+/** full/deep 창 fetch의 querySync 대기 상한 — 기본 5초로는 백로그 드레인 불가 (리뷰 #3) */
+const DEEP_FETCH_MAX_WAIT_MS = 30_000
 const ANCHOR_MESSAGE_TYPE = 'zappi-anchor'
 const ANCHOR_VERSION = 1
 type ReceiveRequestSettlement = Pick<ReceiveRequestUseCase, 'settleByPaymentRef'>
@@ -68,6 +76,8 @@ export class RecoveryService implements RecoveryUseCase {
     private readonly receiveRequest?: ReceiveRequestSettlement,
     private readonly processedStore?: ProcessedStore,
     private readonly txRepo?: TransactionRepository,
+    /** since cursor 저장소 (설계 §10 B5). 미주입(ks.cursor) 시 deep-resync는 no-op. */
+    private readonly cursorStore?: GiftwrapCursorStore,
   ) {}
 
   // ─── syncAll (orchestration) ───
@@ -77,7 +87,7 @@ export class RecoveryService implements RecoveryUseCase {
     publicKey: string
     relays: string[]
   }): Promise<SyncResult> {
-    const { anchor } = await this.check(params)
+    const { anchor, isRecoveryMode } = await this.check(params)
 
     if (!anchor) {
       return {
@@ -90,13 +100,85 @@ export class RecoveryService implements RecoveryUseCase {
       }
     }
 
-    const result = await this.reconstructState(params)
+    // 재설치(isRecoveryMode)만 전체 replay가 정당 — 평시는 cursor 창 (설계 §10 B5)
+    const result = await this.reconstructState(params, { fullReplay: isRecoveryMode })
 
     const retryResult = await this.retryFailedIncomings()
     if (retryResult.errors.length > 0) {
       result.errors.push(...retryResult.errors)
     }
 
+    // 지연 발행(>2일) 안전망 — unlock 시 30일 나이 검사 (설계 [F3]: PWA엔 스케줄러가 없다)
+    try {
+      const deep = await this.maybeDeepResync(params)
+      if (deep) {
+        // deep 결과를 합산해 unlock 토스트가 과소 보고하지 않게 (리뷰 #7)
+        result.eventsProcessed += deep.eventsProcessed
+        result.tokensReceived += deep.tokensReceived
+        result.amountReceived += deep.amountReceived
+        result.failedIncomings += deep.failedIncomings
+        result.errors.push(...deep.errors)
+      }
+    } catch (error) {
+      result.errors.push(`Deep resync failed: ${error}`)
+    }
+
+    return result
+  }
+
+  /**
+   * 수동 "전체 재동기화" — 재설치급 full replay (설계 §10 B5 deep-resync 트리거 ①).
+   * 완료 시 deep-resync 창도 리셋한다(전체가 창을 포괄하므로).
+   */
+  async resyncFull(params: {
+    privateKey: string
+    publicKey: string
+    relays: string[]
+  }): Promise<SyncResult> {
+    const result = await this.reconstructState(params, { fullReplay: true })
+
+    const retryResult = await this.retryFailedIncomings()
+    if (retryResult.errors.length > 0) {
+      result.errors.push(...retryResult.errors)
+    }
+
+    // deep 창 리셋은 **오류 없는 실행**에만 (리뷰 #3) — isSyncing 단락('Sync already
+    // in progress')·부분 실패가 30일 안전망을 소모하지 않게 한다.
+    if (this.cursorStore && result.errors.length === 0) {
+      await this.cursorStore
+        .markDeepResync(giftwrapCursorKey(params.publicKey), Date.now())
+        .catch(() => {})
+    }
+
+    return result
+  }
+
+  /** deep-resync 창(마지막 deep-resync 이후 − Ω)으로 1회 재조회 — 바운디드 [F3] */
+  private async maybeDeepResync(params: {
+    privateKey: string
+    publicKey: string
+    relays: string[]
+  }): Promise<SyncResult | null> {
+    if (!this.cursorStore) return null
+
+    const key = giftwrapCursorKey(params.publicKey)
+    const record = await this.cursorStore.load(key)
+    const now = Date.now()
+    if (!shouldDeepResync(record, now)) return null
+
+    const since = sinceForDeepResync(record)
+    console.log('[Recovery] Deep resync (30d age check), since:', since)
+    const result = await this.reconstructState(params, {
+      sinceSecOverride: since,
+      // since를 못 구하는 비정상 상태면 전체 창으로 (유실 방지 우선)
+      fullReplay: since === undefined,
+    })
+
+    // 마커 전진은 **오류 없는 실행**에만 (리뷰 #3) — isSyncing 단락이나 부분
+    // 실패가 30일 안전망을 조용히 소모하면 안 된다.
+    if (result.errors.length === 0) {
+      await this.cursorStore.markDeepResync(key, now)
+    }
     return result
   }
 
@@ -158,11 +240,19 @@ export class RecoveryService implements RecoveryUseCase {
 
   // ─── State reconstruction ───
 
-  async reconstructState(params: {
-    privateKey: string
-    publicKey: string
-    relays: string[]
-  }): Promise<SyncResult> {
+  async reconstructState(
+    params: {
+      privateKey: string
+      publicKey: string
+      relays: string[]
+    },
+    opts?: {
+      /** 재설치·수동 전체 재동기화 — since 미적용 */
+      fullReplay?: boolean
+      /** deep-resync 등 명시 창(초) — cursor 계산보다 우선 */
+      sinceSecOverride?: number
+    },
+  ): Promise<SyncResult> {
     const startTime = Date.now()
     const result: SyncResult = {
       eventsProcessed: 0,
@@ -184,6 +274,16 @@ export class RecoveryService implements RecoveryUseCase {
       const messages = await this.nostr.fetchGiftWraps({
         recipientPubkey: params.publicKey,
         relays: params.relays,
+        // cursor 창 적용 (설계 §10 B5) — gateway가 store 미주입(ks.cursor)이면 무시
+        cursor: {
+          key: giftwrapCursorKey(params.publicKey),
+          fullReplay: opts?.fullReplay,
+        },
+        sinceSecOverride: opts?.sinceSecOverride,
+        // full/deep 창은 대기 상한을 키운다 (리뷰 #3 — 5초 부분 fetch가 "완료"로 위장 방지)
+        ...(opts?.fullReplay || opts?.sinceSecOverride !== undefined
+          ? { maxWaitMs: DEEP_FETCH_MAX_WAIT_MS }
+          : {}),
       })
 
       for (const msg of messages) {

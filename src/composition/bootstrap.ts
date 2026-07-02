@@ -52,7 +52,8 @@ import {
   removeMintFromCoco,
   unmarkQuoteAsSwap,
 } from "@/modules/cashu";
-import { clearMintData } from "@/adapters/storage/dexie/schema";
+import { clearMintData, getDatabase } from "@/adapters/storage/dexie/schema";
+import { AnchorStoreAdapter } from "@/adapters/storage/anchor-store.adapter";
 import { resetWalletCache } from "@/adapters/cache/wallet-cache";
 import { LocalStorageBalanceCache } from "@/adapters/cache/local-storage-balance-cache.adapter";
 
@@ -108,6 +109,8 @@ import {
   flushNetCounters,
   startNetCounterFlusher,
 } from "@/adapters/telemetry/net-counters";
+import { readKillSwitches } from "@/core/utils/kill-switch";
+import { DexieGiftwrapCursorStore } from "@/adapters/storage/dexie/dexie-giftwrap-cursor.store";
 import { ZappiLinkAdapter } from "@/adapters/zappi-link/zappi-link.adapter";
 import { finalizeEvent } from "nostr-tools";
 import { hexToBytes } from "@noble/hashes/utils.js";
@@ -197,6 +200,12 @@ export interface BootstrapResult extends ServiceRegistry {
     resetWalletCache(): void;
     clearBalanceCache(): void;
     deleteAllContacts(): Promise<void>;
+    /**
+     * 로그아웃 시 recovery 동기화 상태 초기화 (리뷰 #6): giftwrapCursors + anchor
+     * 캐시. 남기면 같은 니모닉 복원이 "재설치 full replay" 대신 바운디드 창으로
+     * 시작해 Ω보다 오래된 미상환 토큰을 놓친다.
+     */
+    clearRecoverySyncState(): Promise<void>;
   };
 
   // ─── Exchange rate ───
@@ -248,8 +257,15 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   );
 
   // 2. Nostr Gateway
+  // kill-switch 스냅샷 — bootstrap 1회 읽기로 조립 분기 (설계 §11.1)
+  const killSwitches = readKillSwitches();
+  // ks.cursor ON이면 store 미주입 → cursor 스펙이 무시되어 구동작(전체 replay)
+  const giftwrapCursorStore = killSwitches.cursor
+    ? undefined
+    : new DexieGiftwrapCursorStore();
   const nostrGateway = new NostrGatewayAdapter({
     privateKeyHex: deps.nostrPrivateKeyHex,
+    cursorStore: giftwrapCursorStore,
   });
 
   // 3. Cashu Module (initialize()는 caller가 seed로 호출)
@@ -524,7 +540,9 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     trustedMintProvider,
     incomingReviewQueue,
     tokenCodec,
-    () => useAppStore.getState().pendingEcashRequestId
+    () => useAppStore.getState().pendingEcashRequestId,
+    // 全EOSE 판정용 persistent relay 집합 (리뷰 #2 — 연결 스냅샷 금지)
+    () => useAppStore.getState().settings.relays
   );
 
   // 11. Additional services
@@ -536,7 +554,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     receiveRequest,
     recoveryStoreAdapter,
     processedStore,
-    txRepo
+    txRepo,
+    giftwrapCursorStore
   );
   const incomingPayment = new IncomingPaymentService(
     payment,
@@ -712,6 +731,10 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
       resetWalletCache,
       clearBalanceCache: () => balanceCache.clear(),
       deleteAllContacts: () => contactRepo.deleteAll(),
+      clearRecoverySyncState: async () => {
+        await getDatabase().giftwrapCursors.clear();
+        new AnchorStoreAdapter().clearCachedAnchor();
+      },
     },
 
     // Exchange rate

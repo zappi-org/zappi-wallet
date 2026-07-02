@@ -118,7 +118,8 @@ export const STORAGE_KEYS = {
 export const DATABASE = {
   NAME: 'zappi_wallet_db',
   // v20: netCounters 테이블 추가 (프로덕션 집계 카운터 — 설계 §12)
-  VERSION: 20,
+  // v21: giftwrapCursors 테이블 추가 (gift wrap since cursor — 설계 §10 B5)
+  VERSION: 21,
 } as const
 
 /**

@@ -52,6 +52,7 @@ function createMockRegistry(): ServiceRegistry {
     recovery: {
       syncAll: vi.fn(),
       reconstructState: vi.fn(),
+      resyncFull: vi.fn(),
       retryFailedIncomings: vi.fn(),
       getFailedIncomings: vi.fn(),
       getSyncStatus: vi.fn(),

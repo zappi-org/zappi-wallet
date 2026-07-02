@@ -1,6 +1,7 @@
 import Dexie, { type Table } from 'dexie'
 import type { Transaction, WalletSettings, MintMetadata, ExchangeRateCache, Contact } from '@/core/types'
 import type { ProcessedRecord, SyncAnchor } from '@/core/types'
+import type { GiftwrapCursorRecord } from '@/core/domain/giftwrap-cursor'
 import type {
   SupportAttachment,
   SupportCategory,
@@ -278,6 +279,7 @@ export class ZappiDatabase extends Dexie {
   supportMessages!: Table<SupportMessageRecord, string>
   pendingTransfers!: Table<PendingTransferRecord, string>
   netCounters!: Table<NetCounterRecord, string>
+  giftwrapCursors!: Table<GiftwrapCursorRecord, string>
 
   constructor() {
     super(DATABASE.NAME)
@@ -343,6 +345,10 @@ export class ZappiDatabase extends Dexie {
 
       // v20: Net counters — 프로덕션 집계 카운터 (설계 §12, PII 없음, 원격 전송 없음)
       netCounters: 'name',
+
+      // v21: Gift wrap since cursor — pubkey 스코프 키. 레거시 seed 없음:
+      // 업그레이드는 1회 full replay 후 진짜 全EOSE로만 확립 (설계 §10 B5 / 리뷰 #5)
+      giftwrapCursors: 'key',
     })
   }
 }
@@ -412,5 +418,7 @@ export async function clearAllData(): Promise<void> {
     db.receiveRequests.clear(),
     db.supportTickets.clear(),
     db.supportMessages.clear(),
+    db.netCounters.clear(),
+    db.giftwrapCursors.clear(),
   ])
 }

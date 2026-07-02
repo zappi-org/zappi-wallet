@@ -20,6 +20,7 @@ import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-qu
 import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
 import { createPendingTransfer } from '@/core/domain/pending-transfer'
 import { toNumber } from '@/core/domain/amount'
+import { giftwrapCursorKey } from '@/core/domain/giftwrap-cursor'
 import { incrementNetCounter } from '@/adapters/telemetry/net-counters'
 import {
   parseGiftWrapTokenContent,
@@ -39,13 +40,26 @@ export class NostrIncomingWatcher {
     private readonly incomingReviewQueue: IncomingReviewQueue,
     private readonly tokenCodec: TokenCodec,
     private readonly getPendingRequestId: () => string | null,
+    /**
+     * 全EOSE(full-sync) 판정용 persistent relay 집합 (설계 §10 B5 / 리뷰 #2).
+     * 연결 스냅샷이 아닌 **설정값** — 다운 relay가 cursor를 붙들어야 유실이 없다.
+     */
+    private readonly getPersistentRelays: () => string[] = () => [],
   ) {}
 
   start(recipientPubkey: string): void {
     if (this.unsubscribe) return
 
     this.unsubscribe = this.nostrGateway.subscribeGiftWraps(
-      { recipientPubkey },
+      // cursor 창 적용 (설계 §10 B5) — 매 (재)구독의 전체 히스토리 replay를
+      // lastFullSync − Ω 창으로 축소. gateway가 store 미주입(ks.cursor)이면 무시.
+      {
+        recipientPubkey,
+        cursor: {
+          key: giftwrapCursorKey(recipientPubkey),
+          fullSyncTargets: this.getPersistentRelays(),
+        },
+      },
       async (msg) => {
         await this.handleMessage(msg).catch((err) => {
           console.warn('[NostrIncomingWatcher] Failed to process giftwrap:', err)

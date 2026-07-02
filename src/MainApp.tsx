@@ -940,6 +940,8 @@ export default function MainApp() {
         await serviceRegistry.support.destroy().catch(() => undefined)
         await serviceRegistry.cleanup.deleteAllContacts()
         await serviceRegistry.cleanup.deleteCocoData()
+        // cursor·anchor 캐시 정리 — 같은 니모닉 복원이 재설치 full replay로 시작하게 (리뷰 #6)
+        await serviceRegistry.cleanup.clearRecoverySyncState().catch(() => undefined)
         serviceRegistry.cleanup.clearWalletCache()
         serviceRegistry.cleanup.resetWalletCache()
       }

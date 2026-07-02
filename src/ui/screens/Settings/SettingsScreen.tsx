@@ -113,6 +113,7 @@ export function SettingsScreen({
   // Restore modal
   const [showRestoreModal, setShowRestoreModal] = useState(false)
   const [restoreMode, setRestoreMode] = useState<'current' | 'external'>('current')
+  const [isFullResyncing, setIsFullResyncing] = useState(false)
   const [isRestoring, setIsRestoring] = useState(false)
   const [restoreProgress, setRestoreProgress] = useState('')
   const [restoreResult, setRestoreResult] = useState<{ success: boolean; message: string } | null>(null)
@@ -533,6 +534,7 @@ export function SettingsScreen({
               setExternalMnemonicWords(Array(RECOVERY_PHRASE_WORD_COUNT).fill(''))
               setShowRestoreModal(true)
             }}
+            onFullResync={handleFullResync}
             onOpenBackup={() => setShowBackupModal(true)}
           />
         )
@@ -540,6 +542,35 @@ export function SettingsScreen({
         return null
     }
   }
+
+  // 릴레이 전체 재동기화 — 재설치급 full replay (설계 §10 B5 수동 트리거).
+  // deep-resync 창도 함께 리셋된다. 중복 실행은 isFullResyncing으로 가드.
+  const handleFullResync = useCallback(async () => {
+    if (isFullResyncing) return
+    if (!nostrPubkey || !nostrPrivkey) return
+    if (!window.confirm(t('settings.fullResyncConfirm'))) return
+
+    setIsFullResyncing(true)
+    try {
+      const result = await registry.recovery.resyncFull({
+        privateKey: nostrPrivkey,
+        publicKey: nostrPubkey,
+        relays: settings.relays,
+      })
+      // 부분 실패를 성공으로 위장하지 않는다 (리뷰 #3) — 오류 시 deep 창도 리셋 안 됨
+      if (result.errors.length > 0) {
+        console.warn('[Settings] Full resync completed with errors:', result.errors)
+        addToast({ type: 'error', message: t('settings.fullResyncFailed'), duration: 4000 })
+      } else {
+        addToast({ type: 'success', message: t('settings.fullResyncDone'), duration: 4000 })
+      }
+    } catch (error) {
+      console.error('[Settings] Full resync failed:', error)
+      addToast({ type: 'error', message: t('settings.fullResyncFailed'), duration: 4000 })
+    } finally {
+      setIsFullResyncing(false)
+    }
+  }, [isFullResyncing, nostrPubkey, nostrPrivkey, registry, settings.relays, addToast, t])
 
   // Render detail page (z-66, on top of category)
   const renderDetailPage = () => {

@@ -9,6 +9,8 @@ interface WalletCategoryPageProps {
   onRelayManagement?: () => void
   onOpenCurrentWalletRecovery: () => void
   onOpenExternalMnemonicRecovery: () => void
+  /** 릴레이 전체 재동기화 (재설치급 full replay — 설계 §10 B5) */
+  onFullResync?: () => void
   onOpenBackup: () => void
 }
 
@@ -18,6 +20,7 @@ export function WalletCategoryPage({
   onRelayManagement,
   onOpenCurrentWalletRecovery,
   onOpenExternalMnemonicRecovery,
+  onFullResync,
   onOpenBackup,
 }: WalletCategoryPageProps) {
   const { t } = useTranslation()
@@ -45,6 +48,12 @@ export function WalletCategoryPage({
             label={t('settings.externalMnemonicRecovery')}
             onPress={onOpenExternalMnemonicRecovery}
           />
+          {onFullResync && (
+            <SettingsRow
+              label={t('settings.fullResync')}
+              onPress={onFullResync}
+            />
+          )}
           <SettingsRow
             label={t('settings.mnemonicBackup')}
             onPress={onOpenBackup}

@@ -335,7 +335,15 @@ interface CursorRecord {
   deepResyncAtMs: number        // 마지막 deep-resync 완료 시각
 }
 ```
-**레거시 마이그레이션**: 기존 단일 행(`id:'current'`, `timestamp` **초 단위**) → 읽기 시 `v` 부재면 초→ms 변환(`timestamp < 10^12` 매그니튜드 검증) 후 v2 레코드 생성(구 행은 보존 — anchor 표시용으로 계속 사용). 혼합 기록 금지.
+**레거시 마이그레이션 (2단계 리뷰 #5로 확정)**: 레거시 `syncAnchor.timestamp`는 **seed하지 않는다** — 그 값은 부분/빈 fetch에도 매 reconstruct 말미에 갱신되던 값이라 "여기까지 전부 받았다" 불변식이 없고, since 하한으로 쓰면 업그레이드 직전 부분 동기화의 미수신 이벤트가 영구 제외된다. 신규 레코드는 `lastFullSyncAtMs=0`으로 생성 → **업그레이드 사용자는 1회 전체 replay 후 진짜 全EOSE로만 확립**(본 문서 "최초(null) cursor" 조항의 원래 약속). 구 행은 보존(anchor 표시용). 혼합 기록 금지.
+
+**2단계 구현 확정 사항 (구현 리뷰 3건 BLOCKING 반영)**:
+- **합성 EOSE 차단** [리뷰 #1]: nostr-tools는 relay가 EOSE를 안 주면 `baseEoseTimeout`(4.4초) 뒤 합성 EOSE를 같은 콜백으로 발화한다 — cursor 구독은 `CURSOR_EOSE_TIMEOUT_MS`(24h)로 덮고, 라이브러리 기본값은 pin 테스트로 감시. 진짜 EOSE만 cursor를 전진시킨다.
+- **全EOSE 판정 = 설정된 persistent 집합** [리뷰 #2]: `GiftwrapCursorSpec.fullSyncTargets`로 전달(연결 스냅샷 금지 — 다운 relay가 조용히 빠지면 사실상 quorum 제외). 미연결 target은 EOSE가 없으므로 cursor를 붙든다(안전). 미지정 시 full-sync 마크 비활성.
+- **deep 마커는 오류 없는 실행에만 전진** [리뷰 #3]: `errors.length===0` 게이트(isSyncing 단락 'Sync already in progress' 포함) + full/deep fetch는 `maxWaitMs=30s`(기본 5초 부분 fetch의 완료 위장 방지) + fullResync UI는 오류 시 실패 토스트.
+- **markFullSync는 handler settle 후** [리뷰 #4]: EOSE까지 도착한 이벤트의 처리 Promise가 전부 끝난 뒤 마크 — 처리 중 크래시 시 다음 세션 창이 재전달을 보장.
+- **로그아웃 정리** [리뷰 #6]: `cleanup.clearRecoverySyncState()`가 giftwrapCursors + anchor 캐시를 지운다 — 같은 니모닉 복원이 재설치 full replay로 시작.
+- deep 결과는 syncAll 결과에 합산(토스트 과소보고 방지) [리뷰 #7]. `window.confirm`은 프로젝트 모달 관례와 다름 — 6단계 UI 정리 시 교체(수용된 minor #9).
 
 **since 규칙 — 단 하나** [N1]:
 ```

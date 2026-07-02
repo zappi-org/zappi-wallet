@@ -99,15 +99,20 @@ describe('NostrIncomingWatcher', () => {
       mockReviewQueue,
       mockTokenCodec,
       () => null,
+      () => ['wss://persistent.test'],
     )
   })
 
   // ─── Start / Stop ───
 
-  it('start 호출 시 subscribeGiftWraps를 구독한다', () => {
+  it('start 호출 시 subscribeGiftWraps를 cursor 스펙과 함께 구독한다', () => {
     watcher.start('test-pubkey')
     expect(mockGateway.subscribeGiftWraps).toHaveBeenCalledWith(
-      { recipientPubkey: 'test-pubkey' },
+      {
+        recipientPubkey: 'test-pubkey',
+        // 설계 §10 B5 — 계정 스코프 키 + 全EOSE 판정용 persistent 집합 (리뷰 #2)
+        cursor: { key: 'giftwrap:test-pub', fullSyncTargets: ['wss://persistent.test'] },
+      },
       expect.any(Function),
     )
   })
