@@ -48,6 +48,7 @@ import {
   createExternalMnemonicRecovery,
   decodeTokenForPaymentPayload,
   deleteCocoData,
+  getMintInfoFromCoco,
   markQuoteAsSwap,
   removeMintFromCoco,
   unmarkQuoteAsSwap,
@@ -95,6 +96,7 @@ import { CashuEcashAdapter } from "@/modules/cashu/adapters/cashu-ecash.adapter"
 
 // ─── Phase 6: Metadata + NUT-18 HTTP ───
 import { MintMetadataService, metadataEvents } from "@/modules/cashu/metadata";
+import { MintInfoService } from "@/modules/cashu/mint-info.service";
 import {
   enableCashuWatchers,
   getCashuKeyring,
@@ -145,6 +147,8 @@ import { TokenReceiverAdapter } from "./token-receiver.adapter";
 import type { WalletModule } from "@/core/ports/driven/wallet-module.port";
 import type { OperationMap } from "@/core/ports/driven/operation-map.port";
 import type { ServiceRegistry } from "@/core/ports/driving/service-registry";
+import type { MintInfoUseCase } from "@/core/ports/driving/mint-info.usecase";
+import type { MintInfoData } from "@/core/types";
 import type {
   TransferOperator,
   MessageTransport,
@@ -416,6 +420,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
   // 8. Lifecycle: activate (Coco init + observers + watchers + bridge)
   let netCounterFlusherStop: (() => void) | null = null;
+  let mintReconnectStop: (() => void) | null = null;
   // pause-during-activate 레이스 가드 (코드리뷰 #6): activate의 startPolling이
   // 이미 백그라운드로 간 앱에서 타이머를 켜는 것을 방지.
   let paused = false;
@@ -425,6 +430,25 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     // 프로덕션 집계 카운터 flush 주기 시작 (설계 §12) — 재호출에도 1회만
     if (!netCounterFlusherStop) {
       netCounterFlusherStop = startNetCounterFlusher();
+    }
+
+    // 재연결 시 health 갱신의 단일 소유 (설계 §5 — 기존에는 use-mint-health 훅
+    // 인스턴스(3곳 마운트)마다 각자 reconnect effect를 등록했다). 스위치와 무관하게
+    // mintHealth 경유라 legacy 경로에서도 동작한다.
+    if (!mintReconnectStop && typeof window !== "undefined") {
+      const handleOnline = () => {
+        mintHealth
+          .checkAllMints(useAppStore.getState().settings.mints)
+          .then((statuses) => {
+            // 훅 effect 시절의 store 동기화 보존 (구현 리뷰 #3) — mints[].isOnline
+            const updateMintStatus = useAppStore.getState().updateMintStatus;
+            statuses.forEach((s) => updateMintStatus(s.url, s.isOnline));
+          })
+          .catch(() => {});
+      };
+      window.addEventListener("online", handleOnline);
+      mintReconnectStop = () =>
+        window.removeEventListener("online", handleOnline);
     }
 
     // mintQuoteObserver에 OperationMap + TxRepo 주입 (TX 이중 생성 방지)
@@ -522,6 +546,10 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
       netCounterFlusherStop();
       netCounterFlusherStop = null;
     }
+    if (mintReconnectStop) {
+      mintReconnectStop();
+      mintReconnectStop = null;
+    }
     transferLifecycle.stopPolling();
     nostrIncomingWatcher.stop();
     void nostrGateway.disconnect();
@@ -585,8 +613,25 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const feeEstimator = new CashuFeeEstimatorAdapter(cashuBackend);
   const routing = new RoutingService(feeEstimator);
 
+  const stripTrailingSlash = (url: string) => url.replace(/\/+$/, "");
+  // 분기 A 스코프 가드 (설계 §5.4 / 구현 리뷰 #7): Coco getMintInfo는 미등록
+  // URL도 repo에 등록하고 keyset까지 내려받는다 — metadata 경로는 등록 민트로
+  // 한정한다. 미등록 URL 검증은 fresh probe(분기 B)의 몫.
+  const scopedCocoMintInfoFetcher = async (mintUrl: string) => {
+    const registered = useAppStore
+      .getState()
+      .settings.mints.some(
+        (m) => stripTrailingSlash(m) === stripTrailingSlash(mintUrl)
+      );
+    if (!registered) return null;
+    return getMintInfoFromCoco(mintUrl);
+  };
+
   const mintMetadataServiceInstance = new MintMetadataService(
-    new DexieMintMetadataRepository()
+    new DexieMintMetadataRepository(),
+    // 분기 A (설계 §5.4 / SP-1): 24h 캐시 미스 시 Coco 경유 — repo+5분 TTL
+    // 하이브리드, limiter 보호. ks.mint-info-facade ON이면 레거시 직접 fetch로 복귀.
+    killSwitches["mint-info-facade"] ? undefined : scopedCocoMintInfoFetcher
   );
   const mintMetadataStore = new MintMetadataStoreAdapter(
     mintMetadataServiceInstance,
@@ -594,8 +639,31 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   );
   const mintMetadata = new MintMetadataFacadeService(mintMetadataStore);
 
-  const mintHealthChecker = new MintHealthCheckerAdapter();
+  // /v1/info 단일 소유자 (설계 §5): health probe(30s, 분기 B — 유일한 직접 fetch)
+  // + 상세 화면 raw info(24h 캐시) + probe→metadata 역주입(이중 타격 제거)
+  const mintInfoService = new MintInfoService(mintMetadataServiceInstance);
+  const mintHealthChecker = killSwitches["mint-info-facade"]
+    ? new MintHealthCheckerAdapter()
+    : mintInfoService;
   const mintHealth = new MintHealthFacadeService(mintHealthChecker);
+
+  // ks.mint-info-facade ON일 때의 registry.mintInfo — 구동작 복원 (구현 리뷰 #2):
+  // 화면별 개별 raw fetch와 동일한 시맨틱(ingest/미러/캐시 없음). 스위치는 신경로
+  // 전체를 꺼야 롤백 수단으로 성립한다.
+  const legacyMintInfo: MintInfoUseCase = {
+    async getInfo(mintUrl: string) {
+      try {
+        const res = await fetch(`${stripTrailingSlash(mintUrl)}/v1/info`);
+        if (!res.ok) return null;
+        return (await res.json()) as MintInfoData;
+      } catch {
+        return null;
+      }
+    },
+  };
+  const mintInfo = killSwitches["mint-info-facade"]
+    ? legacyMintInfo
+    : mintInfoService;
 
   const sendTokenOperator = new CashuSendTokenOperatorAdapter();
   const reclaim = new ReclaimService(
@@ -684,6 +752,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     lnurlAuth,
     mintMetadata,
     mintHealth,
+    mintInfo,
     crypto,
     receiveRequest,
     reclaim,

@@ -999,14 +999,11 @@ export default function MainApp() {
         return true
       }
 
-      const infoResponse = await fetch(`${url}/v1/info`)
-      if (!infoResponse.ok) {
-        console.error('[App] Failed to fetch mint info:', infoResponse.status)
-        return false
-      }
-      const info = await infoResponse.json()
-      if (!info.name && !info.pubkey) {
-        console.error('[App] Invalid mint info')
+      // 직접 fetch → facade probe (설계 §5): 신뢰 추가는 "지금 유효한가" 검증이라
+      // fresh probe — 응답은 metadata 캐시에 역주입되어 이후 화면들이 재사용한다
+      const info = await serviceRegistry.mintInfo.getInfo(url, { fresh: true })
+      if (!info || (!info.name && !info.pubkey)) {
+        console.error('[App] Invalid or unreachable mint info')
         return false
       }
 

@@ -35,4 +35,5 @@ export {
   restoreWallet,
   addMint,
   decodeTokenForPaymentPayload,
+  getMintInfoFromCoco,
 } from './internal/cashu-backend'

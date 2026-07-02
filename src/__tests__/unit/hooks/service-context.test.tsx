@@ -49,6 +49,9 @@ function createMockRegistry(): ServiceRegistry {
       updateProfile: vi.fn(),
       publish: vi.fn(),
     } as unknown as ServiceRegistry['profile'],
+    mintInfo: {
+      getInfo: vi.fn(),
+    } as unknown as ServiceRegistry['mintInfo'],
     recovery: {
       syncAll: vi.fn(),
       reconstructState: vi.fn(),

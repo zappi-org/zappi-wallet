@@ -230,6 +230,26 @@ export async function getSendOperationState(operationId: string): Promise<string
   return typeof op?.state === 'string' ? op.state : null;
 }
 
+/**
+ * Coco 경유 mint info 조회 (설계 §5.4 분기 A / SP-1 확정):
+ * `manager.mint.getMintInfo` = repo 읽기 + 5분 TTL 자동 갱신 하이브리드 —
+ * TTL 내면 무네트워크, 경과 시 info+keysets fetch(MintRequestProvider limiter 경유).
+ * 미등록 민트도 지원(임시 객체 생성 후 fetch). netLog는 생략 — 네트워크 발생
+ * 여부를 이 계층에서 알 수 없어 이중 계측이 된다.
+ */
+export async function getMintInfoFromCoco(
+  mintUrl: string,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const manager = await getCocoManager();
+    const info = await manager.mint.getMintInfo(normalizeMintUrl(mintUrl));
+    return info as unknown as Record<string, unknown>;
+  } catch (error) {
+    console.warn('[CashuBackend] getMintInfoFromCoco failed:', error);
+    return null;
+  }
+}
+
 export async function checkProofStates(token: string): Promise<ProofStateResult> {
   const cashuTs = await import('@cashu/cashu-ts');
   const manager = await getCocoManager();

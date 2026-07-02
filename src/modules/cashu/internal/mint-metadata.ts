@@ -9,7 +9,7 @@ export type { MetadataStore }
 /**
  * NUT-06 mint info response
  */
-interface MintInfoResponse {
+export interface MintInfoResponse {
   name?: string
   pubkey?: string
   version?: string
@@ -101,10 +101,33 @@ const METADATA_REFRESH_INTERVAL = 24 * 60 * 60 * 1000
  * Service for fetching and caching mint metadata (NUT-06)
  * Supports offline-first operation with injected storage.
  */
+/**
+ * info fetcher 주입점 (설계 §5.4 분기 A / SP-1):
+ * Coco `manager.mint.getMintInfo` 경유 — repo+5분 TTL 하이브리드, limiter 보호,
+ * 미등록 민트 지원. 미주입이면 레거시 raw fetch(kill-switch `ks.mint-info-facade`).
+ */
+export type MintInfoFetcher = (mintUrl: string) => Promise<MintInfoResponse | null>
+
 export class MintMetadataService {
   private inFlightRequests = new Map<string, Promise<MintMetadata | null>>()
+  /** [N8] 진행 중 health probe 합류 — MintInfoService가 setter로 주입 */
+  private probeJoiner?: (mintUrl: string) => Promise<MintMetadata | null> | null
 
-  constructor(private store: MetadataStore) {}
+  constructor(
+    private store: MetadataStore,
+    private readonly infoFetcher?: MintInfoFetcher,
+  ) {}
+
+  setProbeJoiner(
+    joiner: (mintUrl: string) => Promise<MintMetadata | null> | null,
+  ): void {
+    this.probeJoiner = joiner
+  }
+
+  /** 캐시 직접 조회(부수효과 없음) — probe 합류 경로가 ingest 결과를 읽는 데 사용 */
+  peekCached(mintUrl: string): Promise<MintMetadata | null> {
+    return this.store.get(mintUrl).then((m) => m ?? null)
+  }
 
   /**
    * Get metadata for a mint (from cache if available, fetch if needed)
@@ -158,6 +181,19 @@ export class MintMetadataService {
   async fetchAndCache(mintUrl: string): Promise<MintMetadata | null> {
     const existing = this.inFlightRequests.get(mintUrl)
     if (existing) return existing
+
+    // [N8] 같은 민트의 진행 중 health probe에 합류 (구현 리뷰 #1) — probe가
+    // ingest까지 마친 뒤 캐시를 읽으므로 별도 fetch가 불필요하다. Home 마운트의
+    // health+metadata 동시 발화가 한 왕복으로 끝난다.
+    const joined = this.probeJoiner?.(mintUrl)
+    if (joined) {
+      this.inFlightRequests.set(mintUrl, joined)
+      try {
+        return await joined
+      } finally {
+        this.inFlightRequests.delete(mintUrl)
+      }
+    }
 
     const promise = this.doFetch(mintUrl)
     this.inFlightRequests.set(mintUrl, promise)
@@ -238,7 +274,37 @@ export class MintMetadataService {
     }
   }
 
+  /**
+   * NUT-06 응답을 캐시에 반영 (매핑+저장+이벤트의 단일 지점).
+   * MintInfoService의 health probe가 같은 응답을 역주입하는 데도 사용된다
+   * (설계 §5 — 한 사이클 민트당 /v1/info 2회 타격 제거의 핵심).
+   */
+  async ingest(mintUrl: string, info: MintInfoResponse): Promise<MintMetadata> {
+    const metadata: MintMetadata = {
+      url: mintUrl,
+      name: info.name,
+      iconUrl: info.icon_url,
+      description: info.description,
+      pubkey: info.pubkey,
+      fetchedAt: Date.now(),
+      nuts: info.nuts,
+      rawInfo: info as unknown as Record<string, unknown>,
+    }
+
+    await this.store.save(metadata)
+    metadataEvents.emit(mintUrl, metadata)
+    return metadata
+  }
+
   private async doFetch(mintUrl: string): Promise<MintMetadata | null> {
+    // 분기 A: Coco 경유 (limiter 보호 — 설계 §5.4)
+    if (this.infoFetcher) {
+      const info = await this.infoFetcher(mintUrl).catch(() => null)
+      if (!info) return null
+      return this.ingest(mintUrl, info)
+    }
+
+    // 레거시 직접 fetch (kill-switch 경로)
     try {
       const infoUrl = `${mintUrl.replace(/\/$/, '')}/v1/info`
       netLog({ layer: 'mint', op: 'fetch', key: mintUrl, detail: '/v1/info', caller: 'metadata' })
@@ -257,20 +323,7 @@ export class MintMetadataService {
       }
 
       const info: MintInfoResponse = await response.json()
-
-      const metadata: MintMetadata = {
-        url: mintUrl,
-        name: info.name,
-        iconUrl: info.icon_url,
-        description: info.description,
-        pubkey: info.pubkey,
-        fetchedAt: Date.now(),
-        nuts: info.nuts,
-      }
-
-      await this.store.save(metadata)
-      metadataEvents.emit(mintUrl, metadata)
-      return metadata
+      return await this.ingest(mintUrl, info)
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         console.warn(`[MintMetadata] Timeout fetching info for ${mintUrl}`)

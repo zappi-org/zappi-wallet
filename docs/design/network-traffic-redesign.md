@@ -129,6 +129,10 @@ export interface MintInfoPort {
 ### 5.3 저장 구조
 Dexie(`DexieMintMetadataRepository` 확장: `probedAt`,`ok` 컬럼 추가) + **메모리 미러**(마지막 결과 Map — `peek`의 실체. Dexie는 비동기라 UI 첫 페인트는 미러가 담당, 부팅 시 1회 hydrate).
 
+**구현 확정 편차 (3단계, 기록)**: `probedAt/ok` 영속·부팅 hydrate·`get/getMany/peek` 포트 표면은 구현에서 단순화 — health 미러는 세션 스코프 Map으로 시작(구 어댑터와 동등, 영속 스냅샷의 필요성 미증명), 상세 조회는 `MintInfoUseCase.getInfo`(24h 캐시 `rawInfo` 필드)로 축소, `checkAllMints` 신선도는 30s 고정. 재평가 시점 = 6단계. 추가 확정: probe는 JSON 파싱 성공까지를 online으로 판정(구 어댑터는 2xx면 무조건 online — 캡티브 포털 가짜 200 대응, 의도적 변경) · fresh probe의 2xx 응답은 검증 결과와 무관하게 ingest(미추가 URL의 잔여 캐시 행 수용, 사용자 액션 바운드) · 분기 A는 **등록 민트로 스코프**(미등록 URL을 Coco repo에 등록시키지 않기 위해 — bootstrap의 scoped fetcher).
+
+**[N8] 구현 잔여 (검증 완료, 수용)**: ① 합류는 단방향 — 분기 A가 진행 중 probe에 합류하며, 역방향(probe가 Coco fetch에 합류)은 없다. SP-1상 Coco 호출은 repo 히트일 수 있어 liveness를 증명하지 못하므로 이 방향이 옳다. ② probe가 ingest를 await하므로 IndexedDB **행(hang)** 시 health 판정이 함께 지연되는 결합이 생겼다(실패는 무영향 — catch 처리). 저확률(Safari IDB stall류)·기존 metadata 계층도 같은 세계에서 멈추므로 수용, 필요 시 ingest에 짧은 타임아웃 레이스로 완화. ③ 합류 경로는 peekCached의 Dexie 읽기 오류로 reject할 수 있다(레거시 doFetch는 절대 reject 안 함) — 현 소비자 전원이 catch/allSettled로 가드됨을 확인.
+
 ### 5.4 네트워크 경로 — SP-1 결과와 무관하게 성립하는 2-분기 [F14]
 health의 의미는 "지금 살아있는가"이므로 **실제 네트워크 왕복**이 필요하다. `manager.mint.getMintInfo`가 repo 읽기일 가능성이 높다(d.ts:337이 mintRepo 옆에 위치, 강제 갱신은 info+keysets를 함께 끄는 `updateMintData` — health 용도로 과중).
 
@@ -429,6 +433,7 @@ bootstrap에서 1회 읽어 조립 분기. 원격 제어 없음. **정직한 범
 - **프로덕션 집계 카운터**: PII 없는 카운터만 — `{coco_push_received, tls_stuck_detected, tls_stuck_confirmed_settled, giftwrap_events_received, giftwrap_events_deduped, relay_notice_rate_limited}`. **쓰기 정책** [N6]: 이벤트당 Dexie 쓰기 금지 — 메모리 누적 후 30s 주기 + `pagehide`/`onPause`에 flush (catch-up replay 핫패스는 NIP-44 복호화와 같은 스레드다). 설정 "진단" 페이지 열람, 원격 전송 없음
 - **5단계 검증 프로토콜(정직한 정의)** [N6][F10-잔여]: "증명"이 아니라 **표본 검증**이다 — ① 팀 상시 사용 기기 최소 3대(iOS Safari·Android Chrome·데스크톱) 7일 ② 각 기기에서 결제 시나리오(수신·송금·백그라운드 정산) 주 5회 이상 ③ 판정: 전 기기 `tls_stuck_detected = 0` AND `coco_push_received > 0`(푸시 실동작 확인). 실패 시 5단계 보류·원인 규명(주기 단축이 아니라 — §3.3)
 - 단계별 판정 예: 1단계 후 unlock에 `recovery:*` 중복 0 / 2단계 후 resume의 `giftwrap_events_deduped`가 overlap 창 기대치로 하락
+- **분기 A는 NetLog 밖** (3단계 기록): Coco 경유 fetch는 이 계층에서 네트워크 발생 여부를 알 수 없어 계측하지 않는다 — `duplicates()`만으로는 분기 A 중복을 못 본다. 3단계 게이트 판정은 probe(`caller:'mint-info'`) + Coco 요청 로그(수동)로 보완한다.
 - **배선 현황 (1단계 구현 시점 — 코드리뷰 #8)**: `giftwrap_*`는 라이브 구독 경로만 계수한다 — syncAll/anchor 캐치업 경로 계측은 **2단계에서 gateway 경계에 추가**해야 before/after 비교가 완전해진다(core 서비스에서의 직접 계수는 헥사고날 위반). `tls_stuck_*`·`relay_notice_rate_limited`는 5단계 sweep/컨트롤러 배선 전까지 0이 정상 — **게이트 판정에 쓰려면 해당 배선이 선행 조건**이다. `coco_push_received`는 전송 수단(WSS/Coco 내부 폴링)을 구분하지 않는 "이벤트 파이프라인 생존" 지표다. 진단 열람 UI(`readNetCounters` 소비자)는 미구현 — 5단계 게이트 전 필수 후속.
 
 ## 13. 테스트 전략

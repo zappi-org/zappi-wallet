@@ -60,7 +60,6 @@ export const useAppStore = create<AppState>()(
           pendingQuotes: [],
           // Network
           networkState: 'ONLINE',
-          wasOffline: false,
           lastOnlineAt: null,
           connectedRelays: [],
           isConnectingRelays: false,

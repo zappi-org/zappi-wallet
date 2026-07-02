@@ -7,7 +7,6 @@ import type { NetworkState } from '@/core/types'
 export interface NetworkSliceState {
   // Network status
   networkState: NetworkState
-  wasOffline: boolean
   lastOnlineAt: number | null
 
   // Relay connections
@@ -16,7 +15,6 @@ export interface NetworkSliceState {
 
   // Actions
   setNetworkState: (state: NetworkState) => void
-  setWasOffline: (wasOffline: boolean) => void
   setLastOnlineAt: (timestamp: number | null) => void
   setConnectedRelays: (relays: string[]) => void
   addConnectedRelay: (relay: string) => void
@@ -30,7 +28,6 @@ export interface NetworkSliceState {
  */
 const initialState = {
   networkState: 'ONLINE' as NetworkState,
-  wasOffline: false,
   lastOnlineAt: null as number | null,
   connectedRelays: [] as string[],
   isConnectingRelays: false,
@@ -42,20 +39,16 @@ const initialState = {
 export const createNetworkSlice: StateCreator<NetworkSliceState> = (set) => ({
   ...initialState,
 
+  // wasOffline 플래그 제거 (3단계 구현 리뷰 #4): 유일한 소비자(use-mint-health
+  // reconnect effect)가 bootstrap 단일 리스너로 대체되어 영구 stuck-true dead
+  // state가 됐었다.
   setNetworkState: (networkState) =>
     set((state) => {
-      // Track if we were offline
       if (state.networkState === 'OFFLINE' && networkState === 'ONLINE') {
-        return {
-          networkState,
-          wasOffline: true,
-          lastOnlineAt: Date.now(),
-        }
+        return { networkState, lastOnlineAt: Date.now() }
       }
       return { networkState }
     }),
-
-  setWasOffline: (wasOffline) => set({ wasOffline }),
 
   setLastOnlineAt: (lastOnlineAt) => set({ lastOnlineAt }),
 

@@ -23,6 +23,7 @@ import type { ProcessedStore } from '@/core/ports/driven/processed-store.port'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
 import type { MintMetadataUseCase } from '@/core/ports/driving/mint-metadata.usecase'
 import type { MintHealthUseCase } from '@/core/ports/driving/mint-health.usecase'
+import type { MintInfoUseCase } from '@/core/ports/driving/mint-info.usecase'
 import type { CryptoUseCase } from '@/core/ports/driving/crypto.usecase'
 import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request.usecase'
 import type { ReclaimUseCase } from '@/core/ports/driving/reclaim.usecase'
@@ -55,6 +56,8 @@ export interface ServiceRegistry {
   readonly lnurlAuth: LnurlAuthUseCase
   readonly mintMetadata: MintMetadataUseCase
   readonly mintHealth: MintHealthUseCase
+  /** 상세 화면용 raw NUT-06 info — 24h 캐시 우선, fresh=probe (설계 §5) */
+  readonly mintInfo: MintInfoUseCase
   readonly crypto: CryptoUseCase
   readonly receiveRequest: ReceiveRequestUseCase
   readonly reclaim: ReclaimUseCase

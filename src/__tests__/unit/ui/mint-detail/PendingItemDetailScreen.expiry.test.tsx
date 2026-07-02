@@ -39,6 +39,7 @@ function createMockRegistry(): ServiceRegistry {
       on: vi.fn().mockReturnValue(() => {}),
       off: vi.fn(),
     },
+    mintInfo: { getInfo: vi.fn() } as unknown as ServiceRegistry['mintInfo'],
     payment: {} as ServiceRegistry['payment'],
     balance: {} as ServiceRegistry['balance'],
     swap: {} as ServiceRegistry['swap'],

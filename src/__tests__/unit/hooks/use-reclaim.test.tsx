@@ -20,6 +20,7 @@ function createMockRegistry(reclaimService: ReturnType<typeof vi.fn>, txMgmt?: {
     reclaim: {
       reclaim: reclaimService,
     } as unknown as ServiceRegistry['reclaim'],
+    mintInfo: { getInfo: vi.fn() } as unknown as ServiceRegistry['mintInfo'],
     eventBus: { emit: vi.fn(), on: vi.fn().mockReturnValue(() => { }), off: vi.fn() },
     balance: { getTotal: vi.fn(), getByModule: vi.fn() } as unknown as ServiceRegistry['balance'],
     swap: { getAvailableSwaps: vi.fn(), estimateSwap: vi.fn(), executeSwap: vi.fn() } as unknown as ServiceRegistry['swap'],

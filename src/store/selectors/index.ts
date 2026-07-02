@@ -17,7 +17,6 @@ export const selectNetworkState = (state: AppState) => state.networkState
 export const selectIsOnline = (state: AppState) => state.networkState === 'ONLINE'
 export const selectIsOffline = (state: AppState) => state.networkState === 'OFFLINE'
 export const selectIsSyncing = (state: AppState) => state.networkState === 'SYNCING'
-export const selectWasOffline = (state: AppState) => state.wasOffline
 export const selectConnectedRelays = (state: AppState) => state.connectedRelays
 export const selectConnectedRelayCount = (state: AppState) => state.connectedRelays.length
 

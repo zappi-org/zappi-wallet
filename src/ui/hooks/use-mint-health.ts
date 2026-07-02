@@ -1,8 +1,7 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useServiceRegistry } from './use-service-registry'
-import { useNetwork } from './use-network'
 import type { MintHealthStatus } from '@/core/ports/driving/mint-health.usecase'
 
 interface EnsureOnlineMintOptions {
@@ -19,14 +18,13 @@ interface EnsureOnlineMintResult {
  * Hook for mint health checking and fallback logic
  */
 export function useMintHealth() {
-  const { mintHealth, mintMetadata } = useServiceRegistry()
+  const { mintHealth } = useServiceRegistry()
   const { t } = useTranslation()
   const settingsMints = useAppStore((state) => state.settings.mints)
   const activeMintUrl = useAppStore((state) => state.activeMintUrl)
   const setActiveMint = useAppStore((state) => state.setActiveMint)
   const updateMintStatus = useAppStore((state) => state.updateMintStatus)
   const addToast = useAppStore((state) => state.addToast)
-  const { networkState, wasOffline, clearWasOffline } = useNetwork()
 
   const mintUrls = settingsMints
 
@@ -42,15 +40,15 @@ export function useMintHealth() {
   const checkAllMints = useCallback(async (): Promise<MintHealthStatus[]> => {
     if (mintUrls.length === 0) return []
 
+    // metadata 체인 호출 제거 (설계 §5): health probe가 성공 응답을 metadata에
+    // 역주입하므로(MintInfoService.ingest) 별도 refreshIfMissing은 같은 endpoint의
+    // 이중 타격이었다.
     const statuses = await mintHealth.checkAllMints(mintUrls)
     statuses.forEach((s) => {
       updateMintStatus(s.url, s.isOnline)
-      if (s.isOnline) {
-        mintMetadata.refreshIfMissing(s.url).catch(() => {})
-      }
     })
     return statuses
-  }, [mintUrls, mintHealth, mintMetadata, updateMintStatus])
+  }, [mintUrls, mintHealth, updateMintStatus])
 
   const ensureOnlineMint = useCallback(
     async (
@@ -94,13 +92,8 @@ export function useMintHealth() {
     [activeMintUrl, mintUrls, setActiveMint, updateMintStatus, addToast, t, mintHealth]
   )
 
-  useEffect(() => {
-    if (networkState === 'ONLINE' && wasOffline) {
-      checkAllMints().then(() => {
-        clearWasOffline()
-      })
-    }
-  }, [networkState, wasOffline, checkAllMints, clearWasOffline])
+  // 재연결 refresh effect 제거 (설계 §5): 훅 인스턴스(3곳 마운트)마다 리스너가
+  // 중복 등록되던 것을 bootstrap activate의 단일 'online' 리스너가 대체했다.
 
   const getCachedStatus = useCallback(
     (mintUrl: string) => mintHealth.getCached(mintUrl),

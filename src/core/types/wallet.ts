@@ -44,6 +44,11 @@ export interface MintMetadata {
   fetchedAt: number
   /** Raw NUT support declarations from NUT-06 nuts field */
   nuts?: Record<string, unknown>
+  /**
+   * NUT-06 응답 원본 (설계 §5 — 상세 화면용). 이 필드 덕분에 MintInfoSheet/
+   * MintManagement 확장이 별도 /v1/info 왕복 없이 24h 캐시를 재사용한다.
+   */
+  rawInfo?: Record<string, unknown>
 }
 
 /**
