@@ -37,6 +37,7 @@ import { DirectLnurlAdapter } from "@/adapters/lnurl/direct-lnurl.adapter";
 import { Nip05ResolverAdapter } from "@/adapters/nip05/nip05-resolver";
 import { DexieSettingsRepository as SettingsRepository } from "@/adapters/storage/dexie/dexie-settings.repository";
 import { DexieProcessedRepository as ProcessedRepository } from "@/adapters/storage/dexie/dexie-processed.repository";
+import { DexiePaymentAliasProcessedQuotesRepository } from "@/adapters/storage/dexie/dexie-payment-alias-processed-quotes.repository";
 import { RecoveryStoreAdapter } from "@/adapters/storage/recovery-store.adapter";
 
 // ─── Legacy services (composition root만 wrap 가능) ───
@@ -80,7 +81,7 @@ import { TransactionMgmtService } from "@/core/services/transaction-mgmt.service
 import { ReceiveRequestFacadeService } from "@/core/services/receive-request-facade.service";
 import { ReclaimService } from "@/core/services/reclaim.service";
 import { PaymentRequestService } from "@/core/services/payment-request.service";
-import { UsernameService } from "@/core/services/username.service";
+import { PaymentAliasService } from "@/core/services/payment-alias.service";
 import { TrustRegistryService } from "@/core/services/trust-registry.service";
 import { NostrDirectPaymentService } from "@/core/services/nostr-direct-payment.service";
 import { RouteExecutionService } from "@/core/services/route-execution.service";
@@ -104,10 +105,9 @@ import {
 } from "@/modules/cashu/cashu-runtime";
 import { DexieMintMetadataRepository } from "@/adapters/storage/dexie/dexie-mint-metadata.repository";
 import { startNut18HttpPoller } from "@/adapters/codec/nut18-http-poller";
-import { ZappiLinkAdapter } from "@/adapters/zappi-link/zappi-link.adapter";
-import { finalizeEvent } from "nostr-tools";
-import { hexToBytes } from "@noble/hashes/utils.js";
-import { DEFAULT_RELAYS, NOSTR_KINDS } from "@/core/constants";
+import { NpubcashAdapter } from "@/adapters/npubcash/npubcash.adapter";
+import { Secp256k1NostrSignerAdapter } from "@/adapters/crypto/secp256k1-nostr-signer";
+import { DEFAULT_RELAYS, NPUBCASH_URL, NPUBCASH_DOMAIN } from "@/core/constants";
 import { DexieReceiveRequestRepository } from "@/adapters/storage/dexie/dexie-receive-request.repository";
 
 // ─── Nostr Watcher (Adapter Layer) ───
@@ -133,6 +133,7 @@ import { removeMintArtifacts } from "./remove-mint";
 import { PaymentDelivery } from "./payment-delivery";
 import { PaymentRecoveredTokenReceiver } from "./recovered-token-receiver";
 import { TokenReceiverAdapter } from "./token-receiver.adapter";
+import { createNpubcashQuoteWatcher } from "./npubcash-quote-watcher";
 
 // ─── Types ───
 import type { WalletModule } from "@/core/ports/driven/wallet-module.port";
@@ -440,6 +441,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     import('@/modules/cashu/internal/cashu-recovery')
       .then(({ cleanAndRecoverStaleMintOps }) => cleanAndRecoverStaleMintOps().catch(console.error))
       .catch(() => {});
+
+    npubcashQuoteWatcher.start().catch(console.error);
   };
 
   const onResume = async () => {
@@ -456,6 +459,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     // Nostr incoming watcher 재시작 (키가 바뀔 수 있으므로)
     nostrIncomingWatcher.stop();
     nostrIncomingWatcher.start(derivePublicKey(deps.nostrPrivateKeyHex));
+
+    npubcashQuoteWatcher.start().catch(console.error);
   };
 
   const onPause = async () => {
@@ -464,6 +469,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     } catch {
       /* ignore if not initialized */
     }
+    npubcashQuoteWatcher.stop();
   };
 
   // 9. Shared dedup store (recovery + watcher가 같은 store를 보고 중복 처리 방지)
@@ -543,7 +549,17 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   );
   const transactionMgmt = new TransactionMgmtService(txRepo);
   const routePaymentOperator = new CashuRoutePaymentOperatorAdapter(
-    cashuBackend,
+    {
+      ...cashuBackend,
+      parsePaymentRequest: async (encodedRequest: string) => {
+        const resolved = await cashuBackend.parsePaymentRequest(encodedRequest)
+        return {
+          amount: resolved.amount ?? 0,
+          unit: 'sat',
+          mints: resolved.allowedMints,
+        }
+      },
+    },
     {
       markQuoteAsSwap,
       unmarkQuoteAsSwap,
@@ -575,24 +591,25 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     };
   });
 
-  const zappiLinkProvider = new ZappiLinkAdapter(
-    (privateKeyHex, url, method) => {
-      const event = finalizeEvent(
-        {
-          kind: NOSTR_KINDS.NIP98_AUTH,
-          content: "",
-          tags: [
-            ["u", url],
-            ["method", method.toUpperCase()],
-          ],
-          created_at: Math.floor(Date.now() / 1000),
-        },
-        hexToBytes(privateKeyHex)
-      );
-      return btoa(JSON.stringify(event));
-    }
+  const npubcashAdapter = new NpubcashAdapter(NPUBCASH_URL);
+  const paymentAlias = new PaymentAliasService(
+    npubcashAdapter,
+    routePaymentOperator,
+    (privkey: string) => new Secp256k1NostrSignerAdapter(privkey),
+    txRepo,
+    routePaymentOperator,
+    eventBus,
+    NPUBCASH_DOMAIN,
   );
-  const username = new UsernameService(zappiLinkProvider);
+
+  const npubcashQuoteWatcher = createNpubcashQuoteWatcher(
+    npubcashAdapter,
+    routePaymentOperator,
+    (privkey: string) => new Secp256k1NostrSignerAdapter(privkey),
+    () => deps.nostrPrivateKeyHex,
+    eventBus,
+    new DexiePaymentAliasProcessedQuotesRepository(),
+  );
 
   const trustRegistry = new TrustRegistryService(settingsRepo);
   const nostrDirectPayment = new NostrDirectPaymentService(addressResolver);
@@ -633,7 +650,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     inputParser,
     paymentRequest,
     routing,
-    username,
+    paymentAlias,
     trustRegistry,
     support,
     nostrDirectPayment,

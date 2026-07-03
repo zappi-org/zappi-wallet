@@ -30,7 +30,7 @@ import type { TransactionMgmtUseCase } from '@/core/ports/driving/transaction-mg
 import type { InputParserUseCase } from '@/core/ports/driving/input-parser.usecase'
 import type { PaymentRequestUseCase } from '@/core/ports/driving/payment-request.usecase'
 import type { RoutingUseCase } from '@/core/ports/driving/routing.usecase'
-import type { UsernameUseCase } from '@/core/ports/driving/username.usecase'
+import type { PaymentAliasUseCase } from '@/core/ports/driving/payment-alias.usecase'
 import type { TrustRegistry } from '@/core/ports/driving/trust-registry.usecase'
 import type { SupportUseCase } from '@/core/ports/driving/support.usecase'
 import type { NostrDirectPaymentUseCase } from '@/core/ports/driving/nostr-direct-payment.usecase'
@@ -62,7 +62,7 @@ export interface ServiceRegistry {
   readonly inputParser: InputParserUseCase
   readonly paymentRequest: PaymentRequestUseCase
   readonly routing: RoutingUseCase
-  readonly username: UsernameUseCase
+  readonly paymentAlias: PaymentAliasUseCase
   readonly trustRegistry: TrustRegistry
   readonly support: SupportUseCase
   readonly nostrDirectPayment: NostrDirectPaymentUseCase

@@ -192,8 +192,8 @@ export interface WalletSettings {
   mints: string[]
   relays: string[]
   lightningAddress?: string
-  /** zappi-link API base URL extracted from LNURL callback (e.g. "https://link.zappi.space") */
-  zappiLinkApiUrl?: string
+  /** npubcash server URL (e.g. "https://npubcash.life") */
+  npubcashUrl?: string
   autoLockEnabled: boolean
   autoLockTimeoutMinutes: number
   soundEnabled: boolean
