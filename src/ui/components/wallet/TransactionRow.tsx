@@ -63,7 +63,7 @@ export const TransactionRow = memo(function TransactionRow({
   let subtitle: string
   if (isSwap && swapRoute) {
     subtitle = `${timeStr} · ${typeLabel}`
-  } else if (txType === 'lightning' && tx.direction === 'send' && meta.destination) {
+  } else if (tx.direction === 'send' && meta.destination) {
     const destStr = meta.destination.includes('@') ? meta.destination : `${meta.destination.slice(0, 20)}...`
     subtitle = `${timeStr} · ${destStr}`
   } else if (meta.source && meta.source !== 'unknown' && meta.source !== 'wallet') {
