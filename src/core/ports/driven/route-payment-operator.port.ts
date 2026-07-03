@@ -27,6 +27,12 @@ export interface RouteMintQuote {
   request: string
 }
 
+export interface ParsedCreRequest {
+  amount: number
+  unit: string
+  mints: string[]
+}
+
 export interface RoutePaymentOperator {
   createMintQuote(mintUrl: string, amount: number): Promise<RouteMintQuote>
   markMintQuoteAsSwap(quoteId: string): void
@@ -43,4 +49,5 @@ export interface RoutePaymentOperator {
   }): Promise<PreparedRouteTokenSend>
   executeTokenSend(operationId: string, options?: { memo?: string }): Promise<{ token: string }>
   rollbackTokenSend(operationId: string): Promise<void>
+  parsePaymentRequest(encodedRequest: string): Promise<ParsedCreRequest>
 }
