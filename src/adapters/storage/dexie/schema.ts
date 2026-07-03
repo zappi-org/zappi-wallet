@@ -7,6 +7,7 @@ import type {
   SupportPriority,
   SupportTicketStatus,
 } from '@/core/domain/support'
+import type { PaymentAliasProcessedQuote } from '@/core/domain/payment-alias-processed-quote'
 import { DATABASE } from '@/core/constants'
 
 /**
@@ -267,6 +268,7 @@ export class ZappiDatabase extends Dexie {
   supportTickets!: Table<SupportTicketRecord, string>
   supportMessages!: Table<SupportMessageRecord, string>
   pendingTransfers!: Table<PendingTransferRecord, string>
+  paymentAliasProcessedQuotes!: Table<PaymentAliasProcessedQuote, string>
 
   constructor() {
     super(DATABASE.NAME)
@@ -329,6 +331,9 @@ export class ZappiDatabase extends Dexie {
 
       // Pending transfers: unified transfer lifecycle (outgoing/incoming, all protocols)
       pendingTransfers: 'id, txId, direction, protocol, phase, createdAt, updatedAt, expiresAt',
+
+      // Payment alias processed quotes: dedup paid quotes from PaymentAliasProvider
+      paymentAliasProcessedQuotes: 'quoteId, processedAt',
     })
   }
 }
@@ -398,5 +403,6 @@ export async function clearAllData(): Promise<void> {
     db.receiveRequests.clear(),
     db.supportTickets.clear(),
     db.supportMessages.clear(),
+    db.paymentAliasProcessedQuotes.clear(),
   ])
 }
