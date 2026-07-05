@@ -34,6 +34,8 @@ function createMockBackend(): LightningBackend {
     }),
     redeemMintQuote: vi.fn().mockResolvedValue(undefined),
     checkMelt: vi.fn().mockResolvedValue({ state: 'PAID', preimage: 'abc123' }),
+    refreshMelt: vi.fn().mockResolvedValue({ state: 'finalized' }),
+    getMintOpStateLocal: vi.fn().mockResolvedValue(null),
     recoverPendingMelts: vi.fn().mockResolvedValue({ recovered: 2, failed: 0 }),
     recoverPendingQuotes: vi.fn().mockResolvedValue({ recovered: 0, failed: 0, expired: 0 }),
   }
@@ -416,6 +418,113 @@ describe('CashuBolt11Adapter', () => {
       expect(backend.recoverPendingMelts).toHaveBeenCalled()
       expect(result.recovered).toBe(2)
       expect(result.failed).toBe(0)
+    })
+  })
+
+  // ─── stuck-sweep 매트릭스 (설계 §7.2/§7.3) ───
+
+  describe('pollLocal (sweep 1차 — 네트워크 0 계약)', () => {
+    function makeIncoming(expiresAt?: number) {
+      return createPendingTransfer({
+        id: 't-in',
+        txId: 'tx-in',
+        direction: 'incoming',
+        finality: 'deferred',
+        onExpiry: 'fail',
+        expiresAt,
+        transportRef: { mintUrl: 'https://mint.test', quoteId: 'q-1' },
+        now: Date.now(),
+      })
+    }
+    function makeOutgoing() {
+      return createPendingTransfer({
+        id: 't-out',
+        txId: 'tx-out',
+        direction: 'outgoing',
+        finality: 'immediate',
+        onExpiry: 'fail',
+        transportRef: { operationId: 'op-1' },
+        now: Date.now(),
+      })
+    }
+
+    it('incoming: settles from the LOCAL mint op state without checkMintQuote', async () => {
+      vi.mocked(backend.getMintOpStateLocal).mockResolvedValueOnce({ state: 'finalized' })
+
+      await expect(adapter.pollLocal(makeIncoming(Date.now() + 60_000))).resolves.toBe('settled')
+      expect(backend.checkMintQuote).not.toHaveBeenCalled()
+    })
+
+    it('incoming: local failed op → failed; untracked(null) → phase 유지', async () => {
+      vi.mocked(backend.getMintOpStateLocal).mockResolvedValueOnce({ state: 'failed' })
+      await expect(adapter.pollLocal(makeIncoming(Date.now() + 60_000))).resolves.toBe('failed')
+
+      vi.mocked(backend.getMintOpStateLocal).mockResolvedValueOnce(null)
+      const t = makeIncoming(Date.now() + 60_000)
+      await expect(adapter.pollLocal(t)).resolves.toBe(t.phase)
+    })
+
+    it('incoming: expiry short-circuits before any lookup', async () => {
+      await expect(adapter.pollLocal(makeIncoming(Date.now() - 1))).resolves.toBe('failed')
+      expect(backend.getMintOpStateLocal).not.toHaveBeenCalled()
+    })
+
+    it('outgoing: maps the LOCAL melt op state (checkMelt는 repo 읽기)', async () => {
+      vi.mocked(backend.checkMelt).mockResolvedValueOnce({ state: 'rolled_back' })
+
+      await expect(adapter.pollLocal(makeOutgoing())).resolves.toBe('failed')
+      expect(backend.refreshMelt).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('confirmStuck (§7.3 원격 확인 1회)', () => {
+    function makeOutgoing() {
+      return createPendingTransfer({
+        id: 't-out',
+        txId: 'tx-out',
+        direction: 'outgoing',
+        finality: 'immediate',
+        onExpiry: 'fail',
+        transportRef: { operationId: 'op-1' },
+        now: Date.now(),
+      })
+    }
+
+    it('outgoing melt: refreshes REMOTE state via ops.melt.refresh — checkMelt 아님', async () => {
+      vi.mocked(backend.refreshMelt).mockResolvedValueOnce({ state: 'finalized' })
+
+      await expect(adapter.confirmStuck(makeOutgoing())).resolves.toBe('settled')
+      expect(backend.refreshMelt).toHaveBeenCalledWith('op-1')
+      expect(backend.checkMelt).not.toHaveBeenCalled()
+    })
+
+    it('outgoing melt: rolled_back → failed', async () => {
+      vi.mocked(backend.refreshMelt).mockResolvedValueOnce({ state: 'rolled_back' })
+
+      await expect(adapter.confirmStuck(makeOutgoing())).resolves.toBe('failed')
+    })
+
+    it('outgoing melt: refresh 실패는 throw — failed로 매핑하면 자금 버그', async () => {
+      vi.mocked(backend.refreshMelt).mockRejectedValueOnce(new Error('mint down'))
+
+      await expect(adapter.confirmStuck(makeOutgoing())).rejects.toThrow('mint down')
+    })
+
+    it('incoming: delegates to poll (checkPayment 경유 원격 확인)', async () => {
+      vi.mocked(backend.checkMintQuote).mockResolvedValueOnce({ state: 'ISSUED' })
+      const transfer = createPendingTransfer({
+        id: 't-in',
+        txId: 'tx-in',
+        direction: 'incoming',
+        finality: 'deferred',
+        onExpiry: 'fail',
+        expiresAt: Date.now() + 60_000,
+        transportRef: { mintUrl: 'https://mint.test', quoteId: 'q-1' },
+        now: Date.now(),
+      })
+
+      await expect(adapter.confirmStuck(transfer)).resolves.toBe('settled')
+      expect(backend.checkMintQuote).toHaveBeenCalledWith('https://mint.test', 'q-1')
     })
   })
 })

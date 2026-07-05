@@ -255,6 +255,20 @@ export class RequestGate {
 ### 7.4 수수료·확인 화면 등 온디맨드 원격 확인
 PendingItemDetail의 `checkAlive`/expiry probe, 수동 새로고침은 사용자 액션 1:1이므로 유지 (§17-e). 단 전부 Coco 경유임을 확인 완료.
 
+**구현 확정 편차 (5단계, 기록)**:
+- **게이트 미준수 기록**: "카운터 7일 검증 프로토콜 통과" 게이트 이전에 코드를 배포 — 사용자 명시 지시. sweep이 기본 경로이고 `ks.tls-sweep` ON이 30s 일괄 폴링(구경로, 전송당 원격 왕복)을 복원한다. §12의 필수 후속이던 **진단 열람 UI(설정>환경설정>진단)를 이번 단계에서 구현** — 프로토콜(전 기기 7일, `tls_stuck_detected=0 AND coco_push_received>0`)은 배포 후 이 페이지로 수행한다. 판정 실패 시 스위치 ON으로 복귀하고 원인 규명(§3.3).
+- **`tls_stuck_detected` 계수 기준 = "confirm이 일으킨, 만료 기인이 아닌 phase 전이"** (구현 리뷰 blocker + 재검증 MAJOR로 2회 교정): confirm이 non-null이어도 ① phase 무변화(UNPAID 인보이스 대기·미상환 send 토큰 — 사용자 대기), ② 만료(±30s 클럭 스큐 여유) 기인 전이(recoverable/failed — 로컬 시계 수명)는 push가 놓친 정산이 아니므로 **계수하지 않는다** — 이들을 계수하면 게이트(=0)가 정상 사용만으로 항상 실패한다. 반대로 **터미널 제한은 두지 않는다**: bolt11 수신의 push 미스는 `checkPayment`가 finalize 이전 관측치 PAID를 반환해 submitted→awaiting(비터미널)으로만 나타나고, 그 내부 reconcile이 로컬 finalize→브리지 settled(+`coco_push_received`)까지 만들어 버리므로, 터미널만 계수하면 **수신 watcher가 죽은 기기가 게이트를 거짓 통과**한다. 이 규칙에서 비터미널 계수는 정확히 그 경우(PAID 관측)뿐. 로컬 1차(pollLocal) 전이는 미계수(원격 확인이 불필요했으므로). `stuckConfirmedSettled`는 계수된 detected 중 settled 부분집합. 수용 잔여: 만료 후 allSpent→settled(TTL 뒤에야 발견되는 상환)는 만료 여유에 걸려 미계수 — 희귀, 기록만.
+- **시작/재개 직후의 즉시 1회 sweep과 freeze 복귀 catch-up tick(갭 > 2×주기)은 구제 전용(무계수)** (리뷰 blocker ② + 재검증 잔여 #1): unlock/resume/해동 직후는 watcher 재기동·Coco 복구와 레이스라, push가 몇 초 뒤 배달했을 정산을 sweep이 먼저 잡아 카운터를 오염시킨다. 계측은 push가 배달할 시간(≥1주기)을 가진 주기 sweep부터.
+- **confirmStuck의 null 시맨틱**: 원격 확인 개념이 없는 전송(수동 수령 대기 ecash, 토큰 없는 send)은 null을 반환 — 확인도 계수도 없음. null 분기는 어댑터에서 await 이전에 동기 반환(네트워크 0).
+- **원격 확인 실패는 throw = 무전이·무계수**: `refreshMelt`/checkPayment/checkProofStates 오류를 phase로 매핑하지 않는다 — {error}→failed 매핑은 일시 민트 다운이 진행 중 결제를 실패로 확정하는 자금 버그. 확인 실패는 push 미스의 증거도 아니므로 계수하지 않는다(로그만, 다음 주기 재시도).
+- **ecash send의 만료는 confirm이 최종 판정** (리뷰 #2): pollLocal이 만료를 recoverable로 확정하면 listActive 밖으로 나가 재확인 기회가 사라지는데, 수령자가 이미 상환한 토큰이면 reclaim UI가 실패할 회수를 권한다 — confirmStuck이 checkProofStates(allSpent→settled)를 먼저 본 뒤 만료를 recoverable로 내린다. 토큰 없는 send(생성 중 크래시 잔재)는 null이라 sweep이 만료 처리하지 않음 — unlock 복구(B4/B8)가 종결한다(구 30s poll 대비 지연, 수용).
+- **ecash send의 `submitted`→`awaiting_confirmation` 승격 소실 기록** (리뷰 #3): 구 30s poll은 모든 비종단 send를 awaiting으로 옮겼으나 신경로는 op가 pending인 한 submitted 유지. 소비자 전수 확인 결과 기능 영향 0 (`canComplete`는 incoming 전용, UI는 두 phase를 구분하지 않음) — 의도적 단순화로 수용.
+- 크로스탭 재개의 한계 기록 (리뷰 #5): `registerTransfer` 경로(수동 redeem)는 버스 이벤트를 내지 않아 타 탭 브로드캐스트가 없다 — 해당 경로는 직후 processIncoming으로 즉시 종결되므로 sweep 재개가 불필요, 로컬 ensure만으로 충분.
+- stuck 나이 기준 = `updatedAt`(마지막 phase 전이 시각 — 설계 원문의 lastTransitionAt에 해당). 기준·주기 모두 120s.
+- 카운터는 core(TLS)가 telemetry를 직접 import하지 않고 **bootstrap이 콜백 주입** — §12 "core 직접 계수는 헥사고날 위반" 결정과 일치.
+- 크로스탭 재개: `SyncMessage`에 `transfer_created` 신설, 로컬 발생은 버스 이벤트(`transfer:submitted`/`incoming:received`)에서 브로드캐스트하고 수신 탭은 `ensureSweepScheduled()`만 호출(수신 탭 sweep이 로컬 store를 다시 읽으므로 payload 불요).
+- resume 재개는 `startStuckSweep` 재호출로 — 즉시 1회 sweep 후 타이머(§7.2 규정), pending 0이면 첫 실행이 스스로 정지.
+
 ## 8. A4~A6 + 신규 A7·A8
 
 **8.1 NUT-18** — `bootstrap.ts:569`에 `expiresAt: opts.expiresAt,` 추가 + **bootstrap 배선 스냅샷 테스트**(어댑터 테스트는 배선 누락을 못 잡음이 증명됨). 폴러 자체(3s, 화면 mount~unmount, 정리 존재)는 스펙상 정당 — 유지.
@@ -444,6 +458,7 @@ bootstrap에서 1회 읽어 조립 분기. 원격 제어 없음. **정직한 범
 - 단계별 판정 예: 1단계 후 unlock에 `recovery:*` 중복 0 / 2단계 후 resume의 `giftwrap_events_deduped`가 overlap 창 기대치로 하락
 - **분기 A는 NetLog 밖** (3단계 기록): Coco 경유 fetch는 이 계층에서 네트워크 발생 여부를 알 수 없어 계측하지 않는다 — `duplicates()`만으로는 분기 A 중복을 못 본다. 3단계 게이트 판정은 probe(`caller:'mint-info'`) + Coco 요청 로그(수동)로 보완한다.
 - **배선 현황 (1단계 구현 시점 — 코드리뷰 #8)**: `giftwrap_*`는 라이브 구독 경로만 계수한다 — syncAll/anchor 캐치업 경로 계측은 **2단계에서 gateway 경계에 추가**해야 before/after 비교가 완전해진다(core 서비스에서의 직접 계수는 헥사고날 위반). `tls_stuck_*`·`relay_notice_rate_limited`는 5단계 sweep/컨트롤러 배선 전까지 0이 정상 — **게이트 판정에 쓰려면 해당 배선이 선행 조건**이다. `coco_push_received`는 전송 수단(WSS/Coco 내부 폴링)을 구분하지 않는 "이벤트 파이프라인 생존" 지표다. 진단 열람 UI(`readNetCounters` 소비자)는 미구현 — 5단계 게이트 전 필수 후속.
+- **배선 현황 갱신 (5단계 구현 시점)**: `tls_stuck_detected`/`tls_stuck_confirmed_settled`가 sweep에 배선 완료(bootstrap 콜백 주입 — TLS는 telemetry 미의존). 진단 열람 UI 구현 완료(설정>환경설정>진단 — 카운터·kill-switch 상태 열람/복사, 원격 전송 없음). 잔여 미배선 = `relay_notice_rate_limited`(6단계 컨트롤러 소관).
 
 ## 13. 테스트 전략
 

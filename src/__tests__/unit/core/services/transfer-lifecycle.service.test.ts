@@ -510,4 +510,284 @@ describe('TransferLifecycleService', () => {
       expect(needsPolling).toHaveLength(0)
     })
   })
+
+  // ─── 120s stuck-sweep (설계 §7.2/§7.3) ───
+
+  describe('stuck-sweep', () => {
+    let counters: { stuckDetected: () => void; stuckConfirmedSettled: () => void }
+
+    function createSweepService(operators: Map<string, TransferOperator>) {
+      counters = { stuckDetected: vi.fn(), stuckConfirmedSettled: vi.fn() }
+      service = new TransferLifecycleService(store, operators, eventBus, undefined, counters)
+    }
+
+    function seedTransfer(overrides: Partial<PendingTransfer> = {}): PendingTransfer {
+      const base = createPendingTransfer({
+        id: 'sweep-1',
+        txId: 'tx-sweep-1',
+        direction: 'outgoing',
+        finality: 'immediate',
+        onExpiry: 'fail',
+        transportRef: { protocol: 'mock' },
+        now: Date.now(),
+      })
+      return { ...transitionPhase(base, 'in_transit', Date.now()), ...overrides }
+    }
+
+    const STUCK_AGE = { updatedAt: Date.now() - 121_000 }
+    const FRESH_AGE = { updatedAt: Date.now() - 1_000 }
+
+    it('applies a local transition without any remote confirm (1차 로컬 판정)', async () => {
+      const operator = makeMockOperator({
+        pollLocal: vi.fn().mockResolvedValue('settled' as TransferPhase),
+        confirmStuck: vi.fn(),
+      })
+      createSweepService(new Map([['mock', operator]]))
+      await store.create(seedTransfer(STUCK_AGE))
+
+      await service.runStuckSweepOnce()
+
+      expect((await store.get('sweep-1'))?.phase).toBe('settled')
+      expect(operator.confirmStuck).not.toHaveBeenCalled()
+      expect(counters.stuckDetected).not.toHaveBeenCalled()
+      expect(emittedEvents.some((e) => e.type === 'transfer:settled')).toBe(true)
+    })
+
+    it('does not confirm transfers younger than the stuck threshold', async () => {
+      const operator = makeMockOperator({
+        pollLocal: vi.fn().mockImplementation(async (t: PendingTransfer) => t.phase),
+        confirmStuck: vi.fn(),
+      })
+      createSweepService(new Map([['mock', operator]]))
+      await store.create(seedTransfer(FRESH_AGE))
+
+      await service.runStuckSweepOnce()
+
+      expect(operator.pollLocal).toHaveBeenCalledTimes(1)
+      expect(operator.confirmStuck).not.toHaveBeenCalled()
+      expect(counters.stuckDetected).not.toHaveBeenCalled()
+    })
+
+    it('confirms a stuck transfer once and settles it (매트릭스 경로 + 카운터)', async () => {
+      const operator = makeMockOperator({
+        pollLocal: vi.fn().mockImplementation(async (t: PendingTransfer) => t.phase),
+        confirmStuck: vi.fn().mockResolvedValue('settled' as TransferPhase),
+      })
+      createSweepService(new Map([['mock', operator]]))
+      await store.create(seedTransfer(STUCK_AGE))
+
+      await service.runStuckSweepOnce()
+
+      expect(operator.confirmStuck).toHaveBeenCalledTimes(1)
+      expect(counters.stuckDetected).toHaveBeenCalledTimes(1)
+      expect(counters.stuckConfirmedSettled).toHaveBeenCalledTimes(1)
+      expect((await store.get('sweep-1'))?.phase).toBe('settled')
+    })
+
+    it('unchanged confirm (사용자 대기 — UNPAID/미상환)은 계수하지 않는다 (§12 게이트)', async () => {
+      const operator = makeMockOperator({
+        pollLocal: vi.fn().mockImplementation(async (t: PendingTransfer) => t.phase),
+        confirmStuck: vi.fn().mockResolvedValue('in_transit' as TransferPhase),
+      })
+      createSweepService(new Map([['mock', operator]]))
+      await store.create(seedTransfer(STUCK_AGE))
+
+      await service.runStuckSweepOnce()
+
+      expect(counters.stuckDetected).not.toHaveBeenCalled()
+      expect(counters.stuckConfirmedSettled).not.toHaveBeenCalled()
+      expect((await store.get('sweep-1'))?.phase).toBe('in_transit')
+    })
+
+    it('expiry-driven transition (recoverable)은 전이하되 계수하지 않는다 — 수명 이벤트', async () => {
+      const operator = makeMockOperator({
+        pollLocal: vi.fn().mockImplementation(async (t: PendingTransfer) => t.phase),
+        confirmStuck: vi.fn().mockResolvedValue('recoverable' as TransferPhase),
+      })
+      createSweepService(new Map([['mock', operator]]))
+      await store.create(seedTransfer({ ...STUCK_AGE, expiresAt: Date.now() - 1_000 }))
+
+      await service.runStuckSweepOnce()
+
+      expect((await store.get('sweep-1'))?.phase).toBe('recoverable')
+      expect(counters.stuckDetected).not.toHaveBeenCalled()
+    })
+
+    it('non-terminal 전진(PAID 관측)도 계수한다 — 수신 push 미스의 유일한 관측형 (재검증 MAJOR)', async () => {
+      // checkPayment는 finalize 이전 관측치 PAID를 반환하므로, 수신 watcher가
+      // 죽은 기기의 push 미스는 submitted→awaiting(비터미널)으로만 나타난다 —
+      // 터미널만 계수하면 게이트가 거짓 통과한다.
+      const operator = makeMockOperator({
+        pollLocal: vi.fn().mockImplementation(async (t: PendingTransfer) => t.phase),
+        confirmStuck: vi.fn().mockResolvedValue('awaiting_confirmation' as TransferPhase),
+      })
+      createSweepService(new Map([['mock', operator]]))
+      await store.create(seedTransfer(STUCK_AGE))
+
+      await service.runStuckSweepOnce()
+
+      expect((await store.get('sweep-1'))?.phase).toBe('awaiting_confirmation')
+      expect(counters.stuckDetected).toHaveBeenCalledTimes(1)
+      expect(counters.stuckConfirmedSettled).not.toHaveBeenCalled()
+    })
+
+    it('만료 임박(스큐 여유 30s 내) 터미널 전이는 수명 이벤트로 취급 — 미계수', async () => {
+      const operator = makeMockOperator({
+        pollLocal: vi.fn().mockImplementation(async (t: PendingTransfer) => t.phase),
+        confirmStuck: vi.fn().mockResolvedValue('failed' as TransferPhase),
+      })
+      createSweepService(new Map([['mock', operator]]))
+      // 민트가 로컬 만료보다 수 초 먼저 EXPIRED를 반환하는 창
+      await store.create(seedTransfer({ ...STUCK_AGE, expiresAt: Date.now() + 10_000 }))
+
+      await service.runStuckSweepOnce()
+
+      expect((await store.get('sweep-1'))?.phase).toBe('failed')
+      expect(counters.stuckDetected).not.toHaveBeenCalled()
+    })
+
+    it('null confirm (원격 확인 개념 없음) is not counted as stuck — §12 게이트 오염 방지', async () => {
+      const operator = makeMockOperator({
+        pollLocal: vi.fn().mockImplementation(async (t: PendingTransfer) => t.phase),
+        confirmStuck: vi.fn().mockResolvedValue(null),
+      })
+      createSweepService(new Map([['mock', operator]]))
+      await store.create(seedTransfer(STUCK_AGE))
+
+      await service.runStuckSweepOnce()
+
+      expect(counters.stuckDetected).not.toHaveBeenCalled()
+      expect((await store.get('sweep-1'))?.phase).toBe('in_transit')
+    })
+
+    it('a throwing confirm is not counted, leaves the transfer untouched, and continues the sweep', async () => {
+      const operator = makeMockOperator({
+        pollLocal: vi.fn().mockImplementation(async (t: PendingTransfer) => t.phase),
+        confirmStuck: vi
+          .fn()
+          .mockRejectedValueOnce(new Error('mint down'))
+          .mockResolvedValueOnce('settled' as TransferPhase),
+      })
+      createSweepService(new Map([['mock', operator]]))
+      await store.create(seedTransfer({ ...STUCK_AGE, id: 'boom' }))
+      await store.create(seedTransfer({ ...STUCK_AGE, id: 'ok', txId: 'tx-ok' }))
+
+      await service.runStuckSweepOnce()
+
+      // 확인 실패는 push 미스의 증거가 아니다 — 계수 없음·무전이, 나머지 계속
+      expect(counters.stuckDetected).toHaveBeenCalledTimes(1) // 'ok'의 터미널 전이만
+      expect((await store.get('boom'))?.phase).toBe('in_transit')
+      expect((await store.get('ok'))?.phase).toBe('settled')
+    })
+
+    it('freeze 복귀 catch-up tick(갭 > 2×주기)은 구제 전용(무계수)', async () => {
+      vi.useFakeTimers()
+      try {
+        const operator = makeMockOperator({
+          pollLocal: vi.fn().mockImplementation(async (t: PendingTransfer) => t.phase),
+          confirmStuck: vi.fn().mockResolvedValue('settled' as TransferPhase),
+        })
+        createSweepService(new Map([['mock', operator]]))
+        // 초기 즉시 1회 시점에는 young — 구제 대상 아님
+        await store.create(seedTransfer({ updatedAt: Date.now() - 1_000 }))
+
+        service.startStuckSweep(120_000)
+        await vi.advanceTimersByTimeAsync(0)
+
+        // freeze 시뮬레이션: 타이머는 멈춘 채 시계만 10분 점프 → 다음 tick이 catch-up
+        vi.setSystemTime(Date.now() + 600_000)
+        await vi.advanceTimersByTimeAsync(120_000)
+
+        // 구제(정산 회수)는 수행하되 계수는 없다
+        expect((await store.get('sweep-1'))?.phase).toBe('settled')
+        expect(counters.stuckDetected).not.toHaveBeenCalled()
+        service.stopStuckSweep()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('startStuckSweep의 즉시 1회는 구제 전용(무계수) — resume 레이스 오염 방지', async () => {
+      vi.useFakeTimers()
+      try {
+        const operator = makeMockOperator({
+          pollLocal: vi.fn().mockImplementation(async (t: PendingTransfer) => t.phase),
+          confirmStuck: vi.fn().mockResolvedValue('settled' as TransferPhase),
+        })
+        createSweepService(new Map([['mock', operator]]))
+        await store.create(seedTransfer({ updatedAt: Date.now() - 121_000 }))
+
+        service.startStuckSweep(120_000)
+        await vi.advanceTimersByTimeAsync(0)
+
+        // 구제(전이)는 수행하되 카운터는 건드리지 않는다
+        expect((await store.get('sweep-1'))?.phase).toBe('settled')
+        expect(counters.stuckDetected).not.toHaveBeenCalled()
+        expect(counters.stuckConfirmedSettled).not.toHaveBeenCalled()
+        service.stopStuckSweep()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('stops its own timer at pending-0 and resumes via ensureSweepScheduled', async () => {
+      vi.useFakeTimers()
+      try {
+        const operator = makeMockOperator({
+          pollLocal: vi.fn().mockImplementation(async (t: PendingTransfer) => t.phase),
+          confirmStuck: vi.fn().mockResolvedValue(null),
+        })
+        createSweepService(new Map([['mock', operator]]))
+        const listSpy = vi.spyOn(store, 'listActive')
+
+        service.startStuckSweep(120_000)
+        await vi.advanceTimersByTimeAsync(0)
+        expect(listSpy).toHaveBeenCalledTimes(1) // 즉시 1회 — 비었으므로 타이머 자기 정지
+
+        await vi.advanceTimersByTimeAsync(360_000)
+        expect(listSpy).toHaveBeenCalledTimes(1) // 정지 확인 — 주기 발화 없음
+
+        await store.create(seedTransfer(FRESH_AGE))
+        service.ensureSweepScheduled() // transfer 생성 신호 (§7.2)
+        await vi.advanceTimersByTimeAsync(120_000)
+        expect(listSpy).toHaveBeenCalledTimes(2) // 재개됨
+
+        service.stopStuckSweep()
+        await vi.advanceTimersByTimeAsync(360_000)
+        expect(listSpy).toHaveBeenCalledTimes(2) // 정지 후 발화 없음
+
+        service.ensureSweepScheduled()
+        await vi.advanceTimersByTimeAsync(360_000)
+        expect(listSpy).toHaveBeenCalledTimes(2) // sweep 모드 꺼짐(ks 구경로) — ensure는 no-op
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('initiateTransfer restarts a self-stopped sweep (생성 경로 ensure)', async () => {
+      vi.useFakeTimers()
+      try {
+        const operator = makeMockOperator({
+          pollLocal: vi.fn().mockImplementation(async (t: PendingTransfer) => t.phase),
+        })
+        createSweepService(new Map([['mock', operator]]))
+        const listSpy = vi.spyOn(store, 'listActive')
+
+        service.startStuckSweep(120_000)
+        await vi.advanceTimersByTimeAsync(0) // 비었으므로 정지
+
+        const intent: TransferIntent = {
+          txId: 'tx-new',
+          accountId: 'https://mint',
+          amount: amount(100, 'sat'),
+        }
+        await service.initiateTransfer(intent, 'mock')
+        await vi.advanceTimersByTimeAsync(120_000)
+
+        expect(listSpy.mock.calls.length).toBeGreaterThanOrEqual(2)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+  })
 })

@@ -12,6 +12,8 @@ export type SyncMessage =
   | { type: 'balance_changed' }
   | { type: 'tx_changed' }
   | { type: 'settings_changed' }
+  // pending-0으로 정지한 타 탭의 stuck-sweep 타이머 재개 신호 (설계 §7.2 [F20-잔여])
+  | { type: 'transfer_created' }
 
 let broadcastChannel: BroadcastChannel | null = null
 

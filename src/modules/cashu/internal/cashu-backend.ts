@@ -488,6 +488,20 @@ export async function checkMelt(operationId: string): Promise<{
   };
 }
 
+/**
+ * Melt 원격 상태 확인 — stuck-confirm 매트릭스 전용 (설계 §7.3).
+ * checkMelt(로컬 repo 읽기)와 달리 Coco `ops.melt.refresh`로 실제 원격 상태를
+ * 1회 동기화한다 — "감지만 하고 확인 안 하는 설계 금지".
+ * 실패(일시 네트워크 오류 등)는 **throw**한다 — {error}로 삼키면 호출측
+ * 상태 매핑이 진행 중 결제를 failed로 확정하는 자금 버그가 된다. sweep은
+ * throw를 잡아 해당 transfer를 건드리지 않고 다음 주기에 재시도한다.
+ */
+export async function refreshMelt(operationId: string): Promise<{ state: string }> {
+  const manager = await getCocoManager();
+  const refreshed = await manager.ops.melt.refresh(operationId);
+  return { state: refreshed.state };
+}
+
 export async function rollbackMelt(operationId: string, reason?: string): Promise<void> {
   const manager = await getCocoManager();
   const op = await manager.ops.melt.get(operationId);

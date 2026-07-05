@@ -5,21 +5,49 @@
  * Adapter에게 실행을 위임하고, 상태만 관리한다.
  */
 
-import type { PendingTransfer } from '@/core/domain/pending-transfer'
-import { isTerminal, canReclaim, canComplete, transitionPhase } from '@/core/domain/pending-transfer'
+import type { PendingTransfer, TransferPhase } from '@/core/domain/pending-transfer'
+import { isTerminal, isExpired, canReclaim, canComplete, transitionPhase } from '@/core/domain/pending-transfer'
 import type { EventBus } from '@/core/events/event-bus'
 import type { PendingTransferStore } from '@/core/ports/driven/pending-transfer-store.port'
 import type { TransferIntent, TransferOperator } from '@/core/ports/driven/transfer-operator.port'
 import type { OperationMap } from '@/core/ports/driven/operation-map.port'
 
+/** stuck 판정 기준 — 마지막 전이로부터 이 시간이 지나면 원격 확인 1회 (설계 §7.2) */
+const STUCK_THRESHOLD_MS = 120_000
+
+/**
+ * 만료 임박 여유 — 민트가 로컬 expiresAt보다 수 초 먼저 EXPIRED를 반환하는
+ * 클럭 스큐 창에서, 만료 기인 터미널 전이가 push 미스로 오계수되는 것을 방지
+ * (5단계 재검증 잔여 #2).
+ */
+const EXPIRY_SKEW_MARGIN_MS = 30_000
+
 export class TransferLifecycleService {
   private pollTimer: ReturnType<typeof setInterval> | null = null
+
+  // ─── stuck-sweep 상태 (설계 §7.2 — ks.tls-sweep OFF 신경로) ───
+  private sweepTimer: ReturnType<typeof setInterval> | null = null
+  private sweepIntervalMs = 120_000
+  /** startStuckSweep 이후 true — pause/dispose의 stopStuckSweep이 끈다 */
+  private sweepActive = false
+  /** 재진입 가드 — 느린 sweep 중 타이머 재발화 무시 */
+  private sweepRunning = false
+  /** 마지막 sweep 시각 — freeze 복귀 catch-up tick 판별용 (재검증 잔여 #1) */
+  private lastSweepAt = 0
 
   constructor(
     private readonly transferStore: PendingTransferStore,
     private readonly operators: Map<string, TransferOperator>,
     private readonly eventBus: EventBus,
     private readonly operationMap?: OperationMap,
+    /**
+     * §12 카운터 주입 — core가 telemetry 어댑터를 직접 import하지 않기 위한
+     * 경계 (giftwrap 카운터를 gateway 경계에서 계수하는 것과 같은 이유).
+     */
+    private readonly counters?: {
+      stuckDetected(): void
+      stuckConfirmedSettled(): void
+    },
   ) { }
 
   /** Transfer 조회 */
@@ -43,6 +71,138 @@ export class TransferLifecycleService {
       clearInterval(this.pollTimer)
       this.pollTimer = null
     }
+  }
+
+  // ─── 120s stuck-sweep (설계 §7.2 — 30s 일괄 폴링의 대체) ───
+
+  /**
+   * sweep 시작: 즉시 1회 실행 후 주기 타이머. 30s 일괄 폴링과의 차이 —
+   * 판정은 로컬 우선이고, 원격 확인은 stuck(마지막 전이 > 120s)에 한해
+   * §7.3 매트릭스로 1회만 나간다. pending 0건이면 타이머가 스스로 정지하고
+   * transfer 생성/수신(ensureSweepScheduled)이 재개한다.
+   */
+  startStuckSweep(intervalMs = 120_000): void {
+    this.sweepIntervalMs = intervalMs
+    this.sweepActive = true
+    // 시작/재개 직후의 즉시 1회는 **구제 전용(무계수)** — unlock/resume 직후는
+    // watcher 재기동·Coco 복구와 레이스라, push가 몇 초 뒤 배달했을 정산을
+    // sweep이 먼저 잡아 게이트 카운터를 오염시킨다 (5단계 리뷰 blocker ②).
+    // 정상 계측은 push가 배달할 시간(≥1주기)을 가진 주기 sweep부터.
+    void this.runStuckSweepOnce({ countStuck: false })
+    this.scheduleSweepTimer()
+  }
+
+  stopStuckSweep(): void {
+    this.sweepActive = false
+    if (this.sweepTimer) {
+      clearInterval(this.sweepTimer)
+      this.sweepTimer = null
+    }
+  }
+
+  /**
+   * pending-0 자기 정지 상태에서의 재개 신호 — transfer 생성 경로(로컬)와
+   * 크로스탭 'transfer_created' 알림(bootstrap 배선)이 호출한다 [F20-잔여].
+   * sweep 모드가 아닐 때(ks.tls-sweep ON 구경로)는 no-op.
+   */
+  ensureSweepScheduled(): void {
+    if (!this.sweepActive) return
+    this.scheduleSweepTimer()
+  }
+
+  private scheduleSweepTimer(): void {
+    if (this.sweepTimer) return
+    this.sweepTimer = setInterval(() => {
+      // visibilitychange 없이 얼었다 깨어난 경우(onPause 미발화 — 모바일 freeze)
+      // 해동 직후의 catch-up tick은 watcher 재기동과 레이스다 — resume 규칙과
+      // 동일하게 구제 전용(무계수)으로 처리 (재검증 잔여 #1).
+      const gap = Date.now() - this.lastSweepAt
+      const isCatchUpAfterFreeze = this.lastSweepAt > 0 && gap > this.sweepIntervalMs * 2
+      void this.runStuckSweepOnce({ countStuck: !isCatchUpAfterFreeze })
+    }, this.sweepIntervalMs)
+  }
+
+  /** resume/onWake 즉시 1회 sweep용으로도 공개 (§7.2) */
+  async runStuckSweepOnce(opts?: { countStuck?: boolean }): Promise<void> {
+    if (this.sweepRunning) return
+    this.sweepRunning = true
+    this.lastSweepAt = Date.now()
+    const countStuck = opts?.countStuck ?? true
+    try {
+      const active = await this.transferStore.listActive()
+      if (active.length === 0) {
+        // pending 0 → 타이머 정지 (§7.2). ensureSweepScheduled가 재개한다.
+        // lastSweepAt 리셋: 유휴 후 재개의 첫 tick은 freeze catch-up이 아니다
+        // (갭=유휴시간이 2×주기를 넘어 무계수로 오분류되는 것 방지 — 재검증 NIT)
+        this.lastSweepAt = 0
+        if (this.sweepTimer) {
+          clearInterval(this.sweepTimer)
+          this.sweepTimer = null
+        }
+        return
+      }
+
+      const now = Date.now()
+      for (const transfer of active) {
+        try {
+          await this.sweepOne(transfer, now, countStuck)
+        } catch (e) {
+          // 원격 확인 실패(민트 다운 등) — 전이 없이 다음 주기에 재시도.
+          // 오류를 phase로 매핑하면 진행 중 결제를 failed로 확정하는 자금 버그다.
+          // 계수도 하지 않는다 — 확인 실패는 push 미스의 증거가 아니다.
+          console.error('[TLS] sweep error:', transfer.id, e)
+        }
+      }
+    } finally {
+      this.sweepRunning = false
+    }
+  }
+
+  private async sweepOne(
+    transfer: PendingTransfer,
+    now: number,
+    countStuck: boolean,
+  ): Promise<void> {
+    const operator = this.findOperator(transfer)
+    if (!operator) return
+
+    // 1차: 로컬 판정 (네트워크 0) — push를 놓친 로컬 잔상은 여기서 즉시 회수.
+    // 로컬로 보이는 전이는 계수하지 않는다(원격 확인이 필요 없었으므로).
+    if (operator.pollLocal) {
+      const localPhase = await operator.pollLocal(transfer)
+      if (localPhase !== transfer.phase) {
+        await this.applyPhaseTransition(transfer, localPhase)
+        return
+      }
+    }
+
+    // 2차: stuck 후보 — 마지막 전이로부터 THRESHOLD 초과분만 원격 확인
+    if (now - transfer.updatedAt <= STUCK_THRESHOLD_MS) return
+    if (!operator.confirmStuck) return
+
+    // null = 이 전송타입에는 원격 확인 개념이 없음(수동 수령 대기 ecash 등).
+    // 어댑터의 null 분기는 await 이전에 동기 반환하므로 네트워크 0.
+    const confirmed = await operator.confirmStuck(transfer)
+    if (confirmed === null || confirmed === transfer.phase) return
+
+    // §12 게이트 계수 기준 (5단계 리뷰 blocker + 재검증 MAJOR): "원격이
+    // 로컬보다 앞서 있던, 만료 기인이 아닌 전이" = 진짜 push 미스.
+    // - phase 무변화(UNPAID 인보이스 대기·미상환 send 토큰)는 위에서 반환 —
+    //   사용자 대기를 계수하면 게이트(=0)가 정상 사용만으로 항상 실패한다.
+    // - 만료(±스큐 여유) 기인 전이는 로컬 시계 수명 이벤트 — 미계수.
+    // - **터미널 제한은 두지 않는다**: bolt11 수신의 push 미스는 checkPayment가
+    //   finalize 이전 관측치 PAID를 반환해 submitted→awaiting(비터미널)으로만
+    //   나타난다 — 터미널만 계수하면 수신 watcher가 죽은 기기가 게이트를
+    //   거짓 통과한다(재검증 MAJOR). 이 규칙에서 비터미널 계수는 정확히
+    //   그 경우(PAID 관측)뿐이다.
+    const remoteMiss = !isExpired(transfer, now + EXPIRY_SKEW_MARGIN_MS)
+    if (countStuck && remoteMiss) {
+      this.counters?.stuckDetected()
+      if (confirmed === 'settled') {
+        this.counters?.stuckConfirmedSettled()
+      }
+    }
+    await this.applyPhaseTransition(transfer, confirmed)
   }
 
   // ─── 보내기 (Outgoing) ───
@@ -82,6 +242,9 @@ export class TransferLifecycleService {
       payload: { transfer },
     })
 
+    // pending-0으로 정지한 sweep 재개 (§7.2)
+    this.ensureSweepScheduled()
+
     return transfer
   }
 
@@ -113,6 +276,8 @@ export class TransferLifecycleService {
       type: 'transfer:submitted',
       payload: { transfer },
     })
+
+    this.ensureSweepScheduled()
 
     return transfer
   }
@@ -165,6 +330,7 @@ export class TransferLifecycleService {
   /** 외부에서 생성한 PendingTransfer를 store에 등록 */
   async registerTransfer(transfer: PendingTransfer): Promise<void> {
     await this.transferStore.create(transfer)
+    this.ensureSweepScheduled()
   }
 
   /** 사용자가 "받기" 클릭 */
@@ -235,23 +401,30 @@ export class TransferLifecycleService {
       const operator = this.findOperator(transfer)
       if (!operator) continue
 
-      const previousPhase = transfer.phase
       const newPhase = await operator.poll(transfer)
 
       if (newPhase !== transfer.phase) {
-        const updated = transitionPhase(transfer, newPhase, Date.now())
-        await this.transferStore.update(updated.id, updated)
-
-        this.eventBus.emit({
-          type: 'transfer:phase-changed',
-          payload: { transfer: updated, previousPhase },
-        })
-
-        // 최종 상태면 정리
-        if (isTerminal(newPhase)) {
-          await this.finalizeTransfer(updated)
-        }
+        await this.applyPhaseTransition(transfer, newPhase)
       }
+    }
+  }
+
+  /** 폴링/sweep 공용 — 전이 저장 + phase-changed 발행 + 종단 정리 */
+  private async applyPhaseTransition(
+    transfer: PendingTransfer,
+    newPhase: TransferPhase,
+  ): Promise<void> {
+    const previousPhase = transfer.phase
+    const updated = transitionPhase(transfer, newPhase, Date.now())
+    await this.transferStore.update(updated.id, updated)
+
+    this.eventBus.emit({
+      type: 'transfer:phase-changed',
+      payload: { transfer: updated, previousPhase },
+    })
+
+    if (isTerminal(newPhase)) {
+      await this.finalizeTransfer(updated)
     }
   }
 

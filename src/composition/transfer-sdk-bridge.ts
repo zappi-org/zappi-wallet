@@ -14,7 +14,8 @@
  * - send:rolled-back    → ecash send transfer   → failed
  * - mint-op:finalized   → bolt11/ecash receive  → settled
  *
- * polling은 여전히 장주기(30s)로 fallback 동작.
+ * fallback: 기본은 120s stuck-sweep(설계 §7.2 — 로컬 1차 + stuck만 원격 확인),
+ * ks.tls-sweep ON이면 구경로 30s 일괄 폴링.
  */
 
 import { isSwapQuote } from '@/modules/cashu'

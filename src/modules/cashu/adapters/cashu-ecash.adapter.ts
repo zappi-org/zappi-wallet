@@ -289,6 +289,48 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
     return 'awaiting_confirmation'
   }
 
+  /**
+   * sweep 로컬 1차 판정 (설계 §7.2 — 네트워크 0).
+   * send: Coco 로컬 op 상태만. **만료를 여기서 recoverable로 확정하지 않는다**
+   * (5단계 리뷰 #2): recoverable은 listActive 밖이라 sweep이 다시 보지 않는데,
+   * 수령자가 이미 상환한 토큰이면 reclaim UI가 실패할 회수를 권하게 된다 —
+   * 만료 판정은 confirmStuck이 checkProofStates(allSpent→settled)를 먼저
+   * 확인한 뒤 내린다. incoming(수동 수령 대기): 만료만 — 원격 상태 개념이
+   * 없다 (§7.3 매트릭스 4행).
+   */
+  async pollLocal(transfer: PendingTransfer): Promise<TransferPhase> {
+    if (transfer.direction === 'incoming') {
+      if (isExpired(transfer)) return 'failed'
+      return transfer.phase
+    }
+
+    const ref = transfer.transportRef as { operationId?: string }
+    if (ref.operationId) {
+      const opState = await this.backend.getSendOperationState(ref.operationId)
+      if (opState === 'finalized') return 'settled'
+      if (opState === 'rolled_back') return 'recoverable'
+    }
+    return transfer.phase
+  }
+
+  /**
+   * stuck 원격 확인 1회 (설계 §7.3): send는 `checkProofsStates`(§5.4 예외 4 —
+   * UP-1 수용 전까지 격리된 raw 호출, reclaim 화면 전용이 아니라 stuck 경로에서
+   * 도달 가능해야 한다). incoming은 null — 원격 확인 개념 없음, sweep이 stuck으로
+   * 계수하지 않는다(수동 수령 대기가 §12 게이트를 오염시키지 않게).
+   */
+  async confirmStuck(transfer: PendingTransfer): Promise<TransferPhase | null> {
+    if (transfer.direction === 'incoming') return null
+
+    const ref = transfer.transportRef as { token?: string }
+    if (!ref.token) return null
+
+    const proofState = await this.backend.checkProofStates(ref.token)
+    if (proofState.allSpent) return 'settled'
+    if (isExpired(transfer)) return 'recoverable'
+    return transfer.phase
+  }
+
   async reclaim(transfer: PendingTransfer): Promise<void> {
     const ref = transfer.transportRef as { operationId: string }
     await this.backend.rollbackSend(ref.operationId)

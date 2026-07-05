@@ -77,6 +77,7 @@ import { MintMetadataStoreAdapter } from "@/adapters/metadata/mint-metadata-stor
 import { TrustedMintProviderAdapter } from "@/adapters/runtime/trusted-mint-provider.adapter";
 import { DexieIncomingReviewQueue } from "@/adapters/storage/dexie/dexie-incoming-review-queue.store";
 import { CrossTabSyncNotifierAdapter } from "@/adapters/runtime/cross-tab-sync-notifier.adapter";
+import { broadcastSync, getBroadcastChannel } from "@/utils/cross-tab-sync";
 import { DexieRouteExecutionStore } from "@/adapters/storage/dexie/dexie-route-execution-store";
 import { SettingsTrustedAccountStoreAdapter } from "@/adapters/runtime/settings-trusted-account-store.adapter";
 
@@ -117,6 +118,7 @@ import { DexieMintMetadataRepository } from "@/adapters/storage/dexie/dexie-mint
 import { createNut18HttpPollerFactory } from "./nut18-poller-factory";
 import {
   flushNetCounters,
+  incrementNetCounter,
   startNetCounterFlusher,
 } from "@/adapters/telemetry/net-counters";
 import { readKillSwitches } from "@/core/utils/kill-switch";
@@ -355,7 +357,13 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     pendingTransferStore,
     operators,
     eventBus,
-    operationMap
+    operationMap,
+    // §12 카운터 — core가 telemetry를 직접 import하지 않도록 경계에서 주입
+    {
+      stuckDetected: () => incrementNetCounter("tls_stuck_detected"),
+      stuckConfirmedSettled: () =>
+        incrementNetCounter("tls_stuck_confirmed_settled"),
+    }
   );
 
   const disconnectGiftWrapSettlement = connectGiftWrapSettlementBridge(
@@ -568,6 +576,56 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   // pause-during-activate 레이스 가드 (코드리뷰 #6): activate의 startPolling이
   // 이미 백그라운드로 간 앱에서 타이머를 켜는 것을 방지.
   let paused = false;
+
+  // TLS 감시 모드 (설계 §7.2/§11.2 5단계): ks.tls-sweep ON이면 구경로(30s 일괄
+  // 폴링 — 전송당 원격 왕복), OFF면 120s stuck-sweep(로컬 1차 + stuck에 한해
+  // §7.3 매트릭스 원격 확인 1회). 두 stop을 모두 부르는 이유: 스위치 토글 후
+  // 재unlock 시 이전 모드의 타이머가 세대를 넘지 않게.
+  const startTransferMonitor = () => {
+    if (killSwitches["tls-sweep"]) {
+      transferLifecycle.startPolling(30000);
+    } else {
+      transferLifecycle.startStuckSweep(120_000);
+    }
+  };
+  const stopTransferMonitor = () => {
+    transferLifecycle.stopPolling();
+    transferLifecycle.stopStuckSweep();
+  };
+
+  // 크로스탭 sweep 재개 배선 (§7.2 [F20-잔여]): pending-0으로 정지한 탭이
+  // 타 탭 발생 transfer를 놓치지 않게. watcher 생성 경로(incoming:received)는
+  // TLS를 거치지 않으므로 로컬 ensure도 여기서 건다.
+  let transferSweepWiringStop: (() => void) | null = null;
+  const wireTransferSweepSignals = () => {
+    if (transferSweepWiringStop) return;
+    const unsubs: Array<() => void> = [];
+    unsubs.push(
+      eventBus.on("transfer:submitted", () => {
+        broadcastSync("transfer_created");
+      })
+    );
+    unsubs.push(
+      eventBus.on("incoming:received", () => {
+        transferLifecycle.ensureSweepScheduled();
+        broadcastSync("transfer_created");
+      })
+    );
+    const channel = getBroadcastChannel();
+    if (channel) {
+      const onMessage = (event: MessageEvent) => {
+        if ((event.data as { type?: string })?.type === "transfer_created") {
+          transferLifecycle.ensureSweepScheduled();
+        }
+      };
+      channel.addEventListener("message", onMessage);
+      unsubs.push(() => channel.removeEventListener("message", onMessage));
+    }
+    transferSweepWiringStop = () => {
+      unsubs.forEach((u) => u());
+      transferSweepWiringStop = null;
+    };
+  };
   const activate = async () => {
     const manager = await getCashuRuntimeManager();
 
@@ -645,10 +703,11 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     // Nostr incoming watcher 시작 (앱 unlock 후 한 번)
     nostrIncomingWatcher.start(derivePublicKey(deps.nostrPrivateKeyHex));
 
-    // TLS: 앱 시작 시 active transfer 복구 + 주기적 폴링 시작 (long-interval fallback)
+    // TLS: 앱 시작 시 active transfer 복구 + 감시 시작 (ks 분기 — §7.2)
     transferLifecycle.recoverTransfers().catch(console.error);
+    wireTransferSweepSignals();
     if (!paused) {
-      transferLifecycle.startPolling(30000);
+      startTransferMonitor();
     }
 
     // Coco SDK 내부 stuck mint ops 정리 (1일 이상 → abandon, 그 외 → 복구 시도)
@@ -687,9 +746,9 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     }
     exchangeRateService.refreshIfStale().catch(() => {});
 
-    // TLS 폴링 재개 — onPause에서 정지한 타이머 (설계 §7.2). startPolling은 idempotent.
-    // 주기 30초는 현행 유지 — 120s stuck-sweep 전환은 5단계(커버리지 게이트 통과 후).
-    transferLifecycle.startPolling(30000);
+    // TLS 감시 재개 — onPause에서 정지한 타이머 (설계 §7.2). sweep 경로는
+    // 즉시 1회 sweep 후 타이머 재개(pending 0이면 스스로 정지). idempotent.
+    startTransferMonitor();
 
     // Nostr incoming watcher 재시작 (키가 바뀔 수 있으므로)
     nostrIncomingWatcher.stop();
@@ -707,8 +766,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     } catch {
       /* ignore if not initialized */
     }
-    // TLS 폴링 정지 — 기존에는 백그라운드에서도 30초 폴링이 계속 돌았다 (설계 §7.2).
-    transferLifecycle.stopPolling();
+    // TLS 감시 정지 — 기존에는 백그라운드에서도 30초 폴링이 계속 돌았다 (설계 §7.2).
+    stopTransferMonitor();
     // 카운터 flush — pagehide 외에 pause 시점에도 확정 저장 (설계 §12)
     void flushNetCounters();
   };
@@ -725,7 +784,10 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
       mintReconnectStop = null;
     }
     stopAliveHeartbeat();
-    transferLifecycle.stopPolling();
+    stopTransferMonitor();
+    if (transferSweepWiringStop) {
+      transferSweepWiringStop();
+    }
     nostrIncomingWatcher.stop();
     void nostrGateway.disconnect();
   };

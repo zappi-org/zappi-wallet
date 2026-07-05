@@ -40,6 +40,8 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
     executeMelt: backend.executeMelt,
     rollbackMelt: backend.rollbackMelt,
     checkMelt: backend.checkMelt,
+    refreshMelt: backend.refreshMelt,
+    getMintOpStateLocal: backend.getMintOpStateLocal,
     createMintQuote: backend.createMintQuote,
     redeemMintQuote: backend.redeemMintQuote,
     mintAndReceive: backend.mintAndReceive,

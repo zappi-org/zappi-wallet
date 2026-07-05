@@ -33,6 +33,7 @@ import { PreferencesCategoryPage } from './pages/PreferencesCategoryPage'
 import { SecurityCategoryPage } from './pages/SecurityCategoryPage'
 import { WalletCategoryPage } from './pages/WalletCategoryPage'
 import { SupportPage } from './pages/SupportPage'
+import { DiagnosticsPage } from './pages/DiagnosticsPage'
 
 const RECOVERY_PHRASE_WORD_COUNT = 12
 
@@ -43,6 +44,7 @@ function normalizeRecoveryPhraseWords(value: string): string[] {
 export type SettingsPage =
   | 'category-profile' | 'category-preferences' | 'category-security' | 'category-wallet'
   | 'language' | 'unitDisplay' | 'fiat' | 'autoLock' | 'pos' | 'privacy' | 'npubDetail' | 'lightningDetail' | 'support'
+  | 'diagnostics'
 
 export interface SettingsScreenProps {
   onBack: () => void
@@ -610,6 +612,8 @@ export function SettingsScreen({
         )
       case 'support':
         return <SupportPage onBack={closeDetail} />
+      case 'diagnostics':
+        return <DiagnosticsPage onBack={closeDetail} />
       default:
         return null
     }
