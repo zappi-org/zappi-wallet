@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zappi 네트워크 개편: 무엇이 어떻게 바뀌었나 (전/후 시각 설명)</title>
+<style>
+  :root{
+    --bg:#f7f6f2;         /* 종이 */
+    --ink:#1e2230;        /* 잉크 네이비 */
+    --muted:#6b7080;
+    --line:#d9d6cc;
+    --before:#d84f2a;     /* 문제/전: 신호 주황-레드 */
+    --before-soft:#fbe9e2;
+    --after:#1e7f4f;      /* 해결/후: 그린 */
+    --after-soft:#e2f2e9;
+    --mint:#2456a6;       /* 민트(은행) = 블루 */
+    --mint-soft:#e4ecf9;
+    --relay:#7c3fa8;      /* 릴레이(우체국) = 퍼플 */
+    --relay-soft:#f0e6f8;
+    --card:#ffffff;
+    --code:#f0eee8;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg);color:var(--ink);
+    font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Segoe UI",sans-serif;
+    line-height:1.65;font-size:16px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:0 20px 120px}
+  a{color:inherit}
+
+  /* ── 헤더 ── */
+  header{padding:64px 0 20px;border-bottom:2px solid var(--ink)}
+  .eyebrow{font-size:13px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;font-weight:600}
+  h1{font-size:clamp(28px,5vw,42px);line-height:1.25;font-weight:800;margin:10px 0 14px;letter-spacing:-.01em}
+  h1 .accent{color:var(--before)}
+  h1 .accent2{color:var(--after)}
+  .lede{color:var(--muted);font-size:17px;max-width:640px}
+
+  /* ── 목차 ── */
+  nav.toc{display:flex;flex-wrap:wrap;gap:8px;padding:18px 0 26px;border-bottom:1px solid var(--line)}
+  nav.toc a{
+    font-size:13px;font-weight:600;text-decoration:none;
+    padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--card);
+    color:var(--ink);transition:border-color .15s;
+  }
+  nav.toc a:hover,nav.toc a:focus-visible{border-color:var(--ink)}
+  nav.toc a:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+  /* ── 섹션 공통 ── */
+  section{padding:56px 0 8px}
+  .chapter{display:flex;align-items:baseline;gap:14px;margin-bottom:6px}
+  .chapter .no{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:13px;font-weight:700;color:var(--bg);
+    background:var(--ink);border-radius:6px;padding:3px 9px;flex:none;
+  }
+  h2{font-size:clamp(21px,3.4vw,27px);font-weight:800;letter-spacing:-.01em}
+  .analogy{
+    margin:14px 0 22px;padding:13px 16px 13px 42px;background:var(--code);border-radius:10px;
+    font-size:14.5px;color:#4a4f5e;position:relative;
+  }
+  .analogy::before{content:"💡";position:absolute;left:14px;top:12px;font-size:15px}
+  .analogy b{color:var(--ink)}
+
+  /* ── 전/후 카드 ── */
+  .ba{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0 10px}
+  @media(max-width:720px){.ba{grid-template-columns:1fr}}
+  .panel{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px 18px 20px;position:relative;overflow:hidden;
+  }
+  .panel .tag{
+    display:inline-block;font-size:12px;font-weight:800;letter-spacing:.1em;
+    padding:3px 10px;border-radius:999px;margin-bottom:12px;
+  }
+  .panel.before{border-color:#ecc9bc}
+  .panel.before .tag{background:var(--before-soft);color:var(--before)}
+  .panel.after{border-color:#bfdccb}
+  .panel.after .tag{background:var(--after-soft);color:var(--after)}
+  .panel p{font-size:14.5px;color:#3c4150}
+  .panel p+p{margin-top:8px}
+  .panel .fig{margin:12px 0 12px}
+  .caption{font-size:12.5px;color:var(--muted);margin-top:10px}
+  .why{
+    margin:8px 0 4px;padding:12px 16px;border-radius:10px;
+    background:#fff;border:1px dashed var(--line);font-size:14px;color:#3c4150;
+  }
+  .why b{color:var(--ink)}
+
+  /* ── 다이어그램 요소 ── */
+  svg{display:block;max-width:100%;height:auto}
+  svg text{font-family:inherit}
+  .node{
+    display:inline-flex;align-items:center;gap:7px;
+    padding:7px 12px;border-radius:10px;font-size:13.5px;font-weight:700;
+  }
+  .node.wallet{background:var(--ink);color:#fff}
+  .node.mint{background:var(--mint-soft);color:var(--mint);border:1.5px solid var(--mint)}
+  .node.relay{background:var(--relay-soft);color:var(--relay);border:1.5px solid var(--relay)}
+
+  /* 타임라인 스트립: 이 문서의 시그니처 (요청 밀도를 눈으로) */
+  .strip{margin:6px 0 2px}
+  .strip .lab{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px}
+  .strip .bar{
+    height:26px;border-radius:7px;position:relative;overflow:hidden;
+    background:#eeece5;border:1px solid var(--line);
+  }
+  .ticks{position:absolute;inset:0}
+  .ticks.dense{background:repeating-linear-gradient(90deg,var(--before) 0 3px,transparent 3px 12px)}
+  .ticks.medium{background:repeating-linear-gradient(90deg,var(--before) 0 3px,transparent 3px 34px)}
+  .ticks.sparse{background:repeating-linear-gradient(90deg,var(--after) 0 3px,transparent 3px 96px)}
+  .ticks.rare{background:repeating-linear-gradient(90deg,var(--after) 0 3px,transparent 3px 260px)}
+  .strip .note{font-size:12px;color:var(--muted);margin-top:4px}
+
+  /* 순서(시퀀스) 리스트 다이어그램 */
+  .seq{list-style:none;margin:10px 0;display:flex;flex-direction:column;gap:6px}
+  .seq li{
+    display:flex;align-items:center;gap:10px;font-size:13.5px;
+    background:var(--code);border-radius:9px;padding:8px 12px;
+  }
+  .seq li .n{
+    flex:none;width:22px;height:22px;border-radius:50%;
+    background:var(--ink);color:#fff;font-size:12px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .seq li.bad{background:var(--before-soft)}
+  .seq li.bad .n{background:var(--before)}
+  .seq li.good{background:var(--after-soft)}
+  .seq li.good .n{background:var(--after)}
+  .seq li .x{margin-left:auto;font-weight:800;font-size:12px}
+  .seq li.bad .x{color:var(--before)}
+  .seq li.good .x{color:var(--after)}
+
+  /* 화살표 흐름 (가로) */
+  .flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0;font-size:13.5px}
+  .flow .step{
+    background:var(--code);border-radius:9px;padding:7px 11px;font-weight:600;
+  }
+  .flow .step.net{background:var(--before-soft);color:var(--before)}
+  .flow .step.local{background:var(--after-soft);color:var(--after)}
+  .flow .arr{color:var(--muted);font-weight:700}
+
+  /* 스위치 */
+  .switches{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin:16px 0}
+  .sw{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 14px;
+  }
+  .sw .k{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-weight:700;color:var(--ink)}
+  .sw .v{font-size:12.5px;color:var(--muted);margin-top:4px}
+  .sw .toggle{
+    margin-top:8px;width:38px;height:20px;border-radius:999px;background:#cfccc2;position:relative;
+  }
+  .sw .toggle::after{
+    content:"";position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#fff;
+    box-shadow:0 1px 2px rgba(0,0,0,.25);
+  }
+
+  /* 카운터 카드 */
+  .counters{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin:16px 0}
+  .cnt{background:var(--ink);color:#f4f2ea;border-radius:12px;padding:14px 16px}
+  .cnt .k{font-family:ui-monospace,Menlo,monospace;font-size:12px;opacity:.75}
+  .cnt .v{font-size:26px;font-weight:800;margin-top:2px}
+  .cnt .d{font-size:12.5px;opacity:.8;margin-top:4px;line-height:1.5}
+  .cnt.goal .v{color:#7be0a8}
+
+  /* 매트릭스 (recoverAll) */
+  table.matrix{border-collapse:collapse;width:100%;font-size:12px;margin:10px 0}
+  table.matrix th,table.matrix td{border:1px solid var(--line);padding:5px 6px;text-align:center}
+  table.matrix th{background:var(--code);font-weight:700}
+  @media(max-width:720px){
+    table.matrix{display:block;overflow-x:auto;white-space:nowrap}
+  }
+  table.matrix td.hit{background:var(--before-soft);color:var(--before);font-weight:800}
+  table.matrix td.ok{background:var(--after-soft);color:var(--after);font-weight:800}
+  table.matrix td.dim{color:#c9c5ba}
+  .legendline{font-size:12.5px;color:var(--muted);margin-top:6px}
+
+  /* 결론 배너 */
+  .banner{
+    margin-top:64px;background:var(--ink);color:#f4f2ea;border-radius:18px;padding:30px 28px;
+  }
+  .banner h2{color:#fff;margin-bottom:10px}
+  .banner p{font-size:15px;opacity:.92;max-width:640px}
+  .banner .stats{display:flex;gap:26px;flex-wrap:wrap;margin-top:18px}
+  .banner .s .num{font-size:30px;font-weight:800;color:#7be0a8}
+  .banner .s .lab{font-size:12.5px;opacity:.75}
+
+  /* 신호 펄스 애니메이션 (감상용, 모션 최소화 존중) */
+  @media (prefers-reduced-motion: no-preference){
+    .pulse{animation:pulse 2.4s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+  }
+  footer{margin-top:40px;font-size:12.5px;color:var(--muted);text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Zappi Wallet · 네트워크 트래픽 개편 · 초급자용 시각 설명</div>
+  <h1>같은 질문을 <span class="accent">수백 번</span> 하던 지갑을,<br>필요한 것만 <span class="accent2">한 번씩</span> 묻게 만들기</h1>
+  <p class="lede">민트·릴레이 서버가 “너무 자주 물어본다”며 차단(rate limit)하던 문제를, 7단계에 걸쳐 구조적으로 고쳤습니다. 각 단계마다 <b>기존(전)</b> → <b>변경(후)</b> → <b>왜</b>를 그림으로 설명합니다.</p>
+</header>
+
+<nav class="toc" aria-label="목차">
+  <a href="#s0">0. 등장인물</a>
+  <a href="#s1">1. 관문·버그수술</a>
+  <a href="#s2">2. 책갈피(cursor)</a>
+  <a href="#s3">3. 민트 정보 창구</a>
+  <a href="#s4">4. 복구 해체</a>
+  <a href="#s5">5. stuck-sweep</a>
+  <a href="#s6">6. 릴레이 교환원</a>
+  <a href="#s7">7. 견적·타이핑</a>
+  <a href="#s8">8. 안전장치</a>
+</nav>
+
+<!-- ───────────────────── 0. 등장인물 ───────────────────── -->
+<section id="s0">
+  <div class="chapter"><span class="no">0</span><h2>등장인물과 문제의 정체</h2></div>
+  <div class="analogy">비유: <b>민트 = 은행 지점</b>(토큰 검증·결제 확인·수수료), <b>릴레이 = 우체국</b>(다른 사람이 보낸 ecash 편지가 쌓이는 곳). 서버에 묻는 방법은 <b>폴링</b>(내가 주기적으로 전화)과 <b>푸시</b>(소식 오면 서버가 알려줌) 두 가지.</div>
+
+  <svg viewBox="0 0 760 240" role="img" aria-label="지갑이 민트와 릴레이 두 서버와 통신하는 구조도">
+    <defs>
+      <marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#6b7080"/></marker>
+    </defs>
+    <!-- wallet -->
+    <rect x="310" y="88" width="140" height="58" rx="14" fill="#1e2230"/>
+    <text x="380" y="113" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">📱 Zappi 지갑</text>
+    <text x="380" y="132" text-anchor="middle" fill="#aab" font-size="11">(사용자의 돈)</text>
+    <!-- mint -->
+    <rect x="40" y="30" width="170" height="54" rx="12" fill="#e4ecf9" stroke="#2456a6" stroke-width="1.5"/>
+    <text x="125" y="53" text-anchor="middle" fill="#2456a6" font-size="14" font-weight="700">🏦 민트 (은행)</text>
+    <text x="125" y="71" text-anchor="middle" fill="#2456a6" font-size="10.5">토큰 검증 · 결제 확인 · 수수료</text>
+    <!-- relay -->
+    <rect x="40" y="152" width="170" height="54" rx="12" fill="#f0e6f8" stroke="#7c3fa8" stroke-width="1.5"/>
+    <text x="125" y="175" text-anchor="middle" fill="#7c3fa8" font-size="14" font-weight="700">📮 릴레이 (우체국)</text>
+    <text x="125" y="193" text-anchor="middle" fill="#7c3fa8" font-size="10.5">받은 ecash 편지(gift wrap) 보관</text>
+    <!-- arrows -->
+    <line x1="215" y1="62" x2="305" y2="100" stroke="#6b7080" stroke-width="1.6" marker-end="url(#ah)"/>
+    <line x1="215" y1="178" x2="305" y2="134" stroke="#6b7080" stroke-width="1.6" marker-end="url(#ah)"/>
+    <text x="262" y="66" font-size="11" fill="#6b7080">질문/답변</text>
+    <text x="256" y="182" font-size="11" fill="#6b7080">편지 수신</text>
+    <!-- legend -->
+    <rect x="500" y="34" width="230" height="76" rx="10" fill="#fff" stroke="#d9d6cc"/>
+    <circle cx="518" cy="56" r="5" fill="#d84f2a" class="pulse"/>
+    <text x="532" y="60" font-size="12.5" fill="#1e2230"><tspan font-weight="700">폴링</tspan>: 내가 계속 전화 (비쌈)</text>
+    <circle cx="518" cy="86" r="5" fill="#1e7f4f"/>
+    <text x="532" y="90" font-size="12.5" fill="#1e2230"><tspan font-weight="700">푸시</tspan>: 소식 오면 알려줌 (효율)</text>
+    <rect x="500" y="128" width="230" height="82" rx="10" fill="#fbe9e2" stroke="#d84f2a"/>
+    <text x="515" y="152" font-size="12.5" fill="#d84f2a" font-weight="800">문제 = rate limit</text>
+    <text x="515" y="172" font-size="11.5" fill="#8a3b22">푸시가 있는데도 못 믿어서 붙인</text>
+    <text x="515" y="188" font-size="11.5" fill="#8a3b22">보험용 폴링·전수 재확인이</text>
+    <text x="515" y="204" font-size="11.5" fill="#8a3b22">아무 데서나 발화 → 서버가 차단</text>
+  </svg>
+
+  <div class="strip">
+    <div class="lab"><span>앱 사용 1시간 동안의 서버 요청 밀도 (개념도)</span></div>
+    <div class="bar"><div class="ticks dense" ></div></div>
+    <div class="note" style="color:var(--before);font-weight:700">개편 전: 켜기만 해도 전체 재다운로드, 화면마다 전수 확인, 30초마다 전건 폴링</div>
+  </div>
+  <div class="strip">
+    <div class="bar"><div class="ticks sparse"></div></div>
+    <div class="note" style="color:var(--after);font-weight:700">개편 후: 푸시가 기본, 폴링은 “막힌 것만”, 같은 질문은 한 번만</div>
+  </div>
+</section>
+
+<!-- ───────────────────── 1. 관문 ───────────────────── -->
+<section id="s1">
+  <div class="chapter"><span class="no">1</span><h2>요청 관문(RequestGate) + 잠복 버그 수술</h2></div>
+  <div class="analogy">비유: 엘리베이터 버튼을 다섯 명이 연달아 눌러도 <b>엘리베이터는 한 대만</b> 옵니다. 같은 요청이 여러 곳에서 동시에 와도 실제 요청은 하나만 나가고, 나머지는 그 결과를 나눠 씁니다.</div>
+  <div class="ba">
+    <div class="panel before"><span class="tag">기존</span>
+      <p>잠금 해제·화면 진입·새로고침이 <b>각자</b> 같은 복구/확인 요청을 쐈습니다. 5군데가 부르면 5번 나감.</p>
+      <div class="fig">
+        <div class="flow">
+          <span class="step">잠금해제</span><span class="step">홈 진입</span><span class="step">새로고침</span>
+          <span class="arr">→→→</span><span class="step net">요청 ×3</span>
+        </div>
+      </div>
+      <p>그리고 30초 폴링이라는 “보험”이 진짜 버그들을 가려주고 있었습니다: 송금 실패가 화면에 안 뜨고 잠복, 비행기 모드로 켜면 푸시 수신기가 세션 내내 꺼짐, 백그라운드에서도 폴링 계속.</p>
+    </div>
+    <div class="panel after"><span class="tag">변경</span>
+      <p>모든 고빈도 요청 앞에 <b>관문</b>을 세웠습니다: ① 지금 진행 중이면 그 결과를 같이 기다림(in-flight 공유) ② 방금 성공했으면 잠시(쿨다운) 재실행 안 함.</p>
+      <div class="fig">
+        <div class="flow">
+          <span class="step">잠금해제</span><span class="step">홈 진입</span><span class="step">새로고침</span>
+          <span class="arr">→</span><span class="step" style="background:#e8e6df;font-weight:800">🚪 관문</span>
+          <span class="arr">→</span><span class="step local">요청 ×1</span>
+        </div>
+      </div>
+      <p>가려져 있던 버그도 수술: 송금 실패 즉시 표시, 온라인 복귀 시 수신기 재가동, 백그라운드 폴링 정지. 그리고 <b>계측기(카운터)</b>를 달아 이후 단계의 효과를 숫자로 채점할 준비를 했습니다.</p>
+    </div>
+  </div>
+  <div class="why"><b>왜:</b> 보험을 걷어내려면(5단계) 보험이 가려주던 병부터 고쳐야 하고, 고쳤다는 걸 증명할 계측기가 먼저 필요했습니다.</div>
+</section>
+
+<!-- ───────────────────── 2. 커서 ───────────────────── -->
+<section id="s2">
+  <div class="chapter"><span class="no">2</span><h2>릴레이에 책갈피 만들기(cursor)</h2></div>
+  <div class="analogy">비유: 500권짜리 전집을 읽다가 덮은 뒤, <b>책갈피가 없으면</b> 다시 펼 때마다 1권 1쪽부터. <b>책갈피가 있으면</b> 거기서부터. 단, 이 편지들은 프라이버시를 위해 발송 시각이 최대 2일 과거로 적혀 있어서, 책갈피보다 <b>2일+6시간 앞</b>에서부터 겹쳐 읽습니다(중복은 “처리한 편지 목록”이 걸러냄).</div>
+  <div class="ba">
+    <div class="panel before"><span class="tag">기존</span>
+      <p>앱을 켤 때마다, 연결이 잠깐 끊겼다 붙을 때마다 <b>편지함 전체 역사</b>를 다시 다운로드. 릴레이 rate limit의 최대 원인.</p>
+      <div class="fig">
+        <svg viewBox="0 0 320 84" role="img" aria-label="전체 기간을 매번 다시 읽는 그림">
+          <rect x="10" y="30" width="300" height="22" rx="6" fill="#fbe9e2" stroke="#d84f2a"/>
+          <text x="160" y="45" text-anchor="middle" font-size="12" fill="#d84f2a" font-weight="700">계정 생성 ~ 지금까지 전부 재다운로드</text>
+          <text x="10" y="20" font-size="11" fill="#6b7080">과거</text>
+          <text x="310" y="20" text-anchor="end" font-size="11" fill="#6b7080">지금</text>
+          <text x="160" y="72" text-anchor="middle" font-size="11" fill="#d84f2a">매 재연결마다 반복 ↻</text>
+        </svg>
+      </div>
+    </div>
+    <div class="panel after"><span class="tag">변경</span>
+      <p>“이 릴레이에게 <b>언제까지 전부 받았다</b>”를 디스크에 기록하고, 다음엔 그 이후 것만 요청.</p>
+      <div class="fig">
+        <svg viewBox="0 0 320 84" role="img" aria-label="책갈피 이후만 읽는 그림">
+          <rect x="10" y="30" width="180" height="22" rx="6" fill="#eeece5" stroke="#d9d6cc"/>
+          <text x="100" y="45" text-anchor="middle" font-size="11.5" fill="#9a968a">이미 받은 구간 (건너뜀)</text>
+          <rect x="196" y="30" width="114" height="22" rx="6" fill="#e2f2e9" stroke="#1e7f4f"/>
+          <text x="253" y="45" text-anchor="middle" font-size="11.5" fill="#1e7f4f" font-weight="700">여기서부터만</text>
+          <line x1="196" y1="18" x2="196" y2="60" stroke="#1e7f4f" stroke-width="2.5"/>
+          <text x="196" y="14" text-anchor="middle" font-size="12">🔖</text>
+          <path d="M196 62 L162 62" stroke="#1e7f4f" stroke-width="1.4" stroke-dasharray="3 3"/>
+          <text x="150" y="76" font-size="10.5" fill="#1e7f4f">−2일 6시간 겹침(안전 마진)</text>
+        </svg>
+      </div>
+      <p style="margin-top:6px"><b>안전 규칙:</b> 책갈피는 릴레이가 “여기까지가 전부”라는 진짜 신호(EOSE)를 줬을 때만 전진. 시간이 초과돼 끊긴 것(timeout)은 <b>절대 전진시키지 않음</b>. 놓친 편지는 곧 돈이기 때문입니다.</p>
+    </div>
+  </div>
+  <div class="why"><b>왜:</b> 재다운로드는 릴레이 입장에서 “수천 통을 매번 다시 달라”는 요청입니다. 책갈피 하나로 요청량이 역사 전체 → 마지막 확인 이후로 줄어듭니다.</div>
+</section>
+
+<!-- ───────────────────── 3. 민트 창구 ───────────────────── -->
+<section id="s3">
+  <div class="chapter"><span class="no">3</span><h2>민트 정보 창구 단일화(MintInfoService)</h2></div>
+  <div class="analogy">비유: 회사에서 5개 팀이 <b>각자</b> 은행에 전화해 “지점 영업하나요?”를 물었습니다. 이제는 <b>안내 데스크 한 곳</b>이 대표로 묻고, 모두가 그 답을 공유합니다.</div>
+  <div class="ba">
+    <div class="panel before"><span class="tag">기존</span>
+      <div class="fig">
+        <svg viewBox="0 0 330 150" role="img" aria-label="5개 화면이 각자 민트에 요청하는 그림">
+          <g font-size="11" fill="#3c4150">
+            <rect x="8" y="8" width="86" height="22" rx="6" fill="#f0eee8"/><text x="51" y="23" text-anchor="middle">홈(상태 점)</text>
+            <rect x="8" y="36" width="86" height="22" rx="6" fill="#f0eee8"/><text x="51" y="51" text-anchor="middle">민트 상세</text>
+            <rect x="8" y="64" width="86" height="22" rx="6" fill="#f0eee8"/><text x="51" y="79" text-anchor="middle">민트 관리</text>
+            <rect x="8" y="92" width="86" height="22" rx="6" fill="#f0eee8"/><text x="51" y="107" text-anchor="middle">정보 시트</text>
+            <rect x="8" y="120" width="86" height="22" rx="6" fill="#f0eee8"/><text x="51" y="135" text-anchor="middle">민트 추가</text>
+          </g>
+          <g stroke="#d84f2a" stroke-width="1.4">
+            <line x1="96" y1="19" x2="232" y2="66"/><line x1="96" y1="47" x2="232" y2="70"/>
+            <line x1="96" y1="75" x2="232" y2="75"/><line x1="96" y1="103" x2="232" y2="80"/>
+            <line x1="96" y1="131" x2="232" y2="84"/>
+          </g>
+          <rect x="234" y="56" width="88" height="40" rx="10" fill="#e4ecf9" stroke="#2456a6"/>
+          <text x="278" y="73" text-anchor="middle" font-size="12" fill="#2456a6" font-weight="700">🏦 민트</text>
+          <text x="278" y="88" text-anchor="middle" font-size="10" fill="#d84f2a" font-weight="700">요청 ×5</text>
+        </svg>
+      </div>
+      <p>같은 민트에 같은 질문이 화면 수만큼 중복 발사.</p>
+    </div>
+    <div class="panel after"><span class="tag">변경</span>
+      <div class="fig">
+        <svg viewBox="0 0 330 150" role="img" aria-label="화면들이 창구 하나를 거쳐 민트에 요청하는 그림">
+          <g font-size="11" fill="#3c4150">
+            <rect x="8" y="8" width="70" height="22" rx="6" fill="#f0eee8"/><text x="43" y="23" text-anchor="middle">홈</text>
+            <rect x="8" y="36" width="70" height="22" rx="6" fill="#f0eee8"/><text x="43" y="51" text-anchor="middle">상세</text>
+            <rect x="8" y="64" width="70" height="22" rx="6" fill="#f0eee8"/><text x="43" y="79" text-anchor="middle">관리</text>
+            <rect x="8" y="92" width="70" height="22" rx="6" fill="#f0eee8"/><text x="43" y="107" text-anchor="middle">시트</text>
+            <rect x="8" y="120" width="70" height="22" rx="6" fill="#f0eee8"/><text x="43" y="135" text-anchor="middle">추가</text>
+          </g>
+          <g stroke="#6b7080" stroke-width="1.2">
+            <line x1="80" y1="19" x2="130" y2="66"/><line x1="80" y1="47" x2="130" y2="70"/>
+            <line x1="80" y1="75" x2="130" y2="75"/><line x1="80" y1="103" x2="130" y2="80"/>
+            <line x1="80" y1="131" x2="130" y2="84"/>
+          </g>
+          <rect x="132" y="52" width="96" height="48" rx="10" fill="#fff" stroke="#1e2230" stroke-width="1.5"/>
+          <text x="180" y="72" text-anchor="middle" font-size="12" font-weight="800" fill="#1e2230">🛎️ 창구</text>
+          <text x="180" y="88" text-anchor="middle" font-size="9.5" fill="#6b7080">30초 캐시·동시요청 합침</text>
+          <line x1="228" y1="76" x2="248" y2="76" stroke="#1e7f4f" stroke-width="2"/>
+          <rect x="250" y="56" width="72" height="40" rx="10" fill="#e4ecf9" stroke="#2456a6"/>
+          <text x="286" y="73" text-anchor="middle" font-size="12" fill="#2456a6" font-weight="700">🏦 민트</text>
+          <text x="286" y="88" text-anchor="middle" font-size="10" fill="#1e7f4f" font-weight="700">요청 ×1</text>
+        </svg>
+      </div>
+      <p>받은 정보(이름·아이콘)는 24시간 캐시에 저장되어, 상세 화면은 아예 네트워크 없이 그립니다.</p>
+    </div>
+  </div>
+  <div class="why"><b>왜:</b> 정보의 <b>주인이 한 명</b>이면 중복이 구조적으로 불가능해집니다. “누가 이 요청의 주인인가”가 이 개편 전체의 반복 주제입니다.</div>
+</section>
+
+<!-- ───────────────────── 4. 복구 해체 ───────────────────── -->
+<section id="s4">
+  <div class="chapter"><span class="no">4</span><h2>“전부 다시 확인” 해체(Recovery 재편)</h2></div>
+  <div class="analogy">비유: 집을 나설 때마다 가스·수도·창문·자물쇠·보일러를 <b>전부</b> 점검하던 사람이, “외출 = 자물쇠만, 장기 여행 = 전부”로 상황에 맞게 점검하게 됐습니다.</div>
+
+  <div class="panel before" style="margin-bottom:14px"><span class="tag">기존</span>
+    <p><code>recoverAll</code> 함수 하나가 9가지 일(네트워크 전수 질의 + 로컬 장부 정리가 뒤섞임)을 몽땅 했고, 이걸 6개 트리거가 각자 불렀습니다:</p>
+    <table class="matrix" aria-label="6개 트리거가 9개 행동을 전부 실행하던 매트릭스">
+      <tr><th></th><th>네트워크 sweep</th><th>멜트 재확인</th><th>장부 settle</th><th>레거시 회수</th><th>만료 정리</th><th>원격 quote 확인</th><th>stuck 강제실행</th><th>행 청소</th><th>오프라인 상환</th></tr>
+      <tr><th>잠금해제</th><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td></tr>
+      <tr><th>앱 복귀</th><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td></tr>
+      <tr><th>당겨서 새로고침</th><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td></tr>
+      <tr><th>토큰 탭 진입</th><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td></tr>
+      <tr><th>민트 추가</th><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td></tr>
+      <tr><th>설정 복구 버튼</th><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td></tr>
+    </table>
+    <p class="legendline">붉은 ● = 실행. <b>탭 하나 열었을 뿐인데 민트 전수 질의</b>가 나가던 이유.</p>
+  </div>
+
+  <div class="panel after"><span class="tag">변경</span>
+    <p>9가지 일을 성격별로 3개 경로로 나누고, 트리거마다 필요한 것만:</p>
+    <table class="matrix" aria-label="트리거별로 필요한 경로만 실행하는 매트릭스">
+      <tr><th></th><th style="color:var(--after)">reconcile<br>(로컬 장부 정리, 네트워크 0)</th><th style="color:var(--mint)">recoverTargeted<br>(푸시가 못 닿는 것만, 5분 관문)</th><th style="color:var(--before)">runFullNetworkRecovery<br>(전수 점검)</th></tr>
+      <tr><th>잠금해제 / 복귀 / 새로고침</th><td class="ok">●</td><td class="ok">● (관문 통과 시)</td><td class="dim">·</td></tr>
+      <tr><th>토큰 탭 진입</th><td class="ok">●</td><td class="dim">·</td><td class="dim">·</td></tr>
+      <tr><th>민트 추가(신뢰)</th><td class="dim">·</td><td class="ok">● + 대기열 상환</td><td class="dim">·</td></tr>
+      <tr><th>설정 복구 버튼</th><td class="ok">●</td><td class="ok">●</td><td class="ok">● (사용자 명시 의도)</td></tr>
+    </table>
+  </div>
+
+  <div class="analogy" style="margin-top:20px">이 과정에서 발견한 <b>돈 잃는 버그</b>: “모르는 민트에서 온 토큰” 확인 대기열이 <b>포스트잇(메모리)</b>이었고, 도장 찍는 순서가 반대였습니다.</div>
+  <div class="ba">
+    <div class="panel before"><span class="tag">기존 (유실 경로)</span>
+      <ul class="seq">
+        <li class="bad"><span class="n">1</span>편지 도착 → <b>“처리했음” 도장부터</b> 디스크에 찍음</li>
+        <li class="bad"><span class="n">2</span>확인 대기열(포스트잇)에 붙임 (<b>메모리에만</b>)</li>
+        <li class="bad"><span class="n">3</span>💥 여기서 새로고침/크래시</li>
+        <li class="bad"><span class="n">4</span>포스트잇 증발. 도장은 남아서 재수신도 차단<span class="x">토큰 영구 유실</span></li>
+      </ul>
+    </div>
+    <div class="panel after"><span class="tag">변경 (순서 교정)</span>
+      <ul class="seq">
+        <li class="good"><span class="n">1</span>편지 도착 → <b>대기열을 디스크(노트)에 먼저 기록</b></li>
+        <li class="good"><span class="n">2</span>그 다음에 “처리했음” 도장</li>
+        <li class="good"><span class="n">3</span>💥 사이에 죽어도: 도장이 없음</li>
+        <li class="good"><span class="n">4</span>다음 실행 때 같은 편지 재수신 → 재기록(중복 안전)<span class="x">유실 불가</span></li>
+      </ul>
+      <p class="caption">부팅 시 노트를 읽어 확인 창을 다시 띄우고, 민트를 신뢰하는 순간 그 민트의 대기 토큰을 자동 상환합니다(“복구액” 표시도 이 실제 합계로).</p>
+    </div>
+  </div>
+  <div class="why"><b>왜:</b> 돈이 걸린 코드에서 “디스크에 먼저, 도장은 나중에” 순서 하나가 유실/무유실을 가릅니다. 그리고 로컬 장부 정리는 네트워크가 필요 없다는 걸 분리해내면, 고빈도 트리거(탭 진입)가 공짜가 됩니다.</div>
+</section>
+
+<!-- ───────────────────── 5. stuck-sweep ───────────────────── -->
+<section id="s5">
+  <div class="chapter"><span class="no">5</span><h2>30초 전수 폴링 → 120초 “막힌 것만”(stuck-sweep)</h2></div>
+  <div class="analogy">비유: 택배 5개를 기다리며 <b>30초마다 5통씩</b> 배송조회 전화를 하던 사람이, 이제는 <b>2분마다 문 앞(디스크)만 확인</b>하고, “2분 넘게 소식 없는 택배”만 골라 전화합니다. 기다리는 택배가 없으면 알람 자체를 끕니다.</div>
+  <div class="ba">
+    <div class="panel before"><span class="tag">기존</span>
+      <div class="strip">
+        <div class="lab"><span>진행 중 5건 기준, 10분간 원격 요청</span></div>
+        <div class="bar"><div class="ticks medium"></div></div>
+        <div class="note">30초 × 5건 = 10분에 <b style="color:var(--before)">100회</b> 원격 확인 (푸시가 멀쩡해도)</div>
+      </div>
+      <p style="margin-top:10px">백그라운드에서도 계속. “푸시를 못 믿으니 전부 다시 물어보자”의 전형.</p>
+    </div>
+    <div class="panel after"><span class="tag">변경</span>
+      <div class="fig">
+        <div class="flow">
+          <span class="step">2분 타이머</span><span class="arr">→</span>
+          <span class="step local">① 디스크만 확인 (전화 0통)</span><span class="arr">→</span>
+          <span class="step">② 2분째 무소식인 것만</span><span class="arr">→</span>
+          <span class="step net">원격 확인 1회</span>
+        </div>
+      </div>
+      <div class="strip">
+        <div class="bar"><div class="ticks rare"></div></div>
+        <div class="note">푸시가 정상이면 ②까지 갈 일이 거의 없음 → 원격 요청 <b style="color:var(--after)">0~수 회</b></div>
+      </div>
+      <p style="margin-top:10px">진행 건 0이면 타이머 정지, 새 송금이 생기면(다른 탭 포함) 자동 재개. 원격 확인이 실패하면 <b>상태를 건드리지 않고</b> 다음 주기에 재시도합니다. 일시적인 민트 다운이 진행 중인 결제를 “실패”로 확정하면 안 되기 때문입니다.</p>
+    </div>
+  </div>
+  <div class="why"><b>왜 + 채점:</b> 이 강등이 안전한지 확인할 지표를 함께 만들었습니다: <code>tls_stuck_detected</code>(sweep이 푸시 대신 구해준 건수)가 <b>7일간 0</b>이면 푸시가 제 역할을 다 한다는 증거. 리뷰에서 이 지표가 두 번 뒤집혔습니다: 처음엔 “사용자가 그냥 기다리는 것”까지 세서 항상 낙제 → 좁혔더니 이번엔 수신 푸시가 죽어도 만점이 나오는 구멍 → 최종적으로 “원격이 내 디스크보다 앞서 있던, 만료 탓이 아닌 변화”만 세도록 확정.</div>
+</section>
+
+<!-- ───────────────────── 6. 교환원 ───────────────────── -->
+<section id="s6">
+  <div class="chapter"><span class="no">6</span><h2>릴레이 연결 교환원(NostrSessionController)</h2></div>
+  <div class="analogy">비유: 예전엔 전화선 관리가 중구난방이라, 늦게 연결된 우체국은 <b>구독 신청이 누락</b>되고, DM 한 통 보내면 <b>내 전화번호부가 상대방 것으로 바뀌는</b> 사고까지 있었습니다. 이제 <b>교환원 한 명</b>이 회선과 구독 명단을 책임집니다.</div>
+
+  <div class="ba">
+    <div class="panel before"><span class="tag">기존: 결함 3가지</span>
+      <ul class="seq">
+        <li class="bad"><span class="n">1</span><b>구독이 “그 순간 연결된” 릴레이에만</b> 부착. 늦게 붙은 릴레이의 편지는 영영 못 받음</li>
+        <li class="bad"><span class="n">2</span>릴레이 1개 재연결 → <b>전체 구독을 전부 껐다 켬</b> (낭비 + 재다운로드)</li>
+        <li class="bad"><span class="n">3</span>DM 발송 시 <code>connect(상대방 릴레이)</code>가 <b>내 기본 연결 목록을 통째로 교체</b>. 이후 앱이 상대 우체국만 바라봄</li>
+      </ul>
+    </div>
+    <div class="panel after"><span class="tag">변경: 교환원의 3원칙</span>
+      <ul class="seq">
+        <li class="good"><span class="n">1</span><b>명단제</b>: 구독은 명단에 등록되고, 릴레이가 (재)연결되는 순간 자동 부착. 구독 끊김은 구독 자신의 종료 신호(onclose)로 감지</li>
+        <li class="good"><span class="n">2</span><b>그 릴레이만</b> 다시 부착. 나머지는 건드리지 않음</li>
+        <li class="good"><span class="n">3</span><b>임대(lease)</b>: 상대방 릴레이는 “빌린 회선”. 보내고 확인되면 2분 뒤 자동 반납. 내 기본 목록 불변</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="panel before" style="margin-top:6px"><span class="tag">리뷰가 잡은 치명타</span>
+    <p>새 구조에서 <b>“내 기본 릴레이에 연결하라”는 명령을 아무도 안 내리고 있었습니다.</b> 예전 코드는 DM 함수 안에 숨은 부수효과가 우연히 연결을 만들어줬는데, 새 구조는 그 길을 지나가지 않았고, <b>테스트 944개가 전부 통과한 채</b> 실시간 수신·발행이 죽는 상태였습니다.</p>
+    <p style="margin-top:8px">수정: 잠금 해제 때 명시적으로 연결 + <b>이 배선이 사라지면 CI가 실패하는 전용 테스트</b> 추가. 교훈: <b>“우연히 되던 것”은 명시적 코드로 승격해야 한다.</b></p>
+  </div>
+  <div class="why"><b>왜:</b> 연결·구독·재연결의 주인이 한 명이면, “누가 언제 붙였지?”류의 레이스가 구조적으로 사라집니다. 3단계(창구), 4단계(복구 주인)와 같은 원리를 릴레이 연결에 적용한 것.</div>
+</section>
+
+<!-- ───────────────────── 7. 견적/타이핑 ───────────────────── -->
+<section id="s7">
+  <div class="chapter"><span class="no">7</span><h2>마무리: 수수료 이중 견적 제거, 타이핑 중 네트워크 금지</h2></div>
+  <div class="ba">
+    <div class="panel before"><span class="tag">기존 ① 이중 견적</span>
+      <div class="flow">
+        <span class="step">금액 입력 화면</span><span class="arr">→</span><span class="step net">견적 (민트 4왕복)</span><span class="arr">→</span>
+        <span class="step">확인 화면</span><span class="arr">→</span><span class="step net">그 결과를 버리고 재견적 4왕복</span>
+      </div>
+      <p>내 지갑 간 이체 확인 화면 한 번에 <b>최대 8왕복</b>.</p>
+    </div>
+    <div class="panel after"><span class="tag">변경 ①</span>
+      <div class="flow">
+        <span class="step">금액 입력 화면</span><span class="arr">→</span><span class="step net">견적 4왕복</span><span class="arr">→</span>
+        <span class="step">확인 화면</span><span class="arr">→</span><span class="step local">그 값을 그대로 신뢰 (0왕복)</span>
+      </div>
+      <p>같은 함수·같은 인자임을 리뷰에서 검증. 같은 조합의 견적은 60초 재사용, 토큰 탭의 회수 수수료도 한 번 계산한 건 캐시.</p>
+    </div>
+  </div>
+  <div class="ba">
+    <div class="panel before"><span class="tag">기존 ② 타이핑 중 검증</span>
+      <p><code>a@gmail.com</code>을 치는 도중 0.5초 멈추면:</p>
+      <div class="flow">
+        <span class="step">a@gmail.co</span><span class="arr">→</span><span class="step net">gmail.co 에 실제 GET 요청 발사</span>
+      </div>
+      <p>반쯤 입력된 주소마다 엉뚱한 서버로 요청이 나감.</p>
+    </div>
+    <div class="panel after"><span class="tag">변경 ②</span>
+      <div class="flow">
+        <span class="step">타이핑 중</span><span class="arr">→</span><span class="step local">모양 검사만 (이메일처럼 생겼나?)</span>
+      </div>
+      <div class="flow">
+        <span class="step">“다음” 버튼</span><span class="arr">→</span><span class="step net">그때 딱 한 번 실제 검증</span>
+      </div>
+      <p>붙여넣기·QR 스캔은 “입력이 완성된 순간”이므로 기존대로 즉시 검증.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────── 8. 안전장치 ───────────────────── -->
+<section id="s8">
+  <div class="chapter"><span class="no">8</span><h2>안전장치: 되돌림 스위치와 채점판</h2></div>
+  <p style="font-size:15px;color:#3c4150">이 모든 변경에는 <b>즉시 예전 방식으로 돌아가는 스위치</b>가 붙어 있습니다. 브라우저 localStorage에 값 <code>1</code>을 넣고 잠금을 다시 풀면 그 단계만 구버전 동작으로 복귀합니다.</p>
+  <div class="switches">
+    <div class="sw"><div class="k">zappi.ks.cursor</div><div class="v">켜면: 책갈피 무시, 전체 재다운로드(2단계 이전)</div><div class="toggle" role="img" aria-label="꺼짐 상태 스위치"></div></div>
+    <div class="sw"><div class="k">zappi.ks.mint-info-facade</div><div class="v">켜면: 민트 정보 창구 해체, 화면별 개별 요청(3단계 이전)</div><div class="toggle" role="img" aria-label="꺼짐 상태 스위치"></div></div>
+    <div class="sw"><div class="k">zappi.ks.recovery-split</div><div class="v">켜면: recoverAll이 다시 9가지 전부 실행(4단계 이전)</div><div class="toggle" role="img" aria-label="꺼짐 상태 스위치"></div></div>
+    <div class="sw"><div class="k">zappi.ks.tls-sweep</div><div class="v">켜면: 30초 전수 폴링 복귀(5단계 이전)</div><div class="toggle" role="img" aria-label="꺼짐 상태 스위치"></div></div>
+    <div class="sw"><div class="k">zappi.ks.nostr-controller</div><div class="v">켜면: 교환원 해임, 구 연결 방식(6단계 이전)</div><div class="toggle" role="img" aria-label="꺼짐 상태 스위치"></div></div>
+  </div>
+
+  <p style="font-size:15px;color:#3c4150;margin-top:20px"><b>채점판</b>은 앱 안에 있습니다: <b>설정 → 환경설정 → 진단</b>. 5단계(폴링 강등)의 합격 기준은 아래 두 숫자로 판정합니다(팀 기기 3대, 7일간):</p>
+  <div class="counters">
+    <div class="cnt goal"><div class="k">tls_stuck_detected</div><div class="v">= 0</div><div class="d">sweep이 푸시 대신 구해준 건수. 0이어야 “푸시가 제 역할을 다 한다”는 증거</div></div>
+    <div class="cnt goal"><div class="k">coco_push_received</div><div class="v">&gt; 0</div><div class="d">푸시가 실제로 도착하고 있다는 생존 신호 (0이면 위 지표가 무의미)</div></div>
+    <div class="cnt"><div class="k">giftwrap_events_deduped</div><div class="v">↓</div><div class="d">중복 수신 편지 수. 책갈피(2단계) 효과를 여기서 확인</div></div>
+  </div>
+  <p style="font-size:14px;color:var(--muted)">판정에 실패하면? 스위치를 켜서 복귀하고 <b>원인을 규명</b>합니다. 주기를 도로 짧게 줄이는 게 아니라요.</p>
+</section>
+
+<!-- ───────────────────── 결론 ───────────────────── -->
+<div class="banner">
+  <h2>한 문장으로</h2>
+  <p>“푸시를 기본으로 믿고(교환원이 연결·구독을 책임지고), 책갈피로 필요한 만큼만 다시 읽고, 확인은 막힌 것만 골라서 하고, 같은 질문은 한 번만.” 그리고 모든 단계에 되돌림 스위치와 채점 지표를 달았습니다.</p>
+  <div class="stats">
+    <div class="s"><div class="num">7</div><div class="lab">단계 (0~7)</div></div>
+    <div class="s"><div class="num">956</div><div class="lab">통과 테스트</div></div>
+    <div class="s"><div class="num">5</div><div class="lab">되돌림 스위치</div></div>
+    <div class="s"><div class="num">3</div><div class="lab">리뷰가 막은 돈-잃는 버그<br>(대기열 유실 · 채점 구멍 · 연결 배선 부재)</div></div>
+  </div>
+</div>
+
+<footer>Zappi Wallet · docs/design/network-traffic-redesign.md 기반 · 이 문서는 학습용 개념도로, 정확한 수치·조건은 설계 문서를 따릅니다</footer>
+
+</div>
+</body>
+</html>
