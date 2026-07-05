@@ -287,6 +287,13 @@ PendingItemDetail의 `checkAlive`/expiry probe, 수동 새로고침은 사용자
 
 **8.5 타이핑-중 네트워크 정책 (신규)** — SendInputStep의 500ms 디바운스 LNURL 검증이 부분 입력 도메인으로 실 GET 발신(`a@gmail.co` → gmail.co). 정책: **원격 검증은 제출·붙여넣기·스캔 시점에만**. 타이핑 중에는 문법 검사(형태 판정)까지만. UsernameChangeScreen(현재 플래그 off)도 동일 정책 적용 시점에 수정.
 
+**구현 확정 편차 (7단계, 기록)**:
+- **§8.4 이중 견적 제거**: SendConfirmStep이 my-wallet에서 initialFee를 버리고 재견적하던 effect 삭제 — SendFlow의 라우트 선택 견적(estimateRouteFee)을 그대로 신뢰한다(확인 화면 8→4왕복). feeLoading/feeError UI 분기는 죽은 코드가 되어 제거.
+- **§8.4 견적 캐시는 RoutingService 내부 RequestGate**(별도 FeeEstimationService 클래스 대신): 키 `(route,source,target,amount[,invoice])` TTL 60s + in-flight 공유, 실패 쿨다운 5s(사용자 재시도 빠르게 허용). invoice는 결제 단위 식별자라 키에 포함. 정직한 범위 그대로: 금액 편집 중 왕복 감소는 keyset 로컬 계산(Non-Goal)의 몫.
+- **§8.4 useReclaimFees**: txId 키 **모듈 캐시**(소프트 TTL 10분) — pending 토큰의 회수 수수료는 토큰 고정이라 결정적이고, 정산되면 목록에서 빠져 재조회 자체가 없다. "거래 변화 이벤트 무효화" 대신 TTL로 단순화(keyset 회전류 드문 변동만 흡수) — 캐시 히트분 즉시 반영 후 미견적분만 네트워크.
+- **§8.5 적용 범위**: **타이핑만** 제출-시점 검증으로 이동. 붙여넣기(onPaste)·스캔·주소록은 기존 processExternalInput **즉시 검증 유지** — 설계 원문("제출·붙여넣기·스캔 시점")이 허용하는 범위 그대로다(7단계 리뷰 #1 기록 교정). lnurl-withdraw 등 비발송형 handoff는 타이핑 경로에서 제출 시점의 onRouteValidated로 이동(타이핑-중 onRedirect 삭제). 구 동작을 pin하던 테스트 8건을 신정책 pin으로 교체. 제출-시점 원격 실패는 형식 오류(unrecognized)가 아니라 검증 실패(validationFailed)로 표면화.
+- **§8.1** NUT-18 expiresAt 배선+스냅샷 테스트는 1단계에서 완료. **§8.2**(외부복구 sweep)는 SP-2 미수행, **§8.3**(cleanAndRecover 처분)은 2주 계측 미충족 — 게이트 대기로 이월(코드 무변경).
+
 ---
 
 # Part B — NostrSessionController

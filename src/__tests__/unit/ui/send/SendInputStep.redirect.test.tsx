@@ -154,7 +154,7 @@ describe('SendInputStep redirect', () => {
   })
 
   // ─── Test 2 ───
-  it('lnurl-withdraw calls onRedirect after async validation', async () => {
+  it('lnurl-withdraw hands off via onRouteValidated at SUBMIT — typing stays network-zero (§8.5)', async () => {
     const lnurlStr = 'lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhkxmmww4hxjmn8v96x7'
     mockDetectAndClassify.mockReturnValue({ type: 'lnurl', lnurl: lnurlStr })
     mockValidateAsync.mockResolvedValue({
@@ -166,10 +166,17 @@ describe('SendInputStep redirect', () => {
     renderStep()
     typeIntoInput(lnurlStr)
 
+    // 타이핑 중에는 원격 검증도 리다이렉트도 없다 (§8.5)
     await act(async () => { vi.advanceTimersByTime(500) })
-    await act(async () => { await vi.runAllTimersAsync() })
+    expect(mockValidateAsync).not.toHaveBeenCalled()
+    expect(defaultProps.onRedirect).not.toHaveBeenCalled()
 
-    expect(defaultProps.onRedirect).toHaveBeenCalledWith(
+    // 제출 시점: 검증 → 비발송형은 universal router로 handoff
+    const nextButton = screen.getByRole('button', { name: 'send.next' })
+    await act(async () => { nextButton.click(); await vi.runAllTimersAsync() })
+
+    expect(mockValidateAsync).toHaveBeenCalledTimes(1)
+    expect(defaultProps.onRouteValidated).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'lnurl-withdraw' })
     )
     expect(defaultProps.onNext).not.toHaveBeenCalled()
@@ -242,7 +249,7 @@ describe('SendInputStep redirect', () => {
   })
 
   // ─── Test 6 ───
-  it('validateAsync failure shows error, not redirect', async () => {
+  it('validateAsync failure at submit does not redirect (§8.5)', async () => {
     mockDetectAndClassify.mockReturnValue({
       type: 'lightning-address',
       address: 'test@failing.com',
@@ -251,11 +258,14 @@ describe('SendInputStep redirect', () => {
 
     renderStep()
     typeIntoInput('test@failing.com')
-
     await act(async () => { vi.advanceTimersByTime(500) })
-    await act(async () => { await vi.runAllTimersAsync() })
+    expect(mockValidateAsync).not.toHaveBeenCalled()
+
+    const nextButton = screen.getByRole('button', { name: 'send.next' })
+    await act(async () => { nextButton.click(); await vi.runAllTimersAsync() })
 
     expect(defaultProps.onRedirect).not.toHaveBeenCalled()
-    expect(screen.getByText('send.destination.validationFailed')).toBeInTheDocument()
+    expect(defaultProps.onRouteValidated).not.toHaveBeenCalled()
+    expect(defaultProps.onNext).not.toHaveBeenCalled()
   })
 })

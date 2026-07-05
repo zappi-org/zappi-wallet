@@ -141,7 +141,6 @@ export function SendInputStep({
   )
   const [isPreValidating, setIsPreValidating] = useState(false)
   const [preValidationError, setPreValidationError] = useState<string | null>(null)
-  const requestIdRef = useRef(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const detectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -200,7 +199,6 @@ export function SendInputStep({
   }, [])
 
   const cancelPendingValidation = useCallback(() => {
-    requestIdRef.current += 1
     clearTimeout(detectTimeoutRef.current)
     clearTimeout(autoAdvanceTimerRef.current)
     setIsPreValidating(false)
@@ -358,47 +356,23 @@ export function SendInputStep({
         return
       }
 
-      const needsPreValidation =
+      const syntaxOk =
         (detected.type === 'lightning-address' && looksLikeLightningAddress(destination)) ||
         (detected.type === 'lnurl' && looksLikeLnurl(destination))
 
-      if (!needsPreValidation) {
+      if (!syntaxOk) {
         setIsPreValidating(false)
         setPreValidationError(t('send.destination.validationFailed'))
         return
       }
 
-      const myRequestId = ++requestIdRef.current
+      // 타이핑-중 네트워크 정책 (설계 §8.5): 원격 검증은 제출·붙여넣기·스캔
+      // 시점에만 — 여기서 validateAsync를 부르면 부분 입력 도메인으로 실 GET이
+      // 나간다(`a@gmail.co` → gmail.co). 형태 판정 통과 = 배지 표시까지만이고,
+      // validatedData는 비워 두어 Next(handleNext→processExternalInput)가
+      // 검증·리다이렉트(lnurl-withdraw 등 handoff 포함)를 수행한다.
+      setIsPreValidating(false)
       setPreValidationError(null)
-
-      try {
-        const validated = await inputParser.validateAsync(detected)
-        if (requestIdRef.current !== myRequestId) return
-
-        if (onRedirect && resolveFlowTarget(validated.type) !== 'send') {
-          setIsPreValidating(false)
-          onRedirect(validated)
-          return
-        }
-
-        if (validated.type === 'lnurl-withdraw') {
-          setPreValidationError(t('send.destination.lnurlWithdrawNotSupported'))
-          setValidatedData(null)
-          validatedDataRef.current = null
-        } else {
-          setValidatedData(validated as SendableValidatedData)
-          validatedDataRef.current = validated as SendableValidatedData
-        }
-      } catch {
-        if (requestIdRef.current !== myRequestId) return
-        setPreValidationError(t('send.destination.validationFailed'))
-        setValidatedData(null)
-        validatedDataRef.current = null
-      } finally {
-        if (requestIdRef.current === myRequestId) {
-          setIsPreValidating(false)
-        }
-      }
     }, 500)
 
     return () => clearTimeout(detectTimeoutRef.current)
@@ -491,7 +465,9 @@ export function SendInputStep({
     try {
       validated = await inputParser.validateAsync(detected)
     } catch {
-      return false
+      // 형식은 인식됐고 원격 검증이 실패한 것 — "인식 불가"와 구분해
+      // 표면화한다 (7단계 리뷰 #6: 오프라인/서버 오류에 unrecognized 토스트는 오도)
+      return 'validation-error'
     }
     if (!['bolt11', 'lightning-address', 'lnurl-pay', 'cashu-request', 'my-wallet'].includes(validated.type)) {
       // Non-sendable types (cashu-token, amount, lnurl-withdraw) — hand off to the
@@ -602,6 +578,8 @@ export function SendInputStep({
     if (ok === true && validatedDataRef.current) {
       const contactName = await findContactDisplayName(getContactLookupCandidates(addressToValidate, validatedDataRef.current))
       advanceWithData(contactName || displayName || addressToValidate, validatedDataRef.current)
+    } else if (ok === 'validation-error') {
+      addToast({ type: 'error', message: t('send.destination.validationFailed'), duration: 3000 })
     } else if (!ok) {
       addToast({ type: 'error', message: t('send.destination.unrecognized'), duration: 3000 })
     }
@@ -651,6 +629,10 @@ export function SendInputStep({
                 if (text) processExternalInput(text)
               }}
               placeholder={t('send.destination.placeholder')}
+              // 제출 검증 중 입력 잠금 (7단계 리뷰 #7): §8.5로 매 제출이 원격
+              // 왕복을 수반하게 되어, 검증 중 타이핑이 완료 시점의
+              // applyDestinationState에 덮여 이전 주소로 진행되는 창이 넓어졌다
+              readOnly={isValidating}
               className="flex-1 min-w-0 bg-transparent py-1.5 text-title font-medium text-foreground placeholder:text-foreground-muted placeholder:font-medium focus:outline-none"
             />
             <button

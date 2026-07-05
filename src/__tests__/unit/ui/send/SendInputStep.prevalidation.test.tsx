@@ -119,7 +119,9 @@ describe('SendInputStep pre-validation', () => {
   })
 
   // ─── Test 1 ───
-  it('lightning-address triggers validateAsync after 500ms debounce', async () => {
+  // 타이핑-중 네트워크 정책 (설계 §8.5): 부분 입력 도메인으로 실 GET이 나가던
+  // 결함(`a@gmail.co` → gmail.co)의 회귀 방지 — 원격 검증은 제출 시점에만.
+  it('lightning-address typing performs ZERO remote validation — submit validates (§8.5)', async () => {
     mockDetectAndClassify.mockReturnValue({
       type: 'lightning-address',
       address: 'test@stacker.news',
@@ -133,17 +135,21 @@ describe('SendInputStep pre-validation', () => {
     renderStep()
     typeIntoInput('test@stacker.news')
 
-    // At 499ms — NOT yet called
-    await act(async () => { vi.advanceTimersByTime(499) })
+    // 디바운스가 지나도 원격 검증은 없다 — 형태 판정(배지)까지만
+    await act(async () => { vi.advanceTimersByTime(2_000) })
     expect(mockValidateAsync).not.toHaveBeenCalled()
+    expect(screen.queryByText('send.destination.validationFailed')).not.toBeInTheDocument()
 
-    // At 500ms — called
-    await act(async () => { vi.advanceTimersByTime(1) })
+    // 제출(Next) 시점에 검증한다
+    const nextButton = screen.getByRole('button', { name: 'send.next' })
+    expect(nextButton).not.toBeDisabled()
+    await act(async () => { nextButton.click(); await vi.runAllTimersAsync() })
     expect(mockValidateAsync).toHaveBeenCalledTimes(1)
+    expect(defaultProps.onNext).toHaveBeenCalled()
   })
 
   // ─── Test 2 ───
-  it('lnurl triggers validateAsync after 500ms debounce', async () => {
+  it('lnurl typing performs ZERO remote validation (§8.5)', async () => {
     const lnurlStr = 'lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhkxmmww4hxjmn8v96x7'
     mockDetectAndClassify.mockReturnValue({ type: 'lnurl', lnurl: lnurlStr })
     mockValidateAsync.mockResolvedValue({
@@ -155,8 +161,9 @@ describe('SendInputStep pre-validation', () => {
     renderStep()
     typeIntoInput(lnurlStr)
 
-    await act(async () => { vi.advanceTimersByTime(500) })
-    expect(mockValidateAsync).toHaveBeenCalledTimes(1)
+    await act(async () => { vi.advanceTimersByTime(2_000) })
+    expect(mockValidateAsync).not.toHaveBeenCalled()
+    expect(screen.queryByText('send.destination.validationFailed')).not.toBeInTheDocument()
   })
 
   // ─── Test 3 ───
@@ -177,67 +184,30 @@ describe('SendInputStep pre-validation', () => {
   })
 
   // ─── Test 4 ───
-  it('staleness — second input discards first validation result', async () => {
-    // Track onNext calls to verify validatedData
-    const onNext = vi.fn()
-
-    let resolveFirst!: (v: ValidatedData) => void
-    let resolveSecond!: (v: ValidatedData) => void
-
-    const firstPromise = new Promise<ValidatedData>((r) => { resolveFirst = r })
-    const secondPromise = new Promise<ValidatedData>((r) => { resolveSecond = r })
-
+  it('typing over a previous input never fires remote validation for either (§8.5)', async () => {
     mockDetectAndClassify.mockReturnValue({
       type: 'lightning-address',
       address: 'alice@mint1.com',
     })
-    mockValidateAsync
-      .mockReturnValueOnce(firstPromise)
-      .mockReturnValueOnce(secondPromise)
 
-    renderStep({ onNext })
-
-    // Type first input and trigger debounce
+    renderStep()
     typeIntoInput('alice@mint1.com')
     await act(async () => { vi.advanceTimersByTime(500) })
-    expect(mockValidateAsync).toHaveBeenCalledTimes(1)
 
-    // Type second input — this clears previous state via updateDestination
     mockDetectAndClassify.mockReturnValue({
       type: 'lightning-address',
       address: 'bob@mint2.com',
     })
     typeIntoInput('bob@mint2.com')
     await act(async () => { vi.advanceTimersByTime(500) })
-    expect(mockValidateAsync).toHaveBeenCalledTimes(2)
 
-    // Resolve first — should be discarded (stale requestId)
-    await act(async () => {
-      resolveFirst({
-        type: 'lightning-address',
-        address: 'alice@mint1.com',
-        lnurlParams: { callback: '', minSendable: 0, maxSendable: 100000, metadata: '', tag: 'payRequest' as const, domain: 'mint1.com' },
-      })
-    })
-    // No error shown, no validatedData set from first
-
-    // Resolve second — should be accepted
-    await act(async () => {
-      resolveSecond({
-        type: 'lightning-address',
-        address: 'bob@mint2.com',
-        lnurlParams: { callback: '', minSendable: 0, maxSendable: 100000, metadata: '', tag: 'payRequest' as const, domain: 'mint2.com' },
-      })
-    })
-
-    // Spinner should be gone (pre-validation finished)
+    expect(mockValidateAsync).not.toHaveBeenCalled()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
-    // No error shown
     expect(screen.queryByText('send.destination.validationFailed')).not.toBeInTheDocument()
   })
 
   // ─── Test 5 ───
-  it('network error shows inline error message', async () => {
+  it('network failure surfaces at submit as a toast (§8.5 — 타이핑 중 인라인 오류 없음)', async () => {
     mockDetectAndClassify.mockReturnValue({
       type: 'lightning-address',
       address: 'test@failing.com',
@@ -246,34 +216,37 @@ describe('SendInputStep pre-validation', () => {
 
     renderStep()
     typeIntoInput('test@failing.com')
-
     await act(async () => { vi.advanceTimersByTime(500) })
-    // Let rejected promise settle
-    await act(async () => { await vi.runAllTimersAsync() })
 
-    expect(screen.getByText('send.destination.validationFailed')).toBeInTheDocument()
+    // 타이핑 단계: 원격 검증도 인라인 오류도 없다
+    expect(mockValidateAsync).not.toHaveBeenCalled()
+    expect(screen.queryByText('send.destination.validationFailed')).not.toBeInTheDocument()
+
+    // 제출 시점: 원격 검증 실패 → "검증 실패" 토스트 (형식은 인식됐으므로
+    // unrecognized가 아니다 — 7단계 리뷰 #6)
+    const nextButton = screen.getByRole('button', { name: 'send.next' })
+    await act(async () => { nextButton.click(); await vi.runAllTimersAsync() })
+    expect(mockValidateAsync).toHaveBeenCalledTimes(1)
+    expect(stableAddToast).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'error', message: 'send.destination.validationFailed' }),
+    )
+    expect(defaultProps.onNext).not.toHaveBeenCalled()
   })
 
   // ─── Test 6 ───
-  it('lnurl-withdraw shows specific error, validatedData not set', async () => {
-    const lnurlStr = 'lnurl1withdraw...'
+  it('syntactically valid lnurl typing shows no error and keeps Next enabled (§8.5)', async () => {
+    const lnurlStr = 'lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhkxmmww4hxjmn8v96x7'
     mockDetectAndClassify.mockReturnValue({ type: 'lnurl', lnurl: lnurlStr })
-    mockValidateAsync.mockResolvedValue({
-      type: 'lnurl-withdraw',
-      lnurl: lnurlStr,
-      params: { callback: '', k1: 'abc', minWithdrawable: 0, maxWithdrawable: 100000, domain: 'example.com' },
-    })
 
     renderStep()
     typeIntoInput(lnurlStr)
 
     await act(async () => { vi.advanceTimersByTime(500) })
-    await act(async () => { await vi.runAllTimersAsync() })
 
-    expect(screen.getByText('send.destination.lnurlWithdrawNotSupported')).toBeInTheDocument()
-    // Next button should be disabled
+    // 형태 판정 통과 — 원격 확인(withdraw 여부 판별 포함)은 제출로 미룬다
+    expect(mockValidateAsync).not.toHaveBeenCalled()
     const nextButton = screen.getByRole('button', { name: 'send.next' })
-    expect(nextButton).toBeDisabled()
+    expect(nextButton).not.toBeDisabled()
   })
 
   // ─── Test 7 ───
@@ -285,36 +258,20 @@ describe('SendInputStep pre-validation', () => {
   })
 
   // ─── Test 8 ───
-  it('spinner visible during async validation, hidden after', async () => {
-    let resolveValidation!: (v: ValidatedData) => void
-    const validationPromise = new Promise<ValidatedData>((r) => { resolveValidation = r })
-
+  it('no pre-validation spinner while typing a valid-syntax address (§8.5)', async () => {
     mockDetectAndClassify.mockReturnValue({
       type: 'lightning-address',
       address: 'test@stacker.news',
     })
-    mockValidateAsync.mockReturnValue(validationPromise)
 
     renderStep()
     typeIntoInput('test@stacker.news')
 
     await act(async () => { vi.advanceTimersByTime(500) })
 
-    // Spinner should be visible
-    expect(screen.getByRole('status')).toBeInTheDocument()
-    expect(screen.getByRole('status')).toBeInTheDocument()
-
-    // Resolve validation
-    await act(async () => {
-      resolveValidation({
-        type: 'lightning-address',
-        address: 'test@stacker.news',
-        lnurlParams: { callback: '', minSendable: 0, maxSendable: 100000, metadata: '', tag: 'payRequest' as const, domain: 'stacker.news' },
-      })
-    })
-
-    // Spinner should be hidden
+    // 원격 검증이 없으므로 스피너도 없다 — 로딩 표시는 제출 버튼(isValidating) 소관
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(mockValidateAsync).not.toHaveBeenCalled()
   })
 
   // ─── Test 9 ───
