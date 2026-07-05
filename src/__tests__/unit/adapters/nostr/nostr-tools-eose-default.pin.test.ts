@@ -19,4 +19,17 @@ describe('nostr-tools synthetic-EOSE default (pin)', () => {
   it('our cursor guard vastly exceeds the library default', () => {
     expect(CURSOR_EOSE_TIMEOUT_MS).toBeGreaterThanOrEqual(60 * 60 * 1000)
   })
+
+  it('enableReconnect/enablePing stay OFF by default — 컨트롤러가 재연결을 소유 [F19]', () => {
+    // SessionController가 재연결의 단일 소유자다. 라이브러리 업그레이드가 이
+    // 기본값을 켜면 이중 재구독(컨트롤러 attach + 라이브러리 자체 재연결)이
+    // 생긴다 — 그 시점에 옵션 명시 OFF 배선이 필요하다는 신호.
+    const relay = new AbstractRelay('wss://pin.invalid/', { verifyEvent: (() => true) as never })
+    const raw = relay as unknown as Record<string, unknown>
+    for (const key of ['enableReconnect', 'enablePing']) {
+      if (key in raw) {
+        expect(raw[key]).toBeFalsy()
+      }
+    }
+  })
 })

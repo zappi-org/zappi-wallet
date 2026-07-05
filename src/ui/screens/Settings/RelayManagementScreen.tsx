@@ -3,6 +3,7 @@ import { ArrowLeft, Plus, Trash2, Server, AlertCircle } from 'lucide-react'
 import { Reorder } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
+import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { Button } from '@/ui/components/common/Button'
 import { normalizeRelayUrl } from '@/utils/url'
 import { LIMITS } from '@/core/constants'
@@ -21,6 +22,7 @@ export function RelayManagementScreen({
   onSaveSettings,
 }: RelayManagementScreenProps) {
   const { t } = useTranslation()
+  const registry = useServiceRegistry()
   const settings = useAppStore((s) => s.settings)
   const addToast = useAppStore((s) => s.addToast)
   const relays = settings.relays
@@ -39,40 +41,29 @@ export function RelayManagementScreen({
   const emptySlots = LIMITS.MAX_RELAYS - relays.length
   const isAtLimit = relays.length >= LIMITS.MAX_RELAYS
 
-  // Check relay health on mount
+  // 생존 표시 (설계 §10 B6): 컨트롤러가 이미 유지하는 연결 상태를 읽는다 —
+  // 기존에는 mount마다 설정 릴레이 전수에 raw WebSocket을 새로 열었다(측정
+  // 대상과 별개의 중복 연결 폭주). 메모리 스냅샷 읽기라 짧은 주기 폴링이 무비용.
   useEffect(() => {
-    const sockets: WebSocket[] = []
-    const timeouts: ReturnType<typeof setTimeout>[] = []
-
-    relays.forEach((url) => {
-      try {
-        const ws = new WebSocket(url)
-        sockets.push(ws)
-        const timeout = setTimeout(() => {
-          ws.close()
-          setRelayStatus((p) => ({ ...p, [url]: false }))
-        }, 5000)
-        timeouts.push(timeout)
-        ws.onopen = () => {
-          clearTimeout(timeout)
-          ws.close()
-          setRelayStatus((p) => ({ ...p, [url]: true }))
+    const readStatus = () => {
+      const statuses = registry.nostrGateway.getRelayStatus()
+      setRelayStatus((prev) => {
+        // 무변화면 이전 참조 유지 — 5초 폴링마다 화면 전체 리렌더 방지
+        let changed = false
+        const next = { ...prev }
+        for (const s of statuses) {
+          if (next[s.url] !== s.connected) {
+            next[s.url] = s.connected
+            changed = true
+          }
         }
-        ws.onerror = () => {
-          clearTimeout(timeout)
-          ws.close()
-          setRelayStatus((p) => ({ ...p, [url]: false }))
-        }
-      } catch {
-        setRelayStatus((p) => ({ ...p, [url]: false }))
-      }
-    })
-
-    return () => {
-      timeouts.forEach(clearTimeout)
-      sockets.forEach((ws) => { try { ws.close() } catch { /* already closed */ } })
+        return changed ? next : prev
+      })
     }
-  }, [relays])
+    readStatus()
+    const timer = setInterval(readStatus, 5000)
+    return () => clearInterval(timer)
+  }, [registry])
 
   const handleAdd = useCallback(async () => {
     if (!newRelayUrl.trim()) return

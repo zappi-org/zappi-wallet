@@ -20,10 +20,12 @@ import type {
   UnwrappedMessage,
 } from '@/core/ports/driven/nostr-gateway.port'
 import type { GiftwrapCursorStore } from '@/core/ports/driven/giftwrap-cursor-store.port'
-import { sinceForCatchUp } from '@/core/domain/giftwrap-cursor'
+import { sinceForCatchUp, sinceForRelay } from '@/core/domain/giftwrap-cursor'
 import type { NostrEvent, NostrFilter, UnsignedNostrEvent } from '@/core/domain/nostr'
 import { signEvent, wrapEvent, unwrapEvent } from './internal/nostr-crypto'
 import { createRelayPool, type RelayPool } from './internal/nostr-relay'
+import { NostrSessionController } from './internal/session-controller'
+import { RequestGate } from '@/core/utils/request-gate'
 import { onWake } from '@/core/utils/wake-signal'
 import { netLog } from '@/core/utils/net-log'
 import { incrementNetCounter } from '@/adapters/telemetry/net-counters'
@@ -38,6 +40,12 @@ export interface NostrGatewayConfig {
    * 구동작(전체 replay)으로 동작한다.
    */
   cursorStore?: GiftwrapCursorStore
+  /**
+   * SessionController 위임 (설계 §9/§10 — 6단계). bootstrap이 kill-switch
+   * `ks.nostr-controller`가 꺼져 있을 때만 true — false면 이 파일의 레거시
+   * 연결/구독/재연결 경로 그대로 동작한다.
+   */
+  useSessionController?: boolean
 }
 
 // ─── Internal types ───
@@ -62,6 +70,32 @@ const RELAY_CONNECTION_TIMEOUT_MS = 5_000
  */
 export const CURSOR_EOSE_TIMEOUT_MS = 24 * 60 * 60 * 1000
 
+/**
+ * 프로필류(10019 nutzap-info / 10050 DM relay list) 단일-작성자 조회의 병합 키
+ * (설계 §10 B6). replaceable event 1건 조회는 10분 내 재조회가 항상 같은 답 —
+ * 스캔→SendInput→확인 화면이 같은 수신자를 연달아 resolve하는 패턴의 중복 제거.
+ */
+function profileCoalesceKey(filter: NostrFilter): string | null {
+  const kinds = filter.kinds ?? []
+  const authors = filter.authors ?? []
+  if (kinds.length !== 1 || authors.length !== 1) return null
+  if (kinds[0] !== 10019 && kinds[0] !== 10050) return null
+  return `${kinds[0]}:${authors[0]}`
+}
+
+/**
+ * 빈 프로필 조회 결과 마커 (6단계 리뷰 #2): querySync는 relay 플레이크·드레인
+ * 실패에도 절대 reject하지 않고 []를 준다 — []를 10분 성공-캐시하면 일시
+ * 장애가 수신자 resolve를 10분간 "지갑 없음"으로 고정한다. 빈 결과는 실패
+ * 쿨다운(10s)으로 강등해 레거시(매 시도 재조회)에 가깝게 동작시킨다.
+ * (실제로 프로필이 없는 pubkey는 10초마다 재조회 — 레거시와 동일한 비용.)
+ */
+class EmptyProfileQueryResult extends Error {
+  constructor() {
+    super('empty profile query result')
+  }
+}
+
 export class NostrGatewayAdapter implements NostrGateway {
   private pool: RelayPool
   private connectedRelays: Set<string> = new Set()
@@ -76,14 +110,31 @@ export class NostrGatewayAdapter implements NostrGateway {
   private wakeCleanup: (() => void) | null = null
   private targetRelays: string[] = []
 
+  /** 6단계 위임 대상 (ks.nostr-controller OFF일 때만 존재) */
+  private readonly controller: NostrSessionController | null
+  /**
+   * 10019/10050 프로필류 조회 병합 (설계 §10 B6) — TTL 10분 + in-flight 공유.
+   * 스캔·SendInput·Contacts가 같은 수신자를 연달아 resolve할 때의 중복 REQ 제거.
+   * 컨트롤러 경로 전용(ks ON이면 구동작).
+   */
+  private readonly profileQueryGate = new RequestGate({ cooldownMs: 10 * 60_000, failureCooldownMs: 10_000 })
+
   constructor(config: NostrGatewayConfig) {
     this.pool = createRelayPool()
     this.config = config
     this.defaultTimeout = config.defaultTimeout ?? 5000
     this.reconnectIntervalMs = config.reconnectIntervalMs ?? DEFAULT_RECONNECT_INTERVAL_MS
+    this.controller = config.useSessionController
+      ? new NostrSessionController({ reconnectIntervalMs: this.reconnectIntervalMs })
+      : null
   }
 
   async connect(relays: string[]): Promise<void> {
+    if (this.controller) {
+      await this.controller.connectPersistent(relays)
+      return
+    }
+
     this.targetRelays = [...relays]
 
     for (const url of relays) {
@@ -98,6 +149,11 @@ export class NostrGatewayAdapter implements NostrGateway {
   }
 
   async disconnect(): Promise<void> {
+    if (this.controller) {
+      this.controller.disconnect()
+      return
+    }
+
     this.stopAutoReconnect()
 
     // Clean up all subscriptions
@@ -115,14 +171,32 @@ export class NostrGatewayAdapter implements NostrGateway {
   }
 
   getRelayStatus(): RelayStatus[] {
-    return Array.from(this.connectedRelays).map(url => ({
+    if (this.controller) {
+      // persistent 집합 전체를 연결 여부와 함께 — RelayManagement 생존 표시의
+      // 원천 (설계 §10 B6: raw WS 프로브 대체)
+      return this.controller.getRelayStatus()
+    }
+    // 레거시 경로도 대상 집합 전체를 반환 (6단계 리뷰 minor #1): 연결된 것만
+    // 반환하면 ks ON 폴백에서 RelayManagement의 미연결 표시(빨간 도트)가 공백이
+    // 된다. 기존 소비자는 전부 `.filter(connected)`라 의미 변화 없음.
+    const targets = this.targetRelays.length > 0 ? this.targetRelays : [...this.connectedRelays]
+    return targets.map(url => ({
       url,
-      connected: true,
+      connected: this.connectedRelays.has(url),
     }))
   }
 
   async publish(event: UnsignedNostrEvent): Promise<NostrEvent> {
     const signed = signEvent(event, this.config.privateKeyHex)
+
+    if (this.controller) {
+      const { ok } = await this.controller.publish(signed)
+      if (ok.length === 0) {
+        throw new Error('Failed to publish to any relay')
+      }
+      return signed
+    }
+
     const relays = Array.from(this.connectedRelays)
 
     if (relays.length === 0) {
@@ -143,6 +217,10 @@ export class NostrGatewayAdapter implements NostrGateway {
   }
 
   async queryEvents(filters: NostrFilter[]): Promise<NostrEvent[]> {
+    if (this.controller) {
+      return this.queryEventsViaController(filters)
+    }
+
     const relays = Array.from(this.connectedRelays)
     if (relays.length === 0) return []
 
@@ -169,6 +247,51 @@ export class NostrGatewayAdapter implements NostrGateway {
     return events
   }
 
+  private async queryEventsViaController(filters: NostrFilter[]): Promise<NostrEvent[]> {
+    const relays = this.controller!.getConnectedPersistent()
+    if (relays.length === 0) return []
+
+    const events: NostrEvent[] = []
+    for (const filter of filters) {
+      const coalesceKey = profileCoalesceKey(filter)
+      const run = async () => {
+        for (const relay of relays) {
+          netLog({
+            layer: 'relay',
+            op: 'query',
+            key: relay,
+            detail: `kinds:${(filter.kinds ?? []).join('/')}${filter.since ? ` since:${filter.since}` : ''}`,
+            caller: 'gateway',
+          })
+        }
+        const results = await this.controller!.querySync(
+          relays,
+          filter as Record<string, unknown>,
+          { maxWait: this.defaultTimeout },
+        )
+        return results as unknown as NostrEvent[]
+      }
+
+      if (coalesceKey) {
+        try {
+          const { value } = await this.profileQueryGate.run(coalesceKey, async () => {
+            const results = await run()
+            if (results.length === 0) throw new EmptyProfileQueryResult()
+            return results
+          })
+          events.push(...value)
+        } catch (e) {
+          if (!(e instanceof EmptyProfileQueryResult)) throw e
+          // 빈 결과 — 캐시 없이 그대로 빈 배열 (호출자 계약 유지)
+        }
+      } else {
+        events.push(...(await run()))
+      }
+    }
+
+    return events
+  }
+
   subscribe(
     filters: NostrFilter[],
     handler: (event: NostrEvent) => void,
@@ -182,6 +305,12 @@ export class NostrGatewayAdapter implements NostrGateway {
     onEose?: (relayUrl: string) => void,
     eoseTimeoutMs?: number,
   ): () => void {
+    if (this.controller) {
+      // attach 보장 (설계 §10 B3/B4): (재)연결되는 relay에 자동 attach —
+      // subscribe 시점 연결 스냅샷에만 붙던 레이스의 근본 수정
+      return this.controller.subscribe(filters, handler, { onEose, eoseTimeoutMs })
+    }
+
     const subId = this.nextSubId++
     const cleanups = new Set<() => void>()
 
@@ -206,6 +335,16 @@ export class NostrGatewayAdapter implements NostrGateway {
       params.content,
     )
 
+    if (this.controller) {
+      // session lease (설계 §10 B3): 수신자 DM relay는 단명 연결 — 구경로의
+      // connect(params.relays)는 persistent 재연결 대상을 통째로 교체했다
+      const { ok } = await this.controller.publishScoped(params.relays, wrapped)
+      if (ok.length === 0) {
+        throw new Error('Failed to send direct message to any relay')
+      }
+      return
+    }
+
     await this.connect(params.relays)
 
     const results = await Promise.allSettled(
@@ -225,6 +364,14 @@ export class NostrGatewayAdapter implements NostrGateway {
       params.content,
     )
 
+    if (this.controller) {
+      const { ok } = await this.controller.publishScoped(params.relays, wrapped)
+      if (ok.length === 0) {
+        throw new Error('Failed to publish gift wrap to any relay')
+      }
+      return wrapped
+    }
+
     await this.connect(params.relays)
 
     const results = await Promise.allSettled(
@@ -240,6 +387,10 @@ export class NostrGatewayAdapter implements NostrGateway {
   }
 
   async fetchGiftWraps(params: FetchGiftWrapsParams): Promise<UnwrappedMessage[]> {
+    if (this.controller) {
+      return this.fetchGiftWrapsViaController(params)
+    }
+
     await this.connect(params.relays)
 
     // 캐치업 since (설계 §10 B5 2단계): 명시 override > cursor(lastFullSyncAtMs−Ω) > 없음.
@@ -277,17 +428,69 @@ export class NostrGatewayAdapter implements NostrGateway {
       { maxWait: params.maxWaitMs ?? this.defaultTimeout },
     )
 
+    return this.unwrapAll(events as unknown as NostrEvent[])
+  }
+
+  /**
+   * 캐치업 EOSE 엔진 경로 (설계 §10 B5 — 6단계): relay별 독립 REQ + relay별
+   * since 창.
+   *
+   * - since(relay) = (relayEoseAtMs[relay] ?? lastFullSyncAtMs) − Ω [N1의 유일
+   *   공식] — 단일 since(모든 relay에 lastFullSync 창)의 재다운로드를 relay별
+   *   창으로 줄인다. D0/D10 반례(장기 다운 relay 복귀)는 그 relay의 오래된
+   *   기준점이 그대로 창을 넓혀 회수한다.
+   * - **cursor는 읽기 전용** — 마크(전진)는 settle 기계를 가진 라이브 구독이
+   *   단일 소유한다. 캐치업이 반환 직후(처리 전) 마크하면 처리 중 크래시 시
+   *   미처리 이벤트가 창 밖으로 밀리는 유실이 생긴다(2단계 리뷰 #4와 동일
+   *   원리) — 단일 기록자 유지가 근본 해법이다.
+   * - override(deep-resync)는 균일 창, fullReplay/cursor 없음은 전체 창.
+   */
+  private async fetchGiftWrapsViaController(params: FetchGiftWrapsParams): Promise<UnwrappedMessage[]> {
+    const store = this.config.cursorStore
+    const cursor = params.cursor
+
+    let sinceFor: (relayUrl: string) => number | undefined
+    if (params.sinceSecOverride !== undefined) {
+      const uniform = params.sinceSecOverride
+      sinceFor = () => uniform
+    } else if (cursor && !cursor.fullReplay && store) {
+      try {
+        const record = await store.load(cursor.key)
+        sinceFor = (relayUrl) => sinceForRelay(record, relayUrl, cursor.overlapSec)
+      } catch (error) {
+        console.warn('[NostrGateway] Cursor load failed — full-window fetch:', error)
+        sinceFor = () => undefined
+      }
+    } else {
+      sinceFor = () => undefined
+    }
+
+    const { events } = await this.controller!.collectUntilEose({
+      relays: params.relays,
+      filterFor: (relayUrl) => {
+        const since = sinceFor(relayUrl)
+        return {
+          kinds: [1059],
+          '#p': [params.recipientPubkey],
+          ...(since !== undefined ? { since } : {}),
+        } as NostrFilter
+      },
+      maxWaitMs: params.maxWaitMs ?? this.defaultTimeout,
+      eoseGuardMs: CURSOR_EOSE_TIMEOUT_MS,
+    })
+
+    return this.unwrapAll(events)
+  }
+
+  private unwrapAll(events: NostrEvent[]): UnwrappedMessage[] {
     const messages: UnwrappedMessage[] = []
     for (const event of events) {
       // 캐치업 경로 계측 (설계 §12 배선 현황) — 라이브 구독 경로는 watcher가 계수
       incrementNetCounter('giftwrap_events_received')
       try {
-        const unwrapped = unwrapEvent(
-          event as unknown as NostrEvent,
-          this.config.privateKeyHex,
-        )
+        const unwrapped = unwrapEvent(event, this.config.privateKeyHex)
         messages.push({
-          eventId: (event as unknown as NostrEvent).id,
+          eventId: event.id,
           content: unwrapped.content,
           sender: unwrapped.sender,
         })
@@ -295,7 +498,6 @@ export class NostrGatewayAdapter implements NostrGateway {
         // Not our message or decryption failed
       }
     }
-
     return messages
   }
 

@@ -54,6 +54,21 @@ vi.mock('@/ui/components/common', () => ({
   ),
 }))
 
+// 생존 표시가 raw WS 프로브 대신 게이트웨이 상태를 읽는다 (설계 §10 B6).
+// registry는 실제 컨텍스트처럼 **안정 참조**여야 한다 — 렌더마다 새 객체면
+// effect 재실행 루프가 된다.
+const stableRegistry = {
+  nostrGateway: {
+    getRelayStatus: () => [
+      { url: 'wss://relay-a.test', connected: true },
+      { url: 'wss://relay-b.test', connected: false },
+    ],
+  },
+}
+vi.mock('@/ui/hooks/use-service-registry', () => ({
+  useServiceRegistry: () => stableRegistry,
+}))
+
 describe('RelayManagementScreen', () => {
   beforeEach(() => {
     vi.stubGlobal('WebSocket', MockWebSocket)

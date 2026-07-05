@@ -8,6 +8,7 @@ import {
   type SupportTicket,
 } from '@/core/domain/support'
 import { useAppStore } from '@/store'
+import { onWake } from '@/core/utils/wake-signal'
 
 export function useSupportNotifications(registry: ServiceRegistry | null): void {
   const { t } = useTranslation()
@@ -81,18 +82,16 @@ export function useSupportNotifications(registry: ServiceRegistry | null): void 
       lastRefreshAt = now
       support.refresh().catch(() => undefined)
     }
-    const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') refresh()
-    }
 
-    window.addEventListener('online', refresh)
-    document.addEventListener('visibilitychange', refreshWhenVisible)
+    // onWake 단일 소유 (설계 §10 B7): online/visibility 자체 리스너 2계통을
+    // 3s 디바운스된 공용 wake 신호 구독 1곳으로 통일. 15s 자체 스로틀은
+    // onWake 위에 유지된다.
+    const stopWake = onWake(refresh)
 
     return () => {
       disposed = true
       unsubscribe()
-      window.removeEventListener('online', refresh)
-      document.removeEventListener('visibilitychange', refreshWhenVisible)
+      stopWake()
       setSupportUnreadSummary(0, [])
     }
   }, [registry, addToast, setSupportUnreadSummary, t])

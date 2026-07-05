@@ -2,7 +2,7 @@ import { AppLifecycleWatcher } from '@/composition/app-lifecycle.watcher'
 import { createBootstrap, type BootstrapResult, type RouteContext, type RouteExecutionResult, type RouteSelection } from '@/composition/bootstrap'
 import { resolveIncomingReview } from '@/composition/incoming-review'
 import { createPreUnlockServices } from '@/composition/pre-unlock'
-import { LIMITS } from '@/core/constants'
+import { DEFAULT_RELAYS, LIMITS } from '@/core/constants'
 import { sat, toNumber } from '@/core/domain/amount'
 import type { BaseError } from '@/core/errors/base'
 import { ServiceNotReadyError } from '@/core/errors/base'
@@ -994,14 +994,33 @@ export default function MainApp() {
 
     const newMints = newSettings.mints as string[] | undefined
     const newRelays = newSettings.relays as string[] | undefined
+    // 집합 동등성 비교 (설계 §10 B6): 순서만 바뀐 relay 드래그 커밋마다 프로필
+    // 3건(nutzap-info/relay-list/DM-relay-list)이 재발행되던 것을 생략한다 —
+    // relay 이벤트는 집합 의미라 순서 변경은 재발행 사유가 아니다.
+    // mints는 **순서 비교 유지** (6단계 리뷰 #2): 10019의 mint 목록 순서가
+    // 수신 선호를 나타낼 수 있어 재정렬도 재발행 사유다.
+    const sameSet = (a: string[], b: string[]) => {
+      const sa = new Set(a)
+      const sb = new Set(b)
+      return sa.size === sb.size && [...sa].every((x) => sb.has(x))
+    }
     const mintsChanged = newMints && JSON.stringify(newMints) !== JSON.stringify(settings.mints)
-    const relaysChanged = newRelays && JSON.stringify(newRelays) !== JSON.stringify(settings.relays)
+    const relaysChanged = newRelays && !sameSet(newRelays, settings.relays)
 
     if ((mintsChanged || relaysChanged) && p2pkPubkey) {
       republishProfile(newMints || settings.mints, newRelays || settings.relays)
     }
+    // persistent 집합 재확립 (설계 §10 B3 — 6단계 리뷰 #1): relay 설정 변경은
+    // 게이트웨이의 연결 대상도 갱신해야 한다. 레거시 경로는 다음 fetch의 암묵
+    // connect가 처리했지만 컨트롤러 경로는 명시 호출이 유일한 확립 지점이다.
+    if (relaysChanged && serviceRegistry) {
+      const nextRelays = newRelays || settings.relays
+      serviceRegistry.nostrGateway
+        .connect([...new Set([...DEFAULT_RELAYS, ...nextRelays])])
+        .catch((e) => console.warn('[App] relay reconnect failed:', e))
+    }
     broadcastSync('settings_changed')
-  }, [preUnlock.settingsRepo, settings, setSettings, p2pkPubkey, republishProfile])
+  }, [preUnlock.settingsRepo, settings, setSettings, p2pkPubkey, republishProfile, serviceRegistry])
 
   // Handle adding a trusted mint (from receive screen)
   const handleAddTrustedMint = useCallback(async (mintUrl: string): Promise<boolean> => {

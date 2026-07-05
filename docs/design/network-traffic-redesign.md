@@ -401,6 +401,22 @@ per-relay `relayEoseAtMs`가 영속되므로, deep-resync는 relay 장애가 아
 - **6단계** = catch-up을 컨트롤러 구독 엔진(per-relay EOSE)으로 이관, per-relay since·backfill·quorum 최적화 완성
 - 이 순서로 "고churn 작업 2회" 문제를 회피: 2단계는 파라미터 배선(저churn), EOSE 엔진은 6단계에 1회만 작성
 
+**구현 확정 편차 (6단계, 기록)**:
+- **캐치업(fetchGiftWraps)의 cursor는 읽기 전용** — per-relay since 창(`relayEoseAtMs[r] ?? lastFullSyncAtMs − Ω`)으로 재다운로드는 줄이되, **마크(전진)는 settle 기계를 가진 라이브 구독이 단일 소유**한다. 엔진이 반환 직후(호출자 처리 전) 마크하면 처리 중 크래시 시 미처리 이벤트가 창 밖으로 밀리는 유실이 생긴다(2단계 리뷰 #4와 동일 원리) — 단일 기록자 유지가 근본 해법. 엔진의 eosed 정보는 수집하되 전진에 쓰지 않음(후속: 캐치업 handler-settle 결합 시 재검토).
+- **구독 유실 감지 = 구독 자신의 `onclose` 신호**: `ensureRelay`가 죽은 소켓을 조용히 되살리면 socket 관찰(`relay.connected`)로는 구독 유실을 볼 수 없다(레거시 경로의 잠복 결함 — 실패 사이클이 낀 경우에만 우연히 복구됐다). 컨트롤러는 relay측 종료를 onclose로 원장에서 지우고, 헬스체크가 연결된 persistent relay의 빠진 attach를 보충한다. 의도적 close(구독 해제·detach)는 플래그로 구분.
+- **B2 인터페이스는 내부 구현으로 흡수**: 별도 `NostrSessionController` 공개 인터페이스(acquire/RelayLease 등) 대신 `NostrGatewayAdapter`가 기존 포트를 유지한 채 내부 위임 — 포트 소비자(watcher/recovery/profile 등) 전원 무변경. SubscriptionSpec.id/deepResync 표면은 기존 gateway 경로가 이미 담당(각각 unsubscribe 함수·recovery.resyncFull)하므로 도입하지 않음.
+- **persistent 확립은 unlock(activate)의 명시 배선** (구현 리뷰 #1 blocker): 레거시는 fetchGiftWraps/sendDM 내부 `connect(params.relays)` 부수효과가 연결을 암묵 확립했고, 컨트롤러 분기는 그 라인에 도달하지 않는다 — bootstrap activate가 `DEFAULT_RELAYS + settings.relays`(B3 명문)로 connect하고, relay 설정 변경 시 MainApp이 재확립한다. **배선 pin 테스트**(bootstrap.activate-wiring.test.ts)가 이 호출 소실을 CI에서 막는다 — 단위 테스트 944개가 전부 통과한 채 실시간 수신이 죽는 소실 모드였다.
+- **프로필류(10019/10050) 병합의 빈-결과 처리** (리뷰 #2): querySync는 relay 플레이크에도 reject하지 않고 []를 준다 — 빈 결과를 10분 성공-캐시하면 일시 장애가 수신자 resolve를 "지갑 없음"으로 고정한다. 빈 결과는 실패 쿨다운(10s)으로 강등(내부 마커 throw), 비어있지 않은 결과만 10분 캐시. 병합은 단일-작성자 단일-kind 필터에만, 컨트롤러 경로 전용(ks ON이면 구동작).
+- **모든 연결 시도에 5s 상한 관통** (리뷰 #3): AbstractRelay.connect는 timeout 옵션이 없으면 타임아웃 핸들 자체가 없다 — 블랙홀 네트워크(캡티브 포털)에서 catch-up이 행하면 isSyncing 락이 후속 동기화까지 막고, attach의 pending placeholder가 영구 잔존해 회복 후 재attach도 막는다. ensureRelay 사용처 전부가 5s race 헬퍼를 거친다.
+- **relay 정체성 = pool과 동일한 정규화(nostr-tools normalizeURL)** (리뷰 #4): 컨트롤러 레지스트리(persistent/session/connected/attach 원장) 키를 전부 단일 정규화로 통일 — 다르면 수신자 10050의 변형 표기(`wss://r.io/`)가 [N9] 검사를 빠져나가 lease 만료가 공유 persistent 소켓을 닫는다. 표시·조회용 URL은 원형 보존(설정 화면 키와 일치).
+- **레거시(ks ON) getRelayStatus도 대상 집합 전체 반환** (리뷰 minor #1): 연결된 것만 반환하면 폴백 상태에서 RelayManagement의 미연결 표시가 공백이 된다. 기존 소비자는 전부 `.filter(connected)`라 무영향.
+- **sameSet 재발행 생략은 relays에만** (리뷰 minor #2): 10019의 mint 목록 순서는 수신 선호를 나타낼 수 있어 mints는 순서 비교를 유지한다.
+- **CLOSED 반복 relay(auth-required 등) 백오프 미도입** (리뷰 minor #3, 기록): onclose→30s 헬스체크 재attach 루프가 남는다 — `relay_notice_rate_limited` 계측(§12)으로 실측 후 B8 백스톱과 함께 판단한다(§3.3 원인 규명 우선).
+- 재attach는 구독 등록 시점 필터(t0 since 창)를 재사용 — 세션이 길수록 재연결 재다운로드 창이 커진다(dedup이 흡수, 레거시와 동일 방향·안전) — B4 "cursor since로 재개"의 재계산은 후속.
+- **gateway.connect(discovery relays)의 persistent 교체는 잔존**(외부 니모닉 복구 화면 한정) — 그 흐름 종료 후 unlock의 connect가 복원한다. DM/giftwrap 발송·조회는 session lease로 이관되어 교체 버그가 닫힘.
+- SupportPage의 자체 visibility/focus 리스너는 삭제(전역 훅의 onWake 구독이 담당) — 데스크톱 멀티윈도 focus-only 전환의 즉시 refresh는 다음 wake/15s 스로틀로 흡수(수용).
+- 백스톱(B8 REQ 상한 4/publish 직렬 큐)은 미도입 — 조건(§B8: 전 적용 후에도 rate-limit notice 잔존) 미충족, `relay_notice_rate_limited` 계측이 먼저다.
+
 ### B6. 쿼리 병합·발행 스코프
 - 10019/10050: `coalesceKey='10050:<pubkey>'` TTL 10분 + **resolve 결과를 send 플로우로 전달**(포트 diff §4) — transport의 2차 조회 삭제. 무캐시 콜사이트 3곳(스캔·SendInput·Contacts) 공통 적용
 - profile publish: persistent set만. **relay 순서변경은 재발행 생략**(집합 동등성 비교 — 현재 드래그 커밋마다 3건 발행)

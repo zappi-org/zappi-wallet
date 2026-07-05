@@ -142,28 +142,9 @@ export function SupportPage({ onBack }: SupportPageProps) {
     }
   }, [support, t])
 
-  // Resync when the PWA returns to the foreground. Mobile OSes drop the
-  // websocket while suspended, so live status updates published in that
-  // window can be missed. refresh() = disconnect + connect + pullOwnHistory.
-  useEffect(() => {
-    let lastRefreshAt = 0
-    const REFRESH_THROTTLE_MS = 10_000
-
-    const trigger = () => {
-      if (document.visibilityState !== 'visible') return
-      const now = Date.now()
-      if (now - lastRefreshAt < REFRESH_THROTTLE_MS) return
-      lastRefreshAt = now
-      support.refresh().catch(() => undefined)
-    }
-
-    document.addEventListener('visibilitychange', trigger)
-    window.addEventListener('focus', trigger)
-    return () => {
-      document.removeEventListener('visibilitychange', trigger)
-      window.removeEventListener('focus', trigger)
-    }
-  }, [support])
+  // 포그라운드 복귀 재동기화는 전역 훅(use-support-notifications)의 onWake
+  // 구독이 담당한다 (설계 §10 B7 — 페이지 자체 visibility/focus 리스너와의
+  // 이중 refresh 제거). 이 화면은 support.subscribe 스냅샷으로 갱신을 받는다.
 
   useEffect(() => {
     return () => {

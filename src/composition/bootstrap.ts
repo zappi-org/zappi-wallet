@@ -286,6 +286,9 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const nostrGateway = new NostrGatewayAdapter({
     privateKeyHex: deps.nostrPrivateKeyHex,
     cursorStore: giftwrapCursorStore,
+    // 6단계 (설계 §9/§10): SessionController 위임 — 연결/구독 레지스트리,
+    // attach 보장, session lease, per-relay 캐치업. ON이면 레거시 경로 전체.
+    useSessionController: !killSwitches["nostr-controller"],
   });
 
   // 3. Cashu Module (initialize()는 caller가 seed로 호출)
@@ -636,6 +639,18 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
     // 생존 heartbeat 시작 — resume recheck 판정의 원천 (설계 [F12])
     startAliveHeartbeat();
+
+    // persistent relay 집합 확립 (설계 §10 B3: DEFAULT_RELAYS + settings.relays —
+    // 6단계 리뷰 #1 blocker): 레거시 경로는 fetchGiftWraps/sendDM 내부의
+    // connect(params.relays) 부수효과가 연결을 암묵 확립했지만, 컨트롤러 경로는
+    // 그 라인에 도달하지 않는다 — 여기서 명시 확립한다. fire-and-forget이어도
+    // 안전한 이유: 구독 attach 보장이 "등록 후 연결되는 relay"에 자동으로 붙는다.
+    // 레거시 경로(ks ON)에도 같은 호출이 무해하다(기존 암묵 connect의 조기 실행).
+    nostrGateway
+      .connect([
+        ...new Set([...DEFAULT_RELAYS, ...useAppStore.getState().settings.relays]),
+      ])
+      .catch((e) => console.warn("[Bootstrap] relay connect failed:", e));
 
     // review 대기열 부팅 hydrate (설계 §6.2) — 이전 세션의 미해소 review를
     // Zustand 미러로 복원해 확인 모달이 다시 뜨게 한다. store enqueue는
