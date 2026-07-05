@@ -157,16 +157,24 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
 
       try {
         // 설계 §6.3 [N3]: 민트를 명시적으로 신뢰하는 순간이 곧 사용자 승인 —
-        // 이 민트에서 온 대기 review 토큰을 자동 상환하고, "복구액"은 drain의
-        // 실제 상환 합계로 표시한다 (이전의 전후 잔액 diff는 동시 수신·수수료에
-        // 오염되는 간접 측정이었다).
-        const drained = await registry.recoveryScheduler.drainReviewQueue(normalizedUrl)
+        // 이 민트에서 온 대기 review 토큰을 자동 상환한다.
+        await registry.recoveryScheduler.drainReviewQueue(normalizedUrl)
 
         // offline-DLEQ 토큰(B9) 등 나머지 표적 구제 — gate 우회 1회 (설계 §6.3):
         // unlock/resume의 targeted와 5분 내에 겹치면 stale 반환으로 "restoring"
         // 단계가 무동작이 되는 것을 방지 — 방금 신뢰한 이 시점의 실행은 사용자
         // 의도가 명시적이다.
         await registry.recoveryScheduler.recoverTargeted({ bypassGate: true })
+
+        // 시드 기반 잔액 복원 — 소유자 결정(설계 §6.3 편차 갱신): 재설치·재추가
+        // 사용자는 이 민트에 잔액이 있었는지 알 방법이 없어 유실로 오인한다.
+        // 범위는 방금 추가한 민트 1곳 + 사용자 명시 행동(추가)에 바운드라
+        // "자동 전수 복구 금지" 원칙과 상충하지 않는다.
+        const restoreReports = await registry.payment.recoverAccounts({ accountIds: [normalizedUrl] })
+        const failed = restoreReports.find((r) => !r.success)
+        if (failed) {
+          console.warn('[AddMint] Seed restore failed for', normalizedUrl, failed.error)
+        }
 
         const afterModules = await registry.balance.getByModule()
         const afterTotal = afterModules.reduce((sum, m) => sum + m.accounts.reduce((s, a) => s + Number(a.amount.value), 0), 0)
@@ -178,8 +186,12 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
         }
         setBalance({ total: afterTotal, byMint })
 
-        if (drained.amount > 0) {
-          setRecoveredAmount(drained.amount)
+        // "복구액" = 이 민트에서 확보된 금액 (대기 토큰 상환 + 시드 복원 합).
+        // 추가 전 이 민트는 추적 대상이 아니었으므로 추가 후 잔액이 곧 확보액이다 —
+        // 전체 잔액 diff(타 민트 동시 수신에 오염)와 달리 민트 단위라 정확하다.
+        const recovered = byMint[normalizedUrl] ?? 0
+        if (recovered > 0) {
+          setRecoveredAmount(recovered)
         }
       } catch (restoreErr) {
         console.warn('[AddMint] Failed to restore tokens from new mint:', restoreErr)

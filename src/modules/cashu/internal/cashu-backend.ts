@@ -711,6 +711,9 @@ export async function executePaymentRequest(
 
 export async function restoreWallet(mintUrl: string): Promise<void> {
   const manager = await getCocoManager();
+  // 방금 추가된(아직 어떤 op도 안 거친) 민트도 복원 가능해야 한다 — 다른 op들과
+  // 동일하게 Coco 등록을 선행 (민트 추가 시 자동 시드 복원의 전제)
+  await ensureMintTrusted(manager, mintUrl);
   await manager.wallet.restore(mintUrl);
 }
 

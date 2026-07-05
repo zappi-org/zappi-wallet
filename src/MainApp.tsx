@@ -1070,6 +1070,13 @@ export default function MainApp() {
         republishProfile(nextSettings.mints, nextSettings.relays)
       }
 
+      // 시드 기반 잔액 복원 — 소유자 결정(설계 §6.3 편차): 재설치·재추가 사용자는
+      // 이 민트에 잔액이 있었는지 알 수 없어 유실로 오인한다. 이 경로는 수신
+      // 모달 도중이라 fire-and-forget — 완료 시 balance:changed가 화면을 갱신.
+      serviceRegistry.payment
+        .recoverAccounts({ accountIds: [url] })
+        .catch((e) => console.warn('[App] Seed restore after trust failed:', e))
+
       console.log('[App] Added trusted mint:', url)
       broadcastSync('settings_changed')
       return true
