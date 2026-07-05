@@ -32,3 +32,8 @@
 - If an SDK supports file attachments through an envelope format, displaying metadata alone is not enough to call the feature implemented. The app must wire real storage, encryption, download, and integrity verification, or keep the feature explicitly unavailable.
 - Support ticket terminal states such as resolved/closed must be enforced at the use-case/channel boundary, not only by hiding a UI input.
 - Support history synchronization should be explicit on connect and resume/online refresh, with local cache treated as a fast display cache rather than the source of truth.
+
+## 2026-07-06
+
+- Verification must run the project's own scripts (`bun run lint && bun run build && bun run test`), not tool equivalents. `npx tsc --noEmit` on a solution-style tsconfig checks a different file set than the build's `tsc -b` (project references) — a test-mock gap passed every step review this way and only surfaced when the user ran the real chain. Before declaring any step done, run the exact package.json commands end-to-end.
+- When a DI interface gains members, grep ALL mock implementations of that interface across test files in the same change (`grep -rln "InterfaceName" src/__tests__ src/**/*.test.ts`) — fixing only the mocks that current diagnostics flag misses files that a different tsconfig scope compiles later.
