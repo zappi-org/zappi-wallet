@@ -3,19 +3,21 @@ import { createBootstrap, type BootstrapResult, type RouteContext, type RouteExe
 import { resolveIncomingReview } from '@/composition/incoming-review'
 import { createPreUnlockServices } from '@/composition/pre-unlock'
 import { wipeAccountData } from '@/composition/logout'
-import { DEFAULT_RELAYS, LIMITS } from '@/core/constants'
+import { LIMITS } from '@/core/constants'
 import { sat, toNumber } from '@/core/domain/amount'
-import type { BaseError } from '@/core/errors/base'
-import { ServiceNotReadyError } from '@/core/errors/base'
 import { InsufficientBalanceError } from '@/core/errors/payment.errors'
 import { ServiceProvider } from '@/ui/hooks/service-context'
 import { useAppNavigation } from '@/ui/hooks/use-app-navigation'
 import { useAutoLock } from '@/ui/hooks/use-auto-lock'
 import { useCrossTabSync } from '@/ui/hooks/use-cross-tab-sync'
 import { useGlobalTokenClaimToast } from '@/ui/hooks/use-global-token-claim-toast'
+import { useMintHandlers } from '@/ui/hooks/use-mint-handlers'
 
-import { useRedeemToken } from '@/ui/hooks/use-redeem-token'
+import { useReceiveHandlers } from '@/ui/hooks/use-receive-handlers'
+import { useSecurityHandlers } from '@/ui/hooks/use-security-handlers'
 import { useSupportNotifications } from '@/ui/hooks/use-support-notifications'
+import { useSwapHandlers } from '@/ui/hooks/use-swap-handlers'
+import { useTransactions } from '@/ui/hooks/use-transactions'
 import { isNostrDirectAddress } from '@/core/domain/nostr-address'
 import { translateError } from '@/ui/utils/error-i18n'
 import { broadcastSync } from '@/utils/cross-tab-sync'
@@ -24,7 +26,7 @@ import { useAppStore } from '@/store'
 import { useNetwork } from '@/ui/hooks/use-network'
 import { useWallet } from '@/ui/hooks/use-wallet'
 import { setMintNameResolver, toErrorMessage } from '@/ui/utils/error-message'
-import { normalizeMintUrl, isSameMintUrl } from '@/utils/url'
+import { isSameMintUrl } from '@/utils/url'
 import { AnimatePresence, motion } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -88,7 +90,6 @@ import type { Transaction } from '@/core/domain/transaction'
 import type { PendingIncomingReview } from '@/core/types'
 import { removePasskey } from '@/ui/services/passkey'
 import { formatSats } from '@/utils/format'
-import { generateMintAliases } from '@/utils/mint-name'
 
 
 // Register mint name resolver for error messages
@@ -106,8 +107,6 @@ export default function MainApp() {
   const settings = useAppStore((state) => state.settings)
   const nostrPubkey = useAppStore((state) => state.nostrPubkey)
   const nostrPrivkey = useAppStore((state) => state.nostrPrivkey)
-  const p2pkPubkey = useAppStore((state) => state.p2pkPubkey)
-  const txRefreshTrigger = useAppStore((state) => state.txRefreshTrigger)
   const pendingIncomingReviews = useAppStore((state) => state.pendingIncomingReviews)
   const supportUnreadCount = useAppStore((state) => state.supportUnreadCount)
 
@@ -121,7 +120,6 @@ export default function MainApp() {
   const setNostrKeyPair = useAppStore((state) => state.setNostrKeyPair)
   const setP2pkPubkey = useAppStore((state) => state.setP2pkPubkey)
   const setSettings = useAppStore((state) => state.setSettings)
-  const removeIncomingReview = useAppStore((state) => state.removeIncomingReview)
 
   // Service Registry (Phase 5: bootstrap 후 생성, unlock 전에는 null)
   const [serviceRegistry, setServiceRegistry] = useState<BootstrapResult | null>(null)
@@ -147,9 +145,6 @@ export default function MainApp() {
     handleTabSelect,
     handleBack,
   } = useAppNavigation()
-
-  // Local state
-  const [transactions, setTransactions] = useState<Transaction[]>([])
 
   // Bottom nav items
   const navItems = useMemo(() => [
@@ -227,17 +222,12 @@ export default function MainApp() {
     ...createPreUnlockServices(),
   }))
 
-  /** Refresh balance + transaction history in parallel */
-  const refreshAll = useCallback(async () => {
-    const balancePromise = serviceRegistry
-      ? serviceRegistry.refreshBalance()
-      : refreshBalance()
-    const [, txHistory] = await Promise.all([
-      balancePromise,
-      preUnlock.txRepo.findAll({ limit: 100 }),
-    ])
-    setTransactions(txHistory)
-  }, [serviceRegistry, refreshBalance, preUnlock.txRepo])
+  // 거래 내역 + 원자적 잔액/거래 갱신 — Phase 4b 추출 (MAJOR-14: refreshAll 원자성 계약은 훅이 보존)
+  const { transactions, setTransactions, refreshAll } = useTransactions({
+    serviceRegistry,
+    fallbackRefreshBalance: refreshBalance,
+    txRepo: preUnlock.txRepo,
+  })
 
   /** 잔액/거래 갱신 + recovery 병렬 실행 (toast/refresh는 EventBus bridge가 처리) */
   const refreshAndRecover = useCallback(async () => {
@@ -440,13 +430,8 @@ export default function MainApp() {
     }
 
     init()
-  }, [preUnlock, setFailedIncomingsCount, setInitializing, setSettings])
-
-  // Reload transactions and balance when txRefreshTrigger changes (e.g., GiftWrap token receipt)
-  useEffect(() => {
-    if (txRefreshTrigger === 0) return
-    refreshAll()
-  }, [txRefreshTrigger, refreshAll])
+    // setTransactions는 useTransactions가 노출하는 React useState setter 패스스루 — 안정 식별자
+  }, [preUnlock, setFailedIncomingsCount, setInitializing, setSettings, setTransactions])
 
   useEffect(() => {
     if (activeIncomingReview || pendingIncomingReviews.length === 0) return
@@ -584,14 +569,21 @@ export default function MainApp() {
     }
   }, [preUnlock.security, setLocked, setNostrKeyPair, setP2pkPubkey, serviceRegistry])
 
-  // 자동잠금 (감사 §6 실구현, 전자 정책): 유휴 시간 초과 시 UI 잠금 + 메모리
-  // 비밀(키·시드·니모닉 캐시) 소거. 레지스트리는 유지 — PWA는 OS 푸시가 없어
-  // "앱이 살아있는 동안의 수신"이 전부이고, 세션을 죽이면 해제마다 재연결
-  // 버스트가 부활한다. 화면 복귀 시 즉시 재판정(freeze 중 타이머 정지 보완).
-  const handleAutoLock = useCallback(() => {
-    preUnlock.security.lock()
-    setLocked(true)
-  }, [preUnlock.security, setLocked])
+  // 보안 핸들러 (자동잠금/PIN 변경·검증/니모닉 백업/로그아웃) — Phase 4b 추출.
+  // handleUnlock은 부트스트랩 심(레지스트리 세대 교체 + composition 배선)이라 잔류.
+  // wipeAccount는 composition 소거 배선(wipeAccountData + registry + removePasskey)을
+  // MainApp이 묶어 주입 — 훅은 core 포트만 의존한다.
+  const wipeAccount = useCallback(
+    () => wipeAccountData({ security: preUnlock.security, registry: serviceRegistry, removePasskey }),
+    [preUnlock.security, serviceRegistry],
+  )
+  const {
+    handleAutoLock,
+    handleChangePassword,
+    handleVerifyPin,
+    handleBackupMnemonic,
+    handleLogout,
+  } = useSecurityHandlers({ security: preUnlock.security, wipeAccount })
 
   useAutoLock({
     enabled: settings.autoLockEnabled ?? true,
@@ -600,161 +592,41 @@ export default function MainApp() {
     onLock: handleAutoLock,
   })
 
-  // Payment modal handlers
-  const handleCreateInvoice = useCallback(async (amount: number, mintUrl: string) => {
-    if (!mintUrl) return null
+  const clearIncomingReviewState = useCallback(() => {
+    setActiveIncomingReview(null)
+    setValidatedScanData(null)
+  }, [])
 
-    if (!serviceRegistry?.payment) {
-      console.warn('[MainApp] ServiceRegistry not ready — cannot create invoice')
-      return null
-    }
-    const transfer = await serviceRegistry.transferLifecycle.initiateIncomingTransfer(
-      { txId: crypto.randomUUID(), accountId: mintUrl, amount: sat(amount) }, 'bolt11'
-    )
+  // 거절 확정 후 UI 리셋 — 리뷰/스캔 파라미터와 네비 상태는 MainApp 소유 (훅에 콜백 주입)
+  const handleIncomingReviewRejected = useCallback(() => {
+    clearIncomingReviewState()
+    setCurrentScreen(previousScreen || 'home')
+    setPreviousScreen(null)
+  }, [clearIncomingReviewState, previousScreen, setCurrentScreen, setPreviousScreen])
 
-    const ref = transfer.transportRef as { request?: string, quoteId?: string }
-
-    return {
-      invoice: ref?.request ?? '',
-      quoteId: ref?.quoteId ?? '',
-      expiry: transfer.expiresAt ? Math.floor(transfer.expiresAt / 1000) : Math.floor(Date.now() / 1000) + 600,
-    }
-  }, [serviceRegistry])
-
-  const handleReceiveToken = useRedeemToken(serviceRegistry, () => {
-    refreshAll().catch((e) => console.error('[MainApp] refreshAll after receive failed:', e))
+  // 수신 핸들러 (인보이스 생성/토큰 상환/요청 이행/리뷰 승인·거절/수신 브로드캐스트) — Phase 4c 추출.
+  // resolveIncomingReview는 composition 함수라 주입 — 훅은 core 포트만 의존한다.
+  const {
+    handleCreateInvoice,
+    handleReceiveToken,
+    handleReceiveRequestFulfillment,
+    handleResolveIncomingReview,
+    handleRejectIncomingReview,
+    handlePaymentReceived,
+  } = useReceiveHandlers({
+    serviceRegistry,
+    refreshAll,
+    resolveReview: resolveIncomingReview,
+    onRejected: handleIncomingReviewRejected,
   })
 
-  /**
-   * Handle an incoming token that fulfills one of MY ReceiveRequests.
-   * Routes through the domain use case so settlement → my-id verification →
-   * intent='request-fulfill' tagging happens in one place. Transport-agnostic
-   * (HTTP polling, future transports). Uses paymentRef as both externalId
-   * (idempotency / deterministic txId) and the receive-request match key.
-   */
-  const handleReceiveRequestFulfillment = useCallback(async (
-    token: string,
-    paymentRef: string,
-  ): Promise<{ success: boolean; amount?: number; requestFulfilled?: boolean; error?: { code?: string; message?: string } }> => {
-    if (!serviceRegistry?.incomingPayment) {
-      return { success: false, error: { code: 'NOT_READY', message: 'ServiceRegistry not ready' } }
-    }
-
-    const result = await serviceRegistry.incomingPayment.processIncoming({
-      payload: token,
-      externalId: paymentRef,
-      receiveRequestPaymentRef: paymentRef,
-      receiveRequestMethod: 'ecash',
-    })
-
-    if (result.status === 'success') {
-      refreshAll().catch((e) => console.error('[MainApp] refreshAll after fulfillment failed:', e))
-      return { success: true, amount: result.amount, requestFulfilled: result.requestFulfilled }
-    }
-    if (result.status === 'already_processed') {
-      return { success: true, amount: 0 }
-    }
-    return { success: false, error: { code: 'FULFILLMENT_FAILED', message: result.error ?? 'Failed to process incoming payment' } }
-  }, [serviceRegistry, refreshAll])
-
-  /** Estimate Lightning fee for cross-mint swap (non-destructive) */
-  const handleEstimateSwapFee = useCallback(async (
-    fromMintUrl: string,
-    toMintUrl: string,
-    amount: number,
-  ): Promise<{ fee: number; totalNeeded: number } | null> => {
-    // Phase 5: SwapUseCase.estimateSwap() 경유
-    if (!serviceRegistry?.swap) {
-      console.warn('[MainApp] ServiceRegistry not ready — cannot estimate swap fee')
-      return null
-    }
-
-    const result = await serviceRegistry.swap.estimateSwap({
-      sourceAccountId: fromMintUrl,
-      targetAccountId: toMintUrl,
-      amount: sat(amount),
-    })
-    if (result.ok) {
-      const fee = toNumber(result.value.fee)
-      return { fee, totalNeeded: amount + fee }
-    }
-    return null
-  }, [serviceRegistry])
-
-  const handleEstimateRedeemFee = useCallback(async (
-    token: string,
-  ): Promise<{ grossAmount: number; fee: number; netAmount: number } | null> => {
-    if (!serviceRegistry?.payment) return null
-    const result = await serviceRegistry.payment.estimateRedeemFee({ input: token })
-    if (result.ok) {
-      return {
-        grossAmount: toNumber(result.value.grossAmount),
-        fee: toNumber(result.value.fee),
-        netAmount: toNumber(result.value.netAmount),
-      }
-    }
-    return null
-  }, [serviceRegistry])
-
-  const handleSwapReceive = useCallback(async (
-    token: string,
-    sourceMintUrl: string,
-    targetMintUrl: string,
-    amount: number,
-  ): Promise<{ success: boolean; amount?: number; error?: BaseError }> => {
-    if (!serviceRegistry?.payment || !serviceRegistry?.swap) {
-      return { success: false, error: new ServiceNotReadyError('payment/swap') }
-    }
-
-    const redeemResult = await serviceRegistry.payment.redeem({ input: token })
-    if (!redeemResult.ok) {
-      return { success: false, error: redeemResult.error }
-    }
-
-    const swapResult = await serviceRegistry.swap.executeSwap({
-      sourceAccountId: sourceMintUrl,
-      targetAccountId: targetMintUrl,
-      amount: sat(amount),
-    })
-    if (!swapResult.ok) {
-      refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap fail:', e))
-      return { success: false, error: swapResult.error }
-    }
-
-    refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap:', e))
-    return { success: true, amount: toNumber(swapResult.value.amount) }
-  }, [serviceRegistry, refreshAll])
-
-  /** Cross-mint swap: execute swap from source mint to target mint */
-  const handleMintSwap = useCallback(async (
-    fromMintUrl: string,
-    toMintUrl: string,
-    amount: number,
-  ): Promise<{ success: boolean; amount?: number; fee?: number; transactionId?: string } | null> => {
-    if (!serviceRegistry?.swap) {
-      console.warn('[MainApp] ServiceRegistry not ready — cannot perform swap')
-      return null
-    }
-
-    const result = await serviceRegistry.swap.executeSwap({
-      sourceAccountId: fromMintUrl,
-      targetAccountId: toMintUrl,
-      amount: sat(amount),
-    })
-
-    if (!result.ok) {
-      addToast({ type: 'error', message: translateError(result.error, t), duration: 4000 })
-      return null
-    }
-
-    refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap:', e))
-    return {
-      success: true,
-      amount: toNumber(result.value.amount),
-      fee: toNumber(result.value.fee),
-      transactionId: result.value.sendTxId,
-    }
-  }, [serviceRegistry, refreshAll, addToast, t])
+  // 크로스민트 스왑 핸들러 (스왑/상환 수수료 견적 + 상환→스왑 수신 + 민트 간 스왑) — Phase 4c 추출
+  const {
+    handleEstimateSwapFee,
+    handleEstimateRedeemFee,
+    handleSwapReceive,
+    handleMintSwap,
+  } = useSwapHandlers({ serviceRegistry, refreshAll })
 
   /** Unified send handler via routing layer */
   const handleExecuteRoute = useCallback(async (
@@ -778,71 +650,6 @@ export default function MainApp() {
       return null
     }
   }, [serviceRegistry, refreshAll, addToast])
-
-  const clearIncomingReviewState = useCallback(() => {
-    setActiveIncomingReview(null)
-    setValidatedScanData(null)
-  }, [])
-
-  const handleResolveIncomingReview = useCallback(async (params: {
-    review: PendingIncomingReview
-    transactionId?: string
-  }) => {
-    if (!serviceRegistry) return
-
-    await resolveIncomingReview({
-      processedStore: serviceRegistry.processedStore,
-      receiveRequest: serviceRegistry.receiveRequest,
-      // durable 큐에서 제거 (설계 §6.2) — Zustand 미러는 큐 어댑터가 동기화
-      removeIncomingReview: (externalId) =>
-        serviceRegistry.incomingReviewQueue.remove(externalId),
-      nostrGateway: serviceRegistry.nostrGateway,
-      posDevices: settings.posDevices,
-    }, params)
-
-    // 신뢰 추가 경유 승인(설계 §6.3 [N3]): 같은 민트의 나머지 대기 review를
-    // 자동 상환한다 — 민트 신뢰가 곧 승인. 모달의 자체 redeem이 끝난 뒤라
-    // 활성 review와 race하지 않는다. 미신뢰 민트면 건너뜀(자동 폐기 방지).
-    // mints는 store에서 최신을 읽는다 — "신뢰하고 받기" 흐름은 신뢰 추가와 이
-    // 콜백이 같은 렌더 클로저 안에서 이어지므로 prop 캡처본은 신뢰 추가 이전
-    // 값이다 (4단계 리뷰 #3).
-    const reviewMint = normalizeMintUrl(params.review.token.mintUrl)
-    const currentMints = useAppStore.getState().settings.mints
-    if (currentMints.some((m) => isSameMintUrl(m, reviewMint))) {
-      serviceRegistry.recoveryScheduler
-        .drainReviewQueue(reviewMint)
-        .catch((e) => console.warn('[App] review drain failed:', e))
-    }
-  }, [serviceRegistry, settings.posDevices])
-
-  const handleRejectIncomingReview = useCallback(async (review: PendingIncomingReview) => {
-    if (serviceRegistry) {
-      await serviceRegistry.processedStore.save({
-        externalId: review.externalId,
-        processedAt: Date.now(),
-        result: 'skipped',
-        error: 'Rejected by user',
-      })
-      // durable 큐에서 제거 — 미제거 시 다음 부팅 hydrate에 부활한다 (설계 §6.2)
-      await serviceRegistry.incomingReviewQueue.remove(review.externalId)
-    } else {
-      removeIncomingReview(review.externalId)
-    }
-
-    clearIncomingReviewState()
-    setCurrentScreen(previousScreen || 'home')
-    setPreviousScreen(null)
-  }, [serviceRegistry, removeIncomingReview, clearIncomingReviewState, previousScreen, setCurrentScreen, setPreviousScreen])
-
-  // Payment received callback
-  // Lightning toast는 bridge.ts (mint-quote:redeemed)가 전역으로 담당
-  const handlePaymentReceived = useCallback(async (
-    _receivedAmount: number,
-    _type: 'lightning' | 'ecash',
-  ) => {
-    refreshAll().catch((e) => console.error('[MainApp] refreshAll after payment received:', e))
-    broadcastSync('balance_changed')
-  }, [refreshAll])
 
   const handleCreateEcashToken = useCallback(async (amount: number, preferredMintUrl?: string, options?: { p2pkPubkey?: string; memo?: string }): Promise<{ token: string; txId: string; operationId: string } | null> => {
     if (isSendingEcashRef.current) return null
@@ -944,157 +751,12 @@ export default function MainApp() {
     [serviceRegistry],
   )
 
-  // Settings handlers
-  const handleChangePassword = useCallback(async (oldPassword: string, newPassword: string): Promise<boolean> => {
-    const result = await preUnlock.security.changePassword(oldPassword, newPassword)
-    return result.isOk()
-  }, [preUnlock.security])
-
-  const handleVerifyPin = useCallback(async (pin: string): Promise<boolean> => {
-    const result = await preUnlock.security.verifyPassword(pin)
-    return result.isOk() && result.value
-  }, [preUnlock.security])
-
-  const handleBackupMnemonic = useCallback(async (password: string): Promise<string | null> => {
-    const result = await preUnlock.security.getMnemonic(password)
-    if (result.isOk()) {
-      return result.value
-    }
-    return null
-  }, [preUnlock.security])
-
-  const handleLogout = useCallback(async (password: string): Promise<boolean> => {
-    const result = await preUnlock.security.verifyPassword(password)
-    // NO_WALLET = 과거 소거가 지갑 레코드 삭제 후 중단된 반쪽 상태(구버전 순서의
-    // 유산) — 검증할 비밀이 없는데 잔존 데이터는 있다. wrongPin 으로 오도하는 대신
-    // 소거를 재개시켜 탈출구를 준다 (Phase 1 이중 리뷰 처방).
-    const isHalfWipedState = result.isErr() && result.error.code === 'NO_WALLET'
-    if (!isHalfWipedState && !(result.isOk() && result.value)) {
-      return false // PIN 오류 — SettingsScreen 이 wrongPin 표시
-    }
-    // 소거 실패는 throw 그대로 전파 — SettingsScreen 이 lock.errorOccurred 로
-    // 표면화한다 (감사 Phase 1: 성공 가장 금지). 조각별 삭제는 wipeAccountData 로
-    // 대체 — registry 부재 시에도 coco DB 를 포함해 전부 소거된다.
-    await wipeAccountData({
-      security: preUnlock.security,
-      registry: serviceRegistry,
-      removePasskey,
-    })
-    window.location.reload()
-    return true
-  }, [preUnlock.security, serviceRegistry])
-
-  /** Profile republish — bootstrap의 profileService 경유 */
-  const republishProfile = useCallback(async (mints: string[], relays: string[]) => {
-    if (!serviceRegistry || !nostrPubkey || !p2pkPubkey) return
-    try {
-      await serviceRegistry.profile.publishAll(nostrPubkey, mints, relays, p2pkPubkey)
-      console.log('[Profile] Republished successfully')
-    } catch (e) {
-      console.warn('[Profile] Failed to republish:', e)
-    }
-  }, [serviceRegistry, nostrPubkey, p2pkPubkey])
-
-  const handleSaveSettings = useCallback(async (newSettings: Record<string, unknown>): Promise<void> => {
-    const mergedSettings = { ...settings, ...newSettings }
-    setSettings(mergedSettings)
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await preUnlock.settingsRepo.saveSettings(mergedSettings as any)
-
-    const newMints = newSettings.mints as string[] | undefined
-    const newRelays = newSettings.relays as string[] | undefined
-    // 집합 동등성 비교 (설계 §10 B6): 순서만 바뀐 relay 드래그 커밋마다 프로필
-    // 3건(nutzap-info/relay-list/DM-relay-list)이 재발행되던 것을 생략한다 —
-    // relay 이벤트는 집합 의미라 순서 변경은 재발행 사유가 아니다.
-    // mints는 **순서 비교 유지** (6단계 리뷰 #2): 10019의 mint 목록 순서가
-    // 수신 선호를 나타낼 수 있어 재정렬도 재발행 사유다.
-    const sameSet = (a: string[], b: string[]) => {
-      const sa = new Set(a)
-      const sb = new Set(b)
-      return sa.size === sb.size && [...sa].every((x) => sb.has(x))
-    }
-    const mintsChanged = newMints && JSON.stringify(newMints) !== JSON.stringify(settings.mints)
-    const relaysChanged = newRelays && !sameSet(newRelays, settings.relays)
-
-    if ((mintsChanged || relaysChanged) && p2pkPubkey) {
-      republishProfile(newMints || settings.mints, newRelays || settings.relays)
-    }
-    // persistent 집합 재확립 (설계 §10 B3 — 6단계 리뷰 #1): relay 설정 변경은
-    // 게이트웨이의 연결 대상도 갱신해야 한다. 레거시 경로는 다음 fetch의 암묵
-    // connect가 처리했지만 컨트롤러 경로는 명시 호출이 유일한 확립 지점이다.
-    if (relaysChanged && serviceRegistry) {
-      const nextRelays = newRelays || settings.relays
-      serviceRegistry.nostrGateway
-        .connect([...new Set([...DEFAULT_RELAYS, ...nextRelays])])
-        .catch((e) => console.warn('[App] relay reconnect failed:', e))
-    }
-    broadcastSync('settings_changed')
-  }, [preUnlock.settingsRepo, settings, setSettings, p2pkPubkey, republishProfile, serviceRegistry])
-
-  // Handle adding a trusted mint (from receive screen)
-  const handleAddTrustedMint = useCallback(async (mintUrl: string): Promise<boolean> => {
-    try {
-      if (!serviceRegistry) {
-        console.warn('[App] ServiceRegistry not ready — cannot add trusted mint')
-        return false
-      }
-
-      const url = normalizeMintUrl(mintUrl)
-
-      if (settings.mints.some((mint) => isSameMintUrl(mint, url))) {
-        await serviceRegistry.trustMint(url)
-        return true
-      }
-
-      // 직접 fetch → facade probe (설계 §5): 신뢰 추가는 "지금 유효한가" 검증이라
-      // fresh probe — 응답은 metadata 캐시에 역주입되어 이후 화면들이 재사용한다
-      const info = await serviceRegistry.mintInfo.getInfo(url, { fresh: true })
-      if (!info || (!info.name && !info.pubkey)) {
-        console.error('[App] Invalid or unreachable mint info')
-        return false
-      }
-
-      const newMints = [...settings.mints, url]
-      const newAliases = generateMintAliases(
-        newMints,
-        settings.mintAliases,
-        (number) => t('mintDetail.defaultName', { number }),
-      )
-      const nextSettings = { ...settings, mints: newMints, mintAliases: newAliases }
-
-      await preUnlock.settingsRepo.saveSettings(nextSettings)
-      setSettings(nextSettings)
-
-      try {
-        await serviceRegistry.trustMint(url)
-      } catch (trustError) {
-        await preUnlock.settingsRepo.saveSettings(settings).catch((rollbackError) => {
-          console.error('[App] Failed to rollback settings after mint trust failure:', rollbackError)
-        })
-        setSettings(settings)
-        throw trustError
-      }
-
-      if (p2pkPubkey) {
-        republishProfile(nextSettings.mints, nextSettings.relays)
-      }
-
-      // 시드 기반 잔액 복원 — 소유자 결정(설계 §6.3 편차): 재설치·재추가 사용자는
-      // 이 민트에 잔액이 있었는지 알 수 없어 유실로 오인한다. 이 경로는 수신
-      // 모달 도중이라 fire-and-forget — 완료 시 balance:changed가 화면을 갱신.
-      serviceRegistry.payment
-        .recoverAccounts({ accountIds: [url] })
-        .catch((e) => console.warn('[App] Seed restore after trust failed:', e))
-
-      console.log('[App] Added trusted mint:', url)
-      broadcastSync('settings_changed')
-      return true
-    } catch (error) {
-      console.error('[App] Failed to add trusted mint:', error)
-      return false
-    }
-  }, [settings, preUnlock.settingsRepo, setSettings, p2pkPubkey, republishProfile, t, serviceRegistry])
+  // 민트/설정 핸들러 (설정 저장 + 프로필 재발행 + 신뢰 민트 추가) — Phase 4b 추출.
+  // republishProfile은 이 두 핸들러 전용이라 훅 내부로 캡슐화.
+  const { handleSaveSettings, handleAddTrustedMint } = useMintHandlers({
+    serviceRegistry,
+    settingsRepo: preUnlock.settingsRepo,
+  })
 
   const handleSendRedirect = useCallback((validated: ValidatedData) => {
     setValidatedScanData(validated)
