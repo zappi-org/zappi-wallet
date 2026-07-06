@@ -68,8 +68,6 @@ function createMockRegistry(): ServiceRegistry {
       checkEffectiveExpiry: vi.fn().mockResolvedValue('expired'),
       expireById: vi.fn().mockResolvedValue(undefined),
     } as ServiceRegistry['pendingItems'],
-    withdraw: {} as ServiceRegistry['withdraw'],
-    lnurlAuth: {} as ServiceRegistry['lnurlAuth'],
     mintMetadata: {} as ServiceRegistry['mintMetadata'],
     mintHealth: {} as ServiceRegistry['mintHealth'],
     crypto: {} as ServiceRegistry['crypto'],

@@ -42,8 +42,6 @@ function createMockRegistry(reclaimService: ReturnType<typeof vi.fn>, txMgmt?: {
     processedStore: { save: vi.fn(), exists: vi.fn(), existsByTxId: vi.fn(), findById: vi.fn(), findByTxId: vi.fn() } as unknown as ServiceRegistry['processedStore'],
     nostrGateway: { sendPrivateDirectMessage: vi.fn() } as unknown as ServiceRegistry['nostrGateway'],
     pendingItems: { getByMint: vi.fn(), getAll: vi.fn(), getActivePendingQuotes: vi.fn(), checkEffectiveExpiry: vi.fn(), expireById: vi.fn() } as unknown as ServiceRegistry['pendingItems'],
-    withdraw: {} as unknown as ServiceRegistry['withdraw'],
-    lnurlAuth: {} as unknown as ServiceRegistry['lnurlAuth'],
     mintMetadata: {} as unknown as ServiceRegistry['mintMetadata'],
     mintHealth: {} as unknown as ServiceRegistry['mintHealth'],
     crypto: {} as unknown as ServiceRegistry['crypto'],

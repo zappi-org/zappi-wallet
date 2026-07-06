@@ -35,7 +35,7 @@
 
 ## Phase 3 — 죽은 코드 대청소 (S-M — Phase 4의 선행)
 삭제 전 참조 0 재확인 — **`await import(` 동적 패턴 포함** grep (동적 전용 모듈 15곳 존재).
-- [ ] LNURL-auth/withdraw 슬라이스: 6파일+driving 포트 2+레지스트리 타입(withdraw/lnurlAuth)+`{}` 스텁 제거. **생존 확인된 lnurl-gateway.port/direct-lnurl.adapter는 유지**(InputParser 경로). 테스트 레지스트리 스텁 3곳 동반 수정. `@noble/curves`는 같은 커밋에서 제거(유일 소비자)
+- [x] LNURL-auth/withdraw 슬라이스 삭제(묶음1, 리뷰 APPROVED): 파일 8(composition 2·서비스 2·driving 포트 2·key-deriver 포트·secp256k1 어댑터)+레지스트리 타입·스텁+테스트 스텁 3곳+@noble/curves+죽은 주석 2줄. lnurl-gateway.port/direct-lnurl.adapter 생존(InputParser). lnurl-auth QR UX 회귀 없음 검증(파싱 단계에서 전부터 throw). **리뷰 NIT 기록: registry.inputRouter 소비자 0 — 후속 묶음 삭제 후보(그때 lnurl-auth 분류 branch 동반 소멸 가능)**
 - [ ] primitives 정리 (리뷰 MAJOR-9 정정): **tabs.tsx는 살아있음**(ReceiveQRStep:16) — 선-마이그레이션(공용 컴포넌트로) 후 삭제하거나 tabs+`@radix-ui/react-tabs`만 존치. `cn`은 ui/lib/utils.ts가 원본이고 primitives/utils는 shim — **21개 import 경로 재지정**. 나머지 primitives+radix(사용분 제외)+embla/cmdk/vaul/input-otp 제거
 - [ ] **vite.config manualChunks 동반 수정** (리뷰 MAJOR-11): `vendor-nostr`에서 ndk 제거(직전 coco 마이그레이션의 동일 클래스 블로커 전례). 제거 후 **빌드 청크 산출 확인을 게이트에 추가**
 - [ ] 미사용 패키지 제거(ndk, sonner, react-resizable-panels, @noble/ciphers), @testing-library/dom devDeps 이동, 유령 postinstall 제거

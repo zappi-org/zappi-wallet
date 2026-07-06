@@ -13,8 +13,6 @@ import type { SwapUseCase } from '@/core/ports/driving/swap.usecase'
 import type { ContactUseCase } from '@/core/ports/driving/contact.usecase'
 import type { InputRouterUseCase } from '@/core/ports/driving/input-router.usecase'
 import type { AddressResolverUseCase } from '@/core/ports/driving/address-resolver.usecase'
-import type { WithdrawUseCase } from '@/core/ports/driving/withdraw.usecase'
-import type { LnurlAuthUseCase } from '@/core/ports/driving/lnurl-auth.usecase'
 import type { ProfileUseCase } from '@/core/ports/driving/profile.usecase'
 import type { RecoveryUseCase } from '@/core/ports/driving/recovery.usecase'
 import type { RecoverySchedulerUseCase } from '@/core/ports/driving/recovery-scheduler.usecase'
@@ -58,8 +56,6 @@ export interface ServiceRegistry {
   readonly incomingReviewQueue: IncomingReviewQueue
   readonly nostrGateway: NostrGateway
   readonly pendingItems: PendingItemsUseCase
-  readonly withdraw: WithdrawUseCase
-  readonly lnurlAuth: LnurlAuthUseCase
   readonly mintMetadata: MintMetadataUseCase
   readonly mintHealth: MintHealthUseCase
   /** 상세 화면용 raw NUT-06 info — 24h 캐시 우선, fresh=probe (설계 §5) */

@@ -20,7 +20,6 @@
     "@gandlaf21/bc-ur": "^1.1.12",
     "@heroicons/react": "^2.2.0",
     "@noble/ciphers": "^2.1.1",
-    "@noble/curves": "^2.0.1",
     "@noble/hashes": "^2.0.1",
     "@noble/secp256k1": "^3.0.0",
     "@nostr-dev-kit/ndk": "^2.18.1",

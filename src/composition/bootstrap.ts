@@ -842,10 +842,6 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     modules
   );
 
-  // 12. WithdrawUseCase / LnurlAuthUseCase — TODO: NoOp impl or real impl
-  // Phase 5에서는 undefined 허용하지 않으므로 placeholder
-  const withdraw = {} as ServiceRegistry["withdraw"];
-  const lnurlAuth = {} as ServiceRegistry["lnurlAuth"];
 
   // 13. Phase 6: New services
   const cryptoGateway = new CryptoGatewayAdapter();
@@ -991,8 +987,6 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     incomingReviewQueue,
     nostrGateway,
     pendingItems,
-    withdraw,
-    lnurlAuth,
     mintMetadata,
     mintHealth,
     mintInfo,
