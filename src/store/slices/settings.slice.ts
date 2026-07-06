@@ -23,7 +23,8 @@ export interface SettingsSliceState {
   setNostrPrivkey: (privkey: string | null) => void
   setNostrKeyPair: (pubkey: string, privkey: string) => void
   setP2pkPubkey: (pubkey: string | null) => void
-  reset: () => void
+  /** 슬라이스 고유 reset — resetAll 이 호출 (동명 reset 충돌로 last-spread 만 살아남던 버그 수정, Phase 3) */
+  resetSettings: () => void
 }
 
 /**
@@ -78,5 +79,5 @@ export const createSettingsSlice: StateCreator<SettingsSliceState> = (set) => ({
 
   setP2pkPubkey: (p2pkPubkey) => set({ p2pkPubkey }),
 
-  reset: () => set(initialState),
+  resetSettings: () => set(initialState),
 })

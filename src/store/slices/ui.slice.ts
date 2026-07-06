@@ -65,7 +65,8 @@ export interface UISliceState {
   setSupportUnreadSummary: (count: number, ticketIds: string[]) => void
   setActiveSupportTicketId: (ticketId: string | null) => void
   setUpdateAvailable: (available: boolean) => void
-  reset: () => void
+  /** 슬라이스 고유 reset — resetAll 이 호출 (동명 reset 충돌로 last-spread 만 살아남던 버그 수정, Phase 3) */
+  resetUI: () => void
 }
 
 /**
@@ -141,5 +142,5 @@ export const createUISlice: StateCreator<UISliceState> = (set) => ({
 
   setUpdateAvailable: (updateAvailable) => set({ updateAvailable }),
 
-  reset: () => set(initialState),
+  resetUI: () => set(initialState),
 })

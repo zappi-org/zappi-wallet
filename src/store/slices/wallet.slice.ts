@@ -21,7 +21,8 @@ export interface WalletState {
   setPendingQuotes: (quotes: PendingQuote[]) => void
   addPendingQuote: (quote: PendingQuote) => void
   removePendingQuote: (quoteId: string) => void
-  reset: () => void
+  /** 슬라이스 고유 reset — resetAll 이 호출 (동명 reset 충돌로 last-spread 만 살아남던 버그 수정, Phase 3) */
+  resetWallet: () => void
 }
 
 /**
@@ -55,5 +56,5 @@ export const createWalletSlice: StateCreator<WalletState> = (set) => ({
       pendingQuotes: state.pendingQuotes.filter((q) => q.quoteId !== quoteId),
     })),
 
-  reset: () => set(initialState),
+  resetWallet: () => set(initialState),
 })

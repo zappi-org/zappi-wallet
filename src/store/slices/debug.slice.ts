@@ -27,7 +27,8 @@ export interface DebugSliceState {
   // Actions
   addDebugLog: (log: Omit<GiftWrapLog, 'id' | 'timestamp'>) => void
   clearDebugLogs: () => void
-  reset: () => void
+  /** 슬라이스 고유 reset — resetAll 이 호출 (동명 reset 충돌로 last-spread 만 살아남던 버그 수정, Phase 3) */
+  resetDebug: () => void
 }
 
 /**
@@ -57,5 +58,5 @@ export const createDebugSlice: StateCreator<DebugSliceState> = (set) => ({
 
   clearDebugLogs: () => set({ debugLogs: [] }),
 
-  reset: () => set(initialState),
+  resetDebug: () => set(initialState),
 })

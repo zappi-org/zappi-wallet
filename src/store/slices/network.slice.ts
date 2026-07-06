@@ -20,7 +20,8 @@ export interface NetworkSliceState {
   addConnectedRelay: (relay: string) => void
   removeConnectedRelay: (relay: string) => void
   setConnectingRelays: (connecting: boolean) => void
-  reset: () => void
+  /** 슬라이스 고유 reset — resetAll 이 호출 (동명 reset 충돌로 last-spread 만 살아남던 버그 수정, Phase 3) */
+  resetNetwork: () => void
 }
 
 /**
@@ -68,5 +69,5 @@ export const createNetworkSlice: StateCreator<NetworkSliceState> = (set) => ({
 
   setConnectingRelays: (isConnectingRelays) => set({ isConnectingRelays }),
 
-  reset: () => set(initialState),
+  resetNetwork: () => set(initialState),
 })

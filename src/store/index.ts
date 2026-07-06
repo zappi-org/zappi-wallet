@@ -8,7 +8,6 @@ import { createSettingsSlice, type SettingsSliceState } from './slices/settings.
 import { createDebugSlice, type DebugSliceState } from './slices/debug.slice'
 import { createFiatSlice, type FiatSliceState } from './slices/fiat.slice'
 import { createPendingTransferSlice, type PendingTransferSliceState } from './slices/pending-transfer.slice'
-import { DEFAULT_MINTS, DEFAULT_RELAYS } from '@/core/constants'
 
 /**
  * Combined app store state
@@ -41,74 +40,19 @@ export const useAppStore = create<AppState>()(
       ...createFiatSlice(...args),
       ...createPendingTransferSlice(...args),
 
-      // Global reset (for logout)
+      // Global reset (for logout) — 각 슬라이스의 고유 reset 에 위임한다.
+      // 구현이 슬라이스 initialState 단일 원천을 따르므로 60줄 수동 복제의
+      // 나열-드리프트(신규 필드 누락)가 원천 불가능하다 (감사 Phase 3).
       resetAll: () => {
-        const [set] = args
-        set((state) => {
-          // Call all individual reset functions
-          state.reset() // This will be the last one, but we need all
-          return {}
-        })
-        // Actually reset all slices
-        const resetState = args[0]
-        resetState({
-          // Wallet
-          balance: { total: 0, byMint: {} },
-          isLoadingBalance: false,
-          pendingQuotes: [],
-          // Network
-          networkState: 'ONLINE',
-          lastOnlineAt: null,
-          connectedRelays: [],
-          isConnectingRelays: false,
-          // Sync
-          syncState: 'idle',
-          lastSyncAt: null,
-          anchor: null,
-          pendingRetries: 0,
-          failedIncomingsCount: 0,
-          pendingIncomingReviews: [],
-          syncProgress: 0,
-          eventsProcessed: 0,
-          lastEventTimestamp: 0,
-          txRefreshTrigger: 0,
-          activeTransports: [],
-          nostrConnectionStatus: 'disconnected',
-          // UI
-          isLocked: true,
-          isUnlocking: false,
-          toasts: [],
-          modal: { isOpen: false, type: null },
-          isInitializing: true,
-          isProcessingPayment: false,
-          currentAmount: 0,
-          supportUnreadCount: 0,
-          supportUnreadTicketIds: [],
-          activeSupportTicketId: null,
-          // Settings
-          settings: {
-            mints: [...DEFAULT_MINTS],
-            relays: [...DEFAULT_RELAYS],
-            autoLockEnabled: true,
-            autoLockTimeoutMinutes: 5,
-            soundEnabled: true,
-            expertModeEnabled: false,
-            manualMintSelectionEnabled: false,
-            balanceHidden: false,
-          },
-          isLoadingSettings: false,
-          nostrPubkey: null,
-          nostrPrivkey: null,
-          p2pkPubkey: null,
-          // Debug
-          debugLogs: [],
-          maxDebugLogs: 100,
-          // Fiat
-          exchangeRateFetchedAt: null,
-          allRates: null,
-          // Pending transfers
-          pendingTransfers: [],
-        })
+        const state = args[1]()
+        state.resetWallet()
+        state.resetNetwork()
+        state.resetSync()
+        state.resetUI()
+        state.resetSettings()
+        state.resetDebug()
+        state.resetFiat()
+        state.resetPendingTransfers()
       },
     })),
     // enabled 게이트 필수 (감사 §6): 없으면 Redux DevTools 확장이 설치된
