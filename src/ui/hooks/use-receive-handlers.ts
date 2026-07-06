@@ -77,7 +77,7 @@ export function useReceiveHandlers(deps: UseReceiveHandlersDeps): ReceiveHandler
     if (!mintUrl) return null
 
     if (!serviceRegistry?.payment) {
-      console.warn('[MainApp] ServiceRegistry not ready — cannot create invoice')
+      console.warn('[useReceiveHandlers] ServiceRegistry not ready — cannot create invoice')
       return null
     }
     const transfer = await serviceRegistry.transferLifecycle.initiateIncomingTransfer(
@@ -94,7 +94,7 @@ export function useReceiveHandlers(deps: UseReceiveHandlersDeps): ReceiveHandler
   }, [serviceRegistry])
 
   const handleReceiveToken = useRedeemToken(serviceRegistry, () => {
-    refreshAll().catch((e) => console.error('[MainApp] refreshAll after receive failed:', e))
+    refreshAll().catch((e) => console.error('[useReceiveHandlers] refreshAll after receive failed:', e))
   })
 
   /**
@@ -120,7 +120,7 @@ export function useReceiveHandlers(deps: UseReceiveHandlersDeps): ReceiveHandler
     })
 
     if (result.status === 'success') {
-      refreshAll().catch((e) => console.error('[MainApp] refreshAll after fulfillment failed:', e))
+      refreshAll().catch((e) => console.error('[useReceiveHandlers] refreshAll after fulfillment failed:', e))
       return { success: true, amount: result.amount, requestFulfilled: result.requestFulfilled }
     }
     if (result.status === 'already_processed') {
@@ -156,7 +156,7 @@ export function useReceiveHandlers(deps: UseReceiveHandlersDeps): ReceiveHandler
     if (currentMints.some((m) => isSameMintUrl(m, reviewMint))) {
       serviceRegistry.recoveryScheduler
         .drainReviewQueue(reviewMint)
-        .catch((e) => console.warn('[App] review drain failed:', e))
+        .catch((e) => console.warn('[useReceiveHandlers] review drain failed:', e))
     }
   }, [serviceRegistry, resolveReview, settings.posDevices])
 
@@ -183,7 +183,7 @@ export function useReceiveHandlers(deps: UseReceiveHandlersDeps): ReceiveHandler
     _receivedAmount: number,
     _type: 'lightning' | 'ecash',
   ) => {
-    refreshAll().catch((e) => console.error('[MainApp] refreshAll after payment received:', e))
+    refreshAll().catch((e) => console.error('[useReceiveHandlers] refreshAll after payment received:', e))
     broadcastSync('balance_changed')
   }, [refreshAll])
 

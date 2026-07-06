@@ -84,7 +84,7 @@ export function useMintHandlers(deps: UseMintHandlersDeps): MintHandlers {
       const nextRelays = newRelays || settings.relays
       serviceRegistry.nostrGateway
         .connect([...new Set([...DEFAULT_RELAYS, ...nextRelays])])
-        .catch((e) => console.warn('[App] relay reconnect failed:', e))
+        .catch((e) => console.warn('[useMintHandlers] relay reconnect failed:', e))
     }
     broadcastSync('settings_changed')
   }, [settingsRepo, settings, setSettings, p2pkPubkey, republishProfile, serviceRegistry])
@@ -93,7 +93,7 @@ export function useMintHandlers(deps: UseMintHandlersDeps): MintHandlers {
   const handleAddTrustedMint = useCallback(async (mintUrl: string): Promise<boolean> => {
     try {
       if (!serviceRegistry) {
-        console.warn('[App] ServiceRegistry not ready — cannot add trusted mint')
+        console.warn('[useMintHandlers] ServiceRegistry not ready — cannot add trusted mint')
         return false
       }
 
@@ -108,7 +108,7 @@ export function useMintHandlers(deps: UseMintHandlersDeps): MintHandlers {
       // fresh probe — 응답은 metadata 캐시에 역주입되어 이후 화면들이 재사용한다
       const info = await serviceRegistry.mintInfo.getInfo(url, { fresh: true })
       if (!info || (!info.name && !info.pubkey)) {
-        console.error('[App] Invalid or unreachable mint info')
+        console.error('[useMintHandlers] Invalid or unreachable mint info')
         return false
       }
 
@@ -127,7 +127,7 @@ export function useMintHandlers(deps: UseMintHandlersDeps): MintHandlers {
         await serviceRegistry.trustMint(url)
       } catch (trustError) {
         await settingsRepo.saveSettings(settings).catch((rollbackError) => {
-          console.error('[App] Failed to rollback settings after mint trust failure:', rollbackError)
+          console.error('[useMintHandlers] Failed to rollback settings after mint trust failure:', rollbackError)
         })
         setSettings(settings)
         throw trustError
@@ -142,13 +142,13 @@ export function useMintHandlers(deps: UseMintHandlersDeps): MintHandlers {
       // 모달 도중이라 fire-and-forget — 완료 시 balance:changed가 화면을 갱신.
       serviceRegistry.payment
         .recoverAccounts({ accountIds: [url] })
-        .catch((e) => console.warn('[App] Seed restore after trust failed:', e))
+        .catch((e) => console.warn('[useMintHandlers] Seed restore after trust failed:', e))
 
-      console.log('[App] Added trusted mint:', url)
+      console.log('[useMintHandlers] Added trusted mint:', url)
       broadcastSync('settings_changed')
       return true
     } catch (error) {
-      console.error('[App] Failed to add trusted mint:', error)
+      console.error('[useMintHandlers] Failed to add trusted mint:', error)
       return false
     }
   }, [settings, settingsRepo, setSettings, p2pkPubkey, republishProfile, t, serviceRegistry])

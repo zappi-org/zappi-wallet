@@ -817,7 +817,10 @@ export default function MainApp() {
   // - 'transaction-detail': selectedTransaction 없으면 렌더 안 함 — 가드 내장 렌더 함수
   // - 'mint-detail': selectedMint 없으면 렌더 안 함 — 가드 내장 렌더 함수
   // - 'token-detail' 오버레이: selectedTokenDetail 가드 — 위 결합 블록 예외 내부에 잔류
-  const screenRoutes: Partial<Record<Screen, () => ReactNode>> = {
+  // 전수성 강제 (4d 리뷰 이월): 예외 2종(token/token-detail 결합 블록) 외 모든
+  // Screen 이 테이블에 있어야 한다 — Partial 이면 새 화면 추가 시 누락이 무음
+  // 빈 화면이 된다 (NON_TERMINAL_PHASES 드리프트와 동류). 누락/오타 = 컴파일 에러.
+  const screenRoutes: Record<Exclude<Screen, 'token' | 'token-detail'>, () => ReactNode> = {
     home: () => (
       <HomeScreen
         onTransactions={(mintUrl?: string) => {
@@ -1233,7 +1236,7 @@ export default function MainApp() {
             className="absolute inset-0"
           >
             <Suspense fallback={<LoadingFallback />}>
-              {screenRoutes[currentScreen]?.()}
+              {(screenRoutes as Partial<Record<Screen, () => ReactNode>>)[currentScreen]?.()}
 
               {/* Token flow: TokenScreen always rendered as base, TokenDetailScreen overlays with slide animation */}
               {/* Phase 4d 예외 잔류: 'token'/'token-detail' 결합 블록 — 사유는 screenRoutes 상단 주석 참조 */}
@@ -1243,11 +1246,9 @@ export default function MainApp() {
                   <TokenScreen
                     scrollRef={tokenScrollRef}
                     onSelectToken={(detail) => {
-                      console.log('[MainApp] onSelectToken called', detail)
                       setSelectedTokenDetail(detail)
                       setPreviousScreen('token')
                       setCurrentScreen('token-detail')
-                      console.log('[MainApp] setCurrentScreen to token-detail')
                     }}
                     onSaveSettings={handleSaveSettings}
                   />

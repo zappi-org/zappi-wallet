@@ -290,6 +290,12 @@ export class TransferLifecycleService {
       console.log('[TLS] Early return: no transfer or wrong direction')
       return
     }
+    // 중복 incoming:received 가 정산 완료 transfer 를 재-redeem 시도(→TOKEN_SPENT
+    // →catch 가 failed 강등)하던 경로 차단 (전이 가드 리뷰 이월 ②)
+    if (isTerminal(transfer.phase)) {
+      console.log('[TLS] Early return: transfer already terminal:', transfer.phase)
+      return
+    }
 
     const operator = this.findOperator(transfer)
     console.log('[TLS] Found operator:', operator?.protocol)
@@ -414,8 +420,19 @@ export class TransferLifecycleService {
     transfer: PendingTransfer,
     newPhase: TransferPhase,
   ): Promise<void> {
-    const previousPhase = transfer.phase
-    const updated = transitionPhase(transfer, newPhase, Date.now())
+    // TOCTOU 봉인 (전이 가드 리뷰 이월 ①): poll/confirm 의 네트워크 await 동안
+    // SDK push 가 store 를 이미 settle 했을 수 있다 — stale 객체로 전이하면
+    // 정산 기록을 덮어쓴다. fresh 재조회로 도메인 가드가 실전 레이스를 본다.
+    const fresh = await this.transferStore.get(transfer.id)
+    if (!fresh) return // remove-mint 경합 등으로 삭제됨 — 없는 row 에 update 를 때리지 않는다
+    if (fresh.phase === newPhase) return // 경합 상대가 이미 같은 전이를 완료
+    if (fresh.phase === 'settled' && newPhase !== 'settled') {
+      // push 가 먼저 정산 — 우리의 poll 결과는 늦은 소식일 뿐, 버그가 아니다
+      console.warn(`[TLS] Skipping stale transition settled → ${newPhase} (${fresh.id})`)
+      return
+    }
+    const previousPhase = fresh.phase
+    const updated = transitionPhase(fresh, newPhase, Date.now())
     await this.transferStore.update(updated.id, updated)
 
     this.eventBus.emit({

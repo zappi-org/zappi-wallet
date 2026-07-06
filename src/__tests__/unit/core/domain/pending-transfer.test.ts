@@ -5,7 +5,7 @@
  * 현행 정당 전이는 전부 수용. 새 phase 도입 없음.
  */
 import { describe, it, expect } from 'vitest'
-import { transitionPhase, isTerminal, type TransferPhase } from '@/core/domain/pending-transfer'
+import { transitionPhase, type TransferPhase } from '@/core/domain/pending-transfer'
 import type { PendingTransfer } from '@/core/domain/pending-transfer'
 
 function makeTransfer(phase: TransferPhase): PendingTransfer {
@@ -26,7 +26,7 @@ function makeTransfer(phase: TransferPhase): PendingTransfer {
 const ALL_PHASES: TransferPhase[] = [
   'preparing', 'submitted', 'in_transit', 'awaiting_confirmation', 'settled', 'failed', 'recoverable',
 ]
-const NON_TERMINAL = ALL_PHASES.filter((p) => !isTerminal(p))
+const REJECTED_FROM_SETTLED = ALL_PHASES.filter((p) => p !== 'settled')
 
 describe('transitionPhase', () => {
   it.each([
@@ -46,8 +46,8 @@ describe('transitionPhase', () => {
     },
   )
 
-  it.each(NON_TERMINAL.map((p) => [p]))(
-    'settled → %s 역행은 throw (정산 기록의 은폐 금지)',
+  it.each(REJECTED_FROM_SETTLED.map((p) => [p]))(
+    'settled → %s 는 throw (정산 기록의 은폐 금지 — failed 포함)',
     (to) => {
       expect(() => transitionPhase(makeTransfer('settled'), to, 99)).toThrow(
         /Illegal phase transition: settled/,
@@ -55,7 +55,9 @@ describe('transitionPhase', () => {
     },
   )
 
-  it('settled → failed 는 현행 수용 유지 (계획 문면: 비종단 역행만 거부)', () => {
-    expect(transitionPhase(makeTransfer('settled'), 'failed', 99).phase).toBe('failed')
+  it('settled → failed 도 거부 (후속 조이기 — 합법 롤백 수요 없음, 중복 incoming 의 failed 강등 차단)', () => {
+    expect(() => transitionPhase(makeTransfer('settled'), 'failed', 99)).toThrow(
+      /Illegal phase transition: settled/,
+    )
   })
 })

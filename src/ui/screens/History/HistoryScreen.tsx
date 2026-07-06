@@ -1,4 +1,4 @@
-import type { TranslationKey } from '@/i18n'
+import { txSourceKey } from '@/ui/utils/tx-source'
 import type { TFunction } from 'i18next'
 import { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Search, Banknote, Calendar, CreditCard, Download, FileSpreadsheet, ListFilter } from 'lucide-react'
@@ -209,7 +209,7 @@ export function HistoryScreen({
         const mint = tx.accountId.toLowerCase()
         const typeLabel = getTitle(tx, t).toLowerCase()
         const txMeta = getTxMeta(tx)
-        const source = txMeta.source ? t(`txDetail.source.${txMeta.source}` as TranslationKey).toLowerCase() : ''
+        const source = txMeta.source ? t(txSourceKey(txMeta.source)).toLowerCase() : ''
         return memo.includes(query) || mint.includes(query)
           || typeLabel.includes(query) || source.includes(query)
           || String(toNumber(tx.amount)).includes(query)

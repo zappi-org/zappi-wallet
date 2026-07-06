@@ -55,7 +55,7 @@ export function useSwapHandlers(deps: UseSwapHandlersDeps): SwapHandlers {
   ): Promise<{ fee: number; totalNeeded: number } | null> => {
     // Phase 5: SwapUseCase.estimateSwap() 경유
     if (!serviceRegistry?.swap) {
-      console.warn('[MainApp] ServiceRegistry not ready — cannot estimate swap fee')
+      console.warn('[useSwapHandlers] ServiceRegistry not ready — cannot estimate swap fee')
       return null
     }
 
@@ -107,11 +107,11 @@ export function useSwapHandlers(deps: UseSwapHandlersDeps): SwapHandlers {
       amount: sat(amount),
     })
     if (!swapResult.ok) {
-      refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap fail:', e))
+      refreshAll().catch((e) => console.error('[useSwapHandlers] refreshAll after swap fail:', e))
       return { success: false, error: swapResult.error }
     }
 
-    refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap:', e))
+    refreshAll().catch((e) => console.error('[useSwapHandlers] refreshAll after swap:', e))
     return { success: true, amount: toNumber(swapResult.value.amount) }
   }, [serviceRegistry, refreshAll])
 
@@ -122,7 +122,7 @@ export function useSwapHandlers(deps: UseSwapHandlersDeps): SwapHandlers {
     amount: number,
   ): Promise<{ success: boolean; amount?: number; fee?: number; transactionId?: string } | null> => {
     if (!serviceRegistry?.swap) {
-      console.warn('[MainApp] ServiceRegistry not ready — cannot perform swap')
+      console.warn('[useSwapHandlers] ServiceRegistry not ready — cannot perform swap')
       return null
     }
 
@@ -137,7 +137,7 @@ export function useSwapHandlers(deps: UseSwapHandlersDeps): SwapHandlers {
       return null
     }
 
-    refreshAll().catch((e) => console.error('[MainApp] refreshAll after swap:', e))
+    refreshAll().catch((e) => console.error('[useSwapHandlers] refreshAll after swap:', e))
     return {
       success: true,
       amount: toNumber(result.value.amount),

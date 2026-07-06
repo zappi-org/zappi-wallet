@@ -61,9 +61,9 @@
 - PBKDF2 반복수 상향(재암호화 마이그레이션 별도 설계), POS 키 반출 UX, 프로덕션 console drop
 - Result 타입 2종 통일, core 원시 throw 19곳, bootstrap 내부 절단, SendInputStep 선분리, payment.service findModuleForAccount 정직화, 온보딩 배선 composition 이동, proofs 툼스톤, 커버리지 임계, ui→adapters 2건 — 이번 라운드 제외(다음 라운드 후보)
 - 네트워크 개편 이월(§8.2/8.3, ks 구경로 삭제) — 검증 게이트 대기
-- **4d 리뷰 이월 2건**: screenRoutes(Partial)와 Screen 유니온의 전수 체크(테이블 키 ∪ 예외 2 = 유니온 — 무음 빈 화면 드리프트 방지, NON_TERMINAL_PHASES와 동류) / token 블록 디버그 console.log 2줄(프로덕션 console-drop 항목과 함께)
-- **4b+4c 리뷰 이월**: 훅 내부 콘솔 프리픽스 '[MainApp]' 일괄 개명 / txDetail source.unknown 폴백 헬퍼(i18n 리뷰 기록)
-- **전이 가드 후속 2건 (transitionPhase 리뷰 기록)**: ① applyPhaseTransition 네트워크 await 후 re-fetch — in-memory 가드의 TOCTOU 우회(사전 존재 레이스) 봉인 ② settled→failed 조이기 + processIncomingTransfer:289 isTerminal 조기 반환(중복 incoming 이벤트가 TOKEN_SPENT 경유로 정산 기록을 failed 강등할 수 있는 경로)
+- [완료 — 후속 묶음 커밋] 4d 리뷰 이월 2건: screenRoutes(Partial)와 Screen 유니온의 전수 체크(테이블 키 ∪ 예외 2 = 유니온 — 무음 빈 화면 드리프트 방지, NON_TERMINAL_PHASES와 동류) / token 블록 디버그 console.log 2줄(프로덕션 console-drop 항목과 함께)
+- [완료 — 후속 묶음 커밋] 4b+4c 리뷰 이월: 훅 내부 콘솔 프리픽스 '[MainApp]' 일괄 개명 / txDetail source.unknown 폴백 헬퍼(i18n 리뷰 기록)
+- [완료 — 후속 묶음 커밋] 전이 가드 후속 2건: ① applyPhaseTransition 네트워크 await 후 re-fetch — in-memory 가드의 TOCTOU 우회(사전 존재 레이스) 봉인 ② settled→failed 조이기 + processIncomingTransfer:289 isTerminal 조기 반환(중복 incoming 이벤트가 TOKEN_SPENT 경유로 정산 기록을 failed 강등할 수 있는 경로)
 
 ---
 
