@@ -1,11 +1,12 @@
 # KDF 상향 설계 — PBKDF2 반복수 상향 + 재암호화 마이그레이션 (R2-D)
 
-- 상태: 설계 초안. 이중 리뷰(가이드+블라인드) 예정이었으나 리뷰 에이전트 사용량
-  한도(2026-07-12 리셋)로 미완료. 대신 코디네이터(메인)가 load-bearing 코드 주장을
-  직접 실코드 대조로 검증(전건 일치): 공유 100k 상수(`encryption.adapter.ts:10,63,86`),
-  F7 오염 경로(`security.service.ts:133-138`), CAS iv 태그(`secure-storage.adapter.ts:37,46`).
-  **정식 이중 리뷰는 한도 리셋 후 재실행 대상. 구현 착수는 소유자 결정.**
-- 기준 커밋: `50b088a` · 작성/실측/출처 확인일: 2026-07-07
+- 상태: **이중 리뷰 완료(2026-07-07) — 가이드 APPROVED(3 MINOR) + 블라인드 APPROVED(1 MAJOR
+  +2 MINOR). 두 리뷰의 지적을 본 문서에 반영함** (MAJOR-1 다운그레이드 lockout 복구 문면 정정
+  §6.4/F11 + 마이그레이션 lockout 소거 하드닝, 양방향 readback §5.4, F13 지연 행, getWalletWithTag,
+  구현 추정 상향). 블라인드가 벤치 동기기 재현·OWASP 원문 대조를 독립 수행. 아키텍처(KDF 선택·
+  버전·원자성/CAS·다운그레이드 비파괴성)는 양 리뷰가 건전 판정. **구현 착수는 소유자 결정이며,
+  구현물은 R2-D 게이트(가이드+블라인드 이중 리뷰)를 다시 받는다.**
+- 기준 커밋: `50b088a` · 작성/실측/출처 확인일: 2026-07-07 · 이중 리뷰 반영: 2026-07-07
 - 발단: `docs/audit/2026-07-06-non-network-refactoring-audit.md` §6 [중간] —
   "PBKDF2 100k × 6자리 PIN | `encryption.adapter.ts` | OWASP 권고(≥600k) 미달 + PIN 엔트로피 ~20bit.
   디바이스 키 이중 래핑이 완화 | 반복수 상향(재암호화 마이그레이션) 또는 Argon2id | M"
@@ -356,12 +357,30 @@ async unlock(password): Result<UnlockResult, SecurityError> {
 INVALID_PASSWORD 로 뭉개지 않는다" 계약(`MainApp.tsx:530-537`, 커밋 2bf4c7e)과도 정합적이다 —
 마이그레이션 실패는 어느 쪽 오류도 아니고 unlock 성공이다.
 
-### 5.4 readback 검증 (3단계) 이 있는 이유
+### 5.4 readback 검증 이 있는 이유 — 양방향 (두 리뷰 수렴 반영)
 
 put 되는 암호문이 곧 **니모닉의 유일 사본**을 대체한다(구 레코드는 소멸). 재암호화 코드의
 버그·플랫폼의 subtle 이상이 만든 깨진 암호문을 그대로 쓰면 지갑이 복구 불능이 된다(니모닉
 백업 없는 사용자 기준). 600k 복호 1회(~43ms, 모바일 ~0.2초)로 "쓰기 전에 자기 산출물을
-자기 파라미터로 열어 원문과 대조"하는 보험이다. 비용 대비 이득이 명백해 포함한다.
+자기 파라미터로 열어 원문과 대조"하는 보험이다.
+
+**대칭 보강 (가이드 MINOR-1 + 블라인드 MINOR-2 수렴):** readback 이 니모닉 암호문만 검증하면
+두 종류의 배선 버그를 못 잡는다 — (a) 마이그레이션이 잘못된 반복수로 **자기일관되게** 암호화+
+검증(가이드), (b) `hash2` 만 조용히 오산(블라인드). 둘 다 "v2 선언·내용 불일치" 레코드를 만들고,
+§5.5 폴백이 매 unlock 재마이그레이션을 발화해 **수렴하지 않는 루프**(비파괴적이나 상시 지연+
+console.error)가 된다. 따라서 readback 은 두 산출물을 **의도한 CURRENT 파라미터로 새로 파생한
+키/해시**로 교차 검증한다:
+
+1. `decrypt(newCiphertext, pin, KDF_ITERATIONS[CURRENT]) === mnemonic` (기존 — 니모닉 왕복)
+2. `hashPassword(pin, salt2, KDF_ITERATIONS[CURRENT]) === hash2` (신설 — 검증자 왕복. 이미 계산한
+   hash2 를 CURRENT 로 재산출해 비교하면 반복수 오배선을 즉석 검출)
+
+둘 중 하나라도 불일치면 put 하지 않는다(F3 비치명 경로 — v1 유지, 다음 unlock 재시도). 이로써
+"자기 파라미터로 자기 산출물을 여는" 맹점이 "**CURRENT 상수로 재파생**"으로 닫힌다.
+
+**수렴 가드 (선택, 미해결 질문 #3 연계):** 위 대칭 검증이 오배선 레코드의 *생성*을 막으므로
+루프의 근원이 제거된다. 그럼에도 이미 존재하는 오염 레코드(F7)의 재마이그레이션은 정상 1회로
+수렴(치유 후 v2 정직 레코드)하며, 병리적 지속-실패는 F3 로그로 관측된다.
 
 ### 5.5 verifyAgainstRecord — 선언 버전 우선 + 폴백 (자가 치유)
 
@@ -535,23 +554,34 @@ claim 하지만 **이미 로드된 탭은 reload 전까지 구 번들 JS 로 계
 
 **graceful 실패 요건 (설계 포함분):**
 
-- R1. **마이그레이션 직후 타 탭 강제 reload**: unlock 이 `migrated: true` 를 반환하면
-  (§5.3), UI 층(MainApp handleUnlock)이 `broadcastSync('settings_changed')` 를 쏜다.
+- R1. **마이그레이션 직후 타 탭 강제 reload + lockout 소거**: unlock 이 `migrated: true` 를
+  반환하면 (§5.3), UI 층(MainApp handleUnlock)이 `broadcastSync('settings_changed')` 를 쏜다.
   이 타입에 대한 `window.location.reload()` 반응은 **저장소 초기 커밋(ae1564a, 2026-02-19)
   부터 현행(`use-cross-tab-sync.ts:23-26`)까지 전 이력에서 확인**되므로(git 추적) 배포된
   어떤 구 번들 탭도 즉시 새 번들로 재기동된다(새 SW 가 claim 중).
+  **정정 (블라인드 리뷰 MAJOR-1): reload 만으로는 이미 발동된 15분 잠금이 풀리지 않는다.**
+  구 탭이 정답 PIN 을 오답 계수해 `localStorage['lockout']` 을 이미 기록했다면, 새 번들의
+  LockScreen 은 마운트마다 그 값을 **재수화**해 잠금 상태로 재진입한다
+  (`LockScreen.tsx:71-82` → `isLockedOut` 가 `handleSubmit`·auto-submit effect 게이트).
+  즉 "올바른 번들 도달"이 "잠금 해제"를 뜻하지 않는다. 따라서 마이그레이션 성공 경로는
+  **broadcast 와 함께 `localStorage.removeItem('lockout')` 을 수행**한다 — 성공 unlock 은
+  이미 PIN 지식을 증명하므로 그 시점의 lockout 은 다운그레이드 버그가 만든 거짓 잠금이거나
+  무의미하다(정당 사용자는 방금 들어왔다). 이로써 R1 이 진짜 즉시 복구가 된다. (§9 item 7 에 반영)
   broadcast 를 core 서비스가 아닌 UI 층에서 쏘는 이유: `utils/cross-tab-sync` 는 브라우저
   프리미티브로 core 가 import 하면 안 되는 층이다 (헥사고날 — 기존 계약 유지).
   신설 메시지 타입('wallet_migrated' 등)은 기각 — 구 번들이 모르는 타입은 무시되므로
   (`use-cross-tab-sync.ts:19-27` if/else 구조) 정작 reload 가 필요한 구 탭에 안 통한다.
 - R2. **오염 자가 치유**: R1 의 창(브로드캐스트 전달 전)에서 구 번들 탭이 changePassword 를
   실행해 레코드를 오염시켜도 §5.5 폴백이 다음 unlock 에서 치유한다.
-- R3. **잔존 수용분 명시**: BroadcastChannel 미지원/실패 환경은 broadcast 가 조용히 무시된다
+- R3. **잔존 수용분 (정정)**: BroadcastChannel 미지원/실패 환경은 broadcast 가 조용히 무시된다
   (`cross-tab-sync.ts:24-31,35-44` null/catch). 이 경우 구 탭의 wrongPin+15분 잠금이 실제로
-  발생할 수 있다 — 비파괴적이고, 탭 reload(사용자 행동 또는 잠금 해제 후 아무 탭의 logout
-  broadcast)로 자연 해소되므로 **수용**한다. 진짜 앱 다운그레이드(구 빌드 재설치)도 동일
-  증상·동일 상한 — 복구는 앱 업데이트이며, 이를 위한 레코드 이중 기록(v1 해시 병존)은
-  **금지**한다: v1 해시를 남기는 순간 §2.2 최약점이 그대로 잔존해 이 설계 전체가 무의미해진다.
+  발생할 수 있다 — **비파괴적이지만, reload 로는 풀리지 않고 15분 타이머 만료(또는 R1 의
+  lockout 소거가 전달될 때)로만 해소된다** (블라인드 MAJOR-1 정정 — 이전 문면의 "탭 reload 로
+  자연 해소"는 `logout.ts:33` 이 lockout 을 유지 삭제 대상에서 제외하고 LockScreen 이 재수화하므로
+  사실과 다르다). 최악 상한 = 정답 PIN 이 최대 15분 거부, 자금·니모닉 무손상. 진짜 앱
+  다운그레이드(구 빌드 재설치)도 동일 증상·동일 상한이며 broadcast 도달 불가라 15분 만료가
+  유일 해소 — 복구는 앱 업데이트다. 이를 위한 레코드 이중 기록(v1 해시 병존)은 **금지**한다:
+  v1 해시를 남기는 순간 §2.2 최약점이 그대로 잔존해 이 설계 전체가 무의미해진다.
 
 ---
 
@@ -569,8 +599,9 @@ claim 하지만 **이미 로드된 탭은 reload 전까지 구 번들 JS 로 계
 | F8 | passkey 경로와의 상호작용 | PIN 이 동일 unlock 관문 통과 (`LockScreen.tsx:99-101`); passkey 저장물은 kdfVersion 무관 (§4.2) | 마이그레이션 정상 작동, passkey 재등록 불필요 | 불필요 |
 | F9 | 자동잠금 발화 | 마이그레이션 중 arm 자체가 안 됨 + lock() 은 메모리 전용 (§6.3) | 간섭 없음 | 불필요 |
 | F10 | half-wipe 상태 (레코드 부재) 기기 | getWallet=null → NO_WALLET — 마이그레이션 코드 도달 불가; CAS 도 부재 시 no-op | NO_WALLET 구제 경로(`use-security-handlers.ts:82-93`) 그대로 — 소거 재개 가능 | 기존 구제 경로 |
-| F11 | 구 번들 탭/구 앱 × v2 레코드 (다운그레이드) | §6.4 추적 | 정답 PIN 이 wrongPin 표시, 5회 → 15분 잠금(탭 간 공유). **비파괴 — 소거 경로 없음** | R1 broadcast 즉시 reload (주 경로) / 탭 새로고침·앱 업데이트 (잔존분, R3 수용) |
+| F11 | 구 번들 탭/구 앱 × v2 레코드 (다운그레이드) | §6.4 추적 (블라인드 MAJOR-1 정정) | 정답 PIN 이 wrongPin 표시, 5회 → 15분 잠금(`localStorage['lockout']`, 탭 간 공유·reload 재수화). **비파괴 — 소거 경로 없음** | R1 broadcast 가 reload **+ lockout 소거**를 전달하면 즉시 복구; broadcast 미도달 시 **15분 타이머 만료가 유일 해소**(reload 로는 안 풀림), 앱 다운그레이드는 앱 업데이트 |
 | F12 | 마이그레이션 도중 사용자가 로그아웃 시도 (동일 탭) | 잠금 시 LockScreen 단독 조기 반환 (`MainApp.tsx:804-807` `if (isLocked) return <LockScreen…>`) — unlock 반환 전 Settings 도달 불가 | 경합 자체가 없음 | 불필요 |
+| F13 | 첫 upgrade-후 unlock 의 마이그레이션 지연 (가이드 MINOR-3) | 마이그레이션이 `setLocked(false)` 전 동기 실행(§5.7 백그라운드 기각) → unlock 반환 후 createBootstrap(`MainApp.tsx:551-568`)과 체감 지연 합산 | 첫 unlock 크리티컬 패스에 ~0.13s(이 기기)/~0.5–0.7s(모바일 추정) 가산, 평생 1회 | LockScreen `isLoading` 흡수 — >1.5s 실측 시 "보안 업그레이드 중" 표시 (부록 B #2) |
 
 ---
 
@@ -614,17 +645,17 @@ lock/deleteWallet), `encryption.adapter.test.ts`, `LockScreen.lockout.test.tsx`,
 |---|------|------|------|
 | 1 | `src/core/ports/driven/encryption.port.ts` | encrypt/decrypt/hashPassword 에 `iterations: number` 인자 추가 | S |
 | 2 | `src/adapters/crypto/encryption.adapter.ts` | 상수 제거, 인자 수용 (정책 무소유 실행자화) | S |
-| 3 | `src/core/ports/driven/secure-storage.port.ts` | `kdfVersion?`, getWallet 태그 반환, `replaceWallet(next, tag)` | S |
-| 4 | `src/adapters/storage/secure-storage.adapter.ts` | 태그(iv hex) 반출, CAS replaceWallet (단일 tx get→동기비교→put) | M |
-| 5 | `src/core/services/security.service.ts` | KDF_ITERATIONS 맵 + CURRENT, verifyAgainstRecord 폴백, unlock 마이그레이션 블록(비치명), 전 메서드 버전 인지화, UnlockResult.migrated | M |
+| 3 | `src/core/ports/driven/secure-storage.port.ts` | `kdfVersion?`, **신설 `getWalletWithTag()`**(기존 `getWallet()` 시그니처 불변 — 블라인드 NIT-1: 태그는 unlock/마이그레이션만 필요하므로 5 사이트 파급 회피), `replaceWallet(next, tag)` | S |
+| 4 | `src/adapters/storage/secure-storage.adapter.ts` | 태그(iv hex) 반출, CAS replaceWallet (단일 tx get→동기비교→put — **현행 dbGet/dbPut 이 각자 tx 를 열어 재사용 불가, 신규 tx 헬퍼 필요**) | M |
+| 5 | `src/core/services/security.service.ts` | KDF_ITERATIONS 맵 + CURRENT, verifyAgainstRecord 폴백, unlock 마이그레이션 블록(비치명, **양방향 readback §5.4**), 전 메서드 버전 인지화, UnlockResult.migrated | **M–L** (가이드 MINOR-2) |
 | 6 | `src/core/ports/driving/security.usecase.ts` | UnlockResult 에 `migrated?: boolean` | S |
-| 7 | `src/MainApp.tsx` handleUnlock | migrated → `broadcastSync('settings_changed')` 1줄 | S |
+| 7 | `src/MainApp.tsx` handleUnlock | migrated → `broadcastSync('settings_changed')` **+ `localStorage.removeItem('lockout')`** (R1). **두 성공 반환 경로 모두**(:546-549 fast/re-unlock, :572 bootstrap) — 블라인드 MINOR-1. 체크를 반환 전 공통 지점으로 hoist 권장 | S |
 | 8 | `src/ui/services/passkey.ts` | §4.2 동결 근거 주석 1줄 | S |
-| 9 | 테스트 (§8 의 1–4) | 신설·보강 | M-L |
+| 9 | 테스트 (§8 의 1–4 + F11 lockout 소거 + 양방향 readback) | 신설·보강 | M-L |
 
-프로덕션 diff 어림 150–250줄 + 테스트 300–400줄. i18n 변경 없음(마이그레이션은 침묵 —
-실패 시에도 기존 `lock.errorOccurred` 계열 밖의 신규 문자열 불필요). 자금 인접 변경이므로
-R2-D 게이트(가이드+블라인드 이중 리뷰) 후 커밋.
+프로덕션 diff 어림 **200–300줄**(대칭 readback·CAS tx 헬퍼·lockout 소거 반영 상향) + 테스트
+350–450줄. i18n 변경 없음(마이그레이션은 침묵 — 실패 시에도 기존 `lock.errorOccurred` 계열
+밖의 신규 문자열 불필요). 자금 인접 변경이므로 R2-D 게이트(가이드+블라인드 이중 리뷰) 후 커밋.
 
 ## 10. 명시적 비범위
 
