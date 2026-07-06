@@ -9,7 +9,7 @@ import { satUnit } from '@/utils/format'
 import { formatMintHost } from '@/utils/url'
 import { ZAPPI_LINK_URL } from '@/core/constants'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
-import { cn } from '@/ui/primitives/utils'
+import { cn } from '@/ui/lib/utils'
 import { Button } from '@/ui/components/common/Button'
 import { ENABLE_LIGHTNING_ADDRESS_SETTINGS } from '@/ui/config/feature-flags'
 

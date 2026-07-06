@@ -24,7 +24,6 @@ export const selectAnchor = (state: AppState) => state.anchor
 export const selectPendingRetries = (state: AppState) => state.pendingRetries
 export const selectFailedIncomingsCount = (state: AppState) => state.failedIncomingsCount
 export const selectPendingIncomingReviews = (state: AppState) => state.pendingIncomingReviews
-export const selectSyncProgress = (state: AppState) => state.syncProgress
 export const selectHasPendingItems = (state: AppState) =>
   state.pendingRetries > 0 || state.failedIncomingsCount > 0 || state.pendingIncomingReviews.length > 0
 

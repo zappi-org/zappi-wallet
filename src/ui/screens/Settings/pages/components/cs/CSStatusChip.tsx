@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { cn } from '@/ui/primitives/utils'
+import { cn } from '@/ui/lib/utils'
 import type { CSStatusKind } from './cs-status'
 
 interface CSStatusChipProps {

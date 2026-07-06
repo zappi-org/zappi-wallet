@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { ChevronRight, Copy, Check } from 'lucide-react'
-import { cn } from '@/ui/primitives/utils'
+import { cn } from '@/ui/lib/utils'
 
 interface SettingsRowProps {
   label: string

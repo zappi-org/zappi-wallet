@@ -35,7 +35,7 @@ import {
 import { useSupport } from '@/ui/hooks/use-support'
 import { useAppStore } from '@/store'
 import { ConfirmDialog } from '@/ui/components/common/ConfirmDialog'
-import { cn } from '@/ui/primitives/utils'
+import { cn } from '@/ui/lib/utils'
 import {
   CSActionRow,
   CSAttachmentDropzone,

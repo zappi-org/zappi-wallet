@@ -42,3 +42,8 @@
 - 실수: `grep(소비자 확인) ; rm(삭제)` 를 한 체인에 무조건 실행 — grep이 MainApp의 barrel 소비자를 출력했는데도 rm이 그대로 실행되어 빌드 파괴 (tsc가 즉시 잡아 복원).
 - 규칙: 삭제/덮어쓰기 전 검증 명령은 **별도 호출**로 실행하고 출력을 읽은 뒤 다음 호출에서 삭제한다. 체이닝하려면 `[ -z "$(grep ...)" ] && rm` 처럼 결과를 게이트로 걸어라.
 - 부수 교훈: barrel 체인은 2단(components/index → ui/index)까지 있다 — barrel 정리는 상위 barrel 전수 확인 필수.
+
+## 의존성 제거는 warm-tree green 을 믿지 말 것 (2026-07-06, 2회 재발)
+- 사고: light-bolt11-decoder(3a — transitive 팬텀), recharts/react-day-picker(3c — 계획 밖 확대 오제거). 둘 다 stale node_modules 덕에 lint/build/test 전부 green 이었고 신선 설치에서만 깨짐.
+- 규칙 1: 패키지 제거 커밋은 `bun run check:phantom` 를 검증 체인에 포함한다 (scripts/check-phantom-deps.mjs — bare import + manualChunks vs 선언 전수 대조).
+- 규칙 2: 계획이 열거한 제거 목록을 벗어나 확대할 때는 확대분 각각에 대해 소비자 grep 을 별도 수행하고 리뷰 요약에 확대 사실을 명시한다 — 3c 사고 2건이 정확히 확대분이었다.

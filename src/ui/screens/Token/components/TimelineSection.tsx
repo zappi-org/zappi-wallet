@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { getLocaleCode } from '@/utils/format'
 import type { Transaction } from '@/core/domain/transaction'
 import type { TimelineGroup, TimelineKind } from '@/ui/hooks/use-transaction-history'
-import { cn } from '@/ui/primitives/utils'
+import { cn } from '@/ui/lib/utils'
 import { TimelineRow } from './TimelineRow'
 
 export interface TimelineSectionProps {

@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react'
-import { cn } from '@/ui/primitives/utils'
+import { cn } from '@/ui/lib/utils'
 
 interface CSCardProps {
   children: ReactNode

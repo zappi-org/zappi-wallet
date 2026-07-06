@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { Paperclip, Send } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { cn } from '@/ui/primitives/utils'
+import { cn } from '@/ui/lib/utils'
 import type { SupportSnapshot } from '@/core/domain/support'
 
 type AttachmentCapabilities = SupportSnapshot['capabilities']['attachments']

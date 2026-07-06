@@ -1,7 +1,7 @@
 # Current Task — 감사 잔여 항목 실행 (2026-07-06 계획, 비관 리뷰 반영 v3)
 
 근거: docs/audit/2026-07-06-non-network-refactoring-audit.md + 계획 비관 리뷰(REJECTED 3건 → 반영).
-원칙: 매 Phase 커밋 분리, 매 Phase `bun run lint && bun run build && bun run test:run` 통과(`test`는 watch 모드), 자금 인접 Phase(0·1·2·**3**·4)는 비관적 리뷰 APPROVED 후 커밋(3도 resetAll·레지스트리 타입을 만지므로 포함 — 리뷰 MAJOR-11). **추가(2026-07-06 소유자 승인): 자금·프라이버시 직접 Phase(1·2)는 가이드 리뷰 + 블라인드 2차 리뷰(요약·힌트 무제공) 병행, 합집합 수정 후 커밋.**
+원칙: 매 Phase 커밋 분리, 매 Phase `bun run lint && bun run build && bun run test:run` 통과(`test`는 watch 모드), 자금 인접 Phase(0·1·2·**3**·4)는 비관적 리뷰 APPROVED 후 커밋(3도 resetAll·레지스트리 타입을 만지므로 포함 — 리뷰 MAJOR-11). **추가(2026-07-06 소유자 승인): 자금·프라이버시 직접 Phase(1·2)는 가이드 리뷰 + 블라인드 2차 리뷰(요약·힌트 무제공) 병행, 합집합 수정 후 커밋. 의존성-제거 묶음은 `bun run check:phantom`(scripts/check-phantom-deps.mjs — src bare import+manualChunks vs 선언 전수 대조)을 게이트에 추가(팬텀 2회 재발 처방).**
 
 ## Phase 0 — 안전망 선행 (S)
 이후 리팩토링의 회귀 감지망. 프로덕션 코드 변경은 swallow 2곳만.
@@ -36,7 +36,7 @@
 ## Phase 3 — 죽은 코드 대청소 (S-M — Phase 4의 선행)
 삭제 전 참조 0 재확인 — **`await import(` 동적 패턴 포함** grep (동적 전용 모듈 15곳 존재).
 - [x] LNURL-auth/withdraw 슬라이스 삭제(묶음1, 리뷰 APPROVED): 파일 8(composition 2·서비스 2·driving 포트 2·key-deriver 포트·secp256k1 어댑터)+레지스트리 타입·스텁+테스트 스텁 3곳+@noble/curves+죽은 주석 2줄. lnurl-gateway.port/direct-lnurl.adapter 생존(InputParser). lnurl-auth QR UX 회귀 없음 검증(파싱 단계에서 전부터 throw). **리뷰 NIT 기록: registry.inputRouter 소비자 0 — 후속 묶음 삭제 후보(그때 lnurl-auth 분류 branch 동반 소멸 가능)**
-- [ ] primitives 정리 (리뷰 MAJOR-9 정정): **tabs.tsx는 살아있음**(ReceiveQRStep:16) — 선-마이그레이션(공용 컴포넌트로) 후 삭제하거나 tabs+`@radix-ui/react-tabs`만 존치. `cn`은 ui/lib/utils.ts가 원본이고 primitives/utils는 shim — **21개 import 경로 재지정**. 나머지 primitives+radix(사용분 제외)+embla/cmdk/vaul/input-otp 제거
+- [x] primitives 정리(묶음3c): tabs.tsx만 존치(옵션B)+cn 21곳 재지정+연쇄 고아 Input.tsx+패키지 **30종** 제거(radix 25/cmdk/embla/input-otp/vaul/cva). **리뷰 B-1: 계획 밖 확대 2종(recharts=AnalyticsScreen lazy·react-day-picker=DateFilterSheet 라이브 소비) 오제거 → 복원+재설치 증명. 팬텀 클래스 2회 재발로 check:phantom 스크립트 상주화(근본 처방)**. syncProgress 유령 일가족(필드2·액션2·셀렉터1) 동반 삭제
 - [x] **vite.config manualChunks 동반 수정**(묶음3a): vendor-nostr에서 ndk 제거 → 빌드 청크 산출 확인(vendor-nostr 46.40kB 정상 생성)
 - [x] 미사용 패키지 제거(묶음3a, 리뷰 REJECTED→수정): ndk/sonner/react-resizable-panels/@noble/ciphers + @testing-library/dom devDeps 이동 + 유령 postinstall 제거. **리뷰 B-1: light-bolt11-decoder 팬텀(ndk transitive로만 설치되던 src 직접 import 2곳 — 신선 설치 빌드 파괴) 직접 의존 선언 + buffer 팬텀(M-1) 동봉. 재설치 증명 통과**
 - [ ] 고아 정리 (리뷰 MINOR-12 정정): **[완료-묶음3b, 리뷰 APPROVED]** 훅 4종+연쇄 resetSyncProgress+컴포넌트 16+화면 2(PinChangeModal/FaceIdSettingPage)+빈 barrel 2 삭제, mock-store __tests__ 이동, TokenCreate/mockData 삭제+Token/mockData→token-view-model 개명(5 importer). **리뷰 등재: syncProgress/eventsProcessed 필드 2+액션 2+셀렉터 1 완전 고아화 — 묶음3c에서 삭제. MockPendingToken 타입명 후속 개명 후보.** 나머지:, common 컴포넌트 7종+barrel-only 5종(BalanceDisplay·CheckAnimation·CoinBounceAnimation·StatusBadge·UnifiedScanner — sub-barrel 수정 동반), FaceIdSettingPage, PinChangeModal. **wallet-cache.ts는 Phase 1이 로그아웃 호출부(MainApp:990-991)+bootstrap 배선을 제거한 뒤에만 삭제 가능**(순서 의존 명기). mock-store는 __tests__ 이동(테스트 2곳 import 수정). **`TokenCreate/mockData.ts`는 삭제**(importer 0), **개명 대상은 `Token/mockData.ts`**(importer 5 — token-view-model.ts로)

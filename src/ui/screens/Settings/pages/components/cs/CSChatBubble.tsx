@@ -1,6 +1,6 @@
 import { Image as ImageIcon, ImageOff, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { cn } from '@/ui/primitives/utils'
+import { cn } from '@/ui/lib/utils'
 import type { SupportAttachment, SupportMessage } from '@/core/domain/support'
 
 interface CSChatBubbleProps {

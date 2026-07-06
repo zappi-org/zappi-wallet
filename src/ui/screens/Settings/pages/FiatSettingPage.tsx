@@ -3,7 +3,7 @@ import { Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { FIAT_CURRENCIES } from '@/core/constants/fiat'
-import { cn } from '@/ui/primitives/utils'
+import { cn } from '@/ui/lib/utils'
 import { Switch } from '@/ui/components/common/Switch'
 import { SettingsDetailPage } from '../components/SettingsDetailPage'
 

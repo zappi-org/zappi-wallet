@@ -1,5 +1,5 @@
 import { Database } from 'lucide-react'
-import { cn } from '@/ui/primitives/utils'
+import { cn } from '@/ui/lib/utils'
 
 // Mint Icon Component
 export function MintIcon({
