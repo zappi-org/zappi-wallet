@@ -527,48 +527,50 @@ export default function MainApp() {
 
   // Handle unlock
   const handleUnlock = useCallback(async (password: string): Promise<boolean> => {
-    try {
-      const result = await preUnlock.security.unlock(password)
-      if (result.ok) {
-        // Set nostr key pair in store
-        setNostrKeyPair(result.value.keys.publicKey, result.value.keys.privateKey)
-
-        // 자동잠금 해제 경량 경로 (감사 §6 / 전자 정책): 세션(레지스트리·소켓·
-        // 구독)이 살아있으면 재부트스트랩하지 않는다 — security.unlock이 방금
-        // 니모닉 캐시를 복원했고 키는 동일 지갑이다. 매 잠금 해제마다 전체
-        // 재연결을 하면 네트워크 개편으로 없앤 버스트가 잠금 주기로 부활한다.
-        if (serviceRegistry) {
-          setLocked(false)
-          return true
-        }
-
-        // Phase 5: Bootstrap service registry (new path, coexists with old)
-        const registry = createBootstrap({
-          nostrPrivateKeyHex: result.value.keys.privateKey,
-          bip39Seed: result.value.bip39Seed,
-        })
-        // 재unlock 시 이전 세대 registry의 타이머/구독 정리 (flusher·TLS폴링 누수 방지)
-        setServiceRegistry((prev) => {
-          prev?.dispose()
-          return registry
-        })
-
-        setLocked(false)
-
-        // CashuModule 초기화 — fire-and-forget (UI 블로킹 제거, QA #4)
-        // SDK init 완료 후 balance 갱신 (BootstrapResult.refreshBalance 사용)
-        registry.cashuModule.initialize().then(() => {
-          registry.refreshBalance().catch((e) => console.error('[Unlock] Post-init balance refresh failed:', e))
-        }).catch((e) => console.error('[Unlock] CashuModule init failed:', e))
-
-        // P2PK key — SDK init을 블로킹하지 않고 백그라운드 로드
-        registry.p2pkKeyManager.getCurrentKey().then(({ pubkey }) => setP2pkPubkey(pubkey))
-        return true
-      }
-      return false
-    } catch {
-      return false
+    const result = await preUnlock.security.unlock(password)
+    // false = PIN 불일치 전용 (LockScreen 이 lockout 계수) — 인프라 실패
+    // (UNLOCK_FAILED/NO_WALLET)가 카운터를 소모해 정당 사용자를 브루트포스
+    // 방어에 가두지 않도록 그 외는 throw. LockScreen catch 가
+    // lock.errorOccurred 로 표시하며 계수하지 않는다 (R2-B 형제 버그 승격분).
+    if (!result.ok) {
+      if (result.error.code === 'INVALID_PASSWORD') return false
+      throw result.error
     }
+
+    // Set nostr key pair in store
+    setNostrKeyPair(result.value.keys.publicKey, result.value.keys.privateKey)
+
+    // 자동잠금 해제 경량 경로 (감사 §6 / 전자 정책): 세션(레지스트리·소켓·
+    // 구독)이 살아있으면 재부트스트랩하지 않는다 — security.unlock이 방금
+    // 니모닉 캐시를 복원했고 키는 동일 지갑이다. 매 잠금 해제마다 전체
+    // 재연결을 하면 네트워크 개편으로 없앤 버스트가 잠금 주기로 부활한다.
+    if (serviceRegistry) {
+      setLocked(false)
+      return true
+    }
+
+    // Phase 5: Bootstrap service registry (new path, coexists with old)
+    const registry = createBootstrap({
+      nostrPrivateKeyHex: result.value.keys.privateKey,
+      bip39Seed: result.value.bip39Seed,
+    })
+    // 재unlock 시 이전 세대 registry의 타이머/구독 정리 (flusher·TLS폴링 누수 방지)
+    setServiceRegistry((prev) => {
+      prev?.dispose()
+      return registry
+    })
+
+    setLocked(false)
+
+    // CashuModule 초기화 — fire-and-forget (UI 블로킹 제거, QA #4)
+    // SDK init 완료 후 balance 갱신 (BootstrapResult.refreshBalance 사용)
+    registry.cashuModule.initialize().then(() => {
+      registry.refreshBalance().catch((e) => console.error('[Unlock] Post-init balance refresh failed:', e))
+    }).catch((e) => console.error('[Unlock] CashuModule init failed:', e))
+
+    // P2PK key — SDK init을 블로킹하지 않고 백그라운드 로드
+    registry.p2pkKeyManager.getCurrentKey().then(({ pubkey }) => setP2pkPubkey(pubkey))
+    return true
   }, [preUnlock.security, setLocked, setNostrKeyPair, setP2pkPubkey, serviceRegistry])
 
   // 보안 핸들러 (자동잠금/PIN 변경·검증/니모닉 백업/로그아웃) — Phase 4b 추출.

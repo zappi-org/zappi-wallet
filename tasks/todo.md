@@ -21,7 +21,7 @@
 - [x] ui→adapters 직접 import 2건 절단(inputParser 재사용 + diagnostics 읽기 포트) (use-redeem-token:7,11 + DiagnosticsPage:7 — 포트 경유)
 - [ ] (이월 — 리뷰 동의) error-message/error-i18n 통합: 시맨틱 실차이 3건 실재, 독립 리뷰 단위
 - [x] 비관 리뷰 APPROVED → 커밋
-- [ ] **handleUnlock UNLOCK_FAILED 소묶음 (리뷰 승격)**: LockScreen 인프라 실패가 wrongPin 표시 + lockout 카운터 소모 — 정당 사용자가 브루트포스 방어에 잠기는 경로. 에러 분기 신설
+- [x] **handleUnlock UNLOCK_FAILED 소묶음** (리뷰 APPROVED): INVALID_PASSWORD 만 false(계수), 그 외 throw → errorOccurred(무계수). 권장 계약 테스트가 커밋 전 2차 실버그(무한 재제출 루프 — catch 의 password 미소거) 검출 → 1줄 대칭 수정 + 3케이스 핀
 
 ## R2-C — 구조 (M-L)
 - [ ] bootstrap 내부 절단: 도메인 묶음별 조립 함수로 분해 (순수 이동 + 자진 신고 규율 — Phase 4 방법론)
