@@ -1,4 +1,6 @@
+import type { TFunction } from 'i18next'
 import { BaseError } from '@/core/errors/base'
+import type { TranslationKey } from '@/i18n'
 
 /**
  * Error → i18n key + params resolver
@@ -11,7 +13,7 @@ import { BaseError } from '@/core/errors/base'
  */
 
 export interface ErrorI18n {
-  key: string
+  key: TranslationKey
   params?: Record<string, unknown>
 }
 
@@ -32,7 +34,8 @@ export function getErrorI18n(error: unknown): ErrorI18n {
     // 어느 로케일에도 없다)로 보내지 않고 아래 메시지 패턴 매칭으로 폴백해
     // "insufficient/expired/network" 같은 진단 정보를 살린다 (branch 2와 동일한 규칙)
     if (error.code !== 'UNKNOWN') {
-      return { key: `errors.${codeToCamelCase(error.code)}` }
+      // convention key — runtime-guarded in translateError (missing keys demote to unknownError)
+      return { key: `errors.${codeToCamelCase(error.code)}` as TranslationKey }
     }
   }
 
@@ -51,7 +54,7 @@ export function getErrorI18n(error: unknown): ErrorI18n {
       const override = resolveOverride(err)
       if (override) return override
 
-      return { key: `errors.${codeToCamelCase(code)}` }
+      return { key: `errors.${codeToCamelCase(code)}` as TranslationKey }
     }
   }
 
@@ -118,7 +121,7 @@ function resolveOverride(err: Record<string, unknown> | BaseError): ErrorI18n | 
  * t 함수와 조합하여 번역된 에러 메시지를 즉시 반환.
  * 사용: translateError(err, t)
  */
-export function translateError(error: unknown, t: (key: string, params?: Record<string, unknown>) => string): string {
+export function translateError(error: unknown, t: TFunction): string {
   const { key, params } = getErrorI18n(error)
   const translated = t(key, params)
   // convention 키가 로케일에 없으면 i18next 는 키 문자열을 그대로 반환한다 —

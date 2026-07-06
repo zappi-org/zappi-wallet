@@ -1,4 +1,5 @@
 import i18n from '@/i18n'
+import type { TranslationKey } from '@/i18n'
 import type { BaseError } from '@/core/errors/base'
 import type { InsufficientBalanceError } from '@/core/errors/payment.errors'
 import type { MintConnectionError } from '@/core/errors/cashu'
@@ -16,7 +17,8 @@ export function setMintNameResolver(resolver: (mintUrl: string) => string | null
 }
 
 export function toErrorMessage(error: BaseError): string {
-  const key = `errors.${toCamelCase(error.code)}`
+  // convention key — guarded by the i18n.exists() check below
+  const key = `errors.${toCamelCase(error.code)}` as TranslationKey
 
   if (!i18n.exists(key)) return i18n.t('errors.unknownError')
 

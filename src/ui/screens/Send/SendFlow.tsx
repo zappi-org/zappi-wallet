@@ -458,7 +458,7 @@ export function SendFlow({
         if (swapResult?.success) {
           setState((prev) => ({ ...prev, step: 'complete' }))
         } else {
-          setState((prev) => ({ ...prev, step: 'confirm', error: t('payment.swapFailed') }))
+          setState((prev) => ({ ...prev, step: 'confirm', error: t('transfer.swapFailed') }))
         }
         return
       }

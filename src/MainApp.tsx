@@ -1325,7 +1325,7 @@ export default function MainApp() {
                           }}
                           onReclaim={async (token) => {
                             if (!serviceRegistry?.reclaim?.reclaim) {
-                              addToast({ type: 'error', message: 'Service initializing, please try again.' })
+                              addToast({ type: 'error', message: t('errors.serviceNotReady') })
                               return
                             }
                             const result = await serviceRegistry.reclaim.reclaim(token.id)
@@ -1522,7 +1522,7 @@ export default function MainApp() {
                   }
                   onCancelToken={async (txId) => {
                     if (!serviceRegistry?.reclaim?.reclaim) {
-                      addToast({ type: 'error', message: 'Service initializing, please try again.' })
+                      addToast({ type: 'error', message: t('errors.serviceNotReady') })
                       return
                     }
                     const result = await serviceRegistry.reclaim.reclaim(txId)

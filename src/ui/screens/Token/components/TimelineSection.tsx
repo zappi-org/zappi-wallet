@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { getLocaleCode } from '@/utils/format'
 import type { Transaction } from '@/core/domain/transaction'
@@ -32,7 +33,7 @@ function shortWeekday(date: Date, locale: string): string {
 }
 
 function buildAnchor(
-  t: (key: string, opts?: Record<string, unknown>) => string,
+  t: TFunction,
   group: TimelineGroup,
   locale: string,
 ): AnchorText {

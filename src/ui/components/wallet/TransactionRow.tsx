@@ -7,6 +7,7 @@
  *   10:35 · 수신 (라이트닝) (label, muted)    ≈ $0.50 (label, muted)
  */
 
+import type { TranslationKey } from '@/i18n'
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Transaction } from '@/core/domain/transaction'
@@ -67,7 +68,7 @@ export const TransactionRow = memo(function TransactionRow({
     const destStr = meta.destination.includes('@') ? meta.destination : `${meta.destination.slice(0, 20)}...`
     subtitle = `${timeStr} · ${destStr}`
   } else if (meta.source && meta.source !== 'unknown' && meta.source !== 'wallet') {
-    subtitle = `${timeStr} · ${t(`txDetail.source.${meta.source}`)}`
+    subtitle = `${timeStr} · ${t(`txDetail.source.${meta.source}` as TranslationKey)}`
   } else {
     subtitle = defaultSubtitle
   }

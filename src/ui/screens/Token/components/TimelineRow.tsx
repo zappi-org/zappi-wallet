@@ -1,3 +1,5 @@
+import type { TranslationKey } from '@/i18n'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { ArrowDown, ArrowUp, Undo2 } from 'lucide-react'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
@@ -14,7 +16,7 @@ export interface TimelineRowProps {
 }
 
 function formatTimelineTime(
-  t: (key: string, opts?: Record<string, unknown>) => string,
+  t: TFunction,
   timestamp: number,
   kind: TimelineKind,
 ): string {
@@ -30,7 +32,7 @@ function formatTimelineTime(
 
 type RowKind = 'received' | 'sent' | 'reclaimed'
 
-const STATUS_KEY: Record<RowKind, string> = {
+const STATUS_KEY: Record<RowKind, TranslationKey> = {
   received: 'token.history.status.registered', // 등록함
   sent: 'token.history.status.consumed', // 사용됨
   reclaimed: 'token.history.status.reclaimed', // 되찾음

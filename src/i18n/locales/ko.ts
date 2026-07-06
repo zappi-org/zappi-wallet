@@ -83,6 +83,7 @@ export default {
     enterNewPin: '6자리 PIN을 설정하세요',
     reenterPin: 'PIN을 다시 입력하세요',
     pinMismatch: 'PIN이 일치하지 않습니다',
+    pinDigitsEntered: 'PIN {{total}}자리 중 {{count}}자리 입력됨',
 
     // Processing
     creatingWallet: '지갑 생성 중',
@@ -361,6 +362,12 @@ export default {
     // TLS Test
     tlsTest: 'TLS 테스트',
     tlsTestDesc: 'TransferLifecycleService 흐름 테스트',
+    tlsBolt11Send: 'Bolt11 보내기 (melt)',
+    tlsBolt11Receive: 'Bolt11 받기 (minting)',
+    tlsEcashCreate: '이캐시 생성',
+    tlsEcashRedeem: '이캐시 등록',
+    tlsGiftWrap: 'GiftWrap으로 받기',
+    tlsCreq: 'Creq로 받기',
 
     // Logout
     logout: '로그아웃',
@@ -965,6 +972,41 @@ export default {
     afterInstall: '설치 후 홈 화면에서 ZAPPI 아이콘을 탭하여 실행하세요.',
     devBypass: '(개발 모드) PWA 없이 계속',
     desktopBrowser: '데스크톱 브라우저',
+    guard: {
+      subtitle: '비트코인 이캐시 지갑',
+      installTitle: '홈 화면에 설치하기',
+      installReason: '안전한 결제를 위해 앱 설치가 필요해요',
+      installButton: '앱 설치',
+      devSkip: '설치 건너뛰기 (개발용)',
+      ios: {
+        title: 'Safari에서',
+        step1: '하단의 공유 버튼을 탭하세요',
+        step2: '"홈 화면에 추가"를 선택하세요',
+        step3: '오른쪽 위 "추가"를 탭하세요',
+      },
+      android: {
+        title: 'Chrome에서',
+        step1: '오른쪽 위 메뉴 아이콘을 탭하세요',
+        step2: '"앱 설치" 또는 "홈 화면에 추가"를 선택하세요',
+      },
+      desktopSafari: {
+        title: 'Safari에서',
+        step1: '메뉴 막대 > "파일"로 이동하세요',
+        step2: '"Dock에 추가..."를 선택하세요',
+        footnote: '또는 공유 > Dock에 추가 (Sonoma 이상)',
+      },
+      desktopEdge: {
+        title: 'Edge에서',
+        step1: '오른쪽 위 ... 메뉴를 클릭하세요',
+        step2: '"앱" > "이 사이트를 앱으로 설치"를 선택하세요',
+      },
+      desktopChrome: {
+        title: 'Chrome에서',
+        step1: '오른쪽 위 메뉴 아이콘을 클릭하세요',
+        step2: '"저장 및 공유" > "페이지를 앱으로 설치"를 선택하세요',
+        footnote: '또는 주소창의 설치 아이콘을 클릭하세요',
+      },
+    },
   },
 
   // Errors
@@ -1015,6 +1057,7 @@ export default {
     timeoutError: '요청 시간이 초과되었습니다',
     unknownError: '알 수 없는 오류가 발생했습니다',
     adapterNotFound: '이 작업을 처리할 결제 수단을 찾을 수 없어요',
+    serviceNotReady: '서비스를 준비하고 있어요. 잠시 후 다시 시도해 주세요.',
   },
 
   // Redirect
@@ -1071,6 +1114,8 @@ export default {
     transferSettled: '전송 완료',
     transferReclaimed: '전송 회수 완료',
     incomingTransferProcessed: '수신 전송 처리 완료',
+    tokenClaimed: '토큰 {{amount}} 이 사용되었어요',
+    tokenClaimedWithMemo: '토큰 {{amount}} 이 사용되었어요 · {{memo}}',
   },
 
   // Mint Details
@@ -1554,6 +1599,13 @@ export default {
       qr: {
         title: 'QR 공유',
       },
+    },
+    rawSheet: {
+      delete: '내역 삭제',
+      deleteConfirm: '내역 삭제?',
+      deleting: '삭제 중…',
+      yes: '예',
+      no: '아니오',
     },
   },
 

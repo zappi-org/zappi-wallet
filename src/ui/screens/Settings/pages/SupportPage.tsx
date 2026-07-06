@@ -1,3 +1,5 @@
+import type { TranslationKey } from '@/i18n'
+import type { TFunction } from 'i18next'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import {
@@ -70,7 +72,7 @@ type SupportView =
 const FAQ_COUNT = 6
 const FAQ_HOME_PREVIEW = 4
 
-const INQUIRY_CATEGORY_OPTIONS: Array<{ value: SupportInquiryCategory; labelKey: string }> = [
+const INQUIRY_CATEGORY_OPTIONS: Array<{ value: SupportInquiryCategory; labelKey: TranslationKey }> = [
   { value: 'transfer', labelKey: 'support.categories.transfer' },
   { value: 'ecash', labelKey: 'support.categories.ecash' },
   { value: 'fee', labelKey: 'support.categories.fee' },
@@ -78,7 +80,7 @@ const INQUIRY_CATEGORY_OPTIONS: Array<{ value: SupportInquiryCategory; labelKey:
   { value: 'other', labelKey: 'support.categories.other' },
 ]
 
-const IDEA_CATEGORY_OPTIONS: Array<{ value: SupportIdeaCategory; labelKey: string }> = [
+const IDEA_CATEGORY_OPTIONS: Array<{ value: SupportIdeaCategory; labelKey: TranslationKey }> = [
   { value: 'idea_ux', labelKey: 'support.categories.idea_ux' },
   { value: 'idea_feature', labelKey: 'support.categories.idea_feature' },
   { value: 'idea_perf', labelKey: 'support.categories.idea_perf' },
@@ -730,7 +732,7 @@ function HelpHomeView({
 }: HelpHomeViewProps) {
   const { t } = useTranslation()
   const faqQuestions = Array.from({ length: FAQ_HOME_PREVIEW }, (_, i) =>
-    t(`support.faq.q${i + 1}`),
+    t(`support.faq.q${i + 1}` as TranslationKey),
   )
   const inquiryListSubtitle =
     inquiryUnread > 0
@@ -862,7 +864,7 @@ function FaqView({ initialExpandedIndex }: { initialExpandedIndex: number | null
                 className="w-full flex items-center justify-between px-4 py-3.5 text-left gap-3"
               >
                 <span className="text-[14px] text-foreground tracking-[-0.005em] flex-1">
-                  {t(`support.faq.q${n}`)}
+                  {t(`support.faq.q${n}` as TranslationKey)}
                 </span>
                 <ChevronDown
                   className={cn(
@@ -874,7 +876,7 @@ function FaqView({ initialExpandedIndex }: { initialExpandedIndex: number | null
               </button>
               {expanded && (
                 <div className="px-4 pb-4 text-[13px] text-foreground-muted leading-relaxed tracking-[-0.005em] whitespace-pre-line">
-                  {t(`support.faq.a${n}`)}
+                  {t(`support.faq.a${n}` as TranslationKey)}
                 </div>
               )}
             </div>
@@ -1233,7 +1235,7 @@ interface HeaderInfo {
 
 function getHeaderInfo(
   view: SupportView,
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: TFunction,
   ticket: SupportTicket | null,
   onArchiveTicket: () => void,
 ): HeaderInfo {
@@ -1319,7 +1321,7 @@ interface RenderFooterArgs {
   capabilities: SupportSnapshot['capabilities']['attachments']
   onAttachmentError: (message: string) => void
   placeholder: string
-  t: (key: string) => string
+  t: TFunction
 }
 
 function renderFooter(args: RenderFooterArgs): React.ReactNode {

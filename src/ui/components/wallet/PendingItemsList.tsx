@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { useFormatSats, getLocaleCode } from '@/utils/format'
 import { cn } from '@/ui/lib/utils'
@@ -11,13 +12,13 @@ interface PendingItemsListProps {
   onItemClick?: (item: PendingItem) => void
 }
 
-function getItemTypeLabel(item: PendingItem, t: (key: string) => string): string {
+function getItemTypeLabel(item: PendingItem, t: TFunction): string {
   if (item.direction === 'receive' && item.kind === 'token') return t('mintDetail.ecashToken')
   if (item.direction === 'receive' && item.kind === 'request') return t('mintDetail.receiveRequest')
   return t('mintDetail.sentToken')
 }
 
-function getItemTitle(item: PendingItem, t: (key: string) => string): string {
+function getItemTitle(item: PendingItem, t: TFunction): string {
   return item.memo || getItemTypeLabel(item, t)
 }
 

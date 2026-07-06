@@ -1,8 +1,9 @@
+import type { TFunction } from "i18next";
 import type { SendableValidatedData } from "./SendFlow";
 import { isNostrDirectAddress } from "@/core/domain/nostr-address";
 import { PaymentRoute } from "@/ui/hooks/use-routing";
 
-type Translate = (key: string) => string;
+type Translate = TFunction;
 type CashuRequestSendData = Extract<SendableValidatedData, { type: "cashu-request" }>;
 
 export interface ConfirmDisplayInfo {

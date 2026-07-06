@@ -1,3 +1,5 @@
+import type { TranslationKey } from '@/i18n'
+import type { TFunction } from 'i18next'
 import { getTxMeta } from '@/core/domain/transaction'
 import { toNumber } from '@/core/domain/amount'
 import type { Transaction } from '@/core/domain/transaction'
@@ -18,9 +20,9 @@ const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
  * Suffix comes from i18n (e.g. "생성됨", "에 등록함").
  */
 export function formatDetailDateLine(
-  t: (key: string, opts?: Record<string, unknown>) => string,
+  t: TFunction,
   timestamp: number,
-  suffixKey: string,
+  suffixKey: TranslationKey,
 ): string {
   const d = new Date(timestamp)
   const yy = d.getFullYear() % 100
@@ -135,7 +137,7 @@ export function transactionToDetail(
 }
 
 export function formatRelativeTime(
-  t: (key: string, opts?: Record<string, unknown>) => string,
+  t: TFunction,
   timestamp: number,
 ): string {
   const diffMs = Date.now() - timestamp

@@ -1,3 +1,4 @@
+import type { TranslationKey } from '@/i18n'
 import { toNumber } from '@/core/domain/amount'
 import type { Transaction } from '@/core/domain/transaction'
 import { getDisplayFee, getTotalCost, getTransactionType, getTxMeta } from '@/core/domain/transaction'
@@ -204,7 +205,7 @@ export default function TransactionDetailScreen({
     if (isReceive) {
       // POS/KIOSK source — "강남점에서 받음"
       if (meta.source && ['zappi-pos', 'zappi-kiosk', 'zappi-api'].includes(meta.source)) {
-        const name = typeof metadata?.storeName === 'string' ? metadata.storeName : t(`txDetail.source.${meta.source}`)
+        const name = typeof metadata?.storeName === 'string' ? metadata.storeName : t(`txDetail.source.${meta.source}` as TranslationKey)
         return t('txDetail.receivedFromPOS', { name })
       }
       // 내 지갑으로 받음 — "Zappi Alpha Mint 지갑으로 받음"
@@ -223,7 +224,7 @@ export default function TransactionDetailScreen({
   // ─── Source label ───
   const sourceLabel = useMemo(() => {
     if (!meta.source || meta.source === 'unknown') return null
-    return t(`txDetail.source.${meta.source}`)
+    return t(`txDetail.source.${meta.source}` as TranslationKey)
   }, [meta.source, t])
 
   // ─── Helpers ───

@@ -55,7 +55,7 @@
 - [ ] 비관 리뷰(4 전체) → 커밋
 
 ## 병행 (독립 — 아무 Phase 사이에나)
-- [ ] i18n 하드코딩 키化: TokenRawSheet 4곳·use-global-token-claim-toast·MainApp **:1338(영어)** — 한국어 :1362/:1365-66은 Phase 0 배정이므로 여기서 제외(이중 배정 금지), `CustomTypeOptions`(typeof en) 증강, `errors.serviceNotReady` 5로케일+고아 키 5개 삭제, support.* ja/es/id 88키 번역, PWAInstallGuard t()
+- [x] i18n 하드코딩 키化(리뷰 APPROVED): TokenRawSheet·claim-toast(ko 원문 byte-identical 보존)·MainApp 2곳·PWAInstallGuard 23키. CustomTypeOptions 증강이 **실버그 2건 적발**(onboarding.pinDigitsEntered 부재, payment.swapFailed 오타). errors.serviceNotReady 5로케일, 고아 5키 실증 삭제, support.* ja/es/id 각 140키 재번역+ko tls 6키 — 5로케일 1312키 missing 0/extra 0. **+리뷰 MINOR: es/id 토스트 유령 {{unit}} 4문자열 수정(기존 라이브 표시 버그) +NIT 채택: locale-parity 상주 테스트(구조+보간 변수 전수, allowlist 근거 주석制)**. 참조 0 en 키 후보 ~430개는 다음 라운드 기록
 
 ## 명시적 비범위 (의도적 이월 — 리뷰 MINOR-17로 명시화)
 - PBKDF2 반복수 상향(재암호화 마이그레이션 별도 설계), POS 키 반출 UX, 프로덕션 console drop

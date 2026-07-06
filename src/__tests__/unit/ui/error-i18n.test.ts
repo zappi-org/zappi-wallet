@@ -11,6 +11,7 @@
  * - getErrorI18n 의 고정 방출 키 집합은 5개 로케일 전부에 존재해야 한다.
  */
 import { describe, it, expect } from 'vitest'
+import type { TFunction } from 'i18next'
 import { getErrorI18n, translateError } from '@/ui/utils/error-i18n'
 import { UnknownError, NetworkError } from '@/core/errors/base'
 import { AdapterNotFoundError, InsufficientBalanceError } from '@/core/errors/payment.errors'
@@ -58,13 +59,13 @@ describe('getErrorI18n', () => {
 describe('translateError', () => {
   it('로케일에 없는 키는 리터럴 노출 대신 errors.unknownError 로 강등한다', () => {
     // i18next 흉내: 아는 키만 번역, 모르는 키는 키 문자열 그대로 반환
-    const t = (key: string) => (key === 'errors.unknownError' ? 'Something went wrong' : key)
+    const t = ((key: string) => (key === 'errors.unknownError' ? 'Something went wrong' : key)) as unknown as TFunction
     const futureError = { code: 'SOME_FUTURE_CODE', message: 'x' }
     expect(translateError(futureError, t)).toBe('Something went wrong')
   })
 
   it('키가 존재하면 번역 결과를 그대로 반환한다', () => {
-    const t = (key: string) => (key === 'errors.adapterNotFound' ? '결제 수단 없음' : key)
+    const t = ((key: string) => (key === 'errors.adapterNotFound' ? '결제 수단 없음' : key)) as unknown as TFunction
     expect(translateError(new AdapterNotFoundError('no adapter'), t)).toBe('결제 수단 없음')
   })
 })

@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import type { TranslationKey } from '@/i18n'
 import { useAppStore } from '@/store'
 import { formatFiatAmount, useFormatSats } from '@/utils/format'
 import { translateError } from '@/ui/utils/error-i18n'
@@ -46,7 +47,7 @@ export interface TokenDetailScreenProps {
   onDeleteHistory?: (token: TokenDetailData) => Promise<void> | void
 }
 
-const DATE_SUFFIX_KEY: Record<TokenDetailStatus, string> = {
+const DATE_SUFFIX_KEY: Record<TokenDetailStatus, TranslationKey> = {
   pending: 'token.detail.dateLine.pending',
   registered: 'token.detail.dateLine.registered',
   consumed: 'token.detail.dateLine.consumed',

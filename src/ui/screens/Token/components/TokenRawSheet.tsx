@@ -203,7 +203,7 @@ export function TokenRawSheet({
                   {confirming ? (
                     <>
                       <span className="text-caption font-medium text-foreground-muted">
-                        내역 삭제?
+                        {t('token.rawSheet.deleteConfirm')}
                       </span>
                       <button
                         type="button"
@@ -211,7 +211,7 @@ export function TokenRawSheet({
                         disabled={deleting}
                         className="text-caption font-bold text-accent-danger hover:underline disabled:opacity-60"
                       >
-                        {deleting ? '삭제 중…' : '예'}
+                        {deleting ? t('token.rawSheet.deleting') : t('token.rawSheet.yes')}
                       </button>
                       <button
                         type="button"
@@ -219,7 +219,7 @@ export function TokenRawSheet({
                         disabled={deleting}
                         className="text-caption font-medium text-foreground-muted hover:underline disabled:opacity-60"
                       >
-                        아니오
+                        {t('token.rawSheet.no')}
                       </button>
                     </>
                   ) : (
@@ -228,7 +228,7 @@ export function TokenRawSheet({
                       onClick={handleDeleteTap}
                       className="text-caption font-medium text-accent-danger hover:underline"
                     >
-                      내역 삭제
+                      {t('token.rawSheet.delete')}
                     </button>
                   )}
                 </div>

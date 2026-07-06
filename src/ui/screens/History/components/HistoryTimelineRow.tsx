@@ -1,3 +1,5 @@
+import type { TranslationKey } from '@/i18n'
+import type { TFunction } from 'i18next'
 import { ArrowDown, ArrowUp, RefreshCw, Undo2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { Transaction } from '@/core/domain/transaction'
@@ -18,7 +20,7 @@ export interface HistoryTimelineRowProps {
 }
 
 function formatRowTime(
-  t: (key: string, opts?: Record<string, unknown>) => string,
+  t: TFunction,
   timestamp: number,
   groupKind: HistoryTimelineRowProps['groupKind'],
 ): string {
@@ -70,7 +72,7 @@ export function HistoryTimelineRow({
     const destination = meta.destination.includes('@') ? meta.destination : `${meta.destination.slice(0, 20)}...`
     subtitle = `${time} · ${destination}`
   } else if (meta.source && meta.source !== 'unknown' && meta.source !== 'wallet') {
-    subtitle = `${time} · ${t(`txDetail.source.${meta.source}`)}`
+    subtitle = `${time} · ${t(`txDetail.source.${meta.source}` as TranslationKey)}`
   } else {
     subtitle = defaultSubtitle
   }
