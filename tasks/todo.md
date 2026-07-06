@@ -47,7 +47,7 @@
 
 ## Phase 4 — MainApp 분해 (L, 1~3 완료 후)
 순수 이동 원칙 + **예외 지점 명시** (리뷰 MAJOR-14).
-- [ ] 4a. `useAppNavigation` 추출 — 가장 안전. `setHasSettingsSubPage`(SettingsScreen과 공유)의 소유를 훅으로 결정
+- [x] 4a. useAppNavigation 추출(리뷰 APPROVED): Screen 21유니온+탭 매핑+handleBack+history effect 3개, 인터페이스 9멤버. setHasSettingsSubPage는 훅 완전 소유(setter만 노출). 콜백 주입 0(계획이 예상한 handleBack scan 리셋은 실재하지 않음 — 화면 인라인 onBack 소관). 바이트-순수 이탈 3건(dep setter·refs 억제·effect 순서) 전부 자진 신고+리뷰 검증 승인. NIT: 훅 계약 테스트 4b 전 추가 권장
 - [ ] 4b+4c **공동 설계** (리뷰 MAJOR-14): `refreshAll`은 tx+balance 원자 갱신이고 13개+ 핸들러가 공유(3곳 await 의존) — transactions 훅이 **awaitable refresh(잔액 포함)**를 노출해 원자성 유지. 핸들러 훅 분리 순서: useSecurityHandlers → useMintHandlers → useReceiveHandlers → useSwapHandlers. 순수 이동 불가 지점(handleRejectIncomingReview의 네비+scan 상태 mutate, handleUnlock의 부트스트랩 심)은 개별 판단 기록
 - [ ] 4d. 화면 switch → 라우트 테이블 — token/token-detail 결합 블록(:1283-1374)과 state 가드 3곳은 기계 변환 불가로 예외 처리
 - [x] `transitionPhase` 합법 전이 맵(리뷰 APPROVED): settled→비종단 역행만 throw(isTerminal 유도 — 병렬 배열 드리프트 차단), 현행 정당 전이 전부 수용, 테스트 13개. 리뷰가 호출 17곳 전수로 throw 도달 불가 구조 증명(resolveTransfer는 확인-후-전이 패턴). 후속 2건(re-fetch TOCTOU·settled→failed 조이기) 비범위 섹션 등재

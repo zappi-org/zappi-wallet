@@ -9,6 +9,7 @@ import type { BaseError } from '@/core/errors/base'
 import { ServiceNotReadyError } from '@/core/errors/base'
 import { InsufficientBalanceError } from '@/core/errors/payment.errors'
 import { ServiceProvider } from '@/ui/hooks/service-context'
+import { useAppNavigation } from '@/ui/hooks/use-app-navigation'
 import { useAutoLock } from '@/ui/hooks/use-auto-lock'
 import { useCrossTabSync } from '@/ui/hooks/use-cross-tab-sync'
 import { useGlobalTokenClaimToast } from '@/ui/hooks/use-global-token-claim-toast'
@@ -90,12 +91,6 @@ import { formatSats } from '@/utils/format'
 import { generateMintAliases } from '@/utils/mint-name'
 
 
-type Screen = 'home' | 'token' | 'settings' | 'contacts' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'mint-management' | 'relay-management' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail' | 'mint-detail' | 'token-create' | 'token-register' | 'token-detail' | 'token-easter-egg'
-
-type TabId = 'wallet' | 'token' | 'contacts' | 'settings'
-const TAB_SCREENS: Record<TabId, Screen> = { wallet: 'home', token: 'token', contacts: 'contacts', settings: 'settings' }
-const SCREEN_TO_TAB: Partial<Record<Screen, TabId>> = { home: 'wallet', token: 'token', contacts: 'contacts', settings: 'settings' }
-
 // Register mint name resolver for error messages
 setMintNameResolver((mintUrl) => {
   const state = useAppStore.getState()
@@ -140,12 +135,21 @@ export default function MainApp() {
   useGlobalTokenClaimToast(serviceRegistry)
   useSupportNotifications(serviceRegistry)
 
+  // Navigation state/logic (screen 전환, 탭 파생, 뒤로가기, History API) — Phase 4a 추출
+  const {
+    currentScreen,
+    previousScreen,
+    setCurrentScreen,
+    setPreviousScreen,
+    activeTab,
+    isTabScreen,
+    setHasSettingsSubPage,
+    handleTabSelect,
+    handleBack,
+  } = useAppNavigation()
+
   // Local state
-  const [currentScreen, setCurrentScreen] = useState<Screen>('home')
-  const [previousScreen, setPreviousScreen] = useState<Screen | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  // Derive active tab from current screen
-  const activeTab: TabId = SCREEN_TO_TAB[currentScreen] ?? 'wallet'
 
   // Bottom nav items
   const navItems = useMemo(() => [
@@ -178,16 +182,6 @@ export default function MainApp() {
 
   // Shared scroll container ref for Token tab (TokenScreen + TokenTabToolbar)
   const tokenScrollRef = useRef<HTMLDivElement>(null)
-
-  // Whether current screen is a tab screen (show bottom nav)
-  const [hasSettingsSubPage, setHasSettingsSubPage] = useState(false)
-  const isTabScreen = !!SCREEN_TO_TAB[currentScreen] && !hasSettingsSubPage
-
-  // Handle tab selection
-  const handleTabSelect = useCallback((tabId: string) => {
-    setCurrentScreen(TAB_SCREENS[tabId as TabId])
-    setPreviousScreen(null)
-  }, [])
 
   // MintDetail screen state
   const [selectedMint, setSelectedMint] = useState<MintInfo | null>(null)
@@ -383,7 +377,7 @@ export default function MainApp() {
         addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
         return
     }
-  }, [currentScreen, activeMintUrl, settings.mints, balance.byMint, serviceRegistry, addToast, t])
+  }, [currentScreen, activeMintUrl, settings.mints, balance.byMint, serviceRegistry, addToast, t, setCurrentScreen, setPreviousScreen])
 
   /** Universal input router — navigate based on validated input type. */
   const handleRouteValidated = useCallback((data: ValidatedData) => {
@@ -412,7 +406,7 @@ export default function MainApp() {
         addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
         return
     }
-  }, [currentScreen, addToast, t])
+  }, [currentScreen, addToast, t, setCurrentScreen, setPreviousScreen])
 
   // Initialize app — Coco 무관 작업만 (Coco는 unlock 후 setupSubscription에서 초기화)
   useEffect(() => {
@@ -461,7 +455,7 @@ export default function MainApp() {
     setActiveIncomingReview(nextReview)
     setPreviousScreen(currentScreen === 'token-register' ? previousScreen : currentScreen)
     setCurrentScreen('token-register')
-  }, [activeIncomingReview, pendingIncomingReviews, currentScreen, previousScreen])
+  }, [activeIncomingReview, pendingIncomingReviews, currentScreen, previousScreen, setCurrentScreen, setPreviousScreen])
 
   // Anchor check and State Reconstruction (ZAP-06)
   // Runs once when app is unlocked and has nostr keys
@@ -838,7 +832,7 @@ export default function MainApp() {
     clearIncomingReviewState()
     setCurrentScreen(previousScreen || 'home')
     setPreviousScreen(null)
-  }, [serviceRegistry, removeIncomingReview, clearIncomingReviewState, previousScreen])
+  }, [serviceRegistry, removeIncomingReview, clearIncomingReviewState, previousScreen, setCurrentScreen, setPreviousScreen])
 
   // Payment received callback
   // Lightning toast는 bridge.ts (mint-quote:redeemed)가 전역으로 담당
@@ -1106,49 +1100,7 @@ export default function MainApp() {
     setValidatedScanData(validated)
     setCurrentScreen('receive')
     addToast({ type: 'info', message: t('redirect.toReceive') })
-  }, [addToast, t])
-
-  const handleBack = useCallback(() => {
-    const target = previousScreen || 'home'
-    setPreviousScreen(null)
-    setCurrentScreen(target)
-    // 탭 화면으로 돌아가면 서브페이지 플래그 리셋 (엣지 스와이프 뒤로가기 대응)
-    if (SCREEN_TO_TAB[target]) {
-      setHasSettingsSubPage(false)
-    }
-  }, [previousScreen])
-
-  // Android back button support via History API
-  useEffect(() => {
-    if (!window.history.state?.screen) {
-      window.history.replaceState({ screen: 'home' }, '')
-    }
-  }, [])
-
-  useEffect(() => {
-    if (currentScreen === 'home') {
-      window.history.replaceState({ screen: 'home' }, '')
-    } else if (window.history.state?.screen !== currentScreen) {
-      window.history.pushState({ screen: currentScreen }, '')
-    }
-  }, [currentScreen])
-
-  const currentScreenRef = useRef(currentScreen)
-  currentScreenRef.current = currentScreen
-  const handleBackRef = useRef(handleBack)
-  handleBackRef.current = handleBack
-
-  useEffect(() => {
-    const handlePopState = () => {
-      if (currentScreenRef.current === 'home') {
-        window.history.pushState({ screen: 'home' }, '')
-      } else {
-        handleBackRef.current()
-      }
-    }
-    window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
-  }, [])
+  }, [addToast, t, setCurrentScreen])
 
   // Preload lazy screens after home is visible
   useEffect(() => {
