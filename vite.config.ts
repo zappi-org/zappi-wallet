@@ -106,7 +106,7 @@ export default defineConfig({
           'vendor-react': ['react', 'react-dom'],
           'vendor-motion': ['motion'],
           'vendor-charts': ['recharts'],
-          'vendor-nostr': ['@nostr-dev-kit/ndk', 'nostr-tools'],
+          'vendor-nostr': ['nostr-tools'],
           'vendor-cashu': ['@cashu/cashu-ts'],
           'vendor-coco': ['@cashu/coco-core', '@cashu/coco-indexeddb'],
         },
