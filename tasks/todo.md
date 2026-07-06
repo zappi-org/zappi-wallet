@@ -1,4 +1,70 @@
-# Current Task — eCash External Claim Finalization + Token Toolbar Polish
+# Current Task — 감사 잔여 항목 실행 (2026-07-06 계획, 비관 리뷰 반영 v3)
+
+근거: docs/audit/2026-07-06-non-network-refactoring-audit.md + 계획 비관 리뷰(REJECTED 3건 → 반영).
+원칙: 매 Phase 커밋 분리, 매 Phase `bun run lint && bun run build && bun run test:run` 통과(`test`는 watch 모드), 자금 인접 Phase(0·1·2·**3**·4)는 비관적 리뷰 APPROVED 후 커밋(3도 resetAll·레지스트리 타입을 만지므로 포함 — 리뷰 MAJOR-11).
+
+## Phase 0 — 안전망 선행 (S)
+이후 리팩토링의 회귀 감지망. 프로덕션 코드 변경은 swallow 2곳만.
+- [x] `utils/format.ts` fiatToSats 경계값 테이블 테스트 (0, 1sat 미만, 소수, NaN, 반올림 방향 — float half 미묘함 포함 문서화)
+- [x] `token-codec.adapter.ts` 테스트 신설: bolt11 msat→sat floor, BTC→sat round(BIP-21), cashuA/cashuB 검사, 잘못된 입력
+- [x] `direct-lnurl.adapter.ts` sat→msat 변환 테스트 (floor·경계 포함·comment 게이팅·resolvePay)
+- [x] **돈 이벤트 브리지 테스트** (리뷰 MAJOR-16, R2 정정): `mint-quote-observer` 테스트 **신설** + transfer-tx-bridge refresh 발화 계약 보강(event-store-bridge 는 기존 커버 확인으로 skip) + coco-event-bridge·gift-wrap-settlement.bridge 신설
+- [x] silent-swallow 수정 (리뷰 MINOR-15 정정): `swap.service.ts:333-335` console.error 표준화 + `MainApp.tsx:758` translateError·`:1362/:1365-1366` t() 키化(`token.history.deleteSuccess/deleteFailed` 5로케일). (:1338 영어 하드코딩은 병행 i18n 소관 — 이중 배정 금지)
+- [x] **B-1 (Phase 0 비관 리뷰 BLOCKING, 범위 추가)**: `error-i18n.ts` getErrorI18n 의 BaseError 분기에 UNKNOWN 가드 부재 → 존재하지 않는 `errors.unknown` 리터럴 키가 토스트에 노출(SwapService 는 전 실패를 UnknownError 로 래핑). 수정: ① UNKNOWN 은 메시지 패턴 매칭으로 폴백(branch 2와 대칭) ② translateError 키-부재 강등 가드(리터럴 키 노출 원천 차단) ③ `errors.adapterNotFound` 5로케일 추가 ④ error-i18n 핀 테스트 신설(방출 키 집합 × 5로케일 존재 검증 포함) — 기존 translateError 호출부 전체(MainApp:1348/:1543, Receive/SendFlow 등)의 잠복 버그 동시 해소
+- [x] 비관 리뷰 → REJECTED(B-1) → 수정 → 재리뷰 → 커밋
+
+## Phase 1 — 로그아웃 = 계정 데이터 완전 소거 (S-M, 프라이버시 실버그)
+목적 재확인: "이전 계정 데이터 잔존 제거"가 **coco DB(실제 자금)와 localStorage 앵커까지** 포함해야 함 (리뷰 BLOCKING-1·2).
+- [ ] wipe 로직을 composition 함수(`composition/logout.ts` 등)로 추출 — MainApp 인라인이면 테스트가 실코드를 못 잡음 (리뷰 MINOR-5)
+- [ ] **실행 순서 명문화** (리뷰 MAJOR-4): ① `support.destroy()`+`registry.dispose()` 유지(메모리 키 제로화·타이머 정지) → ② coco DB 삭제(대기형) → ③ `db.delete()`(대기형+폴백) → ④ localStorage 정책 적용 → ⑤ `broadcastSync('logout')` 신설(타 탭 즉시 reload; BroadcastChannel 부재 시 무시) → ⑥ `resetAll()` → ⑦ reload. 어느 단계든 실패 시 성공 가장 금지(에러 표면화)
+- [ ] **`deleteCocoData()` 재작성** (리뷰 BLOCKING-2): 현행 onblocked/onerror→resolve()(무음 성공)를 폐기 — onsuccess까지 대기+타임아웃, blocked/실패 시 에러 표면화. coco-indexeddb는 Dexie 기반이라 타 탭은 versionchange로 자동 close됨(대기 전략이 성립)
+- [ ] **zappi DB 소거 = clear-first, delete-best-effort** (리뷰 MAJOR-3 + 재심 MAJOR-R1 도치): ㉠ 살아있는 커넥션에서 `Promise.all(db.tables.map(t => t.clear()))` **선행**(버전 변경 불요 — 타 탭이 열려 있어도 블록 불가, 동적 열거로 나열-드리프트 차단) → ㉡ `db.delete()`는 타임아웃부 best-effort(성공 시 스키마까지 제거; blocked여도 데이터는 이미 소거됨). 어느 단계든 실패 시 에러 표면화. (역순은 불가 — Dexie delete()가 자기 커넥션을 먼저 닫아 타임아웃 시점엔 폴백이 커넥션을 얻지 못한다)
+- [ ] localStorage 정책: 삭제 — `passkey_credential`+`passkey_encrypted_pin_v3`(removePasskey가 legacy 포함 커버), **`zappi-anchor`(리뷰 BLOCKING-1 — 남기면 다른 니모닉 재온보딩이 full replay를 생략해 자금 미발견)**, `zappi_last_alive_at`, `zappi-balance-cache`(현행이 안 지우는 실버그 동시 수정). 유지 — `lockout`·`zappi_invite_*`(브루트포스 방어), `zappi-language`(선호), `zappi.ks.*`(기기 설정)
+- [ ] 죽은 `clearAllData` 삭제; `clearRecoverySyncState`는 로그아웃 경로에서 대체되므로 cleanup 표면 축소(anchor 정리가 위 localStorage 정책으로 승계됨을 커밋 메시지에 명기)
+- [ ] 테스트: fake-indexeddb로 로그아웃 후 전 테이블 소멸 + localStorage 정책(anchor 포함) + blocked 폴백 경로
+- [ ] 비관 리뷰 → 커밋
+
+## Phase 2 — 민트 URL 동등성 수렴 (M, 자금-표시 버그 지뢰)
+**원칙 재정의 (리뷰 BLOCKING-6 — 이전 문면은 자기모순)**: `normalizeMintUrl`(utils/url.ts)의 **의미는 동결한다**(저장·와이어 시점에 호출되므로 변경 = 저장 정규화 변경). 소문자화·기본 포트 제거는 **신설 `isSameMintUrl`/`mintUrlKey` 비교 전용 canonical 내부에만** 구현하고 export를 최소화한다.
+- [ ] `utils/url.ts`에 비교 전용 canonical(`mintUrlKey`: 파싱 기반 호스트 소문자화+기본 포트 제거+trailing slash 제거) + `isSameMintUrl` 확정, 변형 표기 회귀 테스트 표(:443, 대소문자, trailing slash, 경로)
+- [ ] **비교 사이트를 canonical로 교체**: remove-mint/cashu-recovery/routing/nostr-direct-payment/bootstrap(scoped fetcher)/external-mnemonic-discovery + 리뷰가 추가 발견한 비교 사이트(settings-trusted-account-store 내부 불일치, ContactsScreen:283, SendFlow:689, MainApp:1763, dexie-incoming-review-queue 자체 키)
+- [ ] **byMint 조회 miss도 이번 범위** (리뷰 MAJOR-7): balance.byMint 키는 coco-canonical인데 UI 4곳이 settings raw로 조회(ConfirmStep:61, AmountStep:62, MintSelectBottomSheet:65, UsernameChangeScreen:164) — `getMintBalance`를 canonical 기반으로 확장
+- [ ] 제외 확정: `customer-support-config`(민트가 아니라 서포트 릴레이 검증기 — 수렴 시 접속 파괴), `relayIdentity`(릴레이 전용 — pool과 동일 필수), wallet-cache.ts(Phase 3 삭제 예정 — 건너뜀)
+- [ ] AddMintScreen raw `===` 중복검사 3곳(:122/:223/:363)을 isSameMintUrl로 (기존 저장행과의 중복 생성 방지)
+- [ ] 비관 리뷰 → 커밋
+
+## Phase 3 — 죽은 코드 대청소 (S-M — Phase 4의 선행)
+삭제 전 참조 0 재확인 — **`await import(` 동적 패턴 포함** grep (동적 전용 모듈 15곳 존재).
+- [ ] LNURL-auth/withdraw 슬라이스: 6파일+driving 포트 2+레지스트리 타입(withdraw/lnurlAuth)+`{}` 스텁 제거. **생존 확인된 lnurl-gateway.port/direct-lnurl.adapter는 유지**(InputParser 경로). 테스트 레지스트리 스텁 3곳 동반 수정. `@noble/curves`는 같은 커밋에서 제거(유일 소비자)
+- [ ] primitives 정리 (리뷰 MAJOR-9 정정): **tabs.tsx는 살아있음**(ReceiveQRStep:16) — 선-마이그레이션(공용 컴포넌트로) 후 삭제하거나 tabs+`@radix-ui/react-tabs`만 존치. `cn`은 ui/lib/utils.ts가 원본이고 primitives/utils는 shim — **21개 import 경로 재지정**. 나머지 primitives+radix(사용분 제외)+embla/cmdk/vaul/input-otp 제거
+- [ ] **vite.config manualChunks 동반 수정** (리뷰 MAJOR-11): `vendor-nostr`에서 ndk 제거(직전 coco 마이그레이션의 동일 클래스 블로커 전례). 제거 후 **빌드 청크 산출 확인을 게이트에 추가**
+- [ ] 미사용 패키지 제거(ndk, sonner, react-resizable-panels, @noble/ciphers), @testing-library/dom devDeps 이동, 유령 postinstall 제거
+- [ ] 고아 정리 (리뷰 MINOR-12 정정): 훅 4종(use-balance/use-username/useNetworkStatus/use-recovery — **hooks/index.ts barrel 수정 동반**), common 컴포넌트 7종+barrel-only 5종(BalanceDisplay·CheckAnimation·CoinBounceAnimation·StatusBadge·UnifiedScanner — sub-barrel 수정 동반), FaceIdSettingPage, PinChangeModal. **wallet-cache.ts는 Phase 1이 로그아웃 호출부(MainApp:990-991)+bootstrap 배선을 제거한 뒤에만 삭제 가능**(순서 의존 명기). mock-store는 __tests__ 이동(테스트 2곳 import 수정). **`TokenCreate/mockData.ts`는 삭제**(importer 0), **개명 대상은 `Token/mockData.ts`**(importer 5 — token-view-model.ts로)
+- [ ] 유령 상태 제거(wallet.slice mints/updateMintStatus/setMints/셀렉터 3종+호출부 4곳, store activeMintUrl 이중화)
+- [ ] resetAll 재구성: 슬라이스별 고유 reset 이름 → resetAll은 호출만, 60줄 복제 삭제 (외부 `.reset()` 소비자 0 확인됨)
+- [ ] hex/bytes 변환 @noble/hashes/utils 통일, truncateStr·상대시간 중복 제거, MainApp **:616-621 `//old receive` 주석 블록** 삭제 (재심 R3 정정 — :592-606은 살아있는 자동잠금 코드, 오삭제 금지)
+- [ ] 묶음별 chain(+빌드 청크 확인) → **비관 리뷰** → 커밋(2~3분할)
+
+## Phase 4 — MainApp 분해 (L, 1~3 완료 후)
+순수 이동 원칙 + **예외 지점 명시** (리뷰 MAJOR-14).
+- [ ] 4a. `useAppNavigation` 추출 — 가장 안전. `setHasSettingsSubPage`(SettingsScreen과 공유)의 소유를 훅으로 결정
+- [ ] 4b+4c **공동 설계** (리뷰 MAJOR-14): `refreshAll`은 tx+balance 원자 갱신이고 13개+ 핸들러가 공유(3곳 await 의존) — transactions 훅이 **awaitable refresh(잔액 포함)**를 노출해 원자성 유지. 핸들러 훅 분리 순서: useSecurityHandlers → useMintHandlers → useReceiveHandlers → useSwapHandlers. 순수 이동 불가 지점(handleRejectIncomingReview의 네비+scan 상태 mutate, handleUnlock의 부트스트랩 심)은 개별 판단 기록
+- [ ] 4d. 화면 switch → 라우트 테이블 — token/token-detail 결합 블록(:1283-1374)과 state 가드 3곳은 기계 변환 불가로 예외 처리
+- [ ] `transitionPhase` 합법 전이 맵 (리뷰 MAJOR-13): **FinalityModel 인지 맵**으로 설계 — 현행 정당 전이(preparing→settled 즉시 melt, submitted→settled 즉시 finality, recoverable→settled reclaim)를 수용, 존재하지 않는 phase('delivered'/'expired') 도입 금지, settled→비종단 역행만 거부 — 독립 커밋
+- [ ] 화면 25종 스모크 체크리스트 작성 후 분해 단계마다 수행
+- [ ] 비관 리뷰(4 전체) → 커밋
+
+## 병행 (독립 — 아무 Phase 사이에나)
+- [ ] i18n 하드코딩 키化: TokenRawSheet 4곳·use-global-token-claim-toast·MainApp **:1338(영어)** — 한국어 :1362/:1365-66은 Phase 0 배정이므로 여기서 제외(이중 배정 금지), `CustomTypeOptions`(typeof en) 증강, `errors.serviceNotReady` 5로케일+고아 키 5개 삭제, support.* ja/es/id 88키 번역, PWAInstallGuard t()
+
+## 명시적 비범위 (의도적 이월 — 리뷰 MINOR-17로 명시화)
+- PBKDF2 반복수 상향(재암호화 마이그레이션 별도 설계), POS 키 반출 UX, 프로덕션 console drop
+- Result 타입 2종 통일, core 원시 throw 19곳, bootstrap 내부 절단, SendInputStep 선분리, payment.service findModuleForAccount 정직화, 온보딩 배선 composition 이동, proofs 툼스톤, 커버리지 임계, ui→adapters 2건 — 이번 라운드 제외(다음 라운드 후보)
+- 네트워크 개편 이월(§8.2/8.3, ks 구경로 삭제) — 검증 게이트 대기
+
+---
+
+# Previous Task — eCash External Claim Finalization + Token Toolbar Polish
 
 - [x] Trace why an externally claimed generated eCash token is not reflected immediately in the app
 - [x] Fix the app-side finalized send path without bypassing Coco proof-state detection

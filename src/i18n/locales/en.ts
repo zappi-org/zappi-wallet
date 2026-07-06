@@ -1017,6 +1017,7 @@ export default {
     networkError: 'A network error occurred',
     timeoutError: 'Request timed out',
     unknownError: 'An unknown error occurred',
+    adapterNotFound: 'No payment method available for this operation',
   },
 
   // Redirect
@@ -1466,6 +1467,8 @@ export default {
     },
     history: {
       section: 'History',
+      deleteSuccess: 'History deleted',
+      deleteFailed: 'Failed to delete history',
       group: {
         today: 'Today',
         yesterday: 'Yesterday',

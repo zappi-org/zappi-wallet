@@ -923,6 +923,7 @@ export default {
     networkError: 'Terjadi kesalahan jaringan',
     timeoutError: 'Permintaan timeout',
     unknownError: 'Terjadi kesalahan yang tidak diketahui',
+    adapterNotFound: 'Tidak ada metode pembayaran untuk operasi ini',
   },
 
   // Redirect
@@ -1369,6 +1370,8 @@ export default {
     },
     history: {
       section: 'Riwayat',
+      deleteSuccess: 'Riwayat dihapus',
+      deleteFailed: 'Gagal menghapus riwayat',
       group: {
         today: 'Hari ini',
         yesterday: 'Kemarin',

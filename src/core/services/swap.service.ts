@@ -330,9 +330,15 @@ export class SwapService implements SwapUseCase {
         ? `${primaryMessage} (cleanup failed: ${cleanupFailure.message})`
         : primaryMessage
 
+      // 실패 마킹이 실패해도 swap:failed 전파는 계속하되, 흔적 없는 무음 삼킴은 금지 —
+      // pending으로 남은 tx는 이후 recovery sweep이 다시 정리할 수 있도록 로그를 남긴다
       await Promise.all([
-        this.txRepo.update(sendTxId, { status: 'failed' }).catch(() => {}),
-        this.txRepo.update(receiveTxId, { status: 'failed' }).catch(() => {}),
+        this.txRepo.update(sendTxId, { status: 'failed' }).catch((markError) => {
+          console.error('[SwapService] Failed to mark send tx as failed:', sendTxId, markError)
+        }),
+        this.txRepo.update(receiveTxId, { status: 'failed' }).catch((markError) => {
+          console.error('[SwapService] Failed to mark receive tx as failed:', receiveTxId, markError)
+        }),
       ])
 
       this.eventBus.emit({

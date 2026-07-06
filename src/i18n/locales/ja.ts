@@ -930,6 +930,7 @@ export default {
     networkError: 'ネットワークエラーが発生しました',
     timeoutError: 'リクエストがタイムアウトしました',
     unknownError: '不明なエラーが発生しました',
+    adapterNotFound: 'この操作に使える決済手段が見つかりません',
   },
 
   // Redirect
@@ -1377,6 +1378,8 @@ export default {
     },
     history: {
       section: '履歴',
+      deleteSuccess: '履歴を削除しました',
+      deleteFailed: '履歴を削除できませんでした',
       group: {
         today: '今日',
         yesterday: '昨日',

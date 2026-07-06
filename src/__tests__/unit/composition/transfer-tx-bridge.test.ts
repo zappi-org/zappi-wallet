@@ -210,3 +210,143 @@ describe("TransferTxBridge - incoming ecash fee", () => {
     expect(savedTx.amount).toEqual({ value: 5000n, unit: "sat" });
   });
 });
+
+/**
+ * refresh 발화 계약 (감사 잔여 Phase 0, 리뷰 MAJOR-16 보강)
+ *
+ * 이 브리지가 거래내역 DB 를 바꾸고도 triggerTxRefresh 를 쏘지 않으면
+ * UI 는 다음 수동 새로고침까지 돈의 상태 변화를 보여주지 못한다.
+ * 각 생명주기 이벤트가 "DB 반영 후 refresh 발화"를 지키는지 핀한다.
+ */
+describe("TransferTxBridge - refresh 발화 계약", () => {
+  function makeBridge(opts: {
+    event: string;
+    transfer: Record<string, unknown>;
+    reason?: string;
+    existingTx?: Record<string, unknown> | null;
+  }) {
+    const triggerTxRefresh = vi.fn();
+    const mockTxRepo = {
+      getById: vi.fn().mockResolvedValue(opts.existingTx ?? null),
+      save: vi.fn().mockResolvedValue(undefined),
+      update: vi.fn().mockResolvedValue(undefined),
+      list: vi.fn().mockResolvedValue([]),
+    };
+    const mockEventBus = {
+      on: vi.fn((event, handler) => {
+        if (event === opts.event) {
+          handler({ payload: { transfer: opts.transfer, reason: opts.reason } });
+        }
+        return () => {};
+      }),
+    };
+    connectTransferTxBridge({
+      eventBus: mockEventBus as unknown as EventBus,
+      txRepo: mockTxRepo as unknown as TransactionRepository,
+      triggerTxRefresh,
+    });
+    return { triggerTxRefresh, mockTxRepo };
+  }
+
+  const baseTransfer = {
+    id: "transfer-r1",
+    txId: "tx-r1",
+    direction: "outgoing",
+    phase: "submitted",
+    amount: 1000,
+    transportRef: { type: "cashu-token", token: "cashuAtest" },
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+
+  it("transfer:submitted → pending TX 저장 후 refresh 발화", async () => {
+    const { triggerTxRefresh, mockTxRepo } = makeBridge({
+      event: "transfer:submitted",
+      transfer: baseTransfer,
+    });
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(mockTxRepo.save).toHaveBeenCalledOnce();
+    expect(triggerTxRefresh).toHaveBeenCalledOnce();
+  });
+
+  it("transfer:submitted 중복(기존 TX 존재) → 저장·refresh 모두 없음", async () => {
+    const { triggerTxRefresh, mockTxRepo } = makeBridge({
+      event: "transfer:submitted",
+      transfer: baseTransfer,
+      existingTx: { id: "tx-r1", status: "pending" },
+    });
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(mockTxRepo.save).not.toHaveBeenCalled();
+    expect(triggerTxRefresh).not.toHaveBeenCalled();
+  });
+
+  it("transfer:settled(기존 TX) → claimed 업데이트 후 refresh 발화", async () => {
+    const { triggerTxRefresh, mockTxRepo } = makeBridge({
+      event: "transfer:settled",
+      transfer: { ...baseTransfer, phase: "settled" },
+      existingTx: {
+        id: "tx-r1",
+        status: "pending",
+        protocol: "cashu-token",
+        metadata: {},
+      },
+    });
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(mockTxRepo.update).toHaveBeenCalledWith(
+      "tx-r1",
+      expect.objectContaining({ status: "settled", outcome: "claimed" }),
+    );
+    expect(triggerTxRefresh).toHaveBeenCalled();
+  });
+
+  it("transfer:reclaimed → reclaimed 업데이트 후 refresh 발화", async () => {
+    const { triggerTxRefresh, mockTxRepo } = makeBridge({
+      event: "transfer:reclaimed",
+      transfer: baseTransfer,
+      existingTx: { id: "tx-r1", status: "pending", metadata: {} },
+    });
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(mockTxRepo.update).toHaveBeenCalledWith(
+      "tx-r1",
+      expect.objectContaining({ status: "settled", outcome: "reclaimed" }),
+    );
+    expect(triggerTxRefresh).toHaveBeenCalledOnce();
+  });
+
+  it("transfer:failed(기존 TX) → failed 업데이트(+사유 보존) 후 refresh 발화", async () => {
+    const { triggerTxRefresh, mockTxRepo } = makeBridge({
+      event: "transfer:failed",
+      transfer: baseTransfer,
+      reason: "mint unreachable",
+      existingTx: { id: "tx-r1", status: "pending", metadata: {} },
+    });
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(mockTxRepo.update).toHaveBeenCalledWith(
+      "tx-r1",
+      expect.objectContaining({
+        status: "failed",
+        metadata: expect.objectContaining({ error: "mint unreachable" }),
+      }),
+    );
+    expect(triggerTxRefresh).toHaveBeenCalledOnce();
+  });
+
+  it("transfer:failed(TX 없음) → failed TX 신규 생성 후 refresh 발화", async () => {
+    const { triggerTxRefresh, mockTxRepo } = makeBridge({
+      event: "transfer:failed",
+      transfer: baseTransfer,
+      reason: "mint unreachable",
+    });
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(mockTxRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "tx-r1", status: "failed" }),
+    );
+    expect(triggerTxRefresh).toHaveBeenCalledOnce();
+  });
+});

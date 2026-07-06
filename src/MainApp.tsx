@@ -755,7 +755,7 @@ export default function MainApp() {
     })
 
     if (!result.ok) {
-      addToast({ type: 'error', message: result.error.message, duration: 4000 })
+      addToast({ type: 'error', message: translateError(result.error, t), duration: 4000 })
       return null
     }
 
@@ -766,7 +766,7 @@ export default function MainApp() {
       fee: toNumber(result.value.fee),
       transactionId: result.value.sendTxId,
     }
-  }, [serviceRegistry, refreshAll, addToast])
+  }, [serviceRegistry, refreshAll, addToast, t])
 
   /** Unified send handler via routing layer */
   const handleExecuteRoute = useCallback(async (
@@ -1359,11 +1359,10 @@ export default function MainApp() {
                             try {
                               await serviceRegistry.transactionMgmt.delete(token.id)
                               useAppStore.getState().triggerTxRefresh()
-                              addToast({ type: 'success', message: '내역을 삭제했어요' })
+                              addToast({ type: 'success', message: t('token.history.deleteSuccess') })
                             } catch (error) {
                               console.error('[MainApp] Failed to delete tx history:', error)
-                              const msg = error instanceof Error ? error.message : '내역 삭제 실패'
-                              addToast({ type: 'error', message: msg })
+                              addToast({ type: 'error', message: t('token.history.deleteFailed') })
                             }
                           }}
                         />

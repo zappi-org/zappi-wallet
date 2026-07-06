@@ -1014,6 +1014,7 @@ export default {
     networkError: '네트워크 오류가 발생했습니다',
     timeoutError: '요청 시간이 초과되었습니다',
     unknownError: '알 수 없는 오류가 발생했습니다',
+    adapterNotFound: '이 작업을 처리할 결제 수단을 찾을 수 없어요',
   },
 
   // Redirect
@@ -1467,6 +1468,8 @@ export default {
     },
     history: {
       section: '내역',
+      deleteSuccess: '내역을 삭제했어요',
+      deleteFailed: '내역을 삭제하지 못했어요',
       group: {
         today: '오늘',
         yesterday: '어제',

@@ -923,6 +923,7 @@ export default {
     networkError: 'Ocurrió un error de red',
     timeoutError: 'Tiempo de espera agotado',
     unknownError: 'Ocurrió un error desconocido',
+    adapterNotFound: 'No hay un método de pago disponible para esta operación',
   },
 
   // Redirect
@@ -1369,6 +1370,8 @@ export default {
     },
     history: {
       section: 'Historial',
+      deleteSuccess: 'Historial eliminado',
+      deleteFailed: 'No se pudo eliminar el historial',
       group: {
         today: 'Hoy',
         yesterday: 'Ayer',

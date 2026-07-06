@@ -28,7 +28,12 @@ export function getErrorI18n(error: unknown): ErrorI18n {
   if (error instanceof BaseError) {
     const override = resolveOverride(error)
     if (override) return override
-    return { key: `errors.${codeToCamelCase(error.code)}` }
+    // UNKNOWN 은 원인 메시지를 감싼 래퍼일 뿐이다 — convention 키(errors.unknown 은
+    // 어느 로케일에도 없다)로 보내지 않고 아래 메시지 패턴 매칭으로 폴백해
+    // "insufficient/expired/network" 같은 진단 정보를 살린다 (branch 2와 동일한 규칙)
+    if (error.code !== 'UNKNOWN') {
+      return { key: `errors.${codeToCamelCase(error.code)}` }
+    }
   }
 
   // 2. code 속성이 있는 객체 체크 (SDK 에러, Result 에러 등)
@@ -115,5 +120,13 @@ function resolveOverride(err: Record<string, unknown> | BaseError): ErrorI18n | 
  */
 export function translateError(error: unknown, t: (key: string, params?: Record<string, unknown>) => string): string {
   const { key, params } = getErrorI18n(error)
-  return t(key, params)
+  const translated = t(key, params)
+  // convention 키가 로케일에 없으면 i18next 는 키 문자열을 그대로 반환한다 —
+  // 사용자에게 리터럴 "errors.xxx" 가 노출되지 않도록 일반 오류 문구로 강등하되,
+  // 키 갭 자체는 개발자에게 들리게 남긴다 (무음 삼킴 금지)
+  if (translated === key) {
+    console.warn('[error-i18n] missing locale key:', key)
+    return t('errors.unknownError')
+  }
+  return translated
 }
