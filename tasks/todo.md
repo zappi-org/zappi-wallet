@@ -49,9 +49,9 @@
 순수 이동 원칙 + **예외 지점 명시** (리뷰 MAJOR-14).
 - [x] 4a. useAppNavigation 추출(리뷰 APPROVED): Screen 21유니온+탭 매핑+handleBack+history effect 3개, 인터페이스 9멤버. setHasSettingsSubPage는 훅 완전 소유(setter만 노출). 콜백 주입 0(계획이 예상한 handleBack scan 리셋은 실재하지 않음 — 화면 인라인 onBack 소관). 바이트-순수 이탈 3건(dep setter·refs 억제·effect 순서) 전부 자진 신고+리뷰 검증 승인. NIT: 훅 계약 테스트 4b 전 추가 권장
 - [x] 4b+4c 공동 설계(리뷰 APPROVED, b5c806a): useTransactions가 refreshAll 원자 소유(단일 참조 공유 실증)+훅 4종 분리. handleUnlock 잔류(부트스트랩 심 본질), handleRejectIncomingReview 영속만 이동+onRejected 주입(실패 경로 원본 동일). 내비 계약 테스트 9개 선행. MainApp 1724→1386
-- [ ] 4d. 화면 switch → 라우트 테이블 — token/token-detail 결합 블록(:1283-1374)과 state 가드 3곳은 기계 변환 불가로 예외 처리
+- [x] 4d. 화면 switch → 라우트 테이블 — token/token-detail 결합 블록(:1283-1374)과 state 가드 3곳은 기계 변환 불가로 예외 처리. 19화면 `screenRoutes` 테이블화(JSX 바이트-순수 이동 — 스크립트 대조 검증), 가드 2곳(transaction-detail/mint-detail)은 가드 내장 렌더 함수, token 결합 블록은 사유 주석 후 Suspense 분기 잔류(3번째 가드 selectedTokenDetail 포함). MainApp 1386→1410(테이블 주석/래퍼 비용 +24)
 - [x] `transitionPhase` 합법 전이 맵(리뷰 APPROVED): settled→비종단 역행만 throw(isTerminal 유도 — 병렬 배열 드리프트 차단), 현행 정당 전이 전부 수용, 테스트 13개. 리뷰가 호출 17곳 전수로 throw 도달 불가 구조 증명(resolveTransfer는 확인-후-전이 패턴). 후속 2건(re-fetch TOCTOU·settled→failed 조이기) 비범위 섹션 등재
-- [ ] 화면 25종 스모크 체크리스트 작성 후 분해 단계마다 수행
+- [x] 화면 25종 스모크 체크리스트 작성 후 분해 단계마다 수행 — docs/audit/screen-smoke-checklist.md (Screen 유니온 21 + 전역 UI 상태 4 = 25, 진입/이탈 전부 MainApp 실배선 기준). 수행은 각 분해 단계 수동 QA 몫
 - [ ] 비관 리뷰(4 전체) → 커밋
 
 ## 병행 (독립 — 아무 Phase 사이에나)
