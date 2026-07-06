@@ -50,7 +50,7 @@
 - [ ] 4a. `useAppNavigation` 추출 — 가장 안전. `setHasSettingsSubPage`(SettingsScreen과 공유)의 소유를 훅으로 결정
 - [ ] 4b+4c **공동 설계** (리뷰 MAJOR-14): `refreshAll`은 tx+balance 원자 갱신이고 13개+ 핸들러가 공유(3곳 await 의존) — transactions 훅이 **awaitable refresh(잔액 포함)**를 노출해 원자성 유지. 핸들러 훅 분리 순서: useSecurityHandlers → useMintHandlers → useReceiveHandlers → useSwapHandlers. 순수 이동 불가 지점(handleRejectIncomingReview의 네비+scan 상태 mutate, handleUnlock의 부트스트랩 심)은 개별 판단 기록
 - [ ] 4d. 화면 switch → 라우트 테이블 — token/token-detail 결합 블록(:1283-1374)과 state 가드 3곳은 기계 변환 불가로 예외 처리
-- [ ] `transitionPhase` 합법 전이 맵 (리뷰 MAJOR-13): **FinalityModel 인지 맵**으로 설계 — 현행 정당 전이(preparing→settled 즉시 melt, submitted→settled 즉시 finality, recoverable→settled reclaim)를 수용, 존재하지 않는 phase('delivered'/'expired') 도입 금지, settled→비종단 역행만 거부 — 독립 커밋
+- [x] `transitionPhase` 합법 전이 맵(리뷰 APPROVED): settled→비종단 역행만 throw(isTerminal 유도 — 병렬 배열 드리프트 차단), 현행 정당 전이 전부 수용, 테스트 13개. 리뷰가 호출 17곳 전수로 throw 도달 불가 구조 증명(resolveTransfer는 확인-후-전이 패턴). 후속 2건(re-fetch TOCTOU·settled→failed 조이기) 비범위 섹션 등재
 - [ ] 화면 25종 스모크 체크리스트 작성 후 분해 단계마다 수행
 - [ ] 비관 리뷰(4 전체) → 커밋
 
@@ -61,6 +61,7 @@
 - PBKDF2 반복수 상향(재암호화 마이그레이션 별도 설계), POS 키 반출 UX, 프로덕션 console drop
 - Result 타입 2종 통일, core 원시 throw 19곳, bootstrap 내부 절단, SendInputStep 선분리, payment.service findModuleForAccount 정직화, 온보딩 배선 composition 이동, proofs 툼스톤, 커버리지 임계, ui→adapters 2건 — 이번 라운드 제외(다음 라운드 후보)
 - 네트워크 개편 이월(§8.2/8.3, ks 구경로 삭제) — 검증 게이트 대기
+- **전이 가드 후속 2건 (transitionPhase 리뷰 기록)**: ① applyPhaseTransition 네트워크 await 후 re-fetch — in-memory 가드의 TOCTOU 우회(사전 존재 레이스) 봉인 ② settled→failed 조이기 + processIncomingTransfer:289 isTerminal 조기 반환(중복 incoming 이벤트가 TOKEN_SPENT 경유로 정산 기록을 failed 강등할 수 있는 경로)
 
 ---
 

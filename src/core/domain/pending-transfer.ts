@@ -55,11 +55,29 @@ export function createPendingTransfer(params: {
   }
 }
 
+/**
+ * phase 전이 (감사 Phase 4 독립 항목 — 구현은 FinalityModel 인지 최소 가드).
+ *
+ * 수용: 현행 정당 전이 전부 — preparing→settled(즉시 melt), submitted→settled
+ * (immediate finality), recoverable→settled(reclaim), 임의 비종단 간 이동,
+ * failed→submitted(재시도 계열). 새 phase 도입 없음.
+ *
+ * 거부: settled → 비종단 역행 단 하나. settled 는 "자금이 전달됨"의 기록이다 —
+ * 어떤 코드 경로(늦은 watcher 이벤트, 중복 confirm, 복구 sweep 경합)도 이를
+ * 미정산으로 되돌려선 안 된다. 역행은 이중 지출/이중 표시 버그의 은폐가 되므로
+ * 무음 무시가 아니라 throw 로 표면화한다.
+ */
 export function transitionPhase(
   transfer: PendingTransfer,
   newPhase: TransferPhase,
   now: number,
 ): PendingTransfer {
+  // isTerminal 에서 유도 — 병렬 배열이면 새 phase 추가 시 무음 허용 드리프트 (리뷰 MINOR-1)
+  if (transfer.phase === 'settled' && !isTerminal(newPhase)) {
+    throw new Error(
+      `Illegal phase transition: settled → ${newPhase} (transfer ${transfer.id})`,
+    )
+  }
   return { ...transfer, phase: newPhase, updatedAt: now }
 }
 
