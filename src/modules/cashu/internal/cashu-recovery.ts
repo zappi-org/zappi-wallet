@@ -5,6 +5,7 @@
  * DB/legacy 직접 접근 없음. SDK 호출은 주입된 인터페이스를 통해.
  */
 
+import { mintUrlKey } from '@/utils/url'
 import { toNumber } from '@/core/domain/amount'
 import { isExpired as isPendingOperationExpired, type PendingOperation } from '@/core/domain/pending-operation'
 import type { PendingOperationRepository } from '@/core/ports/driven/pending-operation.repository.port'
@@ -308,7 +309,7 @@ export async function recoverPendingQuotes(
   let expired = 0
   const now = Date.now()
   const normalizedActiveMintUrls = activeMintUrls
-    ? new Set(activeMintUrls.map(normalizeMintUrl))
+    ? new Set(activeMintUrls.map(mintUrlKey))
     : null
 
   const allPending = await pendingOpRepo.list()
@@ -328,7 +329,7 @@ export async function recoverPendingQuotes(
       continue
     }
 
-    if (normalizedActiveMintUrls && !normalizedActiveMintUrls.has(normalizeMintUrl(mintUrl))) {
+    if (normalizedActiveMintUrls && !normalizedActiveMintUrls.has(mintUrlKey(mintUrl))) {
       await txRepo.update(op.id, { status: 'failed', completedAt: now })
       failed++
       continue
@@ -376,10 +377,6 @@ function isExpiredQuoteOp(op: PendingOperation, now: number): boolean {
   return isPendingOperationExpired(op, now) || (op.expiresAt == null && (now - op.createdAt) > MAX_AGE_MS)
 }
 
-function normalizeMintUrl(mintUrl: string): string {
-  return mintUrl.endsWith('/') ? mintUrl.slice(0, -1) : mintUrl
-}
-
 // ─── Reconcile (로컬 정합 — 네트워크 0) ───
 
 /**
@@ -407,7 +404,7 @@ export async function reconcileMintQuotes(
   let failed = 0
   const now = Date.now()
   const normalizedActiveMintUrls = activeMintUrls
-    ? new Set(activeMintUrls.map(normalizeMintUrl))
+    ? new Set(activeMintUrls.map(mintUrlKey))
     : null
 
   const allPending = await pendingOpRepo.list()
@@ -426,7 +423,7 @@ export async function reconcileMintQuotes(
         }
         continue
       }
-      if (normalizedActiveMintUrls && !normalizedActiveMintUrls.has(normalizeMintUrl(mintUrl))) {
+      if (normalizedActiveMintUrls && !normalizedActiveMintUrls.has(mintUrlKey(mintUrl))) {
         await txRepo.update(op.id, { status: 'failed', completedAt: now })
         failed++
         continue

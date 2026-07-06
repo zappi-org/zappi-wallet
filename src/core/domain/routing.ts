@@ -6,6 +6,7 @@
  */
 
 import type { ValidatedData, ParsedCashuRequest } from './input-types'
+import { mintUrlKey } from './mint-url'
 
 // ─── Route Constants (as const for single source of truth) ───
 
@@ -159,8 +160,11 @@ export function selectSourceMint(
  * sender mints ∩ receiver mints
  */
 export function findCommonMints(senderMints: string[], receiverMints: string[]): string[] {
-  const receiverSet = new Set(receiverMints.map(normalizeUrl))
-  return senderMints.filter((m) => receiverSet.has(normalizeUrl(m)))
+  // 비교는 도메인 canonical(mintUrlKey) — :443·대소문자·프로토콜 생략 변형이 같은
+  // 민트를 "공통 없음"으로 판정해 고수수료 라우트로 열화하는 것을 막는다 (Phase 2).
+  // 반환은 sender 측 원문 — bestFitMint 의 raw byMint 조회와 정합 유지.
+  const receiverSet = new Set(receiverMints.map(mintUrlKey))
+  return senderMints.filter((m) => receiverSet.has(mintUrlKey(m)))
 }
 
 // ─── Internal Helpers ───
@@ -180,6 +184,3 @@ function bestFitMint(
   return fallback[0] || null
 }
 
-function normalizeUrl(url: string): string {
-  return url.replace(/\/+$/, '').toLowerCase()
-}

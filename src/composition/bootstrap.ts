@@ -75,6 +75,7 @@ import { TrustedMintProviderAdapter } from "@/adapters/runtime/trusted-mint-prov
 import { DexieIncomingReviewQueue } from "@/adapters/storage/dexie/dexie-incoming-review-queue.store";
 import { CrossTabSyncNotifierAdapter } from "@/adapters/runtime/cross-tab-sync-notifier.adapter";
 import { broadcastSync, getBroadcastChannel } from "@/utils/cross-tab-sync";
+import { isSameMintUrl } from "@/utils/url";
 import { DexieRouteExecutionStore } from "@/adapters/storage/dexie/dexie-route-execution-store";
 import { SettingsTrustedAccountStoreAdapter } from "@/adapters/runtime/settings-trusted-account-store.adapter";
 
@@ -862,9 +863,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const scopedCocoMintInfoFetcher = async (mintUrl: string) => {
     const registered = useAppStore
       .getState()
-      .settings.mints.some(
-        (m) => stripTrailingSlash(m) === stripTrailingSlash(mintUrl)
-      );
+      .settings.mints.some((m) => isSameMintUrl(m, mintUrl));
     if (!registered) return null;
     return getMintInfoFromCoco(mintUrl);
   };

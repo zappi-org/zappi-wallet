@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
 import { hapticTap } from '@/ui/utils/haptic'
 import { useAppStore } from '@/store'
+import { getMintBalance } from '@/utils/url'
 import { useWallet } from '@/ui/hooks/use-wallet'
 import { useMintHealth } from '@/ui/hooks/use-mint-health'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
@@ -62,7 +63,7 @@ function MintSelectBottomSheetInner({
     settings.mints.map((url: string) => ({
       url,
       name: getDisplayName(url),
-      balance: balance.byMint[url] || 0,
+      balance: getMintBalance(url, balance.byMint),
       isOnline: getCachedStatus(url)?.isOnline !== false,
       iconUrl: getIconUrl(url),
     })),

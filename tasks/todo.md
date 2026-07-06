@@ -26,12 +26,12 @@
 
 ## Phase 2 — 민트 URL 동등성 수렴 (M, 자금-표시 버그 지뢰)
 **원칙 재정의 (리뷰 BLOCKING-6 — 이전 문면은 자기모순)**: `normalizeMintUrl`(utils/url.ts)의 **의미는 동결한다**(저장·와이어 시점에 호출되므로 변경 = 저장 정규화 변경). 소문자화·기본 포트 제거는 **신설 `isSameMintUrl`/`mintUrlKey` 비교 전용 canonical 내부에만** 구현하고 export를 최소화한다.
-- [ ] `utils/url.ts`에 비교 전용 canonical(`mintUrlKey`: 파싱 기반 호스트 소문자화+기본 포트 제거+trailing slash 제거) + `isSameMintUrl` 확정, 변형 표기 회귀 테스트 표(:443, 대소문자, trailing slash, 경로)
-- [ ] **비교 사이트를 canonical로 교체**: remove-mint/cashu-recovery/routing/nostr-direct-payment/bootstrap(scoped fetcher)/external-mnemonic-discovery + 리뷰가 추가 발견한 비교 사이트(settings-trusted-account-store 내부 불일치, ContactsScreen:283, SendFlow:689, MainApp:1763, dexie-incoming-review-queue 자체 키)
-- [ ] **byMint 조회 miss도 이번 범위** (리뷰 MAJOR-7): balance.byMint 키는 coco-canonical인데 UI 4곳이 settings raw로 조회(ConfirmStep:61, AmountStep:62, MintSelectBottomSheet:65, UsernameChangeScreen:164) — `getMintBalance`를 canonical 기반으로 확장
-- [ ] 제외 확정: `customer-support-config`(민트가 아니라 서포트 릴레이 검증기 — 수렴 시 접속 파괴), `relayIdentity`(릴레이 전용 — pool과 동일 필수), wallet-cache.ts(Phase 3 삭제 예정 — 건너뜀)
-- [ ] AddMintScreen raw `===` 중복검사 3곳(:122/:223/:363)을 isSameMintUrl로 (기존 저장행과의 중복 생성 방지)
-- [ ] 비관 리뷰 → 커밋
+- [x] `utils/url.ts`에 비교 전용 canonical(`mintUrlKey`: 파싱 기반 호스트 소문자화+기본 포트 제거+trailing slash 제거+search 보존, 경로 대소문자 보존) + `isSameMintUrl`, 변형 표기 회귀 테스트 표 + **normalizeMintUrl 의미 동결 가드 테스트**
+- [x] **비교 사이트를 canonical로 교체**: remove-mint(비교만 — SDK/저장 경로는 slash-strip 보존)/cashu-recovery(Set 멤버십)/nostr-direct-payment(containsMint)/bootstrap scoped fetcher/settings-trusted-account-store(중복판정 isSameMintUrl + **저장을 normalizeMintUrl로 정렬** — 프로토콜 생략 입력이 raw 저장되던 내부 불일치 해소)/dexie-incoming-review-queue(normalizeMintKey→mintUrlKey 위임, 저장 raw 유지)/external-mnemonic-recovery(dedup을 canonical 키 Map으로 — 와이어는 원문 보존) + ContactsScreen·SendFlow·MainApp:1759 인라인 lowercase 비교 + **추가 발견** MainApp:824/:1058·UsernameChangeScreen 4곳의 normalizeMintUrl 비교(약한 canonical)도 수렴. **routing: 이중 리뷰가 내 "부재" 판정을 기각** — core/domain/routing.ts findCommonMints의 사설 normalizer(수수료 선택 경로)를 양쪽 리뷰가 독립 발견 → mintUrlKey로 수렴 + canonical을 core/domain/mint-url.ts로 이동(utils는 re-export — 층위 판정: 민트 동등성은 도메인 규칙, core→utils 신규 엣지 동시 소멸) + 변형 흡수 테스트
+- [x] **byMint 조회 miss** (리뷰 MAJOR-7): getMintBalance를 직접/슬래시 매치 → canonical 폴백으로 확장(`??` 시맨틱으로 잔액 0 정직 반환) + TokenCreate ConfirmStep:61/AmountStep:62·payment/MintSelectBottomSheet:65·UsernameChangeScreen selectedBalance 교체
+- [x] 제외 확정: `customer-support-config`(미접촉), `relayIdentity`(미접촉), wallet-cache.ts(Phase 1에서 이미 삭제)
+- [x] AddMintScreen raw `===` 중복검사 3곳(:122/:223/:363→362) isSameMintUrl로
+- [x] 비관 리뷰(가이드 REJECTED B-1 routing + 블라인드 독립 동일 발견) → 합집합 수정(core/domain/mint-url.ts 이동·findCommonMints 수렴·first-wins·테스트 2건·import flip) → 재리뷰 APPROVED → 커밋
 
 ## Phase 3 — 죽은 코드 대청소 (S-M — Phase 4의 선행)
 삭제 전 참조 0 재확인 — **`await import(` 동적 패턴 포함** grep (동적 전용 모듈 15곳 존재).

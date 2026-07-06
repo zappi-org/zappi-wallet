@@ -1,6 +1,7 @@
 import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-queue.port'
 import type { PendingIncomingReview } from '@/core/types'
 import type { Unit } from '@/core/domain/amount'
+import { mintUrlKey } from '@/utils/url'
 import { getDatabase, type IncomingReviewRecord } from './schema'
 
 /**
@@ -46,17 +47,11 @@ export class DexieIncomingReviewQueue implements IncomingReviewQueue {
   }
 }
 
-// 민트 동일성 비교 키 — 기본 포트(:443/:80)·호스트 대소문자·trailing slash를
-// 흡수한다. URL 파싱 불가 문자열은 소문자+슬래시 제거로 폴백.
+// 민트 동일성 비교 키 — 앱 전역 canonical(mintUrlKey)로 수렴 (감사 Phase 2).
+// 저장은 raw 그대로, 비교 시에만 키化하므로 기존 행과의 호환에 영향 없다.
+// 구버전 로컬 키와의 델타: 경로 대소문자를 이제 보존한다(경로는 대소문자 구분 자원).
 function normalizeMintKey(mintUrl: string): string {
-  try {
-    const url = new URL(mintUrl)
-    const path = url.pathname.endsWith('/') ? url.pathname.slice(0, -1) : url.pathname
-    return `${url.protocol}//${url.host}${path}`.toLowerCase()
-  } catch {
-    const trimmed = mintUrl.endsWith('/') ? mintUrl.slice(0, -1) : mintUrl
-    return trimmed.toLowerCase()
-  }
+  return mintUrlKey(mintUrl)
 }
 
 // bigint는 IDB 구현별 structured clone 편차가 있어 문자열로 왕복한다

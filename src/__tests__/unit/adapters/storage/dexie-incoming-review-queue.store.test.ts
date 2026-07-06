@@ -96,6 +96,28 @@ describe('DexieIncomingReviewQueue', () => {
     expect(reviews.map((r) => r.externalId)).toEqual(['a', 'b'])
   })
 
+  it('listByMint absorbs :443/host-case variants; path case is preserved (Phase 2 canonical)', async () => {
+    await queue.enqueue(
+      makeReview({
+        externalId: 'variant',
+        token: { ...makeReview().token, mintUrl: 'https://Mint.Test:443/' },
+      }),
+    )
+    await queue.enqueue(
+      makeReview({
+        externalId: 'path-case',
+        token: { ...makeReview().token, mintUrl: 'https://mint.test/API' },
+      }),
+    )
+
+    const matched = await queue.listByMint('https://mint.test')
+    expect(matched.map((r) => r.externalId)).toEqual(['variant'])
+
+    // 경로 대소문자는 구분 자원 — 별개 민트로 남는다
+    const pathMatched = await queue.listByMint('https://mint.test/api')
+    expect(pathMatched).toEqual([])
+  })
+
   it('remove deletes the row and notifies; removing a missing id is a no-op', async () => {
     await queue.enqueue(makeReview())
 

@@ -9,7 +9,7 @@ import { ConfirmDialog } from '@/ui/components/common/ConfirmDialog'
 import { useAppStore } from '@/store'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { generateMintAliases } from '@/utils/mint-name'
-import { normalizeMintUrl, formatMintHost } from '@/utils/url'
+import { normalizeMintUrl, formatMintHost, isSameMintUrl } from '@/utils/url'
 import { formatSats } from '@/utils/format'
 import { MintCard, getVariantByIndex } from '@/ui/components/wallet/MintCard'
 import type { MintInfo } from '@/core/types'
@@ -119,7 +119,7 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
 
     const normalizedUrl = normalizeMintUrl(targetUrl)
 
-    if (mints.some((m) => m === normalizedUrl)) {
+    if (mints.some((m) => isSameMintUrl(m, normalizedUrl))) {
       setError(t('addMint.alreadyAdded'))
       return
     }
@@ -220,7 +220,7 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
   // Request confirmation before adding
   const requestAdd = useCallback((mintUrl: string, mintName: string) => {
     const normalizedUrl = normalizeMintUrl(mintUrl)
-    if (mints.some((m) => m === normalizedUrl)) {
+    if (mints.some((m) => isSameMintUrl(m, normalizedUrl))) {
       setError(t('addMint.alreadyAdded'))
       return
     }
@@ -359,9 +359,8 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
         ) : (
           <div className="bg-background-card divide-y divide-border">
             {discoveredMints.map((mint, i) => {
-              const normalizedMintUrl = normalizeMintUrl(mint.url)
               const isAlreadyAdded = mints.some(
-                (m) => m === mint.url || m === normalizedMintUrl
+                (m) => isSameMintUrl(m, mint.url)
               )
               const totalTx = mint.n_mints + mint.n_melts
               const displayName = mint.name || formatMintHost(mint.url)

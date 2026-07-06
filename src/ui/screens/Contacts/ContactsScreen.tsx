@@ -10,6 +10,7 @@ import { ContactFormModal } from './ContactFormModal'
 import { useInputParser } from '@/ui/hooks/use-input-parser'
 import type { ValidatedData } from '@/core/domain/input-types'
 import { useAppStore } from '@/store'
+import { isSameMintUrl } from '@/utils/url'
 import { useContacts } from '@/ui/hooks/use-contacts'
 import type { Contact, ContactAddressType } from '@/core/types'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
@@ -280,7 +281,7 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
         }}
         selectedMintUrl={null}
         filterFn={pendingSend?.commonMintUrls
-          ? (mint) => pendingSend.commonMintUrls!.some((url) => url.replace(/\/+$/, '').toLowerCase() === mint.url.replace(/\/+$/, '').toLowerCase())
+          ? (mint) => pendingSend.commonMintUrls!.some((url) => isSameMintUrl(url, mint.url))
           : undefined}
       />
     </div>

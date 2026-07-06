@@ -23,7 +23,7 @@ import { useAppStore } from '@/store'
 import { useNetwork } from '@/ui/hooks/use-network'
 import { useWallet } from '@/ui/hooks/use-wallet'
 import { setMintNameResolver, toErrorMessage } from '@/ui/utils/error-message'
-import { normalizeMintUrl } from '@/utils/url'
+import { normalizeMintUrl, isSameMintUrl } from '@/utils/url'
 import { AnimatePresence, motion } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -821,7 +821,7 @@ export default function MainApp() {
     // 값이다 (4단계 리뷰 #3).
     const reviewMint = normalizeMintUrl(params.review.token.mintUrl)
     const currentMints = useAppStore.getState().settings.mints
-    if (currentMints.some((m) => normalizeMintUrl(m) === reviewMint)) {
+    if (currentMints.some((m) => isSameMintUrl(m, reviewMint))) {
       serviceRegistry.recoveryScheduler
         .drainReviewQueue(reviewMint)
         .catch((e) => console.warn('[App] review drain failed:', e))
@@ -1055,7 +1055,7 @@ export default function MainApp() {
 
       const url = normalizeMintUrl(mintUrl)
 
-      if (settings.mints.some((mint) => normalizeMintUrl(mint) === url)) {
+      if (settings.mints.some((mint) => isSameMintUrl(mint, url))) {
         await serviceRegistry.trustMint(url)
         return true
       }
@@ -1756,7 +1756,7 @@ export default function MainApp() {
         selectedMintUrl={null}
         filterFn={npubMintSelection
           ? (mint) => npubMintSelection.commonMintUrls.some(
-              (url) => url.replace(/\/+$/, '').toLowerCase() === mint.url.replace(/\/+$/, '').toLowerCase()
+              (url) => isSameMintUrl(url, mint.url)
             )
           : undefined}
       />

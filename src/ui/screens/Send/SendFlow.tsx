@@ -15,6 +15,7 @@ import { PageTransition } from '@/ui/components/common/PageTransition'
 import { useNetwork } from '@/ui/hooks/use-network'
 import { useInputParser } from '@/ui/hooks/use-input-parser'
 import { useAppStore } from '@/store'
+import { isSameMintUrl } from '@/utils/url'
 import { useTranslation } from 'react-i18next'
 import type {
   ValidatedData,
@@ -685,9 +686,7 @@ export function SendFlow({
         selectedMintUrl={state.selectedMintUrl}
         filterFn={
           mintSelection?.context === 'destination'
-            ? (mint) => mintSelection.commonMintUrls.some(
-                (url) => url.replace(/\/+$/, '').toLowerCase() === mint.url.replace(/\/+$/, '').toLowerCase()
-              )
+            ? (mint) => mintSelection.commonMintUrls.some((url) => isSameMintUrl(url, mint.url))
             : undefined
         }
         buttonLabel={
