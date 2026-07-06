@@ -52,7 +52,7 @@
 - [x] 4d. 화면 switch → 라우트 테이블 — token/token-detail 결합 블록(:1283-1374)과 state 가드 3곳은 기계 변환 불가로 예외 처리. 19화면 `screenRoutes` 테이블화(JSX 바이트-순수 이동 — 스크립트 대조 검증), 가드 2곳(transaction-detail/mint-detail)은 가드 내장 렌더 함수, token 결합 블록은 사유 주석 후 Suspense 분기 잔류(3번째 가드 selectedTokenDetail 포함). MainApp 1386→1410(테이블 주석/래퍼 비용 +24)
 - [x] `transitionPhase` 합법 전이 맵(리뷰 APPROVED): settled→비종단 역행만 throw(isTerminal 유도 — 병렬 배열 드리프트 차단), 현행 정당 전이 전부 수용, 테스트 13개. 리뷰가 호출 17곳 전수로 throw 도달 불가 구조 증명(resolveTransfer는 확인-후-전이 패턴). 후속 2건(re-fetch TOCTOU·settled→failed 조이기) 비범위 섹션 등재
 - [x] 화면 25종 스모크 체크리스트 작성 후 분해 단계마다 수행 — docs/audit/screen-smoke-checklist.md (Screen 유니온 21 + 전역 UI 상태 4 = 25, 진입/이탈 전부 MainApp 실배선 기준). 수행은 각 분해 단계 수동 QA 몫
-- [ ] 비관 리뷰(4 전체) → 커밋
+- [x] 비관 리뷰 — 4a/4b+4c/4d 각각 개별 APPROVED 후 커밋(bd34c66/b5c806a/46f03d5). 전이 가드는 독립 커밋(6bd9914)
 
 ## 병행 (독립 — 아무 Phase 사이에나)
 - [x] i18n 하드코딩 키化(리뷰 APPROVED): TokenRawSheet·claim-toast(ko 원문 byte-identical 보존)·MainApp 2곳·PWAInstallGuard 23키. CustomTypeOptions 증강이 **실버그 2건 적발**(onboarding.pinDigitsEntered 부재, payment.swapFailed 오타). errors.serviceNotReady 5로케일, 고아 5키 실증 삭제, support.* ja/es/id 각 140키 재번역+ko tls 6키 — 5로케일 1312키 missing 0/extra 0. **+리뷰 MINOR: es/id 토스트 유령 {{unit}} 4문자열 수정(기존 라이브 표시 버그) +NIT 채택: locale-parity 상주 테스트(구조+보간 변수 전수, allowlist 근거 주석制)**. 참조 0 en 키 후보 ~430개는 다음 라운드 기록
@@ -61,6 +61,8 @@
 - PBKDF2 반복수 상향(재암호화 마이그레이션 별도 설계), POS 키 반출 UX, 프로덕션 console drop
 - Result 타입 2종 통일, core 원시 throw 19곳, bootstrap 내부 절단, SendInputStep 선분리, payment.service findModuleForAccount 정직화, 온보딩 배선 composition 이동, proofs 툼스톤, 커버리지 임계, ui→adapters 2건 — 이번 라운드 제외(다음 라운드 후보)
 - 네트워크 개편 이월(§8.2/8.3, ks 구경로 삭제) — 검증 게이트 대기
+- **4d 리뷰 이월 2건**: screenRoutes(Partial)와 Screen 유니온의 전수 체크(테이블 키 ∪ 예외 2 = 유니온 — 무음 빈 화면 드리프트 방지, NON_TERMINAL_PHASES와 동류) / token 블록 디버그 console.log 2줄(프로덕션 console-drop 항목과 함께)
+- **4b+4c 리뷰 이월**: 훅 내부 콘솔 프리픽스 '[MainApp]' 일괄 개명 / txDetail source.unknown 폴백 헬퍼(i18n 리뷰 기록)
 - **전이 가드 후속 2건 (transitionPhase 리뷰 기록)**: ① applyPhaseTransition 네트워크 await 후 re-fetch — in-memory 가드의 TOCTOU 우회(사전 존재 레이스) 봉인 ② settled→failed 조이기 + processIncomingTransfer:289 isTerminal 조기 반환(중복 incoming 이벤트가 TOKEN_SPENT 경유로 정산 기록을 failed 강등할 수 있는 경로)
 
 ---
