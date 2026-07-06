@@ -5,6 +5,7 @@
  */
 
 import type { Encryption, EncryptedData } from '@/core/ports/driven/encryption.port'
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 
 const PBKDF2_ITERATIONS = 100_000
 
@@ -95,17 +96,9 @@ export class EncryptionAdapter implements Encryption {
 
 // ─── Helpers ───
 
-function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('')
-}
-
-function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2)
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16)
-  }
-  return bytes
-}
+// hex 변환은 @noble/hashes 로 통일 (Phase 3) — 구 로컬 hexToBytes 는 malformed
+// 입력에 무음으로 쓰레기를 만들었지만 noble 은 throw 한다. 이 어댑터의 hex 입력은
+// 전부 자기-생성 왕복(salt/iv)이라 유효 보장 — fail-loud 가 순수 이득.
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer)

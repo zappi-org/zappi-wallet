@@ -1,3 +1,5 @@
+import { bytesToHex } from '@noble/hashes/utils.js'
+
 function toBase64(bytes: Uint8Array): string {
   let output = ''
   for (let i = 0; i < bytes.length; i += 0x8000) {
@@ -15,10 +17,6 @@ function fromBase64(value: string): Uint8Array {
   return bytes
 }
 
-function toHex(bytes: Uint8Array): string {
-  return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('')
-}
-
 function asArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
 }
@@ -33,7 +31,7 @@ export interface EncryptedSupportAttachmentBlob {
 
 export async function sha256Hex(data: Uint8Array): Promise<string> {
   const hash = await crypto.subtle.digest('SHA-256', asArrayBuffer(data))
-  return toHex(new Uint8Array(hash))
+  return bytesToHex(new Uint8Array(hash))
 }
 
 export async function encryptSupportAttachment(data: Uint8Array): Promise<EncryptedSupportAttachmentBlob> {

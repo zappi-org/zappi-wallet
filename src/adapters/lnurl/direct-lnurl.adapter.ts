@@ -1,4 +1,5 @@
 import { decode } from 'light-bolt11-decoder'
+import { bytesToHex } from '@noble/hashes/utils.js'
 import type {
   LnurlGateway,
   LnurlResponse,
@@ -281,9 +282,7 @@ export class DirectLnurlAdapter implements LnurlGateway {
 
       const encoded = new TextEncoder().encode(metadata)
       const hashBuffer = await crypto.subtle.digest('SHA-256', encoded)
-      const hashHex = Array.from(new Uint8Array(hashBuffer))
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('')
+      const hashHex = bytesToHex(new Uint8Array(hashBuffer))
 
       if (hashSection.value !== hashHex) {
         throw new Error(

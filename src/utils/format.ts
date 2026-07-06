@@ -156,6 +156,11 @@ export function formatTransactionFiat(
   return liveFiatFormatter(amountSats)
 }
 
+/** 중앙 생략 트렁케이션 — 해시/토큰/URL 등 앞뒤가 의미 있는 긴 문자열용 */
+export function truncateStr(s: string, max = 36): string {
+  return s.length > max ? `${s.slice(0, 16)}...${s.slice(-16)}` : s
+}
+
 // ── Locale + date helpers ──
 
 const LOCALE_MAP: Record<string, string> = {

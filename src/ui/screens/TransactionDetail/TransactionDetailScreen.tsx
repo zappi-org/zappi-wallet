@@ -6,7 +6,7 @@ import { Button } from '@/ui/components/common/Button'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useReclaim } from '@/ui/hooks/use-reclaim'
 import { useTransactionMgmt } from '@/ui/hooks/use-transaction-mgmt'
-import { formatTransactionFiat, useFormatFiat, useFormatSats } from '@/utils/format'
+import { formatTransactionFiat, useFormatFiat, useFormatSats, truncateStr } from '@/utils/format'
 import {
   ArrowLeft,
   Check,
@@ -232,10 +232,6 @@ export default function TransactionDetailScreen({
       month: 'long', day: 'numeric',
       hour: '2-digit', minute: '2-digit',
     })
-  }
-
-  function truncateStr(s: string, max = 36) {
-    return s.length > max ? `${s.slice(0, 16)}...${s.slice(-16)}` : s
   }
 
   // ─── Reusable row components ───
