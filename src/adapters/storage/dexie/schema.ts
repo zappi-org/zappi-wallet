@@ -422,28 +422,3 @@ export async function clearMintData(mintUrl: string): Promise<void> {
     db.mintMetadata.where('url').anyOf(variants).delete(),
   ])
 }
-
-/**
- * Clear all data (for logout)
- */
-export async function clearAllData(): Promise<void> {
-  const db = getDatabase()
-  await Promise.all([
-    db.transactions.clear(),
-    db.failedIncomings.clear(),
-    db.processedRecords.clear(),
-    db.syncAnchor.clear(),
-    db.settings.clear(),
-    db.encryptedWallet.clear(),
-    db.lockState.clear(),
-    db.pendingMelts.clear(),
-    db.pendingSendTokens.clear(),
-    db.pendingReceivedTokens.clear(),
-    db.receiveRequests.clear(),
-    db.supportTickets.clear(),
-    db.supportMessages.clear(),
-    db.netCounters.clear(),
-    db.giftwrapCursors.clear(),
-    db.incomingReviews.clear(),
-  ])
-}

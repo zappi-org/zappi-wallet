@@ -1,7 +1,7 @@
 # Current Task — 감사 잔여 항목 실행 (2026-07-06 계획, 비관 리뷰 반영 v3)
 
 근거: docs/audit/2026-07-06-non-network-refactoring-audit.md + 계획 비관 리뷰(REJECTED 3건 → 반영).
-원칙: 매 Phase 커밋 분리, 매 Phase `bun run lint && bun run build && bun run test:run` 통과(`test`는 watch 모드), 자금 인접 Phase(0·1·2·**3**·4)는 비관적 리뷰 APPROVED 후 커밋(3도 resetAll·레지스트리 타입을 만지므로 포함 — 리뷰 MAJOR-11).
+원칙: 매 Phase 커밋 분리, 매 Phase `bun run lint && bun run build && bun run test:run` 통과(`test`는 watch 모드), 자금 인접 Phase(0·1·2·**3**·4)는 비관적 리뷰 APPROVED 후 커밋(3도 resetAll·레지스트리 타입을 만지므로 포함 — 리뷰 MAJOR-11). **추가(2026-07-06 소유자 승인): 자금·프라이버시 직접 Phase(1·2)는 가이드 리뷰 + 블라인드 2차 리뷰(요약·힌트 무제공) 병행, 합집합 수정 후 커밋.**
 
 ## Phase 0 — 안전망 선행 (S)
 이후 리팩토링의 회귀 감지망. 프로덕션 코드 변경은 swallow 2곳만.
@@ -15,14 +15,14 @@
 
 ## Phase 1 — 로그아웃 = 계정 데이터 완전 소거 (S-M, 프라이버시 실버그)
 목적 재확인: "이전 계정 데이터 잔존 제거"가 **coco DB(실제 자금)와 localStorage 앵커까지** 포함해야 함 (리뷰 BLOCKING-1·2).
-- [ ] wipe 로직을 composition 함수(`composition/logout.ts` 등)로 추출 — MainApp 인라인이면 테스트가 실코드를 못 잡음 (리뷰 MINOR-5)
-- [ ] **실행 순서 명문화** (리뷰 MAJOR-4): ① `support.destroy()`+`registry.dispose()` 유지(메모리 키 제로화·타이머 정지) → ② coco DB 삭제(대기형) → ③ `db.delete()`(대기형+폴백) → ④ localStorage 정책 적용 → ⑤ `broadcastSync('logout')` 신설(타 탭 즉시 reload; BroadcastChannel 부재 시 무시) → ⑥ `resetAll()` → ⑦ reload. 어느 단계든 실패 시 성공 가장 금지(에러 표면화)
-- [ ] **`deleteCocoData()` 재작성** (리뷰 BLOCKING-2): 현행 onblocked/onerror→resolve()(무음 성공)를 폐기 — onsuccess까지 대기+타임아웃, blocked/실패 시 에러 표면화. coco-indexeddb는 Dexie 기반이라 타 탭은 versionchange로 자동 close됨(대기 전략이 성립)
-- [ ] **zappi DB 소거 = clear-first, delete-best-effort** (리뷰 MAJOR-3 + 재심 MAJOR-R1 도치): ㉠ 살아있는 커넥션에서 `Promise.all(db.tables.map(t => t.clear()))` **선행**(버전 변경 불요 — 타 탭이 열려 있어도 블록 불가, 동적 열거로 나열-드리프트 차단) → ㉡ `db.delete()`는 타임아웃부 best-effort(성공 시 스키마까지 제거; blocked여도 데이터는 이미 소거됨). 어느 단계든 실패 시 에러 표면화. (역순은 불가 — Dexie delete()가 자기 커넥션을 먼저 닫아 타임아웃 시점엔 폴백이 커넥션을 얻지 못한다)
-- [ ] localStorage 정책: 삭제 — `passkey_credential`+`passkey_encrypted_pin_v3`(removePasskey가 legacy 포함 커버), **`zappi-anchor`(리뷰 BLOCKING-1 — 남기면 다른 니모닉 재온보딩이 full replay를 생략해 자금 미발견)**, `zappi_last_alive_at`, `zappi-balance-cache`(현행이 안 지우는 실버그 동시 수정). 유지 — `lockout`·`zappi_invite_*`(브루트포스 방어), `zappi-language`(선호), `zappi.ks.*`(기기 설정)
-- [ ] 죽은 `clearAllData` 삭제; `clearRecoverySyncState`는 로그아웃 경로에서 대체되므로 cleanup 표면 축소(anchor 정리가 위 localStorage 정책으로 승계됨을 커밋 메시지에 명기)
-- [ ] 테스트: fake-indexeddb로 로그아웃 후 전 테이블 소멸 + localStorage 정책(anchor 포함) + blocked 폴백 경로
-- [ ] 비관 리뷰 → 커밋
+- [x] wipe 로직을 `composition/logout.ts`(wipeAccountData)로 추출 — registry 부재(부트스트랩 전)에도 coco DB 포함 전부 소거 (구버전은 registry 없으면 coco 잔존)
+- [x] **실행 순서 명문화** (리뷰 MAJOR-4 → **이중 리뷰 BLOCKING 재배치**): ⓪ broadcastSync('logout') 선행(타 탭 부활-쓰기 창 차단 — 가이드 리뷰 M-1) → ① support.destroy()+registry.dispose()(실패해도 소거 계속) → ② coco DB 삭제(대기형) → ③ zappi DB clear-first/delete-best-effort → ④ **security.deleteWallet() 마지막 가멸 단계**(니모닉-먼저는 실패 시 "니모닉 소멸+평문 proofs 잔존+wrongPin 오표시+온보딩 상속" 반쪽 상태 — 가이드·블라인드 양쪽 BLOCKING, DB-먼저가 양방향 실패에 안전·멱등 재시도 성립) → ⑤ localStorage 정책 → ⑥ broadcast 재송신 → ⑦ resetAll() → reload(MainApp). 실패는 throw — SettingsScreen이 lock.errorOccurred로 표면화(false는 PIN 오류 전용). **+구제 경로(블라인드 처방)**: verifyPassword가 NO_WALLET이면 구버전 반쪽-상태 기기의 소거 재개를 허용
+- [x] **`deleteCocoData()` 재작성** (리뷰 BLOCKING-2): onsuccess까지 대기 + 타임아웃(기본 10s, 주입 가능) + onerror/타임아웃 reject. blocked는 대기 지속(타 탭 versionchange 자동 close). fake-indexeddb로 3경로(성공/blocked→해제/영구 블록→타임아웃) 실검증
+- [x] **zappi DB 소거 = clear-first, delete-best-effort** (MAJOR-3 + MAJOR-R1): ㉠ db.tables 동적 열거 clear 선행(실패 시 throw) → ㉡ db.delete() 5s 타임아웃 best-effort(블록/실패 시 warn 후 진행 — 데이터는 이미 소거)
+- [x] localStorage 정책: 삭제 — passkey(removePasskey 주입, 레거시 포함), zappi-anchor(BLOCKING-1), zappi_last_alive_at(STORAGE_KEYS.LAST_ALIVE로 승격), zappi-balance-cache(실버그 동시 수정). 유지 — lockout·zappi_invite_*, zappi-language, zappi.ks.*
+- [x] 죽은 clearAllData 삭제(proofs·contacts 등 5테이블 누락 드리프트의 실증); cleanup 표면 축소 — deleteCocoData/deleteAllContacts/clearRecoverySyncState/clearWalletCache/resetWalletCache/clearBalanceCache 제거(로그아웃 전용 소비자 소멸), clearMintData만 유지. anchor 정리는 localStorage 정책으로 승계. **+wallet-cache.ts 파일 삭제**(블라인드 M-2 — 이 커밋이 마지막 소비자를 제거해 완전 고아화; Phase 3 항목 선완료) **+LAST_ALIVE 상수 단일화**(bootstrap이 STORAGE_KEYS.LAST_ALIVE 참조 — 기록자·소거자 드리프트 차단)
+- [x] 테스트 14개: 순서 계약(invocationCallOrder)·registry null·실패 전파 3종·delete 블록 열화 2종·localStorage 정책·스토어 리셋(behavioral 10) + fake-indexeddb 통합(전 테이블+DB 소멸 1) + deleteCocoData 3경로
+- [x] 비관 리뷰 → 커밋
 
 ## Phase 2 — 민트 URL 동등성 수렴 (M, 자금-표시 버그 지뢰)
 **원칙 재정의 (리뷰 BLOCKING-6 — 이전 문면은 자기모순)**: `normalizeMintUrl`(utils/url.ts)의 **의미는 동결한다**(저장·와이어 시점에 호출되므로 변경 = 저장 정규화 변경). 소문자화·기본 포트 제거는 **신설 `isSameMintUrl`/`mintUrlKey` 비교 전용 canonical 내부에만** 구현하고 export를 최소화한다.

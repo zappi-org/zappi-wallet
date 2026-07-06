@@ -2,6 +2,7 @@ import { AppLifecycleWatcher } from '@/composition/app-lifecycle.watcher'
 import { createBootstrap, type BootstrapResult, type RouteContext, type RouteExecutionResult, type RouteSelection } from '@/composition/bootstrap'
 import { resolveIncomingReview } from '@/composition/incoming-review'
 import { createPreUnlockServices } from '@/composition/pre-unlock'
+import { wipeAccountData } from '@/composition/logout'
 import { DEFAULT_RELAYS, LIMITS } from '@/core/constants'
 import { sat, toNumber } from '@/core/domain/amount'
 import type { BaseError } from '@/core/errors/base'
@@ -977,28 +978,24 @@ export default function MainApp() {
 
   const handleLogout = useCallback(async (password: string): Promise<boolean> => {
     const result = await preUnlock.security.verifyPassword(password)
-    if (result.isOk() && result.value) {
-      await preUnlock.security.deleteWallet()
-      await preUnlock.settingsRepo.clearAll()
-      await preUnlock.txRepo.deleteAll()
-      if (serviceRegistry) {
-        await serviceRegistry.support.destroy().catch(() => undefined)
-        await serviceRegistry.cleanup.deleteAllContacts()
-        await serviceRegistry.cleanup.deleteCocoData()
-        // cursor·anchor 캐시 정리 — 같은 니모닉 복원이 재설치 full replay로 시작하게 (리뷰 #6)
-        await serviceRegistry.cleanup.clearRecoverySyncState().catch(() => undefined)
-        serviceRegistry.cleanup.clearWalletCache()
-        serviceRegistry.cleanup.resetWalletCache()
-      }
-      removePasskey()
-
-      useAppStore.getState().resetAll()
-
-      window.location.reload()
-      return true
+    // NO_WALLET = 과거 소거가 지갑 레코드 삭제 후 중단된 반쪽 상태(구버전 순서의
+    // 유산) — 검증할 비밀이 없는데 잔존 데이터는 있다. wrongPin 으로 오도하는 대신
+    // 소거를 재개시켜 탈출구를 준다 (Phase 1 이중 리뷰 처방).
+    const isHalfWipedState = result.isErr() && result.error.code === 'NO_WALLET'
+    if (!isHalfWipedState && !(result.isOk() && result.value)) {
+      return false // PIN 오류 — SettingsScreen 이 wrongPin 표시
     }
-    return false
-  }, [preUnlock.security, preUnlock.settingsRepo, preUnlock.txRepo, serviceRegistry])
+    // 소거 실패는 throw 그대로 전파 — SettingsScreen 이 lock.errorOccurred 로
+    // 표면화한다 (감사 Phase 1: 성공 가장 금지). 조각별 삭제는 wipeAccountData 로
+    // 대체 — registry 부재 시에도 coco DB 를 포함해 전부 소거된다.
+    await wipeAccountData({
+      security: preUnlock.security,
+      registry: serviceRegistry,
+      removePasskey,
+    })
+    window.location.reload()
+    return true
+  }, [preUnlock.security, serviceRegistry])
 
   /** Profile republish — bootstrap의 profileService 경유 */
   const republishProfile = useCallback(async (mints: string[], relays: string[]) => {

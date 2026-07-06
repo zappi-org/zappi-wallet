@@ -110,6 +110,8 @@ export const STORAGE_KEYS = {
   SETTINGS: 'zappi_settings',
   LOCK_STATE: 'zappi_lock_state',
   LAST_BACKGROUND_TIME: 'zappi_last_background_time',
+  /** 포그라운드 생존 heartbeat (bootstrap 기록, 로그아웃 시 소거) */
+  LAST_ALIVE: 'zappi_last_alive_at',
 } as const
 
 /**

@@ -20,7 +20,8 @@ export function useCrossTabSync() {
       const msg = event.data
       if (msg.type === 'balance_changed' || msg.type === 'tx_changed') {
         triggerTxRefresh()
-      } else if (msg.type === 'settings_changed') {
+      } else if (msg.type === 'settings_changed' || msg.type === 'logout') {
+        // logout: 소거 주체 탭이 데이터를 지웠다 — 이 탭도 reload 로 메모리 잔상을 버린다
         window.location.reload()
       }
     }

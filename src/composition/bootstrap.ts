@@ -47,7 +47,6 @@ import {
   addMint as trustMintInCoco,
   createExternalMnemonicRecovery,
   decodeTokenForPaymentPayload,
-  deleteCocoData,
   getMintInfoFromCoco,
   getMintOpStateLocal,
   getSendRecoveryOps,
@@ -61,9 +60,7 @@ import {
 } from "@/modules/cashu";
 import { RecoverySchedulerService } from "@/core/services/recovery-scheduler.service";
 import { resolveIncomingReview } from "./incoming-review";
-import { clearMintData, getDatabase } from "@/adapters/storage/dexie/schema";
-import { AnchorStoreAdapter } from "@/adapters/storage/anchor-store.adapter";
-import { resetWalletCache } from "@/adapters/cache/wallet-cache";
+import { clearMintData } from "@/adapters/storage/dexie/schema";
 import { LocalStorageBalanceCache } from "@/adapters/cache/local-storage-balance-cache.adapter";
 
 // ─── Phase 6: New Adapters ───
@@ -126,7 +123,7 @@ import { DexieGiftwrapCursorStore } from "@/adapters/storage/dexie/dexie-giftwra
 import { ZappiLinkAdapter } from "@/adapters/zappi-link/zappi-link.adapter";
 import { finalizeEvent } from "nostr-tools";
 import { hexToBytes } from "@noble/hashes/utils.js";
-import { DEFAULT_RELAYS, NOSTR_KINDS } from "@/core/constants";
+import { DEFAULT_RELAYS, NOSTR_KINDS, STORAGE_KEYS } from "@/core/constants";
 import { DexieReceiveRequestRepository } from "@/adapters/storage/dexie/dexie-receive-request.repository";
 
 // ─── Nostr Watcher (Adapter Layer) ───
@@ -206,22 +203,13 @@ export interface BootstrapResult extends ServiceRegistry {
   // ─── Balance refresh (store 갱신 포함, composition root 와이어링) ───
   refreshBalance(): Promise<void>;
 
-  // ─── Cleanup (로그아웃용) ───
+  // ─── Cleanup ───
+  // 로그아웃 소거는 composition/logout.ts(wipeAccountData)가 전담한다 —
+  // 조각별 삭제(deleteCocoData/deleteAllContacts/clearRecoverySyncState 등)는
+  // 전 테이블 clear + DB delete + localStorage 정책으로 승계됨 (감사 Phase 1).
   readonly cleanup: {
-    deleteCocoData(): Promise<void>;
-    clearWalletCache(): void;
+    /** 민트 1곳 제거 시 관련 아티팩트 정리 (remove-mint 플로우 전용) */
     clearMintData(mintUrl: string): Promise<void>;
-    resetWalletCache(): void;
-    clearBalanceCache(): void;
-    deleteAllContacts(): Promise<void>;
-    /**
-     * 로그아웃 시 recovery 동기화 상태 초기화 (리뷰 #6): giftwrapCursors +
-     * incomingReviews + anchor 캐시. cursor를 남기면 같은 니모닉 복원이
-     * "재설치 full replay" 대신 바운디드 창으로 시작해 Ω보다 오래된 미상환
-     * 토큰을 놓치고, review를 남기면 다음 계정의 부팅 hydrate가 이전 계정
-     * review를 부활시킨다 (4단계 리뷰 #1).
-     */
-    clearRecoverySyncState(): Promise<void>;
   };
 
   // ─── Exchange rate ───
@@ -541,7 +529,9 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   // visibilitychange:hidden을 못 남기므로, 포그라운드 동안 60초마다 기록한
   // lastAliveAt으로 "얼마나 오래 떠나 있었나"를 판정한다. 기록 부재·손상 시
   // 5분 초과로 간주(보수적 = 전수 재확인).
-  const LAST_ALIVE_KEY = "zappi_last_alive_at";
+  // 키는 STORAGE_KEYS 로 단일화 — 로그아웃(wipeAccountData)의 소거 대상과
+  // 기록자가 같은 상수를 봐야 드리프트가 불가능하다 (Phase 1 리뷰 M-1)
+  const LAST_ALIVE_KEY = STORAGE_KEYS.LAST_ALIVE;
   const RESUME_RECHECK_THRESHOLD_MS = 5 * 60 * 1000;
   const markAlive = () => {
     try {
@@ -1036,12 +1026,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     // Balance refresh (store 갱신 포함)
     refreshBalance: balanceRefresh,
 
-    // Cleanup
+    // Cleanup — 로그아웃 전체 소거는 composition/logout.ts 소관
     cleanup: {
-      deleteCocoData,
-      clearWalletCache: () => {
-        /* no-op: cashu-ts wallet cache no longer used */
-      },
       clearMintData: (mintUrl: string) =>
         removeMintArtifacts(
           {
@@ -1051,18 +1037,6 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
           },
           mintUrl
         ),
-      resetWalletCache,
-      clearBalanceCache: () => balanceCache.clear(),
-      deleteAllContacts: () => contactRepo.deleteAll(),
-      clearRecoverySyncState: async () => {
-        await getDatabase().giftwrapCursors.clear();
-        // review 대기열도 sync 유래 상태다 — 남기면 다음 계정의 부팅 hydrate가
-        // 이전 계정의 review를 부활시켜 타 계정 토큰이 오상환될 수 있다
-        // (4단계 리뷰 #1 blocker: 구 메모리 큐는 reload에 소멸했으므로
-        // 영속화가 만든 신규 회귀 — 로그아웃에서 반드시 삭제).
-        await getDatabase().incomingReviews.clear();
-        new AnchorStoreAdapter().clearCachedAnchor();
-      },
     },
 
     // Exchange rate

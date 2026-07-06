@@ -66,13 +66,39 @@ export async function resetCocoManager(): Promise<void> {
   }
 }
 
-export async function deleteCocoData(): Promise<void> {
+const COCO_DB_DELETE_TIMEOUT_MS = 10_000
+
+/**
+ * 자금 DB(zappi-coco-wallet) 삭제 — 로그아웃 완전 소거의 핵심 (감사 Phase 1, 리뷰 BLOCKING-2).
+ *
+ * 구버전은 onerror/onblocked 에서도 resolve 해 "무음 성공 가장"이었다 — 다른 탭이
+ * 열려 있으면 자금 DB 가 통째로 살아남는데 로그아웃은 성공으로 보였다.
+ * 이제 onsuccess 까지 대기한다: coco-indexeddb 는 Dexie 기반이라 다른 탭 커넥션은
+ * versionchange 로 자동 close 되어 blocked 는 일시 상태다. 타임아웃·에러는 reject 로
+ * 표면화해 호출자(로그아웃)가 성공을 가장하지 못하게 한다.
+ */
+export async function deleteCocoData(opts?: { timeoutMs?: number }): Promise<void> {
   await resetCocoManager()
-  return new Promise<void>((resolve) => {
+  const timeoutMs = opts?.timeoutMs ?? COCO_DB_DELETE_TIMEOUT_MS
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`Coco DB delete timed out after ${timeoutMs}ms (blocked by another connection?)`))
+    }, timeoutMs)
     const request = indexedDB.deleteDatabase('zappi-coco-wallet')
-    request.onsuccess = () => { logger.info('Database deleted'); resolve() }
-    request.onerror = () => { logger.error('Delete failed:', request.error as Error); resolve() }
-    request.onblocked = () => { logger.warn('Delete blocked'); resolve() }
+    request.onsuccess = () => {
+      clearTimeout(timer)
+      logger.info('Database deleted')
+      resolve()
+    }
+    request.onerror = () => {
+      clearTimeout(timer)
+      logger.error('Delete failed:', request.error as Error)
+      reject(request.error ?? new Error('Coco DB delete failed'))
+    }
+    request.onblocked = () => {
+      // 대기 지속 — 타 탭이 versionchange 로 close 하면 onsuccess 가 후행한다
+      logger.warn('Delete blocked — waiting for other connections to close')
+    }
   })
 }
 
