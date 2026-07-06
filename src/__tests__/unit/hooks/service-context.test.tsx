@@ -120,6 +120,9 @@ function createMockRegistry(): ServiceRegistry {
     externalWalletRecovery: {
       recoverFromMnemonic: vi.fn(),
     } as unknown as ServiceRegistry['externalWalletRecovery'],
+    diagnostics: {
+      readNetCounters: vi.fn().mockResolvedValue({}),
+    },
     transferLifecycle: {
       initiateTransfer: vi.fn(),
       pollPendingTransfers: vi.fn(),

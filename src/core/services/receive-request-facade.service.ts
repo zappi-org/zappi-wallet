@@ -13,6 +13,7 @@ import {
   normalizeReceivePaymentMethodType,
 } from '@/core/domain/receive-request'
 import { toNumber } from '@/core/domain/amount'
+import { ReceiveRequestInvalidError } from '@/core/errors/payment.errors'
 
 export class ReceiveRequestFacadeService implements ReceiveRequestUseCase {
   constructor(private readonly repo: ReceiveRequestRepository) {}
@@ -41,7 +42,7 @@ export class ReceiveRequestFacadeService implements ReceiveRequestUseCase {
     }
 
     if (paymentMethods.length === 0) {
-      throw new Error('ReceiveRequest requires at least one payment method')
+      throw new ReceiveRequestInvalidError('ReceiveRequest requires at least one payment method')
     }
 
     const req = domainCreate({
@@ -102,7 +103,7 @@ export class ReceiveRequestFacadeService implements ReceiveRequestUseCase {
 function requireReceiveMethod(method: string): ReceivePaymentMethodType {
   const normalized = normalizeReceivePaymentMethodType(method)
   if (!normalized) {
-    throw new Error(`Unsupported receive method: ${method}`)
+    throw new ReceiveRequestInvalidError(`Unsupported receive method: ${method}`)
   }
   return normalized
 }

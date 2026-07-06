@@ -82,8 +82,8 @@ describe('SecurityService', () => {
     it('creates wallet and returns keys + seed', async () => {
       const result = await service.createWallet(TEST_MNEMONIC, 'pin1234')
 
-      expect(result.isOk()).toBe(true)
-      if (result.isOk()) {
+      expect(result.ok).toBe(true)
+      if (result.ok) {
         expect(result.value.keys).toEqual(TEST_KEYS)
         expect(result.value.bip39Seed).toBe(TEST_SEED)
       }
@@ -105,8 +105,8 @@ describe('SecurityService', () => {
 
       const result = await service.createWallet('bad words', 'pin')
 
-      expect(result.isErr()).toBe(true)
-      if (result.isErr()) {
+      expect(result.ok).toBe(false)
+      if (!result.ok) {
         expect(result.error.code).toBe('INVALID_MNEMONIC')
       }
       expect(storage.saveWallet).not.toHaveBeenCalled()
@@ -124,8 +124,8 @@ describe('SecurityService', () => {
     it('unlocks with correct password', async () => {
       const result = await service.unlock('pin1234')
 
-      expect(result.isOk()).toBe(true)
-      if (result.isOk()) {
+      expect(result.ok).toBe(true)
+      if (result.ok) {
         expect(result.value.keys).toEqual(TEST_KEYS)
         expect(result.value.bip39Seed).toBe(TEST_SEED)
       }
@@ -136,8 +136,8 @@ describe('SecurityService', () => {
 
       const result = await service.unlock('wrong-pin')
 
-      expect(result.isErr()).toBe(true)
-      if (result.isErr()) {
+      expect(result.ok).toBe(false)
+      if (!result.ok) {
         expect(result.error.code).toBe('INVALID_PASSWORD')
       }
     })
@@ -147,8 +147,8 @@ describe('SecurityService', () => {
 
       const result = await service.unlock('pin1234')
 
-      expect(result.isErr()).toBe(true)
-      if (result.isErr()) {
+      expect(result.ok).toBe(false)
+      if (!result.ok) {
         expect(result.error.code).toBe('NO_WALLET')
       }
     })
@@ -164,7 +164,7 @@ describe('SecurityService', () => {
     it('changes password successfully', async () => {
       const result = await service.changePassword('old-pin', 'new-pin')
 
-      expect(result.isOk()).toBe(true)
+      expect(result.ok).toBe(true)
       expect(encryption.decrypt).toHaveBeenCalled()
       expect(encryption.encrypt).toHaveBeenCalledWith(TEST_MNEMONIC, 'new-pin')
       // saveWallet called twice: create + change
@@ -176,8 +176,8 @@ describe('SecurityService', () => {
 
       const result = await service.changePassword('wrong', 'new')
 
-      expect(result.isErr()).toBe(true)
-      if (result.isErr()) {
+      expect(result.ok).toBe(false)
+      if (!result.ok) {
         expect(result.error.code).toBe('INVALID_PASSWORD')
       }
     })
@@ -193,8 +193,8 @@ describe('SecurityService', () => {
     it('returns true for correct password', async () => {
       const result = await service.verifyPassword('pin1234')
 
-      expect(result.isOk()).toBe(true)
-      if (result.isOk()) expect(result.value).toBe(true)
+      expect(result.ok).toBe(true)
+      if (result.ok) expect(result.value).toBe(true)
     })
 
     it('returns false for wrong password', async () => {
@@ -202,8 +202,8 @@ describe('SecurityService', () => {
 
       const result = await service.verifyPassword('wrong')
 
-      expect(result.isOk()).toBe(true)
-      if (result.isOk()) expect(result.value).toBe(false)
+      expect(result.ok).toBe(true)
+      if (result.ok) expect(result.value).toBe(false)
     })
   })
 
@@ -217,8 +217,8 @@ describe('SecurityService', () => {
     it('returns mnemonic with correct password', async () => {
       const result = await service.getMnemonic('pin1234')
 
-      expect(result.isOk()).toBe(true)
-      if (result.isOk()) expect(result.value).toBe(TEST_MNEMONIC)
+      expect(result.ok).toBe(true)
+      if (result.ok) expect(result.value).toBe(TEST_MNEMONIC)
     })
 
     it('rejects wrong password', async () => {
@@ -226,7 +226,7 @@ describe('SecurityService', () => {
 
       const result = await service.getMnemonic('wrong')
 
-      expect(result.isErr()).toBe(true)
+      expect(result.ok).toBe(false)
     })
   })
 

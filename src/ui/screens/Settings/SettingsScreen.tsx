@@ -232,7 +232,7 @@ export function SettingsScreen({
     if (!ENABLE_LIGHTNING_ADDRESS_SETTINGS) return
     if (!nostrPubkey || settings.lightningAddress) return
     registry.username.getAddress(nostrPubkey).then((result) => {
-      if (result.isOk() && result.value) {
+      if (result.ok && result.value) {
         saveSettings({
           lightningAddress: result.value.address,
           zappiLinkApiUrl: ZAPPI_LINK_URL,
@@ -254,7 +254,7 @@ export function SettingsScreen({
         settings.relays,
       )
       const result = await registry.username.registerAddress(nostrPrivkey)
-      if (result.isErr()) {
+      if (!result.ok) {
         addToast({ type: 'error', message: t('settings.lightningAddressRegistrationFailed') })
         return
       }

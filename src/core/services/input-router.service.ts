@@ -5,6 +5,7 @@
  * UI 레이어가 ParsedInput을 받아 적절한 서비스/화면으로 분기.
  */
 
+import { UnrecognizedInputError } from '@/core/errors/payment.errors'
 import type { LnurlGateway } from '@/core/ports/driven/lnurl-gateway.port'
 import type { InputRouterUseCase, ParsedInput } from '@/core/ports/driving/input-router.usecase'
 import { lnurlDecode } from '@/core/domain/nostr-address'
@@ -60,7 +61,7 @@ export class InputRouter implements InputRouterUseCase {
       return { type: 'address', value: stripped, addressType: 'email' }
     }
 
-    throw new Error(`Unrecognized input: ${input}`)
+    throw new UnrecognizedInputError(`Unrecognized input: ${input}`)
   }
 
   private async classifyLnurl(lnurl: string): Promise<ParsedInput> {

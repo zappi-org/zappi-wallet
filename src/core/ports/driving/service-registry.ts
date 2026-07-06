@@ -36,6 +36,7 @@ import type { TrustRegistry } from '@/core/ports/driving/trust-registry.usecase'
 import type { SupportUseCase } from '@/core/ports/driving/support.usecase'
 import type { NostrDirectPaymentUseCase } from '@/core/ports/driving/nostr-direct-payment.usecase'
 import type { ExternalWalletRecoveryUseCase } from '@/core/ports/driving/external-wallet-recovery.usecase'
+import type { DiagnosticsUseCase } from '@/core/ports/driving/diagnostics.usecase'
 import type { TransferLifecycleService } from '@/core/services/transfer-lifecycle.service'
 
 export interface ServiceRegistry {
@@ -72,5 +73,7 @@ export interface ServiceRegistry {
   readonly support: SupportUseCase
   readonly nostrDirectPayment: NostrDirectPaymentUseCase
   readonly externalWalletRecovery: ExternalWalletRecoveryUseCase
+  /** 진단 카운터 읽기 — DiagnosticsPage 전용 (설계 §12) */
+  readonly diagnostics: DiagnosticsUseCase
   readonly transferLifecycle: TransferLifecycleService
 }

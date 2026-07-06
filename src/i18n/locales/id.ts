@@ -749,6 +749,12 @@ export default {
     unknownError: 'Terjadi kesalahan yang tidak diketahui',
     adapterNotFound: 'Tidak ada metode pembayaran untuk operasi ini',
     serviceNotReady: 'Layanan sedang disiapkan. Coba lagi sebentar lagi.',
+    invalidDestination: 'Alamat tujuan tidak dikenali',
+    unrecognizedInput: 'Format input tidak dikenali',
+    lnurlParseFailed: 'LNURL ini tidak dapat diproses',
+    transferStateInvalid: 'Transfer ini tidak dapat diproses lagi',
+    receiveRequestInvalid: 'Permintaan penerimaan tidak valid',
+    supportTicketResolved: 'Tiket dukungan ini sudah diselesaikan',
   },
 
   // Redirect

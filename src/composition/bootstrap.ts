@@ -117,6 +117,7 @@ import { createNut18HttpPollerFactory } from "./nut18-poller-factory";
 import {
   flushNetCounters,
   incrementNetCounter,
+  readNetCounters,
   startNetCounterFlusher,
 } from "@/adapters/telemetry/net-counters";
 import { readKillSwitches } from "@/core/utils/kill-switch";
@@ -173,7 +174,7 @@ import type {
   RouteContext,
   RouteExecutionResult,
 } from "@/core/domain/routing";
-import type { Result } from "@/core/types/result";
+import type { Result } from "@/core/domain/result";
 import type { BaseError } from "@/core/errors";
 
 export type RouteResult = Result<RouteExecutionResult, BaseError>;
@@ -999,6 +1000,9 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     support,
     nostrDirectPayment,
     externalWalletRecovery,
+    // 진단 카운터 읽기 표면 — UI가 net-counters 어댑터를 직접 import하지 않도록
+    // 여기서 주입 (R2-B 5번)
+    diagnostics: { readNetCounters },
     transferLifecycle,
 
     // ─── BootstrapResult extensions (MainApp only) ───

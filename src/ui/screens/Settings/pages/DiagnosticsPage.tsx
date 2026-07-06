@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Copy, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import {
-  readNetCounters,
-  type NetCounterName,
-} from '@/adapters/telemetry/net-counters'
 import { KILL_SWITCH_NAMES, readKillSwitches } from '@/core/utils/kill-switch'
+import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { SettingsDetailPage } from '../components/SettingsDetailPage'
 
 /**
@@ -22,17 +19,19 @@ interface DiagnosticsPageProps {
 
 export function DiagnosticsPage({ onBack }: DiagnosticsPageProps) {
   const { t } = useTranslation()
-  const [counters, setCounters] = useState<Record<NetCounterName, number> | null>(null)
+  // 카운터 읽기는 registry 포트 경유 — adapters/telemetry 직접 import 금지 (R2-B 5번)
+  const { diagnostics } = useServiceRegistry()
+  const [counters, setCounters] = useState<Record<string, number> | null>(null)
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
   // 마운트 시점 스냅샷 — 런타임도 bootstrap 스냅샷으로 동작하므로 여기 표시가
   // 실동작과 일치한다(변경은 다음 잠금 해제부터 적용, 하단 안내 문구)
   const [killSwitches] = useState(() => readKillSwitches())
 
   const refresh = useCallback(() => {
-    readNetCounters()
+    diagnostics.readNetCounters()
       .then(setCounters)
       .catch((e) => console.warn('[Diagnostics] counter read failed:', e))
-  }, [])
+  }, [diagnostics])
 
   useEffect(() => {
     refresh()

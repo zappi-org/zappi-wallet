@@ -749,6 +749,12 @@ export default {
     unknownError: 'Ocurrió un error desconocido',
     adapterNotFound: 'No hay un método de pago disponible para esta operación',
     serviceNotReady: 'El servicio se está iniciando. Inténtalo de nuevo en un momento.',
+    invalidDestination: 'Dirección de destino no reconocida',
+    unrecognizedInput: 'Formato de entrada no reconocido',
+    lnurlParseFailed: 'No se pudo procesar este LNURL',
+    transferStateInvalid: 'Esta transferencia ya no se puede procesar',
+    receiveRequestInvalid: 'Solicitud de recepción no válida',
+    supportTicketResolved: 'Esta consulta ya está resuelta',
   },
 
   // Redirect

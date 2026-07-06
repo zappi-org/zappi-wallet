@@ -5,6 +5,7 @@
  * NutZap, NUT-18, LNURL 등 사용 가능한 결제 수단을 반환.
  */
 
+import { InvalidDestinationError } from '@/core/errors/payment.errors'
 import type { ContactAddressType } from '@/core/domain/contact'
 import type { NostrFilter } from '@/core/domain/nostr'
 import type { LnurlPayParams } from '@/core/ports/driven/lnurl-gateway.port'
@@ -134,7 +135,7 @@ function detectType(address: string): ContactAddressType {
   if (address.startsWith('nprofile1')) return 'nprofile'
   if (address.startsWith('lno1') || address.startsWith('lno1q')) return 'bolt12'
   if (address.includes('@')) return 'email'
-  throw new Error(`Unknown address type: ${address}`)
+  throw new InvalidDestinationError(`Unknown address type: ${address}`)
 }
 
 function compact<T extends Record<string, unknown>>(obj: T): T {

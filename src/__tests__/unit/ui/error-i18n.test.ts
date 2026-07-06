@@ -87,6 +87,15 @@ describe('방출 키 집합 — 5개 로케일 전부에 존재해야 한다', (
     'errors.adapterNotFound',
     'payment.insufficientBalance',
     'receive.tokenReceiveFeeTooHigh',
+    // R2-B: core 서비스 원시 throw → 도메인 에러 전환으로 convention 경유가 된 코드들.
+    // 키-부재 강등 가드가 있지만, 강등되면 진단 정보가 죽으므로 존재를 핀으로 고정한다.
+    'errors.serviceNotReady',
+    'errors.invalidDestination',
+    'errors.unrecognizedInput',
+    'errors.lnurlParseFailed',
+    'errors.transferStateInvalid',
+    'errors.receiveRequestInvalid',
+    'errors.supportTicketResolved',
   ] as const
 
   const LOCALES = { en, ko, ja, es, id } as const

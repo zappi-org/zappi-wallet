@@ -4,11 +4,7 @@ import type { BaseError } from '@/core/errors/base'
 import { ServiceNotReadyError, UnknownError } from '@/core/errors/base'
 import { TokenSpentError, KeysetSyncError } from '@/core/errors/cashu'
 import type { ServiceRegistry } from '@/core/ports/driving/service-registry'
-import { TokenCodecAdapter } from '@/adapters/codec/token-codec.adapter'
 import { useCallback } from 'react'
-
-// TokenCodecAdapter singleton (pure adapter, no deps)
-const tokenCodec = new TokenCodecAdapter()
 
 interface RedeemTokenResult {
   success: boolean
@@ -18,18 +14,22 @@ interface RedeemTokenResult {
 }
 
 /**
- * Token을 파싱하여 금액과 민트 URL을 추출
- * TokenCodecAdapter 사용 (cashuA/cashuB/CBOR 모두 지원)
+ * Token을 파싱하여 금액과 민트 URL을 추출 (cashuA/cashuB/CBOR 모두 지원).
+ * 코덱은 registry.inputParser 포트 경유 — 훅이 어댑터 구현체를 직접
+ * 인스턴스화하지 않는다 (R2-B 5번, 감사 §2).
  */
-function parseTokenInfo(token: string): { amount: number; mintUrl: string; memo?: string } | null {
+function parseTokenInfo(
+  inputParser: ServiceRegistry['inputParser'],
+  token: string,
+): { amount: number; mintUrl: string; memo?: string } | null {
   try {
     console.log('[parseTokenInfo] Input token length:', token.length, 'starts with:', token.slice(0, 20))
-    
-    const inspection = tokenCodec.inspectCashuToken(token)
+
+    const inspection = inputParser.inspectCashuToken(token)
     const amount = toNumber(inspection.amount)
     const mintUrl = inspection.mint
     const memo = inspection.memo
-    
+
     console.log('[parseTokenInfo] TokenCodec result:', { amount, mintUrl, memo })
     return { amount, mintUrl, memo }
   } catch (e) {
@@ -110,7 +110,7 @@ export function useRedeemToken(
     // TLS 기반 토큰 등록
     try {
       // 1. 토큰 정보 파싱
-      const tokenInfo = parseTokenInfo(token)
+      const tokenInfo = parseTokenInfo(serviceRegistry.inputParser, token)
       console.log('[useRedeemToken] Parsed token:', tokenInfo)
       if (!tokenInfo) {
         return { success: false, error: new UnknownError('invalid_token') }

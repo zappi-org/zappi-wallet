@@ -14,13 +14,14 @@
 - [x] 비관 리뷰 APPROVED(i18n 방법론 조건 충족 판정 — contacts.verify.* 신규 보호가 방법론 가치 실증, 449키 삭제·3키 보류·바닥 여유 조정) → 커밋
 
 ## R2-B — 계약 정직화 (M)
-- [ ] Result 타입 통일: **승자 = 유니언형 (감사 기결정 — 클래스형 삭제, 비테스트 소비 6파일뿐)**. 실측은 6파일 목록 재확인용. security.service 계열(verifyPassword/unlock) 포함 시 자금-인접 — 비관 리뷰 필수 명기
-- [ ] core 원시 throw 19곳 → 도메인 에러(BaseError): 호출부 catch 전수 추적 + translateError convention 키 커버리지(누락 시 로케일 키 동반)
-- [ ] findModuleForAccount: 감사 처방 양자택일 보존 — **accountId 매칭 구현 또는 파라미터 제거** (+reclaim/redeem 유스케이스 분리) — 실측 후 택일, 근거 기록
-- [ ] **VERIFY_FAILED→wrongPin 오표시 수정** (Phase 1 리뷰 NIT 승격 — 스토리지 read 예외가 "PIN 오류"로 표시되던 것: 인프라 실패는 lock.errorOccurred 계열로)
-- [ ] ui→adapters 직접 import 2건 절단 (use-redeem-token:7,11 + DiagnosticsPage:7 — 포트 경유)
-- [ ] (후보) error-message.ts / error-i18n.ts 에러-변환 이원화 통합
-- [ ] 비관 리뷰 → 커밋
+- [x] Result 타입 통일: **승자 = 유니언형 (감사 기결정 — 클래스형 삭제, 비테스트 소비 6파일뿐)**. 실측은 6파일 목록 재확인용. security.service 계열(verifyPassword/unlock) 포함 시 자금-인접 — 비관 리뷰 필수 명기
+- [x] core/services 원시 throw 18곳 전환(실측 — 66c2154 이후 1 감소; core/domain 16곳은 감사 스코프 밖 의도 제외, R3 후보) → 도메인 에러(BaseError): 호출부 catch 전수 추적 + translateError convention 키 커버리지(누락 시 로케일 키 동반)
+- [x] findModuleForAccount → findEnabledModule (택일 b: 파라미터 제거 — accountId→module 매핑 원천 부재 실증) — **accountId 매칭 구현 또는 파라미터 제거** (+reclaim/redeem 유스케이스 분리) — 실측 후 택일, 근거 기록
+- [x] **VERIFY_FAILED→wrongPin 오표시 수정** (+동클래스 CHANGE_PASSWORD/GET_MNEMONIC 동반 — 리뷰 승인. **형제 handleUnlock UNLOCK_FAILED = lockout 카운터 소모 버그 — 독립 소묶음 차기**) (Phase 1 리뷰 NIT 승격 — 스토리지 read 예외가 "PIN 오류"로 표시되던 것: 인프라 실패는 lock.errorOccurred 계열로)
+- [x] ui→adapters 직접 import 2건 절단(inputParser 재사용 + diagnostics 읽기 포트) (use-redeem-token:7,11 + DiagnosticsPage:7 — 포트 경유)
+- [ ] (이월 — 리뷰 동의) error-message/error-i18n 통합: 시맨틱 실차이 3건 실재, 독립 리뷰 단위
+- [x] 비관 리뷰 APPROVED → 커밋
+- [ ] **handleUnlock UNLOCK_FAILED 소묶음 (리뷰 승격)**: LockScreen 인프라 실패가 wrongPin 표시 + lockout 카운터 소모 — 정당 사용자가 브루트포스 방어에 잠기는 경로. 에러 분기 신설
 
 ## R2-C — 구조 (M-L)
 - [ ] bootstrap 내부 절단: 도메인 묶음별 조립 함수로 분해 (순수 이동 + 자진 신고 규율 — Phase 4 방법론)

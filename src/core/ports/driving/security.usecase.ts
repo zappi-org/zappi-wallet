@@ -1,5 +1,5 @@
 import type { KeyPair } from '@/core/domain/key-manager'
-import type { Result } from '@/core/types/result'
+import type { Result } from '@/core/domain/result'
 import type { SecurityError } from '@/core/errors/security'
 
 export interface UnlockResult {

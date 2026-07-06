@@ -64,7 +64,7 @@ function App() {
         data.password
       )
 
-      if (result.isErr()) {
+      if (!result.ok) {
         console.error('[Onboarding] Wallet creation failed:', result.error)
         return false
       }

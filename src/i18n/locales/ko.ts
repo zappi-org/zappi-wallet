@@ -751,6 +751,12 @@ export default {
     unknownError: '알 수 없는 오류가 발생했습니다',
     adapterNotFound: '이 작업을 처리할 결제 수단을 찾을 수 없어요',
     serviceNotReady: '서비스를 준비하고 있어요. 잠시 후 다시 시도해 주세요.',
+    invalidDestination: '인식할 수 없는 수신 주소예요',
+    unrecognizedInput: '인식할 수 없는 입력 형식이에요',
+    lnurlParseFailed: '이 LNURL은 처리할 수 없어요',
+    transferStateInvalid: '더 이상 처리할 수 없는 전송이에요',
+    receiveRequestInvalid: '잘못된 수신 요청이에요',
+    supportTicketResolved: '이미 종결된 문의예요',
   },
 
   // Redirect

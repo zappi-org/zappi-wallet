@@ -16,6 +16,7 @@ import type { FailedIncomingStore } from '@/core/ports/driven/failed-incoming-st
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { EventBus } from '@/core/events/event-bus'
 import { toNumber } from '@/core/domain/amount'
+import { BaseError } from '@/core/errors/base'
 
 type ReceiveRequestSettlement = Pick<ReceiveRequestUseCase, 'settleByPaymentRef'>
 
@@ -52,7 +53,9 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
       })
 
       if (!redeemResult.ok) {
-        throw new Error(redeemResult.error.message)
+        // 도메인 에러를 그대로 전파 — 메시지만 뽑아 재포장하면 code가 소실되어
+        // catch의 already-spent 판정과 translateError 매핑이 문자열 의존이 된다
+        throw redeemResult.error
       }
 
       const amount = toNumber(redeemResult.value.amount)
@@ -105,7 +108,9 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
       return { status: 'success', amount, fee, requestFulfilled: settlement.matched }
     } catch (error) {
       const errorMsg = String(error)
-      const isAlreadySpent = errorMsg.toLowerCase().includes('already spent')
+      const isAlreadySpent =
+        (error instanceof BaseError && error.code === 'TOKEN_SPENT') ||
+        errorMsg.toLowerCase().includes('already spent')
 
       if (isAlreadySpent) {
         const settlement = await this.settleReceiveRequest(params)

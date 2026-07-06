@@ -76,8 +76,8 @@ describe('RouteExecutionService', () => {
       memo: 'hello',
     })
 
-    expect(result.isOk()).toBe(true)
-    if (result.isErr()) return
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
     expect(operator.prepareTokenSend).toHaveBeenCalledWith({
       mintUrl: 'https://mint-a.test',
       amount: 100,
@@ -165,8 +165,8 @@ describe('RouteExecutionService', () => {
       {},
     )
 
-    expect(result.isOk()).toBe(true)
-    if (result.isErr()) return
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
 
     expect(mockTransferLifecycle.initiateTransfer).toHaveBeenCalledWith(
       expect.objectContaining({

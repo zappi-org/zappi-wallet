@@ -11,7 +11,7 @@ import type { SecureStorage, StoredWallet } from '@/core/ports/driven/secure-sto
 import type { SeedCache } from '@/core/ports/driven/seed-cache.port'
 import type { KeyPair } from '@/core/domain/key-manager'
 import type { SecurityUseCase, UnlockResult } from '@/core/ports/driving/security.usecase'
-import { ok, err, type Result } from '@/core/types/result'
+import { Ok, Err, type Result } from '@/core/domain/result'
 import { SecurityError } from '@/core/errors/security'
 
 // ─── Service ───
@@ -40,7 +40,7 @@ export class SecurityService implements SecurityUseCase {
   ): Promise<Result<UnlockResult, SecurityError>> {
     try {
       if (!this.keyManager.validateMnemonic(mnemonic)) {
-        return err(new SecurityError('INVALID_MNEMONIC', 'Invalid mnemonic phrase'))
+        return Err(new SecurityError('INVALID_MNEMONIC', 'Invalid mnemonic phrase'))
       }
 
       const keys = this.keyManager.deriveNostrKeyPair(mnemonic)
@@ -64,9 +64,9 @@ export class SecurityService implements SecurityUseCase {
       this.cachedSeed = bip39Seed
       this.seedCache.cacheMnemonic(mnemonic)
 
-      return ok({ keys, bip39Seed })
+      return Ok({ keys, bip39Seed })
     } catch (error) {
-      return err(new SecurityError('CREATE_WALLET_FAILED', String(error)))
+      return Err(new SecurityError('CREATE_WALLET_FAILED', String(error)))
     }
   }
 
@@ -74,12 +74,12 @@ export class SecurityService implements SecurityUseCase {
     try {
       const wallet = await this.storage.getWallet()
       if (!wallet) {
-        return err(new SecurityError('NO_WALLET', 'No wallet found'))
+        return Err(new SecurityError('NO_WALLET', 'No wallet found'))
       }
 
       const passwordHash = await this.encryption.hashPassword(password, wallet.passwordSalt)
       if (!constantTimeEqual(passwordHash, wallet.passwordHash)) {
-        return err(new SecurityError('INVALID_PASSWORD', 'Invalid password'))
+        return Err(new SecurityError('INVALID_PASSWORD', 'Invalid password'))
       }
 
       const mnemonic = await this.encryption.decrypt(wallet.encryptedMnemonic, password)
@@ -90,9 +90,9 @@ export class SecurityService implements SecurityUseCase {
       this.cachedSeed = bip39Seed
       this.seedCache.cacheMnemonic(mnemonic)
 
-      return ok({ keys, bip39Seed })
+      return Ok({ keys, bip39Seed })
     } catch (error) {
-      return err(new SecurityError('UNLOCK_FAILED', String(error)))
+      return Err(new SecurityError('UNLOCK_FAILED', String(error)))
     }
   }
 
@@ -100,13 +100,13 @@ export class SecurityService implements SecurityUseCase {
     try {
       const wallet = await this.storage.getWallet()
       if (!wallet) {
-        return err(new SecurityError('NO_WALLET', 'No wallet found'))
+        return Err(new SecurityError('NO_WALLET', 'No wallet found'))
       }
 
       const passwordHash = await this.encryption.hashPassword(password, wallet.passwordSalt)
-      return ok(constantTimeEqual(passwordHash, wallet.passwordHash))
+      return Ok(constantTimeEqual(passwordHash, wallet.passwordHash))
     } catch (error) {
-      return err(new SecurityError('VERIFY_FAILED', String(error)))
+      return Err(new SecurityError('VERIFY_FAILED', String(error)))
     }
   }
 
@@ -117,12 +117,12 @@ export class SecurityService implements SecurityUseCase {
     try {
       const wallet = await this.storage.getWallet()
       if (!wallet) {
-        return err(new SecurityError('NO_WALLET', 'No wallet found'))
+        return Err(new SecurityError('NO_WALLET', 'No wallet found'))
       }
 
       const oldHash = await this.encryption.hashPassword(oldPassword, wallet.passwordSalt)
       if (!constantTimeEqual(oldHash, wallet.passwordHash)) {
-        return err(new SecurityError('INVALID_PASSWORD', 'Invalid password'))
+        return Err(new SecurityError('INVALID_PASSWORD', 'Invalid password'))
       }
 
       const mnemonic = await this.encryption.decrypt(wallet.encryptedMnemonic, oldPassword)
@@ -138,9 +138,9 @@ export class SecurityService implements SecurityUseCase {
       }
 
       await this.storage.saveWallet(updatedWallet)
-      return ok(undefined)
+      return Ok(undefined)
     } catch (error) {
-      return err(new SecurityError('CHANGE_PASSWORD_FAILED', String(error)))
+      return Err(new SecurityError('CHANGE_PASSWORD_FAILED', String(error)))
     }
   }
 
@@ -148,18 +148,18 @@ export class SecurityService implements SecurityUseCase {
     try {
       const wallet = await this.storage.getWallet()
       if (!wallet) {
-        return err(new SecurityError('NO_WALLET', 'No wallet found'))
+        return Err(new SecurityError('NO_WALLET', 'No wallet found'))
       }
 
       const passwordHash = await this.encryption.hashPassword(password, wallet.passwordSalt)
       if (!constantTimeEqual(passwordHash, wallet.passwordHash)) {
-        return err(new SecurityError('INVALID_PASSWORD', 'Invalid password'))
+        return Err(new SecurityError('INVALID_PASSWORD', 'Invalid password'))
       }
 
       const mnemonic = await this.encryption.decrypt(wallet.encryptedMnemonic, password)
-      return ok(mnemonic)
+      return Ok(mnemonic)
     } catch (error) {
-      return err(new SecurityError('GET_MNEMONIC_FAILED', String(error)))
+      return Err(new SecurityError('GET_MNEMONIC_FAILED', String(error)))
     }
   }
 

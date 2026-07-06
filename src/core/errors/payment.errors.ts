@@ -26,6 +26,42 @@ export class AdapterNotFoundError extends BaseError {
 }
 
 /**
+ * Destination address is not in any recognized format
+ */
+export class InvalidDestinationError extends BaseError {
+  readonly code = 'INVALID_DESTINATION' as const
+  readonly isRetryable = false
+
+  constructor(message: string, cause?: unknown) {
+    super(message, cause)
+  }
+}
+
+/**
+ * Raw input (QR/paste) could not be classified into any known type
+ */
+export class UnrecognizedInputError extends BaseError {
+  readonly code = 'UNRECOGNIZED_INPUT' as const
+  readonly isRetryable = false
+
+  constructor(message: string, cause?: unknown) {
+    super(message, cause)
+  }
+}
+
+/**
+ * ReceiveRequest construction/lookup received invalid parameters
+ */
+export class ReceiveRequestInvalidError extends BaseError {
+  readonly code = 'RECEIVE_REQUEST_INVALID' as const
+  readonly isRetryable = false
+
+  constructor(message: string, cause?: unknown) {
+    super(message, cause)
+  }
+}
+
+/**
  * Plain error shape for Result<T, PaymentError> usage
  * @deprecated Use BaseError subclasses instead
  */

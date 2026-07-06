@@ -529,7 +529,7 @@ export default function MainApp() {
   const handleUnlock = useCallback(async (password: string): Promise<boolean> => {
     try {
       const result = await preUnlock.security.unlock(password)
-      if (result.isOk()) {
+      if (result.ok) {
         // Set nostr key pair in store
         setNostrKeyPair(result.value.keys.publicKey, result.value.keys.privateKey)
 
@@ -639,7 +639,7 @@ export default function MainApp() {
     try {
       const result = await serviceRegistry.executeRoute(selection, context)
 
-      if (result.isOk()) {
+      if (result.ok) {
         refreshAll().catch((e) => console.error('[MainApp] refreshAll after route execution:', e))
         return result.value
       }

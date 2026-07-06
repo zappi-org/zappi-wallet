@@ -112,7 +112,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
       setIsCheckingUsername(true)
       try {
         const result = await registry.username.checkUsername(newUsername)
-        if (result.isErr()) {
+        if (!result.ok) {
           setUsernameError(t('settings.usernameChangeFailed'))
           return
         }
@@ -132,7 +132,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
         // Fetch server defaults for fee info (via ref to avoid dependency loop)
         if (!serverDefaultsRef.current) {
           const defaultsResult = await registry.username.getDefaults()
-          if (defaultsResult.isOk()) {
+          if (defaultsResult.ok) {
             serverDefaultsRef.current = defaultsResult.value
             setProviderDefaults(defaultsResult.value)
             autoSelectMint(defaultsResult.value)
@@ -253,7 +253,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
 
       // Submit username change
       const result = await registry.username.changeUsername(nostrPrivkey, newUsername, cashuToken)
-      if (result.isErr()) {
+      if (!result.ok) {
         addToast({ type: 'error', message: String((result.error as { message?: string }).message ?? t('settings.paymentFailed')) })
         return
       }

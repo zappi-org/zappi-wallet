@@ -12,7 +12,7 @@ import { amount as amt } from '@/core/domain/amount'
 import type { Result } from '@/core/domain/result'
 import { Err, Ok } from '@/core/domain/result'
 import { createTransaction, settleAsDelivered, settleAsReclaimed } from '@/core/domain/transaction'
-import { BaseError, UnknownError } from '@/core/errors/base'
+import { BaseError, ServiceNotReadyError, UnknownError } from '@/core/errors/base'
 import { AdapterNotFoundError, ModuleNotFoundError } from '@/core/errors/payment.errors'
 import type { EventBus } from '@/core/events/event-bus'
 import type { OperationMap } from '@/core/ports/driven/operation-map.port'
@@ -133,7 +133,7 @@ export class PaymentService implements PaymentUseCase {
     memo?: string
     options?: Record<string, unknown>
   }): Promise<Result<SendResult, BaseError>> {
-    const module = this.findModuleForAccount(params.accountId)
+    const module = this.findEnabledModule()
     if (!module) {
       return Err(new ModuleNotFoundError(`No module found for account: ${params.accountId}`))
     }
@@ -239,8 +239,16 @@ export class PaymentService implements PaymentUseCase {
     }
   }
 
-  private findModuleForAccount(_accountId: string): WalletModule | undefined {
-    // TODO: accountId로 정확한 module 매칭 (현재는 첫 번째 enabled module 반환)
+  /**
+   * R2-B 정직화 (감사 §1 — 택일 (b) 파라미터 제거): 등록 module이 실측 1개뿐이고
+   * (bootstrap.ts `modules: WalletModule[] = [cashuModule]`, WalletModule 구현체도
+   * cashu.module.ts 단일), accountId(mint URL)→module 소유 매핑 자체가 존재하지
+   * 않아 매칭 구현이 불가능하다(소유 확인은 balance 조회로만 가능 — getPaymentAdapters
+   * 주석 참조). 시그니처가 하지 않는 매칭을 약속하지 않도록 이름·파라미터를
+   * 실동작("첫 enabled module")에 맞춘다. 다중 module 도입 시에는 accountId→module
+   * 레지스트리를 신설하고 이 함수를 대체해야 한다.
+   */
+  private findEnabledModule(): WalletModule | undefined {
     return this.modules.find(m => m.isEnabled())
   }
 
@@ -737,7 +745,7 @@ export class PaymentService implements PaymentUseCase {
     const reports: AccountRecoveryReport[] = []
 
     for (const accountId of params.accountIds) {
-      const module = this.findModuleForAccount(accountId)
+      const module = this.findEnabledModule()
       if (!module) {
         reports.push({
           moduleId: 'unknown',
@@ -822,7 +830,7 @@ export class PaymentService implements PaymentUseCase {
     protocol: string,
   ): Promise<ReturnType<TransferLifecycleService['initiateTransfer']>> {
     if (!this.transferLifecycle) {
-      throw new Error('TransferLifecycleService not configured')
+      throw new ServiceNotReadyError('TransferLifecycleService')
     }
     return this.transferLifecycle.initiateTransfer(intent, protocol)
   }

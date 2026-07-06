@@ -22,6 +22,8 @@ export type ErrorCode =
   | 'TOKEN_SPENT_BY_RECIPIENT'
   // Transaction
   | 'TRANSACTION_NOT_FOUND'
+  // Transfer lifecycle
+  | 'TRANSFER_STATE_INVALID'
   // Lightning
   | 'INVALID_INVOICE'
   | 'INVOICE_EXPIRED'
@@ -54,6 +56,8 @@ export type ErrorCode =
   | 'MODULE_NOT_FOUND'
   | 'ADAPTER_NOT_FOUND'
   | 'INVALID_DESTINATION'
+  | 'UNRECOGNIZED_INPUT'
+  | 'RECEIVE_REQUEST_INVALID'
   | 'AMOUNT_TOO_SMALL'
   | 'AMOUNT_TOO_LARGE'
   | 'NFC_UNAVAILABLE'
@@ -63,6 +67,8 @@ export type ErrorCode =
   | 'LNURL_PARSE_FAILED'
   | 'WITHDRAW_FAILED'
   | 'AUTH_FAILED'
+  // Support
+  | 'SUPPORT_TICKET_RESOLVED'
   // Base
   | 'NETWORK_ERROR'
   | 'TIMEOUT'

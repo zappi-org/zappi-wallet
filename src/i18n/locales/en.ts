@@ -747,6 +747,12 @@ export default {
     unknownError: 'An unknown error occurred',
     adapterNotFound: 'No payment method available for this operation',
     serviceNotReady: 'Service is starting up — try again in a moment.',
+    invalidDestination: 'Unrecognized destination address',
+    unrecognizedInput: 'Unrecognized input format',
+    lnurlParseFailed: 'Could not process this LNURL',
+    transferStateInvalid: 'This transfer can no longer be processed',
+    receiveRequestInvalid: 'Invalid receive request',
+    supportTicketResolved: 'This support ticket is already resolved',
   },
 
   // Redirect

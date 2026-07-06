@@ -15,9 +15,20 @@ export interface UseSecurityHandlersDeps {
 
 export interface SecurityHandlers {
   handleAutoLock: () => void
+  /**
+   * false = 현재 PIN 불일치 전용(INVALID_PASSWORD). 스토리지/암호화 인프라
+   * 실패(CHANGE_PASSWORD_FAILED, NO_WALLET)는 throw — 호출부 catch 가
+   * lock.errorOccurred 로 표면화한다 (R2-B 4번: 인프라 실패의 wrongPin 오표시 수정).
+   */
   handleChangePassword: (oldPassword: string, newPassword: string) => Promise<boolean>
+  /** false = PIN 불일치 전용. VERIFY_FAILED/NO_WALLET(인프라 실패)은 throw. */
   handleVerifyPin: (pin: string) => Promise<boolean>
+  /** null = PIN 불일치 전용. GET_MNEMONIC_FAILED/NO_WALLET(인프라 실패)은 throw. */
   handleBackupMnemonic: (password: string) => Promise<string | null>
+  /**
+   * false = PIN 불일치 전용. VERIFY_FAILED(인프라 실패)·소거 실패는 throw.
+   * NO_WALLET 은 반쪽-소거 구제 경로로 소거를 재개한다 (Phase 1 이중 리뷰 처방 유지).
+   */
   handleLogout: (password: string) => Promise<boolean>
 }
 
@@ -43,30 +54,42 @@ export function useSecurityHandlers(deps: UseSecurityHandlersDeps): SecurityHand
 
   const handleChangePassword = useCallback(async (oldPassword: string, newPassword: string): Promise<boolean> => {
     const result = await security.changePassword(oldPassword, newPassword)
-    return result.isOk()
+    // 인프라 실패(스토리지/암복호화)를 false 로 뭉개면 "현재 PIN 오류"로 오표시된다 —
+    // INVALID_PASSWORD 만 false, 나머지는 throw → 호출부가 lock.errorOccurred 표시
+    if (!result.ok && result.error.code !== 'INVALID_PASSWORD') throw result.error
+    return result.ok
   }, [security])
 
   const handleVerifyPin = useCallback(async (pin: string): Promise<boolean> => {
     const result = await security.verifyPassword(pin)
-    return result.isOk() && result.value
+    // Err(VERIFY_FAILED/NO_WALLET) = 인프라 실패 — "PIN 불일치"(Ok(false))와 다르다.
+    // throw 하여 wrongPin 오표시 대신 lock.errorOccurred 계열로 분기 (R2-B 4번)
+    if (!result.ok) throw result.error
+    return result.value
   }, [security])
 
   const handleBackupMnemonic = useCallback(async (password: string): Promise<string | null> => {
     const result = await security.getMnemonic(password)
-    if (result.isOk()) {
+    if (result.ok) {
       return result.value
     }
-    return null
+    if (result.error.code === 'INVALID_PASSWORD') {
+      return null // PIN 불일치 — 호출부가 wrongPin 표시
+    }
+    throw result.error // 인프라 실패 — 호출부 catch 가 lock.errorOccurred 표시
   }, [security])
 
   const handleLogout = useCallback(async (password: string): Promise<boolean> => {
     const result = await security.verifyPassword(password)
     // NO_WALLET = 과거 소거가 지갑 레코드 삭제 후 중단된 반쪽 상태(구버전 순서의
     // 유산) — 검증할 비밀이 없는데 잔존 데이터는 있다. wrongPin 으로 오도하는 대신
-    // 소거를 재개시켜 탈출구를 준다 (Phase 1 이중 리뷰 처방).
-    const isHalfWipedState = result.isErr() && result.error.code === 'NO_WALLET'
-    if (!isHalfWipedState && !(result.isOk() && result.value)) {
-      return false // PIN 오류 — SettingsScreen 이 wrongPin 표시
+    // 소거를 재개시켜 탈출구를 준다 (Phase 1 이중 리뷰 처방 — 시맨틱 유지).
+    const isHalfWipedState = !result.ok && result.error.code === 'NO_WALLET'
+    // VERIFY_FAILED 등 인프라 실패는 "PIN 오류"가 아니다 — throw 하여
+    // SettingsScreen catch 가 lock.errorOccurred 로 표면화한다 (R2-B 4번)
+    if (!result.ok && !isHalfWipedState) throw result.error
+    if (!isHalfWipedState && !(result.ok && result.value)) {
+      return false // PIN 불일치 — SettingsScreen 이 wrongPin 표시
     }
     // 소거 실패는 throw 그대로 전파 — SettingsScreen 이 lock.errorOccurred 로
     // 표면화한다 (감사 Phase 1: 성공 가장 금지). 조각별 삭제는 wipeAccountData 로

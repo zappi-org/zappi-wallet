@@ -81,6 +81,7 @@ function createMockRegistry(): ServiceRegistry {
     support: {} as ServiceRegistry['support'],
     nostrDirectPayment: {} as ServiceRegistry['nostrDirectPayment'],
     externalWalletRecovery: {} as ServiceRegistry['externalWalletRecovery'],
+    diagnostics: { readNetCounters: vi.fn().mockResolvedValue({}) },
     transferLifecycle: {} as ServiceRegistry['transferLifecycle'],
   }
 }

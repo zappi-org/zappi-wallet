@@ -7,6 +7,8 @@
 
 import type { PendingTransfer, TransferPhase } from '@/core/domain/pending-transfer'
 import { isTerminal, isExpired, canReclaim, canComplete, transitionPhase } from '@/core/domain/pending-transfer'
+import { AdapterNotFoundError } from '@/core/errors/payment.errors'
+import { TransferStateError } from '@/core/errors/transfer'
 import type { EventBus } from '@/core/events/event-bus'
 import type { PendingTransferStore } from '@/core/ports/driven/pending-transfer-store.port'
 import type { TransferIntent, TransferOperator } from '@/core/ports/driven/transfer-operator.port'
@@ -212,7 +214,7 @@ export class TransferLifecycleService {
     protocol: string,
   ): Promise<PendingTransfer> {
     const operator = this.operators.get(protocol)
-    if (!operator) throw new Error(`Unknown protocol: ${protocol}`)
+    if (!operator) throw new AdapterNotFoundError(`Unknown protocol: ${protocol}`)
 
     // 1. 준비
     let transfer = await operator.prepare(intent)
@@ -255,9 +257,9 @@ export class TransferLifecycleService {
     protocol: string,
   ): Promise<PendingTransfer> {
     const operator = this.operators.get(protocol)
-    if (!operator) throw new Error(`Unknown protocol: ${protocol}`)
+    if (!operator) throw new AdapterNotFoundError(`Unknown protocol: ${protocol}`)
     if (!operator.prepareReceive) {
-      throw new Error(`Protocol ${protocol} does not support incoming transfers`)
+      throw new AdapterNotFoundError(`Protocol ${protocol} does not support incoming transfers`)
     }
 
     const prepared = await operator.prepareReceive(intent)
@@ -343,15 +345,15 @@ export class TransferLifecycleService {
   async claimIncomingTransfer(transferId: string): Promise<void> {
     const transfer = await this.transferStore.get(transferId)
     if (!transfer || transfer.direction !== 'incoming') {
-      throw new Error('Not an incoming transfer')
+      throw new TransferStateError('Not an incoming transfer')
     }
     if (!canComplete(transfer)) {
-      throw new Error('Transfer is not ready to be completed')
+      throw new TransferStateError('Transfer is not ready to be completed')
     }
 
     const operator = this.findOperator(transfer)
     if (!operator?.claimReceive) {
-      throw new Error('Cannot claim this transfer')
+      throw new AdapterNotFoundError('Cannot claim this transfer')
     }
 
     const settled = await operator.claimReceive(transfer)
@@ -450,12 +452,12 @@ export class TransferLifecycleService {
   async reclaimTransfer(transferId: string): Promise<void> {
     const transfer = await this.transferStore.get(transferId)
     if (!transfer || !canReclaim(transfer)) {
-      throw new Error('Cannot reclaim this transfer')
+      throw new TransferStateError('Cannot reclaim this transfer')
     }
 
     const operator = this.findOperator(transfer)
     if (!operator?.reclaim) {
-      throw new Error('Reclaim not supported for this protocol')
+      throw new AdapterNotFoundError('Reclaim not supported for this protocol')
     }
 
     await operator.reclaim(transfer)
