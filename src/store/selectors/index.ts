@@ -6,10 +6,6 @@ export const selectBalance = (state: AppState) => state.balance
 export const selectTotalBalance = (state: AppState) => state.balance.total
 export const selectBalanceByMint = (state: AppState) => state.balance.byMint
 export const selectIsLoadingBalance = (state: AppState) => state.isLoadingBalance
-export const selectMints = (state: AppState) => state.mints
-export const selectActiveMintUrl = (state: AppState) => state.activeMintUrl
-export const selectActiveMint = (state: AppState) =>
-  state.mints.find((m) => m.url === state.activeMintUrl) ?? null
 
 // ===== Network Selectors =====
 
@@ -73,12 +69,6 @@ export const selectIsReady = (state: AppState) =>
  */
 export const selectCanPerformOnlineOps = (state: AppState) =>
   state.networkState === 'ONLINE' && !state.isLocked
-
-/**
- * Get online mints only
- */
-export const selectOnlineMints = (state: AppState) =>
-  state.mints.filter((m) => m.isOnline)
 
 /**
  * Get total pending notification count (for badges)

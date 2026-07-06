@@ -1,11 +1,9 @@
-import { useCallback, useMemo, useContext } from 'react'
+import { useCallback, useContext } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import {
   selectTotalBalance,
   selectIsLoadingBalance,
-  selectMints,
-  selectActiveMintUrl,
 } from '@/store/selectors'
 import { ServiceContext } from '@/ui/hooks/service-context-value'
 import { toNumber } from '@/core/domain/amount'
@@ -24,17 +22,9 @@ export function useWallet() {
   const balance = useAppStore((state) => state.balance)
   const totalBalance = useAppStore(selectTotalBalance)
   const isLoadingBalance = useAppStore(selectIsLoadingBalance)
-  const mints = useAppStore(selectMints)
-  const activeMintUrl = useAppStore(selectActiveMintUrl)
-
-  // Derive onlineMints with useMemo to avoid creating new array reference on every render
-  const onlineMints = useMemo(() => mints.filter((m) => m.isOnline), [mints])
-
   // Store actions
   const setBalance = useAppStore((state) => state.setBalance)
   const setLoadingBalance = useAppStore((state) => state.setLoadingBalance)
-  const setMints = useAppStore((state) => state.setMints)
-  const setActiveMint = useAppStore((state) => state.setActiveMint)
   const addToast = useAppStore((state) => state.addToast)
 
   /**
@@ -77,14 +67,9 @@ export function useWallet() {
     balance,
     totalBalance,
     isLoadingBalance,
-    mints,
-    activeMintUrl,
-    onlineMints,
 
     // Actions
     loadBalance,
     refreshBalance: loadBalance, // Alias for loadBalance
-    setActiveMint,
-    setMints,
   }
 }

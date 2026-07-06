@@ -659,13 +659,10 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     // mintHealth 경유라 legacy 경로에서도 동작한다.
     if (!mintReconnectStop && typeof window !== "undefined") {
       const handleOnline = () => {
+        // 상태 캐시 갱신이 목적 — 구 store.mints[].isOnline 동기화는 유령 상태
+        // 제거(Phase 3)로 소멸, health probe 의 metadata 역주입 부수효과만 유지
         mintHealth
           .checkAllMints(useAppStore.getState().settings.mints)
-          .then((statuses) => {
-            // 훅 effect 시절의 store 동기화 보존 (구현 리뷰 #3) — mints[].isOnline
-            const updateMintStatus = useAppStore.getState().updateMintStatus;
-            statuses.forEach((s) => updateMintStatus(s.url, s.isOnline));
-          })
           .catch(() => {});
       };
       window.addEventListener("online", handleOnline);

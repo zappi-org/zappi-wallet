@@ -14,6 +14,11 @@ interface EnsureOnlineMintResult {
   wasPreferred: boolean
 }
 
+// 폴백으로 갈아탄 민트를 세션 내 선호로 고착 — 다음 ensureOnlineMint가 죽은 민트를
+// 다시 먼저 두드리지 않게 한다. 렌더에 쓰이지 않는 상태라 스토어가 아닌 모듈 변수
+// (구 store.activeMintUrl 유령 상태의 실기능만 승계 — 감사 Phase 3 유령 상태 제거).
+let stickyFallbackMint: string | null = null
+
 /**
  * Hook for mint health checking and fallback logic
  */
@@ -21,20 +26,15 @@ export function useMintHealth() {
   const { mintHealth } = useServiceRegistry()
   const { t } = useTranslation()
   const settingsMints = useAppStore((state) => state.settings.mints)
-  const activeMintUrl = useAppStore((state) => state.activeMintUrl)
-  const setActiveMint = useAppStore((state) => state.setActiveMint)
-  const updateMintStatus = useAppStore((state) => state.updateMintStatus)
   const addToast = useAppStore((state) => state.addToast)
 
   const mintUrls = settingsMints
 
   const checkMint = useCallback(
     async (mintUrl: string): Promise<MintHealthStatus> => {
-      const status = await mintHealth.checkMint(mintUrl)
-      updateMintStatus(mintUrl, status.isOnline)
-      return status
+      return mintHealth.checkMint(mintUrl)
     },
-    [mintHealth, updateMintStatus]
+    [mintHealth]
   )
 
   const checkAllMints = useCallback(async (): Promise<MintHealthStatus[]> => {
@@ -43,12 +43,8 @@ export function useMintHealth() {
     // metadata 체인 호출 제거 (설계 §5): health probe가 성공 응답을 metadata에
     // 역주입하므로(MintInfoService.ingest) 별도 refreshIfMissing은 같은 endpoint의
     // 이중 타격이었다.
-    const statuses = await mintHealth.checkAllMints(mintUrls)
-    statuses.forEach((s) => {
-      updateMintStatus(s.url, s.isOnline)
-    })
-    return statuses
-  }, [mintUrls, mintHealth, updateMintStatus])
+    return mintHealth.checkAllMints(mintUrls)
+  }, [mintUrls, mintHealth])
 
   const ensureOnlineMint = useCallback(
     async (
@@ -61,7 +57,7 @@ export function useMintHealth() {
         return null
       }
 
-      const preferredMint = options?.preferredMintUrl || activeMintUrl || mintUrls[0]
+      const preferredMint = options?.preferredMintUrl || stickyFallbackMint || mintUrls[0]
       const result = await mintHealth.selectMintWithFallback(
         preferredMint,
         mintUrls
@@ -74,10 +70,8 @@ export function useMintHealth() {
         return null
       }
 
-      updateMintStatus(result.mintUrl, true)
-
       if (!result.wasPreferred) {
-        setActiveMint(result.mintUrl)
+        stickyFallbackMint = result.mintUrl
         if (options?.showToast) {
           const mintName = getMintShortName(result.mintUrl)
           addToast({
@@ -89,7 +83,7 @@ export function useMintHealth() {
 
       return result
     },
-    [activeMintUrl, mintUrls, setActiveMint, updateMintStatus, addToast, t, mintHealth]
+    [mintUrls, addToast, t, mintHealth]
   )
 
   // 재연결 refresh effect 제거 (설계 §5): 훅 인스턴스(3곳 마운트)마다 리스너가

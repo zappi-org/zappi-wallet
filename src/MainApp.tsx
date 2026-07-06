@@ -614,13 +614,6 @@ export default function MainApp() {
       console.warn('[MainApp] ServiceRegistry not ready — cannot create invoice')
       return null
     }
-    //old receive
-    //const result = await serviceRegistry.payment.receive({
-    // accountId: mintUrl,
-    // protocol: 'bolt11',
-    // amount: sat(amount),
-    //})
-
     const transfer = await serviceRegistry.transferLifecycle.initiateIncomingTransfer(
       { txId: crypto.randomUUID(), accountId: mintUrl, amount: sat(amount) }, 'bolt11'
     )

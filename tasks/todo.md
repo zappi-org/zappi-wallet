@@ -40,7 +40,7 @@
 - [ ] **vite.config manualChunks 동반 수정** (리뷰 MAJOR-11): `vendor-nostr`에서 ndk 제거(직전 coco 마이그레이션의 동일 클래스 블로커 전례). 제거 후 **빌드 청크 산출 확인을 게이트에 추가**
 - [ ] 미사용 패키지 제거(ndk, sonner, react-resizable-panels, @noble/ciphers), @testing-library/dom devDeps 이동, 유령 postinstall 제거
 - [ ] 고아 정리 (리뷰 MINOR-12 정정): 훅 4종(use-balance/use-username/useNetworkStatus/use-recovery — **hooks/index.ts barrel 수정 동반**), common 컴포넌트 7종+barrel-only 5종(BalanceDisplay·CheckAnimation·CoinBounceAnimation·StatusBadge·UnifiedScanner — sub-barrel 수정 동반), FaceIdSettingPage, PinChangeModal. **wallet-cache.ts는 Phase 1이 로그아웃 호출부(MainApp:990-991)+bootstrap 배선을 제거한 뒤에만 삭제 가능**(순서 의존 명기). mock-store는 __tests__ 이동(테스트 2곳 import 수정). **`TokenCreate/mockData.ts`는 삭제**(importer 0), **개명 대상은 `Token/mockData.ts`**(importer 5 — token-view-model.ts로)
-- [ ] 유령 상태 제거(wallet.slice mints/updateMintStatus/setMints/셀렉터 3종+호출부 4곳, store activeMintUrl 이중화)
+- [x] 유령 상태 제거(묶음2a, 리뷰 APPROVED): wallet.slice mints/activeMintUrl 상태+액션 3종+셀렉터 4종+use-wallet/use-mint-health/bootstrap 호출부. ensureOnlineMint 폴백 고착은 모듈 변수 stickyFallbackMint로 실기능 승계(리뷰: 구 클로저 캡처보다 전파 즉시성 개선 판정). MainApp //old receive 주석 블록 동반 삭제. MintInfo 타입은 UI 12파일 생존 확정
 - [ ] resetAll 재구성: 슬라이스별 고유 reset 이름 → resetAll은 호출만, 60줄 복제 삭제 (외부 `.reset()` 소비자 0 확인됨)
 - [ ] hex/bytes 변환 @noble/hashes/utils 통일, truncateStr·상대시간 중복 제거, MainApp **:616-621 `//old receive` 주석 블록** 삭제 (재심 R3 정정 — :592-606은 살아있는 자동잠금 코드, 오삭제 금지)
 - [ ] 묶음별 chain(+빌드 청크 확인) → **비관 리뷰** → 커밋(2~3분할)

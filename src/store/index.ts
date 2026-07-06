@@ -55,8 +55,6 @@ export const useAppStore = create<AppState>()(
           // Wallet
           balance: { total: 0, byMint: {} },
           isLoadingBalance: false,
-          mints: [],
-          activeMintUrl: null,
           pendingQuotes: [],
           // Network
           networkState: 'ONLINE',
