@@ -8,6 +8,7 @@ import type { BaseError } from '@/core/errors/base'
 import { ServiceNotReadyError } from '@/core/errors/base'
 import { InsufficientBalanceError } from '@/core/errors/payment.errors'
 import { ServiceProvider } from '@/ui/hooks/service-context'
+import { useAutoLock } from '@/ui/hooks/use-auto-lock'
 import { useCrossTabSync } from '@/ui/hooks/use-cross-tab-sync'
 import { useGlobalTokenClaimToast } from '@/ui/hooks/use-global-token-claim-toast'
 
@@ -550,6 +551,15 @@ export default function MainApp() {
         // Set nostr key pair in store
         setNostrKeyPair(result.value.keys.publicKey, result.value.keys.privateKey)
 
+        // 자동잠금 해제 경량 경로 (감사 §6 / 전자 정책): 세션(레지스트리·소켓·
+        // 구독)이 살아있으면 재부트스트랩하지 않는다 — security.unlock이 방금
+        // 니모닉 캐시를 복원했고 키는 동일 지갑이다. 매 잠금 해제마다 전체
+        // 재연결을 하면 네트워크 개편으로 없앤 버스트가 잠금 주기로 부활한다.
+        if (serviceRegistry) {
+          setLocked(false)
+          return true
+        }
+
         // Phase 5: Bootstrap service registry (new path, coexists with old)
         const registry = createBootstrap({
           nostrPrivateKeyHex: result.value.keys.privateKey,
@@ -577,7 +587,23 @@ export default function MainApp() {
     } catch {
       return false
     }
-  }, [preUnlock.security, setLocked, setNostrKeyPair, setP2pkPubkey])
+  }, [preUnlock.security, setLocked, setNostrKeyPair, setP2pkPubkey, serviceRegistry])
+
+  // 자동잠금 (감사 §6 실구현, 전자 정책): 유휴 시간 초과 시 UI 잠금 + 메모리
+  // 비밀(키·시드·니모닉 캐시) 소거. 레지스트리는 유지 — PWA는 OS 푸시가 없어
+  // "앱이 살아있는 동안의 수신"이 전부이고, 세션을 죽이면 해제마다 재연결
+  // 버스트가 부활한다. 화면 복귀 시 즉시 재판정(freeze 중 타이머 정지 보완).
+  const handleAutoLock = useCallback(() => {
+    preUnlock.security.lock()
+    setLocked(true)
+  }, [preUnlock.security, setLocked])
+
+  useAutoLock({
+    enabled: settings.autoLockEnabled ?? true,
+    timeoutMinutes: settings.autoLockTimeoutMinutes ?? 5,
+    isLocked,
+    onLock: handleAutoLock,
+  })
 
   // Payment modal handlers
   const handleCreateInvoice = useCallback(async (amount: number, mintUrl: string) => {

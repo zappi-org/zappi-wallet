@@ -113,7 +113,9 @@ export const useAppStore = create<AppState>()(
         })
       },
     })),
-    { name: 'zappi-store' }
+    // enabled 게이트 필수 (감사 §6): 없으면 Redux DevTools 확장이 설치된
+    // 프로덕션 브라우저로 store 내용(nostr 개인키 포함)이 스트리밍된다
+    { name: 'zappi-store', enabled: import.meta.env.DEV }
   )
 )
 
