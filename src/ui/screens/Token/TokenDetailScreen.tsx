@@ -18,7 +18,7 @@ import { MintIcon } from '@/ui/components/common/MintIcon'
 import { TokenRawSheet } from './components/TokenRawSheet'
 import { TokenQrSheet } from './components/TokenQrSheet'
 import { ReclaimSheet } from './components/ReclaimSheet'
-import { formatDetailDateLine } from './mockData'
+import { formatDetailDateLine } from './token-view-model'
 import type { MockPendingToken, TokenDetailData, TokenDetailStatus } from './types'
 
 const STATUS_ICON: Record<TokenDetailStatus, LucideIcon | null> = {

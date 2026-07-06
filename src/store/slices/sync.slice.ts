@@ -50,7 +50,6 @@ export interface SyncSliceState {
   removeIncomingReview: (externalId: string) => void
   setSyncProgress: (progress: number) => void
   incrementEventsProcessed: () => void
-  resetSyncProgress: () => void
   setLastEventTimestamp: (timestamp: number) => void
   triggerTxRefresh: () => void
   setLastReceivedPayment: (requestId: string | null, amount: number, eventId?: string | null) => void
@@ -124,12 +123,6 @@ export const createSyncSlice: StateCreator<SyncSliceState> = (set) => ({
     set((state) => ({
       eventsProcessed: state.eventsProcessed + 1,
     })),
-
-  resetSyncProgress: () =>
-    set({
-      syncProgress: 0,
-      eventsProcessed: 0,
-    }),
 
   setLastEventTimestamp: (lastEventTimestamp) => set({ lastEventTimestamp }),
 

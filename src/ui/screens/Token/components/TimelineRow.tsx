@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, Undo2 } from 'lucide-react'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { toNumber } from '@/core/domain/amount'
 import type { Transaction } from '@/core/domain/transaction'
-import { transactionToDetailStatus } from '../mockData'
+import { transactionToDetailStatus } from '../token-view-model'
 import type { TokenDetailStatus } from '../types'
 import type { TimelineKind } from '@/ui/hooks/use-transaction-history'
 

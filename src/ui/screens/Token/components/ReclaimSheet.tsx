@@ -3,7 +3,7 @@ import { Undo2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence, type PanInfo } from 'motion/react'
 import { useFormatSats } from '@/utils/format'
-import { formatRelativeTime } from '../mockData'
+import { formatRelativeTime } from '../token-view-model'
 import type { MockPendingToken } from '../types'
 
 export interface ReclaimSheetProps {

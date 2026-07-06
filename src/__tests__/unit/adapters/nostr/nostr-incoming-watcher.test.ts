@@ -8,7 +8,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NostrIncomingWatcher } from '@/adapters/nostr/nostr-incoming-watcher'
 import { createEventBus, type EventBus } from '@/core/events/event-bus'
-import { InMemoryPendingTransferStore } from '@/core/services/transfer-lifecycle.service.mock-store'
+import { InMemoryPendingTransferStore } from '../../../helpers/transfer-lifecycle.mock-store'
 import type { NostrGateway, UnwrappedMessage } from '@/core/ports/driven/nostr-gateway.port'
 import type { ProcessedStore } from '@/core/ports/driven/processed-store.port'
 import type { TrustedMintProvider } from '@/core/ports/driven/trusted-mint-provider.port'

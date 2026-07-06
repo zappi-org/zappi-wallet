@@ -37,3 +37,8 @@
 
 - Verification must run the project's own scripts (`bun run lint && bun run build && bun run test`), not tool equivalents. `npx tsc --noEmit` on a solution-style tsconfig checks a different file set than the build's `tsc -b` (project references) — a test-mock gap passed every step review this way and only surfaced when the user ran the real chain. Before declaring any step done, run the exact package.json commands end-to-end.
 - When a DI interface gains members, grep ALL mock implementations of that interface across test files in the same change (`grep -rln "InterfaceName" src/__tests__ src/**/*.test.ts`) — fixing only the mocks that current diagnostics flag misses files that a different tsconfig scope compiles later.
+
+## 검증 명령과 파괴 명령을 무조건 체이닝하지 말 것 (2026-07-06)
+- 실수: `grep(소비자 확인) ; rm(삭제)` 를 한 체인에 무조건 실행 — grep이 MainApp의 barrel 소비자를 출력했는데도 rm이 그대로 실행되어 빌드 파괴 (tsc가 즉시 잡아 복원).
+- 규칙: 삭제/덮어쓰기 전 검증 명령은 **별도 호출**로 실행하고 출력을 읽은 뒤 다음 호출에서 삭제한다. 체이닝하려면 `[ -z "$(grep ...)" ] && rm` 처럼 결과를 게이트로 걸어라.
+- 부수 교훈: barrel 체인은 2단(components/index → ui/index)까지 있다 — barrel 정리는 상위 barrel 전수 확인 필수.

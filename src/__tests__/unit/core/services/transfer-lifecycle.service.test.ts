@@ -9,7 +9,7 @@ import type { PendingTransfer, TransferPhase } from '@/core/domain/pending-trans
 import { createPendingTransfer, transitionPhase } from '@/core/domain/pending-transfer'
 import { amount } from '@/core/domain/amount'
 import { createEventBus, type EventBus } from '@/core/events/event-bus'
-import { InMemoryPendingTransferStore } from '@/core/services/transfer-lifecycle.service.mock-store'
+import { InMemoryPendingTransferStore } from '../../../helpers/transfer-lifecycle.mock-store'
 import { TransferLifecycleService } from '@/core/services/transfer-lifecycle.service'
 import type { TransferIntent, TransferOperator } from '@/core/ports/driven/transfer-operator.port'
 

@@ -24,7 +24,7 @@ import {
   isTokenTimelineTx,
   pendingToDetail,
   transactionToDetail,
-} from './mockData'
+} from './token-view-model'
 import type {
   MockPendingToken,
   TokenDetailData,
