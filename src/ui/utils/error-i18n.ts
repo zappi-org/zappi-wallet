@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next'
 import { BaseError } from '@/core/errors/base'
 import type { TranslationKey } from '@/i18n'
+import { formatSats } from '@/utils/format'
 
 /**
  * Error → i18n key + params resolver
@@ -10,6 +11,11 @@ import type { TranslationKey } from '@/i18n'
  *
  * Convention: ERROR_CODE → errors.errorCode (camelCase)
  * 예: TOKEN_SPENT → errors.tokenSpent
+ *
+ * R2-C: 구 error-message.ts(toErrorMessage) 를 여기로 단일화 — 시맨틱 실차이
+ * 3건은 풍부한 쪽을 흡수했다: ① MINT_CONNECTION 민트명 해석(alias→hostname→원문)
+ * ② INSUFFICIENT_BALANCE 금액의 formatSats 포맷 ③ 수수료 문구 분기를 도메인
+ * getter isFeeShortage 시맨틱(fee>0 && available>=required)으로.
  */
 
 export interface ErrorI18n {
@@ -19,6 +25,25 @@ export interface ErrorI18n {
 
 function codeToCamelCase(code: string): string {
   return code.toLowerCase().replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
+}
+
+/** 민트 표시명 해석기 — MainApp 이 mintAliases 조회를 등록한다 (구 error-message.ts 이전) */
+let mintNameResolver: ((mintUrl: string) => string | null) | null = null
+
+export function setMintNameResolver(resolver: (mintUrl: string) => string | null): void {
+  mintNameResolver = resolver
+}
+
+/** alias → hostname → 원문 URL 순으로 민트 표시명 결정 (구 toErrorMessage 시맨틱) */
+function resolveMintDisplayName(mintUrl: string): string {
+  let mintName = mintUrl
+  try {
+    mintName = new URL(mintUrl).hostname
+  } catch { /* fallback to url */ }
+  if (mintNameResolver) {
+    mintName = mintNameResolver(mintUrl) || mintName
+  }
+  return mintName
 }
 
 /**
@@ -97,17 +122,31 @@ function resolveOverride(err: Record<string, unknown> | BaseError): ErrorI18n | 
       return { key: 'payment.insufficientBalance' }
     }
 
-    // fee 있으면 수수료 포함 메시지
-    if (fee && fee > 0) {
-      return { key: 'errors.insufficientBalanceForFee', params: { required, available } }
+    // 금액은 formatSats(단위 설정 반영) 포맷 — 구 error-message 시맨틱 흡수
+    const params = {
+      required: formatSats(required ?? 0),
+      available: formatSats(available ?? 0),
     }
 
-    return { key: 'errors.insufficientBalance', params: { required, available } }
+    // 수수료 문구는 "원금은 충분한데 수수료가 부족을 만든" 경우에만 —
+    // 도메인 getter isFeeShortage(fee>0 && available>=required)와 동일 시맨틱.
+    // (구 error-i18n 은 fee>0 만 보던 근사 — 원금부터 부족한 경우에도 수수료
+    // 문구를 내던 것을 일반 부족 문구로 정직화)
+    if (fee && fee > 0 && (available ?? 0) >= (required ?? 0)) {
+      return { key: 'errors.insufficientBalanceForFee', params }
+    }
+
+    return { key: 'errors.insufficientBalance', params }
   }
 
   if (code === 'MINT_CONNECTION' || code === 'MINT_UNREACHABLE') {
     const obj = err as Record<string, unknown>
-    return { key: 'errors.mintConnection', params: { mint: (obj.mintUrl as string) ?? '' } }
+    const mintUrl = obj.mintUrl as string | undefined
+    // 민트명 해석: alias → hostname → 원문 (구 error-message 시맨틱 흡수)
+    return {
+      key: 'errors.mintConnection',
+      params: { mint: mintUrl ? resolveMintDisplayName(mintUrl) : '' },
+    }
   }
 
   if (code === 'REDEEM_FEE_TOO_HIGH') {

@@ -34,6 +34,19 @@ describe('useAppNavigation', () => {
       expect(result.current.activeTab).toBe('settings')
       expect(result.current.isTabScreen).toBe(true)
     })
+
+    it('탭 전환은 서브페이지 플래그를 리셋한다 (handleBack 대칭 불변식 — 4a 잠복 a)', () => {
+      const { result } = renderHook(() => useAppNavigation())
+
+      act(() => { result.current.handleTabSelect('settings') })
+      act(() => { result.current.setHasSettingsSubPage(true) })
+      expect(result.current.isTabScreen).toBe(false)
+
+      act(() => { result.current.handleTabSelect('wallet') })
+
+      expect(result.current.currentScreen).toBe('home')
+      expect(result.current.isTabScreen).toBe(true)
+    })
   })
 
   describe('handleBack', () => {

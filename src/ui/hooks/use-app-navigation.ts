@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useEffectEvent, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 
 export type Screen = 'home' | 'token' | 'settings' | 'contacts' | 'history' | 'notifications' | 'transfer' | 'analytics' | 'add-mint' | 'mint-management' | 'relay-management' | 'amount-action' | 'send' | 'receive' | 'username-change' | 'transaction-detail' | 'mint-detail' | 'token-create' | 'token-register' | 'token-detail' | 'token-easter-egg'
@@ -45,6 +45,11 @@ export function useAppNavigation(): AppNavigation {
   const handleTabSelect = useCallback((tabId: string) => {
     setCurrentScreen(TAB_SCREENS[tabId as TabId])
     setPreviousScreen(null)
+    // 탭 화면 도착 = 서브페이지 플래그 리셋 (handleBack과 대칭 불변식, 4a 잠복 a).
+    // 현행 도달 경로에서는 항상 false 라 no-op — 하단 nav 는 플래그 true 면
+    // 숨고(유일한 라이브 호출자), SettingsScreen onBack 배선은 미사용(_onBack).
+    // 미래의 신규 호출처가 stale true 를 상속하지 않도록 방어적으로 리셋한다.
+    setHasSettingsSubPage(false)
   }, [])
 
   const handleBack = useCallback(() => {
@@ -72,24 +77,22 @@ export function useAppNavigation(): AppNavigation {
     }
   }, [currentScreen])
 
-  // popstate 리스너를 1회만 등록하기 위한 최신값 ref 동기화 — MainApp 원본 그대로
-  // (순수 이동). react-hooks/refs 지적은 MainApp에서는 컴파일러 분석 bail-out으로
-  // 미검출되던 잠복 패턴 — useEffectEvent 전환은 후속 과제로 기록.
-  const currentScreenRef = useRef(currentScreen)
-  // eslint-disable-next-line react-hooks/refs
-  currentScreenRef.current = currentScreen
-  const handleBackRef = useRef(handleBack)
-  // eslint-disable-next-line react-hooks/refs
-  handleBackRef.current = handleBack
+  // popstate 핸들러 — useEffectEvent 전환 (React 19.2, R2-C 7번):
+  // 리스너는 1회 등록하되 호출 시점의 "마지막 커밋" 상태를 본다. 구현전
+  // render-중 ref 갱신은 커밋되지 않는 렌더(StrictMode 이중 렌더·중단된
+  // concurrent 렌더)의 값까지 노출하던 잠복(react-hooks/refs 지적)이었다.
+  // popstate 는 렌더 밖 별도 태스크에서만 발화하므로 두 방식은 정상 경로에서
+  // 동일 값을 읽고, 병리 경로에서는 커밋-기준이 더 정확하다 — 계약 판정 안전.
+  const onPopState = useEffectEvent(() => {
+    if (currentScreen === 'home') {
+      window.history.pushState({ screen: 'home' }, '')
+    } else {
+      handleBack()
+    }
+  })
 
   useEffect(() => {
-    const handlePopState = () => {
-      if (currentScreenRef.current === 'home') {
-        window.history.pushState({ screen: 'home' }, '')
-      } else {
-        handleBackRef.current()
-      }
-    }
+    const handlePopState = () => onPopState()
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])

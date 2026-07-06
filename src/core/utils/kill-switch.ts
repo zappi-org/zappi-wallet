@@ -19,6 +19,9 @@ export const KILL_SWITCH_NAMES = [
 
 export type KillSwitchName = (typeof KILL_SWITCH_NAMES)[number]
 
+/** bootstrap 1회 스냅샷 형태 — 조립 조각(bootstrap-*.ts) 파라미터 타입용 */
+export type KillSwitches = Readonly<Record<KillSwitchName, boolean>>
+
 const STORAGE_PREFIX = 'zappi.ks.'
 
 export function isKillSwitchOn(name: KillSwitchName): boolean {

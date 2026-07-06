@@ -12,9 +12,11 @@
  */
 import { describe, it, expect } from 'vitest'
 import type { TFunction } from 'i18next'
-import { getErrorI18n, translateError } from '@/ui/utils/error-i18n'
+import { getErrorI18n, translateError, setMintNameResolver } from '@/ui/utils/error-i18n'
 import { UnknownError, NetworkError } from '@/core/errors/base'
 import { AdapterNotFoundError, InsufficientBalanceError } from '@/core/errors/payment.errors'
+import { MintConnectionError } from '@/core/errors/cashu'
+import { formatSats } from '@/utils/format'
 import en from '@/i18n/locales/en'
 import ko from '@/i18n/locales/ko'
 import ja from '@/i18n/locales/ja'
@@ -36,15 +38,43 @@ describe('getErrorI18n', () => {
   })
 
   it('오버라이드가 convention 보다 우선한다 (InsufficientBalanceError 파라미터 보간)', () => {
+    // R2-C 통합: params 는 formatSats(단위 설정 반영) 포맷 문자열 — 구 error-message 시맨틱
     expect(getErrorI18n(new InsufficientBalanceError(100, 40))).toEqual({
       key: 'errors.insufficientBalance',
-      params: { required: 100, available: 40 },
+      params: { required: formatSats(100), available: formatSats(40) },
     })
+    // isFeeShortage(원금 충분 + 수수료로 부족) → 수수료 문구
     expect(getErrorI18n(new InsufficientBalanceError(100, 105, undefined, 10)).key).toBe(
       'errors.insufficientBalanceForFee',
     )
+    // R2-C 통합: fee>0 이어도 원금부터 부족하면 일반 부족 문구 (도메인 getter
+    // isFeeShortage 시맨틱 — 구 error-i18n 의 fee>0 근사를 정직화)
+    expect(getErrorI18n(new InsufficientBalanceError(100, 50, undefined, 10)).key).toBe(
+      'errors.insufficientBalance',
+    )
     // 금액 정보 없는 drain 모드(0,0) — falsy 체크로 단순 문구
     expect(getErrorI18n(new InsufficientBalanceError(0, 0)).key).toBe('payment.insufficientBalance')
+  })
+
+  it('MINT_CONNECTION 민트명 해석: alias → hostname → 원문 (구 error-message 시맨틱)', () => {
+    // resolver 미등록/미해석 — hostname 폴백
+    setMintNameResolver(() => null)
+    expect(getErrorI18n(new MintConnectionError('https://mint.example.com/api'))).toEqual({
+      key: 'errors.mintConnection',
+      params: { mint: 'mint.example.com' },
+    })
+    // URL 파싱 불가 — 원문 유지
+    expect(getErrorI18n(new MintConnectionError('not-a-url')).params).toEqual({ mint: 'not-a-url' })
+
+    // resolver 등록 — alias 가 최우선
+    setMintNameResolver((url) => (url === 'https://mint.example.com/api' ? 'My Mint' : null))
+    expect(getErrorI18n(new MintConnectionError('https://mint.example.com/api')).params).toEqual({
+      mint: 'My Mint',
+    })
+    setMintNameResolver(() => null)
+
+    // plain object 에 mintUrl 없음 — 빈 문자열 (기존 계약 유지)
+    expect(getErrorI18n({ code: 'MINT_UNREACHABLE' }).params).toEqual({ mint: '' })
   })
 
   it('[현재 계약] plain object(UNKNOWN) 는 unknownError — Error 인스턴스만 메시지 매칭 가능', () => {

@@ -19,19 +19,20 @@
 - [x] findModuleForAccount → findEnabledModule (택일 b: 파라미터 제거 — accountId→module 매핑 원천 부재 실증) — **accountId 매칭 구현 또는 파라미터 제거** (+reclaim/redeem 유스케이스 분리) — 실측 후 택일, 근거 기록
 - [x] **VERIFY_FAILED→wrongPin 오표시 수정** (+동클래스 CHANGE_PASSWORD/GET_MNEMONIC 동반 — 리뷰 승인. **형제 handleUnlock UNLOCK_FAILED = lockout 카운터 소모 버그 — 독립 소묶음 차기**) (Phase 1 리뷰 NIT 승격 — 스토리지 read 예외가 "PIN 오류"로 표시되던 것: 인프라 실패는 lock.errorOccurred 계열로)
 - [x] ui→adapters 직접 import 2건 절단(inputParser 재사용 + diagnostics 읽기 포트) (use-redeem-token:7,11 + DiagnosticsPage:7 — 포트 경유)
-- [ ] (이월 — 리뷰 동의) error-message/error-i18n 통합: 시맨틱 실차이 3건 실재, 독립 리뷰 단위
+- [x] (이월 — R2-C 에서 실행) error-message/error-i18n 통합: 시맨틱 실차이 3건은 풍부한 쪽(민트명 alias→hostname 해석·formatSats·isFeeShortage) 흡수, error-message.ts 삭제, MainApp 소비처 translateError 로 전환(표시 변화 = UNKNOWN 패턴 진단·오버라이드 코드 실문구), 핀 테스트 갱신+2건 추가
 - [x] 비관 리뷰 APPROVED → 커밋
 - [x] **handleUnlock UNLOCK_FAILED 소묶음** (리뷰 APPROVED): INVALID_PASSWORD 만 false(계수), 그 외 throw → errorOccurred(무계수). 권장 계약 테스트가 커밋 전 2차 실버그(무한 재제출 루프 — catch 의 password 미소거) 검출 → 1줄 대칭 수정 + 3케이스 핀
 
 ## R2-C — 구조 (M-L)
-- [ ] bootstrap 내부 절단: 도메인 묶음별 조립 함수로 분해 (순수 이동 + 자진 신고 규율 — Phase 4 방법론)
-- [ ] SendInputStep 선분리 (검증 로직 훅化)
-- [ ] 온보딩 배선 composition 이동
-- [ ] **proofs 테이블 삭제 = Dexie 스키마 버전업의 `proofs: null` 선언 (S — 계획 v1 의 "툼스톤 설계 선행(M)" 은 감사 오독이었음)**: 감사 :56-57 마이그레이션 부채와 동승. logout.integration.test.ts 가 db.proofs 를 시드하므로 테스트 동반 수정
-- [ ] SettingsScreen effect unmount cleanup 부재 수정 (4a 잠복 b)
-- [ ] handleTabSelect 의 hasSettingsSubPage 미리셋 (4a 잠복 a): **수정 또는 명시적 waive 택일 후 기록** (도달 곤란 quirk — 서브페이지 열림 시 하단 nav 숨김)
-- [ ] use-app-navigation refs 억제 → useEffectEvent 전환 검토 (React 19.2): 전환 또는 waive 기록
-- [ ] 비관 리뷰(묶음별) → 커밋
+- [x] bootstrap 내부 절단: 도메인 묶음별 조립 함수로 분해 (순수 이동 + 자진 신고 규율 — Phase 4 방법론) — 10조각(bootstrap-*.ts), 이탈 = 순방향참조 getter 3종·destructure 표기 2건·주석 2건 (스크립트 대조 18줄 전수 신고)
+- [x] SendInputStep 선분리 (검증 로직 훅化) — use-send-input-validation.ts (steps/ 동거, §8.5 계약·테스트 20케이스 green). 추출로 lint 가시화된 setState-in-effect 1건은 파생 상태로 재구성(델타 주석 명기)
+- [x] 온보딩 배선 composition 이동 — composition/onboarding.ts (createOnboardingServices + createOnboardingProfileService), App.tsx @/adapters·@/modules import 0 (동적 import 포함 청크 그래프 보존)
+- [x] **proofs 테이블 삭제 = Dexie 스키마 버전업의 `proofs: null` 선언 (S — 계획 v1 의 "툼스톤 설계 선행(M)" 은 감사 오독이었음)**: 감사 :56-57 마이그레이션 부채와 동승. logout.integration.test.ts 가 db.proofs 를 시드하므로 테스트 동반 수정 — v23 범프 + ProofRecord/clearMintData 참조 제거 + incomingReviews 대체 시드 + schema-migration.test.ts 신설(v22→v23 무손실·store 소멸 핀)
+- [x] SettingsScreen effect unmount cleanup 부재 수정 (4a 잠복 b) — onSubPageChange effect cleanup 추가 (재실행 배칭으로 중간 false 관측 불가, unmount 시에만 실효)
+- [x] handleTabSelect 의 hasSettingsSubPage 미리셋 (4a 잠복 a): **수정 택일** — 실도달 재검토 결과 현행 불가달(하단 nav 는 플래그 true 면 숨음 + SettingsScreen onBack 배선은 `_onBack` 미사용)이나 handleBack 대칭 불변식으로 1줄 방어 리셋 + 핀 테스트 추가
+- [x] use-app-navigation refs 억제 → useEffectEvent 전환 검토 (React 19.2): **전환** — popstate 는 렌더 밖 태스크 발화라 "마지막 커밋 값" 시맨틱과 계약 동일(병리 경로는 커밋-기준이 더 정확), react 19.2.4/@types 19.2.14/plugin 7.0.1 지원 확인, 나브 테스트 10케이스 green
+- [x] error-message/error-i18n 통합(R2-B 이월 편입): error-message.ts 삭제, 시맨틱 3건(민트명 해석·formatSats·isFeeShortage 도메인 getter) 보존 흡수 — 표시 변화 6건 양방향 핀, 리뷰 전건 개선/정직화 판정
+- [x] 비관 리뷰 APPROVED → 커밋 (3f3972a)
 
 ## R2-D — 보안 임계 (별도 트랙, 설계 문서 → **이중 리뷰(가이드+블라인드)** → 구현)
 - [ ] PBKDF2 상향 + 재암호화 마이그레이션 설계 문서. **필수 축 (계획 리뷰 보강)**:

@@ -140,6 +140,13 @@ export function SettingsScreen({
   // Notify parent when sub-page opens/closes (for bottom nav animation)
   useEffect(() => {
     onSubPageChange?.(hasSubPage || pinChange.isOpen)
+    // cleanup: 서브페이지 열린 채 화면이 unmount 되면 부모의
+    // hasSettingsSubPage 가 true 로 잔존해 하단 nav 가 계속 숨는다 (4a 잠복 b).
+    // 재실행 시에도 cleanup(false)→effect(현재값)가 같은 커밋에서 배칭되므로
+    // 중간 false 는 관측 불가 — unmount 시에만 실효.
+    return () => {
+      onSubPageChange?.(false)
+    }
   }, [hasSubPage, pinChange.isOpen, onSubPageChange])
 
   // 서브페이지 진입/이탈 시 history 연동 (iOS 엣지 스와이프 뒤로가기 대응)

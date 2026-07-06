@@ -76,19 +76,6 @@ export interface LockStateRecord {
 }
 
 /**
- * Proof record for DB storage
- */
-export interface ProofRecord {
-  id: string // unique id: mintUrl + secret
-  mintUrl: string
-  amount: number
-  secret: string
-  C: string
-  keysetId: string
-  addedAt: number
-}
-
-/**
  * Pending melt record for Lightning send recovery
  * Stores melt quote info before payment to recover from crashes
  */
@@ -287,7 +274,6 @@ export class ZappiDatabase extends Dexie {
   settings!: Table<SettingsRecord, string>
   encryptedWallet!: Table<EncryptedWalletRecord, string>
   lockState!: Table<LockStateRecord, string>
-  proofs!: Table<ProofRecord, string>
   pendingMelts!: Table<PendingMeltRecord, string>
   pendingSendTokens!: Table<PendingSendTokenRecord, string>
   pendingReceivedTokens!: Table<PendingReceivedTokenRecord, string>
@@ -333,8 +319,11 @@ export class ZappiDatabase extends Dexie {
       // Lock state: single record
       lockState: 'id',
 
-      // Proofs: indexed by id, mintUrl, secret
-      proofs: 'id, mintUrl, secret',
+      // v23: legacy proofs 테이블 삭제 (감사 :56 — coco 마이그레이션 후 잔존).
+      // 실자금 proofs는 coco DB(zappi-coco-wallet) 소유이고 이 테이블에는
+      // 읽기/쓰기 경로가 없었다(마지막 참조 = clearMintData의 delete뿐) —
+      // 남은 데이터는 legacy라 데이터 자체가 삭제 대상이다.
+      proofs: null,
 
       // Pending melts: Lightning send recovery (melt quote info before payment)
       pendingMelts: 'meltQuoteId, mintUrl, createdAt',
@@ -404,7 +393,7 @@ export async function resetDatabase(): Promise<void> {
 
 /**
  * Clear all data related to a specific mint
- * Removes proofs, pending items, failed incomings, and metadata.
+ * Removes pending items, failed incomings, and metadata.
  * Transactions are kept for historical reference.
  */
 export async function clearMintData(mintUrl: string): Promise<void> {
@@ -413,7 +402,6 @@ export async function clearMintData(mintUrl: string): Promise<void> {
   const variants = [normalized, normalized + '/']
 
   await Promise.all([
-    db.proofs.where('mintUrl').anyOf(variants).delete(),
     db.failedIncomings.where('accountId').anyOf(variants).delete(),
     db.pendingMelts.where('mintUrl').anyOf(variants).delete(),
     db.pendingSendTokens.where('mintUrl').anyOf(variants).delete(),

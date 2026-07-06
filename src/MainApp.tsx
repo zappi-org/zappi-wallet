@@ -20,13 +20,12 @@ import { useSupportNotifications } from '@/ui/hooks/use-support-notifications'
 import { useSwapHandlers } from '@/ui/hooks/use-swap-handlers'
 import { useTransactions } from '@/ui/hooks/use-transactions'
 import { isNostrDirectAddress } from '@/core/domain/nostr-address'
-import { translateError } from '@/ui/utils/error-i18n'
+import { setMintNameResolver, translateError } from '@/ui/utils/error-i18n'
 import { broadcastSync } from '@/utils/cross-tab-sync'
 // useMintHealth removed — mint health checks done via serviceRegistry directly
 import { useAppStore } from '@/store'
 import { useNetwork } from '@/ui/hooks/use-network'
 import { useWallet } from '@/ui/hooks/use-wallet'
-import { setMintNameResolver, toErrorMessage } from '@/ui/utils/error-message'
 import { isSameMintUrl } from '@/utils/url'
 import { AnimatePresence, motion } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -647,13 +646,17 @@ export default function MainApp() {
       }
 
       console.error('[MainApp] Route execution failed:', result.error)
-      addToast({ type: 'error', message: toErrorMessage(result.error), duration: 4000 })
+      // R2-C: toErrorMessage → translateError 단일화. 표시 변화 = UNKNOWN 코드가
+      // 일괄 unknownError 대신 메시지 패턴 진단(tokenSpent/networkError 등)으로,
+      // MINT_UNREACHABLE/REDEEM_FEE_TOO_HIGH 등 오버라이드 코드가 키-강등 대신
+      // 실문구로 나온다. 민트명/formatSats/isFeeShortage 시맨틱은 동일(흡수됨).
+      addToast({ type: 'error', message: translateError(result.error, t), duration: 4000 })
       return null
     } catch (error) {
       console.error('[MainApp] handleExecuteRoute error:', error)
       return null
     }
-  }, [serviceRegistry, refreshAll, addToast])
+  }, [serviceRegistry, refreshAll, addToast, t])
 
   const handleCreateEcashToken = useCallback(async (amount: number, preferredMintUrl?: string, options?: { p2pkPubkey?: string; memo?: string }): Promise<{ token: string; txId: string; operationId: string } | null> => {
     if (isSendingEcashRef.current) return null

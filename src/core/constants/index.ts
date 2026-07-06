@@ -123,7 +123,10 @@ export const DATABASE = {
   // v21: giftwrapCursors 테이블 추가 (gift wrap since cursor — 설계 §10 B5)
   // v22: incomingReviews 테이블 추가 (미신뢰 민트 수신 review 영속화 — 설계 §6.2/리뷰 #3:
   //      메모리 큐는 새로고침에 토큰을 유실한다)
-  VERSION: 22,
+  // v23: legacy proofs 테이블 삭제 (감사 :56 — coco 마이그레이션 후 잔존.
+  //      실자금 proofs는 coco DB 소관이고 이 테이블은 읽기/쓰기 코드가 없어
+  //      데이터 자체가 삭제 대상. 생존 테이블은 스키마 diff로 무손실 통과)
+  VERSION: 23,
 } as const
 
 /**
