@@ -3,7 +3,8 @@
  * Cashu tokens are bearer — no counterparty is recorded.
  * Fiat value is computed live from current rate, not stored.
  */
-export interface MockPendingToken {
+// 구명 MockPendingToken — mockData.ts 시절의 잔재명. 실동작 뷰모델 타입이라 개명 (R2-A)
+export interface PendingTokenView {
   id: string
   createdAt: number
   amount: number

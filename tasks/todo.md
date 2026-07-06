@@ -1,3 +1,50 @@
+# Round 2 — 비범위 승격 실행 계획 (2026-07-07 v2, 계획 리뷰 정정 6건 반영 — 재리뷰 불요 판정)
+
+근거: 감사 문서 + 각 라운드 리뷰 기록 + 계획 비관 리뷰(REJECTED→정정). 원칙 동일: 묶음별 커밋, 매 묶음 check:phantom && lint && build && test:run, 자금·보안 인접 묶음은 비관 리뷰 APPROVED 후 커밋.
+
+## R2-A — 저위험 정리 (S, 선행)
+- [x] **참조-0 en 키 삭제 (후보 수치 재산출 필수 — "~430"은 무출처 추정치였음)**: 방법론 보강판 —
+  ① **보호 네임스페이스**: 조립 사이트 전수 grep 으로 도출 (`errors.*` convention 조립, `txDetail.source.*`, `support.faq/categories/csStatus/threadStatusEvent.*`, `token.detail.weekday/title/typeValue/mintLabel.*`, `token.time.*`, `notifications.*` 등 — 정적 참조 0 이 **정상**인 키들)
+  ② i18next **복수형 접미사(_one/_other)** 위양성 방어
+  ③ **composition 층의 `i18n.t(` 11곳** 포함 (`t('` 훅 스윕의 사각 — event-store-bridge 등)
+  ④ 삭제 보고서에 **키별 판정 근거** 동봉 (2단계 마킹 대신 — 수동 스모크 불가 환경이므로 근거 문서화 방식 채택). **커밋 전 리뷰어 방법론 확인 필수** (계획 리뷰 지정 조건)
+- [x] MockPendingToken → PendingTokenView 개명 (Token/types.ts)
+- [x] 커버리지 임계 (감사 §9 원문): **all:true(스코프 내) 동반 필수** — thresholds 만으로는 미임포트 파일이 통계 밖(감사가 짚은 결함). 방식 = **래칫**: 실측 → 고정 상수 커밋 → 이후 상향만 허용 ("-5%p 부동 상대값"은 하향 드리프트 정당화라 기각됨)
+- [x] 프로덕션 console drop(기구성 확인 — pure 방식 그대로): esbuild **`pure: ['console.log','console.debug','console.info']`** (drop:['console'] 은 warn/error 까지 죽임 — anti-swallow 작업과 충돌). warn/error 유지
+- [x] 비관 리뷰 APPROVED(i18n 방법론 조건 충족 판정 — contacts.verify.* 신규 보호가 방법론 가치 실증, 449키 삭제·3키 보류·바닥 여유 조정) → 커밋
+
+## R2-B — 계약 정직화 (M)
+- [ ] Result 타입 통일: **승자 = 유니언형 (감사 기결정 — 클래스형 삭제, 비테스트 소비 6파일뿐)**. 실측은 6파일 목록 재확인용. security.service 계열(verifyPassword/unlock) 포함 시 자금-인접 — 비관 리뷰 필수 명기
+- [ ] core 원시 throw 19곳 → 도메인 에러(BaseError): 호출부 catch 전수 추적 + translateError convention 키 커버리지(누락 시 로케일 키 동반)
+- [ ] findModuleForAccount: 감사 처방 양자택일 보존 — **accountId 매칭 구현 또는 파라미터 제거** (+reclaim/redeem 유스케이스 분리) — 실측 후 택일, 근거 기록
+- [ ] **VERIFY_FAILED→wrongPin 오표시 수정** (Phase 1 리뷰 NIT 승격 — 스토리지 read 예외가 "PIN 오류"로 표시되던 것: 인프라 실패는 lock.errorOccurred 계열로)
+- [ ] ui→adapters 직접 import 2건 절단 (use-redeem-token:7,11 + DiagnosticsPage:7 — 포트 경유)
+- [ ] (후보) error-message.ts / error-i18n.ts 에러-변환 이원화 통합
+- [ ] 비관 리뷰 → 커밋
+
+## R2-C — 구조 (M-L)
+- [ ] bootstrap 내부 절단: 도메인 묶음별 조립 함수로 분해 (순수 이동 + 자진 신고 규율 — Phase 4 방법론)
+- [ ] SendInputStep 선분리 (검증 로직 훅化)
+- [ ] 온보딩 배선 composition 이동
+- [ ] **proofs 테이블 삭제 = Dexie 스키마 버전업의 `proofs: null` 선언 (S — 계획 v1 의 "툼스톤 설계 선행(M)" 은 감사 오독이었음)**: 감사 :56-57 마이그레이션 부채와 동승. logout.integration.test.ts 가 db.proofs 를 시드하므로 테스트 동반 수정
+- [ ] SettingsScreen effect unmount cleanup 부재 수정 (4a 잠복 b)
+- [ ] handleTabSelect 의 hasSettingsSubPage 미리셋 (4a 잠복 a): **수정 또는 명시적 waive 택일 후 기록** (도달 곤란 quirk — 서브페이지 열림 시 하단 nav 숨김)
+- [ ] use-app-navigation refs 억제 → useEffectEvent 전환 검토 (React 19.2): 전환 또는 waive 기록
+- [ ] 비관 리뷰(묶음별) → 커밋
+
+## R2-D — 보안 임계 (별도 트랙, 설계 문서 → **이중 리뷰(가이드+블라인드)** → 구현)
+- [ ] PBKDF2 상향 + 재암호화 마이그레이션 설계 문서. **필수 축 (계획 리뷰 보강)**:
+  ① **hashPassword 동일 상수 공유 (치명)**: PBKDF2_ITERATIONS=100k 를 deriveKey(니모닉)와 hashPassword(PIN 검증)가 공유 — 니모닉만 올리면 passwordHash 100k 가 최약점 잔존. **재해시 마이그레이션 포함 필수**
+  ② passkey.ts:47 별도 PBKDF2 100k: 입력이 PRF 출력(고엔트로피 32B)이라 반복수 방어 가치 낮음 — **스코프 제외 가능하되 설계 문서에 판정+근거 명시**
+  ③ 크래시 원자성(신규 기록 후 구기록 교체) + **kdfVersion 필드** + 구버전 다운그레이드 graceful 실패
+  ④ Argon2id 대안 평가(감사 원문 제시 — WebCrypto 미지원 → WASM 의존 트레이드) + 모바일 unlock 지연 실측 + half-wipe/자동락 상호작용
+- [ ] POS 키 반출 UX (제품 결정 — 소유자 확인 후)
+
+## 대기 (착수 불가 — 게이트 분리 명기)
+- 네트워크 개편 이월: **진단 프로토콜 = 7일**(tls_stuck_detected=0 AND coco_push_received>0, 설계 §12) 충족 후 ks 구경로 삭제 / **§8.3 = 별도 2주 계측**(설계 :295) 후 판단 — 두 게이트는 별개
+
+---
+
 # Current Task — 감사 잔여 항목 실행 (2026-07-06 계획, 비관 리뷰 반영 v3)
 
 근거: docs/audit/2026-07-06-non-network-refactoring-audit.md + 계획 비관 리뷰(REJECTED 3건 → 반영).

@@ -96,7 +96,18 @@ export default defineConfig({
     include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     coverage: {
       reporter: ['text', 'json', 'html'],
-      exclude: ['node_modules/', 'src/__tests__/'],
+      // include 로 미임포트 파일까지 집계 (감사 §9: all 부재 → 통계 밖 결함.
+      // vitest 4 는 all 옵션 제거 — include 매칭 파일이 미실행이어도 0% 로 포함)
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['node_modules/', 'src/__tests__/', '**/*.d.ts'],
+      // 래칫 (R2-A, 감사 §9): 2026-07-07 실측 바닥값 고정 — 하향 금지, 상향만 허용.
+      // 부동 상대값(-5%p)은 하향 드리프트를 정당화하므로 기각됨 (계획 리뷰).
+      // 바닥 = 실측 −2~3%p (리뷰 MINOR: 실측 직결 바닥은 양성 변경에 여유 0 —
+      // 방어 분기 2개 추가에 게이트가 즉사하고 바닥 인하 압력이 생긴다)
+      thresholds: {
+        'src/core/domain/**': { lines: 91, statements: 86, branches: 79, functions: 88 },
+        'src/composition/**': { lines: 55, statements: 54, branches: 40, functions: 42 },
+      },
     },
   },
   build: {

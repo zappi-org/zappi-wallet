@@ -26,7 +26,7 @@ import {
   transactionToDetail,
 } from './token-view-model'
 import type {
-  MockPendingToken,
+  PendingTokenView,
   TokenDetailData,
 } from './types'
 
@@ -121,7 +121,7 @@ export function TokenScreen({
   )
   const { fees: reclaimFees } = useReclaimFees(pendingTxIds)
 
-  const pendingTokens: MockPendingToken[] = useMemo(() => {
+  const pendingTokens: PendingTokenView[] = useMemo(() => {
     return pendingItemsRaw
       .filter(isSendToken)
       .map((item: PendingItem<TokenDetails>) => ({
@@ -167,7 +167,7 @@ export function TokenScreen({
   }, [onSaveSettings])
 
   const handleShare = useCallback(
-    async (token: MockPendingToken) => {
+    async (token: PendingTokenView) => {
       const shareText = token.tokenString
         ? token.tokenString
         : t('token.reclaimable.shareText', {
@@ -193,7 +193,7 @@ export function TokenScreen({
   const isEmpty = !hasPending && !hasTimeline
 
   const handleSelectPending = useCallback(
-    (token: MockPendingToken) => {
+    (token: PendingTokenView) => {
       console.log('[TokenScreen] handleSelectPending called', token)
       if (!onSelectToken) {
         console.log('[TokenScreen] onSelectToken is undefined')
@@ -243,17 +243,17 @@ export function TokenScreen({
     [onSelectToken, getDisplayName, getMetadata, getIconUrl, fiatRate, fiatCurrency],
   )
 
-  const [reclaimTargets, setReclaimTargets] = useState<MockPendingToken[] | null>(null)
+  const [reclaimTargets, setReclaimTargets] = useState<PendingTokenView[] | null>(null)
   const openReclaimAll = useCallback(() => {
     if (pendingTokens.length === 0) return
     setReclaimTargets(pendingTokens)
   }, [pendingTokens])
-  const openReclaimOne = useCallback((token: MockPendingToken) => {
+  const openReclaimOne = useCallback((token: PendingTokenView) => {
     setReclaimTargets([token])
   }, [])
   const closeReclaim = useCallback(() => setReclaimTargets(null), [])
   const confirmReclaim = useCallback(
-    async (tokens: MockPendingToken[]) => {
+    async (tokens: PendingTokenView[]) => {
       await reclaimMultiple(
         tokens.map((t) => t.id),
         {

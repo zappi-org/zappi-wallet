@@ -1,15 +1,15 @@
 import { useTranslation } from 'react-i18next'
 import { PendingTokenCard } from './PendingTokenCard'
 import { FirstCreateHint } from './FirstCreateHint'
-import type { MockPendingToken } from '../types'
+import type { PendingTokenView } from '../types'
 
 export interface ReclaimableSectionProps {
-  tokens: MockPendingToken[]
+  tokens: PendingTokenView[]
   showFirstCreateHint?: boolean
   onDismissHint?: () => void
-  onReclaim?: (token: MockPendingToken) => void
-  onShare?: (token: MockPendingToken) => void
-  onSelect?: (token: MockPendingToken) => void
+  onReclaim?: (token: PendingTokenView) => void
+  onShare?: (token: PendingTokenView) => void
+  onSelect?: (token: PendingTokenView) => void
 }
 
 export function ReclaimableSection({

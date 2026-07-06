@@ -29,3 +29,4 @@ dist-ssr
 
 # Local HTTPS dev certificates (mkcert-generated, never commit)
 certs/
+coverage/

@@ -4,7 +4,7 @@ import { getTxMeta } from '@/core/domain/transaction'
 import { toNumber } from '@/core/domain/amount'
 import type { Transaction } from '@/core/domain/transaction'
 import type {
-  MockPendingToken,
+  PendingTokenView,
   TokenDetailData,
   TokenFiatDisplay,
   TokenDetailStatus,
@@ -49,7 +49,7 @@ export interface PendingDetailExtras {
 
 /** Convert pending view → detail shape (always 'pending', orange dot). */
 export function pendingToDetail(
-  token: MockPendingToken,
+  token: PendingTokenView,
   extras: PendingDetailExtras = {},
 ): TokenDetailData {
   return {

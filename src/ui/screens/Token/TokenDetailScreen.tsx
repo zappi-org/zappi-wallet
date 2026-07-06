@@ -20,7 +20,7 @@ import { TokenRawSheet } from './components/TokenRawSheet'
 import { TokenQrSheet } from './components/TokenQrSheet'
 import { ReclaimSheet } from './components/ReclaimSheet'
 import { formatDetailDateLine } from './token-view-model'
-import type { MockPendingToken, TokenDetailData, TokenDetailStatus } from './types'
+import type { PendingTokenView, TokenDetailData, TokenDetailStatus } from './types'
 
 const STATUS_ICON: Record<TokenDetailStatus, LucideIcon | null> = {
   pending: null, // rendered as orange dot instead
@@ -121,7 +121,7 @@ export function TokenDetailScreen({
     }
   }, [onReclaim, data, addToast, t])
 
-  const reclaimTokens: MockPendingToken[] = useMemo(
+  const reclaimTokens: PendingTokenView[] = useMemo(
     () => [
       {
         id: data.id,
