@@ -108,7 +108,13 @@
 
 ## 명시적 비범위 (의도적 이월 — 리뷰 MINOR-17로 명시화)
 - PBKDF2 반복수 상향(재암호화 마이그레이션 별도 설계), POS 키 반출 UX, 프로덕션 console drop
-- Result 타입 2종 통일, core 원시 throw 19곳, bootstrap 내부 절단, SendInputStep 선분리, payment.service findModuleForAccount 정직화, 온보딩 배선 composition 이동, proofs 툼스톤, 커버리지 임계, ui→adapters 2건 — 이번 라운드 제외(다음 라운드 후보)
+- Result 타입 2종 통일, core 원시 throw 19곳, bootstrap 내부 절단, SendInputStep 선분리, payment.service findModuleForAccount 정직화, 온보딩 배선 composition 이동, proofs 툼스톤, 커버리지 임계, ui→adapters 2건 — **전부 Round 2(R2-A~D)에서 완료**
+
+## R3 평가 결과 (2026-07-07 — 남은것들 진행 지시에 따른 실사)
+- **core/domain 원시 throw 16곳 → 유지 결정(전환 안 함)**: nostr-address bech32 파서 13 + amount 단위-불일치 가드 2 + transitionPhase 가드 1. 판정: 이들은 **도메인-상태 에러가 아니라 파서 예외·불변식 가드**다 — 도메인 BaseError 전환은 과설계(코드 없이도 message 가 정보, i18n 매핑 불요). 감사의 "code 없는 Error i18n 미매핑" 우려는 **Phase 0 error-i18n 강등 가드(메시지 패턴 폴백+키-부재 강등)로 이미 해소** — 어떤 raw throw 도 UI 에 리터럴 키를 누출하지 않는다. isNostrDirectAddress(UI 검증자)는 prefix 체크로 무-throw. → **의도적 유지, 전환은 CLAUDE.md '최소 변경·과설계 금지' 위반**.
+- **POS 키 반출 UX → 이미 구현됨(신규 작업 불요)**: POSSettingPage 가 니모닉→POS 서브키 파생 → zpos1 QR 프로비저닝 페이로드(서브키쌍 포함) + 클립보드 복사 + 기기 목록/추가/삭제 완비. '제품 결정 필요'는 오추정 — 기능 실재.
+- **UI 폴리시 백로그(투명도 /[0.x]→/N 95곳·border-radius·그림자)**: 이전 세션 유래·저우선 코스메틱. Tailwind opacity 문법 정규화(동작 변화 0)라 실익 얇고 시각 회귀 위험만 — 소유자 확인 후 진행 여부 결정.
+- **네트워크 §8.2/8.3 + ks 구경로 삭제**: 7일(진단)/2주(§8.3) 운영 게이트 — 프로덕션 런타임 데이터 필요, 착수 불가.
 - 네트워크 개편 이월(§8.2/8.3, ks 구경로 삭제) — 검증 게이트 대기
 - [완료 — 후속 묶음 커밋] 4d 리뷰 이월 2건: screenRoutes(Partial)와 Screen 유니온의 전수 체크(테이블 키 ∪ 예외 2 = 유니온 — 무음 빈 화면 드리프트 방지, NON_TERMINAL_PHASES와 동류) / token 블록 디버그 console.log 2줄(프로덕션 console-drop 항목과 함께)
 - [완료 — 후속 묶음 커밋] 4b+4c 리뷰 이월: 훅 내부 콘솔 프리픽스 '[MainApp]' 일괄 개명 / txDetail source.unknown 폴백 헬퍼(i18n 리뷰 기록)
