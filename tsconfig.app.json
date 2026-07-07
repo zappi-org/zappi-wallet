@@ -23,8 +23,8 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
 
-    /* Path alias */
-    "baseUrl": ".",
+    /* Path alias (baseUrl omitted — TS 4.1+ resolves paths relative to this
+       tsconfig, avoiding the TS 6.0 baseUrl deprecation warning, TS5101) */
     "paths": {
       "@/*": ["./src/*"]
     }
