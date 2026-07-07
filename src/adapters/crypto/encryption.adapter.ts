@@ -7,14 +7,15 @@
 import type { Encryption, EncryptedData } from '@/core/ports/driven/encryption.port'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 
-const PBKDF2_ITERATIONS = 100_000
+// 반복수 상수는 이 어댑터가 소유하지 않는다 — 정책은 서비스 층(KDF_ITERATIONS)이
+// 결정하고 이 실행자는 인자로 받은 iterations 를 그대로 적용한다 (docs/design/kdf-upgrade.md §5.2).
 
 export class EncryptionAdapter implements Encryption {
-  async encrypt(data: string, password: string): Promise<EncryptedData> {
+  async encrypt(data: string, password: string, iterations: number): Promise<EncryptedData> {
     const salt = crypto.getRandomValues(new Uint8Array(16))
     const iv = crypto.getRandomValues(new Uint8Array(12))
 
-    const key = await this.deriveKey(password, salt)
+    const key = await this.deriveKey(password, salt, iterations)
     const encoded = new TextEncoder().encode(data)
 
     const encrypted = await crypto.subtle.encrypt(
@@ -30,12 +31,12 @@ export class EncryptionAdapter implements Encryption {
     }
   }
 
-  async decrypt(encrypted: EncryptedData, password: string): Promise<string> {
+  async decrypt(encrypted: EncryptedData, password: string, iterations: number): Promise<string> {
     const salt = hexToBytes(encrypted.salt)
     const iv = hexToBytes(encrypted.iv)
     const cipherBytes = new Uint8Array(base64ToArrayBuffer(encrypted.ciphertext))
 
-    const key = await this.deriveKey(password, salt)
+    const key = await this.deriveKey(password, salt, iterations)
 
     const decrypted = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv: iv as Uint8Array<ArrayBuffer> },
@@ -46,7 +47,7 @@ export class EncryptionAdapter implements Encryption {
     return new TextDecoder().decode(decrypted)
   }
 
-  async hashPassword(password: string, salt: string): Promise<string> {
+  async hashPassword(password: string, salt: string, iterations: number): Promise<string> {
     const encoder = new TextEncoder()
     const keyMaterial = await crypto.subtle.importKey(
       'raw',
@@ -59,8 +60,10 @@ export class EncryptionAdapter implements Encryption {
     const bits = await crypto.subtle.deriveBits(
       {
         name: 'PBKDF2',
+        // v1 의미 동결 (§1.3): salt hex 문자열을 그대로 TextEncoder 로 인코딩한다.
+        // 이 인코딩을 바꾸면 기존 레코드 검증이 깨진다 — 반복수만 인자화한다.
         salt: encoder.encode(salt),
-        iterations: PBKDF2_ITERATIONS,
+        iterations,
         hash: 'SHA-256',
       },
       keyMaterial,
@@ -70,7 +73,7 @@ export class EncryptionAdapter implements Encryption {
     return bytesToHex(new Uint8Array(bits))
   }
 
-  private async deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
+  private async deriveKey(password: string, salt: Uint8Array, iterations: number): Promise<CryptoKey> {
     const keyMaterial = await crypto.subtle.importKey(
       'raw',
       new TextEncoder().encode(password),
@@ -83,7 +86,7 @@ export class EncryptionAdapter implements Encryption {
       {
         name: 'PBKDF2',
         salt: new Uint8Array(salt),
-        iterations: PBKDF2_ITERATIONS,
+        iterations,
         hash: 'SHA-256',
       },
       keyMaterial,

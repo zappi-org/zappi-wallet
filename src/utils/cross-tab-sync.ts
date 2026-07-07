@@ -42,3 +42,23 @@ export function broadcastSync(type: SyncMessage['type']): void {
     broadcastChannel = null
   }
 }
+
+/**
+ * KDF 재암호화 마이그레이션 직후의 타 탭 하드닝 (docs/design/kdf-upgrade.md §6.4 R1).
+ *
+ * 이 브라우저-프리미티브 side-effect 는 성공한 unlock 이 `migrated: true` 를 반환할 때만 실행한다:
+ * 1. `settings_changed` broadcast → 배포된 구 번들 탭을 reload 시켜 새 번들(=v2 인지)로 재기동.
+ * 2. `localStorage['lockout']` 제거 → 구 번들이 정답 PIN 을 오답 계수해 남겼을 수 있는 거짓 15분
+ *    잠금을 소거한다. 방금 성공한 unlock 이 이미 PIN 지식을 증명했으므로 그 lockout 은 무의미하다.
+ *
+ * core 서비스가 아닌 UI/utils 층이 쏘는 이유: cross-tab-sync 는 브라우저 프리미티브이고
+ * core 는 이 층을 import 하지 않는다 (헥사고날 계약 유지).
+ */
+export function notifyKdfMigrated(): void {
+  broadcastSync('settings_changed')
+  try {
+    localStorage.removeItem('lockout')
+  } catch {
+    // localStorage 접근 불가 환경(사생활 모드 등)에서도 broadcast 는 이미 나갔다 — 무시.
+  }
+}

@@ -153,7 +153,13 @@ in-browser 여부 미명시 — ballpark 전용) → 본 실측 42.8ms 대비 **
 |----------|---------|-----------|-----------|
 | 현행 v1 unlock (2×100k) | 14 ms | 42 ms | 70 ms |
 | **목표 v2 unlock (2×600k)** | **86 ms** | **257 ms** | **428 ms** |
-| 마이그레이션 unlock 1회 (2×100k + 3×600k, §5.3) | 143 ms | 428 ms | 713 ms |
+| 마이그레이션 unlock 1회 (2×100k + **4**×600k — 구현 리뷰 정정: §5.4 양방향 readback 이 hash 재파생 1회 추가) | **186 ms** | **556 ms** | **926 ms** |
+
+> 구현 리뷰 MINOR-1 정정: 초안은 3×600k(encrypt+hash+니모닉 readback)로 추정했으나, 양방향
+> readback(§5.4)이 hash readback 1회를 더해 실측 4×600k 다. 최악 보정 ~0.93초로 여전히 1.5초
+> 재논의 임계 미만이라 침묵 수행 판정 불변. hash readback 자체는 결정론적 재계산이라 방어
+> 가치가 한계적(자기 산출물 대조)이지만 fail-safe(불일치=스킵+재시도)라 존치 — 제거는 니모닉
+> readback 과의 대칭만 잃을 뿐 안전을 더하지 않으므로 구현 리뷰가 비차단 처리했다.
 
 판정: v2 정상 unlock 은 최악 보정에서도 0.5초 미만 — 잠금 화면의 기존 로딩 상태
 (`LockScreen.tsx` `isLoading`) 안에 흡수된다. 마이그레이션은 **평생 1회** ~0.7초로,
@@ -685,8 +691,8 @@ lock/deleteWallet), `encryption.adapter.test.ts`, `LockScreen.lockout.test.tsx`,
 
 unlock 모델 (PBKDF2 2회 = hash 검증 + deriveKey):
   현행 v1 (2×100k): 14ms   /  목표 v2 (2×600k): 86ms
-  마이그레이션 unlock (2×100k + 3×600k): 143ms
-모바일 보정 ×3/×5 [추정]: v2 86→257/428ms, 마이그레이션 143→428/713ms
+  마이그레이션 unlock (2×100k + 4×600k — 구현 확정): 186ms
+모바일 보정 ×3/×5 [추정]: v2 86→257/428ms, 마이그레이션 186→556/926ms
 ```
 
 - 한계: 단일 기기·단일 엔진. 브라우저(BoringSSL/CommonCrypto)와는 동급 네이티브지만 동일치

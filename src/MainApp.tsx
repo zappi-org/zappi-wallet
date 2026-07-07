@@ -21,7 +21,7 @@ import { useSwapHandlers } from '@/ui/hooks/use-swap-handlers'
 import { useTransactions } from '@/ui/hooks/use-transactions'
 import { isNostrDirectAddress } from '@/core/domain/nostr-address'
 import { setMintNameResolver, translateError } from '@/ui/utils/error-i18n'
-import { broadcastSync } from '@/utils/cross-tab-sync'
+import { broadcastSync, notifyKdfMigrated } from '@/utils/cross-tab-sync'
 // useMintHealth removed — mint health checks done via serviceRegistry directly
 import { useAppStore } from '@/store'
 import { useNetwork } from '@/ui/hooks/use-network'
@@ -538,6 +538,13 @@ export default function MainApp() {
 
     // Set nostr key pair in store
     setNostrKeyPair(result.value.keys.publicKey, result.value.keys.privateKey)
+
+    // KDF 재암호화 마이그레이션이 방금 발생했으면: 타 탭(구 번들) reload + 거짓 lockout 소거
+    // (docs/design/kdf-upgrade.md §6.4 R1). 두 성공 반환 경로(fast/re-unlock, bootstrap) 공통
+    // 지점으로 hoist — 반환 전 단일 지점에서 처리한다.
+    if (result.value.migrated) {
+      notifyKdfMigrated()
+    }
 
     // 자동잠금 해제 경량 경로 (감사 §6 / 전자 정책): 세션(레지스트리·소켓·
     // 구독)이 살아있으면 재부트스트랩하지 않는다 — security.unlock이 방금
