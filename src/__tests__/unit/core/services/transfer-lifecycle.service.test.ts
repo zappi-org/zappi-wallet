@@ -1,7 +1,7 @@
 /**
- * TransferLifecycleService — 단위 테스트
+ * TransferLifecycleService — unit tests
  *
- * Mock Store + Mock Operator + Spy EventBus로 전체 상태 머신 검증
+ * Verifies the full state machine with a mock Store, mock Operator, and spy EventBus.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -24,7 +24,7 @@ describe('TransferLifecycleService', () => {
     eventBus = createEventBus()
     emittedEvents = []
 
-    // 모든 이벤트를 가로채서 기록
+    // Intercept and record every emitted event
     const originalEmit = eventBus.emit.bind(eventBus)
     eventBus.emit = (event) => {
       emittedEvents.push({ type: event.type, payload: (event as { payload: unknown }).payload })
@@ -79,7 +79,7 @@ describe('TransferLifecycleService', () => {
   // ─── initiateTransfer ───
 
   describe('initiateTransfer', () => {
-    it('prepare → store.create → execute → store.update 순서대로 진행', async () => {
+    it('runs prepare → store.create → execute → store.update in order', async () => {
       const mockOp = makeMockOperator()
       createService(new Map([['mock', mockOp]]))
 
@@ -96,12 +96,11 @@ describe('TransferLifecycleService', () => {
       expect(store.size()).toBe(1)
       expect(result.phase).toBe('submitted')
 
-      // 이벤트 검증
       const submittedEvent = emittedEvents.find((e) => e.type === 'transfer:submitted')
       expect(submittedEvent).toBeDefined()
     })
 
-    it('execute 실패 시 failed로 전이', async () => {
+    it('transitions to failed when execute fails', async () => {
       const mockOp = makeMockOperator({
         execute: vi.fn().mockRejectedValue(new Error('network error')),
       })
@@ -117,7 +116,7 @@ describe('TransferLifecycleService', () => {
       expect(failedEvent).toBeDefined()
     })
 
-    it('알 수 없는 프로토콜이면 에러', async () => {
+    it('errors on an unknown protocol', async () => {
       createService(new Map())
 
       await expect(
@@ -132,7 +131,7 @@ describe('TransferLifecycleService', () => {
   // ─── pollPendingTransfers ───
 
   describe('pollPendingTransfers', () => {
-    it('phase 변경 시 store 업데이트 + 이벤트 발행', async () => {
+    it('updates store and emits event on phase change', async () => {
       const mockOp = makeMockOperator({
         poll: vi.fn().mockResolvedValue('settled'),
       })
@@ -159,7 +158,7 @@ describe('TransferLifecycleService', () => {
       expect(phaseEvent?.payload).toMatchObject({ previousPhase: 'in_transit' })
     })
 
-    it('settled/failed면 finalizeTransfer 호출 (정리 이벤트)', async () => {
+    it('calls finalizeTransfer on settled/failed (cleanup event)', async () => {
       const mockOp = makeMockOperator({
         poll: vi.fn().mockResolvedValue('settled'),
       })
@@ -182,7 +181,7 @@ describe('TransferLifecycleService', () => {
       expect(settledEvent).toBeDefined()
     })
 
-    it('operator를 찾을 수 없으면 skip', async () => {
+    it('skips when operator is not found', async () => {
       createService(new Map())
 
       const transfer = createPendingTransfer({
@@ -198,7 +197,6 @@ describe('TransferLifecycleService', () => {
 
       await service.pollPendingTransfers()
 
-      // 아무 변화 없음
       const unchanged = await store.get('t1')
       expect(unchanged?.phase).toBe('in_transit')
     })
@@ -207,7 +205,7 @@ describe('TransferLifecycleService', () => {
   // ─── reclaimTransfer ───
 
   describe('reclaimTransfer', () => {
-    it('recoverable + onExpiry: reclaim이면 rollback 호출', async () => {
+    it('calls rollback for recoverable + onExpiry: reclaim', async () => {
       const mockOp = makeMockOperator()
       createService(new Map([['mock', mockOp]]))
 
@@ -233,7 +231,7 @@ describe('TransferLifecycleService', () => {
       expect(reclaimedEvent).toBeDefined()
     })
 
-    it('settled이면 Cannot reclaim 에러', async () => {
+    it('errors with Cannot reclaim when settled', async () => {
       createService(new Map())
 
       const transfer = createPendingTransfer({
@@ -250,7 +248,7 @@ describe('TransferLifecycleService', () => {
       await expect(service.reclaimTransfer('t1')).rejects.toThrow('Cannot reclaim')
     })
 
-    it('operator에 reclaim이 없으면 에러', async () => {
+    it('errors when the operator has no reclaim', async () => {
       const mockOp = makeMockOperator({ reclaim: undefined })
       createService(new Map([['mock', mockOp]]))
 
@@ -273,7 +271,7 @@ describe('TransferLifecycleService', () => {
   // ─── processIncomingTransfer ───
 
   describe('processIncomingTransfer', () => {
-    it('incoming transfer를 operator.processIncoming로 위임', async () => {
+    it('delegates an incoming transfer to operator.processIncoming', async () => {
       const mockOp = makeMockOperator()
       createService(new Map([['mock', mockOp]]))
 
@@ -295,7 +293,7 @@ describe('TransferLifecycleService', () => {
       expect(updated?.phase).toBe('awaiting_confirmation')
     })
 
-    it('direction이 incoming이 아니면 skip', async () => {
+    it('skips when direction is not incoming', async () => {
       const mockOp = makeMockOperator()
       createService(new Map([['mock', mockOp]]))
 
@@ -340,7 +338,7 @@ describe('TransferLifecycleService', () => {
       expect(submittedEvent).toBeDefined()
     })
 
-    it('prepareReceive 미지원 프로토콜이면 에러', async () => {
+    it('errors on a protocol without prepareReceive support', async () => {
       const mockOp = makeMockOperator({ prepareReceive: undefined })
       createService(new Map([['mock', mockOp]]))
 
@@ -381,7 +379,7 @@ describe('TransferLifecycleService', () => {
       expect(settledEvent).toBeDefined()
     })
 
-    it('awaiting_confirmation이 아니면 에러', async () => {
+    it('errors when not awaiting_confirmation', async () => {
       const mockOp = makeMockOperator()
       createService(new Map([['mock', mockOp]]))
 
@@ -401,7 +399,7 @@ describe('TransferLifecycleService', () => {
       )
     })
 
-    it('claimReceive 미지원이면 에러', async () => {
+    it('errors when claimReceive is unsupported', async () => {
       const mockOp = makeMockOperator({ claimReceive: undefined })
       createService(new Map([['mock', mockOp]]))
 
@@ -425,7 +423,7 @@ describe('TransferLifecycleService', () => {
   // ─── recoverTransfers ───
 
   describe('recoverTransfers', () => {
-    it('active transfer마다 needs-polling 이벤트 발행', async () => {
+    it('emits a needs-polling event for each active transfer', async () => {
       createService(new Map())
 
       const t1 = createPendingTransfer({
@@ -456,7 +454,7 @@ describe('TransferLifecycleService', () => {
       expect(needsPolling).toHaveLength(2)
     })
 
-    it('preparing incoming은 submitted로 전이 후 needs-polling', async () => {
+    it('preparing incoming transitions to submitted then needs-polling', async () => {
       createService(new Map())
 
       const t1 = createPendingTransfer({
@@ -478,12 +476,12 @@ describe('TransferLifecycleService', () => {
       const phaseChanged = emittedEvents.find((e) => e.type === 'transfer:phase-changed')
       expect(phaseChanged).toBeDefined()
 
-      // submitted가 되었으므로 needs-polling도 발행
+      // Now submitted, so needs-polling is also emitted
       const needsPolling = emittedEvents.filter((e) => e.type === 'transfer:needs-polling')
       expect(needsPolling).toHaveLength(1)
     })
 
-    it('preparing outgoing은 failed로 전이', async () => {
+    it('preparing outgoing transitions to failed', async () => {
       createService(new Map())
 
       const t1 = createPendingTransfer({
@@ -505,13 +503,13 @@ describe('TransferLifecycleService', () => {
       const failedEvent = emittedEvents.find((e) => e.type === 'transfer:failed')
       expect(failedEvent).toBeDefined()
 
-      // preparing은 active가 아니므로 needs-polling은 없음
+      // preparing isn't active, so no needs-polling
       const needsPolling = emittedEvents.filter((e) => e.type === 'transfer:needs-polling')
       expect(needsPolling).toHaveLength(0)
     })
   })
 
-  // ─── 120s stuck-sweep (설계 §7.2/§7.3) ───
+  // ─── 120s stuck-sweep ───
 
   describe('stuck-sweep', () => {
     let counters: { stuckDetected: () => void; stuckConfirmedSettled: () => void }
@@ -537,7 +535,7 @@ describe('TransferLifecycleService', () => {
     const STUCK_AGE = { updatedAt: Date.now() - 121_000 }
     const FRESH_AGE = { updatedAt: Date.now() - 1_000 }
 
-    it('applies a local transition without any remote confirm (1차 로컬 판정)', async () => {
+    it('applies a local transition without any remote confirm (first-pass local decision)', async () => {
       const operator = makeMockOperator({
         pollLocal: vi.fn().mockResolvedValue('settled' as TransferPhase),
         confirmStuck: vi.fn(),
@@ -568,7 +566,7 @@ describe('TransferLifecycleService', () => {
       expect(counters.stuckDetected).not.toHaveBeenCalled()
     })
 
-    it('confirms a stuck transfer once and settles it (매트릭스 경로 + 카운터)', async () => {
+    it('confirms a stuck transfer once and settles it (matrix path + counter)', async () => {
       const operator = makeMockOperator({
         pollLocal: vi.fn().mockImplementation(async (t: PendingTransfer) => t.phase),
         confirmStuck: vi.fn().mockResolvedValue('settled' as TransferPhase),
@@ -584,7 +582,7 @@ describe('TransferLifecycleService', () => {
       expect((await store.get('sweep-1'))?.phase).toBe('settled')
     })
 
-    it('unchanged confirm (사용자 대기 — UNPAID/미상환)은 계수하지 않는다 (§12 게이트)', async () => {
+    it('unchanged confirm (user waiting — UNPAID/unredeemed) is not counted (§12 gate)', async () => {
       const operator = makeMockOperator({
         pollLocal: vi.fn().mockImplementation(async (t: PendingTransfer) => t.phase),
         confirmStuck: vi.fn().mockResolvedValue('in_transit' as TransferPhase),
@@ -599,7 +597,7 @@ describe('TransferLifecycleService', () => {
       expect((await store.get('sweep-1'))?.phase).toBe('in_transit')
     })
 
-    it('expiry-driven transition (recoverable)은 전이하되 계수하지 않는다 — 수명 이벤트', async () => {
+    it('expiry-driven transition (recoverable) transitions but is not counted — lifecycle event', async () => {
       const operator = makeMockOperator({
         pollLocal: vi.fn().mockImplementation(async (t: PendingTransfer) => t.phase),
         confirmStuck: vi.fn().mockResolvedValue('recoverable' as TransferPhase),
@@ -613,10 +611,10 @@ describe('TransferLifecycleService', () => {
       expect(counters.stuckDetected).not.toHaveBeenCalled()
     })
 
-    it('non-terminal 전진(PAID 관측)도 계수한다 — 수신 push 미스의 유일한 관측형 (재검증 MAJOR)', async () => {
-      // checkPayment는 finalize 이전 관측치 PAID를 반환하므로, 수신 watcher가
-      // 죽은 기기의 push 미스는 submitted→awaiting(비터미널)으로만 나타난다 —
-      // 터미널만 계수하면 게이트가 거짓 통과한다.
+    it('non-terminal advance (PAID observation) is also counted — the only observable form of a receive push miss (re-verification MAJOR)', async () => {
+      // checkPayment returns a pre-finalize PAID observation, so a push miss on a device
+      // whose receive watcher died shows up only as submitted→awaiting (non-terminal) —
+      // counting only terminal transitions would let the gate falsely pass.
       const operator = makeMockOperator({
         pollLocal: vi.fn().mockImplementation(async (t: PendingTransfer) => t.phase),
         confirmStuck: vi.fn().mockResolvedValue('awaiting_confirmation' as TransferPhase),
@@ -631,13 +629,13 @@ describe('TransferLifecycleService', () => {
       expect(counters.stuckConfirmedSettled).not.toHaveBeenCalled()
     })
 
-    it('만료 임박(스큐 여유 30s 내) 터미널 전이는 수명 이벤트로 취급 — 미계수', async () => {
+    it('terminal transition near expiry (within 30s skew margin) is treated as a lifecycle event — not counted', async () => {
       const operator = makeMockOperator({
         pollLocal: vi.fn().mockImplementation(async (t: PendingTransfer) => t.phase),
         confirmStuck: vi.fn().mockResolvedValue('failed' as TransferPhase),
       })
       createSweepService(new Map([['mock', operator]]))
-      // 민트가 로컬 만료보다 수 초 먼저 EXPIRED를 반환하는 창
+      // Window where the mint returns EXPIRED a few seconds before local expiry
       await store.create(seedTransfer({ ...STUCK_AGE, expiresAt: Date.now() + 10_000 }))
 
       await service.runStuckSweepOnce()
@@ -646,7 +644,7 @@ describe('TransferLifecycleService', () => {
       expect(counters.stuckDetected).not.toHaveBeenCalled()
     })
 
-    it('null confirm (원격 확인 개념 없음) is not counted as stuck — §12 게이트 오염 방지', async () => {
+    it('null confirm (no remote-confirm concept) is not counted as stuck — prevents §12 gate pollution', async () => {
       const operator = makeMockOperator({
         pollLocal: vi.fn().mockImplementation(async (t: PendingTransfer) => t.phase),
         confirmStuck: vi.fn().mockResolvedValue(null),
@@ -674,13 +672,13 @@ describe('TransferLifecycleService', () => {
 
       await service.runStuckSweepOnce()
 
-      // 확인 실패는 push 미스의 증거가 아니다 — 계수 없음·무전이, 나머지 계속
-      expect(counters.stuckDetected).toHaveBeenCalledTimes(1) // 'ok'의 터미널 전이만
+      // A failed confirm isn't evidence of a push miss — no count, no transition, sweep continues
+      expect(counters.stuckDetected).toHaveBeenCalledTimes(1) // only 'ok' had a terminal transition
       expect((await store.get('boom'))?.phase).toBe('in_transit')
       expect((await store.get('ok'))?.phase).toBe('settled')
     })
 
-    it('freeze 복귀 catch-up tick(갭 > 2×주기)은 구제 전용(무계수)', async () => {
+    it('freeze-recovery catch-up tick (gap > 2×period) is rescue-only (uncounted)', async () => {
       vi.useFakeTimers()
       try {
         const operator = makeMockOperator({
@@ -688,17 +686,17 @@ describe('TransferLifecycleService', () => {
           confirmStuck: vi.fn().mockResolvedValue('settled' as TransferPhase),
         })
         createSweepService(new Map([['mock', operator]]))
-        // 초기 즉시 1회 시점에는 young — 구제 대상 아님
+        // young at the initial immediate tick — not a rescue target
         await store.create(seedTransfer({ updatedAt: Date.now() - 1_000 }))
 
         service.startStuckSweep(120_000)
         await vi.advanceTimersByTimeAsync(0)
 
-        // freeze 시뮬레이션: 타이머는 멈춘 채 시계만 10분 점프 → 다음 tick이 catch-up
+        // Simulate freeze: timers paused while the clock jumps 10 min → next tick is catch-up
         vi.setSystemTime(Date.now() + 600_000)
         await vi.advanceTimersByTimeAsync(120_000)
 
-        // 구제(정산 회수)는 수행하되 계수는 없다
+        // Rescues (recovers the settlement) but does not count
         expect((await store.get('sweep-1'))?.phase).toBe('settled')
         expect(counters.stuckDetected).not.toHaveBeenCalled()
         service.stopStuckSweep()
@@ -707,7 +705,7 @@ describe('TransferLifecycleService', () => {
       }
     })
 
-    it('startStuckSweep의 즉시 1회는 구제 전용(무계수) — resume 레이스 오염 방지', async () => {
+    it('immediate first run of startStuckSweep is rescue-only (uncounted) — prevents resume-race pollution', async () => {
       vi.useFakeTimers()
       try {
         const operator = makeMockOperator({
@@ -720,7 +718,7 @@ describe('TransferLifecycleService', () => {
         service.startStuckSweep(120_000)
         await vi.advanceTimersByTimeAsync(0)
 
-        // 구제(전이)는 수행하되 카운터는 건드리지 않는다
+        // Rescues (transitions) but doesn't touch the counters
         expect((await store.get('sweep-1'))?.phase).toBe('settled')
         expect(counters.stuckDetected).not.toHaveBeenCalled()
         expect(counters.stuckConfirmedSettled).not.toHaveBeenCalled()
@@ -742,29 +740,29 @@ describe('TransferLifecycleService', () => {
 
         service.startStuckSweep(120_000)
         await vi.advanceTimersByTimeAsync(0)
-        expect(listSpy).toHaveBeenCalledTimes(1) // 즉시 1회 — 비었으므로 타이머 자기 정지
+        expect(listSpy).toHaveBeenCalledTimes(1) // immediate tick — empty, so the timer stops itself
 
         await vi.advanceTimersByTimeAsync(360_000)
-        expect(listSpy).toHaveBeenCalledTimes(1) // 정지 확인 — 주기 발화 없음
+        expect(listSpy).toHaveBeenCalledTimes(1) // confirms stopped — no periodic firing
 
         await store.create(seedTransfer(FRESH_AGE))
-        service.ensureSweepScheduled() // transfer 생성 신호 (§7.2)
+        service.ensureSweepScheduled() // signals transfer creation
         await vi.advanceTimersByTimeAsync(120_000)
-        expect(listSpy).toHaveBeenCalledTimes(2) // 재개됨
+        expect(listSpy).toHaveBeenCalledTimes(2) // resumed
 
         service.stopStuckSweep()
         await vi.advanceTimersByTimeAsync(360_000)
-        expect(listSpy).toHaveBeenCalledTimes(2) // 정지 후 발화 없음
+        expect(listSpy).toHaveBeenCalledTimes(2) // no firing after stop
 
         service.ensureSweepScheduled()
         await vi.advanceTimersByTimeAsync(360_000)
-        expect(listSpy).toHaveBeenCalledTimes(2) // sweep 모드 꺼짐(ks 구경로) — ensure는 no-op
+        expect(listSpy).toHaveBeenCalledTimes(2) // sweep mode off (legacy ks path) — ensure is a no-op
       } finally {
         vi.useRealTimers()
       }
     })
 
-    it('initiateTransfer restarts a self-stopped sweep (생성 경로 ensure)', async () => {
+    it('initiateTransfer restarts a self-stopped sweep (creation-path ensure)', async () => {
       vi.useFakeTimers()
       try {
         const operator = makeMockOperator({
@@ -774,7 +772,7 @@ describe('TransferLifecycleService', () => {
         const listSpy = vi.spyOn(store, 'listActive')
 
         service.startStuckSweep(120_000)
-        await vi.advanceTimersByTimeAsync(0) // 비었으므로 정지
+        await vi.advanceTimersByTimeAsync(0) // empty, so it stops
 
         const intent: TransferIntent = {
           txId: 'tx-new',

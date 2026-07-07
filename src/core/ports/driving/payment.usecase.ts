@@ -10,7 +10,7 @@ import type {
 } from '@/core/ports/driven/payment-method.port'
 import type { ModuleBalance } from '@/core/ports/driven/wallet-module.port'
 
-/** UI가 adapter를 직접 참조하지 않도록 DTO로 노출 */
+/** Exposed as a DTO so the UI never references the adapter directly */
 export interface PaymentMethodInfo {
   id: string        // 'cashu:bolt11', 'cashu:bolt12', 'cashu:ecash'
   moduleId: string
@@ -52,7 +52,7 @@ export interface PaymentUseCase {
     recipientPubkey?: string
   }): Promise<Result<InputInspectionResult, BaseError>>
 
-  /** 토큰 전송 완료 처리 (상대가 수령 확인 후 finalize) */
+  /** Finalize a token send once the recipient confirms receipt */
   completeSend(params: {
     transactionId: string
   }): Promise<Result<{ transactionId: string }, BaseError>>
@@ -100,10 +100,11 @@ export interface PaymentUseCase {
   }): Promise<Result<{ amount: Amount }, BaseError>>
 
   /**
-   * 미완료 결제 전수 복구. 기본적으로 single-flight + 30초 cooldown gate를 지난다
-   * (unlock/resume/당김새로고침/화면 진입 6개 트리거의 중첩 방지 — 설계 §6.4).
-   * cooldown 내 재호출은 직전 보고서를 반환한다. 사용자 명시 복구 버튼처럼
-   * "지금 반드시 실행"이 의도인 곳만 bypassGate를 쓴다.
+   * Recover all incomplete payments. By default passes through a single-flight +
+   * 30s cooldown gate (prevents overlap across the 6 triggers: unlock, resume,
+   * pull-to-refresh, screen entry, etc.). A re-call within the cooldown returns the
+   * previous report. Use bypassGate only where "must run now" is intended, such as
+   * an explicit user-initiated recovery button.
    */
   recoverAll(opts?: { bypassGate?: boolean }): Promise<RecoveryReport[]>
   recoverAccounts(params: {

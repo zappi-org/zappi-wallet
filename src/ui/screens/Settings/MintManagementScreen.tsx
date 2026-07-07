@@ -61,7 +61,7 @@ export function MintManagementScreen({
   // Ref to guard against duplicate fetches without causing callback identity changes
   const fetchedRef = useRef<Set<string>>(new Set())
 
-  // 직접 /v1/info fetch → mintInfo facade (설계 §5): 24h 캐시 히트 시 네트워크 0
+  // Direct /v1/info fetch via mintInfo facade: zero network on a 24h cache hit
   const fetchMintInfo = useCallback((url: string) => {
     if (fetchedRef.current.has(url)) return
     fetchedRef.current.add(url)

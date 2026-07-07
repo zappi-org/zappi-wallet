@@ -3,8 +3,8 @@
  * Based on cashu.me and go-nostr conventions
  */
 
-// 민트 URL 동등성(저장 정규화 + 비교 canonical)은 도메인 규칙 — core/domain 으로
-// 이동 (Phase 2 이중 리뷰 층위 판정). 기존 호출부를 위한 하위호환 re-export.
+// Mint URL equivalence (storage normalization + canonical comparison) is a domain
+// rule — moved to core/domain. Backward-compat re-export for existing callers.
 export { normalizeMintUrl, mintUrlKey, isSameMintUrl } from '@/core/domain/mint-url'
 import { mintUrlKey } from '@/core/domain/mint-url'
 
@@ -25,8 +25,9 @@ export function stripTrailingSlash(url: string): string {
 
 /**
  * Get mint balance with URL normalization fallback.
- * byMint 키는 coco-canonical 인데 UI 는 settings raw 를 들고 온다 (감사 MAJOR-7) —
- * 직접/슬래시 매치 실패 시 mintUrlKey 동등성으로 폴백해 표기 변형 미스를 없앤다.
+ * byMint keys are coco-canonical while the UI holds settings raw — when a
+ * direct/trailing-slash match fails, fall back to mintUrlKey equivalence so
+ * formatting variants don't get missed.
  */
 export function getMintBalance(url: string, balanceByMint: Record<string, number>): number {
   const direct = balanceByMint[stripTrailingSlash(url)] ?? balanceByMint[url]

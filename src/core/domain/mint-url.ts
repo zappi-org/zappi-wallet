@@ -1,15 +1,13 @@
 /**
- * 민트 URL 동등성 — 도메인 규칙 (감사 Phase 2, 이중 리뷰 층위 판정으로 core/domain 이동)
+ * Mint URL equality — a domain rule (zero dependencies, pure functions) shared by
+ * routing (fee selection), recovery, and balance display. utils/url.ts keeps a
+ * backward-compatible re-export (existing callers unchanged).
  *
- * "어떤 표기가 같은 민트인가"는 라우팅(수수료 선택)·복구·잔액 표시가 공유하는
- * 도메인 규칙이며 의존성 0 의 순수 함수다. utils/url.ts 는 하위호환 re-export 를
- * 유지한다 (기존 호출부 무변경).
- *
- * 두 정규화의 역할 분리가 계약이다:
- * - normalizeMintUrl: **저장·와이어 정규화** — 의미 동결. 소문자화·포트 제거 금지
- *   (기존 저장 데이터와의 키 불일치 = 자금 표시 버그).
- * - mintUrlKey: **비교 전용** canonical — 대소문자 호스트·기본 포트(:443/:80)·
- *   trailing slash·프로토콜 생략을 흡수. 반환값을 저장하거나 서버로 보내면 안 된다.
+ * The split between the two normalizations is a contract:
+ * - normalizeMintUrl: storage/wire normalization — meaning frozen. Never lowercase
+ *   or strip the port (a key mismatch with existing stored data = funds-display bug).
+ * - mintUrlKey: comparison-only canonical — absorbs host case, default ports
+ *   (:443/:80), trailing slash, and omitted protocol. Never store or send its return value.
  */
 
 /**
@@ -26,10 +24,10 @@ export function normalizeMintUrl(url: string): string {
 }
 
 /**
- * 민트 URL 비교 전용 canonical key.
- * 경로 대소문자는 보존한다(경로는 대소문자 구분 자원 — coco canonical 과 동일 결정).
- * 파싱 불가 문자열은 normalizeMintUrl 결과를 그대로 키로 쓴다.
- * userinfo·fragment 는 URL 파서 직렬화에서 탈락 — 민트 URL 실사용 0.
+ * Comparison-only canonical key for mint URLs.
+ * Path case is preserved (paths are case-sensitive resources).
+ * Unparseable strings fall back to the normalizeMintUrl result as the key.
+ * userinfo and fragment are dropped by URL serialization — unused in real mint URLs.
  */
 export function mintUrlKey(url: string): string {
   const normalized = normalizeMintUrl(url)
@@ -47,7 +45,7 @@ export function mintUrlKey(url: string): string {
   }
 }
 
-/** 두 민트 URL 이 같은 민트를 가리키는지 — 표기 변형(대소문자·:443·슬래시) 흡수 */
+/** Whether two mint URLs point to the same mint — absorbs notation variants (case, :443, slash) */
 export function isSameMintUrl(a: string, b: string): boolean {
   return mintUrlKey(a) === mintUrlKey(b)
 }

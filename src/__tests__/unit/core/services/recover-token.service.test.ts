@@ -265,10 +265,10 @@ describe('RecoveryService', () => {
       )
     })
 
-    it('marks processed only AFTER the durable enqueue for untrusted tokens (순서 계약)', async () => {
-      // 순서 계약 (설계 §6.2 / 3차 리뷰 blocker): durable enqueue → processed
-      // 마킹. 역순 회귀는 마킹↔enqueue 사이 크래시에서 replay가 dedup에 걸려
-      // 토큰을 영구 유실시킨다.
+    it('marks processed only AFTER the durable enqueue for untrusted tokens (ordering contract)', async () => {
+      // Ordering contract: durable enqueue → mark processed. The reverse
+      // regresses — a crash between marking and enqueue makes replay hit
+      // dedup and permanently lose the token.
       const processedStore = {
         save: vi.fn().mockResolvedValue(undefined),
         exists: vi.fn().mockResolvedValue(false),

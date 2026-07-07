@@ -1,13 +1,14 @@
 /**
  * SendInputStep — Destination-only step (rewritten)
- * Conversational "누구에게 보낼까요?" with single destination input.
+ * Conversational "who to send to?" with a single destination input.
  * Auto-advance when bolt11 with amount is scanned/pasted.
  * Supports @wallet detection for internal mint transfers.
  * Next button stays disabled until the destination is validated —
  * token creation lives in the Token tab (not this flow).
  *
- * 검증 로직(디바운스 판정·processExternalInput·handleNext·§8.5 계약)은
- * use-send-input-validation 훅 소유 — 이 컴포넌트는 표현만 담당한다 (R2-C).
+ * Validation logic (debounce decisions, processExternalInput, handleNext, the
+ * validation contract) is owned by the use-send-input-validation hook — this
+ * component only renders.
  */
 
 import { useState, useCallback, useRef, useMemo } from 'react'
@@ -70,7 +71,7 @@ export function SendInputStep({
   const settings = useAppStore((s) => s.settings)
   const { getDisplayName, getIconUrl } = useMintMetadata(settings.mints)
 
-  // 검증 상태/로직 — 훅 소유 (§8.5: 타이핑-중 네트워크 0, 제출 시 검증)
+  // Validation state/logic — owned by the hook (no network while typing, validate on submit)
   const {
     destination,
     updateDestination,
@@ -98,7 +99,6 @@ export function SendInputStep({
   const [showScanner, setShowScanner] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Derive showMyWallets from destination + validatedData
   const showMyWallets = useMemo(() => {
     const trimmed = destination.trim()
     if (!trimmed || !trimmed.startsWith('@')) return false
@@ -106,7 +106,6 @@ export function SendInputStep({
     return true
   }, [destination, validatedData])
 
-  // My wallets list (exclude currently selected source mint)
   const myWallets = useMemo(() => {
     return settings.mints
       .filter((url) => url !== mintUrl)
@@ -117,12 +116,8 @@ export function SendInputStep({
       }))
   }, [settings.mints, mintUrl, getDisplayName, getIconUrl])
 
-  // Segment: contacts vs wallets — 기본 탭은 파생값(연락처 있으면 contacts,
-  // 없고 내 지갑 있으면 wallets), 사용자가 고르면 그 선택이 우선.
-  // 구현 주: 원본은 setState-in-effect 패턴이었다 — 추출로 컴파일러 bail-out이
-  // 풀리며 react-hooks/set-state-in-effect가 가시화되어 파생 상태로 재구성
-  // (React 권장). 유일한 시맨틱 델타: 무선택 상태에서 wallets 표시 중 두 목록이
-  // 모두 비면 구현전은 'wallets' 잔존, 현재는 'contacts' 폴백 — 둘 다 빈 상태 UI.
+  // Segment: contacts vs wallets — default tab is derived (contacts if any exist,
+  // else wallets if you have other wallets); an explicit user choice takes priority.
   const [userListTab, setUserListTab] = useState<'wallets' | 'contacts' | null>(null)
   const listTab = userListTab
     ?? (contacts.length > 0 ? 'contacts' : myWallets.length > 0 ? 'wallets' : 'contacts')
@@ -130,7 +125,6 @@ export function SendInputStep({
     setUserListTab(tab)
   }, [])
 
-  // Filter my wallets by @ search query
   const filteredWallets = useMemo(() => {
     if (!destination.startsWith('@')) return myWallets
     const query = destination.slice(1).toLowerCase()
@@ -138,7 +132,6 @@ export function SendInputStep({
     return myWallets.filter((w) => w.name.toLowerCase().includes(query))
   }, [myWallets, destination])
 
-  // Handle my wallet selection
   const handleSelectMyWallet = useCallback((walletUrl: string, walletName: string) => {
     hapticTap()
     applyDestinationState({
@@ -153,7 +146,6 @@ export function SendInputStep({
     })
   }, [applyDestinationState])
 
-  // Handle QR scan
   const handleScan = useCallback((result: string) => {
     setShowScanner(false)
     processExternalInput(result)
@@ -163,9 +155,7 @@ export function SendInputStep({
     <div className="flex flex-col h-full bg-background">
       <ScreenHeader title={t('send.title')} onBack={onBack} />
 
-      {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 pt-6">
-        {/* Question */}
         <h2 className="text-heading font-semibold text-foreground break-keep">
           {t('send.destination.whoToSend')}
         </h2>
@@ -184,9 +174,9 @@ export function SendInputStep({
                 if (text) processExternalInput(text)
               }}
               placeholder={t('send.destination.placeholder')}
-              // 제출 검증 중 입력 잠금 (7단계 리뷰 #7): §8.5로 매 제출이 원격
-              // 왕복을 수반하게 되어, 검증 중 타이핑이 완료 시점의
-              // applyDestinationState에 덮여 이전 주소로 진행되는 창이 넓어졌다
+              // Lock input during submit validation: since every submit now makes a
+              // remote round-trip, typing mid-validation could be overwritten by the
+              // applyDestinationState on completion, widening the window to proceed with a stale address
               readOnly={isValidating}
               className="flex-1 min-w-0 bg-transparent py-1.5 text-title font-medium text-foreground placeholder:text-foreground-muted placeholder:font-medium focus:outline-none"
             />
@@ -252,7 +242,6 @@ export function SendInputStep({
           </div>
         )}
 
-        {/* Segment: Contacts / My Wallets */}
         {!showMyWallets && (
           <div className="mt-4">
             <SegmentControl
@@ -325,7 +314,6 @@ export function SendInputStep({
         )}
       </div>
 
-      {/* Bottom — button */}
       <div className="px-6 pb-app shrink-0">
         <Button
           variant="brand"

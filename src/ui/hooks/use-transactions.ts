@@ -4,40 +4,40 @@ import type { Transaction } from '@/core/domain/transaction'
 import { useAppStore } from '@/store'
 
 /**
- * BootstrapResult.refreshBalance 표면만 — composition 타입 비의존.
- * (store 갱신을 포함하는 composition root 와이어링, unlock 후에만 존재)
+ * Just the refreshBalance surface of BootstrapResult — decoupled from the composition type.
+ * (Composition-root wiring that updates the store; exists only after unlock.)
  */
 export interface RegistryBalanceRefresher {
   refreshBalance(): Promise<void>
 }
 
 export interface UseTransactionsDeps {
-  /** unlock 후 레지스트리 (null = pre-unlock). truthy 판정을 원본과 동일하게 유지하기 위해 객체 자체를 받는다 */
+  /** Post-unlock registry (null = pre-unlock). Takes the object itself to keep the truthy check identical to the original. */
   serviceRegistry: RegistryBalanceRefresher | null
-  /** useWallet().refreshBalance — 레지스트리 부재 시 폴백 */
+  /** useWallet().refreshBalance — fallback when the registry is absent. */
   fallbackRefreshBalance: () => Promise<void>
-  /** preUnlock.txRepo — unlock 전에도 동작하는 거래 저장소 */
+  /** preUnlock.txRepo — transaction store that works even before unlock. */
   txRepo: { findAll(filter?: { limit?: number }): Promise<Transaction[]> }
 }
 
 export interface TransactionsApi {
   transactions: Transaction[]
-  /** pre-unlock 초기 로드(init 경로) 전용 setter */
+  /** Setter for the pre-unlock initial load (init path) only. */
   setTransactions: Dispatch<SetStateAction<Transaction[]>>
   /**
-   * 잔액 + 거래 내역 **원자 갱신** (awaitable).
+   * Atomic (awaitable) refresh of balance + transaction history.
    *
-   * MAJOR-14: tx만/balance만 갱신되는 창을 만들지 않기 위해 분리 금지 —
-   * 모든 핸들러 훅(receive/swap 등)은 이 함수를 주입받아 공유한다.
+   * Must not be split apart — otherwise a window opens where only tx or only balance is
+   * updated. All handler hooks (receive/swap/etc.) share this one injected function.
    */
   refreshAll: () => Promise<void>
 }
 
 /**
- * 거래 내역 상태 + 원자적 잔액/거래 갱신 (MainApp Phase 4b 순수 이동).
+ * Transaction-history state + atomic balance/transaction refresh.
  *
- * 소유: transactions 상태, refreshAll, txRefreshTrigger(store) 반응 효과
- * (예: GiftWrap 토큰 수신 시 재조회).
+ * Owns: transactions state, refreshAll, and the effect reacting to txRefreshTrigger (store)
+ * — e.g., re-fetching when a GiftWrap token is received.
  */
 export function useTransactions(deps: UseTransactionsDeps): TransactionsApi {
   const { serviceRegistry, fallbackRefreshBalance, txRepo } = deps
@@ -57,10 +57,9 @@ export function useTransactions(deps: UseTransactionsDeps): TransactionsApi {
     setTransactions(txHistory)
   }, [serviceRegistry, fallbackRefreshBalance, txRepo])
 
-  // Reload transactions and balance when txRefreshTrigger changes (e.g., GiftWrap token receipt)
-  // MainApp 원본 그대로 (순수 이동). set-state-in-effect 지적은 MainApp에서는 컴파일러
-  // 분석 bail-out으로 미검출되던 잠복 패턴 — setTransactions는 네트워크/DB await 뒤에만
-  // 호출되므로 동기 연쇄 렌더가 아니다 (4a react-hooks/refs와 동일 판정).
+  // Reload transactions and balance when txRefreshTrigger changes (e.g., GiftWrap token receipt).
+  // The set-state-in-effect lint is safe here: setTransactions runs only after a network/DB
+  // await, so it never triggers a synchronous cascading render.
   useEffect(() => {
     if (txRefreshTrigger === 0) return
     // eslint-disable-next-line react-hooks/set-state-in-effect

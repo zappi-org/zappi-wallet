@@ -196,10 +196,10 @@ describe('CashuBolt11Adapter', () => {
     })
 
     /**
-     * 회귀 감시 (설계 §7.1-2): Coco melt op 상태에 'FAILED'는 존재하지 않는다
+     * Regression guard: Coco melt op state has no 'FAILED'
      * (init|prepared|executing|pending|finalized|rolling_back|rolled_back).
-     * 과거 코드는 'FAILED'만 검사해 실패(rolled_back)가 in_transit으로 새었고,
-     * unlock 시 recoverPendingMelts가 우연히 가려주던 활성 버그였다.
+     * Old code checked only 'FAILED', so failures (rolled_back) leaked as
+     * in_transit — an active bug that recoverPendingMelts happened to mask on unlock.
      */
     it('returns failed on rolled_back (Coco terminal failure state)', async () => {
       vi.mocked(backend.checkMelt).mockResolvedValueOnce({ state: 'rolled_back' })
@@ -421,9 +421,9 @@ describe('CashuBolt11Adapter', () => {
     })
   })
 
-  // ─── stuck-sweep 매트릭스 (설계 §7.2/§7.3) ───
+  // ─── stuck-sweep matrix ───
 
-  describe('pollLocal (sweep 1차 — 네트워크 0 계약)', () => {
+  describe('pollLocal (sweep pass 1 — zero-network contract)', () => {
     function makeIncoming(expiresAt?: number) {
       return createPendingTransfer({
         id: 't-in',
@@ -455,7 +455,7 @@ describe('CashuBolt11Adapter', () => {
       expect(backend.checkMintQuote).not.toHaveBeenCalled()
     })
 
-    it('incoming: local failed op → failed; untracked(null) → phase 유지', async () => {
+    it('incoming: local failed op → failed; untracked(null) → keeps phase', async () => {
       vi.mocked(backend.getMintOpStateLocal).mockResolvedValueOnce({ state: 'failed' })
       await expect(adapter.pollLocal(makeIncoming(Date.now() + 60_000))).resolves.toBe('failed')
 
@@ -469,7 +469,7 @@ describe('CashuBolt11Adapter', () => {
       expect(backend.getMintOpStateLocal).not.toHaveBeenCalled()
     })
 
-    it('outgoing: maps the LOCAL melt op state (checkMelt는 repo 읽기)', async () => {
+    it('outgoing: maps the LOCAL melt op state (checkMelt reads the repo)', async () => {
       vi.mocked(backend.checkMelt).mockResolvedValueOnce({ state: 'rolled_back' })
 
       await expect(adapter.pollLocal(makeOutgoing())).resolves.toBe('failed')
@@ -477,7 +477,7 @@ describe('CashuBolt11Adapter', () => {
     })
   })
 
-  describe('confirmStuck (§7.3 원격 확인 1회)', () => {
+  describe('confirmStuck (§7.3 one remote check)', () => {
     function makeOutgoing() {
       return createPendingTransfer({
         id: 't-out',
@@ -490,7 +490,7 @@ describe('CashuBolt11Adapter', () => {
       })
     }
 
-    it('outgoing melt: refreshes REMOTE state via ops.melt.refresh — checkMelt 아님', async () => {
+    it('outgoing melt: refreshes REMOTE state via ops.melt.refresh — not checkMelt', async () => {
       vi.mocked(backend.refreshMelt).mockResolvedValueOnce({ state: 'finalized' })
 
       await expect(adapter.confirmStuck(makeOutgoing())).resolves.toBe('settled')
@@ -504,13 +504,13 @@ describe('CashuBolt11Adapter', () => {
       await expect(adapter.confirmStuck(makeOutgoing())).resolves.toBe('failed')
     })
 
-    it('outgoing melt: refresh 실패는 throw — failed로 매핑하면 자금 버그', async () => {
+    it('outgoing melt: a refresh failure throws — mapping it to failed would be a funds bug', async () => {
       vi.mocked(backend.refreshMelt).mockRejectedValueOnce(new Error('mint down'))
 
       await expect(adapter.confirmStuck(makeOutgoing())).rejects.toThrow('mint down')
     })
 
-    it('incoming: delegates to poll (checkPayment 경유 원격 확인)', async () => {
+    it('incoming: delegates to poll (remote check via checkPayment)', async () => {
       vi.mocked(backend.checkMintQuote).mockResolvedValueOnce({ state: 'ISSUED' })
       const transfer = createPendingTransfer({
         id: 't-in',

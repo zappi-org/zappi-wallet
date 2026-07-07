@@ -1,11 +1,11 @@
 /**
- * RecoverySchedulerService — recoverAll 행동 분해 실행기 (설계 §6.2)
+ * RecoverySchedulerService — behavior-decomposed executor for recoverAll.
  *
- * 핵심 불변식:
- * - reconcile은 로컬 정합 함수만 부른다 (네트워크 행동 미발화)
- * - recoverTargeted는 5분 gate — cooldown 내 재호출은 직전 보고서, bypassGate는 즉시 실행
- * - drain: 성공→resolve, 토큰 소비 코드→discard, 그 외(UNTRUSTED_MINT류)→잔류
- * - full: sweep→targeted 내용→reconcile 조합, 연타는 in-flight 공유
+ * Core invariants:
+ * - reconcile calls only the local reconcile function (no network behaviors fire)
+ * - recoverTargeted has a 5m gate — re-entry within cooldown returns the prior report; bypassGate runs immediately
+ * - drain: success→resolve, token-consumed codes→discard, everything else (UNTRUSTED_MINT-like)→stays queued
+ * - full: composes sweep→targeted content→reconcile; rapid re-entry shares the in-flight run
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { RecoverySchedulerService, type RecoverySchedulerDeps } from '@/core/services/recovery-scheduler.service'
@@ -89,7 +89,7 @@ describe('RecoverySchedulerService', () => {
 
       const report = await scheduler.recoverTargeted()
 
-      // requeued(1) + offline redeemed(2) + legacy reclaimed(1) — recorded는 계수 제외
+      // requeued(1) + offline redeemed(2) + legacy reclaimed(1) — recorded is excluded from the count
       expect(report).toEqual({ moduleId: 'cashu', recovered: 4, failed: 0 })
     })
 
@@ -151,7 +151,7 @@ describe('RecoverySchedulerService', () => {
         redeemToken: vi
           .fn()
           .mockResolvedValueOnce(Err(makeError('TOKEN_SPENT', false)))
-          // 토큰은 멀쩡한데 환경이 원인 — isRetryable=false여도 폐기 금지
+          // token is fine but the environment is the cause — do not discard even when isRetryable=false
           .mockResolvedValueOnce(Err(makeError('UNTRUSTED_MINT', false)))
           .mockResolvedValueOnce(Err(makeError('NETWORK_ERROR', true))),
       })
@@ -216,21 +216,21 @@ describe('RecoverySchedulerService', () => {
 
       expect(deps.runCocoSweeps).toHaveBeenCalledTimes(1)
 
-      // cooldown 0 — 종료 후 재호출은 새로 실행된다 (사용자 명시 의도)
+      // cooldown 0 — re-entry after completion runs fresh (explicit user intent)
       const third = scheduler.runFullNetworkRecovery()
       release({ ran: [], skipped: [] })
       await third
       expect(deps.runCocoSweeps).toHaveBeenCalledTimes(2)
     })
 
-    it('does not consume the targeted gate (unlock 직후 targeted가 막히지 않는다)', async () => {
+    it('does not consume the targeted gate (targeted is not blocked right after unlock)', async () => {
       const deps = makeDeps()
       const scheduler = new RecoverySchedulerService(deps)
 
       await scheduler.runFullNetworkRecovery()
       await scheduler.recoverTargeted()
 
-      // full 1회 + targeted 1회 = 2회 (gate가 공유됐다면 1회였을 것)
+      // full once + targeted once = 2 (would be 1 if the gate were shared)
       expect(deps.requeuePaidQuotes).toHaveBeenCalledTimes(2)
     })
   })

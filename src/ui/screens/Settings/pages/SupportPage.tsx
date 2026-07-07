@@ -144,9 +144,10 @@ export function SupportPage({ onBack }: SupportPageProps) {
     }
   }, [support, t])
 
-  // 포그라운드 복귀 재동기화는 전역 훅(use-support-notifications)의 onWake
-  // 구독이 담당한다 (설계 §10 B7 — 페이지 자체 visibility/focus 리스너와의
-  // 이중 refresh 제거). 이 화면은 support.subscribe 스냅샷으로 갱신을 받는다.
+  // Foreground-return resync is handled by the global use-support-notifications
+  // onWake subscription (avoids a duplicate refresh from this page's own
+  // visibility/focus listeners). This screen updates via the support.subscribe
+  // snapshot.
 
   useEffect(() => {
     return () => {
@@ -1490,7 +1491,7 @@ async function filesToSupportAttachments(files: File[]): Promise<SupportAttachme
           const data = await stripExifViaCanvas(file)
           return { name, mime, size: data.byteLength, data }
         } catch {
-          // canvas 실패 시 원본 바이트 폴백
+          // Fall back to the original bytes if canvas fails
         }
       }
 

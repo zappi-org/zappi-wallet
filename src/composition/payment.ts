@@ -1,7 +1,7 @@
 /**
  * Composition root for PaymentUseCase
  *
- * modules는 bootstrap에서 주입 — composition/에서 modules/ import 금지.
+ * modules are injected from bootstrap — composition/ must not import modules/.
  */
 
 import { PaymentService } from '@/core/services/payment.service'
@@ -11,8 +11,8 @@ import type { EventBus } from '@/core/events/event-bus'
 import type { OperationMap } from '@/core/ports/driven/operation-map.port'
 import type { TransferLifecycleService } from '@/core/services/transfer-lifecycle.service'
 
-// 반환은 구체 클래스 — bootstrap이 setRecoveryDelegate(설계 §6.2)를 배선해야
-// 한다. UI/레지스트리에는 PaymentUseCase로만 노출된다.
+// Returns the concrete class so bootstrap can wire setRecoveryDelegate.
+// To the UI/registry it's exposed only as PaymentUseCase.
 export function createPaymentService(
   modules: WalletModule[],
   txRepo: TransactionRepository,

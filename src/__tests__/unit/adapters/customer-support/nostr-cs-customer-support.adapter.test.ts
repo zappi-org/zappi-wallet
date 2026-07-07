@@ -512,10 +512,11 @@ describe('NostrCsCustomerSupportAdapter', () => {
   })
 
   /**
-   * 코드리뷰 #1 회귀 감시: connecting 중 중복 connect(전역 훅 + SupportPage mount
-   * 경합)가 각각 CSClient/SimplePool을 만들던 문제 — gate가 같은 generation의
-   * 동시 호출을 하나의 in-flight로 공유해야 한다. (doConnect가 generation을
-   * 직접 올리면 이 공유가 수학적으로 불가능해진다 — 증가는 disconnect 전용.)
+   * Regression guard: a duplicate connect while connecting (global hook racing
+   * SupportPage mount) each created its own CSClient/SimplePool — the gate must
+   * share concurrent calls of the same generation as one in-flight connect.
+   * (If doConnect bumped the generation itself, this sharing would be impossible —
+   * the bump is disconnect-only.)
    */
   it('shares a single in-flight connection across concurrent connect() calls', async () => {
     let resolveConnect: (() => void) | undefined

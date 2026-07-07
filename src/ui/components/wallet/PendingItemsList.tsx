@@ -58,7 +58,7 @@ export function PendingItemsList({ items, maxItems = 5, showDate = false, onItem
         const expiryStr = item.expiresAt ? formatExpiry(item.expiresAt) : null
         const isLast = index === displayed.length - 1
 
-        // Subtitle: "10:35 | 미수령 토큰" or "10:35 | 미수령 토큰 · 만료 2h 30m"
+        // Subtitle: "10:35 | Unclaimed token" or "10:35 | Unclaimed token · expires 2h 30m"
         const subtitle = expiryStr
           ? `${timeStr} | ${typeLabel} · ${t('mintDetail.pendingExpiry')} ${expiryStr}`
           : `${timeStr} | ${typeLabel}`

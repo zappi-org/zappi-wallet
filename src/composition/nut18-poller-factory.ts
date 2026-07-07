@@ -1,11 +1,11 @@
 /**
- * NUT-18 HTTP poller factory — PaymentRequestService 주입용
+ * NUT-18 HTTP poller factory — injected into PaymentRequestService.
  *
- * bootstrap 인라인 람다에서 추출. 추출 이유: 인라인 시절 `expiresAt`이 여기서
- * 유실되어 만료된 수신 요청을 3초 간격으로 최장 30분 폴링하는 결함이 있었다
- * (설계 §8.1 / reports/rate-limit-flow-audit §04). 필드 전수 전달을
- * nut18-poller-factory.test.ts가 회귀 감시한다 — 어댑터 단위 테스트만으로는
- * 배선 누락을 잡지 못함이 증명됐기 때문에 이 계층의 테스트가 별도로 존재한다.
+ * Extracted from a bootstrap inline lambda. The inline version dropped `expiresAt`
+ * here, causing expired receive requests to poll every 3s for up to 30 minutes.
+ * nut18-poller-factory.test.ts guards the full field pass-through as a regression —
+ * this layer has its own test because adapter unit tests alone were proven unable
+ * to catch the wiring omission.
  */
 
 import { startNut18HttpPoller } from '@/adapters/codec/nut18-http-poller'

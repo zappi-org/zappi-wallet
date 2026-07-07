@@ -20,7 +20,7 @@ export interface NetworkSliceState {
   addConnectedRelay: (relay: string) => void
   removeConnectedRelay: (relay: string) => void
   setConnectingRelays: (connecting: boolean) => void
-  /** 슬라이스 고유 reset — resetAll 이 호출 (동명 reset 충돌로 last-spread 만 살아남던 버그 수정, Phase 3) */
+  /** Slice-specific reset called by resetAll (fixes same-named reset collisions where only the last spread survived) */
   resetNetwork: () => void
 }
 
@@ -40,9 +40,9 @@ const initialState = {
 export const createNetworkSlice: StateCreator<NetworkSliceState> = (set) => ({
   ...initialState,
 
-  // wasOffline 플래그 제거 (3단계 구현 리뷰 #4): 유일한 소비자(use-mint-health
-  // reconnect effect)가 bootstrap 단일 리스너로 대체되어 영구 stuck-true dead
-  // state가 됐었다.
+  // Removed the wasOffline flag: its only consumer (use-mint-health's reconnect
+  // effect) was replaced by a single bootstrap listener, leaving it a permanent
+  // stuck-true dead state.
   setNetworkState: (networkState) =>
     set((state) => {
       if (state.networkState === 'OFFLINE' && networkState === 'ONLINE') {

@@ -6,8 +6,8 @@ export interface UnlockResult {
   keys: KeyPair
   bip39Seed: Uint8Array
   /**
-   * 이 unlock 이 KDF 재암호화 마이그레이션을 수행했는가.
-   * true → UI 층이 타 탭 reload(broadcast) + 거짓 lockout 소거를 트리거한다 (docs §6.4 R1).
+   * Whether this unlock performed a KDF re-encryption migration.
+   * true → the UI layer triggers an other-tab reload (broadcast) + clears a false lockout.
    */
   migrated?: boolean
 }

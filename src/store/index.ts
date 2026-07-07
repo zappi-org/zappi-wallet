@@ -21,7 +21,6 @@ export interface AppState
     DebugSliceState,
     FiatSliceState,
     PendingTransferSliceState {
-  // Global reset
   resetAll: () => void
 }
 
@@ -40,9 +39,9 @@ export const useAppStore = create<AppState>()(
       ...createFiatSlice(...args),
       ...createPendingTransferSlice(...args),
 
-      // Global reset (for logout) — 각 슬라이스의 고유 reset 에 위임한다.
-      // 구현이 슬라이스 initialState 단일 원천을 따르므로 60줄 수동 복제의
-      // 나열-드리프트(신규 필드 누락)가 원천 불가능하다 (감사 Phase 3).
+      // Global reset (for logout) — delegates to each slice's own reset.
+      // Since each impl follows the slice's single-source initialState, the
+      // listing-drift of a 60-line manual copy (missing a new field) is impossible.
       resetAll: () => {
         const state = args[1]()
         state.resetWallet()
@@ -55,13 +54,13 @@ export const useAppStore = create<AppState>()(
         state.resetPendingTransfers()
       },
     })),
-    // enabled 게이트 필수 (감사 §6): 없으면 Redux DevTools 확장이 설치된
-    // 프로덕션 브라우저로 store 내용(nostr 개인키 포함)이 스트리밍된다
+    // The `enabled` gate is required: without it, store contents (including the
+    // nostr private key) stream to any production browser with the Redux DevTools
+    // extension installed.
     { name: 'zappi-store', enabled: import.meta.env.DEV }
   )
 )
 
-// Re-export slice types
 export type { WalletState, PendingQuote } from './slices/wallet.slice'
 export type { NetworkSliceState } from './slices/network.slice'
 export type { SyncSliceState } from './slices/sync.slice'

@@ -1,8 +1,7 @@
 /**
- * Cashu Recovery — PendingOperationRepository + TransactionRepository 포트 기반
+ * Cashu Recovery — built on the PendingOperationRepository + TransactionRepository ports.
  *
- * cashu-backend.ts에 있던 recovery 함수들을 포트 경유로 전환.
- * DB/legacy 직접 접근 없음. SDK 호출은 주입된 인터페이스를 통해.
+ * No direct DB/legacy access; SDK calls go through injected interfaces.
  */
 
 import { mintUrlKey } from '@/utils/url'
@@ -15,7 +14,7 @@ import { mintAndReceive } from './cashu-backend'
 import { abandonMintQuote, getCocoManager } from './coco-sdk'
 import { cocoLogger as logger } from './logger'
 
-// ─── SDK interfaces (DI용 — Coco 직접 의존 없음) ───
+// ─── SDK interfaces (for DI — no direct Coco dependency) ───
 
 export interface MeltRecoveryOps {
   listInFlight(): Promise<{ id: string; createdAt?: number }[]>
@@ -37,7 +36,7 @@ export interface RecoverTokenFn {
   (token: string): Promise<{ amount: number }>
 }
 
-/** Coco 로컬 repo의 mint op 상태 조회 (네트워크 0) — reconcile 전용 */
+/** Look up mint op state from Coco's local repo (network 0) — reconcile-only */
 export interface MintOpLookup {
   (mintUrl: string, quoteId: string): Promise<{ state: string } | null>
 }
@@ -106,8 +105,8 @@ export async function recoverPendingMelts(
 // ─── Send Token Recovery ───
 
 /**
- * B3 — send op 로컬 상태 → 거래DB settle/reclaim 마킹 (설계 §6.1).
- * sendOps.get은 Coco repo 읽기라 네트워크 0. reconcile()의 구성 요소.
+ * Marks the transaction DB settled/reclaimed from send-op local state.
+ * sendOps.get reads the Coco repo, so network 0. A building block of reconcile().
  */
 export async function reconcileSendTokenOps(
   deps: Pick<CashuRecoveryDeps, 'pendingOpRepo' | 'txRepo'> & {
@@ -162,8 +161,8 @@ export async function reconcileSendTokenOps(
 }
 
 /**
- * B4 — legacy(무operationId) send 토큰 self-receive (설계 §6.1).
- * receiveToken이 네트워크를 탄다 — recoverTargeted()의 구성 요소.
+ * Self-receives legacy (no operationId) send tokens.
+ * receiveToken hits the network — a building block of recoverTargeted().
  */
 export async function recoverLegacySendTokens(
   deps: Pick<CashuRecoveryDeps, 'pendingOpRepo' | 'txRepo' | 'receiveToken'>,
@@ -262,13 +261,13 @@ export async function recoverLegacySendTokens(
 }
 
 /**
- * Full 경로(레거시 recoverAll / ks.recovery-split ON) — B1+B3+B4 재조립.
- * 행동은 분해 전과 동일: SDK sweep → 로컬 정합 → legacy self-receive.
+ * Full path (legacy recoverAll / ks.recovery-split ON) — reassembles the pieces.
+ * Behavior matches pre-split: SDK sweep → local reconcile → legacy self-receive.
  */
 export async function recoverPendingSendTokens(
   deps: Pick<CashuRecoveryDeps, 'pendingOpRepo' | 'txRepo' | 'sendOps' | 'receiveToken'>,
 ): Promise<{ reclaimed: number; recorded: number }> {
-  // 1. SDK recovery (B1)
+  // 1. SDK recovery
   try {
     await deps.sendOps.runRecovery()
     logger.info('[Recovery] SDK recoverPendingOperations completed')
@@ -286,9 +285,9 @@ export async function recoverPendingSendTokens(
   const sdkTokens = pendingTokens.filter((p) => p.metadata?.operationId)
   const legacyTokens = pendingTokens.filter((p) => !p.metadata?.operationId)
 
-  // 3. SDK-managed cleanup (B3)
+  // 3. SDK-managed cleanup
   const b3 = await reconcileSendTokenOps(deps, sdkTokens)
-  // 4. Legacy recovery (B4)
+  // 4. Legacy recovery
   const b4 = await recoverLegacySendTokens(deps, legacyTokens)
 
   const reclaimed = b3.reclaimed + b4.reclaimed
@@ -377,22 +376,25 @@ function isExpiredQuoteOp(op: PendingOperation, now: number): boolean {
   return isPendingOperationExpired(op, now) || (op.expiresAt == null && (now - op.createdAt) > MAX_AGE_MS)
 }
 
-// ─── Reconcile (로컬 정합 — 네트워크 0) ───
+// ─── Reconcile (local reconciliation — network 0) ───
 
 /**
- * mint-quote 로컬 정합 (설계 §6.1 B5 + B6 이중망 + B7b).
+ * Local mint-quote reconciliation.
  *
- * recoverPendingQuotes와 달리 원격 확인(checkMintQuote/mintAndReceive)이 없다:
- * - B5: 만료·제거민트 quote → 거래DB 실패 마킹 (기존과 동일)
- * - B6 이중망: Coco 로컬 op가 finalized인데 거래가 pending → settle
- *   (observer 이벤트를 앱 킬로 놓친 경우의 회수 — push의 로컬 잔상 스캔)
- * - B7b: Coco 비추적 quote(getByQuote null) → 실패 마킹 — **의도적 행동 변경**:
- *   기존은 checkMintQuote throw→로그만 남기고 영원히 pending으로 재시도했다.
- *   push도 requeue(B7a)도 닿지 않는 quote는 회생 경로가 없으므로 종결한다.
- *   (importQuote 구제는 상태 오염 비용 때문에 명시적 범위 외 — 설계 §6.1)
- * 종결 = tx status 갱신 그 자체다: mint-quote는 pendingOpRepo의 실제 행이
- * 아니라 transactions(status=pending)의 가상 뷰라, failed/settled 마킹이 곧
- * 다음 스캔에서의 제거다 (dexie-pending-operation.repository.ts:107-125).
+ * Unlike recoverPendingQuotes, does no remote check (checkMintQuote/mintAndReceive):
+ * - Expired / removed-mint quote → mark the transaction failed (unchanged).
+ * - Dual-net: Coco local op is finalized but the transaction is still pending → settle
+ *   (recovers cases where an app kill dropped the observer event — a local residue
+ *   scan for push).
+ * - Coco-untracked quote (getByQuote null) → mark failed. Intentional behavior change:
+ *   this used to let checkMintQuote throw, only log, and retry as pending forever. A
+ *   quote that neither push nor requeue can ever reach has no revival path, so we
+ *   terminate it. (importQuote rescue is deliberately out of scope given its
+ *   state-pollution cost.)
+ * Termination = the tx status update itself: a mint-quote is not a real row in
+ * pendingOpRepo but a virtual view over transactions(status=pending), so marking it
+ * failed/settled is what removes it from the next scan
+ * (dexie-pending-operation.repository.ts:107-125).
  */
 export async function reconcileMintQuotes(
   deps: Pick<CashuRecoveryDeps, 'pendingOpRepo' | 'txRepo' | 'activeMintUrls'> & {
@@ -415,7 +417,7 @@ export async function reconcileMintQuotes(
     const mintUrl = op.accountId
 
     try {
-      // B5: 식별 불가·제거민트·만료 → 실패 종결
+      // Unidentifiable / removed-mint / expired → terminate as failed
       if (!quoteId || !mintUrl) {
         if (isExpiredQuoteOp(op, now)) {
           await txRepo.update(op.id, { status: 'failed', completedAt: now })
@@ -437,18 +439,18 @@ export async function reconcileMintQuotes(
       const cocoOp = await mintOpLookup(mintUrl, quoteId)
 
       if (cocoOp === null) {
-        // B7b: 비추적 — push/requeue가 절대 닿지 않는다 → 종결 (행동 변경, 위 주석)
+        // Untracked — push/requeue can never reach it → terminate (behavior change; see doc above)
         await txRepo.update(op.id, { status: 'failed', completedAt: now })
         failed++
       } else if (cocoOp.state === 'finalized') {
-        // B6 이중망: observer 유실분 settle
+        // Dual-net: settle what the observer missed
         await txRepo.update(op.id, { status: 'settled', outcome: 'claimed', completedAt: now })
         settled++
       } else if (cocoOp.state === 'failed') {
         await txRepo.update(op.id, { status: 'failed', completedAt: now })
         failed++
       }
-      // 'init'|'pending'|'executing' — Coco 진행 중: push/B7a 소관, 손대지 않음
+      // 'init'|'pending'|'executing' — Coco in progress: owned by push/requeue, left untouched
     } catch (error) {
       logger.error(`[Recovery] Failed to reconcile quote ${quoteId}:`, error as Error)
     }
@@ -458,8 +460,8 @@ export async function reconcileMintQuotes(
 }
 
 /**
- * reconcile() 오케스트레이터 (설계 §6.2) — B3 + B5/B6이중망/B7b + B8.
- * 전 항목 로컬 읽기/쓰기만: 네트워크 0이 계약이다.
+ * reconcile() orchestrator — send-op reconcile + mint-quote reconcile + legacy
+ * expiry cleanup. Local reads/writes only: network 0 is the contract.
  */
 export async function reconcileCashu(
   deps: Pick<CashuRecoveryDeps, 'pendingOpRepo' | 'txRepo' | 'activeMintUrls'> & {
@@ -467,7 +469,7 @@ export async function reconcileCashu(
     mintOpLookup: MintOpLookup
   },
 ): Promise<ReconcileReport> {
-  // B3: send op 로컬 상태 정합
+  // send-op local-state reconcile
   const allPending = await deps.pendingOpRepo.list()
   const sdkTokens = allPending.filter((op) => op.kind === 'send-token' && op.metadata?.operationId)
   const sends = await reconcileSendTokenOps(
@@ -475,10 +477,10 @@ export async function reconcileCashu(
     sdkTokens,
   )
 
-  // B5 + B6 이중망 + B7b: mint-quote 정합
+  // mint-quote reconcile
   const quotes = await reconcileMintQuotes(deps)
 
-  // B8: legacy 만료 행 정리
+  // clean up legacy expired rows
   let cleaned = 0
   try {
     cleaned = await deps.pendingOpRepo.deleteExpired(MAX_AGE_MS)
@@ -503,8 +505,8 @@ export async function reconcileCashu(
 const STALE_MINT_OP_MS = 24 * 60 * 60 * 1000
 
 /**
- * Coco SDK 내부에 stuck된 pending mint operation을 정리.
- * 5일 이상 경과 → abandon, 그 외 → mintAndReceive로 복구 시도.
+ * Cleans up pending mint operations stuck inside the Coco SDK.
+ * Past STALE_MINT_OP_MS → abandon; otherwise retry recovery via mintAndReceive.
  */
 export async function cleanAndRecoverStaleMintOps(): Promise<{ recovered: number; abandoned: number; failed: number }> {
   let recovered = 0

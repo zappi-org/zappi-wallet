@@ -1,11 +1,11 @@
 /**
- * useAutoLock — 자동잠금 실구현 (감사 §6: 설정만 있고 소비자가 없던 결함)
+ * useAutoLock — auto-lock behavior.
  *
- * 핵심 불변식:
- * - 유휴 timeoutMinutes 경과 시 onLock 발화
- * - 사용자 입력이 타이머를 리셋
- * - 화면 복귀(visibilitychange) 순간 즉시 재판정 — freeze로 멈춘 타이머 보완
- * - 비활성/이미 잠김이면 아무 것도 안 함
+ * Key invariants:
+ * - onLock fires after timeoutMinutes of idle time
+ * - user input resets the timer
+ * - visibility return re-checks immediately — covers timers stopped by page freeze
+ * - does nothing when disabled or already locked
  */
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
@@ -49,23 +49,23 @@ describe('useAutoLock', () => {
   it('user activity resets the idle clock', () => {
     render()
 
-    // 4분 경과 시점에 입력 발생
+    // input at the 4-minute mark
     act(() => { vi.advanceTimersByTime(4 * 60_000) })
     act(() => { window.dispatchEvent(new Event('pointerdown')) })
 
-    // 원래 만료 시점(5분)을 지나도 잠기지 않는다
+    // still not locked past the original 5-minute expiry
     act(() => { vi.advanceTimersByTime(2 * 60_000) })
     expect(onLock).not.toHaveBeenCalled()
 
-    // 입력으로부터 5분이 지나면 잠긴다
+    // locks 5 minutes after the input
     act(() => { vi.advanceTimersByTime(3 * 60_000 + 15_000) })
     expect(onLock).toHaveBeenCalled()
   })
 
-  it('re-checks immediately on visibility return (freeze 보완)', () => {
+  it('re-checks immediately on visibility return (freeze mitigation)', () => {
     render()
 
-    // freeze 시뮬레이션: 인터벌은 안 돌고 시계만 점프
+    // simulate freeze: the interval stops, only the clock jumps
     act(() => { vi.setSystemTime(Date.now() + 10 * 60_000) })
     expect(onLock).not.toHaveBeenCalled()
 
@@ -85,24 +85,24 @@ describe('useAutoLock', () => {
     locked.unmount()
   })
 
-  it('unlock resets the baseline — 이전 세션 유휴 시간이 즉시 재잠금을 만들지 않는다', () => {
+  it('unlock resets the baseline — prior session idle time does not trigger an immediate re-lock', () => {
     const { rerender } = render()
 
     act(() => { vi.advanceTimersByTime(5 * 60_000 + 15_000) })
     expect(onLock).toHaveBeenCalled()
 
-    // 잠금 상태로 전환 — 리스너/타이머 해제, 잠금 중에는 발화 없음
+    // switch to locked — listeners/timers released, no firing while locked
     rerender({ enabled: true, timeoutMinutes: 5, isLocked: true, onLock })
     onLock.mockClear()
     act(() => { vi.advanceTimersByTime(60 * 60_000) })
     expect(onLock).not.toHaveBeenCalled()
 
-    // 해제 — 이전 유휴 시간이 아니라 해제 시점부터 다시 계산
+    // unlock — recompute from the unlock moment, not prior idle time
     rerender({ enabled: true, timeoutMinutes: 5, isLocked: false, onLock })
     act(() => { vi.advanceTimersByTime(15_000) })
     expect(onLock).not.toHaveBeenCalled()
 
-    // 다시 유휴 5분이 지나면 잠긴다
+    // locks again after another 5 minutes idle
     act(() => { vi.advanceTimersByTime(5 * 60_000 + 15_000) })
     expect(onLock).toHaveBeenCalled()
   })

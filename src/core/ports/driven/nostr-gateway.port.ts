@@ -27,9 +27,9 @@ export interface NostrGateway {
   fetchGiftWraps(params: FetchGiftWrapsParams): Promise<UnwrappedMessage[]>
 
   /**
-   * Subscribe to gift wraps and deliver unwrapped messages to handler.
-   * handler가 Promise를 반환하면 cursor full-sync 마크는 해당 처리들이 settle된
-   * 뒤로 미뤄진다 — 처리 중 크래시 시 다음 세션 창에서 재수신되도록 (리뷰 #4).
+   * Subscribe to gift wraps and deliver unwrapped messages to the handler.
+   * If the handler returns a Promise, the cursor full-sync mark is deferred until those
+   * handlers settle — so a crash mid-processing is redelivered in the next session window.
    */
   subscribeGiftWraps(
     params: SubscribeGiftWrapsParams,
@@ -50,22 +50,22 @@ export interface GiftWrapParams {
 }
 
 /**
- * Gift wrap cursor 스펙 (설계 §10 B5 — 2단계).
- * 구현이 cursor store와 함께 since 계산·EOSE 마크를 수행한다.
- * store가 주입되지 않았으면(kill-switch `ks.cursor`) 스펙은 무시된다 — 구동작(전체 replay).
+ * Gift wrap cursor spec. The implementation computes `since` and marks EOSE via the
+ * cursor store. If no store is injected (kill-switch `ks.cursor`), the spec is ignored
+ * and it falls back to full replay.
  */
 export interface GiftwrapCursorSpec {
-  /** 계정 스코프 키 — giftwrapCursorKey(pubkey) */
+  /** Account-scoped key — giftwrapCursorKey(pubkey). */
   key: string
-  /** 기본 GIFTWRAP_OVERLAP_SEC (NIP-59 2일 + 시계오차 6h) */
+  /** Defaults to GIFTWRAP_OVERLAP_SEC (NIP-59 2 days + 6h clock skew). */
   overlapSec?: number
-  /** 재설치(isRecoveryMode)·수동 전체 재동기화 — since 미적용 */
+  /** Reinstall (isRecoveryMode) or manual full resync — no since applied. */
   fullReplay?: boolean
   /**
-   * 全EOSE(full-sync) 판정 기준 — **설정된 persistent relay 집합** (설계 §10 B5).
-   * 연결 스냅샷을 쓰면 다운/미연결 relay가 조용히 제외되어 사실상 quorum 제외가
-   * 되고(2단계 금지), 그 relay 단독 이벤트가 창 밖으로 밀려 유실된다(리뷰 #2).
-   * 미지정이면 full-sync 마크는 비활성(과소 전진 = 안전) — EOSE 이력만 쌓인다.
+   * Basis for the all-EOSE (full-sync) decision — the configured persistent relay set.
+   * Using the connected snapshot would silently drop down/unconnected relays from quorum,
+   * pushing their sole events outside the window and losing them. If unset, full-sync
+   * marking is disabled (under-advancing = safe) and only EOSE history accumulates.
    */
   fullSyncTargets?: string[]
 }
@@ -74,11 +74,11 @@ export interface FetchGiftWrapsParams {
   recipientPubkey: string
   relays: string[]
   cursor?: GiftwrapCursorSpec
-  /** deep-resync 등 명시 창(초). cursor 계산보다 우선한다. */
+  /** Explicit window in seconds (e.g. deep-resync). Takes precedence over the cursor computation. */
   sinceSecOverride?: number
   /**
-   * querySync 대기 상한(ms). full/deep 창은 기본 5초로는 드레인이 안 되므로
-   * 호출자가 크게 지정한다 (리뷰 #3).
+   * Upper bound (ms) for the querySync wait. Full/deep windows can't drain within the
+   * default 5s, so callers pass a larger value.
    */
   maxWaitMs?: number
 }

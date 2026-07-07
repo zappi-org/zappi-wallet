@@ -22,7 +22,6 @@ import { useTransactions } from '@/ui/hooks/use-transactions'
 import { isNostrDirectAddress } from '@/core/domain/nostr-address'
 import { setMintNameResolver, translateError } from '@/ui/utils/error-i18n'
 import { broadcastSync, notifyKdfMigrated } from '@/utils/cross-tab-sync'
-// useMintHealth removed — mint health checks done via serviceRegistry directly
 import { useAppStore } from '@/store'
 import { useNetwork } from '@/ui/hooks/use-network'
 import { useWallet } from '@/ui/hooks/use-wallet'
@@ -72,7 +71,6 @@ const MintDetailScreen = lazy(() => import('@/ui/screens/MintDetail/MintDetailSc
 const MintManagementScreen = lazy(() => import('@/ui/screens/Settings/MintManagementScreen'))
 const RelayManagementScreen = lazy(() => import('@/ui/screens/Settings/RelayManagementScreen'))
 
-// Unified Send/Receive flows
 import type { ValidatedData } from '@/core/domain/input-types'
 import type { MintInfo } from '@/core/types'
 import { ToastContainer } from '@/ui/components'
@@ -85,7 +83,7 @@ import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { formatNpubShort } from '@/ui/screens/Send/sendDisplayHelpers'
 
-// Services (composition 경유만)
+// Services (via composition layer only)
 import { createSecurityService } from '@/composition/security'
 import type { Transaction } from '@/core/domain/transaction'
 import type { PendingIncomingReview } from '@/core/types'
@@ -101,7 +99,6 @@ setMintNameResolver((mintUrl) => {
 
 export default function MainApp() {
   const { t } = useTranslation()
-  // Store state
   const isLocked = useAppStore((state) => state.isLocked)
   const isInitializing = useAppStore((state) => state.isInitializing)
   const toasts = useAppStore((state) => state.toasts)
@@ -111,7 +108,6 @@ export default function MainApp() {
   const pendingIncomingReviews = useAppStore((state) => state.pendingIncomingReviews)
   const supportUnreadCount = useAppStore((state) => state.supportUnreadCount)
 
-  // Store actions
   const setLocked = useAppStore((state) => state.setLocked)
   const setInitializing = useAppStore((state) => state.setInitializing)
   const addToast = useAppStore((state) => state.addToast)
@@ -122,10 +118,9 @@ export default function MainApp() {
   const setP2pkPubkey = useAppStore((state) => state.setP2pkPubkey)
   const setSettings = useAppStore((state) => state.setSettings)
 
-  // Service Registry (Phase 5: bootstrap 후 생성, unlock 전에는 null)
+  // Service registry — created after bootstrap; null before unlock
   const [serviceRegistry, setServiceRegistry] = useState<BootstrapResult | null>(null)
 
-  // Hooks
   const { refreshBalance, balance } = useWallet()
   const { isOnline } = useNetwork()
   const [isRecovering, setIsRecovering] = useState(false)
@@ -134,7 +129,7 @@ export default function MainApp() {
   useGlobalTokenClaimToast(serviceRegistry)
   useSupportNotifications(serviceRegistry)
 
-  // Navigation state/logic (screen 전환, 탭 파생, 뒤로가기, History API) — Phase 4a 추출
+  // Navigation state/logic — screen transitions, tab derivation, back, History API
   const {
     currentScreen,
     previousScreen,
@@ -147,7 +142,6 @@ export default function MainApp() {
     handleBack,
   } = useAppNavigation()
 
-  // Bottom nav items
   const navItems = useMemo(() => [
     {
       id: 'wallet',
@@ -179,58 +173,47 @@ export default function MainApp() {
   // Shared scroll container ref for Token tab (TokenScreen + TokenTabToolbar)
   const tokenScrollRef = useRef<HTMLDivElement>(null)
 
-  // MintDetail screen state
   const [selectedMint, setSelectedMint] = useState<MintInfo | null>(null)
   const [selectedMintIndex, setSelectedMintIndex] = useState(0)
 
-  // Scanned amount state (for AmountActionScreen)
   const [scannedAmount, setScannedAmount] = useState<number>(0)
 
-  // Validated scan data state (for unified payment screens)
   const [validatedScanData, setValidatedScanData] = useState<ValidatedData | null>(null)
   const [activeIncomingReview, setActiveIncomingReview] = useState<PendingIncomingReview | null>(null)
 
-  // Initial token string for TokenRegisterFlow (set by universal router)
   const [initialRegisterToken, setInitialRegisterToken] = useState<string>('')
 
-  // Active mint from HomeScreen carousel
   const [activeMintUrl, setActiveMintUrl] = useState<string | null>(null)
 
-  // History screen initial mint filter
   const [historyInitialMintUrls, setHistoryInitialMintUrls] = useState<string[] | undefined>(undefined)
 
-  // Contact info for send flow (from address book)
   const [contactInfo, setContactInfo] = useState<{ address: string; displayName: string } | null>(null)
 
-  // Home screen scanner (camera shortcut → QrScannerModal)
   const [showHomeScanner, setShowHomeScanner] = useState(false)
-  // NIP-19 mint selection (set when camera scan resolves to needs-mint-selection)
   const [npubMintSelection, setNpubMintSelection] = useState<{
     validatedData: ValidatedData
     rawAddress: string
     commonMintUrls: string[]
   } | null>(null)
 
-  // Transaction detail state
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
 
-  // Token detail state
   const [selectedTokenDetail, setSelectedTokenDetail] = useState<TokenDetailData | null>(null)
 
-  // Pre-unlock services (unlock 전 settings/tx 로드에 필요, composition 경유)
+  // Pre-unlock services — needed to load settings/tx before unlock (via composition)
   const [preUnlock] = useState(() => ({
     security: createSecurityService(),
     ...createPreUnlockServices(),
   }))
 
-  // 거래 내역 + 원자적 잔액/거래 갱신 — Phase 4b 추출 (MAJOR-14: refreshAll 원자성 계약은 훅이 보존)
+  // Transaction history + atomic balance/tx refresh (the hook preserves refreshAll's atomicity contract)
   const { transactions, setTransactions, refreshAll } = useTransactions({
     serviceRegistry,
     fallbackRefreshBalance: refreshBalance,
     txRepo: preUnlock.txRepo,
   })
 
-  /** 잔액/거래 갱신 + recovery 병렬 실행 (toast/refresh는 EventBus bridge가 처리) */
+  /** Refresh balance/tx and run recovery in parallel (toast/refresh handled by the EventBus bridge) */
   const refreshAndRecover = useCallback(async () => {
     if (!serviceRegistry) return
     await Promise.all([
@@ -288,8 +271,6 @@ export default function MainApp() {
     // NIP-19 (npub / nprofile) — handle BEFORE the unknown check, because
     // detectAndClassify doesn't classify raw npubs (returns 'unknown').
     // Resolve via nostrDirectPayment (same flow as ContactsScreen).
-    // 'ready' → navigate to send with the resolved mint;
-    // 'needs-mint-selection' → show a mint sheet, then navigate.
     if (isNostrDirectAddress(raw)) {
       const resolution = await nostrDirectPayment.resolve({
         address: raw,
@@ -325,7 +306,6 @@ export default function MainApp() {
       return
     }
 
-    // Quick classification — short-circuit on unknown.
     const detected = inputParser.detectAndClassify(raw)
     if (detected.type === 'unknown') {
       addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
@@ -399,19 +379,16 @@ export default function MainApp() {
     }
   }, [currentScreen, addToast, t, setCurrentScreen, setPreviousScreen])
 
-  // Initialize app — Coco 무관 작업만 (Coco는 unlock 후 setupSubscription에서 초기화)
+  // Initialize app — Coco-independent work only (Coco inits after unlock in setupSubscription)
   useEffect(() => {
     const init = async () => {
       try {
-        // Load settings from IndexedDB (secure storage)
         const savedSettings = await preUnlock.settingsRepo.getSettings()
         setSettings(savedSettings)
 
-        // Load failed swaps count
         const failedItems = await preUnlock.failedIncomingStore.findAll()
         setFailedIncomingsCount(failedItems.length)
 
-        // Load transaction history
         const txHistory = await preUnlock.txRepo.findAll({ limit: 100 })
         setTransactions(txHistory)
 
@@ -431,7 +408,7 @@ export default function MainApp() {
     }
 
     init()
-    // setTransactions는 useTransactions가 노출하는 React useState setter 패스스루 — 안정 식별자
+    // setTransactions is a passthrough of useTransactions' useState setter — stable identity
   }, [preUnlock, setFailedIncomingsCount, setInitializing, setSettings, setTransactions])
 
   useEffect(() => {
@@ -443,11 +420,10 @@ export default function MainApp() {
     setCurrentScreen('token-register')
   }, [activeIncomingReview, pendingIncomingReviews, currentScreen, previousScreen, setCurrentScreen, setPreviousScreen])
 
-  // Anchor check and State Reconstruction (ZAP-06)
-  // Runs once when app is unlocked and has nostr keys
+  // Anchor check and state reconstruction — runs once when the app is unlocked
+  // and has nostr keys.
   const anchorCheckedRef = useRef(false)
   useEffect(() => {
-    // Only run when unlocked, not initializing, has keys, and hasn't been checked yet
     if (isLocked || isInitializing || !nostrPubkey || !nostrPrivkey || !serviceRegistry) return
     if (anchorCheckedRef.current) return
 
@@ -487,13 +463,12 @@ export default function MainApp() {
   const isSendingEcashRef = useRef(false)
 
   useEffect(() => {
-    // Only subscribe when app is unlocked and initialized
     if (isLocked || isInitializing || !serviceRegistry) return
 
     let cancelled = false
 
     const setupSubscription = async () => {
-      // 1. Coco 초기화 + observers + watchers + EventBus bridge (composition root 경유)
+      // Coco init + observers + watchers + EventBus bridge (via composition root)
       try {
         await serviceRegistry.activate()
       } catch (e) {
@@ -502,13 +477,13 @@ export default function MainApp() {
 
       if (cancelled) return
 
-      // 2. 잔액 즉시 표시 + recovery 병렬 실행
+      // Show balance immediately + run recovery in parallel
       await refreshAndRecover()
     }
 
     setupSubscription()
 
-    // Visibility change watcher — foreground/background 전환 감시
+    // Visibility-change watcher — foreground/background transitions
     const lifecycleWatcher = new AppLifecycleWatcher({
       onResume: async () => {
         await serviceRegistry.onResume()
@@ -524,43 +499,41 @@ export default function MainApp() {
     }
   }, [isLocked, isInitializing, serviceRegistry, refreshAndRecover])
 
-  // Handle unlock
   const handleUnlock = useCallback(async (password: string): Promise<boolean> => {
     const result = await preUnlock.security.unlock(password)
-    // false = PIN 불일치 전용 (LockScreen 이 lockout 계수) — 인프라 실패
-    // (UNLOCK_FAILED/NO_WALLET)가 카운터를 소모해 정당 사용자를 브루트포스
-    // 방어에 가두지 않도록 그 외는 throw. LockScreen catch 가
-    // lock.errorOccurred 로 표시하며 계수하지 않는다 (R2-B 형제 버그 승격분).
+    // false = PIN mismatch only (LockScreen counts it toward lockout). Infra
+    // failures (UNLOCK_FAILED / NO_WALLET) throw instead, so they don't burn the
+    // lockout counter and trap a legitimate user in brute-force defense —
+    // LockScreen's catch shows lock.errorOccurred without counting it.
     if (!result.ok) {
       if (result.error.code === 'INVALID_PASSWORD') return false
       throw result.error
     }
 
-    // Set nostr key pair in store
     setNostrKeyPair(result.value.keys.publicKey, result.value.keys.privateKey)
 
-    // KDF 재암호화 마이그레이션이 방금 발생했으면: 타 탭(구 번들) reload + 거짓 lockout 소거
-    // (docs/design/kdf-upgrade.md §6.4 R1). 두 성공 반환 경로(fast/re-unlock, bootstrap) 공통
-    // 지점으로 hoist — 반환 전 단일 지점에서 처리한다.
+    // KDF re-encryption migration just happened: reload other tabs (old bundle)
+    // and clear the false lockout. Hoisted here so both success paths
+    // (fast re-unlock, bootstrap) handle it at one point before returning.
     if (result.value.migrated) {
       notifyKdfMigrated()
     }
 
-    // 자동잠금 해제 경량 경로 (감사 §6 / 전자 정책): 세션(레지스트리·소켓·
-    // 구독)이 살아있으면 재부트스트랩하지 않는다 — security.unlock이 방금
-    // 니모닉 캐시를 복원했고 키는 동일 지갑이다. 매 잠금 해제마다 전체
-    // 재연결을 하면 네트워크 개편으로 없앤 버스트가 잠금 주기로 부활한다.
+    // Lightweight unlock path: if the session (registry / socket / subscriptions)
+    // is still alive, don't re-bootstrap — security.unlock just restored the
+    // mnemonic cache and the keys are the same wallet. A full reconnect on every
+    // unlock would revive, per lock cycle, the burst the network rework removed.
     if (serviceRegistry) {
       setLocked(false)
       return true
     }
 
-    // Phase 5: Bootstrap service registry (new path, coexists with old)
     const registry = createBootstrap({
       nostrPrivateKeyHex: result.value.keys.privateKey,
       bip39Seed: result.value.bip39Seed,
     })
-    // 재unlock 시 이전 세대 registry의 타이머/구독 정리 (flusher·TLS폴링 누수 방지)
+    // On re-unlock, dispose the previous registry generation's timers/subscriptions
+    // (prevents flusher / TLS-polling leaks).
     setServiceRegistry((prev) => {
       prev?.dispose()
       return registry
@@ -568,21 +541,22 @@ export default function MainApp() {
 
     setLocked(false)
 
-    // CashuModule 초기화 — fire-and-forget (UI 블로킹 제거, QA #4)
-    // SDK init 완료 후 balance 갱신 (BootstrapResult.refreshBalance 사용)
+    // Initialize CashuModule — fire-and-forget to avoid blocking the UI.
+    // Refresh balance once SDK init completes (via BootstrapResult.refreshBalance).
     registry.cashuModule.initialize().then(() => {
       registry.refreshBalance().catch((e) => console.error('[Unlock] Post-init balance refresh failed:', e))
     }).catch((e) => console.error('[Unlock] CashuModule init failed:', e))
 
-    // P2PK key — SDK init을 블로킹하지 않고 백그라운드 로드
+    // P2PK key — load in the background, don't block SDK init
     registry.p2pkKeyManager.getCurrentKey().then(({ pubkey }) => setP2pkPubkey(pubkey))
     return true
   }, [preUnlock.security, setLocked, setNostrKeyPair, setP2pkPubkey, serviceRegistry])
 
-  // 보안 핸들러 (자동잠금/PIN 변경·검증/니모닉 백업/로그아웃) — Phase 4b 추출.
-  // handleUnlock은 부트스트랩 심(레지스트리 세대 교체 + composition 배선)이라 잔류.
-  // wipeAccount는 composition 소거 배선(wipeAccountData + registry + removePasskey)을
-  // MainApp이 묶어 주입 — 훅은 core 포트만 의존한다.
+  // Security handlers (auto-lock / PIN change·verify / mnemonic backup / logout).
+  // handleUnlock stays in MainApp — it's the bootstrap shim (registry generation
+  // swap + composition wiring). wipeAccount bundles the composition wipe wiring
+  // (wipeAccountData + registry + removePasskey) and injects it, so the hook
+  // depends only on core ports.
   const wipeAccount = useCallback(
     () => wipeAccountData({ security: preUnlock.security, registry: serviceRegistry, removePasskey }),
     [preUnlock.security, serviceRegistry],
@@ -607,15 +581,17 @@ export default function MainApp() {
     setValidatedScanData(null)
   }, [])
 
-  // 거절 확정 후 UI 리셋 — 리뷰/스캔 파라미터와 네비 상태는 MainApp 소유 (훅에 콜백 주입)
+  // Reset UI after a confirmed rejection — MainApp owns the review/scan params
+  // and nav state (injected into the hook as a callback).
   const handleIncomingReviewRejected = useCallback(() => {
     clearIncomingReviewState()
     setCurrentScreen(previousScreen || 'home')
     setPreviousScreen(null)
   }, [clearIncomingReviewState, previousScreen, setCurrentScreen, setPreviousScreen])
 
-  // 수신 핸들러 (인보이스 생성/토큰 상환/요청 이행/리뷰 승인·거절/수신 브로드캐스트) — Phase 4c 추출.
-  // resolveIncomingReview는 composition 함수라 주입 — 훅은 core 포트만 의존한다.
+  // Receive handlers (invoice / token redeem / request fulfillment / review
+  // approve·reject / receive broadcast). resolveIncomingReview is a composition
+  // function, so it's injected — the hook depends only on core ports.
   const {
     handleCreateInvoice,
     handleReceiveToken,
@@ -630,7 +606,7 @@ export default function MainApp() {
     onRejected: handleIncomingReviewRejected,
   })
 
-  // 크로스민트 스왑 핸들러 (스왑/상환 수수료 견적 + 상환→스왑 수신 + 민트 간 스왑) — Phase 4c 추출
+  // Cross-mint swap handlers (swap/redeem fee estimate, redeem→swap receive, inter-mint swap)
   const {
     handleEstimateSwapFee,
     handleEstimateRedeemFee,
@@ -653,10 +629,6 @@ export default function MainApp() {
       }
 
       console.error('[MainApp] Route execution failed:', result.error)
-      // R2-C: toErrorMessage → translateError 단일화. 표시 변화 = UNKNOWN 코드가
-      // 일괄 unknownError 대신 메시지 패턴 진단(tokenSpent/networkError 등)으로,
-      // MINT_UNREACHABLE/REDEEM_FEE_TOO_HIGH 등 오버라이드 코드가 키-강등 대신
-      // 실문구로 나온다. 민트명/formatSats/isFeeShortage 시맨틱은 동일(흡수됨).
       addToast({ type: 'error', message: translateError(result.error, t), duration: 4000 })
       return null
     } catch (error) {
@@ -673,8 +645,7 @@ export default function MainApp() {
     }
     isSendingEcashRef.current = true
     try {
-      // TLS 경로: TransferLifecycleService 사용
-      // TODO: P2PK locking condition은 TransferIntent에 추가 필요
+      // TODO: P2PK locking condition still needs to be added to TransferIntent
       const txId = crypto.randomUUID()
       const transfer = await serviceRegistry.transferLifecycle.initiateTransfer(
         {
@@ -682,13 +653,13 @@ export default function MainApp() {
           accountId: preferredMintUrl ?? '',
           amount: sat(amount),
           memo: options?.memo,
-          // recipient 없음 = token creation mode
+          // no recipient = token creation mode
         },
         'ecash'
       )
 
-      // Ecash는 prepare+execute가 동기적으로 완료됨
-      // transportRef.token에 생성된 토큰이 저장됨
+      // For ecash, prepare+execute complete synchronously; the created token
+      // lands in transportRef.token.
       const token = (transfer.transportRef as { token?: string })?.token ?? ''
       const operationId = (transfer.transportRef as { operationId?: string })?.operationId ?? ''
 
@@ -710,7 +681,7 @@ export default function MainApp() {
     }
   }, [serviceRegistry, refreshBalance])
 
-  // ─── 토큰 생성 전 수수료 견적 ───
+  // ─── Fee estimate before token creation ───
   const handleEstimateCreateFee = useCallback(
     async (mintUrl: string, amount: number): Promise<number | null> => {
       if (!serviceRegistry?.payment) return null
@@ -729,7 +700,7 @@ export default function MainApp() {
     [serviceRegistry],
   )
 
-  // ─── 되찾기(수취) 수수료 견적 — 이미 생성된 tx ───
+  // ─── Reclaim (receive) fee estimate — for an already-created tx ───
   const handleQuoteReclaim = useCallback(
     async (txId: string): Promise<number | null> => {
       if (!serviceRegistry?.payment) return null
@@ -744,7 +715,7 @@ export default function MainApp() {
     [serviceRegistry],
   )
 
-  // ─── 등록 중인 토큰이 내가 생성한 pending send 인지 확인 ───
+  // ─── Check whether the token being registered is a pending send I created ───
   const handleCheckSelfToken = useCallback(
     async (tokenString: string): Promise<{ txId: string; amount: number } | null> => {
       if (!serviceRegistry?.pendingItems) return null
@@ -765,8 +736,8 @@ export default function MainApp() {
     [serviceRegistry],
   )
 
-  // 민트/설정 핸들러 (설정 저장 + 프로필 재발행 + 신뢰 민트 추가) — Phase 4b 추출.
-  // republishProfile은 이 두 핸들러 전용이라 훅 내부로 캡슐화.
+  // Mint/settings handlers (save settings + profile republish + add trusted mint).
+  // republishProfile is used only by these two, so it's encapsulated in the hook.
   const { handleSaveSettings, handleAddTrustedMint } = useMintHandlers({
     serviceRegistry,
     settingsRepo: preUnlock.settingsRepo,
@@ -796,7 +767,6 @@ export default function MainApp() {
   void isOnline
   void isRecovering
 
-  // Loading state
   if (isInitializing) {
     return (
       <div className="flex items-center justify-center h-dvh bg-background">
@@ -808,30 +778,30 @@ export default function MainApp() {
     )
   }
 
-  // Lock screen
   if (isLocked) {
     return <LockScreen onUnlock={handleUnlock} />
   }
 
-  // ─── 화면 라우트 테이블 (Phase 4d) ──────────────────────────────────────
-  // Screen → 렌더 함수 매핑. 각 렌더 함수는 기존 `{currentScreen === 'x' && (…)}`
-  // 분기의 JSX를 그대로 반환한다 (순수 이동 — prop/구조 변경 없음). 컴포넌트
-  // 스코프 클로저라 매 렌더 최신 상태를 캡처한다 — useMemo 금지(스냅샷 고착).
+  // ─── Screen route table ──────────────────────────────────────
+  // Screen → render-fn map. Each render fn returns the JSX from the old
+  // `{currentScreen === 'x' && (…)}` branch verbatim (pure move — no prop/structure
+  // change). These are component-scope closures, so they capture the latest state
+  // each render — do NOT wrap in useMemo (it would freeze a stale snapshot).
   //
-  // 예외 (테이블 밖 JSX 분기로 잔류 — 기계 변환 불가):
-  // - 'token' / 'token-detail': TokenScreen 베이스 + TokenDetailScreen 슬라이드
-  //   오버레이가 내부 AnimatePresence로 결합된 단일 블록. PageTransition key도
-  //   'token' 하나를 공유해 두 화면 전환 시 베이스가 리마운트되지 않아야 한다 —
-  //   화면당 1엔트리 테이블로 옮기면 오버레이 exit 애니메이션과 TokenScreen
-  //   상태 보존이 깨진다. Suspense 내부 JSX 분기로 잔류.
+  // Exceptions (kept as JSX branches outside the table — not mechanically movable):
+  // - 'token' / 'token-detail': TokenScreen base + TokenDetailScreen slide overlay
+  //   form one block joined by an inner AnimatePresence, and share a single
+  //   PageTransition key ('token') so the base doesn't remount when switching
+  //   between them. Splitting into one table entry per screen would break the
+  //   overlay exit animation and TokenScreen state preservation.
   //
-  // state 가드 3곳 (currentScreen 외 상태 조건이 걸린 렌더):
-  // - 'transaction-detail': selectedTransaction 없으면 렌더 안 함 — 가드 내장 렌더 함수
-  // - 'mint-detail': selectedMint 없으면 렌더 안 함 — 가드 내장 렌더 함수
-  // - 'token-detail' 오버레이: selectedTokenDetail 가드 — 위 결합 블록 예외 내부에 잔류
-  // 전수성 강제 (4d 리뷰 이월): 예외 2종(token/token-detail 결합 블록) 외 모든
-  // Screen 이 테이블에 있어야 한다 — Partial 이면 새 화면 추가 시 누락이 무음
-  // 빈 화면이 된다 (NON_TERMINAL_PHASES 드리프트와 동류). 누락/오타 = 컴파일 에러.
+  // State guards (renders gated on state beyond currentScreen):
+  // - 'transaction-detail': skipped if selectedTransaction is null — guard in render fn
+  // - 'mint-detail': skipped if selectedMint is null — guard in render fn
+  // - 'token-detail' overlay: selectedTokenDetail guard — inside the combined block above
+  // Exhaustiveness is enforced via Record (not Partial): every Screen except the
+  // two combined-block exceptions must appear here — a Partial would let a new
+  // screen silently render blank. Missing/typo = compile error.
   const screenRoutes: Record<Exclude<Screen, 'token' | 'token-detail'>, () => ReactNode> = {
     home: () => (
       <HomeScreen
@@ -1251,10 +1221,9 @@ export default function MainApp() {
               {(screenRoutes as Partial<Record<Screen, () => ReactNode>>)[currentScreen]?.()}
 
               {/* Token flow: TokenScreen always rendered as base, TokenDetailScreen overlays with slide animation */}
-              {/* Phase 4d 예외 잔류: 'token'/'token-detail' 결합 블록 — 사유는 screenRoutes 상단 주석 참조 */}
+              {/* Exception: 'token'/'token-detail' combined block — see the screenRoutes comment above for rationale */}
               {(currentScreen === 'token' || currentScreen === 'token-detail') && (
                 <div className="relative w-full h-full">
-                  {/* Base TokenScreen - always visible in token flow */}
                   <TokenScreen
                     scrollRef={tokenScrollRef}
                     onSelectToken={(detail) => {
@@ -1265,7 +1234,6 @@ export default function MainApp() {
                     onSaveSettings={handleSaveSettings}
                   />
 
-                  {/* TokenDetailScreen - slides in from right as overlay */}
                   <AnimatePresence>
                     {currentScreen === 'token-detail' && selectedTokenDetail && (
                       <motion.div
@@ -1410,7 +1378,6 @@ export default function MainApp() {
     </>
   )
 
-  // Phase 5: ServiceProvider로 감싸기 (registry 존재 시)
   if (serviceRegistry) {
     return (
       <ServiceProvider registry={serviceRegistry}>

@@ -1,16 +1,18 @@
 /**
- * MintQuoteObserver — Lightning receive 기록 계약 안전망 (감사 잔여 Phase 0, 리뷰 MAJOR-16)
+ * MintQuoteObserver — safety net for the Lightning-receive recording contract.
  *
- * 이 모듈은 "민트가 인보이스 결제를 확정(mint-op:finalized)"했을 때 거래내역을
- * 만드는 유일한 통로다. 핀 대상 계약:
- * - Phase 5 경로: OperationMap 매핑이 있으면 기존 pending TX 를 settle (새 TX 생성 금지)
- * - idempotent: 이미 settled/기록된 quote 는 false 반환, 어떤 부수효과도 없음
- * - 기록 성공 시 txRefreshTrigger 증가 + 타 탭 'balance_changed' 브로드캐스트
- * - swap quote 는 skip (스왑 거래는 SwapService 가 별도 기록)
- * - 기록 실패는 이벤트 핸들러 밖으로 새어나가지 않는다 (unhandled rejection 금지)
+ * This module is the only path that creates a transaction record when the mint
+ * finalizes an invoice payment (mint-op:finalized). Pinned contract:
+ * - Phase 5 path: if an OperationMap mapping exists, settle the existing pending
+ *   TX (never create a new TX)
+ * - idempotent: an already-settled/recorded quote returns false with no side effects
+ * - on successful record: increment txRefreshTrigger + broadcast 'balance_changed'
+ *   to other tabs
+ * - swap quotes are skipped (SwapService records swap transactions separately)
+ * - a recording failure never escapes the event handler (no unhandled rejection)
  *
- * 모듈 전역 주입 상태(injectDependencies) 격리를 위해 테스트마다
- * vi.resetModules + 동적 import 로 새 모듈 인스턴스를 사용한다.
+ * To isolate module-global injected state (injectDependencies), each test uses a
+ * fresh module instance via vi.resetModules + dynamic import.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { OperationMap } from '@/core/ports/driven/operation-map.port'
@@ -40,7 +42,7 @@ async function load() {
   return { observer, useAppStore, markQuoteAsSwap, unmarkQuoteAsSwap }
 }
 
-// resolvedTxId 는 명시 필수 — 기본값 병합(??)이 의도된 null 을 삼키는 사고 방지
+// resolvedTxId is required — prevents a default merge (??) from swallowing an intended null
 function makeInjected(opts: {
   resolvedTxId: string | null
   existingTx?: Record<string, unknown> | null
@@ -74,7 +76,7 @@ describe('recordLightningReceive', () => {
     broadcastSyncMock.mockReset()
   })
 
-  it('Phase 5 경로: 매핑된 pending TX 를 settle 하고 refresh+broadcast 발화', async () => {
+  it('Phase 5 path: settles the mapped pending TX and fires refresh + broadcast', async () => {
     const { observer, useAppStore } = await load()
     const { opMap, txRepo, txRepoMock } = makeInjected({ resolvedTxId: 'tx-mapped' })
     observer.injectDependencies(opMap, txRepo)
@@ -91,13 +93,13 @@ describe('recordLightningReceive', () => {
         completedAt: expect.any(Number),
       }),
     )
-    // settle 경로에서는 새 TX 를 만들지 않는다 (이중 기록 = 잔액 이중 표시)
+    // the settle path never creates a new TX (double record = balance shown twice)
     expect(legacyRepoMock.save).not.toHaveBeenCalled()
     expect(useAppStore.getState().txRefreshTrigger).toBe(before + 1)
     expect(broadcastSyncMock).toHaveBeenCalledWith('balance_changed')
   })
 
-  it('Phase 5 경로: bolt11 이 비어 있던 TX 에만 bolt11 백필', async () => {
+  it('Phase 5 path: backfills bolt11 only on a TX that had none', async () => {
     const { observer } = await load()
     const { opMap, txRepo, txRepoMock } = makeInjected({ resolvedTxId: 'tx-mapped' })
     observer.injectDependencies(opMap, txRepo)
@@ -107,7 +109,7 @@ describe('recordLightningReceive', () => {
     expect(updateArg.metadata?.bolt11).toBe('lnbc-req')
   })
 
-  it('Phase 5 경로: 기존 metadata.bolt11 은 덮어쓰지 않는다', async () => {
+  it('Phase 5 path: does not overwrite an existing metadata.bolt11', async () => {
     const { observer } = await load()
     const { opMap, txRepo, txRepoMock } = makeInjected({
       resolvedTxId: 'tx-mapped',
@@ -120,7 +122,7 @@ describe('recordLightningReceive', () => {
     expect(updateArg.metadata).toBeUndefined()
   })
 
-  it('이미 settled 인 TX 는 false — 재기록·재발화 없음 (idempotent)', async () => {
+  it('already-settled TX returns false — no re-record or re-fire (idempotent)', async () => {
     const { observer, useAppStore } = await load()
     const { opMap, txRepo, txRepoMock } = makeInjected({
       resolvedTxId: 'tx-mapped',
@@ -137,7 +139,7 @@ describe('recordLightningReceive', () => {
     expect(broadcastSyncMock).not.toHaveBeenCalled()
   })
 
-  it('매핑 없음 → 폴백: legacy repo 에 tx-{quoteId} 로 새 TX 생성', async () => {
+  it('no mapping → fallback: creates a new TX as tx-{quoteId} in the legacy repo', async () => {
     const { observer, useAppStore } = await load()
     const { opMap, txRepo } = makeInjected({ resolvedTxId: null })
     observer.injectDependencies(opMap, txRepo)
@@ -161,14 +163,14 @@ describe('recordLightningReceive', () => {
     expect(broadcastSyncMock).toHaveBeenCalledWith('balance_changed')
   })
 
-  it('주입 자체가 없으면(과도기) 곧장 폴백 경로', async () => {
+  it('with no injection at all (transitional) goes straight to the fallback path', async () => {
     const { observer } = await load()
     const recorded = await observer.recordLightningReceive(RECEIVE_PARAMS)
     expect(recorded).toBe(true)
     expect(legacyRepoMock.save).toHaveBeenCalled()
   })
 
-  it('폴백도 idempotent: 기존 tx-{quoteId} 가 있으면 false, 부수효과 없음', async () => {
+  it('fallback is idempotent too: returns false with no side effects when tx-{quoteId} exists', async () => {
     const { observer } = await load()
     legacyRepoMock.findById.mockResolvedValue({ id: 'tx-quote-1' })
 
@@ -204,7 +206,7 @@ describe('connectMintQuoteObserver', () => {
     return { manager: manager as unknown as CashuRuntimeManager, handlers, unsub }
   }
 
-  it('finalized 이벤트 → 거래 기록 (폴백 경로)', async () => {
+  it('finalized event → records the transaction (fallback path)', async () => {
     const { observer } = await load()
     const { manager, handlers } = makeManager()
     observer.connectMintQuoteObserver(manager)
@@ -219,7 +221,7 @@ describe('connectMintQuoteObserver', () => {
     )
   })
 
-  it('swap quote 는 기록하지 않는다 (SwapService 가 별도 기록 — 이중 기록 방지)', async () => {
+  it('does not record a swap quote (SwapService records it separately — prevents double recording)', async () => {
     const { observer, markQuoteAsSwap, unmarkQuoteAsSwap } = await load()
     const { manager, handlers } = makeManager()
     observer.connectMintQuoteObserver(manager)
@@ -236,7 +238,7 @@ describe('connectMintQuoteObserver', () => {
     }
   })
 
-  it('finalized 가 아닌 상태는 무시', async () => {
+  it('ignores non-finalized states', async () => {
     const { observer } = await load()
     const { manager, handlers } = makeManager()
     observer.connectMintQuoteObserver(manager)
@@ -249,7 +251,7 @@ describe('connectMintQuoteObserver', () => {
     expect(legacyRepoMock.save).not.toHaveBeenCalled()
   })
 
-  it('기록 실패는 핸들러 안에서 소화된다 (unhandled rejection 금지)', async () => {
+  it('a recording failure is swallowed inside the handler (no unhandled rejection)', async () => {
     const { observer } = await load()
     const { manager, handlers } = makeManager()
     observer.connectMintQuoteObserver(manager)
@@ -272,12 +274,12 @@ describe('connectMintQuoteObserver', () => {
     }
   })
 
-  it('disconnect 시 구독 해제, connect 재호출 시 기존 구독 해제 후 재구독', async () => {
+  it('disconnect releases the subscription; re-calling connect releases the old one and re-subscribes', async () => {
     const { observer } = await load()
     const { manager, unsub } = makeManager()
 
     observer.connectMintQuoteObserver(manager)
-    observer.connectMintQuoteObserver(manager) // 재연결 — 기존 구독 해제
+    observer.connectMintQuoteObserver(manager) // reconnect — releases the previous subscription
     expect(unsub).toHaveBeenCalledTimes(1)
 
     observer.disconnectMintQuoteObserver()

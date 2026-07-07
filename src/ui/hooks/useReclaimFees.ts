@@ -4,11 +4,11 @@
  * Calls `payment.quoteReclaim` for each transactionId in parallel.
  * Fees are fetched after mount; cards render with undefined fee until quotes return.
  *
- * 캐시 (설계 §8.4): txId 키 모듈 캐시 — 탭 방문마다 pending 토큰 N건 ×
- * (receive.prepare+cancel)을 재실행하던 것을, 이미 견적된 txId는 건너뛴다.
- * pending 토큰의 회수 수수료는 토큰이 고정이라 결정적이다 — keyset 회전 등
- * 드문 변동만 소프트 TTL(10분)로 흡수하고, 정산되어 목록에서 빠진 txId는
- * 재조회 자체가 없다.
+ * Cache: a txId-keyed module cache. Instead of re-running N pending tokens ×
+ * (receive.prepare+cancel) on every tab visit, already-quoted txIds are skipped.
+ * A pending token's reclaim fee is deterministic because the token is fixed — only
+ * rare changes like keyset rotation need the soft TTL (10 min) to absorb them, and
+ * txIds that settle out of the list are never re-queried.
  */
 
 import { useContext, useEffect, useState } from 'react'
@@ -18,7 +18,7 @@ import { toNumber } from '@/core/domain/amount'
 const FEE_CACHE_TTL_MS = 10 * 60_000
 const feeCache = new Map<string, { fee: number; at: number }>()
 
-/** 테스트 전용 — 캐시 초기화 */
+/** Test-only — reset the cache */
 export function clearReclaimFeeCache(): void {
   feeCache.clear()
 }
@@ -50,7 +50,7 @@ export function useReclaimFees(transactionIds: string[]) {
       }
     }
 
-    // 캐시 히트분은 즉시 반영 — 네트워크 0
+    // Apply cache hits immediately — zero network
     setFees(new Map(cached))
     if (toQuote.length === 0) return
 

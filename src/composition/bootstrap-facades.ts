@@ -1,15 +1,14 @@
 /**
- * Bootstrap 조각 10 — Phase 6 파사드/신규 서비스 조립 (bootstrap.ts 순수 이동)
- *
- * crypto/inputParser/routing, 민트 metadata·health·info 파사드(킬스위치 분기),
- * reclaim/transactionMgmt/routeExecution, paymentRequest, username,
- * trustRegistry, nostrDirectPayment, externalWalletRecovery, support.
+ * Facade / new-service assembly: crypto/inputParser/routing, the mint
+ * metadata·health·info facades (kill-switch branches), reclaim/transactionMgmt/
+ * routeExecution, paymentRequest, username, trustRegistry, nostrDirectPayment,
+ * externalWalletRecovery, support.
  */
 
-// ─── Store (composition root만 접근) ───
+// ─── Store (composition root access only) ───
 import { useAppStore } from "@/store";
 
-// ─── Phase 6: New Adapters ───
+// ─── New Adapters ───
 import { CryptoGatewayAdapter } from "@/adapters/crypto/crypto-gateway.adapter";
 import { CashuFeeEstimatorAdapter } from "@/modules/cashu/adapters/cashu-fee-estimator.adapter";
 import { CashuRoutePaymentOperatorAdapter } from "@/modules/cashu/adapters/cashu-route-payment-operator.adapter";
@@ -21,7 +20,7 @@ import { isSameMintUrl } from "@/utils/url";
 import { DexieRouteExecutionStore } from "@/adapters/storage/dexie/dexie-route-execution-store";
 import { SettingsTrustedAccountStoreAdapter } from "@/adapters/runtime/settings-trusted-account-store.adapter";
 
-// ─── Phase 6: New Core Services ───
+// ─── New Core Services ───
 import { CryptoService } from "@/core/services/crypto.service";
 import { InputParserService } from "@/core/services/input-parser.service";
 import { RoutingService } from "@/core/services/routing.service";
@@ -36,13 +35,13 @@ import { NostrDirectPaymentService } from "@/core/services/nostr-direct-payment.
 import { RouteExecutionService } from "@/core/services/route-execution.service";
 import { ExternalWalletRecoveryService } from "@/core/services/external-wallet-recovery.service";
 
-// ─── Phase 6: Metadata + NUT-18 HTTP ───
+// ─── Metadata + NUT-18 HTTP ───
 import { MintMetadataService, metadataEvents } from "@/modules/cashu/metadata";
 import { MintInfoService } from "@/modules/cashu/mint-info.service";
 import { DexieMintMetadataRepository } from "@/adapters/storage/dexie/dexie-mint-metadata.repository";
 import { createNut18HttpPollerFactory } from "./nut18-poller-factory";
 
-// ─── Coco (composition root만 접근) ───
+// ─── Coco (composition root access only) ───
 import {
   decodeTokenForPaymentPayload,
   getMintInfoFromCoco,
@@ -94,7 +93,7 @@ export function assembleFacadeServices(deps: {
   addressResolver: AddressResolverUseCase;
   externalMnemonicMintDiscovery: NostrExternalMnemonicMintDiscoveryAdapter;
   externalMnemonicRecovery: ExternalMnemonicRecoveryPort;
-  /** BIP-39 seed — support 전용 파생키 생성에만 사용하고 저장하지 않음 */
+  /** BIP-39 seed — used only to derive support-specific keys; never stored */
   bip39Seed: Uint8Array;
 }) {
   const {
@@ -125,9 +124,10 @@ export function assembleFacadeServices(deps: {
   const routing = new RoutingService(feeEstimator);
 
   const stripTrailingSlash = (url: string) => url.replace(/\/+$/, "");
-  // 분기 A 스코프 가드 (설계 §5.4 / 구현 리뷰 #7): Coco getMintInfo는 미등록
-  // URL도 repo에 등록하고 keyset까지 내려받는다 — metadata 경로는 등록 민트로
-  // 한정한다. 미등록 URL 검증은 fresh probe(분기 B)의 몫.
+  // Branch A scope guard: Coco getMintInfo registers even an unregistered URL in
+  // the repo and downloads its keyset — so keep the metadata path limited to
+  // registered mints. Validating an unregistered URL is the fresh probe's job
+  // (branch B).
   const scopedCocoMintInfoFetcher = async (mintUrl: string) => {
     const registered = useAppStore
       .getState()
@@ -138,8 +138,8 @@ export function assembleFacadeServices(deps: {
 
   const mintMetadataServiceInstance = new MintMetadataService(
     new DexieMintMetadataRepository(),
-    // 분기 A (설계 §5.4 / SP-1): 24h 캐시 미스 시 Coco 경유 — repo+5분 TTL
-    // 하이브리드, limiter 보호. ks.mint-info-facade ON이면 레거시 직접 fetch로 복귀.
+    // Branch A: on a 24h cache miss, go via Coco — repo + 5-min TTL hybrid,
+    // limiter-protected. With ks.mint-info-facade ON, fall back to legacy direct fetch.
     killSwitches["mint-info-facade"] ? undefined : scopedCocoMintInfoFetcher
   );
   const mintMetadataStore = new MintMetadataStoreAdapter(
@@ -148,17 +148,18 @@ export function assembleFacadeServices(deps: {
   );
   const mintMetadata = new MintMetadataFacadeService(mintMetadataStore);
 
-  // /v1/info 단일 소유자 (설계 §5): health probe(30s, 분기 B — 유일한 직접 fetch)
-  // + 상세 화면 raw info(24h 캐시) + probe→metadata 역주입(이중 타격 제거)
+  // Single owner of /v1/info: health probe (30s, branch B — the only direct
+  // fetch) + detail-screen raw info (24h cache) + probe→metadata back-feed
+  // (removes the double hit).
   const mintInfoService = new MintInfoService(mintMetadataServiceInstance);
   const mintHealthChecker = killSwitches["mint-info-facade"]
     ? new MintHealthCheckerAdapter()
     : mintInfoService;
   const mintHealth = new MintHealthFacadeService(mintHealthChecker);
 
-  // ks.mint-info-facade ON일 때의 registry.mintInfo — 구동작 복원 (구현 리뷰 #2):
-  // 화면별 개별 raw fetch와 동일한 시맨틱(ingest/미러/캐시 없음). 스위치는 신경로
-  // 전체를 꺼야 롤백 수단으로 성립한다.
+  // registry.mintInfo when ks.mint-info-facade is ON — restores old behavior:
+  // same semantics as per-screen raw fetch (no ingest/mirror/cache). The switch
+  // only works as a rollback if it disables the entire new path.
   const legacyMintInfo: MintInfoUseCase = {
     async getInfo(mintUrl: string) {
       try {
@@ -202,9 +203,9 @@ export function assembleFacadeServices(deps: {
     new CrossTabSyncNotifierAdapter()
   );
 
-  // NUT-18 poller factory — expiresAt 전달이 계약의 일부다 (설계 §8.1).
-  // 인라인 람다 시절 expiresAt 유실로 만료 후 30분 폴링 결함이 있었고,
-  // nut18-poller-factory.test.ts가 필드 전수 전달을 회귀 감시한다.
+  // NUT-18 poller factory — passing expiresAt is part of the contract. The
+  // inline-lambda version dropped expiresAt, causing a 30-min post-expiry polling
+  // bug; nut18-poller-factory.test.ts guards field pass-through against regression.
   const paymentRequest = new PaymentRequestService(
     tokenCodec,
     createNut18HttpPollerFactory(),

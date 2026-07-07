@@ -1,8 +1,9 @@
 /**
- * MintMetadataService — infoFetcher 주입 경로 (설계 §5.4 분기 A / SP-1)
+ * MintMetadataService — injected infoFetcher path.
  *
- * fetcher가 주입되면 raw fetch를 절대 하지 않고 Coco 경유 응답을 ingest한다.
- * rawInfo 원본이 캐시 레코드에 저장되는 것(상세 화면 재사용의 전제)도 검증.
+ * When a fetcher is injected, it never raw-fetches and instead ingests the
+ * Coco-routed response. Also verifies the original rawInfo is stored in the
+ * cache record (a prerequisite for detail-screen reuse).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { MintMetadataService, type MintInfoResponse } from '@/modules/cashu/internal/mint-metadata'
@@ -22,7 +23,7 @@ function makeStore() {
   return { store, saved }
 }
 
-describe('MintMetadataService with injected infoFetcher (분기 A)', () => {
+describe('MintMetadataService with injected infoFetcher (branch A)', () => {
   let fetchMock: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
@@ -34,7 +35,7 @@ describe('MintMetadataService with injected infoFetcher (분기 A)', () => {
     vi.unstubAllGlobals()
   })
 
-  it('uses the fetcher (Coco 경유) and never raw-fetches', async () => {
+  it('uses the fetcher (via Coco) and never raw-fetches', async () => {
     const { store, saved } = makeStore()
     const info: MintInfoResponse = { name: 'Coco Mint', icon_url: 'https://i', nuts: { '4': {} } }
     const fetcher = vi.fn().mockResolvedValue(info)
@@ -45,11 +46,11 @@ describe('MintMetadataService with injected infoFetcher (분기 A)', () => {
     expect(fetcher).toHaveBeenCalledWith(MINT)
     expect(fetchMock).not.toHaveBeenCalled()
     expect(metadata).toMatchObject({ url: MINT, name: 'Coco Mint', iconUrl: 'https://i' })
-    // 상세 화면 재사용의 전제 — 원본 보존
+    // Prerequisite for detail-screen reuse — preserve the original
     expect(saved[0].rawInfo).toEqual(info)
   })
 
-  it('returns null when the fetcher fails (동작 시맨틱 = 레거시 실패와 동일)', async () => {
+  it('returns null when the fetcher fails (behavior semantics = same as legacy failure)', async () => {
     const { store } = makeStore()
     const service = new MintMetadataService(store, vi.fn().mockResolvedValue(null))
 
@@ -84,7 +85,7 @@ describe('MintMetadataService with injected infoFetcher (분기 A)', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('ingest maps and persists an externally provided response (probe 역주입 경로)', async () => {
+  it('ingest maps and persists an externally provided response (probe back-injection path)', async () => {
     const { store, saved } = makeStore()
     const service = new MintMetadataService(store)
 

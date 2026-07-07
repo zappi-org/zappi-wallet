@@ -1,16 +1,16 @@
 /**
- * DexieGiftwrapCursorStore — GiftwrapCursorStore 구현 (설계 §10 B5)
+ * DexieGiftwrapCursorStore — GiftwrapCursorStore implementation.
  *
- * 신규 giftwrapCursors 테이블(v21) 사용. 기존 syncAnchor 행은 PK가 'current'
- * 고정이라 in-place 확장이 불가([F7]) — 신규 테이블을 쓰고 레거시 행은 anchor
- * 표시용으로 보존한다.
+ * Uses the new giftwrapCursors table (v21). The existing syncAnchor row has a fixed
+ * 'current' PK so it can't be extended in place — this uses a new table and preserves
+ * the legacy row for anchor display.
  *
- * 마이그레이션 정책 (2단계 리뷰 #5): 레거시 timestamp를 lastFullSyncAtMs로
- * seed하지 **않는다**. 그 값은 매 reconstructState 말미에 (부분/빈 fetch여도)
- * 갱신되던 값이라 "여기까지 전부 받았다" 불변식이 없다 — since 하한으로 쓰면
- * 업그레이드 직전 부분 동기화의 미수신 이벤트가 영구 제외된다. 설계 원문대로
- * "기존 사용자 업그레이드 시 1회 전체 replay 후 확립"(lastFullSyncAtMs=0)한다.
- * 확립은 오직 진짜 全EOSE(markFullSync)로만 일어난다.
+ * Migration policy: does NOT seed lastFullSyncAtMs from the legacy timestamp. That value
+ * was updated at the end of every reconstructState (even on a partial/empty fetch), so it
+ * carries no "received everything up to here" invariant — using it as a since lower bound
+ * would permanently exclude unreceived events from the partial sync just before upgrade.
+ * Instead, per the design: existing users do one full replay on upgrade, then establish
+ * (lastFullSyncAtMs=0). Establishment happens only via a true full EOSE (markFullSync).
  */
 
 import type { GiftwrapCursorStore } from '@/core/ports/driven/giftwrap-cursor-store.port'
@@ -22,9 +22,9 @@ import { getDatabase } from './schema'
 
 export class DexieGiftwrapCursorStore implements GiftwrapCursorStore {
   /**
-   * 레코드가 없으면 생성해 반환한다(항상 non-null). 생성·읽기를 단일 'rw' 트랜잭션
-   * 안에서 수행 — 동시 mark 계열과의 read-modify-write 경합으로 새 마크가
-   * 초기 레코드에 덮이는 것을 방지한다 (리뷰 #8).
+   * Creates and returns the record if missing (always non-null). Creation and read happen
+   * within a single 'rw' transaction to prevent a read-modify-write race with concurrent
+   * mark calls from overwriting a new mark with the initial record.
    */
   async load(key: string): Promise<GiftwrapCursorRecord | null> {
     const db = getDatabase()

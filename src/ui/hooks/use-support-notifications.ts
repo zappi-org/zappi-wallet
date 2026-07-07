@@ -83,9 +83,9 @@ export function useSupportNotifications(registry: ServiceRegistry | null): void 
       support.refresh().catch(() => undefined)
     }
 
-    // onWake 단일 소유 (설계 §10 B7): online/visibility 자체 리스너 2계통을
-    // 3s 디바운스된 공용 wake 신호 구독 1곳으로 통일. 15s 자체 스로틀은
-    // onWake 위에 유지된다.
+    // Single wake owner: unifies the two separate online/visibility listeners
+    // into one subscription to the shared 3s-debounced wake signal. The 15s
+    // self-throttle is kept on top of onWake.
     const stopWake = onWake(refresh)
 
     return () => {

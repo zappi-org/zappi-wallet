@@ -1,8 +1,8 @@
 /**
  * SecureStorageAdapter — non-extractable CryptoKey + IndexedDB
  *
- * 지갑 데이터를 non-extractable AES-256-GCM 키로 암호화하여 IndexedDB에 저장.
- * 브라우저 밖에서 디스크 복사해도 복호화 불가.
+ * Encrypts wallet data with a non-extractable AES-256-GCM key and stores it in IndexedDB.
+ * Copying the data off disk outside the browser can't decrypt it.
  */
 
 import type { SecureStorage, StoredWallet } from '@/core/ports/driven/secure-storage.port'
@@ -29,7 +29,7 @@ export class SecureStorageAdapter implements SecureStorage {
     const record = await this.dbGet<EncryptedRecord>(STORE_NAME, WALLET_KEY)
     if (!record) return null
     const wallet = await this.decryptRecord(record)
-    // 태그 = 외곽 EncryptedRecord 의 iv hex. saveWallet 마다 새 12B 난수라 저장 세대 식별자로 쓴다 (§6.2).
+    // Tag = the outer EncryptedRecord's iv hex. Each saveWallet uses a fresh 12-byte random value, so it serves as a storage-generation identifier.
     return { wallet, tag: bytesToHex(record.iv) }
   }
 
@@ -39,10 +39,10 @@ export class SecureStorageAdapter implements SecureStorage {
   }
 
   async replaceWallet(next: StoredWallet, expectedTag: string): Promise<boolean> {
-    // 1. 암호화는 트랜잭션 밖에서 완료한다 — IDB 트랜잭션 안에서는 crypto.subtle 을
-    //    await 할 수 없다(대기 요청 없이 제어가 이벤트 루프로 돌아가면 자동 커밋). (§6.2)
+    // 1. Finish encryption outside the transaction — you can't await crypto.subtle inside
+    //    an IDB transaction (it auto-commits when control returns to the event loop with no pending request).
     const record = await this.encryptWallet(next)
-    // 2. 단일 readwrite tx 안에서 get → 동기 태그 비교 → 일치 시에만 put.
+    // 2. Within a single readwrite tx: get → synchronous tag compare → put only if it matches.
     return this.dbReplaceIfTag(record, expectedTag)
   }
 
@@ -50,7 +50,7 @@ export class SecureStorageAdapter implements SecureStorage {
     await this.dbDelete(STORE_NAME, WALLET_KEY)
   }
 
-  // ─── Record crypto (트랜잭션 밖) ───
+  // ─── Record crypto (outside the transaction) ───
 
   private async decryptRecord(record: EncryptedRecord): Promise<StoredWallet> {
     const key = await this.getOrCreateKey()
@@ -150,12 +150,12 @@ export class SecureStorageAdapter implements SecureStorage {
   }
 
   /**
-   * CAS 전용 트랜잭션 헬퍼 (§6.2). dbGet/dbPut 은 각자 tx 를 열어 재사용 불가하므로 신설.
+   * CAS-only transaction helper. Added because dbGet/dbPut each open their own tx and can't be reused.
    *
-   * 하나의 readwrite 트랜잭션 안에서 get('current') → onsuccess(동일 태스크)에서 현재
-   * 태그(iv hex) == expectedTag 를 **동기 비교** → 일치 시 같은 핸들러에서 put, 불일치·부재 시
-   * put 없이 종료. get 과 put 이 같은 트랜잭션·같은 tick 이라 사이에 다른 쓰기가 끼어들 수 없다.
-   * 반환: 실제로 put 했는가(true) / no-op(false).
+   * Within one readwrite transaction: get('current') → in onsuccess (same task) synchronously
+   * compare the current tag (iv hex) == expectedTag → put in the same handler if it matches, else
+   * finish without put. get and put share the same transaction and tick, so no other write can
+   * slip in between. Returns whether it actually put (true) / no-op (false).
    */
   private async dbReplaceIfTag(record: EncryptedRecord, expectedTag: string): Promise<boolean> {
     const db = await this.openDb()
@@ -168,10 +168,10 @@ export class SecureStorageAdapter implements SecureStorage {
         const current = getReq.result as EncryptedRecord | undefined
         if (current && bytesToHex(current.iv) === expectedTag) {
           willPut = true
-          store.put(record, WALLET_KEY) // 같은 tx·동기 발행 — get 과 put 사이 개입 불가
+          store.put(record, WALLET_KEY) // same tx, synchronous issue — nothing can intervene between get and put
         }
       }
-      // put 여부는 tx 커밋 완료 시점에 확정한다 (원자성).
+      // The put outcome is finalized at tx-commit completion (atomicity).
       tx.oncomplete = () => resolve(willPut)
       tx.onerror = () => reject(tx.error)
       tx.onabort = () => reject(tx.error ?? new Error('replaceWallet transaction aborted'))

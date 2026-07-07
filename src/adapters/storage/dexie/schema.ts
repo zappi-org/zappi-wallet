@@ -234,8 +234,8 @@ export interface PendingTransferRecord {
 }
 
 /**
- * Net counter record — 프로덕션 집계 카운터 (설계 §12).
- * PII 없는 누적 카운터만. 원격 전송 없음(진단 화면 열람용).
+ * Net counter record — production aggregate counters.
+ * PII-free cumulative counters only. No remote transmission (for the local diagnostics screen).
  */
 export interface NetCounterRecord {
   name: string
@@ -244,10 +244,10 @@ export interface NetCounterRecord {
 }
 
 /**
- * Incoming review record — 미신뢰 민트 수신 토큰의 사용자 확인 대기열 (설계 §6.2).
- * PendingIncomingReview의 평탄화 사본. amount의 bigint는 IDB 구현별 structured
- * clone 편차를 피하기 위해 문자열로 저장한다. externalId(=Nostr eventId)가 PK라
- * enqueue는 put 멱등 — durable enqueue → processed 마킹 순서의 전제.
+ * Incoming review record — user-confirmation queue for tokens received from untrusted mints.
+ * A flattened copy of PendingIncomingReview. amount's bigint is stored as a string to avoid
+ * structured-clone differences across IDB implementations. externalId (= Nostr eventId) is the
+ * PK, so enqueue is an idempotent put — the premise for the durable-enqueue → processed-marking order.
  */
 export interface IncomingReviewRecord {
   externalId: string
@@ -263,9 +263,6 @@ export interface IncomingReviewRecord {
   source: 'gift-wrap' | 'recovery'
 }
 
-/**
- * Zappi Database
- */
 export class ZappiDatabase extends Dexie {
   transactions!: Table<TransactionRecord, string>
   failedIncomings!: Table<FailedIncomingRecord, string>
@@ -292,19 +289,16 @@ export class ZappiDatabase extends Dexie {
     super(DATABASE.NAME)
 
     this.version(DATABASE.VERSION).stores({
-      // Transactions: indexed by id, direction, type, status, createdAt, mintUrl, operationId
       transactions: 'id, direction, type, status, createdAt, mintUrl, source, operationId',
 
       // v14: old failedSwaps table deleted (data loss accepted — retry queue only)
       failedSwaps: null,
 
-      // Failed incomings: indexed by id, accountId, isRetryable, createdAt
       failedIncomings: 'id, accountId, isRetryable, createdAt, errorCode',
 
       // v15: old processedEvents table deleted (dedup data loss accepted — crash recovery handles re-processing)
       processedEvents: null,
 
-      // Processed records: indexed by externalId, txId, processedAt, result
       processedRecords: 'externalId, txId, processedAt, result',
 
       // Sync anchor: single record
@@ -319,10 +313,10 @@ export class ZappiDatabase extends Dexie {
       // Lock state: single record
       lockState: 'id',
 
-      // v23: legacy proofs 테이블 삭제 (감사 :56 — coco 마이그레이션 후 잔존).
-      // 실자금 proofs는 coco DB(zappi-coco-wallet) 소유이고 이 테이블에는
-      // 읽기/쓰기 경로가 없었다(마지막 참조 = clearMintData의 delete뿐) —
-      // 남은 데이터는 legacy라 데이터 자체가 삭제 대상이다.
+      // v23: legacy proofs table deleted (leftover after the coco migration).
+      // Real-fund proofs are owned by the coco DB (zappi-coco-wallet); this table had
+      // no read/write path (last reference was clearMintData's delete) — the remaining
+      // data is legacy, so the data itself is what we drop.
       proofs: null,
 
       // Pending melts: Lightning send recovery (melt quote info before payment)
@@ -353,22 +347,19 @@ export class ZappiDatabase extends Dexie {
       // Pending transfers: unified transfer lifecycle (outgoing/incoming, all protocols)
       pendingTransfers: 'id, txId, direction, protocol, phase, createdAt, updatedAt, expiresAt',
 
-      // v20: Net counters — 프로덕션 집계 카운터 (설계 §12, PII 없음, 원격 전송 없음)
+      // v20: Net counters — production aggregate counters (PII-free, no remote transmission)
       netCounters: 'name',
 
-      // v21: Gift wrap since cursor — pubkey 스코프 키. 레거시 seed 없음:
-      // 업그레이드는 1회 full replay 후 진짜 全EOSE로만 확립 (설계 §10 B5 / 리뷰 #5)
+      // v21: Gift wrap since cursor — pubkey-scoped key. No legacy seed:
+      // upgrade does one full replay, then establishes only via a true full EOSE
       giftwrapCursors: 'key',
 
-      // v22: 미신뢰 민트 수신 review 영속 대기열 (설계 §6.2 drainReviewQueue의 원천)
+      // v22: durable queue for review of tokens from untrusted mints (source for drainReviewQueue)
       incomingReviews: 'externalId, mintUrl, queuedAt',
     })
   }
 }
 
-/**
- * Database singleton instance
- */
 let dbInstance: ZappiDatabase | null = null
 
 /**

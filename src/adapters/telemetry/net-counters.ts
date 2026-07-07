@@ -1,11 +1,13 @@
 /**
- * Net counters — 프로덕션 집계 카운터 (설계 §12)
+ * Net counters — production aggregate counters.
  *
- * PII 없는 누적 카운터만. 원격 전송 없음 — 진단 화면 열람·지원 시 수동 공유용.
- * 5단계(TLS 강등) 게이트의 검증 프로토콜이 이 수치를 근거로 한다.
+ * PII-free cumulative counters only. No remote transmission — for manual sharing
+ * when viewing diagnostics or contacting support. These numbers back the
+ * validation protocol for the TLS-downgrade gate.
  *
- * 쓰기 정책: 이벤트당 Dexie 쓰기 금지 — catch-up replay 핫패스는 NIP-44 복호화와
- * 같은 스레드다. 메모리 누적 후 30초 주기 + pagehide/onPause에 flush한다.
+ * Write policy: no Dexie write per event — the catch-up replay hot path shares a
+ * thread with NIP-44 decryption. Accumulate in memory, then flush every 30s plus
+ * on pagehide/onPause.
  */
 
 import { getDatabase } from '@/adapters/storage/dexie/schema'
@@ -29,13 +31,14 @@ export function incrementNetCounter(name: NetCounterName, by = 1): void {
   pending.set(name, (pending.get(name) ?? 0) + by)
 }
 
-/** 테스트용 — 미flush 델타 조회. */
+/** Test helper — read un-flushed deltas. */
 export function peekPendingNetCounters(): ReadonlyMap<NetCounterName, number> {
   return new Map(pending)
 }
 
 /**
- * 메모리 델타를 Dexie에 합산. 실패 시 델타를 메모리로 되돌려 다음 주기에 재시도.
+ * Merge in-memory deltas into Dexie. On failure, restore the deltas to memory to
+ * retry on the next cycle.
  */
 export async function flushNetCounters(): Promise<void> {
   if (pending.size === 0) return
@@ -56,7 +59,7 @@ export async function flushNetCounters(): Promise<void> {
       }
     })
   } catch {
-    // flush 실패(스토리지 불가 등) — 유실 대신 재큐잉
+    // flush failed (storage unavailable, etc.) — re-queue instead of dropping
     for (const [name, delta] of deltas) {
       pending.set(name, (pending.get(name) ?? 0) + delta)
     }
@@ -64,8 +67,8 @@ export async function flushNetCounters(): Promise<void> {
 }
 
 /**
- * 주기 flush 시작. 반환된 함수로 정지(마지막 flush 포함).
- * bootstrap activate에서 1회 시작하고, onPause에서는 flushNetCounters()를 직접 호출한다.
+ * Start periodic flushing. The returned function stops it (with a final flush).
+ * Started once in bootstrap activate; onPause calls flushNetCounters() directly.
  */
 export function startNetCounterFlusher(intervalMs = FLUSH_INTERVAL_MS): () => void {
   const timer = setInterval(() => {
@@ -88,7 +91,7 @@ export function startNetCounterFlusher(intervalMs = FLUSH_INTERVAL_MS): () => vo
   }
 }
 
-/** 진단 화면용 — 영속값 + 미flush 델타 합산 조회. */
+/** Diagnostics — read persisted values plus un-flushed deltas. */
 export async function readNetCounters(): Promise<Record<NetCounterName, number>> {
   const result = {} as Record<NetCounterName, number>
   for (const name of NET_COUNTER_NAMES) {
@@ -104,7 +107,7 @@ export async function readNetCounters(): Promise<Record<NetCounterName, number>>
       }
     }
   } catch {
-    // 스토리지 불가 — 메모리 값만 반환
+    // storage unavailable — return in-memory values only
   }
 
   return result

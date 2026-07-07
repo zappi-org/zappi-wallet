@@ -1,8 +1,8 @@
 /**
- * SecurityService — 지갑 보안 오케스트레이터 (ZAP-141)
+ * SecurityService — wallet security orchestrator.
  *
- * KeyManager + Encryption + SecureStorage 포트를 조합.
- * 니모닉 생성, PIN 기반 암복호화, 잠금/해제, 비밀번호 변경.
+ * Composes the KeyManager, Encryption, and SecureStorage ports:
+ * mnemonic generation, PIN-based encryption/decryption, lock/unlock, and password change.
  */
 
 import type { KeyManager } from '@/core/ports/driven/key-manager.port'
@@ -14,11 +14,11 @@ import type { SecurityUseCase, UnlockResult } from '@/core/ports/driving/securit
 import { Ok, Err, type Result } from '@/core/domain/result'
 import { SecurityError } from '@/core/errors/security'
 
-// ─── KDF 세대 정책 (docs/design/kdf-upgrade.md §5.2) ───
-// 버전→반복수 맵을 서비스 층이 소유한다. 어댑터는 반복수를 인자로 받는 실행자일 뿐.
+// ─── KDF generation policy ───
+// The service layer owns the version→iterations map; adapters just execute with the given count.
 const KDF_ITERATIONS: Record<number, number> = { 1: 100_000, 2: 600_000 }
 const CURRENT_KDF_VERSION = 2
-// verifyAgainstRecord 폴백이 순회하는 알려진 버전 집합. 미지 declared 는 이 집합으로 강등된다.
+// Known versions the verifyAgainstRecord fallback iterates; an unknown declared version demotes to this set.
 const KNOWN_VERSIONS = [1, 2]
 
 // ─── Service ───
@@ -53,7 +53,7 @@ export class SecurityService implements SecurityUseCase {
       const keys = this.keyManager.deriveNostrKeyPair(mnemonic)
       const bip39Seed = this.keyManager.deriveBip39Seed(mnemonic)
 
-      // 신규 지갑은 항상 CURRENT 버전으로 기록한다 (§5.1 "쓰기는 항상 현재 버전으로").
+      // New wallets are always written at the CURRENT version.
       const iterations = KDF_ITERATIONS[CURRENT_KDF_VERSION]
       const encryptedMnemonic = await this.encryption.encrypt(mnemonic, password, iterations)
       const passwordSalt = randomHex(16)
@@ -82,15 +82,15 @@ export class SecurityService implements SecurityUseCase {
 
   async unlock(password: string): Promise<Result<UnlockResult, SecurityError>> {
     try {
-      // 태그 동반 조회 — 마이그레이션의 CAS 전제 조건 (§6.2). 부재 시 NO_WALLET
-      // (half-wipe 구제 경로 불변 — §7 F10).
+      // Read with the tag — the CAS precondition for migration. Absent → NO_WALLET
+      // (preserves the half-wipe rescue path).
       const rec = await this.storage.getWalletWithTag()
       if (!rec) {
         return Err(new SecurityError('NO_WALLET', 'No wallet found'))
       }
       const { wallet, tag } = rec
 
-      // 선언 버전 우선, 실패 시 알려진 버전 전수 폴백 (§5.5). 오답 PIN → null → INVALID_PASSWORD.
+      // Try the declared version first, then fall back through all known versions. Wrong PIN → null → INVALID_PASSWORD.
       const match = await this.verifyAgainstRecord(wallet, password)
       if (!match) {
         return Err(new SecurityError('INVALID_PASSWORD', 'Invalid password'))
@@ -108,8 +108,8 @@ export class SecurityService implements SecurityUseCase {
       this.cachedSeed = bip39Seed
       this.seedCache.cacheMnemonic(mnemonic)
 
-      // 마이그레이션: 구버전이거나(matched != CURRENT) 오염 레코드(declared != matched)일 때.
-      // 실패는 비치명 — unlock 결과에 영향 없음, 레코드는 v1 온전, 다음 unlock 재시도 (§5.3 / §7 F3).
+      // Migrate when the record is an old version (matched != CURRENT) or corrupt (declared != matched).
+      // Failure is non-fatal — unlock still succeeds, the record stays intact and is retried next unlock.
       let migrated = false
       const declared = wallet.kdfVersion ?? 1
       if (match.version !== CURRENT_KDF_VERSION || declared !== match.version) {
@@ -133,7 +133,7 @@ export class SecurityService implements SecurityUseCase {
         return Err(new SecurityError('NO_WALLET', 'No wallet found'))
       }
 
-      // 버전 인지 검증 (읽기만 — 쓰기 없음, §5.6). v1·v2 레코드 양쪽에서 정확 판정.
+      // Version-aware verification (read-only, no write). Correct for both v1 and v2 records.
       const match = await this.verifyAgainstRecord(wallet, password)
       return Ok(match !== null)
     } catch (error) {
@@ -151,8 +151,8 @@ export class SecurityService implements SecurityUseCase {
         return Err(new SecurityError('NO_WALLET', 'No wallet found'))
       }
 
-      // 구 비밀번호는 버전 인지로 검증하고(읽기), 재기록은 항상 CURRENT 로 한다 —
-      // v1 레코드 사용자가 PIN 을 바꾸면 그 시점에 자연 승급된다 (§5.6).
+      // Verify the old password version-aware (read), but always rewrite at CURRENT —
+      // a v1-record user is naturally upgraded the moment they change their PIN.
       const match = await this.verifyAgainstRecord(wallet, oldPassword)
       if (!match) {
         return Err(new SecurityError('INVALID_PASSWORD', 'Invalid password'))
@@ -176,9 +176,9 @@ export class SecurityService implements SecurityUseCase {
         kdfVersion: CURRENT_KDF_VERSION,
       }
 
-      // CAS 미적용은 의도 — changePassword 는 항상 완결된 CURRENT 레코드를 쓰는
-      // post-unlock 수동 액션이라, 경합하는 마이그레이션의 CAS 는 태그 불일치로
-      // 스킵되고 니모닉은 어느 순서든 보존된다 (설계 §6.1 관찰-1 / 구현 리뷰 NIT).
+      // Skipping CAS is intentional — changePassword is a post-unlock manual action that always
+      // writes a complete CURRENT record, so a racing migration's CAS is skipped on tag mismatch
+      // and the mnemonic is preserved regardless of ordering.
       await this.storage.saveWallet(updatedWallet)
       return Ok(undefined)
     } catch (error) {
@@ -193,7 +193,7 @@ export class SecurityService implements SecurityUseCase {
         return Err(new SecurityError('NO_WALLET', 'No wallet found'))
       }
 
-      // 버전 인지 검증 후 매칭 버전으로 복호 (읽기만 — 쓰기 없음, §5.6).
+      // Version-aware verification, then decrypt with the matched version (read-only, no write).
       const match = await this.verifyAgainstRecord(wallet, password)
       if (!match) {
         return Err(new SecurityError('INVALID_PASSWORD', 'Invalid password'))
@@ -217,12 +217,13 @@ export class SecurityService implements SecurityUseCase {
     this.seedCache.clearCache()
   }
 
-  // ─── KDF 버전 인지 검증 · 마이그레이션 (docs/design/kdf-upgrade.md §5) ───
+  // ─── KDF version-aware verification · migration ───
 
   /**
-   * 선언 버전 우선 시도, 실패 시 나머지 알려진 버전 전수 순회 (§5.5, 자가 치유).
-   * 반환: 실제로 일치한 버전 { version } | null(오답). 미지의 declared(미래 버전 레코드)는
-   * KDF_ITERATIONS[미지] 참조로 깨지지 않게 KNOWN_VERSIONS 전수(최신 우선)로 강등한다.
+   * Try the declared version first, then iterate the remaining known versions (self-healing).
+   * Returns the version that actually matched, or null on a wrong password. An unknown declared
+   * version (a future record) is demoted to iterate all KNOWN_VERSIONS (newest first) so a
+   * KDF_ITERATIONS[unknown] lookup can't break it.
    */
   private async verifyAgainstRecord(
     wallet: StoredWallet,
@@ -244,12 +245,14 @@ export class SecurityService implements SecurityUseCase {
   }
 
   /**
-   * 레코드의 두 KDF 필드(encryptedMnemonic + passwordHash)를 CURRENT 반복수로 원자적 재작성.
-   * 반환: put 성공(true) / CAS 미스·readback 실패(false). throw 는 호출자(unlock)가 비치명 처리.
+   * Atomically rewrite the record's two KDF fields (encryptedMnemonic + passwordHash) at the
+   * CURRENT iteration count. Returns true on put success, false on CAS miss or readback failure;
+   * throws are handled non-fatally by the caller (unlock).
    *
-   * 양방향 readback (§5.4): put 될 암호문이 니모닉의 유일 사본을 대체하므로, 쓰기 전에 두 산출물을
-   * **CURRENT 상수로 새로 파생한 값**과 교차 검증한다 — (a) 니모닉 왕복, (b) 검증자(hash) 왕복.
-   * 둘 중 하나라도 불일치면 put 하지 않는다("자기 파라미터로 자기 산출물을 여는" 맹점 차단).
+   * Two-way readback: the ciphertext being written replaces the only copy of the mnemonic, so
+   * before writing we cross-check both outputs against values freshly derived with the CURRENT
+   * constant — (a) mnemonic roundtrip, (b) hash roundtrip. If either mismatches we skip the put,
+   * guarding against the "opening your own output with your own parameters" blind spot.
    */
   private async migrateRecord(
     wallet: StoredWallet,
@@ -259,12 +262,12 @@ export class SecurityService implements SecurityUseCase {
   ): Promise<boolean> {
     const iterations = KDF_ITERATIONS[CURRENT_KDF_VERSION]
 
-    // 1. 두 필드를 CURRENT 반복수로 재파생
+    // 1. Re-derive both fields at the CURRENT iteration count.
     const encryptedMnemonic = await this.encryption.encrypt(mnemonic, password, iterations)
     const passwordSalt = randomHex(16)
     const passwordHash = await this.encryption.hashPassword(password, passwordSalt, iterations)
 
-    // 2. 양방향 readback — CURRENT 상수로 재파생해 교차 검증
+    // 2. Two-way readback — re-derive with the CURRENT constant and cross-check.
     const roundtripMnemonic = await this.encryption.decrypt(
       encryptedMnemonic,
       password,
@@ -276,10 +279,10 @@ export class SecurityService implements SecurityUseCase {
       KDF_ITERATIONS[CURRENT_KDF_VERSION],
     )
     if (roundtripMnemonic !== mnemonic || !constantTimeEqual(roundtripHash, passwordHash)) {
-      return false // 자기 산출물 불일치 — put 미도달 (v1 유지, 다음 unlock 재시도)
+      return false // self-output mismatch — skip the put (record stays intact, retried next unlock)
     }
 
-    // 3. 단일 레코드 CAS 교체 (§6.2). 불일치·부재 → false (no-op).
+    // 3. Single-record CAS swap; mismatch or absence → false (no-op).
     const next: StoredWallet = {
       ...wallet,
       encryptedMnemonic,

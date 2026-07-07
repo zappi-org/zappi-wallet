@@ -1,19 +1,22 @@
 /**
- * wipeAccountData — 로그아웃 완전 소거 계약 (감사 Phase 1, 이중 리뷰 반영)
+ * wipeAccountData — the logout full-wipe contract.
  *
- * 핀 대상:
- * - 순서 계약: 타 탭 정지 신호(⓪) → 쓰기 주체 정지(①) → coco DB(②) → zappi DB
- *   clear-first(③) → **니모닉은 마지막 가멸 단계(④)** → localStorage(⑤) →
- *   재broadcast(⑥) → 스토어 리셋(⑦)
- * - 니모닉-마지막 불변식 (이중 리뷰 BLOCKING): ②③ 실패 시 지갑 레코드가 남아
- *   verifyPassword 재시도가 가능해야 한다. 역순은 "니모닉 소멸 + 평문 proofs 잔존
- *   + 재시도 불가 + 온보딩 상속" 반쪽 상태를 만든다.
- * - registry 부재(부트스트랩 전)여도 데이터 소거는 전부 진행
- * - 데이터-소거 단계(②③㉠④)의 실패는 throw 로 표면화 (성공 가장 금지)
- * - db.delete() 는 best-effort: 블록/실패해도 데이터는 ㉠에서 이미 소거 — 진행
- * - localStorage: 계정 데이터만 삭제, 기기 방어/선호(lockout·invite·language·ks)는 유지
+ * Pinned:
+ * - Ordering contract: cross-tab stop signal (⓪) → stop writers (①) → coco DB (②)
+ *   → zappi DB clear-first (③) → mnemonic is the last destructive step (④) →
+ *   localStorage (⑤) → re-broadcast (⑥) → store reset (⑦)
+ * - Mnemonic-last invariant: if ②③ fail, the wallet record must survive so
+ *   verifyPassword retry stays possible. The reverse order leaves a half state:
+ *   mnemonic gone + plaintext proofs left + retry impossible + onboarding inherited.
+ * - Data wipe proceeds fully even with no registry (before bootstrap).
+ * - Failure in a data-wipe step (②③㉠④) surfaces via throw (no faking success).
+ * - db.delete() is best-effort: even if it blocks/fails the data is already
+ *   cleared at ㉠, so proceed.
+ * - localStorage: delete account data only; keep device defenses/preferences
+ *   (lockout·invite·language·ks).
  *
- * DB·coco·broadcast 는 경계 모킹, localStorage 어댑터와 스토어는 실물.
+ * DB·coco·broadcast are mocked at the boundary; the localStorage adapter and
+ * store are real.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { wipeAccountData, type WipeAccountDeps } from '@/composition/logout'
@@ -71,7 +74,7 @@ describe('wipeAccountData', () => {
     vi.useRealTimers()
   })
 
-  it('순서 계약: 조기 broadcast → 정지 → coco → zappi clear → delete → 니모닉 → localStorage → 재broadcast → 리셋', async () => {
+  it('ordering contract: early broadcast → stop → coco → zappi clear → delete → mnemonic → localStorage → re-broadcast → reset', async () => {
     const db = makeDb()
     const deps = makeDeps()
     const resetAllSpy = vi.spyOn(useAppStore.getState(), 'resetAll')
@@ -79,13 +82,13 @@ describe('wipeAccountData', () => {
     try {
       await wipeAccountData(deps)
 
-      // ⓪ 조기 broadcast 가 모든 단계보다 앞 — 타 탭 부활-쓰기 창 차단
+      // ⓪ Early broadcast precedes every step — blocks the cross-tab revive-write window
       expect(orderOf(broadcastSyncMock, 0)).toBeLessThan(orderOf(deps.registry.support.destroy))
       expect(orderOf(deps.registry.support.destroy)).toBeLessThan(orderOf(deps.registry.dispose))
       expect(orderOf(deps.registry.dispose)).toBeLessThan(orderOf(deleteCocoDataMock))
       expect(orderOf(deleteCocoDataMock)).toBeLessThan(orderOf(db.tables[0].clear))
       expect(orderOf(db.tables[0].clear)).toBeLessThan(orderOf(db.delete))
-      // 니모닉-마지막 불변식: 지갑 레코드 삭제는 모든 데이터 소거 뒤
+      // Mnemonic-last invariant: the wallet record is deleted after all data is wiped
       expect(orderOf(db.delete)).toBeLessThan(orderOf(deps.security.deleteWallet))
       expect(orderOf(deps.security.deleteWallet)).toBeLessThan(orderOf(deps.removePasskey))
       expect(orderOf(deps.removePasskey)).toBeLessThan(orderOf(broadcastSyncMock, 1))
@@ -99,7 +102,7 @@ describe('wipeAccountData', () => {
     }
   })
 
-  it('registry 부재(부트스트랩 전)여도 coco DB 포함 전부 소거된다', async () => {
+  it('wipes everything including coco DB even without a registry (before bootstrap)', async () => {
     const db = makeDb()
     const deps = { ...makeDeps(), registry: null }
 
@@ -112,20 +115,20 @@ describe('wipeAccountData', () => {
     expect(broadcastSyncMock).toHaveBeenCalledTimes(2)
   })
 
-  it('coco DB 삭제 실패 → throw, 니모닉은 남는다 (재시도 가능 상태 보존)', async () => {
+  it('coco DB delete failure → throw, mnemonic survives (preserves retryable state)', async () => {
     const db = makeDb()
     const deps = makeDeps()
     deleteCocoDataMock.mockRejectedValue(new Error('Coco DB delete timed out'))
 
     await expect(wipeAccountData(deps)).rejects.toThrow('Coco DB delete timed out')
     expect(db.tables[0].clear).not.toHaveBeenCalled()
-    // 핵심: 지갑 레코드가 살아 있어야 verifyPassword → 재시도가 성립한다
+    // Key: the wallet record must survive for verifyPassword → retry to hold
     expect(deps.security.deleteWallet).not.toHaveBeenCalled()
-    // 조기 broadcast(⓪)만 나갔고 완료 신호(⑥)는 없다
+    // Only the early broadcast (⓪) fired; no completion signal (⑥)
     expect(broadcastSyncMock).toHaveBeenCalledTimes(1)
   })
 
-  it('zappi 테이블 clear 실패 → throw, 니모닉은 남는다', async () => {
+  it('zappi table clear failure → throw, mnemonic survives', async () => {
     makeDb({ failClear: true })
     const deps = makeDeps()
 
@@ -134,20 +137,20 @@ describe('wipeAccountData', () => {
     expect(broadcastSyncMock).toHaveBeenCalledTimes(1)
   })
 
-  it('니모닉 삭제(④) 실패 → throw, 이후 단계 미실행 — 단 데이터는 이미 소거된 상태', async () => {
+  it('mnemonic delete (④) failure → throw, later steps skipped — but data is already wiped', async () => {
     const db = makeDb()
     const deps = makeDeps()
     deps.security.deleteWallet.mockRejectedValue(new Error('secure storage down'))
 
     await expect(wipeAccountData(deps)).rejects.toThrow('secure storage down')
-    // 여기 도달 전에 데이터 소거는 완료 — 재시도하면 멱등 재실행으로 수렴한다
+    // Data wipe completed before reaching here — a retry converges via idempotent re-run
     expect(deleteCocoDataMock).toHaveBeenCalled()
     expect(db.tables[0].clear).toHaveBeenCalled()
     expect(deps.removePasskey).not.toHaveBeenCalled()
-    expect(broadcastSyncMock).toHaveBeenCalledTimes(1) // 완료 신호(⑥) 없음
+    expect(broadcastSyncMock).toHaveBeenCalledTimes(1) // no completion signal (⑥)
   })
 
-  it('db.delete() 가 영원히 블록 → 타임아웃 후 warn 하고 계속 (데이터는 ㉠에서 소거됨)', async () => {
+  it('db.delete() blocks forever → warns after timeout and continues (data was wiped at ㉠)', async () => {
     vi.useFakeTimers()
     makeDb({ deleteImpl: () => new Promise<void>(() => {}) })
     const deps = makeDeps()
@@ -170,7 +173,7 @@ describe('wipeAccountData', () => {
     }
   })
 
-  it('db.delete() 즉시 실패도 warn 후 계속', async () => {
+  it('immediate db.delete() failure also warns then continues', async () => {
     makeDb({ deleteImpl: () => Promise.reject(new Error('delete refused')) })
     const deps = makeDeps()
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -184,7 +187,7 @@ describe('wipeAccountData', () => {
     }
   })
 
-  it('support.destroy 실패는 소거를 중단시키지 않는다 (중단 = 더 많은 데이터 잔존)', async () => {
+  it('support.destroy failure does not abort the wipe (aborting = more data left behind)', async () => {
     makeDb()
     const deps = makeDeps()
     deps.registry.support.destroy.mockRejectedValue(new Error('support down'))
@@ -200,13 +203,13 @@ describe('wipeAccountData', () => {
     }
   })
 
-  it('localStorage 정책: 계정 데이터 삭제, 기기 방어·선호 유지', async () => {
+  it('localStorage policy: delete account data, keep device defenses/preferences', async () => {
     makeDb()
-    // 삭제 대상
+    // To be deleted
     localStorage.setItem('zappi-anchor', '{"eventId":"old"}')
     localStorage.setItem('zappi-balance-cache', '{"total":999}')
     localStorage.setItem('zappi_last_alive_at', String(Date.now()))
-    // 유지 대상
+    // To be kept
     localStorage.setItem('zappi-language', 'ko')
     localStorage.setItem('zappi.ks.cursor', '1')
     localStorage.setItem('zappi_invite_attempts', '3')
@@ -221,7 +224,7 @@ describe('wipeAccountData', () => {
     expect(localStorage.getItem('zappi_invite_attempts')).toBe('3')
   })
 
-  it('스토어 리셋: 이전 계정 상태가 reload 전에도 남지 않는다', async () => {
+  it('store reset: prior account state does not survive even before reload', async () => {
     makeDb()
     useAppStore.setState({ txRefreshTrigger: 7 })
 

@@ -12,10 +12,10 @@ export type SyncMessage =
   | { type: 'balance_changed' }
   | { type: 'tx_changed' }
   | { type: 'settings_changed' }
-  // pending-0으로 정지한 타 탭의 stuck-sweep 타이머 재개 신호 (설계 §7.2 [F20-잔여])
+  // signal to resume the stuck-sweep timer in other tabs that stopped at pending-0
   | { type: 'transfer_created' }
-  // 로그아웃한 탭이 계정 데이터를 소거함 — 타 탭은 즉시 reload 해 소거된 상태로
-  // 재시작해야 한다 (감사 Phase 1: 남은 탭이 메모리 잔상으로 계속 동작하는 것 방지)
+  // a logged-out tab wiped account data — other tabs must reload immediately and
+  // restart from the cleared state (prevents them from running on stale in-memory state)
   | { type: 'logout' }
 
 let broadcastChannel: BroadcastChannel | null = null
@@ -44,21 +44,25 @@ export function broadcastSync(type: SyncMessage['type']): void {
 }
 
 /**
- * KDF 재암호화 마이그레이션 직후의 타 탭 하드닝 (docs/design/kdf-upgrade.md §6.4 R1).
+ * Hardens other tabs right after the KDF re-encryption migration.
  *
- * 이 브라우저-프리미티브 side-effect 는 성공한 unlock 이 `migrated: true` 를 반환할 때만 실행한다:
- * 1. `settings_changed` broadcast → 배포된 구 번들 탭을 reload 시켜 새 번들(=v2 인지)로 재기동.
- * 2. `localStorage['lockout']` 제거 → 구 번들이 정답 PIN 을 오답 계수해 남겼을 수 있는 거짓 15분
- *    잠금을 소거한다. 방금 성공한 unlock 이 이미 PIN 지식을 증명했으므로 그 lockout 은 무의미하다.
+ * This browser-primitive side effect runs only when a successful unlock returns
+ * `migrated: true`:
+ * 1. `settings_changed` broadcast → reloads tabs still on the old bundle so they
+ *    restart on the new (v2-aware) bundle.
+ * 2. Removes `localStorage['lockout']` → clears a bogus 15-minute lockout the old
+ *    bundle may have left by miscounting a correct PIN as wrong. The unlock that
+ *    just succeeded already proved PIN knowledge, so that lockout is meaningless.
  *
- * core 서비스가 아닌 UI/utils 층이 쏘는 이유: cross-tab-sync 는 브라우저 프리미티브이고
- * core 는 이 층을 import 하지 않는다 (헥사고날 계약 유지).
+ * Why the UI/utils layer fires this rather than a core service: cross-tab-sync is
+ * a browser primitive and core does not import this layer (preserves the
+ * hexagonal contract).
  */
 export function notifyKdfMigrated(): void {
   broadcastSync('settings_changed')
   try {
     localStorage.removeItem('lockout')
   } catch {
-    // localStorage 접근 불가 환경(사생활 모드 등)에서도 broadcast 는 이미 나갔다 — 무시.
+    // broadcast already went out even where localStorage is inaccessible (private mode, etc.) — ignore
   }
 }

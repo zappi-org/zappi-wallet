@@ -1,6 +1,6 @@
 /**
- * SecureStorageAdapter — 태그(iv hex) 반출 + CAS replaceWallet 계약 (docs §6.2 · §8-3).
- * 실제 fake-indexeddb + crypto.subtle 위에서 검증 (모킹 없음).
+ * SecureStorageAdapter — tag (iv hex) exposure + CAS replaceWallet contract.
+ * Verified on real fake-indexeddb + crypto.subtle (no mocking).
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { SecureStorageAdapter } from '@/adapters/storage/secure-storage.adapter'
@@ -23,7 +23,7 @@ describe('SecureStorageAdapter — tag / CAS', () => {
 
   beforeEach(async () => {
     adapter = new SecureStorageAdapter()
-    // 지갑 레코드만 초기화 (기기 키 스토어는 공유 유지 — 복호 가능성 보존).
+    // Reset only the wallet record (keep the shared device key store so decryption still works).
     await adapter.deleteWallet()
   })
 
@@ -72,12 +72,12 @@ describe('SecureStorageAdapter — tag / CAS', () => {
     await adapter.saveWallet(makeWallet({ publicKey: 'gen1' }))
     const { tag: staleTag } = (await adapter.getWalletWithTag())!
 
-    // 다른 세대가 먼저 착지 (예: 타 탭의 saveWallet) — 현재 태그가 바뀐다.
+    // A different generation lands first (e.g., saveWallet from another tab) — the current tag changes.
     await adapter.saveWallet(makeWallet({ publicKey: 'gen2' }))
 
-    // staleTag 로 교체 시도 → CAS 의 tx 내부 get 이 현재 태그(gen2)와 불일치를 확인 → no-op.
+    // Replace with staleTag → CAS's in-tx get sees the mismatch with the current tag (gen2) → no-op.
     const ok = await adapter.replaceWallet(makeWallet({ publicKey: 'gen1-migrated' }), staleTag)
     expect(ok).toBe(false)
-    expect((await adapter.getWallet())!.publicKey).toBe('gen2') // 부활/덮어쓰기 없음
+    expect((await adapter.getWallet())!.publicKey).toBe('gen2') // no resurrection/overwrite
   })
 })

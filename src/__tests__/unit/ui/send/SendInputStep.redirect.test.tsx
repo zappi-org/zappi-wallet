@@ -128,7 +128,6 @@ describe('SendInputStep redirect', () => {
     vi.useRealTimers()
   })
 
-  // ─── Test 1 ───
   it('cashu-token paste routes via universal router (onRouteValidated)', async () => {
     const tokenStr = 'cashuAeyJ0b2tlbiI6W3sicHJvb2ZzIjpbXX1dfQ=='
     mockDetectAndClassify.mockReturnValue({
@@ -153,7 +152,6 @@ describe('SendInputStep redirect', () => {
     expect(defaultProps.onNext).not.toHaveBeenCalled()
   })
 
-  // ─── Test 2 ───
   it('lnurl-withdraw hands off via onRouteValidated at SUBMIT — typing stays network-zero (§8.5)', async () => {
     const lnurlStr = 'lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhkxmmww4hxjmn8v96x7'
     mockDetectAndClassify.mockReturnValue({ type: 'lnurl', lnurl: lnurlStr })
@@ -166,12 +164,12 @@ describe('SendInputStep redirect', () => {
     renderStep()
     typeIntoInput(lnurlStr)
 
-    // 타이핑 중에는 원격 검증도 리다이렉트도 없다 (§8.5)
+    // While typing: no remote validation and no redirect
     await act(async () => { vi.advanceTimersByTime(500) })
     expect(mockValidateAsync).not.toHaveBeenCalled()
     expect(defaultProps.onRedirect).not.toHaveBeenCalled()
 
-    // 제출 시점: 검증 → 비발송형은 universal router로 handoff
+    // At submit: validate, then hand off non-send types to the universal router
     const nextButton = screen.getByRole('button', { name: 'send.next' })
     await act(async () => { nextButton.click(); await vi.runAllTimersAsync() })
 
@@ -182,7 +180,6 @@ describe('SendInputStep redirect', () => {
     expect(defaultProps.onNext).not.toHaveBeenCalled()
   })
 
-  // ─── Test 3 ───
   it('bolt11 does NOT call onRedirect', async () => {
     const bolt11Str = 'lnbc100n1pjtest...'
     mockDetectAndClassify.mockReturnValue({
@@ -205,7 +202,6 @@ describe('SendInputStep redirect', () => {
     expect(defaultProps.onRedirect).not.toHaveBeenCalled()
   })
 
-  // ─── Test 4 ───
   it('lnurl-pay does NOT call onRedirect', async () => {
     const lnurlStr = 'lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhkxmmww4hxjmn8v96x7'
     mockDetectAndClassify.mockReturnValue({ type: 'lnurl', lnurl: lnurlStr })
@@ -221,7 +217,6 @@ describe('SendInputStep redirect', () => {
     expect(defaultProps.onRedirect).not.toHaveBeenCalled()
   })
 
-  // ─── Test 5 ───
   it('missing onRedirect does not crash on cashu-token paste', async () => {
     const tokenStr = 'cashuAeyJ0b2tlbiI6W3sicHJvb2ZzIjpbXX1dfQ=='
     mockDetectAndClassify.mockReturnValue({
@@ -248,7 +243,6 @@ describe('SendInputStep redirect', () => {
     expect(defaultProps.onNext).not.toHaveBeenCalled()
   })
 
-  // ─── Test 6 ───
   it('validateAsync failure at submit does not redirect (§8.5)', async () => {
     mockDetectAndClassify.mockReturnValue({
       type: 'lightning-address',

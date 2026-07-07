@@ -12,8 +12,8 @@ export async function removeMintArtifacts(
   deps: RemoveMintArtifactsDeps,
   mintUrl: string,
 ): Promise<void> {
-  // 와이어/저장 경로(SDK 제거·로컬 정리)는 기존 slash-strip 의미를 보존한다 —
-  // mintUrlKey(소문자화 등)는 비교 전용이며 저장 키로 새어나가면 안 된다 (Phase 2)
+  // Wire/storage paths (SDK removal, local cleanup) preserve the existing slash-strip
+  // semantics — mintUrlKey (lowercasing, etc.) is comparison-only and must not leak into storage keys.
   const normalizedMintUrl = mintUrl.endsWith('/') ? mintUrl.slice(0, -1) : mintUrl
   const now = deps.now?.() ?? Date.now()
 

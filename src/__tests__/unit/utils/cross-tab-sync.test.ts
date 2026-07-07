@@ -1,7 +1,7 @@
 /**
- * notifyKdfMigrated — KDF 마이그레이션 직후 타 탭 하드닝 (docs §6.4 R1).
- * handleUnlock 이 migrated=true 에 호출하는 UI-층 side-effect 의 계약:
- * settings_changed broadcast 1회 + localStorage['lockout'] 소거.
+ * notifyKdfMigrated — hardens other tabs right after a KDF migration.
+ * Contract for the UI-layer side effect handleUnlock triggers when migrated=true:
+ * one settings_changed broadcast + clearing localStorage['lockout'].
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { notifyKdfMigrated } from '@/utils/cross-tab-sync'
@@ -49,7 +49,7 @@ describe('notifyKdfMigrated', () => {
     expect(posts.some((p) => (p.data as { type?: string }).type === 'settings_changed')).toBe(true)
   })
 
-  it('swallows a localStorage.removeItem throw (private-mode) — broadcast still went out (구현 리뷰 NIT)', () => {
+  it('swallows a localStorage.removeItem throw (private-mode) — broadcast still went out (impl-review nit)', () => {
     const spy = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
       throw new Error('private mode')
     })

@@ -7,10 +7,10 @@ export type { RouteInput, FeeEstimate }
 export interface RoutingUseCase {
   selectRoute(input: RouteInput): PaymentRoute
   findCommonMints(senderMints: string[], receiverMints: string[]): string[]
-  // my-wallet 견적은 estimateRouteFee(LN_CROSS_MINT/...)가 내부 위임으로 처리
-  // — SendConfirmStep의 이중 견적 제거(§8.4) 후 별도 표면의 소비자가 없어
-  // driving port에서 제거했다 (7단계 리뷰 #5). adapter의 estimateMyWalletFee는
-  // estimateRouteFee의 위임 대상으로 존속한다.
+  // my-wallet quoting is handled by estimateRouteFee (LN_CROSS_MINT/...) via
+  // internal delegation — after SendConfirmStep's double-quote was removed, no
+  // separate surface consumed it, so it was dropped from the driving port. The
+  // adapter's estimateMyWalletFee remains as estimateRouteFee's delegation target.
   estimateRouteFee(
     route: PaymentRoute,
     sourceMint: string,

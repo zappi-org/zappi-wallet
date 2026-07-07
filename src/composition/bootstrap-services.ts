@@ -1,11 +1,10 @@
 /**
- * Bootstrap 조각 6 — 서비스 층 조립 (bootstrap.ts 순수 이동)
- *
- * 결제/잔액/스왑/연락처/프로필 등 코어 서비스와 RecoveryScheduler,
- * recovery-split 위임 배선(payment.setRecoveryDelegate)까지 원본 순서 그대로.
+ * Service-layer assembly: core services (payment/balance/swap/contact/profile),
+ * the RecoveryScheduler, and the recovery-split delegate wiring
+ * (payment.setRecoveryDelegate).
  */
 
-// ─── Store (composition root만 접근) ───
+// ─── Store (composition root access only) ───
 import { useAppStore } from "@/store";
 
 // ─── Composition Roots ───
@@ -22,7 +21,7 @@ import { resolveIncomingReview } from "./incoming-review";
 import { ReceiveRequestFacadeService } from "@/core/services/receive-request-facade.service";
 import { RecoverySchedulerService } from "@/core/services/recovery-scheduler.service";
 
-// ─── Coco (composition root만 접근) ───
+// ─── Coco (composition root access only) ───
 import {
   getMintOpStateLocal,
   getSendRecoveryOps,
@@ -106,8 +105,9 @@ export function assembleCoreServices(deps: {
   );
   const receiveRequest = new ReceiveRequestFacadeService(receiveRequestRepo);
 
-  // 5b. RecoveryScheduler — recoverAll의 행동 단위 분해 (설계 §6.2).
-  // 모든 행동은 함수 주입: 서비스는 게이팅·조합만, Coco/모듈 접합은 여기서.
+  // RecoveryScheduler — decomposes recoverAll into per-behavior actions. Every
+  // action is function-injected: the service only gates and composes; the
+  // Coco/module wiring lives here.
   const recoveryScheduler = new RecoverySchedulerService({
     reconcileCashu: async () =>
       reconcileCashu({
@@ -159,17 +159,19 @@ export function assembleCoreServices(deps: {
     },
   });
 
-  // recoverAll 위임 (ks.recovery-split OFF) — 기존 6개 트리거(unlock/resume/
-  // 당김새로고침 등)의 recoverAll이 reconcile+targeted 경로로 바뀐다.
-  // 스위치 ON이면 미주입 → 구경로(B1~B9 일괄)로 롤백 (설계 §11.2 4단계).
+  // recoverAll delegate (ks.recovery-split OFF) — recoverAll from the existing 6
+  // triggers (unlock/resume/pull-to-refresh, etc.) switches to the
+  // reconcile+targeted path. With the switch ON we don't inject, rolling back to
+  // the old path (everything in one batch).
   //
-  // 계수 계약 (4단계 리뷰 #7): recovered에는 구경로와 동일하게 **네트워크 구제
-  // 실건수(targeted)만** 계수한다 — 구경로에서 B3 settle 마킹은 recorded,
-  // quote 만료는 expired로 recovered/failed 밖이었다. reconcile 정합 수치를
-  // 합산하면 "수신자가 내 토큰을 수령"한 것까지 복구 토스트로 표출된다.
-  // 예외 격리 (리뷰 #10): 구경로는 어댑터별 try/catch로 절대 reject하지
-  // 않았다 — reconcile gate의 실패 쿨다운 재-throw가 targeted까지 삼키지
-  // 않도록 단계별로 격리한다.
+  // Count contract: like the old path, recovered counts only real network
+  // rescues (targeted) — in the old path a settle mark was recorded and quote
+  // expiry was expired, both outside recovered/failed. Summing reconcile's
+  // reconciliation figures would surface even "the recipient received my token"
+  // as a recovery toast.
+  // Exception isolation: the old path never rejected (per-adapter try/catch) —
+  // isolate per step so the reconcile gate's failure-cooldown re-throw doesn't
+  // swallow targeted.
   if (!killSwitches["recovery-split"]) {
     payment.setRecoveryDelegate(async (opts) => {
       try {
@@ -184,7 +186,7 @@ export function assembleCoreServices(deps: {
         const report = await recoveryScheduler.recoverTargeted({
           bypassGate: opts?.bypassGate,
         });
-        // 구경로와 동일한 UI 갱신 신호 유지
+        // Keep the same UI-refresh signal as the old path
         if (report.recovered > 0) {
           eventBus.emit({ type: "recovery:completed", payload: report });
         }

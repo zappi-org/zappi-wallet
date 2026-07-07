@@ -56,18 +56,20 @@ export function createPendingTransfer(params: {
 }
 
 /**
- * phase 전이 (감사 Phase 4 독립 항목 — 구현은 FinalityModel 인지 최소 가드).
+ * Phase transition guard.
  *
- * 수용: 현행 정당 전이 전부 — preparing→settled(즉시 melt), submitted→settled
- * (immediate finality), recoverable→settled(reclaim), 임의 비종단 간 이동,
- * failed→submitted(재시도 계열). 새 phase 도입 없음.
+ * Accepts all currently-legitimate transitions — preparing→settled (immediate
+ * melt), submitted→settled (immediate finality), recoverable→settled (reclaim),
+ * any movement between non-terminal phases, failed→submitted (retry). No new
+ * phases introduced.
  *
- * 거부: settled → (settled 외 전부). settled 는 "자금이 전달됨"의 기록이다 —
- * 어떤 코드 경로(늦은 watcher 이벤트, 중복 confirm, 복구 sweep 경합)도 이를
- * 미정산·실패로 되돌려선 안 된다. settled→failed 도 거부(후속 라운드 조이기 —
- * 합법 롤백 수요 없음이 호출부 전수로 확인됨; 유일 도달 경로였던 중복 incoming
- * 재처리는 processIncomingTransfer 의 isTerminal 조기 반환으로 차단). 역행은
- * 이중 지출/이중 표시 버그의 은폐가 되므로 무음 무시가 아니라 throw 로 표면화한다.
+ * Rejects settled → (anything but settled). settled records that funds were
+ * delivered — no code path (late watcher event, duplicate confirm, recovery sweep
+ * race) may revert it to unsettled/failed. settled→failed is rejected too: no
+ * legitimate rollback demand exists, confirmed across all callers; the only path
+ * that reached it — duplicate incoming reprocessing — is blocked by
+ * processIncomingTransfer's isTerminal early return. Reversal would hide
+ * double-spend/double-display bugs, so we throw rather than silently ignore.
  */
 export function transitionPhase(
   transfer: PendingTransfer,
@@ -96,7 +98,7 @@ export function isExpired(transfer: PendingTransfer, now: number = Date.now()): 
   return transfer.expiresAt != null && transfer.expiresAt <= now
 }
 
-/** Incoming transfer가 claim 가능한 상태인지 확인 */
+/** Whether an incoming transfer is in a claimable state */
 export function canComplete(
   transfer: Pick<PendingTransfer, 'phase' | 'direction'>,
 ): boolean {

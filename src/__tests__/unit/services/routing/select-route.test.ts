@@ -222,13 +222,13 @@ describe('findCommonMints', () => {
     expect(result).toEqual(['https://mint-a.example.com/'])
   })
 
-  it('표기 변형(:443·대소문자·프로토콜 생략)을 같은 민트로 판정 — 수수료 라우트 열화 방지 (Phase 2)', () => {
-    // 변형 미스 = TOKEN_TRANSFER(~1-2 sat) 대신 MINT_AND_DM(~4-5 sat)으로 열화
+  it('treats notation variants (:443 · case · omitted protocol) as the same mint — prevents fee-route degradation (Phase 2)', () => {
+    // A variant miss degrades TOKEN_TRANSFER (~1-2 sat) into MINT_AND_DM (~4-5 sat)
     const result = findCommonMints(
       ['https://Mint-A.example.com:443/', 'https://mint-c.example.com'],
       ['mint-a.example.com'],
     )
-    // 반환은 sender 측 원문 (byMint raw 조회와의 정합)
+    // Returns the sender-side original (consistent with byMint raw lookup)
     expect(result).toEqual(['https://Mint-A.example.com:443/'])
   })
 })

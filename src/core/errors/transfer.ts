@@ -1,8 +1,8 @@
 import { BaseError } from './base'
 
 /**
- * PendingTransfer가 없거나, 요청된 동작(claim/reclaim/complete)을
- * 허용하지 않는 상태다. 사용자 재시도로 해소되지 않는다.
+ * No PendingTransfer exists, or its state does not allow the requested action
+ * (claim/reclaim/complete). Not resolvable by user retry.
  */
 export class TransferStateError extends BaseError {
   readonly code = 'TRANSFER_STATE_INVALID' as const

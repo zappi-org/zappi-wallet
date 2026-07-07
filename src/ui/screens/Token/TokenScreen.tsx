@@ -92,9 +92,9 @@ export function TokenScreen({
   // sends that were claimed while observer events were missed (app backgrounded,
   // subscription paused, etc.). Throttled at module level to avoid spam on
   // rapid tab switching.
-  // 설계 §6.3 Token 탭: reconcile()만 — 로컬 정합(네트워크 0)으로 충분하다.
-  // 원격 정산 감지는 watcher/브리지 push의 소관이라 recoverAll(네트워크 구제
-  // 포함)은 과했다.
+  // Token tab uses reconcile() only — local reconciliation (zero network) is
+  // enough. Remote-settlement detection is the watcher/bridge push's job, so
+  // recoverAll (which includes network recovery) was overkill.
   useEffect(() => {
     if (!registry?.recoveryScheduler) return
     const now = Date.now()
@@ -261,7 +261,7 @@ export function TokenScreen({
             setReclaimTargets(null)
           },
           onError: () => {
-            // 토스트는 훅에서 처리. 여기서는 UI 상태 정리만
+            // Toast handled in the hook; here we only clean up UI state
             setReclaimTargets(null)
           },
         }

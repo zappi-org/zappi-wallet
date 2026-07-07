@@ -1,19 +1,19 @@
 /**
- * Bootstrap — Composition Root (유일한 경계 횡단 지점)
+ * Bootstrap — Composition Root (the only boundary-crossing point).
  *
- * 조립은 도메인 묶음별 조각(bootstrap-*.ts)으로 분해되어 있다 — 이 파일은
- * 원본 실행 순서 그대로 조각을 호출하고, 조각 간 인스턴스 흐름을 인자로
- * 명시 전달하는 오케스트레이터다 (R2-C 절단, 순수 이동 원칙).
- * 조각들과 이 파일만 modules/, adapters/, core/services/ 전부 import 가능.
+ * Assembly is split into per-domain pieces (bootstrap-*.ts) — this file is the
+ * orchestrator that calls them in the original execution order and passes
+ * instances between them explicitly as arguments. Only the pieces and this file
+ * may import from modules/, adapters/, and core/services/.
  *
- * 호출 시점: MainApp.tsx에서 unlock 이후 (seed + nostrPrivkey 필요)
+ * Called from MainApp.tsx after unlock (needs seed + nostrPrivkey).
  */
 
 // ─── Core ───
 import { createEventBus } from "@/core/events/event-bus";
 import { readKillSwitches } from "@/core/utils/kill-switch";
 
-// ─── 조립 조각 (bootstrap-*.ts — 원본 절 순서 그대로) ───
+// ─── Assembly pieces (bootstrap-*.ts — original section order) ───
 import { assembleStorage } from "./bootstrap-storage";
 import { assembleNostrGateway } from "./bootstrap-nostr";
 import { assembleCashuModule } from "./bootstrap-cashu";
@@ -25,7 +25,7 @@ import { createLifecycle } from "./bootstrap-lifecycle";
 import { assembleIncomingPipeline } from "./bootstrap-incoming";
 import { assembleFacadeServices } from "./bootstrap-facades";
 
-// ─── 잔여 인라인 배선 (P2PK·cleanup·환율·진단) ───
+// ─── Remaining inline wiring (P2PK, cleanup, exchange rate, diagnostics) ───
 import { CocoP2PKKeyManager } from "@/adapters/crypto/p2pk-key-manager.adapter";
 import { getCashuKeyring } from "@/modules/cashu/cashu-runtime";
 import {
@@ -43,7 +43,7 @@ import type { OperationMap } from "@/core/ports/driven/operation-map.port";
 import type { ServiceRegistry } from "@/core/ports/driving/service-registry";
 import type { NostrIncomingWatcher } from "@/adapters/nostr/nostr-incoming-watcher";
 
-// ─── Routing types (Phase 6에서 SendFlow 전환 시 제거) ───
+// ─── Routing types (removed once SendFlow migrates) ───
 export type {
   RouteSelection,
   RouteContext,
@@ -62,9 +62,9 @@ export type RouteResult = Result<RouteExecutionResult, BaseError>;
 // ─── Bootstrap Input ───
 
 export interface BootstrapDeps {
-  /** Nostr 개인키 (hex) — unlock 후 사용 가능 */
+  /** Nostr private key (hex) — available after unlock */
   nostrPrivateKeyHex: string;
-  /** BIP-39 seed — support 전용 파생키 생성에만 사용하고 저장하지 않음 */
+  /** BIP-39 seed — used only to derive the support key; never stored */
   bip39Seed: Uint8Array;
 }
 
@@ -73,24 +73,24 @@ export interface BootstrapResult extends ServiceRegistry {
   readonly cashuModule: CashuModule;
   readonly operationMap: OperationMap;
 
-  // ─── Lifecycle (MainApp만 호출) ───
+  // ─── Lifecycle (MainApp only) ───
   activate(): Promise<void>;
   onResume(): Promise<void>;
   onPause(): Promise<void>;
-  /** 레지스트리 교체·폐기 시 타이머/구독 정리 (flusher·TLS폴링·watcher·gateway) */
+  /** Clean up timers/subscriptions on registry swap/disposal (flusher, TLS polling, watcher, gateway) */
   dispose(): void;
   disconnectBridge(): void;
   disconnectGiftWrapSettlement(): void;
 
-  // ─── Balance refresh (store 갱신 포함, composition root 와이어링) ───
+  // ─── Balance refresh (includes store update, composition-root wiring) ───
   refreshBalance(): Promise<void>;
 
   // ─── Cleanup ───
-  // 로그아웃 소거는 composition/logout.ts(wipeAccountData)가 전담한다 —
-  // 조각별 삭제(deleteCocoData/deleteAllContacts/clearRecoverySyncState 등)는
-  // 전 테이블 clear + DB delete + localStorage 정책으로 승계됨 (감사 Phase 1).
+  // Logout wiping is owned entirely by composition/logout.ts (wipeAccountData) —
+  // per-piece deletes (deleteCocoData/deleteAllContacts/clearRecoverySyncState,
+  // etc.) are superseded by the clear-all-tables + DB delete + localStorage policy.
   readonly cleanup: {
-    /** 민트 1곳 제거 시 관련 아티팩트 정리 (remove-mint 플로우 전용) */
+    /** Clean up artifacts when removing a single mint (remove-mint flow only) */
     clearMintData(mintUrl: string): Promise<void>;
   };
 
@@ -101,7 +101,7 @@ export interface BootstrapResult extends ServiceRegistry {
     refreshIfStale(): Promise<void>;
   };
 
-  // ─── Routing (Phase 6에서 제거) ───
+  // ─── Routing (to be removed) ───
   executeRoute(
     selection: RouteSelection,
     context: RouteContext
@@ -141,14 +141,14 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   } = assembleStorage();
 
   // 2. Nostr Gateway
-  // kill-switch 스냅샷 — bootstrap 1회 읽기로 조립 분기 (설계 §11.1)
+  // kill-switch snapshot — read once at bootstrap to branch assembly
   const killSwitches = readKillSwitches();
   const { giftwrapCursorStore, nostrGateway } = assembleNostrGateway({
     nostrPrivateKeyHex: deps.nostrPrivateKeyHex,
     killSwitches,
   });
 
-  // 3. Cashu Module (initialize()는 caller가 seed로 호출)
+  // 3. Cashu Module (caller invokes initialize() with the seed)
   const { cashuBackend, cashuModule, modules } = assembleCashuModule({
     pendingOpRepo,
     txRepo,
@@ -165,7 +165,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     externalMnemonicMintDiscovery,
   } = assembleEdgeAdapters({ nostrGateway });
 
-  // 5. TransferLifecycleService + gift-wrap 정산 브리지
+  // 5. TransferLifecycleService + gift-wrap settlement bridge
   const {
     pendingTransferStore,
     tokenCodec,
@@ -179,7 +179,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     nostrGateway,
   });
 
-  // 5. Services (+ 5b RecoveryScheduler + recovery-split 위임 배선)
+  // 5. Services (+ 5b RecoveryScheduler + recovery-split delegation wiring)
   const {
     payment,
     tokenReceiver,
@@ -213,7 +213,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   // 6. P2PK key manager
   const p2pkKeyManager = new CocoP2PKKeyManager(getCashuKeyring);
 
-  // 7~8. Cold start cache + EventBus→Store/Transfer→Tx 브리지
+  // 7~8. Cold-start cache + EventBus→Store / Transfer→Tx bridges
   const { balanceRefresh, disconnectBridge } = connectStoreBridges({
     balanceCache,
     balance,
@@ -222,9 +222,10 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     txRepo,
   });
 
-  // 8. Lifecycle (activate/onResume/onPause/dispose — 정의만, 부수효과 없음).
-  // mintHealth/reclaim/nostrIncomingWatcher는 아래 9~13에서 생성된다 — 원본의
-  // TDZ-안전 클로저 캡처를 lazy getter 인자로 명시 전달 (호출 시점 역참조 동일).
+  // 8. Lifecycle (activate/onResume/onPause/dispose — definitions only, no side effects).
+  // mintHealth/reclaim/nostrIncomingWatcher are created below in 9~13 — pass the
+  // original TDZ-safe closure captures explicitly as lazy getter args (same deref
+  // at call time).
   const { activate, onResume, onPause, dispose } = createLifecycle({
     nostrPrivateKeyHex: deps.nostrPrivateKeyHex,
     killSwitches,
@@ -239,7 +240,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     getNostrIncomingWatcher: () => nostrIncomingWatcher,
   });
 
-  // 9~11. 공유 dedup store + Nostr incoming watcher + 수신 서비스
+  // 9~11. Shared dedup store + Nostr incoming watcher + receive services
   const { nostrIncomingWatcher, recovery, incomingPayment, pendingItems } =
     assembleIncomingPipeline({
       nostrGateway,
@@ -258,7 +259,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
       modules,
     });
 
-  // 13. Phase 6: New services
+  // 13. New services
   const {
     crypto,
     inputParser,
@@ -326,8 +327,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     support,
     nostrDirectPayment,
     externalWalletRecovery,
-    // 진단 카운터 읽기 표면 — UI가 net-counters 어댑터를 직접 import하지 않도록
-    // 여기서 주입 (R2-B 5번)
+    // Diagnostic counter read surface — injected here so the UI never imports the
+    // net-counters adapter directly.
     diagnostics: { readNetCounters },
     transferLifecycle,
 
@@ -343,10 +344,10 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     disconnectBridge,
     disconnectGiftWrapSettlement,
 
-    // Balance refresh (store 갱신 포함)
+    // Balance refresh (includes store update)
     refreshBalance: balanceRefresh,
 
-    // Cleanup — 로그아웃 전체 소거는 composition/logout.ts 소관
+    // Cleanup — full logout wiping is composition/logout.ts's responsibility
     cleanup: {
       clearMintData: (mintUrl: string) =>
         removeMintArtifacts(

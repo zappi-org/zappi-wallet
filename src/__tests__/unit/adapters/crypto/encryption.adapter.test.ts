@@ -3,7 +3,7 @@ import { EncryptionAdapter } from '@/adapters/crypto/encryption.adapter'
 
 const adapter = new EncryptionAdapter()
 
-// 반복수는 이제 인자다 (정책은 서비스 층 소유). 아래 기존 계약 테스트는 v1 반복수로 고정 실행한다.
+// Iteration count is now an argument (policy owned by the service layer). The contract tests below run pinned to v1 iterations.
 const V1_ITER = 100_000
 const V2_ITER = 600_000
 
@@ -42,7 +42,7 @@ describe('EncryptionAdapter', () => {
     })
 
     it('fails to decrypt with mismatched iterations (key is iteration-bound)', async () => {
-      // v1 반복수로 봉인한 암호문을 v2 반복수로 열면 키가 달라 복호 실패해야 한다.
+      // Ciphertext sealed at v1 iterations must fail to decrypt at v2 — the derived key differs.
       const encrypted = await adapter.encrypt('secret', 'pw', V1_ITER)
       await expect(adapter.decrypt(encrypted, 'pw', V2_ITER)).rejects.toThrow()
     })
@@ -82,9 +82,9 @@ describe('EncryptionAdapter', () => {
     })
   })
 
-  // v1 의미 드리프트 회귀선 (§8-1): 100k 로 생성해 둔 고정 세트가 영원히 검증/복호 성공해야 한다.
-  // salt 특이점(§1.3 — hex 문자열을 그대로 인코딩)까지 포함해 v1 의미를 박제한다.
-  // 이 벡터가 깨지면 배포된 v1 레코드가 전부 복구 불능이 된다는 뜻이므로 절대 갱신 금지.
+  // v1 semantic-drift regression guard: the fixed set generated at 100k must verify/decrypt forever.
+  // Freezes v1 semantics including the salt quirk (hex string encoded as-is).
+  // If this vector breaks, every deployed v1 record is unrecoverable — never regenerate.
   describe('v1 pinned vector (frozen — never regenerate)', () => {
     const V1 = {
       password: 'pin1234',

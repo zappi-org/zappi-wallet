@@ -1,10 +1,8 @@
 /**
- * PaymentService — PaymentUseCase 구현
+ * PaymentService — PaymentUseCase implementation.
  *
- * WalletModule + TransactionRepository + EventBus를 조합하여
- * 결제 유스케이스를 구현하는 application service.
- *
- * 의존성: port interface만. module/adapter 구체 구현에 무관.
+ * Application service composing WalletModule + TransactionRepository + EventBus.
+ * Depends only on port interfaces, independent of concrete module/adapter implementations.
  */
 
 import type { Amount } from '@/core/domain/amount'
@@ -76,21 +74,19 @@ function isRollingBackStateMessage(message: string): boolean {
 
 export class PaymentService implements PaymentUseCase {
   /**
-   * recoverAll 트리거 6곳(unlock/resume/당김새로고침/Token탭/AddMint/설정)의 중첩 방지
-   * (설계 §6.4). 인스턴스 필드 = bootstrap 스코프 — 계정 전환 시 gate도 초기화된다.
-   * runRecoverAll은 adapter별 try/catch로 reject하지 않으므로 failureCooldown은
-   * 방어적 기본값이다.
+   * Prevents overlap of recoverAll's six triggers (unlock, resume, pull-refresh, Token tab,
+   * AddMint, settings). Instance field = bootstrap scope, so the gate resets on account switch.
+   * runRecoverAll never rejects (per-adapter try/catch), so failureCooldown is a defensive default.
    */
   private readonly recoverAllGate = new RequestGate({ cooldownMs: 30_000, failureCooldownMs: 30_000 })
 
   /**
-   * recoverAll 위임 경로 (설계 §6.2/§11.2 4단계). bootstrap이 ks.recovery-split
-   * OFF일 때 RecoveryScheduler 조합(reconcile+recoverTargeted)을 주입한다 —
-   * 시그니처·반환 계약은 유지하고 구현만 행동 분해 경로로 바뀐다.
-   * 미주입(스위치 ON) 시 구경로(runRecoverAll: 어댑터별 B1~B9 일괄)로 동작.
-   * 게이팅은 delegate 내부(reconcile 10s / targeted 5m)가 소유하므로
-   * 이 클래스의 30s gate는 delegate 경로에 적용하지 않는다 — 이중 gate가
-   * "unlock 직후 Token 탭 reconcile"까지 삼키는 것을 막는다.
+   * recoverAll delegation path. When bootstrap has ks.recovery-split OFF it injects the
+   * RecoveryScheduler composition (reconcile + recoverTargeted), preserving the signature/return
+   * contract and only swapping in the decomposed implementation. When not injected (switch ON),
+   * falls back to the legacy path (runRecoverAll: per-adapter batch). The delegate owns its own
+   * gating (reconcile 10s / targeted 5m), so this class's 30s gate is not applied to the delegate
+   * path — otherwise a double gate would swallow the "Token tab reconcile right after unlock".
    */
   private recoveryDelegate: ((opts?: { bypassGate?: boolean }) => Promise<RecoveryReport[]>) | null = null
 
@@ -205,7 +201,7 @@ export class PaymentService implements PaymentUseCase {
           metadata: { ...result.data, operationId: result.operationId },
           ...feeData,
         })
-        // operationMap에 등록 → sendTokenObserver가 send:finalized 시 txId 조회 가능
+        // Register in operationMap so sendTokenObserver can look up the txId on send:finalized.
         if (result.operationId) {
           this.operationMap?.register(result.operationId, txId)
         }
@@ -240,13 +236,13 @@ export class PaymentService implements PaymentUseCase {
   }
 
   /**
-   * R2-B 정직화 (감사 §1 — 택일 (b) 파라미터 제거): 등록 module이 실측 1개뿐이고
-   * (bootstrap.ts `modules: WalletModule[] = [cashuModule]`, WalletModule 구현체도
-   * cashu.module.ts 단일), accountId(mint URL)→module 소유 매핑 자체가 존재하지
-   * 않아 매칭 구현이 불가능하다(소유 확인은 balance 조회로만 가능 — getPaymentAdapters
-   * 주석 참조). 시그니처가 하지 않는 매칭을 약속하지 않도록 이름·파라미터를
-   * 실동작("첫 enabled module")에 맞춘다. 다중 module 도입 시에는 accountId→module
-   * 레지스트리를 신설하고 이 함수를 대체해야 한다.
+   * Only one module is actually registered (bootstrap.ts `modules: WalletModule[] = [cashuModule]`,
+   * and the sole WalletModule implementation is cashu.module.ts), and there is no accountId
+   * (mint URL)→module ownership mapping, so matching can't be implemented (ownership is only
+   * confirmable via balance lookup — see the getPaymentAdapters comment). The name and parameters
+   * are aligned to the actual behavior ("first enabled module") so the signature doesn't promise a
+   * match it can't make. When multiple modules arrive, add an accountId→module registry and
+   * replace this function.
    */
   private findEnabledModule(): WalletModule | undefined {
     return this.modules.find(m => m.isEnabled())
@@ -296,7 +292,7 @@ export class PaymentService implements PaymentUseCase {
       return Err(new AdapterNotFoundError(`Adapter ${adapter.id} does not support redeem`))
     }
 
-    // Idempotency: 지정된 txId로 이미 기록된 TX가 있으면 skip
+    // Idempotency: skip if a TX is already recorded under the given txId.
     const txId = params.transactionId ?? crypto.randomUUID()
     if (params.transactionId) {
       const existing = await this.txRepo.getById(txId)
@@ -314,7 +310,7 @@ export class PaymentService implements PaymentUseCase {
     try {
       const result = await adapter.redeem(params.input)
 
-      // TX 기록 (redeem은 수신이므로 direction: receive)
+      // Record the TX (redeem is a receive, so direction: receive).
       const tx = createTransaction({
         id: txId,
         direction: 'receive',
@@ -323,9 +319,9 @@ export class PaymentService implements PaymentUseCase {
         amount: result.amount,
         accountId: result.accountId ?? adapter.moduleId,
         memo: result.memo,
-        // eCash receive는 정확한 fee이므로 quoted = effective
+        // eCash receive has an exact fee, so quoted = effective.
         ...(result.fee && { fee: { quoted: result.fee, effective: result.fee } }),
-        // Adapter 가 결정한 audit payload 만 저장 — service 는 내용 해석 안 함
+        // Store only the adapter-decided audit payload — the service doesn't interpret its contents.
         ...(result.metadata && { metadata: result.metadata }),
       })
       const settled = settleAsDelivered(tx)
@@ -533,8 +529,8 @@ export class PaymentService implements PaymentUseCase {
 
     const operationId = tx.metadata?.operationId as string | undefined
     if (operationId) {
-      // adapter에 finalize 위임 (SDK finalize 호출)
-      // SDK가 이미 finalize한 경우 (send:finalized 이벤트 경유) 무시
+      // Delegate finalize to the adapter (calls SDK finalize);
+      // ignore if the SDK already finalized it (via the send:finalized event).
       const adapter = this.findAdapter(tx.method)
       if (adapter?.finalizeSend) {
         try {
@@ -816,8 +812,8 @@ export class PaymentService implements PaymentUseCase {
     const result: PaymentMethodAdapter[] = []
     for (const module of this.modules) {
       if (!module.isEnabled()) continue
-      // module의 모든 adapter를 반환 — accountId는 mint/federation 식별자이므로
-      // 해당 module이 이 account를 소유하는지는 balance로 확인
+      // Return all of the module's adapters — accountId is a mint/federation identifier,
+      // so whether a module owns the account is confirmed via balance.
       result.push(...module.getPaymentAdapters())
     }
     return result

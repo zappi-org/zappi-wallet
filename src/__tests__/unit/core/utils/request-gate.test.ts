@@ -101,7 +101,7 @@ describe('RequestGate', () => {
     await expect(gate.run('k', task)).rejects.toThrow('boom')
     vi.advanceTimersByTime(60_000)
     await gate.run('k', task)
-    // 성공 이후에는 failure cooldown이 남아 있지 않아야 한다
+    // after a success, no failure cooldown should remain
     await expect(gate.run('k', task)).resolves.toEqual({ value: 'ok', stale: false })
     expect(task).toHaveBeenCalledTimes(3)
   })

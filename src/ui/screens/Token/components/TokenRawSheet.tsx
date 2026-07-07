@@ -13,17 +13,17 @@ export interface TokenRawSheetProps {
   amount: number
   mintName: string
   unit: string
-  /** Fee in sats — shown as "수취 수수료". Hidden when undefined. */
+  /** Fee in sats — shown as the receive fee. Hidden when undefined. */
   receiveFee?: number
   /** Fires the first time the user taps the token box 10 times in a row. */
   onTriggerEasterEgg?: () => void
-  /** When provided, renders a "내역 삭제" link; caller handles confirmation + deletion. */
+  /** When provided, renders a delete-history link; caller handles confirmation + deletion. */
   onDelete?: () => Promise<void> | void
 }
 
 /**
  * Bottom sheet showing the raw cashu token string plus origin metadata.
- * Opened from TokenDetailScreen's ">이캐시 원문 보기".
+ * Opened from TokenDetailScreen's "view raw ecash" entry.
  */
 export function TokenRawSheet({
   isOpen,

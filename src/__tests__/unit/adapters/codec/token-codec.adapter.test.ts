@@ -1,13 +1,13 @@
 /**
- * TokenCodecAdapter — 금액 변환·입력 판별 안전망 (감사 잔여 Phase 0)
+ * TokenCodecAdapter — amount conversion and input classification safety net.
  *
- * 핀 대상 계약:
- * - decodeBolt11: msat → sat 은 Math.floor (인보이스 금액을 절대 과대 표시하지 않는다)
- * - parseBitcoinUri: BTC 소수 문자열 → sat 은 Math.round (parseFloat 부동소수 오차 흡수)
- * - inspectCashuToken: cashuA(JSON)/cashuB(CBOR) 양쪽에서 proofs 합산, 잘못된 입력은 throw
+ * Pinned contracts:
+ * - decodeBolt11: msat → sat via Math.floor (never overstates the invoice amount)
+ * - parseBitcoinUri: BTC decimal string → sat via Math.round (absorbs parseFloat float error)
+ * - inspectCashuToken: sums proofs for both cashuA (JSON) and cashuB (CBOR); bad input throws
  *
- * decodeBolt11 은 light-bolt11-decoder 를 모킹한다 — 여기서 검증하는 것은
- * 라이브러리가 아니라 "섹션 → DecodedInvoice 매핑(우리 코드)"이다.
+ * decodeBolt11 mocks light-bolt11-decoder — what's verified here is our
+ * "sections → DecodedInvoice mapping", not the library.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { encode as cborEncode } from 'cbor-x'
@@ -42,7 +42,7 @@ describe('TokenCodecAdapter', () => {
 
   it.each([
     ['1000', 1],
-    ['1999', 1], // floor — 1.999 sat 을 2로 올려 표시하면 과대 표시
+    ['1999', 1], // floor — showing 1.999 sat as 2 would overstate
     ['999', 0],
     ['250000000', 250_000],
   ])('decodeBolt11: %s msat → %s sats (floor)', (msat, sats) => {
@@ -50,7 +50,7 @@ describe('TokenCodecAdapter', () => {
     expect(codec.decodeBolt11('lnbc-test').amountSats).toBe(sats)
   })
 
-  it('decodeBolt11: expiry 부재 시 기본 3600초, expiry = timestamp + expiry', () => {
+  it('decodeBolt11: defaults to 3600s when expiry is absent, expiry = timestamp + expiry', () => {
     const now = Math.floor(Date.now() / 1000)
     sections([
       { name: 'amount', value: '1000' },
@@ -61,7 +61,7 @@ describe('TokenCodecAdapter', () => {
     expect(decoded.isExpired).toBe(false)
   })
 
-  it('decodeBolt11: 과거 timestamp + 짧은 expiry → isExpired', () => {
+  it('decodeBolt11: past timestamp + short expiry → isExpired', () => {
     sections([
       { name: 'timestamp', value: 1_000_000 },
       { name: 'expiry', value: 60 },
@@ -74,13 +74,13 @@ describe('TokenCodecAdapter', () => {
     expect(decoded.paymentHash).toBe('abc123')
   })
 
-  it('decodeBolt11: lightning: 프리픽스를 제거하고 디코더에 전달', () => {
+  it('decodeBolt11: strips the lightning: prefix and passes it to the decoder', () => {
     sections([{ name: 'amount', value: '1000' }])
     codec.decodeBolt11('lightning:lnbc-test')
     expect(decodeMock).toHaveBeenCalledWith('lnbc-test')
   })
 
-  // ─── isBolt11 / isLightningAddress / isCashuToken 판별 ───
+  // ─── isBolt11 / isLightningAddress / isCashuToken classification ───
 
   it.each([
     ['lnbc1qqq', true],
@@ -97,14 +97,14 @@ describe('TokenCodecAdapter', () => {
 
   it.each([
     ['user@ln.example.com', true],
-    ['user@localhost', false], // 도트 없는 도메인 거부
+    ['user@localhost', false], // reject dotless domain
     ['not-an-address', false],
     ['a@b@c.com', false],
   ])('isLightningAddress(%s) = %s', (input, expected) => {
     expect(codec.isLightningAddress(input)).toBe(expected)
   })
 
-  it('isCashuToken: cashuA/cashuB 프리픽스 + 앞뒤 공백 허용', () => {
+  it('isCashuToken: allows cashuA/cashuB prefix + surrounding whitespace', () => {
     expect(codec.isCashuToken('  cashuAeyJ0Ijpb  ')).toBe(true)
     expect(codec.isCashuToken('cashuBo2F0gaJhaQ')).toBe(true)
     expect(codec.isCashuToken('cashuC-unknown')).toBe(false)
@@ -116,7 +116,7 @@ describe('TokenCodecAdapter', () => {
   it.each([
     ['0.00000001', 1],
     ['1', 100_000_000],
-    // 0.1 * 1e8 = 10000000.000000002 (부동소수) — round 가 오차를 흡수한다
+    // 0.1 * 1e8 = 10000000.000000002 (float) — round absorbs the error
     ['0.1', 10_000_000],
     ['0.00000015', 15],
   ])('parseBitcoinUri: amount=%s BTC → %s sats (round)', (btc, sats) => {
@@ -124,7 +124,7 @@ describe('TokenCodecAdapter', () => {
     expect(parsed?.amount).toBe(sats)
   })
 
-  it('parseBitcoinUri: lightning + creq(NUT-26) 파라미터 추출, 주소 없는 URI 허용', () => {
+  it('parseBitcoinUri: extracts lightning + creq(NUT-26) params, allows address-less URI', () => {
     const parsed = codec.parseBitcoinUri('bitcoin:?lightning=lnbc1xyz&creq=creqAtest')
     expect(parsed).toEqual({
       address: undefined,
@@ -134,19 +134,19 @@ describe('TokenCodecAdapter', () => {
     })
   })
 
-  it('parseBitcoinUri: legacy cr 파라미터 하위호환', () => {
+  it('parseBitcoinUri: legacy cr param backward compatibility', () => {
     const parsed = codec.parseBitcoinUri('bitcoin:bc1qtest?cr=creqAlegacy')
     expect(parsed?.cashuRequest).toBe('creqAlegacy')
   })
 
-  it('parseBitcoinUri: bitcoin: 스킴이 아니면 null', () => {
+  it('parseBitcoinUri: null when not a bitcoin: scheme', () => {
     expect(codec.parseBitcoinUri('litecoin:abc')).toBeNull()
     expect(codec.parseBitcoinUri('lnbc1qqq')).toBeNull()
   })
 
-  // ─── inspectCashuToken: proofs 합산 ───
+  // ─── inspectCashuToken: proofs sum ───
 
-  it('cashuA(V3 JSON): proofs 금액 합산 + mint/memo 추출', () => {
+  it('cashuA(V3 JSON): sums proof amounts + extracts mint/memo', () => {
     const token = makeCashuA({
       token: [{ mint: 'https://mint.example.com', proofs: [{ amount: 2 }, { amount: 3 }] }],
       unit: 'sat',
@@ -159,7 +159,7 @@ describe('TokenCodecAdapter', () => {
     })
   })
 
-  it('cashuA: 알 수 없는 unit 은 sat 으로 폴백, 알려진 unit 은 통과', () => {
+  it('cashuA: unknown unit falls back to sat, known unit passes through', () => {
     const weird = makeCashuA({ token: [{ mint: 'https://m', proofs: [{ amount: 1 }] }], unit: 'weird' })
     expect(codec.inspectCashuToken(weird).amount).toEqual(amount(1, 'sat'))
 
@@ -167,7 +167,7 @@ describe('TokenCodecAdapter', () => {
     expect(codec.inspectCashuToken(usd).amount).toEqual(amount(1, 'usd'))
   })
 
-  it('cashuB(V4 CBOR): 엔트리별 proofs 합산', () => {
+  it('cashuB(V4 CBOR): sums proofs per entry', () => {
     const encoded = cborEncode({
       m: 'https://mint.example.com',
       u: 'sat',
@@ -182,7 +182,7 @@ describe('TokenCodecAdapter', () => {
     })
   })
 
-  it('잘못된 입력은 Invalid Cashu token format 으로 throw', () => {
+  it('bad input throws Invalid Cashu token format', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {
       expect(() => codec.inspectCashuToken('cashuA!!!not-base64!!!')).toThrow('Invalid Cashu token format')

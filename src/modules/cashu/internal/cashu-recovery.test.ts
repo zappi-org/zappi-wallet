@@ -310,7 +310,7 @@ describe('recoverPendingQuotes', () => {
   })
 })
 
-// ─── reconcile (설계 §6.1 B5/B6이중망/B7b — 로컬 정합, 네트워크 0) ───
+// ─── reconcile (local reconciliation, zero network) ───
 
 function quoteOp(id: string, overrides: Partial<PendingOperation> = {}): PendingOperation {
   return {
@@ -325,7 +325,7 @@ function quoteOp(id: string, overrides: Partial<PendingOperation> = {}): Pending
   }
 }
 
-describe('reconcileMintQuotes (분기 표: B5 만료/제거민트/식별불가 · B7b null · B6 finalized · failed · 진행중 무간섭)', () => {
+describe('reconcileMintQuotes (branch table: B5 expired/removed-mint/unidentifiable · B7b null · B6 finalized · failed · in-flight untouched)', () => {
   async function run(ops: PendingOperation[], lookup: Record<string, { state: string } | null>) {
     const pendingOpRepo = createPendingOpRepoMock()
     const txRepo = createTxRepoMock()
@@ -375,14 +375,14 @@ describe('reconcileMintQuotes (분기 표: B5 만료/제거민트/식별불가 �
     expect(txRepo.update).toHaveBeenCalledWith('exp-anon', { status: 'failed', completedAt: expect.any(Number) })
   })
 
-  it('B7b: Coco-untracked quote (lookup null) → failed 종결 — 의도적 행동 변경', async () => {
+  it('B7b: Coco-untracked quote (lookup null) → failed terminal — intentional behavior change', async () => {
     const { result, txRepo } = await run([quoteOp('orphan')], { 'q-orphan': null })
 
     expect(result).toEqual({ settled: 0, failed: 1 })
     expect(txRepo.update).toHaveBeenCalledWith('orphan', { status: 'failed', completedAt: expect.any(Number) })
   })
 
-  it('B6 이중망: local finalized op settles the pending tx (observer 유실 회수)', async () => {
+  it('B6 safety net: local finalized op settles the pending tx (recovers a missed observer event)', async () => {
     const { result, txRepo } = await run([quoteOp('done')], { 'q-done': { state: 'finalized' } })
 
     expect(result).toEqual({ settled: 1, failed: 0 })
@@ -432,7 +432,7 @@ describe('reconcileMintQuotes (분기 표: B5 만료/제거민트/식별불가 �
   })
 })
 
-describe('reconcileCashu (네트워크 0 계약)', () => {
+describe('reconcileCashu (zero-network contract)', () => {
   it('composes B3+quotes+B8 and never calls network behaviors', async () => {
     const pendingOpRepo = createPendingOpRepoMock()
     const txRepo = createTxRepoMock()
@@ -459,7 +459,7 @@ describe('reconcileCashu (네트워크 0 계약)', () => {
       outcome: 'unclaimed',
       createdAt: 1,
     } as Transaction)
-    // B3는 로컬 op 조회(get)만 — runRecovery(B1 네트워크 sweep)는 타입상 요구되지 않는다
+    // Local op lookup (get) only — runRecovery (network sweep) isn't required by the type
     const sendOps = { get: vi.fn().mockResolvedValue({ state: 'rolled_back' }) }
 
     const report = await reconcileCashu({

@@ -6,8 +6,8 @@ export interface EncryptedData {
 
 export interface Encryption {
   /**
-   * PBKDF2 파생 실행자 — 반복수 정책을 소유하지 않는다.
-   * `iterations` 는 호출자(서비스 층 `KDF_ITERATIONS` 맵)가 결정한다.
+   * PBKDF2 derivation executor — does not own the iteration-count policy.
+   * `iterations` is decided by the caller (the service-layer `KDF_ITERATIONS` map).
    */
   encrypt(data: string, password: string, iterations: number): Promise<EncryptedData>
   decrypt(encrypted: EncryptedData, password: string, iterations: number): Promise<string>

@@ -1,10 +1,10 @@
 /**
- * nostr-tools 합성 EOSE 기본값 pin (2단계 리뷰 #1 / [F19]와 동일 정신)
+ * Pins nostr-tools' synthetic-EOSE default.
  *
- * AbstractRelay는 relay가 EOSE를 안 보내면 baseEoseTimeout(4400ms) 뒤
- * **합성 EOSE**를 진짜와 같은 콜백으로 발화한다. cursor 경로는
- * CURSOR_EOSE_TIMEOUT_MS로 이를 덮는다 — 라이브러리 업그레이드가 이 동작을
- * 바꾸면(기본값 변경·옵션 제거) 여기서 표면화되어야 한다.
+ * If a relay never sends EOSE, AbstractRelay fires a **synthetic EOSE** through the
+ * same callback as a real one after baseEoseTimeout (4400ms). The cursor path overrides
+ * this via CURSOR_EOSE_TIMEOUT_MS — if a library upgrade changes this behavior
+ * (default value or option removal), it must surface here.
  */
 import { describe, it, expect } from 'vitest'
 import { AbstractRelay } from 'nostr-tools/abstract-relay'
@@ -20,10 +20,10 @@ describe('nostr-tools synthetic-EOSE default (pin)', () => {
     expect(CURSOR_EOSE_TIMEOUT_MS).toBeGreaterThanOrEqual(60 * 60 * 1000)
   })
 
-  it('enableReconnect/enablePing stay OFF by default — 컨트롤러가 재연결을 소유 [F19]', () => {
-    // SessionController가 재연결의 단일 소유자다. 라이브러리 업그레이드가 이
-    // 기본값을 켜면 이중 재구독(컨트롤러 attach + 라이브러리 자체 재연결)이
-    // 생긴다 — 그 시점에 옵션 명시 OFF 배선이 필요하다는 신호.
+  it('enableReconnect/enablePing stay OFF by default — the controller owns reconnection [F19]', () => {
+    // SessionController is the sole owner of reconnection. If a library upgrade flips
+    // this default on, we get double re-subscription (controller attach + the library's
+    // own reconnect) — the signal that we then need to wire the option explicitly OFF.
     const relay = new AbstractRelay('wss://pin.invalid/', { verifyEvent: (() => true) as never })
     const raw = relay as unknown as Record<string, unknown>
     for (const key of ['enableReconnect', 'enablePing']) {

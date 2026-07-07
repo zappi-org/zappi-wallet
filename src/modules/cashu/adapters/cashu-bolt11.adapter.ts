@@ -1,8 +1,7 @@
 /**
- * CashuBolt11Adapter — PaymentMethodAdapter for bolt11 Lightning (melt/mint)
+ * CashuBolt11Adapter — PaymentMethodAdapter for bolt11 Lightning (melt/mint).
  *
- * execute-route.ts의 executeMeltFlow / estimateMeltFee 로직을 adapter로 추출.
- * CashuBackend를 주입받아 Coco SDK에 의존하지 않음.
+ * Takes its backend via DI so it doesn't depend on the Coco SDK directly.
  */
 
 import type {
@@ -24,7 +23,7 @@ import type { PendingTransfer, TransferPhase } from '@/core/domain/pending-trans
 import { createPendingTransfer, transitionPhase, isExpired } from '@/core/domain/pending-transfer'
 
 
-// ─── Backend interface (DI용) ───
+// ─── Backend interface (for DI) ───
 
 export interface LightningBackend {
   prepareMelt(mintUrl: string, invoice: string): Promise<{
@@ -47,11 +46,11 @@ export interface LightningBackend {
     error?: string
   }>
   /**
-   * stuck-confirm 전용 원격 확인 (설계 §7.3) — checkMelt는 로컬 repo 읽기다.
-   * 원격 확인 실패는 throw (삼켜서 failed로 매핑하면 자금 버그).
+   * Remote check for stuck-confirm only — checkMelt reads the local repo.
+   * A remote-check failure throws; swallowing it and mapping to failed is a funds bug.
    */
   refreshMelt(operationId: string): Promise<{ state: string }>
-  /** Coco 로컬 repo의 mint op 상태 — sweep 로컬 1차 판정용 (네트워크 0) */
+  /** Mint op state from Coco's local repo — for the sweep's local first pass (no network). */
   getMintOpStateLocal(mintUrl: string, quoteId: string): Promise<{ state: string } | null>
   rollbackMelt(operationId: string, reason?: string): Promise<void>
   createMintQuote(mintUrl: string, amount: number): Promise<{
@@ -116,7 +115,6 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
     const ref = transfer.transportRef as { operationId: string }
     const result = await this.backend.executeMelt(ref.operationId)
 
-    // preimage 즉시 확인 → 완료
     if (result.preimage || result.state === 'PAID' || result.state === 'finalized') {
       const updatedRef = {
         ...ref,
@@ -130,13 +128,12 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
       return transitionPhase(updatedTransfer, 'settled', Date.now())
     }
 
-    // 실패 시 Coco는 rolled_back/rolling_back을 반환한다 — 'FAILED'는 존재하지 않는
-    // 상태값이었다 (poll()과 동일 결함 계열, 설계 §7.1-2 / 코드리뷰 #9)
+    // On failure Coco returns rolled_back/rolling_back — 'FAILED' was never a real
+    // state value (same defect family as poll()).
     if (result.state === 'rolled_back' || result.state === 'rolling_back') {
       return transitionPhase(transfer, 'failed', Date.now())
     }
 
-    // 아직 처리 중 → 폴링 대상
     return transitionPhase(transfer, 'in_transit', Date.now())
   }
 
@@ -166,7 +163,7 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
 
   async claimReceive(transfer: PendingTransfer): Promise<PendingTransfer> {
     const ref = transfer.transportRef as { mintUrl: string; quoteId: string }
-    // SDK watcher가 이미 자동 민팅했을 수 있음 — idempotency check
+    // The SDK watcher may have already auto-minted — idempotency check.
     const status = await this.backend.checkMintQuote(ref.mintUrl, ref.quoteId)
     if (status?.state === 'ISSUED' || status?.state === 'finalized') {
       return transitionPhase(transfer, 'settled', Date.now())
@@ -209,10 +206,10 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
   }
 
   /**
-   * sweep 로컬 1차 판정 (설계 §7.2 — 네트워크 0).
-   * incoming: 만료 + Coco 로컬 mint op 상태(finalized/failed는 push를 놓친
-   * 잔상이므로 즉시 전이). outgoing: checkMelt가 원래 로컬 repo 읽기라 기존
-   * poll의 outgoing 분기와 동일하다.
+   * Local first-pass sweep decision (no network).
+   * incoming: expiry check + Coco's local mint op state (finalized/failed are
+   * remnants of a missed push, so transition immediately). outgoing: checkMelt is
+   * already a local repo read, so it matches poll's outgoing branch.
    */
   async pollLocal(transfer: PendingTransfer): Promise<TransferPhase> {
     if (transfer.direction === 'incoming') {
@@ -230,10 +227,10 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
   }
 
   /**
-   * stuck 원격 확인 1회 (설계 §7.3).
-   * incoming: checkMintQuote(= 로컬 단락 + `ops.mint.checkPayment` 원격) — 기존
-   * poll의 incoming 분기 재사용. outgoing: `ops.melt.refresh` — checkMelt(로컬)와
-   * 달리 실제 원격 상태를 동기화한다("감지만 하고 확인 안 하는 설계 금지").
+   * One remote check for a stuck transfer.
+   * incoming: checkMintQuote (= local short-circuit + `ops.mint.checkPayment` remote),
+   * reusing poll's incoming branch. outgoing: `ops.melt.refresh` — unlike checkMelt
+   * (local), it syncs the actual remote state (detect-without-confirm is not allowed).
    */
   async confirmStuck(transfer: PendingTransfer): Promise<TransferPhase | null> {
     if (transfer.direction === 'incoming') {
@@ -246,10 +243,10 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
   }
 
   /**
-   * Coco melt op 상태 → TransferPhase. Coco melt 상태는
-   * init|prepared|executing|pending|finalized|rolling_back|rolled_back —
-   * 'FAILED' 분기는 Coco가 반환하지 않는 값이라 도달 불가였고, 실패(rolled_back)가
-   * in_transit으로 새어 unlock 복구 전까지 UI에 도달하지 못했다 (설계 §7.1-2).
+   * Coco melt op state → TransferPhase. Coco melt states are
+   * init|prepared|executing|pending|finalized|rolling_back|rolled_back — a 'FAILED'
+   * branch was unreachable (Coco never returns it), and failure (rolled_back) leaked
+   * into in_transit, so it never reached the UI until unlock recovery.
    */
   private mapMeltState(
     status: { state: string; preimage?: string; error?: string },
@@ -269,7 +266,7 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
 
 
 
-  // ─── 보내기 ───
+  // ─── Send ───
 
   async estimateFee(params: SendParams): Promise<FeeEstimate> {
     const invoice = params.destination!
@@ -316,11 +313,9 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
 
     const result = await this.backend.executeMelt(preparedId)
 
-    // Propagate effectiveFee with stored unit
     let effectiveFee: Amount | undefined
     if (result.state === 'finalized' && result.effectiveFee !== undefined) {
       effectiveFee = amt(result.effectiveFee, pending.unit as 'sat' | 'msat' | 'usd' | 'eur')
-      // Store in pending for potential later retrieval
       pending.effectiveFee = effectiveFee
     }
 
@@ -342,13 +337,13 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
     await this.backend.rollbackMelt(operationId, 'reclaim failed operation')
   }
 
-  // ─── Redeem (bolt11은 redeem 미지원) ───
+  // ─── Redeem (bolt11 doesn't support redeem) ───
 
   canRedeem(_input: string): boolean {
     return false
   }
 
-  // ─── 받기 요청 ───
+  // ─── Receive request ───
 
   async createReceiveRequest(params: ReceiveParams): Promise<ReceiveRequest> {
     const amount = toNumber(params.amount)
@@ -364,7 +359,7 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
     }
   }
 
-  // ─── 수신 완료 감지 ───
+  // ─── Receive-completed detection ───
 
   onReceiveCompleted(
     requestId: string,
@@ -409,7 +404,7 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
     return { amount: sat(0) }
   }
 
-  // ─── 복구 ───
+  // ─── Recovery ───
 
   async recoverPending(): Promise<RecoveryReport> {
     const [melts, quotes] = await Promise.allSettled([

@@ -6,11 +6,11 @@ import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { SettingsDetailPage } from '../components/SettingsDetailPage'
 
 /**
- * 진단 페이지 (설계 §12) — 프로덕션 집계 카운터 열람.
+ * Diagnostics page — views production aggregate counters.
  *
- * 5단계(TLS 폴링 강등) 게이트의 검증 프로토콜이 이 수치를 근거로 한다:
- * 7일간 전 기기 tls_stuck_detected = 0 AND coco_push_received > 0.
- * PII 없음 · 원격 전송 없음 — 지원 시 사용자가 수동으로 복사해 공유한다.
+ * These counters back the verification protocol for the TLS polling-downgrade gate:
+ * tls_stuck_detected = 0 AND coco_push_received > 0 across all devices for 7 days.
+ * No PII, no remote transmission — the user copies and shares manually for support.
  */
 
 interface DiagnosticsPageProps {
@@ -19,12 +19,12 @@ interface DiagnosticsPageProps {
 
 export function DiagnosticsPage({ onBack }: DiagnosticsPageProps) {
   const { t } = useTranslation()
-  // 카운터 읽기는 registry 포트 경유 — adapters/telemetry 직접 import 금지 (R2-B 5번)
+  // Counter reads go through the registry port — no direct adapters/telemetry import
   const { diagnostics } = useServiceRegistry()
   const [counters, setCounters] = useState<Record<string, number> | null>(null)
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
-  // 마운트 시점 스냅샷 — 런타임도 bootstrap 스냅샷으로 동작하므로 여기 표시가
-  // 실동작과 일치한다(변경은 다음 잠금 해제부터 적용, 하단 안내 문구)
+  // Mount-time snapshot — the runtime also runs off the bootstrap snapshot, so this
+  // display matches actual behavior (changes apply from the next unlock; see note below)
   const [killSwitches] = useState(() => readKillSwitches())
 
   const refresh = useCallback(() => {
@@ -47,7 +47,7 @@ export function DiagnosticsPage({ onBack }: DiagnosticsPageProps) {
       await navigator.clipboard.writeText(lines.join('\n'))
       setCopyState('copied')
     } catch (e) {
-      // 비보안 컨텍스트·권한 거부 — 버튼이 죽은 듯 보이지 않게 실패를 표시
+      // Insecure context or permission denied — surface the failure so the button doesn't look dead
       console.warn('[Diagnostics] clipboard write failed:', e)
       setCopyState('failed')
     }

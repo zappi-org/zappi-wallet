@@ -148,7 +148,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
     try {
       const result = await reclaimToken(item.id)
       if (result.spentByRecipient || result.alreadySpent) {
-        // 상대방이 이미 수령하거나 이미 사용됨
+        // Recipient already received it, or it was already spent
         void callbacks?.onPendingItemChanged?.()
         void onItemRemoved?.()
         onBack()

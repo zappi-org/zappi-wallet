@@ -4,7 +4,7 @@ import i18n from '@/i18n'
 import { generateMintAliases } from '@/utils/mint-name'
 
 // Lightweight imports only — no heavy services, hooks, or screens.
-// 어댑터/모듈 배선은 composition/onboarding.ts 소관 (R2-C: ui→adapters 절단)
+// Adapter/module wiring belongs to composition/onboarding.ts
 import { createOnboardingServices, createOnboardingProfileService } from '@/composition/onboarding'
 import { OnboardingScreen } from '@/ui/screens/Onboarding/OnboardingScreen'
 
@@ -70,7 +70,7 @@ function App() {
       // Get current settings for mints/relays
       const currentSettings = await services.settingsRepo.getSettings()
 
-      // Phase 2: Create profile service with NostrGateway (동적 로드 — composition 소관)
+      // Phase 2: Create profile service with NostrGateway (dynamic import — composition-owned)
       const profile = await createOnboardingProfileService({
         privateKeyHex: result.value.keys.privateKey,
         relays: currentSettings.relays,

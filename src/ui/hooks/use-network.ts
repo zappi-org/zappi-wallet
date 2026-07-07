@@ -72,10 +72,10 @@ export function useNetwork() {
     }
   }, [handleOnline, handleOffline, setNetworkState])
 
-  // wasOffline/needsRecovery/clearWasOffline 제거 (3단계 구현 리뷰 #4):
-  // 유일한 소비자였던 use-mint-health의 reconnect effect가 bootstrap 단일
-  // 리스너로 대체되면서, 이 플래그는 첫 오프라인 이후 영구 true로 남는
-  // dead state가 됐다 — 다음 소비자를 위한 함정이라 통째로 제거.
+  // Removed wasOffline/needsRecovery/clearWasOffline: the only consumer
+  // (use-mint-health's reconnect effect) was replaced by a single bootstrap
+  // listener, leaving the flag stuck true after the first offline — a dead-state
+  // trap, so dropped entirely.
 
   return {
     // State

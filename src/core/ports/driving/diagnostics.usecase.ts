@@ -1,10 +1,11 @@
 /**
- * DiagnosticsUseCase — 진단 화면 전용 읽기 표면 (설계 §12)
+ * DiagnosticsUseCase — read-only surface for the diagnostics screen.
  *
- * 카운터 구현(adapters/telemetry/net-counters)은 composition root가 주입한다.
- * UI는 이 포트만 의존 — ui→adapters 직접 import 절단 (R2-B 5번, 감사 §2).
+ * The counter implementation (adapters/telemetry/net-counters) is injected by
+ * the composition root. The UI depends only on this port, cutting direct
+ * ui→adapters imports.
  */
 export interface DiagnosticsUseCase {
-  /** PII 없는 누적 카운터 스냅샷 (미flush 메모리 델타 합산 포함) */
+  /** PII-free cumulative counter snapshot (includes summed unflushed in-memory deltas) */
   readNetCounters(): Promise<Record<string, number>>
 }

@@ -1,19 +1,19 @@
 /**
- * mintUrlKey / isSameMintUrl / getMintBalance — 민트 URL 동등성 canonical (감사 Phase 2)
+ * mintUrlKey / isSameMintUrl / getMintBalance — canonical mint URL equality.
  *
- * 원칙 핀:
- * - normalizeMintUrl(저장 정규화)의 의미는 동결 — 소문자화·포트 제거를 하지 않는다.
- *   그 변형 흡수는 비교 전용 mintUrlKey 의 몫이다. 이 분리가 무너지면
- *   기존 저장 데이터와의 키 불일치(자금 표시 버그)가 생긴다.
- * - byMint 조회(getMintBalance)는 직접 매치 실패 시 canonical 폴백으로 표기 변형
- *   미스를 없앤다 (감사 MAJOR-7).
+ * Pinned principles:
+ * - normalizeMintUrl (storage normalization) semantics are frozen — it does not
+ *   lowercase or strip ports. Absorbing those variants is mintUrlKey's job (comparison only).
+ *   If this separation breaks, keys mismatch against existing stored data (a funds-display bug).
+ * - getMintBalance's byMint lookup falls back to canonical on a direct-match miss,
+ *   eliminating notation-variant misses.
  */
 import { describe, it, expect } from 'vitest'
 import { mintUrlKey, isSameMintUrl, getMintBalance, normalizeMintUrl } from '@/utils/url'
 
 const CANON = 'https://mint.example.com'
 
-describe('mintUrlKey — 표기 변형 흡수 표', () => {
+describe('mintUrlKey — notation-variant absorption table', () => {
   it.each([
     ['https://mint.example.com', '기준형'],
     ['https://mint.example.com/', 'trailing slash'],
@@ -24,67 +24,67 @@ describe('mintUrlKey — 표기 변형 흡수 표', () => {
     ['https://mint.example.com:443/', '기본 포트 + slash'],
     ['mint.example.com', '프로토콜 생략 (normalizeMintUrl 위임)'],
     ['  https://mint.example.com  ', '공백'],
-  ])('%s (%s) → 동일 키', (variant) => {
+  ])('%s (%s) → same key', (variant) => {
     expect(mintUrlKey(variant)).toBe(mintUrlKey(CANON))
   })
 
-  it('경로 변형: trailing slash 는 흡수, 대소문자는 보존', () => {
+  it('path variants: trailing slash absorbed, case preserved', () => {
     expect(mintUrlKey('https://m.com/api/')).toBe(mintUrlKey('https://m.com/api'))
-    // 경로는 대소문자 구분 자원 — 다른 키여야 한다
+    // path is a case-sensitive resource — must be a different key
     expect(mintUrlKey('https://m.com/API')).not.toBe(mintUrlKey('https://m.com/api'))
   })
 
-  it('비-기본 포트·다른 호스트·http 는 구별한다', () => {
+  it('distinguishes non-default port, different host, and http', () => {
     expect(mintUrlKey('https://mint.example.com:3338')).not.toBe(mintUrlKey(CANON))
     expect(mintUrlKey('https://other.example.com')).not.toBe(mintUrlKey(CANON))
     expect(mintUrlKey('http://mint.example.com')).not.toBe(mintUrlKey(CANON))
-    // http 의 기본 포트는 :80
+    // http's default port is :80
     expect(mintUrlKey('http://m.com:80')).toBe(mintUrlKey('http://m.com'))
   })
 
-  it('파싱 불가 문자열은 normalizeMintUrl 결과로 폴백 (throw 금지)', () => {
+  it('unparseable strings fall back to the normalizeMintUrl result (never throws)', () => {
     expect(() => mintUrlKey('not a url at all')).not.toThrow()
   })
 })
 
 describe('isSameMintUrl', () => {
-  it('같은 민트의 표기 변형을 동일 판정', () => {
+  it('treats notation variants of the same mint as equal', () => {
     expect(isSameMintUrl('https://Mint.Example.com:443/', 'mint.example.com')).toBe(true)
   })
 
-  it('다른 민트는 구별', () => {
+  it('distinguishes different mints', () => {
     expect(isSameMintUrl('https://a.example.com', 'https://b.example.com')).toBe(false)
   })
 })
 
-describe('normalizeMintUrl 의미 동결 (저장 정규화 가드)', () => {
-  it('소문자화·기본 포트 제거를 하지 않는다 — 그건 비교 전용 mintUrlKey 의 몫', () => {
+describe('normalizeMintUrl semantics frozen (storage-normalization guard)', () => {
+  it('does not lowercase or strip the default port — that is the job of comparison-only mintUrlKey', () => {
     expect(normalizeMintUrl('https://MINT.Example.com/')).toBe('https://MINT.Example.com')
     expect(normalizeMintUrl('https://m.com:443')).toBe('https://m.com:443')
     expect(normalizeMintUrl('m.com')).toBe('https://m.com')
   })
 })
 
-describe('getMintBalance — byMint 조회 canonical 폴백 (감사 MAJOR-7)', () => {
+describe('getMintBalance — byMint lookup canonical fallback (audit MAJOR-7)', () => {
   const byMint = {
     'https://mint.example.com': 21,
     'https://zero.example.com': 0,
   }
 
-  it('직접/슬래시 매치 우선', () => {
+  it('direct/slash match takes priority', () => {
     expect(getMintBalance('https://mint.example.com', byMint)).toBe(21)
     expect(getMintBalance('https://mint.example.com/', byMint)).toBe(21)
   })
 
-  it('표기 변형(대소문자·:443)은 canonical 폴백으로 찾는다', () => {
+  it('finds notation variants (case, :443) via canonical fallback', () => {
     expect(getMintBalance('https://MINT.example.com:443/', byMint)).toBe(21)
   })
 
-  it('잔액 0 도 정직하게 0 (?? 시맨틱 — falsy 폴백으로 미스 처리하지 않는다)', () => {
+  it('balance 0 honestly returns 0 (?? semantics — a falsy value is not treated as a miss)', () => {
     expect(getMintBalance('https://zero.example.com', byMint)).toBe(0)
   })
 
-  it('어떤 변형으로도 없는 민트는 0', () => {
+  it('a mint absent under every variant returns 0', () => {
     expect(getMintBalance('https://unknown.example.com', byMint)).toBe(0)
   })
 })

@@ -1,6 +1,6 @@
 /**
  * SendConfirmStep — Confirmation screen before sending
- * Figma 275:128: question text at top 1/3, flat detail panel near bottom, button at very bottom
+ * Layout: question text at top 1/3, flat detail panel near bottom, button at very bottom
  */
 
 import { ChevronRight } from 'lucide-react'
@@ -59,10 +59,11 @@ export function SendConfirmStep({
   const settings = useAppStore((s) => s.settings);
   const { getDisplayName } = useMintMetadata(settings.mints);
 
-  // 이중 견적 제거 (설계 §8.4): SendFlow가 라우트 선택 시 이미 이 조합
-  // (my-wallet 포함 — createMintQuote+prepareMelt+rollback+abandon 4왕복)으로
-  // 견적을 냈고 그 결과가 initialFee로 들어온다. 기존에는 my-wallet에서 이를
-  // 의도적으로 버리고 재견적해 확인 화면 1회에 최대 8왕복이 나갔다.
+  // No re-quote here: SendFlow already quoted this combination at route
+  // selection (including my-wallet — createMintQuote+prepareMelt+rollback+abandon,
+  // 4 round-trips) and that result arrives as initialFee. Previously my-wallet
+  // deliberately discarded it and re-quoted, costing up to 8 round-trips per
+  // confirm screen.
   const fee = initialFee;
   const display = getConfirmDisplayInfo(validatedData, route, t, displayName);
   const {
@@ -128,7 +129,6 @@ export function SendConfirmStep({
       <div className="px-6 pb-app shrink-0">
         {/* Detail rows */}
         <div className="mb-4">
-          {/* 메모 */}
           {memo && (
             <div className="flex justify-between py-2.5 border-b border-border/50">
               <span className="text-body text-foreground-muted">
@@ -139,7 +139,6 @@ export function SendConfirmStep({
               </span>
             </div>
           )}
-          {/* 전송 방식 */}
           <div className="flex justify-between py-2.5 border-b border-border/50">
             <span className="text-body text-foreground-muted">
               {t("send.confirm.method")}
@@ -148,7 +147,7 @@ export function SendConfirmStep({
               {method}
             </span>
           </div>
-          {/* 출금 지갑 — tappable to change mint */}
+          {/* Source mint — tappable to change */}
           {onRequestMintSelection ? (
             <button
               type="button"
@@ -177,7 +176,6 @@ export function SendConfirmStep({
               </span>
             </div>
           )}
-          {/* 받는이 */}
           {isMyWallet ? (
             <div className="flex justify-between py-2.5 border-b border-border/50">
               <span className="text-body text-foreground-muted">

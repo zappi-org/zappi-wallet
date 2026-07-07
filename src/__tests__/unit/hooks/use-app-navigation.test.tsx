@@ -1,18 +1,18 @@
 /**
- * useAppNavigation 계약 테스트 (Phase 4a 추출 훅 — 4b 재편의 보험)
+ * useAppNavigation contract tests.
  *
- * 핵심 계약:
- * - handleBack: previousScreen 폴백('home') + 탭 화면 복귀 시 hasSettingsSubPage 리셋
- * - handleTabSelect: 탭 화면 전환 + previousScreen 초기화
- * - popstate → handleBack 발화 (home에서는 pushState 재장전)
- * - 화면 전환 시 History pushState / home 복귀 시 replaceState (엔트리 무증가)
+ * Core contract:
+ * - handleBack: falls back to previousScreen ('home') + resets hasSettingsSubPage when returning to a tab screen
+ * - handleTabSelect: switches tab screen + clears previousScreen
+ * - popstate → fires handleBack (on home, re-arms via pushState)
+ * - History pushState on screen change / replaceState on return to home (no entry growth)
  */
 import { describe, it, expect } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useAppNavigation } from '@/ui/hooks/use-app-navigation'
 
 describe('useAppNavigation', () => {
-  it('초기 상태: home 탭 + history state {screen: home} 초기화', () => {
+  it('initial state: home tab + history state {screen: home} initialized', () => {
     const { result } = renderHook(() => useAppNavigation())
 
     expect(result.current.currentScreen).toBe('home')
@@ -23,7 +23,7 @@ describe('useAppNavigation', () => {
   })
 
   describe('handleTabSelect', () => {
-    it('탭 화면으로 전환하고 previousScreen을 초기화한다', () => {
+    it('switches to a tab screen and clears previousScreen', () => {
       const { result } = renderHook(() => useAppNavigation())
 
       act(() => { result.current.setPreviousScreen('history') })
@@ -35,7 +35,7 @@ describe('useAppNavigation', () => {
       expect(result.current.isTabScreen).toBe(true)
     })
 
-    it('탭 전환은 서브페이지 플래그를 리셋한다 (handleBack 대칭 불변식 — 4a 잠복 a)', () => {
+    it('tab switch resets the sub-page flag (handleBack symmetry invariant — 4a latent a)', () => {
       const { result } = renderHook(() => useAppNavigation())
 
       act(() => { result.current.handleTabSelect('settings') })
@@ -50,7 +50,7 @@ describe('useAppNavigation', () => {
   })
 
   describe('handleBack', () => {
-    it('previousScreen으로 복귀하고 previousScreen을 소거한다', () => {
+    it('returns to previousScreen and clears previousScreen', () => {
       const { result } = renderHook(() => useAppNavigation())
 
       act(() => {
@@ -63,7 +63,7 @@ describe('useAppNavigation', () => {
       expect(result.current.previousScreen).toBeNull()
     })
 
-    it('previousScreen이 없으면 home으로 폴백한다', () => {
+    it('falls back to home when there is no previousScreen', () => {
       const { result } = renderHook(() => useAppNavigation())
 
       act(() => { result.current.setCurrentScreen('send') })
@@ -73,38 +73,38 @@ describe('useAppNavigation', () => {
       expect(result.current.previousScreen).toBeNull()
     })
 
-    it('탭 화면으로 복귀하면 settings 서브페이지 플래그를 리셋한다 (엣지 스와이프 대응)', () => {
+    it('resets the settings sub-page flag when returning to a tab screen (edge-swipe handling)', () => {
       const { result } = renderHook(() => useAppNavigation())
 
       act(() => { result.current.handleTabSelect('settings') })
       act(() => { result.current.setHasSettingsSubPage(true) })
       expect(result.current.isTabScreen).toBe(false)
 
-      // previousScreen null → 'home' 폴백(탭 화면) → 플래그 리셋
+      // previousScreen null → 'home' fallback (tab screen) → flag reset
       act(() => { result.current.handleBack() })
 
       expect(result.current.currentScreen).toBe('home')
       expect(result.current.isTabScreen).toBe(true)
     })
 
-    it('비-탭 화면으로 복귀하면 서브페이지 플래그를 유지한다', () => {
+    it('keeps the sub-page flag when returning to a non-tab screen', () => {
       const { result } = renderHook(() => useAppNavigation())
 
       act(() => { result.current.handleTabSelect('settings') })
       act(() => { result.current.setHasSettingsSubPage(true) })
       act(() => { result.current.setPreviousScreen('send') })
 
-      act(() => { result.current.handleBack() }) // → 'send' (비-탭) — 리셋 분기 미진입
+      act(() => { result.current.handleBack() }) // → 'send' (non-tab) — reset branch skipped
 
       expect(result.current.currentScreen).toBe('send')
-      // 다시 탭 화면으로 가도 플래그가 살아있어 isTabScreen=false
+      // even back on a tab screen the flag persists, so isTabScreen=false
       act(() => { result.current.setCurrentScreen('settings') })
       expect(result.current.isTabScreen).toBe(false)
     })
   })
 
-  describe('History API 연동', () => {
-    it('비-home 화면 전환은 pushState, home 복귀는 replaceState(엔트리 무증가)', () => {
+  describe('History API integration', () => {
+    it('non-home screen change uses pushState, return to home uses replaceState (no entry growth)', () => {
       const { result } = renderHook(() => useAppNavigation())
       const baseLength = window.history.length
 
@@ -114,10 +114,10 @@ describe('useAppNavigation', () => {
 
       act(() => { result.current.setCurrentScreen('home') })
       expect(window.history.state?.screen).toBe('home')
-      expect(window.history.length).toBe(baseLength + 1) // replace — 엔트리 증가 없음
+      expect(window.history.length).toBe(baseLength + 1) // replace — no entry growth
     })
 
-    it('popstate는 handleBack을 발화한다 (ref 경유 — 최신 previousScreen 반영)', () => {
+    it('popstate fires handleBack (via ref — reflects the latest previousScreen)', () => {
       const { result } = renderHook(() => useAppNavigation())
 
       act(() => {
@@ -130,7 +130,7 @@ describe('useAppNavigation', () => {
       expect(result.current.previousScreen).toBeNull()
     })
 
-    it('home에서의 popstate는 뒤로가지 않고 pushState로 재장전한다', () => {
+    it('popstate on home does not go back but re-arms via pushState', () => {
       const { result } = renderHook(() => useAppNavigation())
       expect(result.current.currentScreen).toBe('home')
       const baseLength = window.history.length
@@ -139,7 +139,7 @@ describe('useAppNavigation', () => {
 
       expect(result.current.currentScreen).toBe('home')
       expect(window.history.state?.screen).toBe('home')
-      expect(window.history.length).toBe(baseLength + 1) // 재장전 push
+      expect(window.history.length).toBe(baseLength + 1) // re-arm push
     })
   })
 })

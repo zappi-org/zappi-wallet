@@ -54,9 +54,9 @@ vi.mock('@/ui/components/common', () => ({
   ),
 }))
 
-// 생존 표시가 raw WS 프로브 대신 게이트웨이 상태를 읽는다 (설계 §10 B6).
-// registry는 실제 컨텍스트처럼 **안정 참조**여야 한다 — 렌더마다 새 객체면
-// effect 재실행 루프가 된다.
+// The liveness indicator reads gateway status instead of probing raw WS.
+// registry must be a stable reference like the real context — a fresh object
+// every render becomes an effect re-run loop.
 const stableRegistry = {
   nostrGateway: {
     getRelayStatus: () => [

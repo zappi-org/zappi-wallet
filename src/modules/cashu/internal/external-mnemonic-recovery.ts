@@ -79,9 +79,9 @@ export class CashuExternalMnemonicRecovery implements ExternalMnemonicRecoveryPo
       throw new Error('Invalid mnemonic')
     }
 
-    // dedup 은 비교 canonical(mintUrlKey)로 — 대소문자·:443 표기 변형이 같은 민트를
-    // 두 번 복원(중복 네트워크 왕복)하지 않게 한다. 와이어 호출에는 첫 표기 원문을
-    // 쓴다 (first-wins 루프 — Map 스프레드는 last-wins 라 주석과 어긋났었다).
+    // Dedup on the canonical key (mintUrlKey) so case/:443 spelling variants don't
+    // restore the same mint twice (duplicate network round-trips). The wire call uses
+    // the first spelling seen (first-wins loop — a Map spread would be last-wins).
     const byKey = new Map<string, string>()
     for (const url of params.mintUrls.map((u) => u.trim()).filter(Boolean)) {
       const key = mintUrlKey(url)

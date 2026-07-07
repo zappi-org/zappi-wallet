@@ -1,25 +1,25 @@
 /**
- * RequestGate — single-flight + cooldown 유틸
+ * RequestGate — single-flight + cooldown utility.
  *
- * 같은 key의 작업이 진행 중이면 그 Promise를 공유하고(single-flight),
- * 최근 성공 결과가 cooldown 내면 재실행 없이 직전 값을 stale로 반환한다.
- * 실패도 별도 cooldown으로 감쇠해, 오프라인/민트 다운 상황에서
- * unlock·resume·pull-refresh가 겹칠 때의 재시도 폭주를 막는다.
+ * If work for the same key is in flight, its Promise is shared (single-flight);
+ * if a recent success is within cooldown, the previous value is returned as stale
+ * without re-running. Failures decay on their own cooldown too, preventing retry
+ * storms when unlock, resume, and pull-refresh overlap while offline or the mint is down.
  *
- * 수명: bootstrap 인스턴스 스코프로 생성할 것 (계정 전환 = 새 bootstrap = gate 초기화).
- * 모듈 싱글턴 금지 — 계정 간 결과 누출 방지. (설계 §6.4)
+ * Lifetime: create at bootstrap-instance scope (account switch = new bootstrap = gate reset).
+ * Never a module singleton — prevents result leakage across accounts.
  */
 
 export interface RequestGateOptions {
-  /** 성공 후 이 시간 내 재호출은 직전 값을 stale로 반환. 0이면 성공 캐시 없음(in-flight 공유만). */
+  /** A re-call within this window after success returns the previous value as stale. 0 = no success cache (in-flight sharing only). */
   cooldownMs: number
-  /** 실패 후 이 시간 내 재호출은 같은 rejection을 재-throw. 기본 30초. 0이면 실패 캐시 없음. */
+  /** A re-call within this window after failure re-throws the same rejection. Default 30s. 0 = no failure cache. */
   failureCooldownMs?: number
 }
 
 export interface GateResult<T> {
   value: T
-  /** true면 cooldown 내 재호출로 직전 성공값을 돌려준 것 — 방금 실행된 결과가 아님. */
+  /** If true, a within-cooldown re-call returned the previous success value — not a freshly executed result. */
   stale: boolean
 }
 
@@ -58,8 +58,8 @@ export class RequestGate {
     const run = (async (): Promise<GateResult<T>> => {
       try {
         const value = await task()
-        // cooldown 0이면 결과를 보관하지 않는다 — 서빙될 일 없는 값의 무기한 보관은
-        // 키가 증가하는 소비자(예: generation 키)에서 메모리 누수가 된다(코드리뷰 #2).
+        // With cooldown 0, don't retain the result — indefinitely holding a value that
+        // will never be served leaks memory for consumers with growing keys (e.g. generation keys).
         if (this.cooldownMs > 0) {
           this.lastSuccess.set(key, { at: Date.now(), value })
         }
@@ -79,7 +79,7 @@ export class RequestGate {
     return run
   }
 
-  /** 특정 key의 캐시·실패 기록 제거 (in-flight는 유지 — 진행 중 작업은 완주). */
+  /** Clears a key's success/failure cache (in-flight is kept — running work completes). */
   invalidate(key: string): void {
     this.lastSuccess.delete(key)
     this.lastFailure.delete(key)

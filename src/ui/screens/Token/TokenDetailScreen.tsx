@@ -41,8 +41,8 @@ export interface TokenDetailScreenProps {
   /** Called when user taps the raw-token box 10 times — navigate to easter egg page. */
   onTriggerEasterEgg?: () => void
   /**
-   * When provided, renders "내역 삭제" inside the raw sheet. Caller should
-   * handle confirmation and perform `transactionMgmt.delete(txId)`.
+   * When provided, renders a "Delete history" option inside the raw sheet. Caller
+   * should handle confirmation and perform `transactionMgmt.delete(txId)`.
    */
   onDeleteHistory?: (token: TokenDetailData) => Promise<void> | void
 }

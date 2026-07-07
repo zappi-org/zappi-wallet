@@ -11,8 +11,8 @@ import { toNumber } from '@/core/domain/amount'
 /**
  * Hook for wallet state and balance operations.
  *
- * Phase 5: BalanceUseCase 경유 (ServiceContext).
- * ServiceContext 없으면 balance 갱신 불가 (store 캐시만 반환).
+ * Balance refresh goes through BalanceUseCase (ServiceContext). Without
+ * ServiceContext, balance can't refresh (returns only the store cache).
  */
 export function useWallet() {
   const { t } = useTranslation()
@@ -28,7 +28,7 @@ export function useWallet() {
   const addToast = useAppStore((state) => state.addToast)
 
   /**
-   * Load balance via BalanceUseCase (ServiceRegistry 경유)
+   * Load balance via BalanceUseCase (through ServiceRegistry)
    */
   const loadBalance = useCallback(async () => {
     if (!registry?.balance) {

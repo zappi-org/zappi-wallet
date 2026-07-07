@@ -1,8 +1,10 @@
 /**
- * transitionPhase — 합법 전이 맵 (감사: 무가드 — settled→submitted 역행 허용이 실버그)
+ * transitionPhase — legal transition map. Without a guard, allowing a
+ * settled→submitted regression is a real bug.
  *
- * 계약: settled(자금 전달 완료)에서 비종단으로의 역행만 거부(throw), 그 외
- * 현행 정당 전이는 전부 수용. 새 phase 도입 없음.
+ * Contract: only reject (throw) a regression from settled (funds delivered)
+ * to a non-terminal phase; accept all other current legitimate transitions.
+ * No new phases introduced.
  */
 import { describe, it, expect } from 'vitest'
 import { transitionPhase, type TransferPhase } from '@/core/domain/pending-transfer'
@@ -38,7 +40,7 @@ describe('transitionPhase', () => {
     ['failed', 'submitted', '재시도 계열 (현행 수용 유지)'],
     ['settled', 'settled', '멱등'],
   ] as Array<[TransferPhase, TransferPhase, string]>)(
-    '%s → %s 수용 (%s)',
+    '%s → %s accepted (%s)',
     (from, to) => {
       const result = transitionPhase(makeTransfer(from), to, 99)
       expect(result.phase).toBe(to)
@@ -47,7 +49,7 @@ describe('transitionPhase', () => {
   )
 
   it.each(REJECTED_FROM_SETTLED.map((p) => [p]))(
-    'settled → %s 는 throw (정산 기록의 은폐 금지 — failed 포함)',
+    'settled → %s throws (no hiding the settlement record — including failed)',
     (to) => {
       expect(() => transitionPhase(makeTransfer('settled'), to, 99)).toThrow(
         /Illegal phase transition: settled/,
@@ -55,7 +57,7 @@ describe('transitionPhase', () => {
     },
   )
 
-  it('settled → failed 도 거부 (후속 조이기 — 합법 롤백 수요 없음, 중복 incoming 의 failed 강등 차단)', () => {
+  it('settled → failed is also rejected (follow-up tightening — no legitimate rollback demand, blocks failed-demotion of duplicate incoming)', () => {
     expect(() => transitionPhase(makeTransfer('settled'), 'failed', 99)).toThrow(
       /Illegal phase transition: settled/,
     )

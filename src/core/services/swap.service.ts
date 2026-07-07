@@ -1,10 +1,11 @@
 /**
- * SwapService — SwapUseCase 구현
+ * SwapService — SwapUseCase implementation.
  *
- * 동일 모듈 내 cross-account(mint) swap을 orchestrate.
- * target에서 receive request(invoice) 생성 → source에서 send(melt) → target 수신 완료 대기.
+ * Orchestrates a cross-account (mint) swap within the same module:
+ * create a receive request (invoice) on target → send (melt) on source →
+ * wait for target to receive.
  *
- * 의존성: port interface만.
+ * Depends on port interfaces only.
  */
 
 import { Ok, Err } from '@/core/domain/result'
@@ -46,15 +47,15 @@ export class SwapService implements SwapUseCase {
     for (const module of this.modules) {
       if (!module.isEnabled()) continue
 
-      // Lightning adapter가 있어야 swap 가능 (melt/mint)
+      // Swap needs a lightning adapter (melt/mint).
       const lightning = module.getPaymentAdapters().find(a =>
         a.capabilities.canSend && a.capabilities.canReceive && a.createReceiveRequest,
       )
       if (!lightning) continue
 
-      // 이 모듈의 모든 계정 조합으로 swap pair 생성
-      // 실제 계정 목록은 getBalance에서 얻지만, sync 메서드에서 async 불가
-      // → pair는 moduleId만 반환, 실제 accountId는 UI에서 선택
+      // The real account list comes from getBalance, but this sync method can't
+      // await it, so the pair carries only moduleId; the actual accountId is
+      // chosen in the UI.
       pairs.push({
         sourceAccountId: '*',
         targetAccountId: '*',
@@ -80,7 +81,7 @@ export class SwapService implements SwapUseCase {
     }
 
     try {
-      // target에서 임시 invoice 생성하여 fee 추정
+      // Create a throwaway invoice on target to estimate the fee.
       const targetLightning = this.findLightningAdapter(params.targetAccountId)
       if (!targetLightning?.createReceiveRequest) {
         return Err(new AdapterNotFoundError('No lightning adapter for target account'))
@@ -151,7 +152,7 @@ export class SwapService implements SwapUseCase {
         await this.abandonSwapQuote(params.targetAccountId, currentQuoteId)
         swapQuoteId = null
       } catch (error) {
-        // cleanup 실패 시에도 더 이상 swap quote로 취급하지 않도록 메모리 마킹은 해제한다.
+        // Even if cleanup fails, drop the in-memory mark so it's no longer treated as a swap quote.
         this.swapQuoteMarker?.unmark(currentQuoteId)
         throw error
       }
@@ -170,27 +171,25 @@ export class SwapService implements SwapUseCase {
     }
 
     try {
-      // 1. Target에서 receive request 생성
       let request = await targetLightning.createReceiveRequest({
         amount: swapAmount,
         accountId: params.targetAccountId,
       })
 
-      // 스왑 quote 마킹 — mint-quote-observer가 중복 TX 생성하지 않도록
+      // Mark the swap quote so mint-quote-observer doesn't create a duplicate TX.
       swapQuoteId = request.id
       this.swapQuoteMarker?.mark(swapQuoteId)
 
-      // 2. Receive 완료 대기 등록 (send 전에 등록 — race condition 방지)
+      // Register the receive-completion wait before send to avoid a race.
       receiveCompletion = this.createReceiveCompletionHandle(targetLightning, request.id)
 
-      // 3. Source에서 send (melt) 준비
       let prepared = await sourceLightning.prepareSend({
         destination: request.encoded,
         amount: swapAmount,
         accountId: params.sourceAccountId,
       })
 
-      // 4. Drain mode: 전달받은 amount를 총 예산으로 보고 fee를 내부에서 차감한다.
+      // Drain mode: treat the given amount as the total budget and subtract the fee from it.
       if (params.drain) {
         const drainBudget = toNumber(params.amount)
         let drainAttempts = 0
@@ -231,7 +230,6 @@ export class SwapService implements SwapUseCase {
         }
       }
 
-      // 4. Transaction 기록
       const swapMeta = {
         fromMintUrl: params.sourceAccountId,
         toMintUrl: params.targetAccountId,
@@ -261,14 +259,11 @@ export class SwapService implements SwapUseCase {
       })
       await Promise.all([this.txRepo.save(sendTx), this.txRepo.save(receiveTx)])
 
-      // 5. Execute send
       sendAttempted = true
       const sendResult = await sourceLightning.executeSend(prepared.id)
 
-      // 6. Receive 완료 대기
       await receiveCompletion.promise
 
-      // 7. Transaction 완료 처리
       const now = Date.now()
       const sendTxUpdate = {
         status: 'settled' as const,
@@ -301,7 +296,6 @@ export class SwapService implements SwapUseCase {
         payload: { moduleId: targetLightning.moduleId, accountId: params.targetAccountId },
       })
 
-      // 스왑 quote 마킹 해제
       if (swapQuoteId) this.swapQuoteMarker?.unmark(swapQuoteId)
 
       return Ok({
@@ -322,7 +316,7 @@ export class SwapService implements SwapUseCase {
         }
       }
 
-      // send가 이미 시도된 quote만 실패 시 마킹 해제한다.
+      // Only unmark on failure if send was already attempted for this quote.
       if (swapQuoteId && sendAttempted) this.swapQuoteMarker?.unmark(swapQuoteId)
 
       const primaryMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -330,8 +324,8 @@ export class SwapService implements SwapUseCase {
         ? `${primaryMessage} (cleanup failed: ${cleanupFailure.message})`
         : primaryMessage
 
-      // 실패 마킹이 실패해도 swap:failed 전파는 계속하되, 흔적 없는 무음 삼킴은 금지 —
-      // pending으로 남은 tx는 이후 recovery sweep이 다시 정리할 수 있도록 로그를 남긴다
+      // Keep emitting swap:failed even if fail-marking fails, but don't swallow it
+      // silently — log so a later recovery sweep can clean up any tx left pending.
       await Promise.all([
         this.txRepo.update(sendTxId, { status: 'failed' }).catch((markError) => {
           console.error('[SwapService] Failed to mark send tx as failed:', sendTxId, markError)
@@ -359,7 +353,7 @@ export class SwapService implements SwapUseCase {
   private findLightningAdapter(_accountId: string): PaymentMethodAdapter | undefined {
     for (const module of this.modules) {
       if (!module.isEnabled()) continue
-      // swap은 lightning adapter 사용 (melt on source, mint on target)
+      // Swap uses the lightning adapter (melt on source, mint on target).
       const lightning = module.getPaymentAdapters().find(a =>
         a.protocol === 'bolt11' && a.capabilities.canSend && a.capabilities.canReceive,
       )
@@ -381,8 +375,8 @@ export class SwapService implements SwapUseCase {
     requestId: string,
   ): ReceiveCompletionHandle {
     if (!adapter.onReceiveCompleted) {
-      // adapter가 수신 완료 감지를 지원하지 않으면 즉시 resolve
-      // (Coco watcher가 대신 처리하는 경우)
+      // If the adapter can't detect receive completion, resolve immediately
+      // (the Coco watcher handles it instead).
       return {
         promise: Promise.resolve(),
         cancel: () => {},
@@ -404,7 +398,7 @@ export class SwapService implements SwapUseCase {
     const promise = new Promise<void>((resolve, reject) => {
       timeout = setTimeout(() => {
         finish(() => reject(new Error('Swap receive timed out')))
-      }, 5 * 60 * 1000) // 5분 타임아웃
+      }, 5 * 60 * 1000)
 
       unsubscribe = adapter.onReceiveCompleted!(requestId, () => {
         finish(resolve)

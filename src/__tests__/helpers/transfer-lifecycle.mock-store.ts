@@ -1,7 +1,6 @@
 /**
- * InMemoryPendingTransferStore — TransferLifecycleService 단위 테스트용 Mock Store
- *
- * 실제 DexieStore 구현 전까지 사용. Sprint 5에서 DexiePendingTransferStore로 교체.
+ * InMemoryPendingTransferStore — mock store for TransferLifecycleService unit tests.
+ * Used until the real DexieStore exists; to be replaced by DexiePendingTransferStore.
  */
 
 import type { PendingTransfer, TransferPhase } from '@/core/domain/pending-transfer'
@@ -47,7 +46,7 @@ export class InMemoryPendingTransferStore implements PendingTransferStore {
     return this.listByPhase(['submitted', 'in_transit', 'awaiting_confirmation'])
   }
 
-  // 테스트 유틸리티
+  // Test-only helpers
   clear(): void {
     this.data.clear()
   }

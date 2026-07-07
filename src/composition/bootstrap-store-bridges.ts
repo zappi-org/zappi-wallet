@@ -1,14 +1,14 @@
 /**
- * Bootstrap 조각 7 — 콜드스타트 캐시 + EventBus→Store 브리지 (bootstrap.ts 순수 이동)
+ * Bootstrap piece — cold-start cache + EventBus→Store bridges.
  *
- * 조립 시점 부수효과 3건(캐시 잔액 store 반영, event-store 브리지 연결,
- * transfer-tx 브리지 연결)이 원본과 동일한 순서로 실행된다.
+ * Runs the three assembly-time side effects (reflect cached balance into the store,
+ * connect the event-store bridge, connect the transfer-tx bridge) in the original order.
  */
 
 // ─── Core ───
 import { toNumber } from "@/core/domain/amount";
 
-// ─── Store (composition root만 접근) ───
+// ─── Store (composition root only) ───
 import { useAppStore } from "@/store";
 
 import { connectEventStoreBridge } from "./event-store-bridge";
@@ -29,7 +29,7 @@ export function connectStoreBridges(deps: {
 }) {
   const { balanceCache, balance, eventBus, receiveRequest, txRepo } = deps;
 
-  // 7. Cold start cache → store 즉시 반영 (동기)
+  // Cold-start cache → reflect into store immediately (sync)
   const cached = balanceCache.load();
   if (cached) {
     const byMint: Record<string, number> = {};
@@ -43,7 +43,7 @@ export function connectStoreBridges(deps: {
     useAppStore.getState().setBalance({ total, byMint });
   }
 
-  // 8. EventBus → Store bridge
+  // EventBus → Store bridge
   const balanceRefresh = async () => {
     const moduleBalances = await balance.getByModule();
     const byMint: Record<string, number> = {};
@@ -63,7 +63,7 @@ export function connectStoreBridges(deps: {
     receiveRequest,
   });
 
-  // Transfer → Transaction Bridge (TLS 경로의 거래내역 저장)
+  // Transfer → Transaction bridge (persists tx history for the TLS path)
   connectTransferTxBridge({
     eventBus,
     txRepo,

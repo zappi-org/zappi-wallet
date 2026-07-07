@@ -38,7 +38,7 @@ describe('RoutingService', () => {
     expect(fe.estimateRouteFee).toHaveBeenCalledWith(PaymentRoute.MELT_TO_LN, 'https://mint', 1000, undefined, undefined)
   })
 
-  // ─── 견적 캐시 (설계 §8.4 — TTL 60s + in-flight 공유 + 실패 5s 쿨다운) ───
+  // ─── Estimate cache (TTL 60s + shared in-flight + 5s failure cooldown) ───
 
   describe('estimate cache', () => {
     it('same (route,src,tgt,amount) tuple within TTL hits the cache — estimator once', async () => {
@@ -52,7 +52,7 @@ describe('RoutingService', () => {
       expect(second).toEqual(first)
     })
 
-    it('amount/invoice change misses the cache — 금액 편집은 매번 원 왕복 [N4]', async () => {
+    it('amount/invoice change misses the cache — editing the amount round-trips to source every time [N4]', async () => {
       const fe = createMockFeeEstimator()
       const svc = new RoutingService(fe)
 
@@ -93,13 +93,13 @@ describe('RoutingService', () => {
           svc.estimateRouteFee(PaymentRoute.MELT_TO_LN, 'https://src', 1000),
         ).rejects.toThrow('mint down')
 
-        // 쿨다운 내 재시도 — 같은 rejection, estimator 재호출 없음
+        // Retry within cooldown — same rejection, estimator not called again
         await expect(
           svc.estimateRouteFee(PaymentRoute.MELT_TO_LN, 'https://src', 1000),
         ).rejects.toThrow('mint down')
         expect(fe.estimateRouteFee).toHaveBeenCalledTimes(1)
 
-        // 쿨다운(5s) 경과 후 실제 재견적
+        // After the 5s cooldown, a real re-estimate
         await vi.advanceTimersByTimeAsync(5_001)
         await expect(
           svc.estimateRouteFee(PaymentRoute.MELT_TO_LN, 'https://src', 1000),

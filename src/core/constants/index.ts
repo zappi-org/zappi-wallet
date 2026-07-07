@@ -110,7 +110,7 @@ export const STORAGE_KEYS = {
   SETTINGS: 'zappi_settings',
   LOCK_STATE: 'zappi_lock_state',
   LAST_BACKGROUND_TIME: 'zappi_last_background_time',
-  /** 포그라운드 생존 heartbeat (bootstrap 기록, 로그아웃 시 소거) */
+  /** Foreground-liveness heartbeat (written by bootstrap, cleared on logout) */
   LAST_ALIVE: 'zappi_last_alive_at',
 } as const
 
@@ -119,13 +119,13 @@ export const STORAGE_KEYS = {
  */
 export const DATABASE = {
   NAME: 'zappi_wallet_db',
-  // v20: netCounters 테이블 추가 (프로덕션 집계 카운터 — 설계 §12)
-  // v21: giftwrapCursors 테이블 추가 (gift wrap since cursor — 설계 §10 B5)
-  // v22: incomingReviews 테이블 추가 (미신뢰 민트 수신 review 영속화 — 설계 §6.2/리뷰 #3:
-  //      메모리 큐는 새로고침에 토큰을 유실한다)
-  // v23: legacy proofs 테이블 삭제 (감사 :56 — coco 마이그레이션 후 잔존.
-  //      실자금 proofs는 coco DB 소관이고 이 테이블은 읽기/쓰기 코드가 없어
-  //      데이터 자체가 삭제 대상. 생존 테이블은 스키마 diff로 무손실 통과)
+  // v20: added netCounters table (production aggregate counters)
+  // v21: added giftwrapCursors table (gift wrap since cursor)
+  // v22: added incomingReviews table (persist untrusted-mint incoming reviews:
+  //      an in-memory queue loses tokens on refresh)
+  // v23: dropped legacy proofs table (leftover after coco migration. Real-fund proofs
+  //      live in the coco DB, and this table had no read/write code, so the data itself
+  //      was removable. Surviving tables pass the schema diff losslessly)
   VERSION: 23,
 } as const
 

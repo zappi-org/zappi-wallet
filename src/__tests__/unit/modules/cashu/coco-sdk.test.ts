@@ -1,9 +1,9 @@
 /**
- * coco-sdk enableWatchers — 오프라인 재시도 (설계 §7.1-3)
+ * coco-sdk enableWatchers — offline retry.
  *
- * 오프라인 unlock 시 watcher가 영구 비활성으로 남던 결함의 회귀 테스트.
- * 모듈 싱글턴 상태(watchersEnabled, retry 리스너) 때문에 테스트마다
- * vi.resetModules() + 동적 import로 새 모듈 인스턴스를 쓴다.
+ * Regression test for the bug where an offline unlock left the watcher permanently
+ * disabled. Because of module singleton state (watchersEnabled, retry listener),
+ * each test uses vi.resetModules() + dynamic import to get a fresh module instance.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -40,7 +40,7 @@ vi.mock('@/modules/cashu/internal/logger', () => ({
 }))
 
 function setOnline(value: boolean): void {
-  // setup.ts가 onLine을 writable(비configurable)로 정의 — 재정의 대신 할당
+  // setup.ts defines onLine as writable (non-configurable), so assign instead of redefining
   ;(navigator as unknown as { onLine: boolean }).onLine = value
 }
 
@@ -107,7 +107,7 @@ describe('coco-sdk enableWatchers — offline retry', () => {
     setOnline(true)
     window.dispatchEvent(new Event('online'))
 
-    // 리스너가 정리됐으므로 online 이벤트가 watcher를 켜지 않아야 한다
+    // the listener was cleaned up, so the online event must not enable the watcher
     await new Promise((resolve) => setTimeout(resolve, 20))
     expect(mocks.enableMintOperationWatcher).not.toHaveBeenCalled()
   })

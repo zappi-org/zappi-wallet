@@ -5,12 +5,12 @@ import { mintUrlKey } from '@/utils/url'
 import { getDatabase, type IncomingReviewRecord } from './schema'
 
 /**
- * Dexie 기반 incoming review 대기열 (설계 §6.2 / 리뷰 #3).
+ * Dexie-backed incoming review queue.
  *
- * 기존 메모리(Zustand) 큐는 새로고침·크래시에 review를 유실했다 — watcher가
- * processedStore에 'pending'을 마킹한 뒤였다면 replay도 dedup에 걸려 토큰이
- * 영구 유실된다. 이 어댑터는 IndexedDB를 원천으로 삼고, Zustand는 UI 미러로
- * 강등한다(notify 콜백). enqueue/remove가 resolve하는 시점에 durable 완료.
+ * The old in-memory (Zustand) queue lost reviews on refresh/crash — if the watcher
+ * had already marked 'pending' in processedStore, replay would be deduped and the
+ * token lost permanently. This adapter treats IndexedDB as the source of truth and
+ * demotes Zustand to a UI mirror (notify callbacks). Durable once enqueue/remove resolves.
  */
 export class DexieIncomingReviewQueue implements IncomingReviewQueue {
   constructor(
@@ -21,7 +21,7 @@ export class DexieIncomingReviewQueue implements IncomingReviewQueue {
   ) {}
 
   async enqueue(review: PendingIncomingReview): Promise<void> {
-    // durable 먼저 (PK=externalId — put 멱등), UI 미러는 그 후
+    // Durable first (PK=externalId — put is idempotent), UI mirror after
     await getDatabase().incomingReviews.put(toRecord(review))
     this.notify?.onEnqueued?.(review)
   }
@@ -32,10 +32,10 @@ export class DexieIncomingReviewQueue implements IncomingReviewQueue {
   }
 
   async listByMint(mintUrl: string): Promise<PendingIncomingReview[]> {
-    // 인덱스 조회가 아니라 정규화 비교 스캔 — 큐 행의 mintUrl은 발신자 지갑이
-    // 토큰에 인코딩한 raw 값이라 :443·대소문자·trailing slash 표기가 조회측
-    // (설정의 정규화 URL)과 다를 수 있다 (4단계 리뷰 #6). 대기열은 작으므로
-    // 전체 스캔 비용은 무시 가능하다.
+    // Normalized-comparison scan rather than an index lookup — a queue row's mintUrl is
+    // the raw value the sender's wallet encoded into the token, so its :443, case, and
+    // trailing-slash notation may differ from the lookup side (the settings' normalized
+    // URL). The queue is small, so a full scan is negligible.
     const target = normalizeMintKey(mintUrl)
     const records = await getDatabase().incomingReviews.orderBy('queuedAt').toArray()
     return records.filter((r) => normalizeMintKey(r.mintUrl) === target).map(fromRecord)
@@ -47,14 +47,14 @@ export class DexieIncomingReviewQueue implements IncomingReviewQueue {
   }
 }
 
-// 민트 동일성 비교 키 — 앱 전역 canonical(mintUrlKey)로 수렴 (감사 Phase 2).
-// 저장은 raw 그대로, 비교 시에만 키化하므로 기존 행과의 호환에 영향 없다.
-// 구버전 로컬 키와의 델타: 경로 대소문자를 이제 보존한다(경로는 대소문자 구분 자원).
+// Mint-identity comparison key — converges on the app-wide canonical (mintUrlKey).
+// Storage stays raw and only comparison keys, so existing rows remain compatible.
+// Delta from the old local key: path case is now preserved (paths are case-sensitive resources).
 function normalizeMintKey(mintUrl: string): string {
   return mintUrlKey(mintUrl)
 }
 
-// bigint는 IDB 구현별 structured clone 편차가 있어 문자열로 왕복한다
+// bigint has structured-clone differences across IDB implementations, so round-trip it as a string
 function toRecord(review: PendingIncomingReview): IncomingReviewRecord {
   return {
     externalId: review.externalId,

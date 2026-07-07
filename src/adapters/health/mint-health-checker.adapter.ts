@@ -7,11 +7,10 @@ const FETCH_TIMEOUT_MS = 10_000
 
 /**
  * Mint health checker via HTTP.
- * Moved from ui/services/mint-health to adapters/ layer.
  *
- * 동시성: 같은 mintUrl에 대한 동시 checkMint는 하나의 fetch를 공유한다
- * (in-flight 공유 — 설계 §6.4). 신선도 제어는 기존 30초 캐시가 담당하므로
- * gate cooldown은 0이다. probe는 reject하지 않는다(실패도 상태 객체로 반환).
+ * Concurrency: concurrent checkMint calls for the same mintUrl share a single
+ * fetch (in-flight sharing). Freshness is handled by the existing 30s cache, so
+ * the gate cooldown is 0. probe never rejects (failures come back as a status object).
  */
 export class MintHealthCheckerAdapter implements MintHealthChecker {
   private cache = new Map<string, MintHealthStatus>()

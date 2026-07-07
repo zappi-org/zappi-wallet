@@ -9,7 +9,7 @@ import { translateError } from '@/ui/utils/error-i18n'
 
 export interface UseSwapHandlersDeps {
   serviceRegistry: ServiceRegistry | null
-  /** useTransactions().refreshAll — 잔액+거래 **원자** 갱신 (MAJOR-14 공유 계약, 분리 금지) */
+  /** useTransactions().refreshAll — atomic balance+transaction refresh (shared contract; do not split) */
   refreshAll: () => Promise<void>
 }
 
@@ -36,11 +36,11 @@ export interface SwapHandlers {
 }
 
 /**
- * 크로스민트 스왑 핸들러 묶음 (MainApp Phase 4c 순수 이동): 스왑 수수료 견적,
- * 상환 수수료 견적, 상환+스왑 수신(swap receive), 민트 간 스왑 실행.
+ * Cross-mint swap handlers: swap fee estimate, redeem fee estimate, redeem+swap
+ * receive, and mint-to-mint swap execution.
  *
- * handleEstimateRedeemFee는 TokenRegisterFlow에서 onSwapReceive와 짝으로 소비되는
- * 미신뢰-민트 수신(상환→스왑) 경로의 견적이라 이 묶음에 배치.
+ * handleEstimateRedeemFee lives here because it estimates the untrusted-mint
+ * receive path (redeem→swap) that TokenRegisterFlow consumes alongside onSwapReceive.
  */
 export function useSwapHandlers(deps: UseSwapHandlersDeps): SwapHandlers {
   const { serviceRegistry, refreshAll } = deps
@@ -53,7 +53,6 @@ export function useSwapHandlers(deps: UseSwapHandlersDeps): SwapHandlers {
     toMintUrl: string,
     amount: number,
   ): Promise<{ fee: number; totalNeeded: number } | null> => {
-    // Phase 5: SwapUseCase.estimateSwap() 경유
     if (!serviceRegistry?.swap) {
       console.warn('[useSwapHandlers] ServiceRegistry not ready — cannot estimate swap fee')
       return null

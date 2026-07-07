@@ -102,15 +102,16 @@ const METADATA_REFRESH_INTERVAL = 24 * 60 * 60 * 1000
  * Supports offline-first operation with injected storage.
  */
 /**
- * info fetcher 주입점 (설계 §5.4 분기 A / SP-1):
- * Coco `manager.mint.getMintInfo` 경유 — repo+5분 TTL 하이브리드, limiter 보호,
- * 미등록 민트 지원. 미주입이면 레거시 raw fetch(kill-switch `ks.mint-info-facade`).
+ * Injection point for the info fetcher:
+ * goes through Coco `manager.mint.getMintInfo` — repo + 5-min TTL hybrid, limiter-protected,
+ * supports unregistered mints. If not injected, falls back to a legacy raw fetch
+ * (kill-switch `ks.mint-info-facade`).
  */
 export type MintInfoFetcher = (mintUrl: string) => Promise<MintInfoResponse | null>
 
 export class MintMetadataService {
   private inFlightRequests = new Map<string, Promise<MintMetadata | null>>()
-  /** [N8] 진행 중 health probe 합류 — MintInfoService가 setter로 주입 */
+  /** Joins an in-flight health probe — injected by MintInfoService via a setter */
   private probeJoiner?: (mintUrl: string) => Promise<MintMetadata | null> | null
 
   constructor(
@@ -124,7 +125,7 @@ export class MintMetadataService {
     this.probeJoiner = joiner
   }
 
-  /** 캐시 직접 조회(부수효과 없음) — probe 합류 경로가 ingest 결과를 읽는 데 사용 */
+  /** Direct cache read (no side effects) — used by the probe-join path to read the ingest result */
   peekCached(mintUrl: string): Promise<MintMetadata | null> {
     return this.store.get(mintUrl).then((m) => m ?? null)
   }
@@ -182,9 +183,9 @@ export class MintMetadataService {
     const existing = this.inFlightRequests.get(mintUrl)
     if (existing) return existing
 
-    // [N8] 같은 민트의 진행 중 health probe에 합류 (구현 리뷰 #1) — probe가
-    // ingest까지 마친 뒤 캐시를 읽으므로 별도 fetch가 불필요하다. Home 마운트의
-    // health+metadata 동시 발화가 한 왕복으로 끝난다.
+    // Join an in-flight health probe for the same mint — the probe reads the cache
+    // after finishing ingest, so a separate fetch is unnecessary. Home mount's
+    // simultaneous health+metadata firing resolves in a single round-trip.
     const joined = this.probeJoiner?.(mintUrl)
     if (joined) {
       this.inFlightRequests.set(mintUrl, joined)
@@ -275,9 +276,9 @@ export class MintMetadataService {
   }
 
   /**
-   * NUT-06 응답을 캐시에 반영 (매핑+저장+이벤트의 단일 지점).
-   * MintInfoService의 health probe가 같은 응답을 역주입하는 데도 사용된다
-   * (설계 §5 — 한 사이클 민트당 /v1/info 2회 타격 제거의 핵심).
+   * Applies a NUT-06 response to the cache (single point for mapping + save + event).
+   * Also used by MintInfoService's health probe to back-inject the same response —
+   * key to eliminating a second /v1/info hit per mint per cycle.
    */
   async ingest(mintUrl: string, info: MintInfoResponse): Promise<MintMetadata> {
     const metadata: MintMetadata = {
@@ -297,14 +298,14 @@ export class MintMetadataService {
   }
 
   private async doFetch(mintUrl: string): Promise<MintMetadata | null> {
-    // 분기 A: Coco 경유 (limiter 보호 — 설계 §5.4)
+    // Via Coco (limiter-protected)
     if (this.infoFetcher) {
       const info = await this.infoFetcher(mintUrl).catch(() => null)
       if (!info) return null
       return this.ingest(mintUrl, info)
     }
 
-    // 레거시 직접 fetch (kill-switch 경로)
+    // Legacy direct fetch (kill-switch path)
     try {
       const infoUrl = `${mintUrl.replace(/\/$/, '')}/v1/info`
       netLog({ layer: 'mint', op: 'fetch', key: mintUrl, detail: '/v1/info', caller: 'metadata' })

@@ -104,8 +104,8 @@ describe('IncomingPaymentService', () => {
 
   it('repairs receive request lifecycle before marking an already-spent retry skipped', async () => {
     const { payment, processedStore, failedIncomingStore, receiveRequest } = createDeps()
-    // 포트 계약(Result<_, BaseError>)대로 실제 도메인 에러를 모킹 — 서비스는
-    // 이제 error.code === 'TOKEN_SPENT' 로 already-spent 를 판정한다
+    // Mock a real domain error per the port contract (Result<_, BaseError>) — the
+    // service now detects already-spent via error.code === 'TOKEN_SPENT'
     vi.mocked(payment.redeem).mockResolvedValue({
       ok: false,
       error: new TokenSpentError(),

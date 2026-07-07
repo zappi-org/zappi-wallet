@@ -9,7 +9,7 @@ import { TimelineRow } from './TimelineRow'
 export interface TimelineSectionProps {
   groups: TimelineGroup[]
   onSelect?: (tx: Transaction) => void
-  /** Collapse the in-flow "내역" h3 when the parent's sticky header has merged it inline. */
+  /** Collapse the in-flow history h3 when the parent's sticky header has merged it inline. */
   hideTitle?: boolean
   /** Tailwind top-* class for the date anchor sticky offset (matches parent's sticky header height). */
   anchorTopClass?: string
@@ -82,7 +82,7 @@ function buildAnchor(
 }
 
 function headerSizeClass(kind: TimelineKind): string {
-  // `2024.12` (7자) 는 좌측 컬럼 폭 제약으로 작년이전만 작은 폰트.
+  // `2024.12` (7 chars) only shrinks the font for past years, due to left column width.
   return kind === 'monthPastYear'
     ? 'text-body font-display font-bold text-foreground leading-none'
     : 'text-heading font-display font-bold text-foreground leading-none'

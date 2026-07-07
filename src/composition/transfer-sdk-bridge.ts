@@ -1,21 +1,20 @@
 /**
  * Transfer SDK Bridge
  *
- * Coco SDK push 이벤트를 TransferLifecycleService 전송 상태 전환으로 연결.
- * TLS의 주기적 polling을 push 기반으로 대체하여 네트워크 호출을 제거.
+ * Wires Coco SDK push events to TransferLifecycleService state transitions,
+ * replacing TLS's periodic polling with push to eliminate network calls.
  *
  * - melt-quote:paid     → bolt11 send transfer  → settled
- * - melt-op:finalized   → bolt11 send transfer  → settled (paid와 이중망 — 멱등)
- * - melt-op:rolled-back → bolt11 send transfer  → failed  (설계 §7.1-1 — 4단계에서
- *                         B2(unlock 시 melt refresh 루프) 삭제의 선행조건 [N5]:
- *                         이 브리지가 없으면 라이브 세션의 melt 실패가 UI에 도달하지
- *                         못하고 다음 unlock까지 잠복한다)
+ * - melt-op:finalized   → bolt11 send transfer  → settled (double-net with paid — idempotent)
+ * - melt-op:rolled-back → bolt11 send transfer  → failed  (without this bridge, a
+ *                         live-session melt failure never reaches the UI and stays
+ *                         latent until the next unlock)
  * - send:finalized      → ecash send transfer   → settled
  * - send:rolled-back    → ecash send transfer   → failed
  * - mint-op:finalized   → bolt11/ecash receive  → settled
  *
- * fallback: 기본은 120s stuck-sweep(설계 §7.2 — 로컬 1차 + stuck만 원격 확인),
- * ks.tls-sweep ON이면 구경로 30s 일괄 폴링.
+ * Fallback: default is a 120s stuck-sweep (local first, remote check only for
+ * stuck); with ks.tls-sweep ON, the old path does a 30s blanket poll.
  */
 
 import { isSwapQuote } from '@/modules/cashu'
@@ -39,10 +38,9 @@ export function connectTransferSdkBridge(
     }
   }
 
-  // Melt 완료 → bolt11 send transfer settled
-  // 주의(§12 게이트 해석): manager.on 이벤트는 전송 수단을 구분하지 않는다 —
-  // WSS push든 Coco 내부 폴링(20s/5s)이든 발화한다. 'coco_push_received'는
-  // "Coco 이벤트 파이프라인 생존"의 지표이지 WSS 단독 증명이 아니다.
+  // Note: manager.on events don't distinguish transport — they fire for WSS push
+  // or Coco's internal polling (20s/5s) alike. 'coco_push_received' indicates the
+  // Coco event pipeline is alive, not proof of WSS alone.
   const unsubMeltPaid = manager.on('melt-quote:paid', async ({ quoteId }) => {
     incrementNetCounter('coco_push_received')
     try {
@@ -53,9 +51,9 @@ export function connectTransferSdkBridge(
     }
   })
 
-  // Melt op 종결 — melt-quote:paid를 못 받은 경우의 이중망 (resolve는 멱등).
-  // 계수 없음: 같은 melt 정산이 paid에서 이미 계수됐다 — 이중 계수는 §12
-  // 카운터(5단계 게이트 근거)를 인플레이션시킨다 (4단계 리뷰 #8)
+  // Double-net for when melt-quote:paid didn't arrive (resolve is idempotent).
+  // No counter increment: this settlement was already counted at paid, and
+  // double-counting would inflate the counter.
   const unsubMeltOpFinalized = manager.on('melt-op:finalized', async ({ operationId }) => {
     try {
       const resolved = await transferLifecycle.resolveByOperationRef(operationId, 'settled')
@@ -65,7 +63,7 @@ export function connectTransferSdkBridge(
     }
   })
 
-  // Melt 실패(롤백) — 라이브 세션에서 실패를 UI에 도달시키는 유일한 push 경로
+  // Melt failure (rollback) — the only push path that gets failures to the UI in a live session.
   const unsubMeltOpRolledBack = manager.on('melt-op:rolled-back', async ({ operationId }) => {
     incrementNetCounter('coco_push_received')
     try {
@@ -76,7 +74,7 @@ export function connectTransferSdkBridge(
     }
   })
 
-  // Ecash send 완료 (수령자가 토큰 수령)
+  // Ecash send finalized (recipient received the token).
   const unsubSendFinalized = manager.on('send:finalized', async ({ operationId }) => {
     incrementNetCounter('coco_push_received')
     try {
@@ -87,7 +85,7 @@ export function connectTransferSdkBridge(
     }
   })
 
-  // Ecash send 회수 (proof reclaim)
+  // Ecash send reclaimed (proof reclaim).
   const unsubSendRolledBack = manager.on('send:rolled-back', async ({ operationId }) => {
     incrementNetCounter('coco_push_received')
     try {
@@ -98,9 +96,8 @@ export function connectTransferSdkBridge(
     }
   })
 
-  // Mint quote 완료 → bolt11/ecash receive transfer settled
   const unsubMintOpFinalized = manager.on('mint-op:finalized', async ({ operation }) => {
-    // swap 내부 finalization은 사용자 전송이 아니다 — 필터 통과분만 계수 (코드리뷰 #7)
+    // A swap's internal finalization isn't a user transfer — only count what passes the filter.
     if (!operation.quoteId || isSwapQuote(operation.quoteId)) return
     incrementNetCounter('coco_push_received')
     try {

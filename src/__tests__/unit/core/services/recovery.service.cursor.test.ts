@@ -1,9 +1,9 @@
 /**
- * RecoveryService — cursor·deep-resync 배선 (설계 §10 B5, 2단계)
+ * RecoveryService — cursor / deep-resync wiring.
  *
- * - syncAll: 평시(캐시 anchor) → cursor 스펙(fullReplay:false)로 fetch
- *            재설치(isRecoveryMode) → fullReplay:true
- * - syncAll 말미: 30일 나이검사 → deep-resync(sinceSecOverride) + markDeepResync
+ * - syncAll: normal (cached anchor) → fetch with cursor spec (fullReplay:false)
+ *            reinstall (isRecoveryMode) → fullReplay:true
+ * - end of syncAll: 30-day age check → deep-resync (sinceSecOverride) + markDeepResync
  * - resyncFull: fullReplay:true + markDeepResync
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -89,7 +89,7 @@ describe('RecoveryService cursor wiring', () => {
     vi.restoreAllMocks()
   })
 
-  it('syncAll (평시, 캐시 anchor 유효) passes a cursor spec with fullReplay:false', async () => {
+  it('syncAll (normal, cached anchor valid) passes a cursor spec with fullReplay:false', async () => {
     const { service, nostr } = makeDeps()
 
     await service.syncAll(PARAMS)
@@ -103,16 +103,16 @@ describe('RecoveryService cursor wiring', () => {
     )
   })
 
-  it('syncAll in recovery mode (재설치) fetches with fullReplay:true', async () => {
+  it('syncAll in recovery mode (reinstall) fetches with fullReplay:true', async () => {
     const { service, nostr, anchorStore } = makeDeps()
-    // 로컬 캐시 없음 → 원격 anchor 발견 → isRecoveryMode
+    // no local cache → remote anchor found → isRecoveryMode
     vi.mocked(anchorStore.getCachedAnchor).mockReturnValue(null)
     const anchorMsg = {
       eventId: 'anchor-1',
       sender: PUBKEY,
       content: JSON.stringify({ type: 'zappi-anchor', v: 1, timestamp: Math.floor(Date.now() / 1000) }),
     }
-    // 1번째 호출 = fetchAnchors(cursor 없음), 2번째 = reconstruct
+    // 1st call = fetchAnchors (no cursor), 2nd = reconstruct
     vi.mocked(nostr.fetchGiftWraps)
       .mockResolvedValueOnce([anchorMsg])
       .mockResolvedValue([])
@@ -120,7 +120,7 @@ describe('RecoveryService cursor wiring', () => {
     await service.syncAll(PARAMS)
 
     const calls = vi.mocked(nostr.fetchGiftWraps).mock.calls
-    // anchor 탐색은 전체 창이어야 한다 (재설치 감지 자체가 목적)
+    // anchor discovery must scan the full window (detecting reinstall is the point)
     expect(calls[0][0]).not.toHaveProperty('cursor')
     expect(calls[1][0]).toMatchObject({ cursor: { key: CURSOR_KEY, fullReplay: true } })
   })
@@ -136,7 +136,7 @@ describe('RecoveryService cursor wiring', () => {
 
     const expectedSince = toSinceSec(oldDeep) - GIFTWRAP_OVERLAP_SEC
     const calls = vi.mocked(nostr.fetchGiftWraps).mock.calls
-    // 1: 평시 reconstruct(cursor) → 2: deep-resync(sinceSecOverride)
+    // 1: normal reconstruct (cursor) → 2: deep-resync (sinceSecOverride)
     expect(calls).toHaveLength(2)
     expect(calls[1][0]).toMatchObject({ sinceSecOverride: expectedSince })
     expect(cursorStore.markDeepResync).toHaveBeenCalledWith(CURSOR_KEY, expect.any(Number))
@@ -153,7 +153,7 @@ describe('RecoveryService cursor wiring', () => {
     expect(cursorStore.markDeepResync).not.toHaveBeenCalled()
   })
 
-  it('resyncFull fetches the full window (확대된 maxWait 포함) and resets the deep-resync clock', async () => {
+  it('resyncFull fetches the full window (including an extended maxWait) and resets the deep-resync clock', async () => {
     const { service, nostr, cursorStore } = makeDeps()
 
     await service.resyncFull(PARAMS)
@@ -168,8 +168,8 @@ describe('RecoveryService cursor wiring', () => {
   })
 
   /**
-   * 리뷰 #3 — deep 마커는 오류 없는 실행에만 전진한다. fetch 실패·isSyncing
-   * 단락·부분 실패가 30일 안전망을 조용히 소모하면 안 된다.
+   * The deep marker advances only on error-free runs. A fetch failure, isSyncing
+   * short-circuit, or partial failure must not silently consume the 30-day safety net.
    */
   it('does NOT advance the deep-resync clock when the deep fetch fails', async () => {
     const { service, nostr, cursorStore } = makeDeps()
@@ -178,7 +178,7 @@ describe('RecoveryService cursor wiring', () => {
       ...createGiftwrapCursorRecord(CURSOR_KEY, oldDeep),
       deepResyncAtMs: oldDeep,
     })
-    // 1번째(평시 reconstruct) 성공, 2번째(deep) 실패
+    // 1st (normal reconstruct) succeeds, 2nd (deep) fails
     vi.mocked(nostr.fetchGiftWraps)
       .mockResolvedValueOnce([])
       .mockRejectedValueOnce(new Error('relay down'))
@@ -191,7 +191,7 @@ describe('RecoveryService cursor wiring', () => {
 
   it('resyncFull does NOT reset the deep clock when errors occurred', async () => {
     const { service, cursorStore, failedIncomingStore } = makeDeps()
-    // retry 단계에서 max-attempts 오류 유발 → result.errors 비어있지 않음
+    // trigger a max-attempts error in the retry stage → result.errors non-empty
     vi.mocked(failedIncomingStore.getRetryable).mockResolvedValue([
       {
         id: 'fi-1',

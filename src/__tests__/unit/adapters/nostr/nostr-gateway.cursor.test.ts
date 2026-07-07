@@ -1,11 +1,11 @@
 /**
- * NostrGatewayAdapter — gift wrap cursor 배선 (설계 §10 B5, 2단계)
+ * NostrGatewayAdapter — gift wrap cursor wiring
  *
- * 검증 대상:
- * - subscribeGiftWraps: since = lastFullSyncAtMs − Ω 단일값, EOSE → per-relay 마크,
- *   전(全) relay EOSE → markFullSync, fullReplay/스토어 미주입/최초(null) 시 since 미적용,
- *   setup(비동기 load) 완료 전 unsubscribe 안전성, store 오류 시 전체 창 폴백
- * - fetchGiftWraps: cursor 단일 since, sinceSecOverride 우선, fullReplay 미적용
+ * Covers:
+ * - subscribeGiftWraps: single since = lastFullSyncAtMs − Ω, EOSE → per-relay mark,
+ *   all-relay EOSE → markFullSync, no since on fullReplay/no-store/first-run (null),
+ *   unsubscribe safety before async setup (load) completes, full-window fallback on store error
+ * - fetchGiftWraps: single cursor since, sinceSecOverride precedence, no fullReplay
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -138,14 +138,14 @@ describe('NostrGatewayAdapter cursor wiring', () => {
     })
 
     /**
-     * 리뷰 #2 — 全EOSE 판정은 **설정된 persistent 집합** 기준이어야 한다.
-     * 연결 스냅샷 기준이면 다운/미연결 relay가 조용히 빠져(사실상 quorum 제외)
-     * 그 relay 단독 이벤트가 창 밖으로 밀려 유실된다. 미연결 target은 EOSE가
-     * 없으므로 cursor를 붙든다(안전).
+     * All-EOSE must be judged against the configured persistent set, not the connected
+     * snapshot — otherwise a down/unconnected relay is silently excluded from quorum and
+     * its sole events get pushed outside the window and lost. An unconnected target sends
+     * no EOSE, so the cursor is held back (safe).
      */
     it('does NOT mark full-sync when a configured target relay is not connected', async () => {
       const store = makeCursorStore(recordWithFullSync())
-      // target은 a,b 두 개지만 b는 연결 실패/다운
+      // targets are a and b, but b is down / failed to connect
       const { gateway, relays } = await connectedGateway(store, ['wss://a'])
 
       gateway.subscribeGiftWraps(
@@ -162,7 +162,7 @@ describe('NostrGatewayAdapter cursor wiring', () => {
       expect(store.markFullSync).not.toHaveBeenCalled()
     })
 
-    it('never marks full-sync without configured targets (이력만 축적 — 과소 전진)', async () => {
+    it('never marks full-sync without configured targets (accumulates history only — under-advances)', async () => {
       const store = makeCursorStore(recordWithFullSync())
       const { gateway, relays } = await connectedGateway(store, ['wss://a'])
 
@@ -175,7 +175,7 @@ describe('NostrGatewayAdapter cursor wiring', () => {
       expect(store.markFullSync).not.toHaveBeenCalled()
     })
 
-    /** 리뷰 #1 — 합성 EOSE(4.4s) 차단: cursor 구독은 거대 eoseTimeout을 전달해야 한다 */
+    /** Block the synthetic EOSE (4.4s): cursor subscriptions must pass a huge eoseTimeout. */
     it('passes the synthetic-EOSE guard timeout to the relay subscription', async () => {
       const store = makeCursorStore(recordWithFullSync())
       const { gateway, relays } = await connectedGateway(store, ['wss://a'])
@@ -188,8 +188,8 @@ describe('NostrGatewayAdapter cursor wiring', () => {
     })
 
     /**
-     * 리뷰 #4 — full-sync 마크는 EOSE까지 도착한 이벤트들의 handler가 settle된
-     * 뒤여야 한다. 처리 중 크래시 시 다음 세션 창(t0−Ω)이 재전달을 보장하도록.
+     * markFullSync must wait until the handlers for events received up to EOSE have
+     * settled, so a crash mid-processing lets the next session window (t0−Ω) redeliver.
      */
     it('defers markFullSync until in-flight handler promises settle', async () => {
       const store = makeCursorStore(recordWithFullSync())
@@ -205,7 +205,7 @@ describe('NostrGatewayAdapter cursor wiring', () => {
       await vi.waitFor(() => expect(relays.get('wss://a')!.relay.subscribe).toHaveBeenCalled())
 
       const call = relays.get('wss://a')!.subscribeCalls[0]
-      // EOSE 이전에 이벤트 1건 도착 → handler pending
+      // One event arrives before EOSE → handler pending
       call.opts.onevent({ id: 'evt-1', kind: 1059 })
       expect(handler).toHaveBeenCalledTimes(1)
 
@@ -261,7 +261,7 @@ describe('NostrGatewayAdapter cursor wiring', () => {
 
       const call = relays.get('wss://a')!.subscribeCalls[0]
       expect(call.filters[0].since).toBeUndefined()
-      // cursor 미주입 경로는 EOSE 콜백도 배선하지 않는다 (구동작 그대로)
+      // The no-store path doesn't wire the EOSE callback either (unchanged behavior)
       expect(call.opts.oneose).toBeUndefined()
     })
 
@@ -275,7 +275,7 @@ describe('NostrGatewayAdapter cursor wiring', () => {
         { recipientPubkey: 'pk', cursor: { key: KEY } },
         vi.fn(),
       )
-      // load가 pending인 시점(=setup 미완료)에 unsubscribe
+      // unsubscribe while load is still pending (setup not yet complete)
       await vi.waitFor(() => expect(store.load).toHaveBeenCalled())
       unsubscribe()
       resolveLoad(recordWithFullSync())
@@ -312,7 +312,7 @@ describe('NostrGatewayAdapter cursor wiring', () => {
       expect(store.load).not.toHaveBeenCalled()
     })
 
-    it('fullReplay fetches the full window (재설치·수동 전체 재동기화)', async () => {
+    it('fullReplay fetches the full window (reinstall / manual full resync)', async () => {
       const store = makeCursorStore(recordWithFullSync())
       const { gateway } = await connectedGateway(store, ['wss://a'])
 

@@ -98,9 +98,9 @@ export function isTokenTimelineTx(tx: Transaction): boolean {
 export function transactionToDetailStatus(tx: Transaction): TokenDetailStatus | null {
   if (!isTokenTimelineTx(tx)) return null
   if (tx.outcome === 'reclaimed') return 'reclaimed'
-  // I sent a token, recipient claimed/used it → '사용됨'
+  // I sent a token, recipient claimed/used it → 'consumed'
   if (tx.direction === 'send' && tx.outcome === 'claimed') return 'consumed'
-  // I received a token and registered into my wallet → '등록함'
+  // I received a token and registered it into my wallet → 'registered'
   if (tx.direction === 'receive' && tx.outcome === 'claimed') return 'registered'
   return null
 }

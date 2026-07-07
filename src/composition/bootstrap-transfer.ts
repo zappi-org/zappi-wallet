@@ -1,18 +1,19 @@
 /**
- * Bootstrap 조각 5 — TransferLifecycle 조립 (bootstrap.ts 순수 이동)
+ * Bootstrap fragment — TransferLifecycle assembly (verbatim move from bootstrap.ts).
  *
- * TLS(전송 수명주기) 스토어·오퍼레이터·서비스와 gift-wrap 정산 브리지 연결.
- * connectGiftWrapSettlementBridge는 조립 시점 부수효과(eventBus 구독)라
- * 원본과 동일한 순서 위치(서비스 층 조립 직전)에서 실행된다.
+ * Wires the TLS (transfer lifecycle) store, operators, and service, plus the gift-wrap
+ * settlement bridge. connectGiftWrapSettlementBridge has an assembly-time side effect
+ * (eventBus subscription), so it runs at the same ordering position as the original
+ * (just before service-layer assembly).
  */
 
-// ─── Store (composition root만 접근) ───
+// ─── Store (composition root only) ───
 import { useAppStore } from "@/store";
 
 import { DexiePendingTransferStore } from "@/adapters/storage/dexie/dexie-pending-transfer-store";
 import { TokenCodecAdapter } from "@/adapters/codec/token-codec.adapter";
 
-// ─── Cashu Adapters (TransferOperator 구현체) ───
+// ─── Cashu Adapters (TransferOperator implementations) ───
 import { CashuBolt11Adapter } from "@/modules/cashu/adapters/cashu-bolt11.adapter";
 import { CashuEcashAdapter } from "@/modules/cashu/adapters/cashu-ecash.adapter";
 
@@ -40,7 +41,6 @@ export function assembleTransferLifecycle(deps: {
   const { cashuBackend, outgoingTransport, eventBus, operationMap, nostrGateway } =
     deps;
 
-  // (Sprint 3 — dual-run with existing services)
   const pendingTransferStore = new DexiePendingTransferStore();
 
   // MessageTransport adapter wrapping NostrPaymentTransport
@@ -79,7 +79,7 @@ export function assembleTransferLifecycle(deps: {
     operators,
     eventBus,
     operationMap,
-    // §12 카운터 — core가 telemetry를 직접 import하지 않도록 경계에서 주입
+    // Counters — injected at the boundary so core never imports telemetry directly
     {
       stuckDetected: () => incrementNetCounter("tls_stuck_detected"),
       stuckConfirmedSettled: () =>

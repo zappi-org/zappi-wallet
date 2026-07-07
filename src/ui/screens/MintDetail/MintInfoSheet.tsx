@@ -68,8 +68,8 @@ export function MintInfoSheet({
 
   const lastFetchedUrl = useRef<string | null>(null)
 
-  // 직접 /v1/info fetch → mintInfo facade (설계 §5): 24h 캐시 히트 시 네트워크 0,
-  // 미스 시 Coco 경유(limiter 보호)
+  // mintInfo facade instead of a direct /v1/info fetch: 24h cache hit = no
+  // network, miss goes through Coco (limiter-protected)
   const fetchMintInfo = useCallback(async (url: string) => {
     if (lastFetchedUrl.current === url && mintInfo) return
     setIsLoading(true)

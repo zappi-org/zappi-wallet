@@ -73,14 +73,14 @@ describe('NostrGatewayAdapter', () => {
       expect(mockEnsureRelay).toHaveBeenCalledWith('wss://relay2.test')
     })
 
-    it('continues on relay connection failure — 미연결 relay도 상태에 노출 (6단계 minor #1)', async () => {
+    it('continues on relay connection failure — unconnected relays also exposed in status (phase 6 minor #1)', async () => {
       mockEnsureRelay
         .mockRejectedValueOnce(new Error('connection failed'))
         .mockResolvedValueOnce({ subscribe: vi.fn() })
 
       await gateway.connect(['wss://bad.test', 'wss://good.test'])
 
-      // 대상 집합 전체 + 연결 플래그 — RelayManagement 미연결 도트의 원천
+      // full target set + connection flag — source of RelayManagement's disconnected dots
       const status = gateway.getRelayStatus()
       expect(status).toHaveLength(2)
       expect(status).toContainEqual({ url: 'wss://good.test', connected: true })

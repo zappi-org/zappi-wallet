@@ -41,14 +41,15 @@ export function RelayManagementScreen({
   const emptySlots = LIMITS.MAX_RELAYS - relays.length
   const isAtLimit = relays.length >= LIMITS.MAX_RELAYS
 
-  // 생존 표시 (설계 §10 B6): 컨트롤러가 이미 유지하는 연결 상태를 읽는다 —
-  // 기존에는 mount마다 설정 릴레이 전수에 raw WebSocket을 새로 열었다(측정
-  // 대상과 별개의 중복 연결 폭주). 메모리 스냅샷 읽기라 짧은 주기 폴링이 무비용.
+  // Liveness display: read the connection state the controller already maintains.
+  // Previously each mount opened a fresh raw WebSocket to every configured relay
+  // (a burst of duplicate connections). This reads a memory snapshot, so
+  // short-interval polling is free.
   useEffect(() => {
     const readStatus = () => {
       const statuses = registry.nostrGateway.getRelayStatus()
       setRelayStatus((prev) => {
-        // 무변화면 이전 참조 유지 — 5초 폴링마다 화면 전체 리렌더 방지
+        // Keep the previous reference when nothing changed — avoids re-rendering the whole screen on every 5s poll
         let changed = false
         const next = { ...prev }
         for (const s of statuses) {

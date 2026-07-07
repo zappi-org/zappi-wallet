@@ -1,8 +1,7 @@
 /**
- * Coco SDK — Manager 인스턴스 관리
+ * Coco SDK — Manager instance management.
  *
- * Coco Manager singleton과 관련 유틸.
- * Phase 7: coco/manager.ts에서 이 파일로 완전 이전 완료.
+ * Coco Manager singleton and related utilities.
  */
 import { initializeCoco, type Manager, type MintQuote, normalizeMintUrl } from '@cashu/coco-core'
 import { IndexedDbRepositories } from '@cashu/coco-indexeddb'
@@ -54,8 +53,8 @@ async function initializeManager(): Promise<Manager> {
 }
 
 export async function resetCocoManager(): Promise<void> {
-  // 예약된 watcher online 재시도 정리 — 로그아웃 후 잔존 리스너가
-  // Coco를 재초기화하는 것을 방지 (설계 §7.1-3).
+  // Clear any scheduled watcher online-retry so a lingering listener can't
+  // re-initialize Coco after logout.
   clearWatcherRetry()
   if (managerInstance) {
     await managerInstance.dispose()
@@ -69,13 +68,13 @@ export async function resetCocoManager(): Promise<void> {
 const COCO_DB_DELETE_TIMEOUT_MS = 10_000
 
 /**
- * 자금 DB(zappi-coco-wallet) 삭제 — 로그아웃 완전 소거의 핵심 (감사 Phase 1, 리뷰 BLOCKING-2).
+ * Delete the funds DB (zappi-coco-wallet) — core of a complete logout wipe.
  *
- * 구버전은 onerror/onblocked 에서도 resolve 해 "무음 성공 가장"이었다 — 다른 탭이
- * 열려 있으면 자금 DB 가 통째로 살아남는데 로그아웃은 성공으로 보였다.
- * 이제 onsuccess 까지 대기한다: coco-indexeddb 는 Dexie 기반이라 다른 탭 커넥션은
- * versionchange 로 자동 close 되어 blocked 는 일시 상태다. 타임아웃·에러는 reject 로
- * 표면화해 호출자(로그아웃)가 성공을 가장하지 못하게 한다.
+ * The old version resolved even on onerror/onblocked, faking silent success: if
+ * another tab was open the funds DB survived intact yet logout looked successful.
+ * We now wait for onsuccess. coco-indexeddb is Dexie-based, so other-tab
+ * connections auto-close on versionchange and `blocked` is transient. Timeouts
+ * and errors reject so the caller (logout) can't fake success.
  */
 export async function deleteCocoData(opts?: { timeoutMs?: number }): Promise<void> {
   await resetCocoManager()
@@ -96,7 +95,7 @@ export async function deleteCocoData(opts?: { timeoutMs?: number }): Promise<voi
       reject(request.error ?? new Error('Coco DB delete failed'))
     }
     request.onblocked = () => {
-      // 대기 지속 — 타 탭이 versionchange 로 close 하면 onsuccess 가 후행한다
+      // Keep waiting — once other tabs close on versionchange, onsuccess follows.
       logger.warn('Delete blocked — waiting for other connections to close')
     }
   })
@@ -110,10 +109,10 @@ let watchersEnabled = false
 let watcherRetryCleanup: (() => void) | null = null
 
 /**
- * Watcher 활성화. 오프라인 unlock 시 영구 비활성으로 남던 결함 수정 (설계 §7.1-3):
- * 오프라인이면 'online' 1회 리스너로 재시도를 예약한다. 기존에는 재시도가 없어
- * 비행기 모드 unlock 후 세션 내내 mint push가 0이었고, 30초 TLS 폴링이 그 결함을
- * 가려주고 있었다 — 폴링 강등(5단계) 전에 반드시 고쳐야 하는 선행조건.
+ * Enable watchers. Fixes a defect where an offline unlock left them permanently
+ * disabled: when offline, schedule a retry via a one-shot 'online' listener.
+ * Without it, an airplane-mode unlock meant zero mint push for the whole session,
+ * masked only by the 30s TLS polling.
  */
 export async function enableWatchers(): Promise<void> {
   if (watchersEnabled) return
@@ -139,7 +138,7 @@ function scheduleWatcherRetryOnOnline(): void {
     clearWatcherRetry()
     enableWatchers().catch((e) => {
       logger.error('Watcher enable retry failed:', e as Error)
-      // 재시도 실패 시 재무장 — 아니면 이 세션의 재시도 기회가 영구 소실된다(코드리뷰 #4)
+      // Re-arm on retry failure, or this session loses its retry chance for good.
       scheduleWatcherRetryOnOnline()
     })
   }
@@ -162,14 +161,14 @@ export async function recheckPendingMintQuotes(): Promise<void> {
 }
 
 /**
- * pause가 Coco 쪽에서 watcher를 실제로 껐다는 사실을 모듈 플래그에 반영한다
- * (4단계 리뷰 #2): Coco `pauseSubscriptions()`는 mintOperationWatcher를
- * disable하지만, Zappi가 init 시 `disabled: true`로 시작하기 때문에
- * `resumeSubscriptions()`는 그것을 되살리지 않는다. 플래그를 리셋하지 않으면
- * resume의 enableWatchers()가 no-op이 되어(93행 가드) — recheck가 조건부가 된
- * 지금 — 5분 미만 부재 후 세션 내내 mint push가 죽는다.
- * 재활성 비용은 로컬 repo 읽기 + WSS 재구독뿐이다(원격 체크 버스트 없음 —
- * coco dist watchExistingPendingOnStart 확인).
+ * Reflect in the module flag that pause actually turned the watcher off on Coco's
+ * side. Coco's `pauseSubscriptions()` disables mintOperationWatcher, but because
+ * Zappi starts with `disabled: true` at init, `resumeSubscriptions()` doesn't
+ * bring it back. If we don't reset the flag, resume's enableWatchers() becomes a
+ * no-op (guarded above) and — now that recheck is conditional — mint push dies for
+ * the whole session after an absence under 5 minutes. Re-enabling only costs a
+ * local repo read plus WSS re-subscribe (no remote-check burst — confirmed via
+ * coco dist watchExistingPendingOnStart).
  */
 export function suspendWatchers(): void {
   watchersEnabled = false

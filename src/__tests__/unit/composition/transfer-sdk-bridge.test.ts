@@ -1,9 +1,9 @@
 /**
- * Transfer SDK Bridge — Coco push 이벤트 → TLS 상태 전환 (설계 §7.1-1 / [N5])
+ * Transfer SDK Bridge — Coco push events → TLS state transitions.
  *
- * melt-op:finalized / melt-op:rolled-back 브리지는 4단계에서 B2(unlock 시
- * melt refresh 루프)를 reconcile로 대체하는 선행조건이다: 이 push 경로가
- * 없으면 라이브 세션의 melt 실패가 다음 unlock까지 UI에 도달하지 못한다.
+ * The melt-op:finalized / melt-op:rolled-back bridges are a prerequisite for
+ * replacing the unlock-time melt refresh loop with reconcile: without this push
+ * path, a melt failure in a live session wouldn't reach the UI until the next unlock.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
@@ -57,7 +57,7 @@ describe('connectTransferSdkBridge', () => {
     ])
   })
 
-  it('melt-op:finalized resolves the transfer as settled (paid 이중망)', async () => {
+  it('melt-op:finalized resolves the transfer as settled (paid redundancy)', async () => {
     const { manager, handlers } = makeManager()
     const lifecycle = makeLifecycle()
     connectTransferSdkBridge(manager, lifecycle)
@@ -67,7 +67,7 @@ describe('connectTransferSdkBridge', () => {
     expect(lifecycle.resolveByOperationRef).toHaveBeenCalledWith('op-1', 'settled')
   })
 
-  it('melt-op:rolled-back resolves the transfer as failed (라이브 실패 도달 경로)', async () => {
+  it('melt-op:rolled-back resolves the transfer as failed (live-failure delivery path)', async () => {
     const { manager, handlers } = makeManager()
     const lifecycle = makeLifecycle()
     connectTransferSdkBridge(manager, lifecycle)
@@ -77,7 +77,7 @@ describe('connectTransferSdkBridge', () => {
     expect(lifecycle.resolveByOperationRef).toHaveBeenCalledWith('op-2', 'failed')
   })
 
-  it('resolve 예외를 삼켜 이벤트 파이프라인을 죽이지 않는다', async () => {
+  it('swallows a resolve exception so the event pipeline is not killed', async () => {
     const { manager, handlers } = makeManager()
     const lifecycle = makeLifecycle()
     lifecycle.resolveByOperationRef.mockRejectedValue(new Error('db down'))

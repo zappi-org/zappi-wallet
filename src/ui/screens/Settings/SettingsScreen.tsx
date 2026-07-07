@@ -140,16 +140,16 @@ export function SettingsScreen({
   // Notify parent when sub-page opens/closes (for bottom nav animation)
   useEffect(() => {
     onSubPageChange?.(hasSubPage || pinChange.isOpen)
-    // cleanup: 서브페이지 열린 채 화면이 unmount 되면 부모의
-    // hasSettingsSubPage 가 true 로 잔존해 하단 nav 가 계속 숨는다 (4a 잠복 b).
-    // 재실행 시에도 cleanup(false)→effect(현재값)가 같은 커밋에서 배칭되므로
-    // 중간 false 는 관측 불가 — unmount 시에만 실효.
+    // cleanup: if the screen unmounts with a sub-page open, the parent's
+    // hasSettingsSubPage would stay true and keep the bottom nav hidden.
+    // On re-run, cleanup(false)→effect(current value) batch in the same commit,
+    // so the intermediate false is unobservable — only effective on unmount.
     return () => {
       onSubPageChange?.(false)
     }
   }, [hasSubPage, pinChange.isOpen, onSubPageChange])
 
-  // 서브페이지 진입/이탈 시 history 연동 (iOS 엣지 스와이프 뒤로가기 대응)
+  // sync history on sub-page enter/leave (handles iOS edge-swipe back)
   const prevHasSubPageRef = useRef(false)
   useEffect(() => {
     const prev = prevHasSubPageRef.current
@@ -398,9 +398,9 @@ export function SettingsScreen({
 
       setRestoreProgress(t('settings.recoveringLightning'))
       try {
-        // 사용자 명시 복구 버튼 — gate 미적용 (설계 §6.2/§6.3): Coco sweep
-        // 전종(B1/B2 포함) + 표적 구제 + 로컬 정합. 연타는 in-flight 공유,
-        // 진행 중 Coco sweep은 개별 skip [N7].
+        // User-explicit recovery button — no gate applied: full Coco sweep +
+        // targeted rescue + local reconciliation. Rapid taps share the in-flight
+        // run; in-progress Coco sweeps are skipped individually.
         const report = await registry.recoveryScheduler.runFullNetworkRecovery()
         if (report.recovered > 0) console.log('[Settings] Recovered:', report.recovered)
       } catch (err) {
@@ -553,8 +553,8 @@ export function SettingsScreen({
     }
   }
 
-  // 릴레이 전체 재동기화 — 재설치급 full replay (설계 §10 B5 수동 트리거).
-  // deep-resync 창도 함께 리셋된다. 중복 실행은 isFullResyncing으로 가드.
+  // Full relay resync — reinstall-grade full replay. Also resets the deep-resync
+  // window. Duplicate runs are guarded by isFullResyncing.
   const handleFullResync = useCallback(async () => {
     if (isFullResyncing) return
     if (!nostrPubkey || !nostrPrivkey) return
@@ -567,7 +567,7 @@ export function SettingsScreen({
         publicKey: nostrPubkey,
         relays: settings.relays,
       })
-      // 부분 실패를 성공으로 위장하지 않는다 (리뷰 #3) — 오류 시 deep 창도 리셋 안 됨
+      // don't disguise partial failure as success — on error the deep window isn't reset either
       if (result.errors.length > 0) {
         console.warn('[Settings] Full resync completed with errors:', result.errors)
         addToast({ type: 'error', message: t('settings.fullResyncFailed'), duration: 4000 })

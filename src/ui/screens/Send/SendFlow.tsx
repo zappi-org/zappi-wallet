@@ -448,7 +448,7 @@ export function SendFlow({
         addressOrInvoice: getAddressOrInvoice(validatedData),
       }
 
-      // Phase 5: my-wallet 타입은 SwapUseCase 경유 (cross-mint invoice 자체 생성)
+      // my-wallet type routes through SwapUseCase (generates its own cross-mint invoice)
       if (validatedData.type === 'my-wallet' && onMintSwap && routeSelection.targetMintUrl) {
         const swapResult = await onMintSwap(
           routeSelection.sourceMintUrl,

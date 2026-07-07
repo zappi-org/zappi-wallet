@@ -44,7 +44,7 @@ interface PRFExtensionOutput {
 }
 
 // PBKDF2 iterations - balance between security and UX.
-// PRF 고엔트로피 입력(32B) 전제 — encryption.adapter 의 반복수 상향(v2 600k)과 무관하게 동결. 근거: docs/design/kdf-upgrade.md §4.2
+// Kept frozen: the high-entropy PRF input (32B) makes this independent of encryption.adapter's iteration bump (v2 600k).
 const PBKDF2_ITERATIONS = 100000
 
 // Fixed application-specific salt for PRF evaluation

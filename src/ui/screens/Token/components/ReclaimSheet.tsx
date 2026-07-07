@@ -9,7 +9,7 @@ import type { PendingTokenView } from '../types'
 export interface ReclaimSheetProps {
   isOpen: boolean
   onClose: () => void
-  /** Tokens to reclaim. One entry for single-token flow, many for "모두 되찾기". */
+  /** Tokens to reclaim. One entry for single-token flow, many for "Reclaim all". */
   tokens: PendingTokenView[]
   /** Per-token receive fee in sats. */
   reclaimFeePerToken?: number

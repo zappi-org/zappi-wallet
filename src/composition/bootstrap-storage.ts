@@ -1,11 +1,11 @@
 /**
- * Bootstrap 조각 1 — 스토리지/레포지토리 조립 (bootstrap.ts 순수 이동)
+ * Bootstrap piece — storage/repository assembly.
  *
- * Dexie 레포지토리·로컬 캐시·리뷰 대기열 등 영속 계층 인스턴스를 생성한다.
- * 생성 순서는 원본 bootstrap.ts "1. Infrastructure" 절과 동일하게 보존.
+ * Creates the persistence-layer instances (Dexie repositories, local cache,
+ * review queue, etc.). Creation order is preserved.
  */
 
-// ─── Store (composition root만 접근) ───
+// ─── Store (composition root only) ───
 import { useAppStore } from "@/store";
 
 // ─── Adapters ───
@@ -34,8 +34,8 @@ export function assembleStorage() {
   const trustedMintProvider = new TrustedMintProviderAdapter(
     () => useAppStore.getState().settings.mints
   );
-  // 미신뢰 민트 review 대기열 — IndexedDB 원천, Zustand는 UI 미러 (설계 §6.2).
-  // 메모리 큐의 새로고침 유실(리뷰 #3 blocker)을 닫는 교체라 kill-switch 없음.
+  // Untrusted-mint review queue — IndexedDB is the source of truth, Zustand is a UI mirror.
+  // This replaces the in-memory queue (which lost entries on refresh), so there's no kill-switch.
   const incomingReviewQueue = new DexieIncomingReviewQueue({
     onEnqueued: (review) => useAppStore.getState().enqueueIncomingReview(review),
     onRemoved: (externalId) =>

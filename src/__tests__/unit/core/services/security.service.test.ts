@@ -26,9 +26,9 @@ function createMocks() {
     deriveBip39Seed: vi.fn().mockReturnValue(TEST_SEED),
   }
 
-  // 반복수 인지 mock: hashPassword 는 (password, iterations) 에 묶인 값을 돌려
-  // verifyAgainstRecord 가 올바른 버전을 고르게 하고, 오답 PIN 은 어떤 버전에도 안 맞게 한다.
-  // encrypt 는 반복수를 태그해 마이그레이션 재파생(600k)을 관측 가능하게 한다.
+  // Iteration-aware mock: hashPassword returns a value bound to (password, iterations)
+  // so verifyAgainstRecord picks the right version, and a wrong PIN matches none.
+  // encrypt tags the iteration count so migration re-derivation (600k) is observable.
   const encryption: Encryption = {
     encrypt: vi.fn().mockImplementation((_data: string, _pw: string, iters: number) =>
       Promise.resolve({ ciphertext: `ct@${iters}`, salt: 'aabb', iv: 'ccdd' } as EncryptedData)),
@@ -37,7 +37,7 @@ function createMocks() {
       Promise.resolve(`hash@${iters}@${pw}`)),
   }
 
-  // CAS 인지 storage mock: 매 쓰기마다 태그가 바뀌고 replaceWallet 은 태그 일치 시에만 교체한다.
+  // CAS-aware storage mock: the tag changes on every write and replaceWallet swaps only on a tag match.
   let storedWallet: StoredWallet | null = null
   let tagSeq = 0
   let currentTag = 'tag-0'
@@ -83,7 +83,7 @@ function createMocks() {
   }
 }
 
-// ─── v1 레코드 픽스처 (kdfVersion 부재/1, passwordHash 는 100k·PIN 바인딩) ───
+// ─── v1 record fixture (kdfVersion absent/1, passwordHash bound to 100k + PIN) ───
 
 const V1_PIN = 'pin1234'
 function makeV1Wallet(): StoredWallet {
@@ -293,7 +293,7 @@ describe('SecurityService', () => {
     })
   })
 
-  // ─── unlock — KDF 마이그레이션 계약 (docs/design/kdf-upgrade.md §5 · §8-2) ───
+  // ─── unlock — KDF migration contract ───
 
   describe('unlock — KDF migration', () => {
     let mocks: ReturnType<typeof createMocks>
@@ -419,7 +419,7 @@ describe('SecurityService', () => {
     })
   })
 
-  // ─── verifyPassword / getMnemonic / changePassword 버전 인지 (읽기만·쓰기 없음, §5.6) ───
+  // ─── verifyPassword / getMnemonic / changePassword version-aware (reads only, no writes) ───
 
   describe('version-aware reads (no writes)', () => {
     let mocks: ReturnType<typeof createMocks>

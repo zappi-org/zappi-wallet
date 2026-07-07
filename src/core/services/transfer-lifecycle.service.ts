@@ -1,8 +1,8 @@
 /**
- * TransferLifecycleService — 프로토콜 중립적인 전송 상태 관리 서비스
+ * TransferLifecycleService — protocol-neutral transfer state management.
  *
- * 보내기/받기, Bolt11/Ecash/미래 프로토콜 모두 동일한 상태 머신으로 추적.
- * Adapter에게 실행을 위임하고, 상태만 관리한다.
+ * Tracks send/receive across Bolt11/Ecash/future protocols with one state
+ * machine. Delegates execution to adapters; owns only state.
  */
 
 import type { PendingTransfer, TransferPhase } from '@/core/domain/pending-transfer'
@@ -14,27 +14,27 @@ import type { PendingTransferStore } from '@/core/ports/driven/pending-transfer-
 import type { TransferIntent, TransferOperator } from '@/core/ports/driven/transfer-operator.port'
 import type { OperationMap } from '@/core/ports/driven/operation-map.port'
 
-/** stuck 판정 기준 — 마지막 전이로부터 이 시간이 지나면 원격 확인 1회 (설계 §7.2) */
+/** Stuck threshold — one remote check once this long has passed since the last transition. */
 const STUCK_THRESHOLD_MS = 120_000
 
 /**
- * 만료 임박 여유 — 민트가 로컬 expiresAt보다 수 초 먼저 EXPIRED를 반환하는
- * 클럭 스큐 창에서, 만료 기인 터미널 전이가 push 미스로 오계수되는 것을 방지
- * (5단계 재검증 잔여 #2).
+ * Expiry skew margin — in the clock-skew window where the mint returns EXPIRED
+ * a few seconds before the local expiresAt, prevents expiry-driven terminal
+ * transitions from being miscounted as push misses.
  */
 const EXPIRY_SKEW_MARGIN_MS = 30_000
 
 export class TransferLifecycleService {
   private pollTimer: ReturnType<typeof setInterval> | null = null
 
-  // ─── stuck-sweep 상태 (설계 §7.2 — ks.tls-sweep OFF 신경로) ───
+  // ─── stuck-sweep state ───
   private sweepTimer: ReturnType<typeof setInterval> | null = null
   private sweepIntervalMs = 120_000
-  /** startStuckSweep 이후 true — pause/dispose의 stopStuckSweep이 끈다 */
+  /** True after startStuckSweep; cleared by stopStuckSweep on pause/dispose. */
   private sweepActive = false
-  /** 재진입 가드 — 느린 sweep 중 타이머 재발화 무시 */
+  /** Reentrancy guard — ignore a timer re-fire while a slow sweep runs. */
   private sweepRunning = false
-  /** 마지막 sweep 시각 — freeze 복귀 catch-up tick 판별용 (재검증 잔여 #1) */
+  /** Last sweep time — used to detect a freeze-recovery catch-up tick. */
   private lastSweepAt = 0
 
   constructor(
@@ -43,8 +43,8 @@ export class TransferLifecycleService {
     private readonly eventBus: EventBus,
     private readonly operationMap?: OperationMap,
     /**
-     * §12 카운터 주입 — core가 telemetry 어댑터를 직접 import하지 않기 위한
-     * 경계 (giftwrap 카운터를 gateway 경계에서 계수하는 것과 같은 이유).
+     * Counter injection — boundary so core never imports the telemetry adapter
+     * directly (same reason giftwrap counters are counted at the gateway edge).
      */
     private readonly counters?: {
       stuckDetected(): void
@@ -52,12 +52,10 @@ export class TransferLifecycleService {
     },
   ) { }
 
-  /** Transfer 조회 */
   async getTransfer(id: string): Promise<PendingTransfer | null> {
     return this.transferStore.get(id)
   }
 
-  /** 주기적 폴링 시작 */
   startPolling(intervalMs = 5000): void {
     if (this.pollTimer) return
     this.pollTimer = setInterval(() => {
@@ -67,7 +65,6 @@ export class TransferLifecycleService {
     }, intervalMs)
   }
 
-  /** 주기적 폴링 중지 */
   stopPolling(): void {
     if (this.pollTimer) {
       clearInterval(this.pollTimer)
@@ -75,21 +72,22 @@ export class TransferLifecycleService {
     }
   }
 
-  // ─── 120s stuck-sweep (설계 §7.2 — 30s 일괄 폴링의 대체) ───
+  // ─── 120s stuck-sweep ───
 
   /**
-   * sweep 시작: 즉시 1회 실행 후 주기 타이머. 30s 일괄 폴링과의 차이 —
-   * 판정은 로컬 우선이고, 원격 확인은 stuck(마지막 전이 > 120s)에 한해
-   * §7.3 매트릭스로 1회만 나간다. pending 0건이면 타이머가 스스로 정지하고
-   * transfer 생성/수신(ensureSweepScheduled)이 재개한다.
+   * Start the sweep: run once immediately, then on an interval. Judgment is
+   * local-first; a remote check goes out only for stuck transfers (last
+   * transition > 120s), once each. When nothing is pending the timer stops
+   * itself and ensureSweepScheduled resumes it.
    */
   startStuckSweep(intervalMs = 120_000): void {
     this.sweepIntervalMs = intervalMs
     this.sweepActive = true
-    // 시작/재개 직후의 즉시 1회는 **구제 전용(무계수)** — unlock/resume 직후는
-    // watcher 재기동·Coco 복구와 레이스라, push가 몇 초 뒤 배달했을 정산을
-    // sweep이 먼저 잡아 게이트 카운터를 오염시킨다 (5단계 리뷰 blocker ②).
-    // 정상 계측은 push가 배달할 시간(≥1주기)을 가진 주기 sweep부터.
+    // The immediate run right after start/resume is rescue-only (no counting):
+    // just after unlock/resume it races watcher restart and Coco recovery, so
+    // sweep could catch a settlement that push delivers seconds later and
+    // pollute the gate counter. Real metering starts with the interval sweep,
+    // which gives push time (≥1 interval) to deliver.
     void this.runStuckSweepOnce({ countStuck: false })
     this.scheduleSweepTimer()
   }
@@ -103,9 +101,9 @@ export class TransferLifecycleService {
   }
 
   /**
-   * pending-0 자기 정지 상태에서의 재개 신호 — transfer 생성 경로(로컬)와
-   * 크로스탭 'transfer_created' 알림(bootstrap 배선)이 호출한다 [F20-잔여].
-   * sweep 모드가 아닐 때(ks.tls-sweep ON 구경로)는 no-op.
+   * Resume signal for the pending-0 self-stopped state — called by the local
+   * transfer-creation path and the cross-tab 'transfer_created' notification.
+   * No-op when not in sweep mode.
    */
   ensureSweepScheduled(): void {
     if (!this.sweepActive) return
@@ -115,16 +113,16 @@ export class TransferLifecycleService {
   private scheduleSweepTimer(): void {
     if (this.sweepTimer) return
     this.sweepTimer = setInterval(() => {
-      // visibilitychange 없이 얼었다 깨어난 경우(onPause 미발화 — 모바일 freeze)
-      // 해동 직후의 catch-up tick은 watcher 재기동과 레이스다 — resume 규칙과
-      // 동일하게 구제 전용(무계수)으로 처리 (재검증 잔여 #1).
+      // If frozen and woken with no visibilitychange (onPause never fired —
+      // mobile freeze), the catch-up tick right after thaw races watcher
+      // restart, so treat it as rescue-only (no counting), like the resume rule.
       const gap = Date.now() - this.lastSweepAt
       const isCatchUpAfterFreeze = this.lastSweepAt > 0 && gap > this.sweepIntervalMs * 2
       void this.runStuckSweepOnce({ countStuck: !isCatchUpAfterFreeze })
     }, this.sweepIntervalMs)
   }
 
-  /** resume/onWake 즉시 1회 sweep용으로도 공개 (§7.2) */
+  /** Public so resume/onWake can trigger a single immediate sweep. */
   async runStuckSweepOnce(opts?: { countStuck?: boolean }): Promise<void> {
     if (this.sweepRunning) return
     this.sweepRunning = true
@@ -133,9 +131,9 @@ export class TransferLifecycleService {
     try {
       const active = await this.transferStore.listActive()
       if (active.length === 0) {
-        // pending 0 → 타이머 정지 (§7.2). ensureSweepScheduled가 재개한다.
-        // lastSweepAt 리셋: 유휴 후 재개의 첫 tick은 freeze catch-up이 아니다
-        // (갭=유휴시간이 2×주기를 넘어 무계수로 오분류되는 것 방지 — 재검증 NIT)
+        // No pending transfers → stop the timer; ensureSweepScheduled resumes it.
+        // Reset lastSweepAt: the first tick after an idle resume is not a freeze
+        // catch-up (prevents an idle gap > 2× interval being misread as no-count).
         this.lastSweepAt = 0
         if (this.sweepTimer) {
           clearInterval(this.sweepTimer)
@@ -149,9 +147,10 @@ export class TransferLifecycleService {
         try {
           await this.sweepOne(transfer, now, countStuck)
         } catch (e) {
-          // 원격 확인 실패(민트 다운 등) — 전이 없이 다음 주기에 재시도.
-          // 오류를 phase로 매핑하면 진행 중 결제를 failed로 확정하는 자금 버그다.
-          // 계수도 하지 않는다 — 확인 실패는 push 미스의 증거가 아니다.
+          // Remote check failed (mint down, etc.) — retry next cycle, no transition.
+          // Mapping the error to a phase would finalize an in-flight payment as
+          // failed (a funds bug). Don't count it either — a failed check is not
+          // evidence of a push miss.
           console.error('[TLS] sweep error:', transfer.id, e)
         }
       }
@@ -168,8 +167,8 @@ export class TransferLifecycleService {
     const operator = this.findOperator(transfer)
     if (!operator) return
 
-    // 1차: 로컬 판정 (네트워크 0) — push를 놓친 로컬 잔상은 여기서 즉시 회수.
-    // 로컬로 보이는 전이는 계수하지 않는다(원격 확인이 필요 없었으므로).
+    // Pass 1: local judgment (no network) — reclaims local remnants that missed a
+    // push. Locally-visible transitions aren't counted (no remote check needed).
     if (operator.pollLocal) {
       const localPhase = await operator.pollLocal(transfer)
       if (localPhase !== transfer.phase) {
@@ -178,25 +177,28 @@ export class TransferLifecycleService {
       }
     }
 
-    // 2차: stuck 후보 — 마지막 전이로부터 THRESHOLD 초과분만 원격 확인
+    // Pass 2: stuck candidates — remote-check only those past THRESHOLD since the last transition
     if (now - transfer.updatedAt <= STUCK_THRESHOLD_MS) return
     if (!operator.confirmStuck) return
 
-    // null = 이 전송타입에는 원격 확인 개념이 없음(수동 수령 대기 ecash 등).
-    // 어댑터의 null 분기는 await 이전에 동기 반환하므로 네트워크 0.
+    // null = this transfer type has no remote-check concept (e.g. ecash awaiting
+    // manual claim). The adapter's null branch returns synchronously before the
+    // await, so no network.
     const confirmed = await operator.confirmStuck(transfer)
     if (confirmed === null || confirmed === transfer.phase) return
 
-    // §12 게이트 계수 기준 (5단계 리뷰 blocker + 재검증 MAJOR): "원격이
-    // 로컬보다 앞서 있던, 만료 기인이 아닌 전이" = 진짜 push 미스.
-    // - phase 무변화(UNPAID 인보이스 대기·미상환 send 토큰)는 위에서 반환 —
-    //   사용자 대기를 계수하면 게이트(=0)가 정상 사용만으로 항상 실패한다.
-    // - 만료(±스큐 여유) 기인 전이는 로컬 시계 수명 이벤트 — 미계수.
-    // - **터미널 제한은 두지 않는다**: bolt11 수신의 push 미스는 checkPayment가
-    //   finalize 이전 관측치 PAID를 반환해 submitted→awaiting(비터미널)으로만
-    //   나타난다 — 터미널만 계수하면 수신 watcher가 죽은 기기가 게이트를
-    //   거짓 통과한다(재검증 MAJOR). 이 규칙에서 비터미널 계수는 정확히
-    //   그 경우(PAID 관측)뿐이다.
+    // Gate-counting rule: a genuine push miss = "a non-expiry transition where
+    // remote was ahead of local".
+    // - No phase change (UNPAID invoice waiting, unredeemed send token) already
+    //   returned above — counting user waiting would make the gate (=0) always
+    //   fail under normal use.
+    // - Expiry-driven transitions (±skew margin) are local-clock lifetime events
+    //   — not counted.
+    // - No terminal-only restriction: a bolt11-receive push miss surfaces only as
+    //   submitted→awaiting (non-terminal), since checkPayment returns an observed
+    //   PAID before finalize. Counting terminals only would let a device with a
+    //   dead receive watcher falsely pass the gate. Non-terminal counting here is
+    //   exactly that PAID-observed case.
     const remoteMiss = !isExpired(transfer, now + EXPIRY_SKEW_MARGIN_MS)
     if (countStuck && remoteMiss) {
       this.counters?.stuckDetected()
@@ -207,7 +209,7 @@ export class TransferLifecycleService {
     await this.applyPhaseTransition(transfer, confirmed)
   }
 
-  // ─── 보내기 (Outgoing) ───
+  // ─── Outgoing ───
 
   async initiateTransfer(
     intent: TransferIntent,
@@ -216,11 +218,10 @@ export class TransferLifecycleService {
     const operator = this.operators.get(protocol)
     if (!operator) throw new AdapterNotFoundError(`Unknown protocol: ${protocol}`)
 
-    // 1. 준비
     let transfer = await operator.prepare(intent)
     await this.transferStore.create(transfer)
 
-    // 2. 실행 (실패해도 store에는 남김)
+    // Execute; the transfer stays in the store even on failure
     try {
       transfer = await operator.execute(transfer)
       await this.transferStore.update(transfer.id, transfer)
@@ -238,19 +239,18 @@ export class TransferLifecycleService {
       return failed
     }
 
-    // 3. 이벤트 발행
     this.eventBus.emit({
       type: 'transfer:submitted',
       payload: { transfer },
     })
 
-    // pending-0으로 정지한 sweep 재개 (§7.2)
+    // Resume the sweep that self-stopped at pending-0
     this.ensureSweepScheduled()
 
     return transfer
   }
 
-  // ─── 받기 (Incoming) 처리 ───
+  // ─── Incoming ───
 
   async initiateIncomingTransfer(
     intent: TransferIntent,
@@ -264,13 +264,13 @@ export class TransferLifecycleService {
 
     const prepared = await operator.prepareReceive(intent)
 
-    // OperationMap에 quoteId → txId 등록 (mint-quote-observer가 동일 TX를 settle하도록)
+    // Register quoteId → txId so mint-quote-observer settles the same TX
     const quoteId = (prepared.transportRef as { quoteId?: string })?.quoteId
     if (quoteId && this.operationMap) {
       this.operationMap.register(quoteId, intent.txId)
     }
 
-    // Incoming: quote/invoice 생성이 곧 제출(submission)이다
+    // Incoming: creating the quote/invoice is itself the submission
     const transfer = transitionPhase(prepared, 'submitted', Date.now())
     await this.transferStore.create(transfer)
 
@@ -292,8 +292,8 @@ export class TransferLifecycleService {
       console.log('[TLS] Early return: no transfer or wrong direction')
       return
     }
-    // 중복 incoming:received 가 정산 완료 transfer 를 재-redeem 시도(→TOKEN_SPENT
-    // →catch 가 failed 강등)하던 경로 차단 (전이 가드 리뷰 이월 ②)
+    // Block the path where a duplicate incoming:received re-redeems an already
+    // settled transfer (→TOKEN_SPENT → catch demotes it to failed).
     if (isTerminal(transfer.phase)) {
       console.log('[TLS] Early return: transfer already terminal:', transfer.phase)
       return
@@ -322,7 +322,6 @@ export class TransferLifecycleService {
       }
     } catch (error) {
       console.error('[TLS] processIncomingTransfer error:', error)
-      // 에러 발생 시 failed 상태로 전환
       const failed = transitionPhase(transfer, 'failed', Date.now())
       await this.transferStore.update(failed.id, failed)
 
@@ -331,17 +330,17 @@ export class TransferLifecycleService {
         payload: { transfer: failed, reason: String(error) },
       })
 
-      throw error // 호출자에게 에러 전파
+      throw error
     }
   }
 
-  /** 외부에서 생성한 PendingTransfer를 store에 등록 */
+  /** Register an externally-created PendingTransfer in the store. */
   async registerTransfer(transfer: PendingTransfer): Promise<void> {
     await this.transferStore.create(transfer)
     this.ensureSweepScheduled()
   }
 
-  /** 사용자가 "받기" 클릭 */
+  /** User clicked "Receive". */
   async claimIncomingTransfer(transferId: string): Promise<void> {
     const transfer = await this.transferStore.get(transferId)
     if (!transfer || transfer.direction !== 'incoming') {
@@ -365,7 +364,7 @@ export class TransferLifecycleService {
     })
   }
 
-  /** SDK 이벤트로 transfer를 완료 상태로 전환 (settled/failed) */
+  /** Move a transfer to a terminal phase (settled/failed) from an SDK event. */
   async resolveTransfer(
     transferId: string,
     phase: 'settled' | 'failed',
@@ -386,7 +385,7 @@ export class TransferLifecycleService {
     return true
   }
 
-  /** operationRef(quoteId/operationId)로 active transfer 찾아서 resolve */
+  /** Find an active transfer by operationRef (quoteId/operationId) and resolve it. */
   async resolveByOperationRef(
     operationRef: string,
     phase: 'settled' | 'failed',
@@ -400,7 +399,7 @@ export class TransferLifecycleService {
     return this.resolveTransfer(transfer.id, phase)
   }
 
-  // ─── 폴링 (주기적 실행) ───
+  // ─── Polling ───
 
   async pollPendingTransfers(): Promise<void> {
     const pending = await this.transferStore.listActive()
@@ -417,19 +416,20 @@ export class TransferLifecycleService {
     }
   }
 
-  /** 폴링/sweep 공용 — 전이 저장 + phase-changed 발행 + 종단 정리 */
+  /** Shared by poll/sweep — persist the transition, emit phase-changed, finalize if terminal. */
   private async applyPhaseTransition(
     transfer: PendingTransfer,
     newPhase: TransferPhase,
   ): Promise<void> {
-    // TOCTOU 봉인 (전이 가드 리뷰 이월 ①): poll/confirm 의 네트워크 await 동안
-    // SDK push 가 store 를 이미 settle 했을 수 있다 — stale 객체로 전이하면
-    // 정산 기록을 덮어쓴다. fresh 재조회로 도메인 가드가 실전 레이스를 본다.
+    // Close the TOCTOU window: during the poll/confirm network await, an SDK push
+    // may have already settled the store — transitioning on the stale object
+    // would overwrite the settlement. Re-fetch fresh so the domain guard sees the
+    // real race.
     const fresh = await this.transferStore.get(transfer.id)
-    if (!fresh) return // remove-mint 경합 등으로 삭제됨 — 없는 row 에 update 를 때리지 않는다
-    if (fresh.phase === newPhase) return // 경합 상대가 이미 같은 전이를 완료
+    if (!fresh) return // deleted by a remove-mint race, etc. — don't update a missing row
+    if (fresh.phase === newPhase) return // a competitor already applied the same transition
     if (fresh.phase === 'settled' && newPhase !== 'settled') {
-      // push 가 먼저 정산 — 우리의 poll 결과는 늦은 소식일 뿐, 버그가 아니다
+      // push settled first — our poll result is just stale news, not a bug
       console.warn(`[TLS] Skipping stale transition settled → ${newPhase} (${fresh.id})`)
       return
     }
@@ -447,7 +447,7 @@ export class TransferLifecycleService {
     }
   }
 
-  // ─── 회수 ───
+  // ─── Reclaim ───
 
   async reclaimTransfer(transferId: string): Promise<void> {
     const transfer = await this.transferStore.get(transferId)
@@ -471,14 +471,14 @@ export class TransferLifecycleService {
     })
   }
 
-  // ─── 복구 (앱 재시작 시) ───
+  // ─── Recovery (on app restart) ───
 
   async recoverTransfers(): Promise<void> {
-    // 1. 'preparing'에 갇힌 transfer 정리 (앱 crash 시)
+    // 1. Clean up transfers stuck in 'preparing' (from an app crash)
     const stuckPreparing = await this.transferStore.listByPhase(['preparing'])
     for (const transfer of stuckPreparing) {
       if (transfer.direction === 'incoming') {
-        // incoming은 quote가 이미 mint에 존재 → submitted로 전이
+        // incoming: the quote already exists at the mint → transition to submitted
         const updated = transitionPhase(transfer, 'submitted', Date.now())
         await this.transferStore.update(updated.id, updated)
         this.eventBus.emit({
@@ -486,7 +486,7 @@ export class TransferLifecycleService {
           payload: { transfer: updated, previousPhase: 'preparing' },
         })
       } else {
-        // outgoing: execute 중 crash → 실행 여부를 알 수 없으므로 failed
+        // outgoing: crashed mid-execute → unknown whether it ran, so mark failed
         const failed = transitionPhase(transfer, 'failed', Date.now())
         await this.transferStore.update(failed.id, failed)
         this.eventBus.emit({
@@ -496,7 +496,7 @@ export class TransferLifecycleService {
       }
     }
 
-    // 2. active transfer들은 needs-polling 이벤트 발행
+    // 2. Emit needs-polling for active transfers
     const active = await this.transferStore.listActive()
     for (const transfer of active) {
       this.eventBus.emit({
@@ -511,8 +511,6 @@ export class TransferLifecycleService {
   private findOperator(transfer: PendingTransfer): TransferOperator | undefined {
     const ref = transfer.transportRef as { type?: string; protocol?: string }
     const key = ref.protocol || ref.type?.split('-')[0]
-    //console.log('[TLS] findOperator: type=', ref.type, 'protocol=', ref.protocol, 'key=', key)
-    //console.log('[TLS] Available operators:', Array.from(this.operators.keys()))
     return key ? this.operators.get(key) : undefined
   }
 

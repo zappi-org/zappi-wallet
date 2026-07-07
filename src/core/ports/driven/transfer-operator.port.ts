@@ -32,21 +32,23 @@ export interface TransferOperator {
   claimReceive?(transfer: PendingTransfer): Promise<PendingTransfer>
 
   /**
-   * 레거시 일괄 폴링용 (ks.tls-sweep ON 구경로) — 전송타입에 따라 원격 왕복을
-   * 포함할 수 있다. 신경로(120s stuck-sweep)는 pollLocal/confirmStuck을 쓴다.
+   * Legacy batch polling (old path with ks.tls-sweep ON) — may include a remote
+   * round-trip depending on transfer type. The new path (120s stuck-sweep) uses
+   * pollLocal/confirmStuck.
    */
   poll(transfer: PendingTransfer): Promise<TransferPhase>
 
   /**
-   * sweep 1차 판정 (설계 §7.2) — **네트워크 0 계약**: 만료·로컬 op 상태만으로
-   * 즉시 판정 가능한 전이를 돌려준다. 변화 없으면 현재 phase 그대로.
+   * First-pass sweep decision — **zero-network contract**: returns transitions
+   * decidable immediately from expiry / local op state alone. Returns the current
+   * phase unchanged if nothing changed.
    */
   pollLocal?(transfer: PendingTransfer): Promise<TransferPhase>
 
   /**
-   * stuck 확정 시 원격 확인 1회 (설계 §7.3 매트릭스). null = 이 전송타입에는
-   * 원격 확인 개념이 없음(예: 수동 수령 대기 ecash) — sweep은 stuck으로
-   * 계수하지 않는다(§12 게이트 오염 방지).
+   * One remote check once stuck is confirmed. null = this transfer type has no
+   * remote-check concept (e.g. ecash awaiting manual receipt) — sweep must not count
+   * it as stuck (avoids polluting the gate).
    */
   confirmStuck?(transfer: PendingTransfer): Promise<TransferPhase | null>
 

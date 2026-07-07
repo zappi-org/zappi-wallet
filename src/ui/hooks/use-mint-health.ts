@@ -14,9 +14,9 @@ interface EnsureOnlineMintResult {
   wasPreferred: boolean
 }
 
-// 폴백으로 갈아탄 민트를 세션 내 선호로 고착 — 다음 ensureOnlineMint가 죽은 민트를
-// 다시 먼저 두드리지 않게 한다. 렌더에 쓰이지 않는 상태라 스토어가 아닌 모듈 변수
-// (구 store.activeMintUrl 유령 상태의 실기능만 승계 — 감사 Phase 3 유령 상태 제거).
+// Pin the mint we failed over to as session-preferred, so the next ensureOnlineMint
+// doesn't probe the dead mint first. Not render state, so a module variable rather
+// than the store.
 let stickyFallbackMint: string | null = null
 
 /**
@@ -40,9 +40,9 @@ export function useMintHealth() {
   const checkAllMints = useCallback(async (): Promise<MintHealthStatus[]> => {
     if (mintUrls.length === 0) return []
 
-    // metadata 체인 호출 제거 (설계 §5): health probe가 성공 응답을 metadata에
-    // 역주입하므로(MintInfoService.ingest) 별도 refreshIfMissing은 같은 endpoint의
-    // 이중 타격이었다.
+    // No metadata chain call: the health probe back-injects successful responses into
+    // metadata (MintInfoService.ingest), so a separate refreshIfMissing would be a
+    // double hit on the same endpoint.
     return mintHealth.checkAllMints(mintUrls)
   }, [mintUrls, mintHealth])
 
@@ -86,8 +86,8 @@ export function useMintHealth() {
     [mintUrls, addToast, t, mintHealth]
   )
 
-  // 재연결 refresh effect 제거 (설계 §5): 훅 인스턴스(3곳 마운트)마다 리스너가
-  // 중복 등록되던 것을 bootstrap activate의 단일 'online' 리스너가 대체했다.
+  // No reconnect refresh effect: it duplicated a listener per hook instance (mounted
+  // in 3 places); bootstrap activate's single 'online' listener replaced it.
 
   const getCachedStatus = useCallback(
     (mintUrl: string) => mintHealth.getCached(mintUrl),

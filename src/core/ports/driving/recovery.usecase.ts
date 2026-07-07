@@ -38,7 +38,7 @@ export interface RecoveryUseCase {
     opts?: { fullReplay?: boolean; sinceSecOverride?: number },
   ): Promise<SyncResult>
 
-  /** 수동 전체 재동기화 — 재설치급 full replay (설계 §10 B5). deep-resync 창도 리셋 */
+  /** Manual full resync — reinstall-grade full replay; also resets the deep-resync window */
   resyncFull(params: {
     privateKey: string
     publicKey: string

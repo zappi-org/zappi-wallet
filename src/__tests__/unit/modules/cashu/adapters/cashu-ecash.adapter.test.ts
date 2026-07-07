@@ -154,7 +154,7 @@ describe('CashuEcashAdapter', () => {
       })
 
       await adapter.executeSend('send-op-1')
-      // 두 번째 호출은 memo가 없어야 함
+      // the second call must have no memo
       await adapter.executeSend('send-op-1')
 
       expect(backend.executeSend).toHaveBeenLastCalledWith('send-op-1', { memo: undefined })
@@ -201,7 +201,7 @@ describe('CashuEcashAdapter', () => {
       // net amount = gross(500) - fee(2) = 498
       expect(toNumber(result.amount)).toBe(498)
       expect(result.amount.unit).toBe('sat')
-      // fee는 별도 필드로 노출
+      // fee is exposed as a separate field
       expect(result.fee).toBeDefined()
       expect(toNumber(result.fee!)).toBe(2)
       expect(result.method).toBe('cashu:ecash')
@@ -222,7 +222,7 @@ describe('CashuEcashAdapter', () => {
     })
   })
 
-  // ─── stuck-sweep 매트릭스 (설계 §7.2/§7.3) ───
+  // ─── stuck-sweep matrix ───
 
   describe('pollLocal / confirmStuck', () => {
     function makeSend(overrides: Partial<Parameters<typeof createPendingTransfer>[0]> = {}) {
@@ -257,7 +257,7 @@ describe('CashuEcashAdapter', () => {
       expect(backend.checkProofStates).not.toHaveBeenCalled()
     })
 
-    it('pollLocal(send): rolled_back → recoverable, 미종결 상태는 phase 유지', async () => {
+    it('pollLocal(send): rolled_back → recoverable, non-terminal state keeps its phase', async () => {
       vi.mocked(backend.getSendOperationState).mockResolvedValueOnce('rolled_back')
       await expect(adapter.pollLocal(makeSend())).resolves.toBe('recoverable')
 
@@ -266,22 +266,22 @@ describe('CashuEcashAdapter', () => {
       await expect(adapter.pollLocal(t)).resolves.toBe(t.phase)
     })
 
-    it('pollLocal(send): 만료를 로컬에서 확정하지 않는다 — confirm이 allSpent 먼저 판정 (리뷰 #2)', async () => {
+    it('pollLocal(send): does not finalize expiry locally — confirm checks allSpent first (review #2)', async () => {
       vi.mocked(backend.getSendOperationState).mockResolvedValueOnce('pending')
       const expired = makeSend({ expiresAt: Date.now() - 1_000 })
 
       await expect(adapter.pollLocal(expired)).resolves.toBe(expired.phase)
 
-      // confirm 경로: 이미 상환됐으면 settled가 만료보다 우선
+      // confirm path: if already redeemed, settled takes priority over expiry
       vi.mocked(backend.checkProofStates).mockResolvedValueOnce({ allSpent: true, allPending: false, states: [] })
       await expect(adapter.confirmStuck(expired)).resolves.toBe('settled')
 
-      // 미상환 + 만료 → recoverable (reclaim UI 노출)
+      // unredeemed + expired → recoverable (shows reclaim UI)
       vi.mocked(backend.checkProofStates).mockResolvedValueOnce({ allSpent: false, allPending: false, states: [] })
       await expect(adapter.confirmStuck(expired)).resolves.toBe('recoverable')
     })
 
-    it('pollLocal(incoming 수동 수령 대기): 만료만 판정, 원격 없음', async () => {
+    it('pollLocal(incoming awaiting manual receive): checks expiry only, no remote', async () => {
       await expect(adapter.pollLocal(makeIncoming(Date.now() - 1))).resolves.toBe('failed')
 
       const alive = makeIncoming(Date.now() + 60_000)
@@ -290,20 +290,20 @@ describe('CashuEcashAdapter', () => {
       expect(backend.checkProofStates).not.toHaveBeenCalled()
     })
 
-    it('confirmStuck(send): checkProofsStates 격리 호출 — allSpent → settled (§5.4 예외 4)', async () => {
+    it('confirmStuck(send): isolated checkProofsStates call — allSpent → settled (§5.4 exception 4)', async () => {
       vi.mocked(backend.checkProofStates).mockResolvedValueOnce({ allSpent: true, allPending: false, states: [] })
 
       await expect(adapter.confirmStuck(makeSend())).resolves.toBe('settled')
       expect(backend.checkProofStates).toHaveBeenCalledWith('cashuBtoken')
     })
 
-    it('confirmStuck(incoming): null — 원격 확인 개념 없음, 어떤 backend 호출도 없다', async () => {
+    it('confirmStuck(incoming): null — no remote-confirm concept, no backend call at all', async () => {
       await expect(adapter.confirmStuck(makeIncoming(Date.now() + 60_000))).resolves.toBeNull()
       expect(backend.checkProofStates).not.toHaveBeenCalled()
       expect(backend.getSendOperationState).not.toHaveBeenCalled()
     })
 
-    it('confirmStuck(send, 토큰 없음): null — 확인 수단이 없다', async () => {
+    it('confirmStuck(send, no token): null — no means to confirm', async () => {
       const noToken = makeSend({ transportRef: { operationId: 'send-op-1' } })
       await expect(adapter.confirmStuck(noToken)).resolves.toBeNull()
     })

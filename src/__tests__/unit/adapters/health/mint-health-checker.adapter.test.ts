@@ -36,8 +36,8 @@ describe('MintHealthCheckerAdapter', () => {
   })
 
   /**
-   * 설계 §6.4 — 기존 결함: 30초 캐시만 있고 single-flight가 없어,
-   * Home mount + reconnect + pull-refresh가 겹치면 같은 민트에 fetch가 중복됐다.
+   * Previously only a 30s cache existed (no single-flight), so overlapping
+   * Home mount + reconnect + pull-refresh caused duplicate fetches to the same mint.
    */
   it('shares one in-flight fetch across concurrent checks of the same mint', async () => {
     let resolveFetch!: (v: { ok: boolean }) => void

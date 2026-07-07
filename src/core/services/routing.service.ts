@@ -11,14 +11,14 @@ import {
 
 export class RoutingService implements RoutingUseCase {
   /**
-   * 견적 캐시 (설계 §8.4 FeeEstimationService): 키 (route, source, target,
-   * amount[, invoice]) TTL 60s + in-flight 공유. my-wallet/크로스민트 견적은
-   * 타겟 민트에 실제 quote를 만들고 지우는 4왕복이라, SendFlow→ConfirmStep
-   * 재진입·같은 금액 재시도의 중복 왕복을 흡수한다.
-   * 정직한 범위 [N4][N10]: 키에 amount가 포함되므로 금액을 바꿔가며 편집하면
-   * 매번 원 왕복이 유지된다 — 확실한 이득은 동일 조합 재진입뿐.
-   * 실패 쿨다운 5s: 견적 실패 직후의 즉시 재시도 폭주만 막고, 사용자 재시도는
-   * 빠르게 허용한다.
+   * Fee estimate cache: key (route, source, target, amount[, invoice]), TTL 60s +
+   * in-flight sharing. my-wallet/cross-mint estimates are a 4-round-trip that creates
+   * and deletes a real quote on the target mint, so this absorbs the duplicate
+   * round-trips from SendFlow→ConfirmStep re-entry and same-amount retries.
+   * Honest scope: since amount is part of the key, editing the amount keeps a fresh
+   * round-trip each time — the guaranteed win is only re-entry with the same combination.
+   * Failure cooldown 5s: blocks only the immediate retry storm right after an estimate
+   * failure, while still allowing quick user retries.
    */
   private readonly estimateGate = new RequestGate({ cooldownMs: 60_000, failureCooldownMs: 5_000 })
 
@@ -39,7 +39,7 @@ export class RoutingService implements RoutingUseCase {
     targetMint?: string,
     invoice?: string,
   ): Promise<FeeEstimate> {
-    // invoice는 결제 단위 식별자 — 같은 인보이스의 재견적만 캐시를 공유한다
+    // invoice is the payment-unit identifier — only re-estimates of the same invoice share the cache
     const key = `route:${route}:${sourceMint}:${targetMint ?? ''}:${amount}:${invoice ?? ''}`
     const { value } = await this.estimateGate.run(key, () =>
       this.feeEstimator.estimateRouteFee(route, sourceMint, amount, targetMint, invoice),

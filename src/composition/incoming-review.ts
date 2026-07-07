@@ -7,7 +7,7 @@ import type { POSDevice } from '@/core/types/wallet'
 export interface ResolveIncomingReviewDeps {
   processedStore: Pick<ProcessedStore, 'save'>
   receiveRequest: Pick<ReceiveRequestUseCase, 'findByRequestId' | 'complete'>
-  /** durable 큐 제거 경로 (설계 §6.2) — Zustand 미러는 큐 어댑터가 동기화 */
+  /** Durable-queue removal path; the queue adapter keeps the Zustand mirror in sync */
   removeIncomingReview: (externalId: string) => void | Promise<void>
   nostrGateway?: Pick<NostrGateway, 'getRelayStatus' | 'sendPrivateDirectMessage'>
   posDevices?: POSDevice[] | undefined

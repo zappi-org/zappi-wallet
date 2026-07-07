@@ -1,11 +1,11 @@
 /**
- * Bootstrap 조각 3 — Cashu 모듈 조립 (bootstrap.ts 순수 이동)
+ * Cashu module assembly (extracted from bootstrap.ts).
  */
 
-// ─── Store (composition root만 접근) ───
+// ─── Store (composition root only) ───
 import { useAppStore } from "@/store";
 
-// ─── Modules (bootstrap만 import 허용) ───
+// ─── Modules (bootstrap-only import) ───
 import { CashuModule } from "@/modules/cashu/cashu.module";
 import { createCashuBackend } from "@/modules/cashu/create-cashu-backend";
 
@@ -25,7 +25,7 @@ export function assembleCashuModule(deps: {
 }) {
   const { pendingOpRepo, txRepo, nostrGateway, eventBus } = deps;
 
-  // (initialize()는 caller가 seed로 호출)
+  // (caller invokes initialize() with the seed)
   const offlineTokenStore = new DexieOfflineTokenStore();
   const cashuBackend = createCashuBackend({
     pendingOpRepo,

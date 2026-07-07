@@ -9,7 +9,7 @@ interface WalletCategoryPageProps {
   onRelayManagement?: () => void
   onOpenCurrentWalletRecovery: () => void
   onOpenExternalMnemonicRecovery: () => void
-  /** 릴레이 전체 재동기화 (재설치급 full replay — 설계 §10 B5) */
+  /** Full relay re-sync (reinstall-grade full replay). */
   onFullResync?: () => void
   onOpenBackup: () => void
 }

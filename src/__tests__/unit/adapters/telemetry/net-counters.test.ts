@@ -11,7 +11,7 @@ import { getDatabase, resetDatabase } from '@/adapters/storage/dexie/schema'
 describe('net-counters', () => {
   beforeEach(async () => {
     await resetDatabase()
-    // 이전 테스트의 미flush 델타 제거
+    // Clear unflushed deltas from a previous test
     await flushNetCounters()
     await resetDatabase()
   })
@@ -53,8 +53,8 @@ describe('net-counters', () => {
     expect(counters.tls_stuck_detected).toBe(0)
   })
 
-  // fake timers는 fake-indexeddb의 내부 비동기까지 얼려 Dexie flush가 완료되지 않는다
-  // — 실타이머 + 짧은 주기로 검증한다.
+  // Fake timers freeze fake-indexeddb's internal async too, so the Dexie flush
+  // never completes — verify with real timers + a short interval.
   it('startNetCounterFlusher flushes on interval and on stop', async () => {
     const stop = startNetCounterFlusher(50)
 

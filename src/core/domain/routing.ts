@@ -87,8 +87,8 @@ export interface RouteExecutionResult {
 // ─── Pure Functions ───
 
 /**
- * URI + sender context → 최적 결제 라우트 선택
- * Side effect 없음. 단위 테스트 100% 가능.
+ * Selects the optimal payment route from a URI + sender context.
+ * No side effects — fully unit-testable.
  */
 export function selectRoute(input: RouteInput): PaymentRoute {
   const { validatedData, senderMints, privacyMode, lightningInvoice } = input
@@ -137,7 +137,7 @@ export function selectRoute(input: RouteInput): PaymentRoute {
 }
 
 /**
- * 라우트에 따라 최적 source mint 선택.
+ * Selects the optimal source mint for a route.
  * Best-fit: smallest balance >= amount
  */
 export function selectSourceMint(
@@ -160,9 +160,10 @@ export function selectSourceMint(
  * sender mints ∩ receiver mints
  */
 export function findCommonMints(senderMints: string[], receiverMints: string[]): string[] {
-  // 비교는 도메인 canonical(mintUrlKey) — :443·대소문자·프로토콜 생략 변형이 같은
-  // 민트를 "공통 없음"으로 판정해 고수수료 라우트로 열화하는 것을 막는다 (Phase 2).
-  // 반환은 sender 측 원문 — bestFitMint 의 raw byMint 조회와 정합 유지.
+  // Compare via the domain canonical (mintUrlKey) so that :443 / case / omitted-protocol
+  // variants of the same mint aren't judged "no common mint" and downgraded to a
+  // high-fee route. Return the sender-side originals to stay consistent with
+  // bestFitMint's raw byMint lookup.
   const receiverSet = new Set(receiverMints.map(mintUrlKey))
   return senderMints.filter((m) => receiverSet.has(mintUrlKey(m)))
 }

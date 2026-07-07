@@ -1,11 +1,11 @@
 /**
- * DexieIncomingReviewQueue — 미신뢰 민트 review 영속 대기열 (설계 §6.2 / 리뷰 #3)
+ * DexieIncomingReviewQueue — durable review queue for untrusted-mint payments.
  *
- * 핵심 불변식:
- * - enqueue는 durable(put) 완료 후 notify — Zustand는 미러일 뿐
- * - externalId PK로 재-enqueue 멱등 (crash-replay 시나리오의 전제)
- * - bigint amount가 문자열 왕복 후에도 보존된다 (IDB structured clone 편차 회피)
- * - listByMint는 trailing slash 변형을 흡수한다
+ * Key invariants:
+ * - enqueue notifies only after the durable put completes — Zustand is just a mirror
+ * - re-enqueue is idempotent on the externalId PK (crash-replay premise)
+ * - bigint amount survives the string round-trip (avoids IDB structured-clone drift)
+ * - listByMint absorbs trailing-slash variants
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { DexieIncomingReviewQueue } from '@/adapters/storage/dexie/dexie-incoming-review-queue.store'
@@ -113,7 +113,7 @@ describe('DexieIncomingReviewQueue', () => {
     const matched = await queue.listByMint('https://mint.test')
     expect(matched.map((r) => r.externalId)).toEqual(['variant'])
 
-    // 경로 대소문자는 구분 자원 — 별개 민트로 남는다
+    // path case is significant — stays a distinct mint
     const pathMatched = await queue.listByMint('https://mint.test/api')
     expect(pathMatched).toEqual([])
   })

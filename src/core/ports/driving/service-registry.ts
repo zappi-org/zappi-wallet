@@ -1,9 +1,9 @@
 /**
- * ServiceRegistry — driving port 인터페이스 집합
+ * ServiceRegistry — the set of driving-port interfaces.
  *
- * hooks/service-context.tsx를 통해 UI에 제공.
- * driven port 없음. optional method 없음.
- * hooks는 이 인터페이스만으로 모든 기능에 접근.
+ * Provided to the UI via hooks/service-context.tsx.
+ * No driven ports. No optional methods.
+ * Hooks reach every feature through this interface alone.
  */
 
 import type { EventBus } from '@/core/events/event-bus'
@@ -49,17 +49,17 @@ export interface ServiceRegistry {
   readonly addressResolver: AddressResolverUseCase
   readonly profile: ProfileUseCase
   readonly recovery: RecoveryUseCase
-  /** recoverAll 행동 분해 — reconcile/targeted/drain/full (설계 §6.2) */
+  /** recoverAll broken into behaviors — reconcile/targeted/drain/full */
   readonly recoveryScheduler: RecoverySchedulerUseCase
   readonly incomingPayment: IncomingPaymentUseCase
   readonly processedStore: ProcessedStore
-  /** review 승인/거절/drain의 durable 제거 경로 — Zustand 미러는 어댑터가 동기화 (설계 §6.2) */
+  /** Durable removal path for review approve/reject/drain — the adapter syncs the Zustand mirror */
   readonly incomingReviewQueue: IncomingReviewQueue
   readonly nostrGateway: NostrGateway
   readonly pendingItems: PendingItemsUseCase
   readonly mintMetadata: MintMetadataUseCase
   readonly mintHealth: MintHealthUseCase
-  /** 상세 화면용 raw NUT-06 info — 24h 캐시 우선, fresh=probe (설계 §5) */
+  /** Raw NUT-06 info for detail screens — 24h cache first, fresh=probe */
   readonly mintInfo: MintInfoUseCase
   readonly crypto: CryptoUseCase
   readonly receiveRequest: ReceiveRequestUseCase
@@ -73,7 +73,7 @@ export interface ServiceRegistry {
   readonly support: SupportUseCase
   readonly nostrDirectPayment: NostrDirectPaymentUseCase
   readonly externalWalletRecovery: ExternalWalletRecoveryUseCase
-  /** 진단 카운터 읽기 — DiagnosticsPage 전용 (설계 §12) */
+  /** Diagnostics counter reads — DiagnosticsPage only */
   readonly diagnostics: DiagnosticsUseCase
   readonly transferLifecycle: TransferLifecycleService
 }

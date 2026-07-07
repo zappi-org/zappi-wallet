@@ -1,14 +1,14 @@
 /**
- * EncryptionAdapter — crypto.subtle 래핑 (AES-256-GCM + PBKDF2)
+ * EncryptionAdapter — crypto.subtle wrapper (AES-256-GCM + PBKDF2).
  *
- * 브라우저 네이티브 Web Crypto API. 번들 크기 추가 0.
+ * Browser-native Web Crypto API. Zero added bundle size.
  */
 
 import type { Encryption, EncryptedData } from '@/core/ports/driven/encryption.port'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 
-// 반복수 상수는 이 어댑터가 소유하지 않는다 — 정책은 서비스 층(KDF_ITERATIONS)이
-// 결정하고 이 실행자는 인자로 받은 iterations 를 그대로 적용한다 (docs/design/kdf-upgrade.md §5.2).
+// This adapter does not own the iteration count — policy is decided by the service
+// layer (KDF_ITERATIONS) and this executor applies the iterations it is passed as-is.
 
 export class EncryptionAdapter implements Encryption {
   async encrypt(data: string, password: string, iterations: number): Promise<EncryptedData> {
@@ -60,8 +60,8 @@ export class EncryptionAdapter implements Encryption {
     const bits = await crypto.subtle.deriveBits(
       {
         name: 'PBKDF2',
-        // v1 의미 동결 (§1.3): salt hex 문자열을 그대로 TextEncoder 로 인코딩한다.
-        // 이 인코딩을 바꾸면 기존 레코드 검증이 깨진다 — 반복수만 인자화한다.
+        // v1 semantics frozen: encode the salt hex string directly via TextEncoder.
+        // Changing this encoding breaks verification of existing records — only iterations are parameterized.
         salt: encoder.encode(salt),
         iterations,
         hash: 'SHA-256',
@@ -99,9 +99,9 @@ export class EncryptionAdapter implements Encryption {
 
 // ─── Helpers ───
 
-// hex 변환은 @noble/hashes 로 통일 (Phase 3) — 구 로컬 hexToBytes 는 malformed
-// 입력에 무음으로 쓰레기를 만들었지만 noble 은 throw 한다. 이 어댑터의 hex 입력은
-// 전부 자기-생성 왕복(salt/iv)이라 유효 보장 — fail-loud 가 순수 이득.
+// hex conversion is unified on @noble/hashes — the old local hexToBytes silently produced
+// garbage on malformed input, but noble throws. This adapter's hex inputs are all
+// self-generated round-trips (salt/iv), so validity is guaranteed — fail-loud is pure win.
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer)

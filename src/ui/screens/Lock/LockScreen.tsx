@@ -166,9 +166,9 @@ export function LockScreen({
         }
       }
     } catch {
-      // password 를 비워야 한다 — 남겨두면 자동 제출 effect(password.length>=6)가
-      // 같은 PIN 으로 무한 재제출 루프에 빠진다 (인프라 실패가 throw 로 살아나며
-      // 노출된 잠복 경로 — LockScreen.lockout.test 가 커밋 전 검출)
+      // Must clear the password — leaving it lets the auto-submit effect
+      // (password.length>=6) re-submit the same PIN in an infinite loop when an
+      // infra failure surfaces as a throw.
       setPassword("");
       setError(t('lock.errorOccurred'));
     } finally {

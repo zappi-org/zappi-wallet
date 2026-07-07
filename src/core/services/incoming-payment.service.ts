@@ -1,8 +1,9 @@
 /**
- * IncomingPaymentService — 프로토콜 무관 수신 결제 처리
+ * IncomingPaymentService — protocol-agnostic incoming payment processing.
  *
- * 호출자(hook, adapter)가 payload/externalId를 결정하고,
- * 이 서비스는 redeem + 연결된 receive request 정산 + 멱등성 기록 + crash recovery + 실패 큐를 담당.
+ * The caller (hook, adapter) decides payload/externalId; this service handles
+ * redeem + settling the linked receive request + idempotency record + crash
+ * recovery + failure queue.
  */
 
 import type {
@@ -53,8 +54,9 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
       })
 
       if (!redeemResult.ok) {
-        // 도메인 에러를 그대로 전파 — 메시지만 뽑아 재포장하면 code가 소실되어
-        // catch의 already-spent 판정과 translateError 매핑이 문자열 의존이 된다
+        // Propagate the domain error as-is — re-wrapping with just the message loses
+        // the code, making the catch's already-spent check and translateError mapping
+        // depend on string matching.
         throw redeemResult.error
       }
 

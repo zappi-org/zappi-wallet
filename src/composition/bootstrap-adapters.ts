@@ -1,10 +1,11 @@
 /**
- * Bootstrap 조각 4 — 비모듈 경계 어댑터 조립 (bootstrap.ts 순수 이동)
+ * Non-module boundary adapter assembly (extracted from bootstrap.ts).
  *
- * LNURL/NIP-05 리졸버, Nostr 결제 트랜스포트, 외부 니모닉 복구/발견 어댑터.
+ * LNURL/NIP-05 resolvers, Nostr payment transport, external mnemonic
+ * recovery/discovery adapters.
  */
 
-// ─── Store (composition root만 접근) ───
+// ─── Store (composition root only) ───
 import { useAppStore } from "@/store";
 
 import { DirectLnurlAdapter } from "@/adapters/lnurl/direct-lnurl.adapter";
@@ -13,7 +14,7 @@ import { NostrPaymentTransport } from "@/adapters/nostr/nostr-payment-transport"
 import { NostrExternalMnemonicMintDiscoveryAdapter } from "@/adapters/nostr/external-mnemonic-mint-discovery.adapter";
 import { KeyManagerAdapter } from "@/adapters/crypto/key-manager.adapter";
 
-// ─── Coco (composition root만 접근) ───
+// ─── Coco (composition root only) ───
 import {
   createExternalMnemonicRecovery,
   decodeTokenForPaymentPayload,

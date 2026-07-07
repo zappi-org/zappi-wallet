@@ -1,11 +1,11 @@
 /**
- * MintInfoService — /v1/info 단일 소유자 (설계 §5)
+ * MintInfoService — sole owner of /v1/info.
  *
- * 핵심 불변식:
- * - probe 성공 응답은 metadata에 역주입된다(이중 타격 제거)
- * - probe는 reject하지 않는다(실패도 상태 객체)
- * - 30초 미러 캐시 + 동시 probe in-flight 공유
- * - getInfo는 24h 캐시(rawInfo) 우선 — 캐시 히트 시 네트워크 0
+ * Core invariants:
+ * - a successful probe response is back-injected into metadata (removes the double hit)
+ * - probe never rejects (failure is also a status object)
+ * - 30s mirror cache + concurrent probe in-flight sharing
+ * - getInfo prefers the 24h cache (rawInfo) — zero network on a cache hit
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { MintInfoService } from '@/modules/cashu/mint-info.service'
@@ -47,7 +47,7 @@ describe('MintInfoService', () => {
   })
 
   describe('checkMint (health probe)', () => {
-    it('reports online and INGESTS the response into metadata (역주입)', async () => {
+    it('reports online and INGESTS the response into metadata (back-injection)', async () => {
       const info = { name: 'Test Mint', pubkey: 'pk' }
       fetchMock.mockResolvedValue({ ok: true, json: async () => info })
 
@@ -88,7 +88,7 @@ describe('MintInfoService', () => {
       expect(second.checkMethod).toBe('cached')
     })
 
-    it('shares one in-flight probe across concurrent checks (설계 §6.4)', async () => {
+    it('shares one in-flight probe across concurrent checks (design §6.4)', async () => {
       let resolveFetch!: (v: { ok: boolean; json: () => Promise<unknown> }) => void
       fetchMock.mockImplementation(() => new Promise((resolve) => { resolveFetch = resolve }))
 
@@ -109,7 +109,7 @@ describe('MintInfoService', () => {
     })
   })
 
-  describe('getInfo (상세 화면)', () => {
+  describe('getInfo (detail screen)', () => {
     it('returns rawInfo from the 24h cache without any network', async () => {
       const raw = { name: 'Cached Mint', nuts: {} }
       metadata.getMetadata.mockResolvedValue({
@@ -138,7 +138,7 @@ describe('MintInfoService', () => {
       expect(info).toEqual({ name: 'Refreshed' })
     })
 
-    it('fresh=true probes immediately and returns the live response (신뢰 추가 검증)', async () => {
+    it('fresh=true probes immediately and returns the live response (extra trust verification)', async () => {
       const live = { name: 'Live Mint', pubkey: 'pk' }
       fetchMock.mockResolvedValue({ ok: true, json: async () => live })
 
@@ -157,7 +157,7 @@ describe('MintInfoService', () => {
     })
   })
 
-  describe('cross-branch in-flight ([N8] — 구현 리뷰 #1)', () => {
+  describe('cross-branch in-flight ([N8] — implementation review #1)', () => {
     it('registers a probe joiner on the metadata service at construction', () => {
       expect(metadata.setProbeJoiner).toHaveBeenCalledWith(expect.any(Function))
     })
@@ -167,10 +167,10 @@ describe('MintInfoService', () => {
         url: string,
       ) => Promise<unknown> | null
 
-      // probe 없음 → null (분기 A가 직접 fetch)
+      // no probe → null (branch A fetches directly)
       expect(joiner(MINT)).toBeNull()
 
-      // probe 진행 중 → 합류 Promise 반환, 완료(ingest 후) 시 캐시 레코드
+      // probe in progress → returns a joining Promise; on completion (after ingest), the cache record
       let resolveFetch!: (v: { ok: boolean; json: () => Promise<unknown> }) => void
       fetchMock.mockImplementation(() => new Promise((resolve) => { resolveFetch = resolve }))
       const ingested = { url: MINT, fetchedAt: Date.now(), rawInfo: { name: 'M' } }
@@ -184,11 +184,11 @@ describe('MintInfoService', () => {
       await probePromise
 
       await expect(joined).resolves.toBe(ingested)
-      // 왕복은 probe 1회뿐
+      // only one round-trip, the probe
       expect(fetchMock).toHaveBeenCalledTimes(1)
     })
 
-    it('joining a FAILED probe yields null (분기 A 실패 시맨틱과 동일)', async () => {
+    it('joining a FAILED probe yields null (same as branch A failure semantics)', async () => {
       const joiner = metadata.setProbeJoiner.mock.calls[0][0] as (
         url: string,
       ) => Promise<unknown> | null

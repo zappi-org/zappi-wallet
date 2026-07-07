@@ -1,11 +1,12 @@
 /**
- * activate() 배선 pin (설계 §10 B3 — 6단계 리뷰 #1 blocker 재발 방지)
+ * Pins the activate() wiring.
  *
- * 레거시 경로는 fetchGiftWraps/sendDM 내부의 connect(params.relays) 부수효과가
- * 연결을 암묵 확립했지만, 컨트롤러 경로는 그 라인에 도달하지 않는다 — unlock
- * (activate)이 persistent 집합(DEFAULT_RELAYS + settings.relays)을 **명시**
- * 확립해야 라이브 구독 attach·발행·수신자 resolve가 성립한다. 이 배선이
- * 사라지면 944개 단위 테스트가 전부 통과한 채 지갑의 실시간 수신이 죽는다.
+ * The legacy path implicitly established the connection via the connect(params.relays)
+ * side effect inside fetchGiftWraps/sendDM, but the controller path never reaches that
+ * line — unlock (activate) must explicitly establish the persistent set
+ * (DEFAULT_RELAYS + settings.relays) for live subscription attach, publish, and
+ * recipient resolution to work. If this wiring disappears, all 944 unit tests still
+ * pass while the wallet's real-time receiving dies.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { DEFAULT_RELAYS } from '@/core/constants'
@@ -70,7 +71,7 @@ vi.mock('@/modules/cashu/cashu.module', () => ({
 import { createBootstrap } from '@/composition/bootstrap'
 import { useAppStore } from '@/store'
 
-describe('bootstrap activate — persistent relay 확립 배선 pin', () => {
+describe('bootstrap activate — pins the persistent-relay establishment wiring', () => {
   beforeEach(() => {
     gatewayInstances.length = 0
   })

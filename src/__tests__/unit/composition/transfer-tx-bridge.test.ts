@@ -115,13 +115,13 @@ describe("TransferTxBridge - incoming ecash fee", () => {
       phase: "settled",
       finality: "deferred",
       onExpiry: "expire",
-      amount: 5002, // gross amount (proof 총액)
+      amount: 5002, // gross amount (proof total)
       transportRef: {
         type: "nostr-giftwrap",
         protocol: "ecash",
         token: "cashuAeyJ0b2tlbiI6...",
         fee: 2,
-        receivedAmount: 5000, // net 수령액
+        receivedAmount: 5000, // net received amount
         mintUrl: "https://mint.test",
       },
       createdAt: Date.now(),
@@ -154,7 +154,7 @@ describe("TransferTxBridge - incoming ecash fee", () => {
 
     expect(savedTx.direction).toBe("receive");
     expect(savedTx.status).toBe("settled");
-    // 거래내역 금액은 gross(토큰 액면가)로 저장, 수수료는 별도로 표시
+    // history stores gross (token face value); fee is shown separately
     expect(savedTx.amount).toEqual({ value: 5002n, unit: "sat" });
     expect(savedTx.fee).toEqual({
       quoted: { value: 0n, unit: "sat" },
@@ -212,13 +212,13 @@ describe("TransferTxBridge - incoming ecash fee", () => {
 });
 
 /**
- * refresh 발화 계약 (감사 잔여 Phase 0, 리뷰 MAJOR-16 보강)
+ * refresh-emission contract
  *
- * 이 브리지가 거래내역 DB 를 바꾸고도 triggerTxRefresh 를 쏘지 않으면
- * UI 는 다음 수동 새로고침까지 돈의 상태 변화를 보여주지 못한다.
- * 각 생명주기 이벤트가 "DB 반영 후 refresh 발화"를 지키는지 핀한다.
+ * If this bridge mutates the tx-history DB without firing triggerTxRefresh, the
+ * UI can't reflect money-state changes until the next manual refresh. Pins that
+ * each lifecycle event fires refresh after the DB write.
  */
-describe("TransferTxBridge - refresh 발화 계약", () => {
+describe("TransferTxBridge - refresh emission contract", () => {
   function makeBridge(opts: {
     event: string;
     transfer: Record<string, unknown>;
@@ -259,7 +259,7 @@ describe("TransferTxBridge - refresh 발화 계약", () => {
     updatedAt: Date.now(),
   };
 
-  it("transfer:submitted → pending TX 저장 후 refresh 발화", async () => {
+  it("transfer:submitted → fires refresh after saving pending TX", async () => {
     const { triggerTxRefresh, mockTxRepo } = makeBridge({
       event: "transfer:submitted",
       transfer: baseTransfer,
@@ -270,7 +270,7 @@ describe("TransferTxBridge - refresh 발화 계약", () => {
     expect(triggerTxRefresh).toHaveBeenCalledOnce();
   });
 
-  it("transfer:submitted 중복(기존 TX 존재) → 저장·refresh 모두 없음", async () => {
+  it("transfer:submitted duplicate (existing TX) → no save and no refresh", async () => {
     const { triggerTxRefresh, mockTxRepo } = makeBridge({
       event: "transfer:submitted",
       transfer: baseTransfer,
@@ -282,7 +282,7 @@ describe("TransferTxBridge - refresh 발화 계약", () => {
     expect(triggerTxRefresh).not.toHaveBeenCalled();
   });
 
-  it("transfer:settled(기존 TX) → claimed 업데이트 후 refresh 발화", async () => {
+  it("transfer:settled (existing TX) → fires refresh after claimed update", async () => {
     const { triggerTxRefresh, mockTxRepo } = makeBridge({
       event: "transfer:settled",
       transfer: { ...baseTransfer, phase: "settled" },
@@ -302,7 +302,7 @@ describe("TransferTxBridge - refresh 발화 계약", () => {
     expect(triggerTxRefresh).toHaveBeenCalled();
   });
 
-  it("transfer:reclaimed → reclaimed 업데이트 후 refresh 발화", async () => {
+  it("transfer:reclaimed → fires refresh after reclaimed update", async () => {
     const { triggerTxRefresh, mockTxRepo } = makeBridge({
       event: "transfer:reclaimed",
       transfer: baseTransfer,
@@ -317,7 +317,7 @@ describe("TransferTxBridge - refresh 발화 계약", () => {
     expect(triggerTxRefresh).toHaveBeenCalledOnce();
   });
 
-  it("transfer:failed(기존 TX) → failed 업데이트(+사유 보존) 후 refresh 발화", async () => {
+  it("transfer:failed (existing TX) → fires refresh after failed update (+reason preserved)", async () => {
     const { triggerTxRefresh, mockTxRepo } = makeBridge({
       event: "transfer:failed",
       transfer: baseTransfer,
@@ -336,7 +336,7 @@ describe("TransferTxBridge - refresh 발화 계약", () => {
     expect(triggerTxRefresh).toHaveBeenCalledOnce();
   });
 
-  it("transfer:failed(TX 없음) → failed TX 신규 생성 후 refresh 발화", async () => {
+  it("transfer:failed (no TX) → fires refresh after creating a new failed TX", async () => {
     const { triggerTxRefresh, mockTxRepo } = makeBridge({
       event: "transfer:failed",
       transfer: baseTransfer,

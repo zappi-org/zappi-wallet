@@ -14,9 +14,9 @@ interface RedeemTokenResult {
 }
 
 /**
- * Token을 파싱하여 금액과 민트 URL을 추출 (cashuA/cashuB/CBOR 모두 지원).
- * 코덱은 registry.inputParser 포트 경유 — 훅이 어댑터 구현체를 직접
- * 인스턴스화하지 않는다 (R2-B 5번, 감사 §2).
+ * Parses a token to extract its amount and mint URL (supports cashuA/cashuB/CBOR).
+ * The codec goes through the registry.inputParser port so the hook never instantiates
+ * an adapter directly.
  */
 function parseTokenInfo(
   inputParser: ServiceRegistry['inputParser'],
@@ -39,7 +39,7 @@ function parseTokenInfo(
 }
 
 /**
- * Polling으로 transfer 완료 대기
+ * Polls until the transfer completes.
  */
 async function waitForTransfer(
   serviceRegistry: ServiceRegistry,
@@ -64,7 +64,6 @@ async function waitForTransfer(
     }
 
     if (transfer.phase === 'settled') {
-      // transportRef에서 amount 추출
       const ref = transfer.transportRef as { amount?: number } | undefined
       console.log('[waitForTransfer] Settled! amount:', ref?.amount)
       return { success: true, amount: ref?.amount }
@@ -75,13 +74,13 @@ async function waitForTransfer(
       return { success: false, error: new UnknownError('redeem_failed') }
     }
 
-    // preparing 상태면 아직 처리 중 - 계속 대기
+    // Still preparing — keep waiting
     if (transfer.phase === 'preparing') {
       await new Promise((resolve) => setTimeout(resolve, pollInterval))
       continue
     }
 
-    // submitted / in_transit / awaiting_confirmation 등 다른 상태도 계속 대기
+    // Other states (submitted / in_transit / awaiting_confirmation) also keep waiting
     await new Promise((resolve) => setTimeout(resolve, pollInterval))
   }
 
@@ -95,7 +94,7 @@ export function useRedeemToken(
 ) {
   return useCallback(async (token: string): Promise<RedeemTokenResult> => {
     if (!serviceRegistry?.transferLifecycle) {
-      // Fallback: 기존 payment.redeem 사용 (dual-run 기간)
+      // Fallback: use the legacy payment.redeem (dual-run period)
       if (serviceRegistry?.payment) {
         const result = await serviceRegistry.payment.redeem({ input: token })
         if (result.ok) {
@@ -107,9 +106,8 @@ export function useRedeemToken(
       return { success: false, error: new ServiceNotReadyError('transferLifecycle') }
     }
 
-    // TLS 기반 토큰 등록
+    // TransferLifecycleService-based token registration
     try {
-      // 1. 토큰 정보 파싱
       const tokenInfo = parseTokenInfo(serviceRegistry.inputParser, token)
       console.log('[useRedeemToken] Parsed token:', tokenInfo)
       if (!tokenInfo) {
@@ -119,7 +117,6 @@ export function useRedeemToken(
       const transferId = crypto.randomUUID()
       const now = Date.now()
 
-      // 2. PendingTransfer 생성 (direction: 'incoming')
       const pendingTransfer = createPendingTransfer({
         id: transferId,
         txId: transferId,
@@ -136,18 +133,14 @@ export function useRedeemToken(
         now,
       })
 
-      // 3. 'submitted' 상태로 전이 (바로 처리 가능)
       const submittedTransfer = transitionPhase(pendingTransfer, 'submitted', now)
 
-      // 4. Transfer 등록
       console.log('[useRedeemToken] Registering transfer:', transferId)
       await serviceRegistry.transferLifecycle.registerTransfer(submittedTransfer)
 
-      // 5. Incoming 처리 실행
       console.log('[useRedeemToken] Calling processIncomingTransfer:', transferId)
       await serviceRegistry.transferLifecycle.processIncomingTransfer(transferId)
 
-      // 6. 완료 대기 (polling)
       console.log('[useRedeemToken] Waiting for transfer completion:', transferId)
       const result = await waitForTransfer(serviceRegistry, transferId)
       console.log('[useRedeemToken] Transfer result:', result)
@@ -164,7 +157,7 @@ export function useRedeemToken(
       return { success: false, error: result.error }
     } catch (error) {
       console.error('[useRedeemToken] Error:', error)
-      // BaseError 타입 보존 (TokenSpentError, KeysetSyncError 등)
+      // Preserve BaseError subtypes (TokenSpentError, KeysetSyncError, etc.)
       if (error instanceof TokenSpentError) {
         return { success: false, error }
       }

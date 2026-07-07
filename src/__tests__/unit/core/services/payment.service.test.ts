@@ -557,7 +557,7 @@ describe('PaymentService', () => {
       expect(reports).toHaveLength(0)
     })
 
-    // ─── RequestGate (설계 §6.4) — 트리거 6곳 중첩 방지 ───
+    // ─── RequestGate — prevents overlapping runs across the 6 trigger sites ───
 
     it('shares one execution across concurrent calls (single-flight)', async () => {
       let resolveRecovery!: (v: { recovered: number; failed: number }) => void

@@ -12,9 +12,10 @@ import { broadcastSync } from '@/utils/cross-tab-sync'
 import { normalizeMintUrl, isSameMintUrl } from '@/utils/url'
 
 /**
- * composition/incoming-review.resolveIncomingReview 의 함수 표면 — 훅이 composition 을
- * 직접 import 하지 않도록(런타임·타입 모두 core 포트만) MainApp 이 함수를 주입한다.
- * 구조 불일치(필드 추가 등)는 주입 지점의 할당성 검사로 컴파일 타임에 드러난다.
+ * Function surface of composition/incoming-review.resolveIncomingReview. MainApp
+ * injects it so the hook never imports composition directly (core ports only, at
+ * both runtime and type level). Structural mismatches (e.g. added fields) surface
+ * at compile time via the assignability check at the injection site.
  */
 export type ResolveIncomingReviewFn = (
   deps: {
@@ -32,12 +33,13 @@ export type ResolveIncomingReviewFn = (
 
 export interface UseReceiveHandlersDeps {
   serviceRegistry: ServiceRegistry | null
-  /** useTransactions().refreshAll — 잔액+거래 **원자** 갱신 (MAJOR-14 공유 계약, 분리 금지) */
+  /** useTransactions().refreshAll — atomic balance+tx refresh; shared contract, don't split */
   refreshAll: () => Promise<void>
-  /** composition/incoming-review.resolveIncomingReview 주입 */
+  /** Injected composition/incoming-review.resolveIncomingReview */
   resolveReview: ResolveIncomingReviewFn
-  /** 거절 확정 후 UI 리셋(리뷰/스캔 파라미터 소거 + 이전 화면 복귀) —
-   *  화면 파라미터·네비 상태는 MainApp 소유라 콜백으로 주입받는다 */
+  /** UI reset after a confirmed rejection (clear review/scan params + return to
+   *  the previous screen). Injected as a callback since screen params and nav
+   *  state are owned by MainApp. */
   onRejected: () => void
 }
 
@@ -60,11 +62,12 @@ export interface ReceiveHandlers {
 }
 
 /**
- * 수신 핸들러 묶음 (MainApp Phase 4c 순수 이동): 인보이스 생성, 토큰 상환,
- * ReceiveRequest 이행, 미신뢰 민트 review 승인/거절, 수신 완료 브로드캐스트.
+ * Receive handler bundle: invoice creation, token redemption, ReceiveRequest
+ * fulfillment, untrusted-mint review approve/reject, and receive-complete
+ * broadcast.
  *
- * 성공 경로의 refreshAll은 주입된 원자 갱신 함수를 그대로 사용한다 —
- * tx만/balance만 갱신되는 창을 만들지 않는다 (MAJOR-14).
+ * The success path uses the injected atomic refresh so a tx-only or balance-only
+ * window is never created.
  */
 export function useReceiveHandlers(deps: UseReceiveHandlersDeps): ReceiveHandlers {
   const { serviceRegistry, refreshAll, resolveReview, onRejected } = deps
@@ -72,7 +75,6 @@ export function useReceiveHandlers(deps: UseReceiveHandlersDeps): ReceiveHandler
   const settings = useAppStore((state) => state.settings)
   const removeIncomingReview = useAppStore((state) => state.removeIncomingReview)
 
-  // Payment modal handlers
   const handleCreateInvoice = useCallback(async (amount: number, mintUrl: string) => {
     if (!mintUrl) return null
 
@@ -138,19 +140,19 @@ export function useReceiveHandlers(deps: UseReceiveHandlersDeps): ReceiveHandler
     await resolveReview({
       processedStore: serviceRegistry.processedStore,
       receiveRequest: serviceRegistry.receiveRequest,
-      // durable 큐에서 제거 (설계 §6.2) — Zustand 미러는 큐 어댑터가 동기화
+      // Remove from the durable queue; the queue adapter syncs the Zustand mirror
       removeIncomingReview: (externalId) =>
         serviceRegistry.incomingReviewQueue.remove(externalId),
       nostrGateway: serviceRegistry.nostrGateway,
       posDevices: settings.posDevices,
     }, params)
 
-    // 신뢰 추가 경유 승인(설계 §6.3 [N3]): 같은 민트의 나머지 대기 review를
-    // 자동 상환한다 — 민트 신뢰가 곧 승인. 모달의 자체 redeem이 끝난 뒤라
-    // 활성 review와 race하지 않는다. 미신뢰 민트면 건너뜀(자동 폐기 방지).
-    // mints는 store에서 최신을 읽는다 — "신뢰하고 받기" 흐름은 신뢰 추가와 이
-    // 콜백이 같은 렌더 클로저 안에서 이어지므로 prop 캡처본은 신뢰 추가 이전
-    // 값이다 (4단계 리뷰 #3).
+    // Approval via trust-add: auto-redeem the remaining pending reviews for the
+    // same mint — trusting a mint is approval. Runs after the modal's own redeem
+    // so it doesn't race the active review. Skipped for untrusted mints (avoids
+    // auto-discard). Read mints fresh from the store: in the "trust and receive"
+    // flow this callback continues in the same render closure as the trust-add,
+    // so the captured prop would still hold the pre-trust value.
     const reviewMint = normalizeMintUrl(params.review.token.mintUrl)
     const currentMints = useAppStore.getState().settings.mints
     if (currentMints.some((m) => isSameMintUrl(m, reviewMint))) {
@@ -168,7 +170,7 @@ export function useReceiveHandlers(deps: UseReceiveHandlersDeps): ReceiveHandler
         result: 'skipped',
         error: 'Rejected by user',
       })
-      // durable 큐에서 제거 — 미제거 시 다음 부팅 hydrate에 부활한다 (설계 §6.2)
+      // Remove from the durable queue; otherwise it revives on the next boot hydrate
       await serviceRegistry.incomingReviewQueue.remove(review.externalId)
     } else {
       removeIncomingReview(review.externalId)
@@ -177,8 +179,7 @@ export function useReceiveHandlers(deps: UseReceiveHandlersDeps): ReceiveHandler
     onRejected()
   }, [serviceRegistry, removeIncomingReview, onRejected])
 
-  // Payment received callback
-  // Lightning toast는 bridge.ts (mint-quote:redeemed)가 전역으로 담당
+  // Lightning toast is handled globally by bridge.ts (mint-quote:redeemed)
   const handlePaymentReceived = useCallback(async (
     _receivedAmount: number,
     _type: 'lightning' | 'ecash',

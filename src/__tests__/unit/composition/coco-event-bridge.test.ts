@@ -1,11 +1,11 @@
 /**
- * CocoEventBridge — SDK → 도메인 이벤트 변환 계약 안전망 (감사 잔여 Phase 0)
+ * CocoEventBridge — contract safety net for SDK → domain event translation.
  *
- * 이 브리지가 balance:changed 의 유일한 SDK-측 발원지다. 핀 대상 계약:
- * - proofs:* 4종 / mint-op:finalized / melt-quote:paid → balance:changed
- * - mint-op:finalized(finalized) → receive:settled (+isSwapStep 플래그)
- * - connect 시 초기 balance:changed 1회 (부트스트랩 직후 잔액 표시)
- * - disconnect 시 전 구독 해제
+ * This bridge is the sole SDK-side origin of balance:changed. Pinned contracts:
+ * - proofs:* (4 kinds) / mint-op:finalized / melt-quote:paid → balance:changed
+ * - mint-op:finalized(finalized) → receive:settled (+isSwapStep flag)
+ * - one initial balance:changed on connect (shows balance right after bootstrap)
+ * - all subscriptions released on disconnect
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { connectCocoEventBridge } from '@/composition/coco-event-bridge'
@@ -42,7 +42,7 @@ describe('CocoEventBridge', () => {
     return emit.mock.calls.filter(([e]) => e.type === 'balance:changed').length
   }
 
-  it('connect 시 초기 balance:changed 1회 발화', () => {
+  it('emits an initial balance:changed once on connect', () => {
     const { manager } = makeManager()
     connectCocoEventBridge(manager, eventBus)
     expect(emit).toHaveBeenCalledTimes(1)
@@ -96,7 +96,7 @@ describe('CocoEventBridge', () => {
     })
   })
 
-  it('swap quote 는 receive:settled 에 isSwapStep=true 로 표시', () => {
+  it('swap quote is flagged isSwapStep=true on receive:settled', () => {
     const { manager, handlers } = makeManager()
     connectCocoEventBridge(manager, eventBus)
     emit.mockClear()
@@ -114,7 +114,7 @@ describe('CocoEventBridge', () => {
     }
   })
 
-  it('finalized 가 아닌 mint-op 은 balance:changed 만 (receive:settled 없음)', () => {
+  it('non-finalized mint-op emits balance:changed only (no receive:settled)', () => {
     const { manager, handlers } = makeManager()
     connectCocoEventBridge(manager, eventBus)
     emit.mockClear()
@@ -128,7 +128,7 @@ describe('CocoEventBridge', () => {
     expect(emit.mock.calls.some(([e]) => e.type === 'receive:settled')).toBe(false)
   })
 
-  it('disconnect 시 6개 구독(proofs 4 + mint-op + melt) 전부 해제', () => {
+  it('releases all 6 subscriptions (proofs 4 + mint-op + melt) on disconnect', () => {
     const { manager, unsubs } = makeManager()
     const disconnect = connectCocoEventBridge(manager, eventBus)
 

@@ -16,7 +16,7 @@ describe('DexieGiftwrapCursorStore', () => {
     await resetDatabase()
   })
 
-  it('load creates a fresh record on first access (lastFullSyncAtMs=0 → 최초 1회 전체 replay)', async () => {
+  it('load creates a fresh record on first access (lastFullSyncAtMs=0 → one initial full replay)', async () => {
     const record = await store.load(KEY)
 
     expect(record).not.toBeNull()
@@ -26,9 +26,9 @@ describe('DexieGiftwrapCursorStore', () => {
   })
 
   /**
-   * 마이그레이션 정책 (2단계 리뷰 #5): 레거시 syncAnchor.timestamp는 부분/빈
-   * fetch에도 갱신되던 값이라 since 하한 자격이 없다 — seed하지 않는다.
-   * 업그레이드 사용자는 설계 원문대로 1회 전체 replay 후 진짜 全EOSE로 확립한다.
+   * Migration policy: the legacy syncAnchor.timestamp was updated even on
+   * partial/empty fetches, so it doesn't qualify as a `since` lower bound — don't seed it.
+   * Upgrading users get one full replay, then establish a true all-EOSE anchor.
    */
   it('does NOT seed lastFullSyncAtMs from a legacy anchor — upgrade gets one full replay', async () => {
     await getDatabase().syncAnchor.put({ id: 'current', timestamp: 1_750_000_000, updatedAt: Date.now() })
@@ -36,7 +36,7 @@ describe('DexieGiftwrapCursorStore', () => {
     const record = await store.load(KEY)
 
     expect(record!.lastFullSyncAtMs).toBe(0)
-    // 레거시 행은 anchor 표시용으로 보존
+    // legacy row is preserved for anchor display
     expect(await getDatabase().syncAnchor.get('current')).toMatchObject({ timestamp: 1_750_000_000 })
   })
 
@@ -60,7 +60,7 @@ describe('DexieGiftwrapCursorStore', () => {
     await store.markAttempt(KEY, 333)
     const after = await store.load(KEY)
     expect(after!.lastAttemptAtMs).toBe(333)
-    expect(after!.lastFullSyncAtMs).toBe(222) // attempt는 since 원천을 건드리지 않는다 [N1]
+    expect(after!.lastFullSyncAtMs).toBe(222) // attempt does not touch the since source
   })
 
   it('markRelayEose accumulates per-relay timestamps', async () => {
@@ -81,7 +81,7 @@ describe('DexieGiftwrapCursorStore', () => {
     expect(record!.deepResyncAtMs).toBe(2_000)
   })
 
-  it('load does not clobber marks committed before it (single-tx ensure — 리뷰 #8)', async () => {
+  it('load does not clobber marks committed before it (single-tx ensure — review #8)', async () => {
     await store.markRelayEose(KEY, 'wss://a', 999)
     await store.markFullSync(KEY, 555)
 

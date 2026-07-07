@@ -1,12 +1,12 @@
 /**
- * useSendInputValidation — SendInputStep의 검증 로직 훅 (R2-C 선분리, 순수 이동)
+ * useSendInputValidation — validation-logic hook for SendInputStep.
  *
- * 소유: destination/validatedData/badge/오류/로딩 상태, 디바운스 형태 판정,
- * processExternalInput(붙여넣기·스캔·연락처·제출 공용), handleNext, 자동 진행.
+ * Owns: destination/validatedData/badge/error/loading state, debounced shape detection,
+ * processExternalInput (shared by paste/scan/contact/submit), handleNext, and auto-advance.
  *
- * §8.5 계약 (테스트 20케이스가 가드): 타이핑 중 원격 검증 0 — validateAsync는
- * 제출·붙여넣기·스캔 시점에만. 디바운스 판정은 형태(배지) 표시까지만이고
- * validatedData는 비워 두어 제출이 검증·리다이렉트를 수행한다.
+ * Contract: zero remote validation while typing — validateAsync runs only on
+ * submit/paste/scan. The debounce only detects shape (badges) and leaves validatedData
+ * empty, so submit is what performs validation and redirects.
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react'
@@ -94,7 +94,7 @@ export interface UseSendInputValidationOptions {
     commonMintUrls: string[]
     infoText?: string
   }) => void
-  /** 민트 표시명 (mint-selection 안내문용) — 화면의 useMintMetadata에서 주입 */
+  /** Mint display name (for the mint-selection message) — injected from the screen's useMintMetadata. */
   getDisplayName: (url: string) => string
 }
 
@@ -115,7 +115,6 @@ export function useSendInputValidation({
   const inputParser = useInputParser()
   const { nostrDirectPayment } = useServiceRegistry()
 
-  // State
   const [destination, setDestination] = useState(initialDestination)
   const [detectedTypes, setDetectedTypes] = useState<string[]>(() => {
     if (!initialValidatedData) return []
@@ -294,11 +293,11 @@ export function useSendInputValidation({
         return
       }
 
-      // 타이핑-중 네트워크 정책 (설계 §8.5): 원격 검증은 제출·붙여넣기·스캔
-      // 시점에만 — 여기서 validateAsync를 부르면 부분 입력 도메인으로 실 GET이
-      // 나간다(`a@gmail.co` → gmail.co). 형태 판정 통과 = 배지 표시까지만이고,
-      // validatedData는 비워 두어 Next(handleNext→processExternalInput)가
-      // 검증·리다이렉트(lnurl-withdraw 등 handoff 포함)를 수행한다.
+      // Typing-time network policy: remote validation runs only on submit/paste/scan.
+      // Calling validateAsync here would fire a real GET against a partial-input domain
+      // (`a@gmail.co` → gmail.co). Passing shape detection only shows the badge and leaves
+      // validatedData empty, so Next (handleNext→processExternalInput) does the actual
+      // validation and redirect (including lnurl-withdraw handoff).
       setIsPreValidating(false)
       setPreValidationError(null)
     }, 500)
@@ -393,8 +392,8 @@ export function useSendInputValidation({
     try {
       validated = await inputParser.validateAsync(detected)
     } catch {
-      // 형식은 인식됐고 원격 검증이 실패한 것 — "인식 불가"와 구분해
-      // 표면화한다 (7단계 리뷰 #6: 오프라인/서버 오류에 unrecognized 토스트는 오도)
+      // Format was recognized but remote validation failed — surface this distinctly from
+      // "unrecognized" (an unrecognized toast on an offline/server error is misleading).
       return 'validation-error'
     }
     if (!['bolt11', 'lightning-address', 'lnurl-pay', 'cashu-request', 'my-wallet'].includes(validated.type)) {

@@ -1,12 +1,12 @@
 /**
- * Bootstrap 조각 9 — 수신 파이프라인 조립 (bootstrap.ts 순수 이동)
+ * Bootstrap fragment — incoming pipeline assembly (verbatim move from bootstrap.ts).
  *
- * 공유 dedup store, Nostr incoming watcher, recovery/incomingPayment/
- * pendingItems 서비스. recoveryStoreAdapter는 recovery와 watcher가 같은
- * 인스턴스를 봐야 하므로 이 조각 내부에서 생성·공유한다.
+ * Shared dedup store, Nostr incoming watcher, and the recovery/incomingPayment/
+ * pendingItems services. recoveryStoreAdapter is created and shared inside this
+ * fragment because recovery and the watcher must see the same instance.
  */
 
-// ─── Store (composition root만 접근) ───
+// ─── Store (composition root only) ───
 import { useAppStore } from "@/store";
 
 import { RecoveryStoreAdapter } from "@/adapters/storage/recovery-store.adapter";
@@ -67,10 +67,10 @@ export function assembleIncomingPipeline(deps: {
     modules,
   } = deps;
 
-  // 9. Shared dedup store (recovery + watcher가 같은 store를 보고 중복 처리 방지)
+  // Shared dedup store (recovery + watcher watch the same store to avoid double processing)
   const recoveryStoreAdapter = new RecoveryStoreAdapter();
 
-  // 10. Nostr Incoming Watcher (Adapter Layer — 발견만 담당, 관리는 TLS)
+  // Nostr Incoming Watcher (Adapter Layer — discovery only; TLS owns management)
   const nostrIncomingWatcher = new NostrIncomingWatcher(
     nostrGateway,
     pendingTransferStore,
@@ -81,11 +81,10 @@ export function assembleIncomingPipeline(deps: {
     incomingReviewQueue,
     tokenCodec,
     () => useAppStore.getState().pendingEcashRequestId,
-    // 全EOSE 판정용 persistent relay 집합 (리뷰 #2 — 연결 스냅샷 금지)
+    // Persistent relay set for the all-EOSE check (no connection snapshot)
     () => useAppStore.getState().settings.relays
   );
 
-  // 11. Additional services
   const recovery = createRecoveryService(
     nostrGateway,
     payment,

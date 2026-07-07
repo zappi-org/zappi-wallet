@@ -113,7 +113,6 @@ export default function TransactionDetailScreen({
       const result = await reclaim(tx.id)
 
       if (!result.success) {
-        //Check spent by TokenSpentByRecipientError
         if (result.error instanceof TokenSpentByRecipientError) {
           setTx((prev) => ({
             ...prev,
@@ -121,11 +120,11 @@ export default function TransactionDetailScreen({
             outcome: 'claimed',
             completedAt: Date.now()
           }))
-          // 토스트는 useReclaim 훅에서 처리
+          // toast handled in the useReclaim hook
         }
-        // 기타 에러도 훅에서 처리
+        // other errors are handled in the hook too
       } else {
-        // 성공: reclaimed 상태로 업데이트
+        // success: update to reclaimed state
         setTx((prev) => ({
           ...prev,
           status: 'settled',
@@ -135,7 +134,7 @@ export default function TransactionDetailScreen({
       }
     } catch (err) {
       console.error('[TxDetail] Check & reclaim failed:', err)
-      // 예외는 훅에서 처리하지 않으므로 여기서 토스트 필요
+      // the hook does not handle exceptions, so the toast is needed here
       addToast({ type: 'error', message: t('txDetail.reclaimFailed'), duration: 3000 })
     } finally {
       setIsReclaiming(false)
@@ -203,12 +202,12 @@ export default function TransactionDetailScreen({
     }
 
     if (isReceive) {
-      // POS/KIOSK source — "강남점에서 받음"
+      // POS/KIOSK source — e.g. "received at Gangnam branch"
       if (meta.source && ['zappi-pos', 'zappi-kiosk', 'zappi-api'].includes(meta.source)) {
         const name = typeof metadata?.storeName === 'string' ? metadata.storeName : t(txSourceKey(meta.source))
         return t('txDetail.receivedFromPOS', { name })
       }
-      // 내 지갑으로 받음 — "Zappi Alpha Mint 지갑으로 받음"
+      // received to my own wallet — e.g. "received to Zappi Alpha Mint wallet"
       return t('txDetail.receivedToWallet', { wallet: mintName })
     }
 

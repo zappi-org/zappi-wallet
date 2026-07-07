@@ -264,7 +264,7 @@ export class DirectLnurlAdapter implements LnurlGateway {
     }
   }
 
-  // ── LUD-06 description hash 검증 ──
+  // ── LUD-06 description hash verification ──
 
   private async verifyDescriptionHash(
     invoice: string,

@@ -1,20 +1,20 @@
 /**
- * v22→v23 스키마 마이그레이션 핀 (R2-C: legacy proofs 테이블 삭제)
+ * v22→v23 schema migration pin (drops the legacy proofs table).
  *
- * 이 코드베이스는 최신 버전 단일 선언 + Dexie 스키마 diff 업그레이드에
- * 의존한다 (failedSwaps/processedEvents 툼스톤과 동일 패턴). 여기서 핀하는
- * 계약: 기존 사용자(v22 설치본)가 v23을 열 때
- *   ① 생존 테이블의 데이터는 무손실로 통과하고
- *   ② proofs object store는 삭제된다 (`proofs: null`).
- * proofs 는 coco 마이그레이션 후 잔존 legacy(감사 :56) — 읽기/쓰기 경로가
- * 없어 데이터 자체가 삭제 대상이다.
+ * This codebase relies on a single latest-version declaration + Dexie schema-diff
+ * upgrades (same pattern as the failedSwaps/processedEvents tombstones). Pinned
+ * contract: when an existing user (v22 install) opens v23,
+ *   ① surviving tables' data passes through losslessly, and
+ *   ② the proofs object store is dropped (`proofs: null`).
+ * proofs is legacy left over after the coco migration — it has no read/write
+ * path, so the data itself is slated for deletion.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import Dexie from 'dexie'
 import { getDatabase, resetDatabase } from '@/adapters/storage/dexie/schema'
 import { DATABASE } from '@/core/constants'
 
-/** v22 설치본 시뮬레이션 — proofs 포함 구 스키마로 생성 후 데이터 시드 */
+/** Simulate a v22 install — create the old schema (incl. proofs) and seed data */
 async function seedV22Database(): Promise<void> {
   const old = new Dexie(DATABASE.NAME)
   old.version(22).stores({
@@ -29,7 +29,7 @@ async function seedV22Database(): Promise<void> {
   old.close()
 }
 
-describe('ZappiDatabase v22→v23 마이그레이션 (proofs 삭제)', () => {
+describe('ZappiDatabase v22→v23 migration (drops proofs)', () => {
   beforeEach(async () => {
     await resetDatabase()
   })
@@ -38,17 +38,17 @@ describe('ZappiDatabase v22→v23 마이그레이션 (proofs 삭제)', () => {
     await resetDatabase()
   })
 
-  it('생존 테이블 데이터는 무손실 통과, proofs store는 삭제된다', async () => {
+  it('surviving tables pass through losslessly, proofs store is dropped', async () => {
     await seedV22Database()
 
     const db = getDatabase()
     await db.open()
 
-    // ① 생존 테이블 무손실
+    // ① surviving tables lossless
     expect(await db.transactions.get('tx-1')).toMatchObject({ id: 'tx-1', amount: 21 })
     expect(await db.contacts.get('c-1')).toMatchObject({ id: 'c-1', name: 'alice' })
 
-    // ② proofs object store 자체가 소멸 (스키마·실 IDB 양쪽)
+    // ② the proofs object store itself is gone (both schema and actual IDB)
     expect(db.tables.map((t) => t.name)).not.toContain('proofs')
     expect(Array.from(db.backendDB().objectStoreNames)).not.toContain('proofs')
   })

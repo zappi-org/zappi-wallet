@@ -1,8 +1,6 @@
 /**
- * NostrIncomingWatcher — 단위 테스트
- *
- * Mock NostrGateway + Mock Store + Spy EventBus로
- * "발견" 흐름만 검증.
+ * NostrIncomingWatcher unit tests — verifies the "discovery" flow with a mock
+ * NostrGateway, mock store, and spy EventBus.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -108,19 +106,19 @@ describe('NostrIncomingWatcher', () => {
 
   // ─── Start / Stop ───
 
-  it('start 호출 시 subscribeGiftWraps를 cursor 스펙과 함께 구독한다', () => {
+  it('start subscribes to subscribeGiftWraps with the cursor spec', () => {
     watcher.start('test-pubkey')
     expect(mockGateway.subscribeGiftWraps).toHaveBeenCalledWith(
       {
         recipientPubkey: 'test-pubkey',
-        // 설계 §10 B5 — 계정 스코프 키 + 全EOSE 판정용 persistent 집합 (리뷰 #2)
+        // account-scoped key + persistent set used to judge full EOSE
         cursor: { key: 'giftwrap:test-pub', fullSyncTargets: ['wss://persistent.test'] },
       },
       expect.any(Function),
     )
   })
 
-  it('stop 호출 시 구독을 해제한다', () => {
+  it('stop unsubscribes', () => {
     watcher.start('test-pubkey')
     watcher.stop()
     expect(giftWrapHandler).toBeNull()
@@ -128,7 +126,7 @@ describe('NostrIncomingWatcher', () => {
 
   // ─── Message handling ───
 
-  it('유효한 cashuA 토큰 수신 → PendingTransfer 생성 + store 저장 + 이벤트 발행', async () => {
+  it('valid cashuA token received → creates PendingTransfer + saves to store + emits event', async () => {
     watcher.start('test-pubkey')
 
     const msg: UnwrappedMessage = {
@@ -165,7 +163,7 @@ describe('NostrIncomingWatcher', () => {
     expect(received).toHaveLength(1)
   })
 
-  it('이미 처리한 eventId면 중복 생성하지 않는다', async () => {
+  it('does not create a duplicate for an already-processed eventId', async () => {
     vi.mocked(mockProcessedStore.exists).mockResolvedValue(true)
     watcher.start('test-pubkey')
 
@@ -181,7 +179,7 @@ describe('NostrIncomingWatcher', () => {
     expect(transfers).toHaveLength(0)
   })
 
-  it('TLS store에 이미 있으면 중복 생성하지 않는다', async () => {
+  it('does not create a duplicate when already in the TLS store', async () => {
     watcher.start('test-pubkey')
 
     const msg: UnwrappedMessage = {
@@ -197,7 +195,7 @@ describe('NostrIncomingWatcher', () => {
     expect(transfers).toHaveLength(1)
   })
 
-  it('untrusted mint면 review queue에 넣고 transfer를 생성하지 않는다', async () => {
+  it('an untrusted mint is enqueued to the review queue and no transfer is created', async () => {
     vi.mocked(mockTrustedMintProvider.hasTrustedMint).mockResolvedValue(false)
     watcher.start('test-pubkey')
 
@@ -218,9 +216,9 @@ describe('NostrIncomingWatcher', () => {
       }),
     )
 
-    // 순서 계약 (설계 §6.2 / 3차 리뷰 blocker): durable enqueue가 processed
-    // 마킹보다 먼저다 — 역순이면 마킹↔enqueue 사이 크래시 시 replay가 dedup에
-    // 걸려 토큰이 영구 유실된다. 이 assertion은 선마킹으로의 회귀를 CI에서 막는다.
+    // Ordering contract: the durable enqueue must happen before the processed
+    // mark — reversed, a crash between mark and enqueue lets replay hit dedup and
+    // the token is lost forever. This assertion guards against regressing to mark-first.
     const enqueueOrder = vi.mocked(mockReviewQueue.enqueue).mock.invocationCallOrder[0]
     const markOrder = vi.mocked(mockProcessedStore.save).mock.invocationCallOrder[0]
     expect(enqueueOrder).toBeLessThan(markOrder)
@@ -229,7 +227,7 @@ describe('NostrIncomingWatcher', () => {
     )
   })
 
-  it('유효하지 않은 payload면 저장하지 않는다', async () => {
+  it('does not save an invalid payload', async () => {
     watcher.start('test-pubkey')
 
     const msg: UnwrappedMessage = {
@@ -244,7 +242,7 @@ describe('NostrIncomingWatcher', () => {
     expect(transfers).toHaveLength(0)
   })
 
-  it('JSON 형식의 토큰도 수신한다', async () => {
+  it('also receives a JSON-format token', async () => {
     watcher.start('test-pubkey')
 
     const msg: UnwrappedMessage = {

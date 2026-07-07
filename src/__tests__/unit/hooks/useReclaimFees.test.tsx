@@ -1,10 +1,10 @@
 /**
- * useReclaimFees — txId 키 모듈 캐시 (설계 §8.4)
+ * useReclaimFees — per-txId module cache
  *
- * 핵심 불변식:
- * - 캐시 히트분은 네트워크 0으로 즉시 반영, 미견적분만 quoteReclaim
- * - 성공만 캐시(실패는 다음 마운트에 재시도)
- * - TTL 만료분은 재견적
+ * Key invariants:
+ * - Cache hits apply instantly with no network; only unquoted ids call quoteReclaim
+ * - Only successes are cached (failures retry on next mount)
+ * - TTL-expired entries are re-quoted
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
@@ -42,7 +42,7 @@ describe('useReclaimFees', () => {
     expect(quoteReclaim).toHaveBeenCalledTimes(2)
   })
 
-  it('cache hit skips the network on remount — 탭 재방문 N×(prepare+cancel) 제거', async () => {
+  it('cache hit skips the network on remount — eliminates N×(prepare+cancel) on tab revisit', async () => {
     const first = renderHook(() => useReclaimFees(['tx-a']), { wrapper })
     await waitFor(() => expect(first.result.current.fees.size).toBe(1))
     first.unmount()
@@ -65,7 +65,7 @@ describe('useReclaimFees', () => {
     expect(quoteReclaim).toHaveBeenCalledWith({ transactionId: 'tx-b' })
   })
 
-  it('failures are not cached — 다음 마운트에 재시도', async () => {
+  it('failures are not cached — retries on next mount', async () => {
     quoteReclaim.mockResolvedValueOnce({ ok: false, error: { message: 'quote failed' } })
     const first = renderHook(() => useReclaimFees(['tx-a']), { wrapper })
     await waitFor(() => expect(first.result.current.isLoading).toBe(false))

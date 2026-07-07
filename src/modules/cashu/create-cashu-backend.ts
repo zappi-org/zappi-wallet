@@ -1,8 +1,9 @@
 /**
  * createCashuBackend — CashuModuleBackend factory
  *
- * cashu-backend.ts의 standalone 함수들을 CashuModuleBackend 인터페이스에 맞게 조립.
- * 유일하게 internal/을 import하는 파일. bootstrap에서 호출하여 CashuModule에 주입.
+ * Assembles the standalone functions from cashu-backend.ts into the
+ * CashuModuleBackend interface. The only file that imports internal/;
+ * called from bootstrap and injected into CashuModule.
  */
 
 import type { PendingOperationRepository } from '@/core/ports/driven/pending-operation.repository.port'
@@ -69,7 +70,7 @@ export function createCashuBackend(deps: CreateCashuBackendDeps): CashuModuleBac
         receiveToken: async (token: string) => backend.receiveToken(token, activeMintOptions()),
       })
     },
-    // Mint quote 결제 완료 감지 (스왑 완료 대기에 필요)
+    // Detects mint quote payment completion (needed to await swap completion)
     onMintQuotePaid: backend.onMintQuotePaid,
     // Recovery (quotes) — exposed for CashuBolt11Adapter
     restoreWallet: backend.restoreWallet,

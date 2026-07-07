@@ -1,11 +1,11 @@
 /**
- * DirectLnurlAdapter — sat → msat 변환 안전망 (감사 잔여 Phase 0)
+ * DirectLnurlAdapter — sat → msat conversion safety net.
  *
- * 핀 대상 계약:
- * - fetchInvoice: amountSats * 1000 을 Math.floor — 요청 금액을 절대 부풀리지 않는다
- * - min/maxSendable(msat) 경계는 포함(inclusive), 벗어나면 즉시 throw (네트워크 요청 전)
- * - comment 는 commentAllowed 길이 내에서만 전송
- * - resolvePay: Lightning Address 형식 검증 + well-known 경로 조립
+ * Pinned contracts:
+ * - fetchInvoice: amountSats * 1000 via Math.floor — never inflates the requested amount
+ * - min/maxSendable(msat) bounds are inclusive; out-of-range throws before any network request
+ * - comment is only sent within the commentAllowed length
+ * - resolvePay: Lightning Address format validation + well-known path assembly
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { DirectLnurlAdapter } from '@/adapters/lnurl/direct-lnurl.adapter'
@@ -32,8 +32,8 @@ describe('DirectLnurlAdapter', () => {
 
   beforeEach(() => {
     vi.stubGlobal('fetch', fetchMock)
-    // 'dummy-pr' 은 유효한 bolt11 이 아니라 description_hash 검증이 스킵된다
-    // (디코드 실패는 verifyDescriptionHash 가 의도적으로 무시 — 해시 불일치만 throw)
+    // 'dummy-pr' isn't valid bolt11, so description_hash verification is skipped
+    // (verifyDescriptionHash intentionally ignores decode failures — only a hash mismatch throws)
     fetchMock.mockReset().mockResolvedValue(jsonResponse({ pr: 'dummy-pr' }))
   })
 
@@ -45,34 +45,34 @@ describe('DirectLnurlAdapter', () => {
     return new URL(fetchMock.mock.calls[0][0] as string)
   }
 
-  // ─── sat → msat 변환 ───
+  // ─── sat → msat conversion ───
 
-  it('fetchInvoice: 21 sats → amount=21000 (msat) 으로 콜백 호출', async () => {
+  it('fetchInvoice: 21 sats → calls callback with amount=21000 (msat)', async () => {
     const result = await adapter.fetchInvoice(PAY_PARAMS, 21)
     expect(requestedUrl().searchParams.get('amount')).toBe('21000')
     expect(result.bolt11).toBe('dummy-pr')
   })
 
-  it('fetchInvoice: 소수 sat 은 msat 에서 floor — 요청 금액을 부풀리지 않는다', async () => {
+  it('fetchInvoice: fractional sats are floored in msat — never inflates the requested amount', async () => {
     await adapter.fetchInvoice(PAY_PARAMS, 21.0009)
     expect(requestedUrl().searchParams.get('amount')).toBe('21000')
   })
 
-  it('fetchInvoice: minSendable 미만이면 네트워크 요청 없이 throw', async () => {
+  it('fetchInvoice: below minSendable throws without a network request', async () => {
     await expect(adapter.fetchInvoice(PAY_PARAMS, 0)).rejects.toThrow(
       'Amount must be between 1 and 500000 sats',
     )
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('fetchInvoice: maxSendable 초과면 네트워크 요청 없이 throw', async () => {
+  it('fetchInvoice: above maxSendable throws without a network request', async () => {
     await expect(adapter.fetchInvoice(PAY_PARAMS, 500_001)).rejects.toThrow(
       'Amount must be between 1 and 500000 sats',
     )
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('fetchInvoice: 경계값은 포함 — min/max 정확히 일치하면 통과', async () => {
+  it('fetchInvoice: boundaries are inclusive — exact min/max passes', async () => {
     await adapter.fetchInvoice(PAY_PARAMS, 1)
     expect(requestedUrl().searchParams.get('amount')).toBe('1000')
 
@@ -81,26 +81,26 @@ describe('DirectLnurlAdapter', () => {
     expect(requestedUrl().searchParams.get('amount')).toBe('500000000')
   })
 
-  // ─── comment 게이팅 ───
+  // ─── comment gating ───
 
-  it('fetchInvoice: commentAllowed 길이 내 comment 는 전송', async () => {
+  it('fetchInvoice: sends a comment within the commentAllowed length', async () => {
     await adapter.fetchInvoice(PAY_PARAMS, 21, { comment: 'thanks!' })
     expect(requestedUrl().searchParams.get('comment')).toBe('thanks!')
   })
 
-  it('fetchInvoice: commentAllowed 초과 comment 는 조용히 제외', async () => {
+  it('fetchInvoice: silently drops a comment exceeding commentAllowed', async () => {
     await adapter.fetchInvoice(PAY_PARAMS, 21, { comment: 'x'.repeat(21) })
     expect(requestedUrl().searchParams.get('comment')).toBeNull()
   })
 
-  // ─── 에러 응답 ───
+  // ─── error responses ───
 
-  it('fetchInvoice: 서비스 ERROR 응답은 reason 으로 throw', async () => {
+  it('fetchInvoice: service ERROR response throws with the reason', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ status: 'ERROR', reason: 'route not found' }))
     await expect(adapter.fetchInvoice(PAY_PARAMS, 21)).rejects.toThrow('route not found')
   })
 
-  it('fetchInvoice: pr 누락 응답은 throw', async () => {
+  it('fetchInvoice: response missing pr throws', async () => {
     fetchMock.mockResolvedValue(jsonResponse({}))
     await expect(adapter.fetchInvoice(PAY_PARAMS, 21)).rejects.toThrow(
       'No payment request returned from LNURL service',
@@ -109,7 +109,7 @@ describe('DirectLnurlAdapter', () => {
 
   // ─── resolvePay: Lightning Address ───
 
-  it('resolvePay: user@domain → https well-known 경로', async () => {
+  it('resolvePay: user@domain → https well-known path', async () => {
     fetchMock.mockResolvedValue(jsonResponse({
       tag: 'payRequest',
       callback: 'https://ln.example.com/cb',
@@ -122,7 +122,7 @@ describe('DirectLnurlAdapter', () => {
     expect(params.domain).toBe('ln.example.com')
   })
 
-  it('resolvePay: .onion 도메인은 http 사용', async () => {
+  it('resolvePay: .onion domain uses http', async () => {
     fetchMock.mockResolvedValue(jsonResponse({
       tag: 'payRequest',
       callback: 'http://abc.onion/cb',
@@ -134,12 +134,12 @@ describe('DirectLnurlAdapter', () => {
     expect(fetchMock.mock.calls[0][0]).toBe('http://abc.onion/.well-known/lnurlp/user')
   })
 
-  it.each(['no-at-sign', 'a@b@c.com'])('resolvePay: 잘못된 주소(%s)는 throw', async (address) => {
+  it.each(['no-at-sign', 'a@b@c.com'])('resolvePay: invalid address (%s) throws', async (address) => {
     await expect(adapter.resolvePay(address)).rejects.toThrow('Invalid Lightning Address')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('resolvePay: payRequest 가 아닌 tag 는 throw', async () => {
+  it('resolvePay: a non-payRequest tag throws', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ tag: 'withdrawRequest' }))
     await expect(adapter.resolvePay('user@ln.example.com')).rejects.toThrow(
       'Invalid LNURL tag: expected payRequest, got withdrawRequest',

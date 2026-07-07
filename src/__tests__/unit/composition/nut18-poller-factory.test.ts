@@ -16,9 +16,9 @@ function createStartSpy() {
 
 describe('createNut18HttpPollerFactory', () => {
   /**
-   * 회귀 감시의 핵심 — 배선 필드 전수 스냅샷.
-   * 과거 bootstrap 인라인 팩토리가 expiresAt을 버려 만료 후에도 3초 폴링이
-   * 최장 30분 지속됐다 (설계 §8.1). 필드가 늘면 이 테스트를 함께 갱신할 것.
+   * Core regression guard — full snapshot of the wiring fields.
+   * A past inline bootstrap factory dropped expiresAt, so 3s polling ran for
+   * up to 30 min after expiry. Update this test whenever a field is added.
    */
   it('forwards EVERY poller option — expiresAt included', () => {
     const { start } = createStartSpy()

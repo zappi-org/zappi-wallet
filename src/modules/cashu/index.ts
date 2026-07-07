@@ -1,7 +1,7 @@
 export { classifyCashuError } from './internal/classify-error'
 
 // Public API for Cashu module operations
-// Phase 7: 외부에서 @/coco/ 대신 @/modules/cashu/ 경유로 접근
+// External code accesses via @/modules/cashu/ instead of @/coco/
 export {
   getCocoManager,
   deleteCocoData,
@@ -42,7 +42,7 @@ export {
   getSendRecoveryOps,
 } from './internal/cashu-backend'
 
-// Recovery 행동 단위 (설계 §6.1) — RecoveryScheduler 배선용
+// Recovery behavior units — for RecoveryScheduler wiring
 export {
   reconcileCashu,
   recoverLegacySendTokens,

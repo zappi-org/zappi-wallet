@@ -2,9 +2,9 @@ import type { TranslationKey } from '@/i18n'
 import type { TransactionSource } from '@/core/types/wallet'
 
 /**
- * 거래 source → i18n 키 (i18n 리뷰 이월: 미지의 source 값이 동적 키 캐스트를
- * 타고 리터럴 "txDetail.source.xxx" 로 노출되던 구멍의 폴백 헬퍼).
- * 기록측 값 도메인과 로케일 키 집합이 여기서 단일 원천으로 만난다.
+ * Transaction source → i18n key. Fallback helper that keeps an unknown source
+ * value from leaking through the dynamic key cast as a literal "txDetail.source.xxx".
+ * The record-side value domain and the locale key set meet here as a single source of truth.
  */
 const KNOWN_TX_SOURCES = [
   'zappi-pos',

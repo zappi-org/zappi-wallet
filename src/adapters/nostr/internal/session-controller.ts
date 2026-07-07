@@ -1,23 +1,26 @@
 /**
- * NostrSessionController — relay 연결 수명·구독·조회/발행 스코프의 단일 소유자
- * (설계 §9/§10 B2~B4·B6 — 6단계, ks.nostr-controller OFF에서 gateway가 위임)
+ * NostrSessionController — single owner of relay connection lifecycle,
+ * subscriptions, and query/publish scope.
  *
- * 소유: persistent/session 연결 레지스트리, 구독 attach 보장, 재연결,
- *       EOSE 수집 엔진(catch-up), onWake 반응.
- * 비소유: gift wrap 해석(watcher), cursor 의미론(gateway가 도메인 함수로 계산),
- *         anchor·거래 생성.
+ * Owns: persistent/session connection registries, subscription attach guarantee,
+ * reconnection, EOSE collection engine (catch-up), onWake reaction.
+ * Does not own: gift wrap interpretation (watcher), cursor semantics (gateway
+ * computes via domain functions), anchor/transaction creation.
  *
- * 구경로 대비 고치는 결함:
- * - 구독이 subscribe 시점에 연결된 relay에만 붙고 이후 (재)연결엔 안 붙던 레이스
- *   → relay가 (재)연결될 때 그 relay를 대상으로 하는 모든 구독을 attach.
- * - 재연결 1건에 전 구독×전 relay를 닫고 재오픈하던 churn → 해당 relay만 재개.
- * - DM 발송의 connect(수신자 relays)가 persistent 재연결 대상을 통째로 교체하던
- *   버그 → session lease(refcount+TTL)로 격리, persistent 집합 불변.
+ * Faults fixed vs the old path:
+ * - Subscriptions bound only to relays connected at subscribe() time and never
+ *   to later (re)connections → now every (re)connected relay attaches all
+ *   subscriptions targeting it.
+ * - One reconnect closed and reopened all subs × all relays (churn) → only the
+ *   affected relay resumes.
+ * - DM send's connect(recipient relays) replaced the whole persistent reconnect
+ *   set → isolated via session lease (refcount+TTL), persistent set stays fixed.
  *
- * URL 정체성 (리뷰 #4): 내부 레지스트리 키는 전부 pool과 동일한 정규화
- * (relayIdentity)를 거친다 — 다르면 수신자 10050의 변형 표기가 [N9] 검사를
- * 빠져나가 lease 만료가 공유 persistent 소켓을 닫는다. 표시/조회용 URL은
- * 호출자가 준 원형을 보존한다(설정 화면 키와의 일치).
+ * URL identity: every internal registry key goes through the same normalization
+ * (relayIdentity) as the pool — otherwise a variant spelling of a recipient's
+ * 10050 slips past identity checks and lease expiry closes a shared persistent
+ * socket. Display/query URLs preserve the caller's original form (matching
+ * settings-screen keys).
  */
 
 import type { NostrEvent, NostrFilter } from '@/core/domain/nostr'
@@ -28,7 +31,7 @@ import { netLog } from '@/core/utils/net-log'
 
 const DEFAULT_RECONNECT_INTERVAL_MS = 30_000
 const RELAY_CONNECTION_TIMEOUT_MS = 5_000
-/** session lease 기본 TTL — publish OK 대기 여유 포함 (설계 §10 B3: 60s는 위험) */
+/** Default session lease TTL — includes slack for awaiting publish OK (60s is too tight) */
 const SESSION_LEASE_TTL_MS = 120_000
 
 interface RegisteredSubscription {
@@ -36,14 +39,14 @@ interface RegisteredSubscription {
   onEvent: (event: NostrEvent) => void
   onEose?: (relayUrl: string) => void
   eoseTimeoutMs?: number
-  /** relay 정체성(정규화 키) → 살아있는 sub 핸들. attach 보장의 원장. */
+  /** relay identity (normalized key) → live sub handle; the attach-guarantee ledger */
   attached: Map<string, { close: () => void }>
 }
 
 interface SessionLease {
   refs: number
   closeTimer: ReturnType<typeof setTimeout> | null
-  /** pool 호출용 원형 URL */
+  /** Original URL for pool calls */
   url: string
 }
 
@@ -51,13 +54,13 @@ export class NostrSessionController {
   private readonly pool: RelayPool
   private readonly reconnectIntervalMs: number
 
-  /** persistent 집합 — 원형 URL (표시·pool 호출용). 정체성은 persistentIds. */
+  /** Persistent set — original URLs (for display/pool calls); identities in persistentIds */
   private persistentTargets: string[] = []
   private persistentIds = new Set<string>()
-  /** 연결 장부 — 정규화 키 */
+  /** Connection ledger — normalized keys */
   private connected = new Set<string>()
 
-  /** session relay(수신자 DM relay 등) — 정규화 키, 구독을 받지 않는다 */
+  /** Session relays (recipient DM relays, etc.) — normalized keys; receive no subscriptions */
   private sessionLeases = new Map<string, SessionLease>()
 
   private subs = new Map<number, RegisteredSubscription>()
@@ -71,12 +74,12 @@ export class NostrSessionController {
     this.reconnectIntervalMs = opts?.reconnectIntervalMs ?? DEFAULT_RECONNECT_INTERVAL_MS
   }
 
-  // ─── 연결 레지스트리 (B3) ───
+  // ─── Connection registry ───
 
   /**
-   * persistent 집합 확립/교체. 제거된 relay는 구독을 떼고 닫는다(단, 활성
-   * session lease가 있으면 lease 만료가 닫는다). 연결은 병렬 — 느린 relay가
-   * unlock을 직렬로 막지 않는다.
+   * Establish/replace the persistent set. Removed relays are detached and closed
+   * (unless an active session lease holds them — then lease expiry closes them).
+   * Connections run in parallel so a slow relay can't serialize/block unlock.
    */
   async connectPersistent(urls: string[]): Promise<void> {
     const nextByIdentity = new Map<string, string>()
@@ -104,9 +107,10 @@ export class NostrSessionController {
   }
 
   /**
-   * session lease (§10 B3): persistent 밖 relay의 단명 연결. release()는
-   * publish 확인 후 호출 — refs 0이 되면 TTL 뒤에 닫는다. persistent∩session
-   * 중첩 시[N9] lease는 no-op(만료가 persistent 연결을 닫지 않는다).
+   * Session lease: a short-lived connection to a relay outside the persistent
+   * set. Call release() after publish confirmation — once refs hit 0 the relay
+   * closes after TTL. When persistent and session overlap the lease is a no-op
+   * (expiry never closes a persistent connection).
    */
   async acquireSession(urls: string[], ttlMs = SESSION_LEASE_TTL_MS): Promise<{ release(): void }> {
     const sessionEntries: Array<{ id: string; url: string }> = []
@@ -144,7 +148,7 @@ export class NostrSessionController {
               const current = this.sessionLeases.get(id)
               if (!current || current.refs > 0) return
               this.sessionLeases.delete(id)
-              // 그 사이 persistent로 승격됐다면 닫지 않는다 [N9]
+              // Don't close if it was promoted to persistent in the meantime
               if (!this.persistentIds.has(id)) {
                 this.closeRelay(current.url)
               }
@@ -176,24 +180,25 @@ export class NostrSessionController {
   }
 
   getRelayStatus(): RelayStatus[] {
-    // 원형 URL로 반환 — RelayManagement 화면의 설정 키와 일치해야 한다
+    // Return original URLs — must match the RelayManagement screen's settings keys
     return this.persistentTargets.map((url) => ({
       url,
       connected: this.connected.has(relayIdentity(url)),
     }))
   }
 
-  /** publish/query 대상 — 연결된 persistent relay만 (session은 명시 경로 전용) */
+  /** publish/query targets — connected persistent relays only (session is explicit-path only) */
   getConnectedPersistent(): string[] {
     return this.persistentTargets.filter((u) => this.connected.has(relayIdentity(u)))
   }
 
-  // ─── 구독 레지스트리 (B4) ───
+  // ─── Subscription registry ───
 
   /**
-   * persistent 집합 대상 구독. 등록 즉시 현재 연결된 persistent relay에 attach
-   * 되고, 이후 (재)연결되는 relay에도 자동 attach된다 — subscribe 시점 연결
-   * 스냅샷에만 붙던 구경로 레이스의 근본 수정.
+   * Subscribe against the persistent set. Attaches immediately to currently
+   * connected persistent relays and auto-attaches to any that (re)connect later
+   * — the root fix for the old race that bound only to the connection snapshot
+   * at subscribe() time.
    */
   subscribe(
     filters: NostrFilter[],
@@ -225,15 +230,15 @@ export class NostrSessionController {
     }
   }
 
-  // ─── 조회/발행 스코프 (B6) ───
+  // ─── Query/publish scope ───
 
-  /** persistent 연결 대상 발행. 성공 relay 수를 반환. */
+  /** Publish to connected persistent relays */
   async publish(event: unknown): Promise<{ ok: string[]; failed: string[] }> {
     const relays = this.getConnectedPersistent()
     return this.publishTo(relays, event)
   }
 
-  /** 명시 relay 발행 — session lease를 획득하고 확인 후 해제한다. */
+  /** Publish to explicit relays — acquires a session lease, releases after confirmation */
   async publishScoped(relays: string[], event: unknown): Promise<{ ok: string[]; failed: string[] }> {
     const lease = await this.acquireSession(relays)
     try {
@@ -263,23 +268,27 @@ export class NostrSessionController {
     return this.pool.querySync(relays, filter, opts)
   }
 
-  // ─── EOSE 수집 엔진 (B5 — catch-up의 per-relay 배선) ───
+  // ─── EOSE collection engine — per-relay wiring for catch-up ───
 
   /**
-   * relay별 독립 REQ로 진짜 EOSE까지 수집한다. querySync(timeout 드레인)와 달리
-   * 어떤 relay가 어디까지 줬는지를 노출한다 — per-relay cursor 전진의 전제.
+   * Collect until a real EOSE via an independent REQ per relay. Unlike querySync
+   * (a timeout drain), this exposes how far each relay delivered — the premise
+   * for per-relay cursor advancement.
    *
-   * - filterFor(relay): relay별 since를 넣은 필터 (호출자가 도메인 규칙으로 계산)
-   * - 각 relay는 진짜 EOSE(eoseTimeout으로 합성 차단) 또는 maxWaitMs에 종료
-   * - 연결 자체도 상한 5s (리뷰 #3 — 블랙홀 네트워크에서 ensureRelay가 무한
-   *   대기하면 catch-up이 행, isSyncing 락이 후속 동기화까지 막는다)
-   * - 반환: id-dedup된 이벤트 + 진짜 EOSE에 도달한 relay 목록
+   * - filterFor(relay): per-relay filter carrying `since` (caller computes it
+   *   from domain rules)
+   * - each relay ends on a real EOSE (synthetic ones blocked via eoseTimeout) or
+   *   at maxWaitMs
+   * - the connect itself is also capped at 5s: on a black-hole network an
+   *   unbounded ensureRelay would hang catch-up, and the isSyncing lock would
+   *   then block later syncs too
+   * - returns: id-deduped events + the relays that reached a real EOSE
    */
   async collectUntilEose(params: {
     relays: string[]
     filterFor: (relayUrl: string) => NostrFilter
     maxWaitMs: number
-    /** 합성 EOSE 차단값 — gateway의 CURSOR_EOSE_TIMEOUT_MS를 넘긴다 */
+    /** Synthetic-EOSE guard — must exceed the gateway's CURSOR_EOSE_TIMEOUT_MS */
     eoseGuardMs: number
   }): Promise<{ events: NostrEvent[]; eosed: string[] }> {
     const lease = await this.acquireSession(params.relays)
@@ -330,12 +339,12 @@ export class NostrSessionController {
     return { events: [...byId.values()], eosed }
   }
 
-  // ─── 내부: attach 보장 + 재연결 (B3/B4) ───
+  // ─── Internal: attach guarantee + reconnect ───
 
   /**
-   * 연결 상한 관통 (리뷰 #3): AbstractRelay.connect는 timeout 옵션이 없으면
-   * 타임아웃 핸들 자체가 없다 — 블랙홀 네트워크(캡티브 포털)에서 pending이
-   * 영원히 남는다. 모든 ensureRelay 사용처가 이 헬퍼를 거친다.
+   * Enforces a connection cap: without a timeout option AbstractRelay.connect
+   * has no timeout handle at all — on a black-hole network (captive portal) the
+   * pending connect lingers forever. Every ensureRelay use goes through this helper.
    */
   private async ensureRelayWithTimeout(url: string): Promise<Relay> {
     const relayPromise = this.pool.ensureRelay(url)
@@ -362,7 +371,7 @@ export class NostrSessionController {
     this.connected.delete(relayIdentity(url))
   }
 
-  /** (재)연결된 relay에 등록 구독 전부 attach — 이미 붙어 있으면 no-op */
+  /** Attach all registered subscriptions to a (re)connected relay — no-op if already attached */
   private attachSubscriptionsTo(url: string): void {
     for (const sub of this.subs.values()) {
       this.attachSubTo(sub, url)
@@ -372,11 +381,11 @@ export class NostrSessionController {
   private attachSubTo(sub: RegisteredSubscription, url: string): void {
     const id = relayIdentity(url)
     if (sub.attached.has(id)) return
-    // 자리 선점 — ensureRelay 비동기 완료 전 중복 attach 방지
+    // Reserve the slot — prevents a duplicate attach before ensureRelay resolves
     sub.attached.set(id, { close: () => {} })
     this.ensureRelayWithTimeout(url)
       .then((relay) => {
-        // unsubscribe가 선행됐으면(attached에서 제거됨) 붙이지 않는다
+        // If unsubscribe already ran (removed from attached), don't attach
         if (!sub.attached.has(id)) return
         for (const filter of sub.filters) {
           netLog({
@@ -387,14 +396,17 @@ export class NostrSessionController {
             caller: 'controller',
           })
         }
-        // 의도적 close(우리의 detach/unsubscribe)와 relay측 종료(CLOSED·소켓
-        // 사망)를 구분한다 — 후자는 원장에서 지워 다음 헬스체크가 재attach하게.
-        // ensureRelay가 죽은 소켓을 조용히 되살리면 socket 관찰로는 구독 유실을
-        // 볼 수 없으므로, 구독 자신의 종료 신호가 유일하게 신뢰 가능한 원천이다.
+        // Distinguish an intentional close (our detach/unsubscribe) from a
+        // relay-side close (CLOSED / dead socket) — the latter is dropped from
+        // the ledger so the next health check re-attaches. If ensureRelay
+        // silently revives a dead socket, watching the socket can't reveal the
+        // lost subscription, so the subscription's own close signal is the only
+        // trustworthy source.
         let intentionalClose = false
         const inner = relay.subscribe(
-          // filters 참조를 relay별 Subscription과 공유하지 않는다 (리뷰 NIT —
-          // 라이브러리가 저장만 하지만, 얕은 복제가 변이 경로를 원천 차단)
+          // Don't share the filters reference across per-relay Subscriptions —
+          // the library only stores them, but a shallow clone forecloses any
+          // mutation path
           sub.filters.map((f) => ({ ...f })) as unknown as Array<Record<string, unknown>>,
           {
             onevent: (event) => sub.onEvent(event as unknown as NostrEvent),
@@ -422,7 +434,7 @@ export class NostrSessionController {
             try { inner.close() } catch { /* ignore */ }
           },
         }
-        // unsubscribe race 재확인 — close된 자리에 살아있는 핸들을 남기지 않는다
+        // Re-check the unsubscribe race — don't leave a live handle in a closed slot
         if (!sub.attached.has(id)) {
           handle.close()
           return
@@ -430,7 +442,7 @@ export class NostrSessionController {
         sub.attached.set(id, handle)
       })
       .catch((error) => {
-        // 실패한 자리 선점 제거 — 다음 헬스체크/재연결이 재시도한다
+        // Drop the failed slot reservation — the next health check/reconnect retries
         sub.attached.delete(id)
         console.warn(`[SessionController] attach failed for ${url}:`, error)
       })
@@ -468,8 +480,8 @@ export class NostrSessionController {
   }
 
   /**
-   * 죽은 relay만 감지·재연결하고 **그 relay만** attach한다 (§10 B4 — 구경로의
-   * "재연결 1건 → 전 구독×전 relay 재오픈" churn 폐기).
+   * Detect and reconnect only dead relays, and attach **only that relay** —
+   * dropping the old path's "one reconnect → reopen all subs × all relays" churn.
    */
   private async runHealthCheck(): Promise<void> {
     if (typeof navigator !== 'undefined' && !navigator.onLine) return
@@ -495,13 +507,14 @@ export class NostrSessionController {
           await this.connectAndAttach(url)
           console.log(`[SessionController] Reconnected ${url}`)
         } catch {
-          // 다음 주기/wake에 재시도
+          // Retry on the next cycle/wake
         }
       }
     }
 
-    // 연결은 살아있지만(ensureRelay가 조용히 되살린 경우 포함) relay측 종료로
-    // 원장에서 빠진 구독을 채운다 — onclose 신호와 이 보충이 한 쌍이다.
+    // Backfill subscriptions that dropped from the ledger via a relay-side close
+    // while the connection is still alive (including when ensureRelay silently
+    // revived it) — this pairs with the onclose signal.
     for (const url of this.persistentTargets) {
       if (this.connected.has(relayIdentity(url))) {
         this.attachSubscriptionsTo(url)

@@ -15,15 +15,16 @@ export class SettingsTrustedAccountStoreAdapter implements TrustedAccountStore {
 
   async addTrustedAccount(accountId: string): Promise<string[]> {
     const settings = await this.settingsRepo.getSettings()
-    // 중복 판정은 앱 전역 비교 canonical(:443·대소문자·슬래시 흡수)로 (감사 Phase 2 —
-    // 기존 로컬 normalizeAccountId 는 또 하나의 사설 정규화 변형이었다)
+    // Dedupe via the app-wide comparison canonical (absorbs :443, case, trailing slash);
+    // the old local normalizeAccountId was yet another private normalization variant.
     if (settings.mints.some((m) => isSameMintUrl(m, accountId))) {
       return [...settings.mints]
     }
 
-    // 저장은 앱 전역 저장 정규화(normalizeMintUrl)로 — 기존의 trim+슬래시 제거는
-    // 프로토콜 생략 입력을 그대로 저장해 다른 저장 경로와 표기가 갈라지는 내부
-    // 불일치였다. 이미 프로토콜이 있는 입력에는 동작이 동일하다.
+    // Store via the app-wide storage normalization (normalizeMintUrl) — the old
+    // trim + slash-strip stored protocol-less input as-is, an internal inconsistency
+    // that diverged from other storage paths. Behavior is identical for input that
+    // already has a protocol.
     const nextMints = [...settings.mints, normalizeMintUrl(accountId)]
     await this.settingsRepo.saveSettings({
       ...settings,

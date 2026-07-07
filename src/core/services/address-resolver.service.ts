@@ -1,8 +1,8 @@
 /**
- * AddressResolverService — 주소 → 결제 수단 탐색 (ZAP-146)
+ * AddressResolverService — resolves an address to its payment methods.
  *
- * email / npub / nprofile / bolt12 주소를 받아
- * NutZap, NUT-18, LNURL 등 사용 가능한 결제 수단을 반환.
+ * Takes an email / npub / nprofile / bolt12 address and returns the available
+ * payment methods (NutZap, NUT-18, LNURL, etc.).
  */
 
 import { InvalidDestinationError } from '@/core/errors/payment.errors'

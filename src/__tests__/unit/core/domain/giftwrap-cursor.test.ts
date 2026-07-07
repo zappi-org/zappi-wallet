@@ -37,12 +37,12 @@ describe('giftwrap-cursor domain', () => {
     expect(toSinceSec(1_750_000_000_999)).toBe(1_750_000_000)
   })
 
-  describe('sinceForCatchUp (2단계 단일 since)', () => {
-    it('is undefined with no record (최초 1회 전체 replay)', () => {
+  describe('sinceForCatchUp (2-phase single since)', () => {
+    it('is undefined with no record (first-time full replay)', () => {
       expect(sinceForCatchUp(null)).toBeUndefined()
     })
 
-    it('is undefined while lastFullSyncAtMs is 0 (아직 전체 EOSE 없음)', () => {
+    it('is undefined while lastFullSyncAtMs is 0 (no full EOSE yet)', () => {
       expect(sinceForCatchUp(record({ lastFullSyncAtMs: 0 }))).toBeUndefined()
     })
 
@@ -52,8 +52,8 @@ describe('giftwrap-cursor domain', () => {
     })
 
     /**
-     * [N1] timeout은 since를 전진시키지 않는다 — lastAttemptAtMs가 아무리 최신이어도
-     * catch-up 창은 lastFullSyncAtMs 기준이다.
+     * A timeout does not advance `since` — no matter how recent lastAttemptAtMs is,
+     * the catch-up window is based on lastFullSyncAtMs.
      */
     it('ignores lastAttemptAtMs entirely', () => {
       const r = record({ lastFullSyncAtMs: day(1), lastAttemptAtMs: day(10) })
@@ -66,16 +66,16 @@ describe('giftwrap-cursor domain', () => {
     })
   })
 
-  describe('sinceForRelay (규칙의 정본 — 6단계 소비)', () => {
+  describe('sinceForRelay (canonical rule — 6-phase consumption)', () => {
     /**
-     * [N1] D0/D10 반례 고정: D0 전체동기 → relay C 다운 → D1에 C에만 존재하는
-     * 이벤트 → D10 복귀. C의 since는 C 자신의 마지막 EOSE(D0) 기준이어야 하며,
-     * 다른 relay들의 진행(D10)은 절대 섞이지 않는다. max(전역커서, ...)류 공식은
-     * D7.75부터 조회해 D1 이벤트를 유실한다.
+     * D0/D10 counter-example: full sync at D0 → relay C goes down → an event that
+     * exists only on C at D1 → C returns at D10. C's `since` must be based on C's own
+     * last EOSE (D0); other relays' progress (D10) must never mix in. A max(global
+     * cursor, ...) style formula would query from D7.75 and lose the D1 event.
      */
     it('D0/D10 relay-outage timeline: down relay backfills from ITS OWN last EOSE', () => {
       const r = record({
-        lastFullSyncAtMs: day(10), // 가정: 어떤 이유로든 전역 값이 전진했다 해도
+        lastFullSyncAtMs: day(10), // assume the global value advanced for whatever reason
         relayEoseAtMs: { 'wss://a': day(10), 'wss://b': day(10), 'wss://c': day(0) },
       })
 
@@ -109,7 +109,7 @@ describe('giftwrap-cursor domain', () => {
     })
   })
 
-  it('createGiftwrapCursorRecord starts at lastFullSyncAtMs=0 (확립은 全EOSE로만 — 리뷰 #5)', () => {
+  it('createGiftwrapCursorRecord starts at lastFullSyncAtMs=0 (established only via full EOSE — review #5)', () => {
     const r = createGiftwrapCursorRecord('k', day(2))
     expect(r).toMatchObject({
       key: 'k',

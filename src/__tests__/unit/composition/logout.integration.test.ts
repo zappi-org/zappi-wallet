@@ -1,11 +1,11 @@
 /**
- * wipeAccountData 통합 — 실제 Dexie(fake-indexeddb) 위에서 전 테이블 소멸 검증
- * (감사 Phase 1: "로그아웃 후 전 테이블 소멸" 계약을 실코드로 증명)
+ * wipeAccountData integration — proves every table is destroyed on a real Dexie (fake-indexeddb).
  *
- * 모킹 없음: getDatabase(실제 스키마 20개 테이블 — v23에서 legacy proofs 삭제),
- * deleteCocoData(실제 — fake-indexeddb 의 zappi-coco-wallet 삭제), localStorage
- * 어댑터 실물. 죽은 clearAllData 가 proofs·contacts 등 5개 테이블을 빠뜨렸던
- * 나열-드리프트가 동적 열거(db.tables)로는 원천 불가능함을 여기서 핀한다.
+ * No mocking: getDatabase (real schema, 20 tables — legacy proofs dropped in v23),
+ * deleteCocoData (real — deletes fake-indexeddb's zappi-coco-wallet), and the real
+ * localStorage adapter. Pins that the enumeration drift where the dead clearAllData
+ * missed 5 tables (proofs, contacts, etc.) is structurally impossible with dynamic
+ * enumeration (db.tables).
  */
 import { describe, it, expect, vi } from 'vitest'
 import Dexie from 'dexie'
@@ -15,7 +15,7 @@ import { wipeAccountData } from '@/composition/logout'
 
 const COCO_DB_NAME = 'zappi-coco-wallet'
 
-/** coco DB 를 실제로 만들어 둔다 — 없으면 "삭제됐다" 단언이 공허해진다 (블라인드 리뷰 M-3) */
+/** Actually creates the coco DB — otherwise the "was deleted" assertion is vacuous. */
 function seedCocoDb(): Promise<void> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(COCO_DB_NAME, 1)
@@ -30,11 +30,11 @@ function seedCocoDb(): Promise<void> {
   })
 }
 
-describe('wipeAccountData (통합, fake-indexeddb)', () => {
-  it('임의 테이블에 데이터가 있어도 DB 전체가 삭제된다', async () => {
+describe('wipeAccountData (integration, fake-indexeddb)', () => {
+  it('deletes the entire DB even when arbitrary tables hold data', async () => {
     const db = getDatabase()
-    // 서로 다른 성격의 테이블 3곳에 심는다 — 조각별 삭제가 놓치던 부류 포함
-    // (proofs 테이블은 v23에서 스키마 삭제 — incomingReviews로 대체 시드)
+    // Seed 3 tables of different kinds — including the sort piecewise deletion used to miss
+    // (proofs table was dropped from the schema in v23 — seed incomingReviews instead)
     await db.transactions.put({ id: 'tx-1', amount: 21 } as never)
     await db.contacts.put({ id: 'c-1', name: 'alice' } as never)
     await db.incomingReviews.put({ externalId: 'ev-1', mintUrl: 'https://m', token: 't' } as never)
@@ -52,7 +52,7 @@ describe('wipeAccountData (통합, fake-indexeddb)', () => {
       removePasskey: vi.fn(),
     })
 
-    // clear(㉠) + delete(㉡) 모두 성공 — DB 자체가 존재하지 않아야 한다
+    // both clear and delete succeed — the DB itself must not exist
     expect(await Dexie.exists(DATABASE.NAME)).toBe(false)
     expect(await Dexie.exists(COCO_DB_NAME)).toBe(false)
     expect(localStorage.getItem('zappi-anchor')).toBeNull()

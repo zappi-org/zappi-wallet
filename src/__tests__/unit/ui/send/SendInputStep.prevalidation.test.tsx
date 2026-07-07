@@ -118,9 +118,8 @@ describe('SendInputStep pre-validation', () => {
     vi.useRealTimers()
   })
 
-  // ─── Test 1 ───
-  // 타이핑-중 네트워크 정책 (설계 §8.5): 부분 입력 도메인으로 실 GET이 나가던
-  // 결함(`a@gmail.co` → gmail.co)의 회귀 방지 — 원격 검증은 제출 시점에만.
+  // Network policy while typing: prevents the regression where a real GET fired for a
+  // partial domain (`a@gmail.co` → gmail.co) — remote validation happens only at submit.
   it('lightning-address typing performs ZERO remote validation — submit validates (§8.5)', async () => {
     mockDetectAndClassify.mockReturnValue({
       type: 'lightning-address',
@@ -135,12 +134,12 @@ describe('SendInputStep pre-validation', () => {
     renderStep()
     typeIntoInput('test@stacker.news')
 
-    // 디바운스가 지나도 원격 검증은 없다 — 형태 판정(배지)까지만
+    // no remote validation even after the debounce — only shape classification (badge)
     await act(async () => { vi.advanceTimersByTime(2_000) })
     expect(mockValidateAsync).not.toHaveBeenCalled()
     expect(screen.queryByText('send.destination.validationFailed')).not.toBeInTheDocument()
 
-    // 제출(Next) 시점에 검증한다
+    // validates at submit (Next)
     const nextButton = screen.getByRole('button', { name: 'send.next' })
     expect(nextButton).not.toBeDisabled()
     await act(async () => { nextButton.click(); await vi.runAllTimersAsync() })
@@ -148,7 +147,6 @@ describe('SendInputStep pre-validation', () => {
     expect(defaultProps.onNext).toHaveBeenCalled()
   })
 
-  // ─── Test 2 ───
   it('lnurl typing performs ZERO remote validation (§8.5)', async () => {
     const lnurlStr = 'lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhkxmmww4hxjmn8v96x7'
     mockDetectAndClassify.mockReturnValue({ type: 'lnurl', lnurl: lnurlStr })
@@ -166,7 +164,6 @@ describe('SendInputStep pre-validation', () => {
     expect(screen.queryByText('send.destination.validationFailed')).not.toBeInTheDocument()
   })
 
-  // ─── Test 3 ───
   it('invalid format (TLD < 2 chars) does NOT trigger validateAsync', async () => {
     // detectAndClassify returns lightning-address but format gate rejects it
     mockDetectAndClassify.mockReturnValue({
@@ -183,7 +180,6 @@ describe('SendInputStep pre-validation', () => {
     expect(mockValidateAsync).not.toHaveBeenCalled()
   })
 
-  // ─── Test 4 ───
   it('typing over a previous input never fires remote validation for either (§8.5)', async () => {
     mockDetectAndClassify.mockReturnValue({
       type: 'lightning-address',
@@ -206,8 +202,7 @@ describe('SendInputStep pre-validation', () => {
     expect(screen.queryByText('send.destination.validationFailed')).not.toBeInTheDocument()
   })
 
-  // ─── Test 5 ───
-  it('network failure surfaces at submit as a toast (§8.5 — 타이핑 중 인라인 오류 없음)', async () => {
+  it('network failure surfaces at submit as a toast (§8.5 — no inline error while typing)', async () => {
     mockDetectAndClassify.mockReturnValue({
       type: 'lightning-address',
       address: 'test@failing.com',
@@ -218,12 +213,12 @@ describe('SendInputStep pre-validation', () => {
     typeIntoInput('test@failing.com')
     await act(async () => { vi.advanceTimersByTime(500) })
 
-    // 타이핑 단계: 원격 검증도 인라인 오류도 없다
+    // typing phase: no remote validation, no inline error
     expect(mockValidateAsync).not.toHaveBeenCalled()
     expect(screen.queryByText('send.destination.validationFailed')).not.toBeInTheDocument()
 
-    // 제출 시점: 원격 검증 실패 → "검증 실패" 토스트 (형식은 인식됐으므로
-    // unrecognized가 아니다 — 7단계 리뷰 #6)
+    // submit: remote validation fails → "validation failed" toast (the format was
+    // recognized, so it's not unrecognized)
     const nextButton = screen.getByRole('button', { name: 'send.next' })
     await act(async () => { nextButton.click(); await vi.runAllTimersAsync() })
     expect(mockValidateAsync).toHaveBeenCalledTimes(1)
@@ -233,7 +228,6 @@ describe('SendInputStep pre-validation', () => {
     expect(defaultProps.onNext).not.toHaveBeenCalled()
   })
 
-  // ─── Test 6 ───
   it('syntactically valid lnurl typing shows no error and keeps Next enabled (§8.5)', async () => {
     const lnurlStr = 'lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhkxmmww4hxjmn8v96x7'
     mockDetectAndClassify.mockReturnValue({ type: 'lnurl', lnurl: lnurlStr })
@@ -243,13 +237,12 @@ describe('SendInputStep pre-validation', () => {
 
     await act(async () => { vi.advanceTimersByTime(500) })
 
-    // 형태 판정 통과 — 원격 확인(withdraw 여부 판별 포함)은 제출로 미룬다
+    // shape check passes — remote confirmation (including withdraw detection) is deferred to submit
     expect(mockValidateAsync).not.toHaveBeenCalled()
     const nextButton = screen.getByRole('button', { name: 'send.next' })
     expect(nextButton).not.toBeDisabled()
   })
 
-  // ─── Test 7 ───
   it('error container has reserved h-5 height even when empty', () => {
     renderStep()
     const errorArea = screen.getByTestId('pre-validation-error-area')
@@ -257,7 +250,6 @@ describe('SendInputStep pre-validation', () => {
     expect(errorArea.className).toContain('h-5')
   })
 
-  // ─── Test 8 ───
   it('no pre-validation spinner while typing a valid-syntax address (§8.5)', async () => {
     mockDetectAndClassify.mockReturnValue({
       type: 'lightning-address',
@@ -269,12 +261,11 @@ describe('SendInputStep pre-validation', () => {
 
     await act(async () => { vi.advanceTimersByTime(500) })
 
-    // 원격 검증이 없으므로 스피너도 없다 — 로딩 표시는 제출 버튼(isValidating) 소관
+    // no remote validation, so no spinner — the loading indicator belongs to the submit button (isValidating)
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
     expect(mockValidateAsync).not.toHaveBeenCalled()
   })
 
-  // ─── Test 9 ───
   it('cashu-request path still works (regression guard)', async () => {
     const creqStr = 'creqAabc123...'
     mockDetectAndClassify.mockReturnValue({
@@ -309,7 +300,6 @@ describe('SendInputStep pre-validation', () => {
     expect(screen.queryByText('send.destination.validationFailed')).not.toBeInTheDocument()
   })
 
-  // ─── Test 10 ───
   it('input change immediately clears previous validatedData and error', async () => {
     mockDetectAndClassify.mockReturnValue({
       type: 'lightning-address',
@@ -346,7 +336,6 @@ describe('SendInputStep pre-validation', () => {
     expect(screen.getByText('send.destination.unrecognized')).toBeInTheDocument()
   })
 
-  // ─── Test 11 ───
   it('cashu-request with amount auto-advances after debounce + timer', async () => {
     const creqStr = 'creqAtest...'
     mockDetectAndClassify.mockReturnValue({ type: 'cashu-request', request: creqStr })
@@ -378,7 +367,6 @@ describe('SendInputStep pre-validation', () => {
     )
   })
 
-  // ─── Test 12 ───
   it('cashu-request without amount does NOT auto-advance', async () => {
     const creqStr = 'creqBnoamount...'
     mockDetectAndClassify.mockReturnValue({ type: 'cashu-request', request: creqStr })
@@ -407,7 +395,6 @@ describe('SendInputStep pre-validation', () => {
     expect(defaultProps.onNext).not.toHaveBeenCalled()
   })
 
-  // ─── Test 13 ───
   it('back-navigation guard — same destination does NOT re-trigger auto-advance', async () => {
     const creqStr = 'creqCbacknav...'
     mockDetectAndClassify.mockReturnValue({ type: 'cashu-request', request: creqStr })
@@ -433,7 +420,6 @@ describe('SendInputStep pre-validation', () => {
     await act(async () => { vi.advanceTimersByTime(300) })
     expect(defaultProps.onNext).toHaveBeenCalledTimes(1)
 
-    // Reset mock
     defaultProps.onNext.mockReset()
 
     // Type the SAME value again (simulates re-render with preserved destination after back-nav)
@@ -447,7 +433,6 @@ describe('SendInputStep pre-validation', () => {
     expect(defaultProps.onNext).not.toHaveBeenCalled()
   })
 
-  // ─── Test 14 ───
   it('input change cancels pending auto-advance timer', async () => {
     const creqStr = 'creqDcancel...'
     mockDetectAndClassify.mockReturnValue({ type: 'cashu-request', request: creqStr })
