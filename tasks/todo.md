@@ -35,12 +35,12 @@
 - [x] 비관 리뷰 APPROVED → 커밋 (3f3972a)
 
 ## R2-D — 보안 임계 (별도 트랙, 설계 문서 → **이중 리뷰(가이드+블라인드)** → 구현)
-- [x] PBKDF2 상향 설계 문서(docs/design/kdf-upgrade.md) — **이중 리뷰 완료: 가이드 APPROVED(3 MINOR) + 블라인드 APPROVED(1 MAJOR+2 MINOR, 벤치 재현·OWASP 원문 독립 대조). 합집합 반영(다운그레이드 lockout 복구 정정+소거 하드닝·양방향 readback·F13·getWalletWithTag).** 아키텍처 양 리뷰 건전 판정. **구현 착수 = 소유자 결정, 구현물은 R2-D 게이트 재적용.** 필수 축 (계획 리뷰 보강):
+- [x] PBKDF2 상향 설계 문서(docs/design/kdf-upgrade.md) — **이중 리뷰 완료: 가이드 APPROVED(3 MINOR) + 블라인드 APPROVED(1 MAJOR+2 MINOR, 벤치 재현·OWASP 원문 독립 대조). 합집합 반영(다운그레이드 lockout 복구 정정+소거 하드닝·양방향 readback·F13·getWalletWithTag).** 아키텍처 양 리뷰 건전 판정. **구현 완료·이중 리뷰 APPROVED·메인 병합(eeab277). 블라인드 MINOR-1(4×600k 지연 정정)+NIT 2건 반영.** 필수 축 (계획 리뷰 보강):
   ① **hashPassword 동일 상수 공유 (치명)**: PBKDF2_ITERATIONS=100k 를 deriveKey(니모닉)와 hashPassword(PIN 검증)가 공유 — 니모닉만 올리면 passwordHash 100k 가 최약점 잔존. **재해시 마이그레이션 포함 필수**
   ② passkey.ts:47 별도 PBKDF2 100k: 입력이 PRF 출력(고엔트로피 32B)이라 반복수 방어 가치 낮음 — **스코프 제외 가능하되 설계 문서에 판정+근거 명시**
   ③ 크래시 원자성(신규 기록 후 구기록 교체) + **kdfVersion 필드** + 구버전 다운그레이드 graceful 실패
   ④ Argon2id 대안 평가(감사 원문 제시 — WebCrypto 미지원 → WASM 의존 트레이드) + 모바일 unlock 지연 실측 + half-wipe/자동락 상호작용
-- [ ] POS 키 반출 UX (제품 결정 — 소유자 확인 후)
+- [보류] POS 키 반출 UX — 소유자 '지금은 보류' 결정(2026-07-07). 반출 형태가 제품 결정이라 착수 불가.
 
 ## 대기 (착수 불가 — 게이트 분리 명기)
 - 네트워크 개편 이월: **진단 프로토콜 = 7일**(tls_stuck_detected=0 AND coco_push_received>0, 설계 §12) 충족 후 ks 구경로 삭제 / **§8.3 = 별도 2주 계측**(설계 :295) 후 판단 — 두 게이트는 별개
