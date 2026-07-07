@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * 팬텀 의존성 검사 (감사 Phase 3 프로세스 게이트 — 리뷰 MINOR 2회 재발 처방)
+ * Phantom-dependency check.
  *
- * warm-tree 검증(lint/build/test)은 lock 이 추적하지 않는 stale node_modules
- * 고아 디렉토리 덕에 green 일 수 있다 — light-bolt11-decoder(3a),
- * recharts/react-day-picker(3c)가 실제 사고 사례. 이 스크립트는 src + vite.config
- * 의 bare import 전수를 package.json 선언과 대조해, 신선 설치에서 깨질 참조를
- * 커밋 전에 잡는다. `bun run check:phantom` 으로 실행.
+ * warm-tree verification (lint/build/test) can be green thanks to stale
+ * node_modules orphan directories the lockfile doesn't track — light-bolt11-decoder
+ * and recharts/react-day-picker were real incidents. This script cross-checks every
+ * bare import in src + vite.config against package.json declarations to catch, before
+ * commit, references that would break on a fresh install. Run via `bun run check:phantom`.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
@@ -18,7 +18,7 @@ const declared = new Set([
   ...Object.keys(pkg.devDependencies ?? {}),
 ])
 
-// vite 가상 모듈 등 해석기가 소유하는 특수 스킴
+// Special schemes owned by the resolver (e.g. vite virtual modules)
 const VIRTUAL_PREFIXES = ['virtual:', 'node:']
 const NODE_BUILTINS = new Set(builtinModules)
 
@@ -52,7 +52,7 @@ for (const file of files) {
   for (const m of src.matchAll(IMPORT_RE)) {
     const spec = m[1] ?? m[2] ?? m[3]
     if (!spec) continue
-    if (spec.startsWith('.') || spec.startsWith('@/')) continue // 상대/앨리어스
+    if (spec.startsWith('.') || spec.startsWith('@/')) continue // relative / alias
     if (VIRTUAL_PREFIXES.some((p) => spec.startsWith(p))) continue
     const name = packageOf(spec)
     if (NODE_BUILTINS.has(name)) continue
@@ -63,8 +63,8 @@ for (const file of files) {
   }
 }
 
-// manualChunks 의 문자열 패키지 참조도 대조 — vendor-* 청크가 삭제된 패키지를
-// 가리키면 vite 해석 단계에서 빌드가 깨진다 (3a의 ndk, 3c의 recharts 클래스)
+// Also check the string package refs in manualChunks — if a vendor-* chunk points
+// at a removed package, the build breaks during vite resolution.
 const vite = readFileSync('vite.config.ts', 'utf8')
 const chunksBlock = vite.match(/manualChunks\s*:\s*\{[\s\S]*?\n\s*\}/)?.[0] ?? ''
 for (const m of chunksBlock.matchAll(/\[([^\]]*)\]/g)) {
@@ -78,12 +78,12 @@ for (const m of chunksBlock.matchAll(/\[([^\]]*)\]/g)) {
 }
 
 if (phantoms.size > 0) {
-  console.error('✘ PHANTOM DEPENDENCIES — src 가 import 하지만 package.json 에 선언되지 않음:')
+  console.error('✘ PHANTOM DEPENDENCIES — imported by src but not declared in package.json:')
   for (const [name, sites] of phantoms) {
     console.error(`  ${name}`)
     for (const s of sites.slice(0, 3)) console.error(`    ${s}`)
   }
-  console.error('\n신선 설치(fresh clone/CI)에서 빌드가 깨집니다. dependencies 에 선언하세요.')
+  console.error('\nA fresh install (clone/CI) will fail to build. Declare them in dependencies.')
   process.exit(1)
 }
-console.log(`✓ phantom deps 없음 (${files.length} files, ${declared.size} declared packages)`)
+console.log(`✓ no phantom deps (${files.length} files, ${declared.size} declared packages)`)

@@ -33,9 +33,9 @@ function formatTimelineTime(
 type RowKind = 'received' | 'sent' | 'reclaimed'
 
 const STATUS_KEY: Record<RowKind, TranslationKey> = {
-  received: 'token.history.status.registered', // 등록함
-  sent: 'token.history.status.consumed', // 사용됨
-  reclaimed: 'token.history.status.reclaimed', // 되찾음
+  received: 'token.history.status.registered', // registered
+  sent: 'token.history.status.consumed', // consumed
+  reclaimed: 'token.history.status.reclaimed', // reclaimed
 }
 
 function rowKind(tx: Transaction, status: TokenDetailStatus): RowKind {
