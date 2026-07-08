@@ -214,7 +214,7 @@ export function SendAmountStep({
 
       <div className="flex-1 overflow-y-auto px-6 flex flex-col">
         {/* Amount hero + conversion toggle */}
-        <div className="flex flex-col items-center gap-2 mt-8">
+        <div className="flex flex-col items-center gap-2 mt-12">
           <p className={`text-[44px] leading-none font-semibold ${isOverBalance ? 'text-accent-danger' : 'text-foreground'}`}>
             {displayAmount}
           </p>
@@ -245,7 +245,7 @@ export function SendAmountStep({
           type="button"
           onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
           disabled={!onChangeMint}
-          className="flex items-center justify-center gap-2 mt-8 mx-auto"
+          className="flex items-center justify-center gap-2 mt-auto mb-2 mx-auto"
         >
           <MintIcon iconUrl={mintIconUrl} imgSize="w-6 h-6" className="w-6 h-6" circle />
           <span className="text-body font-medium text-foreground truncate max-w-[220px]">{mintName}</span>
@@ -253,23 +253,9 @@ export function SendAmountStep({
         </button>
       </div>
 
-      {/* Next button */}
-      <div className="px-6 pb-4 shrink-0">
-        <Button
-          variant="brand"
-          size="xl"
-          onClick={handleNext}
-          disabled={!numericAmount || numericAmount <= 0 || isOverBalance}
-          loading={isLoading}
-          className="w-full"
-        >
-          {t('send.next')}
-        </Button>
-      </div>
-
       {/* Numpad — hidden when the amount is fixed by an invoice */}
       {!isAmountFixed && (
-        <div className="grid grid-cols-3 gap-0 shrink-0 pb-safe">
+        <div className="grid grid-cols-3 gap-0 shrink-0">
           {(isFiatMode && !fiatIsZeroDecimal ? KEYS_FIAT : KEYS_SATS).map((key) => (
             <button
               key={key}
@@ -282,6 +268,20 @@ export function SendAmountStep({
           ))}
         </div>
       )}
+
+      {/* Next button — below the keypad, matching the mockup */}
+      <div className="px-6 pt-2 pb-app shrink-0">
+        <Button
+          variant="brand"
+          size="xl"
+          onClick={handleNext}
+          disabled={!numericAmount || numericAmount <= 0 || isOverBalance}
+          loading={isLoading}
+          className="w-full"
+        >
+          {t('send.next')}
+        </Button>
+      </div>
 
       {onChangeMint && (
         <MintSelectBottomSheet

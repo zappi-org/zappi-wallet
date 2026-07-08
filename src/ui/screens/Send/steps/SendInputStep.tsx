@@ -164,13 +164,13 @@ export function SendInputStep({
     <div className="flex flex-col h-full bg-background">
       <ScreenHeader title={t('send.title')} onBack={onBack} />
 
-      <div className="flex-1 overflow-y-auto px-6 pt-6">
-        <h2 className="text-heading font-semibold text-foreground break-keep">
+      <div className="flex-1 overflow-y-auto px-6 pt-8">
+        <h2 className="text-heading font-bold text-foreground break-keep text-center leading-snug">
           {t('send.destination.whoToSend')}
         </h2>
-        {/* Destination input — placeholder smaller than title */}
-        <div className="mt-6">
-          <div className="flex items-center border-b border-border focus-within:border-foreground/20 transition-colors">
+        {/* Destination input — pill style */}
+        <div className="mt-7">
+          <div className="flex items-center gap-1 rounded-2xl bg-background-card px-4 focus-within:ring-1 focus-within:ring-foreground/15 transition-shadow">
             <input
               ref={inputRef}
               type="text"
@@ -187,12 +187,12 @@ export function SendInputStep({
               // remote round-trip, typing mid-validation could be overwritten by the
               // applyDestinationState on completion, widening the window to proceed with a stale address
               readOnly={isValidating}
-              className="flex-1 min-w-0 bg-transparent py-1.5 text-title font-medium text-foreground placeholder:text-foreground-muted placeholder:font-medium focus:outline-none"
+              className="flex-1 min-w-0 bg-transparent py-3.5 text-body font-medium text-foreground placeholder:text-foreground-muted placeholder:font-medium focus:outline-none"
             />
             <button
               onClick={() => setShowScanner(true)}
               aria-label={t('scanner.title')}
-              className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors shrink-0"
+              className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors shrink-0"
             >
               <CameraFilled className="text-foreground-muted" />
             </button>
