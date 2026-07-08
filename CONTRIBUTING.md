@@ -20,4 +20,5 @@ Hexagonal (ports & adapters). All dependencies point inward. See `AGENTS.md` for
 tsc -b
 bun lint
 bun run test
+bunx changeset
 ```
