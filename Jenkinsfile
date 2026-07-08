@@ -15,9 +15,14 @@ pipeline {
                     }
                     env.CHANNEL = buildingTag() ? 'main' : 'staging'
                 }
+                withCredentials([string(credentialsId: 'invite-codes-staging', variable: 'INVITE_CODES_STAGING')]) {
+                    script {
+                        env.INVITES = buildingTag() ? '' : "${INVITE_CODES_STAGING}"
+                    }
                     sh """
                         docker build \
                             --build-arg VITE_ZAPPI_CHANNEL=${CHANNEL} \
+                            --build-arg VITE_ZAPPI_INVITE_CODES=${INVITES} \
                             -t ${IMAGE_NAME}:${BUILD_NUMBER} .
                     """
             }
