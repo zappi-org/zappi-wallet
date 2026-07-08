@@ -1,49 +1,39 @@
 # ZAPPI Wallet
 
-논커스터디얼 Cashu/Lightning 지갑
+A custody-style ecash wallet focused on privacy and usability.
 
-## 개요
+## Features
 
-Nostr(NIP-61 NutZap) 및 Cashu 토큰을 관리하고, Lightning Network로 송수금하는 PWA 지갑 앱.
+- **Lightning** — Create & pay invoices via connected mints
+- **Ecash** — Send, receive, and swap Cashu tokens across mints
+- **Nostr DM** — Send and receive tokens directly via Nostr DMs (gift-wrapped)
 
-## 주요 기능
+## Tech Stack
 
-- **Lightning 송수금**: Lightning invoice 생성/결제
-- **Ecash 관리**: Cashu 토큰 송수금 및 멀티 민트 관리
-- **NutZap**: Nostr에서 nutzap(kind:9321) 자동 감지 및 수취
-- **백업/복원**: 니모닉 기반 지갑 복원
-
-## 특징
-
-- Non-Custodial (비수탁)
-- PWA (앱스토어 불필요)
-- 멀티 민트 지원
-
-## 기술 스택
-
-| 구분 | 기술 |
-|------|------|
-| Framework | React + Vite + TypeScript |
-| Cashu | @cashu/cashu-ts |
-| Nostr | @nostr-dev-kit/ndk |
-| UI | Tailwind CSS + shadcn/ui |
-| Storage | IndexedDB (Dexie.js) |
+| Area | Stack |
+|------|-------|
+| Framework | React 19 + TypeScript + Vite 7 |
+| Cashu | @cashu/cashu-ts, @cashu/coco-core, @cashu/coco-indexeddb |
+| Nostr | NDK, nostr-tools, nostr-cs |
+| Styling | Tailwind CSS 4 + shadcn/ui (Radix primitives) |
 | State | Zustand |
+| Storage | Dexie.js (IndexedDB) |
+| Crypto | @noble/hashes, @noble/curves, @noble/ciphers, @scure/bip39/bip32 |
 | PWA | vite-plugin-pwa |
+| i18n | i18next with browser language detector |
+| Testing | Vitest + Testing Library + MSW |
+| Architecture | Hexagonal (ports & adapters) |
 
-## 개발
+## Development
 
 ```bash
-# 의존성 설치
-bun install
-
-# 개발 서버
-bun dev
-
-# 빌드
-bun run build
+bun install      # Install dependencies
+bun dev          # Start dev server
+bun run build    # Type-check & production build
+bun test:run     # Run tests
+bun run lint     # Lint
 ```
 
-## 상태
+## Status
 
-개발 중
+Actively developed — v0.2.0
