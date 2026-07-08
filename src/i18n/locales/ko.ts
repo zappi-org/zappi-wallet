@@ -529,6 +529,7 @@ export default {
     title: '스캔',
     inputPlaceholder: '주소, 인보이스, 토큰 입력...',
     paste: '붙여넣기',
+    loadFromPhoto: '사진 불러오기',
     validating: '확인 중...',
     unrecognizedFormat: '인식할 수 없는 형식입니다',
     invoiceExpired: '인보이스가 만료되었습니다',
