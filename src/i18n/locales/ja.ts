@@ -416,6 +416,7 @@ export default {
   scanner: {
     title: 'スキャン',
     paste: '貼り付け',
+    loadFromPhoto: '写真から読み込む',
     validating: '確認中...',
     unrecognizedFormat: '認識できない形式です',
     invalidToken: '無効なイーキャッシュです',

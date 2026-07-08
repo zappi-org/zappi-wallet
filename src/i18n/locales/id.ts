@@ -416,6 +416,7 @@ export default {
   scanner: {
     title: 'Pindai',
     paste: 'Tempel',
+    loadFromPhoto: 'Muat dari foto',
     validating: 'Memvalidasi...',
     unrecognizedFormat: 'Format tidak dikenali',
     invalidToken: 'Ecash tidak valid',

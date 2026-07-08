@@ -416,6 +416,7 @@ export default {
   scanner: {
     title: 'Escanear',
     paste: 'Pegar',
+    loadFromPhoto: 'Cargar desde foto',
     validating: 'Validando...',
     unrecognizedFormat: 'Formato no reconocido',
     invalidToken: 'Ecash inválido',
