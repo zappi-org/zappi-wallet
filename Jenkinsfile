@@ -25,7 +25,6 @@ pipeline {
                             --build-arg VITE_ZAPPI_INVITE_CODES=${INVITES} \
                             -t ${IMAGE_NAME}:${BUILD_NUMBER} .
                     """
-                }
             }
         }
 
