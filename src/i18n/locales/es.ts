@@ -818,6 +818,13 @@ export default {
       howMuchSend: '¿Cuánto enviar?',
       addMemo: 'Memo (opcional)',
     },
+    direct: {
+      cta: 'Entregar directamente',
+      label: 'Entrega directa',
+      createCta: 'Crear token',
+      createFailed: 'No se pudo crear el token',
+      noMint: 'No hay mint disponible',
+    },
     tokenCreate: {
       howMuch: '¿Cuánto ecash crear?',
       amountCaption: 'Ecash convierte bitcoin en un vale que puedes entregar',

@@ -816,6 +816,13 @@ export default {
       howMuchSend: 'いくら送りますか？',
       addMemo: 'メモ（任意）',
     },
+    direct: {
+      cta: '直接渡す',
+      label: '直接受け渡し',
+      createCta: 'トークンを作成',
+      createFailed: 'トークンの作成に失敗しました',
+      noMint: '利用可能なミントがありません',
+    },
     tokenCreate: {
       howMuch: 'いくら分のイーキャッシュを作りますか？',
       amountCaption: 'イーキャッシュはビットコインを商品券のように手渡せる仕組みです',

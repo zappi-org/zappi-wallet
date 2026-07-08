@@ -818,6 +818,13 @@ export default {
       howMuchSend: 'Berapa yang dikirim?',
       addMemo: 'Memo (opsional)',
     },
+    direct: {
+      cta: 'Serahkan langsung',
+      label: 'Transfer langsung',
+      createCta: 'Buat token',
+      createFailed: 'Gagal membuat token',
+      noMint: 'Tidak ada mint tersedia',
+    },
     tokenCreate: {
       howMuch: 'Berapa nilai ecash yang dibuat?',
       amountCaption: 'Ecash mengubah bitcoin menjadi voucher yang bisa diserahkan',

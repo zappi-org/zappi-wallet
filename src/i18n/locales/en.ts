@@ -817,6 +817,13 @@ export default {
       howMuchSend: 'How much to send?',
       addMemo: 'Memo (optional)',
     },
+    direct: {
+      cta: 'Hand it over directly',
+      label: 'Direct transfer',
+      createCta: 'Create token',
+      createFailed: 'Failed to create token',
+      noMint: 'No mint available',
+    },
     tokenCreate: {
       howMuch: 'How much ecash to create?',
       amountCaption: 'Ecash turns bitcoin into a gift card you can hand over',

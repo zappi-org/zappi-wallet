@@ -821,6 +821,13 @@ export default {
       howMuchSend: '얼마를 보낼까요?',
       addMemo: '메모 (선택사항)',
     },
+    direct: {
+      cta: '직접 전달할게요',
+      label: '직접 전달',
+      createCta: '토큰 만들기',
+      createFailed: '토큰 생성에 실패했어요',
+      noMint: '사용할 민트가 없어요',
+    },
     tokenCreate: {
       howMuch: '얼마의 이캐시를 만들까요?',
       amountCaption: '이캐시는 비트코인을 상품권으로\n만들어 건넬 수 있는 방식이에요',

@@ -22,6 +22,8 @@ export interface ConfirmStepProps {
   onConfirm: () => Promise<void>
   /** Optional live fee estimate. Returns null when unavailable or 0 when the mint charges no fee. */
   onEstimateFee?: (mintUrl: string, amount: number) => Promise<number | null>
+  /** Overrides the confirm button label (defaults to common.next). */
+  confirmLabel?: string
 }
 
 export function ConfirmStep({
@@ -32,6 +34,7 @@ export function ConfirmStep({
   onBack,
   onConfirm,
   onEstimateFee,
+  confirmLabel,
 }: ConfirmStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
@@ -149,7 +152,7 @@ export function ConfirmStep({
           disabled={busy}
           className="w-full"
         >
-          {busy ? t('send.tokenCreate.creating') : t('common.next')}
+          {busy ? t('send.tokenCreate.creating') : (confirmLabel ?? t('common.next'))}
         </Button>
       </BottomActionBar>
     </div>
