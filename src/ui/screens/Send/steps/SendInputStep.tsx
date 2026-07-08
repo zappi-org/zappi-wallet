@@ -38,6 +38,8 @@ interface SendDestinationStepProps {
     amountFromInvoice?: number
     mintUrl?: string
   }) => void
+  /** Fired when the input is empty and the user chooses to create a bearer token instead. */
+  onDirectTransfer: () => void
   onRedirect?: (validatedData: ValidatedData) => void
   initialDestination?: string
   initialAddress?: string
@@ -58,6 +60,7 @@ interface SendDestinationStepProps {
 export function SendInputStep({
   onBack,
   onNext,
+  onDirectTransfer,
   onRedirect,
   initialDestination = '',
   initialAddress,
@@ -98,6 +101,8 @@ export function SendInputStep({
 
   const [showScanner, setShowScanner] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  // Empty input → offer bearer-token creation instead of Next (direct-transfer branch)
+  const hasDestination = destination.trim().length > 0
 
   const showMyWallets = useMemo(() => {
     const trimmed = destination.trim()
@@ -318,12 +323,12 @@ export function SendInputStep({
         <Button
           variant="brand"
           size="xl"
-          onClick={handleNext}
-          loading={isLoading || isValidating || isPreValidating}
-          disabled={!destination.trim() || !!preValidationError}
+          onClick={hasDestination ? handleNext : onDirectTransfer}
+          loading={hasDestination && (isLoading || isValidating || isPreValidating)}
+          disabled={hasDestination && !!preValidationError}
           className="w-full"
         >
-          {t('send.next')}
+          {hasDestination ? t('send.next') : t('send.direct.cta')}
         </Button>
       </div>
 

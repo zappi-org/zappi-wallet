@@ -73,6 +73,7 @@ vi.mock('@/ui/components/icons/CameraFilled', () => ({
 const defaultProps = {
   onBack: vi.fn(),
   onNext: vi.fn(),
+  onDirectTransfer: vi.fn(),
   onRedirect: vi.fn(),
   mintUrl: 'https://source.mint',
 }
@@ -103,6 +104,7 @@ describe('SendInputStep selection flows', () => {
     mockNostrDirectPayment.resolve.mockReset()
     defaultProps.onBack.mockReset()
     defaultProps.onNext.mockReset()
+    defaultProps.onDirectTransfer.mockReset()
     defaultProps.onRedirect.mockReset()
     stableAddToast.mockReset()
     mockFindByAddress.mockClear()
@@ -359,5 +361,23 @@ describe('SendInputStep selection flows', () => {
       }),
       amountFromInvoice: undefined,
     })
+  })
+
+  it('shows the direct-transfer CTA when the input is empty and fires onDirectTransfer', () => {
+    renderStep()
+    const cta = screen.getByRole('button', { name: 'send.direct.cta' })
+    act(() => {
+      cta.click()
+    })
+    expect(defaultProps.onDirectTransfer).toHaveBeenCalledOnce()
+    expect(defaultProps.onNext).not.toHaveBeenCalled()
+  })
+
+  it('switches the CTA to Next once a destination is entered', () => {
+    renderStep()
+    expect(screen.getByRole('button', { name: 'send.direct.cta' })).toBeInTheDocument()
+    typeIntoInput('npub1xxx')
+    expect(screen.getByRole('button', { name: 'send.next' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'send.direct.cta' })).not.toBeInTheDocument()
   })
 })

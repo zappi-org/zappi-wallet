@@ -71,6 +71,7 @@ vi.mock('@/ui/components/icons/CameraFilled', () => ({
 const defaultProps = {
   onBack: vi.fn(),
   onNext: vi.fn(),
+  onDirectTransfer: vi.fn(),
   onRedirect: vi.fn(),
   onRouteValidated: vi.fn(),
   mintUrl: 'https://mint.example.com',
