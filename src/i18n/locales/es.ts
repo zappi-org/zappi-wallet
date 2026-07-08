@@ -446,6 +446,7 @@ export default {
     title: 'Escanear',
     inputPlaceholder: 'Ingresa dirección, factura o token...',
     paste: 'Pegar',
+    loadFromPhoto: 'Cargar desde foto',
     validating: 'Validando...',
     unrecognizedFormat: 'Formato no reconocido',
     invoiceExpired: 'La factura ha expirado',

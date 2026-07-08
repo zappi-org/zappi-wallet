@@ -446,6 +446,7 @@ export default {
     title: 'Pindai',
     inputPlaceholder: 'Masukkan alamat, invoice, atau token...',
     paste: 'Tempel',
+    loadFromPhoto: 'Muat dari Foto',
     validating: 'Memvalidasi...',
     unrecognizedFormat: 'Format tidak dikenali',
     invoiceExpired: 'Invoice telah kedaluwarsa',
