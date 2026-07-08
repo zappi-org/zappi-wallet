@@ -1,7 +1,6 @@
 services:
   zappi-wallet-staging:
     image: zappi-wallet:staging
-    build: .
     ports:
       - "3021:80"
     restart: unless-stopped

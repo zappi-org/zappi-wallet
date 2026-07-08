@@ -420,6 +420,7 @@ export default {
   scanner: {
     title: '스캔',
     paste: '붙여넣기',
+    loadFromPhoto: '사진 불러오기',
     validating: '확인 중...',
     unrecognizedFormat: '인식할 수 없는 형식입니다',
     invalidToken: '유효하지 않은 이캐시예요',
