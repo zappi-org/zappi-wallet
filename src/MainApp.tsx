@@ -715,6 +715,29 @@ export default function MainApp() {
     [serviceRegistry],
   )
 
+  // ─── Resolve a source mint for token creation (active-with-balance → any-with-balance → first) ───
+  const resolveCreateMint = useCallback((): string => {
+    if (activeMintUrl && (balance.byMint[activeMintUrl] ?? 0) > 0) return activeMintUrl
+    const withBalance = settings.mints.find((url) => (balance.byMint[url] ?? 0) > 0)
+    if (withBalance) return withBalance
+    return activeMintUrl ?? settings.mints[0] ?? ''
+  }, [activeMintUrl, balance, settings.mints])
+
+  // ─── Reclaim an unclaimed created token ───
+  const handleReclaimToken = useCallback(async (txId: string): Promise<void> => {
+    if (!serviceRegistry?.reclaim?.reclaim) {
+      addToast({ type: 'error', message: t('errors.serviceNotReady') })
+      return
+    }
+    const result = await serviceRegistry.reclaim.reclaim(txId)
+    if (result.ok) {
+      addToast({ type: 'success', message: t('token.reclaim.success') })
+    } else {
+      const errorMessage = result.error ? translateError(result.error, t) : t('token.reclaim.failed')
+      addToast({ type: 'error', message: errorMessage })
+    }
+  }, [serviceRegistry, addToast, t])
+
   // ─── Check whether the token being registered is a pending send I created ───
   const handleCheckSelfToken = useCallback(
     async (tokenString: string): Promise<{ txId: string; amount: number } | null> => {
@@ -1009,19 +1032,17 @@ export default function MainApp() {
         initialDestination={contactInfo?.address || undefined}
         initialDisplayName={contactInfo?.displayName || undefined}
         onRedirect={handleSendRedirect}
+        onCreateToken={(amount, mintUrl, memo) => handleCreateEcashToken(amount, mintUrl, { memo })}
+        onEstimateCreateFee={handleEstimateCreateFee}
+        onQuoteReclaim={handleQuoteReclaim}
+        onReclaimToken={handleReclaimToken}
+        directMintUrl={resolveCreateMint()}
       />
     ),
 
     'token-create': () => (
       <TokenCreateFlow
-        mintUrl={(() => {
-          // Prefer active mint if it has balance, otherwise first mint with balance,
-          // otherwise fall back to active mint or first configured mint.
-          if (activeMintUrl && (balance.byMint[activeMintUrl] ?? 0) > 0) return activeMintUrl
-          const withBalance = settings.mints.find((url) => (balance.byMint[url] ?? 0) > 0)
-          if (withBalance) return withBalance
-          return activeMintUrl ?? settings.mints[0] ?? ''
-        })()}
+        mintUrl={resolveCreateMint()}
         onBack={() => {
           const backTo = previousScreen || 'token'
           setPreviousScreen(null)
@@ -1034,21 +1055,7 @@ export default function MainApp() {
         onCreateToken={(amount, mintUrl, memo) =>
           handleCreateEcashToken(amount, mintUrl, { memo })
         }
-        onCancelToken={async (txId) => {
-          if (!serviceRegistry?.reclaim?.reclaim) {
-            addToast({ type: 'error', message: t('errors.serviceNotReady') })
-            return
-          }
-          const result = await serviceRegistry.reclaim.reclaim(txId)
-          if (result.ok) {
-            addToast({ type: 'success', message: t('token.reclaim.success') })
-          } else {
-            const errorMessage = result.error
-              ? translateError(result.error, t)
-              : t('token.reclaim.failed')
-            addToast({ type: 'error', message: errorMessage })
-          }
-        }}
+        onCancelToken={handleReclaimToken}
         onEstimateFee={handleEstimateCreateFee}
         onQuoteReclaim={handleQuoteReclaim}
       />

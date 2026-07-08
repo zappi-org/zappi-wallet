@@ -56,6 +56,8 @@ import { SendingStep } from './steps/SendingStep'
 import { SendCompleteStep } from './steps/SendCompleteStep'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { planRouteSelection } from './sendRouteHelpers'
+import { ConfirmStep as TokenCreateConfirmStep } from '@/ui/screens/TokenCreate/steps/ConfirmStep'
+import { CreatedStep } from '@/ui/screens/TokenCreate/steps/CreatedStep'
 
 // ============= Types =============
 
@@ -65,6 +67,7 @@ export type SendStep =
   | 'confirm'
   | 'sending'
   | 'complete'
+  | 'created'
 
 /** Validated data types that are "sendable" (not token, not amount) */
 export type SendableValidatedData =
@@ -90,6 +93,10 @@ export interface SendFlowState {
   dmSent: boolean
   // Routing
   routeSelection: RouteSelection | null
+  // Direct transfer (bearer token creation, no recipient)
+  directTransfer: boolean
+  createdToken: string
+  createdTxId: string
 }
 
 /**
@@ -127,6 +134,12 @@ export interface SendFlowProps {
   initialDisplayName?: string
   // Universal router — delegates non-sendable input (cashu-token, amount-only) elsewhere
   onRouteValidated?: (data: ValidatedData) => void
+  // Direct transfer (bearer token) — creates a token with no recipient, reusing TokenCreate pieces
+  onCreateToken: (amount: number, mintUrl: string, memo?: string) => Promise<{ token: string; txId: string; operationId: string } | null>
+  onEstimateCreateFee?: (mintUrl: string, amount: number) => Promise<number | null>
+  onQuoteReclaim?: (txId: string) => Promise<number | null>
+  onReclaimToken?: (txId: string) => Promise<void>
+  directMintUrl?: string | null
 }
 
 // ============= Component =============
@@ -144,6 +157,11 @@ export function SendFlow({
   initialDestination,
   initialDisplayName,
   onRouteValidated,
+  onCreateToken,
+  onEstimateCreateFee,
+  onQuoteReclaim,
+  onReclaimToken,
+  directMintUrl,
 }: SendFlowProps) {
   const { t } = useTranslation()
   const { isOnline } = useNetwork()
@@ -203,6 +221,9 @@ export function SendFlow({
     error: null,
     dmSent: false,
     routeSelection: null,
+    directTransfer: false,
+    createdToken: '',
+    createdTxId: '',
   })
 
   // Loading state for async operations
@@ -494,6 +515,59 @@ export function SendFlow({
     }
   }, [state, onExecuteRoute, onMintSwap, isOnline, addToast, t])
 
+  // ============= Direct Transfer (bearer token, no recipient) =============
+
+  /** Empty-input CTA → enter amount entry with a resolved source mint. */
+  const handleDirectTransfer = useCallback(() => {
+    const mint = state.selectedMintUrl ?? directMintUrl ?? null
+    if (!mint) {
+      addToast({ type: 'error', message: t('send.direct.noMint'), duration: 3000 })
+      return
+    }
+    setState((prev) => ({
+      ...prev,
+      directTransfer: true,
+      selectedMintUrl: mint,
+      amount: 0,
+      memo: '',
+      step: 'amount',
+      error: null,
+    }))
+  }, [state.selectedMintUrl, directMintUrl, addToast, t])
+
+  /** Direct amount → confirm (no route selection; token creation bypasses routing). */
+  const handleDirectAmountNext = useCallback((data: { amount: number; memo: string; isFiatMode: boolean; fiatAmount: string }) => {
+    setState((prev) => ({
+      ...prev,
+      amount: data.amount,
+      memo: data.memo,
+      isFiatMode: data.isFiatMode,
+      fiatAmount: data.fiatAmount,
+      step: 'confirm',
+      error: null,
+    }))
+  }, [])
+
+  /** Confirm → create the bearer token, then show the result (CreatedStep). */
+  const handleCreateTokenConfirm = useCallback(async () => {
+    if (!state.selectedMintUrl) {
+      addToast({ type: 'error', message: t('send.direct.noMint'), duration: 3000 })
+      return
+    }
+    const res = await onCreateToken(state.amount, state.selectedMintUrl, state.memo || undefined)
+    if (!res) {
+      addToast({ type: 'error', message: t('send.direct.createFailed'), duration: 3000 })
+      return
+    }
+    setState((prev) => ({ ...prev, createdToken: res.token, createdTxId: res.txId, step: 'created', error: null }))
+  }, [state.selectedMintUrl, state.amount, state.memo, onCreateToken, addToast, t])
+
+  /** Reclaim mirrors TokenCreateFlow: reclaim the unclaimed token, then leave the flow. */
+  const handleReclaimAndClose = useCallback(async () => {
+    if (onReclaimToken) await onReclaimToken(state.createdTxId)
+    onComplete()
+  }, [onReclaimToken, state.createdTxId, onComplete])
+
   // ============= Mint Selection (lifted) =============
 
   /** Open mint selection sheet — called from SendInputStep (destination context). */
@@ -596,6 +670,7 @@ export function SendFlow({
               isLoading={isLoading}
               onRouteValidated={onRouteValidated}
               onRequestMintSelection={handleRequestMintSelection}
+              onDirectTransfer={handleDirectTransfer}
             />
           </PageTransition>
         )}
@@ -604,27 +679,27 @@ export function SendFlow({
           <PageTransition key="send-amount" variant="page" className="flex-1">
             <SendAmountStep
               onBack={() => {
-                if (getInitialStep() === 'amount') {
+                if (!state.directTransfer && getInitialStep() === 'amount') {
                   onBack()
                 } else {
-                  setState((prev) => ({ ...prev, step: 'destination', error: null }))
+                  setState((prev) => ({ ...prev, step: 'destination', directTransfer: false, error: null }))
                 }
               }}
-              onNext={handleAmountNext}
+              onNext={state.directTransfer ? handleDirectAmountNext : handleAmountNext}
               mintUrl={state.selectedMintUrl || ''}
               destination={state.destination}
-              validatedData={state.validatedData || undefined}
+              validatedData={state.directTransfer ? undefined : (state.validatedData || undefined)}
               initialAmount={state.amount}
               initialMemo={state.memo}
               initialFiatMode={state.isFiatMode}
               initialFiatAmount={state.fiatAmount}
               isLoading={isLoading}
-              displayName={effectiveDisplayName}
+              displayName={state.directTransfer ? t('send.direct.label') : effectiveDisplayName}
             />
           </PageTransition>
         )}
 
-        {state.step === 'confirm' && (
+        {state.step === 'confirm' && !state.directTransfer && (
           <PageTransition key="send-confirm" variant="page" className="flex-1">
             <SendConfirmStep
               onBack={() => {
@@ -653,6 +728,21 @@ export function SendFlow({
           </PageTransition>
         )}
 
+        {state.step === 'confirm' && state.directTransfer && (
+          <PageTransition key="send-direct-confirm" variant="page" className="flex-1">
+            <TokenCreateConfirmStep
+              amount={state.amount}
+              memo={state.memo}
+              senderPaysFee={false}
+              mintUrl={state.selectedMintUrl!}
+              confirmLabel={t('send.direct.createCta')}
+              onBack={() => setState((prev) => ({ ...prev, step: 'amount', error: null }))}
+              onConfirm={handleCreateTokenConfirm}
+              onEstimateFee={onEstimateCreateFee}
+            />
+          </PageTransition>
+        )}
+
         {state.step === 'sending' && (
           <PageTransition key="sending" variant="fade" className="flex-1">
             <SendingStep
@@ -674,6 +764,22 @@ export function SendFlow({
               isFiatMode={state.isFiatMode}
               fiatAmount={state.fiatAmount}
               displayName={effectiveDisplayName}
+            />
+          </PageTransition>
+        )}
+
+        {state.step === 'created' && (
+          <PageTransition key="send-created" variant="fade" className="flex-1">
+            <CreatedStep
+              amount={state.amount}
+              memo={state.memo}
+              senderPaysFee={false}
+              mintUrl={state.selectedMintUrl!}
+              tokenString={state.createdToken}
+              txId={state.createdTxId}
+              onClose={onComplete}
+              onCancelToken={handleReclaimAndClose}
+              onQuoteReclaim={onQuoteReclaim}
             />
           </PageTransition>
         )}
