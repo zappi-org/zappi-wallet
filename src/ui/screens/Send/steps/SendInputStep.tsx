@@ -12,6 +12,8 @@
  */
 
 import { useState, useCallback, useRef, useMemo } from 'react'
+import { motion } from 'motion/react'
+import { useKeyboardInset } from '@/ui/hooks/use-keyboard-inset'
 import { Zap, Hash, Link } from 'lucide-react'
 import { CameraFilled } from '@/ui/components/icons/CameraFilled'
 import cardLogo from '@/assets/card-logo.svg'
@@ -103,6 +105,8 @@ export function SendInputStep({
   const inputRef = useRef<HTMLInputElement>(null)
   // Empty input → offer bearer-token creation instead of Next (direct-transfer branch)
   const hasDestination = destination.trim().length > 0
+  // Lift the primary action above the soft keyboard as it opens
+  const kbInset = useKeyboardInset()
 
   const showMyWallets = useMemo(() => {
     const trimmed = destination.trim()
@@ -319,7 +323,12 @@ export function SendInputStep({
         )}
       </div>
 
-      <div className="px-6 pb-app shrink-0">
+      <motion.div
+        className="px-6 pb-app shrink-0"
+        animate={{ y: -kbInset }}
+        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+        style={{ willChange: 'transform' }}
+      >
         <Button
           variant="brand"
           size="xl"
@@ -330,7 +339,7 @@ export function SendInputStep({
         >
           {hasDestination ? t('send.next') : t('send.direct.cta')}
         </Button>
-      </div>
+      </motion.div>
 
       <QrScannerModal isOpen={showScanner} onClose={() => setShowScanner(false)} onScan={handleScan} />
     </div>
