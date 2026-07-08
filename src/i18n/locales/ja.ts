@@ -446,6 +446,7 @@ export default {
     title: 'スキャン',
     inputPlaceholder: 'アドレス、インボイス、トークンを入力...',
     paste: '貼り付け',
+    loadFromPhoto: '写真から読み込む',
     validating: '確認中...',
     unrecognizedFormat: '認識できない形式です',
     invoiceExpired: 'インボイスの有効期限が切れています',
