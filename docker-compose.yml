@@ -1,7 +1,6 @@
 services:
   zappi-wallet:
     image: zappi-wallet:latest
-    build: .
     ports:
       - "3020:80"
     restart: unless-stopped
