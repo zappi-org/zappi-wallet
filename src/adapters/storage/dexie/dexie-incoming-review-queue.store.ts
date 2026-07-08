@@ -1,7 +1,7 @@
 import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-queue.port'
 import type { PendingIncomingReview } from '@/core/types'
 import type { Unit } from '@/core/domain/amount'
-import { mintUrlKey } from '@/utils/url'
+import { mintUrlKey } from '@/core/domain/mint-url'
 import { getDatabase, type IncomingReviewRecord } from './schema'
 
 /**

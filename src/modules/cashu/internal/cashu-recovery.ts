@@ -4,7 +4,7 @@
  * No direct DB/legacy access; SDK calls go through injected interfaces.
  */
 
-import { mintUrlKey } from '@/utils/url'
+import { mintUrlKey } from '@/core/domain/mint-url'
 import { toNumber } from '@/core/domain/amount'
 import { isExpired as isPendingOperationExpired, type PendingOperation } from '@/core/domain/pending-operation'
 import type { PendingOperationRepository } from '@/core/ports/driven/pending-operation.repository.port'
