@@ -1,13 +1,13 @@
 /**
  * SendAmountStep — Amount entry with a numeric keypad.
  * The recipient picked on the previous step rides up here as a collapsed
- * "받는 사람 / name" header (or "직접 전달" for the bearer-token branch);
- * the amount hero + keypad take the stage. Tapping the header returns to edit.
+ * "TO name" header (or "직접 전달" for the bearer-token branch); the amount
+ * hero + keypad take the stage. Tapping the header returns to edit.
  */
 
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, ChevronDown } from 'lucide-react'
 import { useWallet } from '@/ui/hooks/use-wallet'
 import { useAppStore } from '@/store'
 import { hapticTap } from '@/ui/utils/haptic'
@@ -28,7 +28,7 @@ import {
 import { useContacts } from '@/ui/hooks/use-contacts'
 import type { SendableValidatedData } from '../SendFlow'
 
-const KEYS_SATS: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0', 'del']
+const KEYS_SATS: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'max', '0', 'del']
 const KEYS_FIAT: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'del']
 
 interface SendAmountStepProps {
@@ -75,9 +75,8 @@ export function SendAmountStep({
   const { getDisplayName, getIconUrl } = useMintMetadata(mintUrls)
 
   const [amount, setAmount] = useState(initialAmount > 0 ? String(initialAmount) : '')
-  const [memo, setMemo] = useState(initialMemo)
-  const [memoFocused, setMemoFocused] = useState(false)
   const [mintSheetOpen, setMintSheetOpen] = useState(false)
+  const memo = initialMemo
 
   const {
     isFiatMode, fiatInput, fiatCurrency, currencySymbol, exchangeRate,
@@ -140,6 +139,10 @@ export function SendAmountStep({
 
   const handleKey = (key: string) => {
     if (isAmountFixed) return
+    if (key === 'max') {
+      setAmount(String(mintBalance))
+      return
+    }
     if (key === 'del') {
       if (isFiatMode) handleFiatChange(fiatInput.slice(0, -1))
       else setAmount((prev) => prev.slice(0, -1))
@@ -182,8 +185,8 @@ export function SendAmountStep({
   const displayAmount = isFiatMode
     ? `${currencySymbol}${fiatInput ? Number(fiatInput).toLocaleString() : '0'}`
     : formatSats(numericAmount)
-  const fiatLabel = !isFiatMode && numericAmount > 0 ? toFiat(numericAmount) : null
-  const satsSecondary = isFiatMode && numericAmount > 0 ? formatSats(numericAmount) : null
+  // Secondary conversion line (shown with the ⇄ toggle) — always visible.
+  const secondary = isFiatMode ? formatSats(numericAmount) : (toFiat(numericAmount) ?? `${currencySymbol}0`)
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -200,14 +203,9 @@ export function SendAmountStep({
             <span className="text-subtitle font-semibold text-foreground">{t('send.direct.label')}</span>
           ) : (
             <>
-              <span className="text-label uppercase tracking-wider text-foreground-muted">
-                {t('send.confirm.recipient')}
-              </span>
-              <span className="text-subtitle font-semibold text-foreground truncate max-w-[280px]">
-                {recipientLabel}
-              </span>
+              <span className="text-label uppercase tracking-wider text-foreground-muted">TO {recipientLabel}</span>
               {recipientDetail && (
-                <span className="text-caption text-foreground-muted truncate max-w-[280px]">{recipientDetail}</span>
+                <span className="text-subtitle font-semibold text-foreground truncate max-w-[280px]">{recipientDetail}</span>
               )}
             </>
           )}
@@ -215,67 +213,44 @@ export function SendAmountStep({
       )}
 
       <div className="flex-1 overflow-y-auto px-6 flex flex-col">
-        {/* Amount hero */}
+        {/* Amount hero + conversion toggle */}
         <div className="flex flex-col items-center gap-2 mt-8">
           <p className={`text-[44px] leading-none font-semibold ${isOverBalance ? 'text-accent-danger' : 'text-foreground'}`}>
             {displayAmount}
           </p>
-          {canToggleFiat && !isAmountFixed && (
+          {canToggleFiat && !isAmountFixed ? (
             <button
               type="button"
               aria-label={t('send.tokenCreate.toggleUnit', { current: isFiatMode ? currencySymbol : unit })}
               onClick={handleToggleFiat}
-              className="flex mt-1 items-center gap-1 text-body font-semibold text-foreground-muted shrink-0 px-2.5 py-1 rounded-full bg-background-card active:bg-background-hover transition-colors"
+              className="flex items-center gap-1.5 text-body text-foreground-muted active:opacity-70 transition-opacity"
             >
-              <span>{isFiatMode ? currencySymbol : unit}</span>
+              <span>{secondary}</span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M7 16l-4-4 4-4" /><path d="M17 8l4 4-4 4" /><line x1="3" y1="12" x2="21" y2="12" />
               </svg>
-              <span>{isFiatMode ? unit : currencySymbol}</span>
             </button>
+          ) : (
+            <p className="text-body text-foreground-muted">{secondary}</p>
           )}
-          {isOverBalance ? (
-            <p className="text-body text-accent-danger">
+          {isOverBalance && (
+            <p className="text-caption text-accent-danger">
               {t('payment.insufficientBalance')} ({t('common.balance')} {formatSats(mintBalance)})
             </p>
-          ) : (
-            <p className={`text-body text-foreground-muted ${(isFiatMode ? satsSecondary : fiatLabel) ? '' : 'invisible'}`}>
-              ~ {isFiatMode ? satsSecondary ?? '0' : fiatLabel ?? '0'}
-            </p>
           )}
         </div>
 
-        {/* Mint bar — logo + custom name + balance (tappable when onChangeMint) */}
-        <div className="flex items-center gap-3 mt-8 pb-2 border-b border-border w-[85%] mx-auto">
-          <button
-            type="button"
-            onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
-            disabled={!onChangeMint}
-            className="flex items-center gap-2 flex-1 min-w-0 text-left"
-          >
-            <MintIcon iconUrl={mintIconUrl} imgSize="w-7 h-7" className="w-7 h-7" circle />
-            <span className="text-body font-medium text-foreground truncate">{mintName}</span>
-            {onChangeMint && <ChevronRight className="w-3.5 h-3.5 text-foreground-muted shrink-0" strokeWidth={2} />}
-          </button>
-          <span className="text-caption text-foreground-muted">{t('common.balance')}</span>
-          <span className="text-body text-foreground">{formatSats(mintBalance)}</span>
-        </div>
-
-        {/* Memo — underline style */}
-        <div className="mt-4 w-[85%] mx-auto">
-          <div className="flex items-center border-b border-border focus-within:border-foreground/20 transition-colors">
-            <input
-              type="text"
-              value={memo}
-              onChange={(e) => setMemo(e.target.value)}
-              onFocus={() => setMemoFocused(true)}
-              onBlur={() => setMemoFocused(false)}
-              placeholder={t('send.amount.addMemo')}
-              maxLength={100}
-              className="flex-1 min-w-0 bg-transparent py-2 text-body font-medium text-foreground placeholder:text-foreground-muted focus:outline-none"
-            />
-          </div>
-        </div>
+        {/* Mint — logo + custom name, centered (tappable when onChangeMint) */}
+        <button
+          type="button"
+          onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
+          disabled={!onChangeMint}
+          className="flex items-center justify-center gap-2 mt-8 mx-auto"
+        >
+          <MintIcon iconUrl={mintIconUrl} imgSize="w-6 h-6" className="w-6 h-6" circle />
+          <span className="text-body font-medium text-foreground truncate max-w-[220px]">{mintName}</span>
+          {onChangeMint && <ChevronDown className="w-4 h-4 text-foreground-muted shrink-0" strokeWidth={2} />}
+        </button>
       </div>
 
       {/* Next button */}
@@ -292,8 +267,8 @@ export function SendAmountStep({
         </Button>
       </div>
 
-      {/* Numpad — hidden when the amount is fixed (invoice) or the memo is focused */}
-      {!isAmountFixed && !memoFocused && (
+      {/* Numpad — hidden when the amount is fixed by an invoice */}
+      {!isAmountFixed && (
         <div className="grid grid-cols-3 gap-0 shrink-0 pb-safe">
           {(isFiatMode && !fiatIsZeroDecimal ? KEYS_FIAT : KEYS_SATS).map((key) => (
             <button
@@ -302,7 +277,7 @@ export function SendAmountStep({
               onClick={() => handleKey(key)}
               className="h-14 text-title font-normal text-foreground hover:bg-background-hover active:bg-background-card transition-colors flex items-center justify-center"
             >
-              {key === 'del' ? <ArrowLeft className="w-5 h-5" strokeWidth={1.8} /> : key}
+              {key === 'del' ? <ArrowLeft className="w-5 h-5" strokeWidth={1.8} /> : key === 'max' ? <span className="text-body font-semibold text-foreground-muted">{t('send.max')}</span> : key}
             </button>
           ))}
         </div>

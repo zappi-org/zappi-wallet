@@ -45,7 +45,8 @@ describe('SendAmountStep keypad', () => {
 
     expect(screen.getByText('send.direct.label')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '1' }))
-    fireEvent.click(screen.getByRole('button', { name: '00' }))
+    fireEvent.click(screen.getByRole('button', { name: '0' }))
+    fireEvent.click(screen.getByRole('button', { name: '0' }))
     fireEvent.click(screen.getByRole('button', { name: 'send.next' }))
 
     expect(onNext).toHaveBeenCalledWith(expect.objectContaining({ amount: 100 }))

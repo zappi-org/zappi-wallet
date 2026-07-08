@@ -798,6 +798,7 @@ export default {
   // Send
   send: {
     title: '送金',
+    max: '全額',
     next: '次へ',
     noOtherWallets: '他のウォレットがありません',
     myWalletList: '自分に送る',

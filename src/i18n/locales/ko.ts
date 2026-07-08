@@ -802,6 +802,7 @@ export default {
   // Send
   send: {
     title: '보내기',
+    max: '전액',
     next: '다음',
     noOtherWallets: '다른 지갑이 없습니다',
     myWalletList: '나에게 보내기',

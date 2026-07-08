@@ -800,6 +800,7 @@ export default {
   // Send
   send: {
     title: 'Enviar',
+    max: 'Máx',
     next: 'Siguiente',
     noOtherWallets: 'No hay otras billeteras',
     myWalletList: 'Enviarme a mí',

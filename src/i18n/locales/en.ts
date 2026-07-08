@@ -798,6 +798,7 @@ export default {
   // Send
   send: {
     title: 'Send',
+    max: 'Max',
     next: 'Next',
     noOtherWallets: 'No other wallets',
     myWalletList: 'Send to myself',

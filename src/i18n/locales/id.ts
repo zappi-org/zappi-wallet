@@ -800,6 +800,7 @@ export default {
   // Send
   send: {
     title: 'Kirim',
+    max: 'Maks',
     next: 'Lanjut',
     noOtherWallets: 'Tidak ada dompet lain',
     myWalletList: 'Kirim ke diri sendiri',
