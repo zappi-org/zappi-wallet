@@ -535,6 +535,7 @@ export default {
     title: 'Scan',
     inputPlaceholder: 'Enter address, invoice, or token...',
     paste: 'Paste',
+    loadFromPhoto: 'Load from Photo',
     validating: 'Validating...',
     unrecognizedFormat: 'Unrecognized format',
     invoiceExpired: 'Invoice has expired',
