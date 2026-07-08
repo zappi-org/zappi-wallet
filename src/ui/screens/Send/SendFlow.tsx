@@ -51,12 +51,11 @@ function getAmountFromData(data: SendableValidatedData): number {
 
 import { SendInputStep } from './steps/SendInputStep'
 import { SendAmountStep } from './steps/SendAmountStep'
-import { SendConfirmStep } from './steps/SendConfirmStep'
 import { SendingStep } from './steps/SendingStep'
 import { SendCompleteStep } from './steps/SendCompleteStep'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { planRouteSelection } from './sendRouteHelpers'
-import { ConfirmStep as TokenCreateConfirmStep } from '@/ui/screens/TokenCreate/steps/ConfirmStep'
+import { SendConfirmSheet } from './SendConfirmSheet'
 import { CreatedStep } from '@/ui/screens/TokenCreate/steps/CreatedStep'
 
 // ============= Types =============
@@ -655,7 +654,7 @@ export function SendFlow({
   // ============= Render =============
 
   return (
-    <div className="h-dvh bg-background text-foreground font-primary flex flex-col pt-safe">
+    <div className="relative h-dvh bg-background text-foreground font-primary flex flex-col pt-safe">
       <AnimatePresence mode="wait">
         {state.step === 'destination' && (
           <PageTransition key="send-destination" variant="page" className="flex-1">
@@ -675,7 +674,7 @@ export function SendFlow({
           </PageTransition>
         )}
 
-        {state.step === 'amount' && (
+        {(state.step === 'amount' || state.step === 'confirm') && (
           <PageTransition key="send-amount" variant="page" className="flex-1">
             <SendAmountStep
               onBack={() => {
@@ -697,50 +696,6 @@ export function SendFlow({
               displayName={effectiveDisplayName}
               directTransfer={state.directTransfer}
               onChangeMint={state.directTransfer ? (url) => setState((prev) => ({ ...prev, selectedMintUrl: url })) : undefined}
-            />
-          </PageTransition>
-        )}
-
-        {state.step === 'confirm' && !state.directTransfer && (
-          <PageTransition key="send-confirm" variant="page" className="flex-1">
-            <SendConfirmStep
-              onBack={() => {
-                setState((prev) => ({
-                  ...prev,
-                  step: prev.skippedAmount ? 'destination' : 'amount',
-                  fee: 0,
-                  routeSelection: null,
-                  skippedAmount: false,
-                  error: null,
-                }))
-              }}
-              onConfirm={handleConfirmSend}
-              validatedData={state.validatedData!}
-              amount={state.amount}
-              fee={state.fee}
-              displayName={effectiveDisplayName}
-              mintUrl={state.selectedMintUrl!}
-              error={state.error}
-              route={state.routeSelection?.route}
-              isFiatMode={state.isFiatMode}
-              fiatAmount={state.fiatAmount}
-              userMemo={state.memo}
-              onRequestMintSelection={handleConfirmRequestMintSelection}
-            />
-          </PageTransition>
-        )}
-
-        {state.step === 'confirm' && state.directTransfer && (
-          <PageTransition key="send-direct-confirm" variant="page" className="flex-1">
-            <TokenCreateConfirmStep
-              amount={state.amount}
-              memo={state.memo}
-              senderPaysFee={false}
-              mintUrl={state.selectedMintUrl!}
-              confirmLabel={t('send.direct.createCta')}
-              onBack={() => setState((prev) => ({ ...prev, step: 'amount', error: null }))}
-              onConfirm={handleCreateTokenConfirm}
-              onEstimateFee={onEstimateCreateFee}
             />
           </PageTransition>
         )}
@@ -786,6 +741,22 @@ export function SendFlow({
           </PageTransition>
         )}
       </AnimatePresence>
+
+      <SendConfirmSheet
+        open={state.step === 'confirm'}
+        directTransfer={state.directTransfer}
+        validatedData={state.validatedData}
+        amount={state.amount}
+        fee={state.fee}
+        mintUrl={state.selectedMintUrl || ''}
+        error={state.error}
+        route={state.routeSelection?.route}
+        displayName={effectiveDisplayName}
+        onEstimateFee={state.directTransfer ? onEstimateCreateFee : undefined}
+        onChangeMint={state.directTransfer ? undefined : handleConfirmRequestMintSelection}
+        onClose={() => setState((prev) => ({ ...prev, step: 'amount', error: null }))}
+        onConfirm={state.directTransfer ? handleCreateTokenConfirm : handleConfirmSend}
+      />
 
       <MintSelectBottomSheet
         isOpen={mintSelection !== null}
