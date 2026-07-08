@@ -420,6 +420,7 @@ export default {
   scanner: {
     title: 'Scan',
     paste: 'Paste',
+    loadFromPhoto: 'Load from Photo',
     validating: 'Validating...',
     unrecognizedFormat: 'Unrecognized format',
     invalidToken: 'Invalid ecash',

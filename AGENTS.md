@@ -2,35 +2,24 @@
 
 ## Structure
 
-```
-src/
-├── core/                    # Hexagonal boundary — pure, no framework deps
-│   ├── domain/              # Pure types & functions (Amount, Transaction, Result<T,E>)
-│   ├── ports/
-│   │   ├── driving/         # 13 UseCases (Payment, Balance, Swap, IncomingPayment, ...)
-│   │   └── driven/          # 26 ports (NostrGateway, OutgoingPaymentTransport, repos, ...)
-│   ├── services/            # UseCase implementations (13 services)
-│   ├── events/              # EventBus + DomainEvent types
-│   └── errors/              # Domain errors
-├── modules/cashu/           # WalletModule impl — Coco SDK, bolt11/ecash adapters
-│   └── internal/            # NEVER import from outside this dir
-├── adapters/                # Driven port implementations
-│   ├── nostr/               # NostrGatewayAdapter, NostrPaymentTransport, nostr-crypto
-│   ├── storage/             # Dexie repos, AnchorStore, RecoveryStore
-│   ├── crypto/              # Encryption, KeyManager, P2PK
-│   ├── lnurl/               # DirectLnurlAdapter
-│   └── ...
-├── composition/             # Wiring layer (NOT inside hexagon)
-│   ├── bootstrap.ts         # Composition root — only file that knows everything
-│   ├── gift-wrap.watcher.ts # GiftWrapWatcher (subscribe → parse → redeem → emit)
-│   ├── app-lifecycle.watcher.ts
-│   ├── event-store-bridge.ts
-│   ├── types.ts             # ServiceRegistry interface
-│   └── *.ts                 # Service factory functions
-├── hooks/                   # React driving adapters (access core via ServiceRegistry)
-├── store/                   # Zustand — reactive cache, outside hexagon
-└── ui/                      # Screens, components
-```
+- **`src/core/`** — Hexagonal boundary. Pure, no framework deps.
+  - `domain/` — Pure types & functions (Amount, Transaction, Result<T,E>)
+  - `ports/driving/` — UseCase interfaces (Payment, Balance, Swap, Transfer, ...)
+  - `ports/driven/` — Port interfaces (NostrGateway, WalletModule, repos, ...)
+  - `services/` — UseCase implementations
+  - `events/` — EventBus + DomainEvent types
+  - `errors/` — Domain errors (69 error codes)
+  - `constants/` — Domain constants (fiat, NUTs)
+  - `types/` — Shared domain types
+- **`src/modules/cashu/`** — WalletModule impl (Coco SDK, bolt11/ecash). `internal/` must never be imported from outside.
+- **`src/adapters/`** — 14 driven port implementation areas (nostr, storage, crypto, lnurl, coco, codec, cache, exchange-rate, health, metadata, nip05, runtime, customer-support, zappi-link)
+- **`src/composition/`** — Wiring layer, NOT inside hexagon. `bootstrap.ts` is the composition root. Contains bridges (event-store, coco-event, transfer-tx, gift-wrap-settlement), observers, routing, and factory modules.
+- **`src/store/`** — Zustand reactive cache, outside hexagon. `slices/` for domain slices, `selectors/` for derived state.
+- **`src/ui/`** — Screens (20), components, primitives, hooks (access core via ServiceRegistry), config.
+- **`src/i18n/`** — Internationalization with locales: en, ko, ja, es, id
+- **`src/__tests__/`** — Tests mirroring `src/` structure (unit/, mocks/)
+- **`src/utils/`** — Pure utility functions
+- **`src/assets/`** — Static assets
 
 ## Flow
 
