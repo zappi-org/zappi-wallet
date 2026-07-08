@@ -694,7 +694,9 @@ export function SendFlow({
               initialFiatMode={state.isFiatMode}
               initialFiatAmount={state.fiatAmount}
               isLoading={isLoading}
-              displayName={state.directTransfer ? t('send.direct.label') : effectiveDisplayName}
+              displayName={effectiveDisplayName}
+              directTransfer={state.directTransfer}
+              onChangeMint={state.directTransfer ? (url) => setState((prev) => ({ ...prev, selectedMintUrl: url })) : undefined}
             />
           </PageTransition>
         )}
