@@ -24,7 +24,6 @@ import {
   findContactName,
   formatNpubShort,
   formatRecipientDisplayText,
-  shouldShowRecipientInMainMessage,
 } from '../sendDisplayHelpers'
 import { useContacts } from '@/ui/hooks/use-contacts'
 import type { SendableValidatedData } from '../SendFlow'
@@ -113,28 +112,27 @@ export function SendAmountStep({
     findContactName(addr, findByAddress).then(setContactName)
   }, [destination, validatedData, findByAddress, directTransfer])
 
-  // Collapsed recipient label (name)
+  // Collapsed recipient label (the "TO {name}" eyebrow value)
   const recipientLabel = useMemo(() => {
-    if (validatedData && !shouldShowRecipientInMainMessage(validatedData)) return null
-    if (!destination && !displayName) return null
+    if (!validatedData && !destination && !displayName) return null
     if (displayName) return formatRecipientDisplayText(displayName)
     if (contactName) return formatRecipientDisplayText(contactName)
     if (validatedData?.type === 'my-wallet') return formatRecipientDisplayText(validatedData.targetMintName)
     if (validatedData?.type === 'lightning-address') return validatedData.address
     if (validatedData?.type === 'lnurl-pay') return validatedData.params?.domain || 'LNURL'
+    if (validatedData?.type === 'bolt11') return t('send.confirm.lightningInvoice')
+    if (validatedData?.type === 'cashu-request') return formatRecipientDisplayText(validatedData.request)
+    return destination ? formatRecipientDisplayText(destination) : null
+  }, [destination, validatedData, contactName, displayName, t])
+
+  // Secondary line under the recipient (identifier: address / invoice / npub)
+  const recipientDetail = useMemo(() => {
+    if (contactName && validatedData?.type === 'lightning-address') return validatedData.address
+    if (displayName && validatedData?.type === 'cashu-request') return formatNpubShort(validatedData.request)
     if (validatedData?.type === 'bolt11') {
       const inv = validatedData.invoice
       return `${inv.slice(0, 8)}...${inv.slice(-4)}`
     }
-    if (validatedData?.type === 'cashu-request') return formatRecipientDisplayText(validatedData.request)
-    return destination ? formatRecipientDisplayText(destination) : null
-  }, [destination, validatedData, contactName, displayName])
-
-  // Secondary line under the recipient (e.g. npub / ln-address detail)
-  const recipientDetail = useMemo(() => {
-    if (validatedData && !shouldShowRecipientInMainMessage(validatedData)) return null
-    if (contactName && validatedData?.type === 'lightning-address') return validatedData.address
-    if (displayName && validatedData?.type === 'cashu-request') return formatNpubShort(validatedData.request)
     return null
   }, [validatedData, contactName, displayName])
 

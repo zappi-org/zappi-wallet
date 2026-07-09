@@ -695,7 +695,7 @@ export function SendFlow({
               isLoading={isLoading}
               displayName={effectiveDisplayName}
               directTransfer={state.directTransfer}
-              onChangeMint={state.directTransfer ? (url) => setState((prev) => ({ ...prev, selectedMintUrl: url })) : undefined}
+              onChangeMint={(url) => setState((prev) => ({ ...prev, selectedMintUrl: url }))}
             />
           </PageTransition>
         )}
