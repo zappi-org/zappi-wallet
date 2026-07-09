@@ -8,7 +8,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
-import { ArrowLeft, ChevronDown, ArrowUpDown } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ArrowUpDown, Lock } from 'lucide-react'
 import { useWallet } from '@/ui/hooks/use-wallet'
 import { useAppStore } from '@/store'
 import { hapticTap } from '@/ui/utils/haptic'
@@ -240,6 +240,12 @@ export function SendAmountStep({
             <span>{secondary}</span>
             {canToggleFiat && !isAmountFixed && <ArrowUpDown className="w-3.5 h-3.5" strokeWidth={2.2} />}
           </span>
+          {isAmountFixed && (
+            <span className="flex items-center gap-1 text-caption text-foreground-muted mt-1">
+              <Lock className="w-3 h-3" strokeWidth={2} />
+              {t('send.amount.fixedByInvoice')}
+            </span>
+          )}
           {isOverBalance && (
             <span className="text-caption text-accent-danger">
               {t('payment.insufficientBalance')} ({t('common.balance')} {formatSats(mintBalance)})
@@ -260,21 +266,19 @@ export function SendAmountStep({
         </button>
       </div>
 
-      {/* Numpad — hidden when the amount is fixed by an invoice */}
-      {!isAmountFixed && (
-        <div className="grid grid-cols-3 gap-0 shrink-0">
-          {(isFiatMode && !fiatIsZeroDecimal ? KEYS_FIAT : KEYS_SATS).map((key) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => handleKey(key)}
-              className="h-14 text-title font-normal text-foreground hover:bg-background-hover active:bg-background-card transition-colors flex items-center justify-center"
-            >
-              {key === 'del' ? <ArrowLeft className="w-5 h-5" strokeWidth={1.8} /> : key === 'max' ? <span className="text-body font-semibold text-foreground-muted">{t('send.max')}</span> : key}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Numpad — dimmed (not hidden) when the amount is fixed by an invoice */}
+      <div className={`grid grid-cols-3 gap-0 shrink-0 ${isAmountFixed ? 'opacity-30 pointer-events-none' : ''}`}>
+        {(isFiatMode && !fiatIsZeroDecimal ? KEYS_FIAT : KEYS_SATS).map((key) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => handleKey(key)}
+            className="h-14 text-title font-normal text-foreground hover:bg-background-hover active:bg-background-card transition-colors flex items-center justify-center"
+          >
+            {key === 'del' ? <ArrowLeft className="w-5 h-5" strokeWidth={1.8} /> : key === 'max' ? <span className="text-body font-semibold text-foreground-muted">{t('send.max')}</span> : key}
+          </button>
+        ))}
+      </div>
 
       {/* Next button — below the keypad, matching the mockup */}
       <div className="px-6 pt-2 pb-app shrink-0">
@@ -296,7 +300,7 @@ export function SendAmountStep({
           onClose={() => setMintSheetOpen(false)}
           onSelect={(url) => { onChangeMint(url); setMintSheetOpen(false) }}
           selectedMintUrl={mintUrl}
-          filterFn={(m) => (m.balance ?? 0) > 0}
+          allowEmpty
         />
       )}
     </div>

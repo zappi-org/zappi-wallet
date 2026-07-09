@@ -817,6 +817,7 @@ export default {
     amount: {
       howMuchSend: 'How much to send?',
       addMemo: 'Memo (optional)',
+      fixedByInvoice: 'Amount fixed by the invoice',
     },
     direct: {
       cta: 'Hand it over directly',

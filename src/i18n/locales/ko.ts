@@ -821,6 +821,7 @@ export default {
     amount: {
       howMuchSend: '얼마를 보낼까요?',
       addMemo: '메모 (선택사항)',
+      fixedByInvoice: '인보이스에 고정된 금액이에요',
     },
     direct: {
       cta: '직접 전달할게요',

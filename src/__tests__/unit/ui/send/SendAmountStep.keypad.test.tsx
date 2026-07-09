@@ -52,7 +52,7 @@ describe('SendAmountStep keypad', () => {
     expect(onNext).toHaveBeenCalledWith(expect.objectContaining({ amount: 100 }))
   })
 
-  it('hides the keypad when the amount is fixed by an invoice', () => {
+  it('dims (not hides) the keypad and shows a lock hint when the amount is fixed by an invoice', () => {
     render(
       <SendAmountStep
         {...baseProps}
@@ -60,6 +60,10 @@ describe('SendAmountStep keypad', () => {
         initialAmount={500}
       />
     )
-    expect(screen.queryByRole('button', { name: '1' })).not.toBeInTheDocument()
+    // Keypad stays rendered (matches the mockup) but is non-interactive
+    const key = screen.getByRole('button', { name: '1' })
+    expect(key.closest('.pointer-events-none')).not.toBeNull()
+    // Lock hint explains why the amount can't be edited
+    expect(screen.getByText('send.amount.fixedByInvoice')).toBeInTheDocument()
   })
 })
