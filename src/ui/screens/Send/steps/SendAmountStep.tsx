@@ -128,14 +128,16 @@ export function SendAmountStep({
 
   // Secondary line under the recipient (identifier: address / invoice / npub)
   const recipientDetail = useMemo(() => {
+    // Only fill the second line with the identifier when the eyebrow carries a
+    // REAL name (contact). A directly-typed npub/address gets just "TO" + value.
     if (contactName && validatedData?.type === 'lightning-address') return validatedData.address
-    if (displayName && validatedData?.type === 'cashu-request') return formatNpubShort(validatedData.request)
+    if (contactName && validatedData?.type === 'cashu-request') return formatNpubShort(validatedData.request)
     if (validatedData?.type === 'bolt11') {
       const inv = validatedData.invoice
       return `${inv.slice(0, 8)}...${inv.slice(-4)}`
     }
     return null
-  }, [validatedData, contactName, displayName])
+  }, [validatedData, contactName])
 
   // Nostr (cashu-request) sends are constrained to the recipient's mints.
   const mintFilter = useMemo(() => {
