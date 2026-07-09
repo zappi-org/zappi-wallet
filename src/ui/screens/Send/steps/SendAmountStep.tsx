@@ -197,7 +197,7 @@ export function SendAmountStep({
         <button
           type="button"
           onClick={onBack}
-          className="shrink-0 px-6 pt-1 pb-1 flex flex-col items-center gap-0.5 w-full active:opacity-70 transition-opacity"
+          className="shrink-0 px-6 pt-3 pb-1 flex flex-col items-center gap-0.5 w-full active:opacity-70 transition-opacity"
         >
           {directTransfer ? (
             <span className="text-subtitle font-semibold text-foreground">{t('send.direct.label')}</span>
@@ -213,9 +213,9 @@ export function SendAmountStep({
       )}
 
       <div className="flex-1 overflow-y-auto px-6 flex flex-col">
-        {/* Amount hero + conversion toggle */}
-        <div className="flex flex-col items-center gap-2 mt-12">
-          <p className={`text-[44px] leading-none font-semibold ${isOverBalance ? 'text-accent-danger' : 'text-foreground'}`}>
+        {/* Amount hero + conversion toggle — centered in the space above the mint */}
+        <div className="flex-1 flex flex-col items-center justify-center gap-2">
+          <p className={`text-[54px] leading-none font-light tracking-tight ${isOverBalance ? 'text-accent-danger' : 'text-foreground'}`}>
             {displayAmount}
           </p>
           {canToggleFiat && !isAmountFixed ? (
@@ -245,7 +245,7 @@ export function SendAmountStep({
           type="button"
           onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
           disabled={!onChangeMint}
-          className="flex items-center justify-center gap-2 mt-auto mb-2 mx-auto"
+          className="flex items-center justify-center gap-2 mb-3 mx-auto"
         >
           <MintIcon iconUrl={mintIconUrl} imgSize="w-6 h-6" className="w-6 h-6" circle />
           <span className="text-body font-medium text-foreground truncate max-w-[220px]">{mintName}</span>

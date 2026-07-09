@@ -164,8 +164,8 @@ export function SendInputStep({
     <div className="flex flex-col h-full bg-background">
       <ScreenHeader title={t('send.title')} onBack={onBack} />
 
-      <div className="flex-1 overflow-y-auto px-6 pt-8">
-        <h2 className="text-heading font-bold text-foreground break-keep text-center leading-snug">
+      <div className="flex-1 overflow-y-auto px-6 flex flex-col justify-center pb-24">
+        <h2 className="text-[26px] font-bold text-foreground break-keep text-center leading-snug">
           {t('send.destination.whoToSend')}
         </h2>
         {/* Destination input — pill style */}
