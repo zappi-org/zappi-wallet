@@ -19,7 +19,7 @@ import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { MintIcon } from '@/ui/components/common/MintIcon'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
-import { getMintBalance } from '@/utils/url'
+import { getMintBalance, isSameMintUrl } from '@/utils/url'
 import {
   findContactName,
   formatNpubShort,
@@ -27,6 +27,7 @@ import {
 } from '../sendDisplayHelpers'
 import { useContacts } from '@/ui/hooks/use-contacts'
 import type { SendableValidatedData } from '../SendFlow'
+import type { MintInfo } from '@/core/types'
 
 const KEYS_SATS: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'max', '0', 'del']
 const KEYS_FIAT: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'del']
@@ -135,6 +136,15 @@ export function SendAmountStep({
     }
     return null
   }, [validatedData, contactName, displayName])
+
+  // Nostr (cashu-request) sends are constrained to the recipient's mints.
+  const mintFilter = useMemo(() => {
+    if (validatedData?.type === 'cashu-request') {
+      const allowed = validatedData.parsed?.mints ?? []
+      if (allowed.length > 0) return (m: MintInfo) => allowed.some((url) => isSameMintUrl(url, m.url))
+    }
+    return undefined
+  }, [validatedData])
 
   const handleKey = (key: string) => {
     if (isAmountFixed) return
@@ -298,6 +308,7 @@ export function SendAmountStep({
           onClose={() => setMintSheetOpen(false)}
           onSelect={(url) => { onChangeMint(url); setMintSheetOpen(false) }}
           selectedMintUrl={mintUrl}
+          filterFn={mintFilter}
           allowEmpty
         />
       )}
