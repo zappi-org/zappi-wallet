@@ -139,13 +139,15 @@ export function SendAmountStep({
     return null
   }, [validatedData, contactName])
 
-  // Nostr (cashu-request) sends are constrained to the recipient's mints.
+  // Only funded mints can be spent from; nostr (cashu-request) is further
+  // constrained to mints shared with the recipient.
   const mintFilter = useMemo(() => {
+    const funded = (m: MintInfo) => (m.balance ?? 0) > 0
     if (validatedData?.type === 'cashu-request') {
       const allowed = validatedData.parsed?.mints ?? []
-      if (allowed.length > 0) return (m: MintInfo) => allowed.some((url) => isSameMintUrl(url, m.url))
+      if (allowed.length > 0) return (m: MintInfo) => funded(m) && allowed.some((url) => isSameMintUrl(url, m.url))
     }
-    return undefined
+    return funded
   }, [validatedData])
 
   const handleKey = (key: string) => {
@@ -311,7 +313,6 @@ export function SendAmountStep({
           onSelect={(url) => { onChangeMint(url); setMintSheetOpen(false) }}
           selectedMintUrl={mintUrl}
           filterFn={mintFilter}
-          allowEmpty
         />
       )}
     </div>
