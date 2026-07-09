@@ -19,7 +19,7 @@ import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { MintIcon } from '@/ui/components/common/MintIcon'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
-import { getMintBalance, isSameMintUrl } from '@/utils/url'
+import { getMintBalance } from '@/utils/url'
 import {
   findContactName,
   formatNpubShort,
@@ -27,7 +27,6 @@ import {
 } from '../sendDisplayHelpers'
 import { useContacts } from '@/ui/hooks/use-contacts'
 import type { SendableValidatedData } from '../SendFlow'
-import type { MintInfo } from '@/core/types'
 
 const KEYS_SATS: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'max', '0', 'del']
 const KEYS_FIAT: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'del']
@@ -138,17 +137,6 @@ export function SendAmountStep({
     }
     return null
   }, [validatedData, contactName])
-
-  // Only funded mints can be spent from; nostr (cashu-request) is further
-  // constrained to mints shared with the recipient.
-  const mintFilter = useMemo(() => {
-    const funded = (m: MintInfo) => (m.balance ?? 0) > 0
-    if (validatedData?.type === 'cashu-request') {
-      const allowed = validatedData.parsed?.mints ?? []
-      if (allowed.length > 0) return (m: MintInfo) => funded(m) && allowed.some((url) => isSameMintUrl(url, m.url))
-    }
-    return funded
-  }, [validatedData])
 
   const handleKey = (key: string) => {
     if (isAmountFixed) return
@@ -312,7 +300,7 @@ export function SendAmountStep({
           onClose={() => setMintSheetOpen(false)}
           onSelect={(url) => { onChangeMint(url); setMintSheetOpen(false) }}
           selectedMintUrl={mintUrl}
-          filterFn={mintFilter}
+          filterFn={(m) => (m.balance ?? 0) > 0}
         />
       )}
     </div>
