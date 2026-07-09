@@ -7,7 +7,8 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, ChevronDown } from 'lucide-react'
+import { motion, AnimatePresence } from 'motion/react'
+import { ArrowLeft, ChevronDown, ArrowUpDown } from 'lucide-react'
 import { useWallet } from '@/ui/hooks/use-wallet'
 import { useAppStore } from '@/store'
 import { hapticTap } from '@/ui/utils/haptic'
@@ -203,42 +204,48 @@ export function SendAmountStep({
             <span className="text-subtitle font-semibold text-foreground">{t('send.direct.label')}</span>
           ) : (
             <>
-              <span className="text-label uppercase tracking-wider text-foreground-muted">TO {recipientLabel}</span>
-              {recipientDetail && (
-                <span className="text-subtitle font-semibold text-foreground truncate max-w-[280px]">{recipientDetail}</span>
-              )}
+              <span className="text-label uppercase tracking-wider text-foreground-muted">
+                {recipientDetail ? `TO ${recipientLabel}` : 'TO'}
+              </span>
+              <span className="text-subtitle font-semibold text-foreground truncate max-w-[280px]">
+                {recipientDetail ?? recipientLabel}
+              </span>
             </>
           )}
         </button>
       )}
 
       <div className="flex-1 overflow-y-auto px-6 flex flex-col">
-        {/* Amount hero + conversion toggle — centered in the space above the mint */}
-        <div className="flex-1 flex flex-col items-center justify-center gap-2">
-          <p className={`text-[54px] leading-none font-light tracking-tight ${isOverBalance ? 'text-accent-danger' : 'text-foreground'}`}>
-            {displayAmount}
-          </p>
-          {canToggleFiat && !isAmountFixed ? (
-            <button
-              type="button"
-              aria-label={t('send.tokenCreate.toggleUnit', { current: isFiatMode ? currencySymbol : unit })}
-              onClick={handleToggleFiat}
-              className="flex items-center gap-1.5 text-body text-foreground-muted active:opacity-70 transition-opacity"
+        {/* Amount hero — tap anywhere in this area to toggle sats/fiat, with a swap animation */}
+        <button
+          type="button"
+          onClick={canToggleFiat && !isAmountFixed ? handleToggleFiat : undefined}
+          disabled={!canToggleFiat || isAmountFixed}
+          aria-label={t('send.tokenCreate.toggleUnit', { current: isFiatMode ? currencySymbol : unit })}
+          className="flex-1 flex flex-col items-center justify-center gap-2 w-full disabled:cursor-default"
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.span
+              key={isFiatMode ? 'fiat' : 'sats'}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className={`text-[54px] leading-none font-light tracking-tight ${isOverBalance ? 'text-accent-danger' : 'text-foreground'}`}
             >
-              <span>{secondary}</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M7 16l-4-4 4-4" /><path d="M17 8l4 4-4 4" /><line x1="3" y1="12" x2="21" y2="12" />
-              </svg>
-            </button>
-          ) : (
-            <p className="text-body text-foreground-muted">{secondary}</p>
-          )}
+              {displayAmount}
+            </motion.span>
+          </AnimatePresence>
+          <span className="flex items-center gap-1.5 text-body text-foreground-muted">
+            <span>{secondary}</span>
+            {canToggleFiat && !isAmountFixed && <ArrowUpDown className="w-3.5 h-3.5" strokeWidth={2.2} />}
+          </span>
           {isOverBalance && (
-            <p className="text-caption text-accent-danger">
+            <span className="text-caption text-accent-danger">
               {t('payment.insufficientBalance')} ({t('common.balance')} {formatSats(mintBalance)})
-            </p>
+            </span>
           )}
-        </div>
+        </button>
 
         {/* Mint — logo + custom name, centered (tappable when onChangeMint) */}
         <button

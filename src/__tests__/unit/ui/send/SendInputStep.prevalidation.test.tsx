@@ -244,10 +244,10 @@ describe('SendInputStep pre-validation', () => {
     expect(nextButton).not.toBeDisabled()
   })
 
-  it('error container renders empty when idle — no reserved height (tighter input↔tabs gap)', () => {
+  it('error container reserves height and stays empty when idle (error pops in without shifting tabs)', () => {
     renderStep()
     const errorArea = screen.getByTestId('pre-validation-error-area')
-    expect(errorArea).toBeInTheDocument()
+    expect(errorArea.className).toContain('h-5')
     expect(errorArea).toBeEmptyDOMElement()
   })
 
@@ -319,21 +319,18 @@ describe('SendInputStep pre-validation', () => {
     await act(async () => { vi.advanceTimersByTime(500) })
     await act(async () => { await vi.runAllTimersAsync() })
 
-    // Validation succeeded — badge should show
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    // Validation succeeded — no error
     expect(screen.queryByText('send.destination.validationFailed')).not.toBeInTheDocument()
 
-    // Now change input — clears validatedData and error, shows spinner (pessimistic pattern)
+    // Now change input — clears validatedData and error, re-evaluates
     mockDetectAndClassify.mockReturnValue({ type: 'unknown', input: 'test@stacker.newsx' })
     typeIntoInput('test@stacker.newsx')
 
-    // Immediately after change: error cleared, spinner shows (pending re-evaluation)
+    // Immediately after change: previous error cleared
     expect(screen.queryByText('send.destination.validationFailed')).not.toBeInTheDocument()
-    expect(screen.getByRole('status')).toBeInTheDocument()
 
-    // After debounce: spinner clears, unrecognized error shown
+    // After debounce: unrecognized error shown (inline pre-validation spinner removed — Next button carries loading)
     await act(async () => { vi.advanceTimersByTime(500) })
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
     expect(screen.getByText('send.destination.unrecognized')).toBeInTheDocument()
   })
 

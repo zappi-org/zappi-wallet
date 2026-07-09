@@ -22,7 +22,6 @@ import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
 import { hapticTap } from '@/ui/utils/haptic'
 import { Button } from '@/ui/components/common/Button'
-import { Spinner } from '@/ui/components/common/Spinner'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
 import { SegmentControl } from '@/ui/components/common/SegmentControl'
@@ -196,12 +195,11 @@ export function SendInputStep({
             </button>
           </div>
 
-          <div className="flex items-center" data-testid="pre-validation-error-area">
-            {isPreValidating ? (
-              <Spinner size="sm" color="muted" />
-            ) : preValidationError ? (
-              <p className="text-xs text-destructive mt-1.5">{preValidationError}</p>
-            ) : null}
+          {/* Reserved space so the error message pops in without shifting the tabs */}
+          <div className="h-5 flex items-center mt-1.5" data-testid="pre-validation-error-area">
+            {preValidationError && (
+              <p className="text-xs text-destructive">{preValidationError}</p>
+            )}
           </div>
         </div>
 
