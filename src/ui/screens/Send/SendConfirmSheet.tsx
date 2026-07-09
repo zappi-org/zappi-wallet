@@ -77,6 +77,7 @@ export function SendConfirmSheet({
   }, [open, directTransfer, onEstimateFee, mintUrl, amount])
 
   const effectiveFee = directTransfer ? (directFee ?? 0) : fee
+  const total = amount + effectiveFee
 
   const recipientName = useMemo(() => {
     if (directTransfer) return t('send.direct.label')
@@ -131,6 +132,15 @@ export function SendConfirmSheet({
                 <span className="text-body text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
                 <span className="text-body font-medium text-foreground">{formatSats(effectiveFee)}</span>
               </div>
+              <div className="flex justify-between py-3 border-b border-border/50">
+                <span className="text-body font-bold text-foreground">{t('send.confirm.total')}</span>
+                <span className="text-right">
+                  <span className="block text-body font-bold text-foreground">{formatSats(total)}</span>
+                  {formatFiat(total) && (
+                    <span className="block text-caption text-foreground-muted">≈ {formatFiat(total)}</span>
+                  )}
+                </span>
+              </div>
               <button
                 type="button"
                 onClick={onChangeMint ? () => { hapticTap(); onChangeMint() } : undefined}
@@ -145,10 +155,6 @@ export function SendConfirmSheet({
                 </span>
               </button>
             </div>
-
-            {formatFiat(amount + effectiveFee) && (
-              <p className="text-caption text-foreground-muted text-right -mt-2 mb-4">≈ {formatFiat(amount + effectiveFee)}</p>
-            )}
 
             {error && (
               <div className="px-4 py-3 bg-accent-danger/10 rounded-xl text-accent-danger text-caption mb-4">{error}</div>
