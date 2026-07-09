@@ -17,7 +17,6 @@ import { useKeyboardInset } from '@/ui/hooks/use-keyboard-inset'
 import { Zap, Hash, Link } from 'lucide-react'
 import { CameraFilled } from '@/ui/components/icons/CameraFilled'
 import cardLogo from '@/assets/card-logo.svg'
-import { getInputTypeLabel } from '@/ui/utils/inputTypeLabel'
 import { useTranslation } from 'react-i18next'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
@@ -80,7 +79,6 @@ export function SendInputStep({
   const {
     destination,
     updateDestination,
-    detectedTypes,
     validatedData,
     isPreValidating,
     preValidationError,
@@ -164,7 +162,7 @@ export function SendInputStep({
     <div className="flex flex-col h-full bg-background">
       <ScreenHeader title={t('send.title')} onBack={onBack} />
 
-      <div className="flex-1 overflow-y-auto px-6 flex flex-col justify-center pb-24">
+      <div className="flex-1 overflow-y-auto px-6 pt-20">
         <h2 className="text-[26px] font-bold text-foreground break-keep text-center leading-snug">
           {t('send.destination.whoToSend')}
         </h2>
@@ -198,28 +196,13 @@ export function SendInputStep({
             </button>
           </div>
 
-          {/* Detected type badge — fixed space below underline */}
-          <div className="h-7 flex items-center mt-1">
+          <div className="flex items-center" data-testid="pre-validation-error-area">
             {isPreValidating ? (
               <Spinner size="sm" color="muted" />
-            ) : (
-              detectedTypes.length > 0 && !detectedTypes.includes('my-wallet') && (
-                <div className="flex gap-1.5">
-                  {detectedTypes.map((badge) => (
-                    <span key={badge} className="inline-block text-label font-medium px-2.5 py-0.5 rounded-full bg-brand/10 text-brand">
-                      {getInputTypeLabel(badge)}
-                    </span>
-                  ))}
-                </div>
-              )
-            )}
+            ) : preValidationError ? (
+              <p className="text-xs text-destructive mt-1.5">{preValidationError}</p>
+            ) : null}
           </div>
-          <div className="h-5 flex items-center" data-testid="pre-validation-error-area">
-            {preValidationError && (
-              <p className="text-xs text-destructive">{preValidationError}</p>
-            )}
-          </div>
-
         </div>
 
         {/* My wallets dropdown — @ search mode */}

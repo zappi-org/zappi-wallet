@@ -244,11 +244,11 @@ describe('SendInputStep pre-validation', () => {
     expect(nextButton).not.toBeDisabled()
   })
 
-  it('error container has reserved h-5 height even when empty', () => {
+  it('error container renders empty when idle — no reserved height (tighter input↔tabs gap)', () => {
     renderStep()
     const errorArea = screen.getByTestId('pre-validation-error-area')
     expect(errorArea).toBeInTheDocument()
-    expect(errorArea.className).toContain('h-5')
+    expect(errorArea).toBeEmptyDOMElement()
   })
 
   it('no pre-validation spinner while typing a valid-syntax address (§8.5)', async () => {
