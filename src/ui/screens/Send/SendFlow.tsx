@@ -888,8 +888,9 @@ export function SendFlow({
                       setState((prev) => ({
                         ...prev,
                         selectedMintUrl: url,
+                        error: null,
                         ...(prev.step === 'confirm' && !prev.directTransfer
-                          ? { routeSelection: null, fee: 0, error: null }
+                          ? { routeSelection: null, fee: 0 }
                           : {}),
                       }))
                     }}

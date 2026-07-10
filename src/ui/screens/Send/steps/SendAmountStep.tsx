@@ -123,7 +123,7 @@ export function SendAmountStep({
   const feeReady = typeof feeQuote === 'number'
   const totalNeeded = feeReady ? numericAmount + feeQuote : null
   const insufficientForFee = totalNeeded !== null && totalNeeded > mintBalance
-  const canSend = confirming && feeReady && !insufficientForFee && !sendBusy
+  const canSend = confirming && feeReady && numericAmount > 0 && !insufficientForFee && !sendBusy
 
   const handleConfirmSend = async () => {
     if (!canSend || !onConfirmSend) return
