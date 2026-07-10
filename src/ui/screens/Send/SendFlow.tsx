@@ -863,7 +863,16 @@ export function SendFlow({
                   />
                 </motion.div>
               ) : (
-                <motion.div key="amount-scene" className="h-full">
+                /* Whole-scene exit fade: the keypad sits inside a nested
+                   AnimatePresence that doesn't receive this parent's exit, so
+                   without it the keypad stays opaque while the rest fades on
+                   back. Safe for the morph — going back has no layoutId flight. */
+                <motion.div
+                  key="amount-scene"
+                  className="h-full"
+                  exit={{ opacity: 0, pointerEvents: 'none' }}
+                  transition={{ duration: 0.15, ease: 'easeOut' }}
+                >
                   <SendAmountStep
                     onBack={
                       state.step === 'confirm'
