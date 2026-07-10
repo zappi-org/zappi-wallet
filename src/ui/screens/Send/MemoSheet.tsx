@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BottomSheet } from '@/ui/components/common/BottomSheet'
 import { Button } from '@/ui/components/common/Button'
@@ -16,10 +16,13 @@ export function MemoSheet({ isOpen, memo, onSave, onClose }: MemoSheetProps) {
   const { t } = useTranslation()
   const [draft, setDraft] = useState(memo)
 
-  // Re-seed on open so a cancelled edit doesn't leak into the next one
-  useEffect(() => {
+  // Re-seed on open so a cancelled edit doesn't leak into the next one —
+  // render-phase adjustment; an effect here would cascade renders
+  const [prevOpen, setPrevOpen] = useState(isOpen)
+  if (prevOpen !== isOpen) {
+    setPrevOpen(isOpen)
     if (isOpen) setDraft(memo)
-  }, [isOpen, memo])
+  }
 
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title={t('send.memo.changeTitle')}>
