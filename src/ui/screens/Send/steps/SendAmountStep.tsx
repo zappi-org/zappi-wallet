@@ -264,8 +264,8 @@ export function SendAmountStep({
   // Plain text per mockup (docs/sample/send_sample.png); layoutId pairs it
   // with the leaving input text in SendInputStep so only the TEXT morphs
   // between scenes. Tap feedback via scale — motion owns inline opacity.
-  // Rendered in exactly one of two slots below (top when editing, descended
-  // above the hero when confirming) so only one layoutId instance ever mounts.
+  // Stays pinned at the top in both editing and confirming; the amount
+  // group below glides up to sit under it (see the hero button's layout prop).
   const recipientBlock = (directTransfer || recipientLabel) && (
     <motion.button
       type="button"
@@ -300,8 +300,7 @@ export function SendAmountStep({
     <div className="flex flex-col h-full relative">
       <ScreenHeader title={t('send.title')} onBack={onBack} />
 
-      {!confirming && recipientBlock}
-      {confirming && recipientBlock}
+      {recipientBlock}
 
       {/* Scene content fades here (not on the SendFlow scene wrapper) so the
           layoutId recipient text above is never dimmed by an animating ancestor */}
@@ -313,15 +312,22 @@ export function SendAmountStep({
         className="flex-1 min-h-0 flex flex-col"
       >
       <div className="flex-1 overflow-y-auto px-6 flex flex-col">
-        {/* Amount hero — tap anywhere in this area to toggle sats/fiat, with a swap animation */}
-        <button
+        {/* Amount hero — tap anywhere in this area to toggle sats/fiat, with a swap animation.
+            `layout` lets this glide up (via className swap) when confirming stacks it under the recipient. */}
+        <motion.button
           type="button"
+          layout
+          transition={recipientMorphTransition(reduceMotion)}
           onClick={canToggleFiat && !isAmountFixed && !confirming ? handleToggleFiat : undefined}
           disabled={!canToggleFiat || isAmountFixed || confirming}
           aria-label={t('send.tokenCreate.toggleUnit', {
             current: isFiatMode ? currencySymbol : unit,
           })}
-          className="flex-1 flex flex-col items-center justify-center gap-2 w-full disabled:cursor-default"
+          className={
+            confirming
+              ? 'flex flex-col items-center gap-2 w-full pt-10 disabled:cursor-default'
+              : 'flex-1 flex flex-col items-center justify-center gap-2 w-full disabled:cursor-default'
+          }
         >
           <AnimatePresence mode="wait" initial={false}>
             <motion.span
@@ -350,16 +356,19 @@ export function SendAmountStep({
               {t('send.amount.fixedByInvoice')}
             </span>
           )}
-          {isOverBalance && (
+          {/* Confirm variant carries its own richer warning (insufficientWithTotal below); avoid duplicate messaging */}
+          {!confirming && isOverBalance && (
             <span className="text-caption text-accent-danger">
               {t('payment.insufficientBalance')} ({t('common.balance')} {formatSats(mintBalance)})
             </span>
           )}
-        </button>
+        </motion.button>
 
-        {/* Mint — logo + custom name, centered (tappable when onChangeMint) */}
-        <button
+        {/* Mint — logo + custom name, centered (tappable when onChangeMint). `layout` glides it with the hero above. */}
+        <motion.button
           type="button"
+          layout
+          transition={recipientMorphTransition(reduceMotion)}
           onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
           disabled={!onChangeMint}
           className="flex items-center justify-center gap-2 mb-3 mx-auto"
@@ -367,7 +376,7 @@ export function SendAmountStep({
           <MintIcon iconUrl={mintIconUrl} imgSize="w-6 h-6" className="w-6 h-6" circle />
           <span className="text-body font-medium text-foreground truncate max-w-[220px]">{mintName}</span>
           {onChangeMint && <ChevronDown className="w-4 h-4 text-foreground-muted shrink-0" strokeWidth={2} />}
-        </button>
+        </motion.button>
       </div>
       </motion.div>
 
