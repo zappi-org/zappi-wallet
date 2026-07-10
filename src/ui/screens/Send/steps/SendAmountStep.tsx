@@ -8,7 +8,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
-import { ArrowLeft, ChevronDown, ArrowUpDown, Lock } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, ArrowUpDown, Lock } from 'lucide-react'
 import { useWallet } from '@/ui/hooks/use-wallet'
 import { useAppStore } from '@/store'
 import { hapticTap } from '@/ui/utils/haptic'
@@ -19,6 +19,7 @@ import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { MintIcon } from '@/ui/components/common/MintIcon'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
+import { MemoSheet } from '../MemoSheet'
 import { getMintBalance } from '@/utils/url'
 import { findContactName, formatNpubShort, formatRecipientDisplayText } from '../sendDisplayHelpers'
 import { useContacts } from '@/ui/hooks/use-contacts'
@@ -48,6 +49,14 @@ interface SendAmountStepProps {
   onChangeMint?: (mintUrl: string) => void
   /** Resolves a fee-aware maximum that is safe to send from this mint. */
   onResolveMaxAmount?: (mintUrl: string, balance: number) => Promise<MaxAmountResult>
+  /** Swaps the keypad for the in-place confirm controls (fee/memo rows + Cancel/Send). */
+  confirming?: boolean
+  feeQuote?: number | 'pending' | 'unavailable'
+  confirmError?: string | null
+  confirmMemo?: string
+  onEditMemo?: (memo: string) => void
+  onCancelConfirm?: () => void
+  onConfirmSend?: () => void | Promise<void>
 }
 
 export function SendAmountStep({
@@ -65,6 +74,13 @@ export function SendAmountStep({
   directTransfer = false,
   onChangeMint,
   onResolveMaxAmount,
+  confirming = false,
+  feeQuote,
+  confirmError,
+  confirmMemo = '',
+  onEditMemo,
+  onCancelConfirm,
+  onConfirmSend,
 }: SendAmountStepProps) {
   const { t } = useTranslation()
   const { balance } = useWallet()
@@ -79,6 +95,8 @@ export function SendAmountStep({
   const [amount, setAmount] = useState(initialAmount > 0 ? String(initialAmount) : '')
   const [mintSheetOpen, setMintSheetOpen] = useState(false)
   const [isResolvingMax, setIsResolvingMax] = useState(false)
+  const [memoSheetOpen, setMemoSheetOpen] = useState(false)
+  const [sendBusy, setSendBusy] = useState(false)
   const memo = initialMemo
 
   const {
@@ -100,6 +118,22 @@ export function SendAmountStep({
   const mintIconUrl = getIconUrl(mintUrl)
   const numericAmount = parseInt(amount, 10) || 0
   const isOverBalance = numericAmount > mintBalance
+
+  // Confirm-variant gates: Send needs a numeric fee quote and amount+fee within balance.
+  const feeReady = typeof feeQuote === 'number'
+  const totalNeeded = feeReady ? numericAmount + feeQuote : null
+  const insufficientForFee = totalNeeded !== null && totalNeeded > mintBalance
+  const canSend = confirming && feeReady && !insufficientForFee && !sendBusy
+
+  const handleConfirmSend = async () => {
+    if (!canSend || !onConfirmSend) return
+    setSendBusy(true)
+    try {
+      await onConfirmSend()
+    } finally {
+      setSendBusy(false)
+    }
+  }
 
   // Amount is fixed when bolt11 or cashu-request carries an amount → hide keypad.
   const isAmountFixed =
@@ -226,42 +260,48 @@ export function SendAmountStep({
   // Secondary conversion line (shown with the ⇄ toggle) — always visible.
   const secondary = isFiatMode ? formatSats(numericAmount) : toFiat(numericAmount) ?? `${currencySymbol}0`
 
+  // Collapsed recipient / direct-transfer label — tap to re-edit.
+  // Plain text per mockup (docs/sample/send_sample.png); layoutId pairs it
+  // with the leaving input text in SendInputStep so only the TEXT morphs
+  // between scenes. Tap feedback via scale — motion owns inline opacity.
+  // Rendered in exactly one of two slots below (top when editing, descended
+  // above the hero when confirming) so only one layoutId instance ever mounts.
+  const recipientBlock = (directTransfer || recipientLabel) && (
+    <motion.button
+      type="button"
+      layoutId={SEND_RECIPIENT_LAYOUT_ID}
+      // Explicit opacity overrides motion's auto-crossfade, which freezes
+      // the incoming element semi-transparent for the whole flight —
+      // the text must stay solid while it glides
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ ...recipientMorphTransition(reduceMotion), opacity: { duration: 0.15, ease: 'easeOut' } }}
+      whileTap={confirming ? undefined : { scale: 0.96 }}
+      onClick={confirming ? undefined : onBack}
+      disabled={confirming}
+      className="shrink-0 mt-3 mx-auto px-4 py-2 flex flex-col items-center gap-0.5 max-w-[calc(100%-3rem)]"
+    >
+      {directTransfer ? (
+        <span className="text-subtitle font-semibold text-foreground">{t('send.direct.label')}</span>
+      ) : (
+        <>
+          <span className="text-label uppercase tracking-wider text-foreground-muted">
+            {recipientDetail ? `TO ${recipientLabel}` : 'TO'}
+          </span>
+          <span className="text-subtitle font-semibold text-foreground truncate max-w-[280px]">
+            {recipientDetail ?? recipientLabel}
+          </span>
+        </>
+      )}
+    </motion.button>
+  )
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
       <ScreenHeader title={t('send.title')} onBack={onBack} />
 
-      {/* Collapsed recipient / direct-transfer label — tap to re-edit.
-          Plain text per mockup (docs/sample/send_sample.png); layoutId pairs it
-          with the leaving input text in SendInputStep so only the TEXT morphs
-          between scenes. Tap feedback via scale — motion owns inline opacity. */}
-      {(directTransfer || recipientLabel) && (
-        <motion.button
-          type="button"
-          layoutId={SEND_RECIPIENT_LAYOUT_ID}
-          // Explicit opacity overrides motion's auto-crossfade, which freezes
-          // the incoming element semi-transparent for the whole flight —
-          // the text must stay solid while it glides
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ ...recipientMorphTransition(reduceMotion), opacity: { duration: 0.15, ease: 'easeOut' } }}
-          whileTap={{ scale: 0.96 }}
-          onClick={onBack}
-          className="shrink-0 mt-3 mx-auto px-4 py-2 flex flex-col items-center gap-0.5 max-w-[calc(100%-3rem)]"
-        >
-          {directTransfer ? (
-            <span className="text-subtitle font-semibold text-foreground">{t('send.direct.label')}</span>
-          ) : (
-            <>
-              <span className="text-label uppercase tracking-wider text-foreground-muted">
-                {recipientDetail ? `TO ${recipientLabel}` : 'TO'}
-              </span>
-              <span className="text-subtitle font-semibold text-foreground truncate max-w-[280px]">
-                {recipientDetail ?? recipientLabel}
-              </span>
-            </>
-          )}
-        </motion.button>
-      )}
+      {!confirming && recipientBlock}
+      {confirming && recipientBlock}
 
       {/* Scene content fades here (not on the SendFlow scene wrapper) so the
           layoutId recipient text above is never dimmed by an animating ancestor */}
@@ -276,8 +316,8 @@ export function SendAmountStep({
         {/* Amount hero — tap anywhere in this area to toggle sats/fiat, with a swap animation */}
         <button
           type="button"
-          onClick={canToggleFiat && !isAmountFixed ? handleToggleFiat : undefined}
-          disabled={!canToggleFiat || isAmountFixed}
+          onClick={canToggleFiat && !isAmountFixed && !confirming ? handleToggleFiat : undefined}
+          disabled={!canToggleFiat || isAmountFixed || confirming}
           aria-label={t('send.tokenCreate.toggleUnit', {
             current: isFiatMode ? currencySymbol : unit,
           })}
@@ -301,7 +341,7 @@ export function SendAmountStep({
           {(showFiat || isFiatMode) && (
             <span className="flex items-center gap-1.5 text-body text-foreground-muted">
               <span>{secondary}</span>
-              {canToggleFiat && !isAmountFixed && <ArrowUpDown className="w-3.5 h-3.5" strokeWidth={2.2} />}
+              {canToggleFiat && !isAmountFixed && !confirming && <ArrowUpDown className="w-3.5 h-3.5" strokeWidth={2.2} />}
             </span>
           )}
           {isAmountFixed && (
@@ -329,42 +369,110 @@ export function SendAmountStep({
           {onChangeMint && <ChevronDown className="w-4 h-4 text-foreground-muted shrink-0" strokeWidth={2} />}
         </button>
       </div>
-
-      {/* Numpad — dimmed (not hidden) when the amount is fixed by an invoice */}
-      <div className={`grid grid-cols-3 gap-0 shrink-0 ${isAmountFixed ? 'opacity-30 pointer-events-none' : ''}`}>
-        {(isFiatMode && !fiatIsZeroDecimal ? KEYS_FIAT : KEYS_SATS).map((key) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => void handleKey(key)}
-            disabled={key === 'max' && isResolvingMax}
-            className="h-14 text-title font-normal text-foreground hover:bg-background-hover active:bg-background-card transition-colors flex items-center justify-center"
-          >
-            {key === 'del' ? (
-              <ArrowLeft className="w-5 h-5" strokeWidth={1.8} />
-            ) : key === 'max' ? (
-              <span className="text-body font-semibold text-foreground-muted">{t('send.max')}</span>
-            ) : (
-              key
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Next button — below the keypad, matching the mockup */}
-      <div className="px-6 pt-2 pb-app shrink-0">
-        <Button
-          variant="brand"
-          size="xl"
-          onClick={handleNext}
-          disabled={!numericAmount || numericAmount <= 0 || isOverBalance}
-          loading={isLoading}
-          className="w-full"
-        >
-          {t('send.next')}
-        </Button>
-      </div>
       </motion.div>
+
+      {/* Bottom region: keypad (editing) ⟷ fee/memo + Cancel/Send (confirming).
+          Lives outside the content-fade wrapper — popLayout pops the exiting
+          child to position:absolute against the root, and a fade ancestor
+          would dim the entering side (lessons #3). The 0.15s cross-fade
+          overlap during the swap is the "keypad dissolve". */}
+      <AnimatePresence mode="popLayout" initial={false}>
+        {confirming ? (
+          <motion.div
+            key="confirm-controls"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, pointerEvents: 'none' }}
+            transition={fadeTransition(reduceMotion, 0.15)}
+            className="shrink-0"
+          >
+            <div className="px-6 pb-1">
+              {(confirmError || feeQuote === 'unavailable' || insufficientForFee) && (
+                <p className="text-caption text-accent-danger pb-2">
+                  {confirmError ??
+                    (feeQuote === 'unavailable'
+                      ? t('send.confirm.feeUnavailable')
+                      : t('send.confirm.insufficientWithTotal', { total: formatSats(totalNeeded ?? 0) }))}
+                </p>
+              )}
+              <div className="flex justify-between items-center py-2">
+                <span className="text-body text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
+                <span className="text-body font-medium text-foreground">{feeReady ? formatSats(feeQuote) : '—'}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMemoSheetOpen(true)}
+                className="w-full flex justify-between items-center py-2"
+              >
+                <span className="text-body text-foreground-muted">{t('send.confirm.memo')}</span>
+                <span className="flex items-center text-body font-medium text-foreground">
+                  {confirmMemo || t('send.memo.none')}
+                  <ChevronRight className="w-4 h-4 text-foreground-muted ml-1.5" strokeWidth={2} />
+                </span>
+              </button>
+            </div>
+            <div className="flex gap-2.5 px-6 pt-2 pb-app">
+              <Button variant="secondary" size="xl" onClick={onCancelConfirm} className="flex-1">
+                {t('common.cancel')}
+              </Button>
+              <Button
+                variant="brand"
+                size="xl"
+                onClick={handleConfirmSend}
+                loading={sendBusy}
+                disabled={!canSend}
+                className="flex-[1.6]"
+              >
+                {t('send.confirm.send')}
+              </Button>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="keypad-controls"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, pointerEvents: 'none' }}
+            transition={fadeTransition(reduceMotion, 0.15)}
+            className="shrink-0"
+          >
+            {/* Numpad — dimmed (not hidden) when the amount is fixed by an invoice */}
+            <div className={`grid grid-cols-3 gap-0 shrink-0 ${isAmountFixed ? 'opacity-30 pointer-events-none' : ''}`}>
+              {(isFiatMode && !fiatIsZeroDecimal ? KEYS_FIAT : KEYS_SATS).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => void handleKey(key)}
+                  disabled={key === 'max' && isResolvingMax}
+                  className="h-14 text-title font-normal text-foreground hover:bg-background-hover active:bg-background-card transition-colors flex items-center justify-center"
+                >
+                  {key === 'del' ? (
+                    <ArrowLeft className="w-5 h-5" strokeWidth={1.8} />
+                  ) : key === 'max' ? (
+                    <span className="text-body font-semibold text-foreground-muted">{t('send.max')}</span>
+                  ) : (
+                    key
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Next button — below the keypad, matching the mockup */}
+            <div className="px-6 pt-2 pb-app shrink-0">
+              <Button
+                variant="brand"
+                size="xl"
+                onClick={handleNext}
+                disabled={!numericAmount || numericAmount <= 0 || isOverBalance}
+                loading={isLoading}
+                className="w-full"
+              >
+                {t('common.confirm')}
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {onChangeMint && (
         <MintSelectBottomSheet
@@ -378,6 +486,13 @@ export function SendAmountStep({
           filterFn={(m) => (m.balance ?? 0) > 0}
         />
       )}
+
+      <MemoSheet
+        isOpen={memoSheetOpen}
+        memo={confirmMemo}
+        onSave={(m) => onEditMemo?.(m)}
+        onClose={() => setMemoSheetOpen(false)}
+      />
     </div>
   )
 }

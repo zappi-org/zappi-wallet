@@ -75,7 +75,7 @@ describe('SendAmountStep keypad', () => {
     fireEvent.click(screen.getByRole('button', { name: '1' }))
     fireEvent.click(screen.getByRole('button', { name: '0' }))
     fireEvent.click(screen.getByRole('button', { name: '0' }))
-    fireEvent.click(screen.getByRole('button', { name: 'send.next' }))
+    fireEvent.click(screen.getByRole('button', { name: 'common.confirm' }))
 
     expect(onNext).toHaveBeenCalledWith(expect.objectContaining({ amount: 100 }))
   })
@@ -109,7 +109,7 @@ describe('SendAmountStep keypad', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'send.max' }))
     await waitFor(() => expect(onResolveMaxAmount).toHaveBeenCalledWith('https://m', 100_000))
-    fireEvent.click(screen.getByRole('button', { name: 'send.next' }))
+    fireEvent.click(screen.getByRole('button', { name: 'common.confirm' }))
 
     expect(onNext).toHaveBeenCalledWith(expect.objectContaining({ amount: 99_950 }))
   })
