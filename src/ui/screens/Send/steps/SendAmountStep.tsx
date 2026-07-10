@@ -24,7 +24,7 @@ import { getMintBalance } from '@/utils/url'
 import { findContactName, formatNpubShort, formatRecipientDisplayText } from '../sendDisplayHelpers'
 import { useContacts } from '@/ui/hooks/use-contacts'
 import type { SendableValidatedData, MaxAmountResult } from '../SendFlow'
-import { SEND_RECIPIENT_LAYOUT_ID, recipientMorphTransition } from '../sendMorph'
+import { SEND_RECIPIENT_LAYOUT_ID, SEND_AMOUNT_LAYOUT_ID, recipientMorphTransition } from '../sendMorph'
 import { fadeTransition } from '@/ui/utils/motion'
 
 const KEYS_SATS: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'max', '0', 'del']
@@ -260,47 +260,123 @@ export function SendAmountStep({
   // Secondary conversion line (shown with the ⇄ toggle) — always visible.
   const secondary = isFiatMode ? formatSats(numericAmount) : toFiat(numericAmount) ?? `${currencySymbol}0`
 
-  // Collapsed recipient / direct-transfer label — tap to re-edit.
-  // Plain text per mockup (docs/sample/send_sample.png); layoutId pairs it
-  // with the leaving input text in SendInputStep so only the TEXT morphs
-  // between scenes. Tap feedback via scale — motion owns inline opacity.
-  // Stays pinned at the top in both editing and confirming; the amount
-  // group below glides up to sit under it (see the hero button's layout prop).
-  const recipientBlock = (directTransfer || recipientLabel) && (
+  // Recipient content shared by both the editing header and the confirm
+  // ticket's TO node — only the wrapping element differs (button vs div).
+  const recipientContent = directTransfer ? (
+    <span className="text-subtitle font-semibold text-foreground">{t('send.direct.label')}</span>
+  ) : (
+    <>
+      <span className="text-label uppercase tracking-wider text-foreground-muted">
+        {recipientDetail ? `TO ${recipientLabel}` : 'TO'}
+      </span>
+      <span className="text-subtitle font-semibold text-foreground truncate max-w-[280px]">
+        {recipientDetail ?? recipientLabel}
+      </span>
+    </>
+  )
+  const hasRecipient = directTransfer || recipientLabel
+  // Both endpoints share layoutId + transition so the snapshot glide reads as
+  // one flight; explicit opacity overrides motion's auto-crossfade, which
+  // freezes the incoming element semi-transparent for the whole flight —
+  // the text must stay solid while it glides. Exactly one of the two mounts
+  // per commit (editing OR confirm), so this is a single-instance handoff,
+  // never a live crossfade pair.
+  const recipientMotionProps = {
+    layoutId: SEND_RECIPIENT_LAYOUT_ID,
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
+    transition: { ...recipientMorphTransition(reduceMotion), opacity: { duration: 0.15, ease: 'easeOut' as const } },
+  }
+
+  // Editing header — tap to re-edit. Plain text per mockup; pinned at the
+  // top while editing. In confirm this same layoutId lands inside the
+  // ticket's TO node instead (see ticket JSX below).
+  const recipientBlock = hasRecipient && (
     <motion.button
       type="button"
-      layoutId={SEND_RECIPIENT_LAYOUT_ID}
-      // Explicit opacity overrides motion's auto-crossfade, which freezes
-      // the incoming element semi-transparent for the whole flight —
-      // the text must stay solid while it glides
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ ...recipientMorphTransition(reduceMotion), opacity: { duration: 0.15, ease: 'easeOut' } }}
-      whileTap={confirming ? undefined : { scale: 0.96 }}
-      onClick={confirming ? undefined : onBack}
-      disabled={confirming}
+      {...recipientMotionProps}
+      whileTap={{ scale: 0.96 }}
+      onClick={onBack}
       className="shrink-0 mt-3 mx-auto px-4 py-2 flex flex-col items-center gap-0.5 max-w-[calc(100%-3rem)]"
     >
-      {directTransfer ? (
-        <span className="text-subtitle font-semibold text-foreground">{t('send.direct.label')}</span>
-      ) : (
-        <>
-          <span className="text-label uppercase tracking-wider text-foreground-muted">
-            {recipientDetail ? `TO ${recipientLabel}` : 'TO'}
-          </span>
-          <span className="text-subtitle font-semibold text-foreground truncate max-w-[280px]">
-            {recipientDetail ?? recipientLabel}
-          </span>
-        </>
-      )}
+      {recipientContent}
     </motion.button>
+  )
+
+  // Confirm ticket's TO node — non-interactive (mint change happens via the
+  // FROM node instead), right-aligned to close the FROM→TO route row.
+  const recipientTicketNode = hasRecipient && (
+    <motion.div {...recipientMotionProps} className="flex flex-col items-end gap-0.5 max-w-[45%]">
+      {recipientContent}
+    </motion.div>
   )
 
   return (
     <div className="flex flex-col h-full relative">
       <ScreenHeader title={t('send.title')} onBack={onBack} />
 
-      {recipientBlock}
+      {!confirming && recipientBlock}
+
+      {confirming && (
+        <div className="mx-6 mt-2 rounded-2xl bg-background-card shadow-sm relative overflow-hidden">
+          {/* Route row — FROM (tap to change mint) ─⚡─ TO (recipient flight destination) */}
+          <div className="flex items-center justify-between px-4 pt-4">
+            <button
+              type="button"
+              onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
+              disabled={!onChangeMint}
+              className="flex flex-col items-start gap-0.5 max-w-[45%] disabled:cursor-default"
+            >
+              <span className="text-label uppercase tracking-wider text-foreground-muted">FROM</span>
+              <span className="flex items-center gap-1.5">
+                <MintIcon iconUrl={mintIconUrl} imgSize="w-5 h-5" className="w-5 h-5" circle />
+                <span className="text-subtitle font-semibold text-foreground truncate max-w-[140px]">{mintName}</span>
+              </span>
+            </button>
+            <div className="flex-1 border-t border-dashed border-border mx-2 relative">
+              <span className="absolute left-1/2 -translate-x-1/2 -top-2 text-caption bg-background-card px-1">⚡</span>
+            </div>
+            {recipientTicketNode}
+          </div>
+
+          {/* Amount — layoutId flight from the editing hero; smaller size, morph scales it smoothly */}
+          <motion.div
+            layoutId={SEND_AMOUNT_LAYOUT_ID}
+            transition={recipientMorphTransition(reduceMotion)}
+            className="flex flex-col items-center gap-2 text-center py-5"
+          >
+            <span
+              className={`text-[40px] leading-none font-light tracking-tight ${
+                isOverBalance || insufficientForFee ? 'text-accent-danger' : 'text-foreground'
+              }`}
+            >
+              {displayAmount}
+            </span>
+            {(showFiat || isFiatMode) && <span className="text-body text-foreground-muted">{secondary}</span>}
+          </motion.div>
+
+          {/* Tear line — notches punch the page background through (dark-mode safe, tokens only) */}
+          <div className="relative border-t-2 border-dashed border-border/70">
+            <div className="w-4 h-4 rounded-full bg-background absolute top-1/2 -translate-y-1/2 -left-2" />
+            <div className="w-4 h-4 rounded-full bg-background absolute top-1/2 -translate-y-1/2 -right-2" />
+          </div>
+
+          {/* Stub row — fee | memo (tap → memo sheet) */}
+          <div className="flex items-start justify-between px-4 py-3.5">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-label text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
+              <span className="text-body font-medium text-foreground">{feeReady ? formatSats(feeQuote) : '—'}</span>
+            </div>
+            <button type="button" onClick={() => setMemoSheetOpen(true)} className="text-right flex flex-col gap-0.5">
+              <span className="flex items-center justify-end text-label text-foreground-muted">
+                {t('send.confirm.memo')}
+                <ChevronRight className="w-3.5 h-3.5 ml-0.5" strokeWidth={2} />
+              </span>
+              <span className="text-body font-medium text-foreground">{confirmMemo || t('send.memo.none')}</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Scene content fades here (not on the SendFlow scene wrapper) so the
           layoutId recipient text above is never dimmed by an animating ancestor */}
@@ -313,70 +389,70 @@ export function SendAmountStep({
       >
       <div className="flex-1 overflow-y-auto px-6 flex flex-col">
         {/* Amount hero — tap anywhere in this area to toggle sats/fiat, with a swap animation.
-            `layout` lets this glide up (via className swap) when confirming stacks it under the recipient. */}
-        <motion.button
-          type="button"
-          layout
-          transition={recipientMorphTransition(reduceMotion)}
-          onClick={canToggleFiat && !isAmountFixed && !confirming ? handleToggleFiat : undefined}
-          disabled={!canToggleFiat || isAmountFixed || confirming}
-          aria-label={t('send.tokenCreate.toggleUnit', {
-            current: isFiatMode ? currencySymbol : unit,
-          })}
-          className={
-            confirming
-              ? 'flex flex-col items-center gap-2 w-full pt-10 disabled:cursor-default'
-              : 'flex-1 flex flex-col items-center justify-center gap-2 w-full disabled:cursor-default'
-          }
-        >
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.span
-              key={isFiatMode ? 'fiat' : 'sats'}
-              initial={{ opacity: 0, y: reduceMotion ? 0 : 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: reduceMotion ? 0 : -10 }}
-              transition={fadeTransition(reduceMotion, 0.18)}
-              className={`text-[54px] leading-none font-light tracking-tight ${
-                isOverBalance ? 'text-accent-danger' : 'text-foreground'
-              }`}
-            >
-              {displayAmount}
-            </motion.span>
-          </AnimatePresence>
-          {/* Conversion line honors the Preferences fiat toggle (parity with Receive) */}
-          {(showFiat || isFiatMode) && (
-            <span className="flex items-center gap-1.5 text-body text-foreground-muted">
-              <span>{secondary}</span>
-              {canToggleFiat && !isAmountFixed && !confirming && <ArrowUpDown className="w-3.5 h-3.5" strokeWidth={2.2} />}
-            </span>
-          )}
-          {isAmountFixed && (
-            <span className="flex items-center gap-1 text-caption text-foreground-muted mt-1">
-              <Lock className="w-3 h-3" strokeWidth={2} />
-              {t('send.amount.fixedByInvoice')}
-            </span>
-          )}
-          {/* Confirm variant carries its own richer warning (insufficientWithTotal below); avoid duplicate messaging */}
-          {!confirming && isOverBalance && (
-            <span className="text-caption text-accent-danger">
-              {t('payment.insufficientBalance')} ({t('common.balance')} {formatSats(mintBalance)})
-            </span>
-          )}
-        </motion.button>
+            Editing-only: in confirm the amount group lives inside the ticket instead (see above). */}
+        {!confirming && (
+          <motion.button
+            type="button"
+            onClick={canToggleFiat && !isAmountFixed ? handleToggleFiat : undefined}
+            disabled={!canToggleFiat || isAmountFixed}
+            aria-label={t('send.tokenCreate.toggleUnit', {
+              current: isFiatMode ? currencySymbol : unit,
+            })}
+            className="flex-1 flex flex-col items-center justify-center gap-2 w-full disabled:cursor-default"
+          >
+            <motion.div layoutId={SEND_AMOUNT_LAYOUT_ID} transition={recipientMorphTransition(reduceMotion)}>
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={isFiatMode ? 'fiat' : 'sats'}
+                  initial={{ opacity: 0, y: reduceMotion ? 0 : 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: reduceMotion ? 0 : -10 }}
+                  transition={fadeTransition(reduceMotion, 0.18)}
+                  className={`text-[54px] leading-none font-light tracking-tight ${
+                    isOverBalance ? 'text-accent-danger' : 'text-foreground'
+                  }`}
+                >
+                  {displayAmount}
+                </motion.span>
+              </AnimatePresence>
+            </motion.div>
+            {/* Conversion line honors the Preferences fiat toggle (parity with Receive) */}
+            {(showFiat || isFiatMode) && (
+              <span className="flex items-center gap-1.5 text-body text-foreground-muted">
+                <span>{secondary}</span>
+                {canToggleFiat && !isAmountFixed && <ArrowUpDown className="w-3.5 h-3.5" strokeWidth={2.2} />}
+              </span>
+            )}
+            {isAmountFixed && (
+              <span className="flex items-center gap-1 text-caption text-foreground-muted mt-1">
+                <Lock className="w-3 h-3" strokeWidth={2} />
+                {t('send.amount.fixedByInvoice')}
+              </span>
+            )}
+            {isOverBalance && (
+              <span className="text-caption text-accent-danger">
+                {t('payment.insufficientBalance')} ({t('common.balance')} {formatSats(mintBalance)})
+              </span>
+            )}
+          </motion.button>
+        )}
 
-        {/* Mint — logo + custom name, centered (tappable when onChangeMint). `layout` glides it with the hero above. */}
-        <motion.button
-          type="button"
-          layout
-          transition={recipientMorphTransition(reduceMotion)}
-          onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
-          disabled={!onChangeMint}
-          className="flex items-center justify-center gap-2 mb-3 mx-auto"
-        >
-          <MintIcon iconUrl={mintIconUrl} imgSize="w-6 h-6" className="w-6 h-6" circle />
-          <span className="text-body font-medium text-foreground truncate max-w-[220px]">{mintName}</span>
-          {onChangeMint && <ChevronDown className="w-4 h-4 text-foreground-muted shrink-0" strokeWidth={2} />}
-        </motion.button>
+        {/* Mint — logo + custom name, centered (tappable when onChangeMint). Editing-only:
+            in confirm the mint lives in the ticket's FROM node instead. */}
+        {!confirming && (
+          <motion.button
+            type="button"
+            layout
+            transition={recipientMorphTransition(reduceMotion)}
+            onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
+            disabled={!onChangeMint}
+            className="flex items-center justify-center gap-2 mb-3 mx-auto"
+          >
+            <MintIcon iconUrl={mintIconUrl} imgSize="w-6 h-6" className="w-6 h-6" circle />
+            <span className="text-body font-medium text-foreground truncate max-w-[220px]">{mintName}</span>
+            {onChangeMint && <ChevronDown className="w-4 h-4 text-foreground-muted shrink-0" strokeWidth={2} />}
+          </motion.button>
+        )}
       </div>
       </motion.div>
 
@@ -404,21 +480,6 @@ export function SendAmountStep({
                       : t('send.confirm.insufficientWithTotal', { total: formatSats(totalNeeded ?? 0) }))}
                 </p>
               )}
-              <div className="flex justify-between items-center py-2">
-                <span className="text-body text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
-                <span className="text-body font-medium text-foreground">{feeReady ? formatSats(feeQuote) : '—'}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setMemoSheetOpen(true)}
-                className="w-full flex justify-between items-center py-2"
-              >
-                <span className="text-body text-foreground-muted">{t('send.confirm.memo')}</span>
-                <span className="flex items-center text-body font-medium text-foreground">
-                  {confirmMemo || t('send.memo.none')}
-                  <ChevronRight className="w-4 h-4 text-foreground-muted ml-1.5" strokeWidth={2} />
-                </span>
-              </button>
             </div>
             <div className="flex gap-2.5 px-6 pt-2 pb-app">
               <Button variant="secondary" size="xl" onClick={onCancelConfirm} className="flex-1">
