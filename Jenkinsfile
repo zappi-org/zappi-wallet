@@ -10,8 +10,10 @@ pipeline {
             steps {
                 checkout scm
                 script {
-                    if (env.BRANCH_NAME != 'main') {
-                        error "This pipeline only runs on main branch: ${env.BRANCH_NAME}"
+                    // Tag builds arrive with BRANCH_NAME = <tag>, and they are the
+                    // only path to the buildingTag() production stages below.
+                    if (env.BRANCH_NAME != 'main' && !buildingTag()) {
+                        error "This pipeline only runs on main branch or tag builds: ${env.BRANCH_NAME}"
                     }
                     env.CHANNEL = buildingTag() ? 'main' : 'staging'
                 }
