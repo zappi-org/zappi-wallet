@@ -1,18 +1,71 @@
 import { type ReactNode, useCallback } from 'react'
-import { motion, AnimatePresence, type PanInfo } from 'motion/react'
+import { motion, AnimatePresence, useReducedMotion, type PanInfo, type Transition } from 'motion/react'
+import { motionSafeTransition } from '@/ui/utils/motion'
 
 export interface BottomSheetProps {
   isOpen: boolean
   onClose: () => void
   title?: ReactNode
   children: ReactNode
+  /**
+   * Overlay positioning. 'fixed' (default) covers the viewport; 'absolute'
+   * confines the sheet to the nearest positioned ancestor so it can slide over
+   * an in-flow screen (e.g. the send confirm sheet over the amount step).
+   */
+  variant?: 'fixed' | 'absolute'
+  /** Tailwind z-index classes for backdrop/sheet, letting an in-flow sheet sit below app chrome. */
+  backdropZClass?: string
+  sheetZClass?: string
+  /** Backdrop base class (color); animates opacity to `backdropOpacity`. */
+  backdropClassName?: string
+  backdropOpacity?: number
+  /** Sheet surface class (bg / radius / padding / max-height / overflow). */
+  sheetClassName?: string
+  /** Enter/exit transition for the sheet slide. Overridden by a fade under reduced motion. */
+  transition?: Transition
+  /** Backdrop fade transition. Omitted → motion default (preserves legacy consumers). */
+  backdropTransition?: Transition
+  /** Disable drag-to-dismiss (sheets that must be dismissed via an explicit action). */
+  disableDrag?: boolean
+  /** Wrap children in a scrollable region (default). Set false for fixed-height content. */
+  scrollable?: boolean
+  /** Render the default drag handle (default). Set false to supply a custom one in `children`. */
+  showHandle?: boolean
+  /** Wire the dialog to a heading rendered inside `children` (id) for screen readers. */
+  ariaLabelledBy?: string
 }
+
+const DEFAULT_SHEET_CLASS = 'bg-background-elevated rounded-t-lg max-h-[85vh] overflow-hidden'
+const DEFAULT_TRANSITION: Transition = { duration: 0.25, ease: 'easeOut' }
 
 /**
  * Bottom sheet component for scrollable lists and selection UI (Section 17.4)
- * Use for: mint list selection, relay list selection, transaction details
+ * Use for: mint list selection, relay list selection, transaction details.
+ *
+ * Defaults render a viewport-fixed, drag-to-dismiss sheet with a centered header.
+ * The optional props above let callers compose in-flow overlay variants (fixed
+ * vs absolute positioning, custom transition, no drag) without forking the
+ * backdrop / handle / dialog-a11y machinery.
  */
-export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetProps) {
+export function BottomSheet({
+  isOpen,
+  onClose,
+  title,
+  children,
+  variant = 'fixed',
+  backdropZClass = 'z-[60]',
+  sheetZClass = 'z-[70]',
+  backdropClassName = 'bg-black',
+  backdropOpacity = 0.5,
+  sheetClassName = DEFAULT_SHEET_CLASS,
+  transition = DEFAULT_TRANSITION,
+  backdropTransition,
+  disableDrag = false,
+  scrollable = true,
+  showHandle = true,
+  ariaLabelledBy,
+}: BottomSheetProps) {
+  const reduceMotion = useReducedMotion()
   const handleDragEnd = useCallback(
     (_: unknown, info: PanInfo) => {
       if (info.offset.y > 100 || info.velocity.y > 500) {
@@ -22,6 +75,17 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
     [onClose],
   )
 
+  const position = variant === 'absolute' ? 'absolute' : 'fixed'
+  const dragProps =
+    disableDrag || reduceMotion
+      ? {}
+      : {
+          drag: 'y' as const,
+          dragConstraints: { top: 0, bottom: 0 },
+          dragElastic: { top: 0, bottom: 0.6 },
+          onDragEnd: handleDragEnd,
+        }
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -29,9 +93,10 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
-            animate={{ opacity: 0.5 }}
+            animate={{ opacity: backdropOpacity }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black z-[60]"
+            transition={motionSafeTransition(reduceMotion, backdropTransition)}
+            className={`${position} inset-0 ${backdropClassName} ${backdropZClass}`}
             onClick={onClose}
           />
 
@@ -39,20 +104,20 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
           <motion.div
             role="dialog"
             aria-modal="true"
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            drag="y"
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0, bottom: 0.6 }}
-            onDragEnd={handleDragEnd}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="fixed bottom-0 left-0 right-0 bg-background-elevated rounded-t-lg max-h-[85vh] overflow-hidden z-[70]"
+            aria-labelledby={ariaLabelledBy}
+            initial={reduceMotion ? { opacity: 0 } : { y: '100%' }}
+            animate={reduceMotion ? { opacity: 1 } : { y: 0 }}
+            exit={reduceMotion ? { opacity: 0 } : { y: '100%' }}
+            {...dragProps}
+            transition={motionSafeTransition(reduceMotion, transition)}
+            className={`${position} bottom-0 left-0 right-0 ${sheetClassName} ${sheetZClass}`}
           >
             {/* Handle */}
-            <div className="flex justify-center py-2.5 cursor-grab active:cursor-grabbing touch-none">
-              <div className="w-10 h-1 bg-foreground-subtle rounded-full" />
-            </div>
+            {showHandle && (
+              <div className="flex justify-center py-2.5 cursor-grab active:cursor-grabbing touch-none">
+                <div className="w-10 h-1 bg-foreground-subtle rounded-full" />
+              </div>
+            )}
 
             {/* Header */}
             {title && (
@@ -61,10 +126,12 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
               </div>
             )}
 
-            {/* Scrollable content area */}
-            <div className="overflow-y-auto max-h-[calc(85vh-60px)]">
-              {children}
-            </div>
+            {/* Content area */}
+            {scrollable ? (
+              <div className="overflow-y-auto max-h-[calc(85vh-60px)]">{children}</div>
+            ) : (
+              children
+            )}
           </motion.div>
         </>
       )}

@@ -97,6 +97,15 @@ export function formatFiatAmount(amount: number, currency: string): string {
   }
 }
 
+/** Formats grouping separators for keypad/input fiat entry without destroying an
+ *  in-progress decimal (`'1234.'` stays `'1,234.'`, `'1234.50'` keeps the trailing zero). */
+export function formatFiatInputForDisplay(value: string): string {
+  if (!value) return '0'
+  const [integer = '0', fraction] = value.split('.')
+  const groupedInteger = Number(integer || '0').toLocaleString()
+  return value.includes('.') ? `${groupedInteger}.${fraction ?? ''}` : groupedInteger
+}
+
 // ── Derive exchange rate from store (internal helper) ──
 
 function getExchangeRateFromStore(): { rate: number | null; currency: string; show: boolean } {

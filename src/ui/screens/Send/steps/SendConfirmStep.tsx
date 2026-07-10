@@ -8,7 +8,7 @@ import { useTranslation, Trans } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { hapticTap } from '@/ui/utils/haptic'
-import { useFormatSats, useFormatFiat, FIAT_CURRENCY_MAP } from '@/utils/format'
+import { useFormatSats, useFormatFiat, FIAT_CURRENCY_MAP, formatFiatInputForDisplay } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { PaymentRoute } from '@/ui/hooks/use-routing'
@@ -108,7 +108,7 @@ export function SendConfirmStep({
                     ? `${
                         FIAT_CURRENCY_MAP.get(settings.fiatCurrency ?? "USD")
                           ?.symbol ?? ""
-                      }${Number(fiatAmount).toLocaleString()}`
+                      }${formatFiatInputForDisplay(fiatAmount)}`
                     : formatSats(amount),
                 target: isMyWallet
                   ? (validatedData as { targetMintName: string }).targetMintName

@@ -9,7 +9,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { hapticTap, hapticError } from '@/ui/utils/haptic'
-import { useSatUnit, useFormatFiat } from '@/utils/format'
+import { useSatUnit, useFormatFiat, formatFiatInputForDisplay } from '@/utils/format'
 import { useFiatToggle } from '@/ui/hooks/use-fiat-toggle'
 import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
@@ -155,7 +155,7 @@ export function ReceiveInputStep({
                 <input
                   type="text"
                   inputMode="decimal"
-                  value={fiatInput ? Number(fiatInput).toLocaleString() : ''}
+                  value={fiatInput ? formatFiatInputForDisplay(fiatInput) : ''}
                   placeholder="0"
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleNext() } }}
                   onChange={(e) => handleFiatChange(e.target.value)}

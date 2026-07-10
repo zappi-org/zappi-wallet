@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
+import { fadeTransition } from '@/ui/utils/motion'
 
 /**
  * Page transition animation variants (Section 17.6)
@@ -48,11 +49,8 @@ export interface PageTransitionProps {
 /**
  * Wrapper component for smooth page/modal transitions
  */
-export function PageTransition({
-  children,
-  variant = 'page',
-  className = '',
-}: PageTransitionProps) {
+export function PageTransition({ children, variant = 'page', className = '' }: PageTransitionProps) {
+  const reduceMotion = useReducedMotion()
   const variants = {
     page: pageVariants,
     modal: modalVariants,
@@ -61,11 +59,11 @@ export function PageTransition({
 
   return (
     <motion.div
-      variants={variants[variant]}
+      variants={reduceMotion ? fadeVariants : variants[variant]}
       initial="initial"
       animate="animate"
       exit="exit"
-      transition={{ duration: 0.2, ease: 'easeOut' }}
+      transition={fadeTransition(reduceMotion, 0.2)}
       className={className}
     >
       {children}
@@ -85,12 +83,7 @@ export function SuccessAnimation({ show, children }: SuccessAnimationProps) {
   return (
     <AnimatePresence>
       {show && (
-        <motion.div
-          initial="initial"
-          animate="animate"
-          exit="exit"
-          variants={successVariants}
-        >
+        <motion.div initial="initial" animate="animate" exit="exit" variants={successVariants}>
           {children}
         </motion.div>
       )}
@@ -107,11 +100,8 @@ export interface AnimatedPresenceWrapperProps {
   variant?: 'page' | 'modal' | 'fade'
 }
 
-export function AnimatedPresenceWrapper({
-  show,
-  children,
-  variant = 'fade',
-}: AnimatedPresenceWrapperProps) {
+export function AnimatedPresenceWrapper({ show, children, variant = 'fade' }: AnimatedPresenceWrapperProps) {
+  const reduceMotion = useReducedMotion()
   const variants = {
     page: pageVariants,
     modal: modalVariants,
@@ -123,11 +113,11 @@ export function AnimatedPresenceWrapper({
       {show && (
         <motion.div
           key="content"
-          variants={variants[variant]}
+          variants={reduceMotion ? fadeVariants : variants[variant]}
           initial="initial"
           animate="animate"
           exit="exit"
-          transition={{ duration: 0.2, ease: 'easeOut' }}
+          transition={fadeTransition(reduceMotion, 0.2)}
         >
           {children}
         </motion.div>
