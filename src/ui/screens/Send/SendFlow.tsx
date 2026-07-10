@@ -263,6 +263,10 @@ export function SendFlow({
   // Prevent double-tap
   const isProcessingRef = useRef(false)
 
+  // Route-quote freshness: every mint change and every new quote bumps this;
+  // a quote may commit only if the epoch is unchanged since it started
+  const routeEpochRef = useRef(0)
+
   // Effective display name — resolved once, used by all steps
   const effectiveDisplayName = useMemo(() => {
     if (initialDisplayName) return initialDisplayName
@@ -493,8 +497,16 @@ export function SendFlow({
           return
         }
 
+        const epoch = ++routeEpochRef.current
         const routeResult = await performRouteSelection(state.validatedData, data.amount, state.selectedMintUrl)
         if (!routeResult) {
+          isProcessingRef.current = false
+          setIsLoading(false)
+          return
+        }
+        // Mint changed while the quote was in flight — this route would draw
+        // from the wrong mint; stay on the amount step for a fresh attempt
+        if (routeEpochRef.current !== epoch) {
           isProcessingRef.current = false
           setIsLoading(false)
           return
@@ -774,6 +786,7 @@ export function SendFlow({
     (selectedMintUrl: string) => {
       if (!mintSelection) return
       userMintChoiceRef.current = selectedMintUrl
+      routeEpochRef.current++
       setState((prev) => ({ ...prev, selectedMintUrl }))
       if (mintSelection.context === 'destination') {
         const amt = getAmountFromData(mintSelection.validatedData)
@@ -804,13 +817,13 @@ export function SendFlow({
    * camera shortcut (scanned bolt11 with amount, etc.). Required because
    * handleAmountNext would normally do this work, but we skipped the amount step.
    *
-   * Note: no cleanup function — a previous version used a `cancelled` flag
-   * that the cleanup set to true, but the effect's deps include
-   * `state.routeSelection` which flips to non-null right after setState, causing
-   * a re-run. The cleanup of the FIRST run would fire and set `cancelled=true`
-   * for the in-flight promise, suppressing the state update that already
-   * succeeded. The `done` flag inside the async closure prevents double-set
-   * if the effect ever does re-run with a fresh closure.
+   * Note: no cleanup function — the effect's deps include `state.routeSelection`,
+   * which flips non-null right after a successful setState and re-runs the effect,
+   * so a cleanup-set `cancelled` flag would suppress updates that already landed.
+   * Staleness is handled by the route epoch instead: a quote may commit only if
+   * nothing bumped the epoch (mint change, newer quote) while it was in flight —
+   * otherwise a slow quote for mint X could land after the user switched to Y and
+   * the send would draw from the wrong mint.
    */
   const didInitialRouteRef = useRef(false)
   useEffect(() => {
@@ -820,11 +833,10 @@ export function SendFlow({
     if (!state.validatedData || !state.selectedMintUrl || state.amount <= 0) return
 
     didInitialRouteRef.current = true
-    let done = false
+    const epoch = ++routeEpochRef.current
 
     performRouteSelection(state.validatedData, state.amount, state.selectedMintUrl).then((routeResult) => {
-      if (done || !routeResult) return
-      done = true
+      if (!routeResult || routeEpochRef.current !== epoch) return
       setState((prev) => ({
         ...prev,
         fee: routeResult.fee,
@@ -908,6 +920,7 @@ export function SendFlow({
                     directTransfer={state.directTransfer}
                     onChangeMint={(url) => {
                       userMintChoiceRef.current = url
+                      routeEpochRef.current++
                       setState((prev) => ({ ...prev, selectedMintUrl: url }))
                     }}
                     onResolveMaxAmount={handleResolveMaxAmount}
