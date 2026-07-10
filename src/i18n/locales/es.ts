@@ -861,6 +861,7 @@ export default {
       memo: 'Memo',
       requestAmount: 'Solicitado',
       estimatedFee: 'Tarifa Estimada',
+      feeUnavailable: 'No se pudo estimar la tarifa. Inténtalo de nuevo.',
       total: 'Total',
       send: 'Enviar',
       transfer: 'Transferir',

@@ -10,7 +10,7 @@
  */
 
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
-import { AnimatePresence } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
 import { useNetwork } from '@/ui/hooks/use-network'
 import { useInputParser } from '@/ui/hooks/use-input-parser'
@@ -33,10 +33,14 @@ import { translateError } from '@/ui/utils/error-i18n'
 
 function getAddressOrInvoice(data: SendableValidatedData): string | undefined {
   switch (data.type) {
-    case 'bolt11': return data.invoice
-    case 'lightning-address': return data.address
-    case 'lnurl-pay': return data.lnurl
-    default: return undefined
+    case 'bolt11':
+      return data.invoice
+    case 'lightning-address':
+      return data.address
+    case 'lnurl-pay':
+      return data.lnurl
+    default:
+      return undefined
   }
 }
 
@@ -60,13 +64,13 @@ import { CreatedStep } from '@/ui/screens/TokenCreate/steps/CreatedStep'
 
 // ============= Types =============
 
-export type SendStep =
-  | 'destination'
-  | 'amount'
-  | 'confirm'
-  | 'sending'
-  | 'complete'
-  | 'created'
+export type SendStep = 'destination' | 'amount' | 'confirm' | 'sending' | 'complete' | 'created'
+
+/**
+ * MAX-resolution outcome. `reported` tells the caller whether the failure was
+ * already toasted upstream (route-selection path) so it shows exactly one toast.
+ */
+export type MaxAmountResult = { status: 'ok'; amount: number } | { status: 'error'; reported: boolean }
 
 /** Validated data types that are "sendable" (not token, not amount) */
 export type SendableValidatedData =
@@ -121,8 +125,21 @@ export interface SendFlowProps {
   // Routing-based send handler (primary)
   onExecuteRoute: (selection: RouteSelection, context: RouteContext) => Promise<RouteExecutionResult | null>
   // Cross-mint swap handler (my-wallet type)
-  onMintSwap?: (fromMintUrl: string, toMintUrl: string, amount: number) => Promise<{ success: boolean; amount?: number; fee?: number; transactionId?: string } | null>
-  onEstimateSwapFee?: (fromMintUrl: string, toMintUrl: string, amount: number) => Promise<{ fee: number; totalNeeded: number } | null>
+  onMintSwap?: (
+    fromMintUrl: string,
+    toMintUrl: string,
+    amount: number,
+  ) => Promise<{
+    success: boolean
+    amount?: number
+    fee?: number
+    transactionId?: string
+  } | null>
+  onEstimateSwapFee?: (
+    fromMintUrl: string,
+    toMintUrl: string,
+    amount: number,
+  ) => Promise<{ fee: number; totalNeeded: number } | null>
   // Cross-flow redirect (e.g. cashu-token pasted in Send → redirect to Receive)
   onRedirect?: (validatedData: ValidatedData) => void
   // Pre-filled data from scanner
@@ -134,7 +151,11 @@ export interface SendFlowProps {
   // Universal router — delegates non-sendable input (cashu-token, amount-only) elsewhere
   onRouteValidated?: (data: ValidatedData) => void
   // Direct transfer (bearer token) — creates a token with no recipient, reusing TokenCreate pieces
-  onCreateToken: (amount: number, mintUrl: string, memo?: string) => Promise<{ token: string; txId: string; operationId: string } | null>
+  onCreateToken: (
+    amount: number,
+    mintUrl: string,
+    memo?: string,
+  ) => Promise<{ token: string; txId: string; operationId: string } | null>
   onEstimateCreateFee?: (mintUrl: string, amount: number) => Promise<number | null>
   onQuoteReclaim?: (txId: string) => Promise<number | null>
   onReclaimToken?: (txId: string) => Promise<void>
@@ -174,11 +195,16 @@ export function SendFlow({
     if (initialDestination) return initialDestination
     if (!initialValidatedData) return ''
     switch (initialValidatedData.type) {
-      case 'bolt11': return initialValidatedData.invoice
-      case 'lightning-address': return initialValidatedData.address
-      case 'lnurl-pay': return initialValidatedData.lnurl
-      case 'cashu-request': return initialValidatedData.request
-      default: return ''
+      case 'bolt11':
+        return initialValidatedData.invoice
+      case 'lightning-address':
+        return initialValidatedData.address
+      case 'lnurl-pay':
+        return initialValidatedData.lnurl
+      case 'cashu-request':
+        return initialValidatedData.request
+      default:
+        return ''
     }
   }
 
@@ -186,9 +212,12 @@ export function SendFlow({
     if (initialAmount) return initialAmount
     if (!initialValidatedData) return 0
     switch (initialValidatedData.type) {
-      case 'bolt11': return initialValidatedData.amountSats
-      case 'cashu-request': return initialValidatedData.parsed.amount || 0
-      default: return 0
+      case 'bolt11':
+        return initialValidatedData.amountSats
+      case 'cashu-request':
+        return initialValidatedData.parsed.amount || 0
+      default:
+        return 0
     }
   }
 
@@ -246,115 +275,225 @@ export function SendFlow({
   // ============= Route Selection Logic =============
 
   /** Perform route selection + fee estimation (shared between destination auto-advance and amount next) */
-  const performRouteSelection = useCallback(async (
-    validated: SendableValidatedData,
-    amount: number,
-    mintUrl: string,
-  ): Promise<{ fee: number; routeSelection: RouteSelection } | null> => {
-    try {
-      const balances = useAppStore.getState().balance.byMint
-      const privacyMode = useAppStore.getState().settings.senderPrivacyMode ?? false
-      const routeSelection = planRouteSelection({
-        validated,
-        amount,
-        sourceMintUrl: mintUrl,
-        balances,
-        privacyMode,
-      })
-      const { route } = routeSelection
+  const performRouteSelection = useCallback(
+    async (
+      validated: SendableValidatedData,
+      amount: number,
+      mintUrl: string,
+    ): Promise<{ fee: number; routeSelection: RouteSelection } | null> => {
+      try {
+        const balances = useAppStore.getState().balance.byMint
+        const privacyMode = useAppStore.getState().settings.senderPrivacyMode ?? false
+        const routeSelection = planRouteSelection({
+          validated,
+          amount,
+          sourceMintUrl: mintUrl,
+          balances,
+          privacyMode,
+        })
+        const { route } = routeSelection
 
-      if (route === PaymentRoute.CANNOT_SEND) {
-        addToast({ type: 'error', message: t('payment.cannotSend'), duration: 3000 })
+        if (route === PaymentRoute.CANNOT_SEND) {
+          addToast({
+            type: 'error',
+            message: t('payment.cannotSend'),
+            duration: 3000,
+          })
+          return null
+        }
+
+        // Fee estimation
+        const feeEstimate = await routing.estimateRouteFee(
+          route,
+          routeSelection.sourceMintUrl,
+          amount,
+          routeSelection.targetMintUrl,
+          routeSelection.invoice,
+        )
+        const fee = feeEstimate.fee
+
+        const finalizedRouteSelection: RouteSelection = {
+          ...routeSelection,
+          estimatedFee: fee,
+        }
+
+        console.log(`[SendFlow] Route selected: #${route} ${ROUTE_LABELS[route]} (fee: ${fee} sat)`)
+        return { fee, routeSelection: finalizedRouteSelection }
+      } catch (err) {
+        console.error('[SendFlow] Route selection / fee estimation failed:', err)
+        addToast({
+          type: 'error',
+          message: translateError(err, t),
+          duration: 3000,
+        })
         return null
       }
-
-      // Fee estimation
-      const feeEstimate = await routing.estimateRouteFee(
-        route,
-        routeSelection.sourceMintUrl,
-        amount,
-        routeSelection.targetMintUrl,
-        routeSelection.invoice,
-      )
-      const fee = feeEstimate.fee
-
-      const finalizedRouteSelection: RouteSelection = {
-        ...routeSelection,
-        estimatedFee: fee,
-      }
-
-      console.log(`[SendFlow] Route selected: #${route} ${ROUTE_LABELS[route]} (fee: ${fee} sat)`)
-      return { fee, routeSelection: finalizedRouteSelection }
-    } catch (err) {
-      console.error('[SendFlow] Route selection / fee estimation failed:', err)
-      addToast({ type: 'error', message: translateError(err, t), duration: 3000 })
-      return null
-    }
-  }, [addToast, t, routing])
+    },
+    [addToast, t, routing],
+  )
 
   // ============= Step Transitions =============
 
   /** Destination step → advance to amount (or confirm if invoice has amount) */
-  const handleDestinationNext = useCallback(async (data: {
-    destination: string
-    validatedData?: SendableValidatedData
-    amountFromInvoice?: number
-    mintUrl?: string
-  }) => {
-    if (isProcessingRef.current) return
-    isProcessingRef.current = true
-    setIsLoading(true)
+  const handleDestinationNext = useCallback(
+    async (data: {
+      destination: string
+      validatedData?: SendableValidatedData
+      amountFromInvoice?: number
+      mintUrl?: string
+    }) => {
+      if (isProcessingRef.current) return
+      isProcessingRef.current = true
+      setIsLoading(true)
 
-    if (!isOnline) {
-      addToast({ type: 'error', message: t('common.offlineRequired'), duration: 3000 })
-      isProcessingRef.current = false
-      setIsLoading(false)
-      return
-    }
+      if (!isOnline) {
+        addToast({
+          type: 'error',
+          message: t('common.offlineRequired'),
+          duration: 3000,
+        })
+        isProcessingRef.current = false
+        setIsLoading(false)
+        return
+      }
 
-    try {
-      // Validate destination if no validatedData provided
-      let validated = data.validatedData
-      if (!validated) {
-        const detected = inputParser.detectAndClassify(data.destination)
-        if (detected.type === 'unknown') {
-          addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
-          isProcessingRef.current = false
-          setIsLoading(false)
-          return
-        }
-        try {
-          const result = await inputParser.validateAsync(detected)
-          if (!isSendableData(result)) {
-            addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
+      try {
+        // Validate destination if no validatedData provided
+        let validated = data.validatedData
+        if (!validated) {
+          const detected = inputParser.detectAndClassify(data.destination)
+          if (detected.type === 'unknown') {
+            addToast({
+              type: 'error',
+              message: t('scanner.unrecognizedFormat'),
+              duration: 3000,
+            })
             isProcessingRef.current = false
             setIsLoading(false)
             return
           }
-          validated = result
-        } catch (err) {
-          addToast({ type: 'error', message: err instanceof Error ? err.message : t('scanner.unrecognizedFormat'), duration: 3000 })
-          isProcessingRef.current = false
-          setIsLoading(false)
+          try {
+            const result = await inputParser.validateAsync(detected)
+            if (!isSendableData(result)) {
+              addToast({
+                type: 'error',
+                message: t('scanner.unrecognizedFormat'),
+                duration: 3000,
+              })
+              isProcessingRef.current = false
+              setIsLoading(false)
+              return
+            }
+            validated = result
+          } catch (err) {
+            addToast({
+              type: 'error',
+              message: err instanceof Error ? err.message : t('scanner.unrecognizedFormat'),
+              duration: 3000,
+            })
+            isProcessingRef.current = false
+            setIsLoading(false)
+            return
+          }
+        }
+
+        // If invoice has amount → check balance, then skip amount step
+        const sourceMintUrl = data.mintUrl ?? state.selectedMintUrl
+
+        if (data.amountFromInvoice && data.amountFromInvoice > 0 && sourceMintUrl) {
+          // Balance check before auto-advance
+          const mintBalance = useAppStore.getState().balance?.byMint?.[sourceMintUrl] || 0
+          if (data.amountFromInvoice > mintBalance) {
+            const { formatSats: fmtSats } = await import('@/utils/format')
+            addToast({
+              type: 'error',
+              message: `${t('payment.insufficientBalance')} (${t('send.confirm.requestAmount', '요청')} ${fmtSats(
+                data.amountFromInvoice,
+              )} / ${t('common.balance')} ${fmtSats(mintBalance)})`,
+              duration: 4000,
+            })
+            isProcessingRef.current = false
+            setIsLoading(false)
+            return
+          }
+
+          const routeResult = await performRouteSelection(validated, data.amountFromInvoice, sourceMintUrl)
+          if (!routeResult) {
+            isProcessingRef.current = false
+            setIsLoading(false)
+            return
+          }
+
+          setState((prev) => ({
+            ...prev,
+            step: 'confirm',
+            selectedMintUrl: sourceMintUrl,
+            destination: data.destination,
+            validatedData: validated!,
+            amount: data.amountFromInvoice!,
+            skippedAmount: true,
+            fee: routeResult.fee,
+            routeSelection: routeResult.routeSelection,
+            error: null,
+          }))
           return
         }
+
+        // Destination with no pre-set amount → go to amount step
+        setState((prev) => ({
+          ...prev,
+          step: 'amount',
+          selectedMintUrl: sourceMintUrl,
+          destination: data.destination,
+          validatedData: validated!,
+          error: null,
+        }))
+      } catch (err) {
+        console.error('[SendFlow] Destination validation error:', err)
+        addToast({
+          type: 'error',
+          message: t('errors.generic'),
+          duration: 3000,
+        })
+      } finally {
+        isProcessingRef.current = false
+        setIsLoading(false)
+      }
+    },
+    [isOnline, addToast, t, state.selectedMintUrl, performRouteSelection, inputParser],
+  )
+
+  /** Amount step → route selection + confirm */
+  const handleAmountNext = useCallback(
+    async (data: { amount: number; memo: string; isFiatMode: boolean; fiatAmount: string }) => {
+      if (isProcessingRef.current) return
+      isProcessingRef.current = true
+      setIsLoading(true)
+
+      if (!isOnline) {
+        addToast({
+          type: 'error',
+          message: t('common.offlineRequired'),
+          duration: 3000,
+        })
+        isProcessingRef.current = false
+        setIsLoading(false)
+        return
       }
 
-      // If invoice has amount → check balance, then skip amount step
-      const sourceMintUrl = data.mintUrl ?? state.selectedMintUrl
-
-      if (data.amountFromInvoice && data.amountFromInvoice > 0 && sourceMintUrl) {
-        // Balance check before auto-advance
-        const mintBalance = useAppStore.getState().balance?.byMint?.[sourceMintUrl] || 0
-        if (data.amountFromInvoice > mintBalance) {
-          const { formatSats: fmtSats } = await import('@/utils/format')
-          addToast({ type: 'error', message: `${t('payment.insufficientBalance')} (${t('send.confirm.requestAmount', '요청')} ${fmtSats(data.amountFromInvoice)} / ${t('common.balance')} ${fmtSats(mintBalance)})`, duration: 4000 })
+      try {
+        if (!state.validatedData || !state.selectedMintUrl) {
+          addToast({
+            type: 'error',
+            message: t('errors.generic'),
+            duration: 3000,
+          })
           isProcessingRef.current = false
           setIsLoading(false)
           return
         }
 
-        const routeResult = await performRouteSelection(validated, data.amountFromInvoice, sourceMintUrl)
+        const routeResult = await performRouteSelection(state.validatedData, data.amount, state.selectedMintUrl)
         if (!routeResult) {
           isProcessingRef.current = false
           setIsLoading(false)
@@ -364,90 +503,91 @@ export function SendFlow({
         setState((prev) => ({
           ...prev,
           step: 'confirm',
-          selectedMintUrl: sourceMintUrl,
-          destination: data.destination,
-          validatedData: validated!,
-          amount: data.amountFromInvoice!,
-          skippedAmount: true,
+          amount: data.amount,
+          memo: data.memo,
+          isFiatMode: data.isFiatMode,
+          fiatAmount: data.fiatAmount,
           fee: routeResult.fee,
           routeSelection: routeResult.routeSelection,
           error: null,
         }))
-        return
-      }
-
-      // Destination with no pre-set amount → go to amount step
-      setState((prev) => ({
-        ...prev,
-        step: 'amount',
-        selectedMintUrl: sourceMintUrl,
-        destination: data.destination,
-        validatedData: validated!,
-        error: null,
-      }))
-    } catch (err) {
-      console.error('[SendFlow] Destination validation error:', err)
-      addToast({ type: 'error', message: t('errors.generic'), duration: 3000 })
-    } finally {
-      isProcessingRef.current = false
-      setIsLoading(false)
-    }
-  }, [isOnline, addToast, t, state.selectedMintUrl, performRouteSelection, inputParser])
-
-  /** Amount step → route selection + confirm */
-  const handleAmountNext = useCallback(async (data: { amount: number; memo: string; isFiatMode: boolean; fiatAmount: string }) => {
-    if (isProcessingRef.current) return
-    isProcessingRef.current = true
-    setIsLoading(true)
-
-    if (!isOnline) {
-      addToast({ type: 'error', message: t('common.offlineRequired'), duration: 3000 })
-      isProcessingRef.current = false
-      setIsLoading(false)
-      return
-    }
-
-    try {
-      if (!state.validatedData || !state.selectedMintUrl) {
-        addToast({ type: 'error', message: t('errors.generic'), duration: 3000 })
+      } catch (err) {
+        console.error('[SendFlow] Amount next error:', err)
+        addToast({
+          type: 'error',
+          message: t('errors.generic'),
+          duration: 3000,
+        })
+      } finally {
         isProcessingRef.current = false
         setIsLoading(false)
-        return
+      }
+    },
+    [isOnline, state.validatedData, state.selectedMintUrl, performRouteSelection, addToast, t],
+  )
+
+  /**
+   * Resolves a conservative maximum after fees, re-quoting until stable.
+   *
+   * Returns a discriminated result so the caller knows whether an error was
+   * already surfaced upstream: the non-direct branch quotes via
+   * performRouteSelection, which toasts on failure — the caller must NOT toast
+   * again. The direct branch reports nothing, so the caller owns that toast.
+   *
+   * Only ever returns amounts whose own fee was VERIFIED to fit the balance:
+   * we track the last candidate whose quote satisfied amount+ceil(fee)<=balance
+   * and return that, never an unverified fallthrough (fees can rise as the amount
+   * steps down at cashu proof-count edges). Bounded to ≤5 quotes.
+   */
+  const handleResolveMaxAmount = useCallback(
+    async (mintUrl: string, balance: number): Promise<MaxAmountResult> => {
+      if (balance <= 0) return { status: 'ok', amount: 0 }
+
+      const quoteFee = async (amount: number): Promise<{ fee: number } | { reported: boolean }> => {
+        if (state.directTransfer) {
+          if (!onEstimateCreateFee) return { reported: false }
+          const fee = await onEstimateCreateFee(mintUrl, amount)
+          return fee === null || !Number.isFinite(fee) ? { reported: false } : { fee }
+        }
+        if (!state.validatedData) return { reported: false }
+        const routeResult = await performRouteSelection(state.validatedData, amount, mintUrl)
+        // performRouteSelection already toasted on null.
+        return routeResult ? { fee: routeResult.fee } : { reported: true }
       }
 
-      const routeResult = await performRouteSelection(state.validatedData, data.amount, state.selectedMintUrl)
-      if (!routeResult) {
-        isProcessingRef.current = false
-        setIsLoading(false)
-        return
+      let candidate = balance
+      let verified: number | null = null
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const quote = await quoteFee(candidate)
+        if (!('fee' in quote)) return { status: 'error', reported: quote.reported }
+        if (!Number.isFinite(quote.fee)) return { status: 'error', reported: false }
+
+        const fits = candidate + Math.max(0, Math.ceil(quote.fee)) <= balance
+        if (fits) verified = candidate
+        const next = Math.max(0, Math.min(candidate, balance - Math.max(0, Math.ceil(quote.fee))))
+        if (next === candidate) {
+          // Converged: this candidate is self-consistent (fits its own fee).
+          return { status: 'ok', amount: candidate }
+        }
+        candidate = next
       }
 
-      setState((prev) => ({
-        ...prev,
-        step: 'confirm',
-        amount: data.amount,
-        memo: data.memo,
-        isFiatMode: data.isFiatMode,
-        fiatAmount: data.fiatAmount,
-        fee: routeResult.fee,
-        routeSelection: routeResult.routeSelection,
-        error: null,
-      }))
-    } catch (err) {
-      console.error('[SendFlow] Amount next error:', err)
-      addToast({ type: 'error', message: t('errors.generic'), duration: 3000 })
-    } finally {
-      isProcessingRef.current = false
-      setIsLoading(false)
-    }
-  }, [isOnline, state.validatedData, state.selectedMintUrl, performRouteSelection, addToast, t])
+      // Iteration cap hit without convergence — return the best VERIFIED amount only.
+      return verified !== null ? { status: 'ok', amount: verified } : { status: 'error', reported: false }
+    },
+    [state.directTransfer, state.validatedData, onEstimateCreateFee, performRouteSelection],
+  )
 
   /** Confirm step → execute send via routing layer */
   const handleConfirmSend = useCallback(async () => {
     if (isProcessingRef.current || !state.validatedData || !state.selectedMintUrl || !state.routeSelection) return
 
     if (!isOnline) {
-      addToast({ type: 'error', message: t('common.offlineRequired'), duration: 3000 })
+      addToast({
+        type: 'error',
+        message: t('common.offlineRequired'),
+        duration: 3000,
+      })
       return
     }
     isProcessingRef.current = true
@@ -478,7 +618,11 @@ export function SendFlow({
         if (swapResult?.success) {
           setState((prev) => ({ ...prev, step: 'complete' }))
         } else {
-          setState((prev) => ({ ...prev, step: 'confirm', error: t('transfer.swapFailed') }))
+          setState((prev) => ({
+            ...prev,
+            step: 'confirm',
+            error: t('transfer.swapFailed'),
+          }))
         }
         return
       }
@@ -501,9 +645,10 @@ export function SendFlow({
       }
     } catch (err) {
       console.error('[SendFlow] Send error:', err)
-      const message = (err as { code?: string }).code === 'INSUFFICIENT_BALANCE'
-        ? ((err as { message?: string }).message ?? t('payment.insufficientBalance'))
-        : t('payment.sendFailed')
+      const message =
+        (err as { code?: string }).code === 'INSUFFICIENT_BALANCE'
+          ? (err as { message?: string }).message ?? t('payment.insufficientBalance')
+          : t('payment.sendFailed')
       setState((prev) => ({ ...prev, step: 'confirm', error: message }))
       // Only show toast for errors not already handled by MainApp
       if ((err as { code?: string }).code === 'INSUFFICIENT_BALANCE') {
@@ -516,11 +661,21 @@ export function SendFlow({
 
   // ============= Direct Transfer (bearer token, no recipient) =============
 
+  // Set only when the user explicitly picks a mint in-flow (amount-step sheet or
+  // confirm-step change) — the seeded active mint is a default, not a choice.
+  const userMintChoiceRef = useRef<string | null>(null)
+
   /** Empty-input CTA → enter amount entry with a resolved source mint. */
   const handleDirectTransfer = useCallback(() => {
-    const mint = state.selectedMintUrl ?? directMintUrl ?? null
+    // An explicit in-flow choice wins; otherwise prefer the funded default
+    // (directMintUrl) over the seeded active mint, which may hold zero balance.
+    const mint = userMintChoiceRef.current ?? directMintUrl ?? state.selectedMintUrl ?? null
     if (!mint) {
-      addToast({ type: 'error', message: t('send.direct.noMint'), duration: 3000 })
+      addToast({
+        type: 'error',
+        message: t('send.direct.noMint'),
+        duration: 3000,
+      })
       return
     }
     setState((prev) => ({
@@ -535,30 +690,55 @@ export function SendFlow({
   }, [state.selectedMintUrl, directMintUrl, addToast, t])
 
   /** Direct amount → confirm (no route selection; token creation bypasses routing). */
-  const handleDirectAmountNext = useCallback((data: { amount: number; memo: string; isFiatMode: boolean; fiatAmount: string }) => {
-    setState((prev) => ({
-      ...prev,
-      amount: data.amount,
-      memo: data.memo,
-      isFiatMode: data.isFiatMode,
-      fiatAmount: data.fiatAmount,
-      step: 'confirm',
-      error: null,
-    }))
-  }, [])
+  const handleDirectAmountNext = useCallback(
+    (data: { amount: number; memo: string; isFiatMode: boolean; fiatAmount: string }) => {
+      setState((prev) => ({
+        ...prev,
+        amount: data.amount,
+        memo: data.memo,
+        isFiatMode: data.isFiatMode,
+        fiatAmount: data.fiatAmount,
+        step: 'confirm',
+        error: null,
+      }))
+    },
+    [],
+  )
 
   /** Confirm → create the bearer token, then show the result (CreatedStep). */
   const handleCreateTokenConfirm = useCallback(async () => {
     if (!state.selectedMintUrl) {
-      addToast({ type: 'error', message: t('send.direct.noMint'), duration: 3000 })
+      addToast({
+        type: 'error',
+        message: t('send.direct.noMint'),
+        duration: 3000,
+      })
       return
     }
-    const res = await onCreateToken(state.amount, state.selectedMintUrl, state.memo || undefined)
-    if (!res) {
-      addToast({ type: 'error', message: t('send.direct.createFailed'), duration: 3000 })
-      return
+    try {
+      const res = await onCreateToken(state.amount, state.selectedMintUrl, state.memo || undefined)
+      if (!res) {
+        addToast({
+          type: 'error',
+          message: t('send.direct.createFailed'),
+          duration: 3000,
+        })
+        return
+      }
+      setState((prev) => ({
+        ...prev,
+        createdToken: res.token,
+        createdTxId: res.txId,
+        step: 'created',
+        error: null,
+      }))
+    } catch (err) {
+      // MainApp re-throws InsufficientBalanceError (real fee > estimate, or the
+      // balance moved under the open sheet) — surface it instead of a silent tap.
+      const message = translateError(err, t)
+      setState((prev) => ({ ...prev, error: message }))
+      addToast({ type: 'error', message, duration: 4000 })
     }
-    setState((prev) => ({ ...prev, createdToken: res.token, createdTxId: res.txId, step: 'created', error: null }))
   }, [state.selectedMintUrl, state.amount, state.memo, onCreateToken, addToast, t])
 
   /** Reclaim mirrors TokenCreateFlow: reclaim the unclaimed token, then leave the flow. */
@@ -570,14 +750,17 @@ export function SendFlow({
   // ============= Mint Selection (lifted) =============
 
   /** Open mint selection sheet — called from SendInputStep (destination context). */
-  const handleRequestMintSelection = useCallback((req: {
-    destination: string
-    validatedData: SendableValidatedData
-    commonMintUrls: string[]
-    infoText?: string
-  }) => {
-    setMintSelection({ context: 'destination', ...req })
-  }, [])
+  const handleRequestMintSelection = useCallback(
+    (req: {
+      destination: string
+      validatedData: SendableValidatedData
+      commonMintUrls: string[]
+      infoText?: string
+    }) => {
+      setMintSelection({ context: 'destination', ...req })
+    },
+    [],
+  )
 
   /** Open mint selection sheet — called from SendConfirmStep (change source mint). */
   const handleConfirmRequestMintSelection = useCallback(() => {
@@ -587,29 +770,34 @@ export function SendFlow({
   /** Apply mint selection — advance for destination context, in-place for confirm.
    *  For 'confirm' context, also re-run route selection since the new mint may
    *  require a different route/fee. */
-  const handleMintSelected = useCallback((selectedMintUrl: string) => {
-    if (!mintSelection) return
-    setState((prev) => ({ ...prev, selectedMintUrl }))
-    if (mintSelection.context === 'destination') {
-      const amt = getAmountFromData(mintSelection.validatedData)
-      handleDestinationNext({
-        destination: mintSelection.destination,
-        validatedData: mintSelection.validatedData,
-        amountFromInvoice: amt > 0 ? amt : undefined,
-        mintUrl: selectedMintUrl,
-      })
-    } else if (
-      mintSelection.context === 'confirm' &&
-      state.validatedData &&
-      state.amount > 0
-    ) {
-      // Clear stale route, re-run for new mint. Reuses the initial-route effect
-      // by resetting its ref so it picks up the new selectedMintUrl.
-      didInitialRouteRef.current = false
-      setState((prev) => ({ ...prev, routeSelection: null, fee: 0, error: null }))
-    }
-    setMintSelection(null)
-  }, [mintSelection, handleDestinationNext, state.validatedData, state.amount])
+  const handleMintSelected = useCallback(
+    (selectedMintUrl: string) => {
+      if (!mintSelection) return
+      userMintChoiceRef.current = selectedMintUrl
+      setState((prev) => ({ ...prev, selectedMintUrl }))
+      if (mintSelection.context === 'destination') {
+        const amt = getAmountFromData(mintSelection.validatedData)
+        handleDestinationNext({
+          destination: mintSelection.destination,
+          validatedData: mintSelection.validatedData,
+          amountFromInvoice: amt > 0 ? amt : undefined,
+          mintUrl: selectedMintUrl,
+        })
+      } else if (mintSelection.context === 'confirm' && state.validatedData && state.amount > 0) {
+        // Clear stale route, re-run for new mint. Reuses the initial-route effect
+        // by resetting its ref so it picks up the new selectedMintUrl.
+        didInitialRouteRef.current = false
+        setState((prev) => ({
+          ...prev,
+          routeSelection: null,
+          fee: 0,
+          error: null,
+        }))
+      }
+      setMintSelection(null)
+    },
+    [mintSelection, handleDestinationNext, state.validatedData, state.amount],
+  )
 
   /**
    * Initial route selection — runs once when SendFlow lands on 'confirm' from a
@@ -634,11 +822,7 @@ export function SendFlow({
     didInitialRouteRef.current = true
     let done = false
 
-    performRouteSelection(
-      state.validatedData,
-      state.amount,
-      state.selectedMintUrl,
-    ).then((routeResult) => {
+    performRouteSelection(state.validatedData, state.amount, state.selectedMintUrl).then((routeResult) => {
       if (done || !routeResult) return
       done = true
       setState((prev) => ({
@@ -649,55 +833,89 @@ export function SendFlow({
         error: null,
       }))
     })
-  }, [state.step, state.routeSelection, state.validatedData, state.selectedMintUrl, state.amount, performRouteSelection])
+  }, [
+    state.step,
+    state.routeSelection,
+    state.validatedData,
+    state.selectedMintUrl,
+    state.amount,
+    performRouteSelection,
+  ])
+
+  const handleAmountBack = () => {
+    if (!state.directTransfer && getInitialStep() === 'amount') {
+      onBack()
+    } else {
+      setState((prev) => ({
+        ...prev,
+        step: 'destination',
+        directTransfer: false,
+        error: null,
+      }))
+    }
+  }
 
   // ============= Render =============
 
   return (
     <div className="relative h-dvh bg-background text-foreground font-primary flex flex-col pt-safe">
-      <AnimatePresence mode="wait">
-        {state.step === 'destination' && (
-          <PageTransition key="send-destination" variant="page" className="flex-1">
-            <SendInputStep
-              onBack={onBack}
-              onNext={handleDestinationNext}
-              onRedirect={onRedirect}
-              initialDestination={state.destination}
-              initialAddress={initialDestination}
-              initialValidatedData={state.validatedData}
-              mintUrl={state.selectedMintUrl || ''}
-              isLoading={isLoading}
-              onRouteValidated={onRouteValidated}
-              onRequestMintSelection={handleRequestMintSelection}
-              onDirectTransfer={handleDirectTransfer}
-            />
-          </PageTransition>
-        )}
-
-        {(state.step === 'amount' || state.step === 'confirm') && (
-          <PageTransition key="send-amount" variant="page" className="flex-1">
-            <SendAmountStep
-              onBack={() => {
-                if (!state.directTransfer && getInitialStep() === 'amount') {
-                  onBack()
-                } else {
-                  setState((prev) => ({ ...prev, step: 'destination', directTransfer: false, error: null }))
-                }
-              }}
-              onNext={state.directTransfer ? handleDirectAmountNext : handleAmountNext}
-              mintUrl={state.selectedMintUrl || ''}
-              destination={state.destination}
-              validatedData={state.directTransfer ? undefined : (state.validatedData || undefined)}
-              initialAmount={state.amount}
-              initialMemo={state.memo}
-              initialFiatMode={state.isFiatMode}
-              initialFiatAmount={state.fiatAmount}
-              isLoading={isLoading}
-              displayName={effectiveDisplayName}
-              directTransfer={state.directTransfer}
-              onChangeMint={(url) => setState((prev) => ({ ...prev, selectedMintUrl: url }))}
-            />
-          </PageTransition>
+      <AnimatePresence mode="wait" initial={false}>
+        {(state.step === 'destination' || state.step === 'amount' || state.step === 'confirm') && (
+          <motion.div
+            key="send-entry-scene"
+            className="relative flex-1 min-h-0"
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.14, ease: 'easeOut' }}
+          >
+            {/* Scene pair: destination ↔ amount crossfade while the recipient
+                text morphs between them via layoutId. popLayout lifts the
+                exiting scene out of flow so the entering one lays out at its
+                final geometry immediately (single continuous glide). Scene
+                wrappers carry NO opacity animation — each scene fades its own
+                content internally so the morphing text never inherits a dimmed
+                ancestor opacity mid-flight. */}
+            <AnimatePresence mode="popLayout" initial={false}>
+              {state.step === 'destination' ? (
+                <motion.div key="destination-scene" className="h-full">
+                  <SendInputStep
+                    onBack={onBack}
+                    onNext={handleDestinationNext}
+                    onRedirect={onRedirect}
+                    initialDestination={state.destination}
+                    initialAddress={initialDestination}
+                    initialValidatedData={state.validatedData}
+                    mintUrl={state.selectedMintUrl || ''}
+                    isLoading={isLoading}
+                    onRouteValidated={onRouteValidated}
+                    onRequestMintSelection={handleRequestMintSelection}
+                    onDirectTransfer={handleDirectTransfer}
+                  />
+                </motion.div>
+              ) : (
+                <motion.div key="amount-scene" className="h-full">
+                  <SendAmountStep
+                    onBack={handleAmountBack}
+                    onNext={state.directTransfer ? handleDirectAmountNext : handleAmountNext}
+                    mintUrl={state.selectedMintUrl || ''}
+                    destination={state.destination}
+                    validatedData={state.directTransfer ? undefined : state.validatedData || undefined}
+                    initialAmount={state.amount}
+                    initialMemo={state.memo}
+                    initialFiatMode={state.isFiatMode}
+                    initialFiatAmount={state.fiatAmount}
+                    isLoading={isLoading}
+                    displayName={effectiveDisplayName}
+                    directTransfer={state.directTransfer}
+                    onChangeMint={(url) => {
+                      userMintChoiceRef.current = url
+                      setState((prev) => ({ ...prev, selectedMintUrl: url }))
+                    }}
+                    onResolveMaxAmount={handleResolveMaxAmount}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
         )}
 
         {state.step === 'sending' && (
@@ -747,7 +965,9 @@ export function SendFlow({
         directTransfer={state.directTransfer}
         validatedData={state.validatedData}
         amount={state.amount}
-        fee={state.fee}
+        // Camera shortcut lands on confirm before the initial route resolves —
+        // an unpopulated route means "fee not ready", not "fee is 0"
+        fee={state.directTransfer || state.routeSelection ? state.fee : null}
         mintUrl={state.selectedMintUrl || ''}
         error={state.error}
         route={state.routeSelection?.route}
@@ -768,11 +988,7 @@ export function SendFlow({
             ? (mint) => mintSelection.commonMintUrls.some((url) => isSameMintUrl(url, mint.url))
             : undefined
         }
-        buttonLabel={
-          mintSelection?.context === 'destination'
-            ? t('common.send')
-            : t('common.confirm')
-        }
+        buttonLabel={mintSelection?.context === 'destination' ? t('common.send') : t('common.confirm')}
         infoText={mintSelection?.context === 'destination' ? mintSelection.infoText : undefined}
       />
     </div>

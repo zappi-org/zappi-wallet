@@ -859,6 +859,7 @@ export default {
       memo: 'メモ',
       requestAmount: '請求額',
       estimatedFee: '予想手数料',
+      feeUnavailable: '手数料を計算できませんでした。もう一度お試しください。',
       total: '合計',
       send: '送金',
       transfer: '移動する',

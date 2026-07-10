@@ -42,7 +42,7 @@ vi.mock('@/ui/hooks/use-mint-metadata', () => ({
 }))
 
 vi.mock('@/ui/hooks/use-contacts', () => ({
-  useContacts: () => ({ contacts: mockContacts, findByAddress: mockFindByAddress }),
+  useContacts: () => ({ contacts: mockContacts, isReady: true, findByAddress: mockFindByAddress }),
 }))
 
 vi.mock('@/ui/utils/haptic', () => ({

@@ -41,7 +41,7 @@ vi.mock('@/ui/hooks/use-mint-metadata', () => ({
 }))
 
 vi.mock('@/ui/hooks/use-contacts', () => ({
-  useContacts: () => ({ contacts: mockContacts, findByAddress: mockFindByAddress }),
+  useContacts: () => ({ contacts: mockContacts, isReady: true, findByAddress: mockFindByAddress }),
 }))
 
 vi.mock('@/ui/utils/haptic', () => ({
@@ -410,7 +410,7 @@ describe('SendInputStep pre-validation', () => {
       },
     })
 
-    renderStep()
+    const { rerender } = renderStep()
     typeIntoInput(creqStr)
 
     // First auto-advance: debounce (500ms) + timer (300ms)
@@ -420,7 +420,20 @@ describe('SendInputStep pre-validation', () => {
 
     defaultProps.onNext.mockReset()
 
-    // Type the SAME value again (simulates re-render with preserved destination after back-nav)
+    // Upstream (SendFlow) rejects the advance: isLoading pulses true→false,
+    // restoring the input from the leaving text stand-in
+    rerender(
+      <ServiceProvider registry={mockRegistry}>
+        <SendInputStep {...defaultProps} isLoading />
+      </ServiceProvider>,
+    )
+    rerender(
+      <ServiceProvider registry={mockRegistry}>
+        <SendInputStep {...defaultProps} isLoading={false} />
+      </ServiceProvider>,
+    )
+
+    // Type the SAME value again (preserved destination after the rejected advance)
     typeIntoInput(creqStr)
 
     // Wait for debounce + auto-advance timer

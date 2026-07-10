@@ -867,6 +867,7 @@ export default {
       memo: '메모',
       requestAmount: '요청',
       estimatedFee: '예상 수수료',
+      feeUnavailable: '수수료를 계산하지 못했어요. 다시 시도해 주세요.',
       total: '합계',
       send: '보내기',
       transfer: '옮기기',

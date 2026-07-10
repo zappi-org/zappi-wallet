@@ -859,6 +859,7 @@ export default {
       memo: 'Memo',
       requestAmount: 'Request',
       estimatedFee: 'Estimated Fee',
+      feeUnavailable: 'Could not estimate the fee. Please try again.',
       total: 'Total',
       send: 'Send',
       transfer: 'Transfer',

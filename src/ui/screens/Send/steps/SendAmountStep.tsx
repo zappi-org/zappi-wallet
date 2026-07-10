@@ -7,12 +7,12 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { motion, AnimatePresence } from 'motion/react'
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
 import { ArrowLeft, ChevronDown, ArrowUpDown, Lock } from 'lucide-react'
 import { useWallet } from '@/ui/hooks/use-wallet'
 import { useAppStore } from '@/store'
 import { hapticTap } from '@/ui/utils/haptic'
-import { useFormatSats, useSatUnit, useFormatFiat, isZeroDecimalCurrency } from '@/utils/format'
+import { useFormatSats, useSatUnit, useFormatFiat, isZeroDecimalCurrency, formatFiatInputForDisplay } from '@/utils/format'
 import { useFiatToggle } from '@/ui/hooks/use-fiat-toggle'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { Button } from '@/ui/components/common/Button'
@@ -20,13 +20,11 @@ import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { MintIcon } from '@/ui/components/common/MintIcon'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { getMintBalance } from '@/utils/url'
-import {
-  findContactName,
-  formatNpubShort,
-  formatRecipientDisplayText,
-} from '../sendDisplayHelpers'
+import { findContactName, formatNpubShort, formatRecipientDisplayText } from '../sendDisplayHelpers'
 import { useContacts } from '@/ui/hooks/use-contacts'
-import type { SendableValidatedData } from '../SendFlow'
+import type { SendableValidatedData, MaxAmountResult } from '../SendFlow'
+import { SEND_RECIPIENT_LAYOUT_ID, recipientMorphTransition } from '../sendMorph'
+import { fadeTransition } from '@/ui/utils/motion'
 
 const KEYS_SATS: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'max', '0', 'del']
 const KEYS_FIAT: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'del']
@@ -48,6 +46,8 @@ interface SendAmountStepProps {
   directTransfer?: boolean
   /** When provided, the mint bar becomes tappable to change the source mint. */
   onChangeMint?: (mintUrl: string) => void
+  /** Resolves a fee-aware maximum that is safe to send from this mint. */
+  onResolveMaxAmount?: (mintUrl: string, balance: number) => Promise<MaxAmountResult>
 }
 
 export function SendAmountStep({
@@ -64,6 +64,7 @@ export function SendAmountStep({
   displayName,
   directTransfer = false,
   onChangeMint,
+  onResolveMaxAmount,
 }: SendAmountStepProps) {
   const { t } = useTranslation()
   const { balance } = useWallet()
@@ -73,16 +74,25 @@ export function SendAmountStep({
   const toFiat = useFormatFiat()
   const mintUrls = useMemo(() => [mintUrl], [mintUrl])
   const { getDisplayName, getIconUrl } = useMintMetadata(mintUrls)
+  const reduceMotion = useReducedMotion()
 
   const [amount, setAmount] = useState(initialAmount > 0 ? String(initialAmount) : '')
   const [mintSheetOpen, setMintSheetOpen] = useState(false)
+  const [isResolvingMax, setIsResolvingMax] = useState(false)
   const memo = initialMemo
 
   const {
-    isFiatMode, fiatInput, fiatCurrency, currencySymbol, exchangeRate,
-    handleToggleFiat, handleFiatChange,
+    isFiatMode,
+    fiatInput,
+    fiatCurrency,
+    currencySymbol,
+    exchangeRate,
+    showFiat,
+    handleToggleFiat,
+    handleFiatChange,
+    syncFiatFromSats,
   } = useFiatToggle(amount, setAmount, { initialFiatMode, initialFiatAmount })
-  const canToggleFiat = exchangeRate !== null
+  const canToggleFiat = exchangeRate !== null && showFiat
   const fiatIsZeroDecimal = isZeroDecimalCurrency(fiatCurrency)
 
   const mintBalance = getMintBalance(mintUrl, balance.byMint)
@@ -138,10 +148,29 @@ export function SendAmountStep({
     return null
   }, [validatedData, contactName])
 
-  const handleKey = (key: string) => {
+  const handleKey = async (key: string) => {
     if (isAmountFixed) return
     if (key === 'max') {
-      setAmount(String(mintBalance))
+      if (isResolvingMax) return
+      setIsResolvingMax(true)
+      try {
+        const result: MaxAmountResult = onResolveMaxAmount
+          ? await onResolveMaxAmount(mintUrl, mintBalance)
+          : { status: 'ok', amount: mintBalance }
+        if (result.status === 'error') {
+          // Resolver toasts on the route-selection path; only surface here if it did not.
+          if (!result.reported) {
+            addToast({ type: 'error', message: t('send.confirm.feeUnavailable'), duration: 3000 })
+          }
+          return
+        }
+
+        const safeAmount = Math.max(0, Math.min(mintBalance, Math.floor(result.amount)))
+        setAmount(safeAmount > 0 ? String(safeAmount) : '')
+        if (isFiatMode) syncFiatFromSats(safeAmount)
+      } finally {
+        setIsResolvingMax(false)
+      }
       return
     }
     if (key === 'del') {
@@ -172,11 +201,19 @@ export function SendAmountStep({
 
   const handleNext = useCallback(() => {
     if (!numericAmount || numericAmount <= 0) {
-      addToast({ type: 'error', message: t('send.amountRequired'), duration: 3000 })
+      addToast({
+        type: 'error',
+        message: t('send.amountRequired'),
+        duration: 3000,
+      })
       return
     }
     if (numericAmount > mintBalance) {
-      addToast({ type: 'error', message: t('payment.insufficientBalance'), duration: 3000 })
+      addToast({
+        type: 'error',
+        message: t('payment.insufficientBalance'),
+        duration: 3000,
+      })
       return
     }
     hapticTap()
@@ -184,21 +221,32 @@ export function SendAmountStep({
   }, [numericAmount, mintBalance, memo, isFiatMode, fiatInput, onNext, addToast, t])
 
   const displayAmount = isFiatMode
-    ? `${currencySymbol}${fiatInput ? Number(fiatInput).toLocaleString() : '0'}`
+    ? `${currencySymbol}${formatFiatInputForDisplay(fiatInput)}`
     : formatSats(numericAmount)
   // Secondary conversion line (shown with the ⇄ toggle) — always visible.
-  const secondary = isFiatMode ? formatSats(numericAmount) : (toFiat(numericAmount) ?? `${currencySymbol}0`)
+  const secondary = isFiatMode ? formatSats(numericAmount) : toFiat(numericAmount) ?? `${currencySymbol}0`
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full">
       <ScreenHeader title={t('send.title')} onBack={onBack} />
 
-      {/* Collapsed recipient / direct-transfer label — tap to re-edit */}
+      {/* Collapsed recipient / direct-transfer label — tap to re-edit.
+          Plain text per mockup (docs/sample/send_sample.png); layoutId pairs it
+          with the leaving input text in SendInputStep so only the TEXT morphs
+          between scenes. Tap feedback via scale — motion owns inline opacity. */}
       {(directTransfer || recipientLabel) && (
-        <button
+        <motion.button
           type="button"
+          layoutId={SEND_RECIPIENT_LAYOUT_ID}
+          // Explicit opacity overrides motion's auto-crossfade, which freezes
+          // the incoming element semi-transparent for the whole flight —
+          // the text must stay solid while it glides
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ ...recipientMorphTransition(reduceMotion), opacity: { duration: 0.15, ease: 'easeOut' } }}
+          whileTap={{ scale: 0.96 }}
           onClick={onBack}
-          className="shrink-0 px-6 pt-3 pb-1 flex flex-col items-center gap-0.5 w-full active:opacity-70 transition-opacity"
+          className="shrink-0 mt-3 mx-auto px-4 py-2 flex flex-col items-center gap-0.5 max-w-[calc(100%-3rem)]"
         >
           {directTransfer ? (
             <span className="text-subtitle font-semibold text-foreground">{t('send.direct.label')}</span>
@@ -212,34 +260,50 @@ export function SendAmountStep({
               </span>
             </>
           )}
-        </button>
+        </motion.button>
       )}
 
+      {/* Scene content fades here (not on the SendFlow scene wrapper) so the
+          layoutId recipient text above is never dimmed by an animating ancestor */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0, pointerEvents: 'none' }}
+        transition={{ duration: 0.15, ease: 'easeOut' }}
+        className="flex-1 min-h-0 flex flex-col"
+      >
       <div className="flex-1 overflow-y-auto px-6 flex flex-col">
         {/* Amount hero — tap anywhere in this area to toggle sats/fiat, with a swap animation */}
         <button
           type="button"
           onClick={canToggleFiat && !isAmountFixed ? handleToggleFiat : undefined}
           disabled={!canToggleFiat || isAmountFixed}
-          aria-label={t('send.tokenCreate.toggleUnit', { current: isFiatMode ? currencySymbol : unit })}
+          aria-label={t('send.tokenCreate.toggleUnit', {
+            current: isFiatMode ? currencySymbol : unit,
+          })}
           className="flex-1 flex flex-col items-center justify-center gap-2 w-full disabled:cursor-default"
         >
           <AnimatePresence mode="wait" initial={false}>
             <motion.span
               key={isFiatMode ? 'fiat' : 'sats'}
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: reduceMotion ? 0 : 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.18, ease: 'easeOut' }}
-              className={`text-[54px] leading-none font-light tracking-tight ${isOverBalance ? 'text-accent-danger' : 'text-foreground'}`}
+              exit={{ opacity: 0, y: reduceMotion ? 0 : -10 }}
+              transition={fadeTransition(reduceMotion, 0.18)}
+              className={`text-[54px] leading-none font-light tracking-tight ${
+                isOverBalance ? 'text-accent-danger' : 'text-foreground'
+              }`}
             >
               {displayAmount}
             </motion.span>
           </AnimatePresence>
-          <span className="flex items-center gap-1.5 text-body text-foreground-muted">
-            <span>{secondary}</span>
-            {canToggleFiat && !isAmountFixed && <ArrowUpDown className="w-3.5 h-3.5" strokeWidth={2.2} />}
-          </span>
+          {/* Conversion line honors the Preferences fiat toggle (parity with Receive) */}
+          {(showFiat || isFiatMode) && (
+            <span className="flex items-center gap-1.5 text-body text-foreground-muted">
+              <span>{secondary}</span>
+              {canToggleFiat && !isAmountFixed && <ArrowUpDown className="w-3.5 h-3.5" strokeWidth={2.2} />}
+            </span>
+          )}
           {isAmountFixed && (
             <span className="flex items-center gap-1 text-caption text-foreground-muted mt-1">
               <Lock className="w-3 h-3" strokeWidth={2} />
@@ -272,10 +336,17 @@ export function SendAmountStep({
           <button
             key={key}
             type="button"
-            onClick={() => handleKey(key)}
+            onClick={() => void handleKey(key)}
+            disabled={key === 'max' && isResolvingMax}
             className="h-14 text-title font-normal text-foreground hover:bg-background-hover active:bg-background-card transition-colors flex items-center justify-center"
           >
-            {key === 'del' ? <ArrowLeft className="w-5 h-5" strokeWidth={1.8} /> : key === 'max' ? <span className="text-body font-semibold text-foreground-muted">{t('send.max')}</span> : key}
+            {key === 'del' ? (
+              <ArrowLeft className="w-5 h-5" strokeWidth={1.8} />
+            ) : key === 'max' ? (
+              <span className="text-body font-semibold text-foreground-muted">{t('send.max')}</span>
+            ) : (
+              key
+            )}
           </button>
         ))}
       </div>
@@ -293,12 +364,16 @@ export function SendAmountStep({
           {t('send.next')}
         </Button>
       </div>
+      </motion.div>
 
       {onChangeMint && (
         <MintSelectBottomSheet
           isOpen={mintSheetOpen}
           onClose={() => setMintSheetOpen(false)}
-          onSelect={(url) => { onChangeMint(url); setMintSheetOpen(false) }}
+          onSelect={(url) => {
+            onChangeMint(url)
+            setMintSheetOpen(false)
+          }}
           selectedMintUrl={mintUrl}
           filterFn={(m) => (m.balance ?? 0) > 0}
         />

@@ -861,6 +861,7 @@ export default {
       memo: 'Memo',
       requestAmount: 'Diminta',
       estimatedFee: 'Perkiraan Biaya',
+      feeUnavailable: 'Biaya tidak dapat diperkirakan. Silakan coba lagi.',
       total: 'Total',
       send: 'Kirim',
       transfer: 'Transfer',

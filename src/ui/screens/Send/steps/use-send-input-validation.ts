@@ -156,7 +156,7 @@ export function useSendInputValidation({
   }, [initialValidatedData])
 
   // Address book contacts (via ContactUseCase)
-  const { contacts, findByAddress } = useContacts()
+  const { contacts, isReady: contactsReady, findByAddress } = useContacts()
   const findContactDisplayName = useCallback(async (candidates: string[]): Promise<string | undefined> => {
     const uniqueCandidates = uniqueNonEmpty(candidates)
 
@@ -534,6 +534,7 @@ export function useSendInputValidation({
     preValidationError,
     isValidating,
     contacts,
+    contactsReady,
     applyDestinationState,
     processExternalInput,
     handleNext,
