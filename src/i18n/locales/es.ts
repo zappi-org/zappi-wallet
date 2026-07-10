@@ -818,6 +818,7 @@ export default {
     },
     amount: {
       howMuchSend: '¿Cuánto enviar?',
+      prompt: '¿Cuánto quieres enviar?',
       addMemo: 'Memo (opcional)',
       fixedByInvoice: 'Importe fijado por la factura',
     },

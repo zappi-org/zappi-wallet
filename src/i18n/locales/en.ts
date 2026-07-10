@@ -816,6 +816,7 @@ export default {
     },
     amount: {
       howMuchSend: 'How much to send?',
+      prompt: 'How much would you like to send?',
       addMemo: 'Memo (optional)',
       fixedByInvoice: 'Amount fixed by the invoice',
     },

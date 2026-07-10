@@ -816,6 +816,7 @@ export default {
     },
     amount: {
       howMuchSend: 'いくら送りますか？',
+      prompt: 'いくら送りますか？',
       addMemo: 'メモ（任意）',
       fixedByInvoice: 'インボイスで固定された金額です',
     },

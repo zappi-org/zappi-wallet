@@ -118,6 +118,10 @@ export function SendAmountStep({
   const mintIconUrl = getIconUrl(mintUrl)
   const numericAmount = parseInt(amount, 10) || 0
   const isOverBalance = numericAmount > mintBalance
+  // Editing-only empty state: sats and fiat inputs stay synced by useFiatToggle
+  // (an unparseable/zero fiatInput clears `amount` too), so a bare zero check
+  // covers both modes. Confirm always carries amount > 0, so this never fires there.
+  const isAmountEmpty = !confirming && numericAmount === 0
 
   // Confirm-variant gates: Send needs a numeric fee quote and amount+fee within balance.
   const feeReady = typeof feeQuote === 'number'
@@ -318,80 +322,99 @@ export function SendAmountStep({
       {!confirming && recipientBlock}
 
       {confirming && (
-        <div className="mx-6 mt-2 rounded-2xl bg-background-card shadow-sm relative overflow-hidden">
-          {/* Route row — FROM (tap to change mint) ─⚡─ TO (recipient flight destination) */}
-          <div className="flex items-center justify-between px-4 pt-4">
-            <button
-              type="button"
-              onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
-              disabled={!onChangeMint}
-              className="flex flex-col items-start gap-0.5 max-w-[45%] disabled:cursor-default"
-            >
-              <span className="text-label uppercase tracking-wider text-foreground-muted">FROM</span>
-              <span className="flex items-center gap-1.5">
-                <MintIcon iconUrl={mintIconUrl} imgSize="w-5 h-5" className="w-5 h-5" circle />
-                <span className="text-subtitle font-semibold text-foreground truncate max-w-[140px]">{mintName}</span>
-              </span>
-            </button>
-            <div className="flex-1 border-t border-dashed border-border mx-2 relative">
-              <span className="absolute left-1/2 -translate-x-1/2 -top-2 text-caption bg-background-card px-1">⚡</span>
+        <div className="flex-1 min-h-0 flex flex-col justify-center px-6">
+          <div className="w-full rounded-2xl bg-background-card shadow-sm relative overflow-hidden">
+            {/* Route row — FROM (tap to change mint) ─flow─ TO (recipient flight destination) */}
+            <div className="flex items-center justify-between px-4 pt-4">
+              <button
+                type="button"
+                onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
+                disabled={!onChangeMint}
+                className="flex flex-col items-start gap-0.5 max-w-[45%] disabled:cursor-default"
+              >
+                <span className="text-label uppercase tracking-wider text-foreground-muted">FROM</span>
+                <span className="flex items-center gap-1.5">
+                  <MintIcon iconUrl={mintIconUrl} imgSize="w-5 h-5" className="w-5 h-5" circle />
+                  <span className="text-subtitle font-semibold text-foreground truncate max-w-[140px]">{mintName}</span>
+                </span>
+              </button>
+              <motion.div
+                aria-hidden
+                className="flex-1 h-[2px] mx-3 self-center text-foreground-muted/60
+                           [mask-image:linear-gradient(90deg,transparent,black_18%,black_82%,transparent)]"
+                style={{
+                  backgroundImage: 'linear-gradient(90deg, currentColor 0 5px, transparent 5px 10px)',
+                  backgroundSize: '10px 2px',
+                  backgroundRepeat: 'repeat-x',
+                }}
+                animate={reduceMotion ? undefined : { backgroundPositionX: ['0px', '10px'] }}
+                transition={reduceMotion ? undefined : { duration: 0.9, ease: 'linear', repeat: Infinity }}
+              />
+              {recipientTicketNode}
             </div>
-            {recipientTicketNode}
-          </div>
 
-          {/* Amount — layoutId flight from the editing hero; smaller size, morph scales it smoothly */}
-          <motion.div
-            layoutId={SEND_AMOUNT_LAYOUT_ID}
-            transition={recipientMorphTransition(reduceMotion)}
-            className="flex flex-col items-center gap-2 text-center py-5"
-          >
-            <span
-              className={`text-[40px] leading-none font-light tracking-tight ${
-                isOverBalance || insufficientForFee ? 'text-accent-danger' : 'text-foreground'
-              }`}
+            {/* Amount — layoutId flight from the editing hero; smaller size, morph scales it smoothly */}
+            <motion.div
+              layoutId={SEND_AMOUNT_LAYOUT_ID}
+              transition={recipientMorphTransition(reduceMotion)}
+              className="flex flex-col items-center gap-2 text-center py-5"
             >
-              {displayAmount}
-            </span>
-            {(showFiat || isFiatMode) && <span className="text-body text-foreground-muted">{secondary}</span>}
-          </motion.div>
-
-          {/* Tear line — notches punch the page background through (dark-mode safe, tokens only) */}
-          <div className="relative border-t-2 border-dashed border-border/70">
-            <div className="w-4 h-4 rounded-full bg-background absolute top-1/2 -translate-y-1/2 -left-2" />
-            <div className="w-4 h-4 rounded-full bg-background absolute top-1/2 -translate-y-1/2 -right-2" />
-          </div>
-
-          {/* Stub row — fee | memo (tap → memo sheet) */}
-          <div className="flex items-start justify-between px-4 py-3.5">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-label text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
-              <span className="text-body font-medium text-foreground">{feeReady ? formatSats(feeQuote) : '—'}</span>
-            </div>
-            <button type="button" onClick={() => setMemoSheetOpen(true)} className="text-right flex flex-col gap-0.5">
-              <span className="flex items-center justify-end text-label text-foreground-muted">
-                {t('send.confirm.memo')}
-                <ChevronRight className="w-3.5 h-3.5 ml-0.5" strokeWidth={2} />
+              <span
+                className={`text-[40px] leading-none font-light tracking-tight ${
+                  isOverBalance || insufficientForFee ? 'text-accent-danger' : 'text-foreground'
+                }`}
+              >
+                {displayAmount}
               </span>
-              <span className="text-body font-medium text-foreground">{confirmMemo || t('send.memo.none')}</span>
-            </button>
+              {(showFiat || isFiatMode) && <span className="text-body text-foreground-muted">{secondary}</span>}
+            </motion.div>
+
+            {/* Tear line — notches punch the page background through (dark-mode safe, tokens only) */}
+            <div className="relative border-t-2 border-dashed border-border/70">
+              <div className="w-4 h-4 rounded-full bg-background absolute top-1/2 -translate-y-1/2 -left-2" />
+              <div className="w-4 h-4 rounded-full bg-background absolute top-1/2 -translate-y-1/2 -right-2" />
+            </div>
+
+            {/* Stub row — fee | memo (tap → memo sheet). Both cells share the same vertical
+                rhythm: a fixed-height label row, then a value row, so the two baselines line up. */}
+            <div className="flex items-start justify-between px-4 py-3.5">
+              <div className="flex flex-col">
+                <span className="h-5 flex items-center gap-1 text-label text-foreground-muted">
+                  {t('send.confirm.estimatedFee')}
+                </span>
+                <span className="text-body font-medium text-foreground mt-0.5">
+                  {feeReady ? formatSats(feeQuote) : '—'}
+                </span>
+              </div>
+              <button type="button" onClick={() => setMemoSheetOpen(true)} className="text-right flex flex-col">
+                <span className="h-5 flex items-center justify-end gap-1 text-label text-foreground-muted">
+                  {t('send.confirm.memo')}
+                  <ChevronRight className="w-3.5 h-3.5" strokeWidth={2} />
+                </span>
+                <span className="text-body font-medium text-foreground mt-0.5">{confirmMemo || t('send.memo.none')}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* Scene content fades here (not on the SendFlow scene wrapper) so the
-          layoutId recipient text above is never dimmed by an animating ancestor */}
+          layoutId recipient text above is never dimmed by an animating ancestor.
+          Display-toggled (not unmounted) during confirm: unmounting would re-run
+          the opacity-in on cancel and dim the reverse flight; `hidden` keeps its
+          opacity settled at 1 while the centered ticket owns the space instead. */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0, pointerEvents: 'none' }}
         transition={{ duration: 0.15, ease: 'easeOut' }}
-        className="flex-1 min-h-0 flex flex-col"
+        className={confirming ? 'hidden' : 'flex-1 min-h-0 flex flex-col'}
       >
       <div className="flex-1 overflow-y-auto px-6 flex flex-col">
         {/* Amount hero — tap anywhere in this area to toggle sats/fiat, with a swap animation.
             Editing-only: in confirm the amount group lives inside the ticket instead (see above). */}
         {!confirming && (
-          <motion.button
+          <button
             type="button"
             onClick={canToggleFiat && !isAmountFixed ? handleToggleFiat : undefined}
             disabled={!canToggleFiat || isAmountFixed}
@@ -401,23 +424,30 @@ export function SendAmountStep({
             className="flex-1 flex flex-col items-center justify-center gap-2 w-full disabled:cursor-default"
           >
             <motion.div layoutId={SEND_AMOUNT_LAYOUT_ID} transition={recipientMorphTransition(reduceMotion)}>
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.span
-                  key={isFiatMode ? 'fiat' : 'sats'}
-                  initial={{ opacity: 0, y: reduceMotion ? 0 : 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: reduceMotion ? 0 : -10 }}
-                  transition={fadeTransition(reduceMotion, 0.18)}
-                  className={`text-[54px] leading-none font-light tracking-tight ${
-                    isOverBalance ? 'text-accent-danger' : 'text-foreground'
-                  }`}
-                >
-                  {displayAmount}
-                </motion.span>
-              </AnimatePresence>
+              {isAmountEmpty ? (
+                <span className="text-[26px] font-bold text-foreground break-keep text-center leading-snug">
+                  {t('send.amount.prompt')}
+                </span>
+              ) : (
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.span
+                    key={isFiatMode ? 'fiat' : 'sats'}
+                    initial={{ opacity: 0, y: reduceMotion ? 0 : 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: reduceMotion ? 0 : -10 }}
+                    transition={fadeTransition(reduceMotion, 0.18)}
+                    className={`text-[54px] leading-none font-light tracking-tight ${
+                      isOverBalance ? 'text-accent-danger' : 'text-foreground'
+                    }`}
+                  >
+                    {displayAmount}
+                  </motion.span>
+                </AnimatePresence>
+              )}
             </motion.div>
-            {/* Conversion line honors the Preferences fiat toggle (parity with Receive) */}
-            {(showFiat || isFiatMode) && (
+            {/* Conversion line honors the Preferences fiat toggle (parity with Receive) — hidden
+                while the empty-amount prompt shows since there is nothing to convert yet. */}
+            {!isAmountEmpty && (showFiat || isFiatMode) && (
               <span className="flex items-center gap-1.5 text-body text-foreground-muted">
                 <span>{secondary}</span>
                 {canToggleFiat && !isAmountFixed && <ArrowUpDown className="w-3.5 h-3.5" strokeWidth={2.2} />}
@@ -434,16 +464,14 @@ export function SendAmountStep({
                 {t('payment.insufficientBalance')} ({t('common.balance')} {formatSats(mintBalance)})
               </span>
             )}
-          </motion.button>
+          </button>
         )}
 
         {/* Mint — logo + custom name, centered (tappable when onChangeMint). Editing-only:
             in confirm the mint lives in the ticket's FROM node instead. */}
         {!confirming && (
-          <motion.button
+          <button
             type="button"
-            layout
-            transition={recipientMorphTransition(reduceMotion)}
             onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
             disabled={!onChangeMint}
             className="flex items-center justify-center gap-2 mb-3 mx-auto"
@@ -451,7 +479,7 @@ export function SendAmountStep({
             <MintIcon iconUrl={mintIconUrl} imgSize="w-6 h-6" className="w-6 h-6" circle />
             <span className="text-body font-medium text-foreground truncate max-w-[220px]">{mintName}</span>
             {onChangeMint && <ChevronDown className="w-4 h-4 text-foreground-muted shrink-0" strokeWidth={2} />}
-          </motion.button>
+          </button>
         )}
       </div>
       </motion.div>

@@ -818,6 +818,7 @@ export default {
     },
     amount: {
       howMuchSend: 'Berapa yang dikirim?',
+      prompt: 'Berapa yang ingin Anda kirim?',
       addMemo: 'Memo (opsional)',
       fixedByInvoice: 'Jumlah ditetapkan oleh invoice',
     },
