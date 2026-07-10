@@ -33,7 +33,8 @@ export function WalletTabPicker({ navItems, activeTab, onTabSelect }: WalletTabP
             key={id}
             type="button"
             aria-current={isActive ? 'page' : undefined}
-            onClick={() => onTabSelect(id)}
+            // Re-tapping the active tab is a no-op — don't remount the screen.
+            onClick={() => { if (!isActive) onTabSelect(id) }}
             whileTap={{ scale: 0.9 }}
             className={`relative z-20 flex-1 flex flex-col items-center justify-center h-[48px] rounded-full border border-transparent transform-gpu will-change-transform transition-colors ${
               isActive ? 'text-white' : 'text-foreground/60'

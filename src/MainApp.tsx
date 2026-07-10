@@ -26,15 +26,16 @@ import { useAppStore } from '@/store'
 import { useNetwork } from '@/ui/hooks/use-network'
 import { useWallet } from '@/ui/hooks/use-wallet'
 import { isSameMintUrl } from '@/utils/url'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 // Tier 1: Always loaded (critical path for authenticated users)
 import { LoadingFallback } from '@/ui/components/common/LoadingFallback'
-import { PageTransition } from '@/ui/components/common/PageTransition'
 import { MainTabToolbar, TokenTabToolbar } from '@/ui/components/layout/TabToolbar'
+import { AppStack } from '@/ui/navigation/stackflow'
+import { PAYLOAD_DEPENDENT_PARENT } from '@/ui/navigation/types'
 import { HomeScreen } from '@/ui/screens/Home/HomeScreen'
 import { LockScreen } from '@/ui/screens/Lock/LockScreen'
 import { EasterEggScreen } from '@/ui/screens/Token/EasterEggScreen'
@@ -96,6 +97,14 @@ setMintNameResolver((mintUrl) => {
   const state = useAppStore.getState()
   return state.settings.mintAliases?.[mintUrl] || null
 })
+
+/** Recovers a payload-less detail screen by redirecting to a safe parent on mount. */
+function ScreenRedirect({ to, navigate }: { to: Screen; navigate: (screen: Screen) => void }) {
+  useEffect(() => {
+    navigate(to)
+  }, [to, navigate])
+  return <LoadingFallback />
+}
 
 export default function MainApp() {
   const { t } = useTranslation()
@@ -811,19 +820,16 @@ export default function MainApp() {
   // change). These are component-scope closures, so they capture the latest state
   // each render — do NOT wrap in useMemo (it would freeze a stale snapshot).
   //
-  // Exceptions (kept as JSX branches outside the table — not mechanically movable):
-  // - 'token' / 'token-detail': TokenScreen base + TokenDetailScreen slide overlay
-  //   form one block joined by an inner AnimatePresence, and share a single
-  //   PageTransition key ('token') so the base doesn't remount when switching
-  //   between them. Splitting into one table entry per screen would break the
-  //   overlay exit animation and TokenScreen state preservation.
+  // Exceptions (rendered by renderStackScreen below):
+  // - 'token' and 'token-detail' keep their stateful payloads in MainApp while
+  //   Stackflow owns their activity lifetime and back-stack relationship.
   //
   // State guards (renders gated on state beyond currentScreen):
   // - 'transaction-detail': skipped if selectedTransaction is null — guard in render fn
   // - 'mint-detail': skipped if selectedMint is null — guard in render fn
   // - 'token-detail' overlay: selectedTokenDetail guard — inside the combined block above
   // Exhaustiveness is enforced via Record (not Partial): every Screen except the
-  // two combined-block exceptions must appear here — a Partial would let a new
+  // two Stackflow-rendered exceptions must appear here — a Partial would let a new
   // screen silently render blank. Missing/typo = compile error.
   const screenRoutes: Record<Exclude<Screen, 'token' | 'token-detail'>, () => ReactNode> = {
     home: () => (
@@ -1214,112 +1220,113 @@ export default function MainApp() {
   }
 
 
+  const renderStackScreen = (screen: Screen): ReactNode => {
+    const route = (screenRoutes as Partial<Record<Screen, () => ReactNode>>)[screen]
+    if (route) {
+      return <Suspense fallback={<LoadingFallback />}>{route()}</Suspense>
+    }
+
+    if (screen === 'token') {
+      return (
+        <Suspense fallback={<LoadingFallback />}>
+          <TokenScreen
+            scrollRef={tokenScrollRef}
+            onSelectToken={(detail) => {
+              setSelectedTokenDetail(detail)
+              setPreviousScreen('token')
+              setCurrentScreen('token-detail')
+            }}
+            onSaveSettings={handleSaveSettings}
+          />
+        </Suspense>
+      )
+    }
+
+    if (screen === 'token-detail' && selectedTokenDetail) {
+      return (
+        <Suspense fallback={<LoadingFallback />}>
+          <TokenDetailScreen
+            data={selectedTokenDetail}
+            onClose={() => {
+              // Clear the payload so a browser-forward can't re-render a stale detail.
+              setSelectedTokenDetail(null)
+              setCurrentScreen('token')
+            }}
+            onShare={async (token) => {
+              const text = token.tokenString
+                ? token.tokenString
+                : t('token.reclaimable.shareText', {
+                  memo: token.memo ?? '',
+                  amount: formatSats(token.amount),
+                })
+              try {
+                if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+                  await navigator.share({ text })
+                  return
+                }
+                if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+                  await navigator.clipboard.writeText(text)
+                  addToast({ type: 'success', message: t('token.reclaimable.copiedToClipboard') })
+                }
+              } catch {
+                /* user cancelled or clipboard blocked — silent */
+              }
+            }}
+            onReclaim={async (token) => {
+              if (!serviceRegistry?.reclaim?.reclaim) {
+                addToast({ type: 'error', message: t('errors.serviceNotReady') })
+                return
+              }
+              const result = await serviceRegistry.reclaim.reclaim(token.id)
+              if (result.ok) {
+                // Clear the payload so a browser-forward can't re-render the reclaimed token.
+                setSelectedTokenDetail(null)
+                handleBack()
+                addToast({ type: 'success', message: t('token.reclaim.success') })
+              } else {
+                const errorMessage = result.error
+                  ? translateError(result.error, t)
+                  : t('token.reclaim.failed')
+                addToast({ type: 'error', message: errorMessage })
+              }
+            }}
+            onTriggerEasterEgg={() => {
+              setPreviousScreen('token-detail')
+              setCurrentScreen('token-easter-egg')
+            }}
+            onDeleteHistory={async (token) => {
+              if (!serviceRegistry?.transactionMgmt) return
+              try {
+                await serviceRegistry.transactionMgmt.delete(token.id)
+                useAppStore.getState().triggerTxRefresh()
+                addToast({ type: 'success', message: t('token.history.deleteSuccess') })
+              } catch (error) {
+                console.error('[MainApp] Failed to delete tx history:', error)
+                addToast({ type: 'error', message: t('token.history.deleteFailed') })
+              }
+            }}
+          />
+        </Suspense>
+      )
+    }
+
+    // A payload-dependent detail screen with no payload can only be reached by
+    // deep-link/reload or a browser-forward into cleared state. Redirect to its safe
+    // parent instead of stranding the user on a spinner. (Boot is also caught centrally
+    // in the navigation store; this covers the post-mount forward-restore case.)
+    const parent = PAYLOAD_DEPENDENT_PARENT[screen]
+    if (parent) {
+      return <ScreenRedirect to={parent} navigate={setCurrentScreen} />
+    }
+
+    return <LoadingFallback />
+  }
+
   // Main app content
   const mainContent = (
     <>
       <div className="relative h-dvh overflow-hidden">
-        <AnimatePresence mode="sync">
-          <PageTransition
-            key={currentScreen === 'token-detail' ? 'token' : currentScreen}
-            variant="fade"
-            className="absolute inset-0"
-          >
-            <Suspense fallback={<LoadingFallback />}>
-              {(screenRoutes as Partial<Record<Screen, () => ReactNode>>)[currentScreen]?.()}
-
-              {/* Token flow: TokenScreen always rendered as base, TokenDetailScreen overlays with slide animation */}
-              {/* Exception: 'token'/'token-detail' combined block — see the screenRoutes comment above for rationale */}
-              {(currentScreen === 'token' || currentScreen === 'token-detail') && (
-                <div className="relative w-full h-full">
-                  <TokenScreen
-                    scrollRef={tokenScrollRef}
-                    onSelectToken={(detail) => {
-                      setSelectedTokenDetail(detail)
-                      setPreviousScreen('token')
-                      setCurrentScreen('token-detail')
-                    }}
-                    onSaveSettings={handleSaveSettings}
-                  />
-
-                  <AnimatePresence>
-                    {currentScreen === 'token-detail' && selectedTokenDetail && (
-                      <motion.div
-                        key="token-detail"
-                        initial={{ x: '100%' }}
-                        animate={{ x: 0 }}
-                        exit={{ x: '100%' }}
-                        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="absolute inset-0 z-50"
-                      >
-                        <TokenDetailScreen
-                          data={selectedTokenDetail}
-                          onClose={() => {
-                            console.log('[MainApp] TokenDetailScreen onClose - resetting')
-                            setSelectedTokenDetail(null)
-                            setCurrentScreen('token')
-                          }}
-                          onShare={async (token) => {
-                            const text = token.tokenString
-                              ? token.tokenString
-                              : t('token.reclaimable.shareText', {
-                                memo: token.memo ?? '',
-                                amount: formatSats(token.amount),
-                              })
-                            try {
-                              if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-                                await navigator.share({ text })
-                                return
-                              }
-                              if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-                                await navigator.clipboard.writeText(text)
-                                addToast({ type: 'success', message: t('token.reclaimable.copiedToClipboard') })
-                              }
-                            } catch {
-                              /* user cancelled or clipboard blocked — silent */
-                            }
-                          }}
-                          onReclaim={async (token) => {
-                            if (!serviceRegistry?.reclaim?.reclaim) {
-                              addToast({ type: 'error', message: t('errors.serviceNotReady') })
-                              return
-                            }
-                            const result = await serviceRegistry.reclaim.reclaim(token.id)
-                            if (result.ok) {
-                              setSelectedTokenDetail(null)
-                              handleBack()
-                              addToast({ type: 'success', message: t('token.reclaim.success') })
-                            } else {
-                              const errorMessage = result.error
-                                ? translateError(result.error, t)
-                                : t('token.reclaim.failed')
-                              addToast({ type: 'error', message: errorMessage })
-                            }
-                          }}
-                          onTriggerEasterEgg={() => {
-                            setPreviousScreen('token-detail')
-                            setCurrentScreen('token-easter-egg')
-                          }}
-                          onDeleteHistory={async (token) => {
-                            if (!serviceRegistry?.transactionMgmt) return
-                            try {
-                              await serviceRegistry.transactionMgmt.delete(token.id)
-                              useAppStore.getState().triggerTxRefresh()
-                              addToast({ type: 'success', message: t('token.history.deleteSuccess') })
-                            } catch (error) {
-                              console.error('[MainApp] Failed to delete tx history:', error)
-                              addToast({ type: 'error', message: t('token.history.deleteFailed') })
-                            }
-                          }}
-                        />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              )}
-            </Suspense>
-          </PageTransition>
-        </AnimatePresence>
-
+        <AppStack renderScreen={renderStackScreen} />
       </div>
 
       {/* Bottom Navigation — MainTabToolbar / TokenTabToolbar swap */}
