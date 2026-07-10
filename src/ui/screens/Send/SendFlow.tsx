@@ -59,7 +59,6 @@ import { SendingStep } from './steps/SendingStep'
 import { SendCompleteStep } from './steps/SendCompleteStep'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { planRouteSelection } from './sendRouteHelpers'
-import { SendConfirmSheet } from './SendConfirmSheet'
 import { CreatedStep } from '@/ui/screens/TokenCreate/steps/CreatedStep'
 
 // ============= Types =============
@@ -103,21 +102,16 @@ export interface SendFlowState {
 }
 
 /**
- * Mint selection request — sent by child steps.
- * - 'destination' context: opened from SendInputStep (e.g. NIP-19 common-mint pick).
- *   On select, auto-advance to the next step.
- * - 'confirm' context: opened from SendConfirmStep to change the source mint.
- *   On select, just update selectedMintUrl — user stays on confirm.
+ * Mint selection request — sent by SendInputStep (e.g. NIP-19 common-mint pick).
+ * On select, auto-advance to the next step. (Confirm-step mint changes flow
+ * through the amount scene's own onChangeMint, not this sheet.)
  */
-export type MintSelectionRequest =
-  | {
-      context: 'destination'
-      destination: string
-      validatedData: SendableValidatedData
-      commonMintUrls: string[]
-      infoText?: string
-    }
-  | { context: 'confirm' }
+export interface MintSelectionRequest {
+  destination: string
+  validatedData: SendableValidatedData
+  commonMintUrls: string[]
+  infoText?: string
+}
 
 export interface SendFlowProps {
   onBack: () => void
@@ -467,75 +461,32 @@ export function SendFlow({
     [isOnline, addToast, t, state.selectedMintUrl, performRouteSelection, inputParser],
   )
 
-  /** Amount step → route selection + confirm */
+  /** Amount step → enter confirm immediately; the initial-route effect quotes the fee. */
   const handleAmountNext = useCallback(
-    async (data: { amount: number; memo: string; isFiatMode: boolean; fiatAmount: string }) => {
-      if (isProcessingRef.current) return
-      isProcessingRef.current = true
-      setIsLoading(true)
-
+    (data: { amount: number; memo: string; isFiatMode: boolean; fiatAmount: string }) => {
       if (!isOnline) {
-        addToast({
-          type: 'error',
-          message: t('common.offlineRequired'),
-          duration: 3000,
-        })
-        isProcessingRef.current = false
-        setIsLoading(false)
+        addToast({ type: 'error', message: t('common.offlineRequired'), duration: 3000 })
         return
       }
-
-      try {
-        if (!state.validatedData || !state.selectedMintUrl) {
-          addToast({
-            type: 'error',
-            message: t('errors.generic'),
-            duration: 3000,
-          })
-          isProcessingRef.current = false
-          setIsLoading(false)
-          return
-        }
-
-        const epoch = ++routeEpochRef.current
-        const routeResult = await performRouteSelection(state.validatedData, data.amount, state.selectedMintUrl)
-        if (!routeResult) {
-          isProcessingRef.current = false
-          setIsLoading(false)
-          return
-        }
-        // Mint changed while the quote was in flight — this route would draw
-        // from the wrong mint; stay on the amount step for a fresh attempt
-        if (routeEpochRef.current !== epoch) {
-          isProcessingRef.current = false
-          setIsLoading(false)
-          return
-        }
-
-        setState((prev) => ({
-          ...prev,
-          step: 'confirm',
-          amount: data.amount,
-          memo: data.memo,
-          isFiatMode: data.isFiatMode,
-          fiatAmount: data.fiatAmount,
-          fee: routeResult.fee,
-          routeSelection: routeResult.routeSelection,
-          error: null,
-        }))
-      } catch (err) {
-        console.error('[SendFlow] Amount next error:', err)
-        addToast({
-          type: 'error',
-          message: t('errors.generic'),
-          duration: 3000,
-        })
-      } finally {
-        isProcessingRef.current = false
-        setIsLoading(false)
+      if (!state.validatedData || !state.selectedMintUrl) {
+        addToast({ type: 'error', message: t('errors.generic'), duration: 3000 })
+        return
       }
+      // Fresh quote for this confirm entry (mint/amount may have changed since the last one)
+      didInitialRouteRef.current = false
+      setState((prev) => ({
+        ...prev,
+        step: 'confirm',
+        amount: data.amount,
+        memo: data.memo,
+        isFiatMode: data.isFiatMode,
+        fiatAmount: data.fiatAmount,
+        routeSelection: null,
+        fee: 0,
+        error: null,
+      }))
     },
-    [isOnline, state.validatedData, state.selectedMintUrl, performRouteSelection, addToast, t],
+    [isOnline, state.validatedData, state.selectedMintUrl, addToast, t],
   )
 
   /**
@@ -769,48 +720,56 @@ export function SendFlow({
       commonMintUrls: string[]
       infoText?: string
     }) => {
-      setMintSelection({ context: 'destination', ...req })
+      setMintSelection(req)
     },
     [],
   )
 
-  /** Open mint selection sheet — called from SendConfirmStep (change source mint). */
-  const handleConfirmRequestMintSelection = useCallback(() => {
-    setMintSelection({ context: 'confirm' })
-  }, [])
-
-  /** Apply mint selection — advance for destination context, in-place for confirm.
-   *  For 'confirm' context, also re-run route selection since the new mint may
-   *  require a different route/fee. */
+  /** Apply mint selection — advance to the next step with the chosen mint. */
   const handleMintSelected = useCallback(
     (selectedMintUrl: string) => {
       if (!mintSelection) return
       userMintChoiceRef.current = selectedMintUrl
       routeEpochRef.current++
       setState((prev) => ({ ...prev, selectedMintUrl }))
-      if (mintSelection.context === 'destination') {
-        const amt = getAmountFromData(mintSelection.validatedData)
-        handleDestinationNext({
-          destination: mintSelection.destination,
-          validatedData: mintSelection.validatedData,
-          amountFromInvoice: amt > 0 ? amt : undefined,
-          mintUrl: selectedMintUrl,
-        })
-      } else if (mintSelection.context === 'confirm' && state.validatedData && state.amount > 0) {
-        // Clear stale route, re-run for new mint. Reuses the initial-route effect
-        // by resetting its ref so it picks up the new selectedMintUrl.
-        didInitialRouteRef.current = false
-        setState((prev) => ({
-          ...prev,
-          routeSelection: null,
-          fee: 0,
-          error: null,
-        }))
-      }
+      const amt = getAmountFromData(mintSelection.validatedData)
+      handleDestinationNext({
+        destination: mintSelection.destination,
+        validatedData: mintSelection.validatedData,
+        amountFromInvoice: amt > 0 ? amt : undefined,
+        mintUrl: selectedMintUrl,
+      })
       setMintSelection(null)
     },
-    [mintSelection, handleDestinationNext, state.validatedData, state.amount],
+    [mintSelection, handleDestinationNext],
   )
+
+  // Direct-transfer confirm quotes its own fee (token creation bypasses routing)
+  const [directFeeQuote, setDirectFeeQuote] = useState<number | 'pending' | 'unavailable'>('pending')
+  useEffect(() => {
+    if (state.step !== 'confirm' || !state.directTransfer) {
+      setDirectFeeQuote('pending')
+      return
+    }
+    if (!onEstimateCreateFee) {
+      setDirectFeeQuote(0)
+      return
+    }
+    if (state.amount <= 0 || !state.selectedMintUrl) {
+      setDirectFeeQuote('unavailable')
+      return
+    }
+    const epoch = ++routeEpochRef.current
+    setDirectFeeQuote('pending')
+    onEstimateCreateFee(state.selectedMintUrl, state.amount)
+      .then((value) => {
+        if (routeEpochRef.current !== epoch) return
+        setDirectFeeQuote(value === null ? 'unavailable' : Math.max(0, Math.ceil(value)))
+      })
+      .catch(() => {
+        if (routeEpochRef.current === epoch) setDirectFeeQuote('unavailable')
+      })
+  }, [state.step, state.directTransfer, state.amount, state.selectedMintUrl, onEstimateCreateFee])
 
   /**
    * Initial route selection — runs once when SendFlow lands on 'confirm' from a
@@ -906,7 +865,11 @@ export function SendFlow({
               ) : (
                 <motion.div key="amount-scene" className="h-full">
                   <SendAmountStep
-                    onBack={handleAmountBack}
+                    onBack={
+                      state.step === 'confirm'
+                        ? () => setState((prev) => ({ ...prev, step: 'amount', error: null }))
+                        : handleAmountBack
+                    }
                     onNext={state.directTransfer ? handleDirectAmountNext : handleAmountNext}
                     mintUrl={state.selectedMintUrl || ''}
                     destination={state.destination}
@@ -921,9 +884,23 @@ export function SendFlow({
                     onChangeMint={(url) => {
                       userMintChoiceRef.current = url
                       routeEpochRef.current++
-                      setState((prev) => ({ ...prev, selectedMintUrl: url }))
+                      didInitialRouteRef.current = false
+                      setState((prev) => ({
+                        ...prev,
+                        selectedMintUrl: url,
+                        ...(prev.step === 'confirm' && !prev.directTransfer
+                          ? { routeSelection: null, fee: 0, error: null }
+                          : {}),
+                      }))
                     }}
                     onResolveMaxAmount={handleResolveMaxAmount}
+                    confirming={state.step === 'confirm'}
+                    feeQuote={state.directTransfer ? directFeeQuote : state.routeSelection ? state.fee : 'pending'}
+                    confirmError={state.error}
+                    confirmMemo={state.memo}
+                    onEditMemo={(memo) => setState((prev) => ({ ...prev, memo }))}
+                    onCancelConfirm={() => setState((prev) => ({ ...prev, step: 'amount', error: null }))}
+                    onConfirmSend={state.directTransfer ? handleCreateTokenConfirm : handleConfirmSend}
                   />
                 </motion.div>
               )}
@@ -973,36 +950,16 @@ export function SendFlow({
         )}
       </AnimatePresence>
 
-      <SendConfirmSheet
-        open={state.step === 'confirm'}
-        directTransfer={state.directTransfer}
-        validatedData={state.validatedData}
-        amount={state.amount}
-        // Camera shortcut lands on confirm before the initial route resolves —
-        // an unpopulated route means "fee not ready", not "fee is 0"
-        fee={state.directTransfer || state.routeSelection ? state.fee : null}
-        mintUrl={state.selectedMintUrl || ''}
-        error={state.error}
-        route={state.routeSelection?.route}
-        displayName={effectiveDisplayName}
-        onEstimateFee={state.directTransfer ? onEstimateCreateFee : undefined}
-        onChangeMint={state.directTransfer ? undefined : handleConfirmRequestMintSelection}
-        onClose={() => setState((prev) => ({ ...prev, step: 'amount', error: null }))}
-        onConfirm={state.directTransfer ? handleCreateTokenConfirm : handleConfirmSend}
-      />
-
       <MintSelectBottomSheet
         isOpen={mintSelection !== null}
         onClose={() => setMintSelection(null)}
         onSelect={handleMintSelected}
         selectedMintUrl={state.selectedMintUrl}
         filterFn={
-          mintSelection?.context === 'destination'
-            ? (mint) => mintSelection.commonMintUrls.some((url) => isSameMintUrl(url, mint.url))
-            : undefined
+          mintSelection ? (mint) => mintSelection.commonMintUrls.some((url) => isSameMintUrl(url, mint.url)) : undefined
         }
-        buttonLabel={mintSelection?.context === 'destination' ? t('common.send') : t('common.confirm')}
-        infoText={mintSelection?.context === 'destination' ? mintSelection.infoText : undefined}
+        buttonLabel={t('common.send')}
+        infoText={mintSelection?.infoText}
       />
     </div>
   )
