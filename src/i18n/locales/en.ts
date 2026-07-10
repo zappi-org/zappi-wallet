@@ -871,6 +871,12 @@ export default {
       recipientTo: 'to <b>{{recipient}}</b>',
       lightningInvoice: 'Lightning Invoice',
       ecashRequest: 'eCash Payment Request',
+      insufficientWithTotal: 'Insufficient balance · {{total}} needed',
+    },
+    memo: {
+      changeTitle: 'Change memo',
+      placeholder: 'Add a memo',
+      none: 'None',
     },
     sending: {
       fullMessage: 'Sending {{amount}}\nto <b>{{recipient}}</b>...',

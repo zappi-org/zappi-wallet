@@ -871,6 +871,12 @@ export default {
       recipientTo: '<b>{{recipient}}</b>に',
       lightningInvoice: 'Lightning インボイス',
       ecashRequest: 'eCash 支払いリクエスト',
+      insufficientWithTotal: '残高不足 · 合計 {{total}} 必要',
+    },
+    memo: {
+      changeTitle: 'メモを変更',
+      placeholder: 'メモを入力',
+      none: 'なし',
     },
     sending: {
       fullMessage: '<b>{{recipient}}</b>へ\n{{amount}}を\n送金中です...',

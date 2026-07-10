@@ -875,6 +875,12 @@ export default {
       targetWallet: '받는 지갑',
       lightningInvoice: 'Lightning 인보이스',
       ecashRequest: 'eCash 결제요청',
+      insufficientWithTotal: '잔액 부족 · 총 {{total}} 필요',
+    },
+    memo: {
+      changeTitle: '메모 변경',
+      placeholder: '메모 입력',
+      none: '없음',
     },
     sending: {
       fullMessage: '<b>{{recipient}}</b>에게\n{{amount}}을\n보내는 중이에요...',

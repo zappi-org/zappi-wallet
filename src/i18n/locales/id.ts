@@ -873,6 +873,12 @@ export default {
       recipientTo: 'ke <b>{{recipient}}</b>',
       lightningInvoice: 'Invoice Lightning',
       ecashRequest: 'Permintaan Pembayaran eCash',
+      insufficientWithTotal: 'Saldo tidak cukup · butuh {{total}}',
+    },
+    memo: {
+      changeTitle: 'Ubah catatan',
+      placeholder: 'Tulis catatan',
+      none: 'Tidak ada',
     },
     sending: {
       fullMessage: 'Mengirim {{amount}}\nke <b>{{recipient}}</b>...',
