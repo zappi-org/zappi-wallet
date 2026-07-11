@@ -24,7 +24,7 @@ import { getMintBalance } from '@/utils/url'
 import { findContactName, formatNpubShort, formatRecipientDisplayText } from '../sendDisplayHelpers'
 import { useContacts } from '@/ui/hooks/use-contacts'
 import type { SendableValidatedData, MaxAmountResult } from '../SendFlow'
-import { SEND_RECIPIENT_LAYOUT_ID, SEND_AMOUNT_LAYOUT_ID, recipientMorphTransition } from '../sendMorph'
+import { SEND_RECIPIENT_LAYOUT_ID, recipientMorphTransition } from '../sendMorph'
 import { fadeTransition } from '@/ui/utils/motion'
 
 const KEYS_SATS: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'max', '0', 'del']
@@ -293,8 +293,8 @@ export function SendAmountStep({
   }
 
   // Editing header — tap to re-edit. Plain text per mockup; pinned at the
-  // top while editing. In confirm this same layoutId lands inside the
-  // ticket's TO node instead (see ticket JSX below).
+  // top while editing. Its layoutId is the LANDING point of the flow's one
+  // flight (destination → amount); confirm has no second flight.
   const recipientBlock = hasRecipient && (
     <motion.button
       type="button"
@@ -309,23 +309,39 @@ export function SendAmountStep({
 
   // Confirm axis's recipient node — value only (no "TO" eyebrow, no detail
   // line); the axis itself reads as "mint ⟶ recipient" so the label is
-  // redundant here. Mint change happens via the mint chip instead.
+  // redundant here. Plain (no layoutId): the flow keeps ONE flight —
+  // destination→amount — and the confirm step settles in with a quiet fade.
   const recipientAxisValue = directTransfer ? t('send.direct.label') : (recipientDetail ?? recipientLabel)
-  const recipientTicketNode = hasRecipient && (
-    <motion.div {...recipientMotionProps} className="text-body font-semibold text-foreground truncate max-w-[140px]">
-      {recipientAxisValue}
-    </motion.div>
+  const recipientAxisNode = hasRecipient && (
+    <div className="text-body font-semibold text-foreground truncate max-w-[140px]">{recipientAxisValue}</div>
   )
 
   return (
     <div className="flex flex-col h-full relative">
       <ScreenHeader title={t('send.title')} onBack={onBack} />
 
-      {!confirming && recipientBlock}
+      {/* The pinned recipient pops out via its own presence (popLayout releases
+          its space immediately so the confirm hero centers without a jump); it
+          stays OUTSIDE any fading ancestor because it is the landing target of
+          the flow's one remaining flight (destination → amount). */}
+      <AnimatePresence mode="popLayout" initial={false}>
+        {!confirming && recipientBlock}
+      </AnimatePresence>
 
-      {confirming && (
-        <div className="flex-1 min-h-0 flex flex-col justify-center px-6">
-          {/* Axis line — mint (tap to change) ─flow─ recipient (flight destination).
+      {/* Mid region: editing hero ⟷ confirm hero swap as quiet fade-throughs.
+          Restraint rule — one flight per flow (the destination text); the
+          confirm step settles with a small slide+fade instead of flying. */}
+      <AnimatePresence mode="popLayout">
+        {confirming ? (
+          <motion.div
+            key="confirm-hero"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8, pointerEvents: 'none' }}
+            transition={fadeTransition(reduceMotion, 0.18)}
+            className="flex-1 min-h-0 flex flex-col justify-center px-6"
+          >
+          {/* Axis line — mint (tap to change) ─flow─ recipient.
               Typographic: no card chrome, reads as "mint ⟶ recipient". */}
           <div className="flex items-center justify-center gap-2">
             <button
@@ -346,18 +362,16 @@ export function SendAmountStep({
                 backgroundSize: '10px 2px',
                 backgroundRepeat: 'repeat-x',
               }}
-              animate={reduceMotion ? undefined : { backgroundPositionX: ['0px', '10px'] }}
-              transition={reduceMotion ? undefined : { duration: 0.9, ease: 'linear', repeat: Infinity }}
+              // Motion with meaning: the dashes flow only while the fee quote
+              // is in flight, then rest — no perpetual animation at rest
+              animate={reduceMotion || feeQuote !== 'pending' ? undefined : { backgroundPositionX: ['0px', '10px'] }}
+              transition={reduceMotion || feeQuote !== 'pending' ? undefined : { duration: 0.9, ease: 'linear', repeat: Infinity }}
             />
-            {recipientTicketNode}
+            {recipientAxisNode}
           </div>
 
-          {/* Amount — layoutId flight from the editing hero; smaller size, morph scales it smoothly */}
-          <motion.div
-            layoutId={SEND_AMOUNT_LAYOUT_ID}
-            transition={recipientMorphTransition(reduceMotion)}
-            className="flex flex-col items-center gap-2 text-center mt-6"
-          >
+          {/* Amount — settles with the region's fade; same open composition */}
+          <div className="flex flex-col items-center gap-2 text-center mt-6">
             <span
               className={`text-[40px] leading-none font-light tracking-tight ${
                 isOverBalance || insufficientForFee ? 'text-accent-danger' : 'text-foreground'
@@ -366,27 +380,20 @@ export function SendAmountStep({
               {displayAmount}
             </span>
             {(showFiat || isFiatMode) && <span className="text-body text-foreground-muted">{secondary}</span>}
+          </div>
           </motion.div>
-        </div>
-      )}
-
-      {/* Scene content fades here (not on the SendFlow scene wrapper) so the
-          layoutId recipient text above is never dimmed by an animating ancestor.
-          Display-toggled (not unmounted) during confirm: unmounting would re-run
-          the opacity-in on cancel and dim the reverse flight; `hidden` keeps its
-          opacity settled at 1 while the centered ticket owns the space instead. */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0, pointerEvents: 'none' }}
-        transition={{ duration: 0.15, ease: 'easeOut' }}
-        className={confirming ? 'hidden' : 'flex-1 min-h-0 flex flex-col'}
-      >
+        ) : (
+          <motion.div
+            key="editing-hero"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, pointerEvents: 'none' }}
+            transition={fadeTransition(reduceMotion, 0.15)}
+            className="flex-1 min-h-0 flex flex-col"
+          >
       <div className="flex-1 overflow-y-auto px-6 flex flex-col">
-        {/* Amount hero — tap anywhere in this area to toggle sats/fiat, with a swap animation.
-            Editing-only: in confirm the amount group lives inside the ticket instead (see above). */}
-        {!confirming && (
-          <button
+        {/* Amount hero — tap anywhere in this area to toggle sats/fiat, with a swap animation */}
+        <button
             type="button"
             onClick={canToggleFiat && !isAmountFixed ? handleToggleFiat : undefined}
             disabled={!canToggleFiat || isAmountFixed}
@@ -395,7 +402,7 @@ export function SendAmountStep({
             })}
             className="flex-1 flex flex-col items-center justify-center gap-2 w-full disabled:cursor-default"
           >
-            <motion.div layoutId={SEND_AMOUNT_LAYOUT_ID} transition={recipientMorphTransition(reduceMotion)}>
+            <div>
               {isAmountEmpty ? (
                 <span className="text-[26px] font-bold text-foreground break-keep text-center leading-snug">
                   {t('send.amount.prompt')}
@@ -416,7 +423,7 @@ export function SendAmountStep({
                   </motion.span>
                 </AnimatePresence>
               )}
-            </motion.div>
+            </div>
             {/* Conversion line honors the Preferences fiat toggle (parity with Receive) — hidden
                 while the empty-amount prompt shows since there is nothing to convert yet. */}
             {!isAmountEmpty && (showFiat || isFiatMode) && (
@@ -437,24 +444,22 @@ export function SendAmountStep({
               </span>
             )}
           </button>
-        )}
 
-        {/* Mint — logo + custom name, centered (tappable when onChangeMint). Editing-only:
-            in confirm the mint lives in the ticket's FROM node instead. */}
-        {!confirming && (
-          <button
-            type="button"
-            onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
-            disabled={!onChangeMint}
-            className="flex items-center justify-center gap-2 mb-3 mx-auto"
-          >
-            <MintIcon iconUrl={mintIconUrl} imgSize="w-6 h-6" className="w-6 h-6" circle />
-            <span className="text-body font-medium text-foreground truncate max-w-[220px]">{mintName}</span>
-            {onChangeMint && <ChevronDown className="w-4 h-4 text-foreground-muted shrink-0" strokeWidth={2} />}
-          </button>
-        )}
+        {/* Mint — logo + custom name, centered (tappable when onChangeMint) */}
+        <button
+          type="button"
+          onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
+          disabled={!onChangeMint}
+          className="flex items-center justify-center gap-2 mb-3 mx-auto"
+        >
+          <MintIcon iconUrl={mintIconUrl} imgSize="w-6 h-6" className="w-6 h-6" circle />
+          <span className="text-body font-medium text-foreground truncate max-w-[220px]">{mintName}</span>
+          {onChangeMint && <ChevronDown className="w-4 h-4 text-foreground-muted shrink-0" strokeWidth={2} />}
+        </button>
       </div>
-      </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Bottom region: keypad (editing) ⟷ fee/memo + Cancel/Send (confirming).
           Lives outside the content-fade wrapper — popLayout pops the exiting
