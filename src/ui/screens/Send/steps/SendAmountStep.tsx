@@ -307,11 +307,13 @@ export function SendAmountStep({
     </motion.button>
   )
 
-  // Confirm ticket's TO node — non-interactive (mint change happens via the
-  // FROM node instead), right-aligned to close the FROM→TO route row.
+  // Confirm axis's recipient node — value only (no "TO" eyebrow, no detail
+  // line); the axis itself reads as "mint ⟶ recipient" so the label is
+  // redundant here. Mint change happens via the mint chip instead.
+  const recipientAxisValue = directTransfer ? t('send.direct.label') : (recipientDetail ?? recipientLabel)
   const recipientTicketNode = hasRecipient && (
-    <motion.div {...recipientMotionProps} className="flex flex-col items-end gap-0.5 max-w-[45%]">
-      {recipientContent}
+    <motion.div {...recipientMotionProps} className="text-body font-semibold text-foreground truncate max-w-[140px]">
+      {recipientAxisValue}
     </motion.div>
   )
 
@@ -323,78 +325,48 @@ export function SendAmountStep({
 
       {confirming && (
         <div className="flex-1 min-h-0 flex flex-col justify-center px-6">
-          <div className="w-full rounded-2xl bg-background-card shadow-sm relative overflow-hidden">
-            {/* Route row — FROM (tap to change mint) ─flow─ TO (recipient flight destination) */}
-            <div className="flex items-center justify-between px-4 pt-4">
-              <button
-                type="button"
-                onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
-                disabled={!onChangeMint}
-                className="flex flex-col items-start gap-0.5 max-w-[45%] disabled:cursor-default"
-              >
-                <span className="text-label uppercase tracking-wider text-foreground-muted">FROM</span>
-                <span className="flex items-center gap-1.5">
-                  <MintIcon iconUrl={mintIconUrl} imgSize="w-5 h-5" className="w-5 h-5" circle />
-                  <span className="text-subtitle font-semibold text-foreground truncate max-w-[140px]">{mintName}</span>
-                </span>
-              </button>
-              <motion.div
-                aria-hidden
-                className="flex-1 h-[2px] mx-3 self-center text-foreground-muted/60
-                           [mask-image:linear-gradient(90deg,transparent,black_18%,black_82%,transparent)]"
-                style={{
-                  backgroundImage: 'linear-gradient(90deg, currentColor 0 5px, transparent 5px 10px)',
-                  backgroundSize: '10px 2px',
-                  backgroundRepeat: 'repeat-x',
-                }}
-                animate={reduceMotion ? undefined : { backgroundPositionX: ['0px', '10px'] }}
-                transition={reduceMotion ? undefined : { duration: 0.9, ease: 'linear', repeat: Infinity }}
-              />
-              {recipientTicketNode}
-            </div>
-
-            {/* Amount — layoutId flight from the editing hero; smaller size, morph scales it smoothly */}
-            <motion.div
-              layoutId={SEND_AMOUNT_LAYOUT_ID}
-              transition={recipientMorphTransition(reduceMotion)}
-              className="flex flex-col items-center gap-2 text-center py-5"
+          {/* Axis line — mint (tap to change) ─flow─ recipient (flight destination).
+              Typographic: no card chrome, reads as "mint ⟶ recipient". */}
+          <div className="flex items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
+              disabled={!onChangeMint}
+              className="flex items-center gap-1.5 text-body text-foreground-muted disabled:cursor-default"
             >
-              <span
-                className={`text-[40px] leading-none font-light tracking-tight ${
-                  isOverBalance || insufficientForFee ? 'text-accent-danger' : 'text-foreground'
-                }`}
-              >
-                {displayAmount}
-              </span>
-              {(showFiat || isFiatMode) && <span className="text-body text-foreground-muted">{secondary}</span>}
-            </motion.div>
-
-            {/* Tear line — notches punch the page background through (dark-mode safe, tokens only) */}
-            <div className="relative border-t-2 border-dashed border-border/70">
-              <div className="w-4 h-4 rounded-full bg-background absolute top-1/2 -translate-y-1/2 -left-2" />
-              <div className="w-4 h-4 rounded-full bg-background absolute top-1/2 -translate-y-1/2 -right-2" />
-            </div>
-
-            {/* Stub row — fee | memo (tap → memo sheet). Both cells share the same vertical
-                rhythm: a fixed-height label row, then a value row, so the two baselines line up. */}
-            <div className="flex items-start justify-between px-4 py-3.5">
-              <div className="flex flex-col">
-                <span className="h-5 flex items-center gap-1 text-label text-foreground-muted">
-                  {t('send.confirm.estimatedFee')}
-                </span>
-                <span className="text-body font-medium text-foreground mt-0.5">
-                  {feeReady ? formatSats(feeQuote) : '—'}
-                </span>
-              </div>
-              <button type="button" onClick={() => setMemoSheetOpen(true)} className="text-right flex flex-col">
-                <span className="h-5 flex items-center justify-end gap-1 text-label text-foreground-muted">
-                  {t('send.confirm.memo')}
-                  <ChevronRight className="w-3.5 h-3.5" strokeWidth={2} />
-                </span>
-                <span className="text-body font-medium text-foreground mt-0.5">{confirmMemo || t('send.memo.none')}</span>
-              </button>
-            </div>
+              <MintIcon iconUrl={mintIconUrl} imgSize="w-5 h-5" className="w-5 h-5" circle />
+              <span className="truncate max-w-[120px]">{mintName}</span>
+            </button>
+            <motion.div
+              aria-hidden
+              className="w-8 h-[2px] self-center text-foreground-muted/60
+                         [mask-image:linear-gradient(90deg,transparent,black_18%,black_82%,transparent)]"
+              style={{
+                backgroundImage: 'linear-gradient(90deg, currentColor 0 5px, transparent 5px 10px)',
+                backgroundSize: '10px 2px',
+                backgroundRepeat: 'repeat-x',
+              }}
+              animate={reduceMotion ? undefined : { backgroundPositionX: ['0px', '10px'] }}
+              transition={reduceMotion ? undefined : { duration: 0.9, ease: 'linear', repeat: Infinity }}
+            />
+            {recipientTicketNode}
           </div>
+
+          {/* Amount — layoutId flight from the editing hero; smaller size, morph scales it smoothly */}
+          <motion.div
+            layoutId={SEND_AMOUNT_LAYOUT_ID}
+            transition={recipientMorphTransition(reduceMotion)}
+            className="flex flex-col items-center gap-2 text-center mt-6"
+          >
+            <span
+              className={`text-[40px] leading-none font-light tracking-tight ${
+                isOverBalance || insufficientForFee ? 'text-accent-danger' : 'text-foreground'
+              }`}
+            >
+              {displayAmount}
+            </span>
+            {(showFiat || isFiatMode) && <span className="text-body text-foreground-muted">{secondary}</span>}
+          </motion.div>
         </div>
       )}
 
@@ -499,6 +471,28 @@ export function SendAmountStep({
             transition={fadeTransition(reduceMotion, 0.15)}
             className="shrink-0"
           >
+            <div className="px-6">
+              {/* Fee/memo soft card — grouped rows above the error line and actions. */}
+              <div className="rounded-2xl bg-background-card/70 px-4 py-1 mb-3">
+                <div className="flex justify-between items-center py-2.5">
+                  <span className="text-body text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
+                  <span className="text-body font-medium text-foreground">
+                    {feeReady ? formatSats(feeQuote) : '—'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMemoSheetOpen(true)}
+                  className="w-full flex justify-between items-center py-2.5"
+                >
+                  <span className="text-body text-foreground-muted">{t('send.confirm.memo')}</span>
+                  <span className="flex items-center text-body font-medium text-foreground">
+                    {confirmMemo || t('send.memo.none')}
+                    <ChevronRight className="w-4 h-4 text-foreground-muted ml-1" strokeWidth={2} />
+                  </span>
+                </button>
+              </div>
+            </div>
             <div className="px-6 pb-1">
               {(confirmError || feeQuote === 'unavailable' || insufficientForFee) && (
                 <p className="text-caption text-accent-danger pb-2">
