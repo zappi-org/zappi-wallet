@@ -55,7 +55,6 @@ function getAmountFromData(data: SendableValidatedData): number {
 
 import { SendInputStep } from './steps/SendInputStep'
 import { SendAmountStep } from './steps/SendAmountStep'
-import { SendingStep } from './steps/SendingStep'
 import { SendCompleteStep } from './steps/SendCompleteStep'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { planRouteSelection } from './sendRouteHelpers'
@@ -831,7 +830,10 @@ export function SendFlow({
   return (
     <div className="relative h-dvh bg-background text-foreground font-primary flex flex-col pt-safe">
       <AnimatePresence mode="wait" initial={false}>
-        {(state.step === 'destination' || state.step === 'amount' || state.step === 'confirm') && (
+        {(state.step === 'destination' ||
+          state.step === 'amount' ||
+          state.step === 'confirm' ||
+          state.step === 'sending') && (
           <motion.div
             key="send-entry-scene"
             className="relative flex-1 min-h-0"
@@ -875,9 +877,11 @@ export function SendFlow({
                 >
                   <SendAmountStep
                     onBack={
-                      state.step === 'confirm'
-                        ? () => setState((prev) => ({ ...prev, step: 'amount', error: null }))
-                        : handleAmountBack
+                      state.step === 'sending'
+                        ? () => {}
+                        : state.step === 'confirm'
+                          ? () => setState((prev) => ({ ...prev, step: 'amount', error: null }))
+                          : handleAmountBack
                     }
                     onNext={state.directTransfer ? handleDirectAmountNext : handleAmountNext}
                     mintUrl={state.selectedMintUrl || ''}
@@ -904,7 +908,8 @@ export function SendFlow({
                       }))
                     }}
                     onResolveMaxAmount={handleResolveMaxAmount}
-                    confirming={state.step === 'confirm'}
+                    confirming={state.step === 'confirm' || state.step === 'sending'}
+                    sending={state.step === 'sending'}
                     feeQuote={state.directTransfer ? directFeeQuote : state.routeSelection ? state.fee : 'pending'}
                     confirmError={state.error}
                     confirmMemo={state.memo}
@@ -916,17 +921,6 @@ export function SendFlow({
               )}
             </AnimatePresence>
           </motion.div>
-        )}
-
-        {state.step === 'sending' && (
-          <PageTransition key="sending" variant="fade" className="flex-1">
-            <SendingStep
-              validatedData={state.validatedData!}
-              amount={state.amount}
-              route={state.routeSelection?.route}
-              displayName={effectiveDisplayName}
-            />
-          </PageTransition>
         )}
 
         {state.step === 'complete' && (

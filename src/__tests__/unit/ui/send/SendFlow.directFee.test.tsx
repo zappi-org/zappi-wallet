@@ -42,10 +42,6 @@ vi.mock('@/ui/screens/Send/steps/SendAmountStep', () => ({
   },
 }))
 
-vi.mock('@/ui/screens/Send/steps/SendingStep', () => ({
-  SendingStep: () => null,
-}))
-
 vi.mock('@/ui/screens/Send/steps/SendCompleteStep', () => ({
   SendCompleteStep: () => null,
 }))

@@ -117,4 +117,12 @@ describe('SendAmountStep confirm variant', () => {
     fireEvent.click(screen.getByText('send.confirm.memo'))
     expect(screen.getByText('send.memo.changeTitle')).toBeInTheDocument()
   })
+
+  it('while sending: Cancel/Send are replaced by the sending status row and the memo row is disabled', () => {
+    render(<SendAmountStep {...baseProps} sending feeQuote={30} />)
+    expect(screen.queryByRole('button', { name: 'common.cancel' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'send.confirm.send' })).not.toBeInTheDocument()
+    expect(screen.getByText('send.sending.fullRequestMessage')).toBeInTheDocument()
+    expect(screen.getByText('send.confirm.memo').closest('button')).toBeDisabled()
+  })
 })

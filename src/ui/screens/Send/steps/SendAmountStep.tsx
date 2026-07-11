@@ -51,6 +51,8 @@ interface SendAmountStepProps {
   onResolveMaxAmount?: (mintUrl: string, balance: number) => Promise<MaxAmountResult>
   /** Swaps the keypad for the in-place confirm controls (fee/memo rows + Cancel/Send). */
   confirming?: boolean
+  /** Route execution is in flight — same confirm scene, controls swap for a status row. */
+  sending?: boolean
   feeQuote?: number | 'pending' | 'unavailable'
   confirmError?: string | null
   confirmMemo?: string
@@ -75,6 +77,7 @@ export function SendAmountStep({
   onChangeMint,
   onResolveMaxAmount,
   confirming = false,
+  sending = false,
   feeQuote,
   confirmError,
   confirmMemo = '',
@@ -346,8 +349,8 @@ export function SendAmountStep({
           <div className="flex items-center justify-center gap-2">
             <button
               type="button"
-              onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
-              disabled={!onChangeMint}
+              onClick={onChangeMint && !sending ? () => setMintSheetOpen(true) : undefined}
+              disabled={!onChangeMint || sending}
               className="flex items-center gap-1.5 text-body text-foreground-muted disabled:cursor-default"
             >
               <MintIcon iconUrl={mintIconUrl} imgSize="w-5 h-5" className="w-5 h-5" circle />
@@ -355,17 +358,19 @@ export function SendAmountStep({
             </button>
             <motion.div
               aria-hidden
-              className="w-8 h-[2px] self-center text-foreground-muted/60
-                         [mask-image:linear-gradient(90deg,transparent,black_18%,black_82%,transparent)]"
+              className={`w-8 h-[2px] self-center [mask-image:linear-gradient(90deg,transparent,black_18%,black_82%,transparent)] ${
+                sending ? 'text-brand' : 'text-foreground-muted/60'
+              }`}
               style={{
                 backgroundImage: 'linear-gradient(90deg, currentColor 0 5px, transparent 5px 10px)',
                 backgroundSize: '10px 2px',
                 backgroundRepeat: 'repeat-x',
               }}
-              // Motion with meaning: the dashes flow only while the fee quote
-              // is in flight, then rest — no perpetual animation at rest
-              animate={reduceMotion || feeQuote !== 'pending' ? undefined : { backgroundPositionX: ['0px', '10px'] }}
-              transition={reduceMotion || feeQuote !== 'pending' ? undefined : { duration: 0.9, ease: 'linear', repeat: Infinity }}
+              // Motion with meaning: the same flowing dash reads as two states —
+              // muted while the fee quote is in flight, brand-colored while the
+              // money itself is in transit — then rests once neither is true.
+              animate={reduceMotion || !(sending || feeQuote === 'pending') ? undefined : { backgroundPositionX: ['0px', '10px'] }}
+              transition={reduceMotion || !(sending || feeQuote === 'pending') ? undefined : { duration: 0.9, ease: 'linear', repeat: Infinity }}
             />
             {recipientAxisNode}
           </div>
@@ -488,7 +493,8 @@ export function SendAmountStep({
                 <button
                   type="button"
                   onClick={() => setMemoSheetOpen(true)}
-                  className="w-full flex justify-between items-center py-2.5"
+                  disabled={sending}
+                  className="w-full flex justify-between items-center py-2.5 disabled:cursor-default"
                 >
                   <span className="text-body text-foreground-muted">{t('send.confirm.memo')}</span>
                   <span className="flex items-center text-body font-medium text-foreground">
@@ -508,21 +514,32 @@ export function SendAmountStep({
                 </p>
               )}
             </div>
-            <div className="flex gap-2.5 px-6 pt-2 pb-app">
-              <Button variant="secondary" size="xl" onClick={onCancelConfirm} className="flex-1">
-                {t('common.cancel')}
-              </Button>
-              <Button
-                variant="brand"
-                size="xl"
-                onClick={handleConfirmSend}
-                loading={sendBusy}
-                disabled={!canSend}
-                className="flex-[1.6]"
-              >
-                {t('send.confirm.send')}
-              </Button>
-            </div>
+            {sending ? (
+              // Same h-14 footprint as the button row below — no reflow on the
+              // confirm→sending handoff. The connector's brand-flow carries the
+              // "in transit" state; this row just names it, quietly.
+              <div className="px-6 pt-2 pb-app">
+                <div className="h-14 flex items-center justify-center text-body text-foreground-muted">
+                  {t('send.sending.fullRequestMessage', { amount: formatSats(numericAmount) })}
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-2.5 px-6 pt-2 pb-app">
+                <Button variant="secondary" size="xl" onClick={onCancelConfirm} className="flex-1">
+                  {t('common.cancel')}
+                </Button>
+                <Button
+                  variant="brand"
+                  size="xl"
+                  onClick={handleConfirmSend}
+                  loading={sendBusy}
+                  disabled={!canSend}
+                  className="flex-[1.6]"
+                >
+                  {t('send.confirm.send')}
+                </Button>
+              </div>
+            )}
           </motion.div>
         ) : (
           <motion.div
