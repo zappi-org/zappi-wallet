@@ -378,29 +378,41 @@ export function SendAmountStep({
               <MintIcon iconUrl={mintIconUrl} imgSize="w-5 h-5" className="w-5 h-5" circle />
               <span className="truncate max-w-[96px]">{mintName}</span>
             </button>
-            {/* Chevron-flow connector: direction + progress in one affordance —
-                a wave of chevrons pulses toward the recipient while quoting/sending,
-                sits static and dim at rest. */}
+            {/* Flow-line connector, fixed width so the trio reads as one group.
+                Quoting: the dashes drift toward the recipient. Sending: the
+                line becomes a brand rail and a single arrowhead sweeps along
+                it — the money passing over the track. Rest: static dashes. */}
             <div
               aria-hidden
-              className={`flex-1 min-w-10 flex items-center justify-center gap-1 mx-2 overflow-hidden ${
-                sending ? 'text-brand' : 'text-foreground-muted/60'
-              }`}
+              className={`relative w-24 shrink-0 self-center ${sending ? 'text-brand' : 'text-foreground-muted/60'}`}
             >
-              {Array.from({ length: 5 }).map((_, i) =>
-                reduceMotion || !(sending || feeQuote === 'pending') ? (
-                  <motion.span key={i} className="opacity-40">
-                    <ChevronRight className="w-3 h-3 shrink-0" strokeWidth={2.5} />
-                  </motion.span>
-                ) : (
-                  <motion.span
-                    key={i}
-                    animate={{ opacity: [0.25, 1, 0.25] }}
-                    transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut', delay: i * 0.12 }}
-                  >
-                    <ChevronRight className="w-3 h-3 shrink-0" strokeWidth={2.5} />
-                  </motion.span>
-                )
+              <motion.div
+                className="h-[2px] w-full [mask-image:linear-gradient(90deg,transparent,black_14%,black_86%,transparent)]"
+                style={{
+                  backgroundImage: 'linear-gradient(90deg, currentColor 0 5px, transparent 5px 10px)',
+                  backgroundSize: '10px 2px',
+                  backgroundRepeat: 'repeat-x',
+                  opacity: sending ? 0.45 : 1,
+                }}
+                animate={
+                  reduceMotion || sending || feeQuote !== 'pending'
+                    ? undefined
+                    : { backgroundPositionX: ['0px', '10px'] }
+                }
+                transition={
+                  reduceMotion || sending || feeQuote !== 'pending'
+                    ? undefined
+                    : { duration: 0.9, ease: 'linear', repeat: Infinity }
+                }
+              />
+              {sending && !reduceMotion && (
+                <motion.span
+                  className="absolute -top-[6px] left-0"
+                  animate={{ x: [0, 82], opacity: [0, 1, 1, 0] }}
+                  transition={{ duration: 1.2, times: [0, 0.15, 0.85, 1], repeat: Infinity, repeatDelay: 0.25, ease: 'easeInOut' }}
+                >
+                  <ChevronRight className="w-3.5 h-3.5" strokeWidth={2.5} />
+                </motion.span>
               )}
             </div>
             {recipientAxisNode}
