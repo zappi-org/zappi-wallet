@@ -21,7 +21,13 @@ import { MintIcon } from '@/ui/components/common/MintIcon'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { MemoSheet } from '../MemoSheet'
 import { getMintBalance } from '@/utils/url'
-import { findContactName, formatNpubShort, formatRecipientDisplayText } from '../sendDisplayHelpers'
+import {
+  findContactName,
+  formatNpubShort,
+  formatRecipientDisplayText,
+  formatLightningAddress,
+  middleEllipsis,
+} from '../sendDisplayHelpers'
 import { useContacts } from '@/ui/hooks/use-contacts'
 import type { SendableValidatedData, MaxAmountResult } from '../SendFlow'
 import { SEND_RECIPIENT_LAYOUT_ID, recipientMorphTransition } from '../sendMorph'
@@ -314,9 +320,23 @@ export function SendAmountStep({
   // line); the axis itself reads as "mint ⟶ recipient" so the label is
   // redundant here. Plain (no layoutId): the flow keeps ONE flight —
   // destination→amount — and the confirm step settles in with a quiet fade.
-  const recipientAxisValue = directTransfer ? t('send.direct.label') : (recipientDetail ?? recipientLabel)
+  // Name-first: a known contact's NAME always wins over their address/invoice
+  // — showing the raw identifier here (as recipientDetail did) defeats the
+  // point of having a contact book. Each unnamed type gets its own
+  // identity-safe format instead of one generic truncation.
+  const recipientAxisValue = useMemo(() => {
+    if (directTransfer) return t('send.direct.label')
+    const name = displayName || contactName
+    if (name) return formatRecipientDisplayText(name)
+    if (validatedData?.type === 'my-wallet') return validatedData.targetMintName
+    if (validatedData?.type === 'lightning-address') return formatLightningAddress(validatedData.address)
+    if (validatedData?.type === 'lnurl-pay') return validatedData.params?.domain || 'LNURL'
+    if (validatedData?.type === 'bolt11') return middleEllipsis(validatedData.invoice, 8, 6)
+    if (validatedData?.type === 'cashu-request') return formatNpubShort(validatedData.request)
+    return destination ? formatRecipientDisplayText(destination) : null
+  }, [directTransfer, displayName, contactName, validatedData, destination, t])
   const recipientAxisNode = hasRecipient && (
-    <div className="text-body font-semibold text-foreground truncate max-w-[140px]">{recipientAxisValue}</div>
+    <div className="text-body font-semibold text-foreground truncate max-w-[170px]">{recipientAxisValue}</div>
   )
 
   return (
@@ -354,24 +374,33 @@ export function SendAmountStep({
               className="flex items-center gap-1.5 text-body text-foreground-muted disabled:cursor-default"
             >
               <MintIcon iconUrl={mintIconUrl} imgSize="w-5 h-5" className="w-5 h-5" circle />
-              <span className="truncate max-w-[120px]">{mintName}</span>
+              <span className="truncate max-w-[96px]">{mintName}</span>
             </button>
-            <motion.div
+            {/* Chevron-flow connector: direction + progress in one affordance —
+                a wave of chevrons pulses toward the recipient while quoting/sending,
+                sits static and dim at rest. */}
+            <div
               aria-hidden
-              className={`w-8 h-[2px] self-center [mask-image:linear-gradient(90deg,transparent,black_18%,black_82%,transparent)] ${
+              className={`flex-1 min-w-10 flex items-center justify-center gap-1 mx-2 overflow-hidden ${
                 sending ? 'text-brand' : 'text-foreground-muted/60'
               }`}
-              style={{
-                backgroundImage: 'linear-gradient(90deg, currentColor 0 5px, transparent 5px 10px)',
-                backgroundSize: '10px 2px',
-                backgroundRepeat: 'repeat-x',
-              }}
-              // Motion with meaning: the same flowing dash reads as two states —
-              // muted while the fee quote is in flight, brand-colored while the
-              // money itself is in transit — then rests once neither is true.
-              animate={reduceMotion || !(sending || feeQuote === 'pending') ? undefined : { backgroundPositionX: ['0px', '10px'] }}
-              transition={reduceMotion || !(sending || feeQuote === 'pending') ? undefined : { duration: 0.9, ease: 'linear', repeat: Infinity }}
-            />
+            >
+              {Array.from({ length: 5 }).map((_, i) =>
+                reduceMotion || !(sending || feeQuote === 'pending') ? (
+                  <motion.span key={i} className="opacity-40">
+                    <ChevronRight className="w-3 h-3 shrink-0" strokeWidth={2.5} />
+                  </motion.span>
+                ) : (
+                  <motion.span
+                    key={i}
+                    animate={{ opacity: [0.25, 1, 0.25] }}
+                    transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut', delay: i * 0.12 }}
+                  >
+                    <ChevronRight className="w-3 h-3 shrink-0" strokeWidth={2.5} />
+                  </motion.span>
+                )
+              )}
+            </div>
             {recipientAxisNode}
           </div>
 

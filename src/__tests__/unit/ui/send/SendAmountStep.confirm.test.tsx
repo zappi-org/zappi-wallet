@@ -52,6 +52,8 @@ vi.mock('@/ui/screens/Send/sendDisplayHelpers', () => ({
   findContactName: vi.fn(async () => null),
   formatNpubShort: (s: string) => s,
   formatRecipientDisplayText: (s: string) => s,
+  formatLightningAddress: (s: string) => s,
+  middleEllipsis: (s: string) => s,
   shouldShowRecipientInMainMessage: () => true,
 }))
 vi.mock('@/ui/components/common/ScreenHeader', () => ({

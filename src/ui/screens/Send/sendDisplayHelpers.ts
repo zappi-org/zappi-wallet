@@ -35,6 +35,26 @@ export function formatRecipientDisplayText(value: string, maxLength = 12): strin
   return `${trimmed.slice(0, maxLength)}...`;
 }
 
+/** Middle-ellipsis keeping both ends visible (invoices, npubs). */
+export function middleEllipsis(value: string, head = 8, tail = 4): string {
+  const trimmed = value.trim();
+  if (trimmed.length <= head + tail + 1) return trimmed;
+  return `${trimmed.slice(0, head)}…${trimmed.slice(-tail)}`;
+}
+
+/** Lightning address: the domain is the identity — never cut it. Long local
+ *  parts fold instead (`verylongna…@getalby.com`). */
+export function formatLightningAddress(address: string, maxLength = 24): string {
+  const trimmed = address.trim();
+  if (trimmed.length <= maxLength) return trimmed;
+  const at = trimmed.lastIndexOf("@");
+  if (at <= 0) return middleEllipsis(trimmed, 10, 6);
+  const local = trimmed.slice(0, at);
+  const domain = trimmed.slice(at); // includes '@'
+  const room = Math.max(3, maxLength - domain.length - 1);
+  return `${local.slice(0, room)}…${domain}`;
+}
+
 function isCashuRequestData(data: SendableValidatedData): data is CashuRequestSendData {
   return data.type === "cashu-request";
 }
