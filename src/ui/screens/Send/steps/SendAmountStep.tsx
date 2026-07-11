@@ -329,7 +329,9 @@ export function SendAmountStep({
     const name = displayName || contactName
     if (name) return formatRecipientDisplayText(name)
     if (validatedData?.type === 'my-wallet') return validatedData.targetMintName
-    if (validatedData?.type === 'lightning-address') return formatLightningAddress(validatedData.address)
+    // 20 chars ≈ the axis node's 170px at text-body semibold — the JS fold must
+    // win BEFORE the CSS truncate guard, or the guard would cut the domain tail
+    if (validatedData?.type === 'lightning-address') return formatLightningAddress(validatedData.address, 20)
     if (validatedData?.type === 'lnurl-pay') return validatedData.params?.domain || 'LNURL'
     if (validatedData?.type === 'bolt11') return middleEllipsis(validatedData.invoice, 8, 6)
     if (validatedData?.type === 'cashu-request') return formatNpubShort(validatedData.request)
