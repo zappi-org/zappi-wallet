@@ -1,11 +1,9 @@
-import { useCallback, useMemo, useContext } from 'react'
+import { useCallback, useContext } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import {
   selectTotalBalance,
   selectIsLoadingBalance,
-  selectMints,
-  selectActiveMintUrl,
 } from '@/store/selectors'
 import { ServiceContext } from '@/ui/hooks/service-context-value'
 import { toNumber } from '@/core/domain/amount'
@@ -13,8 +11,8 @@ import { toNumber } from '@/core/domain/amount'
 /**
  * Hook for wallet state and balance operations.
  *
- * Phase 5: BalanceUseCase 경유 (ServiceContext).
- * ServiceContext 없으면 balance 갱신 불가 (store 캐시만 반환).
+ * Balance refresh goes through BalanceUseCase (ServiceContext). Without
+ * ServiceContext, balance can't refresh (returns only the store cache).
  */
 export function useWallet() {
   const { t } = useTranslation()
@@ -24,21 +22,13 @@ export function useWallet() {
   const balance = useAppStore((state) => state.balance)
   const totalBalance = useAppStore(selectTotalBalance)
   const isLoadingBalance = useAppStore(selectIsLoadingBalance)
-  const mints = useAppStore(selectMints)
-  const activeMintUrl = useAppStore(selectActiveMintUrl)
-
-  // Derive onlineMints with useMemo to avoid creating new array reference on every render
-  const onlineMints = useMemo(() => mints.filter((m) => m.isOnline), [mints])
-
   // Store actions
   const setBalance = useAppStore((state) => state.setBalance)
   const setLoadingBalance = useAppStore((state) => state.setLoadingBalance)
-  const setMints = useAppStore((state) => state.setMints)
-  const setActiveMint = useAppStore((state) => state.setActiveMint)
   const addToast = useAppStore((state) => state.addToast)
 
   /**
-   * Load balance via BalanceUseCase (ServiceRegistry 경유)
+   * Load balance via BalanceUseCase (through ServiceRegistry)
    */
   const loadBalance = useCallback(async () => {
     if (!registry?.balance) {
@@ -77,14 +67,9 @@ export function useWallet() {
     balance,
     totalBalance,
     isLoadingBalance,
-    mints,
-    activeMintUrl,
-    onlineMints,
 
     // Actions
     loadBalance,
     refreshBalance: loadBalance, // Alias for loadBalance
-    setActiveMint,
-    setMints,
   }
 }

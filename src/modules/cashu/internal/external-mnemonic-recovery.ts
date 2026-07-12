@@ -1,3 +1,4 @@
+import { mintUrlKey } from '@/core/domain/mint-url'
 import { validateMnemonic, mnemonicToSeedSync } from '@scure/bip39'
 import { wordlist } from '@scure/bip39/wordlists/english.js'
 import {
@@ -78,7 +79,15 @@ export class CashuExternalMnemonicRecovery implements ExternalMnemonicRecoveryPo
       throw new Error('Invalid mnemonic')
     }
 
-    const uniqueMintUrls = [...new Set(params.mintUrls.map((url) => url.trim()).filter(Boolean))]
+    // Dedup on the canonical key (mintUrlKey) so case/:443 spelling variants don't
+    // restore the same mint twice (duplicate network round-trips). The wire call uses
+    // the first spelling seen (first-wins loop — a Map spread would be last-wins).
+    const byKey = new Map<string, string>()
+    for (const url of params.mintUrls.map((u) => u.trim()).filter(Boolean)) {
+      const key = mintUrlKey(url)
+      if (!byKey.has(key)) byKey.set(key, url)
+    }
+    const uniqueMintUrls = [...byKey.values()]
     const bip39Seed = mnemonicToSeedSync(mnemonic)
     const tokens: RecoveredEcashToken[] = []
     const failedMints: { mintUrl: string; error: string }[] = []

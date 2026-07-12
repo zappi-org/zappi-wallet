@@ -4,12 +4,12 @@ import { useTranslation } from 'react-i18next'
 import { useFormatSats } from '@/utils/format'
 import { Button } from '../../components/common'
 import { MintCard, resolveMintColor } from '../../components/wallet/MintCard'
-import { cn } from '@/ui/primitives/utils'
+import { cn } from '@/ui/lib/utils'
 import { useAppStore } from '@/store'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useMintHealth } from '@/ui/hooks/use-mint-health'
 import type { MintInfo } from '@/core/types'
-import { normalizeMintUrl } from '@/utils/url'
+import { normalizeMintUrl, isSameMintUrl, getMintBalance } from '@/utils/url'
 import type { ProviderDefaults } from '@/core/ports/driving/username.usecase'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import type { Amount } from '@/core/domain/amount'
@@ -65,7 +65,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
 
     for (const entry of mintEntries) {
       const isAccepted = defaults.acceptedMints.some(
-        (am) => normalizeMintUrl(am) === normalizeMintUrl(entry.url)
+        (am) => isSameMintUrl(am, entry.url)
       )
       if (isAccepted) {
         accepted.push(entry)
@@ -112,7 +112,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
       setIsCheckingUsername(true)
       try {
         const result = await registry.username.checkUsername(newUsername)
-        if (result.isErr()) {
+        if (!result.ok) {
           setUsernameError(t('settings.usernameChangeFailed'))
           return
         }
@@ -132,7 +132,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
         // Fetch server defaults for fee info (via ref to avoid dependency loop)
         if (!serverDefaultsRef.current) {
           const defaultsResult = await registry.username.getDefaults()
-          if (defaultsResult.isOk()) {
+          if (defaultsResult.ok) {
             serverDefaultsRef.current = defaultsResult.value
             setProviderDefaults(defaultsResult.value)
             autoSelectMint(defaultsResult.value)
@@ -158,10 +158,10 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
   const isAcceptedMint =
     selectedMintUrl && serverDefaults
       ? serverDefaults.acceptedMints.some(
-          (am) => normalizeMintUrl(am) === normalizeMintUrl(selectedMintUrl)
+          (am) => isSameMintUrl(am, selectedMintUrl)
         )
       : false
-  const selectedBalance = selectedMintUrl ? (balanceByMint[selectedMintUrl] ?? 0) : 0
+  const selectedBalance = selectedMintUrl ? getMintBalance(selectedMintUrl, balanceByMint) : 0
   const canAfford = selectedMintUrl ? selectedBalance >= addressFee : false
 
   // --- All mints with sufficient balance for selection ---
@@ -172,7 +172,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
       .filter(([, balance]) => balance >= fee)
       .map(([url, balance]) => {
         const isAccepted = serverDefaults.acceptedMints.some(
-          (am) => normalizeMintUrl(am) === normalizeMintUrl(url)
+          (am) => isSameMintUrl(am, url)
         )
         return { url, balance, isAccepted }
       })
@@ -205,7 +205,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
     try {
       const { addressFee: fee, acceptedMints } = serverDefaults
       const isAccepted = acceptedMints.some(
-        (am) => normalizeMintUrl(am) === normalizeMintUrl(selectedMintUrl)
+        (am) => isSameMintUrl(am, selectedMintUrl)
       )
 
       let paymentMintUrl = selectedMintUrl
@@ -253,7 +253,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
 
       // Submit username change
       const result = await registry.username.changeUsername(nostrPrivkey, newUsername, cashuToken)
-      if (result.isErr()) {
+      if (!result.ok) {
         addToast({ type: 'error', message: String((result.error as { message?: string }).message ?? t('settings.paymentFailed')) })
         return
       }

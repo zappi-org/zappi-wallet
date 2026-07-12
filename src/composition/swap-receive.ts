@@ -2,7 +2,7 @@ import { sat, toNumber } from '@/core/domain/amount'
 import type { BalanceUseCase } from '@/core/ports/driving/balance.usecase'
 import type { PaymentUseCase } from '@/core/ports/driving/payment.usecase'
 import type { SwapUseCase } from '@/core/ports/driving/swap.usecase'
-import { normalizeMintUrl } from '@/utils/url'
+import { normalizeMintUrl } from '@/core/domain/mint-url'
 
 const MAX_SOURCE_REMAINDER_SWAPS = 3
 

@@ -1,4 +1,4 @@
-import type { Result } from '@/core/types/result'
+import type { Result } from '@/core/domain/result'
 import type { BaseError } from '@/core/errors/base'
 
 /** Lightning Address registration result */

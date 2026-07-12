@@ -128,7 +128,6 @@ describe('SendInputStep redirect', () => {
     vi.useRealTimers()
   })
 
-  // ─── Test 1 ───
   it('cashu-token paste routes via universal router (onRouteValidated)', async () => {
     const tokenStr = 'cashuAeyJ0b2tlbiI6W3sicHJvb2ZzIjpbXX1dfQ=='
     mockDetectAndClassify.mockReturnValue({
@@ -153,8 +152,7 @@ describe('SendInputStep redirect', () => {
     expect(defaultProps.onNext).not.toHaveBeenCalled()
   })
 
-  // ─── Test 2 ───
-  it('lnurl-withdraw calls onRedirect after async validation', async () => {
+  it('lnurl-withdraw hands off via onRouteValidated at SUBMIT — typing stays network-zero (§8.5)', async () => {
     const lnurlStr = 'lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhkxmmww4hxjmn8v96x7'
     mockDetectAndClassify.mockReturnValue({ type: 'lnurl', lnurl: lnurlStr })
     mockValidateAsync.mockResolvedValue({
@@ -166,16 +164,22 @@ describe('SendInputStep redirect', () => {
     renderStep()
     typeIntoInput(lnurlStr)
 
+    // While typing: no remote validation and no redirect
     await act(async () => { vi.advanceTimersByTime(500) })
-    await act(async () => { await vi.runAllTimersAsync() })
+    expect(mockValidateAsync).not.toHaveBeenCalled()
+    expect(defaultProps.onRedirect).not.toHaveBeenCalled()
 
-    expect(defaultProps.onRedirect).toHaveBeenCalledWith(
+    // At submit: validate, then hand off non-send types to the universal router
+    const nextButton = screen.getByRole('button', { name: 'send.next' })
+    await act(async () => { nextButton.click(); await vi.runAllTimersAsync() })
+
+    expect(mockValidateAsync).toHaveBeenCalledTimes(1)
+    expect(defaultProps.onRouteValidated).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'lnurl-withdraw' })
     )
     expect(defaultProps.onNext).not.toHaveBeenCalled()
   })
 
-  // ─── Test 3 ───
   it('bolt11 does NOT call onRedirect', async () => {
     const bolt11Str = 'lnbc100n1pjtest...'
     mockDetectAndClassify.mockReturnValue({
@@ -198,7 +202,6 @@ describe('SendInputStep redirect', () => {
     expect(defaultProps.onRedirect).not.toHaveBeenCalled()
   })
 
-  // ─── Test 4 ───
   it('lnurl-pay does NOT call onRedirect', async () => {
     const lnurlStr = 'lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhkxmmww4hxjmn8v96x7'
     mockDetectAndClassify.mockReturnValue({ type: 'lnurl', lnurl: lnurlStr })
@@ -214,7 +217,6 @@ describe('SendInputStep redirect', () => {
     expect(defaultProps.onRedirect).not.toHaveBeenCalled()
   })
 
-  // ─── Test 5 ───
   it('missing onRedirect does not crash on cashu-token paste', async () => {
     const tokenStr = 'cashuAeyJ0b2tlbiI6W3sicHJvb2ZzIjpbXX1dfQ=='
     mockDetectAndClassify.mockReturnValue({
@@ -241,8 +243,7 @@ describe('SendInputStep redirect', () => {
     expect(defaultProps.onNext).not.toHaveBeenCalled()
   })
 
-  // ─── Test 6 ───
-  it('validateAsync failure shows error, not redirect', async () => {
+  it('validateAsync failure at submit does not redirect (§8.5)', async () => {
     mockDetectAndClassify.mockReturnValue({
       type: 'lightning-address',
       address: 'test@failing.com',
@@ -251,11 +252,14 @@ describe('SendInputStep redirect', () => {
 
     renderStep()
     typeIntoInput('test@failing.com')
-
     await act(async () => { vi.advanceTimersByTime(500) })
-    await act(async () => { await vi.runAllTimersAsync() })
+    expect(mockValidateAsync).not.toHaveBeenCalled()
+
+    const nextButton = screen.getByRole('button', { name: 'send.next' })
+    await act(async () => { nextButton.click(); await vi.runAllTimersAsync() })
 
     expect(defaultProps.onRedirect).not.toHaveBeenCalled()
-    expect(screen.getByText('send.destination.validationFailed')).toBeInTheDocument()
+    expect(defaultProps.onRouteValidated).not.toHaveBeenCalled()
+    expect(defaultProps.onNext).not.toHaveBeenCalled()
   })
 })

@@ -70,6 +70,12 @@ vi.mock('@/ui/hooks/use-mint-health', () => ({
   }),
 }))
 
+vi.mock('@/ui/hooks/use-service-registry', () => ({
+  useServiceRegistry: () => ({
+    mintInfo: { getInfo: vi.fn().mockResolvedValue(null) },
+  }),
+}))
+
 vi.mock('@/ui/screens/Settings/SettingsHelpers', () => ({
   MintIcon: () => <div data-testid="mint-icon" />,
 }))

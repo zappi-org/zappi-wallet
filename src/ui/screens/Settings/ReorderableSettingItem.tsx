@@ -1,7 +1,7 @@
 import type { ReactNode, PointerEvent, KeyboardEvent } from 'react'
 import { GripVertical } from 'lucide-react'
 import { Reorder, useDragControls } from 'motion/react'
-import { cn } from '@/ui/primitives/utils'
+import { cn } from '@/ui/lib/utils'
 
 interface ReorderableSettingItemProps {
   value: string

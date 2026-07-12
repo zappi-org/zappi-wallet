@@ -9,7 +9,7 @@ import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
 import { useReclaimFees } from '@/ui/hooks/useReclaimFees'
 import { isSendToken, type TokenDetails } from '@/ui/types/pending-item-details'
 import { satsToFiat, useFormatSats } from '@/utils/format'
-import { cn } from '@/ui/primitives/utils'
+import { cn } from '@/ui/lib/utils'
 import { BanknotesIcon } from '@heroicons/react/24/outline'
 import { AnimatePresence } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
@@ -24,9 +24,9 @@ import {
   isTokenTimelineTx,
   pendingToDetail,
   transactionToDetail,
-} from './mockData'
+} from './token-view-model'
 import type {
-  MockPendingToken,
+  PendingTokenView,
   TokenDetailData,
 } from './types'
 
@@ -92,17 +92,20 @@ export function TokenScreen({
   // sends that were claimed while observer events were missed (app backgrounded,
   // subscription paused, etc.). Throttled at module level to avoid spam on
   // rapid tab switching.
+  // Token tab uses reconcile() only — local reconciliation (zero network) is
+  // enough. Remote-settlement detection is the watcher/bridge push's job, so
+  // recoverAll (which includes network recovery) was overkill.
   useEffect(() => {
-    if (!registry?.payment) return
+    if (!registry?.recoveryScheduler) return
     const now = Date.now()
     if (now - lastRecoverAllRun < RECOVER_THROTTLE_MS) return
     lastRecoverAllRun = now
-    registry.payment.recoverAll()
+    registry.recoveryScheduler.reconcile()
       .then(() => {
         triggerTxRefresh()
       })
       .catch((err) => {
-        console.warn('[TokenScreen] recoverAll failed:', err)
+        console.warn('[TokenScreen] reconcile failed:', err)
       })
   }, [registry, triggerTxRefresh])
 
@@ -118,7 +121,7 @@ export function TokenScreen({
   )
   const { fees: reclaimFees } = useReclaimFees(pendingTxIds)
 
-  const pendingTokens: MockPendingToken[] = useMemo(() => {
+  const pendingTokens: PendingTokenView[] = useMemo(() => {
     return pendingItemsRaw
       .filter(isSendToken)
       .map((item: PendingItem<TokenDetails>) => ({
@@ -164,7 +167,7 @@ export function TokenScreen({
   }, [onSaveSettings])
 
   const handleShare = useCallback(
-    async (token: MockPendingToken) => {
+    async (token: PendingTokenView) => {
       const shareText = token.tokenString
         ? token.tokenString
         : t('token.reclaimable.shareText', {
@@ -190,7 +193,7 @@ export function TokenScreen({
   const isEmpty = !hasPending && !hasTimeline
 
   const handleSelectPending = useCallback(
-    (token: MockPendingToken) => {
+    (token: PendingTokenView) => {
       console.log('[TokenScreen] handleSelectPending called', token)
       if (!onSelectToken) {
         console.log('[TokenScreen] onSelectToken is undefined')
@@ -240,17 +243,17 @@ export function TokenScreen({
     [onSelectToken, getDisplayName, getMetadata, getIconUrl, fiatRate, fiatCurrency],
   )
 
-  const [reclaimTargets, setReclaimTargets] = useState<MockPendingToken[] | null>(null)
+  const [reclaimTargets, setReclaimTargets] = useState<PendingTokenView[] | null>(null)
   const openReclaimAll = useCallback(() => {
     if (pendingTokens.length === 0) return
     setReclaimTargets(pendingTokens)
   }, [pendingTokens])
-  const openReclaimOne = useCallback((token: MockPendingToken) => {
+  const openReclaimOne = useCallback((token: PendingTokenView) => {
     setReclaimTargets([token])
   }, [])
   const closeReclaim = useCallback(() => setReclaimTargets(null), [])
   const confirmReclaim = useCallback(
-    async (tokens: MockPendingToken[]) => {
+    async (tokens: PendingTokenView[]) => {
       await reclaimMultiple(
         tokens.map((t) => t.id),
         {
@@ -258,7 +261,7 @@ export function TokenScreen({
             setReclaimTargets(null)
           },
           onError: () => {
-            // 토스트는 훅에서 처리. 여기서는 UI 상태 정리만
+            // Toast handled in the hook; here we only clean up UI state
             setReclaimTargets(null)
           },
         }

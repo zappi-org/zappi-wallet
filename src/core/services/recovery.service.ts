@@ -1,8 +1,7 @@
 /**
- * RecoveryService — RecoveryUseCase 구현 (ZAP-140)
+ * RecoveryService — RecoveryUseCase implementation.
  *
- * Anchor 관리 + 놓친 토큰 복구 + 실패 swap 재시도를 하나로 통합.
- * 나중에 module.recover(since) 패턴으로 프로토콜 무관하게 확장 가능.
+ * Unifies anchor management, missed-token recovery, and failed-swap retry.
  */
 
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
@@ -16,6 +15,12 @@ import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-qu
 import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request.usecase'
 import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
+import type { GiftwrapCursorStore } from '@/core/ports/driven/giftwrap-cursor-store.port'
+import {
+  giftwrapCursorKey,
+  shouldDeepResync,
+  sinceForDeepResync,
+} from '@/core/domain/giftwrap-cursor'
 import type {
   RecoveryUseCase,
   AnchorCheckResult,
@@ -35,6 +40,8 @@ import {
 // ─── Anchor constants ───
 
 const ANCHOR_VALIDITY_SECONDS = 2 * 24 * 60 * 60
+/** querySync wait cap for full/deep window fetches — the default 5s can't drain the backlog. */
+const DEEP_FETCH_MAX_WAIT_MS = 30_000
 const ANCHOR_MESSAGE_TYPE = 'zappi-anchor'
 const ANCHOR_VERSION = 1
 type ReceiveRequestSettlement = Pick<ReceiveRequestUseCase, 'settleByPaymentRef'>
@@ -68,6 +75,8 @@ export class RecoveryService implements RecoveryUseCase {
     private readonly receiveRequest?: ReceiveRequestSettlement,
     private readonly processedStore?: ProcessedStore,
     private readonly txRepo?: TransactionRepository,
+    /** since-cursor store. When not injected, deep-resync is a no-op. */
+    private readonly cursorStore?: GiftwrapCursorStore,
   ) {}
 
   // ─── syncAll (orchestration) ───
@@ -77,7 +86,7 @@ export class RecoveryService implements RecoveryUseCase {
     publicKey: string
     relays: string[]
   }): Promise<SyncResult> {
-    const { anchor } = await this.check(params)
+    const { anchor, isRecoveryMode } = await this.check(params)
 
     if (!anchor) {
       return {
@@ -90,13 +99,85 @@ export class RecoveryService implements RecoveryUseCase {
       }
     }
 
-    const result = await this.reconstructState(params)
+    // Only reinstall (isRecoveryMode) justifies a full replay; steady state uses the cursor window.
+    const result = await this.reconstructState(params, { fullReplay: isRecoveryMode })
 
     const retryResult = await this.retryFailedIncomings()
     if (retryResult.errors.length > 0) {
       result.errors.push(...retryResult.errors)
     }
 
+    // Safety net for delayed publishing (>2d): a 30-day age check on unlock, since a PWA has no scheduler.
+    try {
+      const deep = await this.maybeDeepResync(params)
+      if (deep) {
+        // Fold in deep results so the unlock toast doesn't under-report.
+        result.eventsProcessed += deep.eventsProcessed
+        result.tokensReceived += deep.tokensReceived
+        result.amountReceived += deep.amountReceived
+        result.failedIncomings += deep.failedIncomings
+        result.errors.push(...deep.errors)
+      }
+    } catch (error) {
+      result.errors.push(`Deep resync failed: ${error}`)
+    }
+
+    return result
+  }
+
+  /**
+   * Manual "full resync" — reinstall-grade full replay.
+   * On completion, also resets the deep-resync window (a full replay subsumes it).
+   */
+  async resyncFull(params: {
+    privateKey: string
+    publicKey: string
+    relays: string[]
+  }): Promise<SyncResult> {
+    const result = await this.reconstructState(params, { fullReplay: true })
+
+    const retryResult = await this.retryFailedIncomings()
+    if (retryResult.errors.length > 0) {
+      result.errors.push(...retryResult.errors)
+    }
+
+    // Reset the deep window only on an error-free run, so an isSyncing short-circuit
+    // ('Sync already in progress') or a partial failure doesn't consume the 30-day safety net.
+    if (this.cursorStore && result.errors.length === 0) {
+      await this.cursorStore
+        .markDeepResync(giftwrapCursorKey(params.publicKey), Date.now())
+        .catch(() => {})
+    }
+
+    return result
+  }
+
+  /** One re-fetch over the deep-resync window (since last deep-resync − Ω); bounded. */
+  private async maybeDeepResync(params: {
+    privateKey: string
+    publicKey: string
+    relays: string[]
+  }): Promise<SyncResult | null> {
+    if (!this.cursorStore) return null
+
+    const key = giftwrapCursorKey(params.publicKey)
+    const record = await this.cursorStore.load(key)
+    const now = Date.now()
+    if (!shouldDeepResync(record, now)) return null
+
+    const since = sinceForDeepResync(record)
+    console.log('[Recovery] Deep resync (30d age check), since:', since)
+    const result = await this.reconstructState(params, {
+      sinceSecOverride: since,
+      // If since can't be determined (abnormal), fall back to the full window (avoid loss first).
+      fullReplay: since === undefined,
+    })
+
+    // Advance the marker only on an error-free run, so an isSyncing short-circuit
+    // or a partial failure doesn't silently consume the 30-day safety net.
+    if (result.errors.length === 0) {
+      await this.cursorStore.markDeepResync(key, now)
+    }
     return result
   }
 
@@ -158,11 +239,19 @@ export class RecoveryService implements RecoveryUseCase {
 
   // ─── State reconstruction ───
 
-  async reconstructState(params: {
-    privateKey: string
-    publicKey: string
-    relays: string[]
-  }): Promise<SyncResult> {
+  async reconstructState(
+    params: {
+      privateKey: string
+      publicKey: string
+      relays: string[]
+    },
+    opts?: {
+      /** Reinstall or manual full resync — since not applied. */
+      fullReplay?: boolean
+      /** Explicit window in seconds (e.g. deep-resync) — overrides cursor computation. */
+      sinceSecOverride?: number
+    },
+  ): Promise<SyncResult> {
     const startTime = Date.now()
     const result: SyncResult = {
       eventsProcessed: 0,
@@ -184,6 +273,16 @@ export class RecoveryService implements RecoveryUseCase {
       const messages = await this.nostr.fetchGiftWraps({
         recipientPubkey: params.publicKey,
         relays: params.relays,
+        // Apply the cursor window — ignored if the gateway has no store injected.
+        cursor: {
+          key: giftwrapCursorKey(params.publicKey),
+          fullReplay: opts?.fullReplay,
+        },
+        sinceSecOverride: opts?.sinceSecOverride,
+        // Full/deep windows raise the wait cap so a partial 5s fetch can't masquerade as "complete".
+        ...(opts?.fullReplay || opts?.sinceSecOverride !== undefined
+          ? { maxWaitMs: DEEP_FETCH_MAX_WAIT_MS }
+          : {}),
       })
 
       for (const msg of messages) {
@@ -196,14 +295,10 @@ export class RecoveryService implements RecoveryUseCase {
           continue
         }
 
-        if (this.processedStore) {
-          await this.processedStore.save({
-            externalId: msg.eventId,
-            processedAt: Date.now(),
-            result: 'pending',
-          })
-        }
-
+        // Ordering contract: mark processedStore only after the branch's durable
+        // action (untrusted: after enqueue) or just before it (trusted: before
+        // receiveToken). The old bulk 'pending' marking before parsing got caught
+        // by replay dedup on a crash and permanently lost tokens.
         try {
           const candidate = parseGiftWrapTokenContent(msg.content, msg.eventId)
           const restoreRequestId = candidate?.requestId
@@ -220,6 +315,10 @@ export class RecoveryService implements RecoveryUseCase {
             : this.tokenCodec.inspectCashuToken(directToken.token)
 
           if (!(await this.trustedMintProvider.hasTrustedMint(info.mint))) {
+            // Mark only after the durable enqueue (PK-idempotent) succeeds — if we
+            // die in between it stays unmarked, so the next sync re-enqueues.
+            // recoveryStore is intentionally left unmarked: this event isn't final
+            // until the review resolves.
             await this.incomingReviewQueue.enqueue({
               externalId: msg.eventId,
               token: {
@@ -233,8 +332,24 @@ export class RecoveryService implements RecoveryUseCase {
               senderPubkey: msg.sender,
               source: 'recovery',
             })
+            if (this.processedStore) {
+              await this.processedStore.save({
+                externalId: msg.eventId,
+                processedAt: Date.now(),
+                result: 'pending',
+              })
+            }
             result.eventsProcessed++
             continue
+          }
+
+          // Shrink the concurrency window with the watcher: mark just before the receive attempt.
+          if (this.processedStore) {
+            await this.processedStore.save({
+              externalId: msg.eventId,
+              processedAt: Date.now(),
+              result: 'pending',
+            })
           }
 
           const receiveResult = await this.tokenReceiver.receiveToken(directToken.token)

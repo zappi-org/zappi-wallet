@@ -96,7 +96,18 @@ export default defineConfig({
     include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     coverage: {
       reporter: ['text', 'json', 'html'],
-      exclude: ['node_modules/', 'src/__tests__/'],
+      // include also counts un-imported files (without it they escape coverage stats;
+      // vitest 4 removed the `all` option — include-matched files report 0% even if never run)
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['node_modules/', 'src/__tests__/', '**/*.d.ts'],
+      // Ratchet: floor pinned to the 2026-07-07 measured baseline — never lower, only raise.
+      // A floating relative margin (-5%p) would legitimize downward drift, so it was rejected.
+      // Floor = measured −2~3%p: a floor tied exactly to measured values leaves no room for
+      // benign changes — adding two defensive branches would trip the gate and pressure the floor down.
+      thresholds: {
+        'src/core/domain/**': { lines: 91, statements: 86, branches: 79, functions: 88 },
+        'src/composition/**': { lines: 55, statements: 54, branches: 40, functions: 42 },
+      },
     },
   },
   build: {
@@ -106,7 +117,7 @@ export default defineConfig({
           'vendor-react': ['react', 'react-dom'],
           'vendor-motion': ['motion'],
           'vendor-charts': ['recharts'],
-          'vendor-nostr': ['@nostr-dev-kit/ndk', 'nostr-tools'],
+          'vendor-nostr': ['nostr-tools'],
           'vendor-cashu': ['@cashu/cashu-ts'],
           'vendor-coco': ['@cashu/coco-core', '@cashu/coco-indexeddb'],
         },
@@ -161,11 +172,9 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // Precache all static assets
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
         clientsClaim: true,
         cleanupOutdatedCaches: true,
-        // Runtime caching for fonts and CDN resources
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

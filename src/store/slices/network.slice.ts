@@ -7,7 +7,6 @@ import type { NetworkState } from '@/core/types'
 export interface NetworkSliceState {
   // Network status
   networkState: NetworkState
-  wasOffline: boolean
   lastOnlineAt: number | null
 
   // Relay connections
@@ -16,13 +15,13 @@ export interface NetworkSliceState {
 
   // Actions
   setNetworkState: (state: NetworkState) => void
-  setWasOffline: (wasOffline: boolean) => void
   setLastOnlineAt: (timestamp: number | null) => void
   setConnectedRelays: (relays: string[]) => void
   addConnectedRelay: (relay: string) => void
   removeConnectedRelay: (relay: string) => void
   setConnectingRelays: (connecting: boolean) => void
-  reset: () => void
+  /** Slice-specific reset called by resetAll (fixes same-named reset collisions where only the last spread survived) */
+  resetNetwork: () => void
 }
 
 /**
@@ -30,7 +29,6 @@ export interface NetworkSliceState {
  */
 const initialState = {
   networkState: 'ONLINE' as NetworkState,
-  wasOffline: false,
   lastOnlineAt: null as number | null,
   connectedRelays: [] as string[],
   isConnectingRelays: false,
@@ -42,20 +40,16 @@ const initialState = {
 export const createNetworkSlice: StateCreator<NetworkSliceState> = (set) => ({
   ...initialState,
 
+  // Removed the wasOffline flag: its only consumer (use-mint-health's reconnect
+  // effect) was replaced by a single bootstrap listener, leaving it a permanent
+  // stuck-true dead state.
   setNetworkState: (networkState) =>
     set((state) => {
-      // Track if we were offline
       if (state.networkState === 'OFFLINE' && networkState === 'ONLINE') {
-        return {
-          networkState,
-          wasOffline: true,
-          lastOnlineAt: Date.now(),
-        }
+        return { networkState, lastOnlineAt: Date.now() }
       }
       return { networkState }
     }),
-
-  setWasOffline: (wasOffline) => set({ wasOffline }),
 
   setLastOnlineAt: (lastOnlineAt) => set({ lastOnlineAt }),
 
@@ -75,5 +69,5 @@ export const createNetworkSlice: StateCreator<NetworkSliceState> = (set) => ({
 
   setConnectingRelays: (isConnectingRelays) => set({ isConnectingRelays }),
 
-  reset: () => set(initialState),
+  resetNetwork: () => set(initialState),
 })

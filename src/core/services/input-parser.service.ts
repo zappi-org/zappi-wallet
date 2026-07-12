@@ -1,3 +1,5 @@
+import { LnurlParseError } from '@/core/errors/lightning'
+import { UnrecognizedInputError } from '@/core/errors/payment.errors'
 import type { InputParserUseCase } from '@/core/ports/driving/input-parser.usecase'
 import type { TokenCodec, CashuTokenInspection } from '@/core/ports/driven/token-codec.port'
 import type { LnurlGateway } from '@/core/ports/driven/lnurl-gateway.port'
@@ -140,7 +142,7 @@ export class InputParserService implements InputParserUseCase {
             params: response,
           }
         }
-        throw new Error(`Unsupported LNURL tag: ${(response as { tag: string }).tag}`)
+        throw new LnurlParseError(`Unsupported LNURL tag: ${(response as { tag: string }).tag}`)
       }
 
       case 'cashu-token':
@@ -165,7 +167,7 @@ export class InputParserService implements InputParserUseCase {
         return { type: 'amount', amount: input.amount }
 
       default:
-        throw new Error(`Cannot validate input type: ${(input as { type: string }).type}`)
+        throw new UnrecognizedInputError(`Cannot validate input type: ${(input as { type: string }).type}`)
     }
   }
 

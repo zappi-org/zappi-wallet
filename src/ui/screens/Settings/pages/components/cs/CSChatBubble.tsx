@@ -1,6 +1,7 @@
+import type { TFunction } from 'i18next'
 import { Image as ImageIcon, ImageOff, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { cn } from '@/ui/primitives/utils'
+import { cn } from '@/ui/lib/utils'
 import type { SupportAttachment, SupportMessage } from '@/core/domain/support'
 
 interface CSChatBubbleProps {
@@ -118,7 +119,7 @@ export function CSChatBubble({
 function attachmentHint(
   attachment: SupportAttachment,
   openingIds: Set<string>,
-  t: (key: string) => string,
+  t: TFunction,
 ): string {
   if (attachment.state !== 'available') return t('support.attachmentMetadataOnly')
   if (openingIds.has(attachment.id)) return t('support.openingAttachment')

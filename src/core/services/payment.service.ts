@@ -1,10 +1,8 @@
 /**
- * PaymentService — PaymentUseCase 구현
+ * PaymentService — PaymentUseCase implementation.
  *
- * WalletModule + TransactionRepository + EventBus를 조합하여
- * 결제 유스케이스를 구현하는 application service.
- *
- * 의존성: port interface만. module/adapter 구체 구현에 무관.
+ * Application service composing WalletModule + TransactionRepository + EventBus.
+ * Depends only on port interfaces, independent of concrete module/adapter implementations.
  */
 
 import type { Amount } from '@/core/domain/amount'
@@ -12,7 +10,7 @@ import { amount as amt } from '@/core/domain/amount'
 import type { Result } from '@/core/domain/result'
 import { Err, Ok } from '@/core/domain/result'
 import { createTransaction, settleAsDelivered, settleAsReclaimed } from '@/core/domain/transaction'
-import { BaseError, UnknownError } from '@/core/errors/base'
+import { BaseError, ServiceNotReadyError, UnknownError } from '@/core/errors/base'
 import { AdapterNotFoundError, ModuleNotFoundError } from '@/core/errors/payment.errors'
 import type { EventBus } from '@/core/events/event-bus'
 import type { OperationMap } from '@/core/ports/driven/operation-map.port'
@@ -24,6 +22,7 @@ import type {
   RedeemResult,
 } from '@/core/ports/driven/payment-method.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
+import { RequestGate } from '@/core/utils/request-gate'
 import type { ModuleBalance, WalletModule } from '@/core/ports/driven/wallet-module.port'
 import type { TransferIntent } from '@/core/ports/driven/transfer-operator.port'
 import type { TransferLifecycleService } from '@/core/services/transfer-lifecycle.service'
@@ -74,6 +73,23 @@ function isRollingBackStateMessage(message: string): boolean {
 }
 
 export class PaymentService implements PaymentUseCase {
+  /**
+   * Prevents overlap of recoverAll's six triggers (unlock, resume, pull-refresh, Token tab,
+   * AddMint, settings). Instance field = bootstrap scope, so the gate resets on account switch.
+   * runRecoverAll never rejects (per-adapter try/catch), so failureCooldown is a defensive default.
+   */
+  private readonly recoverAllGate = new RequestGate({ cooldownMs: 30_000, failureCooldownMs: 30_000 })
+
+  /**
+   * recoverAll delegation path. When bootstrap has ks.recovery-split OFF it injects the
+   * RecoveryScheduler composition (reconcile + recoverTargeted), preserving the signature/return
+   * contract and only swapping in the decomposed implementation. When not injected (switch ON),
+   * falls back to the legacy path (runRecoverAll: per-adapter batch). The delegate owns its own
+   * gating (reconcile 10s / targeted 5m), so this class's 30s gate is not applied to the delegate
+   * path — otherwise a double gate would swallow the "Token tab reconcile right after unlock".
+   */
+  private recoveryDelegate: ((opts?: { bypassGate?: boolean }) => Promise<RecoveryReport[]>) | null = null
+
   constructor(
     private modules: WalletModule[],
     private txRepo: TransactionRepository,
@@ -81,6 +97,10 @@ export class PaymentService implements PaymentUseCase {
     private operationMap?: OperationMap,
     private transferLifecycle?: TransferLifecycleService,
   ) {}
+
+  setRecoveryDelegate(delegate: (opts?: { bypassGate?: boolean }) => Promise<RecoveryReport[]>): void {
+    this.recoveryDelegate = delegate
+  }
 
   // ─── Query ───
 
@@ -109,7 +129,7 @@ export class PaymentService implements PaymentUseCase {
     memo?: string
     options?: Record<string, unknown>
   }): Promise<Result<SendResult, BaseError>> {
-    const module = this.findModuleForAccount(params.accountId)
+    const module = this.findEnabledModule()
     if (!module) {
       return Err(new ModuleNotFoundError(`No module found for account: ${params.accountId}`))
     }
@@ -181,7 +201,7 @@ export class PaymentService implements PaymentUseCase {
           metadata: { ...result.data, operationId: result.operationId },
           ...feeData,
         })
-        // operationMap에 등록 → sendTokenObserver가 send:finalized 시 txId 조회 가능
+        // Register in operationMap so sendTokenObserver can look up the txId on send:finalized.
         if (result.operationId) {
           this.operationMap?.register(result.operationId, txId)
         }
@@ -215,8 +235,16 @@ export class PaymentService implements PaymentUseCase {
     }
   }
 
-  private findModuleForAccount(_accountId: string): WalletModule | undefined {
-    // TODO: accountId로 정확한 module 매칭 (현재는 첫 번째 enabled module 반환)
+  /**
+   * Only one module is actually registered (bootstrap.ts `modules: WalletModule[] = [cashuModule]`,
+   * and the sole WalletModule implementation is cashu.module.ts), and there is no accountId
+   * (mint URL)→module ownership mapping, so matching can't be implemented (ownership is only
+   * confirmable via balance lookup — see the getPaymentAdapters comment). The name and parameters
+   * are aligned to the actual behavior ("first enabled module") so the signature doesn't promise a
+   * match it can't make. When multiple modules arrive, add an accountId→module registry and
+   * replace this function.
+   */
+  private findEnabledModule(): WalletModule | undefined {
     return this.modules.find(m => m.isEnabled())
   }
 
@@ -264,7 +292,7 @@ export class PaymentService implements PaymentUseCase {
       return Err(new AdapterNotFoundError(`Adapter ${adapter.id} does not support redeem`))
     }
 
-    // Idempotency: 지정된 txId로 이미 기록된 TX가 있으면 skip
+    // Idempotency: skip if a TX is already recorded under the given txId.
     const txId = params.transactionId ?? crypto.randomUUID()
     if (params.transactionId) {
       const existing = await this.txRepo.getById(txId)
@@ -282,7 +310,7 @@ export class PaymentService implements PaymentUseCase {
     try {
       const result = await adapter.redeem(params.input)
 
-      // TX 기록 (redeem은 수신이므로 direction: receive)
+      // Record the TX (redeem is a receive, so direction: receive).
       const tx = createTransaction({
         id: txId,
         direction: 'receive',
@@ -291,9 +319,9 @@ export class PaymentService implements PaymentUseCase {
         amount: result.amount,
         accountId: result.accountId ?? adapter.moduleId,
         memo: result.memo,
-        // eCash receive는 정확한 fee이므로 quoted = effective
+        // eCash receive has an exact fee, so quoted = effective.
         ...(result.fee && { fee: { quoted: result.fee, effective: result.fee } }),
-        // Adapter 가 결정한 audit payload 만 저장 — service 는 내용 해석 안 함
+        // Store only the adapter-decided audit payload — the service doesn't interpret its contents.
         ...(result.metadata && { metadata: result.metadata }),
       })
       const settled = settleAsDelivered(tx)
@@ -501,8 +529,8 @@ export class PaymentService implements PaymentUseCase {
 
     const operationId = tx.metadata?.operationId as string | undefined
     if (operationId) {
-      // adapter에 finalize 위임 (SDK finalize 호출)
-      // SDK가 이미 finalize한 경우 (send:finalized 이벤트 경유) 무시
+      // Delegate finalize to the adapter (calls SDK finalize);
+      // ignore if the SDK already finalized it (via the send:finalized event).
       const adapter = this.findAdapter(tx.method)
       if (adapter?.finalizeSend) {
         try {
@@ -665,7 +693,18 @@ export class PaymentService implements PaymentUseCase {
 
   // ─── Recovery ───
 
-  async recoverAll(): Promise<RecoveryReport[]> {
+  async recoverAll(opts?: { bypassGate?: boolean }): Promise<RecoveryReport[]> {
+    if (this.recoveryDelegate) {
+      return this.recoveryDelegate(opts)
+    }
+    if (opts?.bypassGate) {
+      return this.runRecoverAll()
+    }
+    const { value } = await this.recoverAllGate.run('recoverAll', () => this.runRecoverAll())
+    return value
+  }
+
+  private async runRecoverAll(): Promise<RecoveryReport[]> {
     const reports: RecoveryReport[] = []
 
     for (const module of this.modules) {
@@ -702,7 +741,7 @@ export class PaymentService implements PaymentUseCase {
     const reports: AccountRecoveryReport[] = []
 
     for (const accountId of params.accountIds) {
-      const module = this.findModuleForAccount(accountId)
+      const module = this.findEnabledModule()
       if (!module) {
         reports.push({
           moduleId: 'unknown',
@@ -773,8 +812,8 @@ export class PaymentService implements PaymentUseCase {
     const result: PaymentMethodAdapter[] = []
     for (const module of this.modules) {
       if (!module.isEnabled()) continue
-      // module의 모든 adapter를 반환 — accountId는 mint/federation 식별자이므로
-      // 해당 module이 이 account를 소유하는지는 balance로 확인
+      // Return all of the module's adapters — accountId is a mint/federation identifier,
+      // so whether a module owns the account is confirmed via balance.
       result.push(...module.getPaymentAdapters())
     }
     return result
@@ -787,7 +826,7 @@ export class PaymentService implements PaymentUseCase {
     protocol: string,
   ): Promise<ReturnType<TransferLifecycleService['initiateTransfer']>> {
     if (!this.transferLifecycle) {
-      throw new Error('TransferLifecycleService not configured')
+      throw new ServiceNotReadyError('TransferLifecycleService')
     }
     return this.transferLifecycle.initiateTransfer(intent, protocol)
   }

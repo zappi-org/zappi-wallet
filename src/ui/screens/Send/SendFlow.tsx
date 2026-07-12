@@ -15,6 +15,7 @@ import { PageTransition } from '@/ui/components/common/PageTransition'
 import { useNetwork } from '@/ui/hooks/use-network'
 import { useInputParser } from '@/ui/hooks/use-input-parser'
 import { useAppStore } from '@/store'
+import { isSameMintUrl } from '@/utils/url'
 import { useTranslation } from 'react-i18next'
 import type {
   ValidatedData,
@@ -447,7 +448,7 @@ export function SendFlow({
         addressOrInvoice: getAddressOrInvoice(validatedData),
       }
 
-      // Phase 5: my-wallet 타입은 SwapUseCase 경유 (cross-mint invoice 자체 생성)
+      // my-wallet type routes through SwapUseCase (generates its own cross-mint invoice)
       if (validatedData.type === 'my-wallet' && onMintSwap && routeSelection.targetMintUrl) {
         const swapResult = await onMintSwap(
           routeSelection.sourceMintUrl,
@@ -457,7 +458,7 @@ export function SendFlow({
         if (swapResult?.success) {
           setState((prev) => ({ ...prev, step: 'complete' }))
         } else {
-          setState((prev) => ({ ...prev, step: 'confirm', error: t('payment.swapFailed') }))
+          setState((prev) => ({ ...prev, step: 'confirm', error: t('transfer.swapFailed') }))
         }
         return
       }
@@ -685,9 +686,7 @@ export function SendFlow({
         selectedMintUrl={state.selectedMintUrl}
         filterFn={
           mintSelection?.context === 'destination'
-            ? (mint) => mintSelection.commonMintUrls.some(
-                (url) => url.replace(/\/+$/, '').toLowerCase() === mint.url.replace(/\/+$/, '').toLowerCase()
-              )
+            ? (mint) => mintSelection.commonMintUrls.some((url) => isSameMintUrl(url, mint.url))
             : undefined
         }
         buttonLabel={

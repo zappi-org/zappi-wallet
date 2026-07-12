@@ -3,7 +3,7 @@
  * Cashu tokens are bearer — no counterparty is recorded.
  * Fiat value is computed live from current rate, not stored.
  */
-export interface MockPendingToken {
+export interface PendingTokenView {
   id: string
   createdAt: number
   amount: number

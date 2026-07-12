@@ -8,6 +8,7 @@ import {
   type SupportTicket,
 } from '@/core/domain/support'
 import { useAppStore } from '@/store'
+import { onWake } from '@/core/utils/wake-signal'
 
 export function useSupportNotifications(registry: ServiceRegistry | null): void {
   const { t } = useTranslation()
@@ -81,18 +82,16 @@ export function useSupportNotifications(registry: ServiceRegistry | null): void 
       lastRefreshAt = now
       support.refresh().catch(() => undefined)
     }
-    const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') refresh()
-    }
 
-    window.addEventListener('online', refresh)
-    document.addEventListener('visibilitychange', refreshWhenVisible)
+    // Single wake owner: unifies the two separate online/visibility listeners
+    // into one subscription to the shared 3s-debounced wake signal. The 15s
+    // self-throttle is kept on top of onWake.
+    const stopWake = onWake(refresh)
 
     return () => {
       disposed = true
       unsubscribe()
-      window.removeEventListener('online', refresh)
-      document.removeEventListener('visibilitychange', refreshWhenVisible)
+      stopWake()
       setSupportUnreadSummary(0, [])
     }
   }, [registry, addToast, setSupportUnreadSummary, t])

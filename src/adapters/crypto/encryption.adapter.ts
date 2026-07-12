@@ -1,19 +1,21 @@
 /**
- * EncryptionAdapter — crypto.subtle 래핑 (AES-256-GCM + PBKDF2)
+ * EncryptionAdapter — crypto.subtle wrapper (AES-256-GCM + PBKDF2).
  *
- * 브라우저 네이티브 Web Crypto API. 번들 크기 추가 0.
+ * Browser-native Web Crypto API. Zero added bundle size.
  */
 
 import type { Encryption, EncryptedData } from '@/core/ports/driven/encryption.port'
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 
-const PBKDF2_ITERATIONS = 100_000
+// This adapter does not own the iteration count — policy is decided by the service
+// layer (KDF_ITERATIONS) and this executor applies the iterations it is passed as-is.
 
 export class EncryptionAdapter implements Encryption {
-  async encrypt(data: string, password: string): Promise<EncryptedData> {
+  async encrypt(data: string, password: string, iterations: number): Promise<EncryptedData> {
     const salt = crypto.getRandomValues(new Uint8Array(16))
     const iv = crypto.getRandomValues(new Uint8Array(12))
 
-    const key = await this.deriveKey(password, salt)
+    const key = await this.deriveKey(password, salt, iterations)
     const encoded = new TextEncoder().encode(data)
 
     const encrypted = await crypto.subtle.encrypt(
@@ -29,12 +31,12 @@ export class EncryptionAdapter implements Encryption {
     }
   }
 
-  async decrypt(encrypted: EncryptedData, password: string): Promise<string> {
+  async decrypt(encrypted: EncryptedData, password: string, iterations: number): Promise<string> {
     const salt = hexToBytes(encrypted.salt)
     const iv = hexToBytes(encrypted.iv)
     const cipherBytes = new Uint8Array(base64ToArrayBuffer(encrypted.ciphertext))
 
-    const key = await this.deriveKey(password, salt)
+    const key = await this.deriveKey(password, salt, iterations)
 
     const decrypted = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv: iv as Uint8Array<ArrayBuffer> },
@@ -45,7 +47,7 @@ export class EncryptionAdapter implements Encryption {
     return new TextDecoder().decode(decrypted)
   }
 
-  async hashPassword(password: string, salt: string): Promise<string> {
+  async hashPassword(password: string, salt: string, iterations: number): Promise<string> {
     const encoder = new TextEncoder()
     const keyMaterial = await crypto.subtle.importKey(
       'raw',
@@ -58,8 +60,10 @@ export class EncryptionAdapter implements Encryption {
     const bits = await crypto.subtle.deriveBits(
       {
         name: 'PBKDF2',
+        // v1 semantics frozen: encode the salt hex string directly via TextEncoder.
+        // Changing this encoding breaks verification of existing records — only iterations are parameterized.
         salt: encoder.encode(salt),
-        iterations: PBKDF2_ITERATIONS,
+        iterations,
         hash: 'SHA-256',
       },
       keyMaterial,
@@ -69,7 +73,7 @@ export class EncryptionAdapter implements Encryption {
     return bytesToHex(new Uint8Array(bits))
   }
 
-  private async deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
+  private async deriveKey(password: string, salt: Uint8Array, iterations: number): Promise<CryptoKey> {
     const keyMaterial = await crypto.subtle.importKey(
       'raw',
       new TextEncoder().encode(password),
@@ -82,7 +86,7 @@ export class EncryptionAdapter implements Encryption {
       {
         name: 'PBKDF2',
         salt: new Uint8Array(salt),
-        iterations: PBKDF2_ITERATIONS,
+        iterations,
         hash: 'SHA-256',
       },
       keyMaterial,
@@ -95,17 +99,9 @@ export class EncryptionAdapter implements Encryption {
 
 // ─── Helpers ───
 
-function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('')
-}
-
-function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2)
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16)
-  }
-  return bytes
-}
+// hex conversion is unified on @noble/hashes — the old local hexToBytes silently produced
+// garbage on malformed input, but noble throws. This adapter's hex inputs are all
+// self-generated round-trips (salt/iv), so validity is guaranteed — fail-loud is pure win.
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer)

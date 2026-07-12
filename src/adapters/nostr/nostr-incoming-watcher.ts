@@ -1,13 +1,11 @@
 /**
- * NostrIncomingWatcher — Adapter Layer
+ * NostrIncomingWatcher — adapter layer.
  *
- * NIP-17 gift wrap 수신 → 복호화/검증 → PendingTransfer 생성 → Store 저장
+ * NIP-17 gift wrap receive → decrypt/verify → create PendingTransfer → persist to store.
  *
- * ⚠️ 이 Watcher는 "발견"만 담당합니다.
- * 생성된 PendingTransfer는 TransferLifecycleService가 "관리"합니다.
- *
- * 복호화는 NostrGatewayAdapter 내부에서 처리됩니다.
- * 이 Watcher는 UnwrappedMessage(content, sender, eventId)를 받습니다.
+ * This watcher only handles discovery; the resulting PendingTransfer is managed by
+ * TransferLifecycleService. Decryption happens inside NostrGatewayAdapter, so this watcher
+ * receives an UnwrappedMessage (content, sender, eventId).
  */
 
 import type { NostrGateway, UnwrappedMessage } from '@/core/ports/driven/nostr-gateway.port'
@@ -20,6 +18,8 @@ import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-qu
 import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
 import { createPendingTransfer } from '@/core/domain/pending-transfer'
 import { toNumber } from '@/core/domain/amount'
+import { giftwrapCursorKey } from '@/core/domain/giftwrap-cursor'
+import { incrementNetCounter } from '@/adapters/telemetry/net-counters'
 import {
   parseGiftWrapTokenContent,
   type GiftWrapTokenCandidate,
@@ -38,13 +38,26 @@ export class NostrIncomingWatcher {
     private readonly incomingReviewQueue: IncomingReviewQueue,
     private readonly tokenCodec: TokenCodec,
     private readonly getPendingRequestId: () => string | null,
+    /**
+     * Persistent relay set used to decide all-EOSE (full-sync). A configured value, not a
+     * connection snapshot — a down relay must keep holding the cursor so nothing is lost.
+     */
+    private readonly getPersistentRelays: () => string[] = () => [],
   ) {}
 
   start(recipientPubkey: string): void {
     if (this.unsubscribe) return
 
     this.unsubscribe = this.nostrGateway.subscribeGiftWraps(
-      { recipientPubkey },
+      // Apply the cursor window — shrinks each (re)subscription's full-history replay to a
+      // lastFullSync − Ω window. Ignored when the gateway has no store injected.
+      {
+        recipientPubkey,
+        cursor: {
+          key: giftwrapCursorKey(recipientPubkey),
+          fullSyncTargets: this.getPersistentRelays(),
+        },
+      },
       async (msg) => {
         await this.handleMessage(msg).catch((err) => {
           console.warn('[NostrIncomingWatcher] Failed to process giftwrap:', err)
@@ -66,56 +79,76 @@ export class NostrIncomingWatcher {
   // ─── Private ───
 
   private async handleMessage(msg: UnwrappedMessage): Promise<void> {
-    // 1. RecoveryService가 이미 처리한 eventId인지 확인 (복구 동기화 중복 방지)
+    // Instrumentation: the deduped-to-received ratio measures replay waste — the basis for
+    // comparing before and after the cursor rollout.
+    incrementNetCounter('giftwrap_events_received')
+
+    // 1. Skip if RecoveryService already processed this eventId (prevents recovery-sync duplicates).
     if (await this.recoveryStore.isProcessed(msg.eventId)) {
       console.log('[NostrIncomingWatcher] Already recovered:', msg.eventId.substring(0, 8))
+      incrementNetCounter('giftwrap_events_deduped')
       return
     }
 
-    // 2. 이미 GiftWrapWatcher/IncomingPaymentService가 처리한 eventId인지 확인
+    // 2. Skip if GiftWrapWatcher/IncomingPaymentService already processed this eventId.
     if (await this.processedStore.exists(msg.eventId)) {
       console.log('[NostrIncomingWatcher] Already processed:', msg.eventId.substring(0, 8))
+      incrementNetCounter('giftwrap_events_deduped')
       return
     }
 
-    // 3. TLS PendingTransfer 중복 방지
+    // 3. Skip duplicate TLS PendingTransfers.
     const existing = await this.transferStore.listByTxId(msg.eventId)
     if (existing.length > 0) {
       console.log('[NostrIncomingWatcher] Already in transfers:', msg.eventId.substring(0, 8))
+      incrementNetCounter('giftwrap_events_deduped')
       return
     }
 
-    // 3a. recovery와의 양방향 race 방지: 모든 중복 체크 통과 즉시 마킹
-    await this.processedStore.save({
-      externalId: msg.eventId,
-      processedAt: Date.now(),
-      result: 'pending',
-    })
+    // Ordering contract: mark processed only immediately before/after each branch's durable
+    // action (review enqueue / transfer creation). Marking in bulk before parsing would mean a
+    // crash between the mark and the enqueue makes replay hit dedup and the token is lost forever.
+    // The wider watcher↔recovery concurrency window from deferred marking is accepted — enqueue is
+    // PK-idempotent, and the transfer path is kept just as narrow by marking right before the branch.
+    const markProcessed = (result: 'pending' | 'skipped') =>
+      this.processedStore.save({
+        externalId: msg.eventId,
+        processedAt: Date.now(),
+        result,
+      })
 
-    // 4. 5종 메시지 포맷 파싱
+    // 4. Parse the five message formats.
     const candidate = parseGiftWrapTokenContent(msg.content, msg.eventId, {
       pendingRequestId: this.getPendingRequestId(),
     })
     if (!candidate) {
       console.log('[NostrIncomingWatcher] Not a token payload, skipping:', msg.eventId.substring(0, 8))
+      await markProcessed('skipped')
       return
     }
 
     const parsed = this.materializeCandidate(candidate)
-    if (!parsed) return
+    if (!parsed) {
+      await markProcessed('skipped')
+      return
+    }
 
-    // 5. mint 신뢰도 확인
+    // 5. Check mint trust.
     let info: { mint: string; amount: import('@/core/domain/amount').Amount; memo?: string }
     try {
       info = this.tokenCodec.inspectCashuToken(parsed.token)
     } catch (error) {
+      // Undecodable token — a permanent defect, so mark it terminal (retry is pointless).
       console.warn('[NostrIncomingWatcher] Failed to inspect token:', error)
+      await markProcessed('skipped')
       return
     }
 
     const trusted = await this.trustedMintProvider.hasTrustedMint(info.mint)
     if (!trusted) {
-      // untrusted: review queue에 넣고 사용자 확인 대기 (transfer 미생성)
+      // Untrusted: enqueue to the review queue and await user confirmation (no transfer created).
+      // Mark only after the durable enqueue completes — if it dies in between it stays unmarked, so
+      // replay re-enqueues (idempotent).
       await this.incomingReviewQueue.enqueue({
         externalId: msg.eventId,
         token: {
@@ -131,13 +164,17 @@ export class NostrIncomingWatcher {
         txId: parsed.txId,
         source: 'gift-wrap',
       })
+      await markProcessed('pending')
       return
     }
 
-    // 6. trusted: PendingTransfer 생성 (direction: incoming)
+    // Narrow the concurrency window with recovery: mark right before transfer creation.
+    await markProcessed('pending')
+
+    // 6. Trusted: create the PendingTransfer (direction: incoming).
     const transfer = createPendingTransfer({
       id: crypto.randomUUID(),
-      txId: msg.eventId, // eventId를 임시 txId로 사용 (나중에 Transaction과 연결)
+      txId: msg.eventId, // eventId serves as a temporary txId, linked to a Transaction later
       direction: 'incoming',
       finality: 'deferred',
       onExpiry: 'expire',
@@ -157,10 +194,10 @@ export class NostrIncomingWatcher {
       now: Date.now(),
     })
 
-    // 7. 저장
+    // 7. Persist.
     await this.transferStore.create(transfer)
 
-    // 8. UI 알림 → TLS가 자동 redeem
+    // 8. Notify the UI → TLS auto-redeems.
     this.eventBus.emit({
       type: 'incoming:received',
       payload: { transfer },

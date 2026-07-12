@@ -1,8 +1,7 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useServiceRegistry } from './use-service-registry'
-import { useNetwork } from './use-network'
 import type { MintHealthStatus } from '@/core/ports/driving/mint-health.usecase'
 
 interface EnsureOnlineMintOptions {
@@ -15,42 +14,37 @@ interface EnsureOnlineMintResult {
   wasPreferred: boolean
 }
 
+// Pin the mint we failed over to as session-preferred, so the next ensureOnlineMint
+// doesn't probe the dead mint first. Not render state, so a module variable rather
+// than the store.
+let stickyFallbackMint: string | null = null
+
 /**
  * Hook for mint health checking and fallback logic
  */
 export function useMintHealth() {
-  const { mintHealth, mintMetadata } = useServiceRegistry()
+  const { mintHealth } = useServiceRegistry()
   const { t } = useTranslation()
   const settingsMints = useAppStore((state) => state.settings.mints)
-  const activeMintUrl = useAppStore((state) => state.activeMintUrl)
-  const setActiveMint = useAppStore((state) => state.setActiveMint)
-  const updateMintStatus = useAppStore((state) => state.updateMintStatus)
   const addToast = useAppStore((state) => state.addToast)
-  const { networkState, wasOffline, clearWasOffline } = useNetwork()
 
   const mintUrls = settingsMints
 
   const checkMint = useCallback(
     async (mintUrl: string): Promise<MintHealthStatus> => {
-      const status = await mintHealth.checkMint(mintUrl)
-      updateMintStatus(mintUrl, status.isOnline)
-      return status
+      return mintHealth.checkMint(mintUrl)
     },
-    [mintHealth, updateMintStatus]
+    [mintHealth]
   )
 
   const checkAllMints = useCallback(async (): Promise<MintHealthStatus[]> => {
     if (mintUrls.length === 0) return []
 
-    const statuses = await mintHealth.checkAllMints(mintUrls)
-    statuses.forEach((s) => {
-      updateMintStatus(s.url, s.isOnline)
-      if (s.isOnline) {
-        mintMetadata.refreshIfMissing(s.url).catch(() => {})
-      }
-    })
-    return statuses
-  }, [mintUrls, mintHealth, mintMetadata, updateMintStatus])
+    // No metadata chain call: the health probe back-injects successful responses into
+    // metadata (MintInfoService.ingest), so a separate refreshIfMissing would be a
+    // double hit on the same endpoint.
+    return mintHealth.checkAllMints(mintUrls)
+  }, [mintUrls, mintHealth])
 
   const ensureOnlineMint = useCallback(
     async (
@@ -63,7 +57,7 @@ export function useMintHealth() {
         return null
       }
 
-      const preferredMint = options?.preferredMintUrl || activeMintUrl || mintUrls[0]
+      const preferredMint = options?.preferredMintUrl || stickyFallbackMint || mintUrls[0]
       const result = await mintHealth.selectMintWithFallback(
         preferredMint,
         mintUrls
@@ -76,10 +70,8 @@ export function useMintHealth() {
         return null
       }
 
-      updateMintStatus(result.mintUrl, true)
-
       if (!result.wasPreferred) {
-        setActiveMint(result.mintUrl)
+        stickyFallbackMint = result.mintUrl
         if (options?.showToast) {
           const mintName = getMintShortName(result.mintUrl)
           addToast({
@@ -91,16 +83,11 @@ export function useMintHealth() {
 
       return result
     },
-    [activeMintUrl, mintUrls, setActiveMint, updateMintStatus, addToast, t, mintHealth]
+    [mintUrls, addToast, t, mintHealth]
   )
 
-  useEffect(() => {
-    if (networkState === 'ONLINE' && wasOffline) {
-      checkAllMints().then(() => {
-        clearWasOffline()
-      })
-    }
-  }, [networkState, wasOffline, checkAllMints, clearWasOffline])
+  // No reconnect refresh effect: it duplicated a listener per hook instance (mounted
+  // in 3 places); bootstrap activate's single 'online' listener replaced it.
 
   const getCachedStatus = useCallback(
     (mintUrl: string) => mintHealth.getCached(mintUrl),

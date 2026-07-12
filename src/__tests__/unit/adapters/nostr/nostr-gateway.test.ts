@@ -73,16 +73,18 @@ describe('NostrGatewayAdapter', () => {
       expect(mockEnsureRelay).toHaveBeenCalledWith('wss://relay2.test')
     })
 
-    it('continues on relay connection failure', async () => {
+    it('continues on relay connection failure — unconnected relays also exposed in status (phase 6 minor #1)', async () => {
       mockEnsureRelay
         .mockRejectedValueOnce(new Error('connection failed'))
         .mockResolvedValueOnce({ subscribe: vi.fn() })
 
       await gateway.connect(['wss://bad.test', 'wss://good.test'])
 
+      // full target set + connection flag — source of RelayManagement's disconnected dots
       const status = gateway.getRelayStatus()
-      expect(status).toHaveLength(1)
-      expect(status[0].url).toBe('wss://good.test')
+      expect(status).toHaveLength(2)
+      expect(status).toContainEqual({ url: 'wss://good.test', connected: true })
+      expect(status).toContainEqual({ url: 'wss://bad.test', connected: false })
     })
   })
 

@@ -118,8 +118,9 @@ describe('SendInputStep pre-validation', () => {
     vi.useRealTimers()
   })
 
-  // ─── Test 1 ───
-  it('lightning-address triggers validateAsync after 500ms debounce', async () => {
+  // Network policy while typing: prevents the regression where a real GET fired for a
+  // partial domain (`a@gmail.co` → gmail.co) — remote validation happens only at submit.
+  it('lightning-address typing performs ZERO remote validation — submit validates (§8.5)', async () => {
     mockDetectAndClassify.mockReturnValue({
       type: 'lightning-address',
       address: 'test@stacker.news',
@@ -133,17 +134,20 @@ describe('SendInputStep pre-validation', () => {
     renderStep()
     typeIntoInput('test@stacker.news')
 
-    // At 499ms — NOT yet called
-    await act(async () => { vi.advanceTimersByTime(499) })
+    // no remote validation even after the debounce — only shape classification (badge)
+    await act(async () => { vi.advanceTimersByTime(2_000) })
     expect(mockValidateAsync).not.toHaveBeenCalled()
+    expect(screen.queryByText('send.destination.validationFailed')).not.toBeInTheDocument()
 
-    // At 500ms — called
-    await act(async () => { vi.advanceTimersByTime(1) })
+    // validates at submit (Next)
+    const nextButton = screen.getByRole('button', { name: 'send.next' })
+    expect(nextButton).not.toBeDisabled()
+    await act(async () => { nextButton.click(); await vi.runAllTimersAsync() })
     expect(mockValidateAsync).toHaveBeenCalledTimes(1)
+    expect(defaultProps.onNext).toHaveBeenCalled()
   })
 
-  // ─── Test 2 ───
-  it('lnurl triggers validateAsync after 500ms debounce', async () => {
+  it('lnurl typing performs ZERO remote validation (§8.5)', async () => {
     const lnurlStr = 'lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhkxmmww4hxjmn8v96x7'
     mockDetectAndClassify.mockReturnValue({ type: 'lnurl', lnurl: lnurlStr })
     mockValidateAsync.mockResolvedValue({
@@ -155,11 +159,11 @@ describe('SendInputStep pre-validation', () => {
     renderStep()
     typeIntoInput(lnurlStr)
 
-    await act(async () => { vi.advanceTimersByTime(500) })
-    expect(mockValidateAsync).toHaveBeenCalledTimes(1)
+    await act(async () => { vi.advanceTimersByTime(2_000) })
+    expect(mockValidateAsync).not.toHaveBeenCalled()
+    expect(screen.queryByText('send.destination.validationFailed')).not.toBeInTheDocument()
   })
 
-  // ─── Test 3 ───
   it('invalid format (TLD < 2 chars) does NOT trigger validateAsync', async () => {
     // detectAndClassify returns lightning-address but format gate rejects it
     mockDetectAndClassify.mockReturnValue({
@@ -176,68 +180,29 @@ describe('SendInputStep pre-validation', () => {
     expect(mockValidateAsync).not.toHaveBeenCalled()
   })
 
-  // ─── Test 4 ───
-  it('staleness — second input discards first validation result', async () => {
-    // Track onNext calls to verify validatedData
-    const onNext = vi.fn()
-
-    let resolveFirst!: (v: ValidatedData) => void
-    let resolveSecond!: (v: ValidatedData) => void
-
-    const firstPromise = new Promise<ValidatedData>((r) => { resolveFirst = r })
-    const secondPromise = new Promise<ValidatedData>((r) => { resolveSecond = r })
-
+  it('typing over a previous input never fires remote validation for either (§8.5)', async () => {
     mockDetectAndClassify.mockReturnValue({
       type: 'lightning-address',
       address: 'alice@mint1.com',
     })
-    mockValidateAsync
-      .mockReturnValueOnce(firstPromise)
-      .mockReturnValueOnce(secondPromise)
 
-    renderStep({ onNext })
-
-    // Type first input and trigger debounce
+    renderStep()
     typeIntoInput('alice@mint1.com')
     await act(async () => { vi.advanceTimersByTime(500) })
-    expect(mockValidateAsync).toHaveBeenCalledTimes(1)
 
-    // Type second input — this clears previous state via updateDestination
     mockDetectAndClassify.mockReturnValue({
       type: 'lightning-address',
       address: 'bob@mint2.com',
     })
     typeIntoInput('bob@mint2.com')
     await act(async () => { vi.advanceTimersByTime(500) })
-    expect(mockValidateAsync).toHaveBeenCalledTimes(2)
 
-    // Resolve first — should be discarded (stale requestId)
-    await act(async () => {
-      resolveFirst({
-        type: 'lightning-address',
-        address: 'alice@mint1.com',
-        lnurlParams: { callback: '', minSendable: 0, maxSendable: 100000, metadata: '', tag: 'payRequest' as const, domain: 'mint1.com' },
-      })
-    })
-    // No error shown, no validatedData set from first
-
-    // Resolve second — should be accepted
-    await act(async () => {
-      resolveSecond({
-        type: 'lightning-address',
-        address: 'bob@mint2.com',
-        lnurlParams: { callback: '', minSendable: 0, maxSendable: 100000, metadata: '', tag: 'payRequest' as const, domain: 'mint2.com' },
-      })
-    })
-
-    // Spinner should be gone (pre-validation finished)
+    expect(mockValidateAsync).not.toHaveBeenCalled()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
-    // No error shown
     expect(screen.queryByText('send.destination.validationFailed')).not.toBeInTheDocument()
   })
 
-  // ─── Test 5 ───
-  it('network error shows inline error message', async () => {
+  it('network failure surfaces at submit as a toast (§8.5 — no inline error while typing)', async () => {
     mockDetectAndClassify.mockReturnValue({
       type: 'lightning-address',
       address: 'test@failing.com',
@@ -246,37 +211,38 @@ describe('SendInputStep pre-validation', () => {
 
     renderStep()
     typeIntoInput('test@failing.com')
-
     await act(async () => { vi.advanceTimersByTime(500) })
-    // Let rejected promise settle
-    await act(async () => { await vi.runAllTimersAsync() })
 
-    expect(screen.getByText('send.destination.validationFailed')).toBeInTheDocument()
+    // typing phase: no remote validation, no inline error
+    expect(mockValidateAsync).not.toHaveBeenCalled()
+    expect(screen.queryByText('send.destination.validationFailed')).not.toBeInTheDocument()
+
+    // submit: remote validation fails → "validation failed" toast (the format was
+    // recognized, so it's not unrecognized)
+    const nextButton = screen.getByRole('button', { name: 'send.next' })
+    await act(async () => { nextButton.click(); await vi.runAllTimersAsync() })
+    expect(mockValidateAsync).toHaveBeenCalledTimes(1)
+    expect(stableAddToast).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'error', message: 'send.destination.validationFailed' }),
+    )
+    expect(defaultProps.onNext).not.toHaveBeenCalled()
   })
 
-  // ─── Test 6 ───
-  it('lnurl-withdraw shows specific error, validatedData not set', async () => {
-    const lnurlStr = 'lnurl1withdraw...'
+  it('syntactically valid lnurl typing shows no error and keeps Next enabled (§8.5)', async () => {
+    const lnurlStr = 'lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhkxmmww4hxjmn8v96x7'
     mockDetectAndClassify.mockReturnValue({ type: 'lnurl', lnurl: lnurlStr })
-    mockValidateAsync.mockResolvedValue({
-      type: 'lnurl-withdraw',
-      lnurl: lnurlStr,
-      params: { callback: '', k1: 'abc', minWithdrawable: 0, maxWithdrawable: 100000, domain: 'example.com' },
-    })
 
     renderStep()
     typeIntoInput(lnurlStr)
 
     await act(async () => { vi.advanceTimersByTime(500) })
-    await act(async () => { await vi.runAllTimersAsync() })
 
-    expect(screen.getByText('send.destination.lnurlWithdrawNotSupported')).toBeInTheDocument()
-    // Next button should be disabled
+    // shape check passes — remote confirmation (including withdraw detection) is deferred to submit
+    expect(mockValidateAsync).not.toHaveBeenCalled()
     const nextButton = screen.getByRole('button', { name: 'send.next' })
-    expect(nextButton).toBeDisabled()
+    expect(nextButton).not.toBeDisabled()
   })
 
-  // ─── Test 7 ───
   it('error container has reserved h-5 height even when empty', () => {
     renderStep()
     const errorArea = screen.getByTestId('pre-validation-error-area')
@@ -284,40 +250,22 @@ describe('SendInputStep pre-validation', () => {
     expect(errorArea.className).toContain('h-5')
   })
 
-  // ─── Test 8 ───
-  it('spinner visible during async validation, hidden after', async () => {
-    let resolveValidation!: (v: ValidatedData) => void
-    const validationPromise = new Promise<ValidatedData>((r) => { resolveValidation = r })
-
+  it('no pre-validation spinner while typing a valid-syntax address (§8.5)', async () => {
     mockDetectAndClassify.mockReturnValue({
       type: 'lightning-address',
       address: 'test@stacker.news',
     })
-    mockValidateAsync.mockReturnValue(validationPromise)
 
     renderStep()
     typeIntoInput('test@stacker.news')
 
     await act(async () => { vi.advanceTimersByTime(500) })
 
-    // Spinner should be visible
-    expect(screen.getByRole('status')).toBeInTheDocument()
-    expect(screen.getByRole('status')).toBeInTheDocument()
-
-    // Resolve validation
-    await act(async () => {
-      resolveValidation({
-        type: 'lightning-address',
-        address: 'test@stacker.news',
-        lnurlParams: { callback: '', minSendable: 0, maxSendable: 100000, metadata: '', tag: 'payRequest' as const, domain: 'stacker.news' },
-      })
-    })
-
-    // Spinner should be hidden
+    // no remote validation, so no spinner — the loading indicator belongs to the submit button (isValidating)
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(mockValidateAsync).not.toHaveBeenCalled()
   })
 
-  // ─── Test 9 ───
   it('cashu-request path still works (regression guard)', async () => {
     const creqStr = 'creqAabc123...'
     mockDetectAndClassify.mockReturnValue({
@@ -352,7 +300,6 @@ describe('SendInputStep pre-validation', () => {
     expect(screen.queryByText('send.destination.validationFailed')).not.toBeInTheDocument()
   })
 
-  // ─── Test 10 ───
   it('input change immediately clears previous validatedData and error', async () => {
     mockDetectAndClassify.mockReturnValue({
       type: 'lightning-address',
@@ -389,7 +336,6 @@ describe('SendInputStep pre-validation', () => {
     expect(screen.getByText('send.destination.unrecognized')).toBeInTheDocument()
   })
 
-  // ─── Test 11 ───
   it('cashu-request with amount auto-advances after debounce + timer', async () => {
     const creqStr = 'creqAtest...'
     mockDetectAndClassify.mockReturnValue({ type: 'cashu-request', request: creqStr })
@@ -421,7 +367,6 @@ describe('SendInputStep pre-validation', () => {
     )
   })
 
-  // ─── Test 12 ───
   it('cashu-request without amount does NOT auto-advance', async () => {
     const creqStr = 'creqBnoamount...'
     mockDetectAndClassify.mockReturnValue({ type: 'cashu-request', request: creqStr })
@@ -450,7 +395,6 @@ describe('SendInputStep pre-validation', () => {
     expect(defaultProps.onNext).not.toHaveBeenCalled()
   })
 
-  // ─── Test 13 ───
   it('back-navigation guard — same destination does NOT re-trigger auto-advance', async () => {
     const creqStr = 'creqCbacknav...'
     mockDetectAndClassify.mockReturnValue({ type: 'cashu-request', request: creqStr })
@@ -476,7 +420,6 @@ describe('SendInputStep pre-validation', () => {
     await act(async () => { vi.advanceTimersByTime(300) })
     expect(defaultProps.onNext).toHaveBeenCalledTimes(1)
 
-    // Reset mock
     defaultProps.onNext.mockReset()
 
     // Type the SAME value again (simulates re-render with preserved destination after back-nav)
@@ -490,7 +433,6 @@ describe('SendInputStep pre-validation', () => {
     expect(defaultProps.onNext).not.toHaveBeenCalled()
   })
 
-  // ─── Test 14 ───
   it('input change cancels pending auto-advance timer', async () => {
     const creqStr = 'creqDcancel...'
     mockDetectAndClassify.mockReturnValue({ type: 'cashu-request', request: creqStr })

@@ -7,16 +7,15 @@ export type { RouteInput, FeeEstimate }
 export interface RoutingUseCase {
   selectRoute(input: RouteInput): PaymentRoute
   findCommonMints(senderMints: string[], receiverMints: string[]): string[]
+  // my-wallet quoting is handled by estimateRouteFee (LN_CROSS_MINT/...) via
+  // internal delegation — after SendConfirmStep's double-quote was removed, no
+  // separate surface consumed it, so it was dropped from the driving port. The
+  // adapter's estimateMyWalletFee remains as estimateRouteFee's delegation target.
   estimateRouteFee(
     route: PaymentRoute,
     sourceMint: string,
     amount: number,
     targetMint?: string,
     invoice?: string,
-  ): Promise<FeeEstimate>
-  estimateMyWalletFee(
-    sourceMint: string,
-    targetMint: string,
-    amount: number,
   ): Promise<FeeEstimate>
 }

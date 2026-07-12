@@ -36,6 +36,7 @@ import type {
   UploadedSupportAttachmentBlob,
 } from './blossom-attachment-store.adapter'
 import type { CustomerSupportConfig } from './customer-support-config'
+import { RequestGate } from '@/core/utils/request-gate'
 import { ConfiguredNip66RelayIndexAdapter } from './configured-nip66-relay-index.adapter'
 import { DerivedCustomerSupportKeyProvider } from './derived-customer-support-key-provider'
 import {
@@ -59,6 +60,16 @@ export class NostrCsCustomerSupportAdapter implements CustomerSupportChannel {
   private customerId: string | null = null
   private connectionGeneration = 0
   private lastUserRelays: string[] = []
+  /**
+   * connect single-flight. The prior guard (early return when :connected) only
+   * filtered already-"completed" connections, so duplicate calls during
+   * connecting (global hook + SupportPage mount racing) each ran a SimplePool
+   * handshake + NIP-66 lookup.
+   * The 10s failureCooldown is intentionally not applied here (0): doConnect
+   * never rejects — errors come back as a snapshot (status:'error') — so there is
+   * nothing to cool down. State-based retry backoff is revisited separately.
+   */
+  private readonly connectGate = new RequestGate({ cooldownMs: 0, failureCooldownMs: 0 })
 
   constructor(
     private readonly config: CustomerSupportConfig,
@@ -109,12 +120,27 @@ export class NostrCsCustomerSupportAdapter implements CustomerSupportChannel {
     if (this.client && this.status === 'connected') {
       return this.getSnapshot()
     }
+    // Include generation in the gate key: when refresh()'s disconnect bumps the
+    // generation, the immediately following connect() starts a fresh connection
+    // under the new key instead of joining the existing (soon self-superseding)
+    // in-flight one. Only concurrent calls of the same generation are shared.
+    const { value } = await this.connectGate.run(
+      `connect:${this.connectionGeneration}`,
+      () => this.doConnect(),
+    )
+    return value
+  }
 
+  private async doConnect(): Promise<SupportSnapshot> {
     this.status = 'connecting'
     this.error = undefined
     this.emit()
 
-    const generation = ++this.connectionGeneration
+    // Don't bump generation here — doing so would invalidate the gate key
+    // (connect:<gen>) at the very start, so concurrent calls could never share
+    // the in-flight one. Only disconnect() bumps it: the supersede signal for an
+    // in-progress connection and the source of the new gate key.
+    const generation = this.connectionGeneration
     let discoveryPool: SimplePool | null = null
     let client: CSClient | null = null
 

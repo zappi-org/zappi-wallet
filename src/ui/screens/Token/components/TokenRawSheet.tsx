@@ -13,17 +13,17 @@ export interface TokenRawSheetProps {
   amount: number
   mintName: string
   unit: string
-  /** Fee in sats — shown as "수취 수수료". Hidden when undefined. */
+  /** Fee in sats — shown as the receive fee. Hidden when undefined. */
   receiveFee?: number
   /** Fires the first time the user taps the token box 10 times in a row. */
   onTriggerEasterEgg?: () => void
-  /** When provided, renders a "내역 삭제" link; caller handles confirmation + deletion. */
+  /** When provided, renders a delete-history link; caller handles confirmation + deletion. */
   onDelete?: () => Promise<void> | void
 }
 
 /**
  * Bottom sheet showing the raw cashu token string plus origin metadata.
- * Opened from TokenDetailScreen's ">이캐시 원문 보기".
+ * Opened from TokenDetailScreen's "view raw ecash" entry.
  */
 export function TokenRawSheet({
   isOpen,
@@ -203,7 +203,7 @@ export function TokenRawSheet({
                   {confirming ? (
                     <>
                       <span className="text-caption font-medium text-foreground-muted">
-                        내역 삭제?
+                        {t('token.rawSheet.deleteConfirm')}
                       </span>
                       <button
                         type="button"
@@ -211,7 +211,7 @@ export function TokenRawSheet({
                         disabled={deleting}
                         className="text-caption font-bold text-accent-danger hover:underline disabled:opacity-60"
                       >
-                        {deleting ? '삭제 중…' : '예'}
+                        {deleting ? t('token.rawSheet.deleting') : t('token.rawSheet.yes')}
                       </button>
                       <button
                         type="button"
@@ -219,7 +219,7 @@ export function TokenRawSheet({
                         disabled={deleting}
                         className="text-caption font-medium text-foreground-muted hover:underline disabled:opacity-60"
                       >
-                        아니오
+                        {t('token.rawSheet.no')}
                       </button>
                     </>
                   ) : (
@@ -228,7 +228,7 @@ export function TokenRawSheet({
                       onClick={handleDeleteTap}
                       className="text-caption font-medium text-accent-danger hover:underline"
                     >
-                      내역 삭제
+                      {t('token.rawSheet.delete')}
                     </button>
                   )}
                 </div>

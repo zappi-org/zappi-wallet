@@ -1,4 +1,5 @@
 import { Button } from '@/ui/components/common/Button'
+import { getMintBalance } from '@/utils/url'
 import { MintIcon } from '@/ui/components/common/MintIcon'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
@@ -59,7 +60,7 @@ export function AmountStep({
   const canToggleFiat = exchangeRate !== null
   const fiatIsZeroDecimal = isZeroDecimalCurrency(fiatCurrency)
 
-  const mintBalance = balance.byMint[mintUrl] ?? 0
+  const mintBalance = getMintBalance(mintUrl, balance.byMint)
   const mintName = getDisplayName(mintUrl)
   const mintIconUrl = getIconUrl(mintUrl)
 

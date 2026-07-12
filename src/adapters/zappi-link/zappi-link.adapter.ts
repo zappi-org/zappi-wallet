@@ -1,4 +1,4 @@
-import { ok, err, type Result } from '@/core/types/result'
+import { Ok, Err, type Result } from '@/core/domain/result'
 import type { BaseError } from '@/core/errors/base'
 import { ZappiLinkRegistrationError, ZappiLinkApiError } from '@/core/errors/zappi-link'
 import { ZAPPI_LINK_URL } from '@/core/constants'
@@ -50,13 +50,13 @@ export class ZappiLinkAdapter implements LightningAddressProvider {
 
       if (!response.ok) {
         const body = await response.text().catch(() => '')
-        return err(new ZappiLinkApiError(response.status, body || 'Registration failed'))
+        return Err(new ZappiLinkApiError(response.status, body || 'Registration failed'))
       }
 
       const data: AddressResult = await response.json()
-      return ok(data)
+      return Ok(data)
     } catch (error) {
-      return err(new ZappiLinkRegistrationError('Failed to register Lightning Address', error))
+      return Err(new ZappiLinkRegistrationError('Failed to register Lightning Address', error))
     }
   }
 
@@ -65,18 +65,18 @@ export class ZappiLinkAdapter implements LightningAddressProvider {
       const response = await fetch(`${this.baseUrl}/api/v1/address/${pubkey}`)
 
       if (response.status === 404) {
-        return ok(null)
+        return Ok(null)
       }
 
       if (!response.ok) {
         const body = await response.text().catch(() => '')
-        return err(new ZappiLinkApiError(response.status, body || 'Address lookup failed'))
+        return Err(new ZappiLinkApiError(response.status, body || 'Address lookup failed'))
       }
 
       const data: AddressResult = await response.json()
-      return ok(data)
+      return Ok(data)
     } catch (error) {
-      return err(new ZappiLinkRegistrationError('Failed to lookup Lightning Address', error))
+      return Err(new ZappiLinkRegistrationError('Failed to lookup Lightning Address', error))
     }
   }
 
@@ -86,13 +86,13 @@ export class ZappiLinkAdapter implements LightningAddressProvider {
 
       if (!response.ok) {
         const body = await response.text().catch(() => '')
-        return err(new ZappiLinkApiError(response.status, body || 'Username check failed'))
+        return Err(new ZappiLinkApiError(response.status, body || 'Username check failed'))
       }
 
       const data: UsernameCheckResult = await response.json()
-      return ok(data)
+      return Ok(data)
     } catch (error) {
-      return err(new ZappiLinkRegistrationError('Failed to check username', error))
+      return Err(new ZappiLinkRegistrationError('Failed to check username', error))
     }
   }
 
@@ -114,13 +114,13 @@ export class ZappiLinkAdapter implements LightningAddressProvider {
 
       if (!response.ok) {
         const body = await response.text().catch(() => '')
-        return err(new ZappiLinkApiError(response.status, body || 'Username change failed'))
+        return Err(new ZappiLinkApiError(response.status, body || 'Username change failed'))
       }
 
       const data: AddressResult = await response.json()
-      return ok(data)
+      return Ok(data)
     } catch (error) {
-      return err(new ZappiLinkRegistrationError('Failed to change username', error))
+      return Err(new ZappiLinkRegistrationError('Failed to change username', error))
     }
   }
 
@@ -130,13 +130,13 @@ export class ZappiLinkAdapter implements LightningAddressProvider {
 
       if (!response.ok) {
         const body = await response.text().catch(() => '')
-        return err(new ZappiLinkApiError(response.status, body || 'Failed to fetch defaults'))
+        return Err(new ZappiLinkApiError(response.status, body || 'Failed to fetch defaults'))
       }
 
       const data: ZappiLinkDefaults = await response.json()
-      return ok(data)
+      return Ok(data)
     } catch (error) {
-      return err(new ZappiLinkRegistrationError('Failed to fetch server defaults', error))
+      return Err(new ZappiLinkRegistrationError('Failed to fetch server defaults', error))
     }
   }
 }

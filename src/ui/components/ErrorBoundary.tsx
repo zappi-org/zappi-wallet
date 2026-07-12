@@ -1,3 +1,4 @@
+import type { TranslationKey } from '@/i18n'
 import { Component } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
 import i18n from '@/i18n'
@@ -30,7 +31,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
-      const t = (key: string) => i18n.t(key)
+      const t = (key: TranslationKey) => i18n.t(key)
 
       return (
         <div className="h-dvh bg-background text-foreground font-primary flex flex-col items-center justify-center p-6 pt-safe">

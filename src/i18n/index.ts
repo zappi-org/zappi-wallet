@@ -18,6 +18,19 @@ export const SUPPORTED_LANGUAGES = [
 
 export type SupportedLanguage = typeof SUPPORTED_LANGUAGES[number]['code']
 
+/**
+ * Union of every leaf translation key path, derived from the en locale
+ * (the structural source of truth — locale parity is enforced separately).
+ * Use for values that hold i18n keys and for guarded dynamic-key casts.
+ */
+type LeafKeys<T, Prefix extends string = ''> = {
+  [K in keyof T & string]: T[K] extends string
+    ? `${Prefix}${K}`
+    : LeafKeys<T[K], `${Prefix}${K}.`>
+}[keyof T & string]
+
+export type TranslationKey = LeafKeys<typeof en>
+
 const resources = {
   ko: { translation: ko },
   en: { translation: en },

@@ -6,6 +6,7 @@ import { useFormatFiat, useFormatSats } from '@/utils/format'
 import { useWallet } from '@/ui/hooks/use-wallet'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
+import { getMintBalance } from '@/utils/url'
 import { translateError } from '@/ui/utils/error-i18n'
 import { hapticError } from '@/ui/utils/haptic'
 import { Trans, useTranslation } from 'react-i18next'
@@ -58,7 +59,7 @@ export function ConfirmStep({
     }
   }, [mintUrl, amount, onEstimateFee])
 
-  const mintBalance = balance.byMint[mintUrl] ?? 0
+  const mintBalance = getMintBalance(mintUrl, balance.byMint)
   const mintName = getDisplayName(mintUrl)
   const mintIconUrl = getIconUrl(mintUrl)
 

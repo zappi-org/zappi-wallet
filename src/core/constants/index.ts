@@ -110,6 +110,8 @@ export const STORAGE_KEYS = {
   SETTINGS: 'zappi_settings',
   LOCK_STATE: 'zappi_lock_state',
   LAST_BACKGROUND_TIME: 'zappi_last_background_time',
+  /** Foreground-liveness heartbeat (written by bootstrap, cleared on logout) */
+  LAST_ALIVE: 'zappi_last_alive_at',
 } as const
 
 /**
@@ -117,7 +119,14 @@ export const STORAGE_KEYS = {
  */
 export const DATABASE = {
   NAME: 'zappi_wallet_db',
-  VERSION: 19,
+  // v20: added netCounters table (production aggregate counters)
+  // v21: added giftwrapCursors table (gift wrap since cursor)
+  // v22: added incomingReviews table (persist untrusted-mint incoming reviews:
+  //      an in-memory queue loses tokens on refresh)
+  // v23: dropped legacy proofs table (leftover after coco migration. Real-fund proofs
+  //      live in the coco DB, and this table had no read/write code, so the data itself
+  //      was removable. Surviving tables pass the schema diff losslessly)
+  VERSION: 23,
 } as const
 
 /**

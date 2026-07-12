@@ -1,10 +1,9 @@
 /**
  * SendConfirmStep — Confirmation screen before sending
- * Figma 275:128: question text at top 1/3, flat detail panel near bottom, button at very bottom
+ * Layout: question text at top 1/3, flat detail panel near bottom, button at very bottom
  */
 
-import { useState, useEffect } from 'react'
-import { ChevronRight, Loader2 } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { useTranslation, Trans } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
@@ -12,7 +11,7 @@ import { hapticTap } from '@/ui/utils/haptic'
 import { useFormatSats, useFormatFiat, FIAT_CURRENCY_MAP } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
-import { useRouting, PaymentRoute } from '@/ui/hooks/use-routing'
+import { PaymentRoute } from '@/ui/hooks/use-routing'
 import type { SendableValidatedData } from '../SendFlow'
 import {
   formatRecipientDisplayText,
@@ -59,53 +58,13 @@ export function SendConfirmStep({
   const formatFiat = useFormatFiat();
   const settings = useAppStore((s) => s.settings);
   const { getDisplayName } = useMintMetadata(settings.mints);
-  const routing = useRouting();
 
-  // Async fee estimation for my-wallet transfers
-  const [estimatedFee, setEstimatedFee] = useState<number | null>(
-    validatedData.type === "my-wallet" ? null : initialFee
-  );
-  const [feeLoading, setFeeLoading] = useState(
-    validatedData.type === "my-wallet"
-  );
-  const [feeError, setFeeError] = useState(false);
-
-  const targetMintUrl =
-    validatedData.type === "my-wallet" ? validatedData.targetMintUrl : null;
-
-  useEffect(() => {
-    if (!targetMintUrl) return;
-
-    let cancelled = false;
-
-    async function estimateFee() {
-      try {
-        const estimate = await routing.estimateMyWalletFee(
-          mintUrl,
-          targetMintUrl!,
-          amount
-        );
-        if (!cancelled) {
-          setEstimatedFee(estimate.fee);
-          setFeeLoading(false);
-        }
-      } catch (err) {
-        console.warn("[SendConfirmStep] Fee estimation failed:", err);
-        if (!cancelled) {
-          setEstimatedFee(0);
-          setFeeLoading(false);
-          setFeeError(true);
-        }
-      }
-    }
-
-    estimateFee();
-    return () => {
-      cancelled = true;
-    };
-  }, [targetMintUrl, amount, mintUrl, routing]);
-
-  const fee = estimatedFee ?? 0;
+  // No re-quote here: SendFlow already quoted this combination at route
+  // selection (including my-wallet — createMintQuote+prepareMelt+rollback+abandon,
+  // 4 round-trips) and that result arrives as initialFee. Previously my-wallet
+  // deliberately discarded it and re-quoted, costing up to 8 round-trips per
+  // confirm screen.
+  const fee = initialFee;
   const display = getConfirmDisplayInfo(validatedData, route, t, displayName);
   const {
     method,
@@ -170,7 +129,6 @@ export function SendConfirmStep({
       <div className="px-6 pb-app shrink-0">
         {/* Detail rows */}
         <div className="mb-4">
-          {/* 메모 */}
           {memo && (
             <div className="flex justify-between py-2.5 border-b border-border/50">
               <span className="text-body text-foreground-muted">
@@ -181,7 +139,6 @@ export function SendConfirmStep({
               </span>
             </div>
           )}
-          {/* 전송 방식 */}
           <div className="flex justify-between py-2.5 border-b border-border/50">
             <span className="text-body text-foreground-muted">
               {t("send.confirm.method")}
@@ -190,7 +147,7 @@ export function SendConfirmStep({
               {method}
             </span>
           </div>
-          {/* 출금 지갑 — tappable to change mint */}
+          {/* Source mint — tappable to change */}
           {onRequestMintSelection ? (
             <button
               type="button"
@@ -219,7 +176,6 @@ export function SendConfirmStep({
               </span>
             </div>
           )}
-          {/* 받는이 */}
           {isMyWallet ? (
             <div className="flex justify-between py-2.5 border-b border-border/50">
               <span className="text-body text-foreground-muted">
@@ -240,14 +196,7 @@ export function SendConfirmStep({
             </div>
           ) : null}
           {/* Fee section */}
-          {feeLoading ? (
-            <div className="flex justify-between py-2.5 border-b border-border/50">
-              <span className="text-body text-foreground-muted">
-                {t("send.confirm.estimatedFee")}
-              </span>
-              <Loader2 className="w-4 h-4 text-foreground-muted animate-spin" />
-            </div>
-          ) : fee > 0 ? (
+          {fee > 0 ? (
             <>
               <div className="flex justify-between py-2.5 border-b border-border/50">
                 <span className="text-body text-foreground-muted">
@@ -273,15 +222,6 @@ export function SendConfirmStep({
                 </div>
               </div>
             </>
-          ) : feeError ? (
-            <div className="flex justify-between py-2.5 border-b border-border/50">
-              <span className="text-body text-foreground-muted">
-                {t("send.confirm.estimatedFee")}
-              </span>
-              <span className="text-body text-foreground-muted">
-                {t("send.confirm.feeEstimateFailed")}
-              </span>
-            </div>
           ) : null}
         </div>
 
@@ -299,7 +239,6 @@ export function SendConfirmStep({
             hapticTap();
             onConfirm();
           }}
-          disabled={feeLoading}
           className="w-full"
         >
           {isMyWallet ? t("send.confirm.transfer") : t("send.confirm.send")}

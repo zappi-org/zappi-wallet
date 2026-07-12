@@ -5,7 +5,11 @@ export interface EncryptedData {
 }
 
 export interface Encryption {
-  encrypt(data: string, password: string): Promise<EncryptedData>
-  decrypt(encrypted: EncryptedData, password: string): Promise<string>
-  hashPassword(password: string, salt: string): Promise<string>
+  /**
+   * PBKDF2 derivation executor — does not own the iteration-count policy.
+   * `iterations` is decided by the caller (the service-layer `KDF_ITERATIONS` map).
+   */
+  encrypt(data: string, password: string, iterations: number): Promise<EncryptedData>
+  decrypt(encrypted: EncryptedData, password: string, iterations: number): Promise<string>
+  hashPassword(password: string, salt: string, iterations: number): Promise<string>
 }

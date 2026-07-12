@@ -1,7 +1,8 @@
+import type { TFunction } from 'i18next'
 import type { Transaction } from '@/core/domain/transaction'
 import { getTransactionType, getTxMeta } from '@/core/domain/transaction'
 
-function resolveTypeLabel(tx: Transaction, t: (key: string) => string): string {
+function resolveTypeLabel(tx: Transaction, t: TFunction): string {
   const txType = getTransactionType(tx)
   if (txType === 'swap') return t('history.swap')
   if (txType === 'lightning') return tx.direction === 'receive' ? t('history.lightningReceive') : t('history.lightningSend')
@@ -16,11 +17,11 @@ function resolveTypeLabel(tx: Transaction, t: (key: string) => string): string {
 }
 
 /** Display title: memo first, then type label */
-export function getTitle(tx: Transaction, t: (key: string) => string): string {
+export function getTitle(tx: Transaction, t: TFunction): string {
   return tx.memo || resolveTypeLabel(tx, t)
 }
 
 /** Type label only (no memo) — for subtitles and search */
-export function getTypeLabel(tx: Transaction, t: (key: string) => string): string {
+export function getTypeLabel(tx: Transaction, t: TFunction): string {
   return resolveTypeLabel(tx, t)
 }

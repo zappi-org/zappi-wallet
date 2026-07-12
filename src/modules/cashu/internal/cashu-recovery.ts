@@ -1,19 +1,20 @@
 /**
- * Cashu Recovery — PendingOperationRepository + TransactionRepository 포트 기반
+ * Cashu Recovery — built on the PendingOperationRepository + TransactionRepository ports.
  *
- * cashu-backend.ts에 있던 recovery 함수들을 포트 경유로 전환.
- * DB/legacy 직접 접근 없음. SDK 호출은 주입된 인터페이스를 통해.
+ * No direct DB/legacy access; SDK calls go through injected interfaces.
  */
 
+import { mintUrlKey } from '@/core/domain/mint-url'
 import { toNumber } from '@/core/domain/amount'
 import { isExpired as isPendingOperationExpired, type PendingOperation } from '@/core/domain/pending-operation'
 import type { PendingOperationRepository } from '@/core/ports/driven/pending-operation.repository.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
+import type { ReconcileReport } from '@/core/ports/driving/recovery-scheduler.usecase'
 import { mintAndReceive } from './cashu-backend'
 import { abandonMintQuote, getCocoManager } from './coco-sdk'
 import { cocoLogger as logger } from './logger'
 
-// ─── SDK interfaces (DI용 — Coco 직접 의존 없음) ───
+// ─── SDK interfaces (for DI — no direct Coco dependency) ───
 
 export interface MeltRecoveryOps {
   listInFlight(): Promise<{ id: string; createdAt?: number }[]>
@@ -33,6 +34,11 @@ export interface QuoteRecoveryOps {
 
 export interface RecoverTokenFn {
   (token: string): Promise<{ amount: number }>
+}
+
+/** Look up mint op state from Coco's local repo (network 0) — reconcile-only */
+export interface MintOpLookup {
+  (mintUrl: string, quoteId: string): Promise<{ state: string } | null>
 }
 
 // ─── Recovery deps ───
@@ -98,33 +104,20 @@ export async function recoverPendingMelts(
 
 // ─── Send Token Recovery ───
 
-export async function recoverPendingSendTokens(
-  deps: Pick<CashuRecoveryDeps, 'pendingOpRepo' | 'txRepo' | 'sendOps' | 'receiveToken'>,
-): Promise<{ reclaimed: number; recorded: number }> {
-  const { pendingOpRepo, txRepo, sendOps, receiveToken } = deps
-
-  // 1. SDK recovery
-  try {
-    await sendOps.runRecovery()
-    logger.info('[Recovery] SDK recoverPendingOperations completed')
-  } catch (error) {
-    logger.error('[Recovery] SDK recoverPendingOperations failed:', error as Error)
-  }
-
-  // 2. List pending send-token operations via port
-  const allPending = await pendingOpRepo.list()
-  const pendingTokens = allPending.filter((op) => op.kind === 'send-token')
-  if (pendingTokens.length === 0) return { reclaimed: 0, recorded: 0 }
-
-  logger.info(`[Recovery] Found ${pendingTokens.length} pending send tokens`)
-
-  const sdkTokens = pendingTokens.filter((p) => p.metadata?.operationId)
-  const legacyTokens = pendingTokens.filter((p) => !p.metadata?.operationId)
-
+/**
+ * Marks the transaction DB settled/reclaimed from send-op local state.
+ * sendOps.get reads the Coco repo, so network 0. A building block of reconcile().
+ */
+export async function reconcileSendTokenOps(
+  deps: Pick<CashuRecoveryDeps, 'pendingOpRepo' | 'txRepo'> & {
+    sendOps: Pick<SendRecoveryOps, 'get'>
+  },
+  sdkTokens: PendingOperation[],
+): Promise<{ settled: number; reclaimed: number }> {
+  const { pendingOpRepo, txRepo, sendOps } = deps
+  let settled = 0
   let reclaimed = 0
-  let recorded = 0
 
-  // 3. SDK-managed cleanup
   for (const pending of sdkTokens) {
     try {
       const op = await sendOps.get(pending.metadata!.operationId as string)
@@ -140,7 +133,7 @@ export async function recoverPendingSendTokens(
               tokenState: 'spent',
             },
           })
-          recorded++
+          settled++
         }
         await pendingOpRepo.delete(pending.id)
       } else if (op?.state === 'rolled_back') {
@@ -164,7 +157,21 @@ export async function recoverPendingSendTokens(
     }
   }
 
-  // 4. Legacy recovery
+  return { settled, reclaimed }
+}
+
+/**
+ * Self-receives legacy (no operationId) send tokens.
+ * receiveToken hits the network — a building block of recoverTargeted().
+ */
+export async function recoverLegacySendTokens(
+  deps: Pick<CashuRecoveryDeps, 'pendingOpRepo' | 'txRepo' | 'receiveToken'>,
+  legacyTokens: PendingOperation[],
+): Promise<{ reclaimed: number; recorded: number }> {
+  const { pendingOpRepo, txRepo, receiveToken } = deps
+  let reclaimed = 0
+  let recorded = 0
+
   for (const pending of legacyTokens) {
     const existingTx = await txRepo.getById(pending.id)
 
@@ -250,6 +257,41 @@ export async function recoverPendingSendTokens(
     }
   }
 
+  return { reclaimed, recorded }
+}
+
+/**
+ * Full path (legacy recoverAll / ks.recovery-split ON) — reassembles the pieces.
+ * Behavior matches pre-split: SDK sweep → local reconcile → legacy self-receive.
+ */
+export async function recoverPendingSendTokens(
+  deps: Pick<CashuRecoveryDeps, 'pendingOpRepo' | 'txRepo' | 'sendOps' | 'receiveToken'>,
+): Promise<{ reclaimed: number; recorded: number }> {
+  // 1. SDK recovery
+  try {
+    await deps.sendOps.runRecovery()
+    logger.info('[Recovery] SDK recoverPendingOperations completed')
+  } catch (error) {
+    logger.error('[Recovery] SDK recoverPendingOperations failed:', error as Error)
+  }
+
+  // 2. List pending send-token operations via port
+  const allPending = await deps.pendingOpRepo.list()
+  const pendingTokens = allPending.filter((op) => op.kind === 'send-token')
+  if (pendingTokens.length === 0) return { reclaimed: 0, recorded: 0 }
+
+  logger.info(`[Recovery] Found ${pendingTokens.length} pending send tokens`)
+
+  const sdkTokens = pendingTokens.filter((p) => p.metadata?.operationId)
+  const legacyTokens = pendingTokens.filter((p) => !p.metadata?.operationId)
+
+  // 3. SDK-managed cleanup
+  const b3 = await reconcileSendTokenOps(deps, sdkTokens)
+  // 4. Legacy recovery
+  const b4 = await recoverLegacySendTokens(deps, legacyTokens)
+
+  const reclaimed = b3.reclaimed + b4.reclaimed
+  const recorded = b3.settled + b4.recorded
   logger.info(`[Recovery] Send tokens: ${reclaimed} reclaimed, ${recorded} recorded`)
   return { reclaimed, recorded }
 }
@@ -266,7 +308,7 @@ export async function recoverPendingQuotes(
   let expired = 0
   const now = Date.now()
   const normalizedActiveMintUrls = activeMintUrls
-    ? new Set(activeMintUrls.map(normalizeMintUrl))
+    ? new Set(activeMintUrls.map(mintUrlKey))
     : null
 
   const allPending = await pendingOpRepo.list()
@@ -286,7 +328,7 @@ export async function recoverPendingQuotes(
       continue
     }
 
-    if (normalizedActiveMintUrls && !normalizedActiveMintUrls.has(normalizeMintUrl(mintUrl))) {
+    if (normalizedActiveMintUrls && !normalizedActiveMintUrls.has(mintUrlKey(mintUrl))) {
       await txRepo.update(op.id, { status: 'failed', completedAt: now })
       failed++
       continue
@@ -334,8 +376,128 @@ function isExpiredQuoteOp(op: PendingOperation, now: number): boolean {
   return isPendingOperationExpired(op, now) || (op.expiresAt == null && (now - op.createdAt) > MAX_AGE_MS)
 }
 
-function normalizeMintUrl(mintUrl: string): string {
-  return mintUrl.endsWith('/') ? mintUrl.slice(0, -1) : mintUrl
+// ─── Reconcile (local reconciliation — network 0) ───
+
+/**
+ * Local mint-quote reconciliation.
+ *
+ * Unlike recoverPendingQuotes, does no remote check (checkMintQuote/mintAndReceive):
+ * - Expired / removed-mint quote → mark the transaction failed (unchanged).
+ * - Dual-net: Coco local op is finalized but the transaction is still pending → settle
+ *   (recovers cases where an app kill dropped the observer event — a local residue
+ *   scan for push).
+ * - Coco-untracked quote (getByQuote null) → mark failed. Intentional behavior change:
+ *   this used to let checkMintQuote throw, only log, and retry as pending forever. A
+ *   quote that neither push nor requeue can ever reach has no revival path, so we
+ *   terminate it. (importQuote rescue is deliberately out of scope given its
+ *   state-pollution cost.)
+ * Termination = the tx status update itself: a mint-quote is not a real row in
+ * pendingOpRepo but a virtual view over transactions(status=pending), so marking it
+ * failed/settled is what removes it from the next scan
+ * (dexie-pending-operation.repository.ts:107-125).
+ */
+export async function reconcileMintQuotes(
+  deps: Pick<CashuRecoveryDeps, 'pendingOpRepo' | 'txRepo' | 'activeMintUrls'> & {
+    mintOpLookup: MintOpLookup
+  },
+): Promise<{ settled: number; failed: number }> {
+  const { pendingOpRepo, txRepo, mintOpLookup, activeMintUrls } = deps
+  let settled = 0
+  let failed = 0
+  const now = Date.now()
+  const normalizedActiveMintUrls = activeMintUrls
+    ? new Set(activeMintUrls.map(mintUrlKey))
+    : null
+
+  const allPending = await pendingOpRepo.list()
+  const mintQuotes = allPending.filter((op) => op.kind === 'mint-quote')
+
+  for (const op of mintQuotes) {
+    const quoteId = op.metadata?.quoteId as string | undefined
+    const mintUrl = op.accountId
+
+    try {
+      // Unidentifiable / removed-mint / expired → terminate as failed
+      if (!quoteId || !mintUrl) {
+        if (isExpiredQuoteOp(op, now)) {
+          await txRepo.update(op.id, { status: 'failed', completedAt: now })
+          failed++
+        }
+        continue
+      }
+      if (normalizedActiveMintUrls && !normalizedActiveMintUrls.has(mintUrlKey(mintUrl))) {
+        await txRepo.update(op.id, { status: 'failed', completedAt: now })
+        failed++
+        continue
+      }
+      if (isExpiredQuoteOp(op, now)) {
+        await txRepo.update(op.id, { status: 'failed', completedAt: now })
+        failed++
+        continue
+      }
+
+      const cocoOp = await mintOpLookup(mintUrl, quoteId)
+
+      if (cocoOp === null) {
+        // Untracked — push/requeue can never reach it → terminate (behavior change; see doc above)
+        await txRepo.update(op.id, { status: 'failed', completedAt: now })
+        failed++
+      } else if (cocoOp.state === 'finalized') {
+        // Dual-net: settle what the observer missed
+        await txRepo.update(op.id, { status: 'settled', outcome: 'claimed', completedAt: now })
+        settled++
+      } else if (cocoOp.state === 'failed') {
+        await txRepo.update(op.id, { status: 'failed', completedAt: now })
+        failed++
+      }
+      // 'init'|'pending'|'executing' — Coco in progress: owned by push/requeue, left untouched
+    } catch (error) {
+      logger.error(`[Recovery] Failed to reconcile quote ${quoteId}:`, error as Error)
+    }
+  }
+
+  return { settled, failed }
+}
+
+/**
+ * reconcile() orchestrator — send-op reconcile + mint-quote reconcile + legacy
+ * expiry cleanup. Local reads/writes only: network 0 is the contract.
+ */
+export async function reconcileCashu(
+  deps: Pick<CashuRecoveryDeps, 'pendingOpRepo' | 'txRepo' | 'activeMintUrls'> & {
+    sendOps: Pick<SendRecoveryOps, 'get'>
+    mintOpLookup: MintOpLookup
+  },
+): Promise<ReconcileReport> {
+  // send-op local-state reconcile
+  const allPending = await deps.pendingOpRepo.list()
+  const sdkTokens = allPending.filter((op) => op.kind === 'send-token' && op.metadata?.operationId)
+  const sends = await reconcileSendTokenOps(
+    { pendingOpRepo: deps.pendingOpRepo, txRepo: deps.txRepo, sendOps: deps.sendOps },
+    sdkTokens,
+  )
+
+  // mint-quote reconcile
+  const quotes = await reconcileMintQuotes(deps)
+
+  // clean up legacy expired rows
+  let cleaned = 0
+  try {
+    cleaned = await deps.pendingOpRepo.deleteExpired(MAX_AGE_MS)
+  } catch (error) {
+    logger.error('[Recovery] deleteExpired failed:', error as Error)
+  }
+
+  const report: ReconcileReport = {
+    settled: sends.settled + quotes.settled,
+    reclaimed: sends.reclaimed,
+    failed: quotes.failed,
+    cleaned,
+  }
+  logger.info(
+    `[Reconcile] settled=${report.settled} reclaimed=${report.reclaimed} failed=${report.failed} cleaned=${report.cleaned}`,
+  )
+  return report
 }
 
 // ─── Coco SDK Internal Stuck Mint Ops Cleanup ───
@@ -343,8 +505,8 @@ function normalizeMintUrl(mintUrl: string): string {
 const STALE_MINT_OP_MS = 24 * 60 * 60 * 1000
 
 /**
- * Coco SDK 내부에 stuck된 pending mint operation을 정리.
- * 5일 이상 경과 → abandon, 그 외 → mintAndReceive로 복구 시도.
+ * Cleans up pending mint operations stuck inside the Coco SDK.
+ * Past STALE_MINT_OP_MS → abandon; otherwise retry recovery via mintAndReceive.
  */
 export async function cleanAndRecoverStaleMintOps(): Promise<{ recovered: number; abandoned: number; failed: number }> {
   let recovered = 0

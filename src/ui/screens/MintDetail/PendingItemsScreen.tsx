@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next'
 import { useState, useMemo, useCallback } from 'react'
 import { ArrowLeft, Search, Calendar, CreditCard, ListFilter } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -25,7 +26,7 @@ interface PendingItemsScreenProps {
   initialMintUrls?: string[]
 }
 
-function groupByDate(items: PendingItem[], t: (key: string, opts?: Record<string, string>) => string): Array<{ label: string; items: PendingItem[] }> {
+function groupByDate(items: PendingItem[], t: TFunction): Array<{ label: string; items: PendingItem[] }> {
   const groups: Record<string, PendingItem[]> = {}
   for (const item of items) {
     const label = formatDateGroupLabel(item.createdAt, t)

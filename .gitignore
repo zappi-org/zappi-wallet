@@ -29,3 +29,9 @@ dist-ssr
 
 # Local HTTPS dev certificates (mkcert-generated, never commit)
 certs/
+coverage/
+
+# Private working docs — internal design/audit/task notes, not for collaborators
+docs/design/
+docs/audit/
+tasks/

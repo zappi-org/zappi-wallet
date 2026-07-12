@@ -7,11 +7,12 @@ import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { Button } from '@/ui/components/common/Button'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useMintHealth } from '@/ui/hooks/use-mint-health'
+import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { LIMITS, getNutName, getSupportedNuts } from '@/core/constants'
 import { formatMintHost, getMintBalance as getMintBalanceUtil } from '@/utils/url'
 import type { MintInfoData } from '@/core/types'
 // clearMintData provided via onClearMintData callback prop
-import { cn } from '@/ui/primitives/utils'
+import { cn } from '@/ui/lib/utils'
 import { Modal } from '@/ui/components/common'
 import { MintIcon } from './SettingsHelpers'
 import { MintUrlQrModal } from '@/ui/screens/MintDetail/MintUrlQrModal'
@@ -39,6 +40,7 @@ export function MintManagementScreen({
   const formatFiat = useFormatFiat()
   const { getDisplayName, getIconUrl } = useMintMetadata(settings.mints)
   const { getCachedStatus, checkAllMints } = useMintHealth()
+  const registry = useServiceRegistry()
 
   const [expandedMint, setExpandedMint] = useState<string | null>(null)
   const [mintToDelete, setMintToDelete] = useState<string | null>(null)
@@ -59,18 +61,21 @@ export function MintManagementScreen({
   // Ref to guard against duplicate fetches without causing callback identity changes
   const fetchedRef = useRef<Set<string>>(new Set())
 
+  // Direct /v1/info fetch via mintInfo facade: zero network on a 24h cache hit
   const fetchMintInfo = useCallback((url: string) => {
     if (fetchedRef.current.has(url)) return
     fetchedRef.current.add(url)
     setMintInfoCache((p) => ({ ...p, [url]: 'loading' }))
-    fetch(`${url.replace(/\/$/, '')}/v1/info`)
-      .then((res) => res.json())
-      .then((data) => setMintInfoCache((p) => ({ ...p, [url]: data })))
+    registry.mintInfo.getInfo(url)
+      .then((data) => {
+        if (!data) fetchedRef.current.delete(url)
+        setMintInfoCache((p) => ({ ...p, [url]: data }))
+      })
       .catch(() => {
         fetchedRef.current.delete(url)
         setMintInfoCache((p) => ({ ...p, [url]: null }))
       })
-  }, [])
+  }, [registry])
 
   const handleToggle = useCallback((url: string) => {
     setExpandedMint((prev) => {

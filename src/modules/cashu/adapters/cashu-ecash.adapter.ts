@@ -1,8 +1,7 @@
 /**
- * CashuEcashAdapter — PaymentMethodAdapter for eCash token send/receive
+ * CashuEcashAdapter — PaymentMethodAdapter for eCash token send/receive.
  *
- * execute-route.ts의 executeTokenSendFlow 로직을 adapter로 추출.
- * EcashBackend를 주입받아 Coco SDK에 직접 의존하지 않음.
+ * Takes an injected EcashBackend so it doesn't depend on the Coco SDK directly.
  */
 import type {
   PaymentMethodAdapter,
@@ -27,7 +26,7 @@ import { createPendingTransfer, transitionPhase, isExpired } from '@/core/domain
 import type { EventBus } from '@/core/events/event-bus'
 import { getTokenMetadata } from '@cashu/cashu-ts'
 
-// ─── Backend interface (DI용) ───
+// ─── Backend interface (for DI) ───
 
 export interface LockingCondition {
   kind: 'P2PK'
@@ -35,19 +34,19 @@ export interface LockingCondition {
   tags?: string[][]
 }
 
-/** receiveToken의 반환 타입 — unit은 backend(cashu-backend.ts)가 결정한다 */
+/** Return type of receiveToken — unit is decided by the backend (cashu-backend.ts) */
 export interface ReceivedTokenResult {
-  /** 실제 수신 금액 (gross - fee) */
+  /** Actual received amount (gross - fee) */
   amount: number
-  /** input_fee_ppk 기반 수수료 (0이면 수수료 없음) */
+  /** Fee based on input_fee_ppk (0 = no fee) */
   fee: number
-  /** mint의 토큰 단위 — backend가 결정 (현재 항상 'sat', 멀티 유닛 대응 구조) */
+  /** Mint's token unit — decided by the backend (currently always 'sat', structured for multi-unit) */
   unit: string
   mintUrl: string
   memo?: string
 }
 
-/** estimateReceiveFee의 반환 타입 */
+/** Return type of estimateReceiveFee */
 export interface ReceiveFeeEstimate {
   grossAmount: number
   fee: number
@@ -126,9 +125,9 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
         type: 'ecash-token',
         operationId: prepared.operationId,
         recipient: intent.recipient,
-        amount: toNumber(intent.amount), // Transaction 생성용
-        mintUrl: intent.accountId, // Transaction 생성용
-        fee: prepared.fee, // 거래내역 수수료 표시용
+        amount: toNumber(intent.amount), // for building the Transaction
+        mintUrl: intent.accountId, // for building the Transaction
+        fee: prepared.fee, // for showing the fee in transaction history
         memo: intent.memo,
       },
       now: Date.now(),
@@ -136,12 +135,12 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
   }
 
   async execute(transfer: PendingTransfer): Promise<PendingTransfer> {
-    // incoming: redeem (사용자가 "받기" 클릭)
+    // incoming: redeem (user taps "Receive")
     if (transfer.direction === 'incoming') {
       return this.executeIncoming(transfer)
     }
 
-    // outgoing: 토큰 생성 + 전송
+    // outgoing: create token + send
     return this.executeOutgoing(transfer)
   }
 
@@ -156,12 +155,12 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
       memo?: string
     }
 
-    // 1. 토큰 생성 (transportRef.memo 우선, legacy prepareSend path 는 pendingMemos 폴백)
+    // 1. Create token (prefer transportRef.memo; legacy prepareSend path falls back to pendingMemos)
     const memo = ref.memo ?? this.pendingMemos.get(ref.operationId)
     const result = await this.backend.executeSend(ref.operationId, { memo })
     this.pendingMemos.delete(ref.operationId)
 
-    // 2. 전송 (recipient 있을 때만 — QR/클립보드는 전송 없음)
+    // 2. Send (only when a recipient exists — QR/clipboard don't send)
     let deliveryId: string | undefined
     if (ref.recipient && this.transport) {
       const publishResult = await this.transport.publish({
@@ -171,7 +170,6 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
       deliveryId = publishResult.deliveryId
     }
 
-    // 기존 transportRef 유지하면서 token 추가
     const prevRef = transfer.transportRef as {
       type: string
       operationId: string
@@ -199,18 +197,17 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
       memo?: string
     }
 
-    // content에서 token 추출 또는 저장된 token 사용
     const token = ref.token ?? this.extractTokenFromContent(ref.content ?? '')
     if (!token) {
       throw new Error('No token found in incoming transfer')
     }
 
-    // redeem — 수수료/순수령액을 bridge/tx 기록용으로 transportRef에 저장
+    // redeem — store fee/net amount in transportRef for bridge/tx records
     const { amount, fee, unit, mintUrl, memo } = await this.backend.receiveToken(token)
 
-    // GiftWrapWatcher → TLS 마이그레이션으로 유실되었던 receive:settled 이벤트 복원.
-    // ReceiveQRStep이 lastReceivedRequestId를 통해 수신완료 페이지로 전환하고,
-    // EventStoreBridge가 pending quote를 제거하는 데 필요.
+    // Restores the receive:settled event lost in the GiftWrapWatcher → TLS migration.
+    // Needed so ReceiveQRStep switches to the completion page via lastReceivedRequestId
+    // and EventStoreBridge removes the pending quote.
     if (this.eventBus && ref.requestId) {
       this.eventBus.emit({
         type: 'receive:settled',
@@ -269,24 +266,66 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
       token?: string
     }
 
-    // 1. SDK 내부 상태 먼저 확인
+    // 1. Check SDK internal state first
     if (ref.operationId) {
       const opState = await this.backend.getSendOperationState(ref.operationId)
       if (opState === 'finalized') return 'settled'
       if (opState === 'rolled_back') return 'recoverable'
     }
 
-    // 2. 토큰 체인 상태 확인
+    // 2. Check token chain state
     if (ref.token) {
       const proofState = await this.backend.checkProofStates(ref.token)
       if (proofState.allSpent) return 'settled'
       if (proofState.allPending) return 'awaiting_confirmation'
     }
 
-    // 3. 만료 체크
+    // 3. Expiry check
     if (isExpired(transfer)) return 'recoverable'
 
     return 'awaiting_confirmation'
+  }
+
+  /**
+   * Local first-pass sweep verdict (network 0).
+   * send: Coco local op state only. Does NOT finalize expiry as recoverable here:
+   * recoverable falls outside listActive so sweep won't revisit it, and if the
+   * recipient already redeemed the token the reclaim UI would suggest a reclaim
+   * bound to fail — so the expiry verdict is left to confirmStuck, which first checks
+   * checkProofStates (allSpent→settled). incoming (awaiting manual receive): expiry
+   * only — there is no remote-state concept.
+   */
+  async pollLocal(transfer: PendingTransfer): Promise<TransferPhase> {
+    if (transfer.direction === 'incoming') {
+      if (isExpired(transfer)) return 'failed'
+      return transfer.phase
+    }
+
+    const ref = transfer.transportRef as { operationId?: string }
+    if (ref.operationId) {
+      const opState = await this.backend.getSendOperationState(ref.operationId)
+      if (opState === 'finalized') return 'settled'
+      if (opState === 'rolled_back') return 'recoverable'
+    }
+    return transfer.phase
+  }
+
+  /**
+   * One remote stuck-check: send uses `checkProofsStates` (an isolated raw call that
+   * must stay reachable from the stuck path, not just the reclaim screen). incoming is
+   * null — no remote-check concept, and sweep doesn't count it as stuck (so
+   * awaiting-manual-receive doesn't pollute the gate).
+   */
+  async confirmStuck(transfer: PendingTransfer): Promise<TransferPhase | null> {
+    if (transfer.direction === 'incoming') return null
+
+    const ref = transfer.transportRef as { token?: string }
+    if (!ref.token) return null
+
+    const proofState = await this.backend.checkProofStates(ref.token)
+    if (proofState.allSpent) return 'settled'
+    if (isExpired(transfer)) return 'recoverable'
+    return transfer.phase
   }
 
   async reclaim(transfer: PendingTransfer): Promise<void> {
@@ -294,7 +333,7 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
     await this.backend.rollbackSend(ref.operationId)
   }
 
-  // ─── 보내기 ───
+  // ─── Send ───
 
   async estimateFee(params: SendParams): Promise<FeeEstimate> {
     try {
@@ -357,14 +396,14 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
     await this.backend.finalizeSend(operationId)
   }
 
-  // ─── 받기 요청 ───
+  // ─── Receive request ───
 
   async createReceiveRequest(_params: ReceiveParams): Promise<ReceiveRequest> {
-    // creq 생성은 CashuModule이 조율 (keyring + relay + nostr 재료 필요)
+    // creq creation is orchestrated by CashuModule (needs keyring + relay + nostr material)
     throw new Error('Use CashuModule.createReceiveRequest() for ecash receive requests')
   }
 
-  // ─── 받기 실행 (redeem) ───
+  // ─── Receive (redeem) ───
 
   canRedeem(input: string): boolean {
     return /^cashu[ab]/i.test(input.trim())
@@ -378,7 +417,7 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
   }
 
   async redeem(input: string): Promise<RedeemResult> {
-    // 메모 추출 (redeem 전에 — receiveToken 후에는 원본 토큰 접근 불가)
+    // Extract memo before redeem — the original token is inaccessible after receiveToken
     let memo: string | undefined
     try {
       const decoded = getTokenMetadata(input)
@@ -389,7 +428,7 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
       const { amount, fee, unit, mintUrl } = await this.backend.receiveToken(input)
       return {
         requestId: crypto.randomUUID(),
-        // backend가 결정한 unit으로 Amount 생성 — sat 하드코딩 없음
+        // Build Amount with the backend-decided unit — no hardcoded sat
         amount: toAmount(amount, unit as Unit),
         fee: fee > 0 ? toAmount(fee, unit as Unit) : undefined,
         method: 'cashu:ecash',
@@ -397,7 +436,7 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
         completed: true,
         accountId: mintUrl,
         memo,
-        // 원본 토큰 저장 — Token tab Detail/RawSheet 에서 audit 용도로 조회
+        // Store the original token — read for audit in the Token tab Detail/RawSheet
         metadata: { token: input },
       }
     } catch (error) {
@@ -417,10 +456,10 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
     }
   }
 
-  // ─── Reclaim 견적 ───
+  // ─── Reclaim estimate ───
   /**
-   * Cashu 토큰은 tx.metadata.token 에 저장됨. Reclaim swap 은 receive swap 과
-   * 같은 input_fee_ppk 를 적용하므로 estimateRedeemFee 로 위임한다.
+   * The Cashu token is stored in tx.metadata.token. A reclaim swap applies the same
+   * input_fee_ppk as a receive swap, so it delegates to estimateRedeemFee.
    */
   async estimateReclaimFee(tx: Transaction): Promise<RedeemFeeEstimate> {
     const token = tx.metadata?.token as string | undefined
@@ -430,7 +469,7 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
     return this.estimateRedeemFee(token)
   }
 
-  // ─── 복구 ───
+  // ─── Recovery ───
 
   async recoverPending(): Promise<RecoveryReport> {
     const [sendResult, recvResult] = await Promise.allSettled([

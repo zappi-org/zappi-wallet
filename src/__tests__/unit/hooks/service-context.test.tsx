@@ -49,9 +49,25 @@ function createMockRegistry(): ServiceRegistry {
       updateProfile: vi.fn(),
       publish: vi.fn(),
     } as unknown as ServiceRegistry['profile'],
+    mintInfo: {
+      getInfo: vi.fn(),
+    } as unknown as ServiceRegistry['mintInfo'],
+    recoveryScheduler: {
+      reconcile: vi.fn().mockResolvedValue({ settled: 0, reclaimed: 0, failed: 0, cleaned: 0 }),
+      recoverTargeted: vi.fn().mockResolvedValue({ moduleId: 'cashu', recovered: 0, failed: 0 }),
+      drainReviewQueue: vi.fn().mockResolvedValue({ redeemed: 0, amount: 0 }),
+      runFullNetworkRecovery: vi.fn().mockResolvedValue({ moduleId: 'cashu', recovered: 0, failed: 0 }),
+    } as unknown as ServiceRegistry['recoveryScheduler'],
+    incomingReviewQueue: {
+      enqueue: vi.fn(),
+      listAll: vi.fn().mockResolvedValue([]),
+      listByMint: vi.fn().mockResolvedValue([]),
+      remove: vi.fn(),
+    } as unknown as ServiceRegistry['incomingReviewQueue'],
     recovery: {
       syncAll: vi.fn(),
       reconstructState: vi.fn(),
+      resyncFull: vi.fn(),
       retryFailedIncomings: vi.fn(),
       getFailedIncomings: vi.fn(),
       getSyncStatus: vi.fn(),
@@ -82,8 +98,6 @@ function createMockRegistry(): ServiceRegistry {
       checkEffectiveExpiry: vi.fn(),
       expireById: vi.fn(),
     } as unknown as ServiceRegistry['pendingItems'],
-    withdraw: {} as unknown as ServiceRegistry['withdraw'],
-    lnurlAuth: {} as unknown as ServiceRegistry['lnurlAuth'],
     mintMetadata: {} as unknown as ServiceRegistry['mintMetadata'],
     mintHealth: {} as unknown as ServiceRegistry['mintHealth'],
     crypto: {} as unknown as ServiceRegistry['crypto'],
@@ -106,6 +120,9 @@ function createMockRegistry(): ServiceRegistry {
     externalWalletRecovery: {
       recoverFromMnemonic: vi.fn(),
     } as unknown as ServiceRegistry['externalWalletRecovery'],
+    diagnostics: {
+      readNetCounters: vi.fn().mockResolvedValue({}),
+    },
     transferLifecycle: {
       initiateTransfer: vi.fn(),
       pollPendingTransfers: vi.fn(),

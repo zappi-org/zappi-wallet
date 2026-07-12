@@ -5,7 +5,6 @@ import {
   selectNetworkState,
   selectIsOnline,
   selectIsOffline,
-  selectWasOffline,
   selectConnectedRelays,
   selectConnectedRelayCount,
 } from '@/store/selectors'
@@ -19,13 +18,11 @@ export function useNetwork() {
   const networkState = useAppStore(selectNetworkState)
   const isOnline = useAppStore(selectIsOnline)
   const isOffline = useAppStore(selectIsOffline)
-  const wasOffline = useAppStore(selectWasOffline)
   const connectedRelays = useAppStore(selectConnectedRelays)
   const connectedRelayCount = useAppStore(selectConnectedRelayCount)
 
   // Store actions
   const setNetworkState = useAppStore((state) => state.setNetworkState)
-  const setWasOffline = useAppStore((state) => state.setWasOffline)
   const setConnectedRelays = useAppStore((state) => state.setConnectedRelays)
   const addConnectedRelay = useAppStore((state) => state.addConnectedRelay)
   const removeConnectedRelay = useAppStore((state) => state.removeConnectedRelay)
@@ -75,31 +72,21 @@ export function useNetwork() {
     }
   }, [handleOnline, handleOffline, setNetworkState])
 
-  /**
-   * Clear wasOffline flag after handling recovery
-   */
-  const clearWasOffline = useCallback(() => {
-    setWasOffline(false)
-  }, [setWasOffline])
-
-  /**
-   * Check if we need to recover from offline state
-   */
-  const needsRecovery = wasOffline && isOnline
+  // Removed wasOffline/needsRecovery/clearWasOffline: the only consumer
+  // (use-mint-health's reconnect effect) was replaced by a single bootstrap
+  // listener, leaving the flag stuck true after the first offline — a dead-state
+  // trap, so dropped entirely.
 
   return {
     // State
     networkState,
     isOnline,
     isOffline,
-    wasOffline,
     connectedRelays,
     connectedRelayCount,
-    needsRecovery,
 
     // Actions
     setNetworkState,
-    clearWasOffline,
     addConnectedRelay,
     removeConnectedRelay,
     setConnectedRelays,

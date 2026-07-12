@@ -4,7 +4,7 @@ import { toNumber } from '@/core/domain/amount'
 import { formatSats } from '@/utils/format'
 import i18n from '@/i18n'
 
-function getTypeLabel(tx: Transaction, t: (key: string) => string): string {
+function getTypeLabel(tx: Transaction, t: typeof i18n.t): string {
   const txType = getTransactionType(tx)
   if (txType === 'swap') return t('history.swap')
   if (txType === 'lightning') return tx.direction === 'receive' ? t('history.lightningReceive') : t('history.lightningSend')

@@ -22,7 +22,7 @@ interface UseCarouselScrollReturn {
 }
 
 /**
- * Shared carousel scroll hook — used by HomeScreen, MintCardSelector, MintSelectBottomSheet.
+ * Shared carousel scroll hook — used by HomeScreen, MintSelectBottomSheet.
  * Handles RAF-based scroll tracking, snap index calculation, and optional scale animation.
  */
 export function useCarouselScroll({

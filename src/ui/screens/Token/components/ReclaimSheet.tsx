@@ -3,18 +3,18 @@ import { Undo2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence, type PanInfo } from 'motion/react'
 import { useFormatSats } from '@/utils/format'
-import { formatRelativeTime } from '../mockData'
-import type { MockPendingToken } from '../types'
+import { formatRelativeTime } from '../token-view-model'
+import type { PendingTokenView } from '../types'
 
 export interface ReclaimSheetProps {
   isOpen: boolean
   onClose: () => void
-  /** Tokens to reclaim. One entry for single-token flow, many for "모두 되찾기". */
-  tokens: MockPendingToken[]
+  /** Tokens to reclaim. One entry for single-token flow, many for "Reclaim all". */
+  tokens: PendingTokenView[]
   /** Per-token receive fee in sats. */
   reclaimFeePerToken?: number
   /** Called when user taps the Reclaim CTA — awaited so the button can show busy state. */
-  onConfirm: (tokens: MockPendingToken[]) => Promise<void> | void
+  onConfirm: (tokens: PendingTokenView[]) => Promise<void> | void
 }
 
 export function ReclaimSheet({

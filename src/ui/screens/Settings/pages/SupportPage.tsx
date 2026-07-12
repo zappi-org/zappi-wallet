@@ -1,3 +1,5 @@
+import type { TranslationKey } from '@/i18n'
+import type { TFunction } from 'i18next'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import {
@@ -35,7 +37,7 @@ import {
 import { useSupport } from '@/ui/hooks/use-support'
 import { useAppStore } from '@/store'
 import { ConfirmDialog } from '@/ui/components/common/ConfirmDialog'
-import { cn } from '@/ui/primitives/utils'
+import { cn } from '@/ui/lib/utils'
 import {
   CSActionRow,
   CSAttachmentDropzone,
@@ -70,7 +72,7 @@ type SupportView =
 const FAQ_COUNT = 6
 const FAQ_HOME_PREVIEW = 4
 
-const INQUIRY_CATEGORY_OPTIONS: Array<{ value: SupportInquiryCategory; labelKey: string }> = [
+const INQUIRY_CATEGORY_OPTIONS: Array<{ value: SupportInquiryCategory; labelKey: TranslationKey }> = [
   { value: 'transfer', labelKey: 'support.categories.transfer' },
   { value: 'ecash', labelKey: 'support.categories.ecash' },
   { value: 'fee', labelKey: 'support.categories.fee' },
@@ -78,7 +80,7 @@ const INQUIRY_CATEGORY_OPTIONS: Array<{ value: SupportInquiryCategory; labelKey:
   { value: 'other', labelKey: 'support.categories.other' },
 ]
 
-const IDEA_CATEGORY_OPTIONS: Array<{ value: SupportIdeaCategory; labelKey: string }> = [
+const IDEA_CATEGORY_OPTIONS: Array<{ value: SupportIdeaCategory; labelKey: TranslationKey }> = [
   { value: 'idea_ux', labelKey: 'support.categories.idea_ux' },
   { value: 'idea_feature', labelKey: 'support.categories.idea_feature' },
   { value: 'idea_perf', labelKey: 'support.categories.idea_perf' },
@@ -142,28 +144,10 @@ export function SupportPage({ onBack }: SupportPageProps) {
     }
   }, [support, t])
 
-  // Resync when the PWA returns to the foreground. Mobile OSes drop the
-  // websocket while suspended, so live status updates published in that
-  // window can be missed. refresh() = disconnect + connect + pullOwnHistory.
-  useEffect(() => {
-    let lastRefreshAt = 0
-    const REFRESH_THROTTLE_MS = 10_000
-
-    const trigger = () => {
-      if (document.visibilityState !== 'visible') return
-      const now = Date.now()
-      if (now - lastRefreshAt < REFRESH_THROTTLE_MS) return
-      lastRefreshAt = now
-      support.refresh().catch(() => undefined)
-    }
-
-    document.addEventListener('visibilitychange', trigger)
-    window.addEventListener('focus', trigger)
-    return () => {
-      document.removeEventListener('visibilitychange', trigger)
-      window.removeEventListener('focus', trigger)
-    }
-  }, [support])
+  // Foreground-return resync is handled by the global use-support-notifications
+  // onWake subscription (avoids a duplicate refresh from this page's own
+  // visibility/focus listeners). This screen updates via the support.subscribe
+  // snapshot.
 
   useEffect(() => {
     return () => {
@@ -749,7 +733,7 @@ function HelpHomeView({
 }: HelpHomeViewProps) {
   const { t } = useTranslation()
   const faqQuestions = Array.from({ length: FAQ_HOME_PREVIEW }, (_, i) =>
-    t(`support.faq.q${i + 1}`),
+    t(`support.faq.q${i + 1}` as TranslationKey),
   )
   const inquiryListSubtitle =
     inquiryUnread > 0
@@ -881,7 +865,7 @@ function FaqView({ initialExpandedIndex }: { initialExpandedIndex: number | null
                 className="w-full flex items-center justify-between px-4 py-3.5 text-left gap-3"
               >
                 <span className="text-[14px] text-foreground tracking-[-0.005em] flex-1">
-                  {t(`support.faq.q${n}`)}
+                  {t(`support.faq.q${n}` as TranslationKey)}
                 </span>
                 <ChevronDown
                   className={cn(
@@ -893,7 +877,7 @@ function FaqView({ initialExpandedIndex }: { initialExpandedIndex: number | null
               </button>
               {expanded && (
                 <div className="px-4 pb-4 text-[13px] text-foreground-muted leading-relaxed tracking-[-0.005em] whitespace-pre-line">
-                  {t(`support.faq.a${n}`)}
+                  {t(`support.faq.a${n}` as TranslationKey)}
                 </div>
               )}
             </div>
@@ -1252,7 +1236,7 @@ interface HeaderInfo {
 
 function getHeaderInfo(
   view: SupportView,
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: TFunction,
   ticket: SupportTicket | null,
   onArchiveTicket: () => void,
 ): HeaderInfo {
@@ -1338,7 +1322,7 @@ interface RenderFooterArgs {
   capabilities: SupportSnapshot['capabilities']['attachments']
   onAttachmentError: (message: string) => void
   placeholder: string
-  t: (key: string) => string
+  t: TFunction
 }
 
 function renderFooter(args: RenderFooterArgs): React.ReactNode {
@@ -1507,7 +1491,7 @@ async function filesToSupportAttachments(files: File[]): Promise<SupportAttachme
           const data = await stripExifViaCanvas(file)
           return { name, mime, size: data.byteLength, data }
         } catch {
-          // canvas 실패 시 원본 바이트 폴백
+          // Fall back to the original bytes if canvas fails
         }
       }
 

@@ -1,8 +1,9 @@
 /**
- * IncomingPaymentService — 프로토콜 무관 수신 결제 처리
+ * IncomingPaymentService — protocol-agnostic incoming payment processing.
  *
- * 호출자(hook, adapter)가 payload/externalId를 결정하고,
- * 이 서비스는 redeem + 연결된 receive request 정산 + 멱등성 기록 + crash recovery + 실패 큐를 담당.
+ * The caller (hook, adapter) decides payload/externalId; this service handles
+ * redeem + settling the linked receive request + idempotency record + crash
+ * recovery + failure queue.
  */
 
 import type {
@@ -16,6 +17,7 @@ import type { FailedIncomingStore } from '@/core/ports/driven/failed-incoming-st
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { EventBus } from '@/core/events/event-bus'
 import { toNumber } from '@/core/domain/amount'
+import { BaseError } from '@/core/errors/base'
 
 type ReceiveRequestSettlement = Pick<ReceiveRequestUseCase, 'settleByPaymentRef'>
 
@@ -52,7 +54,10 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
       })
 
       if (!redeemResult.ok) {
-        throw new Error(redeemResult.error.message)
+        // Propagate the domain error as-is — re-wrapping with just the message loses
+        // the code, making the catch's already-spent check and translateError mapping
+        // depend on string matching.
+        throw redeemResult.error
       }
 
       const amount = toNumber(redeemResult.value.amount)
@@ -105,7 +110,9 @@ export class IncomingPaymentService implements IncomingPaymentUseCase {
       return { status: 'success', amount, fee, requestFulfilled: settlement.matched }
     } catch (error) {
       const errorMsg = String(error)
-      const isAlreadySpent = errorMsg.toLowerCase().includes('already spent')
+      const isAlreadySpent =
+        (error instanceof BaseError && error.code === 'TOKEN_SPENT') ||
+        errorMsg.toLowerCase().includes('already spent')
 
       if (isAlreadySpent) {
         const settlement = await this.settleReceiveRequest(params)

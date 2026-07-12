@@ -1,11 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import { Share2 } from 'lucide-react'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
-import { formatRelativeTime } from '../mockData'
-import type { MockPendingToken } from '../types'
+import { formatRelativeTime } from '../token-view-model'
+import type { PendingTokenView } from '../types'
 
 export interface PendingTokenCardProps {
-  token: MockPendingToken
+  token: PendingTokenView
   onReclaim?: () => void
   onShare?: () => void
   onSelect?: () => void

@@ -53,6 +53,10 @@ export function PreferencesCategoryPage({
             label={t('settings.privacy')}
             onPress={() => onNavigate('privacy')}
           />
+          <SettingsRow
+            label={t('settings.diagnostics')}
+            onPress={() => onNavigate('diagnostics')}
+          />
         </div>
       </div>
     </SettingsDetailPage>

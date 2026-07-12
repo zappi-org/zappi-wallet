@@ -27,7 +27,8 @@ export interface DebugSliceState {
   // Actions
   addDebugLog: (log: Omit<GiftWrapLog, 'id' | 'timestamp'>) => void
   clearDebugLogs: () => void
-  reset: () => void
+  /** Slice-local reset called by resetAll (fixes the same-name 'reset' collision where only the last spread survived) */
+  resetDebug: () => void
 }
 
 /**
@@ -57,5 +58,5 @@ export const createDebugSlice: StateCreator<DebugSliceState> = (set) => ({
 
   clearDebugLogs: () => set({ debugLogs: [] }),
 
-  reset: () => set(initialState),
+  resetDebug: () => set(initialState),
 })

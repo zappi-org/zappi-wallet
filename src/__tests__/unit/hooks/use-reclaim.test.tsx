@@ -20,6 +20,16 @@ function createMockRegistry(reclaimService: ReturnType<typeof vi.fn>, txMgmt?: {
     reclaim: {
       reclaim: reclaimService,
     } as unknown as ServiceRegistry['reclaim'],
+    mintInfo: { getInfo: vi.fn() } as unknown as ServiceRegistry['mintInfo'],
+    recoveryScheduler: {
+      reconcile: vi.fn().mockResolvedValue({ settled: 0, reclaimed: 0, failed: 0, cleaned: 0 }),
+      recoverTargeted: vi.fn().mockResolvedValue({ moduleId: 'cashu', recovered: 0, failed: 0 }),
+      drainReviewQueue: vi.fn().mockResolvedValue({ redeemed: 0, amount: 0 }),
+      runFullNetworkRecovery: vi.fn().mockResolvedValue({ moduleId: 'cashu', recovered: 0, failed: 0 }),
+    } as unknown as ServiceRegistry['recoveryScheduler'],
+    incomingReviewQueue: {
+      enqueue: vi.fn(), listAll: vi.fn().mockResolvedValue([]), listByMint: vi.fn().mockResolvedValue([]), remove: vi.fn(),
+    } as unknown as ServiceRegistry['incomingReviewQueue'],
     eventBus: { emit: vi.fn(), on: vi.fn().mockReturnValue(() => { }), off: vi.fn() },
     balance: { getTotal: vi.fn(), getByModule: vi.fn() } as unknown as ServiceRegistry['balance'],
     swap: { getAvailableSwaps: vi.fn(), estimateSwap: vi.fn(), executeSwap: vi.fn() } as unknown as ServiceRegistry['swap'],
@@ -32,8 +42,6 @@ function createMockRegistry(reclaimService: ReturnType<typeof vi.fn>, txMgmt?: {
     processedStore: { save: vi.fn(), exists: vi.fn(), existsByTxId: vi.fn(), findById: vi.fn(), findByTxId: vi.fn() } as unknown as ServiceRegistry['processedStore'],
     nostrGateway: { sendPrivateDirectMessage: vi.fn() } as unknown as ServiceRegistry['nostrGateway'],
     pendingItems: { getByMint: vi.fn(), getAll: vi.fn(), getActivePendingQuotes: vi.fn(), checkEffectiveExpiry: vi.fn(), expireById: vi.fn() } as unknown as ServiceRegistry['pendingItems'],
-    withdraw: {} as unknown as ServiceRegistry['withdraw'],
-    lnurlAuth: {} as unknown as ServiceRegistry['lnurlAuth'],
     mintMetadata: {} as unknown as ServiceRegistry['mintMetadata'],
     mintHealth: {} as unknown as ServiceRegistry['mintHealth'],
     crypto: {} as unknown as ServiceRegistry['crypto'],
@@ -49,6 +57,7 @@ function createMockRegistry(reclaimService: ReturnType<typeof vi.fn>, txMgmt?: {
     support: {} as unknown as ServiceRegistry['support'],
     nostrDirectPayment: { resolve: vi.fn() } as unknown as ServiceRegistry['nostrDirectPayment'],
     externalWalletRecovery: { recoverFromMnemonic: vi.fn() } as unknown as ServiceRegistry['externalWalletRecovery'],
+    diagnostics: { readNetCounters: vi.fn().mockResolvedValue({}) },
     transferLifecycle: {
       initiateTransfer: vi.fn(),
       pollPendingTransfers: vi.fn(),

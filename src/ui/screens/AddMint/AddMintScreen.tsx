@@ -9,7 +9,7 @@ import { ConfirmDialog } from '@/ui/components/common/ConfirmDialog'
 import { useAppStore } from '@/store'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { generateMintAliases } from '@/utils/mint-name'
-import { normalizeMintUrl, formatMintHost } from '@/utils/url'
+import { normalizeMintUrl, formatMintHost, isSameMintUrl } from '@/utils/url'
 import { formatSats } from '@/utils/format'
 import { MintCard, getVariantByIndex } from '@/ui/components/wallet/MintCard'
 import type { MintInfo } from '@/core/types'
@@ -119,7 +119,7 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
 
     const normalizedUrl = normalizeMintUrl(targetUrl)
 
-    if (mints.some((m) => m === normalizedUrl)) {
+    if (mints.some((m) => isSameMintUrl(m, normalizedUrl))) {
       setError(t('addMint.alreadyAdded'))
       return
     }
@@ -133,11 +133,17 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
     setProgressStep('validating')
 
     try {
-      const metadata = await registry.mintMetadata.fetchAndCache(normalizedUrl)
-      if (!metadata) {
+      // Validating an unregistered mint is branch B's fresh probe: one direct
+      // /v1/info round-trip — the response is back-fed into the metadata cache.
+      // Branch A (fetchAndCache) is scoped to registered mints (see
+      // bootstrap-facades.ts scopedCocoMintInfoFetcher) and returns null for a new
+      // mint not yet saved, so don't use it here. Same contract as
+      // use-settings-sync's handleAddTrustedMint (valid if it has name or pubkey).
+      const info = await registry.mintInfo.getInfo(normalizedUrl, { fresh: true })
+      if (!info || (!info.name && !info.pubkey)) {
         throw new Error(t('addMint.addFailed'))
       }
-      setAddingMintIconUrl(metadata.iconUrl)
+      setAddingMintIconUrl(info.icon_url)
 
       setProgressStep('adding')
 
@@ -156,11 +162,25 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
       setProgressStep('restoring')
 
       try {
-        const beforeModules = await registry.balance.getByModule()
-        const beforeTotal = beforeModules.reduce((sum, m) => sum + m.accounts.reduce((s, a) => s + Number(a.amount.value), 0), 0)
+        // Explicitly trusting a mint is user approval — auto-redeem the pending
+        // review tokens from this mint.
+        await registry.recoveryScheduler.drainReviewQueue(normalizedUrl)
 
-        // Recover tokens for the newly added mint via recoverAll
-        await registry.payment.recoverAll()
+        // Targeted recovery of the rest (e.g. offline-DLEQ tokens) — bypass the
+        // gate once: if this overlaps an unlock/resume targeted run within 5 min,
+        // a stale return would make the "restoring" step a no-op. Running now is
+        // fine because the just-completed trust is explicit user intent.
+        await registry.recoveryScheduler.recoverTargeted({ bypassGate: true })
+
+        // Seed-based balance restore — ownership decision: a reinstalling/re-adding
+        // user has no way to know whether this mint held a balance and mistakes it
+        // for loss. Bounded to the single just-added mint + an explicit user action,
+        // so it doesn't conflict with the "no automatic full recovery" principle.
+        const restoreReports = await registry.payment.recoverAccounts({ accountIds: [normalizedUrl] })
+        const failed = restoreReports.find((r) => !r.success)
+        if (failed) {
+          console.warn('[AddMint] Seed restore failed for', normalizedUrl, failed.error)
+        }
 
         const afterModules = await registry.balance.getByModule()
         const afterTotal = afterModules.reduce((sum, m) => sum + m.accounts.reduce((s, a) => s + Number(a.amount.value), 0), 0)
@@ -172,7 +192,11 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
         }
         setBalance({ total: afterTotal, byMint })
 
-        const recovered = afterTotal - beforeTotal
+        // "Recovered amount" = what this mint yielded (pending-token redemption +
+        // seed restore). This mint wasn't tracked before adding, so its post-add
+        // balance is exactly that yield — per-mint and thus accurate, unlike a
+        // total-balance diff that concurrent receipts on other mints would taint.
+        const recovered = byMint[normalizedUrl] ?? 0
         if (recovered > 0) {
           setRecoveredAmount(recovered)
         }
@@ -203,7 +227,7 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
   // Request confirmation before adding
   const requestAdd = useCallback((mintUrl: string, mintName: string) => {
     const normalizedUrl = normalizeMintUrl(mintUrl)
-    if (mints.some((m) => m === normalizedUrl)) {
+    if (mints.some((m) => isSameMintUrl(m, normalizedUrl))) {
       setError(t('addMint.alreadyAdded'))
       return
     }
@@ -342,9 +366,8 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
         ) : (
           <div className="bg-background-card divide-y divide-border">
             {discoveredMints.map((mint, i) => {
-              const normalizedMintUrl = normalizeMintUrl(mint.url)
               const isAlreadyAdded = mints.some(
-                (m) => m === mint.url || m === normalizedMintUrl
+                (m) => isSameMintUrl(m, mint.url)
               )
               const totalTx = mint.n_mints + mint.n_melts
               const displayName = mint.name || formatMintHost(mint.url)

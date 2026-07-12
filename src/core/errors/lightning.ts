@@ -47,3 +47,15 @@ export class LightningPaymentError extends BaseError {
     super(message, cause)
   }
 }
+
+/**
+ * LNURL response could not be parsed / has an unsupported tag
+ */
+export class LnurlParseError extends BaseError {
+  readonly code = 'LNURL_PARSE_FAILED' as const
+  readonly isRetryable = false
+
+  constructor(message = 'Failed to parse LNURL', cause?: unknown) {
+    super(message, cause)
+  }
+}

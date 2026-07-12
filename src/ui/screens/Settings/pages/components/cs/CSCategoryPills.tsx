@@ -1,4 +1,4 @@
-import { cn } from '@/ui/primitives/utils'
+import { cn } from '@/ui/lib/utils'
 
 export interface CSCategoryOption<T extends string> {
   value: T

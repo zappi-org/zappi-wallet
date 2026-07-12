@@ -1,8 +1,8 @@
 /**
- * SecurityService — 지갑 보안 오케스트레이터 (ZAP-141)
+ * SecurityService — wallet security orchestrator.
  *
- * KeyManager + Encryption + SecureStorage 포트를 조합.
- * 니모닉 생성, PIN 기반 암복호화, 잠금/해제, 비밀번호 변경.
+ * Composes the KeyManager, Encryption, and SecureStorage ports:
+ * mnemonic generation, PIN-based encryption/decryption, lock/unlock, and password change.
  */
 
 import type { KeyManager } from '@/core/ports/driven/key-manager.port'
@@ -11,8 +11,15 @@ import type { SecureStorage, StoredWallet } from '@/core/ports/driven/secure-sto
 import type { SeedCache } from '@/core/ports/driven/seed-cache.port'
 import type { KeyPair } from '@/core/domain/key-manager'
 import type { SecurityUseCase, UnlockResult } from '@/core/ports/driving/security.usecase'
-import { ok, err, type Result } from '@/core/types/result'
+import { Ok, Err, type Result } from '@/core/domain/result'
 import { SecurityError } from '@/core/errors/security'
+
+// ─── KDF generation policy ───
+// The service layer owns the version→iterations map; adapters just execute with the given count.
+const KDF_ITERATIONS: Record<number, number> = { 1: 100_000, 2: 600_000 }
+const CURRENT_KDF_VERSION = 2
+// Known versions the verifyAgainstRecord fallback iterates; an unknown declared version demotes to this set.
+const KNOWN_VERSIONS = [1, 2]
 
 // ─── Service ───
 
@@ -40,15 +47,17 @@ export class SecurityService implements SecurityUseCase {
   ): Promise<Result<UnlockResult, SecurityError>> {
     try {
       if (!this.keyManager.validateMnemonic(mnemonic)) {
-        return err(new SecurityError('INVALID_MNEMONIC', 'Invalid mnemonic phrase'))
+        return Err(new SecurityError('INVALID_MNEMONIC', 'Invalid mnemonic phrase'))
       }
 
       const keys = this.keyManager.deriveNostrKeyPair(mnemonic)
       const bip39Seed = this.keyManager.deriveBip39Seed(mnemonic)
 
-      const encryptedMnemonic = await this.encryption.encrypt(mnemonic, password)
+      // New wallets are always written at the CURRENT version.
+      const iterations = KDF_ITERATIONS[CURRENT_KDF_VERSION]
+      const encryptedMnemonic = await this.encryption.encrypt(mnemonic, password, iterations)
       const passwordSalt = randomHex(16)
-      const passwordHash = await this.encryption.hashPassword(password, passwordSalt)
+      const passwordHash = await this.encryption.hashPassword(password, passwordSalt, iterations)
 
       const wallet: StoredWallet = {
         encryptedMnemonic,
@@ -56,6 +65,7 @@ export class SecurityService implements SecurityUseCase {
         passwordSalt,
         publicKey: keys.publicKey,
         createdAt: Date.now(),
+        kdfVersion: CURRENT_KDF_VERSION,
       }
 
       await this.storage.saveWallet(wallet)
@@ -64,25 +74,33 @@ export class SecurityService implements SecurityUseCase {
       this.cachedSeed = bip39Seed
       this.seedCache.cacheMnemonic(mnemonic)
 
-      return ok({ keys, bip39Seed })
+      return Ok({ keys, bip39Seed })
     } catch (error) {
-      return err(new SecurityError('CREATE_WALLET_FAILED', String(error)))
+      return Err(new SecurityError('CREATE_WALLET_FAILED', String(error)))
     }
   }
 
   async unlock(password: string): Promise<Result<UnlockResult, SecurityError>> {
     try {
-      const wallet = await this.storage.getWallet()
-      if (!wallet) {
-        return err(new SecurityError('NO_WALLET', 'No wallet found'))
+      // Read with the tag — the CAS precondition for migration. Absent → NO_WALLET
+      // (preserves the half-wipe rescue path).
+      const rec = await this.storage.getWalletWithTag()
+      if (!rec) {
+        return Err(new SecurityError('NO_WALLET', 'No wallet found'))
+      }
+      const { wallet, tag } = rec
+
+      // Try the declared version first, then fall back through all known versions. Wrong PIN → null → INVALID_PASSWORD.
+      const match = await this.verifyAgainstRecord(wallet, password)
+      if (!match) {
+        return Err(new SecurityError('INVALID_PASSWORD', 'Invalid password'))
       }
 
-      const passwordHash = await this.encryption.hashPassword(password, wallet.passwordSalt)
-      if (!constantTimeEqual(passwordHash, wallet.passwordHash)) {
-        return err(new SecurityError('INVALID_PASSWORD', 'Invalid password'))
-      }
-
-      const mnemonic = await this.encryption.decrypt(wallet.encryptedMnemonic, password)
+      const mnemonic = await this.encryption.decrypt(
+        wallet.encryptedMnemonic,
+        password,
+        KDF_ITERATIONS[match.version],
+      )
       const keys = this.keyManager.deriveNostrKeyPair(mnemonic)
       const bip39Seed = this.keyManager.deriveBip39Seed(mnemonic)
 
@@ -90,9 +108,21 @@ export class SecurityService implements SecurityUseCase {
       this.cachedSeed = bip39Seed
       this.seedCache.cacheMnemonic(mnemonic)
 
-      return ok({ keys, bip39Seed })
+      // Migrate when the record is an old version (matched != CURRENT) or corrupt (declared != matched).
+      // Failure is non-fatal — unlock still succeeds, the record stays intact and is retried next unlock.
+      let migrated = false
+      const declared = wallet.kdfVersion ?? 1
+      if (match.version !== CURRENT_KDF_VERSION || declared !== match.version) {
+        try {
+          migrated = await this.migrateRecord(wallet, tag, password, mnemonic)
+        } catch (error) {
+          console.error('[Security] KDF migration failed — retrying next unlock:', error)
+        }
+      }
+
+      return Ok({ keys, bip39Seed, migrated })
     } catch (error) {
-      return err(new SecurityError('UNLOCK_FAILED', String(error)))
+      return Err(new SecurityError('UNLOCK_FAILED', String(error)))
     }
   }
 
@@ -100,13 +130,14 @@ export class SecurityService implements SecurityUseCase {
     try {
       const wallet = await this.storage.getWallet()
       if (!wallet) {
-        return err(new SecurityError('NO_WALLET', 'No wallet found'))
+        return Err(new SecurityError('NO_WALLET', 'No wallet found'))
       }
 
-      const passwordHash = await this.encryption.hashPassword(password, wallet.passwordSalt)
-      return ok(constantTimeEqual(passwordHash, wallet.passwordHash))
+      // Version-aware verification (read-only, no write). Correct for both v1 and v2 records.
+      const match = await this.verifyAgainstRecord(wallet, password)
+      return Ok(match !== null)
     } catch (error) {
-      return err(new SecurityError('VERIFY_FAILED', String(error)))
+      return Err(new SecurityError('VERIFY_FAILED', String(error)))
     }
   }
 
@@ -117,30 +148,41 @@ export class SecurityService implements SecurityUseCase {
     try {
       const wallet = await this.storage.getWallet()
       if (!wallet) {
-        return err(new SecurityError('NO_WALLET', 'No wallet found'))
+        return Err(new SecurityError('NO_WALLET', 'No wallet found'))
       }
 
-      const oldHash = await this.encryption.hashPassword(oldPassword, wallet.passwordSalt)
-      if (!constantTimeEqual(oldHash, wallet.passwordHash)) {
-        return err(new SecurityError('INVALID_PASSWORD', 'Invalid password'))
+      // Verify the old password version-aware (read), but always rewrite at CURRENT —
+      // a v1-record user is naturally upgraded the moment they change their PIN.
+      const match = await this.verifyAgainstRecord(wallet, oldPassword)
+      if (!match) {
+        return Err(new SecurityError('INVALID_PASSWORD', 'Invalid password'))
       }
 
-      const mnemonic = await this.encryption.decrypt(wallet.encryptedMnemonic, oldPassword)
-      const encryptedMnemonic = await this.encryption.encrypt(mnemonic, newPassword)
+      const mnemonic = await this.encryption.decrypt(
+        wallet.encryptedMnemonic,
+        oldPassword,
+        KDF_ITERATIONS[match.version],
+      )
+      const iterations = KDF_ITERATIONS[CURRENT_KDF_VERSION]
+      const encryptedMnemonic = await this.encryption.encrypt(mnemonic, newPassword, iterations)
       const passwordSalt = randomHex(16)
-      const passwordHash = await this.encryption.hashPassword(newPassword, passwordSalt)
+      const passwordHash = await this.encryption.hashPassword(newPassword, passwordSalt, iterations)
 
       const updatedWallet: StoredWallet = {
         ...wallet,
         encryptedMnemonic,
         passwordHash,
         passwordSalt,
+        kdfVersion: CURRENT_KDF_VERSION,
       }
 
+      // Skipping CAS is intentional — changePassword is a post-unlock manual action that always
+      // writes a complete CURRENT record, so a racing migration's CAS is skipped on tag mismatch
+      // and the mnemonic is preserved regardless of ordering.
       await this.storage.saveWallet(updatedWallet)
-      return ok(undefined)
+      return Ok(undefined)
     } catch (error) {
-      return err(new SecurityError('CHANGE_PASSWORD_FAILED', String(error)))
+      return Err(new SecurityError('CHANGE_PASSWORD_FAILED', String(error)))
     }
   }
 
@@ -148,18 +190,23 @@ export class SecurityService implements SecurityUseCase {
     try {
       const wallet = await this.storage.getWallet()
       if (!wallet) {
-        return err(new SecurityError('NO_WALLET', 'No wallet found'))
+        return Err(new SecurityError('NO_WALLET', 'No wallet found'))
       }
 
-      const passwordHash = await this.encryption.hashPassword(password, wallet.passwordSalt)
-      if (!constantTimeEqual(passwordHash, wallet.passwordHash)) {
-        return err(new SecurityError('INVALID_PASSWORD', 'Invalid password'))
+      // Version-aware verification, then decrypt with the matched version (read-only, no write).
+      const match = await this.verifyAgainstRecord(wallet, password)
+      if (!match) {
+        return Err(new SecurityError('INVALID_PASSWORD', 'Invalid password'))
       }
 
-      const mnemonic = await this.encryption.decrypt(wallet.encryptedMnemonic, password)
-      return ok(mnemonic)
+      const mnemonic = await this.encryption.decrypt(
+        wallet.encryptedMnemonic,
+        password,
+        KDF_ITERATIONS[match.version],
+      )
+      return Ok(mnemonic)
     } catch (error) {
-      return err(new SecurityError('GET_MNEMONIC_FAILED', String(error)))
+      return Err(new SecurityError('GET_MNEMONIC_FAILED', String(error)))
     }
   }
 
@@ -168,6 +215,82 @@ export class SecurityService implements SecurityUseCase {
     this.cachedKeys = null
     this.cachedSeed = null
     this.seedCache.clearCache()
+  }
+
+  // ─── KDF version-aware verification · migration ───
+
+  /**
+   * Try the declared version first, then iterate the remaining known versions (self-healing).
+   * Returns the version that actually matched, or null on a wrong password. An unknown declared
+   * version (a future record) is demoted to iterate all KNOWN_VERSIONS (newest first) so a
+   * KDF_ITERATIONS[unknown] lookup can't break it.
+   */
+  private async verifyAgainstRecord(
+    wallet: StoredWallet,
+    password: string,
+  ): Promise<{ version: number } | null> {
+    const declared = wallet.kdfVersion ?? 1
+    const order = KNOWN_VERSIONS.includes(declared)
+      ? [declared, ...KNOWN_VERSIONS.filter((v) => v !== declared)]
+      : [...KNOWN_VERSIONS].reverse()
+    for (const version of order) {
+      const hash = await this.encryption.hashPassword(
+        password,
+        wallet.passwordSalt,
+        KDF_ITERATIONS[version],
+      )
+      if (constantTimeEqual(hash, wallet.passwordHash)) return { version }
+    }
+    return null
+  }
+
+  /**
+   * Atomically rewrite the record's two KDF fields (encryptedMnemonic + passwordHash) at the
+   * CURRENT iteration count. Returns true on put success, false on CAS miss or readback failure;
+   * throws are handled non-fatally by the caller (unlock).
+   *
+   * Two-way readback: the ciphertext being written replaces the only copy of the mnemonic, so
+   * before writing we cross-check both outputs against values freshly derived with the CURRENT
+   * constant — (a) mnemonic roundtrip, (b) hash roundtrip. If either mismatches we skip the put,
+   * guarding against the "opening your own output with your own parameters" blind spot.
+   */
+  private async migrateRecord(
+    wallet: StoredWallet,
+    tag: string,
+    password: string,
+    mnemonic: string,
+  ): Promise<boolean> {
+    const iterations = KDF_ITERATIONS[CURRENT_KDF_VERSION]
+
+    // 1. Re-derive both fields at the CURRENT iteration count.
+    const encryptedMnemonic = await this.encryption.encrypt(mnemonic, password, iterations)
+    const passwordSalt = randomHex(16)
+    const passwordHash = await this.encryption.hashPassword(password, passwordSalt, iterations)
+
+    // 2. Two-way readback — re-derive with the CURRENT constant and cross-check.
+    const roundtripMnemonic = await this.encryption.decrypt(
+      encryptedMnemonic,
+      password,
+      KDF_ITERATIONS[CURRENT_KDF_VERSION],
+    )
+    const roundtripHash = await this.encryption.hashPassword(
+      password,
+      passwordSalt,
+      KDF_ITERATIONS[CURRENT_KDF_VERSION],
+    )
+    if (roundtripMnemonic !== mnemonic || !constantTimeEqual(roundtripHash, passwordHash)) {
+      return false // self-output mismatch — skip the put (record stays intact, retried next unlock)
+    }
+
+    // 3. Single-record CAS swap; mismatch or absence → false (no-op).
+    const next: StoredWallet = {
+      ...wallet,
+      encryptedMnemonic,
+      passwordHash,
+      passwordSalt,
+      kdfVersion: CURRENT_KDF_VERSION,
+    }
+    return this.storage.replaceWallet(next, tag)
   }
 
   // ─── KeyManager delegates ───

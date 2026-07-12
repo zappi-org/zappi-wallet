@@ -10,7 +10,7 @@ import type {
 } from '@/core/ports/driven/payment-method.port'
 import type { ModuleBalance } from '@/core/ports/driven/wallet-module.port'
 
-/** UI가 adapter를 직접 참조하지 않도록 DTO로 노출 */
+/** Exposed as a DTO so the UI never references the adapter directly */
 export interface PaymentMethodInfo {
   id: string        // 'cashu:bolt11', 'cashu:bolt12', 'cashu:ecash'
   moduleId: string
@@ -52,7 +52,7 @@ export interface PaymentUseCase {
     recipientPubkey?: string
   }): Promise<Result<InputInspectionResult, BaseError>>
 
-  /** 토큰 전송 완료 처리 (상대가 수령 확인 후 finalize) */
+  /** Finalize a token send once the recipient confirms receipt */
   completeSend(params: {
     transactionId: string
   }): Promise<Result<{ transactionId: string }, BaseError>>
@@ -99,7 +99,14 @@ export interface PaymentUseCase {
     accountId: string
   }): Promise<Result<{ amount: Amount }, BaseError>>
 
-  recoverAll(): Promise<RecoveryReport[]>
+  /**
+   * Recover all incomplete payments. By default passes through a single-flight +
+   * 30s cooldown gate (prevents overlap across the 6 triggers: unlock, resume,
+   * pull-to-refresh, screen entry, etc.). A re-call within the cooldown returns the
+   * previous report. Use bypassGate only where "must run now" is intended, such as
+   * an explicit user-initiated recovery button.
+   */
+  recoverAll(opts?: { bypassGate?: boolean }): Promise<RecoveryReport[]>
   recoverAccounts(params: {
     accountIds: string[]
   }): Promise<AccountRecoveryReport[]>

@@ -6,6 +6,7 @@
  */
 
 import type { ValidatedData, ParsedCashuRequest } from './input-types'
+import { mintUrlKey } from './mint-url'
 
 // ─── Route Constants (as const for single source of truth) ───
 
@@ -86,8 +87,8 @@ export interface RouteExecutionResult {
 // ─── Pure Functions ───
 
 /**
- * URI + sender context → 최적 결제 라우트 선택
- * Side effect 없음. 단위 테스트 100% 가능.
+ * Selects the optimal payment route from a URI + sender context.
+ * No side effects — fully unit-testable.
  */
 export function selectRoute(input: RouteInput): PaymentRoute {
   const { validatedData, senderMints, privacyMode, lightningInvoice } = input
@@ -136,7 +137,7 @@ export function selectRoute(input: RouteInput): PaymentRoute {
 }
 
 /**
- * 라우트에 따라 최적 source mint 선택.
+ * Selects the optimal source mint for a route.
  * Best-fit: smallest balance >= amount
  */
 export function selectSourceMint(
@@ -159,8 +160,12 @@ export function selectSourceMint(
  * sender mints ∩ receiver mints
  */
 export function findCommonMints(senderMints: string[], receiverMints: string[]): string[] {
-  const receiverSet = new Set(receiverMints.map(normalizeUrl))
-  return senderMints.filter((m) => receiverSet.has(normalizeUrl(m)))
+  // Compare via the domain canonical (mintUrlKey) so that :443 / case / omitted-protocol
+  // variants of the same mint aren't judged "no common mint" and downgraded to a
+  // high-fee route. Return the sender-side originals to stay consistent with
+  // bestFitMint's raw byMint lookup.
+  const receiverSet = new Set(receiverMints.map(mintUrlKey))
+  return senderMints.filter((m) => receiverSet.has(mintUrlKey(m)))
 }
 
 // ─── Internal Helpers ───
@@ -180,6 +185,3 @@ function bestFitMint(
   return fallback[0] || null
 }
 
-function normalizeUrl(url: string): string {
-  return url.replace(/\/+$/, '').toLowerCase()
-}

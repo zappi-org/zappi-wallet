@@ -1,8 +1,9 @@
+import type { TFunction } from "i18next";
 import type { SendableValidatedData } from "./SendFlow";
 import { isNostrDirectAddress } from "@/core/domain/nostr-address";
 import { PaymentRoute } from "@/ui/hooks/use-routing";
 
-type Translate = (key: string) => string;
+type Translate = TFunction;
 type CashuRequestSendData = Extract<SendableValidatedData, { type: "cashu-request" }>;
 
 export interface ConfirmDisplayInfo {
@@ -59,7 +60,7 @@ export function getConfirmDisplayInfo(
   t: Translate,
   displayName?: string
 ): ConfirmDisplayInfo {
-  // Route-aware: unified QR에서 LN 라우트가 선택되면 lightning invoice 기반 표시
+  // Route-aware: when a unified QR selects an LN route, display based on the lightning invoice
   const isLnRoute = isLightningRoute(route);
   const isTokenRoute =
     route === PaymentRoute.TOKEN_TRANSFER ||
@@ -149,7 +150,7 @@ export function getConfirmDisplayInfo(
         recipientDetail: data.params?.domain || "LNURL",
       };
     case "cashu-request": {
-      // fallback (route 없을 때)
+      // fallback (when no route)
       const req = data.request;
       return {
         method: "eCash",
@@ -206,7 +207,7 @@ export function getDestinationDisplay(
 
 /**
  * Look up contact name by address
- * @param findByAddress - ContactUseCase.findByAddress 또는 동등한 함수
+ * @param findByAddress - ContactUseCase.findByAddress or an equivalent function
  */
 export async function findContactName(
   address: string,

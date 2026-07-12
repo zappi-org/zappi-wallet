@@ -6,10 +6,6 @@ export const selectBalance = (state: AppState) => state.balance
 export const selectTotalBalance = (state: AppState) => state.balance.total
 export const selectBalanceByMint = (state: AppState) => state.balance.byMint
 export const selectIsLoadingBalance = (state: AppState) => state.isLoadingBalance
-export const selectMints = (state: AppState) => state.mints
-export const selectActiveMintUrl = (state: AppState) => state.activeMintUrl
-export const selectActiveMint = (state: AppState) =>
-  state.mints.find((m) => m.url === state.activeMintUrl) ?? null
 
 // ===== Network Selectors =====
 
@@ -17,7 +13,6 @@ export const selectNetworkState = (state: AppState) => state.networkState
 export const selectIsOnline = (state: AppState) => state.networkState === 'ONLINE'
 export const selectIsOffline = (state: AppState) => state.networkState === 'OFFLINE'
 export const selectIsSyncing = (state: AppState) => state.networkState === 'SYNCING'
-export const selectWasOffline = (state: AppState) => state.wasOffline
 export const selectConnectedRelays = (state: AppState) => state.connectedRelays
 export const selectConnectedRelayCount = (state: AppState) => state.connectedRelays.length
 
@@ -29,7 +24,6 @@ export const selectAnchor = (state: AppState) => state.anchor
 export const selectPendingRetries = (state: AppState) => state.pendingRetries
 export const selectFailedIncomingsCount = (state: AppState) => state.failedIncomingsCount
 export const selectPendingIncomingReviews = (state: AppState) => state.pendingIncomingReviews
-export const selectSyncProgress = (state: AppState) => state.syncProgress
 export const selectHasPendingItems = (state: AppState) =>
   state.pendingRetries > 0 || state.failedIncomingsCount > 0 || state.pendingIncomingReviews.length > 0
 
@@ -74,12 +68,6 @@ export const selectIsReady = (state: AppState) =>
  */
 export const selectCanPerformOnlineOps = (state: AppState) =>
   state.networkState === 'ONLINE' && !state.isLocked
-
-/**
- * Get online mints only
- */
-export const selectOnlineMints = (state: AppState) =>
-  state.mints.filter((m) => m.isOnline)
 
 /**
  * Get total pending notification count (for badges)

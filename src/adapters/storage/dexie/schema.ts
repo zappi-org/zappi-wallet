@@ -1,6 +1,7 @@
 import Dexie, { type Table } from 'dexie'
 import type { Transaction, WalletSettings, MintMetadata, ExchangeRateCache, Contact } from '@/core/types'
 import type { ProcessedRecord, SyncAnchor } from '@/core/types'
+import type { GiftwrapCursorRecord } from '@/core/domain/giftwrap-cursor'
 import type {
   SupportAttachment,
   SupportCategory,
@@ -72,19 +73,6 @@ export interface LockStateRecord {
   isLocked: boolean
   failedAttempts: number
   lockedUntil?: number
-}
-
-/**
- * Proof record for DB storage
- */
-export interface ProofRecord {
-  id: string // unique id: mintUrl + secret
-  mintUrl: string
-  amount: number
-  secret: string
-  C: string
-  keysetId: string
-  addedAt: number
 }
 
 /**
@@ -246,8 +234,35 @@ export interface PendingTransferRecord {
 }
 
 /**
- * Zappi Database
+ * Net counter record — production aggregate counters.
+ * PII-free cumulative counters only. No remote transmission (for the local diagnostics screen).
  */
+export interface NetCounterRecord {
+  name: string
+  value: number
+  updatedAt: number
+}
+
+/**
+ * Incoming review record — user-confirmation queue for tokens received from untrusted mints.
+ * A flattened copy of PendingIncomingReview. amount's bigint is stored as a string to avoid
+ * structured-clone differences across IDB implementations. externalId (= Nostr eventId) is the
+ * PK, so enqueue is an idempotent put — the premise for the durable-enqueue → processed-marking order.
+ */
+export interface IncomingReviewRecord {
+  externalId: string
+  mintUrl: string
+  token: string
+  amountValue: string
+  amountUnit: string
+  memo?: string
+  queuedAt: number
+  requestId?: string
+  senderPubkey?: string
+  txId?: string
+  source: 'gift-wrap' | 'recovery'
+}
+
 export class ZappiDatabase extends Dexie {
   transactions!: Table<TransactionRecord, string>
   failedIncomings!: Table<FailedIncomingRecord, string>
@@ -256,7 +271,6 @@ export class ZappiDatabase extends Dexie {
   settings!: Table<SettingsRecord, string>
   encryptedWallet!: Table<EncryptedWalletRecord, string>
   lockState!: Table<LockStateRecord, string>
-  proofs!: Table<ProofRecord, string>
   pendingMelts!: Table<PendingMeltRecord, string>
   pendingSendTokens!: Table<PendingSendTokenRecord, string>
   pendingReceivedTokens!: Table<PendingReceivedTokenRecord, string>
@@ -267,24 +281,24 @@ export class ZappiDatabase extends Dexie {
   supportTickets!: Table<SupportTicketRecord, string>
   supportMessages!: Table<SupportMessageRecord, string>
   pendingTransfers!: Table<PendingTransferRecord, string>
+  netCounters!: Table<NetCounterRecord, string>
+  giftwrapCursors!: Table<GiftwrapCursorRecord, string>
+  incomingReviews!: Table<IncomingReviewRecord, string>
 
   constructor() {
     super(DATABASE.NAME)
 
     this.version(DATABASE.VERSION).stores({
-      // Transactions: indexed by id, direction, type, status, createdAt, mintUrl, operationId
       transactions: 'id, direction, type, status, createdAt, mintUrl, source, operationId',
 
       // v14: old failedSwaps table deleted (data loss accepted — retry queue only)
       failedSwaps: null,
 
-      // Failed incomings: indexed by id, accountId, isRetryable, createdAt
       failedIncomings: 'id, accountId, isRetryable, createdAt, errorCode',
 
       // v15: old processedEvents table deleted (dedup data loss accepted — crash recovery handles re-processing)
       processedEvents: null,
 
-      // Processed records: indexed by externalId, txId, processedAt, result
       processedRecords: 'externalId, txId, processedAt, result',
 
       // Sync anchor: single record
@@ -299,8 +313,11 @@ export class ZappiDatabase extends Dexie {
       // Lock state: single record
       lockState: 'id',
 
-      // Proofs: indexed by id, mintUrl, secret
-      proofs: 'id, mintUrl, secret',
+      // v23: legacy proofs table deleted (leftover after the coco migration).
+      // Real-fund proofs are owned by the coco DB (zappi-coco-wallet); this table had
+      // no read/write path (last reference was clearMintData's delete) — the remaining
+      // data is legacy, so the data itself is what we drop.
+      proofs: null,
 
       // Pending melts: Lightning send recovery (melt quote info before payment)
       pendingMelts: 'meltQuoteId, mintUrl, createdAt',
@@ -329,13 +346,20 @@ export class ZappiDatabase extends Dexie {
 
       // Pending transfers: unified transfer lifecycle (outgoing/incoming, all protocols)
       pendingTransfers: 'id, txId, direction, protocol, phase, createdAt, updatedAt, expiresAt',
+
+      // v20: Net counters — production aggregate counters (PII-free, no remote transmission)
+      netCounters: 'name',
+
+      // v21: Gift wrap since cursor — pubkey-scoped key. No legacy seed:
+      // upgrade does one full replay, then establishes only via a true full EOSE
+      giftwrapCursors: 'key',
+
+      // v22: durable queue for review of tokens from untrusted mints (source for drainReviewQueue)
+      incomingReviews: 'externalId, mintUrl, queuedAt',
     })
   }
 }
 
-/**
- * Database singleton instance
- */
 let dbInstance: ZappiDatabase | null = null
 
 /**
@@ -360,7 +384,7 @@ export async function resetDatabase(): Promise<void> {
 
 /**
  * Clear all data related to a specific mint
- * Removes proofs, pending items, failed incomings, and metadata.
+ * Removes pending items, failed incomings, and metadata.
  * Transactions are kept for historical reference.
  */
 export async function clearMintData(mintUrl: string): Promise<void> {
@@ -369,34 +393,11 @@ export async function clearMintData(mintUrl: string): Promise<void> {
   const variants = [normalized, normalized + '/']
 
   await Promise.all([
-    db.proofs.where('mintUrl').anyOf(variants).delete(),
     db.failedIncomings.where('accountId').anyOf(variants).delete(),
     db.pendingMelts.where('mintUrl').anyOf(variants).delete(),
     db.pendingSendTokens.where('mintUrl').anyOf(variants).delete(),
     db.pendingReceivedTokens.where('mintUrl').anyOf(variants).delete(),
     db.receiveRequests.where('mintUrl').anyOf(variants).delete(),
     db.mintMetadata.where('url').anyOf(variants).delete(),
-  ])
-}
-
-/**
- * Clear all data (for logout)
- */
-export async function clearAllData(): Promise<void> {
-  const db = getDatabase()
-  await Promise.all([
-    db.transactions.clear(),
-    db.failedIncomings.clear(),
-    db.processedRecords.clear(),
-    db.syncAnchor.clear(),
-    db.settings.clear(),
-    db.encryptedWallet.clear(),
-    db.lockState.clear(),
-    db.pendingMelts.clear(),
-    db.pendingSendTokens.clear(),
-    db.pendingReceivedTokens.clear(),
-    db.receiveRequests.clear(),
-    db.supportTickets.clear(),
-    db.supportMessages.clear(),
   ])
 }

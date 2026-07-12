@@ -3,18 +3,10 @@
  * Based on cashu.me and go-nostr conventions
  */
 
-/**
- * Normalize mint URL (cashu.me convention)
- * - Adds https:// if no protocol
- * - Removes trailing slashes
- */
-export function normalizeMintUrl(url: string): string {
-  let cleaned = url.trim().replace(/\/+$/, '')
-  if (!/^[a-z]+:\/\//i.test(cleaned)) {
-    cleaned = 'https://' + cleaned
-  }
-  return cleaned
-}
+// Mint URL equivalence (storage normalization + canonical comparison) is a domain
+// rule — moved to core/domain. Backward-compat re-export for existing callers.
+export { normalizeMintUrl, mintUrlKey, isSameMintUrl } from '@/core/domain/mint-url'
+import { mintUrlKey } from '@/core/domain/mint-url'
 
 /**
  * Extract hostname from URL for display
@@ -22,6 +14,7 @@ export function normalizeMintUrl(url: string): string {
 export function formatMintHost(url: string): string {
   try { return new URL(url).hostname } catch { return url }
 }
+
 
 /**
  * Strip trailing slash from URL (lightweight normalization for comparison)
@@ -31,12 +24,20 @@ export function stripTrailingSlash(url: string): string {
 }
 
 /**
- * Get mint balance with URL normalization fallback
- * Handles both trailing-slash and non-trailing-slash variants
+ * Get mint balance with URL normalization fallback.
+ * byMint keys are coco-canonical while the UI holds settings raw — when a
+ * direct/trailing-slash match fails, fall back to mintUrlKey equivalence so
+ * formatting variants don't get missed.
  */
 export function getMintBalance(url: string, balanceByMint: Record<string, number>): number {
-  const normalized = stripTrailingSlash(url)
-  return balanceByMint[normalized] || balanceByMint[url] || 0
+  const direct = balanceByMint[stripTrailingSlash(url)] ?? balanceByMint[url]
+  if (direct !== undefined) return direct
+
+  const key = mintUrlKey(url)
+  for (const [candidate, balance] of Object.entries(balanceByMint)) {
+    if (mintUrlKey(candidate) === key) return balance
+  }
+  return 0
 }
 
 /**

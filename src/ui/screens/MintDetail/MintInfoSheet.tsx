@@ -5,6 +5,7 @@ import { cn } from '@/ui/lib/utils'
 import { Button } from '@/ui/components/common/Button'
 import { BottomSheet } from '@/ui/components/common/BottomSheet'
 import { useAppStore } from '@/store'
+import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { CARD_PRESET_VARIANTS, VARIANT_HEX, resolveMintColor } from '@/ui/components/wallet/MintCard'
 import type { MintCardDesignPreset, MintInfo, MintInfoData } from '@/core/types'
 import { LIMITS, NUT_NAMES, getSupportedNuts } from '@/core/constants'
@@ -49,6 +50,7 @@ export function MintInfoSheet({
   getDisplayName,
 }: MintInfoSheetProps) {
   const { t } = useTranslation()
+  const registry = useServiceRegistry()
   const settings = useAppStore((s) => s.settings)
   const addToast = useAppStore((s) => s.addToast)
   const [mintInfo, setMintInfo] = useState<MintInfoData | null>(null)
@@ -66,12 +68,13 @@ export function MintInfoSheet({
 
   const lastFetchedUrl = useRef<string | null>(null)
 
+  // mintInfo facade instead of a direct /v1/info fetch: 24h cache hit = no
+  // network, miss goes through Coco (limiter-protected)
   const fetchMintInfo = useCallback(async (url: string) => {
     if (lastFetchedUrl.current === url && mintInfo) return
     setIsLoading(true)
     try {
-      const res = await fetch(`${url.replace(/\/$/, '')}/v1/info`)
-      const data = await res.json()
+      const data = await registry.mintInfo.getInfo(url)
       setMintInfo(data)
       lastFetchedUrl.current = url
     } catch (err) {
@@ -79,7 +82,7 @@ export function MintInfoSheet({
     } finally {
       setIsLoading(false)
     }
-  }, [mintInfo])
+  }, [mintInfo, registry])
 
   useEffect(() => {
     if (!isOpen || !mint?.url) return
