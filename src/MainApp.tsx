@@ -12,7 +12,7 @@ import type { Screen } from '@/ui/hooks/use-app-navigation'
 import { useAutoLock } from '@/ui/hooks/use-auto-lock'
 import { useCrossTabSync } from '@/ui/hooks/use-cross-tab-sync'
 import { useGlobalTokenClaimToast } from '@/ui/hooks/use-global-token-claim-toast'
-import { useMintHandlers } from '@/ui/hooks/use-mint-handlers'
+import { useSettingsSync } from '@/ui/hooks/use-settings-sync'
 
 import { useReceiveHandlers } from '@/ui/hooks/use-receive-handlers'
 import { useSecurityHandlers } from '@/ui/hooks/use-security-handlers'
@@ -738,7 +738,7 @@ export default function MainApp() {
 
   // Mint/settings handlers (save settings + profile republish + add trusted mint).
   // republishProfile is used only by these two, so it's encapsulated in the hook.
-  const { handleSaveSettings, handleAddTrustedMint } = useMintHandlers({
+  const { handleSaveSettings, handleAddTrustedMint } = useSettingsSync({
     serviceRegistry,
     settingsRepo: preUnlock.settingsRepo,
   })

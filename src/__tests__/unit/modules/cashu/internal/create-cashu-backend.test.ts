@@ -16,7 +16,7 @@ const {
   quoteOpsInstance: { checkMintQuote: vi.fn(), mintAndReceive: vi.fn() },
 }))
 
-vi.mock('./cashu-backend', () => ({
+vi.mock('@/modules/cashu/internal/cashu-backend', () => ({
   prepareMelt: vi.fn(),
   executeMelt: vi.fn(),
   rollbackMelt: vi.fn(),
@@ -47,23 +47,23 @@ vi.mock('./cashu-backend', () => ({
   inspectInput: vi.fn(),
 }))
 
-vi.mock('./cashu-recovery', () => ({
+vi.mock('@/modules/cashu/internal/cashu-recovery', () => ({
   recoverPendingMelts: vi.fn(),
   recoverPendingSendTokens: vi.fn(),
   recoverPendingQuotes: recoverPendingQuotesMock,
 }))
 
-vi.mock('./coco-sdk', () => ({
+vi.mock('@/modules/cashu/internal/coco-sdk', () => ({
   getMintQuote: vi.fn(),
   abandonMintQuote: vi.fn(),
 }))
 
-vi.mock('./offline-token-recovery', () => ({
+vi.mock('@/modules/cashu/internal/offline-token-recovery', () => ({
   redeemPendingReceivedTokens: vi.fn(),
   storeOfflineToken: vi.fn(),
 }))
 
-import { createCashuBackend } from '../create-cashu-backend'
+import { createCashuBackend } from '@/modules/cashu/create-cashu-backend'
 
 describe('createCashuBackend', () => {
   beforeEach(() => {

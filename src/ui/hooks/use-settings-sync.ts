@@ -9,31 +9,31 @@ import { generateMintAliases } from '@/utils/mint-name'
 import { normalizeMintUrl, isSameMintUrl } from '@/utils/url'
 
 /**
- * Registry surface used by the mint hook — the ServiceRegistry port plus the
+ * Registry surface used by the settings sync hook — the ServiceRegistry port plus the
  * BootstrapResult extension. Structurally requires only trustMint, so it stays
  * independent of composition types.
  */
-export type MintHandlersRegistry = ServiceRegistry & {
+export type SettingsSyncRegistry = ServiceRegistry & {
   trustMint(mintUrl: string): Promise<void>
 }
 
-export interface UseMintHandlersDeps {
-  serviceRegistry: MintHandlersRegistry | null
+export interface UseSettingsSyncDeps {
+  serviceRegistry: SettingsSyncRegistry | null
   /** preUnlock.settingsRepo — settings persistence store; exists even before unlock */
   settingsRepo: { saveSettings(settings: WalletSettings): Promise<void> }
 }
 
-export interface MintHandlers {
+export interface SettingsSyncHandlers {
   handleSaveSettings: (newSettings: Record<string, unknown>) => Promise<void>
   handleAddTrustedMint: (mintUrl: string) => Promise<boolean>
 }
 
 /**
- * Mint/settings handler bundle: save settings (+ profile republish, relay
+ * Settings synchronization bundle: save settings (+ profile republish, relay
  * reconnect) and add trusted mint (+ seed restore). republishProfile is
  * encapsulated in the hook since only these two handlers use it.
  */
-export function useMintHandlers(deps: UseMintHandlersDeps): MintHandlers {
+export function useSettingsSync(deps: UseSettingsSyncDeps): SettingsSyncHandlers {
   const { serviceRegistry, settingsRepo } = deps
   const { t } = useTranslation()
 
@@ -86,7 +86,7 @@ export function useMintHandlers(deps: UseMintHandlersDeps): MintHandlers {
       const nextRelays = newRelays || settings.relays
       serviceRegistry.nostrGateway
         .connect([...new Set([...DEFAULT_RELAYS, ...nextRelays])])
-        .catch((e) => console.warn('[useMintHandlers] relay reconnect failed:', e))
+        .catch((e) => console.warn('[useSettingsSync] relay reconnect failed:', e))
     }
     broadcastSync('settings_changed')
   }, [settingsRepo, settings, setSettings, p2pkPubkey, republishProfile, serviceRegistry])
@@ -95,7 +95,7 @@ export function useMintHandlers(deps: UseMintHandlersDeps): MintHandlers {
   const handleAddTrustedMint = useCallback(async (mintUrl: string): Promise<boolean> => {
     try {
       if (!serviceRegistry) {
-        console.warn('[useMintHandlers] ServiceRegistry not ready — cannot add trusted mint')
+        console.warn('[useSettingsSync] ServiceRegistry not ready — cannot add trusted mint')
         return false
       }
 
@@ -111,7 +111,7 @@ export function useMintHandlers(deps: UseMintHandlersDeps): MintHandlers {
       // later screens to reuse.
       const info = await serviceRegistry.mintInfo.getInfo(url, { fresh: true })
       if (!info || (!info.name && !info.pubkey)) {
-        console.error('[useMintHandlers] Invalid or unreachable mint info')
+        console.error('[useSettingsSync] Invalid or unreachable mint info')
         return false
       }
 
@@ -130,7 +130,7 @@ export function useMintHandlers(deps: UseMintHandlersDeps): MintHandlers {
         await serviceRegistry.trustMint(url)
       } catch (trustError) {
         await settingsRepo.saveSettings(settings).catch((rollbackError) => {
-          console.error('[useMintHandlers] Failed to rollback settings after mint trust failure:', rollbackError)
+          console.error('[useSettingsSync] Failed to rollback settings after mint trust failure:', rollbackError)
         })
         setSettings(settings)
         throw trustError
@@ -146,13 +146,13 @@ export function useMintHandlers(deps: UseMintHandlersDeps): MintHandlers {
       // the screen on completion.
       serviceRegistry.payment
         .recoverAccounts({ accountIds: [url] })
-        .catch((e) => console.warn('[useMintHandlers] Seed restore after trust failed:', e))
+        .catch((e) => console.warn('[useSettingsSync] Seed restore after trust failed:', e))
 
-      console.log('[useMintHandlers] Added trusted mint:', url)
+      console.log('[useSettingsSync] Added trusted mint:', url)
       broadcastSync('settings_changed')
       return true
     } catch (error) {
-      console.error('[useMintHandlers] Failed to add trusted mint:', error)
+      console.error('[useSettingsSync] Failed to add trusted mint:', error)
       return false
     }
   }, [settings, settingsRepo, setSettings, p2pkPubkey, republishProfile, t, serviceRegistry])

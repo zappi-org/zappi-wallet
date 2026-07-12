@@ -11,8 +11,8 @@
  * - swap quotes are skipped (SwapService records swap transactions separately)
  * - a recording failure never escapes the event handler (no unhandled rejection)
  *
- * To isolate module-global injected state (injectDependencies), each test uses a
- * fresh module instance via vi.resetModules + dynamic import.
+ * To isolate module-global injected state (injectDependencies), beforeEach loads
+ * one fresh module graph and shares it within that test.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { OperationMap } from '@/core/ports/driven/operation-map.port'
@@ -34,13 +34,21 @@ vi.mock('@/utils/cross-tab-sync', () => ({
   broadcastSync: broadcastSyncMock,
 }))
 
-async function load() {
+let observer: typeof import('@/composition/mint-quote-observer')
+let useAppStore: typeof import('@/store')['useAppStore']
+let markQuoteAsSwap: typeof import('@/modules/cashu')['markQuoteAsSwap']
+let unmarkQuoteAsSwap: typeof import('@/modules/cashu')['unmarkQuoteAsSwap']
+
+beforeEach(async () => {
   vi.resetModules()
-  const observer = await import('@/composition/mint-quote-observer')
-  const { useAppStore } = await import('@/store')
-  const { markQuoteAsSwap, unmarkQuoteAsSwap } = await import('@/modules/cashu')
-  return { observer, useAppStore, markQuoteAsSwap, unmarkQuoteAsSwap }
-}
+  observer = await import('@/composition/mint-quote-observer')
+  ;({ useAppStore } = await import('@/store'))
+  ;({ markQuoteAsSwap, unmarkQuoteAsSwap } = await import('@/modules/cashu'))
+
+  legacyRepoMock.findById.mockReset().mockResolvedValue(null)
+  legacyRepoMock.save.mockReset().mockResolvedValue(undefined)
+  broadcastSyncMock.mockReset()
+})
 
 // resolvedTxId is required — prevents a default merge (??) from swallowing an intended null
 function makeInjected(opts: {
@@ -70,14 +78,7 @@ const RECEIVE_PARAMS = {
 }
 
 describe('recordLightningReceive', () => {
-  beforeEach(() => {
-    legacyRepoMock.findById.mockReset().mockResolvedValue(null)
-    legacyRepoMock.save.mockReset().mockResolvedValue(undefined)
-    broadcastSyncMock.mockReset()
-  })
-
   it('Phase 5 path: settles the mapped pending TX and fires refresh + broadcast', async () => {
-    const { observer, useAppStore } = await load()
     const { opMap, txRepo, txRepoMock } = makeInjected({ resolvedTxId: 'tx-mapped' })
     observer.injectDependencies(opMap, txRepo)
 
@@ -100,7 +101,6 @@ describe('recordLightningReceive', () => {
   })
 
   it('Phase 5 path: backfills bolt11 only on a TX that had none', async () => {
-    const { observer } = await load()
     const { opMap, txRepo, txRepoMock } = makeInjected({ resolvedTxId: 'tx-mapped' })
     observer.injectDependencies(opMap, txRepo)
 
@@ -110,7 +110,6 @@ describe('recordLightningReceive', () => {
   })
 
   it('Phase 5 path: does not overwrite an existing metadata.bolt11', async () => {
-    const { observer } = await load()
     const { opMap, txRepo, txRepoMock } = makeInjected({
       resolvedTxId: 'tx-mapped',
       existingTx: { id: 'tx-mapped', status: 'pending', metadata: { bolt11: 'lnbc-original' } },
@@ -123,7 +122,6 @@ describe('recordLightningReceive', () => {
   })
 
   it('already-settled TX returns false — no re-record or re-fire (idempotent)', async () => {
-    const { observer, useAppStore } = await load()
     const { opMap, txRepo, txRepoMock } = makeInjected({
       resolvedTxId: 'tx-mapped',
       existingTx: { id: 'tx-mapped', status: 'settled', metadata: {} },
@@ -140,7 +138,6 @@ describe('recordLightningReceive', () => {
   })
 
   it('no mapping → fallback: creates a new TX as tx-{quoteId} in the legacy repo', async () => {
-    const { observer, useAppStore } = await load()
     const { opMap, txRepo } = makeInjected({ resolvedTxId: null })
     observer.injectDependencies(opMap, txRepo)
 
@@ -164,14 +161,12 @@ describe('recordLightningReceive', () => {
   })
 
   it('with no injection at all (transitional) goes straight to the fallback path', async () => {
-    const { observer } = await load()
     const recorded = await observer.recordLightningReceive(RECEIVE_PARAMS)
     expect(recorded).toBe(true)
     expect(legacyRepoMock.save).toHaveBeenCalled()
   })
 
   it('fallback is idempotent too: returns false with no side effects when tx-{quoteId} exists', async () => {
-    const { observer } = await load()
     legacyRepoMock.findById.mockResolvedValue({ id: 'tx-quote-1' })
 
     const recorded = await observer.recordLightningReceive(RECEIVE_PARAMS)
@@ -183,12 +178,6 @@ describe('recordLightningReceive', () => {
 })
 
 describe('connectMintQuoteObserver', () => {
-  beforeEach(() => {
-    legacyRepoMock.findById.mockReset().mockResolvedValue(null)
-    legacyRepoMock.save.mockReset().mockResolvedValue(undefined)
-    broadcastSyncMock.mockReset()
-  })
-
   type FinalizedHandler = (event: {
     operation: { state: string; quoteId: string; amount: number; request?: string }
     mintUrl: string
@@ -207,7 +196,6 @@ describe('connectMintQuoteObserver', () => {
   }
 
   it('finalized event → records the transaction (fallback path)', async () => {
-    const { observer } = await load()
     const { manager, handlers } = makeManager()
     observer.connectMintQuoteObserver(manager)
 
@@ -222,7 +210,6 @@ describe('connectMintQuoteObserver', () => {
   })
 
   it('does not record a swap quote (SwapService records it separately — prevents double recording)', async () => {
-    const { observer, markQuoteAsSwap, unmarkQuoteAsSwap } = await load()
     const { manager, handlers } = makeManager()
     observer.connectMintQuoteObserver(manager)
 
@@ -239,7 +226,6 @@ describe('connectMintQuoteObserver', () => {
   })
 
   it('ignores non-finalized states', async () => {
-    const { observer } = await load()
     const { manager, handlers } = makeManager()
     observer.connectMintQuoteObserver(manager)
 
@@ -252,7 +238,6 @@ describe('connectMintQuoteObserver', () => {
   })
 
   it('a recording failure is swallowed inside the handler (no unhandled rejection)', async () => {
-    const { observer } = await load()
     const { manager, handlers } = makeManager()
     observer.connectMintQuoteObserver(manager)
 
@@ -275,7 +260,6 @@ describe('connectMintQuoteObserver', () => {
   })
 
   it('disconnect releases the subscription; re-calling connect releases the old one and re-subscribes', async () => {
-    const { observer } = await load()
     const { manager, unsub } = makeManager()
 
     observer.connectMintQuoteObserver(manager)

@@ -7,7 +7,7 @@ import {
   recoverPendingSendTokens,
   reconcileCashu,
   reconcileMintQuotes,
-} from './cashu-recovery'
+} from '@/modules/cashu/internal/cashu-recovery'
 import type { PendingOperation } from '@/core/domain/pending-operation'
 import type { PendingOperationRepository } from '@/core/ports/driven/pending-operation.repository.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'

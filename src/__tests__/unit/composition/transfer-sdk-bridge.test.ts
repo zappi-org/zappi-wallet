@@ -57,24 +57,17 @@ describe('connectTransferSdkBridge', () => {
     ])
   })
 
-  it('melt-op:finalized resolves the transfer as settled (paid redundancy)', async () => {
+  it.each([
+    ['melt-op:finalized', 'settled', 'op-1'],
+    ['melt-op:rolled-back', 'failed', 'op-2'],
+  ] as const)('%s resolves the transfer as %s', async (event, outcome, operationId) => {
     const { manager, handlers } = makeManager()
     const lifecycle = makeLifecycle()
     connectTransferSdkBridge(manager, lifecycle)
 
-    await handlers.get('melt-op:finalized')!({ operationId: 'op-1' })
+    await handlers.get(event)!({ operationId })
 
-    expect(lifecycle.resolveByOperationRef).toHaveBeenCalledWith('op-1', 'settled')
-  })
-
-  it('melt-op:rolled-back resolves the transfer as failed (live-failure delivery path)', async () => {
-    const { manager, handlers } = makeManager()
-    const lifecycle = makeLifecycle()
-    connectTransferSdkBridge(manager, lifecycle)
-
-    await handlers.get('melt-op:rolled-back')!({ operationId: 'op-2' })
-
-    expect(lifecycle.resolveByOperationRef).toHaveBeenCalledWith('op-2', 'failed')
+    expect(lifecycle.resolveByOperationRef).toHaveBeenCalledWith(operationId, outcome)
   })
 
   it('swallows a resolve exception so the event pipeline is not killed', async () => {

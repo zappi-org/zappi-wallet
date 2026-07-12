@@ -8,16 +8,16 @@ describe('kill-switch', () => {
     }
   })
 
-  it('is off by default', () => {
-    expect(isKillSwitchOn('cursor')).toBe(false)
-  })
+  it.each([
+    ['is off by default', 'cursor', undefined, false],
+    ["is on when the stored value is exactly '1'", 'tls-sweep', '1', true],
+    ['is off for other stored values', 'cursor', 'true', false],
+  ] as const)('%s', (_description, name, storedValue, expected) => {
+    if (storedValue !== undefined) {
+      localStorage.setItem(`zappi.ks.${name}`, storedValue)
+    }
 
-  it("is on only when the stored value is exactly '1'", () => {
-    localStorage.setItem('zappi.ks.tls-sweep', '1')
-    expect(isKillSwitchOn('tls-sweep')).toBe(true)
-
-    localStorage.setItem('zappi.ks.cursor', 'true')
-    expect(isKillSwitchOn('cursor')).toBe(false)
+    expect(isKillSwitchOn(name)).toBe(expected)
   })
 
   it('readKillSwitches returns a snapshot covering every switch', () => {

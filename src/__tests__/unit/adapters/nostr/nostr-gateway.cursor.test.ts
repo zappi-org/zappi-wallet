@@ -158,7 +158,6 @@ describe('NostrGatewayAdapter cursor wiring', () => {
       await vi.waitFor(() =>
         expect(store.markRelayEose).toHaveBeenCalledWith(KEY, 'wss://a', expect.any(Number)),
       )
-      await new Promise((r) => setTimeout(r, 10))
       expect(store.markFullSync).not.toHaveBeenCalled()
     })
 
@@ -171,7 +170,6 @@ describe('NostrGatewayAdapter cursor wiring', () => {
 
       relays.get('wss://a')!.subscribeCalls[0].opts.oneose!()
       await vi.waitFor(() => expect(store.markRelayEose).toHaveBeenCalled())
-      await new Promise((r) => setTimeout(r, 10))
       expect(store.markFullSync).not.toHaveBeenCalled()
     })
 
@@ -210,7 +208,7 @@ describe('NostrGatewayAdapter cursor wiring', () => {
       expect(handler).toHaveBeenCalledTimes(1)
 
       call.opts.oneose!()
-      await new Promise((r) => setTimeout(r, 10))
+      await vi.waitFor(() => expect(store.markRelayEose).toHaveBeenCalled())
       expect(store.markFullSync).not.toHaveBeenCalled()
 
       resolveHandler()
@@ -268,7 +266,8 @@ describe('NostrGatewayAdapter cursor wiring', () => {
     it('unsubscribe before async setup completes prevents the subscription', async () => {
       const store = makeCursorStore(recordWithFullSync())
       let resolveLoad!: (r: GiftwrapCursorRecord) => void
-      store.load.mockImplementation(() => new Promise((resolve) => { resolveLoad = resolve }))
+      const loadPromise = new Promise<GiftwrapCursorRecord>((resolve) => { resolveLoad = resolve })
+      store.load.mockReturnValue(loadPromise)
       const { gateway, relays } = await connectedGateway(store, ['wss://a'])
 
       const unsubscribe = gateway.subscribeGiftWraps(
@@ -279,7 +278,7 @@ describe('NostrGatewayAdapter cursor wiring', () => {
       await vi.waitFor(() => expect(store.load).toHaveBeenCalled())
       unsubscribe()
       resolveLoad(recordWithFullSync())
-      await new Promise((r) => setTimeout(r, 10))
+      await loadPromise
 
       expect(relays.get('wss://a')!.relay.subscribe).not.toHaveBeenCalled()
     })
