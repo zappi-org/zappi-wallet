@@ -5,7 +5,7 @@
  * No external dependencies — pure domain logic.
  */
 
-import type { ValidatedData, ParsedCashuRequest } from './input-types'
+import type { ValidatedData, ParsedCashuRequest, LnurlPayParams } from './input-types'
 import { mintUrlKey } from './mint-url'
 
 // ─── Route Constants (as const for single source of truth) ───
@@ -61,10 +61,14 @@ export interface RouteInput {
 export interface FeeEstimate {
   fee: number
   totalNeeded: number
+  /** Spendable balance read only after fee-estimation cleanup has completed. */
+  availableBalance: number
 }
 
 export interface RouteContext {
   parsedCreq?: ParsedCashuRequest
+  /** Already-resolved pay parameters let quoting and execution share one invoice. */
+  lnurlPayParams?: LnurlPayParams
   nostrPrivkey?: string
   relays?: string[]
   memo?: string
@@ -184,4 +188,3 @@ function bestFitMint(
   const fallback = [...pool].sort((a, b) => mints[b] - mints[a])
   return fallback[0] || null
 }
-

@@ -63,11 +63,26 @@ export { FIAT_CURRENCY_MAP }
 /** Cache Intl.NumberFormat instances by key to avoid re-creation */
 const formatterCache = new Map<string, Intl.NumberFormat>()
 
-/** Currencies that conventionally display without decimals. */
-const ZERO_DECIMAL_CURRENCIES = new Set(['JPY', 'KRW'])
+const currencyFractionDigitsCache = new Map<string, number>()
+
+/** ISO 4217 minor-unit precision supplied by the runtime's currency formatter. */
+export function getFiatFractionDigits(code: string): number {
+  const cached = currencyFractionDigitsCache.get(code)
+  if (cached !== undefined) return cached
+
+  let digits = 2
+  try {
+    digits = new Intl.NumberFormat(undefined, { style: 'currency', currency: code })
+      .resolvedOptions().maximumFractionDigits ?? 2
+  } catch {
+    // Unknown/custom codes keep the conventional two-decimal fallback.
+  }
+  currencyFractionDigitsCache.set(code, digits)
+  return digits
+}
 
 export function isZeroDecimalCurrency(code: string): boolean {
-  return ZERO_DECIMAL_CURRENCIES.has(code)
+  return getFiatFractionDigits(code) === 0
 }
 
 /**
@@ -76,7 +91,7 @@ export function isZeroDecimalCurrency(code: string): boolean {
  * Caches formatter instances for performance.
  */
 export function formatFiatAmount(amount: number, currency: string): string {
-  const fractionDigits = ZERO_DECIMAL_CURRENCIES.has(currency) ? 0 : 2
+  const fractionDigits = getFiatFractionDigits(currency)
   const key = `${currency}:${fractionDigits}`
 
   try {
@@ -103,7 +118,71 @@ export function formatFiatInputForDisplay(value: string): string {
   if (!value) return '0'
   const [integer = '0', fraction] = value.split('.')
   const groupedInteger = Number(integer || '0').toLocaleString()
-  return value.includes('.') ? `${groupedInteger}.${fraction ?? ''}` : groupedInteger
+  return value.includes('.') ? `${groupedInteger}${getFiatDecimalSeparator()}${fraction ?? ''}` : groupedInteger
+}
+
+/** Localizes only the separator for a live text field; grouping would move the caret. */
+export function formatFiatInputForEditing(value: string): string {
+  return value.replace('.', getFiatDecimalSeparator())
+}
+
+/** Locale-visible separator; fiat input remains canonicalized to `.` internally. */
+export function getFiatDecimalSeparator(): string {
+  return new Intl.NumberFormat().formatToParts(1.1).find((part) => part.type === 'decimal')?.value ?? '.'
+}
+
+function getFiatGroupSeparator(): string {
+  return new Intl.NumberFormat().formatToParts(1000).find((part) => part.type === 'group')?.value ?? ','
+}
+
+/**
+ * Preserve editable money states (`0`, `0.`, `0.05`) while removing grouping,
+ * duplicate separators, excess precision, and redundant leading zeros.
+ */
+export function normalizeFiatInput(rawValue: string, fractionDigits: number): string {
+  if (!rawValue) return ''
+
+  const decimalSeparator = getFiatDecimalSeparator()
+  const groupSeparator = getFiatGroupSeparator()
+  let value = rawValue.trim()
+
+  const hasLocalizedDecimal = decimalSeparator !== '.' && value.includes(decimalSeparator)
+  if (groupSeparator && groupSeparator !== decimalSeparator && (decimalSeparator === '.' || hasLocalizedDecimal)) {
+    value = value.split(groupSeparator).join('')
+  }
+  if (decimalSeparator !== '.') {
+    value = value.split(decimalSeparator).join('.')
+  }
+  value = value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1')
+  if (!value) return ''
+
+  const hasDecimal = value.includes('.')
+  const [rawInteger = '', rawFraction = ''] = value.split('.')
+  const integer = (rawInteger || '0').replace(/^0+(?=\d)/, '')
+  if (!hasDecimal || fractionDigits === 0) return integer
+  return `${integer}.${rawFraction.slice(0, fractionDigits)}`
+}
+
+/** Applies one custom-keypad key without collapsing in-progress decimal text. */
+export function appendFiatInput(
+  current: string,
+  key: string,
+  fractionDigits: number,
+  maxLength = 12,
+): string {
+  if (key === 'decimal') {
+    if (fractionDigits === 0 || current.includes('.')) return current
+    return current ? `${current}.` : '0.'
+  }
+  if (!/^\d+$/.test(key)) return current
+
+  const decimalIndex = current.indexOf('.')
+  if (decimalIndex !== -1 && current.length - decimalIndex - 1 + key.length > fractionDigits) return current
+
+  const next = current === '0' && !current.includes('.')
+    ? (/^0+$/.test(key) ? '0' : key.replace(/^0+/, ''))
+    : `${current}${key}`
+  return next.length <= maxLength ? next : current
 }
 
 // ── Derive exchange rate from store (internal helper) ──

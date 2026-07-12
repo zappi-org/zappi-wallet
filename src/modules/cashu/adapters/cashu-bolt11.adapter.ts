@@ -275,13 +275,13 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
     try {
       meltOp = await this.backend.prepareMelt(params.accountId, invoice)
       const fee = meltOp.fee_reserve + meltOp.swap_fee
-      await this.backend.rollbackMelt(meltOp.operationId, 'fee estimation only').catch(() => { })
+      await this.backend.rollbackMelt(meltOp.operationId, 'fee estimation only')
       return { fee: sat(fee), method: 'lightning', protocol: 'bolt11' }
-    } catch {
+    } catch (error) {
       if (meltOp) {
         await this.backend.rollbackMelt(meltOp.operationId, 'fee estimation failed').catch(() => { })
       }
-      return { fee: sat(0), method: 'lightning', protocol: 'bolt11' }
+      throw error
     }
   }
 

@@ -12,7 +12,7 @@ import {
 import type { ValidatedBolt11, ValidatedCashuRequest } from '@/core/domain/input-types'
 
 const t = ((key: string) => {
-  if (key === 'send.confirm.lightningInvoice') return 'Lightning 인보이스'
+  if (key === 'send.confirm.paymentRequest') return '결제 요청'
   return key
 }) as unknown as TFunction
 
@@ -28,10 +28,10 @@ describe('send display text', () => {
 
     const display = getConfirmDisplayInfo(invoice, PaymentRoute.MELT_TO_LN, t)
 
-    expect(display.recipient).toBe('Lightning 인보이스')
+    expect(display.recipient).toBe('결제 요청')
     expect(display.memo).toBe('eCash')
     expect(shouldShowRecipientInMainMessage(invoice)).toBe(false)
-    expect(getDestinationDisplay(invoice)).toBe('Lightning')
+    expect(getDestinationDisplay(invoice)).toBe('Payment request')
   })
 
   it('hides request recipients from main copy for routed unified payment requests', () => {
@@ -53,10 +53,10 @@ describe('send display text', () => {
     expect(shouldShowRecipientInMainMessage(request)).toBe(false)
     expect(
       getDestinationDisplay(request, undefined, { route: PaymentRoute.MELT_TO_LN, t })
-    ).toBe('Lightning 인보이스')
+    ).toBe('결제 요청')
     expect(
       getDestinationDisplay(request, 'Alice', { route: PaymentRoute.LN_INTERNAL, t })
-    ).toBe('Lightning 인보이스')
+    ).toBe('결제 요청')
   })
 
   it('hides eCash payment request recipients from main copy for token-routed payment requests', () => {
@@ -78,7 +78,7 @@ describe('send display text', () => {
     expect(shouldShowRecipientInMainMessage(request)).toBe(false)
     expect(
       getDestinationDisplay(request, undefined, { route: PaymentRoute.TOKEN_TRANSFER, t })
-    ).toBe('eCash')
+    ).toBe('결제 요청')
   })
 
   it('keeps direct npub recipients in main copy and shortens long labels', () => {

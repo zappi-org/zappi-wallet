@@ -22,6 +22,36 @@ function createSelection(overrides?: Partial<RouteSelection>): RouteSelection {
 }
 
 describe('RouteExecutionService', () => {
+  it('creates a reusable invoice from resolved LNURL pay parameters before fee quoting', async () => {
+    const fetchInvoice = vi.fn().mockResolvedValue({ bolt11: 'lnbc100n1resolved' })
+    const service = new RouteExecutionService(
+      {} as RoutePaymentOperator,
+      {} as TransactionRepository,
+      {} as RouteExecutionStore,
+      {} as PaymentDeliveryPort,
+      {} as TokenCodec,
+      { fetchInvoice } as never,
+      { emit: vi.fn() } as unknown as EventBus,
+      {} as TransferLifecycleService,
+    )
+    const lnurlPayParams = {
+      callback: 'https://example.com/pay',
+      minSendable: 1000,
+      maxSendable: 1000000,
+      metadata: '[["text/plain","Alice"]]',
+      tag: 'payRequest' as const,
+      domain: 'example.com',
+    }
+
+    const result = await service.resolveInvoice(
+      createSelection({ route: PaymentRoute.MELT_TO_LN, targetMintUrl: undefined }),
+      { lnurlPayParams },
+    )
+
+    expect(result).toEqual({ ok: true, value: 'lnbc100n1resolved' })
+    expect(fetchInvoice).toHaveBeenCalledWith(lnurlPayParams, 100)
+  })
+
   it('executes token delivery through ports and records a pending send transaction', async () => {
     const operator = {
       prepareTokenSend: vi.fn().mockResolvedValue({ operationId: 'op-send', fee: 2 }),

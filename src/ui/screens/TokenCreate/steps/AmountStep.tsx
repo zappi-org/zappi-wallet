@@ -6,7 +6,15 @@ import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomS
 import { useFiatToggle } from '@/ui/hooks/use-fiat-toggle'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useWallet } from '@/ui/hooks/use-wallet'
-import { isZeroDecimalCurrency, useFormatFiat, useFormatSats, useSatUnit } from '@/utils/format'
+import {
+  appendFiatInput,
+  formatFiatInputForDisplay,
+  getFiatDecimalSeparator,
+  getFiatFractionDigits,
+  useFormatFiat,
+  useFormatSats,
+  useSatUnit,
+} from '@/utils/format'
 import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -23,7 +31,7 @@ export interface AmountStepProps {
 }
 
 const KEYS_SATS: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0', 'del']
-const KEYS_FIAT: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'del']
+const KEYS_FIAT: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'decimal', '0', 'del']
 
 export function AmountStep({
   onBack,
@@ -58,7 +66,8 @@ export function AmountStep({
     handleFiatChange,
   } = useFiatToggle(amount, setAmount)
   const canToggleFiat = exchangeRate !== null
-  const fiatIsZeroDecimal = isZeroDecimalCurrency(fiatCurrency)
+  const fiatFractionDigits = getFiatFractionDigits(fiatCurrency)
+  const fiatDecimalSeparator = getFiatDecimalSeparator()
 
   const mintBalance = getMintBalance(mintUrl, balance.byMint)
   const mintName = getDisplayName(mintUrl)
@@ -68,17 +77,8 @@ export function AmountStep({
   const insufficient = numericAmount > 0 && numericAmount > mintBalance
   const canProceed = numericAmount > 0 && !insufficient
 
-  // Format fiat input preserving trailing dot/zeros so the keypad reflects
-  // the user's literal input (e.g. "0.", "1.50") instead of Number() collapsing them.
-  const formatFiatInput = (raw: string): string => {
-    if (!raw) return '0'
-    const [intPart, decPart] = raw.split('.')
-    const intFormatted = Number(intPart || '0').toLocaleString()
-    return decPart !== undefined ? `${intFormatted}.${decPart}` : intFormatted
-  }
-
   const displayAmount = isFiatMode
-    ? `${currencySymbol}${formatFiatInput(fiatInput)}`
+    ? `${currencySymbol}${formatFiatInputForDisplay(fiatInput)}`
     : formatSats(numericAmount)
 
   const insufficientColor = insufficient ? 'text-accent-danger' : 'text-foreground'
@@ -92,19 +92,7 @@ export function AmountStep({
       return
     }
     if (isFiatMode) {
-      if (key === '.') {
-        // Block decimal input for zero-decimal currencies (JPY/KRW)
-        if (fiatIsZeroDecimal) return
-        if (fiatInput.includes('.')) return
-        handleFiatChange(fiatInput === '' ? '0.' : fiatInput + '.')
-        return
-      }
-      // Limit to 2 decimal digits after the dot
-      const dotIdx = fiatInput.indexOf('.')
-      if (dotIdx !== -1 && fiatInput.length - dotIdx - 1 >= 2) return
-      const next = (fiatInput + key).replace(/^0+(?=\d)/, '')
-      if (next.length > 12) return
-      handleFiatChange(next)
+      handleFiatChange(appendFiatInput(fiatInput, key, fiatFractionDigits))
     } else {
       setAmount((prev) => {
         const next = (prev + key).replace(/^0+(?=\d)/, '')
@@ -242,14 +230,18 @@ export function AmountStep({
       {/* Numpad — hidden while memo is focused so the OS keyboard takes over */}
       {!memoFocused && (
         <div className="grid grid-cols-3 gap-0 shrink-0 pb-safe">
-          {(isFiatMode && !fiatIsZeroDecimal ? KEYS_FIAT : KEYS_SATS).map((key) => (
+          {(isFiatMode && fiatFractionDigits > 0 ? KEYS_FIAT : KEYS_SATS).map((key) => (
             <button
               key={key}
               type="button"
               onClick={() => handleKey(key)}
               className="h-14 text-title font-normal text-foreground hover:bg-background-hover active:bg-background-card transition-colors flex items-center justify-center"
             >
-              {key === 'del' ? <ArrowLeft className="w-5 h-5" strokeWidth={1.8} /> : key}
+              {key === 'del'
+                ? <ArrowLeft className="w-5 h-5" strokeWidth={1.8} />
+                : key === 'decimal'
+                  ? fiatDecimalSeparator
+                  : key}
             </button>
           ))}
         </div>

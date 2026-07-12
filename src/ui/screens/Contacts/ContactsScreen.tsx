@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
-import { Plus, Search, Trash2, Pencil, Zap, Hash, Link, ArrowUpRight, Loader2 } from 'lucide-react'
+import { Plus, Search, Trash2, Pencil, Link, ArrowUpRight, Loader2 } from 'lucide-react'
 import { IdentificationIcon } from '@heroicons/react/24/outline'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'motion/react'
@@ -15,6 +15,7 @@ import { useContacts } from '@/ui/hooks/use-contacts'
 import type { Contact, ContactAddressType } from '@/core/types'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { isNostrDirectAddress } from '@/core/domain/nostr-address'
+import { RecipientEndpointIcon } from '@/ui/components/payment/RecipientEndpointIcon'
 
 function detectAddressType(address: string): 'lightning' | 'npub' | 'custom' {
   const trimmed = address.trim()
@@ -28,10 +29,14 @@ export interface ContactsScreenProps {
   onSendToContact?: (validatedData: ValidatedData, displayName: string, mintUrl: string) => void
 }
 
-const addressTypeIcon: Record<ContactAddressType, typeof Zap> = {
-  lightning: Zap,
-  npub: Hash,
-  custom: Link,
+function ContactAddressIcon({ type }: { type: ContactAddressType }) {
+  if (type === 'lightning') return <RecipientEndpointIcon kind="lightning" />
+  if (type === 'npub') return <RecipientEndpointIcon kind="nostr" />
+  return (
+    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground-muted">
+      <Link className="h-[16px] w-[16px] text-white" aria-hidden />
+    </span>
+  )
 }
 
 export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
@@ -183,7 +188,6 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
         ) : (
           <div className="bg-background-card">
             {filtered.map((contact) => {
-              const Icon = addressTypeIcon[contact.addressType]
               const isExpanded = expandedId === contact.id
               const isSending = sendingId === contact.id
               return (
@@ -193,8 +197,8 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
                     onClick={() => handleToggle(contact.id)}
                     className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-foreground/[0.02] transition-colors"
                   >
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${contact.addressType === 'lightning' ? 'bg-amber-500' : contact.addressType === 'npub' ? 'bg-purple-500' : 'bg-foreground-muted'}`}>
-                      <Icon className="w-[18px] h-[18px] text-white" />
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center">
+                      <ContactAddressIcon type={contact.addressType} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-body font-medium text-foreground truncate">{contact.name}</p>

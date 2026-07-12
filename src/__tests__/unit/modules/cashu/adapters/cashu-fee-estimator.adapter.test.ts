@@ -14,6 +14,7 @@ function createBackend(): CashuFeeEstimatorBackend {
     prepareMelt: vi.fn(),
     rollbackMelt: vi.fn(),
     abandonMintQuote: vi.fn(),
+    getBalances: vi.fn().mockResolvedValue({ 'https://source.mint': 2000 }),
   }
 }
 
@@ -43,7 +44,7 @@ describe('CashuFeeEstimatorAdapter', () => {
       'https://target.mint',
     )
 
-    expect(result).toEqual({ fee: 5, totalNeeded: 1005 })
+    expect(result).toEqual({ fee: 5, totalNeeded: 1005, availableBalance: 2000 })
     expect(backend.createMintQuote).toHaveBeenCalledWith('https://target.mint', 1000)
     expect(backend.prepareMelt).toHaveBeenCalledWith('https://source.mint', 'lnbc1000n1target')
     expect(backend.rollbackMelt).toHaveBeenCalledWith('melt-1', 'fee_estimation')
@@ -65,10 +66,40 @@ describe('CashuFeeEstimatorAdapter', () => {
       'https://source.mint',
     )
 
-    expect(result).toEqual({ fee: 2, totalNeeded: 1002 })
+    expect(result).toEqual({ fee: 2, totalNeeded: 1002, availableBalance: 2000 })
     expect(backend.prepareSend).toHaveBeenCalledWith({ mintUrl: 'https://source.mint', amount: 1000 })
     expect(backend.rollbackSend).toHaveBeenCalledWith('send-1')
     expect(backend.createMintQuote).not.toHaveBeenCalled()
+  })
+
+  it('reads the spendable balance only after the temporary lock is released', async () => {
+    const callOrder: string[] = []
+    vi.mocked(backend.prepareSend).mockImplementation(async () => {
+      callOrder.push('prepare')
+      return { operationId: 'send-1', fee: 2 }
+    })
+    vi.mocked(backend.rollbackSend).mockImplementation(async () => {
+      callOrder.push('rollback')
+    })
+    vi.mocked(backend.getBalances).mockImplementation(async () => {
+      callOrder.push('balance')
+      return { 'https://source.mint': 2000 }
+    })
+
+    await adapter.estimateRouteFee(PaymentRoute.TOKEN_TRANSFER, 'https://source.mint', 1000)
+
+    expect(callOrder).toEqual(['prepare', 'rollback', 'balance'])
+  })
+
+  it('does not turn a missing Lightning invoice into a false zero fee', async () => {
+    await expect(adapter.estimateRouteFee(
+      PaymentRoute.MELT_TO_LN,
+      'https://source.mint',
+      1000,
+    )).rejects.toThrow('without an invoice')
+
+    expect(backend.prepareMelt).not.toHaveBeenCalled()
+    expect(backend.getBalances).not.toHaveBeenCalled()
   })
 
   it('surfaces rollback failures instead of silently keeping temporary token send state', async () => {

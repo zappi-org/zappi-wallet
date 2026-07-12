@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { SendAmountStep } from '@/ui/screens/Send/steps/SendAmountStep'
 import { formatFiatInputForDisplay } from '@/utils/format'
 
@@ -13,6 +13,9 @@ vi.mock('@/store', () => ({
   useAppStore: (sel: (s: { addToast: () => void }) => unknown) => sel({ addToast: vi.fn() }),
 }))
 vi.mock('@/utils/format', () => ({
+  appendFiatInput: (current: string, key: string) => key === 'decimal' ? `${current || '0'}.` : `${current}${key}`,
+  getFiatDecimalSeparator: () => '.',
+  getFiatFractionDigits: () => 2,
   useFormatSats: () => (n: number) => `${n} sat`,
   useSatUnit: () => 'sat',
   useFormatFiat: () => (n: number) => `$${n}`,
@@ -25,9 +28,9 @@ vi.mock('@/utils/format', () => ({
   },
 }))
 vi.mock('@/ui/hooks/use-fiat-toggle', () => ({
-  useFiatToggle: () => ({
-    isFiatMode: false,
-    fiatInput: '',
+  useFiatToggle: (_amount: string, _setAmount: unknown, options?: { initialFiatMode?: boolean; initialFiatAmount?: string }) => ({
+    isFiatMode: options?.initialFiatMode ?? false,
+    fiatInput: options?.initialFiatAmount ?? '',
     fiatCurrency: 'USD',
     currencySymbol: '$',
     exchangeRate: null,
@@ -104,16 +107,19 @@ describe('SendAmountStep keypad', () => {
     expect(screen.getByText('send.amount.fixedByInvoice')).toBeInTheDocument()
   })
 
-  it('uses the fee-aware maximum instead of the full wallet balance', async () => {
-    const onNext = vi.fn()
-    const onResolveMaxAmount = vi.fn(async () => ({ status: 'ok' as const, amount: 99_950 }))
-    render(<SendAmountStep {...baseProps} onNext={onNext} onResolveMaxAmount={onResolveMaxAmount} />)
+  it('does not expose a full-balance shortcut', () => {
+    render(<SendAmountStep {...baseProps} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'send.max' }))
-    await waitFor(() => expect(onResolveMaxAmount).toHaveBeenCalledWith('https://m', 100_000))
-    fireEvent.click(screen.getByRole('button', { name: 'common.confirm' }))
+    expect(screen.queryByRole('button', { name: 'send.max' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '0' })).toBeInTheDocument()
+  })
 
-    expect(onNext).toHaveBeenCalledWith(expect.objectContaining({ amount: 99_950 }))
+  it('shows the decimal key and preserves a zero-prefixed in-progress fiat amount', () => {
+    render(<SendAmountStep {...baseProps} initialFiatMode initialFiatAmount="0." />)
+
+    expect(screen.getByRole('button', { name: '.' })).toBeInTheDocument()
+    expect(screen.getByText('$0.')).toBeInTheDocument()
+    expect(screen.queryByText('send.amount.prompt')).not.toBeInTheDocument()
   })
 
   it('preserves a trailing decimal point and zeros while grouping fiat input', () => {

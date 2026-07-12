@@ -12,7 +12,7 @@ import { SendFlow } from '@/ui/screens/Send/SendFlow'
 
 // Neither child step exports its props interface — extract via ComponentProps
 // instead of duplicating the shape (and drifting from it) here.
-import type { ComponentProps } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 import type { SendInputStep as SendInputStepComponent } from '@/ui/screens/Send/steps/SendInputStep'
 import type { SendAmountStep as SendAmountStepComponent } from '@/ui/screens/Send/steps/SendAmountStep'
 
@@ -23,9 +23,21 @@ type SendAmountStepProps = ComponentProps<typeof SendAmountStepComponent>
 
 let capturedInput: SendInputStepProps | null = null
 let capturedAmount: SendAmountStepProps | null = null
+let completeMounted = false
+const estimateRouteFeeMock = vi.hoisted(() => vi.fn())
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
+}))
+
+vi.mock('motion/react', () => ({
+  AnimatePresence: ({ children }: { children: ReactNode }) => children,
+  useReducedMotion: () => false,
+  motion: {
+    div: ({ children, className }: { children?: ReactNode; className?: string }) => (
+      <div className={className}>{children}</div>
+    ),
+  },
 }))
 
 vi.mock('@/ui/screens/Send/steps/SendInputStep', () => ({
@@ -43,7 +55,10 @@ vi.mock('@/ui/screens/Send/steps/SendAmountStep', () => ({
 }))
 
 vi.mock('@/ui/screens/Send/steps/SendCompleteStep', () => ({
-  SendCompleteStep: () => null,
+  SendCompleteStep: () => {
+    completeMounted = true
+    return null
+  },
 }))
 
 vi.mock('@/ui/screens/TokenCreate/steps/CreatedStep', () => ({
@@ -67,9 +82,17 @@ vi.mock('@/ui/hooks/use-input-parser', () => ({
 
 vi.mock('@/ui/hooks/use-routing', () => ({
   useRouting: () => ({
-    estimateRouteFee: vi.fn(async () => ({ fee: 0 })),
+    estimateRouteFee: estimateRouteFeeMock,
   }),
-  PaymentRoute: { CANNOT_SEND: -1 },
+  PaymentRoute: {
+    CANNOT_SEND: 0,
+    TOKEN_TRANSFER: 1,
+    LN_INTERNAL: 2,
+    LN_CROSS_MINT: 3,
+    MINT_AND_DM: 4,
+    MELT_TO_LN: 5,
+    OWN_MINT_TOKEN: 6,
+  },
   ROUTE_LABELS: {},
 }))
 
@@ -95,6 +118,7 @@ const baseProps = {
   onBack: vi.fn(),
   onComplete: vi.fn(),
   onExecuteRoute: vi.fn(),
+  onResolveInvoice: vi.fn(async () => 'lnbc1resolved'),
   onCreateToken: vi.fn(),
   directMintUrl: 'https://mint.example.com',
   initialMintUrl: 'https://mint.example.com',
@@ -114,14 +138,17 @@ describe('SendFlow direct-transfer fee quote', () => {
   beforeEach(() => {
     capturedInput = null
     capturedAmount = null
+    completeMounted = false
     addToastMock.mockClear()
+    estimateRouteFeeMock.mockReset()
+    estimateRouteFeeMock.mockResolvedValue({ fee: 0, availableBalance: 1000 })
   })
 
   it('quotes pending then resolves ceil-clamped (29.4 -> 30)', async () => {
-    let resolveFee: (value: number | null) => void = () => {}
+    let resolveFee: (value: { fee: number; availableBalance: number } | null) => void = () => {}
     const feeMock = vi.fn(
       () =>
-        new Promise<number | null>((resolve) => {
+        new Promise<{ fee: number; availableBalance: number } | null>((resolve) => {
           resolveFee = resolve
         }),
     )
@@ -135,15 +162,16 @@ describe('SendFlow direct-transfer fee quote', () => {
     expect(feeMock).toHaveBeenCalledWith('https://mint.example.com', 50)
 
     await act(async () => {
-      resolveFee(29.4)
+      resolveFee({ fee: 29.4, availableBalance: 100 })
       await Promise.resolve()
     })
 
     expect(capturedAmount!.feeQuote).toBe(30)
+    expect(capturedAmount!.quotedBalance).toBe(100)
   })
 
   it('unavailable fee (null) surfaces as feeQuote="unavailable"', async () => {
-    const feeMock = vi.fn(async () => null)
+    const feeMock = vi.fn().mockResolvedValueOnce(null).mockResolvedValue({ fee: 0, availableBalance: 100 })
 
     render(<SendFlow {...baseProps} onEstimateCreateFee={feeMock} />)
 
@@ -155,15 +183,150 @@ describe('SendFlow direct-transfer fee quote', () => {
     })
 
     expect(capturedAmount!.feeQuote).toBe('unavailable')
+    expect(addToastMock).not.toHaveBeenCalled()
+
+    act(() => {
+      capturedAmount!.onRetryFee!()
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(capturedAmount!.feeQuote).toBe(0)
+  })
+
+  it('keeps a cleared amount cleared after returning through the destination step', async () => {
+    const validatedData = {
+      type: 'lightning-address' as const,
+      address: 'alice@example.com',
+      lnurlParams: {
+        callback: 'https://example.com/pay',
+        minSendable: 1000,
+        maxSendable: 1000000,
+        metadata: '[["text/plain","Alice"]]',
+        tag: 'payRequest' as const,
+        domain: 'example.com',
+      },
+    }
+
+    render(<SendFlow {...baseProps} />)
+
+    await act(async () => {
+      await capturedInput!.onNext({
+        destination: validatedData.address,
+        validatedData,
+        mintUrl: 'https://mint.example.com',
+      })
+    })
+
+    act(() => {
+      capturedAmount!.onNext({ amount: 500, memo: '', isFiatMode: false, fiatAmount: '' })
+    })
+    act(() => {
+      capturedAmount!.onBack({ amount: 500, memo: '', isFiatMode: false, fiatAmount: '' })
+    })
+    act(() => {
+      capturedAmount!.onBack({ amount: 0, memo: '', isFiatMode: false, fiatAmount: '' })
+    })
+
+    await act(async () => {
+      await capturedInput!.onNext({
+        destination: validatedData.address,
+        validatedData,
+        mintUrl: 'https://mint.example.com',
+      })
+    })
+
+    expect(capturedAmount!.initialAmount).toBe(0)
+  })
+
+  it('shows an unavailable routed fee instead of a false zero when quoting fails', async () => {
+    estimateRouteFeeMock.mockRejectedValueOnce(new Error('quote unavailable'))
+    const validatedData = {
+      type: 'lightning-address' as const,
+      address: 'alice@example.com',
+      lnurlParams: {
+        callback: 'https://example.com/pay',
+        minSendable: 1000,
+        maxSendable: 1000000,
+        metadata: '[["text/plain","Alice"]]',
+        tag: 'payRequest' as const,
+        domain: 'example.com',
+      },
+    }
+
+    render(<SendFlow {...baseProps} />)
+
+    await act(async () => {
+      await capturedInput!.onNext({
+        destination: validatedData.address,
+        validatedData,
+        mintUrl: 'https://mint.example.com',
+      })
+    })
+    act(() => {
+      capturedAmount!.onNext({ amount: 500, memo: '', isFiatMode: false, fiatAmount: '' })
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(capturedAmount!.feeQuote).toBe('unavailable')
+  })
+
+  it('resolves an LNURL invoice before quoting and keeps it on the route snapshot', async () => {
+    const onResolveInvoice = vi.fn(async () => 'lnbc1resolvedinvoice')
+    const validatedData = {
+      type: 'lnurl-pay' as const,
+      lnurl: 'lnurl1payrequest',
+      params: {
+        callback: 'https://example.com/pay',
+        minSendable: 1000,
+        maxSendable: 1000000,
+        metadata: '[["text/plain","Alice"]]',
+        tag: 'payRequest' as const,
+        domain: 'example.com',
+      },
+    }
+
+    render(<SendFlow {...baseProps} onResolveInvoice={onResolveInvoice} />)
+    await act(async () => {
+      await capturedInput!.onNext({
+        destination: validatedData.lnurl,
+        validatedData,
+        mintUrl: 'https://mint.example.com',
+      })
+    })
+    act(() => {
+      capturedAmount!.onNext({ amount: 500, memo: '', isFiatMode: false, fiatAmount: '' })
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(onResolveInvoice).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 500 }),
+      expect.objectContaining({ lnurlPayParams: validatedData.params }),
+    )
+    expect(estimateRouteFeeMock).toHaveBeenCalledWith(
+      expect.anything(),
+      'https://mint.example.com',
+      500,
+      undefined,
+      'lnbc1resolvedinvoice',
+    )
   })
 
   it('epoch staleness: a stale first quote must not land after a mint change; confirmError clears too (Finding 1)', async () => {
-    let resolveFirst: (value: number | null) => void = () => {}
-    const firstPromise = new Promise<number | null>((resolve) => {
+    let resolveFirst: (value: { fee: number; availableBalance: number } | null) => void = () => {}
+    const firstPromise = new Promise<{ fee: number; availableBalance: number } | null>((resolve) => {
       resolveFirst = resolve
     })
-    let resolveSecond: (value: number | null) => void = () => {}
-    const secondPromise = new Promise<number | null>((resolve) => {
+    let resolveSecond: (value: { fee: number; availableBalance: number } | null) => void = () => {}
+    const secondPromise = new Promise<{ fee: number; availableBalance: number } | null>((resolve) => {
       resolveSecond = resolve
     })
 
@@ -171,7 +334,7 @@ describe('SendFlow direct-transfer fee quote', () => {
     // drive a failed create and populate state.error before the epoch case).
     // Calls #2/#3 are the stale/current pair under test, queued via
     // mockReturnValueOnce right before the mint changes that trigger them.
-    const feeMock = vi.fn().mockResolvedValueOnce(20)
+    const feeMock = vi.fn().mockResolvedValueOnce({ fee: 20, availableBalance: 100 })
     const onCreateToken = vi.fn().mockRejectedValue(new Error('create failed'))
 
     render(<SendFlow {...baseProps} onEstimateCreateFee={feeMock} onCreateToken={onCreateToken} />)
@@ -217,16 +380,86 @@ describe('SendFlow direct-transfer fee quote', () => {
     // Resolve the STALE first quote (mint2's) — its value must NOT be applied;
     // the epoch guard discards it because a newer quote (mint3's) superseded it.
     await act(async () => {
-      resolveFirst(10)
+      resolveFirst({ fee: 10, availableBalance: 100 })
       await Promise.resolve()
     })
     expect(capturedAmount!.feeQuote).toBe('pending')
 
     // Now resolve the CURRENT quote (mint3's) — this one commits.
     await act(async () => {
-      resolveSecond(12)
+      resolveSecond({ fee: 12, availableBalance: 100 })
       await Promise.resolve()
     })
     expect(capturedAmount!.feeQuote).toBe(12)
+  })
+
+  it('holds a successful routed send on the journey until arrival completes', async () => {
+    const onExecuteRoute = vi.fn(async () => ({
+      success: true,
+      amount: 50,
+      fee: 0,
+      sourceMintUrl: 'https://mint.example.com',
+      transactionId: 'tx-1',
+      transportUsed: 'none' as const,
+    }))
+
+    render(
+      <SendFlow
+        {...baseProps}
+        onExecuteRoute={onExecuteRoute}
+        validatedData={{ type: 'bolt11', invoice: 'lnbc1test', amountSats: 50, expiry: 9999999999 }}
+      />,
+    )
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      await capturedAmount!.onConfirmSend!()
+    })
+
+    expect(onExecuteRoute).toHaveBeenCalledOnce()
+    expect(capturedAmount!.sending).toBe(true)
+    expect(capturedAmount!.journeyStatus).toBe('success')
+    expect(completeMounted).toBe(false)
+
+    act(() => {
+      capturedAmount!.onJourneyOutcomeComplete!('success')
+    })
+
+    expect(completeMounted).toBe(true)
+  })
+
+  it('returns a failed routed send to confirmation after the star fades', async () => {
+    const onExecuteRoute = vi.fn(async () => null)
+
+    render(
+      <SendFlow
+        {...baseProps}
+        onExecuteRoute={onExecuteRoute}
+        validatedData={{ type: 'bolt11', invoice: 'lnbc1test', amountSats: 50, expiry: 9999999999 }}
+      />,
+    )
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      await capturedAmount!.onConfirmSend!()
+    })
+
+    expect(capturedAmount!.sending).toBe(true)
+    expect(capturedAmount!.journeyStatus).toBe('failure')
+
+    act(() => {
+      capturedAmount!.onJourneyOutcomeComplete!('failure')
+    })
+
+    expect(capturedAmount!.sending).toBe(false)
+    expect(capturedAmount!.confirmError).toBe('payment.sendFailed')
   })
 })

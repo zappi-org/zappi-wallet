@@ -646,6 +646,19 @@ export default function MainApp() {
     }
   }, [serviceRegistry, refreshAll, addToast, t])
 
+  const handleResolveRouteInvoice = useCallback(async (
+    selection: RouteSelection,
+    context: RouteContext,
+  ): Promise<string | null> => {
+    if (!serviceRegistry) return null
+    const result = await serviceRegistry.resolveRouteInvoice(selection, context)
+    if (!result.ok) {
+      console.error('[MainApp] Route invoice resolution failed:', result.error)
+      return null
+    }
+    return result.value
+  }, [serviceRegistry])
+
   const handleCreateEcashToken = useCallback(async (amount: number, preferredMintUrl?: string, options?: { p2pkPubkey?: string; memo?: string }): Promise<{ token: string; txId: string; operationId: string } | null> => {
     if (isSendingEcashRef.current) return null
     if (!serviceRegistry?.transferLifecycle) {
@@ -692,8 +705,8 @@ export default function MainApp() {
 
   // ─── Fee estimate before token creation ───
   const handleEstimateCreateFee = useCallback(
-    async (mintUrl: string, amount: number): Promise<number | null> => {
-      if (!serviceRegistry?.payment) return null
+    async (mintUrl: string, amount: number): Promise<{ fee: number; availableBalance: number } | null> => {
+      if (!serviceRegistry?.payment || !serviceRegistry.balance) return null
       try {
         const result = await serviceRegistry.payment.estimateFee({
           accountId: mintUrl,
@@ -701,12 +714,28 @@ export default function MainApp() {
           amount: sat(amount),
         })
         if (!result.ok) return null
-        return toNumber(result.value.fee)
+        const balances = await serviceRegistry.balance.getByModule()
+        const account = balances
+          .flatMap((moduleBalance) => moduleBalance.accounts)
+          .find((candidate) => isSameMintUrl(candidate.id, mintUrl))
+        if (!account) return null
+        return {
+          fee: toNumber(result.value.fee),
+          availableBalance: toNumber(account.amount),
+        }
       } catch {
         return null
       }
     },
     [serviceRegistry],
+  )
+
+  const handleEstimateTokenFee = useCallback(
+    async (mintUrl: string, amount: number): Promise<number | null> => {
+      const estimate = await handleEstimateCreateFee(mintUrl, amount)
+      return estimate?.fee ?? null
+    },
+    [handleEstimateCreateFee],
   )
 
   // ─── Reclaim (receive) fee estimate — for an already-created tx ───
@@ -1029,6 +1058,7 @@ export default function MainApp() {
           setCurrentScreen('home')
         }}
         onExecuteRoute={handleExecuteRoute}
+        onResolveInvoice={handleResolveRouteInvoice}
         onMintSwap={handleMintSwap}
         onEstimateSwapFee={handleEstimateSwapFee}
         onRouteValidated={handleRouteValidated}
@@ -1062,7 +1092,7 @@ export default function MainApp() {
           handleCreateEcashToken(amount, mintUrl, { memo })
         }
         onCancelToken={handleReclaimToken}
-        onEstimateFee={handleEstimateCreateFee}
+        onEstimateFee={handleEstimateTokenFee}
         onQuoteReclaim={handleQuoteReclaim}
       />
     ),

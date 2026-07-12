@@ -32,18 +32,23 @@ describe('formatLightningAddress', () => {
     expect(formatLightningAddress('alice@getalby.com')).toBe('alice@getalby.com')
   })
 
-  it('folds a long local part while preserving the FULL domain', () => {
+  it('preserves the local part and truncates the domain once at the end', () => {
     const address = 'verylongusernamehere@getalby.com'
     const result = formatLightningAddress(address)
-    expect(result.length).toBeLessThan(address.length)
-    expect(result.endsWith('@getalby.com')).toBe(true)
-    expect(result).toContain('…')
+    expect(result).toBe('verylongusernamehere@ge…')
   })
 
-  it('never truncates the domain even when it alone exceeds maxLength', () => {
+  it('truncates an oversized domain while keeping the complete local part', () => {
     const address = 'bob@an-extremely-long-lightning-domain-name.example.com'
     const result = formatLightningAddress(address, 24)
-    expect(result.endsWith('@an-extremely-long-lightning-domain-name.example.com')).toBe(true)
+    expect(result).toBe('bob@an-extremely-long-l…')
+  })
+
+  it('uses one trailing ellipsis when the local part alone fills the label', () => {
+    const address = 'an-extraordinarily-long-local-name@getalby.com'
+    const result = formatLightningAddress(address, 14)
+    expect(result).toBe('an-extraordin…')
+    expect(result.match(/…/g)).toHaveLength(1)
   })
 
   it('falls back to middleEllipsis when there is no @ in a long value', () => {

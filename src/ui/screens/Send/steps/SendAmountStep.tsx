@@ -12,33 +12,57 @@ import { ArrowLeft, ChevronDown, ChevronRight, ArrowUpDown, Lock } from 'lucide-
 import { useWallet } from '@/ui/hooks/use-wallet'
 import { useAppStore } from '@/store'
 import { hapticTap } from '@/ui/utils/haptic'
-import { useFormatSats, useSatUnit, useFormatFiat, isZeroDecimalCurrency, formatFiatInputForDisplay } from '@/utils/format'
+import {
+  appendFiatInput,
+  formatFiatInputForDisplay,
+  getFiatDecimalSeparator,
+  getFiatFractionDigits,
+  useFormatFiat,
+  useFormatSats,
+  useSatUnit,
+} from '@/utils/format'
 import { useFiatToggle } from '@/ui/hooks/use-fiat-toggle'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { MintIcon } from '@/ui/components/common/MintIcon'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
+import {
+  SendJourneyAnimation,
+  type SendJourneyOutcome,
+  type SendJourneyStatus,
+} from '@/ui/components/payment/SendJourneyAnimation'
+import {
+  RecipientEndpointIcon,
+  type RecipientEndpointKind,
+} from '@/ui/components/payment/RecipientEndpointIcon'
 import { MemoSheet } from '../MemoSheet'
 import { getMintBalance } from '@/utils/url'
 import {
   findContactName,
   formatNpubShort,
   formatRecipientDisplayText,
-  formatLightningAddress,
-  middleEllipsis,
+  isDirectCashuRecipient,
 } from '../sendDisplayHelpers'
 import { useContacts } from '@/ui/hooks/use-contacts'
-import type { SendableValidatedData, MaxAmountResult } from '../SendFlow'
+import type { SendableValidatedData } from '../SendFlow'
 import { SEND_RECIPIENT_LAYOUT_ID, recipientMorphTransition } from '../sendMorph'
 import { fadeTransition } from '@/ui/utils/motion'
+import { isNostrDirectAddress } from '@/core/domain/nostr-address'
 
-const KEYS_SATS: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'max', '0', 'del']
-const KEYS_FIAT: Array<string> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'del']
+const KEYS_SATS: Array<string | null> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', null, '0', 'del']
+const KEYS_FIAT: Array<string | null> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'decimal', '0', 'del']
+
+export interface SendAmountDraft {
+  amount: number
+  memo: string
+  isFiatMode: boolean
+  fiatAmount: string
+}
 
 interface SendAmountStepProps {
-  onBack: () => void
-  onNext: (data: { amount: number; memo: string; isFiatMode: boolean; fiatAmount: string }) => void
+  onBack: (draft: SendAmountDraft) => void
+  onNext: (data: SendAmountDraft) => void
   mintUrl: string
   destination?: string
   validatedData?: SendableValidatedData
@@ -53,13 +77,17 @@ interface SendAmountStepProps {
   directTransfer?: boolean
   /** When provided, the mint bar becomes tappable to change the source mint. */
   onChangeMint?: (mintUrl: string) => void
-  /** Resolves a fee-aware maximum that is safe to send from this mint. */
-  onResolveMaxAmount?: (mintUrl: string, balance: number) => Promise<MaxAmountResult>
   /** Swaps the keypad for the in-place confirm controls (fee/memo rows + Cancel/Send). */
   confirming?: boolean
   /** Route execution is in flight — same confirm scene, controls swap for a status row. */
   sending?: boolean
+  /** Presentation state for the recipient journey while route execution settles. */
+  journeyStatus?: SendJourneyStatus
+  onJourneyOutcomeComplete?: (outcome: SendJourneyOutcome) => void
   feeQuote?: number | 'pending' | 'unavailable'
+  /** Balance captured after the temporary fee-estimation lock was released. */
+  quotedBalance?: number | null
+  onRetryFee?: () => void
   confirmError?: string | null
   confirmMemo?: string
   onEditMemo?: (memo: string) => void
@@ -81,10 +109,13 @@ export function SendAmountStep({
   displayName,
   directTransfer = false,
   onChangeMint,
-  onResolveMaxAmount,
   confirming = false,
   sending = false,
+  journeyStatus = 'idle',
+  onJourneyOutcomeComplete,
   feeQuote,
+  quotedBalance,
+  onRetryFee,
   confirmError,
   confirmMemo = '',
   onEditMemo,
@@ -103,7 +134,6 @@ export function SendAmountStep({
 
   const [amount, setAmount] = useState(initialAmount > 0 ? String(initialAmount) : '')
   const [mintSheetOpen, setMintSheetOpen] = useState(false)
-  const [isResolvingMax, setIsResolvingMax] = useState(false)
   const [memoSheetOpen, setMemoSheetOpen] = useState(false)
   const [sendBusy, setSendBusy] = useState(false)
   const memo = initialMemo
@@ -117,10 +147,10 @@ export function SendAmountStep({
     showFiat,
     handleToggleFiat,
     handleFiatChange,
-    syncFiatFromSats,
   } = useFiatToggle(amount, setAmount, { initialFiatMode, initialFiatAmount })
   const canToggleFiat = exchangeRate !== null && showFiat
-  const fiatIsZeroDecimal = isZeroDecimalCurrency(fiatCurrency)
+  const fiatFractionDigits = getFiatFractionDigits(fiatCurrency)
+  const fiatDecimalSeparator = getFiatDecimalSeparator()
 
   const mintBalance = getMintBalance(mintUrl, balance.byMint)
   const mintName = getDisplayName(mintUrl)
@@ -130,12 +160,13 @@ export function SendAmountStep({
   // Editing-only empty state: sats and fiat inputs stay synced by useFiatToggle
   // (an unparseable/zero fiatInput clears `amount` too), so a bare zero check
   // covers both modes. Confirm always carries amount > 0, so this never fires there.
-  const isAmountEmpty = !confirming && numericAmount === 0
+  const isAmountEmpty = !confirming && (isFiatMode ? fiatInput.length === 0 : numericAmount === 0)
 
   // Confirm-variant gates: Send needs a numeric fee quote and amount+fee within balance.
   const feeReady = typeof feeQuote === 'number'
   const totalNeeded = feeReady ? numericAmount + feeQuote : null
-  const insufficientForFee = totalNeeded !== null && totalNeeded > mintBalance
+  const validationBalance = feeReady && quotedBalance != null ? quotedBalance : mintBalance
+  const insufficientForFee = totalNeeded !== null && totalNeeded > validationBalance
   const canSend = confirming && feeReady && numericAmount > 0 && !insufficientForFee && !sendBusy
 
   const handleConfirmSend = async () => {
@@ -172,12 +203,15 @@ export function SendAmountStep({
   // Collapsed recipient label (the "TO {name}" eyebrow value)
   const recipientLabel = useMemo(() => {
     if (!validatedData && !destination && !displayName) return null
+    if (validatedData?.type === 'bolt11') return t('send.confirm.paymentRequest')
+    if (validatedData?.type === 'cashu-request' && !isDirectCashuRecipient(validatedData)) {
+      return t('send.confirm.paymentRequest')
+    }
     if (displayName) return formatRecipientDisplayText(displayName)
     if (contactName) return formatRecipientDisplayText(contactName)
     if (validatedData?.type === 'my-wallet') return formatRecipientDisplayText(validatedData.targetMintName)
     if (validatedData?.type === 'lightning-address') return validatedData.address
     if (validatedData?.type === 'lnurl-pay') return validatedData.params?.domain || 'LNURL'
-    if (validatedData?.type === 'bolt11') return t('send.confirm.lightningInvoice')
     if (validatedData?.type === 'cashu-request') return formatRecipientDisplayText(validatedData.request)
     return destination ? formatRecipientDisplayText(destination) : null
   }, [destination, validatedData, contactName, displayName, t])
@@ -197,46 +231,13 @@ export function SendAmountStep({
 
   const handleKey = async (key: string) => {
     if (isAmountFixed) return
-    if (key === 'max') {
-      if (isResolvingMax) return
-      setIsResolvingMax(true)
-      try {
-        const result: MaxAmountResult = onResolveMaxAmount
-          ? await onResolveMaxAmount(mintUrl, mintBalance)
-          : { status: 'ok', amount: mintBalance }
-        if (result.status === 'error') {
-          // Resolver toasts on the route-selection path; only surface here if it did not.
-          if (!result.reported) {
-            addToast({ type: 'error', message: t('send.confirm.feeUnavailable'), duration: 3000 })
-          }
-          return
-        }
-
-        const safeAmount = Math.max(0, Math.min(mintBalance, Math.floor(result.amount)))
-        setAmount(safeAmount > 0 ? String(safeAmount) : '')
-        if (isFiatMode) syncFiatFromSats(safeAmount)
-      } finally {
-        setIsResolvingMax(false)
-      }
-      return
-    }
     if (key === 'del') {
       if (isFiatMode) handleFiatChange(fiatInput.slice(0, -1))
       else setAmount((prev) => prev.slice(0, -1))
       return
     }
     if (isFiatMode) {
-      if (key === '.') {
-        if (fiatIsZeroDecimal) return
-        if (fiatInput.includes('.')) return
-        handleFiatChange(fiatInput === '' ? '0.' : fiatInput + '.')
-        return
-      }
-      const dotIdx = fiatInput.indexOf('.')
-      if (dotIdx !== -1 && fiatInput.length - dotIdx - 1 >= 2) return
-      const next = (fiatInput + key).replace(/^0+(?=\d)/, '')
-      if (next.length > 12) return
-      handleFiatChange(next)
+      handleFiatChange(appendFiatInput(fiatInput, key, fiatFractionDigits))
     } else {
       setAmount((prev) => {
         const next = (prev + key).replace(/^0+(?=\d)/, '')
@@ -272,6 +273,10 @@ export function SendAmountStep({
     : formatSats(numericAmount)
   // Secondary conversion line (shown with the ⇄ toggle) — always visible.
   const secondary = isFiatMode ? formatSats(numericAmount) : toFiat(numericAmount) ?? `${currencySymbol}0`
+
+  const handleBack = useCallback(() => {
+    onBack({ amount: numericAmount, memo, isFiatMode, fiatAmount: fiatInput })
+  }, [onBack, numericAmount, memo, isFiatMode, fiatInput])
 
   // Recipient content shared by both the editing header and the confirm
   // ticket's TO node — only the wrapping element differs (button vs div).
@@ -309,7 +314,7 @@ export function SendAmountStep({
       type="button"
       {...recipientMotionProps}
       whileTap={{ scale: 0.96 }}
-      onClick={onBack}
+      onClick={handleBack}
       className="shrink-0 mt-3 mx-auto px-4 py-2 flex flex-col items-center gap-0.5 max-w-[calc(100%-3rem)]"
     >
       {recipientContent}
@@ -326,24 +331,53 @@ export function SendAmountStep({
   // identity-safe format instead of one generic truncation.
   const recipientAxisValue = useMemo(() => {
     if (directTransfer) return t('send.direct.label')
+    if (validatedData?.type === 'bolt11') return t('send.confirm.paymentRequest')
+    if (validatedData?.type === 'cashu-request' && !isDirectCashuRecipient(validatedData)) {
+      return t('send.confirm.paymentRequest')
+    }
     const name = displayName || contactName
     if (name) return formatRecipientDisplayText(name)
     if (validatedData?.type === 'my-wallet') return validatedData.targetMintName
-    // 20 chars ≈ the axis node's 170px at text-body semibold — the JS fold must
-    // win BEFORE the CSS truncate guard, or the guard would cut the domain tail
-    if (validatedData?.type === 'lightning-address') return formatLightningAddress(validatedData.address, 20)
+    // Fold to the actual 88px endpoint label before CSS gets a chance to add a
+    // second, visually conflicting truncation.
+    if (validatedData?.type === 'lightning-address') {
+      const localPart = validatedData.address.split('@', 1)[0]
+      return formatRecipientDisplayText(localPart, 11)
+    }
     if (validatedData?.type === 'lnurl-pay') return validatedData.params?.domain || 'LNURL'
-    if (validatedData?.type === 'bolt11') return middleEllipsis(validatedData.invoice, 8, 6)
     if (validatedData?.type === 'cashu-request') return formatNpubShort(validatedData.request)
     return destination ? formatRecipientDisplayText(destination) : null
   }, [directTransfer, displayName, contactName, validatedData, destination, t])
+  const recipientEndpoint = useMemo<{
+    kind: RecipientEndpointKind
+  }>(() => {
+    if (
+      validatedData?.type === 'bolt11' ||
+      validatedData?.type === 'lightning-address' ||
+      validatedData?.type === 'lnurl-pay'
+    ) {
+      return { kind: 'lightning' }
+    }
+    if (
+      validatedData?.type === 'cashu-request' &&
+      (isNostrDirectAddress(validatedData.request) || validatedData.parsed.hasNostrTransport)
+    ) {
+      return { kind: 'nostr' }
+    }
+    return { kind: 'generic' }
+  }, [validatedData])
   const recipientAxisNode = hasRecipient && (
-    <div className="text-body font-semibold text-foreground truncate max-w-[170px]">{recipientAxisValue}</div>
+    <div className="absolute right-0 top-[42px] z-10 flex w-[88px] flex-col items-center gap-1">
+      <RecipientEndpointIcon {...recipientEndpoint} />
+      <div className="w-full truncate text-center text-body font-semibold text-foreground" title={recipientAxisValue ?? undefined}>
+        {recipientAxisValue}
+      </div>
+    </div>
   )
 
   return (
     <div className="flex flex-col h-full relative">
-      <ScreenHeader title={t('send.title')} onBack={onBack} />
+      <ScreenHeader title={t('send.title')} onBack={handleBack} />
 
       {/* The pinned recipient pops out via its own presence (popLayout releases
           its space immediately so the confirm hero centers without a jump); it
@@ -366,60 +400,28 @@ export function SendAmountStep({
             transition={fadeTransition(reduceMotion, 0.18)}
             className="flex-1 min-h-0 flex flex-col justify-center px-6"
           >
-          {/* Axis line — mint (tap to change) ─flow─ recipient.
-              Typographic: no card chrome, reads as "mint ⟶ recipient". */}
-          <div className="flex items-center justify-center gap-2">
+          {/* Fixed journey stage: labels never participate in the route's width,
+              so a long recipient cannot shorten or shift the flight path. */}
+          <div className="relative mx-auto h-[96px] w-full max-w-[340px]">
+            <SendJourneyAnimation
+              status={sending ? journeyStatus : 'idle'}
+              onOutcomeComplete={onJourneyOutcomeComplete}
+              className="absolute left-[58px] right-[58px] top-0 h-20"
+            />
             <button
               type="button"
               onClick={onChangeMint && !sending ? () => setMintSheetOpen(true) : undefined}
               disabled={!onChangeMint || sending}
-              className="flex items-center gap-1.5 text-body text-foreground-muted disabled:cursor-default"
+              className="absolute left-0 top-[42px] z-10 flex w-[88px] flex-col items-center gap-1 text-foreground-muted disabled:cursor-default"
             >
-              <MintIcon iconUrl={mintIconUrl} imgSize="w-5 h-5" className="w-5 h-5" circle />
-              <span className="truncate max-w-[96px]">{mintName}</span>
+              <MintIcon iconUrl={mintIconUrl} imgSize="w-7 h-7" className="h-7 w-7" circle />
+              <span className="w-full truncate text-center text-body font-medium">{mintName}</span>
             </button>
-            {/* Flow-line connector, fixed width so the trio reads as one group.
-                Quoting: the dashes drift toward the recipient. Sending: the
-                line becomes a brand rail and a single arrowhead sweeps along
-                it — the money passing over the track. Rest: static dashes. */}
-            <div
-              aria-hidden
-              className={`relative w-24 shrink-0 self-center ${sending ? 'text-brand' : 'text-foreground-muted/60'}`}
-            >
-              <motion.div
-                className="h-[2px] w-full [mask-image:linear-gradient(90deg,transparent,black_14%,black_86%,transparent)]"
-                style={{
-                  backgroundImage: 'linear-gradient(90deg, currentColor 0 5px, transparent 5px 10px)',
-                  backgroundSize: '10px 2px',
-                  backgroundRepeat: 'repeat-x',
-                  opacity: sending ? 0.45 : 1,
-                }}
-                animate={
-                  reduceMotion || sending || feeQuote !== 'pending'
-                    ? undefined
-                    : { backgroundPositionX: ['0px', '10px'] }
-                }
-                transition={
-                  reduceMotion || sending || feeQuote !== 'pending'
-                    ? undefined
-                    : { duration: 0.9, ease: 'linear', repeat: Infinity }
-                }
-              />
-              {sending && !reduceMotion && (
-                <motion.span
-                  className="absolute -top-[6px] left-0"
-                  animate={{ x: [0, 82], opacity: [0, 1, 1, 0] }}
-                  transition={{ duration: 1.2, times: [0, 0.15, 0.85, 1], repeat: Infinity, repeatDelay: 0.25, ease: 'easeInOut' }}
-                >
-                  <ChevronRight className="w-3.5 h-3.5" strokeWidth={2.5} />
-                </motion.span>
-              )}
-            </div>
             {recipientAxisNode}
           </div>
 
           {/* Amount — settles with the region's fade; same open composition */}
-          <div className="flex flex-col items-center gap-2 text-center mt-6">
+          <div className="mt-3 flex flex-col items-center gap-2 text-center">
             <span
               className={`text-[40px] leading-none font-light tracking-tight ${
                 isOverBalance || insufficientForFee ? 'text-accent-danger' : 'text-foreground'
@@ -529,9 +531,19 @@ export function SendAmountStep({
               <div className="rounded-2xl bg-background-card/70 px-4 py-1 mb-3">
                 <div className="flex justify-between items-center py-2.5">
                   <span className="text-body text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
-                  <span className="text-body font-medium text-foreground">
-                    {feeReady ? formatSats(feeQuote) : '—'}
-                  </span>
+                  {feeReady ? (
+                    <span className="text-body font-medium text-foreground">{formatSats(feeQuote)}</span>
+                  ) : feeQuote === 'unavailable' ? (
+                    <span className="text-body font-medium text-foreground-muted">
+                      {t('send.confirm.feeUnavailableValue')}
+                    </span>
+                  ) : (
+                    <span
+                      role="status"
+                      aria-label={t('send.confirm.feeChecking')}
+                      className={`h-4 w-16 rounded-md bg-foreground-muted/15 ${reduceMotion ? '' : 'animate-pulse'}`}
+                    />
+                  )}
                 </div>
                 <button
                   type="button"
@@ -549,12 +561,23 @@ export function SendAmountStep({
             </div>
             <div className="px-6 pb-1">
               {(confirmError || feeQuote === 'unavailable' || insufficientForFee) && (
-                <p className="text-caption text-accent-danger pb-2">
-                  {confirmError ??
-                    (feeQuote === 'unavailable'
-                      ? t('send.confirm.feeUnavailable')
-                      : t('send.confirm.insufficientWithTotal', { total: formatSats(totalNeeded ?? 0) }))}
-                </p>
+                <div className="flex items-center justify-between gap-3 pb-2">
+                  <p className="text-caption text-accent-danger">
+                    {confirmError ??
+                      (feeQuote === 'unavailable'
+                        ? t('send.confirm.feeUnavailable')
+                        : t('send.confirm.insufficientWithTotal', { total: formatSats(totalNeeded ?? 0) }))}
+                  </p>
+                  {feeQuote === 'unavailable' && onRetryFee && !sending && !confirmError && (
+                    <button
+                      type="button"
+                      onClick={onRetryFee}
+                      className="shrink-0 text-caption font-semibold text-brand"
+                    >
+                      {t('send.confirm.retryFee')}
+                    </button>
+                  )}
+                </div>
               )}
             </div>
             {sending ? (
@@ -595,20 +618,19 @@ export function SendAmountStep({
           >
             {/* Numpad — dimmed (not hidden) when the amount is fixed by an invoice */}
             <div className={`grid grid-cols-3 gap-0 shrink-0 ${isAmountFixed ? 'opacity-30 pointer-events-none' : ''}`}>
-              {(isFiatMode && !fiatIsZeroDecimal ? KEYS_FIAT : KEYS_SATS).map((key) => (
+              {(isFiatMode && fiatFractionDigits > 0 ? KEYS_FIAT : KEYS_SATS).map((key, index) => key === null ? (
+                <span key={`empty-${index}`} aria-hidden />
+              ) : (
                 <button
                   key={key}
                   type="button"
                   onClick={() => void handleKey(key)}
-                  disabled={key === 'max' && isResolvingMax}
                   className="h-14 text-title font-normal text-foreground hover:bg-background-hover active:bg-background-card transition-colors flex items-center justify-center"
                 >
                   {key === 'del' ? (
                     <ArrowLeft className="w-5 h-5" strokeWidth={1.8} />
-                  ) : key === 'max' ? (
-                    <span className="text-body font-semibold text-foreground-muted">{t('send.max')}</span>
                   ) : (
-                    key
+                    key === 'decimal' ? fiatDecimalSeparator : key
                   )}
                 </button>
               ))}

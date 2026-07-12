@@ -87,7 +87,9 @@ export function getErrorI18n(error: unknown): ErrorI18n {
   ) {
     return { key: 'receive.tokenReceiveFeeTooHigh' }
   }
-  if (msg.includes('not enough proofs') || msg.includes('insufficient')) return { key: 'errors.insufficientBalance', params: { required: '?', available: '?' } }
+  if (msg.includes('not enough proofs') || msg.includes('insufficient')) {
+    return { key: 'errors.insufficientBalanceUnknown' }
+  }
   if (msg.includes('already spent') || msg.includes('token spent') || msg.includes('proof spent')) return { key: 'errors.tokenSpent' }
   if (msg.includes('timeout') || msg.includes('timed out')) return { key: 'errors.timeoutError' }
   if (msg.includes('expired')) return { key: 'errors.quoteExpired' }

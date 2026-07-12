@@ -68,16 +68,24 @@ describe('CashuEcashAdapter', () => {
       expect(result.method).toBe('ecash')
     })
 
-    it('returns zero fee on error', async () => {
+    it('surfaces an unavailable estimate instead of returning a false zero fee', async () => {
       vi.mocked(backend.prepareSend).mockRejectedValue(new Error('insufficient'))
 
-      const result = await adapter.estimateFee({
+      await expect(adapter.estimateFee({
         destination: 'cashuBpXh...',
         amount: sat(500),
         accountId: 'https://mint.test',
-      })
+      })).rejects.toThrow('insufficient')
+    })
 
-      expect(toNumber(result.fee)).toBe(0)
+    it('surfaces rollback failure because the temporary lock release is not confirmed', async () => {
+      vi.mocked(backend.rollbackSend).mockRejectedValueOnce(new Error('rollback fail'))
+
+      await expect(adapter.estimateFee({
+        destination: 'cashuBpXh...',
+        amount: sat(500),
+        accountId: 'https://mint.test',
+      })).rejects.toThrow('rollback fail')
     })
   })
 

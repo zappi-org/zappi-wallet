@@ -336,17 +336,13 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
   // ─── Send ───
 
   async estimateFee(params: SendParams): Promise<FeeEstimate> {
-    try {
-      const prepared = await this.backend.prepareSend({
-        mintUrl: params.accountId,
-        amount: toNumber(params.amount),
-      })
-      const fee = prepared.fee
-      await this.backend.rollbackSend(prepared.operationId).catch(() => { })
-      return { fee: sat(fee), method: 'ecash', protocol: 'cashu-token' }
-    } catch {
-      return { fee: sat(0), method: 'ecash', protocol: 'cashu-token' }
-    }
+    const prepared = await this.backend.prepareSend({
+      mintUrl: params.accountId,
+      amount: toNumber(params.amount),
+    })
+    const fee = prepared.fee
+    await this.backend.rollbackSend(prepared.operationId)
+    return { fee: sat(fee), method: 'ecash', protocol: 'cashu-token' }
   }
 
   async prepareSend(params: SendParams): Promise<PreparedPayment> {

@@ -42,17 +42,22 @@ export function middleEllipsis(value: string, head = 8, tail = 4): string {
   return `${trimmed.slice(0, head)}…${trimmed.slice(-tail)}`;
 }
 
-/** Lightning address: the domain is the identity — never cut it. Long local
- *  parts fold instead (`verylongna…@getalby.com`). */
+/** Lightning address: prioritize the human-readable local part in compact
+ *  recipient labels, then truncate the domain once at the end. */
 export function formatLightningAddress(address: string, maxLength = 24): string {
   const trimmed = address.trim();
   if (trimmed.length <= maxLength) return trimmed;
   const at = trimmed.lastIndexOf("@");
   if (at <= 0) return middleEllipsis(trimmed, 10, 6);
   const local = trimmed.slice(0, at);
-  const domain = trimmed.slice(at); // includes '@'
-  const room = Math.max(3, maxLength - domain.length - 1);
-  return `${local.slice(0, room)}…${domain}`;
+  const domain = trimmed.slice(at + 1);
+
+  // If the local part itself exhausts the compact label, keep one clean
+  // trailing ellipsis instead of truncating both sides of the address.
+  if (local.length >= maxLength - 2) return `${local.slice(0, maxLength - 1)}…`;
+
+  const domainRoom = maxLength - local.length - 2; // '@' + trailing ellipsis
+  return `${local}@${domain.slice(0, domainRoom)}…`;
 }
 
 function isCashuRequestData(data: SendableValidatedData): data is CashuRequestSendData {
@@ -104,7 +109,7 @@ export function getConfirmDisplayInfo(
     const inv = data.parsed.lightningInvoice;
     return {
       method: "Lightning",
-      recipient: t("send.confirm.lightningInvoice"),
+      recipient: t("send.confirm.paymentRequest"),
       recipientDetail: `${inv.slice(0, 12).toLowerCase()}...${inv
         .slice(-4)
         .toLowerCase()}`,
@@ -116,7 +121,7 @@ export function getConfirmDisplayInfo(
     const req = data.request;
     return {
       method: "eCash",
-      recipient: t("send.confirm.ecashRequest"),
+      recipient: t("send.confirm.paymentRequest"),
       recipientDetail: `${req.slice(0, 8)}...${req.slice(-4)}`,
       memo: data.parsed.description,
     };
@@ -131,7 +136,7 @@ export function getConfirmDisplayInfo(
       const inv = data.parsed.lightningInvoice;
       return {
         method: "Lightning",
-        recipient: t("send.confirm.lightningInvoice"),
+        recipient: t("send.confirm.paymentRequest"),
         recipientDetail: `${inv.slice(0, 12).toLowerCase()}...${inv
           .slice(-4)
           .toLowerCase()}`,
@@ -141,7 +146,7 @@ export function getConfirmDisplayInfo(
     const req = data.request;
     return {
       method: "eCash",
-      recipient: displayName || t("send.confirm.ecashRequest"),
+      recipient: t("send.confirm.paymentRequest"),
       recipientDetail: `${req.slice(0, 8)}...${req.slice(-4)}`,
       memo: data.parsed.description,
     };
@@ -152,7 +157,7 @@ export function getConfirmDisplayInfo(
       const inv = data.invoice;
       return {
         method: "Lightning",
-        recipient: t("send.confirm.lightningInvoice"),
+        recipient: t("send.confirm.paymentRequest"),
         recipientDetail: `${inv.slice(0, 8)}...${inv.slice(-4)}`,
         memo: data.description || undefined,
       };
@@ -174,7 +179,7 @@ export function getConfirmDisplayInfo(
       const req = data.request;
       return {
         method: "eCash",
-        recipient: t("send.confirm.ecashRequest"),
+        recipient: t("send.confirm.paymentRequest"),
         recipientDetail: `${req.slice(0, 8)}...${req.slice(-4)}`,
         memo: data.parsed.description,
       };
@@ -205,13 +210,13 @@ export function getDestinationDisplay(
     data.type === "cashu-request" &&
     data.parsed.lightningInvoice
   ) {
-    return options?.t?.("send.confirm.lightningInvoice") || "Lightning";
+    return options?.t?.("send.confirm.paymentRequest") || "Payment request";
   }
 
   if (displayName) return formatRecipientDisplayText(displayName);
   switch (data.type) {
     case "bolt11":
-      return "Lightning";
+      return options?.t?.("send.confirm.paymentRequest") || "Payment request";
     case "lightning-address":
       return formatRecipientDisplayText(data.address.includes("@")
         ? data.address.split("@")[0]
@@ -219,7 +224,7 @@ export function getDestinationDisplay(
     case "lnurl-pay":
       return data.params?.domain || "LNURL";
     case "cashu-request":
-      return "eCash";
+      return options?.t?.("send.confirm.paymentRequest") || "Payment request";
     case "my-wallet":
       return formatRecipientDisplayText(data.targetMintName);
   }

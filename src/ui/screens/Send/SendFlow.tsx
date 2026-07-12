@@ -54,7 +54,8 @@ function getAmountFromData(data: SendableValidatedData): number {
 }
 
 import { SendInputStep } from './steps/SendInputStep'
-import { SendAmountStep } from './steps/SendAmountStep'
+import { SendAmountStep, type SendAmountDraft } from './steps/SendAmountStep'
+import type { SendJourneyOutcome, SendJourneyStatus } from '@/ui/components/payment/SendJourneyAnimation'
 import { SendCompleteStep } from './steps/SendCompleteStep'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { planRouteSelection } from './sendRouteHelpers'
@@ -68,7 +69,12 @@ export type SendStep = 'destination' | 'amount' | 'confirm' | 'sending' | 'compl
  * MAX-resolution outcome. `reported` tells the caller whether the failure was
  * already toasted upstream (route-selection path) so it shows exactly one toast.
  */
-export type MaxAmountResult = { status: 'ok'; amount: number } | { status: 'error'; reported: boolean }
+type RouteFeeQuote = number | 'unavailable'
+
+export interface StableFeeEstimate {
+  fee: number
+  availableBalance: number
+}
 
 /** Validated data types that are "sendable" (not token, not amount) */
 export type SendableValidatedData =
@@ -88,7 +94,8 @@ export interface SendFlowState {
   isFiatMode: boolean
   fiatAmount: string
   skippedAmount: boolean
-  fee: number
+  fee: RouteFeeQuote
+  quotedBalance: number | null
   error: string | null
   // NUT-18 specific
   dmSent: boolean
@@ -117,6 +124,7 @@ export interface SendFlowProps {
   onComplete: () => void
   // Routing-based send handler (primary)
   onExecuteRoute: (selection: RouteSelection, context: RouteContext) => Promise<RouteExecutionResult | null>
+  onResolveInvoice: (selection: RouteSelection, context: RouteContext) => Promise<string | null>
   // Cross-mint swap handler (my-wallet type)
   onMintSwap?: (
     fromMintUrl: string,
@@ -149,7 +157,7 @@ export interface SendFlowProps {
     mintUrl: string,
     memo?: string,
   ) => Promise<{ token: string; txId: string; operationId: string } | null>
-  onEstimateCreateFee?: (mintUrl: string, amount: number) => Promise<number | null>
+  onEstimateCreateFee?: (mintUrl: string, amount: number) => Promise<StableFeeEstimate | null>
   onQuoteReclaim?: (txId: string) => Promise<number | null>
   onReclaimToken?: (txId: string) => Promise<void>
   directMintUrl?: string | null
@@ -161,6 +169,7 @@ export function SendFlow({
   onBack,
   onComplete,
   onExecuteRoute,
+  onResolveInvoice,
   onMintSwap,
   onEstimateSwapFee: _onEstimateSwapFee,
   onRedirect,
@@ -239,6 +248,7 @@ export function SendFlow({
     fiatAmount: '',
     skippedAmount: false,
     fee: 0,
+    quotedBalance: null,
     error: null,
     dmSent: false,
     routeSelection: null,
@@ -249,6 +259,41 @@ export function SendFlow({
 
   // Loading state for async operations
   const [isLoading, setIsLoading] = useState(false)
+
+  // The domain result is known before the visual journey necessarily settles.
+  // Keep the sending scene mounted until Zappi arrives or fades on failure.
+  const [sendJourneyStatus, setSendJourneyStatus] = useState<SendJourneyStatus>('idle')
+  const journeyCompletionRef = useRef<{
+    outcome: SendJourneyOutcome
+    complete: () => void
+    fallbackTimer: number
+  } | null>(null)
+
+  const scheduleJourneyOutcome = useCallback((outcome: SendJourneyOutcome, complete: () => void) => {
+    if (journeyCompletionRef.current) window.clearTimeout(journeyCompletionRef.current.fallbackTimer)
+    const fallbackTimer = window.setTimeout(() => {
+      journeyCompletionRef.current = null
+      setSendJourneyStatus('idle')
+      complete()
+    }, 1400)
+    journeyCompletionRef.current = { outcome, complete, fallbackTimer }
+    setSendJourneyStatus(outcome)
+  }, [])
+
+  const handleJourneyOutcomeComplete = useCallback((outcome: SendJourneyOutcome) => {
+    const pending = journeyCompletionRef.current
+    if (!pending || pending.outcome !== outcome) return
+    window.clearTimeout(pending.fallbackTimer)
+    journeyCompletionRef.current = null
+    setSendJourneyStatus('idle')
+    pending.complete()
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (journeyCompletionRef.current) window.clearTimeout(journeyCompletionRef.current.fallbackTimer)
+    }
+  }, [])
 
   // Mint selection sheet (lifted from SendInputStep so it's reachable from any step)
   const [mintSelection, setMintSelection] = useState<MintSelectionRequest | null>(null)
@@ -277,11 +322,16 @@ export function SendFlow({
       validated: SendableValidatedData,
       amount: number,
       mintUrl: string,
-    ): Promise<{ fee: number; routeSelection: RouteSelection } | null> => {
+    ): Promise<{
+      fee: RouteFeeQuote
+      quotedBalance: number | null
+      routeSelection: RouteSelection
+      error?: string
+    } | null> => {
       try {
         const balances = useAppStore.getState().balance.byMint
         const privacyMode = useAppStore.getState().settings.senderPrivacyMode ?? false
-        const routeSelection = planRouteSelection({
+        let routeSelection = planRouteSelection({
           validated,
           amount,
           sourceMintUrl: mintUrl,
@@ -299,23 +349,62 @@ export function SendFlow({
           return null
         }
 
-        // Fee estimation
-        const feeEstimate = await routing.estimateRouteFee(
-          route,
-          routeSelection.sourceMintUrl,
-          amount,
-          routeSelection.targetMintUrl,
-          routeSelection.invoice,
-        )
-        const fee = feeEstimate.fee
+        let fee: RouteFeeQuote
+        let quotedBalance: number | null = null
+        let quoteError: string | undefined
+        try {
+          if (
+            !routeSelection.invoice &&
+            (route === PaymentRoute.LN_INTERNAL ||
+              route === PaymentRoute.LN_CROSS_MINT ||
+              route === PaymentRoute.MELT_TO_LN)
+          ) {
+            const invoice = await onResolveInvoice(routeSelection, {
+              addressOrInvoice: getAddressOrInvoice(validated),
+              lnurlPayParams:
+                validated.type === 'lightning-address'
+                  ? validated.lnurlParams
+                  : validated.type === 'lnurl-pay'
+                    ? validated.params
+                    : undefined,
+            })
+            if (!invoice) throw new Error('Payment invoice unavailable')
+            routeSelection = { ...routeSelection, invoice }
+          }
+
+          const feeEstimate = await routing.estimateRouteFee(
+            route,
+            routeSelection.sourceMintUrl,
+            amount,
+            routeSelection.targetMintUrl,
+            routeSelection.invoice,
+          )
+          if (!Number.isFinite(feeEstimate.fee) || feeEstimate.fee < 0) {
+            throw new Error('Invalid fee estimate')
+          }
+          fee = feeEstimate.fee
+          quotedBalance = feeEstimate.availableBalance
+        } catch (error) {
+          console.error('[SendFlow] Fee estimation unavailable:', error)
+          fee = 'unavailable'
+          if ((error as { code?: string }).code === 'INSUFFICIENT_BALANCE') {
+            quoteError = t('errors.insufficientBalanceUnknown')
+          }
+        }
 
         const finalizedRouteSelection: RouteSelection = {
           ...routeSelection,
-          estimatedFee: fee,
+          // Execution requires a numeric route snapshot, while the separate
+          // quote state keeps an unavailable estimate from masquerading as 0.
+          estimatedFee: typeof fee === 'number' ? fee : 0,
         }
 
-        console.log(`[SendFlow] Route selected: #${route} ${ROUTE_LABELS[route]} (fee: ${fee} sat)`)
-        return { fee, routeSelection: finalizedRouteSelection }
+        console.log(
+          `[SendFlow] Route selected: #${route} ${ROUTE_LABELS[route]} (fee: ${
+            typeof fee === 'number' ? `${fee} sat` : 'unavailable'
+          })`,
+        )
+        return { fee, quotedBalance, routeSelection: finalizedRouteSelection, error: quoteError }
       } catch (err) {
         console.error('[SendFlow] Route selection / fee estimation failed:', err)
         addToast({
@@ -326,7 +415,7 @@ export function SendFlow({
         return null
       }
     },
-    [addToast, t, routing],
+    [addToast, t, routing, onResolveInvoice],
   )
 
   // ============= Step Transitions =============
@@ -430,8 +519,9 @@ export function SendFlow({
             amount: data.amountFromInvoice!,
             skippedAmount: true,
             fee: routeResult.fee,
+            quotedBalance: routeResult.quotedBalance,
             routeSelection: routeResult.routeSelection,
-            error: null,
+            error: routeResult.error ?? null,
           }))
           return
         }
@@ -444,6 +534,7 @@ export function SendFlow({
           destination: data.destination,
           validatedData: validated!,
           error: null,
+          quotedBalance: null,
         }))
       } catch (err) {
         console.error('[SendFlow] Destination validation error:', err)
@@ -482,62 +573,11 @@ export function SendFlow({
         fiatAmount: data.fiatAmount,
         routeSelection: null,
         fee: 0,
+        quotedBalance: null,
         error: null,
       }))
     },
     [isOnline, state.validatedData, state.selectedMintUrl, addToast, t],
-  )
-
-  /**
-   * Resolves a conservative maximum after fees, re-quoting until stable.
-   *
-   * Returns a discriminated result so the caller knows whether an error was
-   * already surfaced upstream: the non-direct branch quotes via
-   * performRouteSelection, which toasts on failure — the caller must NOT toast
-   * again. The direct branch reports nothing, so the caller owns that toast.
-   *
-   * Only ever returns amounts whose own fee was VERIFIED to fit the balance:
-   * we track the last candidate whose quote satisfied amount+ceil(fee)<=balance
-   * and return that, never an unverified fallthrough (fees can rise as the amount
-   * steps down at cashu proof-count edges). Bounded to ≤5 quotes.
-   */
-  const handleResolveMaxAmount = useCallback(
-    async (mintUrl: string, balance: number): Promise<MaxAmountResult> => {
-      if (balance <= 0) return { status: 'ok', amount: 0 }
-
-      const quoteFee = async (amount: number): Promise<{ fee: number } | { reported: boolean }> => {
-        if (state.directTransfer) {
-          if (!onEstimateCreateFee) return { reported: false }
-          const fee = await onEstimateCreateFee(mintUrl, amount)
-          return fee === null || !Number.isFinite(fee) ? { reported: false } : { fee }
-        }
-        if (!state.validatedData) return { reported: false }
-        const routeResult = await performRouteSelection(state.validatedData, amount, mintUrl)
-        // performRouteSelection already toasted on null.
-        return routeResult ? { fee: routeResult.fee } : { reported: true }
-      }
-
-      let candidate = balance
-      let verified: number | null = null
-      for (let attempt = 0; attempt < 5; attempt += 1) {
-        const quote = await quoteFee(candidate)
-        if (!('fee' in quote)) return { status: 'error', reported: quote.reported }
-        if (!Number.isFinite(quote.fee)) return { status: 'error', reported: false }
-
-        const fits = candidate + Math.max(0, Math.ceil(quote.fee)) <= balance
-        if (fits) verified = candidate
-        const next = Math.max(0, Math.min(candidate, balance - Math.max(0, Math.ceil(quote.fee))))
-        if (next === candidate) {
-          // Converged: this candidate is self-consistent (fits its own fee).
-          return { status: 'ok', amount: candidate }
-        }
-        candidate = next
-      }
-
-      // Iteration cap hit without convergence — return the best VERIFIED amount only.
-      return verified !== null ? { status: 'ok', amount: verified } : { status: 'error', reported: false }
-    },
-    [state.directTransfer, state.validatedData, onEstimateCreateFee, performRouteSelection],
   )
 
   /** Confirm step → execute send via routing layer */
@@ -554,6 +594,9 @@ export function SendFlow({
     }
     isProcessingRef.current = true
 
+    if (journeyCompletionRef.current) window.clearTimeout(journeyCompletionRef.current.fallbackTimer)
+    journeyCompletionRef.current = null
+    setSendJourneyStatus('pending')
     setState((prev) => ({ ...prev, step: 'sending', error: null }))
 
     try {
@@ -564,6 +607,12 @@ export function SendFlow({
 
       const context: RouteContext = {
         parsedCreq: validatedData.type === 'cashu-request' ? validatedData.parsed : undefined,
+        lnurlPayParams:
+          validatedData.type === 'lightning-address'
+            ? validatedData.lnurlParams
+            : validatedData.type === 'lnurl-pay'
+              ? validatedData.params
+              : undefined,
         nostrPrivkey: storeState.nostrPrivkey || undefined,
         relays: storeState.settings.relays || [],
         memo: memo || (validatedData.type === 'cashu-request' ? validatedData.parsed.description : undefined),
@@ -578,13 +627,17 @@ export function SendFlow({
           routeSelection.amount,
         )
         if (swapResult?.success) {
-          setState((prev) => ({ ...prev, step: 'complete' }))
+          scheduleJourneyOutcome('success', () => {
+            setState((prev) => ({ ...prev, step: 'complete' }))
+          })
         } else {
-          setState((prev) => ({
-            ...prev,
-            step: 'confirm',
-            error: t('transfer.swapFailed'),
-          }))
+          scheduleJourneyOutcome('failure', () => {
+            setState((prev) => ({
+              ...prev,
+              step: 'confirm',
+              error: t('transfer.swapFailed'),
+            }))
+          })
         }
         return
       }
@@ -592,18 +645,22 @@ export function SendFlow({
       const result = await onExecuteRoute(routeSelection, context)
 
       if (result?.success) {
-        setState((prev) => ({
-          ...prev,
-          step: 'complete',
-          ...(result.transportUsed === 'nostr' ? { dmSent: true } : {}),
-        }))
+        scheduleJourneyOutcome('success', () => {
+          setState((prev) => ({
+            ...prev,
+            step: 'complete',
+            ...(result.transportUsed === 'nostr' ? { dmSent: true } : {}),
+          }))
+        })
       } else {
         // MainApp already shows error toast via handleExecuteRoute
-        setState((prev) => ({
-          ...prev,
-          step: 'confirm',
-          error: t('payment.sendFailed'),
-        }))
+        scheduleJourneyOutcome('failure', () => {
+          setState((prev) => ({
+            ...prev,
+            step: 'confirm',
+            error: t('payment.sendFailed'),
+          }))
+        })
       }
     } catch (err) {
       console.error('[SendFlow] Send error:', err)
@@ -611,7 +668,9 @@ export function SendFlow({
         (err as { code?: string }).code === 'INSUFFICIENT_BALANCE'
           ? (err as { message?: string }).message ?? t('payment.insufficientBalance')
           : t('payment.sendFailed')
-      setState((prev) => ({ ...prev, step: 'confirm', error: message }))
+      scheduleJourneyOutcome('failure', () => {
+        setState((prev) => ({ ...prev, step: 'confirm', error: message }))
+      })
       // Only show toast for errors not already handled by MainApp
       if ((err as { code?: string }).code === 'INSUFFICIENT_BALANCE') {
         addToast({ type: 'error', message, duration: 4000 })
@@ -619,7 +678,7 @@ export function SendFlow({
     } finally {
       isProcessingRef.current = false
     }
-  }, [state, onExecuteRoute, onMintSwap, isOnline, addToast, t])
+  }, [state, onExecuteRoute, onMintSwap, isOnline, addToast, t, scheduleJourneyOutcome])
 
   // ============= Direct Transfer (bearer token, no recipient) =============
 
@@ -745,30 +804,40 @@ export function SendFlow({
 
   // Direct-transfer confirm quotes its own fee (token creation bypasses routing)
   const [directFeeQuote, setDirectFeeQuote] = useState<number | 'pending' | 'unavailable'>('pending')
+  const [directQuotedBalance, setDirectQuotedBalance] = useState<number | null>(null)
+  const [feeRetryNonce, setFeeRetryNonce] = useState(0)
   useEffect(() => {
     if (state.step !== 'confirm' || !state.directTransfer) {
       setDirectFeeQuote('pending')
+      setDirectQuotedBalance(null)
       return
     }
     if (!onEstimateCreateFee) {
       setDirectFeeQuote(0)
+      setDirectQuotedBalance(null)
       return
     }
     if (state.amount <= 0 || !state.selectedMintUrl) {
       setDirectFeeQuote('unavailable')
+      setDirectQuotedBalance(null)
       return
     }
     const epoch = ++routeEpochRef.current
     setDirectFeeQuote('pending')
+    setDirectQuotedBalance(null)
     onEstimateCreateFee(state.selectedMintUrl, state.amount)
       .then((value) => {
         if (routeEpochRef.current !== epoch) return
-        setDirectFeeQuote(value === null ? 'unavailable' : Math.max(0, Math.ceil(value)))
+        setDirectFeeQuote(value === null ? 'unavailable' : Math.max(0, Math.ceil(value.fee)))
+        setDirectQuotedBalance(value?.availableBalance ?? null)
       })
       .catch(() => {
-        if (routeEpochRef.current === epoch) setDirectFeeQuote('unavailable')
+        if (routeEpochRef.current === epoch) {
+          setDirectFeeQuote('unavailable')
+          setDirectQuotedBalance(null)
+        }
       })
-  }, [state.step, state.directTransfer, state.amount, state.selectedMintUrl, onEstimateCreateFee])
+  }, [state.step, state.directTransfer, state.amount, state.selectedMintUrl, onEstimateCreateFee, feeRetryNonce])
 
   /**
    * Initial route selection — runs once when SendFlow lands on 'confirm' from a
@@ -798,9 +867,10 @@ export function SendFlow({
       setState((prev) => ({
         ...prev,
         fee: routeResult.fee,
+        quotedBalance: routeResult.quotedBalance,
         routeSelection: routeResult.routeSelection,
         skippedAmount: true,
-        error: null,
+        error: routeResult.error ?? null,
       }))
     })
   }, [
@@ -812,7 +882,19 @@ export function SendFlow({
     performRouteSelection,
   ])
 
-  const handleAmountBack = () => {
+  const handleRetryFee = useCallback(() => {
+    routeEpochRef.current++
+    if (state.directTransfer) {
+      setDirectFeeQuote('pending')
+      setDirectQuotedBalance(null)
+      setFeeRetryNonce((value) => value + 1)
+      return
+    }
+    didInitialRouteRef.current = false
+    setState((prev) => ({ ...prev, routeSelection: null, fee: 0, quotedBalance: null, error: null }))
+  }, [state.directTransfer])
+
+  const handleAmountBack = (draft: SendAmountDraft) => {
     if (!state.directTransfer && getInitialStep() === 'amount') {
       onBack()
     } else {
@@ -820,6 +902,10 @@ export function SendFlow({
         ...prev,
         step: 'destination',
         directTransfer: false,
+        amount: draft.amount,
+        memo: draft.memo,
+        isFiatMode: draft.isFiatMode,
+        fiatAmount: draft.fiatAmount,
         error: null,
       }))
     }
@@ -903,14 +989,17 @@ export function SendFlow({
                         selectedMintUrl: url,
                         error: null,
                         ...(prev.step === 'confirm' && !prev.directTransfer
-                          ? { routeSelection: null, fee: 0 }
+                          ? { routeSelection: null, fee: 0, quotedBalance: null }
                           : {}),
                       }))
                     }}
-                    onResolveMaxAmount={handleResolveMaxAmount}
                     confirming={state.step === 'confirm' || state.step === 'sending'}
                     sending={state.step === 'sending'}
+                    journeyStatus={sendJourneyStatus}
+                    onJourneyOutcomeComplete={handleJourneyOutcomeComplete}
                     feeQuote={state.directTransfer ? directFeeQuote : state.routeSelection ? state.fee : 'pending'}
+                    quotedBalance={state.directTransfer ? directQuotedBalance : state.quotedBalance}
+                    onRetryFee={handleRetryFee}
                     confirmError={state.error}
                     confirmMemo={state.memo}
                     onEditMemo={(memo) => setState((prev) => ({ ...prev, memo }))}

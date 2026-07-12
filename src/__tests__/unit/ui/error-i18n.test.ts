@@ -27,7 +27,9 @@ describe('getErrorI18n', () => {
   it('UnknownError(UNKNOWN) falls back to message-pattern matching instead of the convention key', () => {
     // Routing to the non-existent errors.unknown would expose the literal key in the toast.
     expect(getErrorI18n(new UnknownError('Quote expired during swap')).key).toBe('errors.quoteExpired')
-    expect(getErrorI18n(new UnknownError('Not enough proofs available')).key).toBe('errors.insufficientBalance')
+    expect(getErrorI18n(new UnknownError('Not enough proofs available')).key).toBe(
+      'errors.insufficientBalanceUnknown',
+    )
     expect(getErrorI18n(new UnknownError('fetch failed')).key).toBe('errors.networkError')
     expect(getErrorI18n(new UnknownError('totally opaque failure')).key).toBe('errors.unknownError')
   })
@@ -106,6 +108,7 @@ describe('emitted key set — must exist in all five locales', () => {
   const EMITTED_KEYS = [
     'errors.tokenSpent',
     'errors.insufficientBalance',
+    'errors.insufficientBalanceUnknown',
     'errors.insufficientBalanceForFee',
     'errors.timeoutError',
     'errors.quoteExpired',

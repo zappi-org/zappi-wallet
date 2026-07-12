@@ -106,6 +106,10 @@ export interface BootstrapResult extends ServiceRegistry {
     selection: RouteSelection,
     context: RouteContext
   ): Promise<RouteResult>;
+  resolveRouteInvoice(
+    selection: RouteSelection,
+    context: RouteContext
+  ): Promise<Result<string, BaseError>>;
 
   // ─── Nostr incoming watcher ───
   readonly nostrIncomingWatcher: NostrIncomingWatcher;
@@ -372,6 +376,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     // Routing
     executeRoute: (selection: RouteSelection, context: RouteContext) =>
       routeExecution.executeRoute(selection, context),
+    resolveRouteInvoice: (selection: RouteSelection, context: RouteContext) =>
+      routeExecution.resolveInvoice(selection, context),
 
     // Nostr incoming watcher
     nostrIncomingWatcher,

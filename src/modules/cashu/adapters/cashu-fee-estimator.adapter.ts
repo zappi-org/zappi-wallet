@@ -14,6 +14,7 @@ export interface CashuFeeEstimatorBackend {
   rollbackSend(operationId: string): Promise<void>
   createMintQuote(mintUrl: string, amount: number): Promise<{ quote: string; request: string }>
   abandonMintQuote(mintUrl: string, quoteId: string): Promise<void>
+  getBalances(): Promise<Record<string, number>>
 }
 
 function rethrowClassified(error: unknown): never {
@@ -37,12 +38,12 @@ export class CashuFeeEstimatorAdapter implements FeeEstimator {
       switch (route) {
         case PR.MELT_TO_LN:
         case PR.LN_INTERNAL:
-          if (!invoice) return { fee: 0, totalNeeded: amount }
+          if (!invoice) throw new Error('Cannot estimate Lightning fee without an invoice')
           return await this.estimateMeltFee(sourceMint, invoice, amount)
 
         case PR.LN_CROSS_MINT:
         case PR.MINT_AND_DM:
-          if (!targetMint) return { fee: 0, totalNeeded: amount }
+          if (!targetMint) throw new Error('Cannot estimate cross-mint fee without a target mint')
           return await this.estimateMyWalletFee(sourceMint, targetMint, amount)
 
         case PR.TOKEN_TRANSFER:
@@ -50,7 +51,7 @@ export class CashuFeeEstimatorAdapter implements FeeEstimator {
           return await this.estimateTokenSendFee(sourceMint, amount)
 
         default:
-          return { fee: 0, totalNeeded: amount }
+          throw new Error(`Cannot estimate fee for route ${route}`)
       }
     } catch (error) {
       rethrowClassified(error)
@@ -64,7 +65,7 @@ export class CashuFeeEstimatorAdapter implements FeeEstimator {
   ): Promise<FeeEstimate> {
     const quote = await this.backend.createMintQuote(targetMint, amount)
     let meltOperationId: string | null = null
-    let estimate: FeeEstimate | null = null
+    let estimate: Omit<FeeEstimate, 'availableBalance'> | null = null
     let operationError: unknown = null
 
     try {
@@ -92,20 +93,31 @@ export class CashuFeeEstimatorAdapter implements FeeEstimator {
 
     if (cleanupError) throw cleanupError
     if (operationError) throw operationError
-    return estimate!
+    return { ...estimate!, availableBalance: await this.getAvailableBalance(sourceMint) }
   }
 
   private async estimateMeltFee(sourceMint: string, invoice: string, amount: number): Promise<FeeEstimate> {
     const meltResult = await this.backend.prepareMelt(sourceMint, invoice)
     await this.backend.rollbackMelt(meltResult.operationId, 'fee_estimation')
     const fee = (meltResult.fee_reserve ?? 0) + (meltResult.swap_fee ?? 0)
-    return { fee, totalNeeded: amount + fee }
+    const availableBalance = await this.getAvailableBalance(sourceMint)
+    return { fee, totalNeeded: amount + fee, availableBalance }
   }
 
   private async estimateTokenSendFee(sourceMint: string, amount: number): Promise<FeeEstimate> {
     const sendResult = await this.backend.prepareSend({ mintUrl: sourceMint, amount })
     await this.backend.rollbackSend(sendResult.operationId)
     const fee = sendResult.fee ?? 0
-    return { fee, totalNeeded: amount + fee }
+    const availableBalance = await this.getAvailableBalance(sourceMint)
+    return { fee, totalNeeded: amount + fee, availableBalance }
+  }
+
+  private async getAvailableBalance(sourceMint: string): Promise<number> {
+    const balances = await this.backend.getBalances()
+    const availableBalance = balances[sourceMint]
+    if (!Number.isFinite(availableBalance) || availableBalance < 0) {
+      throw new Error(`Balance unavailable after fee estimation cleanup for ${sourceMint}`)
+    }
+    return availableBalance
   }
 }

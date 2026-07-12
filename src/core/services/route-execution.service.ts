@@ -34,6 +34,20 @@ export class RouteExecutionService implements RouteExecutionUseCase {
     private readonly syncNotifier?: SyncNotifier
   ) {}
 
+  async resolveInvoice(
+    selection: RouteSelection,
+    context: RouteContext
+  ): Promise<Result<string, BaseError>> {
+    try {
+      const invoice = await this.resolveInvoiceValue(selection, context);
+      return invoice
+        ? Ok(invoice)
+        : Err(new UnknownError("Failed to resolve invoice"));
+    } catch (error) {
+      return Err(toBaseError(error));
+    }
+  }
+
   async executeRoute(
     selection: RouteSelection,
     context: RouteContext
@@ -71,7 +85,7 @@ export class RouteExecutionService implements RouteExecutionUseCase {
     selection: RouteSelection,
     context: RouteContext
   ): Promise<RouteExecutionResult> {
-    const invoice = await this.resolveInvoice(selection, context);
+    const invoice = await this.resolveInvoiceValue(selection, context);
     if (!invoice) {
       throw new UnknownError("Failed to resolve invoice");
     }
@@ -282,11 +296,19 @@ export class RouteExecutionService implements RouteExecutionUseCase {
     }
   }
 
-  private async resolveInvoice(
+  private async resolveInvoiceValue(
     selection: RouteSelection,
     context: RouteContext
   ): Promise<string | null> {
     if (selection.invoice) return selection.invoice;
+
+    if (context.lnurlPayParams) {
+      const result = await this.lnurl.fetchInvoice(
+        context.lnurlPayParams,
+        selection.amount
+      );
+      return result.bolt11 ?? null;
+    }
 
     const addressOrInvoice = context.addressOrInvoice;
     if (!addressOrInvoice) return null;
