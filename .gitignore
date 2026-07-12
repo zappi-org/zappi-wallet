@@ -26,6 +26,11 @@ dist-ssr
 # Pipeline artifacts (local only)
 .pipeline/
 .opencode/
+.superpowers/
+
+# Local design references and agent-generated planning documents
+docs/sample/
+docs/superpowers/
 
 # Local HTTPS dev certificates (mkcert-generated, never commit)
 certs/
