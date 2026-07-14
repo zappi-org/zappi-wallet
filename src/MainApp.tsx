@@ -185,6 +185,7 @@ export default function MainApp() {
 
   const [activeMintUrl, setActiveMintUrl] = useState<string | null>(null)
 
+  const [showHistoryOverlay, setShowHistoryOverlay] = useState(false)
   const [historyInitialMintUrls, setHistoryInitialMintUrls] = useState<string[] | undefined>(undefined)
 
   const [contactInfo, setContactInfo] = useState<{ address: string; displayName: string } | null>(null)
@@ -807,7 +808,7 @@ export default function MainApp() {
       <HomeScreen
         onTransactions={(mintUrl?: string) => {
           setHistoryInitialMintUrls(mintUrl ? [mintUrl] : undefined)
-          setCurrentScreen('history')
+          setShowHistoryOverlay(true)
         }}
         onNotifications={() => setCurrentScreen('notifications')}
         onAddMint={() => setCurrentScreen('add-mint')}
@@ -1313,36 +1314,70 @@ export default function MainApp() {
           </PageTransition>
         </AnimatePresence>
 
+        {/* History overlay — bottom-sheet style with backdrop */}
+        <AnimatePresence>
+          {showHistoryOverlay && (
+            <>
+              <motion.div
+                key="history-backdrop"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.5 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black z-40"
+                onClick={() => setShowHistoryOverlay(false)}
+              />
+              <motion.div
+                key="history-overlay-sheet"
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                className="absolute inset-x-0 bottom-0 top-[6vh] z-50 rounded-t-2xl overflow-hidden"
+              >
+                <Suspense fallback={<LoadingFallback />}>
+                  <HistoryScreen
+                    onBack={() => setShowHistoryOverlay(false)}
+                    transactions={transactions}
+                    initialMintUrls={historyInitialMintUrls}
+                  />
+                </Suspense>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
       </div>
 
       {/* Bottom Navigation — MainTabToolbar / TokenTabToolbar swap */}
-      <AnimatePresence mode="wait" initial={false}>
-        {isTabScreen && activeTab !== 'token' && (
-          <MainTabToolbar
-            key="main-tab-toolbar"
-            navItems={navItems}
-            activeTab={activeTab}
-            onTabSelect={handleTabSelect}
-          />
-        )}
-        {isTabScreen && activeTab === 'token' && (
-          <TokenTabToolbar
-            key="token-tab-toolbar"
-            navItems={navItems}
-            activeTab={activeTab}
-            scrollRef={tokenScrollRef}
-            onTabSelect={handleTabSelect}
-            onCreate={() => {
-              setPreviousScreen('token')
-              setCurrentScreen('token-create')
-            }}
-            onRegister={() => {
-              setPreviousScreen('token')
-              setCurrentScreen('token-register')
-            }}
-          />
-        )}
-      </AnimatePresence>
+      {!showHistoryOverlay && (
+        <AnimatePresence mode="wait" initial={false}>
+          {isTabScreen && activeTab !== 'token' && (
+            <MainTabToolbar
+              key="main-tab-toolbar"
+              navItems={navItems}
+              activeTab={activeTab}
+              onTabSelect={handleTabSelect}
+            />
+          )}
+          {isTabScreen && activeTab === 'token' && (
+            <TokenTabToolbar
+              key="token-tab-toolbar"
+              navItems={navItems}
+              activeTab={activeTab}
+              scrollRef={tokenScrollRef}
+              onTabSelect={handleTabSelect}
+              onCreate={() => {
+                setPreviousScreen('token')
+                setCurrentScreen('token-create')
+              }}
+              onRegister={() => {
+                setPreviousScreen('token')
+                setCurrentScreen('token-register')
+              }}
+            />
+          )}
+        </AnimatePresence>
+      )}
 
       {/* Home camera shortcut — top-right scan */}
       <QrScannerModal
