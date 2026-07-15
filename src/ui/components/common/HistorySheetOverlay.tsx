@@ -149,6 +149,7 @@ export function HistorySheetOverlay({
                   onBack={doClose}
                   transactions={transactions}
                   initialMintUrls={initialMintUrls}
+                  isSheet
                 />
               </Suspense>
             </div>
