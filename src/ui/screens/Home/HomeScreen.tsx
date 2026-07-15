@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useCarouselScroll } from "@/ui/hooks/use-carousel-scroll";
 import { usePullToRefresh } from "@/ui/hooks/use-pull-to-refresh";
 import { Plus, LoaderCircle, ArrowDown, Eye, EyeOff, CircleUserRound, Copy, Check } from "lucide-react";
+import { motion, type PanInfo } from "motion/react";
 
 import { useTranslation } from "react-i18next";
 import { CameraFilled } from "@/ui/components/icons/CameraFilled";
@@ -14,7 +15,7 @@ import { QRCodeDisplay } from "@/ui/components/common/QRCodeDisplay";
 import { useWallet, useMintHealth, useMintMetadata } from "@/ui/hooks";
 import { useCrypto } from "@/ui/hooks/use-crypto";
 import { useAppStore } from "@/store";
-import { useSatUnit, useFormatFiat, getLocaleCode } from "@/utils/format";
+import { useSatUnit, useFormatFiat } from "@/utils/format";
 import { getMintBalance } from "@/utils/url";
 import type { MintInfo } from "@/core/types";
 import type { Transaction } from "@/core/domain/transaction";
@@ -47,7 +48,7 @@ export function HomeScreen({
   onRefresh,
   transactions: propTransactions,
 }: HomeScreenProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const unit = useSatUnit();
   const toFiat = useFormatFiat();
   const [activeMintIndex, setActiveMintIndex] = useState(0);
@@ -145,14 +146,13 @@ export function HomeScreen({
     return filteredTransactions.length > 0 ? filteredTransactions[0] : null
   }, [filteredTransactions]);
 
-  const recentDateLabel = useMemo(() => {
-    if (!recentTransaction) return ''
-    const locale = getLocaleCode(i18n.language)
-    return new Date(recentTransaction.createdAt).toLocaleDateString(locale, {
-      month: 'long',
-      day: 'numeric',
-    })
-  }, [recentTransaction, i18n.language]);
+  const handleSwipeUp = useCallback((_: PointerEvent, info: PanInfo) => {
+    if (info.point.y > window.innerHeight - 100) return
+    if (Math.abs(info.offset.y) < Math.abs(info.offset.x)) return
+    if (info.offset.y < -48 || info.velocity.y < -320) {
+      onTransactions?.(mints[clampedMintIndex]?.url)
+    }
+  }, [onTransactions, mints, clampedMintIndex])
 
   const handleBalanceVisibilityToggle = useCallback(() => {
     hapticTap();
@@ -188,10 +188,11 @@ export function HomeScreen({
   }, [addToast, npub, t]);
 
   return (
-    <div
+    <motion.div
       ref={scrollContainerRef as React.RefObject<HTMLDivElement>}
       className="h-dvh bg-background text-foreground font-primary overflow-hidden flex flex-col pt-safe"
       style={{ overscrollBehaviorY: "contain" }}
+      onPanEnd={handleSwipeUp}
     >
       {/* Pull-to-refresh indicator */}
       <div
@@ -374,7 +375,6 @@ export function HomeScreen({
         <HomeRecentCard
           className="mt-auto"
           transaction={recentTransaction}
-          dateLabel={recentDateLabel}
           onPress={() => onSelectTransaction?.(recentTransaction)}
           onSeeAll={() => onTransactions?.(mints[clampedMintIndex]?.url)}
         />
@@ -435,6 +435,6 @@ export function HomeScreen({
           </Button>
         </div>
       </BottomSheet>
-    </div>
+    </motion.div>
   );
 }

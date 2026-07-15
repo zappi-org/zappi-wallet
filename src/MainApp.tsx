@@ -80,6 +80,7 @@ import { TokenCreateFlow } from '@/ui/screens/TokenCreate/TokenCreateFlow'
 import { TokenRegisterFlow } from '@/ui/screens/TokenRegister/TokenRegisterFlow'
 import { routeValidatedInput } from '@/ui/utils/input-router'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
+import { HistorySheetOverlay } from '@/ui/components/common/HistorySheetOverlay'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { formatNpubShort } from '@/ui/screens/Send/sendDisplayHelpers'
 
@@ -1315,36 +1316,12 @@ export default function MainApp() {
         </AnimatePresence>
 
         {/* History overlay — bottom-sheet style with backdrop */}
-        <AnimatePresence>
-          {showHistoryOverlay && (
-            <>
-              <motion.div
-                key="history-backdrop"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 0.5 }}
-                exit={{ opacity: 0 }}
-                className="absolute inset-0 bg-black z-40"
-                onClick={() => setShowHistoryOverlay(false)}
-              />
-              <motion.div
-                key="history-overlay-sheet"
-                initial={{ y: '100%' }}
-                animate={{ y: 0 }}
-                exit={{ y: '100%' }}
-                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="absolute inset-x-0 bottom-0 top-[6vh] z-50 rounded-t-2xl overflow-hidden"
-              >
-                <Suspense fallback={<LoadingFallback />}>
-                  <HistoryScreen
-                    onBack={() => setShowHistoryOverlay(false)}
-                    transactions={transactions}
-                    initialMintUrls={historyInitialMintUrls}
-                  />
-                </Suspense>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
+        <HistorySheetOverlay
+          open={showHistoryOverlay}
+          onClose={() => setShowHistoryOverlay(false)}
+          transactions={transactions}
+          initialMintUrls={historyInitialMintUrls}
+        />
 
       </div>
 

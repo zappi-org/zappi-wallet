@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowDownLeft, ArrowUpRight } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, ChevronUp } from 'lucide-react'
 import type { Transaction } from '@/core/domain/transaction'
 import { getTransactionType, getTxMeta, getTotalCost } from '@/core/domain/transaction'
 import { toNumber } from '@/core/domain/amount'
@@ -24,7 +24,6 @@ function getRelativeTime(ts: number, t: (key: string, opts?: Record<string, unkn
 
 export interface HomeRecentCardProps {
   transaction: Transaction
-  dateLabel: string
   onPress?: () => void
   onSeeAll?: () => void
   className?: string
@@ -32,7 +31,6 @@ export interface HomeRecentCardProps {
 
 export const HomeRecentCard = memo(function HomeRecentCard({
   transaction: tx,
-  dateLabel,
   onPress,
   onSeeAll,
   className,
@@ -70,8 +68,20 @@ export const HomeRecentCard = memo(function HomeRecentCard({
 
   return (
     <div className={cn('shrink-0 pb-app-nav px-4 w-full max-w-sm mx-auto', className)}>
-      <div className="flex items-center justify-between mb-2 px-5">
-        <span className="text-label text-foreground">{dateLabel}</span>
+      <div className="relative flex items-center mb-2 px-5">
+        {onSeeAll && (
+          <button
+            onClick={onSeeAll}
+            className="absolute left-1/2 -translate-x-1/2 active:opacity-60 transition-opacity"
+            aria-label={t('home.seeAll')}
+          >
+            <ChevronUp className="w-4 h-4 text-foreground-muted" strokeWidth={2.5} />
+          </button>
+        )}
+        {!onSeeAll && (
+          <ChevronUp className="absolute left-1/2 -translate-x-1/2 w-4 h-4 text-foreground-muted" strokeWidth={2.5} />
+        )}
+        <div className="flex-1" />
         {onSeeAll && (
           <button
             onClick={onSeeAll}
@@ -88,6 +98,7 @@ export const HomeRecentCard = memo(function HomeRecentCard({
         style={{
           background:
             'linear-gradient(180deg, #FFFFFF 40%, rgba(255,255,255,0) 100%)',
+          boxShadow: '0 -1px 3px rgba(0,0,0,0.04)',
         }}
       >
         <div className="w-[30px] h-[30px] rounded-[12px] flex items-center justify-center shrink-0 bg-background">

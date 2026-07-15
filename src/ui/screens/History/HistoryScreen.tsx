@@ -349,7 +349,7 @@ export function HistoryScreen({
       </div>
 
       {/* List */}
-      <div ref={scrollContainerRef} className="mt-2 flex-1 min-h-0 overflow-y-auto px-5 pb-app">
+      <div ref={scrollContainerRef} data-scroll-container className="mt-2 flex-1 min-h-0 overflow-y-auto px-5 pb-app">
         {isLoading ? (
           <TransactionListSkeleton count={6} />
         ) : timelineGroups.length === 0 ? (
