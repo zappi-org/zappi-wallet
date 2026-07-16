@@ -8,14 +8,15 @@ import { useAppStore } from '@/store'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { hapticTap } from '@/ui/utils/haptic'
 import { formatMintHost } from '@/utils/url'
+import ChangeUsernameSheet from '../ChangeUsernameSheet'
 
 interface LightningDetailPageProps {
   onBack: () => void
-  onChangeUsername?: () => void
   onChangeMint?: () => void
+  onSaveSettings: (settings: Record<string, unknown>) => Promise<void>
 }
 
-export function LightningDetailPage({ onBack, onChangeUsername, onChangeMint }: LightningDetailPageProps) {
+export function LightningDetailPage({ onBack, onChangeMint, onSaveSettings }: LightningDetailPageProps) {
   const { t } = useTranslation()
   const settings = useAppStore((s) => s.settings)
   const nostrPrivkey = useAppStore((s) => s.nostrPrivkey)
@@ -24,6 +25,7 @@ export function LightningDetailPage({ onBack, onChangeUsername, onChangeMint }: 
   const [copied, setCopied] = useState(false)
   const [preferredMint, setPreferredMint] = useState<string | null>(null)
   const [showMintPicker, setShowMintPicker] = useState(false)
+  const [showChangeSheet, setShowChangeSheet] = useState(false)
   const registry = useServiceRegistry()
 
   const address = settings.lightningAddress || ''
@@ -66,6 +68,7 @@ export function LightningDetailPage({ onBack, onChangeUsername, onChangeMint }: 
   }, [nostrPrivkey, registry, addToast, updateSettings, t])
 
   return (
+    <>
     <SettingsDetailPage title={t('settings.lightningAddress')} onBack={onBack}>
       <div className="flex flex-col items-center px-6 pt-8">
         <button
@@ -87,12 +90,10 @@ export function LightningDetailPage({ onBack, onChangeUsername, onChangeMint }: 
           )}
         </Button>
 
-        {onChangeUsername && (
-          <Button variant="outline" size="lg" onClick={onChangeUsername} className="w-full max-w-[320px] mt-3">
-            <Pencil className="w-4 h-4 mr-2" />
-            {t('common.change')}
-          </Button>
-        )}
+        <Button variant="outline" size="lg" onClick={() => setShowChangeSheet(true)} className="w-full max-w-[320px] mt-3">
+          <Pencil className="w-4 h-4 mr-2" />
+          {t('common.change')}
+        </Button>
 
         <div className="w-full max-w-[320px] mt-6">
           <p className="text-body font-medium text-foreground-muted mb-2">{t('settings.receiveMint')}</p>
@@ -122,5 +123,11 @@ export function LightningDetailPage({ onBack, onChangeUsername, onChangeMint }: 
         </div>
       </div>
     </SettingsDetailPage>
+    <ChangeUsernameSheet
+      isOpen={showChangeSheet}
+      onClose={() => setShowChangeSheet(false)}
+      onSaveSettings={onSaveSettings}
+    />
+    </>
   )
 }
