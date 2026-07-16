@@ -117,7 +117,7 @@ export function createNpubcashQuoteWatcher(deps: {
     }
   }
 
-  const wsOnMessage = async (privkey: string, signer: NostrSigner, quoteId: string) => {
+  const wsOnMessage = async (signer: NostrSigner, quoteId: string) => {
     const pubkey = getPubkey()
     const cursorKey = pubkey ? lightningReceiptCursorKey(pubkey) : null
 
@@ -164,7 +164,7 @@ export function createNpubcashQuoteWatcher(deps: {
 
     const result = await provider.subscribePaidQuotes(
       signer,
-      (quoteId) => wsOnMessage(privkey, signer, quoteId),
+      (quoteId) => wsOnMessage(signer, quoteId),
       () => {
         unsubscribe = null
         const delay = Math.min(

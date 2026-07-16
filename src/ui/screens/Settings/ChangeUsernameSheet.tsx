@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { ArrowRight, Zap, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence, type PanInfo } from 'motion/react'
@@ -35,15 +35,6 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
   const [newUsername, setNewUsername] = useState('')
   const [usernameError, setUsernameError] = useState('')
   const [price, setPrice] = useState<AliasPriceInfo | null>(null)
-
-  useEffect(() => {
-    if (!isOpen) {
-      setStep('input')
-      setNewUsername('')
-      setUsernameError('')
-      setPrice(null)
-    }
-  }, [isOpen])
 
   const isUsernameValid = newUsername.length > 0 && USERNAME_REGEX.test(newUsername)
 
@@ -246,7 +237,7 @@ export function ChangeUsernameSheet({ isOpen, onClose, onSaveSettings }: ChangeU
                     </div>
                     <ArrowRight className="w-4 h-4 text-foreground-muted" />
                     <div className="flex flex-col items-center">
-                      <span className="text-foreground-muted">{t('common.new')}</span>
+                      <span className="text-foreground-muted">{t('settings.newUsername')}</span>
                       <span className="flex items-center gap-1 font-bold text-foreground">
                         <Zap className="w-4 h-4 text-brand" />
                         {newUsername}@{NPUBCASH_DOMAIN}
