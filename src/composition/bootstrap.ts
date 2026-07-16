@@ -212,6 +212,9 @@ export interface BootstrapResult extends ServiceRegistry {
   // ─── Nostr incoming watcher ───
   readonly nostrIncomingWatcher: NostrIncomingWatcher;
 
+  // ─── Npubcash quote watcher ───
+  readonly npubcashQuoteWatcher: { start(): Promise<void>; stop(): void; syncNow(): Promise<void> };
+
   // ─── P2PK, offline token ───
   readonly p2pkKeyManager: { getCurrentKey(): Promise<{ pubkey: string }> };
   storeOfflineToken(
@@ -644,6 +647,16 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   );
   const support = createSupportService({ bip39Seed: deps.bip39Seed });
 
+  // 13b. Npubcash quote watcher (WS push + HTTP catch-up for Lightning Address receipts)
+  const assembled = assembleNpubcashWatcher({
+    npubcashAdapter,
+    routePaymentOperator,
+    eventBus,
+  })
+  npubcashQuoteWatcher = assembled.npubcashQuoteWatcher;
+
+  // 8. Lifecycle — needs npubcashQuoteWatcher (lazy getter, created above)
+
   return {
     // ─── ServiceRegistry (driving ports only) ───
     eventBus,
@@ -730,6 +743,9 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
     // Nostr incoming watcher
     nostrIncomingWatcher,
+
+    // Npubcash quote watcher
+    npubcashQuoteWatcher,
 
     // P2PK + offline token
     p2pkKeyManager,

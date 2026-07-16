@@ -250,5 +250,7 @@ export function assembleFacadeServices(deps: {
     nostrDirectPayment,
     externalWalletRecovery,
     support,
+    npubcashAdapter,
+    routePaymentOperator,
   };
 }
