@@ -837,7 +837,42 @@ export default {
     desktopBrowserSupport: 'Chrome、Edge、Safariなどほとんどのブラウザで対応しています。',
     afterInstall: 'インストール後、ホーム画面のZAPPIアイコンをタップして起動してください。',
     devBypass: '（開発モード）PWAなしで続行',
-    desktopBrowser: 'デスクトップブラウザ'
+    desktopBrowser: 'デスクトップブラウザ',
+    guard: {
+      subtitle: 'Bitcoin Ecashウォレット',
+      installTitle: 'ホーム画面にインストール',
+      installReason: '安全な支払いのためにアプリのインストールが必要です',
+      installButton: 'アプリをインストール',
+      devSkip: 'インストールをスキップ（開発のみ）',
+      ios: {
+        title: 'Safariで',
+        step1: '下部の共有ボタンをタップ',
+        step2: '「ホーム画面に追加」を選択',
+        step3: '右上の「追加」をタップ',
+      },
+      android: {
+        title: 'Chromeで',
+        step1: '右上のメニューアイコンをタップ',
+        step2: '「アプリをインストール」または「ホーム画面に追加」を選択',
+      },
+      desktopSafari: {
+        title: 'Safariで',
+        step1: 'メニューバー >「ファイル」を開く',
+        step2: '「Dockに追加...」を選択',
+        footnote: 'または共有 > Dockに追加（Sonoma+）',
+      },
+      desktopEdge: {
+        title: 'Edgeで',
+        step1: '右上の...メニューをクリック',
+        step2: '「アプリ」>「このサイトをアプリとしてインストール」',
+      },
+      desktopChrome: {
+        title: 'Chromeで',
+        step1: '右上のメニューアイコンをクリック',
+        step2: '「保存と共有」>「ページをアプリとしてインストール」',
+        footnote: 'またはアドレスバーのインストールアイコンをクリック',
+      },
+    },
   },
   errors: {
     generic: 'エラーが発生しました。',

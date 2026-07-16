@@ -837,7 +837,42 @@ export default {
     desktopBrowserSupport: 'Chrome, Edge, Safari 등 대부분의 브라우저에서 지원됩니다.',
     afterInstall: '설치 후 홈 화면에서 ZAPPI 아이콘을 탭하여 실행하세요.',
     devBypass: '(개발 모드) PWA 없이 계속',
-    desktopBrowser: '데스크톱 브라우저'
+    desktopBrowser: '데스크톱 브라우저',
+    guard: {
+      subtitle: 'Bitcoin Ecash 지갑',
+      installTitle: '홈 화면에 설치',
+      installReason: '보안 결제를 위해 앱 설치가 필요합니다',
+      installButton: '앱 설치',
+      devSkip: '설치 건너뛰기 (개발 모드)',
+      ios: {
+        title: 'Safari에서',
+        step1: '하단의 공유 버튼을 탭하세요',
+        step2: '"홈 화면에 추가"를 선택하세요',
+        step3: '우측 상단의 "추가"를 탭하세요',
+      },
+      android: {
+        title: 'Chrome에서',
+        step1: '우측 상단의 메뉴 아이콘을 탭하세요',
+        step2: '"앱 설치" 또는 "홈 화면에 추가"를 선택하세요',
+      },
+      desktopSafari: {
+        title: 'Safari에서',
+        step1: '메뉴 막대 > "파일"로 이동',
+        step2: '"Dock에 추가..."를 선택하세요',
+        footnote: '또는 공유 > Dock에 추가 (Sonoma+)',
+      },
+      desktopEdge: {
+        title: 'Edge에서',
+        step1: '우측 상단의 ... 메뉴를 클릭하세요',
+        step2: '"앱" > "이 사이트를 앱으로 설치"',
+      },
+      desktopChrome: {
+        title: 'Chrome에서',
+        step1: '우측 상단의 메뉴 아이콘을 클릭하세요',
+        step2: '"저장 및 공유" > "페이지를 앱으로 설치"',
+        footnote: '또는 주소창의 설치 아이콘을 클릭하세요',
+      },
+    },
   },
   errors: {
     generic: '오류가 발생했습니다.',
