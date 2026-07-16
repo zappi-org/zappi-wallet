@@ -57,6 +57,7 @@ import { NPUBCASH_URL, NPUBCASH_DOMAIN } from "@/core/constants";
 import { createSupportService } from "./support";
 import { PaymentDelivery } from "./payment-delivery";
 import { PaymentRecoveredTokenReceiver } from "./recovered-token-receiver";
+import { assembleNpubcashWatcher } from "./bootstrap-npubcash";
 
 import type { MintInfoUseCase } from "@/core/ports/driving/mint-info.usecase";
 import type { MintInfoData } from "@/core/types";
@@ -234,6 +235,12 @@ export function assembleFacadeServices(deps: {
   );
   const support = createSupportService({ bip39Seed });
 
+  const { npubcashQuoteWatcher } = assembleNpubcashWatcher({
+    npubcashAdapter,
+    routePaymentOperator,
+    eventBus,
+  });
+
   return {
     crypto,
     inputParser,
@@ -252,5 +259,6 @@ export function assembleFacadeServices(deps: {
     support,
     npubcashAdapter,
     routePaymentOperator,
+    npubcashQuoteWatcher,
   };
 }
