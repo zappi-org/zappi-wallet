@@ -128,7 +128,8 @@ export const DATABASE = {
   //      live in the coco DB, and this table had no read/write code, so the data itself
   //      was removable. Surviving tables pass the schema diff losslessly)
   // v24: added paymentAliasProcessedQuotes table (npubcash payment alias dedup)
-  VERSION: 24,
+  // v25: added lightningReceiptCursors table (npubcash paid-quote cursor)
+  VERSION: 25,
 } as const
 
 /**

@@ -2,6 +2,7 @@ import Dexie, { type Table } from 'dexie'
 import type { Transaction, WalletSettings, MintMetadata, ExchangeRateCache, Contact } from '@/core/types'
 import type { ProcessedRecord, SyncAnchor } from '@/core/types'
 import type { GiftwrapCursorRecord } from '@/core/domain/giftwrap-cursor'
+import type { LightningReceiptCursor } from '@/core/domain/lightning-receipt-cursor'
 import type {
   SupportAttachment,
   SupportCategory,
@@ -288,6 +289,7 @@ export class ZappiDatabase extends Dexie {
   paymentAliasProcessedQuotes!: Table<PaymentAliasProcessedQuote, string>
   netCounters!: Table<NetCounterRecord, string>
   giftwrapCursors!: Table<GiftwrapCursorRecord, string>
+  lightningReceiptCursors!: Table<LightningReceiptCursor, string>
   incomingReviews!: Table<IncomingReviewRecord, string>
 
   constructor() {
@@ -364,6 +366,8 @@ export class ZappiDatabase extends Dexie {
 
       // v24: Payment alias processed quotes — dedup paid quotes from PaymentAliasProvider
       paymentAliasProcessedQuotes: 'quoteId, processedAt',
+      // v25: Lightning receipt cursor — pubkey-scoped since marker for npubcash paid quotes
+      lightningReceiptCursors: 'key',
     })
   }
 }
