@@ -64,8 +64,8 @@ export class PaymentAliasService implements PaymentAliasUseCase {
 
     if (!result.ok && result.error instanceof NpubcashPaymentRequiredError) {
       const parsed = await this.routePaymentOperator.parsePaymentRequest(result.error.encodedRequest)
-      const mintUrl = (parsed as any).payableMints?.[0] ?? (parsed as any).mints?.[0]
-      return Ok({ amount: parsed.amount ?? 0, unit: parsed.unit ?? 'sat', mintUrl: mintUrl ?? '' })
+      const mintUrl = parsed.mints[0]
+      return Ok({ amount: parsed.amount, unit: parsed.unit ?? 'sat', mintUrl: mintUrl ?? '' })
     }
 
     if (!result.ok) return result
@@ -83,8 +83,8 @@ export class PaymentAliasService implements PaymentAliasUseCase {
       const paymentReq = result.error
       console.log('[PaymentAlias] 402 received, creq length:', paymentReq.encodedRequest.length)
       const parsed = await this.routePaymentOperator.parsePaymentRequest(paymentReq.encodedRequest)
-      const mintUrl = (parsed as any).payableMints?.[0] ?? (parsed as any).mints?.[0]
-      console.log('[PaymentAlias] creq decoded:', { amount: parsed.amount, unit: parsed.unit, mintUrl, payableMints: (parsed as any).payableMints })
+      const mintUrl = parsed.mints[0]
+      console.log('[PaymentAlias] creq decoded:', { amount: parsed.amount, unit: parsed.unit, mintUrl })
       if (!mintUrl || !parsed.amount) return result
 
       const destination = `${alias}@${this.domain}`
