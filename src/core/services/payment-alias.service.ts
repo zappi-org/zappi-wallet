@@ -9,7 +9,7 @@ import type { NostrSigner } from '@/core/ports/driven/nostr-signer.port'
 import type { AuthSession } from '@/core/ports/driven/payment-alias-provider.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { EventBus } from '@/core/events/event-bus'
-import type { PaymentAliasUseCase } from '@/core/ports/driving/payment-alias.usecase'
+import type { PaymentAliasUseCase, AliasPriceInfo } from '@/core/ports/driving/payment-alias.usecase'
 import { Ok, type Result } from '@/core/domain/result'
 import type { BaseError } from '@/core/errors/base'
 import { NpubcashPaymentRequiredError } from '@/core/errors/npubcash'
@@ -56,6 +56,23 @@ export class PaymentAliasService implements PaymentAliasUseCase {
     return Ok({ alias: npub, npub })
   }
 
+  async checkAliasPrice(privkey: string, alias: string): Promise<Result<AliasPriceInfo, BaseError>> {
+    const session = await this.authenticate(privkey)
+    if (!session.ok) return session
+
+    const result = await this.provider.purchaseAlias(session.value, alias, '')
+
+    if (!result.ok && result.error instanceof NpubcashPaymentRequiredError) {
+      const parsed = await this.routePaymentOperator.parsePaymentRequest(result.error.encodedRequest)
+      const mintUrl = (parsed as any).payableMints?.[0] ?? (parsed as any).mints?.[0]
+      return Ok({ amount: parsed.amount ?? 0, unit: parsed.unit ?? 'sat', mintUrl: mintUrl ?? '' })
+    }
+
+    if (!result.ok) return result
+
+    return Ok({ amount: 0, unit: 'sat', mintUrl: '' })
+  }
+
   async changeAlias(privkey: string, alias: string, cashuToken: string): Promise<Result<AliasResult, BaseError>> {
     const session = await this.authenticate(privkey)
     if (!session.ok) return session
@@ -66,8 +83,8 @@ export class PaymentAliasService implements PaymentAliasUseCase {
       const paymentReq = result.error
       console.log('[PaymentAlias] 402 received, creq length:', paymentReq.encodedRequest.length)
       const parsed = await this.routePaymentOperator.parsePaymentRequest(paymentReq.encodedRequest)
-      const mintUrl = parsed.mints[0]
-      console.log('[PaymentAlias] creq decoded:', { amount: parsed.amount, unit: parsed.unit, mintUrl, mints: parsed.mints })
+      const mintUrl = (parsed as any).payableMints?.[0] ?? (parsed as any).mints?.[0]
+      console.log('[PaymentAlias] creq decoded:', { amount: parsed.amount, unit: parsed.unit, mintUrl, payableMints: (parsed as any).payableMints })
       if (!mintUrl || !parsed.amount) return result
 
       const destination = `${alias}@${this.domain}`
