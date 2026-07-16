@@ -1,4 +1,4 @@
-import type { Result } from '@/core/types/result'
+import type { Result } from '@/core/domain/result'
 import type { UnknownError } from '@/core/errors/base'
 
 export interface PaymentAliasProcessedQuotesRepository {

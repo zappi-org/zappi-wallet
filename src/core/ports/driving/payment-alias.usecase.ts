@@ -1,4 +1,4 @@
-import type { Result } from '@/core/types/result'
+import type { Result } from '@/core/domain/result'
 import type { BaseError } from '@/core/errors/base'
 import type { AccountInfo, AliasResult, PaidQuote } from '@/core/ports/driven/payment-alias-provider.port'
 

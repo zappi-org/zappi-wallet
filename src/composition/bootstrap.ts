@@ -55,7 +55,6 @@ import {
   unmarkQuoteAsSwap,
 } from "@/modules/cashu";
 import { clearMintData } from "@/adapters/storage/dexie/schema";
-import { resetWalletCache } from "@/adapters/cache/wallet-cache";
 import { LocalStorageBalanceCache } from "@/adapters/cache/local-storage-balance-cache.adapter";
 
 // ─── Phase 6: New Adapters ───
@@ -193,7 +192,6 @@ export interface BootstrapResult extends ServiceRegistry {
     deleteCocoData(): Promise<void>;
     clearWalletCache(): void;
     clearMintData(mintUrl: string): Promise<void>;
-    resetWalletCache(): void;
     clearBalanceCache(): void;
     deleteAllContacts(): Promise<void>;
   };
@@ -710,7 +708,9 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
           },
           mintUrl
         ),
-      resetWalletCache,
+      resetWalletCache: () => {
+        /* no-op: wallet cache was removed */
+      },
       clearBalanceCache: () => balanceCache.clear(),
       deleteAllContacts: () => contactRepo.deleteAll(),
     },

@@ -107,19 +107,29 @@ export const ANIMATIONS = {
  * Storage keys
  */
 export const STORAGE_KEYS = {
-  ENCRYPTED_MNEMONIC: "zappi_encrypted_mnemonic",
-  SETTINGS: "zappi_settings",
-  LOCK_STATE: "zappi_lock_state",
-  LAST_BACKGROUND_TIME: "zappi_last_background_time",
-} as const;
+  ENCRYPTED_MNEMONIC: 'zappi_encrypted_mnemonic',
+  SETTINGS: 'zappi_settings',
+  LOCK_STATE: 'zappi_lock_state',
+  LAST_BACKGROUND_TIME: 'zappi_last_background_time',
+  /** Foreground-liveness heartbeat (written by bootstrap, cleared on logout) */
+  LAST_ALIVE: 'zappi_last_alive_at',
+} as const
 
 /**
  * Database name and version
  */
 export const DATABASE = {
-  NAME: "zappi_wallet_db",
-  VERSION: 20,
-} as const;
+  NAME: 'zappi_wallet_db',
+  // v20: added netCounters table (production aggregate counters)
+  // v21: added giftwrapCursors table (gift wrap since cursor)
+  // v22: added incomingReviews table (persist untrusted-mint incoming reviews:
+  //      an in-memory queue loses tokens on refresh)
+  // v23: dropped legacy proofs table (leftover after coco migration. Real-fund proofs
+  //      live in the coco DB, and this table had no read/write code, so the data itself
+  //      was removable. Surviving tables pass the schema diff losslessly)
+  // v24: added paymentAliasProcessedQuotes table (npubcash payment alias dedup)
+  VERSION: 24,
+} as const
 
 /**
  * Exchange rate configurations

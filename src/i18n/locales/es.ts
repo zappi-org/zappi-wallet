@@ -1,6 +1,7 @@
 export default {
-  // Common
   common: {
+    sats: '₿',
+    sat: '₿',
     cancel: 'Cancelar',
     confirm: 'Confirmar',
     close: 'Cerrar',
@@ -12,135 +13,191 @@ export default {
     copy: 'Copiar',
     copied: 'Copiado',
     loading: 'Cargando...',
+    error: 'Error',
+    success: 'Éxito',
     retry: 'Reintentar',
+    skip: 'Omitir',
+    no: 'No',
     send: 'Enviar',
     receive: 'Recibir',
     balance: 'Saldo',
     amount: 'Monto',
+    offline: 'Sin conexión',
+    online: 'En línea',
+    total: 'Total',
     min: 'min',
+    processing: 'Procesando...',
     offlineRequired: 'Se requiere conexión a Internet',
     memo: 'Nota',
     paste: 'Pegar',
+    settings: 'Configuración',
+    notifications: 'Notificaciones',
+    syncing: 'Sincronizando',
     change: 'Cambiar',
-    search: 'Buscar',
+    search: 'Buscar'
   },
-
-  // Lock Screen
   lock: {
+    welcomeBack: 'ZAPPI',
     enterPin: 'Ingresa tu PIN para desbloquear',
     wrongPin: 'PIN incorrecto. ({{remaining}} intentos restantes)',
     lockedOut: '{{attempts}} intentos fallidos. Intenta en {{minutes}} minutos.',
     tryAgainIn: 'Intenta de nuevo en {{time}}',
     faceIdUnlock: 'Desbloquear con Face ID',
     errorOccurred: 'Ocurrió un error.',
-    biometricFailed: 'Autenticación biométrica fallida. Ingresa tu PIN.',
+    biometricFailed: 'Autenticación biométrica fallida. Ingresa tu PIN.'
   },
-
-  // Onboarding
   onboarding: {
-    // Welcome
     appName: 'Zappi',
     tagline: 'Pagos de Bitcoin fáciles y rápidos',
     createWallet: 'Crear nueva billetera',
+    importWallet: 'Ya tengo una billetera',
     securePrivateFast: 'Seguro • Privado • Rápido',
     invitePlaceholder: 'Código de invitación',
     inviteInvalidCount: 'Código de invitación inválido ({{current}}/{{max}})',
     inviteLocked: 'Demasiados intentos. Intenta de nuevo en 5 minutos.',
-
-    // Mnemonic
     secretRecoveryKey: 'Clave de recuperación secreta',
+    walletRecovery: 'Recuperación de billetera',
     mnemonicWarning: 'Esta es la única forma de recuperar tu billetera.\nAnota las palabras en orden y guárdalas en un lugar seguro.',
+    enterRecoveryPhrase: 'Ingresa la clave de recuperación de tu billetera existente.',
+    words12: '12 Palabras',
+    words24: '24 Palabras',
     copyToClipboard: 'Copiar',
     regenerateMnemonic: 'Generar nueva clave',
     mnemonicSavedConfirm: 'Las he anotado en orden en un lugar seguro',
     recordComplete: 'Siguiente',
+    recoverWallet: 'Recuperar',
     invalidMnemonic: 'Clave de recuperación inválida. Revisa las palabras e intenta de nuevo.',
     backupConfirmRequired: 'Confirma que has anotado tu clave de recuperación.',
-
-    // PIN
+    setPin: 'Establecer PIN',
+    confirmPin: 'Confirmar PIN',
     enterNewPin: 'Establece un PIN de 6 dígitos',
     reenterPin: 'Vuelve a ingresar tu PIN',
     pinMismatch: 'Los PIN no coinciden',
-    pinDigitsEntered: '{{count}} de {{total}} dígitos del PIN ingresados',
-
-    // Processing
     creatingWallet: 'Creando billetera',
+    recoveringWallet: 'Recuperando billetera',
     creatingWalletDesc: 'Creando tu nueva billetera...',
+    recoveringWalletDesc: 'Obteniendo perfil de Nostr y recuperando tokens...',
     pleaseWait: 'Por favor espera',
-
-    // Complete
-    walletSetupFailed: 'Error al configurar la billetera. Por favor intenta de nuevo.',
+    walletSetupFailed: 'Error al configurar la billetera. Por favor intenta de nuevo.'
   },
-
-  // Home Screen
   home: {
+    totalBalance: 'Saldo total',
     showBalance: 'Mostrar saldo',
     hideBalance: 'Ocultar saldo',
+    myMints: 'Mis Mints',
     addFirstMint: 'Agrega tu primer mint',
     recentTransactions: 'Historial',
     noTransactions: 'Sin transacciones aún',
-    seeAll: 'Ver más',
+    seeAll: 'Ver más'
   },
-
-  // Action Buttons
   actions: {
-    analytics: 'Análisis',
+    transfer: 'Mover Saldo',
+    scan: 'Escanear',
+    analytics: 'Análisis'
   },
-
   support: {
-    title: 'Historial de consultas',
-    heroTitle: '¿Cómo podemos ayudarte?',
-    unavailableTitle: 'El soporte no está configurado',
-    unavailableDescription: 'El soporte no está disponible en esta versión. Contacta al equipo de Zappi por el canal oficial.',
-    connectionFailed: 'No se pudo conectar con soporte',
-    tryAgainLater: 'Inténtalo de nuevo más tarde.',
-    composePageTitle: 'Contáctanos',
-    requestTitleLabel: 'Título',
-    requestBodyLabel: 'Mensaje',
-    categoryLabel: 'Tipo',
+    title: 'Support history',
+    heroTitle: 'How can we help?',
+    heroDescription: 'Send a secure support request to the Zappi team and keep the conversation here.',
+    connectionStatus: {
+      disabled: 'Disabled',
+      idle: 'Idle',
+      connecting: 'Connecting',
+      connected: 'Connected',
+      error: 'Error'
+    },
+    unavailableTitle: 'Support is not configured',
+    unavailableDescription: 'Customer support is unavailable in this build. Please contact the Zappi team through the official channel.',
+    connecting: 'Connecting to support',
+    connectingDescription: 'Loading your support thread from configured relays.',
+    connectionFailed: 'Could not connect to support',
+    tryAgainLater: 'Please try again later.',
+    newTicket: 'New request',
+    startNewTicket: 'Contact us',
+    composePageTitle: 'Contact us',
+    requestTitleLabel: 'Title',
+    requestBodyLabel: 'Message',
+    titlePlaceholder: 'Enter a title',
+    bodyPlaceholder: 'Enter your message',
+    privacyNote: 'Do not enter recovery words or private keys.',
+    categoryLabel: 'Type',
+    priorityLabel: 'Priority',
     categories: {
-      transfer: 'Envío / recepción',
-      ecash: 'Ecash',
-      fee: 'Comisiones',
-      security: 'Seguridad / respaldo',
-      other: 'Otro',
       general: 'General',
-      technical: 'Técnico',
-      billing: 'Facturación',
+      technical: 'Technical',
+      billing: 'Billing',
+      transfer: 'Send / receive',
+      ecash: 'Ecash',
+      fee: 'Fees',
+      security: 'Security / backup',
+      other: 'Other',
       idea_ux: 'UI / UX',
-      idea_feature: 'Nueva función',
-      idea_perf: 'Rendimiento / estabilidad',
-      idea_other: 'Otro',
+      idea_feature: 'New feature',
+      idea_perf: 'Performance / stability',
+      idea_other: 'Other'
     },
-    createTicket: 'Enviar',
-    submittingTicket: 'Enviando consulta...',
-    createFailed: 'No se pudo enviar la consulta',
-    sendFailed: 'No se pudo enviar el mensaje',
-    unreadBadge: 'NEW',
-    noTickets: 'No hay consultas.',
-    replyPlaceholder: 'Escribe un mensaje adicional',
-    sendMessage: 'Enviar mensaje',
-    teamName: 'Equipo Zappi',
-    attachFile: 'Adjuntar archivo',
-    removeAttachment: 'Quitar adjunto',
-    attachmentLimit: 'Puedes adjuntar hasta {{count}} archivos.',
-    attachmentTooLarge: 'Los archivos deben ser de {{size}} o menos.',
-    attachmentMetadataOnly: 'Cargando información del archivo',
-    downloadAttachment: 'Descargar',
-    replyToast: 'Hay una nueva respuesta en "{{title}}".',
-    leaveTicket: 'Salir',
-    deleteTicket: 'Eliminar historial de consulta',
-    deleteTitle: '¿Salir de esta consulta?',
-    deleted: 'Saliste de la consulta.',
-    deleteFailed: 'No se pudo salir de la consulta',
-    searchPlaceholder: 'Buscar por palabra clave',
-    csStatus: {
-      received: 'Recibida',
-      progress: 'En curso',
-      answered: 'Respondida',
+    categoryDescriptions: {
+      general: 'How-to, account, or general questions',
+      technical: 'Bugs, wallet behavior, or connection issues',
+      billing: 'Payment, transfer, or settlement questions',
+      transfer: 'Lightning / ecash send & receive',
+      ecash: 'Ecash token register / recovery',
+      fee: 'Fees and routing costs',
+      security: 'Lock, backup, recovery phrase',
+      other: 'Anything else'
     },
-    userBubbleLabel: 'Mi consulta',
-    helpHomeSubtitle: 'Pregúntanos lo que quieras, cuando quieras.',
+    priorities: {
+      normal: 'Normal',
+      high: 'High'
+    },
+    priorityDescriptions: {
+      normal: 'A regular support request',
+      high: 'Something is blocked or needs faster review'
+    },
+    createTicket: 'Submit',
+    sending: 'Sending...',
+    sendingToRelay: 'Submitting request...',
+    submittingTicket: 'Submitting request...',
+    sendingMessage: 'Sending message...',
+    createFailed: 'Failed to send request',
+    sendFailed: 'Failed to send message',
+    updateFailed: 'Failed to update request history',
+    downloadFailed: 'Failed to download file',
+    myTickets: 'My requests',
+    ticketCount: '{{count}} total',
+    unreadCount: '{{count}} unread',
+    unreadBadge: 'Reply',
+    noTickets: 'No request history.',
+    replyPlaceholder: 'Write a follow-up message',
+    sendMessage: 'Send message',
+    teamName: 'Zappi team',
+    attachmentPreview: '{{count}} attachment',
+    attachFile: 'Attach file',
+    removeAttachment: 'Remove attachment',
+    attachmentLimit: 'You can attach up to {{count}} files.',
+    attachmentTooLarge: 'Files must be {{size}} or smaller.',
+    attachmentMetadataOnly: 'Loading file info',
+    downloadAttachment: 'Download',
+    downloadingAttachment: 'Downloading',
+    filePreview: 'Sent a file.',
+    replyToast: 'A reply was added to "{{title}}".',
+    ticketActions: 'Request options',
+    pinTicket: 'Pin',
+    unpinTicket: 'Unpin',
+    markRead: 'Mark read',
+    leaveTicket: 'Leave',
+    deleteTicket: 'Delete request history',
+    deleteTitle: 'Leave this request?',
+    deleted: 'Left request.',
+    deleteFailed: 'Failed to leave request',
+    resolvedNotice: 'This request has been resolved.',
+    closedNotice: 'This request has been closed.',
+    status: {
+      open: 'Open',
+      in_progress: 'In progress',
+      resolved: 'Resolved',
+      closed: 'Closed'
+    },
     faqTitle: 'Preguntas frecuentes',
     faqSeeAll: 'Ver todo',
     faq: {
@@ -155,82 +212,89 @@ export default {
       q5: '¿Pierdo mi saldo si borro la app o pierdo el teléfono?',
       a5: 'Sí, por eso hacer una copia de seguridad de tu frase semilla es fundamental. A diferencia de un banco donde un servidor central guarda tu saldo, en una billetera Cashu los tokens en tu dispositivo son tu saldo. Si borras la app o pierdes el dispositivo, los tokens desaparecen también. La mayoría de las billeteras Cashu proporcionan una frase semilla para recuperar los tokens de forma determinista. Guarda siempre tu frase semilla en un lugar seguro.',
       q6: '¿En qué se diferencia de la custodia tradicional?',
-      a6: 'Los servicios de custodia Lightning tradicionales gestionan fondos con un modelo de "saldo" — tu saldo se registra en un servidor, lo que facilita que el operador rastree el historial de transacciones y compromete tu privacidad. También es relativamente fácil congelar fondos o censurar transacciones.\n\nCashu funciona con un modelo de "token". El mint solo emite tokens y verifica si fueron gastados — no puede saber quién los tiene ni a dónde fueron enviados. Esto protege la privacidad y hace que la censura individual sea prácticamente imposible. Aunque sigue siendo un modelo de custodia, representa un avance significativo en términos de privacidad.',
+      a6: 'Los servicios de custodia Lightning tradicionales gestionan fondos con un modelo de "saldo" — tu saldo se registra en un servidor, lo que facilita que el operador rastree el historial de transacciones y compromete tu privacidad. También es relativamente fácil congelar fondos o censurar transacciones.\n\nCashu funciona con un modelo de "token". El mint solo emite tokens y verifica si fueron gastados — no puede saber quién los tiene ni a dónde fueron enviados. Esto protege la privacidad y hace que la censura individual sea prácticamente imposible. Aunque sigue siendo un modelo de custodia, representa un avance significativo en términos de privacidad.'
     },
+    searchPlaceholder: 'Search by keyword',
+    csStatus: {
+      received: 'Received',
+      progress: 'In progress',
+      answered: 'Answered'
+    },
+    userBubbleLabel: 'My request',
+    helpHomeSubtitle: 'Ask us anything, anytime.',
+    helpFooter: '',
     actions: {
       composeInquiry: {
-        title: 'Iniciar una nueva consulta',
-        subtitle: 'Nuestro equipo te responderá directamente',
+        title: 'Start a new request',
+        subtitle: 'Our team will reply directly'
       },
       inquiryList: {
-        title: 'Ver mis consultas',
-        subtitle: '{{count}} consulta(s)',
-        subtitleWithUnread: '{{count}} en total · {{unread}} respuesta(s) nueva(s)',
+        title: 'View my requests',
+        subtitle: '{{count}} request(s)',
+        subtitleWithUnread: '{{count}} total · {{unread}} new repl(ies)'
       },
       composeIdea: {
-        title: 'Proponer una idea',
-        subtitle: 'Comparte tu opinión con el equipo de Zappi',
+        title: 'Suggest an idea',
+        subtitle: 'Share your thoughts with the Zappi team'
       },
       ideaList: {
-        title: 'Ver mis ideas',
-        subtitle: '{{count}} idea(s) enviada(s)',
-        empty: 'Aún no has enviado ideas',
-      },
+        title: 'View my ideas',
+        subtitle: '{{count}} sent idea(s)',
+        empty: 'No ideas sent yet'
+      }
     },
-    composeInquirySubtitle: 'Cuéntanos los detalles y nuestro equipo te responderá lo antes posible.',
-    composeIdeaSubtitle: '¿Qué podría mejorar? El equipo de Zappi lo leerá con atención.',
-    titlePlaceholderInquiry: 'Describe brevemente el problema',
-    titlePlaceholderIdea: 'Resúmelo en una línea',
-    bodyPlaceholderInquiry: 'Agrega detalles. Incluir datos relacionados o capturas de pantalla aumenta la probabilidad de una solución rápida.',
-    bodyPlaceholderIdea: 'Cuéntanos en qué momento sentiste que faltaba algo y cómo podría mejorar.',
+    composeInquirySubtitle: 'Tell us in detail and our team will reply as soon as possible.',
+    composeIdeaSubtitle: 'What could be better? The Zappi team will read it carefully.',
+    titlePlaceholderInquiry: 'Briefly describe the issue',
+    titlePlaceholderIdea: 'Summarize in one line',
+    bodyPlaceholderInquiry: 'Add details. Including related data or screenshots increases the chance of a quick resolution.',
+    bodyPlaceholderIdea: 'Tell us when you felt the gap and how it could be improved.',
     bodyCounter: '{{count}} / 2000',
-    securityNoticeTitle: 'Nunca compartas tu frase de recuperación ni tu PIN.',
-    securityNoticeBody: 'Zappi nunca te pedirá la información de tus claves privadas bajo ninguna circunstancia.',
-    attachmentLabel: 'Adjuntos',
-    attachmentEncryptedNote: 'Todo se cifra y se envía de forma segura.',
-    submitInquiry: 'Enviar consulta',
-    submitIdea: 'Enviar idea',
-    inquiryListTitle: 'Mis consultas',
-    inquiryListSubtitle: '{{count}} consulta(s) abierta(s).',
-    inquiryListEmpty: 'Aún no hay consultas.',
-    fabNewInquiry: 'Nueva',
-    fabNewIdea: 'Nueva',
-    threadFooterInquiry: 'Las respuestas se mantienen en el mismo hilo',
-    threadFooterIdea: 'Sigue la conversación sobre tu idea',
-    detailMetadata: 'Recibida el {{date}}',
-    ideaDetailMetadata: 'Enviada el {{date}}',
-    ideaListTitle: 'Mis ideas',
-    ideaListSubtitle: '{{count}} idea(s) enviada(s).',
-    ideaListEmpty: 'Aún no has enviado ideas.',
+    securityNoticeTitle: 'Never share your mnemonic or PIN.',
+    securityNoticeBody: 'Zappi will never ask for your private key information under any circumstance.',
+    attachmentLabel: 'Attachments',
+    attachmentEncryptedNote: 'Everything is encrypted and sent securely.',
+    submitInquiry: 'Send request',
+    submitIdea: 'Send idea',
+    inquiryListTitle: 'My requests',
+    inquiryListSubtitle: '{{count}} open request(s).',
+    inquiryListEmpty: 'No requests yet.',
+    fabNewInquiry: 'New',
+    fabNewIdea: 'New',
+    threadFooterInquiry: 'Replies stay in the same thread',
+    threadFooterIdea: 'Keep the conversation going about your idea',
+    detailMetadata: 'Received {{date}}',
+    ideaDetailMetadata: 'Sent {{date}}',
+    ideaListTitle: 'My ideas',
+    ideaListSubtitle: '{{count}} sent idea(s).',
+    ideaListEmpty: 'No ideas sent yet.',
     ideaBadge: 'Idea',
     proposalLabel: 'Idea',
-    composeIdeaPageTitle: 'Proponer una idea',
-    ideaReplyPlaceholder: 'Comparte más ideas',
-    viewAttachment: 'Ver',
-    openingAttachment: 'Abriendo',
-    openInNewTab: 'Abrir en una pestaña nueva',
-    previewFailed: 'No se pudo abrir la vista previa',
+    composeIdeaPageTitle: 'Suggest an idea',
+    ideaReplyPlaceholder: 'Share more thoughts',
+    viewAttachment: 'View',
+    openingAttachment: 'Opening',
+    openInNewTab: 'Open in new tab',
+    previewFailed: 'Could not open preview',
     threadStatusEvent: {
-      open: 'Consulta reabierta',
-      in_progress: 'El equipo de soporte está preparando una respuesta',
-      resolved: 'Esta consulta ha sido resuelta',
-      closed: 'Esta consulta ha sido cerrada',
-    },
+      open: 'Request reopened',
+      in_progress: 'Support team is preparing a reply',
+      resolved: 'This request has been resolved',
+      closed: 'This request has been closed'
+    }
   },
-
-  // Settings
   settings: {
     title: 'Configuración',
-
-    // Profile
     profile: 'Perfil',
     profileDesc: 'Nostr, Dirección Lightning, Análisis',
     profileDescHiddenLightning: 'Nostr, Análisis',
     customerSupport: 'Atención al cliente',
     customerSupportDesc: 'Consultas · FAQ · ideas',
+    zappiUser: 'Usuario Zappi',
     lightningAddress: 'Dirección Lightning',
     registerLightningAddress: 'Registrar',
     registeringLightningAddress: 'Registrando...',
+    lightningAddressRequired: 'Registre una dirección Lightning para recibir pagos Lightning.',
     lightningAddressRegistered: 'Dirección Lightning registrada',
     lightningAddressRegistrationFailed: 'Error al registrar la dirección Lightning',
     changeUsername: 'Cambiar dirección Lightning',
@@ -243,6 +307,7 @@ export default {
     insufficientBalance: 'Saldo insuficiente',
     usernameChanged: 'Usuario cambiado',
     usernameChangeFailed: 'Error al cambiar el usuario',
+    addressChangeFee: 'Cambio de dirección Lightning ({{username}})',
     changingUsername: 'Cambiando...',
     paymentMint: 'Mint de pago',
     receiveMint: 'Mint de recepción',
@@ -254,40 +319,36 @@ export default {
     swapFee: 'tarifa',
     paymentFailed: 'Pago fallido. Seleccione otro mint',
     noPayableMint: 'Ningún mint tiene saldo suficiente para cubrir la tarifa de cambio',
-
-    // Security
     security: 'Seguridad',
     securityDesc: 'PIN, Face ID, Bloqueo automático',
     autoLock: 'Bloqueo automático',
     autoLockTimeout: 'Bloquear después de',
     faceIdTouchId: 'Face ID / Touch ID',
+    biometric: 'Biométrico',
     changePin: 'Cambiar PIN',
-
-    // Wallet Management
     walletManagement: 'Gestión de billetera',
     walletManagementDesc: 'Mints, Relays, Saldo, Respaldo',
     manageMints: 'Gestionar Mints',
     manageRelays: 'Gestionar Relays',
-    mnemonicBackup: 'Ver frase de recuperación',
-
-    // TLS Test
-
-    // Logout
+    verifyBalance: 'Verificar saldo',
+    findUnusedTokens: 'Buscar tokens no usados',
+    mnemonicBackup: 'Respaldo de mnemónico',
+    tlsTest: 'TLS Test',
+    tlsTestDesc: 'Probar flujos de TransferLifecycleService',
     logout: 'Cerrar sesión',
     version: 'Zappi v{{version}}',
-
     updateAvailable: 'Actualización disponible',
+    updateInstallHint: 'Toca para actualizar',
     checkForUpdates: 'Buscar actualizaciones',
     updateChecking: 'Buscando actualizaciones',
     updateInstalling: 'Instalando la nueva versión',
     updateCurrent: 'Tienes la última versión',
     updateCheckUnavailable: 'La búsqueda de actualizaciones no está disponible aquí',
     updateCheckFailed: 'No se pudieron buscar actualizaciones',
-
-    // Mints
     addMint: 'Agregar Mint',
-
-    // Relays
+    noMints: 'No hay mints registrados',
+    mintCount: '{{count}} mints',
+    noRelays: 'No hay relays registrados',
     relayPlaceholder: 'relay.example.com',
     relayExists: 'El relay ya existe',
     relayConnectionFailed: 'No se pudo conectar al relay. Verifica la URL.',
@@ -299,41 +360,25 @@ export default {
     confirmDeleteRelay: '¿Eliminar este relay?',
     minRelaysRequired: 'Se requieren al menos {{min}} relays',
     minMintsRequired: 'Se requieren al menos {{min}} mints',
-
-    // PIN Change
     currentPinLabel: 'Ingresa PIN actual',
     newPinLabel: 'Ingresa nuevo PIN (6 dígitos)',
     confirmPinLabel: 'Confirma nuevo PIN',
     pinChangeError: 'Los PIN no coinciden.',
     wrongCurrentPin: 'PIN actual incorrecto.',
-
-    // Mnemonic Backup
+    change: 'Cambiar',
     enterPinLabel: 'Ingresa PIN',
     wrongPin: 'PIN incorrecto.',
     mnemonicWarning: 'Guarda este mnemónico de forma segura. Nunca lo compartas.',
-
-    // Logout
     logoutWarning: 'Todos los datos serán eliminados. ¿Has respaldado tu mnemónico?',
-
-    // Token Restore
+    restoreChoiceDescription: 'Elige cómo restaurar ecash faltante.',
     restoreDescription: 'Buscar y restaurar tokens no usados de cada mint.',
     currentWalletRecovery: 'Recuperar esta billetera',
-    externalMnemonicRecovery: 'Importar ecash de otra frase de recuperación',
-    externalMnemonicRecoveryWarning: 'La frase de recuperación ingresada no se guarda. Solo el ecash encontrado en mints registrados se moverá a esta billetera.',
-    externalMnemonicPlaceholder: '12 palabras de la frase de recuperación',
-    externalMnemonicRequired: 'Ingresa una frase de recuperación.',
-    externalMnemonicWordCountRequired: 'Ingresa exactamente 12 palabras de la frase de recuperación.',
-    fullResync: 'Resincronizar historial de relays',
-    fullResyncConfirm: '¿Volver a descargar todo el historial de pagos desde los relays? Puede tardar un poco.',
-    fullResyncDone: 'Resincronización completa.',
-    fullResyncFailed: 'La resincronización falló. Inténtalo de nuevo.',
-    diagnostics: 'Diagnóstico',
-    diagnosticsDescription: 'Contadores de red locales para solución de problemas. No se envía nada — cópialos y compártelos manualmente si el soporte lo pide.',
-    diagnosticsRefresh: 'Actualizar',
-    diagnosticsCopy: 'Copiar',
-    diagnosticsCopied: 'Copiado',
-    diagnosticsCopyFailed: 'Error al copiar',
-    diagnosticsKsNote: 'Los cambios de interruptores se aplican desde el próximo desbloqueo.',
+    currentWalletRecoveryDesc: 'Busca ecash creado desde el mnemónico de esta billetera.',
+    externalMnemonicRecovery: 'Importar ecash de otro mnemónico',
+    externalMnemonicRecoveryDesc: 'Busca ecash de otro mnemónico y lo mueve a esta billetera.',
+    externalMnemonicRecoveryWarning: 'El mnemónico ingresado no se guarda. Solo el ecash encontrado en mints registrados se moverá a esta billetera.',
+    externalMnemonicPlaceholder: 'Ingresa el mnemónico a escanear',
+    externalMnemonicRequired: 'Ingresa un mnemónico.',
     registeredMints: 'Mints registrados: {{count}}',
     startVerification: 'Iniciar verificación',
     startRecovery: 'Iniciar recuperación',
@@ -344,66 +389,71 @@ export default {
     noRecoverableEcash: 'No se encontró ecash recuperable.',
     verificationError: 'Ocurrió un error durante la verificación.',
     noMintsRegistered: 'No hay mints registrados.',
-
-    // Passkey
+    passkeySetup: 'Configuración de Face ID / Touch ID',
     passkeyDescription: 'Ingresa tu PIN para registrar autenticación biométrica',
     register: 'Registrar',
     passkeyRegisterFailed: 'Error al registrar Passkey.',
     passkeyPRFNotSupported: 'Este dispositivo no admite cifrado biométrico seguro (PRF).',
+    passkeyRemove: 'Eliminar Face ID / Touch ID',
     passkeyRemoveDescription: 'Ingresa tu PIN para eliminar autenticación biométrica',
     remove: 'Eliminar',
-
-    // Mint Delete
     deleteMint: 'Eliminar Mint',
     mintHasBalance: 'Este mint tiene un saldo de <bold>{{formattedBalance}}</bold>.',
     deleteWarning: 'Eliminar hará el saldo inaccesible.',
     confirmDeleteMint: '¿Eliminar este mint?',
     primary: 'Principal',
+    position: 'Posición',
+    moveUp: 'Mover arriba',
+    moveDown: 'Mover abajo',
     dragToReorder: 'Arrastrar para reordenar',
     reorderHint: 'Arrastra el controlador para reordenar. Con teclado: enfoca el controlador y presiona arriba / abajo.',
-
-    // Preferences
     preferences: 'Preferencias',
     preferencesDesc: 'Idioma, Unidad, Moneda, Privacidad',
-
-    // Language
     language: 'Idioma',
-
-    // Unit Display
     unitDisplay: 'Unidad',
-
-    // Fiat Currency
     fiatCurrency: 'Moneda',
     showFiatConversion: 'Mostrar Precio Fiat',
-
-    // POS Management
+    selectCurrency: 'Seleccionar Moneda',
     posManagement: 'Gestión de POS',
     addPosDevice: 'Agregar dispositivo POS',
+    posDeviceCount: '{{count}} dispositivos',
     noPosDevices: 'No hay dispositivos POS registrados',
     posProvisioningTitle: 'Aprovisionamiento POS',
     posProvisioningDescription: 'Escanea este código QR desde el dispositivo POS.',
     posDeviceLabel: 'Nombre del dispositivo',
     posDeviceLabelPlaceholder: 'Ej: Mostrador 1',
+    posQrReady: 'Muestra el código QR al dispositivo POS.',
     posNoLightningAddress: 'Configura una dirección Lightning primero para registrar dispositivos POS.',
     posProvisioningDone: 'Dispositivo POS registrado exitosamente.',
     posDeviceRemove: 'Eliminar dispositivo',
     posDeviceRemoveWarning: 'Este dispositivo POS ya no podrá aceptar pagos. ¿Eliminar?',
-
-    // Privacy
     privacy: 'Privacidad',
     senderPrivacyMode: 'Modo de privacidad de envío',
     senderPrivacyModeDescription: 'Preferir rutas donde el mint no pueda vincular remitente y destinatario, aunque las tarifas sean mayores',
-
-    // Descriptions
+    active: 'Activo',
     autoLockDescription: 'Bloquear automáticamente tras inactividad',
+    faceIdDescription: 'Usar autenticación biométrica para desbloquear',
+    tlsBolt11Send: 'Bolt11 Send (melt)',
+    tlsBolt11Receive: 'Bolt11 Receive (minting)',
+    tlsEcashCreate: 'Create Ecash',
+    tlsEcashRedeem: 'Redeem Ecash',
+    tlsGiftWrap: 'Receive via GiftWrap',
+    tlsCreq: 'Receive via Creq'
   },
-
-  // Add Mint Screen
   addMint: {
     title: 'Agregar Mint',
+    mintUrl: 'URL del Mint',
     urlPlaceholder: 'https://mint.example.com',
+    recommended: 'Mints recomendados',
+    mintDescMinibits: 'Mint estable y rápido',
+    mintDescCoinos: 'Opción popular',
+    mintDescLnbits: 'Mint basado en LNbits',
+    discoverMints: 'Descubrir más Mints',
+    discoverDescription: 'Lista de mints activos en todo el mundo',
     worldwide: 'Mints mundiales',
+    auditDescription: 'Lista de mints activos proporcionada por el servicio de auditoría 8333.space.',
     transactions: '{{count}} transacciones',
+    added: 'Agregado',
     alreadyAdded: 'Mint ya agregado.',
     addFailed: 'Error al agregar mint.',
     validating: 'Validando mint...',
@@ -411,109 +461,223 @@ export default {
     restoring: 'Verificando tokens para restaurar...',
     loading: 'Cargando lista de mints...',
     loadError: 'No se pudo cargar la lista de mints.',
+    addComplete: '¡Mint agregado!',
     recoveredTokens: '¡{{amount}} recuperados!',
     hasBeenAdded: ' ha sido agregado.',
+    mintAddedSuccess: 'Nuevo mint ha sido agregado.',
     confirmTitle: '¿Agregar este mint?',
-    confirmAdd: 'Agregar',
+    confirmAdd: 'Agregar'
   },
-
-  // Scanner
   scanner: {
     title: 'Escanear',
+    inputPlaceholder: 'Ingresa dirección, factura o token...',
     paste: 'Pegar',
-    loadFromPhoto: 'Cargar desde foto',
     validating: 'Validando...',
     unrecognizedFormat: 'Formato no reconocido',
+    invoiceExpired: 'La factura ha expirado',
+    invalidAddress: 'Dirección Lightning inválida',
     invalidToken: 'Ecash inválido',
+    invalidRequest: 'Solicitud inválida',
+    offlineError: 'Estás sin conexión. Verifica tu conexión de red.',
+    lnurlError: 'No se pudo verificar LNURL',
     cameraPermission: 'Se requiere permiso de cámara',
     cameraNotFound: 'Cámara no encontrada',
     cameraStartFailed: 'No se pudo iniciar la cámara',
     cameraPreparing: 'Preparando cámara...',
     multipartScanning: 'Escaneando QR multiparte...',
     enableCameraPermission: 'Habilita el permiso de cámara en la configuración',
+    flashOn: 'Flash encendido',
+    flashOff: 'Flash apagado',
     uploadImage: 'Escanear QR desde imagen',
     noQrFound: 'No se encontró código QR',
+    invalidCashuRequest: 'Solicitud Cashu inválida',
+    invalidNostrProfile: 'Perfil Nostr inválido',
+    invalidNostrEvent: 'Evento Nostr inválido'
   },
-
-  // Payment Screens
   payment: {
-    // Common
     selectMint: 'Seleccionar Mint',
     selectThisMint: 'Seleccionar Este Mint',
+    receiveWithThisMint: 'Recibir con Este Mint',
     insufficientBalance: 'Saldo insuficiente',
-    maxAmount: 'Máx: {{amount}}',
-
-    // Lightning Send
+    currentBalance: 'Actual: {{amount}}',
+    requiredAmount: 'Requerido: {{amount}}',
+    mintOffline: 'No se puede conectar al mint. Selecciona otro mint.',
+    noAvailableMints: 'No hay mints disponibles',
+    noCompatibleMints: 'No hay mints compatibles para esta solicitud',
+    mintNoBalance: 'Sin saldo en el mint requerido',
+    networkError: 'Verifica tu conexión de red',
+    sendComplete: '¡Envío completado!',
+    receiveComplete: '¡Recepción completada!',
+    lightningPay: 'Pago Lightning',
+    lightningSend: 'Enviar Lightning',
+    recipient: 'Destinatario',
+    destination: 'Destino',
+    pay: 'Pagar',
     send: 'Enviar',
+    paying: 'Pagando...',
+    paymentFailed: 'Pago fallido',
     sendFailed: 'Envío fallido',
-    cannotSend: 'No se puede enviar a este destino',
-
-    // Lightning Receive
-
-    // Ecash Send
-
-    // Ecash Receive
-
-    // Token Receive
-
-    // Amount Input
-
-    // Zap
-
-    // Nostr DM
-
-    // Other
-
-    // Token Receive (additional)
-
-    // Lightning Receive (additional)
+    paymentSuccess: '¡Pago completado!',
+    addressOrInvoice: 'Dirección Lightning o factura',
+    addressPlaceholder: 'user@getalby.com o lnbc...',
+    lightningAddressPlaceholder: 'Dirección Lightning o factura',
+    enterDestination: 'Ingresa la dirección de destino',
+    minAmountError: 'Mínimo {{amount}}',
+    maxAmountError: 'Máximo {{amount}}',
+    invalidAddressOrInvoice: 'Dirección o factura Lightning inválida',
+    invalidLightningAddress: 'Dirección Lightning inválida',
+    cannotVerifyAddress: 'No se puede verificar la dirección Lightning',
+    lightningSendFailed: 'Envío Lightning fallido',
+    sendError: 'Error al enviar',
+    clipboardError: 'Error al acceder al portapapeles',
+    lightningReceive: 'Recibir Lightning',
+    createInvoice: 'Crear factura',
+    creating: 'Creando...',
+    invoiceCreated: 'Factura creada',
+    waitingPayment: 'Esperando pago...',
+    shareInvoice: 'Compartir factura',
+    copyInvoice: 'Copiar factura',
+    expiresIn: 'Expira en {{time}}',
+    paymentReceived: '¡Pago recibido!',
+    ecashSend: 'Enviar Ecash',
+    memoPlaceholder: 'Agregar una nota (opcional)',
+    ecashToken: 'Token Ecash',
+    createToken: 'Crear token',
+    creatingToken: 'Creando token...',
+    tokenCreated: 'Token creado',
+    shareToken: 'Compartir token',
+    copyToken: 'Copiar token',
+    tokenCreateFailed: 'Error al crear token',
+    tokenCreateError: 'Error durante la creación del token',
+    tokenSpent: 'Token reclamado',
+    tokenSpentDesc: 'El destinatario recibió el token exitosamente',
+    tokenLostWarning: 'Si pierdes el token, no podrás recuperar el saldo.',
+    tokenReceiveFailed: 'Error al recibir token',
+    tokenReceiveError: 'Error durante la recepción del token',
+    trustAndReceive: 'Agregar mint y recibir',
+    swapRequired: 'Se intercambiará al mint {{mintName}}. Pueden aplicarse tarifas.',
+    compatibleMint: 'Compatible',
+    requestedMint: 'Mint solicitado',
+    ecashReceive: 'Recibir Ecash',
+    createRequest: 'Crear solicitud',
+    requestCreated: 'Solicitud creada',
+    shareRequest: 'Compartir solicitud',
+    copyRequest: 'Copiar solicitud',
+    paymentRequest: 'Solicitud de pago (Nostr)',
+    waitingNostrDm: 'Esperando Nostr DM...',
+    tokenReceive: 'Recibir token',
+    tokenInfo: 'Info del token',
+    tokenAmount: 'Monto',
+    tokenMint: 'Mint',
+    receiveToken: 'Recibir token',
+    tokenOnly: 'Solo se pueden recibir tokens Cashu aquí',
+    feeEstimateFailed: 'Error al estimar la tarifa',
+    tokenReclaimFailed: 'Error al recuperar el token',
+    receiving: 'Recibiendo...',
+    sending: 'Enviando...',
+    tokenReceived: '¡Token recibido!',
+    tokenAlreadySpent: 'Token ya usado',
+    enterAmount: 'Ingresa monto',
+    amountInSats: 'unidad',
+    zapSend: 'Enviar Zap',
+    zapTo: 'Zap a',
+    sendZap: 'Enviar Zap',
+    zapping: 'Enviando Zap...',
+    zapSent: '¡Zap enviado!',
+    sendingNostrDm: 'Enviando Nostr DM...',
+    sentViaNostrDm: 'Enviado vía Nostr DM',
+    willSendViaNostrDm: 'Se enviará vía Nostr DM',
+    checkingReceipt: 'Esperando recibo...',
+    done: 'Listo',
+    mintAdded: 'Mint agregado exitosamente',
+    mintAddFailed: 'Error al agregar mint',
+    successReceived: 'Recibido exitosamente',
+    trustStatus: 'Estado de confianza',
+    trusted: 'Confiable',
+    untrusted: 'No registrado',
+    untrustedMintWarning: 'Este mint no está registrado. Recibir el token agregará saldo a este mint.',
+    receiveAmountBtn: 'Recibir {{unit}} {{amount}}',
+    mintSelectedOffline: 'El mint seleccionado está offline',
     createInvoiceFailed: 'Error al crear factura',
-
-    // Receive Screen
+    createInvoiceError: 'No se pudo crear la factura',
+    recreateInvoice: 'Crear de nuevo',
+    withdrawSource: 'Fuente de retiro',
+    minValidation: 'Mínimo {{amount}}',
+    maxValidation: 'Máximo {{amount}}',
+    creatingInvoice: 'Creando factura...',
+    remainingTime: 'Tiempo restante',
+    invoiceExpired: 'La factura ha expirado. Inténtelo de nuevo.',
+    invoiceCreateFailed: 'Error al crear la factura.',
+    invoiceCreateError: 'Se produjo un error al crear la factura.',
+    mintOfflineWarning: 'El mint está sin conexión. Este token no está protegido por P2PK, por lo que otra persona podría gastarlo primero. Inténtelo de nuevo cuando el mint esté en línea.',
+    tokenProcessError: 'Se produjo un error al procesar el token.',
+    mintTrustAddFailed: 'Error al agregar confianza del mint.',
+    untrustedMintLabel: 'Mint no confiable',
+    addMintTrustQuestion: '¿Agregar este mint a tu lista de confianza?',
+    addingTrust: 'Agregando...',
+    trustMint: 'Confiar en Mint',
+    reEnter: 'Reingresar',
+    scanOrPasteToken: 'Escanear código QR o pegar token',
+    nfc: 'NFC',
+    wave: 'Onda',
+    nfcComingSoon: 'Recepción de Ecash por NFC próximamente',
+    waveComingSoon: 'Recepción de Ecash por onda de sonido próximamente',
+    comingSoon: 'Próximamente',
+    amount: 'Amount',
+    maxAmount: 'Max: {{amount}}',
+    processing: 'Processing...',
+    confirm: 'OK',
+    cancel: 'Cancel',
+    share: 'Share',
+    scan: 'Scan',
+    paste: 'Paste',
+    qrScan: 'QR Scan',
+    cannotSend: 'Cannot send to this destination'
   },
-
-  // Amount Action Screen
   amountAction: {
     title: 'Seleccionar Acción',
     send: 'Enviar',
     receive: 'Recibir',
+    lightning: 'Lightning',
+    ecash: 'Ecash'
   },
-
-  // Transfer Screen
   transfer: {
     title: 'Mover Saldo',
     from: 'Desde Mint',
     to: 'Hacia Mint',
+    transferAmount: 'Monto a transferir',
     swap: 'Transferir',
     swapping: 'Transfiriendo...',
+    swapComplete: '¡Transferencia completada!',
     swapFailed: 'Transferencia fallida',
     sameMintsError: 'No se puede transferir al mismo mint',
+    selectDifferentMint: 'Selecciona un mint diferente',
+    estimatedFee: 'Comisión estimada: ~{{amount}}',
     transferAll: 'Todo',
     quoting: 'Obteniendo cotización...',
     melting: 'Retirando...',
     minting: 'Depositando...',
-    transferComplete: '¡Transferencia completada!',
+    transferComplete: '¡Transferencia completada!'
   },
-
-  // History Screen
   history: {
     title: 'Historial de transacciones',
     noTransactions: 'Sin transacciones aún',
     all: 'Todo',
+    sent: 'Enviado',
+    received: 'Recibido',
     pending: 'Pendiente',
+    failed: 'Fallido',
     today: 'Hoy',
     yesterday: 'Ayer',
     anchor: {
       today: '{{weekday}} · Hoy',
       yesterday: '{{weekday}} · Ayer',
       monthSameYear: 'Mes',
-      monthOtherYear: '{{year}}.{{month02}}',
+      monthOtherYear: '{{year}}.{{month02}}'
     },
     timeAt: '{{time}}',
     dayWithTime: '{{day}}, {{time}}',
     endOfList: 'Has revisado todo.',
-
-    // Transaction Types
     lightningReceive: 'Recibir (Lightning)',
     lightningSend: 'Enviar (Lightning)',
     ecashReceive: 'Recibir (eCash)',
@@ -525,15 +689,13 @@ export default {
     requestPay: 'Pago Ecash enviado',
     nutzap: 'NutZap',
     swap: 'Intercambio',
-
-    // Status
     completed: 'Completado',
     pendingStatus: 'Procesando',
     failedStatus: 'Fallido',
-
-    // Redesigned history screen
+    andMore: 'y {{count}} más',
     income: 'Ingresos',
     expense: 'Gastos',
+    pendingTab: 'Pendiente',
     filterType: 'Tipo',
     searchPlaceholder: 'Buscar',
     noTransactionsDesc: 'Las transacciones aparecerán aquí',
@@ -545,20 +707,20 @@ export default {
     mintFilter: 'Seleccionar Billetera',
     allMints: 'Todas las Billeteras',
     mintCount: '{{count}} Billeteras',
-
-    // Export
     export: 'Exportar',
     exportSuccess: 'Archivo guardado correctamente',
     exportEmpty: 'No hay transacciones para exportar',
     exportFileName: 'transacciones',
     exportCsvDesc: 'Se abre en Excel, Numbers, Google Sheets',
     exportCount: '{{count}} transacciones',
-    exportDownload: 'Descargar',
+    exportDownload: 'Descargar'
   },
-
-  // Transaction Detail Screen
   txDetail: {
+    title: 'Detalle de transacción',
     type: 'Tipo',
+    time: 'Hora',
+    completedAt: 'Completado',
+    failedAt: 'Fallido',
     mint: 'Mint',
     source: 'Origen',
     memo: 'Memo',
@@ -572,60 +734,64 @@ export default {
     toMint: 'Mint de destino',
     txId: 'ID de transacción',
     details: 'Detalles',
-
-    // Sources
     'source.zappi-pos': 'Zappi POS',
     'source.zappi-kiosk': 'Zappi Kiosk',
     'source.zappi-api': 'Zappi API',
     'source.zappi-link': 'Zappi Link',
     'source.wallet': 'Billetera',
     'source.unknown': 'Externo',
-
-    // Token lifecycle
+    tokenState: 'Estado del token',
+    'tokenState.unspent': 'Sin reclamar',
+    'tokenState.pending': 'Procesando',
+    'tokenState.spent': 'Reclamado',
+    'tokenState.unknown': 'Desconocido',
+    checkState: 'Verificar estado',
+    checking: 'Verificando...',
+    reclaim: 'Recuperar',
     reclaiming: 'Recuperando...',
     reclaimSuccess: 'eCash recuperado exitosamente',
     reclaimFailed: 'Error al recuperar eCash',
+    alreadySpent: 'eCash ya fue reclamado',
     consumedByRecipient: 'El destinatario ya reclamó este eCash',
+    tokenPending: 'eCash en proceso',
+    cancelSend: 'Cancelar envío',
     sentToken: 'eCash enviado',
+    receivedToken: 'eCash recibido',
+    copyToken: 'Copiar eCash',
+    share: 'Compartir',
     copied: 'Copiado',
     delete: 'Eliminar',
     deleteConfirm: '¿Eliminar este registro de transacción?',
     deleteWarning: 'No se puede deshacer.',
-
-    // Context sentences
+    receivedFrom: 'Recibido de {{mint}}',
     receivedToWallet: 'Recibido en {{wallet}}',
     sentViaLightning: 'Enviado a {{address}}',
     sentEcash: 'eCash enviado',
     tokenCreated: 'eCash creado',
+    receivedEcash: 'eCash recibido',
     swappedAt: 'Intercambiado en {{mint}}',
     swappedFromTo: '{{from}} → {{to}} intercambio',
     receivedFromPOS: 'Recibido de {{name}}',
+    unclaimedNotice: 'Aún no reclamado',
     reclaimAction: 'Recuperar eCash',
-
-    // Section titles
     txInfo: 'Información',
     paymentInfo: 'Info de pago',
     swapInfo: 'Info de intercambio',
-
-    // Kiosk order
     orderItems: 'Artículos del pedido',
     orderTotal: 'Total',
-
-    // Fiat
+    fiatValue: 'Valor en fiat'
   },
-
-  // Analytics Screen
   analytics: {
     title: 'Análisis',
     overview: 'Resumen',
     totalReceived: 'Total recibido',
     totalSent: 'Total enviado',
+    transactionCount: 'Transacciones',
     thisWeek: 'Esta semana',
     thisMonth: 'Este mes',
-    noData: 'Sin datos disponibles',
+    allTime: 'Todo el tiempo',
+    noData: 'Sin datos disponibles'
   },
-
-  // Notifications Screen
   notifications: {
     title: 'Notificaciones',
     noNotifications: 'Sin notificaciones',
@@ -643,11 +809,14 @@ export default {
     hourAgo: 'hace {{count}} hora',
     hoursAgo: 'hace {{count}} horas',
     dayAgo: 'hace {{count}} día',
-    daysAgo: 'hace {{count}} días',
+    daysAgo: 'hace {{count}} días'
   },
-
-  // PWA Install
   pwa: {
+    installTitle: 'Instalar Zappi',
+    installDescription: 'Agrega a la pantalla de inicio para fácil acceso',
+    install: 'Instalar',
+    later: 'Después',
+    iosInstructions: 'Toca el botón compartir en Safari, luego selecciona "Agregar a pantalla de inicio"',
     tagline: 'Pagos de Bitcoin fáciles y rápidos',
     installRequired: 'Se requiere instalar la app',
     installRequiredDesc: 'ZAPPI necesita instalarse como app PWA.\nFunciona sin conexión y ofrece una experiencia más rápida.',
@@ -668,45 +837,8 @@ export default {
     desktopBrowserSupport: 'Compatible con Chrome, Edge, Safari y la mayoría de navegadores.',
     afterInstall: 'Después de instalar, toca el ícono ZAPPI en la pantalla de inicio para abrir.',
     devBypass: '(Modo desarrollo) Continuar sin PWA',
-    desktopBrowser: 'Navegador de escritorio',
-    guard: {
-      subtitle: 'Billetera Bitcoin eCash',
-      installTitle: 'Instala en la pantalla de inicio',
-      installReason: 'Se requiere instalar la app para pagos seguros',
-      installButton: 'Instalar app',
-      devSkip: 'Omitir instalación (solo dev)',
-      ios: {
-        title: 'En Safari',
-        step1: 'Toca el botón de compartir en la parte inferior',
-        step2: 'Selecciona "Añadir a pantalla de inicio"',
-        step3: 'Toca "Añadir" arriba a la derecha',
-      },
-      android: {
-        title: 'En Chrome',
-        step1: 'Toca el icono de menú arriba a la derecha',
-        step2: 'Selecciona "Instalar app" o "Añadir a pantalla de inicio"',
-      },
-      desktopSafari: {
-        title: 'En Safari',
-        step1: 'Ve a la barra de menús > "Archivo"',
-        step2: 'Selecciona "Añadir al Dock..."',
-        footnote: 'O Compartir > Añadir al Dock (Sonoma+)',
-      },
-      desktopEdge: {
-        title: 'En Edge',
-        step1: 'Haz clic en el menú ... arriba a la derecha',
-        step2: '"Aplicaciones" > "Instalar este sitio como aplicación"',
-      },
-      desktopChrome: {
-        title: 'En Chrome',
-        step1: 'Haz clic en el icono de menú arriba a la derecha',
-        step2: '"Guardar y compartir" > "Instalar página como aplicación"',
-        footnote: 'O haz clic en el icono de instalar en la barra de direcciones',
-      },
-    },
+    desktopBrowser: 'Navegador de escritorio'
   },
-
-  // Errors
   errors: {
     generic: 'Ocurrió un error.',
     network: 'Verifica tu conexión de red.',
@@ -730,7 +862,6 @@ export default {
     insufficientBalance: 'Saldo insuficiente (necesario: {{required}}  disponible: {{available}})',
     insufficientBalanceForFee: 'Saldo insuficiente (necesario: {{required}} + comisión  disponible: {{available}})',
     mintConnection: 'No se puede conectar a {{mint}}',
-    keysetSyncFailed: 'No se pudieron descargar las claves del keyset del mint',
     mintError: 'Ocurrió un error en el mint',
     invalidToken: 'Token inválido',
     invalidProof: 'No se pudo procesar la transferencia. Por favor, inténtalo más tarde.',
@@ -753,30 +884,53 @@ export default {
     networkError: 'Ocurrió un error de red',
     timeoutError: 'Tiempo de espera agotado',
     unknownError: 'Ocurrió un error desconocido',
-    adapterNotFound: 'No hay un método de pago disponible para esta operación',
-    serviceNotReady: 'El servicio se está iniciando. Inténtalo de nuevo en un momento.',
-    invalidDestination: 'Dirección de destino no reconocida',
-    unrecognizedInput: 'Formato de entrada no reconocido',
-    lnurlParseFailed: 'No se pudo procesar este LNURL',
-    transferStateInvalid: 'Esta transferencia ya no se puede procesar',
-    receiveRequestInvalid: 'Solicitud de recepción no válida',
-    supportTicketResolved: 'Esta consulta ya está resuelta',
+    keysetSyncFailed: 'Failed to download mint keyset keys',
+    adapterNotFound: 'No payment method available for this operation',
+    serviceNotReady: 'Service is starting up — try again in a moment.',
+    invalidDestination: 'Unrecognized destination address',
+    unrecognizedInput: 'Unrecognized input format',
+    lnurlParseFailed: 'Could not process this LNURL',
+    transferStateInvalid: 'This transfer can no longer be processed',
+    receiveRequestInvalid: 'Invalid receive request',
+    supportTicketResolved: 'This support ticket is already resolved'
   },
-
-  // Redirect
   redirect: {
     toReceive: 'Cambiando a Recibir',
+    toSend: 'Cambiando a Enviar'
   },
-
-  // Toast Messages
   toast: {
     copied: 'Copiado al portapapeles',
+    saved: 'Guardado',
+    deleted: 'Eliminado',
+    paymentSuccess: 'Pago completado',
+    paymentFailed: 'Pago fallido',
+    tokenReceived: 'Token recibido',
+    ecashRecovered: '{{count}} pago(s) Ecash recuperado(s) ({{amount}})',
     ecashReceivedFromSync: '{{count}} pago(s) Ecash recibido(s) ({{amount}})',
+    lightningArrived: '{{count}} pago(s) Lightning recibido(s)',
+    offlineTokensRedeemed: '{{count}} token(s) offline canjeado(s)',
     lightningReceived: '{{unit}} {{amount}} pago Lightning recibido',
+    lightningPaymentComplete: '{{unit}} {{amount}} pago Lightning completado',
+    lightningSendFailed: 'Error al enviar pago Lightning',
+    lightningSendComplete: '{{unit}} {{amount}} enviado (comisión: {{feeUnit}} {{fee}})',
+    invoiceCreateFailed: 'Error al crear factura',
+    invoiceCreateOffline: 'No se puede crear factura sin conexión',
+    tokenReceivedAmount: '{{amount}} recibidos',
+    tokenReclaimedAmount: '{{amount}} recuperados',
+    paymentRequestFailed: 'Error al crear solicitud de pago',
+    sendComplete: '{{amount}} enviados',
+    swapComplete: '{{amount}} intercambiados (comisión: {{fee}})',
     swapOffline: 'No se puede intercambiar sin conexión',
+    offlineCannotPay: 'No se puede pagar sin conexión',
     balanceLoadFailed: 'Error al cargar saldo',
+    syncComplete: '{{count}} evento(s) procesado(s)',
+    syncErrors: '{{count}} error(es) ocurrido(s)',
+    syncFailed: 'Sincronización fallida',
+    noRelays: 'No hay relays configurados',
+    retrySuccess: '{{count}} reintento(s) exitoso(s)',
+    retryPartialFail: '{{count}} reintento(s) fallido(s)',
+    retryFailed: 'Reintento fallido',
     paymentCompleted: '{{amount}} pago completado',
-    paymentCompletedWithFee: '{{amount}} pago completado (comisión: {{fee}})',
     swapCompleted: '{{amount}} intercambiado (comisión: {{fee}})',
     recoveryCompleted: '{{recovered}} recuperado(s) ({{failed}} fallido(s))',
     ecashTokenReceived: '{{amount}} token Ecash recibido',
@@ -789,44 +943,65 @@ export default {
     offlineStatus: 'Estás sin conexión',
     transferSettled: 'Transferencia completada',
     transferReclaimed: 'Transferencia reclamada',
-    tokenClaimed: 'Tu ecash de {{amount}} fue canjeado',
-    tokenClaimedWithMemo: 'Tu ecash de {{amount}} fue canjeado · {{memo}}',
+    incomingTransferProcessed: 'Transferencia entrante procesada',
+    paymentCompletedWithFee: '{{amount}} payment completed (fee: {{fee}})'
   },
-
-  // Mint Details
   mintDetails: {
+    mintBalance: 'Saldo del Mint',
+    mintInfo: 'Info del Mint',
     description: 'Descripción',
     motd: 'Anuncio',
     supportedNuts: 'NUTs soportados',
+    contact: 'Contacto',
+    loadingInfo: 'Cargando info...',
     loadError: 'No se pudo obtener la info del mint.',
+    deleteConfirm: 'Confirmar eliminación',
     deleteMint: 'Eliminar Mint',
+    balanceWarning: '{{formattedAmount}} restantes en este mint. Se recomienda transferir a otro mint antes de eliminar.'
   },
-
-  // Send
   send: {
     title: 'Enviar',
+    fromMint: 'Desde Mint',
+    fromMintPrefix: 'Mi ',
+    fromMintSuffix: ' desde',
+    whereTo: '¿A dónde enviar?',
+    placeholder: 'Ingresa dirección o factura',
+    howMuch: '¿Cuánto enviar?',
+    createToken: 'Crear Token',
     next: 'Siguiente',
+    myWallet: 'Enviar a mi billetera',
     noOtherWallets: 'No hay otras billeteras',
     myWalletList: 'Enviarme a mí',
+    sameWalletError: 'No se puede enviar a la misma billetera',
     amountRequired: 'Ingresa un monto',
+    destinationRequired: 'Ingresa un destino',
     destination: {
+      accountFrom: 'Desde <b>{{mint}}</b>',
       whoToSend: '¿A quién enviar?',
       placeholder: 'Dirección o factura',
+      hint: 'Pega o escanea una <b>dirección Lightning</b>, <b>factura</b> o <b>solicitud Cashu</b>',
       unrecognized: 'Formato de dirección no reconocido',
       invalidCashuToken: 'Formato de token Cashu inválido',
       validationFailed: 'No se pudo verificar la dirección',
+      lnurlWithdrawNotSupported: 'Este es un enlace de retiro, no una dirección de pago',
       ecashInfoNotFound: 'No se encontró información para recibir ecash.',
       noCommonMint: 'No hay ningún mint compartido disponible para este destinatario.',
       relayNotFound: 'No se encontró información de relé para este destinatario.',
-      selectedMintUnavailable: '{{mint}} no es compatible con este destinatario. Puedes enviar desde uno de los mints de abajo.',
+      selectedMintUnavailable: '{{mint}} no es compatible con este destinatario. Puedes enviar desde uno de los mints de abajo.'
     },
     amount: {
+      sendTo: 'A {{destination}}',
       howMuchSend: '¿Cuánto enviar?',
+      balancePill: 'Saldo · {{balance}}',
       addMemo: 'Memo (opcional)',
+      memoPlaceholder: 'Opcional'
     },
     tokenCreate: {
+      title: 'Crear Ecash',
       howMuch: '¿Cuánto ecash crear?',
       amountCaption: 'Ecash convierte bitcoin en un vale que puedes entregar',
+      memo: 'Memo',
+      requestAmount: 'Solicitud',
       memoPlaceholder: 'Memo (opcional)',
       confirmTitle: 'Confirmar Creación',
       confirmQuestion: '¿Crear <b>{{amount}}</b> ecash\ndesde <b>{{mint}}</b>?',
@@ -847,86 +1022,168 @@ export default {
       share: 'Compartir',
       reclaim: 'Recuperar',
       reclaiming: 'Recuperando…',
-      reclaimWithFee: 'Recuperar (comisión {{fee}})',
+      reclaimWithFee: 'Recuperar (comisión {{fee}})'
     },
     confirm: {
       title: 'Confirmar Envío',
+      question: '¿Enviar a {{recipient}}?',
       method: 'Método',
       sourceMint: 'Billetera de Origen',
       recipient: 'Destinatario',
       memo: 'Memo',
-      requestAmount: 'Solicitado',
       estimatedFee: 'Tarifa Estimada',
       total: 'Total',
       send: 'Enviar',
       transfer: 'Transferir',
       internalTransfer: 'Transferencia Interna',
       targetWallet: 'Billetera Destino',
+      transferQuestionEnd: '¿Transferir?',
       fullQuestion: '¿Enviar {{amount}}\na <b>{{recipient}}</b>\ndesde <b>{{mint}}</b>?',
       fullRequestQuestion: '¿Enviar {{amount}}\ndesde <b>{{mint}}</b>?',
       fullTransferQuestion: '¿Transferir {{amount}}\na <b>{{target}}</b>\ndesde <b>{{mint}}</b>?',
+      feeEstimateFailed: 'No se pudo estimar la tarifa',
+      toSuffix: '',
       recipientTo: 'a <b>{{recipient}}</b>',
+      amountSuffix: '',
+      questionEnd: '¿Enviar?',
       lightningInvoice: 'Factura Lightning',
       ecashRequest: 'Solicitud de pago eCash',
+      requestAmount: 'Request'
     },
     sending: {
+      message: 'Enviando a {{destination}}',
+      inProgress: 'Enviando...',
       fullMessage: 'Enviando {{amount}}\na <b>{{recipient}}</b>...',
       fullRequestMessage: 'Enviando {{amount}}...',
-      networkDelay: 'Puede tomar un momento según la red',
+      networkDelay: 'Puede tomar un momento según la red'
     },
     complete: {
+      message: '{{destination}}\n{{amount}} enviados',
+      sent: '¡Enviado!',
       fullMessage: '¡{{amount}} enviado\na <b>{{recipient}}</b>!',
       fullRequestMessage: '¡{{amount}} enviado!',
       confirm: 'Listo',
-    },
+      details: 'Detalles'
+    }
   },
-
-  // Receive
   receive: {
     title: 'Recibir',
+    senderMethod: '¿Qué usa el remitente?',
+    lightning: 'Lightning',
+    ecash: 'eCash',
+    toMint: 'Al Mint',
+    toMintPrefix: 'Mi ',
+    toMintSuffix: ' a',
+    howMuch: '¿Cuánto recibir?',
+    memoPlaceholder: 'Memo (opcional)',
+    receiveToken: 'Recibir Token',
+    createRequest: 'Crear solicitud',
+    scanQr: 'Escanear código QR',
+    tokenInput: 'Entrada de token',
+    tokenInputPlaceholder: 'Ingrese un token',
     next: 'Siguiente',
     amountRequired: 'Ingresa un monto',
+    tokenInputStep: {
+      accountTo: 'A <b>{{mint}}</b>',
+      haveToken: '¿Tienes un token para recibir?',
+      placeholder: 'Ingresa un token',
+      hint: '¿Sin token? Puedes crear una <b>factura</b> para solicitar pago'
+    },
     amountStep: {
       howMuchRequest: '¿Cuánto solicitar?',
       addMemo: 'Memo (opcional)',
+      memoPlaceholder: 'Opcional'
     },
     qr: {
       title: 'Recibir',
       protocols: {
         unified: 'Unificado',
         cashu: 'Cashu',
-        lightning: 'Lightning',
+        lightning: 'Lightning'
       },
+      showToSender: 'Muestra esto al remitente',
       share: 'Compartir',
+      willNotify: 'Te notificaremos cuando el pago llegue a {{mint}}',
+      depositNotify: ' depositado, te notificaremos',
       fullMessage: 'Te notificaremos cuando {{amount}} llegue',
+      cancel: 'Cancelar'
+    },
+    transport: {
+      nostrAndHttp: 'Nostr + HTTP escuchando',
+      httpOnly: 'HTTP escuchando (Nostr desconectado)',
+      nostrOnly: 'Nostr escuchando',
+      unified: 'Lightning + eCash escuchando',
+      lightningOnly: 'Lightning escuchando'
     },
     complete: {
+      message: '{{mint}}\n{{amount}} recibidos',
+      received: ' recibido!',
       fullMessage: '¡{{amount}} recibido!',
       requestFulfilledMessage: '¡Tu solicitud de\n{{amount}} llegó!',
-      done: 'Listo',
+      done: 'Listo'
     },
     token: {
       title: 'Confirmación de Token',
+      canReceive: '¿Recibir {{amount}}\nde {{mint}}?',
+      fullConfirmQuestion: '¿Recibir {{amount}}\nen <b>{{mint}}</b>?',
       receiveMint: 'Mint de Recepción',
+      amount: 'Monto',
       receive: 'Recibir',
+      confirmQuestion: '¿Recibir?',
+      crossMintQuestion: '¿Dónde quieres\nrecibir {{amount}}?',
+      tokenFrom: 'Este token fue creado en {{mint}}',
+      tokenFromSuffix: ' mint creó este token',
+      receiveDirectly: 'Recibir en el mint {{mint}}',
+      receiveDirectlySub: 'Recibir en el mint original sin swap',
+      receiveViaSwap: 'Cambiar a {{mint}}',
+      receiveViaSwapSub: 'Se aplica comisión Lightning',
       reject: 'No recibir',
+      rejectSub: 'Dejar este token sin canjear',
+      fee: 'Comisión',
       netAmount: 'Recibes',
+      noFee: 'Sin comisión',
+      feeApplies: '⚡ Con comisión'
     },
     untrusted: {
       title: 'Confirmación de Token',
       unregistered: 'Mint no registrado',
+      warningFrom: 'Desde el mint\nno registrado {{mint}}',
       warningNeedConfirm: 'Para recibir {{amount}},\nse necesita confirmación.',
+      explanation: 'Agrega este mint solo si confías en él.\nSi no, rechaza el token.',
       addAndReceive: 'Agregar mint y recibir',
       addAndReceiveSub: 'Confío en este mint',
       reject: 'No recibir',
-      rejectSub: 'No aceptar este token',
+      rejectSub: 'No aceptar este token'
     },
+    offline: {
+      p2pkAccepted: 'Este token está protegido por P2PK. Se puede recibir sin conexión y se verificará al reconectarse.',
+      dleqMissing: 'Verificación DLEQ no disponible. No se puede confirmar la autenticidad del token. ¿Aceptar bajo su propio riesgo?',
+      dleqFailed: 'La verificación DLEQ falló. Este token puede ser falsificado y no se puede recibir.',
+      nonP2PKError: 'Solo los tokens protegidos por P2PK se pueden recibir sin conexión. Conéctese e intente de nuevo.',
+      untrustedNeedsOnline: 'Se necesita conexión a internet para recibir tokens de un mint no registrado.',
+      receiveOffline: 'Recibir sin conexión',
+      acceptAnyway: 'Aceptar bajo mi riesgo'
+    },
+    swapFeeTooHigh: 'La comisión de swap ({{fee}}) es igual o mayor al monto del token ({{amount}})',
+    swapTokenTooSmall: 'Este token es demasiado pequeño para cambiarlo a tu mint. Recíbelo directamente en el mint original o usa un token mayor.',
     tokenReceiveFeeTooHigh: 'Después de las comisiones de recepción, no queda monto para recibir.',
+    swapEstimateFailed: 'No se pudo comprobar la ruta del swap, así que el token no se recibió. Inténtalo más tarde o recíbelo en el mint original.',
+    swapReceiveKeptOnSource: '{{amount}} no pudo moverse a tu mint, así que permanece en el mint original.',
+    swapCompletedWithSourceRemainder: 'El swap se completó, pero {{amount}} permanece en el mint de origen por el ajuste de comisión Lightning',
+    swapCompletedWithHiddenSourceRemainder: 'El swap se completó, pero {{amount}} permanece en {{mint}}. Agregue este mint para acceder al remanente.',
+    sourceRecovery: {
+      title: 'No se pudo mover a tu mint',
+      description: '{{amount}} está guardado en {{mint}}. Agrega este mint solo si quieres ver y usar ese saldo en Zappi.',
+      mint: 'Mint original',
+      addMint: 'Agregar mint y ver saldo',
+      later: 'Ahora no'
+    }
   },
-
-  // Mint Detail Screen
   mintDetail: {
     title: 'Detalle del Mint',
+    send: 'Enviar',
+    receive: 'Recibir',
+    swap: 'Intercambiar',
     pendingItems: 'Elementos pendientes',
     pending: 'Pendiente',
     seeMore: 'Ver más',
@@ -936,25 +1193,32 @@ export default {
     receiveRequest: 'Solicitud de recepción',
     sentToken: 'Token No Reclamado',
     expiresIn: 'Expira en {{time}}',
+    created: 'Creado: {{date}}',
     noPendingItems: 'No hay elementos pendientes',
     noTransactions: 'No hay transacciones',
+    editName: 'Renombrar',
+    namePlaceholder: 'Ingrese un nombre',
     duplicateName: 'Este nombre ya está en uso',
     defaultName: 'Mint {{number}}',
     mintInfo: 'Info del Mint',
     announcement: 'Anuncio',
     description: 'Descripción',
     mintUrl: 'URL del Mint',
+    mintContact: 'Contacto del Mint',
+    details: 'Detalles',
     version: 'Versión',
     units: 'Unidades soportadas',
     supportedProtocols: 'Protocolos soportados',
     viewAll: 'Ver todo',
     copy: 'Copiar',
     copied: 'Copiado',
+    showQr: 'Mostrar QR',
     cardName: 'Nombre de tarjeta',
     cardColor: 'Color de tarjeta',
     cardDesign: 'Diseño de tarjeta',
     cardDesignClassic: 'Clásico',
     cardDesignModern: 'Moderno',
+    dangerZone: 'Zona peligrosa',
     emptyAndDelete: 'Vaciar saldo y eliminar mint',
     deleteMint: 'Eliminar Mint',
     deleteConfirmMessage: '¿Seguro que quieres eliminar este mint?',
@@ -965,6 +1229,7 @@ export default {
     emptyAndDeleteBtn: 'Vaciar y eliminar',
     forceDeleteBtn: 'Eliminar de todos modos',
     forceDeleteDescription: 'Si eliminas {{mint}} ahora, abandonarás el saldo restante de {{amount}} en ese mint.\n\nEsto no se puede deshacer.',
+    deleteComplete: '{{mint}} ha sido vaciado y eliminado.',
     swapping: 'Moviendo saldo...',
     swapFailed: 'Error al mover el saldo. Inténtelo de nuevo.',
     retry: 'Reintentar',
@@ -972,20 +1237,20 @@ export default {
     no: 'No',
     delete: 'Eliminar',
     pendingAll: 'Elementos pendientes',
+    tabAll: 'Todo',
     tabRequest: 'Solicitudes',
     tabToken: 'Tokens',
+    unclaimedTokens: 'Tokens no reclamados',
+    pendingRequests: 'Solicitudes pendientes',
     filterType: 'Tipo',
     search: 'Buscar',
     pendingExpiry: 'Vencimiento',
-    pendingExpired: 'Vencido',
+    pendingExpired: 'Vencido'
   },
-
-  // Pending Item Actions
   pending: {
     redeemAction: 'Canjear ahora',
     redeemSuccess: 'Token canjeado',
     redeemFailed: 'Error al canjear',
-    expiredRemoved: 'Solicitud vencida eliminada',
     reclaimAction: 'Recuperar token',
     payment: 'Pago',
     unified: 'Unificado',
@@ -993,28 +1258,25 @@ export default {
     lightningInvoice: 'Factura Lightning',
     quoteStatus: 'Estado',
     redeemQuote: 'Canjear',
+    expiredRemoved: 'Expired request removed'
   },
-
-  // Error Boundary
   error: {
     unexpectedTitle: 'Algo salió mal',
     unexpectedMessage: 'La app encontró un error inesperado. Recarga para intentar de nuevo.',
-    reload: 'Recargar',
+    reload: 'Recargar'
   },
-
   nav: {
     wallet: 'Billetera',
     token: 'Ecash',
     contacts: 'Contactos',
-    settings: 'Ajustes',
+    settings: 'Ajustes'
   },
-
   token: {
     create: 'Crear',
     register: 'Recibir',
     empty: {
       title: 'Aún no tienes ecash.\n¿Quieres crear uno?',
-      footerNote: 'Ecash funciona como efectivo. Cualquiera que lo tenga puede registrarlo y usarlo.',
+      footerNote: 'Ecash funciona como efectivo. Cualquiera que lo tenga puede registrarlo y usarlo.'
     },
     time: {
       justNow: 'ahora mismo',
@@ -1023,32 +1285,33 @@ export default {
       yesterday: 'ayer',
       daysAgo: 'hace {{count}} días',
       atTimeOfDay: '{{time}}',
-      dayWithTime: 'Día {{day}}, {{time}}',
+      dayWithTime: 'Día {{day}}, {{time}}'
     },
     pending: {
-      timeLabel: 'Pendiente · {{time}}',
+      timeLabel: 'Pendiente · {{time}}'
     },
     pendingWidget: {
       title: 'Pendiente',
       summary: '{{count}} ecash · {{total}}',
-      viewAll: 'Ver pendientes',
+      viewAll: 'Ver pendientes'
     },
     pendingEmpty: {
       title: 'Todo al día',
-      subtitle: 'Sin ecash pendiente',
+      subtitle: 'Sin ecash pendiente'
     },
     reclaimable: {
       section: 'Recuperables ({{count}})',
+      viewAll: 'Ver todos >',
       actions: {
         reclaim: 'Recuperar',
-        share: 'Compartir',
+        share: 'Compartir'
       },
       shareText: '{{memo}}: {{amount}}',
-      copiedToClipboard: 'Copiado al portapapeles',
+      copiedToClipboard: 'Copiado al portapapeles'
     },
     firstCreate: {
       hint: 'Creaste este ecash pero aún no se ha registrado.\nPuede que el destinatario no lo haya recibido o registrado todavía.',
-      dismiss: 'No mostrar de nuevo',
+      dismiss: 'No mostrar de nuevo'
     },
     reclaim: {
       title: 'Recuperar',
@@ -1058,25 +1321,30 @@ export default {
       summaryNet: 'Recibirás',
       confirm: 'Recuperar',
       success: 'Recuperado exitosamente',
-      failed: 'Error al recuperar',
+      failed: 'Error al recuperar'
     },
     history: {
       section: 'Historial',
-      deleteSuccess: 'Historial eliminado',
-      deleteFailed: 'No se pudo eliminar el historial',
+      group: {
+        today: 'Hoy',
+        yesterday: 'Ayer',
+        thisMonth: 'Este mes',
+        older: 'Anterior'
+      },
       anchor: {
         today: '{{weekday}} · Hoy',
         yesterday: '{{weekday}} · Ayer',
         monthSameYear: '{{monthName}}',
-        monthOtherYear: '{{year}}.{{month02}}',
+        monthOtherYear: '{{year}}.{{month02}}'
       },
       subLine: '{{status}} · {{time}}',
       endOfList: 'Has visto todo el historial.',
+      metaLine: '{{time}}, {{memo}}',
       status: {
         registered: 'Registrado',
         consumed: 'Gastado',
-        reclaimed: 'Recuperado',
-      },
+        reclaimed: 'Recuperado'
+      }
     },
     detail: {
       unread: 'Ecash no leído',
@@ -1084,7 +1352,7 @@ export default {
         pending: 'Ecash pendiente',
         registered: 'Ecash registrado',
         consumed: 'Ecash gastado',
-        reclaimed: 'Ecash recuperado',
+        reclaimed: 'Ecash recuperado'
       },
       weekday: {
         sun: 'Domingo',
@@ -1093,13 +1361,13 @@ export default {
         wed: 'Miércoles',
         thu: 'Jueves',
         fri: 'Viernes',
-        sat: 'Sábado',
+        sat: 'Sábado'
       },
       dateLine: {
         pending: '{{weekday}}, {{day}}/{{month}}/{{year}}\nCreado a las {{time}}',
         registered: '{{weekday}}, {{day}}/{{month}}/{{year}}\nRegistrado a las {{time}}',
         consumed: '{{weekday}}, {{day}}/{{month}}/{{year}}\nCreado a las {{time}}',
-        reclaimed: '{{weekday}}, {{day}}/{{month}}/{{year}}\nRecuperado a las {{time}}',
+        reclaimed: '{{weekday}}, {{day}}/{{month}}/{{year}}\nRecuperado a las {{time}}'
       },
       amountLabel: 'Cantidad',
       feeLine: 'Comisión {{fee}}',
@@ -1110,23 +1378,24 @@ export default {
         pending: 'Crear ecash',
         registered: 'Registrar ecash',
         consumed: 'Ecash gastado',
-        reclaimed: 'Recuperar ecash',
+        reclaimed: 'Recuperar ecash'
       },
       mintLabel: {
         pending: 'Mint de origen',
         registered: 'Mint de destino',
         consumed: 'Mint emisor',
-        reclaimed: 'Mint de destino',
+        reclaimed: 'Mint de destino'
       },
       action: {
         forward: 'Reenviar ecash',
-        confirm: 'Ver ecash',
+        confirm: 'Ver ecash'
       },
+      confirmLink: 'Ver ecash',
       actions: {
         qr: 'QR',
         copy: 'Copiar',
         share: 'Compartir',
-        viewRaw: 'Ver ecash original',
+        viewRaw: 'Ver ecash original'
       },
       reclaimCta: 'Recuperar (comisión: {{fee}})',
       raw: {
@@ -1135,21 +1404,13 @@ export default {
         unit: 'Unidad',
         receiveFee: 'Comisión de recepción',
         empty: 'No hay datos de ecash.',
-        easterEgg: 'ZAPPI X CASHU',
+        easterEgg: 'ZAPPI X CASHU'
       },
       qr: {
-        title: 'Compartir QR',
-      },
-    },
-    rawSheet: {
-      delete: 'Eliminar historial',
-      deleteConfirm: '¿Eliminar historial?',
-      deleting: 'Eliminando…',
-      yes: 'Sí',
-      no: 'No',
-    },
+        title: 'Compartir QR'
+      }
+    }
   },
-
   tokenRegister: {
     title: 'Registrar ecash',
     inputHeading: 'Pega o escanea ecash\npara registrarlo.',
@@ -1159,8 +1420,11 @@ export default {
     scan: 'Escanear',
     arrived: '¡Tu ecash llegó!',
     receiving: 'Recibiendo…',
+    swapping: 'Intercambiando…',
+    receiveToMyMint: 'Recibir en mi mint',
+    unknownMintHint: 'Si no conoces el mint, puedes recibir\nen tu propio mint sin agregarlo.',
+    swapFeeHint: 'Puede aplicarse una comisión de intercambio'
   },
-
   contacts: {
     title: 'Contactos',
     addContact: 'Agregar contacto',
@@ -1170,6 +1434,8 @@ export default {
     namePlaceholder: 'Nombre del contacto',
     address: 'Dirección',
     addressPlaceholder: 'Dirección Lightning, npub, etc.',
+    memoPlaceholder: 'Nota sobre este contacto',
+    optional: 'opcional',
     nameRequired: 'El nombre es obligatorio',
     addressRequired: 'La dirección es obligatoria',
     emptyTitle: 'Aún no hay contactos',
@@ -1184,7 +1450,7 @@ export default {
       noNutzapInfo: 'NutZap info no encontrado para este npub',
       noMints: 'No hay mints registrados para este npub',
       noRelay: 'No se encontró información de relé para este npub',
-      decodeFailed: 'Error al decodificar la dirección',
-    },
-  },
-}
+      decodeFailed: 'Error al decodificar la dirección'
+    }
+  }
+} as const

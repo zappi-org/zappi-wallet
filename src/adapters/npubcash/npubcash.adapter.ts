@@ -1,4 +1,4 @@
-import { ok, err, type Result } from '@/core/types/result'
+import { Ok, Err, type Result } from '@/core/domain/result'
 import type { BaseError } from '@/core/errors/base'
 import { NpubcashAuthError, NpubcashApiError, NpubcashPaymentRequiredError } from '@/core/errors/npubcash'
 import type {
@@ -31,7 +31,7 @@ export class NpubcashAdapter implements PaymentAliasProvider {
       const pubkey = signer.getPublicKey()
       const cached = this.jwtCache.get(pubkey)
       if (cached && cached.expiresAt > Date.now() + 60000) {
-        return ok({ token: cached.token, expiresAt: cached.expiresAt })
+        return Ok({ token: cached.token, expiresAt: cached.expiresAt })
       }
 
       const nip98 = signer.createNip98Token(`${this.baseUrl}/api/v2/auth/nip98`, 'GET')
@@ -40,20 +40,20 @@ export class NpubcashAdapter implements PaymentAliasProvider {
         { headers: { Authorization: `Nostr ${nip98}` } },
       )
 
-      if (result.isErr()) return result
+      if (!result.ok) return result
 
       const body = result.value
       if (body.error || !body.data?.token) {
-        return err(new NpubcashApiError(401, body.message || 'Authentication failed'))
+        return Err(new NpubcashApiError(401, body.message || 'Authentication failed'))
       }
 
       const token = body.data.token
       const expiresAt = Date.now() + 10 * 60 * 1000
 
       this.jwtCache.set(pubkey, { token, expiresAt })
-      return ok({ token, expiresAt })
+      return Ok({ token, expiresAt })
     } catch (e) {
-      return err(new NpubcashAuthError('Authentication failed', e))
+      return Err(new NpubcashAuthError('Authentication failed', e))
     }
   }
 
@@ -63,15 +63,15 @@ export class NpubcashAdapter implements PaymentAliasProvider {
       `${this.baseUrl}/api/v2/user/info`,
     )
 
-    if (result.isErr()) return result
+    if (!result.ok) return result
 
     const body = result.value
     if (body.error || !body.data?.user) {
-      return err(new NpubcashApiError(400, body.message || 'Failed to get account info'))
+      return Err(new NpubcashApiError(400, body.message || 'Failed to get account info'))
     }
 
     const user = body.data.user
-    return ok({
+    return Ok({
       alias: user.name ?? null,
       domain: new URL(this.baseUrl).hostname,
       mintUrl: user.mintUrl,
@@ -101,17 +101,17 @@ export class NpubcashAdapter implements PaymentAliasProvider {
       },
     )
 
-    if (result.isErr()) {
+    if (!result.ok) {
       console.log('[npubcash] purchaseAliasWithToken error:', { message: result.error.message, code: (result.error as any).code })
       return result
     }
 
     const body = result.value
     if (body.error || !body.data?.user) {
-      return err(new NpubcashApiError(400, body.message || 'Failed to purchase username'))
+      return Err(new NpubcashApiError(400, body.message || 'Failed to purchase username'))
     }
 
-    return ok({
+    return Ok({
       alias: body.data.user.name,
       npub: body.data.user.pubkey,
     })
@@ -132,9 +132,9 @@ export class NpubcashAdapter implements PaymentAliasProvider {
         const xCashu = res.headers.get('X-Cashu')
         console.log('[npubcash] 402 received:', { hasXcashu: !!xCashu, xCashuPrefix: xCashu?.slice(0, 10), xCashuLen: xCashu?.length })
         if (!xCashu) {
-          return err(new NpubcashApiError(402, 'Payment required but no X-Cashu header'))
+          return Err(new NpubcashApiError(402, 'Payment required but no X-Cashu header'))
         }
-        return err(new NpubcashPaymentRequiredError(xCashu))
+        return Err(new NpubcashPaymentRequiredError(xCashu))
       }
 
       if (!res.ok) {
@@ -143,20 +143,20 @@ export class NpubcashAdapter implements PaymentAliasProvider {
           const body = await res.json() as NpubcashResponse<unknown>
           if (body.message) message = body.message
         } catch {}
-        return err(new NpubcashApiError(res.status, message))
+        return Err(new NpubcashApiError(res.status, message))
       }
 
       const body = await res.json() as NpubcashResponse<{ user: { name: string; pubkey: string } }>
       if (body.error || !body.data?.user) {
-        return err(new NpubcashApiError(400, body.message || 'Failed to purchase username'))
+        return Err(new NpubcashApiError(400, body.message || 'Failed to purchase username'))
       }
 
-      return ok({
+      return Ok({
         alias: body.data.user.name,
         npub: body.data.user.pubkey,
       })
     } catch (e) {
-      return err(new NpubcashApiError(500, e instanceof Error ? e.message : 'Network error'))
+      return Err(new NpubcashApiError(500, e instanceof Error ? e.message : 'Network error'))
     }
   }
 
@@ -171,19 +171,19 @@ export class NpubcashAdapter implements PaymentAliasProvider {
       },
     )
 
-    if (result.isErr()) return result
+    if (!result.ok) return result
 
     const body = result.value
     if (body.error) {
-      return err(new NpubcashApiError(400, body.message || 'Failed to set mint'))
+      return Err(new NpubcashApiError(400, body.message || 'Failed to set mint'))
     }
 
-    return ok(undefined)
+    return Ok(undefined)
   }
 
   async toggleLock(session: AuthSession): Promise<Result<boolean, BaseError>> {
     const info = await this.getAccountInfo(session)
-    if (info.isErr()) return info
+    if (!info.ok) return info
 
     const newLock = !info.value.lockQuote
 
@@ -197,14 +197,14 @@ export class NpubcashAdapter implements PaymentAliasProvider {
       },
     )
 
-    if (result.isErr()) return result
+    if (!result.ok) return result
 
     const body = result.value
     if (body.error) {
-      return err(new NpubcashApiError(400, body.message || 'Failed to toggle lock'))
+      return Err(new NpubcashApiError(400, body.message || 'Failed to toggle lock'))
     }
 
-    return ok(newLock)
+    return Ok(newLock)
   }
 
   async getPaidQuotes(session: AuthSession, since?: number): Promise<Result<PaidQuote[], BaseError>> {
@@ -213,14 +213,14 @@ export class NpubcashAdapter implements PaymentAliasProvider {
       `${this.baseUrl}/api/v2/wallet/quotes${since ? `?since=${since}` : ''}`,
     )
 
-    if (result.isErr()) return result
+    if (!result.ok) return result
 
     const body = result.value
     if (body.error || !body.data?.quotes) {
-      return err(new NpubcashApiError(400, body.message || 'Failed to get paid quotes'))
+      return Err(new NpubcashApiError(400, body.message || 'Failed to get paid quotes'))
     }
 
-    return ok(body.data.quotes)
+    return Ok(body.data.quotes)
   }
 
   async subscribePaidQuotes(
@@ -270,14 +270,14 @@ export class NpubcashAdapter implements PaymentAliasProvider {
 
       connect()
 
-      return ok(() => {
+      return Ok(() => {
         console.log('[Npubcash] unsubscribe() — user closed')
         userClosed = true
         currentWs?.close()
         currentWs = null
       })
     } catch (e) {
-      return err(new NpubcashApiError(500, 'Failed to connect to quote stream'))
+      return Err(new NpubcashApiError(500, 'Failed to connect to quote stream'))
     }
   }
 
@@ -298,14 +298,14 @@ export class NpubcashAdapter implements PaymentAliasProvider {
           const body = await res.json() as NpubcashResponse<unknown>
           if (body.message) message = body.message
         } catch {}
-        return err(new NpubcashApiError(res.status, message))
+        return Err(new NpubcashApiError(res.status, message))
       }
 
       const data = (await res.json()) as T
-      return ok(data)
+      return Ok(data)
     } catch (e) {
-      if (e instanceof NpubcashApiError) return err(e)
-      return err(new NpubcashApiError(500, e instanceof Error ? e.message : 'Network error'))
+      if (e instanceof NpubcashApiError) return Err(e)
+      return Err(new NpubcashApiError(500, e instanceof Error ? e.message : 'Network error'))
     }
   }
 }

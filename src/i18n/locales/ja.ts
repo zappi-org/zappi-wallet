@@ -1,6 +1,7 @@
 export default {
-  // Common
   common: {
+    sats: '₿',
+    sat: '₿',
     cancel: 'キャンセル',
     confirm: '確認',
     close: '閉じる',
@@ -12,135 +13,191 @@ export default {
     copy: 'コピー',
     copied: 'コピーしました',
     loading: '読み込み中...',
+    error: 'エラー',
+    success: '成功',
     retry: '再試行',
+    skip: 'スキップ',
+    no: 'ないです',
     send: '送金',
     receive: '受取',
     balance: '残高',
     amount: '金額',
+    offline: 'オフライン',
+    online: 'オンライン',
+    total: '合計',
     min: '分',
+    processing: '処理中...',
     offlineRequired: 'インターネット接続が必要です',
     memo: 'メモ',
     paste: '貼り付け',
+    settings: '設定',
+    notifications: '通知',
+    syncing: '同期中',
     change: '変更',
-    search: '検索',
+    search: '検索'
   },
-
-  // Lock Screen
   lock: {
+    welcomeBack: 'ZAPPI',
     enterPin: 'PINを入力してロックを解除',
     wrongPin: 'PINが間違っています。（残り{{remaining}}回）',
     lockedOut: '{{attempts}}回失敗しました。{{minutes}}分後に再試行してください。',
     tryAgainIn: '{{time}}後に再試行してください',
     faceIdUnlock: 'Face IDでロック解除',
     errorOccurred: 'エラーが発生しました。',
-    biometricFailed: '生体認証に失敗しました。PINを入力してください。',
+    biometricFailed: '生体認証に失敗しました。PINを入力してください。'
   },
-
-  // Onboarding
   onboarding: {
-    // Welcome
     appName: 'Zappi',
     tagline: 'Bitcoinの支払いを簡単・高速に',
     createWallet: '新規作成',
+    importWallet: 'すでにウォレットがあります',
     securePrivateFast: '安全 • プライベート • 高速',
     invitePlaceholder: '招待コード',
     inviteInvalidCount: '無効な招待コードです ({{current}}/{{max}})',
     inviteLocked: '試行回数を超えました。5分後に再試行してください。',
-
-    // Mnemonic
     secretRecoveryKey: '秘密のリカバリーキー',
+    walletRecovery: 'ウォレットの復元',
     mnemonicWarning: 'ウォレットを復元する唯一の手段です。\n必ず順番通りに安全な場所に記録してください。',
+    enterRecoveryPhrase: '既存のウォレットのリカバリーキーを入力してください。',
+    words12: '12単語',
+    words24: '24単語',
     copyToClipboard: 'コピー',
     regenerateMnemonic: '別のキーを生成',
     mnemonicSavedConfirm: '順番通りに安全な場所に記録しました',
     recordComplete: '次へ',
+    recoverWallet: '復元する',
     invalidMnemonic: '無効なリカバリーキーです。単語を確認してもう一度お試しください。',
     backupConfirmRequired: 'リカバリーキーを記録したことを確認してください。',
-
-    // PIN
+    setPin: 'PINを設定',
+    confirmPin: 'PINを確認',
     enterNewPin: '6桁のPINを設定してください',
     reenterPin: 'PINを再入力してください',
     pinMismatch: 'PINが一致しません',
-    pinDigitsEntered: 'PIN {{total}}桁のうち{{count}}桁入力済み',
-
-    // Processing
     creatingWallet: 'ウォレット作成中',
+    recoveringWallet: 'ウォレット復元中',
     creatingWalletDesc: '新しいウォレットを作成しています...',
+    recoveringWalletDesc: 'Nostrからプロファイルを取得しトークンを復元しています...',
     pleaseWait: 'お待ちください',
-
-    // Complete
-    walletSetupFailed: 'ウォレットのセットアップに失敗しました。もう一度お試しください。',
+    walletSetupFailed: 'ウォレットのセットアップに失敗しました。もう一度お試しください。'
   },
-
-  // Home Screen
   home: {
+    totalBalance: '合計残高',
     showBalance: '残高を表示',
     hideBalance: '残高を非表示',
+    myMints: 'マイミント',
     addFirstMint: '最初のミントを追加',
     recentTransactions: '取引履歴',
     noTransactions: '取引履歴がありません',
-    seeAll: 'もっと見る',
+    seeAll: 'もっと見る'
   },
-
-  // Action Buttons
   actions: {
-    analytics: '分析',
+    transfer: '残高移動',
+    scan: 'スキャン',
+    analytics: '分析'
   },
-
   support: {
-    title: 'お問い合わせ履歴',
-    heroTitle: 'どのようなご用件ですか？',
-    unavailableTitle: 'お問い合わせ機能が設定されていません',
-    unavailableDescription: 'このビルドではお問い合わせ機能を利用できません。公式チャンネルからZappiチームへご連絡ください。',
-    connectionFailed: 'お問い合わせチャンネルに接続できませんでした',
-    tryAgainLater: 'しばらくしてからもう一度お試しください。',
-    composePageTitle: 'お問い合わせ',
-    requestTitleLabel: 'タイトル',
-    requestBodyLabel: '内容',
-    categoryLabel: '種類',
+    title: 'Support history',
+    heroTitle: 'How can we help?',
+    heroDescription: 'Send a secure support request to the Zappi team and keep the conversation here.',
+    connectionStatus: {
+      disabled: 'Disabled',
+      idle: 'Idle',
+      connecting: 'Connecting',
+      connected: 'Connected',
+      error: 'Error'
+    },
+    unavailableTitle: 'Support is not configured',
+    unavailableDescription: 'Customer support is unavailable in this build. Please contact the Zappi team through the official channel.',
+    connecting: 'Connecting to support',
+    connectingDescription: 'Loading your support thread from configured relays.',
+    connectionFailed: 'Could not connect to support',
+    tryAgainLater: 'Please try again later.',
+    newTicket: 'New request',
+    startNewTicket: 'Contact us',
+    composePageTitle: 'Contact us',
+    requestTitleLabel: 'Title',
+    requestBodyLabel: 'Message',
+    titlePlaceholder: 'Enter a title',
+    bodyPlaceholder: 'Enter your message',
+    privacyNote: 'Do not enter recovery words or private keys.',
+    categoryLabel: 'Type',
+    priorityLabel: 'Priority',
     categories: {
-      transfer: '送金・受け取り',
-      ecash: 'イーキャッシュ',
-      fee: '手数料',
-      security: 'セキュリティ / バックアップ',
-      other: 'その他',
-      general: '一般',
-      technical: '技術',
-      billing: '請求',
+      general: 'General',
+      technical: 'Technical',
+      billing: 'Billing',
+      transfer: 'Send / receive',
+      ecash: 'Ecash',
+      fee: 'Fees',
+      security: 'Security / backup',
+      other: 'Other',
       idea_ux: 'UI / UX',
-      idea_feature: '新機能',
-      idea_perf: 'パフォーマンス / 安定性',
-      idea_other: 'その他',
+      idea_feature: 'New feature',
+      idea_perf: 'Performance / stability',
+      idea_other: 'Other'
     },
-    createTicket: '送信',
-    submittingTicket: 'お問い合わせを送信しています...',
-    createFailed: 'お問い合わせを送信できませんでした',
-    sendFailed: 'メッセージを送信できませんでした',
-    unreadBadge: 'NEW',
-    noTickets: 'お問い合わせ履歴はありません。',
-    replyPlaceholder: '追加のメッセージを入力',
-    sendMessage: 'メッセージを送信',
-    teamName: 'Zappiチーム',
-    attachFile: 'ファイルを添付',
-    removeAttachment: '添付ファイルを削除',
-    attachmentLimit: 'ファイルは最大{{count}}件まで添付できます。',
-    attachmentTooLarge: 'ファイルは{{size}}以下にしてください。',
-    attachmentMetadataOnly: 'ファイル情報を読み込み中',
-    downloadAttachment: 'ダウンロード',
-    replyToast: '「{{title}}」に回答が届きました。',
-    leaveTicket: '退出',
-    deleteTicket: 'お問い合わせ履歴を削除',
-    deleteTitle: 'このお問い合わせから退出しますか？',
-    deleted: 'お問い合わせから退出しました。',
-    deleteFailed: 'お問い合わせから退出できませんでした',
-    searchPlaceholder: 'キーワードで検索',
-    csStatus: {
-      received: '受付済み',
-      progress: '対応中',
-      answered: '回答済み',
+    categoryDescriptions: {
+      general: 'How-to, account, or general questions',
+      technical: 'Bugs, wallet behavior, or connection issues',
+      billing: 'Payment, transfer, or settlement questions',
+      transfer: 'Lightning / ecash send & receive',
+      ecash: 'Ecash token register / recovery',
+      fee: 'Fees and routing costs',
+      security: 'Lock, backup, recovery phrase',
+      other: 'Anything else'
     },
-    userBubbleLabel: '自分のお問い合わせ',
-    helpHomeSubtitle: '気になることは、いつでもお気軽にどうぞ。',
+    priorities: {
+      normal: 'Normal',
+      high: 'High'
+    },
+    priorityDescriptions: {
+      normal: 'A regular support request',
+      high: 'Something is blocked or needs faster review'
+    },
+    createTicket: 'Submit',
+    sending: 'Sending...',
+    sendingToRelay: 'Submitting request...',
+    submittingTicket: 'Submitting request...',
+    sendingMessage: 'Sending message...',
+    createFailed: 'Failed to send request',
+    sendFailed: 'Failed to send message',
+    updateFailed: 'Failed to update request history',
+    downloadFailed: 'Failed to download file',
+    myTickets: 'My requests',
+    ticketCount: '{{count}} total',
+    unreadCount: '{{count}} unread',
+    unreadBadge: 'Reply',
+    noTickets: 'No request history.',
+    replyPlaceholder: 'Write a follow-up message',
+    sendMessage: 'Send message',
+    teamName: 'Zappi team',
+    attachmentPreview: '{{count}} attachment',
+    attachFile: 'Attach file',
+    removeAttachment: 'Remove attachment',
+    attachmentLimit: 'You can attach up to {{count}} files.',
+    attachmentTooLarge: 'Files must be {{size}} or smaller.',
+    attachmentMetadataOnly: 'Loading file info',
+    downloadAttachment: 'Download',
+    downloadingAttachment: 'Downloading',
+    filePreview: 'Sent a file.',
+    replyToast: 'A reply was added to "{{title}}".',
+    ticketActions: 'Request options',
+    pinTicket: 'Pin',
+    unpinTicket: 'Unpin',
+    markRead: 'Mark read',
+    leaveTicket: 'Leave',
+    deleteTicket: 'Delete request history',
+    deleteTitle: 'Leave this request?',
+    deleted: 'Left request.',
+    deleteFailed: 'Failed to leave request',
+    resolvedNotice: 'This request has been resolved.',
+    closedNotice: 'This request has been closed.',
+    status: {
+      open: 'Open',
+      in_progress: 'In progress',
+      resolved: 'Resolved',
+      closed: 'Closed'
+    },
     faqTitle: 'よくある質問',
     faqSeeAll: 'すべて見る',
     faq: {
@@ -155,82 +212,89 @@ export default {
       q5: 'アプリを削除したり端末を紛失すると残高はなくなりますか？',
       a5: 'はい。そのため、シードフレーズのバックアップが非常に重要です。銀行のように中央サーバーが残高を管理するのとは異なり、Cashuウォレットではデバイス上のトークンが残高です。アプリを削除したり端末を紛失すると、トークンも失われます。ほとんどのCashuウォレットはシードフレーズを提供しており、これによりトークンを決定論的に回復できます。シードフレーズは必ず安全な場所に保管してください。',
       q6: '従来のカストディとの違いは何ですか？',
-      a6: '従来のLightningカストディサービスは「残高」モデルでの資金管理が一般的です。ユーザーの残高がサーバーに記録されるため、運営者は取引履歴を簡単に追跡でき、プライバシーが脆弱になります。特定ユーザーの資金凍結や取引の検閲も比較的容易です。\n\nCashuは「トークン」モデルで動作します。ミントはトークンを発行し、使用済みかどうかを検証するだけで、誰がどのトークンを持ち、どこへ送ったかを知る方法がありません。これによりプライバシーが保護され、個人への検閲が事実上不可能になります。カストディモデルではありますが、プライバシーの観点では大きく進化した形と言えます。',
+      a6: '従来のLightningカストディサービスは「残高」モデルでの資金管理が一般的です。ユーザーの残高がサーバーに記録されるため、運営者は取引履歴を簡単に追跡でき、プライバシーが脆弱になります。特定ユーザーの資金凍結や取引の検閲も比較的容易です。\n\nCashuは「トークン」モデルで動作します。ミントはトークンを発行し、使用済みかどうかを検証するだけで、誰がどのトークンを持ち、どこへ送ったかを知る方法がありません。これによりプライバシーが保護され、個人への検閲が事実上不可能になります。カストディモデルではありますが、プライバシーの観点では大きく進化した形と言えます。'
     },
+    searchPlaceholder: 'Search by keyword',
+    csStatus: {
+      received: 'Received',
+      progress: 'In progress',
+      answered: 'Answered'
+    },
+    userBubbleLabel: 'My request',
+    helpHomeSubtitle: 'Ask us anything, anytime.',
+    helpFooter: '',
     actions: {
       composeInquiry: {
-        title: '新しいお問い合わせを作成',
-        subtitle: '担当スタッフが直接お答えします',
+        title: 'Start a new request',
+        subtitle: 'Our team will reply directly'
       },
       inquiryList: {
-        title: 'お問い合わせ履歴を確認',
-        subtitle: '{{count}}件のお問い合わせがあります',
-        subtitleWithUnread: '全{{count}}件 · 新しい回答が{{unread}}件届いています',
+        title: 'View my requests',
+        subtitle: '{{count}} request(s)',
+        subtitleWithUnread: '{{count}} total · {{unread}} new repl(ies)'
       },
       composeIdea: {
-        title: 'アイデアを提案',
-        subtitle: 'Zappiチームにご意見をお聞かせください',
+        title: 'Suggest an idea',
+        subtitle: 'Share your thoughts with the Zappi team'
       },
       ideaList: {
-        title: '提案履歴を見る',
-        subtitle: '送信した提案 {{count}}件',
-        empty: 'まだ送信した提案はありません',
-      },
+        title: 'View my ideas',
+        subtitle: '{{count}} sent idea(s)',
+        empty: 'No ideas sent yet'
+      }
     },
-    composeInquirySubtitle: '内容を詳しく教えてください。担当スタッフができるだけ早く回答します。',
-    composeIdeaSubtitle: 'どんな点が良くなりそうですか？Zappiチームがじっくり読ませていただきます。',
-    titlePlaceholderInquiry: '問題を簡単に書いてください',
-    titlePlaceholderIdea: '一行でまとめてください',
-    bodyPlaceholderInquiry: '詳しい内容を書いてください。関連データやスクリーンショットを添えると解決が早くなります。',
-    bodyPlaceholderIdea: 'どんな場面で不便を感じたか、どう変わると良いかを自由にお書きください。',
+    composeInquirySubtitle: 'Tell us in detail and our team will reply as soon as possible.',
+    composeIdeaSubtitle: 'What could be better? The Zappi team will read it carefully.',
+    titlePlaceholderInquiry: 'Briefly describe the issue',
+    titlePlaceholderIdea: 'Summarize in one line',
+    bodyPlaceholderInquiry: 'Add details. Including related data or screenshots increases the chance of a quick resolution.',
+    bodyPlaceholderIdea: 'Tell us when you felt the gap and how it could be improved.',
     bodyCounter: '{{count}} / 2000',
-    securityNoticeTitle: 'リカバリーフレーズやPINは絶対に入力しないでください。',
-    securityNoticeBody: 'Zappiがお客様の秘密鍵情報をお尋ねすることは決してありません。',
-    attachmentLabel: '添付ファイル',
-    attachmentEncryptedNote: 'すべての内容は暗号化されて安全に送信されます。',
-    submitInquiry: 'お問い合わせを送信',
-    submitIdea: '提案を送信',
-    inquiryListTitle: 'お問い合わせ履歴',
-    inquiryListSubtitle: '{{count}}件のお問い合わせが進行中です。',
-    inquiryListEmpty: 'まだお問い合わせはありません。',
-    fabNewInquiry: '新規',
-    fabNewIdea: '新規',
-    threadFooterInquiry: '返信は同じスレッドに記録されます',
-    threadFooterIdea: '提案について続けてやり取りできます',
-    detailMetadata: '受付日 {{date}}',
-    ideaDetailMetadata: '送信日時 {{date}}',
-    ideaListTitle: '提案履歴',
-    ideaListSubtitle: '送信した提案が{{count}}件あります。',
-    ideaListEmpty: 'まだ送信した提案はありません。',
-    ideaBadge: 'アイデア',
-    proposalLabel: '提案',
-    composeIdeaPageTitle: 'アイデアを提案',
-    ideaReplyPlaceholder: '続けてご意見をどうぞ',
-    viewAttachment: '表示',
-    openingAttachment: '開いています',
-    openInNewTab: '新しいタブで開く',
-    previewFailed: 'プレビューを開けませんでした',
+    securityNoticeTitle: 'Never share your mnemonic or PIN.',
+    securityNoticeBody: 'Zappi will never ask for your private key information under any circumstance.',
+    attachmentLabel: 'Attachments',
+    attachmentEncryptedNote: 'Everything is encrypted and sent securely.',
+    submitInquiry: 'Send request',
+    submitIdea: 'Send idea',
+    inquiryListTitle: 'My requests',
+    inquiryListSubtitle: '{{count}} open request(s).',
+    inquiryListEmpty: 'No requests yet.',
+    fabNewInquiry: 'New',
+    fabNewIdea: 'New',
+    threadFooterInquiry: 'Replies stay in the same thread',
+    threadFooterIdea: 'Keep the conversation going about your idea',
+    detailMetadata: 'Received {{date}}',
+    ideaDetailMetadata: 'Sent {{date}}',
+    ideaListTitle: 'My ideas',
+    ideaListSubtitle: '{{count}} sent idea(s).',
+    ideaListEmpty: 'No ideas sent yet.',
+    ideaBadge: 'Idea',
+    proposalLabel: 'Idea',
+    composeIdeaPageTitle: 'Suggest an idea',
+    ideaReplyPlaceholder: 'Share more thoughts',
+    viewAttachment: 'View',
+    openingAttachment: 'Opening',
+    openInNewTab: 'Open in new tab',
+    previewFailed: 'Could not open preview',
     threadStatusEvent: {
-      open: 'お問い合わせが再開されました',
-      in_progress: 'サポートチームが回答を準備しています',
-      resolved: 'このお問い合わせは解決されました',
-      closed: 'このお問い合わせは終了しました',
-    },
+      open: 'Request reopened',
+      in_progress: 'Support team is preparing a reply',
+      resolved: 'This request has been resolved',
+      closed: 'This request has been closed'
+    }
   },
-
-  // Settings
   settings: {
     title: '設定',
-
-    // Profile
     profile: 'プロフィール',
     profileDesc: 'Nostr、ライトニングアドレス、分析',
     profileDescHiddenLightning: 'Nostr、分析',
     customerSupport: 'カスタマーサポート',
     customerSupportDesc: '問い合わせ · FAQ · アイデア',
+    zappiUser: 'Zappiユーザー',
     lightningAddress: 'Lightningアドレス',
     registerLightningAddress: '登録',
     registeringLightningAddress: '登録中...',
+    lightningAddressRequired: 'Lightning決済を受け取るにはLightningアドレスの登録が必要です。',
     lightningAddressRegistered: 'Lightningアドレスが登録されました',
     lightningAddressRegistrationFailed: 'Lightningアドレスの登録に失敗しました',
     changeUsername: 'ライトニングアドレスを変更',
@@ -243,6 +307,7 @@ export default {
     insufficientBalance: '残高が不足しています',
     usernameChanged: 'ユーザー名が変更されました',
     usernameChangeFailed: 'ユーザー名の変更に失敗しました',
+    addressChangeFee: 'Lightningアドレス変更 ({{username}})',
     changingUsername: '変更中...',
     paymentMint: '支払いミント',
     receiveMint: '受信ミント',
@@ -254,40 +319,36 @@ export default {
     swapFee: '手数料',
     paymentFailed: '支払いに失敗しました。別のミントを選択してください',
     noPayableMint: '変更手数料を支払えるだけの残高があるミントがありません',
-
-    // Security
     security: 'セキュリティ',
     securityDesc: 'PIN変更、Face ID、自動ロック',
     autoLock: '自動ロック',
     autoLockTimeout: 'ロック時間',
     faceIdTouchId: 'Face ID / Touch ID',
+    biometric: '生体認証',
     changePin: 'PINを変更',
-
-    // Wallet Management
     walletManagement: 'ウォレット管理',
     walletManagementDesc: 'ミント、リレー、残高確認、バックアップ',
     manageMints: 'ミント管理',
     manageRelays: 'リレー管理',
-    mnemonicBackup: 'リカバリーフレーズを確認',
-
-    // TLS Test
-
-    // Logout
+    verifyBalance: '残高確認',
+    findUnusedTokens: '未使用トークンを探す',
+    mnemonicBackup: 'ニーモニックバックアップ',
+    tlsTest: 'TLS テスト',
+    tlsTestDesc: 'TransferLifecycleService のテスト',
     logout: 'ログアウト',
     version: 'Zappi v{{version}}',
-
     updateAvailable: 'アップデートがあります',
+    updateInstallHint: 'タップしてアップデート',
     checkForUpdates: 'アップデートを確認',
     updateChecking: 'アップデートを確認中',
     updateInstalling: '新しいバージョンをインストール中です',
     updateCurrent: '最新バージョンです',
     updateCheckUnavailable: 'この環境ではアップデートを確認できません',
     updateCheckFailed: 'アップデートを確認できませんでした',
-
-    // Mints
     addMint: 'ミントを追加',
-
-    // Relays
+    noMints: '登録されたミントがありません',
+    mintCount: '{{count}}個',
+    noRelays: '登録されたリレーがありません',
     relayPlaceholder: 'relay.example.com',
     relayExists: 'リレーは既に存在します',
     relayConnectionFailed: 'リレーに接続できませんでした。URLを確認してください。',
@@ -299,41 +360,25 @@ export default {
     confirmDeleteRelay: '削除しますか？',
     minRelaysRequired: '最低{{min}}個のリレーが必要です',
     minMintsRequired: '最低{{min}}個のミントが必要です',
-
-    // PIN Change
     currentPinLabel: '現在のPINを入力',
     newPinLabel: '新しいPINを入力（6桁）',
     confirmPinLabel: '新しいPINを確認',
     pinChangeError: 'PINが一致しません。',
     wrongCurrentPin: '現在のPINが間違っています。',
-
-    // Mnemonic Backup
+    change: '変更',
     enterPinLabel: 'PINを入力',
     wrongPin: 'PINが間違っています。',
     mnemonicWarning: 'このニーモニックを安全に保管してください。絶対に共有しないでください。',
-
-    // Logout
     logoutWarning: 'すべてのデータが削除されます。ニーモニックをバックアップしましたか？',
-
-    // Token Restore
+    restoreChoiceDescription: '不足しているeCashの復元方法を選択してください。',
     restoreDescription: '各ミントから未使用トークンを検索して復元します。',
     currentWalletRecovery: 'このウォレットを復元',
-    externalMnemonicRecovery: '別のリカバリーフレーズのeCashを取り込む',
-    externalMnemonicRecoveryWarning: '入力したリカバリーフレーズは保存されません。登録済みミントで見つかったeCashだけを現在のウォレットへ移します。',
-    externalMnemonicPlaceholder: 'リカバリーフレーズの12個の単語',
-    externalMnemonicRequired: 'リカバリーフレーズを入力してください。',
-    externalMnemonicWordCountRequired: 'リカバリーフレーズの12個の単語を入力してください。',
-    fullResync: 'リレー履歴を全再同期',
-    fullResyncConfirm: 'リレーから受信履歴をすべて再取得しますか？時間がかかる場合があります。',
-    fullResyncDone: '再同期が完了しました。',
-    fullResyncFailed: '再同期に失敗しました。もう一度お試しください。',
-    diagnostics: '診断',
-    diagnosticsDescription: 'トラブルシューティング用のローカルネットワークカウンターです。どこにも送信されません — サポート時に手動でコピーして共有してください。',
-    diagnosticsRefresh: '更新',
-    diagnosticsCopy: 'コピー',
-    diagnosticsCopied: 'コピーしました',
-    diagnosticsCopyFailed: 'コピー失敗',
-    diagnosticsKsNote: 'スイッチの変更は次回ロック解除から適用されます。',
+    currentWalletRecoveryDesc: 'このウォレットのニーモニックで作成されたeCashを探します。',
+    externalMnemonicRecovery: '別のニーモニックのeCashを取り込む',
+    externalMnemonicRecoveryDesc: '別のニーモニックで見つかったeCashを現在のウォレットへ移します。',
+    externalMnemonicRecoveryWarning: '入力したニーモニックは保存されません。登録済みミントで見つかったeCashだけを現在のウォレットへ移します。',
+    externalMnemonicPlaceholder: 'スキャンするニーモニックを入力',
+    externalMnemonicRequired: 'ニーモニックを入力してください。',
     registeredMints: '登録ミント: {{count}}個',
     startVerification: '検証を開始',
     startRecovery: '復元を開始',
@@ -344,66 +389,71 @@ export default {
     noRecoverableEcash: '復元できるeCashはありません。',
     verificationError: '検証中にエラーが発生しました。',
     noMintsRegistered: '登録されたミントがありません。',
-
-    // Passkey
+    passkeySetup: 'Face ID / Touch ID設定',
     passkeyDescription: '生体認証を登録するにはPINを入力してください',
     register: '登録',
     passkeyRegisterFailed: 'Passkeyの登録に失敗しました。',
     passkeyPRFNotSupported: 'このデバイスは安全な生体認証暗号化（PRF）に対応していません。',
+    passkeyRemove: 'Face ID / Touch IDの解除',
     passkeyRemoveDescription: '生体認証を解除するにはPINを入力してください',
     remove: '解除',
-
-    // Mint Delete
     deleteMint: 'ミントを削除',
     mintHasBalance: 'このミントには<bold>{{formattedBalance}}</bold>の残高があります。',
     deleteWarning: '削除すると残高にアクセスできなくなります。',
     confirmDeleteMint: '削除しますか？',
     primary: '主要',
+    position: '順序',
+    moveUp: '上へ移動',
+    moveDown: '下へ移動',
     dragToReorder: 'ドラッグして並べ替え',
     reorderHint: 'ハンドルをドラッグして並べ替えられます。キーボードではハンドルにフォーカスして上下キーを押してください。',
-
-    // Preferences
     preferences: '環境設定',
     preferencesDesc: '言語、単位、通貨、プライバシー',
-
-    // Language
     language: '言語',
-
-    // Unit Display
     unitDisplay: '単位表示',
-
-    // Fiat Currency
     fiatCurrency: '通貨',
     showFiatConversion: '法定通貨を表示',
-
-    // POS Management
+    selectCurrency: '通貨を選択',
     posManagement: 'POS管理',
     addPosDevice: 'POSデバイスを追加',
+    posDeviceCount: '{{count}}台のデバイス',
     noPosDevices: '登録されたPOSデバイスがありません',
     posProvisioningTitle: 'POSプロビジョニング',
     posProvisioningDescription: 'POSデバイスでこのQRコードをスキャンしてください。',
     posDeviceLabel: 'デバイス名',
     posDeviceLabelPlaceholder: '例: カウンター1',
+    posQrReady: 'POSデバイスに以下のQRコードを見せてください。',
     posNoLightningAddress: 'POSを登録するにはまずLightningアドレスを設定してください。',
     posProvisioningDone: 'POSデバイスの登録が完了しました。',
     posDeviceRemove: 'デバイスを削除',
     posDeviceRemoveWarning: 'このPOSデバイスは決済を受け付けられなくなります。削除しますか？',
-
-    // Privacy
     privacy: 'プライバシー',
     senderPrivacyMode: '送金プライバシーモード',
     senderPrivacyModeDescription: '手数料が高くてもミントが送受信者をリンクできない経路を選択します',
-
-    // Descriptions
+    active: '有効',
     autoLockDescription: '非アクティブ時に自動ロック',
+    faceIdDescription: '生体認証でロック解除',
+    tlsBolt11Send: 'Bolt11 Send (melt)',
+    tlsBolt11Receive: 'Bolt11 Receive (minting)',
+    tlsEcashCreate: 'Create Ecash',
+    tlsEcashRedeem: 'Redeem Ecash',
+    tlsGiftWrap: 'Receive via GiftWrap',
+    tlsCreq: 'Receive via Creq'
   },
-
-  // Add Mint Screen
   addMint: {
     title: 'ミントを追加',
+    mintUrl: 'ミントURL',
     urlPlaceholder: 'https://mint.example.com',
+    recommended: 'おすすめのミント',
+    mintDescMinibits: '安定した高速ミント',
+    mintDescCoinos: '人気の選択肢',
+    mintDescLnbits: 'LNbitsベースのミント',
+    discoverMints: 'もっとミントを探す',
+    discoverDescription: '世界中のアクティブなミントのリスト',
     worldwide: '世界のミント',
+    auditDescription: '8333.space監査サービスが提供するアクティブなミントのリストです。',
     transactions: '{{count}}件の取引',
+    added: '追加済み',
     alreadyAdded: 'ミントは既に追加されています。',
     addFailed: 'ミントの追加に失敗しました。',
     validating: 'ミントを検証中...',
@@ -411,107 +461,223 @@ export default {
     restoring: '復元するトークンを確認中...',
     loading: 'ミントリストを読み込み中...',
     loadError: 'ミントリストを読み込めませんでした。',
+    addComplete: 'ミントを追加しました！',
     recoveredTokens: '{{amount}}を回復しました！',
     hasBeenAdded: 'が追加されました。',
+    mintAddedSuccess: '新しいミントが追加されました。',
     confirmTitle: 'このミントを追加しますか？',
-    confirmAdd: '追加',
+    confirmAdd: '追加'
   },
-
-  // Scanner
   scanner: {
     title: 'スキャン',
+    inputPlaceholder: 'アドレス、インボイス、トークンを入力...',
     paste: '貼り付け',
-    loadFromPhoto: '写真から読み込む',
     validating: '確認中...',
     unrecognizedFormat: '認識できない形式です',
+    invoiceExpired: 'インボイスの有効期限が切れています',
+    invalidAddress: '無効なLightningアドレスです',
     invalidToken: '無効なイーキャッシュです',
+    invalidRequest: '無効なリクエストです',
+    offlineError: 'オフラインです。ネットワーク接続を確認してください。',
+    lnurlError: 'LNURLを確認できませんでした',
     cameraPermission: 'カメラの許可が必要です',
     cameraNotFound: 'カメラが見つかりません',
     cameraStartFailed: 'カメラを起動できません',
     cameraPreparing: 'カメラ準備中...',
     multipartScanning: 'マルチパートQRスキャン中...',
     enableCameraPermission: '設定でカメラの許可を有効にしてください',
+    flashOn: 'フラッシュON',
+    flashOff: 'フラッシュOFF',
     uploadImage: '画像からQRスキャン',
     noQrFound: 'QRコードが見つかりません',
+    invalidCashuRequest: '無効なCashuリクエストです',
+    invalidNostrProfile: '無効なNostrプロフィールです',
+    invalidNostrEvent: '無効なNostrイベントです'
   },
-
-  // Payment Screens
   payment: {
-    // Common
     selectMint: 'ミントを選択',
     selectThisMint: 'このミントを選択',
+    receiveWithThisMint: 'このミントで受け取る',
     insufficientBalance: '残高不足',
+    currentBalance: '現在: {{amount}}',
+    requiredAmount: '必要: {{amount}}',
+    mintOffline: 'ミントに接続できません。別のミントを選択してください。',
+    noAvailableMints: '利用可能なミントがありません',
+    noCompatibleMints: 'このリクエストに対応するミントがありません',
+    mintNoBalance: '必要なミントに残高がありません',
+    networkError: 'ネットワーク接続を確認してください',
+    amount: '金額',
     maxAmount: '最大: {{amount}}',
-
-    // Lightning Send
+    processing: '処理中...',
+    confirm: '確認',
+    done: '完了',
+    cancel: 'キャンセル',
+    share: '共有',
+    scan: 'スキャン',
+    paste: '貼り付け',
+    qrScan: 'QRスキャン',
+    sendComplete: '送信完了！',
+    receiveComplete: '受取完了！',
+    lightningPay: 'Lightning支払い',
+    lightningSend: 'Lightning送金',
+    recipient: '宛先',
+    destination: '宛先',
+    pay: '支払う',
     send: '送金',
+    paying: '支払い中...',
+    paymentFailed: '支払いに失敗しました',
     sendFailed: '送金に失敗しました',
     cannotSend: 'この宛先には送金できません',
-
-    // Lightning Receive
-
-    // Ecash Send
-
-    // Ecash Receive
-
-    // Token Receive
-
-    // Amount Input
-
-    // Zap
-
-    // Nostr DM
-
-    // Token Receive (additional)
-
-    // Lightning Receive (additional)
+    paymentSuccess: '支払い完了！',
+    addressOrInvoice: 'Lightningアドレスまたはインボイス',
+    addressPlaceholder: 'user@getalby.com または lnbc...',
+    lightningAddressPlaceholder: 'Lightningアドレスまたはインボイス',
+    enterDestination: '送金先アドレスを入力してください',
+    minAmountError: '最小 {{amount}}',
+    maxAmountError: '最大 {{amount}}',
+    invalidAddressOrInvoice: '無効なLightningアドレスまたはインボイスです',
+    invalidLightningAddress: '無効なLightningアドレスです',
+    cannotVerifyAddress: 'Lightningアドレスを確認できません',
+    lightningSendFailed: 'Lightning送金に失敗しました',
+    sendError: '送金中にエラーが発生しました',
+    clipboardError: 'クリップボードへのアクセスに失敗しました',
+    lightningReceive: 'Lightning受取',
+    createInvoice: 'インボイスを作成',
+    creating: '作成中...',
+    invoiceCreated: 'インボイスが作成されました',
+    waitingPayment: '支払いを待っています...',
+    shareInvoice: 'インボイスを共有',
+    copyInvoice: 'インボイスをコピー',
+    expiresIn: '{{time}}後に期限切れ',
+    paymentReceived: '支払いを受け取りました！',
+    ecashSend: 'Ecash送金',
+    memoPlaceholder: 'メモを入力（任意）',
+    ecashToken: 'Ecashトークン',
+    createToken: 'トークンを作成',
+    creatingToken: 'トークン作成中...',
+    tokenCreated: 'トークンが作成されました',
+    shareToken: 'トークンを共有',
+    copyToken: 'トークンをコピー',
+    tokenCreateFailed: 'トークンの作成に失敗しました',
+    tokenCreateError: 'トークン作成中にエラーが発生しました',
+    tokenSpent: 'トークンが受領されました',
+    tokenSpentDesc: '相手がトークンを正常に受け取りました',
+    tokenLostWarning: 'トークンを紛失すると残高を回復できません。',
+    tokenReceiveFailed: 'トークンの受取に失敗しました',
+    tokenReceiveError: 'トークン受取中にエラーが発生しました',
+    swapRequired: '{{mintName}}ミントにスワップ後送信されます。手数料が発生する場合があります。',
+    compatibleMint: '対応ミント',
+    requestedMint: '要求ミント',
+    ecashReceive: 'Ecash受取',
+    createRequest: 'リクエストを作成',
+    requestCreated: 'リクエストが作成されました',
+    shareRequest: 'リクエストを共有',
+    copyRequest: 'リクエストをコピー',
+    paymentRequest: 'Payment Request (Nostr)',
+    waitingNostrDm: 'Nostr DM待機中...',
+    tokenReceive: 'トークン受取',
+    tokenInfo: 'トークン情報',
+    tokenAmount: '金額',
+    tokenMint: 'ミント',
+    receiveToken: 'トークンを受取',
+    tokenOnly: 'Cashuトークンのみ受け取れます',
+    feeEstimateFailed: '手数料の見積もりに失敗しました',
+    tokenReclaimFailed: 'トークンの回収に失敗しました',
+    receiving: '受取中...',
+    sending: '送金中...',
+    tokenReceived: 'トークンを受け取りました！',
+    tokenAlreadySpent: 'トークンは既に使用されています',
+    enterAmount: '金額を入力',
+    amountInSats: '単位',
+    zapSend: 'Zapを送る',
+    zapTo: 'Zap先',
+    sendZap: 'Zapを送る',
+    zapping: 'Zap送信中...',
+    zapSent: 'Zapを送信しました！',
+    sendingNostrDm: 'Nostr DM送信中...',
+    sentViaNostrDm: 'Nostr DMで送信しました',
+    willSendViaNostrDm: 'Nostr DMで送信されます',
+    checkingReceipt: '受領待機中...',
+    mintAdded: 'ミントが追加されました',
+    mintAddFailed: 'ミントの追加に失敗しました',
+    trustAndReceive: 'ミントを追加して受け取る',
+    successReceived: '正常に受け取りました',
+    trustStatus: '信頼状態',
+    trusted: '信頼済み',
+    untrusted: '未登録',
+    untrustedMintWarning: 'このミントは登録されていません。トークンを受け取ると、このミントの残高になります。',
+    receiveAmountBtn: '{{unit}} {{amount}} 受取',
+    mintSelectedOffline: '選択したミントはオフラインです',
     createInvoiceFailed: 'インボイスの作成に失敗しました',
-
-    // Receive Screen
+    createInvoiceError: 'インボイスの作成に失敗しました',
+    recreateInvoice: '再作成',
+    withdrawSource: '出金元',
+    minValidation: '最小 {{amount}}',
+    maxValidation: '最大 {{amount}}',
+    creatingInvoice: 'インボイス作成中...',
+    remainingTime: '残り時間',
+    invoiceExpired: 'インボイスが期限切れです。もう一度お試しください。',
+    invoiceCreateFailed: 'インボイスの作成に失敗しました。',
+    invoiceCreateError: 'インボイス作成中にエラーが発生しました。',
+    mintOfflineWarning: 'ミントがオフラインです。このトークンはP2PKで保護されていないため、他の人が先に使用する可能性があります。ミントがオンラインの時にもう一度お試しください。',
+    tokenProcessError: 'トークン処理中にエラーが発生しました。',
+    mintTrustAddFailed: 'ミント信頼の追加に失敗しました。',
+    untrustedMintLabel: '信頼されていないミント',
+    addMintTrustQuestion: 'このミントを信頼リストに追加しますか？',
+    addingTrust: '追加中...',
+    trustMint: 'ミントを信頼',
+    reEnter: '再入力',
+    scanOrPasteToken: 'QRコードをスキャンまたはトークンを貼り付け',
+    nfc: 'NFC',
+    wave: 'ウェーブ',
+    nfcComingSoon: 'NFCによるEcash受信は近日対応予定',
+    waveComingSoon: '音波によるEcash受信は近日対応予定',
+    comingSoon: '近日公開'
   },
-
-  // Amount Action Screen
   amountAction: {
     title: '金額を選択',
     send: '送金',
     receive: '受取',
+    lightning: 'Lightning',
+    ecash: 'Ecash'
   },
-
-  // Transfer Screen
   transfer: {
     title: '残高移動',
     from: '送金元ミント',
     to: '送金先ミント',
+    transferAmount: '送金額',
     swap: '送金',
     swapping: '送金中...',
+    swapComplete: '送金完了！',
     swapFailed: '送金に失敗しました',
     sameMintsError: '同じミントには送金できません',
+    selectDifferentMint: '別のミントを選択してください',
+    estimatedFee: '予想手数料: ~{{amount}}',
     transferAll: '全額',
     quoting: '見積もり中...',
     melting: '出金中...',
     minting: '入金中...',
-    transferComplete: '送金完了！',
+    transferComplete: '送金完了！'
   },
-
-  // History Screen
   history: {
     title: '取引履歴',
     noTransactions: '取引履歴がありません',
     all: 'すべて',
+    sent: '送金',
+    received: '受取',
     pending: '保留中',
+    failed: '失敗',
     today: '今日',
     yesterday: '昨日',
     anchor: {
       today: '{{weekday}} · 今日',
       yesterday: '{{weekday}} · 昨日',
       monthSameYear: '月',
-      monthOtherYear: '{{year}}.{{month02}}',
+      monthOtherYear: '{{year}}.{{month02}}'
     },
     timeAt: '{{time}}',
     dayWithTime: '{{day}}日 {{time}}',
     endOfList: 'すべての履歴を確認しました。',
-
-    // Transaction Types
     lightningReceive: '受取 (Lightning)',
     lightningSend: '送金 (Lightning)',
     ecashReceive: '受取 (eCash)',
@@ -523,15 +689,13 @@ export default {
     requestPay: 'Ecash決済送金',
     nutzap: 'NutZap',
     swap: 'スワップ',
-
-    // Status
     completed: '完了',
     pendingStatus: '処理中',
     failedStatus: '失敗',
-
-    // Redesigned history screen
+    andMore: '他{{count}}件',
     income: '入金',
     expense: '出金',
+    pendingTab: '保留中',
     filterType: '種類',
     searchPlaceholder: '検索',
     noTransactionsDesc: '取引が発生するとここに表示されます',
@@ -543,20 +707,20 @@ export default {
     mintFilter: 'ウォレット選択',
     allMints: 'すべてのウォレット',
     mintCount: '{{count}}件のウォレット',
-
-    // Export
     export: 'エクスポート',
     exportSuccess: 'ファイルが保存されました',
     exportEmpty: 'エクスポートする取引がありません',
     exportFileName: '取引履歴',
     exportCsvDesc: 'Excel、Numbers、Google Sheetsで開けます',
     exportCount: '{{count}}件の取引',
-    exportDownload: 'ダウンロード',
+    exportDownload: 'ダウンロード'
   },
-
-  // Transaction Detail Screen
   txDetail: {
+    title: '取引詳細',
     type: '種類',
+    time: '時刻',
+    completedAt: '完了時刻',
+    failedAt: '失敗時刻',
     mint: 'Mint',
     source: '送信元',
     memo: 'メモ',
@@ -570,60 +734,64 @@ export default {
     toMint: '送信先Mint',
     txId: '取引ID',
     details: '詳細情報',
-
-    // Sources
     'source.zappi-pos': 'Zappi POS',
     'source.zappi-kiosk': 'Zappi Kiosk',
     'source.zappi-api': 'Zappi API',
     'source.zappi-link': 'Zappi Link',
     'source.wallet': 'ウォレット',
     'source.unknown': '外部',
-
-    // Token lifecycle
+    tokenState: 'トークン状態',
+    'tokenState.unspent': '未受領',
+    'tokenState.pending': '処理中',
+    'tokenState.spent': '受領済み',
+    'tokenState.unknown': '確認が必要',
+    checkState: '状態確認',
+    checking: '確認中...',
+    reclaim: '回収',
     reclaiming: '回収中...',
     reclaimSuccess: 'eCashを回収しました',
     reclaimFailed: 'eCashの回収に失敗しました',
+    alreadySpent: 'すでに受領済みのeCashです',
     consumedByRecipient: '相手がすでに受領しました',
+    tokenPending: 'eCashは処理中です',
+    cancelSend: '送金をキャンセル',
     sentToken: '送信eCash',
+    receivedToken: '受信eCash',
+    copyToken: 'eCashをコピー',
+    share: '共有',
     copied: 'コピーしました',
     delete: '削除',
     deleteConfirm: 'この取引記録を削除しますか？',
     deleteWarning: '削除後は元に戻せません。',
-
-    // Context sentences
+    receivedFrom: '{{mint}}から受取',
     receivedToWallet: '{{wallet}}に受取',
     sentViaLightning: '{{address}}に送金',
     sentEcash: 'eCash送金',
     tokenCreated: 'eCash作成',
+    receivedEcash: 'eCash受取',
     swappedAt: '{{mint}}でスワップ',
     swappedFromTo: '{{from}} → {{to}} スワップ',
     receivedFromPOS: '{{name}}から受取',
+    unclaimedNotice: 'まだ受領されていません',
     reclaimAction: 'eCashを回収',
-
-    // Section titles
     txInfo: '取引情報',
     paymentInfo: '支払い情報',
     swapInfo: 'スワップ情報',
-
-    // Kiosk order
     orderItems: '注文内容',
     orderTotal: '合計',
-
-    // Fiat
+    fiatValue: '法定通貨換算'
   },
-
-  // Analytics Screen
   analytics: {
     title: '分析',
     overview: '概要',
     totalReceived: '総受取額',
     totalSent: '総送金額',
+    transactionCount: '取引数',
     thisWeek: '今週',
     thisMonth: '今月',
-    noData: 'データがありません',
+    allTime: '全期間',
+    noData: 'データがありません'
   },
-
-  // Notifications Screen
   notifications: {
     title: '通知',
     noNotifications: '通知はありません',
@@ -641,11 +809,14 @@ export default {
     hourAgo: '{{count}}時間前',
     hoursAgo: '{{count}}時間前',
     dayAgo: '{{count}}日前',
-    daysAgo: '{{count}}日前',
+    daysAgo: '{{count}}日前'
   },
-
-  // PWA Install
   pwa: {
+    installTitle: 'Zappiをインストール',
+    installDescription: 'ホーム画面に追加して簡単にアクセス',
+    install: 'インストール',
+    later: '後で',
+    iosInstructions: 'Safariの共有ボタンをタップし、「ホーム画面に追加」を選択してください',
     tagline: 'Bitcoinの支払いを簡単・高速に',
     installRequired: 'アプリのインストールが必要です',
     installRequiredDesc: 'ZAPPIはPWAアプリとしてインストールして使用する必要があります。\nオフラインでも動作し、より高速な体験を提供します。',
@@ -666,45 +837,8 @@ export default {
     desktopBrowserSupport: 'Chrome、Edge、Safariなどほとんどのブラウザで対応しています。',
     afterInstall: 'インストール後、ホーム画面のZAPPIアイコンをタップして起動してください。',
     devBypass: '（開発モード）PWAなしで続行',
-    desktopBrowser: 'デスクトップブラウザ',
-    guard: {
-      subtitle: 'Bitcoin eCashウォレット',
-      installTitle: 'ホーム画面に追加',
-      installReason: '安全な決済のためアプリのインストールが必要です',
-      installButton: 'アプリをインストール',
-      devSkip: 'インストールをスキップ（開発用）',
-      ios: {
-        title: 'Safariで',
-        step1: '下部の共有ボタンをタップ',
-        step2: '「ホーム画面に追加」を選択',
-        step3: '右上の「追加」をタップ',
-      },
-      android: {
-        title: 'Chromeで',
-        step1: '右上のメニューアイコンをタップ',
-        step2: '「アプリをインストール」または「ホーム画面に追加」を選択',
-      },
-      desktopSafari: {
-        title: 'Safariで',
-        step1: 'メニューバー >「ファイル」を開く',
-        step2: '「Dockに追加...」を選択',
-        footnote: 'または 共有 > Dockに追加（Sonoma以降）',
-      },
-      desktopEdge: {
-        title: 'Edgeで',
-        step1: '右上の「...」メニューをクリック',
-        step2: '「アプリ」>「このサイトをアプリとしてインストール」を選択',
-      },
-      desktopChrome: {
-        title: 'Chromeで',
-        step1: '右上のメニューアイコンをクリック',
-        step2: '「保存して共有」>「ページをアプリとしてインストール」を選択',
-        footnote: 'またはアドレスバーのインストールアイコンをクリック',
-      },
-    },
+    desktopBrowser: 'デスクトップブラウザ'
   },
-
-  // Errors
   errors: {
     generic: 'エラーが発生しました。',
     network: 'ネットワーク接続を確認してください。',
@@ -728,7 +862,6 @@ export default {
     insufficientBalance: '残高が不足しています (必要: {{required}}  保有: {{available}})',
     insufficientBalanceForFee: '残高が不足しています (必要: {{required}} + 手数料  保有: {{available}})',
     mintConnection: '{{mint}}に接続できません',
-    keysetSyncFailed: 'ミントのキーセット鍵をダウンロードできませんでした',
     mintError: 'ミントでエラーが発生しました',
     invalidToken: '無効なトークンです',
     invalidProof: '送金を処理できませんでした。しばらくしてからもう一度お試しください。',
@@ -751,28 +884,52 @@ export default {
     networkError: 'ネットワークエラーが発生しました',
     timeoutError: 'リクエストがタイムアウトしました',
     unknownError: '不明なエラーが発生しました',
-    adapterNotFound: 'この操作に使える決済手段が見つかりません',
-    serviceNotReady: 'サービスを準備しています。しばらくしてからもう一度お試しください。',
-    invalidDestination: '認識できない送金先アドレスです',
-    unrecognizedInput: '認識できない入力形式です',
-    lnurlParseFailed: 'このLNURLは処理できません',
-    transferStateInvalid: 'この送金はこれ以上処理できません',
-    receiveRequestInvalid: '無効な受取リクエストです',
-    supportTicketResolved: 'このお問い合わせはすでに解決済みです',
+    keysetSyncFailed: 'Failed to download mint keyset keys',
+    adapterNotFound: 'No payment method available for this operation',
+    serviceNotReady: 'Service is starting up — try again in a moment.',
+    invalidDestination: 'Unrecognized destination address',
+    unrecognizedInput: 'Unrecognized input format',
+    lnurlParseFailed: 'Could not process this LNURL',
+    transferStateInvalid: 'This transfer can no longer be processed',
+    receiveRequestInvalid: 'Invalid receive request',
+    supportTicketResolved: 'This support ticket is already resolved'
   },
-
-  // Redirect
   redirect: {
     toReceive: '受取画面に移動します',
+    toSend: '送金画面に移動します'
   },
-
-  // Toast Messages
   toast: {
     copied: 'クリップボードにコピーしました',
+    saved: '保存しました',
+    deleted: '削除しました',
+    paymentSuccess: '支払い完了',
+    paymentFailed: '支払いに失敗しました',
+    tokenReceived: 'トークンを受け取りました',
+    ecashRecovered: '{{count}}件のEcash決済が復元されました（{{amount}}）',
     ecashReceivedFromSync: '{{count}}件のEcash決済を受け取りました（{{amount}}）',
+    lightningArrived: '{{count}}件のLightning決済が到着しました',
+    offlineTokensRedeemed: '{{count}}件のオフライントークンが受取されました',
     lightningReceived: '{{unit}} {{amount}} Lightning決済が到着しました',
+    lightningPaymentComplete: '{{unit}} {{amount}} Lightning決済完了',
+    lightningSendFailed: 'Lightning送信に失敗しました',
+    lightningSendComplete: '{{unit}} {{amount}} 送信完了（手数料: {{feeUnit}} {{fee}}）',
+    invoiceCreateFailed: 'インボイスの作成に失敗しました',
+    invoiceCreateOffline: 'オフライン時はインボイスを作成できません',
+    tokenReceivedAmount: '{{amount}} 受取完了',
+    tokenReclaimedAmount: '{{amount}} 回収完了',
+    paymentRequestFailed: 'Payment requestの作成に失敗しました',
+    sendComplete: '{{amount}} 送信完了',
+    swapComplete: '{{amount}} スワップ完了（手数料: {{fee}}）',
     swapOffline: 'オフライン時はスワップできません',
+    offlineCannotPay: 'オフライン時は決済できません',
     balanceLoadFailed: '残高の読み込みに失敗しました',
+    syncComplete: '{{count}}件のイベント処理完了',
+    syncErrors: '{{count}}件のエラーが発生',
+    syncFailed: '同期に失敗しました',
+    noRelays: 'リレーが設定されていません',
+    retrySuccess: '{{count}}件の再試行に成功',
+    retryPartialFail: '{{count}}件の再試行に失敗',
+    retryFailed: '再試行に失敗しました',
     paymentCompleted: '{{amount}} 支払い完了',
     paymentCompletedWithFee: '{{amount}} 支払い完了（手数料: {{fee}}）',
     swapCompleted: '{{amount}} スワップ完了（手数料: {{fee}}）',
@@ -787,44 +944,64 @@ export default {
     offlineStatus: 'オフライン状態です',
     transferSettled: '転送完了',
     transferReclaimed: '転送回収完了',
-    tokenClaimed: 'イーキャッシュ {{amount}} が使用されました',
-    tokenClaimedWithMemo: 'イーキャッシュ {{amount}} が使用されました · {{memo}}',
+    incomingTransferProcessed: '受信転送処理完了'
   },
-
-  // Mint Details
   mintDetails: {
+    mintBalance: 'ミント残高',
+    mintInfo: 'ミント情報',
     description: '説明',
     motd: 'お知らせ',
     supportedNuts: '対応NUTs',
+    contact: '連絡先',
+    loadingInfo: '情報を読み込み中...',
     loadError: 'ミント情報を取得できませんでした。',
+    deleteConfirm: '削除を確認',
     deleteMint: 'ミントを削除',
+    balanceWarning: 'このミントに{{formattedAmount}}が残っています。削除する前に他のミントへ送金することをお勧めします。'
   },
-
-  // Send
   send: {
     title: '送金',
+    fromMint: '送金ミント',
+    fromMintPrefix: '',
+    fromMintSuffix: 'から',
+    whereTo: 'どこに送りますか？',
+    placeholder: 'アドレスまたはインボイスを入力',
+    howMuch: 'いくら送りますか？',
+    createToken: 'トークンを作成',
     next: '次へ',
+    myWallet: '自分のウォレットに送る',
     noOtherWallets: '他のウォレットがありません',
     myWalletList: '自分に送る',
+    sameWalletError: '同じウォレットには送れません',
     amountRequired: '金額を入力してください',
+    destinationRequired: '送金先を入力してください',
     destination: {
+      accountFrom: '<b>{{mint}}</b>から',
       whoToSend: '誰に送りますか？',
       placeholder: 'アドレスまたはインボイスを入力',
+      hint: '<b>ライトニングアドレス</b>、<b>インボイス</b>、<b>Cashu リクエスト</b>を貼り付けるかスキャンできます',
       unrecognized: '認識できないアドレス形式です',
       invalidCashuToken: '無効な Cashu トークン形式です',
       validationFailed: 'アドレスを確認できません',
+      lnurlWithdrawNotSupported: '出金リンクです。支払いアドレスではありません',
       ecashInfoNotFound: 'eCash受取情報が見つかりません。',
       noCommonMint: '相手が受け取れる共通ミントがありません。',
       relayNotFound: '相手へ送るためのリレー情報が見つかりません。',
-      selectedMintUnavailable: '{{mint}}は相手が受け取れません。下のミントから送れます。',
+      selectedMintUnavailable: '{{mint}}は相手が受け取れません。下のミントから送れます。'
     },
     amount: {
+      sendTo: '{{destination}}へ',
       howMuchSend: 'いくら送りますか？',
+      balancePill: '残高 · {{balance}}',
       addMemo: 'メモ（任意）',
+      memoPlaceholder: '任意'
     },
     tokenCreate: {
+      title: 'イーキャッシュ作成',
       howMuch: 'いくら分のイーキャッシュを作りますか？',
       amountCaption: 'イーキャッシュはビットコインを商品券のように手渡せる仕組みです',
+      memo: 'メモ',
+      requestAmount: 'リクエスト',
       memoPlaceholder: 'メモ（任意）',
       confirmTitle: '作成の確認',
       confirmQuestion: '<b>{{mint}}</b>から<b>{{amount}}</b>の\nイーキャッシュを作りますか？',
@@ -845,86 +1022,168 @@ export default {
       share: '共有',
       reclaim: '取り戻す',
       reclaiming: '取り戻し中…',
-      reclaimWithFee: '取り戻す（受取手数料 {{fee}}）',
+      reclaimWithFee: '取り戻す（受取手数料 {{fee}}）'
     },
     confirm: {
       title: '送金確認',
+      question: '{{recipient}}に送りますか？',
       method: '送金方法',
       sourceMint: '送金ウォレット',
       recipient: '受取人',
       memo: 'メモ',
-      requestAmount: '請求額',
       estimatedFee: '予想手数料',
       total: '合計',
       send: '送金',
       transfer: '移動する',
       internalTransfer: '残高移動',
       targetWallet: '受取ウォレット',
+      transferQuestionEnd: '移動しますか？',
       fullQuestion: '<b>{{mint}}</b>から\n<b>{{recipient}}</b>へ\n{{amount}}を\n送りますか？',
       fullRequestQuestion: '<b>{{mint}}</b>から\n{{amount}}を\n送りますか？',
       fullTransferQuestion: '<b>{{mint}}</b>から\n<b>{{target}}</b>へ\n{{amount}}を\n移動しますか？',
+      feeEstimateFailed: '手数料を確認できません',
+      toSuffix: 'に',
       recipientTo: '<b>{{recipient}}</b>に',
+      amountSuffix: 'を',
+      questionEnd: '送りますか？',
       lightningInvoice: 'Lightning インボイス',
       ecashRequest: 'eCash 支払いリクエスト',
+      requestAmount: 'Request'
     },
     sending: {
+      message: '{{destination}}へ送金中',
+      inProgress: '送金中です...',
       fullMessage: '<b>{{recipient}}</b>へ\n{{amount}}を\n送金中です...',
       fullRequestMessage: '{{amount}}を\n送金中です...',
-      networkDelay: 'ネットワーク状況により時間がかかる場合があります',
+      networkDelay: 'ネットワーク状況により時間がかかる場合があります'
     },
     complete: {
+      message: '{{destination}}に\n{{amount}}の送金が完了しました',
+      sent: '送金しました!',
       fullMessage: '<b>{{recipient}}</b>へ\n{{amount}}を\n送金しました!',
       fullRequestMessage: '{{amount}}を\n送金しました!',
       confirm: '完了',
-    },
+      details: '詳細'
+    }
   },
-
-  // Receive
   receive: {
     title: '受取',
+    senderMethod: '送り主の方法は？',
+    lightning: 'Lightning',
+    ecash: 'eCash',
+    toMint: '入金ミント',
+    toMintPrefix: '',
+    toMintSuffix: 'へ',
+    howMuch: 'いくら受け取りますか？',
+    memoPlaceholder: 'メモ（任意）',
+    receiveToken: 'トークンを受取',
+    createRequest: 'リクエスト作成',
+    scanQr: 'QRコードをスキャン',
+    tokenInput: 'トークン入力',
+    tokenInputPlaceholder: 'トークンを入力してください',
     next: '次へ',
     amountRequired: '金額を入力してください',
+    tokenInputStep: {
+      accountTo: '<b>{{mint}}</b>へ',
+      haveToken: '受け取るトークンがありますか？',
+      placeholder: 'トークン入力',
+      hint: 'トークンがなければ<b>インボイス</b>を作成して支払いを請求できます'
+    },
     amountStep: {
       howMuchRequest: 'いくらリクエストしますか？',
       addMemo: 'メモ（任意）',
+      memoPlaceholder: '任意'
     },
     qr: {
       title: '受取',
       protocols: {
         unified: '統合',
         cashu: 'Cashu',
-        lightning: 'Lightning',
+        lightning: 'Lightning'
       },
+      showToSender: '送り主にこれを見せてください',
       share: '共有',
+      willNotify: '{{mint}}に入金されたらお知らせします',
+      depositNotify: 'が入金されたらお知らせします',
       fullMessage: '{{amount}}が入金されたらお知らせします',
+      cancel: 'キャンセル'
+    },
+    transport: {
+      nostrAndHttp: 'Nostr + HTTP 待機中',
+      httpOnly: 'HTTP 待機中 (Nostr 切断)',
+      nostrOnly: 'Nostr 待機中',
+      unified: 'Lightning + eCash 待機中',
+      lightningOnly: 'Lightning 待機中'
     },
     complete: {
+      message: '{{mint}}に\n{{amount}}入金されました',
+      received: ' 入金されました!',
       fullMessage: '{{amount}} 入金されました!',
       requestFulfilledMessage: 'リクエストした{{amount}}\n到着しました!',
-      done: '完了',
+      done: '完了'
     },
     token: {
       title: 'トークン確認',
+      canReceive: '{{mint}}から\n{{amount}}\n受け取りますか？',
+      fullConfirmQuestion: '<b>{{mint}}</b>へ\n{{amount}}\n受け取りますか？',
       receiveMint: '受取ミント',
+      amount: '金額',
       receive: '受取',
+      confirmQuestion: '受け取りますか？',
+      crossMintQuestion: '{{amount}}を\nどこで受け取りますか？',
+      tokenFrom: 'このトークンは{{mint}}で作られました',
+      tokenFromSuffix: ' ミントで作られたトークンです',
+      receiveDirectly: '{{mint}}ミントで受取',
+      receiveDirectlySub: 'スワップせず元のミントで受取ります',
+      receiveViaSwap: '{{mint}}に変換して受取',
+      receiveViaSwapSub: 'Lightning手数料がかかります',
       reject: '受け取らない',
+      rejectSub: 'このトークンは引き換えません',
+      fee: '手数料',
       netAmount: '受取金額',
+      noFee: '手数料なし',
+      feeApplies: '⚡ 手数料あり'
     },
     untrusted: {
       title: 'トークン確認',
       unregistered: '未登録ミント',
+      warningFrom: '未登録の\n{{mint}}から',
       warningNeedConfirm: '{{amount}}を受け取るには\n確認が必要です。',
+      explanation: '信頼できるミントの場合だけ追加してください。\nそうでなければトークンを拒否してください。',
       addAndReceive: 'ミントを追加して受取',
       addAndReceiveSub: 'このミントを信頼します',
       reject: '受け取らない',
-      rejectSub: 'このトークンを受け取りません',
+      rejectSub: 'このトークンを受け取りません'
     },
+    offline: {
+      p2pkAccepted: 'P2PKで保護されたトークンです。オフラインで安全に受取でき、再接続時に自動検証されます。',
+      dleqMissing: 'DLEQ検証ができません。トークンの真正性を確認できないリスクがあります。それでも受取りますか？',
+      dleqFailed: 'DLEQ検証に失敗しました。偽造トークンの可能性があるため受取できません。',
+      nonP2PKError: 'オフラインではP2PKで保護されたトークンのみ受取可能です。接続後に再試行してください。',
+      untrustedNeedsOnline: '未登録ミントからのトークンを受取るにはインターネット接続が必要です。',
+      receiveOffline: 'オフラインで受取',
+      acceptAnyway: 'リスクを承知で受取'
+    },
+    swapFeeTooHigh: 'スワップ手数料（{{fee}}）がトークン金額（{{amount}}）以上のため受け取れません',
+    swapTokenTooSmall: 'このトークンは自分のミントへスワップするには少額すぎます。元のミントで直接受け取るか、より大きいトークンを使用してください。',
     tokenReceiveFeeTooHigh: '受取手数料を差し引くと受け取れる金額が残りません。',
+    swapEstimateFailed: 'スワップ経路を確認できなかったため、トークンを受け取りませんでした。後でもう一度試すか、元のミントで直接受け取ってください。',
+    swapReceiveKeptOnSource: '{{amount}}を自分のミントへ移動できなかったため、元のミントに残っています。',
+    swapCompletedWithSourceRemainder: 'スワップは完了しましたが、Lightning手数料の調整により{{amount}}が元のミントに残っています',
+    swapCompletedWithHiddenSourceRemainder: 'スワップは完了しましたが、{{mint}}に{{amount}}が残っています。残額にアクセスするにはこのミントを追加してください。',
+    sourceRecovery: {
+      title: '自分のミントへ移動できませんでした',
+      description: '{{amount}}は{{mint}}に保管されています。Zappiでこの残高を表示して使いたい場合だけ、このミントを追加してください。',
+      mint: '元のミント',
+      addMint: 'ミントを追加して残高を見る',
+      later: '後で'
+    }
   },
-
-  // Mint Detail Screen
   mintDetail: {
     title: 'ミント詳細',
+    send: '送金',
+    receive: '受取',
+    swap: 'スワップ',
     pendingItems: '保留中の項目',
     pending: '保留中',
     seeMore: 'もっと見る',
@@ -934,25 +1193,32 @@ export default {
     receiveRequest: '受取リクエスト',
     sentToken: '未受領トークン',
     expiresIn: '{{time}}後に期限切れ',
+    created: '作成: {{date}}',
     noPendingItems: '保留中の項目はありません',
     noTransactions: '取引履歴はありません',
+    editName: '名前を変更',
+    namePlaceholder: '名前を入力してください',
     duplicateName: 'この名前はすでに使用されています',
     defaultName: 'ミント {{number}}',
     mintInfo: 'ミント情報',
     announcement: 'お知らせ',
     description: '説明',
     mintUrl: 'ミントURL',
+    mintContact: 'ミント連絡先',
+    details: '詳細',
     version: 'バージョン',
     units: '対応単位',
     supportedProtocols: '対応プロトコル',
     viewAll: 'すべて見る',
     copy: 'コピー',
     copied: 'コピーしました',
+    showQr: 'QR表示',
     cardName: 'カード名',
     cardColor: 'カードの色',
     cardDesign: 'カードデザイン',
     cardDesignClassic: 'クラシック',
     cardDesignModern: 'モダン',
+    dangerZone: '危険ゾーン',
     emptyAndDelete: '残高を空にしてミントを削除',
     deleteMint: 'ミント削除',
     deleteConfirmMessage: '本当にこのミントを削除しますか？',
@@ -963,6 +1229,7 @@ export default {
     emptyAndDeleteBtn: '空にして削除',
     forceDeleteBtn: '強制削除',
     forceDeleteDescription: '{{mint}}に残っている{{amount}}は今後復元できません。\n\n本当に強制削除しますか？',
+    deleteComplete: '{{mint}}を空にして削除しました。',
     swapping: '残高を移動中...',
     swapFailed: '残高の移動に失敗しました。もう一度お試しください。',
     retry: '再試行',
@@ -970,20 +1237,20 @@ export default {
     no: 'いいえ',
     delete: '削除',
     pendingAll: '保留中の項目',
+    tabAll: 'すべて',
     tabRequest: 'リクエスト',
     tabToken: 'トークン',
+    unclaimedTokens: '未受取トークン',
+    pendingRequests: '保留中のリクエスト',
     filterType: '種類',
     search: '検索',
     pendingExpiry: '有効期限',
-    pendingExpired: '期限切れ',
+    pendingExpired: '期限切れ'
   },
-
-  // Pending Item Actions
   pending: {
     redeemAction: '今すぐ受け取る',
     redeemSuccess: 'トークンを受け取りました',
     redeemFailed: '受け取りに失敗しました',
-    expiredRemoved: '期限切れのリクエストを削除しました',
     reclaimAction: 'トークン回収',
     payment: '決済',
     unified: '統合',
@@ -991,28 +1258,25 @@ export default {
     lightningInvoice: 'ライトニングインボイス',
     quoteStatus: 'ステータス',
     redeemQuote: '手動受領',
+    expiredRemoved: 'Expired request removed'
   },
-
-  // Error Boundary
   error: {
     unexpectedTitle: '予期しないエラーが発生しました',
     unexpectedMessage: 'アプリでエラーが発生しました。リロードしてもう一度お試しください。',
-    reload: 'リロード',
+    reload: 'リロード'
   },
-
   nav: {
     wallet: 'ウォレット',
     token: 'イーキャッシュ',
     contacts: '連絡先',
-    settings: '設定',
+    settings: '設定'
   },
-
   token: {
     create: '作る',
     register: '受け取る',
     empty: {
       title: '作成したイーキャッシュがありません。\nイーキャッシュを作ってみましょう。',
-      footerNote: 'イーキャッシュは現金のように機能します。持っている人なら誰でも登録して使えます。',
+      footerNote: 'イーキャッシュは現金のように機能します。持っている人なら誰でも登録して使えます。'
     },
     time: {
       justNow: 'たった今',
@@ -1021,32 +1285,33 @@ export default {
       yesterday: '昨日',
       daysAgo: '{{count}}日前',
       atTimeOfDay: '{{time}}',
-      dayWithTime: '{{day}}日 {{time}}',
+      dayWithTime: '{{day}}日 {{time}}'
     },
     pending: {
-      timeLabel: '待機中 · {{time}}',
+      timeLabel: '待機中 · {{time}}'
     },
     pendingWidget: {
       title: '待機中',
       summary: '{{count}}個 · 合計 {{total}}',
-      viewAll: '待機中を見る',
+      viewAll: '待機中を見る'
     },
     pendingEmpty: {
       title: 'すべて片付きました',
-      subtitle: '待機中のイーキャッシュはありません',
+      subtitle: '待機中のイーキャッシュはありません'
     },
     reclaimable: {
       section: '取り戻せます ({{count}})',
+      viewAll: 'すべて表示 >',
       actions: {
         reclaim: '取り戻す',
-        share: '共有',
+        share: '共有'
       },
       shareText: '{{memo}}: {{amount}}',
-      copiedToClipboard: 'クリップボードにコピーしました',
+      copiedToClipboard: 'クリップボードにコピーしました'
     },
     firstCreate: {
       hint: '作成しましたが、まだ登録されていないイーキャッシュです。\n相手が受け取っていないか、まだ登録していない可能性があります。',
-      dismiss: '今後表示しない',
+      dismiss: '今後表示しない'
     },
     reclaim: {
       title: '取り戻す',
@@ -1056,25 +1321,30 @@ export default {
       summaryNet: '受取金額',
       confirm: '取り戻す',
       success: '正常に取り戻しました',
-      failed: '取り戻しに失敗しました',
+      failed: '取り戻しに失敗しました'
     },
     history: {
       section: '履歴',
-      deleteSuccess: '履歴を削除しました',
-      deleteFailed: '履歴を削除できませんでした',
+      group: {
+        today: '今日',
+        yesterday: '昨日',
+        thisMonth: '今月',
+        older: 'それ以前'
+      },
       anchor: {
         today: '{{weekday}} · 今日',
         yesterday: '{{weekday}} · 昨日',
         monthSameYear: '月',
-        monthOtherYear: '{{year}}.{{month02}}',
+        monthOtherYear: '{{year}}.{{month02}}'
       },
       subLine: '{{status}} · {{time}}',
       endOfList: 'すべての履歴を確認しました。',
+      metaLine: '{{time}}, {{memo}}',
       status: {
         registered: '登録',
         consumed: '使用済み',
-        reclaimed: '取り戻し',
-      },
+        reclaimed: '取り戻し'
+      }
     },
     detail: {
       unread: '未読のイーキャッシュ',
@@ -1082,7 +1352,7 @@ export default {
         pending: '待機中のイーキャッシュ',
         registered: 'イーキャッシュ登録完了',
         consumed: 'イーキャッシュ使用済み',
-        reclaimed: 'イーキャッシュの取り戻し完了',
+        reclaimed: 'イーキャッシュの取り戻し完了'
       },
       weekday: {
         sun: '日曜日',
@@ -1091,13 +1361,13 @@ export default {
         wed: '水曜日',
         thu: '木曜日',
         fri: '金曜日',
-        sat: '土曜日',
+        sat: '土曜日'
       },
       dateLine: {
         pending: '{{year}}年{{month}}月{{day}}日 {{weekday}}\n{{time}}に作成',
         registered: '{{year}}年{{month}}月{{day}}日 {{weekday}}\n{{time}}に登録',
         consumed: '{{year}}年{{month}}月{{day}}日 {{weekday}}\n{{time}}に作成',
-        reclaimed: '{{year}}年{{month}}月{{day}}日 {{weekday}}\n{{time}}に取り戻し',
+        reclaimed: '{{year}}年{{month}}月{{day}}日 {{weekday}}\n{{time}}に取り戻し'
       },
       amountLabel: '金額',
       feeLine: '手数料 {{fee}}',
@@ -1108,23 +1378,24 @@ export default {
         pending: 'イーキャッシュ作成',
         registered: 'イーキャッシュ登録',
         consumed: 'イーキャッシュ使用',
-        reclaimed: 'イーキャッシュ取り戻し',
+        reclaimed: 'イーキャッシュ取り戻し'
       },
       mintLabel: {
         pending: '出金ミント',
         registered: '入金ミント',
         consumed: '発行ミント',
-        reclaimed: '入金ミント',
+        reclaimed: '入金ミント'
       },
       action: {
         forward: 'イーキャッシュを転送',
-        confirm: 'イーキャッシュを確認',
+        confirm: 'イーキャッシュを確認'
       },
+      confirmLink: 'イーキャッシュを確認',
       actions: {
         qr: 'QR',
         copy: 'コピー',
         share: '共有',
-        viewRaw: 'イーキャッシュの原文',
+        viewRaw: 'イーキャッシュの原文'
       },
       reclaimCta: '取り戻す（手数料: {{fee}}）',
       raw: {
@@ -1133,21 +1404,13 @@ export default {
         unit: '単位',
         receiveFee: '受取手数料',
         empty: 'イーキャッシュデータがありません。',
-        easterEgg: 'ZAPPI X CASHU',
+        easterEgg: 'ZAPPI X CASHU'
       },
       qr: {
-        title: 'QR共有',
-      },
-    },
-    rawSheet: {
-      delete: '履歴を削除',
-      deleteConfirm: '履歴を削除しますか？',
-      deleting: '削除中…',
-      yes: 'はい',
-      no: 'いいえ',
-    },
+        title: 'QR共有'
+      }
+    }
   },
-
   tokenRegister: {
     title: 'イーキャッシュ登録',
     inputHeading: 'イーキャッシュを貼り付けまたはスキャンして\n登録できます。',
@@ -1157,8 +1420,11 @@ export default {
     scan: 'スキャン',
     arrived: 'イーキャッシュが届きました！',
     receiving: '受け取り中…',
+    swapping: 'スワップ中…',
+    receiveToMyMint: '自分のミントで受け取る',
+    unknownMintHint: '知らないミントなら追加せず\n自分のミントで受け取ることもできます。',
+    swapFeeHint: 'スワップ手数料がかかる場合があります'
   },
-
   contacts: {
     title: '連絡先',
     addContact: '連絡先を追加',
@@ -1168,6 +1434,8 @@ export default {
     namePlaceholder: '連絡先の名前',
     address: 'アドレス',
     addressPlaceholder: 'ライトニングアドレス、npubなど',
+    memoPlaceholder: 'メモ',
+    optional: '任意',
     nameRequired: '名前を入力してください',
     addressRequired: 'アドレスを入力してください',
     emptyTitle: '連絡先がありません',
@@ -1182,7 +1450,7 @@ export default {
       noNutzapInfo: 'このnpubにNutZap情報がありません',
       noMints: 'このnpubに登録されたミントがありません',
       noRelay: 'このnpubのリレー情報が見つかりません',
-      decodeFailed: 'アドレスのデコードに失敗しました',
-    },
-  },
-}
+      decodeFailed: 'アドレスのデコードに失敗しました'
+    }
+  }
+} as const

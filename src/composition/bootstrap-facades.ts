@@ -1,7 +1,7 @@
 /**
  * Facade / new-service assembly: crypto/inputParser/routing, the mint
  * metadata·health·info facades (kill-switch branches), reclaim/transactionMgmt/
- * routeExecution, paymentRequest, username, trustRegistry, nostrDirectPayment,
+ * routeExecution, paymentRequest, paymentAlias, trustRegistry, nostrDirectPayment,
  * externalWalletRecovery, support.
  */
 
@@ -29,7 +29,7 @@ import { MintHealthFacadeService } from "@/core/services/mint-health-facade.serv
 import { TransactionMgmtService } from "@/core/services/transaction-mgmt.service";
 import { ReclaimService } from "@/core/services/reclaim.service";
 import { PaymentRequestService } from "@/core/services/payment-request.service";
-import { UsernameService } from "@/core/services/username.service";
+import { PaymentAliasService } from "@/core/services/payment-alias.service";
 import { TrustRegistryService } from "@/core/services/trust-registry.service";
 import { NostrDirectPaymentService } from "@/core/services/nostr-direct-payment.service";
 import { RouteExecutionService } from "@/core/services/route-execution.service";
@@ -49,10 +49,9 @@ import {
   unmarkQuoteAsSwap,
 } from "@/modules/cashu";
 
-import { ZappiLinkAdapter } from "@/adapters/zappi-link/zappi-link.adapter";
-import { finalizeEvent } from "nostr-tools";
-import { hexToBytes } from "@noble/hashes/utils.js";
-import { NOSTR_KINDS } from "@/core/constants";
+import { NpubcashAdapter } from "@/adapters/npubcash/npubcash.adapter";
+import { Secp256k1NostrSignerAdapter } from "@/adapters/crypto/secp256k1-nostr-signer";
+import { NPUBCASH_URL, NPUBCASH_DOMAIN } from "@/core/constants";
 
 // ─── Composition Roots ───
 import { createSupportService } from "./support";
@@ -211,24 +210,16 @@ export function assembleFacadeServices(deps: {
     createNut18HttpPollerFactory(),
   );
 
-  const zappiLinkProvider = new ZappiLinkAdapter(
-    (privateKeyHex, url, method) => {
-      const event = finalizeEvent(
-        {
-          kind: NOSTR_KINDS.NIP98_AUTH,
-          content: "",
-          tags: [
-            ["u", url],
-            ["method", method.toUpperCase()],
-          ],
-          created_at: Math.floor(Date.now() / 1000),
-        },
-        hexToBytes(privateKeyHex)
-      );
-      return btoa(JSON.stringify(event));
-    }
+  const npubcashAdapter = new NpubcashAdapter(NPUBCASH_URL);
+  const paymentAlias = new PaymentAliasService(
+    npubcashAdapter,
+    routePaymentOperator,
+    (privkey: string) => new Secp256k1NostrSignerAdapter(privkey),
+    txRepo,
+    routePaymentOperator,
+    eventBus,
+    NPUBCASH_DOMAIN,
   );
-  const username = new UsernameService(zappiLinkProvider);
 
   const trustRegistry = new TrustRegistryService(settingsRepo);
   const nostrDirectPayment = new NostrDirectPaymentService(addressResolver);
@@ -254,7 +245,7 @@ export function assembleFacadeServices(deps: {
     transactionMgmt,
     routeExecution,
     paymentRequest,
-    username,
+    paymentAlias,
     trustRegistry,
     nostrDirectPayment,
     externalWalletRecovery,

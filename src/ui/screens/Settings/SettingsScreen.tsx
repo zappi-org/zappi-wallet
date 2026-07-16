@@ -239,7 +239,7 @@ export function SettingsScreen({
     if (!ENABLE_LIGHTNING_ADDRESS_SETTINGS) return
     if (!nostrPubkey || settings.lightningAddress) return
     registry.paymentAlias.getAlias(nostrPrivkey!).then((result) => {
-      if (result.isOk()) {
+      if (result.ok) {
         saveSettings({
           lightningAddress: result.value.alias ? `${result.value.alias}@${result.value.domain}` : undefined,
           npubcashUrl: NPUBCASH_URL,
@@ -261,7 +261,7 @@ export function SettingsScreen({
         settings.relays,
       )
       const result = await registry.paymentAlias.registerAlias(nostrPrivkey)
-      if (result.isErr()) {
+      if (result!.ok) {
         addToast({ type: 'error', message: t('settings.lightningAddressRegistrationFailed') })
         return
       }

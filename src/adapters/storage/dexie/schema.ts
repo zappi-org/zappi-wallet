@@ -286,6 +286,9 @@ export class ZappiDatabase extends Dexie {
   giftwrapCursors!: Table<GiftwrapCursorRecord, string>
   incomingReviews!: Table<IncomingReviewRecord, string>
   paymentAliasProcessedQuotes!: Table<PaymentAliasProcessedQuote, string>
+  netCounters!: Table<NetCounterRecord, string>
+  giftwrapCursors!: Table<GiftwrapCursorRecord, string>
+  incomingReviews!: Table<IncomingReviewRecord, string>
 
   constructor() {
     super(DATABASE.NAME)
@@ -358,7 +361,8 @@ export class ZappiDatabase extends Dexie {
 
       // v22: durable queue for review of tokens from untrusted mints (source for drainReviewQueue)
       incomingReviews: 'externalId, mintUrl, queuedAt',
-      // Payment alias processed quotes: dedup paid quotes from PaymentAliasProvider
+
+      // v24: Payment alias processed quotes — dedup paid quotes from PaymentAliasProvider
       paymentAliasProcessedQuotes: 'quoteId, processedAt',
     })
   }
@@ -403,28 +407,5 @@ export async function clearMintData(mintUrl: string): Promise<void> {
     db.pendingReceivedTokens.where('mintUrl').anyOf(variants).delete(),
     db.receiveRequests.where('mintUrl').anyOf(variants).delete(),
     db.mintMetadata.where('url').anyOf(variants).delete(),
-  ])
-}
-
-/**
- * Clear all data (for logout)
- */
-export async function clearAllData(): Promise<void> {
-  const db = getDatabase()
-  await Promise.all([
-    db.transactions.clear(),
-    db.failedIncomings.clear(),
-    db.processedRecords.clear(),
-    db.syncAnchor.clear(),
-    db.settings.clear(),
-    db.encryptedWallet.clear(),
-    db.lockState.clear(),
-    db.pendingMelts.clear(),
-    db.pendingSendTokens.clear(),
-    db.pendingReceivedTokens.clear(),
-    db.receiveRequests.clear(),
-    db.supportTickets.clear(),
-    db.supportMessages.clear(),
-    db.paymentAliasProcessedQuotes.clear(),
   ])
 }
