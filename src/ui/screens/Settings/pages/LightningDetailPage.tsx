@@ -12,11 +12,10 @@ import ChangeUsernameSheet from '../ChangeUsernameSheet'
 
 interface LightningDetailPageProps {
   onBack: () => void
-  onChangeMint?: () => void
   onSaveSettings: (settings: Record<string, unknown>) => Promise<void>
 }
 
-export function LightningDetailPage({ onBack, onChangeMint, onSaveSettings }: LightningDetailPageProps) {
+export function LightningDetailPage({ onBack, onSaveSettings }: LightningDetailPageProps) {
   const { t } = useTranslation()
   const settings = useAppStore((s) => s.settings)
   const nostrPrivkey = useAppStore((s) => s.nostrPrivkey)
@@ -26,6 +25,7 @@ export function LightningDetailPage({ onBack, onChangeMint, onSaveSettings }: Li
   const [preferredMint, setPreferredMint] = useState<string | null>(null)
   const [showMintPicker, setShowMintPicker] = useState(false)
   const [showChangeSheet, setShowChangeSheet] = useState(false)
+  const [changeSheetKey, setChangeSheetKey] = useState(0)
   const registry = useServiceRegistry()
 
   const address = settings.lightningAddress || ''
@@ -60,7 +60,7 @@ export function LightningDetailPage({ onBack, onChangeMint, onSaveSettings }: Li
     if (result.ok) {
       setPreferredMint(mintUrl)
       setShowMintPicker(false)
-      updateSettings({ npubcashMintUrl: mintUrl })
+      updateSettings({ npubcashUrl: mintUrl })
       addToast({ type: 'success', message: t('settings.mintChanged') })
     } else {
       addToast({ type: 'error', message: (result.error as { message?: string }).message ?? t('settings.mintChangeFailed') })
@@ -90,7 +90,7 @@ export function LightningDetailPage({ onBack, onChangeMint, onSaveSettings }: Li
           )}
         </Button>
 
-        <Button variant="outline" size="lg" onClick={() => setShowChangeSheet(true)} className="w-full max-w-[320px] mt-3">
+        <Button variant="outline" size="lg" onClick={() => { setShowChangeSheet(true); setChangeSheetKey(k => k + 1) }} className="w-full max-w-[320px] mt-3">
           <Pencil className="w-4 h-4 mr-2" />
           {t('common.change')}
         </Button>
@@ -124,6 +124,7 @@ export function LightningDetailPage({ onBack, onChangeMint, onSaveSettings }: Li
       </div>
     </SettingsDetailPage>
     <ChangeUsernameSheet
+      key={changeSheetKey}
       isOpen={showChangeSheet}
       onClose={() => setShowChangeSheet(false)}
       onSaveSettings={onSaveSettings}
