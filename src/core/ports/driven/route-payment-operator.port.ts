@@ -29,7 +29,7 @@ export interface RouteMintQuote {
 
 export interface ParsedCreRequest {
   amount: number
-  unit: string
+  unit?: string
   mints: string[]
 }
 
