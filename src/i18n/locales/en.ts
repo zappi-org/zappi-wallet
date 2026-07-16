@@ -964,6 +964,41 @@ export default {
     afterInstall: 'After installation, tap ZAPPI icon on home screen to launch.',
     devBypass: '(Dev mode) Continue without PWA',
     desktopBrowser: 'Desktop Browser',
+    guard: {
+      subtitle: 'Bitcoin Ecash Wallet',
+      installTitle: 'Install to Home Screen',
+      installReason: 'App installation is required for secure payments',
+      installButton: 'Install App',
+      devSkip: 'Skip install (dev only)',
+      ios: {
+        title: 'In Safari',
+        step1: 'Tap the Share button at the bottom',
+        step2: 'Select "Add to Home Screen"',
+        step3: 'Tap "Add" in the top right',
+      },
+      android: {
+        title: 'In Chrome',
+        step1: 'Tap the menu icon in the top right',
+        step2: 'Select "Install app" or "Add to Home screen"',
+      },
+      desktopSafari: {
+        title: 'In Safari',
+        step1: 'Go to Menu Bar > "File"',
+        step2: 'Select "Add to Dock..."',
+        footnote: 'Or Share > Add to Dock (Sonoma+)',
+      },
+      desktopEdge: {
+        title: 'In Edge',
+        step1: 'Click the ... menu in the top right',
+        step2: '"Apps" > "Install this site as an app"',
+      },
+      desktopChrome: {
+        title: 'In Chrome',
+        step1: 'Click the menu icon in the top right',
+        step2: '"Save and share" > "Install page as app"',
+        footnote: 'Or click the install icon in the address bar',
+      },
+    },
   },
 
   // Errors

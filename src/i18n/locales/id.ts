@@ -837,7 +837,42 @@ export default {
     desktopBrowserSupport: 'Didukung di Chrome, Edge, Safari dan sebagian besar browser.',
     afterInstall: 'Setelah instalasi, ketuk ikon ZAPPI di layar utama untuk membuka.',
     devBypass: '(Mode pengembang) Lanjutkan tanpa PWA',
-    desktopBrowser: 'Browser Desktop'
+    desktopBrowser: 'Browser Desktop',
+    guard: {
+      subtitle: 'Dompet Bitcoin Ecash',
+      installTitle: 'Pasang ke Layar Utama',
+      installReason: 'Instalasi aplikasi diperlukan untuk pembayaran aman',
+      installButton: 'Pasang Aplikasi',
+      devSkip: 'Lewati instalasi (hanya dev)',
+      ios: {
+        title: 'Di Safari',
+        step1: 'Ketuk tombol Bagikan di bagian bawah',
+        step2: 'Pilih "Tambah ke Layar Utama"',
+        step3: 'Ketuk "Tambah" di kanan atas',
+      },
+      android: {
+        title: 'Di Chrome',
+        step1: 'Ketuk ikon menu di kanan atas',
+        step2: 'Pilih "Pasang aplikasi" atau "Tambah ke Layar Utama"',
+      },
+      desktopSafari: {
+        title: 'Di Safari',
+        step1: 'Buka Menu Bar > "File"',
+        step2: 'Pilih "Tambah ke Dock..."',
+        footnote: 'Atau Bagikan > Tambah ke Dock (Sonoma+)',
+      },
+      desktopEdge: {
+        title: 'Di Edge',
+        step1: 'Klik menu ... di kanan atas',
+        step2: '"Aplikasi" > "Pasang situs ini sebagai aplikasi"',
+      },
+      desktopChrome: {
+        title: 'Di Chrome',
+        step1: 'Klik ikon menu di kanan atas',
+        step2: '"Simpan dan bagikan" > "Pasang halaman sebagai aplikasi"',
+        footnote: 'Atau klik ikon pasang di bilah alamat',
+      },
+    },
   },
   errors: {
     generic: 'Terjadi kesalahan.',

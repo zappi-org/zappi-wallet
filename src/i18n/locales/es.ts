@@ -837,7 +837,42 @@ export default {
     desktopBrowserSupport: 'Compatible con Chrome, Edge, Safari y la mayoría de navegadores.',
     afterInstall: 'Después de instalar, toca el ícono ZAPPI en la pantalla de inicio para abrir.',
     devBypass: '(Modo desarrollo) Continuar sin PWA',
-    desktopBrowser: 'Navegador de escritorio'
+    desktopBrowser: 'Navegador de escritorio',
+    guard: {
+      subtitle: 'Monedero Bitcoin Ecash',
+      installTitle: 'Instalar en pantalla de inicio',
+      installReason: 'La instalación de la app es necesaria para pagos seguros',
+      installButton: 'Instalar App',
+      devSkip: 'Omitir instalación (solo desarrollo)',
+      ios: {
+        title: 'En Safari',
+        step1: 'Toca el botón Compartir en la parte inferior',
+        step2: 'Selecciona "Agregar a pantalla de inicio"',
+        step3: 'Toca "Agregar" arriba a la derecha',
+      },
+      android: {
+        title: 'En Chrome',
+        step1: 'Toca el ícono de menú arriba a la derecha',
+        step2: 'Selecciona "Instalar app" o "Agregar a pantalla de inicio"',
+      },
+      desktopSafari: {
+        title: 'En Safari',
+        step1: 'Ve a Barra de menú > "Archivo"',
+        step2: 'Selecciona "Agregar al Dock..."',
+        footnote: 'O Compartir > Agregar al Dock (Sonoma+)',
+      },
+      desktopEdge: {
+        title: 'En Edge',
+        step1: 'Haz clic en el menú ... arriba a la derecha',
+        step2: '"Apps" > "Instalar este sitio como app"',
+      },
+      desktopChrome: {
+        title: 'En Chrome',
+        step1: 'Haz clic en el ícono de menú arriba a la derecha',
+        step2: '"Guardar y compartir" > "Instalar página como app"',
+        footnote: 'O haz clic en el ícono de instalar en la barra de direcciones',
+      },
+    },
   },
   errors: {
     generic: 'Ocurrió un error.',
