@@ -40,8 +40,8 @@ export const NOSTR_KINDS = {
 export const ZAPPI_LINK_URL = "https://link.zappi.space";
 export const ZAPPI_LINK_DOMAIN = "zappi.space";
 
-export const NPUBCASH_URL = "http://127.0.0.1:8000";
-export const NPUBCASH_DOMAIN = "127.0.0.1";
+export const NPUBCASH_URL = import.meta.env.VITE_NPUBCASH_URL || 'https://zappi.space'
+export const NPUBCASH_DOMAIN = new URL(NPUBCASH_URL).hostname
 
 /**
  * Timeout configurations (in milliseconds)
