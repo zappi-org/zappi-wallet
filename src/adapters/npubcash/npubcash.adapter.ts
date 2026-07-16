@@ -234,12 +234,17 @@ export class NpubcashAdapter implements PaymentAliasProvider {
       let userClosed = false
 
       const connect = () => {
-        console.log('[Npubcash] WS connecting →', wsUrl)
         const ws = new WebSocket(wsUrl)
         currentWs = ws
+        let pingInterval: ReturnType<typeof setInterval> | null = null
 
         ws.onopen = () => {
-          console.log('[Npubcash] WS open')
+          clearInterval(pingInterval!)
+          pingInterval = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'ping' }))
+            }
+          }, 25_000)
         }
 
         ws.onmessage = (event: MessageEvent) => {
@@ -247,25 +252,23 @@ export class NpubcashAdapter implements PaymentAliasProvider {
             const msg = JSON.parse(event.data as string)
             if (msg.type === 'challenge') {
               const token = signer.createNip98Token(msg.payload.url, msg.payload.method)
-              ws.send(JSON.stringify({ token }))
+              ws.send(JSON.stringify({ type: 'challenge-response', payload: `Nostr ${token}` }))
             }
             if (msg.type === 'update') {
-              console.log('[Npubcash] WS update — paid quote:', msg.payload.quoteId)
               onQuoteId(msg.payload.quoteId)
             }
           } catch {}
         }
 
-        ws.onerror = (e) => {
-          console.warn('[Npubcash] WS error:', e)
-        }
-
         ws.onclose = (event) => {
-          console.log(`[Npubcash] WS close — code=${event.code} reason=${event.reason} userClosed=${userClosed}`)
+          clearInterval(pingInterval!)
+          pingInterval = null
           currentWs = null
           if (userClosed) return
           onDisconnect?.()
         }
+
+        ws.onerror = () => {}
       }
 
       connect()
