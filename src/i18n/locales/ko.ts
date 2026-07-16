@@ -979,7 +979,9 @@ export default {
     offlineStatus: '오프라인 상태입니다',
     transferSettled: '전송 완료',
     transferReclaimed: '전송 회수 완료',
-    incomingTransferProcessed: '수신 전송 처리 완료'
+    incomingTransferProcessed: '수신 전송 처리 완료',
+    tokenClaimed: '토큰 {{amount}} 이 사용되었어요',
+    tokenClaimedWithMemo: '토큰 {{amount}} 이 사용되었어요 · {{memo}}'
   },
   mintDetails: {
     mintBalance: '민트 잔액',

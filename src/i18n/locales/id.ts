@@ -979,7 +979,9 @@ export default {
     transferSettled: 'Transfer selesai',
     transferReclaimed: 'Transfer diklaim kembali',
     incomingTransferProcessed: 'Transfer masuk diproses',
-    paymentCompletedWithFee: '{{amount}} payment completed (fee: {{fee}})'
+    paymentCompletedWithFee: '{{amount}} payment completed (fee: {{fee}})',
+    tokenClaimed: 'Ecash {{amount}} telah digunakan',
+    tokenClaimedWithMemo: 'Ecash {{amount}} telah digunakan · {{memo}}'
   },
   mintDetails: {
     mintBalance: 'Saldo Mint',

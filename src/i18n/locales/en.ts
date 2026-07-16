@@ -1112,6 +1112,8 @@ export default {
     transferSettled: 'Transfer completed',
     transferReclaimed: 'Transfer reclaimed',
     incomingTransferProcessed: 'Incoming transfer processed',
+    tokenClaimed: '{{amount}} ecash was claimed',
+    tokenClaimedWithMemo: '{{amount}} ecash was claimed · {{memo}}'
   },
 
   // Mint Details

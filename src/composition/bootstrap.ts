@@ -10,6 +10,7 @@
 // ─── Core ───
 import { createEventBus } from "@/core/events/event-bus";
 import { toNumber } from "@/core/domain/amount";
+import { readKillSwitches } from "@/core/utils/kill-switch";
 
 // ─── Store (composition root만 접근) ───
 import { useAppStore } from "@/store";
@@ -38,11 +39,15 @@ import { Nip05ResolverAdapter } from "@/adapters/nip05/nip05-resolver";
 import { DexieSettingsRepository as SettingsRepository } from "@/adapters/storage/dexie/dexie-settings.repository";
 import { DexieProcessedRepository as ProcessedRepository } from "@/adapters/storage/dexie/dexie-processed.repository";
 import { DexiePaymentAliasProcessedQuotesRepository } from "@/adapters/storage/dexie/dexie-payment-alias-processed-quotes.repository";
+import { DexieLightningReceiptCursorStore } from "@/adapters/storage/dexie/dexie-lightning-receipt-cursor.store";
+import { DexieGiftwrapCursorStore } from "@/adapters/storage/dexie/dexie-giftwrap-cursor.store";
 import { RecoveryStoreAdapter } from "@/adapters/storage/recovery-store.adapter";
 
 // ─── Legacy services (composition root만 wrap 가능) ───
-import { readNetCounters } from "@/adapters/telemetry/net-counters";
+import { readNetCounters, incrementNetCounter, flushNetCounters, startNetCounterFlusher } from "@/adapters/telemetry/net-counters";
 import { exchangeRateService } from "./exchange-rate";
+import { broadcastSync, getBroadcastChannel } from "@/utils/cross-tab-sync";
+import { resolveIncomingReview } from "./incoming-review";
 
 // ─── Coco (composition root만 접근) ───
 import {
@@ -50,8 +55,14 @@ import {
   createExternalMnemonicRecovery,
   decodeTokenForPaymentPayload,
   deleteCocoData,
+  getMintOpStateLocal,
+  getSendRecoveryOps,
   markQuoteAsSwap,
+  reconcileCashu,
+  recoverLegacySendTokens,
   removeMintFromCoco,
+  requeuePaidMintQuotesInCoco,
+  runCocoRecoverySweeps,
   unmarkQuoteAsSwap,
 } from "@/modules/cashu";
 import { clearMintData } from "@/adapters/storage/dexie/schema";
@@ -66,7 +77,7 @@ import { CashuSendTokenOperatorAdapter } from "@/modules/cashu/adapters/cashu-se
 import { MintHealthCheckerAdapter } from "@/adapters/health/mint-health-checker.adapter";
 import { MintMetadataStoreAdapter } from "@/adapters/metadata/mint-metadata-store.adapter";
 import { TrustedMintProviderAdapter } from "@/adapters/runtime/trusted-mint-provider.adapter";
-import { IncomingReviewQueueAdapter } from "@/adapters/runtime/incoming-review-queue.adapter";
+import { DexieIncomingReviewQueue } from "@/adapters/storage/dexie/dexie-incoming-review-queue.store";
 import { CrossTabSyncNotifierAdapter } from "@/adapters/runtime/cross-tab-sync-notifier.adapter";
 import { DexieRouteExecutionStore } from "@/adapters/storage/dexie/dexie-route-execution-store";
 import { SettingsTrustedAccountStoreAdapter } from "@/adapters/runtime/settings-trusted-account-store.adapter";
@@ -87,6 +98,7 @@ import { NostrDirectPaymentService } from "@/core/services/nostr-direct-payment.
 import { RouteExecutionService } from "@/core/services/route-execution.service";
 import { ExternalWalletRecoveryService } from "@/core/services/external-wallet-recovery.service";
 import { TransferLifecycleService } from "@/core/services/transfer-lifecycle.service";
+import { RecoverySchedulerService } from "@/core/services/recovery-scheduler.service";
 import { DexiePendingTransferStore } from "@/adapters/storage/dexie/dexie-pending-transfer-store";
 
 // ─── Cashu Adapters (TransferOperator 구현체) ───
@@ -108,7 +120,7 @@ import { DexieMintMetadataRepository } from "@/adapters/storage/dexie/dexie-mint
 import { startNut18HttpPoller } from "@/adapters/codec/nut18-http-poller";
 import { NpubcashAdapter } from "@/adapters/npubcash/npubcash.adapter";
 import { Secp256k1NostrSignerAdapter } from "@/adapters/crypto/secp256k1-nostr-signer";
-import { DEFAULT_RELAYS, NPUBCASH_URL, NPUBCASH_DOMAIN } from "@/core/constants";
+import { DEFAULT_RELAYS, NPUBCASH_URL, NPUBCASH_DOMAIN, STORAGE_KEYS } from "@/core/constants";
 import { DexieReceiveRequestRepository } from "@/adapters/storage/dexie/dexie-receive-request.repository";
 
 // ─── Nostr Watcher (Adapter Layer) ───
@@ -135,6 +147,7 @@ import { PaymentDelivery } from "./payment-delivery";
 import { PaymentRecoveredTokenReceiver } from "./recovered-token-receiver";
 import { TokenReceiverAdapter } from "./token-receiver.adapter";
 import { createNpubcashQuoteWatcher } from "./npubcash-quote-watcher";
+import { createNut18HttpPollerFactory } from "./nut18-poller-factory";
 
 // ─── Types ───
 import type { WalletModule } from "@/core/ports/driven/wallet-module.port";
@@ -156,7 +169,7 @@ import type {
   RouteContext,
   RouteExecutionResult,
 } from "@/core/domain/routing";
-import type { Result } from "@/core/types/result";
+import type { Result } from "@/core/domain/result";
 import type { MintInfoData } from "@/core/types";
 import type { MintInfoUseCase } from "@/core/ports/driving/mint-info.usecase";
 import type { BaseError } from "@/core/errors";
@@ -181,6 +194,7 @@ export interface BootstrapResult extends ServiceRegistry {
   activate(): Promise<void>;
   onResume(): Promise<void>;
   onPause(): Promise<void>;
+  dispose(): void;
   disconnectBridge(): void;
   disconnectGiftWrapSettlement(): void;
 
@@ -229,6 +243,8 @@ export interface BootstrapResult extends ServiceRegistry {
 // ─── Bootstrap ───
 
 export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
+  const killSwitches = readKillSwitches();
+
   // 1. Infrastructure
   const eventBus = createEventBus();
   const txRepo = new DexieTransactionRepository();
@@ -243,13 +259,21 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const trustedMintProvider = new TrustedMintProviderAdapter(
     () => useAppStore.getState().settings.mints
   );
-  const incomingReviewQueue = new IncomingReviewQueueAdapter((review) =>
-    useAppStore.getState().enqueueIncomingReview(review)
-  );
+  const incomingReviewQueue = new DexieIncomingReviewQueue({
+    onEnqueued: (review) =>
+      useAppStore.getState().enqueueIncomingReview(review),
+    onRemoved: (externalId) =>
+      useAppStore.getState().removeIncomingReview(externalId),
+  });
 
   // 2. Nostr Gateway
+  const giftwrapCursorStore = killSwitches.cursor
+    ? undefined
+    : new DexieGiftwrapCursorStore();
   const nostrGateway = new NostrGatewayAdapter({
     privateKeyHex: deps.nostrPrivateKeyHex,
+    cursorStore: giftwrapCursorStore,
+    useSessionController: !killSwitches['nostr-controller'],
   });
 
   // 3. Cashu Module (initialize()는 caller가 seed로 호출)
@@ -321,7 +345,12 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     pendingTransferStore,
     operators,
     eventBus,
-    operationMap
+    operationMap,
+    {
+      stuckDetected: () => incrementNetCounter('tls_stuck_detected'),
+      stuckConfirmedSettled: () =>
+        incrementNetCounter('tls_stuck_confirmed_settled'),
+    }
   );
 
   const disconnectGiftWrapSettlement = connectGiftWrapSettlementBridge(
@@ -353,6 +382,83 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     lnurlAdapter
   );
   const receiveRequest = new ReceiveRequestFacadeService(receiveRequestRepo);
+
+  // RecoveryScheduler + delegate: decomposes recoverAll into per-behavior actions
+  const recoveryScheduler = new RecoverySchedulerService({
+    reconcileCashu: async () =>
+      reconcileCashu({
+        pendingOpRepo,
+        txRepo,
+        activeMintUrls: useAppStore.getState().settings.mints,
+        sendOps: await getSendRecoveryOps(),
+        mintOpLookup: getMintOpStateLocal,
+      }),
+    requeuePaidQuotes: requeuePaidMintQuotesInCoco,
+    redeemOfflineTokens: () => cashuBackend.redeemPendingReceivedTokens(),
+    recoverLegacySends: async () => {
+      const all = await pendingOpRepo.list();
+      const legacy = all.filter(
+        (op) => op.kind === 'send-token' && !op.metadata?.operationId
+      );
+      if (legacy.length === 0) return { reclaimed: 0, recorded: 0 };
+      return recoverLegacySendTokens(
+        {
+          pendingOpRepo,
+          txRepo,
+          receiveToken: (token) => cashuBackend.receiveToken(token),
+        },
+        legacy
+      );
+    },
+    runCocoSweeps: runCocoRecoverySweeps,
+    reviewQueue: incomingReviewQueue,
+    redeemToken: (input) => payment.redeem({ input }),
+    resolveReview: (review) =>
+      resolveIncomingReview(
+        {
+          processedStore,
+          receiveRequest,
+          removeIncomingReview: (id) => incomingReviewQueue.remove(id),
+          nostrGateway,
+          posDevices: useAppStore.getState().settings.posDevices,
+        },
+        { review }
+      ),
+    discardReview: async (review, reason) => {
+      await processedStore.save({
+        externalId: review.externalId,
+        processedAt: Date.now(),
+        result: 'skipped',
+        error: reason,
+      });
+      await incomingReviewQueue.remove(review.externalId);
+    },
+  });
+
+  if (!killSwitches['recovery-split']) {
+    payment.setRecoveryDelegate(async (opts) => {
+      try {
+        const rec = await recoveryScheduler.reconcile();
+        console.log(
+          `[Recovery] reconcile: settled=${rec.settled} reclaimed=${rec.reclaimed} failed=${rec.failed} cleaned=${rec.cleaned}`
+        );
+      } catch (e) {
+        console.warn('[Recovery] reconcile failed:', e);
+      }
+      try {
+        const report = await recoveryScheduler.recoverTargeted({
+          bypassGate: opts?.bypassGate,
+        });
+        if (report.recovered > 0) {
+          eventBus.emit({ type: 'recovery:completed', payload: report });
+        }
+        return [report];
+      } catch (e) {
+        console.warn('[Recovery] targeted failed:', e);
+        return [{ moduleId: 'cashu', recovered: 0, failed: 1 }];
+      }
+    });
+  }
 
   // 6. P2PK key manager
   const p2pkKeyManager = new CocoP2PKKeyManager(getCashuKeyring);
@@ -398,9 +504,119 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     triggerTxRefresh: () => useAppStore.getState().triggerTxRefresh(),
   });
 
-  // 8. Lifecycle: activate (Coco init + observers + watchers + bridge)
+  // 8. Lifecycle state
+  const LAST_ALIVE_KEY = STORAGE_KEYS.LAST_ALIVE;
+  const RESUME_RECHECK_THRESHOLD_MS = 5 * 60 * 1000;
+  let paused = false;
+  let netCounterFlusherStop: (() => void) | null = null;
+  let mintReconnectStop: (() => void) | null = null;
+  let transferSweepWiringStop: (() => void) | null = null;
+  let aliveHeartbeatStop: (() => void) | null = null;
+
+  const markAlive = () => {
+    try {
+      localStorage.setItem(LAST_ALIVE_KEY, String(Date.now()));
+    } catch {
+      /* storage unavailable */
+    }
+  };
+  const awayLongEnough = (): boolean => {
+    try {
+      const raw = localStorage.getItem(LAST_ALIVE_KEY);
+      const at = raw ? Number(raw) : NaN;
+      if (!Number.isFinite(at) || at <= 0) return true;
+      return Date.now() - at > RESUME_RECHECK_THRESHOLD_MS;
+    } catch {
+      return true;
+    }
+  };
+  const startAliveHeartbeat = () => {
+    if (aliveHeartbeatStop) return;
+    markAlive();
+    const timer = setInterval(markAlive, 60_000);
+    aliveHeartbeatStop = () => clearInterval(timer);
+  };
+  const stopAliveHeartbeat = () => {
+    if (aliveHeartbeatStop) {
+      aliveHeartbeatStop();
+      aliveHeartbeatStop = null;
+    }
+  };
+  const startTransferMonitor = () => {
+    if (killSwitches['tls-sweep']) {
+      transferLifecycle.startPolling(30000);
+    } else {
+      transferLifecycle.startStuckSweep(120_000);
+    }
+  };
+  const stopTransferMonitor = () => {
+    transferLifecycle.stopPolling();
+    transferLifecycle.stopStuckSweep();
+  };
+  const wireTransferSweepSignals = () => {
+    if (transferSweepWiringStop) return;
+    const unsubs: Array<() => void> = [];
+    unsubs.push(
+      eventBus.on('transfer:submitted', () => {
+        broadcastSync('transfer_created');
+      })
+    );
+    unsubs.push(
+      eventBus.on('incoming:received', () => {
+        transferLifecycle.ensureSweepScheduled();
+        broadcastSync('transfer_created');
+      })
+    );
+    const channel = getBroadcastChannel();
+    if (channel) {
+      const onMessage = (event: MessageEvent) => {
+        if ((event.data as { type?: string })?.type === 'transfer_created') {
+          transferLifecycle.ensureSweepScheduled();
+        }
+      };
+      channel.addEventListener('message', onMessage);
+      unsubs.push(() => channel.removeEventListener('message', onMessage));
+    }
+    transferSweepWiringStop = () => {
+      unsubs.forEach((u) => u());
+      transferSweepWiringStop = null;
+    };
+  };
+
+  // Lifecycle: activate (Coco init + observers + watchers + bridge)
   const activate = async () => {
     const manager = await getCashuRuntimeManager();
+
+    if (!netCounterFlusherStop) {
+      netCounterFlusherStop = startNetCounterFlusher();
+    }
+
+    startAliveHeartbeat();
+
+    nostrGateway
+      .connect([
+        ...new Set([...DEFAULT_RELAYS, ...useAppStore.getState().settings.relays]),
+      ])
+      .catch((e) => console.warn('[Bootstrap] relay connect failed:', e));
+
+    incomingReviewQueue
+      .listAll()
+      .then((reviews) => {
+        const { enqueueIncomingReview } = useAppStore.getState();
+        reviews.forEach(enqueueIncomingReview);
+      })
+      .catch((e) => console.error('[Bootstrap] review hydrate failed:', e));
+
+    if (!mintReconnectStop && typeof window !== 'undefined') {
+      const handleOnline = () => {
+        mintHealth
+          .checkAllMints(useAppStore.getState().settings.mints)
+          .catch(() => {});
+      };
+      window.addEventListener('online', handleOnline);
+      mintReconnectStop = () =>
+        window.removeEventListener('online', handleOnline);
+    }
 
     // mintQuoteObserver에 OperationMap + TxRepo 주입 (TX 이중 생성 방지)
     const { injectDependencies } = await import(
@@ -408,13 +624,11 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     );
     injectDependencies(operationMap, txRepo);
 
-    // Mint quote observer (mint-op:finalized → Transaction DB 기록)
     const { connectMintQuoteObserver } = await import(
       "@/composition/mint-quote-observer"
     );
     connectMintQuoteObserver(manager);
 
-    // Send token observer 연결 (bootstrap과 동일 인스턴스 공유)
     const { connectSendTokenObserver } = await import(
       "@/composition/send-token-observer"
     );
@@ -423,58 +637,90 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
       lifecycle: reclaim,
     });
 
-    // Transfer SDK Bridge: Coco push events → TLS transfer resolution
     const { connectTransferSdkBridge } = await import(
       "@/composition/transfer-sdk-bridge"
     );
     connectTransferSdkBridge(manager, transferLifecycle);
 
-    // Coco → EventBus bridge
     connectCocoEventBridge(manager, eventBus);
 
-    // Watchers
     await enableCashuWatchers();
 
-    // Nostr incoming watcher 시작 (앱 unlock 후 한 번)
     nostrIncomingWatcher.start(derivePublicKey(deps.nostrPrivateKeyHex));
 
-    // TLS: 앱 시작 시 active transfer 복구 + 주기적 폴링 시작 (long-interval fallback)
-    transferLifecycle.recoverTransfers().catch(console.error);
-    transferLifecycle.startPolling(30000);
+    npubcashQuoteWatcher.start().catch(console.error);
 
-    // Coco SDK 내부 stuck mint ops 정리 (1일 이상 → abandon, 그 외 → 복구 시도)
+    transferLifecycle.recoverTransfers().catch(console.error);
+    wireTransferSweepSignals();
+    if (!paused) {
+      startTransferMonitor();
+    }
+
     import('@/modules/cashu/internal/cashu-recovery')
       .then(({ cleanAndRecoverStaleMintOps }) => cleanAndRecoverStaleMintOps().catch(console.error))
       .catch(() => {});
-
-    npubcashQuoteWatcher.start().catch(console.error);
   };
 
   const onResume = async () => {
+    paused = false;
+    const shouldRecheck = awayLongEnough();
+    startAliveHeartbeat();
     try {
       await resumeCashuSubscriptions();
-      recheckCashuPendingMintQuotes().catch((e) =>
-        console.error("[Resume] recheck quotes failed:", e)
+      enableCashuWatchers().catch((e) =>
+        console.error('[Resume] watcher enable failed:', e)
       );
+      if (shouldRecheck) {
+        recheckCashuPendingMintQuotes().catch((e) =>
+          console.error('[Resume] recheck quotes failed:', e)
+        );
+      }
     } catch {
       /* ignore if not initialized */
     }
     exchangeRateService.refreshIfStale().catch(() => {});
 
-    // Nostr incoming watcher 재시작 (키가 바뀔 수 있으므로)
+    startTransferMonitor();
+
     nostrIncomingWatcher.stop();
     nostrIncomingWatcher.start(derivePublicKey(deps.nostrPrivateKeyHex));
 
+    npubcashQuoteWatcher.stop();
     npubcashQuoteWatcher.start().catch(console.error);
   };
 
   const onPause = async () => {
+    paused = true;
+    markAlive();
+    stopAliveHeartbeat();
     try {
       await pauseCashuSubscriptions();
     } catch {
       /* ignore if not initialized */
     }
+    stopTransferMonitor();
+    void flushNetCounters();
     npubcashQuoteWatcher.stop();
+  };
+
+  const dispose = () => {
+    if (netCounterFlusherStop) {
+      netCounterFlusherStop();
+      netCounterFlusherStop = null;
+    }
+    if (mintReconnectStop) {
+      mintReconnectStop();
+      mintReconnectStop = null;
+    }
+    stopAliveHeartbeat();
+    stopTransferMonitor();
+    if (transferSweepWiringStop) {
+      transferSweepWiringStop();
+    }
+    nostrIncomingWatcher.stop();
+    npubcashQuoteWatcher.stop();
+    disconnectBridge();
+    void nostrGateway.disconnect();
   };
 
   // 9. Shared dedup store (recovery + watcher가 같은 store를 보고 중복 처리 방지)
@@ -490,7 +736,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     trustedMintProvider,
     incomingReviewQueue,
     tokenCodec,
-    () => useAppStore.getState().pendingEcashRequestId
+    () => useAppStore.getState().pendingEcashRequestId,
+    () => useAppStore.getState().settings.relays
   );
 
   // 11. Additional services
@@ -502,7 +749,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     receiveRequest,
     recoveryStoreAdapter,
     processedStore,
-    txRepo
+    txRepo,
+    giftwrapCursorStore
   );
   const incomingPayment = new IncomingPaymentService(
     payment,
@@ -517,11 +765,6 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     receiveRequestRepo,
     modules
   );
-
-  // 12. WithdrawUseCase / LnurlAuthUseCase — TODO: NoOp impl or real impl
-  // Phase 5에서는 undefined 허용하지 않으므로 placeholder
-  const withdraw = {} as ServiceRegistry["withdraw"];
-  const lnurlAuth = {} as ServiceRegistry["lnurlAuth"];
 
   // 13. Phase 6: New services
   const cryptoGateway = new CryptoGatewayAdapter();
@@ -577,9 +820,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
       parsePaymentRequest: async (encodedRequest: string) => {
         const resolved = await cashuBackend.parsePaymentRequest(encodedRequest)
         return {
+          ...resolved,
           amount: resolved.amount ?? 0,
-          unit: 'sat',
-          mints: resolved.allowedMints,
         }
       },
     },
@@ -600,19 +842,10 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     new CrossTabSyncNotifierAdapter()
   );
 
-  const paymentRequest = new PaymentRequestService(tokenCodec, (opts) => {
-    const poller = startNut18HttpPoller({
-      endpoint: opts.endpoint,
-      requestId: opts.requestId,
-      intervalMs: opts.intervalMs,
-      maxDurationMs: opts.maxDurationMs,
-    });
-    return {
-      stop: poller.cancel,
-      onPayment: poller.onPayment,
-      onError: poller.onError,
-    };
-  });
+  const paymentRequest = new PaymentRequestService(
+    tokenCodec,
+    createNut18HttpPollerFactory(startNut18HttpPoller)
+  );
 
   const npubcashAdapter = new NpubcashAdapter(NPUBCASH_URL);
   const paymentAlias = new PaymentAliasService(
@@ -625,14 +858,16 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     NPUBCASH_DOMAIN,
   );
 
-  const npubcashQuoteWatcher = createNpubcashQuoteWatcher(
-    npubcashAdapter,
-    routePaymentOperator,
-    (privkey: string) => new Secp256k1NostrSignerAdapter(privkey),
-    () => deps.nostrPrivateKeyHex,
+  const npubcashQuoteWatcher = createNpubcashQuoteWatcher({
+    provider: npubcashAdapter,
+    mint: routePaymentOperator,
+    createSigner: (privkey: string) => new Secp256k1NostrSignerAdapter(privkey),
+    getPrivkey: () => useAppStore.getState().nostrPrivkey,
+    getPubkey: () => useAppStore.getState().nostrPubkey,
     eventBus,
-    new DexiePaymentAliasProcessedQuotesRepository(),
-  );
+    processedQuotesRepo: new DexiePaymentAliasProcessedQuotesRepository(),
+    cursorStore: new DexieLightningReceiptCursorStore(),
+  });
 
   const trustRegistry = new TrustRegistryService(settingsRepo);
   const nostrDirectPayment = new NostrDirectPaymentService(addressResolver);
@@ -647,16 +882,6 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   );
   const support = createSupportService({ bip39Seed: deps.bip39Seed });
 
-  // 13b. Npubcash quote watcher (WS push + HTTP catch-up for Lightning Address receipts)
-  const assembled = assembleNpubcashWatcher({
-    npubcashAdapter,
-    routePaymentOperator,
-    eventBus,
-  })
-  npubcashQuoteWatcher = assembled.npubcashQuoteWatcher;
-
-  // 8. Lifecycle — needs npubcashQuoteWatcher (lazy getter, created above)
-
   return {
     // ─── ServiceRegistry (driving ports only) ───
     eventBus,
@@ -668,12 +893,12 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     inputRouter,
     addressResolver,
     recovery,
+    recoveryScheduler,
     incomingPayment,
     processedStore,
+    incomingReviewQueue,
     nostrGateway,
     pendingItems,
-    withdraw,
-    lnurlAuth,
     mintMetadata,
     mintHealth,
     mintInfo,
@@ -700,6 +925,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     activate,
     onResume,
     onPause,
+    dispose,
     disconnectBridge,
     disconnectGiftWrapSettlement,
 
@@ -721,9 +947,6 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
           },
           mintUrl
         ),
-      resetWalletCache: () => {
-        /* no-op: wallet cache was removed */
-      },
       clearBalanceCache: () => balanceCache.clear(),
       deleteAllContacts: () => contactRepo.deleteAll(),
     },

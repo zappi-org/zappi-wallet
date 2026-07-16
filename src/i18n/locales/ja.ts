@@ -979,7 +979,9 @@ export default {
     offlineStatus: 'オフライン状態です',
     transferSettled: '転送完了',
     transferReclaimed: '転送回収完了',
-    incomingTransferProcessed: '受信転送処理完了'
+    incomingTransferProcessed: '受信転送処理完了',
+    tokenClaimed: 'イーキャッシュ {{amount}} が使用されました',
+    tokenClaimedWithMemo: 'イーキャッシュ {{amount}} が使用されました · {{memo}}'
   },
   mintDetails: {
     mintBalance: 'ミント残高',

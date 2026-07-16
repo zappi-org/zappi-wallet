@@ -979,7 +979,9 @@ export default {
     transferSettled: 'Transferencia completada',
     transferReclaimed: 'Transferencia reclamada',
     incomingTransferProcessed: 'Transferencia entrante procesada',
-    paymentCompletedWithFee: '{{amount}} payment completed (fee: {{fee}})'
+    paymentCompletedWithFee: '{{amount}} payment completed (fee: {{fee}})',
+    tokenClaimed: 'Tu ecash de {{amount}} fue canjeado',
+    tokenClaimedWithMemo: 'Tu ecash de {{amount}} fue canjeado · {{memo}}'
   },
   mintDetails: {
     mintBalance: 'Saldo del Mint',
