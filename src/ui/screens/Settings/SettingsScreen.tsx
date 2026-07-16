@@ -8,6 +8,7 @@ import { useAppStore } from '@/store'
 import { satUnit } from '@/utils/format'
 import { formatMintHost } from '@/utils/url'
 import { NPUBCASH_URL, NPUBCASH_DOMAIN } from '@/core/constants'
+import { isErr } from '@/core/domain/result'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { cn } from '@/ui/lib/utils'
 import { Button } from '@/ui/components/common/Button'
@@ -55,7 +56,6 @@ export interface SettingsScreenProps {
   onSaveSettings: (settings: Record<string, unknown>) => Promise<void>
   onMintManagement?: () => void
   onRelayManagement?: () => void
-  onChangeUsername?: () => void
   onTransfer?: () => void
   onAnalytics?: () => void
   onSubPageChange?: (hasSubPage: boolean) => void
@@ -70,7 +70,7 @@ export function SettingsScreen({
   onSaveSettings,
   onMintManagement,
   onRelayManagement,
-  onChangeUsername,
+  onTransfer,
   onAnalytics,
   onSubPageChange,
 }: SettingsScreenProps) {
@@ -261,7 +261,7 @@ export function SettingsScreen({
         settings.relays,
       )
       const result = await registry.paymentAlias.registerAlias(nostrPrivkey)
-      if (result!.ok) {
+      if (isErr(result)) {
         addToast({ type: 'error', message: t('settings.lightningAddressRegistrationFailed') })
         return
       }
@@ -615,7 +615,7 @@ export function SettingsScreen({
         return (
           <LightningDetailPage
             onBack={closeDetail}
-            onChangeUsername={onChangeUsername}
+            onSaveSettings={saveSettings}
           />
         )
       case 'support':

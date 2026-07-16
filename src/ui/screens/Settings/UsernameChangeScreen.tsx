@@ -5,6 +5,9 @@ import { Button } from '../../components/common'
 import { useAppStore } from '@/store'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { NPUBCASH_DOMAIN } from '@/core/constants'
+import { isErr } from '@/core/domain/result'
+import UsernamePriceSheet from './UsernamePriceSheet'
+import type { AliasPriceInfo } from '@/core/ports/driving/payment-alias.usecase'
 
 const USERNAME_REGEX = /^[a-z0-9]{3,20}$/
 
@@ -27,6 +30,9 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
   const [newUsername, setNewUsername] = useState('')
   const [usernameError, setUsernameError] = useState('')
   const [isChanging, setIsChanging] = useState(false)
+  const [isCheckingPrice, setIsCheckingPrice] = useState(false)
+  const [price, setPrice] = useState<AliasPriceInfo | null>(null)
+  const [showPriceSheet, setShowPriceSheet] = useState(false)
   const prevAddressRef = useRef(settings.lightningAddress || '-')
 
   const isUsernameValid = newUsername.length > 0 && USERNAME_REGEX.test(newUsername)
@@ -50,11 +56,37 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
   }, [validateUsername])
 
   const handleConfirm = useCallback(async () => {
-    if (!isUsernameValid || isChanging || !nostrPrivkey) return
+    if (!isUsernameValid || isCheckingPrice || !nostrPrivkey) return
+    setIsCheckingPrice(true)
+    try {
+      const priceResult = await registry.paymentAlias.checkAliasPrice(nostrPrivkey, newUsername)
+      if (isErr(priceResult)) {
+        const msg = (priceResult.error as { message?: string }).message ?? t('settings.usernameChangeFailed')
+        addToast({ type: 'error', message: msg })
+        return
+      }
+
+      const priceInfo = priceResult.value
+      if (priceInfo.amount === 0) {
+        await executeChange()
+      } else {
+        setPrice(priceInfo)
+        setShowPriceSheet(true)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('settings.usernameChangeFailed')
+      addToast({ type: 'error', message })
+    } finally {
+      setIsCheckingPrice(false)
+    }
+  }, [isUsernameValid, isCheckingPrice, nostrPrivkey, newUsername, registry, addToast, t])
+
+  const executeChange = useCallback(async () => {
+    if (!nostrPrivkey) return
     setIsChanging(true)
     try {
       const result = await registry.paymentAlias.changeAlias(nostrPrivkey, newUsername, '')
-      if (result!.ok) {
+      if (isErr(result)) {
         const msg = (result.error as { message?: string }).message ?? t('settings.usernameChangeFailed')
         addToast({ type: 'error', message: msg })
         return
@@ -73,7 +105,12 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
     } finally {
       setIsChanging(false)
     }
-  }, [isUsernameValid, isChanging, nostrPrivkey, newUsername, registry, addToast, updateSettings, onSaveSettings, settings, triggerTxRefresh, onBack, t])
+  }, [nostrPrivkey, newUsername, registry, addToast, updateSettings, onSaveSettings, settings, triggerTxRefresh, onBack, t])
+
+  const handlePriceSheetConfirm = useCallback(async () => {
+    setShowPriceSheet(false)
+    await executeChange()
+  }, [executeChange])
 
   return (
     <div className="fixed inset-0 bg-background text-foreground flex flex-col pt-safe overflow-hidden z-[60]">
@@ -91,7 +128,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
         <div className="w-10" />
       </header>
 
-      {isChanging ? (
+      {(isChanging || isCheckingPrice) ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6">
           <Loader2 className="w-12 h-12 text-brand animate-spin" />
           <div className="flex flex-col items-center gap-2">
@@ -152,13 +189,23 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
               variant="brand"
               size="xl"
               onClick={handleConfirm}
-              disabled={!isUsernameValid}
+              disabled={!isUsernameValid || isCheckingPrice}
+              loading={isCheckingPrice}
               className="w-full"
             >
               {t('common.change')}
             </Button>
           </div>
         </>
+      )}
+      {price && (
+        <UsernamePriceSheet
+          isOpen={showPriceSheet}
+          onClose={() => setShowPriceSheet(false)}
+          onConfirm={handlePriceSheetConfirm}
+          newUsername={newUsername}
+          price={price}
+        />
       )}
     </div>
   )
