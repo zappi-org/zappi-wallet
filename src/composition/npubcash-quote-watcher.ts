@@ -4,22 +4,43 @@ import type { NostrSigner } from '@/core/ports/driven/nostr-signer.port'
 import type { EventBus } from '@/core/events/event-bus'
 import type { PaidQuote } from '@/core/ports/driven/payment-alias-provider.port'
 import type { PaymentAliasProcessedQuotesRepository } from '@/core/ports/driven/payment-alias-processed-quotes.repository.port'
+import {
+  lightningReceiptCursorKey,
+  lightningReceiptSince,
+} from '@/core/domain/lightning-receipt-cursor'
 
 export type SignerFactory = (privkey: string) => NostrSigner
 
-export function createNpubcashQuoteWatcher(
-  provider: PaymentAliasProvider,
-  mint: Pick<RoutePaymentOperator, 'mintAndReceive'>,
-  createSigner: SignerFactory,
-  getPrivkey: () => string | null,
-  eventBus: EventBus,
-  processedQuotesRepo: PaymentAliasProcessedQuotesRepository,
-) {
+export function createNpubcashQuoteWatcher(deps: {
+  provider: PaymentAliasProvider
+  mint: Pick<RoutePaymentOperator, 'mintAndReceive'>
+  createSigner: SignerFactory
+  getPrivkey: () => string | null
+  getPubkey: () => string | null
+  eventBus: EventBus
+  processedQuotesRepo: PaymentAliasProcessedQuotesRepository
+  cursorStore: {
+    get(key: string): Promise<{ key: string; lastSyncAtMs: number } | null>
+    upsert(key: string, lastSyncAtMs: number): Promise<void>
+  }
+}) {
+  const {
+    provider,
+    mint,
+    createSigner,
+    getPrivkey,
+    getPubkey,
+    eventBus,
+    processedQuotesRepo,
+    cursorStore,
+  } = deps
+
   let unsubscribe: (() => void) | null = null
   let isStarting = false
+  let syncing = false
   let reconnectAttempts = 0
-  const maxReconnectAttempts = 5
-  const reconnectDelay = 2_000
+  const maxReconnectDelay = 30_000
+  const baseReconnectDelay = 2_000
   const emittedThisSession = new Set<string>()
 
   const emitSettled = async (q: PaidQuote) => {
@@ -72,13 +93,53 @@ export function createNpubcashQuoteWatcher(
   }
 
   const syncMissedQuotes = async (privkey: string) => {
+    const pubkey = getPubkey()
+    const cursorKey = pubkey ? lightningReceiptCursorKey(pubkey) : null
+
     const signer = createSigner(privkey)
     const session = await provider.authenticate(signer)
     if (!session.ok) return
-    const quotes = await provider.getPaidQuotes(session.value)
+
+    const record = cursorKey ? await cursorStore.get(cursorKey) : null
+    const since = lightningReceiptSince(record)
+
+    const quotes = await provider.getPaidQuotes(session.value, since)
     if (!quotes.ok) return
+
+    let maxPaidAt = since ?? 0
     for (const q of quotes.value) {
       await handleQuote(q)
+      if (q.paidAt > maxPaidAt) maxPaidAt = q.paidAt
+    }
+
+    if (cursorKey && maxPaidAt > (since ?? 0)) {
+      await cursorStore.upsert(cursorKey, maxPaidAt)
+    }
+  }
+
+  const wsOnMessage = async (privkey: string, signer: NostrSigner, quoteId: string) => {
+    const pubkey = getPubkey()
+    const cursorKey = pubkey ? lightningReceiptCursorKey(pubkey) : null
+
+    const session = await provider.authenticate(signer)
+    if (!session.ok) return
+
+    const record = cursorKey ? await cursorStore.get(cursorKey) : null
+    const since = lightningReceiptSince(record)
+
+    const quotes = await provider.getPaidQuotes(session.value, since)
+    if (!quotes.ok) return
+
+    let maxPaidAt = since ?? 0
+    for (const q of quotes.value) {
+      if (q.quoteId === quoteId) {
+        await handleQuote(q)
+      }
+      if (q.paidAt > maxPaidAt) maxPaidAt = q.paidAt
+    }
+
+    if (cursorKey && maxPaidAt > (since ?? 0)) {
+      await cursorStore.upsert(cursorKey, maxPaidAt)
     }
   }
 
@@ -94,40 +155,37 @@ export function createNpubcashQuoteWatcher(
       return
     }
 
-    console.log('[NpubcashQuoteWatcher] syncMissedQuotes() — start')
-    await syncMissedQuotes(privkey)
-    console.log('[NpubcashQuoteWatcher] syncMissedQuotes() — done')
-
     const signer = createSigner(privkey)
+
+    // Fire catch-up in parallel with WS connection (WS-first pattern)
+    syncMissedQuotes(privkey).catch((err) =>
+      console.warn('[NpubcashQuoteWatcher] syncMissedQuotes failed:', err)
+    )
+
     const result = await provider.subscribePaidQuotes(
       signer,
-      async (quoteId) => {
-        const session = await provider.authenticate(signer)
-        if (!session.ok) return
-        const quotes = await provider.getPaidQuotes(session.value)
-        if (!quotes.ok) return
-        for (const q of quotes.value) {
-          if (q.quoteId === quoteId) {
-            await handleQuote(q)
-          }
-        }
-      },
+      (quoteId) => wsOnMessage(privkey, signer, quoteId),
       () => {
         unsubscribe = null
+        const delay = Math.min(
+          baseReconnectDelay * Math.pow(2, reconnectAttempts),
+          maxReconnectDelay,
+        )
         reconnectAttempts++
-        if (reconnectAttempts > maxReconnectAttempts) {
-          console.warn(`[NpubcashQuoteWatcher] onDisconnect — max retries (${maxReconnectAttempts}) exceeded, giving up`)
-          return
-        }
-        console.log(`[NpubcashQuoteWatcher] onDisconnect — WS dead, scheduling restart ${reconnectAttempts}/${maxReconnectAttempts} in ${reconnectDelay}ms`)
-        setTimeout(() => { internalReconnect() }, reconnectDelay)
+        console.log(
+          `[NpubcashQuoteWatcher] onDisconnect — WS dead, scheduling restart #${reconnectAttempts} in ${delay}ms`,
+        )
+        setTimeout(() => { internalReconnect() }, delay)
       },
     )
+
     if (result.ok) {
       unsubscribe = result.value
       console.log('[NpubcashQuoteWatcher] WS subscription established')
     } else {
       console.warn('[NpubcashQuoteWatcher] WS subscription failed:', result.error)
+      const delay = Math.min(baseReconnectDelay, maxReconnectDelay)
+      setTimeout(() => { internalReconnect() }, delay)
     }
   }
 
@@ -138,7 +196,6 @@ export function createNpubcashQuoteWatcher(
     }
     isStarting = true
     try {
-      console.log(`[NpubcashQuoteWatcher] internalReconnect — attempt ${reconnectAttempts}/${maxReconnectAttempts}`)
       await runSubscribe()
     } finally {
       isStarting = false
@@ -169,7 +226,7 @@ export function createNpubcashQuoteWatcher(
         console.log('[NpubcashQuoteWatcher] start() skipped — no alias registered')
         return
       }
-      console.log('[NpubcashQuoteWatcher] start() — begin (budget: 5, fresh)')
+      console.log('[NpubcashQuoteWatcher] start() — begin (infinite retry)')
       await runSubscribe()
     } finally {
       isStarting = false
@@ -187,5 +244,27 @@ export function createNpubcashQuoteWatcher(
     }
   }
 
-  return { start, stop }
+  const syncNow = async () => {
+    if (syncing) {
+      console.log('[NpubcashQuoteWatcher] syncNow() skipped — already syncing')
+      return
+    }
+    const privkey = getPrivkey()
+    if (!privkey) {
+      console.log('[NpubcashQuoteWatcher] syncNow() skipped — no privkey')
+      return
+    }
+    syncing = true
+    try {
+      console.log('[NpubcashQuoteWatcher] syncNow() — manual sync triggered')
+      await syncMissedQuotes(privkey)
+      console.log('[NpubcashQuoteWatcher] syncNow() — done')
+    } catch (err) {
+      console.warn('[NpubcashQuoteWatcher] syncNow() failed:', err)
+    } finally {
+      syncing = false
+    }
+  }
+
+  return { start, stop, syncNow }
 }
