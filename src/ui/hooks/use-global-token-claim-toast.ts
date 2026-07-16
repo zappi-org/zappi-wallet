@@ -18,6 +18,7 @@
  */
 
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useFormatSats } from '@/utils/format'
 import { hapticSuccess } from '@/ui/utils/haptic'
@@ -28,6 +29,7 @@ import { isPaymentOwnedByUI } from '@/ui/utils/payment-event-consumers'
 export function useGlobalTokenClaimToast(
   registry: ServiceRegistry | null,
 ): void {
+  const { t } = useTranslation()
   const addToast = useAppStore((s) => s.addToast)
   const formatSats = useFormatSats()
 
@@ -42,12 +44,12 @@ export function useGlobalTokenClaimToast(
 
       const amountSats = toNumber(amount)
       const message = memo
-        ? `토큰 ${formatSats(amountSats)} 이 사용되었어요 · ${memo}`
-        : `토큰 ${formatSats(amountSats)} 이 사용되었어요`
+        ? t('toast.tokenClaimedWithMemo', { amount: formatSats(amountSats), memo })
+        : t('toast.tokenClaimed', { amount: formatSats(amountSats) })
 
       addToast({ type: 'success', message, duration: 5000 })
       hapticSuccess()
     })
     return unsub
-  }, [registry, addToast, formatSats])
+  }, [registry, addToast, formatSats, t])
 }

@@ -1,10 +1,11 @@
 /**
- * InputRouter — QR/입력 문자열 → 타입 분류기
+ * InputRouter — classifies a QR/input string into a type.
  *
- * 순수 분류만 담당. 하위 서비스 호출 없음.
- * UI 레이어가 ParsedInput을 받아 적절한 서비스/화면으로 분기.
+ * Pure classification only; calls no downstream services. The UI layer takes the
+ * ParsedInput and branches to the appropriate service/screen.
  */
 
+import { UnrecognizedInputError } from '@/core/errors/payment.errors'
 import type { LnurlGateway } from '@/core/ports/driven/lnurl-gateway.port'
 import type { InputRouterUseCase, ParsedInput } from '@/core/ports/driving/input-router.usecase'
 import { lnurlDecode } from '@/core/domain/nostr-address'
@@ -22,7 +23,7 @@ export class InputRouter implements InputRouterUseCase {
   async classify(raw: string): Promise<ParsedInput> {
     const input = raw.trim()
 
-    // lightning: URI prefix 제거
+    // strip the lightning: URI prefix
     const stripped = input.replace(/^lightning:/i, '')
 
     // BOLT11 invoice
@@ -35,7 +36,7 @@ export class InputRouter implements InputRouterUseCase {
       return { type: 'cashu-token', token: stripped }
     }
 
-    // LNURL-encoded string → HTTP 판별 필요
+    // LNURL-encoded string → needs an HTTP probe to disambiguate
     if (/^lnurl1/i.test(stripped)) {
       return this.classifyLnurl(stripped)
     }
@@ -60,7 +61,7 @@ export class InputRouter implements InputRouterUseCase {
       return { type: 'address', value: stripped, addressType: 'email' }
     }
 
-    throw new Error(`Unrecognized input: ${input}`)
+    throw new UnrecognizedInputError(`Unrecognized input: ${input}`)
   }
 
   private async classifyLnurl(lnurl: string): Promise<ParsedInput> {

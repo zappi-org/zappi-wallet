@@ -1,5 +1,5 @@
 import type { BaseError } from '@/core/errors'
-import type { Result } from '@/core/types'
+import type { Result } from '@/core/domain/result'
 import type { RouteContext, RouteExecutionResult, RouteSelection } from '@/core/domain/routing'
 
 export interface RouteExecutionUseCase {

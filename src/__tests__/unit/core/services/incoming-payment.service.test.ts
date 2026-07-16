@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { IncomingPaymentService } from '@/core/services/incoming-payment.service'
 import { sat } from '@/core/domain/amount'
+import { TokenSpentError } from '@/core/errors/cashu'
 import type { PaymentUseCase } from '@/core/ports/driving/payment.usecase'
 import type { ProcessedStore } from '@/core/ports/driven/processed-store.port'
 import type { FailedIncomingStore } from '@/core/ports/driven/failed-incoming-store.port'
@@ -103,9 +104,11 @@ describe('IncomingPaymentService', () => {
 
   it('repairs receive request lifecycle before marking an already-spent retry skipped', async () => {
     const { payment, processedStore, failedIncomingStore, receiveRequest } = createDeps()
+    // Mock a real domain error per the port contract (Result<_, BaseError>) — the
+    // service now detects already-spent via error.code === 'TOKEN_SPENT'
     vi.mocked(payment.redeem).mockResolvedValue({
       ok: false,
-      error: { message: 'Token already spent' },
+      error: new TokenSpentError(),
     } as Awaited<ReturnType<PaymentUseCase['redeem']>>)
     const service = new IncomingPaymentService(payment, processedStore, failedIncomingStore, receiveRequest)
 

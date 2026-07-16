@@ -166,6 +166,10 @@ export function LockScreen({
         }
       }
     } catch {
+      // Must clear the password — leaving it lets the auto-submit effect
+      // (password.length>=6) re-submit the same PIN in an infinite loop when an
+      // infra failure surfaces as a throw.
+      setPassword("");
       setError(t('lock.errorOccurred'));
     } finally {
       setIsLoading(false);

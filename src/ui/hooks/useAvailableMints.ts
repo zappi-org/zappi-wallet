@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next'
 import { useMemo } from 'react'
 import { useAppStore } from '@/store'
 import { useWallet, useMintMetadata } from '@/ui/hooks'
@@ -41,7 +42,7 @@ export function useAvailableMints(extraUrls?: string[]) {
 export function getMintFilterLabel(
   selectedUrls: Set<string>,
   getDisplayName: (url: string) => string,
-  t: (key: string, opts?: Record<string, unknown>) => string,
+  t: TFunction,
 ): string {
   if (selectedUrls.size === 0) return t('history.allMints')
   if (selectedUrls.size === 1) {

@@ -20,7 +20,8 @@ export function useCrossTabSync() {
       const msg = event.data
       if (msg.type === 'balance_changed' || msg.type === 'tx_changed') {
         triggerTxRefresh()
-      } else if (msg.type === 'settings_changed') {
+      } else if (msg.type === 'settings_changed' || msg.type === 'logout') {
+        // logout: the source tab wiped the data — reload here too to discard in-memory remnants
         window.location.reload()
       }
     }

@@ -1,4 +1,5 @@
 
+import type { TFunction } from 'i18next'
 import { ArrowLeft, Bell, Zap, ShieldAlert, CheckCircle2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/ui/lib/utils'
@@ -25,7 +26,7 @@ export interface NotificationsScreenProps {
 
 function formatTimeAgo(
   timestamp: number,
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: TFunction,
   locale: string
 ): string {
   const now = Date.now()
@@ -52,7 +53,7 @@ function formatTimeAgo(
 
 function generateNotificationsFromTransactions(
   transactions: Transaction[],
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: TFunction,
   formatSats: (amount: number) => string
 ): Notification[] {
   // Get recent completed transactions (last 7 days)

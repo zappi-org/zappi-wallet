@@ -1,5 +1,4 @@
 export default {
-  // Common
   common: {
     sats: '₿',
     sat: '₿',
@@ -35,10 +34,8 @@ export default {
     notifications: '通知',
     syncing: '同期中',
     change: '変更',
-    search: '検索',
+    search: '検索'
   },
-
-  // Lock Screen
   lock: {
     welcomeBack: 'ZAPPI',
     enterPin: 'PINを入力してロックを解除',
@@ -47,12 +44,9 @@ export default {
     tryAgainIn: '{{time}}後に再試行してください',
     faceIdUnlock: 'Face IDでロック解除',
     errorOccurred: 'エラーが発生しました。',
-    biometricFailed: '生体認証に失敗しました。PINを入力してください。',
+    biometricFailed: '生体認証に失敗しました。PINを入力してください。'
   },
-
-  // Onboarding
   onboarding: {
-    // Welcome
     appName: 'Zappi',
     tagline: 'Bitcoinの支払いを簡単・高速に',
     createWallet: '新規作成',
@@ -61,8 +55,6 @@ export default {
     invitePlaceholder: '招待コード',
     inviteInvalidCount: '無効な招待コードです ({{current}}/{{max}})',
     inviteLocked: '試行回数を超えました。5分後に再試行してください。',
-
-    // Mnemonic
     secretRecoveryKey: '秘密のリカバリーキー',
     walletRecovery: 'ウォレットの復元',
     mnemonicWarning: 'ウォレットを復元する唯一の手段です。\n必ず順番通りに安全な場所に記録してください。',
@@ -76,26 +68,18 @@ export default {
     recoverWallet: '復元する',
     invalidMnemonic: '無効なリカバリーキーです。単語を確認してもう一度お試しください。',
     backupConfirmRequired: 'リカバリーキーを記録したことを確認してください。',
-
-    // PIN
     setPin: 'PINを設定',
     confirmPin: 'PINを確認',
     enterNewPin: '6桁のPINを設定してください',
     reenterPin: 'PINを再入力してください',
     pinMismatch: 'PINが一致しません',
-
-    // Processing
     creatingWallet: 'ウォレット作成中',
     recoveringWallet: 'ウォレット復元中',
     creatingWalletDesc: '新しいウォレットを作成しています...',
     recoveringWalletDesc: 'Nostrからプロファイルを取得しトークンを復元しています...',
     pleaseWait: 'お待ちください',
-
-    // Complete
-    walletSetupFailed: 'ウォレットのセットアップに失敗しました。もう一度お試しください。',
+    walletSetupFailed: 'ウォレットのセットアップに失敗しました。もう一度お試しください。'
   },
-
-  // Home Screen
   home: {
     totalBalance: '合計残高',
     showBalance: '残高を表示',
@@ -104,16 +88,13 @@ export default {
     addFirstMint: '最初のミントを追加',
     recentTransactions: '取引履歴',
     noTransactions: '取引履歴がありません',
-    seeAll: 'もっと見る',
+    seeAll: 'もっと見る'
   },
-
-  // Action Buttons
   actions: {
     transfer: '残高移動',
     scan: 'スキャン',
-    analytics: '分析',
+    analytics: '分析'
   },
-
   support: {
     title: 'Support history',
     heroTitle: 'How can we help?',
@@ -123,7 +104,7 @@ export default {
       idle: 'Idle',
       connecting: 'Connecting',
       connected: 'Connected',
-      error: 'Error',
+      error: 'Error'
     },
     unavailableTitle: 'Support is not configured',
     unavailableDescription: 'Customer support is unavailable in this build. Please contact the Zappi team through the official channel.',
@@ -145,19 +126,33 @@ export default {
       general: 'General',
       technical: 'Technical',
       billing: 'Billing',
+      transfer: 'Send / receive',
+      ecash: 'Ecash',
+      fee: 'Fees',
+      security: 'Security / backup',
+      other: 'Other',
+      idea_ux: 'UI / UX',
+      idea_feature: 'New feature',
+      idea_perf: 'Performance / stability',
+      idea_other: 'Other'
     },
     categoryDescriptions: {
       general: 'How-to, account, or general questions',
       technical: 'Bugs, wallet behavior, or connection issues',
       billing: 'Payment, transfer, or settlement questions',
+      transfer: 'Lightning / ecash send & receive',
+      ecash: 'Ecash token register / recovery',
+      fee: 'Fees and routing costs',
+      security: 'Lock, backup, recovery phrase',
+      other: 'Anything else'
     },
     priorities: {
       normal: 'Normal',
-      high: 'High',
+      high: 'High'
     },
     priorityDescriptions: {
       normal: 'A regular support request',
-      high: 'Something is blocked or needs faster review',
+      high: 'Something is blocked or needs faster review'
     },
     createTicket: 'Submit',
     sending: 'Sending...',
@@ -201,7 +196,7 @@ export default {
       open: 'Open',
       in_progress: 'In progress',
       resolved: 'Resolved',
-      closed: 'Closed',
+      closed: 'Closed'
     },
     faqTitle: 'よくある質問',
     faqSeeAll: 'すべて見る',
@@ -217,15 +212,79 @@ export default {
       q5: 'アプリを削除したり端末を紛失すると残高はなくなりますか？',
       a5: 'はい。そのため、シードフレーズのバックアップが非常に重要です。銀行のように中央サーバーが残高を管理するのとは異なり、Cashuウォレットではデバイス上のトークンが残高です。アプリを削除したり端末を紛失すると、トークンも失われます。ほとんどのCashuウォレットはシードフレーズを提供しており、これによりトークンを決定論的に回復できます。シードフレーズは必ず安全な場所に保管してください。',
       q6: '従来のカストディとの違いは何ですか？',
-      a6: '従来のLightningカストディサービスは「残高」モデルでの資金管理が一般的です。ユーザーの残高がサーバーに記録されるため、運営者は取引履歴を簡単に追跡でき、プライバシーが脆弱になります。特定ユーザーの資金凍結や取引の検閲も比較的容易です。\n\nCashuは「トークン」モデルで動作します。ミントはトークンを発行し、使用済みかどうかを検証するだけで、誰がどのトークンを持ち、どこへ送ったかを知る方法がありません。これによりプライバシーが保護され、個人への検閲が事実上不可能になります。カストディモデルではありますが、プライバシーの観点では大きく進化した形と言えます。',
+      a6: '従来のLightningカストディサービスは「残高」モデルでの資金管理が一般的です。ユーザーの残高がサーバーに記録されるため、運営者は取引履歴を簡単に追跡でき、プライバシーが脆弱になります。特定ユーザーの資金凍結や取引の検閲も比較的容易です。\n\nCashuは「トークン」モデルで動作します。ミントはトークンを発行し、使用済みかどうかを検証するだけで、誰がどのトークンを持ち、どこへ送ったかを知る方法がありません。これによりプライバシーが保護され、個人への検閲が事実上不可能になります。カストディモデルではありますが、プライバシーの観点では大きく進化した形と言えます。'
     },
+    searchPlaceholder: 'Search by keyword',
+    csStatus: {
+      received: 'Received',
+      progress: 'In progress',
+      answered: 'Answered'
+    },
+    userBubbleLabel: 'My request',
+    helpHomeSubtitle: 'Ask us anything, anytime.',
+    helpFooter: '',
+    actions: {
+      composeInquiry: {
+        title: 'Start a new request',
+        subtitle: 'Our team will reply directly'
+      },
+      inquiryList: {
+        title: 'View my requests',
+        subtitle: '{{count}} request(s)',
+        subtitleWithUnread: '{{count}} total · {{unread}} new repl(ies)'
+      },
+      composeIdea: {
+        title: 'Suggest an idea',
+        subtitle: 'Share your thoughts with the Zappi team'
+      },
+      ideaList: {
+        title: 'View my ideas',
+        subtitle: '{{count}} sent idea(s)',
+        empty: 'No ideas sent yet'
+      }
+    },
+    composeInquirySubtitle: 'Tell us in detail and our team will reply as soon as possible.',
+    composeIdeaSubtitle: 'What could be better? The Zappi team will read it carefully.',
+    titlePlaceholderInquiry: 'Briefly describe the issue',
+    titlePlaceholderIdea: 'Summarize in one line',
+    bodyPlaceholderInquiry: 'Add details. Including related data or screenshots increases the chance of a quick resolution.',
+    bodyPlaceholderIdea: 'Tell us when you felt the gap and how it could be improved.',
+    bodyCounter: '{{count}} / 2000',
+    securityNoticeTitle: 'Never share your mnemonic or PIN.',
+    securityNoticeBody: 'Zappi will never ask for your private key information under any circumstance.',
+    attachmentLabel: 'Attachments',
+    attachmentEncryptedNote: 'Everything is encrypted and sent securely.',
+    submitInquiry: 'Send request',
+    submitIdea: 'Send idea',
+    inquiryListTitle: 'My requests',
+    inquiryListSubtitle: '{{count}} open request(s).',
+    inquiryListEmpty: 'No requests yet.',
+    fabNewInquiry: 'New',
+    fabNewIdea: 'New',
+    threadFooterInquiry: 'Replies stay in the same thread',
+    threadFooterIdea: 'Keep the conversation going about your idea',
+    detailMetadata: 'Received {{date}}',
+    ideaDetailMetadata: 'Sent {{date}}',
+    ideaListTitle: 'My ideas',
+    ideaListSubtitle: '{{count}} sent idea(s).',
+    ideaListEmpty: 'No ideas sent yet.',
+    ideaBadge: 'Idea',
+    proposalLabel: 'Idea',
+    composeIdeaPageTitle: 'Suggest an idea',
+    ideaReplyPlaceholder: 'Share more thoughts',
+    viewAttachment: 'View',
+    openingAttachment: 'Opening',
+    openInNewTab: 'Open in new tab',
+    previewFailed: 'Could not open preview',
+    threadStatusEvent: {
+      open: 'Request reopened',
+      in_progress: 'Support team is preparing a reply',
+      resolved: 'This request has been resolved',
+      closed: 'This request has been closed'
+    }
   },
-
-  // Settings
   settings: {
     title: '設定',
-
-    // Profile
     profile: 'プロフィール',
     profileDesc: 'Nostr、ライトニングアドレス、分析',
     profileDescHiddenLightning: 'Nostr、分析',
@@ -260,8 +319,6 @@ export default {
     swapFee: '手数料',
     paymentFailed: '支払いに失敗しました。別のミントを選択してください',
     noPayableMint: '変更手数料を支払えるだけの残高があるミントがありません',
-
-    // Security
     security: 'セキュリティ',
     securityDesc: 'PIN変更、Face ID、自動ロック',
     autoLock: '自動ロック',
@@ -269,8 +326,6 @@ export default {
     faceIdTouchId: 'Face ID / Touch ID',
     biometric: '生体認証',
     changePin: 'PINを変更',
-
-    // Wallet Management
     walletManagement: 'ウォレット管理',
     walletManagementDesc: 'ミント、リレー、残高確認、バックアップ',
     manageMints: 'ミント管理',
@@ -278,15 +333,10 @@ export default {
     verifyBalance: '残高確認',
     findUnusedTokens: '未使用トークンを探す',
     mnemonicBackup: 'ニーモニックバックアップ',
-
-    // TLS Test
     tlsTest: 'TLS テスト',
     tlsTestDesc: 'TransferLifecycleService のテスト',
-
-    // Logout
     logout: 'ログアウト',
     version: 'Zappi v{{version}}',
-
     updateAvailable: 'アップデートがあります',
     updateInstallHint: 'タップしてアップデート',
     checkForUpdates: 'アップデートを確認',
@@ -295,13 +345,9 @@ export default {
     updateCurrent: '最新バージョンです',
     updateCheckUnavailable: 'この環境ではアップデートを確認できません',
     updateCheckFailed: 'アップデートを確認できませんでした',
-
-    // Mints
     addMint: 'ミントを追加',
     noMints: '登録されたミントがありません',
     mintCount: '{{count}}個',
-
-    // Relays
     noRelays: '登録されたリレーがありません',
     relayPlaceholder: 'relay.example.com',
     relayExists: 'リレーは既に存在します',
@@ -314,24 +360,16 @@ export default {
     confirmDeleteRelay: '削除しますか？',
     minRelaysRequired: '最低{{min}}個のリレーが必要です',
     minMintsRequired: '最低{{min}}個のミントが必要です',
-
-    // PIN Change
     currentPinLabel: '現在のPINを入力',
     newPinLabel: '新しいPINを入力（6桁）',
     confirmPinLabel: '新しいPINを確認',
     pinChangeError: 'PINが一致しません。',
     wrongCurrentPin: '現在のPINが間違っています。',
     change: '変更',
-
-    // Mnemonic Backup
     enterPinLabel: 'PINを入力',
     wrongPin: 'PINが間違っています。',
     mnemonicWarning: 'このニーモニックを安全に保管してください。絶対に共有しないでください。',
-
-    // Logout
     logoutWarning: 'すべてのデータが削除されます。ニーモニックをバックアップしましたか？',
-
-    // Token Restore
     restoreChoiceDescription: '不足しているeCashの復元方法を選択してください。',
     restoreDescription: '各ミントから未使用トークンを検索して復元します。',
     currentWalletRecovery: 'このウォレットを復元',
@@ -351,8 +389,6 @@ export default {
     noRecoverableEcash: '復元できるeCashはありません。',
     verificationError: '検証中にエラーが発生しました。',
     noMintsRegistered: '登録されたミントがありません。',
-
-    // Passkey
     passkeySetup: 'Face ID / Touch ID設定',
     passkeyDescription: '生体認証を登録するにはPINを入力してください',
     register: '登録',
@@ -361,8 +397,6 @@ export default {
     passkeyRemove: 'Face ID / Touch IDの解除',
     passkeyRemoveDescription: '生体認証を解除するにはPINを入力してください',
     remove: '解除',
-
-    // Mint Delete
     deleteMint: 'ミントを削除',
     mintHasBalance: 'このミントには<bold>{{formattedBalance}}</bold>の残高があります。',
     deleteWarning: '削除すると残高にアクセスできなくなります。',
@@ -373,23 +407,13 @@ export default {
     moveDown: '下へ移動',
     dragToReorder: 'ドラッグして並べ替え',
     reorderHint: 'ハンドルをドラッグして並べ替えられます。キーボードではハンドルにフォーカスして上下キーを押してください。',
-
-    // Preferences
     preferences: '環境設定',
     preferencesDesc: '言語、単位、通貨、プライバシー',
-
-    // Language
     language: '言語',
-
-    // Unit Display
     unitDisplay: '単位表示',
-
-    // Fiat Currency
     fiatCurrency: '通貨',
     showFiatConversion: '法定通貨を表示',
     selectCurrency: '通貨を選択',
-
-    // POS Management
     posManagement: 'POS管理',
     addPosDevice: 'POSデバイスを追加',
     posDeviceCount: '{{count}}台のデバイス',
@@ -403,19 +427,19 @@ export default {
     posProvisioningDone: 'POSデバイスの登録が完了しました。',
     posDeviceRemove: 'デバイスを削除',
     posDeviceRemoveWarning: 'このPOSデバイスは決済を受け付けられなくなります。削除しますか？',
-
-    // Privacy
     privacy: 'プライバシー',
     senderPrivacyMode: '送金プライバシーモード',
     senderPrivacyModeDescription: '手数料が高くてもミントが送受信者をリンクできない経路を選択します',
-
-    // Descriptions
     active: '有効',
     autoLockDescription: '非アクティブ時に自動ロック',
     faceIdDescription: '生体認証でロック解除',
+    tlsBolt11Send: 'Bolt11 Send (melt)',
+    tlsBolt11Receive: 'Bolt11 Receive (minting)',
+    tlsEcashCreate: 'Create Ecash',
+    tlsEcashRedeem: 'Redeem Ecash',
+    tlsGiftWrap: 'Receive via GiftWrap',
+    tlsCreq: 'Receive via Creq'
   },
-
-  // Add Mint Screen
   addMint: {
     title: 'ミントを追加',
     mintUrl: 'ミントURL',
@@ -442,10 +466,8 @@ export default {
     hasBeenAdded: 'が追加されました。',
     mintAddedSuccess: '新しいミントが追加されました。',
     confirmTitle: 'このミントを追加しますか？',
-    confirmAdd: '追加',
+    confirmAdd: '追加'
   },
-
-  // Scanner
   scanner: {
     title: 'スキャン',
     inputPlaceholder: 'アドレス、インボイス、トークンを入力...',
@@ -470,12 +492,9 @@ export default {
     noQrFound: 'QRコードが見つかりません',
     invalidCashuRequest: '無効なCashuリクエストです',
     invalidNostrProfile: '無効なNostrプロフィールです',
-    invalidNostrEvent: '無効なNostrイベントです',
+    invalidNostrEvent: '無効なNostrイベントです'
   },
-
-  // Payment Screens
   payment: {
-    // Common
     selectMint: 'ミントを選択',
     selectThisMint: 'このミントを選択',
     receiveWithThisMint: 'このミントで受け取る',
@@ -499,8 +518,6 @@ export default {
     qrScan: 'QRスキャン',
     sendComplete: '送信完了！',
     receiveComplete: '受取完了！',
-
-    // Lightning Send
     lightningPay: 'Lightning支払い',
     lightningSend: 'Lightning送金',
     recipient: '宛先',
@@ -524,8 +541,6 @@ export default {
     lightningSendFailed: 'Lightning送金に失敗しました',
     sendError: '送金中にエラーが発生しました',
     clipboardError: 'クリップボードへのアクセスに失敗しました',
-
-    // Lightning Receive
     lightningReceive: 'Lightning受取',
     createInvoice: 'インボイスを作成',
     creating: '作成中...',
@@ -535,8 +550,6 @@ export default {
     copyInvoice: 'インボイスをコピー',
     expiresIn: '{{time}}後に期限切れ',
     paymentReceived: '支払いを受け取りました！',
-
-    // Ecash Send
     ecashSend: 'Ecash送金',
     memoPlaceholder: 'メモを入力（任意）',
     ecashToken: 'Ecashトークン',
@@ -555,8 +568,6 @@ export default {
     swapRequired: '{{mintName}}ミントにスワップ後送信されます。手数料が発生する場合があります。',
     compatibleMint: '対応ミント',
     requestedMint: '要求ミント',
-
-    // Ecash Receive
     ecashReceive: 'Ecash受取',
     createRequest: 'リクエストを作成',
     requestCreated: 'リクエストが作成されました',
@@ -564,8 +575,6 @@ export default {
     copyRequest: 'リクエストをコピー',
     paymentRequest: 'Payment Request (Nostr)',
     waitingNostrDm: 'Nostr DM待機中...',
-
-    // Token Receive
     tokenReceive: 'トークン受取',
     tokenInfo: 'トークン情報',
     tokenAmount: '金額',
@@ -578,25 +587,17 @@ export default {
     sending: '送金中...',
     tokenReceived: 'トークンを受け取りました！',
     tokenAlreadySpent: 'トークンは既に使用されています',
-
-    // Amount Input
     enterAmount: '金額を入力',
     amountInSats: '単位',
-
-    // Zap
     zapSend: 'Zapを送る',
     zapTo: 'Zap先',
     sendZap: 'Zapを送る',
     zapping: 'Zap送信中...',
     zapSent: 'Zapを送信しました！',
-
-    // Nostr DM
     sendingNostrDm: 'Nostr DM送信中...',
     sentViaNostrDm: 'Nostr DMで送信しました',
     willSendViaNostrDm: 'Nostr DMで送信されます',
     checkingReceipt: '受領待機中...',
-
-    // Token Receive (additional)
     mintAdded: 'ミントが追加されました',
     mintAddFailed: 'ミントの追加に失敗しました',
     trustAndReceive: 'ミントを追加して受け取る',
@@ -606,8 +607,6 @@ export default {
     untrusted: '未登録',
     untrustedMintWarning: 'このミントは登録されていません。トークンを受け取ると、このミントの残高になります。',
     receiveAmountBtn: '{{unit}} {{amount}} 受取',
-
-    // Lightning Receive (additional)
     mintSelectedOffline: '選択したミントはオフラインです',
     createInvoiceFailed: 'インボイスの作成に失敗しました',
     createInvoiceError: 'インボイスの作成に失敗しました',
@@ -615,8 +614,6 @@ export default {
     withdrawSource: '出金元',
     minValidation: '最小 {{amount}}',
     maxValidation: '最大 {{amount}}',
-
-    // Receive Screen
     creatingInvoice: 'インボイス作成中...',
     remainingTime: '残り時間',
     invoiceExpired: 'インボイスが期限切れです。もう一度お試しください。',
@@ -635,19 +632,15 @@ export default {
     wave: 'ウェーブ',
     nfcComingSoon: 'NFCによるEcash受信は近日対応予定',
     waveComingSoon: '音波によるEcash受信は近日対応予定',
-    comingSoon: '近日公開',
+    comingSoon: '近日公開'
   },
-
-  // Amount Action Screen
   amountAction: {
     title: '金額を選択',
     send: '送金',
     receive: '受取',
     lightning: 'Lightning',
-    ecash: 'Ecash',
+    ecash: 'Ecash'
   },
-
-  // Transfer Screen
   transfer: {
     title: '残高移動',
     from: '送金元ミント',
@@ -664,10 +657,8 @@ export default {
     quoting: '見積もり中...',
     melting: '出金中...',
     minting: '入金中...',
-    transferComplete: '送金完了！',
+    transferComplete: '送金完了！'
   },
-
-  // History Screen
   history: {
     title: '取引履歴',
     noTransactions: '取引履歴がありません',
@@ -682,13 +673,11 @@ export default {
       today: '{{weekday}} · 今日',
       yesterday: '{{weekday}} · 昨日',
       monthSameYear: '月',
-      monthOtherYear: '{{year}}.{{month02}}',
+      monthOtherYear: '{{year}}.{{month02}}'
     },
     timeAt: '{{time}}',
     dayWithTime: '{{day}}日 {{time}}',
     endOfList: 'すべての履歴を確認しました。',
-
-    // Transaction Types
     lightningReceive: '受取 (Lightning)',
     lightningSend: '送金 (Lightning)',
     ecashReceive: '受取 (eCash)',
@@ -700,14 +689,10 @@ export default {
     requestPay: 'Ecash決済送金',
     nutzap: 'NutZap',
     swap: 'スワップ',
-
-    // Status
     completed: '完了',
     pendingStatus: '処理中',
     failedStatus: '失敗',
     andMore: '他{{count}}件',
-
-    // Redesigned history screen
     income: '入金',
     expense: '出金',
     pendingTab: '保留中',
@@ -722,18 +707,14 @@ export default {
     mintFilter: 'ウォレット選択',
     allMints: 'すべてのウォレット',
     mintCount: '{{count}}件のウォレット',
-
-    // Export
     export: 'エクスポート',
     exportSuccess: 'ファイルが保存されました',
     exportEmpty: 'エクスポートする取引がありません',
     exportFileName: '取引履歴',
     exportCsvDesc: 'Excel、Numbers、Google Sheetsで開けます',
     exportCount: '{{count}}件の取引',
-    exportDownload: 'ダウンロード',
+    exportDownload: 'ダウンロード'
   },
-
-  // Transaction Detail Screen
   txDetail: {
     title: '取引詳細',
     type: '種類',
@@ -753,16 +734,12 @@ export default {
     toMint: '送信先Mint',
     txId: '取引ID',
     details: '詳細情報',
-
-    // Sources
     'source.zappi-pos': 'Zappi POS',
     'source.zappi-kiosk': 'Zappi Kiosk',
     'source.zappi-api': 'Zappi API',
     'source.zappi-link': 'Zappi Link',
     'source.wallet': 'ウォレット',
     'source.unknown': '外部',
-
-    // Token lifecycle
     tokenState: 'トークン状態',
     'tokenState.unspent': '未受領',
     'tokenState.pending': '処理中',
@@ -786,8 +763,6 @@ export default {
     delete: '削除',
     deleteConfirm: 'この取引記録を削除しますか？',
     deleteWarning: '削除後は元に戻せません。',
-
-    // Context sentences
     receivedFrom: '{{mint}}から受取',
     receivedToWallet: '{{wallet}}に受取',
     sentViaLightning: '{{address}}に送金',
@@ -799,21 +774,13 @@ export default {
     receivedFromPOS: '{{name}}から受取',
     unclaimedNotice: 'まだ受領されていません',
     reclaimAction: 'eCashを回収',
-
-    // Section titles
     txInfo: '取引情報',
     paymentInfo: '支払い情報',
     swapInfo: 'スワップ情報',
-
-    // Kiosk order
     orderItems: '注文内容',
     orderTotal: '合計',
-
-    // Fiat
-    fiatValue: '法定通貨換算',
+    fiatValue: '法定通貨換算'
   },
-
-  // Analytics Screen
   analytics: {
     title: '分析',
     overview: '概要',
@@ -823,10 +790,8 @@ export default {
     thisWeek: '今週',
     thisMonth: '今月',
     allTime: '全期間',
-    noData: 'データがありません',
+    noData: 'データがありません'
   },
-
-  // Notifications Screen
   notifications: {
     title: '通知',
     noNotifications: '通知はありません',
@@ -844,10 +809,8 @@ export default {
     hourAgo: '{{count}}時間前',
     hoursAgo: '{{count}}時間前',
     dayAgo: '{{count}}日前',
-    daysAgo: '{{count}}日前',
+    daysAgo: '{{count}}日前'
   },
-
-  // PWA Install
   pwa: {
     installTitle: 'Zappiをインストール',
     installDescription: 'ホーム画面に追加して簡単にアクセス',
@@ -874,10 +837,8 @@ export default {
     desktopBrowserSupport: 'Chrome、Edge、Safariなどほとんどのブラウザで対応しています。',
     afterInstall: 'インストール後、ホーム画面のZAPPIアイコンをタップして起動してください。',
     devBypass: '（開発モード）PWAなしで続行',
-    desktopBrowser: 'デスクトップブラウザ',
+    desktopBrowser: 'デスクトップブラウザ'
   },
-
-  // Errors
   errors: {
     generic: 'エラーが発生しました。',
     network: 'ネットワーク接続を確認してください。',
@@ -923,15 +884,20 @@ export default {
     networkError: 'ネットワークエラーが発生しました',
     timeoutError: 'リクエストがタイムアウトしました',
     unknownError: '不明なエラーが発生しました',
+    keysetSyncFailed: 'Failed to download mint keyset keys',
+    adapterNotFound: 'No payment method available for this operation',
+    serviceNotReady: 'Service is starting up — try again in a moment.',
+    invalidDestination: 'Unrecognized destination address',
+    unrecognizedInput: 'Unrecognized input format',
+    lnurlParseFailed: 'Could not process this LNURL',
+    transferStateInvalid: 'This transfer can no longer be processed',
+    receiveRequestInvalid: 'Invalid receive request',
+    supportTicketResolved: 'This support ticket is already resolved'
   },
-
-  // Redirect
   redirect: {
     toReceive: '受取画面に移動します',
-    toSend: '送金画面に移動します',
+    toSend: '送金画面に移動します'
   },
-
-  // Toast Messages
   toast: {
     copied: 'クリップボードにコピーしました',
     saved: '保存しました',
@@ -978,10 +944,8 @@ export default {
     offlineStatus: 'オフライン状態です',
     transferSettled: '転送完了',
     transferReclaimed: '転送回収完了',
-    incomingTransferProcessed: '受信転送処理完了',
+    incomingTransferProcessed: '受信転送処理完了'
   },
-
-  // Mint Details
   mintDetails: {
     mintBalance: 'ミント残高',
     mintInfo: 'ミント情報',
@@ -993,10 +957,8 @@ export default {
     loadError: 'ミント情報を取得できませんでした。',
     deleteConfirm: '削除を確認',
     deleteMint: 'ミントを削除',
-    balanceWarning: 'このミントに{{formattedAmount}}が残っています。削除する前に他のミントへ送金することをお勧めします。',
+    balanceWarning: 'このミントに{{formattedAmount}}が残っています。削除する前に他のミントへ送金することをお勧めします。'
   },
-
-  // Send
   send: {
     title: '送金',
     fromMint: '送金ミント',
@@ -1025,14 +987,14 @@ export default {
       ecashInfoNotFound: 'eCash受取情報が見つかりません。',
       noCommonMint: '相手が受け取れる共通ミントがありません。',
       relayNotFound: '相手へ送るためのリレー情報が見つかりません。',
-      selectedMintUnavailable: '{{mint}}は相手が受け取れません。下のミントから送れます。',
+      selectedMintUnavailable: '{{mint}}は相手が受け取れません。下のミントから送れます。'
     },
     amount: {
       sendTo: '{{destination}}へ',
       howMuchSend: 'いくら送りますか？',
       balancePill: '残高 · {{balance}}',
       addMemo: 'メモ（任意）',
-      memoPlaceholder: '任意',
+      memoPlaceholder: '任意'
     },
     tokenCreate: {
       title: 'イーキャッシュ作成',
@@ -1060,7 +1022,7 @@ export default {
       share: '共有',
       reclaim: '取り戻す',
       reclaiming: '取り戻し中…',
-      reclaimWithFee: '取り戻す（受取手数料 {{fee}}）',
+      reclaimWithFee: '取り戻す（受取手数料 {{fee}}）'
     },
     confirm: {
       title: '送金確認',
@@ -1086,13 +1048,14 @@ export default {
       questionEnd: '送りますか？',
       lightningInvoice: 'Lightning インボイス',
       ecashRequest: 'eCash 支払いリクエスト',
+      requestAmount: 'Request'
     },
     sending: {
       message: '{{destination}}へ送金中',
       inProgress: '送金中です...',
       fullMessage: '<b>{{recipient}}</b>へ\n{{amount}}を\n送金中です...',
       fullRequestMessage: '{{amount}}を\n送金中です...',
-      networkDelay: 'ネットワーク状況により時間がかかる場合があります',
+      networkDelay: 'ネットワーク状況により時間がかかる場合があります'
     },
     complete: {
       message: '{{destination}}に\n{{amount}}の送金が完了しました',
@@ -1100,11 +1063,9 @@ export default {
       fullMessage: '<b>{{recipient}}</b>へ\n{{amount}}を\n送金しました!',
       fullRequestMessage: '{{amount}}を\n送金しました!',
       confirm: '完了',
-      details: '詳細',
-    },
+      details: '詳細'
+    }
   },
-
-  // Receive
   receive: {
     title: '受取',
     senderMethod: '送り主の方法は？',
@@ -1126,40 +1087,40 @@ export default {
       accountTo: '<b>{{mint}}</b>へ',
       haveToken: '受け取るトークンがありますか？',
       placeholder: 'トークン入力',
-      hint: 'トークンがなければ<b>インボイス</b>を作成して支払いを請求できます',
+      hint: 'トークンがなければ<b>インボイス</b>を作成して支払いを請求できます'
     },
     amountStep: {
       howMuchRequest: 'いくらリクエストしますか？',
       addMemo: 'メモ（任意）',
-      memoPlaceholder: '任意',
+      memoPlaceholder: '任意'
     },
     qr: {
       title: '受取',
       protocols: {
         unified: '統合',
         cashu: 'Cashu',
-        lightning: 'Lightning',
+        lightning: 'Lightning'
       },
       showToSender: '送り主にこれを見せてください',
       share: '共有',
       willNotify: '{{mint}}に入金されたらお知らせします',
       depositNotify: 'が入金されたらお知らせします',
       fullMessage: '{{amount}}が入金されたらお知らせします',
-      cancel: 'キャンセル',
+      cancel: 'キャンセル'
     },
     transport: {
       nostrAndHttp: 'Nostr + HTTP 待機中',
       httpOnly: 'HTTP 待機中 (Nostr 切断)',
       nostrOnly: 'Nostr 待機中',
       unified: 'Lightning + eCash 待機中',
-      lightningOnly: 'Lightning 待機中',
+      lightningOnly: 'Lightning 待機中'
     },
     complete: {
       message: '{{mint}}に\n{{amount}}入金されました',
       received: ' 入金されました!',
       fullMessage: '{{amount}} 入金されました!',
       requestFulfilledMessage: 'リクエストした{{amount}}\n到着しました!',
-      done: '完了',
+      done: '完了'
     },
     token: {
       title: 'トークン確認',
@@ -1181,7 +1142,7 @@ export default {
       fee: '手数料',
       netAmount: '受取金額',
       noFee: '手数料なし',
-      feeApplies: '⚡ 手数料あり',
+      feeApplies: '⚡ 手数料あり'
     },
     untrusted: {
       title: 'トークン確認',
@@ -1192,7 +1153,7 @@ export default {
       addAndReceive: 'ミントを追加して受取',
       addAndReceiveSub: 'このミントを信頼します',
       reject: '受け取らない',
-      rejectSub: 'このトークンを受け取りません',
+      rejectSub: 'このトークンを受け取りません'
     },
     offline: {
       p2pkAccepted: 'P2PKで保護されたトークンです。オフラインで安全に受取でき、再接続時に自動検証されます。',
@@ -1201,7 +1162,7 @@ export default {
       nonP2PKError: 'オフラインではP2PKで保護されたトークンのみ受取可能です。接続後に再試行してください。',
       untrustedNeedsOnline: '未登録ミントからのトークンを受取るにはインターネット接続が必要です。',
       receiveOffline: 'オフラインで受取',
-      acceptAnyway: 'リスクを承知で受取',
+      acceptAnyway: 'リスクを承知で受取'
     },
     swapFeeTooHigh: 'スワップ手数料（{{fee}}）がトークン金額（{{amount}}）以上のため受け取れません',
     swapTokenTooSmall: 'このトークンは自分のミントへスワップするには少額すぎます。元のミントで直接受け取るか、より大きいトークンを使用してください。',
@@ -1215,11 +1176,9 @@ export default {
       description: '{{amount}}は{{mint}}に保管されています。Zappiでこの残高を表示して使いたい場合だけ、このミントを追加してください。',
       mint: '元のミント',
       addMint: 'ミントを追加して残高を見る',
-      later: '後で',
-    },
+      later: '後で'
+    }
   },
-
-  // Mint Detail Screen
   mintDetail: {
     title: 'ミント詳細',
     send: '送金',
@@ -1286,10 +1245,8 @@ export default {
     filterType: '種類',
     search: '検索',
     pendingExpiry: '有効期限',
-    pendingExpired: '期限切れ',
+    pendingExpired: '期限切れ'
   },
-
-  // Pending Item Actions
   pending: {
     redeemAction: '今すぐ受け取る',
     redeemSuccess: 'トークンを受け取りました',
@@ -1301,28 +1258,25 @@ export default {
     lightningInvoice: 'ライトニングインボイス',
     quoteStatus: 'ステータス',
     redeemQuote: '手動受領',
+    expiredRemoved: 'Expired request removed'
   },
-
-  // Error Boundary
   error: {
     unexpectedTitle: '予期しないエラーが発生しました',
     unexpectedMessage: 'アプリでエラーが発生しました。リロードしてもう一度お試しください。',
-    reload: 'リロード',
+    reload: 'リロード'
   },
-
   nav: {
     wallet: 'ウォレット',
     token: 'イーキャッシュ',
     contacts: '連絡先',
-    settings: '設定',
+    settings: '設定'
   },
-
   token: {
     create: '作る',
     register: '受け取る',
     empty: {
       title: '作成したイーキャッシュがありません。\nイーキャッシュを作ってみましょう。',
-      footerNote: 'イーキャッシュは現金のように機能します。持っている人なら誰でも登録して使えます。',
+      footerNote: 'イーキャッシュは現金のように機能します。持っている人なら誰でも登録して使えます。'
     },
     time: {
       justNow: 'たった今',
@@ -1331,33 +1285,33 @@ export default {
       yesterday: '昨日',
       daysAgo: '{{count}}日前',
       atTimeOfDay: '{{time}}',
-      dayWithTime: '{{day}}日 {{time}}',
+      dayWithTime: '{{day}}日 {{time}}'
     },
     pending: {
-      timeLabel: '待機中 · {{time}}',
+      timeLabel: '待機中 · {{time}}'
     },
     pendingWidget: {
       title: '待機中',
       summary: '{{count}}個 · 合計 {{total}}',
-      viewAll: '待機中を見る',
+      viewAll: '待機中を見る'
     },
     pendingEmpty: {
       title: 'すべて片付きました',
-      subtitle: '待機中のイーキャッシュはありません',
+      subtitle: '待機中のイーキャッシュはありません'
     },
     reclaimable: {
       section: '取り戻せます ({{count}})',
       viewAll: 'すべて表示 >',
       actions: {
         reclaim: '取り戻す',
-        share: '共有',
+        share: '共有'
       },
       shareText: '{{memo}}: {{amount}}',
-      copiedToClipboard: 'クリップボードにコピーしました',
+      copiedToClipboard: 'クリップボードにコピーしました'
     },
     firstCreate: {
       hint: '作成しましたが、まだ登録されていないイーキャッシュです。\n相手が受け取っていないか、まだ登録していない可能性があります。',
-      dismiss: '今後表示しない',
+      dismiss: '今後表示しない'
     },
     reclaim: {
       title: '取り戻す',
@@ -1367,7 +1321,7 @@ export default {
       summaryNet: '受取金額',
       confirm: '取り戻す',
       success: '正常に取り戻しました',
-      failed: '取り戻しに失敗しました',
+      failed: '取り戻しに失敗しました'
     },
     history: {
       section: '履歴',
@@ -1375,13 +1329,13 @@ export default {
         today: '今日',
         yesterday: '昨日',
         thisMonth: '今月',
-        older: 'それ以前',
+        older: 'それ以前'
       },
       anchor: {
         today: '{{weekday}} · 今日',
         yesterday: '{{weekday}} · 昨日',
         monthSameYear: '月',
-        monthOtherYear: '{{year}}.{{month02}}',
+        monthOtherYear: '{{year}}.{{month02}}'
       },
       subLine: '{{status}} · {{time}}',
       endOfList: 'すべての履歴を確認しました。',
@@ -1389,8 +1343,8 @@ export default {
       status: {
         registered: '登録',
         consumed: '使用済み',
-        reclaimed: '取り戻し',
-      },
+        reclaimed: '取り戻し'
+      }
     },
     detail: {
       unread: '未読のイーキャッシュ',
@@ -1398,7 +1352,7 @@ export default {
         pending: '待機中のイーキャッシュ',
         registered: 'イーキャッシュ登録完了',
         consumed: 'イーキャッシュ使用済み',
-        reclaimed: 'イーキャッシュの取り戻し完了',
+        reclaimed: 'イーキャッシュの取り戻し完了'
       },
       weekday: {
         sun: '日曜日',
@@ -1407,13 +1361,13 @@ export default {
         wed: '水曜日',
         thu: '木曜日',
         fri: '金曜日',
-        sat: '土曜日',
+        sat: '土曜日'
       },
       dateLine: {
         pending: '{{year}}年{{month}}月{{day}}日 {{weekday}}\n{{time}}に作成',
         registered: '{{year}}年{{month}}月{{day}}日 {{weekday}}\n{{time}}に登録',
         consumed: '{{year}}年{{month}}月{{day}}日 {{weekday}}\n{{time}}に作成',
-        reclaimed: '{{year}}年{{month}}月{{day}}日 {{weekday}}\n{{time}}に取り戻し',
+        reclaimed: '{{year}}年{{month}}月{{day}}日 {{weekday}}\n{{time}}に取り戻し'
       },
       amountLabel: '金額',
       feeLine: '手数料 {{fee}}',
@@ -1424,24 +1378,24 @@ export default {
         pending: 'イーキャッシュ作成',
         registered: 'イーキャッシュ登録',
         consumed: 'イーキャッシュ使用',
-        reclaimed: 'イーキャッシュ取り戻し',
+        reclaimed: 'イーキャッシュ取り戻し'
       },
       mintLabel: {
         pending: '出金ミント',
         registered: '入金ミント',
         consumed: '発行ミント',
-        reclaimed: '入金ミント',
+        reclaimed: '入金ミント'
       },
       action: {
         forward: 'イーキャッシュを転送',
-        confirm: 'イーキャッシュを確認',
+        confirm: 'イーキャッシュを確認'
       },
       confirmLink: 'イーキャッシュを確認',
       actions: {
         qr: 'QR',
         copy: 'コピー',
         share: '共有',
-        viewRaw: 'イーキャッシュの原文',
+        viewRaw: 'イーキャッシュの原文'
       },
       reclaimCta: '取り戻す（手数料: {{fee}}）',
       raw: {
@@ -1450,14 +1404,13 @@ export default {
         unit: '単位',
         receiveFee: '受取手数料',
         empty: 'イーキャッシュデータがありません。',
-        easterEgg: 'ZAPPI X CASHU',
+        easterEgg: 'ZAPPI X CASHU'
       },
       qr: {
-        title: 'QR共有',
-      },
-    },
+        title: 'QR共有'
+      }
+    }
   },
-
   tokenRegister: {
     title: 'イーキャッシュ登録',
     inputHeading: 'イーキャッシュを貼り付けまたはスキャンして\n登録できます。',
@@ -1470,9 +1423,8 @@ export default {
     swapping: 'スワップ中…',
     receiveToMyMint: '自分のミントで受け取る',
     unknownMintHint: '知らないミントなら追加せず\n自分のミントで受け取ることもできます。',
-    swapFeeHint: 'スワップ手数料がかかる場合があります',
+    swapFeeHint: 'スワップ手数料がかかる場合があります'
   },
-
   contacts: {
     title: '連絡先',
     addContact: '連絡先を追加',
@@ -1498,7 +1450,7 @@ export default {
       noNutzapInfo: 'このnpubにNutZap情報がありません',
       noMints: 'このnpubに登録されたミントがありません',
       noRelay: 'このnpubのリレー情報が見つかりません',
-      decodeFailed: 'アドレスのデコードに失敗しました',
-    },
-  },
-}
+      decodeFailed: 'アドレスのデコードに失敗しました'
+    }
+  }
+} as const

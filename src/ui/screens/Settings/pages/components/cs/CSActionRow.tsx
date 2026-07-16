@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react'
 import { ChevronRight } from 'lucide-react'
-import { cn } from '@/ui/primitives/utils'
+import { cn } from '@/ui/lib/utils'
 
 export type CSActionAccent = 'brand' | 'pending' | 'neutral'
 

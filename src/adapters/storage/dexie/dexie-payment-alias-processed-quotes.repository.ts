@@ -1,15 +1,15 @@
 import type { PaymentAliasProcessedQuotesRepository } from '@/core/ports/driven/payment-alias-processed-quotes.repository.port'
 import { getDatabase } from './schema'
-import { ok, err, type Result } from '@/core/types/result'
+import { Ok, Err, type Result } from '@/core/domain/result'
 import { UnknownError } from '@/core/errors/base'
 
 export class DexiePaymentAliasProcessedQuotesRepository implements PaymentAliasProcessedQuotesRepository {
   async isProcessed(quoteId: string): Promise<Result<boolean, UnknownError>> {
     try {
       const row = await getDatabase().paymentAliasProcessedQuotes.get(quoteId)
-      return ok(!!row)
+      return Ok(!!row)
     } catch (e) {
-      return err(new UnknownError('Failed to check processed quote', e))
+      return Err(new UnknownError('Failed to check processed quote', e))
     }
   }
 
@@ -19,9 +19,9 @@ export class DexiePaymentAliasProcessedQuotesRepository implements PaymentAliasP
         quoteId,
         processedAt: Date.now(),
       })
-      return ok(undefined)
+      return Ok(undefined)
     } catch (e) {
-      return err(new UnknownError('Failed to mark quote as processed', e))
+      return Err(new UnknownError('Failed to mark quote as processed', e))
     }
   }
 
@@ -32,9 +32,9 @@ export class DexiePaymentAliasProcessedQuotesRepository implements PaymentAliasP
         .reverse()
         .limit(limit)
         .toArray()
-      return ok(rows)
+      return Ok(rows)
     } catch (e) {
-      return err(new UnknownError('Failed to list processed quotes', e))
+      return Err(new UnknownError('Failed to list processed quotes', e))
     }
   }
 }

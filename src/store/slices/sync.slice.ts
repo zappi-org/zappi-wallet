@@ -17,8 +17,6 @@ export interface SyncSliceState {
   pendingIncomingReviews: PendingIncomingReview[]
 
   // Progress
-  syncProgress: number // 0-100
-  eventsProcessed: number
 
   // NutZap listener state (from old stores)
   lastEventTimestamp: number
@@ -48,9 +46,6 @@ export interface SyncSliceState {
   setFailedIncomingsCount: (count: number) => void
   enqueueIncomingReview: (review: PendingIncomingReview) => void
   removeIncomingReview: (externalId: string) => void
-  setSyncProgress: (progress: number) => void
-  incrementEventsProcessed: () => void
-  resetSyncProgress: () => void
   setLastEventTimestamp: (timestamp: number) => void
   triggerTxRefresh: () => void
   setLastReceivedPayment: (requestId: string | null, amount: number, eventId?: string | null) => void
@@ -58,7 +53,8 @@ export interface SyncSliceState {
   setPendingEcashRequestId: (requestId: string | null) => void
   setActiveTransports: (transports: ('nostr' | 'http')[]) => void
   setNostrConnectionStatus: (status: 'connected' | 'disconnected' | 'connecting') => void
-  reset: () => void
+  /** Slice-local reset called by resetAll (fixes the same-name 'reset' collision where only the last spread survived) */
+  resetSync: () => void
 }
 
 /**
@@ -71,8 +67,6 @@ const initialState = {
   pendingRetries: 0,
   failedIncomingsCount: 0,
   pendingIncomingReviews: [] as PendingIncomingReview[],
-  syncProgress: 0,
-  eventsProcessed: 0,
   lastEventTimestamp: 0,
   txRefreshTrigger: 0,
   lastReceivedRequestId: null as string | null,
@@ -117,19 +111,6 @@ export const createSyncSlice: StateCreator<SyncSliceState> = (set) => ({
       pendingIncomingReviews: state.pendingIncomingReviews.filter((item) => item.externalId !== externalId),
     })),
 
-  setSyncProgress: (syncProgress) => set({ syncProgress }),
-
-  incrementEventsProcessed: () =>
-    set((state) => ({
-      eventsProcessed: state.eventsProcessed + 1,
-    })),
-
-  resetSyncProgress: () =>
-    set({
-      syncProgress: 0,
-      eventsProcessed: 0,
-    }),
-
   setLastEventTimestamp: (lastEventTimestamp) => set({ lastEventTimestamp }),
 
   triggerTxRefresh: () =>
@@ -149,5 +130,5 @@ export const createSyncSlice: StateCreator<SyncSliceState> = (set) => ({
 
   setNostrConnectionStatus: (nostrConnectionStatus) => set({ nostrConnectionStatus }),
 
-  reset: () => set(initialState),
+  resetSync: () => set(initialState),
 })

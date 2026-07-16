@@ -1,4 +1,5 @@
 import type { ValidatedCashuRequest } from '@/core/domain/input-types'
+import { isSameMintUrl } from '@/core/domain/mint-url'
 import { findCommonMints } from '@/core/domain/routing'
 import type { AddressResolverUseCase } from '@/core/ports/driving/address-resolver.usecase'
 import type {
@@ -64,11 +65,6 @@ export class NostrDirectPaymentService implements NostrDirectPaymentUseCase {
   }
 }
 
-function normalizeUrl(url: string): string {
-  return url.replace(/\/+$/, '').toLowerCase()
-}
-
 function containsMint(mints: string[], mintUrl: string): boolean {
-  const normalized = normalizeUrl(mintUrl)
-  return mints.some((mint) => normalizeUrl(mint) === normalized)
+  return mints.some((mint) => isSameMintUrl(mint, mintUrl))
 }

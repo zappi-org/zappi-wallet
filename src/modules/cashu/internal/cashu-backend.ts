@@ -1,9 +1,8 @@
 /**
- * CashuBackend — Coco Manager 래핑 클래스
+ * CashuBackend — wraps the Coco Manager.
  *
- * cashuService.ts에 흩어진 26개 함수를 Coco API 기반으로 통합.
- * P2PK는 prepare 시점에 target으로 지정 (Coco 네이티브).
- * Cashu/Coco SDK access is isolated here behind module-level backend functions.
+ * All Cashu/Coco SDK access is isolated here behind module-level backend functions.
+ * P2PK is specified as a `target` at prepare time (Coco native).
  */
 
 import type { PendingQuote } from '@/core/domain/quote';
@@ -151,9 +150,9 @@ async function restoreUntrustedMintState(
 // ─── Send ───
 
 /**
- * 토큰 전송 준비.
- * P2PK 전송 시 target: { type: 'p2pk', pubkey } 를 전달하면
- * Coco가 내부적으로 P2PK-locked output을 생성한다.
+ * Prepare a token send.
+ * For P2PK sends, passing target: { type: 'p2pk', pubkey } makes Coco
+ * generate a P2PK-locked output internally.
  */
 export async function prepareSend(params: {
   mintUrl: string;
@@ -163,7 +162,7 @@ export async function prepareSend(params: {
   const manager = await getCocoManager();
   await ensureMintTrusted(manager, params.mintUrl);
 
-  // LockingCondition → Coco SDK target 변환
+  // Map LockingCondition → Coco SDK target
   const target = params.lockingCondition?.kind === 'P2PK'
     ? { type: 'p2pk' as const, pubkey: params.lockingCondition.data }
     : undefined;
@@ -193,8 +192,8 @@ export async function prepareSend(params: {
 }
 
 /**
- * 토큰 전송 실행.
- * Coco가 P2PK lock, change proof 반환, 에러 복구를 모두 내부 처리한다.
+ * Execute a token send.
+ * Coco handles P2PK lock, change-proof return, and error recovery internally.
  */
 export async function executeSend(
   operationId: string,
@@ -206,7 +205,7 @@ export async function executeSend(
 }
 
 /**
- * 토큰 전송 취소/회수.
+ * Cancel or reclaim a token send.
  * prepared → cancel, pending → reclaim.
  */
 export async function rollbackSend(operationId: string): Promise<void> {
@@ -228,6 +227,27 @@ export async function getSendOperationState(operationId: string): Promise<string
   const manager = await getCocoManager();
   const op = await manager.ops.send.get(operationId);
   return typeof op?.state === 'string' ? op.state : null;
+}
+
+/**
+ * Fetch mint info via Coco.
+ * `manager.mint.getMintInfo` is a hybrid of a repo read + 5-min TTL auto-refresh:
+ * within the TTL it does no network; once expired it fetches info+keysets (via the
+ * MintRequestProvider limiter). Also works for unregistered mints (builds a temp
+ * object, then fetches). netLog is omitted — this layer can't tell whether a
+ * network call happened, so measuring here would double-count.
+ */
+export async function getMintInfoFromCoco(
+  mintUrl: string,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const manager = await getCocoManager();
+    const info = await manager.mint.getMintInfo(normalizeMintUrl(mintUrl));
+    return info as unknown as Record<string, unknown>;
+  } catch (error) {
+    console.warn('[CashuBackend] getMintInfoFromCoco failed:', error);
+    return null;
+  }
 }
 
 export async function checkProofStates(token: string): Promise<ProofStateResult> {
@@ -267,25 +287,25 @@ export async function decodeTokenForPaymentPayload(token: string): Promise<Decod
 // ─── Receive ───
 
 /**
- * 토큰의 unit을 결정한다.
+ * Resolve a token's unit.
  *
- * Coco SDK는 현재 멀티 유닛을 지원하지 않으므로 'sat'를 고정 반환한다.
- * SDK가 멀티 유닛을 지원하게 되면 이 함수에서 keyset.unit을 조회하도록 교체한다.
+ * The Coco SDK doesn't support multi-unit yet, so this always returns 'sat'.
+ * Once it does, replace this with a keyset.unit lookup.
  *
- * @param _mintUrl - 미래 멀티 유닛 지원 시 mint별 unit 조회에 사용
+ * @param _mintUrl - will be used for per-mint unit lookup once multi-unit lands
  */
 function resolveUnit(_mintUrl: string): string {
-  // TODO: SDK 멀티 유닛 지원 시 manager.wallet.getKeyset() 등으로 unit 조회
+  // TODO: once the SDK supports multi-unit, look up unit via manager.wallet.getKeyset()
   return 'sat';
 }
 
 /**
- * 토큰 수령 (일반 + P2PK 모두).
- * Coco ops.receive가 P2PK unlock을 내부 처리한다.
+ * Receive a token (both normal and P2PK).
+ * Coco ops.receive handles P2PK unlock internally.
  *
- * - amount: 실제 수신 금액 (gross - fee)
- * - fee: input_fee_ppk 기반 수수료 (0인 민트도 있음)
- * - unit: mint의 토큰 단위 (현재 항상 'sat')
+ * - amount: actual amount received (gross - fee)
+ * - fee: input_fee_ppk-based fee (some mints charge 0)
+ * - unit: mint's token unit (currently always 'sat')
  */
 export async function receiveToken(
   token: string,
@@ -301,7 +321,6 @@ export async function receiveToken(
 
       const prepared = await manager.ops.receive.prepare({ token });
 
-      // SDK 가 계산한 fee 와 gross amount 을 활용해 실제 수신 금액을 결정한다.
       const fee = prepared.fee;
       const netAmount = prepared.amount - fee;
       if (netAmount <= 0) {
@@ -322,10 +341,9 @@ export async function receiveToken(
 }
 
 /**
- * 토큰 수신 수수료 사전 추정.
- * prepare → fee 확인 → cancel 패턴으로 실제 실행 없이 수수료를 계산한다.
- *
- * input_fee_ppk가 없는 민트는 fee=0을 반환한다.
+ * Pre-estimate the token receive fee.
+ * Uses a prepare → check fee → cancel pattern to compute the fee without
+ * actually executing. Mints without input_fee_ppk return fee=0.
  */
 export async function estimateReceiveFee(
   token: string,
@@ -338,13 +356,10 @@ export async function estimateReceiveFee(
     return await withMintTrustedForOperation(manager, mintUrl, options, async () => {
       await manager.mint.addMint(mintUrl);
 
-      // //1.prepare: token decode -> calc fee -> preparedOp
       const preparedOp = await manager.ops.receive.prepare({ token });
       
-      // //2. check fee
       const { amount, fee, mintUrl: preparedMintUrl } = preparedOp;
 
-      // //3. cancle Opeartion
       await manager.ops.receive.cancel(preparedOp.id);
 
       return {
@@ -363,7 +378,7 @@ export async function estimateReceiveFee(
   }
 }
 
-// ─── Mint (Lightning 수신) ───
+// ─── Mint (Lightning receive) ───
 
 export async function createMintQuote(
   mintUrl: string,
@@ -401,7 +416,7 @@ export async function checkMintQuote(
   const manager = await getCocoManager();
   const op = await manager.ops.mint.getByQuote(mintUrl, quoteId);
   if (!op) return null;
-  // SDK가 이미 자동으로 mint execute까지 완료했으면 checkPayment는 안 됨
+  // If the SDK already auto-completed the mint execute, checkPayment isn't valid
   if (op.state === 'finalized') {
     return { state: 'ISSUED' };
   }
@@ -409,7 +424,7 @@ export async function checkMintQuote(
   return { state: result.observedRemoteState };
 }
 
-// ─── Melt (Lightning 전송) ───
+// ─── Melt (Lightning send) ───
 
 export async function prepareMelt(
   mintUrl: string,
@@ -466,6 +481,21 @@ export async function checkMelt(operationId: string): Promise<{
     state: result.state,
     ...(preimage && { preimage }),
   };
+}
+
+/**
+ * Check melt remote state — for the stuck-confirm matrix only.
+ * Unlike checkMelt (a local repo read), this syncs the real remote state once
+ * via Coco `ops.melt.refresh`.
+ * Failures (transient network errors, etc.) **throw** — swallowing them as
+ * {error} would let the caller's state mapping mark an in-flight payment as
+ * failed, a funds bug. The sweep catches the throw and retries next cycle
+ * without touching that transfer.
+ */
+export async function refreshMelt(operationId: string): Promise<{ state: string }> {
+  const manager = await getCocoManager();
+  const refreshed = await manager.ops.melt.refresh(operationId);
+  return { state: refreshed.state };
 }
 
 export async function rollbackMelt(operationId: string, reason?: string): Promise<void> {
@@ -572,7 +602,7 @@ export async function inspectInput(token: string): Promise<InputInspection> {
   return { lockStatus, lockTarget, proofIntegrity };
 }
 
-// ─── 조회 ───
+// ─── Queries ───
 
 export async function getBalances(): Promise<{ [mintUrl: string]: number }> {
   const manager = await getCocoManager();
@@ -604,7 +634,7 @@ export async function getActivePendingQuotes(): Promise<PendingQuote[]> {
 
 export interface ResolvedCreq {
   payableMints: string[];
-  allowedMints: string[];   // 빈 배열 = 아무 mint 허용
+  allowedMints: string[];   // empty array = any mint allowed
   amount?: number;
   transport: { type: 'inband' } | { type: 'http'; url: string };
   nut10?: { kind: string; data: string; tags?: string[][] };
@@ -673,10 +703,14 @@ export async function executePaymentRequest(
   return { type: 'inband', token: encodedToken };
 }
 
-// ─── Wallet 관리 ───
+// ─── Wallet management ───
 
 export async function restoreWallet(mintUrl: string): Promise<void> {
   const manager = await getCocoManager();
+  // A just-added mint (one that hasn't gone through any op yet) must also be
+  // restorable — like other ops, register it with Coco first (the precondition
+  // for auto seed-restore on mint add).
+  await ensureMintTrusted(manager, mintUrl);
   await manager.wallet.restore(mintUrl);
 }
 
@@ -686,8 +720,8 @@ export async function addMint(mintUrl: string): Promise<void> {
 }
 
 // ─── Recovery ───
-// Recovery 로직은 cashu-recovery.ts로 이동됨.
-// SDK ops를 recovery 인터페이스로 노출하는 헬퍼.
+// Recovery logic lives in cashu-recovery.ts; these helpers just expose the
+// SDK ops as a recovery interface.
 
 export async function getMeltRecoveryOps() {
   const manager = await getCocoManager();
@@ -707,8 +741,9 @@ export async function getSendRecoveryOps() {
 }
 
 /**
- * Mint quote 결제 완료 감지 콜백.
- * SDK의 mint-op:finalized 이벤트를 구독하여 특정 quoteId 완료 시 handler 호출.
+ * Detect mint-quote payment completion.
+ * Subscribes to the SDK's mint-op:finalized event and calls handler when the
+ * given quoteId finalizes.
  */
 export function onMintQuotePaid(quoteId: string, handler: () => void): () => void {
   let unsub: (() => void) | null = null
@@ -760,4 +795,71 @@ export async function getQuoteRecoveryOps() {
       await mintAndReceive(quoteId, mintUrl, amount);
     },
   };
+}
+
+/**
+ * Read mint-op state from Coco's local repo — for reconcile.
+ * Zero network: getByQuote is a repository read. null = a quote Coco isn't tracking.
+ */
+export async function getMintOpStateLocal(
+  mintUrl: string,
+  quoteId: string,
+): Promise<{ state: string } | null> {
+  const manager = await getCocoManager();
+  const op = await manager.ops.mint.getByQuote(mintUrl, quoteId);
+  return op ? { state: op.state } : null;
+}
+
+/**
+ * Re-run PAID quotes that Coco is tracking but are stuck.
+ * Replaces the checkMintQuote polling loop with a single public-API call.
+ */
+export async function requeuePaidMintQuotesInCoco(): Promise<{ requeued: string[] }> {
+  const manager = await getCocoManager();
+  return manager.requeuePaidMintQuotes();
+}
+
+/**
+ * Run all Coco recovery sweeps — for runFullNetworkRecovery.
+ * Each sweep checks inProgress() then skips-and-reports: Coco throws if
+ * re-called while a sweep is running (button-mashing right after unlock), so
+ * the guard is required.
+ */
+export async function runCocoRecoverySweeps(): Promise<{ ran: string[]; skipped: string[] }> {
+  const manager = await getCocoManager();
+  const ran: string[] = [];
+  const skipped: string[] = [];
+
+  const sweeps: [string, { run(): Promise<void>; inProgress(): boolean }][] = [
+    ['send', manager.ops.send.recovery],
+    ['melt', manager.ops.melt.recovery],
+    ['receive', manager.ops.receive.recovery],
+  ];
+  for (const [name, recovery] of sweeps) {
+    if (recovery.inProgress()) {
+      skipped.push(name);
+      continue;
+    }
+    try {
+      await recovery.run();
+      ran.push(name);
+    } catch (e) {
+      logger.error(`[CashuBackend] ${name} recovery sweep failed:`, e as Error);
+      skipped.push(name);
+    }
+  }
+
+  if (manager.ops.mint.recovery.inProgress()) {
+    skipped.push('mint');
+  } else {
+    try {
+      await manager.recoverPendingMintOperations();
+      ran.push('mint');
+    } catch (e) {
+      logger.error('[CashuBackend] mint recovery sweep failed:', e as Error);
+      skipped.push('mint');
+    }
+  }
+
+  return { ran, skipped };
 }

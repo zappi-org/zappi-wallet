@@ -3,11 +3,25 @@
  *
  * Calls `payment.quoteReclaim` for each transactionId in parallel.
  * Fees are fetched after mount; cards render with undefined fee until quotes return.
+ *
+ * Cache: a txId-keyed module cache. Instead of re-running N pending tokens ×
+ * (receive.prepare+cancel) on every tab visit, already-quoted txIds are skipped.
+ * A pending token's reclaim fee is deterministic because the token is fixed — only
+ * rare changes like keyset rotation need the soft TTL (10 min) to absorb them, and
+ * txIds that settle out of the list are never re-queried.
  */
 
 import { useContext, useEffect, useState } from 'react'
 import { ServiceContext } from '@/ui/hooks/service-context-value'
 import { toNumber } from '@/core/domain/amount'
+
+const FEE_CACHE_TTL_MS = 10 * 60_000
+const feeCache = new Map<string, { fee: number; at: number }>()
+
+/** Test-only — reset the cache */
+export function clearReclaimFeeCache(): void {
+  feeCache.clear()
+}
 
 export function useReclaimFees(transactionIds: string[]) {
   const registry = useContext(ServiceContext)
@@ -24,10 +38,26 @@ export function useReclaimFees(transactionIds: string[]) {
     }
 
     let cancelled = false
+    const now = Date.now()
+    const cached = new Map<string, number>()
+    const toQuote: string[] = []
+    for (const id of transactionIds) {
+      const entry = feeCache.get(id)
+      if (entry && now - entry.at < FEE_CACHE_TTL_MS) {
+        cached.set(id, entry.fee)
+      } else {
+        toQuote.push(id)
+      }
+    }
+
+    // Apply cache hits immediately — zero network
+    setFees(new Map(cached))
+    if (toQuote.length === 0) return
+
     setIsLoading(true)
 
     Promise.all(
-      transactionIds.map(async (id) => {
+      toQuote.map(async (id) => {
         try {
           const result = await payment.quoteReclaim({ transactionId: id })
           if (result.ok) return [id, toNumber(result.value.fee)] as const
@@ -39,9 +69,12 @@ export function useReclaimFees(transactionIds: string[]) {
     )
       .then((results) => {
         if (cancelled) return
-        const next = new Map<string, number>()
+        const next = new Map(cached)
         for (const entry of results) {
-          if (entry) next.set(entry[0], entry[1])
+          if (entry) {
+            next.set(entry[0], entry[1])
+            feeCache.set(entry[0], { fee: entry[1], at: Date.now() })
+          }
         }
         setFees(next)
       })

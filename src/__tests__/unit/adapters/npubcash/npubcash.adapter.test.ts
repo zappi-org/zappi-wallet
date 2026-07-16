@@ -54,8 +54,8 @@ describe('NpubcashAdapter', () => {
 
     const result = await adapter.authenticate(signer)
 
-    expect(result.isOk()).toBe(true)
-    if (result.isOk()) {
+    expect(result.ok).toBe(true)
+    if (result.ok) {
       expect(result.value.token).toBe(MOCK_JWT)
       expect(result.value.expiresAt).toBeGreaterThan(Date.now())
     }
@@ -86,7 +86,7 @@ describe('NpubcashAdapter', () => {
     const r2 = await adapter.authenticate(signer)
 
     expect(callCount).toBe(1)
-    expect(r1.unwrap().token).toBe(r2.unwrap().token)
+    expect(r1.value.token).toBe(r2.value.token)
   })
 
   it('authenticate returns error on HTTP failure', async () => {
@@ -98,8 +98,8 @@ describe('NpubcashAdapter', () => {
 
     const result = await adapter.authenticate(signer)
 
-    expect(result.isErr()).toBe(true)
-    if (result.isErr()) {
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
       expect(result.error).toBeInstanceOf(NpubcashApiError)
     }
   })
@@ -109,8 +109,8 @@ describe('NpubcashAdapter', () => {
 
     const result = await adapter.authenticate(signer)
 
-    expect(result.isErr()).toBe(true)
-    if (result.isErr()) {
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
       expect(result.error).toBeInstanceOf(NpubcashApiError)
     }
   })
@@ -124,10 +124,10 @@ describe('NpubcashAdapter', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ error: false, data: { user } }) })
 
     const session = await adapter.authenticate(signer)
-    const result = await adapter.getAccountInfo(session.unwrap())
+    const result = await adapter.getAccountInfo(session.value)
 
-    expect(result.isOk()).toBe(true)
-    if (result.isOk()) {
+    expect(result.ok).toBe(true)
+    if (result.ok) {
       expect(result.value.alias).toBe('alice')
       expect(result.value.mintUrl).toBe('https://mint.example.com')
       expect(result.value.lockQuote).toBe(false)
@@ -150,10 +150,10 @@ describe('NpubcashAdapter', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ error: false, data: { user } }) })
 
     const session = await adapter.authenticate(signer)
-    const result = await adapter.purchaseAlias(session.unwrap(), 'bob', 'cashuToken123')
+    const result = await adapter.purchaseAlias(session.value, 'bob', 'cashuToken123')
 
-    expect(result.isOk()).toBe(true)
-    if (result.isOk()) {
+    expect(result.ok).toBe(true)
+    if (result.ok) {
       expect(result.value.alias).toBe('bob')
       expect(result.value.npub).toBe('npub1...')
     }
@@ -177,7 +177,7 @@ describe('NpubcashAdapter', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ error: false, data: { user: { name: 'bob', pubkey: 'npub1...' } } }) })
 
     const session = await adapter.authenticate(signer)
-    await adapter.purchaseAlias(session.unwrap(), 'bob', '')
+    await adapter.purchaseAlias(session.value, 'bob', '')
 
     const headers = (mockFetch.mock.calls[1][1] as RequestInit).headers as Record<string, string>
     expect(headers['X-Cashu']).toBeUndefined()
@@ -191,9 +191,9 @@ describe('NpubcashAdapter', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ error: false, data: {} }) })
 
     const session = await adapter.authenticate(signer)
-    const result = await adapter.setPreferredMint(session.unwrap(), 'https://mint.example.com')
+    const result = await adapter.setPreferredMint(session.value, 'https://mint.example.com')
 
-    expect(result.isOk()).toBe(true)
+    expect(result.ok).toBe(true)
 
     expect(mockFetch).toHaveBeenLastCalledWith(
       `${BASE_URL}/api/v2/user/mint`,
@@ -213,10 +213,10 @@ describe('NpubcashAdapter', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ error: false, data: {} }) })
 
     const session = await adapter.authenticate(signer)
-    const result = await adapter.toggleLock(session.unwrap())
+    const result = await adapter.toggleLock(session.value)
 
-    expect(result.isOk()).toBe(true)
-    if (result.isOk()) {
+    expect(result.ok).toBe(true)
+    if (result.ok) {
       expect(result.value).toBe(true)
     }
 
@@ -240,10 +240,10 @@ describe('NpubcashAdapter', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ error: false, data: { quotes } }) })
 
     const session = await adapter.authenticate(signer)
-    const result = await adapter.getPaidQuotes(session.unwrap())
+    const result = await adapter.getPaidQuotes(session.value)
 
-    expect(result.isOk()).toBe(true)
-    if (result.isOk()) {
+    expect(result.ok).toBe(true)
+    if (result.ok) {
       expect(result.value).toEqual(quotes)
     }
 
@@ -259,7 +259,7 @@ describe('NpubcashAdapter', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ error: false, data: { quotes: [] } }) })
 
     const session = await adapter.authenticate(signer)
-    await adapter.getPaidQuotes(session.unwrap(), 1000)
+    await adapter.getPaidQuotes(session.value, 1000)
 
     expect(mockFetch).toHaveBeenLastCalledWith(
       `${BASE_URL}/api/v2/wallet/quotes?since=1000`,

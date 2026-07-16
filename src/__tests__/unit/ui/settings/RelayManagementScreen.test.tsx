@@ -54,6 +54,21 @@ vi.mock('@/ui/components/common', () => ({
   ),
 }))
 
+// The liveness indicator reads gateway status instead of probing raw WS.
+// registry must be a stable reference like the real context — a fresh object
+// every render becomes an effect re-run loop.
+const stableRegistry = {
+  nostrGateway: {
+    getRelayStatus: () => [
+      { url: 'wss://relay-a.test', connected: true },
+      { url: 'wss://relay-b.test', connected: false },
+    ],
+  },
+}
+vi.mock('@/ui/hooks/use-service-registry', () => ({
+  useServiceRegistry: () => stableRegistry,
+}))
+
 describe('RelayManagementScreen', () => {
   beforeEach(() => {
     vi.stubGlobal('WebSocket', MockWebSocket)

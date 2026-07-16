@@ -13,6 +13,7 @@ import {
   type SupportTicket,
   isSupportTicketTerminal,
 } from '@/core/domain/support'
+import { SupportTicketResolvedError } from '@/core/errors/support'
 
 export class SupportService implements SupportUseCase {
   constructor(private readonly channel: CustomerSupportChannel) {}
@@ -52,7 +53,7 @@ export class SupportService implements SupportUseCase {
   async sendMessage(input: SendSupportMessageInput): Promise<void> {
     const ticket = this.channel.getSnapshot().tickets.find((item) => item.id === input.ticketId)
     if (ticket && isSupportTicketTerminal(ticket.status)) {
-      throw new Error('Support ticket is already resolved')
+      throw new SupportTicketResolvedError()
     }
     await this.channel.sendMessage(input)
   }

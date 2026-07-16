@@ -2,7 +2,7 @@ import type { FiatCurrency } from './fiat'
 import type { TransactionIntent } from '@/core/domain/transaction'
 
 /**
- * Cashu proof (inlined from cashu-ts to maintain R1 domain purity)
+ * Cashu proof (inlined from cashu-ts to keep the domain pure)
  */
 export interface Proof {
   id: string
@@ -22,7 +22,7 @@ export type NetworkState = 'ONLINE' | 'OFFLINE' | 'SYNCING' | 'ERROR'
 export interface MintInfo {
   url: string
   name?: string
-  /** User-defined alias (e.g. "지갑 1") — takes display priority over name */
+  /** User-defined alias (e.g. "Wallet 1") — takes display priority over name */
   alias?: string
   /** Original mint name from NUT-06 metadata */
   mintName?: string
@@ -44,6 +44,11 @@ export interface MintMetadata {
   fetchedAt: number
   /** Raw NUT support declarations from NUT-06 nuts field */
   nuts?: Record<string, unknown>
+  /**
+   * Raw NUT-06 response (for detail screens). Lets the MintInfoSheet/MintManagement
+   * views reuse the 24h cache without a separate /v1/info round-trip.
+   */
+  rawInfo?: Record<string, unknown>
 }
 
 /**
@@ -203,7 +208,7 @@ export interface WalletSettings {
   language?: SupportedLanguage
   /** Amount display format: BIP-177 (₿ 1,000) or sats (1,000 sats) */
   unitDisplay?: 'bip177' | 'sats'
-  /** User-defined mint aliases: { mintUrl: "지갑 1" } */
+  /** User-defined mint aliases: { mintUrl: "Wallet 1" } */
   mintAliases?: Record<string, string>
   /** User-defined mint card colors: { mintUrl: "indigo" | "#FF5500" } */
   mintColors?: Record<string, string>
@@ -216,7 +221,7 @@ export interface WalletSettings {
   showFiatConversion?: boolean
   /** Sender Privacy mode: prefer routes where the mint cannot link sender to receiver, even at higher fees */
   senderPrivacyMode?: boolean
-  /** Token 탭 PendingEmptyWidget을 마지막으로 닫은 시각 (ms epoch). 이후 새 send-claim 발생 시 다시 표시. */
+  /** When the Token-tab PendingEmptyWidget was last dismissed (ms epoch). Re-shown when a new send-claim occurs afterward. */
   pendingEmptyDismissedAt?: number | null
 }
 

@@ -1,5 +1,4 @@
 export default {
-  // Common
   common: {
     sats: '₿',
     sat: '₿',
@@ -35,10 +34,8 @@ export default {
     notifications: 'Notifikasi',
     syncing: 'Sinkronisasi',
     change: 'Ubah',
-    search: 'Cari',
+    search: 'Cari'
   },
-
-  // Lock Screen
   lock: {
     welcomeBack: 'ZAPPI',
     enterPin: 'Masukkan PIN untuk membuka',
@@ -47,12 +44,9 @@ export default {
     tryAgainIn: 'Coba lagi dalam {{time}}',
     faceIdUnlock: 'Buka dengan Face ID',
     errorOccurred: 'Terjadi kesalahan.',
-    biometricFailed: 'Autentikasi biometrik gagal. Silakan masukkan PIN.',
+    biometricFailed: 'Autentikasi biometrik gagal. Silakan masukkan PIN.'
   },
-
-  // Onboarding
   onboarding: {
-    // Welcome
     appName: 'Zappi',
     tagline: 'Pembayaran Bitcoin mudah dan cepat',
     createWallet: 'Buat Dompet Baru',
@@ -61,8 +55,6 @@ export default {
     invitePlaceholder: 'Kode undangan',
     inviteInvalidCount: 'Kode undangan tidak valid ({{current}}/{{max}})',
     inviteLocked: 'Terlalu banyak percobaan. Coba lagi dalam 5 menit.',
-
-    // Mnemonic
     secretRecoveryKey: 'Kunci Pemulihan Rahasia',
     walletRecovery: 'Pemulihan Dompet',
     mnemonicWarning: 'Ini satu-satunya cara untuk memulihkan dompet Anda.\nCatat kata-kata secara berurutan dan simpan di tempat yang aman.',
@@ -76,26 +68,18 @@ export default {
     recoverWallet: 'Pulihkan',
     invalidMnemonic: 'Kunci pemulihan tidak valid. Periksa kata-kata Anda dan coba lagi.',
     backupConfirmRequired: 'Harap konfirmasi bahwa Anda telah mencatat kunci pemulihan.',
-
-    // PIN
     setPin: 'Atur PIN',
     confirmPin: 'Konfirmasi PIN',
     enterNewPin: 'Atur PIN 6 digit',
     reenterPin: 'Masukkan ulang PIN',
     pinMismatch: 'PIN tidak cocok',
-
-    // Processing
     creatingWallet: 'Membuat Dompet',
     recoveringWallet: 'Memulihkan Dompet',
     creatingWalletDesc: 'Membuat dompet baru Anda...',
     recoveringWalletDesc: 'Mengambil profil dari Nostr dan memulihkan token...',
     pleaseWait: 'Mohon tunggu',
-
-    // Complete
-    walletSetupFailed: 'Pengaturan dompet gagal. Silakan coba lagi.',
+    walletSetupFailed: 'Pengaturan dompet gagal. Silakan coba lagi.'
   },
-
-  // Home Screen
   home: {
     totalBalance: 'Total Saldo',
     showBalance: 'Tampilkan saldo',
@@ -104,16 +88,13 @@ export default {
     addFirstMint: 'Tambahkan mint pertama Anda',
     recentTransactions: 'Riwayat',
     noTransactions: 'Belum ada transaksi',
-    seeAll: 'Selengkapnya',
+    seeAll: 'Selengkapnya'
   },
-
-  // Action Buttons
   actions: {
     transfer: 'Pindah Saldo',
     scan: 'Pindai',
-    analytics: 'Analitik',
+    analytics: 'Analitik'
   },
-
   support: {
     title: 'Support history',
     heroTitle: 'How can we help?',
@@ -123,7 +104,7 @@ export default {
       idle: 'Idle',
       connecting: 'Connecting',
       connected: 'Connected',
-      error: 'Error',
+      error: 'Error'
     },
     unavailableTitle: 'Support is not configured',
     unavailableDescription: 'Customer support is unavailable in this build. Please contact the Zappi team through the official channel.',
@@ -145,19 +126,33 @@ export default {
       general: 'General',
       technical: 'Technical',
       billing: 'Billing',
+      transfer: 'Send / receive',
+      ecash: 'Ecash',
+      fee: 'Fees',
+      security: 'Security / backup',
+      other: 'Other',
+      idea_ux: 'UI / UX',
+      idea_feature: 'New feature',
+      idea_perf: 'Performance / stability',
+      idea_other: 'Other'
     },
     categoryDescriptions: {
       general: 'How-to, account, or general questions',
       technical: 'Bugs, wallet behavior, or connection issues',
       billing: 'Payment, transfer, or settlement questions',
+      transfer: 'Lightning / ecash send & receive',
+      ecash: 'Ecash token register / recovery',
+      fee: 'Fees and routing costs',
+      security: 'Lock, backup, recovery phrase',
+      other: 'Anything else'
     },
     priorities: {
       normal: 'Normal',
-      high: 'High',
+      high: 'High'
     },
     priorityDescriptions: {
       normal: 'A regular support request',
-      high: 'Something is blocked or needs faster review',
+      high: 'Something is blocked or needs faster review'
     },
     createTicket: 'Submit',
     sending: 'Sending...',
@@ -201,7 +196,7 @@ export default {
       open: 'Open',
       in_progress: 'In progress',
       resolved: 'Resolved',
-      closed: 'Closed',
+      closed: 'Closed'
     },
     faqTitle: 'Pertanyaan Umum',
     faqSeeAll: 'Lihat semua',
@@ -217,15 +212,79 @@ export default {
       q5: 'Apakah saldo hilang jika saya menghapus aplikasi atau kehilangan ponsel?',
       a5: 'Ya, itulah mengapa mencadangkan seed phrase sangat penting. Berbeda dengan bank yang menyimpan saldo di server pusat, di dompet Cashu token di perangkat Anda adalah saldo Anda. Jika Anda menghapus aplikasi atau kehilangan perangkat, token di dalamnya juga hilang. Sebagian besar dompet Cashu menyediakan seed phrase untuk memulihkan token secara deterministik. Selalu simpan seed phrase di tempat yang aman.',
       q6: 'Apa bedanya dengan kustodi tradisional?',
-      a6: 'Layanan kustodi Lightning tradisional biasanya mengelola dana dengan model "saldo" — saldo Anda dicatat di server, sehingga operator dapat dengan mudah melacak riwayat transaksi dan privasi Anda rentan. Pembekuan dana pengguna atau penyensoran transaksi juga relatif mudah dilakukan.\n\nCashu bekerja dengan model "token". Mint hanya menerbitkan token dan memverifikasi apakah sudah digunakan — tidak ada cara untuk mengetahui siapa yang memiliki token mana atau ke mana dikirim. Ini melindungi privasi dan membuat sensor individu praktis tidak mungkin. Meski tetap model kustodi, ini merupakan kemajuan signifikan dari sisi privasi.',
+      a6: 'Layanan kustodi Lightning tradisional biasanya mengelola dana dengan model "saldo" — saldo Anda dicatat di server, sehingga operator dapat dengan mudah melacak riwayat transaksi dan privasi Anda rentan. Pembekuan dana pengguna atau penyensoran transaksi juga relatif mudah dilakukan.\n\nCashu bekerja dengan model "token". Mint hanya menerbitkan token dan memverifikasi apakah sudah digunakan — tidak ada cara untuk mengetahui siapa yang memiliki token mana atau ke mana dikirim. Ini melindungi privasi dan membuat sensor individu praktis tidak mungkin. Meski tetap model kustodi, ini merupakan kemajuan signifikan dari sisi privasi.'
     },
+    searchPlaceholder: 'Search by keyword',
+    csStatus: {
+      received: 'Received',
+      progress: 'In progress',
+      answered: 'Answered'
+    },
+    userBubbleLabel: 'My request',
+    helpHomeSubtitle: 'Ask us anything, anytime.',
+    helpFooter: '',
+    actions: {
+      composeInquiry: {
+        title: 'Start a new request',
+        subtitle: 'Our team will reply directly'
+      },
+      inquiryList: {
+        title: 'View my requests',
+        subtitle: '{{count}} request(s)',
+        subtitleWithUnread: '{{count}} total · {{unread}} new repl(ies)'
+      },
+      composeIdea: {
+        title: 'Suggest an idea',
+        subtitle: 'Share your thoughts with the Zappi team'
+      },
+      ideaList: {
+        title: 'View my ideas',
+        subtitle: '{{count}} sent idea(s)',
+        empty: 'No ideas sent yet'
+      }
+    },
+    composeInquirySubtitle: 'Tell us in detail and our team will reply as soon as possible.',
+    composeIdeaSubtitle: 'What could be better? The Zappi team will read it carefully.',
+    titlePlaceholderInquiry: 'Briefly describe the issue',
+    titlePlaceholderIdea: 'Summarize in one line',
+    bodyPlaceholderInquiry: 'Add details. Including related data or screenshots increases the chance of a quick resolution.',
+    bodyPlaceholderIdea: 'Tell us when you felt the gap and how it could be improved.',
+    bodyCounter: '{{count}} / 2000',
+    securityNoticeTitle: 'Never share your mnemonic or PIN.',
+    securityNoticeBody: 'Zappi will never ask for your private key information under any circumstance.',
+    attachmentLabel: 'Attachments',
+    attachmentEncryptedNote: 'Everything is encrypted and sent securely.',
+    submitInquiry: 'Send request',
+    submitIdea: 'Send idea',
+    inquiryListTitle: 'My requests',
+    inquiryListSubtitle: '{{count}} open request(s).',
+    inquiryListEmpty: 'No requests yet.',
+    fabNewInquiry: 'New',
+    fabNewIdea: 'New',
+    threadFooterInquiry: 'Replies stay in the same thread',
+    threadFooterIdea: 'Keep the conversation going about your idea',
+    detailMetadata: 'Received {{date}}',
+    ideaDetailMetadata: 'Sent {{date}}',
+    ideaListTitle: 'My ideas',
+    ideaListSubtitle: '{{count}} sent idea(s).',
+    ideaListEmpty: 'No ideas sent yet.',
+    ideaBadge: 'Idea',
+    proposalLabel: 'Idea',
+    composeIdeaPageTitle: 'Suggest an idea',
+    ideaReplyPlaceholder: 'Share more thoughts',
+    viewAttachment: 'View',
+    openingAttachment: 'Opening',
+    openInNewTab: 'Open in new tab',
+    previewFailed: 'Could not open preview',
+    threadStatusEvent: {
+      open: 'Request reopened',
+      in_progress: 'Support team is preparing a reply',
+      resolved: 'This request has been resolved',
+      closed: 'This request has been closed'
+    }
   },
-
-  // Settings
   settings: {
     title: 'Pengaturan',
-
-    // Profile
     profile: 'Profil',
     profileDesc: 'Nostr, Alamat Lightning, Analitik',
     profileDescHiddenLightning: 'Nostr, Analitik',
@@ -260,8 +319,6 @@ export default {
     swapFee: 'biaya',
     paymentFailed: 'Pembayaran gagal. Silakan pilih mint lain',
     noPayableMint: 'Tidak ada mint yang memiliki saldo cukup untuk biaya perubahan',
-
-    // Security
     security: 'Keamanan',
     securityDesc: 'PIN, Face ID, Kunci Otomatis',
     autoLock: 'Kunci Otomatis',
@@ -269,8 +326,6 @@ export default {
     faceIdTouchId: 'Face ID / Touch ID',
     biometric: 'Biometrik',
     changePin: 'Ubah PIN',
-
-    // Wallet Management
     walletManagement: 'Manajemen Dompet',
     walletManagementDesc: 'Mint, Relay, Saldo, Cadangan',
     manageMints: 'Kelola Mint',
@@ -278,15 +333,10 @@ export default {
     verifyBalance: 'Verifikasi Saldo',
     findUnusedTokens: 'Cari Token Tidak Terpakai',
     mnemonicBackup: 'Cadangan Mnemonic',
-
-    // TLS Test
     tlsTest: 'TLS Test',
     tlsTestDesc: 'Uji alur TransferLifecycleService',
-
-    // Logout
     logout: 'Keluar',
     version: 'Zappi v{{version}}',
-
     updateAvailable: 'Pembaruan tersedia',
     updateInstallHint: 'Ketuk untuk memperbarui',
     checkForUpdates: 'Periksa pembaruan',
@@ -295,13 +345,9 @@ export default {
     updateCurrent: 'Versi sudah terbaru',
     updateCheckUnavailable: 'Pemeriksaan pembaruan tidak tersedia di sini',
     updateCheckFailed: 'Tidak dapat memeriksa pembaruan',
-
-    // Mints
     addMint: 'Tambah Mint',
     noMints: 'Tidak ada mint terdaftar',
     mintCount: '{{count}} mint',
-
-    // Relays
     noRelays: 'Tidak ada relay terdaftar',
     relayPlaceholder: 'relay.example.com',
     relayExists: 'Relay sudah ada',
@@ -314,24 +360,16 @@ export default {
     confirmDeleteRelay: 'Hapus relay ini?',
     minRelaysRequired: 'Minimal {{min}} relay diperlukan',
     minMintsRequired: 'Minimal {{min}} mint diperlukan',
-
-    // PIN Change
     currentPinLabel: 'Masukkan PIN saat ini',
     newPinLabel: 'Masukkan PIN baru (6 digit)',
     confirmPinLabel: 'Konfirmasi PIN baru',
     pinChangeError: 'PIN tidak cocok.',
     wrongCurrentPin: 'PIN saat ini salah.',
     change: 'Ubah',
-
-    // Mnemonic Backup
     enterPinLabel: 'Masukkan PIN',
     wrongPin: 'PIN salah.',
     mnemonicWarning: 'Simpan mnemonic ini dengan aman. Jangan pernah membagikannya.',
-
-    // Logout
     logoutWarning: 'Semua data akan dihapus. Sudah mencadangkan mnemonic?',
-
-    // Token Restore
     restoreChoiceDescription: 'Pilih cara memulihkan ecash yang hilang.',
     restoreDescription: 'Cari dan pulihkan token tidak terpakai dari setiap mint.',
     currentWalletRecovery: 'Pulihkan dompet ini',
@@ -351,8 +389,6 @@ export default {
     noRecoverableEcash: 'Tidak ada ecash yang dapat dipulihkan.',
     verificationError: 'Terjadi kesalahan saat verifikasi.',
     noMintsRegistered: 'Tidak ada mint terdaftar.',
-
-    // Passkey
     passkeySetup: 'Pengaturan Face ID / Touch ID',
     passkeyDescription: 'Masukkan PIN untuk mendaftarkan autentikasi biometrik',
     register: 'Daftar',
@@ -361,8 +397,6 @@ export default {
     passkeyRemove: 'Hapus Face ID / Touch ID',
     passkeyRemoveDescription: 'Masukkan PIN untuk menghapus autentikasi biometrik',
     remove: 'Hapus',
-
-    // Mint Delete
     deleteMint: 'Hapus Mint',
     mintHasBalance: 'Mint ini memiliki saldo <bold>{{formattedBalance}}</bold>.',
     deleteWarning: 'Menghapus akan membuat saldo tidak dapat diakses.',
@@ -373,23 +407,13 @@ export default {
     moveDown: 'Pindah ke bawah',
     dragToReorder: 'Seret untuk mengurutkan',
     reorderHint: 'Seret pegangan untuk mengurutkan. Keyboard: fokuskan pegangan lalu tekan atas / bawah.',
-
-    // Preferences
     preferences: 'Preferensi',
     preferencesDesc: 'Bahasa, Unit, Mata Uang, Privasi',
-
-    // Language
     language: 'Bahasa',
-
-    // Unit Display
     unitDisplay: 'Satuan',
-
-    // Fiat Currency
     fiatCurrency: 'Mata Uang',
     showFiatConversion: 'Tampilkan Harga Fiat',
     selectCurrency: 'Pilih Mata Uang',
-
-    // POS Management
     posManagement: 'Manajemen POS',
     addPosDevice: 'Tambah Perangkat POS',
     posDeviceCount: '{{count}} perangkat',
@@ -403,19 +427,19 @@ export default {
     posProvisioningDone: 'Perangkat POS berhasil didaftarkan.',
     posDeviceRemove: 'Hapus Perangkat',
     posDeviceRemoveWarning: 'Perangkat POS ini tidak akan bisa menerima pembayaran lagi. Hapus?',
-
-    // Privacy
     privacy: 'Privasi',
     senderPrivacyMode: 'Mode Privasi Pengirim',
     senderPrivacyModeDescription: 'Pilih rute di mana mint tidak dapat menghubungkan pengirim dan penerima, meskipun biaya lebih tinggi',
-
-    // Descriptions
     active: 'Aktif',
     autoLockDescription: 'Kunci otomatis setelah tidak aktif',
     faceIdDescription: 'Gunakan autentikasi biometrik untuk membuka',
+    tlsBolt11Send: 'Bolt11 Send (melt)',
+    tlsBolt11Receive: 'Bolt11 Receive (minting)',
+    tlsEcashCreate: 'Create Ecash',
+    tlsEcashRedeem: 'Redeem Ecash',
+    tlsGiftWrap: 'Receive via GiftWrap',
+    tlsCreq: 'Receive via Creq'
   },
-
-  // Add Mint Screen
   addMint: {
     title: 'Tambah Mint',
     mintUrl: 'URL Mint',
@@ -442,10 +466,8 @@ export default {
     hasBeenAdded: ' telah ditambahkan.',
     mintAddedSuccess: 'Mint baru telah ditambahkan.',
     confirmTitle: 'Tambahkan mint ini?',
-    confirmAdd: 'Tambah',
+    confirmAdd: 'Tambah'
   },
-
-  // Scanner
   scanner: {
     title: 'Pindai',
     inputPlaceholder: 'Masukkan alamat, invoice, atau token...',
@@ -470,12 +492,9 @@ export default {
     noQrFound: 'Kode QR tidak ditemukan',
     invalidCashuRequest: 'Permintaan Cashu tidak valid',
     invalidNostrProfile: 'Profil Nostr tidak valid',
-    invalidNostrEvent: 'Acara Nostr tidak valid',
+    invalidNostrEvent: 'Acara Nostr tidak valid'
   },
-
-  // Payment Screens
   payment: {
-    // Common
     selectMint: 'Pilih Mint',
     selectThisMint: 'Pilih Mint Ini',
     receiveWithThisMint: 'Terima dengan Mint Ini',
@@ -487,11 +506,8 @@ export default {
     noCompatibleMints: 'Tidak ada mint yang kompatibel untuk permintaan ini',
     mintNoBalance: 'Tidak ada saldo di mint yang diperlukan',
     networkError: 'Periksa koneksi jaringan Anda',
-
     sendComplete: 'Pengiriman selesai!',
     receiveComplete: 'Penerimaan selesai!',
-
-    // Lightning Send
     lightningPay: 'Pembayaran Lightning',
     lightningSend: 'Kirim Lightning',
     recipient: 'Penerima',
@@ -514,8 +530,6 @@ export default {
     lightningSendFailed: 'Pengiriman Lightning gagal',
     sendError: 'Error saat mengirim',
     clipboardError: 'Error mengakses clipboard',
-
-    // Lightning Receive
     lightningReceive: 'Terima Lightning',
     createInvoice: 'Buat Invoice',
     creating: 'Membuat...',
@@ -525,8 +539,6 @@ export default {
     copyInvoice: 'Salin Invoice',
     expiresIn: 'Kedaluwarsa dalam {{time}}',
     paymentReceived: 'Pembayaran diterima!',
-
-    // Ecash Send
     ecashSend: 'Kirim Ecash',
     memoPlaceholder: 'Tambahkan catatan (opsional)',
     ecashToken: 'Token Ecash',
@@ -546,8 +558,6 @@ export default {
     swapRequired: 'Akan ditukar ke mint {{mintName}}. Biaya mungkin berlaku.',
     compatibleMint: 'Kompatibel',
     requestedMint: 'Mint yang diminta',
-
-    // Ecash Receive
     ecashReceive: 'Terima Ecash',
     createRequest: 'Buat Permintaan',
     requestCreated: 'Permintaan dibuat',
@@ -555,8 +565,6 @@ export default {
     copyRequest: 'Salin Permintaan',
     paymentRequest: 'Permintaan Pembayaran (Nostr)',
     waitingNostrDm: 'Menunggu Nostr DM...',
-
-    // Token Receive
     tokenReceive: 'Terima Token',
     tokenInfo: 'Info Token',
     tokenAmount: 'Jumlah',
@@ -569,28 +577,18 @@ export default {
     sending: 'Mengirim...',
     tokenReceived: 'Token diterima!',
     tokenAlreadySpent: 'Token sudah digunakan',
-
-    // Amount Input
     enterAmount: 'Masukkan jumlah',
     amountInSats: 'unit',
-
-    // Zap
     zapSend: 'Kirim Zap',
     zapTo: 'Zap ke',
     sendZap: 'Kirim Zap',
     zapping: 'Mengirim Zap...',
     zapSent: 'Zap terkirim!',
-
-    // Nostr DM
     sendingNostrDm: 'Mengirim Nostr DM...',
     sentViaNostrDm: 'Terkirim via Nostr DM',
     willSendViaNostrDm: 'Akan dikirim via Nostr DM',
     checkingReceipt: 'Menunggu tanda terima...',
-
-    // Other
     done: 'Selesai',
-
-    // Token Receive (additional)
     mintAdded: 'Mint berhasil ditambahkan',
     mintAddFailed: 'Gagal menambahkan mint',
     successReceived: 'Berhasil diterima',
@@ -599,8 +597,6 @@ export default {
     untrusted: 'Belum terdaftar',
     untrustedMintWarning: 'Mint ini belum terdaftar. Menerima token akan menambah saldo ke mint ini.',
     receiveAmountBtn: 'Terima {{unit}} {{amount}}',
-
-    // Lightning Receive (additional)
     mintSelectedOffline: 'Mint yang dipilih sedang offline',
     createInvoiceFailed: 'Gagal membuat invoice',
     createInvoiceError: 'Gagal membuat invoice',
@@ -608,8 +604,6 @@ export default {
     withdrawSource: 'Sumber penarikan',
     minValidation: 'Minimum {{amount}}',
     maxValidation: 'Maksimum {{amount}}',
-
-    // Receive Screen
     creatingInvoice: 'Membuat invoice...',
     remainingTime: 'Waktu tersisa',
     invoiceExpired: 'Invoice telah kedaluwarsa. Silakan coba lagi.',
@@ -629,18 +623,24 @@ export default {
     nfcComingSoon: 'Penerimaan Ecash melalui NFC segera hadir',
     waveComingSoon: 'Penerimaan Ecash melalui gelombang suara segera hadir',
     comingSoon: 'Segera Hadir',
+    amount: 'Amount',
+    maxAmount: 'Max: {{amount}}',
+    processing: 'Processing...',
+    confirm: 'OK',
+    cancel: 'Cancel',
+    share: 'Share',
+    scan: 'Scan',
+    paste: 'Paste',
+    qrScan: 'QR Scan',
+    cannotSend: 'Cannot send to this destination'
   },
-
-  // Amount Action Screen
   amountAction: {
     title: 'Pilih Aksi',
     send: 'Kirim',
     receive: 'Terima',
     lightning: 'Lightning',
-    ecash: 'Ecash',
+    ecash: 'Ecash'
   },
-
-  // Transfer Screen
   transfer: {
     title: 'Pindah Saldo',
     from: 'Dari Mint',
@@ -657,10 +657,8 @@ export default {
     quoting: 'Mendapatkan penawaran...',
     melting: 'Menarik...',
     minting: 'Menyetor...',
-    transferComplete: 'Transfer selesai!',
+    transferComplete: 'Transfer selesai!'
   },
-
-  // History Screen
   history: {
     title: 'Riwayat Transaksi',
     noTransactions: 'Belum ada transaksi',
@@ -675,13 +673,11 @@ export default {
       today: '{{weekday}} · Hari Ini',
       yesterday: '{{weekday}} · Kemarin',
       monthSameYear: 'Bulan',
-      monthOtherYear: '{{year}}.{{month02}}',
+      monthOtherYear: '{{year}}.{{month02}}'
     },
     timeAt: '{{time}}',
     dayWithTime: '{{day}}, {{time}}',
     endOfList: 'Semua transaksi sudah dilihat.',
-
-    // Transaction Types
     lightningReceive: 'Terima (Lightning)',
     lightningSend: 'Kirim (Lightning)',
     ecashReceive: 'Terima (eCash)',
@@ -693,14 +689,10 @@ export default {
     requestPay: 'Pembayaran Ecash dikirim',
     nutzap: 'NutZap',
     swap: 'Swap',
-
-    // Status
     completed: 'Selesai',
     pendingStatus: 'Memproses',
     failedStatus: 'Gagal',
     andMore: 'dan {{count}} lagi',
-
-    // Redesigned history screen
     income: 'Pemasukan',
     expense: 'Pengeluaran',
     pendingTab: 'Tertunda',
@@ -715,18 +707,14 @@ export default {
     mintFilter: 'Pilih Dompet',
     allMints: 'Semua Dompet',
     mintCount: '{{count}} Dompet',
-
-    // Export
     export: 'Ekspor',
     exportSuccess: 'File berhasil disimpan',
     exportEmpty: 'Tidak ada transaksi untuk diekspor',
     exportFileName: 'transaksi',
     exportCsvDesc: 'Bisa dibuka di Excel, Numbers, Google Sheets',
     exportCount: '{{count}} transaksi',
-    exportDownload: 'Unduh',
+    exportDownload: 'Unduh'
   },
-
-  // Transaction Detail Screen
   txDetail: {
     title: 'Detail Transaksi',
     type: 'Jenis',
@@ -746,16 +734,12 @@ export default {
     toMint: 'Mint Tujuan',
     txId: 'ID Transaksi',
     details: 'Detail',
-
-    // Sources
     'source.zappi-pos': 'Zappi POS',
     'source.zappi-kiosk': 'Zappi Kiosk',
     'source.zappi-api': 'Zappi API',
     'source.zappi-link': 'Zappi Link',
     'source.wallet': 'Dompet',
     'source.unknown': 'Eksternal',
-
-    // Token lifecycle
     tokenState: 'Status Token',
     'tokenState.unspent': 'Belum diklaim',
     'tokenState.pending': 'Memproses',
@@ -779,8 +763,6 @@ export default {
     delete: 'Hapus',
     deleteConfirm: 'Hapus catatan transaksi ini?',
     deleteWarning: 'Tidak dapat dibatalkan.',
-
-    // Context sentences
     receivedFrom: 'Diterima dari {{mint}}',
     receivedToWallet: 'Diterima ke {{wallet}}',
     sentViaLightning: 'Dikirim ke {{address}}',
@@ -792,21 +774,13 @@ export default {
     receivedFromPOS: 'Diterima dari {{name}}',
     unclaimedNotice: 'Belum diklaim',
     reclaimAction: 'Klaim kembali eCash',
-
-    // Section titles
     txInfo: 'Info transaksi',
     paymentInfo: 'Info pembayaran',
     swapInfo: 'Info swap',
-
-    // Kiosk order
     orderItems: 'Item Pesanan',
     orderTotal: 'Total',
-
-    // Fiat
-    fiatValue: 'Nilai Fiat',
+    fiatValue: 'Nilai Fiat'
   },
-
-  // Analytics Screen
   analytics: {
     title: 'Analitik',
     overview: 'Ringkasan',
@@ -816,10 +790,8 @@ export default {
     thisWeek: 'Minggu Ini',
     thisMonth: 'Bulan Ini',
     allTime: 'Sepanjang Waktu',
-    noData: 'Tidak ada data',
+    noData: 'Tidak ada data'
   },
-
-  // Notifications Screen
   notifications: {
     title: 'Notifikasi',
     noNotifications: 'Tidak ada notifikasi',
@@ -837,10 +809,8 @@ export default {
     hourAgo: '{{count}} jam lalu',
     hoursAgo: '{{count}} jam lalu',
     dayAgo: '{{count}} hari lalu',
-    daysAgo: '{{count}} hari lalu',
+    daysAgo: '{{count}} hari lalu'
   },
-
-  // PWA Install
   pwa: {
     installTitle: 'Instal Zappi',
     installDescription: 'Tambahkan ke layar utama untuk akses mudah',
@@ -867,10 +837,8 @@ export default {
     desktopBrowserSupport: 'Didukung di Chrome, Edge, Safari dan sebagian besar browser.',
     afterInstall: 'Setelah instalasi, ketuk ikon ZAPPI di layar utama untuk membuka.',
     devBypass: '(Mode pengembang) Lanjutkan tanpa PWA',
-    desktopBrowser: 'Browser Desktop',
+    desktopBrowser: 'Browser Desktop'
   },
-
-  // Errors
   errors: {
     generic: 'Terjadi kesalahan.',
     network: 'Periksa koneksi jaringan Anda.',
@@ -916,15 +884,20 @@ export default {
     networkError: 'Terjadi kesalahan jaringan',
     timeoutError: 'Permintaan timeout',
     unknownError: 'Terjadi kesalahan yang tidak diketahui',
+    keysetSyncFailed: 'Failed to download mint keyset keys',
+    adapterNotFound: 'No payment method available for this operation',
+    serviceNotReady: 'Service is starting up — try again in a moment.',
+    invalidDestination: 'Unrecognized destination address',
+    unrecognizedInput: 'Unrecognized input format',
+    lnurlParseFailed: 'Could not process this LNURL',
+    transferStateInvalid: 'This transfer can no longer be processed',
+    receiveRequestInvalid: 'Invalid receive request',
+    supportTicketResolved: 'This support ticket is already resolved'
   },
-
-  // Redirect
   redirect: {
     toReceive: 'Beralih ke Terima',
-    toSend: 'Beralih ke Kirim',
+    toSend: 'Beralih ke Kirim'
   },
-
-  // Toast Messages
   toast: {
     copied: 'Disalin ke clipboard',
     saved: 'Disimpan',
@@ -957,8 +930,8 @@ export default {
     retrySuccess: '{{count}} percobaan ulang berhasil',
     retryPartialFail: '{{count}} percobaan ulang gagal',
     retryFailed: 'Percobaan ulang gagal',
-    paymentCompleted: '{{unit}} {{amount}} pembayaran selesai',
-    swapCompleted: '{{unit}} {{amount}} ditukar (biaya: {{fee}})',
+    paymentCompleted: '{{amount}} pembayaran selesai',
+    swapCompleted: '{{amount}} ditukar (biaya: {{fee}})',
     recoveryCompleted: '{{recovered}} dipulihkan ({{failed}} gagal)',
     ecashTokenReceived: '{{amount}} token Ecash diterima',
     ecashTokenReceivedWithFee: '{{amount}} token Ecash diterima (biaya: {{fee}})',
@@ -971,9 +944,8 @@ export default {
     transferSettled: 'Transfer selesai',
     transferReclaimed: 'Transfer diklaim kembali',
     incomingTransferProcessed: 'Transfer masuk diproses',
+    paymentCompletedWithFee: '{{amount}} payment completed (fee: {{fee}})'
   },
-
-  // Mint Details
   mintDetails: {
     mintBalance: 'Saldo Mint',
     mintInfo: 'Info Mint',
@@ -985,10 +957,8 @@ export default {
     loadError: 'Tidak dapat mengambil info mint.',
     deleteConfirm: 'Konfirmasi Hapus',
     deleteMint: 'Hapus Mint',
-    balanceWarning: '{{formattedAmount}} tersisa di mint ini. Disarankan untuk mentransfer ke mint lain sebelum menghapus.',
+    balanceWarning: '{{formattedAmount}} tersisa di mint ini. Disarankan untuk mentransfer ke mint lain sebelum menghapus.'
   },
-
-  // Send
   send: {
     title: 'Kirim',
     fromMint: 'Dari Mint',
@@ -1017,14 +987,14 @@ export default {
       ecashInfoNotFound: 'Informasi penerimaan ecash tidak ditemukan.',
       noCommonMint: 'Tidak ada mint bersama yang tersedia untuk penerima ini.',
       relayNotFound: 'Informasi relay untuk penerima ini tidak ditemukan.',
-      selectedMintUnavailable: '{{mint}} tidak didukung oleh penerima ini. Anda bisa mengirim dari salah satu mint di bawah.',
+      selectedMintUnavailable: '{{mint}} tidak didukung oleh penerima ini. Anda bisa mengirim dari salah satu mint di bawah.'
     },
     amount: {
       sendTo: 'Ke {{destination}}',
       howMuchSend: 'Berapa yang dikirim?',
       balancePill: 'Saldo · {{balance}}',
       addMemo: 'Memo (opsional)',
-      memoPlaceholder: 'Opsional',
+      memoPlaceholder: 'Opsional'
     },
     tokenCreate: {
       title: 'Buat Ecash',
@@ -1052,7 +1022,7 @@ export default {
       share: 'Bagikan',
       reclaim: 'Tarik kembali',
       reclaiming: 'Menarik kembali…',
-      reclaimWithFee: 'Tarik kembali (biaya terima {{fee}})',
+      reclaimWithFee: 'Tarik kembali (biaya terima {{fee}})'
     },
     confirm: {
       title: 'Konfirmasi Kirim',
@@ -1078,13 +1048,14 @@ export default {
       questionEnd: 'Kirim?',
       lightningInvoice: 'Invoice Lightning',
       ecashRequest: 'Permintaan Pembayaran eCash',
+      requestAmount: 'Request'
     },
     sending: {
       message: 'Mengirim ke {{destination}}',
       inProgress: 'Mengirim...',
       fullMessage: 'Mengirim {{amount}}\nke <b>{{recipient}}</b>...',
       fullRequestMessage: 'Mengirim {{amount}}...',
-      networkDelay: 'Mungkin memerlukan waktu tergantung jaringan',
+      networkDelay: 'Mungkin memerlukan waktu tergantung jaringan'
     },
     complete: {
       message: '{{destination}}\n{{amount}} terkirim',
@@ -1092,11 +1063,9 @@ export default {
       fullMessage: '{{amount}} terkirim\nke <b>{{recipient}}</b>!',
       fullRequestMessage: '{{amount}} terkirim!',
       confirm: 'Selesai',
-      details: 'Detail',
-    },
+      details: 'Detail'
+    }
   },
-
-  // Receive
   receive: {
     title: 'Terima',
     senderMethod: 'Apa yang digunakan pengirim?',
@@ -1118,40 +1087,40 @@ export default {
       accountTo: 'Ke <b>{{mint}}</b>',
       haveToken: 'Punya token untuk diterima?',
       placeholder: 'Masukkan token',
-      hint: 'Tidak punya token? Anda bisa membuat <b>invoice</b> untuk meminta pembayaran',
+      hint: 'Tidak punya token? Anda bisa membuat <b>invoice</b> untuk meminta pembayaran'
     },
     amountStep: {
       howMuchRequest: 'Berapa yang diminta?',
       addMemo: 'Memo (opsional)',
-      memoPlaceholder: 'Opsional',
+      memoPlaceholder: 'Opsional'
     },
     qr: {
       title: 'Terima',
       protocols: {
         unified: 'Unified',
         cashu: 'Cashu',
-        lightning: 'Lightning',
+        lightning: 'Lightning'
       },
       showToSender: 'Tunjukkan ini kepada pengirim',
       share: 'Bagikan',
       willNotify: 'Kami akan memberi tahu saat pembayaran masuk ke {{mint}}',
       depositNotify: ' masuk, kami akan memberi tahu',
       fullMessage: 'Kami akan memberi tahu saat {{amount}} masuk',
-      cancel: 'Batal',
+      cancel: 'Batal'
     },
     transport: {
       nostrAndHttp: 'Nostr + HTTP mendengarkan',
       httpOnly: 'HTTP mendengarkan (Nostr terputus)',
       nostrOnly: 'Nostr mendengarkan',
       unified: 'Lightning + eCash mendengarkan',
-      lightningOnly: 'Lightning mendengarkan',
+      lightningOnly: 'Lightning mendengarkan'
     },
     complete: {
       message: '{{mint}}\n{{amount}} diterima',
       received: ' diterima!',
       fullMessage: '{{amount}} diterima!',
       requestFulfilledMessage: 'Permintaan {{amount}}\nsudah datang!',
-      done: 'Selesai',
+      done: 'Selesai'
     },
     token: {
       title: 'Konfirmasi Token',
@@ -1173,7 +1142,7 @@ export default {
       fee: 'Biaya',
       netAmount: 'Anda terima',
       noFee: 'Tanpa biaya',
-      feeApplies: '⚡ Ada biaya',
+      feeApplies: '⚡ Ada biaya'
     },
     untrusted: {
       title: 'Konfirmasi Token',
@@ -1184,7 +1153,7 @@ export default {
       addAndReceive: 'Tambah mint dan terima',
       addAndReceiveSub: 'Saya percaya mint ini',
       reject: 'Jangan terima',
-      rejectSub: 'Jangan terima token ini',
+      rejectSub: 'Jangan terima token ini'
     },
     offline: {
       p2pkAccepted: 'Token ini dilindungi P2PK. Dapat diterima secara offline dengan aman dan akan diverifikasi saat terhubung kembali.',
@@ -1193,7 +1162,7 @@ export default {
       nonP2PKError: 'Hanya token yang dilindungi P2PK yang dapat diterima secara offline. Hubungkan kembali dan coba lagi.',
       untrustedNeedsOnline: 'Koneksi internet diperlukan untuk menerima token dari mint yang tidak terdaftar.',
       receiveOffline: 'Terima offline',
-      acceptAnyway: 'Terima dengan risiko saya',
+      acceptAnyway: 'Terima dengan risiko saya'
     },
     swapFeeTooHigh: 'Biaya swap ({{fee}}) sama atau lebih besar dari jumlah token ({{amount}})',
     swapTokenTooSmall: 'Token ini terlalu kecil untuk ditukar ke mint Anda. Terima langsung di mint asal atau gunakan token yang lebih besar.',
@@ -1207,11 +1176,9 @@ export default {
       description: '{{amount}} tersimpan di {{mint}}. Tambahkan mint ini hanya jika Anda ingin melihat dan menggunakan saldo itu di Zappi.',
       mint: 'Mint asal',
       addMint: 'Tambahkan mint dan lihat saldo',
-      later: 'Nanti saja',
-    },
+      later: 'Nanti saja'
+    }
   },
-
-  // Mint Detail Screen
   mintDetail: {
     title: 'Detail Mint',
     send: 'Kirim',
@@ -1278,10 +1245,8 @@ export default {
     filterType: 'Jenis',
     search: 'Cari',
     pendingExpiry: 'Kedaluwarsa',
-    pendingExpired: 'Kedaluwarsa',
+    pendingExpired: 'Kedaluwarsa'
   },
-
-  // Pending Item Actions
   pending: {
     redeemAction: 'Tebus Sekarang',
     redeemSuccess: 'Token ditebus',
@@ -1293,28 +1258,25 @@ export default {
     lightningInvoice: 'Invoice Lightning',
     quoteStatus: 'Status',
     redeemQuote: 'Tebus',
+    expiredRemoved: 'Expired request removed'
   },
-
-  // Error Boundary
   error: {
     unexpectedTitle: 'Terjadi kesalahan',
     unexpectedMessage: 'Aplikasi mengalami error tak terduga. Muat ulang untuk mencoba lagi.',
-    reload: 'Muat Ulang',
+    reload: 'Muat Ulang'
   },
-
   nav: {
     wallet: 'Dompet',
     token: 'Ecash',
     contacts: 'Kontak',
-    settings: 'Pengaturan',
+    settings: 'Pengaturan'
   },
-
   token: {
     create: 'Buat',
     register: 'Terima',
     empty: {
       title: 'Belum ada ecash.\nMau membuat satu?',
-      footerNote: 'Ecash bekerja seperti uang tunai. Siapa pun yang memilikinya dapat mendaftarkan dan menggunakannya.',
+      footerNote: 'Ecash bekerja seperti uang tunai. Siapa pun yang memilikinya dapat mendaftarkan dan menggunakannya.'
     },
     time: {
       justNow: 'baru saja',
@@ -1323,33 +1285,33 @@ export default {
       yesterday: 'kemarin',
       daysAgo: '{{count}} hari lalu',
       atTimeOfDay: '{{time}}',
-      dayWithTime: 'Tgl {{day}}, {{time}}',
+      dayWithTime: 'Tgl {{day}}, {{time}}'
     },
     pending: {
-      timeLabel: 'Menunggu · {{time}}',
+      timeLabel: 'Menunggu · {{time}}'
     },
     pendingWidget: {
       title: 'Menunggu',
       summary: '{{count}} ecash · {{total}}',
-      viewAll: 'Lihat menunggu',
+      viewAll: 'Lihat menunggu'
     },
     pendingEmpty: {
       title: 'Semua beres',
-      subtitle: 'Tidak ada ecash menunggu',
+      subtitle: 'Tidak ada ecash menunggu'
     },
     reclaimable: {
       section: 'Dapat diambil kembali ({{count}})',
       viewAll: 'Lihat semua >',
       actions: {
         reclaim: 'Ambil kembali',
-        share: 'Bagikan',
+        share: 'Bagikan'
       },
       shareText: '{{memo}}: {{amount}}',
-      copiedToClipboard: 'Disalin ke clipboard',
+      copiedToClipboard: 'Disalin ke clipboard'
     },
     firstCreate: {
       hint: 'Kamu membuat ecash ini tetapi belum terdaftar.\nPenerima mungkin belum menerimanya atau belum mendaftarkannya.',
-      dismiss: 'Jangan tampilkan lagi',
+      dismiss: 'Jangan tampilkan lagi'
     },
     reclaim: {
       title: 'Ambil kembali',
@@ -1359,7 +1321,7 @@ export default {
       summaryNet: 'Kamu terima',
       confirm: 'Ambil kembali',
       success: 'Berhasil mengambil kembali',
-      failed: 'Gagal mengambil kembali',
+      failed: 'Gagal mengambil kembali'
     },
     history: {
       section: 'Riwayat',
@@ -1367,13 +1329,13 @@ export default {
         today: 'Hari ini',
         yesterday: 'Kemarin',
         thisMonth: 'Bulan ini',
-        older: 'Sebelumnya',
+        older: 'Sebelumnya'
       },
       anchor: {
         today: '{{weekday}} · Hari ini',
         yesterday: '{{weekday}} · Kemarin',
         monthSameYear: '{{monthName}}',
-        monthOtherYear: '{{year}}.{{month02}}',
+        monthOtherYear: '{{year}}.{{month02}}'
       },
       subLine: '{{status}} · {{time}}',
       endOfList: 'Semua riwayat sudah dilihat.',
@@ -1381,8 +1343,8 @@ export default {
       status: {
         registered: 'Didaftarkan',
         consumed: 'Terpakai',
-        reclaimed: 'Diambil kembali',
-      },
+        reclaimed: 'Diambil kembali'
+      }
     },
     detail: {
       unread: 'Ecash belum dibaca',
@@ -1390,7 +1352,7 @@ export default {
         pending: 'Ecash menunggu',
         registered: 'Ecash terdaftar',
         consumed: 'Ecash terpakai',
-        reclaimed: 'Ecash diambil kembali',
+        reclaimed: 'Ecash diambil kembali'
       },
       weekday: {
         sun: 'Minggu',
@@ -1399,13 +1361,13 @@ export default {
         wed: 'Rabu',
         thu: 'Kamis',
         fri: 'Jumat',
-        sat: 'Sabtu',
+        sat: 'Sabtu'
       },
       dateLine: {
         pending: '{{weekday}}, {{day}}/{{month}}/{{year}}\nDibuat pada {{time}}',
         registered: '{{weekday}}, {{day}}/{{month}}/{{year}}\nDidaftarkan pada {{time}}',
         consumed: '{{weekday}}, {{day}}/{{month}}/{{year}}\nDibuat pada {{time}}',
-        reclaimed: '{{weekday}}, {{day}}/{{month}}/{{year}}\nDiambil kembali pada {{time}}',
+        reclaimed: '{{weekday}}, {{day}}/{{month}}/{{year}}\nDiambil kembali pada {{time}}'
       },
       amountLabel: 'Jumlah',
       feeLine: 'Biaya {{fee}}',
@@ -1416,24 +1378,24 @@ export default {
         pending: 'Buat ecash',
         registered: 'Daftarkan ecash',
         consumed: 'Ecash terpakai',
-        reclaimed: 'Ambil kembali ecash',
+        reclaimed: 'Ambil kembali ecash'
       },
       mintLabel: {
         pending: 'Mint asal',
         registered: 'Mint tujuan',
         consumed: 'Mint penerbit',
-        reclaimed: 'Mint tujuan',
+        reclaimed: 'Mint tujuan'
       },
       action: {
         forward: 'Teruskan ecash',
-        confirm: 'Lihat ecash',
+        confirm: 'Lihat ecash'
       },
       confirmLink: 'Lihat ecash',
       actions: {
         qr: 'QR',
         copy: 'Salin',
         share: 'Bagikan',
-        viewRaw: 'Lihat data ecash mentah',
+        viewRaw: 'Lihat data ecash mentah'
       },
       reclaimCta: 'Ambil kembali (biaya: {{fee}})',
       raw: {
@@ -1442,14 +1404,13 @@ export default {
         unit: 'Unit',
         receiveFee: 'Biaya penerimaan',
         empty: 'Tidak ada data ecash.',
-        easterEgg: 'ZAPPI X CASHU',
+        easterEgg: 'ZAPPI X CASHU'
       },
       qr: {
-        title: 'Bagikan QR',
-      },
-    },
+        title: 'Bagikan QR'
+      }
+    }
   },
-
   tokenRegister: {
     title: 'Daftarkan ecash',
     inputHeading: 'Tempel atau pindai ecash\nuntuk mendaftarkannya.',
@@ -1462,9 +1423,8 @@ export default {
     swapping: 'Menukar…',
     receiveToMyMint: 'Terima di mint saya',
     unknownMintHint: 'Jika kamu tidak kenal mint-nya, kamu bisa\nterima di mint sendiri tanpa menambahkannya.',
-    swapFeeHint: 'Mungkin ada biaya tukar',
+    swapFeeHint: 'Mungkin ada biaya tukar'
   },
-
   contacts: {
     title: 'Kontak',
     addContact: 'Tambah Kontak',
@@ -1490,7 +1450,7 @@ export default {
       noNutzapInfo: 'Info NutZap tidak ditemukan untuk npub ini',
       noMints: 'Tidak ada mint terdaftar untuk npub ini',
       noRelay: 'Informasi relay untuk npub ini tidak ditemukan',
-      decodeFailed: 'Gagal mendekode alamat',
-    },
-  },
-}
+      decodeFailed: 'Gagal mendekode alamat'
+    }
+  }
+} as const

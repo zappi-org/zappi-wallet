@@ -29,11 +29,15 @@ RUN bun run build
 # Production stage
 FROM nginx:alpine
 
-# Copy custom nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy custom nginx config (full http{} block; replaces main config)
+COPY nginx.conf /etc/nginx/nginx.conf
 
 # Copy built assets from builder
 COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Copy server-side assets (OG image, bot HTML) — never bundled into client build.
+# Vite ignores anything outside its root + publicDir, so these stay server-only.
+COPY --from=builder /app/server-assets /usr/share/nginx/server-assets
 
 EXPOSE 80
 

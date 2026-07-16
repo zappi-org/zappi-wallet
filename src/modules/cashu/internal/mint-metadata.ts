@@ -1,5 +1,6 @@
 import type { MintMetadata } from '@/core/types'
 import { TIMEOUTS } from '@/core/constants'
+import { netLog } from '@/core/utils/net-log'
 import { metadataEvents } from './metadata-events'
 import type { MetadataStore } from './metadata-store'
 
@@ -8,7 +9,7 @@ export type { MetadataStore }
 /**
  * NUT-06 mint info response
  */
-interface MintInfoResponse {
+export interface MintInfoResponse {
   name?: string
   pubkey?: string
   version?: string
@@ -100,10 +101,34 @@ const METADATA_REFRESH_INTERVAL = 24 * 60 * 60 * 1000
  * Service for fetching and caching mint metadata (NUT-06)
  * Supports offline-first operation with injected storage.
  */
+/**
+ * Injection point for the info fetcher:
+ * goes through Coco `manager.mint.getMintInfo` — repo + 5-min TTL hybrid, limiter-protected,
+ * supports unregistered mints. If not injected, falls back to a legacy raw fetch
+ * (kill-switch `ks.mint-info-facade`).
+ */
+export type MintInfoFetcher = (mintUrl: string) => Promise<MintInfoResponse | null>
+
 export class MintMetadataService {
   private inFlightRequests = new Map<string, Promise<MintMetadata | null>>()
+  /** Joins an in-flight health probe — injected by MintInfoService via a setter */
+  private probeJoiner?: (mintUrl: string) => Promise<MintMetadata | null> | null
 
-  constructor(private store: MetadataStore) {}
+  constructor(
+    private store: MetadataStore,
+    private readonly infoFetcher?: MintInfoFetcher,
+  ) {}
+
+  setProbeJoiner(
+    joiner: (mintUrl: string) => Promise<MintMetadata | null> | null,
+  ): void {
+    this.probeJoiner = joiner
+  }
+
+  /** Direct cache read (no side effects) — used by the probe-join path to read the ingest result */
+  peekCached(mintUrl: string): Promise<MintMetadata | null> {
+    return this.store.get(mintUrl).then((m) => m ?? null)
+  }
 
   /**
    * Get metadata for a mint (from cache if available, fetch if needed)
@@ -157,6 +182,19 @@ export class MintMetadataService {
   async fetchAndCache(mintUrl: string): Promise<MintMetadata | null> {
     const existing = this.inFlightRequests.get(mintUrl)
     if (existing) return existing
+
+    // Join an in-flight health probe for the same mint — the probe reads the cache
+    // after finishing ingest, so a separate fetch is unnecessary. Home mount's
+    // simultaneous health+metadata firing resolves in a single round-trip.
+    const joined = this.probeJoiner?.(mintUrl)
+    if (joined) {
+      this.inFlightRequests.set(mintUrl, joined)
+      try {
+        return await joined
+      } finally {
+        this.inFlightRequests.delete(mintUrl)
+      }
+    }
 
     const promise = this.doFetch(mintUrl)
     this.inFlightRequests.set(mintUrl, promise)
@@ -237,9 +275,40 @@ export class MintMetadataService {
     }
   }
 
+  /**
+   * Applies a NUT-06 response to the cache (single point for mapping + save + event).
+   * Also used by MintInfoService's health probe to back-inject the same response —
+   * key to eliminating a second /v1/info hit per mint per cycle.
+   */
+  async ingest(mintUrl: string, info: MintInfoResponse): Promise<MintMetadata> {
+    const metadata: MintMetadata = {
+      url: mintUrl,
+      name: info.name,
+      iconUrl: info.icon_url,
+      description: info.description,
+      pubkey: info.pubkey,
+      fetchedAt: Date.now(),
+      nuts: info.nuts,
+      rawInfo: info as unknown as Record<string, unknown>,
+    }
+
+    await this.store.save(metadata)
+    metadataEvents.emit(mintUrl, metadata)
+    return metadata
+  }
+
   private async doFetch(mintUrl: string): Promise<MintMetadata | null> {
+    // Via Coco (limiter-protected)
+    if (this.infoFetcher) {
+      const info = await this.infoFetcher(mintUrl).catch(() => null)
+      if (!info) return null
+      return this.ingest(mintUrl, info)
+    }
+
+    // Legacy direct fetch (kill-switch path)
     try {
       const infoUrl = `${mintUrl.replace(/\/$/, '')}/v1/info`
+      netLog({ layer: 'mint', op: 'fetch', key: mintUrl, detail: '/v1/info', caller: 'metadata' })
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), TIMEOUTS.MINT_REQUEST)
 
@@ -255,20 +324,7 @@ export class MintMetadataService {
       }
 
       const info: MintInfoResponse = await response.json()
-
-      const metadata: MintMetadata = {
-        url: mintUrl,
-        name: info.name,
-        iconUrl: info.icon_url,
-        description: info.description,
-        pubkey: info.pubkey,
-        fetchedAt: Date.now(),
-        nuts: info.nuts,
-      }
-
-      await this.store.save(metadata)
-      metadataEvents.emit(mintUrl, metadata)
-      return metadata
+      return await this.ingest(mintUrl, info)
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         console.warn(`[MintMetadata] Timeout fetching info for ${mintUrl}`)

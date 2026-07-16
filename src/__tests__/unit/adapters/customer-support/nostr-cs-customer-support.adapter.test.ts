@@ -511,6 +511,36 @@ describe('NostrCsCustomerSupportAdapter', () => {
     await connectPromise
   })
 
+  /**
+   * Regression guard: a duplicate connect while connecting (global hook racing
+   * SupportPage mount) each created its own CSClient/SimplePool — the gate must
+   * share concurrent calls of the same generation as one in-flight connect.
+   * (If doConnect bumped the generation itself, this sharing would be impossible —
+   * the bump is disconnect-only.)
+   */
+  it('shares a single in-flight connection across concurrent connect() calls', async () => {
+    let resolveConnect: (() => void) | undefined
+    nostrCsMock.MockCSClient.connectImpl = () => new Promise<void>((resolve) => {
+      resolveConnect = resolve
+    })
+    const keyProvider = {
+      getPubkey: vi.fn().mockResolvedValue(customerPubkey),
+      destroy: vi.fn(),
+    } as unknown as DerivedCustomerSupportKeyProvider
+    const adapter = new NostrCsCustomerSupportAdapter(config, keyProvider, makeRelaysProvider())
+
+    const first = adapter.connect()
+    const second = adapter.connect()
+
+    await vi.waitFor(() => expect(resolveConnect).toBeTypeOf('function'))
+    resolveConnect!()
+    const [a, b] = await Promise.all([first, second])
+
+    expect(nostrCsMock.MockCSClient.instances).toHaveLength(1)
+    expect(a.status).toBe('connected')
+    expect(b.status).toBe('connected')
+  })
+
   it('does not attach listeners to a stale client when disconnect wins the connect race', async () => {
     let resolveConnect: (() => void) | undefined
     nostrCsMock.MockCSClient.connectImpl = () => new Promise<void>((resolve) => {

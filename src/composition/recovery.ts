@@ -17,6 +17,7 @@ import type { PaymentUseCase } from '@/core/ports/driving/payment.usecase'
 import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request.usecase'
 import type { TrustedMintProvider } from '@/core/ports/driven/trusted-mint-provider.port'
 import type { IncomingReviewQueue } from '@/core/ports/driven/incoming-review-queue.port'
+import type { GiftwrapCursorStore } from '@/core/ports/driven/giftwrap-cursor-store.port'
 
 export function createRecoveryService(
   nostrGateway: NostrGateway,
@@ -27,6 +28,7 @@ export function createRecoveryService(
   recoveryStore?: RecoveryStore,
   processedStore?: ProcessedStore,
   txRepo?: TransactionRepository,
+  cursorStore?: GiftwrapCursorStore,
 ): RecoveryUseCase {
   return new RecoveryService(
     nostrGateway,
@@ -40,5 +42,6 @@ export function createRecoveryService(
     receiveRequest,
     processedStore,
     txRepo,
+    cursorStore,
   )
 }

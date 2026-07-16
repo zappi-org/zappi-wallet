@@ -10,7 +10,7 @@ import type { AuthSession } from '@/core/ports/driven/payment-alias-provider.por
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { EventBus } from '@/core/events/event-bus'
 import type { PaymentAliasUseCase } from '@/core/ports/driving/payment-alias.usecase'
-import { ok, type Result } from '@/core/types/result'
+import { Ok, type Result } from '@/core/domain/result'
 import type { BaseError } from '@/core/errors/base'
 import { NpubcashPaymentRequiredError } from '@/core/errors/npubcash'
 import { createTransaction, settleAsDelivered, failTransaction } from '@/core/domain/transaction'
@@ -36,33 +36,33 @@ export class PaymentAliasService implements PaymentAliasUseCase {
 
   async getAlias(privkey: string): Promise<Result<AccountInfo, BaseError>> {
     const session = await this.authenticate(privkey)
-    if (session.isErr()) return session
+    if (!session.ok) return session
     return this.provider.getAccountInfo(session.value)
   }
 
   async registerAlias(privkey: string): Promise<Result<AliasResult, BaseError>> {
     const signer = this.createSigner(privkey)
     const session = await this.provider.authenticate(signer)
-    if (session.isErr()) return session
+    if (!session.ok) return session
     const npub = signer.getNpub()
 
     const info = await this.provider.getAccountInfo(session.value)
-    if (info.isErr()) return info
+    if (!info.ok) return info
 
     if (info.value.alias) {
-      return ok({ alias: info.value.alias, npub })
+      return Ok({ alias: info.value.alias, npub })
     }
 
-    return ok({ alias: npub, npub })
+    return Ok({ alias: npub, npub })
   }
 
   async changeAlias(privkey: string, alias: string, cashuToken: string): Promise<Result<AliasResult, BaseError>> {
     const session = await this.authenticate(privkey)
-    if (session.isErr()) return session
+    if (!session.ok) return session
 
     let result = await this.provider.purchaseAlias(session.value, alias, cashuToken)
 
-    if (result.isErr() && result.error instanceof NpubcashPaymentRequiredError && !cashuToken) {
+    if (!result.ok && result.error instanceof NpubcashPaymentRequiredError && !cashuToken) {
       const paymentReq = result.error
       console.log('[PaymentAlias] 402 received, creq length:', paymentReq.encodedRequest.length)
       const parsed = await this.routePaymentOperator.parsePaymentRequest(paymentReq.encodedRequest)
@@ -115,7 +115,7 @@ export class PaymentAliasService implements PaymentAliasUseCase {
 
         result = await this.provider.purchaseAlias(session.value, alias, token)
 
-        if (result.isOk()) {
+        if (result.ok) {
           console.log('[PaymentAlias] purchaseAlias(retry) OK:', result.value)
           await this.txRepo.update(txId, settleAsDelivered(tx))
           this.eventBus.emit({
@@ -147,22 +147,22 @@ export class PaymentAliasService implements PaymentAliasUseCase {
 
   async setMint(privkey: string, mintUrl: string): Promise<Result<void, BaseError>> {
     const session = await this.authenticate(privkey)
-    if (session.isErr()) return session
+    if (!session.ok) return session
     return this.provider.setPreferredMint(session.value, mintUrl)
   }
 
   async toggleLock(privkey: string): Promise<Result<boolean, BaseError>> {
     const session = await this.authenticate(privkey)
-    if (session.isErr()) return session
+    if (!session.ok) return session
     return this.provider.toggleLock(session.value)
   }
 
   async claimPaidQuotes(privkey: string): Promise<Result<PaidQuote[], BaseError>> {
     const session = await this.authenticate(privkey)
-    if (session.isErr()) return session
+    if (!session.ok) return session
 
     const quotes = await this.provider.getPaidQuotes(session.value)
-    if (quotes.isErr()) return quotes
+    if (!quotes.ok) return quotes
 
     for (const q of quotes.value) {
       await this.mint.mintAndReceive(q.quoteId, q.mintUrl, q.amount)

@@ -1,5 +1,4 @@
 export default {
-  // Common
   common: {
     sats: '₿',
     sat: '₿',
@@ -35,10 +34,8 @@ export default {
     notifications: 'Notificaciones',
     syncing: 'Sincronizando',
     change: 'Cambiar',
-    search: 'Buscar',
+    search: 'Buscar'
   },
-
-  // Lock Screen
   lock: {
     welcomeBack: 'ZAPPI',
     enterPin: 'Ingresa tu PIN para desbloquear',
@@ -47,12 +44,9 @@ export default {
     tryAgainIn: 'Intenta de nuevo en {{time}}',
     faceIdUnlock: 'Desbloquear con Face ID',
     errorOccurred: 'Ocurrió un error.',
-    biometricFailed: 'Autenticación biométrica fallida. Ingresa tu PIN.',
+    biometricFailed: 'Autenticación biométrica fallida. Ingresa tu PIN.'
   },
-
-  // Onboarding
   onboarding: {
-    // Welcome
     appName: 'Zappi',
     tagline: 'Pagos de Bitcoin fáciles y rápidos',
     createWallet: 'Crear nueva billetera',
@@ -61,8 +55,6 @@ export default {
     invitePlaceholder: 'Código de invitación',
     inviteInvalidCount: 'Código de invitación inválido ({{current}}/{{max}})',
     inviteLocked: 'Demasiados intentos. Intenta de nuevo en 5 minutos.',
-
-    // Mnemonic
     secretRecoveryKey: 'Clave de recuperación secreta',
     walletRecovery: 'Recuperación de billetera',
     mnemonicWarning: 'Esta es la única forma de recuperar tu billetera.\nAnota las palabras en orden y guárdalas en un lugar seguro.',
@@ -76,26 +68,18 @@ export default {
     recoverWallet: 'Recuperar',
     invalidMnemonic: 'Clave de recuperación inválida. Revisa las palabras e intenta de nuevo.',
     backupConfirmRequired: 'Confirma que has anotado tu clave de recuperación.',
-
-    // PIN
     setPin: 'Establecer PIN',
     confirmPin: 'Confirmar PIN',
     enterNewPin: 'Establece un PIN de 6 dígitos',
     reenterPin: 'Vuelve a ingresar tu PIN',
     pinMismatch: 'Los PIN no coinciden',
-
-    // Processing
     creatingWallet: 'Creando billetera',
     recoveringWallet: 'Recuperando billetera',
     creatingWalletDesc: 'Creando tu nueva billetera...',
     recoveringWalletDesc: 'Obteniendo perfil de Nostr y recuperando tokens...',
     pleaseWait: 'Por favor espera',
-
-    // Complete
-    walletSetupFailed: 'Error al configurar la billetera. Por favor intenta de nuevo.',
+    walletSetupFailed: 'Error al configurar la billetera. Por favor intenta de nuevo.'
   },
-
-  // Home Screen
   home: {
     totalBalance: 'Saldo total',
     showBalance: 'Mostrar saldo',
@@ -104,16 +88,13 @@ export default {
     addFirstMint: 'Agrega tu primer mint',
     recentTransactions: 'Historial',
     noTransactions: 'Sin transacciones aún',
-    seeAll: 'Ver más',
+    seeAll: 'Ver más'
   },
-
-  // Action Buttons
   actions: {
     transfer: 'Mover Saldo',
     scan: 'Escanear',
-    analytics: 'Análisis',
+    analytics: 'Análisis'
   },
-
   support: {
     title: 'Support history',
     heroTitle: 'How can we help?',
@@ -123,7 +104,7 @@ export default {
       idle: 'Idle',
       connecting: 'Connecting',
       connected: 'Connected',
-      error: 'Error',
+      error: 'Error'
     },
     unavailableTitle: 'Support is not configured',
     unavailableDescription: 'Customer support is unavailable in this build. Please contact the Zappi team through the official channel.',
@@ -145,19 +126,33 @@ export default {
       general: 'General',
       technical: 'Technical',
       billing: 'Billing',
+      transfer: 'Send / receive',
+      ecash: 'Ecash',
+      fee: 'Fees',
+      security: 'Security / backup',
+      other: 'Other',
+      idea_ux: 'UI / UX',
+      idea_feature: 'New feature',
+      idea_perf: 'Performance / stability',
+      idea_other: 'Other'
     },
     categoryDescriptions: {
       general: 'How-to, account, or general questions',
       technical: 'Bugs, wallet behavior, or connection issues',
       billing: 'Payment, transfer, or settlement questions',
+      transfer: 'Lightning / ecash send & receive',
+      ecash: 'Ecash token register / recovery',
+      fee: 'Fees and routing costs',
+      security: 'Lock, backup, recovery phrase',
+      other: 'Anything else'
     },
     priorities: {
       normal: 'Normal',
-      high: 'High',
+      high: 'High'
     },
     priorityDescriptions: {
       normal: 'A regular support request',
-      high: 'Something is blocked or needs faster review',
+      high: 'Something is blocked or needs faster review'
     },
     createTicket: 'Submit',
     sending: 'Sending...',
@@ -201,7 +196,7 @@ export default {
       open: 'Open',
       in_progress: 'In progress',
       resolved: 'Resolved',
-      closed: 'Closed',
+      closed: 'Closed'
     },
     faqTitle: 'Preguntas frecuentes',
     faqSeeAll: 'Ver todo',
@@ -217,15 +212,79 @@ export default {
       q5: '¿Pierdo mi saldo si borro la app o pierdo el teléfono?',
       a5: 'Sí, por eso hacer una copia de seguridad de tu frase semilla es fundamental. A diferencia de un banco donde un servidor central guarda tu saldo, en una billetera Cashu los tokens en tu dispositivo son tu saldo. Si borras la app o pierdes el dispositivo, los tokens desaparecen también. La mayoría de las billeteras Cashu proporcionan una frase semilla para recuperar los tokens de forma determinista. Guarda siempre tu frase semilla en un lugar seguro.',
       q6: '¿En qué se diferencia de la custodia tradicional?',
-      a6: 'Los servicios de custodia Lightning tradicionales gestionan fondos con un modelo de "saldo" — tu saldo se registra en un servidor, lo que facilita que el operador rastree el historial de transacciones y compromete tu privacidad. También es relativamente fácil congelar fondos o censurar transacciones.\n\nCashu funciona con un modelo de "token". El mint solo emite tokens y verifica si fueron gastados — no puede saber quién los tiene ni a dónde fueron enviados. Esto protege la privacidad y hace que la censura individual sea prácticamente imposible. Aunque sigue siendo un modelo de custodia, representa un avance significativo en términos de privacidad.',
+      a6: 'Los servicios de custodia Lightning tradicionales gestionan fondos con un modelo de "saldo" — tu saldo se registra en un servidor, lo que facilita que el operador rastree el historial de transacciones y compromete tu privacidad. También es relativamente fácil congelar fondos o censurar transacciones.\n\nCashu funciona con un modelo de "token". El mint solo emite tokens y verifica si fueron gastados — no puede saber quién los tiene ni a dónde fueron enviados. Esto protege la privacidad y hace que la censura individual sea prácticamente imposible. Aunque sigue siendo un modelo de custodia, representa un avance significativo en términos de privacidad.'
     },
+    searchPlaceholder: 'Search by keyword',
+    csStatus: {
+      received: 'Received',
+      progress: 'In progress',
+      answered: 'Answered'
+    },
+    userBubbleLabel: 'My request',
+    helpHomeSubtitle: 'Ask us anything, anytime.',
+    helpFooter: '',
+    actions: {
+      composeInquiry: {
+        title: 'Start a new request',
+        subtitle: 'Our team will reply directly'
+      },
+      inquiryList: {
+        title: 'View my requests',
+        subtitle: '{{count}} request(s)',
+        subtitleWithUnread: '{{count}} total · {{unread}} new repl(ies)'
+      },
+      composeIdea: {
+        title: 'Suggest an idea',
+        subtitle: 'Share your thoughts with the Zappi team'
+      },
+      ideaList: {
+        title: 'View my ideas',
+        subtitle: '{{count}} sent idea(s)',
+        empty: 'No ideas sent yet'
+      }
+    },
+    composeInquirySubtitle: 'Tell us in detail and our team will reply as soon as possible.',
+    composeIdeaSubtitle: 'What could be better? The Zappi team will read it carefully.',
+    titlePlaceholderInquiry: 'Briefly describe the issue',
+    titlePlaceholderIdea: 'Summarize in one line',
+    bodyPlaceholderInquiry: 'Add details. Including related data or screenshots increases the chance of a quick resolution.',
+    bodyPlaceholderIdea: 'Tell us when you felt the gap and how it could be improved.',
+    bodyCounter: '{{count}} / 2000',
+    securityNoticeTitle: 'Never share your mnemonic or PIN.',
+    securityNoticeBody: 'Zappi will never ask for your private key information under any circumstance.',
+    attachmentLabel: 'Attachments',
+    attachmentEncryptedNote: 'Everything is encrypted and sent securely.',
+    submitInquiry: 'Send request',
+    submitIdea: 'Send idea',
+    inquiryListTitle: 'My requests',
+    inquiryListSubtitle: '{{count}} open request(s).',
+    inquiryListEmpty: 'No requests yet.',
+    fabNewInquiry: 'New',
+    fabNewIdea: 'New',
+    threadFooterInquiry: 'Replies stay in the same thread',
+    threadFooterIdea: 'Keep the conversation going about your idea',
+    detailMetadata: 'Received {{date}}',
+    ideaDetailMetadata: 'Sent {{date}}',
+    ideaListTitle: 'My ideas',
+    ideaListSubtitle: '{{count}} sent idea(s).',
+    ideaListEmpty: 'No ideas sent yet.',
+    ideaBadge: 'Idea',
+    proposalLabel: 'Idea',
+    composeIdeaPageTitle: 'Suggest an idea',
+    ideaReplyPlaceholder: 'Share more thoughts',
+    viewAttachment: 'View',
+    openingAttachment: 'Opening',
+    openInNewTab: 'Open in new tab',
+    previewFailed: 'Could not open preview',
+    threadStatusEvent: {
+      open: 'Request reopened',
+      in_progress: 'Support team is preparing a reply',
+      resolved: 'This request has been resolved',
+      closed: 'This request has been closed'
+    }
   },
-
-  // Settings
   settings: {
     title: 'Configuración',
-
-    // Profile
     profile: 'Perfil',
     profileDesc: 'Nostr, Dirección Lightning, Análisis',
     profileDescHiddenLightning: 'Nostr, Análisis',
@@ -260,8 +319,6 @@ export default {
     swapFee: 'tarifa',
     paymentFailed: 'Pago fallido. Seleccione otro mint',
     noPayableMint: 'Ningún mint tiene saldo suficiente para cubrir la tarifa de cambio',
-
-    // Security
     security: 'Seguridad',
     securityDesc: 'PIN, Face ID, Bloqueo automático',
     autoLock: 'Bloqueo automático',
@@ -269,8 +326,6 @@ export default {
     faceIdTouchId: 'Face ID / Touch ID',
     biometric: 'Biométrico',
     changePin: 'Cambiar PIN',
-
-    // Wallet Management
     walletManagement: 'Gestión de billetera',
     walletManagementDesc: 'Mints, Relays, Saldo, Respaldo',
     manageMints: 'Gestionar Mints',
@@ -278,15 +333,10 @@ export default {
     verifyBalance: 'Verificar saldo',
     findUnusedTokens: 'Buscar tokens no usados',
     mnemonicBackup: 'Respaldo de mnemónico',
-
-    // TLS Test
     tlsTest: 'TLS Test',
     tlsTestDesc: 'Probar flujos de TransferLifecycleService',
-
-    // Logout
     logout: 'Cerrar sesión',
     version: 'Zappi v{{version}}',
-
     updateAvailable: 'Actualización disponible',
     updateInstallHint: 'Toca para actualizar',
     checkForUpdates: 'Buscar actualizaciones',
@@ -295,13 +345,9 @@ export default {
     updateCurrent: 'Tienes la última versión',
     updateCheckUnavailable: 'La búsqueda de actualizaciones no está disponible aquí',
     updateCheckFailed: 'No se pudieron buscar actualizaciones',
-
-    // Mints
     addMint: 'Agregar Mint',
     noMints: 'No hay mints registrados',
     mintCount: '{{count}} mints',
-
-    // Relays
     noRelays: 'No hay relays registrados',
     relayPlaceholder: 'relay.example.com',
     relayExists: 'El relay ya existe',
@@ -314,24 +360,16 @@ export default {
     confirmDeleteRelay: '¿Eliminar este relay?',
     minRelaysRequired: 'Se requieren al menos {{min}} relays',
     minMintsRequired: 'Se requieren al menos {{min}} mints',
-
-    // PIN Change
     currentPinLabel: 'Ingresa PIN actual',
     newPinLabel: 'Ingresa nuevo PIN (6 dígitos)',
     confirmPinLabel: 'Confirma nuevo PIN',
     pinChangeError: 'Los PIN no coinciden.',
     wrongCurrentPin: 'PIN actual incorrecto.',
     change: 'Cambiar',
-
-    // Mnemonic Backup
     enterPinLabel: 'Ingresa PIN',
     wrongPin: 'PIN incorrecto.',
     mnemonicWarning: 'Guarda este mnemónico de forma segura. Nunca lo compartas.',
-
-    // Logout
     logoutWarning: 'Todos los datos serán eliminados. ¿Has respaldado tu mnemónico?',
-
-    // Token Restore
     restoreChoiceDescription: 'Elige cómo restaurar ecash faltante.',
     restoreDescription: 'Buscar y restaurar tokens no usados de cada mint.',
     currentWalletRecovery: 'Recuperar esta billetera',
@@ -351,8 +389,6 @@ export default {
     noRecoverableEcash: 'No se encontró ecash recuperable.',
     verificationError: 'Ocurrió un error durante la verificación.',
     noMintsRegistered: 'No hay mints registrados.',
-
-    // Passkey
     passkeySetup: 'Configuración de Face ID / Touch ID',
     passkeyDescription: 'Ingresa tu PIN para registrar autenticación biométrica',
     register: 'Registrar',
@@ -361,8 +397,6 @@ export default {
     passkeyRemove: 'Eliminar Face ID / Touch ID',
     passkeyRemoveDescription: 'Ingresa tu PIN para eliminar autenticación biométrica',
     remove: 'Eliminar',
-
-    // Mint Delete
     deleteMint: 'Eliminar Mint',
     mintHasBalance: 'Este mint tiene un saldo de <bold>{{formattedBalance}}</bold>.',
     deleteWarning: 'Eliminar hará el saldo inaccesible.',
@@ -373,23 +407,13 @@ export default {
     moveDown: 'Mover abajo',
     dragToReorder: 'Arrastrar para reordenar',
     reorderHint: 'Arrastra el controlador para reordenar. Con teclado: enfoca el controlador y presiona arriba / abajo.',
-
-    // Preferences
     preferences: 'Preferencias',
     preferencesDesc: 'Idioma, Unidad, Moneda, Privacidad',
-
-    // Language
     language: 'Idioma',
-
-    // Unit Display
     unitDisplay: 'Unidad',
-
-    // Fiat Currency
     fiatCurrency: 'Moneda',
     showFiatConversion: 'Mostrar Precio Fiat',
     selectCurrency: 'Seleccionar Moneda',
-
-    // POS Management
     posManagement: 'Gestión de POS',
     addPosDevice: 'Agregar dispositivo POS',
     posDeviceCount: '{{count}} dispositivos',
@@ -403,19 +427,19 @@ export default {
     posProvisioningDone: 'Dispositivo POS registrado exitosamente.',
     posDeviceRemove: 'Eliminar dispositivo',
     posDeviceRemoveWarning: 'Este dispositivo POS ya no podrá aceptar pagos. ¿Eliminar?',
-
-    // Privacy
     privacy: 'Privacidad',
     senderPrivacyMode: 'Modo de privacidad de envío',
     senderPrivacyModeDescription: 'Preferir rutas donde el mint no pueda vincular remitente y destinatario, aunque las tarifas sean mayores',
-
-    // Descriptions
     active: 'Activo',
     autoLockDescription: 'Bloquear automáticamente tras inactividad',
     faceIdDescription: 'Usar autenticación biométrica para desbloquear',
+    tlsBolt11Send: 'Bolt11 Send (melt)',
+    tlsBolt11Receive: 'Bolt11 Receive (minting)',
+    tlsEcashCreate: 'Create Ecash',
+    tlsEcashRedeem: 'Redeem Ecash',
+    tlsGiftWrap: 'Receive via GiftWrap',
+    tlsCreq: 'Receive via Creq'
   },
-
-  // Add Mint Screen
   addMint: {
     title: 'Agregar Mint',
     mintUrl: 'URL del Mint',
@@ -442,10 +466,8 @@ export default {
     hasBeenAdded: ' ha sido agregado.',
     mintAddedSuccess: 'Nuevo mint ha sido agregado.',
     confirmTitle: '¿Agregar este mint?',
-    confirmAdd: 'Agregar',
+    confirmAdd: 'Agregar'
   },
-
-  // Scanner
   scanner: {
     title: 'Escanear',
     inputPlaceholder: 'Ingresa dirección, factura o token...',
@@ -470,12 +492,9 @@ export default {
     noQrFound: 'No se encontró código QR',
     invalidCashuRequest: 'Solicitud Cashu inválida',
     invalidNostrProfile: 'Perfil Nostr inválido',
-    invalidNostrEvent: 'Evento Nostr inválido',
+    invalidNostrEvent: 'Evento Nostr inválido'
   },
-
-  // Payment Screens
   payment: {
-    // Common
     selectMint: 'Seleccionar Mint',
     selectThisMint: 'Seleccionar Este Mint',
     receiveWithThisMint: 'Recibir con Este Mint',
@@ -487,11 +506,8 @@ export default {
     noCompatibleMints: 'No hay mints compatibles para esta solicitud',
     mintNoBalance: 'Sin saldo en el mint requerido',
     networkError: 'Verifica tu conexión de red',
-
     sendComplete: '¡Envío completado!',
     receiveComplete: '¡Recepción completada!',
-
-    // Lightning Send
     lightningPay: 'Pago Lightning',
     lightningSend: 'Enviar Lightning',
     recipient: 'Destinatario',
@@ -514,8 +530,6 @@ export default {
     lightningSendFailed: 'Envío Lightning fallido',
     sendError: 'Error al enviar',
     clipboardError: 'Error al acceder al portapapeles',
-
-    // Lightning Receive
     lightningReceive: 'Recibir Lightning',
     createInvoice: 'Crear factura',
     creating: 'Creando...',
@@ -525,8 +539,6 @@ export default {
     copyInvoice: 'Copiar factura',
     expiresIn: 'Expira en {{time}}',
     paymentReceived: '¡Pago recibido!',
-
-    // Ecash Send
     ecashSend: 'Enviar Ecash',
     memoPlaceholder: 'Agregar una nota (opcional)',
     ecashToken: 'Token Ecash',
@@ -546,8 +558,6 @@ export default {
     swapRequired: 'Se intercambiará al mint {{mintName}}. Pueden aplicarse tarifas.',
     compatibleMint: 'Compatible',
     requestedMint: 'Mint solicitado',
-
-    // Ecash Receive
     ecashReceive: 'Recibir Ecash',
     createRequest: 'Crear solicitud',
     requestCreated: 'Solicitud creada',
@@ -555,8 +565,6 @@ export default {
     copyRequest: 'Copiar solicitud',
     paymentRequest: 'Solicitud de pago (Nostr)',
     waitingNostrDm: 'Esperando Nostr DM...',
-
-    // Token Receive
     tokenReceive: 'Recibir token',
     tokenInfo: 'Info del token',
     tokenAmount: 'Monto',
@@ -569,28 +577,18 @@ export default {
     sending: 'Enviando...',
     tokenReceived: '¡Token recibido!',
     tokenAlreadySpent: 'Token ya usado',
-
-    // Amount Input
     enterAmount: 'Ingresa monto',
     amountInSats: 'unidad',
-
-    // Zap
     zapSend: 'Enviar Zap',
     zapTo: 'Zap a',
     sendZap: 'Enviar Zap',
     zapping: 'Enviando Zap...',
     zapSent: '¡Zap enviado!',
-
-    // Nostr DM
     sendingNostrDm: 'Enviando Nostr DM...',
     sentViaNostrDm: 'Enviado vía Nostr DM',
     willSendViaNostrDm: 'Se enviará vía Nostr DM',
     checkingReceipt: 'Esperando recibo...',
-
-    // Other
     done: 'Listo',
-
-    // Token Receive (additional)
     mintAdded: 'Mint agregado exitosamente',
     mintAddFailed: 'Error al agregar mint',
     successReceived: 'Recibido exitosamente',
@@ -599,8 +597,6 @@ export default {
     untrusted: 'No registrado',
     untrustedMintWarning: 'Este mint no está registrado. Recibir el token agregará saldo a este mint.',
     receiveAmountBtn: 'Recibir {{unit}} {{amount}}',
-
-    // Lightning Receive (additional)
     mintSelectedOffline: 'El mint seleccionado está offline',
     createInvoiceFailed: 'Error al crear factura',
     createInvoiceError: 'No se pudo crear la factura',
@@ -608,8 +604,6 @@ export default {
     withdrawSource: 'Fuente de retiro',
     minValidation: 'Mínimo {{amount}}',
     maxValidation: 'Máximo {{amount}}',
-
-    // Receive Screen
     creatingInvoice: 'Creando factura...',
     remainingTime: 'Tiempo restante',
     invoiceExpired: 'La factura ha expirado. Inténtelo de nuevo.',
@@ -629,18 +623,24 @@ export default {
     nfcComingSoon: 'Recepción de Ecash por NFC próximamente',
     waveComingSoon: 'Recepción de Ecash por onda de sonido próximamente',
     comingSoon: 'Próximamente',
+    amount: 'Amount',
+    maxAmount: 'Max: {{amount}}',
+    processing: 'Processing...',
+    confirm: 'OK',
+    cancel: 'Cancel',
+    share: 'Share',
+    scan: 'Scan',
+    paste: 'Paste',
+    qrScan: 'QR Scan',
+    cannotSend: 'Cannot send to this destination'
   },
-
-  // Amount Action Screen
   amountAction: {
     title: 'Seleccionar Acción',
     send: 'Enviar',
     receive: 'Recibir',
     lightning: 'Lightning',
-    ecash: 'Ecash',
+    ecash: 'Ecash'
   },
-
-  // Transfer Screen
   transfer: {
     title: 'Mover Saldo',
     from: 'Desde Mint',
@@ -657,10 +657,8 @@ export default {
     quoting: 'Obteniendo cotización...',
     melting: 'Retirando...',
     minting: 'Depositando...',
-    transferComplete: '¡Transferencia completada!',
+    transferComplete: '¡Transferencia completada!'
   },
-
-  // History Screen
   history: {
     title: 'Historial de transacciones',
     noTransactions: 'Sin transacciones aún',
@@ -675,13 +673,11 @@ export default {
       today: '{{weekday}} · Hoy',
       yesterday: '{{weekday}} · Ayer',
       monthSameYear: 'Mes',
-      monthOtherYear: '{{year}}.{{month02}}',
+      monthOtherYear: '{{year}}.{{month02}}'
     },
     timeAt: '{{time}}',
     dayWithTime: '{{day}}, {{time}}',
     endOfList: 'Has revisado todo.',
-
-    // Transaction Types
     lightningReceive: 'Recibir (Lightning)',
     lightningSend: 'Enviar (Lightning)',
     ecashReceive: 'Recibir (eCash)',
@@ -693,14 +689,10 @@ export default {
     requestPay: 'Pago Ecash enviado',
     nutzap: 'NutZap',
     swap: 'Intercambio',
-
-    // Status
     completed: 'Completado',
     pendingStatus: 'Procesando',
     failedStatus: 'Fallido',
     andMore: 'y {{count}} más',
-
-    // Redesigned history screen
     income: 'Ingresos',
     expense: 'Gastos',
     pendingTab: 'Pendiente',
@@ -715,18 +707,14 @@ export default {
     mintFilter: 'Seleccionar Billetera',
     allMints: 'Todas las Billeteras',
     mintCount: '{{count}} Billeteras',
-
-    // Export
     export: 'Exportar',
     exportSuccess: 'Archivo guardado correctamente',
     exportEmpty: 'No hay transacciones para exportar',
     exportFileName: 'transacciones',
     exportCsvDesc: 'Se abre en Excel, Numbers, Google Sheets',
     exportCount: '{{count}} transacciones',
-    exportDownload: 'Descargar',
+    exportDownload: 'Descargar'
   },
-
-  // Transaction Detail Screen
   txDetail: {
     title: 'Detalle de transacción',
     type: 'Tipo',
@@ -746,16 +734,12 @@ export default {
     toMint: 'Mint de destino',
     txId: 'ID de transacción',
     details: 'Detalles',
-
-    // Sources
     'source.zappi-pos': 'Zappi POS',
     'source.zappi-kiosk': 'Zappi Kiosk',
     'source.zappi-api': 'Zappi API',
     'source.zappi-link': 'Zappi Link',
     'source.wallet': 'Billetera',
     'source.unknown': 'Externo',
-
-    // Token lifecycle
     tokenState: 'Estado del token',
     'tokenState.unspent': 'Sin reclamar',
     'tokenState.pending': 'Procesando',
@@ -779,8 +763,6 @@ export default {
     delete: 'Eliminar',
     deleteConfirm: '¿Eliminar este registro de transacción?',
     deleteWarning: 'No se puede deshacer.',
-
-    // Context sentences
     receivedFrom: 'Recibido de {{mint}}',
     receivedToWallet: 'Recibido en {{wallet}}',
     sentViaLightning: 'Enviado a {{address}}',
@@ -792,21 +774,13 @@ export default {
     receivedFromPOS: 'Recibido de {{name}}',
     unclaimedNotice: 'Aún no reclamado',
     reclaimAction: 'Recuperar eCash',
-
-    // Section titles
     txInfo: 'Información',
     paymentInfo: 'Info de pago',
     swapInfo: 'Info de intercambio',
-
-    // Kiosk order
     orderItems: 'Artículos del pedido',
     orderTotal: 'Total',
-
-    // Fiat
-    fiatValue: 'Valor en fiat',
+    fiatValue: 'Valor en fiat'
   },
-
-  // Analytics Screen
   analytics: {
     title: 'Análisis',
     overview: 'Resumen',
@@ -816,10 +790,8 @@ export default {
     thisWeek: 'Esta semana',
     thisMonth: 'Este mes',
     allTime: 'Todo el tiempo',
-    noData: 'Sin datos disponibles',
+    noData: 'Sin datos disponibles'
   },
-
-  // Notifications Screen
   notifications: {
     title: 'Notificaciones',
     noNotifications: 'Sin notificaciones',
@@ -837,10 +809,8 @@ export default {
     hourAgo: 'hace {{count}} hora',
     hoursAgo: 'hace {{count}} horas',
     dayAgo: 'hace {{count}} día',
-    daysAgo: 'hace {{count}} días',
+    daysAgo: 'hace {{count}} días'
   },
-
-  // PWA Install
   pwa: {
     installTitle: 'Instalar Zappi',
     installDescription: 'Agrega a la pantalla de inicio para fácil acceso',
@@ -867,10 +837,8 @@ export default {
     desktopBrowserSupport: 'Compatible con Chrome, Edge, Safari y la mayoría de navegadores.',
     afterInstall: 'Después de instalar, toca el ícono ZAPPI en la pantalla de inicio para abrir.',
     devBypass: '(Modo desarrollo) Continuar sin PWA',
-    desktopBrowser: 'Navegador de escritorio',
+    desktopBrowser: 'Navegador de escritorio'
   },
-
-  // Errors
   errors: {
     generic: 'Ocurrió un error.',
     network: 'Verifica tu conexión de red.',
@@ -916,15 +884,20 @@ export default {
     networkError: 'Ocurrió un error de red',
     timeoutError: 'Tiempo de espera agotado',
     unknownError: 'Ocurrió un error desconocido',
+    keysetSyncFailed: 'Failed to download mint keyset keys',
+    adapterNotFound: 'No payment method available for this operation',
+    serviceNotReady: 'Service is starting up — try again in a moment.',
+    invalidDestination: 'Unrecognized destination address',
+    unrecognizedInput: 'Unrecognized input format',
+    lnurlParseFailed: 'Could not process this LNURL',
+    transferStateInvalid: 'This transfer can no longer be processed',
+    receiveRequestInvalid: 'Invalid receive request',
+    supportTicketResolved: 'This support ticket is already resolved'
   },
-
-  // Redirect
   redirect: {
     toReceive: 'Cambiando a Recibir',
-    toSend: 'Cambiando a Enviar',
+    toSend: 'Cambiando a Enviar'
   },
-
-  // Toast Messages
   toast: {
     copied: 'Copiado al portapapeles',
     saved: 'Guardado',
@@ -957,8 +930,8 @@ export default {
     retrySuccess: '{{count}} reintento(s) exitoso(s)',
     retryPartialFail: '{{count}} reintento(s) fallido(s)',
     retryFailed: 'Reintento fallido',
-    paymentCompleted: '{{unit}} {{amount}} pago completado',
-    swapCompleted: '{{unit}} {{amount}} intercambiado (comisión: {{fee}})',
+    paymentCompleted: '{{amount}} pago completado',
+    swapCompleted: '{{amount}} intercambiado (comisión: {{fee}})',
     recoveryCompleted: '{{recovered}} recuperado(s) ({{failed}} fallido(s))',
     ecashTokenReceived: '{{amount}} token Ecash recibido',
     ecashTokenReceivedWithFee: '{{amount}} token Ecash recibido (comisión: {{fee}})',
@@ -971,9 +944,8 @@ export default {
     transferSettled: 'Transferencia completada',
     transferReclaimed: 'Transferencia reclamada',
     incomingTransferProcessed: 'Transferencia entrante procesada',
+    paymentCompletedWithFee: '{{amount}} payment completed (fee: {{fee}})'
   },
-
-  // Mint Details
   mintDetails: {
     mintBalance: 'Saldo del Mint',
     mintInfo: 'Info del Mint',
@@ -985,10 +957,8 @@ export default {
     loadError: 'No se pudo obtener la info del mint.',
     deleteConfirm: 'Confirmar eliminación',
     deleteMint: 'Eliminar Mint',
-    balanceWarning: '{{formattedAmount}} restantes en este mint. Se recomienda transferir a otro mint antes de eliminar.',
+    balanceWarning: '{{formattedAmount}} restantes en este mint. Se recomienda transferir a otro mint antes de eliminar.'
   },
-
-  // Send
   send: {
     title: 'Enviar',
     fromMint: 'Desde Mint',
@@ -1017,14 +987,14 @@ export default {
       ecashInfoNotFound: 'No se encontró información para recibir ecash.',
       noCommonMint: 'No hay ningún mint compartido disponible para este destinatario.',
       relayNotFound: 'No se encontró información de relé para este destinatario.',
-      selectedMintUnavailable: '{{mint}} no es compatible con este destinatario. Puedes enviar desde uno de los mints de abajo.',
+      selectedMintUnavailable: '{{mint}} no es compatible con este destinatario. Puedes enviar desde uno de los mints de abajo.'
     },
     amount: {
       sendTo: 'A {{destination}}',
       howMuchSend: '¿Cuánto enviar?',
       balancePill: 'Saldo · {{balance}}',
       addMemo: 'Memo (opcional)',
-      memoPlaceholder: 'Opcional',
+      memoPlaceholder: 'Opcional'
     },
     tokenCreate: {
       title: 'Crear Ecash',
@@ -1052,7 +1022,7 @@ export default {
       share: 'Compartir',
       reclaim: 'Recuperar',
       reclaiming: 'Recuperando…',
-      reclaimWithFee: 'Recuperar (comisión {{fee}})',
+      reclaimWithFee: 'Recuperar (comisión {{fee}})'
     },
     confirm: {
       title: 'Confirmar Envío',
@@ -1078,13 +1048,14 @@ export default {
       questionEnd: '¿Enviar?',
       lightningInvoice: 'Factura Lightning',
       ecashRequest: 'Solicitud de pago eCash',
+      requestAmount: 'Request'
     },
     sending: {
       message: 'Enviando a {{destination}}',
       inProgress: 'Enviando...',
       fullMessage: 'Enviando {{amount}}\na <b>{{recipient}}</b>...',
       fullRequestMessage: 'Enviando {{amount}}...',
-      networkDelay: 'Puede tomar un momento según la red',
+      networkDelay: 'Puede tomar un momento según la red'
     },
     complete: {
       message: '{{destination}}\n{{amount}} enviados',
@@ -1092,11 +1063,9 @@ export default {
       fullMessage: '¡{{amount}} enviado\na <b>{{recipient}}</b>!',
       fullRequestMessage: '¡{{amount}} enviado!',
       confirm: 'Listo',
-      details: 'Detalles',
-    },
+      details: 'Detalles'
+    }
   },
-
-  // Receive
   receive: {
     title: 'Recibir',
     senderMethod: '¿Qué usa el remitente?',
@@ -1118,40 +1087,40 @@ export default {
       accountTo: 'A <b>{{mint}}</b>',
       haveToken: '¿Tienes un token para recibir?',
       placeholder: 'Ingresa un token',
-      hint: '¿Sin token? Puedes crear una <b>factura</b> para solicitar pago',
+      hint: '¿Sin token? Puedes crear una <b>factura</b> para solicitar pago'
     },
     amountStep: {
       howMuchRequest: '¿Cuánto solicitar?',
       addMemo: 'Memo (opcional)',
-      memoPlaceholder: 'Opcional',
+      memoPlaceholder: 'Opcional'
     },
     qr: {
       title: 'Recibir',
       protocols: {
         unified: 'Unificado',
         cashu: 'Cashu',
-        lightning: 'Lightning',
+        lightning: 'Lightning'
       },
       showToSender: 'Muestra esto al remitente',
       share: 'Compartir',
       willNotify: 'Te notificaremos cuando el pago llegue a {{mint}}',
       depositNotify: ' depositado, te notificaremos',
       fullMessage: 'Te notificaremos cuando {{amount}} llegue',
-      cancel: 'Cancelar',
+      cancel: 'Cancelar'
     },
     transport: {
       nostrAndHttp: 'Nostr + HTTP escuchando',
       httpOnly: 'HTTP escuchando (Nostr desconectado)',
       nostrOnly: 'Nostr escuchando',
       unified: 'Lightning + eCash escuchando',
-      lightningOnly: 'Lightning escuchando',
+      lightningOnly: 'Lightning escuchando'
     },
     complete: {
       message: '{{mint}}\n{{amount}} recibidos',
       received: ' recibido!',
       fullMessage: '¡{{amount}} recibido!',
       requestFulfilledMessage: '¡Tu solicitud de\n{{amount}} llegó!',
-      done: 'Listo',
+      done: 'Listo'
     },
     token: {
       title: 'Confirmación de Token',
@@ -1173,7 +1142,7 @@ export default {
       fee: 'Comisión',
       netAmount: 'Recibes',
       noFee: 'Sin comisión',
-      feeApplies: '⚡ Con comisión',
+      feeApplies: '⚡ Con comisión'
     },
     untrusted: {
       title: 'Confirmación de Token',
@@ -1184,7 +1153,7 @@ export default {
       addAndReceive: 'Agregar mint y recibir',
       addAndReceiveSub: 'Confío en este mint',
       reject: 'No recibir',
-      rejectSub: 'No aceptar este token',
+      rejectSub: 'No aceptar este token'
     },
     offline: {
       p2pkAccepted: 'Este token está protegido por P2PK. Se puede recibir sin conexión y se verificará al reconectarse.',
@@ -1193,7 +1162,7 @@ export default {
       nonP2PKError: 'Solo los tokens protegidos por P2PK se pueden recibir sin conexión. Conéctese e intente de nuevo.',
       untrustedNeedsOnline: 'Se necesita conexión a internet para recibir tokens de un mint no registrado.',
       receiveOffline: 'Recibir sin conexión',
-      acceptAnyway: 'Aceptar bajo mi riesgo',
+      acceptAnyway: 'Aceptar bajo mi riesgo'
     },
     swapFeeTooHigh: 'La comisión de swap ({{fee}}) es igual o mayor al monto del token ({{amount}})',
     swapTokenTooSmall: 'Este token es demasiado pequeño para cambiarlo a tu mint. Recíbelo directamente en el mint original o usa un token mayor.',
@@ -1207,11 +1176,9 @@ export default {
       description: '{{amount}} está guardado en {{mint}}. Agrega este mint solo si quieres ver y usar ese saldo en Zappi.',
       mint: 'Mint original',
       addMint: 'Agregar mint y ver saldo',
-      later: 'Ahora no',
-    },
+      later: 'Ahora no'
+    }
   },
-
-  // Mint Detail Screen
   mintDetail: {
     title: 'Detalle del Mint',
     send: 'Enviar',
@@ -1278,10 +1245,8 @@ export default {
     filterType: 'Tipo',
     search: 'Buscar',
     pendingExpiry: 'Vencimiento',
-    pendingExpired: 'Vencido',
+    pendingExpired: 'Vencido'
   },
-
-  // Pending Item Actions
   pending: {
     redeemAction: 'Canjear ahora',
     redeemSuccess: 'Token canjeado',
@@ -1293,28 +1258,25 @@ export default {
     lightningInvoice: 'Factura Lightning',
     quoteStatus: 'Estado',
     redeemQuote: 'Canjear',
+    expiredRemoved: 'Expired request removed'
   },
-
-  // Error Boundary
   error: {
     unexpectedTitle: 'Algo salió mal',
     unexpectedMessage: 'La app encontró un error inesperado. Recarga para intentar de nuevo.',
-    reload: 'Recargar',
+    reload: 'Recargar'
   },
-
   nav: {
     wallet: 'Billetera',
     token: 'Ecash',
     contacts: 'Contactos',
-    settings: 'Ajustes',
+    settings: 'Ajustes'
   },
-
   token: {
     create: 'Crear',
     register: 'Recibir',
     empty: {
       title: 'Aún no tienes ecash.\n¿Quieres crear uno?',
-      footerNote: 'Ecash funciona como efectivo. Cualquiera que lo tenga puede registrarlo y usarlo.',
+      footerNote: 'Ecash funciona como efectivo. Cualquiera que lo tenga puede registrarlo y usarlo.'
     },
     time: {
       justNow: 'ahora mismo',
@@ -1323,33 +1285,33 @@ export default {
       yesterday: 'ayer',
       daysAgo: 'hace {{count}} días',
       atTimeOfDay: '{{time}}',
-      dayWithTime: 'Día {{day}}, {{time}}',
+      dayWithTime: 'Día {{day}}, {{time}}'
     },
     pending: {
-      timeLabel: 'Pendiente · {{time}}',
+      timeLabel: 'Pendiente · {{time}}'
     },
     pendingWidget: {
       title: 'Pendiente',
       summary: '{{count}} ecash · {{total}}',
-      viewAll: 'Ver pendientes',
+      viewAll: 'Ver pendientes'
     },
     pendingEmpty: {
       title: 'Todo al día',
-      subtitle: 'Sin ecash pendiente',
+      subtitle: 'Sin ecash pendiente'
     },
     reclaimable: {
       section: 'Recuperables ({{count}})',
       viewAll: 'Ver todos >',
       actions: {
         reclaim: 'Recuperar',
-        share: 'Compartir',
+        share: 'Compartir'
       },
       shareText: '{{memo}}: {{amount}}',
-      copiedToClipboard: 'Copiado al portapapeles',
+      copiedToClipboard: 'Copiado al portapapeles'
     },
     firstCreate: {
       hint: 'Creaste este ecash pero aún no se ha registrado.\nPuede que el destinatario no lo haya recibido o registrado todavía.',
-      dismiss: 'No mostrar de nuevo',
+      dismiss: 'No mostrar de nuevo'
     },
     reclaim: {
       title: 'Recuperar',
@@ -1359,7 +1321,7 @@ export default {
       summaryNet: 'Recibirás',
       confirm: 'Recuperar',
       success: 'Recuperado exitosamente',
-      failed: 'Error al recuperar',
+      failed: 'Error al recuperar'
     },
     history: {
       section: 'Historial',
@@ -1367,13 +1329,13 @@ export default {
         today: 'Hoy',
         yesterday: 'Ayer',
         thisMonth: 'Este mes',
-        older: 'Anterior',
+        older: 'Anterior'
       },
       anchor: {
         today: '{{weekday}} · Hoy',
         yesterday: '{{weekday}} · Ayer',
         monthSameYear: '{{monthName}}',
-        monthOtherYear: '{{year}}.{{month02}}',
+        monthOtherYear: '{{year}}.{{month02}}'
       },
       subLine: '{{status}} · {{time}}',
       endOfList: 'Has visto todo el historial.',
@@ -1381,8 +1343,8 @@ export default {
       status: {
         registered: 'Registrado',
         consumed: 'Gastado',
-        reclaimed: 'Recuperado',
-      },
+        reclaimed: 'Recuperado'
+      }
     },
     detail: {
       unread: 'Ecash no leído',
@@ -1390,7 +1352,7 @@ export default {
         pending: 'Ecash pendiente',
         registered: 'Ecash registrado',
         consumed: 'Ecash gastado',
-        reclaimed: 'Ecash recuperado',
+        reclaimed: 'Ecash recuperado'
       },
       weekday: {
         sun: 'Domingo',
@@ -1399,13 +1361,13 @@ export default {
         wed: 'Miércoles',
         thu: 'Jueves',
         fri: 'Viernes',
-        sat: 'Sábado',
+        sat: 'Sábado'
       },
       dateLine: {
         pending: '{{weekday}}, {{day}}/{{month}}/{{year}}\nCreado a las {{time}}',
         registered: '{{weekday}}, {{day}}/{{month}}/{{year}}\nRegistrado a las {{time}}',
         consumed: '{{weekday}}, {{day}}/{{month}}/{{year}}\nCreado a las {{time}}',
-        reclaimed: '{{weekday}}, {{day}}/{{month}}/{{year}}\nRecuperado a las {{time}}',
+        reclaimed: '{{weekday}}, {{day}}/{{month}}/{{year}}\nRecuperado a las {{time}}'
       },
       amountLabel: 'Cantidad',
       feeLine: 'Comisión {{fee}}',
@@ -1416,24 +1378,24 @@ export default {
         pending: 'Crear ecash',
         registered: 'Registrar ecash',
         consumed: 'Ecash gastado',
-        reclaimed: 'Recuperar ecash',
+        reclaimed: 'Recuperar ecash'
       },
       mintLabel: {
         pending: 'Mint de origen',
         registered: 'Mint de destino',
         consumed: 'Mint emisor',
-        reclaimed: 'Mint de destino',
+        reclaimed: 'Mint de destino'
       },
       action: {
         forward: 'Reenviar ecash',
-        confirm: 'Ver ecash',
+        confirm: 'Ver ecash'
       },
       confirmLink: 'Ver ecash',
       actions: {
         qr: 'QR',
         copy: 'Copiar',
         share: 'Compartir',
-        viewRaw: 'Ver ecash original',
+        viewRaw: 'Ver ecash original'
       },
       reclaimCta: 'Recuperar (comisión: {{fee}})',
       raw: {
@@ -1442,14 +1404,13 @@ export default {
         unit: 'Unidad',
         receiveFee: 'Comisión de recepción',
         empty: 'No hay datos de ecash.',
-        easterEgg: 'ZAPPI X CASHU',
+        easterEgg: 'ZAPPI X CASHU'
       },
       qr: {
-        title: 'Compartir QR',
-      },
-    },
+        title: 'Compartir QR'
+      }
+    }
   },
-
   tokenRegister: {
     title: 'Registrar ecash',
     inputHeading: 'Pega o escanea ecash\npara registrarlo.',
@@ -1462,9 +1423,8 @@ export default {
     swapping: 'Intercambiando…',
     receiveToMyMint: 'Recibir en mi mint',
     unknownMintHint: 'Si no conoces el mint, puedes recibir\nen tu propio mint sin agregarlo.',
-    swapFeeHint: 'Puede aplicarse una comisión de intercambio',
+    swapFeeHint: 'Puede aplicarse una comisión de intercambio'
   },
-
   contacts: {
     title: 'Contactos',
     addContact: 'Agregar contacto',
@@ -1490,7 +1450,7 @@ export default {
       noNutzapInfo: 'NutZap info no encontrado para este npub',
       noMints: 'No hay mints registrados para este npub',
       noRelay: 'No se encontró información de relé para este npub',
-      decodeFailed: 'Error al decodificar la dirección',
-    },
-  },
-}
+      decodeFailed: 'Error al decodificar la dirección'
+    }
+  }
+} as const

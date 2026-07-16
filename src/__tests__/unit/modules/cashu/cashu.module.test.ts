@@ -12,6 +12,8 @@ function createMockBackend(): CashuModuleBackend {
     executeMelt: vi.fn(),
     rollbackMelt: vi.fn(),
     checkMelt: vi.fn(),
+    refreshMelt: vi.fn(),
+    getMintOpStateLocal: vi.fn(),
     createMintQuote: vi.fn(),
     checkMintQuote: vi.fn(),
     getMintQuote: vi.fn(),
@@ -56,10 +58,9 @@ describe('CashuModule', () => {
     module = new CashuModule(backend)
   })
 
-  // ─── Port 준수: WalletModule assignable ───
+  // ─── Port compliance: WalletModule assignable ───
 
   it('is assignable to WalletModule port', () => {
-    // TypeScript 컴파일 타임 검증 + 런타임 할당 검증
     const walletModule: WalletModule = module
     expect(walletModule.id).toBe('cashu')
   })
@@ -429,7 +430,7 @@ describe('CashuModule', () => {
       const handler = vi.fn()
       const unsubscribe = module.on('test-event', handler)
       unsubscribe()
-      unsubscribe() // 두 번째 호출도 에러 없음
+      unsubscribe() // second call must not throw
     })
 
     it('multiple handlers on same event', () => {
@@ -438,7 +439,7 @@ describe('CashuModule', () => {
       const unsub1 = module.on('evt', handler1)
       const unsub2 = module.on('evt', handler2)
 
-      // 하나만 해제해도 다른 하나는 유지
+      // unsubscribing one keeps the other
       unsub1()
       expect(typeof unsub2).toBe('function')
     })
@@ -449,7 +450,7 @@ describe('CashuModule', () => {
 
       await module.dispose()
 
-      // dispose 후 새 handler 등록 가능 (에러 없음)
+      // can still register a handler after dispose (no error)
       const unsub = module.on('evt', vi.fn())
       expect(typeof unsub).toBe('function')
     })

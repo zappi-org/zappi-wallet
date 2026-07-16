@@ -4,6 +4,7 @@ import {
   type EcashBackend,
 } from '@/modules/cashu/adapters/cashu-ecash.adapter'
 import { sat, toNumber } from '@/core/domain/amount'
+import { createPendingTransfer } from '@/core/domain/pending-transfer'
 
 // ─── Mock Backend ───
 
@@ -153,7 +154,7 @@ describe('CashuEcashAdapter', () => {
       })
 
       await adapter.executeSend('send-op-1')
-      // 두 번째 호출은 memo가 없어야 함
+      // the second call must have no memo
       await adapter.executeSend('send-op-1')
 
       expect(backend.executeSend).toHaveBeenLastCalledWith('send-op-1', { memo: undefined })
@@ -200,7 +201,7 @@ describe('CashuEcashAdapter', () => {
       // net amount = gross(500) - fee(2) = 498
       expect(toNumber(result.amount)).toBe(498)
       expect(result.amount.unit).toBe('sat')
-      // fee는 별도 필드로 노출
+      // fee is exposed as a separate field
       expect(result.fee).toBeDefined()
       expect(toNumber(result.fee!)).toBe(2)
       expect(result.method).toBe('cashu:ecash')
@@ -218,6 +219,93 @@ describe('CashuEcashAdapter', () => {
 
       expect(toNumber(result.amount)).toBe(500)
       expect(result.fee).toBeUndefined()
+    })
+  })
+
+  // ─── stuck-sweep matrix ───
+
+  describe('pollLocal / confirmStuck', () => {
+    function makeSend(overrides: Partial<Parameters<typeof createPendingTransfer>[0]> = {}) {
+      return createPendingTransfer({
+        id: 't-send',
+        txId: 'tx-send',
+        direction: 'outgoing',
+        finality: 'revocable',
+        onExpiry: 'reclaim',
+        transportRef: { operationId: 'send-op-1', token: 'cashuBtoken' },
+        now: Date.now(),
+        ...overrides,
+      })
+    }
+    function makeIncoming(expiresAt?: number) {
+      return createPendingTransfer({
+        id: 't-recv',
+        txId: 'tx-recv',
+        direction: 'incoming',
+        finality: 'deferred',
+        onExpiry: 'expire',
+        expiresAt,
+        transportRef: { type: 'nostr-giftwrap', protocol: 'ecash', token: 'cashuBtoken' },
+        now: Date.now(),
+      })
+    }
+
+    it('pollLocal(send): settles from LOCAL op state without checkProofStates', async () => {
+      vi.mocked(backend.getSendOperationState).mockResolvedValueOnce('finalized')
+
+      await expect(adapter.pollLocal(makeSend())).resolves.toBe('settled')
+      expect(backend.checkProofStates).not.toHaveBeenCalled()
+    })
+
+    it('pollLocal(send): rolled_back → recoverable, non-terminal state keeps its phase', async () => {
+      vi.mocked(backend.getSendOperationState).mockResolvedValueOnce('rolled_back')
+      await expect(adapter.pollLocal(makeSend())).resolves.toBe('recoverable')
+
+      vi.mocked(backend.getSendOperationState).mockResolvedValueOnce('pending')
+      const t = makeSend()
+      await expect(adapter.pollLocal(t)).resolves.toBe(t.phase)
+    })
+
+    it('pollLocal(send): does not finalize expiry locally — confirm checks allSpent first (review #2)', async () => {
+      vi.mocked(backend.getSendOperationState).mockResolvedValueOnce('pending')
+      const expired = makeSend({ expiresAt: Date.now() - 1_000 })
+
+      await expect(adapter.pollLocal(expired)).resolves.toBe(expired.phase)
+
+      // confirm path: if already redeemed, settled takes priority over expiry
+      vi.mocked(backend.checkProofStates).mockResolvedValueOnce({ allSpent: true, allPending: false, states: [] })
+      await expect(adapter.confirmStuck(expired)).resolves.toBe('settled')
+
+      // unredeemed + expired → recoverable (shows reclaim UI)
+      vi.mocked(backend.checkProofStates).mockResolvedValueOnce({ allSpent: false, allPending: false, states: [] })
+      await expect(adapter.confirmStuck(expired)).resolves.toBe('recoverable')
+    })
+
+    it('pollLocal(incoming awaiting manual receive): checks expiry only, no remote', async () => {
+      await expect(adapter.pollLocal(makeIncoming(Date.now() - 1))).resolves.toBe('failed')
+
+      const alive = makeIncoming(Date.now() + 60_000)
+      await expect(adapter.pollLocal(alive)).resolves.toBe(alive.phase)
+      expect(backend.getSendOperationState).not.toHaveBeenCalled()
+      expect(backend.checkProofStates).not.toHaveBeenCalled()
+    })
+
+    it('confirmStuck(send): isolated checkProofsStates call — allSpent → settled (§5.4 exception 4)', async () => {
+      vi.mocked(backend.checkProofStates).mockResolvedValueOnce({ allSpent: true, allPending: false, states: [] })
+
+      await expect(adapter.confirmStuck(makeSend())).resolves.toBe('settled')
+      expect(backend.checkProofStates).toHaveBeenCalledWith('cashuBtoken')
+    })
+
+    it('confirmStuck(incoming): null — no remote-confirm concept, no backend call at all', async () => {
+      await expect(adapter.confirmStuck(makeIncoming(Date.now() + 60_000))).resolves.toBeNull()
+      expect(backend.checkProofStates).not.toHaveBeenCalled()
+      expect(backend.getSendOperationState).not.toHaveBeenCalled()
+    })
+
+    it('confirmStuck(send, no token): null — no means to confirm', async () => {
+      const noToken = makeSend({ transportRef: { operationId: 'send-op-1' } })
+      await expect(adapter.confirmStuck(noToken)).resolves.toBeNull()
     })
   })
 })

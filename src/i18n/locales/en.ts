@@ -164,6 +164,9 @@ export default {
       fee: 'Fees and routing costs',
       security: 'Lock, backup, recovery phrase',
       other: 'Anything else',
+      general: 'How-to, account, or general questions',
+      technical: 'Bugs, wallet behavior, or connection issues',
+      billing: 'Payment, transfer, or settlement questions',
     },
     priorities: {
       normal: 'Normal',
@@ -988,6 +991,7 @@ export default {
     insufficientBalanceForFee: 'Insufficient balance (need: {{required}} + fee  have: {{available}})',
     mintConnection: 'Cannot connect to {{mint}}',
     keysetSyncFailed: 'Failed to download mint keyset keys',
+    adapterNotFound: 'No payment method available for this operation',
     mintError: 'An error occurred at the mint',
     invalidToken: 'Invalid token',
     invalidProof: 'Could not process the transfer. Please try again later.',
@@ -1010,6 +1014,13 @@ export default {
     networkError: 'A network error occurred',
     timeoutError: 'Request timed out',
     unknownError: 'An unknown error occurred',
+    serviceNotReady: 'Service is starting up — try again in a moment.',
+    invalidDestination: 'Unrecognized destination address',
+    unrecognizedInput: 'Unrecognized input format',
+    lnurlParseFailed: 'Could not process this LNURL',
+    transferStateInvalid: 'This transfer can no longer be processed',
+    receiveRequestInvalid: 'Invalid receive request',
+    supportTicketResolved: 'This support ticket is already resolved',
   },
 
   // Redirect
@@ -1123,6 +1134,7 @@ export default {
     },
     tokenCreate: {
       title: 'Create Ecash',
+      requestAmount: 'Request Amount',
       howMuch: 'How much ecash to create?',
       amountCaption: 'Ecash turns bitcoin into a gift card you can hand over',
       memo: 'Memo',
@@ -1437,6 +1449,7 @@ export default {
     },
     reclaimable: {
       section: 'Reclaimable ({{count}})',
+      viewAll: 'View All >',
       actions: {
         reclaim: 'Reclaim',
         share: 'Share',

@@ -1,17 +1,20 @@
+import type { TFunction } from 'i18next'
 import { BaseError } from '@/core/errors/base'
+import type { TranslationKey } from '@/i18n'
+import { formatSats } from '@/utils/format'
 
 /**
  * Error → i18n key + params resolver
  *
- * BaseError (code 보유) → convention 기반 i18n 키 변환 + 파라미터 추출
- * Raw error (code 없음) → 메시지 패턴 매칭 fallback
+ * BaseError (has code) → convention-based i18n key + param extraction
+ * Raw error (no code) → message pattern-matching fallback
  *
  * Convention: ERROR_CODE → errors.errorCode (camelCase)
- * 예: TOKEN_SPENT → errors.tokenSpent
+ * e.g. TOKEN_SPENT → errors.tokenSpent
  */
 
 export interface ErrorI18n {
-  key: string
+  key: TranslationKey
   params?: Record<string, unknown>
 }
 
@@ -19,34 +22,59 @@ function codeToCamelCase(code: string): string {
   return code.toLowerCase().replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
 }
 
+/** Mint display-name resolver — MainApp registers the mintAliases lookup. */
+let mintNameResolver: ((mintUrl: string) => string | null) | null = null
+
+export function setMintNameResolver(resolver: (mintUrl: string) => string | null): void {
+  mintNameResolver = resolver
+}
+
+/** Resolves a mint's display name: alias → hostname → raw URL. */
+function resolveMintDisplayName(mintUrl: string): string {
+  let mintName = mintUrl
+  try {
+    mintName = new URL(mintUrl).hostname
+  } catch { /* fallback to url */ }
+  if (mintNameResolver) {
+    mintName = mintNameResolver(mintUrl) || mintName
+  }
+  return mintName
+}
+
 /**
- * 에러 객체에서 i18n 키 + 보간 파라미터를 반환.
- * t(result.key, result.params) 으로 사용.
+ * Returns the i18n key + interpolation params for an error object.
+ * Use as t(result.key, result.params).
  */
 export function getErrorI18n(error: unknown): ErrorI18n {
-  // 1. BaseError 인스턴스 체크 (도메인 에러)
+  // 1. BaseError instance (domain error)
   if (error instanceof BaseError) {
     const override = resolveOverride(error)
     if (override) return override
-    return { key: `errors.${codeToCamelCase(error.code)}` }
+    // UNKNOWN is just a wrapper around a cause message — don't route it to a
+    // convention key (errors.unknown exists in no locale); fall through to the
+    // message pattern matching below to preserve diagnostic info like
+    // "insufficient/expired/network" (same rule as branch 2).
+    if (error.code !== 'UNKNOWN') {
+      // convention key — runtime-guarded in translateError (missing keys demote to unknownError)
+      return { key: `errors.${codeToCamelCase(error.code)}` as TranslationKey }
+    }
   }
 
-  // 2. code 속성이 있는 객체 체크 (SDK 에러, Result 에러 등)
+  // 2. Object with a code property (SDK errors, Result errors, etc.)
   if (error && typeof error === 'object') {
     const err = error as Record<string, unknown>
     const code = err.code
 
-    // Direct TokenSpentError check (instance 가 아닌 plain object)
+    // Direct TokenSpentError check (plain object, not an instance)
     if (code === 'TOKEN_SPENT') {
       return { key: 'errors.tokenSpent' }
     }
 
     if (typeof code === 'string' && code !== 'UNKNOWN') {
-      // 에러별 키/파라미터 오버라이드 우선
       const override = resolveOverride(err)
       if (override) return override
 
-      return { key: `errors.${codeToCamelCase(code)}` }
+      return { key: `errors.${codeToCamelCase(code)}` as TranslationKey }
     }
   }
 
@@ -72,8 +100,8 @@ export function getErrorI18n(error: unknown): ErrorI18n {
 }
 
 /**
- * BaseError 서브클래스에서 i18n 키 오버라이드 + 보간용 파라미터 추출.
- * 에러 코드별로 더 적절한 키나 파라미터를 반환.
+ * Extracts i18n key overrides + interpolation params from BaseError subclasses.
+ * Returns a more specific key or params per error code.
  */
 function resolveOverride(err: Record<string, unknown> | BaseError): ErrorI18n | undefined {
   const code = err.code as string
@@ -84,22 +112,35 @@ function resolveOverride(err: Record<string, unknown> | BaseError): ErrorI18n | 
     const available = obj.available as number | undefined
     const fee = obj.fee as number | undefined
 
-    // 금액 정보 없으면 단순 메시지
+    // No amount info → plain message
     if (!required && !available) {
       return { key: 'payment.insufficientBalance' }
     }
 
-    // fee 있으면 수수료 포함 메시지
-    if (fee && fee > 0) {
-      return { key: 'errors.insufficientBalanceForFee', params: { required, available } }
+    // Format amounts with formatSats (respects unit settings)
+    const params = {
+      required: formatSats(required ?? 0),
+      available: formatSats(available ?? 0),
     }
 
-    return { key: 'errors.insufficientBalance', params: { required, available } }
+    // Fee wording only when the principal is sufficient but the fee creates the
+    // shortfall — same semantics as the domain getter isFeeShortage
+    // (fee>0 && available>=required).
+    if (fee && fee > 0 && (available ?? 0) >= (required ?? 0)) {
+      return { key: 'errors.insufficientBalanceForFee', params }
+    }
+
+    return { key: 'errors.insufficientBalance', params }
   }
 
   if (code === 'MINT_CONNECTION' || code === 'MINT_UNREACHABLE') {
     const obj = err as Record<string, unknown>
-    return { key: 'errors.mintConnection', params: { mint: (obj.mintUrl as string) ?? '' } }
+    const mintUrl = obj.mintUrl as string | undefined
+    // Mint name resolution: alias → hostname → raw URL
+    return {
+      key: 'errors.mintConnection',
+      params: { mint: mintUrl ? resolveMintDisplayName(mintUrl) : '' },
+    }
   }
 
   if (code === 'REDEEM_FEE_TOO_HIGH') {
@@ -110,10 +151,19 @@ function resolveOverride(err: Record<string, unknown> | BaseError): ErrorI18n | 
 }
 
 /**
- * t 함수와 조합하여 번역된 에러 메시지를 즉시 반환.
- * 사용: translateError(err, t)
+ * Combines with the t function to return a translated error message directly.
+ * Usage: translateError(err, t)
  */
-export function translateError(error: unknown, t: (key: string, params?: Record<string, unknown>) => string): string {
+export function translateError(error: unknown, t: TFunction): string {
   const { key, params } = getErrorI18n(error)
-  return t(key, params)
+  const translated = t(key, params)
+  // If a convention key is missing from the locale, i18next returns the key
+  // string as-is — demote to a generic error message so the user never sees a
+  // literal "errors.xxx", but keep the key gap audible to developers (no silent
+  // swallow).
+  if (translated === key) {
+    console.warn('[error-i18n] missing locale key:', key)
+    return t('errors.unknownError')
+  }
+  return translated
 }

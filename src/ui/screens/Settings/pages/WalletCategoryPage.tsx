@@ -7,7 +7,10 @@ interface WalletCategoryPageProps {
   onBack: () => void
   onMintManagement?: () => void
   onRelayManagement?: () => void
-  onOpenRestore: () => void
+  onOpenCurrentWalletRecovery: () => void
+  onOpenExternalMnemonicRecovery: () => void
+  /** Full relay re-sync (reinstall-grade full replay). */
+  onFullResync?: () => void
   onOpenBackup: () => void
 }
 
@@ -15,7 +18,9 @@ export function WalletCategoryPage({
   onBack,
   onMintManagement,
   onRelayManagement,
-  onOpenRestore,
+  onOpenCurrentWalletRecovery,
+  onOpenExternalMnemonicRecovery,
+  onFullResync,
   onOpenBackup,
 }: WalletCategoryPageProps) {
   const { t } = useTranslation()
@@ -36,9 +41,19 @@ export function WalletCategoryPage({
             onPress={() => onRelayManagement?.()}
           />
           <SettingsRow
-            label={t('settings.verifyBalance')}
-            onPress={onOpenRestore}
+            label={t('settings.currentWalletRecovery')}
+            onPress={onOpenCurrentWalletRecovery}
           />
+          <SettingsRow
+            label={t('settings.externalMnemonicRecovery')}
+            onPress={onOpenExternalMnemonicRecovery}
+          />
+          {onFullResync && (
+            <SettingsRow
+              label={t('settings.fullResync')}
+              onPress={onFullResync}
+            />
+          )}
           <SettingsRow
             label={t('settings.mnemonicBackup')}
             onPress={onOpenBackup}

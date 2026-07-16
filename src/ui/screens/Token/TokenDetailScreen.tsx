@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import type { TranslationKey } from '@/i18n'
 import { useAppStore } from '@/store'
 import { formatFiatAmount, useFormatSats } from '@/utils/format'
 import { translateError } from '@/ui/utils/error-i18n'
@@ -18,8 +19,8 @@ import { MintIcon } from '@/ui/components/common/MintIcon'
 import { TokenRawSheet } from './components/TokenRawSheet'
 import { TokenQrSheet } from './components/TokenQrSheet'
 import { ReclaimSheet } from './components/ReclaimSheet'
-import { formatDetailDateLine } from './mockData'
-import type { MockPendingToken, TokenDetailData, TokenDetailStatus } from './types'
+import { formatDetailDateLine } from './token-view-model'
+import type { PendingTokenView, TokenDetailData, TokenDetailStatus } from './types'
 
 const STATUS_ICON: Record<TokenDetailStatus, LucideIcon | null> = {
   pending: null, // rendered as orange dot instead
@@ -40,13 +41,13 @@ export interface TokenDetailScreenProps {
   /** Called when user taps the raw-token box 10 times — navigate to easter egg page. */
   onTriggerEasterEgg?: () => void
   /**
-   * When provided, renders "내역 삭제" inside the raw sheet. Caller should
-   * handle confirmation and perform `transactionMgmt.delete(txId)`.
+   * When provided, renders a "Delete history" option inside the raw sheet. Caller
+   * should handle confirmation and perform `transactionMgmt.delete(txId)`.
    */
   onDeleteHistory?: (token: TokenDetailData) => Promise<void> | void
 }
 
-const DATE_SUFFIX_KEY: Record<TokenDetailStatus, string> = {
+const DATE_SUFFIX_KEY: Record<TokenDetailStatus, TranslationKey> = {
   pending: 'token.detail.dateLine.pending',
   registered: 'token.detail.dateLine.registered',
   consumed: 'token.detail.dateLine.consumed',
@@ -120,7 +121,7 @@ export function TokenDetailScreen({
     }
   }, [onReclaim, data, addToast, t])
 
-  const reclaimTokens: MockPendingToken[] = useMemo(
+  const reclaimTokens: PendingTokenView[] = useMemo(
     () => [
       {
         id: data.id,

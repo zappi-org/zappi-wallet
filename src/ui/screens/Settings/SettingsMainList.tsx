@@ -1,3 +1,4 @@
+import type { TranslationKey } from '@/i18n'
 import { useCallback, useState, type ElementType } from 'react'
 import { User, Lock, LifeBuoy, ChevronRight, Download, RefreshCw } from 'lucide-react'
 import { Cog6ToothIcon, WalletIcon } from '@heroicons/react/24/outline'
@@ -14,7 +15,7 @@ interface SettingsMainListProps {
   onOpenLogout: () => void
 }
 
-const categories: { Icon: ElementType; titleKey: string; descKey: string; page: SettingsPage }[] = [
+const categories: { Icon: ElementType; titleKey: TranslationKey; descKey: TranslationKey; page: SettingsPage }[] = [
   {
     Icon: User,
     titleKey: 'settings.profile',

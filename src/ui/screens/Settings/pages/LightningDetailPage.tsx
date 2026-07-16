@@ -31,7 +31,7 @@ export function LightningDetailPage({ onBack, onChangeUsername, onChangeMint }: 
   useEffect(() => {
     if (!nostrPrivkey) return
     registry.paymentAlias.getAlias(nostrPrivkey).then((r) => {
-      if (r.isOk()) setPreferredMint(r.value.mintUrl)
+      if (r.ok) setPreferredMint(r.value.mintUrl)
     })
   }, [nostrPrivkey, registry])
 
@@ -55,7 +55,7 @@ export function LightningDetailPage({ onBack, onChangeUsername, onChangeMint }: 
   const handleSetMint = useCallback(async (mintUrl: string) => {
     if (!nostrPrivkey) return
     const result = await registry.paymentAlias.setMint(nostrPrivkey, mintUrl)
-    if (result.isOk()) {
+    if (result.ok) {
       setPreferredMint(mintUrl)
       setShowMintPicker(false)
       updateSettings({ npubcashMintUrl: mintUrl })

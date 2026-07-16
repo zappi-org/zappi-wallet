@@ -221,6 +221,16 @@ describe('findCommonMints', () => {
     )
     expect(result).toEqual(['https://mint-a.example.com/'])
   })
+
+  it('treats notation variants (:443 · case · omitted protocol) as the same mint — prevents fee-route degradation (Phase 2)', () => {
+    // A variant miss degrades TOKEN_TRANSFER (~1-2 sat) into MINT_AND_DM (~4-5 sat)
+    const result = findCommonMints(
+      ['https://Mint-A.example.com:443/', 'https://mint-c.example.com'],
+      ['mint-a.example.com'],
+    )
+    // Returns the sender-side original (consistent with byMint raw lookup)
+    expect(result).toEqual(['https://Mint-A.example.com:443/'])
+  })
 })
 
 // ─── selectSourceMint ───

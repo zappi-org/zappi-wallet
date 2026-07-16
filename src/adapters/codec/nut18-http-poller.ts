@@ -11,6 +11,7 @@
 
 import { getEncodedToken, type Proof } from '@cashu/cashu-ts'
 import type { CashuProof } from '@/core/domain/cashu-payment-payload'
+import { netLog } from '@/core/utils/net-log'
 
 // Configuration
 const DEFAULT_INTERVAL_MS = 3000
@@ -103,6 +104,7 @@ export function startNut18HttpPoller(options: Nut18HttpPollerOptions): Nut18Http
       const controller = new AbortController()
       const fetchTimeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
+      netLog({ layer: 'mint', op: 'fetch', key: endpoint, detail: 'nut18-poll', caller: 'nut18' })
       const response = await fetch(endpoint, {
         method: 'GET',
         headers: { 'Accept': 'application/json' },
@@ -218,6 +220,7 @@ export async function sendTokenViaHttp(options: {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), SEND_TIMEOUT_MS)
 
+    netLog({ layer: 'mint', op: 'fetch', key: endpoint, detail: 'nut18-send', caller: 'nut18' })
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

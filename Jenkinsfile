@@ -3,80 +3,64 @@ pipeline {
 
     environment {
         IMAGE_NAME = 'zappi-wallet'
-        IMAGE_TAG  = "build-${env.BUILD_NUMBER}"
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-
         stage('Build') {
             steps {
+                checkout scm
                 script {
-                    // Per-channel invite gate config.
-                    // main is open beta (no codes); staging/nightly require the dev code.
-                    def channel = env.BRANCH_NAME == 'staging' ? 'staging'
-                        : env.BRANCH_NAME == 'nightly' ? 'nightly'
-                        : 'main'
-                    def inviteCodes = (channel == 'main') ? '' : 'weareallzappi!'
-
-                    sh """
-                        docker build \
-                            --build-arg VITE_ZAPPI_CHANNEL=${channel} \
-                            --build-arg VITE_ZAPPI_INVITE_CODES=${inviteCodes} \
-                            -t ${IMAGE_NAME}:${IMAGE_TAG} .
-                    """
+                    def isTag = env.TAG_NAME != null
+                    if (env.BRANCH_NAME != 'main' && !isTag) {
+                        error "This pipeline only runs on main branch or tags: ${env.BRANCH_NAME}"
+                    }
+                    env.CHANNEL = isTag ? 'main' : 'staging'
                 }
+                sh """
+                    docker build \
+                        --build-arg VITE_ZAPPI_CHANNEL=${CHANNEL} \
+                        -t ${IMAGE_NAME}:${BUILD_NUMBER} .
+                """
             }
         }
 
-        stage('Tag') {
+        stage('Deploy Staging') {
+            when { expression { env.TAG_NAME == null } }
             steps {
-                script {
-                    if (env.BRANCH_NAME == 'main') {
-                        sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest"
-                    } else if (env.BRANCH_NAME == 'staging') {
-                        sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:staging"
-                    } else if (env.BRANCH_NAME == 'nightly') {
-                        sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:nightly"
-                    }
-                }
+                sh """
+                    docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:staging
+                    docker compose -f docker-compose.staging.yml -p zappi-wallet-staging down || true
+                    docker compose -f docker-compose.staging.yml -p zappi-wallet-staging up -d
+                """
             }
         }
 
-        stage('Deploy') {
+        stage('Approve Production') {
+            when { expression { env.TAG_NAME != null } }
             steps {
-                script {
-                    if (env.BRANCH_NAME == 'main') {
-                        sh """
-                            docker compose -p zappi-wallet down || true
-                            docker compose -p zappi-wallet up -d
-                        """
-                    } else if (env.BRANCH_NAME == 'staging') {
-                        sh """
-                            docker compose -f docker-compose.staging.yml -p zappi-wallet-staging down || true
-                            docker compose -f docker-compose.staging.yml -p zappi-wallet-staging up -d
-                        """
-                    } else if (env.BRANCH_NAME == 'nightly') {
-                        sh """
-                            docker compose -f docker-compose.nightly.yml -p zappi-wallet-nightly down || true
-                            docker compose -f docker-compose.nightly.yml -p zappi-wallet-nightly up -d
-                        """
-                    }
-                }
+                input message: "Deploy ${TAG_NAME} to production?"
+            }
+        }
+
+        stage('Deploy Production') {
+            when { expression { env.TAG_NAME != null } }
+            steps {
+                sh """
+                    docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:${TAG_NAME}
+                    docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest
+                    docker compose -p zappi-wallet down || true
+                    docker compose -p zappi-wallet up -d
+                """
             }
         }
     }
 
     post {
-        failure {
-            echo "Build failed: ${env.JOB_NAME} #${env.BUILD_NUMBER} (${env.BRANCH_NAME})"
-        }
         success {
-            echo "Build succeeded: ${env.JOB_NAME} #${env.BUILD_NUMBER} (${env.BRANCH_NAME})"
+            echo "SUCCESS: ${currentBuild.displayName} (${env.CHANNEL})"
+        }
+        failure {
+            echo "FAILED: ${currentBuild.displayName}"
         }
         always {
             cleanWs()

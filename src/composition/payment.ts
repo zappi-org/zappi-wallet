@@ -1,24 +1,25 @@
 /**
  * Composition root for PaymentUseCase
  *
- * modules는 bootstrap에서 주입 — composition/에서 modules/ import 금지.
+ * modules are injected from bootstrap — composition/ must not import modules/.
  */
 
 import { PaymentService } from '@/core/services/payment.service'
-import type { PaymentUseCase } from '@/core/ports/driving/payment.usecase'
 import type { WalletModule } from '@/core/ports/driven/wallet-module.port'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { EventBus } from '@/core/events/event-bus'
 import type { OperationMap } from '@/core/ports/driven/operation-map.port'
 import type { TransferLifecycleService } from '@/core/services/transfer-lifecycle.service'
 
+// Returns the concrete class so bootstrap can wire setRecoveryDelegate.
+// To the UI/registry it's exposed only as PaymentUseCase.
 export function createPaymentService(
   modules: WalletModule[],
   txRepo: TransactionRepository,
   eventBus: EventBus,
   operationMap?: OperationMap,
   transferLifecycle?: TransferLifecycleService,
-): PaymentUseCase {
+): PaymentService {
   return new PaymentService(
     modules,
     txRepo,

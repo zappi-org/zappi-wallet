@@ -120,7 +120,7 @@ function ContactFormInner({ contact, onSave, onClose }: { contact?: Contact | nu
     const result = await verifyAddress(trimmedAddress, addrType, addressResolver)
     if (!result.valid) {
       setVerifyStatus('invalid')
-      const errorKey = result.errorCode ? `contacts.verify.${result.errorCode}` : 'contacts.verificationFailed'
+      const errorKey = result.errorCode ? (`contacts.verify.${result.errorCode}` as const) : 'contacts.verificationFailed'
       setError(t(errorKey))
       return
     }

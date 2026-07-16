@@ -1,5 +1,4 @@
 export default {
-  // Common
   common: {
     sats: '₿',
     sat: '₿',
@@ -35,10 +34,8 @@ export default {
     notifications: '알림',
     syncing: '동기화 중',
     change: '변경',
-    search: '검색',
+    search: '검색'
   },
-
-  // Lock Screen
   lock: {
     welcomeBack: 'ZAPPI',
     enterPin: '잠금을 해제하려면 PIN을 입력하세요',
@@ -47,12 +44,9 @@ export default {
     tryAgainIn: '{{time}} 후 다시 시도하세요',
     faceIdUnlock: 'Face ID로 잠금 해제',
     errorOccurred: '오류가 발생했습니다.',
-    biometricFailed: '생체인증에 실패했습니다. PIN을 입력해주세요.',
+    biometricFailed: '생체인증에 실패했습니다. PIN을 입력해주세요.'
   },
-
-  // Onboarding
   onboarding: {
-    // Welcome
     appName: 'Zappi',
     tagline: 'Bitcoin 결제를 쉽고 빠르게',
     createWallet: '신규 생성하기',
@@ -61,8 +55,6 @@ export default {
     invitePlaceholder: '초대 코드',
     inviteInvalidCount: '올바르지 않은 초대 코드입니다 ({{current}}/{{max}})',
     inviteLocked: '시도 횟수를 초과했습니다. 5분 후 다시 시도해주세요.',
-
-    // Mnemonic
     secretRecoveryKey: '니모닉',
     walletRecovery: '지갑 복구',
     mnemonicWarning: '지갑을 복구할 수 있는 유일한 수단입니다.\n반드시 안전한 곳에 순서대로 기록해주세요.',
@@ -76,26 +68,18 @@ export default {
     recoverWallet: '복구하기',
     invalidMnemonic: '올바르지 않은 니모닉입니다. 단어를 다시 확인해주세요.',
     backupConfirmRequired: '니모닉을 기록했는지 확인해주세요.',
-
-    // PIN
     setPin: 'PIN 설정',
     confirmPin: 'PIN 확인',
     enterNewPin: '6자리 PIN을 설정하세요',
     reenterPin: 'PIN을 다시 입력하세요',
     pinMismatch: 'PIN이 일치하지 않습니다',
-
-    // Processing
     creatingWallet: '지갑 생성 중',
     recoveringWallet: '지갑 복구 중',
     creatingWalletDesc: '새 지갑을 생성하고 있습니다',
     recoveringWalletDesc: 'Nostr에서 프로필을 가져오고 토큰을 복구하고 있습니다...',
     pleaseWait: '잠시만 기다려주세요...',
-
-    // Complete
-    walletSetupFailed: '지갑 설정에 실패했습니다. 다시 시도해주세요.',
+    walletSetupFailed: '지갑 설정에 실패했습니다. 다시 시도해주세요.'
   },
-
-  // Home Screen
   home: {
     totalBalance: '총 잔액',
     showBalance: '잔액 표시',
@@ -104,16 +88,13 @@ export default {
     addFirstMint: '첫 번째 민트를 추가하세요',
     recentTransactions: '최근 거래',
     noTransactions: '거래내역이 없습니다',
-    seeAll: '더보기',
+    seeAll: '더보기'
   },
-
-  // Action Buttons
   actions: {
     transfer: '잔액 이동',
     scan: 'Scan',
-    analytics: '활동 분석',
+    analytics: '활동 분석'
   },
-
   support: {
     title: '문의 내역',
     heroTitle: '무엇을 도와드릴까요?',
@@ -123,7 +104,7 @@ export default {
       idle: '대기 중',
       connecting: '연결 중',
       connected: '연결됨',
-      error: '오류',
+      error: '오류'
     },
     unavailableTitle: '문의 기능이 설정되지 않았습니다',
     unavailableDescription: '이 빌드에서는 문의 기능을 사용할 수 없습니다. 공식 채널로 Zappi 팀에 문의해주세요.',
@@ -142,21 +123,18 @@ export default {
     categoryLabel: '유형',
     priorityLabel: '중요도',
     categories: {
-      // active (handoff)
       transfer: '송수신 관련',
       ecash: '이캐시 관련',
       fee: '수수료 관련',
       security: '보안 / 백업',
       other: '기타',
-      // legacy — old tickets in storage may still carry these
       general: '일반',
       technical: '기술',
       billing: '결제',
-      // idea
       idea_ux: 'UI / UX 개선',
       idea_feature: '신규 기능',
       idea_perf: '성능 / 안정성',
-      idea_other: '기타',
+      idea_other: '기타'
     },
     categoryDescriptions: {
       transfer: '라이트닝/이캐시 보내기·받기 관련',
@@ -164,14 +142,17 @@ export default {
       fee: '수수료 / 라우팅 비용 관련',
       security: '잠금, 백업, 복구 문구 관련',
       other: '그 외 문의',
+      general: 'How-to, account, or general questions',
+      technical: 'Bugs, wallet behavior, or connection issues',
+      billing: 'Payment, transfer, or settlement questions'
     },
     priorities: {
       normal: '일반',
-      high: '높음',
+      high: '높음'
     },
     priorityDescriptions: {
       normal: '일반적인 문의입니다',
-      high: '사용이 막히거나 빠른 확인이 필요합니다',
+      high: '사용이 막히거나 빠른 확인이 필요합니다'
     },
     createTicket: '등록하기',
     sending: '보내는 중...',
@@ -215,14 +196,13 @@ export default {
       open: '접수',
       in_progress: '처리 중',
       resolved: '해결됨',
-      closed: '종료',
+      closed: '종료'
     },
-    // CS system v2 (handoff)
     searchPlaceholder: '키워드로 검색해 보세요',
     csStatus: {
       received: '접수됨',
       progress: '진행중',
-      answered: '상담 완료',
+      answered: '상담 완료'
     },
     userBubbleLabel: '내가 보낸 문의',
     helpHomeSubtitle: '궁금한 점은 언제든 편하게 물어보세요.',
@@ -241,27 +221,27 @@ export default {
       q5: '지갑 앱을 지우거나 휴대폰을 잃어버리면 잔액이 없어지나요?',
       a5: '네, 그래서 시드 문구 백업이 매우 중요해요. 캐슈 지갑은 은행처럼 중앙 서버가 잔액을 보관해주는 구조가 아니라, 기기 안의 토큰이 곧 잔액이에요. 앱을 삭제하거나 기기를 잃어버리면 안에 있던 토큰도 함께 사라져요. 대부분의 캐슈 지갑은 시드 문구를 제공하며, 이를 통해 결정론적으로 토큰을 복구할 수 있어요. 시드 문구는 반드시 안전한 곳에 따로 보관해주세요.',
       q6: '기존 커스터디와 무엇이 다른가요?',
-      a6: '기존의 라이트닝 커스터디 서비스들은 보통 \'잔액\' 개념으로 자금을 관리해요. 사용자별로 계좌에 얼마가 있는지 서버에 기록되기 때문에 운영자가 거래 내역을 쉽게 추적할 수 있고, 그만큼 프라이버시 보호에 취약해요. 특정 사용자의 자금을 동결하거나 거래를 검열하는 것도 어렵지 않아요.\n\n반면 캐슈는 \'토큰\' 개념으로 동작해요. 민트는 토큰을 발행하고 사용 여부만 검증할 뿐, 어떤 토큰을 누가 소유하고 어디로 보냈는지 알 수 있는 방법이 없어요. 그래서 프라이버시가 보호되고 개별 사용자 검열도 사실상 불가능해요. 비록 자금을 민트에 맡기는 커스터디 모델이지만, 프라이버시 측면에서는 한층 더 진화한 형태로 볼 수 있어요.',
+      a6: '기존의 라이트닝 커스터디 서비스들은 보통 \'잔액\' 개념으로 자금을 관리해요. 사용자별로 계좌에 얼마가 있는지 서버에 기록되기 때문에 운영자가 거래 내역을 쉽게 추적할 수 있고, 그만큼 프라이버시 보호에 취약해요. 특정 사용자의 자금을 동결하거나 거래를 검열하는 것도 어렵지 않아요.\n\n반면 캐슈는 \'토큰\' 개념으로 동작해요. 민트는 토큰을 발행하고 사용 여부만 검증할 뿐, 어떤 토큰을 누가 소유하고 어디로 보냈는지 알 수 있는 방법이 없어요. 그래서 프라이버시가 보호되고 개별 사용자 검열도 사실상 불가능해요. 비록 자금을 민트에 맡기는 커스터디 모델이지만, 프라이버시 측면에서는 한층 더 진화한 형태로 볼 수 있어요.'
     },
     actions: {
       composeInquiry: {
         title: '새로운 문의 작성하기',
-        subtitle: '담당 직원이 직접 답변해드려요',
+        subtitle: '담당 직원이 직접 답변해드려요'
       },
       inquiryList: {
         title: '문의 내역 확인하기',
         subtitle: '총 {{count}} 건의 문의가 있어요',
-        subtitleWithUnread: '총 {{count}} 건 · 새 답변 {{unread}} 건이 도착했어요',
+        subtitleWithUnread: '총 {{count}} 건 · 새 답변 {{unread}} 건이 도착했어요'
       },
       composeIdea: {
         title: '아이디어 제안하기',
-        subtitle: '째피팀에게 의견을 들려주세요',
+        subtitle: '째피팀에게 의견을 들려주세요'
       },
       ideaList: {
         title: '제안 내역 보기',
         subtitle: '총 {{count}} 건의 보낸 제안',
-        empty: '아직 보낸 제안이 없어요',
-      },
+        empty: '아직 보낸 제안이 없어요'
+      }
     },
     composeInquirySubtitle: '도움이 필요한 내용을 자세히 설명해주세요. 담당 직원이 빠른 시일 내에 답변드려요.',
     composeIdeaSubtitle: '어떤 점이 더 좋아질 수 있을까요? 째피팀이 꼼꼼히 읽어볼게요.',
@@ -300,15 +280,11 @@ export default {
       open: '문의가 다시 열렸어요',
       in_progress: '상담사가 답변을 준비 중이에요',
       resolved: '문의가 해결되었어요',
-      closed: '문의가 종료되었어요',
-    },
+      closed: '문의가 종료되었어요'
+    }
   },
-
-  // Settings
   settings: {
     title: '설정',
-
-    // Profile
     profile: '프로필',
     profileDesc: 'Nostr, 라이트닝 주소, 분석',
     profileDescHiddenLightning: 'Nostr, 분석',
@@ -343,8 +319,6 @@ export default {
     swapFee: '수수료',
     paymentFailed: '결제에 실패했습니다. 다른 민트를 선택해주세요',
     noPayableMint: '변경 비용을 결제할 수 있는 잔액이 충분한 민트가 없습니다',
-
-    // Security
     security: '보안',
     securityDesc: 'PIN 변경, Face ID, 자동 잠금',
     autoLock: '자동 잠금',
@@ -352,8 +326,6 @@ export default {
     faceIdTouchId: 'Face ID / Touch ID',
     biometric: '생체 인증',
     changePin: 'PIN 변경',
-
-    // Wallet Management
     walletManagement: '지갑 관리',
     walletManagementDesc: '민트, 릴레이, 잔액 확인, 백업',
     manageMints: '민트 관리',
@@ -361,15 +333,10 @@ export default {
     verifyBalance: '잔액 검증',
     findUnusedTokens: '미사용 토큰 찾기',
     mnemonicBackup: '니모닉 백업',
-
-    // TLS Test
     tlsTest: 'TLS 테스트',
     tlsTestDesc: 'TransferLifecycleService 흐름 테스트',
-
-    // Logout
     logout: '로그아웃',
     version: 'Zappi v{{version}}',
-
     updateAvailable: '새 업데이트가 있습니다',
     updateInstallHint: '눌러서 업데이트하기',
     checkForUpdates: '업데이트 확인',
@@ -378,13 +345,9 @@ export default {
     updateCurrent: '최신 버전입니다',
     updateCheckUnavailable: '이 환경에서는 업데이트를 확인할 수 없습니다',
     updateCheckFailed: '업데이트를 확인하지 못했습니다',
-
-    // Mints
     addMint: '민트 추가',
     noMints: '등록된 민트가 없습니다',
     mintCount: '{{count}}개',
-
-    // Relays
     noRelays: '등록된 릴레이가 없습니다',
     relayPlaceholder: 'relay.example.com',
     relayExists: '이미 등록된 릴레이입니다',
@@ -397,24 +360,16 @@ export default {
     confirmDeleteRelay: '삭제하시겠습니까?',
     minRelaysRequired: '최소 {{min}}개의 릴레이가 필요합니다',
     minMintsRequired: '최소 {{min}}개의 민트가 필요합니다',
-
-    // PIN Change
     currentPinLabel: '현재 PIN 입력',
     newPinLabel: '새 PIN 입력 (6자리)',
     confirmPinLabel: '새 PIN 확인',
     pinChangeError: 'PIN이 일치하지 않습니다.',
     wrongCurrentPin: '기존 PIN이 틀렸습니다.',
     change: '변경하기',
-
-    // Mnemonic Backup
     enterPinLabel: 'PIN 입력',
     wrongPin: 'PIN이 틀렸습니다.',
     mnemonicWarning: '이 니모닉을 안전하게 보관하세요. 절대 공유하지 마세요.',
-
-    // Logout
     logoutWarning: '모든 데이터가 삭제됩니다. 니모닉을 백업하셨나요?',
-
-    // Token Restore
     restoreChoiceDescription: '복구할 방식을 선택하세요.',
     currentWalletRecovery: '현재 지갑 잔액 확인',
     currentWalletRecoveryDesc: '현재 지갑의 복구문구로 등록된 민트의 누락 잔액을 확인합니다.',
@@ -434,8 +389,6 @@ export default {
     recoveredAmount: '{{unit}} {{amount}} 복원됨!',
     verificationError: '검증 중 오류가 발생했습니다.',
     noMintsRegistered: '등록된 민트가 없습니다.',
-
-    // Passkey
     passkeySetup: 'Face ID / Touch ID 설정',
     passkeyDescription: '생체인증 등록을 위해 PIN을 입력하세요',
     register: '등록하기',
@@ -444,8 +397,6 @@ export default {
     passkeyRemove: 'Face ID / Touch ID 해제',
     passkeyRemoveDescription: '생체인증 해제를 위해 PIN을 입력하세요',
     remove: '해제하기',
-
-    // Mint Delete
     deleteMint: '민트 삭제',
     mintHasBalance: '이 민트에 <bold>{{formattedBalance}}</bold>의 잔액이 있습니다.',
     deleteWarning: '삭제하면 해당 잔액에 접근할 수 없게 됩니다.',
@@ -456,23 +407,13 @@ export default {
     moveDown: '아래로 이동',
     dragToReorder: '드래그해서 순서 변경',
     reorderHint: '핸들을 드래그해서 순서를 바꿀 수 있어요. 키보드는 핸들에 포커스한 뒤 위/아래 화살표를 누르세요.',
-
-    // Preferences
     preferences: '환경설정',
     preferencesDesc: '언어, 단위, 통화, 프라이버시',
-
-    // Language
     language: '언어',
-
-    // Unit Display
     unitDisplay: '단위 표시',
-
-    // Fiat Currency
     fiatCurrency: '단위',
     showFiatConversion: '법정화폐 표시',
     selectCurrency: '통화 선택',
-
-    // POS Management
     posManagement: 'POS 관리',
     addPosDevice: 'POS 디바이스 추가',
     posDeviceCount: '{{count}}개 디바이스',
@@ -486,19 +427,19 @@ export default {
     posProvisioningDone: 'POS 디바이스가 성공적으로 등록되었습니다.',
     posDeviceRemove: '디바이스 제거',
     posDeviceRemoveWarning: '이 POS 디바이스는 더 이상 결제를 수취할 수 없습니다. 제거하시겠습니까?',
-
-    // Privacy
     privacy: '프라이버시',
     senderPrivacyMode: '보내기 프라이버시 모드',
     senderPrivacyModeDescription: '수수료가 높더라도 민트가 송수신자를 연결할 수 없는 경로를 선택합니다',
-
-    // Descriptions
     active: '사용 중',
     autoLockDescription: '비활동 시 자동으로 잠금',
     faceIdDescription: '생체인증으로 잠금 해제',
+    tlsBolt11Send: 'Bolt11 Send (melt)',
+    tlsBolt11Receive: 'Bolt11 Receive (minting)',
+    tlsEcashCreate: 'Create Ecash',
+    tlsEcashRedeem: 'Redeem Ecash',
+    tlsGiftWrap: 'Receive via GiftWrap',
+    tlsCreq: 'Receive via Creq'
   },
-
-  // Add Mint Screen
   addMint: {
     title: '민트 추가',
     mintUrl: '민트 URL',
@@ -525,10 +466,8 @@ export default {
     hasBeenAdded: '이(가) 추가되었습니다.',
     mintAddedSuccess: '새로운 민트가 추가되었습니다.',
     confirmTitle: '이 민트를 추가할까요?',
-    confirmAdd: '추가',
+    confirmAdd: '추가'
   },
-
-  // Scanner
   scanner: {
     title: '스캔',
     inputPlaceholder: '주소, 인보이스, 토큰 입력...',
@@ -553,12 +492,9 @@ export default {
     noQrFound: 'QR 코드를 찾을 수 없습니다',
     invalidCashuRequest: '유효하지 않은 Cashu 요청입니다',
     invalidNostrProfile: '유효하지 않은 Nostr 프로필입니다',
-    invalidNostrEvent: '유효하지 않은 Nostr 이벤트입니다',
+    invalidNostrEvent: '유효하지 않은 Nostr 이벤트입니다'
   },
-
-  // Payment Screens
   payment: {
-    // Common
     selectMint: '민트 선택',
     selectThisMint: '해당 민트 선택하기',
     receiveWithThisMint: '해당 민트로 수령하기',
@@ -582,8 +518,6 @@ export default {
     qrScan: 'QR 스캔',
     sendComplete: '전송 완료!',
     receiveComplete: '수신 완료!',
-
-    // Lightning Send
     lightningPay: 'Lightning 결제',
     lightningSend: 'Lightning 보내기',
     recipient: '받는 곳',
@@ -607,8 +541,6 @@ export default {
     lightningSendFailed: 'Lightning 전송에 실패했습니다',
     sendError: '전송 중 오류가 발생했습니다',
     clipboardError: '클립보드 접근에 실패했습니다',
-
-    // Lightning Receive
     lightningReceive: 'Lightning 수신',
     createInvoice: '인보이스 생성',
     creating: '생성 중...',
@@ -618,8 +550,6 @@ export default {
     copyInvoice: '인보이스 복사',
     expiresIn: '{{time}} 후 만료',
     paymentReceived: '결제가 완료되었습니다!',
-
-    // Ecash Send
     ecashSend: 'Ecash 보내기',
     memoPlaceholder: '메모를 입력하세요 (선택사항)',
     ecashToken: 'Ecash 토큰',
@@ -639,8 +569,6 @@ export default {
     swapRequired: '{{mintName}} 민트로 스왑 후 전송됩니다. 수수료가 발생할 수 있습니다.',
     compatibleMint: '호환 민트',
     requestedMint: '요청된 민트',
-
-    // Ecash Receive
     ecashReceive: 'Ecash 받기',
     createRequest: '요청 생성',
     requestCreated: '요청이 생성되었습니다',
@@ -648,8 +576,6 @@ export default {
     copyRequest: '요청 복사',
     paymentRequest: 'Payment Request (Nostr)',
     waitingNostrDm: 'Nostr DM 대기 중...',
-
-    // Token Receive
     tokenReceive: '토큰 수령',
     tokenInfo: '토큰 정보',
     tokenAmount: '금액',
@@ -662,25 +588,17 @@ export default {
     sending: '전송 중...',
     tokenReceived: '토큰이 수령되었습니다!',
     tokenAlreadySpent: '이미 사용된 토큰입니다',
-
-    // Amount Input
     enterAmount: '금액을 입력하세요',
     amountInSats: '단위',
-
-    // Zap
     zapSend: 'Zap 보내기',
     zapTo: 'Zap 대상',
     sendZap: 'Zap 보내기',
     zapping: 'Zap 전송 중...',
     zapSent: 'Zap이 전송되었습니다!',
-
-    // Nostr DM
     sendingNostrDm: 'Nostr DM 전송 중...',
     sentViaNostrDm: 'Nostr DM으로 전송됨',
     willSendViaNostrDm: 'Nostr DM으로 전송됩니다',
     checkingReceipt: '수령 대기 중...',
-
-    // Token Receive (additional)
     mintAdded: '민트가 추가되었습니다',
     mintAddFailed: '민트 추가에 실패했습니다',
     successReceived: '성공적으로 수령되었습니다',
@@ -689,8 +607,6 @@ export default {
     untrusted: '미등록',
     untrustedMintWarning: '이 민트는 등록되지 않았습니다. 토큰을 수령하면 이 민트의 잔액이 됩니다.',
     receiveAmountBtn: '{{unit}} {{amount}} 수령',
-
-    // Lightning Receive (additional)
     mintSelectedOffline: '선택한 민트가 오프라인입니다',
     createInvoiceFailed: '인보이스 생성 실패',
     createInvoiceError: '인보이스 생성에 실패했습니다',
@@ -698,8 +614,6 @@ export default {
     withdrawSource: '출금 출처',
     minValidation: '최소 {{amount}}',
     maxValidation: '최대 {{amount}}',
-
-    // Receive Screen
     creatingInvoice: '인보이스 생성 중...',
     remainingTime: '남은 시간',
     invoiceExpired: '인보이스가 만료되었습니다. 다시 시도해주세요.',
@@ -718,19 +632,15 @@ export default {
     wave: '웨이브',
     nfcComingSoon: 'NFC를 통한 Ecash 수신 기능이 곧 추가됩니다',
     waveComingSoon: '음파를 통한 Ecash 수신 기능이 곧 추가됩니다',
-    comingSoon: '출시 예정',
+    comingSoon: '출시 예정'
   },
-
-  // Amount Action Screen
   amountAction: {
     title: '금액 선택',
     send: '보내기',
     receive: '받기',
     lightning: '라이트닝',
-    ecash: 'Ecash',
+    ecash: 'Ecash'
   },
-
-  // Transfer Screen
   transfer: {
     title: '잔액 이동',
     from: '보내는 민트',
@@ -747,10 +657,8 @@ export default {
     quoting: '견적 확인 중...',
     melting: '출금 중...',
     minting: '입금 중...',
-    transferComplete: '이동 완료!',
+    transferComplete: '이동 완료!'
   },
-
-  // History Screen
   history: {
     title: '거래내역',
     noTransactions: '거래내역이 없습니다',
@@ -765,13 +673,11 @@ export default {
       today: '{{weekday}} · 오늘',
       yesterday: '{{weekday}} · 어제',
       monthSameYear: '월',
-      monthOtherYear: '{{year}}.{{month02}}',
+      monthOtherYear: '{{year}}.{{month02}}'
     },
     timeAt: '{{time}}',
     dayWithTime: '{{day}}일 {{time}}',
     endOfList: '모든 거래내역을 확인했어요.',
-
-    // Transaction Types
     lightningReceive: '수신 (라이트닝)',
     lightningSend: '전송 (라이트닝)',
     ecashReceive: '수신 (이캐시)',
@@ -783,14 +689,10 @@ export default {
     requestPay: '이캐시 결제 보냄',
     nutzap: 'NutZap',
     swap: '스왑',
-
-    // Status
     completed: '완료',
     pendingStatus: '처리 중',
     failedStatus: '실패',
     andMore: '외 {{count}}건',
-
-    // Redesigned history screen
     income: '입금',
     expense: '출금',
     pendingTab: '대기중',
@@ -805,18 +707,14 @@ export default {
     mintFilter: '지갑 선택',
     allMints: '전체 지갑',
     mintCount: '{{count}}개 지갑',
-
-    // Export
     export: '내보내기',
     exportSuccess: '파일이 저장되었습니다',
     exportEmpty: '내보낼 거래내역이 없습니다',
     exportFileName: '거래내역',
     exportCsvDesc: 'Excel, Numbers, Google Sheets에서 열 수 있습니다',
     exportCount: '총 {{count}}건의 거래내역',
-    exportDownload: '다운로드',
+    exportDownload: '다운로드'
   },
-
-  // Transaction Detail Screen
   txDetail: {
     title: '거래 상세',
     type: '유형',
@@ -836,16 +734,12 @@ export default {
     toMint: '도착 Mint',
     txId: '거래 ID',
     details: '상세 정보',
-
-    // Sources
     'source.zappi-pos': 'Zappi POS',
     'source.zappi-kiosk': 'Zappi Kiosk',
     'source.zappi-api': 'Zappi API',
     'source.zappi-link': 'Zappi Link',
     'source.wallet': '지갑',
     'source.unknown': '외부',
-
-    // Token lifecycle
     tokenState: '토큰 상태',
     'tokenState.unspent': '미수령',
     'tokenState.pending': '처리 중',
@@ -869,8 +763,6 @@ export default {
     delete: '삭제',
     deleteConfirm: '이 거래 기록을 삭제하시겠습니까?',
     deleteWarning: '삭제 후 복구할 수 없습니다.',
-
-    // Context sentences
     receivedFrom: '{{mint}}에서 받음',
     receivedToWallet: '{{wallet}}(으)로 받음',
     sentViaLightning: '{{address}}(으)로 보냄',
@@ -882,21 +774,13 @@ export default {
     receivedFromPOS: '{{name}}에서 받음',
     unclaimedNotice: '아직 수령되지 않았어요',
     reclaimAction: '이캐시 되찾기',
-
-    // Section titles
     txInfo: '정보',
     paymentInfo: '결제 정보',
     swapInfo: '스왑 정보',
-
-    // Kiosk order
     orderItems: '주문 내역',
     orderTotal: '합계',
-
-    // Fiat
-    fiatValue: '법정화폐 환산',
+    fiatValue: '법정화폐 환산'
   },
-
-  // Analytics Screen
   analytics: {
     title: '분석',
     overview: '개요',
@@ -906,10 +790,8 @@ export default {
     thisWeek: '이번 주',
     thisMonth: '이번 달',
     allTime: '전체',
-    noData: '데이터가 없습니다',
+    noData: '데이터가 없습니다'
   },
-
-  // Notifications Screen
   notifications: {
     title: '알림',
     noNotifications: '알림이 없습니다',
@@ -927,10 +809,8 @@ export default {
     hourAgo: '{{count}}시간 전',
     hoursAgo: '{{count}}시간 전',
     dayAgo: '{{count}}일 전',
-    daysAgo: '{{count}}일 전',
+    daysAgo: '{{count}}일 전'
   },
-
-  // PWA Install
   pwa: {
     installTitle: 'Zappi 설치',
     installDescription: '홈 화면에 추가하여 더 편리하게 사용하세요',
@@ -957,10 +837,8 @@ export default {
     desktopBrowserSupport: 'Chrome, Edge, Safari 등 대부분의 브라우저에서 지원됩니다.',
     afterInstall: '설치 후 홈 화면에서 ZAPPI 아이콘을 탭하여 실행하세요.',
     devBypass: '(개발 모드) PWA 없이 계속',
-    desktopBrowser: '데스크톱 브라우저',
+    desktopBrowser: '데스크톱 브라우저'
   },
-
-  // Errors
   errors: {
     generic: '오류가 발생했습니다.',
     network: '네트워크 연결을 확인하세요.',
@@ -1007,15 +885,19 @@ export default {
     networkError: '네트워크 오류가 발생했습니다',
     timeoutError: '요청 시간이 초과되었습니다',
     unknownError: '알 수 없는 오류가 발생했습니다',
+    adapterNotFound: 'No payment method available for this operation',
+    serviceNotReady: 'Service is starting up — try again in a moment.',
+    invalidDestination: 'Unrecognized destination address',
+    unrecognizedInput: 'Unrecognized input format',
+    lnurlParseFailed: 'Could not process this LNURL',
+    transferStateInvalid: 'This transfer can no longer be processed',
+    receiveRequestInvalid: 'Invalid receive request',
+    supportTicketResolved: 'This support ticket is already resolved'
   },
-
-  // Redirect
   redirect: {
     toReceive: '받기로 이동합니다',
-    toSend: '보내기로 이동합니다',
+    toSend: '보내기로 이동합니다'
   },
-
-  // Toast Messages
   toast: {
     copied: '클립보드에 복사되었습니다',
     saved: '저장되었습니다',
@@ -1062,10 +944,8 @@ export default {
     offlineStatus: '오프라인 상태입니다',
     transferSettled: '전송 완료',
     transferReclaimed: '전송 회수 완료',
-    incomingTransferProcessed: '수신 전송 처리 완료',
+    incomingTransferProcessed: '수신 전송 처리 완료'
   },
-
-  // Mint Details
   mintDetails: {
     mintBalance: '민트 잔액',
     mintInfo: '민트 정보',
@@ -1077,10 +957,8 @@ export default {
     loadError: '민트 정보를 가져올 수 없습니다.',
     deleteConfirm: '삭제 확인',
     deleteMint: '민트 삭제',
-    balanceWarning: '이 민트에 {{formattedAmount}}가 남아있습니다. 삭제하기 전에 다른 민트로 전송하는 것을 권장합니다.',
+    balanceWarning: '이 민트에 {{formattedAmount}}가 남아있습니다. 삭제하기 전에 다른 민트로 전송하는 것을 권장합니다.'
   },
-
-  // Send
   send: {
     title: '보내기',
     fromMint: '출금 민트',
@@ -1109,14 +987,14 @@ export default {
       ecashInfoNotFound: 'eCash 수신 정보를 찾을 수 없습니다.',
       noCommonMint: '상대가 받을 수 있는 민트가 없습니다.',
       relayNotFound: '상대에게 보낼 릴레이 정보를 찾을 수 없습니다.',
-      selectedMintUnavailable: '{{mint}}은 상대가 받을 수 없습니다. 아래 민트로 보낼 수 있습니다.',
+      selectedMintUnavailable: '{{mint}}은 상대가 받을 수 없습니다. 아래 민트로 보낼 수 있습니다.'
     },
     amount: {
       sendTo: '{{destination}}에게',
       howMuchSend: '얼마를 보낼까요?',
       balancePill: '잔액 · {{balance}}',
       addMemo: '메모 (선택사항)',
-      memoPlaceholder: '선택 사항',
+      memoPlaceholder: '선택 사항'
     },
     tokenCreate: {
       title: '이캐시 만들기',
@@ -1144,6 +1022,7 @@ export default {
       reclaim: '되찾기',
       reclaiming: '되찾는 중…',
       reclaimWithFee: '되찾기 (수취 수수료 {{fee}})',
+      requestAmount: 'Request Amount'
     },
     confirm: {
       title: '보내기 확인',
@@ -1169,14 +1048,14 @@ export default {
       transferQuestionEnd: '옮길까요?',
       feeEstimateFailed: '수수료를 확인할 수 없습니다',
       lightningInvoice: 'Lightning 인보이스',
-      ecashRequest: 'eCash 결제요청',
+      ecashRequest: 'eCash 결제요청'
     },
     sending: {
       message: '{{destination}}로 보내는 중이에요',
       inProgress: '보내는 중이에요...',
       fullMessage: '<b>{{recipient}}</b>에게\n{{amount}}을\n보내는 중이에요...',
       fullRequestMessage: '{{amount}}을\n보내는 중이에요...',
-      networkDelay: '네트워크 상황에 따라 시간이 걸릴 수 있어요',
+      networkDelay: '네트워크 상황에 따라 시간이 걸릴 수 있어요'
     },
     complete: {
       message: '{{destination}}로\n{{amount}} 전송을 완료했어요',
@@ -1184,11 +1063,9 @@ export default {
       fullMessage: '<b>{{recipient}}</b>에게\n{{amount}}을\n보냈어요!',
       fullRequestMessage: '{{amount}}을\n보냈어요!',
       confirm: '확인',
-      details: '세부정보',
-    },
+      details: '세부정보'
+    }
   },
-
-  // Receive
   receive: {
     title: '받기',
     senderMethod: '보내는 사람이 무엇을 사용하나요?',
@@ -1210,40 +1087,40 @@ export default {
       accountTo: '<b>{{mint}}</b>으로',
       haveToken: '받을 토큰이 있나요?',
       placeholder: '토큰 입력',
-      hint: '토큰이 없다면 <b>인보이스</b>를 만들어서 결제를 청구할 수도 있어요',
+      hint: '토큰이 없다면 <b>인보이스</b>를 만들어서 결제를 청구할 수도 있어요'
     },
     amountStep: {
       howMuchRequest: '얼마를 요청할까요?',
       addMemo: '메모 (선택사항)',
-      memoPlaceholder: '선택 사항',
+      memoPlaceholder: '선택 사항'
     },
     qr: {
       title: '받기',
       protocols: {
         unified: '통합',
         cashu: 'Cashu',
-        lightning: 'Lightning',
+        lightning: 'Lightning'
       },
       showToSender: '보내려는 상대방에게 보여주세요',
       share: '공유',
       willNotify: '{{mint}}에 입금되면 알려드릴게요',
       depositNotify: '이 입금되면 알려드릴게요',
       fullMessage: '{{amount}}이 입금되면 알려드릴게요',
-      cancel: '취소',
+      cancel: '취소'
     },
     transport: {
       nostrAndHttp: 'Nostr + HTTP 대기중',
       httpOnly: 'HTTP 대기중 (Nostr 연결 실패)',
       nostrOnly: 'Nostr 대기중',
       unified: 'Lightning + eCash 대기중',
-      lightningOnly: 'Lightning 대기중',
+      lightningOnly: 'Lightning 대기중'
     },
     complete: {
       message: '{{mint}}에\n{{amount}} 입금되었어요',
       received: ' 입금되었어요!',
       fullMessage: '{{amount}} 입금되었어요!',
       requestFulfilledMessage: '요청한 {{amount}}\n도착했어요!',
-      done: '확인',
+      done: '확인'
     },
     token: {
       title: '토큰 확인',
@@ -1265,7 +1142,7 @@ export default {
       fee: '수수료',
       netAmount: '실제 수령액',
       noFee: '수수료 없음',
-      feeApplies: '⚡ 수수료 발생',
+      feeApplies: '⚡ 수수료 발생'
     },
     untrusted: {
       title: '토큰 확인',
@@ -1276,7 +1153,7 @@ export default {
       addAndReceive: '민트 추가하고 받기',
       addAndReceiveSub: '이 민트를 신뢰해요',
       reject: '받지 않기',
-      rejectSub: '이 토큰은 받지 않을게요',
+      rejectSub: '이 토큰은 받지 않을게요'
     },
     offline: {
       p2pkAccepted: 'P2PK로 보호된 토큰입니다. 오프라인에서 안전하게 받을 수 있으며, 온라인 복귀 시 자동으로 검증됩니다.',
@@ -1285,7 +1162,7 @@ export default {
       nonP2PKError: '오프라인에서는 P2PK로 보호된 토큰만 받을 수 있습니다. 인터넷에 연결된 후 다시 시도해주세요.',
       untrustedNeedsOnline: '미등록 민트의 토큰을 받으려면 인터넷 연결이 필요합니다.',
       receiveOffline: '오프라인으로 받기',
-      acceptAnyway: '위험 감수하고 받기',
+      acceptAnyway: '위험 감수하고 받기'
     },
     swapFeeTooHigh: '스왑 수수료({{fee}})가 토큰 금액({{amount}})보다 크거나 같아 받을 수 없습니다',
     swapTokenTooSmall: '이 토큰은 내 민트로 스왑하기에 금액이 너무 작습니다. 원래 민트에서 바로 받거나 더 큰 토큰을 사용해주세요.',
@@ -1299,11 +1176,9 @@ export default {
       description: '{{amount}}은 {{mint}}에 보관되어 있어요. Zappi에서 이 잔액을 보고 쓰고 싶을 때만 민트를 추가하세요.',
       mint: '원래 민트',
       addMint: '민트 추가하고 잔액 보기',
-      later: '나중에 할게요',
-    },
+      later: '나중에 할게요'
+    }
   },
-
-  // Mint Detail Screen
   mintDetail: {
     title: '민트 상세정보',
     send: '보내기',
@@ -1321,12 +1196,10 @@ export default {
     created: '생성: {{date}}',
     noPendingItems: '대기중인 항목이 없습니다',
     noTransactions: '거래내역이 없습니다',
-    // 민트 별칭
     editName: '이름 변경',
     namePlaceholder: '이름을 입력하세요',
     duplicateName: '이미 사용 중인 이름이에요',
     defaultName: '민트 {{number}}',
-    // 민트 정보 서브화면
     mintInfo: '민트 정보',
     announcement: '공지',
     description: '설명',
@@ -1347,7 +1220,6 @@ export default {
     cardDesignModern: '모던',
     dangerZone: 'Danger zone',
     emptyAndDelete: '잔액을 비우고 민트를 지우기',
-    // 삭제 플로우
     deleteMint: '민트 지우기',
     deleteConfirmMessage: '정말로 민트를 지우시겠어요?',
     balanceRemaining: '{{mint}}에 {{amount}} 이 남아있어요.\n\n잔액을 다른 민트로 보내거나\n다른 사람에게 보낼 수 있어요.',
@@ -1364,7 +1236,6 @@ export default {
     mintDeleted: '민트가 삭제되었습니다.',
     no: '아니요',
     delete: '삭제하기',
-    // 대기중 항목 전체화면
     pendingAll: '대기중 항목',
     tabAll: '전체',
     tabRequest: '요청',
@@ -1374,10 +1245,8 @@ export default {
     filterType: '유형',
     search: '검색',
     pendingExpiry: '만료',
-    pendingExpired: '만료됨',
+    pendingExpired: '만료됨'
   },
-
-  // Pending Item Actions
   pending: {
     redeemAction: '지금 수령',
     redeemSuccess: '토큰을 수령했습니다',
@@ -1389,31 +1258,25 @@ export default {
     ecashRequest: 'Ecash 요청',
     lightningInvoice: '라이트닝 인보이스',
     quoteStatus: '상태',
-    redeemQuote: '수동 수령',
+    redeemQuote: '수동 수령'
   },
-
-  // Error Boundary
   error: {
     unexpectedTitle: '예기치 않은 오류가 발생했습니다',
     unexpectedMessage: '앱에 문제가 발생했습니다. 새로고침하여 다시 시도해주세요.',
-    reload: '새로고침',
+    reload: '새로고침'
   },
-
-  // Bottom Navigation
   nav: {
     wallet: '지갑',
     token: '이캐시',
     contacts: '주소록',
-    settings: '설정',
+    settings: '설정'
   },
-
-  // Token tab toolbar
   token: {
     create: '만들기',
     register: '받기',
     empty: {
       title: '만든 이캐시가 없어요.\n이캐시를 만들어 볼까요?',
-      footerNote: '이캐시는 현금처럼 작동해요. 가지고 있는 누구나 등록해서 사용할 수 있어요.',
+      footerNote: '이캐시는 현금처럼 작동해요. 가지고 있는 누구나 등록해서 사용할 수 있어요.'
     },
     time: {
       justNow: '방금',
@@ -1422,32 +1285,33 @@ export default {
       yesterday: '어제',
       daysAgo: '{{count}}일전',
       atTimeOfDay: '{{time}}',
-      dayWithTime: '{{day}}일 {{time}}',
+      dayWithTime: '{{day}}일 {{time}}'
     },
     pending: {
-      timeLabel: '대기중 · {{time}}',
+      timeLabel: '대기중 · {{time}}'
     },
     pendingWidget: {
       title: '대기중',
       summary: '{{count}}개 - 총 {{total}}',
-      viewAll: '모두 되찾기',
+      viewAll: '모두 되찾기'
     },
     pendingEmpty: {
       title: '모두 정리됐어요',
-      subtitle: '대기중인 이캐시가 없어요',
+      subtitle: '대기중인 이캐시가 없어요'
     },
     reclaimable: {
       section: '되찾을 수 있어요 ({{count}})',
       actions: {
         reclaim: '되찾기',
-        share: '공유',
+        share: '공유'
       },
       shareText: '{{memo}}: {{amount}}',
       copiedToClipboard: '클립보드에 복사되었어요',
+      viewAll: 'View All >'
     },
     firstCreate: {
       hint: '만들었지만 아직 등록되지 않은 이캐시들이에요.\n상대방이 못 받았거나, 아직 등록 하지 않았을 수 있어요.',
-      dismiss: '다시보지않기',
+      dismiss: '다시보지않기'
     },
     reclaim: {
       title: '되찾기',
@@ -1457,7 +1321,7 @@ export default {
       summaryNet: '받는 금액',
       confirm: '되찾기',
       success: '성공적으로 되찾았습니다',
-      failed: '되찾기에 실패했습니다',
+      failed: '되찾기에 실패했습니다'
     },
     history: {
       section: '내역',
@@ -1465,13 +1329,13 @@ export default {
         today: '오늘',
         yesterday: '어제',
         thisMonth: '이번 달',
-        older: '이전',
+        older: '이전'
       },
       anchor: {
         today: '{{weekday}} · 오늘',
         yesterday: '{{weekday}} · 어제',
         monthSameYear: '월',
-        monthOtherYear: '{{year}}.{{month02}}',
+        monthOtherYear: '{{year}}.{{month02}}'
       },
       subLine: '{{status}} · {{time}}',
       endOfList: '모든 내역을 확인했어요.',
@@ -1479,8 +1343,8 @@ export default {
       status: {
         registered: '등록함',
         consumed: '사용됨',
-        reclaimed: '되찾음',
-      },
+        reclaimed: '되찾음'
+      }
     },
     detail: {
       unread: '안읽은 이캐시',
@@ -1488,7 +1352,7 @@ export default {
         pending: '대기중인 이캐시',
         registered: '이캐시 등록 완료',
         consumed: '이캐시 사용됨',
-        reclaimed: '이캐시 되찾기 완료',
+        reclaimed: '이캐시 되찾기 완료'
       },
       weekday: {
         sun: '일요일',
@@ -1497,13 +1361,13 @@ export default {
         wed: '수요일',
         thu: '목요일',
         fri: '금요일',
-        sat: '토요일',
+        sat: '토요일'
       },
       dateLine: {
         pending: '{{year}}년 {{month}}월 {{day}}일 {{weekday}}\n{{time}} 생성됨',
         registered: '{{year}}년 {{month}}월 {{day}}일 {{weekday}}\n{{time}}에 등록함',
         consumed: '{{year}}년 {{month}}월 {{day}}일 {{weekday}}\n{{time}}에 생성함',
-        reclaimed: '{{year}}년 {{month}}월 {{day}}일 {{weekday}}\n{{time}}에 되찾음',
+        reclaimed: '{{year}}년 {{month}}월 {{day}}일 {{weekday}}\n{{time}}에 되찾음'
       },
       amountLabel: '금액',
       feeLine: '수수료 {{fee}}',
@@ -1514,24 +1378,24 @@ export default {
         pending: '이캐시 만들기',
         registered: '이캐시 등록',
         consumed: '이캐시 사용됨',
-        reclaimed: '이캐시 되찾기',
+        reclaimed: '이캐시 되찾기'
       },
       mintLabel: {
         pending: '출금 민트',
         registered: '입금 민트',
         consumed: '발행 민트',
-        reclaimed: '입금 민트',
+        reclaimed: '입금 민트'
       },
       action: {
         forward: '이캐시 전달하기',
-        confirm: '이캐시 확인하기',
+        confirm: '이캐시 확인하기'
       },
       confirmLink: '이캐시 확인하기',
       actions: {
         qr: 'QR보기',
         copy: '복사하기',
         share: '공유하기',
-        viewRaw: '이캐시 원문 보기',
+        viewRaw: '이캐시 원문 보기'
       },
       reclaimCta: '되찾기 (수취 수수료: {{fee}})',
       raw: {
@@ -1540,15 +1404,13 @@ export default {
         unit: '단위',
         receiveFee: '수취 수수료',
         empty: '이캐시 데이터가 없습니다.',
-        easterEgg: 'ZAPPI X CASHU',
+        easterEgg: 'ZAPPI X CASHU'
       },
       qr: {
-        title: 'QR 공유',
-      },
-    },
+        title: 'QR 공유'
+      }
+    }
   },
-
-  // Token Register Flow
   tokenRegister: {
     title: '이캐시 등록하기',
     inputHeading: '이캐시를 붙여넣거나 스캔해서\n등록할 수 있어요.',
@@ -1561,10 +1423,8 @@ export default {
     swapping: '스왑 중…',
     receiveToMyMint: '내 민트로 받기',
     unknownMintHint: '모르는 민트라면 추가하지 않고\n내 민트로 받을 수도 있어요.',
-    swapFeeHint: '스왑 수수료가 들 수 있어요',
+    swapFeeHint: '스왑 수수료가 들 수 있어요'
   },
-
-  // Address Book / Contacts
   contacts: {
     title: '주소록',
     addContact: '주소록 추가',
@@ -1590,7 +1450,7 @@ export default {
       noNutzapInfo: '이 npub에 NutZap 정보가 없습니다',
       noMints: '이 npub에 등록된 민트가 없습니다',
       noRelay: '이 npub의 릴레이 정보를 찾을 수 없습니다',
-      decodeFailed: '주소를 해석할 수 없습니다',
-    },
-  },
-}
+      decodeFailed: '주소를 해석할 수 없습니다'
+    }
+  }
+} as const

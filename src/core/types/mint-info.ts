@@ -10,5 +10,6 @@ export interface MintInfoData {
   contact?: Array<{ method: string; info: string }>
   nuts?: Record<string, unknown>
   motd?: string
+  icon_url?: string
   units?: string[]
 }

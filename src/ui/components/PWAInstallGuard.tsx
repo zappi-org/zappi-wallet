@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import zappiImg from '@/assets/zappi.png'
 
 interface BeforeInstallPromptEvent extends Event {
@@ -37,6 +39,7 @@ interface PWAInstallGuardProps {
 }
 
 export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
+  const { t } = useTranslation()
   const [isInstalled, setIsInstalled] = useState(() => isPWA())
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [platform] = useState(() => getPlatform())
@@ -70,7 +73,7 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
 
   if (isInstalled) return <>{children}</>
 
-  const steps = getInstallSteps(platform, deferredPrompt !== null)
+  const steps = getInstallSteps(platform, deferredPrompt !== null, t)
 
   return (
     <div className="h-dvh bg-background flex flex-col pt-safe max-w-md mx-auto">
@@ -85,15 +88,15 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
 
         {/* Title */}
         <h1 className="text-title font-bold text-brand mb-1">ZAPPI</h1>
-        <p className="text-caption text-foreground-muted mb-8">Bitcoin eCash Wallet</p>
+        <p className="text-caption text-foreground-muted mb-8">{t('pwa.guard.subtitle')}</p>
 
         {/* Install card */}
         <div className="w-full bg-background-card rounded-2xl p-5">
           <p className="text-body font-semibold text-foreground text-center mb-1">
-            Install to Home Screen
+            {t('pwa.guard.installTitle')}
           </p>
           <p className="text-label font-medium text-foreground-muted text-center mb-5">
-            App installation is required for secure payments
+            {t('pwa.guard.installReason')}
           </p>
 
           {/* Native install button */}
@@ -102,7 +105,7 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
               onClick={handleInstall}
               className="w-full py-3.5 mb-4 bg-brand text-white font-semibold rounded-[14px] shadow-lg shadow-brand/25 active:scale-[0.98] transition-all"
             >
-              Install App
+              {t('pwa.guard.installButton')}
             </button>
           )}
 
@@ -135,7 +138,7 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
             onClick={() => setIsInstalled(true)}
             className="w-full text-label font-medium text-foreground-muted hover:text-foreground underline underline-offset-2 transition-colors"
           >
-            Skip install (dev only)
+            {t('pwa.guard.devSkip')}
           </button>
         </div>
       )}
@@ -151,26 +154,30 @@ interface InstallSteps {
   footnote?: string
 }
 
-function getInstallSteps(platform: 'ios' | 'android' | 'desktop', hasNativePrompt: boolean): InstallSteps | null {
+function getInstallSteps(
+  platform: 'ios' | 'android' | 'desktop',
+  hasNativePrompt: boolean,
+  t: TFunction,
+): InstallSteps | null {
   if (hasNativePrompt) return null
 
   if (platform === 'ios') {
     return {
-      title: 'In Safari',
+      title: t('pwa.guard.ios.title'),
       items: [
-        'Tap the Share button at the bottom',
-        'Select "Add to Home Screen"',
-        'Tap "Add" in the top right',
+        t('pwa.guard.ios.step1'),
+        t('pwa.guard.ios.step2'),
+        t('pwa.guard.ios.step3'),
       ],
     }
   }
 
   if (platform === 'android') {
     return {
-      title: 'In Chrome',
+      title: t('pwa.guard.android.title'),
       items: [
-        'Tap the menu icon in the top right',
-        'Select "Install app" or "Add to Home screen"',
+        t('pwa.guard.android.step1'),
+        t('pwa.guard.android.step2'),
       ],
     }
   }
@@ -179,31 +186,31 @@ function getInstallSteps(platform: 'ios' | 'android' | 'desktop', hasNativePromp
 
   if (browser === 'safari') {
     return {
-      title: 'In Safari',
+      title: t('pwa.guard.desktopSafari.title'),
       items: [
-        'Go to Menu Bar > "File"',
-        'Select "Add to Dock..."',
+        t('pwa.guard.desktopSafari.step1'),
+        t('pwa.guard.desktopSafari.step2'),
       ],
-      footnote: 'Or Share > Add to Dock (Sonoma+)',
+      footnote: t('pwa.guard.desktopSafari.footnote'),
     }
   }
 
   if (browser === 'edge') {
     return {
-      title: 'In Edge',
+      title: t('pwa.guard.desktopEdge.title'),
       items: [
-        'Click the ... menu in the top right',
-        '"Apps" > "Install this site as an app"',
+        t('pwa.guard.desktopEdge.step1'),
+        t('pwa.guard.desktopEdge.step2'),
       ],
     }
   }
 
   return {
-    title: 'In Chrome',
+    title: t('pwa.guard.desktopChrome.title'),
     items: [
-      'Click the menu icon in the top right',
-      '"Save and share" > "Install page as app"',
+      t('pwa.guard.desktopChrome.step1'),
+      t('pwa.guard.desktopChrome.step2'),
     ],
-    footnote: 'Or click the install icon in the address bar',
+    footnote: t('pwa.guard.desktopChrome.footnote'),
   }
 }

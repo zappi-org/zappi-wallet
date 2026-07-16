@@ -54,7 +54,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
     setIsChanging(true)
     try {
       const result = await registry.paymentAlias.changeAlias(nostrPrivkey, newUsername, '')
-      if (result.isErr()) {
+      if (result!.ok) {
         const msg = (result.error as { message?: string }).message ?? t('settings.usernameChangeFailed')
         addToast({ type: 'error', message: msg })
         return

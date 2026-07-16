@@ -23,7 +23,8 @@ export interface SettingsSliceState {
   setNostrPrivkey: (privkey: string | null) => void
   setNostrKeyPair: (pubkey: string, privkey: string) => void
   setP2pkPubkey: (pubkey: string | null) => void
-  reset: () => void
+  /** Slice-local reset called by resetAll (fixes the same-name 'reset' collision where only the last spread survived) */
+  resetSettings: () => void
 }
 
 /**
@@ -78,5 +79,5 @@ export const createSettingsSlice: StateCreator<SettingsSliceState> = (set) => ({
 
   setP2pkPubkey: (p2pkPubkey) => set({ p2pkPubkey }),
 
-  reset: () => set(initialState),
+  resetSettings: () => set(initialState),
 })

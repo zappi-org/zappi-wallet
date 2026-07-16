@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next'
 import type { DateRange } from 'react-day-picker'
 
 // ─── Types ───
@@ -42,7 +43,7 @@ export function computeDateCutoff(dateFilter: DateFilterValue): { from: number; 
 }
 
 /** Get display label for current date filter value */
-export function getDateFilterLabel(dateFilter: DateFilterValue, t: (key: string) => string): string {
+export function getDateFilterLabel(dateFilter: DateFilterValue, t: TFunction): string {
   if (dateFilter.preset) {
     if (dateFilter.preset === 'all') return t('history.periodAll')
     if (dateFilter.preset === '1w') return t('history.period1w')
@@ -61,7 +62,7 @@ export function isDateFilterActive(dateFilter: DateFilterValue): boolean {
 }
 
 /** Format date label with today/yesterday detection, M.DD fallback */
-export function formatDateGroupLabel(timestamp: number, t: (key: string, opts?: Record<string, string>) => string): string {
+export function formatDateGroupLabel(timestamp: number, t: TFunction): string {
   const date = new Date(timestamp)
   const now = new Date()
   const yesterday = new Date(now)

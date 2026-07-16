@@ -6,7 +6,7 @@ import { useTokenReclaim } from '@/ui/hooks/use-token-reclaim'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import type { PendingItem } from '@/ui/hooks/usePendingItems'
 import { isOfflineToken, isReceiveRequest, isSendToken } from '@/ui/types/pending-item-details'
-import { getLocaleCode, useFormatFiat, useFormatSats } from '@/utils/format'
+import { getLocaleCode, useFormatFiat, useFormatSats, truncateStr } from '@/utils/format'
 import { ArrowLeft, Check, Clock, Copy, Download, Loader2, QrCode, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -148,7 +148,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
     try {
       const result = await reclaimToken(item.id)
       if (result.spentByRecipient || result.alreadySpent) {
-        // 상대방이 이미 수령하거나 이미 사용됨
+        // Recipient already received it, or it was already spent
         void callbacks?.onPendingItemChanged?.()
         void onItemRemoved?.()
         onBack()
@@ -228,10 +228,6 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
         : t('mintDetail.expiresIn', { time: `${minutes}m` })
     })()
     : null
-
-  function truncateStr(s: string, max = 36) {
-    return s.length > max ? `${s.slice(0, 16)}...${s.slice(-16)}` : s
-  }
 
   function CopyableSection({ label, value, field, showQr }: {
     label: string

@@ -65,7 +65,8 @@ export interface UISliceState {
   setSupportUnreadSummary: (count: number, ticketIds: string[]) => void
   setActiveSupportTicketId: (ticketId: string | null) => void
   setUpdateAvailable: (available: boolean) => void
-  reset: () => void
+  /** Slice-local reset called by resetAll (fixes the same-name 'reset' collision where only the last spread survived) */
+  resetUI: () => void
 }
 
 /**
@@ -141,5 +142,5 @@ export const createUISlice: StateCreator<UISliceState> = (set) => ({
 
   setUpdateAvailable: (updateAvailable) => set({ updateAvailable }),
 
-  reset: () => set(initialState),
+  resetUI: () => set(initialState),
 })

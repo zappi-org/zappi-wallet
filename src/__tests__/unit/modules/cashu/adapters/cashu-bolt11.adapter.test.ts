@@ -34,6 +34,8 @@ function createMockBackend(): LightningBackend {
     }),
     redeemMintQuote: vi.fn().mockResolvedValue(undefined),
     checkMelt: vi.fn().mockResolvedValue({ state: 'PAID', preimage: 'abc123' }),
+    refreshMelt: vi.fn().mockResolvedValue({ state: 'finalized' }),
+    getMintOpStateLocal: vi.fn().mockResolvedValue(null),
     recoverPendingMelts: vi.fn().mockResolvedValue({ recovered: 2, failed: 0 }),
     recoverPendingQuotes: vi.fn().mockResolvedValue({ recovered: 0, failed: 0, expired: 0 }),
   }
@@ -169,6 +171,58 @@ describe('CashuBolt11Adapter', () => {
       const transfer = makeIncomingTransfer(Date.now() + 60_000)
 
       await expect(adapter.poll(transfer)).resolves.toBe('submitted')
+    })
+  })
+
+  // ─── poll (outgoing melt) ───
+
+  describe('poll (outgoing melt)', () => {
+    function makeOutgoingTransfer() {
+      return createPendingTransfer({
+        id: 'transfer-out-1',
+        txId: 'tx-out-1',
+        direction: 'outgoing',
+        finality: 'immediate',
+        onExpiry: 'fail',
+        transportRef: { operationId: 'melt-op-1' },
+        now: Date.now(),
+      })
+    }
+
+    it('returns settled on finalized/preimage', async () => {
+      vi.mocked(backend.checkMelt).mockResolvedValueOnce({ state: 'finalized', preimage: 'abc' })
+
+      await expect(adapter.poll(makeOutgoingTransfer())).resolves.toBe('settled')
+    })
+
+    /**
+     * Regression guard: Coco melt op state has no 'FAILED'
+     * (init|prepared|executing|pending|finalized|rolling_back|rolled_back).
+     * Old code checked only 'FAILED', so failures (rolled_back) leaked as
+     * in_transit — an active bug that recoverPendingMelts happened to mask on unlock.
+     */
+    it('returns failed on rolled_back (Coco terminal failure state)', async () => {
+      vi.mocked(backend.checkMelt).mockResolvedValueOnce({ state: 'rolled_back' })
+
+      await expect(adapter.poll(makeOutgoingTransfer())).resolves.toBe('failed')
+    })
+
+    it('returns failed on rolling_back (mid-rollback — payment did not go through)', async () => {
+      vi.mocked(backend.checkMelt).mockResolvedValueOnce({ state: 'rolling_back' })
+
+      await expect(adapter.poll(makeOutgoingTransfer())).resolves.toBe('failed')
+    })
+
+    it('returns failed when the backend reports an error (operation not found)', async () => {
+      vi.mocked(backend.checkMelt).mockResolvedValueOnce({ state: 'unknown', error: 'operation not found' })
+
+      await expect(adapter.poll(makeOutgoingTransfer())).resolves.toBe('failed')
+    })
+
+    it('returns in_transit while the melt is still pending', async () => {
+      vi.mocked(backend.checkMelt).mockResolvedValueOnce({ state: 'pending' })
+
+      await expect(adapter.poll(makeOutgoingTransfer())).resolves.toBe('in_transit')
     })
   })
 
@@ -364,6 +418,113 @@ describe('CashuBolt11Adapter', () => {
       expect(backend.recoverPendingMelts).toHaveBeenCalled()
       expect(result.recovered).toBe(2)
       expect(result.failed).toBe(0)
+    })
+  })
+
+  // ─── stuck-sweep matrix ───
+
+  describe('pollLocal (sweep pass 1 — zero-network contract)', () => {
+    function makeIncoming(expiresAt?: number) {
+      return createPendingTransfer({
+        id: 't-in',
+        txId: 'tx-in',
+        direction: 'incoming',
+        finality: 'deferred',
+        onExpiry: 'fail',
+        expiresAt,
+        transportRef: { mintUrl: 'https://mint.test', quoteId: 'q-1' },
+        now: Date.now(),
+      })
+    }
+    function makeOutgoing() {
+      return createPendingTransfer({
+        id: 't-out',
+        txId: 'tx-out',
+        direction: 'outgoing',
+        finality: 'immediate',
+        onExpiry: 'fail',
+        transportRef: { operationId: 'op-1' },
+        now: Date.now(),
+      })
+    }
+
+    it('incoming: settles from the LOCAL mint op state without checkMintQuote', async () => {
+      vi.mocked(backend.getMintOpStateLocal).mockResolvedValueOnce({ state: 'finalized' })
+
+      await expect(adapter.pollLocal(makeIncoming(Date.now() + 60_000))).resolves.toBe('settled')
+      expect(backend.checkMintQuote).not.toHaveBeenCalled()
+    })
+
+    it('incoming: local failed op → failed; untracked(null) → keeps phase', async () => {
+      vi.mocked(backend.getMintOpStateLocal).mockResolvedValueOnce({ state: 'failed' })
+      await expect(adapter.pollLocal(makeIncoming(Date.now() + 60_000))).resolves.toBe('failed')
+
+      vi.mocked(backend.getMintOpStateLocal).mockResolvedValueOnce(null)
+      const t = makeIncoming(Date.now() + 60_000)
+      await expect(adapter.pollLocal(t)).resolves.toBe(t.phase)
+    })
+
+    it('incoming: expiry short-circuits before any lookup', async () => {
+      await expect(adapter.pollLocal(makeIncoming(Date.now() - 1))).resolves.toBe('failed')
+      expect(backend.getMintOpStateLocal).not.toHaveBeenCalled()
+    })
+
+    it('outgoing: maps the LOCAL melt op state (checkMelt reads the repo)', async () => {
+      vi.mocked(backend.checkMelt).mockResolvedValueOnce({ state: 'rolled_back' })
+
+      await expect(adapter.pollLocal(makeOutgoing())).resolves.toBe('failed')
+      expect(backend.refreshMelt).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('confirmStuck (§7.3 one remote check)', () => {
+    function makeOutgoing() {
+      return createPendingTransfer({
+        id: 't-out',
+        txId: 'tx-out',
+        direction: 'outgoing',
+        finality: 'immediate',
+        onExpiry: 'fail',
+        transportRef: { operationId: 'op-1' },
+        now: Date.now(),
+      })
+    }
+
+    it('outgoing melt: refreshes REMOTE state via ops.melt.refresh — not checkMelt', async () => {
+      vi.mocked(backend.refreshMelt).mockResolvedValueOnce({ state: 'finalized' })
+
+      await expect(adapter.confirmStuck(makeOutgoing())).resolves.toBe('settled')
+      expect(backend.refreshMelt).toHaveBeenCalledWith('op-1')
+      expect(backend.checkMelt).not.toHaveBeenCalled()
+    })
+
+    it('outgoing melt: rolled_back → failed', async () => {
+      vi.mocked(backend.refreshMelt).mockResolvedValueOnce({ state: 'rolled_back' })
+
+      await expect(adapter.confirmStuck(makeOutgoing())).resolves.toBe('failed')
+    })
+
+    it('outgoing melt: a refresh failure throws — mapping it to failed would be a funds bug', async () => {
+      vi.mocked(backend.refreshMelt).mockRejectedValueOnce(new Error('mint down'))
+
+      await expect(adapter.confirmStuck(makeOutgoing())).rejects.toThrow('mint down')
+    })
+
+    it('incoming: delegates to poll (remote check via checkPayment)', async () => {
+      vi.mocked(backend.checkMintQuote).mockResolvedValueOnce({ state: 'ISSUED' })
+      const transfer = createPendingTransfer({
+        id: 't-in',
+        txId: 'tx-in',
+        direction: 'incoming',
+        finality: 'deferred',
+        onExpiry: 'fail',
+        expiresAt: Date.now() + 60_000,
+        transportRef: { mintUrl: 'https://mint.test', quoteId: 'q-1' },
+        now: Date.now(),
+      })
+
+      await expect(adapter.confirmStuck(transfer)).resolves.toBe('settled')
+      expect(backend.checkMintQuote).toHaveBeenCalledWith('https://mint.test', 'q-1')
     })
   })
 })

@@ -7,7 +7,7 @@ import {
   type RouteSelection,
 } from "@/core/domain/routing";
 import type { EventBus } from "@/core/events/event-bus";
-import { BaseError, UnknownError } from "@/core/errors";
+import { BaseError, ServiceNotReadyError, UnknownError } from "@/core/errors";
 import type { LnurlGateway } from "@/core/ports/driven/lnurl-gateway.port";
 import type { PaymentDeliveryPort } from "@/core/ports/driven/payment-delivery.port";
 import type { RouteExecutionStore } from "@/core/ports/driven/route-execution-store.port";
@@ -19,7 +19,7 @@ import type { RouteExecutionUseCase } from "@/core/ports/driving/route-execution
 
 import { TransferLifecycleService } from "@/core/services/transfer-lifecycle.service";
 
-import { err, ok, type Result } from "@/core/types";
+import { Err, Ok, type Result } from "@/core/domain/result";
 
 export class RouteExecutionService implements RouteExecutionUseCase {
   constructor(
@@ -42,7 +42,7 @@ export class RouteExecutionService implements RouteExecutionUseCase {
       switch (selection.route) {
         case PaymentRoute.TOKEN_TRANSFER:
         case PaymentRoute.OWN_MINT_TOKEN:
-          return ok(
+          return Ok(
             await this.executeTokenSendFlow(
               selection.sourceMintUrl,
               selection,
@@ -53,17 +53,17 @@ export class RouteExecutionService implements RouteExecutionUseCase {
         case PaymentRoute.LN_INTERNAL:
         case PaymentRoute.LN_CROSS_MINT:
         case PaymentRoute.MELT_TO_LN:
-          return ok(await this.executeMeltToLn(selection, context));
+          return Ok(await this.executeMeltToLn(selection, context));
 
         case PaymentRoute.MINT_AND_DM:
-          return ok(await this.executeMintAndDm(selection, context));
+          return Ok(await this.executeMintAndDm(selection, context));
 
         case PaymentRoute.CANNOT_SEND:
         default:
-          return err(new UnknownError("Cannot determine payment route"));
+          return Err(new UnknownError("Cannot determine payment route"));
       }
     } catch (error) {
-      return err(toBaseError(error));
+      return Err(toBaseError(error));
     }
   }
 
@@ -76,7 +76,7 @@ export class RouteExecutionService implements RouteExecutionUseCase {
       throw new UnknownError("Failed to resolve invoice");
     }
     if (!this.transferLifecycle) {
-      throw new Error("TransferLifecycleService not available");
+      throw new ServiceNotReadyError("TransferLifecycleService");
     }
     const transfer = await this.transferLifecycle.initiateTransfer(
       {

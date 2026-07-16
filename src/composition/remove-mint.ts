@@ -1,4 +1,5 @@
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
+import { isSameMintUrl } from '@/core/domain/mint-url'
 
 interface RemoveMintArtifactsDeps {
   txRepo: TransactionRepository
@@ -7,24 +8,18 @@ interface RemoveMintArtifactsDeps {
   now?: () => number
 }
 
-function normalizeMintUrl(mintUrl: string): string {
-  return mintUrl.endsWith('/') ? mintUrl.slice(0, -1) : mintUrl
-}
-
-function isSameMintUrl(left: string, right: string): boolean {
-  return normalizeMintUrl(left) === normalizeMintUrl(right)
-}
-
 export async function removeMintArtifacts(
   deps: RemoveMintArtifactsDeps,
   mintUrl: string,
 ): Promise<void> {
-  const normalizedMintUrl = normalizeMintUrl(mintUrl)
+  // Wire/storage paths (SDK removal, local cleanup) preserve the existing slash-strip
+  // semantics — mintUrlKey (lowercasing, etc.) is comparison-only and must not leak into storage keys.
+  const normalizedMintUrl = mintUrl.endsWith('/') ? mintUrl.slice(0, -1) : mintUrl
   const now = deps.now?.() ?? Date.now()
 
   const allTransactions = await deps.txRepo.findAll()
   const pendingTransactions = allTransactions.filter(
-    (tx) => tx.status === 'pending' && isSameMintUrl(tx.accountId, normalizedMintUrl),
+    (tx) => tx.status === 'pending' && isSameMintUrl(tx.accountId, mintUrl),
   )
 
   await Promise.all(

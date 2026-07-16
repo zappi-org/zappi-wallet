@@ -156,6 +156,11 @@ export function formatTransactionFiat(
   return liveFiatFormatter(amountSats)
 }
 
+/** Middle-ellipsis truncation for long strings where head and tail matter (hashes, tokens, URLs). */
+export function truncateStr(s: string, max = 36): string {
+  return s.length > max ? `${s.slice(0, 16)}...${s.slice(-16)}` : s
+}
+
 // ── Locale + date helpers ──
 
 const LOCALE_MAP: Record<string, string> = {

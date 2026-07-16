@@ -3,11 +3,9 @@ import { useAppStore } from '@/store'
 import i18n from '@/i18n'
 import { generateMintAliases } from '@/utils/mint-name'
 
-// Lightweight imports only — no heavy services, hooks, or screens
-import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
-import { getCocoManager } from '@/modules/cashu'
-import { createSecurityService } from '@/composition/security'
-import { DexieSettingsRepository as SettingsRepository } from '@/adapters/storage/dexie/dexie-settings.repository'
+// Lightweight imports only — no heavy services, hooks, or screens.
+// Adapter/module wiring belongs to composition/onboarding.ts
+import { createOnboardingServices, createOnboardingProfileService } from '@/composition/onboarding'
 import { OnboardingScreen } from '@/ui/screens/Onboarding/OnboardingScreen'
 
 // Lazy-load the main app (heavy: all services, hooks, screens)
@@ -23,14 +21,7 @@ function App() {
   const [isOnboarded, setIsOnboarded] = useState<boolean | null>(null)
 
   // Services (lightweight only)
-  const [services] = useState(() => {
-    const security = createSecurityService()
-    return {
-      security,
-      settingsRepo: new SettingsRepository(),
-      p2pkKeyManager: new CocoP2PKKeyManager(async () => (await getCocoManager()).keyring),
-    }
-  })
+  const [services] = useState(() => createOnboardingServices())
 
   // Check if wallet exists (determines onboarding vs main app)
   useEffect(() => {
@@ -64,7 +55,7 @@ function App() {
         data.password
       )
 
-      if (result.isErr()) {
+      if (!result.ok) {
         console.error('[Onboarding] Wallet creation failed:', result.error)
         return false
       }
@@ -79,12 +70,12 @@ function App() {
       // Get current settings for mints/relays
       const currentSettings = await services.settingsRepo.getSettings()
 
-      // Phase 2: Create profile service with NostrGateway
-      const { NostrGatewayAdapter } = await import('@/adapters/nostr/nostr-gateway')
-      const { createProfileService } = await import('@/composition/profile')
-      const nostrGateway = new NostrGatewayAdapter({ privateKeyHex: result.value.keys.privateKey })
-      await nostrGateway.connect(currentSettings.relays)
-      const profile = createProfileService(nostrGateway, services.settingsRepo)
+      // Phase 2: Create profile service with NostrGateway (dynamic import — composition-owned)
+      const profile = await createOnboardingProfileService({
+        privateKeyHex: result.value.keys.privateKey,
+        relays: currentSettings.relays,
+        settingsRepo: services.settingsRepo,
+      })
 
       // NEW WALLET MODE: Fetch ZS config, save settings, publish profile.
       // Fresh installs intentionally cannot import an existing wallet here;

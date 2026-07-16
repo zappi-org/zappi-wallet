@@ -1,5 +1,112 @@
 # zappi-wallet
 
+## 0.3.0
+
+### Minor Changes
+
+- 6160904: refactor: bottom-sheet QR scanner modal with paste/upload buttons
+- 627fef6: Add balance hide toggle on the home screen, a profile bottom sheet in the top-left corner, and split the wallet recovery menu into distinct flows.
+- 627fef6: Auto-restore seed when adding a mint and validate new mints through a fresh network probe instead of the registered-only cache.
+- 627fef6: Strengthen key derivation (PBKDF2 600k iterations with automatic re-encryption migration on unlock), add inactivity auto-lock, and perform a complete account-data wipe on logout.
+
+### Patch Changes
+
+- 627fef6: Improve network synchronization, transfer recovery, diagnostics, and customer-support attachment interoperability.
+- 627fef6: Split the bootstrap monolith into focused modules, unify domain error contracts and hex conversion, and remove dead code and unused dependencies (R2 audit compliance).
+- 627fef6: Replace remaining hardcoded UI strings with i18n keys and fill locale gaps across Japanese, Spanish, and Indonesian.
+- 737be2c: chore:migrate ts6 from 5
+
+## 0.2.0
+
+### Minor Changes
+
+- 17d4a39: feat(send): disable P2PK locking for nostr direct token transfers
+
+  - Remove P2PK locking condition from RouteExecutionService token send flow
+  - Nostr direct payments now send plain ecash tokens instead of P2PK-locked tokens
+
+- c9bfe8c: feat: migrate to latest coco SDK and refine wallet UI
+
+  - Migrate cashu module to updated coco SDK internals
+  - Redesign bottom TabToolbar: EcashPill, WalletPillIcon, WalletTabPicker, MainTabToolbar
+  - Add MintCard balance/activity summary card
+  - Improve reclaim service with `markSendClaimed` helper and `finalizeSend` error handling
+  - Remove direct `getDecodedToken` usage from Nut18HttpPoller; inject `decodeToken` callback
+  - Update NostrPaymentTransport eventId trace compatibility
+  - Update vite config, package.json dependencies
+
+- 17d4a39: feat: replace GiftWrapWatcher with TLS-based NostrIncomingWatcher
+
+  - Move trust check, review queue, 5-format parsing into NostrIncomingWatcher
+  - Add ProcessedStore deduplication to prevent duplicate processing
+  - Handle POS delivery ACK in GiftWrapSettlementBridge on settled transfers
+  - Remove obsolete GiftWrapWatcher and its test
+
+- feat(og): add domain-aware Open Graph/Twitter card for bot crawlers
+
+  Serve bot.html with OG/Twitter meta tags and /og-open-beta.png only to crawler User-Agents,
+  while keeping the PWA bundle free of the OG image. Support wallet.zappi.space,
+  wallet-staging.zappi.space, and wallet-nightly.zappi.space via nginx sub_filter.
+
+- 8305b06: feat: unify all payment flows under TransferLifecycleService
+
+  - bolt11 send/receive and ecash creation/registration now route through TransferLifecycleService
+  - single source of truth for transfer state from initiation to settlement
+  - TransferTxBridge links every protocol path to TransactionRepository automatically
+
+- 12aaffc: add mint-op:finalized to transfer SDK bridge and suppress Coco SDK logs in production
+- 6159475: feat(send): add camera shortcut to home with direct confirm entry.
+  Pre-validate scans at app level so bolt11/cashu-request with amount
+  skip the destination step. Add inline mint selector to confirm screen,
+  paste button to scanner view, and default mint injection.
+
+### Patch Changes
+
+- e7d7a29: fix(send): stop using bolt11 description as recipient display
+- 384a569: fix: add missing event receive:settled publish from cashu-ecash.adapter.ts
+- e2cdd7f: i18n: rename Ecash tab bottom action button labels to 만들기/받기 (Create/Receive) across all locales (ko/en/ja/id/es)
+- dbf0cbf: fix: show address book contact name in send flow for cashu requests
+- 6d67cc4: Plumb memo from token parsing to transaction creation in the ecash receive flow.
+- 57e51ea: Stop NUT-18 HTTP and bolt11 mint pollers from hitting the mint after expiry (local deadline / SDK `EXPIRED` throw).
+- 17d4a39: fix: record incoming ecash redeem fee and display gross amount
+
+  - Capture receiveToken result (amount/fee/mintUrl/memo) in CashuEcashAdapter transportRef
+  - Store effective swap fee on incoming ecash Transaction
+  - Use gross token amount as transaction amount with fee shown separately
+
+- 549b2d3: Incoming payments no longer show duplicate toasts. All incoming paths now produce a single toast via transfer:settled with the appropriate per-protocol message (ecash: "Ecash token received", bolt11: "Lightning payment arrived"). Recovery sync and real-time watcher now share a dedup store to avoid overlap.
+- cbf58a4: fix(send): back-navigation loses contact context for Nostr contacts
+
+  - Restore rawAddressRef from validatedData on remount to prevent
+    "Unrecognized address" error after going back from amount step
+  - Derive detectedTypes from validatedData.request for Nostr npub/nprofile
+    to show "Nostr DM" badge instead of "Cashu Request"
+  - Fix contact name lookup on amount step: use validatedData.request
+    (npub) instead of destination (display name) for cashu-request type
+
+- 17d4a39: fix: record outgoing ecash/P2PK send fee and display in transaction detail
+
+  - Store prepared send fee in CashuEcashAdapter transportRef
+  - Persist send fee into Transaction.fee in TransferTxBridge
+  - Add "Ecash Send: Fee Info" section to TransactionDetailScreen
+
+- 17d4a39: fix: persist PendingTransfer.amount in IndexedDB
+
+  - Add amount column to Dexie PendingTransfer schema
+  - Save/restore/update amount in DexiePendingTransferStore
+  - Bump IndexedDB version to 19
+
+- b82ed51: fix(send): unify effectiveDisplayName derivation across all send steps
+- c9bfe8c: fix: refine bottom tab styling after UI migration
+
+  - Adjust EcashPill, MainTabToolbar, WalletPillIcon, WalletTabPicker minor style details
+  - Clean up MintCard layout
+
+- ec37084: Fix memo extraction from cashuA/cashuB tokens and UTF-8/base64url decoding in domain parser; persist outgoing memo in transportRef for retry-safe token creation.
+- da32b76: replace TLS polling with Coco SDK push events, reducing network calls 6×
+- 58385d8: refactor(send): inline getConfirmDisplayInfo into sendDisplayHelpers, remove sendConfirmDisplay.ts
+- ec7f59a: fix: show ecash toast on token redeem instead of lightning toast
+
 ## 0.1.3
 
 ### Patch Changes

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { TFunction } from 'i18next'
 
 import { PaymentRoute } from '@/core/domain/routing'
 import {
@@ -10,10 +11,10 @@ import {
 } from '@/ui/screens/Send/sendDisplayHelpers'
 import type { ValidatedBolt11, ValidatedCashuRequest } from '@/core/domain/input-types'
 
-const t = (key: string) => {
+const t = ((key: string) => {
   if (key === 'send.confirm.lightningInvoice') return 'Lightning 인보이스'
   return key
-}
+}) as unknown as TFunction
 
 describe('send display text', () => {
   it('does not use a Lightning invoice description as the recipient name', () => {

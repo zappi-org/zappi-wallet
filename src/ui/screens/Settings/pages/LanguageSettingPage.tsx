@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { SUPPORTED_LANGUAGES, changeLanguage, getCurrentLanguage } from '@/i18n'
-import { cn } from '@/ui/primitives/utils'
+import { cn } from '@/ui/lib/utils'
 import { SettingsDetailPage } from '../components/SettingsDetailPage'
 
 interface LanguageSettingPageProps {

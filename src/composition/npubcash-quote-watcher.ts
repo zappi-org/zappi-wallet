@@ -25,7 +25,7 @@ export function createNpubcashQuoteWatcher(
   const emitSettled = async (q: PaidQuote) => {
     if (emittedThisSession.has(q.quoteId)) return
     const check = await processedQuotesRepo.isProcessed(q.quoteId)
-    if (check.isOk() && check.value) return
+    if (check.ok && check.value) return
     emittedThisSession.add(q.quoteId)
     const now = Date.now()
     eventBus.emit({
@@ -74,9 +74,9 @@ export function createNpubcashQuoteWatcher(
   const syncMissedQuotes = async (privkey: string) => {
     const signer = createSigner(privkey)
     const session = await provider.authenticate(signer)
-    if (session.isErr()) return
+    if (!session.ok) return
     const quotes = await provider.getPaidQuotes(session.value)
-    if (quotes.isErr()) return
+    if (!quotes.ok) return
     for (const q of quotes.value) {
       await handleQuote(q)
     }
@@ -103,9 +103,9 @@ export function createNpubcashQuoteWatcher(
       signer,
       async (quoteId) => {
         const session = await provider.authenticate(signer)
-        if (session.isErr()) return
+        if (!session.ok) return
         const quotes = await provider.getPaidQuotes(session.value)
-        if (quotes.isErr()) return
+        if (!quotes.ok) return
         for (const q of quotes.value) {
           if (q.quoteId === quoteId) {
             await handleQuote(q)
@@ -123,7 +123,7 @@ export function createNpubcashQuoteWatcher(
         setTimeout(() => { internalReconnect() }, reconnectDelay)
       },
     )
-    if (result.isOk()) {
+    if (result.ok) {
       unsubscribe = result.value
       console.log('[NpubcashQuoteWatcher] WS subscription established')
     } else {
@@ -160,12 +160,12 @@ export function createNpubcashQuoteWatcher(
       }
       const signer = createSigner(privkey)
       const session = await provider.authenticate(signer)
-      if (session.isErr()) {
+      if (!session.ok) {
         console.log('[NpubcashQuoteWatcher] start() skipped — auth failed')
         return
       }
       const info = await provider.getAccountInfo(session.value)
-      if (info.isErr() || !info.value.alias) {
+      if (!info.ok || !info.value.alias) {
         console.log('[NpubcashQuoteWatcher] start() skipped — no alias registered')
         return
       }

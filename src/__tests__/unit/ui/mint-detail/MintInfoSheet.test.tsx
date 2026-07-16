@@ -28,6 +28,12 @@ vi.mock('@/ui/components/common/BottomSheet', () => ({
   ),
 }))
 
+vi.mock('@/ui/hooks/use-service-registry', () => ({
+  useServiceRegistry: () => ({
+    mintInfo: { getInfo: vi.fn().mockResolvedValue(null) },
+  }),
+}))
+
 vi.mock('@/ui/screens/MintDetail/MintUrlQrModal', () => ({
   MintUrlQrModal: () => null,
 }))
