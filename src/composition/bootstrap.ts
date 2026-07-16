@@ -24,6 +24,7 @@ import { connectStoreBridges } from "./bootstrap-store-bridges";
 import { createLifecycle } from "./bootstrap-lifecycle";
 import { assembleIncomingPipeline } from "./bootstrap-incoming";
 import { assembleFacadeServices } from "./bootstrap-facades";
+import { assembleNpubcashWatcher } from "./bootstrap-npubcash";
 
 // ─── Remaining inline wiring (P2PK, cleanup, exchange rate, diagnostics) ───
 import { CocoP2PKKeyManager } from "@/adapters/crypto/p2pk-key-manager.adapter";
@@ -109,6 +110,9 @@ export interface BootstrapResult extends ServiceRegistry {
 
   // ─── Nostr incoming watcher ───
   readonly nostrIncomingWatcher: NostrIncomingWatcher;
+
+  // ─── Npubcash quote watcher ───
+  readonly npubcashQuoteWatcher: { start(): Promise<void>; stop(): void; syncNow(): Promise<void> };
 
   // ─── P2PK, offline token ───
   readonly p2pkKeyManager: { getCurrentKey(): Promise<{ pubkey: string }> };
@@ -223,9 +227,11 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   });
 
   // 8. Lifecycle (activate/onResume/onPause/dispose — definitions only, no side effects).
-  // mintHealth/reclaim/nostrIncomingWatcher are created below in 9~13 — pass the
-  // original TDZ-safe closure captures explicitly as lazy getter args (same deref
-  // at call time).
+  // mintHealth/reclaim/nostrIncomingWatcher/npubcashQuoteWatcher are created below in
+  // 9~13 — pass the original TDZ-safe closure captures explicitly as lazy getter args
+  // (same deref at call time).
+  let npubcashQuoteWatcher: { start(): Promise<void>; stop(): void; syncNow(): Promise<void> }
+
   const { activate, onResume, onPause, dispose } = createLifecycle({
     nostrPrivateKeyHex: deps.nostrPrivateKeyHex,
     killSwitches,
@@ -238,6 +244,7 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     getMintHealth: () => mintHealth,
     getReclaim: () => reclaim,
     getNostrIncomingWatcher: () => nostrIncomingWatcher,
+    getNpubcashQuoteWatcher: () => npubcashQuoteWatcher,
   });
 
   // 9~11. Shared dedup store + Nostr incoming watcher + receive services
@@ -276,6 +283,8 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     nostrDirectPayment,
     externalWalletRecovery,
     support,
+    npubcashAdapter,
+    routePaymentOperator,
   } = assembleFacadeServices({
     killSwitches,
     eventBus,
@@ -294,6 +303,16 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
     externalMnemonicRecovery,
     bip39Seed: deps.bip39Seed,
   });
+
+  // 13b. Npubcash quote watcher (WS push + HTTP catch-up for Lightning Address receipts)
+  const assembled = assembleNpubcashWatcher({
+    npubcashAdapter,
+    routePaymentOperator,
+    eventBus,
+  })
+  npubcashQuoteWatcher = assembled.npubcashQuoteWatcher;
+
+  // 8. Lifecycle — needs npubcashQuoteWatcher (lazy getter, created above)
 
   return {
     // ─── ServiceRegistry (driving ports only) ───
@@ -375,6 +394,9 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
 
     // Nostr incoming watcher
     nostrIncomingWatcher,
+
+    // Npubcash quote watcher
+    npubcashQuoteWatcher,
 
     // P2PK + offline token
     p2pkKeyManager,

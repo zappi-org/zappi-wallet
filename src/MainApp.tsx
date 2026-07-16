@@ -230,6 +230,7 @@ export default function MainApp() {
     await refreshAndRecover()
     serviceRegistry.mintHealth.checkAllMints(settings.mints).catch(() => { })
     serviceRegistry.exchangeRate.refreshIfStale().catch(() => { })
+    serviceRegistry.npubcashQuoteWatcher.syncNow().catch(() => { })
   }, [serviceRegistry, refreshAndRecover, settings.mints])
 
   /** Home camera shortcut — pre-validate and skip the destination step.
@@ -859,10 +860,6 @@ export default function MainApp() {
         onRelayManagement={() => {
           setPreviousScreen('settings')
           setCurrentScreen('relay-management')
-        }}
-        onChangeUsername={() => {
-          setPreviousScreen('settings')
-          setCurrentScreen('username-change')
         }}
         onTransfer={() => {
           setPreviousScreen('settings')

@@ -55,6 +55,7 @@ export function createLifecycle(deps: {
   getMintHealth: () => MintHealthFacadeService;
   getReclaim: () => ReclaimService;
   getNostrIncomingWatcher: () => NostrIncomingWatcher;
+  getNpubcashQuoteWatcher: () => { start(): Promise<void>; stop(): void; syncNow(): Promise<void> };
 }) {
   const {
     nostrPrivateKeyHex,
@@ -68,6 +69,7 @@ export function createLifecycle(deps: {
     getMintHealth,
     getReclaim,
     getNostrIncomingWatcher,
+    getNpubcashQuoteWatcher,
   } = deps;
 
   let netCounterFlusherStop: (() => void) | null = null;
@@ -250,6 +252,9 @@ export function createLifecycle(deps: {
     // Start the Nostr incoming watcher (once, after app unlock)
     getNostrIncomingWatcher().start(derivePublicKey(nostrPrivateKeyHex));
 
+    // Start the Npubcash quote watcher (WS push + HTTP catch-up)
+    getNpubcashQuoteWatcher().start();
+
     // TLS: on app start, recover active transfers and start monitoring
     transferLifecycle.recoverTransfers().catch(console.error);
     wireTransferSweepSignals();
@@ -300,6 +305,10 @@ export function createLifecycle(deps: {
     // Restart the Nostr incoming watcher (the key may have changed)
     getNostrIncomingWatcher().stop();
     getNostrIncomingWatcher().start(derivePublicKey(nostrPrivateKeyHex));
+
+    // Restart the Npubcash quote watcher
+    getNpubcashQuoteWatcher().stop();
+    getNpubcashQuoteWatcher().start();
   };
 
   const onPause = async () => {
@@ -337,6 +346,7 @@ export function createLifecycle(deps: {
       transferSweepWiringStop();
     }
     getNostrIncomingWatcher().stop();
+    getNpubcashQuoteWatcher().stop();
     void nostrGateway.disconnect();
   };
 
