@@ -222,8 +222,8 @@ export function createNpubcashQuoteWatcher(deps: {
         return
       }
       const info = await provider.getAccountInfo(session.value)
-      if (!info.ok || !info.value.alias) {
-        console.log('[NpubcashQuoteWatcher] start() skipped — no alias registered')
+      if (!info.ok) {
+        console.log('[NpubcashQuoteWatcher] start() skipped — getAccountInfo failed')
         return
       }
       console.log('[NpubcashQuoteWatcher] start() — begin (infinite retry)')
