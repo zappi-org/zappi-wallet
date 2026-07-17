@@ -22,7 +22,7 @@ import { isNostrDirectAddress } from '@/core/domain/nostr-address'
 import type { NostrDirectPaymentResolution } from '@/core/ports/driving/nostr-direct-payment.usecase'
 import type { SendableValidatedData } from '../SendFlow'
 
-const LIGHTNING_ADDRESS_RE = /^[a-z0-9_.+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i
+const LIGHTNING_ADDRESS_RE = /^[a-z0-9_.+-]+@[a-z0-9.-]+(?:\.[a-z]{2,}|:\d+)?(?::\d+)?$/i
 
 function looksLikeLightningAddress(raw: string): boolean {
   return LIGHTNING_ADDRESS_RE.test(raw.trim())
