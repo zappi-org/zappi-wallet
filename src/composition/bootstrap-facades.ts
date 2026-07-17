@@ -30,6 +30,7 @@ import { TransactionMgmtService } from "@/core/services/transaction-mgmt.service
 import { ReclaimService } from "@/core/services/reclaim.service";
 import { PaymentRequestService } from "@/core/services/payment-request.service";
 import { PaymentAliasService } from "@/core/services/payment-alias.service";
+import { ClaimStorageService } from "@/core/services/claim-storage.service";
 import { TrustRegistryService } from "@/core/services/trust-registry.service";
 import { NostrDirectPaymentService } from "@/core/services/nostr-direct-payment.service";
 import { RouteExecutionService } from "@/core/services/route-execution.service";
@@ -222,6 +223,12 @@ export function assembleFacadeServices(deps: {
     NPUBCASH_DOMAIN,
   );
 
+  const claimStorage = new ClaimStorageService(
+    npubcashAdapter,
+    (privkey: string) => new Secp256k1NostrSignerAdapter(privkey),
+    eventBus,
+  );
+
   const trustRegistry = new TrustRegistryService(settingsRepo);
   const nostrDirectPayment = new NostrDirectPaymentService(addressResolver);
   const externalWalletRecovery = new ExternalWalletRecoveryService(
@@ -253,6 +260,7 @@ export function assembleFacadeServices(deps: {
     routeExecution,
     paymentRequest,
     paymentAlias,
+    claimStorage,
     trustRegistry,
     nostrDirectPayment,
     externalWalletRecovery,

@@ -1,13 +1,15 @@
 import { useState, useCallback, useEffect } from 'react'
-import { Copy, Check, Pencil, ChevronDown } from 'lucide-react'
+import { Copy, Check, Pencil, ChevronDown, Download } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { SettingsDetailPage } from '../components/SettingsDetailPage'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { Button } from '@/ui/components/common/Button'
+import { Switch } from '@/ui/components/common/Switch'
 import { useAppStore } from '@/store'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { hapticTap } from '@/ui/utils/haptic'
 import { formatMintHost } from '@/utils/url'
+import type { ClaimStorageMode } from '@/core/ports/driven/payment-alias-provider.port'
 import ChangeUsernameSheet from '../ChangeUsernameSheet'
 
 interface LightningDetailPageProps {
@@ -28,12 +30,20 @@ export function LightningDetailPage({ onBack, onSaveSettings }: LightningDetailP
   const [changeSheetKey, setChangeSheetKey] = useState(0)
   const registry = useServiceRegistry()
 
+  const [claimStorageMode, setClaimStorageMode] = useState<ClaimStorageMode>('off')
+  const [claimStorageBalance, setClaimStorageBalance] = useState(0)
+  const [claiming, setClaiming] = useState(false)
+
   const address = settings.lightningAddress || ''
 
   useEffect(() => {
     if (!nostrPrivkey) return
     registry.paymentAlias.getAlias(nostrPrivkey).then((r) => {
-      if (r.ok) setPreferredMint(r.value.mintUrl)
+      if (r.ok) {
+        setPreferredMint(r.value.mintUrl)
+        setClaimStorageMode(r.value.claimStorageMode ?? 'off')
+        setClaimStorageBalance(r.value.claimBalance ?? 0)
+      }
     })
   }, [nostrPrivkey, registry])
 
@@ -66,6 +76,42 @@ export function LightningDetailPage({ onBack, onSaveSettings }: LightningDetailP
       addToast({ type: 'error', message: (result.error as { message?: string }).message ?? t('settings.mintChangeFailed') })
     }
   }, [nostrPrivkey, registry, addToast, updateSettings, t])
+
+  const handleClaimStorageToggle = useCallback(async (enabled: boolean) => {
+    if (!nostrPrivkey) return
+    const nextMode: ClaimStorageMode = enabled ? 'on_expire' : 'off'
+    const result = await registry.claimStorage.setClaimStorageMode(nostrPrivkey, nextMode)
+    if (result.ok) {
+      setClaimStorageMode(result.value)
+      addToast({ type: 'success', message: enabled ? t('settings.claimStorageEnabled') : t('settings.claimStorageDisabled') })
+    } else {
+      addToast({ type: 'error', message: (result.error as { message?: string }).message ?? t('common.error') })
+    }
+  }, [nostrPrivkey, registry, addToast, t])
+
+  const handleClaim = useCallback(async () => {
+    if (!nostrPrivkey || claiming) return
+    setClaiming(true)
+    try {
+      const result = await registry.claimStorage.getClaim(nostrPrivkey)
+      if (result.ok) {
+        for (const { token } of result.value.tokens) {
+          try {
+            await registry.payment.redeem({ input: token })
+          } catch {
+            // skip individual token redeem failures
+          }
+        }
+        addToast({ type: 'success', message: t('settings.claimSuccess', { count: result.value.totalCount }) })
+        const bal = await registry.claimStorage.getBalance(nostrPrivkey)
+        if (bal.ok) setClaimStorageBalance(bal.value)
+      } else {
+        addToast({ type: 'error', message: (result.error as { message?: string }).message ?? t('settings.claimFailed') })
+      }
+    } finally {
+      setClaiming(false)
+    }
+  }, [nostrPrivkey, claiming, registry, addToast, t])
 
   return (
     <>
@@ -118,6 +164,36 @@ export function LightningDetailPage({ onBack, onSaveSettings }: LightningDetailP
                   {formatMintHost(mintUrl)}
                 </button>
               ))}
+            </div>
+          )}
+        </div>
+
+        <div className="w-full max-w-[320px] mt-6 border-t border-border pt-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-body font-medium text-foreground">{t('settings.claimStorageTitle')}</p>
+              <p className="text-caption text-foreground-muted mt-0.5">{t('settings.claimStorageDesc')}</p>
+            </div>
+            <Switch
+              checked={claimStorageMode === 'on_expire'}
+              onChange={handleClaimStorageToggle}
+            />
+          </div>
+
+          {claimStorageBalance > 0 && (
+            <div className="flex items-center justify-between mt-4 bg-foreground/[0.04] rounded-xl px-4 py-3">
+              <span className="text-body text-foreground">
+                {t('settings.claimStorageStoredBalance')}: {claimStorageBalance.toLocaleString()} sats
+              </span>
+              <Button
+                variant="brand"
+                size="sm"
+                onClick={handleClaim}
+                disabled={claiming}
+              >
+                <Download className="w-4 h-4 mr-1.5" />
+                {claiming ? t('common.processing') : t('settings.claimNow')}
+              </Button>
             </div>
           )}
         </div>

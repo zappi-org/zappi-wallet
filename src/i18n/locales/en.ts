@@ -347,6 +347,16 @@ export default {
     paymentFailed: 'Payment failed. Please select a different mint',
     noPayableMint: 'No mint has sufficient balance to cover the change fee',
 
+    // Claim Storage (experimental)
+    claimStorageTitle: 'Auto-store on Expiry',
+    claimStorageDesc: 'Automatically claim and store ecash before quotes expire',
+    claimStorageEnabled: 'Auto-store enabled',
+    claimStorageDisabled: 'Auto-store disabled',
+    claimStorageStoredBalance: 'Stored Ecash',
+    claimNow: 'Claim',
+    claimSuccess: 'Claimed {{count}} token(s)',
+    claimFailed: 'Claim failed',
+
     // Security
     security: 'Security',
     securityDesc: 'PIN, Face ID, Auto Lock',

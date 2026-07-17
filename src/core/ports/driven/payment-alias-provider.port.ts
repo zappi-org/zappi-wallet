@@ -11,6 +11,8 @@ export interface AccountInfo {
   domain: string
   mintUrl: string
   lockQuote: boolean
+  claimStorageMode: ClaimStorageMode
+  claimBalance: number
 }
 
 export interface AliasResult {
@@ -27,6 +29,13 @@ export interface PaidQuote {
   expiry: number
 }
 
+export type ClaimStorageMode = 'off' | 'on_expire'
+
+export interface ClaimResult {
+  tokens: Array<{ mint: string; token: string; count: number }>
+  totalCount: number
+}
+
 export interface PaymentAliasProvider {
   authenticate(signer: import('./nostr-signer.port').NostrSigner): Promise<Result<AuthSession, BaseError>>
   getAccountInfo(session: AuthSession): Promise<Result<AccountInfo, BaseError>>
@@ -39,4 +48,13 @@ export interface PaymentAliasProvider {
     onQuoteId: (quoteId: string) => void,
     onDisconnect?: () => void,
   ): Promise<Result<() => void, BaseError>>
+
+  /** @experimental Get total unclaimed fallback balance in satoshis. */
+  getBalance(session: AuthSession): Promise<Result<number, BaseError>>
+  /** @experimental Withdraw ready fallback claims as Cashu tokens grouped by mint. */
+  getClaim(session: AuthSession): Promise<Result<ClaimResult, BaseError>>
+  /** @experimental Get current claim-storage mode. */
+  getClaimStorageMode(session: AuthSession): Promise<Result<ClaimStorageMode, BaseError>>
+  /** @experimental Set claim-storage mode. */
+  setClaimStorageMode(session: AuthSession, mode: ClaimStorageMode): Promise<Result<ClaimStorageMode, BaseError>>
 }
