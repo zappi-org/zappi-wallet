@@ -70,7 +70,6 @@ export function SettingsScreen({
   onSaveSettings,
   onMintManagement,
   onRelayManagement,
-  onTransfer,
   onAnalytics,
   onSubPageChange,
 }: SettingsScreenProps) {

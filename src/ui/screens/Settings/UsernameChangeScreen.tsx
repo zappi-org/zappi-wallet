@@ -79,7 +79,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
     } finally {
       setIsCheckingPrice(false)
     }
-  }, [isUsernameValid, isCheckingPrice, nostrPrivkey, newUsername, registry, addToast, t])
+  }, [isUsernameValid, isCheckingPrice, nostrPrivkey, newUsername, registry, addToast, t, executeChange])
 
   const executeChange = useCallback(async () => {
     if (!nostrPrivkey) return

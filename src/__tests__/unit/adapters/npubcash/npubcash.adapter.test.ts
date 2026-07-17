@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NpubcashAdapter } from '@/adapters/npubcash/npubcash.adapter'
-import { NpubcashAuthError, NpubcashApiError } from '@/core/errors/npubcash'
+import { NpubcashApiError } from '@/core/errors/npubcash'
 import type { NostrSigner } from '@/core/ports/driven/nostr-signer.port'
 
 const BASE_URL = 'http://localhost:8000'

@@ -109,7 +109,7 @@ export class NpubcashAdapter implements PaymentAliasProvider {
     )
 
     if (!result.ok) {
-      console.log('[npubcash] purchaseAliasWithToken error:', { message: result.error.message, code: (result.error as any).code })
+      console.log('[npubcash] purchaseAliasWithToken error:', { message: result.error.message, code: (result.error as { code?: number }).code })
       return result
     }
 
@@ -149,7 +149,7 @@ export class NpubcashAdapter implements PaymentAliasProvider {
         try {
           const body = await res.json() as NpubcashResponse<unknown>
           if (body.message) message = body.message
-        } catch {}
+        } catch { /* noop */ }
         return Err(new NpubcashApiError(res.status, message))
       }
 
@@ -264,10 +264,10 @@ export class NpubcashAdapter implements PaymentAliasProvider {
             if (msg.type === 'update') {
               onQuoteId(msg.payload.quoteId)
             }
-          } catch {}
+          } catch { /* noop */ }
         }
 
-        ws.onclose = (event) => {
+        ws.onclose = (_event) => {
           clearInterval(pingInterval!)
           pingInterval = null
           currentWs = null
@@ -286,7 +286,7 @@ export class NpubcashAdapter implements PaymentAliasProvider {
         currentWs?.close()
         currentWs = null
       })
-    } catch (e) {
+    } catch (_e) {
       return Err(new NpubcashApiError(500, 'Failed to connect to quote stream'))
     }
   }
@@ -380,7 +380,7 @@ export class NpubcashAdapter implements PaymentAliasProvider {
         try {
           const body = await res.json() as NpubcashResponse<unknown>
           if (body.message) message = body.message
-        } catch {}
+        } catch { /* noop */ }
         console.log('[npubcash] fetchJson non-OK:', { url, status: res.status, message })
         return Err(new NpubcashApiError(res.status, message))
       }
@@ -393,7 +393,7 @@ export class NpubcashAdapter implements PaymentAliasProvider {
       } catch {
         console.log('[npubcash] fetchJson JSON parse error:', { url, contentType, status: res.status })
         let bodyPreview = ''
-        try { bodyPreview = await res.clone().text().catch(() => ''); console.log('[npubcash] fetchJson body:', bodyPreview.slice(0, 200)) } catch {}
+        try { bodyPreview = await res.clone().text().catch(() => ''); console.log('[npubcash] fetchJson body:', bodyPreview.slice(0, 200)) } catch { /* noop */ }
         return Err(new NpubcashApiError(res.status, `Invalid JSON response (content-type: ${contentType})`))
       }
     } catch (e) {

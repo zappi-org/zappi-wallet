@@ -84,7 +84,7 @@ export class DirectLnurlAdapter implements LnurlGateway {
       try {
         res = await fetch(url, { signal: AbortSignal.timeout(this.timeout) })
         if (res.ok) break
-      } catch {}
+      } catch { /* noop */ }
     }
     if (!res || !res.ok) throw new Error('Failed to resolve Lightning Address')
 
