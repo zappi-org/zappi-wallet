@@ -6,7 +6,7 @@
  */
 
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
-import { normalizePubkey } from './internal/nostr-crypto'
+import { normalizePubkey, extractRelaysFromNprofile } from './internal/nostr-crypto'
 import type {
   OutgoingPaymentTransport,
   OutgoingPaymentParams,
@@ -62,12 +62,21 @@ export class NostrPaymentTransport implements OutgoingPaymentTransport {
   }
 
   /**
-   * 수신자 DM 릴레이 탐색
-   * kind:10050 (DM Relay List)만 실제 전송 릴레이로 사용한다.
-   * nprofile relay hint나 로컬 기본 릴레이는 최신 수신 릴레이 보장이 없으므로 fallback하지 않는다.
+   * 수신자 DM 릴레이 탐색 — 3-tier fallback:
+   * 1. nprofile relay hint (NIP-19 nprofile에 인코딩된 relays)
+   * 2. kind:10050 DM Relay List
+   * 3. 로컬 연결된 릴레이 (getRelayStatus)
    */
   private async resolveRelays(recipientPubkey: string): Promise<string[]> {
     const recipientHex = normalizePubkey(recipientPubkey)
+
+    // ── 1. nprofile relay hints ──
+    const nprofileRelays = extractRelaysFromNprofile(recipientPubkey)
+    if (nprofileRelays.length > 0) {
+      return nprofileRelays
+    }
+
+    // ── 2. kind:10050 DM Relay List ──
     if (recipientHex) {
       try {
         const events = await this.nostrGateway.queryEvents([
@@ -86,6 +95,16 @@ export class NostrPaymentTransport implements OutgoingPaymentTransport {
       } catch (err) {
         console.warn('[NostrPaymentTransport] kind:10050 lookup failed:', err)
       }
+    }
+
+    // ── 3. local connected relays ──
+    const localRelays = this.nostrGateway
+      .getRelayStatus()
+      .filter((r) => r.connected)
+      .map((r) => r.url)
+
+    if (localRelays.length > 0) {
+      return localRelays
     }
 
     return []
