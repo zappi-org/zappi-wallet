@@ -1,77 +1,116 @@
 /**
- * ReceiveFlow — Unified receive flow container
- * Home receive is request-first: user enters an amount, we publish a
- * Lightning invoice + NUT-18 ecash request on a unified BIP-321 QR.
+ * ReceiveFlow — unified receive conductor (mirrors SendFlow).
  *
- * amount → qr → complete
+ * A zero-tap payable address is the landing; from there the user can specify
+ * an amount (request path: Lightning invoice + NUT-18 ecash request on a
+ * unified BIP-321 QR) or directly receive a pasted/scanned cashu token
+ * (redeem path: trust routing → confirm → receipt).
  *
- * Token redeem (paste/scan cashu token) lives in TokenRegisterFlow, not here.
+ * address → request → received → complete
+ * address → redeem-confirm-{trusted,untrusted} → received → complete
  */
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useMemo } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
-import { useNetwork } from '@/ui/hooks/use-network'
-import { useAppStore } from '@/store'
 import { useTranslation } from 'react-i18next'
-import { translateError } from '@/ui/utils/error-i18n'
 
+import { toNumber } from '@/core/domain/amount'
+import type { ValidatedCashuToken, ValidatedData } from '@/core/domain/input-types'
+import type { BaseError } from '@/core/errors/base'
+import { UnknownError } from '@/core/errors/base'
+import { TokenSpentError } from '@/core/errors/cashu'
+import type { PendingIncomingReview } from '@/core/types'
+
+import { useAppStore } from '@/store'
+import { useNetwork } from '@/ui/hooks/use-network'
 import { useReceiveRequest } from '@/ui/hooks/use-receive-request'
-import { ReceiveInputStep } from './steps/ReceiveInputStep'
-import { ReceiveQRStep } from './steps/ReceiveQRStep'
+import { usePaymentRequest } from '@/ui/hooks/use-payment-request'
+import { useCrypto } from '@/ui/hooks/use-crypto'
+import { useMintNut18Support } from '@/ui/hooks/use-mint-nut18-support'
+import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
+import { useTrustRegistry } from '@/ui/hooks/use-trust-registry'
+import { translateError } from '@/ui/utils/error-i18n'
+import { hapticError } from '@/ui/utils/haptic'
+
+import { ReceiveAddressStep } from './steps/ReceiveAddressStep'
+import { ReceiveAmountSheet } from './ReceiveAmountSheet'
+import { ReceiveRequestStep } from './steps/ReceiveRequestStep'
+import { ReceiveReceiptStep } from './steps/ReceiveReceiptStep'
 import { ReceiveCompleteStep } from './steps/ReceiveCompleteStep'
+import { RedeemSheet } from './redeem/RedeemSheet'
+import { ConfirmTrustedStep } from './redeem/ConfirmTrustedStep'
+import { ConfirmUntrustedStep } from './redeem/ConfirmUntrustedStep'
+import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 
 // ============= Types =============
 
-export type ReceiveStep = 'amount' | 'qr' | 'complete'
+export type ReceiveStep =
+  | 'address' | 'request' | 'received' | 'complete'
+  | 'redeem-confirm-trusted' | 'redeem-confirm-untrusted'
 
-export type ReceiveMethod = 'ecash' | 'bolt11'
+/** Redeem outcome — moved here from TokenRegisterFlow (Task 9 fixes importers). */
+export interface TokenReceiveOutcome {
+  success: boolean
+  amount?: number
+  transactionId?: string
+  error?: BaseError
+}
 
-export interface ReceiveFlowState {
+/** Deep-link entry — how MainApp seeds the flow when routed from a scan/action. */
+export interface ReceiveLaunch {
+  addressTab?: 'lightning' | 'nostr'
+  redeemOpen?: boolean
+  redeemToken?: string
+}
+
+interface ReceiveFlowState {
   step: ReceiveStep
-  method: ReceiveMethod
+  addressTab: 'lightning' | 'nostr'
   selectedMintUrl: string | null
   amount: number
+  memo: string
   // Lightning
   invoice: string | null
   quoteId: string | null
-  quoteExpiry: number | null
   // Ecash (NUT-18)
   ecashRequest: string | null
   ecashRequestId: string | null
   httpEndpoint: string | null
   // Receive request entity
   receiveRequestId: string | null
-  /** Absolute deadline (epoch ms) for the underlying payment request — sourced
-   *  from the lightning quote expiry or a 30-min default. Forwarded to the
-   *  HTTP poller so it self-stops at expiry. */
+  /** Absolute deadline (epoch ms) for the underlying payment request. */
   expiresAt: number | null
-  // Result
+  // Result — stamped once at detection, never re-evaluated in render
   receivedAmount: number
-  /** True when the settled payment was verified to fulfill our ReceiveRequest. */
-  wasRequestFulfilled: boolean
+  receivedMethod: 'bolt11' | 'ecash' | 'redeem'
+  receivedAt: number
+  // Redeem
+  redeemToken: ValidatedCashuToken | null
 }
 
 export interface ReceiveFlowProps {
   onBack: () => void
   onComplete: () => void
-  // MainApp handlers
-  onCreateInvoice: (amount: number, mintUrl: string) => Promise<{
-    invoice: string
-    quoteId: string
-    expiry: number
-  } | null>
+  // request path (unchanged from today)
+  onCreateInvoice: (amount: number, mintUrl: string) => Promise<{ invoice: string; quoteId: string; expiry: number } | null>
   onPaymentReceived: (amount: number, type: 'lightning' | 'ecash') => void
-  /**
-   * Process an incoming token that fulfills the active ReceiveRequest.
-   * Caller wires this to the domain use case (incomingPayment.processIncoming)
-   * with paymentRef so the domain can verify my-id matching and tag the tx
-   * with intent='request-fulfill'. Transport-agnostic.
-   */
   onReceiveRequestFulfilled: (token: string, paymentRef: string) => Promise<{ success: boolean; amount?: number; requestFulfilled?: boolean; error?: { code?: string; message?: string } }>
-  // Pre-filled data
+  // redeem path (inherited from TokenRegisterFlow — minus dead swap props)
+  onReceiveToken: (token: string) => Promise<TokenReceiveOutcome>
+  onAddTrustedMint: (mintUrl: string) => Promise<boolean>
+  onEstimateRedeemFee?: (token: string) => Promise<{ grossAmount: number; fee: number; netAmount: number } | null>
+  onCheckSelfToken?: (token: string) => Promise<{ txId: string; amount: number } | null>
+  onReclaimOwnToken?: (txId: string) => Promise<{ amount: number }>
+  onRouteValidated?: (data: ValidatedData) => void
+  incomingReview?: PendingIncomingReview | null
+  onResolveIncomingReview?: (params: { transactionId?: string }) => Promise<void>
+  onRejectIncomingReview?: () => Promise<void>
+  // entry
+  launch?: ReceiveLaunch | null
   initialAmount?: number
   initialMintUrl?: string | null
+  onOpenAddressSettings?: () => void
 }
 
 // ============= Component =============
@@ -82,45 +121,106 @@ export function ReceiveFlow({
   onCreateInvoice,
   onPaymentReceived,
   onReceiveRequestFulfilled,
+  onReceiveToken,
+  onAddTrustedMint,
+  onEstimateRedeemFee,
+  onCheckSelfToken,
+  onReclaimOwnToken,
+  onRouteValidated,
+  incomingReview = null,
+  onResolveIncomingReview,
+  onRejectIncomingReview,
+  launch,
   initialAmount,
   initialMintUrl,
+  onOpenAddressSettings,
 }: ReceiveFlowProps) {
   const { t } = useTranslation()
   const { isOnline } = useNetwork()
   const addToast = useAppStore((s) => s.addToast)
   const addPendingQuote = useAppStore((s) => s.addPendingQuote)
+  const settings = useAppStore((s) => s.settings)
+  const nostrPubkey = useAppStore((s) => s.nostrPubkey)
   const receiveReq = useReceiveRequest()
+  const paymentReq = usePaymentRequest()
+  const crypto = useCrypto()
+  const { isTrusted } = useTrustRegistry()
 
-  const [state, setState] = useState<ReceiveFlowState>({
-    step: 'amount',
-    method: 'bolt11',
-    selectedMintUrl: initialMintUrl || null,
-    amount: initialAmount || 0,
-    invoice: null,
-    quoteId: null,
-    quoteExpiry: null,
-    ecashRequest: null,
-    ecashRequestId: null,
-    httpEndpoint: null,
-    receiveRequestId: null,
-    expiresAt: null,
-    receivedAmount: 0,
-    wasRequestFulfilled: false,
+  const [state, setState] = useState<ReceiveFlowState>(() => {
+    // Incoming review (gift-wrap): skip the landing and open the appropriate
+    // confirm step with the queued token pre-loaded.
+    const review = incomingReview?.token ?? null
+    const initialStep: ReceiveStep = review
+      ? (isTrusted(review.mintUrl) ? 'redeem-confirm-trusted' : 'redeem-confirm-untrusted')
+      : 'address'
+    return {
+      step: initialStep,
+      addressTab: launch?.addressTab ?? 'lightning',
+      selectedMintUrl: initialMintUrl || settings.mints[0] || null,
+      amount: initialAmount || 0,
+      memo: '',
+      invoice: null,
+      quoteId: null,
+      ecashRequest: null,
+      ecashRequestId: null,
+      httpEndpoint: null,
+      receiveRequestId: null,
+      expiresAt: null,
+      receivedAmount: 0,
+      receivedMethod: 'bolt11',
+      receivedAt: 0,
+      redeemToken: review,
+    }
   })
+
+  // Overlays — reachable from more than one step, so they live at container
+  // level (below AnimatePresence) rather than inside the address fragment: the
+  // amount sheet must also overlay the request step (edit-from-request), and the
+  // redeem sheet reopens when backing out of a confirm step.
+  const [amountSheetOpen, setAmountSheetOpen] = useState(() => (initialAmount ?? 0) > 0)
+  const [redeemSheetOpen, setRedeemSheetOpen] = useState(() => !!(launch?.redeemOpen || launch?.redeemToken))
+  const [mintSheetOpen, setMintSheetOpen] = useState(false)
 
   const [isLoading, setIsLoading] = useState(false)
   const isProcessingRef = useRef(false)
 
-  // ============= Step Transitions =============
+  const { supportsHttp } = useMintNut18Support(state.selectedMintUrl)
 
-  /** Input → create Lightning invoice + use ecash data → QR step (unified) */
-  const handleInputNext = useCallback(async (data: {
-    amount: number
-    mintUrl: string
-    ecashRequest?: string
-    ecashRequestId?: string
-    httpEndpoint?: string
-  }) => {
+  const mintUrls = useMemo(() => (state.selectedMintUrl ? [state.selectedMintUrl] : []), [state.selectedMintUrl])
+  const { getDisplayName, getIconUrl } = useMintMetadata(mintUrls)
+  const mintDisplayName = state.selectedMintUrl ? getDisplayName(state.selectedMintUrl) : ''
+  const mintIconUrl = state.selectedMintUrl ? getIconUrl(state.selectedMintUrl) ?? null : null
+
+  const npub = useMemo(() => {
+    if (!nostrPubkey) return null
+    try {
+      return crypto.encodeNpub(nostrPubkey)
+    } catch {
+      return null
+    }
+  }, [nostrPubkey, crypto])
+
+  const lightningAddress = settings.lightningAddress ?? null
+
+  // User's nprofile for ecash Nostr transport
+  const userNprofile = useMemo(() => {
+    if (!nostrPubkey || !settings.relays?.length) return null
+    try {
+      return crypto.encodeNprofile(nostrPubkey, settings.relays)
+    } catch {
+      return null
+    }
+  }, [nostrPubkey, settings.relays, crypto])
+
+  // ============= Request path =============
+
+  /**
+   * Create both the NUT-18 ecash request and the Lightning invoice, persist the
+   * ReceiveRequest entity, then land on the request-QR step. Shared by the
+   * amount-sheet confirm and regenerate — ecash creation ported verbatim from
+   * ReceiveInputStep.handleNext; invoice + persistence from ReceiveFlow.handleInputNext.
+   */
+  const createRequest = useCallback(async (amount: number, memo: string, mintUrl: string) => {
     if (isProcessingRef.current) return
     isProcessingRef.current = true
     setIsLoading(true)
@@ -133,11 +233,50 @@ export function ReceiveFlow({
     }
 
     try {
+      // Always create an ecash payment request alongside Lightning for the unified QR
+      let ecashRequest: string | undefined
+      let ecashRequestId: string | undefined
+      let httpEndpoint: string | undefined
+
+      if (userNprofile) {
+        if (supportsHttp) {
+          // Dual transport: Nostr (primary) + HTTP POST (fallback)
+          const result = paymentReq.createDualTransportPaymentRequest({
+            amount,
+            mints: [mintUrl],
+            nostrTarget: userNprofile,
+            mintUrl,
+            description: memo.trim() || undefined,
+            singleUse: true,
+            idPrefix: 'wallet',
+          })
+          ecashRequest = result.request
+          ecashRequestId = result.id
+          httpEndpoint = result.httpEndpoint
+        } else {
+          // Nostr-only transport
+          const result = paymentReq.createNostrPaymentRequest({
+            amount,
+            mints: [mintUrl],
+            nostrTarget: userNprofile,
+            description: memo.trim() || undefined,
+            singleUse: true,
+            idPrefix: 'wallet',
+          })
+          ecashRequest = result.request
+          ecashRequestId = result.id
+        }
+      } else {
+        // No Nostr profile — Lightning-only fallback (shouldn't happen in zappi-wallet)
+        hapticError()
+        console.warn('[ReceiveFlow] No Nostr profile available, Lightning-only mode')
+      }
+
       // Always create Lightning invoice
-      const invoiceResult = await onCreateInvoice(data.amount, data.mintUrl)
+      const invoiceResult = await onCreateInvoice(amount, mintUrl)
 
       // If Lightning invoice creation fails but we have ecash request, still proceed
-      if (!invoiceResult && !data.ecashRequest) {
+      if (!invoiceResult && !ecashRequest) {
         addToast({ type: 'error', message: t('payment.createInvoiceFailed'), duration: 3000 })
         isProcessingRef.current = false
         setIsLoading(false)
@@ -145,7 +284,7 @@ export function ReceiveFlow({
       }
 
       const invoice = invoiceResult?.invoice || null
-      const ecashReq = data.ecashRequest || null
+      const ecashReq = ecashRequest || null
 
       // Deadline for the underlying payment request (ms epoch). Computed eagerly
       // so it stays in scope for the setState() below even when the persistence
@@ -157,7 +296,7 @@ export function ReceiveFlow({
       // Persist as ReceiveRequest entity (source of truth for pending display)
       let receiveRequestId: string | null = null
       if (invoiceResult || ecashReq) {
-        const requestId = crypto.randomUUID()
+        const requestId = globalThis.crypto.randomUUID()
 
         // Build BIP-321 unified URI if both Lightning + ecash available
         let bip321Uri: string | undefined
@@ -171,13 +310,13 @@ export function ReceiveFlow({
         try {
           await receiveReq.create({
             requestId,
-            accountId: data.mintUrl,
-            amount: { value: BigInt(data.amount), unit: 'sat' },
+            accountId: mintUrl,
+            amount: { value: BigInt(amount), unit: 'sat' },
             quoteId: invoiceResult?.quoteId,
             bolt11: invoiceResult?.invoice,
-            ecashRequest: data.ecashRequest,
-            ecashRequestId: data.ecashRequestId,
-            httpEndpoint: data.httpEndpoint || undefined,
+            ecashRequest,
+            ecashRequestId,
+            httpEndpoint: httpEndpoint || undefined,
             bip321Uri,
             expiresAt,
           })
@@ -193,8 +332,8 @@ export function ReceiveFlow({
         if (invoiceResult) {
           addPendingQuote({
             quoteId: invoiceResult.quoteId,
-            mintUrl: data.mintUrl,
-            amount: data.amount,
+            mintUrl,
+            amount,
             invoice: invoiceResult.invoice,
             expiry: expiresAt,
           })
@@ -203,87 +342,242 @@ export function ReceiveFlow({
 
       setState((prev) => ({
         ...prev,
-        step: 'qr',
-        method: 'bolt11', // default; actual method determined at payment detection
-        amount: data.amount,
-        selectedMintUrl: data.mintUrl,
-        // Lightning data
+        step: 'request',
+        amount,
+        memo,
+        selectedMintUrl: mintUrl,
         invoice,
         quoteId: invoiceResult?.quoteId || null,
-        quoteExpiry: invoiceResult?.expiry || null,
-        // Ecash data (always present when Nostr is available)
         ecashRequest: ecashReq,
-        ecashRequestId: data.ecashRequestId || null,
-        httpEndpoint: data.httpEndpoint || null,
-        // ReceiveRequest entity (null if DB write failed)
+        ecashRequestId: ecashRequestId || null,
+        httpEndpoint: httpEndpoint || null,
         receiveRequestId,
         expiresAt,
       }))
+      setAmountSheetOpen(false)
     } catch (err) {
-      console.error('[ReceiveFlow] Input next error:', err)
+      console.error('[ReceiveFlow] createRequest error:', err)
       addToast({ type: 'error', message: translateError(err, t), duration: 3000 })
     } finally {
       isProcessingRef.current = false
       setIsLoading(false)
     }
-  }, [isOnline, onCreateInvoice, addToast, addPendingQuote, t, receiveReq])
+  }, [isOnline, userNprofile, supportsHttp, paymentReq, onCreateInvoice, addToast, addPendingQuote, t, receiveReq])
 
-  /** Payment received → complete */
-  const handlePaymentDetected = useCallback((amount: number, method: 'bolt11' | 'ecash', wasRequestFulfilled = false) => {
+  /** Cancel the current request (if any) and create a fresh one with new inputs. */
+  const regenerate = useCallback((amount: number, memo: string) => {
+    const mintUrl = state.selectedMintUrl
+    if (!mintUrl) return
+    if (state.receiveRequestId) {
+      void receiveReq.cancel(state.receiveRequestId).catch((err) => console.error('[ReceiveFlow] cancel failed:', err))
+    }
+    void createRequest(amount, memo, mintUrl)
+  }, [state.selectedMintUrl, state.receiveRequestId, receiveReq, createRequest])
+
+  /** Payment detected → stamp the receipt once and print it. */
+  const handlePaymentDetected = useCallback((amount: number, method: 'bolt11' | 'ecash') => {
     onPaymentReceived(amount, method === 'bolt11' ? 'lightning' : 'ecash')
+    const receivedAt = Date.now()
     setState((prev) => {
       if (prev.receiveRequestId) {
         void receiveReq.complete(prev.receiveRequestId, method)
           .catch((err: unknown) => console.error('[ReceiveFlow] Failed to complete ReceiveRequest:', err))
       }
-      return {
-        ...prev,
-        step: 'complete',
-        method,
-        receivedAmount: amount,
-        wasRequestFulfilled,
-      }
+      return { ...prev, step: 'received', receivedMethod: method, receivedAmount: amount, receivedAt }
     })
   }, [onPaymentReceived, receiveReq])
 
-  const goToStep = useCallback((step: ReceiveStep) => {
-    setState((prev) => ({ ...prev, step }))
+  // Adapter so the request step's fulfillment callback matches its narrower contract.
+  const handleRequestFulfilled = useCallback(async (token: string, paymentRef: string) => {
+    const result = await onReceiveRequestFulfilled(token, paymentRef)
+    return { amount: result?.amount ?? 0, requestFulfilled: result?.requestFulfilled }
+  }, [onReceiveRequestFulfilled])
+
+  // ============= Redeem path =============
+
+  /** Finalize a redeem → resolve any incoming review, then stamp the receipt. */
+  const finalizeRedeem = useCallback(async (result: TokenReceiveOutcome, token: ValidatedCashuToken) => {
+    if (onResolveIncomingReview) {
+      await onResolveIncomingReview({ transactionId: result.transactionId })
+    }
+    setState((prev) => ({
+      ...prev,
+      step: 'received',
+      receivedMethod: 'redeem',
+      receivedAmount: result.amount ?? toNumber(token.amount),
+      receivedAt: Date.now(),
+    }))
+  }, [onResolveIncomingReview])
+
+  const handleRedeemValidated = useCallback(async (token: ValidatedCashuToken) => {
+    // Self-owned token (re-registering a pending send) → reclaim instead of
+    // redeem to avoid a duplicate timeline entry.
+    if (onCheckSelfToken && onReclaimOwnToken) {
+      const match = await onCheckSelfToken(token.token)
+      if (match) {
+        try {
+          const result = await onReclaimOwnToken(match.txId)
+          setRedeemSheetOpen(false)
+          setState((prev) => ({
+            ...prev,
+            step: 'received',
+            receivedMethod: 'redeem',
+            receivedAmount: result.amount,
+            receivedAt: Date.now(),
+            redeemToken: token,
+          }))
+          return
+        } catch (error) {
+          console.error('[ReceiveFlow] Reclaim failed:', error)
+          addToast({ type: 'error', message: translateError(error, t) })
+        }
+      }
+    }
+
+    // Validate may resolve after a swipe-close: close the sheet unconditionally
+    // and proceed to confirm (the user initiated this validate).
+    setRedeemSheetOpen(false)
+    setState((prev) => ({
+      ...prev,
+      step: isTrusted(token.mintUrl) ? 'redeem-confirm-trusted' : 'redeem-confirm-untrusted',
+      redeemToken: token,
+    }))
+  }, [onCheckSelfToken, onReclaimOwnToken, isTrusted, addToast, t])
+
+  const handleRedeemReceive = useCallback(async () => {
+    const token = state.redeemToken
+    if (!token) return
+    const result = await onReceiveToken(token.token)
+    if (!result.success) {
+      if (result.error instanceof TokenSpentError) throw result.error
+      throw result.error ?? new UnknownError('redeem_failed')
+    }
+    await finalizeRedeem(result, token)
+  }, [state.redeemToken, onReceiveToken, finalizeRedeem])
+
+  const handleRedeemAddAndReceive = useCallback(async () => {
+    const token = state.redeemToken
+    if (!token) return
+    const added = await onAddTrustedMint(token.mintUrl)
+    if (!added) throw new Error('add_trust_failed')
+    const result = await onReceiveToken(token.token)
+    if (!result.success) {
+      if (result.error instanceof TokenSpentError) throw result.error
+      throw result.error ?? new UnknownError('redeem_failed')
+    }
+    await finalizeRedeem(result, token)
+  }, [state.redeemToken, onAddTrustedMint, onReceiveToken, finalizeRedeem])
+
+  // Confirm-step back: in incoming-review mode the user cannot return to the
+  // landing (the queue chose this token), so back becomes reject. Otherwise
+  // return to the landing and reopen the redeem sheet to try another token.
+  const handleConfirmBack = useCallback(() => {
+    if (incomingReview && onRejectIncomingReview) {
+      void onRejectIncomingReview()
+      return
+    }
+    setState((prev) => ({ ...prev, step: 'address' }))
+    setRedeemSheetOpen(true)
+  }, [incomingReview, onRejectIncomingReview])
+
+  // Reject: mark the queued review rejected, or (direct-receive) drop the token
+  // and return to the landing without reopening the sheet.
+  const handleConfirmReject = useCallback(() => {
+    if (incomingReview && onRejectIncomingReview) {
+      void onRejectIncomingReview()
+      return
+    }
+    setState((prev) => ({ ...prev, step: 'address' }))
+  }, [incomingReview, onRejectIncomingReview])
+
+  // ============= Shared overlay handlers =============
+
+  const handleAddressTabChange = useCallback((tab: 'lightning' | 'nostr') => {
+    setState((prev) => ({ ...prev, addressTab: tab }))
   }, [])
+
+  const handleMintSelected = useCallback((mintUrl: string) => {
+    setState((prev) => ({ ...prev, selectedMintUrl: mintUrl }))
+  }, [])
+
+  const handleAmountConfirm = useCallback((data: { amount: number; memo: string }) => {
+    regenerate(data.amount, data.memo)
+  }, [regenerate])
+
+  // Stable across renders — ReceiveReceiptStep holds this in an effect dep array.
+  const handleReceiptDone = useCallback(() => {
+    setState((prev) => ({ ...prev, step: 'complete' }))
+  }, [])
+
+  const handleMakeAnother = useCallback(() => {
+    regenerate(state.amount, state.memo)
+  }, [regenerate, state.amount, state.memo])
+
+  // Redeem receipts describe the token (its origin mint holds the redeemed
+  // ecash + carries its memo); request receipts describe the selected account.
+  const receiptMintUrl = state.receivedMethod === 'redeem'
+    ? (state.redeemToken?.mintUrl ?? state.selectedMintUrl)
+    : state.selectedMintUrl
+  const receiptMemo = state.receivedMethod === 'redeem'
+    ? (state.redeemToken?.memo || undefined)
+    : (state.memo || undefined)
 
   // ============= Render =============
 
   return (
     <div className="h-dvh bg-background text-foreground font-primary flex flex-col pt-safe">
       <AnimatePresence mode="wait">
-        {state.step === 'amount' && (
-          <PageTransition key="receive-amount" variant="page" className="flex-1">
-            <ReceiveInputStep
+        {state.step === 'address' && (
+          <PageTransition key="receive-address" variant="page" className="flex-1">
+            <ReceiveAddressStep
               onBack={onBack}
-              onNext={handleInputNext}
-              initialAmount={state.amount}
-              initialMintUrl={state.selectedMintUrl}
-              isLoading={isLoading}
+              addressTab={state.addressTab}
+              onTabChange={handleAddressTabChange}
+              lightningAddress={lightningAddress}
+              npub={npub}
+              mintUrl={state.selectedMintUrl}
+              mintIconUrl={mintIconUrl}
+              mintDisplayName={mintDisplayName}
+              onEditMint={() => setMintSheetOpen(true)}
+              onDirectReceive={() => setRedeemSheetOpen(true)}
+              onSpecifyAmount={() => setAmountSheetOpen(true)}
+              onCreateAddress={onOpenAddressSettings}
             />
           </PageTransition>
         )}
 
-        {state.step === 'qr' && (
-          <PageTransition key="receive-qr" variant="page" className="flex-1">
-            <ReceiveQRStep
-              onBack={() => goToStep('amount')}
-              onPaymentDetected={handlePaymentDetected}
+        {state.step === 'request' && (
+          <PageTransition key="receive-request" variant="page" className="flex-1">
+            <ReceiveRequestStep
+              onBack={() => setState((prev) => ({ ...prev, step: 'address' }))}
+              onEdit={() => setAmountSheetOpen(true)}
+              onRegenerate={() => regenerate(state.amount, state.memo)}
+              isRegenerating={isLoading}
               amount={state.amount}
               mintUrl={state.selectedMintUrl!}
+              mintDisplayName={mintDisplayName}
+              mintIconUrl={mintIconUrl}
+              memo={state.memo}
               invoice={state.invoice}
               quoteId={state.quoteId}
               ecashRequest={state.ecashRequest}
               ecashRequestId={state.ecashRequestId}
               httpEndpoint={state.httpEndpoint}
               expiresAt={state.expiresAt}
-              onReceiveRequestFulfilled={async (token, paymentRef) => {
-                const result = await onReceiveRequestFulfilled(token, paymentRef)
-                return { amount: result?.amount ?? 0, requestFulfilled: result?.requestFulfilled }
-              }}
+              onPaymentDetected={handlePaymentDetected}
+              onReceiveRequestFulfilled={handleRequestFulfilled}
+            />
+          </PageTransition>
+        )}
+
+        {state.step === 'received' && (
+          <PageTransition key="receive-received" variant="fade" className="flex-1">
+            <ReceiveReceiptStep
+              amount={state.receivedAmount}
+              mintUrl={receiptMintUrl}
+              memo={receiptMemo}
+              method={state.receivedMethod}
+              onDone={handleReceiptDone}
             />
           </PageTransition>
         )}
@@ -292,14 +586,68 @@ export function ReceiveFlow({
           <PageTransition key="receive-complete" variant="fade" className="flex-1">
             <ReceiveCompleteStep
               amount={state.receivedAmount}
-              mintUrl={state.selectedMintUrl}
-              method={state.method}
-              receivedAt={Date.now()}
+              mintUrl={receiptMintUrl}
+              memo={receiptMemo}
+              method={state.receivedMethod}
+              receivedAt={state.receivedAt}
+              onMakeAnother={state.receivedMethod !== 'redeem' ? handleMakeAnother : undefined}
               onExit={onComplete}
             />
           </PageTransition>
         )}
+
+        {state.step === 'redeem-confirm-trusted' && state.redeemToken && (
+          <PageTransition key="receive-confirm-trusted" variant="page" className="flex-1">
+            <ConfirmTrustedStep
+              token={state.redeemToken}
+              onBack={handleConfirmBack}
+              onReceive={handleRedeemReceive}
+              onReject={handleConfirmReject}
+              onEstimateRedeemFee={onEstimateRedeemFee}
+            />
+          </PageTransition>
+        )}
+
+        {state.step === 'redeem-confirm-untrusted' && state.redeemToken && (
+          <PageTransition key="receive-confirm-untrusted" variant="page" className="flex-1">
+            <ConfirmUntrustedStep
+              token={state.redeemToken}
+              onBack={handleConfirmBack}
+              onAddAndReceive={handleRedeemAddAndReceive}
+              onReject={handleConfirmReject}
+            />
+          </PageTransition>
+        )}
       </AnimatePresence>
+
+      {/* Overlays — see the container-level note above the useState calls. */}
+      <ReceiveAmountSheet
+        isOpen={amountSheetOpen}
+        onClose={() => setAmountSheetOpen(false)}
+        mintUrl={state.selectedMintUrl}
+        mintDisplayName={mintDisplayName}
+        onEditMint={() => setMintSheetOpen(true)}
+        initialAmount={state.amount}
+        initialMemo={state.memo}
+        isLoading={isLoading}
+        onConfirm={handleAmountConfirm}
+      />
+
+      <RedeemSheet
+        isOpen={redeemSheetOpen}
+        onClose={() => setRedeemSheetOpen(false)}
+        onValidated={handleRedeemValidated}
+        onRouteValidated={onRouteValidated}
+        initialToken={launch?.redeemToken}
+      />
+
+      <MintSelectBottomSheet
+        isOpen={mintSheetOpen}
+        onClose={() => setMintSheetOpen(false)}
+        onSelect={handleMintSelected}
+        selectedMintUrl={state.selectedMintUrl}
+        allowEmpty
+      />
     </div>
   )
 }

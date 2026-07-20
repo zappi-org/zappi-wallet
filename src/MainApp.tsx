@@ -1155,6 +1155,18 @@ export default function MainApp() {
         onCreateInvoice={handleCreateInvoice}
         onPaymentReceived={handlePaymentReceived}
         onReceiveRequestFulfilled={handleReceiveRequestFulfillment}
+        onReceiveToken={handleReceiveToken}
+        onAddTrustedMint={handleAddTrustedMint}
+        onEstimateRedeemFee={handleEstimateRedeemFee}
+        onCheckSelfToken={handleCheckSelfToken}
+        onReclaimOwnToken={async (txId) => {
+          if (!serviceRegistry?.reclaim?.reclaim) {
+            return { amount: 0 }
+          }
+          const result = await serviceRegistry.reclaim.reclaim(txId)
+          return { amount: result.ok ? result.value.amount.value : 0 }
+        }}
+        onRouteValidated={handleRouteValidated}
         initialAmount={scannedAmount || undefined}
         initialMintUrl={activeMintUrl}
       />

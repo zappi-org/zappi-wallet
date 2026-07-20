@@ -36,6 +36,7 @@ export interface ReceiveRequestStepProps {
   amount: number
   mintUrl: string
   mintDisplayName: string
+  mintIconUrl?: string | null
   memo: string
   // Lightning
   invoice: string | null
@@ -87,6 +88,7 @@ export function ReceiveRequestStep({
   amount,
   mintUrl,
   mintDisplayName,
+  mintIconUrl,
   memo,
   invoice,
   quoteId,
@@ -345,7 +347,7 @@ export function ReceiveRequestStep({
             <span className="text-title-sm font-bold">{formatSats(amount)}</span>
             <FlowArrow />
             <span className="flex items-center gap-1.5 text-body font-medium">
-              <MintIcon imgSize="w-5 h-5" className="w-5 h-5" circle />
+              <MintIcon iconUrl={mintIconUrl ?? undefined} imgSize="w-5 h-5" className="w-5 h-5" circle />
               {mintDisplayName}
             </span>
           </div>

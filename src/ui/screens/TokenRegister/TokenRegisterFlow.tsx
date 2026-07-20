@@ -1,6 +1,5 @@
 import { toNumber } from '@/core/domain/amount'
 import type { ValidatedCashuToken, ValidatedData } from '@/core/domain/input-types'
-import type { BaseError } from '@/core/errors/base'
 import { UnknownError } from '@/core/errors/base'
 import { TokenSpentError } from '@/core/errors/cashu'
 import type { PendingIncomingReview } from '@/core/types'
@@ -15,14 +14,11 @@ import { ConfirmTrustedStep } from '@/ui/screens/Receive/redeem/ConfirmTrustedSt
 import { ConfirmUntrustedStep } from '@/ui/screens/Receive/redeem/ConfirmUntrustedStep'
 import { RegisteredStep } from './steps/RegisteredStep'
 import { RegisterInputStep } from './steps/RegisterInputStep'
+// TokenReceiveOutcome now lives with the unified ReceiveFlow; re-export to keep
+// this module's public surface unchanged for existing importers.
+import type { TokenReceiveOutcome } from '@/ui/screens/Receive/ReceiveFlow'
+export type { TokenReceiveOutcome }
 type Step = 'input' | 'confirm-trusted' | 'confirm-untrusted' | 'registered'
-
-export interface TokenReceiveOutcome {
-  success: boolean
-  amount?: number
-  transactionId?: string
-  error?: BaseError
-}
 
 export interface TokenRegisterFlowProps {
   onBack: () => void
