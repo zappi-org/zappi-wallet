@@ -905,12 +905,6 @@ export default {
   // Receive
   receive: {
     title: 'Recibir',
-    next: 'Siguiente',
-    amountRequired: 'Ingresa un monto',
-    amountStep: {
-      howMuchRequest: '¿Cuánto solicitar?',
-      addMemo: 'Memo (opcional)',
-    },
     qr: {
       title: 'Recibir',
       protocols: {
@@ -919,12 +913,6 @@ export default {
         lightning: 'Lightning',
       },
       share: 'Compartir',
-      fullMessage: 'Te notificaremos cuando {{amount}} llegue',
-    },
-    complete: {
-      fullMessage: '¡{{amount}} recibido!',
-      requestFulfilledMessage: '¡Tu solicitud de\n{{amount}} llegó!',
-      done: 'Listo',
     },
     token: {
       title: 'Confirmación de Token',
@@ -1205,13 +1193,6 @@ export default {
   },
 
   tokenRegister: {
-    title: 'Registrar ecash',
-    inputHeading: 'Pega o escanea ecash\npara registrarlo.',
-    description: 'Ecash funciona como una tarjeta regalo que puedes registrar y usar (una cadena que empieza por {{format}}).',
-    inputPlaceholder: 'Ingresa ecash',
-    invalidFormat: 'Formato no válido. Verifica que el ecash empiece por cashuB.',
-    scan: 'Escanear',
-    arrived: '¡Tu ecash llegó!',
     receiving: 'Recibiendo…',
   },
 

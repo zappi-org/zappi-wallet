@@ -903,12 +903,6 @@ export default {
   // Receive
   receive: {
     title: '受取',
-    next: '次へ',
-    amountRequired: '金額を入力してください',
-    amountStep: {
-      howMuchRequest: 'いくらリクエストしますか？',
-      addMemo: 'メモ（任意）',
-    },
     qr: {
       title: '受取',
       protocols: {
@@ -917,12 +911,6 @@ export default {
         lightning: 'Lightning',
       },
       share: '共有',
-      fullMessage: '{{amount}}が入金されたらお知らせします',
-    },
-    complete: {
-      fullMessage: '{{amount}} 入金されました!',
-      requestFulfilledMessage: 'リクエストした{{amount}}\n到着しました!',
-      done: '完了',
     },
     token: {
       title: 'トークン確認',
@@ -1203,13 +1191,6 @@ export default {
   },
 
   tokenRegister: {
-    title: 'イーキャッシュ登録',
-    inputHeading: 'イーキャッシュを貼り付けまたはスキャンして\n登録できます。',
-    description: 'イーキャッシュはギフトカードのように登録して使えます（{{format}}で始まる文字列です）。',
-    inputPlaceholder: 'イーキャッシュを入力',
-    invalidFormat: '形式が正しくありません。cashuBで始まるイーキャッシュかご確認ください。',
-    scan: 'スキャン',
-    arrived: 'イーキャッシュが届きました！',
     receiving: '受け取り中…',
   },
 

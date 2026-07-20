@@ -40,7 +40,7 @@ export interface SwapHandlers {
  * receive, and mint-to-mint swap execution.
  *
  * handleEstimateRedeemFee lives here because it estimates the untrusted-mint
- * receive path (redeem→swap) that TokenRegisterFlow consumes alongside onSwapReceive.
+ * receive path (redeem→swap) that ReceiveFlow's redeem path consumes.
  */
 export function useSwapHandlers(deps: UseSwapHandlersDeps): SwapHandlers {
   const { serviceRegistry, refreshAll } = deps

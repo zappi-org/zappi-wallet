@@ -907,12 +907,6 @@ export default {
   // Receive
   receive: {
     title: '받기',
-    next: '다음',
-    amountRequired: '금액을 입력해주세요',
-    amountStep: {
-      howMuchRequest: '얼마를 요청할까요?',
-      addMemo: '메모 (선택사항)',
-    },
     qr: {
       title: '받기',
       protocols: {
@@ -921,12 +915,6 @@ export default {
         lightning: 'Lightning',
       },
       share: '공유',
-      fullMessage: '{{amount}}이 입금되면 알려드릴게요',
-    },
-    complete: {
-      fullMessage: '{{amount}} 입금되었어요!',
-      requestFulfilledMessage: '요청한 {{amount}}\n도착했어요!',
-      done: '확인',
     },
     token: {
       title: '토큰 확인',
@@ -1214,13 +1202,6 @@ export default {
 
   // Token Register Flow
   tokenRegister: {
-    title: '이캐시 등록하기',
-    inputHeading: '이캐시를 붙여넣거나 스캔해서\n등록할 수 있어요.',
-    description: '이캐시는 상품권처럼 등록해서 사용할 수 있어요 ({{format}}로 시작하는 문자열이에요).',
-    inputPlaceholder: '이캐시 입력',
-    invalidFormat: '잘못된 형식이에요. cashuB 로 시작하는 이캐시인지 확인해주세요.',
-    scan: '스캔하기',
-    arrived: '이캐시가 도착했어요!',
     receiving: '받는 중…',
   },
 

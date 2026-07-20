@@ -10,7 +10,7 @@ import type { ValidatedData } from '@/core/domain/input-types'
 
 export type InputRouteTarget =
   | { screen: 'send'; validatedData: ValidatedData }
-  | { screen: 'token-register'; token: string }
+  | { screen: 'receive-redeem'; token: string }
   | { screen: 'amount-action'; amount: number }
   | { screen: 'unsupported'; type: ValidatedData['type'] }
 
@@ -23,7 +23,7 @@ export function routeValidatedInput(data: ValidatedData): InputRouteTarget {
     case 'my-wallet':
       return { screen: 'send', validatedData: data }
     case 'cashu-token':
-      return { screen: 'token-register', token: data.token }
+      return { screen: 'receive-redeem', token: data.token }
     case 'amount':
       return { screen: 'amount-action', amount: data.amount }
     case 'lnurl-withdraw':

@@ -17,7 +17,6 @@ export type Screen =
   | 'transaction-detail'
   | 'mint-detail'
   | 'token-create'
-  | 'token-register'
   | 'token-detail'
   | 'token-easter-egg'
 
@@ -69,7 +68,6 @@ export type StackActivityName =
   | 'TransactionDetail'
   | 'MintDetail'
   | 'TokenCreate'
-  | 'TokenRegister'
   | 'TokenDetail'
   | 'TokenEasterEgg'
 
@@ -92,7 +90,6 @@ export const SCREEN_TO_ACTIVITY: Record<Screen, StackActivityName> = {
   'transaction-detail': 'TransactionDetail',
   'mint-detail': 'MintDetail',
   'token-create': 'TokenCreate',
-  'token-register': 'TokenRegister',
   'token-detail': 'TokenDetail',
   'token-easter-egg': 'TokenEasterEgg',
 }

@@ -76,9 +76,9 @@ import type { ValidatedData } from '@/core/domain/input-types'
 import type { MintInfo } from '@/core/types'
 import { ToastContainer } from '@/ui/components'
 import { ReceiveFlow } from '@/ui/screens/Receive/ReceiveFlow'
+import type { ReceiveLaunch } from '@/ui/screens/Receive/ReceiveFlow'
 import { SendFlow } from '@/ui/screens/Send/SendFlow'
 import { TokenCreateFlow } from '@/ui/screens/TokenCreate/TokenCreateFlow'
-import { TokenRegisterFlow } from '@/ui/screens/TokenRegister/TokenRegisterFlow'
 import { routeValidatedInput } from '@/ui/utils/input-router'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
@@ -190,7 +190,7 @@ export default function MainApp() {
   const [validatedScanData, setValidatedScanData] = useState<ValidatedData | null>(null)
   const [activeIncomingReview, setActiveIncomingReview] = useState<PendingIncomingReview | null>(null)
 
-  const [initialRegisterToken, setInitialRegisterToken] = useState<string>('')
+  const [receiveLaunch, setReceiveLaunch] = useState<ReceiveLaunch | null>(null)
 
   const [activeMintUrl, setActiveMintUrl] = useState<string | null>(null)
 
@@ -331,7 +331,7 @@ export default function MainApp() {
     }
 
     // Route via the existing input router — handles sendable + non-sendable
-    // (token-register, amount-action, unsupported) destinations identically.
+    // (receive-redeem, amount-action, unsupported) destinations identically.
     const target = routeValidatedInput(validated)
     setContactInfo(null)
     switch (target.screen) {
@@ -341,11 +341,11 @@ export default function MainApp() {
         setPreviousScreen(currentScreen)
         setCurrentScreen('send')
         return
-      case 'token-register':
-        setInitialRegisterToken(target.token)
+      case 'receive-redeem':
+        setReceiveLaunch({ redeemToken: target.token })
         setValidatedScanData(null)
         setPreviousScreen(currentScreen)
-        setCurrentScreen('token-register')
+        setCurrentScreen('receive')
         return
       case 'amount-action':
         setScannedAmount(target.amount)
@@ -370,11 +370,11 @@ export default function MainApp() {
         setPreviousScreen(currentScreen)
         setCurrentScreen('send')
         return
-      case 'token-register':
-        setInitialRegisterToken(target.token)
+      case 'receive-redeem':
+        setReceiveLaunch({ redeemToken: target.token })
         setValidatedScanData(null)
         setPreviousScreen(currentScreen)
-        setCurrentScreen('token-register')
+        setCurrentScreen('receive')
         return
       case 'amount-action':
         setScannedAmount(target.amount)
@@ -425,8 +425,8 @@ export default function MainApp() {
 
     const nextReview = pendingIncomingReviews[0]
     setActiveIncomingReview(nextReview)
-    setPreviousScreen(currentScreen === 'token-register' ? previousScreen : currentScreen)
-    setCurrentScreen('token-register')
+    setPreviousScreen(currentScreen === 'receive' ? previousScreen : currentScreen)
+    setCurrentScreen('receive')
   }, [activeIncomingReview, pendingIncomingReviews, currentScreen, previousScreen, setCurrentScreen, setPreviousScreen])
 
   // Anchor check and state reconstruction — runs once when the app is unlocked
@@ -619,7 +619,6 @@ export default function MainApp() {
   const {
     handleEstimateSwapFee,
     handleEstimateRedeemFee,
-    handleSwapReceive,
     handleMintSwap,
   } = useSwapHandlers({ serviceRegistry, refreshAll })
 
@@ -869,6 +868,11 @@ export default function MainApp() {
           setHistoryInitialMintUrls(mintUrl ? [mintUrl] : undefined)
           setCurrentScreen('history')
         }}
+        onProfile={() => {
+          setReceiveLaunch({ addressTab: 'nostr' })
+          setPreviousScreen('home')
+          setCurrentScreen('receive')
+        }}
         onNotifications={() => setCurrentScreen('notifications')}
         onAddMint={() => setCurrentScreen('add-mint')}
         onMintDetails={(mint, index) => {
@@ -1099,56 +1103,18 @@ export default function MainApp() {
       />
     ),
 
-    'token-register': () => (
-      <TokenRegisterFlow
-        onBack={() => {
-          const backTo = previousScreen || 'token'
-          clearIncomingReviewState()
-          setPreviousScreen(null)
-          setInitialRegisterToken('')
-          setCurrentScreen(backTo)
-        }}
-        onComplete={() => {
-          clearIncomingReviewState()
-          setPreviousScreen(null)
-          setInitialRegisterToken('')
-          setCurrentScreen('token')
-        }}
-        onReceiveToken={handleReceiveToken}
-        onAddTrustedMint={handleAddTrustedMint}
-        onSwapReceive={handleSwapReceive}
-        onEstimateRedeemFee={handleEstimateRedeemFee}
-        onCheckSelfToken={handleCheckSelfToken}
-        onReclaimOwnToken={async (txId) => {
-          if (!serviceRegistry?.reclaim?.reclaim) {
-            return { amount: 0 }
-          }
-          const result = await serviceRegistry.reclaim.reclaim(txId)
-          return { amount: result.ok ? result.value.amount.value : 0 }
-        }}
-        onRouteValidated={handleRouteValidated}
-        initialToken={initialRegisterToken}
-        targetMintUrl={activeMintUrl ?? settings.mints[0] ?? undefined}
-        incomingReview={activeIncomingReview}
-        onResolveIncomingReview={(params) =>
-          activeIncomingReview
-            ? handleResolveIncomingReview({ review: activeIncomingReview, transactionId: params.transactionId })
-            : Promise.resolve()
-        }
-        onRejectIncomingReview={() =>
-          activeIncomingReview ? handleRejectIncomingReview(activeIncomingReview) : Promise.resolve()
-        }
-      />
-    ),
-
     receive: () => (
       <ReceiveFlow
         onBack={() => {
           const backTo = previousScreen || 'home'
+          clearIncomingReviewState()
+          setReceiveLaunch(null)
           setPreviousScreen(null)
           setCurrentScreen(backTo)
         }}
         onComplete={() => {
+          clearIncomingReviewState()
+          setReceiveLaunch(null)
           setPreviousScreen(null)
           setCurrentScreen('home')
         }}
@@ -1167,6 +1133,17 @@ export default function MainApp() {
           return { amount: result.ok ? result.value.amount.value : 0 }
         }}
         onRouteValidated={handleRouteValidated}
+        incomingReview={activeIncomingReview}
+        onResolveIncomingReview={(params) =>
+          activeIncomingReview
+            ? handleResolveIncomingReview({ review: activeIncomingReview, transactionId: params.transactionId })
+            : Promise.resolve()
+        }
+        onRejectIncomingReview={() =>
+          activeIncomingReview ? handleRejectIncomingReview(activeIncomingReview) : Promise.resolve()
+        }
+        launch={receiveLaunch}
+        onOpenAddressSettings={() => setCurrentScreen('settings')}
         initialAmount={scannedAmount || undefined}
         initialMintUrl={activeMintUrl}
       />
@@ -1395,8 +1372,9 @@ export default function MainApp() {
               setCurrentScreen('token-create')
             }}
             onRegister={() => {
+              setReceiveLaunch({ redeemOpen: true })
               setPreviousScreen('token')
-              setCurrentScreen('token-register')
+              setCurrentScreen('receive')
             }}
           />
         )}

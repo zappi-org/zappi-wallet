@@ -905,12 +905,6 @@ export default {
   // Receive
   receive: {
     title: 'Terima',
-    next: 'Lanjut',
-    amountRequired: 'Masukkan jumlah',
-    amountStep: {
-      howMuchRequest: 'Berapa yang diminta?',
-      addMemo: 'Memo (opsional)',
-    },
     qr: {
       title: 'Terima',
       protocols: {
@@ -919,12 +913,6 @@ export default {
         lightning: 'Lightning',
       },
       share: 'Bagikan',
-      fullMessage: 'Kami akan memberi tahu saat {{amount}} masuk',
-    },
-    complete: {
-      fullMessage: '{{amount}} diterima!',
-      requestFulfilledMessage: 'Permintaan {{amount}}\nsudah datang!',
-      done: 'Selesai',
     },
     token: {
       title: 'Konfirmasi Token',
@@ -1205,13 +1193,6 @@ export default {
   },
 
   tokenRegister: {
-    title: 'Daftarkan ecash',
-    inputHeading: 'Tempel atau pindai ecash\nuntuk mendaftarkannya.',
-    description: 'Ecash bekerja seperti kartu hadiah yang bisa kamu daftarkan dan pakai (string yang dimulai dengan {{format}}).',
-    inputPlaceholder: 'Masukkan ecash',
-    invalidFormat: 'Format tidak valid. Pastikan ecash dimulai dengan cashuB.',
-    scan: 'Pindai',
-    arrived: 'Ecash kamu sampai!',
     receiving: 'Menerima…',
   },
 

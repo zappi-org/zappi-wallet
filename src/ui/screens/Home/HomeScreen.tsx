@@ -1,18 +1,14 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useCarouselScroll } from "@/ui/hooks/use-carousel-scroll";
 import { usePullToRefresh } from "@/ui/hooks/use-pull-to-refresh";
-import { Plus, LoaderCircle, ArrowDown, ChevronRight, Eye, EyeOff, CircleUserRound, Copy, Check } from "lucide-react";
+import { Plus, LoaderCircle, ArrowDown, ChevronRight, Eye, EyeOff, CircleUserRound } from "lucide-react";
 
 import { useTranslation } from "react-i18next";
 import { CameraFilled } from "@/ui/components/icons/CameraFilled";
 import { hapticTap } from "@/ui/utils/haptic";
 import { MintCard, resolveMintColor } from "../../components/wallet/MintCard";
 import { TransactionList } from "../../components/wallet/TransactionList";
-import { BottomSheet } from "@/ui/components/common/BottomSheet";
-import { Button } from "@/ui/components/common/Button";
-import { QRCodeDisplay } from "@/ui/components/common/QRCodeDisplay";
 import { useWallet, useMintHealth, useMintMetadata } from "@/ui/hooks";
-import { useCrypto } from "@/ui/hooks/use-crypto";
 import { useAppStore } from "@/store";
 import { useSatUnit, useFormatFiat } from "@/utils/format";
 import { getMintBalance } from "@/utils/url";
@@ -22,6 +18,7 @@ import type { Transaction } from "@/core/domain/transaction";
 
 export interface HomeScreenProps {
   onSettings?: () => void;
+  onProfile: () => void;
   onNotifications?: () => void;
   onTransactions?: (mintUrl?: string) => void;
   onAddMint?: () => void;
@@ -36,6 +33,7 @@ export interface HomeScreenProps {
 }
 
 export function HomeScreen({
+  onProfile,
   onTransactions,
   onAddMint,
   onMintDetails,
@@ -51,8 +49,6 @@ export function HomeScreen({
   const unit = useSatUnit();
   const toFiat = useFormatFiat();
   const [activeMintIndex, setActiveMintIndex] = useState(0);
-  const [profileSheetOpen, setProfileSheetOpen] = useState(false);
-  const [profileCopied, setProfileCopied] = useState(false);
 
   const transactions = useMemo(
     () => propTransactions ?? [],
@@ -63,9 +59,6 @@ export function HomeScreen({
   const { checkAllMints, getCachedStatus } = useMintHealth();
   const settings = useAppStore((state) => state.settings);
   const updateSettings = useAppStore((state) => state.updateSettings);
-  const nostrPubkey = useAppStore((state) => state.nostrPubkey);
-  const addToast = useAppStore((state) => state.addToast);
-  const crypto = useCrypto();
   const { getDisplayName, getOriginalName, getIconUrl } = useMintMetadata(
     settings?.mints || []
   );
@@ -112,10 +105,6 @@ export function HomeScreen({
   ]);
 
   const totalBalance = balance.total;
-  const npub = useMemo(
-    () => (nostrPubkey ? crypto.encodeNpub(nostrPubkey) : ""),
-    [crypto, nostrPubkey]
-  );
 
   const { carouselRef, cardRefs, handleScroll } = useCarouselScroll({
     itemCount: mints.length,
@@ -148,32 +137,6 @@ export function HomeScreen({
     onSaveSettings?.({ ...settings, ...updated });
   }, [onSaveSettings, settings, updateSettings]);
 
-  const handleProfileOpen = useCallback(() => {
-    hapticTap();
-    setProfileCopied(false);
-    setProfileSheetOpen(true);
-  }, []);
-
-  const handleProfileCopy = useCallback(async () => {
-    if (!npub) return;
-    hapticTap();
-
-    try {
-      await navigator.clipboard.writeText(npub);
-    } catch {
-      const ta = document.createElement("textarea");
-      ta.value = npub;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-    }
-
-    setProfileCopied(true);
-    addToast({ type: "success", message: t("toast.copied"), duration: 1500 });
-    setTimeout(() => setProfileCopied(false), 2000);
-  }, [addToast, npub, t]);
-
   return (
     <div
       ref={scrollContainerRef as React.RefObject<HTMLDivElement>}
@@ -200,7 +163,10 @@ export function HomeScreen({
       <div className="shrink-0 h-14 px-5 flex items-center justify-between">
         <button
           type="button"
-          onClick={handleProfileOpen}
+          onClick={() => {
+            hapticTap();
+            onProfile();
+          }}
           aria-label={t("settings.profile")}
           className="w-10 h-10 rounded-full flex items-center justify-center text-foreground-muted hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
         >
@@ -386,56 +352,6 @@ export function HomeScreen({
           />
         </div>
       </main>
-
-      <BottomSheet
-        isOpen={profileSheetOpen}
-        onClose={() => setProfileSheetOpen(false)}
-        title={t("settings.profile")}
-      >
-        <div className="flex flex-col items-center px-6 pt-8 pb-6 pb-safe">
-          <div className="flex w-full flex-col items-center text-center">
-            {npub ? (
-              <>
-                <button
-                  type="button"
-                  onClick={handleProfileCopy}
-                  aria-label={t("common.copy")}
-                  className="rounded-2xl bg-white p-4 shadow-sm transition-transform active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-                >
-                  <QRCodeDisplay value={npub} size={200} className="rounded-xl p-0 shadow-none" fill />
-                </button>
-                <p className="mt-6 text-body font-medium text-foreground text-center break-all leading-relaxed px-4">
-                  {npub}
-                </p>
-              </>
-            ) : (
-              <p className="text-body text-foreground-muted">
-                {t("common.loading")}
-              </p>
-            )}
-          </div>
-
-          <Button
-            variant="brand"
-            size="lg"
-            onClick={handleProfileCopy}
-            disabled={!npub}
-            className="mt-6 w-full max-w-[320px]"
-          >
-            {profileCopied ? (
-              <>
-                <Check className="w-4 h-4 mr-2" />
-                {t("common.copied")}
-              </>
-            ) : (
-              <>
-                <Copy className="w-4 h-4 mr-2" />
-                {t("common.copy")}
-              </>
-            )}
-          </Button>
-        </div>
-      </BottomSheet>
     </div>
   );
 }

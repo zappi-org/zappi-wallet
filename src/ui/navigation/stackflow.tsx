@@ -42,7 +42,6 @@ declare module '@stackflow/config' {
     TransactionDetail: EmptyParams
     MintDetail: EmptyParams
     TokenCreate: EmptyParams
-    TokenRegister: EmptyParams
     TokenDetail: EmptyParams
     TokenEasterEgg: EmptyParams
   }
@@ -67,7 +66,6 @@ const ACTIVITY_ROUTES: Record<StackActivityName, string> = {
   TransactionDetail: '/transactions/detail',
   MintDetail: '/mints/detail',
   TokenCreate: '/token/create',
-  TokenRegister: '/token/register',
   TokenDetail: '/token/detail',
   TokenEasterEgg: '/token/easter-egg',
 }
@@ -203,7 +201,6 @@ const components = {
   TransactionDetail: makeScreenActivity('TransactionDetail', 'transaction-detail'),
   MintDetail: makeScreenActivity('MintDetail', 'mint-detail'),
   TokenCreate: makeScreenActivity('TokenCreate', 'token-create'),
-  TokenRegister: makeScreenActivity('TokenRegister', 'token-register'),
   TokenDetail: makeScreenActivity('TokenDetail', 'token-detail'),
   TokenEasterEgg: makeScreenActivity('TokenEasterEgg', 'token-easter-egg'),
 }

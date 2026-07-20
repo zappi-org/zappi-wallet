@@ -101,7 +101,7 @@ describe('useAppNavigation', () => {
         result.current.setCurrentScreen('send')
       })
       act(() => {
-        result.current.setCurrentScreen('token-register')
+        result.current.setCurrentScreen('receive')
       })
       act(() => {
         result.current.handleBack()

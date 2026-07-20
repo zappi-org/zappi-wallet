@@ -903,12 +903,6 @@ export default {
   // Receive
   receive: {
     title: 'Receive',
-    next: 'Next',
-    amountRequired: 'Please enter an amount',
-    amountStep: {
-      howMuchRequest: 'How much to request?',
-      addMemo: 'Memo (optional)',
-    },
     qr: {
       title: 'Receive',
       protocols: {
@@ -917,12 +911,6 @@ export default {
         lightning: 'Lightning',
       },
       share: 'Share',
-      fullMessage: "We'll notify you when {{amount}} is deposited",
-    },
-    complete: {
-      fullMessage: '{{amount}} received!',
-      requestFulfilledMessage: 'Your request for\n{{amount}} arrived!',
-      done: 'Done',
     },
     token: {
       title: 'Token Confirmation',
@@ -1206,13 +1194,6 @@ export default {
 
   // Token Register Flow
   tokenRegister: {
-    title: 'Redeem ecash',
-    inputHeading: 'Paste or scan ecash\nto redeem it.',
-    description: 'Ecash works like a gift card you can redeem and use (a string starting with {{format}}).',
-    inputPlaceholder: 'Enter ecash',
-    invalidFormat: 'Invalid format. Make sure the ecash starts with cashuB.',
-    scan: 'Scan',
-    arrived: 'Your ecash arrived!',
     receiving: 'Receiving…',
   },
 
