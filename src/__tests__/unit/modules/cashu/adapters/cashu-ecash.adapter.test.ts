@@ -128,6 +128,46 @@ describe('CashuEcashAdapter', () => {
     })
   })
 
+  // ─── TransferOperator execute — fund-lock guard ───
+
+  describe('execute rollback on outgoing failure', () => {
+    const outgoingTransfer = (recipient?: string) =>
+      createPendingTransfer({
+        id: 'p1',
+        txId: 'tx-p1',
+        direction: 'outgoing',
+        finality: 'deferred',
+        onExpiry: 'reclaim',
+        transportRef: { type: 'ecash-token', operationId: 'send-op-9', recipient, amount: 100, mintUrl: 'https://mint.test' },
+        now: Date.now(),
+      })
+
+    it('releases the reserved proofs when executeSend throws', async () => {
+      vi.mocked(backend.executeSend).mockRejectedValueOnce(new Error('mint down'))
+
+      await expect(adapter.execute(outgoingTransfer())).rejects.toThrow('mint down')
+      expect(backend.rollbackSend).toHaveBeenCalledWith('send-op-9')
+    })
+
+    it('reclaims the created token when transport publish throws', async () => {
+      const transport = { publish: vi.fn().mockRejectedValue(new Error('relay down')) }
+      const adapterWithTransport = new CashuEcashAdapter(
+        backend,
+        transport as unknown as ConstructorParameters<typeof CashuEcashAdapter>[1],
+      )
+
+      await expect(adapterWithTransport.execute(outgoingTransfer('npub1recipient'))).rejects.toThrow('relay down')
+      expect(backend.rollbackSend).toHaveBeenCalledWith('send-op-9')
+    })
+
+    it('swallows a rollback failure and keeps the original error', async () => {
+      vi.mocked(backend.executeSend).mockRejectedValueOnce(new Error('mint down'))
+      vi.mocked(backend.rollbackSend).mockRejectedValueOnce(new Error('already redeemed'))
+
+      await expect(adapter.execute(outgoingTransfer())).rejects.toThrow('mint down')
+    })
+  })
+
   // ─── executeSend ───
 
   describe('executeSend', () => {

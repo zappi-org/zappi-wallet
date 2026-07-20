@@ -708,13 +708,15 @@ export default function MainApp() {
     async (mintUrl: string, amount: number): Promise<{ fee: number; availableBalance: number } | null> => {
       if (!serviceRegistry?.payment || !serviceRegistry.balance) return null
       try {
+        // Balance BEFORE the estimate: estimateFee's prepare→rollback reserves
+        // proofs, and a read inside that window reports a transient dip.
+        const balances = await serviceRegistry.balance.getByModule()
         const result = await serviceRegistry.payment.estimateFee({
           accountId: mintUrl,
           destination: '',
           amount: sat(amount),
         })
         if (!result.ok) return null
-        const balances = await serviceRegistry.balance.getByModule()
         const account = balances
           .flatMap((moduleBalance) => moduleBalance.accounts)
           .find((candidate) => isSameMintUrl(candidate.id, mintUrl))

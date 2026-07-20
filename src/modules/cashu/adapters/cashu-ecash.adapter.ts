@@ -23,6 +23,7 @@ import type { TransferOperator, TransferIntent, MessageTransport } from '@/core/
 import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
 import type { PendingTransfer, TransferPhase } from '@/core/domain/pending-transfer'
 import { createPendingTransfer, transitionPhase, isExpired } from '@/core/domain/pending-transfer'
+import { withMintCycleLock } from '../internal/mint-cycle-lock'
 import type { EventBus } from '@/core/events/event-bus'
 import { getTokenMetadata } from '@cashu/cashu-ts'
 
@@ -105,10 +106,13 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
   // ─── TransferOperator ───
 
   async prepare(intent: TransferIntent): Promise<PendingTransfer> {
-    const prepared = await this.backend.prepareSend({
-      mintUrl: intent.accountId,
-      amount: toNumber(intent.amount),
-    })
+    // prepare only — never hold the mint lock across execute
+    const prepared = await withMintCycleLock(intent.accountId, () =>
+      this.backend.prepareSend({
+        mintUrl: intent.accountId,
+        amount: toNumber(intent.amount),
+      }),
+    )
 
     if (intent.memo) {
       this.pendingMemos.set(prepared.operationId, intent.memo)
@@ -155,37 +159,52 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
       memo?: string
     }
 
-    // 1. Create token (prefer transportRef.memo; legacy prepareSend path falls back to pendingMemos)
-    const memo = ref.memo ?? this.pendingMemos.get(ref.operationId)
-    const result = await this.backend.executeSend(ref.operationId, { memo })
-    this.pendingMemos.delete(ref.operationId)
+    try {
+      // 1. Create token (prefer transportRef.memo; legacy prepareSend path falls back to pendingMemos)
+      const memo = ref.memo ?? this.pendingMemos.get(ref.operationId)
+      const result = await this.backend.executeSend(ref.operationId, { memo })
+      this.pendingMemos.delete(ref.operationId)
 
-    // 2. Send (only when a recipient exists — QR/clipboard don't send)
-    let deliveryId: string | undefined
-    if (ref.recipient && this.transport) {
-      const publishResult = await this.transport.publish({
-        recipient: ref.recipient,
-        content: result.token,
-      })
-      deliveryId = publishResult.deliveryId
+      // 2. Send (only when a recipient exists — QR/clipboard don't send)
+      let deliveryId: string | undefined
+      if (ref.recipient && this.transport) {
+        const publishResult = await this.transport.publish({
+          recipient: ref.recipient,
+          content: result.token,
+        })
+        deliveryId = publishResult.deliveryId
+      }
+
+      const prevRef = transfer.transportRef as {
+        type: string
+        operationId: string
+        recipient?: string
+        amount: number
+        mintUrl: string
+      }
+
+      return {
+        ...transitionPhase(transfer, 'submitted', Date.now()),
+        transportRef: {
+          ...prevRef,
+          token: result.token,
+          deliveryId,
+        },
+      } as PendingTransfer
+    } catch (error) {
+      // Without this the reserved proofs stay locked until the recovery sweep —
+      // the balance silently drops while the UI only says "failed".
+      // rollbackSend covers both windows: prepared → cancel, post-create → reclaim.
+      // Tradeoff: if the transport delivered before rejecting, the recipient may
+      // hold a token we just reclaimed — accepted over a guaranteed fund lock.
+      this.pendingMemos.delete(ref.operationId)
+      try {
+        await this.backend.rollbackSend(ref.operationId)
+      } catch {
+        // already redeemed or already rolled back — nothing left to release
+      }
+      throw error
     }
-
-    const prevRef = transfer.transportRef as {
-      type: string
-      operationId: string
-      recipient?: string
-      amount: number
-      mintUrl: string
-    }
-
-    return {
-      ...transitionPhase(transfer, 'submitted', Date.now()),
-      transportRef: {
-        ...prevRef,
-        token: result.token,
-        deliveryId,
-      },
-    } as PendingTransfer
   }
 
   private async executeIncoming(transfer: PendingTransfer): Promise<PendingTransfer> {
@@ -336,13 +355,26 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
   // ─── Send ───
 
   async estimateFee(params: SendParams): Promise<FeeEstimate> {
-    const prepared = await this.backend.prepareSend({
-      mintUrl: params.accountId,
-      amount: toNumber(params.amount),
+    // Serialized with every other proof-reserving cycle on this mint
+    return withMintCycleLock(params.accountId, async () => {
+      let operationId: string | null = null
+      let rolledBack = false
+      try {
+        const prepared = await this.backend.prepareSend({
+          mintUrl: params.accountId,
+          amount: toNumber(params.amount),
+        })
+        operationId = prepared.operationId
+        const fee = prepared.fee
+        await this.backend.rollbackSend(operationId)
+        rolledBack = true
+        return { fee: sat(fee), method: 'ecash', protocol: 'cashu-token' }
+      } finally {
+        if (operationId && !rolledBack) {
+          await this.backend.rollbackSend(operationId).catch(() => {})
+        }
+      }
     })
-    const fee = prepared.fee
-    await this.backend.rollbackSend(prepared.operationId)
-    return { fee: sat(fee), method: 'ecash', protocol: 'cashu-token' }
   }
 
   async prepareSend(params: SendParams): Promise<PreparedPayment> {

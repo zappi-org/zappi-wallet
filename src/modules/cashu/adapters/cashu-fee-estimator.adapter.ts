@@ -3,6 +3,7 @@ import type { PaymentRoute, FeeEstimate } from '@/core/domain/routing'
 import { PaymentRoute as PR } from '@/core/domain/routing'
 import { InsufficientBalanceError } from '@/core/errors/payment.errors'
 import { ProofValidationError } from '@cashu/coco-core'
+import { withMintCycleLock } from '../internal/mint-cycle-lock'
 
 export interface CashuFeeEstimatorBackend {
   prepareMelt(
@@ -63,6 +64,16 @@ export class CashuFeeEstimatorAdapter implements FeeEstimator {
     targetMint: string,
     amount: number,
   ): Promise<FeeEstimate> {
+    return withMintCycleLock(sourceMint, () => this.estimateMyWalletFeeCycle(sourceMint, targetMint, amount))
+  }
+
+  private async estimateMyWalletFeeCycle(
+    sourceMint: string,
+    targetMint: string,
+    amount: number,
+  ): Promise<FeeEstimate> {
+    // Pre-lock snapshot — see estimateMeltFee for why
+    const availableBalance = await this.getAvailableBalance(sourceMint)
     const quote = await this.backend.createMintQuote(targetMint, amount)
     let meltOperationId: string | null = null
     let estimate: Omit<FeeEstimate, 'availableBalance'> | null = null
@@ -93,30 +104,61 @@ export class CashuFeeEstimatorAdapter implements FeeEstimator {
 
     if (cleanupError) throw cleanupError
     if (operationError) throw operationError
-    return { ...estimate!, availableBalance: await this.getAvailableBalance(sourceMint) }
+    return { ...estimate!, availableBalance }
   }
 
+  // availableBalance is snapshotted BEFORE prepare: the estimation lock is our
+  // own transient, so the pre-lock spendable is the true spendable. A post-
+  // rollback read can be poisoned by a concurrent estimate's lock window and
+  // then replayed for 60s by the estimate cache.
   private async estimateMeltFee(sourceMint: string, invoice: string, amount: number): Promise<FeeEstimate> {
-    const meltResult = await this.backend.prepareMelt(sourceMint, invoice)
-    await this.backend.rollbackMelt(meltResult.operationId, 'fee_estimation')
-    const fee = (meltResult.fee_reserve ?? 0) + (meltResult.swap_fee ?? 0)
-    const availableBalance = await this.getAvailableBalance(sourceMint)
-    return { fee, totalNeeded: amount + fee, availableBalance }
+    return withMintCycleLock(sourceMint, async () => {
+      const availableBalance = await this.getAvailableBalance(sourceMint)
+      let operationId: string | null = null
+      let rolledBack = false
+      try {
+        const meltResult = await this.backend.prepareMelt(sourceMint, invoice)
+        operationId = meltResult.operationId
+        await this.backend.rollbackMelt(operationId, 'fee_estimation')
+        rolledBack = true
+        const fee = (meltResult.fee_reserve ?? 0) + (meltResult.swap_fee ?? 0)
+        return { fee, totalNeeded: amount + fee, availableBalance }
+      } finally {
+        // Crash-lock guard: a throw between prepare and rollback would leave
+        // proofs reserved until the stale-prepared sweep. Not idempotent in
+        // coco — guard on rolledBack and swallow (self-cleaned prepares throw).
+        if (operationId && !rolledBack) {
+          await this.backend.rollbackMelt(operationId, 'fee_estimation').catch(() => {})
+        }
+      }
+    })
   }
 
   private async estimateTokenSendFee(sourceMint: string, amount: number): Promise<FeeEstimate> {
-    const sendResult = await this.backend.prepareSend({ mintUrl: sourceMint, amount })
-    await this.backend.rollbackSend(sendResult.operationId)
-    const fee = sendResult.fee ?? 0
-    const availableBalance = await this.getAvailableBalance(sourceMint)
-    return { fee, totalNeeded: amount + fee, availableBalance }
+    return withMintCycleLock(sourceMint, async () => {
+      const availableBalance = await this.getAvailableBalance(sourceMint)
+      let operationId: string | null = null
+      let rolledBack = false
+      try {
+        const sendResult = await this.backend.prepareSend({ mintUrl: sourceMint, amount })
+        operationId = sendResult.operationId
+        await this.backend.rollbackSend(operationId)
+        rolledBack = true
+        const fee = sendResult.fee ?? 0
+        return { fee, totalNeeded: amount + fee, availableBalance }
+      } finally {
+        if (operationId && !rolledBack) {
+          await this.backend.rollbackSend(operationId).catch(() => {})
+        }
+      }
+    })
   }
 
   private async getAvailableBalance(sourceMint: string): Promise<number> {
     const balances = await this.backend.getBalances()
     const availableBalance = balances[sourceMint]
     if (!Number.isFinite(availableBalance) || availableBalance < 0) {
-      throw new Error(`Balance unavailable after fee estimation cleanup for ${sourceMint}`)
+      throw new Error(`Balance unavailable for fee estimation on ${sourceMint}`)
     }
     return availableBalance
   }

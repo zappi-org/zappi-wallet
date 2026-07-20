@@ -72,7 +72,10 @@ describe('CashuFeeEstimatorAdapter', () => {
     expect(backend.createMintQuote).not.toHaveBeenCalled()
   })
 
-  it('reads the spendable balance only after the temporary lock is released', async () => {
+  it('snapshots the spendable balance BEFORE the temporary lock opens', async () => {
+    // The lock is our own transient — pre-lock spendable is the true spendable.
+    // A post-rollback read can be poisoned by a concurrent estimate's lock
+    // window and then replayed for 60s by the estimate cache.
     const callOrder: string[] = []
     vi.mocked(backend.prepareSend).mockImplementation(async () => {
       callOrder.push('prepare')
@@ -88,7 +91,7 @@ describe('CashuFeeEstimatorAdapter', () => {
 
     await adapter.estimateRouteFee(PaymentRoute.TOKEN_TRANSFER, 'https://source.mint', 1000)
 
-    expect(callOrder).toEqual(['prepare', 'rollback', 'balance'])
+    expect(callOrder).toEqual(['balance', 'prepare', 'rollback'])
   })
 
   it('does not turn a missing Lightning invoice into a false zero fee', async () => {

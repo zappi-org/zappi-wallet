@@ -20,6 +20,7 @@ import type { Amount } from '@/core/domain/amount'
 import { sat, toNumber, amount as amt } from '@/core/domain/amount'
 import type { TransferOperator, TransferIntent } from '@/core/ports/driven/transfer-operator.port'
 import type { PendingTransfer, TransferPhase } from '@/core/domain/pending-transfer'
+import { withMintCycleLock } from '../internal/mint-cycle-lock'
 import { createPendingTransfer, transitionPhase, isExpired } from '@/core/domain/pending-transfer'
 
 
@@ -90,7 +91,10 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
   // ─── TransferOperator (Outgoing) ───
 
   async prepare(intent: TransferIntent): Promise<PendingTransfer> {
-    const op = await this.backend.prepareMelt(intent.accountId, intent.recipient!)
+    // prepare only — never hold the mint lock across execute
+    const op = await withMintCycleLock(intent.accountId, () =>
+      this.backend.prepareMelt(intent.accountId, intent.recipient!),
+    )
 
     return createPendingTransfer({
       id: crypto.randomUUID(),
@@ -269,24 +273,29 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
   // ─── Send ───
 
   async estimateFee(params: SendParams): Promise<FeeEstimate> {
-    const invoice = params.destination!
-    let meltOp: Awaited<ReturnType<LightningBackend['prepareMelt']>> | null = null
+    // Serialized with every other proof-reserving cycle on this mint
+    return withMintCycleLock(params.accountId, async () => {
+      const invoice = params.destination!
+      let meltOp: Awaited<ReturnType<LightningBackend['prepareMelt']>> | null = null
 
-    try {
-      meltOp = await this.backend.prepareMelt(params.accountId, invoice)
-      const fee = meltOp.fee_reserve + meltOp.swap_fee
-      await this.backend.rollbackMelt(meltOp.operationId, 'fee estimation only')
-      return { fee: sat(fee), method: 'lightning', protocol: 'bolt11' }
-    } catch (error) {
-      if (meltOp) {
-        await this.backend.rollbackMelt(meltOp.operationId, 'fee estimation failed').catch(() => { })
+      try {
+        meltOp = await this.backend.prepareMelt(params.accountId, invoice)
+        const fee = meltOp.fee_reserve + meltOp.swap_fee
+        await this.backend.rollbackMelt(meltOp.operationId, 'fee estimation only')
+        return { fee: sat(fee), method: 'lightning', protocol: 'bolt11' }
+      } catch (error) {
+        if (meltOp) {
+          await this.backend.rollbackMelt(meltOp.operationId, 'fee estimation failed').catch(() => { })
+        }
+        throw error
       }
-      throw error
-    }
+    })
   }
 
   async prepareSend(params: SendParams): Promise<PreparedPayment> {
-    const meltOp = await this.backend.prepareMelt(params.accountId, params.destination!)
+    const meltOp = await withMintCycleLock(params.accountId, () =>
+      this.backend.prepareMelt(params.accountId, params.destination!),
+    )
     const fee = meltOp.fee_reserve + meltOp.swap_fee
 
     // Store unit for execute() phase
