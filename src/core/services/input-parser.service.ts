@@ -1,4 +1,4 @@
-import { LnurlParseError } from '@/core/errors/lightning'
+import { InvoiceExpiredError, LnurlParseError } from '@/core/errors/lightning'
 import { UnrecognizedInputError } from '@/core/errors/payment.errors'
 import type { InputParserUseCase } from '@/core/ports/driving/input-parser.usecase'
 import type { TokenCodec, CashuTokenInspection } from '@/core/ports/driven/token-codec.port'
@@ -108,6 +108,10 @@ export class InputParserService implements InputParserUseCase {
   async validateAsync(input: InputType): Promise<ValidatedData> {
     switch (input.type) {
       case 'bolt11':
+        // Expiry is computed at detection but must be enforced here: an expired
+        // invoice that validates as payable dies silently later (balance gate
+        // toast or an unquotable melt), never naming the real reason.
+        if (input.isExpired) throw new InvoiceExpiredError()
         return {
           type: 'bolt11',
           invoice: input.invoice,

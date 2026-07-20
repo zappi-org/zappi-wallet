@@ -13,6 +13,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { hapticTap } from '@/ui/utils/haptic'
+import { translateError } from '@/ui/utils/error-i18n'
 import { useInputParser } from '@/ui/hooks/use-input-parser'
 import { useContacts } from '@/ui/hooks/use-contacts'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
@@ -246,6 +247,9 @@ export function useSendInputValidation({
       }
 
       if (detected.type === 'bolt11') {
+        // Inline, at paste time — validateAsync rejects expired invoices, but
+        // without this the CTA stays enabled and the rejection has no voice.
+        if (detected.isExpired) setPreValidationError(t('errors.invoiceExpired'))
         setIsPreValidating(false)
         return
       }
@@ -391,9 +395,11 @@ export function useSendInputValidation({
     let validated
     try {
       validated = await inputParser.validateAsync(detected)
-    } catch {
-      // Format was recognized but remote validation failed — surface this distinctly from
-      // "unrecognized" (an unrecognized toast on an offline/server error is misleading).
+    } catch (err) {
+      // Format was recognized but validation failed (expired invoice, dead LNURL,
+      // offline). Inline error here covers every caller — paste, scan, contact
+      // auto-validate — which previously discarded this result silently.
+      setPreValidationError(translateError(err, t))
       return 'validation-error'
     }
     if (!['bolt11', 'lightning-address', 'lnurl-pay', 'cashu-request', 'my-wallet'].includes(validated.type)) {
@@ -519,11 +525,15 @@ export function useSendInputValidation({
         setIsValidating(false)
         if (ok === true && validatedDataRef.current) {
           advanceWithData(initialDestination || initialAddress, validatedDataRef.current)
+        } else if (ok === false) {
+          // Contact addresses skip the debounce detector (rawAddressRef set), so
+          // an unrecognized one would otherwise give zero feedback forever.
+          setPreValidationError(t('send.destination.unrecognized'))
         }
       })
       return () => cancelAnimationFrame(id)
     }
-  }, [initialAddress, initialDestination, initialValidatedData, processExternalInput, advanceWithData])
+  }, [initialAddress, initialDestination, initialValidatedData, processExternalInput, advanceWithData, t])
 
   return {
     destination,
