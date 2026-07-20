@@ -101,7 +101,7 @@ describe('send display text', () => {
 
     expect(shouldShowRecipientInMainMessage(request)).toBe(true)
     expect(getDestinationDisplay(request)).toBe(formatNpubShort(npub))
-    expect(getDestinationDisplay(request, '가나다라마바사아자차카타파하')).toBe('가나다라마바사아자차카타...')
-    expect(formatRecipientDisplayText('npub1abcdef0123456789')).toBe('npub1abc...6789')
+    expect(getDestinationDisplay(request, '가나다라마바사아자차카타파하')).toBe('가나다라마바사아자차카타…')
+    expect(formatRecipientDisplayText('npub1abcdef0123456789')).toBe('npub1abc…6789')
   })
 })

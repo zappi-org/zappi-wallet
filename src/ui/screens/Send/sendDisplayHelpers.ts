@@ -24,7 +24,7 @@ function isLightningRoute(route: PaymentRoute | undefined): boolean {
 export function formatNpubShort(npub: string): string {
   const trimmed = npub.trim();
   if (trimmed.length <= 16) return trimmed;
-  return `${trimmed.slice(0, 8)}...${trimmed.slice(-4)}`;
+  return `${trimmed.slice(0, 8)}…${trimmed.slice(-4)}`;
 }
 
 export function formatRecipientDisplayText(value: string, maxLength = 12): string {
@@ -32,7 +32,16 @@ export function formatRecipientDisplayText(value: string, maxLength = 12): strin
   if (!trimmed) return trimmed;
   if (isNostrDirectAddress(trimmed)) return formatNpubShort(trimmed);
   if (trimmed.length <= maxLength) return trimmed;
-  return `${trimmed.slice(0, maxLength)}...`;
+  return `${trimmed.slice(0, maxLength)}…`;
+}
+
+/**
+ * Confirm-question amount size. Digit count, not string length: unit
+ * prefixes/suffixes ("₿" vs " sats") must not flip the size for the same amount.
+ */
+export function confirmAmountSizeClass(displayAmount: string): string {
+  const digits = displayAmount.replace(/\D/g, "").length;
+  return digits > 11 ? "text-[22px]" : digits > 9 ? "text-[26px]" : "text-[32px]";
 }
 
 /** Middle-ellipsis keeping both ends visible (invoices, npubs). */
@@ -110,9 +119,7 @@ export function getConfirmDisplayInfo(
     return {
       method: "Lightning",
       recipient: t("send.confirm.paymentRequest"),
-      recipientDetail: `${inv.slice(0, 12).toLowerCase()}...${inv
-        .slice(-4)
-        .toLowerCase()}`,
+      recipientDetail: middleEllipsis(inv.toLowerCase(), 12, 4),
       memo: data.parsed.description,
     };
   }
@@ -122,7 +129,7 @@ export function getConfirmDisplayInfo(
     return {
       method: "eCash",
       recipient: t("send.confirm.paymentRequest"),
-      recipientDetail: `${req.slice(0, 8)}...${req.slice(-4)}`,
+      recipientDetail: middleEllipsis(req, 8, 4),
       memo: data.parsed.description,
     };
   }
@@ -137,9 +144,7 @@ export function getConfirmDisplayInfo(
       return {
         method: "Lightning",
         recipient: t("send.confirm.paymentRequest"),
-        recipientDetail: `${inv.slice(0, 12).toLowerCase()}...${inv
-          .slice(-4)
-          .toLowerCase()}`,
+        recipientDetail: middleEllipsis(inv.toLowerCase(), 12, 4),
         memo: data.parsed.description,
       };
     }
@@ -147,7 +152,7 @@ export function getConfirmDisplayInfo(
     return {
       method: "eCash",
       recipient: t("send.confirm.paymentRequest"),
-      recipientDetail: `${req.slice(0, 8)}...${req.slice(-4)}`,
+      recipientDetail: middleEllipsis(req, 8, 4),
       memo: data.parsed.description,
     };
   }
@@ -158,7 +163,7 @@ export function getConfirmDisplayInfo(
       return {
         method: "Lightning",
         recipient: t("send.confirm.paymentRequest"),
-        recipientDetail: `${inv.slice(0, 8)}...${inv.slice(-4)}`,
+        recipientDetail: middleEllipsis(inv, 8, 4),
         memo: data.description || undefined,
       };
     }
@@ -180,7 +185,7 @@ export function getConfirmDisplayInfo(
       return {
         method: "eCash",
         recipient: t("send.confirm.paymentRequest"),
-        recipientDetail: `${req.slice(0, 8)}...${req.slice(-4)}`,
+        recipientDetail: middleEllipsis(req, 8, 4),
         memo: data.parsed.description,
       };
     }
@@ -188,7 +193,7 @@ export function getConfirmDisplayInfo(
       return {
         method: t("send.confirm.internalTransfer"),
         recipient: data.targetMintName,
-        recipientDetail: `${data.targetMintUrl.slice(0, 20)}...`,
+        recipientDetail: `${data.targetMintUrl.slice(0, 20)}…`,
       };
   }
 }

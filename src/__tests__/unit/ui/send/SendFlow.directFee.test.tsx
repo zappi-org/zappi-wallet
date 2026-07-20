@@ -115,6 +115,9 @@ vi.mock('@/store', () => {
 })
 
 const baseProps = {
+  // Long enough that the dwell can't elapse inside an act() await under load,
+  // short enough to flush explicitly with a 150ms wait.
+  sendingDwellMs: 120,
   onBack: vi.fn(),
   onComplete: vi.fn(),
   onExecuteRoute: vi.fn(),
@@ -346,10 +349,15 @@ describe('SendFlow direct-transfer fee quote', () => {
     })
     expect(capturedAmount!.feeQuote).toBe(20)
 
-    // Reproduce the exact bug scenario: direct-transfer create fails (catch
-    // sets state.error, step stays 'confirm') — the banner is now stale.
+    // Reproduce the exact bug scenario: direct-transfer create fails — the
+    // failure lands after the sending dwell and returns to 'confirm'.
     await act(async () => {
       await capturedAmount!.onConfirmSend!()
+    })
+    // Returning to 'confirm' re-runs the direct-fee effect — feed that quote
+    feeMock.mockResolvedValueOnce({ fee: 20, availableBalance: 100 })
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 150))
     })
     expect(capturedAmount!.confirmError).not.toBeNull()
 
@@ -374,7 +382,8 @@ describe('SendFlow direct-transfer fee quote', () => {
     })
     expect(capturedAmount!.confirmError).toBeNull()
     expect(capturedAmount!.feeQuote).toBe('pending')
-    expect(feeMock).toHaveBeenCalledTimes(3)
+    // 4 calls: confirm entry, failure-return re-quote, mint2, mint3
+    expect(feeMock).toHaveBeenCalledTimes(4)
     expect(feeMock).toHaveBeenLastCalledWith('https://mint3.example.com', 50)
 
     // Resolve the STALE first quote (mint2's) — its value must NOT be applied;
@@ -393,9 +402,9 @@ describe('SendFlow direct-transfer fee quote', () => {
     expect(capturedAmount!.feeQuote).toBe(12)
   })
 
-  it('holds a successful routed send on the journey until arrival completes', async () => {
+  it('holds a successful routed send on the receipt until the dwell elapses', async () => {
     const onExecuteRoute = vi.fn(async () => ({
-      success: true,
+      status: 'settled' as const,
       amount: 50,
       fee: 0,
       sourceMintUrl: 'https://mint.example.com',
@@ -422,17 +431,16 @@ describe('SendFlow direct-transfer fee quote', () => {
 
     expect(onExecuteRoute).toHaveBeenCalledOnce()
     expect(capturedAmount!.sending).toBe(true)
-    expect(capturedAmount!.journeyStatus).toBe('success')
     expect(completeMounted).toBe(false)
 
-    act(() => {
-      capturedAmount!.onJourneyOutcomeComplete!('success')
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 150))
     })
 
     expect(completeMounted).toBe(true)
   })
 
-  it('returns a failed routed send to confirmation after the star fades', async () => {
+  it('returns a failed routed send to confirmation after the dwell', async () => {
     const onExecuteRoute = vi.fn(async () => null)
 
     render(
@@ -453,10 +461,9 @@ describe('SendFlow direct-transfer fee quote', () => {
     })
 
     expect(capturedAmount!.sending).toBe(true)
-    expect(capturedAmount!.journeyStatus).toBe('failure')
 
-    act(() => {
-      capturedAmount!.onJourneyOutcomeComplete!('failure')
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 150))
     })
 
     expect(capturedAmount!.sending).toBe(false)

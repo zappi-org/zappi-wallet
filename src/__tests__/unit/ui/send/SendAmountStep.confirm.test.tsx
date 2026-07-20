@@ -1,9 +1,15 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { SendAmountStep } from '@/ui/screens/Send/steps/SendAmountStep'
+import { confirmAmountSizeClass } from '@/ui/screens/Send/sendDisplayHelpers'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k: string) => k }),
+  // Renders the key plus interpolated values so identity assertions can
+  // target the real recipient string.
+  Trans: ({ i18nKey, values }: { i18nKey: string; values?: Record<string, unknown> }) => (
+    <>{[i18nKey, ...(values ? Object.values(values).map(String) : [])].join(' ')}</>
+  ),
 }))
 vi.mock('@/ui/hooks/use-wallet', () => ({
   useWallet: () => ({ balance: { byMint: { 'https://mint.example.com': 10000 } } }),
@@ -51,18 +57,19 @@ vi.mock('@/utils/url', () => ({
 vi.mock('@/ui/hooks/use-contacts', () => ({
   useContacts: () => ({ findByAddress: vi.fn(async () => null) }),
 }))
-vi.mock('@/ui/screens/Send/sendDisplayHelpers', () => ({
-  findContactName: vi.fn(async () => null),
-  formatNpubShort: (s: string) => s,
-  formatRecipientDisplayText: (s: string) => s,
-  formatLightningAddress: (s: string) => s,
-  isDirectCashuRecipient: (data: { type: string; parsed?: { sameMintOnly?: boolean; nostrTarget?: string } }) =>
-    data.type === 'cashu-request' && data.parsed?.sameMintOnly === true && !!data.parsed.nostrTarget,
-  middleEllipsis: (s: string) => s,
-  shouldShowRecipientInMainMessage: () => true,
-}))
+vi.mock('@/ui/screens/Send/sendDisplayHelpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/ui/screens/Send/sendDisplayHelpers')>()
+  // Real display logic (the confirm identity line depends on it); only the
+  // async contact lookup is stubbed.
+  return { ...actual, findContactName: vi.fn(async () => null) }
+})
 vi.mock('@/ui/components/common/ScreenHeader', () => ({
-  ScreenHeader: ({ title }: { title?: string }) => <div>{title}</div>,
+  ScreenHeader: ({ title, onBack }: { title?: string; onBack?: () => void }) => (
+    <div>
+      {onBack && <button aria-label="header-back" onClick={onBack} />}
+      {title}
+    </div>
+  ),
 }))
 vi.mock('@/ui/components/common/MintIcon', () => ({
   MintIcon: () => <span data-testid="mint-icon" />,
@@ -98,7 +105,7 @@ describe('SendAmountStep confirm variant', () => {
     expect(screen.getByRole('button', { name: 'send.confirm.send' })).toBeEnabled()
   })
 
-  it('uses recipient-specific endpoint icons', () => {
+  it('asks the Toss question with the full identity per recipient type', () => {
     const { rerender } = render(
       <SendAmountStep
         {...baseProps}
@@ -106,8 +113,9 @@ describe('SendAmountStep confirm variant', () => {
         validatedData={{ type: 'bolt11', invoice: 'lnbc1invoice', amountSats: 5000, expiry: 9999999999 }}
       />,
     )
-    expect(screen.getByTestId('recipient-lightning-icon')).toBeInTheDocument()
-    expect(screen.getByText('send.confirm.paymentRequest')).toBeInTheDocument()
+    // bolt11: anonymous request question + invoice fingerprint as the identity.
+    expect(screen.getByText(/send\.confirm\.requestQuestion/)).toBeInTheDocument()
+    expect(screen.getByText('lnbc1invoice')).toBeInTheDocument()
 
     rerender(
       <SendAmountStep
@@ -127,9 +135,8 @@ describe('SendAmountStep confirm variant', () => {
         }}
       />,
     )
-    expect(screen.getByTestId('recipient-lightning-icon')).toBeInTheDocument()
-    expect(screen.getByText('alice')).toBeInTheDocument()
-    expect(screen.queryByText('alice@example.com')).not.toBeInTheDocument()
+    // The question carries the FULL address — identity is never erased at commit.
+    expect(screen.getByText(/send\.confirm\.question alice@example\.com/)).toBeInTheDocument()
 
     rerender(
       <SendAmountStep
@@ -150,8 +157,45 @@ describe('SendAmountStep confirm variant', () => {
         }}
       />,
     )
-    expect(screen.getByTestId('recipient-nostr-icon')).toBeInTheDocument()
-    expect(screen.getByText('send.confirm.paymentRequest')).toBeInTheDocument()
+    expect(screen.getByText(/send\.confirm\.requestQuestion/)).toBeInTheDocument()
+    expect(screen.getByText('npub1rec…ient')).toBeInTheDocument()
+  })
+
+  it('sending prints the receipt with the recipient identity', () => {
+    const { rerender } = render(
+      <SendAmountStep
+        {...baseProps}
+        feeQuote={30}
+        sending
+        validatedData={{ type: 'bolt11', invoice: 'lnbc1invoice', amountSats: 5000, expiry: 9999999999 }}
+      />,
+    )
+    expect(screen.getByText('send.receipt.title')).toBeInTheDocument()
+    expect(screen.getByText('send.receipt.sending')).toBeInTheDocument()
+    // The fingerprint row is the anonymous request's identity on paper.
+    expect(screen.getByText('lnbc1invoice')).toBeInTheDocument()
+
+    rerender(
+      <SendAmountStep
+        {...baseProps}
+        feeQuote={30}
+        sending
+        validatedData={{
+          type: 'cashu-request',
+          request: 'npub1recipient',
+          parsed: {
+            id: 'request-id',
+            unit: 'sat',
+            mints: [],
+            transports: [{ type: 'nostr', target: 'npub1recipient' }],
+            hasNostrTransport: true,
+            nostrTarget: 'npub1recipient',
+            hasPostTransport: false,
+          },
+        }}
+      />,
+    )
+    expect(screen.getByText('npub1rec…ient')).toBeInTheDocument()
   })
 
   it('blocks Send with the fee-unavailable message', () => {
@@ -168,6 +212,12 @@ describe('SendAmountStep confirm variant', () => {
     render(<SendAmountStep {...baseProps} initialAmount={9990} feeQuote={30} />)
     expect(screen.getByText('send.confirm.insufficientWithTotal')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'send.confirm.send' })).toBeDisabled()
+  })
+
+  it('boundary: total exactly equal to the balance stays sendable (3 sats — send 2 + fee 1)', () => {
+    render(<SendAmountStep {...baseProps} initialAmount={2} feeQuote={1} quotedBalance={3} />)
+    expect(screen.queryByText('send.confirm.insufficientWithTotal')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'send.confirm.send' })).toBeEnabled()
   })
 
   it('uses the post-unlock quoted balance instead of a transient lower live balance', () => {
@@ -191,22 +241,100 @@ describe('SendAmountStep confirm variant', () => {
     expect(screen.getByText('send.memo.changeTitle')).toBeInTheDocument()
   })
 
-  it('while sending: Cancel/Send are replaced by the sending status row and the memo row is disabled', () => {
-    render(<SendAmountStep {...baseProps} sending journeyStatus="pending" feeQuote={30} />)
+  it('card names the source mint (the diagram is gone from confirm)', () => {
+    render(<SendAmountStep {...baseProps} feeQuote={30} />)
+    expect(screen.getByText('send.confirm.sourceMint')).toBeInTheDocument()
+    expect(screen.getByText('My Mint')).toBeInTheDocument()
+  })
+
+  it('while sending: controls and card disappear — the printing receipt carries the state', () => {
+    render(<SendAmountStep {...baseProps} sending feeQuote={30} />)
     expect(screen.queryByRole('button', { name: 'common.cancel' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'send.confirm.send' })).not.toBeInTheDocument()
-    expect(screen.getByText('send.sending.fullRequestMessage')).toBeInTheDocument()
-    expect(screen.getByText('send.confirm.memo').closest('button')).toBeDisabled()
-    const journey = document.querySelector('[data-journey-status="pending"]')
-    expect(journey).toBeInTheDocument()
-    expect(journey).toHaveClass('absolute')
-    expect(journey).not.toHaveClass('relative')
-    expect(screen.getByTestId('send-journey-star')).toBeInTheDocument()
-    const track = screen.getByTestId('send-journey-track')
-    expect(track).toHaveClass('overflow-hidden')
-    expect(track).not.toContainElement(screen.getByTestId('send-journey-star'))
-    expect(screen.queryByTestId('send-journey-direction')).not.toBeInTheDocument()
-    expect(screen.getByTestId('send-journey-remaining')).toBeInTheDocument()
-    expect(screen.getByTestId('send-journey-progress')).not.toHaveAttribute('pathLength')
+    // Regression (QA-caught): the keypad must not resurrect in the else-branch.
+    expect(screen.queryByRole('button', { name: '1' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'common.confirm' })).not.toBeInTheDocument()
+    // The receipt carries the cost story while printing
+    expect(screen.getByText('send.receipt.title')).toBeInTheDocument()
+    expect(screen.getByText('send.receipt.sending')).toBeInTheDocument()
+    expect(screen.getByText('5030 sat')).toBeInTheDocument()
+    // No tappable rows on paper — the memo edit button is confirm-only
+    expect(screen.queryByRole('button', { name: /send\.confirm\.memo/ })).not.toBeInTheDocument()
+  })
+
+  it('renames the header to the confirm title and keeps the back arrow until sending', () => {
+    const { rerender } = render(<SendAmountStep {...baseProps} feeQuote={30} />)
+    expect(screen.getByText('send.confirm.title')).toBeInTheDocument()
+    expect(screen.getByLabelText('header-back')).toBeInTheDocument()
+
+    rerender(<SendAmountStep {...baseProps} feeQuote={30} sending />)
+    expect(screen.queryByLabelText('header-back')).not.toBeInTheDocument()
+  })
+
+  it('shows the total (amount + fee) once the fee is quoted, with a skeleton while pending', () => {
+    const { rerender } = render(<SendAmountStep {...baseProps} feeQuote="pending" />)
+    expect(screen.getByText('send.confirm.total')).toBeInTheDocument()
+    expect(screen.queryByText('5030 sat')).not.toBeInTheDocument()
+
+    rerender(<SendAmountStep {...baseProps} feeQuote={30} />)
+    expect(screen.getByText('5030 sat')).toBeInTheDocument()
+
+    // Unavailable fee: the total row disappears — the error line owns that state.
+    rerender(<SendAmountStep {...baseProps} feeQuote="unavailable" />)
+    expect(screen.queryByText('send.confirm.total')).not.toBeInTheDocument()
+  })
+
+  it('truncates a long memo instead of deforming the card', () => {
+    const longMemo = '가'.repeat(200)
+    render(<SendAmountStep {...baseProps} feeQuote={30} confirmMemo={longMemo} />)
+    expect(screen.getByText(longMemo)).toHaveClass('truncate')
+  })
+
+  it('steps the question amount size down for very long values (digit count, unit-agnostic)', () => {
+    expect(confirmAmountSizeClass('₿5,000')).toBe('text-[32px]')
+    expect(confirmAmountSizeClass('5000 sat')).toBe('text-[32px]')
+    expect(confirmAmountSizeClass('1,234,567,890 sats')).toBe('text-[26px]')
+    expect(confirmAmountSizeClass('123,456,789,012 sats')).toBe('text-[22px]')
+  })
+
+  it('locks back and cancel while the confirm handler is in flight', async () => {
+    let resolveSend: () => void = () => {}
+    const onConfirmSend = vi.fn(() => new Promise<void>((resolve) => { resolveSend = resolve }))
+    render(<SendAmountStep {...baseProps} feeQuote={30} onConfirmSend={onConfirmSend} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'send.confirm.send' }))
+    expect(onConfirmSend).toHaveBeenCalledOnce()
+    // Direct transfers never enter the flow-level 'sending' step, so the
+    // in-flight lock must come from the local busy state.
+    expect(screen.queryByLabelText('header-back')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'common.cancel' })).toBeDisabled()
+
+    resolveSend()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'common.cancel' })).toBeEnabled())
+    expect(screen.getByLabelText('header-back')).toBeInTheDocument()
+  })
+
+  it('shows the contact name in the question and the raw address as the detail line', () => {
+    render(
+      <SendAmountStep
+        {...baseProps}
+        feeQuote={30}
+        displayName="Alice"
+        validatedData={{
+          type: 'lightning-address',
+          address: 'alice@example.com',
+          lnurlParams: {
+            callback: 'https://example.com/pay',
+            minSendable: 1000,
+            maxSendable: 1000000,
+            metadata: '[["text/plain","Alice"]]',
+            tag: 'payRequest',
+            domain: 'example.com',
+          },
+        }}
+      />,
+    )
+    expect(screen.getByText(/send\.confirm\.question Alice/)).toBeInTheDocument()
+    expect(screen.getByText('alice@example.com')).toBeInTheDocument()
   })
 })

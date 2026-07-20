@@ -5,13 +5,13 @@
  * hero + keypad take the stage. Tapping the header returns to edit.
  */
 
-import { useState, useCallback, useMemo, useEffect } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { useTranslation, Trans } from 'react-i18next'
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
 import { ArrowLeft, ChevronDown, ChevronRight, ArrowUpDown, Lock } from 'lucide-react'
 import { useWallet } from '@/ui/hooks/use-wallet'
 import { useAppStore } from '@/store'
-import { hapticTap } from '@/ui/utils/haptic'
+import { hapticTap, hapticSuccess } from '@/ui/utils/haptic'
 import {
   appendFiatInput,
   formatFiatInputForDisplay,
@@ -27,28 +27,26 @@ import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { MintIcon } from '@/ui/components/common/MintIcon'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
-import {
-  SendJourneyAnimation,
-  type SendJourneyOutcome,
-  type SendJourneyStatus,
-} from '@/ui/components/payment/SendJourneyAnimation'
-import {
-  RecipientEndpointIcon,
-  type RecipientEndpointKind,
-} from '@/ui/components/payment/RecipientEndpointIcon'
+import { SendReceipt, type SendReceiptRow } from '@/ui/components/payment/SendReceipt'
+import sendSuccessImg from '@/assets/send-success.png'
 import { MemoSheet } from '../MemoSheet'
 import { getMintBalance } from '@/utils/url'
 import {
+  confirmAmountSizeClass,
   findContactName,
+  formatLightningAddress,
   formatNpubShort,
   formatRecipientDisplayText,
+  getConfirmDisplayInfo,
   isDirectCashuRecipient,
+  middleEllipsis,
+  shouldShowRecipientInMainMessage,
 } from '../sendDisplayHelpers'
 import { useContacts } from '@/ui/hooks/use-contacts'
 import type { SendableValidatedData } from '../SendFlow'
+import type { PaymentRoute } from '@/core/ports/driving/routing.usecase'
 import { SEND_RECIPIENT_LAYOUT_ID, recipientMorphTransition } from '../sendMorph'
 import { fadeTransition } from '@/ui/utils/motion'
-import { isNostrDirectAddress } from '@/core/domain/nostr-address'
 
 const KEYS_SATS: Array<string | null> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', null, '0', 'del']
 const KEYS_FIAT: Array<string | null> = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'decimal', '0', 'del']
@@ -66,6 +64,8 @@ interface SendAmountStepProps {
   mintUrl: string
   destination?: string
   validatedData?: SendableValidatedData
+  /** Selected payment route — refines the confirm identity line for unified QR data. */
+  route?: PaymentRoute
   initialAmount?: number
   initialMemo?: string
   initialFiatMode?: boolean
@@ -81,9 +81,12 @@ interface SendAmountStepProps {
   confirming?: boolean
   /** Route execution is in flight — same confirm scene, controls swap for a status row. */
   sending?: boolean
-  /** Presentation state for the recipient journey while route execution settles. */
-  journeyStatus?: SendJourneyStatus
-  onJourneyOutcomeComplete?: (outcome: SendJourneyOutcome) => void
+  /** Sending has run long (watchdog) — the status row offers an exit. */
+  sendingSlow?: boolean
+  /** Result landed — feed the receipt out, tear it, stamp it. */
+  sendingFinishing?: boolean
+  /** Leave the flow while the transfer keeps settling in the background. */
+  onExitSending?: () => void
   feeQuote?: number | 'pending' | 'unavailable'
   /** Balance captured after the temporary fee-estimation lock was released. */
   quotedBalance?: number | null
@@ -101,6 +104,7 @@ export function SendAmountStep({
   mintUrl,
   destination,
   validatedData,
+  route,
   initialAmount = 0,
   initialMemo = '',
   initialFiatMode = false,
@@ -111,8 +115,9 @@ export function SendAmountStep({
   onChangeMint,
   confirming = false,
   sending = false,
-  journeyStatus = 'idle',
-  onJourneyOutcomeComplete,
+  sendingSlow = false,
+  sendingFinishing = false,
+  onExitSending,
   feeQuote,
   quotedBalance,
   onRetryFee,
@@ -169,6 +174,14 @@ export function SendAmountStep({
   const insufficientForFee = totalNeeded !== null && totalNeeded > validationBalance
   const canSend = confirming && feeReady && numericAmount > 0 && !insufficientForFee && !sendBusy
 
+  // The seal lands during the finishing choreography — buzz exactly once.
+  const stampedRef = useRef(false)
+  const handleStampComplete = () => {
+    if (stampedRef.current) return
+    stampedRef.current = true
+    hapticSuccess()
+  }
+
   const handleConfirmSend = async () => {
     if (!canSend || !onConfirmSend) return
     setSendBusy(true)
@@ -223,8 +236,7 @@ export function SendAmountStep({
     if (contactName && validatedData?.type === 'lightning-address') return validatedData.address
     if (contactName && validatedData?.type === 'cashu-request') return formatNpubShort(validatedData.request)
     if (validatedData?.type === 'bolt11') {
-      const inv = validatedData.invoice
-      return `${inv.slice(0, 8)}...${inv.slice(-4)}`
+      return middleEllipsis(validatedData.invoice, 8, 4)
     }
     return null
   }, [validatedData, contactName])
@@ -273,6 +285,7 @@ export function SendAmountStep({
     : formatSats(numericAmount)
   // Secondary conversion line (shown with the ⇄ toggle) — always visible.
   const secondary = isFiatMode ? formatSats(numericAmount) : toFiat(numericAmount) ?? `${currencySymbol}0`
+  const amountSizeClass = confirmAmountSizeClass(displayAmount)
 
   const handleBack = useCallback(() => {
     onBack({ amount: numericAmount, memo, isFiatMode, fiatAmount: fiatInput })
@@ -321,63 +334,80 @@ export function SendAmountStep({
     </motion.button>
   )
 
-  // Confirm axis's recipient node — value only (no "TO" eyebrow, no detail
-  // line); the axis itself reads as "mint ⟶ recipient" so the label is
-  // redundant here. Plain (no layoutId): the flow keeps ONE flight —
-  // destination→amount — and the confirm step settles in with a quiet fade.
-  // Name-first: a known contact's NAME always wins over their address/invoice
-  // — showing the raw identifier here (as recipientDetail did) defeats the
-  // point of having a contact book. Each unnamed type gets its own
-  // identity-safe format instead of one generic truncation.
-  const recipientAxisValue = useMemo(() => {
+  // Confirm question — Toss voice: one i18n sentence per case, so every locale
+  // orders recipient/amount/verb naturally. <b> carries the FULL identity
+  // (a contact's name wins; the detail line then holds the raw identifier),
+  // <amt> carries the amount at display size.
+  const effectiveName = displayName || contactName || undefined
+  const question = useMemo(() => {
+    if (!confirming) return null
+    if (directTransfer) {
+      return { key: 'send.confirm.createQuestion' as const, values: { amount: displayAmount }, detail: null }
+    }
+    if (!validatedData) {
+      return destination
+        ? {
+            key: 'send.confirm.question' as const,
+            values: { recipient: formatRecipientDisplayText(destination, 20), amount: displayAmount },
+            detail: null,
+          }
+        : { key: 'send.confirm.requestQuestion' as const, values: { amount: displayAmount }, detail: null }
+    }
+    if (validatedData.type === 'my-wallet') {
+      return {
+        key: 'send.confirm.transferQuestion' as const,
+        values: { target: formatRecipientDisplayText(validatedData.targetMintName, 20), amount: displayAmount },
+        detail: null,
+      }
+    }
+    const info = getConfirmDisplayInfo(validatedData, route, t, effectiveName)
+    const detailRaw = info.recipientDetail?.trim() ?? ''
+    if (shouldShowRecipientInMainMessage(validatedData)) {
+      let recipient: string
+      if (effectiveName) recipient = formatRecipientDisplayText(effectiveName, 20)
+      else if (validatedData.type === 'lightning-address') recipient = formatLightningAddress(validatedData.address, 34)
+      else recipient = info.recipient
+      return {
+        key: 'send.confirm.question' as const,
+        values: { recipient, amount: displayAmount },
+        detail: detailRaw && detailRaw !== recipient ? detailRaw : null,
+      }
+    }
+    // Anonymous payment request (bolt11 / lnurl / non-direct creq): no "to X" —
+    // the identifier fingerprint below the question is the identity.
+    return { key: 'send.confirm.requestQuestion' as const, values: { amount: displayAmount }, detail: detailRaw || null }
+  }, [confirming, directTransfer, validatedData, destination, route, t, effectiveName, displayAmount])
+
+  // Receipt content while the route executes — mirrors the question's
+  // identity rules; the printing paper carries the who/cost story.
+  const receiptRecipient = useMemo(() => {
     if (directTransfer) return t('send.direct.label')
-    if (validatedData?.type === 'bolt11') return t('send.confirm.paymentRequest')
-    if (validatedData?.type === 'cashu-request' && !isDirectCashuRecipient(validatedData)) {
-      return t('send.confirm.paymentRequest')
+    if (!question) return null
+    if (question.key === 'send.confirm.question') return question.values.recipient
+    if (question.key === 'send.confirm.transferQuestion') return question.values.target
+    // Anonymous request: the fingerprint is the identity
+    return question.detail
+  }, [directTransfer, question, t])
+  const receiptRows = useMemo<SendReceiptRow[]>(() => {
+    const rows: SendReceiptRow[] = []
+    if (receiptRecipient) rows.push({ label: t('send.receipt.recipient'), value: receiptRecipient })
+    rows.push({ label: t('send.confirm.sourceMint'), value: mintName })
+    if (feeReady) {
+      rows.push({ label: t('send.confirm.estimatedFee'), value: formatSats(feeQuote) })
+      rows.push({ label: t('send.confirm.total'), value: formatSats(totalNeeded ?? 0), strong: true })
     }
-    const name = displayName || contactName
-    if (name) return formatRecipientDisplayText(name)
-    if (validatedData?.type === 'my-wallet') return validatedData.targetMintName
-    // Fold to the actual 88px endpoint label before CSS gets a chance to add a
-    // second, visually conflicting truncation.
-    if (validatedData?.type === 'lightning-address') {
-      const localPart = validatedData.address.split('@', 1)[0]
-      return formatRecipientDisplayText(localPart, 11)
-    }
-    if (validatedData?.type === 'lnurl-pay') return validatedData.params?.domain || 'LNURL'
-    if (validatedData?.type === 'cashu-request') return formatNpubShort(validatedData.request)
-    return destination ? formatRecipientDisplayText(destination) : null
-  }, [directTransfer, displayName, contactName, validatedData, destination, t])
-  const recipientEndpoint = useMemo<{
-    kind: RecipientEndpointKind
-  }>(() => {
-    if (
-      validatedData?.type === 'bolt11' ||
-      validatedData?.type === 'lightning-address' ||
-      validatedData?.type === 'lnurl-pay'
-    ) {
-      return { kind: 'lightning' }
-    }
-    if (
-      validatedData?.type === 'cashu-request' &&
-      (isNostrDirectAddress(validatedData.request) || validatedData.parsed.hasNostrTransport)
-    ) {
-      return { kind: 'nostr' }
-    }
-    return { kind: 'generic' }
-  }, [validatedData])
-  const recipientAxisNode = hasRecipient && (
-    <div className="absolute right-0 top-[42px] z-10 flex w-[88px] flex-col items-center gap-1">
-      <RecipientEndpointIcon {...recipientEndpoint} />
-      <div className="w-full truncate text-center text-body font-semibold text-foreground" title={recipientAxisValue ?? undefined}>
-        {recipientAxisValue}
-      </div>
-    </div>
-  )
+    if (confirmMemo) rows.push({ label: t('send.confirm.memo'), value: confirmMemo })
+    return rows
+  }, [receiptRecipient, mintName, feeReady, feeQuote, totalNeeded, confirmMemo, formatSats, t])
 
   return (
     <div className="flex flex-col h-full relative">
-      <ScreenHeader title={t('send.title')} onBack={handleBack} />
+      {/* Confirm renames the screen to mark the stakes change; while the route
+          executes the back arrow disappears instead of sitting dead. */}
+      <ScreenHeader
+        title={sending ? t('send.sending.title') : confirming ? t('send.confirm.title') : t('send.title')}
+        onBack={sending || sendBusy ? undefined : handleBack}
+      />
 
       {/* The pinned recipient pops out via its own presence (popLayout releases
           its space immediately so the confirm hero centers without a jump); it
@@ -400,37 +430,60 @@ export function SendAmountStep({
             transition={fadeTransition(reduceMotion, 0.18)}
             className="flex-1 min-h-0 flex flex-col justify-center px-6"
           >
-          {/* Fixed journey stage: labels never participate in the route's width,
-              so a long recipient cannot shorten or shift the flight path. */}
-          <div className="relative mx-auto h-[96px] w-full max-w-[340px]">
-            <SendJourneyAnimation
-              status={sending ? journeyStatus : 'idle'}
-              onOutcomeComplete={onJourneyOutcomeComplete}
-              className="absolute left-[58px] right-[58px] top-0 h-20"
-            />
-            <button
-              type="button"
-              onClick={onChangeMint && !sending ? () => setMintSheetOpen(true) : undefined}
-              disabled={!onChangeMint || sending}
-              className="absolute left-0 top-[42px] z-10 flex w-[88px] flex-col items-center gap-1 text-foreground-muted disabled:cursor-default"
-            >
-              <MintIcon iconUrl={mintIconUrl} imgSize="w-7 h-7" className="h-7 w-7" circle />
-              <span className="w-full truncate text-center text-body font-medium">{mintName}</span>
-            </button>
-            {recipientAxisNode}
-          </div>
-
-          {/* Amount — settles with the region's fade; same open composition */}
-          <div className="mt-3 flex flex-col items-center gap-2 text-center">
-            <span
-              className={`text-[40px] leading-none font-light tracking-tight ${
-                isOverBalance || insufficientForFee ? 'text-accent-danger' : 'text-foreground'
-              }`}
-            >
-              {displayAmount}
-            </span>
-            {(showFiat || isFiatMode) && <span className="text-body text-foreground-muted">{secondary}</span>}
-          </div>
+          {sending ? (
+            /* Sending scene — the receipt IS the screen: the printed length is
+               the progress cue, its rows are the reading material. */
+            <div className="w-full">
+              <SendReceipt
+                status={sendingFinishing ? 'finishing' : 'printing'}
+                title={t('send.receipt.title')}
+                amount={displayAmount}
+                fiat={showFiat || isFiatMode ? secondary : null}
+                rows={receiptRows}
+                statusLine={t('send.receipt.sending')}
+                stampSrc={sendSuccessImg}
+                onStampComplete={handleStampComplete}
+              />
+              {sendingSlow && onExitSending && (
+                <div className="mt-5 flex flex-col items-center gap-1.5">
+                  <span className="text-caption text-foreground-muted">{t('send.sending.networkDelay')}</span>
+                  <button type="button" onClick={onExitSending} className="text-caption font-semibold text-brand">
+                    {t('common.close')}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            question && (
+              /* Toss-voice question: the sentence is the decision. */
+              <div className="px-2 text-center">
+                <p className="whitespace-pre-line text-[24px] font-semibold leading-snug text-foreground">
+                  {/* Trans mis-infers a union i18nKey against its array overload;
+                      the cast is safe — every member is a real locale key. */}
+                  <Trans
+                    i18nKey={question.key as 'send.confirm.question'}
+                    values={question.values}
+                    components={{
+                      b: <span className="break-all text-brand" />,
+                      amt: (
+                        <span
+                          className={`${amountSizeClass} font-bold tracking-tight ${
+                            isOverBalance || insufficientForFee ? 'text-accent-danger' : ''
+                          }`}
+                        />
+                      ),
+                    }}
+                  />
+                </p>
+                {question.detail && (
+                  <p className="mt-3 break-all text-caption text-foreground-muted">{question.detail}</p>
+                )}
+                {(showFiat || isFiatMode) && (
+                  <span className="mt-3 block text-body text-foreground-muted">{secondary}</span>
+                )}
+              </div>
+            )
+          )}
           </motion.div>
         ) : (
           <motion.div
@@ -517,7 +570,7 @@ export function SendAmountStep({
           would dim the entering side (lessons #3). The 0.15s cross-fade
           overlap during the swap is the "keypad dissolve". */}
       <AnimatePresence mode="popLayout" initial={false}>
-        {confirming ? (
+        {confirming && !sending ? (
           <motion.div
             key="confirm-controls"
             initial={{ opacity: 0 }}
@@ -527,8 +580,25 @@ export function SendAmountStep({
             className="shrink-0"
           >
             <div className="px-6">
-              {/* Fee/memo soft card — grouped rows above the error line and actions. */}
+              {/* Detail soft card — grouped rows above the error line and actions. */}
               <div className="rounded-2xl bg-background-card/70 px-4 py-1 mb-3">
+                {/* Source mint moved here from the removed confirm diagram — the
+                    only place left to switch the paying wallet mid-confirm. */}
+                <button
+                  type="button"
+                  onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
+                  disabled={!onChangeMint || sendBusy}
+                  className="w-full flex justify-between items-center gap-3 py-2.5 disabled:cursor-default"
+                >
+                  <span className="shrink-0 text-body text-foreground-muted">{t('send.confirm.sourceMint')}</span>
+                  <span className="flex min-w-0 items-center gap-1.5 text-body font-medium text-foreground">
+                    <MintIcon iconUrl={mintIconUrl} imgSize="w-5 h-5" className="h-5 w-5 shrink-0" circle />
+                    <span className="truncate">{mintName}</span>
+                    {onChangeMint && (
+                      <ChevronRight className="w-4 h-4 shrink-0 text-foreground-muted" strokeWidth={2} />
+                    )}
+                  </span>
+                </button>
                 <div className="flex justify-between items-center py-2.5">
                   <span className="text-body text-foreground-muted">{t('send.confirm.estimatedFee')}</span>
                   {feeReady ? (
@@ -545,16 +615,30 @@ export function SendAmountStep({
                     />
                   )}
                 </div>
+                {/* Total = amount + fee. Hidden while the fee is unavailable —
+                    the error line below already owns that state. */}
+                {feeQuote !== 'unavailable' && (
+                  <div className="flex justify-between items-center py-2.5">
+                    <span className="text-body text-foreground-muted">{t('send.confirm.total')}</span>
+                    {feeReady ? (
+                      <span className="text-body font-semibold text-foreground">{formatSats(totalNeeded ?? 0)}</span>
+                    ) : (
+                      <span
+                        className={`h-4 w-16 rounded-md bg-foreground-muted/15 ${reduceMotion ? '' : 'animate-pulse'}`}
+                      />
+                    )}
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={() => setMemoSheetOpen(true)}
-                  disabled={sending}
-                  className="w-full flex justify-between items-center py-2.5 disabled:cursor-default"
+                  disabled={sendBusy}
+                  className="w-full flex justify-between items-center gap-3 py-2.5 disabled:cursor-default"
                 >
-                  <span className="text-body text-foreground-muted">{t('send.confirm.memo')}</span>
-                  <span className="flex items-center text-body font-medium text-foreground">
-                    {confirmMemo || t('send.memo.none')}
-                    <ChevronRight className="w-4 h-4 text-foreground-muted ml-1" strokeWidth={2} />
+                  <span className="shrink-0 text-body text-foreground-muted">{t('send.confirm.memo')}</span>
+                  <span className="flex min-w-0 items-center text-body font-medium text-foreground">
+                    <span className="truncate">{confirmMemo || t('send.memo.none')}</span>
+                    <ChevronRight className="w-4 h-4 shrink-0 text-foreground-muted ml-1" strokeWidth={2} />
                   </span>
                 </button>
               </div>
@@ -580,34 +664,25 @@ export function SendAmountStep({
                 </div>
               )}
             </div>
-            {sending ? (
-              // Same h-14 footprint as the button row below — no reflow on the
-              // confirm→sending handoff. The connector's brand-flow carries the
-              // "in transit" state; this row just names it, quietly.
-              <div className="px-6 pt-2 pb-app">
-                <div className="h-14 flex items-center justify-center text-body text-foreground-muted">
-                  {t('send.sending.fullRequestMessage', { amount: formatSats(numericAmount) })}
-                </div>
-              </div>
-            ) : (
-              <div className="flex gap-2.5 px-6 pt-2 pb-app">
-                <Button variant="secondary" size="xl" onClick={onCancelConfirm} className="flex-1">
-                  {t('common.cancel')}
-                </Button>
-                <Button
-                  variant="brand"
-                  size="xl"
-                  onClick={handleConfirmSend}
-                  loading={sendBusy}
-                  disabled={!canSend}
-                  className="flex-[1.6]"
-                >
-                  {t('send.confirm.send')}
-                </Button>
-              </div>
-            )}
+            <div className="flex gap-2.5 px-6 pt-2 pb-app">
+              <Button variant="secondary" size="xl" onClick={onCancelConfirm} disabled={sendBusy} className="flex-1">
+                {t('common.cancel')}
+              </Button>
+              <Button
+                variant="brand"
+                size="xl"
+                onClick={handleConfirmSend}
+                loading={sendBusy}
+                disabled={!canSend}
+                className="flex-[1.6]"
+              >
+                {t('send.confirm.send')}
+              </Button>
+            </div>
           </motion.div>
-        ) : (
+        ) : confirming ? null : (
+          // Three-way on purpose: while sending the bottom region is EMPTY —
+          // a bare else would resurrect the keypad under the journey scene.
           <motion.div
             key="keypad-controls"
             initial={{ opacity: 0 }}

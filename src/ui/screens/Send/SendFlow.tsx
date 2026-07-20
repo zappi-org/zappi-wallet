@@ -55,7 +55,6 @@ function getAmountFromData(data: SendableValidatedData): number {
 
 import { SendInputStep } from './steps/SendInputStep'
 import { SendAmountStep, type SendAmountDraft } from './steps/SendAmountStep'
-import type { SendJourneyOutcome, SendJourneyStatus } from '@/ui/components/payment/SendJourneyAnimation'
 import { SendCompleteStep } from './steps/SendCompleteStep'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { planRouteSelection } from './sendRouteHelpers'
@@ -99,6 +98,9 @@ export interface SendFlowState {
   error: string | null
   // NUT-18 specific
   dmSent: boolean
+  // The route executed but settlement is still confirming (in_transit melt) —
+  // the complete screen shows a quieter "sending" variant instead of success.
+  completePending: boolean
   // Routing
   routeSelection: RouteSelection | null
   // Direct transfer (bearer token creation, no recipient)
@@ -161,6 +163,8 @@ export interface SendFlowProps {
   onQuoteReclaim?: (txId: string) => Promise<number | null>
   onReclaimToken?: (txId: string) => Promise<void>
   directMintUrl?: string | null
+  /** Minimum ms the sending scene stays up after the result lands (tests pass 0). */
+  sendingDwellMs?: number
 }
 
 // ============= Component =============
@@ -184,6 +188,7 @@ export function SendFlow({
   onQuoteReclaim,
   onReclaimToken,
   directMintUrl,
+  sendingDwellMs = 1400,
 }: SendFlowProps) {
   const { t } = useTranslation()
   const { isOnline } = useNetwork()
@@ -251,6 +256,7 @@ export function SendFlow({
     quotedBalance: null,
     error: null,
     dmSent: false,
+    completePending: false,
     routeSelection: null,
     directTransfer: false,
     createdToken: '',
@@ -260,40 +266,41 @@ export function SendFlow({
   // Loading state for async operations
   const [isLoading, setIsLoading] = useState(false)
 
-  // The domain result is known before the visual journey necessarily settles.
-  // Keep the sending scene mounted until Zappi arrives or fades on failure.
-  const [sendJourneyStatus, setSendJourneyStatus] = useState<SendJourneyStatus>('idle')
-  const journeyCompletionRef = useRef<{
-    outcome: SendJourneyOutcome
-    complete: () => void
-    fallbackTimer: number
-  } | null>(null)
+  // The domain result usually lands mid-print — hold the receipt scene for a
+  // beat so the outcome doesn't cut the animation off the moment it starts.
+  // On success the beat is the finish choreography: fast feed-out → tear → stamp.
+  const sendingDwellTimerRef = useRef<number | null>(null)
+  const [sendingFinishing, setSendingFinishing] = useState(false)
 
-  const scheduleJourneyOutcome = useCallback((outcome: SendJourneyOutcome, complete: () => void) => {
-    if (journeyCompletionRef.current) window.clearTimeout(journeyCompletionRef.current.fallbackTimer)
-    const fallbackTimer = window.setTimeout(() => {
-      journeyCompletionRef.current = null
-      setSendJourneyStatus('idle')
-      complete()
-    }, 1400)
-    journeyCompletionRef.current = { outcome, complete, fallbackTimer }
-    setSendJourneyStatus(outcome)
-  }, [])
-
-  const handleJourneyOutcomeComplete = useCallback((outcome: SendJourneyOutcome) => {
-    const pending = journeyCompletionRef.current
-    if (!pending || pending.outcome !== outcome) return
-    window.clearTimeout(pending.fallbackTimer)
-    journeyCompletionRef.current = null
-    setSendJourneyStatus('idle')
-    pending.complete()
-  }, [])
+  const completeSendingAfterDwell = useCallback(
+    (complete: () => void, options?: { finish?: boolean }) => {
+      if (options?.finish) setSendingFinishing(true)
+      if (sendingDwellTimerRef.current) window.clearTimeout(sendingDwellTimerRef.current)
+      sendingDwellTimerRef.current = window.setTimeout(() => {
+        sendingDwellTimerRef.current = null
+        complete()
+      }, sendingDwellMs)
+    },
+    [sendingDwellMs],
+  )
 
   useEffect(() => {
     return () => {
-      if (journeyCompletionRef.current) window.clearTimeout(journeyCompletionRef.current.fallbackTimer)
+      if (sendingDwellTimerRef.current) window.clearTimeout(sendingDwellTimerRef.current)
     }
   }, [])
+
+  // Sending watchdog — after 45s the status row offers an exit; the transfer
+  // itself keeps running via the pending-transfer poller.
+  const [sendingSlow, setSendingSlow] = useState(false)
+  useEffect(() => {
+    if (state.step !== 'sending') {
+      setSendingSlow(false)
+      return
+    }
+    const timer = window.setTimeout(() => setSendingSlow(true), 45_000)
+    return () => window.clearTimeout(timer)
+  }, [state.step])
 
   // Mint selection sheet (lifted from SendInputStep so it's reachable from any step)
   const [mintSelection, setMintSelection] = useState<MintSelectionRequest | null>(null)
@@ -304,6 +311,10 @@ export function SendFlow({
   // Route-quote freshness: every mint change and every new quote bumps this;
   // a quote may commit only if the epoch is unchanged since it started
   const routeEpochRef = useRef(0)
+
+  // Explicit user retry must bypass the estimate gate's failure cooldown —
+  // otherwise "다시 확인" replays the cached rejection for 5s and feels broken.
+  const feeRetryFreshRef = useRef(false)
 
   // Effective display name — resolved once, used by all steps
   const effectiveDisplayName = useMemo(() => {
@@ -372,13 +383,26 @@ export function SendFlow({
             routeSelection = { ...routeSelection, invoice }
           }
 
-          const feeEstimate = await routing.estimateRouteFee(
-            route,
-            routeSelection.sourceMintUrl,
-            amount,
-            routeSelection.targetMintUrl,
-            routeSelection.invoice,
-          )
+          const fresh = feeRetryFreshRef.current
+          feeRetryFreshRef.current = false
+          // The options arg is passed only when fresh — keeps the common call
+          // 5-ary for callers/tests that assert the exact signature.
+          const feeEstimate = fresh
+            ? await routing.estimateRouteFee(
+                route,
+                routeSelection.sourceMintUrl,
+                amount,
+                routeSelection.targetMintUrl,
+                routeSelection.invoice,
+                { fresh: true },
+              )
+            : await routing.estimateRouteFee(
+                route,
+                routeSelection.sourceMintUrl,
+                amount,
+                routeSelection.targetMintUrl,
+                routeSelection.invoice,
+              )
           if (!Number.isFinite(feeEstimate.fee) || feeEstimate.fee < 0) {
             throw new Error('Invalid fee estimate')
           }
@@ -522,6 +546,8 @@ export function SendFlow({
             quotedBalance: routeResult.quotedBalance,
             routeSelection: routeResult.routeSelection,
             error: routeResult.error ?? null,
+            // A memo written for the previous recipient must not ride on a new one
+            memo: prev.destination === data.destination ? prev.memo : '',
           }))
           return
         }
@@ -535,6 +561,7 @@ export function SendFlow({
           validatedData: validated!,
           error: null,
           quotedBalance: null,
+          memo: prev.destination === data.destination ? prev.memo : '',
         }))
       } catch (err) {
         console.error('[SendFlow] Destination validation error:', err)
@@ -594,9 +621,9 @@ export function SendFlow({
     }
     isProcessingRef.current = true
 
-    if (journeyCompletionRef.current) window.clearTimeout(journeyCompletionRef.current.fallbackTimer)
-    journeyCompletionRef.current = null
-    setSendJourneyStatus('pending')
+    if (sendingDwellTimerRef.current) window.clearTimeout(sendingDwellTimerRef.current)
+    sendingDwellTimerRef.current = null
+    setSendingFinishing(false)
     setState((prev) => ({ ...prev, step: 'sending', error: null }))
 
     try {
@@ -627,11 +654,11 @@ export function SendFlow({
           routeSelection.amount,
         )
         if (swapResult?.success) {
-          scheduleJourneyOutcome('success', () => {
+          completeSendingAfterDwell(() => {
             setState((prev) => ({ ...prev, step: 'complete' }))
-          })
+          }, { finish: true })
         } else {
-          scheduleJourneyOutcome('failure', () => {
+          completeSendingAfterDwell(() => {
             setState((prev) => ({
               ...prev,
               step: 'confirm',
@@ -644,17 +671,21 @@ export function SendFlow({
 
       const result = await onExecuteRoute(routeSelection, context)
 
-      if (result?.success) {
-        scheduleJourneyOutcome('success', () => {
+      if (result?.status === 'settled' || result?.status === 'in_transit') {
+        // in_transit is NOT a failure: the melt left the wallet and the poller
+        // will settle it. Re-enabling Send here would open a double-pay window.
+        const completePending = result.status === 'in_transit'
+        completeSendingAfterDwell(() => {
           setState((prev) => ({
             ...prev,
             step: 'complete',
+            completePending,
             ...(result.transportUsed === 'nostr' ? { dmSent: true } : {}),
           }))
-        })
+        }, { finish: true })
       } else {
         // MainApp already shows error toast via handleExecuteRoute
-        scheduleJourneyOutcome('failure', () => {
+        completeSendingAfterDwell(() => {
           setState((prev) => ({
             ...prev,
             step: 'confirm',
@@ -668,7 +699,7 @@ export function SendFlow({
         (err as { code?: string }).code === 'INSUFFICIENT_BALANCE'
           ? (err as { message?: string }).message ?? t('payment.insufficientBalance')
           : t('payment.sendFailed')
-      scheduleJourneyOutcome('failure', () => {
+      completeSendingAfterDwell(() => {
         setState((prev) => ({ ...prev, step: 'confirm', error: message }))
       })
       // Only show toast for errors not already handled by MainApp
@@ -678,7 +709,7 @@ export function SendFlow({
     } finally {
       isProcessingRef.current = false
     }
-  }, [state, onExecuteRoute, onMintSwap, isOnline, addToast, t, scheduleJourneyOutcome])
+  }, [state, onExecuteRoute, onMintSwap, isOnline, addToast, t, completeSendingAfterDwell])
 
   // ============= Direct Transfer (bearer token, no recipient) =============
 
@@ -736,6 +767,12 @@ export function SendFlow({
       })
       return
     }
+    // Direct transfers ride the same sending scene as routed sends — journey
+    // pending in, success/failure out — so the back arrow hides and the rail flows.
+    if (sendingDwellTimerRef.current) window.clearTimeout(sendingDwellTimerRef.current)
+    sendingDwellTimerRef.current = null
+    setSendingFinishing(false)
+    setState((prev) => ({ ...prev, step: 'sending', error: null }))
     try {
       const res = await onCreateToken(state.amount, state.selectedMintUrl, state.memo || undefined)
       if (!res) {
@@ -744,23 +781,30 @@ export function SendFlow({
           message: t('send.direct.createFailed'),
           duration: 3000,
         })
+        completeSendingAfterDwell(() => {
+          setState((prev) => ({ ...prev, step: 'confirm' }))
+        })
         return
       }
-      setState((prev) => ({
-        ...prev,
-        createdToken: res.token,
-        createdTxId: res.txId,
-        step: 'created',
-        error: null,
-      }))
+      completeSendingAfterDwell(() => {
+        setState((prev) => ({
+          ...prev,
+          createdToken: res.token,
+          createdTxId: res.txId,
+          step: 'created',
+          error: null,
+        }))
+      }, { finish: true })
     } catch (err) {
       // MainApp re-throws InsufficientBalanceError (real fee > estimate, or the
       // balance moved under the open sheet) — surface it instead of a silent tap.
       const message = translateError(err, t)
-      setState((prev) => ({ ...prev, error: message }))
+      completeSendingAfterDwell(() => {
+        setState((prev) => ({ ...prev, step: 'confirm', error: message }))
+      })
       addToast({ type: 'error', message, duration: 4000 })
     }
-  }, [state.selectedMintUrl, state.amount, state.memo, onCreateToken, addToast, t])
+  }, [state.selectedMintUrl, state.amount, state.memo, onCreateToken, addToast, t, completeSendingAfterDwell])
 
   /** Reclaim mirrors TokenCreateFlow: reclaim the unclaimed token, then leave the flow. */
   const handleReclaimAndClose = useCallback(async () => {
@@ -807,6 +851,9 @@ export function SendFlow({
   const [directQuotedBalance, setDirectQuotedBalance] = useState<number | null>(null)
   const [feeRetryNonce, setFeeRetryNonce] = useState(0)
   useEffect(() => {
+    // 'sending' keeps the confirm scene mounted — resetting here would flip the
+    // fee row to a skeleton mid-send and discard the quote on failure-return.
+    if (state.step === 'sending') return
     if (state.step !== 'confirm' || !state.directTransfer) {
       setDirectFeeQuote('pending')
       setDirectQuotedBalance(null)
@@ -863,7 +910,15 @@ export function SendFlow({
     const epoch = ++routeEpochRef.current
 
     performRouteSelection(state.validatedData, state.amount, state.selectedMintUrl).then((routeResult) => {
-      if (!routeResult || routeEpochRef.current !== epoch) return
+      if (routeEpochRef.current !== epoch) return
+      if (!routeResult) {
+        // Route selection itself failed (CANNOT_SEND / unexpected error, already
+        // toasted). Without this write the fee row pulses forever with no retry.
+        // The ref stays true — resetting it here would auto-fire a second quote
+        // and a duplicate toast; handleRetryFee re-arms via the fee dep instead.
+        setState((prev) => ({ ...prev, fee: 'unavailable' }))
+        return
+      }
       setState((prev) => ({
         ...prev,
         fee: routeResult.fee,
@@ -879,8 +934,17 @@ export function SendFlow({
     state.validatedData,
     state.selectedMintUrl,
     state.amount,
+    state.fee,
     performRouteSelection,
   ])
+
+  // Camera-shortcut confirm with no resolvable mint: nothing can ever quote, so
+  // land on 'unavailable' instead of an eternal skeleton (retry is hidden too).
+  useEffect(() => {
+    if (state.step !== 'confirm' || state.directTransfer) return
+    if (state.selectedMintUrl || state.fee === 'unavailable') return
+    setState((prev) => ({ ...prev, fee: 'unavailable' }))
+  }, [state.step, state.directTransfer, state.selectedMintUrl, state.fee])
 
   const handleRetryFee = useCallback(() => {
     routeEpochRef.current++
@@ -891,6 +955,7 @@ export function SendFlow({
       return
     }
     didInitialRouteRef.current = false
+    feeRetryFreshRef.current = true
     setState((prev) => ({ ...prev, routeSelection: null, fee: 0, quotedBalance: null, error: null }))
   }, [state.directTransfer])
 
@@ -973,6 +1038,7 @@ export function SendFlow({
                     mintUrl={state.selectedMintUrl || ''}
                     destination={state.destination}
                     validatedData={state.directTransfer ? undefined : state.validatedData || undefined}
+                    route={state.routeSelection?.route}
                     initialAmount={state.amount}
                     initialMemo={state.memo}
                     initialFiatMode={state.isFiatMode}
@@ -995,11 +1061,20 @@ export function SendFlow({
                     }}
                     confirming={state.step === 'confirm' || state.step === 'sending'}
                     sending={state.step === 'sending'}
-                    journeyStatus={sendJourneyStatus}
-                    onJourneyOutcomeComplete={handleJourneyOutcomeComplete}
-                    feeQuote={state.directTransfer ? directFeeQuote : state.routeSelection ? state.fee : 'pending'}
+                    sendingSlow={sendingSlow}
+                    sendingFinishing={sendingFinishing}
+                    onExitSending={onComplete}
+                    feeQuote={
+                      state.directTransfer
+                        ? directFeeQuote
+                        : state.routeSelection
+                          ? state.fee
+                          : state.fee === 'unavailable'
+                            ? 'unavailable'
+                            : 'pending'
+                    }
                     quotedBalance={state.directTransfer ? directQuotedBalance : state.quotedBalance}
-                    onRetryFee={handleRetryFee}
+                    onRetryFee={state.directTransfer || state.selectedMintUrl ? handleRetryFee : undefined}
                     confirmError={state.error}
                     confirmMemo={state.memo}
                     onEditMemo={(memo) => setState((prev) => ({ ...prev, memo }))}
@@ -1022,6 +1097,10 @@ export function SendFlow({
               isFiatMode={state.isFiatMode}
               fiatAmount={state.fiatAmount}
               displayName={effectiveDisplayName}
+              pending={state.completePending}
+              fee={typeof state.fee === 'number' ? state.fee : state.routeSelection?.estimatedFee}
+              mintUrl={state.selectedMintUrl ?? undefined}
+              memo={state.memo || undefined}
             />
           </PageTransition>
         )}

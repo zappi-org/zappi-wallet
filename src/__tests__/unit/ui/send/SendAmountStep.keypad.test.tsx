@@ -5,6 +5,7 @@ import { formatFiatInputForDisplay } from '@/utils/format'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k: string) => k }),
+  Trans: ({ i18nKey }: { i18nKey: string }) => <>{i18nKey}</>,
 }))
 vi.mock('@/ui/hooks/use-wallet', () => ({
   useWallet: () => ({ balance: { byMint: { 'https://m': 100000 } } }),
@@ -51,14 +52,10 @@ vi.mock('@/utils/url', () => ({
 vi.mock('@/ui/hooks/use-contacts', () => ({
   useContacts: () => ({ findByAddress: vi.fn(async () => null) }),
 }))
-vi.mock('@/ui/screens/Send/sendDisplayHelpers', () => ({
-  findContactName: vi.fn(async () => null),
-  formatNpubShort: (s: string) => s,
-  formatRecipientDisplayText: (s: string) => s,
-  formatLightningAddress: (s: string) => s,
-  middleEllipsis: (s: string) => s,
-  shouldShowRecipientInMainMessage: () => true,
-}))
+vi.mock('@/ui/screens/Send/sendDisplayHelpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/ui/screens/Send/sendDisplayHelpers')>()
+  return { ...actual, findContactName: vi.fn(async () => null) }
+})
 vi.mock('@/ui/components/common/ScreenHeader', () => ({
   ScreenHeader: ({ title }: { title?: string }) => <div>{title}</div>,
 }))

@@ -1,18 +1,22 @@
 /**
- * SendCompleteStep — Send success screen
+ * SendCompleteStep — the fully printed receipt with the Zappi seal stamped on.
+ * One continuous story with the sending scene: printing… → stamp = done.
+ * pending (in_transit melt): same receipt, no stamp — settlement still confirming.
  */
 
-import { useEffect, useRef } from 'react'
-import { motion } from 'motion/react'
-import { useTranslation, Trans } from 'react-i18next'
-import { hapticSuccess, hapticTap } from '@/ui/utils/haptic'
-import { useFormatSats, useFormatFiat } from '@/utils/format'
+import { useEffect, useMemo, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
+import { hapticTap } from '@/ui/utils/haptic'
+import { useFormatSats, useFormatFiat, FIAT_CURRENCY_MAP, formatFiatInputForDisplay } from '@/utils/format'
+import { useAppStore } from '@/store'
+import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import sendSuccessImg from '@/assets/send-success.png'
 import { Button } from '@/ui/components/common/Button'
-import { Confetti } from '@/ui/components/payment/Confetti'
+import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
+import { SendReceipt, type SendReceiptRow } from '@/ui/components/payment/SendReceipt'
 import type { PaymentRoute } from '@/ui/hooks/use-routing'
 import type { SendableValidatedData } from '../SendFlow'
-import { getDestinationDisplay, shouldShowRecipientInMainMessage } from '../sendDisplayHelpers'
+import { getDestinationDisplay } from '../sendDisplayHelpers'
 
 interface SendCompleteStepProps {
   validatedData: SendableValidatedData
@@ -23,6 +27,11 @@ interface SendCompleteStepProps {
   fiatAmount?: string
   /** Display name from address book (overrides default recipient display) */
   displayName?: string
+  /** Payment left the wallet but settlement is still confirming — no stamp yet. */
+  pending?: boolean
+  fee?: number
+  mintUrl?: string
+  memo?: string
 }
 
 export function SendCompleteStep({
@@ -33,73 +42,75 @@ export function SendCompleteStep({
   isFiatMode = false,
   fiatAmount,
   displayName,
+  pending = false,
+  fee,
+  mintUrl,
+  memo,
 }: SendCompleteStepProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
   const destination = getDestinationDisplay(validatedData, displayName, { route, t })
-  const showRecipientInMain = shouldShowRecipientInMainMessage(validatedData)
-  const hasTriggeredHaptic = useRef(false)
+  const mintUrls = useMemo(() => (mintUrl ? [mintUrl] : []), [mintUrl])
+  const { getDisplayName } = useMintMetadata(mintUrls)
 
-  // Haptic on mount
-  useEffect(() => {
-    if (!hasTriggeredHaptic.current) {
-      hasTriggeredHaptic.current = true
-      hapticSuccess()
-    }
-  }, [])
-
-  // Auto-dismiss after 5 seconds
+  // Auto-dismiss — longer than the old confetti screen: the receipt is meant
+  // to be read, and the stamp itself lands ~0.6s in.
   const onCompleteRef = useRef(onComplete)
   useEffect(() => {
     onCompleteRef.current = onComplete
   })
   useEffect(() => {
-    const timer = setTimeout(() => onCompleteRef.current(), 5000)
+    const timer = setTimeout(() => onCompleteRef.current(), 8000)
     return () => clearTimeout(timer)
   }, [])
 
-  // Main amount display — respect fiat mode
+  // Amount display — symbol + grouping in fiat mode, same as the amount step
+  const fiatCurrency = useAppStore((s) => s.settings.fiatCurrency) ?? 'USD'
+  const currencySymbol = FIAT_CURRENCY_MAP.get(fiatCurrency)?.symbol ?? fiatCurrency
   const mainAmount = isFiatMode && fiatAmount
-    ? `${fiatAmount}`
+    ? `${currencySymbol}${formatFiatInputForDisplay(fiatAmount)}`
     : formatSats(amount)
   const subAmount = isFiatMode
     ? formatSats(amount)
     : (formatFiat(amount) || '')
 
+  const rows = useMemo<SendReceiptRow[]>(() => {
+    const list: SendReceiptRow[] = [{ label: t('send.receipt.recipient'), value: destination }]
+    if (mintUrl) list.push({ label: t('send.confirm.sourceMint'), value: getDisplayName(mintUrl) })
+    if (typeof fee === 'number') {
+      list.push({ label: t('send.confirm.estimatedFee'), value: formatSats(fee) })
+      list.push({ label: t('send.confirm.total'), value: formatSats(amount + fee), strong: true })
+    }
+    if (memo) list.push({ label: t('send.confirm.memo'), value: memo })
+    return list
+  }, [destination, mintUrl, getDisplayName, fee, memo, amount, formatSats, t])
+
+  const stampedAt = useMemo(
+    () => new Date().toLocaleString(i18n.language, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    [i18n.language],
+  )
+
   return (
-    <div className="flex flex-col h-full bg-background relative">
-      <Confetti />
+    <div className="flex flex-col h-full bg-background">
+      <ScreenHeader title={pending ? t('send.sending.title') : t('send.complete.title')} />
 
-      {/* Centered content */}
-      <div className="flex-1 flex flex-col items-center justify-center px-8">
-        {/* Character — small, with entrance animation */}
-        <motion.img
-          src={sendSuccessImg}
-          alt="Success"
-          className="w-[120px] h-[120px] object-contain mb-6"
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.1 }}
+      <div className="flex-1 flex flex-col items-center justify-center px-6">
+        <SendReceipt
+          status={pending ? 'pending' : 'done'}
+          title={t('send.receipt.title')}
+          amount={mainAmount}
+          fiat={subAmount || null}
+          rows={rows}
+          statusLine={pending ? t('send.receipt.settling') : undefined}
+          doneLine={pending ? undefined : { left: stampedAt, right: t('send.receipt.completed') }}
+          stampSrc={sendSuccessImg}
         />
-
-        {/* Sentence — single Trans for natural word order per language */}
-        <div className="text-center">
-          <p className="text-heading font-semibold text-foreground whitespace-pre-line">
-            <Trans
-              i18nKey={showRecipientInMain ? 'send.complete.fullMessage' : 'send.complete.fullRequestMessage'}
-              values={{ recipient: destination, amount: mainAmount }}
-              components={{ b: <span className="text-brand" /> }}
-            />
-          </p>
-        </div>
-
-        {subAmount && (
-          <p className="text-body text-foreground-muted mt-3">{subAmount}</p>
-        )}
+        <p className="mt-5 text-caption text-foreground-muted">
+          {pending ? t('send.sending.networkDelay') : t('send.receipt.kept')}
+        </p>
       </div>
 
-      {/* Bottom button */}
       <div className="px-6 pb-app shrink-0">
         <Button
           variant="brand"
