@@ -1,5 +1,6 @@
-import { useId, useState } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
+import { Eye } from 'lucide-react'
 
 /**
  * printing  — paper crawls out continuously, decelerating (fake progress);
@@ -30,6 +31,15 @@ interface PaymentReceiptProps {
   /** Stamp image (the Zappi seal) — rendered on finishing (drops) and done (static). */
   stampSrc?: string
   onStampComplete?: () => void
+  /** Optional QR node printed into the receipt body. The consumer supplies the
+      rendered QR (e.g. <QRCodeDisplay/>) so the receipt stays free of the QR
+      library's dependency chain; the receipt owns only the frame and veil. */
+  qr?: ReactNode
+  /** Veil the QR until tapped (bearer-token privacy); flow-owned state. */
+  qrVeiled?: boolean
+  onToggleQr?: () => void
+  /** Reveal-hint label (i18n stays in the consumer; the receipt is presentational). */
+  qrRevealLabel?: string
 }
 
 export function PaymentReceipt({
@@ -42,6 +52,10 @@ export function PaymentReceipt({
   doneLine,
   stampSrc,
   onStampComplete,
+  qr,
+  qrVeiled,
+  onToggleQr,
+  qrRevealLabel,
 }: PaymentReceiptProps) {
   const reduceMotion = useReducedMotion()
   const teethId = useId()
@@ -129,6 +143,28 @@ export function PaymentReceipt({
                   <span className={`truncate ${row.strong ? 'font-semibold' : 'font-medium'}`}>{row.value}</span>
                 </div>
               ))}
+              {qr && (
+                <button
+                  type="button"
+                  onClick={onToggleQr}
+                  className="relative mx-auto mt-2 mb-1 flex aspect-square w-[150px] items-center justify-center overflow-hidden rounded-lg bg-white p-2"
+                >
+                  <div className={`flex h-full w-full items-center justify-center transition-all ${qrVeiled ? 'blur-md opacity-40' : ''}`}>
+                    {qr}
+                  </div>
+                  {qrVeiled && (
+                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1">
+                      <div className="text-3xl">🙈</div>
+                      {qrRevealLabel && (
+                        <div className="flex items-center gap-1 text-[10px] text-foreground-muted">
+                          <Eye className="h-3 w-3" strokeWidth={1.8} />
+                          <span>{qrRevealLabel}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </button>
+              )}
               <div className="mb-1 mt-1.5 border-t-[1.5px] border-dashed border-border" />
 
               {doneLine ? (
