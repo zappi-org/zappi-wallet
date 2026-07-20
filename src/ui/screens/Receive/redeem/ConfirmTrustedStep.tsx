@@ -100,7 +100,7 @@ export function ConfirmTrustedStep({
 
       <div className="flex-1 overflow-y-auto px-4 pt-2">
         <h2 className="pt-[4dvh] text-heading font-semibold text-foreground text-center">
-          {t('tokenRegister.arrived')}
+          {t('receive.redeem.confirmSentence', { amount: formatSats(toNumber(token.amount)) })}
         </h2>
 
         {/* Hero card — fixed min-height, zappi at Figma-exact absolute position */}
