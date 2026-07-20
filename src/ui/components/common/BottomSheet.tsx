@@ -33,6 +33,12 @@ export interface BottomSheetProps {
   showHandle?: boolean
   /** Wire the dialog to a heading rendered inside `children` (id) for screen readers. */
   ariaLabelledBy?: string
+  /**
+   * Lift the sheet off the viewport bottom by this many px — the soft-keyboard
+   * inset for sheets holding a text input (`bottom: 0` alone leaves the sheet
+   * behind the keyboard on iOS, where the layout viewport does not shrink).
+   */
+  bottomOffset?: number
 }
 
 const DEFAULT_SHEET_CLASS = 'bg-background-elevated rounded-t-lg max-h-[85vh] overflow-hidden'
@@ -64,6 +70,7 @@ export function BottomSheet({
   scrollable = true,
   showHandle = true,
   ariaLabelledBy,
+  bottomOffset = 0,
 }: BottomSheetProps) {
   const reduceMotion = useReducedMotion()
   const handleDragEnd = useCallback(
@@ -110,7 +117,8 @@ export function BottomSheet({
             exit={reduceMotion ? { opacity: 0 } : { y: '100%' }}
             {...dragProps}
             transition={motionSafeTransition(reduceMotion, transition)}
-            className={`${position} bottom-0 left-0 right-0 ${sheetClassName} ${sheetZClass}`}
+            className={`${position} left-0 right-0 ${sheetClassName} ${sheetZClass}`}
+            style={{ bottom: bottomOffset }}
           >
             {/* Handle */}
             {showHandle && (

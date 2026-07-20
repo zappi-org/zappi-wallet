@@ -32,16 +32,7 @@ export function BottomNav({ items, activeId, visible, onSelect }: BottomNavProps
             paddingBottom: 'var(--app-bottom-nav-bottom-padding)',
           }}
         >
-          <div
-            className="mx-auto w-full max-w-sm rounded-full px-1.5 py-1.5 pointer-events-auto"
-            style={{
-              background: 'rgba(255, 255, 255, 0.06)',
-              backdropFilter: 'blur(28px) saturate(200%)',
-              WebkitBackdropFilter: 'blur(28px) saturate(200%)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              boxShadow: '0 2px 10px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
-            }}
-          >
+          <div className="glass-nav mx-auto w-full max-w-sm rounded-full px-1.5 py-1.5 pointer-events-auto">
             <div className="flex items-center relative">
               {items.map((item) => {
                 const isActive = item.id === activeId
@@ -62,7 +53,10 @@ export function BottomNav({ items, activeId, visible, onSelect }: BottomNavProps
                       />
                     )}
 
-                    <div className={`relative z-10 [&_svg]:w-[22px] [&_svg]:h-[22px] ${isActive ? 'text-white' : 'text-foreground/35'}`}>
+                    {/* Solid muted token, not a foreground alpha: text over glass
+                        sits on unpredictable blurred content, so opacity-based
+                        gray can drop below AA (the /35 label measured ~2.2:1). */}
+                    <div className={`relative z-10 [&_svg]:w-[22px] [&_svg]:h-[22px] ${isActive ? 'text-white' : 'text-foreground-muted'}`}>
                       {isActive && item.activeIcon ? item.activeIcon : item.icon}
                       {item.badge !== undefined && item.badge > 0 && (
                         <span className="absolute -top-1 -right-2.5 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center text-[9px] font-bold bg-accent-danger text-white rounded-full leading-none">
@@ -71,7 +65,7 @@ export function BottomNav({ items, activeId, visible, onSelect }: BottomNavProps
                       )}
                     </div>
 
-                    <span className={`relative z-10 text-[11px] font-semibold leading-none mt-[2px] ${isActive ? 'text-white' : 'text-foreground/35'}`}>
+                    <span className={`relative z-10 text-[11px] font-semibold leading-none mt-[2px] ${isActive ? 'text-white' : 'text-foreground-muted'}`}>
                       {item.label}
                     </span>
                   </button>

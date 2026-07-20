@@ -161,7 +161,8 @@
   --neutral-200: #E5E6EB;
   --neutral-300: #D1D3DA;
   --neutral-400: #A0A3AD;
-  --neutral-500: #86868B;
+  /* ≥4.5:1 on --neutral-50 and #FFF — muted text must stay AA-readable */
+  --neutral-500: #6F7076;
   --neutral-600: #636366;
   --neutral-700: #3A3A3C;
   --neutral-800: #1D1D1F;
@@ -385,6 +386,36 @@
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/* Floating glass tab bar.
+   Base = solid fallback: without backdrop-filter a 6%-white pill floats
+   unreadable text straight over scrolling content. The dark hairline (not
+   white) is what keeps the pill's edge visible on the light theme. */
+@layer utilities {
+  .glass-nav {
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(29, 29, 31, 0.06);
+    box-shadow:
+      0 2px 10px rgba(0, 0, 0, 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  }
+  @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass-nav {
+      background: rgba(255, 255, 255, 0.06);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      backdrop-filter: blur(28px) saturate(180%);
+    }
+  }
+  /* Unknown media features evaluate false, so this override only fires where
+     the preference is real and on — everywhere else the glass stays. */
+  @media (prefers-reduced-transparency: reduce) {
+    .glass-nav {
+      background: rgba(255, 255, 255, 0.92);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
   }
 }
 
