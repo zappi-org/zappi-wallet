@@ -74,9 +74,10 @@ describe('SendAmountStep keypad', () => {
     render(<SendAmountStep {...baseProps} onNext={onNext} directTransfer />)
 
     expect(screen.getByText('send.direct.label')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: '1' }))
-    fireEvent.click(screen.getByRole('button', { name: '0' }))
-    fireEvent.click(screen.getByRole('button', { name: '0' }))
+    // AmountEntry's NumericKeypad emits on pointerDown; the CTA is a real button.
+    fireEvent.pointerDown(screen.getByRole('button', { name: '1' }))
+    fireEvent.pointerDown(screen.getByRole('button', { name: '0' }))
+    fireEvent.pointerDown(screen.getByRole('button', { name: '0' }))
     fireEvent.click(screen.getByRole('button', { name: 'common.confirm' }))
 
     expect(onNext).toHaveBeenCalledWith(expect.objectContaining({ amount: 100 }))
