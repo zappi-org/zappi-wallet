@@ -1,99 +1,64 @@
-/**
- * ReceiveCompleteStep — Payment received success screen
- * Figma style: text at top-left, CoinBounce centered, button at bottom
- */
-
-import { useEffect, useRef } from 'react'
+/** Torn receipt at rest — mirror of SendCompleteStep, no auto-dismiss:
+ *  the counterparty often wants to see this screen. */
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { hapticSuccess, hapticTap } from '@/ui/utils/haptic'
+import { hapticTap } from '@/ui/utils/haptic'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
-import { Button } from '@/ui/components/common/Button'
-import { motion } from 'motion/react'
+import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import tokenReceiveSuccessImg from '@/assets/token-receive-success.png'
-import { Confetti } from '@/ui/components/payment/Confetti'
+import { Button } from '@/ui/components/common/Button'
+import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
+import { PaymentReceipt } from '@/ui/components/payment/PaymentReceipt'
+import { buildReceiveRows, type ReceiveReceiptMethod } from './ReceiveReceiptStep'
 
-interface ReceiveCompleteStepProps {
+export interface ReceiveCompleteStepProps {
   amount: number
   mintUrl: string | null
-  /** True when the settled payment was verified to fulfill a ReceiveRequest the user created. */
-  wasRequestFulfilled?: boolean
-  onComplete: () => void
+  memo?: string
+  method: ReceiveReceiptMethod
+  receivedAt: number
+  onMakeAnother?: () => void
+  onExit: () => void
 }
 
-export function ReceiveCompleteStep({
-  amount,
-  mintUrl: _mintUrl,
-  wasRequestFulfilled = false,
-  onComplete,
-}: ReceiveCompleteStepProps) {
-  const { t } = useTranslation()
+export function ReceiveCompleteStep({ amount, mintUrl, memo, method, receivedAt, onMakeAnother, onExit }: ReceiveCompleteStepProps) {
+  const { t, i18n } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
-  const hasTriggeredHaptic = useRef(false)
+  const mintUrls = useMemo(() => (mintUrl ? [mintUrl] : []), [mintUrl])
+  const { getDisplayName } = useMintMetadata(mintUrls)
 
-  // Haptic on mount
-  useEffect(() => {
-    if (!hasTriggeredHaptic.current) {
-      hasTriggeredHaptic.current = true
-      hapticSuccess()
-    }
-  }, [])
-
-  // Auto-dismiss after 5 seconds
-  const onCompleteRef = useRef(onComplete)
-  useEffect(() => {
-    onCompleteRef.current = onComplete
-  })
-  useEffect(() => {
-    const timer = setTimeout(() => onCompleteRef.current(), 5000)
-    return () => clearTimeout(timer)
-  }, [])
+  const rows = useMemo(
+    () => buildReceiveRows(t, method, mintUrl ? getDisplayName(mintUrl) : null, memo),
+    [t, method, mintUrl, getDisplayName, memo],
+  )
+  const stampedAt = useMemo(
+    () => new Date(receivedAt).toLocaleString(i18n.language, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    [receivedAt, i18n.language],
+  )
 
   return (
-    <div className="flex flex-col h-full bg-background relative">
-      <Confetti />
-
-      {/* Centered content — same structure as SendCompleteStep */}
-      <div className="flex-1 flex flex-col items-center justify-center px-8">
-        {/* Character — small, with entrance animation */}
-        <motion.img
-          src={tokenReceiveSuccessImg}
-          alt=""
-          className="w-[120px] h-[120px] object-contain mb-6"
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.1 }}
+    <div className="flex flex-col h-full bg-background">
+      <ScreenHeader title={t('receive.title')} />
+      <div className="flex-1 flex flex-col items-center justify-center px-6">
+        <PaymentReceipt
+          status="done"
+          title={t('receive.receipt.title')}
+          amount={`+${formatSats(amount)}`}
+          fiat={formatFiat(amount) || null}
+          rows={rows}
+          doneLine={{ left: stampedAt, right: t('receive.receipt.completed') }}
+          stampSrc={tokenReceiveSuccessImg}
         />
-
-        {/* Sentence */}
-        <div className="text-center">
-          <p className="text-heading font-semibold whitespace-pre-line break-keep break-words">
-            {t(
-              wasRequestFulfilled
-                ? 'receive.complete.requestFulfilledMessage'
-                : 'receive.complete.fullMessage',
-              { amount: formatSats(amount) },
-            )}
-          </p>
-        </div>
-
-        {(() => { const f = formatFiat(amount); return f ? (
-          <p className="text-body text-foreground-muted mt-3">{f}</p>
-        ) : null })()}
       </div>
-
-      {/* Bottom button */}
-      <div className="px-6 pb-app shrink-0">
-        <Button
-          variant="brand"
-          size="xl"
-          onClick={() => {
-            hapticTap()
-            onComplete()
-          }}
-          className="w-full"
-        >
-          {t('receive.complete.done')}
+      <div className="flex gap-3 px-6 pb-app shrink-0">
+        {onMakeAnother && (
+          <Button variant="secondary" size="xl" onClick={() => { hapticTap(); onMakeAnother() }} className="flex-none px-6">
+            {t('receive.request.makeAnother')}
+          </Button>
+        )}
+        <Button variant="brand" size="xl" onClick={() => { hapticTap(); onExit() }} className="flex-1">
+          {t('receive.request.exit')}
         </Button>
       </div>
     </div>

@@ -293,8 +293,9 @@ export function ReceiveFlow({
             <ReceiveCompleteStep
               amount={state.receivedAmount}
               mintUrl={state.selectedMintUrl}
-              wasRequestFulfilled={state.wasRequestFulfilled}
-              onComplete={onComplete}
+              method={state.method}
+              receivedAt={Date.now()}
+              onExit={onComplete}
             />
           </PageTransition>
         )}
