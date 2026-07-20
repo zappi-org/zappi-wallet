@@ -7,6 +7,7 @@ export default {
     next: '다음',
     back: '뒤로',
     save: '저장',
+    edit: '편집',
     delete: '삭제',
     add: '추가',
     copy: '복사',

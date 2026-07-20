@@ -7,6 +7,7 @@ export default {
     next: 'Next',
     back: 'Back',
     save: 'Save',
+    edit: 'Edit',
     delete: 'Delete',
     add: 'Add',
     copy: 'Copy',

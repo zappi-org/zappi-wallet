@@ -7,6 +7,7 @@ export default {
     next: 'Berikutnya',
     back: 'Kembali',
     save: 'Simpan',
+    edit: 'Ubah',
     delete: 'Hapus',
     add: 'Tambah',
     copy: 'Salin',

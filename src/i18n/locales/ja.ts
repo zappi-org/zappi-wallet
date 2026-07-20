@@ -7,6 +7,7 @@ export default {
     next: '次へ',
     back: '戻る',
     save: '保存',
+    edit: '編集',
     delete: '削除',
     add: '追加',
     copy: 'コピー',

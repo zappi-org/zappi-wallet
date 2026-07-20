@@ -7,6 +7,7 @@ export default {
     next: 'Siguiente',
     back: 'Volver',
     save: 'Guardar',
+    edit: 'Editar',
     delete: 'Eliminar',
     add: 'Agregar',
     copy: 'Copiar',
