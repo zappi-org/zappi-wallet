@@ -8,21 +8,21 @@ import { motion, useReducedMotion } from 'motion/react'
  * pending   — torn receipt, no stamp (settlement still confirming);
  * done      — torn receipt with the seal already on (complete screen).
  */
-export type SendReceiptStatus = 'printing' | 'finishing' | 'pending' | 'done'
+export type PaymentReceiptStatus = 'printing' | 'finishing' | 'pending' | 'done'
 
-export interface SendReceiptRow {
+export interface PaymentReceiptRow {
   label: string
   value: string
   strong?: boolean
 }
 
-interface SendReceiptProps {
-  status: SendReceiptStatus
+interface PaymentReceiptProps {
+  status: PaymentReceiptStatus
   title: string
   /** Primary amount line, already formatted (₿1,000 / US$1.50). */
   amount: string
   fiat?: string | null
-  rows: SendReceiptRow[]
+  rows: PaymentReceiptRow[]
   /** Centered status line (printing/pending): "전송 중" / "정산 확인 중". */
   statusLine?: string
   /** Done state's bottom row: timestamp left, "전송 완료" right. */
@@ -32,7 +32,7 @@ interface SendReceiptProps {
   onStampComplete?: () => void
 }
 
-export function SendReceipt({
+export function PaymentReceipt({
   status,
   title,
   amount,
@@ -42,7 +42,7 @@ export function SendReceipt({
   doneLine,
   stampSrc,
   onStampComplete,
-}: SendReceiptProps) {
+}: PaymentReceiptProps) {
   const reduceMotion = useReducedMotion()
   const teethId = useId()
   const teethTopId = useId()

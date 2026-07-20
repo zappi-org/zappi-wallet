@@ -27,7 +27,7 @@ import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { MintIcon } from '@/ui/components/common/MintIcon'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
-import { SendReceipt, type SendReceiptRow } from '@/ui/components/payment/SendReceipt'
+import { PaymentReceipt, type PaymentReceiptRow } from '@/ui/components/payment/PaymentReceipt'
 import sendSuccessImg from '@/assets/send-success.png'
 import { MemoSheet } from '../MemoSheet'
 import { getMintBalance } from '@/utils/url'
@@ -388,8 +388,8 @@ export function SendAmountStep({
     // Anonymous request: the fingerprint is the identity
     return question.detail
   }, [directTransfer, question, t])
-  const receiptRows = useMemo<SendReceiptRow[]>(() => {
-    const rows: SendReceiptRow[] = []
+  const receiptRows = useMemo<PaymentReceiptRow[]>(() => {
+    const rows: PaymentReceiptRow[] = []
     if (receiptRecipient) rows.push({ label: t('send.receipt.recipient'), value: receiptRecipient })
     rows.push({ label: t('send.confirm.sourceMint'), value: mintName })
     if (feeReady) {
@@ -434,7 +434,7 @@ export function SendAmountStep({
             /* Sending scene — the receipt IS the screen: the printed length is
                the progress cue, its rows are the reading material. */
             <div className="w-full">
-              <SendReceipt
+              <PaymentReceipt
                 status={sendingFinishing ? 'finishing' : 'printing'}
                 title={t('send.receipt.title')}
                 amount={displayAmount}

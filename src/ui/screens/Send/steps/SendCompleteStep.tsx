@@ -13,7 +13,7 @@ import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import sendSuccessImg from '@/assets/send-success.png'
 import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
-import { SendReceipt, type SendReceiptRow } from '@/ui/components/payment/SendReceipt'
+import { PaymentReceipt, type PaymentReceiptRow } from '@/ui/components/payment/PaymentReceipt'
 import type { PaymentRoute } from '@/ui/hooks/use-routing'
 import type { SendableValidatedData } from '../SendFlow'
 import { getDestinationDisplay } from '../sendDisplayHelpers'
@@ -75,8 +75,8 @@ export function SendCompleteStep({
     ? formatSats(amount)
     : (formatFiat(amount) || '')
 
-  const rows = useMemo<SendReceiptRow[]>(() => {
-    const list: SendReceiptRow[] = [{ label: t('send.receipt.recipient'), value: destination }]
+  const rows = useMemo<PaymentReceiptRow[]>(() => {
+    const list: PaymentReceiptRow[] = [{ label: t('send.receipt.recipient'), value: destination }]
     if (mintUrl) list.push({ label: t('send.confirm.sourceMint'), value: getDisplayName(mintUrl) })
     if (typeof fee === 'number') {
       list.push({ label: t('send.confirm.estimatedFee'), value: formatSats(fee) })
@@ -96,7 +96,7 @@ export function SendCompleteStep({
       <ScreenHeader title={pending ? t('send.sending.title') : t('send.complete.title')} />
 
       <div className="flex-1 flex flex-col items-center justify-center px-6">
-        <SendReceipt
+        <PaymentReceipt
           status={pending ? 'pending' : 'done'}
           title={t('send.receipt.title')}
           amount={mainAmount}
