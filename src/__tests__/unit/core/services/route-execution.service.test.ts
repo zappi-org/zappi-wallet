@@ -207,10 +207,56 @@ describe('RouteExecutionService', () => {
       }),
       'bolt11',
     )
-    expect(result.value.success).toBe(true)
+    expect(result.value.status).toBe('settled')
     expect(result.value.transactionId).toBe('tx-bolt11-1')
     expect(result.value.fee).toBe(120)
     expect(result.value.amount).toBe(100)
     expect(result.value.sourceMintUrl).toBe('https://mint-a.test')
+  })
+
+  it('reports an in_transit melt as in_transit, never as failure', async () => {
+    // A retry on a false "failure" would prepare a second melt for the same
+    // invoice — the double-pay window this status exists to close.
+    const mockTransferLifecycle = {
+      initiateTransfer: vi.fn().mockResolvedValue({
+        id: 'transfer-2',
+        txId: 'tx-bolt11-2',
+        phase: 'in_transit',
+        direction: 'outgoing',
+        transportRef: { feeReserve: 150 },
+      }),
+    }
+
+    const service = new RouteExecutionService(
+      {} as unknown as RoutePaymentOperator,
+      { save: vi.fn() } as unknown as TransactionRepository,
+      {
+        savePendingSendToken: vi.fn(),
+        savePendingMelt: vi.fn(),
+        deletePendingMelt: vi.fn(),
+      } as unknown as RouteExecutionStore,
+      { deliverToken: vi.fn() } as PaymentDeliveryPort,
+      {
+        isBolt11: vi.fn().mockReturnValue(true),
+        decodeBolt11: vi.fn().mockReturnValue({ isExpired: false }),
+      } as unknown as TokenCodec,
+      {} as never,
+      { emit: vi.fn() } as unknown as EventBus,
+      mockTransferLifecycle as unknown as import('@/core/services/transfer-lifecycle.service').TransferLifecycleService,
+      { notifyBalanceChanged: vi.fn() },
+    )
+
+    const result = await service.executeRoute(
+      createSelection({
+        route: PaymentRoute.MELT_TO_LN,
+        invoice: 'lnbc100n1p3...',
+      }),
+      {},
+    )
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value.status).toBe('in_transit')
+    expect(result.value.fee).toBe(150)
   })
 })

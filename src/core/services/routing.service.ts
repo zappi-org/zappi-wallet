@@ -38,9 +38,12 @@ export class RoutingService implements RoutingUseCase {
     amount: number,
     targetMint?: string,
     invoice?: string,
+    options?: { fresh?: boolean },
   ): Promise<FeeEstimate> {
     // invoice is the payment-unit identifier — only re-estimates of the same invoice share the cache
     const key = `route:${route}:${sourceMint}:${targetMint ?? ''}:${amount}:${invoice ?? ''}`
+    // An explicit user retry must not replay the failure-cooldown's cached rejection
+    if (options?.fresh) this.estimateGate.invalidate(key)
     const { value } = await this.estimateGate.run(key, () =>
       this.feeEstimator.estimateRouteFee(route, sourceMint, amount, targetMint, invoice),
     )

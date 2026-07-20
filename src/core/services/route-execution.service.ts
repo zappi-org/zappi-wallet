@@ -108,7 +108,14 @@ export class RouteExecutionService implements RouteExecutionUseCase {
     };
 
     return {
-      success: transfer.phase === "settled",
+      // Melt phases after initiateTransfer are exactly settled/failed/in_transit;
+      // in_transit must not read as failure — the poller finishes it.
+      status:
+        transfer.phase === "settled"
+          ? "settled"
+          : transfer.phase === "failed"
+            ? "failed"
+            : "in_transit",
       amount: selection.amount,
       fee: ref.effectiveFee ?? ref.feeReserve ?? 0,
       sourceMintUrl: selection.sourceMintUrl,
@@ -276,7 +283,7 @@ export class RouteExecutionService implements RouteExecutionUseCase {
       this.notifyChanged(mintUrl);
 
       return {
-        success: deliveryResult.success,
+        status: deliveryResult.success ? "settled" : "failed",
         amount: selection.amount,
         fee: prepared.fee,
         sourceMintUrl: mintUrl,

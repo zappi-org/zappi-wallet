@@ -507,6 +507,42 @@ describe('TransferLifecycleService', () => {
       const needsPolling = emittedEvents.filter((e) => e.type === 'transfer:needs-polling')
       expect(needsPolling).toHaveLength(0)
     })
+
+    it('skips a preparing transfer whose initiateTransfer is live in this process', async () => {
+      let resolveExecute: () => void = () => {}
+      const mockOp = makeMockOperator({
+        execute: vi.fn().mockImplementation(
+          (transfer: PendingTransfer) =>
+            new Promise<PendingTransfer>((resolve) => {
+              resolveExecute = () => resolve(transitionPhase(transfer, 'submitted', Date.now()))
+            }),
+        ),
+      })
+      createService(new Map([['mock', mockOp]]))
+
+      const pending = service.initiateTransfer(
+        { txId: 'tx-1', accountId: 'mint-1', amount: amount(1000, 'sat') },
+        'mock',
+      )
+      // Let prepare + store.create land while execute is still in flight
+      await vi.waitFor(() => expect(store.size()).toBe(1))
+
+      // A mid-send service re-bootstrap re-runs recovery in the same process —
+      // it must not mark the live transfer as crashed
+      await service.recoverTransfers()
+
+      expect((await store.get('transfer-1'))?.phase).toBe('preparing')
+      expect(emittedEvents.find((e) => e.type === 'transfer:failed')).toBeUndefined()
+
+      resolveExecute()
+      const result = await pending
+      expect(result.phase).toBe('submitted')
+
+      // Once the live window closes, a leftover 'preparing' row from a real
+      // crash is failed as before
+      await service.recoverTransfers()
+      expect((await store.get('transfer-1'))?.phase).toBe('submitted')
+    })
   })
 
   // ─── 120s stuck-sweep ───

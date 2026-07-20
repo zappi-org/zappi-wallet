@@ -14,6 +14,16 @@ import type { PendingTransferStore } from '@/core/ports/driven/pending-transfer-
 import type { TransferIntent, TransferOperator } from '@/core/ports/driven/transfer-operator.port'
 import type { OperationMap } from '@/core/ports/driven/operation-map.port'
 
+/**
+ * Outgoing transfers whose initiateTransfer is running in THIS JS process.
+ * Module-scoped on purpose: the service layer can re-bootstrap mid-send (new
+ * service instances, same process) and its recovery sweep would otherwise mark
+ * a live 'preparing' transfer as crashed. A real reload empties module state —
+ * exactly the crash semantics recovery is for. Known gap (pre-existing): a
+ * second TAB's sweep can still fail this tab's live transfer.
+ */
+const liveOutgoingTransferIds = new Set<string>()
+
 /** Stuck threshold — one remote check once this long has passed since the last transition. */
 const STUCK_THRESHOLD_MS = 120_000
 
@@ -219,6 +229,9 @@ export class TransferLifecycleService {
     if (!operator) throw new AdapterNotFoundError(`Unknown protocol: ${protocol}`)
 
     let transfer = await operator.prepare(intent)
+    // Registered before the store write: from this moment a re-bootstrap's
+    // recovery sweep must not treat the transfer as a crash leftover.
+    liveOutgoingTransferIds.add(transfer.id)
     await this.transferStore.create(transfer)
 
     // Execute; the transfer stays in the store even on failure
@@ -237,6 +250,9 @@ export class TransferLifecycleService {
         payload: { transfer: failed, reason: String(error) },
       })
       return failed
+    } finally {
+      // Past 'preparing' (or terminal) — the crash-recovery concern is over.
+      liveOutgoingTransferIds.delete(transfer.id)
     }
 
     this.eventBus.emit({
@@ -477,6 +493,11 @@ export class TransferLifecycleService {
     // 1. Clean up transfers stuck in 'preparing' (from an app crash)
     const stuckPreparing = await this.transferStore.listByPhase(['preparing'])
     for (const transfer of stuckPreparing) {
+      // Live in this process — initiateTransfer is still running and will move
+      // the phase itself. A genuinely hung one waits for the next real launch
+      // (module state cleared → not skipped → failed). The sweep ignores
+      // 'preparing', so nothing else can touch it meanwhile.
+      if (liveOutgoingTransferIds.has(transfer.id)) continue
       if (transfer.direction === 'incoming') {
         // incoming: the quote already exists at the mint → transition to submitted
         const updated = transitionPhase(transfer, 'submitted', Date.now())

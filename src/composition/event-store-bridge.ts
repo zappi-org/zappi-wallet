@@ -10,6 +10,7 @@ import type { EventBus } from '@/core/events/event-bus'
 import { useAppStore } from '@/store'
 import { broadcastSync } from '@/utils/cross-tab-sync'
 import i18n from '@/i18n'
+import { translateError } from '@/ui/utils/error-i18n'
 import { satUnit, formatSats } from '@/utils/format'
 import { toNumber } from '@/core/domain/amount'
 import { createThrottledAsync } from '@/utils/throttled-async'
@@ -257,9 +258,17 @@ export function connectEventStoreBridge(
     eventBus.on('transfer:failed', (event) => {
       const { addOrUpdateTransfer, addToast } = useAppStore.getState()
       addOrUpdateTransfer(event.payload.transfer)
+      // reason is a machine string — never show it verbatim to the user
+      const reason = event.payload.reason
+      const message =
+        reason === 'app-crashed-during-execution'
+          ? i18n.t('toast.transferInterrupted')
+          : reason === 'terminal-failure'
+            ? i18n.t('toast.transferFailed')
+            : translateError(reason, i18n.t)
       addToast({
         type: 'error',
-        message: event.payload.reason,
+        message,
         duration: 5000,
       })
     }),

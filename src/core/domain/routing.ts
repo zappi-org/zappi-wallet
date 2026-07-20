@@ -78,7 +78,13 @@ export interface RouteContext {
 }
 
 export interface RouteExecutionResult {
-  success: boolean
+  /**
+   * 'in_transit' = the payment left the wallet but the mint has not confirmed
+   * settlement yet (slow LN route). It is NOT a failure: retrying would prepare
+   * a second melt for the same invoice — a double-pay. The pending-transfer
+   * poller settles or fails it later.
+   */
+  status: 'settled' | 'in_transit' | 'failed'
   amount: number
   fee: number
   sourceMintUrl: string
