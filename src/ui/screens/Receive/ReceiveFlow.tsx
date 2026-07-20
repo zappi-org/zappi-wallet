@@ -184,6 +184,30 @@ export function ReceiveFlow({
   const [isLoading, setIsLoading] = useState(false)
   const isProcessingRef = useRef(false)
 
+  // A review can arrive while the flow is already mounted (MainApp's navigate
+  // to 'receive' is then a no-op) and the initializer above ran long ago.
+  // Render-phase adjustment (an effect would cascade renders): a genuinely new
+  // review — identity changed from the one already consumed — closes the
+  // overlays and jumps to its confirm step. An in-progress receipt
+  // (received/complete) is never hijacked; the review surfaces on re-entry.
+  const [consumedReviewId, setConsumedReviewId] = useState<string | null>(incomingReview?.externalId ?? null)
+  if (
+    incomingReview &&
+    incomingReview.externalId !== consumedReviewId &&
+    state.step !== 'received' &&
+    state.step !== 'complete'
+  ) {
+    setConsumedReviewId(incomingReview.externalId)
+    setAmountSheetOpen(false)
+    setRedeemSheetOpen(false)
+    setMintSheetOpen(false)
+    setState((prev) => ({
+      ...prev,
+      step: isTrusted(incomingReview.token.mintUrl) ? 'redeem-confirm-trusted' : 'redeem-confirm-untrusted',
+      redeemToken: incomingReview.token,
+    }))
+  }
+
   const { supportsHttp } = useMintNut18Support(state.selectedMintUrl)
 
   const mintUrls = useMemo(() => (state.selectedMintUrl ? [state.selectedMintUrl] : []), [state.selectedMintUrl])

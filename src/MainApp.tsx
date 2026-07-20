@@ -594,6 +594,7 @@ export default function MainApp() {
   // and nav state (injected into the hook as a callback).
   const handleIncomingReviewRejected = useCallback(() => {
     clearIncomingReviewState()
+    setReceiveLaunch(null)
     setCurrentScreen(previousScreen || 'home')
     setPreviousScreen(null)
   }, [clearIncomingReviewState, previousScreen, setCurrentScreen, setPreviousScreen])
@@ -807,6 +808,8 @@ export default function MainApp() {
 
   const handleSendRedirect = useCallback((validated: ValidatedData) => {
     setValidatedScanData(validated)
+    // Same stale-launch guard as the home receive entry.
+    setReceiveLaunch(null)
     setCurrentScreen('receive')
     addToast({ type: 'info', message: t('redirect.toReceive') })
   }, [addToast, t, setCurrentScreen])
@@ -894,6 +897,9 @@ export default function MainApp() {
           setActiveMintUrl(mintUrl || null)
           setValidatedScanData(null)
           setScannedAmount(0)
+          // Hardware/system back skips ReceiveFlow's onBack, so a stale launch
+          // (e.g. a scanned redeem token) could survive — clear at clean entry.
+          setReceiveLaunch(null)
           setCurrentScreen('receive')
         }}
         onScan={() => setShowHomeScanner(true)}
@@ -1044,6 +1050,8 @@ export default function MainApp() {
         onReceive={(amount) => {
           setScannedAmount(amount)
           setValidatedScanData(null)
+          // Same stale-launch guard as the home receive entry.
+          setReceiveLaunch(null)
           setPreviousScreen('amount-action')
           setCurrentScreen('receive')
         }}
