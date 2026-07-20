@@ -28,4 +28,25 @@ describe('RedeemSheet', () => {
     fireEvent.click(screen.getByText('receive.redeem.paste'))
     await waitFor(() => expect(onRouteValidated).toHaveBeenCalled())
   })
+
+  it('deep-link token validates once; same token on reopen does not re-validate, a new token does', async () => {
+    validateAsync.mockClear()
+    const onValidated = vi.fn()
+    const { rerender } = render(
+      <RedeemSheet isOpen onClose={vi.fn()} onValidated={onValidated} initialToken="cashuA_deeplink" />,
+    )
+    await waitFor(() => expect(onValidated).toHaveBeenCalledTimes(1))
+    const callsAfterFirst = validateAsync.mock.calls.length
+
+    // Close, then reopen with the SAME token (back-from-confirm) — must not re-validate.
+    rerender(<RedeemSheet isOpen={false} onClose={vi.fn()} onValidated={onValidated} initialToken="cashuA_deeplink" />)
+    rerender(<RedeemSheet isOpen onClose={vi.fn()} onValidated={onValidated} initialToken="cashuA_deeplink" />)
+    await Promise.resolve()
+    expect(validateAsync.mock.calls.length).toBe(callsAfterFirst)
+    expect(onValidated).toHaveBeenCalledTimes(1)
+
+    // A genuinely new deep-link token (different string) still validates.
+    rerender(<RedeemSheet isOpen onClose={vi.fn()} onValidated={onValidated} initialToken="cashuB_other" />)
+    await waitFor(() => expect(onValidated).toHaveBeenCalledTimes(2))
+  })
 })

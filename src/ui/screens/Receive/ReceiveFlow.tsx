@@ -49,7 +49,7 @@ export type ReceiveStep =
   | 'address' | 'request' | 'received' | 'complete'
   | 'redeem-confirm-trusted' | 'redeem-confirm-untrusted'
 
-/** Redeem outcome — moved here from TokenRegisterFlow (Task 9 fixes importers). */
+/** Result of receiving a pasted/scanned cashu token. */
 export interface TokenReceiveOutcome {
   success: boolean
   amount?: number
@@ -96,7 +96,7 @@ export interface ReceiveFlowProps {
   onCreateInvoice: (amount: number, mintUrl: string) => Promise<{ invoice: string; quoteId: string; expiry: number } | null>
   onPaymentReceived: (amount: number, type: 'lightning' | 'ecash') => void
   onReceiveRequestFulfilled: (token: string, paymentRef: string) => Promise<{ success: boolean; amount?: number; requestFulfilled?: boolean; error?: { code?: string; message?: string } }>
-  // redeem path (inherited from TokenRegisterFlow — minus dead swap props)
+  // redeem path
   onReceiveToken: (token: string) => Promise<TokenReceiveOutcome>
   onAddTrustedMint: (mintUrl: string) => Promise<boolean>
   onEstimateRedeemFee?: (token: string) => Promise<{ grossAmount: number; fee: number; netAmount: number } | null>
@@ -183,6 +183,10 @@ export function ReceiveFlow({
 
   const [isLoading, setIsLoading] = useState(false)
   const isProcessingRef = useRef(false)
+  // Set while a manual redeem is finalizing. The render-phase review adjustment
+  // below must not swap state mid-flight, or the receipt could describe the
+  // wrong token; the deferred review stays unconsumed and surfaces afterward.
+  const redeemBusyRef = useRef(false)
 
   // A review can arrive while the flow is already mounted (MainApp's navigate
   // to 'receive' is then a no-op) and the initializer above ran long ago.
@@ -194,6 +198,7 @@ export function ReceiveFlow({
   if (
     incomingReview &&
     incomingReview.externalId !== consumedReviewId &&
+    !redeemBusyRef.current &&
     state.step !== 'received' &&
     state.step !== 'complete'
   ) {
@@ -401,6 +406,11 @@ export function ReceiveFlow({
   /** Payment detected → stamp the receipt once and print it. */
   const handlePaymentDetected = useCallback((amount: number, method: 'bolt11' | 'ecash') => {
     onPaymentReceived(amount, method === 'bolt11' ? 'lightning' : 'ecash')
+    // Close any open overlay so the arrival receipt isn't buried under a sheet
+    // and a stale sheet-confirm can't yank the flow back to the request step.
+    setAmountSheetOpen(false)
+    setMintSheetOpen(false)
+    setRedeemSheetOpen(false)
     const receivedAt = Date.now()
     setState((prev) => {
       if (prev.receiveRequestId) {
@@ -421,7 +431,9 @@ export function ReceiveFlow({
 
   /** Finalize a redeem → resolve any incoming review, then stamp the receipt. */
   const finalizeRedeem = useCallback(async (result: TokenReceiveOutcome, token: ValidatedCashuToken) => {
-    if (onResolveIncomingReview) {
+    // Only resolve the review whose token this actually is: a manual redeem in
+    // flight when a different review arrives must not resolve the wrong one.
+    if (onResolveIncomingReview && incomingReview?.token.token === token.token) {
       await onResolveIncomingReview({ transactionId: result.transactionId })
     }
     setState((prev) => ({
@@ -431,7 +443,7 @@ export function ReceiveFlow({
       receivedAmount: result.amount ?? toNumber(token.amount),
       receivedAt: Date.now(),
     }))
-  }, [onResolveIncomingReview])
+  }, [onResolveIncomingReview, incomingReview])
 
   const handleRedeemValidated = useCallback(async (token: ValidatedCashuToken) => {
     // Self-owned token (re-registering a pending send) → reclaim instead of
@@ -471,25 +483,35 @@ export function ReceiveFlow({
   const handleRedeemReceive = useCallback(async () => {
     const token = state.redeemToken
     if (!token) return
-    const result = await onReceiveToken(token.token)
-    if (!result.success) {
-      if (result.error instanceof TokenSpentError) throw result.error
-      throw result.error ?? new UnknownError('redeem_failed')
+    redeemBusyRef.current = true
+    try {
+      const result = await onReceiveToken(token.token)
+      if (!result.success) {
+        if (result.error instanceof TokenSpentError) throw result.error
+        throw result.error ?? new UnknownError('redeem_failed')
+      }
+      await finalizeRedeem(result, token)
+    } finally {
+      redeemBusyRef.current = false
     }
-    await finalizeRedeem(result, token)
   }, [state.redeemToken, onReceiveToken, finalizeRedeem])
 
   const handleRedeemAddAndReceive = useCallback(async () => {
     const token = state.redeemToken
     if (!token) return
-    const added = await onAddTrustedMint(token.mintUrl)
-    if (!added) throw new Error('add_trust_failed')
-    const result = await onReceiveToken(token.token)
-    if (!result.success) {
-      if (result.error instanceof TokenSpentError) throw result.error
-      throw result.error ?? new UnknownError('redeem_failed')
+    redeemBusyRef.current = true
+    try {
+      const added = await onAddTrustedMint(token.mintUrl)
+      if (!added) throw new Error('add_trust_failed')
+      const result = await onReceiveToken(token.token)
+      if (!result.success) {
+        if (result.error instanceof TokenSpentError) throw result.error
+        throw result.error ?? new UnknownError('redeem_failed')
+      }
+      await finalizeRedeem(result, token)
+    } finally {
+      redeemBusyRef.current = false
     }
-    await finalizeRedeem(result, token)
   }, [state.redeemToken, onAddTrustedMint, onReceiveToken, finalizeRedeem])
 
   // Confirm-step back: in incoming-review mode the user cannot return to the

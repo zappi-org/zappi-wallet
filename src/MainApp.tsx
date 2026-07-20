@@ -425,6 +425,9 @@ export default function MainApp() {
 
     const nextReview = pendingIncomingReviews[0]
     setActiveIncomingReview(nextReview)
+    // Clear any leftover launch so a stale redeemToken can't auto-open the
+    // redeem sheet over this review's confirm step.
+    setReceiveLaunch(null)
     setPreviousScreen(currentScreen === 'receive' ? previousScreen : currentScreen)
     setCurrentScreen('receive')
   }, [activeIncomingReview, pendingIncomingReviews, currentScreen, previousScreen, setCurrentScreen, setPreviousScreen])
@@ -1121,10 +1124,12 @@ export default function MainApp() {
           setCurrentScreen(backTo)
         }}
         onComplete={() => {
+          // Return where we came from (e.g. the token tab) like onBack does.
+          const backTo = previousScreen || 'home'
           clearIncomingReviewState()
           setReceiveLaunch(null)
           setPreviousScreen(null)
-          setCurrentScreen('home')
+          setCurrentScreen(backTo)
         }}
         onCreateInvoice={handleCreateInvoice}
         onPaymentReceived={handlePaymentReceived}

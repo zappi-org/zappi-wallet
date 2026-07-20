@@ -59,14 +59,16 @@ export function RedeemSheet({ isOpen, onClose, onValidated, onRouteValidated, in
   }, [inputParser, onValidated, onRouteValidated, t])
 
   // Deep-link entry (scanner/router) — validate the pre-supplied token once.
-  const consumedInitialRef = useRef(false)
+  // Track the consumed token VALUE, not a boolean: back-from-confirm reopens the
+  // sheet with the same initialToken, and resetting on close would re-validate it
+  // forever. A genuinely new deep-link token (different string) still validates.
+  const consumedTokenRef = useRef<string | null>(null)
   useEffect(() => {
-    if (isOpen && initialToken && !consumedInitialRef.current) {
-      consumedInitialRef.current = true
+    if (isOpen && initialToken && initialToken !== consumedTokenRef.current) {
+      consumedTokenRef.current = initialToken
       void handleRaw(initialToken)
     }
     if (!isOpen) {
-      consumedInitialRef.current = false
       setError(null)
     }
   }, [isOpen, initialToken, handleRaw])

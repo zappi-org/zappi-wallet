@@ -176,8 +176,9 @@ export function ReceiveRequestStep({
   const lastRedeemedQuoteAmount = useAppStore((s) => s.lastRedeemedQuoteAmount)
   const setLastRedeemedQuote = useAppStore((s) => s.setLastRedeemedQuote)
 
+  // No expiry gate: this is an exact quote-ID match, so it can't false-fire.
+  // A payment settling seconds after the countdown hits zero must still surface.
   useEffect(() => {
-    if (expired) return
     if (!quoteId || !lastRedeemedQuoteId) return
     if (paymentDetectedRef.current) return
 
@@ -187,15 +188,16 @@ export function ReceiveRequestStep({
       hapticSuccess()
       onPaymentDetected(lastRedeemedQuoteAmount ?? amount, 'bolt11')
     }
-  }, [expired, quoteId, lastRedeemedQuoteId, lastRedeemedQuoteAmount, setLastRedeemedQuote, amount, onPaymentDetected, ecashRequestId])
+  }, [quoteId, lastRedeemedQuoteId, lastRedeemedQuoteAmount, setLastRedeemedQuote, amount, onPaymentDetected, ecashRequestId])
 
   // ======= Ecash NUT-18 payment detection (Nostr) =======
   const lastReceivedRequestId = useAppStore((s) => s.lastReceivedRequestId)
   const lastReceivedAmount = useAppStore((s) => s.lastReceivedAmount)
   const setLastReceivedPayment = useAppStore((s) => s.setLastReceivedPayment)
 
+  // No expiry gate: exact request-ID match, so a settlement just past the
+  // countdown must still surface instead of being silently dropped.
   useEffect(() => {
-    if (expired) return
     if (!ecashRequestId || !lastReceivedRequestId) return
     if (paymentDetectedRef.current) return
 
@@ -205,11 +207,13 @@ export function ReceiveRequestStep({
       onPaymentDetected(lastReceivedAmount, 'ecash')
       setLastReceivedPayment(null, 0)
     }
-  }, [expired, ecashRequestId, lastReceivedRequestId, lastReceivedAmount, setLastReceivedPayment, onPaymentDetected])
+  }, [ecashRequestId, lastReceivedRequestId, lastReceivedAmount, setLastReceivedPayment, onPaymentDetected])
 
   // ======= Ecash NUT-18 HTTP polling (fallback) =======
   const httpPollerRef = useRef<{ stop: () => void } | null>(null)
 
+  // Keep the expiry gate here: the poller keeps hitting the mint, so once the
+  // request has expired we stop it rather than let it run to the max-duration.
   useEffect(() => {
     if (expired) return
     if (!httpEndpoint || !ecashRequestId) return
