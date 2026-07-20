@@ -23,6 +23,7 @@ export default {
     paste: 'Tempel',
     change: 'Ubah',
     search: 'Cari',
+    reset: 'Atur ulang',
   },
 
   // Lock Screen

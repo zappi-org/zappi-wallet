@@ -23,6 +23,7 @@ export default {
     paste: '貼り付け',
     change: '変更',
     search: '検索',
+    reset: 'リセット',
   },
 
   // Lock Screen

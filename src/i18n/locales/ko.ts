@@ -23,6 +23,7 @@ export default {
     paste: '붙여넣기',
     change: '변경',
     search: '검색',
+    reset: '초기화',
   },
 
   // Lock Screen

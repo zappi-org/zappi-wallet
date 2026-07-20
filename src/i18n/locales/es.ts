@@ -23,6 +23,7 @@ export default {
     paste: 'Pegar',
     change: 'Cambiar',
     search: 'Buscar',
+    reset: 'Restablecer',
   },
 
   // Lock Screen
