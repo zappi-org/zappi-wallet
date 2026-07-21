@@ -36,12 +36,19 @@ export interface LockScreenProps {
   onUnlock: (password: string) => Promise<boolean>;
   maxAttempts?: number;
   lockoutDurationMinutes?: number;
+  /**
+   * Fired whenever the PIN lockout is in effect (reached now, or already active
+   * on mount). Invalidates unlock grace so a lockout can't be bypassed by
+   * force-quitting and relaunching into a PIN-free resume.
+   */
+  onLockout?: () => void;
 }
 
 export function LockScreen({
   onUnlock,
   maxAttempts = 5,
   lockoutDurationMinutes = 15,
+  onLockout,
 }: LockScreenProps) {
   const { t } = useTranslation();
   const addToast = useAppStore((s) => s.addToast);
@@ -75,10 +82,14 @@ export function LockScreen({
       if (until > Date.now()) {
         setLockoutUntil(until);
         setFailedAttempts(attempts);
+        // Already locked out at mount — invalidate grace so relaunching can't
+        // resume past the lockout without a PIN.
+        onLockout?.();
       } else {
         localStorage.removeItem("lockout");
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleLockoutExpired = useCallback(() => {
@@ -157,6 +168,9 @@ export function LockScreen({
             "lockout",
             JSON.stringify({ until, attempts: newAttempts })
           );
+          // Entering lockout invalidates grace — a brute-force attacker can't
+          // force-quit and relaunch into a PIN-free resume to skip the lockout.
+          onLockout?.();
           setError(
             t('lock.lockedOut', { attempts: maxAttempts, minutes: lockoutDurationMinutes })
           );
@@ -182,6 +196,7 @@ export function LockScreen({
     failedAttempts,
     maxAttempts,
     lockoutDurationMinutes,
+    onLockout,
     t,
   ]);
 

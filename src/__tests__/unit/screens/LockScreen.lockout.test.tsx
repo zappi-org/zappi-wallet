@@ -87,4 +87,41 @@ describe('LockScreen lockout counting contract', () => {
       expect(JSON.parse(stored!).attempts).toBe(2)
     })
   })
+
+  // ─── grace invalidation on lockout (LockScreen rendered ⇒ grace must be absent) ───
+
+  it('reaching the lockout threshold fires onLockout (invalidates grace)', async () => {
+    const onUnlock = vi.fn().mockResolvedValue(false)
+    const onLockout = vi.fn()
+    render(<LockScreen onUnlock={onUnlock} maxAttempts={2} onLockout={onLockout} />)
+
+    await typePin('333333')
+    await waitFor(() => expect(onUnlock).toHaveBeenCalledTimes(1))
+    expect(onLockout).not.toHaveBeenCalled() // below threshold — no invalidation yet
+
+    await typePin('444444')
+    await waitFor(() => expect(onLockout).toHaveBeenCalled())
+  })
+
+  it('mounting while already locked out fires onLockout (relaunch can not bypass)', async () => {
+    localStorage.setItem(
+      'lockout',
+      JSON.stringify({ until: Date.now() + 15 * 60 * 1000, attempts: 5 }),
+    )
+    const onLockout = vi.fn()
+    render(<LockScreen onUnlock={vi.fn().mockResolvedValue(false)} onLockout={onLockout} />)
+
+    await waitFor(() => expect(onLockout).toHaveBeenCalled())
+  })
+
+  it('does not fire onLockout on a wrong PIN below the threshold', async () => {
+    const onUnlock = vi.fn().mockResolvedValue(false)
+    const onLockout = vi.fn()
+    render(<LockScreen onUnlock={onUnlock} maxAttempts={5} onLockout={onLockout} />)
+
+    await typePin('111111')
+    await waitFor(() => expect(onUnlock).toHaveBeenCalledTimes(1))
+    await screen.findByText('lock.wrongPin')
+    expect(onLockout).not.toHaveBeenCalled()
+  })
 })

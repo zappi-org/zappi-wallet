@@ -849,7 +849,15 @@ export default function MainApp() {
   }
 
   if (isLocked) {
-    return <LockScreen onUnlock={handleUnlock} />
+    return (
+      <LockScreen
+        onUnlock={handleUnlock}
+        onLockout={() => {
+          // PIN lockout must invalidate grace so a relaunch can't resume without a PIN.
+          preUnlock.security.clearGrace().catch((e) => console.error('[Lock] Grace clear on lockout failed:', e))
+        }}
+      />
+    )
   }
 
   // ─── Screen route table ──────────────────────────────────────

@@ -15,6 +15,10 @@
  * plaintext bearer proofs left behind + retry impossible (NO_WALLET→wrongPin
  * misindication) + the next onboarded account inheriting the prior funds/history.
  *
+ * ⊗ Grace DB (before ⓪) — deletes the whole dedicated zappi-grace DB, which holds a
+ *    PIN-free decryptable mnemonic copy (more sensitive than the wallet record).
+ *    Throws on failure so a half-completed wipe can never leave a resumable mnemonic
+ *    beside a destroyed account.
  * ⓪ Other-tab reload signal (first) — closes the window in which another tab's
  *    in-progress writes revive data mid-erasure. Reloaded tabs sit on lock/onboarding
  *    and don't open coco (coco init is post-unlock). ⑥ fires once more after erasure
@@ -44,6 +48,7 @@
  */
 
 import { getDatabase } from '@/adapters/storage/dexie/schema'
+import { deleteGraceDatabase } from '@/adapters/storage/unlock-grace.adapter'
 import { AnchorStoreAdapter } from '@/adapters/storage/anchor-store.adapter'
 import { LocalStorageBalanceCache } from '@/adapters/cache/local-storage-balance-cache.adapter'
 import { deleteCocoData } from '@/modules/cashu'
@@ -64,6 +69,13 @@ export interface WipeAccountDeps {
 }
 
 export async function wipeAccountData(deps: WipeAccountDeps): Promise<void> {
+  // Grace DB (before every other step). The grace blob is a PIN-free decryptable
+  // mnemonic copy — more sensitive than the wallet record — so destroy the whole
+  // dedicated DB first and throw on failure: a half-completed wipe must never leave
+  // a resumable mnemonic beside a destroyed account, and the user drops to a
+  // retryable lock screen with all data still intact.
+  await deleteGraceDatabase()
+
   // ⓪ Stop other tabs (reload) — blocks reviving writes from other tabs during the
   // erasure window. Residual window (accepted): if a user completes PIN entry in a
   // reloaded lock tab within the erasure window (~seconds), an empty coco DB can be

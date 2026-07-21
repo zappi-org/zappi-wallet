@@ -22,9 +22,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { wipeAccountData, type WipeAccountDeps } from '@/composition/logout'
 import { useAppStore } from '@/store'
 
-const { deleteCocoDataMock, broadcastSyncMock, dbHolder } = vi.hoisted(() => ({
+const { deleteCocoDataMock, broadcastSyncMock, deleteGraceDatabaseMock, dbHolder } = vi.hoisted(() => ({
   deleteCocoDataMock: vi.fn(),
   broadcastSyncMock: vi.fn(),
+  deleteGraceDatabaseMock: vi.fn(),
   dbHolder: {
     db: null as unknown as { tables: Array<{ clear: () => Promise<void> }>; delete: () => Promise<void> },
   },
@@ -33,6 +34,7 @@ const { deleteCocoDataMock, broadcastSyncMock, dbHolder } = vi.hoisted(() => ({
 vi.mock('@/modules/cashu', () => ({ deleteCocoData: deleteCocoDataMock }))
 vi.mock('@/utils/cross-tab-sync', () => ({ broadcastSync: broadcastSyncMock }))
 vi.mock('@/adapters/storage/dexie/schema', () => ({ getDatabase: () => dbHolder.db }))
+vi.mock('@/adapters/storage/unlock-grace.adapter', () => ({ deleteGraceDatabase: deleteGraceDatabaseMock }))
 
 function makeDb(over?: { failClear?: boolean; deleteImpl?: () => Promise<void> }) {
   const tables = [
@@ -67,6 +69,7 @@ describe('wipeAccountData', () => {
   beforeEach(() => {
     deleteCocoDataMock.mockReset().mockResolvedValue(undefined)
     broadcastSyncMock.mockReset()
+    deleteGraceDatabaseMock.mockReset().mockResolvedValue(undefined)
     localStorage.clear()
   })
 
@@ -82,6 +85,9 @@ describe('wipeAccountData', () => {
     try {
       await wipeAccountData(deps)
 
+      // Grace DB is destroyed before every other step — the PIN-free mnemonic copy
+      // is the most sensitive artifact, so it goes first.
+      expect(orderOf(deleteGraceDatabaseMock)).toBeLessThan(orderOf(broadcastSyncMock, 0))
       // ⓪ Early broadcast precedes every step — blocks the cross-tab revive-write window
       expect(orderOf(broadcastSyncMock, 0)).toBeLessThan(orderOf(deps.registry.support.destroy))
       expect(orderOf(deps.registry.support.destroy)).toBeLessThan(orderOf(deps.registry.dispose))
@@ -113,6 +119,19 @@ describe('wipeAccountData', () => {
     expect(deps.security.deleteWallet).toHaveBeenCalled()
     expect(deps.removePasskey).toHaveBeenCalled()
     expect(broadcastSyncMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('grace DB delete failure → throw before any other step (nothing else runs)', async () => {
+    const db = makeDb()
+    const deps = makeDeps()
+    deleteGraceDatabaseMock.mockRejectedValue(new Error('grace delete blocked'))
+
+    await expect(wipeAccountData(deps)).rejects.toThrow('grace delete blocked')
+    // Grace is the very first step — a failure aborts before touching anything else.
+    expect(broadcastSyncMock).not.toHaveBeenCalled()
+    expect(deleteCocoDataMock).not.toHaveBeenCalled()
+    expect(db.tables[0].clear).not.toHaveBeenCalled()
+    expect(deps.security.deleteWallet).not.toHaveBeenCalled()
   })
 
   it('coco DB delete failure → throw, mnemonic survives (preserves retryable state)', async () => {
