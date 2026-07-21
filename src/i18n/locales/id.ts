@@ -915,15 +915,6 @@ export default {
       reject: 'Jangan terima',
       rejectSub: 'Jangan terima token ini',
     },
-    landing: {
-      lightningTab: 'Lightning',
-      nostrTab: 'Npub Nostr',
-      receiveAccount: 'Akun penerima',
-      directReceive: 'Tukarkan token',
-      specifyAmount: 'Tentukan jumlah',
-      noAddress: 'Belum ada alamat terima',
-      createAddress: 'Buat alamat',
-    },
     request: {
       summary: 'Ringkasan terima',
       expiresIn: 'Kedaluwarsa dalam {{seconds}}d',

@@ -913,15 +913,6 @@ export default {
       reject: 'Do not receive',
       rejectSub: 'Do not accept this token',
     },
-    landing: {
-      lightningTab: 'Lightning',
-      nostrTab: 'Nostr npub',
-      receiveAccount: 'Receiving account',
-      directReceive: 'Redeem a token',
-      specifyAmount: 'Set an amount',
-      noAddress: 'No receive address yet',
-      createAddress: 'Create address',
-    },
     request: {
       summary: 'Receive summary',
       expiresIn: 'Expires in {{seconds}}s',

@@ -915,15 +915,6 @@ export default {
       reject: 'No recibir',
       rejectSub: 'No aceptar este token',
     },
-    landing: {
-      lightningTab: 'Lightning',
-      nostrTab: 'Npub de Nostr',
-      receiveAccount: 'Cuenta receptora',
-      directReceive: 'Canjear un token',
-      specifyAmount: 'Fijar un monto',
-      noAddress: 'Aún no tienes dirección',
-      createAddress: 'Crear dirección',
-    },
     request: {
       summary: 'Resumen de cobro',
       expiresIn: 'Caduca en {{seconds}}s',

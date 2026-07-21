@@ -60,6 +60,8 @@ export interface ReceiveRequestStepProps {
    * for ReceiveRequest matching and idempotency.
    */
   onReceiveRequestFulfilled?: (token: string, paymentRef: string) => Promise<{ amount: number; requestFulfilled?: boolean }>
+  /** Cross-link to the static my-address screen (single direction). */
+  onOpenMyAddress?: () => void
 }
 
 // Waiting animation — a dotted flow toward the mint, the receive mirror of
@@ -117,6 +119,7 @@ export function ReceiveRequestStep({
   expiresAt,
   onPaymentDetected,
   onReceiveRequestFulfilled,
+  onOpenMyAddress,
 }: ReceiveRequestStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
@@ -419,6 +422,16 @@ export function ReceiveRequestStep({
                 {copied ? t('common.copied') : t('common.copy')}
               </button>
             </div>
+
+            {onOpenMyAddress && (
+              <button
+                type="button"
+                onClick={() => { hapticTap(); onOpenMyAddress() }}
+                className="mt-4 text-caption font-medium text-foreground-muted active:text-foreground transition-colors"
+              >
+                {t('receive.request.myAddressLink')} →
+              </button>
+            )}
 
             {expiresAt != null && <ExpiryCountdown expiresAt={expiresAt} />}
           </>

@@ -1,13 +1,13 @@
 /**
  * ReceiveFlow — unified receive conductor (mirrors SendFlow).
  *
- * A zero-tap payable address is the landing; from there the user can specify
- * an amount (request path: Lightning invoice + NUT-18 ecash request on a
- * unified BIP-321 QR) or directly receive a pasted/scanned cashu token
- * (redeem path: trust routing → confirm → receipt).
+ * The amount step is the base entry: specify an amount to build a request
+ * (Lightning invoice + NUT-18 ecash request on a unified BIP-321 QR). A redeem
+ * entry (ecash-tab register / scanned or routed token) opens the redeem host so
+ * a pasted/scanned cashu token can be received (trust routing → confirm → receipt).
  *
- * address → request → received
- * address → redeem-confirm-{trusted,untrusted} → received
+ * amount → request → received
+ * redeem → redeem-confirm-{trusted,untrusted} → received
  */
 
 import { useState, useCallback, useRef, useMemo } from 'react'
@@ -33,7 +33,6 @@ import { useTrustRegistry } from '@/ui/hooks/use-trust-registry'
 import { translateError } from '@/ui/utils/error-i18n'
 import { hapticError, hapticSuccess } from '@/ui/utils/haptic'
 
-import { ReceiveAddressStep } from './steps/ReceiveAddressStep'
 import { ReceiveAmountStep } from './steps/ReceiveAmountStep'
 import { ReceiveRequestStep } from './steps/ReceiveRequestStep'
 import { ReceiveReceiptStep } from './steps/ReceiveReceiptStep'
@@ -45,7 +44,7 @@ import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomS
 // ============= Types =============
 
 export type ReceiveStep =
-  | 'address' | 'amount' | 'request' | 'received'
+  | 'redeem' | 'amount' | 'request' | 'received'
   | 'redeem-confirm-trusted' | 'redeem-confirm-untrusted'
 
 /** Result of receiving a pasted/scanned cashu token. */
@@ -58,16 +57,14 @@ export interface TokenReceiveOutcome {
 
 /** Deep-link entry — how MainApp seeds the flow when routed from a scan/action. */
 export interface ReceiveLaunch {
-  addressTab?: 'lightning' | 'nostr'
   redeemOpen?: boolean
   redeemToken?: string
 }
 
 interface ReceiveFlowState {
   step: ReceiveStep
-  /** Where the amount step's back arrow returns — landing (create) vs request (edit). */
-  amountReturn: 'address' | 'request'
-  addressTab: 'lightning' | 'nostr'
+  /** Where the amount step's back arrow returns — landing removed — exit the flow vs return to request. */
+  amountReturn: 'exit' | 'request'
   selectedMintUrl: string | null
   amount: number
   memo: string
@@ -111,7 +108,7 @@ export interface ReceiveFlowProps {
   launch?: ReceiveLaunch | null
   initialAmount?: number
   initialMintUrl?: string | null
-  onOpenAddressSettings?: () => void
+  onOpenMyAddress?: () => void
 }
 
 // ============= Component =============
@@ -134,7 +131,7 @@ export function ReceiveFlow({
   launch,
   initialAmount,
   initialMintUrl,
-  onOpenAddressSettings,
+  onOpenMyAddress,
 }: ReceiveFlowProps) {
   const { t } = useTranslation()
   const { isOnline } = useNetwork()
@@ -158,20 +155,17 @@ export function ReceiveFlow({
   const setLastReceivedPayment = useAppStore((s) => s.setLastReceivedPayment)
 
   const [state, setState] = useState<ReceiveFlowState>(() => {
-    // Incoming review (gift-wrap): skip the landing and open the appropriate
-    // confirm step with the queued token pre-loaded.
     const review = incomingReview?.token ?? null
-    // Deep-linked amount (amount-action) seeds the amount step directly; a queued
-    // review still wins over it.
+    // Incoming review wins; a redeem entry (ecash-tab register / scanned or routed
+    // token) opens the redeem host; everything else lands on the amount step.
     const initialStep: ReceiveStep = review
       ? (isTrusted(review.mintUrl) ? 'redeem-confirm-trusted' : 'redeem-confirm-untrusted')
-      : (initialAmount ?? 0) > 0
-        ? 'amount'
-        : 'address'
+      : (launch?.redeemOpen || launch?.redeemToken)
+        ? 'redeem'
+        : 'amount'
     return {
       step: initialStep,
-      amountReturn: 'address',
-      addressTab: launch?.addressTab ?? 'lightning',
+      amountReturn: 'exit',
       selectedMintUrl: initialMintUrl || settings.mints[0] || null,
       amount: initialAmount || 0,
       memo: '',
@@ -189,10 +183,10 @@ export function ReceiveFlow({
     }
   })
 
-  // Overlays — reachable from more than one step, so they live at container
-  // level (below AnimatePresence) rather than inside a single step fragment: the
-  // redeem sheet reopens when backing out of a confirm step, and the mint sheet
-  // is shared by the landing and the amount step.
+  // Overlays — reachable across steps, so they live at container level (below
+  // AnimatePresence) rather than inside a single step fragment: the redeem sheet
+  // backgrounds the redeem host step and reopens when backing out of a confirm
+  // step; the mint sheet is opened from the amount step.
   const [redeemSheetOpen, setRedeemSheetOpen] = useState(() => !!(launch?.redeemOpen || launch?.redeemToken))
   const [mintSheetOpen, setMintSheetOpen] = useState(false)
 
@@ -232,17 +226,6 @@ export function ReceiveFlow({
   const { getDisplayName, getIconUrl } = useMintMetadata(mintUrls)
   const mintDisplayName = state.selectedMintUrl ? getDisplayName(state.selectedMintUrl) : ''
   const mintIconUrl = state.selectedMintUrl ? getIconUrl(state.selectedMintUrl) ?? null : null
-
-  const npub = useMemo(() => {
-    if (!nostrPubkey) return null
-    try {
-      return crypto.encodeNpub(nostrPubkey)
-    } catch {
-      return null
-    }
-  }, [nostrPubkey, crypto])
-
-  const lightningAddress = settings.lightningAddress ?? null
 
   // User's nprofile for ecash Nostr transport
   const userNprofile = useMemo(() => {
@@ -526,33 +509,29 @@ export function ReceiveFlow({
     }
   }, [state.redeemToken, onAddTrustedMint, onReceiveToken, finalizeRedeem])
 
-  // Confirm-step back: in incoming-review mode the user cannot return to the
-  // landing (the queue chose this token), so back becomes reject. Otherwise
-  // return to the landing and reopen the redeem sheet to try another token.
+  // Confirm-step back: in incoming-review mode the user cannot return (the queue
+  // chose this token), so back becomes reject. Otherwise re-host the redeem sheet
+  // so the user can try another token.
   const handleConfirmBack = useCallback(() => {
     if (incomingReview && onRejectIncomingReview) {
       void onRejectIncomingReview()
       return
     }
-    setState((prev) => ({ ...prev, step: 'address' }))
+    setState((prev) => ({ ...prev, step: 'redeem' }))
     setRedeemSheetOpen(true)
   }, [incomingReview, onRejectIncomingReview])
 
-  // Reject: mark the queued review rejected, or (direct-receive) drop the token
-  // and return to the landing without reopening the sheet.
+  // Reject: mark the queued review rejected, or (direct-receive) drop the token.
+  // With the landing gone there is nowhere to return to, so exit the flow.
   const handleConfirmReject = useCallback(() => {
     if (incomingReview && onRejectIncomingReview) {
       void onRejectIncomingReview()
       return
     }
-    setState((prev) => ({ ...prev, step: 'address' }))
-  }, [incomingReview, onRejectIncomingReview])
+    onBack()
+  }, [incomingReview, onRejectIncomingReview, onBack])
 
   // ============= Shared overlay handlers =============
-
-  const handleAddressTabChange = useCallback((tab: 'lightning' | 'nostr') => {
-    setState((prev) => ({ ...prev, addressTab: tab }))
-  }, [])
 
   const handleMintSelected = useCallback((mintUrl: string) => {
     setState((prev) => ({ ...prev, selectedMintUrl: mintUrl }))
@@ -592,15 +571,16 @@ export function ReceiveFlow({
     regenerate,
   ])
 
-  // Enter the amount step, remembering where its back arrow returns: the landing
-  // (fresh request) vs the request step (edit an existing one).
-  const openAmountStep = useCallback((amountReturn: 'address' | 'request') => {
+  // Enter the amount step, remembering where its back arrow returns: exit the
+  // flow (fresh request) vs the request step (edit an existing one).
+  const openAmountStep = useCallback((amountReturn: 'exit' | 'request') => {
     setState((prev) => ({ ...prev, step: 'amount', amountReturn }))
   }, [])
 
   const handleAmountBack = useCallback(() => {
-    setState((prev) => ({ ...prev, step: prev.amountReturn }))
-  }, [])
+    if (state.amountReturn === 'exit') { onBack(); return }
+    setState((prev) => ({ ...prev, step: 'request' }))
+  }, [state.amountReturn, onBack])
 
   const handleMakeAnother = useCallback(() => {
     regenerate(state.amount, state.memo)
@@ -620,22 +600,9 @@ export function ReceiveFlow({
   return (
     <div className="h-dvh bg-background text-foreground font-primary flex flex-col pt-safe">
       <AnimatePresence mode="wait">
-        {state.step === 'address' && (
-          <PageTransition key="receive-address" variant="page" className="flex-1">
-            <ReceiveAddressStep
-              onBack={onBack}
-              addressTab={state.addressTab}
-              onTabChange={handleAddressTabChange}
-              lightningAddress={lightningAddress}
-              npub={npub}
-              mintUrl={state.selectedMintUrl}
-              mintIconUrl={mintIconUrl}
-              mintDisplayName={mintDisplayName}
-              onEditMint={() => setMintSheetOpen(true)}
-              onDirectReceive={() => setRedeemSheetOpen(true)}
-              onSpecifyAmount={() => openAmountStep('address')}
-              onCreateAddress={onOpenAddressSettings}
-            />
+        {state.step === 'redeem' && (
+          <PageTransition key="receive-redeem" variant="fade" className="flex-1">
+            <div className="h-full bg-background" />
           </PageTransition>
         )}
 
@@ -658,7 +625,7 @@ export function ReceiveFlow({
         {state.step === 'request' && (
           <PageTransition key="receive-request" variant="page" className="flex-1">
             <ReceiveRequestStep
-              onBack={() => setState((prev) => ({ ...prev, step: 'address' }))}
+              onBack={onBack}
               onEdit={() => openAmountStep('request')}
               onRegenerate={() => regenerate(state.amount, state.memo)}
               isRegenerating={isLoading}
@@ -675,6 +642,7 @@ export function ReceiveFlow({
               expiresAt={state.expiresAt}
               onPaymentDetected={handlePaymentDetected}
               onReceiveRequestFulfilled={handleRequestFulfilled}
+              onOpenMyAddress={onOpenMyAddress}
             />
           </PageTransition>
         )}
@@ -720,7 +688,7 @@ export function ReceiveFlow({
       {/* Overlays — see the container-level note above the useState calls. */}
       <RedeemSheet
         isOpen={redeemSheetOpen}
-        onClose={() => setRedeemSheetOpen(false)}
+        onClose={() => { setRedeemSheetOpen(false); onBack() }}
         onValidated={handleRedeemValidated}
         onRouteValidated={onRouteValidated}
         initialToken={launch?.redeemToken}

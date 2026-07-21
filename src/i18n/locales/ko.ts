@@ -917,15 +917,6 @@ export default {
       reject: '받지 않기',
       rejectSub: '이 토큰은 받지 않을게요',
     },
-    landing: {
-      lightningTab: '라이트닝',
-      nostrTab: '노스터 npub',
-      receiveAccount: '받을 계좌',
-      directReceive: '직접 수령하기',
-      specifyAmount: '금액 지정하기',
-      noAddress: '아직 받기 주소가 없어요',
-      createAddress: '주소 만들기',
-    },
     request: {
       summary: '받기 요약',
       expiresIn: '{{seconds}}초 뒤 만료돼요',

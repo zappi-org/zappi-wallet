@@ -913,15 +913,6 @@ export default {
       reject: '受け取らない',
       rejectSub: 'このトークンを受け取りません',
     },
-    landing: {
-      lightningTab: 'ライトニング',
-      nostrTab: 'Nostr npub',
-      receiveAccount: '受取アカウント',
-      directReceive: 'トークンを受け取る',
-      specifyAmount: '金額を指定する',
-      noAddress: '受取アドレスがまだありません',
-      createAddress: 'アドレスを作成',
-    },
     request: {
       summary: '受取サマリー',
       expiresIn: 'あと{{seconds}}秒で期限切れ',
