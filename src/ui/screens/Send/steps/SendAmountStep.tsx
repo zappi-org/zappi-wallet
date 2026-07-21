@@ -470,16 +470,23 @@ export function SendAmountStep({
               disabled={isAmountFixed}
               emptyPrompt={t('send.amount.prompt')}
               topSlot={
-                <button
-                  type="button"
-                  onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
-                  disabled={!onChangeMint}
-                  className="flex items-center justify-center gap-2 pt-2 mx-auto"
-                >
-                  <MintIcon iconUrl={mintIconUrl} imgSize="w-6 h-6" className="w-6 h-6" circle />
-                  <span className="text-body font-medium text-foreground truncate max-w-[220px]">{mintName}</span>
-                  {onChangeMint && <ChevronDown className="w-4 h-4 text-foreground-muted shrink-0" strokeWidth={2} />}
-                </button>
+                <div className="flex flex-col items-center gap-0.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
+                    disabled={!onChangeMint}
+                    className="flex items-center justify-center gap-2 mx-auto"
+                  >
+                    <MintIcon iconUrl={mintIconUrl} imgSize="w-6 h-6" className="w-6 h-6" circle />
+                    <span className="text-body font-medium text-foreground truncate max-w-[220px]">{mintName}</span>
+                    {onChangeMint && <ChevronDown className="w-4 h-4 text-foreground-muted shrink-0" strokeWidth={2} />}
+                  </button>
+                  {/* Sending spends from this mint, so its balance belongs here
+                      (receive stays balance-free — the payer's balance is theirs). */}
+                  <span className="text-caption text-foreground-muted">
+                    {t('common.balance')} {formatSats(mintBalance)}
+                  </span>
+                </div>
               }
               bottomSlot={
                 <>
