@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { ArrowDownLeft, ArrowUpRight, ChevronUp } from 'lucide-react'
 import type { Transaction } from '@/core/domain/transaction'
 import { getTransactionType, getTxMeta, getTotalCost } from '@/core/domain/transaction'
@@ -13,7 +14,7 @@ const MINUTE = 60 * SECOND
 const HOUR = 60 * MINUTE
 const DAY = 24 * HOUR
 
-function getRelativeTime(ts: number, t: (key: string, opts?: Record<string, unknown>) => string): string {
+function getRelativeTime(ts: number, t: TFunction): string {
   const diff = Date.now() - ts
   if (diff < MINUTE) return t('notifications.justNow')
   if (diff < HOUR) return t('notifications.minAgo', { count: Math.floor(diff / MINUTE) })
@@ -94,7 +95,7 @@ export const HomeRecentCard = memo(function HomeRecentCard({
 
       <button
         onClick={onPress}
-        className="relative w-full flex items-center gap-3 px-5 py-3.5 rounded-card overflow-hidden active:opacity-80 transition-opacity text-left"
+        className="relative w-full flex items-center gap-3 px-5 py-4 rounded-card overflow-hidden active:opacity-80 transition-opacity text-left"
         style={{
           background:
             'linear-gradient(180deg, #FFFFFF 40%, rgba(255,255,255,0) 100%)',

@@ -123,6 +123,7 @@ export function AnimatedPresenceWrapper({
     page: pageVariants,
     modal: modalVariants,
     fade: fadeVariants,
+    slideUp: slideUpVariants,
   }
 
   return (
