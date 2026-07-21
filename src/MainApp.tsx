@@ -78,7 +78,6 @@ import { ToastContainer } from '@/ui/components'
 import { ReceiveFlow } from '@/ui/screens/Receive/ReceiveFlow'
 import type { ReceiveLaunch } from '@/ui/screens/Receive/ReceiveFlow'
 import { SendFlow } from '@/ui/screens/Send/SendFlow'
-import { TokenCreateFlow } from '@/ui/screens/TokenCreate/TokenCreateFlow'
 import { routeValidatedInput } from '@/ui/utils/input-router'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
@@ -192,6 +191,8 @@ export default function MainApp() {
 
   const [receiveLaunch, setReceiveLaunch] = useState<ReceiveLaunch | null>(null)
 
+  const [sendLaunch, setSendLaunch] = useState<{ directTransfer?: boolean } | null>(null)
+
   const [activeMintUrl, setActiveMintUrl] = useState<string | null>(null)
 
   const [historyInitialMintUrls, setHistoryInitialMintUrls] = useState<string[] | undefined>(undefined)
@@ -251,10 +252,11 @@ export default function MainApp() {
     setShowHomeScanner(false)
     setValidatedScanData(null)
     setScannedAmount(0)
+    setSendLaunch(null)
 
     // Inject default (primary) mint as the source context — prefer the active
     // mint (if it has balance), else first mint with balance, else first
-    // configured mint. Matches TokenCreateFlow's default selection rule.
+    // configured mint. Matches resolveCreateMint's selection rule.
     let defaultMint: string | null = null
     if (activeMintUrl && (balance.byMint[activeMintUrl] ?? 0) > 0) {
       defaultMint = activeMintUrl
@@ -367,6 +369,7 @@ export default function MainApp() {
       case 'send':
         setValidatedScanData(target.validatedData)
         setScannedAmount(0)
+        setSendLaunch(null)
         setPreviousScreen(currentScreen)
         setCurrentScreen('send')
         return
@@ -735,14 +738,6 @@ export default function MainApp() {
     [serviceRegistry],
   )
 
-  const handleEstimateTokenFee = useCallback(
-    async (mintUrl: string, amount: number): Promise<number | null> => {
-      const estimate = await handleEstimateCreateFee(mintUrl, amount)
-      return estimate?.fee ?? null
-    },
-    [handleEstimateCreateFee],
-  )
-
   // ─── Reclaim (receive) fee estimate — for an already-created tx ───
   const handleQuoteReclaim = useCallback(
     async (txId: string): Promise<number | null> => {
@@ -811,8 +806,10 @@ export default function MainApp() {
 
   const handleSendRedirect = useCallback((validated: ValidatedData) => {
     setValidatedScanData(validated)
-    // Same stale-launch guard as the home receive entry.
+    // Same stale-launch guard as the home receive entry. The send launch is
+    // cleared too — this leaves send without passing through onBack/onComplete.
     setReceiveLaunch(null)
+    setSendLaunch(null)
     setCurrentScreen('receive')
     addToast({ type: 'info', message: t('redirect.toReceive') })
   }, [addToast, t, setCurrentScreen])
@@ -893,6 +890,7 @@ export default function MainApp() {
           setActiveMintUrl(mintUrl || null)
           setValidatedScanData(null)
           setScannedAmount(0)
+          setSendLaunch(null)
           setCurrentScreen('send')
         }}
         onReceive={(mintUrl) => {
@@ -960,6 +958,7 @@ export default function MainApp() {
           setActiveMintUrl(mintUrl)
           setValidatedScanData(validatedData)
           setScannedAmount(0)
+          setSendLaunch(null)
           setContactInfo({ address: '', displayName })
           setCurrentScreen('send')
         }}
@@ -1046,7 +1045,8 @@ export default function MainApp() {
         onSend={(amount) => {
           setScannedAmount(amount)
           setValidatedScanData(null)
-
+          // Same stale-launch guard as the receive entry below.
+          setSendLaunch(null)
           setPreviousScreen('amount-action')
           setCurrentScreen('send')
         }}
@@ -1067,12 +1067,16 @@ export default function MainApp() {
           const backTo = previousScreen || 'home'
           setPreviousScreen(null)
           setContactInfo(null)
+          setSendLaunch(null)
           setCurrentScreen(backTo)
         }}
         onComplete={() => {
+          // A launched create returns to its origin (token tab) like onBack.
+          const backTo = sendLaunch?.directTransfer ? previousScreen || 'home' : 'home'
           setPreviousScreen(null)
           setContactInfo(null)
-          setCurrentScreen('home')
+          setSendLaunch(null)
+          setCurrentScreen(backTo)
         }}
         onExecuteRoute={handleExecuteRoute}
         onResolveInvoice={handleResolveRouteInvoice}
@@ -1090,27 +1094,7 @@ export default function MainApp() {
         onQuoteReclaim={handleQuoteReclaim}
         onReclaimToken={handleReclaimToken}
         directMintUrl={resolveCreateMint()}
-      />
-    ),
-
-    'token-create': () => (
-      <TokenCreateFlow
-        mintUrl={resolveCreateMint()}
-        onBack={() => {
-          const backTo = previousScreen || 'token'
-          setPreviousScreen(null)
-          setCurrentScreen(backTo)
-        }}
-        onComplete={() => {
-          setPreviousScreen(null)
-          setCurrentScreen('token')
-        }}
-        onCreateToken={(amount, mintUrl, memo) =>
-          handleCreateEcashToken(amount, mintUrl, { memo })
-        }
-        onCancelToken={handleReclaimToken}
-        onEstimateFee={handleEstimateTokenFee}
-        onQuoteReclaim={handleQuoteReclaim}
+        initialDirectTransfer={sendLaunch?.directTransfer ?? false}
       />
     ),
 
@@ -1183,6 +1167,7 @@ export default function MainApp() {
           setActiveMintUrl(mintUrl)
           setValidatedScanData(null)
           setScannedAmount(0)
+          setSendLaunch(null)
           setCurrentScreen('send')
         }}
         onDeleteMint={async (url) => {
@@ -1381,8 +1366,11 @@ export default function MainApp() {
             scrollRef={tokenScrollRef}
             onTabSelect={handleTabSelect}
             onCreate={() => {
+              setSendLaunch({ directTransfer: true })
+              setValidatedScanData(null)
+              setScannedAmount(0)
               setPreviousScreen('token')
-              setCurrentScreen('token-create')
+              setCurrentScreen('send')
             }}
             onRegister={() => {
               setReceiveLaunch({ redeemOpen: true })
@@ -1409,6 +1397,7 @@ export default function MainApp() {
           setActiveMintUrl(mintUrl)
           setValidatedScanData(npubMintSelection.validatedData)
           setScannedAmount(0)
+          setSendLaunch(null)
           setContactInfo({ address: '', displayName: formatNpubShort(npubMintSelection.rawAddress) })
           setPreviousScreen(currentScreen)
           setCurrentScreen('send')

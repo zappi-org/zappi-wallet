@@ -10,7 +10,7 @@
  * outgoing ecash token claims are normalized into a semantic event from the
  * TransferLifecycle path, move this hook to that unified event.
  *
- * Skipped when a dedicated UI (e.g. TokenCreate/CreatedStep) already owns
+ * Skipped when a dedicated UI (e.g. Send/DirectReceiptStep) already owns
  * feedback for that txId — see `useOwnPaymentEvent`.
  *
  * Accepts the registry as an argument because MainApp (where this hook is

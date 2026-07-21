@@ -3,7 +3,7 @@ import { ServiceContext } from '@/ui/hooks/service-context-value'
 
 /**
  * Subscribe to outgoing-token claim signals filtered by transactionId.
- * Used by CreatedStep / TokenCreatedStep to detect when the recipient
+ * Used by DirectReceiptStep to detect when the recipient
  * claims the outgoing token. `send:claimed` covers legacy/domain paths;
  * `transfer:settled` covers the newer TransferLifecycle path.
  */
