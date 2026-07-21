@@ -488,17 +488,22 @@ export function SendAmountStep({
                   </span>
                 </div>
               }
+              middleSlot={
+                /* Over-balance warning sits right under the shaking amount so
+                   the color + shake read as one signal, not split across the
+                   keypad from the CTA below it. */
+                isOverBalance ? (
+                  <div className="text-center text-caption text-accent-danger pb-1">
+                    {t('payment.insufficientBalance')} ({t('common.balance')} {formatSats(mintBalance)})
+                  </div>
+                ) : undefined
+              }
               bottomSlot={
                 <>
                   {isAmountFixed && (
                     <div className="flex items-center justify-center gap-1 text-caption text-foreground-muted pb-1">
                       <Lock className="w-3 h-3" strokeWidth={2} />
                       {t('send.amount.fixedByInvoice')}
-                    </div>
-                  )}
-                  {isOverBalance && (
-                    <div className="text-center text-caption text-accent-danger pb-1">
-                      {t('payment.insufficientBalance')} ({t('common.balance')} {formatSats(mintBalance)})
                     </div>
                   )}
                   <div className="px-6 pt-2 pb-app shrink-0">
