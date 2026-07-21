@@ -1,25 +1,23 @@
 /**
  * Default mints
  */
-export const DEFAULT_MINTS = [
-  'https://mint.lemonfizz.st',
-] as const
+export const DEFAULT_MINTS = ["https://mint.lemonfizz.st"] as const;
 
 /**
  * Default relays
  */
 export const DEFAULT_RELAYS = [
-  'wss://relay.damus.io',
-  'wss://nostr.vulpem.com',
-  'wss://nos.lol',
-] as const
+  "wss://relay.damus.io",
+  "wss://nostr.vulpem.com",
+  "wss://nos.lol",
+] as const;
 
 /**
  * ZS (Zap Server) domain for NIP-05 relay lookup
  * TODO: Replace with actual ZS domain when ready
  * Set to empty string to skip ZS lookup and use DEFAULT_RELAYS
  */
-export const ZS_DOMAIN = ''
+export const ZS_DOMAIN = "";
 
 /**
  * Nostr event kinds
@@ -34,13 +32,16 @@ export const NOSTR_KINDS = {
   NUTZAP_INFO: 10019,
   GIFT_WRAP: 1059,
   PRIVATE_DM: 14,
-} as const
+} as const;
 
 /**
  * Zappi Link service configuration
  */
-export const ZAPPI_LINK_URL = 'https://link.zappi.space'
-export const ZAPPI_LINK_DOMAIN = 'zappi.space'
+export const ZAPPI_LINK_URL = "https://link.zappi.space";
+export const ZAPPI_LINK_DOMAIN = "zappi.space";
+
+export const NPUBCASH_URL = import.meta.env.VITE_NPUBCASH_URL || 'https://zappi.space'
+export const NPUBCASH_DOMAIN = new URL(NPUBCASH_URL).hostname
 
 /**
  * Timeout configurations (in milliseconds)
@@ -58,7 +59,7 @@ export const TIMEOUTS = {
   MIN_RECONSTRUCTION_INTERVAL: 60000,
   /** Buffer for event recovery (2 days in seconds) */
   RECOVERY_BUFFER_SECONDS: 2 * 24 * 60 * 60,
-} as const
+} as const;
 
 /**
  * Auto-lock configurations
@@ -74,7 +75,7 @@ export const AUTO_LOCK = {
   MAX_FAILED_ATTEMPTS: 5,
   /** Lockout duration in minutes */
   LOCKOUT_DURATION_MINUTES: 15,
-} as const
+} as const;
 
 /**
  * Retry configurations
@@ -88,7 +89,7 @@ export const RETRY = {
   BACKOFF_MULTIPLIER: 2,
   /** Maximum number of retry attempts */
   MAX_ATTEMPTS: 10,
-} as const
+} as const;
 
 /**
  * Animation durations (in milliseconds)
@@ -100,7 +101,7 @@ export const ANIMATIONS = {
   TOAST_DURATION: 3000,
   /** Modal transition duration */
   MODAL_TRANSITION: 200,
-} as const
+} as const;
 
 /**
  * Storage keys
@@ -126,7 +127,9 @@ export const DATABASE = {
   // v23: dropped legacy proofs table (leftover after coco migration. Real-fund proofs
   //      live in the coco DB, and this table had no read/write code, so the data itself
   //      was removable. Surviving tables pass the schema diff losslessly)
-  VERSION: 23,
+  // v24: added paymentAliasProcessedQuotes table (npubcash payment alias dedup)
+  // v25: added lightningReceiptCursors table (npubcash paid-quote cursor)
+  VERSION: 25,
 } as const
 
 /**
@@ -139,17 +142,17 @@ export const EXCHANGE_RATE = {
   STALE_MS: 5 * 60_000,
   /** API request timeout */
   FETCH_TIMEOUT: 10_000,
-} as const
+} as const;
 
 /**
  * NIP-06 derivation path for Nostr keys
  */
-export const NIP06_DERIVATION_PATH = "m/44'/1237'/0'/0/0"
+export const NIP06_DERIVATION_PATH = "m/44'/1237'/0'/0/0";
 
 /**
  * Cashu unit
  */
-export const CASHU_UNIT = 'sat' as const
+export const CASHU_UNIT = "sat" as const;
 
 /**
  * Limits for mints and relays
@@ -165,7 +168,7 @@ export const LIMITS = {
   MAX_CONTACT_NAME_LENGTH: 30,
   /** Maximum custom mint card name length */
   MAX_MINT_NAME_LENGTH: 20,
-} as const
+} as const;
 
-export { FIAT_CURRENCIES } from './fiat'
-export { NUT_NAMES, getNutName, getSupportedNuts } from './nuts'
+export { FIAT_CURRENCIES } from "./fiat";
+export { NUT_NAMES, getNutName, getSupportedNuts } from "./nuts";

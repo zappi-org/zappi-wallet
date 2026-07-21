@@ -21,6 +21,12 @@ describe('nostrDirectPayment', () => {
     expect(isNostrDirectAddress('alice@example.com')).toBe(false)
   })
 
+  it('rejects lightning addresses with npub usernames', () => {
+    expect(isNostrDirectAddress('npub1abc@example.com')).toBe(false)
+    expect(isNostrDirectAddress('npub1abc@127.0.0.1:8000')).toBe(false)
+    expect(isNostrDirectAddress('nprofile1abc@example.com')).toBe(false)
+  })
+
   it('returns ready when selected mint is shared and relay info exists', async () => {
     const service = new NostrDirectPaymentService(makeResolver({
       mints: ['https://mint-b.test'],

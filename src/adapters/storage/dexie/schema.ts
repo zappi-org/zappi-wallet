@@ -2,12 +2,14 @@ import Dexie, { type Table } from 'dexie'
 import type { Transaction, WalletSettings, MintMetadata, ExchangeRateCache, Contact } from '@/core/types'
 import type { ProcessedRecord, SyncAnchor } from '@/core/types'
 import type { GiftwrapCursorRecord } from '@/core/domain/giftwrap-cursor'
+import type { LightningReceiptCursor } from '@/core/domain/lightning-receipt-cursor'
 import type {
   SupportAttachment,
   SupportCategory,
   SupportPriority,
   SupportTicketStatus,
 } from '@/core/domain/support'
+import type { PaymentAliasProcessedQuote } from '@/core/domain/payment-alias-processed-quote'
 import { DATABASE } from '@/core/constants'
 
 /**
@@ -284,6 +286,11 @@ export class ZappiDatabase extends Dexie {
   netCounters!: Table<NetCounterRecord, string>
   giftwrapCursors!: Table<GiftwrapCursorRecord, string>
   incomingReviews!: Table<IncomingReviewRecord, string>
+  paymentAliasProcessedQuotes!: Table<PaymentAliasProcessedQuote, string>
+  netCounters!: Table<NetCounterRecord, string>
+  giftwrapCursors!: Table<GiftwrapCursorRecord, string>
+  lightningReceiptCursors!: Table<LightningReceiptCursor, string>
+  incomingReviews!: Table<IncomingReviewRecord, string>
 
   constructor() {
     super(DATABASE.NAME)
@@ -356,6 +363,11 @@ export class ZappiDatabase extends Dexie {
 
       // v22: durable queue for review of tokens from untrusted mints (source for drainReviewQueue)
       incomingReviews: 'externalId, mintUrl, queuedAt',
+
+      // v24: Payment alias processed quotes — dedup paid quotes from PaymentAliasProvider
+      paymentAliasProcessedQuotes: 'quoteId, processedAt',
+      // v25: Lightning receipt cursor — pubkey-scoped since marker for npubcash paid quotes
+      lightningReceiptCursors: 'key',
     })
   }
 }
