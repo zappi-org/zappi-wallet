@@ -200,7 +200,14 @@ export function AmountEntry({
           animate={insufficientBalance && !reduceMotion ? { x: [0, -8, 8, -6, 6, 0] } : { x: 0 }}
           transition={{ duration: 0.4, ease: 'easeOut' }}
         >
-          <motion.div animate={pulseControls} className="flex items-center justify-center" style={{ perspective: 600 }}>
+          {/* Tapping the amount itself toggles sats⟷fiat (pointer convenience);
+              the conversion-line button below stays the accessible control. */}
+          <motion.div
+            animate={pulseControls}
+            onClick={canToggleFiat && !isEmpty ? () => { hapticTap(); handleToggleFiat() } : undefined}
+            className={`flex items-center justify-center ${canToggleFiat && !isEmpty ? 'cursor-pointer' : ''}`}
+            style={{ perspective: 600 }}
+          >
             {isEmpty && emptyPrompt ? (
               <span className="break-keep text-center text-[26px] font-bold leading-snug text-foreground">
                 {emptyPrompt}

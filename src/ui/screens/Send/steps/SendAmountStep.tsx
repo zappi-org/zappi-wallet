@@ -469,23 +469,11 @@ export function SendAmountStep({
               insufficientBalance={isOverBalance}
               disabled={isAmountFixed}
               emptyPrompt={t('send.amount.prompt')}
-              heroSlot={
-                /* The balance lives with the amount (the two numbers being
-                   compared), and the same line IS the warning — it turns red
-                   in place, so nothing jumps when the balance is exceeded. */
-                <span
-                  className={`text-caption transition-colors ${
-                    isOverBalance ? 'text-accent-danger' : 'text-foreground-muted'
-                  }`}
-                >
-                  {isOverBalance
-                    ? `${t('payment.insufficientBalance')} · ${formatSats(mintBalance)}`
-                    : `${t('common.balance')} ${formatSats(mintBalance)}`}
-                </span>
-              }
               middleSlot={
                 /* Source mint rides just above the keypad — the "from where"
-                   context sits next to the action, its original home. */
+                   context next to the action. Its balance lives in the same
+                   row (parentheses) and turns red in place when exceeded, so
+                   the warning adds no extra line and nothing jumps. */
                 <button
                   type="button"
                   onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
@@ -493,7 +481,14 @@ export function SendAmountStep({
                   className="flex items-center justify-center gap-2 mx-auto pb-2"
                 >
                   <MintIcon iconUrl={mintIconUrl} imgSize="w-6 h-6" className="w-6 h-6" circle />
-                  <span className="text-body font-medium text-foreground truncate max-w-[220px]">{mintName}</span>
+                  <span className="text-body font-medium text-foreground truncate max-w-[180px]">{mintName}</span>
+                  <span
+                    className={`text-body transition-colors ${
+                      isOverBalance ? 'font-medium text-accent-danger' : 'text-foreground-muted'
+                    }`}
+                  >
+                    ({formatSats(mintBalance)})
+                  </span>
                   {onChangeMint && <ChevronDown className="w-4 h-4 text-foreground-muted shrink-0" strokeWidth={2} />}
                 </button>
               }
