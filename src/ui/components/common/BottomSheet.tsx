@@ -134,16 +134,9 @@ export function BottomSheet({
               </div>
             )}
 
-            {/* Content area — the scroll region carries the home-indicator inset so
-                every consumer's bottom content clears the strip under viewport-fit=cover.
-                env()=0 on desktop, so consumers' static base gaps stay unchanged. */}
+            {/* Content area */}
             {scrollable ? (
-              <div
-                className="overflow-y-auto max-h-[calc(85vh-60px)]"
-                style={{ paddingBottom: 'var(--safe-area-inset-bottom)' }}
-              >
-                {children}
-              </div>
+              <div className="overflow-y-auto max-h-[calc(85vh-60px)]">{children}</div>
             ) : (
               children
             )}

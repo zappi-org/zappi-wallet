@@ -344,12 +344,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
             <div className="px-4 pt-4 pb-3 border-b border-border">
               <h3 className="text-caption font-semibold text-foreground">{t('payment.selectMint')}</h3>
             </div>
-            {/* Custom sheet (not the shared BottomSheet), so it carries its own
-                home-indicator inset. env()=0 on desktop keeps the p-2 gap. */}
-            <div
-              className="p-2 flex flex-col gap-1 max-h-[50vh] overflow-y-auto"
-              style={{ paddingBottom: 'calc(0.5rem + var(--safe-area-inset-bottom))' }}
-            >
+            <div className="p-2 flex flex-col gap-1 max-h-[50vh] overflow-y-auto">
               {mintUrls.map((url) => {
                 const mintBalance = getMintBalance(url)
                 const isSelected =

@@ -8,10 +8,9 @@ export const bottomDockInnerClass =
 
 export const bottomDockStyle: CSSProperties = {
   paddingTop: 'var(--app-bottom-nav-top-padding)',
-  // On device the dock keeps a slim 0.5rem gap above the home indicator (the
-  // pre-ca5434c cover-mode value); stacking the full base gap on the inset
-  // opens an oversized band. Desktop (inset 0) keeps the 1rem base.
-  paddingBottom: 'max(var(--app-bottom-nav-bottom-padding), calc(var(--safe-area-inset-bottom) + 0.5rem))',
+  // No env() here: iOS standalone flip-flops the bottom inset between
+  // relaunch paths, which made the dock jump ~34px across reloads.
+  paddingBottom: 'var(--app-bottom-nav-bottom-padding)',
 }
 
 export const tabGlassClass =

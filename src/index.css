@@ -306,16 +306,17 @@
   --safe-area-inset-right: env(safe-area-inset-right, 0px);
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
-  /* viewport-fit=cover means the shell paints the home-indicator strip
-     bg-background (no more white band on full-screen steps). The inset
-     REPLACES the base gap (max, not sum — the pre-ca5434c grammar): the
-     home-indicator strip already reads as breathing room, so stacking both
-     opens an oversized band under every screen. env() is 0 on desktop. */
-  --app-bottom-padding: max(1.5rem, var(--safe-area-inset-bottom));
+  /* viewport-fit=cover keeps the shell painting the home-indicator strip
+     (no white band), but bottom paddings deliberately IGNORE the bottom
+     inset: iOS standalone reports env(safe-area-inset-bottom) as 0 or 34
+     depending on the relaunch path (measured on device), so any consumer
+     makes the whole bottom layout jump between reloads. Content extending
+     under the indicator is standard iOS — the OS draws it over every app. */
+  --app-bottom-padding: 1.5rem;
   --app-bottom-nav-height: 3.5rem;
   --app-bottom-nav-top-padding: 0.5rem;
   --app-bottom-nav-bottom-padding: 1rem;
-  --app-bottom-nav-clearance: calc(var(--app-bottom-nav-height) + var(--app-bottom-nav-top-padding) + max(var(--app-bottom-nav-bottom-padding), var(--safe-area-inset-bottom) + 0.5rem));
+  --app-bottom-nav-clearance: calc(var(--app-bottom-nav-height) + var(--app-bottom-nav-top-padding) + var(--app-bottom-nav-bottom-padding));
   --app-home-transaction-clearance: calc(var(--app-bottom-nav-clearance) + 1.25rem);
   --app-bottom-action-clearance: calc(4.75rem + var(--app-bottom-padding));
 }
