@@ -107,6 +107,7 @@ export function SendInputStep({
     applyDestinationState,
     processExternalInput,
     handleNext,
+    selectContact,
   } = useSendInputValidation({
     onNext: advanceWithTextMorph,
     onRedirect,
@@ -153,7 +154,10 @@ export function SendInputStep({
   const showMyWallets = useMemo(() => {
     const trimmed = destination.trim()
     if (!trimmed || !trimmed.startsWith('@')) return false
-    if (validatedData?.type === 'my-wallet' && destination === `@${validatedData.targetMintName}`) return false
+    // A picked wallet shows as its plain name, so the @-prefix check above hides
+    // the dropdown for it already; this only guards a wallet whose name itself
+    // begins with '@'.
+    if (validatedData?.type === 'my-wallet' && destination === validatedData.targetMintName) return false
     return true
   }, [destination, validatedData])
 
@@ -184,19 +188,27 @@ export function SendInputStep({
 
   const handleSelectMyWallet = useCallback(
     (walletUrl: string, walletName: string) => {
+      if (leaving) return
       hapticTap()
+      const walletData: SendableValidatedData = {
+        type: 'my-wallet',
+        targetMintUrl: walletUrl,
+        targetMintName: walletName,
+      }
+      // Display the plain name (the @ was only a search sigil). rawAddress set to
+      // the mint URL so the debounce detector skips this now-@-less destination
+      // and leaves the my-wallet validatedData intact.
       applyDestinationState({
-        destination: `@${walletName}`,
-        rawAddress: null,
-        validatedData: {
-          type: 'my-wallet',
-          targetMintUrl: walletUrl,
-          targetMintName: walletName,
-        },
+        destination: walletName,
+        rawAddress: walletUrl,
+        validatedData: walletData,
         detectedTypes: ['my-wallet'],
       })
+      // validatedData is synchronous for a wallet pick — advance straight to the
+      // amount step (the 다음 button stays as a fallback for the typed path).
+      advanceWithTextMorph({ destination: walletName, validatedData: walletData })
     },
-    [applyDestinationState],
+    [leaving, applyDestinationState, advanceWithTextMorph],
   )
 
   const handleScan = useCallback(
@@ -369,12 +381,8 @@ export function SendInputStep({
                     key={contact.id}
                     onClick={() => {
                       hapticTap()
-                      applyDestinationState({
-                        destination: contact.name,
-                        rawAddress: contact.address,
-                        validatedData: null,
-                        detectedTypes: [],
-                      })
+                      // Validate + advance in one gesture (see selectContact).
+                      void selectContact(contact.address, contact.name)
                     }}
                     className="w-full flex items-center gap-3 py-3 border-b border-border/40 transition-colors active:bg-foreground/[0.03]"
                   >

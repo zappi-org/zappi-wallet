@@ -176,20 +176,13 @@ describe('SendInputStep selection flows', () => {
     await act(async () => {
       screen.getByText('contacts.title').click()
     })
+    // Selecting the contact validates the raw address and advances in one gesture.
     await act(async () => {
       screen.getByText('Alice').click()
     })
 
     expect(screen.queryByText('send.destination.unrecognized')).not.toBeInTheDocument()
-    expect(screen.getByDisplayValue('Alice')).toBeInTheDocument()
-
-    await act(async () => { vi.advanceTimersByTime(500) })
-    expect(mockDetectAndClassify).toHaveBeenCalledTimes(1)
-
-    await act(async () => {
-      screen.getByRole('button', { name: 'send.next' }).click()
-    })
-
+    // Only the initial typed detection + the contact-address validation ran.
     expect(mockDetectAndClassify).toHaveBeenLastCalledWith('alice@example.com')
     expect(defaultProps.onNext).toHaveBeenCalledWith({
       destination: 'Alice',
@@ -201,33 +194,27 @@ describe('SendInputStep selection flows', () => {
     })
   })
 
-  it('my-wallet selection clears stale error and proceeds without revalidation', async () => {
+  it('my-wallet selection clears stale error and auto-advances without revalidation', async () => {
     renderStep()
     typeIntoInput('not-an-address')
 
     await act(async () => { vi.advanceTimersByTime(500) })
     expect(screen.getByText('send.destination.unrecognized')).toBeInTheDocument()
 
+    // Wallet pick advances straight to the amount step, showing the plain name.
     await act(async () => {
       screen.getByText('Target Wallet').click()
     })
 
     expect(screen.queryByText('send.destination.unrecognized')).not.toBeInTheDocument()
-    expect(screen.getByDisplayValue('@Target Wallet')).toBeInTheDocument()
-
-    await act(async () => {
-      screen.getByRole('button', { name: 'send.next' }).click()
-    })
-
     expect(mockValidateAsync).not.toHaveBeenCalled()
     expect(defaultProps.onNext).toHaveBeenCalledWith({
-      destination: '@Target Wallet',
+      destination: 'Target Wallet',
       validatedData: {
         type: 'my-wallet',
         targetMintUrl: 'https://target.mint',
         targetMintName: 'Target Wallet',
       },
-      amountFromInvoice: undefined,
     })
   })
 

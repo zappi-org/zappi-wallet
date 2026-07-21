@@ -135,6 +135,10 @@ export function useSendInputValidation({
   const validatedDataRef = useRef<SendableValidatedData | null>(null)
   // Store the raw address when displayName is used (contact selection)
   const rawAddressRef = useRef<string | null>(null)
+  // Synchronous latch against a second advance while the first is still
+  // validating (isValidating only flips after a render, so a rapid re-tap on a
+  // list row would slip past it).
+  const selectingRef = useRef(false)
 
   // Restore rawAddressRef from initialValidatedData when navigating back
   useEffect(() => {
@@ -512,6 +516,32 @@ export function useSendInputValidation({
     }
   }, [destination, validatedData, processExternalInput, advanceWithData, addToast, t, findContactDisplayName])
 
+  // Address-book row click → validate then advance in one gesture (same path as
+  // the initialAddress deep-link below and handleNext's not-yet-validated
+  // branch). The address is known synchronously, so we skip the debounce and
+  // drive processExternalInput directly with the contact's display name.
+  const selectContact = useCallback(async (address: string, displayName: string) => {
+    if (selectingRef.current || isValidating) return
+    selectingRef.current = true
+    applyDestinationState({ destination: displayName, rawAddress: address, validatedData: null, detectedTypes: [] })
+    setIsValidating(true)
+    try {
+      const ok = await processExternalInput(address, displayName)
+      if (ok === true && validatedDataRef.current) {
+        advanceWithData(displayName, validatedDataRef.current)
+      } else if (ok === 'validation-error') {
+        addToast({ type: 'error', message: t('send.destination.validationFailed'), duration: 3000 })
+      } else if (ok === false) {
+        addToast({ type: 'error', message: t('send.destination.unrecognized'), duration: 3000 })
+      }
+      // 'needs-mint-selection' / 'routed' / 'auto-advanced' / 'handled-error'
+      // finish inside processExternalInput (sheet, router, timer, inline error).
+    } finally {
+      setIsValidating(false)
+      selectingRef.current = false
+    }
+  }, [isValidating, applyDestinationState, processExternalInput, advanceWithData, addToast, t])
+
   // Auto-validate when initialAddress is provided (from address book)
   // On success, auto-advance to amount step
   const autoValidatedRef = useRef(false)
@@ -548,5 +578,6 @@ export function useSendInputValidation({
     applyDestinationState,
     processExternalInput,
     handleNext,
+    selectContact,
   }
 }
