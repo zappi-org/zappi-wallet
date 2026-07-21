@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Drawer } from 'vaul'
 import { Button } from '@/ui/components/common/Button'
+import { useIsActivityTop } from '@/ui/navigation/use-is-activity-top'
 
 const MEMO_MAX_LENGTH = 200
 
@@ -19,6 +20,17 @@ interface MemoSheetProps {
 export function MemoSheet({ isOpen, memo, onSave, onClose }: MemoSheetProps) {
   const { t } = useTranslation()
   const [draft, setDraft] = useState(memo)
+  const isTop = useIsActivityTop()
+
+  // This drawer portals to document.body, so when another activity is pushed on
+  // top of the owning screen (e.g. an incoming payment pushes Receive) stackflow
+  // hides only that screen's DOM — the portal would stay modal over the new one.
+  // Close via the parent's onClose so isOpen stays the single source of truth;
+  // flipping the controlled prop here would desync it. Unsaved draft is discarded
+  // by design: an interrupt is not a save.
+  useEffect(() => {
+    if (isOpen && !isTop) onClose()
+  }, [isOpen, isTop, onClose])
 
   // Re-seed on open so a cancelled edit doesn't leak into the next one —
   // render-phase adjustment; an effect here would cascade renders
