@@ -61,39 +61,9 @@ describe('NostrPaymentTransport', () => {
     expect(decodeToken).toHaveBeenCalledWith('cashuAinvalid-test-token')
   })
 
-  it('falls back to local connected relays when kind:10050 is missing', async () => {
+  it('returns No relays available when kind:10050 is missing (no local fallback)', async () => {
     decodeToken.mockClear()
-    const gateway = makeGateway(
-      [],
-      [
-        { url: 'wss://local1.test', connected: true },
-        { url: 'wss://local2.test', connected: false },
-        { url: 'wss://local3.test', connected: true },
-      ],
-    )
-    const transport = new NostrPaymentTransport(gateway, decodeToken)
-
-    const result = await transport.send({
-      recipientPubkey: RECIPIENT_HEX,
-      token: 'cashuAinvalid-test-token',
-    })
-
-    expect(result.success).toBe(true)
-    expect(gateway.sendGiftWrap).toHaveBeenCalledWith(expect.objectContaining({
-      recipientPubkey: RECIPIENT_HEX,
-      relays: ['wss://local1.test', 'wss://local3.test'],
-    }))
-    expect(decodeToken).toHaveBeenCalledWith('cashuAinvalid-test-token')
-  })
-
-  it('returns No relays available when all sources are exhausted', async () => {
-    decodeToken.mockClear()
-    const gateway = makeGateway(
-      [],
-      [
-        { url: 'wss://offline.test', connected: false },
-      ],
-    )
+    const gateway = makeGateway([])
     const transport = new NostrPaymentTransport(gateway, decodeToken)
 
     const result = await transport.send({
@@ -124,12 +94,33 @@ describe('NostrPaymentTransport', () => {
     })
 
     expect(result.success).toBe(true)
-    // uses nprofile relay hints, not kind:10050
     expect(gateway.sendGiftWrap).toHaveBeenCalledWith(expect.objectContaining({
       recipientPubkey: RECIPIENT_HEX,
       relays: ['wss://nprofile-hint.test'],
     }))
-    // kind:10050 was NOT queried
     expect(gateway.queryEvents).not.toHaveBeenCalled()
+  })
+
+  it('falls through to kind:10050 for npub input', async () => {
+    decodeToken.mockClear()
+    const gateway = makeGateway([
+      { kind: 10050, tags: [['relay', 'wss://dm.test']] },
+    ])
+    const transport = new NostrPaymentTransport(gateway, decodeToken)
+
+    const npub = nip19.npubEncode(RECIPIENT_HEX)
+    const result = await transport.send({
+      recipientPubkey: npub,
+      token: 'cashuAtest-token',
+    })
+
+    expect(result.success).toBe(true)
+    expect(gateway.queryEvents).toHaveBeenCalledWith([
+      { kinds: [10050], authors: [RECIPIENT_HEX], limit: 1 },
+    ])
+    expect(gateway.sendGiftWrap).toHaveBeenCalledWith(expect.objectContaining({
+      recipientPubkey: RECIPIENT_HEX,
+      relays: ['wss://dm.test'],
+    }))
   })
 })
