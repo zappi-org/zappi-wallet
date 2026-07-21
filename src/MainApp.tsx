@@ -90,6 +90,8 @@ import type { UnlockResult } from '@/core/ports/driving/security.usecase'
 import type { Transaction } from '@/core/domain/transaction'
 import type { PendingIncomingReview } from '@/core/types'
 import { removePasskey } from '@/ui/services/passkey'
+import { resumeGraceOnBoot } from '@/ui/services/grace-boot'
+import { isLockoutActive } from '@/ui/utils/lockout'
 import { formatSats } from '@/utils/format'
 
 
@@ -393,13 +395,40 @@ export default function MainApp() {
     }
   }, [currentScreen, addToast, t, setCurrentScreen, setPreviousScreen])
 
-  // Guards the boot grace-resume from a StrictMode/HMR double-run (would otherwise
-  // double-bootstrap). Same pattern as anchorCheckedRef below.
-  const resumeAttemptedRef = useRef(false)
+  // Single-flight init: StrictMode/HMR invokes the effect twice, but boot work (the
+  // grace resume in particular) must run exactly once. Both invocations share this
+  // in-flight promise and setInitializing(false) waits on it, so LockScreen can't
+  // flash mid-resume and let a PIN unlock overlap a pending bootstrap.
+  const initPromiseRef = useRef<Promise<void> | null>(null)
 
   // Initialize app — Coco-independent work only (Coco inits after unlock in setupSubscription)
   useEffect(() => {
     const init = async () => {
+      // Attempt grace resume FIRST — it only needs the blob (expiry is self-contained),
+      // so it must not sit behind fallible settings/store loads: an earlier rejection
+      // would otherwise strand a valid session on the PIN screen. An active lockout
+      // skips resume and drops the blob (defense-in-depth). Resume failure degrades to
+      // PIN. Note: a transient init error showing PIN while a valid blob persists is
+      // accepted (conservative-safe, not a bypass) — the spec's LockScreen invariant
+      // targets lock/lockout, and the spec is being amended by the controller.
+      if (useAppStore.getState().isLocked) {
+        try {
+          await resumeGraceOnBoot({
+            isLockoutActive,
+            tryResumeSession: () => preUnlock.security.tryResumeSession(),
+            clearGrace: () => preUnlock.security.clearGrace(),
+            // Settings may not be loaded yet — the ?? 5 default T is acceptable; the
+            // next heartbeat / timeout-change re-clamps grace to the real timeout.
+            applyUnlock: (resumed) =>
+              applyUnlockRef.current(resumed, useAppStore.getState().settings.autoLockTimeoutMinutes ?? 5),
+          })
+        } catch (e) {
+          console.error('[Init] Grace resume failed:', e)
+        }
+      }
+
+      // Fallible loads run after resume — their failure only degrades data freshness,
+      // never the resume decision.
       try {
         const savedSettings = await preUnlock.settingsRepo.getSettings()
         setSettings(savedSettings)
@@ -418,29 +447,16 @@ export default function MainApp() {
         preUnlock.txRepo.deleteOlderThan(90).catch(() => { })
         preUnlock.failedIncomingStore.cleanupNonRetryable(30).catch(() => { })
         preUnlock.cleanupExpiredReceiveRequests().catch(() => { })
-
-        // Resume a still-valid grace session BEFORE revealing the UI. Awaited here
-        // (before setInitializing(false)) so that reaching LockScreen guarantees the
-        // resume already resolved — to an unlock or a deleted blob — with no PIN
-        // flash and no double bootstrap. Only attempt while locked; the ref guards
-        // the StrictMode/HMR double-run.
-        if (!resumeAttemptedRef.current && useAppStore.getState().isLocked) {
-          resumeAttemptedRef.current = true
-          try {
-            const resumed = await preUnlock.security.tryResumeSession()
-            if (resumed) await applyUnlockRef.current(resumed, savedSettings.autoLockTimeoutMinutes ?? 5)
-          } catch (e) {
-            console.error('[Init] Grace resume failed:', e)
-          }
-        }
       } catch (error) {
         console.error('Init error:', error)
-      } finally {
-        setInitializing(false)
       }
     }
 
-    init()
+    // Reveal the UI only once the single shared init run settles.
+    if (!initPromiseRef.current) {
+      initPromiseRef.current = init()
+    }
+    initPromiseRef.current.finally(() => setInitializing(false))
     // setTransactions is a passthrough of useTransactions' useState setter — stable identity
   }, [preUnlock, setFailedIncomingsCount, setInitializing, setSettings, setTransactions])
 
@@ -544,50 +560,66 @@ export default function MainApp() {
   // (now + timeout) so a reload within the auto-lock window resumes without a PIN;
   // onboarding's createWallet deliberately does not run through here, so a first
   // run still reloads to PIN.
+  // Single-flight guard: the boot resume and a LockScreen PIN/passkey unlock can both
+  // reach applyUnlock in the mid-resume window (passkey auto-submits on mount). A
+  // second concurrent run would double-bootstrap — skip it. The in-flight run still
+  // unlocks the UI, so the skipped caller lands unlocked too.
+  const applyingUnlockRef = useRef(false)
   const applyUnlock = useCallback(async (result: UnlockResult, timeoutMinutes: number): Promise<void> => {
-    setNostrKeyPair(result.keys.publicKey, result.keys.privateKey)
+    if (applyingUnlockRef.current) return
+    applyingUnlockRef.current = true
+    try {
+      setNostrKeyPair(result.keys.publicKey, result.keys.privateKey)
 
-    // KDF re-encryption migration just happened: reload other tabs (old bundle)
-    // and clear the false lockout. Hoisted here so both success paths
-    // (fast re-unlock, bootstrap) handle it at one point.
-    if (result.migrated) {
-      notifyKdfMigrated()
-    }
+      // KDF re-encryption migration just happened: reload other tabs (old bundle)
+      // and clear the false lockout. Hoisted here so both success paths
+      // (fast re-unlock, bootstrap) handle it at one point.
+      if (result.migrated) {
+        notifyKdfMigrated()
+      }
 
-    // Persist grace so a reload within the auto-lock window resumes without a PIN.
-    preUnlock.security.saveGrace(Date.now() + timeoutMinutes * 60_000)
-      .catch((e) => console.error('[Unlock] Grace save failed:', e))
+      // Persist grace so a reload within the auto-lock window resumes without a PIN.
+      // Awaited so a write failure is observed (logged), but wrapped so it never blocks
+      // the unlock — the session is live regardless of whether the resume blob persisted.
+      try {
+        await preUnlock.security.saveGrace(Date.now() + timeoutMinutes * 60_000)
+      } catch (e) {
+        console.error('[Unlock] Grace save failed:', e)
+      }
 
-    // Lightweight unlock path: if the session (registry / socket / subscriptions)
-    // is still alive, don't re-bootstrap — the mnemonic cache is restored and the
-    // keys are the same wallet. A full reconnect on every unlock would revive, per
-    // lock cycle, the burst the network rework removed.
-    if (serviceRegistry) {
+      // Lightweight unlock path: if the session (registry / socket / subscriptions)
+      // is still alive, don't re-bootstrap — the mnemonic cache is restored and the
+      // keys are the same wallet. A full reconnect on every unlock would revive, per
+      // lock cycle, the burst the network rework removed.
+      if (serviceRegistry) {
+        setLocked(false)
+        return
+      }
+
+      const registry = createBootstrap({
+        nostrPrivateKeyHex: result.keys.privateKey,
+        bip39Seed: result.bip39Seed,
+      })
+      // On re-unlock, dispose the previous registry generation's timers/subscriptions
+      // (prevents flusher / TLS-polling leaks).
+      setServiceRegistry((prev) => {
+        prev?.dispose()
+        return registry
+      })
+
       setLocked(false)
-      return
+
+      // Initialize CashuModule — fire-and-forget to avoid blocking the UI.
+      // Refresh balance once SDK init completes (via BootstrapResult.refreshBalance).
+      registry.cashuModule.initialize().then(() => {
+        registry.refreshBalance().catch((e) => console.error('[Unlock] Post-init balance refresh failed:', e))
+      }).catch((e) => console.error('[Unlock] CashuModule init failed:', e))
+
+      // P2PK key — load in the background, don't block SDK init
+      registry.p2pkKeyManager.getCurrentKey().then(({ pubkey }) => setP2pkPubkey(pubkey))
+    } finally {
+      applyingUnlockRef.current = false
     }
-
-    const registry = createBootstrap({
-      nostrPrivateKeyHex: result.keys.privateKey,
-      bip39Seed: result.bip39Seed,
-    })
-    // On re-unlock, dispose the previous registry generation's timers/subscriptions
-    // (prevents flusher / TLS-polling leaks).
-    setServiceRegistry((prev) => {
-      prev?.dispose()
-      return registry
-    })
-
-    setLocked(false)
-
-    // Initialize CashuModule — fire-and-forget to avoid blocking the UI.
-    // Refresh balance once SDK init completes (via BootstrapResult.refreshBalance).
-    registry.cashuModule.initialize().then(() => {
-      registry.refreshBalance().catch((e) => console.error('[Unlock] Post-init balance refresh failed:', e))
-    }).catch((e) => console.error('[Unlock] CashuModule init failed:', e))
-
-    // P2PK key — load in the background, don't block SDK init
-    registry.p2pkKeyManager.getCurrentKey().then(({ pubkey }) => setP2pkPubkey(pubkey))
   }, [preUnlock.security, setLocked, setNostrKeyPair, setP2pkPubkey, serviceRegistry])
 
   const handleUnlock = useCallback(async (password: string): Promise<boolean> => {
