@@ -832,7 +832,6 @@ export default {
     direct: {
       cta: '직접 전달하기',
       label: '직접 전달',
-      createCta: '토큰 만들기',
       createFailed: '토큰 생성에 실패했어요',
       noMint: '사용할 민트가 없어요',
       awaitingClaim: '수령 대기 중',

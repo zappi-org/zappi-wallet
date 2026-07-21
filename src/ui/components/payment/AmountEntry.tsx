@@ -5,7 +5,7 @@
  * digit-roll, a keypress scale pulse, and a ₿↔fiat rotateX flip — all
  * reduced-motion aware.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence, useAnimationControls, useReducedMotion } from 'motion/react'
@@ -36,7 +36,7 @@ export interface AmountEntryProps {
   /** Seeds the internal fiat toggle (restores mode on back-navigation). */
   initialFiatMode?: boolean
   initialFiatAmount?: string
-  /** Lifts fiat-editing state so a parent draft can persist it (ref-write, no render). */
+  /** Fires on fiat state change so a parent draft can persist it; callback identity may be unstable (held in a ref internally, never a render trigger). */
   onFiatStateChange?: (state: AmountEntryFiatState) => void
   /** Over-balance / invalid → x-axis shake + danger color. */
   insufficientBalance?: boolean
@@ -122,11 +122,19 @@ export function AmountEntry({
   const numericAmount = parseInt(value, 10) || 0
   const isEmpty = isFiatMode ? fiatInput.length === 0 : numericAmount === 0
 
-  // Lift fiat state to the parent via a ref-write (no render) — the effect dep on
-  // an unstable callback is safe because the parent only stashes it in a ref.
+  // Keep the latest callback in a ref (no-deps effect runs after every render)
+  // so the state-sync effect below never has to depend on caller identity —
+  // an inline arrow or unmemoized setter would otherwise re-fire on every render.
+  const onFiatStateChangeRef = useRef(onFiatStateChange)
   useEffect(() => {
-    onFiatStateChange?.({ isFiatMode, fiatAmount: fiatInput })
-  }, [isFiatMode, fiatInput, onFiatStateChange])
+    onFiatStateChangeRef.current = onFiatStateChange
+  })
+
+  // Fire on fiat state change; the callback itself is read from the ref above,
+  // so its identity may be unstable without causing extra invocations.
+  useEffect(() => {
+    onFiatStateChangeRef.current?.({ isFiatMode, fiatAmount: fiatInput })
+  }, [isFiatMode, fiatInput])
 
   // Keypress scale pulse — a key counter drives a spring without remounting the
   // hero (a remount would kill the digit-roll AnimatePresence beneath it).

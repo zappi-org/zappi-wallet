@@ -828,7 +828,6 @@ export default {
     direct: {
       cta: '直接渡す',
       label: '直接受け渡し',
-      createCta: 'トークンを作成',
       createFailed: 'トークンの作成に失敗しました',
       noMint: '利用可能なミントがありません',
       awaitingClaim: '受け取り待ち',

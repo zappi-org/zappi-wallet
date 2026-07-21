@@ -830,7 +830,6 @@ export default {
     direct: {
       cta: 'Entregar directamente',
       label: 'Entrega directa',
-      createCta: 'Crear token',
       createFailed: 'No se pudo crear el token',
       noMint: 'No hay mint disponible',
       awaitingClaim: 'Esperando cobro',
