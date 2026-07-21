@@ -23,6 +23,7 @@ import {
   reportActiveScreen,
 } from './navigation-store'
 import { installRootBackGuard } from './root-back-guard'
+import { installEdgeGestureGuard } from './edge-gesture-guard'
 import { SCREEN_TO_ACTIVITY, type Screen, type StackActivityName } from './types'
 import { ActivityStepNavigationContext } from './activity-step-navigation'
 import { motionSafeTransition } from '@/ui/utils/motion'
@@ -266,6 +267,8 @@ export function AppStack({ renderScreen }: { renderScreen: ScreenRenderer }) {
   })
 
   useEffect(() => installRootBackGuard(), [])
+  // Root-only: block the OS edge-swipe from exiting the document at Home (standalone iOS).
+  useEffect(() => installEdgeGestureGuard(), [])
 
   return <ScreenRendererContext.Provider value={stableRender}>{MemoStack}</ScreenRendererContext.Provider>
 }
