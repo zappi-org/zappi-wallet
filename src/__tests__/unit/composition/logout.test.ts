@@ -100,6 +100,11 @@ describe('wipeAccountData', () => {
       expect(orderOf(deps.removePasskey)).toBeLessThan(orderOf(broadcastSyncMock, 1))
       expect(orderOf(broadcastSyncMock, 1)).toBeLessThan(orderOf(resetAllSpy))
 
+      // Grace DB is deleted twice: the mandatory first step AND a best-effort finally
+      // re-delete that is the very last thing to run (after the store reset).
+      expect(deleteGraceDatabaseMock).toHaveBeenCalledTimes(2)
+      expect(orderOf(deleteGraceDatabaseMock, 1)).toBeGreaterThan(orderOf(resetAllSpy))
+
       expect(broadcastSyncMock).toHaveBeenCalledTimes(2)
       expect(broadcastSyncMock).toHaveBeenNthCalledWith(1, 'logout')
       expect(broadcastSyncMock).toHaveBeenNthCalledWith(2, 'logout')
@@ -126,12 +131,46 @@ describe('wipeAccountData', () => {
     const deps = makeDeps()
     deleteGraceDatabaseMock.mockRejectedValue(new Error('grace delete blocked'))
 
-    await expect(wipeAccountData(deps)).rejects.toThrow('grace delete blocked')
-    // Grace is the very first step — a failure aborts before touching anything else.
-    expect(broadcastSyncMock).not.toHaveBeenCalled()
-    expect(deleteCocoDataMock).not.toHaveBeenCalled()
-    expect(db.tables[0].clear).not.toHaveBeenCalled()
-    expect(deps.security.deleteWallet).not.toHaveBeenCalled()
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      await expect(wipeAccountData(deps)).rejects.toThrow('grace delete blocked')
+      // Grace is the very first step — a failure aborts before touching anything else.
+      expect(broadcastSyncMock).not.toHaveBeenCalled()
+      expect(deleteCocoDataMock).not.toHaveBeenCalled()
+      expect(db.tables[0].clear).not.toHaveBeenCalled()
+      expect(deps.security.deleteWallet).not.toHaveBeenCalled()
+    } finally {
+      warnSpy.mockRestore()
+    }
+  })
+
+  it('finally re-delete runs even when a middle step throws (catches a concurrent-tab revive)', async () => {
+    makeDb()
+    const deps = makeDeps()
+    deleteCocoDataMock.mockRejectedValue(new Error('coco boom'))
+
+    await expect(wipeAccountData(deps)).rejects.toThrow('coco boom')
+    // Mandatory first delete + best-effort finally re-delete — the finally runs despite
+    // the throw and never masks the original error.
+    expect(deleteGraceDatabaseMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('finally re-delete failure is swallowed — the original error still surfaces', async () => {
+    makeDb()
+    const deps = makeDeps()
+    deps.security.deleteWallet.mockRejectedValue(new Error('secure storage down'))
+    // First delete ok; the finally re-delete fails — it must not replace the ④ error.
+    deleteGraceDatabaseMock
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('final grace delete blocked'))
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    try {
+      await expect(wipeAccountData(deps)).rejects.toThrow('secure storage down')
+      expect(deleteGraceDatabaseMock).toHaveBeenCalledTimes(2)
+    } finally {
+      warnSpy.mockRestore()
+    }
   })
 
   it('coco DB delete failure → throw, mnemonic survives (preserves retryable state)', async () => {

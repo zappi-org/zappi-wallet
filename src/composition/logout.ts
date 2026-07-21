@@ -18,7 +18,9 @@
  * ⊗ Grace DB (before ⓪) — deletes the whole dedicated zappi-grace DB, which holds a
  *    PIN-free decryptable mnemonic copy (more sensitive than the wallet record).
  *    Throws on failure so a half-completed wipe can never leave a resumable mnemonic
- *    beside a destroyed account.
+ *    beside a destroyed account. Repeated best-effort in a finally at the very end to
+ *    catch a blob a concurrent tab's unlock recreated mid-wipe (logged; never masks
+ *    the original error, never fakes success).
  * ⓪ Other-tab reload signal (first) — closes the window in which another tab's
  *    in-progress writes revive data mid-erasure. Reloaded tabs sit on lock/onboarding
  *    and don't open coco (coco init is post-unlock). ⑥ fires once more after erasure
@@ -69,58 +71,68 @@ export interface WipeAccountDeps {
 }
 
 export async function wipeAccountData(deps: WipeAccountDeps): Promise<void> {
-  // Grace DB (before every other step). The grace blob is a PIN-free decryptable
-  // mnemonic copy — more sensitive than the wallet record — so destroy the whole
-  // dedicated DB first and throw on failure: a half-completed wipe must never leave
-  // a resumable mnemonic beside a destroyed account, and the user drops to a
-  // retryable lock screen with all data still intact.
-  await deleteGraceDatabase()
-
-  // ⓪ Stop other tabs (reload) — blocks reviving writes from other tabs during the
-  // erasure window. Residual window (accepted): if a user completes PIN entry in a
-  // reloaded lock tab within the erasure window (~seconds), an empty coco DB can be
-  // recreated, but ⑥'s re-send reloads that tab again.
-  broadcastSync('logout')
-
-  // ① Stop this tab's writers — keep erasing even on failure (aborting leaves more data behind)
-  if (deps.registry) {
-    await deps.registry.support.destroy().catch((e) => {
-      console.warn('[Logout] support.destroy failed — continuing wipe:', e)
-    })
-    try {
-      deps.registry.dispose()
-    } catch (e) {
-      console.warn('[Logout] registry.dispose failed — continuing wipe:', e)
-    }
-  }
-
-  // ② Funds DB (coco) — throw on failure; the wallet record still exists, so retry is possible
-  await deleteCocoData()
-
-  // ③ zappi DB — clear-first, delete-best-effort
-  const db = getDatabase()
-  await Promise.all(db.tables.map((table) => table.clear()))
   try {
-    await withTimeout(db.delete(), ZAPPI_DB_DELETE_TIMEOUT_MS, 'zappi DB delete')
-  } catch (e) {
-    // Data already erased in (a) — log the degradation (empty schema shell remains) and continue
-    console.warn('[Logout] zappi DB delete blocked/failed after clear (data already wiped):', e)
+    // Grace DB (before every other step). The grace blob is a PIN-free decryptable
+    // mnemonic copy — more sensitive than the wallet record — so destroy the whole
+    // dedicated DB first and throw on failure: a half-completed wipe must never leave
+    // a resumable mnemonic beside a destroyed account, and the user drops to a
+    // retryable lock screen with all data still intact.
+    await deleteGraceDatabase()
+
+    // ⓪ Stop other tabs (reload) — blocks reviving writes from other tabs during the
+    // erasure window. Residual window (accepted): if a user completes PIN entry in a
+    // reloaded lock tab within the erasure window (~seconds), an empty coco DB can be
+    // recreated, but ⑥'s re-send reloads that tab again.
+    broadcastSync('logout')
+
+    // ① Stop this tab's writers — keep erasing even on failure (aborting leaves more data behind)
+    if (deps.registry) {
+      await deps.registry.support.destroy().catch((e) => {
+        console.warn('[Logout] support.destroy failed — continuing wipe:', e)
+      })
+      try {
+        deps.registry.dispose()
+      } catch (e) {
+        console.warn('[Logout] registry.dispose failed — continuing wipe:', e)
+      }
+    }
+
+    // ② Funds DB (coco) — throw on failure; the wallet record still exists, so retry is possible
+    await deleteCocoData()
+
+    // ③ zappi DB — clear-first, delete-best-effort
+    const db = getDatabase()
+    await Promise.all(db.tables.map((table) => table.clear()))
+    try {
+      await withTimeout(db.delete(), ZAPPI_DB_DELETE_TIMEOUT_MS, 'zappi DB delete')
+    } catch (e) {
+      // Data already erased in (a) — log the degradation (empty schema shell remains) and continue
+      console.warn('[Logout] zappi DB delete blocked/failed after clear (data already wiped):', e)
+    }
+
+    // ④ Encrypted wallet (mnemonic) — the last mutable step; reaching here means account data is already gone
+    await deps.security.deleteWallet()
+
+    // ⑤ localStorage policy
+    deps.removePasskey()
+    new AnchorStoreAdapter().clearCachedAnchor()
+    new LocalStorageBalanceCache().clear()
+    localStorage.removeItem(STORAGE_KEYS.LAST_ALIVE)
+
+    // ⑥ Reload any tabs that may have opened during erasure
+    broadcastSync('logout')
+
+    // ⑦ Store reset — prevents residue before reload
+    useAppStore.getState().resetAll()
+  } finally {
+    // ⊗ Grace DB again (last, best-effort): a concurrent unlock in another tab can
+    // recreate zappi-grace after the first delete (its applyUnlock save races the
+    // wipe window). Logged only — never masks the original error and never fakes
+    // success: if the FIRST delete (or any step) threw, that error still propagates.
+    await deleteGraceDatabase().catch((e) => {
+      console.warn('[Logout] Final grace DB delete failed:', e)
+    })
   }
-
-  // ④ Encrypted wallet (mnemonic) — the last mutable step; reaching here means account data is already gone
-  await deps.security.deleteWallet()
-
-  // ⑤ localStorage policy
-  deps.removePasskey()
-  new AnchorStoreAdapter().clearCachedAnchor()
-  new LocalStorageBalanceCache().clear()
-  localStorage.removeItem(STORAGE_KEYS.LAST_ALIVE)
-
-  // ⑥ Reload any tabs that may have opened during erasure
-  broadcastSync('logout')
-
-  // ⑦ Store reset — prevents residue before reload
-  useAppStore.getState().resetAll()
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {

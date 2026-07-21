@@ -136,9 +136,12 @@ export class UnlockGraceAdapter implements UnlockGrace {
     const db = await openDb()
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(BLOB_STORE, 'readwrite')
-      const request = tx.objectStore(BLOB_STORE).delete(BLOB_KEY)
-      request.onsuccess = () => resolve()
-      request.onerror = () => reject(request.error)
+      tx.objectStore(BLOB_STORE).delete(BLOB_KEY)
+      // Resolve on commit (oncomplete), not request success — an awaited clear must
+      // prove the blob is durably gone before the caller flips the UI to locked.
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error)
+      tx.onabort = () => reject(tx.error ?? new Error('grace clear transaction aborted'))
     })
   }
 
@@ -177,9 +180,13 @@ export class UnlockGraceAdapter implements UnlockGrace {
   private async put(storeName: string, key: string, value: unknown): Promise<void> {
     const db = await openDb()
     return new Promise<void>((resolve, reject) => {
-      const request = db.transaction(storeName, 'readwrite').objectStore(storeName).put(value, key)
-      request.onsuccess = () => resolve()
-      request.onerror = () => reject(request.error)
+      const tx = db.transaction(storeName, 'readwrite')
+      tx.objectStore(storeName).put(value, key)
+      // Resolve on commit (oncomplete), not request success — an awaited save must
+      // prove the transaction committed, not merely that the put request fired.
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error)
+      tx.onabort = () => reject(tx.error ?? new Error(`grace ${storeName} put aborted`))
     })
   }
 }
