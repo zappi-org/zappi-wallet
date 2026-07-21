@@ -17,6 +17,7 @@ const BLOB_STORE = 'blob'
 const KEY_STORE = 'keys'
 const BLOB_KEY = 'current'
 const GRACE_KEY_ID = 'grace-key'
+const DELETE_TIMEOUT_MS = 10_000
 
 interface GraceRecord {
   ciphertext: ArrayBuffer
@@ -42,8 +43,23 @@ function openDb(): Promise<IDBDatabase> {
         if (!db.objectStoreNames.contains(BLOB_STORE)) db.createObjectStore(BLOB_STORE)
         if (!db.objectStoreNames.contains(KEY_STORE)) db.createObjectStore(KEY_STORE)
       }
-      request.onsuccess = () => resolve(request.result)
-      request.onerror = () => reject(request.error)
+      request.onsuccess = () => {
+        const db = request.result
+        // A delete/upgrade in another tab (logout wipe) blocks until every
+        // connection closes — close eagerly and drop the caches so this tab
+        // can never stall a wipe or keep using a handle to a destroyed DB.
+        db.onversionchange = () => {
+          db.close()
+          dbPromise = null
+          cachedKey = null
+        }
+        resolve(db)
+      }
+      request.onerror = () => {
+        // Never cache a failed open — the next call should retry cleanly.
+        dbPromise = null
+        reject(request.error)
+      }
     })
   }
   return dbPromise
@@ -174,7 +190,7 @@ export class UnlockGraceAdapter implements UnlockGrace {
  * blocked, and rejects on failure so a half-completed wipe surfaces (never leaves
  * a PIN-free mnemonic copy beside a destroyed account).
  */
-export async function deleteGraceDatabase(): Promise<void> {
+export async function deleteGraceDatabase(opts?: { timeoutMs?: number }): Promise<void> {
   if (dbPromise) {
     try {
       ;(await dbPromise).close()
@@ -184,10 +200,23 @@ export async function deleteGraceDatabase(): Promise<void> {
     dbPromise = null
   }
   cachedKey = null
+  const timeoutMs = opts?.timeoutMs ?? DELETE_TIMEOUT_MS
   await new Promise<void>((resolve, reject) => {
+    // blocked is transient: other tabs close on versionchange, then onsuccess
+    // fires. Only the timeout turns a stuck delete into a hard failure so a
+    // wipe can never fake success while the blob survives.
+    const timer = setTimeout(() => {
+      reject(new Error(`zappi-grace delete timed out after ${timeoutMs}ms (blocked by another connection?)`))
+    }, timeoutMs)
     const request = indexedDB.deleteDatabase(DB_NAME)
-    request.onsuccess = () => resolve()
-    request.onerror = () => reject(request.error)
-    request.onblocked = () => reject(new Error('zappi-grace delete blocked by an open connection'))
+    request.onsuccess = () => {
+      clearTimeout(timer)
+      resolve()
+    }
+    request.onerror = () => {
+      clearTimeout(timer)
+      reject(request.error ?? new Error('zappi-grace delete failed'))
+    }
+    request.onblocked = () => {}
   })
 }

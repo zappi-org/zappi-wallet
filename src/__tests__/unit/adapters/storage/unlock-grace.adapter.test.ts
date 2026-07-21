@@ -102,6 +102,24 @@ describe('UnlockGraceAdapter', () => {
     await adapter.clear()
     expect(await graceDbExists()).toBe(false) // still gone — no empty shell
   })
+
+  it('deleteGraceDatabase succeeds while another tab holds a connection that closes on versionchange', async () => {
+    await adapter.save(MNEMONIC, Date.now() + 60_000)
+    // A second tab running this same adapter: its connection closes itself
+    // when the delete requests exclusivity.
+    const foreign = await openRaw()
+    foreign.onversionchange = () => foreign.close()
+    await expect(deleteGraceDatabase()).resolves.toBeUndefined()
+    expect(await graceDbExists()).toBe(false)
+  })
+
+  it('deleteGraceDatabase rejects after the timeout when a foreign connection never closes', async () => {
+    await adapter.save(MNEMONIC, Date.now() + 60_000)
+    const foreign = await openRaw() // no versionchange handler — stays open
+    await expect(deleteGraceDatabase({ timeoutMs: 100 })).rejects.toThrow(/timed out/)
+    foreign.close()
+    await deleteGraceDatabase() // cleanup for the next test
+  })
 })
 
 // ─── raw store access (bypasses the adapter to inspect persisted bytes) ───
