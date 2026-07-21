@@ -929,6 +929,7 @@ export default {
       regenerate: 'Create a new one',
       makeAnother: 'Make another',
       exit: 'Done',
+      myAddressLink: 'Receive to my fixed address',
     },
     receipt: {
       title: 'RECEIVE RECEIPT',
@@ -947,6 +948,17 @@ export default {
       confirmSentence: 'Receive {{amount}}?',
     },
     tokenReceiveFeeTooHigh: 'After receive fees, there is no amount left to receive.',
+  },
+
+  myAddress: {
+    title: 'My address',
+    lightningTab: 'Lightning',
+    nostrTab: 'Nostr npub',
+    noAddress: 'No receive address yet',
+    createAddress: 'Create address',
+    depositsTo: 'Payments to this address arrive at {{mint}}',
+    depositsToFallback: 'Payments arrive at your registered mint',
+    changeMint: 'Change in settings',
   },
 
   // Mint Detail Screen

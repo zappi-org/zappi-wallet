@@ -931,6 +931,7 @@ export default {
       regenerate: 'Buat yang baru',
       makeAnother: 'Buat lagi',
       exit: 'Selesai',
+      myAddressLink: 'Terima ke alamat tetap saya',
     },
     receipt: {
       title: 'STRUK PENERIMAAN',
@@ -949,6 +950,17 @@ export default {
       confirmSentence: 'Terima {{amount}}?',
     },
     tokenReceiveFeeTooHigh: 'Setelah biaya penerimaan, tidak ada jumlah tersisa untuk diterima.',
+  },
+
+  myAddress: {
+    title: 'Alamat saya',
+    lightningTab: 'Lightning',
+    nostrTab: 'Npub Nostr',
+    noAddress: 'Belum ada alamat terima',
+    createAddress: 'Buat alamat',
+    depositsTo: 'Pembayaran ke alamat ini masuk ke {{mint}}',
+    depositsToFallback: 'Pembayaran masuk ke mint terdaftar Anda',
+    changeMint: 'Ubah di pengaturan',
   },
 
   // Mint Detail Screen

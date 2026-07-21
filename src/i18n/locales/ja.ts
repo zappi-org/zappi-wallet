@@ -929,6 +929,7 @@ export default {
       regenerate: '新しく作る',
       makeAnother: 'もう一度作る',
       exit: '閉じる',
+      myAddressLink: '自分の固定アドレスで受け取る',
     },
     receipt: {
       title: '受取レシート',
@@ -947,6 +948,17 @@ export default {
       confirmSentence: '{{amount}}を受け取りますか？',
     },
     tokenReceiveFeeTooHigh: '受取手数料を差し引くと受け取れる金額が残りません。',
+  },
+
+  myAddress: {
+    title: '自分のアドレス',
+    lightningTab: 'ライトニング',
+    nostrTab: 'Nostr npub',
+    noAddress: '受取アドレスがまだありません',
+    createAddress: 'アドレスを作成',
+    depositsTo: 'このアドレスへの受取は{{mint}}に入ります',
+    depositsToFallback: '登録済みのミントに入ります',
+    changeMint: '設定で変更',
   },
 
   // Mint Detail Screen

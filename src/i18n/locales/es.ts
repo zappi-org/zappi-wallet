@@ -931,6 +931,7 @@ export default {
       regenerate: 'Crear una nueva',
       makeAnother: 'Crear otra',
       exit: 'Listo',
+      myAddressLink: 'Recibir en mi dirección fija',
     },
     receipt: {
       title: 'RECIBO DE COBRO',
@@ -949,6 +950,17 @@ export default {
       confirmSentence: '¿Recibir {{amount}}?',
     },
     tokenReceiveFeeTooHigh: 'Después de las comisiones de recepción, no queda monto para recibir.',
+  },
+
+  myAddress: {
+    title: 'Mi dirección',
+    lightningTab: 'Lightning',
+    nostrTab: 'Npub de Nostr',
+    noAddress: 'Aún no tienes dirección',
+    createAddress: 'Crear dirección',
+    depositsTo: 'Los pagos a esta dirección llegan a {{mint}}',
+    depositsToFallback: 'Los pagos llegan a tu mint registrado',
+    changeMint: 'Cambiar en ajustes',
   },
 
   // Mint Detail Screen

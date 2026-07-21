@@ -933,6 +933,7 @@ export default {
       regenerate: '새로 만들기',
       makeAnother: '또 만들기',
       exit: '나가기',
+      myAddressLink: '내 고정 주소로 받기',
     },
     receipt: {
       title: '수령 영수증',
@@ -951,6 +952,17 @@ export default {
       confirmSentence: '{{amount}}을 받을까요?',
     },
     tokenReceiveFeeTooHigh: '수령 수수료를 제외하면 받을 금액이 없어 받을 수 없습니다.',
+  },
+
+  myAddress: {
+    title: '내 주소',
+    lightningTab: '라이트닝',
+    nostrTab: '노스터 npub',
+    noAddress: '아직 받기 주소가 없어요',
+    createAddress: '주소 만들기',
+    depositsTo: '이 주소로 받으면 {{mint}}(으)로 들어와요',
+    depositsToFallback: '주소에 등록된 민트로 들어와요',
+    changeMint: '설정에서 변경',
   },
 
   // Mint Detail Screen
