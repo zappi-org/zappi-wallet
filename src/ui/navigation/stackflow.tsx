@@ -17,6 +17,7 @@ import { devtoolsPlugin } from '@stackflow/plugin-devtools'
 import { historySyncPlugin } from '@stackflow/plugin-history-sync'
 import { bindStackflowActions, navigateBack, reportActiveScreen } from './navigation-store'
 import { installRootBackGuard } from './root-back-guard'
+import { installEdgeGestureGuard } from './edge-gesture-guard'
 import { SCREEN_TO_ACTIVITY, type Screen, type StackActivityName } from './types'
 import { ActivityStepNavigationContext } from './activity-step-navigation'
 import {
@@ -319,6 +320,8 @@ export function AppStack({
   })
 
   useEffect(() => installRootBackGuard(), [])
+  // Suppress the OS edge-swipe (double-animation + skippable history) under standalone iOS.
+  useEffect(() => installEdgeGestureGuard(), [])
 
   return (
     <ScreenRendererContext.Provider value={stableRender}>
