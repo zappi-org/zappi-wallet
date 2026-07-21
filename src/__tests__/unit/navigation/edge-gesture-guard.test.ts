@@ -1,5 +1,5 @@
 /**
- * edge-gesture-guard tests — the ROOT-only OS edge-swipe exit-guard that also re-synthesizes
+ * edge-gesture-guard tests — the root/tab-root OS edge-swipe exit-guard that also re-synthesizes
  * the click a preventDefaulted edge tap would otherwise swallow. IS_IOS_LIKE is a module-load
  * const, so the iPhone UA is stamped via vi.hoisted() before the module graph evaluates;
  * standalone is spoofed per test so isEdgeGuardActive() is true and the guard actually installs.
@@ -48,7 +48,7 @@ function touchEvent(type: string, cancelable: boolean, touch: FakeTouch): Event 
 
 const EDGE_TOUCH: FakeTouch = { identifier: 1, clientX: 5, clientY: 120 }
 
-describe('edge-gesture-guard (root-only)', () => {
+describe('edge-gesture-guard (root/tab-root only)', () => {
   let uninstall: () => void
   let button: HTMLButtonElement
   let clickSpy: ReturnType<typeof vi.fn<(e: Event) => void>>
@@ -100,13 +100,23 @@ describe('edge-gesture-guard (root-only)', () => {
     expect(clickSpy).not.toHaveBeenCalled()
   })
 
-  it('is inert on a pushed screen — the OS gesture pops in-app there', () => {
-    navigateToScreen('settings') // stack depth 2 → guard must stand down
+  it('is inert on a pushed non-tab screen — the OS gesture pops in-app there', () => {
+    navigateToScreen('notifications') // stack depth 2, not a tab root → guard must stand down
     const ev = touchEvent('touchstart', true, EDGE_TOUCH)
     window.dispatchEvent(ev)
     window.dispatchEvent(touchEvent('touchend', true, EDGE_TOUCH))
     expect(ev.defaultPrevented).toBe(false)
     expect(clickSpy).not.toHaveBeenCalled()
+  })
+
+  it('still blocks when the mirror desyncs — stack depth 2 but a tab root is current', () => {
+    // Around external pops the mirror can lag the visible screen; the state it holds then
+    // is the pre-pop tab layer (depth 2 with a tab-root current). Depth alone would read
+    // this as poppable and let the OS gesture exit the document.
+    navigateToScreen('settings') // tab-root nav → stack ['home', 'settings'], depth 2
+    const ev = touchEvent('touchstart', true, EDGE_TOUCH)
+    window.dispatchEvent(ev)
+    expect(ev.defaultPrevented).toBe(true)
   })
 
   it('leaves the right edge to the page (no suppression)', () => {

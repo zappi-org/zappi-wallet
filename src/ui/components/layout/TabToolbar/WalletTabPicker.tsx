@@ -1,5 +1,6 @@
 import { motion } from 'motion/react'
 
+import { isExternalNavigation } from '@/ui/navigation/navigation-store'
 import type { NavItem } from '../BottomNav'
 import { pickerTabIds, springTransition } from './styles'
 
@@ -21,7 +22,11 @@ export function WalletTabPicker({ navItems, activeTab, onTabSelect }: WalletTabP
           style={{ backfaceVisibility: 'hidden' }}
           initial={false}
           animate={{ x: `${activeIndex * 100}%` }}
-          transition={springTransition}
+          // The nav-chrome counterpart of the screen jump-cut: a tab change without a live
+          // app-initiated mark arrives with screens that already snapped (external pop, or a
+          // non-animated app navigation), so the indicator snaps with them instead of sliding
+          // late. Pure read — the destructive consume lives in ScreenActivity alone.
+          transition={isExternalNavigation() ? { duration: 0 } : springTransition}
         />
       )}
       {pickerTabIds.map((id) => {

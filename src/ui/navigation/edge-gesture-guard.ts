@@ -1,4 +1,5 @@
 import { getNavigationSnapshot } from './navigation-store'
+import { SCREEN_TO_TAB } from './types'
 
 /**
  * Prevents the iOS OS-level edge-swipe from exiting the document at the stack ROOT.
@@ -14,10 +15,13 @@ import { getNavigationSnapshot } from './navigation-store'
  *
  * Gate: only under a home-screen PWA (standalone display) on an iOS-like device — in a plain
  * Safari tab, hijacking the edge is hostile (the user expects the browser's own back-swipe) —
- * AND only at the stack root (depth <= 1). Accepted cost: the left 24px on Home no longer
- * starts a touch interaction natively (including the leftmost strip of the card carousel);
- * taps there are re-synthesized below, and edge-origin scrolls/drags are sacrificed to keep
- * the app alive.
+ * AND only at the stack root (depth <= 1) OR any tab-root screen. Tab roots are included
+ * because at a tab root there is nothing the OS gesture can legitimately pop to, and the
+ * stack mirror can briefly disagree with the visible screen around external pops (a depth-only
+ * gate intermittently let a Home swipe exit the document). Accepted cost: the left 24px on
+ * tab screens no longer starts a touch interaction natively (including the leftmost strip of
+ * Home's card carousel); taps there are re-synthesized below, and edge-origin scrolls/drags
+ * are sacrificed to keep the app alive.
  *
  * A preventDefaulted touchstart also cancels the native click iOS would synthesize, so a short
  * tap in the suppressed edge zone would go dead. We re-synthesize the click on touchend for
@@ -93,9 +97,14 @@ export function installEdgeGestureGuard(): () => void {
     if (e.touches.length !== 1) return
     const touch = e.changedTouches[0]
     if (!touch || !inLeftEdgeZone(touch.clientX)) return
-    // Root only: with a back target on the stack the OS gesture pops in-app (the jump-cut
-    // layer absorbs its animation), so pushed screens keep the fully native edge.
-    if (getNavigationSnapshot().stack.length > 1) return
+    // Root/tab-root only: with a pushed detail screen on the stack the OS gesture pops
+    // in-app (the jump-cut layer absorbs its animation), so those keep the fully native
+    // edge. At any TAB root there is nothing the OS gesture can legitimately pop to —
+    // and around external pops the stack mirror can briefly disagree with the visible
+    // screen, so depth alone intermittently misread Home as poppable (reload → lock
+    // screen). Either signal of the same snapshot saying "tab root" blocks.
+    const { stack, currentScreen } = getNavigationSnapshot()
+    if (stack.length > 1 && SCREEN_TO_TAB[currentScreen] === undefined) return
     // Arm synthesis only when we can actually cancel the OS gesture. A non-cancelable
     // touchstart still fires its native click, so re-synthesizing would double the tap.
     if (!e.cancelable) return
