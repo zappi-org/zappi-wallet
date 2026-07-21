@@ -11,7 +11,7 @@ import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { Button } from '@/ui/components/common/Button'
 import { DirectionalTabPanel } from '@/ui/components/common/DirectionalTabPanel'
-import { Tabs, TabsList, TabsTrigger } from '@/ui/primitives/tabs'
+import { SegmentControl } from '@/ui/components/common/SegmentControl'
 import { useAppStore } from '@/store'
 import { useCrypto } from '@/ui/hooks/use-crypto'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
@@ -125,23 +125,18 @@ export function MyAddressScreen({ onBack, onOpenSettings }: MyAddressScreenProps
       <ScreenHeader title={t('myAddress.title')} onBack={onBack} />
 
       <div className="flex-1 overflow-y-auto flex flex-col items-center px-6 pt-4">
-        <Tabs
+        <SegmentControl
           value={tab}
-          onValueChange={(v) => {
+          onChange={(v) => {
             hapticTap()
-            setTab(v as AddressTab)
+            setTab(v)
           }}
+          options={[
+            { value: 'lightning', label: t('myAddress.lightningTab') },
+            { value: 'nostr', label: t('myAddress.nostrTab') },
+          ]}
           className="w-full max-w-[360px]"
-        >
-          <TabsList className="h-11 w-full rounded-2xl bg-foreground/[0.04] p-1">
-            <TabsTrigger value="lightning" className="rounded-xl text-subtitle font-semibold data-[state=active]:bg-background-card">
-              {t('myAddress.lightningTab')}
-            </TabsTrigger>
-            <TabsTrigger value="nostr" className="rounded-xl text-subtitle font-semibold data-[state=active]:bg-background-card">
-              {t('myAddress.nostrTab')}
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        />
 
         <DirectionalTabPanel
           tabKey={tab}

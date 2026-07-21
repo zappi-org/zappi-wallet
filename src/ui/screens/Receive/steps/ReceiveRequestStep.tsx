@@ -19,7 +19,7 @@ import { useAppStore } from '@/store'
 import { hapticTap, hapticSuccess } from '@/ui/utils/haptic'
 import { useFormatSats } from '@/utils/format'
 import { usePaymentRequest } from '@/ui/hooks/use-payment-request'
-import { Tabs, TabsList, TabsTrigger } from '@/ui/primitives/tabs'
+import { SegmentControl } from '@/ui/components/common/SegmentControl'
 
 type ReceiveQrProtocol = 'unified' | 'cashu' | 'lightning'
 
@@ -352,23 +352,12 @@ export function ReceiveRequestStep({
 
         {/* Protocol tabs below the QR */}
         {protocolOptions.length > 1 && (
-          <Tabs
+          <SegmentControl
             value={activeProtocol}
-            onValueChange={(value) => setSelectedProtocol(value as ReceiveQrProtocol)}
+            onChange={setSelectedProtocol}
+            options={protocolOptions.map((option) => ({ value: option.id, label: option.label }))}
             className="mt-5 w-full max-w-[360px]"
-          >
-            <TabsList className="h-11 w-full rounded-2xl bg-foreground/[0.04] p-1">
-              {protocolOptions.map((option) => (
-                <TabsTrigger
-                  key={option.id}
-                  value={option.id}
-                  className="rounded-xl text-subtitle font-semibold data-[state=active]:bg-background-card"
-                >
-                  {option.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+          />
         )}
 
         {/* Summary card */}

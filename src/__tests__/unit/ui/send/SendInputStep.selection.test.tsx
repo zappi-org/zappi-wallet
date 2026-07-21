@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, fireEvent } from '@testing-library/react'
 
 import { SendInputStep } from '@/ui/screens/Send/steps/SendInputStep'
 import type { Contact } from '@/core/types/contact'
@@ -134,8 +134,8 @@ describe('SendInputStep selection flows', () => {
 
     renderStep()
 
-    const contactsTab = screen.getByRole('button', { name: 'contacts.title' })
-    const walletsTab = screen.getByRole('button', { name: 'send.myWalletList' })
+    const contactsTab = screen.getByRole('tab', { name: 'contacts.title' })
+    const walletsTab = screen.getByRole('tab', { name: 'send.myWalletList' })
 
     expect(contactsTab.compareDocumentPosition(walletsTab) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
@@ -373,7 +373,8 @@ describe('SendInputStep selection flows', () => {
 
     // Wallet click preempts — synchronous data, advances immediately.
     await act(async () => {
-      screen.getByRole('button', { name: 'send.myWalletList' }).click()
+      // Radix tab triggers activate on mousedown, not click.
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'send.myWalletList' }))
     })
     await act(async () => {
       screen.getByText('Target Wallet').click()
