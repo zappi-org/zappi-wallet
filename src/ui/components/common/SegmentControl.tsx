@@ -24,21 +24,21 @@ export function SegmentControl<T extends string>({
 
   return (
     <TabsPrimitive.Root value={value} onValueChange={(v) => onChange(v as T)} className={className}>
-      <TabsPrimitive.List className="flex w-full p-[3px] bg-foreground/[0.06] rounded-card">
+      <TabsPrimitive.List className="flex h-11 w-full p-1 bg-foreground/[0.06] rounded-2xl">
         <LayoutGroup id={layoutGroupId}>
           {options.map((option) => (
             <TabsPrimitive.Trigger
               key={option.value}
               value={option.value}
               className={cn(
-                'relative flex-1 min-h-[40px] py-[7px] text-caption font-semibold transition-colors duration-150',
+                'relative flex-1 flex items-center justify-center text-subtitle font-semibold transition-colors duration-150',
                 value === option.value ? 'text-foreground' : 'text-foreground-muted',
               )}
             >
               {value === option.value && (
                 <motion.span
                   layoutId="segment-pill"
-                  className="absolute inset-0 bg-background-card rounded-[11px] shadow-sm"
+                  className="absolute inset-0 bg-background-card rounded-xl shadow-sm"
                   transition={reduceMotion ? { duration: 0 } : { duration: 0.2, ease: 'easeOut' }}
                 />
               )}
