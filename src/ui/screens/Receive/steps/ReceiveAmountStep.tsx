@@ -2,7 +2,8 @@
  * ReceiveAmountStep — full-screen amount entry for the request path (promoted
  * from the old ReceiveAmountSheet so the keypad owns the screen instead of a
  * 70dvh sheet). The mint bar rides up as AmountEntry's topSlot; the memo
- * trigger + 초기화/확인 row sit in the bottomSlot.
+ * trigger sits in the middleSlot above the keypad; the 초기화/확인 row sits
+ * in the bottomSlot.
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -78,7 +79,9 @@ export function ReceiveAmountStep({
               hapticTap()
               setMemoOpen(true)
             }}
-            className="mx-auto mb-3 flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground"
+            /* min-h keeps the thumb target at 44px next to the keypad; the
+               smaller margin offsets the added padding so the rhythm holds. */
+            className="mx-auto mb-1 flex min-h-[44px] items-center gap-1.5 px-4 text-subtitle font-medium text-foreground-muted active:text-foreground"
           >
             <SquarePen className="h-4 w-4" />
             {memo || t('send.memo.changeTitle')}

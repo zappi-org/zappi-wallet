@@ -56,6 +56,21 @@ describe('AmountEntry', () => {
     expect(screen.getByRole('button', { name: '.' })).toBeInTheDocument()
   })
 
+  it('renders middleSlot between the hero and the keypad, and nothing when absent', () => {
+    const { rerender } = render(
+      <AmountEntry value="10" onChange={vi.fn()} middleSlot={<div data-testid="middle-slot" />} />,
+    )
+    const middle = screen.getByTestId('middle-slot')
+    const hero = screen.getByText('10 sat')
+    const keypadKey = screen.getByRole('button', { name: '1' })
+    // Document order: hero → middleSlot → keypad.
+    expect(hero.compareDocumentPosition(middle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(middle.compareDocumentPosition(keypadKey) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    rerender(<AmountEntry value="10" onChange={vi.fn()} />)
+    expect(screen.queryByTestId('middle-slot')).not.toBeInTheDocument()
+  })
+
   it('anchors digit glyphs to place value so grouping reflow never remounts them', () => {
     render(<Harness />)
     const press = (name: string) => fireEvent.pointerDown(screen.getByRole('button', { name }))
