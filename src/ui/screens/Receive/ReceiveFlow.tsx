@@ -34,7 +34,7 @@ import { translateError } from '@/ui/utils/error-i18n'
 import { hapticError } from '@/ui/utils/haptic'
 
 import { ReceiveAddressStep } from './steps/ReceiveAddressStep'
-import { ReceiveAmountSheet } from './ReceiveAmountSheet'
+import { ReceiveAmountStep } from './steps/ReceiveAmountStep'
 import { ReceiveRequestStep } from './steps/ReceiveRequestStep'
 import { ReceiveReceiptStep } from './steps/ReceiveReceiptStep'
 import { RedeemSheet } from './redeem/RedeemSheet'
@@ -45,7 +45,7 @@ import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomS
 // ============= Types =============
 
 export type ReceiveStep =
-  | 'address' | 'request' | 'received'
+  | 'address' | 'amount' | 'request' | 'received'
   | 'redeem-confirm-trusted' | 'redeem-confirm-untrusted'
 
 /** Result of receiving a pasted/scanned cashu token. */
@@ -65,6 +65,8 @@ export interface ReceiveLaunch {
 
 interface ReceiveFlowState {
   step: ReceiveStep
+  /** Where the amount step's back arrow returns — landing (create) vs request (edit). */
+  amountReturn: 'address' | 'request'
   addressTab: 'lightning' | 'nostr'
   selectedMintUrl: string | null
   amount: number
@@ -149,11 +151,16 @@ export function ReceiveFlow({
     // Incoming review (gift-wrap): skip the landing and open the appropriate
     // confirm step with the queued token pre-loaded.
     const review = incomingReview?.token ?? null
+    // Deep-linked amount (amount-action) seeds the amount step directly; a queued
+    // review still wins over it.
     const initialStep: ReceiveStep = review
       ? (isTrusted(review.mintUrl) ? 'redeem-confirm-trusted' : 'redeem-confirm-untrusted')
-      : 'address'
+      : (initialAmount ?? 0) > 0
+        ? 'amount'
+        : 'address'
     return {
       step: initialStep,
+      amountReturn: 'address',
       addressTab: launch?.addressTab ?? 'lightning',
       selectedMintUrl: initialMintUrl || settings.mints[0] || null,
       amount: initialAmount || 0,
@@ -173,10 +180,9 @@ export function ReceiveFlow({
   })
 
   // Overlays — reachable from more than one step, so they live at container
-  // level (below AnimatePresence) rather than inside the address fragment: the
-  // amount sheet must also overlay the request step (edit-from-request), and the
-  // redeem sheet reopens when backing out of a confirm step.
-  const [amountSheetOpen, setAmountSheetOpen] = useState(() => (initialAmount ?? 0) > 0)
+  // level (below AnimatePresence) rather than inside a single step fragment: the
+  // redeem sheet reopens when backing out of a confirm step, and the mint sheet
+  // is shared by the landing and the amount step.
   const [redeemSheetOpen, setRedeemSheetOpen] = useState(() => !!(launch?.redeemOpen || launch?.redeemToken))
   const [mintSheetOpen, setMintSheetOpen] = useState(false)
 
@@ -201,7 +207,6 @@ export function ReceiveFlow({
     state.step !== 'received'
   ) {
     setConsumedReviewId(incomingReview.externalId)
-    setAmountSheetOpen(false)
     setRedeemSheetOpen(false)
     setMintSheetOpen(false)
     setState((prev) => ({
@@ -381,7 +386,6 @@ export function ReceiveFlow({
         receiveRequestId,
         expiresAt,
       }))
-      setAmountSheetOpen(false)
     } catch (err) {
       console.error('[ReceiveFlow] createRequest error:', err)
       addToast({ type: 'error', message: translateError(err, t), duration: 3000 })
@@ -404,9 +408,8 @@ export function ReceiveFlow({
   /** Payment detected → stamp the receipt once and print it. */
   const handlePaymentDetected = useCallback((amount: number, method: 'bolt11' | 'ecash') => {
     onPaymentReceived(amount, method === 'bolt11' ? 'lightning' : 'ecash')
-    // Close any open overlay so the arrival receipt isn't buried under a sheet
-    // and a stale sheet-confirm can't yank the flow back to the request step.
-    setAmountSheetOpen(false)
+    // Close any open overlay so the arrival receipt isn't buried under a sheet.
+    // The setState below to 'received' supersedes the amount step if it is live.
     setMintSheetOpen(false)
     setRedeemSheetOpen(false)
     const receivedAt = Date.now()
@@ -548,6 +551,16 @@ export function ReceiveFlow({
     regenerate(data.amount, data.memo)
   }, [regenerate])
 
+  // Enter the amount step, remembering where its back arrow returns: the landing
+  // (fresh request) vs the request step (edit an existing one).
+  const openAmountStep = useCallback((amountReturn: 'address' | 'request') => {
+    setState((prev) => ({ ...prev, step: 'amount', amountReturn }))
+  }, [])
+
+  const handleAmountBack = useCallback(() => {
+    setState((prev) => ({ ...prev, step: prev.amountReturn }))
+  }, [])
+
   const handleMakeAnother = useCallback(() => {
     regenerate(state.amount, state.memo)
   }, [regenerate, state.amount, state.memo])
@@ -579,8 +592,24 @@ export function ReceiveFlow({
               mintDisplayName={mintDisplayName}
               onEditMint={() => setMintSheetOpen(true)}
               onDirectReceive={() => setRedeemSheetOpen(true)}
-              onSpecifyAmount={() => setAmountSheetOpen(true)}
+              onSpecifyAmount={() => openAmountStep('address')}
               onCreateAddress={onOpenAddressSettings}
+            />
+          </PageTransition>
+        )}
+
+        {state.step === 'amount' && (
+          <PageTransition key="receive-amount" variant="page" className="flex-1">
+            <ReceiveAmountStep
+              mintUrl={state.selectedMintUrl}
+              mintDisplayName={mintDisplayName}
+              mintIconUrl={mintIconUrl}
+              onEditMint={() => setMintSheetOpen(true)}
+              initialAmount={state.amount}
+              initialMemo={state.memo}
+              isLoading={isLoading}
+              onConfirm={handleAmountConfirm}
+              onBack={handleAmountBack}
             />
           </PageTransition>
         )}
@@ -589,7 +618,7 @@ export function ReceiveFlow({
           <PageTransition key="receive-request" variant="page" className="flex-1">
             <ReceiveRequestStep
               onBack={() => setState((prev) => ({ ...prev, step: 'address' }))}
-              onEdit={() => setAmountSheetOpen(true)}
+              onEdit={() => openAmountStep('request')}
               onRegenerate={() => regenerate(state.amount, state.memo)}
               isRegenerating={isLoading}
               amount={state.amount}
@@ -648,18 +677,6 @@ export function ReceiveFlow({
       </AnimatePresence>
 
       {/* Overlays — see the container-level note above the useState calls. */}
-      <ReceiveAmountSheet
-        isOpen={amountSheetOpen}
-        onClose={() => setAmountSheetOpen(false)}
-        mintUrl={state.selectedMintUrl}
-        mintDisplayName={mintDisplayName}
-        onEditMint={() => setMintSheetOpen(true)}
-        initialAmount={state.amount}
-        initialMemo={state.memo}
-        isLoading={isLoading}
-        onConfirm={handleAmountConfirm}
-      />
-
       <RedeemSheet
         isOpen={redeemSheetOpen}
         onClose={() => setRedeemSheetOpen(false)}

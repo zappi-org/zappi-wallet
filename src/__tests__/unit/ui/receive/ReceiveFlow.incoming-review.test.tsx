@@ -53,8 +53,8 @@ vi.mock('@/ui/hooks/use-trust-registry', () => ({
 vi.mock('@/ui/screens/Receive/steps/ReceiveAddressStep', () => ({
   ReceiveAddressStep: () => <div data-testid="step-address" />,
 }))
-vi.mock('@/ui/screens/Receive/ReceiveAmountSheet', () => ({
-  ReceiveAmountSheet: ({ isOpen }: { isOpen: boolean }) => (isOpen ? <div data-testid="amount-sheet" /> : null),
+vi.mock('@/ui/screens/Receive/steps/ReceiveAmountStep', () => ({
+  ReceiveAmountStep: () => <div data-testid="amount-step" />,
 }))
 vi.mock('@/ui/screens/Receive/steps/ReceiveRequestStep', () => ({
   ReceiveRequestStep: () => <div data-testid="step-request" />,
@@ -114,7 +114,7 @@ describe('ReceiveFlow incoming review while mounted', () => {
     expect(screen.getByTestId('step-confirm-trusted')).toBeInTheDocument()
     expect(screen.queryByTestId('step-address')).not.toBeInTheDocument()
     expect(screen.queryByTestId('redeem-sheet')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('amount-sheet')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('amount-step')).not.toBeInTheDocument()
   })
 
   it('routes an untrusted-mint review to the untrusted confirm step', () => {

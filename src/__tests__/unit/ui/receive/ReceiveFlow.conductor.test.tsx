@@ -28,7 +28,7 @@ vi.mock('@/store', () => ({
 
 vi.mock('@/ui/hooks/use-network', () => ({ useNetwork: () => ({ isOnline: true }) }))
 vi.mock('@/ui/hooks/use-receive-request', () => ({
-  useReceiveRequest: () => ({ create: vi.fn(async () => {}), cancel: vi.fn(), complete: vi.fn(async () => {}) }),
+  useReceiveRequest: () => ({ create: vi.fn(async () => {}), cancel: vi.fn(async () => {}), complete: vi.fn(async () => {}) }),
 }))
 vi.mock('@/ui/hooks/use-payment-request', () => ({
   usePaymentRequest: () => ({
@@ -55,9 +55,10 @@ vi.mock('@/ui/screens/Receive/steps/ReceiveAddressStep', () => ({
     <button data-testid="specify-amount" onClick={onSpecifyAmount} />
   ),
 }))
-vi.mock('@/ui/screens/Receive/ReceiveAmountSheet', () => ({
-  ReceiveAmountSheet: ({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: (d: { amount: number; memo: string }) => void }) =>
-    isOpen ? <button data-testid="amount-sheet" onClick={() => onConfirm({ amount: 100, memo: '' })} /> : null,
+vi.mock('@/ui/screens/Receive/steps/ReceiveAmountStep', () => ({
+  ReceiveAmountStep: ({ onConfirm }: { onConfirm: (d: { amount: number; memo: string }) => void }) => (
+    <button data-testid="amount-step" onClick={() => onConfirm({ amount: 100, memo: '' })} />
+  ),
 }))
 vi.mock('@/ui/screens/Receive/steps/ReceiveRequestStep', () => ({
   ReceiveRequestStep: ({ onEdit, onPaymentDetected }: { onEdit: () => void; onPaymentDetected: (a: number, m: 'bolt11' | 'ecash') => void }) => (
@@ -115,24 +116,28 @@ function baseProps() {
 }
 
 describe('ReceiveFlow conductor — overlay + review races', () => {
-  it('payment detected while the amount sheet is open closes the sheet and shows the receipt', async () => {
+  it('routes address → amount → request via confirm, edit returns to amount, and a payment lands on the receipt', async () => {
     const props = baseProps()
     render(<ReceiveFlow {...props} incomingReview={null} />)
 
-    // address → open amount sheet → confirm → request step
+    // address → amount step → confirm → request step (the amount step unmounts)
     fireEvent.click(screen.getByTestId('specify-amount'))
-    fireEvent.click(screen.getByTestId('amount-sheet'))
+    expect(screen.getByTestId('amount-step')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('amount-step'))
     await waitFor(() => expect(screen.getByTestId('step-request')).toBeInTheDocument())
-    expect(screen.queryByTestId('amount-sheet')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('amount-step')).not.toBeInTheDocument()
 
-    // edit-from-request reopens the amount sheet as an overlay
+    // edit-from-request navigates back to the amount step (request unmounts)
     fireEvent.click(screen.getByTestId('request-edit'))
-    expect(screen.getByTestId('amount-sheet')).toBeInTheDocument()
+    expect(screen.getByTestId('amount-step')).toBeInTheDocument()
+    expect(screen.queryByTestId('step-request')).not.toBeInTheDocument()
 
-    // payment arrives while that overlay is open
+    // re-confirm regenerates → request step again, then a payment arrives
+    fireEvent.click(screen.getByTestId('amount-step'))
+    await waitFor(() => expect(screen.getByTestId('step-request')).toBeInTheDocument())
     fireEvent.click(screen.getByTestId('request-pay'))
     await waitFor(() => expect(screen.getByTestId('step-received')).toBeInTheDocument())
-    expect(screen.queryByTestId('amount-sheet')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('amount-step')).not.toBeInTheDocument()
   })
 
   it('does NOT resolve a different pending review when a manual redeem finalizes', async () => {
