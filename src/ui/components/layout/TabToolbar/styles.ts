@@ -8,7 +8,9 @@ export const bottomDockInnerClass =
 
 export const bottomDockStyle: CSSProperties = {
   paddingTop: 'var(--app-bottom-nav-top-padding)',
-  paddingBottom: 'var(--app-bottom-nav-bottom-padding)',
+  // Stack the home-indicator inset under the floating dock (viewport-fit=cover)
+  // so it keeps its gap above the indicator instead of sitting over it.
+  paddingBottom: 'calc(var(--app-bottom-nav-bottom-padding) + var(--safe-area-inset-bottom))',
 }
 
 export const tabGlassClass =

@@ -304,12 +304,17 @@
 :root {
   --safe-area-inset-top: env(safe-area-inset-top, 0px);
   --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
-  --app-bottom-padding: 1.5rem;
+  /* viewport-fit=cover means the shell paints the home-indicator strip
+     bg-background (no more white band on full-screen steps); bottom paddings
+     stack the inset on top of their base gap so buttons/nav keep the same
+     clearance the OS reserved before cover. env() is 0 on desktop → no change. */
+  --app-bottom-padding: calc(1.5rem + var(--safe-area-inset-bottom));
   --app-bottom-nav-height: 3.5rem;
   --app-bottom-nav-top-padding: 0.5rem;
   --app-bottom-nav-bottom-padding: 1rem;
-  --app-bottom-nav-clearance: calc(var(--app-bottom-nav-height) + var(--app-bottom-nav-top-padding) + var(--app-bottom-nav-bottom-padding));
+  --app-bottom-nav-clearance: calc(var(--app-bottom-nav-height) + var(--app-bottom-nav-top-padding) + var(--app-bottom-nav-bottom-padding) + var(--safe-area-inset-bottom));
   --app-home-transaction-clearance: calc(var(--app-bottom-nav-clearance) + 1.25rem);
   --app-bottom-action-clearance: calc(4.75rem + var(--app-bottom-padding));
 }
