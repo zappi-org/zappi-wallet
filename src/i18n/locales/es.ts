@@ -915,6 +915,9 @@ export default {
       reject: 'No recibir',
       rejectSub: 'No aceptar este token',
     },
+    amount: {
+      prompt: '¿Cuánto quieres solicitar?',
+    },
     request: {
       summary: 'Resumen de cobro',
       expiresIn: 'Caduca en {{seconds}}s',

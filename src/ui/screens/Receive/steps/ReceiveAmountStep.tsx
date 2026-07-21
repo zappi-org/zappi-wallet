@@ -56,6 +56,7 @@ export function ReceiveAmountStep({
         key={amountEntryKey}
         value={amount}
         onChange={setAmount}
+        emptyPrompt={t('receive.amount.prompt')}
         topSlot={
           <button
             type="button"

@@ -915,6 +915,9 @@ export default {
       reject: 'Jangan terima',
       rejectSub: 'Jangan terima token ini',
     },
+    amount: {
+      prompt: 'Berapa yang ingin diminta?',
+    },
     request: {
       summary: 'Ringkasan terima',
       expiresIn: 'Kedaluwarsa dalam {{seconds}}d',

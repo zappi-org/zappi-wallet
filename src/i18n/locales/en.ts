@@ -913,6 +913,9 @@ export default {
       reject: 'Do not receive',
       rejectSub: 'Do not accept this token',
     },
+    amount: {
+      prompt: 'How much do you want to request?',
+    },
     request: {
       summary: 'Receive summary',
       expiresIn: 'Expires in {{seconds}}s',

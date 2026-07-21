@@ -913,6 +913,9 @@ export default {
       reject: '受け取らない',
       rejectSub: 'このトークンを受け取りません',
     },
+    amount: {
+      prompt: 'いくらリクエストしますか？',
+    },
     request: {
       summary: '受取サマリー',
       expiresIn: 'あと{{seconds}}秒で期限切れ',

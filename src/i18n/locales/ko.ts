@@ -917,6 +917,9 @@ export default {
       reject: '받지 않기',
       rejectSub: '이 토큰은 받지 않을게요',
     },
+    amount: {
+      prompt: '얼마를 요청할까요?',
+    },
     request: {
       summary: '받기 요약',
       expiresIn: '{{seconds}}초 뒤 만료돼요',
