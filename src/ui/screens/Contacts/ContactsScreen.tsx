@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
-import { Plus, Search, Trash2, Pencil, Link, ArrowUpRight, Loader2 } from 'lucide-react'
+import { Plus, Search, Trash2, Pencil, ArrowUpRight, Loader2 } from 'lucide-react'
 import { IdentificationIcon } from '@heroicons/react/24/outline'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'motion/react'
@@ -12,10 +12,10 @@ import type { ValidatedData } from '@/core/domain/input-types'
 import { useAppStore } from '@/store'
 import { isSameMintUrl } from '@/utils/url'
 import { useContacts } from '@/ui/hooks/use-contacts'
-import type { Contact, ContactAddressType } from '@/core/types'
+import type { Contact } from '@/core/types'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { isNostrDirectAddress } from '@/core/domain/nostr-address'
-import { RecipientEndpointIcon } from '@/ui/components/payment/RecipientEndpointIcon'
+import { ContactAddressIcon } from '@/ui/components/payment/RecipientEndpointIcon'
 
 function detectAddressType(address: string): 'lightning' | 'npub' | 'custom' {
   const trimmed = address.trim()
@@ -27,16 +27,6 @@ function detectAddressType(address: string): 'lightning' | 'npub' | 'custom' {
 export interface ContactsScreenProps {
   /** Called with validated data + contact name + selected mint when send is confirmed */
   onSendToContact?: (validatedData: ValidatedData, displayName: string, mintUrl: string) => void
-}
-
-function ContactAddressIcon({ type }: { type: ContactAddressType }) {
-  if (type === 'lightning') return <RecipientEndpointIcon kind="lightning" />
-  if (type === 'npub') return <RecipientEndpointIcon kind="nostr" />
-  return (
-    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground-muted">
-      <Link className="h-[16px] w-[16px] text-white" aria-hidden />
-    </span>
-  )
 }
 
 export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {

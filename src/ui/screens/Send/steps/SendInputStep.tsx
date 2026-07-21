@@ -15,7 +15,6 @@ import { useState, useCallback, useRef, useMemo } from 'react'
 import { flushSync } from 'react-dom'
 import { AnimatePresence, motion, useReducedMotion, useIsPresent } from 'motion/react'
 import { useKeyboardInset } from '@/ui/hooks/use-keyboard-inset'
-import { Zap, Hash, Link } from 'lucide-react'
 import { CameraFilled } from '@/ui/components/icons/CameraFilled'
 import cardLogo from '@/assets/card-logo.svg'
 import { useTranslation } from 'react-i18next'
@@ -27,8 +26,8 @@ import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
 import { SegmentControl } from '@/ui/components/common/SegmentControl'
 import type { ValidatedData } from '@/core/domain/input-types'
-import type { ContactAddressType } from '@/core/types'
 import type { SendableValidatedData } from '../SendFlow'
+import { ContactAddressIcon } from '@/ui/components/payment/RecipientEndpointIcon'
 import { SEND_RECIPIENT_LAYOUT_ID, recipientMorphTransition } from '../sendMorph'
 import { fadeTransition } from '@/ui/utils/motion'
 import { useSendInputValidation } from './use-send-input-validation'
@@ -365,37 +364,30 @@ export function SendInputStep({
                   <p className="text-caption text-foreground-muted py-6 text-center">{t('send.noOtherWallets')}</p>
                 )
               ) : contacts.length > 0 ? (
-                contacts.map((contact) => {
-                  const iconMap: Record<ContactAddressType, typeof Zap> = {
-                    lightning: Zap,
-                    npub: Hash,
-                    custom: Link,
-                  }
-                  const Icon = iconMap[contact.addressType]
-                  return (
-                    <button
-                      key={contact.id}
-                      onClick={() => {
-                        hapticTap()
-                        applyDestinationState({
-                          destination: contact.name,
-                          rawAddress: contact.address,
-                          validatedData: null,
-                          detectedTypes: [],
-                        })
-                      }}
-                      className="w-full flex items-center gap-3 py-3 border-b border-border/40 transition-colors active:bg-foreground/[0.03]"
-                    >
-                      <div className="w-9 h-9 rounded-full bg-brand/8 flex items-center justify-center shrink-0">
-                        <Icon className="w-4 h-4 text-brand" />
-                      </div>
-                      <div className="flex-1 min-w-0 text-left">
-                        <p className="text-subtitle font-medium text-foreground truncate">{contact.name}</p>
-                        <p className="text-caption text-foreground-muted truncate">{contact.address}</p>
-                      </div>
-                    </button>
-                  )
-                })
+                contacts.map((contact) => (
+                  <button
+                    key={contact.id}
+                    onClick={() => {
+                      hapticTap()
+                      applyDestinationState({
+                        destination: contact.name,
+                        rawAddress: contact.address,
+                        validatedData: null,
+                        detectedTypes: [],
+                      })
+                    }}
+                    className="w-full flex items-center gap-3 py-3 border-b border-border/40 transition-colors active:bg-foreground/[0.03]"
+                  >
+                    {/* Same glyphs as the 주소록 tab — one identity per contact everywhere. */}
+                    <div className="w-9 h-9 flex items-center justify-center shrink-0">
+                      <ContactAddressIcon type={contact.addressType} />
+                    </div>
+                    <div className="flex-1 min-w-0 text-left">
+                      <p className="text-subtitle font-medium text-foreground truncate">{contact.name}</p>
+                      <p className="text-caption text-foreground-muted truncate">{contact.address}</p>
+                    </div>
+                  </button>
+                ))
               ) : (
                 <p className="text-caption text-foreground-muted py-6 text-center">{t('contacts.emptyTitle')}</p>
               )}
