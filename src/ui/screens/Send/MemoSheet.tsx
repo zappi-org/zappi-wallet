@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BottomSheet } from '@/ui/components/common/BottomSheet'
 import { Button } from '@/ui/components/common/Button'
@@ -30,17 +30,27 @@ export function MemoSheet({ isOpen, memo, onSave, onClose }: MemoSheetProps) {
     if (isOpen) setDraft(memo)
   }
 
+  // Blur before closing so the keyboard starts retracting as the sheet leaves,
+  // instead of the viewport collapsing after unmount. The bottom offset is
+  // CSS-transitioned below, so the resulting inset→0 change eases down with the
+  // exit slide rather than snapping the still-lifted sheet to bottom:0 mid-exit
+  // (the jump seen on backdrop-tap/save, and after a manual keyboard dismiss).
+  const dismiss = useCallback(() => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+    onClose()
+  }, [onClose])
+
   const save = () => {
     onSave(draft.trim())
-    onClose()
+    dismiss()
   }
 
   return (
     <BottomSheet
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={dismiss}
       title={t('send.memo.changeTitle')}
-      sheetClassName="bg-background-elevated rounded-t-3xl overflow-hidden"
+      sheetClassName="bg-background-elevated rounded-t-3xl overflow-hidden transition-[bottom] duration-200 ease-out"
       bottomOffset={keyboardInset}
       scrollable={false}
     >
