@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { NostrPaymentTransport } from '@/adapters/nostr/nostr-payment-transport'
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
+import { nip19 } from 'nostr-tools'
 
 const RECIPIENT_HEX = 'a'.repeat(64)
 const decodeToken = vi.fn().mockResolvedValue({
@@ -9,7 +10,10 @@ const decodeToken = vi.fn().mockResolvedValue({
   proofs: [],
 })
 
-function makeGateway(events: Array<{ kind: number; tags: string[][] }> = []): NostrGateway {
+function makeGateway(
+  events: Array<{ kind: number; tags: string[][] }> = [],
+  localRelays: { url: string; connected: boolean }[] = [],
+): NostrGateway {
   return {
     queryEvents: vi.fn().mockResolvedValue(events.map((event, index) => ({
       id: `event-${index}`,
@@ -29,11 +33,12 @@ function makeGateway(events: Array<{ kind: number; tags: string[][] }> = []): No
       content: '',
       sig: 'sig',
     }),
+    getRelayStatus: vi.fn().mockReturnValue(localRelays),
   } as unknown as NostrGateway
 }
 
 describe('NostrPaymentTransport', () => {
-  it('sends only to recipient kind:10050 DM relays', async () => {
+  it('uses kind:10050 DM relays', async () => {
     decodeToken.mockClear()
     const gateway = makeGateway([
       { kind: 10050, tags: [['relay', 'wss://dm1.test'], ['relay', 'wss://dm2.test']] },
@@ -56,7 +61,7 @@ describe('NostrPaymentTransport', () => {
     expect(decodeToken).toHaveBeenCalledWith('cashuAinvalid-test-token')
   })
 
-  it('does not fallback to default relays when kind:10050 is missing', async () => {
+  it('returns No relays available when kind:10050 is missing (no local fallback)', async () => {
     decodeToken.mockClear()
     const gateway = makeGateway([])
     const transport = new NostrPaymentTransport(gateway, decodeToken)
@@ -69,5 +74,53 @@ describe('NostrPaymentTransport', () => {
     expect(result).toEqual({ success: false, error: 'No relays available' })
     expect(gateway.sendGiftWrap).not.toHaveBeenCalled()
     expect(decodeToken).not.toHaveBeenCalled()
+  })
+
+  it('prioritizes nprofile relay hints over kind:10050', async () => {
+    decodeToken.mockClear()
+    const gateway = makeGateway([
+      { kind: 10050, tags: [['relay', 'wss://k10050.test']] },
+    ])
+    const transport = new NostrPaymentTransport(gateway, decodeToken)
+
+    const nprofile = nip19.nprofileEncode({
+      pubkey: RECIPIENT_HEX,
+      relays: ['wss://nprofile-hint.test'],
+    })
+
+    const result = await transport.send({
+      recipientPubkey: nprofile,
+      token: 'cashuAinvalid-test-token',
+    })
+
+    expect(result.success).toBe(true)
+    expect(gateway.sendGiftWrap).toHaveBeenCalledWith(expect.objectContaining({
+      recipientPubkey: RECIPIENT_HEX,
+      relays: ['wss://nprofile-hint.test'],
+    }))
+    expect(gateway.queryEvents).not.toHaveBeenCalled()
+  })
+
+  it('falls through to kind:10050 for npub input', async () => {
+    decodeToken.mockClear()
+    const gateway = makeGateway([
+      { kind: 10050, tags: [['relay', 'wss://dm.test']] },
+    ])
+    const transport = new NostrPaymentTransport(gateway, decodeToken)
+
+    const npub = nip19.npubEncode(RECIPIENT_HEX)
+    const result = await transport.send({
+      recipientPubkey: npub,
+      token: 'cashuAtest-token',
+    })
+
+    expect(result.success).toBe(true)
+    expect(gateway.queryEvents).toHaveBeenCalledWith([
+      { kinds: [10050], authors: [RECIPIENT_HEX], limit: 1 },
+    ])
+    expect(gateway.sendGiftWrap).toHaveBeenCalledWith(expect.objectContaining({
+      recipientPubkey: RECIPIENT_HEX,
+      relays: ['wss://dm.test'],
+    }))
   })
 })

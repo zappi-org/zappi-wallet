@@ -6,7 +6,7 @@
  */
 
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
-import { normalizePubkey } from './internal/nostr-crypto'
+import { normalizePubkey, extractRelaysFromNprofile } from './internal/nostr-crypto'
 import type {
   OutgoingPaymentTransport,
   OutgoingPaymentParams,
@@ -35,20 +35,24 @@ export class NostrPaymentTransport implements OutgoingPaymentTransport {
     const { recipientPubkey, token, memo, requestId } = params
 
     try {
-      const recipientHex = normalizePubkey(recipientPubkey)
-      if (!recipientHex) {
-        return { success: false, error: 'Invalid recipient public key' }
+      const address = classifyAddress(recipientPubkey) //only decode once
+      if (!address) {
+        return {success :false, error: 'Invalid recipient public key'}
       }
 
-      const relays = await this.resolveRelays(recipientPubkey)
-      if (relays.length === 0) {
-        return { success: false, error: 'No relays available' }
+      let relays: string[]
+      if (address.type === 'nprofile') {
+        relays = address.relays
+      } else {
+        relays = await this.resolveRelays(address.hex) //pass only hex
+        if (relays.length === 0) {
+          return { success: false, error: 'No relays available' }
+        }
       }
-
       const content = await buildContent(token, this.decodeToken, memo, requestId)
 
       await this.nostrGateway.sendGiftWrap({
-        recipientPubkey: recipientHex,
+        recipientPubkey: address.hex,
         content,
         relays,
       })
@@ -62,13 +66,11 @@ export class NostrPaymentTransport implements OutgoingPaymentTransport {
   }
 
   /**
-   * 수신자 DM 릴레이 탐색
-   * kind:10050 (DM Relay List)만 실제 전송 릴레이로 사용한다.
-   * nprofile relay hint나 로컬 기본 릴레이는 최신 수신 릴레이 보장이 없으므로 fallback하지 않는다.
+   * Discover recipient relay
+   * kind:10050 DM Relay List
    */
-  private async resolveRelays(recipientPubkey: string): Promise<string[]> {
-    const recipientHex = normalizePubkey(recipientPubkey)
-    if (recipientHex) {
+  private async resolveRelays(recipientHex: string): Promise<string[]> {
+
       try {
         const events = await this.nostrGateway.queryEvents([
           { kinds: [10050], authors: [recipientHex], limit: 1 },
@@ -86,8 +88,6 @@ export class NostrPaymentTransport implements OutgoingPaymentTransport {
       } catch (err) {
         console.warn('[NostrPaymentTransport] kind:10050 lookup failed:', err)
       }
-    }
-
     return []
   }
 }
@@ -118,4 +118,20 @@ async function buildContent(
     )
     return token
   }
+}
+
+type RecipientAddress =
+  | { type: 'pubkey'; hex: string }
+  | { type: 'nprofile'; hex: string; relays: string[] }
+
+function classifyAddress(input: string): RecipientAddress | null {
+  const trimmed = input.trim()
+  const hex = normalizePubkey(trimmed)
+  if (!hex) return null
+
+  const nprofileRelays = extractRelaysFromNprofile(trimmed)
+  if (nprofileRelays.length > 0) {
+    return { type: 'nprofile', hex, relays: nprofileRelays }
+  }
+  return { type: 'pubkey', hex }
 }
