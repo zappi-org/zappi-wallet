@@ -70,11 +70,6 @@ vi.mock('@/ui/hooks/use-trust-registry', () => ({
 }))
 
 // Step stubs expose the conductor callbacks under test as buttons.
-vi.mock('@/ui/screens/Receive/steps/ReceiveAddressStep', () => ({
-  ReceiveAddressStep: ({ onSpecifyAmount }: { onSpecifyAmount: () => void }) => (
-    <button data-testid="specify-amount" onClick={onSpecifyAmount} />
-  ),
-}))
 vi.mock('@/ui/screens/Receive/steps/ReceiveAmountStep', () => ({
   ReceiveAmountStep: ({ onConfirm }: { onConfirm: (d: { amount: number; memo: string }) => void }) => (
     <button data-testid="amount-step" onClick={() => onConfirm({ amount: 100, memo: '' })} />
@@ -136,12 +131,11 @@ function baseProps() {
 }
 
 describe('ReceiveFlow conductor — overlay + review races', () => {
-  it('routes address → amount → request via confirm, edit returns to amount, and a payment lands on the receipt', async () => {
+  it('routes amount → request via confirm, edit returns to amount, and a payment lands on the receipt', async () => {
     const props = baseProps()
     render(<ReceiveFlow {...props} incomingReview={null} />)
 
-    // address → amount step → confirm → request step (the amount step unmounts)
-    fireEvent.click(screen.getByTestId('specify-amount'))
+    // default entry is the amount step → confirm → request step (amount unmounts)
     expect(screen.getByTestId('amount-step')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('amount-step'))
     await waitFor(() => expect(screen.getByTestId('step-request')).toBeInTheDocument())
@@ -164,8 +158,7 @@ describe('ReceiveFlow conductor — overlay + review races', () => {
     const props = baseProps()
     const { rerender } = render(<ReceiveFlow {...props} incomingReview={null} />)
 
-    // address → amount → confirm creates the request (quoteId 'q1')
-    fireEvent.click(screen.getByTestId('specify-amount'))
+    // default amount entry → confirm creates the request (quoteId 'q1')
     fireEvent.click(screen.getByTestId('amount-step'))
     await waitFor(() => expect(screen.getByTestId('step-request')).toBeInTheDocument())
     expect(props.onCreateInvoice).toHaveBeenCalledTimes(1)

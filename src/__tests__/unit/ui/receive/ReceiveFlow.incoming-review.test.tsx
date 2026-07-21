@@ -50,9 +50,6 @@ vi.mock('@/ui/hooks/use-trust-registry', () => ({
 }))
 
 // Step stubs: markers only — this file tests the conductor's step routing.
-vi.mock('@/ui/screens/Receive/steps/ReceiveAddressStep', () => ({
-  ReceiveAddressStep: () => <div data-testid="step-address" />,
-}))
 vi.mock('@/ui/screens/Receive/steps/ReceiveAmountStep', () => ({
   ReceiveAmountStep: () => <div data-testid="amount-step" />,
 }))
@@ -105,14 +102,13 @@ describe('ReceiveFlow incoming review while mounted', () => {
     const { rerender } = render(
       <ReceiveFlow {...props} incomingReview={null} launch={{ redeemOpen: true }} />,
     )
-    expect(screen.getByTestId('step-address')).toBeInTheDocument()
+    // Redeem launch opens the redeem host with the sheet over it (no step marker).
     expect(screen.getByTestId('redeem-sheet')).toBeInTheDocument()
 
     rerender(
       <ReceiveFlow {...props} incomingReview={makeReview('r1', 'https://trusted.mint')} launch={{ redeemOpen: true }} />,
     )
     expect(screen.getByTestId('step-confirm-trusted')).toBeInTheDocument()
-    expect(screen.queryByTestId('step-address')).not.toBeInTheDocument()
     expect(screen.queryByTestId('redeem-sheet')).not.toBeInTheDocument()
     expect(screen.queryByTestId('amount-step')).not.toBeInTheDocument()
   })
