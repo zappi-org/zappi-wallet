@@ -133,14 +133,38 @@ function AnimatedQR({
   // Continuously generate fountain-coded frames via nextPart()
   // After base fragments are exhausted, nextPart() produces redundant
   // fountain frames that help the scanner recover missed data.
+  //
+  // Paused while the document is hidden: nobody can scan a background tab,
+  // so ticking there only burns CPU/battery. Deliberately NOT gated on
+  // prefers-reduced-motion — the frame cycling is the data channel, and a
+  // frozen frame would make the payload unscannable.
   useEffect(() => {
-    const interval = setInterval(() => {
-      setFrame((prev) => ({
-        value: encoder.nextPart(),
-        index: prev.index + 1,
-      }))
-    }, FRAME_INTERVAL_MS)
-    return () => clearInterval(interval)
+    let interval: ReturnType<typeof setInterval> | null = null
+    const start = () => {
+      if (interval !== null) return
+      interval = setInterval(() => {
+        setFrame((prev) => ({
+          value: encoder.nextPart(),
+          index: prev.index + 1,
+        }))
+      }, FRAME_INTERVAL_MS)
+    }
+    const stop = () => {
+      if (interval !== null) {
+        clearInterval(interval)
+        interval = null
+      }
+    }
+    const handleVisibility = () => {
+      if (document.hidden) stop()
+      else start()
+    }
+    handleVisibility()
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
+      stop()
+    }
   }, [encoder])
 
   const displayFrame = (frame.index % totalFragments) + 1
