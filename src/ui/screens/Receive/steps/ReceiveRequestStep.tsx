@@ -332,7 +332,7 @@ export function ReceiveRequestStep({
               type="button"
               aria-label={t('common.copy')}
               onClick={handleCopy}
-              className={`mt-4 cursor-pointer active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl ${expired ? 'blur-sm opacity-40 pointer-events-none' : ''}`}
+              className={`mt-4 cursor-pointer active:scale-95 motion-reduce:active:scale-100 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl ${expired ? 'blur-sm opacity-40 pointer-events-none' : ''}`}
             >
               <QRCodeDisplay
                 value={qrValue}
@@ -406,14 +406,14 @@ export function ReceiveRequestStep({
             <div className="flex gap-10 mt-6">
               <button
                 onClick={handleShare}
-                className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 transition-all"
+                className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all"
               >
                 <Share2 className="w-5 h-5" />
                 {t('receive.qr.share')}
               </button>
               <button
                 onClick={handleCopy}
-                className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 transition-all"
+                className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all"
               >
                 {copied ? <Check className="w-5 h-5 text-brand" /> : <Copy className="w-5 h-5" />}
                 {copied ? t('common.copied') : t('common.copy')}
