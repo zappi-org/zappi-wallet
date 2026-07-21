@@ -45,8 +45,37 @@ store.subscribe((state) => {
   armRootSentinel()
 })
 
+// Marks the window during which a stack change is app-initiated. Every store-driven
+// stackflow action stamps it right before dispatching; a stack change that arrives
+// without a fresh stamp came from outside (OS back-swipe, browser buttons), which the
+// browser already animated — the transition layer jump-cuts those to duration 0 instead
+// of replaying our slide. Timestamped (not a boolean) so a stale mark self-expires.
+const APP_NAV_WINDOW_MS = 600
+let appInitiatedAt = 0
+
+function now(): number {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now()
+}
+
+/**
+ * Whether the current stack change originated outside the app. Read at transition-variant
+ * computation time; the caller consumes the mark (below) once per transition so a later
+ * external navigation inside the same window is not misread as app-initiated.
+ */
+export function isExternalNavigation(): boolean {
+  return now() - appInitiatedAt >= APP_NAV_WINDOW_MS
+}
+
+/** Consume the app-initiated mark so it can't classify a second, unrelated transition. */
+export function consumeNavigationMark(): void {
+  appInitiatedAt = 0
+}
+
 function runStackAction(callback: (boundActions: Actions) => void): void {
-  if (actions && stackMounted) callback(actions)
+  if (actions && stackMounted) {
+    appInitiatedAt = now()
+    callback(actions)
+  }
 }
 
 export function bindStackflowActions(nextActions: Actions): void {

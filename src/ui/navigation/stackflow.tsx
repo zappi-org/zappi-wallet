@@ -15,7 +15,13 @@ import { stackflow, type ActivityComponentType, useActivity, useStack, useStepFl
 import { basicRendererPlugin } from '@stackflow/plugin-renderer-basic'
 import { devtoolsPlugin } from '@stackflow/plugin-devtools'
 import { historySyncPlugin } from '@stackflow/plugin-history-sync'
-import { bindStackflowActions, navigateBack, reportActiveScreen } from './navigation-store'
+import {
+  bindStackflowActions,
+  consumeNavigationMark,
+  isExternalNavigation,
+  navigateBack,
+  reportActiveScreen,
+} from './navigation-store'
 import { installRootBackGuard } from './root-back-guard'
 import { installEdgeGestureGuard } from './edge-gesture-guard'
 import { SCREEN_TO_ACTIVITY, type Screen, type StackActivityName } from './types'
@@ -125,6 +131,17 @@ function ScreenActivity({ screen }: { screen: Screen }) {
   const reduceMotion = useReducedMotion()
   const isLeaving = activity.transitionState === 'exit-active'
   const isTransitioning = activity.transitionState === 'enter-active' || activity.transitionState === 'exit-active'
+
+  // Jump-cut: an external navigation (OS back-swipe, browser buttons) is already animated
+  // by the browser, so replaying our 0.22s slide double-animates. An external stack change
+  // arrives without a fresh app-initiated mark; Motion reads this at the render it picks up
+  // the new target (a later flip once the mark is consumed can't restart an in-flight
+  // animation). Consuming the mark when the episode starts stops a rapid app-then-external
+  // sequence inside the 600ms window from reusing it.
+  const jumpCut = isTransitioning && isExternalNavigation()
+  useEffect(() => {
+    if (isTransitioning) consumeNavigationMark()
+  }, [isTransitioning])
   // Occluded only by a settled screen above — an exit-active (popping) or enter-active
   // (still animating in) screen above must leave this one painted so the reveal/cross-fade
   // isn't a hard flash.
@@ -208,7 +225,11 @@ function ScreenActivity({ screen }: { screen: Screen }) {
                 transform: isLeaving ? 'translate3d(100%, 0, 0)' : 'translate3d(0, 0, 0)',
               }
         }
-        transition={motionSafeTransition(reduceMotion, { duration: 0.22, ease: [0.32, 0.72, 0, 1] })}
+        transition={
+          jumpCut
+            ? { duration: 0 }
+            : motionSafeTransition(reduceMotion, { duration: 0.22, ease: [0.32, 0.72, 0, 1] })
+        }
         className="absolute inset-0"
         style={{
           zIndex: activity.zIndex,
