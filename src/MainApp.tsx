@@ -1345,7 +1345,7 @@ export default function MainApp() {
   const mainContent = (
     <>
       <div className="relative h-dvh overflow-hidden">
-        <AppStack renderScreen={renderStackScreen} />
+        <AppStack renderScreen={renderStackScreen} onSwipeBack={handleBack} />
       </div>
 
       {/* Bottom Navigation — MainTabToolbar / TokenTabToolbar swap */}

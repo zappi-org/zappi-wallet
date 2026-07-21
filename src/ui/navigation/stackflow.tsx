@@ -9,16 +9,23 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from 'react'
-import { motion, useReducedMotion } from 'motion/react'
+import { motion, useReducedMotion, useTransform } from 'motion/react'
 import { defineConfig } from '@stackflow/config'
 import { stackflow, type ActivityComponentType, useActivity, useStack, useStepFlow } from '@stackflow/react'
 import { basicRendererPlugin } from '@stackflow/plugin-renderer-basic'
 import { devtoolsPlugin } from '@stackflow/plugin-devtools'
 import { historySyncPlugin } from '@stackflow/plugin-history-sync'
-import { bindStackflowActions, reportActiveScreen } from './navigation-store'
+import { bindStackflowActions, navigateBack, reportActiveScreen } from './navigation-store'
 import { installRootBackGuard } from './root-back-guard'
 import { SCREEN_TO_ACTIVITY, type Screen, type StackActivityName } from './types'
 import { ActivityStepNavigationContext } from './activity-step-navigation'
+import {
+  PARALLAX_RATIO,
+  SCRIM_MAX_OPACITY,
+  swipeProgress,
+  useEdgeSwipeBack,
+  useSwipePhase,
+} from './use-edge-swipe-back'
 import { motionSafeTransition } from '@/ui/utils/motion'
 
 type EmptyParams = Record<never, never>
@@ -81,6 +88,11 @@ const config = defineConfig({
 type ScreenRenderer = (screen: Screen) => ReactNode
 const ScreenRendererContext = createContext<ScreenRenderer | null>(null)
 
+// Back action the edge-swipe commit calls. MainApp supplies its canonical handleBack
+// (which also resets shell view state); falls back to the raw store pop so the module
+// stays self-contained for tests.
+const SwipeBackContext = createContext<(() => void) | null>(null)
+
 // Render epoch: the renderer closure is exposed via a stable identity (so background
 // activities never re-render on unrelated MainApp ticks), but the TOP activity still
 // needs fresh props when MainApp state changes. MainApp bumps this epoch each render and
@@ -118,6 +130,37 @@ function ScreenActivity({ screen }: { screen: Screen }) {
   const isCovered = stack.activities.some(
     (other) => other.zIndex > activity.zIndex && other.transitionState === 'enter-done',
   )
+
+  // Edge-swipe-back: this activity may be the drag subject (the top screen following the
+  // finger) or the underlay (the screen directly beneath, revealed with parallax + scrim).
+  const swipe = useSwipePhase()
+  const isSwipeSubject = swipe.subjectId === activity.id && (swipe.active || swipe.committed)
+  const isSwipeUnderlay = swipe.active && swipe.belowId === activity.id
+  // The settled screen directly beneath the top, by zIndex — the parallax/back target.
+  const belowActivityId = useMemo(() => {
+    if (!activity.isTop) return null
+    let bestId: string | null = null
+    let bestZ = Number.NEGATIVE_INFINITY
+    for (const other of stack.activities) {
+      if (other.zIndex < activity.zIndex && other.zIndex > bestZ) {
+        bestZ = other.zIndex
+        bestId = other.id
+      }
+    }
+    return bestId
+  }, [stack.activities, activity.zIndex, activity.isTop])
+  const swipeBack = useContext(SwipeBackContext) ?? navigateBack
+  const swipeBind = useEdgeSwipeBack({
+    isTop: activity.isTop,
+    activityId: activity.id,
+    belowActivityId,
+    onCommit: swipeBack,
+  })
+  // Percentages resolve against the full-bleed activity, i.e. the viewport width.
+  const subjectX = useTransform(swipeProgress, (p) => `${p * 100}%`)
+  const underlayX = useTransform(swipeProgress, (p) => `${(p - 1) * PARALLAX_RATIO * 100}%`)
+  const scrimOpacity = useTransform(swipeProgress, (p) => (1 - p) * SCRIM_MAX_OPACITY)
+
   const pushStep = useCallback(() => {
     stepFlow.pushStep({}, { targetActivityId: activity.id })
   }, [stepFlow, activity.id])
@@ -139,9 +182,17 @@ function ScreenActivity({ screen }: { screen: Screen }) {
 
   if (!renderScreen) return null
 
+  // Two layers so drag and enter/exit never fight over one transform. The OUTER owns the
+  // unchanged push/pop slide (declarative). The INNER carries only the finger-drag: it has
+  // no animate/transition, so its style motion value applies directly (a live-bound
+  // transform, like the scrim) with no animation lag. bg-background lives on the inner so
+  // the screen's backdrop slides with it, revealing the underlay beneath.
+  const swipeDriven = isSwipeSubject || isSwipeUnderlay
+
   return (
     <ActivityStepNavigationContext.Provider value={stepNavigation}>
       <motion.div
+        {...(swipeBind.bind ?? {})}
         initial={
           activity.isRoot || reduceMotion
             ? { opacity: 1, transform: 'translate3d(0, 0, 0)' }
@@ -156,18 +207,34 @@ function ScreenActivity({ screen }: { screen: Screen }) {
               }
         }
         transition={motionSafeTransition(reduceMotion, { duration: 0.22, ease: [0.32, 0.72, 0, 1] })}
-        className="absolute inset-0 bg-background"
+        className="absolute inset-0"
         style={{
           zIndex: activity.zIndex,
           pointerEvents: activity.isTop ? 'auto' : 'none',
           // Only reserve a compositor layer while actually animating; drop painting for
           // fully occluded background screens.
-          willChange: isTransitioning ? 'transform, opacity' : undefined,
-          visibility: isCovered ? 'hidden' : 'visible',
+          willChange: swipeDriven || isTransitioning ? 'transform, opacity' : undefined,
+          // The underlay must stay painted while the top sits above it during a drag.
+          visibility: swipeDriven ? 'visible' : isCovered ? 'hidden' : 'visible',
+          touchAction: swipeBind.touchAction,
         }}
       >
-        {renderScreen(screen)}
+        <motion.div
+          className="absolute inset-0 bg-background"
+          style={{ x: swipeDriven ? (isSwipeSubject ? subjectX : underlayX) : 0 }}
+        >
+          {renderScreen(screen)}
+        </motion.div>
       </motion.div>
+      {isSwipeUnderlay && (
+        // Dimming scrim between the revealed underlay and the sliding top screen; sits at
+        // the underlay's zIndex (below the top) and fades out as the top slides away.
+        <motion.div
+          aria-hidden
+          className="absolute inset-0 bg-black"
+          style={{ zIndex: activity.zIndex, opacity: scrimOpacity, pointerEvents: 'none' }}
+        />
+      )}
     </ActivityStepNavigationContext.Provider>
   )
 }
@@ -228,7 +295,13 @@ bindStackflowActions(actions)
 // still updates independently of this identity.
 const MemoStack = <Stack />
 
-export function AppStack({ renderScreen }: { renderScreen: ScreenRenderer }) {
+export function AppStack({
+  renderScreen,
+  onSwipeBack,
+}: {
+  renderScreen: ScreenRenderer
+  onSwipeBack?: () => void
+}) {
   // Latest-ref: expose one stable renderer identity as the context value so background
   // activities don't re-render when MainApp re-renders, while each render still sees the
   // fresh closure (with current state) when stackflow itself re-renders an activity.
@@ -244,5 +317,9 @@ export function AppStack({ renderScreen }: { renderScreen: ScreenRenderer }) {
 
   useEffect(() => installRootBackGuard(), [])
 
-  return <ScreenRendererContext.Provider value={stableRender}>{MemoStack}</ScreenRendererContext.Provider>
+  return (
+    <ScreenRendererContext.Provider value={stableRender}>
+      <SwipeBackContext.Provider value={onSwipeBack ?? null}>{MemoStack}</SwipeBackContext.Provider>
+    </ScreenRendererContext.Provider>
+  )
 }
