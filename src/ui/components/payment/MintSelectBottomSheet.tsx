@@ -136,7 +136,9 @@ function MintSelectBottomSheetInner({
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
-        className="fixed left-0 right-0 bg-background-card border-t border-border rounded-t-[20px] z-[70]"
+        // transition-[bottom] eases the keyboard-inset ride (motion only
+        // animates the y transform, so bottom would otherwise snap).
+        className="fixed left-0 right-0 bg-background-card border-t border-border rounded-t-[20px] z-[70] transition-[bottom] duration-200 ease-out motion-reduce:transition-none"
         style={{ bottom: keyboardInset }}
       >
         {/* Handle */}

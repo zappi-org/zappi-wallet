@@ -652,7 +652,9 @@ export function ReceiveFlow({
         )}
 
         {state.step === 'request' && (
-          <PageTransition key="receive-request" variant="page" className="flex-1">
+          /* min-h-0: the wrapper's min-height:auto would otherwise stretch to
+             content on short viewports, defeating the step's inner scroller. */
+          <PageTransition key="receive-request" variant="page" className="flex-1 min-h-0">
             <ReceiveRequestStep
               onBack={onBack}
               onEdit={() => openAmountStep('request')}
@@ -676,7 +678,7 @@ export function ReceiveFlow({
         )}
 
         {state.step === 'received' && (
-          <PageTransition key="receive-received" variant="fade" className="flex-1">
+          <PageTransition key="receive-received" variant="fade" className="flex-1 min-h-0">
             <ReceiveReceiptStep
               amount={state.receivedAmount}
               mintUrl={receiptMintUrl}

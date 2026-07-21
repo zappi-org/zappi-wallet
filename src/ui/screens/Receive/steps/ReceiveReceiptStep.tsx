@@ -71,18 +71,23 @@ export function ReceiveReceiptStep({ amount, mintUrl, memo, method, receivedAt, 
   return (
     <div className="flex h-full flex-col bg-background">
       <ScreenHeader title={t('receive.title')} />
-      <div className="flex flex-1 flex-col items-center justify-center px-6">
-        <PaymentReceipt
-          status={stamped ? 'done' : 'finishing'}
-          title={t('receive.receipt.title')}
-          amount={`+${formatSats(amount)}`}
-          fiat={formatFiat(amount) || null}
-          rows={rows}
-          statusLine={stamped ? undefined : t('receive.receipt.receiving')}
-          doneLine={stamped ? { left: stampedAt, right: t('receive.receipt.completed') } : undefined}
-          stampSrc={tokenReceiveSuccessImg}
-          onStampComplete={() => { if (!stamped) { setStamped(true); hapticSuccess() } }}
-        />
+      {/* Scrollable so short viewports don't clip; my-auto keeps the receipt
+          centered when there is room. Container height stays constant (the
+          action row below reserves its space from mount) → no receipt jump. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6">
+        <div className="my-auto flex w-full shrink-0 flex-col items-center py-4">
+          <PaymentReceipt
+            status={stamped ? 'done' : 'finishing'}
+            title={t('receive.receipt.title')}
+            amount={`+${formatSats(amount)}`}
+            fiat={formatFiat(amount) || null}
+            rows={rows}
+            statusLine={stamped ? undefined : t('receive.receipt.receiving')}
+            doneLine={stamped ? { left: stampedAt, right: t('receive.receipt.completed') } : undefined}
+            stampSrc={tokenReceiveSuccessImg}
+            onStampComplete={() => { if (!stamped) { setStamped(true); hapticSuccess() } }}
+          />
+        </div>
       </div>
       {/* Actions render from mount so the centered receipt above keeps a stable
           flex-1 height; they only fade in once the stamp lands, instead of
@@ -91,8 +96,9 @@ export function ReceiveReceiptStep({ amount, mintUrl, memo, method, receivedAt, 
         initial={false}
         animate={stamped ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
         transition={fadeTransition(reduceMotion, 0.2)}
-        aria-hidden={!stamped}
-        style={{ pointerEvents: stamped ? 'auto' : 'none' }}
+        // inert (not just aria-hidden/pointer-events) — the reserved buttons
+        // must also be unreachable via Tab while invisible.
+        inert={!stamped}
         className="flex gap-3 px-6 pb-app shrink-0"
       >
         {onMakeAnother && (

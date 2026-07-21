@@ -104,10 +104,10 @@ export function SendInputStep({
     isValidating,
     contacts,
     contactsReady,
-    applyDestinationState,
     processExternalInput,
     handleNext,
     selectContact,
+    selectMyWallet,
   } = useSendInputValidation({
     onNext: advanceWithTextMorph,
     onRedirect,
@@ -190,25 +190,12 @@ export function SendInputStep({
     (walletUrl: string, walletName: string) => {
       if (leaving) return
       hapticTap()
-      const walletData: SendableValidatedData = {
-        type: 'my-wallet',
-        targetMintUrl: walletUrl,
-        targetMintName: walletName,
-      }
-      // Display the plain name (the @ was only a search sigil). rawAddress set to
-      // the mint URL so the debounce detector skips this now-@-less destination
-      // and leaves the my-wallet validatedData intact.
-      applyDestinationState({
-        destination: walletName,
-        rawAddress: walletUrl,
-        validatedData: walletData,
-        detectedTypes: ['my-wallet'],
-      })
-      // validatedData is synchronous for a wallet pick — advance straight to the
-      // amount step (the 다음 button stays as a fallback for the typed path).
-      advanceWithTextMorph({ destination: walletName, validatedData: walletData })
+      // Selection + immediate advance live in the hook (selectMyWallet) so the
+      // epoch bump that cancels racing async validations is shared with the
+      // contact path; 다음 stays as a fallback for the typed path.
+      selectMyWallet(walletUrl, walletName)
     },
-    [leaving, applyDestinationState, advanceWithTextMorph],
+    [leaving, selectMyWallet],
   )
 
   const handleScan = useCallback(

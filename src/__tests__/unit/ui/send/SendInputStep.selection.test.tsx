@@ -350,6 +350,106 @@ describe('SendInputStep selection flows', () => {
     })
   })
 
+  it('wallet click during in-flight contact validation wins — single advance with the wallet', async () => {
+    mockContacts.push({
+      id: 'contact-1',
+      name: 'Alice',
+      address: 'alice@example.com',
+      addressType: 'lightning',
+      createdAt: 1,
+      updatedAt: 1,
+    })
+    mockDetectAndClassify.mockReturnValue({ type: 'lightning-address', address: 'alice@example.com' })
+    let resolveValidate!: (v: ValidatedData) => void
+    mockValidateAsync.mockReturnValue(new Promise<ValidatedData>((resolve) => { resolveValidate = resolve }))
+
+    renderStep()
+
+    // Contact click starts async validation and parks on the deferred promise.
+    await act(async () => {
+      screen.getByText('Alice').click()
+    })
+    expect(defaultProps.onNext).not.toHaveBeenCalled()
+
+    // Wallet click preempts — synchronous data, advances immediately.
+    await act(async () => {
+      screen.getByRole('button', { name: 'send.myWalletList' }).click()
+    })
+    await act(async () => {
+      screen.getByText('Target Wallet').click()
+    })
+    expect(defaultProps.onNext).toHaveBeenCalledTimes(1)
+
+    // The contact validation resolving late is a stale epoch — no second advance.
+    await act(async () => {
+      resolveValidate({
+        type: 'lightning-address',
+        address: 'alice@example.com',
+        lnurlParams: {
+          callback: '',
+          minSendable: 0,
+          maxSendable: 100000,
+          metadata: '',
+          tag: 'payRequest',
+          domain: 'example.com',
+        },
+      } as ValidatedData)
+    })
+    expect(defaultProps.onNext).toHaveBeenCalledTimes(1)
+    expect(defaultProps.onNext).toHaveBeenCalledWith({
+      destination: 'Target Wallet',
+      validatedData: {
+        type: 'my-wallet',
+        targetMintUrl: 'https://target.mint',
+        targetMintName: 'Target Wallet',
+      },
+    })
+    expect(stableAddToast).not.toHaveBeenCalled()
+  })
+
+  it('typed cashu-request pre-validation resolving after a wallet click schedules no stale auto-advance', async () => {
+    mockDetectAndClassify.mockReturnValue({ type: 'cashu-request', request: 'creqAdemo' })
+    let resolveValidate!: (v: ValidatedData) => void
+    mockValidateAsync.mockReturnValue(new Promise<ValidatedData>((resolve) => { resolveValidate = resolve }))
+
+    renderStep()
+    typeIntoInput('creqAdemo')
+
+    // Debounce fires and parks on the deferred validateAsync.
+    await act(async () => { vi.advanceTimersByTime(500) })
+    expect(mockValidateAsync).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      screen.getByText('Target Wallet').click()
+    })
+    expect(defaultProps.onNext).toHaveBeenCalledTimes(1)
+
+    // Late resolution carries an embedded amount — without the epoch guard this
+    // would schedule a 300ms auto-advance with the stale typed request.
+    await act(async () => {
+      resolveValidate({
+        type: 'cashu-request',
+        request: 'creqAdemo',
+        parsed: {
+          id: 'r1',
+          unit: 'sat',
+          mints: ['https://source.mint'],
+          transports: [],
+          hasNostrTransport: true,
+          nostrTarget: 'npub1x',
+          hasPostTransport: false,
+          sameMintOnly: false,
+          amount: 21,
+        },
+      } as unknown as ValidatedData)
+    })
+    await act(async () => { vi.advanceTimersByTime(300) })
+    expect(defaultProps.onNext).toHaveBeenCalledTimes(1)
+    expect(defaultProps.onNext).toHaveBeenCalledWith(
+      expect.objectContaining({ destination: 'Target Wallet' }),
+    )
+  })
+
   it('shows the direct-transfer CTA when the input is empty and fires onDirectTransfer', () => {
     renderStep()
     const cta = screen.getByRole('button', { name: 'send.direct.cta' })

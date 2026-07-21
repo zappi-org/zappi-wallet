@@ -1106,7 +1106,9 @@ export function SendFlow({
         )}
 
         {state.step === 'created' && (
-          <PageTransition key="send-created" variant="fade" className="flex-1">
+          /* min-h-0: the wrapper's min-height:auto would otherwise stretch to
+             content on short viewports, defeating the step's inner scroller. */
+          <PageTransition key="send-created" variant="fade" className="flex-1 min-h-0">
             <DirectReceiptStep
               amount={state.amount}
               memo={state.memo}

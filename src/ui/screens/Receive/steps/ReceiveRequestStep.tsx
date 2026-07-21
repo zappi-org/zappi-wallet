@@ -323,8 +323,11 @@ export function ReceiveRequestStep({
       {/* Center the QR + tabs + summary + actions as one block so leftover
           height splits evenly top/bottom, instead of pooling into a flat band
           below the actions that read as a distinct empty area (siblings like
-          the receipt step center their content the same way). */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-6">
+          the receipt step center their content the same way). Centering via an
+          inner my-auto (not justify-center) so overflow on short viewports
+          scrolls instead of clipping the top of the block. */}
+      <div className="flex-1 min-h-0 flex flex-col overflow-y-auto px-6">
+        <div className="my-auto flex w-full shrink-0 flex-col items-center py-6">
         {/* QR Code — stays the first paint. Only this subtree swaps per protocol;
             detection effects and the summary card live outside the animation. */}
         {qrValue && (
@@ -427,6 +430,7 @@ export function ReceiveRequestStep({
             {expiresAt != null && <ExpiryCountdown expiresAt={expiresAt} />}
           </>
         )}
+        </div>
       </div>
     </div>
   )

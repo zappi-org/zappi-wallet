@@ -154,21 +154,26 @@ export function DirectReceiptStep({
 
   return (
     <div className="flex h-full flex-col bg-background">
-      <div className="flex flex-1 flex-col items-center justify-center px-6">
-        <PaymentReceipt
-          status={claimed ? 'done' : 'finishing'}
-          title={t('send.receipt.title')}
-          amount={formatSats(amount)}
-          fiat={formatFiat(amount) || null}
-          rows={rows}
-          qr={tokenString ? <QRCodeDisplay value={tokenString} level="M" fill /> : undefined}
-          qrVeiled={veiled}
-          onToggleQr={() => setVeiled((v) => !v)}
-          qrRevealLabel={t('send.tokenCreate.tapToReveal')}
-          statusLine={claimed ? undefined : t('send.direct.awaitingClaim')}
-          doneLine={claimed ? { left: stampedAt, right: t('send.direct.claimed') } : undefined}
-          stampSrc={claimed ? sendSuccessImg : undefined}
-        />
+      {/* Scrollable so short viewports don't clip the actions below (the app
+          shell is fixed-height); my-auto keeps the receipt centered when there
+          is room, with stable geometry (the bottom bars keep their footprint). */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6">
+        <div className="my-auto flex w-full shrink-0 flex-col items-center py-4">
+          <PaymentReceipt
+            status={claimed ? 'done' : 'finishing'}
+            title={t('send.receipt.title')}
+            amount={formatSats(amount)}
+            fiat={formatFiat(amount) || null}
+            rows={rows}
+            qr={tokenString ? <QRCodeDisplay value={tokenString} level="M" fill /> : undefined}
+            qrVeiled={veiled}
+            onToggleQr={() => setVeiled((v) => !v)}
+            qrRevealLabel={t('send.tokenCreate.tapToReveal')}
+            statusLine={claimed ? undefined : t('send.direct.awaitingClaim')}
+            doneLine={claimed ? { left: stampedAt, right: t('send.direct.claimed') } : undefined}
+            stampSrc={claimed ? sendSuccessImg : undefined}
+          />
+        </div>
       </div>
 
       {/* Copy/share and reclaim keep their layout footprint after the claim

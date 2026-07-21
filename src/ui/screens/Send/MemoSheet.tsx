@@ -50,7 +50,7 @@ export function MemoSheet({ isOpen, memo, onSave, onClose }: MemoSheetProps) {
       isOpen={isOpen}
       onClose={dismiss}
       title={t('send.memo.changeTitle')}
-      sheetClassName="bg-background-elevated rounded-t-3xl overflow-hidden transition-[bottom] duration-200 ease-out"
+      sheetClassName="bg-background-elevated rounded-t-3xl overflow-hidden transition-[bottom] duration-200 ease-out motion-reduce:transition-none"
       bottomOffset={keyboardInset}
       scrollable={false}
     >
