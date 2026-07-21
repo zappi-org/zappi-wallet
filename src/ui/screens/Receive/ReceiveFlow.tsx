@@ -6,8 +6,8 @@
  * unified BIP-321 QR) or directly receive a pasted/scanned cashu token
  * (redeem path: trust routing → confirm → receipt).
  *
- * address → request → received → complete
- * address → redeem-confirm-{trusted,untrusted} → received → complete
+ * address → request → received
+ * address → redeem-confirm-{trusted,untrusted} → received
  */
 
 import { useState, useCallback, useRef, useMemo } from 'react'
@@ -37,7 +37,6 @@ import { ReceiveAddressStep } from './steps/ReceiveAddressStep'
 import { ReceiveAmountSheet } from './ReceiveAmountSheet'
 import { ReceiveRequestStep } from './steps/ReceiveRequestStep'
 import { ReceiveReceiptStep } from './steps/ReceiveReceiptStep'
-import { ReceiveCompleteStep } from './steps/ReceiveCompleteStep'
 import { RedeemSheet } from './redeem/RedeemSheet'
 import { ConfirmTrustedStep } from './redeem/ConfirmTrustedStep'
 import { ConfirmUntrustedStep } from './redeem/ConfirmUntrustedStep'
@@ -46,7 +45,7 @@ import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomS
 // ============= Types =============
 
 export type ReceiveStep =
-  | 'address' | 'request' | 'received' | 'complete'
+  | 'address' | 'request' | 'received'
   | 'redeem-confirm-trusted' | 'redeem-confirm-untrusted'
 
 /** Result of receiving a pasted/scanned cashu token. */
@@ -192,15 +191,14 @@ export function ReceiveFlow({
   // to 'receive' is then a no-op) and the initializer above ran long ago.
   // Render-phase adjustment (an effect would cascade renders): a genuinely new
   // review — identity changed from the one already consumed — closes the
-  // overlays and jumps to its confirm step. An in-progress receipt
-  // (received/complete) is never hijacked; the review surfaces on re-entry.
+  // overlays and jumps to its confirm step. An in-progress receipt (received)
+  // is never hijacked; the review surfaces on re-entry.
   const [consumedReviewId, setConsumedReviewId] = useState<string | null>(incomingReview?.externalId ?? null)
   if (
     incomingReview &&
     incomingReview.externalId !== consumedReviewId &&
     !redeemBusyRef.current &&
-    state.step !== 'received' &&
-    state.step !== 'complete'
+    state.step !== 'received'
   ) {
     setConsumedReviewId(incomingReview.externalId)
     setAmountSheetOpen(false)
@@ -550,11 +548,6 @@ export function ReceiveFlow({
     regenerate(data.amount, data.memo)
   }, [regenerate])
 
-  // Stable across renders — ReceiveReceiptStep holds this in an effect dep array.
-  const handleReceiptDone = useCallback(() => {
-    setState((prev) => ({ ...prev, step: 'complete' }))
-  }, [])
-
   const handleMakeAnother = useCallback(() => {
     regenerate(state.amount, state.memo)
   }, [regenerate, state.amount, state.memo])
@@ -619,18 +612,6 @@ export function ReceiveFlow({
         {state.step === 'received' && (
           <PageTransition key="receive-received" variant="fade" className="flex-1">
             <ReceiveReceiptStep
-              amount={state.receivedAmount}
-              mintUrl={receiptMintUrl}
-              memo={receiptMemo}
-              method={state.receivedMethod}
-              onDone={handleReceiptDone}
-            />
-          </PageTransition>
-        )}
-
-        {state.step === 'complete' && (
-          <PageTransition key="receive-complete" variant="fade" className="flex-1">
-            <ReceiveCompleteStep
               amount={state.receivedAmount}
               mintUrl={receiptMintUrl}
               memo={receiptMemo}

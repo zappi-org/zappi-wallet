@@ -1,15 +1,22 @@
 /**
- * ReceiveReceiptStep — the arrival moment. Detection means settlement is
- * already final (quote watcher redeems before signalling; token redeem
- * returns after completion), so the receipt prints briefly and tears —
- * no long fake-progress like send needs.
+ * ReceiveReceiptStep — the arrival moment as one continuous scene. Detection
+ * means settlement is already final (quote watcher redeems before signalling;
+ * token redeem returns after completion), so the receipt mounts at 'finishing'
+ * — fast feed, tear, stamp — with no fake printing crawl and no dwell. The
+ * action buttons fade in on the stamp, on the same surface, so there is no
+ * second screen to swap to.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
+import { hapticSuccess, hapticTap } from '@/ui/utils/haptic'
+import { fadeTransition } from '@/ui/utils/motion'
 import tokenReceiveSuccessImg from '@/assets/token-receive-success.png'
+import { Button } from '@/ui/components/common/Button'
+import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { PaymentReceipt, type PaymentReceiptRow } from '@/ui/components/payment/PaymentReceipt'
 
 export type ReceiveReceiptMethod = 'bolt11' | 'ecash' | 'redeem'
@@ -35,52 +42,67 @@ export interface ReceiveReceiptStepProps {
   mintUrl: string | null
   memo?: string
   method: ReceiveReceiptMethod
-  onDone: () => void
+  receivedAt: number
+  onMakeAnother?: () => void
+  onExit: () => void
 }
 
-const PRINT_MS = 1400
-const DWELL_AFTER_STAMP_MS = 1600
-
-export function ReceiveReceiptStep({ amount, mintUrl, memo, method, onDone }: ReceiveReceiptStepProps) {
-  const { t } = useTranslation()
+export function ReceiveReceiptStep({ amount, mintUrl, memo, method, receivedAt, onMakeAnother, onExit }: ReceiveReceiptStepProps) {
+  const { t, i18n } = useTranslation()
+  const reduceMotion = useReducedMotion()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
   const mintUrls = useMemo(() => (mintUrl ? [mintUrl] : []), [mintUrl])
   const { getDisplayName } = useMintMetadata(mintUrls)
 
-  const [status, setStatus] = useState<'printing' | 'finishing'>('printing')
-  useEffect(() => {
-    const id = setTimeout(() => setStatus('finishing'), PRINT_MS)
-    return () => clearTimeout(id)
-  }, [])
-
-  // Effect-scoped dwell so an unmount mid-dwell cancels onDone.
+  // Detection means settlement is already final — feed out fast and stamp; no
+  // fake printing crawl, no dwell, no second screen. Buttons fade in on stamp.
   const [stamped, setStamped] = useState(false)
-  useEffect(() => {
-    if (!stamped) return
-    const id = setTimeout(onDone, DWELL_AFTER_STAMP_MS)
-    return () => clearTimeout(id)
-  }, [stamped, onDone])
 
   const rows = useMemo(
     () => buildReceiveRows(t, method, mintUrl ? getDisplayName(mintUrl) : null, memo),
     [t, method, mintUrl, getDisplayName, memo],
   )
+  const stampedAt = useMemo(
+    () => new Date(receivedAt).toLocaleString(i18n.language, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    [receivedAt, i18n.language],
+  )
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      <div className="flex-1 flex flex-col items-center justify-center px-6">
+    <div className="flex h-full flex-col bg-background">
+      <ScreenHeader title={t('receive.title')} />
+      <div className="flex flex-1 flex-col items-center justify-center px-6">
         <PaymentReceipt
-          status={status}
+          status={stamped ? 'done' : 'finishing'}
           title={t('receive.receipt.title')}
           amount={`+${formatSats(amount)}`}
           fiat={formatFiat(amount) || null}
           rows={rows}
-          statusLine={t('receive.receipt.receiving')}
+          statusLine={stamped ? undefined : t('receive.receipt.receiving')}
+          doneLine={stamped ? { left: stampedAt, right: t('receive.receipt.completed') } : undefined}
           stampSrc={tokenReceiveSuccessImg}
-          onStampComplete={() => setStamped(true)}
+          onStampComplete={() => { if (!stamped) { setStamped(true); hapticSuccess() } }}
         />
       </div>
+      <AnimatePresence>
+        {stamped && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={fadeTransition(reduceMotion, 0.2)}
+            className="flex gap-3 px-6 pb-app shrink-0"
+          >
+            {onMakeAnother && (
+              <Button variant="secondary" size="xl" onClick={() => { hapticTap(); onMakeAnother() }} className="flex-none px-6">
+                {t('receive.request.makeAnother')}
+              </Button>
+            )}
+            <Button variant="brand" size="xl" onClick={() => { hapticTap(); onExit() }} className="flex-1">
+              {t('receive.request.exit')}
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

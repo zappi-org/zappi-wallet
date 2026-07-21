@@ -70,9 +70,6 @@ vi.mock('@/ui/screens/Receive/steps/ReceiveRequestStep', () => ({
 vi.mock('@/ui/screens/Receive/steps/ReceiveReceiptStep', () => ({
   ReceiveReceiptStep: () => <div data-testid="step-received" />,
 }))
-vi.mock('@/ui/screens/Receive/steps/ReceiveCompleteStep', () => ({
-  ReceiveCompleteStep: () => <div data-testid="step-complete" />,
-}))
 vi.mock('@/ui/screens/Receive/redeem/RedeemSheet', () => ({
   RedeemSheet: ({ isOpen, onValidated }: { isOpen: boolean; onValidated: (t: unknown) => void }) =>
     isOpen ? (
