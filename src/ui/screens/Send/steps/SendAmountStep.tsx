@@ -469,34 +469,33 @@ export function SendAmountStep({
               insufficientBalance={isOverBalance}
               disabled={isAmountFixed}
               emptyPrompt={t('send.amount.prompt')}
-              topSlot={
-                <div className="flex flex-col items-center gap-0.5 pt-2">
-                  <button
-                    type="button"
-                    onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
-                    disabled={!onChangeMint}
-                    className="flex items-center justify-center gap-2 mx-auto"
-                  >
-                    <MintIcon iconUrl={mintIconUrl} imgSize="w-6 h-6" className="w-6 h-6" circle />
-                    <span className="text-body font-medium text-foreground truncate max-w-[220px]">{mintName}</span>
-                    {onChangeMint && <ChevronDown className="w-4 h-4 text-foreground-muted shrink-0" strokeWidth={2} />}
-                  </button>
-                  {/* Sending spends from this mint, so its balance belongs here
-                      (receive stays balance-free — the payer's balance is theirs). */}
-                  <span className="text-caption text-foreground-muted">
-                    {t('common.balance')} {formatSats(mintBalance)}
-                  </span>
-                </div>
+              heroSlot={
+                /* The balance lives with the amount (the two numbers being
+                   compared), and the same line IS the warning — it turns red
+                   in place, so nothing jumps when the balance is exceeded. */
+                <span
+                  className={`text-caption transition-colors ${
+                    isOverBalance ? 'text-accent-danger' : 'text-foreground-muted'
+                  }`}
+                >
+                  {isOverBalance
+                    ? `${t('payment.insufficientBalance')} · ${formatSats(mintBalance)}`
+                    : `${t('common.balance')} ${formatSats(mintBalance)}`}
+                </span>
               }
               middleSlot={
-                /* Over-balance warning sits right under the shaking amount so
-                   the color + shake read as one signal, not split across the
-                   keypad from the CTA below it. */
-                isOverBalance ? (
-                  <div className="text-center text-caption text-accent-danger pb-1">
-                    {t('payment.insufficientBalance')} ({t('common.balance')} {formatSats(mintBalance)})
-                  </div>
-                ) : undefined
+                /* Source mint rides just above the keypad — the "from where"
+                   context sits next to the action, its original home. */
+                <button
+                  type="button"
+                  onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
+                  disabled={!onChangeMint}
+                  className="flex items-center justify-center gap-2 mx-auto pb-2"
+                >
+                  <MintIcon iconUrl={mintIconUrl} imgSize="w-6 h-6" className="w-6 h-6" circle />
+                  <span className="text-body font-medium text-foreground truncate max-w-[220px]">{mintName}</span>
+                  {onChangeMint && <ChevronDown className="w-4 h-4 text-foreground-muted shrink-0" strokeWidth={2} />}
+                </button>
               }
               bottomSlot={
                 <>

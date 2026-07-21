@@ -46,6 +46,8 @@ export interface AmountEntryProps {
   emptyPrompt?: string
   /** Above the hero — recipient eyebrow, mint bar, etc. */
   topSlot?: ReactNode
+  /** Inside the hero, right under the conversion line — e.g. a balance caption. */
+  heroSlot?: ReactNode
   /** Between the conversion line and the keypad — e.g. the receive memo trigger. */
   middleSlot?: ReactNode
   /** Below the keypad — CTA / reset row. */
@@ -100,6 +102,7 @@ export function AmountEntry({
   disabled = false,
   emptyPrompt,
   topSlot,
+  heroSlot,
   middleSlot,
   bottomSlot,
 }: AmountEntryProps) {
@@ -269,6 +272,8 @@ export function AmountEntry({
             {canToggleFiat && <ArrowUpDown className="h-3.5 w-3.5" strokeWidth={2.2} />}
           </button>
         )}
+
+        {heroSlot}
       </div>
 
       {middleSlot}
