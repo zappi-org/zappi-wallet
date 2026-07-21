@@ -81,6 +81,24 @@ function FlowArrow() {
   )
 }
 
+// Owns the 1s tick so the parent (QR hero + detection effects) doesn't
+// re-render every second; self-gates to the final minute like the old inline line.
+function ExpiryCountdown({ expiresAt }: { expiresAt: number }) {
+  const { t } = useTranslation()
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  const remainingMs = expiresAt - now
+  if (remainingMs >= 60_000) return null
+  return (
+    <p className="mt-3 text-caption text-foreground-muted">
+      {t('receive.request.expiresIn', { seconds: Math.max(0, Math.ceil(remainingMs / 1000)) })}
+    </p>
+  )
+}
+
 export function ReceiveRequestStep({
   onBack,
   onEdit,
@@ -108,15 +126,20 @@ export function ReceiveRequestStep({
 
   const setPendingEcashRequestId = useAppStore((s) => s.setPendingEcashRequestId)
 
-  // Expiry countdown — component-local; expiresAt may be null (no countdown).
-  const [now, setNow] = useState(() => Date.now())
+  // Expiry is a single deadline crossing, not a ticking clock: one setTimeout
+  // armed at expiresAt keeps the per-second re-render (and the QR + detection
+  // effects with it) out of this component. The visible countdown line ticks
+  // inside ExpiryCountdown instead. State stores WHICH deadline passed, so a
+  // regenerated expiresAt reads as not-expired without any reset logic.
+  const [passedDeadline, setPassedDeadline] = useState<number | null>(() =>
+    expiresAt != null && expiresAt - Date.now() <= 0 ? expiresAt : null,
+  )
   useEffect(() => {
-    if (!expiresAt) return
-    const id = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(id)
+    if (expiresAt == null) return
+    const id = setTimeout(() => setPassedDeadline(expiresAt), Math.max(0, expiresAt - Date.now()))
+    return () => clearTimeout(id)
   }, [expiresAt])
-  const remainingMs = expiresAt ? expiresAt - now : null
-  const expired = remainingMs !== null && remainingMs <= 0
+  const expired = expiresAt != null && passedDeadline === expiresAt
 
   // Register/unregister pending ecash request ID for GiftWrapListener matching
   useEffect(() => {
@@ -397,11 +420,7 @@ export function ReceiveRequestStep({
               </button>
             </div>
 
-            {remainingMs !== null && remainingMs < 60_000 && (
-              <p className="mt-3 text-caption text-foreground-muted">
-                {t('receive.request.expiresIn', { seconds: Math.max(0, Math.ceil(remainingMs / 1000)) })}
-              </p>
-            )}
+            {expiresAt != null && <ExpiryCountdown expiresAt={expiresAt} />}
           </>
         )}
       </div>

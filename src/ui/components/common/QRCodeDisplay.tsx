@@ -13,7 +13,7 @@
  * The `size` prop controls SVG render resolution (default 400 for sharpness).
  */
 
-import { useState, useEffect, useMemo } from 'react'
+import { memo, useState, useEffect, useMemo } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { UR, UREncoder } from '@gandlaf21/bc-ur'
 import { Buffer } from 'buffer'
@@ -52,7 +52,9 @@ export interface QRCodeDisplayProps {
   fill?: boolean
 }
 
-export function QRCodeDisplay({
+// Memoized: QR matrix generation is the priciest render in these screens, and
+// parents re-render for reasons (countdowns, copy state) that don't change props.
+export const QRCodeDisplay = memo(function QRCodeDisplay({
   value,
   size,
   className,
@@ -91,7 +93,7 @@ export function QRCodeDisplay({
       />
     </div>
   )
-}
+})
 
 /**
  * Animated UR QR — true fountain-coded multipart frames.
