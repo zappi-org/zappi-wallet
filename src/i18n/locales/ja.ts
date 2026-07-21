@@ -923,7 +923,6 @@ export default {
       regenerate: '新しく作る',
       makeAnother: 'もう一度作る',
       exit: '閉じる',
-      myAddressLink: '自分の固定アドレスで受け取る',
     },
     receipt: {
       title: '受取レシート',

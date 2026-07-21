@@ -925,7 +925,6 @@ export default {
       regenerate: 'Crear una nueva',
       makeAnother: 'Crear otra',
       exit: 'Listo',
-      myAddressLink: 'Recibir en mi dirección fija',
     },
     receipt: {
       title: 'RECIBO DE COBRO',

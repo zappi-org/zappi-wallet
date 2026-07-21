@@ -925,7 +925,6 @@ export default {
       regenerate: 'Buat yang baru',
       makeAnother: 'Buat lagi',
       exit: 'Selesai',
-      myAddressLink: 'Terima ke alamat tetap saya',
     },
     receipt: {
       title: 'STRUK PENERIMAAN',

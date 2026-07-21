@@ -108,7 +108,6 @@ export interface ReceiveFlowProps {
   launch?: ReceiveLaunch | null
   initialAmount?: number
   initialMintUrl?: string | null
-  onOpenMyAddress?: () => void
 }
 
 // ============= Component =============
@@ -131,7 +130,6 @@ export function ReceiveFlow({
   launch,
   initialAmount,
   initialMintUrl,
-  onOpenMyAddress,
 }: ReceiveFlowProps) {
   const { t } = useTranslation()
   const { isOnline } = useNetwork()
@@ -673,7 +671,6 @@ export function ReceiveFlow({
               expiresAt={state.expiresAt}
               onPaymentDetected={handlePaymentDetected}
               onReceiveRequestFulfilled={handleRequestFulfilled}
-              onOpenMyAddress={onOpenMyAddress}
             />
           </PageTransition>
         )}

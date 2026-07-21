@@ -927,7 +927,6 @@ export default {
       regenerate: '새로 만들기',
       makeAnother: '또 만들기',
       exit: '나가기',
-      myAddressLink: '내 고정 주소로 받기',
     },
     receipt: {
       title: '수령 영수증',

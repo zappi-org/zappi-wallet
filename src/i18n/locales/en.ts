@@ -923,7 +923,6 @@ export default {
       regenerate: 'Create a new one',
       makeAnother: 'Make another',
       exit: 'Done',
-      myAddressLink: 'Receive to my fixed address',
     },
     receipt: {
       title: 'RECEIVE RECEIPT',

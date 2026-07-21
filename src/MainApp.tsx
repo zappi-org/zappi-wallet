@@ -1144,7 +1144,6 @@ export default function MainApp() {
           activeIncomingReview ? handleRejectIncomingReview(activeIncomingReview) : Promise.resolve()
         }
         launch={receiveLaunch}
-        onOpenMyAddress={() => { setPreviousScreen('receive'); setCurrentScreen('my-address') }}
         initialAmount={scannedAmount || undefined}
         initialMintUrl={activeMintUrl}
       />
