@@ -13,6 +13,7 @@ import { motion, useReducedMotion } from 'motion/react'
 import { defineConfig } from '@stackflow/config'
 import { stackflow, type ActivityComponentType, useActivity, useStack, useStepFlow } from '@stackflow/react'
 import { basicRendererPlugin } from '@stackflow/plugin-renderer-basic'
+import { devtoolsPlugin } from '@stackflow/plugin-devtools'
 import { historySyncPlugin } from '@stackflow/plugin-history-sync'
 import { bindStackflowActions, reportActiveScreen } from './navigation-store'
 import { installRootBackGuard } from './root-back-guard'
@@ -207,6 +208,9 @@ const { Stack, actions } = stackflow({
   components,
   plugins: [
     basicRendererPlugin(),
+    // Dev-only: feeds the Stackflow browser-extension inspector; the DEV gate
+    // lets the prod bundle tree-shake it away entirely.
+    ...(import.meta.env.DEV ? [devtoolsPlugin()] : []),
     historySyncPlugin({
       config,
       fallbackActivity: () => SCREEN_TO_ACTIVITY.home,
