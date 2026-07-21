@@ -198,8 +198,9 @@ function MintSelectBottomSheetInner({
           </p>
         )}
 
-        {/* Confirm Button */}
-        <div className="px-5 pt-4 pb-4">
+        {/* Confirm Button — pb-app keeps it clear of the home indicator now that
+            viewport-fit=cover extends the sheet to the physical screen edge. */}
+        <div className="px-5 pt-4 pb-app">
           <Button
             variant="brand"
             size="xl"
