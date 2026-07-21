@@ -76,7 +76,15 @@ function FlowArrow() {
           transition={reduceMotion ? { duration: 0 } : { duration: 1.4, repeat: Infinity, delay: i * 0.18 }}
         />
       ))}
-      <span className="ml-0.5 text-foreground-muted">→</span>
+      {/* The arrow is the wave's terminus, not a static anchor — pulsing it on
+          the same cadence makes dots+arrow read as one centered unit. */}
+      <motion.span
+        className="ml-0.5 text-foreground-muted"
+        animate={reduceMotion ? { opacity: 0.6 } : { opacity: [0.15, 0.9, 0.15] }}
+        transition={reduceMotion ? { duration: 0 } : { duration: 1.4, repeat: Infinity, delay: 4 * 0.18 }}
+      >
+        →
+      </motion.span>
     </span>
   )
 }
@@ -339,7 +347,7 @@ export function ReceiveRequestStep({
               type="button"
               aria-label={t('common.copy')}
               onClick={handleCopy}
-              className={`mt-4 cursor-pointer active:scale-95 motion-reduce:active:scale-100 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl ${expired ? 'blur-sm opacity-40 pointer-events-none' : ''}`}
+              className={`cursor-pointer active:scale-95 motion-reduce:active:scale-100 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl ${expired ? 'blur-sm opacity-40 pointer-events-none' : ''}`}
             >
               <QRCodeDisplay
                 value={qrValue}
@@ -356,12 +364,12 @@ export function ReceiveRequestStep({
             value={activeProtocol}
             onChange={setSelectedProtocol}
             options={protocolOptions.map((option) => ({ value: option.id, label: option.label }))}
-            className="mt-5 w-full max-w-[360px]"
+            className="mt-7 w-full max-w-[360px]"
           />
         )}
 
         {/* Summary card */}
-        <div className="mt-6 w-full max-w-[360px] rounded-2xl bg-background-card p-4 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
+        <div className="mt-7 w-full max-w-[360px] rounded-2xl bg-background-card p-4 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
           <div className="flex items-center justify-between">
             <span className="text-caption text-foreground-muted">{t('receive.request.summary')}</span>
             <button
@@ -399,7 +407,7 @@ export function ReceiveRequestStep({
         ) : (
           <>
             {/* Action buttons — minimal text style */}
-            <div className="flex gap-10 mt-6">
+            <div className="flex gap-10 mt-7">
               <button
                 onClick={handleShare}
                 className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all"
