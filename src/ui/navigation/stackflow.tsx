@@ -45,6 +45,7 @@ declare module '@stackflow/config' {
     AmountAction: EmptyParams
     Send: EmptyParams
     Receive: EmptyParams
+    MyAddress: EmptyParams
     UsernameChange: EmptyParams
     TransactionDetail: EmptyParams
     MintDetail: EmptyParams
@@ -68,6 +69,7 @@ const ACTIVITY_ROUTES: Record<StackActivityName, string> = {
   AmountAction: '/amount',
   Send: '/send',
   Receive: '/receive',
+  MyAddress: '/my-address',
   UsernameChange: '/settings/username',
   TransactionDetail: '/transactions/detail',
   MintDetail: '/mints/detail',
@@ -219,6 +221,7 @@ const components = {
   AmountAction: makeScreenActivity('AmountAction', 'amount-action'),
   Send: makeScreenActivity('Send', 'send'),
   Receive: makeScreenActivity('Receive', 'receive'),
+  MyAddress: makeScreenActivity('MyAddress', 'my-address'),
   UsernameChange: makeScreenActivity('UsernameChange', 'username-change'),
   TransactionDetail: makeScreenActivity('TransactionDetail', 'transaction-detail'),
   MintDetail: makeScreenActivity('MintDetail', 'mint-detail'),

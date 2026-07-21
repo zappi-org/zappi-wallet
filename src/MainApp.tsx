@@ -77,6 +77,7 @@ import type { MintInfo } from '@/core/types'
 import { ToastContainer } from '@/ui/components'
 import { ReceiveFlow } from '@/ui/screens/Receive/ReceiveFlow'
 import type { ReceiveLaunch } from '@/ui/screens/Receive/ReceiveFlow'
+import { MyAddressScreen } from '@/ui/screens/MyAddress/MyAddressScreen'
 import { SendFlow } from '@/ui/screens/Send/SendFlow'
 import { routeValidatedInput } from '@/ui/utils/input-router'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
@@ -876,9 +877,8 @@ export default function MainApp() {
           setCurrentScreen('history')
         }}
         onProfile={() => {
-          setReceiveLaunch({ addressTab: 'nostr' })
           setPreviousScreen('home')
-          setCurrentScreen('receive')
+          setCurrentScreen('my-address')
         }}
         onNotifications={() => setCurrentScreen('notifications')}
         onAddMint={() => setCurrentScreen('add-mint')}
@@ -1147,6 +1147,16 @@ export default function MainApp() {
         onOpenAddressSettings={() => setCurrentScreen('settings')}
         initialAmount={scannedAmount || undefined}
         initialMintUrl={activeMintUrl}
+      />
+    ),
+
+    'my-address': () => (
+      <MyAddressScreen
+        onBack={handleBack}
+        onOpenSettings={() => {
+          setPreviousScreen('my-address')
+          setCurrentScreen('settings')
+        }}
       />
     ),
 

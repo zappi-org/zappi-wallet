@@ -13,6 +13,7 @@ export type Screen =
   | 'amount-action'
   | 'send'
   | 'receive'
+  | 'my-address'
   | 'username-change'
   | 'transaction-detail'
   | 'mint-detail'
@@ -63,6 +64,7 @@ export type StackActivityName =
   | 'AmountAction'
   | 'Send'
   | 'Receive'
+  | 'MyAddress'
   | 'UsernameChange'
   | 'TransactionDetail'
   | 'MintDetail'
@@ -84,6 +86,7 @@ export const SCREEN_TO_ACTIVITY: Record<Screen, StackActivityName> = {
   'amount-action': 'AmountAction',
   send: 'Send',
   receive: 'Receive',
+  'my-address': 'MyAddress',
   'username-change': 'UsernameChange',
   'transaction-detail': 'TransactionDetail',
   'mint-detail': 'MintDetail',
