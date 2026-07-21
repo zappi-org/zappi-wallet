@@ -134,10 +134,10 @@ export function MyAddressScreen({ onBack, onOpenSettings }: MyAddressScreenProps
           className="w-full max-w-[360px]"
         >
           <TabsList className="h-11 w-full rounded-2xl bg-foreground/[0.04] p-1">
-            <TabsTrigger value="lightning" className="rounded-xl text-subtitle font-medium data-[state=active]:bg-background-card">
+            <TabsTrigger value="lightning" className="rounded-xl text-subtitle font-semibold data-[state=active]:bg-background-card">
               {t('myAddress.lightningTab')}
             </TabsTrigger>
-            <TabsTrigger value="nostr" className="rounded-xl text-subtitle font-medium data-[state=active]:bg-background-card">
+            <TabsTrigger value="nostr" className="rounded-xl text-subtitle font-semibold data-[state=active]:bg-background-card">
               {t('myAddress.nostrTab')}
             </TabsTrigger>
           </TabsList>

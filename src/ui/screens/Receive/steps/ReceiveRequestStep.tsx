@@ -362,7 +362,7 @@ export function ReceiveRequestStep({
                 <TabsTrigger
                   key={option.id}
                   value={option.id}
-                  className="rounded-xl text-subtitle font-medium data-[state=active]:bg-background-card"
+                  className="rounded-xl text-subtitle font-semibold data-[state=active]:bg-background-card"
                 >
                   {option.label}
                 </TabsTrigger>
