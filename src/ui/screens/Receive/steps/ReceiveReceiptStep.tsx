@@ -7,7 +7,7 @@
  * second screen to swap to.
  */
 import { useMemo, useState } from 'react'
-import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
@@ -84,25 +84,26 @@ export function ReceiveReceiptStep({ amount, mintUrl, memo, method, receivedAt, 
           onStampComplete={() => { if (!stamped) { setStamped(true); hapticSuccess() } }}
         />
       </div>
-      <AnimatePresence>
-        {stamped && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={fadeTransition(reduceMotion, 0.2)}
-            className="flex gap-3 px-6 pb-app shrink-0"
-          >
-            {onMakeAnother && (
-              <Button variant="secondary" size="xl" onClick={() => { hapticTap(); onMakeAnother() }} className="flex-none px-6">
-                {t('receive.request.makeAnother')}
-              </Button>
-            )}
-            <Button variant="brand" size="xl" onClick={() => { hapticTap(); onExit() }} className="flex-1">
-              {t('receive.request.exit')}
-            </Button>
-          </motion.div>
+      {/* Actions render from mount so the centered receipt above keeps a stable
+          flex-1 height; they only fade in once the stamp lands, instead of
+          appearing and shrinking the receipt's space (which shifted it up). */}
+      <motion.div
+        initial={false}
+        animate={stamped ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
+        transition={fadeTransition(reduceMotion, 0.2)}
+        aria-hidden={!stamped}
+        style={{ pointerEvents: stamped ? 'auto' : 'none' }}
+        className="flex gap-3 px-6 pb-app shrink-0"
+      >
+        {onMakeAnother && (
+          <Button variant="secondary" size="xl" onClick={() => { hapticTap(); onMakeAnother() }} className="flex-none px-6">
+            {t('receive.request.makeAnother')}
+          </Button>
         )}
-      </AnimatePresence>
+        <Button variant="brand" size="xl" onClick={() => { hapticTap(); onExit() }} className="flex-1">
+          {t('receive.request.exit')}
+        </Button>
+      </motion.div>
     </div>
   )
 }

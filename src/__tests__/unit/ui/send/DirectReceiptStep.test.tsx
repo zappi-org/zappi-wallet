@@ -34,7 +34,11 @@ describe('DirectReceiptStep', () => {
     render(<DirectReceiptStep {...base} onExit={onExit} />)
     act(() => claimCb?.())
     expect(screen.getByText('send.direct.claimed')).toBeInTheDocument()
-    expect(screen.queryByText('send.tokenCreate.reclaim')).not.toBeInTheDocument()
+    // Reclaim is hidden + inert after the claim (kept in the layout only to
+    // reserve its footprint so the receipt above doesn't drop).
+    const reclaim = screen.getByText('send.tokenCreate.reclaim')
+    expect(reclaim).toHaveAttribute('aria-hidden', 'true')
+    expect(reclaim).toBeDisabled()
     fireEvent.click(screen.getByText('common.confirm'))
     expect(onExit).toHaveBeenCalled()
   })

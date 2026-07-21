@@ -171,53 +171,50 @@ export function DirectReceiptStep({
         />
       </div>
 
-      {claimed ? (
-        <BottomActionBar gap="sm">
-          <Button variant="brand" size="xl" onClick={onExit} className="w-full">
-            {t('common.confirm')}
-          </Button>
-        </BottomActionBar>
-      ) : (
-        <>
-          <div className="flex items-center gap-3 px-6">
-            <Button
-              variant="secondary"
-              size="lg"
-              className="flex-1"
-              icon={<Copy className="h-4 w-4" strokeWidth={1.8} />}
-              onClick={copyToken}
-              disabled={!tokenString}
-            >
-              {t('common.copy')}
-            </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              className="flex-1"
-              icon={<Share2 className="h-4 w-4" strokeWidth={1.8} />}
-              onClick={shareToken}
-              disabled={!tokenString}
-            >
-              {t('send.tokenCreate.share')}
-            </Button>
-          </div>
-          <BottomActionBar gap="sm">
-            {onReclaim && (
-              <button
-                type="button"
-                onClick={handleReclaim}
-                disabled={reclaimBusy}
-                className="h-11 w-full text-body text-foreground-muted transition-colors hover:text-foreground disabled:opacity-60"
-              >
-                {reclaimLabel}
-              </button>
-            )}
-            <Button variant="brand" size="xl" onClick={onExit} className="w-full">
-              {t('common.confirm')}
-            </Button>
-          </BottomActionBar>
-        </>
-      )}
+      {/* Copy/share and reclaim keep their layout footprint after the claim
+          (hidden, not removed) so the receipt above stays put instead of
+          dropping as the four pre-claim actions collapse to one confirm. */}
+      <div
+        className={`flex items-center gap-3 px-6 ${claimed ? 'invisible' : ''}`}
+        aria-hidden={claimed}
+      >
+        <Button
+          variant="secondary"
+          size="lg"
+          className="flex-1"
+          icon={<Copy className="h-4 w-4" strokeWidth={1.8} />}
+          onClick={copyToken}
+          disabled={claimed || !tokenString}
+        >
+          {t('common.copy')}
+        </Button>
+        <Button
+          variant="secondary"
+          size="lg"
+          className="flex-1"
+          icon={<Share2 className="h-4 w-4" strokeWidth={1.8} />}
+          onClick={shareToken}
+          disabled={claimed || !tokenString}
+        >
+          {t('send.tokenCreate.share')}
+        </Button>
+      </div>
+      <BottomActionBar gap="sm">
+        {onReclaim && (
+          <button
+            type="button"
+            onClick={handleReclaim}
+            disabled={reclaimBusy || claimed}
+            aria-hidden={claimed}
+            className={`h-11 w-full text-body text-foreground-muted transition-colors hover:text-foreground disabled:opacity-60 ${claimed ? 'invisible' : ''}`}
+          >
+            {reclaimLabel}
+          </button>
+        )}
+        <Button variant="brand" size="xl" onClick={onExit} className="w-full">
+          {t('common.confirm')}
+        </Button>
+      </BottomActionBar>
     </div>
   )
 }
