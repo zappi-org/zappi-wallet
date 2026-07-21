@@ -157,7 +157,7 @@ export function PaymentReceipt({
                   type="button"
                   onClick={onToggleQr}
                   aria-label={qrRevealLabel}
-                  className="relative mx-auto mt-2 mb-1 flex aspect-square w-[150px] items-center justify-center overflow-hidden rounded-lg bg-white p-2"
+                  className="relative mx-auto mt-2 mb-1 flex aspect-square w-[200px] items-center justify-center overflow-hidden rounded-lg bg-white p-2"
                 >
                   <div className={`flex h-full w-full items-center justify-center transition-all ${qrVeiled ? 'blur-md opacity-40' : ''}`}>
                     {qr}
