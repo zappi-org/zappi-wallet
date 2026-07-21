@@ -327,14 +327,21 @@ export class SecurityService implements SecurityUseCase {
     return this.cachedSeed
   }
 
-  lock(): void {
+  async lock(): Promise<void> {
+    // Wipe in-memory secrets synchronously (before the first await) so the session
+    // is dead the instant lock() is called, independent of the grace clear.
     this.cachedKeys = null
     this.cachedSeed = null
     this.seedCache.clearCache()
-    // Idle lock must invalidate the PIN-free grace copy. lock() is sync, so fire
-    // with failure logging (not silently dropped); the non-creating extend() plus
-    // this clear keep a racing heartbeat from reviving the blob.
-    this.grace.clear().catch((e) => console.error('[Security] Grace clear on lock failed:', e))
+    // Idle lock must invalidate the PIN-free grace copy before the UI reveals the
+    // LockScreen. Awaited so the caller can order setLocked after the blob is gone;
+    // a clear failure still locks (fail toward locked) with the error logged. The
+    // non-creating extend() plus this clear keep a racing heartbeat from reviving it.
+    try {
+      await this.grace.clear()
+    } catch (e) {
+      console.error('[Security] Grace clear on lock failed:', e)
+    }
   }
 
   // ─── Unlock grace ───

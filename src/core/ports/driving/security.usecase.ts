@@ -39,7 +39,8 @@ export interface SecurityUseCase {
   /** Session cache */
   getCachedKeys(): KeyPair | null
   getCachedSeed(): Uint8Array | null
-  lock(): void
+  /** Wipe in-memory secrets and await grace invalidation (fail toward locked). */
+  lock(): Promise<void>
 
   // ─── Unlock grace (PIN-free reload resume) ───
 

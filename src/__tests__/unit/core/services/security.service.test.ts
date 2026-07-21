@@ -338,16 +338,27 @@ describe('SecurityService', () => {
   // ─── unlock grace (PIN-free reload resume) ───
 
   describe('unlock grace', () => {
-    it('lock() invalidates the grace blob', async () => {
+    it('lock() awaits grace invalidation', async () => {
       await service.createWallet(TEST_MNEMONIC, 'pin1234')
       await service.saveGrace(Date.now() + 60_000)
       expect(mocks.getGraceBlob()).not.toBeNull()
 
-      service.lock()
-      await Promise.resolve() // let the fire-and-forget clear settle
+      // Awaited (not fire-and-forget): the blob is gone once lock() resolves so the
+      // caller can order setLocked after grace invalidation.
+      await service.lock()
 
       expect(mocks.grace.clear).toHaveBeenCalled()
       expect(mocks.getGraceBlob()).toBeNull()
+    })
+
+    it('lock() still locks (fail toward locked) when grace.clear rejects', async () => {
+      await service.createWallet(TEST_MNEMONIC, 'pin1234')
+      vi.mocked(mocks.grace.clear).mockRejectedValueOnce(new Error('idb down'))
+
+      // Must resolve (not reject) — a clear failure is logged, secrets are still wiped.
+      await expect(service.lock()).resolves.toBeUndefined()
+      expect(service.getCachedKeys()).toBeNull()
+      expect(service.getCachedSeed()).toBeNull()
     })
 
     it('saveGrace persists the cached mnemonic; no-op when locked', async () => {

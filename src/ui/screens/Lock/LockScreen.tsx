@@ -9,6 +9,7 @@ import {
   isPasskeyRegistered,
   authenticateWithPasskey,
 } from "@/ui/services/passkey";
+import { readLockoutMarker } from "@/ui/utils/lockout";
 
 // Face ID icon
 const FaceIdIcon = ({ className }: { className?: string }) => (
@@ -76,12 +77,11 @@ export function LockScreen({
 
   // Load lockout state from storage
   useEffect(() => {
-    const stored = localStorage.getItem("lockout");
-    if (stored) {
-      const { until, attempts } = JSON.parse(stored);
-      if (until > Date.now()) {
-        setLockoutUntil(until);
-        setFailedAttempts(attempts);
+    const marker = readLockoutMarker();
+    if (marker) {
+      if (marker.until > Date.now()) {
+        setLockoutUntil(marker.until);
+        setFailedAttempts(marker.attempts);
         // Already locked out at mount — invalidate grace so relaunching can't
         // resume past the lockout without a PIN.
         onLockout?.();
