@@ -152,6 +152,7 @@ function ScreenActivity({ screen }: { screen: Screen }) {
   const swipeBack = useContext(SwipeBackContext) ?? navigateBack
   const swipeBind = useEdgeSwipeBack({
     isTop: activity.isTop,
+    isTransitioning,
     activityId: activity.id,
     belowActivityId,
     onCommit: swipeBack,
@@ -215,8 +216,10 @@ function ScreenActivity({ screen }: { screen: Screen }) {
           // fully occluded background screens.
           willChange: swipeDriven || isTransitioning ? 'transform, opacity' : undefined,
           // The underlay must stay painted while the top sits above it during a drag.
+          // No touch-action here on purpose: constraining it would break nested
+          // horizontal scrollers and pinch-zoom for the whole subtree. The swipe hook
+          // suppresses native scroll only after it claims the pointer.
           visibility: swipeDriven ? 'visible' : isCovered ? 'hidden' : 'visible',
-          touchAction: swipeBind.touchAction,
         }}
       >
         <motion.div
