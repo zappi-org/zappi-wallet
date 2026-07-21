@@ -18,6 +18,11 @@ import { getNavigationSnapshot } from './navigation-store'
  * history package delivers state.usr === undefined, so the plugin's popstate handler
  * early-returns without touching the stackflow stack), and re-arming is deferred to a
  * microtask so it never races the plugin's in-flight history tick.
+ *
+ * The initial arm waits for the first user interaction: iOS 16+ silently skips history
+ * entries pushed without user activation (WebKit bug 248303), so a sentinel armed on load
+ * would be invisible to the very back it must catch. Once the user has interacted the flag
+ * stays set, so later re-arms (after a back at Home, after settling on Home) carry over.
  */
 
 const SENTINEL_MARKER = '__zappiRootGuard'
@@ -49,10 +54,13 @@ function atHomeRoot(): boolean {
 let installed = false
 let disposed = false
 let armed = false
+// Sticky once the user has interacted — the sentinel's pushState only survives iOS 16+
+// back navigation if it carried user activation.
+let hasInteracted = false
 
-/** Seed the sentinel above Home's real entry (idempotent, Home-root only). */
+/** Seed the sentinel above Home's real entry (idempotent, Home-root, post-interaction). */
 export function armRootSentinel(): void {
-  if (!installed || disposed || armed || typeof window === 'undefined' || !atHomeRoot()) return
+  if (!installed || disposed || armed || !hasInteracted || typeof window === 'undefined' || !atHomeRoot()) return
   if (isSentinel(window.history.state)) {
     armed = true
     return
@@ -72,6 +80,7 @@ export function installRootBackGuard(): () => void {
   if (installed || typeof window === 'undefined') return () => {}
   installed = true
   disposed = false
+  hasInteracted = false
 
   const handlePopState = () => {
     // Defer past the plugin's synchronous popstate handling + tick queue.
@@ -88,14 +97,27 @@ export function installRootBackGuard(): () => void {
     })
   }
 
+  // Defer the first arm to a real interaction so the sentinel's pushState carries user
+  // activation (iOS 16+ skips activation-less entries). Any of the events flips the flag;
+  // subsequent arms come from the popstate handler / the store's Home-settle re-arm.
+  const armOnFirstInteraction = () => {
+    hasInteracted = true
+    window.removeEventListener('pointerdown', armOnFirstInteraction)
+    window.removeEventListener('keydown', armOnFirstInteraction)
+    armRootSentinel()
+  }
+  window.addEventListener('pointerdown', armOnFirstInteraction)
+  window.addEventListener('keydown', armOnFirstInteraction)
+
   window.addEventListener('popstate', handlePopState)
-  // Seed once the plugin has established the initial root entry.
-  queueMicrotask(armRootSentinel)
 
   return () => {
     disposed = true
     window.removeEventListener('popstate', handlePopState)
+    window.removeEventListener('pointerdown', armOnFirstInteraction)
+    window.removeEventListener('keydown', armOnFirstInteraction)
     installed = false
     armed = false
+    hasInteracted = false
   }
 }

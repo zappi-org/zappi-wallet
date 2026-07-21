@@ -16,15 +16,37 @@ function seedStackflowRoot() {
 
 let uninstall: () => void
 
+/** The guard defers its first arm to a real interaction (iOS 16+ activation rule). */
+function simulateFirstInteraction() {
+  window.dispatchEvent(new Event('pointerdown'))
+}
+
 describe('root-back-guard', () => {
   beforeEach(() => {
     resetNavigationState()
     window.history.replaceState(null, '', '#/')
     uninstall = installRootBackGuard()
+    simulateFirstInteraction()
   })
 
   afterEach(() => {
     uninstall()
+  })
+
+  it('does not arm before the first user interaction', () => {
+    // Reinstall to get back to the pristine, pre-interaction state.
+    uninstall()
+    window.history.replaceState(null, '', '#/')
+    uninstall = installRootBackGuard()
+    seedStackflowRoot()
+
+    armRootSentinel()
+
+    expect(window.history.state).not.toMatchObject({ __zappiRootGuard: true })
+
+    // Arms once the interaction lands.
+    simulateFirstInteraction()
+    expect(window.history.state).toMatchObject({ __zappiRootGuard: true })
   })
 
   it('arms a sentinel above the plugin root while resting on Home', () => {

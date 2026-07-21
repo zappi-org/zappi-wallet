@@ -138,7 +138,10 @@ function navigateToTabRoot(target: Screen, animate: boolean): void {
   store.setState({ currentScreen: target, stack: ['home', target], previousOverride: null })
 }
 
-export function navigateToScreen(target: Screen, options: { reset?: boolean; animate?: boolean } = {}): void {
+export function navigateToScreen(
+  target: Screen,
+  options: { reset?: boolean; animate?: boolean; replace?: boolean } = {},
+): void {
   const animate = options.animate ?? true
   const state = store.getState()
   if (target === state.currentScreen && !options.reset) return
@@ -148,6 +151,21 @@ export function navigateToScreen(target: Screen, options: { reset?: boolean; ani
 
   if (isTabRoot(target)) {
     navigateToTabRoot(target, animate)
+    return
+  }
+
+  // Replace the top entry in place (replaceState, no new history entry) — for
+  // activation-less auto-navigations (e.g. an incoming-review interrupt) that must not
+  // push an entry iOS 16+ would later skip. Keeps stack depth and the return override,
+  // since the screen is dismissed imperatively (previousScreen), not by a history pop.
+  if (options.replace) {
+    const activityName = SCREEN_TO_ACTIVITY[target]
+    runStackAction((bound) => bound.replace(activityName, {}, { animate }))
+    store.setState({
+      currentScreen: target,
+      stack: state.stack.length > 1 ? [...state.stack.slice(0, -1), target] : [target],
+      previousOverride: state.previousOverride,
+    })
     return
   }
 
