@@ -45,8 +45,8 @@ store.subscribe((state) => {
   armRootSentinel()
 })
 
-// Marks the window during which a stack change is app-initiated. Every store-driven
-// stackflow action stamps it right before dispatching; a stack change that arrives
+// Marks the window during which a stack change is app-initiated. Every ANIMATED
+// store-driven stackflow action stamps it right before dispatching; a stack change that arrives
 // without a fresh stamp came from outside (OS back-swipe, browser buttons), which the
 // browser already animated — the transition layer jump-cuts those to duration 0 instead
 // of replaying our slide. The stamp is a timestamp with null meaning "no mark": null (not
@@ -91,18 +91,24 @@ export function consumeNavigationMark(generation: number): void {
   if (generation === markGeneration) appInitiatedAt = null
 }
 
-function runStackAction(callback: (boundActions: Actions) => void): void {
-  if (actions && stackMounted) {
-    appInitiatedAt = now()
-    markGeneration += 1
-    try {
-      callback(actions)
-    } catch (error) {
-      // A thrown action must not leave the window armed for its full duration — clear the
-      // mark so the next external navigation is still classified correctly, then rethrow.
-      appInitiatedAt = null
-      throw error
-    }
+// Only ANIMATED actions stamp the mark: a non-animated navigation (tab select, boot
+// reconcile) produces no transition to consume it, so stamping would leave a live mark
+// that misclassifies a genuinely external navigation inside the window as app-initiated.
+function runStackAction(animate: boolean, callback: (boundActions: Actions) => void): void {
+  if (!actions || !stackMounted) return
+  if (!animate) {
+    callback(actions)
+    return
+  }
+  appInitiatedAt = now()
+  markGeneration += 1
+  try {
+    callback(actions)
+  } catch (error) {
+    // A thrown action must not leave the window armed for its full duration — clear the
+    // mark so the next external navigation is still classified correctly, then rethrow.
+    appInitiatedAt = null
+    throw error
   }
 }
 
@@ -136,7 +142,7 @@ function navigateToTabRoot(target: Screen, animate: boolean): void {
   const state = store.getState()
 
   if (target === 'home') {
-    runStackAction((bound) => {
+    runStackAction(animate, (bound) => {
       if (state.stack.length > 1) bound.pop(state.stack.length - 1, { animate })
     })
     store.setState({ currentScreen: 'home', stack: ['home'], previousOverride: null })
@@ -151,7 +157,7 @@ function navigateToTabRoot(target: Screen, animate: boolean): void {
 
   if (tabAboveHome === target && state.stack.length === 2) return // already on this tab
 
-  runStackAction((bound) => {
+  runStackAction(animate, (bound) => {
     if (tabAboveHome) {
       // Drop any details above the tab layer, then replace the tab itself.
       if (state.stack.length > 2) bound.pop(state.stack.length - 2, { animate: false })
@@ -186,7 +192,7 @@ export function navigateToScreen(
   if (existingIndex >= 0) {
     const popCount = state.stack.length - 1 - existingIndex
     if (popCount > 0) {
-      runStackAction((bound) => bound.pop(popCount, { animate }))
+      runStackAction(animate, (bound) => bound.pop(popCount, { animate }))
     }
     store.setState({
       currentScreen: target,
@@ -199,7 +205,7 @@ export function navigateToScreen(
   const activityName = SCREEN_TO_ACTIVITY[target]
 
   if (options.reset) {
-    runStackAction((bound) => {
+    runStackAction(animate, (bound) => {
       if (state.stack.length > 1) bound.pop(state.stack.length - 1, { animate: false })
       bound.replace(activityName, {}, { animate })
     })
@@ -207,7 +213,7 @@ export function navigateToScreen(
     return
   }
 
-  runStackAction((bound) => bound.push(activityName, {}, { animate }))
+  runStackAction(animate, (bound) => bound.push(activityName, {}, { animate }))
   store.setState({
     currentScreen: target,
     stack: [...state.stack, target],
@@ -228,7 +234,7 @@ export function navigateBack(): Screen {
     // Real pop to an ancestor already on the stack.
     const popCount = state.stack.length - 1 - onStackIndex
     if (popCount > 0) {
-      runStackAction((bound) => bound.pop(popCount, { animate: true }))
+      runStackAction(true, (bound) => bound.pop(popCount, { animate: true }))
     }
     store.setState({
       currentScreen: target,
@@ -240,7 +246,7 @@ export function navigateBack(): Screen {
 
   // Override points off-stack: replace the top in place — back must never grow history.
   const activityName = SCREEN_TO_ACTIVITY[target]
-  runStackAction((bound) => bound.replace(activityName, {}, { animate: true }))
+  runStackAction(true, (bound) => bound.replace(activityName, {}, { animate: true }))
   store.setState({
     currentScreen: target,
     stack: [...state.stack.slice(0, -1), target],
@@ -260,7 +266,7 @@ export function navigateBack(): Screen {
  */
 function reconcileBootActivity(screen: Screen): boolean {
   if (screen === 'home') return false
-  runStackAction((bound) => {
+  runStackAction(false, (bound) => {
     bound.replace(SCREEN_TO_ACTIVITY.home, {}, { animate: false })
   })
   store.setState({ currentScreen: 'home', stack: ['home'], previousOverride: null })

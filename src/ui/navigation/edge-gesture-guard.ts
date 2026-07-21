@@ -53,6 +53,10 @@ interface PendingTap {
   x: number
   y: number
   t: number
+  // Peak displacement across the whole touch, tracked on touchmove. Final displacement
+  // alone would miss an out-and-back flick that ends within tolerance of the start point
+  // yet was clearly a drag, not a tap.
+  maxDelta: number
   // The element under the finger at touchstart — synthesis is skipped if the release lands
   // on an unrelated element (an overlay that appeared mid-tap).
   target: Element | null
@@ -89,7 +93,20 @@ export function installEdgeGestureGuard(): () => void {
       x: touch.clientX,
       y: touch.clientY,
       t: e.timeStamp,
+      maxDelta: 0,
       target: document.elementFromPoint(touch.clientX, touch.clientY),
+    }
+  }
+
+  const onTouchMove = (e: TouchEvent): void => {
+    const start = pending
+    if (!start) return
+    for (const candidate of Array.from(e.changedTouches)) {
+      if (candidate.identifier === start.id) {
+        const delta = Math.hypot(candidate.clientX - start.x, candidate.clientY - start.y)
+        if (delta > start.maxDelta) start.maxDelta = delta
+        break
+      }
     }
   }
 
@@ -105,7 +122,8 @@ export function installEdgeGestureGuard(): () => void {
       }
     }
     if (!touch) return
-    const moved = Math.hypot(touch.clientX - start.x, touch.clientY - start.y)
+    // Peak displacement, not just final: an out-and-back drag must not read as a tap.
+    const moved = Math.max(start.maxDelta, Math.hypot(touch.clientX - start.x, touch.clientY - start.y))
     const duration = e.timeStamp - start.t
     // Drags (moved past the lock) and long-presses (dwelled) are not taps.
     if (moved > TAP_MOVE_TOLERANCE_PX || duration > TAP_MAX_DURATION_MS) return
@@ -131,11 +149,13 @@ export function installEdgeGestureGuard(): () => void {
   }
 
   window.addEventListener('touchstart', onTouchStart, { passive: false, capture: true })
+  window.addEventListener('touchmove', onTouchMove, { passive: true, capture: true })
   window.addEventListener('touchend', onTouchEnd, { capture: true })
   window.addEventListener('touchcancel', onTouchCancel, { capture: true })
 
   return () => {
     window.removeEventListener('touchstart', onTouchStart, { capture: true })
+    window.removeEventListener('touchmove', onTouchMove, { capture: true })
     window.removeEventListener('touchend', onTouchEnd, { capture: true })
     window.removeEventListener('touchcancel', onTouchCancel, { capture: true })
   }

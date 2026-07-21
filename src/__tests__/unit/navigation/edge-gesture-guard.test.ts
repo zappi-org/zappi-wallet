@@ -122,4 +122,13 @@ describe('edge-gesture-guard', () => {
     window.dispatchEvent(touchEvent('touchend', true, EDGE_TOUCH))
     expect(clickSpy).not.toHaveBeenCalled()
   })
+
+  it('does not synthesize after a drag that returns to the start point (peak displacement)', () => {
+    window.dispatchEvent(touchEvent('touchstart', true, EDGE_TOUCH))
+    // Fast drag out (60px) and back — final displacement is 0, but the peak was a drag.
+    window.dispatchEvent(touchEvent('touchmove', true, { identifier: 1, clientX: 60, clientY: 120 }))
+    window.dispatchEvent(touchEvent('touchmove', true, EDGE_TOUCH))
+    window.dispatchEvent(touchEvent('touchend', true, EDGE_TOUCH))
+    expect(clickSpy).not.toHaveBeenCalled()
+  })
 })

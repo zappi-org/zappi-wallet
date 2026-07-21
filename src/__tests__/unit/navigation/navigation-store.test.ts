@@ -251,6 +251,17 @@ describe('navigation-store', () => {
       expect(currentNavigationMark()).toBeNull()
     })
 
+    it('does not stamp a mark for a non-animated navigation (nothing consumes it)', () => {
+      mountWithMock()
+
+      // Tab select path: animate false — no transition will run, so no mark may be left
+      // that could misclassify a genuinely external navigation inside the window.
+      navigateToScreen('settings', { reset: true, animate: false })
+
+      expect(currentNavigationMark()).toBeNull()
+      expect(isExternalNavigation()).toBe(true)
+    })
+
     it('clears the mark when a stack action throws (no leaked window)', () => {
       const actions = mountWithMock()
       actions.push.mockImplementation(() => {
