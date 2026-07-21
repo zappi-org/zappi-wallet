@@ -829,6 +829,7 @@ export default {
     },
     direct: {
       cta: 'Serahkan langsung',
+      confirmCta: 'Buat',
       label: 'Transfer langsung',
       createFailed: 'Gagal membuat token',
       noMint: 'Tidak ada mint tersedia',

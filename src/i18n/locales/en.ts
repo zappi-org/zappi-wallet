@@ -827,6 +827,7 @@ export default {
     },
     direct: {
       cta: 'Hand over directly',
+      confirmCta: 'Create',
       label: 'Direct transfer',
       createFailed: 'Failed to create token',
       noMint: 'No mint available',

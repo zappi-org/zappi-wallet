@@ -625,7 +625,8 @@ export function SendAmountStep({
                 disabled={!canSend}
                 className="flex-[1.6]"
               >
-                {t('send.confirm.send')}
+                {/* Direct transfers mint a bearer token — the CTA is "만들기", not the routed "보내기". */}
+                {t(directTransfer ? 'send.direct.confirmCta' : 'send.confirm.send')}
               </Button>
             </div>
           </motion.div>

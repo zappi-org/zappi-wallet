@@ -827,6 +827,7 @@ export default {
     },
     direct: {
       cta: '直接渡す',
+      confirmCta: '作成',
       label: '直接受け渡し',
       createFailed: 'トークンの作成に失敗しました',
       noMint: '利用可能なミントがありません',

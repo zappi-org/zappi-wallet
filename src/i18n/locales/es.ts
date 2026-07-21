@@ -829,6 +829,7 @@ export default {
     },
     direct: {
       cta: 'Entregar directamente',
+      confirmCta: 'Crear',
       label: 'Entrega directa',
       createFailed: 'No se pudo crear el token',
       noMint: 'No hay mint disponible',
