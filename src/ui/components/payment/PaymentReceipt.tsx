@@ -74,6 +74,10 @@ export function PaymentReceipt({
   const showSlot = (status === 'printing' || status === 'finishing') && !torn
   const showStamp = stampSrc && (status === 'done' || (status === 'finishing' && torn))
   const dotsAlive = (status === 'printing' || status === 'finishing') && !reduceMotion
+  // The tear jolt is a one-shot shake, not a resting pose: it fires once the
+  // finishing feed tears off, then settles straight. 'finishing' can linger
+  // (awaiting claim, receive arrival), so a fixed -1.4° would sit crooked.
+  const joltActive = torn && status === 'finishing' && !reduceMotion
 
   return (
     <div className="flex w-full flex-col items-center">
@@ -89,14 +93,19 @@ export function PaymentReceipt({
 
       {/* Window clips the paper while it slides out of the slot */}
       <div className={`relative w-[250px] ${torn ? '' : '-mt-0.5 overflow-hidden'}`}>
-        {/* Tear jolt: the freed paper drops a touch and settles slightly askew */}
+        {/* Tear jolt: the freed paper drops a touch and its tilt passes through
+            askew, then settles straight — always ending at rotate 0. */}
         <motion.div
           animate={
-            torn && status === 'finishing'
-              ? { y: 10, rotate: -1.4 }
+            joltActive
+              ? { y: [0, 10, 10], rotate: [0, -1.4, 0] }
               : { y: 0, rotate: 0 }
           }
-          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          transition={
+            joltActive
+              ? { duration: 0.55, times: [0, 0.5, 1], ease: [0.16, 1, 0.3, 1] }
+              : { duration: reduceMotion ? 0 : 0.22, ease: [0.16, 1, 0.3, 1] }
+          }
         >
           <motion.div
             initial={printing ? { y: '-101%' } : { y: 0 }}
