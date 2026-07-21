@@ -116,7 +116,10 @@ describe('ReceiveAmountStep', () => {
     const { rerender } = render(<ReceiveAmountStep key="a" {...base} onConfirm={onConfirm} initialAmount={500} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'send.tokenCreate.toggleUnit' }))
-    expect(screen.getByText('$0')).toBeInTheDocument()
+    // Empty fiat now shows the amount prompt, so enter a digit to prove the
+    // toggle put the hero into fiat mode before re-entry resets it.
+    fireEvent.pointerDown(screen.getByRole('button', { name: '5' }))
+    expect(screen.getByText('$5')).toBeInTheDocument()
 
     rerender(<ReceiveAmountStep key="b" {...base} onConfirm={onConfirm} initialAmount={300} />)
 
