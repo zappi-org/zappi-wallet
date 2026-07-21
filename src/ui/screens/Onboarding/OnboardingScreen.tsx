@@ -340,8 +340,9 @@ export function OnboardingScreen({
             )}
           </div>
 
-          {/* Bottom CTA */}
-          <div className="px-5 pb-5 pt-3 space-y-4">
+          {/* Bottom CTA — pb-app carries the home-indicator inset now that
+              viewport-fit=cover extends this full-screen step to the physical edge. */}
+          <div className="px-5 pb-app pt-3 space-y-4">
             <button
               type="button"
               role="checkbox"

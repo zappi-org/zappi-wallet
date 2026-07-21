@@ -115,7 +115,8 @@ export function RedeemSheet({ isOpen, onClose, onValidated, onRouteValidated, in
 
   return (
     <BottomSheet isOpen={isOpen} onClose={handleClose} title={t('receive.redeem.title')}>
-      <div className="flex flex-col px-6 pb-safe">
+      {/* pb-6 is the base gap only — BottomSheet now adds the home-indicator inset. */}
+      <div className="flex flex-col px-6 pb-6">
         <div className="mt-2 overflow-hidden rounded-2xl bg-black aspect-square">
           {isOpen && <QrScanner onScan={(r) => void handleRaw(r)} active={isOpen} />}
         </div>
