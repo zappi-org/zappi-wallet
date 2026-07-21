@@ -49,9 +49,16 @@ store.subscribe((state) => {
 // stackflow action stamps it right before dispatching; a stack change that arrives
 // without a fresh stamp came from outside (OS back-swipe, browser buttons), which the
 // browser already animated — the transition layer jump-cuts those to duration 0 instead
-// of replaying our slide. Timestamped (not a boolean) so a stale mark self-expires.
-const APP_NAV_WINDOW_MS = 600
-let appInitiatedAt = 0
+// of replaying our slide. The stamp is a timestamp with null meaning "no mark": null (not
+// 0) so early page life isn't misread — performance.now() starts near 0, and a `now() - 0`
+// test would classify externals as app-initiated for the first window. The window only has
+// to cover dispatch→transition-pickup latency (the slide itself is 220ms), so it stays short.
+const APP_NAV_WINDOW_MS = 400
+let appInitiatedAt: number | null = null
+// Bumped on every stamp. A transition captures the generation it saw and consumes only that
+// one, so a rapid second app-initiated pop (re-stamped under a new generation) is not robbed
+// of its mark by the first transition's deferred consume.
+let markGeneration = 0
 
 function now(): number {
   return typeof performance !== 'undefined' ? performance.now() : Date.now()
@@ -63,18 +70,39 @@ function now(): number {
  * external navigation inside the same window is not misread as app-initiated.
  */
 export function isExternalNavigation(): boolean {
-  return now() - appInitiatedAt >= APP_NAV_WINDOW_MS
+  return appInitiatedAt === null || now() - appInitiatedAt >= APP_NAV_WINDOW_MS
 }
 
-/** Consume the app-initiated mark so it can't classify a second, unrelated transition. */
-export function consumeNavigationMark(): void {
-  appInitiatedAt = 0
+/**
+ * The generation of the live app-initiated mark, or null when there is none. A transition
+ * captures this at read time and passes it back to consume, tying consumption to that exact
+ * stamp.
+ */
+export function currentNavigationMark(): number | null {
+  return appInitiatedAt === null ? null : markGeneration
+}
+
+/**
+ * Consume the app-initiated mark so it can't classify a second, unrelated transition — but
+ * only if the generation still matches. A newer stamp (from a rapid follow-up pop) bumps the
+ * generation, so an older transition's deferred consume no-ops instead of stealing it.
+ */
+export function consumeNavigationMark(generation: number): void {
+  if (generation === markGeneration) appInitiatedAt = null
 }
 
 function runStackAction(callback: (boundActions: Actions) => void): void {
   if (actions && stackMounted) {
     appInitiatedAt = now()
-    callback(actions)
+    markGeneration += 1
+    try {
+      callback(actions)
+    } catch (error) {
+      // A thrown action must not leave the window armed for its full duration — clear the
+      // mark so the next external navigation is still classified correctly, then rethrow.
+      appInitiatedAt = null
+      throw error
+    }
   }
 }
 
@@ -140,7 +168,7 @@ function navigateToTabRoot(target: Screen, animate: boolean): void {
 
 export function navigateToScreen(
   target: Screen,
-  options: { reset?: boolean; animate?: boolean; replace?: boolean } = {},
+  options: { reset?: boolean; animate?: boolean } = {},
 ): void {
   const animate = options.animate ?? true
   const state = store.getState()
@@ -151,21 +179,6 @@ export function navigateToScreen(
 
   if (isTabRoot(target)) {
     navigateToTabRoot(target, animate)
-    return
-  }
-
-  // Replace the top entry in place (replaceState, no new history entry) — for
-  // activation-less auto-navigations (e.g. an incoming-review interrupt) that must not
-  // push an entry iOS 16+ would later skip. Keeps stack depth and the return override,
-  // since the screen is dismissed imperatively (previousScreen), not by a history pop.
-  if (options.replace) {
-    const activityName = SCREEN_TO_ACTIVITY[target]
-    runStackAction((bound) => bound.replace(activityName, {}, { animate }))
-    store.setState({
-      currentScreen: target,
-      stack: state.stack.length > 1 ? [...state.stack.slice(0, -1), target] : [target],
-      previousOverride: state.previousOverride,
-    })
     return
   }
 
@@ -283,5 +296,7 @@ export function reportActiveScreen(screen: Screen): void {
 /** Test-only reset for the singleton navigation bridge. */
 export function resetNavigationState(): void {
   stackMounted = false
+  appInitiatedAt = null
+  markGeneration = 0
   store.setState(makeInitialState(), true)
 }

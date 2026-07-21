@@ -102,9 +102,14 @@ export function installRootBackGuard(): () => void {
   // subsequent arms come from the popstate handler / the store's Home-settle re-arm.
   const armOnFirstInteraction = () => {
     hasInteracted = true
-    window.removeEventListener('pointerdown', armOnFirstInteraction)
-    window.removeEventListener('keydown', armOnFirstInteraction)
     armRootSentinel()
+    // Readiness guards (boot reconcile still in flight, not yet settled at Home root) can
+    // make the first arm a no-op. Keep the listeners until an arm actually takes, so the
+    // sentinel is retried on the next interaction instead of being lost forever.
+    if (armed) {
+      window.removeEventListener('pointerdown', armOnFirstInteraction)
+      window.removeEventListener('keydown', armOnFirstInteraction)
+    }
   }
   window.addEventListener('pointerdown', armOnFirstInteraction)
   window.addEventListener('keydown', armOnFirstInteraction)

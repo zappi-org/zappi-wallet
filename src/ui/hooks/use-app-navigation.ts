@@ -14,7 +14,7 @@ export type { Screen, TabId } from '@/ui/navigation/types'
 export interface AppNavigation {
   currentScreen: Screen
   previousScreen: Screen | null
-  setCurrentScreen: (screen: Screen, options?: { replace?: boolean }) => void
+  setCurrentScreen: (screen: Screen) => void
   setPreviousScreen: (screen: Screen | null) => void
   /** Derived: tab owning the current screen (non-tab screens fall back to 'wallet') */
   activeTab: TabId
@@ -40,8 +40,8 @@ export function useAppNavigation(): AppNavigation {
   const [hasSettingsSubPage, setHasSettingsSubPage] = useState(false)
   const isTabScreen = SCREEN_TO_TAB[currentScreen] !== undefined && !hasSettingsSubPage
 
-  const setCurrentScreen = useCallback((screen: Screen, options?: { replace?: boolean }) => {
-    navigateToScreen(screen, options)
+  const setCurrentScreen = useCallback((screen: Screen) => {
+    navigateToScreen(screen)
   }, [])
 
   const setPreviousScreen = useCallback((screen: Screen | null) => {

@@ -8,7 +8,10 @@ import { beforeEach, describe, it, expect, vi } from 'vitest'
 import type { Actions } from '@stackflow/react'
 import {
   bindStackflowActions,
+  consumeNavigationMark,
+  currentNavigationMark,
   getNavigationSnapshot,
+  isExternalNavigation,
   navigateBack,
   navigateToScreen,
   reportActiveScreen,
@@ -174,6 +177,89 @@ describe('navigation-store', () => {
       expect(actions.push).not.toHaveBeenCalled()
       expect(actions.replace).not.toHaveBeenCalled()
       expect(getNavigationSnapshot().stack).toBe(before)
+    })
+  })
+
+  describe('F1: incoming-review interrupt from Home reverts with a real pop', () => {
+    it('pushes Receive above Home, then a reject pops back — stack/screen stay coherent', () => {
+      const actions = mountWithMock() // ['home']
+
+      // The review fires from Home: remember where to return, then open Receive (a push).
+      setPreviousScreenOverride('home')
+      navigateToScreen('receive')
+
+      expect(actions.push).toHaveBeenCalledWith('Receive', {}, expect.anything())
+      expect(getNavigationSnapshot().stack).toEqual(['home', 'receive'])
+
+      actions.push.mockClear()
+      actions.pop.mockClear()
+      actions.replace.mockClear()
+
+      // Reject dismisses back to previousScreen (Home) — a real pop, never a replace that
+      // would leave the store on Home while stackflow still shows a cleared Receive.
+      const previous = getNavigationSnapshot().previousScreen ?? 'home'
+      navigateToScreen(previous)
+
+      expect(actions.pop).toHaveBeenCalledWith(1, expect.anything())
+      expect(actions.replace).not.toHaveBeenCalled()
+      const snap = getNavigationSnapshot()
+      expect(snap.currentScreen).toBe('home')
+      expect(snap.stack).toEqual(['home'])
+    })
+  })
+
+  describe('app-initiated navigation mark', () => {
+    it('classifies null (no mark), app-stamped, and expired', () => {
+      const nowSpy = vi.spyOn(performance, 'now').mockReturnValue(1000)
+
+      // Fresh reset (beforeEach) → no mark: treated as external, no generation.
+      expect(currentNavigationMark()).toBeNull()
+      expect(isExternalNavigation()).toBe(true)
+
+      mountWithMock()
+      navigateToScreen('settings', { reset: true }) // stamps the mark at t=1000
+
+      expect(currentNavigationMark()).toEqual(expect.any(Number))
+      expect(isExternalNavigation()).toBe(false)
+
+      // Still inside the 400ms window (t=1300) — app-initiated.
+      nowSpy.mockReturnValue(1300)
+      expect(isExternalNavigation()).toBe(false)
+
+      // Past the window (t=1500, 500ms later) — external again.
+      nowSpy.mockReturnValue(1500)
+      expect(isExternalNavigation()).toBe(true)
+
+      nowSpy.mockRestore()
+    })
+
+    it("a newer stamp is not robbed by an older transition's consume", () => {
+      mountWithMock()
+      navigateToScreen('history') // stamp, generation N
+      const older = currentNavigationMark()
+      navigateToScreen('transaction-detail') // re-stamp, generation N+1
+      const newer = currentNavigationMark()
+      expect(newer).not.toBe(older)
+
+      // The first transition consuming its (older) generation must NOT clear the newer mark.
+      consumeNavigationMark(older as number)
+      expect(currentNavigationMark()).toBe(newer)
+      expect(isExternalNavigation()).toBe(false)
+
+      // Consuming the matching generation clears it.
+      consumeNavigationMark(newer as number)
+      expect(currentNavigationMark()).toBeNull()
+    })
+
+    it('clears the mark when a stack action throws (no leaked window)', () => {
+      const actions = mountWithMock()
+      actions.push.mockImplementation(() => {
+        throw new Error('boom')
+      })
+
+      expect(() => navigateToScreen('history')).toThrow('boom')
+      expect(currentNavigationMark()).toBeNull()
+      expect(isExternalNavigation()).toBe(true)
     })
   })
 })

@@ -18,6 +18,7 @@ import { historySyncPlugin } from '@stackflow/plugin-history-sync'
 import {
   bindStackflowActions,
   consumeNavigationMark,
+  currentNavigationMark,
   isExternalNavigation,
   navigateBack,
   reportActiveScreen,
@@ -136,12 +137,14 @@ function ScreenActivity({ screen }: { screen: Screen }) {
   // by the browser, so replaying our 0.22s slide double-animates. An external stack change
   // arrives without a fresh app-initiated mark; Motion reads this at the render it picks up
   // the new target (a later flip once the mark is consumed can't restart an in-flight
-  // animation). Consuming the mark when the episode starts stops a rapid app-then-external
-  // sequence inside the 600ms window from reusing it.
+  // animation). The generation captured here is the exact stamp this transition saw, so the
+  // deferred consume clears only that mark — a rapid follow-up pop re-stamps under a newer
+  // generation and keeps its own mark.
+  const markGeneration = currentNavigationMark()
   const jumpCut = isTransitioning && isExternalNavigation()
   useEffect(() => {
-    if (isTransitioning) consumeNavigationMark()
-  }, [isTransitioning])
+    if (isTransitioning && markGeneration !== null) consumeNavigationMark(markGeneration)
+  }, [isTransitioning, markGeneration])
   // Occluded only by a settled screen above — an exit-active (popping) or enter-active
   // (still animating in) screen above must leave this one painted so the reveal/cross-fade
   // isn't a hard flash.

@@ -432,10 +432,11 @@ export default function MainApp() {
     // redeem sheet over this review's confirm step.
     setReceiveLaunch(null)
     setPreviousScreen(currentScreen === 'receive' ? previousScreen : currentScreen)
-    // Replace, not push: this fires from a nostr event with no user activation, and
-    // iOS 16+ drops activation-less history entries. The review is dismissed via
-    // previousScreen (reject/resolve), so no back-stack entry is needed.
-    setCurrentScreen('receive', { replace: true })
+    // Push (not replace): replace overwrites the entry previousScreen returns to — from
+    // Home it clears the only stack entry and strands the app on a cleared Receive with a
+    // corrupted stack. The pushed entry may be skipped by iOS 16+ (no user activation), but
+    // that is an accepted cosmetic quirk the jump-cut layer absorbs.
+    setCurrentScreen('receive')
   }, [activeIncomingReview, pendingIncomingReviews, currentScreen, previousScreen, setCurrentScreen, setPreviousScreen])
 
   // Anchor check and state reconstruction — runs once when the app is unlocked
