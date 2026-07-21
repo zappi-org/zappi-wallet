@@ -84,6 +84,35 @@ function removeTouchMoveSuppressor(): void {
   touchMoveSuppressor = null
 }
 
+// Window-level release fallbacks, installed only while a drag is active: if
+// setPointerCapture failed, a pointer released outside the element (or the window
+// losing focus) would never reach the element handlers, leaving the gesture stuck
+// 'active' with the touchmove suppressor blocking all scrolling. Idempotent with
+// the element handlers via the owner/pointer-id guards inside finish.
+let removeWindowFallbacks: (() => void) | null = null
+
+function installWindowFallbacks(handlers: {
+  up: (e: PointerEvent) => void
+  cancel: (e: PointerEvent) => void
+  blur: () => void
+}): void {
+  if (removeWindowFallbacks || typeof window === 'undefined') return
+  window.addEventListener('pointerup', handlers.up)
+  window.addEventListener('pointercancel', handlers.cancel)
+  window.addEventListener('blur', handlers.blur)
+  removeWindowFallbacks = () => {
+    window.removeEventListener('pointerup', handlers.up)
+    window.removeEventListener('pointercancel', handlers.cancel)
+    window.removeEventListener('blur', handlers.blur)
+  }
+}
+
+function clearWindowFallbacks(): void {
+  const remove = removeWindowFallbacks
+  removeWindowFallbacks = null
+  remove?.()
+}
+
 export interface SwipePhase {
   active: boolean
   // Kept bound to the value after a commit so the popped screen's own exit transition
@@ -126,6 +155,7 @@ function releaseGesture(activityId: string, opts: { includeCommitted: boolean })
   gestureGeneration += 1
   stopActiveControls()
   removeTouchMoveSuppressor()
+  clearWindowFallbacks()
   gestureState = 'idle'
   gestureOwnerId = null
   setPhase(IDLE_PHASE)
@@ -246,6 +276,8 @@ export function useEdgeSwipeBack(params: {
     // under the gesture (a push/replace landed mid-drag), that promise is broken and
     // the release must spring back instead.
     const targetStillValid = (): boolean => {
+      // A stack mid-transition means the pop would land into a moving target.
+      if (transitioningRef.current) return false
       if (!isTopRef.current) return false
       if (belowRef.current === null || belowRef.current !== state.current.belowIdAtStart) return false
       const snap = getNavigationSnapshot()
@@ -273,6 +305,7 @@ export function useEdgeSwipeBack(params: {
       }
       if (gestureState !== 'active') return
       removeTouchMoveSuppressor()
+      clearWindowFallbacks()
       const s = state.current
       const dx = swipeProgress.get() * s.width
       const shouldCommit =
@@ -290,28 +323,45 @@ export function useEdgeSwipeBack(params: {
           settleBack()
           return
         }
-        let committed = false
         try {
           commitRef.current()
-          committed = true
-        } finally {
-          if (committed) {
-            // Freeze the popped screen at 100% (off-screen) through its exit so
-            // stackflow's own slide-out is a visual no-op; the unmount cleanup resets
-            // the shared state once the screen is gone.
-            gestureState = 'committed'
-            setPhase({
-              active: false,
-              committed: true,
-              subjectId: activityIdRef.current,
-              belowId: null,
-            })
-          } else {
-            // The commit threw: bring the subject back instead of stranding it off-screen.
-            settleBack()
-          }
+          // Freeze the popped screen at 100% (off-screen) through its exit so
+          // stackflow's own slide-out is a visual no-op; the unmount cleanup resets
+          // the shared state once the screen is gone.
+          gestureState = 'committed'
+          setPhase({
+            active: false,
+            committed: true,
+            subjectId: activityIdRef.current,
+            belowId: null,
+          })
+        } catch (error) {
+          // Never rethrow through Motion's frame loop — it has no try/finally around
+          // completion callbacks, so an escaping exception could abort the frame
+          // before a rollback scheduled in finally ever runs. Log and restore the
+          // subject instead of stranding it off-screen.
+          console.error('[edge-swipe-back] back commit failed, restoring screen', error)
+          settleBack()
         }
       })
+    }
+
+    // Same finish path as the element handlers; guards make double delivery a no-op.
+    const windowFallbacks = {
+      up: (e: PointerEvent): void => {
+        if (gestureOwnerId !== activityIdRef.current || gestureState !== 'active') return
+        if (e.pointerId !== state.current.pointerId) return
+        finish(true, releaseVelocity(e.clientX, e.timeStamp))
+      },
+      cancel: (e: PointerEvent): void => {
+        if (gestureOwnerId !== activityIdRef.current || gestureState !== 'active') return
+        if (e.pointerId !== state.current.pointerId) return
+        finish(false, 0)
+      },
+      blur: (): void => {
+        if (gestureOwnerId !== activityIdRef.current || gestureState !== 'active') return
+        finish(false, 0)
+      },
     }
 
     return {
@@ -370,6 +420,7 @@ export function useEdgeSwipeBack(params: {
             // no active pointer for this id — proceed without capture
           }
           installTouchMoveSuppressor()
+          installWindowFallbacks(windowFallbacks)
           // Seed before binding: after a prior commit the value is left at 1, and a
           // new subject binding to a stale 1 would flash off-screen for a frame.
           swipeProgress.set(Math.min(1, Math.max(0, dx) / s.width))
@@ -406,7 +457,10 @@ export function useEdgeSwipeBack(params: {
     }
   }, [])
 
-  const eligible = IS_IOS_LIKE && isTop && belowActivityId !== null
+  // isTransitioning is part of eligibility (not just the pointerdown gate) so a
+  // programmatic push/pop starting mid-drag flips it false and the effect below
+  // cancels the in-flight gesture immediately.
+  const eligible = IS_IOS_LIKE && isTop && !isTransitioning && belowActivityId !== null
 
   // Losing eligibility mid-gesture (a push made this screen non-top) cancels the
   // drag/settle outright; the post-commit freeze is left for the unmount cleanup.
