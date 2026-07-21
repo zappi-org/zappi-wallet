@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -120,7 +120,9 @@ describe('ReceiveRequestStep protocol tabs', () => {
     render(<ReceiveRequestStep {...baseProps} />)
 
     await user.click(screen.getByRole('tab', { name: 'receive.qr.protocols.cashu' }))
-    expect(screen.getByTestId('qr-value')).toHaveTextContent('CREQB1TEST')
+    // The outgoing QR stays mounted until the tab-swap exit animation ends,
+    // so wait for the single settled node instead of asserting immediately.
+    await waitFor(() => expect(screen.getByTestId('qr-value')).toHaveTextContent('CREQB1TEST'))
 
     // Two buttons share the "common.copy" accessible name here: the QR
     // tap-to-copy wrapper (static aria-label) and the visible copy/share
@@ -130,7 +132,7 @@ describe('ReceiveRequestStep protocol tabs', () => {
     expect(screen.getByRole('button', { name: 'common.copied' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('tab', { name: 'receive.qr.protocols.lightning' }))
-    expect(screen.getByTestId('qr-value')).toHaveTextContent('LNBC123N1TEST')
+    await waitFor(() => expect(screen.getByTestId('qr-value')).toHaveTextContent('LNBC123N1TEST'))
 
     await user.click(screen.getByRole('button', { name: 'common.copied' }))
     expect(screen.getByRole('button', { name: 'common.copied' })).toBeInTheDocument()

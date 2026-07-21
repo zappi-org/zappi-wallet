@@ -11,6 +11,7 @@ import { Copy, Check, Share2, SquarePen, MessageSquare } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { motion, useReducedMotion } from 'motion/react'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
+import { DirectionalTabPanel } from '@/ui/components/common/DirectionalTabPanel'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
 import { Button } from '@/ui/components/common/Button'
 import { MintIcon } from '@/ui/components/common/MintIcon'
@@ -297,20 +298,26 @@ export function ReceiveRequestStep({
       <ScreenHeader title={t('receive.qr.title')} onBack={onBack} />
 
       <div className="flex-1 flex flex-col items-center px-6 pt-6">
-        {/* QR Code — stays the first paint */}
+        {/* QR Code — stays the first paint. Only this subtree swaps per protocol;
+            detection effects and the summary card live outside the animation. */}
         {qrValue && (
-          <button
-            type="button"
-            aria-label={t('common.copy')}
-            onClick={handleCopy}
-            className={`mt-4 cursor-pointer active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl ${expired ? 'blur-sm opacity-40 pointer-events-none' : ''}`}
+          <DirectionalTabPanel
+            tabKey={activeProtocol}
+            tabIndex={protocolOptions.findIndex((option) => option.id === activeProtocol)}
           >
-            <QRCodeDisplay
-              value={qrValue}
-              size={200}
-              className="rounded-2xl p-3 shadow-[0_2px_12px_rgba(0,0,0,0.08)]"
-            />
-          </button>
+            <button
+              type="button"
+              aria-label={t('common.copy')}
+              onClick={handleCopy}
+              className={`mt-4 cursor-pointer active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl ${expired ? 'blur-sm opacity-40 pointer-events-none' : ''}`}
+            >
+              <QRCodeDisplay
+                value={qrValue}
+                size={200}
+                className="rounded-2xl p-3 shadow-[0_2px_12px_rgba(0,0,0,0.08)]"
+              />
+            </button>
+          </DirectionalTabPanel>
         )}
 
         {/* Protocol tabs below the QR */}
