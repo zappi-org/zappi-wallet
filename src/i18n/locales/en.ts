@@ -396,7 +396,7 @@ export default {
     senderPrivacyModeDescription: 'Prefer routes where the mint cannot link sender and receiver, even if fees are higher',
 
     // Descriptions
-    autoLockDescription: 'Automatically lock after inactivity',
+    autoLockDescription: 'Locks after the idle time you set. Reopening within that window skips the PIN.',
   },
 
   // Add Mint Screen

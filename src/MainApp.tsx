@@ -629,10 +629,13 @@ export default function MainApp() {
   } = useSecurityHandlers({ security: preUnlock.security, wipeAccount })
 
   useAutoLock({
-    enabled: settings.autoLockEnabled ?? true,
     timeoutMinutes: settings.autoLockTimeoutMinutes ?? 5,
     isLocked,
     onLock: handleAutoLock,
+    // Heartbeat + clamp: keep grace alive while active, and shrink it immediately
+    // when the timeout setting is shortened.
+    onExtendGrace: (expiresAt) =>
+      preUnlock.security.extendGrace(expiresAt).catch((e) => console.error('[Grace] extend failed:', e)),
   })
 
   const clearIncomingReviewState = useCallback(() => {

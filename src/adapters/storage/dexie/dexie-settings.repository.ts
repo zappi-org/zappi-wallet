@@ -13,7 +13,6 @@ function getDefaultSettings(): WalletSettings {
   return {
     mints: [...DEFAULT_MINTS],
     relays: [...DEFAULT_RELAYS],
-    autoLockEnabled: true,
     autoLockTimeoutMinutes: AUTO_LOCK.DEFAULT_TIMEOUT_MINUTES,
     soundEnabled: true,
     expertModeEnabled: false,

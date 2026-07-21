@@ -392,7 +392,7 @@ export default {
     senderPrivacyModeDescription: '手数料が高くてもミントが送受信者をリンクできない経路を選択します',
 
     // Descriptions
-    autoLockDescription: '非アクティブ時に自動ロック',
+    autoLockDescription: '設定した無操作時間で自動ロックします。その時間内に開き直すとPINを省略します。',
   },
 
   // Add Mint Screen

@@ -24,8 +24,8 @@ export function SecurityCategoryPage({
 
   const passkeySupported = isPasskeySupported()
   const passkeyEnabled = isPasskeyRegistered()
-  const autoLockEnabled = settings.autoLockEnabled
-  const autoLockValue = autoLockEnabled ? `${settings.autoLockTimeoutMinutes}${t('common.min')}` : null
+  // Auto-lock is always on — show the active timeout, never an off state.
+  const autoLockValue = `${settings.autoLockTimeoutMinutes}${t('common.min')}`
 
   return (
     <SettingsDetailPage title={t('settings.security')} onBack={onBack}>

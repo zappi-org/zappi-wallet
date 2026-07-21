@@ -33,7 +33,6 @@ export interface SettingsSliceState {
 const defaultSettings: WalletSettings = {
   mints: [...DEFAULT_MINTS],
   relays: [...DEFAULT_RELAYS],
-  autoLockEnabled: true,
   autoLockTimeoutMinutes: AUTO_LOCK.DEFAULT_TIMEOUT_MINUTES,
   soundEnabled: true,
   expertModeEnabled: false,

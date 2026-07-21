@@ -392,7 +392,7 @@ export default {
     senderPrivacyModeDescription: 'Pilih rute di mana mint tidak dapat menghubungkan pengirim dan penerima, meskipun biaya lebih tinggi',
 
     // Descriptions
-    autoLockDescription: 'Kunci otomatis setelah tidak aktif',
+    autoLockDescription: 'Terkunci setelah waktu tidak aktif yang Anda atur. Membuka kembali dalam waktu itu melewati PIN.',
   },
 
   // Add Mint Screen

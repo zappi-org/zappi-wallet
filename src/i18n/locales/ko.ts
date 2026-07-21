@@ -396,7 +396,7 @@ export default {
     senderPrivacyModeDescription: '수수료가 높더라도 민트가 송수신자를 연결할 수 없는 경로를 선택합니다',
 
     // Descriptions
-    autoLockDescription: '비활동 시 자동으로 잠금',
+    autoLockDescription: '설정한 시간 동안 사용하지 않으면 잠깁니다. 그 시간 안에 다시 열면 PIN 없이 열립니다.',
   },
 
   // Add Mint Screen

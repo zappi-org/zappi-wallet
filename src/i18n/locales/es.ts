@@ -392,7 +392,7 @@ export default {
     senderPrivacyModeDescription: 'Preferir rutas donde el mint no pueda vincular remitente y destinatario, aunque las tarifas sean mayores',
 
     // Descriptions
-    autoLockDescription: 'Bloquear automáticamente tras inactividad',
+    autoLockDescription: 'Se bloquea tras el tiempo de inactividad que elijas. Reabrir dentro de ese margen omite el PIN.',
   },
 
   // Add Mint Screen
