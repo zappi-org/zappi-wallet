@@ -71,8 +71,11 @@ vi.mock('@/ui/hooks/use-trust-registry', () => ({
 
 // Step stubs expose the conductor callbacks under test as buttons.
 vi.mock('@/ui/screens/Receive/steps/ReceiveAmountStep', () => ({
-  ReceiveAmountStep: ({ onConfirm }: { onConfirm: (d: { amount: number; memo: string }) => void }) => (
-    <button data-testid="amount-step" onClick={() => onConfirm({ amount: 100, memo: '' })} />
+  ReceiveAmountStep: ({ onConfirm, onBack }: { onConfirm: (d: { amount: number; memo: string }) => void; onBack: () => void }) => (
+    <>
+      <button data-testid="amount-step" onClick={() => onConfirm({ amount: 100, memo: '' })} />
+      <button data-testid="amount-back" onClick={onBack} />
+    </>
   ),
 }))
 vi.mock('@/ui/screens/Receive/steps/ReceiveRequestStep', () => ({
@@ -188,6 +191,14 @@ describe('ReceiveFlow conductor — overlay + review races', () => {
     expect(receiveReq.complete).toHaveBeenCalledWith(expect.any(String), 'bolt11')
     // Signal consumed exactly once (mirrors the request step's watchers).
     expect(storeState.lastRedeemedQuoteId).toBeNull()
+  })
+
+  it('fresh entry: amount-step back exits the flow (amountReturn "exit")', () => {
+    const props = baseProps()
+    render(<ReceiveFlow {...props} incomingReview={null} />)
+    expect(screen.getByTestId('amount-step')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('amount-back'))
+    expect(props.onBack).toHaveBeenCalledTimes(1)
   })
 
   it('a redeem launch hosts the sheet over the redeem step; closing without a token exits the flow', () => {

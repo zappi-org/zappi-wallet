@@ -14,11 +14,18 @@ import { useInputParser } from '@/ui/hooks/use-input-parser'
 import { hapticError, hapticTap } from '@/ui/utils/haptic'
 import type { ValidatedCashuToken, ValidatedData } from '@/core/domain/input-types'
 
+// Escape hatch for the dismissal suppression below — past this, close again works.
+const BUSY_DISMISS_TIMEOUT_MS = 8000
+
 export interface RedeemSheetProps {
   isOpen: boolean
   onClose: () => void
-  /** Validated cashu token → flow routes by trust status. */
-  onValidated: (token: ValidatedCashuToken) => void
+  /**
+   * Validated cashu token → flow routes by trust status. Awaited so the busy
+   * window (dismissal suppression) covers the flow's whole continuation
+   * (self-check, reclaim, confirm routing).
+   */
+  onValidated: (token: ValidatedCashuToken) => void | Promise<void>
   /** Non-cashu input (bolt11 etc.) → universal router. */
   onRouteValidated?: (data: ValidatedData) => void
   /** Deep-link token (scanner/router entry) — auto-validated on open. */
@@ -32,11 +39,13 @@ export function RedeemSheet({ isOpen, onClose, onValidated, onRouteValidated, in
   const [error, setError] = useState<string | null>(null)
   const [validating, setValidating] = useState(false)
   const busyRef = useRef(false)
+  const busyStartRef = useRef(0)
 
   const handleRaw = useCallback(async (raw: string) => {
     const trimmed = raw.trim()
     if (!trimmed || busyRef.current) return
     busyRef.current = true
+    busyStartRef.current = Date.now()
     setValidating(true)
     setError(null)
     try {
@@ -48,7 +57,7 @@ export function RedeemSheet({ isOpen, onClose, onValidated, onRouteValidated, in
         setError(t('scanner.invalidToken'))
         return
       }
-      onValidated(validated as ValidatedCashuToken)
+      await onValidated(validated as ValidatedCashuToken)
     } catch {
       hapticError()
       setError(t('scanner.invalidToken'))
@@ -73,11 +82,13 @@ export function RedeemSheet({ isOpen, onClose, onValidated, onRouteValidated, in
     }
   }, [isOpen, initialToken, handleRaw])
 
-  // Dismissal is suppressed mid-validation: a close racing an in-flight
-  // validate/self-check would exit the flow while its continuation (confirm
-  // routing, reclaim) is still pending. The sheet stays up until it settles.
+  // Dismissal is suppressed while a validation and its awaited continuation
+  // (self-check, reclaim, confirm routing) are in flight — but only within a
+  // timeout window: a network-hung validation must not permanently trap the
+  // sheet. A post-timeout close exits the flow, whose unmount leaves the late
+  // continuation inert (flow-side alive guard).
   const handleClose = useCallback(() => {
-    if (busyRef.current) return
+    if (busyRef.current && Date.now() - busyStartRef.current < BUSY_DISMISS_TIMEOUT_MS) return
     onClose()
   }, [onClose])
 

@@ -63,9 +63,10 @@ vi.mock('@/ui/screens/Receive/redeem/RedeemSheet', () => ({
   RedeemSheet: ({ isOpen }: { isOpen: boolean }) => (isOpen ? <div data-testid="redeem-sheet" /> : null),
 }))
 vi.mock('@/ui/screens/Receive/redeem/ConfirmTrustedStep', () => ({
-  ConfirmTrustedStep: ({ token, onReceive, onReject }: { token: { token: string }; onReceive: () => Promise<void>; onReject: () => void }) => (
+  ConfirmTrustedStep: ({ token, onBack, onReceive, onReject }: { token: { token: string }; onBack: () => void; onReceive: () => Promise<void>; onReject: () => void }) => (
     <>
       <button data-testid="step-confirm-trusted" data-token={token.token} onClick={() => void onReceive()} />
+      <button data-testid="confirm-back" onClick={onBack} />
       <button data-testid="confirm-reject" onClick={onReject} />
     </>
   ),
@@ -150,6 +151,41 @@ describe('ReceiveFlow incoming review while mounted', () => {
     // show the amount step — never the rejected token's confirm.
     expect(screen.queryByTestId('step-confirm-trusted')).not.toBeInTheDocument()
     expect(screen.getByTestId('amount-step')).toBeInTheDocument()
+  })
+
+  it('review-mode back rejects and clears the confirm step the same way', () => {
+    const props = makeProps()
+    const onRejectIncomingReview = vi.fn(async () => {})
+    render(
+      <ReceiveFlow
+        {...props}
+        incomingReview={makeReview('r1', 'https://trusted.mint')}
+        onRejectIncomingReview={onRejectIncomingReview}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('confirm-back'))
+    expect(onRejectIncomingReview).toHaveBeenCalledTimes(1)
+    expect(screen.queryByTestId('step-confirm-trusted')).not.toBeInTheDocument()
+    expect(screen.getByTestId('amount-step')).toBeInTheDocument()
+  })
+
+  it('a failed reject re-surfaces the still-pending review', async () => {
+    const props = makeProps()
+    const onRejectIncomingReview = vi.fn(async () => { throw new Error('relay down') })
+    render(
+      <ReceiveFlow
+        {...props}
+        incomingReview={makeReview('r1', 'https://trusted.mint')}
+        onRejectIncomingReview={onRejectIncomingReview}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('confirm-reject'))
+    // Optimistic clear first…
+    expect(screen.getByTestId('amount-step')).toBeInTheDocument()
+    // …then the failure rolls the consumed marker back and the pending review
+    // re-surfaces on its confirm step.
+    await waitFor(() => expect(screen.getByTestId('step-confirm-trusted')).toBeInTheDocument())
+    expect(screen.queryByTestId('amount-step')).not.toBeInTheDocument()
   })
 
   it('routes an untrusted-mint review to the untrusted confirm step', () => {

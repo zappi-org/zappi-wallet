@@ -481,9 +481,10 @@ export function ReceiveFlow({
       }
     }
 
-    // Sheet dismissal is a no-op while validating, so no swipe-close raced us
-    // here — but the flow itself can still exit mid-validate (OS back skips
-    // onBack); the alive guard bails, otherwise proceed to confirm.
+    // Sheet dismissal is suppressed while this awaited continuation runs, so
+    // the only exits that can race us — a hung-validation timeout close or an
+    // external exit (OS back) — both unmount the flow; the alive guard bails,
+    // otherwise proceed to confirm.
     if (!aliveRef.current) return
     setRedeemSheetOpen(false)
     setState((prev) => ({
@@ -527,33 +528,39 @@ export function ReceiveFlow({
     }
   }, [state.redeemToken, onAddTrustedMint, onReceiveToken, finalizeRedeem])
 
+  // Reject the queued review (shared by confirm-step back and reject). The
+  // confirm clears locally first: MainApp's post-reject navigation can leave
+  // this activity buried in the stack, and a later reveal must show a sane
+  // amount step, never the rejected token's confirm. A FAILED reject rolls the
+  // consumed marker back so the still-pending review re-surfaces via the
+  // render-phase adjustment instead of silently vanishing.
+  const rejectIncomingReview = useCallback(() => {
+    if (!incomingReview || !onRejectIncomingReview) return false
+    const externalId = incomingReview.externalId
+    setState((prev) => ({ ...prev, step: 'amount', redeemToken: null }))
+    onRejectIncomingReview().catch((error: unknown) => {
+      console.error('[ReceiveFlow] Reject failed:', error)
+      addToast({ type: 'error', message: translateError(error, t), duration: 3000 })
+      setConsumedReviewId((prev) => (prev === externalId ? null : prev))
+    })
+    return true
+  }, [incomingReview, onRejectIncomingReview, addToast, t])
+
   // Confirm-step back: in incoming-review mode the user cannot return (the queue
   // chose this token), so back becomes reject. Otherwise re-host the redeem sheet
   // so the user can try another token.
   const handleConfirmBack = useCallback(() => {
-    if (incomingReview && onRejectIncomingReview) {
-      // Same buried-stack reset as handleConfirmReject below.
-      setState((prev) => ({ ...prev, step: 'amount', redeemToken: null }))
-      void onRejectIncomingReview()
-      return
-    }
+    if (rejectIncomingReview()) return
     setState((prev) => ({ ...prev, step: 'redeem' }))
     setRedeemSheetOpen(true)
-  }, [incomingReview, onRejectIncomingReview])
+  }, [rejectIncomingReview])
 
   // Reject: mark the queued review rejected, or (direct-receive) drop the token.
   // With the landing gone there is nowhere to return to, so exit the flow.
   const handleConfirmReject = useCallback(() => {
-    if (incomingReview && onRejectIncomingReview) {
-      // Clear the confirm locally first: MainApp's post-reject navigation can
-      // leave this activity buried in the stack, and a later reveal must show
-      // a sane amount step, never the rejected token's confirm.
-      setState((prev) => ({ ...prev, step: 'amount', redeemToken: null }))
-      void onRejectIncomingReview()
-      return
-    }
+    if (rejectIncomingReview()) return
     onBack()
-  }, [incomingReview, onRejectIncomingReview, onBack])
+  }, [rejectIncomingReview, onBack])
 
   // ============= Shared overlay handlers =============
 
