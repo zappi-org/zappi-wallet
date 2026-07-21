@@ -46,6 +46,8 @@ export interface AmountEntryProps {
   emptyPrompt?: string
   /** Above the hero — recipient eyebrow, mint bar, etc. */
   topSlot?: ReactNode
+  /** Between the conversion line and the keypad — e.g. the receive memo trigger. */
+  middleSlot?: ReactNode
   /** Below the keypad — CTA / reset row. */
   bottomSlot?: ReactNode
 }
@@ -98,6 +100,7 @@ export function AmountEntry({
   disabled = false,
   emptyPrompt,
   topSlot,
+  middleSlot,
   bottomSlot,
 }: AmountEntryProps) {
   const { t } = useTranslation()
@@ -267,6 +270,8 @@ export function AmountEntry({
           </button>
         )}
       </div>
+
+      {middleSlot}
 
       <div className={disabled ? 'pointer-events-none opacity-30' : ''}>
         <NumericKeypad

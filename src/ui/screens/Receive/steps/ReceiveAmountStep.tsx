@@ -69,19 +69,23 @@ export function ReceiveAmountStep({
             <ChevronDown className="w-4 h-4 text-foreground-muted shrink-0" strokeWidth={2} />
           </button>
         }
+        middleSlot={
+          /* Figma 금액지정: the memo lives with the amount it annotates, above
+             the keypad, not with the bottom controls. */
+          <button
+            type="button"
+            onClick={() => {
+              hapticTap()
+              setMemoOpen(true)
+            }}
+            className="mx-auto mb-3 flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground"
+          >
+            <SquarePen className="h-4 w-4" />
+            {memo || t('send.memo.changeTitle')}
+          </button>
+        }
         bottomSlot={
           <div className="px-6 pb-app">
-            <button
-              type="button"
-              onClick={() => {
-                hapticTap()
-                setMemoOpen(true)
-              }}
-              className="mx-auto mb-3 flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground"
-            >
-              <SquarePen className="h-4 w-4" />
-              {memo || t('send.memo.changeTitle')}
-            </button>
             <div className="flex gap-3">
               <Button
                 variant="secondary"
