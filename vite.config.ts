@@ -79,6 +79,8 @@ export default defineConfig({
     host: true,
     port: 5174,
     https: httpsConfig,
+    // Tailscale serve proxies device testing traffic with a *.ts.net Host header.
+    allowedHosts: ['.ts.net'],
   },
   resolve: {
     alias: {
