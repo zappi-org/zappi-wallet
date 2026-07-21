@@ -833,6 +833,8 @@ export default {
       createCta: 'Crear token',
       createFailed: 'No se pudo crear el token',
       noMint: 'No hay mint disponible',
+      awaitingClaim: 'Esperando canje',
+      claimed: 'Canjeado',
     },
     tokenCreate: {
       howMuch: '¿Cuánto ecash crear?',

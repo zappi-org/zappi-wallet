@@ -61,8 +61,10 @@ vi.mock('@/ui/screens/Send/steps/SendCompleteStep', () => ({
   },
 }))
 
-vi.mock('@/ui/screens/TokenCreate/steps/CreatedStep', () => ({
-  CreatedStep: () => null,
+// DirectReceiptStep transitively imports QRCodeDisplay (bc-ur -> cborg, whose
+// exports map vitest can't resolve) — stub the whole step; it has its own test.
+vi.mock('@/ui/screens/Send/steps/DirectReceiptStep', () => ({
+  DirectReceiptStep: () => null,
 }))
 
 vi.mock('@/ui/components/payment/MintSelectBottomSheet', () => ({
@@ -350,14 +352,10 @@ describe('SendFlow direct-transfer fee quote', () => {
     expect(capturedAmount!.feeQuote).toBe(20)
 
     // Reproduce the exact bug scenario: direct-transfer create fails — the
-    // failure lands after the sending dwell and returns to 'confirm'.
+    // failure surfaces on 'confirm' immediately (direct skips the sending scene,
+    // so the step never round-trips and the standing quote stays valid).
     await act(async () => {
       await capturedAmount!.onConfirmSend!()
-    })
-    // Returning to 'confirm' re-runs the direct-fee effect — feed that quote
-    feeMock.mockResolvedValueOnce({ fee: 20, availableBalance: 100 })
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 150))
     })
     expect(capturedAmount!.confirmError).not.toBeNull()
 
@@ -382,8 +380,9 @@ describe('SendFlow direct-transfer fee quote', () => {
     })
     expect(capturedAmount!.confirmError).toBeNull()
     expect(capturedAmount!.feeQuote).toBe('pending')
-    // 4 calls: confirm entry, failure-return re-quote, mint2, mint3
-    expect(feeMock).toHaveBeenCalledTimes(4)
+    // 3 calls: confirm entry, mint2, mint3 (no failure-return re-quote —
+    // direct creates never leave 'confirm', so the fee effect doesn't re-fire)
+    expect(feeMock).toHaveBeenCalledTimes(3)
     expect(feeMock).toHaveBeenLastCalledWith('https://mint3.example.com', 50)
 
     // Resolve the STALE first quote (mint2's) — its value must NOT be applied;

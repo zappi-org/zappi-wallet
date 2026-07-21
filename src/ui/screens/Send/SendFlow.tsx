@@ -58,7 +58,7 @@ import { SendAmountStep, type SendAmountDraft } from './steps/SendAmountStep'
 import { SendCompleteStep } from './steps/SendCompleteStep'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { planRouteSelection } from './sendRouteHelpers'
-import { CreatedStep } from '@/ui/screens/TokenCreate/steps/CreatedStep'
+import { DirectReceiptStep } from './steps/DirectReceiptStep'
 
 // ============= Types =============
 
@@ -757,54 +757,30 @@ export function SendFlow({
     [],
   )
 
-  /** Confirm → create the bearer token, then show the result (CreatedStep). */
+  /** Confirm → create the bearer token, then show the receipt (DirectReceiptStep).
+   *  Creation is instant, so success skips the 'sending' scene entirely — the
+   *  confirm button's own busy spinner covers the await. */
   const handleCreateTokenConfirm = useCallback(async () => {
     if (!state.selectedMintUrl) {
-      addToast({
-        type: 'error',
-        message: t('send.direct.noMint'),
-        duration: 3000,
-      })
+      addToast({ type: 'error', message: t('send.direct.noMint'), duration: 3000 })
       return
     }
-    // Direct transfers ride the same sending scene as routed sends — journey
-    // pending in, success/failure out — so the back arrow hides and the rail flows.
-    if (sendingDwellTimerRef.current) window.clearTimeout(sendingDwellTimerRef.current)
-    sendingDwellTimerRef.current = null
-    setSendingFinishing(false)
-    setState((prev) => ({ ...prev, step: 'sending', error: null }))
     try {
       const res = await onCreateToken(state.amount, state.selectedMintUrl, state.memo || undefined)
       if (!res) {
-        addToast({
-          type: 'error',
-          message: t('send.direct.createFailed'),
-          duration: 3000,
-        })
-        completeSendingAfterDwell(() => {
-          setState((prev) => ({ ...prev, step: 'confirm' }))
-        })
+        addToast({ type: 'error', message: t('send.direct.createFailed'), duration: 3000 })
+        setState((prev) => ({ ...prev, step: 'confirm', error: t('send.direct.createFailed') }))
         return
       }
-      completeSendingAfterDwell(() => {
-        setState((prev) => ({
-          ...prev,
-          createdToken: res.token,
-          createdTxId: res.txId,
-          step: 'created',
-          error: null,
-        }))
-      }, { finish: true })
+      setState((prev) => ({ ...prev, createdToken: res.token, createdTxId: res.txId, step: 'created', error: null }))
     } catch (err) {
       // MainApp re-throws InsufficientBalanceError (real fee > estimate, or the
       // balance moved under the open sheet) — surface it instead of a silent tap.
       const message = translateError(err, t)
-      completeSendingAfterDwell(() => {
-        setState((prev) => ({ ...prev, step: 'confirm', error: message }))
-      })
+      setState((prev) => ({ ...prev, step: 'confirm', error: message }))
       addToast({ type: 'error', message, duration: 4000 })
     }
-  }, [state.selectedMintUrl, state.amount, state.memo, onCreateToken, addToast, t, completeSendingAfterDwell])
+  }, [state.selectedMintUrl, state.amount, state.memo, onCreateToken, addToast, t])
 
   /** Reclaim mirrors TokenCreateFlow: reclaim the unclaimed token, then leave the flow. */
   const handleReclaimAndClose = useCallback(async () => {
@@ -1107,15 +1083,14 @@ export function SendFlow({
 
         {state.step === 'created' && (
           <PageTransition key="send-created" variant="fade" className="flex-1">
-            <CreatedStep
+            <DirectReceiptStep
               amount={state.amount}
               memo={state.memo}
-              senderPaysFee={false}
               mintUrl={state.selectedMintUrl!}
               tokenString={state.createdToken}
               txId={state.createdTxId}
-              onClose={onComplete}
-              onCancelToken={handleReclaimAndClose}
+              onExit={onComplete}
+              onReclaim={handleReclaimAndClose}
               onQuoteReclaim={onQuoteReclaim}
             />
           </PageTransition>

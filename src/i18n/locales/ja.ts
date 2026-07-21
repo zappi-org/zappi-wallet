@@ -831,6 +831,8 @@ export default {
       createCta: 'トークンを作成',
       createFailed: 'トークンの作成に失敗しました',
       noMint: '利用可能なミントがありません',
+      awaitingClaim: '受け取り待ち',
+      claimed: '受け取り完了',
     },
     tokenCreate: {
       howMuch: 'いくら分のイーキャッシュを作りますか？',

@@ -835,6 +835,8 @@ export default {
       createCta: '토큰 만들기',
       createFailed: '토큰 생성에 실패했어요',
       noMint: '사용할 민트가 없어요',
+      awaitingClaim: '수령 대기 중',
+      claimed: '수령 완료',
     },
     tokenCreate: {
       howMuch: '얼마의 이캐시를 만들까요?',

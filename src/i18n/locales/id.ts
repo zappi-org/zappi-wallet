@@ -833,6 +833,8 @@ export default {
       createCta: 'Buat token',
       createFailed: 'Gagal membuat token',
       noMint: 'Tidak ada mint tersedia',
+      awaitingClaim: 'Menunggu diklaim',
+      claimed: 'Sudah diklaim',
     },
     tokenCreate: {
       howMuch: 'Berapa nilai ecash yang dibuat?',

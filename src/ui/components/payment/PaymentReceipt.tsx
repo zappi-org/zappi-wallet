@@ -147,6 +147,7 @@ export function PaymentReceipt({
                 <button
                   type="button"
                   onClick={onToggleQr}
+                  aria-label={qrRevealLabel}
                   className="relative mx-auto mt-2 mb-1 flex aspect-square w-[150px] items-center justify-center overflow-hidden rounded-lg bg-white p-2"
                 >
                   <div className={`flex h-full w-full items-center justify-center transition-all ${qrVeiled ? 'blur-md opacity-40' : ''}`}>
@@ -154,7 +155,7 @@ export function PaymentReceipt({
                   </div>
                   {qrVeiled && (
                     <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1">
-                      <div className="text-3xl">🙈</div>
+                      <div className="text-3xl" aria-hidden>🙈</div>
                       {qrRevealLabel && (
                         <div className="flex items-center gap-1 text-[10px] text-foreground-muted">
                           <Eye className="h-3 w-3" strokeWidth={1.8} />

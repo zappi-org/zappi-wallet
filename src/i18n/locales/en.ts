@@ -831,6 +831,8 @@ export default {
       createCta: 'Create token',
       createFailed: 'Failed to create token',
       noMint: 'No mint available',
+      awaitingClaim: 'Awaiting pickup',
+      claimed: 'Claimed',
     },
     tokenCreate: {
       howMuch: 'How much ecash to create?',
