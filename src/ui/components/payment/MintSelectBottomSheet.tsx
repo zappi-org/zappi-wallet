@@ -8,6 +8,7 @@ import { useWallet } from '@/ui/hooks/use-wallet'
 import { useMintHealth } from '@/ui/hooks/use-mint-health'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useCarouselScroll } from '@/ui/hooks/use-carousel-scroll'
+import { useKeyboardInset } from '@/ui/hooks/use-keyboard-inset'
 import { MintCard, resolveMintColor } from '@/ui/components/wallet/MintCard'
 import { Button } from '@/ui/components/common/Button'
 import type { MintInfo } from '@/core/types'
@@ -57,6 +58,10 @@ function MintSelectBottomSheetInner({
   const settings = useAppStore((state) => state.settings)
   const { getCachedStatus } = useMintHealth()
   const { getDisplayName, getIconUrl } = useMintMetadata(settings.mints)
+  // Lift the sheet above the soft keyboard: this sheet opens from flows where a
+  // text input may still be focused (npub needs-mint-selection, ContactsScreen),
+  // and bottom:0 alone leaves it behind the keyboard on iOS (viewport-only resize).
+  const keyboardInset = useKeyboardInset()
 
   // Build mint list (memoized to avoid rebuild on carousel scroll)
   const mints: MintInfo[] = useMemo(() =>
@@ -131,7 +136,8 @@ function MintSelectBottomSheetInner({
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
-        className="fixed bottom-0 left-0 right-0 bg-background-card border-t border-border rounded-t-[20px] z-[70]"
+        className="fixed left-0 right-0 bg-background-card border-t border-border rounded-t-[20px] z-[70]"
+        style={{ bottom: keyboardInset }}
       >
         {/* Handle */}
         <div className="flex justify-center py-2">
