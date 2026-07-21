@@ -21,14 +21,34 @@ const storeState = {
   addPendingQuote: vi.fn(),
   settings: { mints: ['https://trusted.mint'], relays: [] },
   nostrPubkey: null,
+  // Sticky payment signals — the setters mutate this plain object so the
+  // flow's consumption (clearing the signal) is observable in assertions.
+  lastRedeemedQuoteId: null as string | null,
+  lastRedeemedQuoteAmount: 0,
+  setLastRedeemedQuote: vi.fn((id: string | null, amount: number) => {
+    storeState.lastRedeemedQuoteId = id
+    storeState.lastRedeemedQuoteAmount = amount
+  }),
+  lastReceivedRequestId: null as string | null,
+  lastReceivedAmount: 0,
+  setLastReceivedPayment: vi.fn((id: string | null, amount: number) => {
+    storeState.lastReceivedRequestId = id
+    storeState.lastReceivedAmount = amount
+  }),
 }
 vi.mock('@/store', () => ({
   useAppStore: (selector: (s: typeof storeState) => unknown) => selector(storeState),
 }))
 
 vi.mock('@/ui/hooks/use-network', () => ({ useNetwork: () => ({ isOnline: true }) }))
+// Stable spies (not per-render fns) so tests can assert cancel/complete calls.
+const receiveReq = vi.hoisted(() => ({
+  create: vi.fn(async () => {}),
+  cancel: vi.fn(async () => {}),
+  complete: vi.fn(async () => {}),
+}))
 vi.mock('@/ui/hooks/use-receive-request', () => ({
-  useReceiveRequest: () => ({ create: vi.fn(async () => {}), cancel: vi.fn(async () => {}), complete: vi.fn(async () => {}) }),
+  useReceiveRequest: () => receiveReq,
 }))
 vi.mock('@/ui/hooks/use-payment-request', () => ({
   usePaymentRequest: () => ({
@@ -138,6 +158,40 @@ describe('ReceiveFlow conductor — overlay + review races', () => {
     fireEvent.click(screen.getByTestId('request-pay'))
     await waitFor(() => expect(screen.getByTestId('step-received')).toBeInTheDocument())
     expect(screen.queryByTestId('amount-step')).not.toBeInTheDocument()
+  })
+
+  it('confirm on an already-paid request surfaces the arrival receipt instead of regenerating', async () => {
+    const props = baseProps()
+    const { rerender } = render(<ReceiveFlow {...props} incomingReview={null} />)
+
+    // address → amount → confirm creates the request (quoteId 'q1')
+    fireEvent.click(screen.getByTestId('specify-amount'))
+    fireEvent.click(screen.getByTestId('amount-step'))
+    await waitFor(() => expect(screen.getByTestId('step-request')).toBeInTheDocument())
+    expect(props.onCreateInvoice).toHaveBeenCalledTimes(1)
+
+    // Enter edit — the request step (and its payment watchers) unmounts.
+    fireEvent.click(screen.getByTestId('request-edit'))
+    expect(screen.getByTestId('amount-step')).toBeInTheDocument()
+
+    // The old quote settles during the blind window; the sticky signal lands.
+    // Rerender stands in for the re-render a live zustand store would trigger.
+    storeState.lastRedeemedQuoteId = 'q1'
+    storeState.lastRedeemedQuoteAmount = 100
+    rerender(<ReceiveFlow {...props} incomingReview={null} />)
+
+    receiveReq.cancel.mockClear()
+    receiveReq.complete.mockClear()
+    fireEvent.click(screen.getByTestId('amount-step'))
+
+    // Arrival receipt, not a regenerated request: the paid request survives.
+    await waitFor(() => expect(screen.getByTestId('step-received')).toBeInTheDocument())
+    expect(receiveReq.cancel).not.toHaveBeenCalled()
+    expect(props.onCreateInvoice).toHaveBeenCalledTimes(1)
+    expect(props.onPaymentReceived).toHaveBeenCalledWith(100, 'lightning')
+    expect(receiveReq.complete).toHaveBeenCalledWith(expect.any(String), 'bolt11')
+    // Signal consumed exactly once (mirrors the request step's watchers).
+    expect(storeState.lastRedeemedQuoteId).toBeNull()
   })
 
   it('does NOT resolve a different pending review when a manual redeem finalizes', async () => {

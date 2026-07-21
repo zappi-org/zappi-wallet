@@ -31,7 +31,7 @@ import { useMintNut18Support } from '@/ui/hooks/use-mint-nut18-support'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useTrustRegistry } from '@/ui/hooks/use-trust-registry'
 import { translateError } from '@/ui/utils/error-i18n'
-import { hapticError } from '@/ui/utils/haptic'
+import { hapticError, hapticSuccess } from '@/ui/utils/haptic'
 
 import { ReceiveAddressStep } from './steps/ReceiveAddressStep'
 import { ReceiveAmountStep } from './steps/ReceiveAmountStep'
@@ -146,6 +146,16 @@ export function ReceiveFlow({
   const paymentReq = usePaymentRequest()
   const crypto = useCrypto()
   const { isTrusted } = useTrustRegistry()
+
+  // Sticky payment signals (same ones ReceiveRequestStep's watcher effects
+  // consume). While the amount step covers the request step those watchers are
+  // unmounted, so the flow itself must check them before discarding a request.
+  const lastRedeemedQuoteId = useAppStore((s) => s.lastRedeemedQuoteId)
+  const lastRedeemedQuoteAmount = useAppStore((s) => s.lastRedeemedQuoteAmount)
+  const setLastRedeemedQuote = useAppStore((s) => s.setLastRedeemedQuote)
+  const lastReceivedRequestId = useAppStore((s) => s.lastReceivedRequestId)
+  const lastReceivedAmount = useAppStore((s) => s.lastReceivedAmount)
+  const setLastReceivedPayment = useAppStore((s) => s.setLastReceivedPayment)
 
   const [state, setState] = useState<ReceiveFlowState>(() => {
     // Incoming review (gift-wrap): skip the landing and open the appropriate
@@ -408,8 +418,9 @@ export function ReceiveFlow({
   /** Payment detected → stamp the receipt once and print it. */
   const handlePaymentDetected = useCallback((amount: number, method: 'bolt11' | 'ecash') => {
     onPaymentReceived(amount, method === 'bolt11' ? 'lightning' : 'ecash')
-    // Close any open overlay so the arrival receipt isn't buried under a sheet.
-    // The setState below to 'received' supersedes the amount step if it is live.
+    // Close any open sheet so the arrival receipt isn't buried under one.
+    // Reached from the request step's watchers, or from the amount step's
+    // confirm when the request being edited had already been paid.
     setMintSheetOpen(false)
     setRedeemSheetOpen(false)
     const receivedAt = Date.now()
@@ -548,8 +559,38 @@ export function ReceiveFlow({
   }, [])
 
   const handleAmountConfirm = useCallback((data: { amount: number; memo: string }) => {
+    // Paid-while-editing blind window: the request step's watchers are unmounted
+    // here, but the store signals are sticky. If the CURRENT request already got
+    // paid, regenerating would cancel a paid request and orphan the arrival —
+    // surface the receipt instead. Consumption mirrors ReceiveRequestStep's
+    // effects per method (lightning clears before detection, ecash after) so a
+    // remount can never double-fire on the same signal.
+    if (state.quoteId && lastRedeemedQuoteId === state.quoteId) {
+      setLastRedeemedQuote(null, 0)
+      hapticSuccess()
+      handlePaymentDetected(lastRedeemedQuoteAmount || state.amount, 'bolt11')
+      return
+    }
+    if (state.ecashRequestId && lastReceivedRequestId === state.ecashRequestId) {
+      hapticSuccess()
+      handlePaymentDetected(lastReceivedAmount, 'ecash')
+      setLastReceivedPayment(null, 0)
+      return
+    }
     regenerate(data.amount, data.memo)
-  }, [regenerate])
+  }, [
+    state.quoteId,
+    state.ecashRequestId,
+    state.amount,
+    lastRedeemedQuoteId,
+    lastRedeemedQuoteAmount,
+    setLastRedeemedQuote,
+    lastReceivedRequestId,
+    lastReceivedAmount,
+    setLastReceivedPayment,
+    handlePaymentDetected,
+    regenerate,
+  ])
 
   // Enter the amount step, remembering where its back arrow returns: the landing
   // (fresh request) vs the request step (edit an existing one).
