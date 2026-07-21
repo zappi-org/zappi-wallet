@@ -13,7 +13,7 @@ vi.mock('@/ui/hooks/use-own-payment-event', () => ({ useOwnPaymentEvent: vi.fn()
 let claimCb: (() => void) | undefined
 vi.mock('@/ui/hooks/use-send-claimed', () => ({ useSendClaimed: (_id: unknown, cb: () => void) => { claimCb = cb } }))
 // QRCodeDisplay pulls in bc-ur -> cborg, whose package.json exports map
-// vitest/vite can't resolve — mock it (same workaround as ReceiveAddressStep.test.tsx).
+// vitest/vite can't resolve — mock the component to keep that import out.
 vi.mock('@/ui/components/common/QRCodeDisplay', () => ({ QRCodeDisplay: ({ value }: { value: string }) => <div data-testid="qr">{value}</div> }))
 
 const base = {

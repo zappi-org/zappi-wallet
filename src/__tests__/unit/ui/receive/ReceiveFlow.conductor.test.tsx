@@ -87,14 +87,17 @@ vi.mock('@/ui/screens/Receive/steps/ReceiveReceiptStep', () => ({
   ReceiveReceiptStep: () => <div data-testid="step-received" />,
 }))
 vi.mock('@/ui/screens/Receive/redeem/RedeemSheet', () => ({
-  RedeemSheet: ({ isOpen, onValidated }: { isOpen: boolean; onValidated: (t: unknown) => void }) =>
+  RedeemSheet: ({ isOpen, onClose, onValidated }: { isOpen: boolean; onClose: () => void; onValidated: (t: unknown) => void }) =>
     isOpen ? (
-      <button
-        data-testid="redeem-validate"
-        onClick={() =>
-          onValidated({ type: 'cashu-token', token: 'cashuB_manualX', mintUrl: 'https://trusted.mint', amount: sat(21) })
-        }
-      />
+      <div data-testid="redeem-sheet">
+        <button
+          data-testid="redeem-validate"
+          onClick={() =>
+            onValidated({ type: 'cashu-token', token: 'cashuB_manualX', mintUrl: 'https://trusted.mint', amount: sat(21) })
+          }
+        />
+        <button data-testid="redeem-close" onClick={onClose} />
+      </div>
     ) : null,
 }))
 vi.mock('@/ui/screens/Receive/redeem/ConfirmTrustedStep', () => ({
@@ -185,6 +188,20 @@ describe('ReceiveFlow conductor — overlay + review races', () => {
     expect(receiveReq.complete).toHaveBeenCalledWith(expect.any(String), 'bolt11')
     // Signal consumed exactly once (mirrors the request step's watchers).
     expect(storeState.lastRedeemedQuoteId).toBeNull()
+  })
+
+  it('a redeem launch hosts the sheet over the redeem step; closing without a token exits the flow', () => {
+    const props = baseProps()
+    render(<ReceiveFlow {...props} incomingReview={null} launch={{ redeemOpen: true }} />)
+
+    // The empty host step backgrounds the container-level sheet.
+    expect(screen.getByTestId('step-redeem')).toBeInTheDocument()
+    expect(screen.getByTestId('redeem-sheet')).toBeInTheDocument()
+
+    // Dismissing without deciding a token = leave the flow.
+    fireEvent.click(screen.getByTestId('redeem-close'))
+    expect(props.onBack).toHaveBeenCalledTimes(1)
+    expect(screen.queryByTestId('redeem-sheet')).not.toBeInTheDocument()
   })
 
   it('does NOT resolve a different pending review when a manual redeem finalizes', async () => {

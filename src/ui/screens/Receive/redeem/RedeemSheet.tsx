@@ -73,6 +73,14 @@ export function RedeemSheet({ isOpen, onClose, onValidated, onRouteValidated, in
     }
   }, [isOpen, initialToken, handleRaw])
 
+  // Dismissal is suppressed mid-validation: a close racing an in-flight
+  // validate/self-check would exit the flow while its continuation (confirm
+  // routing, reclaim) is still pending. The sheet stays up until it settles.
+  const handleClose = useCallback(() => {
+    if (busyRef.current) return
+    onClose()
+  }, [onClose])
+
   const handlePaste = useCallback(async () => {
     hapticTap()
     try {
@@ -95,7 +103,7 @@ export function RedeemSheet({ isOpen, onClose, onValidated, onRouteValidated, in
   }, [handleRaw, t])
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title={t('receive.redeem.title')}>
+    <BottomSheet isOpen={isOpen} onClose={handleClose} title={t('receive.redeem.title')}>
       <div className="flex flex-col px-6 pb-safe">
         <div className="mt-2 overflow-hidden rounded-2xl bg-black aspect-square">
           {isOpen && <QrScanner onScan={(r) => void handleRaw(r)} active={isOpen} />}

@@ -63,8 +63,11 @@ vi.mock('@/ui/screens/Receive/redeem/RedeemSheet', () => ({
   RedeemSheet: ({ isOpen }: { isOpen: boolean }) => (isOpen ? <div data-testid="redeem-sheet" /> : null),
 }))
 vi.mock('@/ui/screens/Receive/redeem/ConfirmTrustedStep', () => ({
-  ConfirmTrustedStep: ({ onReceive }: { onReceive: () => Promise<void> }) => (
-    <button data-testid="step-confirm-trusted" onClick={() => void onReceive()} />
+  ConfirmTrustedStep: ({ token, onReceive, onReject }: { token: { token: string }; onReceive: () => Promise<void>; onReject: () => void }) => (
+    <>
+      <button data-testid="step-confirm-trusted" data-token={token.token} onClick={() => void onReceive()} />
+      <button data-testid="confirm-reject" onClick={onReject} />
+    </>
   ),
 }))
 vi.mock('@/ui/screens/Receive/redeem/ConfirmUntrustedStep', () => ({
@@ -102,7 +105,8 @@ describe('ReceiveFlow incoming review while mounted', () => {
     const { rerender } = render(
       <ReceiveFlow {...props} incomingReview={null} launch={{ redeemOpen: true }} />,
     )
-    // Redeem launch opens the redeem host with the sheet over it (no step marker).
+    // Redeem launch opens the empty host step with the sheet over it.
+    expect(screen.getByTestId('step-redeem')).toBeInTheDocument()
     expect(screen.getByTestId('redeem-sheet')).toBeInTheDocument()
 
     rerender(
@@ -110,7 +114,42 @@ describe('ReceiveFlow incoming review while mounted', () => {
     )
     expect(screen.getByTestId('step-confirm-trusted')).toBeInTheDocument()
     expect(screen.queryByTestId('redeem-sheet')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('step-redeem')).not.toBeInTheDocument()
     expect(screen.queryByTestId('amount-step')).not.toBeInTheDocument()
+  })
+
+  it('a queued review takes precedence over a redeem launch at mount', () => {
+    const props = makeProps()
+    render(
+      <ReceiveFlow
+        {...props}
+        incomingReview={makeReview('r1', 'https://trusted.mint')}
+        launch={{ redeemOpen: true, redeemToken: 'cashuB_stale' }}
+      />,
+    )
+    // Review wins: no sheet auto-open (the stale launch token must not
+    // auto-validate over the review), confirm shows the review's own token.
+    expect(screen.getByTestId('step-confirm-trusted')).toBeInTheDocument()
+    expect(screen.queryByTestId('redeem-sheet')).not.toBeInTheDocument()
+    expect(screen.getByTestId('step-confirm-trusted')).toHaveAttribute('data-token', 'cashuBr1')
+  })
+
+  it('rejecting a queued review clears the confirm step from local state', () => {
+    const props = makeProps()
+    const onRejectIncomingReview = vi.fn(async () => {})
+    render(
+      <ReceiveFlow
+        {...props}
+        incomingReview={makeReview('r1', 'https://trusted.mint')}
+        onRejectIncomingReview={onRejectIncomingReview}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('confirm-reject'))
+    expect(onRejectIncomingReview).toHaveBeenCalledTimes(1)
+    // If MainApp's navigation leaves this activity buried, a later reveal must
+    // show the amount step — never the rejected token's confirm.
+    expect(screen.queryByTestId('step-confirm-trusted')).not.toBeInTheDocument()
+    expect(screen.getByTestId('amount-step')).toBeInTheDocument()
   })
 
   it('routes an untrusted-mint review to the untrusted confirm step', () => {

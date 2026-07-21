@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { RedeemSheet } from '@/ui/screens/Receive/redeem/RedeemSheet'
 
@@ -27,6 +27,31 @@ describe('RedeemSheet', () => {
     render(<RedeemSheet isOpen onClose={vi.fn()} onValidated={vi.fn()} onRouteValidated={onRouteValidated} />)
     fireEvent.click(screen.getByText('receive.redeem.paste'))
     await waitFor(() => expect(onRouteValidated).toHaveBeenCalled())
+  })
+
+  it('suppresses dismissal while a validation is in flight, allows it once settled', async () => {
+    validateAsync.mockClear()
+    let resolveValidate: (v: typeof validated) => void = () => {}
+    validateAsync.mockImplementationOnce(() => new Promise((res) => { resolveValidate = res }))
+    const onClose = vi.fn()
+    const onValidated = vi.fn()
+    Object.assign(navigator, { clipboard: { readText: vi.fn().mockResolvedValue('cashuA...') } })
+    render(<RedeemSheet isOpen onClose={onClose} onValidated={onValidated} />)
+
+    fireEvent.click(screen.getByText('receive.redeem.paste'))
+    await waitFor(() => expect(validateAsync).toHaveBeenCalledTimes(1))
+
+    // Backdrop dismissal mid-validation is a no-op — closing would race the
+    // flow's continuation (confirm routing / reclaim).
+    const backdrop = document.querySelector('div.inset-0.bg-black')!
+    fireEvent.click(backdrop)
+    expect(onClose).not.toHaveBeenCalled()
+
+    // Once the attempt settles, dismissal works again.
+    await act(async () => { resolveValidate(validated) })
+    expect(onValidated).toHaveBeenCalledWith(validated)
+    fireEvent.click(backdrop)
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 
   it('deep-link token validates once; same token on reopen does not re-validate, a new token does', async () => {

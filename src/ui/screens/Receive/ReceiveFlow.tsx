@@ -10,7 +10,7 @@
  * redeem → redeem-confirm-{trusted,untrusted} → received
  */
 
-import { useState, useCallback, useRef, useMemo } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
 import { useTranslation } from 'react-i18next'
@@ -187,11 +187,24 @@ export function ReceiveFlow({
   // AnimatePresence) rather than inside a single step fragment: the redeem sheet
   // backgrounds the redeem host step and reopens when backing out of a confirm
   // step; the mint sheet is opened from the amount step.
-  const [redeemSheetOpen, setRedeemSheetOpen] = useState(() => !!(launch?.redeemOpen || launch?.redeemToken))
+  // Review wins at mount: a stale redeem launch must not auto-open (and
+  // auto-validate its token) over the queued review's confirm step.
+  const [redeemSheetOpen, setRedeemSheetOpen] = useState(
+    () => !incomingReview?.token && !!(launch?.redeemOpen || launch?.redeemToken),
+  )
   const [mintSheetOpen, setMintSheetOpen] = useState(false)
 
   const [isLoading, setIsLoading] = useState(false)
   const isProcessingRef = useRef(false)
+  // False once this flow instance unmounts (exit paths that skip onBack — OS
+  // back, external navigation — still unmount the activity). Async redeem
+  // continuations check it so a dead flow can never execute a reclaim or
+  // resurrect UI state.
+  const aliveRef = useRef(true)
+  useEffect(() => {
+    aliveRef.current = true
+    return () => { aliveRef.current = false }
+  }, [])
   // Set while a manual redeem is finalizing. The render-phase review adjustment
   // below must not swap state mid-flight, or the receipt could describe the
   // wrong token; the deferred review stays unconsumed and surfaces afterward.
@@ -445,6 +458,9 @@ export function ReceiveFlow({
     // redeem to avoid a duplicate timeline entry.
     if (onCheckSelfToken && onReclaimOwnToken) {
       const match = await onCheckSelfToken(token.token)
+      // The flow may have exited while the self-check was in flight; a dead
+      // flow must never execute the reclaim.
+      if (!aliveRef.current) return
       if (match) {
         try {
           const result = await onReclaimOwnToken(match.txId)
@@ -465,8 +481,10 @@ export function ReceiveFlow({
       }
     }
 
-    // Validate may resolve after a swipe-close: close the sheet unconditionally
-    // and proceed to confirm (the user initiated this validate).
+    // Sheet dismissal is a no-op while validating, so no swipe-close raced us
+    // here — but the flow itself can still exit mid-validate (OS back skips
+    // onBack); the alive guard bails, otherwise proceed to confirm.
+    if (!aliveRef.current) return
     setRedeemSheetOpen(false)
     setState((prev) => ({
       ...prev,
@@ -514,6 +532,8 @@ export function ReceiveFlow({
   // so the user can try another token.
   const handleConfirmBack = useCallback(() => {
     if (incomingReview && onRejectIncomingReview) {
+      // Same buried-stack reset as handleConfirmReject below.
+      setState((prev) => ({ ...prev, step: 'amount', redeemToken: null }))
       void onRejectIncomingReview()
       return
     }
@@ -525,6 +545,10 @@ export function ReceiveFlow({
   // With the landing gone there is nowhere to return to, so exit the flow.
   const handleConfirmReject = useCallback(() => {
     if (incomingReview && onRejectIncomingReview) {
+      // Clear the confirm locally first: MainApp's post-reject navigation can
+      // leave this activity buried in the stack, and a later reveal must show
+      // a sane amount step, never the rejected token's confirm.
+      setState((prev) => ({ ...prev, step: 'amount', redeemToken: null }))
       void onRejectIncomingReview()
       return
     }
@@ -602,7 +626,7 @@ export function ReceiveFlow({
       <AnimatePresence mode="wait">
         {state.step === 'redeem' && (
           <PageTransition key="receive-redeem" variant="fade" className="flex-1">
-            <div className="h-full bg-background" />
+            <div data-testid="step-redeem" className="h-full bg-background" />
           </PageTransition>
         )}
 
