@@ -28,6 +28,12 @@ const fadeVariants = {
   exit: { opacity: 0 },
 }
 
+const slideUpVariants = {
+  initial: { y: '100%' },
+  animate: { y: 0 },
+  exit: { y: '100%' },
+}
+
 /**
  * Success feedback animation variants
  */
@@ -41,7 +47,7 @@ const successVariants = {
 
 export interface PageTransitionProps {
   children: ReactNode
-  variant?: 'page' | 'modal' | 'fade'
+  variant?: 'page' | 'modal' | 'fade' | 'slideUp'
   className?: string
 }
 
@@ -57,6 +63,7 @@ export function PageTransition({
     page: pageVariants,
     modal: modalVariants,
     fade: fadeVariants,
+    slideUp: slideUpVariants,
   }
 
   return (
@@ -104,7 +111,7 @@ export function SuccessAnimation({ show, children }: SuccessAnimationProps) {
 export interface AnimatedPresenceWrapperProps {
   show: boolean
   children: ReactNode
-  variant?: 'page' | 'modal' | 'fade'
+  variant?: 'page' | 'modal' | 'fade' | 'slideUp'
 }
 
 export function AnimatedPresenceWrapper({
@@ -116,6 +123,7 @@ export function AnimatedPresenceWrapper({
     page: pageVariants,
     modal: modalVariants,
     fade: fadeVariants,
+    slideUp: slideUpVariants,
   }
 
   return (

@@ -1,7 +1,7 @@
 import { txSourceKey } from '@/ui/utils/tx-source'
 import type { TFunction } from 'i18next'
 import { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Search, Banknote, Calendar, CreditCard, Download, FileSpreadsheet, ListFilter } from 'lucide-react'
+import { ArrowLeft, X, Search, Banknote, Calendar, CreditCard, Download, FileSpreadsheet, ListFilter } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { motion, AnimatePresence } from 'motion/react'
@@ -41,6 +41,7 @@ export interface HistoryScreenProps {
   isLoading?: boolean
   initialFilter?: FilterType
   initialMintUrls?: string[]
+  isSheet?: boolean
 }
 
 interface AnchorText {
@@ -127,6 +128,7 @@ export function HistoryScreen({
   isLoading = false,
   initialFilter,
   initialMintUrls,
+  isSheet,
 }: HistoryScreenProps) {
   'use no memo' // useVirtualizer returns mutable functions incompatible with React Compiler
   const { t, i18n } = useTranslation()
@@ -289,7 +291,7 @@ export function HistoryScreen({
   }
 
   return (
-    <div className="h-dvh bg-background text-foreground flex flex-col font-primary relative overflow-hidden z-[60] pt-safe">
+    <div className={`${isSheet ? 'h-full' : 'h-dvh'} bg-background text-foreground flex flex-col font-primary relative overflow-hidden z-[60] pt-safe`}>
       {/* Header */}
       <header className="relative flex items-center justify-between px-5 h-14 shrink-0 z-50">
         <button
@@ -297,7 +299,11 @@ export function HistoryScreen({
           aria-label={t('common.back')}
           className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
         >
-          <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
+          {isSheet ? (
+            <X className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
+          ) : (
+            <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
+          )}
         </button>
         <h2 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold pointer-events-none">{t('history.title')}</h2>
         <button
@@ -349,7 +355,7 @@ export function HistoryScreen({
       </div>
 
       {/* List */}
-      <div ref={scrollContainerRef} className="mt-2 flex-1 min-h-0 overflow-y-auto px-5 pb-app">
+      <div ref={scrollContainerRef} data-scroll-container className="mt-2 flex-1 min-h-0 overflow-y-auto px-5 pb-app">
         {isLoading ? (
           <TransactionListSkeleton count={6} />
         ) : timelineGroups.length === 0 ? (

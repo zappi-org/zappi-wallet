@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useCarouselScroll } from "@/ui/hooks/use-carousel-scroll";
 import { usePullToRefresh } from "@/ui/hooks/use-pull-to-refresh";
-import { Plus, LoaderCircle, ArrowDown, ChevronRight, Eye, EyeOff, CircleUserRound, Copy, Check } from "lucide-react";
+import { Plus, LoaderCircle, ArrowDown, Eye, EyeOff, CircleUserRound, Copy, Check } from "lucide-react";
+import { motion, type PanInfo } from "motion/react";
 
 import { useTranslation } from "react-i18next";
 import { CameraFilled } from "@/ui/components/icons/CameraFilled";
 import { hapticTap } from "@/ui/utils/haptic";
 import { MintCard, resolveMintColor } from "../../components/wallet/MintCard";
-import { TransactionList } from "../../components/wallet/TransactionList";
+import { HomeRecentCard } from "../../components/wallet/HomeRecentCard";
 import { BottomSheet } from "@/ui/components/common/BottomSheet";
 import { Button } from "@/ui/components/common/Button";
 import { QRCodeDisplay } from "@/ui/components/common/QRCodeDisplay";
@@ -141,6 +142,18 @@ export function HomeScreen({
     });
   }, [transactions, mints, clampedMintIndex]);
 
+  const recentTransaction = useMemo(() => {
+    return filteredTransactions.length > 0 ? filteredTransactions[0] : null
+  }, [filteredTransactions]);
+
+  const handleSwipeUp = useCallback((_: PointerEvent, info: PanInfo) => {
+    if (info.point.y > window.innerHeight - 100) return
+    if (Math.abs(info.offset.y) < Math.abs(info.offset.x)) return
+    if (info.offset.y < -48 || info.velocity.y < -320) {
+      onTransactions?.(mints[clampedMintIndex]?.url)
+    }
+  }, [onTransactions, mints, clampedMintIndex])
+
   const handleBalanceVisibilityToggle = useCallback(() => {
     hapticTap();
     const updated = { balanceHidden: !settings.balanceHidden };
@@ -175,10 +188,11 @@ export function HomeScreen({
   }, [addToast, npub, t]);
 
   return (
-    <div
+    <motion.div
       ref={scrollContainerRef as React.RefObject<HTMLDivElement>}
       className="h-dvh bg-background text-foreground font-primary overflow-hidden flex flex-col pt-safe"
       style={{ overscrollBehaviorY: "contain" }}
+      onPanEnd={handleSwipeUp}
     >
       {/* Pull-to-refresh indicator */}
       <div
@@ -356,36 +370,21 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* Transaction section header — fixed */}
-      <div className="shrink-0 w-[var(--card-w)] mx-auto flex items-center justify-between pt-4 pb-2">
-        <h2 className="text-caption font-semibold text-foreground-muted">
-          {t("home.recentTransactions")}
-        </h2>
-        {filteredTransactions.length > 0 && (
-          <button
-            onClick={() => onTransactions?.(mints[clampedMintIndex]?.url)}
-            className="flex items-center gap-0.5 text-caption font-medium text-brand hover:text-brand-700 active:scale-95 transition-all"
-          >
-            {t("home.seeAll")}
-            <ChevronRight className="w-4 h-4" strokeWidth={2} />
-          </button>
-        )}
-      </div>
-
-      {/* Scrollable transaction list */}
-      <main className="flex-1 overflow-y-auto min-h-0">
-        <div className="pb-home-transactions w-[var(--card-w)] mx-auto">
-          <TransactionList
-            transactions={filteredTransactions}
-            allTransactions={transactions}
-            onTransactionClick={onSelectTransaction}
-            maxItems={5}
-            showDate
-            showHeader={false}
-            className="px-0"
-          />
+      {/* Single recent transaction — pinned above toolbar */}
+      {recentTransaction ? (
+        <HomeRecentCard
+          className="mt-auto"
+          transaction={recentTransaction}
+          onPress={() => onSelectTransaction?.(recentTransaction)}
+          onSeeAll={() => onTransactions?.(mints[clampedMintIndex]?.url)}
+        />
+      ) : (
+        <div className="mt-auto shrink-0 pb-app-nav px-4 w-full max-w-sm mx-auto">
+          <p className="text-caption text-foreground-muted text-center py-2">
+            {t('home.noTransactions')}
+          </p>
         </div>
-      </main>
+      )}
 
       <BottomSheet
         isOpen={profileSheetOpen}
@@ -436,6 +435,6 @@ export function HomeScreen({
           </Button>
         </div>
       </BottomSheet>
-    </div>
+    </motion.div>
   );
 }

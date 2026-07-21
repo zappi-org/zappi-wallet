@@ -80,6 +80,7 @@ import { TokenCreateFlow } from '@/ui/screens/TokenCreate/TokenCreateFlow'
 import { TokenRegisterFlow } from '@/ui/screens/TokenRegister/TokenRegisterFlow'
 import { routeValidatedInput } from '@/ui/utils/input-router'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
+import { HistorySheetOverlay } from '@/ui/components/common/HistorySheetOverlay'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { formatNpubShort } from '@/ui/screens/Send/sendDisplayHelpers'
 
@@ -185,6 +186,7 @@ export default function MainApp() {
 
   const [activeMintUrl, setActiveMintUrl] = useState<string | null>(null)
 
+  const [showHistoryOverlay, setShowHistoryOverlay] = useState(false)
   const [historyInitialMintUrls, setHistoryInitialMintUrls] = useState<string[] | undefined>(undefined)
 
   const [contactInfo, setContactInfo] = useState<{ address: string; displayName: string } | null>(null)
@@ -807,7 +809,7 @@ export default function MainApp() {
       <HomeScreen
         onTransactions={(mintUrl?: string) => {
           setHistoryInitialMintUrls(mintUrl ? [mintUrl] : undefined)
-          setCurrentScreen('history')
+          setShowHistoryOverlay(true)
         }}
         onNotifications={() => setCurrentScreen('notifications')}
         onAddMint={() => setCurrentScreen('add-mint')}
@@ -1313,36 +1315,46 @@ export default function MainApp() {
           </PageTransition>
         </AnimatePresence>
 
+        {/* History overlay — bottom-sheet style with backdrop */}
+        <HistorySheetOverlay
+          open={showHistoryOverlay}
+          onClose={() => setShowHistoryOverlay(false)}
+          transactions={transactions}
+          initialMintUrls={historyInitialMintUrls}
+        />
+
       </div>
 
       {/* Bottom Navigation — MainTabToolbar / TokenTabToolbar swap */}
-      <AnimatePresence mode="wait" initial={false}>
-        {isTabScreen && activeTab !== 'token' && (
-          <MainTabToolbar
-            key="main-tab-toolbar"
-            navItems={navItems}
-            activeTab={activeTab}
-            onTabSelect={handleTabSelect}
-          />
-        )}
-        {isTabScreen && activeTab === 'token' && (
-          <TokenTabToolbar
-            key="token-tab-toolbar"
-            navItems={navItems}
-            activeTab={activeTab}
-            scrollRef={tokenScrollRef}
-            onTabSelect={handleTabSelect}
-            onCreate={() => {
-              setPreviousScreen('token')
-              setCurrentScreen('token-create')
-            }}
-            onRegister={() => {
-              setPreviousScreen('token')
-              setCurrentScreen('token-register')
-            }}
-          />
-        )}
-      </AnimatePresence>
+      {!showHistoryOverlay && (
+        <AnimatePresence mode="wait" initial={false}>
+          {isTabScreen && activeTab !== 'token' && (
+            <MainTabToolbar
+              key="main-tab-toolbar"
+              navItems={navItems}
+              activeTab={activeTab}
+              onTabSelect={handleTabSelect}
+            />
+          )}
+          {isTabScreen && activeTab === 'token' && (
+            <TokenTabToolbar
+              key="token-tab-toolbar"
+              navItems={navItems}
+              activeTab={activeTab}
+              scrollRef={tokenScrollRef}
+              onTabSelect={handleTabSelect}
+              onCreate={() => {
+                setPreviousScreen('token')
+                setCurrentScreen('token-create')
+              }}
+              onRegister={() => {
+                setPreviousScreen('token')
+                setCurrentScreen('token-register')
+              }}
+            />
+          )}
+        </AnimatePresence>
+      )}
 
       {/* Home camera shortcut — top-right scan */}
       <QrScannerModal

@@ -16,4 +16,5 @@ jobs:
           bun-version: latest
       - run: bun install --frozen
       - run: bun run lint
+      - run: bun run build
       - run: bun run test:run
