@@ -40,4 +40,19 @@ export interface SecurityUseCase {
   getCachedKeys(): KeyPair | null
   getCachedSeed(): Uint8Array | null
   lock(): void
+
+  // ─── Unlock grace (PIN-free reload resume) ───
+
+  /**
+   * Resume a still-valid grace session without a PIN. Returns the same
+   * UnlockResult shape as unlock() (migrated=false — grace never migrates KDF),
+   * or null when there's no live grace. Failures fall back to null (→ PIN).
+   */
+  tryResumeSession(): Promise<UnlockResult | null>
+  /** Persist grace for the current (unlocked) session with the given expiry. */
+  saveGrace(expiresAt: number): Promise<void>
+  /** Atomically refresh grace expiry (non-creating heartbeat). */
+  extendGrace(expiresAt: number): Promise<void>
+  /** Invalidate grace without touching the in-memory session (lockout entry). */
+  clearGrace(): Promise<void>
 }

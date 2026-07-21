@@ -9,6 +9,7 @@ import type { KeyManager } from '@/core/ports/driven/key-manager.port'
 import type { Encryption } from '@/core/ports/driven/encryption.port'
 import type { SecureStorage, StoredWallet } from '@/core/ports/driven/secure-storage.port'
 import type { SeedCache } from '@/core/ports/driven/seed-cache.port'
+import type { UnlockGrace } from '@/core/ports/driven/unlock-grace.port'
 import type { KeyPair } from '@/core/domain/key-manager'
 import type { SecurityUseCase, UnlockResult } from '@/core/ports/driving/security.usecase'
 import { Ok, Err, type Result } from '@/core/domain/result'
@@ -32,6 +33,7 @@ export class SecurityService implements SecurityUseCase {
     private readonly encryption: Encryption,
     private readonly storage: SecureStorage,
     private readonly seedCache: SeedCache,
+    private readonly grace: UnlockGrace,
   ) {}
 
   // ─── Wallet lifecycle ───
@@ -101,12 +103,7 @@ export class SecurityService implements SecurityUseCase {
         password,
         KDF_ITERATIONS[match.version],
       )
-      const keys = this.keyManager.deriveNostrKeyPair(mnemonic)
-      const bip39Seed = this.keyManager.deriveBip39Seed(mnemonic)
-
-      this.cachedKeys = keys
-      this.cachedSeed = bip39Seed
-      this.seedCache.cacheMnemonic(mnemonic)
+      const { keys, bip39Seed } = this.hydrateSession(mnemonic)
 
       // Migrate when the record is an old version (matched != CURRENT) or corrupt (declared != matched).
       // Failure is non-fatal — unlock still succeeds, the record stays intact and is retried next unlock.
@@ -211,6 +208,9 @@ export class SecurityService implements SecurityUseCase {
   }
 
   async deleteWallet(): Promise<void> {
+    // Grace holds a PIN-free decryptable mnemonic copy — drop it before the
+    // wallet record so deleting a wallet can never leave a resumable session.
+    await this.grace.clear()
     await this.storage.deleteWallet()
     this.cachedKeys = null
     this.cachedSeed = null
@@ -305,6 +305,20 @@ export class SecurityService implements SecurityUseCase {
 
   // ─── Session cache ───
 
+  /**
+   * Derive keys/seed from a mnemonic and populate every session cache (Coco's
+   * getSeed reads seedCache). Shared by unlock() and tryResumeSession() so both
+   * paths produce an identical live session.
+   */
+  private hydrateSession(mnemonic: string): UnlockResult {
+    const keys = this.keyManager.deriveNostrKeyPair(mnemonic)
+    const bip39Seed = this.keyManager.deriveBip39Seed(mnemonic)
+    this.cachedKeys = keys
+    this.cachedSeed = bip39Seed
+    this.seedCache.cacheMnemonic(mnemonic)
+    return { keys, bip39Seed }
+  }
+
   getCachedKeys(): KeyPair | null {
     return this.cachedKeys
   }
@@ -317,6 +331,39 @@ export class SecurityService implements SecurityUseCase {
     this.cachedKeys = null
     this.cachedSeed = null
     this.seedCache.clearCache()
+    // Idle lock must invalidate the PIN-free grace copy. lock() is sync, so fire
+    // with failure logging (not silently dropped); the non-creating extend() plus
+    // this clear keep a racing heartbeat from reviving the blob.
+    this.grace.clear().catch((e) => console.error('[Security] Grace clear on lock failed:', e))
+  }
+
+  // ─── Unlock grace ───
+
+  async tryResumeSession(): Promise<UnlockResult | null> {
+    try {
+      const session = await this.grace.load()
+      if (!session) return null
+      // Resume without PIN — the live grace blob vouches for a recent unlock. No
+      // KDF migration here; that only runs on a real PIN unlock.
+      return this.hydrateSession(session.mnemonic)
+    } catch (error) {
+      console.error('[Security] Grace resume failed — falling back to PIN:', error)
+      return null
+    }
+  }
+
+  async saveGrace(expiresAt: number): Promise<void> {
+    const mnemonic = this.seedCache.getCachedMnemonic()
+    if (!mnemonic) return // locked / no session — nothing to persist
+    await this.grace.save(mnemonic, expiresAt)
+  }
+
+  async extendGrace(expiresAt: number): Promise<void> {
+    await this.grace.extend(expiresAt)
+  }
+
+  async clearGrace(): Promise<void> {
+    await this.grace.clear()
   }
 }
 
