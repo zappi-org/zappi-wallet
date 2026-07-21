@@ -49,6 +49,39 @@ function isGitDirty(): boolean {
   }
 }
 
+// Dev-only kill switch for stale service workers. A device that once loaded a
+// prod/preview build on this origin keeps that SW forever: its update check
+// fetches /service-worker.js, the dev server answers with the index.html SPA
+// fallback (not JS), the update fails, and the SW keeps serving the old cached
+// app — fixes never reach the device. Serving a real self-destroying SW at the
+// same path makes the browser's automatic update swap it in, purge caches,
+// unregister, and reload clients back onto the live dev server.
+const SELF_DESTROYING_SW = `self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.map((key) => caches.delete(key)));
+    await self.registration.unregister();
+    const clients = await self.clients.matchAll({ type: 'window' });
+    clients.forEach((client) => client.navigate(client.url));
+  })());
+});
+`
+
+function devServiceWorkerKillSwitch() {
+  return {
+    name: 'dev-sw-kill-switch',
+    apply: 'serve' as const,
+    configureServer(server: { middlewares: { use: (path: string, handler: (req: unknown, res: { setHeader: (k: string, v: string) => void; end: (body: string) => void }) => void) => void } }) {
+      server.middlewares.use('/service-worker.js', (_req, res) => {
+        res.setHeader('Content-Type', 'text/javascript')
+        res.setHeader('Cache-Control', 'no-store')
+        res.end(SELF_DESTROYING_SW)
+      })
+    },
+  }
+}
+
 const appVersion = readPackageVersion()
 const gitCommit = readGitCommit()
 const appCommit = gitCommit !== 'unknown' && isGitDirty() ? `${gitCommit}-dirty` : gitCommit
@@ -131,6 +164,7 @@ export default defineConfig({
     pure: ['console.log', 'console.debug', 'console.info'],
   },
   plugins: [
+    devServiceWorkerKillSwitch(),
     react(),
     tailwindcss(),
     VitePWA({
