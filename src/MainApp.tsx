@@ -86,6 +86,7 @@ import { formatNpubShort } from '@/ui/screens/Send/sendDisplayHelpers'
 
 // Services (via composition layer only)
 import { createSecurityService } from '@/composition/security'
+import type { UnlockResult } from '@/core/ports/driving/security.usecase'
 import type { Transaction } from '@/core/domain/transaction'
 import type { PendingIncomingReview } from '@/core/types'
 import { removePasskey } from '@/ui/services/passkey'
@@ -392,6 +393,10 @@ export default function MainApp() {
     }
   }, [currentScreen, addToast, t, setCurrentScreen, setPreviousScreen])
 
+  // Guards the boot grace-resume from a StrictMode/HMR double-run (would otherwise
+  // double-bootstrap). Same pattern as anchorCheckedRef below.
+  const resumeAttemptedRef = useRef(false)
+
   // Initialize app — Coco-independent work only (Coco inits after unlock in setupSubscription)
   useEffect(() => {
     const init = async () => {
@@ -413,6 +418,21 @@ export default function MainApp() {
         preUnlock.txRepo.deleteOlderThan(90).catch(() => { })
         preUnlock.failedIncomingStore.cleanupNonRetryable(30).catch(() => { })
         preUnlock.cleanupExpiredReceiveRequests().catch(() => { })
+
+        // Resume a still-valid grace session BEFORE revealing the UI. Awaited here
+        // (before setInitializing(false)) so that reaching LockScreen guarantees the
+        // resume already resolved — to an unlock or a deleted blob — with no PIN
+        // flash and no double bootstrap. Only attempt while locked; the ref guards
+        // the StrictMode/HMR double-run.
+        if (!resumeAttemptedRef.current && useAppStore.getState().isLocked) {
+          resumeAttemptedRef.current = true
+          try {
+            const resumed = await preUnlock.security.tryResumeSession()
+            if (resumed) await applyUnlockRef.current(resumed, savedSettings.autoLockTimeoutMinutes ?? 5)
+          } catch (e) {
+            console.error('[Init] Grace resume failed:', e)
+          }
+        }
       } catch (error) {
         console.error('Init error:', error)
       } finally {
@@ -519,38 +539,37 @@ export default function MainApp() {
     }
   }, [isLocked, isInitializing, serviceRegistry, refreshAndRecover])
 
-  const handleUnlock = useCallback(async (password: string): Promise<boolean> => {
-    const result = await preUnlock.security.unlock(password)
-    // false = PIN mismatch only (LockScreen counts it toward lockout). Infra
-    // failures (UNLOCK_FAILED / NO_WALLET) throw instead, so they don't burn the
-    // lockout counter and trap a legitimate user in brute-force defense —
-    // LockScreen's catch shows lock.errorOccurred without counting it.
-    if (!result.ok) {
-      if (result.error.code === 'INVALID_PASSWORD') return false
-      throw result.error
-    }
-
-    setNostrKeyPair(result.value.keys.publicKey, result.value.keys.privateKey)
+  // Shared post-unlock wiring for BOTH the PIN path (handleUnlock) and the boot
+  // grace-resume path — one function so the two can't drift. Persists grace here
+  // (now + timeout) so a reload within the auto-lock window resumes without a PIN;
+  // onboarding's createWallet deliberately does not run through here, so a first
+  // run still reloads to PIN.
+  const applyUnlock = useCallback(async (result: UnlockResult, timeoutMinutes: number): Promise<void> => {
+    setNostrKeyPair(result.keys.publicKey, result.keys.privateKey)
 
     // KDF re-encryption migration just happened: reload other tabs (old bundle)
     // and clear the false lockout. Hoisted here so both success paths
-    // (fast re-unlock, bootstrap) handle it at one point before returning.
-    if (result.value.migrated) {
+    // (fast re-unlock, bootstrap) handle it at one point.
+    if (result.migrated) {
       notifyKdfMigrated()
     }
 
+    // Persist grace so a reload within the auto-lock window resumes without a PIN.
+    preUnlock.security.saveGrace(Date.now() + timeoutMinutes * 60_000)
+      .catch((e) => console.error('[Unlock] Grace save failed:', e))
+
     // Lightweight unlock path: if the session (registry / socket / subscriptions)
-    // is still alive, don't re-bootstrap — security.unlock just restored the
-    // mnemonic cache and the keys are the same wallet. A full reconnect on every
-    // unlock would revive, per lock cycle, the burst the network rework removed.
+    // is still alive, don't re-bootstrap — the mnemonic cache is restored and the
+    // keys are the same wallet. A full reconnect on every unlock would revive, per
+    // lock cycle, the burst the network rework removed.
     if (serviceRegistry) {
       setLocked(false)
-      return true
+      return
     }
 
     const registry = createBootstrap({
-      nostrPrivateKeyHex: result.value.keys.privateKey,
-      bip39Seed: result.value.bip39Seed,
+      nostrPrivateKeyHex: result.keys.privateKey,
+      bip39Seed: result.bip39Seed,
     })
     // On re-unlock, dispose the previous registry generation's timers/subscriptions
     // (prevents flusher / TLS-polling leaks).
@@ -569,8 +588,28 @@ export default function MainApp() {
 
     // P2PK key — load in the background, don't block SDK init
     registry.p2pkKeyManager.getCurrentKey().then(({ pubkey }) => setP2pkPubkey(pubkey))
-    return true
   }, [preUnlock.security, setLocked, setNostrKeyPair, setP2pkPubkey, serviceRegistry])
+
+  const handleUnlock = useCallback(async (password: string): Promise<boolean> => {
+    const result = await preUnlock.security.unlock(password)
+    // false = PIN mismatch only (LockScreen counts it toward lockout). Infra
+    // failures (UNLOCK_FAILED / NO_WALLET) throw instead, so they don't burn the
+    // lockout counter and trap a legitimate user in brute-force defense —
+    // LockScreen's catch shows lock.errorOccurred without counting it.
+    if (!result.ok) {
+      if (result.error.code === 'INVALID_PASSWORD') return false
+      throw result.error
+    }
+    await applyUnlock(result.value, settings.autoLockTimeoutMinutes ?? 5)
+    return true
+  }, [preUnlock.security, applyUnlock, settings.autoLockTimeoutMinutes])
+
+  // Latest applyUnlock in a ref so the boot init effect can resume without taking
+  // applyUnlock as a dependency (which would re-run init on every unlock).
+  const applyUnlockRef = useRef(applyUnlock)
+  useEffect(() => {
+    applyUnlockRef.current = applyUnlock
+  }, [applyUnlock])
 
   // Security handlers (auto-lock / PIN change·verify / mnemonic backup / logout).
   // handleUnlock stays in MainApp — it's the bootstrap shim (registry generation
