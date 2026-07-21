@@ -32,3 +32,18 @@ describe('PaymentReceipt QR slot', () => {
     expect(screen.queryByTestId('qr-stub')).not.toBeInTheDocument()
   })
 })
+
+// Receipt vertical stability: the finishing→done transition must not change the
+// receipt's height, or the my-auto-centered receipt visibly jumps on stamp.
+describe('PaymentReceipt slot-space reservation', () => {
+  it('keeps the printer-slot height reserved through finishing→done', () => {
+    const { rerender } = render(<PaymentReceipt {...base} status="finishing" />)
+    rerender(<PaymentReceipt {...base} status="done" />)
+    expect(screen.getByTestId('receipt-slot')).toBeInTheDocument()
+  })
+
+  it('reserves no slot height for a standalone done receipt (never had a slot)', () => {
+    render(<PaymentReceipt {...base} status="done" />)
+    expect(screen.queryByTestId('receipt-slot')).not.toBeInTheDocument()
+  })
+})

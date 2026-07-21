@@ -68,6 +68,11 @@ export function PaymentReceipt({
   // Render-phase adjustment (codebase pattern — see MemoSheet): torn is forced
   // for complete-screen states and reduced motion without an effect cascade.
   if ((startsTorn || reduceMotion) && !torn) setTorn(true)
+  // Reserve the printer-slot height for the whole life of a receipt that
+  // emerged from a slot, so finishing→done doesn't drop 14px and shift the
+  // my-auto-centered receipt. Captured at mount: a standalone done/pending
+  // receipt never had a slot and stays flush.
+  const [hadSlot] = useState(!startsTorn)
 
   const printing = status === 'printing' && !reduceMotion
   const feeding = status === 'finishing' && !torn && !reduceMotion
@@ -88,17 +93,19 @@ export function PaymentReceipt({
           <div className="absolute inset-x-2.5 top-[5px] h-1 rounded-full bg-foreground/25" />
         </div>
       ) : (
-        status === 'finishing' && <div className="h-3.5 w-[280px]" aria-hidden />
+        hadSlot && <div data-testid="receipt-slot" className="h-3.5 w-[280px]" aria-hidden />
       )}
 
       {/* Window clips the paper while it slides out of the slot */}
       <div className={`relative w-[250px] ${torn ? '' : '-mt-0.5 overflow-hidden'}`}>
-        {/* Tear jolt: the freed paper drops a touch and its tilt passes through
-            askew, then settles straight — always ending at rotate 0. */}
+        {/* Tear jolt: the freed paper drops a touch and tilts askew, then
+            settles straight back to rest — always ending at y 0, rotate 0, so
+            the resting receipt sits at the same spot before and after the stamp
+            (a y-10 rest would leave it shifted, then snap up on 'done'). */}
         <motion.div
           animate={
             joltActive
-              ? { y: [0, 10, 10], rotate: [0, -1.4, 0] }
+              ? { y: [0, 10, 0], rotate: [0, -1.4, 0] }
               : { y: 0, rotate: 0 }
           }
           transition={
@@ -183,7 +190,7 @@ export function PaymentReceipt({
                   <span className="font-semibold text-brand">{doneLine.right}</span>
                 </div>
               ) : (
-                <div className="py-2.5 text-center text-caption text-foreground-muted">
+                <div className="py-2 text-center text-caption text-foreground-muted">
                   {statusLine}
                   {(status === 'printing' || status === 'finishing') && (
                     <span aria-hidden>
