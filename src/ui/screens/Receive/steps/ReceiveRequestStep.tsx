@@ -320,7 +320,11 @@ export function ReceiveRequestStep({
     <div className="flex flex-col h-full bg-background">
       <ScreenHeader title={t('receive.qr.title')} onBack={onBack} />
 
-      <div className="flex-1 flex flex-col items-center px-6 pt-6">
+      {/* Center the QR + tabs + summary + actions as one block so leftover
+          height splits evenly top/bottom, instead of pooling into a flat band
+          below the actions that read as a distinct empty area (siblings like
+          the receipt step center their content the same way). */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-6">
         {/* QR Code — stays the first paint. Only this subtree swaps per protocol;
             detection effects and the summary card live outside the animation. */}
         {qrValue && (
