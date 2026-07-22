@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Drawer } from 'vaul'
 import { Button } from '@/ui/components/common/Button'
 import { useIsActivityTop } from '@/ui/navigation/use-is-activity-top'
+import { useKeyboardInset } from '@/ui/hooks/use-keyboard-inset'
 
 const MEMO_MAX_LENGTH = 200
 
@@ -13,14 +14,16 @@ interface MemoSheetProps {
   onClose: () => void
 }
 
-/** Memo editor for the confirm step. Built on Vaul so the drawer rides the iOS
- *  soft keyboard via VisualViewport (no manual keyboard-inset math) and dismisses
- *  by drag/backdrop with proper momentum. No delivery hint in the copy — the memo
- *  only travels on NUT-18 sends, not lightning. */
+/** Memo editor for the confirm step. Vaul owns the drawer gesture/dismissal;
+ *  the keyboard offset is OURS (useKeyboardInset + bottom), with Vaul's input
+ *  repositioning disabled — its VisualViewport math occasionally threw the
+ *  drawer to the top of the screen when iOS mis-reported the viewport. No
+ *  delivery hint in the copy — the memo only travels on NUT-18 sends. */
 export function MemoSheet({ isOpen, memo, onSave, onClose }: MemoSheetProps) {
   const { t } = useTranslation()
   const [draft, setDraft] = useState(memo)
   const isTop = useIsActivityTop()
+  const keyboardInset = useKeyboardInset()
 
   // This drawer portals to document.body, so when another activity is pushed on
   // top of the owning screen (e.g. an incoming payment pushes Receive) stackflow
@@ -46,12 +49,13 @@ export function MemoSheet({ isOpen, memo, onSave, onClose }: MemoSheetProps) {
   }
 
   return (
-    <Drawer.Root open={isOpen} onOpenChange={(open) => { if (!open) onClose() }}>
+    <Drawer.Root open={isOpen} onOpenChange={(open) => { if (!open) onClose() }} repositionInputs={false}>
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 z-[60] bg-black/50" />
         <Drawer.Content
           aria-describedby={undefined}
-          className="fixed inset-x-0 bottom-0 z-[70] rounded-t-3xl bg-background-card outline-none"
+          className="fixed inset-x-0 z-[70] rounded-t-3xl bg-background-card outline-none transition-[bottom] duration-200 ease-out motion-reduce:transition-none"
+          style={{ bottom: keyboardInset }}
         >
           {/* Plain handle — Vaul drags from anywhere on the content, so this is
               purely the visual grabber, styled to match the app's sheets. */}
