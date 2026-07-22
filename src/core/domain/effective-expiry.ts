@@ -1,6 +1,8 @@
 import { isExpired } from './pending-operation'
 
-export type EffectiveExpiryStatus = 'alive' | 'expired'
+// 'fulfilled' is resolved at the service layer from the request's own
+// fulfillment status — the pure expiry check below only knows alive/expired.
+export type EffectiveExpiryStatus = 'alive' | 'expired' | 'fulfilled'
 
 export interface CounterpartyStateProbe {
   checkAlive(): Promise<boolean | undefined>

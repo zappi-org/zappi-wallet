@@ -177,10 +177,12 @@ describe('ReclaimService', () => {
 
       expect(result.ok).toBe(true)
       expect(sendOp.rollbackSendToken).toHaveBeenCalledWith('op1')
+      // Rollback restores the full escrow, so the persisted reclaim fee is 0.
       expect(txRepo.update).toHaveBeenCalledWith('tx1', {
         status: 'settled',
         outcome: 'reclaimed',
         completedAt: expect.any(Number),
+        metadata: { operationId: 'op1', reclaimFee: 0 },
       })
       expect(pendingOps.delete).toHaveBeenCalledWith('tx1')
       expect(eventBus.emit).toHaveBeenCalledWith({

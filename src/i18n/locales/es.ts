@@ -1024,6 +1024,7 @@ export default {
     redeemSuccess: 'Token canjeado',
     redeemFailed: 'Error al canjear',
     expiredRemoved: 'Solicitud vencida eliminada',
+    fulfilledClosed: 'Solicitud pagada — guardada en tu historial',
     reclaimAction: 'Recuperar token',
     payment: 'Pago',
     unified: 'Unificado',

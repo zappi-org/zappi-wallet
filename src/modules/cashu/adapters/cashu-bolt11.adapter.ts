@@ -389,13 +389,16 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
     })
   }
 
-  async checkAlive(params: CheckAliveParams): Promise<boolean> {
+  async checkAlive(params: CheckAliveParams): Promise<boolean | undefined> {
     if (!params.accountId) {
       return true
     }
 
     const quote = await this.backend.checkMintQuote(params.accountId, params.requestId)
-    return quote?.state === 'UNPAID' || quote?.state === 'PAID' || quote?.state === 'ISSUED'
+    // A pruned/absent local op is no verdict at all — reporting "dead" here
+    // used to expire freshly-paid requests whose op was already cleaned up.
+    if (!quote) return undefined
+    return quote.state === 'UNPAID' || quote.state === 'PAID' || quote.state === 'ISSUED'
   }
 
   async queryReceiveStatus(params: CheckAliveParams): Promise<{ state: string }> {

@@ -1030,6 +1030,7 @@ export default {
     redeemSuccess: '토큰을 수령했습니다',
     redeemFailed: '수령에 실패했습니다',
     expiredRemoved: '만료된 요청을 정리했어요',
+    fulfilledClosed: '요청이 결제됐어요 — 거래내역에 저장했어요',
     reclaimAction: '토큰 회수',
     payment: '결제',
     unified: '통합',

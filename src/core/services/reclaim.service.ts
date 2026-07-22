@@ -98,7 +98,7 @@ export class ReclaimService implements ReclaimUseCase {
       }
       // TokenReceiver already made receive TX
       // Not making companion TX, just update send TX
-      await this.markSendReclaimed(txId)
+      await this.markSendReclaimed(txId, 0)
       return Ok({
         amount: { value: toNumber(tx.amount), unit: tx.amount.unit || 'sat' },
         accountId: tx.accountId
@@ -128,7 +128,10 @@ export class ReclaimService implements ReclaimUseCase {
         return Err(new UnknownError(message, { code, originalError: result.error }))
       }
 
-      await this.markSendReclaimed(txId)
+      // The receive result is what actually landed — the difference is the
+      // one true reclaim fee, persisted so the archive never has to guess.
+      const reclaimFee = Math.max(0, toNumber(tx.amount) - result.value.amount)
+      await this.markSendReclaimed(txId, reclaimFee)
       return Ok({
         amount: { value: toNumber(tx.amount), unit: tx.amount.unit || 'sat' },
         accountId: tx.accountId
@@ -195,7 +198,7 @@ export class ReclaimService implements ReclaimUseCase {
     })
   }
 
-  async markSendReclaimed(txId: string): Promise<boolean> {
+  async markSendReclaimed(txId: string, reclaimFee?: number): Promise<boolean> {
 
     const tx = await this.txRepo.getById(txId)
 
@@ -205,7 +208,10 @@ export class ReclaimService implements ReclaimUseCase {
     await this.txRepo.update(txId, {
       status: reclaimed.status,
       outcome: reclaimed.outcome,
-      completedAt: reclaimed.completedAt
+      completedAt: reclaimed.completedAt,
+      ...(reclaimFee != null
+        ? { metadata: { ...tx.metadata, reclaimFee } }
+        : {})
     })
 
     await this.pendingOps.delete(txId)

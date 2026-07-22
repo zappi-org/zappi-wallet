@@ -33,9 +33,9 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { TFunction } from 'i18next'
+import { TxStateBar } from './TxStateBar'
 import { TokenQrModal } from './TokenQrModal'
-import { buildTxStateTrack, type TxStateTrack } from './tx-state-machine'
+import { buildTxStateTrack } from './tx-state-machine'
 import { ReclaimSheet } from '@/ui/screens/Token/components/ReclaimSheet'
 import type { PendingTokenView } from '@/ui/screens/Token/types'
 import { EasterEggScreen } from '@/ui/screens/Token/EasterEggScreen'
@@ -45,85 +45,6 @@ export interface TransactionDetailScreenProps {
   transaction: Transaction
   onBack: () => void
   mintUrls?: string[]
-}
-
-// ─── State-machine bar ───
-
-function nodeDotClass(tone: string): string {
-  switch (tone) {
-    case 'done':
-      return 'bg-foreground'
-    case 'current':
-      return 'bg-status-pending ring-4 ring-status-pending/25'
-    case 'fail':
-      return 'bg-accent-danger'
-    default:
-      return 'bg-background border-2 border-border'
-  }
-}
-
-function nodeLabelClass(tone: string): string {
-  switch (tone) {
-    case 'done':
-      return 'text-foreground font-bold'
-    case 'current':
-      return 'text-status-pending font-bold'
-    case 'fail':
-      return 'text-accent-danger font-bold'
-    default:
-      return 'text-foreground-subtle font-semibold'
-  }
-}
-
-function TxStateBar({ track, t, locale, framed = true }: { track: TxStateTrack; t: TFunction; locale: string; framed?: boolean }) {
-  const n = track.nodes.length
-  const lastReachedIdx = track.nodes.reduce(
-    (max, node, i) => (node.tone === 'done' || node.tone === 'current' || node.tone === 'fail' ? i : max),
-    0,
-  )
-  const align = (i: number) => (i === 0 ? 'text-left' : i === n - 1 ? 'text-right' : 'text-center')
-  const time = (at?: number) =>
-    at !== undefined
-      ? new Date(at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
-      : '—'
-
-  return (
-    <div className={framed ? 'rounded-[20px] bg-background-card border border-border/60 px-5 pt-4 pb-4' : 'px-0.5'}>
-      <div className="flex justify-between">
-        {track.nodes.map((node, i) => (
-          <span key={node.labelKey} className={cn('w-full text-caption', align(i), nodeLabelClass(node.tone))}>
-            {t(node.labelKey)}
-            {node.tone === 'void' && ' ✕'}
-          </span>
-        ))}
-      </div>
-      <div className="relative mx-1 mt-6 mb-2 h-[3px] rounded-full bg-border/70">
-        <div
-          className="absolute inset-y-0 left-0 rounded-full bg-foreground"
-          style={{ width: `${(lastReachedIdx / (n - 1)) * 100}%` }}
-        />
-        {track.nodes.map((node, i) => (
-          <span
-            key={node.labelKey}
-            className={cn('absolute top-1/2 h-[11px] w-[11px] -translate-x-1/2 -translate-y-1/2 rounded-full', nodeDotClass(node.tone))}
-            style={{ left: `${(i / (n - 1)) * 100}%` }}
-          />
-        ))}
-      </div>
-      <div className="mt-2 flex justify-between">
-        {track.nodes.map((node, i) => (
-          <span key={node.labelKey} className={cn('w-full text-overline text-foreground-muted tabular-nums', align(i))}>
-            {node.tone === 'void' ? '—' : time(node.at)}
-          </span>
-        ))}
-      </div>
-      {track.noteKey && (
-        <p className="mt-3.5 rounded-xl bg-background px-3 py-2 text-center text-caption text-foreground-muted">
-          {t(track.noteKey)}
-        </p>
-      )}
-    </div>
-  )
 }
 
 // ─── Screen ───
@@ -353,9 +274,14 @@ export default function TransactionDetailScreen({
       if (tx.memo) rows.push({ label: t('send.confirm.memo'), value: tx.memo })
       rows.push({ label: t('txDetail.type'), value: typeLabel })
       rows.push({ label: t('send.confirm.sourceMint'), value: getDisplayName(tx.accountId), valueNode: mintNode(tx.accountId), strong: true })
-      if (tx.outcome === 'reclaimed' && feeSats > 0) {
-        rows.push({ label: t('token.reclaim.summaryFee'), value: formatSats(feeSats) })
-        rows.push({ label: t('token.reclaim.summaryNet'), value: formatSats(Math.max(0, amountSats - feeSats)), strong: true })
+      if (tx.outcome === 'reclaimed') {
+        // Only the persisted reclaim fee may wear these labels — tx.fee is the
+        // creation fee, and legacy rows without one print nothing over lying.
+        const reclaimFeeSats = typeof metadata?.reclaimFee === 'number' ? metadata.reclaimFee : undefined
+        if (reclaimFeeSats != null) {
+          rows.push({ label: t('token.reclaim.summaryFee'), value: formatSats(reclaimFeeSats) })
+          rows.push({ label: t('token.reclaim.summaryNet'), value: formatSats(Math.max(0, amountSats - reclaimFeeSats)), strong: true })
+        }
       } else if (displayFee) {
         // The swap fee is exact from creation — the flow receipt printed it,
         // the archive matches, zero included.
@@ -490,13 +416,13 @@ export default function TransactionDetailScreen({
                 <TxStateBar track={track} t={t} locale={i18n.language} framed={false} />
                 <button
                   onClick={() => setShowDetails((v) => !v)}
-                  className="mt-2 flex w-full items-center justify-between border-t-[1.5px] border-dashed border-border pt-2.5"
+                  className="mt-2 flex w-full items-center justify-between border-t-[1.5px] border-dashed border-border pt-3 pb-1.5"
                 >
                   <span className="text-caption font-semibold text-foreground-muted">{t('txDetail.details')}</span>
                   <ChevronDown className={cn('w-3.5 h-3.5 text-foreground-muted transition-transform', showDetails && 'rotate-180')} strokeWidth={1.8} />
                 </button>
                 {showDetails && (
-                  <div className="mt-1 flex flex-col gap-2.5 text-left">
+                  <div className="mt-2 flex flex-col gap-4 text-left">
                     {detailEntries.map((entry) => (
                       <div key={entry.key}>
                         <div className="flex items-center justify-between">
@@ -506,18 +432,18 @@ export default function TransactionDetailScreen({
                             {entry.key === 'bolt11' && (
                               <button
                                 onClick={() => setQrMode('invoice')}
-                                className="w-7 h-7 flex items-center justify-center rounded-lg active:bg-foreground/[0.06]"
+                                className="w-9 h-9 flex items-center justify-center rounded-lg active:bg-foreground/[0.06]"
                                 aria-label="QR"
                               >
-                                <QrCode className="w-3.5 h-3.5 text-foreground-muted" />
+                                <QrCode className="w-4 h-4 text-foreground-muted" />
                               </button>
                             )}
                             <button
                               onClick={() => handleCopy(entry.value, entry.key)}
-                              className="w-7 h-7 flex items-center justify-center rounded-lg active:bg-foreground/[0.06]"
+                              className="w-9 h-9 flex items-center justify-center rounded-lg active:bg-foreground/[0.06]"
                               aria-label={t('common.copy')}
                             >
-                              {copiedField === entry.key ? <Check className="w-3.5 h-3.5 text-accent-success" /> : <Copy className="w-3.5 h-3.5 text-foreground-muted" />}
+                              {copiedField === entry.key ? <Check className="w-4 h-4 text-accent-success" /> : <Copy className="w-4 h-4 text-foreground-muted" />}
                             </button>
                           </span>
                         </div>
@@ -532,10 +458,10 @@ export default function TransactionDetailScreen({
                           <span className="text-caption text-foreground-muted">{t('txDetail.viewRawToken')}</span>
                           <button
                             onClick={() => handleCopy(meta.token!, 'rawToken')}
-                            className="w-7 h-7 flex items-center justify-center rounded-lg active:bg-foreground/[0.06]"
+                            className="w-9 h-9 flex items-center justify-center rounded-lg active:bg-foreground/[0.06]"
                             aria-label={t('common.copy')}
                           >
-                            {copiedField === 'rawToken' ? <Check className="w-3.5 h-3.5 text-accent-success" /> : <Copy className="w-3.5 h-3.5 text-foreground-muted" />}
+                            {copiedField === 'rawToken' ? <Check className="w-4 h-4 text-accent-success" /> : <Copy className="w-4 h-4 text-foreground-muted" />}
                           </button>
                         </div>
                         <p

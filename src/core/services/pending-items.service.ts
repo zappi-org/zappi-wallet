@@ -44,8 +44,12 @@ export class PendingItemsService implements PendingItemsUseCase {
 
   async checkEffectiveExpiry(id: string): Promise<EffectiveExpiryStatus> {
     const request = await this.receiveRequestRepo.getById(id)
-    if (!request || !isPending(request)) {
+    if (!request) {
       return 'expired'
+    }
+    if (!isPending(request)) {
+      // A paid request is done, not dead — callers must never expire it.
+      return request.fulfillmentStatus === 'fulfilled' ? 'fulfilled' : 'expired'
     }
 
     const probes = request.paymentMethods

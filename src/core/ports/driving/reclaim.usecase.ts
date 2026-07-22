@@ -13,5 +13,5 @@ export interface ReclaimUseCase {
      */
     reclaim(txId: string): Promise<Result<ReclaimSuccess, BaseError>>
     finalizeSend(txId: string): Promise<void>
-    markSendReclaimed(txId: string): Promise<boolean>
+    markSendReclaimed(txId: string, reclaimFee?: number): Promise<boolean>
 }

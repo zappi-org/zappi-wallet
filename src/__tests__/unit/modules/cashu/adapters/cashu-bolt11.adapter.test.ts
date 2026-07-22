@@ -90,13 +90,15 @@ describe('CashuBolt11Adapter', () => {
       expect(backend.checkMintQuote).toHaveBeenCalledWith('https://mint.test', 'mint-quote-1')
     })
 
-    it('returns false when the remote mint no longer knows the quote', async () => {
+    it('abstains when the local mint operation is gone', async () => {
+      // null means the LOCAL op was pruned (e.g. right after redemption) — no
+      // verdict, or a freshly-paid request would be expired by its own cleanup.
       vi.mocked(backend.checkMintQuote).mockResolvedValueOnce(null)
 
       await expect(adapter.checkAlive({
         requestId: 'missing-quote',
         accountId: 'https://mint.test',
-      })).resolves.toBe(false)
+      })).resolves.toBeUndefined()
     })
 
     it('treats terminal paid states as alive for effective-expiry checks', async () => {

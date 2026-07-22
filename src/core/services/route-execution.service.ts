@@ -156,8 +156,12 @@ export class RouteExecutionService implements RouteExecutionUseCase {
         destination: targetMintUrl,
       });
 
+      let meltEffectiveFee: number | undefined;
       try {
-        await this.paymentOperator.executeMelt(meltOp.operationId);
+        const meltResult = await this.paymentOperator.executeMelt(
+          meltOp.operationId
+        );
+        meltEffectiveFee = meltResult?.effectiveFee;
       } catch (error) {
         try {
           await this.paymentOperator.rollbackMelt(
@@ -187,17 +191,26 @@ export class RouteExecutionService implements RouteExecutionUseCase {
 
       this.paymentOperator.unmarkMintQuoteAsSwap(mintQuote.quote);
 
+      // The melt already settled, so its actual fee is known here — thread it
+      // into the token-send leg so the ONE persisted transaction carries the
+      // full cross-mint cost, not just the second leg.
+      const actualMeltFee =
+        (meltEffectiveFee ?? meltOp.feeReserve) + meltOp.swapFee;
       const tokenResult = await this.executeTokenSendWithProofRecovery(
         targetMintUrl,
         mintQuote.quote,
         selection,
-        context
+        context,
+        actualMeltFee
       );
       return {
         ...tokenResult,
         sourceMintUrl,
         targetMintUrl,
-        fee: meltFee + tokenResult.fee,
+        fee: actualMeltFee + tokenResult.fee,
+        ...(meltEffectiveFee != null && {
+          effectiveFee: actualMeltFee + tokenResult.fee,
+        }),
       };
     } catch (error) {
       if (mintQuote)
@@ -211,22 +224,26 @@ export class RouteExecutionService implements RouteExecutionUseCase {
     quoteId: string,
     selection: RouteSelection,
     context: RouteContext,
+    upstreamFee = 0,
   ): Promise<RouteExecutionResult> {
     try {
-      return await this.executeTokenSendFlow(mintUrl, selection, context)
+      return await this.executeTokenSendFlow(mintUrl, selection, context, upstreamFee)
     } catch (error) {
       const msg = String(error).toLowerCase()
       if (!msg.includes('insufficient') && !msg.includes('proof')) throw error
 
       await this.paymentOperator.mintAndReceive(quoteId, mintUrl, selection.amount)
-      return await this.executeTokenSendFlow(mintUrl, selection, context)
+      return await this.executeTokenSendFlow(mintUrl, selection, context, upstreamFee)
     }
   }
 
   private async executeTokenSendFlow(
     mintUrl: string,
     selection: RouteSelection,
-    context: RouteContext
+    context: RouteContext,
+    // Cross-mint routes pay a melt fee before this leg — persist the sum so
+    // the archive shows what the send actually cost.
+    upstreamFee = 0
   ): Promise<RouteExecutionResult> {
     let operationId: string | undefined;
 
@@ -257,14 +274,14 @@ export class RouteExecutionService implements RouteExecutionUseCase {
           memo: context.memo,
           outcome: "unclaimed",
           ...(isRequestPayment && { intent: "request-pay" as const }),
-          ...(prepared.fee != null && { fee: { quoted: sat(prepared.fee) } }),
+          ...(prepared.fee != null && { fee: { quoted: sat(prepared.fee + upstreamFee) } }),
           metadata: {
             route: selection.route,
             token,
             tokenState: "unspent",
             operationId: prepared.operationId,
             ...(isRequestPayment && { intent: "request-pay" }),
-            ...(prepared.fee != null && { fee: prepared.fee }),
+            ...(prepared.fee != null && { fee: prepared.fee + upstreamFee }),
           },
         })
       );

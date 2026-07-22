@@ -609,6 +609,7 @@ export function HistoryScreen({
                 <div className="rounded-[20px] bg-background-card border border-border">
                   <PendingItemsList
                     items={visibleIncomingItems}
+                    maxItems={visibleIncomingItems.length}
                     showDate
                     onItemClick={(item) => setSelectedPendingItem(item)}
                   />
