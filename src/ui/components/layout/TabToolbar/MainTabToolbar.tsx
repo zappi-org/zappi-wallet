@@ -1,8 +1,9 @@
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 
+import { CameraFilled } from '@/ui/components/icons/CameraFilled'
+import { hapticTap } from '@/ui/utils/haptic'
 import type { NavItem } from '../nav-item'
-import { EcashPill } from './EcashPill'
 import { WalletTabPicker } from './WalletTabPicker'
 import { bottomDockClass, bottomDockInnerClass, bottomDockStyle, tabGlassClass, tweenTransition } from './styles'
 
@@ -10,13 +11,11 @@ export interface MainTabToolbarProps {
   navItems: NavItem[]
   activeTab: string
   onTabSelect: (id: string) => void
+  onScan: () => void
 }
 
-export function MainTabToolbar({ navItems, activeTab, onTabSelect }: MainTabToolbarProps) {
+export function MainTabToolbar({ navItems, activeTab, onTabSelect, onScan }: MainTabToolbarProps) {
   const { t } = useTranslation()
-  const tokenItem = navItems.find((n) => n.id === 'token')
-
-  const handleEcashTap = () => onTabSelect('token')
 
   return (
     <motion.nav
@@ -29,18 +28,26 @@ export function MainTabToolbar({ navItems, activeTab, onTabSelect }: MainTabTool
       style={bottomDockStyle}
     >
       <div className={bottomDockInnerClass}>
-        {/* ---- LEFT CLUSTER (always expanded picker) ---- */}
-        <div className={`${tabGlassClass} w-[65%]`}>
+        {/* ---- LEFT CLUSTER (tab picker fills the dock) ---- */}
+        <div className={`${tabGlassClass} flex-1`}>
           <WalletTabPicker navItems={navItems} activeTab={activeTab} onTabSelect={onTabSelect} />
         </div>
 
-        {/* ---- RIGHT CLUSTER (always ecash pill) ---- */}
-        <EcashPill
-          icon={tokenItem?.icon}
-          activeIcon={tokenItem?.activeIcon}
-          label={tokenItem?.label ?? t('nav.token')}
-          onClick={handleEcashTap}
-        />
+        {/* ---- RIGHT CLUSTER (standalone camera, detached from the picker group) ---- */}
+        <div className={tabGlassClass}>
+          <motion.button
+            type="button"
+            onClick={() => {
+              hapticTap()
+              onScan()
+            }}
+            whileTap={{ scale: 0.9 }}
+            aria-label={t('scanner.title')}
+            className="relative z-20 flex items-center justify-center w-[48px] h-[48px] rounded-full border border-transparent text-foreground/80 transform-gpu will-change-transform transition-colors"
+          >
+            <CameraFilled />
+          </motion.button>
+        </div>
       </div>
     </motion.nav>
   )

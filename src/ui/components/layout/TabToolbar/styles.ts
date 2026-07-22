@@ -16,11 +16,6 @@ export const bottomDockStyle: CSSProperties = {
 export const tabGlassClass =
   'pointer-events-auto isolate relative transform-gpu will-change-transform overflow-hidden rounded-full bg-white/[0.06] backdrop-blur-[28px] backdrop-saturate-200 p-1 ring-1 ring-white/[0.15] shadow-[0_2px_10px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.1)]'
 
-export const brandStyle: CSSProperties = {
-  background: 'var(--brand-500)',
-  boxShadow: '0 8px 24px rgba(81, 90, 192, 0.3), 0 2px 8px rgba(0, 0, 0, 0.12)',
-}
-
 export const tweenTransition = { duration: 0.2, ease: 'easeOut' } as const
 
 export const springTransition = { type: 'spring', stiffness: 300, damping: 20, mass: 0.4 } as const

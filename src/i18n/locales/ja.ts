@@ -1028,26 +1028,17 @@ export default {
 
   nav: {
     wallet: 'ウォレット',
-    token: 'イーキャッシュ',
     contacts: '連絡先',
     settings: '設定',
   },
 
   token: {
-    create: '作る',
-    register: '受け取る',
-    empty: {
-      title: '作成したイーキャッシュがありません。\nイーキャッシュを作ってみましょう。',
-      footerNote: 'イーキャッシュは現金のように機能します。持っている人なら誰でも登録して使えます。',
-    },
     time: {
       justNow: 'たった今',
       minutesAgo: '{{count}}分前',
       hoursAgo: '{{count}}時間前',
       yesterday: '昨日',
       daysAgo: '{{count}}日前',
-      atTimeOfDay: '{{time}}',
-      dayWithTime: '{{day}}日 {{time}}',
     },
     pending: {
       timeLabel: '待機中 · {{time}}',
@@ -1057,10 +1048,6 @@ export default {
       summary: '{{count}}個 · 合計 {{total}}',
       viewAll: '待機中を見る',
     },
-    pendingEmpty: {
-      title: 'すべて片付きました',
-      subtitle: '待機中のイーキャッシュはありません',
-    },
     reclaimable: {
       section: '取り戻せます ({{count}})',
       actions: {
@@ -1069,10 +1056,6 @@ export default {
       },
       shareText: '{{memo}}: {{amount}}',
       copiedToClipboard: 'クリップボードにコピーしました',
-    },
-    firstCreate: {
-      hint: '作成しましたが、まだ登録されていないイーキャッシュです。\n相手が受け取っていないか、まだ登録していない可能性があります。',
-      dismiss: '今後表示しない',
     },
     reclaim: {
       title: '取り戻す',
@@ -1085,22 +1068,8 @@ export default {
       failed: '取り戻しに失敗しました',
     },
     history: {
-      section: '履歴',
       deleteSuccess: '履歴を削除しました',
       deleteFailed: '履歴を削除できませんでした',
-      anchor: {
-        today: '{{weekday}} · 今日',
-        yesterday: '{{weekday}} · 昨日',
-        monthSameYear: '月',
-        monthOtherYear: '{{year}}.{{month02}}',
-      },
-      subLine: '{{status}} · {{time}}',
-      endOfList: 'すべての履歴を確認しました。',
-      status: {
-        registered: '登録',
-        consumed: '使用済み',
-        reclaimed: '取り戻し',
-      },
     },
     detail: {
       unread: '未読のイーキャッシュ',

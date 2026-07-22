@@ -1030,26 +1030,17 @@ export default {
 
   nav: {
     wallet: 'Billetera',
-    token: 'Ecash',
     contacts: 'Contactos',
     settings: 'Ajustes',
   },
 
   token: {
-    create: 'Crear',
-    register: 'Recibir',
-    empty: {
-      title: 'Aún no tienes ecash.\n¿Quieres crear uno?',
-      footerNote: 'Ecash funciona como efectivo. Cualquiera que lo tenga puede registrarlo y usarlo.',
-    },
     time: {
       justNow: 'ahora mismo',
       minutesAgo: 'hace {{count}} min',
       hoursAgo: 'hace {{count}} h',
       yesterday: 'ayer',
       daysAgo: 'hace {{count}} días',
-      atTimeOfDay: '{{time}}',
-      dayWithTime: 'Día {{day}}, {{time}}',
     },
     pending: {
       timeLabel: 'Pendiente · {{time}}',
@@ -1059,10 +1050,6 @@ export default {
       summary: '{{count}} ecash · {{total}}',
       viewAll: 'Ver pendientes',
     },
-    pendingEmpty: {
-      title: 'Todo al día',
-      subtitle: 'Sin ecash pendiente',
-    },
     reclaimable: {
       section: 'Recuperables ({{count}})',
       actions: {
@@ -1071,10 +1058,6 @@ export default {
       },
       shareText: '{{memo}}: {{amount}}',
       copiedToClipboard: 'Copiado al portapapeles',
-    },
-    firstCreate: {
-      hint: 'Creaste este ecash pero aún no se ha registrado.\nPuede que el destinatario no lo haya recibido o registrado todavía.',
-      dismiss: 'No mostrar de nuevo',
     },
     reclaim: {
       title: 'Recuperar',
@@ -1087,22 +1070,8 @@ export default {
       failed: 'Error al recuperar',
     },
     history: {
-      section: 'Historial',
       deleteSuccess: 'Historial eliminado',
       deleteFailed: 'No se pudo eliminar el historial',
-      anchor: {
-        today: '{{weekday}} · Hoy',
-        yesterday: '{{weekday}} · Ayer',
-        monthSameYear: '{{monthName}}',
-        monthOtherYear: '{{year}}.{{month02}}',
-      },
-      subLine: '{{status}} · {{time}}',
-      endOfList: 'Has visto todo el historial.',
-      status: {
-        registered: 'Registrado',
-        consumed: 'Gastado',
-        reclaimed: 'Recuperado',
-      },
     },
     detail: {
       unread: 'Ecash no leído',

@@ -23,6 +23,8 @@ export function PendingTokenCard({ token, onReclaim, onShare, onSelect }: Pendin
       tabIndex={onSelect ? 0 : undefined}
       onClick={onSelect}
       onKeyDown={onSelect ? (e) => {
+        // Ignore keys bubbling from the nested reclaim/share buttons.
+        if (e.target !== e.currentTarget) return
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
           onSelect()

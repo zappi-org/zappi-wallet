@@ -1,13 +1,9 @@
 import type { TranslationKey } from '@/i18n'
 import type { TFunction } from 'i18next'
-import { getTxMeta } from '@/core/domain/transaction'
-import { toNumber } from '@/core/domain/amount'
-import type { Transaction } from '@/core/domain/transaction'
 import type {
   PendingTokenView,
   TokenDetailData,
   TokenFiatDisplay,
-  TokenDetailStatus,
 } from './types'
 
 const MINUTE_MS = 60 * 1000
@@ -67,72 +63,6 @@ export function pendingToDetail(
     unit: 'sat',
     unread: true,
     tokenString: token.tokenString,
-  }
-}
-
-/**
- * True if a Transaction belongs in the Token-tab Timeline (ecash token lifecycle).
- * Includes:
- * - Received ecash tokens I redeemed (direction='receive', outcome='claimed')
- * - Sent ecash tokens recipient claimed (direction='send', outcome='claimed')
- * - Sent ecash tokens I reclaimed (direction='send', outcome='reclaimed')
- * Excludes:
- * - Pending sends (rendered via usePendingItems)
- * - Swaps
- * - Auto-generated reclaim-receive sub-tx (observer creates a -reclaim tx with
- *   metadata.reclaimedFrom for general history visibility; the reclaim is
- *   already shown via the original send tx with outcome='reclaimed', so the
- *   sub-tx is a duplicate here and lacks the original tokenString).
- */
-export function isTokenTimelineTx(tx: Transaction): boolean {
-  if (tx.protocol !== 'cashu-token') return false
-  if (tx.intent === 'swap') return false
-  if (tx.intent === 'request-fulfill') return false
-  if (tx.intent === 'request-pay') return false
-  if (tx.status !== 'settled') return false
-  if (tx.metadata?.reclaimedFrom) return false
-  return tx.outcome === 'claimed' || tx.outcome === 'reclaimed'
-}
-
-/** Derive TokenDetailStatus from a Transaction. Returns null if not a timeline item. */
-export function transactionToDetailStatus(tx: Transaction): TokenDetailStatus | null {
-  if (!isTokenTimelineTx(tx)) return null
-  if (tx.outcome === 'reclaimed') return 'reclaimed'
-  // I sent a token, recipient claimed/used it → 'consumed'
-  if (tx.direction === 'send' && tx.outcome === 'claimed') return 'consumed'
-  // I received a token and registered it into my wallet → 'registered'
-  if (tx.direction === 'receive' && tx.outcome === 'claimed') return 'registered'
-  return null
-}
-
-/** Convert a settled ecash Transaction → detail shape for TokenDetailScreen. */
-export function transactionToDetail(
-  tx: Transaction,
-  extras: PendingDetailExtras = {},
-): TokenDetailData | null {
-  const status = transactionToDetailStatus(tx)
-  if (!status) return null
-
-  const meta = getTxMeta(tx)
-  const feeAmount = tx.fee
-    ? toNumber(tx.fee.effective ?? tx.fee.quoted)
-    : meta.fee
-
-  return {
-    id: tx.id,
-    status,
-    amount: toNumber(tx.amount),
-    memo: tx.memo,
-    createdAt: tx.createdAt,
-    statusAt: tx.completedAt ?? tx.createdAt,
-    fee: feeAmount,
-    mintAlias: extras.mintAlias ?? '—',
-    mintName: extras.mintName,
-    mintIconUrl: extras.mintIconUrl,
-    mintUrl: tx.accountId,
-    tokenString: meta.token,
-    fiat: extras.fiat,
-    unit: 'sat',
   }
 }
 

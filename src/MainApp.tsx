@@ -33,23 +33,20 @@ import { useTranslation } from 'react-i18next'
 
 // Tier 1: Always loaded (critical path for authenticated users)
 import { LoadingFallback } from '@/ui/components/common/LoadingFallback'
-import { MainTabToolbar, TokenTabToolbar } from '@/ui/components/layout/TabToolbar'
+import { MainTabToolbar } from '@/ui/components/layout/TabToolbar'
 import { AppStack } from '@/ui/navigation/stackflow'
 import { PAYLOAD_DEPENDENT_PARENT } from '@/ui/navigation/types'
 import { HomeScreen } from '@/ui/screens/Home/HomeScreen'
 import { LockScreen } from '@/ui/screens/Lock/LockScreen'
 import { EasterEggScreen } from '@/ui/screens/Token/EasterEggScreen'
 import { TokenDetailScreen } from '@/ui/screens/Token/TokenDetailScreen'
-import { TokenScreen } from '@/ui/screens/Token/TokenScreen'
 import type { TokenDetailData } from '@/ui/screens/Token/types'
 import {
-  BanknotesIcon as BanknotesIconOutline,
   Cog6ToothIcon as Cog6ToothIconOutline,
   IdentificationIcon as IdentificationIconOutline,
   WalletIcon as WalletIconOutline,
 } from '@heroicons/react/24/outline'
 import {
-  BanknotesIcon as BanknotesIconSolid,
   Cog6ToothIcon as Cog6ToothIconSolid,
   IdentificationIcon as IdentificationIconSolid,
   WalletIcon as WalletIconSolid,
@@ -92,6 +89,7 @@ import type { PendingIncomingReview } from '@/core/types'
 import { removePasskey } from '@/ui/services/passkey'
 import { resumeGraceOnBoot } from '@/ui/services/grace-boot'
 import { isLockoutActive } from '@/ui/utils/lockout'
+import { shareOrCopyText } from '@/ui/utils/share'
 import { formatSats } from '@/utils/format'
 
 
@@ -146,6 +144,7 @@ export default function MainApp() {
     currentScreen,
     previousScreen,
     setCurrentScreen,
+    replaceScreen,
     setPreviousScreen,
     activeTab,
     isTabScreen,
@@ -162,12 +161,6 @@ export default function MainApp() {
       activeIcon: <WalletIconSolid className="w-[20px] h-[20px]" />,
     },
     {
-      id: 'token',
-      label: t('nav.token'),
-      icon: <BanknotesIconOutline className="w-[20px] h-[20px]" />,
-      activeIcon: <BanknotesIconSolid className="w-[20px] h-[20px]" />,
-    },
-    {
       id: 'contacts',
       label: t('nav.contacts'),
       icon: <IdentificationIconOutline className="w-[20px] h-[20px]" />,
@@ -182,9 +175,6 @@ export default function MainApp() {
     },
   ], [t, supportUnreadCount])
 
-  // Shared scroll container ref for Token tab (TokenScreen + TokenTabToolbar)
-  const tokenScrollRef = useRef<HTMLDivElement>(null)
-
   const [selectedMint, setSelectedMint] = useState<MintInfo | null>(null)
   const [selectedMintIndex, setSelectedMintIndex] = useState(0)
 
@@ -194,8 +184,6 @@ export default function MainApp() {
   const [activeIncomingReview, setActiveIncomingReview] = useState<PendingIncomingReview | null>(null)
 
   const [receiveLaunch, setReceiveLaunch] = useState<ReceiveLaunch | null>(null)
-
-  const [sendLaunch, setSendLaunch] = useState<{ directTransfer?: boolean } | null>(null)
 
   const [activeMintUrl, setActiveMintUrl] = useState<string | null>(null)
 
@@ -256,7 +244,6 @@ export default function MainApp() {
     setShowHomeScanner(false)
     setValidatedScanData(null)
     setScannedAmount(0)
-    setSendLaunch(null)
 
     // Inject default (primary) mint as the source context — prefer the active
     // mint (if it has balance), else first mint with balance, else first
@@ -373,7 +360,6 @@ export default function MainApp() {
       case 'send':
         setValidatedScanData(target.validatedData)
         setScannedAmount(0)
-        setSendLaunch(null)
         setPreviousScreen(currentScreen)
         setCurrentScreen('send')
         return
@@ -888,7 +874,6 @@ export default function MainApp() {
     // Same stale-launch guard as the home receive entry. The send launch is
     // cleared too — this leaves send without passing through onBack/onComplete.
     setReceiveLaunch(null)
-    setSendLaunch(null)
     setCurrentScreen('receive')
     addToast({ type: 'info', message: t('redirect.toReceive') })
   }, [addToast, t, setCurrentScreen])
@@ -941,17 +926,17 @@ export default function MainApp() {
   // each render — do NOT wrap in useMemo (it would freeze a stale snapshot).
   //
   // Exceptions (rendered by renderStackScreen below):
-  // - 'token' and 'token-detail' keep their stateful payloads in MainApp while
-  //   Stackflow owns their activity lifetime and back-stack relationship.
+  // - 'token-detail' keeps its stateful payload in MainApp while Stackflow owns
+  //   its activity lifetime and back-stack relationship.
   //
   // State guards (renders gated on state beyond currentScreen):
   // - 'transaction-detail': skipped if selectedTransaction is null — guard in render fn
   // - 'mint-detail': skipped if selectedMint is null — guard in render fn
   // - 'token-detail' overlay: selectedTokenDetail guard — inside the combined block above
   // Exhaustiveness is enforced via Record (not Partial): every Screen except the
-  // two Stackflow-rendered exceptions must appear here — a Partial would let a new
+  // Stackflow-rendered exception must appear here — a Partial would let a new
   // screen silently render blank. Missing/typo = compile error.
-  const screenRoutes: Record<Exclude<Screen, 'token' | 'token-detail'>, () => ReactNode> = {
+  const screenRoutes: Record<Exclude<Screen, 'token-detail'>, () => ReactNode> = {
     home: () => (
       <HomeScreen
         onTransactions={(mintUrl?: string) => {
@@ -976,7 +961,6 @@ export default function MainApp() {
           setActiveMintUrl(mintUrl || null)
           setValidatedScanData(null)
           setScannedAmount(0)
-          setSendLaunch(null)
           setCurrentScreen('send')
         }}
         onReceive={(mintUrl) => {
@@ -989,7 +973,6 @@ export default function MainApp() {
           setReceiveLaunch(null)
           setCurrentScreen('receive')
         }}
-        onScan={() => setShowHomeScanner(true)}
         onSelectTransaction={(tx) => {
           setSelectedTransaction(tx)
           setPreviousScreen('home')
@@ -1037,6 +1020,14 @@ export default function MainApp() {
       <EasterEggScreen onClose={handleBack} />
     ),
 
+    // Dismantled ecash tab — redirect stub for sessions restored on the old
+    // activity (see Screen union comment in navigation/types.ts). Must replace,
+    // not push: a push keeps Token underneath, so browser-back re-activates it
+    // and re-fires the redirect forever.
+    token: () => (
+      <ScreenRedirect to="history" navigate={replaceScreen} />
+    ),
+
     contacts: () => (
       <ContactsScreen
         onSendToContact={(validatedData, displayName, mintUrl) => {
@@ -1044,7 +1035,6 @@ export default function MainApp() {
           setActiveMintUrl(mintUrl)
           setValidatedScanData(validatedData)
           setScannedAmount(0)
-          setSendLaunch(null)
           setContactInfo({ address: '', displayName })
           setCurrentScreen('send')
         }}
@@ -1063,6 +1053,11 @@ export default function MainApp() {
         onBack={handleBack}
         transactions={transactions}
         initialMintUrls={historyInitialMintUrls}
+        onSelectPendingToken={(detail) => {
+          setSelectedTokenDetail(detail)
+          setPreviousScreen('history')
+          setCurrentScreen('token-detail')
+        }}
       />
     ),
 
@@ -1132,7 +1127,6 @@ export default function MainApp() {
           setScannedAmount(amount)
           setValidatedScanData(null)
           // Same stale-launch guard as the receive entry below.
-          setSendLaunch(null)
           setPreviousScreen('amount-action')
           setCurrentScreen('send')
         }}
@@ -1153,16 +1147,12 @@ export default function MainApp() {
           const backTo = previousScreen || 'home'
           setPreviousScreen(null)
           setContactInfo(null)
-          setSendLaunch(null)
           setCurrentScreen(backTo)
         }}
         onComplete={() => {
-          // A launched create returns to its origin (token tab) like onBack.
-          const backTo = sendLaunch?.directTransfer ? previousScreen || 'home' : 'home'
           setPreviousScreen(null)
           setContactInfo(null)
-          setSendLaunch(null)
-          setCurrentScreen(backTo)
+          setCurrentScreen('home')
         }}
         onExecuteRoute={handleExecuteRoute}
         onResolveInvoice={handleResolveRouteInvoice}
@@ -1180,7 +1170,6 @@ export default function MainApp() {
         onQuoteReclaim={handleQuoteReclaim}
         onReclaimToken={handleReclaimToken}
         directMintUrl={resolveCreateMint()}
-        initialDirectTransfer={sendLaunch?.directTransfer ?? false}
       />
     ),
 
@@ -1262,7 +1251,6 @@ export default function MainApp() {
           setActiveMintUrl(mintUrl)
           setValidatedScanData(null)
           setScannedAmount(0)
-          setSendLaunch(null)
           setCurrentScreen('send')
         }}
         onDeleteMint={async (url) => {
@@ -1340,22 +1328,6 @@ export default function MainApp() {
       return <Suspense fallback={<LoadingFallback />}>{route()}</Suspense>
     }
 
-    if (screen === 'token') {
-      return (
-        <Suspense fallback={<LoadingFallback />}>
-          <TokenScreen
-            scrollRef={tokenScrollRef}
-            onSelectToken={(detail) => {
-              setSelectedTokenDetail(detail)
-              setPreviousScreen('token')
-              setCurrentScreen('token-detail')
-            }}
-            onSaveSettings={handleSaveSettings}
-          />
-        </Suspense>
-      )
-    }
-
     if (screen === 'token-detail' && selectedTokenDetail) {
       return (
         <Suspense fallback={<LoadingFallback />}>
@@ -1364,7 +1336,10 @@ export default function MainApp() {
             onClose={() => {
               // Clear the payload so a browser-forward can't re-render a stale detail.
               setSelectedTokenDetail(null)
-              setCurrentScreen('token')
+              // handleBack, not a push to 'history': on a forward-restore the stack
+              // may lack a history entry, and pushing would loop through the
+              // payload-dependent redirect.
+              handleBack()
             }}
             onShare={async (token) => {
               const text = token.tokenString
@@ -1373,18 +1348,9 @@ export default function MainApp() {
                   memo: token.memo ?? '',
                   amount: formatSats(token.amount),
                 })
-              try {
-                if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-                  await navigator.share({ text })
-                  return
-                }
-                if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-                  await navigator.clipboard.writeText(text)
-                  addToast({ type: 'success', message: t('token.reclaimable.copiedToClipboard') })
-                }
-              } catch {
-                /* user cancelled or clipboard blocked — silent */
-              }
+              await shareOrCopyText(text, () => {
+                addToast({ type: 'success', message: t('token.reclaimable.copiedToClipboard') })
+              })
             }}
             onReclaim={async (token) => {
               if (!serviceRegistry?.reclaim?.reclaim) {
@@ -1430,7 +1396,7 @@ export default function MainApp() {
     // in the navigation store; this covers the post-mount forward-restore case.)
     const parent = PAYLOAD_DEPENDENT_PARENT[screen]
     if (parent) {
-      return <ScreenRedirect to={parent} navigate={setCurrentScreen} />
+      return <ScreenRedirect to={parent} navigate={replaceScreen} />
     }
 
     return <LoadingFallback />
@@ -1443,35 +1409,15 @@ export default function MainApp() {
         <AppStack renderScreen={renderStackScreen} />
       </div>
 
-      {/* Bottom Navigation — MainTabToolbar / TokenTabToolbar swap */}
+      {/* Bottom Navigation */}
       <AnimatePresence mode="wait" initial={false}>
-        {isTabScreen && activeTab !== 'token' && (
+        {isTabScreen && (
           <MainTabToolbar
             key="main-tab-toolbar"
             navItems={navItems}
             activeTab={activeTab}
             onTabSelect={handleTabSelect}
-          />
-        )}
-        {isTabScreen && activeTab === 'token' && (
-          <TokenTabToolbar
-            key="token-tab-toolbar"
-            navItems={navItems}
-            activeTab={activeTab}
-            scrollRef={tokenScrollRef}
-            onTabSelect={handleTabSelect}
-            onCreate={() => {
-              setSendLaunch({ directTransfer: true })
-              setValidatedScanData(null)
-              setScannedAmount(0)
-              setPreviousScreen('token')
-              setCurrentScreen('send')
-            }}
-            onRegister={() => {
-              setReceiveLaunch({ redeemOpen: true })
-              setPreviousScreen('token')
-              setCurrentScreen('receive')
-            }}
+            onScan={() => setShowHomeScanner(true)}
           />
         )}
       </AnimatePresence>
@@ -1492,7 +1438,6 @@ export default function MainApp() {
           setActiveMintUrl(mintUrl)
           setValidatedScanData(npubMintSelection.validatedData)
           setScannedAmount(0)
-          setSendLaunch(null)
           setContactInfo({ address: '', displayName: formatNpubShort(npubMintSelection.rawAddress) })
           setPreviousScreen(currentScreen)
           setCurrentScreen('send')

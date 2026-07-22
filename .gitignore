@@ -40,3 +40,7 @@ coverage/
 docs/design/
 docs/audit/
 tasks/
+
+# Agent/browser verification screenshots — local working artifacts
+screenshots/
+.playwright-mcp/

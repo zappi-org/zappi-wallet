@@ -1,5 +1,9 @@
 export type Screen =
   | 'home'
+  // Dismantled ecash tab. Kept registered because historySyncPlugin replays
+  // serialized history state by activity NAME (bypassing route fallback) — an
+  // unregistered 'Token' would crash-loop restored sessions. Renders a redirect
+  // to 'history'. Safe to drop only after a release cycle.
   | 'token'
   | 'settings'
   | 'contacts'
@@ -20,18 +24,18 @@ export type Screen =
   | 'token-detail'
   | 'token-easter-egg'
 
-export type TabId = 'wallet' | 'token' | 'contacts' | 'settings'
+export type TabId = 'wallet' | 'contacts' | 'settings'
 
 export const TAB_SCREENS: Record<TabId, Screen> = {
   wallet: 'home',
-  token: 'token',
   contacts: 'contacts',
   settings: 'settings',
 }
 
+// 'token' is intentionally absent: the screen survives only as a redirect stub
+// for pre-dismantle sessions (see Screen union comment), not as a tab.
 export const SCREEN_TO_TAB: Partial<Record<Screen, TabId>> = {
   home: 'wallet',
-  token: 'token',
   contacts: 'contacts',
   settings: 'settings',
 }
@@ -44,7 +48,7 @@ export const SCREEN_TO_TAB: Partial<Record<Screen, TabId>> = {
  * restoration (rebuilding the payload from the URL) is the future deepening.
  */
 export const PAYLOAD_DEPENDENT_PARENT: Partial<Record<Screen, Screen>> = {
-  'token-detail': 'token',
+  'token-detail': 'history',
   'transaction-detail': 'history',
   'mint-detail': 'home',
 }

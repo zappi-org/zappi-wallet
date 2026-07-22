@@ -1037,27 +1037,18 @@ export default {
   // Bottom Navigation
   nav: {
     wallet: '지갑',
-    token: '이캐시',
     contacts: '주소록',
     settings: '설정',
   },
 
   // Token tab toolbar
   token: {
-    create: '만들기',
-    register: '받기',
-    empty: {
-      title: '만든 이캐시가 없어요.\n이캐시를 만들어 볼까요?',
-      footerNote: '이캐시는 현금처럼 작동해요. 가지고 있는 누구나 등록해서 사용할 수 있어요.',
-    },
     time: {
       justNow: '방금',
       minutesAgo: '{{count}}분전',
       hoursAgo: '{{count}}시간전',
       yesterday: '어제',
       daysAgo: '{{count}}일전',
-      atTimeOfDay: '{{time}}',
-      dayWithTime: '{{day}}일 {{time}}',
     },
     pending: {
       timeLabel: '대기중 · {{time}}',
@@ -1067,10 +1058,6 @@ export default {
       summary: '{{count}}개 - 총 {{total}}',
       viewAll: '모두 되찾기',
     },
-    pendingEmpty: {
-      title: '모두 정리됐어요',
-      subtitle: '대기중인 이캐시가 없어요',
-    },
     reclaimable: {
       section: '되찾을 수 있어요 ({{count}})',
       actions: {
@@ -1079,10 +1066,6 @@ export default {
       },
       shareText: '{{memo}}: {{amount}}',
       copiedToClipboard: '클립보드에 복사되었어요',
-    },
-    firstCreate: {
-      hint: '만들었지만 아직 등록되지 않은 이캐시들이에요.\n상대방이 못 받았거나, 아직 등록 하지 않았을 수 있어요.',
-      dismiss: '다시보지않기',
     },
     reclaim: {
       title: '되찾기',
@@ -1095,22 +1078,8 @@ export default {
       failed: '되찾기에 실패했습니다',
     },
     history: {
-      section: '내역',
       deleteSuccess: '내역을 삭제했어요',
       deleteFailed: '내역을 삭제하지 못했어요',
-      anchor: {
-        today: '{{weekday}} · 오늘',
-        yesterday: '{{weekday}} · 어제',
-        monthSameYear: '월',
-        monthOtherYear: '{{year}}.{{month02}}',
-      },
-      subLine: '{{status}} · {{time}}',
-      endOfList: '모든 내역을 확인했어요.',
-      status: {
-        registered: '등록함',
-        consumed: '사용됨',
-        reclaimed: '되찾음',
-      },
     },
     detail: {
       unread: '안읽은 이캐시',

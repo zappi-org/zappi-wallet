@@ -256,6 +256,39 @@ export function navigateBack(): Screen {
 }
 
 /**
+ * Navigate without ever growing history: pop to an existing stack entry, else
+ * replace the top activity in place. This is what redirect stubs must use — a
+ * push would leave the redirecting activity underneath, so browser-back
+ * re-activates it and re-fires the redirect in an inescapable loop.
+ */
+export function replaceToScreen(target: Screen): void {
+  const state = store.getState()
+  if (target === state.currentScreen) return
+
+  const existingIndex = state.stack.lastIndexOf(target)
+  if (existingIndex >= 0) {
+    const popCount = state.stack.length - 1 - existingIndex
+    if (popCount > 0) {
+      runStackAction(false, (bound) => bound.pop(popCount, { animate: false }))
+    }
+    store.setState({
+      currentScreen: target,
+      stack: state.stack.slice(0, existingIndex + 1),
+      previousOverride: null,
+    })
+    return
+  }
+
+  const activityName = SCREEN_TO_ACTIVITY[target]
+  runStackAction(false, (bound) => bound.replace(activityName, {}, { animate: false }))
+  store.setState({
+    currentScreen: target,
+    stack: [...state.stack.slice(0, -1), target],
+    previousOverride: null,
+  })
+}
+
+/**
  * A wallet must always open on Home. On cold boot historySyncPlugin restores
  * whatever URL the session last showed (#/send/, a detail screen…), which both
  * surprises users and can restore payload-dependent screens whose in-memory

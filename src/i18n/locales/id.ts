@@ -1030,26 +1030,17 @@ export default {
 
   nav: {
     wallet: 'Dompet',
-    token: 'Ecash',
     contacts: 'Kontak',
     settings: 'Pengaturan',
   },
 
   token: {
-    create: 'Buat',
-    register: 'Terima',
-    empty: {
-      title: 'Belum ada ecash.\nMau membuat satu?',
-      footerNote: 'Ecash bekerja seperti uang tunai. Siapa pun yang memilikinya dapat mendaftarkan dan menggunakannya.',
-    },
     time: {
       justNow: 'baru saja',
       minutesAgo: '{{count}} menit lalu',
       hoursAgo: '{{count}} jam lalu',
       yesterday: 'kemarin',
       daysAgo: '{{count}} hari lalu',
-      atTimeOfDay: '{{time}}',
-      dayWithTime: 'Tgl {{day}}, {{time}}',
     },
     pending: {
       timeLabel: 'Menunggu · {{time}}',
@@ -1059,10 +1050,6 @@ export default {
       summary: '{{count}} ecash · {{total}}',
       viewAll: 'Lihat menunggu',
     },
-    pendingEmpty: {
-      title: 'Semua beres',
-      subtitle: 'Tidak ada ecash menunggu',
-    },
     reclaimable: {
       section: 'Dapat diambil kembali ({{count}})',
       actions: {
@@ -1071,10 +1058,6 @@ export default {
       },
       shareText: '{{memo}}: {{amount}}',
       copiedToClipboard: 'Disalin ke clipboard',
-    },
-    firstCreate: {
-      hint: 'Kamu membuat ecash ini tetapi belum terdaftar.\nPenerima mungkin belum menerimanya atau belum mendaftarkannya.',
-      dismiss: 'Jangan tampilkan lagi',
     },
     reclaim: {
       title: 'Ambil kembali',
@@ -1087,22 +1070,8 @@ export default {
       failed: 'Gagal mengambil kembali',
     },
     history: {
-      section: 'Riwayat',
       deleteSuccess: 'Riwayat dihapus',
       deleteFailed: 'Gagal menghapus riwayat',
-      anchor: {
-        today: '{{weekday}} · Hari ini',
-        yesterday: '{{weekday}} · Kemarin',
-        monthSameYear: '{{monthName}}',
-        monthOtherYear: '{{year}}.{{month02}}',
-      },
-      subLine: '{{status}} · {{time}}',
-      endOfList: 'Semua riwayat sudah dilihat.',
-      status: {
-        registered: 'Didaftarkan',
-        consumed: 'Terpakai',
-        reclaimed: 'Diambil kembali',
-      },
     },
     detail: {
       unread: 'Ecash belum dibaca',

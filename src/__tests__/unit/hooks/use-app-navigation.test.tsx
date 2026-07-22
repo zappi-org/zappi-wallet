@@ -172,20 +172,20 @@ describe('useAppNavigation', () => {
         reportActiveScreen('home')
       })
       act(() => {
-        result.current.handleTabSelect('token')
+        result.current.handleTabSelect('contacts')
       })
       act(() => {
-        result.current.setCurrentScreen('token-detail')
+        result.current.setCurrentScreen('transaction-detail')
       })
-      expect(getNavigationSnapshot().stack).toEqual(['home', 'token', 'token-detail'])
+      expect(getNavigationSnapshot().stack).toEqual(['home', 'contacts', 'transaction-detail'])
 
       act(() => {
-        reportActiveScreen('token')
+        reportActiveScreen('contacts')
       })
 
-      expect(result.current.currentScreen).toBe('token')
+      expect(result.current.currentScreen).toBe('contacts')
       expect(result.current.previousScreen).toBe('home')
-      expect(getNavigationSnapshot().stack).toEqual(['home', 'token'])
+      expect(getNavigationSnapshot().stack).toEqual(['home', 'contacts'])
     })
 
     it('appends a history-forward activity that is not in the current snapshot', () => {

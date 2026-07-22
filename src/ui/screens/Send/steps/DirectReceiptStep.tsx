@@ -19,6 +19,7 @@ import { useOwnPaymentEvent } from '@/ui/hooks/use-own-payment-event'
 import { useSendClaimed } from '@/ui/hooks/use-send-claimed'
 import { useAppStore } from '@/store'
 import { hapticSuccess } from '@/ui/utils/haptic'
+import { shareOrCopyText } from '@/ui/utils/share'
 
 export interface DirectReceiptStepProps {
   amount: number
@@ -105,16 +106,11 @@ export function DirectReceiptStep({
 
   const shareToken = useCallback(async () => {
     if (!tokenString) return
-    try {
-      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-        await navigator.share({ text: tokenString })
-        return
-      }
-      await copyToken()
-    } catch {
-      /* user cancelled share sheet — silent */
-    }
-  }, [tokenString, copyToken])
+    await shareOrCopyText(tokenString, () => {
+      hapticSuccess()
+      addToast({ type: 'success', message: t('token.reclaimable.copiedToClipboard') })
+    })
+  }, [tokenString, addToast, t])
 
   const handleReclaim = useCallback(async () => {
     if (reclaimBusy || !onReclaim || claimed) return

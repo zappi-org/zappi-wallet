@@ -14,6 +14,7 @@ import {
   isExternalNavigation,
   navigateBack,
   navigateToScreen,
+  replaceToScreen,
   reportActiveScreen,
   resetNavigationState,
   setPreviousScreenOverride,
@@ -63,12 +64,40 @@ describe('navigation-store', () => {
       navigateToScreen('settings', { reset: true })
       actions.push.mockClear()
 
-      navigateToScreen('token', { reset: true })
+      navigateToScreen('contacts', { reset: true })
 
-      // Token replaces Settings in place — Home is still underneath, no new push.
-      expect(actions.replace).toHaveBeenCalledWith('Token', {}, expect.anything())
+      // Contacts replaces Settings in place — Home is still underneath, no new push.
+      expect(actions.replace).toHaveBeenCalledWith('Contacts', {}, expect.anything())
       expect(actions.push).not.toHaveBeenCalled()
-      expect(getNavigationSnapshot().stack).toEqual(['home', 'token'])
+      expect(getNavigationSnapshot().stack).toEqual(['home', 'contacts'])
+    })
+
+    it('replaceToScreen swaps the top activity in place — a redirect stub must not grow history', () => {
+      const actions = mountWithMock()
+      reportActiveScreen('token') // restored pre-dismantle entry: ['home','token']
+      actions.push.mockClear()
+
+      replaceToScreen('history')
+
+      // Token is gone from the stack — back lands on Home, never re-firing the stub.
+      expect(actions.replace).toHaveBeenCalledWith('History', {}, expect.anything())
+      expect(actions.push).not.toHaveBeenCalled()
+      expect(getNavigationSnapshot().stack).toEqual(['home', 'history'])
+
+      navigateBack()
+      expect(getNavigationSnapshot().stack).toEqual(['home'])
+    })
+
+    it('replaceToScreen pops to an existing entry instead of replacing', () => {
+      const actions = mountWithMock()
+      navigateToScreen('history')
+      navigateToScreen('transaction-detail')
+      actions.replace.mockClear()
+
+      replaceToScreen('history')
+
+      expect(actions.replace).not.toHaveBeenCalled()
+      expect(getNavigationSnapshot().stack).toEqual(['home', 'history'])
     })
 
     it('pops back to Home when selecting the wallet tab', () => {
@@ -84,8 +113,8 @@ describe('navigation-store', () => {
 
     it('drops details above a tab, then replaces the tab itself for the next tab', () => {
       const actions = mountWithMock()
-      navigateToScreen('token', { reset: true }) // ['home','token']
-      navigateToScreen('token-detail') // ['home','token','token-detail']
+      navigateToScreen('contacts', { reset: true }) // ['home','contacts']
+      navigateToScreen('transaction-detail') // ['home','contacts','transaction-detail']
       actions.pop.mockClear()
       actions.replace.mockClear()
       actions.push.mockClear()

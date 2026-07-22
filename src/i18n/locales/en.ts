@@ -1029,27 +1029,18 @@ export default {
   // Bottom Navigation
   nav: {
     wallet: 'Wallet',
-    token: 'Ecash',
     contacts: 'Contacts',
     settings: 'Settings',
   },
 
   // Token tab toolbar
   token: {
-    create: 'Create',
-    register: 'Receive',
-    empty: {
-      title: 'No ecash yet.\nWant to create one?',
-      footerNote: 'Ecash works like cash. Anyone who has it can redeem and use it.',
-    },
     time: {
       justNow: 'just now',
       minutesAgo: '{{count}} min ago',
       hoursAgo: '{{count}} hr ago',
       yesterday: 'yesterday',
       daysAgo: '{{count}} days ago',
-      atTimeOfDay: '{{time}}',
-      dayWithTime: 'Day {{day}}, {{time}}',
     },
     pending: {
       timeLabel: 'Pending · {{time}}',
@@ -1059,10 +1050,6 @@ export default {
       summary: '{{count}} ecash · {{total}}',
       viewAll: 'Reclaim all',
     },
-    pendingEmpty: {
-      title: 'All caught up',
-      subtitle: 'No pending ecash',
-    },
     reclaimable: {
       section: 'Reclaimable ({{count}})',
       actions: {
@@ -1071,10 +1058,6 @@ export default {
       },
       shareText: '{{memo}}: {{amount}}',
       copiedToClipboard: 'Copied to clipboard',
-    },
-    firstCreate: {
-      hint: 'You created this ecash but it has not been redeemed yet.\nThe recipient may not have received or redeemed it yet.',
-      dismiss: "Don't show again",
     },
     reclaim: {
       title: 'Reclaim',
@@ -1087,22 +1070,8 @@ export default {
       failed: 'Failed to reclaim',
     },
     history: {
-      section: 'History',
       deleteSuccess: 'History deleted',
       deleteFailed: 'Failed to delete history',
-      anchor: {
-        today: '{{weekday}} · Today',
-        yesterday: '{{weekday}} · Yesterday',
-        monthSameYear: '{{monthName}}',
-        monthOtherYear: '{{year}}.{{month02}}',
-      },
-      subLine: '{{status}} · {{time}}',
-      endOfList: "You're all caught up.",
-      status: {
-        registered: 'Redeemed',
-        consumed: 'Spent',
-        reclaimed: 'Reclaimed',
-      },
     },
     detail: {
       unread: 'Unread ecash',

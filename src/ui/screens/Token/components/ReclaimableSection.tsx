@@ -1,12 +1,9 @@
 import { useTranslation } from 'react-i18next'
 import { PendingTokenCard } from './PendingTokenCard'
-import { FirstCreateHint } from './FirstCreateHint'
 import type { PendingTokenView } from '../types'
 
 export interface ReclaimableSectionProps {
   tokens: PendingTokenView[]
-  showFirstCreateHint?: boolean
-  onDismissHint?: () => void
   onReclaim?: (token: PendingTokenView) => void
   onShare?: (token: PendingTokenView) => void
   onSelect?: (token: PendingTokenView) => void
@@ -14,8 +11,6 @@ export interface ReclaimableSectionProps {
 
 export function ReclaimableSection({
   tokens,
-  showFirstCreateHint = false,
-  onDismissHint,
   onReclaim,
   onShare,
   onSelect,
@@ -29,10 +24,6 @@ export function ReclaimableSection({
           {t('token.reclaimable.section', { count: tokens.length })}
         </h3>
       </header>
-
-      {showFirstCreateHint && onDismissHint && (
-        <FirstCreateHint onDismiss={onDismissHint} />
-      )}
 
       {tokens.map((token) => (
         <PendingTokenCard

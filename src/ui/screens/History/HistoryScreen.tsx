@@ -1,6 +1,7 @@
 import { txSourceKey } from '@/ui/utils/tx-source'
+import { shareOrCopyText } from '@/ui/utils/share'
 import type { TFunction } from 'i18next'
-import { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Search, Banknote, Calendar, CreditCard, Download, FileSpreadsheet, ListFilter } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -11,8 +12,19 @@ import { toNumber } from '@/core/domain/amount'
 import type { MintInfo } from '@/core/types'
 import { useAppStore } from '@/store'
 import { useWallet, useMintMetadata } from '@/ui/hooks'
-import { getMintBalance, stripTrailingSlash } from '@/utils/url'
-import { getLocaleCode } from '@/utils/format'
+import { getMintBalance, isSameMintUrl, stripTrailingSlash } from '@/utils/url'
+import { getLocaleCode, satsToFiat, useFormatSats } from '@/utils/format'
+import type { PendingItem } from '@/core/ports/driving/pending-items.usecase'
+import { isSendToken, type TokenDetails } from '@/ui/types/pending-item-details'
+import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
+import { useReclaimFees } from '@/ui/hooks/useReclaimFees'
+import { useTokenReclaim } from '@/ui/hooks/use-token-reclaim'
+import { ServiceContext } from '@/ui/hooks/service-context-value'
+import { PendingWidget } from '@/ui/screens/Token/components/PendingWidget'
+import { ReclaimableSection } from '@/ui/screens/Token/components/ReclaimableSection'
+import { ReclaimSheet } from '@/ui/screens/Token/components/ReclaimSheet'
+import { pendingToDetail } from '@/ui/screens/Token/token-view-model'
+import type { PendingTokenView, TokenDetailData } from '@/ui/screens/Token/types'
 import { EmptyState } from '@/ui/components/common/EmptyState'
 import { TransactionListSkeleton } from '@/ui/components/common/Skeleton'
 import { DateFilterSheet } from '@/ui/components/common/DateFilterSheet'
@@ -41,6 +53,8 @@ export interface HistoryScreenProps {
   isLoading?: boolean
   initialFilter?: FilterType
   initialMintUrls?: string[]
+  /** Open the token detail (QR/raw/reclaim) for a pending ecash card. */
+  onSelectPendingToken?: (detail: TokenDetailData) => void
 }
 
 interface AnchorText {
@@ -127,6 +141,7 @@ export function HistoryScreen({
   isLoading = false,
   initialFilter,
   initialMintUrls,
+  onSelectPendingToken,
 }: HistoryScreenProps) {
   'use no memo' // useVirtualizer returns mutable functions incompatible with React Compiler
   const { t, i18n } = useTranslation()
@@ -158,7 +173,7 @@ export function HistoryScreen({
     return Array.from(urls)
   }, [transactions, settings.mints])
 
-  const { getDisplayName, getIconUrl } = useMintMetadata(mintUrls)
+  const { getDisplayName, getMetadata, getIconUrl } = useMintMetadata(mintUrls)
   const { balance } = useWallet()
 
   const availableMints: MintInfo[] = useMemo(() => {
@@ -171,6 +186,151 @@ export function HistoryScreen({
       isOnline: true,
     }))
   }, [settings.mints, settings.mintAliases, balance.byMint, getDisplayName, getIconUrl])
+
+  // ─── Pending ecash (the dismantled ecash tab's reclaimable section) ───
+  // Nullable on purpose: the screen renders without a provider (tests, pre-boot)
+  // and simply skips reconciliation.
+  const registry = useContext(ServiceContext)
+  const triggerTxRefresh = useAppStore((s) => s.triggerTxRefresh)
+  const formatSats = useFormatSats()
+
+  // Local reconciliation on view — remote settlement is the watcher/bridge's job.
+  // Pacing lives in the service (reconcileGate, 10s): view-entry callers don't throttle.
+  useEffect(() => {
+    if (!registry?.recoveryScheduler) return
+    registry.recoveryScheduler.reconcile()
+      .then(() => {
+        triggerTxRefresh()
+      })
+      .catch((err) => {
+        console.warn('[HistoryScreen] reconcile failed:', err)
+      })
+  }, [registry, triggerTxRefresh])
+
+  const { items: pendingItemsRaw, isLoading: isPendingLoading } = useAllPendingItems(settings.mints)
+  const pendingSendItems = useMemo(
+    () => pendingItemsRaw.filter(isSendToken),
+    [pendingItemsRaw],
+  )
+  const pendingTxIds = useMemo(
+    () => pendingSendItems.map((i) => i.id),
+    [pendingSendItems],
+  )
+  const { fees: reclaimFees } = useReclaimFees(pendingTxIds)
+
+  const fiatCurrency = settings.fiatCurrency ?? 'USD'
+  const fiatRate = useAppStore((s) => s.allRates?.[fiatCurrency] ?? null)
+
+  const pendingTokens: PendingTokenView[] = useMemo(() => {
+    return pendingSendItems.map((item: PendingItem<TokenDetails>) => ({
+      id: item.id,
+      createdAt: item.createdAt,
+      amount: item.amount,
+      memo: item.memo ?? '',
+      mintUrl: item.accountId,
+      tokenString: item.details?.token,
+      reclaimFee: reclaimFees.get(item.id),
+    }))
+  }, [pendingSendItems, reclaimFees])
+
+  // Pending is outstanding value, not history: the screen's mint scope applies,
+  // but search and type/date filters don't — searching simply hides the block.
+  const visiblePendingTokens = useMemo(() => {
+    if (selectedMintUrls.size === 0) return pendingTokens
+    const selected = Array.from(selectedMintUrls)
+    return pendingTokens.filter(
+      (tk) => tk.mintUrl && selected.some((url) => isSameMintUrl(url, tk.mintUrl!)),
+    )
+  }, [pendingTokens, selectedMintUrls])
+  const showPending = searchQuery === '' && visiblePendingTokens.length > 0
+
+  const { reclaimMultiple } = useTokenReclaim()
+  // Ids, not snapshots: the sheet derives its tokens live so late fee quotes
+  // and mid-sheet settlements flow into the totals.
+  const [reclaimTargetIds, setReclaimTargetIds] = useState<Set<string> | null>(null)
+  const reclaimTargets = useMemo(
+    () => (reclaimTargetIds ? pendingTokens.filter((tk) => reclaimTargetIds.has(tk.id)) : null),
+    [reclaimTargetIds, pendingTokens],
+  )
+  const openReclaimAll = useCallback(() => {
+    if (visiblePendingTokens.length === 0) return
+    setReclaimTargetIds(new Set(visiblePendingTokens.map((tk) => tk.id)))
+  }, [visiblePendingTokens])
+  const openReclaimOne = useCallback((token: PendingTokenView) => {
+    setReclaimTargetIds(new Set([token.id]))
+  }, [])
+  const closeReclaim = useCallback(() => setReclaimTargetIds(null), [])
+  const confirmReclaim = useCallback(
+    async (tokens: PendingTokenView[]) => {
+      await reclaimMultiple(
+        tokens.map((tk) => tk.id),
+        {
+          onSuccess: () => setReclaimTargetIds(null),
+          onError: () => setReclaimTargetIds(null),
+        },
+      )
+    },
+    [reclaimMultiple],
+  )
+
+  const handleSharePending = useCallback(
+    async (token: PendingTokenView) => {
+      const shareText = token.tokenString
+        ? token.tokenString
+        : t('token.reclaimable.shareText', {
+            memo: token.memo,
+            amount: formatSats(token.amount),
+          })
+      await shareOrCopyText(shareText, () => {
+        addToast({ type: 'success', message: t('token.reclaimable.copiedToClipboard') })
+      })
+    },
+    [addToast, formatSats, t],
+  )
+
+  const handleSelectPending = useCallback(
+    (token: PendingTokenView) => {
+      if (!onSelectPendingToken) return
+      const url = token.mintUrl ?? ''
+      const metadata = url ? getMetadata(url) : undefined
+      const fiat =
+        fiatRate !== null
+          ? { amount: satsToFiat(token.amount, fiatRate), currency: fiatCurrency }
+          : undefined
+      onSelectPendingToken(
+        pendingToDetail(token, {
+          mintAlias: url ? getDisplayName(url) : undefined,
+          mintName: metadata?.name,
+          mintIconUrl: url ? getIconUrl(url) : undefined,
+          fiat,
+        }),
+      )
+    },
+    [onSelectPendingToken, getMetadata, getDisplayName, getIconUrl, fiatRate, fiatCurrency],
+  )
+
+  // The pending block sits in normal flow above the virtualized timeline inside
+  // the same scroll element — its height must feed the virtualizer as
+  // scrollMargin or the visible-range math treats it as scrolled-past content.
+  // Callback ref, not an effect: the block mounts/unmounts through several
+  // branches (loading, detail early-return), and the observer must follow the
+  // actual DOM node, not a hand-picked dependency list.
+  const [listScrollMargin, setListScrollMargin] = useState(0)
+  const marginObserverRef = useRef<ResizeObserver | null>(null)
+  const setPendingBlock = useCallback((node: HTMLDivElement | null) => {
+    marginObserverRef.current?.disconnect()
+    marginObserverRef.current = null
+    if (!node) {
+      setListScrollMargin(0)
+      return
+    }
+    const measure = () => setListScrollMargin(node.getBoundingClientRect().height)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(node)
+    marginObserverRef.current = observer
+  }, [])
+  useEffect(() => () => marginObserverRef.current?.disconnect(), [])
 
   // ─── Date filter cutoff ───
   const dateCutoff = useMemo(() => computeDateCutoff(dateFilter), [dateFilter])
@@ -238,6 +398,7 @@ export function HistoryScreen({
       return group ? estimateTimelineGroupSize(group) : 80
     },
     overscan: 10,
+    scrollMargin: listScrollMargin,
   })
 
   // ─── Filter labels ───
@@ -352,7 +513,28 @@ export function HistoryScreen({
       <div ref={scrollContainerRef} className="mt-2 flex-1 min-h-0 overflow-y-auto px-5 pb-app">
         {isLoading ? (
           <TransactionListSkeleton count={6} />
-        ) : timelineGroups.length === 0 ? (
+        ) : (
+          <>
+        {showPending && (
+          <div ref={setPendingBlock} className="flex flex-col gap-3 pb-6">
+            <PendingWidget
+              count={visiblePendingTokens.length}
+              totalAmount={visiblePendingTokens.reduce((sum, tk) => sum + tk.amount, 0)}
+              onViewAll={openReclaimAll}
+            />
+            <ReclaimableSection
+              tokens={visiblePendingTokens}
+              onShare={handleSharePending}
+              onReclaim={openReclaimOne}
+              onSelect={onSelectPendingToken ? handleSelectPending : undefined}
+            />
+          </div>
+        )}
+        {timelineGroups.length === 0 ? (
+          // No flash while pending loads; no empty state under an unfiltered
+          // pending block. A zero-result type/date filter still shows it —
+          // otherwise the filtered list would look silently blank.
+          isPendingLoading || (showPending && !isTypeFiltered && !isDateFiltered) ? null : (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -364,6 +546,7 @@ export function HistoryScreen({
               description={t('history.noTransactionsDesc')}
             />
           </motion.div>
+          )
         ) : (
           <AnimatePresence mode="wait">
             <motion.div
@@ -384,7 +567,9 @@ export function HistoryScreen({
                     ref={virtualizer.measureElement}
                     style={{
                       position: 'absolute',
-                      top: virtualRow.start,
+                      // start includes scrollMargin (the pending block above);
+                      // subtract it to position within this relative container.
+                      top: virtualRow.start - listScrollMargin,
                       left: 0,
                       width: '100%',
                     }}
@@ -421,6 +606,8 @@ export function HistoryScreen({
               {t('history.endOfList')}
             </p>
           </AnimatePresence>
+        )}
+          </>
         )}
       </div>
 
@@ -476,6 +663,14 @@ export function HistoryScreen({
           </button>
         </div>
       </BottomSheet>
+
+      {/* Reclaim Confirmation Sheet (pending ecash) */}
+      <ReclaimSheet
+        isOpen={reclaimTargets !== null}
+        onClose={closeReclaim}
+        tokens={reclaimTargets ?? []}
+        onConfirm={confirmReclaim}
+      />
     </div>
   )
 }

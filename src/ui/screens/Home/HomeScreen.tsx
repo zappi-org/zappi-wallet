@@ -4,7 +4,6 @@ import { usePullToRefresh } from "@/ui/hooks/use-pull-to-refresh";
 import { Plus, LoaderCircle, ArrowDown, ChevronRight, Eye, EyeOff, QrCode } from "lucide-react";
 
 import { useTranslation } from "react-i18next";
-import { CameraFilled } from "@/ui/components/icons/CameraFilled";
 import { hapticTap } from "@/ui/utils/haptic";
 import { MintCard, resolveMintColor } from "../../components/wallet/MintCard";
 import { TransactionList } from "../../components/wallet/TransactionList";
@@ -25,7 +24,6 @@ export interface HomeScreenProps {
   onMintDetails?: (mint: MintInfo, index: number) => void;
   onSend?: (activeMintUrl?: string) => void;
   onReceive?: (activeMintUrl?: string) => void;
-  onScan?: () => void;
   onSelectTransaction?: (tx: Transaction) => void;
   onSaveSettings?: (settings: Record<string, unknown>) => Promise<void>;
   onRefresh?: () => Promise<void>;
@@ -39,7 +37,6 @@ export function HomeScreen({
   onMintDetails,
   onSend,
   onReceive,
-  onScan,
   onSelectTransaction,
   onSaveSettings,
   onRefresh,
@@ -159,7 +156,7 @@ export function HomeScreen({
         )}
       </div>
 
-      {/* Header — profile + scan */}
+      {/* Header — profile (scan moved to the bottom dock) */}
       <div className="shrink-0 h-14 px-5 flex items-center justify-between">
         <button
           type="button"
@@ -172,19 +169,6 @@ export function HomeScreen({
         >
           <QrCode className="w-6 h-6" strokeWidth={1.8} />
         </button>
-        {onScan && (
-          <button
-            type="button"
-            onClick={() => {
-              hapticTap();
-              onScan();
-            }}
-            aria-label={t('scanner.title')}
-            className="w-10 h-10 rounded-lg flex items-center justify-center text-foreground-muted hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
-          >
-            <CameraFilled />
-          </button>
-        )}
       </div>
 
       {/* Fixed top: Balance + Cards */}

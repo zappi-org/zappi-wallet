@@ -4,6 +4,7 @@ import {
   getNavigationSnapshot,
   navigateBack,
   navigateToScreen,
+  replaceToScreen,
   setPreviousScreenOverride,
   subscribeNavigation,
 } from '@/ui/navigation/navigation-store'
@@ -15,6 +16,8 @@ export interface AppNavigation {
   currentScreen: Screen
   previousScreen: Screen | null
   setCurrentScreen: (screen: Screen) => void
+  /** Navigate without growing history (redirect stubs) — pop to it or replace the top. */
+  replaceScreen: (screen: Screen) => void
   setPreviousScreen: (screen: Screen | null) => void
   /** Derived: tab owning the current screen (non-tab screens fall back to 'wallet') */
   activeTab: TabId
@@ -66,10 +69,15 @@ export function useAppNavigation(): AppNavigation {
     }
   }, [])
 
+  const replaceScreen = useCallback((screen: Screen) => {
+    replaceToScreen(screen)
+  }, [])
+
   return {
     currentScreen,
     previousScreen,
     setCurrentScreen,
+    replaceScreen,
     setPreviousScreen,
     activeTab,
     isTabScreen,

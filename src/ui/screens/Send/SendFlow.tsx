@@ -164,8 +164,6 @@ export interface SendFlowProps {
   onQuoteReclaim?: (txId: string) => Promise<number | null>
   onReclaimToken?: (txId: string) => Promise<void>
   directMintUrl?: string | null
-  /** Mount directly in the direct-transfer amount state (e.g. token-tab create button). */
-  initialDirectTransfer?: boolean
   /** Minimum ms the sending scene stays up after the result lands (tests pass 0). */
   sendingDwellMs?: number
 }
@@ -191,7 +189,6 @@ export function SendFlow({
   onQuoteReclaim,
   onReclaimToken,
   directMintUrl,
-  initialDirectTransfer,
   sendingDwellMs = 1400,
 }: SendFlowProps) {
   const { t } = useTranslation()
@@ -266,18 +263,6 @@ export function SendFlow({
       directTransfer: false,
       createdToken: '',
       createdTxId: '',
-    }
-    if (initialDirectTransfer) {
-      // Launched create entry (token tab) — start at direct amount entry,
-      // preferring the funded default mint over the seeded active mint.
-      return {
-        ...base,
-        directTransfer: true,
-        step: 'amount',
-        selectedMintUrl: directMintUrl ?? initialMintUrl ?? null,
-        amount: 0,
-        memo: '',
-      }
     }
     return base
   })
@@ -955,11 +940,6 @@ export function SendFlow({
   }, [state.directTransfer])
 
   const handleAmountBack = (draft: SendAmountDraft) => {
-    // A launched direct transfer never saw the destination step — back exits.
-    if (state.directTransfer && initialDirectTransfer) {
-      onBack()
-      return
-    }
     if (!state.directTransfer && getInitialStep() === 'amount') {
       onBack()
     } else {

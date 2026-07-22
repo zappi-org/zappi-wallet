@@ -44,6 +44,12 @@ export class ReclaimService implements ReclaimUseCase {
     // Check domain state - already reclaimed
     if (tx && isReclaimed(tx)) {
       await this.pendingOps.delete(txId)
+      // The stale pending entry just left the store — without this event the
+      // pending UIs keep showing the card until an unrelated refresh.
+      this.eventBus.emit({
+        type: 'transactions:changed',
+        payload: { reason: 'send-reclaimed', txId },
+      })
       return Ok({
         amount: { value: toNumber(tx.amount), unit: tx.amount.unit || 'sat' },
         accountId: tx.accountId
