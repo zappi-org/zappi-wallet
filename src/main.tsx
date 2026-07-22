@@ -6,7 +6,6 @@ import './registerSW' // PWA service worker registration & auto-update
 import App from './App.tsx'
 import { PWAInstallGuard } from './ui/components/PWAInstallGuard'
 import { ErrorBoundary } from './ui/components/ErrorBoundary'
-import { ViewportDebugOverlay } from './ui/components/dev/ViewportDebugOverlay'
 
 // Check storage availability (localStorage + IndexedDB)
 function checkStorageAvailability(): boolean {
@@ -53,7 +52,6 @@ if (!checkStorageAvailability()) {
         <PWAInstallGuard>
           <App />
         </PWAInstallGuard>
-        <ViewportDebugOverlay />
       </ErrorBoundary>
     </StrictMode>,
   )
