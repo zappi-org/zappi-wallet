@@ -1,9 +1,7 @@
 import { useState, useMemo, useCallback } from 'react'
-import { ArrowLeft, Settings, ChevronRight } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowUp, Info, ReceiptText, Settings } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { MintCard, resolveMintColor } from '@/ui/components/wallet/MintCard'
-import { TransactionList } from '@/ui/components/wallet/TransactionList'
-import { PendingItemsList } from '@/ui/components/wallet/PendingItemsList'
 import { usePendingItems } from '@/ui/hooks/usePendingItems'
 import { hapticTap } from '@/ui/utils/haptic'
 import { useAppStore } from '@/store'
@@ -17,18 +15,40 @@ import { PendingItemsScreen } from './PendingItemsScreen'
 import { PendingItemDetailScreen } from './PendingItemDetailScreen'
 import type { PendingItem } from '@/ui/hooks/usePendingItems'
 
+function MintActionTile({
+  icon,
+  label,
+  onClick,
+  className,
+}: {
+  icon: React.ReactNode
+  label: string
+  onClick: () => void
+  className?: string
+}) {
+  return (
+    <button
+      onClick={() => { hapticTap(); onClick() }}
+      className={`flex flex-col items-center justify-center gap-1.5 rounded-[20px] bg-background-card border border-border/60 py-4 text-foreground active:scale-[0.98] transition-transform ${className ?? ''}`}
+    >
+      {icon}
+      <span className="text-caption font-semibold">{label}</span>
+    </button>
+  )
+}
+
 export interface MintDetailScreenProps {
   mint: MintInfo
   mintIndex: number
   onBack: () => void
-  onCreateToken: (mintUrl: string) => void
+  onSend: (mintUrl: string) => void
+  onReceive: (mintUrl: string) => void
   onDeleteMint: (url: string) => Promise<void>
   onRenameMint?: (url: string, newName: string) => void
   onChangeMintColor?: (url: string, color: string) => void
   onChangeMintCardDesign?: (url: string, preset: MintCardDesignPreset) => void
   onSelectTransaction: (tx: Transaction) => void
   onTransactions?: () => void
-  transactions: Transaction[]
   onFindTransaction?: (id: string) => Promise<Transaction | null>
   pendingItemCallbacks?: import('./PendingItemDetailScreen').PendingItemDetailCallbacks
 }
@@ -37,21 +57,21 @@ export function MintDetailScreen({
   mint,
   mintIndex,
   onBack,
-  onCreateToken: _onCreateToken,
+  onSend,
+  onReceive,
   onDeleteMint,
   onRenameMint,
   onChangeMintColor,
   onChangeMintCardDesign,
   onSelectTransaction,
   onTransactions,
-  transactions,
   onFindTransaction,
   pendingItemCallbacks,
 }: MintDetailScreenProps) {
   const { t } = useTranslation()
   const settings = useAppStore((s) => s.settings)
   const { getDisplayName } = useMintMetadata(settings.mints)
-  const [showMintInfo, setShowMintInfo] = useState(false)
+  const [sheetSection, setSheetSection] = useState<'settings' | 'info' | null>(null)
   const [showPendingItems, setShowPendingItems] = useState(false)
   const [selectedPendingItem, setSelectedPendingItem] = useState<PendingItem | null>(null)
 
@@ -82,17 +102,6 @@ export function MintDetailScreen({
     () => ({ ...mint, balance: getMintBalance(mint.url, balance.byMint) }),
     [mint, balance.byMint],
   )
-
-  // Filter transactions by this mint
-  const filteredTransactions = useMemo(() => {
-    const url = mint.url
-    const normalized = url.endsWith('/') ? url.slice(0, -1) : url
-    return transactions.filter((tx) => {
-      if (tx.status === 'failed') return false
-      const txUrl = tx.accountId?.endsWith('/') ? tx.accountId.slice(0, -1) : tx.accountId
-      return txUrl === normalized || txUrl === url
-    })
-  }, [transactions, mint.url])
 
   if (selectedPendingItem) {
     return (
@@ -129,13 +138,6 @@ export function MintDetailScreen({
         <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold text-foreground pointer-events-none">
           {t('mintDetail.title')}
         </h1>
-        <button
-          onClick={() => { hapticTap(); setShowMintInfo(true) }}
-          className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
-          aria-label={t('mintDetail.mintInfo')}
-        >
-          <Settings className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
-        </button>
       </header>
 
       {/* Scrollable Content */}
@@ -150,66 +152,67 @@ export function MintDetailScreen({
           />
         </div>
 
-        {/* Content aligned to card width */}
-        <div className="w-[var(--card-w)] mx-auto space-y-6 mt-6">
-          {/* Pending Items */}
-          {pendingItems.length > 0 && (
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-caption font-semibold text-foreground-muted">
-                  {t('mintDetail.pendingItems')}
-                </h2>
-                <button
-                  onClick={() => { hapticTap(); setShowPendingItems(true) }}
-                  className="flex items-center gap-0.5 text-caption font-medium text-brand hover:text-brand-700 active:scale-95 transition-all"
-                >
-                  {t('mintDetail.seeMore')}
-                  <ChevronRight className="w-4 h-4" strokeWidth={2} />
-                </button>
-              </div>
-              <PendingItemsList items={pendingItems} maxItems={5} showDate onItemClick={handlePendingItemClick} />
-            </section>
-          )}
-
-          {/* Transactions */}
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-caption font-semibold text-foreground-muted">
-                {t('mintDetail.transactions')}
-              </h2>
-              {onTransactions && (
-                <button
-                  onClick={onTransactions}
-                  className="flex items-center gap-0.5 text-caption font-medium text-brand hover:text-brand-700 active:scale-95 transition-all"
-                >
-                  {t('mintDetail.seeDetails')}
-                  <ChevronRight className="w-4 h-4" strokeWidth={2} />
-                </button>
-              )}
-            </div>
-            {filteredTransactions.length > 0 ? (
-              <TransactionList
-                transactions={filteredTransactions}
-                allTransactions={transactions}
-                onTransactionClick={onSelectTransaction}
-                showHeader={false}
-                showDate
-                className="px-0 py-0"
+        {/* Actions aligned to card width */}
+        <div className="w-[var(--card-w)] mx-auto mt-6 space-y-3">
+          <div className="grid grid-cols-6 gap-3">
+            <MintActionTile
+              className="col-span-3"
+              icon={<ArrowUp className="w-5 h-5" strokeWidth={1.8} />}
+              label={t('common.send')}
+              onClick={() => onSend(mint.url)}
+            />
+            <MintActionTile
+              className="col-span-3"
+              icon={<ArrowDown className="w-5 h-5" strokeWidth={1.8} />}
+              label={t('common.receive')}
+              onClick={() => onReceive(mint.url)}
+            />
+            {onTransactions && (
+              <MintActionTile
+                className="col-span-2"
+                icon={<ReceiptText className="w-5 h-5" strokeWidth={1.8} />}
+                label={t('mintDetail.transactions')}
+                onClick={onTransactions}
               />
-            ) : (
-              <p className="text-caption text-foreground-muted text-center py-4">
-                {t('mintDetail.noTransactions')}
-              </p>
             )}
-          </section>
+            <MintActionTile
+              className={onTransactions ? 'col-span-2' : 'col-span-3'}
+              icon={<Settings className="w-5 h-5" strokeWidth={1.8} />}
+              label={t('nav.settings')}
+              onClick={() => setSheetSection('settings')}
+            />
+            <MintActionTile
+              className={onTransactions ? 'col-span-2' : 'col-span-3'}
+              icon={<Info className="w-5 h-5" strokeWidth={1.8} />}
+              label={t('mintDetail.mintInfo')}
+              onClick={() => setSheetSection('info')}
+            />
+          </div>
+
+          {/* Receive-side pendings (requests, unclaimed tokens) still surface here */}
+          {pendingItems.length > 0 && (
+            <button
+              onClick={() => { hapticTap(); setShowPendingItems(true) }}
+              className="w-full flex items-center gap-3 rounded-[20px] bg-background-card border border-border/60 px-4 py-3 active:scale-[0.98] transition-transform"
+            >
+              <span className="relative flex w-2 h-2 shrink-0">
+                <span className="absolute inline-flex w-full h-full rounded-full bg-status-pending animate-pulse" />
+              </span>
+              <span className="text-body font-medium text-foreground flex-1 text-left">
+                {t('mintDetail.pendingItems')}
+              </span>
+              <span className="text-caption text-foreground-muted">{pendingItems.length}</span>
+            </button>
+          )}
         </div>
       </main>
 
-      {/* Mint Info Sheet */}
+      {/* Mint settings / info sheet — two halves of the same sheet */}
       <MintInfoSheet
-        isOpen={showMintInfo}
+        isOpen={sheetSection !== null}
+        section={sheetSection ?? 'info'}
         mint={mint}
-        onClose={() => setShowMintInfo(false)}
+        onClose={() => setSheetSection(null)}
         onDelete={onDeleteMint}
         onRename={onRenameMint}
         onChangeColor={onChangeMintColor}

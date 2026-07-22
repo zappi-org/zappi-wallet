@@ -961,6 +961,7 @@ export default function MainApp() {
           setActiveMintUrl(mintUrl || null)
           setValidatedScanData(null)
           setScannedAmount(0)
+          setContactInfo(null)
           setCurrentScreen('send')
         }}
         onReceive={(mintUrl) => {
@@ -1246,12 +1247,23 @@ export default function MainApp() {
         mint={selectedMint}
         mintIndex={selectedMintIndex}
         onBack={handleBack}
-        onCreateToken={(mintUrl) => {
+        onSend={(mintUrl) => {
           setPreviousScreen('mint-detail')
           setActiveMintUrl(mintUrl)
           setValidatedScanData(null)
           setScannedAmount(0)
+          // Hardware back skips SendFlow's onBack, so a stale contact could survive.
+          setContactInfo(null)
           setCurrentScreen('send')
+        }}
+        onReceive={(mintUrl) => {
+          setPreviousScreen('mint-detail')
+          setActiveMintUrl(mintUrl)
+          setValidatedScanData(null)
+          setScannedAmount(0)
+          // Same clean-entry rule as home: a stale scanned-redeem launch must not survive.
+          setReceiveLaunch(null)
+          setCurrentScreen('receive')
         }}
         onDeleteMint={async (url) => {
           if (settings.mints.length <= LIMITS.MIN_MINTS) {
@@ -1297,7 +1309,6 @@ export default function MainApp() {
           setPreviousScreen('mint-detail')
           setCurrentScreen('history')
         }}
-        transactions={transactions}
         onFindTransaction={serviceRegistry ? (id: string) => serviceRegistry.transactionMgmt.getById(id) : undefined}
         pendingItemCallbacks={serviceRegistry ? {
           onRedeemToken: async (tokenStr: string, _itemId: string) => {

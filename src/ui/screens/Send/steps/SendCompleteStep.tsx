@@ -29,7 +29,10 @@ interface SendCompleteStepProps {
   displayName?: string
   /** Payment left the wallet but settlement is still confirming — no stamp yet. */
   pending?: boolean
+  /** Prepare-time quote — shown as an estimate only while no actual fee exists. */
   fee?: number
+  /** Actual fee from the settled execution result. */
+  actualFee?: number
   mintUrl?: string
   memo?: string
 }
@@ -44,6 +47,7 @@ export function SendCompleteStep({
   displayName,
   pending = false,
   fee,
+  actualFee,
   mintUrl,
   memo,
 }: SendCompleteStepProps) {
@@ -78,13 +82,19 @@ export function SendCompleteStep({
   const rows = useMemo<PaymentReceiptRow[]>(() => {
     const list: PaymentReceiptRow[] = [{ label: t('send.receipt.recipient'), value: destination }]
     if (mintUrl) list.push({ label: t('send.confirm.sourceMint'), value: getDisplayName(mintUrl) })
-    if (typeof fee === 'number') {
-      list.push({ label: t('send.confirm.estimatedFee'), value: formatSats(fee) })
-      list.push({ label: t('send.confirm.total'), value: formatSats(amount + fee), strong: true })
+    // Settled payments show the real fee; only unsettled ones fall back to the quote.
+    const settledFee = typeof actualFee === 'number' ? actualFee : undefined
+    const displayFee = settledFee ?? fee
+    if (typeof displayFee === 'number') {
+      list.push({
+        label: t(settledFee !== undefined ? 'send.confirm.fee' : 'send.confirm.estimatedFee'),
+        value: formatSats(displayFee),
+      })
+      list.push({ label: t('send.confirm.total'), value: formatSats(amount + displayFee), strong: true })
     }
     if (memo) list.push({ label: t('send.confirm.memo'), value: memo })
     return list
-  }, [destination, mintUrl, getDisplayName, fee, memo, amount, formatSats, t])
+  }, [destination, mintUrl, getDisplayName, fee, actualFee, memo, amount, formatSats, t])
 
   const stampedAt = useMemo(
     () => new Date().toLocaleString(i18n.language, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),

@@ -86,7 +86,10 @@ export interface RouteExecutionResult {
    */
   status: 'settled' | 'in_transit' | 'failed'
   amount: number
+  /** Best-known fee — may still be the reserve when the mint never reported an effective fee. */
   fee: number
+  /** Actual charged fee, present only when the mint reported it — safe to label as final. */
+  effectiveFee?: number
   sourceMintUrl: string
   targetMintUrl?: string
   transactionId: string

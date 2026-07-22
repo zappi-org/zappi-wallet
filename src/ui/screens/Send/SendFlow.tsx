@@ -102,6 +102,8 @@ export interface SendFlowState {
   // The route executed but settlement is still confirming (in_transit melt) —
   // the complete screen shows a quieter "sending" variant instead of success.
   completePending: boolean
+  // Actual fee from a settled execution result — null while only a quote exists.
+  settledFee: number | null
   // Routing
   routeSelection: RouteSelection | null
   // Direct transfer (bearer token creation, no recipient)
@@ -259,6 +261,7 @@ export function SendFlow({
       error: null,
       dmSent: false,
       completePending: false,
+      settledFee: null,
       routeSelection: null,
       directTransfer: false,
       createdToken: '',
@@ -658,6 +661,8 @@ export function SendFlow({
           routeSelection.amount,
         )
         if (swapResult?.success) {
+          // SwapResult.fee is the prepared quote, not a mint-reported effective
+          // fee — the receipt keeps the estimate label until the service exposes one.
           completeSendingAfterDwell(() => {
             setState((prev) => ({ ...prev, step: 'complete' }))
           }, { finish: true })
@@ -684,6 +689,9 @@ export function SendFlow({
             ...prev,
             step: 'complete',
             completePending,
+            // Only a mint-reported effective fee may be labeled final — result.fee
+            // can still be the reserve on settled melts.
+            settledFee: result.status === 'settled' ? result.effectiveFee ?? null : null,
             ...(result.transportUsed === 'nostr' ? { dmSent: true } : {}),
           }))
         }, { finish: true })
@@ -1079,6 +1087,7 @@ export function SendFlow({
               displayName={effectiveDisplayName}
               pending={state.completePending}
               fee={typeof state.fee === 'number' ? state.fee : state.routeSelection?.estimatedFee}
+              actualFee={state.settledFee ?? undefined}
               mintUrl={state.selectedMintUrl ?? undefined}
               memo={state.memo || undefined}
             />

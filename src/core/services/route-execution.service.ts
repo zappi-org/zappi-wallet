@@ -118,6 +118,7 @@ export class RouteExecutionService implements RouteExecutionUseCase {
             : "in_transit",
       amount: selection.amount,
       fee: ref.effectiveFee ?? ref.feeReserve ?? 0,
+      effectiveFee: ref.effectiveFee,
       sourceMintUrl: selection.sourceMintUrl,
       transactionId: transfer.txId,
     };
