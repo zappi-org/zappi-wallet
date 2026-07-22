@@ -4,7 +4,6 @@ export default {
     cancel: 'Batal',
     confirm: 'Konfirmasi',
     close: 'Tutup',
-    next: 'Berikutnya',
     back: 'Kembali',
     save: 'Simpan',
     edit: 'Ubah',
@@ -20,7 +19,6 @@ export default {
     amount: 'Jumlah',
     min: 'menit',
     offlineRequired: 'Diperlukan koneksi internet',
-    memo: 'Memo',
     paste: 'Tempel',
     change: 'Ubah',
     search: 'Cari',
@@ -419,7 +417,6 @@ export default {
     title: 'Pindai',
     paste: 'Tempel',
     loadFromPhoto: 'Muat dari foto',
-    validating: 'Memvalidasi...',
     unrecognizedFormat: 'Format tidak dikenali',
     invalidToken: 'Ecash tidak valid',
     cameraPermission: 'Izin kamera diperlukan',
@@ -428,7 +425,6 @@ export default {
     cameraPreparing: 'Menyiapkan kamera...',
     multipartScanning: 'Memindai QR multipart...',
     enableCameraPermission: 'Aktifkan izin kamera di pengaturan',
-    uploadImage: 'Pindai QR dari gambar',
     noQrFound: 'Kode QR tidak ditemukan',
   },
 
@@ -822,9 +818,7 @@ export default {
       selectedMintUnavailable: '{{mint}} tidak didukung oleh penerima ini. Anda bisa mengirim dari salah satu mint di bawah.',
     },
     amount: {
-      howMuchSend: 'Berapa yang dikirim?',
       prompt: 'Berapa yang ingin Anda kirim?',
-      addMemo: 'Memo (opsional)',
       fixedByInvoice: 'Jumlah ditetapkan oleh invoice',
     },
     direct: {

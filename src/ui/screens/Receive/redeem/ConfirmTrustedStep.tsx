@@ -99,12 +99,12 @@ export function ConfirmTrustedStep({
       <ScreenHeader title={t('receive.token.title')} onBack={onBack} />
 
       <div className="flex-1 overflow-y-auto px-4 pt-2">
-        <h2 className="pt-[4dvh] text-heading font-semibold text-foreground text-center">
+        <h2 className="pt-9 text-heading font-semibold text-foreground text-center">
           {t('receive.redeem.confirmSentence', { amount: formatSats(toNumber(token.amount)) })}
         </h2>
 
         {/* Hero card — fixed min-height, zappi at Figma-exact absolute position */}
-        <div className="bg-card-teal relative rounded-card p-5 mt-[6dvh] min-h-[201px] max-w-[380px] mx-auto overflow-hidden">
+        <div className="bg-card-teal relative rounded-card p-5 mt-12 min-h-[201px] max-w-[380px] mx-auto overflow-hidden">
           {/* Mint header — token's origin mint (not the receive target) */}
           <div className="flex items-center gap-2">
             <MintIcon

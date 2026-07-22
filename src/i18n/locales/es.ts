@@ -4,7 +4,6 @@ export default {
     cancel: 'Cancelar',
     confirm: 'Confirmar',
     close: 'Cerrar',
-    next: 'Siguiente',
     back: 'Volver',
     save: 'Guardar',
     edit: 'Editar',
@@ -20,7 +19,6 @@ export default {
     amount: 'Monto',
     min: 'min',
     offlineRequired: 'Se requiere conexión a Internet',
-    memo: 'Nota',
     paste: 'Pegar',
     change: 'Cambiar',
     search: 'Buscar',
@@ -419,7 +417,6 @@ export default {
     title: 'Escanear',
     paste: 'Pegar',
     loadFromPhoto: 'Cargar desde foto',
-    validating: 'Validando...',
     unrecognizedFormat: 'Formato no reconocido',
     invalidToken: 'Ecash inválido',
     cameraPermission: 'Se requiere permiso de cámara',
@@ -428,7 +425,6 @@ export default {
     cameraPreparing: 'Preparando cámara...',
     multipartScanning: 'Escaneando QR multiparte...',
     enableCameraPermission: 'Habilita el permiso de cámara en la configuración',
-    uploadImage: 'Escanear QR desde imagen',
     noQrFound: 'No se encontró código QR',
   },
 
@@ -822,9 +818,7 @@ export default {
       selectedMintUnavailable: '{{mint}} no es compatible con este destinatario. Puedes enviar desde uno de los mints de abajo.',
     },
     amount: {
-      howMuchSend: '¿Cuánto enviar?',
       prompt: '¿Cuánto quieres enviar?',
-      addMemo: 'Memo (opcional)',
       fixedByInvoice: 'Importe fijado por la factura',
     },
     direct: {

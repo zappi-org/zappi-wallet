@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react'
-import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import { fadeTransition } from '@/ui/utils/motion'
 
 /**
@@ -27,17 +27,6 @@ const fadeVariants = {
   initial: { opacity: 0 },
   animate: { opacity: 1 },
   exit: { opacity: 0 },
-}
-
-/**
- * Success feedback animation variants
- */
-const successVariants = {
-  initial: { scale: 0 },
-  animate: {
-    scale: [0, 1.2, 1],
-    transition: { duration: 0.5, times: [0, 0.6, 1] },
-  },
 }
 
 export interface PageTransitionProps {
@@ -68,60 +57,5 @@ export function PageTransition({ children, variant = 'page', className = '' }: P
     >
       {children}
     </motion.div>
-  )
-}
-
-export interface SuccessAnimationProps {
-  show: boolean
-  children: ReactNode
-}
-
-/**
- * Success feedback animation wrapper
- */
-export function SuccessAnimation({ show, children }: SuccessAnimationProps) {
-  return (
-    <AnimatePresence>
-      {show && (
-        <motion.div initial="initial" animate="animate" exit="exit" variants={successVariants}>
-          {children}
-        </motion.div>
-      )}
-    </AnimatePresence>
-  )
-}
-
-/**
- * Animated presence wrapper for conditional rendering
- */
-export interface AnimatedPresenceWrapperProps {
-  show: boolean
-  children: ReactNode
-  variant?: 'page' | 'modal' | 'fade'
-}
-
-export function AnimatedPresenceWrapper({ show, children, variant = 'fade' }: AnimatedPresenceWrapperProps) {
-  const reduceMotion = useReducedMotion()
-  const variants = {
-    page: pageVariants,
-    modal: modalVariants,
-    fade: fadeVariants,
-  }
-
-  return (
-    <AnimatePresence mode="wait">
-      {show && (
-        <motion.div
-          key="content"
-          variants={reduceMotion ? fadeVariants : variants[variant]}
-          initial="initial"
-          animate="animate"
-          exit="exit"
-          transition={fadeTransition(reduceMotion, 0.2)}
-        >
-          {children}
-        </motion.div>
-      )}
-    </AnimatePresence>
   )
 }

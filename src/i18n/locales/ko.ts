@@ -4,7 +4,6 @@ export default {
     cancel: '취소',
     confirm: '확인',
     close: '닫기',
-    next: '다음',
     back: '뒤로',
     save: '저장',
     edit: '편집',
@@ -20,7 +19,6 @@ export default {
     amount: '금액',
     min: '분',
     offlineRequired: '인터넷 연결이 필요합니다',
-    memo: '메모',
     paste: '붙여넣기',
     change: '변경',
     search: '검색',
@@ -423,7 +421,6 @@ export default {
     title: '스캔',
     paste: '붙여넣기',
     loadFromPhoto: '사진 불러오기',
-    validating: '확인 중...',
     unrecognizedFormat: '인식할 수 없는 형식입니다',
     invalidToken: '유효하지 않은 이캐시예요',
     cameraPermission: '카메라 권한이 필요합니다',
@@ -432,7 +429,6 @@ export default {
     cameraPreparing: '카메라 준비 중...',
     multipartScanning: '멀티파트 QR 스캔 중...',
     enableCameraPermission: '설정에서 카메라 권한을 허용해주세요',
-    uploadImage: '이미지에서 QR 스캔',
     noQrFound: 'QR 코드를 찾을 수 없습니다',
   },
 
@@ -824,9 +820,7 @@ export default {
       selectedMintUnavailable: '{{mint}}은 상대가 받을 수 없습니다. 아래 민트로 보낼 수 있습니다.',
     },
     amount: {
-      howMuchSend: '얼마를 보낼까요?',
       prompt: '얼마를 보낼까요?',
-      addMemo: '메모 (선택사항)',
       fixedByInvoice: '인보이스에 고정된 금액이에요',
     },
     direct: {

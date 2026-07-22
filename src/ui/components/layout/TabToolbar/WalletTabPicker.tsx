@@ -1,7 +1,7 @@
 import { motion } from 'motion/react'
 
 import { isExternalNavigation } from '@/ui/navigation/navigation-store'
-import type { NavItem } from '../BottomNav'
+import type { NavItem } from '../nav-item'
 import { pickerTabIds, springTransition } from './styles'
 
 export interface WalletTabPickerProps {

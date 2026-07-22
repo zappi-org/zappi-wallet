@@ -2,7 +2,7 @@ import { type RefObject } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 
-import type { NavItem } from '../BottomNav'
+import type { NavItem } from '../nav-item'
 import { useScrollHysteresis } from '@/ui/hooks/use-scroll-hysteresis'
 import { useTokenTabToolbarState } from '@/ui/hooks/use-token-tab-toolbar-state'
 import { CreateRegisterPair } from './CreateRegisterPair'

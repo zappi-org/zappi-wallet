@@ -4,7 +4,6 @@ export default {
     cancel: 'Cancel',
     confirm: 'Confirm',
     close: 'Close',
-    next: 'Next',
     back: 'Back',
     save: 'Save',
     edit: 'Edit',
@@ -20,7 +19,6 @@ export default {
     amount: 'Amount',
     min: 'min',
     offlineRequired: 'Internet connection required',
-    memo: 'Memo',
     paste: 'Paste',
     change: 'Change',
     search: 'Search',
@@ -423,7 +421,6 @@ export default {
     title: 'Scan',
     paste: 'Paste',
     loadFromPhoto: 'Load from Photo',
-    validating: 'Validating...',
     unrecognizedFormat: 'Unrecognized format',
     invalidToken: 'Invalid ecash',
     cameraPermission: 'Camera permission required',
@@ -432,7 +429,6 @@ export default {
     cameraPreparing: 'Preparing camera...',
     multipartScanning: 'Scanning multipart QR...',
     enableCameraPermission: 'Please enable camera permission in settings',
-    uploadImage: 'Scan QR from image',
     noQrFound: 'No QR code found',
   },
 
@@ -820,9 +816,7 @@ export default {
       selectedMintUnavailable: '{{mint}} is not supported by this recipient. You can send from one of the mints below.',
     },
     amount: {
-      howMuchSend: 'How much to send?',
       prompt: 'How much would you like to send?',
-      addMemo: 'Memo (optional)',
       fixedByInvoice: 'Amount fixed by the invoice',
     },
     direct: {

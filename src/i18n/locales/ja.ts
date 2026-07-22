@@ -4,7 +4,6 @@ export default {
     cancel: 'キャンセル',
     confirm: '確認',
     close: '閉じる',
-    next: '次へ',
     back: '戻る',
     save: '保存',
     edit: '編集',
@@ -20,7 +19,6 @@ export default {
     amount: '金額',
     min: '分',
     offlineRequired: 'インターネット接続が必要です',
-    memo: 'メモ',
     paste: '貼り付け',
     change: '変更',
     search: '検索',
@@ -419,7 +417,6 @@ export default {
     title: 'スキャン',
     paste: '貼り付け',
     loadFromPhoto: '写真から読み込む',
-    validating: '確認中...',
     unrecognizedFormat: '認識できない形式です',
     invalidToken: '無効なイーキャッシュです',
     cameraPermission: 'カメラの許可が必要です',
@@ -428,7 +425,6 @@ export default {
     cameraPreparing: 'カメラ準備中...',
     multipartScanning: 'マルチパートQRスキャン中...',
     enableCameraPermission: '設定でカメラの許可を有効にしてください',
-    uploadImage: '画像からQRスキャン',
     noQrFound: 'QRコードが見つかりません',
   },
 
@@ -820,9 +816,7 @@ export default {
       selectedMintUnavailable: '{{mint}}は相手が受け取れません。下のミントから送れます。',
     },
     amount: {
-      howMuchSend: 'いくら送りますか？',
       prompt: 'いくら送りますか？',
-      addMemo: 'メモ（任意）',
       fixedByInvoice: 'インボイスで固定された金額です',
     },
     direct: {

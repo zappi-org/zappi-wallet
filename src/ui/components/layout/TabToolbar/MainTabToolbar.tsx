@@ -1,7 +1,7 @@
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 
-import type { NavItem } from '../BottomNav'
+import type { NavItem } from '../nav-item'
 import { EcashPill } from './EcashPill'
 import { WalletTabPicker } from './WalletTabPicker'
 import { bottomDockClass, bottomDockInnerClass, bottomDockStyle, tabGlassClass, tweenTransition } from './styles'
