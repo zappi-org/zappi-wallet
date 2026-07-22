@@ -10,11 +10,34 @@ interface Readout {
   clientHeight: number
   screenHeight: number
   insetBottom: string
+  units: string
+  rootHeight: number
+  rootBottomGap: number
+}
+
+/** Resolve what each viewport unit actually computes to right now (px). */
+function measureUnits(): string {
+  const holder = document.createElement('div')
+  holder.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;pointer-events:none'
+  const mk = (h: string) => {
+    const el = document.createElement('div')
+    el.style.height = h
+    holder.appendChild(el)
+    return el
+  }
+  const probes = { vh: mk('100vh'), dvh: mk('100dvh'), svh: mk('100svh'), lvh: mk('100lvh') }
+  document.body.appendChild(holder)
+  const out = Object.entries(probes)
+    .map(([k, el]) => `${k}${Math.round(el.getBoundingClientRect().height)}`)
+    .join(' ')
+  holder.remove()
+  return out
 }
 
 function read(): Readout {
   const vv = window.visualViewport
   const probe = getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-bottom')
+  const rootRect = document.getElementById('root')?.getBoundingClientRect()
   return {
     scrollY: Math.round(window.scrollY * 10) / 10,
     scrollerTop: Math.round((document.scrollingElement?.scrollTop ?? 0) * 10) / 10,
@@ -25,6 +48,9 @@ function read(): Readout {
     clientHeight: document.documentElement.clientHeight,
     screenHeight: window.screen.height,
     insetBottom: probe.trim() || '(unset)',
+    units: measureUnits(),
+    rootHeight: Math.round(rootRect?.height ?? 0),
+    rootBottomGap: Math.round(window.screen.height - (rootRect?.bottom ?? 0)),
   }
 }
 
@@ -62,6 +88,8 @@ export function ViewportDebugOverlay() {
       <div>vv h{r.vvHeight} pT{r.vvPageTop} oT{r.vvOffsetTop}</div>
       <div>ih {r.innerHeight} · ch {r.clientHeight} · sh {r.screenHeight}</div>
       <div>insetB {r.insetBottom}</div>
+      <div>{r.units}</div>
+      <div>root {r.rootHeight} · gap {r.rootBottomGap}</div>
     </div>
   )
 }

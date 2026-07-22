@@ -10,7 +10,12 @@
 
     <!-- iOS PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- default, not black-translucent: the translucent mode is deprecated and its
+         full-bleed geometry (screen height incl. status bar) randomly collapses to
+         the non-bleed size across keyboard/relaunch cycles, leaving a dead band at
+         the bottom (measured 896→852 on device). default mode is the stable
+         non-bleed geometry anchored to the screen bottom — no band possible. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="ZAPPI Wallet" />
 
     <!-- Icons -->
