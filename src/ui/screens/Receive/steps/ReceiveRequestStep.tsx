@@ -71,7 +71,7 @@ function FlowArrow() {
       {[0, 1, 2, 3].map((i) => (
         <motion.span
           key={i}
-          className="h-1 w-1 rounded-full bg-foreground-muted"
+          className="h-1 w-1 rounded-full bg-brand"
           animate={reduceMotion ? { opacity: 0.6 } : { opacity: [0.15, 0.9, 0.15] }}
           transition={reduceMotion ? { duration: 0 } : { duration: 1.4, repeat: Infinity, delay: i * 0.18 }}
         />
@@ -79,7 +79,7 @@ function FlowArrow() {
       {/* The arrow is the wave's terminus, not a static anchor — pulsing it on
           the same cadence makes dots+arrow read as one centered unit. */}
       <motion.span
-        className="ml-0.5 text-foreground-muted"
+        className="ml-0.5 text-brand"
         animate={reduceMotion ? { opacity: 0.6 } : { opacity: [0.15, 0.9, 0.15] }}
         transition={reduceMotion ? { duration: 0 } : { duration: 1.4, repeat: Infinity, delay: 4 * 0.18 }}
       >
@@ -335,7 +335,7 @@ export function ReceiveRequestStep({
           inner my-auto (not justify-center) so overflow on short viewports
           scrolls instead of clipping the top of the block. */}
       <div className="flex-1 min-h-0 flex flex-col overflow-y-auto px-6">
-        <div className="my-auto flex w-full shrink-0 flex-col items-center py-6">
+        <div className="my-auto flex w-full shrink-0 flex-col items-center pt-6 pb-16">
         {/* QR Code — stays the first paint. Only this subtree swaps per protocol;
             detection effects and the summary card live outside the animation. */}
         {qrValue && (
@@ -364,12 +364,12 @@ export function ReceiveRequestStep({
             value={activeProtocol}
             onChange={setSelectedProtocol}
             options={protocolOptions.map((option) => ({ value: option.id, label: option.label }))}
-            className="mt-7 w-full max-w-[360px]"
+            className="mt-[clamp(1.75rem,4vh,2.75rem)] w-full max-w-[360px]"
           />
         )}
 
         {/* Summary card */}
-        <div className="mt-7 w-full max-w-[360px] rounded-2xl bg-background-card p-4 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
+        <div className="mt-[clamp(1.75rem,4vh,2.75rem)] w-full max-w-[360px] rounded-2xl bg-background-card p-4 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
           <div className="flex items-center justify-between">
             <span className="text-caption text-foreground-muted">{t('receive.request.summary')}</span>
             <button
@@ -409,7 +409,7 @@ export function ReceiveRequestStep({
         ) : (
           <>
             {/* Action buttons — minimal text style */}
-            <div className="flex gap-10 mt-7">
+            <div className="flex gap-10 mt-[clamp(1.75rem,4vh,2.75rem)]">
               <button
                 onClick={handleShare}
                 className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all"
