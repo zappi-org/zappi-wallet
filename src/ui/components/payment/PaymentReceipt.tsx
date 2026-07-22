@@ -46,6 +46,8 @@ interface PaymentReceiptProps {
   width?: number
   /** Extra content printed after the rows, above the bottom rule (e.g. a state bar). */
   extra?: ReactNode
+  /** Stamp anchor classes — the flows land it bottom-right; the archive seals the top corner. */
+  stampClass?: string
 }
 
 export function PaymentReceipt({
@@ -64,6 +66,7 @@ export function PaymentReceipt({
   qrRevealLabel,
   width = 250,
   extra,
+  stampClass = 'bottom-14 right-5',
 }: PaymentReceiptProps) {
   const reduceMotion = useReducedMotion()
   const teethId = useId()
@@ -230,7 +233,7 @@ export function PaymentReceipt({
                   already resting on the paper on the complete screen. */}
               {showStamp && (
                 <motion.div
-                  className="pointer-events-none absolute bottom-14 right-5 h-[84px] w-[84px]"
+                  className={`pointer-events-none absolute h-[84px] w-[84px] ${stampClass}`}
                   initial={
                     status === 'done' || reduceMotion
                       ? { opacity: 0, scale: 1, rotate: -12 }

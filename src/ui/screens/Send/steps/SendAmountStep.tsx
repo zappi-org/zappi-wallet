@@ -75,6 +75,8 @@ interface SendAmountStepProps {
   sendingSlow?: boolean
   /** Result landed — feed the receipt out, tear it, stamp it. */
   sendingFinishing?: boolean
+  /** Mint-reported fee from the settled result — flips the receipt's estimate at the tear. */
+  actualFee?: number
   /** Leave the flow while the transfer keeps settling in the background. */
   onExitSending?: () => void
   feeQuote?: number | 'pending' | 'unavailable'
@@ -107,6 +109,7 @@ export function SendAmountStep({
   sending = false,
   sendingSlow = false,
   sendingFinishing = false,
+  actualFee,
   onExitSending,
   feeQuote,
   quotedBalance,
@@ -358,13 +361,17 @@ export function SendAmountStep({
     const rows: PaymentReceiptRow[] = []
     if (receiptRecipient) rows.push({ label: t('send.receipt.recipient'), value: receiptRecipient })
     rows.push({ label: t('send.confirm.sourceMint'), value: mintName })
-    if (feeReady) {
+    if (typeof actualFee === 'number') {
+      // The settled result arrived mid-print — the tear reveals the real fee.
+      rows.push({ label: t('send.confirm.fee'), value: formatSats(actualFee) })
+      rows.push({ label: t('send.confirm.total'), value: formatSats(numericAmount + actualFee), strong: true })
+    } else if (feeReady) {
       rows.push({ label: t('send.confirm.estimatedFee'), value: formatSats(feeQuote) })
       rows.push({ label: t('send.confirm.total'), value: formatSats(totalNeeded ?? 0), strong: true })
     }
     if (confirmMemo) rows.push({ label: t('send.confirm.memo'), value: confirmMemo })
     return rows
-  }, [receiptRecipient, mintName, feeReady, feeQuote, totalNeeded, confirmMemo, formatSats, t])
+  }, [receiptRecipient, mintName, feeReady, feeQuote, totalNeeded, actualFee, numericAmount, confirmMemo, formatSats, t])
 
   return (
     <div className="flex flex-col h-full relative">

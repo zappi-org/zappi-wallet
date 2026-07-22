@@ -184,13 +184,14 @@ describe('HistoryScreen pending ecash section', () => {
     expect(screen.getByText('token.pendingWidget.title')).toBeTruthy()
   })
 
-  it('excludes non-send pending items (receive requests) from the section', () => {
+  it('shows receive-side pendings in their own incoming section, not the reclaim widget', () => {
     pendingItemsState.items = [
       makeSendTokenItem({ id: 'r1', direction: 'receive', kind: 'request' }),
     ]
     renderScreen()
 
     expect(screen.queryByText('token.pendingWidget.title')).toBeNull()
+    expect(screen.getByText('mintDetail.pendingItems')).toBeTruthy()
   })
 
   it('opens the reclaim sheet from a card and confirms through reclaimMultiple', async () => {

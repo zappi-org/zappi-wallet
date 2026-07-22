@@ -135,8 +135,9 @@ export function MintDetailScreen({
         >
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
+        {/* The screen belongs to one mint — its custom name IS the title. */}
         <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold text-foreground pointer-events-none">
-          {t('mintDetail.title')}
+          {getDisplayName(mint.url)}
         </h1>
       </header>
 
@@ -157,15 +158,15 @@ export function MintDetailScreen({
           <div className="grid grid-cols-6 gap-3">
             <MintActionTile
               className="col-span-3"
-              icon={<ArrowUp className="w-5 h-5" strokeWidth={1.8} />}
-              label={t('common.send')}
-              onClick={() => onSend(mint.url)}
-            />
-            <MintActionTile
-              className="col-span-3"
               icon={<ArrowDown className="w-5 h-5" strokeWidth={1.8} />}
               label={t('common.receive')}
               onClick={() => onReceive(mint.url)}
+            />
+            <MintActionTile
+              className="col-span-3"
+              icon={<ArrowUp className="w-5 h-5" strokeWidth={1.8} />}
+              label={t('common.send')}
+              onClick={() => onSend(mint.url)}
             />
             {onTransactions && (
               <MintActionTile
@@ -177,15 +178,15 @@ export function MintDetailScreen({
             )}
             <MintActionTile
               className={onTransactions ? 'col-span-2' : 'col-span-3'}
-              icon={<Settings className="w-5 h-5" strokeWidth={1.8} />}
-              label={t('nav.settings')}
-              onClick={() => setSheetSection('settings')}
-            />
-            <MintActionTile
-              className={onTransactions ? 'col-span-2' : 'col-span-3'}
               icon={<Info className="w-5 h-5" strokeWidth={1.8} />}
               label={t('mintDetail.mintInfo')}
               onClick={() => setSheetSection('info')}
+            />
+            <MintActionTile
+              className={onTransactions ? 'col-span-2' : 'col-span-3'}
+              icon={<Settings className="w-5 h-5" strokeWidth={1.8} />}
+              label={t('nav.settings')}
+              onClick={() => setSheetSection('settings')}
             />
           </div>
 

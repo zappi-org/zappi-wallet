@@ -20,6 +20,7 @@ import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
 import { useReclaimFees } from '@/ui/hooks/useReclaimFees'
 import { useTokenReclaim } from '@/ui/hooks/use-token-reclaim'
 import { ServiceContext } from '@/ui/hooks/service-context-value'
+import { PendingItemsList } from '@/ui/components/wallet/PendingItemsList'
 import { PendingWidget } from '@/ui/screens/Token/components/PendingWidget'
 import { ReclaimableSection } from '@/ui/screens/Token/components/ReclaimableSection'
 import { ReclaimSheet } from '@/ui/screens/Token/components/ReclaimSheet'
@@ -240,6 +241,18 @@ export function HistoryScreen({
   }, [pendingTokens, selectedMintUrls])
   const showPending = searchQuery === '' && visiblePendingTokens.length > 0
 
+  // Receive-side pendings (unpaid requests, unredeemed incoming tokens) live
+  // here too — home and mint detail already show them; history must not hide them.
+  const visibleIncomingItems = useMemo(() => {
+    const incoming = pendingItemsRaw.filter((item) => !isSendToken(item))
+    if (selectedMintUrls.size === 0) return incoming
+    const selected = Array.from(selectedMintUrls)
+    return incoming.filter(
+      (item) => item.accountId && selected.some((url) => isSameMintUrl(url, item.accountId)),
+    )
+  }, [pendingItemsRaw, selectedMintUrls])
+  const showIncoming = searchQuery === '' && visibleIncomingItems.length > 0
+
   const { reclaimMultiple } = useTokenReclaim()
   // Ids, not snapshots: the sheet derives its tokens live so late fee quotes
   // and mid-sheet settlements flow into the totals.
@@ -287,18 +300,18 @@ export function HistoryScreen({
   // Monotonic guard: two quick taps race their async lookups — only the
   // latest tap may set the detail, or a slow lookup lands the wrong screen.
   const pendingSelectSeq = useRef(0)
-  const handleSelectPending = useCallback(
-    async (token: PendingTokenView) => {
+  const openPendingById = useCallback(
+    async (id: string) => {
       const seq = ++pendingSelectSeq.current
       // The transactions prop is a 100-row window; a weeks-old pending token
       // can outlive it, and legacy pending rows may have no transaction at all.
-      const inWindow = transactionById.get(token.id)
+      const inWindow = transactionById.get(id)
       if (inWindow) {
         setSelectedTransaction(inWindow)
         return
       }
       const fetched = registry?.transactionMgmt
-        ? await registry.transactionMgmt.getById(token.id).catch(() => null)
+        ? await registry.transactionMgmt.getById(id).catch(() => null)
         : null
       if (seq !== pendingSelectSeq.current) return
       if (fetched) {
@@ -308,6 +321,11 @@ export function HistoryScreen({
       }
     },
     [transactionById, registry, addToast, t],
+  )
+
+  const handleSelectPending = useCallback(
+    (token: PendingTokenView) => openPendingById(token.id),
+    [openPendingById],
   )
 
   // Out-of-window detail rows never refresh via transactionById — refetch the
@@ -541,26 +559,42 @@ export function HistoryScreen({
           <TransactionListSkeleton count={6} />
         ) : (
           <>
-        {showPending && (
+        {(showPending || showIncoming) && (
           <div ref={setPendingBlock} className="flex flex-col gap-3 pb-6">
-            <PendingWidget
-              count={visiblePendingTokens.length}
-              totalAmount={visiblePendingTokens.reduce((sum, tk) => sum + tk.amount, 0)}
-              onViewAll={openReclaimAll}
-            />
-            <ReclaimableSection
-              tokens={visiblePendingTokens}
-              onShare={handleSharePending}
-              onReclaim={openReclaimOne}
-              onSelect={handleSelectPending}
-            />
+            {showPending && (
+              <>
+                <PendingWidget
+                  count={visiblePendingTokens.length}
+                  totalAmount={visiblePendingTokens.reduce((sum, tk) => sum + tk.amount, 0)}
+                  onViewAll={openReclaimAll}
+                />
+                <ReclaimableSection
+                  tokens={visiblePendingTokens}
+                  onShare={handleSharePending}
+                  onReclaim={openReclaimOne}
+                  onSelect={handleSelectPending}
+                />
+              </>
+            )}
+            {showIncoming && (
+              <section className="flex flex-col gap-3">
+                <h3 className="text-subtitle font-semibold text-foreground">
+                  {t('mintDetail.pendingItems')}
+                </h3>
+                <PendingItemsList
+                  items={visibleIncomingItems}
+                  showDate
+                  onItemClick={(item) => openPendingById(item.id)}
+                />
+              </section>
+            )}
           </div>
         )}
         {timelineGroups.length === 0 ? (
           // No flash while pending loads; no empty state under an unfiltered
           // pending block. A zero-result type/date filter still shows it —
           // otherwise the filtered list would look silently blank.
-          isPendingLoading || (showPending && !isTypeFiltered && !isDateFiltered) ? null : (
+          isPendingLoading || ((showPending || showIncoming) && !isTypeFiltered && !isDateFiltered) ? null : (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

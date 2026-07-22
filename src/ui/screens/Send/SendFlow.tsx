@@ -684,14 +684,18 @@ export function SendFlow({
         // in_transit is NOT a failure: the melt left the wallet and the poller
         // will settle it. Re-enabling Send here would open a double-pay window.
         const completePending = result.status === 'in_transit'
+        // The actual fee lands NOW — flip the printing receipt at the tear,
+        // not later on the complete screen. Only a mint-reported effective fee
+        // may be labeled final; result.fee can still be the reserve.
+        setState((prev) => ({
+          ...prev,
+          settledFee: result.status === 'settled' ? result.effectiveFee ?? null : null,
+        }))
         completeSendingAfterDwell(() => {
           setState((prev) => ({
             ...prev,
             step: 'complete',
             completePending,
-            // Only a mint-reported effective fee may be labeled final — result.fee
-            // can still be the reserve on settled melts.
-            settledFee: result.status === 'settled' ? result.effectiveFee ?? null : null,
             ...(result.transportUsed === 'nostr' ? { dmSent: true } : {}),
           }))
         }, { finish: true })
@@ -1051,6 +1055,7 @@ export function SendFlow({
                     sending={state.step === 'sending'}
                     sendingSlow={sendingSlow}
                     sendingFinishing={sendingFinishing}
+                    actualFee={state.settledFee ?? undefined}
                     onExitSending={onComplete}
                     feeQuote={
                       state.directTransfer

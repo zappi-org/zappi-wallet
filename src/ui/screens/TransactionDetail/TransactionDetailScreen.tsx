@@ -18,6 +18,7 @@ import { useTransactionMgmt } from '@/ui/hooks/use-transaction-mgmt'
 import { shareOrCopyText } from '@/ui/utils/share'
 import { formatTransactionFiat, useFormatFiat, useFormatSats, truncateStr } from '@/utils/format'
 import { cn } from '@/ui/lib/utils'
+import sendSuccessImg from '@/assets/send-success.png'
 import { VARIANT_HEX, resolveMintColor } from '@/ui/components/wallet/MintCard'
 import {
   ArrowLeft,
@@ -90,7 +91,7 @@ function TxStateBar({ track, t, locale, framed = true }: { track: TxStateTrack; 
     <div className={framed ? 'rounded-[20px] bg-background-card border border-border/60 px-5 pt-4 pb-4' : 'px-0.5'}>
       <div className="flex justify-between">
         {track.nodes.map((node, i) => (
-          <span key={node.labelKey} className={cn('w-full text-[12.5px]', align(i), nodeLabelClass(node.tone))}>
+          <span key={node.labelKey} className={cn('w-full text-caption', align(i), nodeLabelClass(node.tone))}>
             {t(node.labelKey)}
             {node.tone === 'void' && ' ✕'}
           </span>
@@ -111,7 +112,7 @@ function TxStateBar({ track, t, locale, framed = true }: { track: TxStateTrack; 
       </div>
       <div className="mt-2 flex justify-between">
         {track.nodes.map((node, i) => (
-          <span key={node.labelKey} className={cn('w-full text-[11px] text-foreground-muted tabular-nums', align(i))}>
+          <span key={node.labelKey} className={cn('w-full text-overline text-foreground-muted tabular-nums', align(i))}>
             {node.tone === 'void' ? '—' : time(node.at)}
           </span>
         ))}
@@ -144,7 +145,6 @@ export default function TransactionDetailScreen({
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [showMenu, setShowMenu] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [showTokenQr, setShowTokenQr] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
   const [showReclaimSheet, setShowReclaimSheet] = useState(false)
   const [showEgg, setShowEgg] = useState(false)
@@ -216,6 +216,10 @@ export default function TransactionDetailScreen({
     },
     [addToast, t],
   )
+
+  // Chips are bearer-token territory; the invoice gets a QR affordance on its
+  // own row inside the folded details instead.
+  const [qrMode, setQrMode] = useState<null | 'token' | 'invoice'>(null)
 
   const handleShareToken = useCallback(async () => {
     if (!meta.token) return
@@ -474,6 +478,8 @@ export default function TransactionDetailScreen({
                 ? { left: formatDate(tx.completedAt ?? tx.createdAt), right: doneRight }
                 : undefined
             }
+            stampSrc={receiptStatus === 'done' ? sendSuccessImg : undefined}
+            stampClass="top-12 right-3"
             extra={
               <>
                 <TxStateBar track={track} t={t} locale={i18n.language} framed={false} />
@@ -490,13 +496,25 @@ export default function TransactionDetailScreen({
                       <div key={entry.key}>
                         <div className="flex items-center justify-between">
                           <span className="text-caption text-foreground-muted">{entry.label}</span>
-                          <button
-                            onClick={() => handleCopy(entry.value, entry.key)}
-                            className="w-7 h-7 flex items-center justify-center rounded-lg active:bg-foreground/[0.06]"
-                            aria-label={t('common.copy')}
-                          >
-                            {copiedField === entry.key ? <Check className="w-3.5 h-3.5 text-accent-success" /> : <Copy className="w-3.5 h-3.5 text-foreground-muted" />}
-                          </button>
+                          <span className="flex items-center">
+                            {/* The invoice earns its QR right beside its copy button. */}
+                            {entry.key === 'bolt11' && (
+                              <button
+                                onClick={() => setQrMode('invoice')}
+                                className="w-7 h-7 flex items-center justify-center rounded-lg active:bg-foreground/[0.06]"
+                                aria-label="QR"
+                              >
+                                <QrCode className="w-3.5 h-3.5 text-foreground-muted" />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleCopy(entry.value, entry.key)}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg active:bg-foreground/[0.06]"
+                              aria-label={t('common.copy')}
+                            >
+                              {copiedField === entry.key ? <Check className="w-3.5 h-3.5 text-accent-success" /> : <Copy className="w-3.5 h-3.5 text-foreground-muted" />}
+                            </button>
+                          </span>
                         </div>
                         <p className="text-overline font-mono text-foreground-muted break-all leading-relaxed">
                           {entry.value}
@@ -532,18 +550,18 @@ export default function TransactionDetailScreen({
 
         <div className="px-5 flex flex-col gap-3">
 
-          {/* ── Bearer-token actions — available whenever the token exists;
-              a spent token's QR is inert, and re-copy stays useful ── */}
+          {/* ── Bearer-token actions — a spent token's QR is inert, and
+              re-copy stays useful ── */}
           {!!meta.token && (
             <div className="flex gap-2">
               <button
-                onClick={() => setShowTokenQr(true)}
+                onClick={() => setQrMode('token')}
                 className="flex-1 flex items-center justify-center gap-1.5 h-11 rounded-full bg-background-card border border-border/60 text-caption font-semibold text-foreground active:scale-[0.98] transition-transform"
               >
                 <QrCode className="w-4 h-4" strokeWidth={1.8} /> QR
               </button>
               <button
-                onClick={() => meta.token && handleCopy(meta.token, 'token')}
+                onClick={() => handleCopy(meta.token!, 'token')}
                 className="flex-1 flex items-center justify-center gap-1.5 h-11 rounded-full bg-background-card border border-border/60 text-caption font-semibold text-foreground active:scale-[0.98] transition-transform"
               >
                 {copiedField === 'token' ? <Check className="w-4 h-4 text-accent-success" strokeWidth={1.8} /> : <Copy className="w-4 h-4" strokeWidth={1.8} />}
@@ -562,7 +580,7 @@ export default function TransactionDetailScreen({
           {showUnclaimedCard && (
             <button
               onClick={() => setShowReclaimSheet(true)}
-              className="mt-2 flex h-[54px] w-full items-center justify-center gap-2 rounded-[27px] bg-brand text-body font-bold text-white shadow-lg shadow-brand/25 active:scale-[0.98] transition-transform"
+              className="mt-2 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-brand text-body font-bold text-white shadow-lg shadow-brand/25 active:scale-[0.98] transition-transform"
             >
               <Undo2 className="w-4 h-4" strokeWidth={2} />
               {typeof reclaimFee === 'number'
@@ -577,12 +595,14 @@ export default function TransactionDetailScreen({
         <div className="h-8" />
       </div>
 
-      {/* Token QR Modal */}
-      {meta.token && (
+      {/* Token / invoice QR modal — only bearer payloads veil */}
+      {(meta.token || meta.bolt11) && (
         <TokenQrModal
-          isOpen={showTokenQr}
-          token={meta.token}
-          onClose={() => setShowTokenQr(false)}
+          isOpen={qrMode !== null}
+          token={(qrMode === 'invoice' ? meta.bolt11 : meta.token) ?? ''}
+          title={qrMode === 'invoice' ? t('txDetail.bolt11') : undefined}
+          veil={qrMode !== 'invoice'}
+          onClose={() => setQrMode(null)}
         />
       )}
 

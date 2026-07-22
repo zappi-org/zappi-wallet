@@ -7,18 +7,22 @@ interface TokenQrModalProps {
   isOpen: boolean
   token: string
   onClose: () => void
+  /** Header title — defaults to the sent-ecash label. */
+  title?: string
+  /** Bearer payloads veil until tapped; invoices are safe to show plainly. */
+  veil?: boolean
 }
 
-export function TokenQrModal({ isOpen, token, onClose }: TokenQrModalProps) {
+export function TokenQrModal({ isOpen, token, onClose, title, veil = true }: TokenQrModalProps) {
   const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
   // Bearer privacy: whoever scans this QR owns the funds — veil until tapped,
   // same contract as the send-flow receipt. Re-arms on every close: the parent
   // keeps this mounted, so state alone would leave later opens unveiled.
-  const [veiled, setVeiled] = useState(true)
+  const [veiled, setVeiled] = useState(veil)
   useEffect(() => {
-    if (!isOpen) setVeiled(true)
-  }, [isOpen])
+    if (!isOpen) setVeiled(veil)
+  }, [isOpen, veil])
 
   const handleCopy = useCallback(async () => {
     try {
@@ -48,7 +52,7 @@ export function TokenQrModal({ isOpen, token, onClose }: TokenQrModalProps) {
         <div className="flex items-center justify-between px-5 py-5">
           <div className="w-9" />
           <h3 className="text-subtitle font-semibold text-foreground">
-            {t('txDetail.sentToken')}
+            {title ?? t('txDetail.sentToken')}
           </h3>
           <button
             onClick={onClose}
