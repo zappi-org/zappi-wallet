@@ -317,7 +317,20 @@ export function useSendInputValidation({
     const initialDestination = initialContactName || trimmed
     const hasInitialDisplayName = !!initialContactName
 
-    if (isNostrDirectAddress(trimmed)) {
+    const detected = inputParser.detectAndClassify(trimmed)
+    const inputType = detected.type
+
+
+    if (inputType === 'unknown') {
+      // Check if input looks like a Cashu token but failed to parse
+      if (trimmed.startsWith('cashuA') || trimmed.startsWith('cashuB')) {
+        console.error('[SendInputStep] Invalid Cashu token format:', trimmed.slice(0, 50))
+        addToast({ type: 'error', message: t('send.destination.invalidCashuToken'), duration: 3000 })
+      }
+      return false
+    }
+
+    if (inputType === 'nostr-direct') {
       applyDestinationState({
         destination: initialDestination,
         rawAddress: hasInitialDisplayName ? trimmed : null,
@@ -359,7 +372,6 @@ export function useSendInputValidation({
         })
         return 'needs-mint-selection'
       }
-
       const message = resolution.status === 'no-common-mint'
         ? t('send.destination.noCommonMint')
         : resolution.status === 'no-relay'
@@ -369,7 +381,6 @@ export function useSendInputValidation({
       return 'handled-error'
     }
 
-    const detected = inputParser.detectAndClassify(trimmed)
     applyDestinationState({
       destination: initialDestination,
       rawAddress: hasInitialDisplayName ? trimmed : null,
@@ -378,14 +389,6 @@ export function useSendInputValidation({
       detectedTypes: hasInitialDisplayName ? [] : toBadgeTypes(detected),
     })
 
-    if (detected.type === 'unknown') {
-      // Check if input looks like a Cashu token but failed to parse
-      if (trimmed.startsWith('cashuA') || trimmed.startsWith('cashuB')) {
-        console.error('[SendInputStep] Invalid Cashu token format:', trimmed.slice(0, 50))
-        addToast({ type: 'error', message: t('send.destination.invalidCashuToken'), duration: 3000 })
-      }
-      return false
-    }
 
     // Full validation (async — network calls for lightning-address, lnurl, npub)
     let validated
@@ -421,6 +424,7 @@ export function useSendInputValidation({
       validatedDataRef.current = sendable
     }
 
+
     // Extract amount if available
     let detectedAmount = 0
     if (sendable.type === 'bolt11' && sendable.amountSats > 0) {
@@ -440,7 +444,6 @@ export function useSendInputValidation({
       }, 300)
       return 'auto-advanced'
     }
-
     return true
   }, [onNext, inputParser, onRouteValidated, applyDestinationState, onRequestMintSelection, addToast, settings.mints, mintUrl, nostrDirectPayment, getDisplayName, t, findContactDisplayName])
 

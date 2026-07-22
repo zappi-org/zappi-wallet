@@ -14,7 +14,6 @@ import { isSameMintUrl } from '@/utils/url'
 import { useContacts } from '@/ui/hooks/use-contacts'
 import type { Contact, ContactAddressType } from '@/core/types'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
-import { isNostrDirectAddress } from '@/core/domain/nostr-address'
 
 function detectAddressType(address: string): 'lightning' | 'npub' | 'custom' {
   const trimmed = address.trim()
@@ -93,7 +92,7 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
     if (!onSendToContact) return
     setSendingId(contact.id)
     try {
-      if (contact.addressType === 'npub' && isNostrDirectAddress(contact.address)) {
+      if (contact.addressType === 'npub') {
         const resolution = await nostrDirectPayment.resolve({
           address: contact.address,
           ownMintUrls: settings.mints,

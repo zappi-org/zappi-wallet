@@ -19,7 +19,6 @@ import { useSecurityHandlers } from '@/ui/hooks/use-security-handlers'
 import { useSupportNotifications } from '@/ui/hooks/use-support-notifications'
 import { useSwapHandlers } from '@/ui/hooks/use-swap-handlers'
 import { useTransactions } from '@/ui/hooks/use-transactions'
-import { isNostrDirectAddress } from '@/core/domain/nostr-address'
 import { setMintNameResolver, translateError } from '@/ui/utils/error-i18n'
 import { broadcastSync, notifyKdfMigrated } from '@/utils/cross-tab-sync'
 import { useAppStore } from '@/store'
@@ -268,10 +267,13 @@ export default function MainApp() {
 
     const { inputParser, nostrDirectPayment } = serviceRegistry
 
+    const detected = inputParser.detectAndClassify(raw)
+
+
     // NIP-19 (npub / nprofile) — handle BEFORE the unknown check, because
     // detectAndClassify doesn't classify raw npubs (returns 'unknown').
     // Resolve via nostrDirectPayment (same flow as ContactsScreen).
-    if (isNostrDirectAddress(raw)) {
+    if (detected.type === 'nostr-direct') {
       const resolution = await nostrDirectPayment.resolve({
         address: raw,
         ownMintUrls: settings.mints,
@@ -306,8 +308,8 @@ export default function MainApp() {
       return
     }
 
-    const detected = inputParser.detectAndClassify(raw)
-    if (detected.type === 'unknown') {
+    const detectedType = inputParser.detectAndClassify(raw)
+    if (detectedType.type === 'unknown') {
       addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
       return
     }

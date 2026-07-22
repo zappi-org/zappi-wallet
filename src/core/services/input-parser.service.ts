@@ -8,6 +8,7 @@ import type {
   ValidatedData,
   ParsedCashuRequest,
 } from '@/core/domain/input-types'
+import { isNostrDirectAddress } from '@/core/domain/nostr-address'
 
 export class InputParserService implements InputParserUseCase {
   constructor(
@@ -86,6 +87,11 @@ export class InputParserService implements InputParserUseCase {
       return { type: 'cashu-request', request: trimmed }
     }
 
+    // Nostr direct (npub / nprofile)
+    if (isNostrDirectAddress(trimmed)) {
+      return { type: 'nostr-direct', address: trimmed }
+    }
+
     // Lightning address
     if (this.codec.isLightningAddress(trimmed)) {
       return { type: 'lightning-address', address: trimmed }
@@ -162,6 +168,9 @@ export class InputParserService implements InputParserUseCase {
           parsed,
         }
       }
+
+      case 'nostr-direct':
+        return { type: 'nostr-direct', address: input.address }
 
       case 'amount':
         return { type: 'amount', amount: input.amount }

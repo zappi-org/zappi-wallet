@@ -39,6 +39,7 @@ export type InputType =
   | LnurlInput
   | CashuTokenInput
   | CashuRequestInput
+  | NostrDirectInput
   | AmountInput
   | UnknownInput
 
@@ -76,6 +77,11 @@ export interface CashuRequestInput {
   lightningInvoice?: string
 }
 
+export interface NostrDirectInput {
+  type: 'nostr-direct'
+  address: string
+}
+
 export interface AmountInput {
   type: 'amount'
   amount: number
@@ -95,6 +101,7 @@ export type ValidatedData =
   | ValidatedLnurlWithdraw
   | ValidatedCashuToken
   | ValidatedCashuRequest
+  | ValidatedNostrDirect
   | ValidatedMyWallet
   | ValidatedAmount
 
@@ -137,6 +144,11 @@ export interface ValidatedCashuRequest {
   type: 'cashu-request'
   request: string
   parsed: ParsedCashuRequest
+}
+
+export interface ValidatedNostrDirect {
+  type: 'nostr-direct'
+  address: string
 }
 
 export interface ValidatedMyWallet {
