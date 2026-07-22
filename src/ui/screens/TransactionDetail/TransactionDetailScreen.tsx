@@ -18,6 +18,7 @@ import { useTransactionMgmt } from '@/ui/hooks/use-transaction-mgmt'
 import { shareOrCopyText } from '@/ui/utils/share'
 import { formatTransactionFiat, useFormatFiat, useFormatSats, truncateStr } from '@/utils/format'
 import { cn } from '@/ui/lib/utils'
+import { VARIANT_HEX, resolveMintColor } from '@/ui/components/wallet/MintCard'
 import {
   ArrowLeft,
   Check,
@@ -135,7 +136,9 @@ export default function TransactionDetailScreen({
   const { t, i18n } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
-  const { getDisplayName } = useMintMetadata(mintUrls)
+  const { getDisplayName, getIconUrl } = useMintMetadata(mintUrls)
+  const settingsMints = useAppStore((s) => s.settings.mints)
+  const mintColors = useAppStore((s) => s.settings.mintColors)
   const txMgmt = useTransactionMgmt()
   const [tx, setTx] = useState(initialTx)
   const [copiedField, setCopiedField] = useState<string | null>(null)
@@ -302,6 +305,25 @@ export default function TransactionDetailScreen({
   // (SendCompleteStep / DirectReceiptStep / ReceiveReceiptStep) — the detail
   // is the archived copy of the same paper, plus type/time archive rows.
   const isBearerCreate = isEcashToken && !isReceive && tx.intent !== 'request-pay'
+  // Mockup content, receipt skin: the mint row shows the mint's face —
+  // its icon (or card color dot) + the custom name, nothing else.
+  const mintNode = useCallback((url: string) => {
+    const alias = getDisplayName(url)
+    const iconUrl = getIconUrl(url)
+    const { variant, customColor } = resolveMintColor(url, settingsMints.indexOf(url), mintColors)
+    const dotColor = customColor || VARIANT_HEX[variant] || '#515AC0'
+    return (
+      <span className="inline-flex min-w-0 items-center gap-1.5 align-middle">
+        {iconUrl ? (
+          <img src={iconUrl} alt="" className="h-4 w-4 shrink-0 rounded-full object-cover" />
+        ) : (
+          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: dotColor }} />
+        )}
+        <span className="truncate font-semibold">{alias}</span>
+      </span>
+    )
+  }, [getDisplayName, getIconUrl, settingsMints, mintColors])
+
   const receiptRows = useMemo<PaymentReceiptRow[]>(() => {
     const rows: PaymentReceiptRow[] = []
     if (isReceive) {
@@ -309,27 +331,32 @@ export default function TransactionDetailScreen({
         label: t('receive.receipt.method'),
         value: isLightning ? t('receive.receipt.methodLightning') : t('receive.receipt.methodEcash'),
       })
-      rows.push({ label: t('receive.receipt.toMint'), value: getDisplayName(tx.accountId), strong: true })
+      rows.push({ label: t('receive.receipt.toMint'), value: getDisplayName(tx.accountId), valueNode: mintNode(tx.accountId), strong: true })
       if (tx.memo) rows.push({ label: t('receive.receipt.memo'), value: tx.memo })
       if (feeSats > 0) rows.push({ label: t('txDetail.fee'), value: formatSats(feeSats) })
     } else if (isSwap) {
+      rows.push({ label: t('txDetail.type'), value: typeLabel })
       rows.push({
         label: t('txDetail.fromMint'),
         value: getDisplayName(meta.fromMintUrl ?? tx.accountId),
+        valueNode: mintNode(meta.fromMintUrl ?? tx.accountId),
       })
-      if (meta.toMintUrl) rows.push({ label: t('txDetail.toMint'), value: getDisplayName(meta.toMintUrl), strong: true })
+      if (meta.toMintUrl) rows.push({ label: t('txDetail.toMint'), value: getDisplayName(meta.toMintUrl), valueNode: mintNode(meta.toMintUrl), strong: true })
       if (feeSats > 0) rows.push({ label: t('txDetail.fee'), value: formatSats(feeSats) })
       if (tx.memo) rows.push({ label: t('send.confirm.memo'), value: tx.memo })
     } else if (isBearerCreate) {
+      // Mockup order: 메모 → 유형 → 출금 민트
       if (tx.memo) rows.push({ label: t('send.confirm.memo'), value: tx.memo })
-      rows.push({ label: t('send.confirm.sourceMint'), value: getDisplayName(tx.accountId), strong: true })
+      rows.push({ label: t('txDetail.type'), value: typeLabel })
+      rows.push({ label: t('send.confirm.sourceMint'), value: getDisplayName(tx.accountId), valueNode: mintNode(tx.accountId), strong: true })
       if (tx.outcome === 'reclaimed' && feeSats > 0) {
         rows.push({ label: t('token.reclaim.summaryFee'), value: formatSats(feeSats) })
         rows.push({ label: t('token.reclaim.summaryNet'), value: formatSats(Math.max(0, amountSats - feeSats)), strong: true })
       }
     } else {
       if (meta.destination) rows.push({ label: t('send.receipt.recipient'), value: truncateStr(meta.destination) })
-      rows.push({ label: t('send.confirm.sourceMint'), value: getDisplayName(tx.accountId) })
+      rows.push({ label: t('txDetail.type'), value: typeLabel })
+      rows.push({ label: t('send.confirm.sourceMint'), value: getDisplayName(tx.accountId), valueNode: mintNode(tx.accountId) })
       if (feeSats > 0) {
         rows.push({
           label: t(tx.status === 'settled' ? 'send.confirm.fee' : 'send.confirm.estimatedFee'),
@@ -349,10 +376,10 @@ export default function TransactionDetailScreen({
     if (typeof metadata?.failureReason === 'string' && metadata.failureReason !== 'reclaimed') {
       rows.push({ label: t('txDetail.failureReason'), value: metadata.failureReason })
     }
-    rows.push({ label: t('txDetail.type'), value: typeLabel })
-    rows.push({ label: t('txDetail.time'), value: formatDate(tx.createdAt) })
+    // No time row — the state bar carries per-state times and the bottom
+    // line carries the date, so a row here would be the third clock.
     return rows
-  }, [tx, meta, metadata, isSwap, isLightning, isReceive, isBearerCreate, amountSats, typeLabel, sourceLabel, kioskOrder, feeSats, getDisplayName, formatSats, formatDate, t])
+  }, [tx, meta, metadata, isSwap, isLightning, isReceive, isBearerCreate, amountSats, typeLabel, sourceLabel, kioskOrder, feeSats, mintNode, getDisplayName, formatSats, t])
 
   const receiptStatus = tx.status === 'settled' ? 'done' : 'pending'
   const receiptTitle = isReceive ? t('receive.receipt.title') : t('send.receipt.title')
@@ -363,11 +390,14 @@ export default function TransactionDetailScreen({
       : isSwap
         ? t('history.completed')
         : t('send.receipt.completed')
-  const statusLine = tx.status === 'failed'
-    ? t('history.failedStatus')
-    : isLightning && !isReceive
-      ? t('send.receipt.settling')
-      : t('history.pendingStatus')
+  // Date rides the bottom status line (mirroring doneLine) — never a row.
+  const statusLine = `${formatDate(tx.createdAt)} · ${
+    tx.status === 'failed'
+      ? t('history.failedStatus')
+      : isLightning && !isReceive
+        ? t('send.receipt.settling')
+        : t('history.pendingStatus')
+  }`
   // Flow receipts print the amount unsigned — direction reads from the title.
   const amountLine = formatSats(amountSats)
 
@@ -473,7 +503,7 @@ export default function TransactionDetailScreen({
                         </p>
                       </div>
                     ))}
-                    {showUnclaimedCard && meta.token && (
+                    {meta.token && (
                       <div>
                         <div className="flex items-center justify-between">
                           <span className="text-caption text-foreground-muted">{t('txDetail.viewRawToken')}</span>
@@ -502,8 +532,9 @@ export default function TransactionDetailScreen({
 
         <div className="px-5 flex flex-col gap-3">
 
-          {/* ── Bearer-token actions ── */}
-          {showUnclaimedCard && (
+          {/* ── Bearer-token actions — available whenever the token exists;
+              a spent token's QR is inert, and re-copy stays useful ── */}
+          {!!meta.token && (
             <div className="flex gap-2">
               <button
                 onClick={() => setShowTokenQr(true)}

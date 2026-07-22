@@ -15,12 +15,16 @@ vi.mock('react-i18next', () => ({
 }))
 
 vi.mock('@/store', () => ({
-  useAppStore: (selector: (state: { addToast: typeof addToast; balance: { total: number } }) => unknown) => 
-    selector({ addToast, balance: { total: 0 } }),
+  useAppStore: (selector: (state: Record<string, unknown>) => unknown) =>
+    selector({ addToast, balance: { total: 0 }, settings: { mints: [], mintColors: {} } }),
 }))
 
 vi.mock('@/ui/hooks/use-mint-metadata', () => ({
-  useMintMetadata: () => ({ getDisplayName: (url: string) => url }),
+  useMintMetadata: () => ({
+    getDisplayName: (url: string) => url,
+    getMetadata: () => undefined,
+    getIconUrl: () => undefined,
+  }),
 }))
 
 vi.mock('@/ui/hooks/use-reclaim', () => ({

@@ -14,6 +14,8 @@ export type PaymentReceiptStatus = 'printing' | 'finishing' | 'pending' | 'done'
 export interface PaymentReceiptRow {
   label: string
   value: string
+  /** Rich value (e.g. mint icon + alias) — takes precedence over `value`. */
+  valueNode?: ReactNode
   strong?: boolean
 }
 
@@ -162,7 +164,7 @@ export function PaymentReceipt({
               {rows.map((row, i) => (
                 <div key={`${row.label}-${i}`} className="flex items-center justify-between gap-3 py-[5px] text-caption">
                   <span className="shrink-0 text-foreground-muted">{row.label}</span>
-                  <span className={`truncate ${row.strong ? 'font-semibold' : 'font-medium'}`}>{row.value}</span>
+                  <span className={`truncate ${row.strong ? 'font-semibold' : 'font-medium'}`}>{row.valueNode ?? row.value}</span>
                 </div>
               ))}
               {qr && (

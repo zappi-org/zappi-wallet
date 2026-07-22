@@ -52,9 +52,12 @@ export function buildTxStateTrack(tx: Transaction): TxStateTrack {
     ]
     if (failed) return fail(happy)
     if (tx.status === 'settled' && tx.outcome === 'reclaimed') {
+      // The mockup keeps the passed-through waiting node: the token DID wait,
+      // then branched into reclaim — used becomes the unreachable fourth stop.
       return {
         nodes: [
           happy[0],
+          { labelKey: middle, tone: 'done' },
           { labelKey: 'txDetail.state.reclaimed', tone: 'done', at: settledAt },
           { labelKey: 'txDetail.state.used', tone: 'void' },
         ],
@@ -78,9 +81,14 @@ export function buildTxStateTrack(tx: Transaction): TxStateTrack {
   }
 
   // ── Two-node machines ──
+  // pendingAt: where the amber light sits while unsettled. Sends are genuinely
+  // WORKING on the last stage (melt confirming) — light on last. A receive
+  // request is just RESTING at the first stage until someone pays — light on
+  // first, last stays hollow.
   const twoNode = (
     firstKey: TranslationKey,
     lastKey: TranslationKey,
+    pendingAt: 'first' | 'last',
     pendingNote?: TranslationKey,
   ): TxStateTrack => {
     const happy: TxStateNode[] = [
@@ -91,6 +99,12 @@ export function buildTxStateTrack(tx: Transaction): TxStateTrack {
     if (tx.status === 'settled') {
       return { nodes: [happy[0], { labelKey: lastKey, tone: 'done', at: settledAt }] }
     }
+    if (pendingAt === 'first') {
+      return {
+        nodes: [{ labelKey: firstKey, tone: 'current', at: tx.createdAt }, happy[1]],
+        noteKey: pendingNote,
+      }
+    }
     return {
       nodes: [happy[0], { labelKey: lastKey, tone: 'current' }],
       noteKey: pendingNote,
@@ -98,15 +112,15 @@ export function buildTxStateTrack(tx: Transaction): TxStateTrack {
   }
 
   if (type === 'swap') {
-    return twoNode('txDetail.state.swapStart', 'txDetail.state.swapDone')
+    return twoNode('txDetail.state.swapStart', 'txDetail.state.swapDone', 'last')
   }
   if (type === 'lightning') {
     return isReceive
-      ? twoNode('txDetail.state.requested', 'txDetail.state.received')
-      : twoNode('txDetail.state.sent', 'txDetail.state.confirmed', 'txDetail.state.noteInTransit')
+      ? twoNode('txDetail.state.requested', 'txDetail.state.received', 'first')
+      : twoNode('txDetail.state.sent', 'txDetail.state.confirmed', 'last', 'txDetail.state.noteInTransit')
   }
   if (type === 'ecash-token' && isReceive) {
-    return twoNode('txDetail.state.received', 'txDetail.state.registered')
+    return twoNode('txDetail.state.received', 'txDetail.state.registered', 'first')
   }
 
   // Legacy nut18 rows, nutzap, and anything new fall back to a plain
@@ -114,5 +128,6 @@ export function buildTxStateTrack(tx: Transaction): TxStateTrack {
   return twoNode(
     isReceive ? 'txDetail.state.received' : 'txDetail.state.sent',
     'txDetail.state.completed',
+    isReceive ? 'first' : 'last',
   )
 }

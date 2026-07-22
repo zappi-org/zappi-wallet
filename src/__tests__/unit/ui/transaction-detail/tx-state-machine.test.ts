@@ -37,11 +37,17 @@ describe('buildTxStateTrack', () => {
     expect(buildTxStateTrack(tx).nodes[2].at).toBe(2000)
   })
 
-  it('reclaimed bearer token: used is voided, reclaimed carries the settle time', () => {
+  it('reclaimed bearer token: waiting stays passed, reclaimed branches in, used is voided', () => {
     const tx = makeTx({ status: 'settled', outcome: 'reclaimed', completedAt: 2000 })
     const track = buildTxStateTrack(tx)
-    expect(track.nodes[1]).toMatchObject({ labelKey: 'txDetail.state.reclaimed', tone: 'done', at: 2000 })
-    expect(track.nodes[2].tone).toBe('void')
+    expect(labels(tx)).toEqual([
+      'txDetail.state.created',
+      'txDetail.state.waiting',
+      'txDetail.state.reclaimed',
+      'txDetail.state.used',
+    ])
+    expect(track.nodes[2]).toMatchObject({ labelKey: 'txDetail.state.reclaimed', tone: 'done', at: 2000 })
+    expect(track.nodes[3].tone).toBe('void')
     expect(track.noteKey).toBe('txDetail.state.noteReclaimed')
   })
 
@@ -71,6 +77,13 @@ describe('buildTxStateTrack', () => {
     const tx = makeTx({ protocol: 'bolt11', status: 'pending' })
     expect(tones(tx)).toEqual(['done', 'current'])
     expect(buildTxStateTrack(tx).noteKey).toBe('txDetail.state.noteInTransit')
+  })
+
+  it('unpaid receive request rests at requested — the light never sits on 받음', () => {
+    const tx = makeTx({ direction: 'receive', protocol: 'bolt11', status: 'pending' })
+    const track = buildTxStateTrack(tx)
+    expect(track.nodes[0]).toMatchObject({ labelKey: 'txDetail.state.requested', tone: 'current' })
+    expect(track.nodes[1]).toMatchObject({ labelKey: 'txDetail.state.received', tone: 'todo' })
   })
 
   it('received token: received → registered', () => {
