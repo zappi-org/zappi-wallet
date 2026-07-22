@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react'
-import { X, Copy, Check } from 'lucide-react'
+import { useState, useCallback, useEffect } from 'react'
+import { X, Copy, Check, Eye } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 
@@ -12,6 +12,13 @@ interface TokenQrModalProps {
 export function TokenQrModal({ isOpen, token, onClose }: TokenQrModalProps) {
   const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
+  // Bearer privacy: whoever scans this QR owns the funds — veil until tapped,
+  // same contract as the send-flow receipt. Re-arms on every close: the parent
+  // keeps this mounted, so state alone would leave later opens unveiled.
+  const [veiled, setVeiled] = useState(true)
+  useEffect(() => {
+    if (!isOpen) setVeiled(true)
+  }, [isOpen])
 
   const handleCopy = useCallback(async () => {
     try {
@@ -53,12 +60,30 @@ export function TokenQrModal({ isOpen, token, onClose }: TokenQrModalProps) {
 
         {/* QR Code */}
         <div className="flex justify-center px-8 py-4">
-          <QRCodeDisplay
-            value={token}
-            size={200}
-            level="L"
-            className="rounded-2xl"
-          />
+          <button
+            type="button"
+            onClick={() => setVeiled((v) => !v)}
+            aria-label={t('send.tokenCreate.tapToReveal')}
+            className="relative overflow-hidden rounded-2xl"
+          >
+            <div className={`transition-all ${veiled ? 'blur-md opacity-40' : ''}`}>
+              <QRCodeDisplay
+                value={token}
+                size={220}
+                level="M"
+                className="rounded-2xl"
+              />
+            </div>
+            {veiled && (
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1">
+                <div className="text-3xl" aria-hidden>🙈</div>
+                <div className="flex items-center gap-1 text-[10px] text-foreground-muted">
+                  <Eye className="h-3 w-3" strokeWidth={1.8} />
+                  <span>{t('send.tokenCreate.tapToReveal')}</span>
+                </div>
+              </div>
+            )}
+          </button>
         </div>
 
         {/* Copy button */}

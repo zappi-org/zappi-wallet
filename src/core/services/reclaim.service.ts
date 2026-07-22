@@ -112,6 +112,14 @@ export class ReclaimService implements ReclaimUseCase {
         const { code, message } = result.error
 
         if (code === 'TOKEN_SPENT') {
+          // The recipient beat the reclaim — settle as claimed and emit, so
+          // pending UIs drop the card instead of trusting a local screen flip.
+          // Re-read first: a concurrent reclaim may already have settled the
+          // row, and a stale write here would flip reclaimed → claimed.
+          const fresh = await this.txRepo.getById(txId)
+          if (fresh && isReclaimableSend(fresh)) {
+            await this.markSendClaimed(fresh)
+          }
           return Err(new TokenSpentByRecipientError(message))
         }
         if (code === 'INVALID_TOKEN') {

@@ -551,6 +551,32 @@ export default {
 
   // Transaction Detail Screen
   txDetail: {
+    recordMissing: 'No se encontró el registro de la transacción',
+    state: {
+      created: 'Creado',
+      waiting: 'En espera',
+      used: 'Usado',
+      reclaimed: 'Recuperado',
+      sent: 'Enviado',
+      awaitingReceipt: 'Esperando recepción',
+      confirmed: 'Confirmado',
+      requested: 'Solicitado',
+      received: 'Recibido',
+      registered: 'Canjeado',
+      swapStart: 'Swap iniciado',
+      swapDone: 'Swap completado',
+      completed: 'Completado',
+      failed: 'Fallido',
+      notePending: 'Aún no canjeado · puedes recuperarlo cuando quieras',
+      noteClaimed: 'Canjeado por el destinatario — listo',
+      noteReclaimed: 'Devuelto a tu saldo antes de usarse',
+      noteInTransit: 'Confirmando la liquidación',
+    },
+    share: 'Compartir',
+    viewRawToken: 'Ver token original',
+    reclaimWithFee: 'Recuperar (tarifa de recepción: {{fee}})',
+    reclaimQuoting: 'Consultando tarifa',
+    time: 'Hora',
     type: 'Tipo',
     mint: 'Mint',
     source: 'Origen',
@@ -575,7 +601,6 @@ export default {
     'source.unknown': 'Externo',
 
     // Token lifecycle
-    reclaiming: 'Recuperando...',
     reclaimSuccess: 'eCash recuperado exitosamente',
     reclaimFailed: 'Error al recuperar eCash',
     consumedByRecipient: 'El destinatario ya reclamó este eCash',
@@ -586,22 +611,12 @@ export default {
     deleteWarning: 'No se puede deshacer.',
 
     // Context sentences
-    receivedToWallet: 'Recibido en {{wallet}}',
-    sentViaLightning: 'Enviado a {{address}}',
-    sentEcash: 'eCash enviado',
-    tokenCreated: 'eCash creado',
-    swappedAt: 'Intercambiado en {{mint}}',
-    swappedFromTo: '{{from}} → {{to}} intercambio',
-    receivedFromPOS: 'Recibido de {{name}}',
     reclaimAction: 'Recuperar eCash',
 
     // Section titles
     txInfo: 'Información',
-    paymentInfo: 'Info de pago',
-    swapInfo: 'Info de intercambio',
 
     // Kiosk order
-    orderItems: 'Artículos del pedido',
     orderTotal: 'Total',
 
     // Fiat
@@ -1066,79 +1081,10 @@ export default {
       success: 'Recuperado exitosamente',
       failed: 'Error al recuperar',
     },
-    history: {
-      deleteSuccess: 'Historial eliminado',
-      deleteFailed: 'No se pudo eliminar el historial',
-    },
     detail: {
-      unread: 'Ecash no leído',
-      title: {
-        pending: 'Ecash pendiente',
-        registered: 'Ecash registrado',
-        consumed: 'Ecash gastado',
-        reclaimed: 'Ecash recuperado',
-      },
-      weekday: {
-        sun: 'Domingo',
-        mon: 'Lunes',
-        tue: 'Martes',
-        wed: 'Miércoles',
-        thu: 'Jueves',
-        fri: 'Viernes',
-        sat: 'Sábado',
-      },
-      dateLine: {
-        pending: '{{weekday}}, {{day}}/{{month}}/{{year}}\nCreado a las {{time}}',
-        registered: '{{weekday}}, {{day}}/{{month}}/{{year}}\nRegistrado a las {{time}}',
-        consumed: '{{weekday}}, {{day}}/{{month}}/{{year}}\nCreado a las {{time}}',
-        reclaimed: '{{weekday}}, {{day}}/{{month}}/{{year}}\nRecuperado a las {{time}}',
-      },
-      amountLabel: 'Cantidad',
-      feeLine: 'Comisión {{fee}}',
-      memoLabel: 'Nota',
-      memoEmpty: '—',
-      typeLabel: 'Tipo',
-      typeValue: {
-        pending: 'Crear ecash',
-        registered: 'Registrar ecash',
-        consumed: 'Ecash gastado',
-        reclaimed: 'Recuperar ecash',
-      },
-      mintLabel: {
-        pending: 'Mint de origen',
-        registered: 'Mint de destino',
-        consumed: 'Mint emisor',
-        reclaimed: 'Mint de destino',
-      },
-      action: {
-        forward: 'Reenviar ecash',
-        confirm: 'Ver ecash',
-      },
-      actions: {
-        qr: 'QR',
-        copy: 'Copiar',
-        share: 'Compartir',
-        viewRaw: 'Ver ecash original',
-      },
-      reclaimCta: 'Recuperar (comisión: {{fee}})',
       raw: {
-        title: 'Ecash original',
-        issuingMint: 'Mint emisor',
-        unit: 'Unidad',
-        receiveFee: 'Comisión de recepción',
-        empty: 'No hay datos de ecash.',
         easterEgg: 'ZAPPI X CASHU',
       },
-      qr: {
-        title: 'Compartir QR',
-      },
-    },
-    rawSheet: {
-      delete: 'Eliminar historial',
-      deleteConfirm: '¿Eliminar historial?',
-      deleting: 'Eliminando…',
-      yes: 'Sí',
-      no: 'No',
     },
   },
 

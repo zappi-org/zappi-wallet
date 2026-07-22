@@ -73,7 +73,8 @@ vi.mock('@/ui/hooks', () => ({
 }))
 
 vi.mock('@/ui/hooks/useReclaimFees', () => ({
-  useReclaimFees: () => ({ fees: new Map(), isLoading: false }),
+  // Quoted fee present — the sheet gates its confirm button on known fees.
+  useReclaimFees: () => ({ fees: new Map([['p1', 2]]), isLoading: false }),
 }))
 
 const reclaimMultipleMock = vi.fn(
@@ -89,7 +90,14 @@ vi.mock('@/ui/hooks/use-token-reclaim', () => ({
   }),
 }))
 
+vi.mock('@/ui/screens/TransactionDetail/TransactionDetailScreen', () => ({
+  default: ({ transaction }: { transaction: { id: string } }) => (
+    <div>{`detail:${transaction.id}`}</div>
+  ),
+}))
+
 import { HistoryScreen } from '@/ui/screens/History/HistoryScreen'
+import type { Transaction } from '@/core/domain/transaction'
 
 class ResizeObserverStub {
   observe() {}
@@ -240,20 +248,41 @@ describe('HistoryScreen pending ecash section', () => {
     )
   })
 
-  it('builds token-detail data when a pending card is tapped', () => {
+  it('opens the inline transaction detail when the pending tx is in the window', async () => {
     pendingItemsState.items = [makeSendTokenItem()]
-    const onSelectPendingToken = vi.fn()
-    renderScreen({ onSelectPendingToken })
+    const pendingTx = {
+      id: 'p1',
+      direction: 'send',
+      method: 'cashu',
+      protocol: 'cashu-token',
+      amount: { value: 1000n, unit: 'sat' },
+      accountId: 'https://mint.test',
+      status: 'pending',
+      outcome: 'unclaimed',
+      createdAt: Date.now(),
+    } as unknown as Transaction
+    renderScreen({ transactions: [pendingTx] })
 
     fireEvent.click(screen.getByText('커피값'))
 
-    expect(onSelectPendingToken).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: 'p1',
-        status: 'pending',
-        amount: 1000,
-        tokenString: 'cashuAeyJ0b2tlbiI6Ii4uLiJ9',
-      }),
-    )
+    await waitFor(() => {
+      expect(screen.getByText('detail:p1')).toBeTruthy()
+    })
+  })
+
+  it('falls back to an error toast when no transaction backs the pending card', async () => {
+    // Legacy pending rows can outlive their transaction; without a registry
+    // the lookup must fail loudly, not no-op.
+    pendingItemsState.items = [makeSendTokenItem()]
+    renderScreen({ transactions: [] })
+
+    fireEvent.click(screen.getByText('커피값'))
+
+    await waitFor(() => {
+      expect(addToastMock).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'error' }),
+      )
+    })
+    expect(screen.queryByText('detail:p1')).toBeNull()
   })
 })

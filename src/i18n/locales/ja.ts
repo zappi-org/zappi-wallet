@@ -549,6 +549,32 @@ export default {
 
   // Transaction Detail Screen
   txDetail: {
+    recordMissing: '取引記録が見つかりません',
+    state: {
+      created: '生成済み',
+      waiting: '待機中',
+      used: '使用済み',
+      reclaimed: '回収済み',
+      sent: '送信済み',
+      awaitingReceipt: '受信待ち',
+      confirmed: '確定済み',
+      requested: 'リクエスト済み',
+      received: '受取済み',
+      registered: '登録済み',
+      swapStart: '交換開始',
+      swapDone: '交換完了',
+      completed: '完了',
+      failed: '送信失敗',
+      notePending: 'まだ登録されていません · いつでも取り戻せます',
+      noteClaimed: '相手が登録して取引が完了しました',
+      noteReclaimed: '使用される前に残高へ戻しました',
+      noteInTransit: '決済を確認しています',
+    },
+    share: '共有',
+    viewRawToken: 'トークン原文を見る',
+    reclaimWithFee: '取り戻す（受取手数料: {{fee}}）',
+    reclaimQuoting: '手数料を確認中',
+    time: '日時',
     type: '種類',
     mint: 'Mint',
     source: '送信元',
@@ -573,7 +599,6 @@ export default {
     'source.unknown': '外部',
 
     // Token lifecycle
-    reclaiming: '回収中...',
     reclaimSuccess: 'eCashを回収しました',
     reclaimFailed: 'eCashの回収に失敗しました',
     consumedByRecipient: '相手がすでに受領しました',
@@ -584,22 +609,12 @@ export default {
     deleteWarning: '削除後は元に戻せません。',
 
     // Context sentences
-    receivedToWallet: '{{wallet}}に受取',
-    sentViaLightning: '{{address}}に送金',
-    sentEcash: 'eCash送金',
-    tokenCreated: 'eCash作成',
-    swappedAt: '{{mint}}でスワップ',
-    swappedFromTo: '{{from}} → {{to}} スワップ',
-    receivedFromPOS: '{{name}}から受取',
     reclaimAction: 'eCashを回収',
 
     // Section titles
     txInfo: '取引情報',
-    paymentInfo: '支払い情報',
-    swapInfo: 'スワップ情報',
 
     // Kiosk order
-    orderItems: '注文内容',
     orderTotal: '合計',
 
     // Fiat
@@ -1064,79 +1079,10 @@ export default {
       success: '正常に取り戻しました',
       failed: '取り戻しに失敗しました',
     },
-    history: {
-      deleteSuccess: '履歴を削除しました',
-      deleteFailed: '履歴を削除できませんでした',
-    },
     detail: {
-      unread: '未読のイーキャッシュ',
-      title: {
-        pending: '待機中のイーキャッシュ',
-        registered: 'イーキャッシュ登録完了',
-        consumed: 'イーキャッシュ使用済み',
-        reclaimed: 'イーキャッシュの取り戻し完了',
-      },
-      weekday: {
-        sun: '日曜日',
-        mon: '月曜日',
-        tue: '火曜日',
-        wed: '水曜日',
-        thu: '木曜日',
-        fri: '金曜日',
-        sat: '土曜日',
-      },
-      dateLine: {
-        pending: '{{year}}年{{month}}月{{day}}日 {{weekday}}\n{{time}}に作成',
-        registered: '{{year}}年{{month}}月{{day}}日 {{weekday}}\n{{time}}に登録',
-        consumed: '{{year}}年{{month}}月{{day}}日 {{weekday}}\n{{time}}に作成',
-        reclaimed: '{{year}}年{{month}}月{{day}}日 {{weekday}}\n{{time}}に取り戻し',
-      },
-      amountLabel: '金額',
-      feeLine: '手数料 {{fee}}',
-      memoLabel: 'メモ',
-      memoEmpty: '—',
-      typeLabel: '種類',
-      typeValue: {
-        pending: 'イーキャッシュ作成',
-        registered: 'イーキャッシュ登録',
-        consumed: 'イーキャッシュ使用',
-        reclaimed: 'イーキャッシュ取り戻し',
-      },
-      mintLabel: {
-        pending: '出金ミント',
-        registered: '入金ミント',
-        consumed: '発行ミント',
-        reclaimed: '入金ミント',
-      },
-      action: {
-        forward: 'イーキャッシュを転送',
-        confirm: 'イーキャッシュを確認',
-      },
-      actions: {
-        qr: 'QR',
-        copy: 'コピー',
-        share: '共有',
-        viewRaw: 'イーキャッシュの原文',
-      },
-      reclaimCta: '取り戻す（手数料: {{fee}}）',
       raw: {
-        title: 'イーキャッシュ詳細',
-        issuingMint: '発行ミント',
-        unit: '単位',
-        receiveFee: '受取手数料',
-        empty: 'イーキャッシュデータがありません。',
         easterEgg: 'ZAPPI X CASHU',
       },
-      qr: {
-        title: 'QR共有',
-      },
-    },
-    rawSheet: {
-      delete: '履歴を削除',
-      deleteConfirm: '履歴を削除しますか？',
-      deleting: '削除中…',
-      yes: 'はい',
-      no: 'いいえ',
     },
   },
 

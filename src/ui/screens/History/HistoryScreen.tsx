@@ -13,7 +13,7 @@ import type { MintInfo } from '@/core/types'
 import { useAppStore } from '@/store'
 import { useWallet, useMintMetadata } from '@/ui/hooks'
 import { getMintBalance, isSameMintUrl, stripTrailingSlash } from '@/utils/url'
-import { getLocaleCode, satsToFiat, useFormatSats } from '@/utils/format'
+import { getLocaleCode, useFormatSats } from '@/utils/format'
 import type { PendingItem } from '@/core/ports/driving/pending-items.usecase'
 import { isSendToken, type TokenDetails } from '@/ui/types/pending-item-details'
 import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
@@ -23,8 +23,7 @@ import { ServiceContext } from '@/ui/hooks/service-context-value'
 import { PendingWidget } from '@/ui/screens/Token/components/PendingWidget'
 import { ReclaimableSection } from '@/ui/screens/Token/components/ReclaimableSection'
 import { ReclaimSheet } from '@/ui/screens/Token/components/ReclaimSheet'
-import { pendingToDetail } from '@/ui/screens/Token/token-view-model'
-import type { PendingTokenView, TokenDetailData } from '@/ui/screens/Token/types'
+import type { PendingTokenView } from '@/ui/screens/Token/types'
 import { EmptyState } from '@/ui/components/common/EmptyState'
 import { TransactionListSkeleton } from '@/ui/components/common/Skeleton'
 import { DateFilterSheet } from '@/ui/components/common/DateFilterSheet'
@@ -53,8 +52,6 @@ export interface HistoryScreenProps {
   isLoading?: boolean
   initialFilter?: FilterType
   initialMintUrls?: string[]
-  /** Open the token detail (QR/raw/reclaim) for a pending ecash card. */
-  onSelectPendingToken?: (detail: TokenDetailData) => void
 }
 
 interface AnchorText {
@@ -141,7 +138,6 @@ export function HistoryScreen({
   isLoading = false,
   initialFilter,
   initialMintUrls,
-  onSelectPendingToken,
 }: HistoryScreenProps) {
   'use no memo' // useVirtualizer returns mutable functions incompatible with React Compiler
   const { t, i18n } = useTranslation()
@@ -173,7 +169,7 @@ export function HistoryScreen({
     return Array.from(urls)
   }, [transactions, settings.mints])
 
-  const { getDisplayName, getMetadata, getIconUrl } = useMintMetadata(mintUrls)
+  const { getDisplayName, getIconUrl } = useMintMetadata(mintUrls)
   const { balance } = useWallet()
 
   const availableMints: MintInfo[] = useMemo(() => {
@@ -207,6 +203,8 @@ export function HistoryScreen({
       })
   }, [registry, triggerTxRefresh])
 
+  const transactionById = useMemo(() => new Map(transactions.map((tx) => [tx.id, tx])), [transactions])
+
   const { items: pendingItemsRaw, isLoading: isPendingLoading } = useAllPendingItems(settings.mints)
   const pendingSendItems = useMemo(
     () => pendingItemsRaw.filter(isSendToken),
@@ -216,10 +214,8 @@ export function HistoryScreen({
     () => pendingSendItems.map((i) => i.id),
     [pendingSendItems],
   )
-  const { fees: reclaimFees } = useReclaimFees(pendingTxIds)
+  const { fees: reclaimFees, isLoading: reclaimFeesLoading, retry: retryReclaimFees } = useReclaimFees(pendingTxIds)
 
-  const fiatCurrency = settings.fiatCurrency ?? 'USD'
-  const fiatRate = useAppStore((s) => s.allRates?.[fiatCurrency] ?? null)
 
   const pendingTokens: PendingTokenView[] = useMemo(() => {
     return pendingSendItems.map((item: PendingItem<TokenDetails>) => ({
@@ -288,26 +284,52 @@ export function HistoryScreen({
     [addToast, formatSats, t],
   )
 
+  // Monotonic guard: two quick taps race their async lookups — only the
+  // latest tap may set the detail, or a slow lookup lands the wrong screen.
+  const pendingSelectSeq = useRef(0)
   const handleSelectPending = useCallback(
-    (token: PendingTokenView) => {
-      if (!onSelectPendingToken) return
-      const url = token.mintUrl ?? ''
-      const metadata = url ? getMetadata(url) : undefined
-      const fiat =
-        fiatRate !== null
-          ? { amount: satsToFiat(token.amount, fiatRate), currency: fiatCurrency }
-          : undefined
-      onSelectPendingToken(
-        pendingToDetail(token, {
-          mintAlias: url ? getDisplayName(url) : undefined,
-          mintName: metadata?.name,
-          mintIconUrl: url ? getIconUrl(url) : undefined,
-          fiat,
-        }),
-      )
+    async (token: PendingTokenView) => {
+      const seq = ++pendingSelectSeq.current
+      // The transactions prop is a 100-row window; a weeks-old pending token
+      // can outlive it, and legacy pending rows may have no transaction at all.
+      const inWindow = transactionById.get(token.id)
+      if (inWindow) {
+        setSelectedTransaction(inWindow)
+        return
+      }
+      const fetched = registry?.transactionMgmt
+        ? await registry.transactionMgmt.getById(token.id).catch(() => null)
+        : null
+      if (seq !== pendingSelectSeq.current) return
+      if (fetched) {
+        setSelectedTransaction(fetched)
+      } else {
+        addToast({ type: 'error', message: t('txDetail.recordMissing') })
+      }
     },
-    [onSelectPendingToken, getMetadata, getDisplayName, getIconUrl, fiatRate, fiatCurrency],
+    [transactionById, registry, addToast, t],
   )
+
+  // Out-of-window detail rows never refresh via transactionById — refetch the
+  // open detail whenever a transaction change lands, so external claims settle
+  // it live just like in-window rows.
+  const txRefreshTrigger = useAppStore((s) => s.txRefreshTrigger)
+  useEffect(() => {
+    const current = selectedTransaction
+    if (!current || transactionById.has(current.id) || !registry?.transactionMgmt) return
+    let cancelled = false
+    registry.transactionMgmt.getById(current.id)
+      .then((fresh) => {
+        if (!cancelled && fresh) {
+          setSelectedTransaction((prev) => (prev && prev.id === fresh.id ? fresh : prev))
+        }
+      })
+      .catch(() => { /* keep the snapshot */ })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [txRefreshTrigger])
 
   // The pending block sits in normal flow above the virtualized timeline inside
   // the same scroll element — its height must feed the virtualizer as
@@ -378,7 +400,6 @@ export function HistoryScreen({
 
     return filtered
   }, [transactions, filter, dateCutoff, searchQuery, selectedMintUrls, t])
-  const transactionById = useMemo(() => new Map(transactions.map((tx) => [tx.id, tx])), [transactions])
 
   const timelineGroups = useMemo(
     () => groupTransactionsForTimeline(filteredTransactions),
@@ -438,10 +459,15 @@ export function HistoryScreen({
   }, [filteredTransactions, getDisplayName, addToast, t])
 
   if (selectedTransaction) {
+    // Prefer the refreshed row over the tap-time snapshot: an external claim
+    // or reclaim can settle the tx while the detail is open. The status/outcome
+    // key remounts the detail so its local lifecycle state can't go stale.
+    const liveTx = transactionById.get(selectedTransaction.id) ?? selectedTransaction
     return (
       <Suspense fallback={<div className="h-full flex items-center justify-center bg-background"><Spinner /></div>}>
         <TransactionDetailScreen
-          transaction={selectedTransaction}
+          key={`${liveTx.id}-${liveTx.status}-${liveTx.outcome ?? ''}`}
+          transaction={liveTx}
           onBack={() => setSelectedTransaction(null)}
           mintUrls={settings.mints}
         />
@@ -526,7 +552,7 @@ export function HistoryScreen({
               tokens={visiblePendingTokens}
               onShare={handleSharePending}
               onReclaim={openReclaimOne}
-              onSelect={onSelectPendingToken ? handleSelectPending : undefined}
+              onSelect={handleSelectPending}
             />
           </div>
         )}
@@ -669,6 +695,8 @@ export function HistoryScreen({
         isOpen={reclaimTargets !== null}
         onClose={closeReclaim}
         tokens={reclaimTargets ?? []}
+        quoting={reclaimFeesLoading}
+        onRetryFees={retryReclaimFees}
         onConfirm={confirmReclaim}
       />
     </div>

@@ -44,7 +44,7 @@ function createDrops(count: number): Drop[] {
 
 /**
  * Full-page easter egg — Zappi stars + Cashu nuts raining while rotating.
- * Entered after 10 taps on the raw-token box inside TokenRawSheet.
+ * Entered after 10 taps on the raw-token text inside the transaction detail.
  */
 export function EasterEggScreen({ onClose, count = 28 }: EasterEggScreenProps) {
   const { t } = useTranslation()

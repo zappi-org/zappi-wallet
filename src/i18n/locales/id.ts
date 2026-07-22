@@ -551,6 +551,32 @@ export default {
 
   // Transaction Detail Screen
   txDetail: {
+    recordMissing: 'Catatan transaksi tidak ditemukan',
+    state: {
+      created: 'Dibuat',
+      waiting: 'Menunggu',
+      used: 'Digunakan',
+      reclaimed: 'Diklaim kembali',
+      sent: 'Terkirim',
+      awaitingReceipt: 'Menunggu penerimaan',
+      confirmed: 'Terkonfirmasi',
+      requested: 'Diminta',
+      received: 'Diterima',
+      registered: 'Ditukarkan',
+      swapStart: 'Swap dimulai',
+      swapDone: 'Swap selesai',
+      completed: 'Selesai',
+      failed: 'Gagal',
+      notePending: 'Belum ditukarkan · bisa diklaim kembali kapan saja',
+      noteClaimed: 'Ditukarkan penerima — selesai',
+      noteReclaimed: 'Dikembalikan ke saldo sebelum digunakan',
+      noteInTransit: 'Mengonfirmasi penyelesaian',
+    },
+    share: 'Bagikan',
+    viewRawToken: 'Lihat token mentah',
+    reclaimWithFee: 'Klaim kembali (biaya terima: {{fee}})',
+    reclaimQuoting: 'Memeriksa biaya',
+    time: 'Waktu',
     type: 'Jenis',
     mint: 'Mint',
     source: 'Sumber',
@@ -575,7 +601,6 @@ export default {
     'source.unknown': 'Eksternal',
 
     // Token lifecycle
-    reclaiming: 'Mengklaim kembali...',
     reclaimSuccess: 'eCash berhasil diklaim kembali',
     reclaimFailed: 'Gagal mengklaim kembali eCash',
     consumedByRecipient: 'Penerima sudah mengklaim eCash ini',
@@ -586,22 +611,12 @@ export default {
     deleteWarning: 'Tidak dapat dibatalkan.',
 
     // Context sentences
-    receivedToWallet: 'Diterima ke {{wallet}}',
-    sentViaLightning: 'Dikirim ke {{address}}',
-    sentEcash: 'eCash terkirim',
-    tokenCreated: 'eCash dibuat',
-    swappedAt: 'Ditukar di {{mint}}',
-    swappedFromTo: '{{from}} → {{to}} tukar',
-    receivedFromPOS: 'Diterima dari {{name}}',
     reclaimAction: 'Klaim kembali eCash',
 
     // Section titles
     txInfo: 'Info transaksi',
-    paymentInfo: 'Info pembayaran',
-    swapInfo: 'Info swap',
 
     // Kiosk order
-    orderItems: 'Item Pesanan',
     orderTotal: 'Total',
 
     // Fiat
@@ -1066,79 +1081,10 @@ export default {
       success: 'Berhasil mengambil kembali',
       failed: 'Gagal mengambil kembali',
     },
-    history: {
-      deleteSuccess: 'Riwayat dihapus',
-      deleteFailed: 'Gagal menghapus riwayat',
-    },
     detail: {
-      unread: 'Ecash belum dibaca',
-      title: {
-        pending: 'Ecash menunggu',
-        registered: 'Ecash terdaftar',
-        consumed: 'Ecash terpakai',
-        reclaimed: 'Ecash diambil kembali',
-      },
-      weekday: {
-        sun: 'Minggu',
-        mon: 'Senin',
-        tue: 'Selasa',
-        wed: 'Rabu',
-        thu: 'Kamis',
-        fri: 'Jumat',
-        sat: 'Sabtu',
-      },
-      dateLine: {
-        pending: '{{weekday}}, {{day}}/{{month}}/{{year}}\nDibuat pada {{time}}',
-        registered: '{{weekday}}, {{day}}/{{month}}/{{year}}\nDidaftarkan pada {{time}}',
-        consumed: '{{weekday}}, {{day}}/{{month}}/{{year}}\nDibuat pada {{time}}',
-        reclaimed: '{{weekday}}, {{day}}/{{month}}/{{year}}\nDiambil kembali pada {{time}}',
-      },
-      amountLabel: 'Jumlah',
-      feeLine: 'Biaya {{fee}}',
-      memoLabel: 'Memo',
-      memoEmpty: '—',
-      typeLabel: 'Jenis',
-      typeValue: {
-        pending: 'Buat ecash',
-        registered: 'Daftarkan ecash',
-        consumed: 'Ecash terpakai',
-        reclaimed: 'Ambil kembali ecash',
-      },
-      mintLabel: {
-        pending: 'Mint asal',
-        registered: 'Mint tujuan',
-        consumed: 'Mint penerbit',
-        reclaimed: 'Mint tujuan',
-      },
-      action: {
-        forward: 'Teruskan ecash',
-        confirm: 'Lihat ecash',
-      },
-      actions: {
-        qr: 'QR',
-        copy: 'Salin',
-        share: 'Bagikan',
-        viewRaw: 'Lihat data ecash mentah',
-      },
-      reclaimCta: 'Ambil kembali (biaya: {{fee}})',
       raw: {
-        title: 'Data ecash mentah',
-        issuingMint: 'Mint penerbit',
-        unit: 'Unit',
-        receiveFee: 'Biaya penerimaan',
-        empty: 'Tidak ada data ecash.',
         easterEgg: 'ZAPPI X CASHU',
       },
-      qr: {
-        title: 'Bagikan QR',
-      },
-    },
-    rawSheet: {
-      delete: 'Hapus riwayat',
-      deleteConfirm: 'Hapus riwayat?',
-      deleting: 'Menghapus…',
-      yes: 'Ya',
-      no: 'Tidak',
     },
   },
 

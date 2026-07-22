@@ -36,6 +36,11 @@ vi.mock('@/utils/format', () => ({
   useFormatFiat: () => () => null,
   formatTransactionFiat: () => null,
   getLocaleCode: () => 'en-US',
+  truncateStr: (s: string) => s,
+}))
+
+vi.mock('@/ui/hooks/useReclaimFees', () => ({
+  useReclaimFees: () => ({ fees: new Map([['tx-token', 2]]), isLoading: false }),
 }))
 
 vi.mock('@/ui/screens/TransactionDetail/TokenQrModal', () => ({
@@ -68,20 +73,22 @@ describe('TransactionDetailScreen token reclaim action', () => {
     reclaimMock.mockResolvedValue({ success: true })
   })
 
-  it('hides the reclaim action after a successful reclaim', async () => {
+  it('reclaims through the fee-quoted sheet and hides the CTA afterwards', async () => {
     render(<TransactionDetailScreen transaction={makeTokenTx()} onBack={vi.fn()} />)
 
-    expect(screen.getByText('txDetail.reclaimAction')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByText('txDetail.reclaimAction'))
+    // CTA carries the quoted fee, opens the confirmation sheet
+    fireEvent.click(screen.getByText('txDetail.reclaimWithFee'))
+    fireEvent.click(screen.getByText('token.reclaim.confirm'))
 
     await waitFor(() => {
-      expect(screen.queryByText('txDetail.reclaimAction')).not.toBeInTheDocument()
+      expect(reclaimMock).toHaveBeenCalledWith('tx-token')
     })
-    expect(reclaimMock).toHaveBeenCalledWith('tx-token')
+    await waitFor(() => {
+      expect(screen.queryByText('txDetail.reclaimWithFee')).not.toBeInTheDocument()
+    })
   })
 
-  it('does not show the reclaim action for an already reclaimed token send', () => {
+  it('does not show the reclaim CTA for an already reclaimed token send', () => {
     render(
       <TransactionDetailScreen
         transaction={makeTokenTx({
@@ -92,6 +99,6 @@ describe('TransactionDetailScreen token reclaim action', () => {
       />,
     )
 
-    expect(screen.queryByText('txDetail.reclaimAction')).not.toBeInTheDocument()
+    expect(screen.queryByText('txDetail.reclaimWithFee')).not.toBeInTheDocument()
   })
 })

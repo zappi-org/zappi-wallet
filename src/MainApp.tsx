@@ -39,8 +39,6 @@ import { PAYLOAD_DEPENDENT_PARENT } from '@/ui/navigation/types'
 import { HomeScreen } from '@/ui/screens/Home/HomeScreen'
 import { LockScreen } from '@/ui/screens/Lock/LockScreen'
 import { EasterEggScreen } from '@/ui/screens/Token/EasterEggScreen'
-import { TokenDetailScreen } from '@/ui/screens/Token/TokenDetailScreen'
-import type { TokenDetailData } from '@/ui/screens/Token/types'
 import {
   Cog6ToothIcon as Cog6ToothIconOutline,
   IdentificationIcon as IdentificationIconOutline,
@@ -89,7 +87,6 @@ import type { PendingIncomingReview } from '@/core/types'
 import { removePasskey } from '@/ui/services/passkey'
 import { resumeGraceOnBoot } from '@/ui/services/grace-boot'
 import { isLockoutActive } from '@/ui/utils/lockout'
-import { shareOrCopyText } from '@/ui/utils/share'
 import { formatSats } from '@/utils/format'
 
 
@@ -200,7 +197,6 @@ export default function MainApp() {
 
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
 
-  const [selectedTokenDetail, setSelectedTokenDetail] = useState<TokenDetailData | null>(null)
 
   // Pre-unlock services — needed to load settings/tx before unlock (via composition)
   const [preUnlock] = useState(() => ({
@@ -926,13 +922,13 @@ export default function MainApp() {
   // each render — do NOT wrap in useMemo (it would freeze a stale snapshot).
   //
   // Exceptions (rendered by renderStackScreen below):
-  // - 'token-detail' keeps its stateful payload in MainApp while Stackflow owns
-  //   its activity lifetime and back-stack relationship.
+  // - 'token-detail' has no screen anymore — stale sessions land on the
+  //   PAYLOAD_DEPENDENT_PARENT replace-redirect ('history'). The activity stays
+  //   registered so restored stacks can't crash (same rule as the 'token' stub).
   //
   // State guards (renders gated on state beyond currentScreen):
   // - 'transaction-detail': skipped if selectedTransaction is null — guard in render fn
   // - 'mint-detail': skipped if selectedMint is null — guard in render fn
-  // - 'token-detail' overlay: selectedTokenDetail guard — inside the combined block above
   // Exhaustiveness is enforced via Record (not Partial): every Screen except the
   // Stackflow-rendered exception must appear here — a Partial would let a new
   // screen silently render blank. Missing/typo = compile error.
@@ -1054,11 +1050,6 @@ export default function MainApp() {
         onBack={handleBack}
         transactions={transactions}
         initialMintUrls={historyInitialMintUrls}
-        onSelectPendingToken={(detail) => {
-          setSelectedTokenDetail(detail)
-          setPreviousScreen('history')
-          setCurrentScreen('token-detail')
-        }}
       />
     ),
 
@@ -1337,68 +1328,6 @@ export default function MainApp() {
     const route = (screenRoutes as Partial<Record<Screen, () => ReactNode>>)[screen]
     if (route) {
       return <Suspense fallback={<LoadingFallback />}>{route()}</Suspense>
-    }
-
-    if (screen === 'token-detail' && selectedTokenDetail) {
-      return (
-        <Suspense fallback={<LoadingFallback />}>
-          <TokenDetailScreen
-            data={selectedTokenDetail}
-            onClose={() => {
-              // Clear the payload so a browser-forward can't re-render a stale detail.
-              setSelectedTokenDetail(null)
-              // handleBack, not a push to 'history': on a forward-restore the stack
-              // may lack a history entry, and pushing would loop through the
-              // payload-dependent redirect.
-              handleBack()
-            }}
-            onShare={async (token) => {
-              const text = token.tokenString
-                ? token.tokenString
-                : t('token.reclaimable.shareText', {
-                  memo: token.memo ?? '',
-                  amount: formatSats(token.amount),
-                })
-              await shareOrCopyText(text, () => {
-                addToast({ type: 'success', message: t('token.reclaimable.copiedToClipboard') })
-              })
-            }}
-            onReclaim={async (token) => {
-              if (!serviceRegistry?.reclaim?.reclaim) {
-                addToast({ type: 'error', message: t('errors.serviceNotReady') })
-                return
-              }
-              const result = await serviceRegistry.reclaim.reclaim(token.id)
-              if (result.ok) {
-                // Clear the payload so a browser-forward can't re-render the reclaimed token.
-                setSelectedTokenDetail(null)
-                handleBack()
-                addToast({ type: 'success', message: t('token.reclaim.success') })
-              } else {
-                const errorMessage = result.error
-                  ? translateError(result.error, t)
-                  : t('token.reclaim.failed')
-                addToast({ type: 'error', message: errorMessage })
-              }
-            }}
-            onTriggerEasterEgg={() => {
-              setPreviousScreen('token-detail')
-              setCurrentScreen('token-easter-egg')
-            }}
-            onDeleteHistory={async (token) => {
-              if (!serviceRegistry?.transactionMgmt) return
-              try {
-                await serviceRegistry.transactionMgmt.delete(token.id)
-                useAppStore.getState().triggerTxRefresh()
-                addToast({ type: 'success', message: t('token.history.deleteSuccess') })
-              } catch (error) {
-                console.error('[MainApp] Failed to delete tx history:', error)
-                addToast({ type: 'error', message: t('token.history.deleteFailed') })
-              }
-            }}
-          />
-        </Suspense>
-      )
     }
 
     // A payload-dependent detail screen with no payload can only be reached by

@@ -553,6 +553,32 @@ export default {
 
   // Transaction Detail Screen
   txDetail: {
+    recordMissing: 'Transaction record not found',
+    state: {
+      created: 'Created',
+      waiting: 'Waiting',
+      used: 'Used',
+      reclaimed: 'Reclaimed',
+      sent: 'Sent',
+      awaitingReceipt: 'Awaiting receipt',
+      confirmed: 'Confirmed',
+      requested: 'Requested',
+      received: 'Received',
+      registered: 'Redeemed',
+      swapStart: 'Swap started',
+      swapDone: 'Swap done',
+      completed: 'Completed',
+      failed: 'Failed',
+      notePending: 'Not redeemed yet · you can reclaim anytime',
+      noteClaimed: 'Redeemed by the recipient — all done',
+      noteReclaimed: 'Returned to your balance before it was used',
+      noteInTransit: 'Confirming settlement',
+    },
+    share: 'Share',
+    viewRawToken: 'View raw token',
+    reclaimWithFee: 'Reclaim (receive fee: {{fee}})',
+    reclaimQuoting: 'Checking fee',
+    time: 'Time',
     type: 'Type',
     mint: 'Mint',
     source: 'Source',
@@ -574,8 +600,6 @@ export default {
     'source.zappi-link': 'Zappi Link',
     'source.wallet': 'Wallet',
     'source.unknown': 'External',
-
-    reclaiming: 'Reclaiming...',
     reclaimSuccess: 'eCash reclaimed successfully',
     reclaimFailed: 'Failed to reclaim eCash',
     consumedByRecipient: 'Recipient has already claimed this eCash',
@@ -586,21 +610,10 @@ export default {
     deleteWarning: 'This cannot be undone.',
 
     // Context sentences
-    receivedToWallet: 'Received to {{wallet}}',
-    sentViaLightning: 'Sent to {{address}}',
-    sentEcash: 'eCash sent',
-    tokenCreated: 'eCash created',
-    swappedAt: 'Swapped at {{mint}}',
-    swappedFromTo: '{{from}} → {{to}} swap',
-    receivedFromPOS: 'Received from {{name}}',
     reclaimAction: 'Reclaim eCash',
 
     // Section titles
     txInfo: 'Transaction info',
-    paymentInfo: 'Payment info',
-    swapInfo: 'Swap info',
-
-    orderItems: 'Order Items',
     orderTotal: 'Total',
 
   },
@@ -1066,79 +1079,10 @@ export default {
       success: 'Successfully reclaimed',
       failed: 'Failed to reclaim',
     },
-    history: {
-      deleteSuccess: 'History deleted',
-      deleteFailed: 'Failed to delete history',
-    },
     detail: {
-      unread: 'Unread ecash',
-      title: {
-        pending: 'Pending ecash',
-        registered: 'Ecash redeemed',
-        consumed: 'Ecash spent',
-        reclaimed: 'Ecash reclaimed',
-      },
-      weekday: {
-        sun: 'Sunday',
-        mon: 'Monday',
-        tue: 'Tuesday',
-        wed: 'Wednesday',
-        thu: 'Thursday',
-        fri: 'Friday',
-        sat: 'Saturday',
-      },
-      dateLine: {
-        pending: 'Created {{weekday}}, {{month}}/{{day}}/{{year}} at {{time}}',
-        registered: 'Redeemed {{weekday}}, {{month}}/{{day}}/{{year}} at {{time}}',
-        consumed: 'Created {{weekday}}, {{month}}/{{day}}/{{year}} at {{time}}',
-        reclaimed: 'Reclaimed {{weekday}}, {{month}}/{{day}}/{{year}} at {{time}}',
-      },
-      amountLabel: 'Amount',
-      feeLine: 'Fee {{fee}}',
-      memoLabel: 'Memo',
-      memoEmpty: '—',
-      typeLabel: 'Type',
-      typeValue: {
-        pending: 'Create ecash',
-        registered: 'Redeem ecash',
-        consumed: 'Ecash spent',
-        reclaimed: 'Reclaim ecash',
-      },
-      mintLabel: {
-        pending: 'Source mint',
-        registered: 'Target mint',
-        consumed: 'Issuing mint',
-        reclaimed: 'Target mint',
-      },
-      action: {
-        forward: 'Forward ecash',
-        confirm: 'View ecash',
-      },
-      actions: {
-        qr: 'QR',
-        copy: 'Copy',
-        share: 'Share',
-        viewRaw: 'View raw ecash',
-      },
-      reclaimCta: 'Reclaim (fee: {{fee}})',
       raw: {
-        title: 'Raw ecash',
-        issuingMint: 'Issuing mint',
-        unit: 'Unit',
-        receiveFee: 'Receive fee',
-        empty: 'No ecash data.',
         easterEgg: 'ZAPPI X CASHU',
       },
-      qr: {
-        title: 'Share QR',
-      },
-    },
-    rawSheet: {
-      delete: 'Delete history',
-      deleteConfirm: 'Delete history?',
-      deleting: 'Deleting…',
-      yes: 'Yes',
-      no: 'No',
     },
   },
 

@@ -553,6 +553,32 @@ export default {
 
   // Transaction Detail Screen
   txDetail: {
+    recordMissing: '거래 기록을 찾을 수 없어요',
+    state: {
+      created: '생성함',
+      waiting: '대기중',
+      used: '사용됨',
+      reclaimed: '회수됨',
+      sent: '전송됨',
+      awaitingReceipt: '수신 대기',
+      confirmed: '확정됨',
+      requested: '요청함',
+      received: '받음',
+      registered: '등록함',
+      swapStart: '교환 시작',
+      swapDone: '교환 완료',
+      completed: '완료',
+      failed: '전송 실패',
+      notePending: '받는 사람이 아직 등록하지 않았어요 · 언제든 되찾을 수 있어요',
+      noteClaimed: '상대방이 등록해 거래가 끝났어요',
+      noteReclaimed: '사용되기 전에 잔액으로 되돌렸어요',
+      noteInTransit: '정산을 확인하는 중이에요',
+    },
+    share: '공유',
+    viewRawToken: '토큰 원문 보기',
+    reclaimWithFee: '되찾기 (수취 수수료: {{fee}})',
+    reclaimQuoting: '수수료 확인 중',
+    time: '시각',
     type: '유형',
     mint: 'Mint',
     source: '출처',
@@ -577,7 +603,6 @@ export default {
     'source.unknown': '외부',
 
     // Token lifecycle
-    reclaiming: '회수 중...',
     reclaimSuccess: '이캐시를 되찾았습니다',
     reclaimFailed: '이캐시 되찾기 실패',
     consumedByRecipient: '상대방이 이미 수령했습니다',
@@ -588,22 +613,12 @@ export default {
     deleteWarning: '삭제 후 복구할 수 없습니다.',
 
     // Context sentences
-    receivedToWallet: '{{wallet}}(으)로 받음',
-    sentViaLightning: '{{address}}(으)로 보냄',
-    sentEcash: '이캐시 전송',
-    tokenCreated: '이캐시 생성',
-    swappedAt: '{{mint}}에서 스왑',
-    swappedFromTo: '{{from}} → {{to}} 스왑',
-    receivedFromPOS: '{{name}}에서 받음',
     reclaimAction: '이캐시 되찾기',
 
     // Section titles
     txInfo: '정보',
-    paymentInfo: '결제 정보',
-    swapInfo: '스왑 정보',
 
     // Kiosk order
-    orderItems: '주문 내역',
     orderTotal: '합계',
 
     // Fiat
@@ -1074,79 +1089,10 @@ export default {
       success: '성공적으로 되찾았습니다',
       failed: '되찾기에 실패했습니다',
     },
-    history: {
-      deleteSuccess: '내역을 삭제했어요',
-      deleteFailed: '내역을 삭제하지 못했어요',
-    },
     detail: {
-      unread: '안읽은 이캐시',
-      title: {
-        pending: '대기중인 이캐시',
-        registered: '이캐시 등록 완료',
-        consumed: '이캐시 사용됨',
-        reclaimed: '이캐시 되찾기 완료',
-      },
-      weekday: {
-        sun: '일요일',
-        mon: '월요일',
-        tue: '화요일',
-        wed: '수요일',
-        thu: '목요일',
-        fri: '금요일',
-        sat: '토요일',
-      },
-      dateLine: {
-        pending: '{{year}}년 {{month}}월 {{day}}일 {{weekday}}\n{{time}} 생성됨',
-        registered: '{{year}}년 {{month}}월 {{day}}일 {{weekday}}\n{{time}}에 등록함',
-        consumed: '{{year}}년 {{month}}월 {{day}}일 {{weekday}}\n{{time}}에 생성함',
-        reclaimed: '{{year}}년 {{month}}월 {{day}}일 {{weekday}}\n{{time}}에 되찾음',
-      },
-      amountLabel: '금액',
-      feeLine: '수수료 {{fee}}',
-      memoLabel: '메모',
-      memoEmpty: '—',
-      typeLabel: '유형',
-      typeValue: {
-        pending: '이캐시 만들기',
-        registered: '이캐시 등록',
-        consumed: '이캐시 사용됨',
-        reclaimed: '이캐시 되찾기',
-      },
-      mintLabel: {
-        pending: '출금 민트',
-        registered: '입금 민트',
-        consumed: '발행 민트',
-        reclaimed: '입금 민트',
-      },
-      action: {
-        forward: '이캐시 전달하기',
-        confirm: '이캐시 확인하기',
-      },
-      actions: {
-        qr: 'QR보기',
-        copy: '복사하기',
-        share: '공유하기',
-        viewRaw: '이캐시 원문 보기',
-      },
-      reclaimCta: '되찾기 (수취 수수료: {{fee}})',
       raw: {
-        title: '이캐시 상세보기',
-        issuingMint: '발행 민트',
-        unit: '단위',
-        receiveFee: '수취 수수료',
-        empty: '이캐시 데이터가 없습니다.',
         easterEgg: 'ZAPPI X CASHU',
       },
-      qr: {
-        title: 'QR 공유',
-      },
-    },
-    rawSheet: {
-      delete: '내역 삭제',
-      deleteConfirm: '내역 삭제?',
-      deleting: '삭제 중…',
-      yes: '예',
-      no: '아니오',
     },
   },
 

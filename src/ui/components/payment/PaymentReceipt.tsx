@@ -40,6 +40,10 @@ interface PaymentReceiptProps {
   onToggleQr?: () => void
   /** Reveal-hint label (i18n stays in the consumer; the receipt is presentational). */
   qrRevealLabel?: string
+  /** Paper width in px — the send flow prints at 250; the detail archive uses a wider sheet. */
+  width?: number
+  /** Extra content printed after the rows, above the bottom rule (e.g. a state bar). */
+  extra?: ReactNode
 }
 
 export function PaymentReceipt({
@@ -56,6 +60,8 @@ export function PaymentReceipt({
   qrVeiled,
   onToggleQr,
   qrRevealLabel,
+  width = 250,
+  extra,
 }: PaymentReceiptProps) {
   const reduceMotion = useReducedMotion()
   const teethId = useId()
@@ -89,15 +95,15 @@ export function PaymentReceipt({
       {/* Printer slot — flat: a bar with an inset slit. Fades away at the tear
           so the complete state reads as a receipt in hand, not in a machine. */}
       {showSlot ? (
-        <div className="relative z-20 h-3.5 w-[280px] rounded-full bg-background-hover">
+        <div className="relative z-20 h-3.5 rounded-full bg-background-hover" style={{ width: width + 30 }}>
           <div className="absolute inset-x-2.5 top-[5px] h-1 rounded-full bg-foreground/25" />
         </div>
       ) : (
-        hadSlot && <div data-testid="receipt-slot" className="h-3.5 w-[280px]" aria-hidden />
+        hadSlot && <div data-testid="receipt-slot" className="h-3.5" style={{ width: width + 30 }} aria-hidden />
       )}
 
       {/* Window clips the paper while it slides out of the slot */}
-      <div className={`relative w-[250px] ${torn ? '' : '-mt-0.5 overflow-hidden'}`}>
+      <div className={`relative ${torn ? '' : '-mt-0.5 overflow-hidden'}`} style={{ width }}>
         {/* Tear jolt: the freed paper drops a touch and tilts askew, then
             settles straight back to rest — always ending at y 0, rotate 0, so
             the resting receipt sits at the same spot before and after the stamp
@@ -136,13 +142,13 @@ export function PaymentReceipt({
           >
             {/* Torn top edge — appears the moment the paper leaves the roll */}
             {torn && (
-              <svg className="block" width="250" height="8" viewBox="0 0 250 8" aria-hidden>
+              <svg className="block" width={width} height="8" viewBox={`0 0 ${width} 8`} aria-hidden>
                 <defs>
                   <pattern id={teethTopId} width="12" height="8" patternUnits="userSpaceOnUse">
                     <path d="M0 8 L6 0 L12 8 Z" fill="var(--background-card)" />
                   </pattern>
                 </defs>
-                <rect width="250" height="8" fill={`url(#${teethTopId})`} />
+                <rect width={width} height="8" fill={`url(#${teethTopId})`} />
               </svg>
             )}
 
@@ -153,8 +159,8 @@ export function PaymentReceipt({
               {fiat && <div className="text-center text-label text-foreground-muted">{fiat}</div>}
 
               <div className="mb-1.5 mt-3.5 border-t-[1.5px] border-dashed border-border" />
-              {rows.map((row) => (
-                <div key={row.label} className="flex items-center justify-between gap-3 py-[5px] text-caption">
+              {rows.map((row, i) => (
+                <div key={`${row.label}-${i}`} className="flex items-center justify-between gap-3 py-[5px] text-caption">
                   <span className="shrink-0 text-foreground-muted">{row.label}</span>
                   <span className={`truncate ${row.strong ? 'font-semibold' : 'font-medium'}`}>{row.value}</span>
                 </div>
@@ -181,6 +187,12 @@ export function PaymentReceipt({
                     </div>
                   )}
                 </button>
+              )}
+              {extra && (
+                <>
+                  <div className="mt-1.5 border-t-[1.5px] border-dashed border-border" />
+                  <div className="pt-2.5 pb-1">{extra}</div>
+                </>
               )}
               <div className="mb-1 mt-1.5 border-t-[1.5px] border-dashed border-border" />
 
@@ -238,13 +250,13 @@ export function PaymentReceipt({
             </div>
 
             {/* Perforated tear-off edge */}
-            <svg className="block" width="250" height="8" viewBox="0 0 250 8" aria-hidden>
+            <svg className="block" width={width} height="8" viewBox={`0 0 ${width} 8`} aria-hidden>
               <defs>
                 <pattern id={teethId} width="12" height="8" patternUnits="userSpaceOnUse">
                   <path d="M0 0 L6 8 L12 0 Z" fill="var(--background-card)" />
                 </pattern>
               </defs>
-              <rect width="250" height="8" fill={`url(#${teethId})`} />
+              <rect width={width} height="8" fill={`url(#${teethId})`} />
             </svg>
           </motion.div>
         </motion.div>
