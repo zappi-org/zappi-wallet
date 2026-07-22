@@ -10,6 +10,7 @@
  */
 
 import type { UnlockGrace, GraceSession } from '@/core/ports/driven/unlock-grace.port'
+import { AUTO_LOCK } from '@/core/constants'
 
 const DB_NAME = 'zappi-grace'
 const DB_VERSION = 1
@@ -18,6 +19,10 @@ const KEY_STORE = 'keys'
 const BLOB_KEY = 'current'
 const GRACE_KEY_ID = 'grace-key'
 const DELETE_TIMEOUT_MS = 10_000
+// Stored expiresAt is attacker-writable plaintext metadata. The app can never
+// legitimately write an expiry further out than the maximum timeout (+1 min
+// clock slack), so anything beyond that horizon is tampered/corrupt.
+const MAX_EXPIRY_HORIZON_MS = AUTO_LOCK.MAX_TIMEOUT_MINUTES * 60_000 + 60_000
 
 interface GraceRecord {
   ciphertext: ArrayBuffer
@@ -89,7 +94,9 @@ export class UnlockGraceAdapter implements UnlockGrace {
     if (!record) return null
 
     // Expiry is checked before decrypting — a dead blob never touches the key.
-    if (Date.now() >= record.expiresAt) {
+    // Over-horizon expiries fail closed too: honoring one would turn a tampered
+    // record into an indefinite PIN bypass.
+    if (Date.now() >= record.expiresAt || record.expiresAt > Date.now() + MAX_EXPIRY_HORIZON_MS) {
       await this.clear()
       return null
     }
@@ -121,8 +128,11 @@ export class UnlockGraceAdapter implements UnlockGrace {
         const current = getReq.result as GraceRecord | undefined
         // Non-creating, non-reviving: refresh only a live blob. A cleared or
         // expired blob is left untouched so a racing heartbeat can't resurrect it.
+        // The written expiry is capped to the legitimate horizon regardless of
+        // what the caller computed.
         if (current && Date.now() < current.expiresAt) {
-          store.put({ ...current, expiresAt }, BLOB_KEY)
+          const capped = Math.min(expiresAt, Date.now() + MAX_EXPIRY_HORIZON_MS)
+          store.put({ ...current, expiresAt: capped }, BLOB_KEY)
         }
       }
       tx.oncomplete = () => resolve()
@@ -133,16 +143,25 @@ export class UnlockGraceAdapter implements UnlockGrace {
 
   async clear(): Promise<void> {
     if (!(await graceDbExists())) return
-    const db = await openDb()
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(BLOB_STORE, 'readwrite')
-      tx.objectStore(BLOB_STORE).delete(BLOB_KEY)
-      // Resolve on commit (oncomplete), not request success — an awaited clear must
-      // prove the blob is durably gone before the caller flips the UI to locked.
-      tx.oncomplete = () => resolve()
-      tx.onerror = () => reject(tx.error)
-      tx.onabort = () => reject(tx.error ?? new Error('grace clear transaction aborted'))
-    })
+    try {
+      const db = await openDb()
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(BLOB_STORE, 'readwrite')
+        tx.objectStore(BLOB_STORE).delete(BLOB_KEY)
+        // Resolve on commit (oncomplete), not request success — an awaited clear must
+        // prove the blob is durably gone before the caller flips the UI to locked.
+        tx.oncomplete = () => resolve()
+        tx.onerror = () => reject(tx.error)
+        tx.onabort = () => reject(tx.error ?? new Error('grace clear transaction aborted'))
+      })
+    } catch (error) {
+      // A clear that silently fails would leave a PIN-free copy behind a lock
+      // screen. Escalate: destroying the whole DB kills the non-extractable key,
+      // so even a surviving blob becomes undecryptable. Only a double failure
+      // propagates.
+      console.error('[UnlockGrace] clear failed — escalating to full DB delete:', error)
+      await deleteGraceDatabase()
+    }
   }
 
   // ─── Non-extractable key management ───

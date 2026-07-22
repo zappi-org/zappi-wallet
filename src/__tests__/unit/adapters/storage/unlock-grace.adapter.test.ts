@@ -103,6 +103,23 @@ describe('UnlockGraceAdapter', () => {
     expect(await graceDbExists()).toBe(false) // still gone — no empty shell
   })
 
+  it('load rejects an over-horizon expiry as tampered and clears the blob', async () => {
+    // Stored expiresAt is plaintext — a value the app could never have written
+    // (beyond max timeout + slack) must fail closed, not grant indefinite grace.
+    await adapter.save(MNEMONIC, Date.now() + 10 * 24 * 60 * 60 * 1000)
+    expect(await adapter.load()).toBeNull()
+    expect(await rawBlob()).toBeNull()
+  })
+
+  it('extend caps the written expiry to the legitimate horizon', async () => {
+    const now = Date.now()
+    await adapter.save(MNEMONIC, now + 60_000)
+    await adapter.extend(now + 10 * 24 * 60 * 60 * 1000)
+    const session = await adapter.load()
+    expect(session).not.toBeNull()
+    expect(session!.expiresAt).toBeLessThanOrEqual(Date.now() + 31 * 60_000)
+  })
+
   it('deleteGraceDatabase succeeds while another tab holds a connection that closes on versionchange', async () => {
     await adapter.save(MNEMONIC, Date.now() + 60_000)
     // A second tab running this same adapter: its connection closes itself
