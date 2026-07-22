@@ -67,7 +67,7 @@ export interface ReceiveRequestStepProps {
 function FlowArrow() {
   const reduceMotion = useReducedMotion()
   return (
-    <span className="flex flex-1 items-center justify-center gap-1" aria-hidden>
+    <span className="flex items-center justify-center gap-1" aria-hidden>
       {[0, 1, 2, 3].map((i) => (
         <motion.span
           key={i}
@@ -381,12 +381,14 @@ export function ReceiveRequestStep({
               <SquarePen className="w-4 h-4" />
             </button>
           </div>
-          <div className="mt-2 flex items-center justify-between gap-3">
-            <span className="text-title-sm font-bold">{formatSats(amount)}</span>
+          {/* 1fr/auto/1fr grid: the flow arrow sits at the card's true center
+              regardless of how wide the amount and mint labels are. */}
+          <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+            <span className="justify-self-start text-title-sm font-bold">{formatSats(amount)}</span>
             <FlowArrow />
-            <span className="flex items-center gap-1.5 text-body font-medium">
-              <MintIcon iconUrl={mintIconUrl ?? undefined} imgSize="w-5 h-5" className="w-5 h-5" circle />
-              {mintDisplayName}
+            <span className="flex min-w-0 items-center justify-self-end gap-1.5 text-body font-medium">
+              <MintIcon iconUrl={mintIconUrl ?? undefined} imgSize="w-5 h-5" className="w-5 h-5 shrink-0" circle />
+              <span className="truncate">{mintDisplayName}</span>
             </span>
           </div>
           {memo && (
