@@ -966,7 +966,7 @@ export default {
 
   // Mint Detail Screen
   mintDetail: {
-    title: 'ミント詳細',
+    title: 'ミント管理',
     pendingItems: '保留中の項目',
     pending: '保留中',
     transactions: '取引履歴',

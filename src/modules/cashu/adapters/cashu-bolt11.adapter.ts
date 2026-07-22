@@ -109,6 +109,9 @@ export class CashuBolt11Adapter implements PaymentMethodAdapter, TransferOperato
         request: intent.recipient,
         mintUrl: intent.accountId,
         feeReserve: op.fee_reserve,
+        // Archive fields — the tx bridge writes these onto the record.
+        destination: intent.displayDestination,
+        memo: intent.memo,
       },
       now: Date.now(),
       amount: op.amount

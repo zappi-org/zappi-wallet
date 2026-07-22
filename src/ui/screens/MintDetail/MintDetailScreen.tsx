@@ -135,16 +135,18 @@ export function MintDetailScreen({
         >
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
-        {/* The screen belongs to one mint — its custom name IS the title. */}
         <h1 className="absolute inset-0 flex items-center justify-center text-subtitle font-semibold text-foreground pointer-events-none">
-          {getDisplayName(mint.url)}
+          {t('mintDetail.title')}
         </h1>
       </header>
 
       {/* Scrollable Content */}
-      <main className="flex-1 overflow-y-auto pb-app">
+      {/* Short content on a tall screen — the card/actions group floats at the
+          visual center instead of hugging the header. */}
+      <main className="flex-1 overflow-y-auto pb-app flex flex-col">
+        <div className="my-auto flex flex-col gap-7 pb-10">
         {/* Mint Card — with inline rename */}
-        <div className="flex justify-center pt-2">
+        <div className="flex justify-center">
           <MintCard
             mint={liveMint}
             variant={variant}
@@ -154,7 +156,7 @@ export function MintDetailScreen({
         </div>
 
         {/* Actions aligned to card width */}
-        <div className="w-[var(--card-w)] mx-auto mt-6 space-y-3">
+        <div className="w-[var(--card-w)] mx-auto space-y-3">
           <div className="grid grid-cols-6 gap-3">
             <MintActionTile
               className="col-span-3"
@@ -205,6 +207,7 @@ export function MintDetailScreen({
               <span className="text-caption text-foreground-muted">{pendingItems.length}</span>
             </button>
           )}
+        </div>
         </div>
       </main>
 

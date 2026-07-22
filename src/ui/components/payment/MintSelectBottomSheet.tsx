@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import { hapticTap } from '@/ui/utils/haptic'
 import { useAppStore } from '@/store'
@@ -116,7 +117,10 @@ function MintSelectBottomSheetInner({
     }
   }, [localSelected, allowEmpty, selectedHasBalance, onSelect, onClose])
 
-  return (
+  // Portaled: inside a transformed Stackflow activity, `fixed` is trapped in
+  // the activity's stacking context, so the root-level tab dock (z-50) paints
+  // over the sheet on tab screens. body-level rendering restores true stacking.
+  return createPortal(
     <>
       {/* Backdrop */}
       <motion.div
@@ -212,6 +216,7 @@ function MintSelectBottomSheetInner({
           </Button>
         </div>
       </motion.div>
-    </>
+    </>,
+    document.body,
   )
 }

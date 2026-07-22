@@ -970,7 +970,7 @@ export default {
 
   // Mint Detail Screen
   mintDetail: {
-    title: '민트 상세정보',
+    title: '민트 관리',
     pendingItems: '대기중 항목',
     pending: '대기중',
     transactions: '거래내역',

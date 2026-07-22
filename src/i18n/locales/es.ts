@@ -968,7 +968,7 @@ export default {
 
   // Mint Detail Screen
   mintDetail: {
-    title: 'Detalle del Mint',
+    title: 'Gestión del mint',
     pendingItems: 'Elementos pendientes',
     pending: 'Pendiente',
     transactions: 'Transacciones',

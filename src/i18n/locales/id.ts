@@ -968,7 +968,7 @@ export default {
 
   // Mint Detail Screen
   mintDetail: {
-    title: 'Detail Mint',
+    title: 'Kelola Mint',
     pendingItems: 'Item Tertunda',
     pending: 'Tertunda',
     transactions: 'Transaksi',

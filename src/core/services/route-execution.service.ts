@@ -97,6 +97,8 @@ export class RouteExecutionService implements RouteExecutionUseCase {
         accountId: selection.sourceMintUrl,
         amount: sat(selection.amount),
         recipient: invoice,
+        memo: context.memo,
+        displayDestination: context.addressOrInvoice,
         txId: `tx-${crypto.randomUUID()}`,
       },
       "bolt11"

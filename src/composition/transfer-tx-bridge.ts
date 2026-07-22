@@ -168,6 +168,8 @@ export function connectTransferTxBridge(
                   preimage?: string;
                   feeReserve?: number;
                   effectiveFee?: number;
+                  destination?: string;
+                  memo?: string;
                 }
               | undefined;
             const baseTx = createTransaction({
@@ -191,10 +193,13 @@ export function connectTransferTxBridge(
                   : bolt11Ref?.feeReserve
                   ? { quoted: sat(bolt11Ref.feeReserve) }
                   : undefined,
+              ...(bolt11Ref?.memo ? { memo: bolt11Ref.memo } : {}),
               metadata: {
                 operationId: bolt11Ref?.operationId,
                 bolt11: bolt11Ref?.request,
                 preimage: bolt11Ref?.preimage,
+                // The human target — the detail's 받는이 row reads this.
+                ...(bolt11Ref?.destination ? { destination: bolt11Ref.destination } : {}),
                 direction: transfer.direction,
               },
             });

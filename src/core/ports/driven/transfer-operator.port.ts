@@ -9,6 +9,8 @@ export interface TransferIntent {
   amount: Amount
   recipient?: string
   memo?: string
+  /** Human-readable target for the archived record (recipient may be a raw invoice). */
+  displayDestination?: string
 }
 
 export interface MessageTransport {
