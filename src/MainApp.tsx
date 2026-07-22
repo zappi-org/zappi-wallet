@@ -917,8 +917,14 @@ export default function MainApp() {
 
   // Shared by mint detail and history — both open the same pending-item detail.
   const pendingItemCallbacks = serviceRegistry ? {
-    onRedeemToken: async (tokenStr: string, _itemId: string) => {
+    onRedeemToken: async (tokenStr: string, itemId: string) => {
       const result = await serviceRegistry.payment.redeem({ input: tokenStr })
+      if (result.ok) {
+        // redeem() doesn't know about the offline-received record — drop it
+        // here or the pending card survives its own redemption.
+        const { DexieOfflineTokenStore } = await import('@/adapters/storage/dexie/dexie-offline-token-store')
+        await new DexieOfflineTokenStore().bulkDelete([itemId]).catch(() => {})
+      }
       return result.ok
     },
     onCheckQuote: async (mintUrl: string, quoteId: string) => {

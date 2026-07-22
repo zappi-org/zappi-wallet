@@ -32,7 +32,8 @@ vi.mock('@/ui/hooks/use-reclaim', () => ({
 }))
 
 vi.mock('@/ui/hooks/use-transaction-mgmt', () => ({
-  useTransactionMgmt: () => ({ getById: vi.fn() }),
+  // getById resolves null → the screen falls back to its optimistic flip.
+  useTransactionMgmt: () => ({ getById: vi.fn().mockResolvedValue(null) }),
 }))
 
 vi.mock('@/utils/format', () => ({

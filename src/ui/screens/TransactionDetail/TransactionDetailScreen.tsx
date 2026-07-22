@@ -153,7 +153,12 @@ export default function TransactionDetailScreen({
   const handleConfirmReclaim = useCallback(async () => {
     try {
       const result = await reclaim(tx.id)
-      if (!result.success) {
+      // The service persisted the truth (incl. metadata.reclaimFee) — re-read
+      // it so the receipt's fee rows appear now, not on the next open.
+      const fresh = await txMgmt.getById(tx.id).catch(() => null)
+      if (fresh) {
+        setTx(fresh)
+      } else if (!result.success) {
         if (result.error instanceof TokenSpentByRecipientError) {
           // Recipient beat us — the service settled it as claimed.
           setTx((prev) => ({ ...prev, status: 'settled', outcome: 'claimed', completedAt: Date.now() }))
@@ -166,7 +171,7 @@ export default function TransactionDetailScreen({
       console.error('[TxDetail] Check & reclaim failed:', err)
       addToast({ type: 'error', message: t('txDetail.reclaimFailed'), duration: 3000 })
     }
-  }, [tx.id, reclaim, addToast, t])
+  }, [tx.id, reclaim, txMgmt, addToast, t])
 
   const reclaimSheetTokens = useMemo<PendingTokenView[]>(
     () => [{
@@ -342,17 +347,15 @@ export default function TransactionDetailScreen({
     const entries: Array<{ key: string; label: string; value: string }> = [
       { key: 'txId', label: t('txDetail.txId'), value: tx.id },
     ]
-    if (isLightning && !isReceive && meta.destination) {
-      // Same field as the paper's 받는이 row — this is the full, copyable form.
-      entries.push({ key: 'destination', label: t('send.receipt.recipient'), value: meta.destination })
-    }
+    // No destination entry here — the paper's 받는이 row owns that value, and
+    // the full invoice below already carries the copyable payment target.
     if (meta.preimage) entries.push({ key: 'preimage', label: t('txDetail.preimage'), value: meta.preimage })
     if (meta.bolt11) entries.push({ key: 'bolt11', label: t('txDetail.bolt11'), value: meta.bolt11 })
     if (typeof metadata?.quoteId === 'string') {
       entries.push({ key: 'quoteId', label: t('txDetail.quoteId'), value: metadata.quoteId })
     }
     return entries
-  }, [tx.id, meta, metadata, isLightning, isReceive, t])
+  }, [tx.id, meta, metadata, t])
 
   return (
     <div className="w-full h-full flex flex-col bg-background pt-safe">

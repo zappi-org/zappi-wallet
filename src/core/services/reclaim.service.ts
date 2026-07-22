@@ -98,7 +98,9 @@ export class ReclaimService implements ReclaimUseCase {
       }
       // TokenReceiver already made receive TX
       // Not making companion TX, just update send TX
-      await this.markSendReclaimed(txId, 0)
+      // Rollback may still cost input fees inside the SDK — with no measured
+      // value, persist no fee rather than a confident zero.
+      await this.markSendReclaimed(txId)
       return Ok({
         amount: { value: toNumber(tx.amount), unit: tx.amount.unit || 'sat' },
         accountId: tx.accountId

@@ -308,7 +308,13 @@ export function HistoryScreen({
 
   // Monotonic guard: two quick taps race their async lookups — only the
   // latest tap may set the detail, or a slow lookup lands the wrong screen.
+  // Every selection change (normal rows and back included) bumps it, so a
+  // late pending lookup can never clobber what the user now sees.
   const pendingSelectSeq = useRef(0)
+  const selectTransaction = useCallback((tx: Transaction | null) => {
+    pendingSelectSeq.current += 1
+    setSelectedTransaction(tx)
+  }, [])
   const openPendingById = useCallback(
     async (id: string) => {
       const seq = ++pendingSelectSeq.current
@@ -509,7 +515,7 @@ export function HistoryScreen({
         <TransactionDetailScreen
           key={`${liveTx.id}-${liveTx.status}-${liveTx.outcome ?? ''}`}
           transaction={liveTx}
-          onBack={() => setSelectedTransaction(null)}
+          onBack={() => selectTransaction(null)}
           mintUrls={settings.mints}
         />
       </Suspense>
@@ -680,7 +686,7 @@ export function HistoryScreen({
                             transaction={tx}
                             linkedTransaction={tx.linkedTxId ? transactionById.get(tx.linkedTxId) : null}
                             groupKind={group.kind}
-                            onClick={() => setSelectedTransaction(tx)}
+                            onClick={() => selectTransaction(tx)}
                             getMintName={getDisplayName}
                           />
                         ))}
