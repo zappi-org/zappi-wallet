@@ -1,19 +1,8 @@
 import type { TFunction } from 'i18next'
+import { Check, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { cn } from '@/ui/lib/utils'
 import type { TxStateTrack } from './tx-state-machine'
-
-function nodeDotClass(tone: string): string {
-  switch (tone) {
-    case 'done':
-      return 'bg-foreground'
-    case 'current':
-      return 'bg-status-pending ring-4 ring-status-pending/25'
-    case 'fail':
-      return 'bg-accent-danger'
-    default:
-      return 'bg-background border-2 border-border'
-  }
-}
 
 function nodeLabelClass(tone: string): string {
   switch (tone) {
@@ -28,12 +17,49 @@ function nodeLabelClass(tone: string): string {
   }
 }
 
+// Parcel-tracker node: reached states carry a glyph, the current one glows.
+function StateDot({ tone }: { tone: string }) {
+  if (tone === 'done') {
+    return (
+      <span className="flex h-[15px] w-[15px] items-center justify-center rounded-full bg-foreground">
+        <Check className="h-[9px] w-[9px] text-background" strokeWidth={3.5} />
+      </span>
+    )
+  }
+  if (tone === 'fail') {
+    return (
+      <span className="flex h-[15px] w-[15px] items-center justify-center rounded-full bg-accent-danger">
+        <X className="h-[9px] w-[9px] text-white" strokeWidth={3.5} />
+      </span>
+    )
+  }
+  if (tone === 'current') {
+    return (
+      <span className="relative flex h-[13px] w-[13px] items-center justify-center">
+        <span className="absolute h-[24px] w-[24px] rounded-full bg-status-pending/25 animate-pulse motion-reduce:animate-none" />
+        <span className="relative h-[13px] w-[13px] rounded-full bg-status-pending ring-4 ring-status-pending/20" />
+      </span>
+    )
+  }
+  // todo / void — the road not yet traveled
+  return <span className="block h-[11px] w-[11px] rounded-full bg-background border-2 border-border" />
+}
+
 export function TxStateBar({ track, t, locale, framed = true }: { track: TxStateTrack; t: TFunction; locale: string; framed?: boolean }) {
   const n = track.nodes.length
   const lastReachedIdx = track.nodes.reduce(
     (max, node, i) => (node.tone === 'done' || node.tone === 'current' || node.tone === 'fail' ? i : max),
     0,
   )
+  const targetPct = (lastReachedIdx / (n - 1)) * 100
+
+  // Draw-in: the fill sweeps from the first node to the reached one on mount.
+  const [fillPct, setFillPct] = useState(0)
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setFillPct(targetPct))
+    return () => cancelAnimationFrame(raf)
+  }, [targetPct])
+
   const align = (i: number) => (i === 0 ? 'text-left' : i === n - 1 ? 'text-right' : 'text-center')
   const time = (at?: number) =>
     at !== undefined
@@ -50,17 +76,24 @@ export function TxStateBar({ track, t, locale, framed = true }: { track: TxState
           </span>
         ))}
       </div>
-      <div className="relative mx-1 mt-6 mb-2 h-[3px] rounded-full bg-border/70">
+      <div className="relative mx-1 mt-6 mb-2 h-[3px]">
+        {/* Dashed base — the untraveled stretch of the journey */}
         <div
-          className="absolute inset-y-0 left-0 rounded-full bg-foreground"
-          style={{ width: `${(lastReachedIdx / (n - 1)) * 100}%` }}
+          className="absolute inset-0 rounded-full"
+          style={{ backgroundImage: 'repeating-linear-gradient(90deg, var(--color-border) 0 5px, transparent 5px 10px)' }}
+        />
+        <div
+          className="absolute inset-y-0 left-0 rounded-full bg-foreground transition-[width] duration-700 ease-out motion-reduce:transition-none"
+          style={{ width: `${fillPct}%` }}
         />
         {track.nodes.map((node, i) => (
           <span
             key={node.labelKey}
-            className={cn('absolute top-1/2 h-[11px] w-[11px] -translate-x-1/2 -translate-y-1/2 rounded-full', nodeDotClass(node.tone))}
+            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
             style={{ left: `${(i / (n - 1)) * 100}%` }}
-          />
+          >
+            <StateDot tone={node.tone} />
+          </span>
         ))}
       </div>
       <div className="mt-2 flex justify-between">
