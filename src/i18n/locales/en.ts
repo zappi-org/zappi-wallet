@@ -1013,7 +1013,6 @@ export default {
     redeemSuccess: 'Token redeemed',
     redeemFailed: 'Failed to redeem',
     expiredRemoved: 'Expired request removed',
-    fulfilledClosed: 'Request paid — saved to your history',
     reclaimAction: 'Reclaim Token',
     payment: 'Payment',
     unified: 'Unified',

@@ -100,11 +100,10 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
         if (cancelled) return
 
         if (status === 'fulfilled') {
-          // Paid while this detail was open — the receive transaction now owns
-          // the story, so close the request quietly with the right message.
+          // Paid while this detail was open — the global receive toast already
+          // narrates it, so the request just closes without a second voice.
           void callbacks?.onPendingItemChanged?.()
           void onItemRemoved?.()
-          addToast({ type: 'success', message: t('pending.fulfilledClosed'), duration: 2500 })
           onBack()
           return
         }

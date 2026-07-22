@@ -1017,7 +1017,6 @@ export default {
     redeemSuccess: 'Token ditebus',
     redeemFailed: 'Gagal menebus',
     expiredRemoved: 'Permintaan kedaluwarsa dihapus',
-    fulfilledClosed: 'Permintaan dibayar — tersimpan di riwayat',
     reclaimAction: 'Klaim kembali token',
     payment: 'Pembayaran',
     unified: 'Terpadu',

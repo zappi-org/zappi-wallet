@@ -1015,7 +1015,6 @@ export default {
     redeemSuccess: 'トークンを受け取りました',
     redeemFailed: '受け取りに失敗しました',
     expiredRemoved: '期限切れのリクエストを削除しました',
-    fulfilledClosed: 'リクエストが支払われました — 履歴に保存しました',
     reclaimAction: 'トークン回収',
     payment: '決済',
     unified: '統合',
