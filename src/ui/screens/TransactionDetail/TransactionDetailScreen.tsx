@@ -356,12 +356,18 @@ export default function TransactionDetailScreen({
       if (tx.outcome === 'reclaimed' && feeSats > 0) {
         rows.push({ label: t('token.reclaim.summaryFee'), value: formatSats(feeSats) })
         rows.push({ label: t('token.reclaim.summaryNet'), value: formatSats(Math.max(0, amountSats - feeSats)), strong: true })
+      } else if (displayFee) {
+        // The swap fee is exact from creation — the flow receipt printed it,
+        // the archive matches, zero included.
+        rows.push({ label: t('send.confirm.fee'), value: formatSats(feeSats) })
+        rows.push({ label: t('send.confirm.total'), value: formatSats(toNumber(getTotalCost(tx))), strong: true })
       }
     } else {
       if (meta.destination) rows.push({ label: t('send.receipt.recipient'), value: truncateStr(meta.destination) })
       rows.push({ label: t('txDetail.type'), value: typeLabel })
       rows.push({ label: t('send.confirm.sourceMint'), value: getDisplayName(tx.accountId), valueNode: mintNode(tx.accountId) })
-      if (feeSats > 0) {
+      // A known zero fee still prints — the flow receipt shows it, the archive must match.
+      if (displayFee) {
         rows.push({
           label: t(tx.status === 'settled' ? 'send.confirm.fee' : 'send.confirm.estimatedFee'),
           value: formatSats(feeSats),
@@ -383,7 +389,7 @@ export default function TransactionDetailScreen({
     // No time row — the state bar carries per-state times and the bottom
     // line carries the date, so a row here would be the third clock.
     return rows
-  }, [tx, meta, metadata, isSwap, isLightning, isReceive, isBearerCreate, amountSats, typeLabel, sourceLabel, kioskOrder, feeSats, mintNode, getDisplayName, formatSats, t])
+  }, [tx, meta, metadata, isSwap, isLightning, isReceive, isBearerCreate, amountSats, typeLabel, sourceLabel, kioskOrder, feeSats, displayFee, mintNode, getDisplayName, formatSats, t])
 
   const receiptStatus = tx.status === 'settled' ? 'done' : 'pending'
   const receiptTitle = isReceive ? t('receive.receipt.title') : t('send.receipt.title')
@@ -411,7 +417,8 @@ export default function TransactionDetailScreen({
       { key: 'txId', label: t('txDetail.txId'), value: tx.id },
     ]
     if (isLightning && !isReceive && meta.destination) {
-      entries.push({ key: 'destination', label: t('txDetail.destination'), value: meta.destination })
+      // Same field as the paper's 받는이 row — this is the full, copyable form.
+      entries.push({ key: 'destination', label: t('send.receipt.recipient'), value: meta.destination })
     }
     if (meta.preimage) entries.push({ key: 'preimage', label: t('txDetail.preimage'), value: meta.preimage })
     if (meta.bolt11) entries.push({ key: 'bolt11', label: t('txDetail.bolt11'), value: meta.bolt11 })

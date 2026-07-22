@@ -190,7 +190,7 @@ export function connectTransferTxBridge(
                       quoted: sat(bolt11Ref.feeReserve ?? 0),
                       effective: sat(bolt11Ref.effectiveFee),
                     }
-                  : bolt11Ref?.feeReserve
+                  : bolt11Ref?.feeReserve != null
                   ? { quoted: sat(bolt11Ref.feeReserve) }
                   : undefined,
               ...(bolt11Ref?.memo ? { memo: bolt11Ref.memo } : {}),
@@ -223,7 +223,7 @@ export function connectTransferTxBridge(
               amount: sat(amount),
               accountId: mint,
               outcome: "unclaimed", // ← 이캐시 탭에서 "대기중"으로 표시되려면 필요!
-              ...(ecashRef?.fee != null && ecashRef.fee > 0
+              ...(ecashRef?.fee != null
                 ? { fee: { quoted: sat(ecashRef.fee) } }
                 : {}),
               metadata: {

@@ -257,14 +257,14 @@ export class RouteExecutionService implements RouteExecutionUseCase {
           memo: context.memo,
           outcome: "unclaimed",
           ...(isRequestPayment && { intent: "request-pay" as const }),
-          ...(prepared.fee > 0 && { fee: { quoted: sat(prepared.fee) } }),
+          ...(prepared.fee != null && { fee: { quoted: sat(prepared.fee) } }),
           metadata: {
             route: selection.route,
             token,
             tokenState: "unspent",
             operationId: prepared.operationId,
             ...(isRequestPayment && { intent: "request-pay" }),
-            ...(prepared.fee > 0 && { fee: prepared.fee }),
+            ...(prepared.fee != null && { fee: prepared.fee }),
           },
         })
       );

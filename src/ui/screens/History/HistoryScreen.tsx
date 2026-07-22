@@ -21,6 +21,7 @@ import { useReclaimFees } from '@/ui/hooks/useReclaimFees'
 import { useTokenReclaim } from '@/ui/hooks/use-token-reclaim'
 import { ServiceContext } from '@/ui/hooks/service-context-value'
 import { PendingItemsList } from '@/ui/components/wallet/PendingItemsList'
+import type { PendingItemDetailCallbacks } from '@/ui/screens/MintDetail/PendingItemDetailScreen'
 import { PendingWidget } from '@/ui/screens/Token/components/PendingWidget'
 import { ReclaimableSection } from '@/ui/screens/Token/components/ReclaimableSection'
 import { ReclaimSheet } from '@/ui/screens/Token/components/ReclaimSheet'
@@ -40,6 +41,11 @@ import { groupTransactionsForTimeline, type TimelineGroup, type TimelineKind } f
 import { HistoryTimelineRow } from './components/HistoryTimelineRow'
 
 const TransactionDetailScreen = lazy(() => import('@/ui/screens/TransactionDetail/TransactionDetailScreen'))
+// Lazy like the tx detail — a direct import would drag the cashu module chain
+// into every consumer of this screen.
+const PendingItemDetailScreen = lazy(() =>
+  import('@/ui/screens/MintDetail/PendingItemDetailScreen').then((m) => ({ default: m.PendingItemDetailScreen })),
+)
 
 // ─── Types ───
 
@@ -53,6 +59,7 @@ export interface HistoryScreenProps {
   isLoading?: boolean
   initialFilter?: FilterType
   initialMintUrls?: string[]
+  pendingItemCallbacks?: PendingItemDetailCallbacks
 }
 
 interface AnchorText {
@@ -139,6 +146,7 @@ export function HistoryScreen({
   isLoading = false,
   initialFilter,
   initialMintUrls,
+  pendingItemCallbacks,
 }: HistoryScreenProps) {
   'use no memo' // useVirtualizer returns mutable functions incompatible with React Compiler
   const { t, i18n } = useTranslation()
@@ -147,6 +155,7 @@ export function HistoryScreen({
   const [searchQuery, setSearchQuery] = useState('')
   const [openSheet, setOpenSheet] = useState<OpenSheet>(null)
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
+  const [selectedPendingItem, setSelectedPendingItem] = useState<PendingItem | null>(null)
   const [selectedMintUrls, setSelectedMintUrls] = useState<Set<string>>(
     () => new Set(initialMintUrls ?? []),
   )
@@ -206,7 +215,7 @@ export function HistoryScreen({
 
   const transactionById = useMemo(() => new Map(transactions.map((tx) => [tx.id, tx])), [transactions])
 
-  const { items: pendingItemsRaw, isLoading: isPendingLoading } = useAllPendingItems(settings.mints)
+  const { items: pendingItemsRaw, isLoading: isPendingLoading, refresh: refreshPendingItems } = useAllPendingItems(settings.mints)
   const pendingSendItems = useMemo(
     () => pendingItemsRaw.filter(isSendToken),
     [pendingItemsRaw],
@@ -427,7 +436,6 @@ export function HistoryScreen({
 
   // ─── Virtualizer ───
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer is known-incompatible with React Compiler; 'use no memo' above opts out
   const virtualizer = useVirtualizer({
     count: timelineGroups.length,
     getScrollElement: () => scrollContainerRef.current,
@@ -475,6 +483,21 @@ export function HistoryScreen({
     exportTransactionsCsv({ transactions: filteredTransactions, getMintName: getDisplayName })
     addToast({ message: t('history.exportSuccess'), type: 'success' })
   }, [filteredTransactions, getDisplayName, addToast, t])
+
+  if (selectedPendingItem) {
+    // Receive-side pendings (requests, unclaimed tokens) have no transaction
+    // record to open — they get the same item detail as the mint screen.
+    return (
+      <Suspense fallback={<div className="h-full flex items-center justify-center bg-background"><Spinner /></div>}>
+        <PendingItemDetailScreen
+          item={selectedPendingItem}
+          onBack={() => setSelectedPendingItem(null)}
+          callbacks={pendingItemCallbacks}
+          onItemRemoved={() => refreshPendingItems()}
+        />
+      </Suspense>
+    )
+  }
 
   if (selectedTransaction) {
     // Prefer the refreshed row over the tap-time snapshot: an external claim
@@ -581,11 +604,15 @@ export function HistoryScreen({
                 <h3 className="text-subtitle font-semibold text-foreground">
                   {t('mintDetail.pendingItems')}
                 </h3>
-                <PendingItemsList
-                  items={visibleIncomingItems}
-                  showDate
-                  onItemClick={(item) => openPendingById(item.id)}
-                />
+                {/* Same card skin as the reclaimable tokens above — one pending
+                    block, one shape. */}
+                <div className="rounded-[20px] bg-background-card border border-border">
+                  <PendingItemsList
+                    items={visibleIncomingItems}
+                    showDate
+                    onItemClick={(item) => setSelectedPendingItem(item)}
+                  />
+                </div>
               </section>
             )}
           </div>

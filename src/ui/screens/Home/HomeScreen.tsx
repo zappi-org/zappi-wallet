@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useCarouselScroll } from "@/ui/hooks/use-carousel-scroll";
 import { usePullToRefresh } from "@/ui/hooks/use-pull-to-refresh";
-import { Plus, LoaderCircle, ArrowDown, ChevronRight, Eye, EyeOff, QrCode } from "lucide-react";
+import { Plus, LoaderCircle, ArrowDown, ChevronRight, Eye, EyeOff, CircleUserRound } from "lucide-react";
 
 import { useTranslation } from "react-i18next";
 import { hapticTap } from "@/ui/utils/haptic";
@@ -167,7 +167,7 @@ export function HomeScreen({
           aria-label={t("myAddress.title")}
           className="w-10 h-10 rounded-full flex items-center justify-center text-foreground-muted hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
         >
-          <QrCode className="w-6 h-6" strokeWidth={1.8} />
+          <CircleUserRound className="w-6 h-6" strokeWidth={1.8} />
         </button>
       </div>
 

@@ -915,6 +915,26 @@ export default function MainApp() {
     )
   }
 
+  // Shared by mint detail and history — both open the same pending-item detail.
+  const pendingItemCallbacks = serviceRegistry ? {
+    onRedeemToken: async (tokenStr: string, _itemId: string) => {
+      const result = await serviceRegistry.payment.redeem({ input: tokenStr })
+      return result.ok
+    },
+    onCheckQuote: async (mintUrl: string, quoteId: string) => {
+      const { getMintQuote } = await import('@/modules/cashu')
+      const quote = await getMintQuote(mintUrl, quoteId)
+      return quote ? { state: quote.state, request: quote.request } : null
+    },
+    onRedeemQuote: async (mintUrl: string, quoteId: string, amount: number) => {
+      const { redeemMintQuote } = await import('@/modules/cashu')
+      await redeemMintQuote(mintUrl, quoteId, amount)
+    },
+    onPendingItemChanged: async () => {
+      await refreshAll()
+    },
+  } : undefined
+
   // ─── Screen route table ──────────────────────────────────────
   // Screen → render-fn map. Each render fn returns the JSX from the old
   // `{currentScreen === 'x' && (…)}` branch verbatim (pure move — no prop/structure
@@ -1050,6 +1070,7 @@ export default function MainApp() {
         onBack={handleBack}
         transactions={transactions}
         initialMintUrls={historyInitialMintUrls}
+        pendingItemCallbacks={pendingItemCallbacks}
       />
     ),
 
@@ -1301,24 +1322,7 @@ export default function MainApp() {
           setCurrentScreen('history')
         }}
         onFindTransaction={serviceRegistry ? (id: string) => serviceRegistry.transactionMgmt.getById(id) : undefined}
-        pendingItemCallbacks={serviceRegistry ? {
-          onRedeemToken: async (tokenStr: string, _itemId: string) => {
-            const result = await serviceRegistry.payment.redeem({ input: tokenStr })
-            return result.ok
-          },
-          onCheckQuote: async (mintUrl: string, quoteId: string) => {
-            const { getMintQuote } = await import('@/modules/cashu')
-            const quote = await getMintQuote(mintUrl, quoteId)
-            return quote ? { state: quote.state, request: quote.request } : null
-          },
-          onRedeemQuote: async (mintUrl: string, quoteId: string, amount: number) => {
-            const { redeemMintQuote } = await import('@/modules/cashu')
-            await redeemMintQuote(mintUrl, quoteId, amount)
-          },
-          onPendingItemChanged: async () => {
-            await refreshAll()
-          },
-        } : undefined}
+        pendingItemCallbacks={pendingItemCallbacks}
       />
     ),
   }

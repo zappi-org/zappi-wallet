@@ -141,10 +141,11 @@ export function MintDetailScreen({
       </header>
 
       {/* Scrollable Content */}
-      {/* Short content on a tall screen — the card/actions group floats at the
-          visual center instead of hugging the header. */}
+      {/* One cohesive card+actions group, anchored above center (1:2 split of
+          the leftover space) so everything sits high yet within thumb reach. */}
       <main className="flex-1 overflow-y-auto pb-app flex flex-col">
-        <div className="my-auto flex flex-col gap-7 pb-10">
+        <div className="flex-[1] min-h-3" />
+
         {/* Mint Card — with inline rename */}
         <div className="flex justify-center">
           <MintCard
@@ -156,7 +157,7 @@ export function MintDetailScreen({
         </div>
 
         {/* Actions aligned to card width */}
-        <div className="w-[var(--card-w)] mx-auto space-y-3">
+        <div className="mt-7 w-[var(--card-w)] mx-auto space-y-3">
           <div className="grid grid-cols-6 gap-3">
             <MintActionTile
               className="col-span-3"
@@ -208,7 +209,8 @@ export function MintDetailScreen({
             </button>
           )}
         </div>
-        </div>
+
+        <div className="flex-[2] min-h-6" />
       </main>
 
       {/* Mint settings / info sheet — two halves of the same sheet */}

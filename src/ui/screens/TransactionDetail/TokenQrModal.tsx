@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { X, Copy, Check, Eye } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
@@ -17,12 +17,14 @@ export function TokenQrModal({ isOpen, token, onClose, title, veil = true }: Tok
   const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
   // Bearer privacy: whoever scans this QR owns the funds — veil until tapped,
-  // same contract as the send-flow receipt. Re-arms on every close: the parent
+  // same contract as the send-flow receipt. Re-arms on every open: the parent
   // keeps this mounted, so state alone would leave later opens unveiled.
   const [veiled, setVeiled] = useState(veil)
-  useEffect(() => {
-    if (!isOpen) setVeiled(veil)
-  }, [isOpen, veil])
+  const [wasOpen, setWasOpen] = useState(isOpen)
+  if (wasOpen !== isOpen) {
+    setWasOpen(isOpen)
+    if (isOpen) setVeiled(veil)
+  }
 
   const handleCopy = useCallback(async () => {
     try {
