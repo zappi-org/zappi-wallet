@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next'
 import type {
   ValidatedData,
   ValidatedBolt11,
-  ValidatedLightningAddress,
+  ValidatedEmailAddress,
   ValidatedLnurlPay,
   ValidatedCashuRequest,
   ValidatedMyWallet,
@@ -34,7 +34,7 @@ import { translateError } from '@/ui/utils/error-i18n'
 function getAddressOrInvoice(data: SendableValidatedData): string | undefined {
   switch (data.type) {
     case 'bolt11': return data.invoice
-    case 'lightning-address': return data.address
+    case 'email-address': return data.address
     case 'lnurl-pay': return data.lnurl
     default: return undefined
   }
@@ -69,7 +69,7 @@ export type SendStep =
 /** Validated data types that are "sendable" (not token, not amount) */
 export type SendableValidatedData =
   | ValidatedBolt11
-  | ValidatedLightningAddress
+  | ValidatedEmailAddress
   | ValidatedLnurlPay
   | ValidatedCashuRequest
   | ValidatedMyWallet
@@ -158,7 +158,7 @@ export function SendFlow({
     if (!initialValidatedData) return ''
     switch (initialValidatedData.type) {
       case 'bolt11': return initialValidatedData.invoice
-      case 'lightning-address': return initialValidatedData.address
+      case 'email-address': return initialValidatedData.address
       case 'lnurl-pay': return initialValidatedData.lnurl
       case 'cashu-request': return initialValidatedData.request
       default: return ''
@@ -177,7 +177,7 @@ export function SendFlow({
 
   const isSendableData = (data?: ValidatedData): data is SendableValidatedData => {
     if (!data) return false
-    return ['bolt11', 'lightning-address', 'lnurl-pay', 'cashu-request', 'my-wallet'].includes(data.type)
+    return ['bolt11', 'email-address', 'lnurl-pay', 'cashu-request', 'my-wallet'].includes(data.type)
   }
 
   // Skip destination when validated data is already provided (from address book / scanner).

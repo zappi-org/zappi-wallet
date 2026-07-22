@@ -35,7 +35,7 @@ export interface LnurlWithdrawParams {
 
 export type InputType =
   | Bolt11Input
-  | LightningAddressInput
+  | EmailAddressInput
   | LnurlInput
   | CashuTokenInput
   | CashuRequestInput
@@ -53,8 +53,8 @@ export interface Bolt11Input {
   paymentHash?: string
 }
 
-export interface LightningAddressInput {
-  type: 'lightning-address'
+export interface EmailAddressInput {
+  type: 'email-address'
   address: string
 }
 
@@ -96,7 +96,7 @@ export interface UnknownInput {
 
 export type ValidatedData =
   | ValidatedBolt11
-  | ValidatedLightningAddress
+  | ValidatedEmailAddress
   | ValidatedLnurlPay
   | ValidatedLnurlWithdraw
   | ValidatedCashuToken
@@ -114,8 +114,8 @@ export interface ValidatedBolt11 {
   paymentHash?: string
 }
 
-export interface ValidatedLightningAddress {
-  type: 'lightning-address'
+export interface ValidatedEmailAddress {
+  type: 'email-address'
   address: string
   lnurlParams: LnurlPayParams
 }

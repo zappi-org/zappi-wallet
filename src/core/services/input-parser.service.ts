@@ -92,9 +92,9 @@ export class InputParserService implements InputParserUseCase {
       return { type: 'nostr-direct', address: trimmed }
     }
 
-    // Lightning address
+    // Email address
     if (this.codec.isLightningAddress(trimmed)) {
-      return { type: 'lightning-address', address: trimmed }
+      return { type: 'email-address', address: trimmed }
     }
 
     // LNURL
@@ -123,10 +123,10 @@ export class InputParserService implements InputParserUseCase {
           paymentHash: input.paymentHash,
         }
 
-      case 'lightning-address': {
+      case 'email-address': {
         const params = await this.lnurl.resolvePay(input.address)
         return {
-          type: 'lightning-address',
+          type: 'email-address',
           address: input.address,
           lnurlParams: params,
         }

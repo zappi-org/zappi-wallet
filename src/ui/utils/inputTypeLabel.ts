@@ -1,6 +1,7 @@
 const INPUT_TYPE_LABELS: Record<string, string> = {
   'bolt11': 'Bolt11',
-  'lightning-address': 'Lightning Address',
+  'email-address': 'Lightning Address',
+  'nostr-address': 'Nostr Address',
   'lnurl': 'LNURL',
   'lnurl-pay': 'LNURL Pay',
   'cashu-request': 'Cashu Request',
