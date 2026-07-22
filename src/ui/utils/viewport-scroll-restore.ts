@@ -4,28 +4,42 @@
  * performs a restore scroll when the keyboard closes, but SKIPS it when the
  * focused element unmounted first (exactly what bottom-sheet editors do), so
  * the whole document stays shifted up and every screen shows a dead band at
- * the bottom until something else scrolls.
+ * the bottom until the user drags the page.
  *
- * The shell owns all scrolling internally, so the window scroll position must
- * always be 0 — snap it back whenever the viewport regrows (keyboard closed)
- * or the page resurfaces (relaunch / app switch).
+ * In that stuck state window.scrollY often reads 0 while the visual viewport
+ * is still offset (vv.pageTop > 0), so a plain scrollTo(0,0) is a no-op. Only
+ * an ACTUAL scroll operation re-clamps the viewport — the same thing a manual
+ * drag does — hence the 1px jog.
  */
 export function installViewportScrollRestore(): void {
   if (typeof window === 'undefined') return
 
-  const reset = () => {
-    if (window.scrollY !== 0 || window.scrollX !== 0) window.scrollTo(0, 0)
+  const isStuck = (): boolean => {
+    if (window.scrollY !== 0 || window.scrollX !== 0) return true
     const scroller = document.scrollingElement
-    if (scroller && (scroller.scrollTop !== 0 || scroller.scrollLeft !== 0)) {
+    if (scroller && (scroller.scrollTop !== 0 || scroller.scrollLeft !== 0)) return true
+    const vv = window.visualViewport
+    // pageTop/offsetTop expose the displacement WebKit hides from scrollY.
+    if (vv && (vv.pageTop > 0.5 || vv.offsetTop > 0.5)) return true
+    return false
+  }
+
+  const reset = () => {
+    if (!isStuck()) return
+    window.scrollTo(0, 1)
+    window.scrollTo(0, 0)
+    const scroller = document.scrollingElement
+    if (scroller) {
       scroller.scrollTop = 0
       scroller.scrollLeft = 0
     }
   }
-  // iOS settles the viewport a beat after the keyboard animation — run once
-  // now and once after it finishes, so a late shift is also caught.
+  // iOS settles the viewport a beat after the keyboard animation — check
+  // immediately and again after it finishes, so a late shift is also caught.
   const settle = () => {
     reset()
     window.setTimeout(reset, 250)
+    window.setTimeout(reset, 600)
   }
 
   const vv = window.visualViewport
@@ -36,6 +50,11 @@ export function installViewportScrollRestore(): void {
       lastHeight = vv.height
     })
   }
+  // Keyboard dismissal without a viewport resize event (input unmounted):
+  // the blur is the only signal left — check after the close animation.
+  window.addEventListener('focusout', () => {
+    window.setTimeout(reset, 350)
+  })
   window.addEventListener('pageshow', settle)
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') settle()

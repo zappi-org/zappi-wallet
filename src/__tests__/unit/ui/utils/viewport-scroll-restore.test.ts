@@ -7,6 +7,8 @@ function mockVisualViewport(height: number) {
   const listeners = new Map<string, Listener[]>()
   const vv = {
     height,
+    pageTop: 0,
+    offsetTop: 0,
     addEventListener: (type: string, fn: Listener) => {
       listeners.set(type, [...(listeners.get(type) ?? []), fn])
     },
@@ -35,7 +37,7 @@ describe('installViewportScrollRestore', () => {
     Object.defineProperty(window, 'visualViewport', { value: undefined, configurable: true })
   })
 
-  it('snaps the window back when the viewport regrows (keyboard closed)', () => {
+  it('jogs the window back when the viewport regrows with a hidden offset', () => {
     const vv = mockVisualViewport(800)
     installViewportScrollRestore()
 
@@ -44,16 +46,19 @@ describe('installViewportScrollRestore', () => {
     vv.fire('resize')
     expect(scrollToSpy).not.toHaveBeenCalled()
 
-    // Keyboard closes with a stale scroll offset left behind.
-    setWindowScrollY(48)
+    // Keyboard closes; scrollY lies (0) but the visual viewport is displaced —
+    // the stuck state a manual drag fixes.
+    vv.pageTop = 48
     vv.height = 800
     vv.fire('resize')
-    expect(scrollToSpy).toHaveBeenCalledWith(0, 0)
+    // The jog is a REAL scroll op (0→1→0), not a no-op scrollTo(0,0).
+    expect(scrollToSpy).toHaveBeenNthCalledWith(1, 0, 1)
+    expect(scrollToSpy).toHaveBeenNthCalledWith(2, 0, 0)
 
-    // The settle pass re-checks after the keyboard animation finishes.
+    // The settle passes re-check after the keyboard animation finishes.
     scrollToSpy.mockClear()
-    setWindowScrollY(48)
-    vi.advanceTimersByTime(250)
+    vv.pageTop = 48
+    vi.advanceTimersByTime(600)
     expect(scrollToSpy).toHaveBeenCalledWith(0, 0)
   })
 
@@ -65,8 +70,18 @@ describe('installViewportScrollRestore', () => {
     vv.fire('resize')
     vv.height = 800
     vv.fire('resize')
-    vi.advanceTimersByTime(250)
+    vi.advanceTimersByTime(600)
     expect(scrollToSpy).not.toHaveBeenCalled()
+  })
+
+  it('checks after focusout when the input unmounts without a resize event', () => {
+    mockVisualViewport(800)
+    installViewportScrollRestore()
+
+    window.dispatchEvent(new Event('focusout'))
+    setWindowScrollY(40)
+    vi.advanceTimersByTime(350)
+    expect(scrollToSpy).toHaveBeenCalledWith(0, 0)
   })
 
   it('resets on pageshow and on returning to visible', () => {

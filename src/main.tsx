@@ -7,6 +7,7 @@ import App from './App.tsx'
 import { PWAInstallGuard } from './ui/components/PWAInstallGuard'
 import { ErrorBoundary } from './ui/components/ErrorBoundary'
 import { installViewportScrollRestore } from './ui/utils/viewport-scroll-restore'
+import { ViewportDebugOverlay } from './ui/components/dev/ViewportDebugOverlay'
 
 installViewportScrollRestore()
 
@@ -55,6 +56,7 @@ if (!checkStorageAvailability()) {
         <PWAInstallGuard>
           <App />
         </PWAInstallGuard>
+        <ViewportDebugOverlay />
       </ErrorBoundary>
     </StrictMode>,
   )
