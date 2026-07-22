@@ -130,7 +130,7 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
   }
 
   return (
-    <div className="h-dvh bg-background flex flex-col pt-safe">
+    <div className="h-full bg-background flex flex-col pt-safe">
       {/* Header */}
       <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
         <button

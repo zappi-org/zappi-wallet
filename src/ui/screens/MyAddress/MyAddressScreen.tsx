@@ -121,7 +121,7 @@ export function MyAddressScreen({ onBack, onOpenSettings }: MyAddressScreenProps
   }, [value, handleCopy])
 
   return (
-    <div className="h-dvh bg-background text-foreground flex flex-col pt-safe">
+    <div className="h-full bg-background text-foreground flex flex-col pt-safe">
       <ScreenHeader title={t('myAddress.title')} onBack={onBack} />
 
       <div className="flex-1 overflow-y-auto flex flex-col items-center px-6 pt-4">

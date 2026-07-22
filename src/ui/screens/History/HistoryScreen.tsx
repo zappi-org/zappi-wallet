@@ -278,7 +278,7 @@ export function HistoryScreen({
 
   if (selectedTransaction) {
     return (
-      <Suspense fallback={<div className="h-dvh flex items-center justify-center bg-background"><Spinner /></div>}>
+      <Suspense fallback={<div className="h-full flex items-center justify-center bg-background"><Spinner /></div>}>
         <TransactionDetailScreen
           transaction={selectedTransaction}
           onBack={() => setSelectedTransaction(null)}
@@ -289,7 +289,7 @@ export function HistoryScreen({
   }
 
   return (
-    <div className="h-dvh bg-background text-foreground flex flex-col font-primary relative overflow-hidden z-[60] pt-safe">
+    <div className="h-full bg-background text-foreground flex flex-col font-primary relative overflow-hidden z-[60] pt-safe">
       {/* Header */}
       <header className="relative flex items-center justify-between px-5 h-14 shrink-0 z-50">
         <button

@@ -913,7 +913,7 @@ export default function MainApp() {
 
   if (isInitializing) {
     return (
-      <div className="flex items-center justify-center h-dvh bg-background">
+      <div className="flex items-center justify-center h-full bg-background">
         <div className="text-center">
           <h1 className="text-title font-bold text-brand mb-4">ZAPPI</h1>
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
@@ -1439,7 +1439,7 @@ export default function MainApp() {
   // Main app content
   const mainContent = (
     <>
-      <div className="relative h-dvh overflow-hidden">
+      <div className="relative h-full overflow-hidden">
         <AppStack renderScreen={renderStackScreen} />
       </div>
 

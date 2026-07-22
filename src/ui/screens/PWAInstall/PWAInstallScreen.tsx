@@ -167,7 +167,7 @@ export function PWAInstallScreen({ onBypass }: PWAInstallScreenProps) {
   )
 
   return (
-    <div className="flex flex-col min-h-dvh bg-background p-4 pt-safe">
+    <div className="flex flex-col min-h-full bg-background p-4 pt-safe">
       <div className="flex-1 flex flex-col items-center justify-center text-center">
         {/* Logo */}
         <h1 className="text-title font-bold text-brand mb-3">ZAPPI</h1>

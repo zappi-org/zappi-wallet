@@ -237,7 +237,7 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
   // Full-screen progress view (adding or success)
   if (isAdding || success) {
     return (
-      <div className="h-dvh bg-background text-foreground flex flex-col pt-safe z-[60]">
+      <div className="h-full bg-background text-foreground flex flex-col pt-safe z-[60]">
         {/* Header */}
         <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
           <div className="w-10" />
@@ -293,7 +293,7 @@ export function AddMintScreen({ onBack, onSuccess, onSaveSettings }: AddMintScre
   }
 
   return (
-    <div className="animate-slideInUp h-dvh bg-background text-foreground flex flex-col font-primary relative overflow-hidden z-[60] pt-safe">
+    <div className="animate-slideInUp h-full bg-background text-foreground flex flex-col font-primary relative overflow-hidden z-[60] pt-safe">
       {/* Header */}
       <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
         <button

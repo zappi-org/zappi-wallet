@@ -627,7 +627,7 @@ export function ReceiveFlow({
   // ============= Render =============
 
   return (
-    <div className="h-dvh bg-background text-foreground font-primary flex flex-col pt-safe">
+    <div className="h-full bg-background text-foreground font-primary flex flex-col pt-safe">
       <AnimatePresence mode="wait">
         {state.step === 'redeem' && (
           <PageTransition key="receive-redeem" variant="fade" className="flex-1">

@@ -140,7 +140,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
   // Processing / Success — full screen
   if (status === 'processing' || status === 'success') {
     return (
-      <div className="h-dvh bg-background text-foreground flex flex-col pt-safe z-[60]">
+      <div className="h-full bg-background text-foreground flex flex-col pt-safe z-[60]">
         <header className="flex items-center justify-center px-5 h-14 shrink-0">
           <h2 className="text-subtitle font-semibold">{t('transfer.title')}</h2>
         </header>
@@ -182,7 +182,7 @@ export function TransferScreen({ onBack, onTransactionComplete, initialFromMintU
   }
 
   return (
-    <div className="h-dvh bg-background text-foreground flex flex-col font-primary relative overflow-hidden z-[60] pt-safe">
+    <div className="h-full bg-background text-foreground flex flex-col font-primary relative overflow-hidden z-[60] pt-safe">
       {/* Header */}
       <header className="relative flex items-center justify-between px-5 h-14 shrink-0">
         <button

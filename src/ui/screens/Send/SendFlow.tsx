@@ -979,7 +979,7 @@ export function SendFlow({
   // ============= Render =============
 
   return (
-    <div className="relative h-dvh bg-background text-foreground font-primary flex flex-col pt-safe">
+    <div className="relative h-full bg-background text-foreground font-primary flex flex-col pt-safe">
       <AnimatePresence mode="wait" initial={false}>
         {(state.step === 'destination' ||
           state.step === 'amount' ||

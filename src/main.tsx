@@ -6,10 +6,7 @@ import './registerSW' // PWA service worker registration & auto-update
 import App from './App.tsx'
 import { PWAInstallGuard } from './ui/components/PWAInstallGuard'
 import { ErrorBoundary } from './ui/components/ErrorBoundary'
-import { installViewportScrollRestore } from './ui/utils/viewport-scroll-restore'
 import { ViewportDebugOverlay } from './ui/components/dev/ViewportDebugOverlay'
-
-installViewportScrollRestore()
 
 // Check storage availability (localStorage + IndexedDB)
 function checkStorageAvailability(): boolean {

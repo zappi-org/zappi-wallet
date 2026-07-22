@@ -280,9 +280,24 @@
   button, input, select, textarea {
     font: inherit;
   }
+  /* The shell is the ONLY place that measures the viewport; every screen
+     inside uses h-full. In installed (standalone) mode iOS fails to
+     initialize 100dvh on cold start — it reports the small-viewport value
+     (screen minus status bar) until the viewport is "exercised" by a drag
+     or rotation, which is the dead band measured on device (vv.height
+     896→852 flips across keyboard/relaunch/lock). 100vh is stable from
+     cold start, and with no browser chrome in standalone the two units are
+     equal by definition — so standalone pins to 100vh. Browser tabs keep
+     dvh (there 100vh really can sit behind a dynamic toolbar). */
   html, body, #root {
-    @apply h-dvh overflow-hidden;
+    @apply overflow-hidden;
+    height: 100dvh;
     background-color: var(--background);
+  }
+  @media (display-mode: standalone) {
+    html, body, #root {
+      height: 100vh;
+    }
   }
   body {
     @apply bg-background text-foreground font-primary;

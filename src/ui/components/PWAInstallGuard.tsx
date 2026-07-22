@@ -76,7 +76,7 @@ export function PWAInstallGuard({ children }: PWAInstallGuardProps) {
   const steps = getInstallSteps(platform, deferredPrompt !== null, t)
 
   return (
-    <div className="h-dvh bg-background flex flex-col pt-safe max-w-md mx-auto">
+    <div className="h-full bg-background flex flex-col pt-safe max-w-md mx-auto">
       {/* Center content */}
       <div className="flex-1 flex flex-col items-center justify-center px-5">
         {/* Mascot */}

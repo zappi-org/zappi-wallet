@@ -140,7 +140,7 @@ export function HomeScreen({
   return (
     <div
       ref={scrollContainerRef as React.RefObject<HTMLDivElement>}
-      className="h-dvh bg-background text-foreground font-primary overflow-hidden flex flex-col pt-safe"
+      className="h-full bg-background text-foreground font-primary overflow-hidden flex flex-col pt-safe"
       style={{ overscrollBehaviorY: "contain" }}
     >
       {/* Pull-to-refresh indicator */}

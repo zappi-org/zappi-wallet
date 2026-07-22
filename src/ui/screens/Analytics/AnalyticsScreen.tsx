@@ -182,7 +182,7 @@ export function AnalyticsScreen({ onBack, transactions }: AnalyticsScreenProps) 
   }
 
   return (
-    <div className="h-dvh bg-background text-foreground flex flex-col font-primary relative overflow-hidden z-[60] pt-safe">
+    <div className="h-full bg-background text-foreground flex flex-col font-primary relative overflow-hidden z-[60] pt-safe">
       {/* Header */}
       <header className="relative flex items-center justify-between px-5 h-14 shrink-0 z-50">
         <button
