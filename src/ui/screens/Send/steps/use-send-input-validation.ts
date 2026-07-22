@@ -162,6 +162,12 @@ export function useSendInputValidation({
         case 'cashu-request':
           rawAddressRef.current = initialValidatedData.request
           break
+        case 'my-wallet':
+          // The destination shows the wallet's plain display name (no '@' sigil),
+          // so without this latch the debounce detector would try to parse the
+          // label as an address on back-navigation and flag it unrecognized.
+          rawAddressRef.current = initialValidatedData.targetMintUrl
+          break
       }
     }
   }, [initialValidatedData])

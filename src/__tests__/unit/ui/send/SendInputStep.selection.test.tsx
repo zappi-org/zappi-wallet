@@ -122,6 +122,26 @@ describe('SendInputStep selection flows', () => {
     vi.useRealTimers()
   })
 
+  it('back-navigation from a my-wallet selection shows no unrecognized error', async () => {
+    // The input shows the wallet's plain display name (no '@' sigil), so the
+    // debounce detector must be latched off by the restored my-wallet data —
+    // otherwise it parses the label as an address and flags it unrecognized.
+    renderStep({
+      initialDestination: 'Target Wallet',
+      initialValidatedData: {
+        type: 'my-wallet',
+        targetMintUrl: 'https://target.mint',
+        targetMintName: 'Target Wallet',
+      },
+    } as Partial<typeof defaultProps>)
+
+    await act(async () => {
+      vi.advanceTimersByTime(1000) // past the 500ms detector debounce
+    })
+    expect(screen.queryByText('send.destination.unrecognized')).not.toBeInTheDocument()
+    expect(mockDetectAndClassify).not.toHaveBeenCalled()
+  })
+
   it('shows the address book tab before my wallets', () => {
     mockContacts.push({
       id: 'contact-1',
