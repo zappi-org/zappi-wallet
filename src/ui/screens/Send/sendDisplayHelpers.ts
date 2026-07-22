@@ -137,7 +137,7 @@ export function getConfirmDisplayInfo(
         memo: data.description || undefined,
       };
     }
-    case "lightning-address":
+    case "email-address":
       return {
         method: "Lightning",
         recipient: formatRecipientDisplayText(displayName || data.address),
@@ -192,7 +192,7 @@ export function getDestinationDisplay(
   switch (data.type) {
     case "bolt11":
       return "Lightning";
-    case "lightning-address":
+    case "email-address":
       return formatRecipientDisplayText(data.address.includes("@")
         ? data.address.split("@")[0]
         : data.address);

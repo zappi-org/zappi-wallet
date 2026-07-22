@@ -35,10 +35,11 @@ export interface LnurlWithdrawParams {
 
 export type InputType =
   | Bolt11Input
-  | LightningAddressInput
+  | EmailAddressInput
   | LnurlInput
   | CashuTokenInput
   | CashuRequestInput
+  | NostrDirectInput
   | AmountInput
   | UnknownInput
 
@@ -52,8 +53,8 @@ export interface Bolt11Input {
   paymentHash?: string
 }
 
-export interface LightningAddressInput {
-  type: 'lightning-address'
+export interface EmailAddressInput {
+  type: 'email-address'
   address: string
 }
 
@@ -76,6 +77,11 @@ export interface CashuRequestInput {
   lightningInvoice?: string
 }
 
+export interface NostrDirectInput {
+  type: 'nostr-direct'
+  address: string
+}
+
 export interface AmountInput {
   type: 'amount'
   amount: number
@@ -90,11 +96,12 @@ export interface UnknownInput {
 
 export type ValidatedData =
   | ValidatedBolt11
-  | ValidatedLightningAddress
+  | ValidatedEmailAddress
   | ValidatedLnurlPay
   | ValidatedLnurlWithdraw
   | ValidatedCashuToken
   | ValidatedCashuRequest
+  | ValidatedNostrDirect
   | ValidatedMyWallet
   | ValidatedAmount
 
@@ -107,8 +114,8 @@ export interface ValidatedBolt11 {
   paymentHash?: string
 }
 
-export interface ValidatedLightningAddress {
-  type: 'lightning-address'
+export interface ValidatedEmailAddress {
+  type: 'email-address'
   address: string
   lnurlParams: LnurlPayParams
 }
@@ -137,6 +144,11 @@ export interface ValidatedCashuRequest {
   type: 'cashu-request'
   request: string
   parsed: ParsedCashuRequest
+}
+
+export interface ValidatedNostrDirect {
+  type: 'nostr-direct'
+  address: string
 }
 
 export interface ValidatedMyWallet {

@@ -17,7 +17,8 @@ export type InputRouteTarget =
 export function routeValidatedInput(data: ValidatedData): InputRouteTarget {
   switch (data.type) {
     case 'bolt11':
-    case 'lightning-address':
+    case 'email-address':
+    case 'nostr-direct':
     case 'lnurl-pay':
     case 'cashu-request':
     case 'my-wallet':

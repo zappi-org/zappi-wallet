@@ -18,7 +18,6 @@ import { useContacts } from '@/ui/hooks/use-contacts'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import type { InputType, ValidatedData } from '@/core/domain/input-types'
 import { resolveFlowTarget } from '@/core/domain/resolve-flow-target'
-import { isNostrDirectAddress } from '@/core/domain/nostr-address'
 import type { NostrDirectPaymentResolution } from '@/core/ports/driving/nostr-direct-payment.usecase'
 import type { SendableValidatedData } from '../SendFlow'
 
@@ -50,7 +49,7 @@ function getContactLookupCandidates(input: string, data?: SendableValidatedData)
   if (!data) return uniqueNonEmpty([input])
 
   switch (data.type) {
-    case 'lightning-address':
+    case 'email-address':
       return uniqueNonEmpty([input, data.address])
     case 'lnurl-pay':
       return uniqueNonEmpty([input, data.lnurl, data.params?.domain])
@@ -118,8 +117,11 @@ export function useSendInputValidation({
   const [destination, setDestination] = useState(initialDestination)
   const [detectedTypes, setDetectedTypes] = useState<string[]>(() => {
     if (!initialValidatedData) return []
-    if (initialValidatedData.type === 'cashu-request' && isNostrDirectAddress(initialValidatedData.request)) {
-      return [initialValidatedData.request.toLowerCase().startsWith('nprofile1') ? 'nprofile' : 'npub']
+    if (initialValidatedData.type === 'cashu-request') {
+      const req = initialValidatedData.request.toLowerCase()
+      if (req.startsWith('npub1') || req.startsWith('nprofile1')) {
+        return [req.startsWith('nprofile1') ? 'nprofile' : 'npub']
+      }
     }
     return [initialValidatedData.type]
   })
@@ -142,7 +144,7 @@ export function useSendInputValidation({
         case 'bolt11':
           rawAddressRef.current = initialValidatedData.invoice
           break
-        case 'lightning-address':
+        case 'email-address':
           rawAddressRef.current = initialValidatedData.address
           break
         case 'lnurl-pay':
@@ -223,7 +225,7 @@ export function useSendInputValidation({
     detectTimeoutRef.current = setTimeout(async () => {
       clearTimeout(autoAdvanceTimerRef.current)
       const detected = inputParser.detectAndClassify(destination)
-      if (isNostrDirectAddress(destination)) {
+      if (detected.type === 'nostr-direct') {
         setDetectedTypes([destination.trim().toLowerCase().startsWith('nprofile1') ? 'nprofile' : 'npub'])
         setIsPreValidating(false)
         setPreValidationError(null)
@@ -232,7 +234,7 @@ export function useSendInputValidation({
 
       setDetectedTypes(toBadgeTypes(detected))
 
-      const sendableDetectedTypes = ['bolt11', 'lightning-address', 'lnurl', 'cashu-request']
+      const sendableDetectedTypes = ['bolt11', 'email-address', 'lnurl', 'cashu-request']
       if (!sendableDetectedTypes.includes(detected.type)) {
         setIsPreValidating(false)
         // Check if input looks like Cashu token but failed to parse
@@ -284,7 +286,7 @@ export function useSendInputValidation({
       }
 
       const syntaxOk =
-        (detected.type === 'lightning-address' && looksLikeLightningAddress(destination)) ||
+        (detected.type === 'email-address' && looksLikeLightningAddress(destination)) ||
         (detected.type === 'lnurl' && looksLikeLnurl(destination))
 
       if (!syntaxOk) {
@@ -317,7 +319,20 @@ export function useSendInputValidation({
     const initialDestination = initialContactName || trimmed
     const hasInitialDisplayName = !!initialContactName
 
-    if (isNostrDirectAddress(trimmed)) {
+    const detected = inputParser.detectAndClassify(trimmed)
+    const inputType = detected.type
+
+
+    if (inputType === 'unknown') {
+      // Check if input looks like a Cashu token but failed to parse
+      if (trimmed.startsWith('cashuA') || trimmed.startsWith('cashuB')) {
+        console.error('[SendInputStep] Invalid Cashu token format:', trimmed.slice(0, 50))
+        addToast({ type: 'error', message: t('send.destination.invalidCashuToken'), duration: 3000 })
+      }
+      return false
+    }
+
+    if (inputType === 'nostr-direct') {
       applyDestinationState({
         destination: initialDestination,
         rawAddress: hasInitialDisplayName ? trimmed : null,
@@ -359,7 +374,6 @@ export function useSendInputValidation({
         })
         return 'needs-mint-selection'
       }
-
       const message = resolution.status === 'no-common-mint'
         ? t('send.destination.noCommonMint')
         : resolution.status === 'no-relay'
@@ -369,7 +383,63 @@ export function useSendInputValidation({
       return 'handled-error'
     }
 
-    const detected = inputParser.detectAndClassify(trimmed)
+    // Email address: try NIP-05/NutZap first, fall back to LNURL
+    if (inputType === 'email-address') {
+      applyDestinationState({
+        destination: initialDestination,
+        rawAddress: hasInitialDisplayName ? trimmed : null,
+        validatedData: null,
+        detectedTypes: hasInitialDisplayName ? [] : ['email-address'],
+        isPreValidating: true,
+      })
+
+      const [lnurlSettled, nutzapSettled] = await Promise.allSettled([
+        inputParser.validateAsync(detected),
+        nostrDirectPayment.resolve({
+          address: trimmed,
+          ownMintUrls: settings.mints,
+          selectedMintUrl: mintUrl || null,
+        }),
+      ])
+
+      setIsPreValidating(false)
+
+      const nutzap = nutzapSettled.status === 'fulfilled' ? nutzapSettled.value : null
+
+      // NIP-05 resolved + common mint: direct token transfer
+      if (nutzap?.status === 'ready') {
+        setValidatedData(nutzap.validatedData)
+        validatedDataRef.current = nutzap.validatedData
+        setDetectedTypes(['nostr-address', 'email-address'])
+        return true
+      }
+
+      // NIP-05 resolved, no common mint: let user pick
+      if (nutzap?.status === 'needs-mint-selection') {
+        const selectedMintName = mintUrl ? getDisplayName(mintUrl) : ''
+        onRequestMintSelection?.({
+          destination: initialDestination,
+          validatedData: nutzap.validatedData,
+          commonMintUrls: nutzap.commonMintUrls,
+          infoText: selectedMintName
+            ? t('send.destination.selectedMintUnavailable', { mint: selectedMintName })
+            : undefined,
+        })
+        setDetectedTypes(['nostr-address', 'email-address'])
+        return 'needs-mint-selection'
+      }
+
+      // NutZap unavailable or failed — fall back to LNURL
+      if (lnurlSettled.status === 'rejected') {
+        return 'validation-error'
+      }
+
+      const validated = lnurlSettled.value as SendableValidatedData
+      setValidatedData(validated)
+      validatedDataRef.current = validated
+      return true
+    }
+
     applyDestinationState({
       destination: initialDestination,
       rawAddress: hasInitialDisplayName ? trimmed : null,
@@ -378,14 +448,6 @@ export function useSendInputValidation({
       detectedTypes: hasInitialDisplayName ? [] : toBadgeTypes(detected),
     })
 
-    if (detected.type === 'unknown') {
-      // Check if input looks like a Cashu token but failed to parse
-      if (trimmed.startsWith('cashuA') || trimmed.startsWith('cashuB')) {
-        console.error('[SendInputStep] Invalid Cashu token format:', trimmed.slice(0, 50))
-        addToast({ type: 'error', message: t('send.destination.invalidCashuToken'), duration: 3000 })
-      }
-      return false
-    }
 
     // Full validation (async — network calls for lightning-address, lnurl, npub)
     let validated
@@ -396,7 +458,7 @@ export function useSendInputValidation({
       // "unrecognized" (an unrecognized toast on an offline/server error is misleading).
       return 'validation-error'
     }
-    if (!['bolt11', 'lightning-address', 'lnurl-pay', 'cashu-request', 'my-wallet'].includes(validated.type)) {
+    if (!['bolt11', 'email-address', 'lnurl-pay', 'cashu-request', 'my-wallet'].includes(validated.type)) {
       // Non-sendable types (cashu-token, amount, lnurl-withdraw) — hand off to the
       // universal router so the user lands on the right flow instead of seeing an error.
       if (onRouteValidated) {
@@ -421,6 +483,7 @@ export function useSendInputValidation({
       validatedDataRef.current = sendable
     }
 
+
     // Extract amount if available
     let detectedAmount = 0
     if (sendable.type === 'bolt11' && sendable.amountSats > 0) {
@@ -440,7 +503,6 @@ export function useSendInputValidation({
       }, 300)
       return 'auto-advanced'
     }
-
     return true
   }, [onNext, inputParser, onRouteValidated, applyDestinationState, onRequestMintSelection, addToast, settings.mints, mintUrl, nostrDirectPayment, getDisplayName, t, findContactDisplayName])
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { selectRoute, findCommonMints, selectSourceMint, PaymentRoute, type RouteInput } from '@/core/domain/routing'
-import type { ValidatedBolt11, ValidatedLightningAddress, ValidatedLnurlPay, ValidatedCashuRequest, ValidatedMyWallet } from '@/core/domain/input-types'
+import type { ValidatedBolt11, ValidatedEmailAddress, ValidatedLnurlPay, ValidatedCashuRequest, ValidatedMyWallet } from '@/core/domain/input-types'
 
 // ─── Helpers ───
 
@@ -33,9 +33,9 @@ function makeBolt11(): ValidatedBolt11 {
   }
 }
 
-function makeLightningAddress(): ValidatedLightningAddress {
+function makeEmailAddress(): ValidatedEmailAddress {
   return {
-    type: 'lightning-address',
+    type: 'email-address',
     address: 'user@example.com',
     lnurlParams: { tag: 'payRequest', callback: 'https://example.com/lnurlp/user/callback', minSendable: 1000, maxSendable: 1000000, metadata: '[]', domain: 'example.com' },
   }
@@ -81,8 +81,8 @@ describe('selectRoute', () => {
       expect(result).toBe(PaymentRoute.MELT_TO_LN)
     })
 
-    it('lightning-address → #5 MELT_TO_LN', () => {
-      const result = selectRoute(makeInput(makeLightningAddress()))
+    it('email-address → #5 MELT_TO_LN', () => {
+      const result = selectRoute(makeInput(makeEmailAddress()))
       expect(result).toBe(PaymentRoute.MELT_TO_LN)
     })
 

@@ -122,11 +122,11 @@ describe('SendInputStep pre-validation', () => {
   // partial domain (`a@gmail.co` → gmail.co) — remote validation happens only at submit.
   it('lightning-address typing performs ZERO remote validation — submit validates (§8.5)', async () => {
     mockDetectAndClassify.mockReturnValue({
-      type: 'lightning-address',
+      type: 'email-address',
       address: 'test@stacker.news',
     })
     mockValidateAsync.mockResolvedValue({
-      type: 'lightning-address',
+      type: 'email-address',
       address: 'test@stacker.news',
       lnurlParams: { callback: '', minSendable: 0, maxSendable: 100000, metadata: '', tag: 'payRequest' as const, domain: 'stacker.news' },
     })
@@ -167,7 +167,7 @@ describe('SendInputStep pre-validation', () => {
   it('invalid format (TLD < 2 chars) does NOT trigger validateAsync', async () => {
     // detectAndClassify returns lightning-address but format gate rejects it
     mockDetectAndClassify.mockReturnValue({
-      type: 'lightning-address',
+      type: 'email-address',
       address: 'user@d.c',
     })
 
@@ -182,7 +182,7 @@ describe('SendInputStep pre-validation', () => {
 
   it('typing over a previous input never fires remote validation for either (§8.5)', async () => {
     mockDetectAndClassify.mockReturnValue({
-      type: 'lightning-address',
+      type: 'email-address',
       address: 'alice@mint1.com',
     })
 
@@ -191,7 +191,7 @@ describe('SendInputStep pre-validation', () => {
     await act(async () => { vi.advanceTimersByTime(500) })
 
     mockDetectAndClassify.mockReturnValue({
-      type: 'lightning-address',
+      type: 'email-address',
       address: 'bob@mint2.com',
     })
     typeIntoInput('bob@mint2.com')
@@ -204,7 +204,7 @@ describe('SendInputStep pre-validation', () => {
 
   it('network failure surfaces at submit as a toast (§8.5 — no inline error while typing)', async () => {
     mockDetectAndClassify.mockReturnValue({
-      type: 'lightning-address',
+      type: 'email-address',
       address: 'test@failing.com',
     })
     mockValidateAsync.mockRejectedValue(new Error('Network error'))
@@ -252,7 +252,7 @@ describe('SendInputStep pre-validation', () => {
 
   it('no pre-validation spinner while typing a valid-syntax address (§8.5)', async () => {
     mockDetectAndClassify.mockReturnValue({
-      type: 'lightning-address',
+      type: 'email-address',
       address: 'test@stacker.news',
     })
 
@@ -302,11 +302,11 @@ describe('SendInputStep pre-validation', () => {
 
   it('input change immediately clears previous validatedData and error', async () => {
     mockDetectAndClassify.mockReturnValue({
-      type: 'lightning-address',
+      type: 'email-address',
       address: 'test@stacker.news',
     })
     mockValidateAsync.mockResolvedValue({
-      type: 'lightning-address',
+      type: 'email-address',
       address: 'test@stacker.news',
       lnurlParams: { callback: '', minSendable: 0, maxSendable: 100000, metadata: '', tag: 'payRequest' as const, domain: 'stacker.news' },
     })
