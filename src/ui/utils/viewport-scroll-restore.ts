@@ -1,60 +1,64 @@
 /**
- * iOS scrolls the layout viewport upward to keep a focused input above the
- * software keyboard — overflow:hidden on the shell does not stop it. WebKit
- * performs a restore scroll when the keyboard closes, but SKIPS it when the
- * focused element unmounted first (exactly what bottom-sheet editors do), so
- * the whole document stays shifted up and every screen shows a dead band at
- * the bottom until the user drags the page.
+ * iOS standalone (home-screen) apps: WebKit flip-flops the dynamic viewport
+ * height between the full screen (e.g. 896) and the reduced small-viewport
+ * value (e.g. 852) across keyboard dismissals, relaunches and lock cycles —
+ * measured on device via the viewport readout: scroll/pageTop stay 0, only
+ * vv.height/innerHeight collapse while screen.height holds. An h-dvh shell
+ * follows the lie, and the lost strip at the bottom is NOT renderable while
+ * stuck, so no padding or repaint can cover it.
  *
- * In that stuck state window.scrollY often reads 0 while the visual viewport
- * is still offset (vv.pageTop > 0), so a plain scrollTo(0,0) is a no-op. Only
- * an ACTUAL scroll operation re-clamps the viewport — the same thing a manual
- * drag does — hence the 1px jog.
+ * The only exit is the one a manual drag performs: a REAL scroll operation
+ * forces WebKit to re-evaluate the viewport. With an overflow-hidden shell
+ * nothing is scrollable, so momentarily make the document 1px taller than the
+ * screen, scroll 0→1→0, and restore — invisible to the user, same effect as
+ * the drag.
  */
 export function installViewportScrollRestore(): void {
   if (typeof window === 'undefined') return
+  // Browser tabs legitimately run shorter than the screen (toolbars); the
+  // full-screen invariant only holds for the installed standalone app.
+  if (!window.matchMedia('(display-mode: standalone)').matches) return
+
+  const keyboardLikelyOpen = (): boolean => {
+    const el = document.activeElement
+    if (!el) return false
+    return (
+      el.tagName === 'INPUT' ||
+      el.tagName === 'TEXTAREA' ||
+      (el as HTMLElement).isContentEditable === true
+    )
+  }
 
   const isStuck = (): boolean => {
-    if (window.scrollY !== 0 || window.scrollX !== 0) return true
-    const scroller = document.scrollingElement
-    if (scroller && (scroller.scrollTop !== 0 || scroller.scrollLeft !== 0)) return true
-    const vv = window.visualViewport
-    // pageTop/offsetTop expose the displacement WebKit hides from scrollY.
-    if (vv && (vv.pageTop > 0.5 || vv.offsetTop > 0.5)) return true
-    return false
+    const height = window.visualViewport?.height ?? window.innerHeight
+    return !keyboardLikelyOpen() && height < window.screen.height - 1
   }
 
-  const reset = () => {
-    if (!isStuck()) return
-    window.scrollTo(0, 1)
-    window.scrollTo(0, 0)
-    const scroller = document.scrollingElement
-    if (scroller) {
-      scroller.scrollTop = 0
-      scroller.scrollLeft = 0
-    }
-  }
-  // iOS settles the viewport a beat after the keyboard animation — check
-  // immediately and again after it finishes, so a late shift is also caught.
-  const settle = () => {
-    reset()
-    window.setTimeout(reset, 250)
-    window.setTimeout(reset, 600)
-  }
-
-  const vv = window.visualViewport
-  if (vv) {
-    let lastHeight = vv.height
-    vv.addEventListener('resize', () => {
-      if (vv.height > lastHeight) settle()
-      lastHeight = vv.height
+  let busy = false
+  const unstick = () => {
+    if (busy || !isStuck()) return
+    busy = true
+    const root = document.documentElement
+    const prevHeight = root.style.height
+    root.style.height = `${window.screen.height + 1}px`
+    requestAnimationFrame(() => {
+      window.scrollTo(0, 1)
+      window.scrollTo(0, 0)
+      root.style.height = prevHeight
+      busy = false
     })
   }
-  // Keyboard dismissal without a viewport resize event (input unmounted):
-  // the blur is the only signal left — check after the close animation.
-  window.addEventListener('focusout', () => {
-    window.setTimeout(reset, 350)
-  })
+
+  // The collapse lands with (or shortly after) a viewport event, but iOS also
+  // settles late after keyboard/app-switch animations — re-check on a tail.
+  const settle = () => {
+    unstick()
+    window.setTimeout(unstick, 300)
+    window.setTimeout(unstick, 800)
+  }
+
+  window.visualViewport?.addEventListener('resize', settle)
+  window.addEventListener('focusout', () => window.setTimeout(settle, 300))
   window.addEventListener('pageshow', settle)
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') settle()
