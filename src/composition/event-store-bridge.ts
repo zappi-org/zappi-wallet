@@ -19,7 +19,8 @@ import type { ReceiveRequestUseCase } from '@/core/ports/driving/receive-request
 export interface EventStoreBridgeOptions {
   handleBalance?: boolean
   balanceRefresh?: () => Promise<void>
-  receiveRequest?: Pick<ReceiveRequestUseCase, 'settleByPaymentRef'>
+  receiveRequest?: Pick<ReceiveRequestUseCase, 'settleByPaymentRef'> &
+    Partial<Pick<ReceiveRequestUseCase, 'findByRequestId'>>
 }
 
 export function connectEventStoreBridge(
@@ -266,11 +267,25 @@ export function connectEventStoreBridge(
           : reason === 'terminal-failure'
             ? i18n.t('toast.transferFailed')
             : translateError(reason, i18n.t)
-      addToast({
-        type: 'error',
-        message,
-        duration: 5000,
-      })
+      void (async () => {
+        // A spent-token failure on a request delivery is usually the SECOND
+        // copy of a payment we already received (multi-relay/transport) — if
+        // the request is fulfilled, the money story ended well; don't alarm.
+        const ref = event.payload.transfer.transportRef as { requestId?: string } | undefined
+        if (
+          ref?.requestId &&
+          /token[_ -]?spent|already spent|proof spent/i.test(reason) &&
+          options.receiveRequest?.findByRequestId
+        ) {
+          const request = await options.receiveRequest.findByRequestId(ref.requestId).catch(() => null)
+          if (request?.fulfillmentStatus === 'fulfilled') return
+        }
+        addToast({
+          type: 'error',
+          message,
+          duration: 5000,
+        })
+      })()
     }),
   )
 

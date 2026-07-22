@@ -52,6 +52,7 @@ export class ReceiveRequestFacadeService implements ReceiveRequestUseCase {
       paymentMethods,
       createdAt: Date.now(),
       expiresAt,
+      memo: params.description,
       bip321Uri: params.bip321Uri,
     })
     await this.repo.save(req)
@@ -123,6 +124,7 @@ function toData(req: ReceiveRequest): ReceiveRequestData {
       | string
       | undefined,
     createdAt: req.createdAt,
+    memo: req.memo,
     fulfilledAt: req.fulfilledAt,
     fulfilledBy: req.fulfilledBy,
   }

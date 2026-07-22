@@ -21,7 +21,8 @@ function getItemTypeLabel(item: PendingItem, t: TFunction): string {
 }
 
 function getItemTitle(item: PendingItem, t: TFunction): string {
-  return item.memo || getItemTypeLabel(item, t)
+  const label = getItemTypeLabel(item, t)
+  return item.memo ? `${label} · ${item.memo}` : label
 }
 
 function formatExpiry(expiresAt: number): string | null {
@@ -53,7 +54,6 @@ export function PendingItemsList({ items, maxItems = 5, showDate = false, flush 
       {displayed.map((item, index) => {
         const isSend = item.direction === 'send'
         const title = getItemTitle(item, t)
-        const typeLabel = getItemTypeLabel(item, t)
         const date = new Date(item.createdAt)
         const timeOnly = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
         const timeStr = showDate ? `${formatMD(date)} ${timeOnly}` : timeOnly
@@ -62,8 +62,8 @@ export function PendingItemsList({ items, maxItems = 5, showDate = false, flush 
 
         // Subtitle: "10:35 | Unclaimed token" or "10:35 | Unclaimed token · expires 2h 30m"
         const subtitle = expiryStr
-          ? `${timeStr} | ${typeLabel} · ${t('mintDetail.pendingExpiry')} ${expiryStr}`
-          : `${timeStr} | ${typeLabel}`
+          ? `${timeStr} · ${t('mintDetail.pendingExpiry')} ${expiryStr}`
+          : timeStr
 
         return (
           <div key={item.id}>

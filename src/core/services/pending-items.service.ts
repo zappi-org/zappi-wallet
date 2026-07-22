@@ -106,6 +106,7 @@ export class PendingItemsService implements PendingItemsUseCase {
         accountId: r.accountId,
         createdAt: r.createdAt,
         expiresAt: r.expiresAt,
+        memo: r.memo,
         details: {
           quoteId: r.paymentMethods.find((method) => method.type === 'bolt11')?.ref ?? '',
           invoice: r.paymentMethods.find((method) => method.type === 'bolt11')?.encoded ?? '',

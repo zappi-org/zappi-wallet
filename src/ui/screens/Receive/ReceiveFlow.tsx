@@ -348,6 +348,7 @@ export function ReceiveFlow({
             requestId,
             accountId: mintUrl,
             amount: { value: BigInt(amount), unit: 'sat' },
+            description: memo.trim() || undefined,
             quoteId: invoiceResult?.quoteId,
             bolt11: invoiceResult?.invoice,
             ecashRequest,

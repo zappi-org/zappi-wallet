@@ -33,6 +33,7 @@ export interface ReceiveRequest {
   readonly paymentMethods: readonly PaymentMethod[]
   readonly createdAt: number
   readonly expiresAt: number
+  readonly memo?: string
   readonly bip321Uri?: string
   readonly fulfilledBy?: ReceivePaymentMethodType
   readonly fulfilledAt?: number

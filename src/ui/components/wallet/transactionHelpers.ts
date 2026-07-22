@@ -12,9 +12,10 @@ function resolveTypeLabel(tx: Transaction, t: TFunction): string {
   return t('history.ecash')
 }
 
-/** Display title: memo first, then type label */
+/** Display title: the means label, with the memo trailing it (CSS truncates). */
 export function getTitle(tx: Transaction, t: TFunction): string {
-  return tx.memo || resolveTypeLabel(tx, t)
+  const label = resolveTypeLabel(tx, t)
+  return tx.memo ? `${label} · ${tx.memo}` : label
 }
 
 /** Type label only (no memo) — for subtitles and search */

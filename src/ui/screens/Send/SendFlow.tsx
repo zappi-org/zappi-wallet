@@ -252,7 +252,12 @@ export function SendFlow({
       destination: getInitialDestination(),
       validatedData: isSendableData(initialValidatedData) ? initialValidatedData : null,
       amount: getInitialAmount(),
-      memo: '',
+      // A pasted request announces its own memo — surface it, don't bury it.
+      memo:
+        (isSendableData(initialValidatedData) &&
+          initialValidatedData.type === 'cashu-request' &&
+          initialValidatedData.parsed.description) ||
+        '',
       isFiatMode: false,
       fiatAmount: '',
       skippedAmount: false,
@@ -553,8 +558,12 @@ export function SendFlow({
             quotedBalance: routeResult.quotedBalance,
             routeSelection: routeResult.routeSelection,
             error: routeResult.error ?? null,
-            // A memo written for the previous recipient must not ride on a new one
-            memo: prev.destination === data.destination ? prev.memo : '',
+            // A memo written for the previous recipient must not ride on a new
+            // one — but a request's own memo does.
+            memo:
+              prev.destination === data.destination
+                ? prev.memo
+                : (validated!.type === 'cashu-request' && validated!.parsed.description) || '',
           }))
           return
         }
@@ -568,7 +577,10 @@ export function SendFlow({
           validatedData: validated!,
           error: null,
           quotedBalance: null,
-          memo: prev.destination === data.destination ? prev.memo : '',
+          memo:
+            prev.destination === data.destination
+              ? prev.memo
+              : (validated!.type === 'cashu-request' && validated!.parsed.description) || '',
         }))
       } catch (err) {
         console.error('[SendFlow] Destination validation error:', err)

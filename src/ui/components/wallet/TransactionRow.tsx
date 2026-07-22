@@ -58,7 +58,7 @@ export const TransactionRow = memo(function TransactionRow({
     ? `${resolveName(swapFromUrl)} → ${resolveName(swapToUrl)}`
     : null
   const title = swapRoute ?? getTitle(tx, t)
-  const defaultSubtitle = title === typeLabel ? timeStr : `${timeStr} · ${typeLabel}`
+  const defaultSubtitle = timeStr
 
   // Subtitle: "10:35 · receive (Lightning)" or swap flow
   let subtitle: string

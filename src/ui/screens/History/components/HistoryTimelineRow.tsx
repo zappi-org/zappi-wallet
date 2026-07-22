@@ -63,7 +63,7 @@ export function HistoryTimelineRow({
   const title = swapRoute ?? getTitle(tx, t)
   const typeLabel = getTypeLabel(tx, t)
   const time = formatRowTime(t, tx.createdAt, groupKind)
-  const defaultSubtitle = title === typeLabel ? time : `${time} · ${typeLabel}`
+  const defaultSubtitle = time
 
   let subtitle: string
   if (isSwap && swapRoute) {
