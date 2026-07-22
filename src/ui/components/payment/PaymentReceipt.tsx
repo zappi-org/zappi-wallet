@@ -42,11 +42,11 @@ interface PaymentReceiptProps {
   onToggleQr?: () => void
   /** Reveal-hint label (i18n stays in the consumer; the receipt is presentational). */
   qrRevealLabel?: string
-  /** Paper width in px — the send flow prints at 250; the detail archive uses a wider sheet. */
+  /** Paper width in px — flows and the archive share one sheet size. */
   width?: number
   /** Extra content printed after the rows, above the bottom rule (e.g. a state bar). */
   extra?: ReactNode
-  /** Stamp anchor classes — the flows land it bottom-right; the archive seals the top corner. */
+  /** Stamp anchor classes — the top corner keeps the seal off the text everywhere. */
   stampClass?: string
 }
 
@@ -64,9 +64,9 @@ export function PaymentReceipt({
   qrVeiled,
   onToggleQr,
   qrRevealLabel,
-  width = 250,
+  width = 330,
   extra,
-  stampClass = 'bottom-14 right-5',
+  stampClass = 'top-12 right-3',
 }: PaymentReceiptProps) {
   const reduceMotion = useReducedMotion()
   const teethId = useId()
@@ -100,11 +100,11 @@ export function PaymentReceipt({
       {/* Printer slot — flat: a bar with an inset slit. Fades away at the tear
           so the complete state reads as a receipt in hand, not in a machine. */}
       {showSlot ? (
-        <div className="relative z-20 h-3.5 rounded-full bg-background-hover" style={{ width: width + 30 }}>
+        <div className="relative z-20 h-3.5 rounded-full bg-background-hover" style={{ width: width + 20 }}>
           <div className="absolute inset-x-2.5 top-[5px] h-1 rounded-full bg-foreground/25" />
         </div>
       ) : (
-        hadSlot && <div data-testid="receipt-slot" className="h-3.5" style={{ width: width + 30 }} aria-hidden />
+        hadSlot && <div data-testid="receipt-slot" className="h-3.5" style={{ width: width + 20 }} aria-hidden />
       )}
 
       {/* Window clips the paper while it slides out of the slot */}

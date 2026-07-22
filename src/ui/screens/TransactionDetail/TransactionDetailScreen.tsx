@@ -471,7 +471,6 @@ export default function TransactionDetailScreen({
             amount={amountLine}
             fiat={fiatLine}
             rows={receiptRows}
-            width={330}
             statusLine={receiptStatus === 'pending' ? statusLine : undefined}
             doneLine={
               receiptStatus === 'done'
@@ -479,7 +478,6 @@ export default function TransactionDetailScreen({
                 : undefined
             }
             stampSrc={receiptStatus === 'done' ? sendSuccessImg : undefined}
-            stampClass="top-12 right-3"
             extra={
               <>
                 <TxStateBar track={track} t={t} locale={i18n.language} framed={false} />
