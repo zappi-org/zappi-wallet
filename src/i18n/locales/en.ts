@@ -492,6 +492,8 @@ export default {
 
   // History Screen
   history: {
+    lightning: 'Lightning',
+    ecash: 'eCash',
     title: 'Transaction History',
     noTransactions: 'No transactions yet',
     all: 'All',
@@ -509,15 +511,6 @@ export default {
     endOfList: "You're all caught up.",
 
     // Transaction Types
-    lightningReceive: 'Receive (Lightning)',
-    lightningSend: 'Send (Lightning)',
-    ecashReceive: 'Receive (eCash)',
-    ecashSend: 'Send (eCash)',
-    ecashToken: 'Create (eCash)',
-    ecashRegister: 'Redeem (eCash)',
-    ecashReclaim: 'Reclaim (eCash)',
-    requestFulfill: 'Ecash payment received',
-    requestPay: 'Ecash payment sent',
     nutzap: 'NutZap',
     swap: 'Swap',
 

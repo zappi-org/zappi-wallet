@@ -7,7 +7,10 @@ import { useTranslation } from "react-i18next";
 import { hapticTap } from "@/ui/utils/haptic";
 import { MintCard, resolveMintColor } from "../../components/wallet/MintCard";
 import { TransactionList } from "../../components/wallet/TransactionList";
+import { PendingItemsList } from "../../components/wallet/PendingItemsList";
 import { useWallet, useMintHealth, useMintMetadata } from "@/ui/hooks";
+import { useAllPendingItems, type PendingItem } from "@/ui/hooks/usePendingItems";
+import { isSendToken } from "@/ui/types/pending-item-details";
 import { useAppStore } from "@/store";
 import { useSatUnit, useFormatFiat } from "@/utils/format";
 import { getMintBalance } from "@/utils/url";
@@ -25,6 +28,7 @@ export interface HomeScreenProps {
   onSend?: (activeMintUrl?: string) => void;
   onReceive?: (activeMintUrl?: string) => void;
   onSelectTransaction?: (tx: Transaction) => void;
+  onSelectPendingItem?: (item: PendingItem) => void;
   onSaveSettings?: (settings: Record<string, unknown>) => Promise<void>;
   onRefresh?: () => Promise<void>;
   transactions?: Transaction[];
@@ -38,6 +42,7 @@ export function HomeScreen({
   onSend,
   onReceive,
   onSelectTransaction,
+  onSelectPendingItem,
   onSaveSettings,
   onRefresh,
   transactions: propTransactions,
@@ -126,6 +131,23 @@ export function HomeScreen({
       return txUrl === normalized || txUrl === url;
     });
   }, [transactions, mints, clampedMintIndex]);
+
+  // Receive-side pendings (requests, unclaimed tokens) for the selected card —
+  // same mint filter as the transaction list below them.
+  const { items: pendingItemsRaw } = useAllPendingItems(settings.mints);
+  const incomingPendingItems = useMemo(() => {
+    const receiveSide = pendingItemsRaw.filter((item) => !isSendToken(item));
+    const selectedMint = mints[clampedMintIndex];
+    if (!selectedMint) return receiveSide;
+    const url = selectedMint.url;
+    const normalized = url.endsWith("/") ? url.slice(0, -1) : url;
+    return receiveSide.filter((item) => {
+      const itemUrl = item.accountId?.endsWith("/")
+        ? item.accountId.slice(0, -1)
+        : item.accountId;
+      return itemUrl === normalized || itemUrl === url;
+    });
+  }, [pendingItemsRaw, mints, clampedMintIndex]);
 
   const handleBalanceVisibilityToggle = useCallback(() => {
     hapticTap();
@@ -325,6 +347,19 @@ export function HomeScreen({
       {/* Scrollable transaction list */}
       <main className="flex-1 overflow-y-auto min-h-0">
         <div className="pb-home-transactions w-[var(--card-w)] mx-auto">
+          {/* Open requests and unclaimed incoming tokens lead the list — they
+              are the money still in motion. */}
+          {incomingPendingItems.length > 0 && (
+            <>
+              <PendingItemsList
+                items={incomingPendingItems}
+                maxItems={incomingPendingItems.length}
+                flush
+                onItemClick={onSelectPendingItem}
+              />
+              <div className="h-px bg-border/30" />
+            </>
+          )}
           <TransactionList
             transactions={filteredTransactions}
             allTransactions={transactions}

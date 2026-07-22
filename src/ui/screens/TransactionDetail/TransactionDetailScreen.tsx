@@ -5,6 +5,7 @@
  * flows), a horizontal state-machine bar in the middle, actions below.
  */
 import { txSourceKey } from '@/ui/utils/tx-source'
+import { getTypeLabel } from '@/ui/components/wallet/transactionHelpers'
 import { toNumber } from '@/core/domain/amount'
 import type { Transaction } from '@/core/domain/transaction'
 import { getDisplayFee, getTotalCost, getTransactionType, getTxMeta } from '@/core/domain/transaction'
@@ -83,9 +84,7 @@ export default function TransactionDetailScreen({
   const isLightning = txType === 'lightning'
   const isEcashToken = txType === 'ecash-token'
   const isEcash = txType === 'ecash' || isEcashToken
-  const isNutzap = txType === 'nutzap'
   const metadata = tx.metadata as Record<string, unknown> | undefined
-  const isReclaimed = isEcashToken && !!meta.reclaimedFrom
 
   // The exact gate the old screen used — failed/deleted/spent sends must never
   // offer bearer actions or reclaim.
@@ -201,16 +200,7 @@ export default function TransactionDetailScreen({
   }, [])
 
   // ─── Labels ───
-  const typeLabel = useMemo(() => {
-    if (isSwap) return t('history.swap')
-    if (isLightning && isReceive) return t('history.lightningReceive')
-    if (isLightning && !isReceive) return t('history.lightningSend')
-    if (isNutzap) return 'NutZap'
-    if (isReclaimed) return t('history.ecashReclaim')
-    if (isEcashToken) return isReceive ? t('history.ecashRegister') : t('history.ecashToken')
-    if (isEcash && isReceive) return t('history.ecashReceive')
-    return t('history.ecashSend')
-  }, [isSwap, isLightning, isEcash, isEcashToken, isNutzap, isReceive, isReclaimed, t])
+  const typeLabel = getTypeLabel(tx, t)
 
   const sourceLabel = useMemo(() => {
     if (!meta.source || meta.source === 'unknown') return null

@@ -488,6 +488,8 @@ export default {
 
   // History Screen
   history: {
+    lightning: 'Lightning',
+    ecash: 'eCash',
     title: '取引履歴',
     noTransactions: '取引履歴がありません',
     all: 'すべて',
@@ -505,15 +507,6 @@ export default {
     endOfList: 'すべての履歴を確認しました。',
 
     // Transaction Types
-    lightningReceive: '受取 (Lightning)',
-    lightningSend: '送金 (Lightning)',
-    ecashReceive: '受取 (eCash)',
-    ecashSend: '送金 (eCash)',
-    ecashToken: '作成 (eCash)',
-    ecashRegister: '登録 (eCash)',
-    ecashReclaim: '回収 (eCash)',
-    requestFulfill: 'Ecash決済受取',
-    requestPay: 'Ecash決済送金',
     nutzap: 'NutZap',
     swap: 'スワップ',
 

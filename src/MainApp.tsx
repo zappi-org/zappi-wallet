@@ -65,6 +65,9 @@ const UsernameChangeScreen = lazy(() => import('@/ui/screens/Settings/UsernameCh
 const TransactionDetailScreen = lazy(() => import('@/ui/screens/TransactionDetail/TransactionDetailScreen'))
 const MintDetailScreen = lazy(() => import('@/ui/screens/MintDetail/MintDetailScreen').then(m => ({ default: m.MintDetailScreen })))
 const MintManagementScreen = lazy(() => import('@/ui/screens/Settings/MintManagementScreen'))
+const PendingItemDetailScreen = lazy(() =>
+  import('@/ui/screens/MintDetail/PendingItemDetailScreen').then((m) => ({ default: m.PendingItemDetailScreen })),
+)
 const RelayManagementScreen = lazy(() => import('@/ui/screens/Settings/RelayManagementScreen'))
 
 import type { ValidatedData } from '@/core/domain/input-types'
@@ -83,6 +86,7 @@ import { formatNpubShort } from '@/ui/screens/Send/sendDisplayHelpers'
 import { createSecurityService } from '@/composition/security'
 import type { UnlockResult } from '@/core/ports/driving/security.usecase'
 import type { Transaction } from '@/core/domain/transaction'
+import type { PendingItem } from '@/ui/hooks/usePendingItems'
 import type { PendingIncomingReview } from '@/core/types'
 import { removePasskey } from '@/ui/services/passkey'
 import { resumeGraceOnBoot } from '@/ui/services/grace-boot'
@@ -196,6 +200,9 @@ export default function MainApp() {
   } | null>(null)
 
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
+  // Home's mixed-in pending rows open the item detail as an overlay — pending
+  // items are not transactions, so they never enter the tx-detail route.
+  const [homePendingItem, setHomePendingItem] = useState<PendingItem | null>(null)
 
 
   // Pre-unlock services — needed to load settings/tx before unlock (via composition)
@@ -1001,6 +1008,7 @@ export default function MainApp() {
           setPreviousScreen('home')
           setCurrentScreen('transaction-detail')
         }}
+        onSelectPendingItem={setHomePendingItem}
         onSaveSettings={handleSaveSettings}
         onRefresh={handleManualRefresh}
         transactions={transactions}
@@ -1378,6 +1386,20 @@ export default function MainApp() {
         onClose={() => setShowHomeScanner(false)}
         onScan={handleHomeScanResult}
       />
+
+      {/* Home's pending-row detail — overlay, same screen the history block opens */}
+      {homePendingItem && (
+        <div className="fixed inset-0 z-[70] bg-background">
+          <Suspense fallback={<LoadingFallback />}>
+            <PendingItemDetailScreen
+              item={homePendingItem}
+              onBack={() => setHomePendingItem(null)}
+              callbacks={pendingItemCallbacks}
+              onItemRemoved={() => refreshAll()}
+            />
+          </Suspense>
+        </div>
+      )}
 
       {/* NIP-19 camera scan — mint selection sheet (matches ContactsScreen) */}
       <MintSelectBottomSheet

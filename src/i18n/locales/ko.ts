@@ -492,6 +492,8 @@ export default {
 
   // History Screen
   history: {
+    lightning: '라이트닝',
+    ecash: '이캐시',
     title: '거래내역',
     noTransactions: '거래내역이 없습니다',
     all: '전체',
@@ -509,15 +511,6 @@ export default {
     endOfList: '모든 거래내역을 확인했어요.',
 
     // Transaction Types
-    lightningReceive: '수신 (라이트닝)',
-    lightningSend: '전송 (라이트닝)',
-    ecashReceive: '수신 (이캐시)',
-    ecashSend: '전송 (이캐시)',
-    ecashToken: '생성 (이캐시)',
-    ecashRegister: '등록 (이캐시)',
-    ecashReclaim: '되찾기 (이캐시)',
-    requestFulfill: '이캐시 결제 받음',
-    requestPay: '이캐시 결제 보냄',
     nutzap: 'NutZap',
     swap: '스왑',
 

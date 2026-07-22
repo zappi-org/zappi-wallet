@@ -490,6 +490,8 @@ export default {
 
   // History Screen
   history: {
+    lightning: 'Lightning',
+    ecash: 'eCash',
     title: 'Riwayat Transaksi',
     noTransactions: 'Belum ada transaksi',
     all: 'Semua',
@@ -507,15 +509,6 @@ export default {
     endOfList: 'Semua transaksi sudah dilihat.',
 
     // Transaction Types
-    lightningReceive: 'Terima (Lightning)',
-    lightningSend: 'Kirim (Lightning)',
-    ecashReceive: 'Terima (eCash)',
-    ecashSend: 'Kirim (eCash)',
-    ecashToken: 'Buat (eCash)',
-    ecashRegister: 'Daftarkan (eCash)',
-    ecashReclaim: 'Klaim kembali (eCash)',
-    requestFulfill: 'Pembayaran Ecash diterima',
-    requestPay: 'Pembayaran Ecash dikirim',
     nutzap: 'NutZap',
     swap: 'Swap',
 

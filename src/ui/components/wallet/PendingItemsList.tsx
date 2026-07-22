@@ -9,6 +9,8 @@ interface PendingItemsListProps {
   items: PendingItem[]
   maxItems?: number
   showDate?: boolean
+  /** Gutterless rows — for lists whose siblings manage their own inset. */
+  flush?: boolean
   onItemClick?: (item: PendingItem) => void
 }
 
@@ -31,7 +33,7 @@ function formatExpiry(expiresAt: number): string | null {
   return `${minutes}m`
 }
 
-export function PendingItemsList({ items, maxItems = 5, showDate = false, onItemClick }: PendingItemsListProps) {
+export function PendingItemsList({ items, maxItems = 5, showDate = false, flush = false, onItemClick }: PendingItemsListProps) {
   const { t, i18n } = useTranslation()
   const formatSats = useFormatSats()
   const locale = getLocaleCode(i18n.language)
@@ -67,7 +69,7 @@ export function PendingItemsList({ items, maxItems = 5, showDate = false, onItem
           <div key={item.id}>
             <button
               onClick={() => onItemClick?.(item)}
-              className="w-full flex items-center justify-between py-3.5 px-4 min-h-[44px] cursor-pointer active:bg-foreground/[0.02] transition-colors"
+              className={cn('w-full flex items-center justify-between py-3.5 min-h-[44px] cursor-pointer active:bg-foreground/[0.02] transition-colors', flush ? 'px-0.5' : 'px-4')}
             >
               {/* Left: title + subtitle */}
               <div className="flex flex-col gap-0.5 text-left min-w-0 flex-1 mr-4">
@@ -83,7 +85,7 @@ export function PendingItemsList({ items, maxItems = 5, showDate = false, onItem
                     'text-amount font-semibold font-display leading-normal opacity-60',
                     isSend ? 'text-foreground' : 'text-primary',
                   )}>
-                    {isSend ? `-${formatSats(item.amount)}` : formatSats(item.amount)}
+                    {isSend ? `-${formatSats(item.amount)}` : `+${formatSats(item.amount)}`}
                   </span>
                 </div>
                 <span className="text-label font-medium text-foreground-muted leading-normal">
@@ -91,7 +93,7 @@ export function PendingItemsList({ items, maxItems = 5, showDate = false, onItem
                 </span>
               </div>
             </button>
-            {!isLast && <div className="h-px bg-border/30 mx-4" />}
+            {!isLast && <div className={cn('h-px bg-border/30', flush ? '' : 'mx-4')} />}
           </div>
         )
       })}
