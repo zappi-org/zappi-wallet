@@ -160,7 +160,7 @@ export function PaymentReceipt({
             <div className="relative rounded-b-[2px] bg-background-card px-[18px] pb-2 pt-[18px] shadow-[0_8px_24px_rgba(29,29,31,0.08)]">
               <div className="text-center text-[11px] font-bold tracking-[0.14em] text-foreground-subtle">ZAPPI</div>
               <div className="mt-1.5 text-center text-subtitle font-semibold">{title}</div>
-              <div className="mb-0.5 mt-3 text-center text-[30px] font-bold leading-none tracking-tight">{amount}</div>
+              <div className="mb-0.5 mt-3 text-center text-[30px] font-bold font-display leading-none tracking-tight">{amount}</div>
               {fiat && <div className="text-center text-label text-foreground-muted">{fiat}</div>}
 
               <div className="mb-1.5 mt-3.5 border-t-[1.5px] border-dashed border-border" />

@@ -206,7 +206,7 @@ export function AmountEntry({
             style={{ perspective: 600 }}
           >
             {isEmpty && emptyPrompt ? (
-              <span className="break-keep text-center text-[26px] font-bold leading-snug text-foreground">
+              <span className="break-keep text-center text-[22px] font-medium leading-snug text-foreground">
                 {emptyPrompt}
               </span>
             ) : (
@@ -223,7 +223,7 @@ export function AmountEntry({
                     animate={{ rotateX: 0, opacity: 1 }}
                     exit={reduceMotion ? { opacity: 0 } : { rotateX: -90, opacity: 0 }}
                     transition={reduceMotion ? { duration: 0 } : { duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                    className={`inline-flex overflow-hidden font-light leading-none tracking-tight ${heroSizeClass(displayAmount.length)} ${
+                    className={`inline-flex overflow-hidden font-display font-bold leading-none tracking-tight ${heroSizeClass(displayAmount.length)} ${
                       insufficientBalance ? 'text-accent-danger' : 'text-foreground'
                     }`}
                   >
