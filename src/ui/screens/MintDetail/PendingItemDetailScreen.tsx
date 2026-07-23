@@ -3,7 +3,7 @@ import { Button } from '@/ui/components/common/Button'
 import { PaymentReceipt, type PaymentReceiptRow } from '@/ui/components/payment/PaymentReceipt'
 import { TxStateBar } from '@/ui/screens/TransactionDetail/TxStateBar'
 import type { TxStateTrack } from '@/ui/screens/TransactionDetail/tx-state-machine'
-import { TokenQrModal } from '@/ui/screens/TransactionDetail/TokenQrModal'
+import { TokenQrModal, type TokenQrModalPayload } from '@/ui/screens/TransactionDetail/TokenQrModal'
 import { useMintMetadata } from '@/ui/hooks'
 import { useTokenReclaim } from '@/ui/hooks/use-token-reclaim'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
@@ -63,7 +63,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
   const [isRedeeming, setIsRedeeming] = useState(false)
   const [isResolvingExpiry, setIsResolvingExpiry] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
-  const [qrPayload, setQrPayload] = useState<{ value: string; title: string; veil: boolean } | null>(null)
+  const [qrPayload, setQrPayload] = useState<{ value: string; title: string; veil: boolean; payloads?: TokenQrModalPayload[] } | null>(null)
   const addToast = useAppStore((s) => s.addToast)
 
   const mintUrls = useMemo(() => [item.accountId], [item.accountId])
@@ -303,6 +303,20 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
   const chipPayload = tokenStr ?? reqDetails?.bip321Uri ?? reqDetails?.ecashRequest ?? invoice ?? null
   const chipVeil = !!tokenStr
 
+  // For a request, the chip's QR should let the scanner pick a protocol —
+  // same labels the live receive screen uses. Bearer tokens have only one
+  // representation, so they keep the plain single-payload path.
+  const qrPayloads = useMemo<TokenQrModalPayload[] | undefined>(() => {
+    if (tokenStr) return undefined
+    return (
+      [
+        reqDetails?.bip321Uri && { id: 'unified', label: t('receive.qr.protocols.unified'), value: reqDetails.bip321Uri },
+        reqDetails?.ecashRequest && { id: 'cashu', label: t('receive.qr.protocols.cashu'), value: reqDetails.ecashRequest },
+        invoice && { id: 'lightning', label: t('receive.qr.protocols.lightning'), value: invoice },
+      ] as const
+    ).filter((p): p is TokenQrModalPayload => Boolean(p))
+  }, [tokenStr, reqDetails, invoice, t])
+
   const handleShare = useCallback(async () => {
     if (!chipPayload) return
     await shareOrCopyText(chipPayload, () => {
@@ -419,7 +433,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
           {chipPayload && (
             <div className="flex gap-2">
               <button
-                onClick={() => setQrPayload({ value: chipPayload, title: typeLabel, veil: chipVeil })}
+                onClick={() => setQrPayload({ value: chipPayload, title: typeLabel, veil: chipVeil, payloads: qrPayloads })}
                 className="flex-1 flex items-center justify-center gap-1.5 h-11 rounded-full bg-background-card border border-border/60 text-caption font-semibold text-foreground active:scale-[0.98] transition-transform"
               >
                 <QrCode className="w-4 h-4" strokeWidth={1.8} /> QR
@@ -489,6 +503,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
         token={qrPayload?.value ?? ''}
         title={qrPayload?.title}
         veil={qrPayload?.veil ?? false}
+        payloads={qrPayload?.payloads}
         onClose={() => setQrPayload(null)}
       />
     </div>

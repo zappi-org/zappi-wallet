@@ -1,7 +1,17 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { X, Copy, Check, Eye } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
+import { SegmentControl } from '@/ui/components/common/SegmentControl'
+
+/** One selectable QR payload — a protocol variant of the same request/token. */
+export interface TokenQrModalPayload {
+  id: string
+  label: string
+  value: string
+  /** Bearer payloads veil until tapped; request URIs default to plain. */
+  veil?: boolean
+}
 
 interface TokenQrModalProps {
   isOpen: boolean
@@ -11,27 +21,53 @@ interface TokenQrModalProps {
   title?: string
   /** Bearer payloads veil until tapped; invoices are safe to show plainly. */
   veil?: boolean
+  /**
+   * Multiple protocol representations of the same payload (e.g. a receive
+   * request's unified/cashu/lightning URIs). Renders a SegmentControl above
+   * the QR when there are 2+. Omit (or pass fewer than 2) to keep the plain
+   * single-`token` view — existing call sites are unaffected.
+   */
+  payloads?: TokenQrModalPayload[]
 }
 
-export function TokenQrModal({ isOpen, token, onClose, title, veil = true }: TokenQrModalProps) {
+export function TokenQrModal({ isOpen, token, onClose, title, veil = true, payloads }: TokenQrModalProps) {
   const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
+
+  const items = useMemo<TokenQrModalPayload[]>(
+    () => (payloads && payloads.length > 0 ? payloads : [{ id: 'single', label: '', value: token, veil }]),
+    [payloads, token, veil],
+  )
+  const [activeId, setActiveId] = useState(items[0].id)
+  const active = items.find((item) => item.id === activeId) ?? items[0]
+
   // Bearer privacy: whoever scans this QR owns the funds — veil until tapped,
   // same contract as the send-flow receipt. Re-arms on every open: the parent
   // keeps this mounted, so state alone would leave later opens unveiled.
-  const [veiled, setVeiled] = useState(veil)
+  const [veiled, setVeiled] = useState(active.veil ?? false)
   const [wasOpen, setWasOpen] = useState(isOpen)
   if (wasOpen !== isOpen) {
     setWasOpen(isOpen)
-    if (isOpen) setVeiled(veil)
+    if (isOpen) {
+      setActiveId(items[0].id)
+      setVeiled(items[0].veil ?? false)
+    }
   }
+
+  const handleSelect = useCallback(
+    (id: string) => {
+      setActiveId(id)
+      setVeiled(items.find((item) => item.id === id)?.veil ?? false)
+    },
+    [items],
+  )
 
   const handleCopy = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(token)
+      await navigator.clipboard.writeText(active.value)
     } catch {
       const ta = document.createElement('textarea')
-      ta.value = token
+      ta.value = active.value
       document.body.appendChild(ta)
       ta.select()
       document.execCommand('copy')
@@ -39,7 +75,7 @@ export function TokenQrModal({ isOpen, token, onClose, title, veil = true }: Tok
     }
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }, [token])
+  }, [active.value])
 
   if (!isOpen) return null
 
@@ -64,6 +100,17 @@ export function TokenQrModal({ isOpen, token, onClose, title, veil = true }: Tok
           </button>
         </div>
 
+        {/* Protocol tabs — only when the caller offers more than one payload */}
+        {items.length > 1 && (
+          <div className="px-6 pb-2">
+            <SegmentControl
+              value={activeId}
+              onChange={handleSelect}
+              options={items.map((item) => ({ value: item.id, label: item.label }))}
+            />
+          </div>
+        )}
+
         {/* QR Code */}
         <div className="flex justify-center px-8 py-4">
           <button
@@ -74,7 +121,7 @@ export function TokenQrModal({ isOpen, token, onClose, title, veil = true }: Tok
           >
             <div className={`transition-all ${veiled ? 'blur-md opacity-40' : ''}`}>
               <QRCodeDisplay
-                value={token}
+                value={active.value}
                 size={220}
                 level="M"
                 className="rounded-2xl"
