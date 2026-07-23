@@ -928,10 +928,12 @@ export default {
     },
     amount: {
       prompt: 'Berapa yang ingin diminta?',
+      addMemo: 'Tambah catatan',
     },
     request: {
       summary: 'Ringkasan terima',
       expiresIn: 'Kedaluwarsa dalam {{seconds}}d',
+      expiresAtTime: 'Kedaluwarsa pukul {{time}}',
       expired: 'Permintaan kedaluwarsa',
       regenerate: 'Buat yang baru',
       makeAnother: 'Buat lagi',

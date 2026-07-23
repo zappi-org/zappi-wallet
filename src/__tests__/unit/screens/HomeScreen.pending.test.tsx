@@ -122,4 +122,50 @@ describe('HomeScreen pending + empty-state coexistence', () => {
 
     expect(screen.queryByText('home.noTransactions')).toBeNull()
   })
+
+  it('excludes a reclaimable (pending+unclaimed) send transaction from the ledger — its pending row already carries that money', () => {
+    pendingItemsState.items = [{
+      id: 'send1',
+      direction: 'send',
+      kind: 'token',
+      amount: 777,
+      accountId: 'https://mint.test',
+      createdAt: Date.now(),
+      details: { token: 'cashuAxyz' },
+    }]
+    const reclaimableTx: Transaction = {
+      id: 'tx-send1',
+      direction: 'send',
+      method: 'cashu-token',
+      protocol: 'cashu-token',
+      status: 'pending',
+      outcome: 'unclaimed',
+      amount: sat(777),
+      accountId: 'https://mint.test',
+      createdAt: Date.now(),
+    }
+    renderScreen({ transactions: [reclaimableTx] })
+
+    // One row for the -777 amount (from PendingItemsList) — the reclaimable-send
+    // transaction itself must not also surface in the ledger below it.
+    expect(screen.getAllByText('-777 sats')).toHaveLength(1)
+  })
+
+  it('still shows a settled send transaction in the ledger (dedup only targets reclaimable rows)', () => {
+    pendingItemsState.items = []
+    const settledTx: Transaction = {
+      id: 'tx-settled',
+      direction: 'send',
+      method: 'cashu-token',
+      protocol: 'cashu-token',
+      status: 'settled',
+      outcome: 'claimed',
+      amount: sat(321),
+      accountId: 'https://mint.test',
+      createdAt: Date.now(),
+    }
+    renderScreen({ transactions: [settledTx] })
+
+    expect(screen.getByText('-321 sats')).toBeInTheDocument()
+  })
 })

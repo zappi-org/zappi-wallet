@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { X, Copy, Check, Eye } from 'lucide-react'
+import { X, Copy, Check, Eye, EyeOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { SegmentControl } from '@/ui/components/common/SegmentControl'
@@ -161,7 +161,7 @@ export function TokenQrModal({ isOpen, token, onClose, title, veil = true, paylo
             </div>
             {veiled && (
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1">
-                <div className="text-3xl" aria-hidden>🙈</div>
+                <EyeOff className="h-6 w-6 text-foreground-muted" aria-hidden />
                 <div className="flex items-center gap-1 text-[10px] text-foreground-muted">
                   <Eye className="h-3 w-3" strokeWidth={1.8} />
                   <span>{t('send.tokenCreate.tapToReveal')}</span>

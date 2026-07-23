@@ -928,10 +928,12 @@ export default {
     },
     amount: {
       prompt: '¿Cuánto quieres solicitar?',
+      addMemo: 'Agregar nota',
     },
     request: {
       summary: 'Resumen de cobro',
       expiresIn: 'Caduca en {{seconds}}s',
+      expiresAtTime: 'Caduca a las {{time}}',
       expired: 'La solicitud caducó',
       regenerate: 'Crear una nueva',
       makeAnother: 'Crear otra',

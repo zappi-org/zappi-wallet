@@ -157,7 +157,7 @@ export function DirectReceiptStep({
         <div className="my-auto flex w-full shrink-0 flex-col items-center py-4">
           <PaymentReceipt
             status={claimed ? 'done' : 'finishing'}
-            title={t('send.receipt.title')}
+            title={claimed ? t('send.receipt.title') : t('send.receipt.pendingTitle')}
             amount={formatSats(amount)}
             fiat={formatFiat(amount) || null}
             rows={rows}
@@ -213,7 +213,7 @@ export function DirectReceiptStep({
           </button>
         )}
         <Button variant="brand" size="xl" onClick={onExit} className="w-full">
-          {t('common.confirm')}
+          {t('receive.request.exit')}
         </Button>
       </BottomActionBar>
     </div>

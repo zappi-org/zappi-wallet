@@ -85,7 +85,7 @@ export function ReceiveAmountStep({
             className="mx-auto mb-4 flex min-h-[44px] items-center gap-1.5 px-4 text-subtitle font-medium text-foreground-muted active:text-foreground"
           >
             <SquarePen className="h-4 w-4" />
-            {memo || t('send.memo.changeTitle')}
+            {memo || t('receive.amount.addMemo')}
           </button>
         }
         bottomSlot={

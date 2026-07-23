@@ -132,7 +132,7 @@ describe('ReceiveAmountStep', () => {
     const onConfirm = vi.fn()
     render(<ReceiveAmountStep {...base} onConfirm={onConfirm} initialAmount={50} />)
 
-    fireEvent.click(screen.getByText('send.memo.changeTitle'))
+    fireEvent.click(screen.getByText('receive.amount.addMemo'))
     fireEvent.click(screen.getByTestId('memo-save'))
     expect(screen.getByText('gift')).toBeInTheDocument()
 

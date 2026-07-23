@@ -930,10 +930,12 @@ export default {
     },
     amount: {
       prompt: '얼마를 요청할까요?',
+      addMemo: '메모 추가',
     },
     request: {
       summary: '받기 요약',
       expiresIn: '{{seconds}}초 뒤 만료돼요',
+      expiresAtTime: '{{time}} 만료',
       expired: '요청이 만료되었어요',
       regenerate: '새로 만들기',
       makeAnother: '또 만들기',

@@ -503,6 +503,10 @@
 .animate-slideInRight { animation: slideInRight 0.25s ease-out both }
 .animate-slideInUp { animation: slideInUp 0.25s ease-out both }
 
+@media (prefers-reduced-motion: reduce) {
+  .animate-fadeIn, .animate-slideInUp { animation: none }
+}
+
 @keyframes scaleIn {
   from { opacity: 0; transform: scale(0.9) }
   to { opacity: 1; transform: scale(1) }

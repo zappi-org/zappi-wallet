@@ -29,6 +29,19 @@ describe('DirectReceiptStep', () => {
     expect(screen.getByText('send.tokenCreate.reclaim')).toBeInTheDocument()
   })
 
+  it('titles the receipt as pending while awaiting claim, not "Send Receipt"', () => {
+    render(<DirectReceiptStep {...base} />)
+    expect(screen.getByText('send.receipt.pendingTitle')).toBeInTheDocument()
+    expect(screen.queryByText('send.receipt.title')).toBeNull()
+  })
+
+  it('switches the title to the completed receipt copy once claimed', () => {
+    render(<DirectReceiptStep {...base} />)
+    act(() => claimCb?.())
+    expect(screen.getByText('send.receipt.title')).toBeInTheDocument()
+    expect(screen.queryByText('send.receipt.pendingTitle')).toBeNull()
+  })
+
   it('stamps and collapses to exit-only once the token is claimed', () => {
     const onExit = vi.fn()
     render(<DirectReceiptStep {...base} onExit={onExit} />)
@@ -39,7 +52,9 @@ describe('DirectReceiptStep', () => {
     const reclaim = screen.getByText('send.tokenCreate.reclaim')
     expect(reclaim).toHaveAttribute('aria-hidden', 'true')
     expect(reclaim).toBeDisabled()
-    fireEvent.click(screen.getByText('common.confirm'))
+    // CTA reuses ReceiveReceiptStep's exit key — one exit grammar across
+    // completion screens.
+    fireEvent.click(screen.getByText('receive.request.exit'))
     expect(onExit).toHaveBeenCalled()
   })
 })

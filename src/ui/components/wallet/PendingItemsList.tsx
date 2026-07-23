@@ -80,7 +80,7 @@ export function PendingItemsList({ items, maxItems = 5, showDate = false, flush 
               {/* Right: amount + status */}
               <div className="flex flex-col items-end gap-0.5 shrink-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-status-pending animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-status-pending animate-pulse motion-reduce:animate-none" />
                   <span className={cn(
                     'text-amount font-semibold font-display leading-normal opacity-60',
                     isSend ? 'text-foreground' : 'text-primary',

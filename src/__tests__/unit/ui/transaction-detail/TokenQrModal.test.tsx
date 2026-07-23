@@ -77,7 +77,7 @@ describe('TokenQrModal', () => {
   it('veils only when the active payload says so, and re-veils on tab switch back', async () => {
     const user = userEvent.setup()
 
-    render(
+    const { container } = render(
       <TokenQrModal
         isOpen
         token=""
@@ -95,11 +95,11 @@ describe('TokenQrModal', () => {
     await user.click(screen.getByRole('tab', { name: 'unified' }))
     await waitFor(() => expect(screen.getByTestId('qr-value')).toHaveTextContent('bitcoin:unified'))
     // Unveiled payload — no reveal affordance needed.
-    expect(screen.queryByText('🙈')).not.toBeInTheDocument()
+    expect(container.querySelector('.lucide-eye-off')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('tab', { name: 'bearer' }))
     await waitFor(() => expect(screen.getByTestId('qr-value')).toHaveTextContent('cashuBearer'))
-    expect(screen.getByText('🙈')).toBeInTheDocument()
+    expect(container.querySelector('.lucide-eye-off')).toBeInTheDocument()
   })
 
   it('resets to the first payload when reopened after closing on another tab', async () => {

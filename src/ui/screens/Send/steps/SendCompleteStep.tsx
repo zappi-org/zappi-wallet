@@ -64,9 +64,21 @@ export function SendCompleteStep({
   useEffect(() => {
     onCompleteRef.current = onComplete
   })
+  // Auto-exit is a convenience, not a deadline — any touch cancels it.
   useEffect(() => {
     const timer = setTimeout(() => onCompleteRef.current(), 8000)
-    return () => clearTimeout(timer)
+    const cancel = () => {
+      clearTimeout(timer)
+      window.removeEventListener('pointerdown', cancel)
+      window.removeEventListener('keydown', cancel)
+    }
+    window.addEventListener('pointerdown', cancel)
+    window.addEventListener('keydown', cancel)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('pointerdown', cancel)
+      window.removeEventListener('keydown', cancel)
+    }
   }, [])
 
   // Amount display — symbol + grouping in fiat mode, same as the amount step

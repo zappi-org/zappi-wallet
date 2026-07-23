@@ -1,6 +1,6 @@
 import { useId, useState, type ReactNode } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
-import { Eye } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 
 /**
  * printing  — paper crawls out continuously, decelerating (fake progress);
@@ -182,7 +182,7 @@ export function PaymentReceipt({
                   </div>
                   {qrVeiled && (
                     <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1">
-                      <div className="text-3xl" aria-hidden>🙈</div>
+                      <EyeOff className="h-6 w-6 text-foreground-muted" aria-hidden />
                       {qrRevealLabel && (
                         <div className="flex items-center gap-1 text-[10px] text-foreground-muted">
                           <Eye className="h-3 w-3" strokeWidth={1.8} />

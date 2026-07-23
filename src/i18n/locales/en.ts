@@ -924,10 +924,12 @@ export default {
     },
     amount: {
       prompt: 'How much do you want to request?',
+      addMemo: 'Add memo',
     },
     request: {
       summary: 'Receive summary',
       expiresIn: 'Expires in {{seconds}}s',
+      expiresAtTime: 'Expires at {{time}}',
       expired: 'This request expired',
       regenerate: 'Create a new one',
       makeAnother: 'Make another',

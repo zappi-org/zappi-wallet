@@ -126,7 +126,7 @@ export function HistoryTimelineRow({
         </div>
         <div className="flex flex-col gap-0.5 items-end text-right shrink-0">
           <div className="flex items-center gap-1.5">
-            {isPending && <span className="w-1.5 h-1.5 rounded-full bg-status-pending animate-pulse" />}
+            {isPending && <span className="w-1.5 h-1.5 rounded-full bg-status-pending animate-pulse motion-reduce:animate-none" />}
             {isFailed && <span className="w-1.5 h-1.5 rounded-full bg-accent-danger" />}
             <span className={cn('text-body font-bold text-foreground', amountColor)}>
               {amountPrefix}{formatSats(amountSats)}

@@ -10,11 +10,11 @@ import { TransactionList } from "../../components/wallet/TransactionList";
 import { PendingItemsList } from "../../components/wallet/PendingItemsList";
 import { useWallet, useMintHealth, useMintMetadata } from "@/ui/hooks";
 import { useAllPendingItems, type PendingItem } from "@/ui/hooks/usePendingItems";
-import { isSendToken } from "@/ui/types/pending-item-details";
 import { useAppStore } from "@/store";
 import { useSatUnit, useFormatFiat } from "@/utils/format";
 import { getMintBalance } from "@/utils/url";
 import type { MintInfo } from "@/core/types";
+import { isReclaimableSend } from "@/core/domain/transaction";
 import type { Transaction } from "@/core/domain/transaction";
 // Transaction loading via props or store — no direct repo access in UI
 
@@ -123,8 +123,13 @@ export function HomeScreen({
     if (!selectedMint) return transactions;
     const url = selectedMint.url;
     const normalized = url.endsWith("/") ? url.slice(0, -1) : url;
+    // Boolean-returning wrapper: isReclaimableSend's `tx is Transaction` type
+    // guard would otherwise narrow tx to `never` in the branch below (its
+    // input is already typed Transaction, so the false branch collapses).
+    const isReclaimable = (t: Transaction): boolean => isReclaimableSend(t);
     return transactions.filter((tx) => {
       if (tx.status === "failed") return false;
+      if (isReclaimable(tx)) return false; // pending list carries these — same money, one row
       const txUrl = tx.accountId?.endsWith("/")
         ? tx.accountId.slice(0, -1)
         : tx.accountId;
@@ -132,16 +137,17 @@ export function HomeScreen({
     });
   }, [transactions, mints, clampedMintIndex]);
 
-  // Receive-side pendings (requests, unclaimed tokens) for the selected card —
-  // same mint filter as the transaction list below them.
+  // Pending items (open requests, unclaimed incoming tokens, unclaimed sent
+  // tokens) for the selected card — same mint filter as the transaction list
+  // below them. Sent-but-unclaimed money rides here instead of in the ledger
+  // list (filteredTransactions excludes it) so it isn't shown twice.
   const { items: pendingItemsRaw } = useAllPendingItems(settings.mints);
-  const incomingPendingItems = useMemo(() => {
-    const receiveSide = pendingItemsRaw.filter((item) => !isSendToken(item));
+  const pendingItems = useMemo(() => {
     const selectedMint = mints[clampedMintIndex];
-    if (!selectedMint) return receiveSide;
+    if (!selectedMint) return pendingItemsRaw;
     const url = selectedMint.url;
     const normalized = url.endsWith("/") ? url.slice(0, -1) : url;
-    return receiveSide.filter((item) => {
+    return pendingItemsRaw.filter((item) => {
       const itemUrl = item.accountId?.endsWith("/")
         ? item.accountId.slice(0, -1)
         : item.accountId;
@@ -347,13 +353,13 @@ export function HomeScreen({
       {/* Scrollable transaction list */}
       <main className="flex-1 overflow-y-auto min-h-0">
         <div className="pb-home-transactions w-[var(--card-w)] mx-auto">
-          {/* Open requests and unclaimed incoming tokens lead the list — they
-              are the money still in motion. */}
-          {incomingPendingItems.length > 0 && (
+          {/* Open requests and unclaimed tokens (incoming or sent) lead the
+              list — they are the money still in motion. */}
+          {pendingItems.length > 0 && (
             <>
               <PendingItemsList
-                items={incomingPendingItems}
-                maxItems={incomingPendingItems.length}
+                items={pendingItems}
+                maxItems={pendingItems.length}
                 flush
                 onItemClick={onSelectPendingItem}
               />
@@ -363,7 +369,7 @@ export function HomeScreen({
           {/* Pending rows already say "money in motion" — the empty-state text
               underneath would contradict them, so it only shows when nothing
               pending is leading the list either. */}
-          {(filteredTransactions.length > 0 || incomingPendingItems.length === 0) && (
+          {(filteredTransactions.length > 0 || pendingItems.length === 0) && (
             <TransactionList
               transactions={filteredTransactions}
               allTransactions={transactions}

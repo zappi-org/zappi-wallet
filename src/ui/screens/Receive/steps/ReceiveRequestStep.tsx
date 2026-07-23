@@ -16,7 +16,7 @@ import { Button } from '@/ui/components/common/Button'
 import { MintIcon } from '@/ui/components/common/MintIcon'
 import { useAppStore } from '@/store'
 import { hapticTap, hapticSuccess } from '@/ui/utils/haptic'
-import { useFormatSats } from '@/utils/format'
+import { useFormatSats, getLocaleCode } from '@/utils/format'
 import { usePaymentRequest } from '@/ui/hooks/use-payment-request'
 import { SegmentControl } from '@/ui/components/common/SegmentControl'
 
@@ -76,17 +76,30 @@ function FlowArrow() {
   )
 }
 
+// HH:MM in the viewer's locale — the always-visible expiry line reads a clock
+// time, not a countdown, until the final minute.
+function formatTime(ts: number, language: string): string {
+  return new Date(ts).toLocaleTimeString(getLocaleCode(language), { hour: '2-digit', minute: '2-digit' })
+}
+
 // Owns the 1s tick so the parent (QR hero + detection effects) doesn't
-// re-render every second; self-gates to the final minute like the old inline line.
+// re-render every second; switches from an absolute time to a seconds
+// countdown only in the final minute, like the old inline line.
 function ExpiryCountdown({ expiresAt }: { expiresAt: number }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
   }, [])
   const remainingMs = expiresAt - now
-  if (remainingMs >= 60_000) return null
+  if (remainingMs >= 60_000) {
+    return (
+      <p className="mt-3 text-caption text-foreground-muted/70">
+        {t('receive.request.expiresAtTime', { time: formatTime(expiresAt, i18n.language) })}
+      </p>
+    )
+  }
   return (
     <p className="mt-3 text-caption text-foreground-muted">
       {t('receive.request.expiresIn', { seconds: Math.max(0, Math.ceil(remainingMs / 1000)) })}

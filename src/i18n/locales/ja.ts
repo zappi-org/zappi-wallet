@@ -926,10 +926,12 @@ export default {
     },
     amount: {
       prompt: 'いくらリクエストしますか？',
+      addMemo: 'メモを追加',
     },
     request: {
       summary: '受取サマリー',
       expiresIn: 'あと{{seconds}}秒で期限切れ',
+      expiresAtTime: '{{time}}に期限切れ',
       expired: 'リクエストの期限が切れました',
       regenerate: '新しく作る',
       makeAnother: 'もう一度作る',

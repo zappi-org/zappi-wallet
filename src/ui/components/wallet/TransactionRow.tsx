@@ -98,7 +98,7 @@ export const TransactionRow = memo(function TransactionRow({
       {/* Right: amount + fiat */}
       <div className="flex flex-col items-end gap-0.5 shrink-0">
         <div className="flex items-center gap-1.5">
-          {isPending && <span className="w-1.5 h-1.5 rounded-full bg-status-pending animate-pulse" />}
+          {isPending && <span className="w-1.5 h-1.5 rounded-full bg-status-pending animate-pulse motion-reduce:animate-none" />}
           {isFailed && <span className="w-1.5 h-1.5 rounded-full bg-accent-danger" />}
           <span className={cn('text-amount font-semibold font-display leading-normal', amountColor)}>
             {amountPrefix}{formatSats(amountSats)}
