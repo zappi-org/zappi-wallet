@@ -535,9 +535,9 @@ export default {
     period3m: '3 Bln',
     periodAll: 'Semua',
     dateFilter: 'Filter Tanggal',
-    mintFilter: 'Pilih Dompet',
-    allMints: 'Semua Dompet',
-    mintCount: '{{count}} Dompet',
+    mintFilter: 'Pilih Mint',
+    allMints: 'Semua Mint',
+    mintCount: '{{count}} Mint',
 
     // Export
     export: 'Ekspor',
@@ -859,7 +859,7 @@ export default {
       requestQuestion: 'Kirim <amt>{{amount}}</amt>?',
       transferQuestion: 'Pindahkan <amt>{{amount}}</amt>\nke <b>{{target}}</b>?',
       createQuestion: 'Buat <amt>{{amount}}</amt>\nsebagai eCash?',
-      sourceMint: 'Dompet Asal',
+      sourceMint: 'Mint Asal',
       memo: 'Memo',
       requestAmount: 'Diminta',
       estimatedFee: 'Perkiraan Biaya',
