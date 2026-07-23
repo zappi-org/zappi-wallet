@@ -360,15 +360,20 @@ export function HomeScreen({
               <div className="h-px bg-border/30" />
             </>
           )}
-          <TransactionList
-            transactions={filteredTransactions}
-            allTransactions={transactions}
-            onTransactionClick={onSelectTransaction}
-            maxItems={5}
-            showDate
-            showHeader={false}
-            className="px-0"
-          />
+          {/* Pending rows already say "money in motion" — the empty-state text
+              underneath would contradict them, so it only shows when nothing
+              pending is leading the list either. */}
+          {(filteredTransactions.length > 0 || incomingPendingItems.length === 0) && (
+            <TransactionList
+              transactions={filteredTransactions}
+              allTransactions={transactions}
+              onTransactionClick={onSelectTransaction}
+              maxItems={5}
+              showDate
+              showHeader={false}
+              className="px-0"
+            />
+          )}
         </div>
       </main>
     </div>

@@ -13,7 +13,7 @@ import { shareOrCopyText } from '@/ui/utils/share'
 import { cn } from '@/ui/lib/utils'
 import { getLocaleCode, useFormatFiat, useFormatSats } from '@/utils/format'
 import { ArrowLeft, Check, ChevronDown, Copy, Download, Loader2, QrCode, RefreshCw, Share2 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 export interface PendingItemDetailCallbacks {
@@ -64,6 +64,21 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
   const [isResolvingExpiry, setIsResolvingExpiry] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
   const [qrPayload, setQrPayload] = useState<{ value: string; title: string; veil: boolean; payloads?: TokenQrModalPayload[] } | null>(null)
+  // The QR sheet's backdrop covers this screen's own back button while open (same
+  // in-tree overlay, no portal). A tap that lands there dismisses the backdrop, and
+  // an immediate follow-up tap in that same spot — a fast double-tap, or a touch
+  // whose compatibility click re-targets after the backdrop unmounts — then lands
+  // on the freshly-exposed back button, popping this screen too. Swallow a back
+  // press that arrives right on the heels of a QR dismissal.
+  const qrDismissedAtRef = useRef(0)
+  const dismissQr = useCallback(() => {
+    qrDismissedAtRef.current = Date.now()
+    setQrPayload(null)
+  }, [])
+  const handleBack = useCallback(() => {
+    if (Date.now() - qrDismissedAtRef.current < 400) return
+    onBack()
+  }, [onBack])
   const addToast = useAppStore((s) => s.addToast)
 
   const mintUrls = useMemo(() => [item.accountId], [item.accountId])
@@ -331,7 +346,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
       {/* Header */}
       <header className="flex items-center px-4 h-14 shrink-0">
         <button
-          onClick={onBack}
+          onClick={handleBack}
           className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
           aria-label={t('common.back')}
         >
@@ -504,7 +519,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
         title={qrPayload?.title}
         veil={qrPayload?.veil ?? false}
         payloads={qrPayload?.payloads}
-        onClose={() => setQrPayload(null)}
+        onClose={dismissQr}
       />
     </div>
   )
