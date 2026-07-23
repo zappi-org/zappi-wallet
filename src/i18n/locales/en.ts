@@ -874,6 +874,7 @@ export default {
     },
     receipt: {
       title: 'Send Receipt',
+      pendingTitle: 'Awaiting delivery',
       recipient: 'To',
       sending: 'Sending',
       settling: 'Confirming settlement',
@@ -927,6 +928,7 @@ export default {
     },
     receipt: {
       title: 'RECEIVE RECEIPT',
+      pendingTitle: 'Awaiting receipt',
       method: 'Method',
       methodLightning: 'Lightning',
       methodEcash: 'Ecash',

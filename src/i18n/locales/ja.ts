@@ -833,7 +833,7 @@ export default {
       label: '直接受け渡し',
       createFailed: 'トークンの作成に失敗しました',
       noMint: '利用可能なミントがありません',
-      awaitingClaim: '受け取り待ち',
+      awaitingClaim: '受け渡し待ち',
       claimed: '受け取り完了',
     },
     tokenCreate: {
@@ -876,6 +876,7 @@ export default {
     },
     receipt: {
       title: '送金レシート',
+      pendingTitle: '受け渡し待ち',
       recipient: '宛先',
       sending: '送金中',
       settling: '決済確認中',
@@ -929,6 +930,7 @@ export default {
     },
     receipt: {
       title: '受取レシート',
+      pendingTitle: '受け取り待ち',
       method: '方法',
       methodLightning: 'ライトニング',
       methodEcash: 'イーキャッシュ',

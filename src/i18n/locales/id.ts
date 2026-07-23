@@ -878,6 +878,7 @@ export default {
     },
     receipt: {
       title: 'Struk pengiriman',
+      pendingTitle: 'Menunggu penyerahan',
       recipient: 'Kepada',
       sending: 'Mengirim',
       settling: 'Menunggu penyelesaian',
@@ -931,6 +932,7 @@ export default {
     },
     receipt: {
       title: 'STRUK PENERIMAAN',
+      pendingTitle: 'Menunggu penerimaan',
       method: 'Metode',
       methodLightning: 'Lightning',
       methodEcash: 'Ecash',

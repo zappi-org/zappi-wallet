@@ -837,7 +837,7 @@ export default {
       label: '직접 전달',
       createFailed: '토큰 생성에 실패했어요',
       noMint: '사용할 민트가 없어요',
-      awaitingClaim: '수령 대기 중',
+      awaitingClaim: '전달 대기 중',
       claimed: '수령 완료',
     },
     tokenCreate: {
@@ -880,6 +880,7 @@ export default {
     },
     receipt: {
       title: '보내기 영수증',
+      pendingTitle: '전달 대기 중',
       recipient: '받는이',
       sending: '전송 중',
       settling: '정산 확인 중',
@@ -933,6 +934,7 @@ export default {
     },
     receipt: {
       title: '수령 영수증',
+      pendingTitle: '수령 대기 중',
       method: '수단',
       methodLightning: '라이트닝',
       methodEcash: '이캐시',

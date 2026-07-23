@@ -878,6 +878,7 @@ export default {
     },
     receipt: {
       title: 'Recibo de envío',
+      pendingTitle: 'Esperando entrega',
       recipient: 'Para',
       sending: 'Enviando',
       settling: 'Confirmando liquidación',
@@ -931,6 +932,7 @@ export default {
     },
     receipt: {
       title: 'RECIBO DE COBRO',
+      pendingTitle: 'Esperando recepción',
       method: 'Método',
       methodLightning: 'Lightning',
       methodEcash: 'Ecash',

@@ -331,7 +331,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
         <div className="pt-2 pb-5">
           <PaymentReceipt
             status="pending"
-            title={isReceive ? t('receive.receipt.title') : t('send.receipt.title')}
+            title={isReceive ? t('receive.receipt.pendingTitle') : t('send.receipt.pendingTitle')}
             amount={formatSats(item.amount)}
             fiat={toFiat(item.amount)}
             rows={receiptRows}
