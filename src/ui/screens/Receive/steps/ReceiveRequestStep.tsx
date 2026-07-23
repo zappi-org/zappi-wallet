@@ -352,7 +352,7 @@ export function ReceiveRequestStep({
               <QRCodeDisplay
                 value={qrValue}
                 size={200}
-                className="rounded-2xl p-3 shadow-[0_2px_12px_rgba(0,0,0,0.08)]"
+                className="rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.08)]"
               />
             </button>
           </DirectionalTabPanel>

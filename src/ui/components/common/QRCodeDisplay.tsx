@@ -61,7 +61,13 @@ export const QRCodeDisplay = memo(function QRCodeDisplay({
   level = 'M',
   fill = false,
 }: QRCodeDisplayProps) {
-  const isAnimated = value.length > ANIMATED_THRESHOLD
+  // bitcoin: URIs must stay single-frame — generic wallets can't read BC-UR.
+  // Hard cap 2500: beyond that a static QR stops scanning at phone size, so we
+  // fall back to UR and log — silent interop loss is worse than a console line.
+  const isUri = value.startsWith('bitcoin:')
+  const overCap = value.length > 2500
+  if (isUri && overCap) console.warn('[QR] bitcoin: URI exceeds static cap, falling back to UR')
+  const isAnimated = value.length > ANIMATED_THRESHOLD && (!isUri || overCap)
   const renderSize = size ?? RENDER_SIZE
 
   if (isAnimated) {
@@ -87,8 +93,8 @@ export const QRCodeDisplay = memo(function QRCodeDisplay({
       <QRCodeSVG
         value={value}
         size={renderSize}
-        level={level}
-        includeMargin={false}
+        level={isUri ? 'L' : level}
+        marginSize={4}
         style={{ width: '100%', height: 'auto' }}
       />
     </div>
@@ -170,8 +176,8 @@ function AnimatedQR({
   const displayFrame = (frame.index % totalFragments) + 1
 
   const wrapperClass = fill
-    ? cn('w-full h-full flex items-center justify-center relative', className)
-    : cn('bg-background-card p-4 rounded-xl shadow-sm relative', className)
+    ? cn('w-full h-full flex items-center justify-center', className)
+    : cn('bg-background-card p-4 rounded-xl shadow-sm flex flex-col items-center', className)
   const wrapperStyle = fill ? undefined : { width: '65vw', maxWidth: MAX_DISPLAY_WIDTH }
 
   return (
@@ -180,15 +186,17 @@ function AnimatedQR({
         value={frame.value}
         size={renderSize}
         level="L"
-        includeMargin={false}
+        marginSize={4}
         style={{ width: '100%', height: 'auto' }}
       />
-      {/* Frame indicator */}
-      <div className="absolute bottom-1.5 left-0 right-0 flex justify-center">
-        <span className="text-[10px] text-foreground-muted/60 tabular-nums">
+      {/* Normal-flow counter (not absolute) so it never overlaps QR modules.
+          Skipped in fill mode: PaymentReceipt's aspect-square, overflow-hidden
+          frame would clip an in-flow sibling there. */}
+      {!fill && (
+        <span className="mt-1 text-[10px] text-foreground-muted/60 tabular-nums">
           {displayFrame} / {totalFragments}
         </span>
-      </div>
+      )}
     </div>
   )
 }

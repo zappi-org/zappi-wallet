@@ -151,7 +151,7 @@ export function MyAddressScreen({ onBack, onOpenSettings }: MyAddressScreenProps
                 onClick={handleCopy}
                 className="mt-6 cursor-pointer active:scale-95 motion-reduce:active:scale-100 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl"
               >
-                <QRCodeDisplay value={value} size={200} className="rounded-2xl p-3 shadow-[0_2px_12px_rgba(0,0,0,0.08)]" />
+                <QRCodeDisplay value={value} size={200} className="rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.08)]" />
               </button>
               <p className="mt-4 max-w-full break-all px-4 text-center text-body font-medium">{value}</p>
               <div className="flex gap-10 mt-4">

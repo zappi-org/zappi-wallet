@@ -41,10 +41,11 @@ export function NpubDetailPage({ onBack }: NpubDetailPageProps) {
   return (
     <SettingsDetailPage title="Nostr" onBack={onBack}>
       <div className="flex flex-col items-center px-6 pt-8">
-        {/* QR Code — tappable to copy */}
+        {/* QR Code — tappable to copy. Framing (bg/padding/shadow) lives on
+            QRCodeDisplay itself; a second frame here would double it up. */}
         <button
           onClick={handleCopy}
-          className="bg-white p-4 rounded-2xl shadow-sm active:scale-[0.97] transition-transform"
+          className="active:scale-[0.97] transition-transform"
         >
           <QRCodeDisplay value={npub} size={200} className="rounded-xl" />
         </button>
