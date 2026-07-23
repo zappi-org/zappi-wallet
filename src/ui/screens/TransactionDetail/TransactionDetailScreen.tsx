@@ -313,17 +313,23 @@ export default function TransactionDetailScreen({
   }, [tx, meta, metadata, isSwap, isLightning, isReceive, isBearerCreate, amountSats, typeLabel, sourceLabel, kioskOrder, feeSats, displayFee, mintNode, getDisplayName, formatSats, t])
 
   const receiptStatus = tx.status === 'settled' ? 'done' : 'pending'
+  // A reclaim's receive TX is money coming back, not new money in — its own
+  // title/doneRight say so instead of reading as a normal receive.
   // Pending receipts must not claim completion — only settled gets the plain "receipt" title.
-  const receiptTitle = tx.status === 'pending'
-    ? (isReceive ? t('receive.receipt.pendingTitle') : t('send.receipt.pendingTitle'))
-    : (isReceive ? t('receive.receipt.title') : t('send.receipt.title'))
-  const doneRight = isReceive
-    ? t('receive.receipt.completed')
-    : tx.outcome === 'reclaimed'
-      ? t('txDetail.state.reclaimed')
-      : isSwap
-        ? t('history.completed')
-        : t('send.receipt.completed')
+  const receiptTitle = meta.reclaimedFrom
+    ? t('receive.receipt.reclaimTitle')
+    : tx.status === 'pending'
+      ? (isReceive ? t('receive.receipt.pendingTitle') : t('send.receipt.pendingTitle'))
+      : (isReceive ? t('receive.receipt.title') : t('send.receipt.title'))
+  const doneRight = meta.reclaimedFrom
+    ? t('history.reclaimed')
+    : isReceive
+      ? t('receive.receipt.completed')
+      : tx.outcome === 'reclaimed'
+        ? t('txDetail.state.reclaimed')
+        : isSwap
+          ? t('history.completed')
+          : t('send.receipt.completed')
   // Date rides the bottom status line (mirroring doneLine) — never a row.
   const statusLine = `${formatDate(tx.createdAt)} · ${
     tx.status === 'failed'

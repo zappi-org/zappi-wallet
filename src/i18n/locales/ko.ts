@@ -518,6 +518,7 @@ export default {
     completed: '완료',
     pendingStatus: '처리 중',
     failedStatus: '실패',
+    reclaimed: '되찾음',
 
     // Redesigned history screen
     income: '입금',
@@ -934,6 +935,7 @@ export default {
     },
     receipt: {
       title: '수령 영수증',
+      reclaimTitle: '되찾기 영수증',
       pendingTitle: '수령 대기 중',
       method: '수단',
       methodLightning: '라이트닝',

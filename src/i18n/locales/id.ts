@@ -516,6 +516,7 @@ export default {
     completed: 'Selesai',
     pendingStatus: 'Memproses',
     failedStatus: 'Gagal',
+    reclaimed: 'Diklaim kembali',
 
     // Redesigned history screen
     income: 'Pemasukan',
@@ -932,6 +933,7 @@ export default {
     },
     receipt: {
       title: 'STRUK PENERIMAAN',
+      reclaimTitle: 'Struk klaim kembali',
       pendingTitle: 'Menunggu penerimaan',
       method: 'Metode',
       methodLightning: 'Lightning',

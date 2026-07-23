@@ -1,9 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ReclaimService } from '@/core/services/reclaim.service'
+import { PaymentService } from '@/core/services/payment.service'
+import { TokenReceiverAdapter } from '@/composition/token-receiver.adapter'
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
 import type { SendTokenOperator } from '@/core/ports/driven/send-token-operator.port'
 import type { PendingOperationRepository } from '@/core/ports/driven/pending-operation.repository.port'
 import type { TokenReceiver } from '@/core/ports/driven/token-receiver.port'
+import type { WalletModule } from '@/core/ports/driven/wallet-module.port'
+import type { PaymentMethodAdapter } from '@/core/ports/driven/payment-method.port'
 import type { EventBus } from '@/core/events/event-bus'
 import type { Transaction } from '@/core/domain/transaction'
 import { sat } from '@/core/domain/amount'
@@ -55,6 +59,79 @@ function createMockEventBus(): EventBus {
     emit: vi.fn(),
     on: vi.fn().mockReturnValue(() => {}),
     off: vi.fn(),
+  }
+}
+
+// ─── Integration doubles (real PaymentService + in-memory repo) ───
+//
+// A vi.fn() txRepo mock returns whatever getById is told to, regardless of
+// the id it was called with — so it can't catch a requestId/txId mismatch.
+// This in-memory double is keyed by id like the real repo, so a stamp that
+// looks up the wrong id genuinely misses.
+function createInMemoryTxRepo(): TransactionRepository {
+  const store = new Map<string, Transaction>()
+  return {
+    save: async (tx) => {
+      store.set(tx.id, tx)
+    },
+    getById: async (id) => store.get(id) ?? null,
+    list: async () => Array.from(store.values()),
+    update: async (id, patch) => {
+      const existing = store.get(id)
+      if (existing) store.set(id, { ...existing, ...patch })
+    },
+    delete: async (id) => {
+      store.delete(id)
+    },
+    findAll: async () => Array.from(store.values()),
+    deleteAll: async () => {
+      store.clear()
+    },
+    deleteOlderThan: async () => {},
+  }
+}
+
+// Mirrors the real cashu-ecash adapter's redeem(): it returns its own
+// requestId (a UUID unrelated to the ledger tx id PaymentService assigns).
+function createRedeemAdapter(): PaymentMethodAdapter {
+  return {
+    id: 'cashu:ecash',
+    moduleId: 'cashu',
+    protocol: 'ecash',
+    supportedUnits: ['sat'],
+    capabilities: { canSend: true, canReceive: true, canEstimateFee: true },
+    estimateFee: vi.fn(),
+    prepareSend: vi.fn(),
+    executeSend: vi.fn(),
+    cancelPrepared: vi.fn(),
+    reclaimFailed: vi.fn(),
+    createReceiveRequest: vi.fn(),
+    canRedeem: () => true,
+    redeem: vi.fn().mockResolvedValue({
+      requestId: 'adapter-own-request-id',
+      amount: sat(1000),
+      method: 'cashu:ecash',
+      protocol: 'cashu-token',
+      completed: true,
+      accountId: 'https://mint',
+    }),
+    recoverPending: vi.fn(),
+  } as unknown as PaymentMethodAdapter
+}
+
+function createRedeemModule(adapter: PaymentMethodAdapter): WalletModule {
+  return {
+    id: 'cashu',
+    displayName: 'Cashu',
+    initialize: vi.fn(),
+    dispose: vi.fn(),
+    isEnabled: () => true,
+    send: vi.fn(),
+    recoverAccount: vi.fn(),
+    getPaymentAdapters: () => [adapter],
+    getCapabilities: () => [],
+    getBalance: vi.fn(),
+    on: vi.fn().mockReturnValue(() => {}),
   }
 }
 
@@ -451,5 +528,38 @@ describe('ReclaimService', () => {
 
       expect(result).toBe(false)
     })
+  })
+})
+
+// Real PaymentService + in-memory txRepo, wired the way composition does
+// (TokenReceiverAdapter over PaymentUseCase.redeem). A mocked txRepo can't
+// expose a requestId/txId mismatch since it returns whatever it's told
+// regardless of the id queried — this double is keyed by id for real.
+describe('ReclaimService — token path stamps reclaimedFrom (integration)', () => {
+  it('marks the ledger receive TX with metadata.reclaimedFrom === sendTxId', async () => {
+    const realTxRepo = createInMemoryTxRepo()
+    const adapter = createRedeemAdapter()
+    const module = createRedeemModule(adapter)
+    const paymentService = new PaymentService([module], realTxRepo, createMockEventBus())
+    const realTokenReceiver = new TokenReceiverAdapter(paymentService)
+
+    const sendTx = createUnclaimedSendTx('send-tx-1', { metadata: { token: 'cashuAabc123' } })
+    await realTxRepo.save(sendTx)
+
+    const service = new ReclaimService(
+      realTxRepo,
+      createMockSendOp(),
+      realTokenReceiver,
+      createMockPendingOps(),
+      createMockEventBus(),
+    )
+
+    const result = await service.reclaim('send-tx-1')
+
+    expect(result.ok).toBe(true)
+    const all = await realTxRepo.list()
+    const receiveTx = all.find((t) => t.direction === 'receive')
+    expect(receiveTx).toBeDefined()
+    expect(receiveTx?.metadata?.reclaimedFrom).toBe('send-tx-1')
   })
 })

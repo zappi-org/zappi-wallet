@@ -96,8 +96,8 @@ export class ReclaimService implements ReclaimUseCase {
           error
         ))
       }
-      // TokenReceiver already made receive TX
-      // Not making companion TX, just update send TX
+      // Rollback returns proofs to the sender's own balance — no ledger
+      // receive TX is created, so only the send TX needs updating here.
       // Rollback may still cost input fees inside the SDK — with no measured
       // value, persist no fee rather than a confident zero.
       await this.markSendReclaimed(txId)
@@ -128,6 +128,16 @@ export class ReclaimService implements ReclaimUseCase {
           return Err(new InvalidTokenError(message))
         }
         return Err(new UnknownError(message, { code, originalError: result.error }))
+      }
+
+      // Mark the receive TX as a reclaim, not a plain receive, so History
+      // and the receipt don't misrepresent money coming back as new money in.
+      const receiveTxId = result.value.transactionId
+      const receiveTx = await this.txRepo.getById(receiveTxId)
+      if (receiveTx) {
+        await this.txRepo.update(receiveTxId, {
+          metadata: { ...receiveTx.metadata, reclaimedFrom: txId },
+        })
       }
 
       // The receive result is what actually landed — the difference is the

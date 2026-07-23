@@ -514,6 +514,7 @@ export default {
     completed: '完了',
     pendingStatus: '処理中',
     failedStatus: '失敗',
+    reclaimed: '回収済み',
 
     // Redesigned history screen
     income: '入金',
@@ -930,6 +931,7 @@ export default {
     },
     receipt: {
       title: '受取レシート',
+      reclaimTitle: '回収レシート',
       pendingTitle: '受け取り待ち',
       method: '方法',
       methodLightning: 'ライトニング',

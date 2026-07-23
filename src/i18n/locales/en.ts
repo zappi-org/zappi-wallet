@@ -518,6 +518,7 @@ export default {
     completed: 'Completed',
     pendingStatus: 'Processing',
     failedStatus: 'Failed',
+    reclaimed: 'Reclaimed',
 
     // Redesigned history screen
     income: 'Income',
@@ -928,6 +929,7 @@ export default {
     },
     receipt: {
       title: 'RECEIVE RECEIPT',
+      reclaimTitle: 'Reclaim receipt',
       pendingTitle: 'Awaiting receipt',
       method: 'Method',
       methodLightning: 'Lightning',

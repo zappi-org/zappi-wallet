@@ -516,6 +516,7 @@ export default {
     completed: 'Completado',
     pendingStatus: 'Procesando',
     failedStatus: 'Fallido',
+    reclaimed: 'Recuperado',
 
     // Redesigned history screen
     income: 'Ingresos',
@@ -932,6 +933,7 @@ export default {
     },
     receipt: {
       title: 'RECIBO DE COBRO',
+      reclaimTitle: 'Recibo de recuperación',
       pendingTitle: 'Esperando recepción',
       method: 'Método',
       methodLightning: 'Lightning',
