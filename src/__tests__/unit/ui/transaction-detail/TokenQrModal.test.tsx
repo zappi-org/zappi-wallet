@@ -1,7 +1,7 @@
-import { render, screen, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { TokenQrModal } from '@/ui/screens/TransactionDetail/TokenQrModal'
+import { TokenQrModal, BACKDROP_SHIELD_MS } from '@/ui/screens/TransactionDetail/TokenQrModal'
 
 const mockWriteText = vi.fn()
 
@@ -121,5 +121,80 @@ describe('TokenQrModal', () => {
     rerender(<TokenQrModal isOpen token="" onClose={vi.fn()} payloads={payloads} />)
 
     expect(screen.getByTestId('qr-value')).toHaveTextContent('bitcoin:unified')
+  })
+})
+
+describe('TokenQrModal — backdrop ghost-tap shield', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('closes on backdrop click and arms a transient shield that clears after ~350ms', () => {
+    vi.useFakeTimers()
+    const onClose = vi.fn()
+
+    const { container, rerender } = render(
+      <TokenQrModal isOpen token="cashuAbc123" onClose={onClose} veil={false} />,
+    )
+
+    const backdrop = container.querySelector('.backdrop-blur-sm')
+    expect(backdrop).toBeTruthy()
+    fireEvent.click(backdrop as Element)
+    expect(onClose).toHaveBeenCalledTimes(1)
+
+    // Parent reacts to onClose by flipping isOpen — the modal stays mounted
+    // (both real call sites keep it rendered), so the shield can render in its place.
+    rerender(<TokenQrModal isOpen={false} token="cashuAbc123" onClose={onClose} veil={false} />)
+    expect(screen.getByTestId('qr-backdrop-shield')).toBeInTheDocument()
+
+    act(() => {
+      vi.advanceTimersByTime(BACKDROP_SHIELD_MS)
+    })
+    expect(screen.queryByTestId('qr-backdrop-shield')).not.toBeInTheDocument()
+  })
+
+  it('absorbs a follow-up tap instead of letting it reach a control underneath', () => {
+    vi.useFakeTimers()
+    const onClose = vi.fn()
+    const probe = vi.fn()
+
+    function Harness({ isOpen }: { isOpen: boolean }) {
+      return (
+        <div>
+          <button onClick={probe}>underneath control</button>
+          <TokenQrModal isOpen={isOpen} token="cashuAbc123" onClose={onClose} veil={false} />
+        </div>
+      )
+    }
+
+    const { container, rerender } = render(<Harness isOpen />)
+    const backdrop = container.querySelector('.backdrop-blur-sm')
+    fireEvent.click(backdrop as Element)
+    rerender(<Harness isOpen={false} />)
+
+    const shield = screen.getByTestId('qr-backdrop-shield')
+    fireEvent.click(shield)
+    expect(probe).not.toHaveBeenCalled()
+
+    act(() => {
+      vi.advanceTimersByTime(BACKDROP_SHIELD_MS)
+    })
+    expect(screen.queryByTestId('qr-backdrop-shield')).not.toBeInTheDocument()
+  })
+
+  it('X-button close is instant, with no shield', () => {
+    const onClose = vi.fn()
+
+    const { container, rerender } = render(
+      <TokenQrModal isOpen token="cashuAbc123" onClose={onClose} veil={false} />,
+    )
+
+    const closeButton = container.querySelector('button.rounded-full.bg-muted')
+    expect(closeButton).toBeTruthy()
+    fireEvent.click(closeButton as Element)
+    expect(onClose).toHaveBeenCalledTimes(1)
+
+    rerender(<TokenQrModal isOpen={false} token="cashuAbc123" onClose={onClose} veil={false} />)
+    expect(screen.queryByTestId('qr-backdrop-shield')).not.toBeInTheDocument()
   })
 })

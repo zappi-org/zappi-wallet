@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { X, Copy, Check, Eye } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
@@ -29,6 +29,9 @@ interface TokenQrModalProps {
    */
   payloads?: TokenQrModalPayload[]
 }
+
+/** How long the ghost-tap shield stays up after a backdrop dismissal. */
+export const BACKDROP_SHIELD_MS = 350
 
 export function TokenQrModal({ isOpen, token, onClose, title, veil = true, payloads }: TokenQrModalProps) {
   const { t } = useTranslation()
@@ -62,6 +65,30 @@ export function TokenQrModal({ isOpen, token, onClose, title, veil = true, paylo
     [items],
   )
 
+  // Ghost-tap shield: the backdrop sits directly over this screen's own controls
+  // (e.g. a back button), so dismissing it exposes them immediately — a fast
+  // double-tap or a touch's compatibility click can then land on what's beneath.
+  // Absorb any follow-up contact at that spot for a beat after a backdrop close
+  // only; the X button has nothing underneath it and must close instantly.
+  const [shieldActive, setShieldActive] = useState(false)
+  const shieldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (shieldTimerRef.current) clearTimeout(shieldTimerRef.current)
+    }
+  }, [])
+
+  const handleBackdropClose = useCallback(() => {
+    onClose()
+    setShieldActive(true)
+    if (shieldTimerRef.current) clearTimeout(shieldTimerRef.current)
+    shieldTimerRef.current = setTimeout(() => {
+      setShieldActive(false)
+      shieldTimerRef.current = null
+    }, BACKDROP_SHIELD_MS)
+  }, [onClose])
+
   const handleCopy = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(active.value)
@@ -77,12 +104,17 @@ export function TokenQrModal({ isOpen, token, onClose, title, veil = true, paylo
     setTimeout(() => setCopied(false), 2000)
   }, [active.value])
 
-  if (!isOpen) return null
+  if (!isOpen) {
+    // Shield outlives the sheet itself so a ghost tap lands on empty air.
+    return shieldActive ? (
+      <div aria-hidden data-testid="qr-backdrop-shield" className="fixed inset-0 z-[110] pointer-events-auto" />
+    ) : null
+  }
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center pointer-events-none">
       <div
-        onClick={onClose}
+        onClick={handleBackdropClose}
         className="absolute inset-0 bg-black/30 backdrop-blur-sm pointer-events-auto animate-fadeIn"
       />
       <div className="bg-background w-full max-w-[92vw] rounded-2xl pointer-events-auto relative z-10 shadow-2xl animate-slideInUp overflow-hidden">
