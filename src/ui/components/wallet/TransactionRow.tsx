@@ -3,8 +3,8 @@
  * Shared between TransactionList (mini) and HistoryScreen (full).
  *
  * Layout:
- *   Title (body, semibold)                 1,000 sats (amount, display, green)
- *   10:35 · receive (Lightning) (label, muted)    ≈ $0.50 (label, muted)
+ *   받음 · 점심값 (body, semibold)                 1,000 sats (amount, display, green)
+ *   10:35 · 라이트닝 (label, muted)                    ≈ $0.50 (label, muted)
  */
 
 import type { TranslationKey } from '@/i18n'
@@ -58,9 +58,9 @@ export const TransactionRow = memo(function TransactionRow({
     ? `${resolveName(swapFromUrl)} → ${resolveName(swapToUrl)}`
     : null
   const title = swapRoute ?? getTitle(tx, t)
-  const defaultSubtitle = timeStr
+  const defaultSubtitle = `${timeStr} · ${typeLabel}`
 
-  // Subtitle: "10:35 · receive (Lightning)" or swap flow
+  // Subtitle: "10:35 · Lightning" or swap flow
   let subtitle: string
   if (isSwap && swapRoute) {
     subtitle = `${timeStr} · ${typeLabel}`

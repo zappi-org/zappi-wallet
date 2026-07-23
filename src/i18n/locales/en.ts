@@ -520,6 +520,12 @@ export default {
     failedStatus: 'Failed',
     reclaimed: 'Reclaimed',
 
+    // Row title = the act (means moved to the subtitle)
+    received: 'Received',
+    sent: 'Sent',
+    receiving: 'Receiving',
+    sending: 'Sending',
+
     // Redesigned history screen
     income: 'Income',
     expense: 'Expense',

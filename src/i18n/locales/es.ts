@@ -518,6 +518,12 @@ export default {
     failedStatus: 'Fallido',
     reclaimed: 'Recuperado',
 
+    // Row title = the act (means moved to the subtitle)
+    received: 'Recibido',
+    sent: 'Enviado',
+    receiving: 'Recibiendo',
+    sending: 'Enviando',
+
     // Redesigned history screen
     income: 'Ingresos',
     expense: 'Gastos',

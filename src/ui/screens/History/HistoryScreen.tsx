@@ -32,7 +32,7 @@ import { DateFilterSheet } from '@/ui/components/common/DateFilterSheet'
 import { MintFilterSheet } from '@/ui/components/common/MintFilterSheet'
 import { BottomSheet, BottomSheetItem } from '@/ui/components/common/BottomSheet'
 import { type DateFilterValue, computeDateCutoff, getDateFilterLabel, isDateFilterActive } from '@/ui/utils/dateFilter'
-import { getTitle } from '@/ui/components/wallet/transactionHelpers'
+import { getTitle, getTypeLabel } from '@/ui/components/wallet/transactionHelpers'
 import { getMintFilterLabel } from '@/ui/hooks/useAvailableMints'
 import { exportTransactionsCsv } from '@/ui/utils/exportTransactions'
 import { FilterChip } from '@/ui/components/common/FilterChip'
@@ -422,11 +422,14 @@ export function HistoryScreen({
       filtered = filtered.filter((tx) => {
         const memo = tx.memo?.toLowerCase() || ''
         const mint = tx.accountId.toLowerCase()
-        const typeLabel = getTitle(tx, t).toLowerCase()
+        // Title is now the act (받음/보냄); search must also match the means
+        // (e.g. Lightning) so a means query doesn't silently return nothing.
+        const title = getTitle(tx, t).toLowerCase()
+        const means = getTypeLabel(tx, t).toLowerCase()
         const txMeta = getTxMeta(tx)
         const source = txMeta.source ? t(txSourceKey(txMeta.source)).toLowerCase() : ''
         return memo.includes(query) || mint.includes(query)
-          || typeLabel.includes(query) || source.includes(query)
+          || title.includes(query) || means.includes(query) || source.includes(query)
           || String(toNumber(tx.amount)).includes(query)
       })
     }

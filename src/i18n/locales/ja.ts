@@ -516,6 +516,12 @@ export default {
     failedStatus: '失敗',
     reclaimed: '回収済み',
 
+    // Row title = the act (means moved to the subtitle)
+    received: '受取',
+    sent: '送金',
+    receiving: '受取中',
+    sending: '送金中',
+
     // Redesigned history screen
     income: '入金',
     expense: '出金',

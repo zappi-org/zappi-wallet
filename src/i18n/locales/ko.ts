@@ -520,6 +520,12 @@ export default {
     failedStatus: '실패',
     reclaimed: '되찾음',
 
+    // Row title = the act (means moved to the subtitle)
+    received: '받음',
+    sent: '보냄',
+    receiving: '받는 중',
+    sending: '보내는 중',
+
     // Redesigned history screen
     income: '입금',
     expense: '출금',

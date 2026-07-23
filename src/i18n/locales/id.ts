@@ -518,6 +518,12 @@ export default {
     failedStatus: 'Gagal',
     reclaimed: 'Diklaim kembali',
 
+    // Row title = the act (means moved to the subtitle)
+    received: 'Diterima',
+    sent: 'Terkirim',
+    receiving: 'Menerima',
+    sending: 'Mengirim',
+
     // Redesigned history screen
     income: 'Pemasukan',
     expense: 'Pengeluaran',
