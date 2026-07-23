@@ -9,7 +9,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Copy, Check, Share2, SquarePen, MessageSquare } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { motion, useReducedMotion } from 'motion/react'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { DirectionalTabPanel } from '@/ui/components/common/DirectionalTabPanel'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
@@ -62,29 +61,17 @@ export interface ReceiveRequestStepProps {
   onReceiveRequestFulfilled?: (token: string, paymentRef: string) => Promise<{ amount: number; requestFulfilled?: boolean }>
 }
 
-// Waiting animation — a dotted flow toward the mint, the receive mirror of
-// the send receipt's "in transit" language.
+// Static flow mark — the QR is the only thing that should move on this screen.
 function FlowArrow() {
-  const reduceMotion = useReducedMotion()
+  const dots = (offset: number) =>
+    [0, 1, 2, 3].map((i) => (
+      <span key={offset + i} className="h-1 w-1 rounded-full bg-brand/50" />
+    ))
   return (
     <span className="flex items-center justify-center gap-1" aria-hidden>
-      {[0, 1, 2, 3].map((i) => (
-        <motion.span
-          key={i}
-          className="h-1 w-1 rounded-full bg-brand"
-          animate={reduceMotion ? { opacity: 0.6 } : { opacity: [0.15, 0.9, 0.15] }}
-          transition={reduceMotion ? { duration: 0 } : { duration: 1.4, repeat: Infinity, delay: i * 0.18 }}
-        />
-      ))}
-      {/* The arrow is the wave's terminus, not a static anchor — pulsing it on
-          the same cadence makes dots+arrow read as one centered unit. */}
-      <motion.span
-        className="ml-0.5 text-brand"
-        animate={reduceMotion ? { opacity: 0.6 } : { opacity: [0.15, 0.9, 0.15] }}
-        transition={reduceMotion ? { duration: 0 } : { duration: 1.4, repeat: Infinity, delay: 4 * 0.18 }}
-      >
-        →
-      </motion.span>
+      {dots(0)}
+      <span className="mx-0.5 text-brand/70">→</span>
+      {dots(4)}
     </span>
   )
 }
@@ -369,14 +356,14 @@ export function ReceiveRequestStep({
         )}
 
         {/* Summary card */}
-        <div className="mt-[clamp(1.75rem,4vh,2.75rem)] w-full max-w-[360px] rounded-2xl bg-background-card p-4 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
+        <div className="mt-[clamp(1.75rem,4vh,2.75rem)] w-full max-w-[360px] rounded-[14px] bg-background-card px-5 py-4 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
           <div className="flex items-center justify-between">
             <span className="text-caption text-foreground-muted">{t('receive.request.summary')}</span>
             <button
               type="button"
               onClick={() => { hapticTap(); onEdit() }}
               aria-label={t('common.edit')}
-              className="text-foreground-muted active:text-foreground"
+              className="p-2 -m-2 text-foreground-muted active:text-foreground"
             >
               <SquarePen className="w-4 h-4" />
             </button>

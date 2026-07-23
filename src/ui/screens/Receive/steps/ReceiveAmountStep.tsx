@@ -64,7 +64,7 @@ export function ReceiveAmountStep({
               hapticTap()
               onEditMint()
             }}
-            className="mx-auto flex items-center justify-center gap-2 pt-2"
+            className="mx-auto flex items-center justify-center gap-2 pt-5 pb-1"
           >
             <MintIcon iconUrl={mintIconUrl ?? undefined} imgSize="w-6 h-6" className="w-6 h-6" circle />
             <span className="text-body font-medium text-foreground truncate max-w-[220px]">{mintDisplayName}</span>
@@ -82,7 +82,7 @@ export function ReceiveAmountStep({
             }}
             /* min-h keeps the thumb target at 44px next to the keypad; the
                smaller margin offsets the added padding so the rhythm holds. */
-            className="mx-auto mb-1 flex min-h-[44px] items-center gap-1.5 px-4 text-subtitle font-medium text-foreground-muted active:text-foreground"
+            className="mx-auto mb-4 flex min-h-[44px] items-center gap-1.5 px-4 text-subtitle font-medium text-foreground-muted active:text-foreground"
           >
             <SquarePen className="h-4 w-4" />
             {memo || t('send.memo.changeTitle')}

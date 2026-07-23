@@ -485,7 +485,7 @@ export function SendAmountStep({
                   type="button"
                   onClick={onChangeMint ? () => setMintSheetOpen(true) : undefined}
                   disabled={!onChangeMint}
-                  className="flex items-center justify-center gap-2 mx-auto pb-2"
+                  className="flex items-center justify-center gap-2 mx-auto pb-4 min-h-[44px]"
                 >
                   <MintIcon iconUrl={mintIconUrl} imgSize="w-6 h-6" className="w-6 h-6" circle />
                   <span className="text-body font-medium text-foreground truncate max-w-[180px]">{mintName}</span>
