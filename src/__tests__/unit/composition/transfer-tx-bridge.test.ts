@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { connectTransferTxBridge } from "@/composition/transfer-tx-bridge";
 import type { EventBus } from "@/core/events/event-bus";
 import type { TransactionRepository } from "@/core/ports/driven/transaction.repository.port";
+import { sat } from "@/core/domain/amount";
 
 describe("TransferTxBridge - bolt 11 outgoing fee", () => {
   it("records both quoted and effective fee when effectiveFee is present", async () => {
@@ -461,5 +462,79 @@ describe("TransferTxBridge - refresh emission contract", () => {
       expect.objectContaining({ id: "tx-r1", status: "failed" }),
     );
     expect(triggerTxRefresh).toHaveBeenCalledOnce();
+  });
+
+  // A reclaim spends the same proofs a claim does, so a late poll can raise
+  // transfer:settled for money that came back to us. A settled ecash send is
+  // terminal — relabelling it 'claimed' would tell the user their reclaim failed.
+  it("transfer:settled must not flip an already-reclaimed ecash send to claimed", async () => {
+    const { triggerTxRefresh, mockTxRepo } = makeBridge({
+      event: "transfer:settled",
+      transfer: { ...baseTransfer, phase: "settled" },
+      existingTx: {
+        id: "tx-r1",
+        status: "settled",
+        outcome: "reclaimed",
+        protocol: "cashu-token",
+        metadata: {},
+      },
+    });
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(mockTxRepo.update).not.toHaveBeenCalled();
+    expect(triggerTxRefresh).not.toHaveBeenCalled();
+  });
+
+  it("transfer:settled must not re-stamp an already-claimed ecash send", async () => {
+    const { mockTxRepo } = makeBridge({
+      event: "transfer:settled",
+      transfer: { ...baseTransfer, phase: "settled" },
+      existingTx: {
+        id: "tx-r1",
+        status: "settled",
+        outcome: "claimed",
+        protocol: "cashu-token",
+        completedAt: 1_000,
+        metadata: {},
+      },
+    });
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(mockTxRepo.update).not.toHaveBeenCalled();
+  });
+
+  // The guard is scoped to ecash: a bolt11 send is created settled at submit
+  // time, and its transfer:settled is the only carrier of preimage/effective fee.
+  it("transfer:settled still writes preimage + effective fee onto a settled bolt11 send", async () => {
+    const { mockTxRepo } = makeBridge({
+      event: "transfer:settled",
+      transfer: {
+        ...baseTransfer,
+        phase: "settled",
+        transportRef: {
+          type: "bolt11-melt",
+          protocol: "bolt11",
+          preimage: "preimage-abc",
+          effectiveFee: 120,
+        },
+      },
+      existingTx: {
+        id: "tx-r1",
+        status: "settled",
+        outcome: "claimed",
+        protocol: "bolt11",
+        fee: { quoted: sat(150) },
+        metadata: {},
+      },
+    });
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(mockTxRepo.update).toHaveBeenCalledWith(
+      "tx-r1",
+      expect.objectContaining({
+        fee: { quoted: sat(150), effective: sat(120) },
+        metadata: expect.objectContaining({ preimage: "preimage-abc" }),
+      }),
+    );
   });
 });

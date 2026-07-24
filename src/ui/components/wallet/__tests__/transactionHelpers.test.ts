@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { TFunction } from 'i18next'
 import type { Transaction } from '@/core/domain/transaction'
 import { sat } from '@/core/domain/amount'
-import { getTitle, getTypeLabel } from '@/ui/components/wallet/transactionHelpers'
+import { getTitle, getTypeLabel, isReclaimRow } from '@/ui/components/wallet/transactionHelpers'
 
 // Mirrors the ko locale strings so assertions read like the real UI.
 const KO: Record<string, string> = {
@@ -55,6 +55,18 @@ describe('getTitle — title is the ACT, not the means', () => {
     expect(getTitle(tx, t)).toBe('되찾음')
   })
 
+  // The token path books the reclaim on a companion receive row. If the send
+  // row also said 되찾음 the user would see the same reclaim twice.
+  it('legacy token-path send half (reclaimed, but has a companion) -> 보냄', () => {
+    const tx = makeTx({
+      direction: 'send',
+      status: 'settled',
+      outcome: 'reclaimed',
+      metadata: { reclaimCompanionTxId: 'tx1-receive' },
+    })
+    expect(getTitle(tx, t)).toBe('보냄')
+  })
+
   it('pending + unclaimed sent token -> 전달 대기 중 (reuses send.receipt.pendingTitle)', () => {
     const tx = makeTx({ direction: 'send', status: 'pending', outcome: 'unclaimed' })
     expect(getTitle(tx, t)).toBe('전달 대기 중')
@@ -98,6 +110,49 @@ describe('getTitle — title is the ACT, not the means', () => {
   it('does not append a separator when there is no memo', () => {
     const tx = makeTx({ direction: 'receive', status: 'settled', memo: undefined })
     expect(getTitle(tx, t)).toBe('받음')
+  })
+})
+
+describe('isReclaimRow — exactly one 되찾음 row per reclaim', () => {
+  it('token path (two rows): the companion receive is the reclaim, the send is not', () => {
+    const sendHalf = makeTx({
+      id: 'send-1',
+      direction: 'send',
+      status: 'settled',
+      outcome: 'reclaimed',
+      metadata: { reclaimCompanionTxId: 'send-1-receive' },
+    })
+    const receiveHalf = makeTx({
+      id: 'send-1-receive',
+      direction: 'receive',
+      status: 'settled',
+      outcome: 'reclaimed',
+      metadata: { reclaimedFrom: 'send-1' },
+    })
+    expect([sendHalf, receiveHalf].filter(isReclaimRow)).toEqual([receiveHalf])
+  })
+
+  it('opId path (one row): the settled send row is the reclaim', () => {
+    const sendOnly = makeTx({
+      id: 'send-2',
+      direction: 'send',
+      status: 'settled',
+      outcome: 'reclaimed',
+    })
+    expect([sendOnly].filter(isReclaimRow)).toEqual([sendOnly])
+  })
+
+  it('an unstamped companion leaves the send row as the sole reclaim row', () => {
+    // The companion stamp is best-effort; if it failed the send row must still
+    // read as 되찾음 rather than the reclaim vanishing from history entirely.
+    const sendHalf = makeTx({
+      id: 'send-3',
+      direction: 'send',
+      status: 'settled',
+      outcome: 'reclaimed',
+    })
+    const plainReceive = makeTx({ id: 'send-3-receive', direction: 'receive', status: 'settled' })
+    expect([sendHalf, plainReceive].filter(isReclaimRow)).toEqual([sendHalf])
   })
 })
 

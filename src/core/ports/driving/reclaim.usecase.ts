@@ -13,5 +13,9 @@ export interface ReclaimUseCase {
      */
     reclaim(txId: string): Promise<Result<ReclaimSuccess, BaseError>>
     finalizeSend(txId: string): Promise<void>
-    markSendReclaimed(txId: string, reclaimFee?: number): Promise<boolean>
+    /**
+     * @param companionTxId the receive row that already carries this reclaim's
+     * 되찾음 label, so the send row keeps normal send presentation.
+     */
+    markSendReclaimed(txId: string, reclaimFee?: number, companionTxId?: string): Promise<boolean>
 }

@@ -3,13 +3,17 @@ import type { Transaction } from '@/core/domain/transaction'
 import { getTransactionType, getTxMeta, isReclaimableSend, isReclaimed } from '@/core/domain/transaction'
 
 /**
- * A reclaim reaches the ledger in two shapes and both must read as 되찾음:
- * the legacy token path stamps `reclaimedFrom` on a companion receive row,
+ * A reclaim reaches the ledger in two shapes and each must read as 되찾음 exactly
+ * once: the legacy token path stamps `reclaimedFrom` on a companion receive row,
  * while the operationId rollback path settles the send row itself as reclaimed
  * and writes no receive row at all.
  */
 export function isReclaimRow(tx: Transaction): boolean {
-  return Boolean(getTxMeta(tx).reclaimedFrom) || isReclaimed(tx)
+  const meta = getTxMeta(tx)
+  // The companion receive row is already this reclaim's 되찾음 row, so the send
+  // row keeps its own directional presentation — one 되찾음 per reclaim.
+  if (meta.reclaimCompanionTxId) return false
+  return Boolean(meta.reclaimedFrom) || isReclaimed(tx)
 }
 
 // Title = the ACT (받음/보냄/되찾음); means lives in the subtitle,

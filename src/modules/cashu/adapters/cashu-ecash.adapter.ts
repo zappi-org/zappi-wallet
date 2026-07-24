@@ -290,12 +290,26 @@ export class CashuEcashAdapter implements PaymentMethodAdapter, TransferOperator
       const opState = await this.backend.getSendOperationState(ref.operationId)
       if (opState === 'finalized') return 'settled'
       if (opState === 'rolled_back') return 'recoverable'
+      // A reclaim in flight has already spent the proofs, so the check below
+      // would read it as a recipient claim. Stay non-terminal and let the
+      // authoritative send:rolled-back settle it as a reclaim.
+      if (opState === 'rolling_back') return 'awaiting_confirmation'
     }
 
     // 2. Check token chain state
     if (ref.token) {
       const proofState = await this.backend.checkProofStates(ref.token)
-      if (proofState.allSpent) return 'settled'
+      if (proofState.allSpent) {
+        // A reclaim swap spends the very same proofs a claim does, so allSpent
+        // alone can't tell them apart. Step 1 may have run before the reclaim
+        // started — re-read the op to close that window.
+        if (ref.operationId) {
+          const opState = await this.backend.getSendOperationState(ref.operationId)
+          if (opState === 'rolling_back') return 'awaiting_confirmation'
+          if (opState === 'rolled_back') return 'recoverable'
+        }
+        return 'settled'
+      }
       if (proofState.allPending) return 'awaiting_confirmation'
     }
 

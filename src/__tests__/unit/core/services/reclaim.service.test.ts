@@ -12,6 +12,7 @@ import type { EventBus } from '@/core/events/event-bus'
 import type { Transaction } from '@/core/domain/transaction'
 import { sat } from '@/core/domain/amount'
 import { TokenSpentByRecipientError } from '@/core/errors/reclaim'
+import { isReclaimRow } from '@/ui/components/wallet/transactionHelpers'
 
 function createMockTxRepo(): TransactionRepository {
   return {
@@ -321,6 +322,48 @@ describe('ReclaimService', () => {
       expect(sendOp.rollbackSendToken).toHaveBeenCalledWith('op1')
     })
 
+    // Crash window: coco persisted the op as rolled_back (money already back in
+    // the wallet) but the process died before the ledger write. The retry must
+    // finish the ledger side, not strand the row on an UnknownError.
+    it('is idempotent against an already rolled_back op — settles reclaimed and returns Ok', async () => {
+      const tx = createUnclaimedSendTx('tx1', {
+        metadata: { operationId: 'op1' },
+      })
+      vi.mocked(txRepo.getById).mockResolvedValue(tx)
+      // Verbatim coco SendOpsApi.reclaim rejection for a non-pending op.
+      vi.mocked(sendOp.rollbackSendToken).mockRejectedValue(
+        new Error("Cannot reclaim operation in state 'rolled_back'. Expected 'pending'."),
+      )
+
+      const result = await service.reclaim('tx1')
+
+      expect(result.ok).toBe(true)
+      expect(txRepo.update).toHaveBeenCalledWith('tx1', {
+        status: 'settled',
+        outcome: 'reclaimed',
+        completedAt: expect.any(Number),
+      })
+      expect(pendingOps.delete).toHaveBeenCalledWith('tx1')
+      expect(eventBus.emit).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'send:claimed' }),
+      )
+    })
+
+    it('does NOT treat an in-flight rolling_back op as done — that swap has not returned the proofs yet', async () => {
+      const tx = createUnclaimedSendTx('tx1', {
+        metadata: { operationId: 'op1' },
+      })
+      vi.mocked(txRepo.getById).mockResolvedValue(tx)
+      vi.mocked(sendOp.rollbackSendToken).mockRejectedValue(
+        new Error("Cannot reclaim operation in state 'rolling_back'. Expected 'pending'."),
+      )
+
+      const result = await service.reclaim('tx1')
+
+      expect(!result.ok).toBe(true)
+      expect(txRepo.update).not.toHaveBeenCalled()
+    })
+
     it('should mark send as claimed when reclaim races with recipient claim', async () => {
       const tx = createUnclaimedSendTx('tx1', {
         metadata: { operationId: 'op1' },
@@ -619,5 +662,61 @@ describe('ReclaimService — token path stamps reclaimedFrom (integration)', () 
     const receiveTx = all.find((t) => t.direction === 'receive')
     expect(receiveTx).toBeDefined()
     expect(receiveTx?.metadata?.reclaimedFrom).toBe('send-tx-1')
+  })
+
+  // Both halves settle as reclaimed, so without the companion marker History
+  // would render the same reclaim as two unsigned 되찾음 rows.
+  it('leaves exactly one 되찾음 row: the send half points at its companion', async () => {
+    const realTxRepo = createInMemoryTxRepo()
+    const adapter = createRedeemAdapter()
+    const module = createRedeemModule(adapter)
+    const paymentService = new PaymentService([module], realTxRepo, createMockEventBus())
+    const realTokenReceiver = new TokenReceiverAdapter(paymentService)
+
+    await realTxRepo.save(
+      createUnclaimedSendTx('send-tx-1', { metadata: { token: 'cashuAabc123' } }),
+    )
+
+    const service = new ReclaimService(
+      realTxRepo,
+      createMockSendOp(),
+      realTokenReceiver,
+      createMockPendingOps(),
+      createMockEventBus(),
+    )
+
+    expect((await service.reclaim('send-tx-1')).ok).toBe(true)
+
+    const all = await realTxRepo.list()
+    const reclaimRows = all.filter(isReclaimRow)
+    expect(reclaimRows).toHaveLength(1)
+    expect(reclaimRows[0]?.direction).toBe('receive')
+
+    const sendTx = await realTxRepo.getById('send-tx-1')
+    expect(sendTx?.outcome).toBe('reclaimed')
+    expect(sendTx?.metadata?.reclaimCompanionTxId).toBe(reclaimRows[0]?.id)
+  })
+
+  it('opId path writes no companion marker — its single send row stays the 되찾음 row', async () => {
+    const realTxRepo = createInMemoryTxRepo()
+    await realTxRepo.save(
+      createUnclaimedSendTx('send-tx-2', { metadata: { operationId: 'op-2' } }),
+    )
+
+    const service = new ReclaimService(
+      realTxRepo,
+      createMockSendOp(),
+      createMockTokenReceiver(),
+      createMockPendingOps(),
+      createMockEventBus(),
+    )
+
+    expect((await service.reclaim('send-tx-2')).ok).toBe(true)
+
+    const all = await realTxRepo.list()
+    const reclaimRows = all.filter(isReclaimRow)
+    expect(reclaimRows).toHaveLength(1)
+    expect(reclaimRows[0]?.id).toBe('send-tx-2')
+    expect(reclaimRows[0]?.metadata?.reclaimCompanionTxId).toBeUndefined()
   })
 })

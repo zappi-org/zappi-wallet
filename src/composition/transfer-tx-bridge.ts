@@ -322,6 +322,13 @@ export function connectTransferTxBridge(
                 },
               };
             } else {
+              // A settled ecash send is terminal: a reclaim spends the same
+              // proofs a claim does, so a late poll can report 'settled' for
+              // money that came back to us. Never relabel it as claimed.
+              // (bolt11 above is exempt — its settle still carries fee/preimage.)
+              if (tx.status === "settled") {
+                return;
+              }
               tx = {
                 ...tx,
                 status: "settled",

@@ -355,5 +355,42 @@ describe('CashuEcashAdapter', () => {
       const noToken = makeSend({ transportRef: { operationId: 'send-op-1' } })
       await expect(adapter.confirmStuck(noToken)).resolves.toBeNull()
     })
+
+    // A reclaim swap spends the very proofs a recipient claim would, so a poll
+    // landing mid-reclaim must never report 'settled' — that reads as claimed.
+    describe('poll: a reclaim in flight is never read as a claim', () => {
+      it('rolling_back short-circuits before the proof check', async () => {
+        vi.mocked(backend.getSendOperationState).mockResolvedValue('rolling_back')
+
+        await expect(adapter.poll(makeSend())).resolves.toBe('awaiting_confirmation')
+        expect(backend.checkProofStates).not.toHaveBeenCalled()
+      })
+
+      it('allSpent re-reads the op: a rollback that started after step 1 still wins', async () => {
+        vi.mocked(backend.getSendOperationState)
+          .mockResolvedValueOnce('pending')
+          .mockResolvedValueOnce('rolling_back')
+        vi.mocked(backend.checkProofStates).mockResolvedValue({ allSpent: true, allPending: false, states: [] })
+
+        await expect(adapter.poll(makeSend())).resolves.toBe('awaiting_confirmation')
+        expect(backend.getSendOperationState).toHaveBeenCalledTimes(2)
+      })
+
+      it('allSpent re-reads the op: an already rolled_back op is recoverable, not settled', async () => {
+        vi.mocked(backend.getSendOperationState)
+          .mockResolvedValueOnce('pending')
+          .mockResolvedValueOnce('rolled_back')
+        vi.mocked(backend.checkProofStates).mockResolvedValue({ allSpent: true, allPending: false, states: [] })
+
+        await expect(adapter.poll(makeSend())).resolves.toBe('recoverable')
+      })
+
+      it('a genuine recipient claim still settles', async () => {
+        vi.mocked(backend.getSendOperationState).mockResolvedValue('pending')
+        vi.mocked(backend.checkProofStates).mockResolvedValue({ allSpent: true, allPending: false, states: [] })
+
+        await expect(adapter.poll(makeSend())).resolves.toBe('settled')
+      })
+    })
   })
 })
