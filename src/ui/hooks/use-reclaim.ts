@@ -26,7 +26,8 @@ export function useReclaim() {
   const { t } = useTranslation()
 
   const reclaim = useCallback(
-    async (txId: string): Promise<ReclaimHookResult> => {
+    // silent: caller owns the toast (e.g. useTokenReclaim) — suppress ours to avoid a double toast.
+    async (txId: string, opts?: { silent?: boolean }): Promise<ReclaimHookResult> => {
       if (!registry?.reclaim?.reclaim) {
         console.error('[useReclaim] Service not available')
         return {
@@ -60,10 +61,12 @@ export function useReclaim() {
         const spentByRecipient = error instanceof TokenSpentByRecipientError
 
         // 글로벌 토스트 처리
-        if (spentByRecipient) {
-          addToast({ type: 'info', message: t('txDetail.consumedByRecipient'), duration: 3000 })
-        } else {
-          addToast({ type: 'error', message: t('txDetail.reclaimFailed'), duration: 3000 })
+        if (!opts?.silent) {
+          if (spentByRecipient) {
+            addToast({ type: 'info', message: t('txDetail.consumedByRecipient'), duration: 3000 })
+          } else {
+            addToast({ type: 'error', message: t('txDetail.reclaimFailed'), duration: 3000 })
+          }
         }
 
         // Return error with context
@@ -82,9 +85,11 @@ export function useReclaim() {
       // Success
       const successData: ReclaimSuccess = result.value
       broadcastSync('balance_changed')
-      
+
       // 글로벌 성공 토스트
-      addToast({ type: 'success', message: t('txDetail.reclaimSuccess'), duration: 3000 })
+      if (!opts?.silent) {
+        addToast({ type: 'success', message: t('txDetail.reclaimSuccess'), duration: 3000 })
+      }
 
       return {
         success: true,

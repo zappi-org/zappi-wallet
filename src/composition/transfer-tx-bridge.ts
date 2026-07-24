@@ -213,6 +213,7 @@ export function connectTransferTxBridge(
               | {
                   token?: string
                   fee?: number
+                  operationId?: string
                 }
               | undefined;
             const baseTx = createTransaction({
@@ -227,6 +228,9 @@ export function connectTransferTxBridge(
                 ? { fee: { quoted: sat(ecashRef.fee) } }
                 : {}),
               metadata: {
+                // Reclaim cancels the coco send op via this id (rollback → returns
+                // proofs, no false claim). token stays as display/legacy fallback.
+                operationId: ecashRef?.operationId,
                 token: ecashRef?.token,
                 tokenState: "unspent", // ← list() 필터에서 필요!
                 direction: transfer.direction,

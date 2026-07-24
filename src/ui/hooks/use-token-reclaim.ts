@@ -18,7 +18,8 @@ export function useTokenReclaim() {
   const addToast = useAppStore((s) => s.addToast)
 
   const reclaimToken = async (tokenId: string): Promise<ReclaimTokenResult> => {
-    const result = await reclaim(tokenId)
+    // silent: this hook owns the toast (specific translated error below) — inner hook must not also toast.
+    const result = await reclaim(tokenId, { silent: true })
 
     if (!result.success) {
       // TokenSpentByRecipientError 체크: 상대방이 이미 수령함

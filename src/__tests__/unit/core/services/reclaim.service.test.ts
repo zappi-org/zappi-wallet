@@ -274,6 +274,38 @@ describe('ReclaimService', () => {
       })
     })
 
+    it('prefers the operationId path over self-redeem for direct-transfer ecash (metadata has both)', async () => {
+      // A direct-transfer ecash send now carries BOTH operationId and token.
+      // Reclaim must cancel the send op (rollback), never self-redeem the token:
+      // self-redeem leaves the coco send op dangling and surfaces a false "claimed".
+      const tx = createUnclaimedSendTx('tx1', {
+        metadata: { operationId: 'op1', token: 'cashuAabc123' },
+      })
+      vi.mocked(txRepo.getById).mockResolvedValue(tx)
+      vi.mocked(sendOp.rollbackSendToken).mockResolvedValue(undefined)
+
+      const result = await service.reclaim('tx1')
+
+      expect(result.ok).toBe(true)
+      expect(sendOp.rollbackSendToken).toHaveBeenCalledWith('op1')
+      // The token path (self-redeem) must not run — no receive TX is created.
+      expect(tokenReceiver.receiveToken).not.toHaveBeenCalled()
+      expect(txRepo.save).not.toHaveBeenCalled()
+      // Settles as reclaimed and emits send-reclaimed, never send:claimed.
+      expect(txRepo.update).toHaveBeenCalledWith('tx1', {
+        status: 'settled',
+        outcome: 'reclaimed',
+        completedAt: expect.any(Number),
+      })
+      expect(eventBus.emit).toHaveBeenCalledWith({
+        type: 'transactions:changed',
+        payload: { reason: 'send-reclaimed', txId: 'tx1' },
+      })
+      expect(eventBus.emit).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'send:claimed' }),
+      )
+    })
+
     it('should handle concurrent reclaim when rollback fails but tx is reclaimed', async () => {
       const tx = createUnclaimedSendTx('tx1', {
         metadata: { operationId: 'op1' },
@@ -351,6 +383,8 @@ describe('ReclaimService', () => {
 
       expect(result.ok).toBe(true)
       expect(tokenReceiver.receiveToken).toHaveBeenCalledWith('cashuAabc123')
+      // No operationId → falls back to the token path, never the rollback path.
+      expect(sendOp.rollbackSendToken).not.toHaveBeenCalled()
       expect(txRepo.update).toHaveBeenCalledWith('tx1', expect.objectContaining({
         status: 'settled',
         outcome: 'reclaimed',
