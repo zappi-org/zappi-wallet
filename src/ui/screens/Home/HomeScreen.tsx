@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useCarouselScroll } from "@/ui/hooks/use-carousel-scroll";
 import { usePullToRefresh } from "@/ui/hooks/use-pull-to-refresh";
-import { Plus, LoaderCircle, ArrowDown, ChevronRight, Eye, EyeOff, CircleUserRound } from "lucide-react";
+import { Plus, LoaderCircle, ArrowDown, ChevronRight, Eye, EyeOff, User } from "lucide-react";
+import { tabGlassClass } from "@/ui/components/layout/TabToolbar/styles";
 
 import { useTranslation } from "react-i18next";
 import { hapticTap } from "@/ui/utils/haptic";
@@ -198,17 +199,21 @@ export function HomeScreen({
 
       {/* Header — profile (scan moved to the bottom dock) */}
       <div className="shrink-0 h-14 px-5 flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => {
-            hapticTap();
-            onProfile();
-          }}
-          aria-label={t("myAddress.title")}
-          className="w-10 h-10 rounded-full flex items-center justify-center text-foreground-muted hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors"
-        >
-          <CircleUserRound className="w-6 h-6" strokeWidth={1.8} />
-        </button>
+        {/* Same glass chip as the bottom dock's camera button, so the two
+            corner icon-buttons read as one system. */}
+        <div className={tabGlassClass}>
+          <button
+            type="button"
+            onClick={() => {
+              hapticTap();
+              onProfile();
+            }}
+            aria-label={t("myAddress.title")}
+            className="relative z-20 flex items-center justify-center w-11 h-11 rounded-full text-foreground/80 transition-colors active:bg-foreground/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          >
+            <User className="w-[19px] h-[19px]" strokeWidth={2} />
+          </button>
+        </div>
       </div>
 
       {/* Fixed top: Balance + Cards */}
