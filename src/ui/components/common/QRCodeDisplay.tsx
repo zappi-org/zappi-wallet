@@ -93,7 +93,8 @@ export const QRCodeDisplay = memo(function QRCodeDisplay({
       <QRCodeSVG
         value={value}
         size={renderSize}
-        level={isUri ? 'L' : level}
+        // L is density relief for long payloads only; short URIs keep the caller's level
+        level={isUri && value.length > ANIMATED_THRESHOLD ? 'L' : level}
         marginSize={4}
         style={{ width: '100%', height: 'auto' }}
       />

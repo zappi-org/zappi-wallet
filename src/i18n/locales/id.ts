@@ -819,7 +819,7 @@ export default {
     max: 'Maks',
     next: 'Lanjut',
     noOtherWallets: 'Tidak ada dompet lain',
-    myWalletList: 'Kirim ke diri sendiri',
+    myWalletList: 'Mint Saya',
     amountRequired: 'Masukkan jumlah',
     destination: {
       whoToSend: 'Kirim ke siapa?',
@@ -842,7 +842,7 @@ export default {
       label: 'Transfer langsung',
       createFailed: 'Gagal membuat token',
       noMint: 'Tidak ada mint tersedia',
-      awaitingClaim: 'Menunggu diambil',
+      awaitingClaim: 'Selesai saat mereka menerima',
       claimed: 'Sudah diambil',
     },
     tokenCreate: {

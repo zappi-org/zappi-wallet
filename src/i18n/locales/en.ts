@@ -815,7 +815,7 @@ export default {
     max: 'Max',
     next: 'Next',
     noOtherWallets: 'No other wallets',
-    myWalletList: 'Send to myself',
+    myWalletList: 'My mints',
     amountRequired: 'Please enter an amount',
     destination: {
       whoToSend: 'Who are you sending to?',
@@ -838,7 +838,7 @@ export default {
       label: 'Direct transfer',
       createFailed: 'Failed to create token',
       noMint: 'No mint available',
-      awaitingClaim: 'Awaiting pickup',
+      awaitingClaim: 'Completes once they receive it',
       claimed: 'Picked up',
     },
     tokenCreate: {

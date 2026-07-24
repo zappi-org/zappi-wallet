@@ -126,7 +126,7 @@ export function HomeScreen({
     // Boolean-returning wrapper: isReclaimableSend's `tx is Transaction` type
     // guard would otherwise narrow tx to `never` in the branch below (its
     // input is already typed Transaction, so the false branch collapses).
-    const isReclaimable = (t: Transaction): boolean => isReclaimableSend(t);
+    const isReclaimable = (tx: Transaction): boolean => isReclaimableSend(tx);
     return transactions.filter((tx) => {
       if (tx.status === "failed") return false;
       if (isReclaimable(tx)) return false; // pending list carries these — same money, one row

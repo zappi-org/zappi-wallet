@@ -220,7 +220,7 @@ export function SendInputStep({
         transition={{ duration: 0.15, ease: 'easeOut' }}
         className="flex-1 overflow-y-auto px-6 pt-20"
       >
-        <h2 className="text-[26px] font-bold text-foreground break-keep text-center leading-snug">
+        <h2 className="text-[22px] font-medium text-foreground break-keep text-center leading-snug">
           {t('send.destination.whoToSend')}
         </h2>
         {/* Destination input — pill style. The pill itself stays put and fades

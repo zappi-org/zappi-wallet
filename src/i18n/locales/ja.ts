@@ -817,7 +817,7 @@ export default {
     max: '全額',
     next: '次へ',
     noOtherWallets: '他のウォレットがありません',
-    myWalletList: '自分に送る',
+    myWalletList: '自分のミント',
     amountRequired: '金額を入力してください',
     destination: {
       whoToSend: '誰に送りますか？',
@@ -840,7 +840,7 @@ export default {
       label: '直接受け渡し',
       createFailed: 'トークンの作成に失敗しました',
       noMint: '利用可能なミントがありません',
-      awaitingClaim: '受け渡し待ち',
+      awaitingClaim: '相手が受け取ると完了します',
       claimed: '受け取り完了',
     },
     tokenCreate: {

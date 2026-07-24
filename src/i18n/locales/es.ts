@@ -819,7 +819,7 @@ export default {
     max: 'Máx',
     next: 'Siguiente',
     noOtherWallets: 'No hay otras billeteras',
-    myWalletList: 'Enviarme a mí',
+    myWalletList: 'Mis Mints',
     amountRequired: 'Ingresa un monto',
     destination: {
       whoToSend: '¿A quién enviar?',
@@ -842,7 +842,7 @@ export default {
       label: 'Entrega directa',
       createFailed: 'No se pudo crear el token',
       noMint: 'No hay mint disponible',
-      awaitingClaim: 'Esperando cobro',
+      awaitingClaim: 'Se completa cuando lo reciben',
       claimed: 'Cobrado',
     },
     tokenCreate: {

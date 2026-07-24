@@ -821,7 +821,7 @@ export default {
     max: '전액',
     next: '다음',
     noOtherWallets: '다른 지갑이 없습니다',
-    myWalletList: '나에게 보내기',
+    myWalletList: '내 민트',
     amountRequired: '금액을 입력해주세요',
     destination: {
       whoToSend: '누구에게 보낼까요?',
@@ -844,7 +844,7 @@ export default {
       label: '직접 전달',
       createFailed: '토큰 생성에 실패했어요',
       noMint: '사용할 민트가 없어요',
-      awaitingClaim: '전달 대기 중',
+      awaitingClaim: '상대가 받으면 완료돼요',
       claimed: '수령 완료',
     },
     tokenCreate: {
