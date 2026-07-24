@@ -4,6 +4,7 @@
  * Pinned contracts:
  * - fetchInvoice: amountSats * 1000 via Math.floor — never inflates the requested amount
  * - min/maxSendable(msat) bounds are inclusive; out-of-range throws before any network request
+ * - the returned invoice's own amount must equal the requested amount
  * - comment is only sent within the commentAllowed length
  * - resolvePay: Lightning Address format validation + well-known path assembly
  */
@@ -16,6 +17,31 @@ const fetchMock = vi.fn()
 function jsonResponse(data: unknown, ok = true, status = 200) {
   return { ok, status, json: async () => data }
 }
+
+/**
+ * Real decodable BOLT11 invoices differing only in their amount prefix
+ * (re-bech32-encoded from one vector; the decoder does not check signatures).
+ * All share timestamp 1648859703 + expiry 172800.
+ */
+const INVOICE_BODY =
+  '1p3y0x3hpp5743k2g0fsqqxj7n8qzuhns5gmkk4djeejk3wkp64ppevgekvc0jsdqcve5kzar2v9nr5gpqd4hkuetesp5ez2g297jduwc20t6lmqlsg3man0vf2jfd8ar9fh8fhn2g8yttfkqxqy9gcqcqzys9qrsgqrzjqtx3k77yrrav9hye7zar2rtqlfkytl094dsp0ms5majzth6gt7ca6uhdkxl983uywgqqqqlgqqqvx5qqjqrzjqd98kxkpyw0l9tyy8r8q57k7zpy9zjmh6sez752wj6gcumqnj3yxzhdsmg6qq56utgqqqqqqqqqqqeqqjq7jd56882gtxhrjm03c93aacyfy306m4fq0tskf83c0nmet8zc2lxyyg3saz8x6vwcp26xnrlagf9semau3qm2glysp7sv95693fphvsp'
+
+/** 2,000,000 msat = 2000 sats */
+const INVOICE_2000_SATS = `lnbc20u${INVOICE_BODY}54l567`
+/** 2,100,000 msat = 2100 sats */
+const INVOICE_2100_SATS = `lnbc21u${INVOICE_BODY}kgljzx`
+/** 1,000,000 msat = 1000 sats */
+const INVOICE_1000_SATS = `lnbc10u${INVOICE_BODY}x6ks8f`
+/** no amount prefix — payee-chosen amount */
+const INVOICE_AMOUNTLESS = `lnbc${INVOICE_BODY}p9vfs9`
+/** 1,000 msat = 1 sat (minSendable boundary) */
+const INVOICE_1_SAT = `lnbc10n${INVOICE_BODY}jlc636`
+/** 500,000,000 msat = 500,000 sats (maxSendable boundary) */
+const INVOICE_500K_SATS = `lnbc5m${INVOICE_BODY}7qt6lr`
+
+const INVOICE_TIMESTAMP = 1648859703
+/** inside the invoices' validity window (timestamp + 172800s) */
+const WITHIN_VALIDITY_MS = (INVOICE_TIMESTAMP + 1_000) * 1000
 
 const PAY_PARAMS: LnurlPayParams = {
   callback: 'https://ln.example.com/cb',
@@ -32,12 +58,14 @@ describe('DirectLnurlAdapter', () => {
 
   beforeEach(() => {
     vi.stubGlobal('fetch', fetchMock)
-    // 'dummy-pr' isn't valid bolt11, so description_hash verification is skipped
-    // (verifyDescriptionHash intentionally ignores decode failures — only a hash mismatch throws)
-    fetchMock.mockReset().mockResolvedValue(jsonResponse({ pr: 'dummy-pr' }))
+    // Invoices are honest by default: 2000 sats requested → 2000 sat invoice.
+    vi.useFakeTimers()
+    vi.setSystemTime(WITHIN_VALIDITY_MS)
+    fetchMock.mockReset().mockResolvedValue(jsonResponse({ pr: INVOICE_2000_SATS }))
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
   })
 
@@ -47,15 +75,15 @@ describe('DirectLnurlAdapter', () => {
 
   // ─── sat → msat conversion ───
 
-  it('fetchInvoice: 21 sats → calls callback with amount=21000 (msat)', async () => {
-    const result = await adapter.fetchInvoice(PAY_PARAMS, 21)
-    expect(requestedUrl().searchParams.get('amount')).toBe('21000')
-    expect(result.bolt11).toBe('dummy-pr')
+  it('fetchInvoice: 2000 sats → calls callback with amount=2000000 (msat)', async () => {
+    const result = await adapter.fetchInvoice(PAY_PARAMS, 2000)
+    expect(requestedUrl().searchParams.get('amount')).toBe('2000000')
+    expect(result.bolt11).toBe(INVOICE_2000_SATS)
   })
 
   it('fetchInvoice: fractional sats are floored in msat — never inflates the requested amount', async () => {
-    await adapter.fetchInvoice(PAY_PARAMS, 21.0009)
-    expect(requestedUrl().searchParams.get('amount')).toBe('21000')
+    await adapter.fetchInvoice(PAY_PARAMS, 2000.0009)
+    expect(requestedUrl().searchParams.get('amount')).toBe('2000000')
   })
 
   it('fetchInvoice: below minSendable throws without a network request', async () => {
@@ -73,23 +101,61 @@ describe('DirectLnurlAdapter', () => {
   })
 
   it('fetchInvoice: boundaries are inclusive — exact min/max passes', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ pr: INVOICE_1_SAT }))
     await adapter.fetchInvoice(PAY_PARAMS, 1)
     expect(requestedUrl().searchParams.get('amount')).toBe('1000')
 
-    fetchMock.mockClear().mockResolvedValue(jsonResponse({ pr: 'dummy-pr' }))
+    fetchMock.mockClear().mockResolvedValue(jsonResponse({ pr: INVOICE_500K_SATS }))
     await adapter.fetchInvoice(PAY_PARAMS, 500_000)
     expect(requestedUrl().searchParams.get('amount')).toBe('500000000')
+  })
+
+  // ─── returned invoice amount ───
+
+  it('fetchInvoice: an invoice for MORE than requested is rejected', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ pr: INVOICE_2100_SATS }))
+    await expect(adapter.fetchInvoice(PAY_PARAMS, 2000)).rejects.toThrow(
+      'Invoice amount (2100000 msat) does not match the requested amount (2000000 msat)',
+    )
+  })
+
+  it('fetchInvoice: an invoice for LESS than requested is rejected', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ pr: INVOICE_1000_SATS }))
+    await expect(adapter.fetchInvoice(PAY_PARAMS, 2000)).rejects.toThrow(
+      'Invoice amount (1000000 msat) does not match the requested amount (2000000 msat)',
+    )
+  })
+
+  it('fetchInvoice: an amountless invoice is rejected — the payee would pick the amount', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ pr: INVOICE_AMOUNTLESS }))
+    await expect(adapter.fetchInvoice(PAY_PARAMS, 2000)).rejects.toThrow(
+      'LNURL service returned an invoice without an amount',
+    )
+  })
+
+  it('fetchInvoice: an undecodable invoice is rejected', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ pr: 'not-a-bolt11' }))
+    await expect(adapter.fetchInvoice(PAY_PARAMS, 2000)).rejects.toThrow(
+      'LNURL service returned an undecodable invoice',
+    )
+  })
+
+  it('fetchInvoice: an already-expired invoice is rejected', async () => {
+    vi.setSystemTime((INVOICE_TIMESTAMP + 172_800 + 1) * 1000)
+    await expect(adapter.fetchInvoice(PAY_PARAMS, 2000)).rejects.toThrow(
+      'LNURL service returned an already-expired invoice',
+    )
   })
 
   // ─── comment gating ───
 
   it('fetchInvoice: sends a comment within the commentAllowed length', async () => {
-    await adapter.fetchInvoice(PAY_PARAMS, 21, { comment: 'thanks!' })
+    await adapter.fetchInvoice(PAY_PARAMS, 2000, { comment: 'thanks!' })
     expect(requestedUrl().searchParams.get('comment')).toBe('thanks!')
   })
 
   it('fetchInvoice: silently drops a comment exceeding commentAllowed', async () => {
-    await adapter.fetchInvoice(PAY_PARAMS, 21, { comment: 'x'.repeat(21) })
+    await adapter.fetchInvoice(PAY_PARAMS, 2000, { comment: 'x'.repeat(21) })
     expect(requestedUrl().searchParams.get('comment')).toBeNull()
   })
 

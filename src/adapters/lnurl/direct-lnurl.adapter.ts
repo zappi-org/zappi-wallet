@@ -149,6 +149,7 @@ export class DirectLnurlAdapter implements LnurlGateway {
       throw new Error('No payment request returned from LNURL service')
     }
 
+    this.assertInvoiceMatchesRequest(data.pr, amountMsat)
     await this.verifyDescriptionHash(data.pr, params.metadata)
 
     return {
@@ -261,6 +262,45 @@ export class DirectLnurlAdapter implements LnurlGateway {
     return {
       status: data.status === 'OK' ? 'OK' : 'ERROR',
       reason: data.reason,
+    }
+  }
+
+  // ── Returned invoice must match what we asked for ──
+
+  /**
+   * The invoice — not the requested amount — is what actually gets paid, so a
+   * server that returns a different (or open-ended) invoice must be rejected
+   * before it reaches the melt. Undecodable means unverifiable, so it fails too.
+   */
+  private assertInvoiceMatchesRequest(invoice: string, amountMsat: number): void {
+    let sections: Array<{ name: string; value?: unknown }>
+    try {
+      sections = decode(invoice).sections as Array<{ name: string; value?: unknown }>
+    } catch {
+      throw new Error('LNURL service returned an undecodable invoice')
+    }
+
+    const amountSection = sections.find((s) => s.name === 'amount')
+    if (!amountSection) {
+      // An amountless invoice lets the payee decide how much to take.
+      throw new Error('LNURL service returned an invoice without an amount')
+    }
+
+    const invoiceMsat = Number(amountSection.value)
+    if (!Number.isFinite(invoiceMsat) || invoiceMsat !== amountMsat) {
+      throw new Error(
+        `Invoice amount (${invoiceMsat} msat) does not match the requested amount (${amountMsat} msat)`,
+      )
+    }
+
+    // light-bolt11-decoder's own `expiry` getter is shadowed by its tag getters
+    // and yields the raw delta, so derive the absolute deadline from sections.
+    const timestamp = Number(sections.find((s) => s.name === 'timestamp')?.value)
+    const expiryDelta = Number(sections.find((s) => s.name === 'expiry')?.value)
+    if (Number.isFinite(timestamp) && Number.isFinite(expiryDelta)) {
+      if (Date.now() / 1000 >= timestamp + expiryDelta) {
+        throw new Error('LNURL service returned an already-expired invoice')
+      }
     }
   }
 
