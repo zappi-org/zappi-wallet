@@ -61,13 +61,9 @@ export const QRCodeDisplay = memo(function QRCodeDisplay({
   level = 'M',
   fill = false,
 }: QRCodeDisplayProps) {
-  // bitcoin: URIs must stay single-frame — generic wallets can't read BC-UR.
-  // Hard cap 2500: beyond that a static QR stops scanning at phone size, so we
-  // fall back to UR and log — silent interop loss is worse than a console line.
-  const isUri = value.startsWith('bitcoin:')
-  const overCap = value.length > 2500
-  if (isUri && overCap) console.warn('[QR] bitcoin: URI exceeds static cap, falling back to UR')
-  const isAnimated = value.length > ANIMATED_THRESHOLD && (!isUri || overCap)
+  // A dense static QR at phone size may not scan at all, so long payloads —
+  // bitcoin: URIs included — animate like any other protocol.
+  const isAnimated = value.length > ANIMATED_THRESHOLD
   const renderSize = size ?? RENDER_SIZE
 
   if (isAnimated) {
@@ -93,8 +89,7 @@ export const QRCodeDisplay = memo(function QRCodeDisplay({
       <QRCodeSVG
         value={value}
         size={renderSize}
-        // L is density relief for long payloads only; short URIs keep the caller's level
-        level={isUri && value.length > ANIMATED_THRESHOLD ? 'L' : level}
+        level={level}
         marginSize={4}
         style={{ width: '100%', height: 'auto' }}
       />

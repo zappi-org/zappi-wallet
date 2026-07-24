@@ -3,8 +3,8 @@ import { render, cleanup } from '@testing-library/react'
 
 // bc-ur's transitive cborg dependency has no "main" in its package.json
 // exports map, which vite/vitest can't resolve — mock it out so the real
-// QRCodeDisplay module (and its isUri/overCap policy) can still be imported
-// and exercised, instead of mocking QRCodeDisplay itself (as other tests do).
+// QRCodeDisplay module can still be imported and exercised, instead of
+// mocking QRCodeDisplay itself (as other tests do).
 vi.mock('@gandlaf21/bc-ur', () => ({
   UR: { fromBuffer: () => ({}) },
   UREncoder: class {
@@ -27,30 +27,22 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('QRCodeDisplay — bitcoin: URI stays scannable (D3 policy)', () => {
-  it('renders a short bitcoin: URI statically (below both thresholds)', () => {
+describe('QRCodeDisplay — static vs animated threshold', () => {
+  it('renders a short value statically, bitcoin: URIs included', () => {
     const value = `bitcoin:${'a'.repeat(50)}`
     const { queryByText } = render(<QRCodeDisplay value={value} />)
     expect(queryByText(FRAME_COUNTER)).not.toBeInTheDocument()
   })
 
-  it('keeps a bitcoin: URI static past the generic 500-char animated threshold', () => {
-    const value = `bitcoin:${'a'.repeat(600)}` // > ANIMATED_THRESHOLD, < 2500 hard cap
-    const { queryByText } = render(<QRCodeDisplay value={value} />)
-    expect(queryByText(FRAME_COUNTER)).not.toBeInTheDocument()
-  })
-
-  it('falls back to animated UR past the 2500-char hard cap and warns once', () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const value = `bitcoin:${'a'.repeat(2500)}` // length > 2500
+  // A dense static QR doesn't scan reliably at phone size, so bitcoin: URIs
+  // animate past the threshold exactly like any other long payload.
+  it('animates a bitcoin: URI past the 500-char threshold', () => {
+    const value = `bitcoin:${'a'.repeat(600)}`
     const { getByText } = render(<QRCodeDisplay value={value} />)
     expect(getByText(FRAME_COUNTER)).toBeInTheDocument()
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('bitcoin: URI exceeds static cap'),
-    )
   })
 
-  it('preserves the existing 500-char animated threshold for non-URI values', () => {
+  it('animates a long non-URI value past the same threshold', () => {
     const value = 'a'.repeat(600)
     const { getByText } = render(<QRCodeDisplay value={value} />)
     expect(getByText(FRAME_COUNTER)).toBeInTheDocument()

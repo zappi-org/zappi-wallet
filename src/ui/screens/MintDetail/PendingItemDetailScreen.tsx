@@ -63,7 +63,9 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
   const [isRedeeming, setIsRedeeming] = useState(false)
   const [isResolvingExpiry, setIsResolvingExpiry] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
-  const [qrPayload, setQrPayload] = useState<{ value: string; title: string; veil: boolean; payloads?: TokenQrModalPayload[] } | null>(null)
+  // `multi` marks the chip's QR as reading the live `qrPayloads` memo below,
+  // so a late-arriving invoice adds its tab without a stale snapshot.
+  const [qrPayload, setQrPayload] = useState<{ value: string; title: string; veil: boolean; payloads?: TokenQrModalPayload[]; multi?: boolean } | null>(null)
   const addToast = useAppStore((s) => s.addToast)
 
   const mintUrls = useMemo(() => [item.accountId], [item.accountId])
@@ -433,7 +435,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
           {chipPayload && (
             <div className="flex gap-2">
               <button
-                onClick={() => setQrPayload({ value: chipPayload, title: typeLabel, veil: chipVeil, payloads: qrPayloads })}
+                onClick={() => setQrPayload({ value: chipPayload, title: typeLabel, veil: chipVeil, multi: true })}
                 className="flex-1 flex items-center justify-center gap-1.5 h-11 rounded-full bg-background-card border border-border/60 text-caption font-semibold text-foreground active:scale-[0.98] transition-transform"
               >
                 <QrCode className="w-4 h-4" strokeWidth={1.8} /> QR
@@ -503,7 +505,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
         token={qrPayload?.value ?? ''}
         title={qrPayload?.title}
         veil={qrPayload?.veil ?? false}
-        payloads={qrPayload?.payloads}
+        payloads={qrPayload?.multi ? qrPayloads : qrPayload?.payloads}
         onClose={() => setQrPayload(null)}
       />
     </div>
