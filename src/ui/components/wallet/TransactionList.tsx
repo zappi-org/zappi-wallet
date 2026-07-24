@@ -5,6 +5,7 @@ import { getTransactionType, getTxMeta } from '@/core/domain/transaction'
 import { useMintMetadata } from '@/ui/hooks'
 import { cn } from '@/ui/lib/utils'
 import { TransactionRow } from './TransactionRow'
+import { collectReclaimCompanionSendIds } from './transactionHelpers'
 
 interface TransactionListProps {
   transactions: Transaction[]
@@ -33,6 +34,12 @@ export function TransactionList({
   const displayTransactions = transactions.slice(0, maxItems)
   const routeTransactions = allTransactions ?? transactions
   const transactionById = useMemo(() => new Map(routeTransactions.map((tx) => [tx.id, tx])), [routeTransactions])
+  // From the full set, never the slice — a legacy reclaim's companion receive
+  // row is often outside the 5 rows this list shows.
+  const reclaimCompanionSendIds = useMemo(
+    () => collectReclaimCompanionSendIds(routeTransactions),
+    [routeTransactions],
+  )
 
   // Collect all mint URLs for metadata lookup
   const mintUrls = useMemo(() => {
@@ -87,6 +94,7 @@ export function TransactionList({
               <TransactionRow
                 transaction={tx}
                 linkedTransaction={tx.linkedTxId ? transactionById.get(tx.linkedTxId) : null}
+                hasCompanionReceive={reclaimCompanionSendIds.has(tx.id)}
                 onClick={() => onTransactionClick?.(tx)}
                 getMintName={getDisplayName}
                 showDate={showDate}

@@ -32,7 +32,7 @@ import { DateFilterSheet } from '@/ui/components/common/DateFilterSheet'
 import { MintFilterSheet } from '@/ui/components/common/MintFilterSheet'
 import { BottomSheet, BottomSheetItem } from '@/ui/components/common/BottomSheet'
 import { type DateFilterValue, computeDateCutoff, getDateFilterLabel, isDateFilterActive } from '@/ui/utils/dateFilter'
-import { getTitle, getTypeLabel } from '@/ui/components/wallet/transactionHelpers'
+import { collectReclaimCompanionSendIds, getTitle, getTypeLabel } from '@/ui/components/wallet/transactionHelpers'
 import { getMintFilterLabel } from '@/ui/hooks/useAvailableMints'
 import { exportTransactionsCsv } from '@/ui/utils/exportTransactions'
 import { FilterChip } from '@/ui/components/common/FilterChip'
@@ -214,6 +214,12 @@ export function HistoryScreen({
   }, [registry, triggerTxRefresh])
 
   const transactionById = useMemo(() => new Map(transactions.map((tx) => [tx.id, tx])), [transactions])
+  // From the unfiltered set — a filter or search that hides a legacy reclaim's
+  // companion receive row must not turn its send half back into a 되찾음.
+  const reclaimCompanionSendIds = useMemo(
+    () => collectReclaimCompanionSendIds(transactions),
+    [transactions],
+  )
 
   const { items: pendingItemsRaw, isLoading: isPendingLoading, refresh: refreshPendingItems } = useAllPendingItems(settings.mints)
   const pendingSendItems = useMemo(
@@ -424,7 +430,7 @@ export function HistoryScreen({
         const mint = tx.accountId.toLowerCase()
         // Title is now the act (받음/보냄); search must also match the means
         // (e.g. Lightning) so a means query doesn't silently return nothing.
-        const title = getTitle(tx, t).toLowerCase()
+        const title = getTitle(tx, t, reclaimCompanionSendIds.has(tx.id)).toLowerCase()
         const means = getTypeLabel(tx, t).toLowerCase()
         const txMeta = getTxMeta(tx)
         const source = txMeta.source ? t(txSourceKey(txMeta.source)).toLowerCase() : ''
@@ -435,7 +441,7 @@ export function HistoryScreen({
     }
 
     return filtered
-  }, [transactions, filter, dateCutoff, searchQuery, selectedMintUrls, t])
+  }, [transactions, reclaimCompanionSendIds, filter, dateCutoff, searchQuery, selectedMintUrls, t])
 
   const timelineGroups = useMemo(
     () => groupTransactionsForTimeline(filteredTransactions),
@@ -688,6 +694,7 @@ export function HistoryScreen({
                             key={tx.id}
                             transaction={tx}
                             linkedTransaction={tx.linkedTxId ? transactionById.get(tx.linkedTxId) : null}
+                            hasCompanionReceive={reclaimCompanionSendIds.has(tx.id)}
                             groupKind={group.kind}
                             onClick={() => selectTransaction(tx)}
                             getMintName={getDisplayName}

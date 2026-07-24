@@ -203,19 +203,17 @@ export async function recoverLegacySendTokens(
 
     try {
       await receiveToken(token)
-      const reclaimTxId = `${pending.id}-reclaim`
       if (existingTx) {
-        // Mark original send as reclaimed + create receive record.
-        // reclaimCompanionTxId points at that receive row so History shows the
-        // 되찾음 label once, on the companion, not on both halves.
+        // Mark original send as reclaimed + create receive record
         await txRepo.update(pending.id, {
           status: 'settled',
           outcome: 'reclaimed',
           completedAt: Date.now(),
-          metadata: { ...existingTx.metadata, reclaimed: true, reclaimCompanionTxId: reclaimTxId },
+          metadata: { ...existingTx.metadata, reclaimed: true },
         })
       }
       const now = Date.now()
+      const reclaimTxId = `${pending.id}-reclaim`
       const existingReclaim = await txRepo.getById(reclaimTxId)
       if (!existingReclaim) {
         await txRepo.save({

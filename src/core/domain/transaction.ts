@@ -71,7 +71,6 @@ export function getTxMeta(tx: Transaction) {
     toMintUrl: m.toMintUrl as string | undefined,
     fee: m.fee as number | undefined,
     reclaimedFrom: m.reclaimedFrom as string | undefined,
-    reclaimCompanionTxId: m.reclaimCompanionTxId as string | undefined,
     destination: m.destination as string | undefined,
     transferId: m.transferId as string | undefined,
   }

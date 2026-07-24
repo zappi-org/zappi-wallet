@@ -12,7 +12,13 @@ import type { EventBus } from '@/core/events/event-bus'
 import type { Transaction } from '@/core/domain/transaction'
 import { sat } from '@/core/domain/amount'
 import { TokenSpentByRecipientError } from '@/core/errors/reclaim'
-import { isReclaimRow } from '@/ui/components/wallet/transactionHelpers'
+import { collectReclaimCompanionSendIds, isReclaimRow } from '@/ui/components/wallet/transactionHelpers'
+
+/** What a list surface renders as 되찾음, derived from the full ledger. */
+function reclaimRowsOf(all: Transaction[]): Transaction[] {
+  const companions = collectReclaimCompanionSendIds(all)
+  return all.filter((tx) => isReclaimRow(tx, companions.has(tx.id)))
+}
 
 function createMockTxRepo(): TransactionRepository {
   return {
@@ -664,9 +670,9 @@ describe('ReclaimService — token path stamps reclaimedFrom (integration)', () 
     expect(receiveTx?.metadata?.reclaimedFrom).toBe('send-tx-1')
   })
 
-  // Both halves settle as reclaimed, so without the companion marker History
+  // Both halves settle as reclaimed, so without the derived companion History
   // would render the same reclaim as two unsigned 되찾음 rows.
-  it('leaves exactly one 되찾음 row: the send half points at its companion', async () => {
+  it('leaves exactly one 되찾음 row: the companion receive, not the send half', async () => {
     const realTxRepo = createInMemoryTxRepo()
     const adapter = createRedeemAdapter()
     const module = createRedeemModule(adapter)
@@ -688,16 +694,15 @@ describe('ReclaimService — token path stamps reclaimedFrom (integration)', () 
     expect((await service.reclaim('send-tx-1')).ok).toBe(true)
 
     const all = await realTxRepo.list()
-    const reclaimRows = all.filter(isReclaimRow)
+    const reclaimRows = reclaimRowsOf(all)
     expect(reclaimRows).toHaveLength(1)
     expect(reclaimRows[0]?.direction).toBe('receive')
 
     const sendTx = await realTxRepo.getById('send-tx-1')
     expect(sendTx?.outcome).toBe('reclaimed')
-    expect(sendTx?.metadata?.reclaimCompanionTxId).toBe(reclaimRows[0]?.id)
   })
 
-  it('opId path writes no companion marker — its single send row stays the 되찾음 row', async () => {
+  it('opId path writes no companion — its single send row stays the 되찾음 row', async () => {
     const realTxRepo = createInMemoryTxRepo()
     await realTxRepo.save(
       createUnclaimedSendTx('send-tx-2', { metadata: { operationId: 'op-2' } }),
@@ -714,9 +719,8 @@ describe('ReclaimService — token path stamps reclaimedFrom (integration)', () 
     expect((await service.reclaim('send-tx-2')).ok).toBe(true)
 
     const all = await realTxRepo.list()
-    const reclaimRows = all.filter(isReclaimRow)
+    const reclaimRows = reclaimRowsOf(all)
     expect(reclaimRows).toHaveLength(1)
     expect(reclaimRows[0]?.id).toBe('send-tx-2')
-    expect(reclaimRows[0]?.metadata?.reclaimCompanionTxId).toBeUndefined()
   })
 })

@@ -2,7 +2,18 @@ import { describe, expect, it } from 'vitest'
 import type { TFunction } from 'i18next'
 import type { Transaction } from '@/core/domain/transaction'
 import { sat } from '@/core/domain/amount'
-import { getTitle, getTypeLabel, isReclaimRow } from '@/ui/components/wallet/transactionHelpers'
+import {
+  collectReclaimCompanionSendIds,
+  getTitle,
+  getTypeLabel,
+  isReclaimRow,
+} from '@/ui/components/wallet/transactionHelpers'
+
+/** Mirrors what a list surface does: derive companion knowledge from the full set. */
+function reclaimRowsOf(all: Transaction[]): Transaction[] {
+  const companions = collectReclaimCompanionSendIds(all)
+  return all.filter((tx) => isReclaimRow(tx, companions.has(tx.id)))
+}
 
 // Mirrors the ko locale strings so assertions read like the real UI.
 const KO: Record<string, string> = {
@@ -62,9 +73,8 @@ describe('getTitle — title is the ACT, not the means', () => {
       direction: 'send',
       status: 'settled',
       outcome: 'reclaimed',
-      metadata: { reclaimCompanionTxId: 'tx1-receive' },
     })
-    expect(getTitle(tx, t)).toBe('보냄')
+    expect(getTitle(tx, t, true)).toBe('보냄')
   })
 
   it('pending + unclaimed sent token -> 전달 대기 중 (reuses send.receipt.pendingTitle)', () => {
@@ -114,13 +124,14 @@ describe('getTitle — title is the ACT, not the means', () => {
 })
 
 describe('isReclaimRow — exactly one 되찾음 row per reclaim', () => {
+  // The companion is derived from the rows themselves, so reclaims persisted
+  // before any marker existed read correctly without a data migration.
   it('token path (two rows): the companion receive is the reclaim, the send is not', () => {
     const sendHalf = makeTx({
       id: 'send-1',
       direction: 'send',
       status: 'settled',
       outcome: 'reclaimed',
-      metadata: { reclaimCompanionTxId: 'send-1-receive' },
     })
     const receiveHalf = makeTx({
       id: 'send-1-receive',
@@ -129,7 +140,7 @@ describe('isReclaimRow — exactly one 되찾음 row per reclaim', () => {
       outcome: 'reclaimed',
       metadata: { reclaimedFrom: 'send-1' },
     })
-    expect([sendHalf, receiveHalf].filter(isReclaimRow)).toEqual([receiveHalf])
+    expect(reclaimRowsOf([sendHalf, receiveHalf])).toEqual([receiveHalf])
   })
 
   it('opId path (one row): the settled send row is the reclaim', () => {
@@ -139,12 +150,12 @@ describe('isReclaimRow — exactly one 되찾음 row per reclaim', () => {
       status: 'settled',
       outcome: 'reclaimed',
     })
-    expect([sendOnly].filter(isReclaimRow)).toEqual([sendOnly])
+    expect(reclaimRowsOf([sendOnly])).toEqual([sendOnly])
   })
 
-  it('an unstamped companion leaves the send row as the sole reclaim row', () => {
-    // The companion stamp is best-effort; if it failed the send row must still
-    // read as 되찾음 rather than the reclaim vanishing from history entirely.
+  it('a companion that never got stamped leaves the send row as the sole reclaim row', () => {
+    // The reclaimedFrom stamp is best-effort; if it failed the send row must
+    // still read as 되찾음 rather than the reclaim vanishing from history.
     const sendHalf = makeTx({
       id: 'send-3',
       direction: 'send',
@@ -152,7 +163,34 @@ describe('isReclaimRow — exactly one 되찾음 row per reclaim', () => {
       outcome: 'reclaimed',
     })
     const plainReceive = makeTx({ id: 'send-3-receive', direction: 'receive', status: 'settled' })
-    expect([sendHalf, plainReceive].filter(isReclaimRow)).toEqual([sendHalf])
+    expect(reclaimRowsOf([sendHalf, plainReceive])).toEqual([sendHalf])
+  })
+
+  it("another send's companion does not silence this send row", () => {
+    const sendHalf = makeTx({ id: 'send-4', direction: 'send', status: 'settled', outcome: 'reclaimed' })
+    const otherCompanion = makeTx({
+      id: 'send-9-receive',
+      direction: 'receive',
+      status: 'settled',
+      metadata: { reclaimedFrom: 'send-9' },
+    })
+    expect(reclaimRowsOf([sendHalf, otherCompanion])).toEqual([sendHalf, otherCompanion])
+  })
+})
+
+describe('collectReclaimCompanionSendIds', () => {
+  it('collects the send ids that companion receive rows point back at', () => {
+    const rows = [
+      makeTx({ id: 'r1', direction: 'receive', metadata: { reclaimedFrom: 'send-1' } }),
+      makeTx({ id: 'r2', direction: 'receive', metadata: { reclaimedFrom: 'send-2' } }),
+      makeTx({ id: 'r3', direction: 'receive' }),
+      makeTx({ id: 'send-1', direction: 'send', outcome: 'reclaimed' }),
+    ]
+    expect(collectReclaimCompanionSendIds(rows)).toEqual(new Set(['send-1', 'send-2']))
+  })
+
+  it('is empty for a set with no legacy reclaims', () => {
+    expect(collectReclaimCompanionSendIds([makeTx()])).toEqual(new Set())
   })
 })
 

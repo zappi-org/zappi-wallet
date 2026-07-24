@@ -28,6 +28,8 @@ export interface TransactionRowProps {
   getMintName?: (url: string) => string
   /** Show M.DD date prefix in subtitle (for mini lists without date group headers) */
   showDate?: boolean
+  /** This send's reclaim is booked on a companion receive row (legacy token path). */
+  hasCompanionReceive?: boolean
 }
 
 export const TransactionRow = memo(function TransactionRow({
@@ -36,6 +38,7 @@ export const TransactionRow = memo(function TransactionRow({
   onClick,
   getMintName,
   showDate = false,
+  hasCompanionReceive = false,
 }: TransactionRowProps) {
   const { t, i18n } = useTranslation()
   const formatSats = useFormatSats()
@@ -57,7 +60,7 @@ export const TransactionRow = memo(function TransactionRow({
   const swapRoute = isSwap && swapFromUrl && swapToUrl
     ? `${resolveName(swapFromUrl)} → ${resolveName(swapToUrl)}`
     : null
-  const title = swapRoute ?? getTitle(tx, t)
+  const title = swapRoute ?? getTitle(tx, t, hasCompanionReceive)
   const defaultSubtitle = `${timeStr} · ${typeLabel}`
 
   // Subtitle: "10:35 · Lightning" or swap flow
@@ -76,7 +79,7 @@ export const TransactionRow = memo(function TransactionRow({
   // Amount styling — Toss pattern: receive = green (no sign), send = black with "-"
   const isPending = tx.status === 'pending'
   const isFailed = tx.status === 'failed'
-  const isReclaim = isReclaimRow(tx)
+  const isReclaim = isReclaimRow(tx, hasCompanionReceive)
 
   // A reclaim moved nothing in or out — the money simply came back, so it gets
   // no sign at all ('-' would read as spent, '+' as earned) and a neutral tone.

@@ -156,16 +156,12 @@ export class ReclaimService implements ReclaimUseCase {
       // not stop markSendReclaimed below from running — the alternative is a
       // send stuck reclaimable forever, and a retry re-spending the same token.
       const receiveTxId = result.value.transactionId
-      // Only a companion that actually got stamped may silence the send row —
-      // if the stamp failed the send row stays the sole 되찾음 row.
-      let companionTxId: string | undefined
       try {
         const receiveTx = await this.txRepo.getById(receiveTxId)
         if (receiveTx) {
           await this.txRepo.update(receiveTxId, {
             metadata: { ...receiveTx.metadata, reclaimedFrom: txId },
           })
-          companionTxId = receiveTxId
         }
       } catch {
         // Swallow — the receive row just shows as a plain receive.
@@ -174,7 +170,7 @@ export class ReclaimService implements ReclaimUseCase {
       // The receive result is what actually landed — the difference is the
       // one true reclaim fee, persisted so the archive never has to guess.
       const reclaimFee = Math.max(0, toNumber(tx.amount) - result.value.amount)
-      await this.markSendReclaimed(txId, reclaimFee, companionTxId)
+      await this.markSendReclaimed(txId, reclaimFee)
       return Ok({
         amount: { value: toNumber(tx.amount), unit: tx.amount.unit || 'sat' },
         accountId: tx.accountId
@@ -241,25 +237,19 @@ export class ReclaimService implements ReclaimUseCase {
     })
   }
 
-  async markSendReclaimed(txId: string, reclaimFee?: number, companionTxId?: string): Promise<boolean> {
+  async markSendReclaimed(txId: string, reclaimFee?: number): Promise<boolean> {
 
     const tx = await this.txRepo.getById(txId)
 
     if (!tx || !isReclaimableSend(tx)) return false
 
     const reclaimed = settleAsReclaimed(tx)
-    const metadataPatch = {
-      ...(reclaimFee != null ? { reclaimFee } : {}),
-      // Marks this send as the silent half of a two-row reclaim so History
-      // shows the companion receive row's 되찾음 only once.
-      ...(companionTxId != null ? { reclaimCompanionTxId: companionTxId } : {}),
-    }
     await this.txRepo.update(txId, {
       status: reclaimed.status,
       outcome: reclaimed.outcome,
       completedAt: reclaimed.completedAt,
-      ...(Object.keys(metadataPatch).length > 0
-        ? { metadata: { ...tx.metadata, ...metadataPatch } }
+      ...(reclaimFee != null
+        ? { metadata: { ...tx.metadata, reclaimFee } }
         : {})
     })
 

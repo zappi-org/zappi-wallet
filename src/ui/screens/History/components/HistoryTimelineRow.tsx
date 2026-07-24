@@ -17,6 +17,8 @@ export interface HistoryTimelineRowProps {
   groupKind: TimelineKind
   onClick?: () => void
   getMintName?: (url: string) => string
+  /** This send's reclaim is booked on a companion receive row (legacy token path). */
+  hasCompanionReceive?: boolean
 }
 
 function formatRowTime(
@@ -40,6 +42,7 @@ export function HistoryTimelineRow({
   groupKind,
   onClick,
   getMintName,
+  hasCompanionReceive = false,
 }: HistoryTimelineRowProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
@@ -52,7 +55,7 @@ export function HistoryTimelineRow({
   const isSwap = txType === 'swap'
   const isPending = tx.status === 'pending'
   const isFailed = tx.status === 'failed'
-  const isReclaim = isReclaimRow(tx)
+  const isReclaim = isReclaimRow(tx, hasCompanionReceive)
   const resolveName = (url: string) => getMintName ? getMintName(url) : formatMintHost(url)
 
   const swapFromUrl = meta.fromMintUrl ?? linkedMeta?.fromMintUrl ?? (tx.direction === 'send' ? tx.accountId : undefined)
@@ -61,7 +64,7 @@ export function HistoryTimelineRow({
     ? `${resolveName(swapFromUrl)} → ${resolveName(swapToUrl)}`
     : null
 
-  const title = swapRoute ?? getTitle(tx, t)
+  const title = swapRoute ?? getTitle(tx, t, hasCompanionReceive)
   const typeLabel = getTypeLabel(tx, t)
   const time = formatRowTime(t, tx.createdAt, groupKind)
   const defaultSubtitle = `${time} · ${typeLabel}`
