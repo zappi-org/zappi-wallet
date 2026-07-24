@@ -2,13 +2,13 @@
  * useGlobalTokenClaimToast — emits a toast whenever one of the user's
  * outgoing ecash tokens is claimed by the recipient.
  *
- * Subscribes to the semantic `send:claimed` domain event. The event payload
- * is self-contained (amount, memo, protocol) so no transaction re-query or
- * direction/outcome filtering is needed in the UI.
- *
- * TODO(TLS): This global toast still listens only to `send:claimed`. Once
- * outgoing ecash token claims are normalized into a semantic event from the
- * TransferLifecycle path, move this hook to that unified event.
+ * Two settlement paths reach an outgoing ecash claim and either may win the
+ * race, so this hook subscribes to BOTH and fires the same specific toast:
+ *  - `send:claimed` (OLD domain path via ReclaimService.finalizeSend) — payload
+ *    is self-contained (amount, memo, protocol).
+ *  - `transfer:settled` (NEW TransferLifecycle path) — outgoing ecash claims
+ *    carry no semantic event, so we read amount/memo/protocol off the transfer.
+ * A shared txId dedup set guarantees a claim that emits both events toasts once.
  *
  * Skipped when a dedicated UI (e.g. Send/DirectReceiptStep) already owns
  * feedback for that txId — see `useOwnPaymentEvent`.
@@ -17,7 +17,7 @@
  * mounted) lives outside the ServiceProvider it renders.
  */
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { useFormatSats } from '@/utils/format'
@@ -33,23 +33,55 @@ export function useGlobalTokenClaimToast(
   const addToast = useAppStore((s) => s.addToast)
   const formatSats = useFormatSats()
 
+  // Shared across both handlers so a claim that emits send:claimed AND
+  // transfer:settled toasts once. Session-scoped (MainApp lifetime), bounded by
+  // the number of distinct claimed sends — a ref so it survives effect re-runs.
+  const toastedRef = useRef<Set<string>>(new Set())
+
   useEffect(() => {
     if (!registry?.eventBus) return
-    const unsub = registry.eventBus.on('send:claimed', (event) => {
-      const { txId, amount, memo, protocol } = event.payload
-      if (isPaymentOwnedByUI(txId)) return
-      // Alpha scope: only toast for cashu ecash token claims — Lightning sends
-      // already have their own completion toast via payment:completed handler.
-      if (protocol !== 'cashu-token') return
 
-      const amountSats = toNumber(amount)
+    const fireClaimToast = (amountSats: number, memo?: string): void => {
       const message = memo
         ? t('toast.tokenClaimedWithMemo', { amount: formatSats(amountSats), memo })
         : t('toast.tokenClaimed', { amount: formatSats(amountSats) })
-
       addToast({ type: 'success', message, duration: 5000 })
       hapticSuccess()
+    }
+
+    // OLD domain path.
+    const unsubSendClaimed = registry.eventBus.on('send:claimed', (event) => {
+      const { txId, amount, memo, protocol } = event.payload
+      // Alpha scope: only cashu ecash token claims — Lightning sends already
+      // have their own completion toast via payment:completed handler.
+      if (protocol !== 'cashu-token') return
+      if (isPaymentOwnedByUI(txId)) return
+      if (toastedRef.current.has(txId)) return
+      toastedRef.current.add(txId)
+      fireClaimToast(toNumber(amount), memo)
     })
-    return unsub
+
+    // NEW TransferLifecycle path: outgoing ecash claims emit no send:claimed.
+    const unsubTransferSettled = registry.eventBus.on('transfer:settled', (event) => {
+      const { transfer } = event.payload
+      if (transfer.direction !== 'outgoing') return
+      // transportRef.type tags the protocol: 'ecash-token' → 'ecash' (cashu),
+      // 'bolt11-melt' → 'bolt11'. Only cashu claims get this specific toast.
+      const ref = transfer.transportRef as
+        | { type?: string; protocol?: string; amount?: number; memo?: string }
+        | undefined
+      const protocol = ref?.protocol || ref?.type?.split('-')[0]
+      if (protocol !== 'ecash') return
+      if (isPaymentOwnedByUI(transfer.txId)) return
+      if (toastedRef.current.has(transfer.txId)) return
+      toastedRef.current.add(transfer.txId)
+      // transfer.amount is unset for ecash prepares — amount lives on transportRef.
+      fireClaimToast(transfer.amount ?? ref?.amount ?? 0, ref?.memo)
+    })
+
+    return () => {
+      unsubSendClaimed()
+      unsubTransferSettled()
+    }
   }, [registry, addToast, formatSats, t])
 }

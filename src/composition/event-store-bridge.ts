@@ -227,11 +227,19 @@ export function connectEventStoreBridge(
           })
         }
       } else {
-        addToast({
-          type: 'success',
-          message: i18n.t('toast.transferSettled'),
-          duration: 4000,
-        })
+        // Outgoing cashu-token claims are owned by useGlobalTokenClaimToast
+        // (the specific "token claimed" toast). transportRef.type tags it:
+        // 'ecash-token' → 'ecash', 'bolt11-melt' → 'bolt11'. Suppress only ecash
+        // here; bolt11 (and any other outgoing) keeps the generic toast.
+        const ref = transfer.transportRef as { type?: string; protocol?: string } | undefined
+        const protocol = ref?.protocol || ref?.type?.split('-')[0]
+        if (protocol !== 'ecash') {
+          addToast({
+            type: 'success',
+            message: i18n.t('toast.transferSettled'),
+            duration: 4000,
+          })
+        }
       }
 
       triggerTxRefresh()
