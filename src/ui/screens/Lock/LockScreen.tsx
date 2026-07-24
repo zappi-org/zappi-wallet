@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import zappiLogo from "@/assets/zappi.png";
+import zappiLogo from "@/assets/zappi.webp";
 import { useTranslation } from "react-i18next";
 import { CountdownTimer } from "@/ui/components/common";
 import { NumericKeypad } from "@/ui/components/common/NumericKeypad";

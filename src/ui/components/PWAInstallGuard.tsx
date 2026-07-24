@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import zappiImg from '@/assets/zappi.png'
+import zappiImg from '@/assets/zappi.webp'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>

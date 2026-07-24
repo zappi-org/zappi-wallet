@@ -1,4 +1,4 @@
-import zappiLogo from '@/assets/zappi.png'
+import zappiLogo from '@/assets/zappi.webp'
 import { toNumber } from '@/core/domain/amount'
 import type { ValidatedCashuToken } from '@/core/domain/input-types'
 import { useAppStore } from '@/store'

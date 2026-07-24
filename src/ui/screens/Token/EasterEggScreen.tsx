@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
-import zappiLogo from '@/assets/zappi.png'
+import zappiLogo from '@/assets/zappi.webp'
 import cashuNut from '@/assets/cashu-nut.png'
 
 export interface EasterEggScreenProps {

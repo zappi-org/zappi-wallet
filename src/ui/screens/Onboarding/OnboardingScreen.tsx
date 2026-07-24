@@ -5,7 +5,7 @@ import { NumericKeypad } from '@/ui/components/common/NumericKeypad'
 import { Button } from '@/ui/components/common/Button'
 import { useTranslation } from 'react-i18next'
 import creatingWalletSvg from '@/assets/creating-wallet.svg'
-import zappiImg from '@/assets/zappi.png'
+import zappiImg from '@/assets/zappi.webp'
 
 // Empty codes list = gate is open (e.g. main channel during open beta).
 const INVITE_ENABLED = __ZAPPI_INVITE_CODES__.length > 0
