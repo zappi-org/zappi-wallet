@@ -48,6 +48,16 @@ export function TokenQrModal({ isOpen, token, onClose, title, veil = true, paylo
   // same contract as the send-flow receipt. Re-arms on every open: the parent
   // keeps this mounted, so state alone would leave later opens unveiled.
   const [veiled, setVeiled] = useState(active.veil ?? false)
+
+  // Ghost-tap shield: the backdrop sits directly over this screen's own controls
+  // (e.g. a back button), so dismissing it exposes them immediately — a fast
+  // double-tap or a touch's compatibility click can then land on what's beneath.
+  // Absorb any follow-up contact at that spot for a beat after a backdrop close
+  // only; the X button has nothing underneath it and must close instantly.
+  // Declared above the reopen block below, which clears it on reopen.
+  const [shieldActive, setShieldActive] = useState(false)
+  const shieldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const [wasOpen, setWasOpen] = useState(isOpen)
   if (wasOpen !== isOpen) {
     setWasOpen(isOpen)
@@ -65,13 +75,20 @@ export function TokenQrModal({ isOpen, token, onClose, title, veil = true, paylo
     [items],
   )
 
-  // Ghost-tap shield: the backdrop sits directly over this screen's own controls
-  // (e.g. a back button), so dismissing it exposes them immediately — a fast
-  // double-tap or a touch's compatibility click can then land on what's beneath.
-  // Absorb any follow-up contact at that spot for a beat after a backdrop close
-  // only; the X button has nothing underneath it and must close instantly.
-  const [shieldActive, setShieldActive] = useState(false)
-  const shieldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // A reopen while a prior close's shield timer is still armed would leave
+  // shieldActive stale — closing this instance via the X (no re-arm) would
+  // then re-expose that old shield until the original timer expires. Runs as
+  // an effect, not inline during render, since refs may only be read/written
+  // outside of render.
+  useEffect(() => {
+    if (!isOpen) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync reset on reopen, same pattern as use-pinch-zoom's disable-on-prop-change
+    setShieldActive(false)
+    if (shieldTimerRef.current) {
+      clearTimeout(shieldTimerRef.current)
+      shieldTimerRef.current = null
+    }
+  }, [isOpen])
 
   useEffect(() => {
     return () => {

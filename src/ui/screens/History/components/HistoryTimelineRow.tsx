@@ -118,6 +118,8 @@ export function HistoryTimelineRow({
       <div className="flex flex-1 items-start justify-between gap-2 min-w-0">
         <div className="flex flex-col gap-0.5 min-w-0">
           <span className="text-caption font-bold text-foreground truncate">
+            {/* Line-through + dot color are invisible to screen readers — failure must be spoken too. */}
+            {isFailed && <span className="sr-only">{t('history.failedStatus')} · </span>}
             {title}
           </span>
           <span className="text-overline text-foreground-muted truncate">

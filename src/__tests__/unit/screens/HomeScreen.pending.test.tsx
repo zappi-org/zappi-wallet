@@ -124,15 +124,6 @@ describe('HomeScreen pending + empty-state coexistence', () => {
   })
 
   it('excludes a reclaimable (pending+unclaimed) send transaction from the ledger — its pending row already carries that money', () => {
-    pendingItemsState.items = [{
-      id: 'send1',
-      direction: 'send',
-      kind: 'token',
-      amount: 777,
-      accountId: 'https://mint.test',
-      createdAt: Date.now(),
-      details: { token: 'cashuAxyz' },
-    }]
     const reclaimableTx: Transaction = {
       id: 'tx-send1',
       direction: 'send',
@@ -144,11 +135,40 @@ describe('HomeScreen pending + empty-state coexistence', () => {
       accountId: 'https://mint.test',
       createdAt: Date.now(),
     }
+    pendingItemsState.items = [{
+      id: reclaimableTx.id, // same id contract as composition/pending-items.ts
+      direction: 'send',
+      kind: 'token',
+      amount: 777,
+      accountId: 'https://mint.test',
+      createdAt: Date.now(),
+      details: { token: 'cashuAxyz' },
+    }]
     renderScreen({ transactions: [reclaimableTx] })
 
     // One row for the -777 amount (from PendingItemsList) — the reclaimable-send
     // transaction itself must not also surface in the ledger below it.
     expect(screen.getAllByText('-777 sats')).toHaveLength(1)
+  })
+
+  it('still shows a reclaimable send transaction in the ledger while its pending item has not loaded yet', () => {
+    // Pending query is async/independent and hasn't resolved (or came back
+    // empty) — the tx must not vanish from both lists while that's true.
+    pendingItemsState.items = []
+    const reclaimableTx: Transaction = {
+      id: 'tx-send-unloaded',
+      direction: 'send',
+      method: 'cashu-token',
+      protocol: 'cashu-token',
+      status: 'pending',
+      outcome: 'unclaimed',
+      amount: sat(555),
+      accountId: 'https://mint.test',
+      createdAt: Date.now(),
+    }
+    renderScreen({ transactions: [reclaimableTx] })
+
+    expect(screen.getByText('-555 sats')).toBeInTheDocument()
   })
 
   it('still shows a settled send transaction in the ledger (dedup only targets reclaimable rows)', () => {

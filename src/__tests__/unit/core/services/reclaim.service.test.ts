@@ -357,6 +357,30 @@ describe('ReclaimService', () => {
       }))
     })
 
+    it('still settles the send as reclaimed when the reclaim provenance stamp write throws (best-effort)', async () => {
+      const tx = createUnclaimedSendTx('tx1', {
+        metadata: { token: 'cashuAabc123' },
+      })
+      vi.mocked(txRepo.getById).mockResolvedValue(tx)
+      // The stamp write (getById + update on the receive tx) throws — it must
+      // be swallowed rather than aborting markSendReclaimed below it.
+      vi.mocked(txRepo.update).mockImplementation(async (id) => {
+        if (id === 'tx1-receive') throw new Error('storage failure')
+      })
+      vi.mocked(tokenReceiver.receiveToken).mockResolvedValue({
+        ok: true,
+        value: { amount: 1000, transactionId: 'tx1-receive' },
+      })
+
+      const result = await service.reclaim('tx1')
+
+      expect(result.ok).toBe(true)
+      expect(txRepo.update).toHaveBeenCalledWith('tx1', expect.objectContaining({
+        status: 'settled',
+        outcome: 'reclaimed',
+      }))
+    })
+
     it('should return error when token receive fails', async () => {
       const tx = createUnclaimedSendTx('tx1', {
         metadata: { token: 'cashuAabc123' },

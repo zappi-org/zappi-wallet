@@ -132,12 +132,19 @@ export class ReclaimService implements ReclaimUseCase {
 
       // Mark the receive TX as a reclaim, not a plain receive, so History
       // and the receipt don't misrepresent money coming back as new money in.
+      // Best-effort: this is a cosmetic label, so a storage failure here must
+      // not stop markSendReclaimed below from running — the alternative is a
+      // send stuck reclaimable forever, and a retry re-spending the same token.
       const receiveTxId = result.value.transactionId
-      const receiveTx = await this.txRepo.getById(receiveTxId)
-      if (receiveTx) {
-        await this.txRepo.update(receiveTxId, {
-          metadata: { ...receiveTx.metadata, reclaimedFrom: txId },
-        })
+      try {
+        const receiveTx = await this.txRepo.getById(receiveTxId)
+        if (receiveTx) {
+          await this.txRepo.update(receiveTxId, {
+            metadata: { ...receiveTx.metadata, reclaimedFrom: txId },
+          })
+        }
+      } catch {
+        // Swallow — the receive row just shows as a plain receive.
       }
 
       // The receive result is what actually landed — the difference is the

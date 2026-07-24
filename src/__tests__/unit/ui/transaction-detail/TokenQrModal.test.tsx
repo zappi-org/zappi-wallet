@@ -197,4 +197,35 @@ describe('TokenQrModal — backdrop ghost-tap shield', () => {
     rerender(<TokenQrModal isOpen={false} token="cashuAbc123" onClose={onClose} veil={false} />)
     expect(screen.queryByTestId('qr-backdrop-shield')).not.toBeInTheDocument()
   })
+
+  it('clears a stale armed shield on reopen, so a later X close has no residual shield', () => {
+    vi.useFakeTimers()
+    const onClose = vi.fn()
+
+    const { container, rerender } = render(
+      <TokenQrModal isOpen token="cashuAbc123" onClose={onClose} veil={false} />,
+    )
+
+    // Backdrop close arms the shield with its 350ms timer still running.
+    const backdrop = container.querySelector('.backdrop-blur-sm')
+    fireEvent.click(backdrop as Element)
+    rerender(<TokenQrModal isOpen={false} token="cashuAbc123" onClose={onClose} veil={false} />)
+    expect(screen.getByTestId('qr-backdrop-shield')).toBeInTheDocument()
+
+    // Reopens before that timer fires — the reopen branch must clear the
+    // stale shield rather than carry it into this fresh instance.
+    rerender(<TokenQrModal isOpen token="cashuAbc123" onClose={onClose} veil={false} />)
+
+    // Closed via the X this time (no shield re-arm). If the stale shield had
+    // survived the reopen, it would resurface here for the rest of its timer.
+    const closeButton = container.querySelector('button.rounded-full.bg-muted')
+    fireEvent.click(closeButton as Element)
+    rerender(<TokenQrModal isOpen={false} token="cashuAbc123" onClose={onClose} veil={false} />)
+    expect(screen.queryByTestId('qr-backdrop-shield')).not.toBeInTheDocument()
+
+    act(() => {
+      vi.advanceTimersByTime(BACKDROP_SHIELD_MS)
+    })
+    expect(screen.queryByTestId('qr-backdrop-shield')).not.toBeInTheDocument()
+  })
 })

@@ -118,6 +118,20 @@ export function HomeScreen({
   const clampedMintIndex =
     mints.length === 0 ? 0 : Math.min(activeMintIndex, mints.length - 1);
 
+  // Pending items (open requests, unclaimed incoming tokens, unclaimed sent
+  // tokens) for the selected card — same mint filter as the transaction list
+  // below them. Sent-but-unclaimed money rides here instead of in the ledger
+  // list (filteredTransactions excludes it once its pending row has loaded)
+  // so it isn't shown twice.
+  const { items: pendingItemsRaw } = useAllPendingItems(settings.mints);
+
+  // The sent-token pending item's id equals the tx's id (composition/pending-items.ts) —
+  // used below to gate the reclaimable-send exclusion on that row actually being loaded.
+  const pendingItemIds = useMemo(
+    () => new Set(pendingItemsRaw.map((item) => item.id)),
+    [pendingItemsRaw]
+  );
+
   const filteredTransactions = useMemo(() => {
     const selectedMint = mints[clampedMintIndex];
     if (!selectedMint) return transactions;
@@ -129,19 +143,17 @@ export function HomeScreen({
     const isReclaimable = (tx: Transaction): boolean => isReclaimableSend(tx);
     return transactions.filter((tx) => {
       if (tx.status === "failed") return false;
-      if (isReclaimable(tx)) return false; // pending list carries these — same money, one row
+      // Only hide once its pending row is actually loaded — the pending query
+      // is async and independent, so hiding unconditionally would vanish this
+      // money from both lists on first paint or if that query comes back empty.
+      if (isReclaimable(tx) && pendingItemIds.has(tx.id)) return false;
       const txUrl = tx.accountId?.endsWith("/")
         ? tx.accountId.slice(0, -1)
         : tx.accountId;
       return txUrl === normalized || txUrl === url;
     });
-  }, [transactions, mints, clampedMintIndex]);
+  }, [transactions, mints, clampedMintIndex, pendingItemIds]);
 
-  // Pending items (open requests, unclaimed incoming tokens, unclaimed sent
-  // tokens) for the selected card — same mint filter as the transaction list
-  // below them. Sent-but-unclaimed money rides here instead of in the ledger
-  // list (filteredTransactions excludes it) so it isn't shown twice.
-  const { items: pendingItemsRaw } = useAllPendingItems(settings.mints);
   const pendingItems = useMemo(() => {
     const selectedMint = mints[clampedMintIndex];
     if (!selectedMint) return pendingItemsRaw;

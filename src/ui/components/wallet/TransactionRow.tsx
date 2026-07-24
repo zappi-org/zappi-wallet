@@ -91,7 +91,11 @@ export const TransactionRow = memo(function TransactionRow({
     >
       {/* Left: title + subtitle */}
       <div className="flex flex-col gap-0.5 text-left min-w-0 flex-1 mr-4">
-        <span className="text-body font-semibold text-foreground leading-normal truncate">{title}</span>
+        <span className="text-body font-semibold text-foreground leading-normal truncate">
+          {/* Line-through + dot color are invisible to screen readers — failure must be spoken too. */}
+          {isFailed && <span className="sr-only">{t('history.failedStatus')} · </span>}
+          {title}
+        </span>
         <span className="text-label font-medium text-foreground-muted leading-normal truncate">{subtitle}</span>
       </div>
 
