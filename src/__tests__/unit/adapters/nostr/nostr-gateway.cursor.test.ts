@@ -30,14 +30,28 @@ vi.mock('nostr-tools', () => ({
   nip19: { npubEncode: vi.fn(), nprofileEncode: vi.fn(), decode: vi.fn() },
   nip17: {
     wrapEvent: vi.fn().mockReturnValue({ id: 'wrapped', kind: 1059 }),
-    unwrapEvent: vi.fn().mockReturnValue({ content: 'hello', pubkey: 'sender-pubkey' }),
   },
 }))
 
 vi.mock('@noble/hashes/utils.js', () => ({ hexToBytes: vi.fn().mockReturnValue(new Uint8Array(32)) }))
-vi.mock('nostr-tools/nip44', () => ({
-  v2: { utils: { getConversationKey: vi.fn() }, encrypt: vi.fn(), decrypt: vi.fn() },
-}))
+// Unwrapping decrypts twice — wrap → seal, then seal → rumor — and the rumor's
+// author must match the seal's signer. These stubs stand in for that chain so
+// the cursor assertions below see a delivered message.
+vi.mock('nostr-tools/nip44', () => {
+  const seal = JSON.stringify({
+    id: 'seal', kind: 13, pubkey: 'sender-pubkey', created_at: 0, tags: [], content: 'sealed', sig: 'sig',
+  })
+  const rumor = JSON.stringify({
+    id: 'rumor', kind: 14, pubkey: 'sender-pubkey', created_at: 0, tags: [], content: 'hello', sig: '',
+  })
+  return {
+    v2: {
+      utils: { getConversationKey: vi.fn() },
+      encrypt: vi.fn(),
+      decrypt: vi.fn((payload: string) => (payload === 'sealed' ? rumor : seal)),
+    },
+  }
+})
 
 import { NostrGatewayAdapter, CURSOR_EOSE_TIMEOUT_MS } from '@/adapters/nostr/nostr-gateway'
 import type { GiftwrapCursorStore } from '@/core/ports/driven/giftwrap-cursor-store.port'
