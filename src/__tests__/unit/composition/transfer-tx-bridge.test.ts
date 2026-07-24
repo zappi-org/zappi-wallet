@@ -319,13 +319,14 @@ describe("TransferTxBridge - refresh emission contract", () => {
     transfer: Record<string, unknown>;
     reason?: string;
     existingTx?: Record<string, unknown> | null;
+    pendingSends?: Record<string, unknown>[];
   }) {
     const triggerTxRefresh = vi.fn();
     const mockTxRepo = {
       getById: vi.fn().mockResolvedValue(opts.existingTx ?? null),
       save: vi.fn().mockResolvedValue(undefined),
       update: vi.fn().mockResolvedValue(undefined),
-      list: vi.fn().mockResolvedValue([]),
+      list: vi.fn().mockResolvedValue(opts.pendingSends ?? []),
     };
     const mockEventBus = {
       on: vi.fn((event, handler) => {
@@ -401,15 +402,108 @@ describe("TransferTxBridge - refresh emission contract", () => {
     const { triggerTxRefresh, mockTxRepo } = makeBridge({
       event: "transfer:reclaimed",
       transfer: baseTransfer,
-      existingTx: { id: "tx-r1", status: "pending", metadata: {} },
+      existingTx: {
+        id: "tx-r1",
+        direction: "send",
+        status: "pending",
+        outcome: "unclaimed",
+        metadata: { tokenState: "unspent" },
+      },
     });
     await new Promise((r) => setTimeout(r, 10));
 
     expect(mockTxRepo.update).toHaveBeenCalledWith(
       "tx-r1",
-      expect.objectContaining({ status: "settled", outcome: "reclaimed" }),
+      expect.objectContaining({
+        status: "settled",
+        outcome: "reclaimed",
+        completedAt: expect.any(Number),
+        metadata: expect.objectContaining({ tokenState: "spent" }),
+      }),
     );
     expect(triggerTxRefresh).toHaveBeenCalledOnce();
+  });
+
+  // A reclaim only applies to a send still awaiting claim. A late or duplicate
+  // event on a send the recipient actually took would tell the user the money
+  // came back when it did not.
+  it("transfer:reclaimed must not relabel an already-claimed send", async () => {
+    const { triggerTxRefresh, mockTxRepo } = makeBridge({
+      event: "transfer:reclaimed",
+      transfer: baseTransfer,
+      existingTx: {
+        id: "tx-r1",
+        direction: "send",
+        status: "settled",
+        outcome: "claimed",
+        completedAt: 1_000,
+        metadata: { tokenState: "spent" },
+      },
+    });
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(mockTxRepo.update).not.toHaveBeenCalled();
+    expect(triggerTxRefresh).not.toHaveBeenCalled();
+  });
+
+  // The normal ordering: send-token-observer's markSendReclaimed settles the tx
+  // first, so this event arrives on an already-reclaimed row — nothing to redo.
+  it("transfer:reclaimed is a no-op once the tx is already reclaimed", async () => {
+    const { triggerTxRefresh, mockTxRepo } = makeBridge({
+      event: "transfer:reclaimed",
+      transfer: baseTransfer,
+      existingTx: {
+        id: "tx-r1",
+        direction: "send",
+        status: "settled",
+        outcome: "reclaimed",
+        completedAt: 1_000,
+        metadata: { tokenState: "spent" },
+      },
+    });
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(mockTxRepo.update).not.toHaveBeenCalled();
+    expect(triggerTxRefresh).not.toHaveBeenCalled();
+  });
+
+  // An incoming token that matches our own pending send closes that send as
+  // claimed and links it to the receive row — by tx id, which is what the row
+  // components look up.
+  it("incoming token match links the closed send to the receive tx id", async () => {
+    const { mockTxRepo } = makeBridge({
+      event: "transfer:settled",
+      transfer: {
+        ...baseTransfer,
+        txId: "rx-1",
+        direction: "incoming",
+        phase: "settled",
+        transportRef: { type: "cashu-token", token: "cashuAtest" },
+      },
+      pendingSends: [
+        {
+          id: "send-1",
+          direction: "send",
+          status: "pending",
+          outcome: "unclaimed",
+          metadata: { token: "cashuAtest", tokenState: "unspent" },
+        },
+      ],
+    });
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(mockTxRepo.update).toHaveBeenCalledWith(
+      "send-1",
+      expect.objectContaining({
+        status: "settled",
+        outcome: "claimed",
+        completedAt: expect.any(Number),
+        metadata: expect.objectContaining({
+          tokenState: "spent",
+          linkedTxId: "rx-1",
+        }),
+      }),
+    );
   });
 
   it("transfer:failed (existing TX) → fires refresh after failed update (+reason preserved)", async () => {
