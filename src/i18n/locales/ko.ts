@@ -560,7 +560,7 @@ export default {
       used: '사용됨',
       reclaimed: '되찾음',
       sent: '전송됨',
-      awaitingReceipt: '수신 대기',
+      awaitingReceipt: '수령 대기',
       confirmed: '확정됨',
       requested: '요청함',
       received: '받음',
@@ -829,7 +829,7 @@ export default {
       unrecognized: '인식할 수 없는 주소 형식입니다',
       invalidCashuToken: '유효하지 않은 이캐시 토큰 형식입니다',
       validationFailed: '주소를 확인할 수 없습니다',
-      ecashInfoNotFound: '이캐시 수신 정보를 찾을 수 없습니다.',
+      ecashInfoNotFound: '이캐시 받기 정보를 찾을 수 없습니다.',
       noCommonMint: '상대가 받을 수 있는 민트가 없습니다.',
       relayNotFound: '상대에게 보낼 릴레이 정보를 찾을 수 없습니다.',
       selectedMintUnavailable: '{{mint}}은 상대가 받을 수 없습니다. 아래 민트로 보낼 수 있습니다.',
@@ -944,7 +944,9 @@ export default {
     receipt: {
       title: '수령 영수증',
       reclaimTitle: '되찾기 영수증',
-      pendingTitle: '수령 대기 중',
+      // Names the paper, not the step — the state bar's own node says
+      // "수령 대기" on the same sheet.
+      pendingTitle: '입금 예정',
       method: '수단',
       methodLightning: '라이트닝',
       methodEcash: '이캐시',

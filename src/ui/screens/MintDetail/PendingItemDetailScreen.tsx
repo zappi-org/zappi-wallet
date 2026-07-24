@@ -248,7 +248,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
     : null
 
   // Same lifecycle vocabulary as the archive: an unpaid request rests its
-  // light on 요청함; an arrived-but-unredeemed token waits on 수신 대기.
+  // light on 요청함; an arrived-but-unredeemed token waits on 수령 대기.
   const track = useMemo<TxStateTrack>(() => {
     if (isRequest) {
       return {

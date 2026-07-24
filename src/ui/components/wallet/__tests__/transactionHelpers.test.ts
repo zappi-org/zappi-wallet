@@ -35,11 +35,21 @@ function makeTx(overrides: Partial<Transaction> = {}): Transaction {
 }
 
 describe('getTitle — title is the ACT, not the means', () => {
-  it('reclaimedFrom present -> 되찾음, regardless of direction/status', () => {
+  // The opId rollback path writes no receive row, so the settled send row IS
+  // the reclaim — keying only on reclaimedFrom would relabel it 보냄.
+  it('opId-path reclaim (settled send, outcome reclaimed, no reclaimedFrom) -> 되찾음', () => {
     const tx = makeTx({
       direction: 'send',
       status: 'settled',
       outcome: 'reclaimed',
+    })
+    expect(getTitle(tx, t)).toBe('되찾음')
+  })
+
+  it('legacy token-path reclaim (receive row carrying reclaimedFrom) -> 되찾음', () => {
+    const tx = makeTx({
+      direction: 'receive',
+      status: 'settled',
       metadata: { reclaimedFrom: 'some-tx-id' },
     })
     expect(getTitle(tx, t)).toBe('되찾음')
@@ -118,7 +128,6 @@ describe('getTypeLabel — the MEANS, for subtitles/search (signature unchanged)
       status: 'settled',
       outcome: 'reclaimed',
       protocol: 'nut18',
-      metadata: { reclaimedFrom: 'some-tx-id' },
     })
     expect(getTypeLabel(tx, t)).toBe('이캐시')
   })

@@ -942,7 +942,9 @@ export default {
     receipt: {
       title: 'STRUK PENERIMAAN',
       reclaimTitle: 'Struk klaim kembali',
-      pendingTitle: 'Menunggu penerimaan',
+      // Names the paper, not the step — the state bar's own node says
+      // "Menunggu penerimaan" on the same sheet.
+      pendingTitle: 'Pembayaran masuk',
       method: 'Metode',
       methodLightning: 'Lightning',
       methodEcash: 'Ecash',

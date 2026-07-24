@@ -305,6 +305,32 @@ describe('TransferLifecycleService', () => {
       expect(result).toBe(false)
       expect(emittedEvents.some((e) => e.type === 'transfer:reclaimed')).toBe(false)
     })
+
+    it('leaves a matching-ref transfer still in preparing alone (an execute-failure rollback is not a reclaim)', async () => {
+      createService(new Map())
+
+      // A send whose execute threw rolls the proofs back under the SAME
+      // operationId but never leaves 'preparing', so it stays outside
+      // listActive — the invariant that keeps a genuine failure from being
+      // relabelled (and refunded in the UI) as a user reclaim.
+      const transfer = createPendingTransfer({
+        id: 't1',
+        txId: 'tx-1',
+        direction: 'outgoing',
+        finality: 'deferred',
+        onExpiry: 'reclaim',
+        transportRef: { protocol: 'mock', operationId: 'op-x' },
+        now: Date.now(),
+      })
+      await store.create(transfer)
+      expect(transfer.phase).toBe('preparing')
+
+      const result = await service.resolveReclaimByOperationRef('op-x')
+
+      expect(result).toBe(false)
+      expect((await store.get('t1'))?.phase).toBe('preparing')
+      expect(emittedEvents).toEqual([])
+    })
   })
 
   // ─── processIncomingTransfer ───

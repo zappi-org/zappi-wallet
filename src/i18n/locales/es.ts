@@ -942,7 +942,9 @@ export default {
     receipt: {
       title: 'RECIBO DE COBRO',
       reclaimTitle: 'Recibo de recuperación',
-      pendingTitle: 'Esperando recepción',
+      // Names the paper, not the step — the state bar's own node says
+      // "Esperando recepción" on the same sheet.
+      pendingTitle: 'Pago entrante',
       method: 'Método',
       methodLightning: 'Lightning',
       methodEcash: 'Ecash',

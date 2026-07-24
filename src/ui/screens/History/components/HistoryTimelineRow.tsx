@@ -8,7 +8,7 @@ import { toNumber } from '@/core/domain/amount'
 import { useFormatSats, useFormatFiat, formatTransactionFiat } from '@/utils/format'
 import { formatMintHost } from '@/utils/url'
 import { cn } from '@/ui/lib/utils'
-import { getTitle, getTypeLabel } from '@/ui/components/wallet/transactionHelpers'
+import { getTitle, getTypeLabel, isReclaimRow } from '@/ui/components/wallet/transactionHelpers'
 import type { TimelineKind } from '@/ui/hooks/use-transaction-history'
 
 export interface HistoryTimelineRowProps {
@@ -52,6 +52,7 @@ export function HistoryTimelineRow({
   const isSwap = txType === 'swap'
   const isPending = tx.status === 'pending'
   const isFailed = tx.status === 'failed'
+  const isReclaim = isReclaimRow(tx)
   const resolveName = (url: string) => getMintName ? getMintName(url) : formatMintHost(url)
 
   const swapFromUrl = meta.fromMintUrl ?? linkedMeta?.fromMintUrl ?? (tx.direction === 'send' ? tx.accountId : undefined)
@@ -78,14 +79,18 @@ export function HistoryTimelineRow({
   }
 
   const amountSats = toNumber(getTotalCost(tx))
-  const amountPrefix = isReceive ? '+ ' : '- '
+  // A reclaim moved nothing in or out — the money simply came back, so it gets
+  // no sign at all ('-' would read as spent, '+' as earned) and a neutral tone.
+  const amountPrefix = isReclaim ? '' : isReceive ? '+ ' : '- '
   const amountColor = isFailed
     ? 'line-through text-foreground-muted'
-    : isPending
-      ? cn(isReceive ? 'text-primary' : 'text-foreground', 'opacity-60')
-      : isReceive
-        ? 'text-primary'
-        : 'text-foreground'
+    : isReclaim
+      ? 'text-foreground-muted'
+      : isPending
+        ? cn(isReceive ? 'text-primary' : 'text-foreground', 'opacity-60')
+        : isReceive
+          ? 'text-primary'
+          : 'text-foreground'
   const fiatStr = formatTransactionFiat(tx.displaySnapshot, amountSats, formatFiat)
 
   const iconClasses = isFailed
@@ -96,7 +101,7 @@ export function HistoryTimelineRow({
         ? 'bg-primary/10 text-primary'
         : 'bg-foreground/[0.06] text-foreground'
 
-  const icon = meta.reclaimedFrom ? (
+  const icon = isReclaim ? (
     <Undo2 className="size-4" strokeWidth={2.5} />
   ) : isSwap ? (
     <RefreshCw className="size-4" strokeWidth={2.5} />

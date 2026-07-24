@@ -537,9 +537,9 @@ export default {
     period3m: '3M',
     periodAll: 'All',
     dateFilter: 'Date Filter',
-    mintFilter: 'Wallet Filter',
-    allMints: 'All Wallets',
-    mintCount: '{{count}} Wallets',
+    mintFilter: 'Mint Filter',
+    allMints: 'All Mints',
+    mintCount: '{{count}} Mints',
 
     // Export
     export: 'Export',
@@ -855,7 +855,7 @@ export default {
       requestQuestion: 'Send <amt>{{amount}}</amt>?',
       transferQuestion: 'Move <amt>{{amount}}</amt>\nto <b>{{target}}</b>?',
       createQuestion: 'Create <amt>{{amount}}</amt>\nas eCash?',
-      sourceMint: 'Source Wallet',
+      sourceMint: 'Source Mint',
       memo: 'Memo',
       requestAmount: 'Request',
       estimatedFee: 'Estimated Fee',
@@ -938,7 +938,9 @@ export default {
     receipt: {
       title: 'RECEIVE RECEIPT',
       reclaimTitle: 'Reclaim receipt',
-      pendingTitle: 'Awaiting receipt',
+      // Names the paper, not the step — the state bar's own node says
+      // "Awaiting receipt" on the same sheet.
+      pendingTitle: 'Incoming payment',
       method: 'Method',
       methodLightning: 'Lightning',
       methodEcash: 'Ecash',

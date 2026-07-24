@@ -17,7 +17,7 @@ import { useFormatSats, useFormatFiat, formatTransactionFiat, getLocaleCode } fr
 import { formatMintHost } from '@/utils/url'
 import { formatMD } from '@/ui/utils/dateFilter'
 import { cn } from '@/ui/lib/utils'
-import { getTitle, getTypeLabel } from './transactionHelpers'
+import { getTitle, getTypeLabel, isReclaimRow } from './transactionHelpers'
 
 // ─── Component ───
 
@@ -76,9 +76,13 @@ export const TransactionRow = memo(function TransactionRow({
   // Amount styling — Toss pattern: receive = green (no sign), send = black with "-"
   const isPending = tx.status === 'pending'
   const isFailed = tx.status === 'failed'
+  const isReclaim = isReclaimRow(tx)
 
-  const amountPrefix = isReceive ? '+' : '-'
+  // A reclaim moved nothing in or out — the money simply came back, so it gets
+  // no sign at all ('-' would read as spent, '+' as earned) and a neutral tone.
+  const amountPrefix = isReclaim ? '' : isReceive ? '+' : '-'
   const amountColor = isFailed ? 'line-through text-foreground-muted'
+    : isReclaim ? 'text-foreground-muted'
     : isPending ? cn(isReceive ? 'text-primary' : 'text-foreground', 'opacity-60')
     : isReceive ? 'text-primary' : 'text-foreground'
   const amountSats = toNumber(getTotalCost(tx))

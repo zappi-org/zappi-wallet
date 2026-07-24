@@ -255,6 +255,9 @@ describe("TransferTxBridge - ecash outgoing memo", () => {
     expect(mockTxRepo.save).toHaveBeenCalledOnce();
     const savedTx = mockTxRepo.save.mock.calls[0][0];
     expect(savedTx.memo).toBe("for coffee");
+    // Reclaim cancels the coco send op through this id — without it, reclaim
+    // falls back to self-redeeming the token and the send looks claimed.
+    expect(savedTx.metadata.operationId).toBe("op-memo");
   });
 
   it("omits memo when transportRef has none", async () => {

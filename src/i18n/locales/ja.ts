@@ -940,7 +940,9 @@ export default {
     receipt: {
       title: '受取レシート',
       reclaimTitle: '回収レシート',
-      pendingTitle: '受け取り待ち',
+      // Names the paper, not the step — the state bar's own node says
+      // "受信待ち" on the same sheet.
+      pendingTitle: '入金予定',
       method: '方法',
       methodLightning: 'ライトニング',
       methodEcash: 'イーキャッシュ',
