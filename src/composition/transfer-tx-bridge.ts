@@ -545,6 +545,12 @@ export function connectTransferTxBridge(
             transfer.txId
           );
         } else {
+          // A late/duplicate transfer:failed must not clobber a tx that already
+          // settled successfully (reclaimed/claimed/settled) — the failure is
+          // stale. A genuinely-failing tx is still 'pending' at this point.
+          if (tx.status === "settled") {
+            return;
+          }
           const failedTx = {
             ...tx,
             status: "failed" as const,

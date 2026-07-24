@@ -415,6 +415,25 @@ export class TransferLifecycleService {
     return this.resolveTransfer(transfer.id, phase)
   }
 
+  /** An active send that rolled back = a reclaim (user or recovery), never a
+   *  failure — execute-failures stay in 'preparing' (outside listActive). */
+  async resolveReclaimByOperationRef(operationRef: string): Promise<boolean> {
+    const active = await this.transferStore.listActive()
+    const transfer = active.find((t) => {
+      const ref = t.transportRef as Record<string, unknown>
+      return ref?.quoteId === operationRef || ref?.operationId === operationRef
+    })
+    if (!transfer) return false
+    // Terminalize to 'settled' (the only legal terminal phase; no 'reclaimed'
+    // phase exists) so the swept transfer isn't re-processed, but emit the
+    // 'reclaimed' event — NOT settled, which would mislabel the tx as claimed
+    // and fire the recipient-claim toast. Symmetric with reclaimTransfer.
+    const updated = transitionPhase(transfer, 'settled', Date.now())
+    await this.transferStore.update(updated.id, updated)
+    this.eventBus.emit({ type: 'transfer:reclaimed', payload: { transfer: updated } })
+    return true
+  }
+
   // ─── Polling ───
 
   async pollPendingTransfers(): Promise<void> {

@@ -10,7 +10,8 @@
  *                         live-session melt failure never reaches the UI and stays
  *                         latent until the next unlock)
  * - send:finalized      → ecash send transfer   → settled
- * - send:rolled-back    → ecash send transfer   → failed
+ * - send:rolled-back    → ecash send transfer   → reclaimed (an active send that
+ *                         rolled back is a reclaim, never a failure)
  * - mint-op:finalized   → bolt11/ecash receive  → settled
  *
  * Fallback: default is a 120s stuck-sweep (local first, remote check only for
@@ -85,11 +86,15 @@ export function connectTransferSdkBridge(
     }
   })
 
-  // Ecash send reclaimed (proof reclaim).
+  // Ecash send reclaimed (proof reclaim). A rolled-back ACTIVE send is always a
+  // reclaim, not a failure — so map to reclaimed, not 'failed'. (Unlike bolt11's
+  // melt-op:rolled-back, which is a genuine failure with no reclaim button.)
+  // Runs AFTER send-token-observer's markSendReclaimed (registered first at
+  // bootstrap-lifecycle; coco awaits handlers sequentially) — order-dependent.
   const unsubSendRolledBack = manager.on('send:rolled-back', async ({ operationId }) => {
     incrementNetCounter('coco_push_received')
     try {
-      const resolved = await transferLifecycle.resolveByOperationRef(operationId, 'failed')
+      const resolved = await transferLifecycle.resolveReclaimByOperationRef(operationId)
       logResolution('send:rolled-back', operationId, resolved)
     } catch (err) {
       console.error('[TransferSdkBridge] send:rolled-back error:', err)

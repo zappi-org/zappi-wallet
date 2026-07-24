@@ -33,8 +33,10 @@ function makeManager() {
 function makeLifecycle() {
   return {
     resolveByOperationRef: vi.fn().mockResolvedValue(true),
+    resolveReclaimByOperationRef: vi.fn().mockResolvedValue(true),
   } as unknown as TransferLifecycleService & {
     resolveByOperationRef: ReturnType<typeof vi.fn>
+    resolveReclaimByOperationRef: ReturnType<typeof vi.fn>
   }
 }
 
@@ -75,6 +77,18 @@ describe('connectTransferSdkBridge', () => {
     await handlers.get('melt-op:rolled-back')!({ operationId: 'op-2' })
 
     expect(lifecycle.resolveByOperationRef).toHaveBeenCalledWith('op-2', 'failed')
+  })
+
+  it('send:rolled-back resolves the transfer as a reclaim (not a failure)', async () => {
+    const { manager, handlers } = makeManager()
+    const lifecycle = makeLifecycle()
+    connectTransferSdkBridge(manager, lifecycle)
+
+    await handlers.get('send:rolled-back')!({ operationId: 'op-r' })
+
+    expect(lifecycle.resolveReclaimByOperationRef).toHaveBeenCalledWith('op-r')
+    // An active rolled-back send is a reclaim — never routed through the failed path
+    expect(lifecycle.resolveByOperationRef).not.toHaveBeenCalled()
   })
 
   it('swallows a resolve exception so the event pipeline is not killed', async () => {

@@ -193,6 +193,56 @@ describe('EventStoreBridge', () => {
     })
   })
 
+  describe('transfer:reclaimed → outgoing toasts', () => {
+    function reclaimed(txId: string, direction: 'outgoing' | 'incoming', type: string) {
+      return {
+        id: `pt-${txId}`,
+        txId,
+        direction,
+        phase: 'settled' as const,
+        finality: 'deferred' as const,
+        onExpiry: 'reclaim' as const,
+        transportRef: { type, amount: 500 },
+        createdAt: 0,
+        updatedAt: 0,
+        amount: 500,
+      }
+    }
+
+    it('outgoing ecash reclaim → no generic transferReclaimed toast (owned by the reclaim hook)', () => {
+      const addToast = vi.fn()
+      vi.spyOn(useAppStore, 'getState').mockReturnValue({
+        ...useAppStore.getState(),
+        addToast,
+      })
+
+      eventBus.emit({
+        type: 'transfer:reclaimed',
+        payload: { transfer: reclaimed('tx-ecash', 'outgoing', 'ecash-token') },
+      })
+
+      expect(addToast).not.toHaveBeenCalled()
+    })
+
+    it('outgoing bolt11 reclaim → keeps generic transferReclaimed toast', () => {
+      const addToast = vi.fn()
+      vi.spyOn(useAppStore, 'getState').mockReturnValue({
+        ...useAppStore.getState(),
+        addToast,
+      })
+
+      eventBus.emit({
+        type: 'transfer:reclaimed',
+        payload: { transfer: reclaimed('tx-bolt11', 'outgoing', 'bolt11-melt') },
+      })
+
+      expect(addToast).toHaveBeenCalledTimes(1)
+      expect(addToast).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'success' }),
+      )
+    })
+  })
+
   it('should not handle balance:changed by default', () => {
     // Default: handleBalance = false
     let balanceHandled = false

@@ -336,6 +336,25 @@ describe("TransferTxBridge - refresh emission contract", () => {
     expect(triggerTxRefresh).toHaveBeenCalledOnce();
   });
 
+  it("transfer:failed on an already-settled TX → does NOT clobber it (stale failure)", async () => {
+    const { triggerTxRefresh, mockTxRepo } = makeBridge({
+      event: "transfer:failed",
+      transfer: baseTransfer,
+      reason: "stale rollback",
+      existingTx: {
+        id: "tx-r1",
+        status: "settled",
+        outcome: "reclaimed",
+        metadata: {},
+      },
+    });
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(mockTxRepo.update).not.toHaveBeenCalled();
+    expect(mockTxRepo.save).not.toHaveBeenCalled();
+    expect(triggerTxRefresh).not.toHaveBeenCalled();
+  });
+
   it("transfer:failed (no TX) → fires refresh after creating a new failed TX", async () => {
     const { triggerTxRefresh, mockTxRepo } = makeBridge({
       event: "transfer:failed",

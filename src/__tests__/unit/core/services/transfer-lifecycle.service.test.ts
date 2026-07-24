@@ -268,6 +268,45 @@ describe('TransferLifecycleService', () => {
     })
   })
 
+  // ─── resolveReclaimByOperationRef ───
+
+  describe('resolveReclaimByOperationRef', () => {
+    it('resolves an active submitted send as reclaimed (emit + store update, true)', async () => {
+      createService(new Map())
+
+      const transfer = createPendingTransfer({
+        id: 't1',
+        txId: 'tx-1',
+        direction: 'outgoing',
+        finality: 'deferred',
+        onExpiry: 'reclaim',
+        transportRef: { protocol: 'mock', operationId: 'op-x' },
+        now: Date.now(),
+      })
+      await store.create(transitionPhase(transfer, 'submitted', Date.now()))
+
+      const result = await service.resolveReclaimByOperationRef('op-x')
+
+      expect(result).toBe(true)
+      expect((await store.get('t1'))?.phase).toBe('settled')
+
+      const reclaimedEvent = emittedEvents.find((e) => e.type === 'transfer:reclaimed')
+      expect(reclaimedEvent).toBeDefined()
+      // Never a settled/failed event — that would mislabel the tx or fire the wrong toast
+      expect(emittedEvents.some((e) => e.type === 'transfer:settled')).toBe(false)
+      expect(emittedEvents.some((e) => e.type === 'transfer:failed')).toBe(false)
+    })
+
+    it('returns false with no emit when no active transfer matches', async () => {
+      createService(new Map())
+
+      const result = await service.resolveReclaimByOperationRef('missing-op')
+
+      expect(result).toBe(false)
+      expect(emittedEvents.some((e) => e.type === 'transfer:reclaimed')).toBe(false)
+    })
+  })
+
   // ─── processIncomingTransfer ───
 
   describe('processIncomingTransfer', () => {

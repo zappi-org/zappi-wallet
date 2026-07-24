@@ -251,12 +251,20 @@ export function connectEventStoreBridge(
   unsubscribers.push(
     eventBus.on('transfer:reclaimed', (event) => {
       const { removeTransfer, addToast, triggerTxRefresh } = useAppStore.getState()
-      removeTransfer(event.payload.transfer.id)
-      addToast({
-        type: 'success',
-        message: i18n.t('toast.transferReclaimed'),
-        duration: 4000,
-      })
+      const transfer = event.payload.transfer
+      removeTransfer(transfer.id)
+      // Outgoing ecash reclaims are owned by the UI reclaim hook (useReclaim
+      // reclaimSuccess) — suppress the generic toast here to avoid a double, the
+      // same way transfer:settled defers outgoing-ecash claims to its hook.
+      const ref = transfer.transportRef as { type?: string; protocol?: string } | undefined
+      const protocol = ref?.protocol || ref?.type?.split('-')[0]
+      if (!(transfer.direction === 'outgoing' && protocol === 'ecash')) {
+        addToast({
+          type: 'success',
+          message: i18n.t('toast.transferReclaimed'),
+          duration: 4000,
+        })
+      }
       triggerTxRefresh()
       broadcastSync('balance_changed')
     }),
