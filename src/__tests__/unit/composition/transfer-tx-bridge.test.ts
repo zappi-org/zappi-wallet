@@ -211,6 +211,97 @@ describe("TransferTxBridge - incoming ecash fee", () => {
   });
 });
 
+describe("TransferTxBridge - ecash outgoing memo", () => {
+  it("persists memo from transportRef onto the created transaction (direct-transfer send)", async () => {
+    const mockTransfer = {
+      id: "transfer-memo",
+      txId: "tx-memo",
+      direction: "outgoing",
+      phase: "submitted",
+      finality: "deferred",
+      onExpiry: "reclaim",
+      amount: 1000,
+      transportRef: {
+        type: "cashu-token",
+        token: "cashuAtest",
+        operationId: "op-memo",
+        memo: "for coffee",
+      },
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    const mockTxRepo = {
+      getById: vi.fn().mockResolvedValue(null),
+      save: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const mockEventBus = {
+      on: vi.fn((event, handler) => {
+        if (event === "transfer:submitted") {
+          handler({ payload: { transfer: mockTransfer } });
+        }
+        return () => {};
+      }),
+    };
+
+    connectTransferTxBridge({
+      eventBus: mockEventBus as unknown as EventBus,
+      txRepo: mockTxRepo as unknown as TransactionRepository,
+    });
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(mockTxRepo.save).toHaveBeenCalledOnce();
+    const savedTx = mockTxRepo.save.mock.calls[0][0];
+    expect(savedTx.memo).toBe("for coffee");
+  });
+
+  it("omits memo when transportRef has none", async () => {
+    const mockTransfer = {
+      id: "transfer-nomemo",
+      txId: "tx-nomemo",
+      direction: "outgoing",
+      phase: "submitted",
+      finality: "deferred",
+      onExpiry: "reclaim",
+      amount: 1000,
+      transportRef: {
+        type: "cashu-token",
+        token: "cashuAtest",
+        operationId: "op-nomemo",
+      },
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    const mockTxRepo = {
+      getById: vi.fn().mockResolvedValue(null),
+      save: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const mockEventBus = {
+      on: vi.fn((event, handler) => {
+        if (event === "transfer:submitted") {
+          handler({ payload: { transfer: mockTransfer } });
+        }
+        return () => {};
+      }),
+    };
+
+    connectTransferTxBridge({
+      eventBus: mockEventBus as unknown as EventBus,
+      txRepo: mockTxRepo as unknown as TransactionRepository,
+    });
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(mockTxRepo.save).toHaveBeenCalledOnce();
+    const savedTx = mockTxRepo.save.mock.calls[0][0];
+    expect(savedTx.memo).toBeUndefined();
+  });
+});
+
 /**
  * refresh-emission contract
  *

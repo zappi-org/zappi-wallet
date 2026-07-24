@@ -214,6 +214,7 @@ export function connectTransferTxBridge(
                   token?: string
                   fee?: number
                   operationId?: string
+                  memo?: string
                 }
               | undefined;
             const baseTx = createTransaction({
@@ -227,6 +228,8 @@ export function connectTransferTxBridge(
               ...(ecashRef?.fee != null
                 ? { fee: { quoted: sat(ecashRef.fee) } }
                 : {}),
+              // Recipient-claim toast and receipt/detail views read tx.memo directly.
+              ...(ecashRef?.memo ? { memo: ecashRef.memo } : {}),
               metadata: {
                 // Reclaim cancels the coco send op via this id (rollback → returns
                 // proofs, no false claim). token stays as display/legacy fallback.

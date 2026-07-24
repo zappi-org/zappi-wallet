@@ -133,4 +133,58 @@ describe('useGlobalTokenClaimToast', () => {
 
     expect(addToast).not.toHaveBeenCalled()
   })
+
+  it('ownership-suppressed send:claimed still dedups, so transfer:settled after ownership is released does not double-toast', () => {
+    markPaymentOwnedByUI('tx-1')
+    renderHook(() => useGlobalTokenClaimToast(makeRegistry(eventBus)))
+
+    // Owning screen (e.g. DirectReceiptStep) is still mounted — suppressed,
+    // but the dedup slot must be recorded regardless.
+    eventBus.emit({
+      type: 'send:claimed',
+      payload: { txId: 'tx-1', method: 'ecash', protocol: 'cashu-token', amount: sat(500), memo: 'lunch' },
+    })
+    expect(addToast).not.toHaveBeenCalled()
+
+    // Owning screen unmounts and releases ownership before the other
+    // settlement path fires — it must find the txId already dedup'd.
+    unmarkPaymentOwnedByUI('tx-1')
+    eventBus.emit({
+      type: 'transfer:settled',
+      payload: { transfer: outgoingTransfer('tx-1', { type: 'ecash-token', amount: 500, memo: 'lunch' }) },
+    })
+
+    expect(addToast).not.toHaveBeenCalled()
+  })
+
+  it('an ineligible protocol/direction event does not consume a dedup slot', () => {
+    renderHook(() => useGlobalTokenClaimToast(makeRegistry(eventBus)))
+
+    // bolt11 (ineligible protocol) and wrong-direction transfers return before
+    // reaching the dedup set — they must not burn a slot for their txId.
+    eventBus.emit({
+      type: 'transfer:settled',
+      payload: { transfer: outgoingTransfer('tx-2', { type: 'bolt11-melt', amount: 500 }) },
+    })
+    eventBus.emit({
+      type: 'transfer:settled',
+      payload: {
+        transfer: { ...outgoingTransfer('tx-3', { type: 'ecash-token', amount: 500 }), direction: 'incoming' },
+      },
+    })
+    expect(addToast).not.toHaveBeenCalled()
+
+    // A later legit ecash claim reusing tx-2's slot, plus an unrelated tx-4,
+    // must still toast normally.
+    eventBus.emit({
+      type: 'transfer:settled',
+      payload: { transfer: outgoingTransfer('tx-2', { type: 'ecash-token', amount: 500 }) },
+    })
+    eventBus.emit({
+      type: 'transfer:settled',
+      payload: { transfer: outgoingTransfer('tx-4', { type: 'ecash-token', amount: 700 }) },
+    })
+
+    expect(addToast).toHaveBeenCalledTimes(2)
+  })
 })

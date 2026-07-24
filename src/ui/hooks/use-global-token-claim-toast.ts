@@ -55,9 +55,12 @@ export function useGlobalTokenClaimToast(
       // Alpha scope: only cashu ecash token claims — Lightning sends already
       // have their own completion toast via payment:completed handler.
       if (protocol !== 'cashu-token') return
-      if (isPaymentOwnedByUI(txId)) return
+      // Record before the ownership check: the owning screen already showed
+      // feedback (the stamp), so the other settlement path must not re-toast
+      // once ownership is released — dedup has to survive the early return below.
       if (toastedRef.current.has(txId)) return
       toastedRef.current.add(txId)
+      if (isPaymentOwnedByUI(txId)) return
       fireClaimToast(toNumber(amount), memo)
     })
 
@@ -72,9 +75,10 @@ export function useGlobalTokenClaimToast(
         | undefined
       const protocol = ref?.protocol || ref?.type?.split('-')[0]
       if (protocol !== 'ecash') return
-      if (isPaymentOwnedByUI(transfer.txId)) return
+      // Record before the ownership check — see send:claimed above for why.
       if (toastedRef.current.has(transfer.txId)) return
       toastedRef.current.add(transfer.txId)
+      if (isPaymentOwnedByUI(transfer.txId)) return
       // transfer.amount is unset for ecash prepares — amount lives on transportRef.
       fireClaimToast(transfer.amount ?? ref?.amount ?? 0, ref?.memo)
     })
