@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Download, ExternalLink, FileText, Loader2, X } from 'lucide-react'
+import { Download, FileText, Loader2, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { isRenderableAttachmentImage, safeAttachmentMime } from '@/core/domain/support'
 
 export interface CSAttachmentPreviewData {
   data: Uint8Array
@@ -23,7 +24,7 @@ export function CSAttachmentPreview({
 }: CSAttachmentPreviewProps) {
   const { t } = useTranslation()
   const blobUrl = useObjectUrl(attachment)
-  const isImage = attachment ? attachment.mime.startsWith('image/') : false
+  const isImage = attachment ? isRenderableAttachmentImage(attachment.mime) : false
 
   if (!attachment && !loading) return null
 
@@ -72,15 +73,15 @@ export function CSAttachmentPreview({
             </div>
             <p className="text-[14px] font-semibold break-all">{attachment.name ?? attachment.mime}</p>
             <p className="text-[12px] text-white/65">{formatBytes(attachment.data.length)}</p>
-            <a
-              href={blobUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            {/* Download, never navigate: opening an attachment would run it as a same-origin document. */}
+            <button
+              type="button"
+              onClick={() => onDownload(attachment)}
               className="mt-2 inline-flex items-center gap-1.5 text-[12px] text-white/80"
             >
-              <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.7} />
-              {t('support.openInNewTab')}
-            </a>
+              <Download className="w-3.5 h-3.5" strokeWidth={1.7} />
+              {t('support.downloadAttachment')}
+            </button>
           </div>
         )}
       </div>
@@ -95,7 +96,7 @@ function useObjectUrl(attachment: CSAttachmentPreviewData | null): string | null
       attachment.data.byteOffset,
       attachment.data.byteOffset + attachment.data.byteLength,
     ) as ArrayBuffer
-    return new Blob([arrayBuffer], { type: attachment.mime })
+    return new Blob([arrayBuffer], { type: safeAttachmentMime(attachment.mime) })
   }, [attachment])
 
   const [url, setUrl] = useState<string | null>(null)

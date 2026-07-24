@@ -31,6 +31,34 @@ export function getSupportKind(category: SupportCategory): SupportKind {
   return isIdeaCategory(category) ? 'idea' : 'inquiry'
 }
 
+// ── Untrusted attachment MIME ──
+
+/**
+ * An attachment's MIME is chosen by the remote peer, and it becomes the type of
+ * a blob: URL on our own origin. Only these render safely; everything else is
+ * downgraded to an opaque type so it can never be a scriptable document.
+ */
+const RENDERABLE_ATTACHMENT_MIMES: ReadonlySet<string> = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+])
+
+export const OPAQUE_ATTACHMENT_MIME = 'application/octet-stream'
+
+/** Narrows a remote-supplied MIME to the allowlist before any Blob is built. */
+export function safeAttachmentMime(mime: string | undefined): string {
+  const normalized = (mime ?? '').split(';')[0].trim().toLowerCase()
+  return RENDERABLE_ATTACHMENT_MIMES.has(normalized) ? normalized : OPAQUE_ATTACHMENT_MIME
+}
+
+/** True only for types we are willing to paint into an <img>. */
+export function isRenderableAttachmentImage(mime: string | undefined): boolean {
+  return safeAttachmentMime(mime).startsWith('image/')
+}
+
 export interface SupportAvailability {
   available: boolean
   reason?: 'not_configured' | 'invalid_config'

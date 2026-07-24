@@ -2,6 +2,7 @@ import type { TFunction } from 'i18next'
 import { Image as ImageIcon, ImageOff, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/ui/lib/utils'
+import { isRenderableAttachmentImage } from '@/core/domain/support'
 import type { SupportAttachment, SupportMessage } from '@/core/domain/support'
 
 interface CSChatBubbleProps {
@@ -49,7 +50,7 @@ export function CSChatBubble({
         {message.attachments && message.attachments.length > 0 && (
           <div className="mt-2.5 flex flex-col gap-1.5">
             {message.attachments.map((attachment) => {
-              const isImage = attachment.mime.startsWith('image/')
+              const isImage = isRenderableAttachmentImage(attachment.mime)
               if (isImage) {
                 const url = imageUrls.get(attachment.id)
                 const failed = failedImageIds.has(attachment.id)
