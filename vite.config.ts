@@ -82,6 +82,39 @@ function devServiceWorkerKillSwitch() {
   }
 }
 
+// Rollup's object form of manualChunks only claims each package's entry module, so
+// React's real implementation modules stayed unclaimed and were swept into whichever
+// chunk reached them first — vendor-charts. That made recharts (~110 KB gzip) a
+// critical-path dependency of the entry while vendor-react built out empty. Matching
+// resolved module ids claims a whole package, so React lands in vendor-react and
+// recharts is reachable only from the lazy Analytics chunk.
+// Deps are listed explicitly because the object form used to absorb them transitively.
+const VENDOR_CHUNKS: ReadonlyArray<readonly [string, RegExp]> = [
+  // use-sync-external-store is a React API shim shared by zustand (eager) and recharts
+  // (lazy); left unclaimed Rollup folds it into vendor-charts and the entry imports it,
+  // which alone is enough to drag all of recharts back onto the critical path.
+  ['vendor-react', /\/node_modules\/(?:react|react-dom|scheduler|use-sync-external-store)\//],
+  ['vendor-motion', /\/node_modules\/(?:motion|framer-motion|motion-dom|motion-utils)\//],
+  ['vendor-charts', /\/node_modules\/recharts\//],
+  // Unlock crypto and the Dexie driver are needed before first paint, but they are also
+  // dependencies of the wallet SDK. Left unclaimed Rollup folds them into vendor-cashu /
+  // vendor-coco, which makes the entry import those chunks and undoes the SDK deferral.
+  ['vendor-crypto', /\/node_modules\/(?:@noble|@scure)\//],
+  ['vendor-dexie', /\/node_modules\/dexie\//],
+  ['vendor-nostr', /\/node_modules\/nostr-tools\//],
+  ['vendor-cashu', /\/node_modules\/@cashu\/cashu-ts\//],
+  ['vendor-coco', /\/node_modules\/@cashu\/coco-(?:core|indexeddb)\//],
+]
+
+function manualChunks(id: string): string | undefined {
+  // Virtual ids (\0commonjs-proxy:…) embed the real path, so plain matching still works.
+  const normalized = id.replace(/\\/g, '/')
+  for (const [name, pattern] of VENDOR_CHUNKS) {
+    if (pattern.test(normalized)) return name
+  }
+  return undefined
+}
+
 const appVersion = readPackageVersion()
 const gitCommit = readGitCommit()
 const appCommit = gitCommit !== 'unknown' && isGitDirty() ? `${gitCommit}-dirty` : gitCommit
@@ -148,14 +181,7 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom'],
-          'vendor-motion': ['motion'],
-          'vendor-charts': ['recharts'],
-          'vendor-nostr': ['nostr-tools'],
-          'vendor-cashu': ['@cashu/cashu-ts'],
-          'vendor-coco': ['@cashu/coco-core', '@cashu/coco-indexeddb'],
-        },
+        manualChunks,
       },
     },
   },

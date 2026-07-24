@@ -1,13 +1,12 @@
 /**
  * Onboarding assembly — moves App.tsx's direct adapter wiring into composition.
  *
- * App.tsx must stay lightweight: the static imports here are the same set as App.tsx's
- * former static imports (chunk graph unchanged), and NostrGateway/Profile are imported
- * dynamically only on onboarding completion (as in the original).
+ * App.tsx must stay lightweight, so nothing here may statically reach the Cashu SDK or
+ * the Nostr gateway: the Coco keyring is imported inside its getter and
+ * NostrGateway/Profile only on onboarding completion.
  */
 
 import { CocoP2PKKeyManager } from '@/adapters/crypto/p2pk-key-manager.adapter'
-import { getCocoManager } from '@/modules/cashu'
 import { DexieSettingsRepository as SettingsRepository } from '@/adapters/storage/dexie/dexie-settings.repository'
 import { createSecurityService } from './security'
 
@@ -17,7 +16,13 @@ export function createOnboardingServices() {
   return {
     security,
     settingsRepo: new SettingsRepository(),
-    p2pkKeyManager: new CocoP2PKKeyManager(async () => (await getCocoManager()).keyring),
+    // Loaded inside the getter, not at module scope: coco-sdk statically imports the
+    // Cashu SDK, and the keyring is only reached after the user has a wallet — a
+    // static import would download ~142 KB gzip of SDK before the lock screen paints.
+    p2pkKeyManager: new CocoP2PKKeyManager(async () => {
+      const { getCocoManager } = await import('@/modules/cashu/internal/coco-sdk')
+      return (await getCocoManager()).keyring
+    }),
   }
 }
 
