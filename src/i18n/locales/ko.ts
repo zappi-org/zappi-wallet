@@ -767,6 +767,7 @@ export default {
     adapterNotFound: '이 작업을 처리할 결제 수단을 찾을 수 없어요',
     serviceNotReady: '서비스를 준비하고 있어요. 잠시 후 다시 시도해 주세요.',
     invalidDestination: '인식할 수 없는 주소예요',
+    paymentDeliveryFailed: '받는 분에게 연결하지 못해 결제를 보내지 못했어요',
     unrecognizedInput: '인식할 수 없는 입력 형식이에요',
     lnurlParseFailed: '이 LNURL은 처리할 수 없어요',
     transferStateInvalid: '더 이상 처리할 수 없는 전송이에요',

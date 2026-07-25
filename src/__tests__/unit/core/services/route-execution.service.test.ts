@@ -65,9 +65,10 @@ describe('RouteExecutionService', () => {
       rollbackMelt: vi.fn(),
       redeemMintQuote: vi.fn(),
     } as unknown as RoutePaymentOperator
-    const txRepo = { save: vi.fn() } as unknown as TransactionRepository
+    const txRepo = { save: vi.fn(), delete: vi.fn() } as unknown as TransactionRepository
     const routeStore = {
       savePendingSendToken: vi.fn(),
+      deletePendingSendToken: vi.fn(),
       savePendingMelt: vi.fn(),
       deletePendingMelt: vi.fn(),
     } as unknown as RouteExecutionStore
@@ -131,6 +132,140 @@ describe('RouteExecutionService', () => {
     }))
     expect(syncNotifier.notifyBalanceChanged).toHaveBeenCalledOnce()
     expect(result.value.transportUsed).toBe('nostr')
+  })
+
+  // Delivery reports failure by return value. Before this, nothing threw, the
+  // compensating catch never ran, and the committed funds sat behind a phantom
+  // "unclaimed token" row until the user reclaimed by hand.
+  it('rolls back the send and erases its artifacts when delivery fails without throwing', async () => {
+    const operator = {
+      prepareTokenSend: vi.fn().mockResolvedValue({ operationId: 'op-send', fee: 2 }),
+      executeTokenSend: vi.fn().mockResolvedValue({ token: 'cashuAtoken' }),
+      rollbackTokenSend: vi.fn().mockResolvedValue(undefined),
+    } as unknown as RoutePaymentOperator
+    const txRepo = { save: vi.fn(), delete: vi.fn() } as unknown as TransactionRepository
+    const routeStore = {
+      savePendingSendToken: vi.fn(),
+      deletePendingSendToken: vi.fn(),
+    } as unknown as RouteExecutionStore
+    const delivery: PaymentDeliveryPort = {
+      deliverToken: vi.fn().mockResolvedValue({ success: false, transportUsed: 'none' }),
+    }
+
+    const service = new RouteExecutionService(
+      operator,
+      txRepo,
+      routeStore,
+      delivery,
+      {} as TokenCodec,
+      {} as never,
+      { emit: vi.fn() } as unknown as EventBus,
+      {} as TransferLifecycleService,
+      { notifyBalanceChanged: vi.fn() },
+    )
+
+    const result = await service.executeRoute(createSelection(), {
+      parsedCreq: {
+        id: 'creq-1',
+        unit: 'sat',
+        mints: ['https://mint-a.test'],
+        transports: [{ type: 'nostr', target: 'nprofile1recipient' }],
+        hasNostrTransport: true,
+        nostrTarget: 'nprofile1recipient',
+        hasPostTransport: false,
+      },
+    })
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.error.code).toBe('PAYMENT_DELIVERY_FAILED')
+
+    expect(operator.rollbackTokenSend).toHaveBeenCalledWith('op-send')
+
+    const savedTxId = vi.mocked(routeStore.savePendingSendToken).mock.calls[0][0].id
+    expect(routeStore.deletePendingSendToken).toHaveBeenCalledWith(savedTxId)
+    expect(txRepo.delete).toHaveBeenCalledWith(savedTxId)
+  })
+
+  // A failed rollback means the funds are still committed — the tx row and the
+  // pending entry are the user's only path to a manual reclaim.
+  it('keeps the send artifacts when the rollback itself fails', async () => {
+    const operator = {
+      prepareTokenSend: vi.fn().mockResolvedValue({ operationId: 'op-send', fee: 2 }),
+      executeTokenSend: vi.fn().mockResolvedValue({ token: 'cashuAtoken' }),
+      rollbackTokenSend: vi.fn().mockRejectedValue(new Error('mint unreachable')),
+    } as unknown as RoutePaymentOperator
+    const txRepo = { save: vi.fn(), delete: vi.fn() } as unknown as TransactionRepository
+    const routeStore = {
+      savePendingSendToken: vi.fn(),
+      deletePendingSendToken: vi.fn(),
+    } as unknown as RouteExecutionStore
+    const delivery: PaymentDeliveryPort = {
+      deliverToken: vi.fn().mockResolvedValue({ success: false, transportUsed: 'none' }),
+    }
+
+    const service = new RouteExecutionService(
+      operator,
+      txRepo,
+      routeStore,
+      delivery,
+      {} as TokenCodec,
+      {} as never,
+      { emit: vi.fn() } as unknown as EventBus,
+      {} as TransferLifecycleService,
+      { notifyBalanceChanged: vi.fn() },
+    )
+
+    const result = await service.executeRoute(createSelection(), {
+      parsedCreq: {
+        id: 'creq-2',
+        unit: 'sat',
+        mints: ['https://mint-a.test'],
+        transports: [],
+        hasNostrTransport: false,
+        hasPostTransport: false,
+      },
+    })
+
+    expect(result.ok).toBe(false)
+    expect(routeStore.deletePendingSendToken).not.toHaveBeenCalled()
+    expect(txRepo.delete).not.toHaveBeenCalled()
+  })
+
+  it('leaves a plain token send (no request) settled — nothing to deliver', async () => {
+    const operator = {
+      prepareTokenSend: vi.fn().mockResolvedValue({ operationId: 'op-send', fee: 0 }),
+      executeTokenSend: vi.fn().mockResolvedValue({ token: 'cashuAtoken' }),
+      rollbackTokenSend: vi.fn(),
+    } as unknown as RoutePaymentOperator
+    const txRepo = { save: vi.fn(), delete: vi.fn() } as unknown as TransactionRepository
+    const routeStore = {
+      savePendingSendToken: vi.fn(),
+      deletePendingSendToken: vi.fn(),
+    } as unknown as RouteExecutionStore
+    const delivery: PaymentDeliveryPort = {
+      deliverToken: vi.fn().mockResolvedValue({ success: true, transportUsed: 'none' }),
+    }
+
+    const service = new RouteExecutionService(
+      operator,
+      txRepo,
+      routeStore,
+      delivery,
+      {} as TokenCodec,
+      {} as never,
+      { emit: vi.fn() } as unknown as EventBus,
+      {} as TransferLifecycleService,
+      { notifyBalanceChanged: vi.fn() },
+    )
+
+    const result = await service.executeRoute(createSelection(), {})
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value.status).toBe('settled')
+    expect(operator.rollbackTokenSend).not.toHaveBeenCalled()
+    expect(txRepo.delete).not.toHaveBeenCalled()
   })
 
   it('executes bolt11 send via TransferLifecycleService', async () => {

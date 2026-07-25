@@ -130,6 +130,7 @@ describe('emitted key set — must exist in all five locales', () => {
     'errors.transferStateInvalid',
     'errors.receiveRequestInvalid',
     'errors.supportTicketResolved',
+    'errors.paymentDeliveryFailed',
   ] as const
 
   const LOCALES = { en, ko, ja, es, id } as const

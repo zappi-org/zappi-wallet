@@ -14,4 +14,5 @@ export interface RouteExecutionStore {
     amount: number
     operationId: string
   }): Promise<void>
+  deletePendingSendToken(id: string): Promise<void>
 }

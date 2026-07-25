@@ -765,6 +765,7 @@ export default {
     adapterNotFound: 'Tidak ada metode pembayaran untuk operasi ini',
     serviceNotReady: 'Layanan sedang disiapkan. Coba lagi sebentar lagi.',
     invalidDestination: 'Alamat tujuan tidak dikenali',
+    paymentDeliveryFailed: 'Tidak dapat menghubungi penerima — pembayaran tidak terkirim',
     unrecognizedInput: 'Format input tidak dikenali',
     lnurlParseFailed: 'LNURL ini tidak dapat diproses',
     transferStateInvalid: 'Transfer ini tidak dapat diproses lagi',

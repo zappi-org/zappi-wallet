@@ -11,6 +11,8 @@ export class PaymentDelivery implements PaymentDeliveryPort {
   async deliverToken(params: Parameters<PaymentDeliveryPort['deliverToken']>[0]) {
     const { token, parsedRequest, memo } = params
 
+    // No request at all = bearer token the sender hands over themselves; there is
+    // nothing to deliver, so that is a success.
     if (!parsedRequest) {
       return { success: true, transportUsed: 'none' as const }
     }
@@ -48,10 +50,9 @@ export class PaymentDelivery implements PaymentDeliveryPort {
       }
     }
 
-    if (!parsedRequest.hasNostrTransport && !parsedRequest.hasPostTransport) {
-      return { success: true, transportUsed: 'none' as const }
-    }
-
+    // A request that declares no transport we can drive is a failed delivery, not
+    // a silent success: reporting "sent" would hand the payer a receipt for a
+    // token nobody received, while the funds stay committed.
     return { success: false, transportUsed: 'none' as const }
   }
 }

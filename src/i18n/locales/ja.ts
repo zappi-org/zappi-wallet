@@ -763,6 +763,7 @@ export default {
     adapterNotFound: 'この操作に使える決済手段が見つかりません',
     serviceNotReady: 'サービスを準備しています。しばらくしてからもう一度お試しください。',
     invalidDestination: '認識できない送金先アドレスです',
+    paymentDeliveryFailed: '受取人に接続できず、送金できませんでした',
     unrecognizedInput: '認識できない入力形式です',
     lnurlParseFailed: 'このLNURLは処理できません',
     transferStateInvalid: 'この送金はこれ以上処理できません',

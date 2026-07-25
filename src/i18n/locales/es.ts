@@ -765,6 +765,7 @@ export default {
     adapterNotFound: 'No hay un método de pago disponible para esta operación',
     serviceNotReady: 'El servicio se está iniciando. Inténtalo de nuevo en un momento.',
     invalidDestination: 'Dirección de destino no reconocida',
+    paymentDeliveryFailed: 'No se pudo contactar al destinatario; el pago no se envió',
     unrecognizedInput: 'Formato de entrada no reconocido',
     lnurlParseFailed: 'No se pudo procesar este LNURL',
     transferStateInvalid: 'Esta transferencia ya no se puede procesar',

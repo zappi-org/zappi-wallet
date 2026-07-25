@@ -43,4 +43,8 @@ export class DexieRouteExecutionStore implements RouteExecutionStore {
       createdAt: Date.now(),
     })
   }
+
+  async deletePendingSendToken(id: string): Promise<void> {
+    await this.db.pendingSendTokens.delete(id)
+  }
 }

@@ -7,7 +7,12 @@ import {
   type RouteSelection,
 } from "@/core/domain/routing";
 import type { EventBus } from "@/core/events/event-bus";
-import { BaseError, ServiceNotReadyError, UnknownError } from "@/core/errors";
+import {
+  BaseError,
+  PaymentDeliveryFailedError,
+  ServiceNotReadyError,
+  UnknownError,
+} from "@/core/errors";
 import type { LnurlGateway } from "@/core/ports/driven/lnurl-gateway.port";
 import type { PaymentDeliveryPort } from "@/core/ports/driven/payment-delivery.port";
 import type { RouteExecutionStore } from "@/core/ports/driven/route-execution-store.port";
@@ -246,6 +251,7 @@ export class RouteExecutionService implements RouteExecutionUseCase {
     upstreamFee = 0
   ): Promise<RouteExecutionResult> {
     let operationId: string | undefined;
+    let txId: string | undefined;
 
     try {
       const prepared = await this.paymentOperator.prepareTokenSend({
@@ -261,7 +267,7 @@ export class RouteExecutionService implements RouteExecutionUseCase {
         }
       );
 
-      const txId = `tx-ecash-send-${crypto.randomUUID()}`;
+      txId = `tx-ecash-send-${crypto.randomUUID()}`;
       const isRequestPayment = context.parsedCreq != null;
       await this.txRepo.save(
         createTransaction({
@@ -300,10 +306,17 @@ export class RouteExecutionService implements RouteExecutionUseCase {
         memo: context.memo,
       });
 
+      // Delivery reports failure by return value, not by throwing. Raising it
+      // here is what routes an undeliverable send into the compensating catch —
+      // otherwise the funds stay committed behind a phantom unclaimed token.
+      if (!deliveryResult.success) {
+        throw new PaymentDeliveryFailedError();
+      }
+
       this.notifyChanged(mintUrl);
 
       return {
-        status: deliveryResult.success ? "settled" : "failed",
+        status: "settled",
         amount: selection.amount,
         fee: prepared.fee,
         sourceMintUrl: mintUrl,
@@ -312,15 +325,45 @@ export class RouteExecutionService implements RouteExecutionUseCase {
         transportUsed: deliveryResult.transportUsed,
       };
     } catch (error) {
-      if (operationId) {
-        try {
-          await this.paymentOperator.rollbackTokenSend(operationId);
-        } catch {
-          /* ignore */
-        }
-      }
+      await this.compensateTokenSend(mintUrl, operationId, txId);
       throw error;
     }
+  }
+
+  /**
+   * Undoes a token send that never reached its recipient.
+   *
+   * The artifacts are only erased once the funds are provably back: if the
+   * rollback fails they are the user's sole path to a manual reclaim, so they
+   * must survive.
+   */
+  private async compensateTokenSend(
+    mintUrl: string,
+    operationId: string | undefined,
+    txId: string | undefined
+  ): Promise<void> {
+    if (!operationId) return;
+
+    try {
+      await this.paymentOperator.rollbackTokenSend(operationId);
+    } catch {
+      return;
+    }
+
+    if (txId) {
+      try {
+        await this.routeStore.deletePendingSendToken(txId);
+      } catch {
+        /* ignore */
+      }
+      try {
+        await this.txRepo.delete(txId);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    this.notifyChanged(mintUrl);
   }
 
   private async resolveInvoiceValue(
