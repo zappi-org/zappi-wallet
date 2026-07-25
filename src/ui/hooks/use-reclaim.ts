@@ -41,7 +41,6 @@ export function useReclaim() {
 
       // Get transaction info first for error reporting
       const tx = await registry.transactionMgmt.getById(txId)
-      console.log('[useReclaim] txId:', txId, 'tx:', tx)
 
       if (!tx) {
         return {

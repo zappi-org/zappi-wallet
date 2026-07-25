@@ -23,17 +23,15 @@ function parseTokenInfo(
   token: string,
 ): { amount: number; mintUrl: string; memo?: string } | null {
   try {
-    console.log('[parseTokenInfo] Input token length:', token.length, 'starts with:', token.slice(0, 20))
-
     const inspection = inputParser.inspectCashuToken(token)
-    const amount = toNumber(inspection.amount)
-    const mintUrl = inspection.mint
-    const memo = inspection.memo
-
-    console.log('[parseTokenInfo] TokenCodec result:', { amount, mintUrl, memo })
-    return { amount, mintUrl, memo }
+    return {
+      amount: toNumber(inspection.amount),
+      mintUrl: inspection.mint,
+      memo: inspection.memo,
+    }
   } catch (e) {
-    console.log('[parseTokenInfo] Parse error:', e)
+    // Diagnose the failure without echoing the token or its memo.
+    console.warn('[parseTokenInfo] Failed to parse token:', e)
     return null
   }
 }
@@ -48,29 +46,20 @@ async function waitForTransfer(
 ): Promise<{ success: boolean; amount?: number; error?: BaseError }> {
   const startTime = Date.now()
   const pollInterval = 500
-  let loopCount = 0
 
   while (Date.now() - startTime < timeoutMs) {
-    loopCount++
     const transfer = await serviceRegistry.transferLifecycle.getTransfer(transferId)
 
     if (!transfer) {
-      console.log('[waitForTransfer] Transfer not found:', transferId)
       return { success: false, error: new UnknownError('transfer_not_found') }
-    }
-
-    if (loopCount <= 5 || transfer.phase !== 'submitted') {
-      console.log('[waitForTransfer] Loop', loopCount, 'phase:', transfer.phase)
     }
 
     if (transfer.phase === 'settled') {
       const ref = transfer.transportRef as { amount?: number } | undefined
-      console.log('[waitForTransfer] Settled! amount:', ref?.amount)
       return { success: true, amount: ref?.amount }
     }
 
     if (transfer.phase === 'failed') {
-      console.log('[waitForTransfer] Failed!')
       return { success: false, error: new UnknownError('redeem_failed') }
     }
 
@@ -84,7 +73,6 @@ async function waitForTransfer(
     await new Promise((resolve) => setTimeout(resolve, pollInterval))
   }
 
-  console.log('[waitForTransfer] Timeout!')
   return { success: false, error: new UnknownError('redeem_timeout') }
 }
 
@@ -109,7 +97,6 @@ export function useRedeemToken(
     // TransferLifecycleService-based token registration
     try {
       const tokenInfo = parseTokenInfo(serviceRegistry.inputParser, token)
-      console.log('[useRedeemToken] Parsed token:', tokenInfo)
       if (!tokenInfo) {
         return { success: false, error: new UnknownError('invalid_token') }
       }
@@ -135,15 +122,10 @@ export function useRedeemToken(
 
       const submittedTransfer = transitionPhase(pendingTransfer, 'submitted', now)
 
-      console.log('[useRedeemToken] Registering transfer:', transferId)
       await serviceRegistry.transferLifecycle.registerTransfer(submittedTransfer)
-
-      console.log('[useRedeemToken] Calling processIncomingTransfer:', transferId)
       await serviceRegistry.transferLifecycle.processIncomingTransfer(transferId)
 
-      console.log('[useRedeemToken] Waiting for transfer completion:', transferId)
       const result = await waitForTransfer(serviceRegistry, transferId)
-      console.log('[useRedeemToken] Transfer result:', result)
 
       if (result.success) {
         onSuccess?.()

@@ -301,31 +301,23 @@ export class TransferLifecycleService {
   }
 
   async processIncomingTransfer(transferId: string): Promise<void> {
-    console.log('[TLS] processIncomingTransfer called:', transferId)
     const transfer = await this.transferStore.get(transferId)
-    console.log('[TLS] Got transfer:', transfer?.id, 'direction:', transfer?.direction)
     if (!transfer || transfer.direction !== 'incoming') {
-      console.log('[TLS] Early return: no transfer or wrong direction')
       return
     }
     // Block the path where a duplicate incoming:received re-redeems an already
     // settled transfer (→TOKEN_SPENT → catch demotes it to failed).
     if (isTerminal(transfer.phase)) {
-      console.log('[TLS] Early return: transfer already terminal:', transfer.phase)
       return
     }
 
     const operator = this.findOperator(transfer)
-    console.log('[TLS] Found operator:', operator?.protocol)
     if (!operator?.processIncoming) {
-      console.log('[TLS] Early return: no operator or processIncoming')
       return
     }
 
     try {
-      console.log('[TLS] Calling operator.processIncoming...')
       const processed = await operator.processIncoming(transfer)
-      console.log('[TLS] processIncoming result phase:', processed.phase)
       await this.transferStore.update(processed.id, processed)
 
       this.eventBus.emit({
