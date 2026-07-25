@@ -1,5 +1,5 @@
 import type { TransactionRepository } from '@/core/ports/driven/transaction.repository.port'
-import { isSameMintUrl } from '@/utils/url'
+import { isSameMintUrl } from '@/core/domain/mint-url'
 
 interface RemoveMintArtifactsDeps {
   txRepo: TransactionRepository

@@ -8,6 +8,9 @@ import { SettingsDetailPage } from '../components/SettingsDetailPage'
 /**
  * Diagnostics page — views production aggregate counters.
  *
+ * Visible to every unlocked user from Settings → Preferences → Diagnostics;
+ * the route is not feature-flagged or restricted to development builds.
+ *
  * These counters back the verification protocol for the TLS polling-downgrade gate:
  * tls_stuck_detected = 0 AND coco_push_received > 0 across all devices for 7 days.
  * No PII, no remote transmission — the user copies and shares manually for support.

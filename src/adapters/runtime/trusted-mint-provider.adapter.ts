@@ -1,5 +1,5 @@
 import type { TrustedMintProvider } from '@/core/ports/driven/trusted-mint-provider.port'
-import { normalizeMintUrl } from '@/utils/url'
+import { normalizeMintUrl } from '@/core/domain/mint-url'
 
 export class TrustedMintProviderAdapter implements TrustedMintProvider {
   constructor(

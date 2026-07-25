@@ -3,8 +3,8 @@
  * Shared between TransactionList (mini) and HistoryScreen (full).
  *
  * Layout:
- *   받음 · 점심값 (body, semibold)                 1,000 sats (amount, display, green)
- *   10:35 · 라이트닝 (label, muted)                    ≈ $0.50 (label, muted)
+ *   Received · Lunch money (body, semibold)      1,000 sats (amount, display, green)
+ *   10:35 · Lightning (label, muted)             ≈ $0.50 (label, muted)
  */
 
 import type { TranslationKey } from '@/i18n'

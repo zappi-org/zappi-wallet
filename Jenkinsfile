@@ -10,12 +10,11 @@ pipeline {
             steps {
                 checkout scm
                 script {
-                    // Tag builds arrive with BRANCH_NAME = <tag>, and they are the
-                    // only path to the buildingTag() production stages below.
-                    if (env.BRANCH_NAME != 'main' && !buildingTag()) {
-                        error "This pipeline only runs on main branch or tag builds: ${env.BRANCH_NAME}"
+                    def isTag = env.TAG_NAME != null
+                    if (env.BRANCH_NAME != 'main' && !isTag) {
+                        error "This pipeline only runs on main branch or tags: ${env.BRANCH_NAME}"
                     }
-                    env.CHANNEL = buildingTag() ? 'main' : 'staging'
+                    env.CHANNEL = isTag ? 'main' : 'staging'
                 }
                 sh """
                     docker build \
@@ -26,7 +25,7 @@ pipeline {
         }
 
         stage('Deploy Staging') {
-            when { not { buildingTag() } }
+            when { expression { env.TAG_NAME == null } }
             steps {
                 sh """
                     docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:staging
@@ -37,16 +36,17 @@ pipeline {
         }
 
         stage('Approve Production') {
-            when { buildingTag() }
+            when { expression { env.TAG_NAME != null } }
             steps {
                 input message: "Deploy ${TAG_NAME} to production?"
             }
         }
 
         stage('Deploy Production') {
-            when { buildingTag() }
+            when { expression { env.TAG_NAME != null } }
             steps {
                 sh """
+                    docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:${TAG_NAME}
                     docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest
                     docker compose -p zappi-wallet down || true
                     docker compose -p zappi-wallet up -d

@@ -36,4 +36,4 @@ bun run lint     # Lint
 
 ## Status
 
-Actively developed — v0.2.0
+Actively developed — open beta

@@ -1,6 +1,6 @@
 import type { SettingsRepository } from '@/core/ports/driven/settings.repository.port'
 import type { TrustedAccountStore } from '@/core/ports/driven/trusted-account-store.port'
-import { isSameMintUrl, normalizeMintUrl } from '@/utils/url'
+import { isSameMintUrl, normalizeMintUrl } from '@/core/domain/mint-url'
 
 export class SettingsTrustedAccountStoreAdapter implements TrustedAccountStore {
   constructor(

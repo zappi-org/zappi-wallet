@@ -1,5 +1,21 @@
 # zappi-wallet
 
+## 0.3.0
+
+### Minor Changes
+
+- 6160904: refactor: bottom-sheet QR scanner modal with paste/upload buttons
+- 627fef6: Add balance hide toggle on the home screen, a profile bottom sheet in the top-left corner, and split the wallet recovery menu into distinct flows.
+- 627fef6: Auto-restore seed when adding a mint and validate new mints through a fresh network probe instead of the registered-only cache.
+- 627fef6: Strengthen key derivation (PBKDF2 600k iterations with automatic re-encryption migration on unlock), add inactivity auto-lock, and perform a complete account-data wipe on logout.
+
+### Patch Changes
+
+- 627fef6: Improve network synchronization, transfer recovery, diagnostics, and customer-support attachment interoperability.
+- 627fef6: Split the bootstrap monolith into focused modules, unify domain error contracts and hex conversion, and remove dead code and unused dependencies (R2 audit compliance).
+- 627fef6: Replace remaining hardcoded UI strings with i18n keys and fill locale gaps across Japanese, Spanish, and Indonesian.
+- 737be2c: chore:migrate ts6 from 5
+
 ## 0.2.0
 
 ### Minor Changes

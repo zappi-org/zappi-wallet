@@ -1,4 +1,4 @@
-import { mintUrlKey } from '@/utils/url'
+import { mintUrlKey } from '@/core/domain/mint-url'
 import { validateMnemonic, mnemonicToSeedSync } from '@scure/bip39'
 import { wordlist } from '@scure/bip39/wordlists/english.js'
 import {
