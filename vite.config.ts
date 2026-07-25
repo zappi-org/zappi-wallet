@@ -95,6 +95,10 @@ const VENDOR_CHUNKS: ReadonlyArray<readonly [string, RegExp]> = [
   // which alone is enough to drag all of recharts back onto the critical path.
   ['vendor-react', /\/node_modules\/(?:react|react-dom|scheduler|use-sync-external-store)\//],
   ['vendor-motion', /\/node_modules\/(?:motion|framer-motion|motion-dom|motion-utils)\//],
+  // cn() = twMerge(clsx(...)) is used app-wide; left unclaimed Rollup folds clsx into
+  // vendor-charts, so MainApp statically imports that chunk and evaluates all of
+  // recharts on unlock — the same trap as use-sync-external-store, one level down.
+  ['vendor-ui', /\/node_modules\/(?:clsx|tailwind-merge)\//],
   ['vendor-charts', /\/node_modules\/recharts\//],
   // Unlock crypto and the Dexie driver are needed before first paint, but they are also
   // dependencies of the wallet SDK. Left unclaimed Rollup folds them into vendor-cashu /
