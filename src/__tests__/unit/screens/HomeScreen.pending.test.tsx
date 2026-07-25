@@ -171,6 +171,51 @@ describe('HomeScreen pending + empty-state coexistence', () => {
     expect(screen.getByText('-555 sats')).toBeInTheDocument()
   })
 
+  it('shows a transaction stored under a URL notation variant of the selected mint', () => {
+    // Same mint, different notation (host case + explicit :443 + trailing slash).
+    // A slash-only comparison would drop this row and the money would look lost.
+    const variantTx: Transaction = {
+      id: 'tx-variant',
+      direction: 'send',
+      method: 'cashu-token',
+      protocol: 'cashu-token',
+      status: 'settled',
+      outcome: 'claimed',
+      amount: sat(444),
+      accountId: 'https://MINT.test:443/',
+      createdAt: Date.now(),
+    }
+    renderScreen({ transactions: [variantTx] })
+
+    expect(screen.getByText('-444 sats')).toBeInTheDocument()
+  })
+
+  it('still excludes a transaction belonging to a different mint', () => {
+    const foreignTx: Transaction = {
+      id: 'tx-foreign',
+      direction: 'send',
+      method: 'cashu-token',
+      protocol: 'cashu-token',
+      status: 'settled',
+      outcome: 'claimed',
+      amount: sat(999),
+      accountId: 'https://other-mint.test',
+      createdAt: Date.now(),
+    }
+    renderScreen({ transactions: [foreignTx] })
+
+    expect(screen.queryByText('-999 sats')).toBeNull()
+  })
+
+  it('shows a pending item stored under a URL notation variant of the selected mint', () => {
+    pendingItemsState.items = [
+      makePendingRequest({ id: 'req-variant', accountId: 'https://MINT.test:443/', amount: 1234 }),
+    ]
+    renderScreen()
+
+    expect(screen.getByText('+1234 sats')).toBeInTheDocument()
+  })
+
   it('still shows a settled send transaction in the ledger (dedup only targets reclaimable rows)', () => {
     pendingItemsState.items = []
     const settledTx: Transaction = {

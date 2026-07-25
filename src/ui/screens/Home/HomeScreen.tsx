@@ -13,7 +13,7 @@ import { useWallet, useMintHealth, useMintMetadata } from "@/ui/hooks";
 import { useAllPendingItems, type PendingItem } from "@/ui/hooks/usePendingItems";
 import { useAppStore } from "@/store";
 import { useSatUnit, useFormatFiat } from "@/utils/format";
-import { getMintBalance } from "@/utils/url";
+import { getMintBalance, isSameMintUrl } from "@/utils/url";
 import type { MintInfo } from "@/core/types";
 import { isReclaimableSend } from "@/core/domain/transaction";
 import type { Transaction } from "@/core/domain/transaction";
@@ -137,7 +137,6 @@ export function HomeScreen({
     const selectedMint = mints[clampedMintIndex];
     if (!selectedMint) return transactions;
     const url = selectedMint.url;
-    const normalized = url.endsWith("/") ? url.slice(0, -1) : url;
     // Boolean-returning wrapper: isReclaimableSend's `tx is Transaction` type
     // guard would otherwise narrow tx to `never` in the branch below (its
     // input is already typed Transaction, so the false branch collapses).
@@ -148,10 +147,9 @@ export function HomeScreen({
       // is async and independent, so hiding unconditionally would vanish this
       // money from both lists on first paint or if that query comes back empty.
       if (isReclaimable(tx) && pendingItemIds.has(tx.id)) return false;
-      const txUrl = tx.accountId?.endsWith("/")
-        ? tx.accountId.slice(0, -1)
-        : tx.accountId;
-      return txUrl === normalized || txUrl === url;
+      // Domain equality, not a slash strip: a row stored under any notation
+      // variant (host case, :443) is still this mint's money and must show.
+      return Boolean(tx.accountId) && isSameMintUrl(tx.accountId, url);
     });
   }, [transactions, mints, clampedMintIndex, pendingItemIds]);
 
@@ -159,13 +157,9 @@ export function HomeScreen({
     const selectedMint = mints[clampedMintIndex];
     if (!selectedMint) return pendingItemsRaw;
     const url = selectedMint.url;
-    const normalized = url.endsWith("/") ? url.slice(0, -1) : url;
-    return pendingItemsRaw.filter((item) => {
-      const itemUrl = item.accountId?.endsWith("/")
-        ? item.accountId.slice(0, -1)
-        : item.accountId;
-      return itemUrl === normalized || itemUrl === url;
-    });
+    return pendingItemsRaw.filter(
+      (item) => Boolean(item.accountId) && isSameMintUrl(item.accountId, url)
+    );
   }, [pendingItemsRaw, mints, clampedMintIndex]);
 
   const handleBalanceVisibilityToggle = useCallback(() => {

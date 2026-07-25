@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@/ui/lib/utils'
 import { Button } from '@/ui/components/common/Button'
 import { useFormatSats } from '@/utils/format'
+import { isSameMintUrl } from '@/utils/url'
 import { useAppStore } from '@/store'
 import { useMintMetadata, usePayment } from '@/ui/hooks'
 import type { MintInfo } from '@/core/types'
@@ -30,14 +31,12 @@ export function DeleteMintSheet({ isOpen, mint, onClose, onDelete }: DeleteMintS
   const [showMintPicker, setShowMintPicker] = useState(false)
   const [swapError, setSwapError] = useState<string | null>(null)
 
-  // Other mints (for swap destination)
-  const otherMints = useMemo(() => {
-    const normalized = mint.url.endsWith('/') ? mint.url.slice(0, -1) : mint.url
-    return settings.mints.filter((url) => {
-      const n = url.endsWith('/') ? url.slice(0, -1) : url
-      return n !== normalized
-    })
-  }, [settings.mints, mint.url])
+  // Other mints (for swap destination) — domain equality, not a slash strip, so
+  // a notation variant of the mint being deleted can't become its own destination.
+  const otherMints = useMemo(
+    () => settings.mints.filter((url) => !isSameMintUrl(url, mint.url)),
+    [settings.mints, mint.url]
+  )
 
   const effectiveTargetUrl = targetMintUrl || otherMints[0] || null
 
