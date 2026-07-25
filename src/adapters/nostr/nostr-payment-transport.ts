@@ -6,7 +6,8 @@
  */
 
 import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
-import { normalizePubkey } from './internal/nostr-crypto'
+import { extractRelaysFromNprofile, normalizePubkey } from './internal/nostr-crypto'
+import { relayIdentity } from './internal/nostr-relay'
 import type {
   OutgoingPaymentTransport,
   OutgoingPaymentParams,
@@ -62,37 +63,63 @@ export class NostrPaymentTransport implements OutgoingPaymentTransport {
   }
 
   /**
-   * 수신자 DM 릴레이 탐색
-   * kind:10050 (DM Relay List)만 실제 전송 릴레이로 사용한다.
-   * nprofile relay hint나 로컬 기본 릴레이는 최신 수신 릴레이 보장이 없으므로 fallback하지 않는다.
+   * Resolves the recipient's inbox relays.
+   *
+   * kind:10050 (DM Relay List) stays authoritative and goes first, but a payee
+   * who publishes no 10050 can only be reached through the relay hints inside
+   * the nprofile they handed us — treating 10050 as the only source made those
+   * requests undeliverable while the funds were already committed.
+   * Local default relays remain excluded: they carry no delivery guarantee.
    */
   private async resolveRelays(recipientPubkey: string): Promise<string[]> {
+    const dmRelays = await this.queryDmRelayList(recipientPubkey)
+    const hintedRelays = extractRelaysFromNprofile(recipientPubkey)
+    return dedupeRelays([...dmRelays, ...hintedRelays])
+  }
+
+  private async queryDmRelayList(recipientPubkey: string): Promise<string[]> {
     const recipientHex = normalizePubkey(recipientPubkey)
-    if (recipientHex) {
-      try {
-        const events = await this.nostrGateway.queryEvents([
-          { kinds: [10050], authors: [recipientHex], limit: 1 },
-        ])
+    if (!recipientHex) return []
 
-        if (events.length > 0) {
-          const dmRelays = events[0].tags
-            .filter((tag: string[]) => tag[0] === 'relay' && tag[1])
-            .map((tag: string[]) => tag[1])
+    try {
+      const events = await this.nostrGateway.queryEvents([
+        { kinds: [10050], authors: [recipientHex], limit: 1 },
+      ])
+      if (events.length === 0) return []
 
-          if (dmRelays.length > 0) {
-            return dmRelays
-          }
-        }
-      } catch (err) {
-        console.warn('[NostrPaymentTransport] kind:10050 lookup failed:', err)
-      }
+      return events[0].tags
+        .filter((tag: string[]) => tag[0] === 'relay' && tag[1])
+        .map((tag: string[]) => tag[1])
+    } catch (err) {
+      console.warn('[NostrPaymentTransport] kind:10050 lookup failed:', err)
+      return []
     }
-
-    return []
   }
 }
 
 // ─── Pure helpers ───
+
+/**
+ * Merges relay lists without duplicating a relay spelled two ways.
+ * Identity comes from the same normalizer the pool uses, but the first spelling
+ * is what gets published — normalizing the emitted URL would silently rewrite
+ * the recipient's own 10050 entries.
+ */
+function dedupeRelays(relays: string[]): string[] {
+  const seen = new Set<string>()
+  const merged: string[] = []
+
+  for (const relay of relays) {
+    const trimmed = relay.trim()
+    if (!trimmed) continue
+    const identity = relayIdentity(trimmed)
+    if (seen.has(identity)) continue
+    seen.add(identity)
+    merged.push(trimmed)
+  }
+
+  return merged
+}
 
 async function buildContent(
   token: string,
