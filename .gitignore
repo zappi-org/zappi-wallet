@@ -47,3 +47,6 @@ screenshots/
 
 # Local wallet fixture — never commit (contains keys)
 .wallet.json
+
+# Local security notes — never commit
+.private-notes/
