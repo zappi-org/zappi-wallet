@@ -43,6 +43,11 @@ const RENDERABLE_ATTACHMENT_MIMES: ReadonlySet<string> = new Set([
   'image/jpeg',
   'image/gif',
   'image/webp',
+  // Phone-camera formats: the pickers set no `accept`, so these arrive routinely.
+  // Like the others they are image containers, never scriptable documents.
+  'image/heic',
+  'image/heif',
+  'image/avif',
   'application/pdf',
 ])
 
