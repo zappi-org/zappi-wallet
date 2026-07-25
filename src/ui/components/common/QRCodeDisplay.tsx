@@ -124,18 +124,14 @@ function AnimatedQR({
   fill?: boolean
 }) {
   // Create encoder and consume first frame synchronously (safe — runs once per mount)
-  const { encoder, totalFragments, firstFrame } = useMemo(() => {
+  const { encoder, firstFrame } = useMemo(() => {
     const buf = Buffer.from(value, 'utf-8')
     const ur = UR.fromBuffer(buf)
     const enc = new UREncoder(ur, MAX_FRAGMENT_LENGTH)
-    return {
-      encoder: enc,
-      totalFragments: enc.fragmentsLength,
-      firstFrame: enc.nextPart(),
-    }
+    return { encoder: enc, firstFrame: enc.nextPart() }
   }, [value])
 
-  const [frame, setFrame] = useState({ value: firstFrame, index: 0 })
+  const [frame, setFrame] = useState(firstFrame)
 
   // Continuously generate fountain-coded frames via nextPart()
   // After base fragments are exhausted, nextPart() produces redundant
@@ -150,10 +146,7 @@ function AnimatedQR({
     const start = () => {
       if (interval !== null) return
       interval = setInterval(() => {
-        setFrame((prev) => ({
-          value: encoder.nextPart(),
-          index: prev.index + 1,
-        }))
+        setFrame(encoder.nextPart())
       }, FRAME_INTERVAL_MS)
     }
     const stop = () => {
@@ -174,27 +167,15 @@ function AnimatedQR({
     }
   }, [encoder])
 
-  const displayFrame = (frame.index % totalFragments) + 1
-
-  const framed = frameProps(fill, className)
-
   return (
-    <div {...framed} className={cn(framed.className, !fill && 'flex flex-col items-center')}>
+    <div {...frameProps(fill, className)}>
       <QRCodeSVG
-        value={frame.value}
+        value={frame}
         size={SVG_INTRINSIC_SIZE}
         level="L"
         marginSize={QUIET_ZONE_MODULES}
         style={{ width: '100%', height: 'auto' }}
       />
-      {/* Normal-flow counter (not absolute) so it never overlaps QR modules.
-          Skipped in fill mode: PaymentReceipt's aspect-square, overflow-hidden
-          frame would clip an in-flow sibling there. */}
-      {!fill && (
-        <span className="mt-1 text-[10px] text-foreground-muted/60 tabular-nums">
-          {displayFrame} / {totalFragments}
-        </span>
-      )}
     </div>
   )
 }
