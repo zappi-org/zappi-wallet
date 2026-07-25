@@ -77,4 +77,26 @@ describe('writeClipboardText', () => {
     // The scratch textarea must not survive the copy.
     expect(document.querySelector('textarea')).toBeNull()
   })
+
+  // A selected, invisible textarea left in the DOM steals focus, and every
+  // retry adds another one.
+  it('removes the scratch textarea when execCommand is missing', async () => {
+    stub('clipboard', { writeText: vi.fn().mockRejectedValue(new Error('insecure context')) })
+
+    await expect(writeClipboardText('payload')).resolves.toBe(false)
+    expect(document.querySelector('textarea')).toBeNull()
+  })
+
+  it('removes the scratch textarea when execCommand throws', async () => {
+    stub('clipboard', { writeText: vi.fn().mockRejectedValue(new Error('insecure context')) })
+    Object.defineProperty(document, 'execCommand', {
+      configurable: true,
+      value: () => {
+        throw new Error('blocked by policy')
+      },
+    })
+
+    await expect(writeClipboardText('payload')).resolves.toBe(false)
+    expect(document.querySelector('textarea')).toBeNull()
+  })
 })

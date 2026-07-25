@@ -24,19 +24,22 @@ export async function writeClipboardText(text: string): Promise<boolean> {
     // Blocked or unavailable — try the legacy path below.
   }
 
+  // Declared outside the try so a missing or throwing execCommand cannot leave
+  // an invisible, focused textarea behind on every retry.
+  let ta: HTMLTextAreaElement | null = null
   try {
-    const ta = document.createElement('textarea')
+    ta = document.createElement('textarea')
     ta.value = text
     ta.setAttribute('readonly', '')
     ta.style.position = 'fixed'
     ta.style.opacity = '0'
     document.body.appendChild(ta)
     ta.select()
-    const ok = document.execCommand('copy')
-    document.body.removeChild(ta)
-    return ok
+    return document.execCommand('copy')
   } catch {
     return false
+  } finally {
+    ta?.remove()
   }
 }
 

@@ -60,6 +60,45 @@ describe('useCopyFeedback', () => {
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'success', message: 'toast.shared' }))
   })
 
+  // On a browser without Web Share the transport is the clipboard, but the
+  // button the user pressed was Share — that is the one that must confirm.
+  it('confirms the pressed Share button when the share falls back to the clipboard', async () => {
+    stub('clipboard', { writeText: vi.fn().mockResolvedValue(undefined) })
+    const { result } = renderHook(() => useCopyFeedback())
+
+    await act(async () => {
+      await expect(result.current.share('payload')).resolves.toBe('copied')
+    })
+
+    expect(result.current.isShared()).toBe(true)
+    expect(result.current.isCopied()).toBe(false)
+    // The toast still tells the truth about what actually happened.
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'success', message: 'toast.copied' }))
+  })
+
+  it('schedules nothing when the clipboard settles after unmount', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    let release: () => void = () => {}
+    const pending = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    stub('clipboard', { writeText: vi.fn().mockReturnValue(pending) })
+    const { result, unmount } = renderHook(() => useCopyFeedback())
+
+    let copying: Promise<boolean> | undefined
+    act(() => {
+      copying = result.current.copy('payload')
+    })
+    unmount()
+    await act(async () => {
+      release()
+      await copying
+    })
+
+    // A reset timer here would mean a state update on an unmounted hook.
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it('says nothing when the user cancels the share sheet', async () => {
     const abort = Object.assign(new Error('cancel'), { name: 'AbortError' })
     stub('share', vi.fn().mockRejectedValue(abort))

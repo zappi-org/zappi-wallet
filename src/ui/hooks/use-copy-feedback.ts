@@ -19,7 +19,12 @@ const DEFAULT_FIELD = '__default__'
 const FEEDBACK_MS = 2000
 const TOAST_MS = 2000
 
-type Confirmed = { field: string; kind: 'copied' | 'shared' }
+/**
+ * `action` is the button the user pressed, never the transport that ran.
+ * Share falls back to the clipboard on browsers without Web Share; keying the
+ * visual state on the transport would light the Copy button instead.
+ */
+type Confirmed = { field: string; action: 'copied' | 'shared' }
 
 export interface UseCopyFeedback {
   /** True while this field's copy confirmation is showing. */
@@ -35,17 +40,22 @@ export function useCopyFeedback(resetMs: number = FEEDBACK_MS): UseCopyFeedback 
   const addToast = useAppStore((s) => s.addToast)
   const [confirmed, setConfirmed] = useState<Confirmed | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const mountedRef = useRef(true)
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
       if (timerRef.current) clearTimeout(timerRef.current)
-    },
-    [],
-  )
+    }
+  }, [])
 
   const flash = useCallback(
-    (field: string, kind: Confirmed['kind']) => {
-      setConfirmed({ field, kind })
+    (field: string, action: Confirmed['action']) => {
+      // The clipboard/share promise can settle after unmount — a state change
+      // then only earns a React warning and leaks a timer past cleanup.
+      if (!mountedRef.current) return
+      setConfirmed({ field, action })
       if (timerRef.current) clearTimeout(timerRef.current)
       timerRef.current = setTimeout(() => {
         setConfirmed(null)
@@ -55,13 +65,14 @@ export function useCopyFeedback(resetMs: number = FEEDBACK_MS): UseCopyFeedback 
     [resetMs],
   )
 
+  // `action` drives the button state, `outcome` only the toast wording.
   const succeed = useCallback(
-    (field: string, kind: Confirmed['kind']) => {
-      flash(field, kind)
+    (field: string, action: Confirmed['action'], outcome: Confirmed['action']) => {
+      flash(field, action)
       hapticTap()
       addToast({
         type: 'success',
-        message: kind === 'shared' ? t('toast.shared') : t('toast.copied'),
+        message: outcome === 'shared' ? t('toast.shared') : t('toast.copied'),
         duration: TOAST_MS,
       })
     },
@@ -76,7 +87,7 @@ export function useCopyFeedback(resetMs: number = FEEDBACK_MS): UseCopyFeedback 
     async (text: string, field: string = DEFAULT_FIELD) => {
       if (!text) return false
       const ok = await writeClipboardText(text)
-      if (ok) succeed(field, 'copied')
+      if (ok) succeed(field, 'copied', 'copied')
       else fail()
       return ok
     },
@@ -88,7 +99,7 @@ export function useCopyFeedback(resetMs: number = FEEDBACK_MS): UseCopyFeedback 
       if (!text) return 'failed'
       const outcome = await shareOrCopyText(text)
       // A cancel is the user's own decision — announcing it would be noise.
-      if (outcome === 'shared' || outcome === 'copied') succeed(field, outcome)
+      if (outcome === 'shared' || outcome === 'copied') succeed(field, 'shared', outcome)
       else if (outcome === 'failed') fail()
       return outcome
     },
@@ -96,11 +107,11 @@ export function useCopyFeedback(resetMs: number = FEEDBACK_MS): UseCopyFeedback 
   )
 
   const isCopied = useCallback(
-    (field: string = DEFAULT_FIELD) => confirmed?.kind === 'copied' && confirmed.field === field,
+    (field: string = DEFAULT_FIELD) => confirmed?.action === 'copied' && confirmed.field === field,
     [confirmed],
   )
   const isShared = useCallback(
-    (field: string = DEFAULT_FIELD) => confirmed?.kind === 'shared' && confirmed.field === field,
+    (field: string = DEFAULT_FIELD) => confirmed?.action === 'shared' && confirmed.field === field,
     [confirmed],
   )
 
