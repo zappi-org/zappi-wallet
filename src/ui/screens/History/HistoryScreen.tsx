@@ -12,7 +12,7 @@ import { toNumber } from '@/core/domain/amount'
 import type { MintInfo } from '@/core/types'
 import { useAppStore } from '@/store'
 import { useWallet, useMintMetadata } from '@/ui/hooks'
-import { getMintBalance, isSameMintUrl, stripTrailingSlash } from '@/utils/url'
+import { getMintBalance, isSameMintUrl, mintUrlKey } from '@/utils/url'
 import { getLocaleCode, useFormatSats } from '@/utils/format'
 import type { PendingItem } from '@/core/ports/driving/pending-items.usecase'
 import { isSendToken, type TokenDetails } from '@/ui/types/pending-item-details'
@@ -406,8 +406,10 @@ export function HistoryScreen({
       .sort((a, b) => b.createdAt - a.createdAt)
 
     if (selectedMintUrls.size > 0) {
-      const normalizedSet = new Set(Array.from(selectedMintUrls).map(stripTrailingSlash))
-      filtered = filtered.filter((tx) => normalizedSet.has(stripTrailingSlash(tx.accountId)))
+      // Key by the domain identity, not a trailing slash — a row stored under
+      // another benign variant (case, explicit :443) would drop out otherwise.
+      const selectedKeys = new Set(Array.from(selectedMintUrls).map(mintUrlKey))
+      filtered = filtered.filter((tx) => Boolean(tx.accountId) && selectedKeys.has(mintUrlKey(tx.accountId)))
     }
 
     if (dateCutoff) {

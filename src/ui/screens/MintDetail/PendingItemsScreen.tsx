@@ -3,7 +3,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { ArrowLeft, Search, Calendar, CreditCard, ListFilter } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
-import { stripTrailingSlash } from '@/utils/url'
+import { mintUrlKey } from '@/utils/url'
 import { PendingItemsList } from '@/ui/components/wallet/PendingItemsList'
 import { PendingItemDetailScreen } from './PendingItemDetailScreen'
 import { DateFilterSheet } from '@/ui/components/common/DateFilterSheet'
@@ -74,8 +74,10 @@ export function PendingItemsScreen({ onBack, onItemClick, initialMintUrls }: Pen
     let result = items
 
     if (selectedMintUrls.size > 0) {
-      const normalizedSet = new Set(Array.from(selectedMintUrls).map(stripTrailingSlash))
-      result = result.filter((i) => normalizedSet.has(stripTrailingSlash(i.accountId)))
+      // Key by the domain identity, not a trailing slash — an item stored under
+      // another benign variant (case, explicit :443) would drop out otherwise.
+      const selectedKeys = new Set(Array.from(selectedMintUrls).map(mintUrlKey))
+      result = result.filter((i) => Boolean(i.accountId) && selectedKeys.has(mintUrlKey(i.accountId)))
     }
 
     if (dateCutoff) {
