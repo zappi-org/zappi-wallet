@@ -11,6 +11,9 @@ import type {
   LnurlAuthResult,
 } from '@/core/ports/driven/lnurl-gateway.port'
 
+/** BOLT11 default when an invoice carries no `x` (expiry) tag. */
+const DEFAULT_EXPIRY_SECONDS = 3600
+
 export class DirectLnurlAdapter implements LnurlGateway {
   private readonly timeout: number
 
@@ -296,7 +299,10 @@ export class DirectLnurlAdapter implements LnurlGateway {
     // light-bolt11-decoder's own `expiry` getter is shadowed by its tag getters
     // and yields the raw delta, so derive the absolute deadline from sections.
     const timestamp = Number(sections.find((s) => s.name === 'timestamp')?.value)
-    const expiryDelta = Number(sections.find((s) => s.name === 'expiry')?.value)
+    // An invoice without an `x` tag is not exempt from the check: BOLT11 says it
+    // then expires 3600s after its timestamp.
+    const expirySection = sections.find((s) => s.name === 'expiry')
+    const expiryDelta = expirySection ? Number(expirySection.value) : DEFAULT_EXPIRY_SECONDS
     if (Number.isFinite(timestamp) && Number.isFinite(expiryDelta)) {
       if (Date.now() / 1000 >= timestamp + expiryDelta) {
         throw new Error('LNURL service returned an already-expired invoice')

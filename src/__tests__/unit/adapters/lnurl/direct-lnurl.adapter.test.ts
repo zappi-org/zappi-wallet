@@ -39,9 +39,17 @@ const INVOICE_1_SAT = `lnbc10n${INVOICE_BODY}jlc636`
 /** 500,000,000 msat = 500,000 sats (maxSendable boundary) */
 const INVOICE_500K_SATS = `lnbc5m${INVOICE_BODY}7qt6lr`
 
+/**
+ * 2000 sats, same vector re-encoded with the `x` (expiry) tag removed —
+ * BOLT11 then means "expires 3600s after the timestamp".
+ */
+const INVOICE_2000_SATS_NO_EXPIRY = `lnbc20u1p3y0x3hpp5743k2g0fsqqxj7n8qzuhns5gmkk4djeejk3wkp64ppevgekvc0jsdqcve5kzar2v9nr5gpqd4hkuetesp5ez2g297jduwc20t6lmqlsg3man0vf2jfd8ar9fh8fhn2g8yttfkqcqzys9qrsgqrzjqtx3k77yrrav9hye7zar2rtqlfkytl094dsp0ms5majzth6gt7ca6uhdkxl983uywgqqqqlgqqqvx5qqjqrzjqd98kxkpyw0l9tyy8r8q57k7zpy9zjmh6sez752wj6gcumqnj3yxzhdsmg6qq56utgqqqqqqqqqqqeqqjq7jd56882gtxhrjm03c93aacyfy306m4fq0tskf83c0nmet8zc2lxyyg3saz8x6vwcp26xnrlagf9semau3qm2glysp7sv95693fphvsprm5xuw`
+
 const INVOICE_TIMESTAMP = 1648859703
 /** inside the invoices' validity window (timestamp + 172800s) */
 const WITHIN_VALIDITY_MS = (INVOICE_TIMESTAMP + 1_000) * 1000
+/** BOLT11's implicit expiry for an invoice carrying no expiry tag */
+const DEFAULT_EXPIRY_SECONDS = 3600
 
 const PAY_PARAMS: LnurlPayParams = {
   callback: 'https://ln.example.com/cb',
@@ -145,6 +153,23 @@ describe('DirectLnurlAdapter', () => {
     await expect(adapter.fetchInvoice(PAY_PARAMS, 2000)).rejects.toThrow(
       'LNURL service returned an already-expired invoice',
     )
+  })
+
+  it('fetchInvoice: an invoice without an expiry tag is still checked against the 3600s default', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ pr: INVOICE_2000_SATS_NO_EXPIRY }))
+    vi.setSystemTime((INVOICE_TIMESTAMP + DEFAULT_EXPIRY_SECONDS + 1) * 1000)
+
+    await expect(adapter.fetchInvoice(PAY_PARAMS, 2000)).rejects.toThrow(
+      'LNURL service returned an already-expired invoice',
+    )
+  })
+
+  it('fetchInvoice: an invoice without an expiry tag is accepted inside that default hour', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ pr: INVOICE_2000_SATS_NO_EXPIRY }))
+    vi.setSystemTime((INVOICE_TIMESTAMP + DEFAULT_EXPIRY_SECONDS - 1) * 1000)
+
+    const result = await adapter.fetchInvoice(PAY_PARAMS, 2000)
+    expect(result.bolt11).toBe(INVOICE_2000_SATS_NO_EXPIRY)
   })
 
   // ─── comment gating ───
