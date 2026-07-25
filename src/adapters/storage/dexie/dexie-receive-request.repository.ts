@@ -18,10 +18,7 @@ import type {
 } from './schema'
 import { getDatabase } from './schema'
 import { sat, toNumber } from '@/core/domain/amount'
-
-function stripTrailingSlash(url: string): string {
-  return url.endsWith('/') ? url.slice(0, -1) : url
-}
+import { mintUrlKey } from '@/core/domain/mint-url'
 
 function legacyMethodStatus(
   record: ReceiveRequestRecord,
@@ -151,8 +148,10 @@ function toLegacy(domain: ReceiveRequest): ReceiveRequestRecord {
 
 function matchesAccount(record: ReceiveRequestRecord, accountIds?: string[]): boolean {
   if (!accountIds || accountIds.length === 0) return true
-  const normalizedIds = accountIds.map(stripTrailingSlash)
-  return normalizedIds.includes(stripTrailingSlash(record.mintUrl))
+  // Comparison, not a storage key — mintUrlKey is the domain rule for "same mint"
+  // and absorbs case/port variants that a slash strip would leave unequal.
+  const selectedKeys = accountIds.map(mintUrlKey)
+  return selectedKeys.includes(mintUrlKey(record.mintUrl))
 }
 
 function findMethodByRef(record: ReceiveRequestRecord, ref: string): boolean {
