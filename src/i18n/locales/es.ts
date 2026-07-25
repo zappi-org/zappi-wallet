@@ -605,7 +605,6 @@ export default {
     reclaimFailed: 'Error al recuperar eCash',
     consumedByRecipient: 'El destinatario ya reclamó este eCash',
     sentToken: 'eCash enviado',
-    copied: 'Copiado',
     delete: 'Eliminar',
     deleteConfirm: '¿Eliminar este registro de transacción?',
     deleteWarning: 'No se puede deshacer.',
@@ -781,6 +780,8 @@ export default {
   // Toast Messages
   toast: {
     copied: 'Copiado al portapapeles',
+    shared: 'Compartido',
+    copyFailed: 'No se pudo copiar',
     ecashReceivedFromSync: '{{count}} pago(s) Ecash recibido(s) ({{amount}})',
     lightningReceived: '{{unit}} {{amount}} pago Lightning recibido',
     swapOffline: 'No se puede intercambiar sin conexión',
@@ -1077,7 +1078,6 @@ export default {
         share: 'Compartir',
       },
       shareText: '{{memo}}: {{amount}}',
-      copiedToClipboard: 'Copiado al portapapeles',
     },
     reclaim: {
       title: 'Recuperar',

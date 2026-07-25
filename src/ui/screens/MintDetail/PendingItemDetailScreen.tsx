@@ -5,11 +5,11 @@ import { TxStateBar } from '@/ui/screens/TransactionDetail/TxStateBar'
 import type { TxStateTrack } from '@/ui/screens/TransactionDetail/tx-state-machine'
 import { TokenQrModal, type TokenQrModalPayload } from '@/ui/screens/TransactionDetail/TokenQrModal'
 import { useMintMetadata } from '@/ui/hooks'
+import { useCopyFeedback } from '@/ui/hooks/use-copy-feedback'
 import { useTokenReclaim } from '@/ui/hooks/use-token-reclaim'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import type { PendingItem } from '@/ui/hooks/usePendingItems'
 import { isOfflineToken, isReceiveRequest, isSendToken } from '@/ui/types/pending-item-details'
-import { shareOrCopyText } from '@/ui/utils/share'
 import { cn } from '@/ui/lib/utils'
 import { getLocaleCode, useFormatFiat, useFormatSats } from '@/utils/format'
 import { ArrowLeft, Check, ChevronDown, Copy, Download, Loader2, QrCode, RefreshCw, Share2 } from 'lucide-react'
@@ -31,26 +31,13 @@ export interface PendingItemDetailScreenProps {
   onItemRemoved?: () => Promise<void> | void
 }
 
-async function copyToClipboard(text: string) {
-  try {
-    await navigator.clipboard.writeText(text)
-  } catch {
-    const ta = document.createElement('textarea')
-    ta.value = text
-    document.body.appendChild(ta)
-    ta.select()
-    document.execCommand('copy')
-    document.body.removeChild(ta)
-  }
-}
-
 export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved }: PendingItemDetailScreenProps) {
   const { t, i18n } = useTranslation()
   const serviceRegistry = useServiceRegistry()
   const { reclaimToken } = useTokenReclaim()
   const formatSats = useFormatSats()
   const toFiat = useFormatFiat()
-  const [copiedField, setCopiedField] = useState<string | null>(null)
+  const { isCopied, isShared, copy, share } = useCopyFeedback()
   const reqDetails = isReceiveRequest(item) ? item.details : undefined
   const sendDetails = isSendToken(item) ? item.details : undefined
   const offlineDetails = isOfflineToken(item) ? item.details : undefined
@@ -131,12 +118,6 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
       cancelled = true
     }
   }, [reqDetails, serviceRegistry, item.id, callbacks, onItemRemoved, addToast, t, onBack])
-
-  const handleCopy = useCallback(async (text: string, field: string) => {
-    await copyToClipboard(text)
-    setCopiedField(field)
-    setTimeout(() => setCopiedField(null), 2000)
-  }, [])
 
   // === Action handlers ===
 
@@ -321,10 +302,8 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
 
   const handleShare = useCallback(async () => {
     if (!chipPayload) return
-    await shareOrCopyText(chipPayload, () => {
-      addToast({ type: 'success', message: t('token.reclaimable.copiedToClipboard') })
-    })
-  }, [chipPayload, addToast, t])
+    await share(chipPayload, 'chip')
+  }, [chipPayload, share])
 
   const statusLine = `${formatDate(item.createdAt)} · ${t('history.pendingStatus')}`
 
@@ -381,11 +360,11 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
                                   </button>
                                 )}
                                 <button
-                                  onClick={() => handleCopy(entry.value, entry.key)}
+                                  onClick={() => copy(entry.value, entry.key)}
                                   className="w-9 h-9 flex items-center justify-center rounded-lg active:bg-foreground/[0.06]"
-                                  aria-label={t('common.copy')}
+                                  aria-label={isCopied(entry.key) ? t('common.copied') : t('common.copy')}
                                 >
-                                  {copiedField === entry.key ? <Check className="w-4 h-4 text-accent-success" /> : <Copy className="w-4 h-4 text-foreground-muted" />}
+                                  {isCopied(entry.key) ? <Check className="w-4 h-4 text-accent-success" /> : <Copy className="w-4 h-4 text-foreground-muted" />}
                                 </button>
                               </span>
                             </div>
@@ -441,17 +420,18 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
                 <QrCode className="w-4 h-4" strokeWidth={1.8} /> QR
               </button>
               <button
-                onClick={() => handleCopy(chipPayload, 'chip')}
+                onClick={() => copy(chipPayload, 'chip')}
                 className="flex-1 flex items-center justify-center gap-1.5 h-11 rounded-full bg-background-card border border-border/60 text-caption font-semibold text-foreground active:scale-[0.98] transition-transform"
               >
-                {copiedField === 'chip' ? <Check className="w-4 h-4 text-accent-success" strokeWidth={1.8} /> : <Copy className="w-4 h-4" strokeWidth={1.8} />}
-                {t('common.copy')}
+                {isCopied('chip') ? <Check className="w-4 h-4 text-accent-success" strokeWidth={1.8} /> : <Copy className="w-4 h-4" strokeWidth={1.8} />}
+                {isCopied('chip') ? t('common.copied') : t('common.copy')}
               </button>
               <button
                 onClick={handleShare}
                 className="flex-1 flex items-center justify-center gap-1.5 h-11 rounded-full bg-background-card border border-border/60 text-caption font-semibold text-foreground active:scale-[0.98] transition-transform"
               >
-                <Share2 className="w-4 h-4" strokeWidth={1.8} /> {t('txDetail.share')}
+                {isShared('chip') ? <Check className="w-4 h-4 text-accent-success" strokeWidth={1.8} /> : <Share2 className="w-4 h-4" strokeWidth={1.8} />}
+                {t('txDetail.share')}
               </button>
             </div>
           )}

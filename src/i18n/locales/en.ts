@@ -604,7 +604,6 @@ export default {
     reclaimFailed: 'Failed to reclaim eCash',
     consumedByRecipient: 'Recipient has already claimed this eCash',
     sentToken: 'Sent eCash',
-    copied: 'Copied',
     delete: 'Delete',
     deleteConfirm: 'Delete this transaction record?',
     deleteWarning: 'This cannot be undone.',
@@ -777,6 +776,8 @@ export default {
   // Toast Messages
   toast: {
     copied: 'Copied to clipboard',
+    shared: 'Shared',
+    copyFailed: 'Could not copy',
     ecashReceivedFromSync: '{{count}} Ecash payment(s) received ({{amount}})',
     lightningReceived: '{{unit}} {{amount}} Lightning payment arrived',
     swapOffline: 'Cannot swap while offline',
@@ -1075,7 +1076,6 @@ export default {
         share: 'Share',
       },
       shareText: '{{memo}}: {{amount}}',
-      copiedToClipboard: 'Copied to clipboard',
     },
     reclaim: {
       title: 'Reclaim',

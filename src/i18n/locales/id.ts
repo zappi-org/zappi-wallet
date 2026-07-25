@@ -605,7 +605,6 @@ export default {
     reclaimFailed: 'Gagal mengklaim kembali eCash',
     consumedByRecipient: 'Penerima sudah mengklaim eCash ini',
     sentToken: 'eCash Terkirim',
-    copied: 'Disalin',
     delete: 'Hapus',
     deleteConfirm: 'Hapus catatan transaksi ini?',
     deleteWarning: 'Tidak dapat dibatalkan.',
@@ -781,6 +780,8 @@ export default {
   // Toast Messages
   toast: {
     copied: 'Disalin ke clipboard',
+    shared: 'Dibagikan',
+    copyFailed: 'Gagal menyalin',
     ecashReceivedFromSync: '{{count}} pembayaran Ecash diterima ({{amount}})',
     lightningReceived: '{{unit}} {{amount}} pembayaran Lightning diterima',
     swapOffline: 'Tidak dapat swap saat offline',
@@ -1077,7 +1078,6 @@ export default {
         share: 'Bagikan',
       },
       shareText: '{{memo}}: {{amount}}',
-      copiedToClipboard: 'Disalin ke clipboard',
     },
     reclaim: {
       title: 'Ambil kembali',

@@ -3,6 +3,7 @@ import { X, Copy, Check, Eye, EyeOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { SegmentControl } from '@/ui/components/common/SegmentControl'
+import { useCopyFeedback } from '@/ui/hooks/use-copy-feedback'
 
 /** One selectable QR payload — a protocol variant of the same request/token. */
 export interface TokenQrModalPayload {
@@ -35,7 +36,7 @@ export const BACKDROP_SHIELD_MS = 350
 
 export function TokenQrModal({ isOpen, token, onClose, title, veil = true, payloads }: TokenQrModalProps) {
   const { t } = useTranslation()
-  const [copied, setCopied] = useState(false)
+  const { isCopied, copy } = useCopyFeedback()
 
   const items = useMemo<TokenQrModalPayload[]>(
     () => (payloads && payloads.length > 0 ? payloads : [{ id: 'single', label: '', value: token, veil }]),
@@ -106,20 +107,7 @@ export function TokenQrModal({ isOpen, token, onClose, title, veil = true, paylo
     }, BACKDROP_SHIELD_MS)
   }, [onClose])
 
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(active.value)
-    } catch {
-      const ta = document.createElement('textarea')
-      ta.value = active.value
-      document.body.appendChild(ta)
-      ta.select()
-      document.execCommand('copy')
-      document.body.removeChild(ta)
-    }
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }, [active.value])
+  const handleCopy = useCallback(() => copy(active.value), [active.value, copy])
 
   if (!isOpen) {
     // Shield outlives the sheet itself so a ghost tap lands on empty air.
@@ -194,8 +182,8 @@ export function TokenQrModal({ isOpen, token, onClose, title, veil = true, paylo
             onClick={handleCopy}
             className="w-full flex items-center justify-center gap-2 bg-background-card text-foreground border border-border py-3.5 rounded-xl font-semibold text-caption active:scale-[0.98] transition-transform shadow-sm"
           >
-            {copied ? (
-              <><Check className="w-4 h-4" /> {t('mintDetail.copied')}</>
+            {isCopied() ? (
+              <><Check className="w-4 h-4 text-accent-success" /> {t('mintDetail.copied')}</>
             ) : (
               <><Copy className="w-4 h-4" /> {t('mintDetail.copy')}</>
             )}

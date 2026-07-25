@@ -6,6 +6,8 @@ export interface ReclaimableSectionProps {
   tokens: PendingTokenView[]
   onReclaim?: (token: PendingTokenView) => void
   onShare?: (token: PendingTokenView) => void
+  /** Which token's share just landed — the row's own confirmation. */
+  sharedId?: (token: PendingTokenView) => boolean
   onSelect?: (token: PendingTokenView) => void
 }
 
@@ -13,6 +15,7 @@ export function ReclaimableSection({
   tokens,
   onReclaim,
   onShare,
+  sharedId,
   onSelect,
 }: ReclaimableSectionProps) {
   const { t } = useTranslation()
@@ -31,6 +34,7 @@ export function ReclaimableSection({
           token={token}
           onReclaim={onReclaim ? () => onReclaim(token) : undefined}
           onShare={onShare ? () => onShare(token) : undefined}
+          shared={sharedId?.(token) ?? false}
           onSelect={onSelect ? () => onSelect(token) : undefined}
         />
       ))}

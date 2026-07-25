@@ -12,11 +12,11 @@ import { getDisplayFee, getTotalCost, getTransactionType, getTxMeta } from '@/co
 import { useAppStore } from '@/store'
 import { Button } from '@/ui/components/common/Button'
 import { PaymentReceipt, type PaymentReceiptRow } from '@/ui/components/payment/PaymentReceipt'
+import { useCopyFeedback } from '@/ui/hooks/use-copy-feedback'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useReclaim } from '@/ui/hooks/use-reclaim'
 import { useReclaimFees } from '@/ui/hooks/useReclaimFees'
 import { useTransactionMgmt } from '@/ui/hooks/use-transaction-mgmt'
-import { shareOrCopyText } from '@/ui/utils/share'
 import { formatTransactionFiat, useFormatFiat, useFormatSats, truncateStr } from '@/utils/format'
 import { cn } from '@/ui/lib/utils'
 import sendSuccessImg from '@/assets/send-success.png'
@@ -64,7 +64,7 @@ export default function TransactionDetailScreen({
   const mintColors = useAppStore((s) => s.settings.mintColors)
   const txMgmt = useTransactionMgmt()
   const [tx, setTx] = useState(initialTx)
-  const [copiedField, setCopiedField] = useState<string | null>(null)
+  const { isCopied, isShared, copy, share } = useCopyFeedback()
   const [showMenu, setShowMenu] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
@@ -119,22 +119,8 @@ export default function TransactionDetailScreen({
   }, [metadata])
 
   const handleCopy = useCallback(
-    async (text: string, field: string) => {
-      try {
-        await navigator.clipboard.writeText(text)
-      } catch {
-        const ta = document.createElement('textarea')
-        ta.value = text
-        document.body.appendChild(ta)
-        ta.select()
-        document.execCommand('copy')
-        document.body.removeChild(ta)
-      }
-      setCopiedField(field)
-      addToast({ type: 'success', message: t('txDetail.copied'), duration: 1500 })
-      setTimeout(() => setCopiedField(null), 2000)
-    },
-    [addToast, t],
+    (text: string, field: string) => copy(text, field),
+    [copy],
   )
 
   // Chips are bearer-token territory; the invoice gets a QR affordance on its
@@ -143,10 +129,8 @@ export default function TransactionDetailScreen({
 
   const handleShareToken = useCallback(async () => {
     if (!meta.token) return
-    await shareOrCopyText(meta.token, () => {
-      addToast({ type: 'success', message: t('txDetail.copied'), duration: 1500 })
-    })
-  }, [meta.token, addToast, t])
+    await share(meta.token, 'token')
+  }, [meta.token, share])
 
   // ─── Reclaim (via fee-quoted sheet) ───
   const handleConfirmReclaim = useCallback(async () => {
@@ -443,9 +427,9 @@ export default function TransactionDetailScreen({
                             <button
                               onClick={() => handleCopy(entry.value, entry.key)}
                               className="w-9 h-9 flex items-center justify-center rounded-lg active:bg-foreground/[0.06]"
-                              aria-label={t('common.copy')}
+                              aria-label={isCopied(entry.key) ? t('common.copied') : t('common.copy')}
                             >
-                              {copiedField === entry.key ? <Check className="w-4 h-4 text-accent-success" /> : <Copy className="w-4 h-4 text-foreground-muted" />}
+                              {isCopied(entry.key) ? <Check className="w-4 h-4 text-accent-success" /> : <Copy className="w-4 h-4 text-foreground-muted" />}
                             </button>
                           </span>
                         </div>
@@ -461,9 +445,9 @@ export default function TransactionDetailScreen({
                           <button
                             onClick={() => handleCopy(meta.token!, 'rawToken')}
                             className="w-9 h-9 flex items-center justify-center rounded-lg active:bg-foreground/[0.06]"
-                            aria-label={t('common.copy')}
+                            aria-label={isCopied('rawToken') ? t('common.copied') : t('common.copy')}
                           >
-                            {copiedField === 'rawToken' ? <Check className="w-4 h-4 text-accent-success" /> : <Copy className="w-4 h-4 text-foreground-muted" />}
+                            {isCopied('rawToken') ? <Check className="w-4 h-4 text-accent-success" /> : <Copy className="w-4 h-4 text-foreground-muted" />}
                           </button>
                         </div>
                         <p
@@ -497,14 +481,15 @@ export default function TransactionDetailScreen({
                 onClick={() => handleCopy(meta.token!, 'token')}
                 className="flex-1 flex items-center justify-center gap-1.5 h-11 rounded-full bg-background-card border border-border/60 text-caption font-semibold text-foreground active:scale-[0.98] transition-transform"
               >
-                {copiedField === 'token' ? <Check className="w-4 h-4 text-accent-success" strokeWidth={1.8} /> : <Copy className="w-4 h-4" strokeWidth={1.8} />}
-                {t('common.copy')}
+                {isCopied('token') ? <Check className="w-4 h-4 text-accent-success" strokeWidth={1.8} /> : <Copy className="w-4 h-4" strokeWidth={1.8} />}
+                {isCopied('token') ? t('common.copied') : t('common.copy')}
               </button>
               <button
                 onClick={handleShareToken}
                 className="flex-1 flex items-center justify-center gap-1.5 h-11 rounded-full bg-background-card border border-border/60 text-caption font-semibold text-foreground active:scale-[0.98] transition-transform"
               >
-                <Share2 className="w-4 h-4" strokeWidth={1.8} /> {t('txDetail.share')}
+                {isShared('token') ? <Check className="w-4 h-4 text-accent-success" strokeWidth={1.8} /> : <Share2 className="w-4 h-4" strokeWidth={1.8} />}
+                {t('txDetail.share')}
               </button>
             </div>
           )}

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@/ui/lib/utils'
 import { BottomSheet } from '@/ui/components/common/BottomSheet'
 import { useAppStore } from '@/store'
+import { useCopyFeedback } from '@/ui/hooks/use-copy-feedback'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { CARD_PRESET_VARIANTS, MintCard, VARIANT_HEX, resolveMintColor } from '@/ui/components/wallet/MintCard'
 import type { MintCardDesignPreset, MintInfo, MintInfoData } from '@/core/types'
@@ -27,19 +28,6 @@ export interface MintInfoSheetProps {
   getDisplayName: (url: string) => string
 }
 
-async function copyToClipboard(text: string) {
-  try {
-    await navigator.clipboard.writeText(text)
-  } catch {
-    const ta = document.createElement('textarea')
-    ta.value = text
-    document.body.appendChild(ta)
-    ta.select()
-    document.execCommand('copy')
-    document.body.removeChild(ta)
-  }
-}
-
 export function MintInfoSheet({
   isOpen,
   section,
@@ -54,10 +42,9 @@ export function MintInfoSheet({
   const { t } = useTranslation()
   const registry = useServiceRegistry()
   const settings = useAppStore((s) => s.settings)
-  const addToast = useAppStore((s) => s.addToast)
   const [mintInfo, setMintInfo] = useState<MintInfoData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [copiedField, setCopiedField] = useState<string | null>(null)
+  const { isCopied, copy } = useCopyFeedback()
   const [showQr, setShowQr] = useState(false)
   const [showNuts, setShowNuts] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
@@ -92,12 +79,7 @@ export function MintInfoSheet({
     fetchMintInfo(mint.url)
   }, [isOpen, section, mint?.url, fetchMintInfo])
 
-  const handleCopy = useCallback(async (text: string, field: string) => {
-    await copyToClipboard(text)
-    setCopiedField(field)
-    addToast({ type: 'success', message: t('toast.copied'), duration: 1500 })
-    setTimeout(() => setCopiedField(null), 2000)
-  }, [addToast, t])
+  const handleCopy = useCallback((text: string, field: string) => copy(text, field), [copy])
 
   const handleStartEdit = useCallback(() => {
     setEditNameValue(mint?.alias || mint?.name || '')
@@ -314,7 +296,7 @@ export function MintInfoSheet({
                   <div className="flex items-center gap-1 min-w-0">
                     <span className="text-caption font-mono text-foreground truncate">{formatMintHost(mint.url)}</span>
                     <button onClick={() => handleCopy(mint.url, 'url')} className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg active:bg-foreground/[0.06]">
-                      {copiedField === 'url' ? <Check className="w-3.5 h-3.5 text-accent-success" /> : <Copy className="w-3.5 h-3.5 text-foreground-muted" />}
+                      {isCopied('url') ? <Check className="w-3.5 h-3.5 text-accent-success" /> : <Copy className="w-3.5 h-3.5 text-foreground-muted" />}
                     </button>
                     <button onClick={() => setShowQr(true)} className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg active:bg-foreground/[0.06]">
                       <QrCode className="w-3.5 h-3.5 text-foreground-muted" />
@@ -357,7 +339,7 @@ export function MintInfoSheet({
                         <span className="text-caption text-foreground truncate">{c.info}</span>
                       </div>
                       <button onClick={() => handleCopy(c.info, `contact-${i}`)} className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg active:bg-foreground/[0.06]">
-                        {copiedField === `contact-${i}` ? <Check className="w-3.5 h-3.5 text-accent-success" /> : <Copy className="w-3.5 h-3.5 text-foreground-muted" />}
+                        {isCopied(`contact-${i}`) ? <Check className="w-3.5 h-3.5 text-accent-success" /> : <Copy className="w-3.5 h-3.5 text-foreground-muted" />}
                       </button>
                     </div>
                   ))}
@@ -366,7 +348,7 @@ export function MintInfoSheet({
                       <div className="flex items-center justify-between">
                         <span className="text-caption text-foreground-muted">Pubkey</span>
                         <button onClick={() => handleCopy(mintInfo.pubkey!, 'pubkey')} className="w-7 h-7 flex items-center justify-center rounded-lg active:bg-foreground/[0.06]">
-                          {copiedField === 'pubkey' ? <Check className="w-3.5 h-3.5 text-accent-success" /> : <Copy className="w-3.5 h-3.5 text-foreground-muted" />}
+                          {isCopied('pubkey') ? <Check className="w-3.5 h-3.5 text-accent-success" /> : <Copy className="w-3.5 h-3.5 text-foreground-muted" />}
                         </button>
                       </div>
                       <p className="text-overline font-mono text-foreground-muted break-all mt-1">{mintInfo.pubkey}</p>

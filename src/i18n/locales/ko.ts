@@ -607,7 +607,6 @@ export default {
     reclaimFailed: '이캐시 되찾기 실패',
     consumedByRecipient: '상대방이 이미 수령했습니다',
     sentToken: '이캐시',
-    copied: '복사됨',
     delete: '삭제',
     deleteConfirm: '이 거래 기록을 삭제하시겠습니까?',
     deleteWarning: '삭제 후 복구할 수 없습니다.',
@@ -783,6 +782,8 @@ export default {
   // Toast Messages
   toast: {
     copied: '클립보드에 복사되었습니다',
+    shared: '공유했습니다',
+    copyFailed: '복사하지 못했습니다',
     ecashReceivedFromSync: '{{count}}건의 이캐시 결제를 받았습니다 ({{amount}})',
     lightningReceived: '{{unit}} {{amount}} 라이트닝 결제가 도착했습니다',
     swapOffline: '오프라인 상태에서는 스왑할 수 없습니다',
@@ -1085,7 +1086,6 @@ export default {
         share: '공유',
       },
       shareText: '{{memo}}: {{amount}}',
-      copiedToClipboard: '클립보드에 복사되었어요',
     },
     reclaim: {
       title: '되찾기',

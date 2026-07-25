@@ -13,6 +13,7 @@ import { Button } from '@/ui/components/common/Button'
 import { DirectionalTabPanel } from '@/ui/components/common/DirectionalTabPanel'
 import { SegmentControl } from '@/ui/components/common/SegmentControl'
 import { useAppStore } from '@/store'
+import { useCopyFeedback } from '@/ui/hooks/use-copy-feedback'
 import { useCrypto } from '@/ui/hooks/use-crypto'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
@@ -66,12 +67,11 @@ function useDepositMint(): DepositMintState {
 
 export function MyAddressScreen({ onBack, onOpenSettings }: MyAddressScreenProps) {
   const { t } = useTranslation()
-  const addToast = useAppStore((s) => s.addToast)
   const lightningAddress = useAppStore((s) => s.settings.lightningAddress) ?? null
   const nostrPubkey = useAppStore((s) => s.nostrPubkey)
   const crypto = useCrypto()
   const [tab, setTab] = useState<AddressTab>('lightning')
-  const [copied, setCopied] = useState(false)
+  const { isCopied, isShared, copy, share } = useCopyFeedback()
 
   // npub derived from the stored pubkey (mirrors ReceiveFlow's prior derivation).
   const npub = useMemo(() => {
@@ -96,29 +96,8 @@ export function MyAddressScreen({ onBack, onOpenSettings }: MyAddressScreenProps
       ? t('myAddress.depositsTo', { mint: getDisplayName(deposit.mintUrl) })
       : t('myAddress.depositsToFallback')
 
-  const handleCopy = useCallback(async () => {
-    if (!value) return
-    try {
-      await navigator.clipboard.writeText(value)
-      setCopied(true)
-      hapticTap()
-      addToast({ type: 'success', message: t('common.copied'), duration: 2000 })
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      addToast({ type: 'error', message: t('errors.clipboardError'), duration: 3000 })
-    }
-  }, [value, addToast, t])
-
-  const handleShare = useCallback(async () => {
-    if (!value) return
-    hapticTap()
-    try {
-      if (navigator.share) await navigator.share({ text: value })
-      else await handleCopy()
-    } catch {
-      /* user cancelled */
-    }
-  }, [value, handleCopy])
+  const handleCopy = useCallback(() => copy(value ?? ''), [value, copy])
+  const handleShare = useCallback(() => share(value ?? ''), [value, share])
 
   return (
     <div className="h-full bg-background text-foreground flex flex-col pt-safe">
@@ -156,12 +135,12 @@ export function MyAddressScreen({ onBack, onOpenSettings }: MyAddressScreenProps
               <p className="mt-4 max-w-full break-all px-4 text-center text-body font-medium">{value}</p>
               <div className="flex gap-10 mt-4">
                 <button onClick={handleShare} className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all">
-                  <Share2 className="w-5 h-5" />
+                  {isShared() ? <Check className="w-5 h-5 text-brand" /> : <Share2 className="w-5 h-5" />}
                   {t('receive.qr.share')}
                 </button>
                 <button onClick={handleCopy} className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all">
-                  {copied ? <Check className="w-5 h-5 text-brand" /> : <Copy className="w-5 h-5" />}
-                  {copied ? t('common.copied') : t('common.copy')}
+                  {isCopied() ? <Check className="w-5 h-5 text-brand" /> : <Copy className="w-5 h-5" />}
+                  {isCopied() ? t('common.copied') : t('common.copy')}
                 </button>
               </div>
             </>

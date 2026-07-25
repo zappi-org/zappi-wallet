@@ -17,6 +17,7 @@ import { MintIcon } from '@/ui/components/common/MintIcon'
 import { useAppStore } from '@/store'
 import { hapticTap, hapticSuccess } from '@/ui/utils/haptic'
 import { useFormatSats, getLocaleCode } from '@/utils/format'
+import { useCopyFeedback } from '@/ui/hooks/use-copy-feedback'
 import { usePaymentRequest } from '@/ui/hooks/use-payment-request'
 import { SegmentControl } from '@/ui/components/common/SegmentControl'
 
@@ -128,9 +129,8 @@ export function ReceiveRequestStep({
 }: ReceiveRequestStepProps) {
   const { t } = useTranslation()
   const formatSats = useFormatSats()
-  const addToast = useAppStore((s) => s.addToast)
   const paymentReq = usePaymentRequest()
-  const [copied, setCopied] = useState(false)
+  const { isCopied, isShared, copy, share } = useCopyFeedback()
 
   const setPendingEcashRequestId = useAppStore((s) => s.setPendingEcashRequestId)
 
@@ -297,32 +297,8 @@ export function ReceiveRequestStep({
 
   // ======= Actions =======
 
-  const handleCopy = useCallback(async () => {
-    if (!shareText) return
-    try {
-      await navigator.clipboard.writeText(shareText)
-      setCopied(true)
-      hapticTap()
-      addToast({ type: 'success', message: t('common.copied'), duration: 2000 })
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      addToast({ type: 'error', message: t('errors.clipboardError'), duration: 3000 })
-    }
-  }, [shareText, addToast, t])
-
-  const handleShare = useCallback(async () => {
-    if (!shareText) return
-    hapticTap()
-    try {
-      if (navigator.share) {
-        await navigator.share({ text: shareText })
-      } else {
-        await handleCopy()
-      }
-    } catch {
-      // User cancelled share
-    }
-  }, [shareText, handleCopy])
+  const handleCopy = useCallback(() => copy(shareText ?? ''), [shareText, copy])
+  const handleShare = useCallback(() => share(shareText ?? ''), [shareText, share])
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -414,15 +390,15 @@ export function ReceiveRequestStep({
                 onClick={handleShare}
                 className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all"
               >
-                <Share2 className="w-5 h-5" />
+                {isShared() ? <Check className="w-5 h-5 text-brand" /> : <Share2 className="w-5 h-5" />}
                 {t('receive.qr.share')}
               </button>
               <button
                 onClick={handleCopy}
                 className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all"
               >
-                {copied ? <Check className="w-5 h-5 text-brand" /> : <Copy className="w-5 h-5" />}
-                {copied ? t('common.copied') : t('common.copy')}
+                {isCopied() ? <Check className="w-5 h-5 text-brand" /> : <Copy className="w-5 h-5" />}
+                {isCopied() ? t('common.copied') : t('common.copy')}
               </button>
             </div>
 

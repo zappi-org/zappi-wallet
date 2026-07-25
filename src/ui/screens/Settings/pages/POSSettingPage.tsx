@@ -3,6 +3,7 @@ import { Trash2, Plus, Copy, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { Button, Modal, PinInput } from '@/ui/components/common'
+import { useCopyFeedback } from '@/ui/hooks/use-copy-feedback'
 import { useCrypto } from '@/ui/hooks/use-crypto'
 import type { POSDevice, POSProvisioningPayload, WalletSettings } from '@/core/types'
 import { SettingsDetailPage } from '../components/SettingsDetailPage'
@@ -35,7 +36,7 @@ export function POSSettingPage({
   const [isLoading, setIsLoading] = useState(false)
   const [deviceLabel, setDeviceLabel] = useState('')
   const [qrPayload, setQrPayload] = useState('')
-  const [copied, setCopied] = useState(false)
+  const { isCopied, copy } = useCopyFeedback()
 
   const posDevices = useMemo(() => settings.posDevices ?? [], [settings.posDevices])
 
@@ -130,13 +131,7 @@ export function POSSettingPage({
     setShowRemoveModal(null)
   }, [showRemoveModal, posDevices, onSaveSettings])
 
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(qrPayload)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch { /* ignore */ }
-  }, [qrPayload])
+  const handleCopy = useCallback(() => copy(qrPayload), [qrPayload, copy])
 
   const resetAddModal = useCallback(() => {
     setShowAddModal(false)
@@ -243,7 +238,7 @@ export function POSSettingPage({
             onClick={handleCopy}
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-border text-caption font-semibold active:bg-background-hover"
           >
-            {copied ? (
+            {isCopied() ? (
               <>
                 <Check className="w-3.5 h-3.5 text-accent-success" />
                 <span className="text-accent-success">{t('common.copied')}</span>
@@ -258,7 +253,7 @@ export function POSSettingPage({
           <Button
             variant="primary"
             size="lg"
-            onClick={() => { setShowQrModal(false); setQrPayload(''); setCopied(false) }}
+            onClick={() => { setShowQrModal(false); setQrPayload('') }}
             className="w-full"
           >
             {t('settings.posProvisioningDone')}

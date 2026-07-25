@@ -603,7 +603,6 @@ export default {
     reclaimFailed: 'eCashの回収に失敗しました',
     consumedByRecipient: '相手がすでに受領しました',
     sentToken: '送信eCash',
-    copied: 'コピーしました',
     delete: '削除',
     deleteConfirm: 'この取引記録を削除しますか？',
     deleteWarning: '削除後は元に戻せません。',
@@ -779,6 +778,8 @@ export default {
   // Toast Messages
   toast: {
     copied: 'クリップボードにコピーしました',
+    shared: '共有しました',
+    copyFailed: 'コピーできませんでした',
     ecashReceivedFromSync: '{{count}}件のEcash決済を受け取りました（{{amount}}）',
     lightningReceived: '{{unit}} {{amount}} Lightning決済が到着しました',
     swapOffline: 'オフライン時はスワップできません',
@@ -1075,7 +1076,6 @@ export default {
         share: '共有',
       },
       shareText: '{{memo}}: {{amount}}',
-      copiedToClipboard: 'クリップボードにコピーしました',
     },
     reclaim: {
       title: '取り戻す',

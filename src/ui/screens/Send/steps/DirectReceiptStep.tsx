@@ -7,19 +7,18 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Copy, Share2 } from 'lucide-react'
+import { Check, Copy, Share2 } from 'lucide-react'
 import { BottomActionBar } from '@/ui/components/common/BottomActionBar'
 import { Button } from '@/ui/components/common/Button'
 import { QRCodeDisplay } from '@/ui/components/common/QRCodeDisplay'
 import { PaymentReceipt, type PaymentReceiptRow } from '@/ui/components/payment/PaymentReceipt'
 import sendSuccessImg from '@/assets/send-success.png'
 import { useFormatSats, useFormatFiat } from '@/utils/format'
+import { useCopyFeedback } from '@/ui/hooks/use-copy-feedback'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useOwnPaymentEvent } from '@/ui/hooks/use-own-payment-event'
 import { useSendClaimed } from '@/ui/hooks/use-send-claimed'
-import { useAppStore } from '@/store'
 import { hapticSuccess } from '@/ui/utils/haptic'
-import { shareOrCopyText } from '@/ui/utils/share'
 
 export interface DirectReceiptStepProps {
   amount: number
@@ -49,7 +48,7 @@ export function DirectReceiptStep({
   const { t, i18n } = useTranslation()
   const formatSats = useFormatSats()
   const formatFiat = useFormatFiat()
-  const addToast = useAppStore((s) => s.addToast)
+  const { isCopied, isShared, copy, share } = useCopyFeedback()
   const mintUrls = useMemo(() => [mintUrl], [mintUrl])
   const { getDisplayName } = useMintMetadata(mintUrls)
   const mintName = getDisplayName(mintUrl)
@@ -91,26 +90,8 @@ export function DirectReceiptStep({
     }
   }, [txId, onQuoteReclaim])
 
-  const copyToken = useCallback(async () => {
-    if (!tokenString) return
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(tokenString)
-        hapticSuccess()
-        addToast({ type: 'success', message: t('token.reclaimable.copiedToClipboard') })
-      }
-    } catch {
-      /* clipboard blocked — silent */
-    }
-  }, [tokenString, addToast, t])
-
-  const shareToken = useCallback(async () => {
-    if (!tokenString) return
-    await shareOrCopyText(tokenString, () => {
-      hapticSuccess()
-      addToast({ type: 'success', message: t('token.reclaimable.copiedToClipboard') })
-    })
-  }, [tokenString, addToast, t])
+  const copyToken = useCallback(() => copy(tokenString), [tokenString, copy])
+  const shareToken = useCallback(() => share(tokenString), [tokenString, share])
 
   const handleReclaim = useCallback(async () => {
     if (reclaimBusy || !onReclaim || claimed) return
@@ -183,17 +164,17 @@ export function DirectReceiptStep({
           variant="secondary"
           size="lg"
           className="flex-1"
-          icon={<Copy className="h-4 w-4" strokeWidth={1.8} />}
+          icon={isCopied() ? <Check className="h-4 w-4 text-accent-success" strokeWidth={1.8} /> : <Copy className="h-4 w-4" strokeWidth={1.8} />}
           onClick={copyToken}
           disabled={claimed || !tokenString}
         >
-          {t('common.copy')}
+          {isCopied() ? t('common.copied') : t('common.copy')}
         </Button>
         <Button
           variant="secondary"
           size="lg"
           className="flex-1"
-          icon={<Share2 className="h-4 w-4" strokeWidth={1.8} />}
+          icon={isShared() ? <Check className="h-4 w-4 text-accent-success" strokeWidth={1.8} /> : <Share2 className="h-4 w-4" strokeWidth={1.8} />}
           onClick={shareToken}
           disabled={claimed || !tokenString}
         >

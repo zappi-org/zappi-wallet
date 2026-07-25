@@ -1,5 +1,4 @@
 import { txSourceKey } from '@/ui/utils/tx-source'
-import { shareOrCopyText } from '@/ui/utils/share'
 import type { TFunction } from 'i18next'
 import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Search, Banknote, Calendar, CreditCard, Download, FileSpreadsheet, ListFilter } from 'lucide-react'
@@ -17,6 +16,7 @@ import { getLocaleCode, useFormatSats } from '@/utils/format'
 import type { PendingItem } from '@/core/ports/driving/pending-items.usecase'
 import { isSendToken, type TokenDetails } from '@/ui/types/pending-item-details'
 import { useAllPendingItems } from '@/ui/hooks/usePendingItems'
+import { useCopyFeedback } from '@/ui/hooks/use-copy-feedback'
 import { useReclaimFees } from '@/ui/hooks/useReclaimFees'
 import { useTokenReclaim } from '@/ui/hooks/use-token-reclaim'
 import { ServiceContext } from '@/ui/hooks/service-context-value'
@@ -199,6 +199,7 @@ export function HistoryScreen({
   const registry = useContext(ServiceContext)
   const triggerTxRefresh = useAppStore((s) => s.triggerTxRefresh)
   const formatSats = useFormatSats()
+  const { isShared, share } = useCopyFeedback()
 
   // Local reconciliation on view — remote settlement is the watcher/bridge's job.
   // Pacing lives in the service (reconcileGate, 10s): view-entry callers don't throttle.
@@ -305,11 +306,9 @@ export function HistoryScreen({
             memo: token.memo,
             amount: formatSats(token.amount),
           })
-      await shareOrCopyText(shareText, () => {
-        addToast({ type: 'success', message: t('token.reclaimable.copiedToClipboard') })
-      })
+      await share(shareText, token.id)
     },
-    [addToast, formatSats, t],
+    [share, formatSats, t],
   )
 
   // Monotonic guard: two quick taps race their async lookups — only the
@@ -611,6 +610,7 @@ export function HistoryScreen({
                 <ReclaimableSection
                   tokens={visiblePendingTokens}
                   onShare={handleSharePending}
+                  sharedId={(token) => isShared(token.id)}
                   onReclaim={openReclaimOne}
                   onSelect={handleSelectPending}
                 />
