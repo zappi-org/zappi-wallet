@@ -231,8 +231,15 @@ export function POSSettingPage({
           <p className="text-label font-medium text-foreground-muted text-center">
             {t('settings.posProvisioningDescription')}
           </p>
+          {/* Height-bounded too: a QR sized only by the column width pushes the
+              done/close controls out of a short viewport. 290px is this sheet's
+              chrome (header, copy, done, gaps) — what is left is the QR's. */}
           <div className="flex justify-center">
-            <QRCodeDisplay value={qrPayload} level="L" />
+            <QRCodeDisplay
+              value={qrPayload}
+              level="L"
+              className="max-w-[min(360px,90dvh_-_290px)]"
+            />
           </div>
           <button
             onClick={handleCopy}

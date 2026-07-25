@@ -149,13 +149,15 @@ export function TokenQrModal({ isOpen, token, onClose, title, veil = true, paylo
         )}
 
         {/* QR Code — same px-6 gutter as the tabs and the copy button, so the
-            QR is as wide as the sheet's content column allows. */}
+            QR is as wide as the sheet's content column allows. The button takes
+            the QR's own cap: it draws the veil, and a wider box would leave the
+            bearer QR uncovered on a sheet wider than the cap. */}
         <div className="flex justify-center px-6 py-4">
           <button
             type="button"
             onClick={() => setVeiled((v) => !v)}
             aria-label={t('send.tokenCreate.tapToReveal')}
-            className="relative w-full overflow-hidden rounded-2xl"
+            className="relative w-full max-w-qr overflow-hidden rounded-2xl"
           >
             <div className={`transition-all ${veiled ? 'blur-md opacity-40' : ''}`}>
               <QRCodeDisplay

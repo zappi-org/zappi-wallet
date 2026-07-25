@@ -10,6 +10,9 @@ const twMerge = extendTailwindMerge({
         'text-body', 'text-body-bold',
         'text-caption', 'text-label', 'text-overline',
       ],
+      // Theme widths must join their group, or a caller's max-w-* lands
+      // alongside them and CSS order — not the caller — picks the winner.
+      'max-w': ['max-w-qr'],
     },
   },
 })

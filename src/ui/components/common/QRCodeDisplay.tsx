@@ -41,8 +41,12 @@ const FRAME_INTERVAL_MS = 250
  */
 const SVG_INTRINSIC_SIZE = 400
 
-/** Cap for unbounded containers (desktop); every phone column is narrower. */
-const MAX_DISPLAY_WIDTH = 360
+/**
+ * Cap for unbounded containers (desktop); every phone column is narrower.
+ * It lives in the theme as `max-w-qr` so a caller can bound an overlay to the
+ * same width, and a class (not an inline style) so a caller can override it.
+ */
+const MAX_DISPLAY_WIDTH_CLASS = 'max-w-qr'
 
 /** Spec quiet zone in modules. Owned here, never by a wrapper's padding. */
 const QUIET_ZONE_MODULES = 4
@@ -67,10 +71,13 @@ export interface QRCodeDisplayProps {
  */
 function frameProps(fill: boolean, className?: string) {
   return fill
-    ? { className: cn('w-full h-full flex items-center justify-center', className), style: undefined }
+    ? { className: cn('w-full h-full flex items-center justify-center', className) }
     : {
-        className: cn('w-full overflow-hidden bg-background-card p-1 rounded-xl shadow-sm', className),
-        style: { maxWidth: MAX_DISPLAY_WIDTH },
+        className: cn(
+          'w-full overflow-hidden bg-background-card p-1 rounded-xl shadow-sm',
+          MAX_DISPLAY_WIDTH_CLASS,
+          className,
+        ),
       }
 }
 

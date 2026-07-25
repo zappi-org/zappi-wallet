@@ -113,11 +113,14 @@ export function Modal({
           w-full ${sizeStyles[size]}
           bg-background rounded-xl shadow-xl
           animate-in zoom-in-95 duration-200
+          max-h-[90dvh] flex flex-col overflow-hidden
         `}
       >
-        {/* Header */}
+        {/* Header — pinned, so tall content never scrolls the close button away.
+            Body scroll is locked while open, so without the scroller below,
+            content taller than the viewport would be unreachable. */}
         {(title || showCloseButton) && (
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="shrink-0 flex items-center justify-between px-5 py-4 border-b border-border">
             {title && (
               <h2 id="modal-title" className="text-subtitle font-semibold">
                 {title}
@@ -149,7 +152,7 @@ export function Modal({
         )}
 
         {/* Content */}
-        <div className="px-5 py-4">{children}</div>
+        <div className="min-h-0 overflow-y-auto overscroll-contain px-5 py-4">{children}</div>
       </div>
     </div>,
     document.body

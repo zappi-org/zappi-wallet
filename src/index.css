@@ -19,6 +19,10 @@
   --radius-4xl: calc(var(--radius) + 16px);
   --radius-card: 13px;
 
+  /* QR width cap (max-w-qr) — one owner for the number, so anything drawn on
+     top of a QR (a veil overlay) can bound itself to exactly the QR. */
+  --container-qr: 360px;
+
   /* Font Families */
   --font-primary: 'Outfit', system-ui, -apple-system, sans-serif;
   --font-display: 'Montserrat', 'Outfit', system-ui, sans-serif;
