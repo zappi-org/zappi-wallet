@@ -156,7 +156,6 @@ export function createBootstrap(deps: BootstrapDeps): BootstrapResult {
   const { cashuBackend, cashuModule, modules } = assembleCashuModule({
     pendingOpRepo,
     txRepo,
-    nostrGateway,
     eventBus,
   });
 

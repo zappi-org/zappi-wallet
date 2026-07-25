@@ -18,10 +18,9 @@ import type {
   SendResult as ModuleSendResult,
 } from '@/core/ports/driven/wallet-module.port'
 import type { PaymentMethodAdapter } from '@/core/ports/driven/payment-method.port'
-import type { NostrGateway } from '@/core/ports/driven/nostr-gateway.port'
 import type { ProofStateResult } from '@/core/ports/driven/send-token-operator.port'
 import type { EventBus } from '@/core/events/event-bus'
-import { sat, add, toNumber } from '@/core/domain/amount'
+import { sat, add } from '@/core/domain/amount'
 import {
   CashuBolt11Adapter,
   type LightningBackend,
@@ -29,40 +28,11 @@ import {
 import {
   CashuEcashAdapter,
   type EcashBackend,
-  type LockingCondition,
 } from './adapters/cashu-ecash.adapter'
-
-// ─── PaymentRequest types ───
-
-export interface ResolvedCreq {
-  payableMints: string[]
-  allowedMints: string[]
-  amount?: number
-  transport: { type: 'inband' } | { type: 'http'; url: string }
-  nut10?: { kind: string; data: string; tags?: string[][] }
-}
-
-export interface PreparedCreq {
-  operationId: string
-  resolved: ResolvedCreq
-}
-
-export interface CreqExecutionResult {
-  type: 'inband' | 'http'
-  token?: string
-}
-
-// ─── PaymentRequest backend interface ───
-
-export interface PaymentRequestBackend {
-  parsePaymentRequest(creq: string): Promise<ResolvedCreq>
-  preparePaymentRequest(resolved: ResolvedCreq, options: { mintUrl: string; amount?: number }): Promise<PreparedCreq>
-  executePaymentRequest(prepared: PreparedCreq): Promise<CreqExecutionResult>
-}
 
 // ─── Module-level backend interface (DI용) ───
 
-export interface CashuModuleBackend extends LightningBackend, EcashBackend, PaymentRequestBackend {
+export interface CashuModuleBackend extends LightningBackend, EcashBackend {
   getBalances(): Promise<{ [mintUrl: string]: number }>
   restoreWallet(mintUrl: string): Promise<void>
   recoverPendingQuotes(): Promise<{ recovered: number; failed: number; expired: number }>
@@ -87,7 +57,6 @@ export class CashuModule implements WalletModule {
 
   constructor(
     private backend: CashuModuleBackend,
-    private nostrGateway?: NostrGateway,
     private eventBus?: EventBus,
   ) {}
 
@@ -110,8 +79,9 @@ export class CashuModule implements WalletModule {
 
   // ─── Send (프로토콜 판단 + adapter 위임) ───
 
+  // NUT-18 requests do not route through here: RouteExecutionService owns that
+  // flow end to end (mint → deliver → roll back on failure).
   private readonly protocolRoutes = [
-    { test: isCreq, handler: (p: ModuleSendParams) => this.sendCreq(p) },
     { test: isLightning, handler: (p: ModuleSendParams) => this.sendViaLightning(p) },
   ]
 
@@ -140,47 +110,6 @@ export class CashuModule implements WalletModule {
       protocol: 'cashu-token',
       state: 'completed',
       data: { token: result.data?.token },
-    }
-  }
-
-  private async sendCreq(params: ModuleSendParams): Promise<ModuleSendResult> {
-    const resolved = await this.backend.parsePaymentRequest(params.destination!)
-    const lockingCondition = params.options?.lockingCondition as LockingCondition | undefined
-
-    const prepared = await this.backend.preparePaymentRequest(resolved, {
-      mintUrl: params.accountId,
-      amount: resolved.amount ?? toNumber(params.amount),
-    })
-
-    let result: CreqExecutionResult
-    if (lockingCondition) {
-      const sendPrepared = await this.backend.prepareSend({
-        mintUrl: params.accountId,
-        amount: resolved.amount ?? toNumber(params.amount),
-        lockingCondition,
-      })
-      const { token } = await this.backend.executeSend(sendPrepared.operationId)
-      result = { type: resolved.transport.type === 'http' ? 'http' : 'inband', token }
-    } else {
-      result = await this.backend.executePaymentRequest(prepared)
-    }
-
-    // Nostr DM transport
-    const nostrContext = params.options?.nostrContext as { recipientPubkey: string; relays: string[] } | undefined
-    if (result.type === 'inband' && result.token && nostrContext && this.nostrGateway) {
-      await this.nostrGateway.sendPrivateDirectMessage({
-        recipientPubkey: nostrContext.recipientPubkey,
-        content: result.token,
-        relays: nostrContext.relays,
-      })
-    }
-
-    return {
-      operationId: prepared.operationId,
-      method: 'cashu:ecash',
-      protocol: 'nut18',
-      state: 'completed',
-      data: { type: result.type, token: result.token },
     }
   }
 
@@ -255,10 +184,6 @@ export class CashuModule implements WalletModule {
 }
 
 // ─── Protocol detection (module 내부) ───
-
-function isCreq(destination: string): boolean {
-  return /^creq[ab]/i.test(destination)
-}
 
 function isLightning(destination: string): boolean {
   const lower = destination.toLowerCase()

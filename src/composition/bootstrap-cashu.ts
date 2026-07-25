@@ -13,17 +13,15 @@ import { DexieOfflineTokenStore } from "@/adapters/storage/dexie/dexie-offline-t
 
 import type { WalletModule } from "@/core/ports/driven/wallet-module.port";
 import type { EventBus } from "@/core/events/event-bus";
-import type { NostrGatewayAdapter } from "@/adapters/nostr/nostr-gateway";
 import type { DexiePendingOperationRepository } from "@/adapters/storage/dexie/dexie-pending-operation.repository";
 import type { DexieTransactionRepository } from "@/adapters/storage/dexie/dexie-transaction.repository";
 
 export function assembleCashuModule(deps: {
   pendingOpRepo: DexiePendingOperationRepository;
   txRepo: DexieTransactionRepository;
-  nostrGateway: NostrGatewayAdapter;
   eventBus: EventBus;
 }) {
-  const { pendingOpRepo, txRepo, nostrGateway, eventBus } = deps;
+  const { pendingOpRepo, txRepo, eventBus } = deps;
 
   // (caller invokes initialize() with the seed)
   const offlineTokenStore = new DexieOfflineTokenStore();
@@ -33,7 +31,7 @@ export function assembleCashuModule(deps: {
     offlineTokenStore,
     getActiveMintUrls: () => useAppStore.getState().settings.mints,
   });
-  const cashuModule = new CashuModule(cashuBackend, nostrGateway, eventBus);
+  const cashuModule = new CashuModule(cashuBackend, eventBus);
   const modules: WalletModule[] = [cashuModule];
 
   return { cashuBackend, cashuModule, modules };

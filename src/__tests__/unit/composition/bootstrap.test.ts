@@ -20,9 +20,6 @@ const { mockBackend } = vi.hoisted(() => ({
     recoverPendingMelts: vi.fn(),
     recoverPendingSendTokens: vi.fn(),
     recoverPendingQuotes: vi.fn().mockResolvedValue({ recovered: 0, failed: 0, expired: 0 }),
-    parsePaymentRequest: vi.fn(),
-    preparePaymentRequest: vi.fn(),
-    executePaymentRequest: vi.fn(),
   },
 }))
 
