@@ -342,16 +342,16 @@ export function ReceiveRequestStep({
           <DirectionalTabPanel
             tabKey={activeProtocol}
             tabIndex={protocolOptions.findIndex((option) => option.id === activeProtocol)}
+            className="w-full max-w-[360px]"
           >
             <button
               type="button"
               aria-label={t('common.copy')}
               onClick={handleCopy}
-              className={`cursor-pointer active:scale-95 motion-reduce:active:scale-100 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl ${expired ? 'blur-sm opacity-40 pointer-events-none' : ''}`}
+              className={`w-full cursor-pointer active:scale-95 motion-reduce:active:scale-100 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl ${expired ? 'blur-sm opacity-40 pointer-events-none' : ''}`}
             >
               <QRCodeDisplay
                 value={qrValue}
-                size={200}
                 className="rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.08)]"
               />
             </button>

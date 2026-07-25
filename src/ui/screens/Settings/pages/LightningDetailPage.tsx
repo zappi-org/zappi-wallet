@@ -44,9 +44,9 @@ export function LightningDetailPage({ onBack, onChangeUsername }: LightningDetai
             QRCodeDisplay itself; a second frame here would double it up. */}
         <button
           onClick={handleCopy}
-          className="active:scale-[0.97] transition-transform"
+          className="w-full max-w-[360px] active:scale-[0.97] transition-transform"
         >
-          <QRCodeDisplay value={address} size={200} className="rounded-xl" />
+          <QRCodeDisplay value={address} className="rounded-xl" />
         </button>
 
         {/* Address text */}

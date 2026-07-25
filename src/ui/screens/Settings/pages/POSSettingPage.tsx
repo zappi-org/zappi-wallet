@@ -237,7 +237,7 @@ export function POSSettingPage({
             {t('settings.posProvisioningDescription')}
           </p>
           <div className="flex justify-center">
-            <QRCodeDisplay value={qrPayload} size={220} level="L" />
+            <QRCodeDisplay value={qrPayload} level="L" />
           </div>
           <button
             onClick={handleCopy}

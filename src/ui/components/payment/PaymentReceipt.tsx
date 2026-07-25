@@ -175,7 +175,10 @@ export function PaymentReceipt({
                   type="button"
                   onClick={onToggleQr}
                   aria-label={qrRevealLabel}
-                  className="relative mx-auto mt-2 mb-1 flex aspect-square w-[264px] items-center justify-center overflow-hidden rounded-lg bg-white p-3"
+                  // Full content width of the paper (width - px-[18px] gutters),
+                  // so the QR grows with the sheet instead of a magic 264px.
+                  // p-1 is a rim only — the QR owns its own quiet zone.
+                  className="relative mx-auto mt-2 mb-1 flex aspect-square w-full items-center justify-center overflow-hidden rounded-lg bg-white p-1"
                 >
                   <div className={`flex h-full w-full items-center justify-center transition-all ${qrVeiled ? 'blur-md opacity-40' : ''}`}>
                     {qr}

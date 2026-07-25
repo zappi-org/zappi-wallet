@@ -52,9 +52,9 @@ export function MintUrlQrModal({ isOpen, url, onClose }: MintUrlQrModalProps) {
           </button>
         </div>
 
-        {/* QR Code */}
-        <div className="flex justify-center px-8 py-4">
-          <QRCodeDisplay value={url} size={200} className="rounded-2xl" />
+        {/* QR Code — same px-6 gutter as the copy button below. */}
+        <div className="flex justify-center px-6 py-4">
+          <QRCodeDisplay value={url} className="rounded-2xl" />
         </div>
 
         {/* Copy button */}

@@ -9,8 +9,10 @@
  * frames (Luby Transform). This means the scanner can start at any frame,
  * miss frames, and still decode — redundant frames fill in the gaps.
  *
- * Sizing: QR fills 65% of viewport width, capped at 360px on large screens.
- * The `size` prop controls SVG render resolution (default 400 for sharpness).
+ * Sizing: the QR fills its container, so each screen owns the width; the cap
+ * below only guards an unbounded (desktop) column. The spec's 4-module quiet
+ * zone is drawn inside the SVG, which keeps it scale-invariant — a wrapper must
+ * not add padding of its own, or the quiet zone doubles and every module shrinks.
  */
 
 import { memo, useState, useEffect, useMemo } from 'react'
@@ -32,31 +34,50 @@ const MAX_FRAGMENT_LENGTH = 150
 /** Frame interval in ms (~4 fps, matches Cashu.me behavior) */
 const FRAME_INTERVAL_MS = 250
 
-/** SVG render resolution — large enough for sharp scaling */
-const RENDER_SIZE = 400
+/**
+ * Intrinsic width/height attribute on the <svg>. The viewBox is in module
+ * units, so this never affects sharpness — it is only the size the element
+ * reports before CSS lays it out.
+ */
+const SVG_INTRINSIC_SIZE = 400
 
-/** Max display width on large screens */
+/** Cap for unbounded containers (desktop); every phone column is narrower. */
 const MAX_DISPLAY_WIDTH = 360
+
+/** Spec quiet zone in modules. Owned here, never by a wrapper's padding. */
+const QUIET_ZONE_MODULES = 4
 
 export interface QRCodeDisplayProps {
   value: string
-  size?: number
   className?: string
   /** QR error correction level for static QR. Ignored in animated mode. */
   level?: 'L' | 'M' | 'Q' | 'H'
   /**
-   * When true, the QR fills its parent container (100% width) without the
-   * component's own card styling or 65vw/360px max-width constraint.
+   * When true, the QR fills its parent container (100% width/height) without
+   * the component's own card styling or max-width cap.
    * Use this when the caller already provides the outer frame.
    */
   fill?: boolean
+}
+
+/**
+ * p-1 is a decorative rim so the rounded card still reads as a card; the
+ * scannable margin is the SVG's own quiet zone. overflow-hidden lets the
+ * radius clip the SVG's square white background.
+ */
+function frameProps(fill: boolean, className?: string) {
+  return fill
+    ? { className: cn('w-full h-full flex items-center justify-center', className), style: undefined }
+    : {
+        className: cn('w-full overflow-hidden bg-background-card p-1 rounded-xl shadow-sm', className),
+        style: { maxWidth: MAX_DISPLAY_WIDTH },
+      }
 }
 
 // Memoized: QR matrix generation is the priciest render in these screens, and
 // parents re-render for reasons (countdowns, copy state) that don't change props.
 export const QRCodeDisplay = memo(function QRCodeDisplay({
   value,
-  size,
   className,
   level = 'M',
   fill = false,
@@ -64,33 +85,19 @@ export const QRCodeDisplay = memo(function QRCodeDisplay({
   // A dense static QR at phone size may not scan at all, so long payloads —
   // bitcoin: URIs included — animate like any other protocol.
   const isAnimated = value.length > ANIMATED_THRESHOLD
-  const renderSize = size ?? RENDER_SIZE
 
   if (isAnimated) {
     // key={value} forces remount on value change, resetting all state cleanly
-    return (
-      <AnimatedQR
-        key={value}
-        value={value}
-        renderSize={renderSize}
-        className={className}
-        fill={fill}
-      />
-    )
+    return <AnimatedQR key={value} value={value} className={className} fill={fill} />
   }
 
-  const wrapperClass = fill
-    ? cn('w-full h-full flex items-center justify-center', className)
-    : cn('bg-background-card p-4 rounded-xl shadow-sm', className)
-  const wrapperStyle = fill ? undefined : { width: '65vw', maxWidth: MAX_DISPLAY_WIDTH }
-
   return (
-    <div className={wrapperClass} style={wrapperStyle}>
+    <div {...frameProps(fill, className)}>
       <QRCodeSVG
         value={value}
-        size={renderSize}
+        size={SVG_INTRINSIC_SIZE}
         level={level}
-        marginSize={4}
+        marginSize={QUIET_ZONE_MODULES}
         style={{ width: '100%', height: 'auto' }}
       />
     </div>
@@ -109,12 +116,10 @@ export const QRCodeDisplay = memo(function QRCodeDisplay({
  */
 function AnimatedQR({
   value,
-  renderSize,
   className,
   fill = false,
 }: {
   value: string
-  renderSize: number
   className?: string
   fill?: boolean
 }) {
@@ -171,18 +176,15 @@ function AnimatedQR({
 
   const displayFrame = (frame.index % totalFragments) + 1
 
-  const wrapperClass = fill
-    ? cn('w-full h-full flex items-center justify-center', className)
-    : cn('bg-background-card p-4 rounded-xl shadow-sm flex flex-col items-center', className)
-  const wrapperStyle = fill ? undefined : { width: '65vw', maxWidth: MAX_DISPLAY_WIDTH }
+  const framed = frameProps(fill, className)
 
   return (
-    <div className={wrapperClass} style={wrapperStyle}>
+    <div {...framed} className={cn(framed.className, !fill && 'flex flex-col items-center')}>
       <QRCodeSVG
         value={frame.value}
-        size={renderSize}
+        size={SVG_INTRINSIC_SIZE}
         level="L"
-        marginSize={4}
+        marginSize={QUIET_ZONE_MODULES}
         style={{ width: '100%', height: 'auto' }}
       />
       {/* Normal-flow counter (not absolute) so it never overlaps QR modules.
