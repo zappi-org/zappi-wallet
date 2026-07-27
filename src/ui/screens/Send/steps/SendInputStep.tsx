@@ -19,6 +19,7 @@ import cardLogo from '@/assets/card-logo.svg'
 import { useTranslation } from 'react-i18next'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useAppStore } from '@/store'
+import { isSameMintUrl } from '@/utils/url'
 import { hapticTap } from '@/ui/utils/haptic'
 import { Button } from '@/ui/components/common/Button'
 import { ScreenHeader } from '@/ui/components/common/ScreenHeader'
@@ -160,7 +161,9 @@ export function SendInputStep({
 
   const myWallets = useMemo(() => {
     return settings.mints
-      .filter((url) => url !== mintUrl)
+      // Notation variants of the source mint are the same wallet — a raw string
+      // compare would offer it as a destination for a transfer to itself.
+      .filter((url) => !isSameMintUrl(url, mintUrl))
       .map((url) => ({
         url,
         name: getDisplayName(url),

@@ -160,6 +160,18 @@ describe('SendInputStep selection flows', () => {
     expect(contactsTab.compareDocumentPosition(walletsTab) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
+  it('omits a notation variant of the source mint from my wallets', () => {
+    // A ':443' / case variant is the same wallet — listing it offers a transfer
+    // to yourself, which no route can settle.
+    stableStore.settings.mints = ['https://source.mint', 'https://Source.Mint:443/', 'https://target.mint']
+
+    renderStep()
+
+    expect(screen.getByText('Target Wallet')).toBeInTheDocument()
+    expect(screen.queryByText('https://Source.Mint:443/')).not.toBeInTheDocument()
+    expect(screen.queryByText('Source Wallet')).not.toBeInTheDocument()
+  })
+
   it('contact selection clears stale error, skips label revalidation, and advances with the raw address', async () => {
     mockContacts.push({
       id: 'contact-1',

@@ -325,6 +325,78 @@ describe('SendFlow direct-transfer fee quote', () => {
     )
   })
 
+  it('quotes a my-wallet transfer without resolving an invoice (cross-mint self-quotes)', async () => {
+    const onResolveInvoice = vi.fn(async () => null)
+    estimateRouteFeeMock.mockResolvedValue({ fee: 4, availableBalance: 1000 })
+    const validatedData = {
+      type: 'my-wallet' as const,
+      targetMintUrl: 'https://other-mint.example.com',
+      targetMintName: 'Other',
+    }
+
+    render(<SendFlow {...baseProps} onResolveInvoice={onResolveInvoice} />)
+    await act(async () => {
+      await capturedInput!.onNext({
+        destination: validatedData.targetMintName,
+        validatedData,
+        mintUrl: 'https://mint.example.com',
+      })
+    })
+    act(() => {
+      capturedAmount!.onNext({ amount: 500, memo: '', isFiatMode: false, fiatAmount: '' })
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(onResolveInvoice).not.toHaveBeenCalled()
+    expect(estimateRouteFeeMock).toHaveBeenCalledWith(
+      3,
+      'https://mint.example.com',
+      500,
+      'https://other-mint.example.com',
+      undefined,
+    )
+    expect(capturedAmount!.feeQuote).toBe(4)
+  })
+
+  it('a melt route whose invoice cannot be resolved fails loudly instead of quoting', async () => {
+    const onResolveInvoice = vi.fn(async () => null)
+    const validatedData = {
+      type: 'lightning-address' as const,
+      address: 'alice@example.com',
+      lnurlParams: {
+        callback: 'https://example.com/pay',
+        minSendable: 1000,
+        maxSendable: 1000000,
+        metadata: '[["text/plain","Alice"]]',
+        tag: 'payRequest' as const,
+        domain: 'example.com',
+      },
+    }
+
+    render(<SendFlow {...baseProps} onResolveInvoice={onResolveInvoice} />)
+    await act(async () => {
+      await capturedInput!.onNext({
+        destination: validatedData.address,
+        validatedData,
+        mintUrl: 'https://mint.example.com',
+      })
+    })
+    act(() => {
+      capturedAmount!.onNext({ amount: 500, memo: '', isFiatMode: false, fiatAmount: '' })
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(onResolveInvoice).toHaveBeenCalled()
+    expect(estimateRouteFeeMock).not.toHaveBeenCalled()
+    expect(capturedAmount!.feeQuote).toBe('unavailable')
+  })
+
   it('epoch staleness: a stale first quote must not land after a mint change; confirmError clears too (Finding 1)', async () => {
     let resolveFirst: (value: { fee: number; availableBalance: number } | null) => void = () => {}
     const firstPromise = new Promise<{ fee: number; availableBalance: number } | null>((resolve) => {

@@ -150,6 +150,18 @@ export function selectRoute(input: RouteInput): PaymentRoute {
 }
 
 /**
+ * Whether quoting a route needs a bolt11 the caller has to resolve first.
+ *
+ * Mirrors the fee estimator's per-route requirements: only the melt routes quote
+ * from a supplied invoice. Cross-mint routes mint their own quote on the target
+ * mint, and a my-wallet transfer has no external invoice to resolve at all —
+ * demanding one there strands the transfer with an unavailable fee.
+ */
+export function routeNeedsCallerInvoice(route: PaymentRoute): boolean {
+  return route === PaymentRoute.LN_INTERNAL || route === PaymentRoute.MELT_TO_LN
+}
+
+/**
  * Selects the optimal source mint for a route.
  * Best-fit: smallest balance >= amount
  */

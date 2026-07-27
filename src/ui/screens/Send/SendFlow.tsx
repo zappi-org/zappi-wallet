@@ -28,6 +28,7 @@ import type {
 } from '@/core/domain/input-types'
 import { useRouting, PaymentRoute, ROUTE_LABELS } from '@/ui/hooks/use-routing'
 import type { RouteSelection, RouteContext, RouteExecutionResult } from '@/core/domain/routing'
+import { routeNeedsCallerInvoice } from '@/core/domain/routing'
 import { translateError } from '@/ui/utils/error-i18n'
 
 // ============= Helpers =============
@@ -376,12 +377,10 @@ export function SendFlow({
         let quotedBalance: number | null = null
         let quoteError: string | undefined
         try {
-          if (
-            !routeSelection.invoice &&
-            (route === PaymentRoute.LN_INTERNAL ||
-              route === PaymentRoute.LN_CROSS_MINT ||
-              route === PaymentRoute.MELT_TO_LN)
-          ) {
+          // Ask the route whether quoting needs a caller-supplied invoice —
+          // listing routes here silently broke my-wallet, which self-quotes on
+          // the target mint and has no external invoice to resolve.
+          if (!routeSelection.invoice && routeNeedsCallerInvoice(route)) {
             const invoice = await onResolveInvoice(routeSelection, {
               addressOrInvoice: getAddressOrInvoice(validated),
               lnurlPayParams:
