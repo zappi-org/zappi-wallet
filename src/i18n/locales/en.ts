@@ -962,6 +962,7 @@ export default {
 
   myAddress: {
     title: 'My address',
+    comingSoon: 'Coming soon',
     lightningTab: 'Lightning',
     nostrTab: 'Nostr npub',
     noAddress: 'No receive address yet',
@@ -975,7 +976,7 @@ export default {
   mintDetail: {
     title: 'Manage Mint',
     pendingItems: 'Pending Items',
-    pending: 'Pending',
+    pending: 'Pending ecash',
     transactions: 'Transactions',
     ecashToken: 'Received Token',
     receiveRequest: 'Receive Request',
@@ -1064,13 +1065,9 @@ export default {
     pending: {
       timeLabel: 'Pending · {{time}}',
     },
-    pendingWidget: {
-      title: 'Pending',
-      summary: '{{count}} ecash · {{total}}',
-      viewAll: 'Reclaim all',
-    },
     reclaimable: {
       section: 'Reclaimable ({{count}})',
+      reclaimAll: 'Reclaim all',
       actions: {
         reclaim: 'Reclaim',
         share: 'Share',

@@ -966,6 +966,7 @@ export default {
 
   myAddress: {
     title: 'Mi dirección',
+    comingSoon: 'Muy pronto',
     lightningTab: 'Lightning',
     nostrTab: 'Npub de Nostr',
     noAddress: 'Aún no tienes dirección',
@@ -979,7 +980,7 @@ export default {
   mintDetail: {
     title: 'Gestión del mint',
     pendingItems: 'Elementos pendientes',
-    pending: 'Pendiente',
+    pending: 'Ecash pendiente',
     transactions: 'Transacciones',
     ecashToken: 'Token Recibido',
     receiveRequest: 'Solicitud de recepción',
@@ -1066,13 +1067,9 @@ export default {
     pending: {
       timeLabel: 'Pendiente · {{time}}',
     },
-    pendingWidget: {
-      title: 'Pendiente',
-      summary: '{{count}} ecash · {{total}}',
-      viewAll: 'Ver pendientes',
-    },
     reclaimable: {
       section: 'Recuperables ({{count}})',
+      reclaimAll: 'Recuperar todo',
       actions: {
         reclaim: 'Recuperar',
         share: 'Compartir',

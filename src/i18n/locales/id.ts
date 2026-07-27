@@ -966,6 +966,7 @@ export default {
 
   myAddress: {
     title: 'Alamat saya',
+    comingSoon: 'Segera hadir',
     lightningTab: 'Lightning',
     nostrTab: 'Npub Nostr',
     noAddress: 'Belum ada alamat terima',
@@ -979,7 +980,7 @@ export default {
   mintDetail: {
     title: 'Kelola Mint',
     pendingItems: 'Item Tertunda',
-    pending: 'Tertunda',
+    pending: 'Ecash tertunda',
     transactions: 'Transaksi',
     ecashToken: 'Token Diterima',
     receiveRequest: 'Permintaan penerimaan',
@@ -1066,13 +1067,9 @@ export default {
     pending: {
       timeLabel: 'Menunggu · {{time}}',
     },
-    pendingWidget: {
-      title: 'Menunggu',
-      summary: '{{count}} ecash · {{total}}',
-      viewAll: 'Lihat menunggu',
-    },
     reclaimable: {
       section: 'Dapat diambil kembali ({{count}})',
+      reclaimAll: 'Tarik semua',
       actions: {
         reclaim: 'Ambil kembali',
         share: 'Bagikan',

@@ -964,6 +964,7 @@ export default {
 
   myAddress: {
     title: '自分のアドレス',
+    comingSoon: '準備中です',
     lightningTab: 'ライトニング',
     nostrTab: 'Nostr npub',
     noAddress: '受取アドレスがまだありません',
@@ -977,7 +978,7 @@ export default {
   mintDetail: {
     title: 'ミント管理',
     pendingItems: '保留中の項目',
-    pending: '保留中',
+    pending: '保留中のイーキャッシュ',
     transactions: '取引履歴',
     ecashToken: '受取トークン',
     receiveRequest: '受取リクエスト',
@@ -1064,13 +1065,9 @@ export default {
     pending: {
       timeLabel: '待機中 · {{time}}',
     },
-    pendingWidget: {
-      title: '待機中',
-      summary: '{{count}}個 · 合計 {{total}}',
-      viewAll: '待機中を見る',
-    },
     reclaimable: {
       section: '取り戻せます ({{count}})',
+      reclaimAll: 'すべて取り戻す',
       actions: {
         reclaim: '取り戻す',
         share: '共有',

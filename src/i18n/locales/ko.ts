@@ -420,7 +420,7 @@ export default {
   scanner: {
     title: '스캔',
     paste: '붙여넣기',
-    loadFromPhoto: '사진 불러오기',
+    loadFromPhoto: '불러오기',
     unrecognizedFormat: '인식할 수 없는 형식입니다',
     invalidToken: '유효하지 않은 이캐시예요',
     cameraPermission: '카메라 권한이 필요합니다',
@@ -968,6 +968,7 @@ export default {
 
   myAddress: {
     title: '내 주소',
+    comingSoon: '준비중이에요',
     lightningTab: '라이트닝',
     nostrTab: '노스터 npub',
     noAddress: '아직 받기 주소가 없어요',
@@ -981,7 +982,7 @@ export default {
   mintDetail: {
     title: '민트 관리',
     pendingItems: '대기중 항목',
-    pending: '대기중',
+    pending: '대기중인 이캐시',
     transactions: '거래내역',
     ecashToken: '수령 토큰',
     receiveRequest: '받기 요청',
@@ -1074,13 +1075,9 @@ export default {
     pending: {
       timeLabel: '대기중 · {{time}}',
     },
-    pendingWidget: {
-      title: '대기중',
-      summary: '{{count}}개 - 총 {{total}}',
-      viewAll: '모두 되찾기',
-    },
     reclaimable: {
       section: '되찾을 수 있어요 ({{count}})',
+      reclaimAll: '모두 되찾기',
       actions: {
         reclaim: '되찾기',
         share: '공유',
