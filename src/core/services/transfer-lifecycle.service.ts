@@ -503,12 +503,12 @@ export class TransferLifecycleService {
   async recoverTransfers(): Promise<void> {
     // 1. Clean up transfers stuck in 'preparing' (from an app crash)
     const stuckPreparing = await this.transferStore.listByPhase(['preparing'])
-    for (const transfer of stuckPreparing) {
-      // Live in this process — initiateTransfer is still running and will move
-      // the phase itself. A genuinely hung one waits for the next real launch
-      // (module state cleared → not skipped → failed). The sweep ignores
-      // 'preparing', so nothing else can touch it meanwhile.
-      if (liveOutgoingTransferIds.has(transfer.id)) continue
+    // Anything live in this process is not a leftover — initiateTransfer is still
+    // running and will move the phase itself. A genuinely hung one waits for the
+    // next real launch (module state cleared → not skipped → failed). The sweep
+    // ignores 'preparing', so nothing else can touch it meanwhile.
+    const crashLeftovers = stuckPreparing.filter((t) => !liveOutgoingTransferIds.has(t.id))
+    for (const transfer of crashLeftovers) {
       if (transfer.direction === 'incoming') {
         // incoming: the quote already exists at the mint → transition to submitted
         const updated = transitionPhase(transfer, 'submitted', Date.now())
