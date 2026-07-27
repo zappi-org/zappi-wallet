@@ -94,15 +94,18 @@ function ExpiryCountdown({ expiresAt }: { expiresAt: number }) {
     return () => clearInterval(id)
   }, [])
   const remainingMs = expiresAt - now
+  // Same clamp the summary card and the action row use, so the whole block
+  // below the QR is evenly spaced on both branches.
+  const line = 'mt-[clamp(1.75rem,4vh,2.75rem)] text-caption'
   if (remainingMs >= 60_000) {
     return (
-      <p className="mt-3 text-caption text-foreground-muted/70">
+      <p className={`${line} text-foreground-muted/70`}>
         {t('receive.request.expiresAtTime', { time: formatTime(expiresAt, i18n.language) })}
       </p>
     )
   }
   return (
-    <p className="mt-3 text-caption text-foreground-muted">
+    <p className={`${line} text-foreground-muted`}>
       {t('receive.request.expiresIn', { seconds: Math.max(0, Math.ceil(remainingMs / 1000)) })}
     </p>
   )
@@ -384,21 +387,22 @@ export function ReceiveRequestStep({
           </div>
         ) : (
           <>
-            {/* Action buttons — minimal text style */}
+            {/* Action buttons — minimal text style. Copy left, share right,
+                the app-wide order for this pair. */}
             <div className="flex gap-10 mt-[clamp(1.75rem,4vh,2.75rem)]">
-              <button
-                onClick={handleShare}
-                className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all"
-              >
-                {isShared() ? <Check className="w-5 h-5 text-brand" /> : <Share2 className="w-5 h-5" />}
-                {t('receive.qr.share')}
-              </button>
               <button
                 onClick={handleCopy}
                 className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all"
               >
                 {isCopied() ? <Check className="w-5 h-5 text-brand" /> : <Copy className="w-5 h-5" />}
                 {isCopied() ? t('common.copied') : t('common.copy')}
+              </button>
+              <button
+                onClick={handleShare}
+                className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all"
+              >
+                {isShared() ? <Check className="w-5 h-5 text-brand" /> : <Share2 className="w-5 h-5" />}
+                {t('receive.qr.share')}
               </button>
             </div>
 

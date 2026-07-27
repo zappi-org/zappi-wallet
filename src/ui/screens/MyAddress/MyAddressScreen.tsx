@@ -18,6 +18,7 @@ import { useCrypto } from '@/ui/hooks/use-crypto'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { hapticTap } from '@/ui/utils/haptic'
+import { ENABLE_LIGHTNING_ADDRESS_SETTINGS } from '@/ui/config/feature-flags'
 
 export interface MyAddressScreenProps {
   onBack: () => void
@@ -70,7 +71,8 @@ export function MyAddressScreen({ onBack, onOpenSettings }: MyAddressScreenProps
   const lightningAddress = useAppStore((s) => s.settings.lightningAddress) ?? null
   const nostrPubkey = useAppStore((s) => s.nostrPubkey)
   const crypto = useCrypto()
-  const [tab, setTab] = useState<AddressTab>('lightning')
+  // npub opens: it always exists, while lightning is still gated (see below).
+  const [tab, setTab] = useState<AddressTab>('nostr')
   const { isCopied, isShared, copy, share } = useCopyFeedback()
 
   // npub derived from the stored pubkey (mirrors ReceiveFlow's prior derivation).
@@ -83,7 +85,11 @@ export function MyAddressScreen({ onBack, onOpenSettings }: MyAddressScreenProps
     }
   }, [nostrPubkey, crypto])
 
-  const value = tab === 'lightning' ? lightningAddress : npub
+  // Lightning addresses can't be created while the settings flow is gated, so
+  // the tab announces itself as coming soon rather than offering a dead CTA.
+  // It stays selectable — half a two-segment control is not a control.
+  const lightningComingSoon = tab === 'lightning' && !ENABLE_LIGHTNING_ADDRESS_SETTINGS
+  const value = lightningComingSoon ? null : tab === 'lightning' ? lightningAddress : npub
 
   const deposit = useDepositMint()
   const depositMintUrls = useMemo(
@@ -122,7 +128,11 @@ export function MyAddressScreen({ onBack, onOpenSettings }: MyAddressScreenProps
           tabIndex={tab === 'lightning' ? 0 : 1}
           className="w-full flex flex-col items-center"
         >
-          {value ? (
+          {lightningComingSoon ? (
+            <div className="mt-10 flex flex-col items-center">
+              <p className="text-body text-foreground-muted">{t('myAddress.comingSoon')}</p>
+            </div>
+          ) : value ? (
             <>
               <button
                 type="button"
@@ -133,14 +143,15 @@ export function MyAddressScreen({ onBack, onOpenSettings }: MyAddressScreenProps
                 <QRCodeDisplay value={value} className="rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.08)]" />
               </button>
               <p className="mt-4 max-w-full break-all px-4 text-center text-body font-medium">{value}</p>
+              {/* Copy left, share right — the app-wide order for this pair. */}
               <div className="flex gap-10 mt-4">
-                <button onClick={handleShare} className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all">
-                  {isShared() ? <Check className="w-5 h-5 text-brand" /> : <Share2 className="w-5 h-5" />}
-                  {t('receive.qr.share')}
-                </button>
                 <button onClick={handleCopy} className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all">
                   {isCopied() ? <Check className="w-5 h-5 text-brand" /> : <Copy className="w-5 h-5" />}
                   {isCopied() ? t('common.copied') : t('common.copy')}
+                </button>
+                <button onClick={handleShare} className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all">
+                  {isShared() ? <Check className="w-5 h-5 text-brand" /> : <Share2 className="w-5 h-5" />}
+                  {t('receive.qr.share')}
                 </button>
               </div>
             </>

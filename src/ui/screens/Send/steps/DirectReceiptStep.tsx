@@ -157,7 +157,7 @@ export function DirectReceiptStep({
           (hidden, not removed) so the receipt above stays put instead of
           dropping as the four pre-claim actions collapse to one confirm. */}
       <div
-        className={`flex items-center gap-3 px-6 ${claimed ? 'invisible' : ''}`}
+        className={`flex items-center gap-3 px-6 pb-5 ${claimed ? 'invisible' : ''}`}
         aria-hidden={claimed}
       >
         <Button
