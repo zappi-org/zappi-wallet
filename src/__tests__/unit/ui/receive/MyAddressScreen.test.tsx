@@ -19,6 +19,15 @@ vi.mock('@/ui/components/common/DirectionalTabPanel', () => ({
   DirectionalTabPanel: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
+// The lightning tab's content is flag-gated, so the flag has to be steerable
+// per test — a getter keeps the ESM live binding readable at render time.
+const flags = { lightning: false }
+vi.mock('@/ui/config/feature-flags', () => ({
+  get ENABLE_LIGHTNING_ADDRESS_SETTINGS() {
+    return flags.lightning
+  },
+}))
+
 const storeState = {
   addToast: vi.fn(),
   settings: { lightningAddress: 'john@zappi.link' as string | null, mintAliases: {} },
@@ -41,41 +50,60 @@ vi.mock('@/ui/hooks/use-mint-metadata', () => ({
   useMintMetadata: () => ({ getDisplayName: () => 'Lemonfizz' }),
 }))
 
+// Radix TabsTrigger switches on mousedown/focus, not click — fireEvent.click
+// never fires those, so the established repo pattern (ReceiveRequestStep.protocols.test.tsx)
+// is userEvent, which simulates the full pointer sequence.
+const selectLightningTab = async () => {
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('tab', { name: 'myAddress.lightningTab' }))
+}
+
 describe('MyAddressScreen', () => {
   beforeEach(() => {
+    flags.lightning = false
     storeState.settings.lightningAddress = 'john@zappi.link'
     getDefaults.mockReset()
     getDefaults.mockResolvedValue({ ok: true, value: { mintUrl: 'https://mint.a' } })
   })
 
-  it('shows the lightning address QR and deposit-mint caption', async () => {
+  it('opens on the npub — the handle that always exists', () => {
     render(<MyAddressScreen onBack={vi.fn()} onOpenSettings={vi.fn()} />)
+    expect(screen.getByText('npub1testxyz')).toBeInTheDocument()
+  })
+
+  it('shows coming soon on the lightning tab while the feature is gated', async () => {
+    render(<MyAddressScreen onBack={vi.fn()} onOpenSettings={vi.fn()} />)
+    await selectLightningTab()
+    expect(screen.getByText('myAddress.comingSoon')).toBeInTheDocument()
+    // The gated tab offers neither the address nor the dead create CTA.
+    expect(screen.queryByText('john@zappi.link')).not.toBeInTheDocument()
+    expect(screen.queryByText('myAddress.createAddress')).not.toBeInTheDocument()
+  })
+
+  it('shows the lightning address QR and deposit-mint caption once ungated', async () => {
+    flags.lightning = true
+    render(<MyAddressScreen onBack={vi.fn()} onOpenSettings={vi.fn()} />)
+    await selectLightningTab()
     expect(screen.getByText('john@zappi.link')).toBeInTheDocument()
     await waitFor(() => expect(screen.getByText('myAddress.depositsTo:Lemonfizz')).toBeInTheDocument())
   })
 
-  it('switches to the nostr tab and shows the npub', async () => {
-    // Radix TabsTrigger switches on mousedown/focus, not click — fireEvent.click
-    // never fires those, so the established repo pattern (ReceiveRequestStep.protocols.test.tsx)
-    // is userEvent, which simulates the full pointer sequence.
-    const user = userEvent.setup()
-    render(<MyAddressScreen onBack={vi.fn()} onOpenSettings={vi.fn()} />)
-    await user.click(screen.getByRole('tab', { name: 'myAddress.nostrTab' }))
-    expect(screen.getByText('npub1testxyz')).toBeInTheDocument()
-  })
-
   it('falls back to the generic caption when getDefaults rejects', async () => {
+    flags.lightning = true
     getDefaults.mockReset()
     getDefaults.mockRejectedValue(new Error('offline'))
     render(<MyAddressScreen onBack={vi.fn()} onOpenSettings={vi.fn()} />)
+    await selectLightningTab()
     await waitFor(() => expect(screen.getByText('myAddress.depositsToFallback')).toBeInTheDocument())
     expect(screen.queryByText(/myAddress\.depositsTo:/)).not.toBeInTheDocument()
   })
 
-  it('missing lightning address routes the create CTA to settings', () => {
+  it('missing lightning address routes the create CTA to settings', async () => {
+    flags.lightning = true
     storeState.settings.lightningAddress = null
     const onOpenSettings = vi.fn()
     render(<MyAddressScreen onBack={vi.fn()} onOpenSettings={onOpenSettings} />)
+    await selectLightningTab()
     fireEvent.click(screen.getByText('myAddress.createAddress'))
     expect(onOpenSettings).toHaveBeenCalled()
   })
