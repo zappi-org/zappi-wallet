@@ -14,7 +14,6 @@
 import { useState, useCallback, useRef, useMemo } from 'react'
 import { flushSync } from 'react-dom'
 import { AnimatePresence, motion, useReducedMotion, useIsPresent } from 'motion/react'
-import { useKeyboardInset } from '@/ui/hooks/use-keyboard-inset'
 import { CameraFilled } from '@/ui/components/icons/CameraFilled'
 import cardLogo from '@/assets/card-logo.svg'
 import { useTranslation } from 'react-i18next'
@@ -137,8 +136,6 @@ export function SendInputStep({
   const inputRef = useRef<HTMLInputElement>(null)
   // Empty input → offer bearer-token creation instead of Next (direct-transfer branch)
   const hasDestination = destination.trim().length > 0
-  // Lift the primary action above the soft keyboard as it opens
-  const kbInset = useKeyboardInset()
 
   // Blur BEFORE advancing so keyboard retraction gets a head start on the
   // scene morph instead of running on top of it (PWA: viewport-only resize)
@@ -226,7 +223,7 @@ export function SendInputStep({
         {/* Destination input — pill style. The pill itself stays put and fades
             with the scene; on advance the input is swapped for a text stand-in
             (layoutId) so only the TEXT morphs to the amount scene's recipient. */}
-        <div className="relative flex items-center gap-1 rounded-2xl bg-background-card px-4 focus-within:ring-1 focus-within:ring-foreground/15 transition-shadow mt-7">
+        <div className="relative flex items-center gap-1 rounded-2xl border border-border bg-background-card px-4 focus-within:border-brand transition-colors mt-7">
           <div className="flex-1 min-w-0 flex flex-col">
             {/* The stand-in unmounts the moment the scene starts exiting
                 (!isPresent) — motion then snapshots it and the amount-scene
@@ -262,6 +259,9 @@ export function SendInputStep({
                   if (text) processExternalInput(text)
                 }}
                 placeholder={t('send.destination.placeholder')}
+                // The CTA no longer lifts above the keyboard, so the return key
+                // has to read as the submit affordance while the keyboard is up.
+                enterKeyHint="go"
                 // Lock input during submit validation: since every submit now makes a
                 // remote round-trip, typing mid-validation could be overwritten by the
                 // applyDestinationState on completion, widening the window to proceed with a stale address
@@ -399,7 +399,9 @@ export function SendInputStep({
         transition={{ duration: 0.15, ease: 'easeOut' }}
         className="shrink-0"
       >
-        <div className="px-6 pb-app" style={{ transform: `translate3d(0, ${-kbInset}px, 0)` }}>
+        {/* Pinned to the bottom: riding the keyboard inset animated badly on
+            device, and the return key submits, so the CTA never gates the flow */}
+        <div className="px-6 pb-app">
           <Button
             variant="brand"
             size="xl"
