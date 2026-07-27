@@ -137,12 +137,12 @@ beforeEach(() => {
 })
 
 describe('HistoryScreen pending ecash section', () => {
-  it('renders PendingWidget + ReclaimableSection when a pending send token exists', () => {
+  it('renders ReclaimableSection with its reclaim-all action when a pending send token exists', () => {
     pendingItemsState.items = [makeSendTokenItem()]
     renderScreen()
 
-    expect(screen.getByText('token.pendingWidget.title')).toBeTruthy()
     expect(screen.getByText('token.reclaimable.section')).toBeTruthy()
+    expect(screen.getByText('token.reclaimable.reclaimAll')).toBeTruthy()
     expect(screen.getByText('커피값')).toBeTruthy()
   })
 
@@ -174,14 +174,14 @@ describe('HistoryScreen pending ecash section', () => {
       target: { value: 'coffee' },
     })
 
-    expect(screen.queryByText('token.pendingWidget.title')).toBeNull()
+    expect(screen.queryByText('token.reclaimable.section')).toBeNull()
   })
 
   it('keeps pending visible under a mint filter that differs only by trailing slash', () => {
     pendingItemsState.items = [makeSendTokenItem({ accountId: 'https://mint.test' })]
     renderScreen({ initialMintUrls: ['https://mint.test/'] })
 
-    expect(screen.getByText('token.pendingWidget.title')).toBeTruthy()
+    expect(screen.getByText('token.reclaimable.section')).toBeTruthy()
   })
 
   it('shows receive-side pendings in their own incoming section, not the reclaim widget', () => {
@@ -190,8 +190,16 @@ describe('HistoryScreen pending ecash section', () => {
     ]
     renderScreen()
 
-    expect(screen.queryByText('token.pendingWidget.title')).toBeNull()
+    expect(screen.queryByText('token.reclaimable.section')).toBeNull()
     expect(screen.getByText('mintDetail.pendingItems')).toBeTruthy()
+  })
+
+  it('opens the reclaim sheet from the section heading action', () => {
+    pendingItemsState.items = [makeSendTokenItem()]
+    renderScreen()
+
+    fireEvent.click(screen.getByText('token.reclaimable.reclaimAll'))
+    expect(screen.getByText('token.reclaim.title')).toBeTruthy()
   })
 
   it('opens the reclaim sheet from a card and confirms through reclaimMultiple', async () => {

@@ -22,7 +22,6 @@ import { useTokenReclaim } from '@/ui/hooks/use-token-reclaim'
 import { ServiceContext } from '@/ui/hooks/service-context-value'
 import { PendingItemsList } from '@/ui/components/wallet/PendingItemsList'
 import type { PendingItemDetailCallbacks } from '@/ui/screens/MintDetail/PendingItemDetailScreen'
-import { PendingWidget } from '@/ui/screens/Token/components/PendingWidget'
 import { ReclaimableSection } from '@/ui/screens/Token/components/ReclaimableSection'
 import { ReclaimSheet } from '@/ui/screens/Token/components/ReclaimSheet'
 import type { PendingTokenView } from '@/ui/screens/Token/types'
@@ -601,20 +600,14 @@ export function HistoryScreen({
         {(showPending || showIncoming) && (
           <div ref={setPendingBlock} className="flex flex-col gap-3 pb-6">
             {showPending && (
-              <>
-                <PendingWidget
-                  count={visiblePendingTokens.length}
-                  totalAmount={visiblePendingTokens.reduce((sum, tk) => sum + tk.amount, 0)}
-                  onViewAll={openReclaimAll}
-                />
-                <ReclaimableSection
-                  tokens={visiblePendingTokens}
-                  onShare={handleSharePending}
-                  sharedId={(token) => isShared(token.id)}
-                  onReclaim={openReclaimOne}
-                  onSelect={handleSelectPending}
-                />
-              </>
+              <ReclaimableSection
+                tokens={visiblePendingTokens}
+                onShare={handleSharePending}
+                sharedId={(token) => isShared(token.id)}
+                onReclaim={openReclaimOne}
+                onSelect={handleSelectPending}
+                onReclaimAll={openReclaimAll}
+              />
             )}
             {showIncoming && (
               <section className="flex flex-col gap-3">
