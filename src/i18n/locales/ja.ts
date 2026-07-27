@@ -416,7 +416,7 @@ export default {
   scanner: {
     title: 'スキャン',
     paste: '貼り付け',
-    loadFromPhoto: '写真から読み込む',
+    loadFromPhoto: '写真から',
     unrecognizedFormat: '認識できない形式です',
     invalidToken: '無効なイーキャッシュです',
     cameraPermission: 'カメラの許可が必要です',
@@ -978,7 +978,7 @@ export default {
   mintDetail: {
     title: 'ミント管理',
     pendingItems: '保留中の項目',
-    pending: '保留中のイーキャッシュ',
+    pending: '保留中',
     transactions: '取引履歴',
     ecashToken: '受取トークン',
     receiveRequest: '受取リクエスト',
@@ -1063,7 +1063,7 @@ export default {
       daysAgo: '{{count}}日前',
     },
     pending: {
-      timeLabel: '待機中 · {{time}}',
+      timeLabel: '保留中のイーキャッシュ · {{time}}',
     },
     reclaimable: {
       section: '取り戻せます ({{count}})',

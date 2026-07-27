@@ -416,7 +416,7 @@ export default {
   scanner: {
     title: 'Pindai',
     paste: 'Tempel',
-    loadFromPhoto: 'Muat dari foto',
+    loadFromPhoto: 'Galeri',
     unrecognizedFormat: 'Format tidak dikenali',
     invalidToken: 'Ecash tidak valid',
     cameraPermission: 'Izin kamera diperlukan',
@@ -980,7 +980,7 @@ export default {
   mintDetail: {
     title: 'Kelola Mint',
     pendingItems: 'Item Tertunda',
-    pending: 'Ecash tertunda',
+    pending: 'Tertunda',
     transactions: 'Transaksi',
     ecashToken: 'Token Diterima',
     receiveRequest: 'Permintaan penerimaan',
@@ -1065,7 +1065,7 @@ export default {
       daysAgo: '{{count}} hari lalu',
     },
     pending: {
-      timeLabel: 'Menunggu · {{time}}',
+      timeLabel: 'Ecash tertunda · {{time}}',
     },
     reclaimable: {
       section: 'Dapat diambil kembali ({{count}})',

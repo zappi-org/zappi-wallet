@@ -420,7 +420,7 @@ export default {
   scanner: {
     title: 'Scan',
     paste: 'Paste',
-    loadFromPhoto: 'Load from Photo',
+    loadFromPhoto: 'Photos',
     unrecognizedFormat: 'Unrecognized format',
     invalidToken: 'Invalid ecash',
     cameraPermission: 'Camera permission required',
@@ -976,7 +976,7 @@ export default {
   mintDetail: {
     title: 'Manage Mint',
     pendingItems: 'Pending Items',
-    pending: 'Pending ecash',
+    pending: 'Pending',
     transactions: 'Transactions',
     ecashToken: 'Received Token',
     receiveRequest: 'Receive Request',
@@ -1063,7 +1063,7 @@ export default {
       daysAgo: '{{count}} days ago',
     },
     pending: {
-      timeLabel: 'Pending · {{time}}',
+      timeLabel: 'Pending ecash · {{time}}',
     },
     reclaimable: {
       section: 'Reclaimable ({{count}})',

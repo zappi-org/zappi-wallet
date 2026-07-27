@@ -982,7 +982,7 @@ export default {
   mintDetail: {
     title: '민트 관리',
     pendingItems: '대기중 항목',
-    pending: '대기중인 이캐시',
+    pending: '대기중',
     transactions: '거래내역',
     ecashToken: '수령 토큰',
     receiveRequest: '받기 요청',
@@ -1073,7 +1073,7 @@ export default {
       daysAgo: '{{count}}일전',
     },
     pending: {
-      timeLabel: '대기중 · {{time}}',
+      timeLabel: '대기중인 이캐시 · {{time}}',
     },
     reclaimable: {
       section: '되찾을 수 있어요 ({{count}})',
