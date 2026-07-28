@@ -385,7 +385,7 @@ export function useSendInputValidation({
       return 'handled-error'
     }
 
-    // Email address: try NIP-05/NutZap first, fall back to LNURL
+    // Email address: validateAsync resolves NIP-05/NutZap + LNURL in one call
     if (inputType === 'email-address') {
       applyDestinationState({
         destination: initialDestination,
@@ -395,48 +395,60 @@ export function useSendInputValidation({
         isPreValidating: true,
       })
 
-      const [lnurlSettled, nutzapSettled] = await Promise.allSettled([
-        inputParser.validateAsync(detected),
-        nostrDirectPayment.resolve({
-          address: trimmed,
-          ownMintUrls: settings.mints,
-          selectedMintUrl: mintUrl || null,
-        }),
-      ])
-
-      setIsPreValidating(false)
-
-      const nutzap = nutzapSettled.status === 'fulfilled' ? nutzapSettled.value : null
-
-      // NIP-05 resolved + common mint: direct token transfer
-      if (nutzap?.status === 'ready') {
-        setValidatedData(nutzap.validatedData)
-        validatedDataRef.current = nutzap.validatedData
-        setDetectedTypes(['nostr-address', 'email-address'])
-        return true
-      }
-
-      // NIP-05 resolved, no common mint: let user pick
-      if (nutzap?.status === 'needs-mint-selection') {
-        const selectedMintName = mintUrl ? getDisplayName(mintUrl) : ''
-        onRequestMintSelection?.({
-          destination: initialDestination,
-          validatedData: nutzap.validatedData,
-          commonMintUrls: nutzap.commonMintUrls,
-          infoText: selectedMintName
-            ? t('send.destination.selectedMintUnavailable', { mint: selectedMintName })
-            : undefined,
-        })
-        setDetectedTypes(['nostr-address', 'email-address'])
-        return 'needs-mint-selection'
-      }
-
-      // NutZap unavailable or failed — fall back to LNURL
-      if (lnurlSettled.status === 'rejected') {
+      let validated: SendableValidatedData
+      try {
+        validated = await inputParser.validateAsync(detected) as SendableValidatedData
+      } catch {
+        setIsPreValidating(false)
         return 'validation-error'
       }
 
-      const validated = lnurlSettled.value as SendableValidatedData
+      setIsPreValidating(false)
+
+      if (validated.type === 'email-address' && validated.nutzapInfo) {
+        const resolution = nostrDirectPayment.resolveWithInfo({
+          address: trimmed,
+          pubkey: validated.nutzapInfo.pubkey,
+          directToken: validated.nutzapInfo,
+          ownMintUrls: settings.mints,
+          selectedMintUrl: mintUrl || null,
+        })
+
+        if (resolution.status === 'ready') {
+          setValidatedData(resolution.validatedData)
+          validatedDataRef.current = resolution.validatedData
+          setDetectedTypes(['nostr-address', 'email-address'])
+          return true
+        }
+
+        if (resolution.status === 'needs-mint-selection') {
+          const selectedMintName = mintUrl ? getDisplayName(mintUrl) : ''
+          onRequestMintSelection?.({
+            destination: initialDestination,
+            validatedData: resolution.validatedData,
+            commonMintUrls: resolution.commonMintUrls,
+            infoText: selectedMintName
+              ? t('send.destination.selectedMintUnavailable', { mint: selectedMintName })
+              : undefined,
+          })
+          setDetectedTypes(['nostr-address', 'email-address'])
+          return 'needs-mint-selection'
+        }
+
+        const message = resolution.status === 'no-common-mint'
+          ? t('send.destination.noCommonMint')
+          : resolution.status === 'no-relay'
+            ? t('send.destination.relayNotFound')
+            : t('send.destination.ecashInfoNotFound')
+        setPreValidationError(message)
+        return 'handled-error'
+      }
+
+      if (validated.type === 'email-address' && !validated.lnurlParams) {
+        setPreValidationError(t('send.destination.validationFailed'))
+        return 'handled-error'
+      }
+
       setValidatedData(validated)
       validatedDataRef.current = validated
       return true
