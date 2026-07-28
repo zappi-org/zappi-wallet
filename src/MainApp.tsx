@@ -353,13 +353,15 @@ export default function MainApp() {
         return
       }
 
-      const message = resolution.status === 'no-common-mint'
-        ? t('send.destination.noCommonMint')
-        : resolution.status === 'no-relay'
-          ? t('send.destination.relayNotFound')
-          : t('send.destination.ecashInfoNotFound')
-      addToast({ type: 'error', message, duration: 3000 })
-      return
+      if (!validated.lnurlParams) {
+        const message = resolution.status === 'no-common-mint'
+          ? t('send.destination.noCommonMint')
+          : resolution.status === 'no-relay'
+            ? t('send.destination.relayNotFound')
+            : t('send.destination.ecashInfoNotFound')
+        addToast({ type: 'error', message, duration: 3000 })
+        return
+      }
     }
 
     // Route via the existing input router — handles sendable + non-sendable
