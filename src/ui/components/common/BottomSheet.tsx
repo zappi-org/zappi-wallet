@@ -1,6 +1,14 @@
-import { type ReactNode, useCallback } from 'react'
-import { motion, AnimatePresence, useReducedMotion, type PanInfo, type Transition } from 'motion/react'
+import { type ReactNode, useCallback, useRef } from 'react'
+import {
+  motion,
+  AnimatePresence,
+  useDragControls,
+  useReducedMotion,
+  type PanInfo,
+  type Transition,
+} from 'motion/react'
 import { motionSafeTransition } from '@/ui/utils/motion'
+import { useEscapeDismiss } from '@/ui/hooks/use-escape-dismiss'
 
 export interface BottomSheetProps {
   isOpen: boolean
@@ -73,6 +81,20 @@ export function BottomSheet({
   bottomOffset = 0,
 }: BottomSheetProps) {
   const reduceMotion = useReducedMotion()
+  const dragControls = useDragControls()
+  const sheetRef = useRef<HTMLDivElement>(null)
+  const previousFocusRef = useRef<HTMLElement | null>(null)
+
+  const handleFocusEntry = useCallback(() => {
+    previousFocusRef.current = document.activeElement as HTMLElement
+    sheetRef.current?.focus()
+  }, [])
+
+  const handleFocusReturn = useCallback(() => {
+    previousFocusRef.current?.focus()
+    previousFocusRef.current = null
+  }, [])
+
   const handleDragEnd = useCallback(
     (_: unknown, info: PanInfo) => {
       if (info.offset.y > 100 || info.velocity.y > 500) {
@@ -82,19 +104,31 @@ export function BottomSheet({
     [onClose],
   )
 
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    dragControls.start(e)
+  }, [dragControls])
+
+  useEscapeDismiss(isOpen, onClose)
+
   const position = variant === 'absolute' ? 'absolute' : 'fixed'
-  const dragProps =
-    disableDrag || reduceMotion
-      ? {}
-      : {
-          drag: 'y' as const,
-          dragConstraints: { top: 0, bottom: 0 },
-          dragElastic: { top: 0, bottom: 0.6 },
-          onDragEnd: handleDragEnd,
-        }
+  const dragEnabled = !disableDrag && !reduceMotion
+  const dragProps = dragEnabled
+    ? {
+        drag: 'y' as const,
+        dragConstraints: { top: 0, bottom: 0 },
+        dragElastic: { top: 0, bottom: 0.6 },
+        dragControls,
+        // Drag starts from the handle only, so scrollable sheet content keeps its own gestures.
+        // Without a handle there is no such origin, so fall back to the whole surface.
+        dragListener: !showHandle,
+        onDragEnd: handleDragEnd,
+      }
+    : {}
+
+  const titleId = title && typeof title === 'string' ? `${title.replace(/\s+/g, '-').toLowerCase()}-title` : undefined
 
   return (
-    <AnimatePresence>
+    <AnimatePresence onExitComplete={handleFocusReturn}>
       {isOpen && (
         <>
           {/* Backdrop */}
@@ -104,25 +138,33 @@ export function BottomSheet({
             exit={{ opacity: 0 }}
             transition={motionSafeTransition(reduceMotion, backdropTransition)}
             className={`${position} inset-0 ${backdropClassName} ${backdropZClass}`}
+            style={{ isolation: 'isolate' }}
             onClick={onClose}
           />
 
           {/* Sheet */}
           <motion.div
+            ref={sheetRef}
             role="dialog"
             aria-modal="true"
-            aria-labelledby={ariaLabelledBy}
+            aria-label={typeof title === 'string' ? title : undefined}
+            aria-labelledby={ariaLabelledBy ?? titleId}
+            tabIndex={-1}
             initial={reduceMotion ? { opacity: 0 } : { y: '100%' }}
             animate={reduceMotion ? { opacity: 1 } : { y: 0 }}
             exit={reduceMotion ? { opacity: 0 } : { y: '100%' }}
             {...dragProps}
             transition={motionSafeTransition(reduceMotion, transition)}
-            className={`${position} left-0 right-0 ${sheetClassName} ${sheetZClass}`}
+            onAnimationComplete={handleFocusEntry}
+            className={`${position} left-0 right-0 ${sheetClassName} ${sheetZClass} outline-none`}
             style={{ bottom: bottomOffset }}
           >
             {/* Handle */}
             {showHandle && (
-              <div className="flex justify-center py-2.5 cursor-grab active:cursor-grabbing touch-none">
+              <div
+                className="flex justify-center py-2.5 cursor-grab active:cursor-grabbing touch-none"
+                onPointerDown={dragEnabled ? handlePointerDown : undefined}
+              >
                 <div className="w-10 h-1 bg-foreground-subtle rounded-full" />
               </div>
             )}
@@ -130,7 +172,7 @@ export function BottomSheet({
             {/* Header */}
             {title && (
               <div className="px-5 pb-3 border-b border-foreground-subtle/20">
-                <h3 className="text-subtitle font-semibold text-foreground text-center">{title}</h3>
+                <h3 id={titleId} className="text-subtitle font-semibold text-foreground text-center">{title}</h3>
               </div>
             )}
 

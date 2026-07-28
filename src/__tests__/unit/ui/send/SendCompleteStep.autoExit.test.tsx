@@ -46,7 +46,7 @@ import { SendCompleteStep } from '@/ui/screens/Send/steps/SendCompleteStep'
 import type { SendableValidatedData } from '@/ui/screens/Send/SendFlow'
 
 const validatedData = {
-  type: 'lightning-address',
+  type: 'email-address',
   value: 'user@zappi.cash',
 } as unknown as SendableValidatedData
 

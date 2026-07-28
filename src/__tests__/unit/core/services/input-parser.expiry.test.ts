@@ -3,10 +3,16 @@ import { InputParserService } from '@/core/services/input-parser.service'
 import { InvoiceExpiredError } from '@/core/errors/lightning'
 import type { TokenCodec } from '@/core/ports/driven/token-codec.port'
 import type { LnurlGateway } from '@/core/ports/driven/lnurl-gateway.port'
+import type { AddressResolverUseCase } from '@/core/ports/driving/address-resolver.usecase'
 import type { InputType } from '@/core/domain/input-types'
 
-// validateAsync's bolt11 path touches neither the codec nor the LNURL gateway.
-const parser = new InputParserService({} as TokenCodec, {} as LnurlGateway)
+// validateAsync's bolt11 path touches neither the codec, the LNURL gateway,
+// nor the address resolver.
+const parser = new InputParserService(
+  {} as TokenCodec,
+  {} as LnurlGateway,
+  {} as AddressResolverUseCase,
+)
 
 const bolt11Input = (isExpired: boolean): InputType => ({
   type: 'bolt11',

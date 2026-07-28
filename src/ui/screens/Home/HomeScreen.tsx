@@ -1,14 +1,15 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useCarouselScroll } from "@/ui/hooks/use-carousel-scroll";
 import { usePullToRefresh } from "@/ui/hooks/use-pull-to-refresh";
-import { Plus, LoaderCircle, ArrowDown, ChevronRight, Eye, EyeOff, User } from "lucide-react";
+import { Plus, LoaderCircle, ArrowDown, Eye, EyeOff, User } from "lucide-react";
+import { motion, type PanInfo } from "motion/react";
 import { tabGlassClass } from "@/ui/components/layout/TabToolbar/styles";
 
 import { useTranslation } from "react-i18next";
 import { hapticTap } from "@/ui/utils/haptic";
 import { MintCard, resolveMintColor } from "../../components/wallet/MintCard";
-import { TransactionList } from "../../components/wallet/TransactionList";
 import { PendingItemsList } from "../../components/wallet/PendingItemsList";
+import { HomeRecentCard } from "../../components/wallet/HomeRecentCard";
 import { useWallet, useMintHealth, useMintMetadata } from "@/ui/hooks";
 import { useAllPendingItems, type PendingItem } from "@/ui/hooks/usePendingItems";
 import { useAppStore } from "@/store";
@@ -162,6 +163,18 @@ export function HomeScreen({
     );
   }, [pendingItemsRaw, mints, clampedMintIndex]);
 
+  const recentTransaction = useMemo(() => {
+    return filteredTransactions.length > 0 ? filteredTransactions[0] : null
+  }, [filteredTransactions]);
+
+  const handleSwipeUp = useCallback((_: PointerEvent, info: PanInfo) => {
+    if (info.point.y > window.innerHeight - 100) return
+    if (Math.abs(info.offset.y) < Math.abs(info.offset.x)) return
+    if (info.offset.y < -48 || info.velocity.y < -320) {
+      onTransactions?.(mints[clampedMintIndex]?.url)
+    }
+  }, [onTransactions, mints, clampedMintIndex])
+
   const handleBalanceVisibilityToggle = useCallback(() => {
     hapticTap();
     const updated = { balanceHidden: !settings.balanceHidden };
@@ -170,10 +183,11 @@ export function HomeScreen({
   }, [onSaveSettings, settings, updateSettings]);
 
   return (
-    <div
+    <motion.div
       ref={scrollContainerRef as React.RefObject<HTMLDivElement>}
       className="h-full bg-background text-foreground font-primary overflow-hidden flex flex-col pt-safe"
       style={{ overscrollBehaviorY: "contain" }}
+      onPanEnd={handleSwipeUp}
     >
       {/* Pull-to-refresh indicator */}
       <div
@@ -345,54 +359,39 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* Transaction section header — fixed */}
-      <div className="shrink-0 w-[var(--card-w)] mx-auto flex items-center justify-between pt-4 pb-2">
-        <h2 className="text-caption font-semibold text-foreground-muted">
-          {t("home.recentTransactions")}
-        </h2>
-        {filteredTransactions.length > 0 && (
-          <button
-            onClick={() => onTransactions?.(mints[clampedMintIndex]?.url)}
-            className="flex items-center gap-0.5 text-caption font-medium text-brand hover:text-brand-700 active:scale-95 transition-all"
-          >
-            {t("home.seeAll")}
-            <ChevronRight className="w-4 h-4" strokeWidth={2} />
-          </button>
+      {/* Pinned above the dock: money still in motion leads, then the last
+          settled row. Everything older is one swipe (or "see all") away. */}
+      <div className="mt-auto shrink-0 flex flex-col">
+        {pendingItems.length > 0 && (
+          <div className="px-4 w-full max-w-sm mx-auto">
+            {/* Capped: this block is pinned, so an unbounded list would climb
+                into the card carousel — the rest lives in the history sheet. */}
+            <PendingItemsList
+              items={pendingItems}
+              maxItems={2}
+              flush
+              onItemClick={onSelectPendingItem}
+            />
+          </div>
+        )}
+        {recentTransaction ? (
+          <HomeRecentCard
+            transaction={recentTransaction}
+            onPress={() => onSelectTransaction?.(recentTransaction)}
+            onSeeAll={() => onTransactions?.(mints[clampedMintIndex]?.url)}
+          />
+        ) : (
+          /* Pending rows already say "money in motion" — the empty state would
+             contradict them, so it only shows when nothing is pending either. */
+          pendingItems.length === 0 && (
+            <div className="shrink-0 pb-app-nav px-4 w-full max-w-sm mx-auto">
+              <p className="text-caption text-foreground-muted text-center py-2">
+                {t('home.noTransactions')}
+              </p>
+            </div>
+          )
         )}
       </div>
-
-      {/* Scrollable transaction list */}
-      <main className="flex-1 overflow-y-auto min-h-0">
-        <div className="pb-home-transactions w-[var(--card-w)] mx-auto">
-          {/* Open requests and unclaimed tokens (incoming or sent) lead the
-              list — they are the money still in motion. */}
-          {pendingItems.length > 0 && (
-            <>
-              <PendingItemsList
-                items={pendingItems}
-                maxItems={pendingItems.length}
-                flush
-                onItemClick={onSelectPendingItem}
-              />
-              <div className="h-px bg-border/30" />
-            </>
-          )}
-          {/* Pending rows already say "money in motion" — the empty-state text
-              underneath would contradict them, so it only shows when nothing
-              pending is leading the list either. */}
-          {(filteredTransactions.length > 0 || pendingItems.length === 0) && (
-            <TransactionList
-              transactions={filteredTransactions}
-              allTransactions={transactions}
-              onTransactionClick={onSelectTransaction}
-              maxItems={5}
-              showDate
-              showHeader={false}
-              className="px-0"
-            />
-          )}
-        </div>
-      </main>
-    </div>
+    </motion.div>
   );
 }

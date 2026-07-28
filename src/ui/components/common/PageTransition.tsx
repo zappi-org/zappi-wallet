@@ -29,9 +29,18 @@ const fadeVariants = {
   exit: { opacity: 0 },
 }
 
+/**
+ * Slide-up variants for sheet-like surfaces
+ */
+const slideUpVariants = {
+  initial: { y: '100%' },
+  animate: { y: 0 },
+  exit: { y: '100%' },
+}
+
 export interface PageTransitionProps {
   children: ReactNode
-  variant?: 'page' | 'modal' | 'fade'
+  variant?: 'page' | 'modal' | 'fade' | 'slideUp'
   className?: string
 }
 
@@ -44,6 +53,7 @@ export function PageTransition({ children, variant = 'page', className = '' }: P
     page: pageVariants,
     modal: modalVariants,
     fade: fadeVariants,
+    slideUp: slideUpVariants,
   }
 
   return (

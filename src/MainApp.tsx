@@ -19,7 +19,6 @@ import { useSecurityHandlers } from '@/ui/hooks/use-security-handlers'
 import { useSupportNotifications } from '@/ui/hooks/use-support-notifications'
 import { useSwapHandlers } from '@/ui/hooks/use-swap-handlers'
 import { useTransactions } from '@/ui/hooks/use-transactions'
-import { isNostrDirectAddress } from '@/core/domain/nostr-address'
 import { setMintNameResolver, translateError } from '@/ui/utils/error-i18n'
 import { broadcastSync, notifyKdfMigrated } from '@/utils/cross-tab-sync'
 import { useAppStore } from '@/store'
@@ -79,6 +78,7 @@ import { MyAddressScreen } from '@/ui/screens/MyAddress/MyAddressScreen'
 import { SendFlow } from '@/ui/screens/Send/SendFlow'
 import { routeValidatedInput } from '@/ui/utils/input-router'
 import { QrScannerModal } from '@/ui/components/common/QrScannerModal'
+import { HistorySheetOverlay } from '@/ui/components/common/HistorySheetOverlay'
 import { MintSelectBottomSheet } from '@/ui/components/payment/MintSelectBottomSheet'
 import { formatNpubShort } from '@/ui/screens/Send/sendDisplayHelpers'
 
@@ -188,6 +188,7 @@ export default function MainApp() {
 
   const [activeMintUrl, setActiveMintUrl] = useState<string | null>(null)
 
+  const [showHistoryOverlay, setShowHistoryOverlay] = useState(false)
   const [historyInitialMintUrls, setHistoryInitialMintUrls] = useState<string[] | undefined>(undefined)
 
   const [contactInfo, setContactInfo] = useState<{ address: string; displayName: string } | null>(null)
@@ -238,7 +239,7 @@ export default function MainApp() {
   }, [serviceRegistry, refreshAndRecover, settings.mints])
 
   /** Home camera shortcut — pre-validate and skip the destination step.
-   *  Validated sendable input (bolt11, lightning-address, lnurl) goes straight
+   *  Validated sendable input (bolt11, email-address, lnurl) goes straight
    *  to SendFlow's confirm/amount step. NIP-19 (npub/nprofile) reuses the
    *  same resolve → mint-select flow as ContactsScreen so the destination
    *  step is skipped. Falls back to the destination step if the service
@@ -273,10 +274,13 @@ export default function MainApp() {
 
     const { inputParser, nostrDirectPayment } = serviceRegistry
 
+    const detected = inputParser.detectAndClassify(raw)
+
+
     // NIP-19 (npub / nprofile) — handle BEFORE the unknown check, because
     // detectAndClassify doesn't classify raw npubs (returns 'unknown').
     // Resolve via nostrDirectPayment (same flow as ContactsScreen).
-    if (isNostrDirectAddress(raw)) {
+    if (detected.type === 'nostr-direct') {
       const resolution = await nostrDirectPayment.resolve({
         address: raw,
         ownMintUrls: settings.mints,
@@ -311,8 +315,8 @@ export default function MainApp() {
       return
     }
 
-    const detected = inputParser.detectAndClassify(raw)
-    if (detected.type === 'unknown') {
+    const detectedType = inputParser.detectAndClassify(raw)
+    if (detectedType.type === 'unknown') {
       addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
       return
     }
@@ -323,6 +327,43 @@ export default function MainApp() {
       validated = await inputParser.validateAsync(detected)
     } catch {
       addToast({ type: 'error', message: t('scanner.unrecognizedFormat'), duration: 3000 })
+      return
+    }
+
+    if (validated.type === 'email-address' && validated.nutzapInfo) {
+      const resolution = nostrDirectPayment.resolveWithInfo({
+        address: validated.address,
+        pubkey: validated.nutzapInfo.pubkey,
+        directToken: validated.nutzapInfo,
+        ownMintUrls: settings.mints,
+        selectedMintUrl: defaultMint,
+      })
+
+      if (resolution.status === 'ready') {
+        setActiveMintUrl(resolution.selectedMintUrl)
+        setValidatedScanData(resolution.validatedData)
+        setScannedAmount(0)
+        setContactInfo({ address: '', displayName: validated.address })
+        setPreviousScreen(currentScreen)
+        setCurrentScreen('send')
+        return
+      }
+
+      if (resolution.status === 'needs-mint-selection') {
+        setNpubMintSelection({
+          validatedData: resolution.validatedData,
+          rawAddress: validated.address,
+          commonMintUrls: resolution.commonMintUrls,
+        })
+        return
+      }
+
+      const message = resolution.status === 'no-common-mint'
+        ? t('send.destination.noCommonMint')
+        : resolution.status === 'no-relay'
+          ? t('send.destination.relayNotFound')
+          : t('send.destination.ecashInfoNotFound')
+      addToast({ type: 'error', message, duration: 3000 })
       return
     }
 
@@ -970,7 +1011,7 @@ export default function MainApp() {
       <HomeScreen
         onTransactions={(mintUrl?: string) => {
           setHistoryInitialMintUrls(mintUrl ? [mintUrl] : undefined)
-          setCurrentScreen('history')
+          setShowHistoryOverlay(true)
         }}
         onProfile={() => {
           setPreviousScreen('home')
@@ -1365,20 +1406,31 @@ export default function MainApp() {
     <>
       <div className="relative h-full overflow-hidden">
         <AppStack renderScreen={renderStackScreen} />
+
+        {/* History overlay — bottom-sheet style with backdrop, anchored to this stack box */}
+        <HistorySheetOverlay
+          open={showHistoryOverlay}
+          onClose={() => setShowHistoryOverlay(false)}
+          transactions={transactions}
+          initialMintUrls={historyInitialMintUrls}
+          pendingItemCallbacks={pendingItemCallbacks}
+        />
       </div>
 
-      {/* Bottom Navigation */}
-      <AnimatePresence mode="wait" initial={false}>
-        {isTabScreen && (
-          <MainTabToolbar
-            key="main-tab-toolbar"
-            navItems={navItems}
-            activeTab={activeTab}
-            onTabSelect={handleTabSelect}
-            onScan={() => setShowHomeScanner(true)}
-          />
-        )}
-      </AnimatePresence>
+      {/* Bottom Navigation — stays down while the history sheet is up */}
+      {!showHistoryOverlay && (
+        <AnimatePresence mode="wait" initial={false}>
+          {isTabScreen && (
+            <MainTabToolbar
+              key="main-tab-toolbar"
+              navItems={navItems}
+              activeTab={activeTab}
+              onTabSelect={handleTabSelect}
+              onScan={() => setShowHomeScanner(true)}
+            />
+          )}
+        </AnimatePresence>
+      )}
 
       {/* Home camera shortcut — top-right scan */}
       <QrScannerModal

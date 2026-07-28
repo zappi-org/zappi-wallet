@@ -122,7 +122,7 @@ describe('SendAmountStep confirm variant', () => {
         {...baseProps}
         feeQuote={30}
         validatedData={{
-          type: 'lightning-address',
+          type: 'email-address',
           address: 'alice@example.com',
           lnurlParams: {
             callback: 'https://example.com/pay',
@@ -321,7 +321,7 @@ describe('SendAmountStep confirm variant', () => {
         feeQuote={30}
         displayName="Alice"
         validatedData={{
-          type: 'lightning-address',
+          type: 'email-address',
           address: 'alice@example.com',
           lnurlParams: {
             callback: 'https://example.com/pay',

@@ -190,7 +190,7 @@ export function SendAmountStep({
   useEffect(() => {
     if (!destination || directTransfer) return
     let addr: string
-    if (validatedData?.type === 'lightning-address') {
+    if (validatedData?.type === 'email-address') {
       addr = validatedData.address
     } else if (validatedData?.type === 'cashu-request') {
       addr = validatedData.request
@@ -210,7 +210,7 @@ export function SendAmountStep({
     if (displayName) return formatRecipientDisplayText(displayName)
     if (contactName) return formatRecipientDisplayText(contactName)
     if (validatedData?.type === 'my-wallet') return formatRecipientDisplayText(validatedData.targetMintName)
-    if (validatedData?.type === 'lightning-address') return validatedData.address
+    if (validatedData?.type === 'email-address') return validatedData.address
     if (validatedData?.type === 'lnurl-pay') return validatedData.params?.domain || 'LNURL'
     if (validatedData?.type === 'cashu-request') return formatRecipientDisplayText(validatedData.request)
     return destination ? formatRecipientDisplayText(destination) : null
@@ -220,7 +220,7 @@ export function SendAmountStep({
   const recipientDetail = useMemo(() => {
     // Only fill the second line with the identifier when the eyebrow carries a
     // REAL name (contact). A directly-typed npub/address gets just "TO" + value.
-    if (contactName && validatedData?.type === 'lightning-address') return validatedData.address
+    if (contactName && validatedData?.type === 'email-address') return validatedData.address
     if (contactName && validatedData?.type === 'cashu-request') return formatNpubShort(validatedData.request)
     if (validatedData?.type === 'bolt11') {
       return middleEllipsis(validatedData.invoice, 8, 4)
@@ -334,7 +334,7 @@ export function SendAmountStep({
     if (shouldShowRecipientInMainMessage(validatedData)) {
       let recipient: string
       if (effectiveName) recipient = formatRecipientDisplayText(effectiveName, 20)
-      else if (validatedData.type === 'lightning-address') recipient = formatLightningAddress(validatedData.address, 34)
+      else if (validatedData.type === 'email-address') recipient = formatLightningAddress(validatedData.address, 34)
       else recipient = info.recipient
       return {
         key: 'send.confirm.question' as const,

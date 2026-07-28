@@ -184,10 +184,10 @@ describe('SendInputStep selection flows', () => {
 
     mockDetectAndClassify
       .mockReturnValueOnce({ type: 'unknown', input: 'not-an-address' })
-      .mockReturnValueOnce({ type: 'lightning-address', address: 'alice@example.com' })
+      .mockReturnValueOnce({ type: 'email-address', address: 'alice@example.com' })
 
     mockValidateAsync.mockResolvedValue({
-      type: 'lightning-address',
+      type: 'email-address',
       address: 'alice@example.com',
       lnurlParams: {
         callback: '',
@@ -219,7 +219,7 @@ describe('SendInputStep selection flows', () => {
     expect(defaultProps.onNext).toHaveBeenCalledWith({
       destination: 'Alice',
       validatedData: expect.objectContaining({
-        type: 'lightning-address',
+        type: 'email-address',
         address: 'alice@example.com',
       }),
       amountFromInvoice: undefined,
@@ -260,9 +260,9 @@ describe('SendInputStep selection flows', () => {
       updatedAt: 1,
     })
 
-    mockDetectAndClassify.mockReturnValue({ type: 'lightning-address', address: 'alice@example.com' })
+    mockDetectAndClassify.mockReturnValue({ type: 'email-address', address: 'alice@example.com' })
     mockValidateAsync.mockResolvedValue({
-      type: 'lightning-address',
+      type: 'email-address',
       address: 'alice@example.com',
       lnurlParams: {
         callback: '',
@@ -285,7 +285,7 @@ describe('SendInputStep selection flows', () => {
     expect(defaultProps.onNext).toHaveBeenCalledWith({
       destination: 'Alice',
       validatedData: expect.objectContaining({
-        type: 'lightning-address',
+        type: 'email-address',
         address: 'alice@example.com',
       }),
       amountFromInvoice: undefined,
@@ -337,6 +337,7 @@ describe('SendInputStep selection flows', () => {
 
   it('uses a saved contact name when an npub is typed directly', async () => {
     const npub = 'npub1zappitestrecipient'
+    mockDetectAndClassify.mockReturnValue({ type: 'nostr-direct', address: npub })
     mockContacts.push({
       id: 'contact-1',
       name: 'Bob',
@@ -391,7 +392,7 @@ describe('SendInputStep selection flows', () => {
       createdAt: 1,
       updatedAt: 1,
     })
-    mockDetectAndClassify.mockReturnValue({ type: 'lightning-address', address: 'alice@example.com' })
+    mockDetectAndClassify.mockReturnValue({ type: 'email-address', address: 'alice@example.com' })
     let resolveValidate!: (v: ValidatedData) => void
     mockValidateAsync.mockReturnValue(new Promise<ValidatedData>((resolve) => { resolveValidate = resolve }))
 
@@ -416,7 +417,7 @@ describe('SendInputStep selection flows', () => {
     // The contact validation resolving late is a stale epoch — no second advance.
     await act(async () => {
       resolveValidate({
-        type: 'lightning-address',
+        type: 'email-address',
         address: 'alice@example.com',
         lnurlParams: {
           callback: '',

@@ -167,7 +167,7 @@ export function getConfirmDisplayInfo(
         memo: data.description || undefined,
       };
     }
-    case "lightning-address":
+    case "email-address":
       return {
         method: "Lightning",
         recipient: formatRecipientDisplayText(displayName || data.address),
@@ -194,6 +194,12 @@ export function getConfirmDisplayInfo(
         method: t("send.confirm.internalTransfer"),
         recipient: data.targetMintName,
         recipientDetail: `${data.targetMintUrl.slice(0, 20)}…`,
+      };
+    case "nostr-direct":
+      return {
+        method: "Nostr",
+        recipient: formatRecipientDisplayText(displayName || data.address),
+        recipientDetail: data.address,
       };
   }
 }
@@ -222,7 +228,7 @@ export function getDestinationDisplay(
   switch (data.type) {
     case "bolt11":
       return options?.t?.("send.confirm.paymentRequest") || "Payment request";
-    case "lightning-address":
+    case "email-address":
       return formatRecipientDisplayText(data.address.includes("@")
         ? data.address.split("@")[0]
         : data.address);
@@ -232,6 +238,8 @@ export function getDestinationDisplay(
       return options?.t?.("send.confirm.paymentRequest") || "Payment request";
     case "my-wallet":
       return formatRecipientDisplayText(data.targetMintName);
+    case "nostr-direct":
+      return formatNpubShort(data.address);
   }
 }
 

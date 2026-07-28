@@ -203,7 +203,7 @@ describe('SendFlow direct-transfer fee quote', () => {
 
   it('keeps a cleared amount cleared after returning through the destination step', async () => {
     const validatedData = {
-      type: 'lightning-address' as const,
+      type: 'email-address' as const,
       address: 'alice@example.com',
       lnurlParams: {
         callback: 'https://example.com/pay',
@@ -249,7 +249,7 @@ describe('SendFlow direct-transfer fee quote', () => {
   it('shows an unavailable routed fee instead of a false zero when quoting fails', async () => {
     estimateRouteFeeMock.mockRejectedValueOnce(new Error('quote unavailable'))
     const validatedData = {
-      type: 'lightning-address' as const,
+      type: 'email-address' as const,
       address: 'alice@example.com',
       lnurlParams: {
         callback: 'https://example.com/pay',
@@ -364,7 +364,7 @@ describe('SendFlow direct-transfer fee quote', () => {
   it('a melt route whose invoice cannot be resolved fails loudly instead of quoting', async () => {
     const onResolveInvoice = vi.fn(async () => null)
     const validatedData = {
-      type: 'lightning-address' as const,
+      type: 'email-address' as const,
       address: 'alice@example.com',
       lnurlParams: {
         callback: 'https://example.com/pay',
