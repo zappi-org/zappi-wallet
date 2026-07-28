@@ -43,8 +43,7 @@ export function isDirectCashuRecipient(data: SendableValidatedData): boolean {
   return (
     isCashuRequestData(data) &&
     data.parsed.sameMintOnly === true &&
-    !!data.parsed.nostrTarget &&
-    isNostrDirectAddress(data.request)
+    !!data.parsed.nostrTarget
   );
 }
 
