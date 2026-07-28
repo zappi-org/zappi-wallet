@@ -1,4 +1,5 @@
 import type { ValidatedCashuRequest } from '@/core/domain/input-types'
+import type { DirectTokenInfo } from './address-resolver.usecase'
 
 export type NostrDirectPaymentResolution =
   | {
@@ -22,4 +23,12 @@ export interface NostrDirectPaymentUseCase {
     ownMintUrls: string[]
     selectedMintUrl?: string | null
   }): Promise<NostrDirectPaymentResolution>
+
+  resolveWithInfo(params: {
+    address: string
+    pubkey: string
+    directToken: DirectTokenInfo
+    ownMintUrls: string[]
+    selectedMintUrl?: string | null
+  }): NostrDirectPaymentResolution
 }

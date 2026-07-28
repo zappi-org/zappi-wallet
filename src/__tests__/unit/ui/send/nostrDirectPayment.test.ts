@@ -21,7 +21,7 @@ describe('nostrDirectPayment', () => {
     expect(isNostrDirectAddress('alice@example.com')).toBe(false)
   })
 
-  it('returns ready when selected mint is shared and relay info exists', async () => {
+  it('resolves with pubkey-based transport targets when mint selection is ready', async () => {
     const service = new NostrDirectPaymentService(makeResolver({
       mints: ['https://mint-b.test'],
       p2pkPubkey: '02abc',
@@ -39,6 +39,10 @@ describe('nostrDirectPayment', () => {
     expect(result.selectedMintUrl).toBe('https://mint-b.test')
     expect(result.validatedData.parsed.sameMintOnly).toBe(true)
     expect(result.validatedData.parsed.p2pkPubkey).toBe('02abc')
+    expect(result.validatedData.parsed.transports).toEqual([
+      {type:'nostr', target: 'recipient-pubkey'}
+    ])
+    expect(result.validatedData.parsed.nostrTarget).toBe('recipient-pubkey')
   })
 
   it('requires explicit mint selection when selected mint is not shared', async () => {

@@ -80,7 +80,7 @@ export function SendAmountStep({
   useEffect(() => {
     if (!destination) return
     let addr: string
-    if (validatedData?.type === 'lightning-address') {
+    if (validatedData?.type === 'email-address') {
       addr = validatedData.address
     } else if (validatedData?.type === 'cashu-request') {
       addr = validatedData.request
@@ -97,7 +97,7 @@ export function SendAmountStep({
     if (displayName) return formatRecipientDisplayText(displayName)
     if (contactName) return formatRecipientDisplayText(contactName)
     if (validatedData?.type === 'my-wallet') return formatRecipientDisplayText(validatedData.targetMintName)
-    if (validatedData?.type === 'lightning-address') return validatedData.address
+    if (validatedData?.type === 'email-address') return validatedData.address
     if (validatedData?.type === 'lnurl-pay') return validatedData.params?.domain || 'LNURL'
     if (validatedData?.type === 'bolt11') {
       const inv = validatedData.invoice
@@ -112,7 +112,7 @@ export function SendAmountStep({
   // Sub-info for destination (address detail below name)
   const destinationDetail = useMemo(() => {
     if (validatedData && !shouldShowRecipientInMainMessage(validatedData)) return null
-    if (contactName && validatedData?.type === 'lightning-address') return validatedData.address
+    if (contactName && validatedData?.type === 'email-address') return validatedData.address
     if (displayName && validatedData?.type === 'cashu-request') {
       return formatNpubShort(validatedData.request)
     }
@@ -155,7 +155,7 @@ export function SendAmountStep({
             )
           }
           // Lightning address: user in brand + domain below
-          const isLnAddress = validatedData?.type === 'lightning-address' && destinationDisplay.includes('@')
+          const isLnAddress = validatedData?.type === 'email-address' && destinationDisplay.includes('@')
           if (isLnAddress) {
             const [user, domain] = destinationDisplay.split('@')
             return (
