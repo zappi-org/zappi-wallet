@@ -18,7 +18,7 @@ import { useContacts } from '@/ui/hooks/use-contacts'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import type { InputType, ValidatedData } from '@/core/domain/input-types'
 import { resolveFlowTarget } from '@/core/domain/resolve-flow-target'
-import type { NostrDirectPaymentResolution } from '@/core/ports/driving/nostr-direct-payment.usecase'
+import { resolveSendRoute, type DirectPaymentResolution } from '@/core/domain/send-route-resolution'
 import type { SendableValidatedData } from '../SendFlow'
 
 const LIGHTNING_ADDRESS_RE = /^[a-z0-9_.+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i
@@ -341,7 +341,7 @@ export function useSendInputValidation({
         isPreValidating: true,
       })
 
-      let resolution: NostrDirectPaymentResolution
+      let resolution: DirectPaymentResolution
       try {
         resolution = await nostrDirectPayment.resolve({
           address: trimmed,
@@ -412,34 +412,41 @@ export function useSendInputValidation({
           selectedMintUrl: mintUrl || null,
         })
 
-        if (resolution.status === 'ready') {
-          setValidatedData(resolution.validatedData)
-          validatedDataRef.current = resolution.validatedData
-          setDetectedTypes(['nostr-address', 'email-address'])
-          return true
-        }
+        const decision = resolveSendRoute(validated, resolution)
 
-        if (resolution.status === 'needs-mint-selection') {
-          const selectedMintName = mintUrl ? getDisplayName(mintUrl) : ''
-          onRequestMintSelection?.({
-            destination: initialDestination,
-            validatedData: resolution.validatedData,
-            commonMintUrls: resolution.commonMintUrls,
-            infoText: selectedMintName
-              ? t('send.destination.selectedMintUnavailable', { mint: selectedMintName })
-              : undefined,
-          })
-          setDetectedTypes(['nostr-address', 'email-address'])
-          return 'needs-mint-selection'
+        switch (decision.kind) {
+          case 'advance':
+            setValidatedData(decision.data)
+            validatedDataRef.current = decision.data
+            setDetectedTypes(['nostr-address', 'email-address'])
+            return true
+          case 'needs-mint-selection': {
+            const selectedMintName = mintUrl ? getDisplayName(mintUrl) : ''
+            onRequestMintSelection?.({
+              destination: initialDestination,
+              validatedData: decision.data,
+              commonMintUrls: decision.commonMintUrls,
+              infoText: selectedMintName
+                ? t('send.destination.selectedMintUnavailable', { mint: selectedMintName })
+                : undefined,
+            })
+            setDetectedTypes(['nostr-address', 'email-address'])
+            return 'needs-mint-selection'
+          }
+          case 'lnurl-fallback':
+            // Fall through to standard email/LNURL handling below.
+            break
+          case 'error': {
+            const message =
+              decision.error === 'no-common-mint'
+                ? t('send.destination.noCommonMint')
+                : decision.error === 'no-relay'
+                  ? t('send.destination.relayNotFound')
+                  : t('send.destination.ecashInfoNotFound')
+            setPreValidationError(message)
+            return 'handled-error'
+          }
         }
-
-        const message = resolution.status === 'no-common-mint'
-          ? t('send.destination.noCommonMint')
-          : resolution.status === 'no-relay'
-            ? t('send.destination.relayNotFound')
-            : t('send.destination.ecashInfoNotFound')
-        setPreValidationError(message)
-        return 'handled-error'
       }
 
       if (validated.type === 'email-address' && !validated.lnurlParams) {
