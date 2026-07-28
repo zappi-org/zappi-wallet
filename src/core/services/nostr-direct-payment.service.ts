@@ -1,7 +1,7 @@
 import type { ValidatedCashuRequest } from '@/core/domain/input-types'
 import { isSameMintUrl } from '@/core/domain/mint-url'
 import { findCommonMints } from '@/core/domain/routing'
-import type { AddressResolverUseCase } from '@/core/ports/driving/address-resolver.usecase'
+import type { AddressResolverUseCase, DirectTokenInfo } from '@/core/ports/driving/address-resolver.usecase'
 import type {
   NostrDirectPaymentResolution,
   NostrDirectPaymentUseCase,
@@ -23,6 +23,37 @@ export class NostrDirectPaymentService implements NostrDirectPaymentUseCase {
       return { status: 'no-info' }
     }
 
+    return this.evaluate({
+      address,
+      pubkey: result.pubkey || address,
+      directToken,
+      ownMintUrls: params.ownMintUrls,
+      selectedMintUrl: params.selectedMintUrl,
+    })
+  }
+
+  resolveWithInfo(params: {
+    address: string
+    pubkey: string
+    directToken: DirectTokenInfo
+    ownMintUrls: string[]
+    selectedMintUrl?: string | null
+  }): NostrDirectPaymentResolution {
+    if (params.directToken.mints.length === 0) {
+      return { status: 'no-info' }
+    }
+    return this.evaluate(params)
+  }
+
+  private evaluate(params: {
+    address: string
+    pubkey: string
+    directToken: DirectTokenInfo
+    ownMintUrls: string[]
+    selectedMintUrl?: string | null
+  }): NostrDirectPaymentResolution {
+    const { address, pubkey, directToken } = params
+
     if (!directToken.dmRelays || directToken.dmRelays.length === 0) {
       return { status: 'no-relay' }
     }
@@ -39,9 +70,9 @@ export class NostrDirectPaymentService implements NostrDirectPaymentUseCase {
         id: `direct-${crypto.randomUUID()}`,
         unit: 'sat',
         mints: directToken.mints,
-        transports: [{ type: 'nostr', target: result.pubkey || address }],
+        transports: [{ type: 'nostr', target: pubkey }],
         hasNostrTransport: true,
-        nostrTarget: result.pubkey || address,
+        nostrTarget: pubkey,
         hasPostTransport: false,
         p2pkPubkey: directToken.p2pkPubkey,
         sameMintOnly: true,

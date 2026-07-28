@@ -323,6 +323,43 @@ export default function MainApp() {
       return
     }
 
+    if (validated.type === 'email-address' && validated.nutzapInfo) {
+      const resolution = nostrDirectPayment.resolveWithInfo({
+        address: validated.address,
+        pubkey: validated.nutzapInfo.pubkey,
+        directToken: validated.nutzapInfo,
+        ownMintUrls: settings.mints,
+        selectedMintUrl: defaultMint,
+      })
+
+      if (resolution.status === 'ready') {
+        setActiveMintUrl(resolution.selectedMintUrl)
+        setValidatedScanData(resolution.validatedData)
+        setScannedAmount(0)
+        setContactInfo({ address: '', displayName: validated.address })
+        setPreviousScreen(currentScreen)
+        setCurrentScreen('send')
+        return
+      }
+
+      if (resolution.status === 'needs-mint-selection') {
+        setNpubMintSelection({
+          validatedData: resolution.validatedData,
+          rawAddress: validated.address,
+          commonMintUrls: resolution.commonMintUrls,
+        })
+        return
+      }
+
+      const message = resolution.status === 'no-common-mint'
+        ? t('send.destination.noCommonMint')
+        : resolution.status === 'no-relay'
+          ? t('send.destination.relayNotFound')
+          : t('send.destination.ecashInfoNotFound')
+      addToast({ type: 'error', message, duration: 3000 })
+      return
+    }
+
     // Route via the existing input router — handles sendable + non-sendable
     // (token-register, amount-action, unsupported) destinations identically.
     const target = routeValidatedInput(validated)

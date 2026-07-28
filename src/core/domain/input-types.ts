@@ -114,10 +114,18 @@ export interface ValidatedBolt11 {
   paymentHash?: string
 }
 
+export interface ValidatedEmailAddressNutZapInfo {
+  pubkey: string
+  mints: string[]
+  p2pkPubkey?: string
+  dmRelays?: string[]
+}
+
 export interface ValidatedEmailAddress {
   type: 'email-address'
   address: string
-  lnurlParams: LnurlPayParams
+  lnurlParams?: LnurlPayParams
+  nutzapInfo?: ValidatedEmailAddressNutZapInfo
 }
 
 export interface ValidatedLnurlPay {

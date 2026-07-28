@@ -3,6 +3,7 @@ import { UnrecognizedInputError } from '@/core/errors/payment.errors'
 import type { InputParserUseCase } from '@/core/ports/driving/input-parser.usecase'
 import type { TokenCodec, CashuTokenInspection } from '@/core/ports/driven/token-codec.port'
 import type { LnurlGateway } from '@/core/ports/driven/lnurl-gateway.port'
+import type { AddressResolverUseCase } from '@/core/ports/driving/address-resolver.usecase'
 import type {
   InputType,
   ValidatedData,
@@ -14,6 +15,7 @@ export class InputParserService implements InputParserUseCase {
   constructor(
     private readonly codec: TokenCodec,
     private readonly lnurl: LnurlGateway,
+    private readonly addressResolver: AddressResolverUseCase,
   ) {}
 
   detectAndClassify(raw: string): InputType {
@@ -124,11 +126,19 @@ export class InputParserService implements InputParserUseCase {
         }
 
       case 'email-address': {
-        const params = await this.lnurl.resolvePay(input.address)
+        const result = await this.addressResolver.resolve(input.address)
         return {
           type: 'email-address',
           address: input.address,
-          lnurlParams: params,
+          lnurlParams: result.capabilities.lnurl,
+          nutzapInfo: result.capabilities.directToken && result.pubkey
+            ? {
+                pubkey: result.pubkey,
+                mints: result.capabilities.directToken.mints,
+                p2pkPubkey: result.capabilities.directToken.p2pkPubkey,
+                dmRelays: result.capabilities.directToken.dmRelays,
+              }
+            : undefined,
         }
       }
 

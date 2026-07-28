@@ -59,6 +59,8 @@ function getContactLookupCandidates(input: string, data?: SendableValidatedData)
       return uniqueNonEmpty([input, data.invoice])
     case 'my-wallet':
       return uniqueNonEmpty([input, data.targetMintName])
+    case 'nostr-direct':
+      return uniqueNonEmpty([input, data.address])
   }
 }
 

@@ -124,6 +124,34 @@ export function ContactsScreen({ onSendToContact }: ContactsScreenProps) {
       }
       try {
         const validated = await inputParser.validateAsync(detected)
+
+        if (validated.type === 'email-address' && validated.nutzapInfo) {
+          const resolution = nostrDirectPayment.resolveWithInfo({
+            address: validated.address,
+            pubkey: validated.nutzapInfo.pubkey,
+            directToken: validated.nutzapInfo,
+            ownMintUrls: settings.mints,
+            selectedMintUrl: null,
+          })
+
+          if (resolution.status === 'ready' || resolution.status === 'needs-mint-selection') {
+            setPendingSend({
+              data: resolution.validatedData,
+              name: contact.name,
+              commonMintUrls: resolution.commonMintUrls,
+            })
+            return
+          }
+
+          const message = resolution.status === 'no-common-mint'
+            ? t('send.destination.noCommonMint')
+            : resolution.status === 'no-relay'
+              ? t('send.destination.relayNotFound')
+              : t('send.destination.ecashInfoNotFound')
+          addToast({ type: 'error', message, duration: 3000 })
+          return
+        }
+
         setPendingSend({ data: validated, name: contact.name })
       } catch (err) {
         addToast({ type: 'error', message: err instanceof Error ? err.message : t('send.destination.unrecognized'), duration: 3000 })
