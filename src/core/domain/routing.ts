@@ -97,7 +97,7 @@ export function selectRoute(input: RouteInput): PaymentRoute {
   // Non-creq paths
   if (
     validatedData.type === 'bolt11' ||
-    validatedData.type === 'lightning-address' ||
+    validatedData.type === 'email-address' ||
     validatedData.type === 'lnurl-pay'
   ) {
     return PaymentRoute.MELT_TO_LN

@@ -245,7 +245,7 @@ describe('SendInputStep redirect', () => {
 
   it('validateAsync failure at submit does not redirect (§8.5)', async () => {
     mockDetectAndClassify.mockReturnValue({
-      type: 'lightning-address',
+      type: 'email-address',
       address: 'test@failing.com',
     })
     mockValidateAsync.mockRejectedValue(new Error('Network error'))
