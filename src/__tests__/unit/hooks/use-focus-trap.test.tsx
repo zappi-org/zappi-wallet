@@ -194,21 +194,6 @@ describe('useFocusTrap', () => {
     expect(screen.getByText('first-action')).toHaveFocus()
   })
 
-  it('leaves a keep-live sibling interactive while a dialog is open', () => {
-    render(
-      <>
-        <div data-focus-trap-keep-live data-testid="toasts">
-          <button>update</button>
-        </div>
-        <button>background</button>
-        <Dialog open name="sheet" />
-      </>,
-    )
-
-    expect(screen.getByText('background')).toHaveAttribute('inert')
-    expect(screen.getByTestId('toasts')).not.toHaveAttribute('inert')
-  })
-
   it('keeps the background inert while a second dialog is still open', () => {
     // Siblings, so both stay mounted and their holds genuinely overlap — the
     // real overlap comes from AnimatePresence keeping a closing sheet mounted

@@ -123,7 +123,10 @@ describe('SendInputStep failed replacement', () => {
     vi.useFakeTimers()
     mockDetectAndClassify.mockReset()
     mockValidateAsync.mockReset()
-    mockFindByAddress.mockClear()
+    // Reset the implementation too: a test that parks the lookup would otherwise
+    // leave it pending for every test after it.
+    mockFindByAddress.mockReset()
+    mockFindByAddress.mockImplementation(async () => null)
     mockNostrDirectPayment.resolve.mockReset()
     defaultProps.onBack.mockReset()
     defaultProps.onNext.mockReset()
@@ -168,9 +171,15 @@ describe('SendInputStep failed replacement', () => {
    * flight for a moment before anything is reset. Until this disarm the old
    * recipient stayed validated across that window and Next still sent to them.
    */
-  it('disarms the previous recipient before the contact lookup resolves', async () => {
+  /**
+   * The contact lookup is an IndexedDB round trip, so the replacement is in
+   * flight for a moment. Clearing only the validation was not enough: Next
+   * re-reads the *displayed* destination, so the old recipient's text was
+   * revalidated and advanced to once the lookup finally resolved.
+   */
+  it('Next during a pending lookup cannot advance to the replaced recipient', async () => {
     let releaseLookup: (() => void) | undefined
-    mockFindByAddress.mockImplementationOnce(
+    mockFindByAddress.mockImplementation(
       () => new Promise<null>((resolve) => { releaseLookup = () => resolve(null) }),
     )
 
@@ -178,17 +187,18 @@ describe('SendInputStep failed replacement', () => {
 
     await act(async () => { pasteIntoInput('definitely-not-an-address') })
 
-    // The lookup has not resolved, so nothing has been reset yet — the old
-    // recipient must already be unsendable.
+    // The replacement is already on screen, so Next has nothing stale to act on.
+    expect(destinationInput().value).toBe('definitely-not-an-address')
+
     await act(async () => {
       screen.getByRole('button', { name: 'send.next' }).click()
     })
-    expect(defaultProps.onNext).not.toHaveBeenCalled()
-
     await act(async () => {
       releaseLookup?.()
       await vi.runAllTimersAsync()
     })
+
+    expect(defaultProps.onNext).not.toHaveBeenCalled()
   })
 
   it('an unrecognized paste is never silent — the detector names it inline', async () => {

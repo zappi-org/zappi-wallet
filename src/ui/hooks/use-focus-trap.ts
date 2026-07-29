@@ -128,9 +128,6 @@ function hideOutside(container: HTMLElement, keepLive: HTMLElement | null): () =
     for (const sibling of Array.from(node.parentElement.children)) {
       if (!(sibling instanceof HTMLElement)) continue
       if (sibling === node || sibling === keepLive) continue
-      // Toast hosts sit outside every dialog but must stay actionable — an
-      // update prompt rendered above the sheet is useless if it can't be tapped.
-      if (sibling.hasAttribute('data-focus-trap-keep-live')) continue
 
       holdInert(sibling)
       held.push(sibling)
@@ -229,9 +226,13 @@ export function useFocusTrap(
   // an empty-dep effect runs only on unmount, and a normal close has already
   // cleared the opener by then, so this cannot double-restore.
   useEffect(() => () => {
+    // StrictMode replays passive cleanup with the dialog still mounted; a real
+    // unmount has already detached the ref. Without this the replay pulls focus
+    // back to the opener, which the re-run layout effect then re-inerts.
+    if (containerRef.current) return
     openerRef.current?.focus()
     openerRef.current = null
-  }, [])
+  }, [containerRef])
 
   return { onEntryComplete, restoreFocus }
 }
