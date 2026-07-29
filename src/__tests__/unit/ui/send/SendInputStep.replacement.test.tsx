@@ -172,6 +172,40 @@ describe('SendInputStep failed replacement', () => {
     expect(screen.getByText('send.destination.unrecognized')).toBeInTheDocument()
   })
 
+  /**
+   * The reset clears the inline error, and setDestination is a no-op when the
+   * text is unchanged — so without an explicit re-arm the detector never runs
+   * again and the second attempt says nothing at all.
+   */
+  it('repeating the same unrecognized paste says so again', async () => {
+    renderWithValidatedRecipient()
+
+    await act(async () => { pasteIntoInput('definitely-not-an-address') })
+    await act(async () => { vi.advanceTimersByTime(500) })
+    expect(screen.getByText('send.destination.unrecognized')).toBeInTheDocument()
+
+    await act(async () => { pasteIntoInput('definitely-not-an-address') })
+    await act(async () => { vi.advanceTimersByTime(500) })
+
+    expect(screen.getByText('send.destination.unrecognized')).toBeInTheDocument()
+  })
+
+  it('repeating the same broken cashu token reports it again', async () => {
+    renderWithValidatedRecipient()
+
+    await act(async () => { pasteIntoInput('cashuBbroken') })
+    await act(async () => { vi.advanceTimersByTime(500) })
+
+    await act(async () => { pasteIntoInput('cashuBbroken') })
+    await act(async () => { vi.advanceTimersByTime(500) })
+
+    expect(
+      stableAddToast.mock.calls.filter(
+        ([toast]) => toast.message === 'send.destination.invalidCashuToken',
+      ),
+    ).toHaveLength(2)
+  })
+
   it('an invalid cashu token paste clears the recipient and is reported once', async () => {
     renderWithValidatedRecipient()
 

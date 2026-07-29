@@ -116,6 +116,10 @@ export function useSendInputValidation({
   const { nostrDirectPayment } = useServiceRegistry()
 
   const [destination, setDestination] = useState(initialDestination)
+  // Bumped when a failed replacement resets state. setDestination is a no-op for
+  // identical text, so without this the detector never re-runs and the cleared
+  // error is never replaced — the same bad paste twice would say nothing.
+  const [detectNonce, setDetectNonce] = useState(0)
   const [detectedTypes, setDetectedTypes] = useState<string[]>(() => {
     if (!initialValidatedData) return []
     if (initialValidatedData.type === 'cashu-request') {
@@ -331,7 +335,7 @@ export function useSendInputValidation({
     }, 500)
 
     return () => clearTimeout(detectTimeoutRef.current)
-  }, [destination, inputParser, t, onNext, onRedirect, addToast, findContactDisplayName])
+  }, [destination, detectNonce, inputParser, t, onNext, onRedirect, addToast, findContactDisplayName])
 
   // Cleanup auto-advance timer on unmount
   useEffect(() => () => clearTimeout(autoAdvanceTimerRef.current), [])
@@ -360,9 +364,10 @@ export function useSendInputValidation({
         detectedTypes: [],
       })
       // The unrecognized / invalid-token voice stays with the debounce detector:
-      // paste and scan leave rawAddress null, so it re-runs on the new text and
-      // says it once. The callers that suppress the detector (contact row, deep
-      // link, submit) report `false` themselves.
+      // paste and scan leave rawAddress null, so it runs and says it once. The
+      // callers that suppress the detector (contact row, deep link, submit)
+      // report `false` themselves.
+      setDetectNonce((n) => n + 1)
       return false
     }
 

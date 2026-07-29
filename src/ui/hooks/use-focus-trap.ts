@@ -78,9 +78,37 @@ function handleKeyDown(event: KeyboardEvent) {
  * ancestor chain; the path itself has to stay live or the dialog goes with it.
  * A snapshot, not an observer: an overlay that mounts later is deliberately
  * left alone, since it opened on top of this one.
+ *
+ * Refcounted per element, because nested dialogs overlap on the same ancestor
+ * siblings and do not always close innermost-first — a drag on the outer sheet
+ * dismisses it while the inner one is still open. Restoring each dialog's own
+ * snapshot would then let the outer's `null` clear the attribute and the inner's
+ * `''` put it back for good, leaving the whole app inert until a reload.
  */
+const inertHolds = new Map<HTMLElement, { count: number; previous: string | null }>()
+
+function holdInert(element: HTMLElement): void {
+  const held = inertHolds.get(element)
+  if (held) {
+    held.count += 1
+    return
+  }
+  inertHolds.set(element, { count: 1, previous: element.getAttribute('inert') })
+  element.setAttribute('inert', '')
+}
+
+function releaseInert(element: HTMLElement): void {
+  const held = inertHolds.get(element)
+  if (!held) return
+  held.count -= 1
+  if (held.count > 0) return
+  inertHolds.delete(element)
+  if (held.previous === null) element.removeAttribute('inert')
+  else element.setAttribute('inert', held.previous)
+}
+
 function hideOutside(container: HTMLElement, keepLive: HTMLElement | null): () => void {
-  const restores: Array<() => void> = []
+  const held: HTMLElement[] = []
 
   let node: HTMLElement = container
   while (node !== document.body && node.parentElement) {
@@ -88,18 +116,14 @@ function hideOutside(container: HTMLElement, keepLive: HTMLElement | null): () =
       if (!(sibling instanceof HTMLElement)) continue
       if (sibling === node || sibling === keepLive) continue
 
-      const previous = sibling.getAttribute('inert')
-      sibling.setAttribute('inert', '')
-      restores.push(() => {
-        if (previous === null) sibling.removeAttribute('inert')
-        else sibling.setAttribute('inert', previous)
-      })
+      holdInert(sibling)
+      held.push(sibling)
     }
     node = node.parentElement
   }
 
   return () => {
-    for (const restore of restores) restore()
+    for (const element of held) releaseInert(element)
   }
 }
 

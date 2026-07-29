@@ -140,6 +140,58 @@ describe('useFocusTrap', () => {
     expect(screen.getByText('background')).not.toHaveAttribute('inert')
   })
 
+  /**
+   * Nested dialogs do not always close innermost-first — a drag on the outer
+   * sheet dismisses it while the inner one is still open. Each trap used to
+   * restore its own snapshot, so the outer's "no inert" cleared the attribute
+   * and the inner's "inert" put it back with nobody left to remove it: the
+   * background stayed dead until a reload.
+   */
+  it('leaves nothing inert when the outer dialog closes first', () => {
+    const tree = (outerOpen: boolean, innerOpen: boolean) => (
+      <>
+        <button>background</button>
+        <Dialog open={outerOpen} name="outer">
+          <Dialog open={innerOpen} name="inner">
+            <button>inner-action</button>
+          </Dialog>
+        </Dialog>
+      </>
+    )
+
+    const { rerender } = render(tree(true, true))
+    expect(screen.getByText('background')).toHaveAttribute('inert')
+
+    // Outer goes first, inner follows.
+    rerender(tree(false, true))
+    rerender(tree(false, false))
+
+    expect(screen.getByText('background')).not.toHaveAttribute('inert')
+  })
+
+  it('keeps the background inert while a second dialog is still open', () => {
+    // Siblings, so both stay mounted and their holds genuinely overlap — the
+    // real overlap comes from AnimatePresence keeping a closing sheet mounted
+    // while the sheet inside it is still open.
+    const tree = (firstOpen: boolean, secondOpen: boolean) => (
+      <>
+        <button>background</button>
+        <Dialog open={firstOpen} name="first" />
+        <Dialog open={secondOpen} name="second" />
+      </>
+    )
+
+    const { rerender } = render(tree(true, true))
+    expect(screen.getByText('background')).toHaveAttribute('inert')
+
+    rerender(tree(false, true))
+    // One is still open, so the background must not become interactive.
+    expect(screen.getByText('background')).toHaveAttribute('inert')
+
+    rerender(tree(false, false))
+    expect(screen.getByText('background')).not.toHaveAttribute('inert')
+  })
+
   it('traps within a nested dialog and hands back when it closes', async () => {
     const user = userEvent.setup()
     const tree = (innerOpen: boolean) => (
