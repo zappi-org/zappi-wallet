@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
   resolveSendRoute,
-  resolveCashuRoute,
   SEND_ROUTE_ERROR_I18N,
   type DirectPaymentResolution,
   type SendRouteError,
@@ -114,12 +113,12 @@ describe('resolveSendRoute', () => {
   ]
 
   it.each(testCases)('$name', ({ email, resolution, expected }) => {
-    const decision = resolveSendRoute(email, resolution as DirectPaymentResolution)
+    const decision = resolveSendRoute(resolution as DirectPaymentResolution, email)
     expect(decision).toEqual(expected)
   })
 })
 
-describe('resolveCashuRoute', () => {
+describe('resolveSendRoute (cashu-only, no lnurl fallback)', () => {
   const testAddress = 'npub1shared'
 
   const ecashData: ValidatedCashuRequest = {
@@ -182,7 +181,7 @@ describe('resolveCashuRoute', () => {
   ]
 
   it.each(testCases)('$name', ({ resolution, expected }) => {
-    const decision = resolveCashuRoute(resolution as DirectPaymentResolution)
+    const decision = resolveSendRoute(resolution as DirectPaymentResolution)
     expect(decision).toEqual(expected)
   })
 })

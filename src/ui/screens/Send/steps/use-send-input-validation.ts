@@ -407,7 +407,7 @@ export function useSendInputValidation({
           selectedMintUrl: mintUrl || null,
         })
 
-        const decision = resolveSendRoute(validated, resolution)
+        const decision = resolveSendRoute(resolution, validated)
 
         switch (decision.kind) {
           case 'advance':

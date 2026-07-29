@@ -35,11 +35,6 @@ export type SendRouteDecision =
   | { kind: 'lnurl-fallback'; data: ValidatedEmailAddress }
   | { kind: 'error'; error: SendRouteError }
 
-export type SendCashuRouteDecision =
-  | { kind: 'advance'; data: ValidatedCashuRequest; mintUrl?: string; commonMintUrls: string[] }
-  | { kind: 'needs-mint-selection'; data: ValidatedCashuRequest; commonMintUrls: string[] }
-  | { kind: 'error'; error: SendRouteError }
-
 export const SEND_ROUTE_ERROR_I18N = {
   'no-common-mint': 'send.destination.noCommonMint',
   'no-relay': 'send.destination.relayNotFound',
@@ -47,8 +42,8 @@ export const SEND_ROUTE_ERROR_I18N = {
 } as const satisfies Record<SendRouteError, string>
 
 export function resolveSendRoute(
-  emailValidated: ValidatedEmailAddress,
   resolution: DirectPaymentResolution,
+  lnurlFallback?: ValidatedEmailAddress,
 ): SendRouteDecision {
   if (resolution.status === 'ready') {
     return {
@@ -67,39 +62,8 @@ export function resolveSendRoute(
     }
   }
 
-  // Direct-token resolution failed. Fall back to LNURL if available.
-  if (emailValidated.lnurlParams) {
-    return { kind: 'lnurl-fallback', data: emailValidated }
-  }
-
-  const error: SendRouteError =
-    resolution.status === 'no-common-mint'
-      ? 'no-common-mint'
-      : resolution.status === 'no-relay'
-        ? 'no-relay'
-        : 'no-info'
-
-  return { kind: 'error', error }
-}
-
-export function resolveCashuRoute(
-  resolution: DirectPaymentResolution,
-): SendCashuRouteDecision {
-  if (resolution.status === 'ready') {
-    return {
-      kind: 'advance',
-      data: resolution.validatedData,
-      mintUrl: resolution.selectedMintUrl,
-      commonMintUrls: resolution.commonMintUrls,
-    }
-  }
-
-  if (resolution.status === 'needs-mint-selection') {
-    return {
-      kind: 'needs-mint-selection',
-      data: resolution.validatedData,
-      commonMintUrls: resolution.commonMintUrls,
-    }
+  if (lnurlFallback?.lnurlParams) {
+    return { kind: 'lnurl-fallback', data: lnurlFallback }
   }
 
   const error: SendRouteError =
