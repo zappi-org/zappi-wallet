@@ -18,7 +18,7 @@ export function RecipientEndpointIcon({
   }
 
   if (kind === 'lightning') {
-    return <Zap className={`${className} fill-current text-amber-500`} strokeWidth={1.8} aria-hidden data-testid="recipient-lightning-icon" />
+    return <Zap className={`${className} fill-current text-badge-lightning-text`} strokeWidth={1.8} aria-hidden data-testid="recipient-lightning-icon" />
   }
 
   return <CircleDot className={`${className} text-brand`} strokeWidth={1.8} aria-hidden data-testid="recipient-generic-icon" />

@@ -32,13 +32,15 @@ export function ScreenHeader({
       {onBack ? (
         <button
           onClick={onBack}
-          className="w-10 h-10 -ml-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10"
+          /* -ml-2 keeps the glyph optically on the 24px content column while the
+             hit box grows to 44px. */
+          className="w-11 h-11 -ml-2 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
           aria-label={t('common.back')}
         >
           <ArrowLeft className="w-[22px] h-[22px] text-foreground" strokeWidth={1.8} />
         </button>
       ) : (
-        <div className="w-10" />
+        <div className="w-11" />
       )}
 
       {/* Center: title */}

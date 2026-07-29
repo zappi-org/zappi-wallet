@@ -33,6 +33,34 @@ describe('PaymentReceipt QR slot', () => {
   })
 })
 
+describe('PaymentReceipt stamp label and bottom line', () => {
+  it('prints the stamp label on the seal', () => {
+    render(<PaymentReceipt {...base} status="done" stampSrc="/seal.png" stampLabel="전송 완료" />)
+    expect(screen.getByText('전송 완료')).toBeInTheDocument()
+  })
+
+  it('keeps a bottom line through finishing (statusLine) → done (doneLine)', () => {
+    const { rerender } = render(<PaymentReceipt {...base} status="finishing" statusLine="전송 중" />)
+    expect(screen.getByText('전송 중')).toBeInTheDocument()
+    rerender(<PaymentReceipt {...base} status="done" doneLine="7/29 15:00" />)
+    expect(screen.getByText('7/29 15:00')).toBeInTheDocument()
+  })
+
+  it('prints no bottom rule at all when neither line is given', () => {
+    const { container: withLine } = render(<PaymentReceipt {...base} status="done" doneLine="7/29 15:00" />)
+    const { container: without } = render(<PaymentReceipt {...base} status="done" />)
+    expect(without.querySelectorAll('.border-dashed').length).toBe(
+      withLine.querySelectorAll('.border-dashed').length - 1,
+    )
+  })
+
+  it('prints the timeline above the rows', () => {
+    render(<PaymentReceipt {...base} timeline={<div data-testid="timeline" />} />)
+    const position = screen.getByTestId('timeline').compareDocumentPosition(screen.getByText('Mint'))
+    expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})
+
 // Receipt vertical stability: the finishing→done transition must not change the
 // receipt's height, or the my-auto-centered receipt visibly jumps on stamp.
 describe('PaymentReceipt slot-space reservation', () => {

@@ -420,7 +420,7 @@ export function UsernameChangeScreen({ onBack, onSaveSettings }: UsernameChangeS
                   </div>
                 )}
                 {selectedMintUrl && !isAcceptedMint && (
-                  <p className="text-body text-accent-warning mt-2">{t('settings.additionalFeeWarning')}</p>
+                  <p className="text-body text-accent-warning-text mt-2">{t('settings.additionalFeeWarning')}</p>
                 )}
               </div>
             )}

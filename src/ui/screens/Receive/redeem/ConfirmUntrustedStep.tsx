@@ -62,7 +62,7 @@ export function ConfirmUntrustedStep({
       <div className="flex-1 flex flex-col items-center justify-center px-6 space-y-4">
         <AlertTriangle className="w-12 h-12 text-accent-warning" strokeWidth={1.8} />
 
-        <p className="text-heading font-semibold text-foreground text-center whitespace-pre-line">
+        <p className="text-heading font-semibold text-foreground text-center whitespace-pre-line break-keep">
           {t('receive.untrusted.warningNeedConfirm', { amount: formatSats(amount) })}
         </p>
         {fiatLabel && <p className="text-body text-foreground-muted">~ {fiatLabel}</p>}
@@ -77,7 +77,7 @@ export function ConfirmUntrustedStep({
           <p className="text-caption text-foreground-muted leading-snug">
             <span className="font-semibold text-foreground">{mintName}</span>
             {' · '}
-            <span className="text-accent-warning font-medium">{t('receive.untrusted.unregistered')}</span>
+            <span className="text-accent-warning-text font-medium">{t('receive.untrusted.unregistered')}</span>
           </p>
         </div>
       </div>
@@ -96,7 +96,7 @@ export function ConfirmUntrustedStep({
             <p className="text-body font-bold text-white truncate">
               {busy ? t('tokenRegister.receiving') : t('receive.untrusted.addAndReceive')}
             </p>
-            <p className="text-caption text-white/70 mt-0.5">
+            <p className="text-caption text-white/85 mt-0.5">
               {t('receive.untrusted.addAndReceiveSub')}
             </p>
           </div>

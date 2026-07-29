@@ -210,12 +210,6 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
       ? t('mintDetail.receiveRequest')
       : t('mintDetail.sentToken')
 
-  const formatDate = (ts: number) =>
-    new Date(ts).toLocaleString(locale, {
-      year: 'numeric', month: 'short', day: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    })
-
   const expiryRemaining = item.expiresAt
     ? (() => {
       const remaining = item.expiresAt! - Date.now()
@@ -305,7 +299,8 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
     await share(chipPayload, 'chip')
   }, [chipPayload, share])
 
-  const statusLine = `${formatDate(item.createdAt)} · ${t('history.pendingStatus')}`
+  // The timeline below prints the times — the bottom line says only the state.
+  const statusLine = t('history.pendingStatus')
 
   return (
     <div className="w-full h-full flex flex-col bg-background pt-safe">
@@ -331,14 +326,13 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
             fiat={toFiat(item.amount)}
             rows={receiptRows}
             statusLine={statusLine}
+            timeline={<TxStateBar track={track} t={t} locale={locale} framed={false} />}
             extra={
-              <>
-                <TxStateBar track={track} t={t} locale={i18n.language} framed={false} />
-                {detailEntries.length > 0 && (
+              detailEntries.length > 0 ? (
                   <>
                     <button
                       onClick={() => setShowDetails((v) => !v)}
-                      className="mt-2 flex w-full items-center justify-between border-t-[1.5px] border-dashed border-border pt-3 pb-1.5"
+                      className="flex w-full items-center justify-between py-1"
                     >
                       <span className="text-caption font-semibold text-foreground-muted">{t('txDetail.details')}</span>
                       <ChevronDown className={cn('w-3.5 h-3.5 text-foreground-muted transition-transform', showDetails && 'rotate-180')} strokeWidth={1.8} />
@@ -403,8 +397,7 @@ export function PendingItemDetailScreen({ item, onBack, callbacks, onItemRemoved
                       </div>
                     )}
                   </>
-                )}
-              </>
+              ) : undefined
             }
           />
         </div>

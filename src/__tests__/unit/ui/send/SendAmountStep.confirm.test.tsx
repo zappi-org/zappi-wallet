@@ -293,8 +293,8 @@ describe('SendAmountStep confirm variant', () => {
   it('steps the question amount size down for very long values (digit count, unit-agnostic)', () => {
     expect(confirmAmountSizeClass('₿5,000')).toBe('text-[32px]')
     expect(confirmAmountSizeClass('5000 sat')).toBe('text-[32px]')
-    expect(confirmAmountSizeClass('1,234,567,890 sats')).toBe('text-[26px]')
-    expect(confirmAmountSizeClass('123,456,789,012 sats')).toBe('text-[22px]')
+    expect(confirmAmountSizeClass('1,234,567,890 sats')).toBe('text-heading')
+    expect(confirmAmountSizeClass('123,456,789,012 sats')).toBe('text-title')
   })
 
   it('locks back and cancel while the confirm handler is in flight', async () => {

@@ -259,8 +259,11 @@ const LOCALE_MAP: Record<string, string> = {
   en: 'en-US',
 }
 
+/** i18next hands back region-tagged tags ('ko-KR') when the browser detector
+    wins, so map on the base language too — otherwise a Korean UI printed
+    en-US dates. */
 export function getLocaleCode(language: string): string {
-  return LOCALE_MAP[language] || 'en-US'
+  return LOCALE_MAP[language] || LOCALE_MAP[language?.split('-')[0]] || 'en-US'
 }
 
 export function formatDateLocalized(

@@ -83,8 +83,11 @@ export function ReceiveReceiptStep({ amount, mintUrl, memo, method, receivedAt, 
             fiat={formatFiat(amount) || null}
             rows={rows}
             statusLine={stamped ? undefined : t('receive.receipt.receiving')}
-            doneLine={stamped ? { left: stampedAt, right: t('receive.receipt.completed') } : undefined}
+            doneLine={stamped ? stampedAt : undefined}
             stampSrc={tokenReceiveSuccessImg}
+            // Unconditional: the stamp's own visibility already gates it, and
+            // gating on `stamped` would pop the label a frame late.
+            stampLabel={t('receive.receipt.completed')}
             onStampComplete={() => { if (!stamped) { setStamped(true); hapticSuccess() } }}
           />
         </div>
@@ -102,7 +105,7 @@ export function ReceiveReceiptStep({ amount, mintUrl, memo, method, receivedAt, 
         className="flex gap-3 px-6 pb-app shrink-0"
       >
         {onMakeAnother && (
-          <Button variant="secondary" size="xl" onClick={() => { hapticTap(); onMakeAnother() }} className="flex-none px-6">
+          <Button variant="secondary" size="xl" onClick={() => { hapticTap(); onMakeAnother() }} className="flex-none px-6 font-medium">
             {t('receive.request.makeAnother')}
           </Button>
         )}

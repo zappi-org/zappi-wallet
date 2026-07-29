@@ -106,8 +106,10 @@ describe('HomeScreen pending + empty-state coexistence', () => {
     expect(screen.getByText('home.noTransactions')).toBeTruthy()
   })
 
-  it('shows settled transactions alongside a pending request without the empty state', () => {
-    pendingItemsState.items = [makePendingRequest()]
+  // One history area, one row: a pending item outranks the settled ledger row,
+  // which is a swipe (or "see all") away instead of a second block on the home.
+  it('gives the recent card to the pending item, not the settled transaction', () => {
+    pendingItemsState.items = [makePendingRequest({ amount: 321 })]
     const tx: Transaction = {
       id: 't1',
       direction: 'receive',
@@ -120,6 +122,8 @@ describe('HomeScreen pending + empty-state coexistence', () => {
     }
     renderScreen({ transactions: [tx] })
 
+    expect(screen.getByText('321 sats')).toBeInTheDocument()
+    expect(screen.queryByText('500 sats')).toBeNull()
     expect(screen.queryByText('home.noTransactions')).toBeNull()
   })
 
@@ -146,8 +150,8 @@ describe('HomeScreen pending + empty-state coexistence', () => {
     }]
     renderScreen({ transactions: [reclaimableTx] })
 
-    // One row for the -777 amount (from PendingItemsList) — the reclaimable-send
-    // transaction itself must not also surface in the ledger below it.
+    // One row for the -777 amount (the pending item owns the recent card) —
+    // the reclaimable-send transaction must not also surface in the ledger.
     expect(screen.getAllByText('-777 sats')).toHaveLength(1)
   })
 
@@ -213,7 +217,9 @@ describe('HomeScreen pending + empty-state coexistence', () => {
     ]
     renderScreen()
 
-    expect(screen.getByText('+1234 sats')).toBeInTheDocument()
+    // The recent card prints receives unsigned (direction reads from the arrow
+    // and the green amount), unlike the old two-line pending list.
+    expect(screen.getByText('1234 sats')).toBeInTheDocument()
   })
 
   it('still shows a settled send transaction in the ledger (dedup only targets reclaimable rows)', () => {

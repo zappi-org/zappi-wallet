@@ -185,7 +185,7 @@ export function POSSettingPage({
         <div className="py-3 space-y-4">
           {!settings.lightningAddress && (
             <div className="border-l-2 border-accent-warning bg-accent-warning/[0.06] p-3">
-              <p className="text-overline text-accent-warning font-semibold">
+              <p className="text-overline text-accent-warning-text font-semibold">
                 {t('settings.posNoLightningAddress')}
               </p>
             </div>

@@ -220,7 +220,7 @@ export function SendInputStep({
         transition={{ duration: 0.15, ease: 'easeOut' }}
         className="flex-1 overflow-y-auto px-6 pt-20"
       >
-        <h2 className="text-[22px] font-medium text-foreground break-keep text-center leading-snug">
+        <h2 className="text-title font-medium text-foreground break-keep text-center leading-snug">
           {t('send.destination.whoToSend')}
         </h2>
         {/* Destination input — pill style. The pill itself stays put and fades
@@ -276,7 +276,7 @@ export function SendInputStep({
           <button
             onClick={() => setShowScanner(true)}
             aria-label={t('scanner.title')}
-            className="relative w-9 h-9 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors shrink-0"
+            className="relative w-11 h-11 -mr-1.5 rounded-lg flex items-center justify-center hover:bg-foreground/[0.04] active:bg-foreground/[0.06] transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
           >
             <CameraFilled className="text-foreground-muted" />
           </button>
@@ -284,7 +284,7 @@ export function SendInputStep({
 
         {/* Reserved space so the error message pops in without shifting the tabs */}
         <div className="h-5 flex items-center mt-1.5" data-testid="pre-validation-error-area">
-          {preValidationError && <p className="text-xs text-destructive">{preValidationError}</p>}
+          {preValidationError && <p className="text-label text-accent-danger">{preValidationError}</p>}
         </div>
 
         {/* My wallets dropdown — @ search mode */}
@@ -298,7 +298,7 @@ export function SendInputStep({
             transition={fadeTransition(reduceMotion, 0.16)}
             className="mt-4"
           >
-            <p className="text-body font-semibold text-foreground mb-3">{t('send.myWalletList')}</p>
+            <p className="text-caption font-medium text-foreground-muted mb-3">{t('send.myWalletList')}</p>
             {filteredWallets.length > 0 ? (
               filteredWallets.map((wallet) => (
                 <button
@@ -312,7 +312,7 @@ export function SendInputStep({
                     className="w-9 h-9 rounded-full object-contain shrink-0 bg-foreground/[0.04]"
                   />
                   <div className="flex-1 min-w-0 text-left">
-                    <p className="text-subtitle font-medium text-foreground truncate">{wallet.name}</p>
+                    <p className="text-body font-medium text-foreground truncate">{wallet.name}</p>
                   </div>
                 </button>
               ))
@@ -334,6 +334,7 @@ export function SendInputStep({
             <SegmentControl
               value={listTab}
               onChange={setListTab}
+              tone="quiet"
               options={[
                 { value: 'contacts' as const, label: t('contacts.title') },
                 { value: 'wallets' as const, label: t('send.myWalletList') },
@@ -358,7 +359,7 @@ export function SendInputStep({
                         }}
                       />
                       <div className="flex-1 min-w-0 text-left">
-                        <p className="text-subtitle font-medium text-foreground truncate">{wallet.name}</p>
+                        <p className="text-body font-medium text-foreground truncate">{wallet.name}</p>
                       </div>
                     </button>
                   ))
@@ -381,8 +382,8 @@ export function SendInputStep({
                       <ContactAddressIcon type={contact.addressType} />
                     </div>
                     <div className="flex-1 min-w-0 text-left">
-                      <p className="text-subtitle font-medium text-foreground truncate">{contact.name}</p>
-                      <p className="text-caption text-foreground-muted truncate">{contact.address}</p>
+                      <p className="text-body font-medium text-foreground truncate">{contact.name}</p>
+                      <p className="text-label text-foreground-muted truncate">{contact.address}</p>
                     </div>
                   </button>
                 ))

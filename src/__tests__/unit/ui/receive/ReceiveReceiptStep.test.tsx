@@ -10,9 +10,9 @@ vi.mock('@/ui/hooks/use-mint-metadata', () => ({ useMintMetadata: () => ({ getDi
 vi.mock('@/ui/components/payment/PaymentReceipt', async () => {
   const { useEffect } = await import('react')
   return {
-    PaymentReceipt: ({ onStampComplete, doneLine, statusLine }: { onStampComplete?: () => void; doneLine?: { right: string }; statusLine?: string }) => {
+    PaymentReceipt: ({ onStampComplete, doneLine, stampLabel, statusLine }: { onStampComplete?: () => void; doneLine?: string; stampLabel?: string; statusLine?: string }) => {
       useEffect(() => { onStampComplete?.() }, [onStampComplete])
-      return <div data-testid="receipt">{doneLine ? doneLine.right : statusLine}</div>
+      return <div data-testid="receipt">{doneLine ? stampLabel : statusLine}</div>
     },
   }
 })

@@ -321,7 +321,7 @@ export function RelayManagementScreen({
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="lg" onClick={() => setRelayToDelete(null)} className="flex-1">
+            <Button variant="secondary" size="lg" onClick={() => setRelayToDelete(null)} className="flex-1">
               {t('common.cancel')}
             </Button>
             <Button variant="destructive" size="lg" onClick={confirmRemoveRelay} className="flex-1">

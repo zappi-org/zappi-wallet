@@ -28,10 +28,13 @@ interface PaymentReceiptProps {
   rows: PaymentReceiptRow[]
   /** Centered status line (printing/pending): "전송 중" / "정산 확인 중". */
   statusLine?: string
-  /** Done state's bottom row: timestamp left, "전송 완료" right. */
-  doneLine?: { left: string; right: string }
+  /** Done state's bottom line — the completion timestamp. Omit where a timeline
+      on the paper already carries the times (the detail screens). */
+  doneLine?: string
   /** Stamp image (the Zappi seal) — rendered on finishing (drops) and done (static). */
   stampSrc?: string
+  /** Caption printed across the seal ("전송 완료") — rides the stamp's rotation. */
+  stampLabel?: string
   onStampComplete?: () => void
   /** Optional QR node printed into the receipt body. The consumer supplies the
       rendered QR (e.g. <QRCodeDisplay/>) so the receipt stays free of the QR
@@ -44,7 +47,9 @@ interface PaymentReceiptProps {
   qrRevealLabel?: string
   /** Paper width in px — flows and the archive share one sheet size. */
   width?: number
-  /** Extra content printed after the rows, above the bottom rule (e.g. a state bar). */
+  /** Printed between the amount block and the rows (the state timeline). */
+  timeline?: ReactNode
+  /** Extra content printed after the rows, above the bottom rule (e.g. details). */
   extra?: ReactNode
   /** Stamp anchor classes — the top corner keeps the seal off the text everywhere. */
   stampClass?: string
@@ -59,12 +64,14 @@ export function PaymentReceipt({
   statusLine,
   doneLine,
   stampSrc,
+  stampLabel,
   onStampComplete,
   qr,
   qrVeiled,
   onToggleQr,
   qrRevealLabel,
   width = 330,
+  timeline,
   extra,
   stampClass = 'top-12 right-3',
 }: PaymentReceiptProps) {
@@ -157,13 +164,19 @@ export function PaymentReceipt({
               </svg>
             )}
 
-            <div className="relative rounded-b-[2px] bg-background-card px-[18px] pb-2 pt-[18px] shadow-[0_8px_24px_rgba(29,29,31,0.08)]">
-              <div className="text-center text-[11px] font-bold tracking-[0.14em] text-foreground-subtle">ZAPPI</div>
+            <div className="relative rounded-b-[2px] bg-background-card px-[18px] pb-2 pt-[18px] shadow-paper">
+              <div className="text-center text-overline font-bold tracking-[0.14em] text-foreground-subtle">ZAPPI</div>
               <div className="mt-1.5 text-center text-subtitle font-semibold">{title}</div>
               <div className="mb-0.5 mt-3 text-center text-[30px] font-bold font-display leading-none tracking-tight">{amount}</div>
               {fiat && <div className="text-center text-label text-foreground-muted">{fiat}</div>}
 
-              <div className="mb-1.5 mt-3.5 border-t-[1.5px] border-dashed border-border" />
+              {timeline && (
+                <>
+                  <div className="mt-3.5 border-t-[1.5px] border-dashed border-border" />
+                  <div className="pt-3.5">{timeline}</div>
+                </>
+              )}
+              <div className={`mb-1.5 ${timeline ? 'mt-2.5' : 'mt-3.5'} border-t-[1.5px] border-dashed border-border`} />
               {rows.map((row, i) => (
                 <div key={`${row.label}-${i}`} className="flex items-center justify-between gap-3 py-[5px] text-caption">
                   <span className="shrink-0 text-foreground-muted">{row.label}</span>
@@ -202,34 +215,34 @@ export function PaymentReceipt({
                   <div className="pt-2.5 pb-1">{extra}</div>
                 </>
               )}
-              <div className="mb-1 mt-1.5 border-t-[1.5px] border-dashed border-border" />
-
-              {doneLine ? (
-                <div className="flex items-center justify-between py-2 text-caption">
-                  <span className="text-foreground-muted">{doneLine.left}</span>
-                  <span className="font-semibold text-brand">{doneLine.right}</span>
-                </div>
-              ) : (
-                <div className="py-2 text-center text-caption text-foreground-muted">
-                  {statusLine}
-                  {(status === 'printing' || status === 'finishing') && (
-                    <span aria-hidden>
-                      {[0, 1, 2].map((i) => (
-                        <motion.span
-                          key={i}
-                          animate={dotsAlive ? { opacity: [0, 1, 1, 0] } : { opacity: 1 }}
-                          transition={
-                            dotsAlive
-                              ? { duration: 1.2, times: [0, 0.3, 0.8, 1], repeat: Infinity, delay: i * 0.2 }
-                              : { duration: 0 }
-                          }
-                        >
-                          .
-                        </motion.span>
-                      ))}
-                    </span>
-                  )}
-                </div>
+              {/* One centered caption for every state — the completion label
+                  itself now rides the stamp, so nothing sits on the right. A
+                  paper with neither line ends after `extra` (the detail
+                  screens, where the timeline carries the times). */}
+              {(doneLine || statusLine) && (
+                <>
+                  <div className="mb-1 mt-1.5 border-t-[1.5px] border-dashed border-border" />
+                  <div className="py-2 text-center text-caption text-foreground-muted">
+                    {doneLine ?? statusLine}
+                    {(status === 'printing' || status === 'finishing') && (
+                      <span aria-hidden>
+                        {[0, 1, 2].map((i) => (
+                          <motion.span
+                            key={i}
+                            animate={dotsAlive ? { opacity: [0, 1, 1, 0] } : { opacity: 1 }}
+                            transition={
+                              dotsAlive
+                                ? { duration: 1.2, times: [0, 0.3, 0.8, 1], repeat: Infinity, delay: i * 0.2 }
+                                : { duration: 0 }
+                            }
+                          >
+                            .
+                          </motion.span>
+                        ))}
+                      </span>
+                    )}
+                  </div>
+                </>
               )}
 
               {/* Zappi seal — the completion peak. Drops during finishing;
@@ -253,6 +266,14 @@ export function PaymentReceipt({
                   <span className="absolute inset-0 rounded-full border-[2.5px] border-brand opacity-85" />
                   <span className="absolute inset-1 rounded-full border border-brand opacity-50" />
                   <img src={stampSrc} alt="" className="absolute inset-3 h-[60px] w-[60px] object-contain" />
+                  {/* Ink band across the seal — the mascot is solid brand, so
+                      the caption needs paper under it to stay readable. Long
+                      locales (id/es) wrap to a second line instead of clipping. */}
+                  {stampLabel && (
+                    <span className="absolute inset-x-0 bottom-[13px] break-keep border-y border-brand/60 bg-background-card px-0.5 py-[3px] text-center text-[9px] font-bold leading-[1.15] text-brand">
+                      {stampLabel}
+                    </span>
+                  )}
                 </motion.div>
               )}
             </div>

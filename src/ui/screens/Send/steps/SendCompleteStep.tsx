@@ -125,8 +125,9 @@ export function SendCompleteStep({
           fiat={subAmount || null}
           rows={rows}
           statusLine={pending ? t('send.receipt.settling') : undefined}
-          doneLine={pending ? undefined : { left: stampedAt, right: t('send.receipt.completed') }}
+          doneLine={pending ? undefined : stampedAt}
           stampSrc={sendSuccessImg}
+          stampLabel={t('send.receipt.completed')}
         />
         <p className="mt-5 text-caption text-foreground-muted">
           {pending ? t('send.sending.networkDelay') : t('send.receipt.kept')}

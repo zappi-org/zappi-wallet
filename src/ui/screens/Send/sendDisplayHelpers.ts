@@ -41,7 +41,7 @@ export function formatRecipientDisplayText(value: string, maxLength = 12): strin
  */
 export function confirmAmountSizeClass(displayAmount: string): string {
   const digits = displayAmount.replace(/\D/g, "").length;
-  return digits > 11 ? "text-[22px]" : digits > 9 ? "text-[26px]" : "text-[32px]";
+  return digits > 11 ? "text-title" : digits > 9 ? "text-heading" : "text-[32px]";
 }
 
 /** Middle-ellipsis keeping both ends visible (invoices, npubs). */

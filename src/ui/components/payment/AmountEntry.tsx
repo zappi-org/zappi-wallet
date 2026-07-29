@@ -40,6 +40,8 @@ export interface AmountEntryProps {
   onFiatStateChange?: (state: AmountEntryFiatState) => void
   /** Over-balance / invalid → x-axis shake + danger color. */
   insufficientBalance?: boolean
+  /** What is wrong, in words — printed under the hero while insufficientBalance. */
+  insufficientMessage?: string
   /** Disable all input (amount fixed by an invoice); keypad dims. */
   disabled?: boolean
   /** Shown centered when the amount is empty (e.g. "How much to send?"). */
@@ -55,7 +57,7 @@ export interface AmountEntryProps {
 // Font auto-scale by displayed glyph count (Cash App shrinks as it grows).
 function heroSizeClass(len: number): string {
   if (len <= 6) return 'text-[44px]'
-  if (len <= 9) return 'text-[36px]'
+  if (len <= 9) return 'text-display'
   return 'text-[30px]'
 }
 
@@ -97,6 +99,7 @@ export function AmountEntry({
   initialFiatAmount = '',
   onFiatStateChange,
   insufficientBalance = false,
+  insufficientMessage,
   disabled = false,
   emptyPrompt,
   topSlot,
@@ -206,7 +209,7 @@ export function AmountEntry({
             style={{ perspective: 600 }}
           >
             {isEmpty && emptyPrompt ? (
-              <span className="break-keep text-center text-[22px] font-medium leading-snug text-foreground">
+              <span className="break-keep text-center text-title font-medium leading-snug text-foreground">
                 {emptyPrompt}
               </span>
             ) : (
@@ -276,6 +279,17 @@ export function AmountEntry({
             {canToggleFiat && <ArrowUpDown className="h-3.5 w-3.5" strokeWidth={2.2} />}
           </button>
         )}
+
+        {/* The shortfall in words. Red + a shake are reinforcement; a caller
+            who reports insufficientBalance must also say what is wrong, or the
+            state reaches nobody using a screen reader (and reads as a bug to
+            everyone else). Height is reserved so the hero never jumps. */}
+        <p
+          role="alert"
+          className="min-h-5 text-caption text-accent-danger"
+        >
+          {insufficientBalance ? insufficientMessage : ''}
+        </p>
       </div>
 
       {middleSlot}

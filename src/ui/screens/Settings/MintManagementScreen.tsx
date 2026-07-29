@@ -468,7 +468,7 @@ export function MintManagementScreen({
             })()}
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="lg" onClick={() => setMintToDelete(null)} className="flex-1">
+            <Button variant="secondary" size="lg" onClick={() => setMintToDelete(null)} className="flex-1">
               {t('common.cancel')}
             </Button>
             <Button variant="destructive" size="lg" onClick={confirmRemoveMint} className="flex-1">

@@ -8,8 +8,11 @@ import { tabGlassClass } from "@/ui/components/layout/TabToolbar/styles";
 import { useTranslation } from "react-i18next";
 import { hapticTap } from "@/ui/utils/haptic";
 import { MintCard, resolveMintColor } from "../../components/wallet/MintCard";
-import { PendingItemsList } from "../../components/wallet/PendingItemsList";
 import { HomeRecentCard } from "../../components/wallet/HomeRecentCard";
+import {
+  pendingItemToRecentRow,
+  toRecentRow,
+} from "../../components/wallet/homeRecentRow";
 import { useWallet, useMintHealth, useMintMetadata } from "@/ui/hooks";
 import { useAllPendingItems, type PendingItem } from "@/ui/hooks/usePendingItems";
 import { useAppStore } from "@/store";
@@ -166,6 +169,25 @@ export function HomeScreen({
   const recentTransaction = useMemo(() => {
     return filteredTransactions.length > 0 ? filteredTransactions[0] : null
   }, [filteredTransactions]);
+
+  // One history area, one row: money still in motion outranks the last settled
+  // entry, so a pending item takes the card instead of stacking above it.
+  const recent = useMemo(() => {
+    const pending = pendingItems[0];
+    if (pending) {
+      return {
+        row: pendingItemToRecentRow(pending, t),
+        onPress: () => onSelectPendingItem?.(pending),
+      };
+    }
+    if (recentTransaction) {
+      return {
+        row: toRecentRow(recentTransaction, t),
+        onPress: () => onSelectTransaction?.(recentTransaction),
+      };
+    }
+    return null;
+  }, [pendingItems, recentTransaction, t, onSelectPendingItem, onSelectTransaction]);
 
   const handleSwipeUp = useCallback((_: PointerEvent, info: PanInfo) => {
     if (info.point.y > window.innerHeight - 100) return
@@ -359,37 +381,21 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* Pinned above the dock: money still in motion leads, then the last
-          settled row. Everything older is one swipe (or "see all") away. */}
+      {/* Pinned above the dock: the newest row of the ledger, pending or
+          settled. Everything older is one swipe (or "see all") away. */}
       <div className="mt-auto shrink-0 flex flex-col">
-        {pendingItems.length > 0 && (
-          <div className="px-4 w-full max-w-sm mx-auto">
-            {/* Capped: this block is pinned, so an unbounded list would climb
-                into the card carousel — the rest lives in the history sheet. */}
-            <PendingItemsList
-              items={pendingItems}
-              maxItems={2}
-              flush
-              onItemClick={onSelectPendingItem}
-            />
-          </div>
-        )}
-        {recentTransaction ? (
+        {recent ? (
           <HomeRecentCard
-            transaction={recentTransaction}
-            onPress={() => onSelectTransaction?.(recentTransaction)}
+            row={recent.row}
+            onPress={recent.onPress}
             onSeeAll={() => onTransactions?.(mints[clampedMintIndex]?.url)}
           />
         ) : (
-          /* Pending rows already say "money in motion" — the empty state would
-             contradict them, so it only shows when nothing is pending either. */
-          pendingItems.length === 0 && (
-            <div className="shrink-0 pb-app-nav px-4 w-full max-w-sm mx-auto">
-              <p className="text-caption text-foreground-muted text-center py-2">
-                {t('home.noTransactions')}
-              </p>
-            </div>
-          )
+          <div className="shrink-0 pb-app-nav px-4 w-full max-w-sm mx-auto">
+            <p className="text-caption text-foreground-muted text-center py-2">
+              {t('home.noTransactions')}
+            </p>
+          </div>
         )}
       </div>
     </motion.div>

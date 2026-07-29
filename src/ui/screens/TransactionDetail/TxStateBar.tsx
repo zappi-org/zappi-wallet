@@ -61,10 +61,8 @@ export function TxStateBar({ track, t, locale, framed = true }: { track: TxState
   }, [targetPct])
 
   const align = (i: number) => (i === 0 ? 'text-left' : i === n - 1 ? 'text-right' : 'text-center')
-  const time = (at?: number) =>
-    at !== undefined
-      ? new Date(at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
-      : '—'
+  const day = (at: number) => new Date(at).toLocaleDateString(locale, { month: 'numeric', day: 'numeric' })
+  const time = (at: number) => new Date(at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
 
   return (
     <div className={framed ? 'rounded-[20px] bg-background-card border border-border/60 px-5 pt-4 pb-4' : 'px-0.5'}>
@@ -96,10 +94,18 @@ export function TxStateBar({ track, t, locale, framed = true }: { track: TxState
           </span>
         ))}
       </div>
+      {/* Date over time — two lines keep both readable on a 4-node track. */}
       <div className="mt-2 flex justify-between">
         {track.nodes.map((node, i) => (
-          <span key={node.labelKey} className={cn('w-full text-overline text-foreground-muted tabular-nums', align(i))}>
-            {node.tone === 'void' ? '—' : time(node.at)}
+          <span key={node.labelKey} className={cn('w-full text-overline leading-[1.3] text-foreground-muted tabular-nums', align(i))}>
+            {node.tone === 'void' || node.at === undefined ? (
+              '—'
+            ) : (
+              <>
+                <span className="block">{day(node.at)}</span>
+                <span className="block">{time(node.at)}</span>
+              </>
+            )}
           </span>
         ))}
       </div>

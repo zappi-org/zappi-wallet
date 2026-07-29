@@ -20,6 +20,10 @@ import { useOwnPaymentEvent } from '@/ui/hooks/use-own-payment-event'
 import { useSendClaimed } from '@/ui/hooks/use-send-claimed'
 import { hapticSuccess } from '@/ui/utils/haptic'
 
+/** Minimal action pair, shared verbatim with ReceiveRequestStep. */
+const ACTION_CLASS =
+  'flex min-h-11 items-center gap-1.5 rounded-lg px-3 -mx-3 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40'
+
 export interface DirectReceiptStepProps {
   amount: number
   memo: string
@@ -147,8 +151,9 @@ export function DirectReceiptStep({
             onToggleQr={() => setVeiled((v) => !v)}
             qrRevealLabel={t('send.tokenCreate.tapToReveal')}
             statusLine={claimed ? undefined : t('send.direct.awaitingClaim')}
-            doneLine={claimed ? { left: stampedAt, right: t('send.direct.claimed') } : undefined}
+            doneLine={claimed ? stampedAt : undefined}
             stampSrc={claimed ? sendSuccessImg : undefined}
+            stampLabel={t('send.direct.claimed')}
           />
         </div>
       </div>
@@ -156,30 +161,30 @@ export function DirectReceiptStep({
       {/* Copy/share and reclaim keep their layout footprint after the claim
           (hidden, not removed) so the receipt above stays put instead of
           dropping as the four pre-claim actions collapse to one confirm. */}
+      {/* Same minimal pair as the receive request screen — one copy/share
+          language across both flows. Copy left, share right. */}
       <div
-        className={`flex items-center gap-3 px-6 pb-5 ${claimed ? 'invisible' : ''}`}
+        className={`flex items-center justify-center gap-10 px-6 pb-5 ${claimed ? 'invisible' : ''}`}
         aria-hidden={claimed}
       >
-        <Button
-          variant="secondary"
-          size="lg"
-          className="flex-1"
-          icon={isCopied() ? <Check className="h-4 w-4 text-accent-success" strokeWidth={1.8} /> : <Copy className="h-4 w-4" strokeWidth={1.8} />}
+        <button
+          type="button"
           onClick={copyToken}
           disabled={claimed || !tokenString}
+          className={ACTION_CLASS}
         >
+          {isCopied() ? <Check className="h-5 w-5 text-brand" /> : <Copy className="h-5 w-5" />}
           {isCopied() ? t('common.copied') : t('common.copy')}
-        </Button>
-        <Button
-          variant="secondary"
-          size="lg"
-          className="flex-1"
-          icon={isShared() ? <Check className="h-4 w-4 text-accent-success" strokeWidth={1.8} /> : <Share2 className="h-4 w-4" strokeWidth={1.8} />}
+        </button>
+        <button
+          type="button"
           onClick={shareToken}
           disabled={claimed || !tokenString}
+          className={ACTION_CLASS}
         >
+          {isShared() ? <Check className="h-5 w-5 text-brand" /> : <Share2 className="h-5 w-5" />}
           {t('send.tokenCreate.share')}
-        </Button>
+        </button>
       </div>
       <BottomActionBar gap="sm">
         {onReclaim && (

@@ -11,7 +11,7 @@
  */
 
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { PageTransition } from '@/ui/components/common/PageTransition'
 import { useNetwork } from '@/ui/hooks/use-network'
 import { useInputParser } from '@/ui/hooks/use-input-parser'
@@ -246,6 +246,14 @@ export function SendFlow({
     if (getInitialAmount() > 0) return 'confirm'
     return 'amount'
   }
+
+  // Scene crossfades are the flow's own motion — they need the same reduced-
+  // motion gate every step below already honors.
+  const reduceMotion = useReducedMotion()
+  const sceneFade = useCallback(
+    (duration: number) => ({ duration: reduceMotion ? 0 : duration, ease: 'easeOut' as const }),
+    [reduceMotion],
+  )
 
   // Flow state
   const [state, setState] = useState<SendFlowState>(() => {
@@ -1003,7 +1011,7 @@ export function SendFlow({
             key="send-entry-scene"
             className="relative flex-1 min-h-0"
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.14, ease: 'easeOut' }}
+            transition={sceneFade(0.14)}
           >
             {/* Scene pair: destination ↔ amount crossfade while the recipient
                 text morphs between them via layoutId. popLayout lifts the
@@ -1038,7 +1046,7 @@ export function SendFlow({
                   key="amount-scene"
                   className="h-full"
                   exit={{ opacity: 0, pointerEvents: 'none' }}
-                  transition={{ duration: 0.15, ease: 'easeOut' }}
+                  transition={sceneFade(0.15)}
                 >
                   <SendAmountStep
                     onBack={

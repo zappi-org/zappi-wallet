@@ -207,7 +207,10 @@ export function BottomSheetItem({
     <button
       onClick={onClick}
       disabled={disabled}
-      aria-selected={selected}
+      // aria-selected is not allowed on a plain button (AT drops it), and the
+      // check glyph below is decorative — aria-pressed is what actually
+      // announces "선택됨" here.
+      aria-pressed={selected}
       className={`
         w-full flex items-center gap-3 px-5 py-3 min-h-[48px] text-left
         active:scale-95 active:opacity-80 transition-all duration-100

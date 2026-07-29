@@ -433,7 +433,7 @@ export function SendAmountStep({
               {sendingSlow && onExitSending && (
                 <div className="mt-5 flex flex-col items-center gap-1.5">
                   <span className="text-caption text-foreground-muted">{t('send.sending.networkDelay')}</span>
-                  <button type="button" onClick={onExitSending} className="text-caption font-semibold text-brand">
+                  <button type="button" onClick={onExitSending} className="flex min-h-11 items-center rounded-lg px-3 text-caption font-semibold text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40">
                     {t('common.close')}
                   </button>
                 </div>
@@ -443,14 +443,17 @@ export function SendAmountStep({
             question && (
               /* Toss-voice question: the sentence is the decision. */
               <div className="px-2 text-center">
-                <p className="whitespace-pre-line text-[24px] font-semibold leading-snug text-foreground">
+                <p className="whitespace-pre-line break-keep text-amount-lg font-semibold leading-snug text-foreground">
                   {/* Trans mis-infers a union i18nKey against its array overload;
                       the cast is safe — every member is a real locale key. */}
                   <Trans
                     i18nKey={question.key as 'send.confirm.question'}
                     values={question.values}
                     components={{
-                      b: <span className="break-all text-brand" />,
+                      // Break only where a word genuinely cannot fit — break-all
+                      // shatters a lightning address (or a Korean name) at
+                      // arbitrary characters in the middle of the decision.
+                      b: <span className="[overflow-wrap:anywhere] text-brand" />,
                       amt: (
                         <span
                           className={`${amountSizeClass} font-bold tracking-tight ${
@@ -487,6 +490,7 @@ export function SendAmountStep({
               initialFiatAmount={initialFiatAmount}
               onFiatStateChange={setHeroFiat}
               insufficientBalance={isOverBalance}
+              insufficientMessage={`${t('payment.insufficientBalance')} · ${t('payment.maxAmount', { amount: formatSats(mintBalance) })}`}
               disabled={isAmountFixed}
               emptyPrompt={t('send.amount.prompt')}
               middleSlot={
@@ -631,7 +635,7 @@ export function SendAmountStep({
                     <button
                       type="button"
                       onClick={onRetryFee}
-                      className="shrink-0 text-caption font-semibold text-brand"
+                      className="flex min-h-11 shrink-0 items-center rounded-lg px-3 -mr-3 text-caption font-semibold text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
                     >
                       {t('send.confirm.retryFee')}
                     </button>

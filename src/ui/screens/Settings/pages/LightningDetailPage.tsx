@@ -49,7 +49,7 @@ export function LightningDetailPage({ onBack, onChangeUsername }: LightningDetai
 
         {/* Change username */}
         {onChangeUsername && (
-          <Button variant="outline" size="lg" onClick={onChangeUsername} className="w-full max-w-[320px] mt-3">
+          <Button variant="secondary" size="lg" onClick={onChangeUsername} className="w-full max-w-[320px] mt-3">
             <Pencil className="w-4 h-4 mr-2" />
             {t('common.change')}
           </Button>

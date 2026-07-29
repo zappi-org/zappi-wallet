@@ -23,15 +23,16 @@ export interface ConfirmTrustedStepProps {
   ) => Promise<{ grossAmount: number; fee: number; netAmount: number } | null>
 }
 
-/** Memo font size heuristic — 6-tier gradual shrink 20→13px (~160px box) */
-function memoFontSizeFor(memo: string): number {
+/**
+ * Memo size — the same length-based shrink, expressed in scale tokens instead
+ * of an inline px value, so it still honours the reader's font size.
+ */
+function memoSizeClassFor(memo: string): string {
   const len = memo.length
-  if (len > 20) return 13
-  if (len > 16) return 14
-  if (len > 13) return 15
-  if (len > 11) return 16
-  if (len > 9) return 18
-  return 20
+  if (len > 20) return 'text-caption'
+  if (len > 13) return 'text-body'
+  if (len > 9) return 'text-subtitle'
+  return 'text-title-sm'
 }
 
 export function ConfirmTrustedStep({
@@ -79,7 +80,7 @@ export function ConfirmTrustedStep({
 
   const netAmount = fee !== null ? Math.max(0, amount - fee) : amount
   const fiatLabel = formatFiat(amount)
-  const memoFontSize = memo ? memoFontSizeFor(memo) : 21
+  const memoSizeClass = memo ? memoSizeClassFor(memo) : ''
 
   const handleReceive = useCallback(async () => {
     if (busy) return
@@ -103,8 +104,10 @@ export function ConfirmTrustedStep({
           {t('receive.redeem.confirmSentence', { amount: formatSats(toNumber(token.amount)) })}
         </h2>
 
-        {/* Hero card — fixed min-height, zappi at Figma-exact absolute position */}
-        <div className="bg-card-teal relative rounded-card p-5 mt-12 min-h-[201px] max-w-[380px] mx-auto overflow-hidden">
+        {/* Hero card — the Figma composition, laid out in flow instead of at
+            absolute pixel offsets: at 200% text zoom the old version stacked
+            the amount on top of the memo and silently clipped both. */}
+        <div className="bg-surface-redeem relative rounded-card p-5 mt-12 min-h-[201px] max-w-[380px] mx-auto overflow-hidden">
           {/* Mint header — token's origin mint (not the receive target) */}
           <div className="flex items-center gap-2">
             <MintIcon
@@ -113,56 +116,47 @@ export function ConfirmTrustedStep({
               className="w-[35px] h-[35px] rounded-full bg-white/20"
             />
             <div className="flex flex-col leading-tight">
-              <span className="text-[17px] font-semibold text-white">
+              <span className="text-subtitle font-semibold text-white">
                 {sourceMintName}
               </span>
               {sourceMintSubName && sourceMintSubName !== sourceMintName && (
-                <span className="text-[13px] text-white/60">
+                <span className="text-caption text-white">
                   {sourceMintSubName}
                 </span>
               )}
             </div>
           </div>
 
-          {/* Zappi — fixed px as floor, scales up when card > Figma base (380px) */}
-          <img
-            src={zappiLogo}
-            alt=""
-            className="absolute top-[65px] left-[max(25px,6.5%)] w-[max(71px,18.7%)] aspect-square pointer-events-none"
-          />
+          {/* Zappi keeps its Figma proportion (18.7% of the card, 71px floor)
+              and now anchors the row instead of a fixed top offset. */}
+          <div className="mt-2.5 flex items-end gap-4">
+            <img
+              src={zappiLogo}
+              alt=""
+              className="w-[max(71px,18.7%)] aspect-square shrink-0 pointer-events-none"
+            />
 
-          {memo ? (
-            <>
-              {/* Memo — right-aligned, zappi zone 회피, line-clamp-2, 길이별 축소 */}
-              <p
-                className="absolute left-[110px] right-[110px] top-[88px] text-center text-white line-clamp-2 break-keep font-medium"
-                style={{ fontSize: `${memoFontSize}px`, lineHeight: '1.3' }}
-              >
-                {memo}
-              </p>
-              {/* Amount + fiat — right-bottom area */}
-              <p className="absolute right-5 top-[136px] text-[25px] leading-[32px] font-semibold text-white">
+            <div className={`min-w-0 flex-1 ${memo ? 'text-right' : 'text-center'}`}>
+              {memo && (
+                <p className={`${memoSizeClass} mb-1.5 text-center font-medium leading-snug text-white line-clamp-2 break-keep`}>
+                  {memo}
+                </p>
+              )}
+              <p className="text-amount-lg font-semibold text-white">
                 {formatSats(amount)}
               </p>
               {fiatLabel && (
-                <p className="absolute right-5 top-[168px] text-[17px] leading-[21px] text-white/70">
+                <p className="text-subtitle text-white">
                   ({fiatLabel})
                 </p>
               )}
-            </>
-          ) : (
-            <>
-              {/* No memo — amount centered-ish, zappi still at fixed left */}
-              <p className="absolute inset-x-0 top-[86px] text-[28px] leading-[35px] font-semibold text-white text-center">
-                {formatSats(amount)}
-              </p>
-              {fiatLabel && (
-                <p className="absolute inset-x-0 top-[125px] text-[17px] leading-[21px] text-white/70 text-center">
-                  ({fiatLabel})
-                </p>
-              )}
-            </>
-          )}
+            </div>
+
+            {/* Mirrors the logo's width so a memo-less amount reads centered on
+                the CARD, not on the leftover space — without letting the two
+                overlap the way the old absolute layout could. */}
+            {!memo && <div className="w-[max(71px,18.7%)] shrink-0" aria-hidden />}
+          </div>
         </div>
       </div>
 

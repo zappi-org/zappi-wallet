@@ -117,15 +117,15 @@ export function MyAddressScreen({ onBack, onOpenSettings }: MyAddressScreenProps
             setTab(v)
           }}
           options={[
-            { value: 'lightning', label: t('myAddress.lightningTab') },
             { value: 'nostr', label: t('myAddress.nostrTab') },
+            { value: 'lightning', label: t('myAddress.lightningTab') },
           ]}
           className="w-full max-w-[360px]"
         />
 
         <DirectionalTabPanel
           tabKey={tab}
-          tabIndex={tab === 'lightning' ? 0 : 1}
+          tabIndex={tab === 'nostr' ? 0 : 1}
           className="w-full flex flex-col items-center"
         >
           {lightningComingSoon ? (
@@ -145,11 +145,11 @@ export function MyAddressScreen({ onBack, onOpenSettings }: MyAddressScreenProps
               <p className="mt-4 max-w-full break-all px-4 text-center text-body font-medium">{value}</p>
               {/* Copy left, share right — the app-wide order for this pair. */}
               <div className="flex gap-10 mt-4">
-                <button onClick={handleCopy} className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all">
+                <button onClick={handleCopy} className="flex min-h-11 items-center gap-1.5 rounded-lg px-3 -mx-3 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40">
                   {isCopied() ? <Check className="w-5 h-5 text-brand" /> : <Copy className="w-5 h-5" />}
                   {isCopied() ? t('common.copied') : t('common.copy')}
                 </button>
-                <button onClick={handleShare} className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all">
+                <button onClick={handleShare} className="flex min-h-11 items-center gap-1.5 rounded-lg px-3 -mx-3 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40">
                   {isShared() ? <Check className="w-5 h-5 text-brand" /> : <Share2 className="w-5 h-5" />}
                   {t('receive.qr.share')}
                 </button>

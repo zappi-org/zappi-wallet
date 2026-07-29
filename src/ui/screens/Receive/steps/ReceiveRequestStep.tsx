@@ -96,10 +96,10 @@ function ExpiryCountdown({ expiresAt }: { expiresAt: number }) {
   const remainingMs = expiresAt - now
   // Same clamp the summary card and the action row use, so the whole block
   // below the QR is evenly spaced on both branches.
-  const line = 'mt-[clamp(1.75rem,4vh,2.75rem)] text-caption'
+  const line = 'mt-flow text-caption'
   if (remainingMs >= 60_000) {
     return (
-      <p className={`${line} text-foreground-muted/70`}>
+      <p className={`${line} text-foreground-muted`}>
         {t('receive.request.expiresAtTime', { time: formatTime(expiresAt, i18n.language) })}
       </p>
     )
@@ -321,7 +321,7 @@ export function ReceiveRequestStep({
           <DirectionalTabPanel
             tabKey={activeProtocol}
             tabIndex={protocolOptions.findIndex((option) => option.id === activeProtocol)}
-            className="w-full max-w-[360px]"
+            className="w-full max-w-qr"
           >
             <button
               type="button"
@@ -331,7 +331,7 @@ export function ReceiveRequestStep({
             >
               <QRCodeDisplay
                 value={qrValue}
-                className="rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.08)]"
+                className="rounded-2xl shadow-card"
               />
             </button>
           </DirectionalTabPanel>
@@ -343,19 +343,19 @@ export function ReceiveRequestStep({
             value={activeProtocol}
             onChange={setSelectedProtocol}
             options={protocolOptions.map((option) => ({ value: option.id, label: option.label }))}
-            className="mt-[clamp(1.75rem,4vh,2.75rem)] w-full max-w-[360px]"
+            className="mt-flow w-full max-w-qr"
           />
         )}
 
         {/* Summary card */}
-        <div className="mt-[clamp(1.75rem,4vh,2.75rem)] w-full max-w-[360px] rounded-[14px] bg-background-card px-5 py-4 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
+        <div className="mt-flow w-full max-w-qr rounded-card bg-background-card px-5 py-4 shadow-raised">
           <div className="flex items-center justify-between">
             <span className="text-caption text-foreground-muted">{t('receive.request.summary')}</span>
             <button
               type="button"
               onClick={() => { hapticTap(); onEdit() }}
               aria-label={t('common.edit')}
-              className="p-2 -m-2 text-foreground-muted active:text-foreground"
+              className="-m-2.5 flex h-11 w-11 items-center justify-center rounded-lg text-foreground-muted active:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
             >
               <SquarePen className="w-4 h-4" />
             </button>
@@ -389,17 +389,17 @@ export function ReceiveRequestStep({
           <>
             {/* Action buttons — minimal text style. Copy left, share right,
                 the app-wide order for this pair. */}
-            <div className="flex gap-10 mt-[clamp(1.75rem,4vh,2.75rem)]">
+            <div className="flex gap-10 mt-flow">
               <button
                 onClick={handleCopy}
-                className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all"
+                className="flex min-h-11 items-center gap-1.5 rounded-lg px-3 -mx-3 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
               >
                 {isCopied() ? <Check className="w-5 h-5 text-brand" /> : <Copy className="w-5 h-5" />}
                 {isCopied() ? t('common.copied') : t('common.copy')}
               </button>
               <button
                 onClick={handleShare}
-                className="flex items-center gap-1.5 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all"
+                className="flex min-h-11 items-center gap-1.5 rounded-lg px-3 -mx-3 text-subtitle font-medium text-foreground-muted active:text-foreground active:scale-95 motion-reduce:active:scale-100 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
               >
                 {isShared() ? <Check className="w-5 h-5 text-brand" /> : <Share2 className="w-5 h-5" />}
                 {t('receive.qr.share')}

@@ -17,7 +17,7 @@ import { useMintMetadata } from '@/ui/hooks/use-mint-metadata'
 import { useReclaim } from '@/ui/hooks/use-reclaim'
 import { useReclaimFees } from '@/ui/hooks/useReclaimFees'
 import { useTransactionMgmt } from '@/ui/hooks/use-transaction-mgmt'
-import { formatTransactionFiat, useFormatFiat, useFormatSats, truncateStr } from '@/utils/format'
+import { formatTransactionFiat, getLocaleCode, useFormatFiat, useFormatSats, truncateStr } from '@/utils/format'
 import { cn } from '@/ui/lib/utils'
 import sendSuccessImg from '@/assets/send-success.png'
 import { VARIANT_HEX, resolveMintColor } from '@/ui/components/wallet/MintCard'
@@ -194,13 +194,6 @@ export default function TransactionDetailScreen({
     return t(txSourceKey(meta.source))
   }, [meta.source, metadata, t])
 
-  const formatDate = useCallback((ts: number) => {
-    return new Date(ts).toLocaleString(i18n.language, {
-      month: 'long', day: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    })
-  }, [i18n.language])
-
   // ─── Receipt assembly ───
   const track = useMemo(() => buildTxStateTrack(tx), [tx])
   const fiatLine = formatTransactionFiat(tx.displaySnapshot, amountSats, formatFiat)
@@ -314,14 +307,14 @@ export default function TransactionDetailScreen({
         : isSwap
           ? t('history.completed')
           : t('send.receipt.completed')
-  // Date rides the bottom status line (mirroring doneLine) — never a row.
-  const statusLine = `${formatDate(tx.createdAt)} · ${
-    tx.status === 'failed'
-      ? t('history.failedStatus')
-      : isLightning && !isReceive
-        ? t('send.receipt.settling')
-        : t('history.pendingStatus')
-  }`
+  // Times live on the timeline now, so the bottom line carries the state word
+  // alone — the swap / lightning-receive / legacy tracks have no note, and
+  // without this nothing but a pulsing dot would say "still working".
+  const statusLine = tx.status === 'failed'
+    ? t('history.failedStatus')
+    : isLightning && !isReceive
+      ? t('send.receipt.settling')
+      : t('history.pendingStatus')
   // Flow receipts print the amount unsigned — direction reads from the title.
   const amountLine = formatSats(amountSats)
 
@@ -391,18 +384,14 @@ export default function TransactionDetailScreen({
             fiat={fiatLine}
             rows={receiptRows}
             statusLine={receiptStatus === 'pending' ? statusLine : undefined}
-            doneLine={
-              receiptStatus === 'done'
-                ? { left: formatDate(tx.completedAt ?? tx.createdAt), right: doneRight }
-                : undefined
-            }
             stampSrc={receiptStatus === 'done' ? sendSuccessImg : undefined}
+            stampLabel={receiptStatus === 'done' ? doneRight : undefined}
+            timeline={<TxStateBar track={track} t={t} locale={getLocaleCode(i18n.language)} framed={false} />}
             extra={
               <>
-                <TxStateBar track={track} t={t} locale={i18n.language} framed={false} />
                 <button
                   onClick={() => setShowDetails((v) => !v)}
-                  className="mt-2 flex w-full items-center justify-between border-t-[1.5px] border-dashed border-border pt-3 pb-1.5"
+                  className="flex w-full items-center justify-between py-1"
                 >
                   <span className="text-caption font-semibold text-foreground-muted">{t('txDetail.details')}</span>
                   <ChevronDown className={cn('w-3.5 h-3.5 text-foreground-muted transition-transform', showDetails && 'rotate-180')} strokeWidth={1.8} />
@@ -551,7 +540,7 @@ export default function TransactionDetailScreen({
             <p className="text-body font-semibold text-foreground">{t('txDetail.deleteConfirm')}</p>
             <p className="text-body text-foreground-muted">{t('txDetail.deleteWarning')}</p>
             <div className="flex gap-3">
-              <Button variant="outline" size="lg" onClick={() => setShowDeleteConfirm(false)} className="flex-1">
+              <Button variant="secondary" size="lg" onClick={() => setShowDeleteConfirm(false)} className="flex-1">
                 {t('common.cancel')}
               </Button>
               <Button variant="destructive" size="lg" onClick={handleDelete} className="flex-1">

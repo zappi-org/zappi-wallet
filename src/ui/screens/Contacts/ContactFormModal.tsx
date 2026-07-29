@@ -198,7 +198,7 @@ function ContactFormInner({ contact, onSave, onClose }: { contact?: Contact | nu
 
       {/* Actions */}
       <div className="flex gap-2 pt-1">
-        <Button variant="outline" size="lg" onClick={onClose} className="flex-1">
+        <Button variant="secondary" size="lg" onClick={onClose} className="flex-1">
           {t('common.cancel')}
         </Button>
         <Button
