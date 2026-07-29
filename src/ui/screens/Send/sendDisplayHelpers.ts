@@ -43,8 +43,7 @@ export function isDirectCashuRecipient(data: SendableValidatedData): boolean {
   return (
     isCashuRequestData(data) &&
     data.parsed.sameMintOnly === true &&
-    !!data.parsed.nostrTarget &&
-    isNostrDirectAddress(data.request)
+    !!data.parsed.nostrTarget
   );
 }
 
@@ -165,12 +164,6 @@ export function getConfirmDisplayInfo(
         recipient: data.targetMintName,
         recipientDetail: `${data.targetMintUrl.slice(0, 20)}...`,
       };
-    case "nostr-direct":
-      return {
-        method: "Nostr",
-        recipient: formatRecipientDisplayText(displayName || data.address),
-        recipientDetail: data.address,
-      };
   }
 }
 
@@ -208,8 +201,6 @@ export function getDestinationDisplay(
       return "eCash";
     case "my-wallet":
       return formatRecipientDisplayText(data.targetMintName);
-    case "nostr-direct":
-      return formatNpubShort(data.address);
   }
 }
 

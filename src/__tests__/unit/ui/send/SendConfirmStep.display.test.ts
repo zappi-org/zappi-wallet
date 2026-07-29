@@ -81,6 +81,29 @@ describe('send display text', () => {
     ).toBe('eCash')
   })
 
+  it('shows recipient in main copy for email resolve to ecash direct send', () => {
+    const npub = 'npub1recipient0000000000000000000000000000000000000000000000000000000'
+    const request: ValidatedCashuRequest = {
+      type: 'cashu-request',
+      request: 'alice@example.com',
+      parsed: {
+        id: 'email-direct-1',
+        amount: 1000,
+        unit: 'sat',
+        mints: ['https://mint.example.com'],
+        transports: [{ type: 'nostr', target: npub }],
+        hasNostrTransport: true,
+        nostrTarget: npub,
+        hasPostTransport: false,
+        sameMintOnly: true,
+      },
+    }
+
+    expect(shouldShowRecipientInMainMessage(request)).toBe(true)
+    expect(getDestinationDisplay(request)).toBe('alice@exampl...')
+    expect(getDestinationDisplay(request, 'Alice')).toBe('Alice')
+  })
+
   it('keeps direct npub recipients in main copy and shortens long labels', () => {
     const npub = 'npub1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq'
     const request: ValidatedCashuRequest = {
