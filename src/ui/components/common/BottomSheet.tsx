@@ -9,6 +9,7 @@ import {
 } from 'motion/react'
 import { motionSafeTransition } from '@/ui/utils/motion'
 import { useEscapeDismiss } from '@/ui/hooks/use-escape-dismiss'
+import { useFocusTrap } from '@/ui/hooks/use-focus-trap'
 
 export interface BottomSheetProps {
   isOpen: boolean
@@ -83,17 +84,9 @@ export function BottomSheet({
   const reduceMotion = useReducedMotion()
   const dragControls = useDragControls()
   const sheetRef = useRef<HTMLDivElement>(null)
-  const previousFocusRef = useRef<HTMLElement | null>(null)
+  const backdropRef = useRef<HTMLDivElement>(null)
 
-  const handleFocusEntry = useCallback(() => {
-    previousFocusRef.current = document.activeElement as HTMLElement
-    sheetRef.current?.focus()
-  }, [])
-
-  const handleFocusReturn = useCallback(() => {
-    previousFocusRef.current?.focus()
-    previousFocusRef.current = null
-  }, [])
+  const { onEntryComplete, restoreFocus } = useFocusTrap(isOpen, sheetRef, backdropRef)
 
   const handleDragEnd = useCallback(
     (_: unknown, info: PanInfo) => {
@@ -128,11 +121,12 @@ export function BottomSheet({
   const titleId = title && typeof title === 'string' ? `${title.replace(/\s+/g, '-').toLowerCase()}-title` : undefined
 
   return (
-    <AnimatePresence onExitComplete={handleFocusReturn}>
+    <AnimatePresence onExitComplete={restoreFocus}>
       {isOpen && (
         <>
           {/* Backdrop */}
           <motion.div
+            ref={backdropRef}
             initial={{ opacity: 0 }}
             animate={{ opacity: backdropOpacity }}
             exit={{ opacity: 0 }}
@@ -155,7 +149,7 @@ export function BottomSheet({
             exit={reduceMotion ? { opacity: 0 } : { y: '100%' }}
             {...dragProps}
             transition={motionSafeTransition(reduceMotion, transition)}
-            onAnimationComplete={handleFocusEntry}
+            onAnimationComplete={onEntryComplete}
             className={`${position} left-0 right-0 ${sheetClassName} ${sheetZClass} outline-none`}
             style={{ bottom: bottomOffset }}
           >
