@@ -23,6 +23,7 @@ const { mockBackend } = vi.hoisted(() => ({
     parsePaymentRequest: vi.fn(),
     preparePaymentRequest: vi.fn(),
     executePaymentRequest: vi.fn(),
+    fulfillPaymentRequest: vi.fn(),
   },
 }))
 
@@ -87,6 +88,41 @@ vi.mock('@/adapters/storage/dexie/dexie-pending-operation.repository', () => ({
     deleteExpired = vi.fn()
     count = vi.fn().mockResolvedValue(0)
   },
+}))
+
+vi.mock('@/adapters/storage/dexie/dexie-payment-alias-processed-quotes.repository', () => ({
+  DexiePaymentAliasProcessedQuotesRepository: class {
+    isProcessed = vi.fn().mockResolvedValue(false)
+    markProcessed = vi.fn()
+    list = vi.fn().mockResolvedValue([])
+  },
+}))
+
+vi.mock('@/adapters/npubcash/npubcash.adapter', () => ({
+  NpubcashAdapter: class {
+    authenticate = vi.fn()
+    getAccountInfo = vi.fn()
+    purchaseAlias = vi.fn()
+    setPreferredMint = vi.fn()
+    toggleLock = vi.fn()
+    getPaidQuotes = vi.fn().mockResolvedValue([])
+    subscribePaidQuotes = vi.fn()
+  },
+}))
+
+vi.mock('@/adapters/crypto/secp256k1-nostr-signer', () => ({
+  Secp256k1NostrSignerAdapter: class {
+    getPublicKey = vi.fn().mockReturnValue('pubkey')
+    getNpub = vi.fn().mockReturnValue('npub1test')
+    createNip98Token = vi.fn().mockReturnValue('token')
+  },
+}))
+
+vi.mock('@/composition/npubcash-quote-watcher', () => ({
+  createNpubcashQuoteWatcher: () => ({
+    start: vi.fn(),
+    stop: vi.fn(),
+  }),
 }))
 
 // ─── Import after mocks ───

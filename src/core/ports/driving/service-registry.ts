@@ -31,12 +31,13 @@ import type { TransactionMgmtUseCase } from '@/core/ports/driving/transaction-mg
 import type { InputParserUseCase } from '@/core/ports/driving/input-parser.usecase'
 import type { PaymentRequestUseCase } from '@/core/ports/driving/payment-request.usecase'
 import type { RoutingUseCase } from '@/core/ports/driving/routing.usecase'
-import type { UsernameUseCase } from '@/core/ports/driving/username.usecase'
+import type { PaymentAliasUseCase } from '@/core/ports/driving/payment-alias.usecase'
 import type { TrustRegistry } from '@/core/ports/driving/trust-registry.usecase'
 import type { SupportUseCase } from '@/core/ports/driving/support.usecase'
 import type { NostrDirectPaymentUseCase } from '@/core/ports/driving/nostr-direct-payment.usecase'
 import type { ExternalWalletRecoveryUseCase } from '@/core/ports/driving/external-wallet-recovery.usecase'
 import type { DiagnosticsUseCase } from '@/core/ports/driving/diagnostics.usecase'
+import type { ClaimStorageUseCase } from '@/core/ports/driving/claim-storage.usecase'
 import type { TransferLifecycleService } from '@/core/services/transfer-lifecycle.service'
 
 export interface ServiceRegistry {
@@ -68,7 +69,7 @@ export interface ServiceRegistry {
   readonly inputParser: InputParserUseCase
   readonly paymentRequest: PaymentRequestUseCase
   readonly routing: RoutingUseCase
-  readonly username: UsernameUseCase
+  readonly paymentAlias: PaymentAliasUseCase
   readonly trustRegistry: TrustRegistry
   readonly support: SupportUseCase
   readonly nostrDirectPayment: NostrDirectPaymentUseCase
@@ -76,4 +77,5 @@ export interface ServiceRegistry {
   /** Diagnostics counter reads — DiagnosticsPage only */
   readonly diagnostics: DiagnosticsUseCase
   readonly transferLifecycle: TransferLifecycleService
+  readonly claimStorage: ClaimStorageUseCase
 }

@@ -21,7 +21,7 @@ import { resolveFlowTarget } from '@/core/domain/resolve-flow-target'
 import { resolveSendRoute, SEND_ROUTE_ERROR_I18N, type DirectPaymentResolution, type SendRouteError } from '@/core/domain/send-route-resolution'
 import type { SendableValidatedData } from '../SendFlow'
 
-const LIGHTNING_ADDRESS_RE = /^[a-z0-9_.+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i
+const LIGHTNING_ADDRESS_RE = /^[a-z0-9_.+-]+@[a-z0-9.-]+(?:\.[a-z]{2,}|:\d+)?(?::\d+)?$/i
 
 function looksLikeLightningAddress(raw: string): boolean {
   return LIGHTNING_ADDRESS_RE.test(raw.trim())

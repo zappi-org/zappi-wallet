@@ -7,7 +7,8 @@ import { Modal, PinInput } from '../../components/common'
 import { useAppStore } from '@/store'
 import { satUnit } from '@/utils/format'
 import { formatMintHost } from '@/utils/url'
-import { ZAPPI_LINK_URL } from '@/core/constants'
+import { NPUBCASH_URL, NPUBCASH_DOMAIN } from '@/core/constants'
+import { isErr } from '@/core/domain/result'
 import { useServiceRegistry } from '@/ui/hooks/use-service-registry'
 import { cn } from '@/ui/lib/utils'
 import { Button } from '@/ui/components/common/Button'
@@ -55,7 +56,6 @@ export interface SettingsScreenProps {
   onSaveSettings: (settings: Record<string, unknown>) => Promise<void>
   onMintManagement?: () => void
   onRelayManagement?: () => void
-  onChangeUsername?: () => void
   onTransfer?: () => void
   onAnalytics?: () => void
   onSubPageChange?: (hasSubPage: boolean) => void
@@ -70,7 +70,6 @@ export function SettingsScreen({
   onSaveSettings,
   onMintManagement,
   onRelayManagement,
-  onChangeUsername,
   onAnalytics,
   onSubPageChange,
 }: SettingsScreenProps) {
@@ -238,11 +237,11 @@ export function SettingsScreen({
   useEffect(() => {
     if (!ENABLE_LIGHTNING_ADDRESS_SETTINGS) return
     if (!nostrPubkey || settings.lightningAddress) return
-    registry.username.getAddress(nostrPubkey).then((result) => {
-      if (result.ok && result.value) {
+    registry.paymentAlias.getAlias(nostrPrivkey!).then((result) => {
+      if (result.ok) {
         saveSettings({
-          lightningAddress: result.value.address,
-          zappiLinkApiUrl: ZAPPI_LINK_URL,
+          lightningAddress: result.value.alias ? `${result.value.alias}@${result.value.domain}` : undefined,
+          npubcashUrl: NPUBCASH_URL,
         })
       }
     })
@@ -260,14 +259,15 @@ export function SettingsScreen({
         p2pkPubkey,
         settings.relays,
       )
-      const result = await registry.username.registerAddress(nostrPrivkey)
-      if (!result.ok) {
+      const result = await registry.paymentAlias.registerAlias(nostrPrivkey)
+      if (isErr(result)) {
         addToast({ type: 'error', message: t('settings.lightningAddressRegistrationFailed') })
         return
       }
+      const alias = `${result.value.alias}@${NPUBCASH_DOMAIN}`
       await saveSettings({
-        lightningAddress: result.value.address,
-        zappiLinkApiUrl: ZAPPI_LINK_URL,
+        lightningAddress: alias,
+        npubcashUrl: NPUBCASH_URL,
       })
       addToast({ type: 'success', message: t('settings.lightningAddressRegistered') })
     } catch {
@@ -614,7 +614,7 @@ export function SettingsScreen({
         return (
           <LightningDetailPage
             onBack={closeDetail}
-            onChangeUsername={onChangeUsername}
+            onSaveSettings={saveSettings}
           />
         )
       case 'support':

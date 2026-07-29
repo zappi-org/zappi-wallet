@@ -1,8 +1,10 @@
 import { classifyCashuError } from '@/modules/cashu/internal/classify-error'
+import type { ResolvedCreq } from '@/modules/cashu/cashu.module'
 import type {
   PreparedRouteMelt,
   RouteLockingCondition,
   RoutePaymentOperator,
+  ParsedCreRequest,
 } from '@/core/ports/driven/route-payment-operator.port'
 
 export interface CashuRoutePaymentOperatorBackend {
@@ -30,6 +32,7 @@ export interface CashuRoutePaymentOperatorBackend {
   }): Promise<{ operationId: string; fee?: number }>
   executeSend(operationId: string, options?: { memo?: string }): Promise<{ token: string }>
   rollbackSend(operationId: string): Promise<void>
+  parsePaymentRequest(creq: string): Promise<ResolvedCreq>
 }
 
 export interface CashuRoutePaymentQuoteTracker {
@@ -100,6 +103,15 @@ export class CashuRoutePaymentOperatorAdapter implements RoutePaymentOperator {
 
   async rollbackTokenSend(operationId: string): Promise<void> {
     await this.run(() => this.backend.rollbackSend(operationId))
+  }
+
+  async parsePaymentRequest(encodedRequest: string): Promise<ParsedCreRequest> {
+    const r = await this.run(() => this.backend.parsePaymentRequest(encodedRequest))
+    return {
+      amount: r.amount ?? 0,
+      unit: undefined,
+      mints: r.payableMints ?? [],
+    }
   }
 
   private async run<T>(operation: () => Promise<T>): Promise<T> {

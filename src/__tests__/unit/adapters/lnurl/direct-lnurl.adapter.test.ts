@@ -122,8 +122,11 @@ describe('DirectLnurlAdapter', () => {
     expect(params.domain).toBe('ln.example.com')
   })
 
-  it('resolvePay: .onion domain uses http', async () => {
-    fetchMock.mockResolvedValue(jsonResponse({
+  it('resolvePay: .onion domain tries https first, falls back to http', async () => {
+    // First attempt (https) fails
+    fetchMock.mockRejectedValueOnce(new Error('TLS'))
+    // Second attempt (http) succeeds
+    fetchMock.mockResolvedValueOnce(jsonResponse({
       tag: 'payRequest',
       callback: 'http://abc.onion/cb',
       minSendable: 1000,
@@ -131,7 +134,8 @@ describe('DirectLnurlAdapter', () => {
       metadata: '[]',
     }))
     await adapter.resolvePay('user@abc.onion')
-    expect(fetchMock.mock.calls[0][0]).toBe('http://abc.onion/.well-known/lnurlp/user')
+    expect(fetchMock.mock.calls[0][0]).toBe('https://abc.onion/.well-known/lnurlp/user')
+    expect(fetchMock.mock.calls[1][0]).toBe('http://abc.onion/.well-known/lnurlp/user')
   })
 
   it.each(['no-at-sign', 'a@b@c.com'])('resolvePay: invalid address (%s) throws', async (address) => {

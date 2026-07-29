@@ -6,8 +6,8 @@ import {
   type EncryptedSupportAttachmentBlob,
 } from '@/adapters/customer-support/support-attachment-crypto'
 
-function asArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
+function asArrayBuffer(bytes: Uint8Array): Uint8Array {
+  return bytes
 }
 
 function agentToHex(bytes: Uint8Array): string {

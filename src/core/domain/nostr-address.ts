@@ -90,6 +90,7 @@ function bytesToHex(bytes: number[]): string {
 
 export function isNostrDirectAddress(value: string): boolean {
   const trimmed = value.trim().toLowerCase()
+  if (trimmed.includes('@')) return false
   return trimmed.startsWith('npub1') || trimmed.startsWith('nprofile1')
 }
 
