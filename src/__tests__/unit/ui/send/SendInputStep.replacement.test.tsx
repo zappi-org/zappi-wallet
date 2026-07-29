@@ -168,17 +168,6 @@ describe('SendInputStep failed replacement', () => {
 
   /**
    * The contact lookup is an IndexedDB round trip, so the replacement is in
-   * flight for a moment before anything is reset. Until this disarm the old
-   * recipient stayed validated across that window and Next still sent to them.
-   */
-  /**
-   * The contact lookup is an IndexedDB round trip, so the replacement is in
-   * flight for a moment. Clearing only the validation was not enough: Next
-   * re-reads the *displayed* destination, so the old recipient's text was
-   * revalidated and advanced to once the lookup finally resolved.
-   */
-  /**
-   * The contact lookup is an IndexedDB round trip, so the replacement is in
    * flight for a moment. Clearing only the validation was not enough: Next
    * re-reads the *displayed* destination, so the old recipient's text was
    * revalidated and advanced to once the lookup finally resolved.
@@ -187,6 +176,19 @@ describe('SendInputStep failed replacement', () => {
    * unrecognised the money-losing branch is unreachable and the assertion
    * below cannot fail.
    */
+  /** The replacement has to be on screen before the lookup returns, or Next
+   * re-reads the old text. Separate from the onNext assertion below so neither
+   * can mask the other. */
+  it('shows the replacement before the contact lookup resolves', async () => {
+    mockFindByAddress.mockImplementation(() => new Promise<null>(() => {}))
+
+    renderWithValidatedRecipient()
+
+    await act(async () => { pasteIntoInput('definitely-not-an-address') })
+
+    expect(destinationInput().value).toBe('definitely-not-an-address')
+  })
+
   it('Next during a pending lookup cannot advance to the replaced recipient', async () => {
     mockDetectAndClassify.mockImplementation((input) =>
       input === 'alice@example.com'
@@ -204,15 +206,14 @@ describe('SendInputStep failed replacement', () => {
 
     await act(async () => { pasteIntoInput('definitely-not-an-address') })
 
-    // The replacement is on screen, so Next has nothing stale left to re-read.
-    expect(destinationInput().value).toBe('definitely-not-an-address')
-
     await act(async () => {
       screen.getByRole('button', { name: 'send.next' }).click()
     })
     await act(async () => {
-      // Every parked lookup, so no path is merely stalled.
-      releases.forEach((release) => release())
+      // Next's own lookup first. Releasing the paste's first would bump the
+      // epoch and cancel Next's run, so the assertion below would hold for a
+      // reason that has nothing to do with the fix.
+      releases.reverse().forEach((release) => release())
       await vi.runAllTimersAsync()
     })
 
