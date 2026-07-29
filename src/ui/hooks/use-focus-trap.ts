@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
 
 /**
  * Keyboard focus stays inside the topmost open dialog.
@@ -220,6 +220,15 @@ export function useFocusTrap(
   }, [isOpen, containerRef])
 
   const restoreFocus = useCallback(() => {
+    openerRef.current?.focus()
+    openerRef.current = null
+  }, [])
+
+  // A dialog torn down with its screen — OS back, a route swap — never reaches
+  // AnimatePresence's exit callback, so focus would be left on <body>. Cleanup of
+  // an empty-dep effect runs only on unmount, and a normal close has already
+  // cleared the opener by then, so this cannot double-restore.
+  useEffect(() => () => {
     openerRef.current?.focus()
     openerRef.current = null
   }, [])

@@ -294,6 +294,24 @@ describe('useFocusTrap', () => {
     expect(opener).toHaveFocus()
   })
 
+  /**
+   * OS back tears the screen down with the sheet inside it, so AnimatePresence
+   * never reports an exit and the restore that hangs off it never runs — focus
+   * was left on <body> with nothing to Tab from.
+   */
+  it('hands focus back when the dialog unmounts without an exit', () => {
+    render(<button>opener</button>)
+    const opener = screen.getByText('opener')
+    opener.focus()
+
+    const dialog = render(<Dialog open name="sheet"><button>action</button></Dialog>)
+    expect(opener).not.toHaveFocus()
+
+    dialog.unmount()
+
+    expect(opener).toHaveFocus()
+  })
+
   it('detaches the listener once nothing is open', () => {
     const removeSpy = vi.spyOn(document, 'removeEventListener')
     const { unmount } = render(<Dialog open name="sheet" />)
